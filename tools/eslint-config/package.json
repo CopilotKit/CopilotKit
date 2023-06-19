@@ -1,0 +1,15 @@
+{
+  "name": "eslint-config-recursivelyai-copilotkit",
+  "version": "0.0.0",
+  "license": "MIT",
+  "main": "index.js",
+  "dependencies": {
+    "eslint-config-next": "^13.4.1",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-config-turbo": "^1.9.3",
+    "eslint-plugin-react": "7.28.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

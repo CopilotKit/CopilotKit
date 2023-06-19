@@ -1,0 +1,5 @@
+{
+  "extends": "./node_modules/@recursivelyai/copilotkit-tsconfig/react-library.json",
+  "include": ["."],
+  "exclude": ["dist", "build", "node_modules"]
+}

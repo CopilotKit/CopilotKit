@@ -1,0 +1,14 @@
+{
+  "index": {
+    "title": "Introduction",
+    "theme": {
+      "breadcrumb": false,
+      "toc": false
+    }
+  },
+  "getting-started": "Getting Started",
+  "concepts": "Concepts",
+  "guides": "Guides",
+  "api-reference": "API Reference",
+  "acknowledgements": "Acknowledgements"
+}
