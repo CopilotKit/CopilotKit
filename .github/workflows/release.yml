@@ -41,7 +41,7 @@ jobs:
 
       - name: Get package version
         id: package-version
-        run: echo "::set-output name=version::$(node -p "require('./package.json').version")"
+        run: echo "::set-output name=version::$(node -p "require('./packages/core/package.json').version")"
 
       - name: Create Git tag
         run: git tag v${{ steps.package-version.outputs.version }}
