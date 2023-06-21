@@ -1,29 +1,51 @@
 'use client'
 
-import { useChat } from 'ai/react'
+import React from 'react'
+import { useState } from 'react'
+import { useEffect, useContext, useRef } from 'react';
+import { useMakeCopilotWritable } from './useMakeCopilotWritable';
 
-export default function Chat() {
-  const { messages, input, handleInputChange, handleSubmit } = useChat()
+export default function CopilotControlled() {
+  const [searchFieldText, setSearchFieldText] = useState('')
+  
+  useMakeCopilotWritable({
+    description: 'Set the search field text to the given value',
+    argumentAnnotations: [
+      {
+        name: 'searchTerm',
+        type: 'string',
+        description: 'The text we wish to search for',
+        required: true,
+      },
+    ],
+    implementation: (searchTerm: string) => {
+      setSearchFieldText(searchTerm)
+    }
+  })
 
   return (
-    <div className="flex flex-col w-full max-w-md py-24 mx-auto stretch">
-      {messages.length > 0
-        ? messages.map(m => (
-            <div key={m.id} className="whitespace-pre-wrap">
-              {m.role === 'user' ? 'User: ' : 'AI: '}
-              {m.content}
-            </div>
-          ))
-        : null}
+    <div>
+      <h1>Controlled Copilot</h1>
+      <p>
+        This example shows how to use Copilot in a controlled way. The search
+        field below is controlled by the component, and the Copilot is
+        configured to use the value of the search field as the query.
+      </p>
+      <h2>Search</h2>
+      <input
+        type="text" 
+        value={searchFieldText}
+        onChange={(e) => setSearchFieldText(e.target.value)}
+      />
+      <h2>Results</h2>
+      <div>
+        TBD
+        </div>
 
-      <form onSubmit={handleSubmit}>
-        <input
-          className="fixed bottom-0 w-full max-w-md p-2 mb-8 border border-gray-300 rounded shadow-xl"
-          value={input}
-          placeholder="Say something..."
-          onChange={handleInputChange}
-        />
-      </form>
     </div>
   )
 }
+
+
+
+

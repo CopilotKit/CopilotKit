@@ -90,6 +90,9 @@ importers:
       ai:
         specifier: 2.1.3
         version: 2.1.3(react@18.2.0)(svelte@3.59.1)(vue@3.3.4)
+      copilotkit:
+        specifier: ^0.0.4
+        version: link:../../packages/core
       next:
         specifier: 13.4.4-canary.11
         version: 13.4.4-canary.11(@babel/core@7.22.5)(react-dom@18.2.0)(react@18.2.0)
