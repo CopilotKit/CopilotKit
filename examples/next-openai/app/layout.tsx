@@ -17,9 +17,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <CopilotProvider>
-          {children}
-        </CopilotProvider>
+        <CopilotProvider>{children}</CopilotProvider>
       </body>
     </html>
   )

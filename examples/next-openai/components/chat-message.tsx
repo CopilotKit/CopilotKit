@@ -35,7 +35,7 @@ export function ChatMessage({ message, ...props }: ChatMessageProps) {
           components={{
             p({ children }) {
               return <p className="mb-2 last:mb-0">{children}</p>
-            },            
+            },
             code({ children, className, inline, ...props }) {
               if (children.length) {
                 if (children[0] == '▍') {

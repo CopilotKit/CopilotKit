@@ -14,7 +14,7 @@ export interface ChatProps extends React.ComponentProps<'div'> {
   id?: string
 }
 
-const previewToken = "TODO123"
+const previewToken = 'TODO123'
 
 export function Chat({ id, initialMessages, className }: ChatProps) {
   const { messages, append, reload, stop, isLoading, input, setInput } =
