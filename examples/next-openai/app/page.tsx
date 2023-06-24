@@ -36,9 +36,13 @@ export default function CopilotControlled() {
         onChange={e => setSearchFieldText(e.target.value)}
       />
 
-      <Providers>
-        <Chat></Chat>
-      </Providers>
+      <div className="w-full flex items-center justify-center">
+        <div className="bg-red-200 max-w-2xl p-3 rounded-lg">
+          <Providers>
+            <Chat />
+          </Providers>
+        </div>
+      </div>
     </div>
   )
 }
