@@ -1,6 +1,6 @@
 import * as React from 'react'
 import Link from 'next/link'
-import Textarea from 'react-textarea-autosize'
+import TextareaAutosize from 'react-textarea-autosize'
 import { UseChatHelpers } from 'ai/react'
 
 import { useEnterSubmit } from '@/lib/hooks/use-enter-submit'
@@ -62,7 +62,7 @@ export function PromptForm({
           </TooltipTrigger>
           <TooltipContent>New Chat</TooltipContent>
         </Tooltip>
-        <Textarea
+        <TextareaAutosize
           ref={inputRef}
           tabIndex={0}
           onKeyDown={onKeyDown}
