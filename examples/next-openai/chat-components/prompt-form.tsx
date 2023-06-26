@@ -5,13 +5,13 @@ import { UseChatHelpers } from 'ai/react'
 
 import { useEnterSubmit } from '@/lib/hooks/use-enter-submit'
 import { cn } from '@/lib/utils'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/chat-components/ui/button'
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger
-} from '@/components/ui/tooltip'
-import { IconArrowElbow, IconPlus } from '@/components/ui/icons'
+} from '@/chat-components/ui/tooltip'
+import { IconArrowElbow, IconPlus } from '@/chat-components/ui/icons'
 
 export interface PromptProps
   extends Pick<UseChatHelpers, 'input' | 'setInput'> {

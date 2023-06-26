@@ -4,8 +4,8 @@ import * as React from 'react'
 
 import { cn } from '@/lib/utils'
 import { useAtBottom } from '@/lib/hooks/use-at-bottom'
-import { Button, type ButtonProps } from '@/components/ui/button'
-import { IconArrowDown } from '@/components/ui/icons'
+import { Button, type ButtonProps } from '@/chat-components/ui/button'
+import { IconArrowDown } from '@/chat-components/ui/icons'
 
 export function ButtonScrollToBottom({ className, ...props }: ButtonProps) {
   const isAtBottom = useAtBottom()

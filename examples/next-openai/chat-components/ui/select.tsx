@@ -8,7 +8,7 @@ import {
   IconArrowDown,
   IconCheck,
   IconChevronUpDown
-} from '@/components/ui/icons'
+} from '@/chat-components/ui/icons'
 
 const Select = SelectPrimitive.Root
 

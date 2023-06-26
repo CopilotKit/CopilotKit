@@ -4,8 +4,8 @@ import React from 'react'
 import { useState } from 'react'
 import { useEffect, useContext, useRef } from 'react'
 import { useMakeCopilotWritable } from './useMakeCopilotWritable'
-import { Chat } from '@/components/chat'
-import { Providers } from '@/components/providers'
+import { Chat } from '@/chat-components/chat'
+import { Providers } from '@/chat-components/providers'
 import { useMakeCopilotReadable } from './useMakeCopilotReadable'
 
 export default function CopilotControlled() {
