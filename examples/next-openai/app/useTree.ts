@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 
-type TreeNodeId = string
+export type TreeNodeId = string
 
 interface TreeNode {
   id: TreeNodeId
@@ -9,9 +9,9 @@ interface TreeNode {
   parentId?: TreeNodeId
 }
 
-type Tree = TreeNode[]
+export type Tree = TreeNode[]
 
-interface UseTreeReturn {
+export interface UseTreeReturn {
   tree: Tree
   addElement: (id: TreeNodeId, value: string, parentId?: TreeNodeId) => void
   removeElement: (id: TreeNodeId) => void

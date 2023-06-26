@@ -6,11 +6,11 @@ import useTree, { TreeNodeId } from './useTree'
 
 export interface CopilotContextParams {
   entryPoints: Record<string, AnnotatedFunction<any[]>>
-
   setEntryPoint: (id: string, entryPoint: AnnotatedFunction<any[]>) => void
   removeEntryPoint: (id: string) => void
 
-  addContext: (id: string, context: string, parentId?: string) => TreeNodeId
+  getContextString: () => string
+  addContext: (id: string, context: string, parentId?: string) => void
   removeContext: (id: TreeNodeId) => void
 }
 export const CopilotContext = React.createContext<CopilotContextParams>(
@@ -26,7 +26,7 @@ export function CopilotProvider({
     Record<string, AnnotatedFunction<any[]>>
   >({})
 
-  const { addElement, removeElement } = useTree()
+  const { addElement, removeElement, printTree } = useTree()
 
   const setEntryPoint = (
     id: string,
@@ -46,6 +46,10 @@ export function CopilotProvider({
     })
   }
 
+  const getContextString = () => {
+    return printTree()
+  }
+
   const addContext = (id: string, context: string, parentId?: string) => {
     return addElement(id, context, parentId)
   }
@@ -60,6 +64,7 @@ export function CopilotProvider({
         entryPoints,
         setEntryPoint,
         removeEntryPoint,
+        getContextString,
         addContext,
         removeContext
       }}

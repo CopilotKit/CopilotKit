@@ -6,6 +6,7 @@ import { useEffect, useContext, useRef } from 'react'
 import { useMakeCopilotWritable } from './useMakeCopilotWritable'
 import { Chat } from '@/components/chat'
 import { Providers } from '@/components/providers'
+import { useMakeCopilotReadable } from './useMakeCopilotReadable'
 
 export default function CopilotControlled() {
   const [searchFieldText, setSearchFieldText] = useState('')
@@ -24,6 +25,8 @@ export default function CopilotControlled() {
       setSearchFieldText(searchTerm)
     }
   })
+
+  useMakeCopilotReadable('Speak like a pirate! Argh!')
 
   return (
     <div>

@@ -8,6 +8,8 @@ import { ChatPanel } from '@/components/chat-panel'
 import { EmptyScreen } from '@/components/empty-screen'
 import { ChatScrollAnchor } from '@/components/chat-scroll-anchor'
 import { toast } from 'react-hot-toast'
+import { CopilotContext } from '@/app/CopilotContext'
+import { useContext } from 'react'
 
 export interface ChatProps extends React.ComponentProps<'div'> {
   initialMessages?: Message[]
@@ -17,9 +19,21 @@ export interface ChatProps extends React.ComponentProps<'div'> {
 const previewToken = 'TODO123'
 
 export function Chat({ id, initialMessages, className }: ChatProps) {
+  const { getContextString } = useContext(CopilotContext)
+
+  const systemMessage: Message = {
+    id: 'system',
+    content: getContextString(),
+    role: 'system'
+  }
+  console.log('systemMessage', systemMessage)
+  const initialMessagesWithContext = [systemMessage].concat(
+    initialMessages || []
+  )
+
   const { messages, append, reload, stop, isLoading, input, setInput } =
     useChat({
-      initialMessages,
+      initialMessages: initialMessagesWithContext,
       id,
       body: {
         id,
@@ -31,6 +45,7 @@ export function Chat({ id, initialMessages, className }: ChatProps) {
         }
       }
     })
+
   return (
     <>
       <div className={cn('pb-[200px] pt-4', className)}>
