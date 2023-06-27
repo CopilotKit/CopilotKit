@@ -14,20 +14,26 @@ import { useContext, useEffect, useMemo } from 'react'
 export interface ChatProps extends React.ComponentProps<'div'> {
   initialMessages?: Message[]
   id?: string
+  makeSystemMessage?: (contextString: string) => string
 }
 
-const previewToken = 'TODO123'
-
-export function Chat({ id, initialMessages, className }: ChatProps) {
+export function Chat({
+  id,
+  initialMessages,
+  className,
+  makeSystemMessage
+}: ChatProps) {
   const { getContextString } = useContext(CopilotContext)
-  const contextString = useMemo(getContextString, [getContextString])
+  const contextString = getContextString()
+  const usedMakeSystemMessage = makeSystemMessage || defaultSystemMessage
+
   const systemMessage: Message = useMemo(() => {
     return {
       id: 'system',
-      content: contextString,
+      content: usedMakeSystemMessage(contextString),
       role: 'system'
     }
-  }, [contextString])
+  }, [contextString, usedMakeSystemMessage])
 
   useEffect(() => {
     console.log('systemMessage', systemMessage)
@@ -76,4 +82,22 @@ export function Chat({ id, initialMessages, className }: ChatProps) {
       />
     </>
   )
+}
+
+const previewToken = 'TODO123'
+
+export function defaultSystemMessage(contextString: string): string {
+  return `
+Please act as a competent and conscientious professional assistant.
+
+The user has provided you with the following context:
+\`\`\`
+${contextString}
+\`\`\`
+
+They have also provided you with functions you can call to initiate actions on their behalf, or functions you can call to receive more information.
+
+Please assist them as best you can.
+If you are not sure how to proceed to best fulfill their requests, please ask them for more information.
+`
 }

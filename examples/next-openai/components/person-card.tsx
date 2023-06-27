@@ -18,7 +18,7 @@ export interface PersonCardProps {
 export default function PersonCard(props: PersonCardProps) {
   const { person } = props
 
-  const jsonString = JSON.stringify(person)
+  const jsonString = JSON.stringify(person, null, 2)
   useMakeCopilotReadable(`Person: ${jsonString}`, props.parentCopilotId)
 
   return (

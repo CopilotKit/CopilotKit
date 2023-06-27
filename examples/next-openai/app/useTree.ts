@@ -58,7 +58,24 @@ const treeIndentationRepresentation = (
 }
 
 const printNode = (node: TreeNode, prefix = '', indentLevel = 0): string => {
-  let output = prefix + node.value + '\n'
+  const indent = ' '.repeat(3).repeat(indentLevel)
+
+  const prefixPlusIndentLength = prefix.length + indent.length
+  const subsequentLinesPrefix = ' '.repeat(prefixPlusIndentLength)
+
+  const valueLines = node.value.split('\n')
+
+  const outputFirstLine = `${indent}${prefix}${valueLines[0]}`
+  const outputSubsequentLines = valueLines
+    .slice(1)
+    .map(line => `${subsequentLinesPrefix}${line}`)
+    .join('\n')
+
+  let output = `${outputFirstLine}\n`
+  if (outputSubsequentLines) {
+    output += `${outputSubsequentLines}\n`
+  }
+
   node.children.forEach(
     (child, index) =>
       (output += printNode(
