@@ -7,15 +7,16 @@ import { generateRandomString } from './utils'
 export function useMakeCopilotReadable(
   information: string,
   parentId?: string
-): string {
-  const idRef = useRef(generateRandomString(10)) // generate a unique id
+): string | undefined {
   const { addContext, removeContext } = useContext(CopilotContext)
+  const idRef = useRef<string>()
 
   useEffect(() => {
-    addContext(idRef.current, information, parentId)
+    const id = addContext(information, parentId)
+    idRef.current = id
 
     return () => {
-      removeContext(idRef.current)
+      removeContext(id)
     }
   }, [information, parentId, addContext, removeContext])
 

@@ -9,7 +9,7 @@ import { EmptyScreen } from '@/chat-components/empty-screen'
 import { ChatScrollAnchor } from '@/chat-components/chat-scroll-anchor'
 import { toast } from 'react-hot-toast'
 import { CopilotContext } from '@/app/CopilotContext'
-import { useContext } from 'react'
+import { useContext, useEffect, useMemo } from 'react'
 
 export interface ChatProps extends React.ComponentProps<'div'> {
   initialMessages?: Message[]
@@ -20,13 +20,19 @@ const previewToken = 'TODO123'
 
 export function Chat({ id, initialMessages, className }: ChatProps) {
   const { getContextString } = useContext(CopilotContext)
+  const contextString = useMemo(getContextString, [getContextString])
+  const systemMessage: Message = useMemo(() => {
+    return {
+      id: 'system',
+      content: contextString,
+      role: 'system'
+    }
+  }, [contextString])
 
-  const systemMessage: Message = {
-    id: 'system',
-    content: getContextString(),
-    role: 'system'
-  }
-  console.log('systemMessage', systemMessage)
+  useEffect(() => {
+    console.log('systemMessage', systemMessage)
+  }, [systemMessage])
+
   const initialMessagesWithContext = [systemMessage].concat(
     initialMessages || []
   )

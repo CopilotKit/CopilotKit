@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react'
+import { useReducer, useCallback } from 'react'
+import { v4 as uuidv4 } from 'uuid'
 
 export type TreeNodeId = string
 
-interface TreeNode {
+export interface TreeNode {
   id: TreeNodeId
   value: string
   children: TreeNode[]
@@ -13,9 +14,9 @@ export type Tree = TreeNode[]
 
 export interface UseTreeReturn {
   tree: Tree
-  addElement: (id: TreeNodeId, value: string, parentId?: TreeNodeId) => void
-  removeElement: (id: TreeNodeId) => void
+  addElement: (value: string, parentId?: TreeNodeId) => TreeNodeId
   printTree: () => string
+  removeElement: (id: TreeNodeId) => void
 }
 
 const findNode = (nodes: Tree, id: TreeNodeId): TreeNode | undefined => {
@@ -69,19 +70,24 @@ const printNode = (node: TreeNode, prefix = '', indentLevel = 0): string => {
   return output
 }
 
-const useTree = (): UseTreeReturn => {
-  const [tree, setTree] = useState<Tree>([])
+// Action types
+type Action =
+  | { type: 'ADD_NODE'; value: string; parentId?: string; id: string }
+  | { type: 'REMOVE_NODE'; id: string }
 
-  const addElement = useCallback(
-    (id: TreeNodeId, value: string, parentId?: TreeNodeId): void => {
+// Reducer function
+function treeReducer(state: Tree, action: Action): Tree {
+  switch (action.type) {
+    case 'ADD_NODE': {
+      const { value, parentId, id: newNodeId } = action
       const newNode: TreeNode = {
-        id,
+        id: newNodeId,
         value,
         children: []
       }
 
       if (parentId) {
-        const parent = findNode(tree, parentId)
+        const parent = findNode(state, parentId)
         if (parent) {
           newNode.parentId = parentId
           parent.children.push(newNode)
@@ -89,14 +95,33 @@ const useTree = (): UseTreeReturn => {
           throw new Error(`Parent with id ${parentId} not found`)
         }
       } else {
-        setTree(prevTree => [...prevTree, newNode])
+        return [...state, newNode]
       }
+
+      return state
+    }
+    case 'REMOVE_NODE':
+      return removeNode(state, action.id)
+    default:
+      return state
+  }
+}
+
+// useTree hook
+const useTree = (): UseTreeReturn => {
+  const [tree, dispatch] = useReducer(treeReducer, [])
+
+  const addElement = useCallback(
+    (value: string, parentId?: string): TreeNodeId => {
+      const newNodeId = uuidv4() // Generate new ID outside of dispatch
+      dispatch({ type: 'ADD_NODE', value, parentId, id: newNodeId })
+      return newNodeId // Return the new ID
     },
-    [tree]
+    []
   )
 
   const removeElement = useCallback((id: TreeNodeId): void => {
-    setTree(prevTree => removeNode(prevTree, id))
+    dispatch({ type: 'REMOVE_NODE', id })
   }, [])
 
   const printTree = (): string => {

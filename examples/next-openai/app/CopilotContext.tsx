@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, ReactNode } from 'react'
+import React, { useState, ReactNode, useCallback } from 'react'
 import { AnnotatedFunction } from './useMakeCopilotWritable'
 import useTree, { TreeNodeId } from './useTree'
 
@@ -10,7 +10,7 @@ export interface CopilotContextParams {
   removeEntryPoint: (id: string) => void
 
   getContextString: () => string
-  addContext: (id: string, context: string, parentId?: string) => void
+  addContext: (context: string, parentId?: string) => TreeNodeId
   removeContext: (id: TreeNodeId) => void
 }
 export const CopilotContext = React.createContext<CopilotContextParams>(
@@ -50,13 +50,19 @@ export function CopilotProvider({
     return printTree()
   }
 
-  const addContext = (id: string, context: string, parentId?: string) => {
-    return addElement(id, context, parentId)
-  }
+  const addContext = useCallback(
+    (context: string, parentId?: string) => {
+      return addElement(context, parentId)
+    },
+    [addElement]
+  )
 
-  const removeContext = (id: string) => {
-    removeElement(id)
-  }
+  const removeContext = useCallback(
+    (id: string) => {
+      removeElement(id)
+    },
+    [removeElement]
+  )
 
   return (
     <CopilotContext.Provider

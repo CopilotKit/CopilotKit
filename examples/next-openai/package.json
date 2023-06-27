@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@heroicons/react": "^2.0.18",
     "@radix-ui/react-alert-dialog": "^1.0.4",
     "@radix-ui/react-dialog": "^1.0.4",
     "@radix-ui/react-dropdown-menu": "^2.0.5",
@@ -22,6 +23,7 @@
     "class-variance-authority": "^0.6.0",
     "clsx": "^1.2.1",
     "copilotkit": "^0.0.4",
+    "install": "^0.13.0",
     "nanoid": "^3.3.6",
     "next": "13.4.4-canary.11",
     "next-themes": "^0.2.1",
@@ -35,7 +37,8 @@
     "react-textarea-autosize": "^8.4.1",
     "remark-gfm": "^3.0.1",
     "remark-math": "^5.1.1",
-    "tailwind-merge": "^1.13.2"
+    "tailwind-merge": "^1.13.2",
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
     "@preconstruct/cli": "^2.7.0",
@@ -43,6 +46,7 @@
     "@types/react": "18.2.7",
     "@types/react-dom": "18.2.4",
     "@types/react-syntax-highlighter": "^15.5.7",
+    "@types/uuid": "^9.0.2",
     "autoprefixer": "^10.4.14",
     "eslint": "^7.32.0",
     "eslint-config-next": "13.4.4-canary.11",

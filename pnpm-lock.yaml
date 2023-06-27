@@ -87,6 +87,9 @@ importers:
 
   examples/next-openai:
     dependencies:
+      '@heroicons/react':
+        specifier: ^2.0.18
+        version: 2.0.18(react@18.2.0)
       '@radix-ui/react-alert-dialog':
         specifier: ^1.0.4
         version: 1.0.4(@types/react-dom@18.2.4)(@types/react@18.2.7)(react-dom@18.2.0)(react@18.2.0)
@@ -126,6 +129,9 @@ importers:
       copilotkit:
         specifier: ^0.0.4
         version: link:../../packages/core
+      install:
+        specifier: ^0.13.0
+        version: 0.13.0
       nanoid:
         specifier: ^3.3.6
         version: 3.3.6
@@ -168,6 +174,9 @@ importers:
       tailwind-merge:
         specifier: ^1.13.2
         version: 1.13.2
+      uuid:
+        specifier: ^9.0.0
+        version: 9.0.0
     devDependencies:
       '@preconstruct/cli':
         specifier: ^2.7.0
@@ -184,6 +193,9 @@ importers:
       '@types/react-syntax-highlighter':
         specifier: ^15.5.7
         version: 15.5.7
+      '@types/uuid':
+        specifier: ^9.0.2
+        version: 9.0.2
       autoprefixer:
         specifier: ^10.4.14
         version: 10.4.14(postcss@8.4.24)
@@ -1087,6 +1099,14 @@ packages:
   /@fortaine/fetch-event-source@3.0.6:
     resolution: {integrity: sha512-621GAuLMvKtyZQ3IA6nlDWhV1V/7PGOTNIGLUifxt0KzM+dZIweJ6F3XvQF3QnqeNfS1N7WQ0Kil1Di/lhChEw==}
     engines: {node: '>=16.15'}
+    dev: false
+
+  /@heroicons/react@2.0.18(react@18.2.0):
+    resolution: {integrity: sha512-7TyMjRrZZMBPa+/5Y8lN0iyvUU/01PeMGX2+RE7cQWpEUIcb4QotzUObFkJDejj/HUH4qjP/eQ0gzzKs2f+6Yw==}
+    peerDependencies:
+      react: '>= 16'
+    dependencies:
+      react: 18.2.0
     dev: false
 
   /@humanwhocodes/config-array@0.5.0:
@@ -2617,6 +2637,10 @@ packages:
   /@types/unist@2.0.6:
     resolution: {integrity: sha512-PBjIUxZHOuj0R15/xuwJYjFi+KZdNFrehocChv4g5hu6aFroHue8m0lBP0POdK2nKzbw0cgV1mws8+V/JAcEkQ==}
     dev: false
+
+  /@types/uuid@9.0.2:
+    resolution: {integrity: sha512-kNnC1GFBLuhImSnV7w4njQkUiJi0ZXUycu1rUaouPqiKlXkh77JKgdRnTAp1x5eBwcIwbtI+3otwzuIDEuDoxQ==}
+    dev: true
 
   /@types/yargs-parser@21.0.0:
     resolution: {integrity: sha512-iO9ZQHkZxHn4mSakYV0vFHAVDyEOIJQrV2uZ06HxEPcx+mt8swXoZHIbaaJ2crJYFfErySgktuTZ3BeLz+XmFA==}
@@ -4805,6 +4829,11 @@ packages:
 
   /inline-style-parser@0.1.1:
     resolution: {integrity: sha512-7NXolsK4CAS5+xvdj5OMMbI962hU/wvwoxk+LWR9Ek9bVtyuuYScDN6eS0rUm6TxApFpw7CX1o4uJzcd4AyD3Q==}
+    dev: false
+
+  /install@0.13.0:
+    resolution: {integrity: sha512-zDml/jzr2PKU9I8J/xyZBQn8rPCAY//UOYNmR01XwNwyfhEWObo2SWfSl1+0tm1u6PhxLwDnfsT/6jB7OUxqFA==}
+    engines: {node: '>= 0.10'}
     dev: false
 
   /internal-slot@1.0.5:
