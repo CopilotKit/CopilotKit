@@ -30,16 +30,16 @@ export function GoodPeopleBadPeople(): JSX.Element {
         type="text"
         value={searchFieldText}
         onChange={e => setSearchFieldText(e.target.value)}
-        className="bg-slate-100 rounded-lg p-4 m-4 w-full"
+        className="bg-slate-100 rounded-lg p-4 m-4"
         placeholder="Search..."
       />
 
       <div className=" bg-slate-100 rounded-lg p-4 m-4 mt-10">
-        <PersonList title="Good people" people={peopleListA} />
+        <PersonList title="Current employees" people={peopleListA} />
       </div>
 
-      <div className=" bg-slate-100 rounded-lg p-4 m-4 mt-40">
-        <PersonList title="Bad people" people={peopleListB} />
+      <div className=" bg-slate-100 rounded-lg p-4 m-4 mt-20">
+        <PersonList title="Ex employees" people={peopleListB} />
       </div>
     </>
   )

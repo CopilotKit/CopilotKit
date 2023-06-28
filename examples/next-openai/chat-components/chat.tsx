@@ -2,7 +2,6 @@
 
 import { useChat, type Message } from 'ai/react'
 
-import { cn } from '@/lib/utils'
 import { ChatList } from '@/chat-components/chat-list'
 import { ChatPanel } from '@/chat-components/chat-panel'
 import { EmptyScreen } from '@/chat-components/empty-screen'
@@ -54,28 +53,59 @@ export function Chat({
       }
     })
 
+  const visibleMessages = messages.filter(
+    message => message.role === 'user' || message.role === 'assistant'
+  )
+
   return (
-    <div className="bg-green-200 h-full w-full">
-      {/* <div className={cn('pb-[200px] pt-4', className)}>
-        {messages.length ? (
-          <>
-            <ChatList messages={messages} />
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        boxSizing: 'border-box', // ensure padding is included in total height
+        alignItems: 'flex-start' // prevent stretching of items
+      }}
+    >
+      <div
+        className="pt-5 px-5"
+        style={{
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          width: '100%',
+          flexGrow: 1
+        }}
+      >
+        <h1
+          className="pt-3 text-lg  font-bold"
+          style={{ marginBottom: '1rem' }}
+        >
+          Copilot Chat
+        </h1>
+        {visibleMessages.length ? (
+          <div className="pl-0 pr-6">
+            <ChatList messages={visibleMessages} />
             <ChatScrollAnchor trackVisibility={isLoading} />
-          </>
+          </div>
         ) : (
           <EmptyScreen setInput={setInput} />
         )}
-      </div> */}
-      {/* <ChatPanel
-        id={id}
-        isLoading={isLoading}
-        stop={stop}
-        append={append}
-        reload={reload}
-        messages={messages}
-        input={input}
-        setInput={setInput}
-      /> */}
+      </div>
+
+      <div style={{ flexShrink: 0, width: '100%' }}>
+        <ChatPanel
+          id={id}
+          isLoading={isLoading}
+          stop={stop}
+          append={append}
+          reload={reload}
+          messages={visibleMessages}
+          input={input}
+          setInput={setInput}
+        />
+      </div>
     </div>
   )
 }

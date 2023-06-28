@@ -2,13 +2,17 @@
 
 import React from 'react'
 import { Providers } from '@/chat-components/providers'
-import { Sidebar } from './sidebar/sidebar'
 import { GoodPeopleBadPeople } from '@/components/good-people-bad-people'
+import { SidebarProvider } from './sidebar/sidebar-context'
 
 export default function CopilotControlled() {
   return (
     <Providers>
-      <GoodPeopleBadPeople />
+      <SidebarProvider>
+        <div className="w-full h-full bg-slate-400 p-10">
+          <GoodPeopleBadPeople />
+        </div>
+      </SidebarProvider>
     </Providers>
   )
 }

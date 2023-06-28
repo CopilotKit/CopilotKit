@@ -29,9 +29,11 @@ export function ChatPanel({
   setInput,
   messages
 }: ChatPanelProps) {
-  return <div className="w-full h-full  bg-teal-300"></div>
   return (
-    <div className="inset-x-0 bottom-0 bg-gradient-to-b from-muted/10 from-10% to-muted/30 to-50%">
+    <div
+      className="inset-x-0 bottom-0 bg-gradient-to-b from-muted/10 from-10% to-muted/30 to-50% mt-4 mb-8"
+      style={{ width: '100%', overflow: 'hidden', boxSizing: 'border-box' }}
+    >
       <ButtonScrollToBottom />
       <div className="mx-auto sm:max-w-2xl sm:px-4">
         <div className="flex h-10 items-center justify-center mb-4">
