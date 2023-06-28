@@ -2,7 +2,7 @@
 
 import React, { useState, ReactNode, useCallback } from 'react'
 import { AnnotatedFunction } from './use-make-copilot-actionable'
-import useTree, { TreeNodeId } from './useTree'
+import useTree, { TreeNodeId } from './use-tree'
 
 export interface CopilotContextParams {
   entryPoints: Record<string, AnnotatedFunction<any[]>>

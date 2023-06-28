@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useContext, useEffect } from 'react'
-import { CopilotContext } from './CopilotContext'
+import { CopilotContext } from './copilot-context'
 import { generateRandomString } from './utils'
 
 export function useMakeCopilotReadable(

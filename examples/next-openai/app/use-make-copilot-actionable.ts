@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useContext, useEffect, useMemo } from 'react'
-import { CopilotContext } from './CopilotContext'
+import { CopilotContext } from './copilot-context'
 import { generateRandomString } from './utils'
 
 export function useMakeCopilotActionable<ActionInput extends any[]>(

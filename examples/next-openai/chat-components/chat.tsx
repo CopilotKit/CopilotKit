@@ -8,7 +8,7 @@ import { ChatPanel } from '@/chat-components/chat-panel'
 import { EmptyScreen } from '@/chat-components/empty-screen'
 import { ChatScrollAnchor } from '@/chat-components/chat-scroll-anchor'
 import { toast } from 'react-hot-toast'
-import { CopilotContext } from '@/app/CopilotContext'
+import { CopilotContext } from '@/app/copilot-context'
 import { useContext, useEffect, useMemo } from 'react'
 
 export interface ChatProps extends React.ComponentProps<'div'> {
