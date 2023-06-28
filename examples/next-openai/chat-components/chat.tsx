@@ -35,10 +35,6 @@ export function Chat({
     }
   }, [contextString, usedMakeSystemMessage])
 
-  useEffect(() => {
-    console.log('systemMessage', systemMessage)
-  }, [systemMessage])
-
   const initialMessagesWithContext = [systemMessage].concat(
     initialMessages || []
   )
@@ -59,8 +55,8 @@ export function Chat({
     })
 
   return (
-    <>
-      <div className={cn('pb-[200px] pt-4', className)}>
+    <div className="bg-green-200 h-full w-full">
+      {/* <div className={cn('pb-[200px] pt-4', className)}>
         {messages.length ? (
           <>
             <ChatList messages={messages} />
@@ -69,8 +65,8 @@ export function Chat({
         ) : (
           <EmptyScreen setInput={setInput} />
         )}
-      </div>
-      <ChatPanel
+      </div> */}
+      {/* <ChatPanel
         id={id}
         isLoading={isLoading}
         stop={stop}
@@ -79,8 +75,8 @@ export function Chat({
         messages={messages}
         input={input}
         setInput={setInput}
-      />
-    </>
+      /> */}
+    </div>
   )
 }
 

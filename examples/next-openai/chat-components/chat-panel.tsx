@@ -29,6 +29,7 @@ export function ChatPanel({
   setInput,
   messages
 }: ChatPanelProps) {
+  return <div className="w-full h-full  bg-teal-300"></div>
   return (
     <div className="inset-x-0 bottom-0 bg-gradient-to-b from-muted/10 from-10% to-muted/30 to-50%">
       <ButtonScrollToBottom />
