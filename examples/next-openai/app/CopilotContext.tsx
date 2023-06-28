@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, ReactNode, useCallback } from 'react'
-import { AnnotatedFunction } from './useMakeCopilotWritable'
+import { AnnotatedFunction } from './use-make-copilot-actionable'
 import useTree, { TreeNodeId } from './useTree'
 
 export interface CopilotContextParams {

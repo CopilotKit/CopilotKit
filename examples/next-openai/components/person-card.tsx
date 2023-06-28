@@ -1,5 +1,5 @@
 import { EnvelopeIcon, PhoneIcon } from '@heroicons/react/20/solid'
-import { useMakeCopilotReadable } from '@/app/useMakeCopilotReadable'
+import { useMakeCopilotReadable } from '@/app/use-make-copilot-readable'
 
 export interface Person {
   name: string

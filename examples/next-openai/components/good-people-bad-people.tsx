@@ -1,11 +1,11 @@
-import { useMakeCopilotWritable } from '@/app/useMakeCopilotWritable'
+import { useMakeCopilotActionable } from '@/app/use-make-copilot-actionable'
 import React, { useState } from 'react'
 import PersonList, { peopleListA, peopleListB } from './person-list'
 
 export function GoodPeopleBadPeople(): JSX.Element {
   const [searchFieldText, setSearchFieldText] = useState('')
 
-  useMakeCopilotWritable(
+  useMakeCopilotActionable(
     {
       description: 'Set the search field text to the given value',
       argumentAnnotations: [

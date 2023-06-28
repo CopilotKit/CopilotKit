@@ -1,5 +1,5 @@
 import PersonCard, { Person } from './person-card'
-import { useMakeCopilotReadable } from '@/app/useMakeCopilotReadable'
+import { useMakeCopilotReadable } from '@/app/use-make-copilot-readable'
 
 export interface PersonListProps {
   title: string

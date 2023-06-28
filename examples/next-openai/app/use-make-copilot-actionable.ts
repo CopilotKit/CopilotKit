@@ -4,7 +4,7 @@ import { useRef, useContext, useEffect, useMemo } from 'react'
 import { CopilotContext } from './CopilotContext'
 import { generateRandomString } from './utils'
 
-export function useMakeCopilotWritable<ActionInput extends any[]>(
+export function useMakeCopilotActionable<ActionInput extends any[]>(
   annotatedFunction: AnnotatedFunction<ActionInput>,
   dependencies: any[]
 ) {
