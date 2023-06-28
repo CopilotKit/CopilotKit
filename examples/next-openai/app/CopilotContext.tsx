@@ -28,27 +28,29 @@ export function CopilotProvider({
 
   const { addElement, removeElement, printTree } = useTree()
 
-  const setEntryPoint = (
-    id: string,
-    annotatedFunction: AnnotatedFunction<any[]>
-  ) => {
-    setEntryPoints(prevPoints => ({
-      ...prevPoints,
-      [id]: annotatedFunction
-    }))
-  }
+  const setEntryPoint = useCallback(
+    (id: string, entryPoint: AnnotatedFunction<any[]>) => {
+      setEntryPoints(prevPoints => {
+        return {
+          ...prevPoints,
+          [id]: entryPoint
+        }
+      })
+    },
+    []
+  )
 
-  const removeEntryPoint = (id: string) => {
+  const removeEntryPoint = useCallback((id: string) => {
     setEntryPoints(prevPoints => {
       const newPoints = { ...prevPoints }
       delete newPoints[id]
       return newPoints
     })
-  }
+  }, [])
 
-  const getContextString = () => {
+  const getContextString = useCallback(() => {
     return printTree()
-  }
+  }, [printTree])
 
   const addContext = useCallback(
     (context: string, parentId?: string) => {
