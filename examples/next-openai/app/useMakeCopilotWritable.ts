@@ -1,22 +1,35 @@
 'use client'
 
-import { useRef, useContext, useEffect } from 'react'
+import { useRef, useContext, useEffect, useMemo } from 'react'
 import { CopilotContext } from './CopilotContext'
 import { generateRandomString } from './utils'
 
 export function useMakeCopilotWritable<ActionInput extends any[]>(
-  annotatedFunction: AnnotatedFunction<ActionInput>
+  annotatedFunction: AnnotatedFunction<ActionInput>,
+  dependencies: any[]
 ) {
   const idRef = useRef(generateRandomString(10)) // generate a unique id
   const { setEntryPoint, removeEntryPoint } = useContext(CopilotContext)
 
+  const memoizedAnnotatedFunction = useMemo(
+    () => ({
+      description: annotatedFunction.description,
+      argumentAnnotations: annotatedFunction.argumentAnnotations,
+      implementation: annotatedFunction.implementation
+    }),
+    dependencies
+  )
+
   useEffect(() => {
-    setEntryPoint(idRef.current, annotatedFunction as AnnotatedFunction<any[]>)
+    setEntryPoint(
+      idRef.current,
+      memoizedAnnotatedFunction as AnnotatedFunction<any[]>
+    )
 
     return () => {
       removeEntryPoint(idRef.current)
     }
-  }, [annotatedFunction, setEntryPoint, removeEntryPoint])
+  }, [memoizedAnnotatedFunction, setEntryPoint, removeEntryPoint])
 }
 
 export interface AnnotatedFunctionArgument {

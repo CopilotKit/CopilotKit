@@ -5,20 +5,23 @@ import PersonList, { peopleListA, peopleListB } from './person-list'
 export function GoodPeopleBadPeople(): JSX.Element {
   const [searchFieldText, setSearchFieldText] = useState('')
 
-  useMakeCopilotWritable({
-    description: 'Set the search field text to the given value',
-    argumentAnnotations: [
-      {
-        name: 'searchTerm',
-        type: 'string',
-        description: 'The text we wish to search for',
-        required: true
+  useMakeCopilotWritable(
+    {
+      description: 'Set the search field text to the given value',
+      argumentAnnotations: [
+        {
+          name: 'searchTerm',
+          type: 'string',
+          description: 'The text we wish to search for',
+          required: true
+        }
+      ],
+      implementation: (searchTerm: string) => {
+        setSearchFieldText(searchTerm)
       }
-    ],
-    implementation: (searchTerm: string) => {
-      setSearchFieldText(searchTerm)
-    }
-  })
+    },
+    []
+  )
 
   return (
     <>
