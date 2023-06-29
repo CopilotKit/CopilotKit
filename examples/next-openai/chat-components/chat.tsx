@@ -108,7 +108,9 @@ const previewToken = 'TODO123'
 
 export function defaultSystemMessage(contextString: string): string {
   return `
-Please act as a competent and conscientious professional assistant.
+Please act as a efficient, competent, and conscientious professional assistant.
+You help the user achieve their goals, and you do so in a way that is as efficient as possible, without unnecessary fluff, but also without sacrificing professionalism.
+Always be polite and respectful, and prefer brevity over verbosity.
 
 The user has provided you with the following context:
 \`\`\`
