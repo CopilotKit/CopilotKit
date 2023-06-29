@@ -19,7 +19,9 @@ const exampleMessages = [
   }
 ]
 
-export function EmptyScreen({ setInput }: Pick<UseChatHelpers, 'setInput'>) {
+export interface EmptyScreenProps extends Pick<UseChatHelpers, 'setInput'> {}
+
+export function DefaultEmptyScreen({ setInput }: EmptyScreenProps) {
   return (
     <div className="mx-auto max-w-2xl px-4">
       <div className="rounded-lg border bg-background p-8">

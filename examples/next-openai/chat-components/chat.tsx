@@ -4,7 +4,10 @@ import { useChat, type Message } from 'ai/react'
 
 import { ChatList } from '@/chat-components/chat-list'
 import { ChatPanel } from '@/chat-components/chat-panel'
-import { EmptyScreen } from '@/chat-components/empty-screen'
+import {
+  DefaultEmptyScreen,
+  EmptyScreenProps
+} from '@/chat-components/default-empty-screen'
 import { ChatScrollAnchor } from '@/chat-components/chat-scroll-anchor'
 import { toast } from 'react-hot-toast'
 import { CopilotContext } from '@/app/copilot-context'
@@ -16,12 +19,16 @@ export interface ChatProps extends React.ComponentProps<'div'> {
   makeSystemMessage?: (contextString: string) => string
 }
 
+interface ChatComponentInjectionsProps {
+  EmptyScreen?: React.ComponentType<EmptyScreenProps>
+}
+
 export function Chat({
   id,
   initialMessages,
-  className,
-  makeSystemMessage
-}: ChatProps) {
+  makeSystemMessage,
+  EmptyScreen = DefaultEmptyScreen
+}: ChatProps & ChatComponentInjectionsProps) {
   const { getContextString } = useContext(CopilotContext)
   const contextString = getContextString()
   const usedMakeSystemMessage = makeSystemMessage || defaultSystemMessage
