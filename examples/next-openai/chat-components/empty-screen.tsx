@@ -23,15 +23,15 @@ export function EmptyScreen({ setInput }: Pick<UseChatHelpers, 'setInput'>) {
   return (
     <div className="mx-auto max-w-2xl px-4">
       <div className="rounded-lg border bg-background p-8">
-        <h1 className="mb-2 text-lg font-semibold">
-          Welcome to Next.js AI Chatbot!
-        </h1>
+        <h1 className="mb-2 text-lg font-semibold">Welcome to Copilot! 👋</h1>
         <p className="mb-2 leading-normal text-muted-foreground">
-          This is an open source AI chatbot app template built with{' '}
-          <ExternalLink href="https://nextjs.org">Next.js</ExternalLink> and{' '}
-          <ExternalLink href="https://vercel.com/storage/kv">
-            Vercel KV
-          </ExternalLink>
+          This is a Copilot built with{' '}
+          <ExternalLink href="https://recursively.ai">
+            recursively.ai's
+          </ExternalLink>{' '}
+          <ExternalLink href="https://github.com/RecursivelyAI/CopilotKit">
+            CopilotKit
+          </ExternalLink>{' '}
           .
         </p>
         <p className="leading-normal text-muted-foreground">
