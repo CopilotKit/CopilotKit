@@ -9,7 +9,7 @@ export default function CopilotControlled() {
   return (
     <Providers>
       <SidebarProvider>
-        <div className="w-full h-full bg-slate-400 p-10">
+        <div className="w-full h-full bg-slate-300">
           <GoodPeopleBadPeople />
         </div>
       </SidebarProvider>

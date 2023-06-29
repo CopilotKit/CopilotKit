@@ -78,12 +78,6 @@ export function Chat({
           flexGrow: 1
         }}
       >
-        <h1
-          className="pt-3 text-lg  font-bold"
-          style={{ marginBottom: '1rem' }}
-        >
-          Copilot Chat
-        </h1>
         {visibleMessages.length ? (
           <div className="pl-0 pr-6">
             <ChatList messages={visibleMessages} />

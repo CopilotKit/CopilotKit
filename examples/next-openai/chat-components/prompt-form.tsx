@@ -80,6 +80,7 @@ export function PromptForm({
                 type="submit"
                 size="icon"
                 disabled={isLoading || input === ''}
+                className=" bg-slate-300"
               >
                 <IconArrowElbow />
                 <span className="sr-only">Send message</span>

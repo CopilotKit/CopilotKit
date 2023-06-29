@@ -24,23 +24,23 @@ export function GoodPeopleBadPeople(): JSX.Element {
   )
 
   return (
-    <>
-      <h2>Search</h2>
+    <div className="w-full mx-auto px-6 pt-4 pb-10">
+      <h2 className="font-bold text-2xl">Search</h2>
       <input
         type="text"
         value={searchFieldText}
         onChange={e => setSearchFieldText(e.target.value)}
-        className="bg-slate-100 rounded-lg p-4 m-4"
+        className="bg-slate-100 rounded-lg py-4 px-4 my-2 w-full"
         placeholder="Search..."
       />
 
-      <div className=" bg-slate-100 rounded-lg p-4 m-4 mt-10">
+      <div className=" bg-slate-100 rounded-lg py-8 px-8 mt-10 w-full">
         <PersonList title="Current employees" people={peopleListA} />
       </div>
 
-      <div className=" bg-slate-100 rounded-lg p-4 m-4 mt-20">
+      <div className=" bg-slate-100 rounded-lg py-8 px-8 mt-20 w-full">
         <PersonList title="Ex employees" people={peopleListB} />
       </div>
-    </>
+    </div>
   )
 }
