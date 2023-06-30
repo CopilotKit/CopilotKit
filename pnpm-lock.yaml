@@ -42,8 +42,8 @@ importers:
   examples/next-langchain:
     dependencies:
       ai:
-        specifier: 2.1.3
-        version: 2.1.3(react@18.2.0)(svelte@3.59.1)(vue@3.3.4)
+        specifier: 2.1.12
+        version: 2.1.12(react@18.2.0)(svelte@3.59.1)(vue@3.3.4)
       langchain:
         specifier: ^0.0.86
         version: 0.0.86
@@ -121,8 +121,8 @@ importers:
         specifier: ^1.0.6
         version: 1.0.6(@types/react-dom@18.2.4)(@types/react@18.2.7)(react-dom@18.2.0)(react@18.2.0)
       ai:
-        specifier: 2.1.3
-        version: 2.1.3(react@18.2.0)(svelte@3.59.1)(vue@3.3.4)
+        specifier: 2.1.12
+        version: 2.1.12(react@18.2.0)(svelte@3.59.1)(vue@3.3.4)
       class-variance-authority:
         specifier: ^0.6.0
         version: 0.6.0(typescript@5.0.4)
@@ -145,8 +145,8 @@ importers:
         specifier: ^0.2.1
         version: 0.2.1(next@13.4.4-canary.11)(react-dom@18.2.0)(react@18.2.0)
       openai-edge:
-        specifier: ^0.5.1
-        version: 0.5.1
+        specifier: ^1.1.0
+        version: 1.1.0
       react:
         specifier: 18.2.0
         version: 18.2.0
@@ -2874,12 +2874,12 @@ packages:
       indent-string: 4.0.0
     dev: true
 
-  /ai@2.1.3(react@18.2.0)(svelte@3.59.1)(vue@3.3.4):
-    resolution: {integrity: sha512-TwSSYf7YZdwTc9ZdV0qnvToesEePVvH0UlzYmLY44uOHkhNYYsPw5wh7Y+GwS/mHFBnPOm7NFDZbtFGGn+D0mQ==}
+  /ai@2.1.12(react@18.2.0)(svelte@3.59.1)(vue@3.3.4):
+    resolution: {integrity: sha512-byLD7SQtRTUqIxNPYLrk7ckZZ3KwOrwbBbdT92IESC9Fj5Vl9uFDWZJo4uC11Ja6l2EtDaCPtTnc2aOcfoOdtA==}
     engines: {node: '>=14.6'}
     peerDependencies:
-      react: ^18.0.0
-      svelte: ^3.29.0
+      react: ^18.2.0
+      svelte: ^4.0.0
       vue: ^3.3.4
     peerDependenciesMeta:
       react:
@@ -6904,8 +6904,8 @@ packages:
       is-inside-container: 1.0.0
       is-wsl: 2.2.0
 
-  /openai-edge@0.5.1:
-    resolution: {integrity: sha512-/Q/b9wkPKWIzcnsp2o0Of5QW/t4A0XLw+E7rjVSYR3gLVt+pWpFuWCgWPWUVS1UrrLJPvzmndwe1JMpfqLRJIQ==}
+  /openai-edge@1.1.0:
+    resolution: {integrity: sha512-VkXT7yhKjr1QlC/wIMuPW/s003cPHUtiNjt/kH+54iKDZZ7eiGMPuymhpSWJ/zVZfVz6+94okGd6rNuu7JRBDw==}
     engines: {node: '>=12'}
     dev: false
 

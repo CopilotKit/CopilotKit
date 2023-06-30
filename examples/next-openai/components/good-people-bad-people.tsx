@@ -7,6 +7,7 @@ export function GoodPeopleBadPeople(): JSX.Element {
 
   useMakeCopilotActionable(
     {
+      name: 'setSearchFieldText',
       description: 'Set the search field text to the given value',
       argumentAnnotations: [
         {
@@ -16,7 +17,7 @@ export function GoodPeopleBadPeople(): JSX.Element {
           required: true
         }
       ],
-      implementation: (searchTerm: string) => {
+      implementation: async (searchTerm: string) => {
         setSearchFieldText(searchTerm)
       }
     },

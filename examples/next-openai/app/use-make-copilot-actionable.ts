@@ -41,7 +41,8 @@ export interface AnnotatedFunctionArgument {
 }
 
 export interface AnnotatedFunction<Inputs extends any[]> {
+  name: string
   description: string
   argumentAnnotations: AnnotatedFunctionArgument[]
-  implementation: (...args: Inputs) => void
+  implementation: (...args: Inputs) => Promise<void>
 }

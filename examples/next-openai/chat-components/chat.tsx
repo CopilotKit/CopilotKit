@@ -30,6 +30,7 @@ export function Chat({
   EmptyScreen = DefaultEmptyScreen
 }: ChatProps & ChatComponentInjectionsProps) {
   const { getContextString } = useContext(CopilotContext)
+
   const contextString = getContextString()
   const usedMakeSystemMessage = makeSystemMessage || defaultSystemMessage
 
