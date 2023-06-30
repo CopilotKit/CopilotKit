@@ -16,7 +16,7 @@ import { useContext, useEffect, useMemo } from 'react'
 export interface ChatProps extends React.ComponentProps<'div'> {
   initialMessages?: Message[]
   id?: string
-  makeSystemMessage?: (contextString: string) => string
+  makeSystemMessage: (contextString: string) => string
 }
 
 interface ChatComponentInjectionsProps {
@@ -26,7 +26,7 @@ interface ChatComponentInjectionsProps {
 export function Chat({
   id,
   initialMessages,
-  makeSystemMessage,
+  makeSystemMessage = defaultSystemMessage,
   EmptyScreen = DefaultEmptyScreen
 }: ChatProps & ChatComponentInjectionsProps) {
   const {
@@ -36,15 +36,14 @@ export function Chat({
   } = useContext(CopilotContext)
 
   const contextString = getContextString()
-  const usedMakeSystemMessage = makeSystemMessage || defaultSystemMessage
 
   const systemMessage: Message = useMemo(() => {
     return {
       id: 'system',
-      content: usedMakeSystemMessage(contextString),
+      content: makeSystemMessage(contextString),
       role: 'system'
     }
-  }, [contextString, usedMakeSystemMessage])
+  }, [contextString, makeSystemMessage])
 
   const initialMessagesWithContext = [systemMessage].concat(
     initialMessages || []
@@ -53,10 +52,6 @@ export function Chat({
   const functions = useMemo(() => {
     return getChatCompletionFunctions()
   }, [getChatCompletionFunctions])
-
-  useEffect(() => {
-    console.log('client functions', functions)
-  }, [functions])
 
   const { messages, append, reload, stop, isLoading, input, setInput } =
     useChat({
