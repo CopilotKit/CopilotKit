@@ -1,12 +1,23 @@
 import { useId } from 'react'
-import type { CopilotEntrypointOptions } from '../shared/types'
-export type { CopilotEntrypointOptions }
 
-export type UseCopilotEntrypointHelpers = {}
+import type { CopilotAction } from '../shared/types'
+export type { CopilotAction }
 
-export function useCopilotEntrypoint({}: CopilotEntrypointOptions = {}): UseCopilotEntrypointHelpers {
-  // Generate an unique id for the chat if not provided.
-  const hookId = useId()
+import { useEffect, useContext } from 'react'
+import { EntryPointContext } from './context'
+
+export function useCopilotEntrypoint<ActionInput extends any[]>(
+  action: CopilotAction<ActionInput>
+) {
+  // const { setEntryPoint, removeEntryPoint } = useContext(EntryPointContext);
+
+  // useEffect(() => {
+  //   setEntryPoint(id, func);
+
+  //   return () => {
+  //     removeEntryPoint(id);
+  //   };
+  // }, [id, func, setEntryPoint, removeEntryPoint]);
 
   return {}
 }
