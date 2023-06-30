@@ -105,14 +105,24 @@ function entryPointsToFunctionCallHandler(
       entrypointsByFunctionName[entryPoint.name] = entryPoint
     }
 
-    const entryPointFunction = entrypointsByFunctionName[functionCall.name]
+    const entryPointFunction =
+      entrypointsByFunctionName[functionCall.name || '']
     if (entryPointFunction) {
-      let parsedFunctionCallArguments: any[] = []
+      let parsedFunctionCallArguments: Record<string, any>[] = []
       if (functionCall.arguments) {
         parsedFunctionCallArguments = JSON.parse(functionCall.arguments)
       }
 
-      await entryPointFunction.implementation(...parsedFunctionCallArguments)
+      const paramsInCorrectOrder: any[] = []
+      for (let arg of entryPointFunction.argumentAnnotations) {
+        paramsInCorrectOrder.push(
+          parsedFunctionCallArguments[
+            arg.name as keyof typeof parsedFunctionCallArguments
+          ]
+        )
+      }
+
+      await entryPointFunction.implementation(...paramsInCorrectOrder)
 
       // commented out becasue for now we don't want to return anything
       // const result = await entryPointFunction.implementation(
@@ -150,11 +160,22 @@ function annotatedFunctionToChatCompletionFunction(
     parameters[arg.name] = { type: arg.type, description: arg.description }
   }
 
+  let requiredParameterNames: string[] = []
+  for (let arg of annotatedFunction.argumentAnnotations) {
+    if (arg.required) {
+      requiredParameterNames.push(arg.name)
+    }
+  }
+
   // Create the ChatCompletionFunctions object
   let chatCompletionFunction: ChatCompletionFunctions = {
     name: annotatedFunction.name,
     description: annotatedFunction.description,
-    parameters: parameters
+    parameters: {
+      type: 'object',
+      properties: parameters,
+      required: requiredParameterNames
+    }
   }
 
   return chatCompletionFunction

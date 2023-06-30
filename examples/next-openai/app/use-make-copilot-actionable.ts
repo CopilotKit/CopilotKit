@@ -11,8 +11,9 @@ export function useMakeCopilotActionable<ActionInput extends any[]>(
   const idRef = useRef(generateRandomString(10)) // generate a unique id
   const { setEntryPoint, removeEntryPoint } = useContext(CopilotContext)
 
-  const memoizedAnnotatedFunction = useMemo(
+  const memoizedAnnotatedFunction: AnnotatedFunction<ActionInput> = useMemo(
     () => ({
+      name: annotatedFunction.name,
       description: annotatedFunction.description,
       argumentAnnotations: annotatedFunction.argumentAnnotations,
       implementation: annotatedFunction.implementation

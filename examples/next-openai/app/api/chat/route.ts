@@ -12,7 +12,7 @@ const openai = new OpenAIApi(config)
 export const runtime = 'edge'
 
 export async function POST(req: Request) {
-  const { messages, function_call } = await req.json()
+  const { messages, function_call, functions } = await req.json()
 
   // Ask OpenAI for a streaming chat completion given the prompt
   const response = await openai.createChatCompletion({
@@ -22,7 +22,8 @@ export async function POST(req: Request) {
       content: message.content,
       role: message.role
     })),
-    functions
+    functions,
+    function_call
   })
 
   // Convert the response into a friendly text-stream

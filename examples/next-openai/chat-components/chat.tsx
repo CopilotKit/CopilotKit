@@ -29,7 +29,11 @@ export function Chat({
   makeSystemMessage,
   EmptyScreen = DefaultEmptyScreen
 }: ChatProps & ChatComponentInjectionsProps) {
-  const { getContextString } = useContext(CopilotContext)
+  const {
+    getContextString,
+    getChatCompletionFunctions,
+    getFunctionCallHandler
+  } = useContext(CopilotContext)
 
   const contextString = getContextString()
   const usedMakeSystemMessage = makeSystemMessage || defaultSystemMessage
@@ -46,13 +50,23 @@ export function Chat({
     initialMessages || []
   )
 
+  const functions = useMemo(() => {
+    return getChatCompletionFunctions()
+  }, [getChatCompletionFunctions])
+
+  useEffect(() => {
+    console.log('client functions', functions)
+  }, [functions])
+
   const { messages, append, reload, stop, isLoading, input, setInput } =
     useChat({
       initialMessages: initialMessagesWithContext,
+      experimental_onFunctionCall: getFunctionCallHandler(),
       id,
       body: {
         id,
-        previewToken
+        previewToken,
+        functions
       },
       onResponse(response) {
         if (response.status === 401) {
