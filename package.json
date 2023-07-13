@@ -1,54 +1,23 @@
 {
-  "private": true,
+  "private": false,
   "scripts": {
     "build": "turbo build",
-    "changeset": "changeset",
-    "clean": "turbo clean",
-    "dev": "turbo dev --no-cache --continue",
+    "dev": "turbo dev",
     "lint": "turbo lint",
-    "prepare": "husky install",
-    "prettier-check": "prettier --check \"**/*.{js,ts,tsx,md,mdx}\"",
-    "type-check": "turbo type-check",
-    "prettier-fix": "prettier --write \"**/*.{js,ts,tsx,md,mdx}\"",
-    "publint": "turbo publint",
-    "release": "turbo clean && turbo build --filter=ai... && changeset publish",
-    "test": "turbo test --filter=ai...",
-    "version-packages": "changeset version"
-  },
-  "lint-staged": {
-    "*": [
-      "prettier --ignore-unknown --write"
-    ]
+    "clean": "turbo clean",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "publish-packages": "turbo run build lint && changeset version && changeset publish",
+    "freshbuild": "pnpm clean && pnpm install && pnpm build"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.22.0",
     "eslint": "^7.32.0",
-    "eslint-config-recursivelyai-copilotkit": "workspace:*",
-    "husky": "^8.0.0",
-    "jest": "29.2.1",
-    "lint-staged": "^13.2.2",
-    "prettier": "2.8.8",
-    "publint": "0.1.11",
-    "ts-jest": "29.0.3",
-    "turbo": "^1.10.0"
+    "eslint-config-custom": "workspace:*",
+    "prettier": "^2.7.1",
+    "prettier-plugin-tailwindcss": "^0.1.11",
+    "turbo": "latest"
   },
-  "homepage": "https://github.com/RecursivelyAI/CopilotKit#readme",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/RecursivelyAI/CopilotKit.git"
-  },
-  "license": "Apache License",
-  "bugs": {
-    "url": "https://github.com/RecursivelyAI/CopilotKit/issues"
-  },
-  "keywords": ["CopilotKit", "copilot"],
-  "packageManager": "pnpm@8.6.2",
-  "prettier": {
-    "tabWidth": 2,
-    "semi": false,
-    "useTabs": false,
-    "singleQuote": true,
-    "arrowParens": "avoid",
-    "trailingComma": "none"
+  "packageManager": "pnpm@7.15.0",
+  "dependencies": {
+    "@changesets/cli": "^2.26.2"
   }
 }
