@@ -10,9 +10,10 @@ Add a powerful & customizable copilot to any app, in an afternoon.
 pnpm install @copilotkit/react-core @copilotkit/react-ui
 ```
 
-## Example
+## Examples
 
-You can Bring Your Own UI, but it's easy to get started with one of the built-in UIs:
+
+### Integrate copilot with 2 lines of code
 
 ```typescript
 import { CopilotProvider } from "@copilotkit/react-core";
@@ -27,9 +28,11 @@ export default function App(): JSX.Element {
     </CopilotProvider>
   );
 }
+```
 
-// ...
+### Let the copilot interact with you app (read + write)
 
+```typescript
 function DepartmentComponent(props: DepartmentComponentProps): JSX.Element {
   const { departmentData, employees } = props;
 
