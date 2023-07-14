@@ -1,4 +1,6 @@
-<img src="./assets/banner.png" width="300">
+<div align="center">
+  <img src="./assets/banner.png" width="300">
+</div>
 
 # CopilotKit
 
@@ -30,7 +32,7 @@ export default function App(): JSX.Element {
 }
 ```
 
-### Let the copilot interact with you app (read + write)
+### Let the copilot read the current state of your app
 
 ```typescript
 function DepartmentComponent(props: DepartmentComponentProps): JSX.Element {
@@ -38,19 +40,6 @@ function DepartmentComponent(props: DepartmentComponentProps): JSX.Element {
 
   // Give the copilot information about this department. Keep the pointer, to easily associate employees w departments.
   const departmentCopilotPointer = useMakeCopilotReadable(departmentData.description());
-
-  // Give the copilot an entrypoint to take action on behalf of the user.
-  useMakeCopilotActionable(
-    {
-      name: "setEmployeesAsSelected",
-      description: "Set the given employees as 'selected'",
-      argumentAnnotations: [
-        {name: "employeeIds", type: "array", description: "The IDs of employees to set as selected", required: true}
-      ],
-      implementation: async (employeeIds) => setEmployeesAsSelected(employeeIds),
-    },
-    []
-  );
 
   return ( // Render as usual.
     <>
@@ -79,6 +68,29 @@ function EmployeeComponent(props: EmployeeComponentProps): JSX.Element {
   );
 }
 ```
+
+### Let the copilot interact with your app
+
+```typescript
+function DepartmentComponent(props: DepartmentComponentProps): JSX.Element {
+  // Give the copilot an entrypoint to take action on behalf of the user.
+  useMakeCopilotActionable(
+    {
+      name: "setEmployeesAsSelected",
+      description: "Set the given employees as 'selected'",
+      argumentAnnotations: [
+        {name: "employeeIds", type: "array", description: "The IDs of employees to set as selected", required: true}
+      ],
+      implementation: async (employeeIds) => setEmployeesAsSelected(employeeIds),
+    },
+    []
+  );
+
+  // ... same as before
+}
+```
+
+
 
 ## Key entrypoints:
 
