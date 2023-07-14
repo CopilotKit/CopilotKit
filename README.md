@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./assets/banner.png" width="300">
+  <img src="./assets/banner.png" width="300" style="border-radius: 10px;">
 </div>
 
 # CopilotKit
