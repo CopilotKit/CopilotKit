@@ -15,28 +15,85 @@ pnpm install @copilotkit/react-core @copilotkit/react-ui
 You can Bring Your Own UI, but it's easy to get started with one of the built-in UIs:
 
 ```typescript
-import { Copilot } from "copilotkit";
+import { CopilotProvider } from "@copilotkit/react-core";
+import { CopilotSidebarUIProvider } from "@copilotkit/react-ui";
 
-// Create a new AI-powered copilot instance
-const myCopilot = new Copilot();
+export default function App(): JSX.Element {
+  return (
+    <CopilotProvider> {/* Global state & business logic. Put this around the entire app */}
+      <CopilotSidebarUIProvider> {/* A built-in Copilot UI (or bring your own UI). Put this around the entire app, or around individual pages. */}
+        <YourContent />
+      </CopilotSidebarUIProvider>
+    </CopilotProvider>
+  );
+}
 
-// Use your copilot in your application
-myCopilot.interact("Hello World");
+// ...
+
+function DepartmentComponent(props: DepartmentComponentProps): JSX.Element {
+  const { departmentData, employees } = props;
+
+  // Give the copilot information about this department. Keep the pointer, to easily associate employees w departments.
+  const departmentCopilotPointer = useMakeCopilotReadable(departmentData.description());
+
+  // Give the copilot an entrypoint to take action on behalf of the user.
+  useMakeCopilotActionable(
+    {
+      name: "setEmployeesAsSelected",
+      description: "Set the given employees as 'selected'",
+      argumentAnnotations: [
+        {name: "employeeIds", type: "array", description: "The IDs of employees to set as selected", required: true}
+      ],
+      implementation: async (employeeIds) => setEmployeesAsSelected(employeeIds),
+    },
+    []
+  );
+
+  return ( // Render as usual.
+    <>
+      <h1>{props.departmentData.departmentName}</h1>
+
+      <h2>Employees:</h2>
+
+      {employees.map((employeeData) => (
+        <EmployeeComponent
+          employeeData={employeeData}
+          departmentCopilotPointer={departmentCopilotPointer} // pass the copilot pointer
+        />
+      ))}
+    </>
+  );
+}
+
+function EmployeeComponent(props: EmployeeComponentProps): JSX.Element {
+  const { employeeData, departmentCopilotPointer } = props;
+
+  // Give the copilot information about this employee.
+  useMakeCopilotReadable(employeeData.description(), departmentCopilotPointer);
+
+  return ( // Render as usual.
+    <h2>{employeeData.employeeName}</h2>
+  );
+}
 ```
-
-> Note: Please refer to our [API Documentation](link-to-your-api-documentation) for more detailed information.
 
 ## Key entrypoints:
 
-- `useMakeCopilotReadable`: give static information to the copilot, in sync with on-screen state
-- `useMakeCopilotActionable`: allow the copilot to control the state of the application
+- Implemented
+  - `useMakeCopilotReadable`: give static information to the copilot, in sync with on-screen state
+  - `useMakeCopilotActionable`: allow the copilot to control the state of the application
+
+- Coming soon
+  - `useMakeCopilotAskable`: let the copilot ask for additional information when needed
+  - `useSetCopilotMessage`: edit the (unsent) typed user message to the copilot
+
 
 ## Demo
 
-The following GIF showcases CopilotKit in action.
+CopilotKit in action.
 
-![Demo Gif](path-to-your-demo-gif)
+![Demo Gif](./assets/demo.gif)
 
 ## Contribute
 
-Your contributions are always welcome! Please have a look at the [contribution guidelines](link-to-your-contribution-guidelines) first. 🎉
+Contributions are welcome! 🎉
