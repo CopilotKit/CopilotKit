@@ -15,7 +15,7 @@ pnpm install @copilotkit/react-core @copilotkit/react-ui
 ## Examples
 
 
-### Integrate copilot with 2 lines of code
+### Integrate copilot (2 lines of code)
 
 ```typescript
 import { CopilotProvider } from "@copilotkit/react-core";
@@ -35,7 +35,9 @@ export default function App(): JSX.Element {
 ### Let the copilot read the current state of your app
 
 ```typescript
-function DepartmentComponent(props: DepartmentComponentProps): JSX.Element {
+import { useMakeCopilotReadable } from "@copilotkit/react-core";
+
+function Department(props: DepartmentProps): JSX.Element {
   const { departmentData, employees } = props;
 
   // Give the copilot information about this department. Keep the pointer, to easily associate employees w departments.
@@ -48,7 +50,7 @@ function DepartmentComponent(props: DepartmentComponentProps): JSX.Element {
       <h2>Employees:</h2>
 
       {employees.map((employeeData) => (
-        <EmployeeComponent
+        <Employee
           employeeData={employeeData}
           departmentCopilotPointer={departmentCopilotPointer} // pass the copilot pointer
         />
@@ -57,7 +59,7 @@ function DepartmentComponent(props: DepartmentComponentProps): JSX.Element {
   );
 }
 
-function EmployeeComponent(props: EmployeeComponentProps): JSX.Element {
+function Employee(props: EmployeeProps): JSX.Element {
   const { employeeData, departmentCopilotPointer } = props;
 
   // Give the copilot information about this employee.
@@ -72,6 +74,8 @@ function EmployeeComponent(props: EmployeeComponentProps): JSX.Element {
 ### Let the copilot interact with your app
 
 ```typescript
+import { useMakeCopilotActionable } from "@copilotkit/react-core";
+
 function DepartmentComponent(props: DepartmentComponentProps): JSX.Element {
   // Give the copilot an entrypoint to take action on behalf of the user.
   useMakeCopilotActionable(
