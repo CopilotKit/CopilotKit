@@ -11,7 +11,6 @@ export const runtime = "edge";
 export async function POST(req: Request) {
   const { messages, function_call, functions } = await req.json();
 
-  // Ask OpenAI for a streaming chat completion given the prompt
   const response = await openai.createChatCompletion({
     model: "gpt-4",
     stream: true,
@@ -23,8 +22,6 @@ export async function POST(req: Request) {
     function_call,
   });
 
-  // Convert the response into a friendly text-stream
   const stream = OpenAIStream(response);
-  // Respond with the stream
   return new StreamingTextResponse(stream);
 }
