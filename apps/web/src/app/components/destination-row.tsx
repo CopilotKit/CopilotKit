@@ -1,5 +1,6 @@
 import React from "react";
 import { Destination } from "./vacation-list";
+import { useMakeCopilotReadable } from "@copilotkit/react-core";
 
 export type DestinationRowProps = {
   destination: Destination;
@@ -12,7 +13,10 @@ export function DestinationRow({
   destination,
   isChecked,
   onCheckChange,
+  parentCopilotPointer,
 }: DestinationRowProps) {
+  useMakeCopilotReadable(JSON.stringify(destination), parentCopilotPointer);
+
   return (
     <tr key={destination.name}>
       <td className="whitespace-nowrap py-5 pl-4 px-3 text-sm sm:pl-0">

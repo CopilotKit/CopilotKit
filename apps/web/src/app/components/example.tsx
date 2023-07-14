@@ -78,6 +78,7 @@ function DepartmentComponent(props: DepartmentComponentProps): JSX.Element {
       <h2>Employees:</h2>
       {employees.map((employeeData) => (
         <EmployeeComponent
+          key={employeeData.employeeName}
           employeeData={employeeData}
           departmentCopilotPointer={departmentCopilotPointer} // pass the copilot pointer
         />

@@ -16,7 +16,7 @@ export function VacationList() {
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
           <h1 className="text-3xl font-semibold leading-6 text-gray-900">
-            WaterBnB
+            WaterBnB (Toy Example)
           </h1>
         </div>
       </div>
@@ -123,15 +123,6 @@ const newDestinations: Destination[] = [
       "A huge seaside city in Brazil, known for its Copacabana and Ipanema beaches, and the Christ the Redeemer statue.",
     activities:
       "Visit Sugarloaf Mountain, the Christ the Redeemer statue, Ipanema Beach, etc.",
-  },
-  {
-    name: "Athens",
-    country: "Greece",
-    image:
-      "https://images.unsplash.com/photo-1517839096890-d3919738b6a3?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80",
-    description:
-      "The capital and largest city of Greece, known for its archaeological ruins and monuments.",
-    activities: "Visit Acropolis, Parthenon, Ancient Agora, etc.",
   },
   {
     name: "Istanbul",
