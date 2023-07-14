@@ -104,26 +104,30 @@ CopilotKit in action.
 
 ![Demo Gif](./assets/demo.gif)
 
+## Near-Term Roadmap
 
-## Roadmap
+### Copilot-App Interaction
 
-### Hooks
 - ✅ `useMakeCopilotReadable`: give static information to the copilot, in sync with on-screen state
 - ✅ `useMakeCopilotActionable`: Let the copilot take action on behalf of the user
 - 🚧 `useMakeCopilotAskable`: let the copilot ask for additional information when needed (coming soon)
 - 🚧 `useSetCopilotMessage`: edit the (unsent) typed user message to the copilot (coming soon)
+- 🚧 copilot-assisted navigation: go to the best page to achieve some objective.
 
 ### UI components
+
 - ✅ `<CopilotSidebarUIProvider>`: Built in, hackable Copilot UI (optional - you can bring your own UI).
 - 🚧 `<AutocompleteTextArea {...} />`: a GitHubCopilot-style intelligent autocomplete text area (coming soon).
 
 ### Integrations
+
 - ✅ Vercel AI SDK
 - ✅ OpenAI APIs
 - 🚧 Langchain
 - 🚧 Additional LLM providers
 
 ### Frameworks
+
 - ✅ React
 - 🚧 Vue
 - 🚧 Svelte
