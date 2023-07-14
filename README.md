@@ -1,10 +1,10 @@
 <div align="center">
-  <img src="./assets/banner.png" width="300" style="border-radius: 10px;">
+  <img src="./assets/banner.png" width="200">
 </div>
 
 # CopilotKit
 
-Add a powerful & customizable copilot to any app, in an afternoon.
+Add a powerful & hackable copilot to any app, in an afternoon.
 
 ## Installation
 
@@ -15,7 +15,7 @@ pnpm install @copilotkit/react-core @copilotkit/react-ui
 ## Examples
 
 
-### Integrate copilot (2 lines of code)
+### Integrate copilot
 
 ```typescript
 import { CopilotProvider } from "@copilotkit/react-core";
@@ -24,7 +24,7 @@ import { CopilotSidebarUIProvider } from "@copilotkit/react-ui";
 export default function App(): JSX.Element {
   return (
     <CopilotProvider> {/* Global state & business logic. Put this around the entire app */}
-      <CopilotSidebarUIProvider> {/* A built-in Copilot UI (or bring your own UI). Put this around the entire app, or around individual pages. */}
+      <CopilotSidebarUIProvider> {/* A built-in Copilot UI (or bring your own UI). Put around individual pages, or the entire app. */}
         <YourContent />
       </CopilotSidebarUIProvider>
     </CopilotProvider>
@@ -32,7 +32,7 @@ export default function App(): JSX.Element {
 }
 ```
 
-### Let the copilot read the current state of your app
+### Give the copilot read permissions
 
 ```typescript
 import { useMakeCopilotReadable } from "@copilotkit/react-core";
@@ -40,19 +40,17 @@ import { useMakeCopilotReadable } from "@copilotkit/react-core";
 function Department(props: DepartmentProps): JSX.Element {
   const { departmentData, employees } = props;
 
-  // Give the copilot information about this department. Keep the pointer, to easily associate employees w departments.
+  // Give the copilot information about this department. Keep the pointer, to associate employees w departments.
   const departmentCopilotPointer = useMakeCopilotReadable(departmentData.description());
 
   return ( // Render as usual.
     <>
-      <h1>{props.departmentData.departmentName}</h1>
-
-      <h2>Employees:</h2>
-
+      {/* ... */}
+      
       {employees.map((employeeData) => (
         <Employee
           employeeData={employeeData}
-          departmentCopilotPointer={departmentCopilotPointer} // pass the copilot pointer
+          copilotParentPointer={departmentCopilotPointer} // pass the copilot pointer
         />
       ))}
     </>
@@ -60,24 +58,28 @@ function Department(props: DepartmentProps): JSX.Element {
 }
 
 function Employee(props: EmployeeProps): JSX.Element {
-  const { employeeData, departmentCopilotPointer } = props;
+  const { employeeData, copilotParentPointer } = props;
 
-  // Give the copilot information about this employee.
-  useMakeCopilotReadable(employeeData.description(), departmentCopilotPointer);
+  // Give the copilot information about this employee, and associate it with its parent department.
+  useMakeCopilotReadable(employeeData.description(), copilotParentPointer);
 
   return ( // Render as usual.
-    <h2>{employeeData.employeeName}</h2>
+    <>
+      {/* ... */}
+    </>
   );
 }
 ```
 
-### Let the copilot interact with your app
+### Give the copilot write permissions
 
 ```typescript
 import { useMakeCopilotActionable } from "@copilotkit/react-core";
 
-function DepartmentComponent(props: DepartmentComponentProps): JSX.Element {
-  // Give the copilot an entrypoint to take action on behalf of the user.
+function Department(props: DepartmentProps): JSX.Element {
+  // ...
+
+  // Let the copilot take action on behalf of the user.
   useMakeCopilotActionable(
     {
       name: "setEmployeesAsSelected",
@@ -96,22 +98,36 @@ function DepartmentComponent(props: DepartmentComponentProps): JSX.Element {
 
 
 
-## Key entrypoints:
-
-- Implemented
-  - `useMakeCopilotReadable`: give static information to the copilot, in sync with on-screen state
-  - `useMakeCopilotActionable`: allow the copilot to control the state of the application
-
-- Coming soon
-  - `useMakeCopilotAskable`: let the copilot ask for additional information when needed
-  - `useSetCopilotMessage`: edit the (unsent) typed user message to the copilot
-
-
 ## Demo
 
 CopilotKit in action.
 
 ![Demo Gif](./assets/demo.gif)
+
+
+## Roadmap
+
+### Hooks
+- ✅ `useMakeCopilotReadable`: give static information to the copilot, in sync with on-screen state
+- ✅ `useMakeCopilotActionable`: Let the copilot take action on behalf of the user
+- 🚧 `useMakeCopilotAskable`: let the copilot ask for additional information when needed (coming soon)
+- 🚧 `useSetCopilotMessage`: edit the (unsent) typed user message to the copilot (coming soon)
+
+### UI components
+- ✅ `<CopilotSidebarUIProvider>`: Built in, hackable Copilot UI (optional - you can bring your own UI).
+- 🚧 `<AutocompleteTextArea {...} />`: a GitHubCopilot-style intelligent autocomplete text area (coming soon).
+
+### Integrations
+- ✅ Vercel AI SDK
+- ✅ OpenAI APIs
+- 🚧 Langchain
+- 🚧 Additional LLM providers
+
+### Frameworks
+- ✅ React
+- 🚧 Vue
+- 🚧 Svelte
+- 🚧 Swift (Mac + iOS)
 
 ## Contribute
 
