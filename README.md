@@ -1,8 +1,10 @@
-![CopilotKit Banner](./assets/banner.png)
+<div align="center">
+  <img src="./assets/banner.png" width="200">
+</div>
 
 # CopilotKit
 
-Add a powerful & customizable copilot to any app, in an afternoon.
+Add a powerful & hackable copilot to any app, in an afternoon.
 
 ## Installation
 
@@ -10,33 +12,123 @@ Add a powerful & customizable copilot to any app, in an afternoon.
 pnpm install @copilotkit/react-core @copilotkit/react-ui
 ```
 
-## Example
+## Examples
 
-You can Bring Your Own UI, but it's easy to get started with one of the built-in UIs:
+
+### Integrate copilot
 
 ```typescript
-import { Copilot } from "copilotkit";
+import { CopilotProvider } from "@copilotkit/react-core";
+import { CopilotSidebarUIProvider } from "@copilotkit/react-ui";
 
-// Create a new AI-powered copilot instance
-const myCopilot = new Copilot();
-
-// Use your copilot in your application
-myCopilot.interact("Hello World");
+export default function App(): JSX.Element {
+  return (
+    <CopilotProvider> {/* Global state & business logic. Put this around the entire app */}
+      <CopilotSidebarUIProvider> {/* A built-in Copilot UI (or bring your own UI). Put around individual pages, or the entire app. */}
+        <YourContent />
+      </CopilotSidebarUIProvider>
+    </CopilotProvider>
+  );
+}
 ```
 
-> Note: Please refer to our [API Documentation](link-to-your-api-documentation) for more detailed information.
+### Give the copilot read permissions
 
-## Key entrypoints:
+```typescript
+import { useMakeCopilotReadable } from "@copilotkit/react-core";
 
-- `useMakeCopilotReadable`: give static information to the copilot, in sync with on-screen state
-- `useMakeCopilotActionable`: allow the copilot to control the state of the application
+function Department(props: DepartmentProps): JSX.Element {
+  const { departmentData, employees } = props;
+
+  // Give the copilot information about this department. Keep the pointer, to associate employees w departments.
+  const departmentCopilotPointer = useMakeCopilotReadable(departmentData.description());
+
+  return ( // Render as usual.
+    <>
+      {/* ... */}
+      
+      {employees.map((employeeData) => (
+        <Employee
+          employeeData={employeeData}
+          copilotParentPointer={departmentCopilotPointer} // pass the copilot pointer
+        />
+      ))}
+    </>
+  );
+}
+
+function Employee(props: EmployeeProps): JSX.Element {
+  const { employeeData, copilotParentPointer } = props;
+
+  // Give the copilot information about this employee, and associate it with its parent department.
+  useMakeCopilotReadable(employeeData.description(), copilotParentPointer);
+
+  return ( // Render as usual.
+    <>
+      {/* ... */}
+    </>
+  );
+}
+```
+
+### Give the copilot write permissions
+
+```typescript
+import { useMakeCopilotActionable } from "@copilotkit/react-core";
+
+function Department(props: DepartmentProps): JSX.Element {
+  // ...
+
+  // Let the copilot take action on behalf of the user.
+  useMakeCopilotActionable(
+    {
+      name: "setEmployeesAsSelected",
+      description: "Set the given employees as 'selected'",
+      argumentAnnotations: [
+        {name: "employeeIds", type: "array", description: "The IDs of employees to set as selected", required: true}
+      ],
+      implementation: async (employeeIds) => setEmployeesAsSelected(employeeIds),
+    },
+    []
+  );
+
+  // ... same as before
+}
+```
+
+
 
 ## Demo
 
-The following GIF showcases CopilotKit in action.
+CopilotKit in action.
 
-![Demo Gif](path-to-your-demo-gif)
+![Demo Gif](./assets/demo.gif)
+
+
+## Roadmap
+
+### Hooks
+- ✅ `useMakeCopilotReadable`: give static information to the copilot, in sync with on-screen state
+- ✅ `useMakeCopilotActionable`: Let the copilot take action on behalf of the user
+- 🚧 `useMakeCopilotAskable`: let the copilot ask for additional information when needed (coming soon)
+- 🚧 `useSetCopilotMessage`: edit the (unsent) typed user message to the copilot (coming soon)
+
+### UI components
+- ✅ `<CopilotSidebarUIProvider>`: Built in, hackable Copilot UI (optional - you can bring your own UI).
+- 🚧 `<AutocompleteTextArea {...} />`: a GitHubCopilot-style intelligent autocomplete text area (coming soon).
+
+### Integrations
+- ✅ Vercel AI SDK
+- ✅ OpenAI APIs
+- 🚧 Langchain
+- 🚧 Additional LLM providers
+
+### Frameworks
+- ✅ React
+- 🚧 Vue
+- 🚧 Svelte
+- 🚧 Swift (Mac + iOS)
 
 ## Contribute
 
-Your contributions are always welcome! Please have a look at the [contribution guidelines](link-to-your-contribution-guidelines) first. 🎉
+Contributions are welcome! 🎉
