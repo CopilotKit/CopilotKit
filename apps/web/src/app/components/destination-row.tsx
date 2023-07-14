@@ -1,13 +1,18 @@
 import React from "react";
 import { Destination } from "./vacation-list";
 
-export function DestinationRow({ destination }: { destination: Destination }) {
-  const [isChecked, setIsChecked] = React.useState(false);
+export type DestinationRowProps = {
+  destination: Destination;
+  isChecked: boolean;
+  onCheckChange: (isChecked: boolean) => void;
+  parentCopilotPointer?: string;
+};
 
-  const toggleCheck = () => {
-    setIsChecked(!isChecked);
-  };
-
+export function DestinationRow({
+  destination,
+  isChecked,
+  onCheckChange,
+}: DestinationRowProps) {
   return (
     <tr key={destination.name}>
       <td className="whitespace-nowrap py-5 pl-4 px-3 text-sm sm:pl-0">
@@ -26,7 +31,11 @@ export function DestinationRow({ destination }: { destination: Destination }) {
         </div>
       </td>
       <td className="whitespace-nowrap py-5 pl-4 pr-3 text-sm sm:pl-0 flex justify-center">
-        <input type="checkbox" checked={isChecked} onChange={toggleCheck} />
+        <input
+          type="checkbox"
+          checked={isChecked}
+          onChange={(event) => onCheckChange(event.target.checked)}
+        />
       </td>
       <td className="whitespace-nowrap px-3 py-5 text-sm text-gray-500">
         <div className="text-gray-900">{destination.description}</div>

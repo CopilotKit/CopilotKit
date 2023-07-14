@@ -1,22 +1,15 @@
 import React from "react";
 import { DestinationRow } from "./destination-row";
 import { Destination } from "./vacation-list";
+import { useMakeCopilotReadable } from "@copilotkit/react-core";
 
 export type DestinationTableProps = {
   destinations: Destination[];
   heading: string;
 };
 
-export function DestinationTable({
-  destinations,
-  heading,
-}: DestinationTableProps) {
-  return (
-    <div>
-      <h2 className="text-lg font-semibold leading-6 text-gray-900 mb-4 p-2">
-        {heading}
-      </h2>
-      <table className="min-w-full divide-y divide-gray-300">
+function Thead() {
+    return (
         <thead>
           <tr>
             <th
@@ -45,12 +38,38 @@ export function DestinationTable({
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-200 bg-white">
-          {destinations.map((destination) => (
-            <DestinationRow destination={destination} />
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+        );
+        
 }
+
+export function DestinationTable({
+    destinations,
+    heading,
+  }: DestinationTableProps) {
+    const [checkedRows, setCheckedRows] = React.useState<Record<string, boolean>>({});
+  
+    const handleCheckChange = (destinationName: string, isChecked: boolean) => {
+      setCheckedRows(prevState => ({ ...prevState, [destinationName]: isChecked }));
+    };
+  
+    return (
+      <div>
+        <h2 className="text-lg font-semibold leading-6 text-gray-900 mb-4 p-2">
+          {heading}
+        </h2>
+        <table className="min-w-full divide-y divide-gray-300">
+        <Thead />
+          <tbody className="divide-y divide-gray-200 bg-white">
+            {destinations.map((destination) => (
+              <DestinationRow
+                destination={destination}
+                isChecked={!!checkedRows[destination.name]}
+                onCheckChange={isChecked => handleCheckChange(destination.name, isChecked)}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+  
