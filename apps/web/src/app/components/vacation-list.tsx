@@ -15,28 +15,28 @@ export function VacationList() {
     <div className="px-4 sm:px-6 lg:px-8 bg-slate-50 py-4">
       <div className="sm:flex sm:items-center">
         <div className="sm:flex-auto">
-          <h1 className="text-xl font-semibold leading-6 text-gray-900">
-            WaterBnb
+          <h1 className="text-3xl font-semibold leading-6 text-gray-900">
+            WaterBnB
           </h1>
         </div>
       </div>
       <div className="mt-8 flow-root bg-slate-200">
-        <h2 className="text-lg font-semibold leading-6 text-gray-900 mb-4 p-2">
-          Visited Destinations
-        </h2>
         <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
           <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-            <DestinationTable destinations={visitedDestinations} />
+            <DestinationTable
+              destinations={visitedDestinations}
+              heading="Visited Destinations"
+            />
           </div>
         </div>
       </div>
       <div className="mt-8 flow-root bg-slate-200">
-        <h2 className="text-lg font-semibold leading-6 text-gray-900 mb-4 p-2">
-          New Destinations
-        </h2>
         <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
           <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-            <DestinationTable destinations={newDestinations} />
+            <DestinationTable
+              destinations={newDestinations}
+              heading="New Destinations"
+            />
           </div>
         </div>
       </div>
