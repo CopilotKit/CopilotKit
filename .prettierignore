@@ -1,1 +1,5 @@
 README.md
+.next
+.nuxt
+node_modules
+dist
