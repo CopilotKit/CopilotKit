@@ -60,14 +60,19 @@ export function DestinationTable({
     }));
   };
 
+  const headingCamelCase = toCamelCase(heading);
+
   useMakeCopilotActionable(
     {
-      name: `setSelectedDestinations_${heading}`,
+      name: `setSelectedDestinations_${headingCamelCase}`,
       description: `Set the given destinations as 'selected', on the ${heading} table`,
       argumentAnnotations: [
         {
           name: "destinationNames",
           type: "array",
+          items: {
+            type: "string",
+          },
           description: "The names of the destinations to select",
           required: true,
         },
@@ -108,4 +113,12 @@ export function DestinationTable({
       </table>
     </div>
   );
+}
+
+function toCamelCase(str: string): string {
+  return str
+    .replace(/[-_ ](.)/g, (match, group1) => {
+      return group1.toUpperCase();
+    })
+    .replace(/^(.)/, (match, group1) => group1.toLowerCase());
 }

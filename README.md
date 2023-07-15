@@ -85,7 +85,12 @@ function Department(props: DepartmentProps): JSX.Element {
       name: "setEmployeesAsSelected",
       description: "Set the given employees as 'selected'",
       argumentAnnotations: [
-        {name: "employeeIds", type: "array", description: "The IDs of employees to set as selected", required: true}
+        {
+          name: "employeeIds",
+          type: "array", items: { type: "string" }
+          description: "The IDs of employees to set as selected",
+          required: true
+        }
       ],
       implementation: async (employeeIds) => setEmployeesAsSelected(employeeIds),
     },

@@ -60,6 +60,9 @@ function DepartmentComponent(props: DepartmentComponentProps): JSX.Element {
         {
           name: "employeeIds",
           type: "array",
+          items: {
+            type: "string",
+          },
           description: "The IDs of employees to set as selected",
           required: true,
         },

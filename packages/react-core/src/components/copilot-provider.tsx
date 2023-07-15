@@ -145,7 +145,9 @@ function annotatedFunctionToChatCompletionFunction(
   // Create the parameters object based on the argumentAnnotations
   let parameters: { [key: string]: any } = {};
   for (let arg of annotatedFunction.argumentAnnotations) {
-    parameters[arg.name] = { type: arg.type, description: arg.description };
+    // isolate the args we should forward inline
+    let { name, required, ...forwardedArgs } = arg;
+    parameters[arg.name] = forwardedArgs;
   }
 
   let requiredParameterNames: string[] = [];
