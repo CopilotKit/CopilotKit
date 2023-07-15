@@ -6,6 +6,7 @@
     "lib": ["ES2017", "DOM"],
     "module": "ESNext",
     "target": "ES6",
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "sourceMap": true
   }
 }
