@@ -74,7 +74,7 @@ importers:
         specifier: ^4.9.4
         version: 4.9.4
 
-  examples/web:
+  examples/next-openai:
     dependencies:
       '@copilotkit/react-core':
         specifier: workspace:*

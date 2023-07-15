@@ -1,5 +1,5 @@
 {
-  "name": "web",
+  "name": "next-openai",
   "version": "1.1.0",
   "private": true,
   "scripts": {
