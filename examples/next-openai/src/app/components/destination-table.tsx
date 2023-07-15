@@ -60,11 +60,9 @@ export function DestinationTable({
     }));
   };
 
-  const headingCamelCase = toCamelCase(heading);
-
   useMakeCopilotActionable(
     {
-      name: `setSelectedDestinations_${headingCamelCase}`,
+      name: `setSelectedDestinations_${toCamelCase(heading)}`,
       description: `Set the given destinations as 'selected', on the ${heading} table`,
       argumentAnnotations: [
         {

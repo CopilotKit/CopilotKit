@@ -15,7 +15,12 @@ export function DestinationRow({
   onCheckChange,
   parentCopilotPointer,
 }: DestinationRowProps) {
-  useMakeCopilotReadable(JSON.stringify(destination), parentCopilotPointer);
+  const { image, ...destinationParamsToForwardToCopilot } = destination; // we don't want to forward the image, it uselessly clogs the copilot prompt.
+  destinationParamsToForwardToCopilot["isSelected"] = isChecked; // let's also let the copilot know if this destination is selected or not.
+  useMakeCopilotReadable(
+    JSON.stringify(destinationParamsToForwardToCopilot),
+    parentCopilotPointer
+  );
 
   return (
     <tr key={destination.name}>
