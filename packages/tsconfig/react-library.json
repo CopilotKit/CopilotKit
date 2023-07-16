@@ -7,6 +7,7 @@
     "module": "ESNext",
     "target": "ES6",
     "jsx": "react-jsx",
-    "sourceMap": true
+    "sourceMap": true,
+    "declarationDir": "./dist"
   }
 }
