@@ -10,10 +10,11 @@
                 "run",
                 "dev"
             ],
+            "cwd": "${workspaceFolder}/examples/next-openai",
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
             "resolveSourceMapLocations": [
-                "${workspaceFolder}/examples/next-openai/**",
+                "${workspaceFolder}/**",
                 "!**/node_modules/**"
             ],
             "sourceMaps": true
