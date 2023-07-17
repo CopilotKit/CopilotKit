@@ -42,6 +42,24 @@ const removeNode = (nodes: Tree, id: TreeNodeId): Tree => {
   }, []);
 };
 
+const addNode = (
+  nodes: Tree,
+  newNode: TreeNode,
+  parentId?: TreeNodeId
+): Tree => {
+  if (!parentId) {
+    return [...nodes, newNode];
+  }
+  return nodes.map((node) => {
+    if (node.id === parentId) {
+      return { ...node, children: [...node.children, newNode] };
+    } else if (node.children.length) {
+      return { ...node, children: addNode(node.children, newNode, parentId) };
+    }
+    return node;
+  });
+};
+
 const treeIndentationRepresentation = (
   index: number,
   indentLevel: number
@@ -103,19 +121,12 @@ function treeReducer(state: Tree, action: Action): Tree {
         children: [],
       };
 
-      if (parentId) {
-        const parent = findNode(state, parentId);
-        if (parent) {
-          newNode.parentId = parentId;
-          parent.children.push(newNode);
-        } else {
-          throw new Error(`Parent with id ${parentId} not found`);
-        }
-      } else {
-        return [...state, newNode];
+      try {
+        return addNode(state, newNode, parentId);
+      } catch (error) {
+        console.error(`Error while adding node with id ${newNodeId}: ${error}`);
+        return state;
       }
-
-      return state;
     }
     case "REMOVE_NODE":
       return removeNode(state, action.id);
