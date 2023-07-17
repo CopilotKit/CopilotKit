@@ -6,14 +6,14 @@
   },
   "version": "0.3.0",
   "sideEffects": false,
-  "main": "./dist/index.mjs",
+  "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "exports": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "license": "MIT",
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "tsup --treeshake",
+    "dev": "tsup --watch --no-splitting",
     "check-types": "tsc --noEmit",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
   },
