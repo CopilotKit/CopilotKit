@@ -1,10 +1,16 @@
 <div align="center">
-  <img src="./assets/banner.png" width="200">
+  <img src="./assets/banner.png" width="250">
 </div>
 
-# CopilotKit
+# CopilotKit🧩
 
 Add a powerful & hackable copilot to any app, in an afternoon.
+
+## Demo
+
+CopilotKit in action.
+
+![Demo Gif](./assets/demo.gif)
 
 ## Installation
 
@@ -23,9 +29,11 @@ import { CopilotSidebarUIProvider } from "@copilotkit/react-ui";
 
 export default function App(): JSX.Element {
   return (
-    <CopilotProvider> {/* Global state & business logic. Put this around the entire app */}
+    <CopilotProvider> {/* Global state & copilot logic. Put this around the entire app */}
       <CopilotSidebarUIProvider> {/* A built-in Copilot UI (or bring your own UI). Put around individual pages, or the entire app. */}
+
         <YourContent />
+
       </CopilotSidebarUIProvider>
     </CopilotProvider>
   );
@@ -37,25 +45,6 @@ export default function App(): JSX.Element {
 ```typescript
 import { useMakeCopilotReadable } from "@copilotkit/react-core";
 
-function Department(props: DepartmentProps): JSX.Element {
-  const { departmentData, employees } = props;
-
-  // Give the copilot information about this department. Keep the pointer, to associate employees w departments.
-  const departmentCopilotPointer = useMakeCopilotReadable(departmentData.description());
-
-  return ( // Render as usual.
-    <>
-      {/* ... */}
-      
-      {employees.map((employeeData) => (
-        <Employee
-          employeeData={employeeData}
-          copilotParentPointer={departmentCopilotPointer} // pass the copilot pointer
-        />
-      ))}
-    </>
-  );
-}
 
 function Employee(props: EmployeeProps): JSX.Element {
   const { employeeData, copilotParentPointer } = props;
@@ -63,12 +52,26 @@ function Employee(props: EmployeeProps): JSX.Element {
   // Give the copilot information about this employee, and associate it with its parent department.
   useMakeCopilotReadable(employeeData.description(), copilotParentPointer);
 
+  return (
+    // Render as usual...
+  );
+}
+
+function Department(props: DepartmentProps): JSX.Element {
+  const { departmentData, employees } = props;
+
+  // Give the copilot information about this department. Keep the pointer, to associate employees w departments.
+  const departmentCopilotPointer = useMakeCopilotReadable(departmentData.description());
+
   return ( // Render as usual.
-    <>
-      {/* ... */}
+    <>      
+      {employees.map((employeeData) => (
+        <Employee copilotParentPointer={departmentCopilotPointer} employeeData={employeeData} />
+      ))}
     </>
   );
 }
+
 ```
 
 ### Give the copilot write permissions
@@ -97,26 +100,21 @@ function Department(props: DepartmentProps): JSX.Element {
     []
   );
 
-  // ... same as before
+  // ...
 }
 ```
 
 
-
-## Demo
-
-CopilotKit in action.
-
-![Demo Gif](./assets/demo.gif)
-
 ## Near-Term Roadmap
+
+### 📊 Please vote on features via the Issues tab!
 
 ### Copilot-App Interaction
 
 - ✅ `useMakeCopilotReadable`: give static information to the copilot, in sync with on-screen state
 - ✅ `useMakeCopilotActionable`: Let the copilot take action on behalf of the user
 - 🚧 `useMakeCopilotAskable`: let the copilot ask for additional information when needed (coming soon)
-- 🚧 `useSetCopilotMessage`: edit the (unsent) typed user message to the copilot (coming soon)
+- 🚧 `useEditCopilotMessage`: edit the (unsent) typed user message to the copilot (coming soon)
 - 🚧 copilot-assisted navigation: go to the best page to achieve some objective.
 
 ### UI components
