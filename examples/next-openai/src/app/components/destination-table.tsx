@@ -62,7 +62,7 @@ export function DestinationTable({
 
   useMakeCopilotActionable(
     {
-      name: `setSelectedDestinations_${toCamelCase(heading)}`,
+      name: `selectDestinations_${toCamelCase(heading)}`,
       description: `Set the given destinations as 'selected', on the ${heading} table`,
       argumentAnnotations: [
         {
@@ -87,6 +87,35 @@ export function DestinationTable({
     },
     []
   );
+
+  useMakeCopilotActionable(
+    {
+      name: `deselectDestinations_${toCamelCase(heading)}`,
+      description: `Set the given destinations as de-selected (unselected), on the ${heading} table`,
+      argumentAnnotations: [
+        {
+          name: "destinationNames",
+          type: "array",
+          items: {
+            type: "string",
+          },
+          description: "The names of the destinations to de-select",
+          required: true,
+        },
+      ],
+      implementation: async (destinationNames: string[]) => {
+        setCheckedRows((prevState) => {
+          const newState = { ...prevState };
+          destinationNames.forEach((destinationName) => {
+            newState[destinationName] = false;
+          });
+          return newState;
+        });
+      },
+    },
+    []
+  );
+
 
   return (
     <div>
