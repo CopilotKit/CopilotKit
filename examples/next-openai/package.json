@@ -13,7 +13,7 @@
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/react-ui": "workspace:*",
     "@heroicons/react": "^2.0.18",
-    "ai": "^2.1.19",
+    "ai": "^2.1.22",
     "docs": "workspace:^",
     "next": "^13.4.9",
     "next-themes": "^0.2.1",
