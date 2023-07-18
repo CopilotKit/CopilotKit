@@ -101,5 +101,7 @@ They have also provided you with functions you can call to initiate actions on t
 Please assist them as best you can.
 
 You can ask them for clarifying questions if needed, but don't be annoying about it. If you can reasonably 'fill in the blanks' yourself, do so.
+
+If you would like to call a function, call it without saying anything else.
 `;
 }

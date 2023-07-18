@@ -9,15 +9,13 @@ const openai = new OpenAIApi(config);
 export const runtime = "edge";
 
 export async function POST(req: Request) {
-  const {
-    messages,
-    function_call,
-    copilotkit_manually_passed_function_descriptions,
-  } = await req.json();
+  const { messages, copilotkit_manually_passed_function_descriptions } =
+    await req.json();
 
   const response = await openai.createChatCompletion({
     model: "gpt-4",
     stream: true,
+    max_tokens: 500,
     messages,
     functions: copilotkit_manually_passed_function_descriptions,
   });
@@ -27,7 +25,6 @@ export async function POST(req: Request) {
       { name, arguments: args },
       createFunctionCallMessages
     ) => {
-      // createFunctionCallMessages({})
       return undefined;
     },
   });
