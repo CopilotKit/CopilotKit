@@ -8,7 +8,7 @@ import { FunctionCallHandler } from "ai";
 
 export interface CopilotContextParams {
   entryPoints: Record<string, AnnotatedFunction<any[]>>;
-  getChatCompletionFunctions: () => ChatCompletionFunctions[];
+  getChatCompletionFunctionDescriptions: () => ChatCompletionFunctions[];
   getFunctionCallHandler: () => FunctionCallHandler;
   setEntryPoint: (id: string, entryPoint: AnnotatedFunction<any[]>) => void;
   removeEntryPoint: (id: string) => void;
@@ -20,7 +20,7 @@ export interface CopilotContextParams {
 
 const emptyCopilotContext: CopilotContextParams = {
   entryPoints: {},
-  getChatCompletionFunctions: () => [],
+  getChatCompletionFunctionDescriptions: () => [],
   getFunctionCallHandler: () => async () => {},
   setEntryPoint: () => {},
   removeEntryPoint: () => {},

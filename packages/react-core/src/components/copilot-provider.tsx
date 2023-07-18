@@ -55,7 +55,7 @@ export function CopilotProvider({
     [removeElement]
   );
 
-  const getChatCompletionFunctions = useCallback(() => {
+  const getChatCompletionFunctionDescriptions = useCallback(() => {
     return entryPointsToChatCompletionFunctions(Object.values(entryPoints));
   }, [entryPoints]);
 
@@ -67,7 +67,7 @@ export function CopilotProvider({
     <CopilotContext.Provider
       value={{
         entryPoints,
-        getChatCompletionFunctions,
+        getChatCompletionFunctionDescriptions,
         getFunctionCallHandler,
         setEntryPoint,
         removeEntryPoint,

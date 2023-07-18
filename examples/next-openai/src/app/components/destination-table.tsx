@@ -116,7 +116,6 @@ export function DestinationTable({
     []
   );
 
-
   return (
     <div>
       <h2 className="text-lg font-semibold leading-6 text-gray-900 mb-4 p-2">

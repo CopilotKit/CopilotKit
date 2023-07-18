@@ -32,7 +32,7 @@ export function useCopilotChat({
 }: UseCopilotChatOptions): UseCopilotChatReturn {
   const {
     getContextString,
-    getChatCompletionFunctions,
+    getChatCompletionFunctionDescriptions,
     getFunctionCallHandler,
   } = useContext(CopilotContext);
 
@@ -51,9 +51,9 @@ export function useCopilotChat({
     options.initialMessages || []
   );
 
-  const functions = useMemo(() => {
-    return getChatCompletionFunctions();
-  }, [getChatCompletionFunctions]);
+  const functionDescriptions = useMemo(() => {
+    return getChatCompletionFunctionDescriptions();
+  }, [getChatCompletionFunctionDescriptions]);
 
   const { messages, append, reload, stop, isLoading, input, setInput } =
     useChat({
@@ -63,7 +63,7 @@ export function useCopilotChat({
       body: {
         id: options.id,
         previewToken,
-        functions,
+        copilotkit_manually_passed_function_descriptions: functionDescriptions,
       },
     });
 
