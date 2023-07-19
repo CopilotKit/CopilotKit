@@ -5,7 +5,7 @@ import { CopilotSidebarUIProvider } from "@copilotkit/react-ui";
 import { CopilotProvider } from "@copilotkit/react-core";
 import { VacationList } from "./components/vacation-list";
 
-export default function CopilotControlled() {
+export default function WaterBnb() {
   return (
     <CopilotProvider>
       <CopilotSidebarUIProvider>
