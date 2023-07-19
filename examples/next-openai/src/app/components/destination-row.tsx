@@ -15,7 +15,6 @@ export function DestinationRow({
   onCheckChange,
   parentCopilotPointer,
 }: DestinationRowProps) {
-
   useMakeCopilotReadable(
     JSON.stringify({
       name: destination.name,
