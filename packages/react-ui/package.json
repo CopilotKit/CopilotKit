@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.3.0",
+  "version": "0.5.0",
   "sideEffects": [
     "**/*.css"
   ],
@@ -16,8 +16,8 @@
   },
   "license": "MIT",
   "scripts": {
-    "build": "tsup src/index.tsx --format esm,cjs --dts --external react",
-    "dev": "tsup src/index.tsx --format esm,cjs --dts --external react --watch",
+    "build": "tsup --treeshake",
+    "dev": "tsup --watch --no-splitting",
     "check-types": "tsc --noEmit",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
   },
@@ -48,7 +48,7 @@
     "@radix-ui/react-slot": "^1.0.2",
     "@radix-ui/react-switch": "^1.0.3",
     "@radix-ui/react-tooltip": "^1.0.6",
-    "ai": "^2.1.19",
+    "ai": "^2.1.22",
     "class-variance-authority": "^0.6.1",
     "clsx": "^1.2.1",
     "nanoid": "^4.0.2",

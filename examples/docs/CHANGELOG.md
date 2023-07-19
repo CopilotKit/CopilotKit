@@ -1,6 +1,6 @@
-# ui
+# docs
 
-## 0.5.0
+## 1.3.0
 
 ### Minor Changes
 
@@ -11,9 +11,9 @@
 
 - Updated dependencies
 - Updated dependencies
-  - @copilotkit/react-core@0.5.0
+  - @copilotkit/react-ui@0.5.0
 
-## 0.4.0
+## 1.2.0
 
 ### Minor Changes
 
@@ -22,9 +22,9 @@
 ### Patch Changes
 
 - Updated dependencies
-  - @copilotkit/react-core@0.4.0
+  - @copilotkit/react-ui@0.4.0
 
-## 0.3.0
+## 1.1.0
 
 ### Minor Changes
 
@@ -35,16 +35,18 @@
 
 - Updated dependencies
 - Updated dependencies [9d2f3cb]
-  - @copilotkit/react-core@0.3.0
+  - @copilotkit/react-ui@0.3.0
 
-## 0.2.0
+## 1.0.2
 
-### Minor Changes
+### Patch Changes
 
-- react core initialization
+- Updated dependencies
+  - @copilotkit/react-ui@0.2.0
 
-## 0.1.0
+## 1.0.1
 
-### Minor Changes
+### Patch Changes
 
-- initial
+- Updated dependencies
+  - ui@0.1.0

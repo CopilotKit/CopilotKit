@@ -8,7 +8,7 @@ export interface SidebarProps {
 export function CopilotSidebar(props: SidebarProps): JSX.Element {
   return (
     <div
-      className="shadow-lg bg-white flex flex-col"
+      className="shadow-lg bg-gray-50 flex flex-col border-l-2"
       style={{ width: "100%", height: "100%" }}
     >
       <TopBar {...props} />
@@ -21,7 +21,7 @@ import { XMarkIcon } from "@heroicons/react/24/outline";
 
 function TopBar(props: SidebarProps): JSX.Element {
   return (
-    <div className="py-6 bg-white flex items-center justify-between px-4">
+    <div className="py-6 flex bg-gray-50 items-center justify-between px-4">
       <h1 className="text-base font-semibold leading-6 text-gray-900">
         Copilot Chat
       </h1>

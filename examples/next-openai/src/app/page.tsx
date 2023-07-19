@@ -3,13 +3,13 @@
 import React from "react";
 import { CopilotSidebarUIProvider } from "@copilotkit/react-ui";
 import { CopilotProvider } from "@copilotkit/react-core";
-import StandaloneAppPage from "./components/standalone-app-page";
+import { VacationList } from "./components/vacation-list";
 
-export default function CopilotControlled() {
+export default function WaterBnb() {
   return (
     <CopilotProvider>
       <CopilotSidebarUIProvider>
-        <StandaloneAppPage />
+        <VacationList />
       </CopilotSidebarUIProvider>
     </CopilotProvider>
   );
