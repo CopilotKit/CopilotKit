@@ -2,7 +2,7 @@
   <img src="./assets/banner.png" width="250">
 </div>
 
-# CopilotKit🧩
+# CopilotKit🪁 [![Discord](https://dcbadge.vercel.app/api/server/6dffbvGU3D?compact=true&style=flat)](https://discord.gg/6dffbvGU3D)
 
 Add a powerful & hackable copilot to any app, in an afternoon.
 
@@ -105,45 +105,6 @@ function Department(props: DepartmentProps): JSX.Element {
 ```
 
 
-### Lastly, provide a compatible API endpoint
-(by default, at `app/api/chat/route.ts`, but you can customize this)
-```typescript
-import { Configuration, OpenAIApi } from "openai-edge";
-import { OpenAIStream, StreamingTextResponse } from "ai";
-
-const config = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-const openai = new OpenAIApi(config);
-
-export const runtime = "edge";
-
-export async function POST(req: Request) {
-  const { messages, copilotkit_manually_passed_function_descriptions } =
-    await req.json();
-
-  const response = await openai.createChatCompletion({
-    model: "gpt-4",
-    stream: true,
-    max_tokens: 500,
-    messages,
-    functions: copilotkit_manually_passed_function_descriptions,
-  });
-
-  const stream = OpenAIStream(response, {
-    experimental_onFunctionCall: async (
-      { name, arguments: args },
-      createFunctionCallMessages
-    ) => {
-      return undefined;
-    },
-  });
-
-  return new StreamingTextResponse(stream);
-}
-```
-
-
 ## Near-Term Roadmap
 
 ### 📊 Please vote on features via the Issues tab!
@@ -178,3 +139,8 @@ export async function POST(req: Request) {
 ## Contribute
 
 Contributions are welcome! 🎉
+
+[Join the Discord](https://discord.gg/6adMQxSpJS)
+[![Discord](https://dcbadge.vercel.app/api/server/6dffbvGU3D?compact=true&style=flat)](https://discord.gg/6dffbvGU3D)
+<!-- [![Discord](https://img.shields.io/discord/1122926057641742418.svg)](https://discord.gg/6dffbvGU3D) -->
+
