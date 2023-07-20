@@ -2,7 +2,7 @@
   <img src="./assets/banner.png" width="250">
 </div>
 
-# CopilotKit🧩
+# CopilotKit🪁 [![Discord](https://dcbadge.vercel.app/api/server/6dffbvGU3D?compact=true&style=flat)](https://discord.gg/6dffbvGU3D)
 
 Add a powerful & hackable copilot to any app, in an afternoon.
 
@@ -139,3 +139,8 @@ function Department(props: DepartmentProps): JSX.Element {
 ## Contribute
 
 Contributions are welcome! 🎉
+
+[Join the Discord](https://discord.gg/6adMQxSpJS)
+[![Discord](https://dcbadge.vercel.app/api/server/6dffbvGU3D?compact=true&style=flat)](https://discord.gg/6dffbvGU3D)
+<!-- [![Discord](https://img.shields.io/discord/1122926057641742418.svg)](https://discord.gg/6dffbvGU3D) -->
+
