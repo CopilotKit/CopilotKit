@@ -120,7 +120,6 @@ function Department(props: DepartmentProps): JSX.Element {
 ### UI components
 
 - ✅ `<CopilotSidebarUIProvider>`: Built in, hackable Copilot UI (optional - you can bring your own UI).
-- 🚧 `<AutocompleteTextArea {...} />`: a GitHubCopilot-style intelligent autocomplete text area (coming soon).
 
 ### Integrations
 
