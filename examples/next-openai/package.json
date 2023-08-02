@@ -12,6 +12,7 @@
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/react-ui": "workspace:*",
+    "@copilotkit/react-textarea": "workspace:*",
     "@heroicons/react": "^2.0.18",
     "ai": "^2.1.22",
     "docs": "workspace:^",
