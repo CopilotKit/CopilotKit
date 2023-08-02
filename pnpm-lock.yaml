@@ -213,6 +213,9 @@ importers:
       next-themes:
         specifier: ^0.2.1
         version: 0.2.1(next@13.4.9)(react-dom@18.2.0)(react@18.2.0)
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.2.0(react@18.2.0)
       slate-react:
         specifier: ^0.98.1
         version: 0.98.1(react-dom@18.2.0)(react@18.2.0)(slate@0.94.1)
