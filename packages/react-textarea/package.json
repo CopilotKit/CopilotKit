@@ -45,6 +45,7 @@
     "next": "^13.4.1",
     "next-themes": "^0.2.1",
     "react-dom": "^18.2.0",
+    "slate": "^0.94.1",
     "slate-react": "^0.98.1",
     "tailwind": "^4.0.0",
     "tailwind-merge": "^1.13.2"
