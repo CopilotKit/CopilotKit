@@ -1,6 +1,7 @@
 import React from "react";
 import { useState } from "react";
 import { DestinationTable } from "./destination-table";
+import { VacationNotes } from "./vacation-notes";
 
 export type Destination = {
   name: string;
@@ -18,6 +19,13 @@ export function VacationList() {
           <h1 className="text-3xl font-semibold leading-6 text-gray-900">
             WaterBnB (Toy Example)
           </h1>
+        </div>
+      </div>
+      <div className="mt-8 flow-root bg-slate-200">
+        <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+          <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+            <VacationNotes />
+          </div>
         </div>
       </div>
       <div className="mt-8 flow-root bg-slate-200">
