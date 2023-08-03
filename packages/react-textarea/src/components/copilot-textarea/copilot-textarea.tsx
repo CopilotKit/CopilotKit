@@ -24,9 +24,8 @@ export type ParagraphElement = {
   children: CustomText[];
 };
 
-export type HeadingElement = {
-  type: "heading";
-  level: number;
+export type CopilotSuggestionElement = {
+  type: "copilot-suggestion";
   children: CustomText[];
 };
 
@@ -35,7 +34,10 @@ export type CodeElement = {
   children: CustomText[];
 };
 
-export type CustomElement = ParagraphElement | HeadingElement | CodeElement;
+export type CustomElement =
+  | ParagraphElement
+  | CopilotSuggestionElement
+  | CodeElement;
 export type FormattedText = { text: string; bold?: true };
 export type CustomText = FormattedText;
 
@@ -55,13 +57,19 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
       type: "paragraph",
       children: [{ text: "A line of text in a paragraph." }],
     },
+    {
+      type: "copilot-suggestion",
+      children: [{ text: "A line of text in a paragraph." }],
+    },
   ];
 
   const renderElement = useCallback((props: RenderElementProps) => {
     switch (props.element.type) {
       case "code":
         return <CodeElement {...props} />;
-      default:
+      case "copilot-suggestion":
+        return <CopilotSuggestionElement {...props} />;
+      case "paragraph":
         return <DefaultElement {...props} />;
     }
   }, []);
@@ -72,6 +80,7 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
     // Add the editable component inside the context.
     <Slate editor={editor} initialValue={initialValue}>
       <Editable
+        className="p-4"
         renderElement={renderElement}
         onKeyDown={(event) => {
           if (event.key === "`" && event.ctrlKey) {
@@ -101,5 +110,13 @@ const CodeElement = (props: RenderElementProps) => {
     <pre {...props.attributes}>
       <code>{props.children}</code>
     </pre>
+  );
+};
+
+const CopilotSuggestionElement = (props: RenderElementProps) => {
+  return (
+    <p className="text-gray-300" {...props.attributes}>
+      {props.children}
+    </p>
   );
 };
