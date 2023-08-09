@@ -50,22 +50,18 @@ declare module "slate" {
   }
 }
 
-export interface CopilotTextareaProps {}
+export interface CopilotTextareaProps {
+  className?: string;
+  placeholder?: string;
+  value?: string;
+  onChange?: (value: string) => void;
+}
 
 export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
   const initialValue: Descendant[] = [
     {
       type: "paragraph",
-      children: [
-        { text: "A line of text in a paragraph.", isSuggestion: false },
-      ],
-    },
-    {
-      type: "copilot-suggestion",
-      children: [
-        { text: "A line of text in a paragraph.", isSuggestion: false },
-        { text: "A line of text in a paragraph.", isSuggestion: true },
-      ],
+      children: [{ text: props.value || "", isSuggestion: false }],
     },
   ];
 
@@ -93,13 +89,38 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
     );
   }, []);
 
-  const [editor] = useState(() => withReact(createEditor()));
+  const [editor] = useState(() => {
+    const editor = withReact(createEditor());
+    editor.onChange = () => {
+      const suggestionAwareTextComponents: SuggestionAwareText[][] =
+        editor.children.map((node) => {
+          if (Element.isElement(node)) {
+            return node.children.map((child) => {
+              return child;
+            });
+          } else {
+            return [node];
+          }
+        });
+
+      const flattened = suggestionAwareTextComponents.reduce(
+        (acc, val) => acc.concat(val),
+        []
+      );
+      const text = flattened
+        .map((textComponent) => textComponent.text)
+        .join("\n");
+
+      props.onChange?.(text);
+    };
+    return editor;
+  });
 
   return (
     // Add the editable component inside the context.
     <Slate editor={editor} initialValue={initialValue}>
       <Editable
-        className="p-4"
+        className={props.className}
         renderElement={renderElement}
         renderLeaf={renderLeaf}
         onKeyDown={(event) => {
