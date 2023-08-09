@@ -37,11 +37,17 @@ declare module "slate" {
   }
 }
 
+export interface AutocompleteConfig {
+  autocomplete: (input: string) => Promise<string>;
+  debounceTime?: number;
+};
+
 export interface CopilotTextareaProps {
   className?: string;
   placeholder?: string;
   value?: string;
   onChange?: (value: string) => void;
+  autocompleteConfig: AutocompleteConfig;
 }
 
 export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
@@ -106,20 +112,7 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
         className={props.className}
         renderElement={renderElement}
         renderLeaf={renderLeaf}
-        onKeyDown={(event) => {
-          if (event.key === "`" && event.ctrlKey) {
-            // Prevent the "`" from being inserted by default.
-            event.preventDefault();
-            // Otherwise, set the currently selected blocks type to "paragraph".
-            Transforms.setNodes(
-              editor,
-              { type: "paragraph" },
-              {
-                match: (n) => Element.isElement(n) && Editor.isBlock(editor, n),
-              }
-            );
-          }
-        }}
+        onKeyDown={(event) => {}}
       />
     </Slate>
   );
