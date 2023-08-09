@@ -25,20 +25,7 @@ export type ParagraphElement = {
   children: CustomText[];
 };
 
-export type CopilotSuggestionElement = {
-  type: "copilot-suggestion";
-  children: CustomText[];
-};
-
-export type CodeElement = {
-  type: "code";
-  children: CustomText[];
-};
-
-export type CustomElement =
-  | ParagraphElement
-  | CopilotSuggestionElement
-  | CodeElement;
+export type CustomElement = ParagraphElement;
 export type SuggestionAwareText = { text: string; isSuggestion: boolean };
 export type CustomText = SuggestionAwareText;
 
@@ -67,10 +54,6 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
 
   const renderElement = useCallback((props: RenderElementProps) => {
     switch (props.element.type) {
-      case "code":
-        return <CodeElement {...props} />;
-      case "copilot-suggestion":
-        return <CopilotSuggestionElement {...props} />;
       case "paragraph":
         return <DefaultElement {...props} />;
     }
@@ -127,10 +110,10 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
           if (event.key === "`" && event.ctrlKey) {
             // Prevent the "`" from being inserted by default.
             event.preventDefault();
-            // Otherwise, set the currently selected blocks type to "code".
+            // Otherwise, set the currently selected blocks type to "paragraph".
             Transforms.setNodes(
               editor,
-              { type: "code" },
+              { type: "paragraph" },
               {
                 match: (n) => Element.isElement(n) && Editor.isBlock(editor, n),
               }
@@ -144,20 +127,4 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
 
 const DefaultElement = (props: RenderElementProps) => {
   return <p {...props.attributes}>{props.children}</p>;
-};
-
-const CodeElement = (props: RenderElementProps) => {
-  return (
-    <pre {...props.attributes}>
-      <code>{props.children}</code>
-    </pre>
-  );
-};
-
-const CopilotSuggestionElement = (props: RenderElementProps) => {
-  return (
-    <p className="text-gray-300" {...props.attributes}>
-      {props.children}
-    </p>
-  );
 };
