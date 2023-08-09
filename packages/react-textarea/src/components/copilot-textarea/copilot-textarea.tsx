@@ -40,7 +40,7 @@ declare module "slate" {
 }
 
 export interface AutocompleteConfig {
-  autocomplete: (input: string) => Promise<string>;
+  autocomplete: (input: string, signal?: AbortSignal) => Promise<string>;
   debounceTime?: number;
 }
 

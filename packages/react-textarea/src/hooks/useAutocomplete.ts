@@ -11,30 +11,48 @@ export function useAutocomplete(
   autocompleteConfig: AutocompleteConfig
 ) {
   const [timer, setTimer] = useState<number | null>(null);
-  const waitingForSuggestionRef = useRef(false);
+  const controllerRef = useRef<AbortController | null>(null);
 
-  const appendSuggestion = (suggestion: string) => {
-    Transforms.insertText(editor, suggestion);
+  const appendSuggestion = async (text: string) => {
+    // We'll assume for now that the autocomplete function might or might not respect the abort signal.
+    const suggestion = await autocompleteConfig.autocomplete(
+      text,
+      controllerRef.current?.signal
+    );
+
+    // Only append the suggestion if an abort has not been signaled.
+    if (suggestion && !controllerRef.current?.signal.aborted) {
+      Transforms.insertText(editor, suggestion);
+    }
   };
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (timer) clearTimeout(timer);
 
-    waitingForSuggestionRef.current = false;
+    // If there's an ongoing autocomplete request, abort it
+    if (controllerRef.current) {
+      controllerRef.current.abort();
+      controllerRef.current = null;
+    }
 
     setTimer(
       setTimeout(async () => {
-        waitingForSuggestionRef.current = true;
-        const suggestion = await autocompleteConfig.autocomplete(
-          editorToText(editor)
-        );
-        if (waitingForSuggestionRef.current) {
-          appendSuggestion(suggestion);
-          waitingForSuggestionRef.current = false;
+        controllerRef.current = new AbortController();
+
+        try {
+          await appendSuggestion(editorToText(editor));
+        } catch (error: any) {
+          if (error.name === "AbortError") {
+            console.log("Autocomplete request was aborted");
+          } else {
+            console.error("Error during autocomplete:", error);
+          }
         }
-      }, autocompleteConfig.debounceTime || 0)
+      }, autocompleteConfig.debounceTime || defaultDebounceTime)
     );
   };
 
   return handleKeyDown;
 }
+
+const defaultDebounceTime = 2;
