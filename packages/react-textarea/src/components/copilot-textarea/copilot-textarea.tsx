@@ -1,11 +1,5 @@
 // This example is for an Editor with `ReactEditor` and `HistoryEditor`
-import {
-  BaseEditor,
-  Descendant,
-  Editor,
-  Transforms,
-  createEditor,
-} from "slate";
+import { BaseEditor, Descendant, createEditor } from "slate";
 import {
   Editable,
   ReactEditor,
@@ -16,9 +10,21 @@ import {
 } from "slate-react";
 import { HistoryEditor } from "slate-history";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Element } from "slate";
 import { editorToText } from "../../lib/editorToText";
 import { useAutocomplete } from "../../hooks/useAutocomplete";
+
+export interface AutocompleteConfig {
+  autocomplete: (input: string, signal?: AbortSignal) => Promise<string>;
+  debounceTime?: number;
+}
+
+export interface CopilotTextareaProps {
+  className?: string;
+  placeholder?: string;
+  value?: string;
+  onChange?: (value: string) => void;
+  autocompleteConfig: AutocompleteConfig;
+}
 
 export type CustomEditor = BaseEditor & ReactEditor & HistoryEditor;
 
@@ -39,19 +45,6 @@ declare module "slate" {
   }
 }
 
-export interface AutocompleteConfig {
-  autocomplete: (input: string, signal?: AbortSignal) => Promise<string>;
-  debounceTime?: number;
-}
-
-export interface CopilotTextareaProps {
-  className?: string;
-  placeholder?: string;
-  value?: string;
-  onChange?: (value: string) => void;
-  autocompleteConfig: AutocompleteConfig;
-}
-
 export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
   const initialValue: Descendant[] = [
     {
@@ -59,26 +52,6 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
       children: [{ text: props.value || "", isSuggestion: false }],
     },
   ];
-
-  const renderElement = useCallback((props: RenderElementProps) => {
-    switch (props.element.type) {
-      case "paragraph":
-        return <DefaultElement {...props} />;
-    }
-  }, []);
-  const renderLeaf = useCallback((props: RenderLeafProps) => {
-    return (
-      <span
-        {...props.attributes}
-        style={{
-          fontStyle: props.leaf.isSuggestion ? "italic" : "normal",
-          color: props.leaf.isSuggestion ? "gray" : "black",
-        }}
-      >
-        {props.children}
-      </span>
-    );
-  }, []);
 
   const [editor] = useState(() => {
     const editor = withReact(createEditor());
@@ -88,9 +61,11 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
     return editor;
   });
 
-  const handleAutocompleteKeyDown = useAutocomplete(
-    editor,
-    props.autocompleteConfig
+  const renderElementMemoized = useCallback(renderElement, []);
+  const renderLeafMemoized = useCallback(renderLeaf, []);
+  const handleAutocompleteKeyDown = useCallback(
+    useAutocomplete(editor, props.autocompleteConfig),
+    [editor, props.autocompleteConfig]
   );
 
   return (
@@ -98,12 +73,33 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
     <Slate editor={editor} initialValue={initialValue}>
       <Editable
         className={props.className}
-        renderElement={renderElement}
-        renderLeaf={renderLeaf}
+        renderElement={renderElementMemoized}
+        renderLeaf={renderLeafMemoized}
         onKeyDown={handleAutocompleteKeyDown}
       />
     </Slate>
   );
+}
+
+function renderLeaf(props: RenderLeafProps) {
+  return (
+    <span
+      {...props.attributes}
+      style={{
+        fontStyle: props.leaf.isSuggestion ? "italic" : "normal",
+        color: props.leaf.isSuggestion ? "gray" : "black",
+      }}
+    >
+      {props.children}
+    </span>
+  );
+}
+
+function renderElement(props: RenderElementProps) {
+  switch (props.element.type) {
+    case "paragraph":
+      return <DefaultElement {...props} />;
+  }
 }
 
 const DefaultElement = (props: RenderElementProps) => {
