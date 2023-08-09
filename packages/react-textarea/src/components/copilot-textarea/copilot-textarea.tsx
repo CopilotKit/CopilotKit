@@ -10,6 +10,7 @@ import {
   Editable,
   ReactEditor,
   RenderElementProps,
+  RenderLeafProps,
   Slate,
   withReact,
 } from "slate-react";
@@ -38,8 +39,8 @@ export type CustomElement =
   | ParagraphElement
   | CopilotSuggestionElement
   | CodeElement;
-export type FormattedText = { text: string; bold?: true };
-export type CustomText = FormattedText;
+export type SuggestionAwareText = { text: string; isSuggestion: boolean };
+export type CustomText = SuggestionAwareText;
 
 declare module "slate" {
   interface CustomTypes {
@@ -55,11 +56,16 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
   const initialValue: Descendant[] = [
     {
       type: "paragraph",
-      children: [{ text: "A line of text in a paragraph." }],
+      children: [
+        { text: "A line of text in a paragraph.", isSuggestion: false },
+      ],
     },
     {
       type: "copilot-suggestion",
-      children: [{ text: "A line of text in a paragraph." }],
+      children: [
+        { text: "A line of text in a paragraph.", isSuggestion: false },
+        { text: "A line of text in a paragraph.", isSuggestion: true },
+      ],
     },
   ];
 
@@ -73,6 +79,19 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
         return <DefaultElement {...props} />;
     }
   }, []);
+  const renderLeaf = useCallback((props: RenderLeafProps) => {
+    return (
+      <span
+        {...props.attributes}
+        style={{
+          fontStyle: props.leaf.isSuggestion ? "italic" : "normal",
+          color: props.leaf.isSuggestion ? "gray" : "black",
+        }}
+      >
+        {props.children}
+      </span>
+    );
+  }, []);
 
   const [editor] = useState(() => withReact(createEditor()));
 
@@ -82,6 +101,7 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
       <Editable
         className="p-4"
         renderElement={renderElement}
+        renderLeaf={renderLeaf}
         onKeyDown={(event) => {
           if (event.key === "`" && event.ctrlKey) {
             // Prevent the "`" from being inserted by default.
