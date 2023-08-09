@@ -15,8 +15,10 @@ import {
   withReact,
 } from "slate-react";
 import { HistoryEditor } from "slate-history";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Element } from "slate";
+import { editorToText } from "../../lib/editorToText";
+import { useAutocomplete } from "../../hooks/useAutocomplete";
 
 export type CustomEditor = BaseEditor & ReactEditor & HistoryEditor;
 
@@ -40,7 +42,7 @@ declare module "slate" {
 export interface AutocompleteConfig {
   autocomplete: (input: string) => Promise<string>;
   debounceTime?: number;
-};
+}
 
 export interface CopilotTextareaProps {
   className?: string;
@@ -81,29 +83,15 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
   const [editor] = useState(() => {
     const editor = withReact(createEditor());
     editor.onChange = () => {
-      const suggestionAwareTextComponents: SuggestionAwareText[][] =
-        editor.children.map((node) => {
-          if (Element.isElement(node)) {
-            return node.children.map((child) => {
-              return child;
-            });
-          } else {
-            return [node];
-          }
-        });
-
-      const flattened = suggestionAwareTextComponents.reduce(
-        (acc, val) => acc.concat(val),
-        []
-      );
-      const text = flattened
-        .map((textComponent) => textComponent.text)
-        .join("\n");
-
-      props.onChange?.(text);
+      props.onChange?.(editorToText(editor));
     };
     return editor;
   });
+
+  const handleAutocompleteKeyDown = useAutocomplete(
+    editor,
+    props.autocompleteConfig
+  );
 
   return (
     // Add the editable component inside the context.
@@ -112,7 +100,7 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
         className={props.className}
         renderElement={renderElement}
         renderLeaf={renderLeaf}
-        onKeyDown={(event) => {}}
+        onKeyDown={handleAutocompleteKeyDown}
       />
     </Slate>
   );

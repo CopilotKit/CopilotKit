@@ -9,6 +9,18 @@ export function VacationNotes(): JSX.Element {
       className="p-4"
       value={text}
       onChange={(value: string) => setText(value)}
+      placeholder="What are your plans for your vacation?"
+      autocompleteConfig={{
+        autocomplete: (input: string) =>
+          new Promise((resolve) => {
+            setTimeout(() => {
+              resolve(
+                `You want to go to ${input}? That's a great place to visit!`
+              );
+            }, 3000);
+          }),
+        debounceTime: 1000,
+      }}
     />
   );
 }
