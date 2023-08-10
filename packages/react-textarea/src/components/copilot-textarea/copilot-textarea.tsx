@@ -33,8 +33,13 @@ export type ParagraphElement = {
   children: CustomText[];
 };
 
-export type CustomElement = ParagraphElement;
-export type SuggestionAwareText = { text: string; isSuggestion: boolean };
+export type SuggestionElement = {
+  type: "suggestion";
+  children: CustomText[];
+};
+
+export type CustomElement = ParagraphElement | SuggestionElement;
+export type SuggestionAwareText = { text: string };
 export type CustomText = SuggestionAwareText;
 
 declare module "slate" {
@@ -49,20 +54,50 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
   const initialValue: Descendant[] = [
     {
       type: "paragraph",
-      children: [{ text: props.value || "", isSuggestion: false }],
+      children: [{ text: "" }],
     },
   ];
 
   const [editor] = useState(() => {
     const editor = withReact(createEditor());
     editor.onChange = () => {
-      props.onChange?.(editorToText(editor));
+      // props.onChange?.(editorToText(editor));
     };
+
+    const { isVoid } = editor
+    editor.isVoid = element => {
+      switch (element.type) {
+        case "suggestion":
+          return true;
+        default:
+          return isVoid(element);
+      }
+    }
+
+    const { markableVoid } = editor
+    editor.markableVoid = element => {
+      switch (element.type) {
+        case "suggestion":
+          return true;
+        default:
+          return markableVoid(element);
+      }
+    }
+
+    const { isInline } = editor;
+    editor.isInline = (element) => {
+      switch (element.type) {
+        case "suggestion":
+          return true;
+        default:
+          return isInline(element);
+      }
+    };
+    
     return editor;
   });
 
   const renderElementMemoized = useCallback(renderElement, []);
-  const renderLeafMemoized = useCallback(renderLeaf, []);
   const handleAutocompleteKeyDown = useCallback(
     useAutocomplete(editor, props.autocompleteConfig),
     [editor, props.autocompleteConfig]
@@ -74,24 +109,9 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
       <Editable
         className={props.className}
         renderElement={renderElementMemoized}
-        renderLeaf={renderLeafMemoized}
         onKeyDown={handleAutocompleteKeyDown}
       />
     </Slate>
-  );
-}
-
-function renderLeaf(props: RenderLeafProps) {
-  return (
-    <span
-      {...props.attributes}
-      style={{
-        fontStyle: props.leaf.isSuggestion ? "italic" : "normal",
-        color: props.leaf.isSuggestion ? "gray" : "black",
-      }}
-    >
-      {props.children}
-    </span>
   );
 }
 
@@ -99,9 +119,15 @@ function renderElement(props: RenderElementProps) {
   switch (props.element.type) {
     case "paragraph":
       return <DefaultElement {...props} />;
+    case "suggestion":
+      return <SuggestionElement {...props} />;
   }
 }
 
 const DefaultElement = (props: RenderElementProps) => {
-  return <p {...props.attributes}>{props.children}</p>;
+  return <span {...props.attributes}>{props.children}</span>;
+};
+
+const SuggestionElement = (props: RenderElementProps) => {
+  return <span {...props.attributes}>{props.children}</span>;
 };
