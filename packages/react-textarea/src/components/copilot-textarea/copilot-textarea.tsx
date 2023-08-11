@@ -15,7 +15,7 @@ import { useAutocomplete } from "../../hooks/useAutocomplete";
 
 export interface AutocompleteConfig {
   autocomplete: (input: string, abortSignal: AbortSignal) => Promise<string>;
-  debounceTime?: number;
+  debounceTime: number;
 }
 
 export interface CopilotTextareaProps {
