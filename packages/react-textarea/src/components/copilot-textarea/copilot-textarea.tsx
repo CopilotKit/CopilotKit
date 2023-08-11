@@ -67,25 +67,25 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
       onChange();
     };
 
-    // const { isVoid } = editor
-    // editor.isVoid = element => {
-    //   switch (element.type) {
-    //     case "suggestion":
-    //       return true;
-    //     default:
-    //       return isVoid(element);
-    //   }
-    // }
+    const { isVoid } = editor;
+    editor.isVoid = (element) => {
+      switch (element.type) {
+        case "suggestion":
+          return true;
+        default:
+          return isVoid(element);
+      }
+    };
 
-    // const { markableVoid } = editor
-    // editor.markableVoid = element => {
-    //   switch (element.type) {
-    //     case "suggestion":
-    //       return true;
-    //     default:
-    //       return markableVoid(element);
-    //   }
-    // }
+    const { markableVoid } = editor;
+    editor.markableVoid = (element) => {
+      switch (element.type) {
+        case "suggestion":
+          return true;
+        default:
+          return markableVoid(element);
+      }
+    };
 
     const { isInline } = editor;
     editor.isInline = (element) => {
@@ -139,7 +139,9 @@ const SuggestionElement = (props: RenderElementProps) => {
         fontStyle: "italic",
         color: "gray",
       }}
+      contentEditable={false}
     >
+      {props.element.children.map((child, index) => child.text)}
       {props.children}
     </span>
   );
