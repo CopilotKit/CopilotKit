@@ -128,7 +128,7 @@ function renderElement(props: RenderElementProps) {
 }
 
 const DefaultElement = (props: RenderElementProps) => {
-  return <span {...props.attributes}>{props.children}</span>;
+  return <div {...props.attributes}>{props.children}</div>;
 };
 
 const SuggestionElement = (props: RenderElementProps) => {
