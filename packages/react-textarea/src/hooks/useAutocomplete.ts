@@ -32,6 +32,7 @@ export function useAutocomplete(
         [
           {
             type: "suggestion",
+            inline: true,
             children: [
               {
                 text: "world",

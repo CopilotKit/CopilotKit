@@ -35,6 +35,7 @@ export type ParagraphElement = {
 
 export type SuggestionElement = {
   type: "suggestion";
+  inline: boolean;
   children: CustomText[];
 };
 
@@ -91,7 +92,7 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
     editor.isInline = (element) => {
       switch (element.type) {
         case "suggestion":
-          return true;
+          return element.inline;
         default:
           return isInline(element);
       }
