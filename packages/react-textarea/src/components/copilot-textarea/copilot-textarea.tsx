@@ -60,29 +60,32 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
 
   const [editor] = useState(() => {
     const editor = withReact(createEditor());
+
+    const { onChange } = editor;
     editor.onChange = () => {
       // props.onChange?.(editorToText(editor));
+      onChange();
     };
 
-    const { isVoid } = editor
-    editor.isVoid = element => {
-      switch (element.type) {
-        case "suggestion":
-          return true;
-        default:
-          return isVoid(element);
-      }
-    }
+    // const { isVoid } = editor
+    // editor.isVoid = element => {
+    //   switch (element.type) {
+    //     case "suggestion":
+    //       return true;
+    //     default:
+    //       return isVoid(element);
+    //   }
+    // }
 
-    const { markableVoid } = editor
-    editor.markableVoid = element => {
-      switch (element.type) {
-        case "suggestion":
-          return true;
-        default:
-          return markableVoid(element);
-      }
-    }
+    // const { markableVoid } = editor
+    // editor.markableVoid = element => {
+    //   switch (element.type) {
+    //     case "suggestion":
+    //       return true;
+    //     default:
+    //       return markableVoid(element);
+    //   }
+    // }
 
     const { isInline } = editor;
     editor.isInline = (element) => {
@@ -93,7 +96,7 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
           return isInline(element);
       }
     };
-    
+
     return editor;
   });
 
@@ -129,5 +132,15 @@ const DefaultElement = (props: RenderElementProps) => {
 };
 
 const SuggestionElement = (props: RenderElementProps) => {
-  return <span {...props.attributes}>{props.children}</span>;
+  return (
+    <span
+      {...props.attributes}
+      style={{
+        fontStyle: "italic",
+        color: "gray",
+      }}
+    >
+      {props.children}
+    </span>
+  );
 };
