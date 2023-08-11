@@ -25,6 +25,7 @@ export function useAutocomplete(
     // }
 
     if (text.endsWith("hello")) {
+      const editorPosition = editor.selection;
       Transforms.insertFragment(editor, [
         {
           type: "suggestion",
@@ -34,15 +35,12 @@ export function useAutocomplete(
             },
           ],
         },
-        {
-          type: "paragraph",
-          children: [
-            {
-              text: "|after",
-            },
-          ],
-        },
       ]);
+
+      // restore cursor position
+      if (editorPosition) {
+        editor.selection = editorPosition;
+      }
     } else {
       console.log("text is", text, "no suggestion");
     }
