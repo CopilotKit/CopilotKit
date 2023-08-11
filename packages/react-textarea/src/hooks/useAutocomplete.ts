@@ -3,17 +3,19 @@ import {
   AutocompleteConfig,
   CustomEditor,
 } from "../components/copilot-textarea/copilot-textarea";
-import { Transforms } from "slate";
-import { editorToText } from "../lib/editorToText";
+import { Descendant, Transforms } from "slate";
 
 export function useAutocomplete(
-  editor: CustomEditor,
   autocompleteConfig: AutocompleteConfig
-) {
+): (editor: CustomEditor, newValue: string) => void {
   const [timer, setTimer] = useState<number | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
 
-  const appendSuggestion = async (text: string, abortSignal: AbortSignal) => {
+  const appendSuggestion = async (
+    editor: CustomEditor,
+    text: string,
+    abortSignal: AbortSignal
+  ) => {
     const suggestion = await autocompleteConfig.autocomplete(text, abortSignal);
 
     // We'll assume for now that the autocomplete function might or might not respect the abort signal.
@@ -31,7 +33,7 @@ export function useAutocomplete(
           inline: true,
           children: [
             {
-              text: "world",
+              text: suggestion,
             },
           ],
         },
@@ -47,7 +49,7 @@ export function useAutocomplete(
     }
   };
 
-  const handleKeyDown = (event: React.KeyboardEvent) => {
+  const onChange = (editor: CustomEditor, newValue: string) => {
     if (timer) clearTimeout(timer);
 
     // If there's an ongoing autocomplete request, abort it
@@ -62,7 +64,8 @@ export function useAutocomplete(
 
         try {
           await appendSuggestion(
-            editorToText(editor),
+            editor,
+            newValue,
             controllerRef.current.signal
           );
         } catch (error: any) {
@@ -76,7 +79,7 @@ export function useAutocomplete(
     );
   };
 
-  return handleKeyDown;
+  return onChange;
 }
 
 const defaultDebounceTime = 2;

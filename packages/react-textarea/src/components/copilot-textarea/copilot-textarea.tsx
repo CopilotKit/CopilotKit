@@ -62,12 +62,6 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
   const [editor] = useState(() => {
     const editor = withReact(createEditor());
 
-    const { onChange } = editor;
-    editor.onChange = () => {
-      // props.onChange?.(editorToText(editor));
-      onChange();
-    };
-
     const { isVoid } = editor;
     editor.isVoid = (element) => {
       switch (element.type) {
@@ -102,18 +96,35 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
   });
 
   const renderElementMemoized = useCallback(renderElement, []);
-  const handleAutocompleteKeyDown = useCallback(
-    useAutocomplete(editor, props.autocompleteConfig),
+  const onChangeForAutocomplete = useCallback(
+    useAutocomplete(props.autocompleteConfig),
     [editor, props.autocompleteConfig]
   );
 
+  const [textValue, setTextValue] = useState(props.value || "");
+
   return (
     // Add the editable component inside the context.
-    <Slate editor={editor} initialValue={initialValue}>
+    <Slate
+      editor={editor}
+      initialValue={initialValue}
+      onChange={(value) => {
+        const isAstChange = editor.operations.some(
+          (op) => "set_selection" !== op.type
+        );
+
+        if (isAstChange) {
+          const newTextValue = editorToText(editor);
+          if (newTextValue !== textValue) {
+            onChangeForAutocomplete(editor, newTextValue);
+          }
+          setTextValue(newTextValue);
+        }
+      }}
+    >
       <Editable
         className={props.className}
         renderElement={renderElementMemoized}
-        onKeyDown={handleAutocompleteKeyDown}
       />
     </Slate>
   );
