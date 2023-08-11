@@ -14,7 +14,7 @@ import { editorToText } from "../../lib/editorToText";
 import { useAutocomplete } from "../../hooks/useAutocomplete";
 
 export interface AutocompleteConfig {
-  autocomplete: (input: string, signal?: AbortSignal) => Promise<string>;
+  autocomplete: (input: string, abortSignal: AbortSignal) => Promise<string>;
   debounceTime?: number;
 }
 

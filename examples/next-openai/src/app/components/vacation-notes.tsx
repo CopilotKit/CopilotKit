@@ -11,7 +11,7 @@ export function VacationNotes(): JSX.Element {
       onChange={(value: string) => setText(value)}
       placeholder="What are your plans for your vacation?"
       autocompleteConfig={{
-        autocomplete: (input: string) =>
+        autocomplete: (input: string, abortSignal: AbortSignal) =>
           new Promise((resolve) => {
             setTimeout(() => {
               resolve(
