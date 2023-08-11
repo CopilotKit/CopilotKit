@@ -26,16 +26,23 @@ export function useAutocomplete(
 
     if (text.endsWith("hello")) {
       const editorPosition = editor.selection;
-      Transforms.insertFragment(editor, [
+
+      Transforms.insertNodes(
+        editor,
+        [
+          {
+            type: "suggestion",
+            children: [
+              {
+                text: "world",
+              },
+            ],
+          },
+        ],
         {
-          type: "suggestion",
-          children: [
-            {
-              text: "world",
-            },
-          ],
-        },
-      ]);
+          mode: "highest",
+        }
+      );
 
       // restore cursor position
       if (editorPosition) {
