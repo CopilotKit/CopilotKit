@@ -87,11 +87,7 @@ class Debouncer<T extends any[]> {
         await this.func(...args, this.activeAbortController.signal);
 
         this.activeAbortController = undefined;
-      } catch (error: unknown) {
-        if ((error as Error).name !== "AbortError") {
-          console.error(error);
-        }
-      }
+      } catch (error) {}
     }, this.wait);
   };
 }
