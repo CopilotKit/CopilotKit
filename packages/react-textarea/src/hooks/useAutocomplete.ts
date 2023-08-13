@@ -8,13 +8,18 @@ import { Debouncer } from "../lib/debouncer";
 
 export function useAutocomplete(
   autocompleteConfig: AutocompleteConfig
-): (editor: CustomEditor, newValue: string) => void {
+): (editor: CustomEditor, textBefore: string, textAfter: string) => void {
   const awaitForAndAppendSuggestion = async (
     editor: CustomEditor,
-    text: string,
+    textBefore: string,
+    textAfter: string,
     abortSignal: AbortSignal
   ) => {
-    const suggestion = await autocompleteConfig.autocomplete(text, abortSignal);
+    const suggestion = await autocompleteConfig.autocomplete(
+      textBefore,
+      textAfter,
+      abortSignal
+    );
 
     // We'll assume for now that the autocomplete function might or might not respect the abort signal.
     if (!suggestion || abortSignal.aborted) {
@@ -29,11 +34,8 @@ export function useAutocomplete(
         {
           type: "suggestion",
           inline: true,
-          children: [
-            {
-              text: suggestion,
-            },
-          ],
+          content: suggestion,
+          children: [{ text: "" }],
         },
       ],
       {
@@ -52,8 +54,12 @@ export function useAutocomplete(
     autocompleteConfig.debounceTime
   );
 
-  const onChange = (editor: CustomEditor, newValue: string) => {
-    debouncedFunction.debounce(editor, newValue);
+  const onChange = (
+    editor: CustomEditor,
+    textBefore: string,
+    textAfter: string
+  ) => {
+    debouncedFunction.debounce(editor, textBefore, textAfter);
   };
 
   return onChange;

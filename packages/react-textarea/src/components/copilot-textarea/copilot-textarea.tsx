@@ -1,5 +1,5 @@
 // This example is for an Editor with `ReactEditor` and `HistoryEditor`
-import { BaseEditor, Descendant, createEditor } from "slate";
+import { BaseEditor, Descendant, createEditor, Element } from "slate";
 import {
   Editable,
   ReactEditor,
@@ -12,9 +12,14 @@ import { HistoryEditor } from "slate-history";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { editorToText } from "../../lib/editorToText";
 import { useAutocomplete } from "../../hooks/useAutocomplete";
+import { Editor, Node, Path, Range, Text } from "slate";
 
 export interface AutocompleteConfig {
-  autocomplete: (input: string, abortSignal: AbortSignal) => Promise<string>;
+  autocomplete: (
+    textBefore: string,
+    textAfter: string,
+    abortSignal: AbortSignal
+  ) => Promise<string>;
   debounceTime: number;
 }
 
@@ -36,6 +41,7 @@ export type ParagraphElement = {
 export type SuggestionElement = {
   type: "suggestion";
   inline: boolean;
+  content: string;
   children: CustomText[];
 };
 
@@ -101,7 +107,8 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
     [editor, props.autocompleteConfig]
   );
 
-  const [textValue, setTextValue] = useState(props.value || "");
+  const [textBeforeCursor, setTextBeforeCursor] = useState("");
+  const [textAfterCursor, setTextAfterCursor] = useState("");
 
   return (
     // Add the editable component inside the context.
@@ -109,17 +116,15 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
       editor={editor}
       initialValue={initialValue}
       onChange={(value) => {
-        const isAstChange = editor.operations.some(
-          (op) => "set_selection" !== op.type
-        );
+        const { before, after } = getTextAroundCursor(editor);
 
-        if (isAstChange) {
-          const newTextValue = editorToText(editor);
-          if (newTextValue !== textValue) {
-            onChangeForAutocomplete(editor, newTextValue);
-          }
-          setTextValue(newTextValue);
+        if (before !== textBeforeCursor || after !== textAfterCursor) {
+          console.log("before", before, "textBeforeCursor", textBeforeCursor);
+          console.log("after", after, "textAfterCursor", textAfterCursor);
+          onChangeForAutocomplete(editor, before, after);
         }
+        setTextBeforeCursor(before);
+        setTextAfterCursor(after);
       }}
     >
       <Editable
@@ -153,8 +158,77 @@ const SuggestionElement = (props: RenderElementProps) => {
       }}
       contentEditable={false}
     >
-      {props.element.children.map((child, index) => child.text)}
-      {props.children}
+      {props.element.type === "suggestion" && props.element.content}
     </span>
   );
 };
+
+function getTextAroundCursor(editor: Editor): {
+  before: string;
+  after: string;
+} {
+  const { selection } = editor;
+
+  if (!selection) {
+    return { before: "", after: "" };
+  }
+
+  // Helper function to extract text with newlines
+  const extractTextWithNewlines = (range: Range) => {
+    const voids = false;
+    const [start, end] = Range.edges(range);
+    let text = "";
+    let lastBlock: Node | null = null;
+
+    for (const [node, path] of Editor.nodes(editor, {
+      at: range,
+      match: Text.isText,
+      voids,
+    })) {
+      let t = node.text;
+
+      // Determine the parent block of the current text node
+      const [block] = Editor.above(editor, {
+        at: path,
+        match: (n) => Element.isElement(n) && n.type === "paragraph",
+      }) || [null];
+
+      // If we encounter a new block, prepend a newline
+      if (lastBlock !== block && block) {
+        // check that lastBlock is not null to avoid adding a newline at the beginning
+        if (lastBlock) {
+          text += "\n";
+        }
+        lastBlock = block;
+      }
+
+      if (Path.equals(path, end.path)) {
+        t = t.slice(0, end.offset);
+      }
+
+      if (Path.equals(path, start.path)) {
+        t = t.slice(start.offset);
+      }
+
+      text += t;
+    }
+
+    return text;
+  };
+
+  // Create two ranges: one before the anchor and one after
+  const beforeRange: Range = {
+    anchor: Editor.start(editor, []),
+    focus: selection.anchor,
+  };
+  const afterRange: Range = {
+    anchor: selection.anchor,
+    focus: Editor.end(editor, []),
+  };
+
+  // Extract text for these ranges
+  const before = extractTextWithNewlines(beforeRange);
+  const after = extractTextWithNewlines(afterRange);
+
+  return { before, after };
+}
