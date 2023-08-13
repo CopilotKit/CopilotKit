@@ -1,14 +1,18 @@
-import { useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   AutocompleteConfig,
   CustomEditor,
 } from "../components/copilot-textarea/copilot-textarea";
 import { Descendant, Transforms } from "slate";
 import { Debouncer } from "../lib/debouncer";
+import { getTextAroundCursor } from "../lib/getTextAroundCursor";
 
 export function useAutocomplete(
   autocompleteConfig: AutocompleteConfig
-): (editor: CustomEditor, textBefore: string, textAfter: string) => void {
+): (editor: CustomEditor) => void {
+  const [textBeforeCursor, setTextBeforeCursor] = useState("");
+  const [textAfterCursor, setTextAfterCursor] = useState("");
+
   const awaitForAndAppendSuggestion = async (
     editor: CustomEditor,
     textBefore: string,
@@ -49,18 +53,40 @@ export function useAutocomplete(
     }
   };
 
-  const debouncedFunction = new Debouncer(
-    awaitForAndAppendSuggestion,
-    autocompleteConfig.debounceTime
+  const conditionallyAwaitForAndAppendSuggestion = useCallback(
+    async (editor: CustomEditor, abortSignal: AbortSignal) => {
+      const { before, after } = getTextAroundCursor(editor);
+      if (before !== textBeforeCursor || after !== textAfterCursor) {
+        setTextBeforeCursor(before);
+        setTextAfterCursor(after);
+
+        await awaitForAndAppendSuggestion(editor, before, after, abortSignal);
+      }
+    },
+    [
+      textBeforeCursor,
+      textAfterCursor,
+      setTextBeforeCursor,
+      setTextAfterCursor,
+      awaitForAndAppendSuggestion,
+    ]
   );
 
-  const onChange = (
-    editor: CustomEditor,
-    textBefore: string,
-    textAfter: string
-  ) => {
-    debouncedFunction.debounce(editor, textBefore, textAfter);
-  };
+  const debouncedFunction = useMemo(
+    () =>
+      new Debouncer<[editor: CustomEditor]>(autocompleteConfig.debounceTime),
+    [autocompleteConfig.debounceTime]
+  );
+
+  const onChange = useCallback(
+    (editor: CustomEditor) => {
+      debouncedFunction.debounce(
+        conditionallyAwaitForAndAppendSuggestion,
+        editor
+      );
+    },
+    [debouncedFunction, conditionallyAwaitForAndAppendSuggestion]
+  );
 
   return onChange;
 }

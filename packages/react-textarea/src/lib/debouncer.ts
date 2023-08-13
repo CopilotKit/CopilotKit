@@ -6,9 +6,9 @@ export class Debouncer<T extends any[]> {
   private timeoutId?: number;
   private activeAbortController?: AbortController;
 
-  constructor(private func: AsyncFunction<T>, private wait: number) {}
+  constructor(private wait: number) {}
 
-  debounce = async (...args: T) => {
+  debounce = async (func: AsyncFunction<T>, ...args: T) => {
     // Abort the previous promise immediately
     if (this.activeAbortController) {
       this.activeAbortController.abort();
@@ -24,7 +24,7 @@ export class Debouncer<T extends any[]> {
         this.activeAbortController = new AbortController();
 
         // Pass the signal to the async function, assuming it supports it
-        await this.func(...args, this.activeAbortController.signal);
+        await func(...args, this.activeAbortController.signal);
 
         this.activeAbortController = undefined;
       } catch (error) {}
