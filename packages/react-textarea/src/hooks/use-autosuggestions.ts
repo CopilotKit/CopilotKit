@@ -35,7 +35,7 @@ export function useAutosuggestions(
       editorAutocompleteState: EditorAutocompleteState,
       abortSignal: AbortSignal
     ) => {
-      const suggestion = await autocompleteConfig.autocomplete(
+      const suggestion = await autocompleteConfig.autosuggestionFunction(
         editorAutocompleteState.textBeforeCursor,
         editorAutocompleteState.textAfterCursor,
         abortSignal
@@ -51,7 +51,10 @@ export function useAutosuggestions(
         point: editorAutocompleteState.cursorPoint,
       });
     },
-    [autocompleteConfig.autocomplete, setCurrentAutocompleteSuggestion]
+    [
+      autocompleteConfig.autosuggestionFunction,
+      setCurrentAutocompleteSuggestion,
+    ]
   );
 
   const debouncedFunction = useMemo(
