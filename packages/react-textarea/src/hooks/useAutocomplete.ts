@@ -1,8 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import {
-  AutocompleteConfig,
-  CustomEditor,
-} from "../components/copilot-textarea/copilot-textarea";
+import { AutocompleteConfig } from "../components/copilot-textarea/copilot-textarea";
+import { CustomEditor } from "../types/custom-editor";
 import { BasePoint, Descendant, Transforms } from "slate";
 import { Debouncer } from "../lib/debouncer";
 import { getTextAroundCursor } from "../lib/getTextAroundCursor";

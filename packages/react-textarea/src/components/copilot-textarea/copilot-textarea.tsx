@@ -1,28 +1,12 @@
 // This example is for an Editor with `ReactEditor` and `HistoryEditor`
-import {
-  BaseEditor,
-  Descendant,
-  createEditor,
-  Element,
-  Transforms,
-  Editor,
-  Node,
-  Path,
-} from "slate";
-import {
-  Editable,
-  ReactEditor,
-  RenderElementProps,
-  RenderLeafProps,
-  Slate,
-  withReact,
-} from "slate-react";
-import { HistoryEditor } from "slate-history";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { editorToText } from "../../lib/editorToText";
+import { Descendant } from "slate";
+import { Editable, Slate } from "slate-react";
+import { useCallback, useEffect, useRef } from "react";
 import { useAutocomplete } from "../../hooks/useAutocomplete";
 import { clearAutocompletionsFromEditor } from "../../lib/slatejs-edits/clear-autocompletions";
 import { addAutocompletionsToEditor } from "../../lib/slatejs-edits/add-autocompletions";
+import { useCopilotTextareaEditor } from "../../hooks/useCopilotTextareaEditor";
+import { renderElement } from "./render-element";
 
 export interface AutocompleteConfig {
   autocomplete: (
@@ -41,32 +25,6 @@ export interface CopilotTextareaProps {
   autocompleteConfig: AutocompleteConfig;
 }
 
-export type CustomEditor = BaseEditor & ReactEditor & HistoryEditor;
-
-export type ParagraphElement = {
-  type: "paragraph";
-  children: CustomText[];
-};
-
-export type SuggestionElement = {
-  type: "suggestion";
-  inline: boolean;
-  content: string;
-  children: CustomText[];
-};
-
-export type CustomElement = ParagraphElement | SuggestionElement;
-export type SuggestionAwareText = { text: string };
-export type CustomText = SuggestionAwareText;
-
-declare module "slate" {
-  interface CustomTypes {
-    Editor: CustomEditor;
-    Element: CustomElement;
-    Text: CustomText;
-  }
-}
-
 export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
   const initialValue: Descendant[] = [
     {
@@ -75,41 +33,7 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
     },
   ];
 
-  const [editor] = useState(() => {
-    const editor = withReact(createEditor());
-
-    const { isVoid } = editor;
-    editor.isVoid = (element) => {
-      switch (element.type) {
-        case "suggestion":
-          return true;
-        default:
-          return isVoid(element);
-      }
-    };
-
-    const { markableVoid } = editor;
-    editor.markableVoid = (element) => {
-      switch (element.type) {
-        case "suggestion":
-          return true;
-        default:
-          return markableVoid(element);
-      }
-    };
-
-    const { isInline } = editor;
-    editor.isInline = (element) => {
-      switch (element.type) {
-        case "suggestion":
-          return element.inline;
-        default:
-          return isInline(element);
-      }
-    };
-
-    return editor;
-  });
+  const editor = useCopilotTextareaEditor();
 
   const renderElementMemoized = useCallback(renderElement, []);
   const {
@@ -117,6 +41,7 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
     onChangeHandler: onChangeHandlerForAutocomplete,
   } = useAutocomplete(props.autocompleteConfig);
 
+  // sync autosuggestions state with the editor
   useEffect(() => {
     clearAutocompletionsFromEditor(editor);
     if (currentAutocompleteSuggestion) {
@@ -144,31 +69,3 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
     </Slate>
   );
 }
-
-function renderElement(props: RenderElementProps) {
-  switch (props.element.type) {
-    case "paragraph":
-      return <DefaultElement {...props} />;
-    case "suggestion":
-      return <SuggestionElement {...props} />;
-  }
-}
-
-const DefaultElement = (props: RenderElementProps) => {
-  return <div {...props.attributes}>{props.children}</div>;
-};
-
-const SuggestionElement = (props: RenderElementProps) => {
-  return (
-    <span
-      {...props.attributes}
-      style={{
-        fontStyle: "italic",
-        color: "gray",
-      }}
-      contentEditable={false}
-    >
-      {props.element.type === "suggestion" && props.element.content}
-    </span>
-  );
-};

@@ -1,5 +1,5 @@
 import { BasePoint, Transforms } from "slate";
-import { CustomEditor } from "../../components/copilot-textarea/copilot-textarea";
+import { CustomEditor } from "../../types/custom-editor";
 
 export function addAutocompletionsToEditor(
   editor: CustomEditor,

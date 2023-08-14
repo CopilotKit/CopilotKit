@@ -1,7 +1,7 @@
 import { BaseEditor, Descendant, Element } from "slate";
 import { HistoryEditor } from "slate-history";
 import { ReactEditor } from "slate-react";
-import { SuggestionAwareText } from "../components/copilot-textarea/copilot-textarea";
+import { SuggestionAwareText } from "../types/custom-editor";
 
 function nodeChildrenToTextComponents(
   editor: BaseEditor & ReactEditor & HistoryEditor,
