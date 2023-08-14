@@ -10,6 +10,7 @@ import {
   EditorAutocompleteState,
   areEqual_autocompleteState,
 } from "../types/types";
+import { nullableCompatibleEqualityCheck } from "../lib/utils";
 
 export interface AutocompleteSuggestion {
   text: string;
@@ -25,11 +26,7 @@ export function useAutocomplete(
   autocompleteConfig: AutocompleteConfig
 ): UseAutocompleteResult {
   const [previousAutocompleteState, setPreviousAutocompleteState] =
-    useState<EditorAutocompleteState>({
-      cursorPoint: { path: [0, 0], offset: 0 },
-      textBeforeCursor: "",
-      textAfterCursor: "",
-    });
+    useState<EditorAutocompleteState | null>(null);
 
   const [currentAutocompleteSuggestion, setCurrentAutocompleteSuggestion] =
     useState<AutocompleteSuggestion | null>(null);
@@ -72,7 +69,8 @@ export function useAutocomplete(
   const onChange = useCallback(
     (editor: CustomEditor) => {
       const newEditorState = getTextAroundCursor(editor);
-      const editorStateHasChanged = !areEqual_autocompleteState(
+      const editorStateHasChanged = !nullableCompatibleEqualityCheck(
+        areEqual_autocompleteState,
         previousAutocompleteState,
         newEditorState
       );
@@ -84,9 +82,14 @@ export function useAutocomplete(
       }
 
       // if change, then first null out the current suggestion
-      // then try to get a new suggestion, debouncing to avoid too many requests while typing
       setCurrentAutocompleteSuggestion(null);
-      debouncedFunction.debounce(awaitForAndAppendSuggestion, newEditorState);
+
+      // then try to get a new suggestion, debouncing to avoid too many requests while typing
+      if (newEditorState) {
+        debouncedFunction.debounce(awaitForAndAppendSuggestion, newEditorState);
+      } else {
+        debouncedFunction.cancel();
+      }
     },
     [
       previousAutocompleteState,

@@ -10,14 +10,7 @@ export class Debouncer<T extends any[]> {
 
   debounce = async (func: AsyncFunction<T>, ...args: T) => {
     // Abort the previous promise immediately
-    if (this.activeAbortController) {
-      this.activeAbortController.abort();
-      this.activeAbortController = undefined;
-    }
-
-    if (this.timeoutId !== undefined) {
-      clearTimeout(this.timeoutId);
-    }
+    this.cancel();
 
     this.timeoutId = setTimeout(async () => {
       try {
@@ -29,5 +22,17 @@ export class Debouncer<T extends any[]> {
         this.activeAbortController = undefined;
       } catch (error) {}
     }, this.wait);
+  };
+
+  cancel = () => {
+    if (this.activeAbortController) {
+      this.activeAbortController.abort();
+      this.activeAbortController = undefined;
+    }
+
+    if (this.timeoutId !== undefined) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = undefined;
+    }
   };
 }

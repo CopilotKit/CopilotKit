@@ -1,15 +1,13 @@
 import { Editor, Node, Path, Range, Text, Element, BasePoint } from "slate";
 import { EditorAutocompleteState } from "../types/types";
 
-export function getTextAroundCursor(editor: Editor): EditorAutocompleteState {
+export function getTextAroundCursor(
+  editor: Editor
+): EditorAutocompleteState | null {
   const { selection } = editor;
 
-  if (!selection) {
-    return {
-      cursorPoint: { path: [], offset: 0 },
-      textBeforeCursor: "",
-      textAfterCursor: "",
-    };
+  if (!selection || !Range.isCollapsed(selection)) {
+    return null;
   }
 
   // Helper function to extract text with newlines
