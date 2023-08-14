@@ -8,22 +8,14 @@ import { clearAutocompletionsFromEditor } from "../../lib/slatejs-edits/clear-au
 import { addAutocompletionsToEditor } from "../../lib/slatejs-edits/add-autocompletions";
 import { useCopilotTextareaEditor } from "../../hooks/use-copilot-textarea-editor";
 import { renderElement } from "./render-element";
-
-export interface AutocompleteConfig {
-  autocomplete: (
-    textBefore: string,
-    textAfter: string,
-    abortSignal: AbortSignal
-  ) => Promise<string>;
-  debounceTime: number;
-}
+import { AutosuggestionsConfig } from "../../types/autosuggestions-config";
 
 export interface CopilotTextareaProps {
   className?: string;
   placeholder?: string;
   value?: string;
   onChange?: (value: string) => void;
-  autocompleteConfig: AutocompleteConfig;
+  autocompleteConfig: AutosuggestionsConfig;
 }
 
 export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {

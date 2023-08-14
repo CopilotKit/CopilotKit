@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { AutocompleteConfig } from "../components/copilot-textarea/copilot-textarea";
+import { AutosuggestionsConfig } from "../types/autosuggestions-config";
 import { CustomEditor } from "../types/custom-editor";
 import { Descendant, Transforms } from "slate";
 import { Debouncer } from "../lib/debouncer";
@@ -7,7 +7,7 @@ import { getTextAroundCursor } from "../lib/get-text-around-cursor";
 import {
   EditorAutocompleteState,
   areEqual_autocompleteState,
-} from "../types/types";
+} from "../types/editor-autocomplete-state";
 import { nullableCompatibleEqualityCheck } from "../lib/utils";
 import { AutosuggestionState } from "../types/autosuggestion-state";
 
@@ -18,7 +18,7 @@ export interface UseAutosuggestionsResult {
 }
 
 export function useAutosuggestions(
-  autocompleteConfig: AutocompleteConfig,
+  autocompleteConfig: AutosuggestionsConfig,
   insertAutocompleteSuggestion: (suggestion: AutosuggestionState) => void
 ): UseAutosuggestionsResult {
   const [previousAutocompleteState, setPreviousAutocompleteState] =
@@ -99,7 +99,7 @@ export function useAutosuggestions(
   const keyDownHandler = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
       if (currentAutocompleteSuggestion) {
-        if (event.key === "Tab") {
+        if (event.key === autocompleteConfig.acceptAutosuggestionKey) {
           event.preventDefault();
           insertAutocompleteSuggestion(currentAutocompleteSuggestion);
           setCurrentAutocompleteSuggestion(null);
@@ -110,6 +110,7 @@ export function useAutosuggestions(
       currentAutocompleteSuggestion,
       setCurrentAutocompleteSuggestion,
       insertAutocompleteSuggestion,
+      autocompleteConfig.acceptAutosuggestionKey,
     ]
   );
 

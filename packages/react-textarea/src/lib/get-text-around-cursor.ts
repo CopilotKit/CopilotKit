@@ -1,5 +1,5 @@
 import { Editor, Node, Path, Range, Text, Element, BasePoint } from "slate";
-import { EditorAutocompleteState } from "../types/types";
+import { EditorAutocompleteState } from "../types/editor-autocomplete-state";
 
 export function getTextAroundCursor(
   editor: Editor

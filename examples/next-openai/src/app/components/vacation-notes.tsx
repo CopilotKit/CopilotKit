@@ -24,6 +24,7 @@ export function VacationNotes(): JSX.Element {
             }, 3000);
           }),
         debounceTime: 1000,
+        acceptAutosuggestionKey: "Tab",
       }}
     />
   );
