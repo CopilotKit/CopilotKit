@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       { name, arguments: args },
       createFunctionCallMessages
     ) => {
-      return undefined;
+      return undefined; // returning undefined to avoid sending any messages to the client when a function is called. Temporary, bc currently vercel ai sdk does not support returning both text and function calls -- although the API does support it.
     },
   });
 
