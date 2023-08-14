@@ -1,13 +1,15 @@
-import { Editor, Node, Path, Range, Text, Element } from "slate";
+import { Editor, Node, Path, Range, Text, Element, BasePoint } from "slate";
+import { EditorAutocompleteState } from "../types/types";
 
-export function getTextAroundCursor(editor: Editor): {
-  before: string;
-  after: string;
-} {
+export function getTextAroundCursor(editor: Editor): EditorAutocompleteState {
   const { selection } = editor;
 
   if (!selection) {
-    return { before: "", after: "" };
+    return {
+      cursorPoint: { path: [], offset: 0 },
+      textBeforeCursor: "",
+      textAfterCursor: "",
+    };
   }
 
   // Helper function to extract text with newlines
@@ -67,5 +69,9 @@ export function getTextAroundCursor(editor: Editor): {
   const before = extractTextWithNewlines(beforeRange);
   const after = extractTextWithNewlines(afterRange);
 
-  return { before, after };
+  return {
+    cursorPoint: selection.anchor,
+    textBeforeCursor: before,
+    textAfterCursor: after,
+  };
 }

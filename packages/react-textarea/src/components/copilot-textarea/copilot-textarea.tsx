@@ -1,5 +1,14 @@
 // This example is for an Editor with `ReactEditor` and `HistoryEditor`
-import { BaseEditor, Descendant, createEditor, Element } from "slate";
+import {
+  BaseEditor,
+  Descendant,
+  createEditor,
+  Element,
+  Transforms,
+  Editor,
+  Node,
+  Path,
+} from "slate";
 import {
   Editable,
   ReactEditor,
@@ -12,6 +21,8 @@ import { HistoryEditor } from "slate-history";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { editorToText } from "../../lib/editorToText";
 import { useAutocomplete } from "../../hooks/useAutocomplete";
+import { clearAutocompletionsFromEditor } from "../../lib/slatejs-edits/clear-autocompletions";
+import { addAutocompletionsToEditor } from "../../lib/slatejs-edits/add-autocompletions";
 
 export interface AutocompleteConfig {
   autocomplete: (
@@ -101,7 +112,21 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
   });
 
   const renderElementMemoized = useCallback(renderElement, []);
-  const onChangeForAutocomplete = useAutocomplete(props.autocompleteConfig);
+  const {
+    currentAutocompleteSuggestion,
+    onChangeHandler: onChangeHandlerForAutocomplete,
+  } = useAutocomplete(props.autocompleteConfig);
+
+  useEffect(() => {
+    clearAutocompletionsFromEditor(editor);
+    if (currentAutocompleteSuggestion) {
+      addAutocompletionsToEditor(
+        editor,
+        currentAutocompleteSuggestion.text,
+        currentAutocompleteSuggestion.point
+      );
+    }
+  }, [currentAutocompleteSuggestion]);
 
   return (
     // Add the editable component inside the context.
@@ -109,7 +134,7 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
       editor={editor}
       initialValue={initialValue}
       onChange={(value) => {
-        onChangeForAutocomplete(editor);
+        onChangeHandlerForAutocomplete(editor);
       }}
     >
       <Editable

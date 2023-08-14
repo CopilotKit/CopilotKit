@@ -41,3 +41,7 @@ export function formatDate(input: string | number | Date): string {
     year: "numeric",
   });
 }
+
+export const arraysAreEqual = (arr1: number[], arr2: number[]): boolean =>
+  arr1.length === arr2.length &&
+  arr1.every((value, index) => value === arr2[index]);

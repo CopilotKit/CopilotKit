@@ -1,18 +1,19 @@
-import { type Message } from "ai";
+import { BasePoint } from "slate";
+import { arraysAreEqual } from "../lib/utils";
 
-export interface Chat extends Record<string, any> {
-  id: string;
-  title: string;
-  createdAt: Date;
-  userId: string;
-  path: string;
-  messages: Message[];
-  sharePath?: string;
+export interface EditorAutocompleteState {
+  cursorPoint: BasePoint;
+  textBeforeCursor: string;
+  textAfterCursor: string;
 }
-
-export type ServerActionResult<Result> = Promise<
-  | Result
-  | {
-      error: string;
-    }
->;
+export function areEqual_autocompleteState(
+  prev: EditorAutocompleteState,
+  next: EditorAutocompleteState
+) {
+  return (
+    prev.cursorPoint.offset === next.cursorPoint.offset &&
+    arraysAreEqual(prev.cursorPoint.path, next.cursorPoint.path) &&
+    prev.textBeforeCursor === next.textBeforeCursor &&
+    prev.textAfterCursor === next.textAfterCursor
+  );
+}

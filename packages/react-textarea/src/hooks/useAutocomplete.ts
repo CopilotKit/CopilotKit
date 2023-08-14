@@ -3,90 +3,102 @@ import {
   AutocompleteConfig,
   CustomEditor,
 } from "../components/copilot-textarea/copilot-textarea";
-import { Descendant, Transforms } from "slate";
+import { BasePoint, Descendant, Transforms } from "slate";
 import { Debouncer } from "../lib/debouncer";
 import { getTextAroundCursor } from "../lib/getTextAroundCursor";
+import {
+  EditorAutocompleteState,
+  areEqual_autocompleteState,
+} from "../types/types";
+
+export interface AutocompleteSuggestion {
+  text: string;
+  point: BasePoint;
+}
+
+export interface UseAutocompleteResult {
+  currentAutocompleteSuggestion: AutocompleteSuggestion | null;
+  onChangeHandler: (editor: CustomEditor) => void;
+}
 
 export function useAutocomplete(
   autocompleteConfig: AutocompleteConfig
-): (editor: CustomEditor) => void {
-  const [textBeforeCursor, setTextBeforeCursor] = useState("");
-  const [textAfterCursor, setTextAfterCursor] = useState("");
+): UseAutocompleteResult {
+  const [previousAutocompleteState, setPreviousAutocompleteState] =
+    useState<EditorAutocompleteState>({
+      cursorPoint: { path: [0, 0], offset: 0 },
+      textBeforeCursor: "",
+      textAfterCursor: "",
+    });
 
-  const awaitForAndAppendSuggestion = async (
-    editor: CustomEditor,
-    textBefore: string,
-    textAfter: string,
+  const [currentAutocompleteSuggestion, setCurrentAutocompleteSuggestion] =
+    useState<AutocompleteSuggestion | null>(null);
+
+  const awaitForAndAppendSuggestion: (
+    editorAutocompleteState: EditorAutocompleteState,
     abortSignal: AbortSignal
-  ) => {
-    const suggestion = await autocompleteConfig.autocomplete(
-      textBefore,
-      textAfter,
-      abortSignal
-    );
+  ) => Promise<void> = useCallback(
+    async (
+      editorAutocompleteState: EditorAutocompleteState,
+      abortSignal: AbortSignal
+    ) => {
+      const suggestion = await autocompleteConfig.autocomplete(
+        editorAutocompleteState.textBeforeCursor,
+        editorAutocompleteState.textAfterCursor,
+        abortSignal
+      );
 
-    // We'll assume for now that the autocomplete function might or might not respect the abort signal.
-    if (!suggestion || abortSignal.aborted) {
-      throw new DOMException("Aborted", "AbortError");
-    }
-
-    const editorPosition = editor.selection;
-
-    Transforms.insertNodes(
-      editor,
-      [
-        {
-          type: "suggestion",
-          inline: true,
-          content: suggestion,
-          children: [{ text: "" }],
-        },
-      ],
-      {
-        mode: "highest",
+      // We'll assume for now that the autocomplete function might or might not respect the abort signal.
+      if (!suggestion || abortSignal.aborted) {
+        throw new DOMException("Aborted", "AbortError");
       }
-    );
 
-    // restore cursor position
-    if (editorPosition) {
-      editor.selection = editorPosition;
-    }
-  };
-
-  const conditionallyAwaitForAndAppendSuggestion = useCallback(
-    async (editor: CustomEditor, abortSignal: AbortSignal) => {
-      const { before, after } = getTextAroundCursor(editor);
-      if (before !== textBeforeCursor || after !== textAfterCursor) {
-        setTextBeforeCursor(before);
-        setTextAfterCursor(after);
-
-        await awaitForAndAppendSuggestion(editor, before, after, abortSignal);
-      }
+      setCurrentAutocompleteSuggestion({
+        text: suggestion,
+        point: editorAutocompleteState.cursorPoint,
+      });
     },
-    [
-      textBeforeCursor,
-      textAfterCursor,
-      setTextBeforeCursor,
-      setTextAfterCursor,
-      awaitForAndAppendSuggestion,
-    ]
+    [autocompleteConfig.autocomplete, setCurrentAutocompleteSuggestion]
   );
 
   const debouncedFunction = useMemo(
     () =>
-      new Debouncer<[editor: CustomEditor]>(autocompleteConfig.debounceTime),
+      new Debouncer<[editorAutocompleteState: EditorAutocompleteState]>(
+        autocompleteConfig.debounceTime
+      ),
     [autocompleteConfig.debounceTime]
   );
 
   const onChange = useCallback(
     (editor: CustomEditor) => {
-      debouncedFunction.debounce(
-        conditionallyAwaitForAndAppendSuggestion,
-        editor
+      const newEditorState = getTextAroundCursor(editor);
+      const editorStateHasChanged = !areEqual_autocompleteState(
+        previousAutocompleteState,
+        newEditorState
       );
+      setPreviousAutocompleteState(newEditorState);
+
+      // if no change, do nothing
+      if (!editorStateHasChanged) {
+        return;
+      }
+
+      // if change, then first null out the current suggestion
+      // then try to get a new suggestion, debouncing to avoid too many requests while typing
+      setCurrentAutocompleteSuggestion(null);
+      debouncedFunction.debounce(awaitForAndAppendSuggestion, newEditorState);
     },
-    [debouncedFunction, conditionallyAwaitForAndAppendSuggestion]
+    [
+      previousAutocompleteState,
+      setPreviousAutocompleteState,
+      debouncedFunction,
+      awaitForAndAppendSuggestion,
+      setCurrentAutocompleteSuggestion,
+    ]
   );
 
-  return onChange;
+  return {
+    currentAutocompleteSuggestion,
+    onChangeHandler: onChange,
+  };
 }
