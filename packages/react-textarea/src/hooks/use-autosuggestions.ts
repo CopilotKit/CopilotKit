@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { AutocompleteConfig } from "../components/copilot-textarea/copilot-textarea";
 import { CustomEditor } from "../types/custom-editor";
-import { BasePoint, Descendant, Transforms } from "slate";
+import { Descendant, Transforms } from "slate";
 import { Debouncer } from "../lib/debouncer";
 import { getTextAroundCursor } from "../lib/get-text-around-cursor";
 import {
@@ -9,19 +9,17 @@ import {
   areEqual_autocompleteState,
 } from "../types/types";
 import { nullableCompatibleEqualityCheck } from "../lib/utils";
-
-export interface AutosuggestionState {
-  text: string;
-  point: BasePoint;
-}
+import { AutosuggestionState } from "../types/autosuggestion-state";
 
 export interface UseAutosuggestionsResult {
   currentAutocompleteSuggestion: AutosuggestionState | null;
   onChangeHandler: (editor: CustomEditor) => void;
+  onKeyDownHandler: (event: React.KeyboardEvent<HTMLDivElement>) => void;
 }
 
 export function useAutosuggestions(
-  autocompleteConfig: AutocompleteConfig
+  autocompleteConfig: AutocompleteConfig,
+  insertAutocompleteSuggestion: (suggestion: AutosuggestionState) => void
 ): UseAutosuggestionsResult {
   const [previousAutocompleteState, setPreviousAutocompleteState] =
     useState<EditorAutocompleteState | null>(null);
@@ -98,8 +96,26 @@ export function useAutosuggestions(
     ]
   );
 
+  const keyDownHandler = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (currentAutocompleteSuggestion) {
+        if (event.key === "Tab") {
+          event.preventDefault();
+          insertAutocompleteSuggestion(currentAutocompleteSuggestion);
+          setCurrentAutocompleteSuggestion(null);
+        }
+      }
+    },
+    [
+      currentAutocompleteSuggestion,
+      setCurrentAutocompleteSuggestion,
+      insertAutocompleteSuggestion,
+    ]
+  );
+
   return {
     currentAutocompleteSuggestion,
     onChangeHandler: onChange,
+    onKeyDownHandler: keyDownHandler,
   };
 }

@@ -1,8 +1,9 @@
 // This example is for an Editor with `ReactEditor` and `HistoryEditor`
-import { Descendant } from "slate";
+import { Descendant, Editor } from "slate";
 import { Editable, Slate } from "slate-react";
 import { useCallback, useEffect, useRef } from "react";
 import { useAutosuggestions } from "../../hooks/use-autosuggestions";
+import { AutosuggestionState } from "../../types/autosuggestion-state";
 import { clearAutocompletionsFromEditor } from "../../lib/slatejs-edits/clear-autocompletions";
 import { addAutocompletionsToEditor } from "../../lib/slatejs-edits/add-autocompletions";
 import { useCopilotTextareaEditor } from "../../hooks/use-copilot-textarea-editor";
@@ -35,11 +36,21 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
 
   const editor = useCopilotTextareaEditor();
 
+  const insertText = useCallback(
+    (autosuggestion: AutosuggestionState) => {
+      Editor.insertText(editor, autosuggestion.text, {
+        at: autosuggestion.point,
+      });
+    },
+    [editor]
+  );
+
   const renderElementMemoized = useCallback(renderElement, []);
   const {
     currentAutocompleteSuggestion,
     onChangeHandler: onChangeHandlerForAutocomplete,
-  } = useAutosuggestions(props.autocompleteConfig);
+    onKeyDownHandler: onKeyDownHandlerForAutocomplete,
+  } = useAutosuggestions(props.autocompleteConfig, insertText);
 
   // sync autosuggestions state with the editor
   useEffect(() => {
@@ -65,6 +76,7 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
       <Editable
         className={props.className}
         renderElement={renderElementMemoized}
+        onKeyDown={onKeyDownHandlerForAutocomplete}
       />
     </Slate>
   );
