@@ -2,10 +2,10 @@
 import { Descendant } from "slate";
 import { Editable, Slate } from "slate-react";
 import { useCallback, useEffect, useRef } from "react";
-import { useAutocomplete } from "../../hooks/useAutocomplete";
+import { useAutosuggestions } from "../../hooks/use-autosuggestions";
 import { clearAutocompletionsFromEditor } from "../../lib/slatejs-edits/clear-autocompletions";
 import { addAutocompletionsToEditor } from "../../lib/slatejs-edits/add-autocompletions";
-import { useCopilotTextareaEditor } from "../../hooks/useCopilotTextareaEditor";
+import { useCopilotTextareaEditor } from "../../hooks/use-copilot-textarea-editor";
 import { renderElement } from "./render-element";
 
 export interface AutocompleteConfig {
@@ -39,7 +39,7 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
   const {
     currentAutocompleteSuggestion,
     onChangeHandler: onChangeHandlerForAutocomplete,
-  } = useAutocomplete(props.autocompleteConfig);
+  } = useAutosuggestions(props.autocompleteConfig);
 
   // sync autosuggestions state with the editor
   useEffect(() => {

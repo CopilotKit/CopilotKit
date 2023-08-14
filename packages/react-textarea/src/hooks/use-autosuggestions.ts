@@ -3,31 +3,31 @@ import { AutocompleteConfig } from "../components/copilot-textarea/copilot-texta
 import { CustomEditor } from "../types/custom-editor";
 import { BasePoint, Descendant, Transforms } from "slate";
 import { Debouncer } from "../lib/debouncer";
-import { getTextAroundCursor } from "../lib/getTextAroundCursor";
+import { getTextAroundCursor } from "../lib/get-text-around-cursor";
 import {
   EditorAutocompleteState,
   areEqual_autocompleteState,
 } from "../types/types";
 import { nullableCompatibleEqualityCheck } from "../lib/utils";
 
-export interface AutocompleteSuggestion {
+export interface AutosuggestionState {
   text: string;
   point: BasePoint;
 }
 
-export interface UseAutocompleteResult {
-  currentAutocompleteSuggestion: AutocompleteSuggestion | null;
+export interface UseAutosuggestionsResult {
+  currentAutocompleteSuggestion: AutosuggestionState | null;
   onChangeHandler: (editor: CustomEditor) => void;
 }
 
-export function useAutocomplete(
+export function useAutosuggestions(
   autocompleteConfig: AutocompleteConfig
-): UseAutocompleteResult {
+): UseAutosuggestionsResult {
   const [previousAutocompleteState, setPreviousAutocompleteState] =
     useState<EditorAutocompleteState | null>(null);
 
   const [currentAutocompleteSuggestion, setCurrentAutocompleteSuggestion] =
-    useState<AutocompleteSuggestion | null>(null);
+    useState<AutosuggestionState | null>(null);
 
   const awaitForAndAppendSuggestion: (
     editorAutocompleteState: EditorAutocompleteState,
