@@ -37,13 +37,16 @@ export function CopilotProvider({
     });
   }, []);
 
-  const getContextString = useCallback(() => {
-    return printTree();
-  }, [printTree]);
+  const getContextString = useCallback(
+    (categories: string[] = ["global"]) => {
+      return printTree(categories);
+    },
+    [printTree]
+  );
 
   const addContext = useCallback(
-    (context: string, parentId?: string) => {
-      return addElement(context, parentId);
+    (context: string, parentId?: string, categories: string[] = ["global"]) => {
+      return addElement(context, categories, parentId);
     },
     [addElement]
   );

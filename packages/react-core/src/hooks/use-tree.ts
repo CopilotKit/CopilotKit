@@ -8,14 +8,19 @@ export interface TreeNode {
   value: string;
   children: TreeNode[];
   parentId?: TreeNodeId;
+  categories: Set<string>;
 }
 
 export type Tree = TreeNode[];
 
 export interface UseTreeReturn {
   tree: Tree;
-  addElement: (value: string, parentId?: TreeNodeId) => TreeNodeId;
-  printTree: () => string;
+  addElement: (
+    value: string,
+    categories: string[],
+    parentId?: TreeNodeId
+  ) => TreeNodeId;
+  printTree: (categories: string[]) => string;
   removeElement: (id: TreeNodeId) => void;
 }
 
@@ -107,7 +112,13 @@ const printNode = (node: TreeNode, prefix = "", indentLevel = 0): string => {
 
 // Action types
 type Action =
-  | { type: "ADD_NODE"; value: string; parentId?: string; id: string }
+  | {
+      type: "ADD_NODE";
+      value: string;
+      parentId?: string;
+      id: string;
+      categories: string[];
+    }
   | { type: "REMOVE_NODE"; id: string };
 
 // Reducer function
@@ -119,6 +130,7 @@ function treeReducer(state: Tree, action: Action): Tree {
         id: newNodeId,
         value,
         children: [],
+        categories: new Set(action.categories),
       };
 
       try {
@@ -140,9 +152,15 @@ const useTree = (): UseTreeReturn => {
   const [tree, dispatch] = useReducer(treeReducer, []);
 
   const addElement = useCallback(
-    (value: string, parentId?: string): TreeNodeId => {
+    (value: string, categories: string[], parentId?: string): TreeNodeId => {
       const newNodeId = nanoid(); // Generate new ID outside of dispatch
-      dispatch({ type: "ADD_NODE", value, parentId, id: newNodeId });
+      dispatch({
+        type: "ADD_NODE",
+        value,
+        parentId,
+        id: newNodeId,
+        categories: categories,
+      });
       return newNodeId; // Return the new ID
     },
     []
@@ -152,19 +170,40 @@ const useTree = (): UseTreeReturn => {
     dispatch({ type: "REMOVE_NODE", id });
   }, []);
 
-  const printTree = (): string => {
-    let output = "";
-    tree.forEach(
-      (node, index) =>
-        (output += printNode(
+  const printTree = useCallback(
+    (categories: string[]): string => {
+      const categoriesSet = new Set(categories);
+
+      let output = "";
+      tree.forEach((node, index) => {
+        // if the node does not have any of the desired categories, continue to the next node
+        if (!setsHaveIntersection(categoriesSet, node.categories)) {
+          return;
+        }
+        output += printNode(
           node,
           `${treeIndentationRepresentation(index, 0)}. `
-        ))
-    );
-    return output;
-  };
+        );
+      });
+      return output;
+    },
+    [tree]
+  );
 
   return { tree, addElement, printTree, removeElement };
 };
 
 export default useTree;
+
+function setsHaveIntersection<T>(setA: Set<T>, setB: Set<T>): boolean {
+  const [smallerSet, largerSet] =
+    setA.size <= setB.size ? [setA, setB] : [setB, setA];
+
+  for (let item of smallerSet) {
+    if (largerSet.has(item)) {
+      return true;
+    }
+  }
+
+  return false;
+}
