@@ -5,13 +5,14 @@ import { CopilotContext } from "../context/copilot-context";
 
 export function useMakeCopilotReadable(
   information: string,
-  parentId?: string
+  parentId?: string,
+  categories: string[] = ["global"]
 ): string | undefined {
   const { addContext, removeContext } = useContext(CopilotContext);
   const idRef = useRef<string>();
 
   useEffect(() => {
-    const id = addContext(information, parentId);
+    const id = addContext(information, categories, parentId);
     idRef.current = id;
 
     return () => {

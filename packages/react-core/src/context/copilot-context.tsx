@@ -13,8 +13,12 @@ export interface CopilotContextParams {
   setEntryPoint: (id: string, entryPoint: AnnotatedFunction<any[]>) => void;
   removeEntryPoint: (id: string) => void;
 
-  getContextString: () => string;
-  addContext: (context: string, parentId?: string) => TreeNodeId;
+  getContextString: (categories?: string[]) => string;
+  addContext: (
+    context: string,
+    categories?: string[],
+    parentId?: string
+  ) => TreeNodeId;
   removeContext: (id: TreeNodeId) => void;
 }
 

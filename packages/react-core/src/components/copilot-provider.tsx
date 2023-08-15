@@ -45,7 +45,7 @@ export function CopilotProvider({
   );
 
   const addContext = useCallback(
-    (context: string, parentId?: string, categories: string[] = ["global"]) => {
+    (context: string, categories: string[] = ["global"], parentId?: string) => {
       return addElement(context, categories, parentId);
     },
     [addElement]

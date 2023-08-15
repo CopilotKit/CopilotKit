@@ -1,5 +1,7 @@
 import { useCallback, useState } from "react";
 import { AutosuggestionFunction } from "../types";
+import { useContext } from "react";
+import { CopilotContext } from "@copilotkit/react-core";
 
 export interface MinimalChatGPTMessage {
   role: string;
@@ -11,7 +13,7 @@ export function useMakeAutosuggestionFunction(
   makeSystemMessage: (message: string) => string = defaultMakeSystemMessage,
   fewShotMessages: MinimalChatGPTMessage[] = defaultFewShotMessages
 ): AutosuggestionFunction {
-  const [contextString, setContextString] = useState("");
+  const { getContextString } = useContext(CopilotContext);
 
   return useCallback(
     async (beforeText: string, afterText: string, abortSignal: AbortSignal) => {
@@ -21,7 +23,7 @@ export function useMakeAutosuggestionFunction(
           messages: [
             {
               role: "system",
-              content: makeSystemMessage(contextString),
+              content: makeSystemMessage(getContextString()),
             },
             ...fewShotMessages,
             {
@@ -44,7 +46,7 @@ export function useMakeAutosuggestionFunction(
 
       return suggestion;
     },
-    [apiEndpoint, makeSystemMessage, fewShotMessages, contextString]
+    [apiEndpoint, makeSystemMessage, fewShotMessages, getContextString]
   );
 }
 
