@@ -6,7 +6,7 @@ import { CopilotContext } from "../context/copilot-context";
 export function useMakeCopilotReadable(
   information: string,
   parentId?: string,
-  categories: string[] = ["global"]
+  categories?: string[]
 ): string | undefined {
   const { addContext, removeContext } = useContext(CopilotContext);
   const idRef = useRef<string>();
