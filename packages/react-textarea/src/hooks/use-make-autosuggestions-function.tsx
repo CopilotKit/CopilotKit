@@ -11,7 +11,8 @@ export interface MinimalChatGPTMessage {
 export function useMakeAutosuggestionFunction(
   apiEndpoint: string = "/api/autosuggest",
   makeSystemMessage: (message: string) => string = defaultMakeSystemMessage,
-  fewShotMessages: MinimalChatGPTMessage[] = defaultFewShotMessages
+  fewShotMessages: MinimalChatGPTMessage[] = defaultFewShotMessages,
+  contextCategories?: string[]
 ): AutosuggestionFunction {
   const { getContextString } = useContext(CopilotContext);
 
@@ -23,7 +24,7 @@ export function useMakeAutosuggestionFunction(
           messages: [
             {
               role: "system",
-              content: makeSystemMessage(getContextString()),
+              content: makeSystemMessage(getContextString(contextCategories)),
             },
             ...fewShotMessages,
             {
@@ -46,7 +47,13 @@ export function useMakeAutosuggestionFunction(
 
       return suggestion;
     },
-    [apiEndpoint, makeSystemMessage, fewShotMessages, getContextString]
+    [
+      apiEndpoint,
+      makeSystemMessage,
+      fewShotMessages,
+      getContextString,
+      contextCategories,
+    ]
   );
 }
 
