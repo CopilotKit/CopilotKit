@@ -7,12 +7,14 @@ import { ChatCompletionFunctions } from "openai-edge/types/api";
 import { FunctionCallHandler } from "ai";
 
 export interface CopilotContextParams {
+  // function-calling
   entryPoints: Record<string, AnnotatedFunction<any[]>>;
-  getChatCompletionFunctionDescriptions: () => ChatCompletionFunctions[];
-  getFunctionCallHandler: () => FunctionCallHandler;
   setEntryPoint: (id: string, entryPoint: AnnotatedFunction<any[]>) => void;
   removeEntryPoint: (id: string) => void;
+  getChatCompletionFunctionDescriptions: () => ChatCompletionFunctions[];
+  getFunctionCallHandler: () => FunctionCallHandler;
 
+  // text context
   getContextString: (categories?: string[]) => string;
   addContext: (
     context: string,
@@ -24,10 +26,11 @@ export interface CopilotContextParams {
 
 const emptyCopilotContext: CopilotContextParams = {
   entryPoints: {},
-  getChatCompletionFunctionDescriptions: () => [],
-  getFunctionCallHandler: () => async () => {},
   setEntryPoint: () => {},
   removeEntryPoint: () => {},
+  getChatCompletionFunctionDescriptions: () => [],
+  getFunctionCallHandler: () => async () => {},
+
   getContextString: () => "",
   addContext: () => "",
   removeContext: () => {},
