@@ -30,6 +30,14 @@ export function getTextAroundCursor(
   };
 }
 
+export function getFullEditorTextWithNewlines(editor: Editor): string {
+  const fullDocumentRange: Range = {
+    anchor: Editor.start(editor, []),
+    focus: Editor.end(editor, []),
+  };
+  return extractTextWithNewlines(editor, fullDocumentRange);
+}
+
 // Helper function to extract text with newlines
 export function extractTextWithNewlines(editor: Editor, range: Range): string {
   const voids = false;

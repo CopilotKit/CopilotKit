@@ -13,7 +13,7 @@ import { AutosuggestionState } from "../types/autosuggestion-state";
 
 export interface UseAutosuggestionsResult {
   currentAutocompleteSuggestion: AutosuggestionState | null;
-  onChangeHandler: (editor: CustomEditor) => void;
+  onChangeHandler: (newEditorState: EditorAutocompleteState | null) => void;
   onKeyDownHandler: (event: React.KeyboardEvent<HTMLDivElement>) => void;
 }
 
@@ -71,8 +71,7 @@ export function useAutosuggestions(
   );
 
   const onChange = useCallback(
-    (editor: CustomEditor) => {
-      const newEditorState = getTextAroundCursor(editor);
+    (newEditorState: EditorAutocompleteState | null) => {
       const editorStateHasChanged = !nullableCompatibleEqualityCheck(
         areEqual_autocompleteState,
         previousAutocompleteState,

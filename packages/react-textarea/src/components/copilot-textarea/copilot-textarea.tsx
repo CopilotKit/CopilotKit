@@ -14,6 +14,7 @@ import {
   defaultAutosuggestionsConfig,
 } from "../../types/autosuggestions-config";
 import { makeRenderPlaceholderFunction } from "./render-placeholder";
+import { getFullEditorTextWithNewlines, getTextAroundCursor } from "../../lib/get-text-around-cursor";
 
 export interface CopilotTextareaProps {
   className?: string;
@@ -102,7 +103,15 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
       editor={editor}
       initialValue={initialValue}
       onChange={(value) => {
-        onChangeHandlerForAutocomplete(editor);
+        const newEditorState = getTextAroundCursor(editor)
+
+        const fullEditorText = newEditorState
+        ? newEditorState.textBeforeCursor + newEditorState.textAfterCursor
+        : getFullEditorTextWithNewlines(editor); // we don't double-parse the editor. When `newEditorState` is null, we didn't parse the editor yet.
+
+        setLastKnownFullEditorText(fullEditorText);
+        onChangeHandlerForAutocomplete(newEditorState);
+        props.onChange?.(fullEditorText);
       }}
     >
       <Editable
