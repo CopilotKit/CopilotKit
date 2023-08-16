@@ -1,5 +1,4 @@
 import { Configuration, OpenAIApi } from "openai-edge";
-import { OpenAIStream, StreamingTextResponse } from "ai";
 
 const config = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
@@ -13,7 +12,8 @@ export async function POST(req: Request): Promise<Response> {
 
   const response = await openai.createChatCompletion({
     model: "gpt-4",
-    max_tokens: 500,
+    // model: "gpt-3.5-turbo-0613",
+    max_tokens: 250,
     messages,
   });
 

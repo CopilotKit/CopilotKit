@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { useContext } from "react";
 import { CopilotContext } from "@copilotkit/react-core";
 import { AutosuggestionsBareFunction } from "./use-autosuggestions";
+import { MakeSystemMessage } from "../types";
 
 export interface MinimalChatGPTMessage {
   role: string;
@@ -15,6 +16,7 @@ export interface MinimalChatGPTMessage {
  * It sends a POST request to the API endpoint with the messages array containing the system message, few shot messages, and user messages.
  * The function returns the suggestion from the API response.
  *
+ * @param textareaPurpose - The purpose of the textarea. This is included in the system message.
  * @param apiEndpoint - The API endpoint to send the autosuggestion request to.
  * @param makeSystemMessage - A function that takes in a context string and returns a system message to include in the autosuggestion request.
  * @param fewShotMessages - An array of few shot messages to include in the autosuggestion request.
@@ -22,22 +24,31 @@ export interface MinimalChatGPTMessage {
  * @returns A memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
  */
 export function useMakeAutosuggestionFunction(
+  textareaPurpose: string,
   apiEndpoint: string,
-  makeSystemMessage: (message: string) => string,
+  makeSystemMessage: MakeSystemMessage,
   fewShotMessages: MinimalChatGPTMessage[],
-  contextCategories: string[] | undefined
+  contextCategories: string[] | undefined,
+  disableWhenEmpty: boolean
 ): AutosuggestionsBareFunction {
   const { getContextString } = useContext(CopilotContext);
 
   return useCallback(
     async (beforeText: string, afterText: string, abortSignal: AbortSignal) => {
+      if (disableWhenEmpty && beforeText === "" && afterText === "") {
+        throw new Error("No text to suggest");
+      }
+
       const res = await fetch(apiEndpoint, {
         method: "POST",
         body: JSON.stringify({
           messages: [
             {
               role: "system",
-              content: makeSystemMessage(getContextString(contextCategories)),
+              content: makeSystemMessage(
+                getContextString(contextCategories),
+                textareaPurpose
+              ),
             },
             ...fewShotMessages,
             {
@@ -66,6 +77,7 @@ export function useMakeAutosuggestionFunction(
       fewShotMessages,
       getContextString,
       contextCategories,
+      textareaPurpose,
     ]
   );
 }

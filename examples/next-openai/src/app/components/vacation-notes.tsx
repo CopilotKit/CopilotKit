@@ -7,13 +7,16 @@ export function VacationNotes(): JSX.Element {
 
   return (
     <CopilotTextarea
-      className="p-4"
+      className="px-4 py-4"
       value={text}
       onChange={(value: string) => setText(value)}
       placeholder="What are your plans for your vacation?"
       autosuggestionsConfig={{
+        textareaPurpose: "Notes for my upcoming vacation",
         debounceTime: 0.7,
         acceptAutosuggestionKey: "Tab",
+        contextCategories: [],
+        disableWhenEmpty: true,
       }}
     />
   );

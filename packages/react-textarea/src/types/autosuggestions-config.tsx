@@ -1,20 +1,30 @@
 import { MinimalChatGPTMessage } from "../hooks/use-make-autosuggestions-function";
 
+export type MakeSystemMessage = (
+  textareaPurpose: string,
+  contextString: string
+) => string;
+
 export interface AutosuggestionsConfig {
+  textareaPurpose: string;
   debounceTime: number;
   acceptAutosuggestionKey: string;
 
   apiEndpoint: string;
-  makeSystemMessage: (context: string) => string;
-  fewSuggestionsMessages: MinimalChatGPTMessage[];
   contextCategories: string[] | undefined;
+  makeSystemMessage: MakeSystemMessage;
+  fewShotMessages: MinimalChatGPTMessage[];
+  disableWhenEmpty: boolean;
 }
 
-export function defaultMakeSystemMessage(contextString: string): string {
+export const defaultMakeSystemMessage: MakeSystemMessage = (
+  textareaPurpose,
+  contextString
+) => {
   return `
 You are a hyper-competent and versatile writing assistant.
 
-The user is writing some text. It may be a long document, or just a short message.
+The user is writing some text. The purpose is: ${textareaPurpose}.
 Your job is to help the user write - by guessing what they are going to write next as best as you can, and suggesting it to them.
 Only guess a SHORT distance ahead. Usually 1 sentence, or at most 1 paragraph.
 
@@ -26,14 +36,15 @@ The user will provide both the text before and after the cursor. You should use 
 <TextBeforeCursor>
 <YourSuggestion>
 
-If we need space between the text before and after the cursor, make sure to explicitly add it in the suggestion.
+If we need to add a whitespace character to the suggested text, make sure to explicitly add it in.
 
 The following external context is also provided. You may draw on it when appropriate.
 \`\`\`
 ${contextString}
 \`\`\`
 `;
-}
+};
+
 export const defaultFewShotMessages: MinimalChatGPTMessage[] = [
   {
     role: "user",
@@ -70,11 +81,13 @@ export const defaultFewShotMessages: MinimalChatGPTMessage[] = [
   },
 ];
 export const defaultAutosuggestionsConfig: AutosuggestionsConfig = {
+  textareaPurpose: "A generic textbox",
   debounceTime: 500,
   acceptAutosuggestionKey: "Tab",
 
   apiEndpoint: "api/autosuggestions",
   makeSystemMessage: defaultMakeSystemMessage,
-  fewSuggestionsMessages: defaultFewShotMessages,
+  fewShotMessages: defaultFewShotMessages,
   contextCategories: undefined,
+  disableWhenEmpty: false,
 };

@@ -1,1 +1,4 @@
-export type { AutosuggestionsConfig } from "./autosuggestions-config";
+export type {
+  AutosuggestionsConfig,
+  MakeSystemMessage,
+} from "./autosuggestions-config";
