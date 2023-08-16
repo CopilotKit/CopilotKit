@@ -1,7 +1,14 @@
 // This example is for an Editor with `ReactEditor` and `HistoryEditor`
 import { Descendant, Editor } from "slate";
 import { Editable, RenderPlaceholderProps, Slate } from "slate-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  TextareaHTMLAttributes,
+} from "react";
 import { useAutosuggestions } from "../../hooks/use-autosuggestions";
 import { AutosuggestionState } from "../../types/autosuggestion-state";
 import { clearAutocompletionsFromEditor } from "../../lib/slatejs-edits/clear-autocompletions";
@@ -20,12 +27,11 @@ import {
 } from "../../lib/get-text-around-cursor";
 import { replaceEditorText } from "../../lib/slatejs-edits/replace-text";
 
-export interface CopilotTextareaProps {
-  className?: string;
-  placeholder?: string;
+export interface CopilotTextareaProps
+  extends TextareaHTMLAttributes<HTMLDivElement> {
   placeholderStyle?: React.CSSProperties;
   value?: string;
-  onChange?: (value: string) => void;
+  onValueChange?: (value: string) => void;
   autosuggestionsConfig: Partial<AutosuggestionsConfig>;
 }
 
@@ -128,15 +134,14 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
 
         setLastKnownFullEditorText(fullEditorText);
         onChangeHandlerForAutocomplete(newEditorState);
-        props.onChange?.(fullEditorText);
+        props.onValueChange?.(fullEditorText);
       }}
     >
       <Editable
-        className={props.className}
-        placeholder={props.placeholder}
         renderElement={renderElementMemoized}
         renderPlaceholder={renderPlaceholderMemoized}
         onKeyDown={onKeyDownHandlerForAutocomplete}
+        {...props}
       />
     </Slate>
   );
