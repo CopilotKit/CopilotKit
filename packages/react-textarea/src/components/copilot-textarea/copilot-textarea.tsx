@@ -1,7 +1,7 @@
 // This example is for an Editor with `ReactEditor` and `HistoryEditor`
 import { Descendant, Editor } from "slate";
 import { Editable, RenderPlaceholderProps, Slate } from "slate-react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAutosuggestions } from "../../hooks/use-autosuggestions";
 import { AutosuggestionState } from "../../types/autosuggestion-state";
 import { clearAutocompletionsFromEditor } from "../../lib/slatejs-edits/clear-autocompletions";
@@ -14,7 +14,11 @@ import {
   defaultAutosuggestionsConfig,
 } from "../../types/autosuggestions-config";
 import { makeRenderPlaceholderFunction } from "./render-placeholder";
-import { getFullEditorTextWithNewlines, getTextAroundCursor } from "../../lib/get-text-around-cursor";
+import {
+  getFullEditorTextWithNewlines,
+  getTextAroundCursor,
+} from "../../lib/get-text-around-cursor";
+import { replaceEditorText } from "../../lib/slatejs-edits/replace-text";
 
 export interface CopilotTextareaProps {
   className?: string;
@@ -32,6 +36,9 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
   };
 
   const valueOnInitialRender = useMemo(() => props.value ?? "", []);
+  const [lastKnownFullEditorText, setLastKnownFullEditorText] =
+    useState(valueOnInitialRender);
+
   const initialValue: Descendant[] = useMemo(() => {
     return [
       {
@@ -97,17 +104,27 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
     return makeRenderPlaceholderFunction(placeholderStyleAugmented);
   }, [props.placeholderStyle]);
 
+  // update the editor text, but only when the value changes from outside the component
+  useEffect(() => {
+    if (props.value === lastKnownFullEditorText) {
+      return;
+    }
+
+    setLastKnownFullEditorText(props.value ?? "");
+    replaceEditorText(editor, props.value ?? "");
+  }, [props.value]);
+
   return (
     // Add the editable component inside the context.
     <Slate
       editor={editor}
       initialValue={initialValue}
       onChange={(value) => {
-        const newEditorState = getTextAroundCursor(editor)
+        const newEditorState = getTextAroundCursor(editor);
 
         const fullEditorText = newEditorState
-        ? newEditorState.textBeforeCursor + newEditorState.textAfterCursor
-        : getFullEditorTextWithNewlines(editor); // we don't double-parse the editor. When `newEditorState` is null, we didn't parse the editor yet.
+          ? newEditorState.textBeforeCursor + newEditorState.textAfterCursor
+          : getFullEditorTextWithNewlines(editor); // we don't double-parse the editor. When `newEditorState` is null, we didn't parse the editor yet.
 
         setLastKnownFullEditorText(fullEditorText);
         onChangeHandlerForAutocomplete(newEditorState);
