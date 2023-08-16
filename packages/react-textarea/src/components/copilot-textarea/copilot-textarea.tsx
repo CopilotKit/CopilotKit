@@ -25,17 +25,20 @@ export interface CopilotTextareaProps {
 }
 
 export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
-  const initialValue: Descendant[] = [
-    {
-      type: "paragraph",
-      children: [{ text: "" }],
-    },
-  ];
-
   const autosuggestionsConfig: AutosuggestionsConfig = {
     ...defaultAutosuggestionsConfig,
     ...props.autosuggestionsConfig,
   };
+
+  const valueOnInitialRender = useMemo(() => props.value ?? "", []);
+  const initialValue: Descendant[] = useMemo(() => {
+    return [
+      {
+        type: "paragraph",
+        children: [{ text: valueOnInitialRender }],
+      },
+    ];
+  }, [valueOnInitialRender]);
 
   const editor = useCopilotTextareaEditor();
   const autosuggestionsFunction = useMakeAutosuggestionFunction(
@@ -55,22 +58,6 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
     },
     [editor]
   );
-
-  const renderElementMemoized = useCallback(renderElement, []);
-  const renderPlaceholderMemoized = useMemo(() => {
-    // For some reason slateJS specifies a top value of 0, which makes for strange styling. We override this here.
-    const placeholderStyleSlatejsOverrides: React.CSSProperties = {
-      top: undefined,
-    };
-
-    const placeholderStyleAugmented: React.CSSProperties = {
-      ...placeholderStyleSlatejsOverrides,
-      ...props.placeholderStyle,
-    };
-
-    return makeRenderPlaceholderFunction(placeholderStyleAugmented);
-  }, [props.placeholderStyle]);
-
   const {
     currentAutocompleteSuggestion,
     onChangeHandler: onChangeHandlerForAutocomplete,
@@ -93,6 +80,21 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
       );
     }
   }, [currentAutocompleteSuggestion]);
+
+  const renderElementMemoized = useCallback(renderElement, []);
+  const renderPlaceholderMemoized = useMemo(() => {
+    // For some reason slateJS specifies a top value of 0, which makes for strange styling. We override this here.
+    const placeholderStyleSlatejsOverrides: React.CSSProperties = {
+      top: undefined,
+    };
+
+    const placeholderStyleAugmented: React.CSSProperties = {
+      ...placeholderStyleSlatejsOverrides,
+      ...props.placeholderStyle,
+    };
+
+    return makeRenderPlaceholderFunction(placeholderStyleAugmented);
+  }, [props.placeholderStyle]);
 
   return (
     // Add the editable component inside the context.
