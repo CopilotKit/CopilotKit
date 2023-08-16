@@ -1,4 +1,1 @@
-export type {
-  AutosuggestionsConfig,
-  AutosuggestionFunction,
-} from "./autosuggestions-config";
+export type { AutosuggestionsConfig } from "./autosuggestions-config";

@@ -17,8 +17,16 @@ export interface UseAutosuggestionsResult {
   onKeyDownHandler: (event: React.KeyboardEvent<HTMLDivElement>) => void;
 }
 
+export type AutosuggestionsBareFunction = (
+  textBefore: string,
+  textAfter: string,
+  abortSignal: AbortSignal
+) => Promise<string>;
+
 export function useAutosuggestions(
-  autocompleteConfig: AutosuggestionsConfig,
+  debounceTime: number,
+  acceptAutosuggestionKey: string,
+  autosuggestionFunction: AutosuggestionsBareFunction,
   insertAutocompleteSuggestion: (suggestion: AutosuggestionState) => void
 ): UseAutosuggestionsResult {
   const [previousAutocompleteState, setPreviousAutocompleteState] =
@@ -35,7 +43,7 @@ export function useAutosuggestions(
       editorAutocompleteState: EditorAutocompleteState,
       abortSignal: AbortSignal
     ) => {
-      const suggestion = await autocompleteConfig.autosuggestionFunction(
+      const suggestion = await autosuggestionFunction(
         editorAutocompleteState.textBeforeCursor,
         editorAutocompleteState.textAfterCursor,
         abortSignal
@@ -51,18 +59,15 @@ export function useAutosuggestions(
         point: editorAutocompleteState.cursorPoint,
       });
     },
-    [
-      autocompleteConfig.autosuggestionFunction,
-      setCurrentAutocompleteSuggestion,
-    ]
+    [autosuggestionFunction, setCurrentAutocompleteSuggestion]
   );
 
   const debouncedFunction = useMemo(
     () =>
       new Debouncer<[editorAutocompleteState: EditorAutocompleteState]>(
-        autocompleteConfig.debounceTime
+        debounceTime
       ),
-    [autocompleteConfig.debounceTime]
+    [debounceTime]
   );
 
   const onChange = useCallback(
@@ -102,7 +107,7 @@ export function useAutosuggestions(
   const keyDownHandler = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
       if (currentAutocompleteSuggestion) {
-        if (event.key === autocompleteConfig.acceptAutosuggestionKey) {
+        if (event.key === acceptAutosuggestionKey) {
           event.preventDefault();
           insertAutocompleteSuggestion(currentAutocompleteSuggestion);
           setCurrentAutocompleteSuggestion(null);
@@ -113,7 +118,7 @@ export function useAutosuggestions(
       currentAutocompleteSuggestion,
       setCurrentAutocompleteSuggestion,
       insertAutocompleteSuggestion,
-      autocompleteConfig.acceptAutosuggestionKey,
+      acceptAutosuggestionKey,
     ]
   );
 

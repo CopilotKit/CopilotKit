@@ -8,14 +8,18 @@ import { clearAutocompletionsFromEditor } from "../../lib/slatejs-edits/clear-au
 import { addAutocompletionsToEditor } from "../../lib/slatejs-edits/add-autocompletions";
 import { useCopilotTextareaEditor } from "../../hooks/use-copilot-textarea-editor";
 import { renderElement } from "./render-element";
-import { AutosuggestionsConfig } from "../../types/autosuggestions-config";
+import { useMakeAutosuggestionFunction } from "../../hooks";
+import {
+  AutosuggestionsConfig,
+  defaultAutosuggestionsConfig,
+} from "../../types/autosuggestions-config";
 
 export interface CopilotTextareaProps {
   className?: string;
   placeholder?: string;
   value?: string;
   onChange?: (value: string) => void;
-  autocompleteConfig: AutosuggestionsConfig;
+  autosuggestionsConfig: Partial<AutosuggestionsConfig>;
 }
 
 export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
@@ -26,7 +30,18 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
     },
   ];
 
+  const autosuggestionsConfig: AutosuggestionsConfig = {
+    ...defaultAutosuggestionsConfig,
+    ...props.autosuggestionsConfig,
+  };
+
   const editor = useCopilotTextareaEditor();
+  const autosuggestionsFunction = useMakeAutosuggestionFunction(
+    autosuggestionsConfig.apiEndpoint,
+    autosuggestionsConfig.makeSystemMessage,
+    autosuggestionsConfig.fewSuggestionsMessages,
+    autosuggestionsConfig.contextCategories
+  );
 
   const insertText = useCallback(
     (autosuggestion: AutosuggestionState) => {
@@ -42,7 +57,12 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
     currentAutocompleteSuggestion,
     onChangeHandler: onChangeHandlerForAutocomplete,
     onKeyDownHandler: onKeyDownHandlerForAutocomplete,
-  } = useAutosuggestions(props.autocompleteConfig, insertText);
+  } = useAutosuggestions(
+    autosuggestionsConfig.debounceTime,
+    autosuggestionsConfig.acceptAutosuggestionKey,
+    autosuggestionsFunction,
+    insertText
+  );
 
   // sync autosuggestions state with the editor
   useEffect(() => {
