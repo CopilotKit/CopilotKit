@@ -41,6 +41,15 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
     ...props.autosuggestionsConfig,
   };
 
+  // separate into TextareaHTMLAttributes<HTMLDivElement> and CopilotTextareaProps
+  const {
+    placeholderStyle,
+    value,
+    onValueChange,
+    autosuggestionsConfig: autosuggestionsConfigFromProps,
+    ...textareaLikeProps
+  } = props;
+
   const valueOnInitialRender = useMemo(() => props.value ?? "", []);
   const [lastKnownFullEditorText, setLastKnownFullEditorText] =
     useState(valueOnInitialRender);
@@ -141,7 +150,7 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
         renderElement={renderElementMemoized}
         renderPlaceholder={renderPlaceholderMemoized}
         onKeyDown={onKeyDownHandlerForAutocomplete}
-        {...props}
+        {...textareaLikeProps}
       />
     </Slate>
   );
