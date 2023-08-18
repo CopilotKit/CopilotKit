@@ -1,15 +1,23 @@
-import { MinimalChatGPTMessage } from "../hooks/use-make-autosuggestions-function";
+import { MinimalChatGPTMessage } from "../hooks/make-autosuggestions-function/use-make-standard-autosuggestions-function";
 
 export type MakeSystemMessage = (
   textareaPurpose: string,
   contextString: string
 ) => string;
 
-export interface AutosuggestionsConfig {
+export interface BaseAutosuggestionsConfig {
   textareaPurpose: string;
   debounceTime: number;
   acceptAutosuggestionKey: string;
+}
 
+export const defaultBaseAutosuggestionsConfig: BaseAutosuggestionsConfig = {
+  textareaPurpose: "A generic textbox",
+  debounceTime: 500,
+  acceptAutosuggestionKey: "Tab",
+};
+
+export interface AutosuggestionsConfig extends BaseAutosuggestionsConfig {
   apiEndpoint: string;
   contextCategories: string[] | undefined;
   makeSystemMessage: MakeSystemMessage;
@@ -80,9 +88,7 @@ export const defaultFewShotMessages: MinimalChatGPTMessage[] = [
   },
 ];
 export const defaultAutosuggestionsConfig: AutosuggestionsConfig = {
-  textareaPurpose: "A generic textbox",
-  debounceTime: 500,
-  acceptAutosuggestionKey: "Tab",
+  ...defaultBaseAutosuggestionsConfig,
 
   apiEndpoint: "api/autosuggestions",
   makeSystemMessage: defaultMakeSystemMessage,

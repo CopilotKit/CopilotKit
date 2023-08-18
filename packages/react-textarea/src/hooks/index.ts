@@ -1,1 +1,1 @@
-export { useMakeAutosuggestionFunction } from "./use-make-autosuggestions-function";
+export { useMakeAutosuggestionFunction } from "./make-autosuggestions-function/use-make-standard-autosuggestions-function";
