@@ -9,12 +9,14 @@ export interface BaseAutosuggestionsConfig {
   textareaPurpose: string;
   debounceTime: number;
   acceptAutosuggestionKey: string;
+  disableWhenEmpty: boolean;
 }
 
 export const defaultBaseAutosuggestionsConfig: BaseAutosuggestionsConfig = {
   textareaPurpose: "A generic textbox",
   debounceTime: 500,
   acceptAutosuggestionKey: "Tab",
+  disableWhenEmpty: true,
 };
 
 export interface AutosuggestionsConfig extends BaseAutosuggestionsConfig {
@@ -22,7 +24,6 @@ export interface AutosuggestionsConfig extends BaseAutosuggestionsConfig {
   contextCategories: string[] | undefined;
   makeSystemMessage: MakeSystemMessage;
   fewShotMessages: MinimalChatGPTMessage[];
-  disableWhenEmpty: boolean;
 }
 
 export const defaultMakeSystemMessage: MakeSystemMessage = (
@@ -94,5 +95,4 @@ export const defaultAutosuggestionsConfig: AutosuggestionsConfig = {
   makeSystemMessage: defaultMakeSystemMessage,
   fewShotMessages: defaultFewShotMessages,
   contextCategories: undefined,
-  disableWhenEmpty: false,
 };

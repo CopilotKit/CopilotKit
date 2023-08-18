@@ -87,7 +87,8 @@ export function BaseCopilotTextarea(
     autosuggestionsConfig.debounceTime,
     autosuggestionsConfig.acceptAutosuggestionKey,
     props.autosuggestionsFunction,
-    insertText
+    insertText,
+    autosuggestionsConfig.disableWhenEmpty
   );
 
   // sync autosuggestions state with the editor

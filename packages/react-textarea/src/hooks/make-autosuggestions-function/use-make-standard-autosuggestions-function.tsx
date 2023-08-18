@@ -28,17 +28,12 @@ export function useMakeAutosuggestionFunction(
   apiEndpoint: string,
   makeSystemMessage: MakeSystemMessage,
   fewShotMessages: MinimalChatGPTMessage[],
-  contextCategories: string[] | undefined,
-  disableWhenEmpty: boolean
+  contextCategories: string[] | undefined
 ): AutosuggestionsBareFunction {
   const { getContextString } = useContext(CopilotContext);
 
   return useCallback(
     async (beforeText: string, afterText: string, abortSignal: AbortSignal) => {
-      if (disableWhenEmpty && beforeText === "" && afterText === "") {
-        throw new Error("No text to suggest");
-      }
-
       const res = await retry(async () => {
         return await fetch(apiEndpoint, {
           method: "POST",
