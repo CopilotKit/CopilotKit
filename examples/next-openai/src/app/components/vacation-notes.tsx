@@ -13,7 +13,8 @@ export function VacationNotes(): JSX.Element {
         onValueChange={(value: string) => setText(value)}
         placeholder="What are your plans for your vacation?"
         autosuggestionsConfig={{
-          textareaPurpose: "Notes for my upcoming vacation",
+          textareaPurpose:
+            "Travel notes from the user's previous vacations. Likely written in a colloquial style, but adjust as needed.",
           debounceTime: 0.7,
           acceptAutosuggestionKey: "Tab",
           contextCategories: [],
