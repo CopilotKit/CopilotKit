@@ -21,6 +21,7 @@ const SuggestionElement = (props: RenderElementProps) => {
       }}
       contentEditable={false}
     >
+      {props.children /* https://github.com/ianstormtaylor/slate/issues/3930 */}
       {props.element.type === "suggestion" && props.element.content}
     </span>
   );
