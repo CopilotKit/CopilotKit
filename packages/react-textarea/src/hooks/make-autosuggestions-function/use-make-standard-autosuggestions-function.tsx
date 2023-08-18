@@ -1,8 +1,7 @@
-import { useCallback, useState } from "react";
-import { useContext } from "react";
 import { CopilotContext } from "@copilotkit/react-core";
-import { AutosuggestionsBareFunction } from "../use-autosuggestions";
+import { useCallback, useContext } from "react";
 import { MakeSystemMessage } from "../../types";
+import { AutosuggestionsBareFunction } from "../use-autosuggestions";
 
 export interface MinimalChatGPTMessage {
   role: string;

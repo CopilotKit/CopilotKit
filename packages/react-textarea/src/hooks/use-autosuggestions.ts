@@ -1,15 +1,11 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import { AutosuggestionsConfig } from "../types/autosuggestions-config";
-import { CustomEditor } from "../types/custom-editor";
-import { Descendant, Transforms } from "slate";
+import { useCallback, useMemo, useState } from "react";
 import { Debouncer } from "../lib/debouncer";
-import { getTextAroundCursor } from "../lib/get-text-around-cursor";
+import { nullableCompatibleEqualityCheck } from "../lib/utils";
+import { AutosuggestionState } from "../types/autosuggestion-state";
 import {
   EditorAutocompleteState,
   areEqual_autocompleteState,
 } from "../types/editor-autocomplete-state";
-import { nullableCompatibleEqualityCheck } from "../lib/utils";
-import { AutosuggestionState } from "../types/autosuggestion-state";
 
 export interface UseAutosuggestionsResult {
   currentAutocompleteSuggestion: AutosuggestionState | null;
