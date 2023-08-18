@@ -1,39 +1,41 @@
 // This example is for an Editor with `ReactEditor` and `HistoryEditor`
-import { Descendant, Editor } from "slate";
-import { Editable, Slate } from "slate-react";
 import {
+  TextareaHTMLAttributes,
   useCallback,
   useEffect,
   useMemo,
   useState,
-  TextareaHTMLAttributes,
 } from "react";
+import { Descendant, Editor } from "slate";
+import { Editable, Slate } from "slate-react";
 import {
   AutosuggestionsBareFunction,
   useAutosuggestions,
 } from "../../../hooks/use-autosuggestions";
-import { AutosuggestionState } from "../../../types/autosuggestion-state";
-import { clearAutocompletionsFromEditor } from "../../../lib/slatejs-edits/clear-autocompletions";
-import { addAutocompletionsToEditor } from "../../../lib/slatejs-edits/add-autocompletions";
 import { useCopilotTextareaEditor } from "../../../hooks/use-copilot-textarea-editor";
-import { renderElement } from "./render-element";
-import {
-  BaseAutosuggestionsConfig,
-  defaultBaseAutosuggestionsConfig,
-} from "../../../types/autosuggestions-config";
-import { makeRenderPlaceholderFunction } from "./render-placeholder";
 import {
   getFullEditorTextWithNewlines,
   getTextAroundCursor,
 } from "../../../lib/get-text-around-cursor";
+import { addAutocompletionsToEditor } from "../../../lib/slatejs-edits/add-autocompletions";
+import { clearAutocompletionsFromEditor } from "../../../lib/slatejs-edits/clear-autocompletions";
 import { replaceEditorText } from "../../../lib/slatejs-edits/replace-text";
+import { AutosuggestionState } from "../../../types/autosuggestion-state";
+import {
+  BaseAutosuggestionsConfig,
+  defaultBaseAutosuggestionsConfig,
+} from "../../../types/autosuggestions-config";
+import { renderElement } from "./render-element";
+import { makeRenderPlaceholderFunction } from "./render-placeholder";
 
 export interface BaseCopilotTextareaProps
   extends TextareaHTMLAttributes<HTMLDivElement> {
   placeholderStyle?: React.CSSProperties;
   value?: string;
   onValueChange?: (value: string) => void;
-  autosuggestionsConfig: Partial<BaseAutosuggestionsConfig>;
+  autosuggestionsConfig: Partial<BaseAutosuggestionsConfig> & {
+    textareaPurpose: string;
+  };
 }
 
 export function BaseCopilotTextarea(

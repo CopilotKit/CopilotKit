@@ -12,8 +12,10 @@ export interface BaseAutosuggestionsConfig {
   disableWhenEmpty: boolean;
 }
 
-export const defaultBaseAutosuggestionsConfig: BaseAutosuggestionsConfig = {
-  textareaPurpose: "A generic textbox",
+export const defaultBaseAutosuggestionsConfig: Omit<
+  BaseAutosuggestionsConfig,
+  "textareaPurpose"
+> = {
   debounceTime: 500,
   acceptAutosuggestionKey: "Tab",
   disableWhenEmpty: true,
@@ -88,7 +90,10 @@ export const defaultFewShotMessages: MinimalChatGPTMessage[] = [
       ' (ii) that, for purposes of this Agreement and the Merger Agreement, the applicable percentage set forth opposite the name of the Optionholder in the Distribution Waterfall shall be such the Optionholder\'s "Pro Rata Share"; ',
   },
 ];
-export const defaultAutosuggestionsConfig: AutosuggestionsConfig = {
+export const defaultAutosuggestionsConfig: Omit<
+  AutosuggestionsConfig,
+  "textareaPurpose"
+> = {
   ...defaultBaseAutosuggestionsConfig,
 
   apiEndpoint: "api/autosuggestions",

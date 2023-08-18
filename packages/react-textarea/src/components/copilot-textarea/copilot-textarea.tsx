@@ -10,7 +10,9 @@ import {
 } from "./base-copilot-textarea/base-copilot-textarea";
 
 export interface CopilotTextareaProps extends BaseCopilotTextareaProps {
-  autosuggestionsConfig: Partial<AutosuggestionsConfig>;
+  autosuggestionsConfig: Partial<AutosuggestionsConfig> & {
+    textareaPurpose: string;
+  };
 }
 
 export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
