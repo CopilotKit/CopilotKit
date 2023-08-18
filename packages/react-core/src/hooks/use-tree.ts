@@ -76,7 +76,7 @@ const treeIndentationRepresentation = (
   } else if (indentLevel === 2) {
     return String.fromCharCode(97 + index); // 97 is the ASCII value for 'a'
   } else {
-    throw new Error("Indentation level not supported");
+    return "-";
   }
 };
 
@@ -99,11 +99,16 @@ const printNode = (node: TreeNode, prefix = "", indentLevel = 0): string => {
     output += `${outputSubsequentLines}\n`;
   }
 
+  const childPrePrefix = " ".repeat(prefix.length);
+
   node.children.forEach(
     (child, index) =>
       (output += printNode(
         child,
-        `${prefix}${treeIndentationRepresentation(index, indentLevel + 1)}. `,
+        `${childPrePrefix}${treeIndentationRepresentation(
+          index,
+          indentLevel + 1
+        )}. `,
         indentLevel + 1
       ))
   );
@@ -180,6 +185,12 @@ const useTree = (): UseTreeReturn => {
         if (!setsHaveIntersection(categoriesSet, node.categories)) {
           return;
         }
+
+        // add a new line before each node except the first one
+        if (index !== 0) {
+          output += "\n";
+        }
+
         output += printNode(
           node,
           `${treeIndentationRepresentation(index, 0)}. `
