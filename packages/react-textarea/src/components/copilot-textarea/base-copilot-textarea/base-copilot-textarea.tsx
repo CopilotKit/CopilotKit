@@ -130,10 +130,11 @@ export function BaseCopilotTextarea(
     autosuggestionsConfig: autosuggestionsConfigFromProps,
     autosuggestionsFunction,
     style,
+    className,
     ...propsToForward
   } = props;
 
-  const { className } = propsToForward;
+  const moddedClassName = `copilot-textarea ${className ?? ""}`;
   const moddedStyle = {
     ...defaultStylesConsideringClassname(className),
     ...style,
@@ -160,6 +161,7 @@ export function BaseCopilotTextarea(
         renderElement={renderElementMemoized}
         renderPlaceholder={renderPlaceholderMemoized}
         onKeyDown={onKeyDownHandlerForAutocomplete}
+        className={moddedClassName}
         style={moddedStyle}
         {...propsToForward}
       />
