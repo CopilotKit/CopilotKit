@@ -1,6 +1,9 @@
 "use client";
 
-import { useMakeCopilotReadable } from "@copilotkit/react-core";
+import {
+  CopilotProvider,
+  useMakeCopilotReadable,
+} from "@copilotkit/react-core";
 import {
   CopilotTextarea,
   MakeSystemMessage,
@@ -8,7 +11,15 @@ import {
 } from "@copilotkit/react-textarea";
 import { useState } from "react";
 
-export default function TextArea() {
+export default function CopilotTextareaDemo(): JSX.Element {
+  return (
+    <CopilotProvider>
+      <TextAreas />
+    </CopilotProvider>
+  );
+}
+
+function TextAreas() {
   const [detailsText, setDetailsText] = useState("");
   const [copilotText, setCopilotText] = useState("");
 
