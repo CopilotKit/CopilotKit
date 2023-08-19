@@ -1,23 +1,37 @@
 import { RenderElementProps } from "slate-react";
 
-export function renderElement(props: RenderElementProps) {
-  switch (props.element.type) {
-    case "paragraph":
-      return <DefaultElement {...props} />;
-    case "suggestion":
-      return <SuggestionElement {...props} />;
-  }
+export type RenderElementFunction = (props: RenderElementProps) => JSX.Element;
+
+export function makeRenderElementFunction(
+  suggestionsStyle: React.CSSProperties
+): RenderElementFunction {
+  return (props: RenderElementProps) => {
+    switch (props.element.type) {
+      case "paragraph":
+        return <DefaultElement {...props} />;
+      case "suggestion":
+        return (
+          <SuggestionElement {...props} suggestionsStyle={suggestionsStyle} />
+        );
+    }
+  };
 }
+
 const DefaultElement = (props: RenderElementProps) => {
   return <div {...props.attributes}>{props.children}</div>;
 };
-const SuggestionElement = (props: RenderElementProps) => {
+const SuggestionElement = (
+  props: RenderElementProps & {
+    suggestionsStyle: React.CSSProperties;
+  }
+) => {
   return (
     <span
       {...props.attributes}
       style={{
         fontStyle: "italic",
         color: "gray",
+        ...props.suggestionsStyle,
       }}
       contentEditable={false}
     >

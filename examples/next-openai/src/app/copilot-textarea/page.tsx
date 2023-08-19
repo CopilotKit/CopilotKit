@@ -29,6 +29,8 @@ function TextAreas() {
   return (
     <div className="w-full h-full gap-10 flex flex-col items-center p-10">
       <CopilotTextarea
+        value={copilotText}
+        onValueChange={(value) => setCopilotText(value)}
         className="p-4 bg-slate-100 w-1/2 h-80"
         placeholder="the copilot textarea"
         autosuggestionsConfig={{

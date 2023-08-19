@@ -26,12 +26,13 @@ import {
   defaultBaseAutosuggestionsConfig,
 } from "../../../types/autosuggestions-config";
 import { defaultStylesConsideringClassname } from "./default-styles-considering-classname";
-import { renderElement } from "./render-element";
+import { makeRenderElementFunction } from "./render-element";
 import { makeRenderPlaceholderFunction } from "./render-placeholder";
 
 export interface BaseCopilotTextareaProps
   extends TextareaHTMLAttributes<HTMLDivElement> {
   placeholderStyle?: React.CSSProperties;
+  suggestionsStyle?: React.CSSProperties;
   value?: string;
   onValueChange?: (value: string) => void;
   autosuggestionsConfig: Partial<BaseAutosuggestionsConfig> & {
@@ -97,7 +98,14 @@ export function BaseCopilotTextarea(
     }
   }, [currentAutocompleteSuggestion]);
 
-  const renderElementMemoized = useCallback(renderElement, []);
+  const renderElementMemoized = useMemo(() => {
+    const suggestionStyleAugmented: React.CSSProperties = {
+      ...props.suggestionsStyle,
+    };
+
+    return makeRenderElementFunction(suggestionStyleAugmented);
+  }, [props.suggestionsStyle]);
+
   const renderPlaceholderMemoized = useMemo(() => {
     // For some reason slateJS specifies a top value of 0, which makes for strange styling. We override this here.
     const placeholderStyleSlatejsOverrides: React.CSSProperties = {
