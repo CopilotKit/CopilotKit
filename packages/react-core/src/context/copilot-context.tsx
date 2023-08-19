@@ -28,13 +28,20 @@ const emptyCopilotContext: CopilotContextParams = {
   entryPoints: {},
   setEntryPoint: () => {},
   removeEntryPoint: () => {},
-  getChatCompletionFunctionDescriptions: () => [],
-  getFunctionCallHandler: () => async () => {},
+  getChatCompletionFunctionDescriptions: () => returnAndThrowInDebug([]),
+  getFunctionCallHandler: () => returnAndThrowInDebug(async () => {}),
 
-  getContextString: () => "",
+  getContextString: () => returnAndThrowInDebug(""),
   addContext: () => "",
   removeContext: () => {},
 };
 
 export const CopilotContext =
   React.createContext<CopilotContextParams>(emptyCopilotContext);
+
+function returnAndThrowInDebug<T>(value: T): T {
+  throw new Error(
+    "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!"
+  );
+  return value;
+}
