@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useContext, useEffect } from "react";
+import { useContext, useEffect, useRef } from "react";
 import { CopilotContext } from "../context/copilot-context";
 
 /**
@@ -19,7 +19,7 @@ export function useMakeCopilotReadable(
   const idRef = useRef<string>();
 
   useEffect(() => {
-    const id = addContext(information, categories, parentId);
+    const id = addContext(information, parentId, categories);
     idRef.current = id;
 
     return () => {

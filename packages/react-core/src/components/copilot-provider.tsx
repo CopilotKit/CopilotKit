@@ -1,10 +1,10 @@
 "use client";
-import React, { useState, ReactNode, useCallback } from "react";
-import { AnnotatedFunction } from "../types/annotated-function";
-import useTree from "../hooks/use-tree";
-import { CopilotContext } from "../context/copilot-context";
 import { FunctionCallHandler } from "ai";
 import { ChatCompletionFunctions } from "openai-edge/types/api";
+import { ReactNode, useCallback, useState } from "react";
+import { CopilotContext } from "../context/copilot-context";
+import useTree from "../hooks/use-tree";
+import { AnnotatedFunction } from "../types/annotated-function";
 
 export function CopilotProvider({
   children,
@@ -45,7 +45,7 @@ export function CopilotProvider({
   );
 
   const addContext = useCallback(
-    (context: string, categories: string[] = ["global"], parentId?: string) => {
+    (context: string, parentId?: string, categories: string[] = ["global"]) => {
       return addElement(context, categories, parentId);
     },
     [addElement]

@@ -1,10 +1,10 @@
 "use client";
 
-import React from "react";
-import { AnnotatedFunction } from "../types/annotated-function";
-import { TreeNodeId } from "../hooks/use-tree";
-import { ChatCompletionFunctions } from "openai-edge/types/api";
 import { FunctionCallHandler } from "ai";
+import { ChatCompletionFunctions } from "openai-edge/types/api";
+import React from "react";
+import { TreeNodeId } from "../hooks/use-tree";
+import { AnnotatedFunction } from "../types/annotated-function";
 
 export interface CopilotContextParams {
   // function-calling
@@ -18,8 +18,8 @@ export interface CopilotContextParams {
   getContextString: (categories?: string[]) => string;
   addContext: (
     context: string,
-    categories?: string[],
-    parentId?: string
+    parentId?: string,
+    categories?: string[]
   ) => TreeNodeId;
   removeContext: (id: TreeNodeId) => void;
 }
