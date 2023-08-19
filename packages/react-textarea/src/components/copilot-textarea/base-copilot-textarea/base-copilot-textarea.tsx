@@ -25,6 +25,7 @@ import {
   BaseAutosuggestionsConfig,
   defaultBaseAutosuggestionsConfig,
 } from "../../../types/autosuggestions-config";
+import { defaultStylesConsideringClassname } from "./default-styles-considering-classname";
 import { renderElement } from "./render-element";
 import { makeRenderPlaceholderFunction } from "./render-placeholder";
 
@@ -132,9 +133,10 @@ export function BaseCopilotTextarea(
     ...propsToForward
   } = props;
 
+  const { className } = propsToForward;
   const moddedStyle = {
-    overflow: "auto",
-    ...style, // to merge in styles passed via props if any
+    ...defaultStylesConsideringClassname(className),
+    ...style,
   };
 
   return (
