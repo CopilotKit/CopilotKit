@@ -54,6 +54,7 @@ export function BaseCopilotTextarea(
     value,
     onValueChange,
     autosuggestionsConfig: autosuggestionsConfigFromProps,
+    autosuggestionsFunction,
     ...textareaLikeProps
   } = props;
 
