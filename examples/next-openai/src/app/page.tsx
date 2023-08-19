@@ -1,8 +1,7 @@
 "use client";
 
-import React from "react";
-import { CopilotSidebarUIProvider } from "@copilotkit/react-ui";
 import { CopilotProvider } from "@copilotkit/react-core";
+import { CopilotSidebarUIProvider } from "@copilotkit/react-ui";
 import { VacationList } from "./components/vacation-list";
 
 export default function WaterBnb() {

@@ -1,33 +1,47 @@
 "use client";
 
-import React from "react";
-import { AnnotatedFunction } from "../types/annotated-function";
-import { TreeNodeId } from "../hooks/use-tree";
-import { ChatCompletionFunctions } from "openai-edge/types/api";
 import { FunctionCallHandler } from "ai";
+import { ChatCompletionFunctions } from "openai-edge/types/api";
+import React from "react";
+import { TreeNodeId } from "../hooks/use-tree";
+import { AnnotatedFunction } from "../types/annotated-function";
 
 export interface CopilotContextParams {
+  // function-calling
   entryPoints: Record<string, AnnotatedFunction<any[]>>;
-  getChatCompletionFunctionDescriptions: () => ChatCompletionFunctions[];
-  getFunctionCallHandler: () => FunctionCallHandler;
   setEntryPoint: (id: string, entryPoint: AnnotatedFunction<any[]>) => void;
   removeEntryPoint: (id: string) => void;
+  getChatCompletionFunctionDescriptions: () => ChatCompletionFunctions[];
+  getFunctionCallHandler: () => FunctionCallHandler;
 
-  getContextString: () => string;
-  addContext: (context: string, parentId?: string) => TreeNodeId;
+  // text context
+  getContextString: (categories?: string[]) => string;
+  addContext: (
+    context: string,
+    parentId?: string,
+    categories?: string[]
+  ) => TreeNodeId;
   removeContext: (id: TreeNodeId) => void;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
   entryPoints: {},
-  getChatCompletionFunctionDescriptions: () => [],
-  getFunctionCallHandler: () => async () => {},
   setEntryPoint: () => {},
   removeEntryPoint: () => {},
-  getContextString: () => "",
+  getChatCompletionFunctionDescriptions: () => returnAndThrowInDebug([]),
+  getFunctionCallHandler: () => returnAndThrowInDebug(async () => {}),
+
+  getContextString: () => returnAndThrowInDebug(""),
   addContext: () => "",
   removeContext: () => {},
 };
 
 export const CopilotContext =
   React.createContext<CopilotContextParams>(emptyCopilotContext);
+
+function returnAndThrowInDebug<T>(value: T): T {
+  throw new Error(
+    "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!"
+  );
+  return value;
+}
