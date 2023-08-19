@@ -36,8 +36,8 @@ export function useMakeAutosuggestionFunction(
               {
                 role: "system",
                 content: makeSystemMessage(
-                  getContextString(contextCategories),
-                  textareaPurpose
+                  textareaPurpose,
+                  getContextString(contextCategories)
                 ),
               },
               ...fewShotMessages,
