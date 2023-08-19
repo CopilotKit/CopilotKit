@@ -1,13 +1,8 @@
 import { CopilotContext } from "@copilotkit/react-core";
 import { useCallback, useContext } from "react";
 import { MakeSystemMessage } from "../../types";
+import { MinimalChatGPTMessage } from "../../types/MinimalChatGPTMessage";
 import { AutosuggestionsBareFunction } from "../use-autosuggestions";
-
-export interface MinimalChatGPTMessage {
-  role: string;
-  content: string;
-  name?: string;
-}
 
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.

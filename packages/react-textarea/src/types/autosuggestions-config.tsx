@@ -1,4 +1,4 @@
-import { MinimalChatGPTMessage } from "../hooks/make-autosuggestions-function/use-make-standard-autosuggestions-function";
+import { MinimalChatGPTMessage } from "./MinimalChatGPTMessage";
 
 export type MakeSystemMessage = (
   textareaPurpose: string,
