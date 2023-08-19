@@ -48,16 +48,6 @@ export function BaseCopilotTextarea(
     ...props.autosuggestionsConfig,
   };
 
-  // separate into TextareaHTMLAttributes<HTMLDivElement> and CopilotTextareaProps
-  const {
-    placeholderStyle,
-    value,
-    onValueChange,
-    autosuggestionsConfig: autosuggestionsConfigFromProps,
-    autosuggestionsFunction,
-    ...textareaLikeProps
-  } = props;
-
   const valueOnInitialRender = useMemo(() => props.value ?? "", []);
   const [lastKnownFullEditorText, setLastKnownFullEditorText] =
     useState(valueOnInitialRender);
@@ -131,6 +121,22 @@ export function BaseCopilotTextarea(
     replaceEditorText(editor, props.value ?? "");
   }, [props.value]);
 
+  // separate into TextareaHTMLAttributes<HTMLDivElement> and CopilotTextareaProps
+  const {
+    placeholderStyle,
+    value,
+    onValueChange,
+    autosuggestionsConfig: autosuggestionsConfigFromProps,
+    autosuggestionsFunction,
+    style,
+    ...propsToForward
+  } = props;
+
+  const moddedStyle = {
+    overflow: "auto",
+    ...style, // to merge in styles passed via props if any
+  };
+
   return (
     // Add the editable component inside the context.
     <Slate
@@ -152,7 +158,8 @@ export function BaseCopilotTextarea(
         renderElement={renderElementMemoized}
         renderPlaceholder={renderPlaceholderMemoized}
         onKeyDown={onKeyDownHandlerForAutocomplete}
-        {...textareaLikeProps}
+        style={moddedStyle}
+        {...propsToForward}
       />
     </Slate>
   );
