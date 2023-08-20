@@ -1,11 +1,22 @@
-import { createEditor } from "slate";
+import { createEditor, Node } from "slate";
 import { withReact } from "slate-react";
-import { useState } from "react";
+import { useMemo } from "react";
 import { CustomEditor } from "../types/custom-editor";
+import {
+  withPartialHistory,
+  ShouldSaveToHistory,
+  defaultShouldSave,
+} from "../lib/slatejs-edits/with-partial-history";
+
+const shouldSave: ShouldSaveToHistory = (editor, operation) => {
+  // haven't figured this out yet
+  const fallback = defaultShouldSave(editor, operation);
+  return fallback;
+};
 
 export function useCopilotTextareaEditor(): CustomEditor {
-  const [editor] = useState(() => {
-    const editor = withReact(createEditor());
+  const editor = useMemo(() => {
+    const editor = withPartialHistory(withReact(createEditor()), shouldSave);
 
     const { isVoid } = editor;
     editor.isVoid = (element) => {
@@ -38,7 +49,7 @@ export function useCopilotTextareaEditor(): CustomEditor {
     };
 
     return editor;
-  });
+  }, []);
 
   return editor;
 }
