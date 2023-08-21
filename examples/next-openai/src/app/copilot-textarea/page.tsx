@@ -31,19 +31,27 @@ function TextAreas() {
       <CopilotTextarea
         value={copilotText}
         onValueChange={(value) => setCopilotText(value)}
-        className="p-4 bg-slate-100 w-1/2 h-80"
-        placeholder="the copilot textarea"
+        className="p-4  w-1/2 aspect-square font-bold text-3xl bg-slate-800 text-white rounded-lg resize-none"
+        // placeholder="This is a <CopilotTextarea />"
+        placeholderStyle={{
+          color: "white",
+          opacity: 0.5,
+        }}
         autosuggestionsConfig={{
           textareaPurpose:
-            "An exciting announcement post about CopilotTextArea for sharing on social media!",
+            "A COOL & SMOOTH announcement post about CopilotTextarea. No pomp, no fluff, no BS. Just the facts. Be brief, be clear, be concise. Be cool.",
           contextCategories: [announcementCategoryId],
           makeSystemMessage,
           fewShotMessages,
+          debounceTime: 650,
+          forwardedProps: {
+            max_tokens: 25,
+          },
         }}
       />
 
       <textarea
-        className="p-4 w-1/2 h-80"
+        className="p-4 w-1/2 h-80 rounded-lg"
         value={detailsText}
         placeholder="the normal textarea"
         onChange={(event) => setDetailsText(event.target.value)}
@@ -82,20 +90,18 @@ ${contextString}
 };
 
 const fewShotMessages: MinimalChatGPTMessage[] = [
-  // {
-  //   role: "user",
-  //   name: "TextAfterCursor",
-  //   content:
-  //     "While I was there I also picked up some apples, oranges, and bananas.",
-  // },
-  // {
-  //   role: "user",
-  //   name: "TextBeforeCursor",
-  //   content: "This morning I woke up and went straight to the grocery store.",
-  // },
-  // {
-  //   role: "assistant",
-  //   content:
-  //     " When I arrived I went straight to the produce section and picked out a big watermelon. ",
-  // },
+  {
+    role: "user",
+    content: "",
+    name: "TextAfterCursor",
+  },
+  {
+    role: "user",
+    content: "Happy to introduce",
+    name: "TextBeforeCursor",
+  },
+  {
+    role: "assistant",
+    content: " CopilotTextarea",
+  },
 ];

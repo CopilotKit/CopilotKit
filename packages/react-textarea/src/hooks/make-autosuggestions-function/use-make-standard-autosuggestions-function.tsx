@@ -22,7 +22,8 @@ export function useMakeAutosuggestionFunction(
   apiEndpoint: string,
   makeSystemMessage: MakeSystemMessage,
   fewShotMessages: MinimalChatGPTMessage[],
-  contextCategories: string[] | undefined
+  contextCategories: string[] | undefined,
+  forwardedProps?: { [key: string]: any }
 ): AutosuggestionsBareFunction {
   const { getContextString } = useContext(CopilotContext);
 
@@ -32,6 +33,7 @@ export function useMakeAutosuggestionFunction(
         return await fetch(apiEndpoint, {
           method: "POST",
           body: JSON.stringify({
+            ...forwardedProps,
             messages: [
               {
                 role: "system",

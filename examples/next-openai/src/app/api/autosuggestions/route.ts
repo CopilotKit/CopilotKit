@@ -7,13 +7,15 @@ const openai = new OpenAI({
 export const runtime = "edge";
 
 export async function POST(req: Request): Promise<Response> {
-  const { messages } = await req.json();
+  const { messages, ...otherProps } = await req.json();
 
   const response = await openai.chat.completions.create({
     model: "gpt-4",
     stream: false,
     messages,
-    max_tokens: 250,
+    max_tokens: 50,
+    stop: [".", "?", "!"],
+    ...otherProps,
   });
 
   return new Response(JSON.stringify(response), {

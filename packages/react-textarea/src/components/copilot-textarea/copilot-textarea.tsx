@@ -26,7 +26,8 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
     autosuggestionsConfig.apiEndpoint,
     autosuggestionsConfig.makeSystemMessage,
     autosuggestionsConfig.fewShotMessages,
-    autosuggestionsConfig.contextCategories
+    autosuggestionsConfig.contextCategories,
+    autosuggestionsConfig.forwardedProps
   );
 
   return (
