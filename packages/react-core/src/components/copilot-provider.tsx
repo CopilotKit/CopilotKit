@@ -1,6 +1,6 @@
 "use client";
 import { FunctionCallHandler } from "ai";
-import { ChatCompletionFunctions } from "openai-edge/types/api";
+import { CompletionCreateParams } from "openai/resources/chat";
 import { ReactNode, useCallback, useState } from "react";
 import { CopilotContext } from "../context/copilot-context";
 import useTree from "../hooks/use-tree";
@@ -138,13 +138,13 @@ function entryPointsToFunctionCallHandler(
 
 function entryPointsToChatCompletionFunctions(
   entryPoints: AnnotatedFunction<any[]>[]
-): ChatCompletionFunctions[] {
+): CompletionCreateParams.Function[] {
   return entryPoints.map(annotatedFunctionToChatCompletionFunction);
 }
 
 function annotatedFunctionToChatCompletionFunction(
   annotatedFunction: AnnotatedFunction<any[]>
-): ChatCompletionFunctions {
+): CompletionCreateParams.Function {
   // Create the parameters object based on the argumentAnnotations
   let parameters: { [key: string]: any } = {};
   for (let arg of annotatedFunction.argumentAnnotations) {
@@ -161,7 +161,7 @@ function annotatedFunctionToChatCompletionFunction(
   }
 
   // Create the ChatCompletionFunctions object
-  let chatCompletionFunction: ChatCompletionFunctions = {
+  let chatCompletionFunction: CompletionCreateParams.Function = {
     name: annotatedFunction.name,
     description: annotatedFunction.description,
     parameters: {

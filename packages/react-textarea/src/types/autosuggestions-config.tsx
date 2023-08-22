@@ -1,42 +1,32 @@
+import {
+  BaseAutosuggestionsConfig,
+  defaultBaseAutosuggestionsConfig,
+} from "./base-autosuggestions-config";
 import { MinimalChatGPTMessage } from "./MinimalChatGPTMessage";
 
-export type MakeSystemMessage = (
-  textareaPurpose: string,
+export type MakeSystemPrompt = (
+  purposePrompt: string,
   contextString: string
 ) => string;
 
-export interface BaseAutosuggestionsConfig {
-  textareaPurpose: string;
-  debounceTime: number;
-  acceptAutosuggestionKey: string;
-  disableWhenEmpty: boolean;
-}
-
-export const defaultBaseAutosuggestionsConfig: Omit<
-  BaseAutosuggestionsConfig,
-  "textareaPurpose"
-> = {
-  debounceTime: 500,
-  acceptAutosuggestionKey: "Tab",
-  disableWhenEmpty: true,
-};
-
 export interface AutosuggestionsConfig extends BaseAutosuggestionsConfig {
   apiEndpoint: string;
-  contextCategories: string[] | undefined;
-  makeSystemMessage: MakeSystemMessage;
+  externalContextCategories: string[] | undefined;
+  makeSystemPrompt: MakeSystemPrompt;
   fewShotMessages: MinimalChatGPTMessage[];
+  forwardedParams: { [key: string]: any } | undefined;
 }
 
-export const defaultMakeSystemMessage: MakeSystemMessage = (
-  textareaPurpose,
+export const defaultMakeSystemPrompt: MakeSystemPrompt = (
+  purposePrompt,
   contextString
 ) => {
-  return `
-You are a versatile writing assistant.
+  return `You are a versatile writing assistant.
+  
+The user is writing some text.
+The purpose is: \"${purposePrompt}\"
 
-The user is writing some text. The purpose is: ${textareaPurpose}.
-Your job is to help the user write - by guessing what they are going to write next as best as you can, and suggesting it to them.
+Your job is to guess what the user will write next AS BEST YOU CAN.
 Only guess a SHORT distance ahead. Usually 1 sentence, or at most 1 paragraph.
 
 Adjust yourself to the user's style and implied intent.
@@ -48,7 +38,7 @@ The user will provide both the text before and after the cursor. You should use 
 
 If we need to add a whitespace character to the suggested text, make sure to explicitly add it in.
 
-The following external context is also provided. Draw on it whenever it is relevant!
+The following external context is also provided. Use it to help you make better suggestions!!!
 \`\`\`
 ${contextString}
 \`\`\`
@@ -92,12 +82,13 @@ export const defaultFewShotMessages: MinimalChatGPTMessage[] = [
 ];
 export const defaultAutosuggestionsConfig: Omit<
   AutosuggestionsConfig,
-  "textareaPurpose"
+  "purposePrompt"
 > = {
   ...defaultBaseAutosuggestionsConfig,
 
   apiEndpoint: "api/autosuggestions",
-  makeSystemMessage: defaultMakeSystemMessage,
+  makeSystemPrompt: defaultMakeSystemPrompt,
   fewShotMessages: defaultFewShotMessages,
-  contextCategories: undefined,
+  externalContextCategories: undefined,
+  forwardedParams: undefined,
 };

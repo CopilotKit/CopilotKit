@@ -8,6 +8,7 @@ import {
 } from "react";
 import { Descendant, Editor } from "slate";
 import { Editable, Slate } from "slate-react";
+import { twMerge } from "tailwind-merge";
 import {
   AutosuggestionsBareFunction,
   useAutosuggestions,
@@ -24,8 +25,7 @@ import { AutosuggestionState } from "../../../types/autosuggestion-state";
 import {
   BaseAutosuggestionsConfig,
   defaultBaseAutosuggestionsConfig,
-} from "../../../types/autosuggestions-config";
-import { defaultStylesConsideringClassname } from "./default-styles-considering-classname";
+} from "../../../types/base-autosuggestions-config";
 import { makeRenderElementFunction } from "./render-element";
 import { makeRenderPlaceholderFunction } from "./render-placeholder";
 
@@ -36,7 +36,7 @@ export interface BaseCopilotTextareaProps
   value?: string;
   onValueChange?: (value: string) => void;
   autosuggestionsConfig: Partial<BaseAutosuggestionsConfig> & {
-    textareaPurpose: string;
+    purposePrompt: string;
   };
 }
 
@@ -137,16 +137,16 @@ export function BaseCopilotTextarea(
     onValueChange,
     autosuggestionsConfig: autosuggestionsConfigFromProps,
     autosuggestionsFunction,
-    style,
     className,
     ...propsToForward
   } = props;
 
-  const moddedClassName = `copilot-textarea ${className ?? ""}`;
-  const moddedStyle = {
-    ...defaultStylesConsideringClassname(className),
-    ...style,
-  };
+  const moddedClassName = (() => {
+    const baseClassName = "copilot-textarea";
+    const defaultTailwindClassName = "bg-white overflow-y-auto resize-y";
+    const mergedClassName = twMerge(defaultTailwindClassName, className ?? "");
+    return `${baseClassName} ${mergedClassName}`;
+  })();
 
   return (
     // Add the editable component inside the context.
@@ -170,7 +170,6 @@ export function BaseCopilotTextarea(
         renderPlaceholder={renderPlaceholderMemoized}
         onKeyDown={onKeyDownHandlerForAutocomplete}
         className={moddedClassName}
-        style={moddedStyle}
         {...propsToForward}
       />
     </Slate>

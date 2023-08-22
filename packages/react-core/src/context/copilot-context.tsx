@@ -1,7 +1,7 @@
 "use client";
 
 import { FunctionCallHandler } from "ai";
-import { ChatCompletionFunctions } from "openai-edge/types/api";
+import { CompletionCreateParams } from "openai/resources/chat";
 import React from "react";
 import { TreeNodeId } from "../hooks/use-tree";
 import { AnnotatedFunction } from "../types/annotated-function";
@@ -11,7 +11,7 @@ export interface CopilotContextParams {
   entryPoints: Record<string, AnnotatedFunction<any[]>>;
   setEntryPoint: (id: string, entryPoint: AnnotatedFunction<any[]>) => void;
   removeEntryPoint: (id: string) => void;
-  getChatCompletionFunctionDescriptions: () => ChatCompletionFunctions[];
+  getChatCompletionFunctionDescriptions: () => CompletionCreateParams.Function[];
   getFunctionCallHandler: () => FunctionCallHandler;
 
   // text context

@@ -1,11 +1,71 @@
-import { createEditor } from "slate";
+import { createEditor, Element } from "slate";
 import { withReact } from "slate-react";
-import { useState } from "react";
+import { useMemo } from "react";
 import { CustomEditor } from "../types/custom-editor";
+import {
+  withPartialHistory,
+  ShouldSaveToHistory,
+  defaultShouldSave,
+} from "../lib/slatejs-edits/with-partial-history";
+
+const shouldSave: ShouldSaveToHistory = (op, prev) => {
+  const excludedNodeType = "suggestion";
+  // Check if the operation involves the suggestion inline node type
+  if (
+    op.type === "insert_node" &&
+    Element.isElement(op.node) &&
+    op.node.type === excludedNodeType
+  ) {
+    return false;
+  }
+
+  if (
+    op.type === "remove_node" &&
+    Element.isElement(op.node) &&
+    op.node.type === excludedNodeType
+  ) {
+    return false;
+  }
+
+  if (
+    op.type === "set_node" &&
+    "type" in op.newProperties &&
+    op.newProperties.type === excludedNodeType
+  ) {
+    return false;
+  }
+
+  if (
+    op.type == "set_node" &&
+    "type" in op.properties &&
+    op.properties.type === excludedNodeType
+  ) {
+    return false;
+  }
+
+  if (
+    op.type === "merge_node" &&
+    "type" in op.properties &&
+    op.properties.type === excludedNodeType
+  ) {
+    return false;
+  }
+
+  if (
+    op.type === "split_node" &&
+    "type" in op.properties &&
+    op.properties.type === excludedNodeType
+  ) {
+    return false;
+  }
+
+  // Otherwise, save the operation to history
+  return defaultShouldSave(op, prev);
+};
 
 export function useCopilotTextareaEditor(): CustomEditor {
-  const [editor] = useState(() => {
-    const editor = withReact(createEditor());
+  const editor = useMemo(() => {
+    const editor = withPartialHistory(withReact(createEditor()), shouldSave);
 
     const { isVoid } = editor;
     editor.isVoid = (element) => {
@@ -38,7 +98,7 @@ export function useCopilotTextareaEditor(): CustomEditor {
     };
 
     return editor;
-  });
+  }, []);
 
   return editor;
 }
