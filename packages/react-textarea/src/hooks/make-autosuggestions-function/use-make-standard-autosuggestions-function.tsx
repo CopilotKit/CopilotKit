@@ -10,7 +10,7 @@ import { AutosuggestionsBareFunction } from "../use-autosuggestions";
  * It sends a POST request to the API endpoint with the messages array containing the system message, few shot messages, and user messages.
  * The function returns the suggestion from the API response.
  *
- * @param textareaPurpose - The purpose of the textarea. This is included in the system message.
+ * @param purposePrompt - The purpose of the textarea. This is included in the system message.
  * @param apiEndpoint - The API endpoint to send the autosuggestion request to.
  * @param makeSystemMessage - A function that takes in a context string and returns a system message to include in the autosuggestion request.
  * @param fewShotMessages - An array of few shot messages to include in the autosuggestion request.
@@ -18,7 +18,7 @@ import { AutosuggestionsBareFunction } from "../use-autosuggestions";
  * @returns A memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
  */
 export function useMakeAutosuggestionFunction(
-  textareaPurpose: string,
+  purposePrompt: string,
   apiEndpoint: string,
   makeSystemMessage: MakeSystemMessage,
   fewShotMessages: MinimalChatGPTMessage[],
@@ -38,7 +38,7 @@ export function useMakeAutosuggestionFunction(
               {
                 role: "system",
                 content: makeSystemMessage(
-                  textareaPurpose,
+                  purposePrompt,
                   getContextString(contextCategories)
                 ),
               },
@@ -70,7 +70,7 @@ export function useMakeAutosuggestionFunction(
       fewShotMessages,
       getContextString,
       contextCategories,
-      textareaPurpose,
+      purposePrompt,
     ]
   );
 }

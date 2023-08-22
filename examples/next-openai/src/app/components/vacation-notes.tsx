@@ -1,6 +1,5 @@
 import { CopilotTextarea } from "@copilotkit/react-textarea";
 import { useState } from "react";
-import { useMakeAutosuggestionFunction } from "@copilotkit/react-textarea";
 
 export function VacationNotes(): JSX.Element {
   const [text, setText] = useState("");
@@ -13,11 +12,11 @@ export function VacationNotes(): JSX.Element {
         onValueChange={(value: string) => setText(value)}
         placeholder="What are your plans for your vacation?"
         autosuggestionsConfig={{
-          textareaPurpose:
+          purposePrompt:
             "Travel notes from the user's previous vacations. Likely written in a colloquial style, but adjust as needed.",
-          debounceTime: 0.7,
+          debounceTime: 700,
           acceptAutosuggestionKey: "Tab",
-          contextCategories: [],
+          externalContextCategories: [],
           disableWhenEmpty: true,
         }}
       />

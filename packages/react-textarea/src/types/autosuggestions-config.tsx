@@ -1,42 +1,30 @@
+import {
+  BaseAutosuggestionsConfig,
+  defaultBaseAutosuggestionsConfig,
+} from "./base-autosuggestions-config";
 import { MinimalChatGPTMessage } from "./MinimalChatGPTMessage";
 
-export type MakeSystemMessage = (
-  textareaPurpose: string,
+export type MakeSystemPrompt = (
+  purposePrompt: string,
   contextString: string
 ) => string;
 
-export interface BaseAutosuggestionsConfig {
-  textareaPurpose: string;
-  debounceTime: number;
-  acceptAutosuggestionKey: string;
-  disableWhenEmpty: boolean;
-}
-
-export const defaultBaseAutosuggestionsConfig: Omit<
-  BaseAutosuggestionsConfig,
-  "textareaPurpose"
-> = {
-  debounceTime: 500,
-  acceptAutosuggestionKey: "Tab",
-  disableWhenEmpty: true,
-};
-
 export interface AutosuggestionsConfig extends BaseAutosuggestionsConfig {
   apiEndpoint: string;
-  contextCategories: string[] | undefined;
-  makeSystemMessage: MakeSystemMessage;
+  externalContextCategories: string[] | undefined;
+  makeSystemPrompt: MakeSystemPrompt;
   fewShotMessages: MinimalChatGPTMessage[];
-  forwardedProps: { [key: string]: any } | undefined;
+  forwardedParams: { [key: string]: any } | undefined;
 }
 
-export const defaultMakeSystemMessage: MakeSystemMessage = (
-  textareaPurpose,
+export const defaultMakeSystemPrompt: MakeSystemPrompt = (
+  purposePrompt,
   contextString
 ) => {
   return `You are a versatile writing assistant.
   
 The user is writing some text.
-The purpose is: \"${textareaPurpose}\"
+The purpose is: \"${purposePrompt}\"
 
 Your job is to guess what the user will write next AS BEST YOU CAN.
 Only guess a SHORT distance ahead. Usually 1 sentence, or at most 1 paragraph.
@@ -94,13 +82,13 @@ export const defaultFewShotMessages: MinimalChatGPTMessage[] = [
 ];
 export const defaultAutosuggestionsConfig: Omit<
   AutosuggestionsConfig,
-  "textareaPurpose"
+  "purposePrompt"
 > = {
   ...defaultBaseAutosuggestionsConfig,
 
   apiEndpoint: "api/autosuggestions",
-  makeSystemMessage: defaultMakeSystemMessage,
+  makeSystemPrompt: defaultMakeSystemPrompt,
   fewShotMessages: defaultFewShotMessages,
-  contextCategories: undefined,
-  forwardedProps: undefined,
+  externalContextCategories: undefined,
+  forwardedParams: undefined,
 };

@@ -6,9 +6,9 @@ import {
 } from "@copilotkit/react-core";
 import {
   CopilotTextarea,
-  MakeSystemMessage,
   MinimalChatGPTMessage,
 } from "@copilotkit/react-textarea";
+import { MakeSystemPrompt } from "@copilotkit/react-textarea/dist/types/autosuggestions-config";
 import { useState } from "react";
 
 export default function CopilotTextareaDemo(): JSX.Element {
@@ -38,14 +38,15 @@ function TextAreas() {
           opacity: 0.5,
         }}
         autosuggestionsConfig={{
-          textareaPurpose:
+          purposePrompt:
             "A COOL & SMOOTH announcement post about CopilotTextarea. No pomp, no fluff, no BS. Just the facts. Be brief, be clear, be concise. Be cool.",
-          contextCategories: [announcementCategoryId],
-          makeSystemMessage,
+          externalContextCategories: [announcementCategoryId],
+          makeSystemPrompt,
           fewShotMessages,
           debounceTime: 650,
-          forwardedProps: {
+          forwardedParams: {
             max_tokens: 25,
+            stop: ["\n", ".", ","],
           },
         }}
       />
@@ -60,15 +61,12 @@ function TextAreas() {
   );
 }
 
-const makeSystemMessage: MakeSystemMessage = (
-  textareaPurpose,
-  contextString
-) => {
+const makeSystemPrompt: MakeSystemPrompt = (purposePrompt, contextString) => {
   return `
 You are a versatile writing assistant.
 
 The user is writing some text.
-The purpose is: \"${textareaPurpose}\"
+The purpose is: \"${purposePrompt}\"
 
 Your job is to guess what the user will write next AS BEST YOU CAN.
 Only guess a SHORT distance ahead. Usually 1 sentence, or at most 1 paragraph.
@@ -97,11 +95,11 @@ const fewShotMessages: MinimalChatGPTMessage[] = [
   },
   {
     role: "user",
-    content: "Happy to introduce",
+    content: "Introducing:",
     name: "TextBeforeCursor",
   },
   {
     role: "assistant",
-    content: " CopilotTextarea",
+    content: "<CopilotTextarea />",
   },
 ];

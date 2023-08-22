@@ -25,7 +25,7 @@ import { AutosuggestionState } from "../../../types/autosuggestion-state";
 import {
   BaseAutosuggestionsConfig,
   defaultBaseAutosuggestionsConfig,
-} from "../../../types/autosuggestions-config";
+} from "../../../types/base-autosuggestions-config";
 import { makeRenderElementFunction } from "./render-element";
 import { makeRenderPlaceholderFunction } from "./render-placeholder";
 
@@ -36,7 +36,7 @@ export interface BaseCopilotTextareaProps
   value?: string;
   onValueChange?: (value: string) => void;
   autosuggestionsConfig: Partial<BaseAutosuggestionsConfig> & {
-    textareaPurpose: string;
+    purposePrompt: string;
   };
 }
 

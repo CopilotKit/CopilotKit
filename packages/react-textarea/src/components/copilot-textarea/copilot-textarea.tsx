@@ -11,7 +11,7 @@ import {
 
 export interface CopilotTextareaProps extends BaseCopilotTextareaProps {
   autosuggestionsConfig: Partial<AutosuggestionsConfig> & {
-    textareaPurpose: string;
+    purposePrompt: string;
   };
 }
 
@@ -22,12 +22,12 @@ export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
   };
 
   const autosuggestionsFunction = useMakeStandardAutosuggestionFunction(
-    autosuggestionsConfig.textareaPurpose,
+    autosuggestionsConfig.purposePrompt,
     autosuggestionsConfig.apiEndpoint,
-    autosuggestionsConfig.makeSystemMessage,
+    autosuggestionsConfig.makeSystemPrompt,
     autosuggestionsConfig.fewShotMessages,
-    autosuggestionsConfig.contextCategories,
-    autosuggestionsConfig.forwardedProps
+    autosuggestionsConfig.externalContextCategories,
+    autosuggestionsConfig.forwardedParams
   );
 
   return (
