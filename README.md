@@ -21,7 +21,30 @@ pnpm install @copilotkit/react-core @copilotkit/react-ui @copilotkit/react-texta
 ## Examples
 
 ### NEW! CopilotTextarea
+
+A drop-in <textarea /> replacement with context-aware Copilot autocompletions.
+
 ```typescript
+import "@copilotkit/react-ui/styles.css"; // add to the app-global css
+import { CopilotProvider } from "@copilotkit/react-core";
+import { CopilotTextarea, MinimalChatGPTMessage, MakeSystemPrompt } from "@copilotkit/react-textarea";
+
+  return (
+    <CopilotProvider> {/* Global state & copilot logic. Put this around the entire app. */}
+      <CopilotTextarea
+        className="p-4 w-1/2 aspect-square font-bold text-3xl bg-slate-800 text-white rounded-lg resize-none"
+        placeholder="A CopilotTextarea!"
+        autosuggestionsConfig={{
+          purposePrompt: "A COOL & SMOOTH announcement post about CopilotTextarea.",
+          externalContextCategories: ["someExternalContextCategory"], // or omit this, if you want to include the default global context 
+          apiEndpoint: "/api/suggestions" // API endpoint compatible with standard OPENAI endpoint
+        }}
+      />
+
+    </CopilotProvider>
+  );
+
+
 ```
 
 ![CopilotTextarea Gif](./assets/CopilotTextarea.gif)
@@ -31,7 +54,7 @@ pnpm install @copilotkit/react-core @copilotkit/react-ui @copilotkit/react-texta
 ### Integrate copilot
 
 ```typescript
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-ui/styles.css"; // add to the app-global css
 import { CopilotProvider } from "@copilotkit/react-core";
 import { CopilotSidebarUIProvider } from "@copilotkit/react-ui";
 
