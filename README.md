@@ -24,6 +24,8 @@ pnpm install @copilotkit/react-core @copilotkit/react-ui @copilotkit/react-texta
 
 A drop-in <textarea /> replacement with context-aware Copilot autocompletions.
 
+![CopilotTextarea Gif](./assets/CopilotTextarea.gif)
+
 ```typescript
 import "@copilotkit/react-ui/styles.css"; // add to the app-global css
 import { CopilotProvider } from "@copilotkit/react-core";
@@ -35,20 +37,22 @@ import { CopilotTextarea, MinimalChatGPTMessage, MakeSystemPrompt } from "@copil
         className="p-4 w-1/2 aspect-square font-bold text-3xl bg-slate-800 text-white rounded-lg resize-none"
         placeholder="A CopilotTextarea!"
         autosuggestionsConfig={{
-          purposePrompt: "A COOL & SMOOTH announcement post about CopilotTextarea.",
-          externalContextCategories: ["someExternalContextCategory"], // or omit this, if you want to include the default global context 
-          apiEndpoint: "/api/suggestions" // API endpoint compatible with standard OPENAI endpoint
+          purposePrompt: "A COOL & SMOOTH announcement post about CopilotTextarea. Be brief. Be clear. Be cool.",
+          externalContextCategories: ["someSpecificContextCategory"], // or leave as `undefined`, for the default global Copilot context
+          apiEndpoint: "/api/autosuggestions" // API endpoint compatible with standard OPENAI endpoint
+          forwardedParams: {
+            max_tokens: 25,
+            stop: ["\n", ".", ","],
+          },
+          // ... see `AutosuggestionsConfig` 
         }}
       />
 
     </CopilotProvider>
   );
-
-
 ```
 
-![CopilotTextarea Gif](./assets/CopilotTextarea.gif)
-
+Where `/api/autosuggestions` is any OpenAI-compatible endpoint. Here's an [example implementation](CopilotKit/examples/next-openai/src/app/api/autosuggestions/route.ts)
 
 
 ### Integrate copilot
