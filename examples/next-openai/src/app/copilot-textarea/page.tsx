@@ -4,11 +4,8 @@ import {
   CopilotProvider,
   useMakeCopilotReadable,
 } from "@copilotkit/react-core";
-import {
-  CopilotTextarea,
-  MinimalChatGPTMessage,
-} from "@copilotkit/react-textarea";
-import { MakeSystemPrompt } from "@copilotkit/react-textarea/dist/types/autosuggestions-config";
+import { CopilotTextarea, MinimalChatGPTMessage } from "@copilotkit/react-ui";
+import { MakeSystemPrompt } from "@copilotkit/react-ui";
 import { useState } from "react";
 
 export default function CopilotTextareaDemo(): JSX.Element {

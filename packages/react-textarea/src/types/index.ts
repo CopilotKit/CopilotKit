@@ -1,6 +1,4 @@
-export type {
-  AutosuggestionsConfig,
-  MakeSystemPrompt as MakeSystemMessage,
-} from "./autosuggestions-config";
+export { defaultBaseAutosuggestionsConfig } from "./base-autosuggestions-config";
 
-export type { MinimalChatGPTMessage } from "./MinimalChatGPTMessage";
+export type { BaseAutosuggestionsConfig } from "./base-autosuggestions-config";
+export type { AutosuggestionsBareFunction } from "./autosuggestions-bare-function";

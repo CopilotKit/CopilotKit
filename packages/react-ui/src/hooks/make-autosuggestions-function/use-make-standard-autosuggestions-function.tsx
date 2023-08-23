@@ -1,8 +1,8 @@
 import { CopilotContext } from "@copilotkit/react-core";
 import { useCallback, useContext } from "react";
-import { MakeSystemMessage } from "../../types";
-import { MinimalChatGPTMessage } from "../../types/MinimalChatGPTMessage";
-import { AutosuggestionsBareFunction } from "../use-autosuggestions";
+import { MakeSystemPrompt } from "../../types";
+import { MinimalChatGPTMessage } from "../../types/minimal-chatgpt-message";
+import { AutosuggestionsBareFunction } from "@copilotkit/react-textarea";
 
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
@@ -17,10 +17,10 @@ import { AutosuggestionsBareFunction } from "../use-autosuggestions";
  * @param contextCategories - The categories of context strings we want to include. By default, we include the (default) "global" context category.
  * @returns A memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
  */
-export function useMakeAutosuggestionFunction(
+export function useMakeStandardAutosuggestionFunction(
   purposePrompt: string,
   apiEndpoint: string,
-  makeSystemMessage: MakeSystemMessage,
+  makeSystemPrompt: MakeSystemPrompt,
   fewShotMessages: MinimalChatGPTMessage[],
   contextCategories: string[] | undefined,
   forwardedProps?: { [key: string]: any }
@@ -37,7 +37,7 @@ export function useMakeAutosuggestionFunction(
             messages: [
               {
                 role: "system",
-                content: makeSystemMessage(
+                content: makeSystemPrompt(
                   purposePrompt,
                   getContextString(contextCategories)
                 ),
@@ -66,7 +66,7 @@ export function useMakeAutosuggestionFunction(
     },
     [
       apiEndpoint,
-      makeSystemMessage,
+      makeSystemPrompt,
       fewShotMessages,
       getContextString,
       contextCategories,

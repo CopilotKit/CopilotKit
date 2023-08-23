@@ -6,18 +6,13 @@ import {
   EditorAutocompleteState,
   areEqual_autocompleteState,
 } from "../types/editor-autocomplete-state";
+import { AutosuggestionsBareFunction } from "../types/autosuggestions-bare-function";
 
 export interface UseAutosuggestionsResult {
   currentAutocompleteSuggestion: AutosuggestionState | null;
   onChangeHandler: (newEditorState: EditorAutocompleteState | null) => void;
   onKeyDownHandler: (event: React.KeyboardEvent<HTMLDivElement>) => void;
 }
-
-export type AutosuggestionsBareFunction = (
-  textBefore: string,
-  textAfter: string,
-  abortSignal: AbortSignal
-) => Promise<string>;
 
 export function useAutosuggestions(
   debounceTime: number,

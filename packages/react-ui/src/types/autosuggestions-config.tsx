@@ -1,8 +1,8 @@
 import {
   BaseAutosuggestionsConfig,
   defaultBaseAutosuggestionsConfig,
-} from "./base-autosuggestions-config";
-import { MinimalChatGPTMessage } from "./MinimalChatGPTMessage";
+} from "@copilotkit/react-textarea";
+import { MinimalChatGPTMessage } from "./minimal-chatgpt-message";
 
 export type MakeSystemPrompt = (
   purposePrompt: string,

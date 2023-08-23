@@ -38,7 +38,6 @@
     "typescript": "^4.9.4"
   },
   "dependencies": {
-    "@copilotkit/react-core": "workspace:*",
     "ai": "^2.1.22",
     "class-variance-authority": "^0.6.1",
     "clsx": "^1.2.1",

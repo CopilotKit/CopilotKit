@@ -9,10 +9,8 @@ import {
 import { Descendant, Editor } from "slate";
 import { Editable, Slate } from "slate-react";
 import { twMerge } from "tailwind-merge";
-import {
-  AutosuggestionsBareFunction,
-  useAutosuggestions,
-} from "../../../hooks/use-autosuggestions";
+import { useAutosuggestions } from "../../../hooks/use-autosuggestions";
+import { AutosuggestionsBareFunction } from "../../../types/autosuggestions-bare-function";
 import { useCopilotTextareaEditor } from "../../../hooks/use-copilot-textarea-editor";
 import {
   getFullEditorTextWithNewlines,
