@@ -3,11 +3,11 @@ import { useMakeStandardAutosuggestionFunction } from "../../hooks/make-autosugg
 import {
   AutosuggestionsConfig,
   defaultAutosuggestionsConfig,
-} from "../../types/autosuggestions-config";
+} from "../../types/standard-autosuggestions";
 import {
   BaseCopilotTextarea,
   BaseCopilotTextareaProps,
-} from "@copilotkit/react-textarea";
+} from "../base-copilot-textarea/base-copilot-textarea";
 
 export interface CopilotTextareaProps extends BaseCopilotTextareaProps {
   autosuggestionsConfig: Partial<AutosuggestionsConfig> & {

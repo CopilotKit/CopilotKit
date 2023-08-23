@@ -9,21 +9,21 @@ import {
 import { Descendant, Editor } from "slate";
 import { Editable, Slate } from "slate-react";
 import { twMerge } from "tailwind-merge";
-import { useAutosuggestions } from "../../../hooks/use-autosuggestions";
-import { AutosuggestionsBareFunction } from "../../../types/autosuggestions-bare-function";
-import { useCopilotTextareaEditor } from "../../../hooks/use-copilot-textarea-editor";
+import { useAutosuggestions } from "../../hooks/use-autosuggestions";
+import { useCopilotTextareaEditor } from "../../hooks/use-copilot-textarea-editor";
 import {
   getFullEditorTextWithNewlines,
   getTextAroundCursor,
-} from "../../../lib/get-text-around-cursor";
-import { addAutocompletionsToEditor } from "../../../lib/slatejs-edits/add-autocompletions";
-import { clearAutocompletionsFromEditor } from "../../../lib/slatejs-edits/clear-autocompletions";
-import { replaceEditorText } from "../../../lib/slatejs-edits/replace-text";
-import { AutosuggestionState } from "../../../types/autosuggestion-state";
+} from "../../lib/get-text-around-cursor";
+import { addAutocompletionsToEditor } from "../../lib/slatejs-edits/add-autocompletions";
+import { clearAutocompletionsFromEditor } from "../../lib/slatejs-edits/clear-autocompletions";
+import { replaceEditorText } from "../../lib/slatejs-edits/replace-text";
 import {
+  AutosuggestionsBareFunction,
   BaseAutosuggestionsConfig,
   defaultBaseAutosuggestionsConfig,
-} from "../../../types/base-autosuggestions-config";
+} from "../../types/base";
+import { AutosuggestionState } from "../../types/base/autosuggestion-state";
 import { makeRenderElementFunction } from "./render-element";
 import { makeRenderPlaceholderFunction } from "./render-placeholder";
 

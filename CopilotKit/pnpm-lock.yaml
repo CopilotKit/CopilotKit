@@ -226,6 +226,9 @@ importers:
         specifier: ^1.13.2
         version: 1.13.2
     devDependencies:
+      '@copilotkit/react-core':
+        specifier: workspace:*
+        version: link:../react-core
       '@types/react':
         specifier: ^18.2.5
         version: 18.2.5
@@ -265,9 +268,6 @@ importers:
       '@copilotkit/react-core':
         specifier: workspace:*
         version: link:../react-core
-      '@copilotkit/react-textarea':
-        specifier: workspace:*
-        version: link:../react-textarea
       '@heroicons/react':
         specifier: ^2.0.18
         version: 2.0.18(react@18.2.0)

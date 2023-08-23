@@ -1,2 +1,5 @@
-export { BaseCopilotTextarea } from "./copilot-textarea/base-copilot-textarea/base-copilot-textarea";
-export type { BaseCopilotTextareaProps } from "./copilot-textarea/base-copilot-textarea/base-copilot-textarea";
+export { BaseCopilotTextarea } from "./base-copilot-textarea/base-copilot-textarea";
+export type { BaseCopilotTextareaProps } from "./base-copilot-textarea/base-copilot-textarea";
+
+export { CopilotTextarea } from "./copilot-textarea/copilot-textarea";
+export type { CopilotTextareaProps } from "./copilot-textarea/copilot-textarea";

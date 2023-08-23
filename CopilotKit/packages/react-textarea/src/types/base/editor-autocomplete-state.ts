@@ -1,5 +1,5 @@
 import { BasePoint } from "slate";
-import { arraysAreEqual } from "../lib/utils";
+import { arraysAreEqual } from "../../lib/utils";
 
 export interface EditorAutocompleteState {
   cursorPoint: BasePoint;

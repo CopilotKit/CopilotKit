@@ -25,6 +25,7 @@
     "react": "^18.2.0"
   },
   "devDependencies": {
+    "@copilotkit/react-core": "workspace:*",
     "@types/react": "^18.2.5",
     "@types/react-syntax-highlighter": "^15.5.7",
     "eslint": "^7.32.0",

@@ -1,9 +1,10 @@
 import { CopilotContext } from "@copilotkit/react-core";
 import { useCallback, useContext } from "react";
-import { MakeSystemPrompt } from "../../types";
-import { MinimalChatGPTMessage } from "../../types/minimal-chatgpt-message";
-import { AutosuggestionsBareFunction } from "@copilotkit/react-textarea";
-
+import {
+  AutosuggestionsBareFunction,
+  MakeSystemPrompt,
+  MinimalChatGPTMessage,
+} from "../../types";
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
  * The function takes in the text before and after the cursor, and an abort signal.
