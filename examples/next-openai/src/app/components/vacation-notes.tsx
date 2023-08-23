@@ -1,4 +1,4 @@
-import { CopilotTextarea } from "@copilotkit/react-textarea";
+import { CopilotTextarea } from "@copilotkit/react-ui";
 import { useState } from "react";
 
 export function VacationNotes(): JSX.Element {

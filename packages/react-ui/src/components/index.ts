@@ -5,3 +5,6 @@ export { CopilotSidebarUIProvider } from "./sidebar/copilot-sidebar-ui-provider"
 export { CopilotSidebar } from "./sidebar/copilot-sidebar";
 export { CopilotSidebarContext } from "./sidebar/sidebar-context";
 export type { CopilotSidebarContextType } from "./sidebar/sidebar-context";
+
+export { CopilotTextarea } from "./copilot-textarea/copilot-textarea";
+export type { CopilotTextareaProps } from "./copilot-textarea/copilot-textarea";

@@ -1,5 +1,5 @@
 // This example is for an Editor with `ReactEditor` and `HistoryEditor`
-import { useMakeAutosuggestionFunction as useMakeStandardAutosuggestionFunction } from "../../hooks";
+import { useMakeStandardAutosuggestionFunction } from "../../hooks/make-autosuggestions-function/use-make-standard-autosuggestions-function";
 import {
   AutosuggestionsConfig,
   defaultAutosuggestionsConfig,
@@ -7,7 +7,7 @@ import {
 import {
   BaseCopilotTextarea,
   BaseCopilotTextareaProps,
-} from "./base-copilot-textarea/base-copilot-textarea";
+} from "@copilotkit/react-textarea";
 
 export interface CopilotTextareaProps extends BaseCopilotTextareaProps {
   autosuggestionsConfig: Partial<AutosuggestionsConfig> & {
