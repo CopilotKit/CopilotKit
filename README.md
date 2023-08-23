@@ -15,15 +15,23 @@ CopilotKit in action.
 ## Installation
 
 ```bash
-pnpm install @copilotkit/react-core @copilotkit/react-ui @copilotkit/react-textarea
+pnpm install @copilotkit/react-core @copilotkit/react-ui
 ```
 
 ## Examples
+
+### NEW! CopilotTextarea
+```typescript
+```
+
+![CopilotTextarea Gif](./assets/CopilotTextarea.gif)
+
 
 
 ### Integrate copilot
 
 ```typescript
+import "@copilotkit/react-ui/styles.css";
 import { CopilotProvider } from "@copilotkit/react-core";
 import { CopilotSidebarUIProvider } from "@copilotkit/react-ui";
 
