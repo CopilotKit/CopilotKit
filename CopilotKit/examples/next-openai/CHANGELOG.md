@@ -1,5 +1,15 @@
 # web
 
+## 1.3.2
+
+### Patch Changes
+
+- Made CopilotTextarea standalone for clarity
+- Updated dependencies
+  - @copilotkit/react-textarea@0.7.0
+  - @copilotkit/react-ui@0.7.0
+  - docs@1.3.2
+
 ## 1.3.1
 
 ### Patch Changes

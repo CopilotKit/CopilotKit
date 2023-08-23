@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.6.0",
+  "version": "0.7.0",
   "sideEffects": [
     "**/*.css"
   ],
@@ -25,6 +25,7 @@
     "react": "^18.2.0"
   },
   "devDependencies": {
+    "@copilotkit/react-core": "workspace:*",
     "@types/react": "^18.2.5",
     "@types/react-syntax-highlighter": "^15.5.7",
     "eslint": "^7.32.0",

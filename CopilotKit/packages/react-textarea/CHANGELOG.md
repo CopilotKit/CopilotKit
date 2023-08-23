@@ -1,5 +1,11 @@
 # ui
 
+## 0.7.0
+
+### Minor Changes
+
+- Made CopilotTextarea standalone for clarity
+
 ## 0.6.0
 
 ### Minor Changes
