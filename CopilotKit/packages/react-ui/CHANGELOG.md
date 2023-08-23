@@ -1,5 +1,17 @@
 # ui
 
+## 0.6.0
+
+### Minor Changes
+
+- Introduced CopilotTextarea
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.6.0
+  - @copilotkit/react-core@0.6.0
+
 ## 0.5.0
 
 ### Minor Changes

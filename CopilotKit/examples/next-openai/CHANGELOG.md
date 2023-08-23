@@ -1,5 +1,15 @@
 # web
 
+## 1.3.1
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.6.0
+  - @copilotkit/react-core@0.6.0
+  - @copilotkit/react-ui@0.6.0
+  - docs@1.3.1
+
 ## 1.3.0
 
 ### Minor Changes
