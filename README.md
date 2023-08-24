@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./assets/banner.png" width="100%">
+  <img src="./assets/banner.png" width="100%" style="border-radius: 15px;">
 </div>
 
 # CopilotKit🪁 [![Discord](https://dcbadge.vercel.app/api/server/6dffbvGU3D?compact=true&style=flat)](https://discord.gg/6dffbvGU3D)
