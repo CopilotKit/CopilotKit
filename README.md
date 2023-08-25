@@ -34,9 +34,9 @@ A drop-in <textarea /> replacement with context-aware Copilot autocompletions.
 
 
 ```typescript
-import "@copilotkit/react-ui/styles.css"; // add to the app-global css
+import "@copilotkit/react-textarea/styles.css"; // add to the app-global css
+import { CopilotTextarea } from "@copilotkit/react-textarea";
 import { CopilotProvider } from "@copilotkit/react-core";
-import { CopilotTextarea, MinimalChatGPTMessage, MakeSystemPrompt } from "@copilotkit/react-textarea";
 
   return (
     <CopilotProvider> {/* Global state & copilot logic. Put this around the entire app. */}
