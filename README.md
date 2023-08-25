@@ -18,7 +18,7 @@ Add a powerful & hackable copilot to any app, in an afternoon.
 CopilotKit in action.
 
 <p align="center">
-  <img src="./assets/demo.gif" width="600" style="border-radius: 15px;">
+  <img src="./assets/demo.gif" width="500" style="border-radius: 15px;">
 </p>
 
 
