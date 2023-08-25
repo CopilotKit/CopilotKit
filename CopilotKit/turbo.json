@@ -12,7 +12,9 @@
       "outputs": ["coverage/**", "!.next/**", "!.next/cache/**"]
     },
     "lint": {},
-    "check-types": {},
+    "check-types": {
+      "dependsOn": ["^build"]
+    },
     "dev": {
       "dependsOn": ["^build"],
       "cache": false,

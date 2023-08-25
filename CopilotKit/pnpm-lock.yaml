@@ -201,6 +201,9 @@ importers:
 
   packages/react-textarea:
     dependencies:
+      '@copilotkit/react-core':
+        specifier: workspace:*
+        version: link:../react-core
       ai:
         specifier: ^2.1.22
         version: 2.1.22(react@18.2.0)(svelte@4.0.5)(vue@3.3.4)
@@ -235,9 +238,6 @@ importers:
         specifier: ^1.13.2
         version: 1.13.2
     devDependencies:
-      '@copilotkit/react-core':
-        specifier: workspace:*
-        version: link:../react-core
       '@types/jest':
         specifier: ^29.5.4
         version: 29.5.4

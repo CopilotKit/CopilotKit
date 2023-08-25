@@ -2,7 +2,7 @@
   <img src="./assets/banner.png" width="100%" style="border-radius: 15px;">
 </div>
 
-# CopilotKit🪁 [![Discord](https://dcbadge.vercel.app/api/server/6dffbvGU3D?compact=true&style=flat)](https://discord.gg/6dffbvGU3D)
+# CopilotKit🪁 [![Discord](https://dcbadge.vercel.app/api/server/6dffbvGU3D?compact=true&style=flat)](https://discord.gg/6dffbvGU3D) ![GitHub CI](https://github.com/RecursivelyAI/CopilotKit/actions/workflows/ci.yml/badge.svg)
 
 Add a powerful & hackable copilot to any app, in an afternoon.
 
