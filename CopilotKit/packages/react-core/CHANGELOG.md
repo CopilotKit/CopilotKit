@@ -1,5 +1,11 @@
 # ui
 
+## 0.7.0
+
+### Minor Changes
+
+- ce193f7: Dependency fix
+
 ## 0.6.0
 
 ### Minor Changes

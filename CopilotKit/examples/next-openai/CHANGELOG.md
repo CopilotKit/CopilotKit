@@ -1,5 +1,16 @@
 # web
 
+## 1.3.3
+
+### Patch Changes
+
+- ce193f7: Dependency fix
+- Updated dependencies [ce193f7]
+  - @copilotkit/react-textarea@0.8.0
+  - @copilotkit/react-core@0.7.0
+  - @copilotkit/react-ui@0.8.0
+  - docs@1.3.3
+
 ## 1.3.2
 
 ### Patch Changes

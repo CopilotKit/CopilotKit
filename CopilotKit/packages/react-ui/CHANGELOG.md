@@ -1,5 +1,16 @@
 # ui
 
+## 0.8.0
+
+### Minor Changes
+
+- ce193f7: Dependency fix
+
+### Patch Changes
+
+- Updated dependencies [ce193f7]
+  - @copilotkit/react-core@0.7.0
+
 ## 0.7.0
 
 ### Minor Changes
