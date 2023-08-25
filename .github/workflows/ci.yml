@@ -28,8 +28,8 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'pnpm'
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Go to project directory
+        run: cd CopilotKit
 
       - name: Run tests
         run: pnpm test

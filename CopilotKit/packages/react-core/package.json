@@ -14,6 +14,7 @@
   "scripts": {
     "build": "tsup --treeshake",
     "dev": "tsup --watch --no-splitting",
+    "test": "jest",
     "check-types": "tsc --noEmit",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
   },
@@ -21,17 +22,20 @@
     "react": "^18.2.0"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.4",
     "@types/react": "^18.2.5",
     "eslint": "^7.32.0",
     "eslint-config-custom": "workspace:*",
+    "jest": "^29.6.4",
     "react": "^18.2.0",
+    "ts-jest": "^29.1.1",
     "tsconfig": "workspace:*",
     "tsup": "^6.5.0",
     "typescript": "^4.9.4"
   },
   "dependencies": {
     "ai": "^2.2.6",
-    "openai": "^4.0.0",
-    "nanoid": "^4.0.2"
+    "nanoid": "^4.0.2",
+    "openai": "^4.0.0"
   }
 }

@@ -7,6 +7,10 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**", "!.next/**", "!.next/cache/**"]
+    },
     "lint": {},
     "check-types": {},
     "dev": {

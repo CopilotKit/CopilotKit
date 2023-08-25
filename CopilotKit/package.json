@@ -5,6 +5,7 @@
     "dev": "turbo dev",
     "lint": "turbo lint",
     "clean": "turbo clean",
+    "test": "turbo test",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "publish-packages": "turbo run build lint && changeset version && changeset publish",
     "freshbuild": "pnpm clean && pnpm install && pnpm build"
