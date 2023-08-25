@@ -5,10 +5,13 @@
 # CopilotKit🪁 [![Discord](https://dcbadge.vercel.app/api/server/6dffbvGU3D?compact=true&style=flat)](https://discord.gg/6dffbvGU3D) [![Online Users](https://img.shields.io/discord/1122926057641742418?label=online&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/6dffbvGU3D) ![GitHub CI](https://github.com/RecursivelyAI/CopilotKit/actions/workflows/ci.yml/badge.svg)
 
 Add a powerful & hackable copilot to any app, in an afternoon.
-- ✅ NEW: `<CopilotTextarea />`: a drop-in `<textarea />` replacement with Copilot autocompletions.
-- ✅ `useMakeCopilotReadable(...)`: The copilot can answer questions about the current app state 
-- ✅ `useMakeCopilotActionable(...)`: The copilot can take action on behalf of the user.
-- 🚧 CopilotCloud: integrate arbitrary LLM logic / chains / RAG, with full control
+
+## Overview
+
+- ✅ **NEW:** `<CopilotTextarea />`: a drop-in `<textarea />` replacement with Copilot autocompletions.
+- ✅ `useMakeCopilotReadable(...)`: Propagate granular app state to the Copilot & Textareas. 
+- ✅ `useMakeCopilotActionable(...)`: Let the Copilot take _action_ on behalf of the user.
+- 🚧 CopilotCloudKit: integrate arbitrary LLM logic / chains / RAG, using plain code.
 
 ## Demo
 
@@ -29,12 +32,17 @@ pnpm install @copilotkit/react-core @copilotkit/react-ui @copilotkit/react-texta
 ## Examples
 
 ### NEW! `<CopilotTextarea />`
-
 A drop-in <textarea /> replacement with context-aware Copilot autocompletions.
 
 <p align="center">
   <img src="./assets/CopilotTextarea.gif" width="400" height="400" style="border-radius: 15px;">
 </p>
+
+#### Features
+1. Customizable `purpose` prompt.
+2. Provide arbitrary context to inform autocompletions using `useMakeCopilotReadable`
+3. Works with any OpenAI-compatible endpoint ([example implementation](CopilotKit/examples/next-openai/src/app/api/autosuggestions/route.ts))
+4. Supports all `<textarea />` customizations
 
 
 ```typescript
@@ -50,7 +58,7 @@ import { CopilotProvider } from "@copilotkit/react-core";
         autosuggestionsConfig={{
           purposePrompt: "A COOL & SMOOTH announcement post about CopilotTextarea. Be brief. Be clear. Be cool.",
           externalContextCategories: ["someSpecificContextCategory"], // or leave as `undefined`, for the default global Copilot context
-          apiEndpoint: "/api/autosuggestions" // (see below)
+          apiEndpoint: "/api/autosuggestions" // (Any OpenAI-compatible endpoint. See above)
           forwardedParams: {
             max_tokens: 25,
             stop: ["\n", ".", ","],
@@ -61,9 +69,6 @@ import { CopilotProvider } from "@copilotkit/react-core";
     </CopilotProvider>
   );
 ```
-
-Where `/api/autosuggestions` is any OpenAI-compatible endpoint. Here's an [example implementation](CopilotKit/examples/next-openai/src/app/api/autosuggestions/route.ts)
-
 
 ### Integrate copilot
 
@@ -85,35 +90,38 @@ export default function App(): JSX.Element {
 }
 ```
 
+#### Features
+1. Batteries included. Add 2 React components, and your Copilot is live.
+2. Customize the built-in `CopilotSidebarUIProvider` UI -- or bring your own UI component.
+3. Extremely hackable. Should the need arise, you can define 1st-class extensions just as powerful as `useMakeCopilotReadable`, `useMakeCopilotActionable`, etc.
+
+
 ### Give the copilot read permissions
+
+#### Features
+1. Propagate useful information & granular app-state to the Copilot
+2. Easily maintain the hierarchical structure of information with `parentId`
+3. One call to rule them all: `useMakeCopilotReadable` works both with the sidekick, and with CopilotTextarea.
+   - Use the `contextCategories: string[]` param to route information to different places.
+
 
 ```typescript
 import { useMakeCopilotReadable } from "@copilotkit/react-core";
 
 
 function Employee(props: EmployeeProps): JSX.Element {
-  const { employeeData, copilotParentPointer } = props;
+  const { employeeName, workProfile, metadata } = props;
 
-  // Give the copilot information about this employee, and associate it with its parent department.
-  useMakeCopilotReadable(employeeData.description(), copilotParentPointer);
+  // propagate any information copilot
+  const employeeContextId = useMakeCopilotReadable(employeeName);
 
+  // Pass a parentID to maintain a hiearchical structure.
+  // Especially useful with child React components, list elements, etc.
+  useMakeCopilotReadable(workProfile.description(), employeeContextId);
+  useMakeCopilotReadable(metadata.description(), employeeContextId);
+  
   return (
     // Render as usual...
-  );
-}
-
-function Department(props: DepartmentProps): JSX.Element {
-  const { departmentData, employees } = props;
-
-  // Give the copilot information about this department. Keep the pointer, to associate employees w departments.
-  const departmentCopilotPointer = useMakeCopilotReadable(departmentData.description());
-
-  return ( // Render as usual.
-    <>      
-      {employees.map((employeeData) => (
-        <Employee copilotParentPointer={departmentCopilotPointer} employeeData={employeeData} />
-      ))}
-    </>
   );
 }
 
@@ -149,6 +157,10 @@ function Department(props: DepartmentProps): JSX.Element {
 }
 ```
 
+#### Features
+1. Plain typescript actions. Edit a textbox, navigate to a new page, or anythign you can think of.
+2. Specify arbitrary input types.
+
 
 ## Near-Term Roadmap
 
@@ -161,10 +173,12 @@ function Department(props: DepartmentProps): JSX.Element {
 - 🚧 `useMakeCopilotAskable`: let the copilot ask for additional information when needed (coming soon)
 - 🚧 `useEditCopilotMessage`: edit the (unsent) typed user message to the copilot (coming soon)
 - 🚧 copilot-assisted navigation: go to the best page to achieve some objective.
+- 🚧 CopilotCloudKit: integrate arbitrary LLM logic / chains / RAG, using plain code.
 
 ### UI components
 
 - ✅ `<CopilotSidebarUIProvider>`: Built in, hackable Copilot UI (optional - you can bring your own UI).
+- ✅ `<CopilotTextarea />`: drop-in `<textarea />` replacement with Copilot autocompletions.
 
 ### Integrations
 
