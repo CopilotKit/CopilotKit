@@ -5,6 +5,10 @@
 # CopilotKit🪁 [![Discord](https://dcbadge.vercel.app/api/server/6dffbvGU3D?compact=true&style=flat)](https://discord.gg/6dffbvGU3D) [![Online Users](https://img.shields.io/discord/1122926057641742418?label=online&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/6dffbvGU3D) ![GitHub CI](https://github.com/RecursivelyAI/CopilotKit/actions/workflows/ci.yml/badge.svg)
 
 Add a powerful & hackable copilot to any app, in an afternoon.
+- ✅ NEW: `<CopilotTextarea />`: a drop-in `<textarea />` replacement with Copilot autocompletions.
+- ✅ `useMakeCopilotReadable(...)`: The copilot can answer questions about the current app state 
+- ✅ `useMakeCopilotActionable(...)`: The copilot can take action on behalf of the user.
+- 🚧 CopilotCloud: integrate arbitrary LLM logic / chains / RAG, with full control
 
 ## Demo
 
