@@ -1,8 +1,8 @@
 <div align="center">
-  <img src="./assets/banner.png" width="250">
+  <img src="./assets/banner.png" width="100%" style="border-radius: 15px;">
 </div>
 
-# CopilotKit🪁 [![Discord](https://dcbadge.vercel.app/api/server/6dffbvGU3D?compact=true&style=flat)](https://discord.gg/6dffbvGU3D)
+# CopilotKit🪁 [![Discord](https://dcbadge.vercel.app/api/server/6dffbvGU3D?compact=true&style=flat)](https://discord.gg/6dffbvGU3D) ![GitHub CI](https://github.com/RecursivelyAI/CopilotKit/actions/workflows/ci.yml/badge.svg)
 
 Add a powerful & hackable copilot to any app, in an afternoon.
 
@@ -10,7 +10,11 @@ Add a powerful & hackable copilot to any app, in an afternoon.
 
 CopilotKit in action.
 
-![Demo Gif](./assets/demo.gif)
+<p align="center">
+  <img src="./assets/demo.gif" width="600" style="border-radius: 15px;">
+</p>
+
+
 
 ## Installation
 
@@ -20,11 +24,14 @@ pnpm install @copilotkit/react-core @copilotkit/react-ui @copilotkit/react-texta
 
 ## Examples
 
-### NEW! CopilotTextarea
+### NEW! `<CopilotTextarea />`
 
 A drop-in <textarea /> replacement with context-aware Copilot autocompletions.
 
-![CopilotTextarea Gif](./assets/CopilotTextarea.gif)
+<p align="center">
+  <img src="./assets/CopilotTextarea.gif" width="400" height="400" style="border-radius: 15px;">
+</p>
+
 
 ```typescript
 import "@copilotkit/react-ui/styles.css"; // add to the app-global css
@@ -39,12 +46,11 @@ import { CopilotTextarea, MinimalChatGPTMessage, MakeSystemPrompt } from "@copil
         autosuggestionsConfig={{
           purposePrompt: "A COOL & SMOOTH announcement post about CopilotTextarea. Be brief. Be clear. Be cool.",
           externalContextCategories: ["someSpecificContextCategory"], // or leave as `undefined`, for the default global Copilot context
-          apiEndpoint: "/api/autosuggestions" // API endpoint compatible with standard OPENAI endpoint
+          apiEndpoint: "/api/autosuggestions" // (see below)
           forwardedParams: {
             max_tokens: 25,
             stop: ["\n", ".", ","],
           },
-          // ... see `AutosuggestionsConfig` 
         }}
       />
 
