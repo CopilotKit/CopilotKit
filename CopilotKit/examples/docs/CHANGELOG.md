@@ -1,5 +1,12 @@
 # docs
 
+## 1.3.3
+
+### Patch Changes
+
+- Updated dependencies [ce193f7]
+  - @copilotkit/react-ui@0.8.0
+
 ## 1.3.2
 
 ### Patch Changes
