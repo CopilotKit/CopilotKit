@@ -10,7 +10,7 @@
                 "run",
                 "dev"
             ],
-            "cwd": "${workspaceFolder}/CopilotKit/examples/next-openai",
+            "cwd": "${workspaceFolder}/examples/next-openai",
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
             "resolveSourceMapLocations": [
@@ -24,7 +24,7 @@
             "type": "chrome",
             "request": "launch",
             "url": "http://localhost:3000/",
-            "webRoot": "${workspaceFolder}/CopilotKit/examples/next-openai",
+            "webRoot": "${workspaceFolder}/examples/next-openai",
             "sourceMaps": true
         }
     ],
