@@ -1,11 +1,6 @@
 .copilot-textarea.with-branding::after {
     content: ''; /* Initially empty because we overrdie this CSS dynamically and we want to avoid flashing */
     position: absolute;
-    bottom: 2px; /* add a small buffer from the bottom */
-    right: 7px; /* add a small buffer from the right */
-    pointer-events: none; /* make it non-interactive */
-    font-size: x-small; /* make the text extra small */
-    font-weight: 200; /* make the font thin */
 }
     
   
