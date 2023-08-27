@@ -16,7 +16,6 @@
     "@heroicons/react": "^2.0.18",
     "ai": "^2.2.6",
     "openai": "^4.0.0",
-    "docs": "workspace:^",
     "next": "^13.4.9",
     "next-themes": "^0.2.1",
     "react": "^18.2.0",
