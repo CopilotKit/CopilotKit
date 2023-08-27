@@ -43,22 +43,32 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN_ELEVATED }}
 
-      - name: Get package version
-        id: package-version
-        run: echo "::set-output name=version::$(node -p "require('./packages/core/package.json').version")"
+      - name: Get package versions
+        id: package-versions
+        run: |
+          echo "::set-output name=core_version::$(node -p "require('./packages/react-core/package.json').version")"
+          echo "::set-output name=textarea_version::$(node -p "require('./packages/react-textarea/package.json').version")"
+          echo "::set-output name=ui_version::$(node -p "require('./packages/react-ui/package.json').version")"
 
-      - name: Create Git tag
-        run: git tag v${{ steps.package-version.outputs.version }}
+      - name: Create composite version
+        id: composite-version
+        run: |
+          echo "::set-output name=version::core-${{ steps.package-versions.outputs.core_version }}_textarea-${{ steps.package-versions.outputs.textarea_version }}_ui-${{ steps.package-versions.outputs.ui_version }}"
+            
+      - name: Create Composite Git tag
+        run: |
+          git tag -f ${{ steps.composite-version.outputs.version }}
 
-      - name: Push Git tag
-        run: git push origin v${{ steps.package-version.outputs.version }}
+      - name: Push Composite Git tag
+        run: |
+          git push origin ${{ steps.composite-version.outputs.version }}
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v${{ steps.package-version.outputs.version }}
-          release_name: Release v${{ steps.package-version.outputs.version }}
+          tag_name: ${{ steps.composite-version.outputs.version }}
+          release_name: Release ${{ steps.composite-version.outputs.version }}
           draft: false
           prerelease: false
