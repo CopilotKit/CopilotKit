@@ -96,13 +96,17 @@ export function BaseCopilotTextarea(
     }
   }, [currentAutocompleteSuggestion]);
 
-  const renderElementMemoized = useMemo(() => {
-    const suggestionStyleAugmented: React.CSSProperties = {
+  const suggestionStyleAugmented: React.CSSProperties = useMemo(() => {
+    return {
+      fontStyle: "italic",
+      color: "gray",
       ...props.suggestionsStyle,
     };
-
-    return makeRenderElementFunction(suggestionStyleAugmented);
   }, [props.suggestionsStyle]);
+
+  const renderElementMemoized = useMemo(() => {
+    return makeRenderElementFunction(suggestionStyleAugmented);
+  }, [suggestionStyleAugmented]);
 
   const renderPlaceholderMemoized = useMemo(() => {
     // For some reason slateJS specifies a top value of 0, which makes for strange styling. We override this here.

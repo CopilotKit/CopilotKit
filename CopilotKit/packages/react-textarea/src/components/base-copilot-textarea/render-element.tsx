@@ -29,8 +29,6 @@ const SuggestionElement = (
     <span
       {...props.attributes}
       style={{
-        fontStyle: "italic",
-        color: "gray",
         ...props.suggestionsStyle,
       }}
       contentEditable={false}
