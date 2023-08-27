@@ -26,12 +26,25 @@
             "url": "http://localhost:3000/",
             "webRoot": "${workspaceFolder}/examples/next-openai",
             "sourceMaps": true
+        },
+        {
+            "name": "run everything in dev mode",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "pnpm",
+            "runtimeArgs": [
+                "run",
+                "dev"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
         }
     ],
     "compounds": [
         {
             "name": "examples/next-openai: Full",
-            "configurations": ["examples/next-openai: Node", "examples/next-openai: Chrome"]
+            "configurations": ["run everything in dev mode", "examples/next-openai: Node", "examples/next-openai: Chrome"]
         }
     ]
 }
