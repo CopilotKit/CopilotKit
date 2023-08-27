@@ -46,15 +46,15 @@ jobs:
       - name: Get package versions
         id: package-versions
         run: |
-          echo "::set-output name=core_version::$(node -p "require('./packages/react-core/package.json').version")"
-          echo "::set-output name=textarea_version::$(node -p "require('./packages/react-textarea/package.json').version")"
-          echo "::set-output name=ui_version::$(node -p "require('./packages/react-ui/package.json').version")"
+          echo "::set-output name=react_core_version::$(node -p "require('./packages/react-core/package.json').version")"
+          echo "::set-output name=react_textarea_version::$(node -p "require('./packages/react-textarea/package.json').version")"
+          echo "::set-output name=react_ui_version::$(node -p "require('./packages/react-ui/package.json').version")"
 
       - name: Create composite version
         id: composite-version
         run: |
-          echo "::set-output name=version::core-${{ steps.package-versions.outputs.core_version }}_textarea-${{ steps.package-versions.outputs.textarea_version }}_ui-${{ steps.package-versions.outputs.ui_version }}"
-            
+          echo "::set-output name=composite-version::react-core-${{ steps.package-versions.outputs.react_core_version }}_react-textarea-${{ steps.package-versions.outputs.react_textarea_version }}_react-ui-${{ steps.package-versions.outputs.react_ui_version }}"
+
       - name: Create Composite Git tag
         run: |
           git tag -f ${{ steps.composite-version.outputs.version }}
