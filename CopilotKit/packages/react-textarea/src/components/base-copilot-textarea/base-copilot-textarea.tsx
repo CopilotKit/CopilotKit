@@ -1,4 +1,4 @@
-// This example is for an Editor with `ReactEditor` and `HistoryEditor`
+import "./base-copilot-textarea.css";
 import {
   TextareaHTMLAttributes,
   useCallback,
@@ -29,6 +29,7 @@ import { makeRenderPlaceholderFunction } from "./render-placeholder";
 
 export interface BaseCopilotTextareaProps
   extends TextareaHTMLAttributes<HTMLDivElement> {
+  disableBranding?: boolean;
   placeholderStyle?: React.CSSProperties;
   suggestionsStyle?: React.CSSProperties;
   value?: string;
@@ -104,6 +105,43 @@ export function BaseCopilotTextarea(
     };
   }, [props.suggestionsStyle]);
 
+  useEffect(() => {
+    if (props.disableBranding) {
+      return;
+    }
+
+    const styleEl = document.createElement("style");
+    styleEl.id = "dynamic-styles";
+
+    // Build the CSS string dynamically
+    let dynamicStyles = Object.entries(suggestionStyleAugmented)
+      .map(([key, value]) => {
+        const kebabCaseKey = key
+          .replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, "$1-$2")
+          .toLowerCase();
+        return `${kebabCaseKey}: ${value};`;
+      })
+      .join(" ");
+
+    // Append overrides for italics and font-size
+    dynamicStyles += `font-style: normal; font-size: x-small;`;
+    dynamicStyles += `content: "CopilotTextarea";`;
+
+    // Append it to the ::after class
+    styleEl.innerHTML = `
+      .copilot-textarea.with-branding::after {
+        ${dynamicStyles}
+      }
+    `;
+
+    document.head.appendChild(styleEl);
+
+    // Cleanup
+    return () => {
+      document.getElementById("dynamic-styles")?.remove();
+    };
+  }, [props.disableBranding, suggestionStyleAugmented]);
+
   const renderElementMemoized = useMemo(() => {
     return makeRenderElementFunction(suggestionStyleAugmented);
   }, [suggestionStyleAugmented]);
@@ -145,9 +183,12 @@ export function BaseCopilotTextarea(
 
   const moddedClassName = (() => {
     const baseClassName = "copilot-textarea";
+    const brandingClass = props.disableBranding
+      ? "no-branding"
+      : "with-branding";
     const defaultTailwindClassName = "bg-white overflow-y-auto resize-y";
     const mergedClassName = twMerge(defaultTailwindClassName, className ?? "");
-    return `${baseClassName} ${mergedClassName}`;
+    return `${baseClassName} ${brandingClass} ${mergedClassName}`;
   })();
 
   return (
