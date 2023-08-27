@@ -28,52 +28,6 @@ importers:
         specifier: latest
         version: 1.10.12
 
-  examples/docs:
-    dependencies:
-      '@copilotkit/react-ui':
-        specifier: workspace:*
-        version: link:../../packages/react-ui
-      next:
-        specifier: ^13.4.1
-        version: 13.4.9(@babel/core@7.22.11)(react-dom@18.2.0)(react@18.2.0)
-      react:
-        specifier: ^18.2.0
-        version: 18.2.0
-      react-dom:
-        specifier: ^18.2.0
-        version: 18.2.0(react@18.2.0)
-    devDependencies:
-      '@types/node':
-        specifier: ^18.11.17
-        version: 18.11.17
-      '@types/react':
-        specifier: ^18.2.5
-        version: 18.2.5
-      '@types/react-dom':
-        specifier: ^18.2.4
-        version: 18.2.4
-      autoprefixer:
-        specifier: ^10.4.13
-        version: 10.4.13(postcss@8.4.20)
-      eslint-config-custom:
-        specifier: workspace:*
-        version: link:../../packages/eslint-config-custom
-      postcss:
-        specifier: ^8.4.20
-        version: 8.4.20
-      tailwind-config:
-        specifier: workspace:*
-        version: link:../../packages/tailwind-config
-      tailwindcss:
-        specifier: ^3.2.4
-        version: 3.2.4(postcss@8.4.20)
-      tsconfig:
-        specifier: workspace:*
-        version: link:../../packages/tsconfig
-      typescript:
-        specifier: ^4.9.4
-        version: 4.9.4
-
   examples/next-openai:
     dependencies:
       '@copilotkit/react-core':
@@ -91,9 +45,6 @@ importers:
       ai:
         specifier: ^2.2.6
         version: 2.2.6(react@18.2.0)(solid-js@1.7.11)(svelte@4.0.5)(vue@3.3.4)
-      docs:
-        specifier: workspace:^
-        version: link:../docs
       next:
         specifier: ^13.4.9
         version: 13.4.9(@babel/core@7.22.11)(react-dom@18.2.0)(react@18.2.0)

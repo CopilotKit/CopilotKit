@@ -1,4 +1,4 @@
-// This example is for an Editor with `ReactEditor` and `HistoryEditor`
+import "./base-copilot-textarea.css";
 import {
   TextareaHTMLAttributes,
   useCallback,
@@ -26,9 +26,11 @@ import {
 import { AutosuggestionState } from "../../types/base/autosuggestion-state";
 import { makeRenderElementFunction } from "./render-element";
 import { makeRenderPlaceholderFunction } from "./render-placeholder";
+import { useAddBrandingCss } from "./use-add-branding-css";
 
 export interface BaseCopilotTextareaProps
   extends TextareaHTMLAttributes<HTMLDivElement> {
+  disableBranding?: boolean;
   placeholderStyle?: React.CSSProperties;
   suggestionsStyle?: React.CSSProperties;
   value?: string;
@@ -96,13 +98,19 @@ export function BaseCopilotTextarea(
     }
   }, [currentAutocompleteSuggestion]);
 
-  const renderElementMemoized = useMemo(() => {
-    const suggestionStyleAugmented: React.CSSProperties = {
+  const suggestionStyleAugmented: React.CSSProperties = useMemo(() => {
+    return {
+      fontStyle: "italic",
+      color: "gray",
       ...props.suggestionsStyle,
     };
-
-    return makeRenderElementFunction(suggestionStyleAugmented);
   }, [props.suggestionsStyle]);
+
+  useAddBrandingCss(suggestionStyleAugmented, props.disableBranding);
+
+  const renderElementMemoized = useMemo(() => {
+    return makeRenderElementFunction(suggestionStyleAugmented);
+  }, [suggestionStyleAugmented]);
 
   const renderPlaceholderMemoized = useMemo(() => {
     // For some reason slateJS specifies a top value of 0, which makes for strange styling. We override this here.
@@ -141,9 +149,12 @@ export function BaseCopilotTextarea(
 
   const moddedClassName = (() => {
     const baseClassName = "copilot-textarea";
+    const brandingClass = props.disableBranding
+      ? "no-branding"
+      : "with-branding";
     const defaultTailwindClassName = "bg-white overflow-y-auto resize-y";
     const mergedClassName = twMerge(defaultTailwindClassName, className ?? "");
-    return `${baseClassName} ${mergedClassName}`;
+    return `${baseClassName} ${brandingClass} ${mergedClassName}`;
   })();
 
   return (
