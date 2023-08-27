@@ -24,7 +24,7 @@ export function useAddBrandingCss(
 
     // Append overrides for italics and font-size
     dynamicStyles += `font-style: normal; font-size: x-small;`;
-    dynamicStyles += `content: "CopilotTextarea";`;
+    dynamicStyles += `content: "CopilotKit";`;
 
     // Append it to the ::after class
     styleEl.innerHTML = `
