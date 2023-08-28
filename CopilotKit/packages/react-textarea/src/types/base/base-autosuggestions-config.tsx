@@ -3,6 +3,7 @@ export interface BaseAutosuggestionsConfig {
   debounceTime: number;
   acceptAutosuggestionKey: string;
   disableWhenEmpty: boolean;
+  disabled: boolean;
 }
 
 export const defaultBaseAutosuggestionsConfig: Omit<
@@ -12,4 +13,5 @@ export const defaultBaseAutosuggestionsConfig: Omit<
   debounceTime: 500,
   acceptAutosuggestionKey: "Tab",
   disableWhenEmpty: true,
+  disabled: false,
 };
