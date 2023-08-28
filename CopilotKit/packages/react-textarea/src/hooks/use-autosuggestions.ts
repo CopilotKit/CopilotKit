@@ -19,7 +19,8 @@ export function useAutosuggestions(
   acceptAutosuggestionKey: string,
   autosuggestionFunction: AutosuggestionsBareFunction,
   insertAutocompleteSuggestion: (suggestion: AutosuggestionState) => void,
-  disableWhenEmpty: boolean
+  disableWhenEmpty: boolean,
+  disabled: boolean
 ): UseAutosuggestionsResult {
   const [previousAutocompleteState, setPreviousAutocompleteState] =
     useState<EditorAutocompleteState | null>(null);
@@ -35,6 +36,11 @@ export function useAutosuggestions(
       editorAutocompleteState: EditorAutocompleteState,
       abortSignal: AbortSignal
     ) => {
+      // early return if disabled
+      if (disabled) {
+        return;
+      }
+
       if (
         disableWhenEmpty &&
         editorAutocompleteState.textBeforeCursor === "" &&
@@ -43,6 +49,7 @@ export function useAutosuggestions(
         return;
       }
 
+      // fetch the suggestion
       const suggestion = await autosuggestionFunction(
         editorAutocompleteState.textBeforeCursor,
         editorAutocompleteState.textAfterCursor,
@@ -59,7 +66,12 @@ export function useAutosuggestions(
         point: editorAutocompleteState.cursorPoint,
       });
     },
-    [autosuggestionFunction, setCurrentAutocompleteSuggestion, disableWhenEmpty]
+    [
+      autosuggestionFunction,
+      setCurrentAutocompleteSuggestion,
+      disableWhenEmpty,
+      disabled,
+    ]
   );
 
   const debouncedFunction = useMemo(
