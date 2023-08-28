@@ -1,5 +1,13 @@
 {
   "extends": "tsconfig/base.json",
+  "display": "CopilotCloud",
+  "compilerOptions": {
+    "lib": ["ES2017"],
+    "module": "ESNext",
+    "target": "ES6",
+    "sourceMap": true,
+    "declarationDir": "./dist"
+  },
   "include": ["."],
   "exclude": [
     "dist",
