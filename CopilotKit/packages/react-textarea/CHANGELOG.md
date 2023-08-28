@@ -1,5 +1,11 @@
 # ui
 
+## 0.10.0
+
+### Minor Changes
+
+- 7ae5549: Added support for a disabled parameter on CopilotTextarea
+
 ## 0.9.0
 
 ### Minor Changes
