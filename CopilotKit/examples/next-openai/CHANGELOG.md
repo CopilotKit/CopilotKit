@@ -1,5 +1,13 @@
 # web
 
+## 1.3.4
+
+### Patch Changes
+
+- 59f9fc4: code quality and optional branding
+- Updated dependencies [59f9fc4]
+  - @copilotkit/react-textarea@0.9.0
+
 ## 1.3.3
 
 ### Patch Changes
