@@ -1,5 +1,13 @@
 # web
 
+## 1.3.6
+
+### Patch Changes
+
+- 3517bd5: CopilotTextarea supports standard onChange interface
+- Updated dependencies [3517bd5]
+  - @copilotkit/react-textarea@0.11.0
+
 ## 1.3.5
 
 ### Patch Changes
