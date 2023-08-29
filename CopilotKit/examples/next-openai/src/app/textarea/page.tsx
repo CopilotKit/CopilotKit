@@ -6,8 +6,8 @@ import {
 } from "@copilotkit/react-core";
 import {
   CopilotTextarea,
-  MinimalChatGPTMessage,
   MakeSystemPrompt,
+  MinimalChatGPTMessage,
 } from "@copilotkit/react-textarea";
 import { useState } from "react";
 
@@ -30,9 +30,8 @@ function TextAreas() {
     <div className="w-full h-full gap-10 flex flex-col items-center p-10">
       <CopilotTextarea
         value={copilotText}
-        onValueChange={(value) => setCopilotText(value)}
+        onChange={(event) => setCopilotText(event.target.value)}
         className="p-4  w-1/2 aspect-square font-bold text-3xl bg-slate-800 text-white rounded-lg resize-none"
-        // placeholder="This is a <CopilotTextarea />"
         placeholderStyle={{
           color: "white",
           opacity: 0.5,
