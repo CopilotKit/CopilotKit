@@ -1,5 +1,11 @@
 # ui
 
+## 0.11.0
+
+### Minor Changes
+
+- 3517bd5: CopilotTextarea supports standard onChange interface
+
 ## 0.10.0
 
 ### Minor Changes
