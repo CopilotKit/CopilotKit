@@ -6,10 +6,11 @@ import {
 } from "@copilotkit/react-core";
 import {
   CopilotTextarea,
+  HTMLCopilotTextAreaElement,
   MakeSystemPrompt,
   MinimalChatGPTMessage,
 } from "@copilotkit/react-textarea";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 export default function CopilotTextareaDemo(): JSX.Element {
   return (
@@ -26,15 +27,22 @@ function TextAreas() {
   const announcementCategoryId = "announcement";
   useMakeCopilotReadable(detailsText, undefined, [announcementCategoryId]);
 
+  const copilotTextareaRef = useRef<HTMLCopilotTextAreaElement>(null);
+
   return (
     <div className="w-full h-full gap-10 flex flex-col items-center p-10">
       <CopilotTextarea
         value={copilotText}
+        ref={copilotTextareaRef}
         onChange={(event) => setCopilotText(event.target.value)}
-        className="p-4  w-1/2 aspect-square font-bold text-3xl bg-slate-800 text-white rounded-lg resize-none"
+        className="p-4  w-1/2 aspect-square font-bold text-3xl bg-slate-800 text-white rounded-lg"
         placeholderStyle={{
           color: "white",
           opacity: 0.5,
+        }}
+        style={{
+          color: "white",
+          resize: "none",
         }}
         autosuggestionsConfig={{
           purposePrompt:
@@ -56,6 +64,25 @@ function TextAreas() {
         placeholder="the normal textarea"
         onChange={(event) => setDetailsText(event.target.value)}
       />
+
+      <button
+        className="p-4 w-1/2 bg-slate-800 text-white rounded-lg"
+        onClick={() => {
+          if (copilotTextareaRef.current) {
+            const a: HTMLCopilotTextAreaElement = copilotTextareaRef.current;
+            a.focus();
+            // a.style.height = "inherit";
+            // copilotTextareaRef.current.style.height = `${copilotTextareaRef.current?.scrollHeight}px`;
+            copilotTextareaRef.current.style.overflow = `${
+              copilotTextareaRef?.current?.scrollHeight > 400
+                ? "auto"
+                : "hidden"
+            }`;
+          }
+        }}
+      >
+        Focus CopilotTextarea
+      </button>
     </div>
   );
 }
