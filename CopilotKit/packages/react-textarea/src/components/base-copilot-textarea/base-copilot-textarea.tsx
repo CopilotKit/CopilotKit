@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Descendant, Editor } from "slate";
 import { Editable, ReactEditor, Slate } from "slate-react";
 import { twMerge } from "tailwind-merge";
-import { useAutosuggestions } from "../../hooks/use-autosuggestions";
-import { useCopilotTextareaEditor } from "../../hooks/use-copilot-textarea-editor";
+import { useAutosuggestions } from "../../hooks/base-copilot-textarea-implementation/use-autosuggestions";
+import { useCopilotTextareaEditor } from "../../hooks/base-copilot-textarea-implementation/use-copilot-textarea-editor";
 import {
   getFullEditorTextWithNewlines,
   getTextAroundCursor,
