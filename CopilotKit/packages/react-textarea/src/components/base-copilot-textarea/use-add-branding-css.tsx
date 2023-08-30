@@ -4,11 +4,14 @@ export function useAddBrandingCss(
   suggestionStyleAugmented: React.CSSProperties,
   disableBranding: boolean | undefined
 ) {
+  const cssSelector = ".copilot-textarea.with-branding";
   useEffect(() => {
     if (disableBranding) {
       return;
     }
 
+    // ---
+    // 1: Add the CSS to the DOM
     const styleEl = document.createElement("style");
     styleEl.id = "dynamic-styles";
 
@@ -36,16 +39,37 @@ export function useAddBrandingCss(
 
     // Append it to the ::after class
     styleEl.innerHTML = `
-      .copilot-textarea.with-branding::after {
+      ${cssSelector}::after {
         ${dynamicStyles}
       }
     `;
 
     document.head.appendChild(styleEl);
 
+    // ---
+    // 2: Add the scroll listener (to keep the branding in the bottom right as the textarea scrolls)
+    const textarea = document.querySelector(cssSelector);
+    const handleScroll = () => {
+      const styleEl = document.getElementById("dynamic-styles");
+      if (styleEl && textarea) {
+        const offsetFromBottom = -textarea.scrollTop + 6;
+        const offsetFromRight = -textarea.scrollLeft + 6;
+        styleEl.innerHTML = `
+          ${cssSelector}::after {
+            ${dynamicStyles}
+            bottom: ${offsetFromBottom}px;
+            right: ${offsetFromRight}px;
+          }
+        `;
+      }
+    };
+
+    textarea?.addEventListener("scroll", handleScroll);
+
     // Cleanup
     return () => {
       document.getElementById("dynamic-styles")?.remove();
+      textarea?.removeEventListener("scroll", handleScroll);
     };
   }, [disableBranding, suggestionStyleAugmented]);
 }

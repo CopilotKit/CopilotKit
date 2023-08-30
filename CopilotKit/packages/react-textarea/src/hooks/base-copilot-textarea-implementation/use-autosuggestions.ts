@@ -1,12 +1,12 @@
 import { useCallback, useMemo, useState } from "react";
-import { Debouncer } from "../lib/debouncer";
-import { nullableCompatibleEqualityCheck } from "../lib/utils";
-import { AutosuggestionsBareFunction } from "../types/base";
-import { AutosuggestionState } from "../types/base/autosuggestion-state";
+import { Debouncer } from "../../lib/debouncer";
+import { nullableCompatibleEqualityCheck } from "../../lib/utils";
+import { AutosuggestionsBareFunction } from "../../types/base";
+import { AutosuggestionState } from "../../types/base/autosuggestion-state";
 import {
   EditorAutocompleteState,
   areEqual_autocompleteState,
-} from "../types/base/editor-autocomplete-state";
+} from "../../types/base/editor-autocomplete-state";
 
 export interface UseAutosuggestionsResult {
   currentAutocompleteSuggestion: AutosuggestionState | null;

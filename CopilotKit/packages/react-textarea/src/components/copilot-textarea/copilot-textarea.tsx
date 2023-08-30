@@ -1,5 +1,7 @@
 // This example is for an Editor with `ReactEditor` and `HistoryEditor`
+import React from "react";
 import { useMakeStandardAutosuggestionFunction } from "../../hooks/make-autosuggestions-function/use-make-standard-autosuggestions-function";
+import { HTMLCopilotTextAreaElement } from "../../types";
 import { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
 import {
   AutosuggestionsConfig,
@@ -13,26 +15,34 @@ export interface CopilotTextareaProps extends BaseCopilotTextareaProps {
   };
 }
 
-export function CopilotTextarea(props: CopilotTextareaProps): JSX.Element {
-  const autosuggestionsConfig: AutosuggestionsConfig = {
-    ...defaultAutosuggestionsConfig,
-    ...props.autosuggestionsConfig,
-  };
+export const CopilotTextarea = React.forwardRef(
+  (
+    props: CopilotTextareaProps,
+    ref: React.Ref<HTMLCopilotTextAreaElement>
+  ): JSX.Element => {
+    const autosuggestionsConfig: AutosuggestionsConfig = {
+      ...defaultAutosuggestionsConfig,
+      ...props.autosuggestionsConfig,
+    };
 
-  const autosuggestionsFunction = useMakeStandardAutosuggestionFunction(
-    autosuggestionsConfig.purposePrompt,
-    autosuggestionsConfig.apiEndpoint,
-    autosuggestionsConfig.makeSystemPrompt,
-    autosuggestionsConfig.fewShotMessages,
-    autosuggestionsConfig.externalContextCategories,
-    autosuggestionsConfig.forwardedParams
-  );
+    const autosuggestionsFunction = useMakeStandardAutosuggestionFunction(
+      autosuggestionsConfig.purposePrompt,
+      autosuggestionsConfig.apiEndpoint,
+      autosuggestionsConfig.makeSystemPrompt,
+      autosuggestionsConfig.fewShotMessages,
+      autosuggestionsConfig.externalContextCategories,
+      autosuggestionsConfig.forwardedParams
+    );
 
-  return (
-    <BaseCopilotTextarea
-      {...props}
-      autosuggestionsConfig={autosuggestionsConfig}
-      autosuggestionsFunction={autosuggestionsFunction}
-    />
-  );
-}
+    return (
+      <>
+        <BaseCopilotTextarea
+          ref={ref}
+          {...props}
+          autosuggestionsConfig={autosuggestionsConfig}
+          autosuggestionsFunction={autosuggestionsFunction}
+        />
+      </>
+    );
+  }
+);
