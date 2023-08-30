@@ -1,5 +1,14 @@
 # web
 
+## 1.3.7
+
+### Patch Changes
+
+- ec7484f: - CopilotTextarea supports passing in ref compatible with <textarea>'s HTMLTextAreaElement ref (for focus, blur, styling, etc.)
+  - Minor bug fix: CopilotTextarea branding remains correclty positioned as textarea scrolls
+- Updated dependencies [ec7484f]
+  - @copilotkit/react-textarea@0.12.0
+
 ## 1.3.6
 
 ### Patch Changes
