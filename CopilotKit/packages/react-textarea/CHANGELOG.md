@@ -1,5 +1,12 @@
 # ui
 
+## 0.12.0
+
+### Minor Changes
+
+- ec7484f: - CopilotTextarea supports passing in ref compatible with <textarea>'s HTMLTextAreaElement ref (for focus, blur, styling, etc.)
+  - Minor bug fix: CopilotTextarea branding remains correclty positioned as textarea scrolls
+
 ## 0.11.0
 
 ### Minor Changes
