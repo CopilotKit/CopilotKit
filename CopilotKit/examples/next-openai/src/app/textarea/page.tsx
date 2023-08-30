@@ -35,14 +35,10 @@ function TextAreas() {
         value={copilotText}
         ref={copilotTextareaRef}
         onChange={(event) => setCopilotText(event.target.value)}
-        className="p-4  w-1/2 aspect-square font-bold text-3xl bg-slate-800 text-white rounded-lg"
+        className="p-4 w-1/2 aspect-square font-bold text-3xl bg-slate-800 text-white rounded-lg resize-none"
         placeholderStyle={{
           color: "white",
           opacity: 0.5,
-        }}
-        style={{
-          color: "white",
-          resize: "none",
         }}
         autosuggestionsConfig={{
           purposePrompt:
@@ -69,15 +65,7 @@ function TextAreas() {
         className="p-4 w-1/2 bg-slate-800 text-white rounded-lg"
         onClick={() => {
           if (copilotTextareaRef.current) {
-            const a: HTMLCopilotTextAreaElement = copilotTextareaRef.current;
-            a.focus();
-            // a.style.height = "inherit";
-            // copilotTextareaRef.current.style.height = `${copilotTextareaRef.current?.scrollHeight}px`;
-            copilotTextareaRef.current.style.overflow = `${
-              copilotTextareaRef?.current?.scrollHeight > 400
-                ? "auto"
-                : "hidden"
-            }`;
+            copilotTextareaRef.current.focus();
           }
         }}
       >
