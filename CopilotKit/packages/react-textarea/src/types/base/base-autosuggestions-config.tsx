@@ -1,5 +1,5 @@
 export interface BaseAutosuggestionsConfig {
-  purposePrompt: string;
+  textareaPurpose: string;
   debounceTime: number;
   acceptAutosuggestionKey: string;
   disableWhenEmpty: boolean;
@@ -8,7 +8,7 @@ export interface BaseAutosuggestionsConfig {
 
 export const defaultBaseAutosuggestionsConfig: Omit<
   BaseAutosuggestionsConfig,
-  "purposePrompt"
+  "textareaPurpose"
 > = {
   debounceTime: 500,
   acceptAutosuggestionKey: "Tab",

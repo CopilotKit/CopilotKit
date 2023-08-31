@@ -12,7 +12,7 @@ import { ChatlikeApiEndpoint } from "../../types/standard-autosuggestions/chatli
  * It sends a POST request to the API endpoint with the messages array containing the system message, few shot messages, and user messages.
  * The function returns the suggestion from the API response.
  *
- * @param purposePrompt - The purpose of the textarea. This is included in the system message.
+ * @param textareaPurpose - The purpose of the textarea. This is included in the system message.
  * @param apiEndpoint - The API endpoint to send the autosuggestion request to.
  * @param makeSystemMessage - A function that takes in a context string and returns a system message to include in the autosuggestion request.
  * @param fewShotMessages - An array of few shot messages to include in the autosuggestion request.
@@ -20,7 +20,7 @@ import { ChatlikeApiEndpoint } from "../../types/standard-autosuggestions/chatli
  * @returns A memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
  */
 export function useMakeStandardAutosuggestionFunction(
-  purposePrompt: string,
+  textareaPurpose: string,
   apiEndpoint: ChatlikeApiEndpoint,
   makeSystemPrompt: MakeSystemPrompt,
   fewShotMessages: MinimalChatGPTMessage[],
@@ -36,7 +36,7 @@ export function useMakeStandardAutosuggestionFunction(
           {
             role: "system",
             content: makeSystemPrompt(
-              purposePrompt,
+              textareaPurpose,
               getContextString(contextCategories)
             ),
           },
@@ -64,7 +64,7 @@ export function useMakeStandardAutosuggestionFunction(
       fewShotMessages,
       getContextString,
       contextCategories,
-      purposePrompt,
+      textareaPurpose,
     ]
   );
 }

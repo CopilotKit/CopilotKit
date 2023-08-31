@@ -11,7 +11,7 @@ import { BaseCopilotTextarea } from "../base-copilot-textarea/base-copilot-texta
 
 export interface CopilotTextareaProps extends BaseCopilotTextareaProps {
   autosuggestionsConfig: Partial<AutosuggestionsConfig> & {
-    purposePrompt: string;
+    textareaPurpose: string;
   };
 }
 
@@ -26,7 +26,7 @@ export const CopilotTextarea = React.forwardRef(
     };
 
     const autosuggestionsFunction = useMakeStandardAutosuggestionFunction(
-      autosuggestionsConfig.purposePrompt,
+      autosuggestionsConfig.textareaPurpose,
       autosuggestionsConfig.apiEndpoint,
       autosuggestionsConfig.makeSystemPrompt,
       autosuggestionsConfig.fewShotMessages,

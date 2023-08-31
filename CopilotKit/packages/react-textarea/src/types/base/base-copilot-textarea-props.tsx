@@ -19,9 +19,9 @@ import { BaseAutosuggestionsConfig } from ".";
  * @property {(event: React.ChangeEvent<HTMLTextAreaElement>) => void} [onChange] - Callback invoked when a `change` event is triggered on the textarea element. The event only actually includes the `event.target.value` and `event.currentTarget.value` properties (all that is required in 99% of cases).
  *
  * @property {Partial<BaseAutosuggestionsConfig> & {
- *   purposePrompt: string;
+ *   textareaPurpose: string;
  * }} autosuggestionsConfig - Configuration settings for the autosuggestions feature.
- * Includes a mandatory `purposePrompt` to guide the autosuggestions.
+ * Includes a mandatory `textareaPurpose` to guide the autosuggestions.
  */
 export interface BaseCopilotTextareaProps
   extends Omit<TextareaHTMLAttributes<HTMLDivElement>, "onChange"> {
@@ -32,6 +32,6 @@ export interface BaseCopilotTextareaProps
   onValueChange?: (value: string) => void;
   onChange?: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
   autosuggestionsConfig: Partial<BaseAutosuggestionsConfig> & {
-    purposePrompt: string;
+    textareaPurpose: string;
   };
 }

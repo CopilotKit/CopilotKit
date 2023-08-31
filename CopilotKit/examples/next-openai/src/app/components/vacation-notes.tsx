@@ -18,7 +18,7 @@ export function VacationNotes(): JSX.Element {
           apiEndpoint: ChatlikeApiEndpoint.standardOpenAIEndpoint(
             "/api/autosuggestions"
           ),
-          purposePrompt:
+          textareaPurpose:
             "Travel notes from the user's previous vacations. Likely written in a colloquial style, but adjust as needed.",
           debounceTime: 700,
           acceptAutosuggestionKey: "Tab",

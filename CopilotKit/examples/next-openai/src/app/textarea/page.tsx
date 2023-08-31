@@ -45,7 +45,7 @@ function TextAreas() {
           apiEndpoint: ChatlikeApiEndpoint.standardOpenAIEndpoint(
             "/api/autosuggestions"
           ),
-          purposePrompt:
+          textareaPurpose:
             "A COOL & SMOOTH announcement post about CopilotTextarea. No pomp, no fluff, no BS. Just the facts. Be brief, be clear, be concise. Be cool.",
           externalContextCategories: [announcementCategoryId],
           makeSystemPrompt,
@@ -79,12 +79,12 @@ function TextAreas() {
   );
 }
 
-const makeSystemPrompt: MakeSystemPrompt = (purposePrompt, contextString) => {
+const makeSystemPrompt: MakeSystemPrompt = (textareaPurpose, contextString) => {
   return `
 You are a versatile writing assistant.
 
 The user is writing some text.
-The purpose is: \"${purposePrompt}\"
+The purpose is: \"${textareaPurpose}\"
 
 Your job is to guess what the user will write next AS BEST YOU CAN.
 Only guess a SHORT distance ahead. Usually 1 sentence, or at most 1 paragraph.
