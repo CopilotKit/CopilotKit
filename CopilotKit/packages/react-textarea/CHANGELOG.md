@@ -1,5 +1,11 @@
 # ui
 
+## 0.13.0
+
+### Minor Changes
+
+- 1f26798: standard CopilotTextarea apiEndpoint takes an implementation, not just a string endpoint
+
 ## 0.12.0
 
 ### Minor Changes
