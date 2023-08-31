@@ -1,5 +1,13 @@
 # web
 
+## 1.3.14
+
+### Patch Changes
+
+- 6624a13: Textarea: no default apiEndpoint, textareaPurpose, css bugfix
+- Updated dependencies [6624a13]
+  - @copilotkit/react-textarea@0.17.0
+
 ## 1.3.13
 
 ### Patch Changes

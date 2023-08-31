@@ -1,5 +1,11 @@
 # ui
 
+## 0.17.0
+
+### Minor Changes
+
+- 6624a13: Textarea: no default apiEndpoint, textareaPurpose, css bugfix
+
 ## 0.16.0
 
 ### Minor Changes
