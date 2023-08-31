@@ -1,5 +1,13 @@
 # web
 
+## 1.3.12
+
+### Patch Changes
+
+- 8f4b3d1: do not include disableBranding in props forwarded to DOM
+- Updated dependencies [8f4b3d1]
+  - @copilotkit/react-textarea@0.15.1
+
 ## 1.3.11
 
 ### Patch Changes
