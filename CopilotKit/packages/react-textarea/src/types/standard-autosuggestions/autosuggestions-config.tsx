@@ -83,13 +83,10 @@ export const defaultFewShotMessages: MinimalChatGPTMessage[] = [
 ];
 export const defaultAutosuggestionsConfig: Omit<
   AutosuggestionsConfig,
-  "textareaPurpose"
+  "textareaPurpose" | "apiEndpoint"
 > = {
   ...defaultBaseAutosuggestionsConfig,
 
-  apiEndpoint: ChatlikeApiEndpoint.standardOpenAIEndpoint(
-    "api/autosuggestions"
-  ),
   makeSystemPrompt: defaultMakeSystemPrompt,
   fewShotMessages: defaultFewShotMessages,
   externalContextCategories: undefined,

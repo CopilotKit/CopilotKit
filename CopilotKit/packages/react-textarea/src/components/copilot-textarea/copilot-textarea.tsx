@@ -5,6 +5,7 @@ import { HTMLCopilotTextAreaElement } from "../../types";
 import { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
 import {
   AutosuggestionsConfig,
+  ChatlikeApiEndpoint,
   defaultAutosuggestionsConfig,
 } from "../../types/standard-autosuggestions";
 import { BaseCopilotTextarea } from "../base-copilot-textarea/base-copilot-textarea";
@@ -12,6 +13,7 @@ import { BaseCopilotTextarea } from "../base-copilot-textarea/base-copilot-texta
 export interface CopilotTextareaProps extends BaseCopilotTextareaProps {
   autosuggestionsConfig: Partial<AutosuggestionsConfig> & {
     textareaPurpose: string;
+    apiEndpoint: ChatlikeApiEndpoint;
   };
 }
 
