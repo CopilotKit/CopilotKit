@@ -1,5 +1,13 @@
 # web
 
+## 1.3.13
+
+### Patch Changes
+
+- e182a29: copilottextarea: remove nodes conditionally with try catch
+- Updated dependencies [e182a29]
+  - @copilotkit/react-textarea@0.16.0
+
 ## 1.3.12
 
 ### Patch Changes

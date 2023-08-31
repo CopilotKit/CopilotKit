@@ -1,5 +1,11 @@
 # ui
 
+## 0.16.0
+
+### Minor Changes
+
+- e182a29: copilottextarea: remove nodes conditionally with try catch
+
 ## 0.15.1
 
 ### Patch Changes
