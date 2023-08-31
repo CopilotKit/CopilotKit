@@ -2,6 +2,7 @@ import {
   BaseAutosuggestionsConfig,
   defaultBaseAutosuggestionsConfig,
 } from "../base";
+import { ChatlikeApiEndpoint } from "./chatlike-api-endpoint";
 import { MinimalChatGPTMessage } from "./minimal-chat-gpt-message";
 
 export type MakeSystemPrompt = (
@@ -10,7 +11,7 @@ export type MakeSystemPrompt = (
 ) => string;
 
 export interface AutosuggestionsConfig extends BaseAutosuggestionsConfig {
-  apiEndpoint: string;
+  apiEndpoint: ChatlikeApiEndpoint;
   externalContextCategories: string[] | undefined;
   makeSystemPrompt: MakeSystemPrompt;
   fewShotMessages: MinimalChatGPTMessage[];
@@ -86,7 +87,9 @@ export const defaultAutosuggestionsConfig: Omit<
 > = {
   ...defaultBaseAutosuggestionsConfig,
 
-  apiEndpoint: "api/autosuggestions",
+  apiEndpoint: ChatlikeApiEndpoint.standardOpenAIEndpoint(
+    "api/autosuggestions"
+  ),
   makeSystemPrompt: defaultMakeSystemPrompt,
   fewShotMessages: defaultFewShotMessages,
   externalContextCategories: undefined,
