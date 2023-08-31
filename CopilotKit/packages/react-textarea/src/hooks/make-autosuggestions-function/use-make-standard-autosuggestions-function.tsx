@@ -5,6 +5,7 @@ import {
   MakeSystemPrompt,
   MinimalChatGPTMessage,
 } from "../../types";
+import { ChatlikeApiEndpoint } from "../../types/standard-autosuggestions/chatlike-api-endpoint";
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
  * The function takes in the text before and after the cursor, and an abort signal.
@@ -20,7 +21,7 @@ import {
  */
 export function useMakeStandardAutosuggestionFunction(
   purposePrompt: string,
-  apiEndpoint: string,
+  apiEndpoint: ChatlikeApiEndpoint,
   makeSystemPrompt: MakeSystemPrompt,
   fewShotMessages: MinimalChatGPTMessage[],
   contextCategories: string[] | undefined,
@@ -31,39 +32,31 @@ export function useMakeStandardAutosuggestionFunction(
   return useCallback(
     async (beforeText: string, afterText: string, abortSignal: AbortSignal) => {
       const res = await retry(async () => {
-        return await fetch(apiEndpoint, {
-          method: "POST",
-          body: JSON.stringify({
-            ...forwardedProps,
-            messages: [
-              {
-                role: "system",
-                content: makeSystemPrompt(
-                  purposePrompt,
-                  getContextString(contextCategories)
-                ),
-              },
-              ...fewShotMessages,
-              {
-                role: "user",
-                name: "TextAfterCursor",
-                content: afterText,
-              },
-              {
-                role: "user",
-                name: "TextBeforeCursor",
-                content: beforeText,
-              },
-            ],
-          }),
-          signal: abortSignal,
-        });
+        const messages: MinimalChatGPTMessage[] = [
+          {
+            role: "system",
+            content: makeSystemPrompt(
+              purposePrompt,
+              getContextString(contextCategories)
+            ),
+          },
+          ...fewShotMessages,
+          {
+            role: "user",
+            name: "TextAfterCursor",
+            content: afterText,
+          },
+          {
+            role: "user",
+            name: "TextBeforeCursor",
+            content: beforeText,
+          },
+        ];
+
+        return await apiEndpoint.run(abortSignal, messages, forwardedProps);
       });
 
-      const json = await res.json();
-      const suggestion = json.choices[0].message.content;
-
-      return suggestion;
+      return res;
     },
     [
       apiEndpoint,
