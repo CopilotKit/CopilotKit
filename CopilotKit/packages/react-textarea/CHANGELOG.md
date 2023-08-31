@@ -1,5 +1,11 @@
 # ui
 
+## 0.15.1
+
+### Patch Changes
+
+- 8f4b3d1: do not include disableBranding in props forwarded to DOM
+
 ## 0.15.0
 
 ### Minor Changes
