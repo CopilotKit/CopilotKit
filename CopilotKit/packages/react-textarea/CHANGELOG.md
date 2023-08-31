@@ -1,5 +1,11 @@
 # ui
 
+## 0.15.0
+
+### Minor Changes
+
+- 3580a3c: correctly export ChatlikeApiEndpoint
+
 ## 0.14.1
 
 ### Patch Changes
