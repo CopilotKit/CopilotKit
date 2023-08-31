@@ -1,4 +1,4 @@
-import { Editor, Path, Transforms, Node, Element } from "slate";
+import { Editor, Element, Node, Path, Transforms } from "slate";
 
 export function replaceEditorText(editor: Editor, newText: string) {
   // clear all previous text
@@ -13,7 +13,11 @@ export function replaceEditorText(editor: Editor, newText: string) {
     }
   }
   for (const path of paths) {
-    Transforms.removeNodes(editor, { at: path });
+    try {
+      Transforms.removeNodes(editor, { at: path });
+    } catch (e) {
+      console.log("CopilotTextarea.replaceEditorText: error removing node", e);
+    }
   }
 
   // insert new text

@@ -1,4 +1,4 @@
-import { Path, Node, Element, Transforms } from "slate";
+import { Element, Node, Path, Transforms } from "slate";
 import { CustomEditor } from "../../types/base/custom-editor";
 
 export function clearAutocompletionsFromEditor(editor: CustomEditor) {
@@ -10,6 +10,13 @@ export function clearAutocompletionsFromEditor(editor: CustomEditor) {
     }
   }
   for (const path of paths) {
-    Transforms.removeNodes(editor, { at: path });
+    try {
+      Transforms.removeNodes(editor, { at: path });
+    } catch (e) {
+      console.log(
+        "CopilotTextarea.clearAutocompletionsFromEditor: error removing node",
+        e
+      );
+    }
   }
 }
