@@ -41,7 +41,7 @@ A drop-in <textarea /> replacement with context-aware Copilot autocompletions.
 #### Features
 1. Customizable `purpose` prompt.
 2. Provide arbitrary context to inform autocompletions using `useMakeCopilotReadable`
-3. Works with any OpenAI-compatible endpoint ([example implementation](CopilotKit/examples/next-openai/src/app/api/autosuggestions/route.ts))
+3. Works with any backend. See [example implementation](CopilotKit/examples/next-openai/src/app/api/autosuggestions/route.ts) for OpenAI-compatible endpoint.
 4. Supports all `<textarea />` customizations
 
 
@@ -58,7 +58,7 @@ import { CopilotProvider } from "@copilotkit/react-core";
         autosuggestionsConfig={{
           purposePrompt: "A COOL & SMOOTH announcement post about CopilotTextarea. Be brief. Be clear. Be cool.",
           externalContextCategories: ["someSpecificContextCategory"], // or leave as `undefined`, for the default global Copilot context
-          apiEndpoint: "/api/autosuggestions" // (Any OpenAI-compatible endpoint. See above)
+          apiEndpoint: ChatlikeApiEndpoint.standardOpenAIEndpoint("/api/autosuggestions") // (See above, or )
           forwardedParams: {
             max_tokens: 25,
             stop: ["\n", ".", ","],
