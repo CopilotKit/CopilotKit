@@ -36,6 +36,7 @@ export function useAddBrandingCss(
     dynamicStyles += `margin: 0;`;
     dynamicStyles += `border: 0;`;
     dynamicStyles += `line-height: 1;`;
+    dynamicStyles += `position: absolute;`;
 
     // Append it to the ::after class
     styleEl.innerHTML = `
