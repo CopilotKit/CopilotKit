@@ -99,8 +99,6 @@ export const BaseCopilotTextarea = React.forwardRef(
       };
     }, [props.suggestionsStyle]);
 
-    useAddBrandingCss(suggestionStyleAugmented, props.disableBranding);
-
     const renderElementMemoized = useMemo(() => {
       return makeRenderElementFunction(suggestionStyleAugmented);
     }, [suggestionStyleAugmented]);
@@ -139,14 +137,16 @@ export const BaseCopilotTextarea = React.forwardRef(
       className,
       onChange,
       onKeyDown,
+      disableBranding,
       ...propsToForward
     } = props;
 
+    useAddBrandingCss(suggestionStyleAugmented, disableBranding);
+    usePopulateCopilotTextareaRef(editor, ref);
+
     const moddedClassName = (() => {
       const baseClassName = "copilot-textarea";
-      const brandingClass = props.disableBranding
-        ? "no-branding"
-        : "with-branding";
+      const brandingClass = disableBranding ? "no-branding" : "with-branding";
       const defaultTailwindClassName = "bg-white overflow-y-auto resize-y";
       const mergedClassName = twMerge(
         defaultTailwindClassName,
@@ -154,8 +154,6 @@ export const BaseCopilotTextarea = React.forwardRef(
       );
       return `${baseClassName} ${brandingClass} ${mergedClassName}`;
     })();
-
-    usePopulateCopilotTextareaRef(editor, ref);
 
     return (
       <Slate
