@@ -13,7 +13,11 @@ export class ChatlikeApiEndpoint {
     this.run = run;
   }
 
-  // Static method
+  /**
+   * Creates a new instance of ChatlikeApiEndpoint with the provided API endpoint.
+   * @param apiEndpoint The URL of the OpenAI-compatible API endpoint.
+   * @returns A new instance of ChatlikeApiEndpoint.
+   */
   static standardOpenAIEndpoint(apiEndpoint: string): ChatlikeApiEndpoint {
     return new ChatlikeApiEndpoint(
       async (
@@ -35,5 +39,14 @@ export class ChatlikeApiEndpoint {
         return suggestion;
       }
     );
+  }
+
+  /**
+   * Creates a fully customized instance of ChatlikeApiEndpoint.
+   * @param run - The implementation of the ChatlikeApiEndpointImpl interface.
+   * @returns A new instance of ChatlikeApiEndpoint .
+   */
+  static custom(run: ChatlikeApiEndpointImpl): ChatlikeApiEndpoint {
+    return new ChatlikeApiEndpoint(run);
   }
 }
