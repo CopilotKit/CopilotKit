@@ -2,6 +2,14 @@ import { Editor, Element, Node, Path, Transforms } from "slate";
 
 export function replaceEditorText(editor: Editor, newText: string) {
   // clear all previous text
+  Transforms.delete(editor, {
+    at: {
+      anchor: Editor.start(editor, []),
+      focus: Editor.end(editor, []),
+    },
+  });
+
+  // try again (this is the original implementation; we found a seemingly better one above but doesn't hurt to do both)
   const paths: Path[] = [];
   for (const [node, path] of Node.nodes(editor)) {
     if (

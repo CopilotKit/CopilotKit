@@ -6,7 +6,7 @@ import { ChatlikeApiEndpoint } from "./chatlike-api-endpoint";
 import { MinimalChatGPTMessage } from "./minimal-chat-gpt-message";
 
 export type MakeSystemPrompt = (
-  purposePrompt: string,
+  textareaPurpose: string,
   contextString: string
 ) => string;
 
@@ -19,13 +19,13 @@ export interface AutosuggestionsConfig extends BaseAutosuggestionsConfig {
 }
 
 export const defaultMakeSystemPrompt: MakeSystemPrompt = (
-  purposePrompt,
+  textareaPurpose,
   contextString
 ) => {
   return `You are a versatile writing assistant.
   
 The user is writing some text.
-The purpose is: \"${purposePrompt}\"
+The purpose is: \"${textareaPurpose}\"
 
 Your job is to guess what the user will write next AS BEST YOU CAN.
 Only guess a SHORT distance ahead. Usually 1 sentence, or at most 1 paragraph.
@@ -83,13 +83,10 @@ export const defaultFewShotMessages: MinimalChatGPTMessage[] = [
 ];
 export const defaultAutosuggestionsConfig: Omit<
   AutosuggestionsConfig,
-  "purposePrompt"
+  "textareaPurpose" | "apiEndpoint"
 > = {
   ...defaultBaseAutosuggestionsConfig,
 
-  apiEndpoint: ChatlikeApiEndpoint.standardOpenAIEndpoint(
-    "api/autosuggestions"
-  ),
   makeSystemPrompt: defaultMakeSystemPrompt,
   fewShotMessages: defaultFewShotMessages,
   externalContextCategories: undefined,

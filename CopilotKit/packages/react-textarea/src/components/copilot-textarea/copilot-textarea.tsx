@@ -5,13 +5,15 @@ import { HTMLCopilotTextAreaElement } from "../../types";
 import { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
 import {
   AutosuggestionsConfig,
+  ChatlikeApiEndpoint,
   defaultAutosuggestionsConfig,
 } from "../../types/standard-autosuggestions";
 import { BaseCopilotTextarea } from "../base-copilot-textarea/base-copilot-textarea";
 
 export interface CopilotTextareaProps extends BaseCopilotTextareaProps {
   autosuggestionsConfig: Partial<AutosuggestionsConfig> & {
-    purposePrompt: string;
+    textareaPurpose: string;
+    apiEndpoint: ChatlikeApiEndpoint;
   };
 }
 
@@ -26,7 +28,7 @@ export const CopilotTextarea = React.forwardRef(
     };
 
     const autosuggestionsFunction = useMakeStandardAutosuggestionFunction(
-      autosuggestionsConfig.purposePrompt,
+      autosuggestionsConfig.textareaPurpose,
       autosuggestionsConfig.apiEndpoint,
       autosuggestionsConfig.makeSystemPrompt,
       autosuggestionsConfig.fewShotMessages,
