@@ -1,5 +1,12 @@
 # web
 
+## 1.3.9
+
+### Patch Changes
+
+- Updated dependencies [cfdc367]
+  - @copilotkit/react-textarea@0.14.0
+
 ## 1.3.8
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # ui
 
+## 0.14.0
+
+### Minor Changes
+
+- cfdc367: export ChatlikeApiEndpoint types in original name
+
 ## 0.13.0
 
 ### Minor Changes
