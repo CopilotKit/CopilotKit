@@ -11,6 +11,6 @@ export type {
 export type { MinimalChatGPTMessage } from "./minimal-chat-gpt-message";
 
 export type {
-  ChatlikeApiEndpoint as GenericChatlikeApiEndpoint,
-  ChatlikeApiEndpointImpl as GenericChatlikeApiEndpointImpl,
+  ChatlikeApiEndpoint,
+  ChatlikeApiEndpointImpl,
 } from "./chatlike-api-endpoint";
