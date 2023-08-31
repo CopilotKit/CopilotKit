@@ -1,5 +1,11 @@
 # ui
 
+## 0.18.0
+
+### Minor Changes
+
+- e9624bc: fix text replacement behavior
+
 ## 0.17.0
 
 ### Minor Changes
