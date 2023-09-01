@@ -88,6 +88,15 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
           e.preventDefault();
         }}
       >
+        
+        <div className="flex flex-col">
+          <div>
+            Hello
+          </div>
+          <div>
+            World
+          </div>
+        </div>
         <FormatButton format="bold" icon="format_bold" />
         <FormatButton format="italic" icon="format_italic" />
         <FormatButton format="underlined" icon="format_underlined" />
