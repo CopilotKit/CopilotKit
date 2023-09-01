@@ -4,7 +4,8 @@
 
 # CopilotKit🪁 [![Discord](https://dcbadge.vercel.app/api/server/6dffbvGU3D?compact=true&style=flat)](https://discord.gg/6dffbvGU3D) [![Online Users](https://img.shields.io/discord/1122926057641742418?label=online&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/6dffbvGU3D) ![GitHub CI](https://github.com/RecursivelyAI/CopilotKit/actions/workflows/ci.yml/badge.svg)
 
-Add a powerful & hackable copilot to any app, in an afternoon.
+A **powerful** & **hackable** copilot for any react app.  
+Get started in minutes & iterate ad-infinitum.
 
 ## Overview
 
@@ -41,7 +42,7 @@ A drop-in <textarea /> replacement with context-aware Copilot autocompletions.
 #### Features
 1. Customizable `purpose` prompt.
 2. Provide arbitrary context to inform autocompletions using `useMakeCopilotReadable`
-3. Works with any backend. See [example implementation](CopilotKit/examples/next-openai/src/app/api/autosuggestions/route.ts) for OpenAI-compatible endpoint.
+3. Works with any backend/LLM, using `ChatlikeApiEndpoint`
 4. Supports all `<textarea />` customizations
 
 
@@ -50,24 +51,55 @@ import "@copilotkit/react-textarea/styles.css"; // add to the app-global css
 import { CopilotTextarea } from "@copilotkit/react-textarea";
 import { CopilotProvider } from "@copilotkit/react-core";
 
-  return (
-    <CopilotProvider> {/* Global state & copilot logic. Put this around the entire app. */}
-      <CopilotTextarea
-        className="p-4 w-1/2 aspect-square font-bold text-3xl bg-slate-800 text-white rounded-lg resize-none"
-        placeholder="A CopilotTextarea!"
-        autosuggestionsConfig={{
-          purposePrompt: "A COOL & SMOOTH announcement post about CopilotTextarea. Be brief. Be clear. Be cool.",
-          externalContextCategories: ["someSpecificContextCategory"], // or leave as `undefined`, for the default global Copilot context
-          apiEndpoint: ChatlikeApiEndpoint.standardOpenAIEndpoint("/api/autosuggestions") // (See above, or )
-          forwardedParams: {
-            max_tokens: 25,
-            stop: ["\n", ".", ","],
-          },
-        }}
-      />
+// call ANYWHERE in your app to provide external context (make sure you wrap the app with a <CopilotProvider >):
+// See below for more features (parent/child hierarchy, categories, etc.)
+useMakeCopilotReadable(relevantInformation)
 
-    </CopilotProvider>
-  );
+return (
+  <CopilotProvider> {/* Global state & copilot logic. Put this around the entire app to propagate `useMakeCopilotReadable` calls */}
+    <CopilotTextarea
+      className="p-4 w-1/2 aspect-square font-bold text-3xl bg-slate-800 text-white rounded-lg resize-none"
+      placeholder="A CopilotTextarea!"
+      autosuggestionsConfig={{
+        purposePrompt: "A COOL & SMOOTH announcement post about CopilotTextarea. Be brief. Be clear. Be cool.",
+        apiEndpoint: apiEndpoint1 // (see below)
+        forwardedParams: {
+          max_tokens: 25,
+          stop: ["\n", ".", ","],
+        },
+      }}
+    />
+  </CopilotProvider>
+);
+```
+
+Easily use any backend/LLM via `ChatlikeApiEndpoint.custom(...)`, or just provide the URL of any OpenAI-comaptible endpoint:
+
+```typescript
+// If your endpoint is a standard OpenAI-compatible endpoint, just pass the URL (see `api/autosuggestions/route.ts` for an example)
+const apiEndpoint1 = ChatlikeApiEndpoint.standardOpenAIEndpoint("/api/autosuggestions") 
+
+// Or easily support any backend / LLM
+const apiEndpoint2 = ChatlikeApiEndpoint.custom(
+  async (
+    abortSignal: AbortSignal,
+    messages: MinimalChatGPTMessage[],
+    forwardedProps?: { [key: string]: any },
+  ) => {
+    const res = await fetch('api/my-sreaming-api', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...forwardedProps,
+        messages: messages,
+        max_tokens: 5,
+      }),
+      signal: abortSignal,
+    });
+
+    const fullPayload = await res.text();
+    return fullPayload;
+  },
+);
 ```
 
 ### Integrate copilot
