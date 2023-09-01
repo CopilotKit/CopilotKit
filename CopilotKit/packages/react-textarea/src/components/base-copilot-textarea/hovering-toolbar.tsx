@@ -35,10 +35,26 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
     const domRange = domSelection.getRangeAt(0);
     const rect = domRange.getBoundingClientRect();
     el.style.opacity = "1";
-    el.style.top = `${rect.top + window.pageYOffset - el.offsetHeight}px`;
-    el.style.left = `${
-      rect.left + window.pageXOffset - el.offsetWidth / 2 + rect.width / 2
-    }px`;
+
+    const minGapFromEdge = 24;
+    let top = rect.top + window.scrollY - el.offsetHeight;
+    // make sure top is in the viewport and not too close to the edge
+    if (top < minGapFromEdge) {
+      top = rect.bottom + window.scrollY + minGapFromEdge;
+    } else if (top + el.offsetHeight > window.innerHeight - minGapFromEdge) {
+      top = rect.top + window.scrollY - el.offsetHeight - minGapFromEdge;
+    }
+
+    let left = rect.left + window.scrollX - el.offsetWidth / 2 + rect.width / 2;
+    // make sure left is in the viewport and not too close to the edge
+    if (left < minGapFromEdge) {
+      left = minGapFromEdge;
+    } else if (left + el.offsetWidth > window.innerWidth - minGapFromEdge) {
+      left = window.innerWidth - el.offsetWidth - minGapFromEdge;
+    }
+
+    el.style.top = `${top}px`;
+    el.style.left = `${left}px`;
   });
 
   // only render on client
