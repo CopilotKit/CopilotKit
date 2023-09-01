@@ -195,6 +195,9 @@ importers:
       '@types/react':
         specifier: ^18.2.5
         version: 18.2.5
+      '@types/react-dom':
+        specifier: ^18.2.4
+        version: 18.2.4
       '@types/react-syntax-highlighter':
         specifier: ^15.5.7
         version: 15.5.7

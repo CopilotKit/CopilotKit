@@ -28,6 +28,7 @@
   "devDependencies": {
     "@types/jest": "^29.5.4",
     "@types/react": "^18.2.5",
+    "@types/react-dom": "^18.2.4",
     "@types/react-syntax-highlighter": "^15.5.7",
     "eslint": "^7.32.0",
     "eslint-config-custom": "workspace:*",
