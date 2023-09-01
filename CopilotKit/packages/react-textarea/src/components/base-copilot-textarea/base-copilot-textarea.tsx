@@ -20,7 +20,7 @@ import {
 import { AutosuggestionState } from "../../types/base/autosuggestion-state";
 import { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
 import "./base-copilot-textarea.css";
-import { HoveringToolbar } from "./hovering-toolbar";
+import { HoveringToolbar } from "../hovering-toolbar/hovering-toolbar";
 import { makeRenderElementFunction } from "./render-element";
 import { makeRenderPlaceholderFunction } from "./render-placeholder";
 import { useAddBrandingCss } from "./use-add-branding-css";
