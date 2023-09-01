@@ -167,6 +167,9 @@ importers:
       clsx:
         specifier: ^1.2.1
         version: 1.2.1
+      material-icons:
+        specifier: ^1.13.10
+        version: 1.13.10
       nanoid:
         specifier: ^4.0.2
         version: 4.0.2
@@ -5749,6 +5752,10 @@ packages:
 
   /markdown-table@3.0.3:
     resolution: {integrity: sha512-Z1NL3Tb1M9wH4XESsCDEksWoKTdlUafKc4pt0GRwjUyXaCFZ+dc3g2erqB6zm3szA2IUSi7VnPI+o/9jnxh9hw==}
+    dev: false
+
+  /material-icons@1.13.10:
+    resolution: {integrity: sha512-XSESl/zo7XzD9nz8ihUq5HO0DzsvnVex9t8hpH8pqY1SFlESAdHlMQQbcCyyP58mPp6Wm1tyt0OaDNZhBT9lXQ==}
     dev: false
 
   /md5@2.3.0:

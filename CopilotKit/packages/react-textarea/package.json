@@ -48,6 +48,7 @@
     "ai": "^2.1.22",
     "class-variance-authority": "^0.6.1",
     "clsx": "^1.2.1",
+    "material-icons": "^1.13.10",
     "nanoid": "^4.0.2",
     "next": "^13.4.1",
     "next-themes": "^0.2.1",
