@@ -1,13 +1,13 @@
 import { css } from "@emotion/css";
 import { useEffect, useRef, useState } from "react";
 import { Editor, Range } from "slate";
-import { useFocused, useSlate } from "slate-react";
+import { useSlate } from "slate-react";
 import { Button, Icon, Menu, Portal } from "./hovering-toolbar-components";
+import { EditingPromptBox } from "./edit-prompter";
 
 export const HoveringToolbar: () => JSX.Element | null = () => {
   const ref = useRef<HTMLDivElement>(null);
   const editor = useSlate();
-  const inFocus = useFocused();
 
   useEffect(() => {
     const el = ref.current;
@@ -19,7 +19,6 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
 
     if (
       !selection ||
-      !inFocus ||
       Range.isCollapsed(selection) ||
       Editor.string(editor, selection) === ""
     ) {
@@ -31,12 +30,12 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
     if (!domSelection) {
       return;
     }
-
+    
     const domRange = domSelection.getRangeAt(0);
     const rect = domRange.getBoundingClientRect();
     el.style.opacity = "1";
 
-    const minGapFromEdge = 24;
+    const minGapFromEdge = 60;
     let top = rect.top + window.scrollY - el.offsetHeight;
     // make sure top is in the viewport and not too close to the edge
     if (top < minGapFromEdge) {
@@ -72,6 +71,7 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
       <Menu
         ref={ref}
         className={css`
+          width: 500px;
           padding: 8px 7px 6px;
           position: absolute;
           z-index: 1;
@@ -85,21 +85,13 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
         `}
         onMouseDown={(e: React.MouseEvent<HTMLButtonElement>) => {
           // prevent toolbar from taking focus away from editor
-          e.preventDefault();
+          // e.preventDefault();
         }}
       >
-        
-        <div className="flex flex-col">
-          <div>
-            Hello
-          </div>
-          <div>
-            World
-          </div>
-        </div>
-        <FormatButton format="bold" icon="format_bold" />
+        <TexteditPromptBox />
+        {/* <FormatButton format="bold" icon="format_bold" />
         <FormatButton format="italic" icon="format_italic" />
-        <FormatButton format="underlined" icon="format_underlined" />
+        <FormatButton format="underlined" icon="format_underlined" /> */}
       </Menu>
     </Portal>
   );
