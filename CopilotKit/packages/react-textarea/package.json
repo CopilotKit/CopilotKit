@@ -45,9 +45,13 @@
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",
     "@emotion/css": "^11.11.2",
+    "@radix-ui/react-label": "^2.0.2",
+    "@radix-ui/react-separator": "^1.0.3",
+    "@radix-ui/react-slot": "^1.0.2",
     "ai": "^2.1.22",
     "class-variance-authority": "^0.6.1",
     "clsx": "^1.2.1",
+    "lucide-react": "^0.274.0",
     "material-icons": "^1.13.10",
     "nanoid": "^4.0.2",
     "next": "^13.4.1",
