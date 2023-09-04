@@ -1,27 +1,45 @@
 import { css } from "@emotion/css";
-import { useEffect, useRef, useState } from "react";
-import { Editor, Range } from "slate";
-import { useSlate } from "slate-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { BaseSelection, Editor, Range, Location, Transforms } from "slate";
+import { useSlate, useSlateSelection } from "slate-react";
+import {
+  EditorState,
+  HoveringEditingPromptBox,
+} from "./hovering-editing-prompt-box";
 import { Button, Icon, Menu, Portal } from "./hovering-toolbar-components";
-import { EditingPromptBox } from "./edit-prompter";
 
 export const HoveringToolbar: () => JSX.Element | null = () => {
   const ref = useRef<HTMLDivElement>(null);
   const editor = useSlate();
+  const selection = useSlateSelection();
+
+  // only render on client
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  const [shouldDisplayHoveringToolbar, setShouldDisplayHoveringToolbar] =
+    useState(false);
+
+  // determine if hovering toolbar should be displayed
+  useEffect(() => {
+    if (!selection) {
+      setShouldDisplayHoveringToolbar(false);
+      return;
+    }
+
+    setShouldDisplayHoveringToolbar(true);
+  }, [selection]);
 
   useEffect(() => {
     const el = ref.current;
-    const { selection } = editor;
 
     if (!el) {
       return;
     }
 
-    if (
-      !selection ||
-      Range.isCollapsed(selection) ||
-      Editor.string(editor, selection) === ""
-    ) {
+    if (!shouldDisplayHoveringToolbar) {
       el.removeAttribute("style");
       return;
     }
@@ -30,10 +48,9 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
     if (!domSelection) {
       return;
     }
-    
+
     const domRange = domSelection.getRangeAt(0);
     const rect = domRange.getBoundingClientRect();
-    el.style.opacity = "1";
 
     const minGapFromEdge = 60;
     let top = rect.top + window.scrollY - el.offsetHeight;
@@ -52,43 +69,41 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
       left = window.innerWidth - el.offsetWidth - minGapFromEdge;
     }
 
+    el.style.opacity = "1";
     el.style.top = `${top}px`;
     el.style.left = `${left}px`;
-  });
+  }, [selection, shouldDisplayHoveringToolbar]);
 
-  // only render on client
-  const [isClient, setIsClient] = useState(false);
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  if (!isClient) {
+  if (!isClient || !shouldDisplayHoveringToolbar) {
     return null;
   }
+
+  const editFunction = async (
+    editorState: EditorState,
+    editingPrompt: string
+  ) => {
+    console.log("editing prompt", editingPrompt);
+    return editingPrompt;
+  };
 
   return (
     <Portal>
       <Menu
         ref={ref}
-        className={css`
-          width: 500px;
-          padding: 8px 7px 6px;
-          position: absolute;
-          z-index: 1;
-          top: -10000px;
-          left: -10000px;
-          margin-top: -6px;
-          opacity: 0;
-          background-color: #222;
-          border-radius: 4px;
-          transition: opacity 0.75s;
-        `}
-        onMouseDown={(e: React.MouseEvent<HTMLButtonElement>) => {
-          // prevent toolbar from taking focus away from editor
-          // e.preventDefault();
-        }}
+        className="p-2 absolute z-10 top-[-10000px] left-[-10000px] mt-[-6px] opacity-0 transition-opacity duration-700"
       >
-        <TexteditPromptBox />
+        {shouldDisplayHoveringToolbar && selection && (
+          <HoveringEditingPromptBox
+            editorState={editorState(editor, selection)}
+            editFunction={editFunction}
+            performEdit={(insertedText) => {
+              console.log("inserted text", insertedText);
+              Transforms.insertText(editor, insertedText, {
+                at: Editor.end(editor, selection),
+              });
+            }}
+          />
+        )}
         {/* <FormatButton format="bold" icon="format_bold" />
         <FormatButton format="italic" icon="format_italic" />
         <FormatButton format="underlined" icon="format_underlined" /> */}
@@ -96,6 +111,14 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
     </Portal>
   );
 };
+
+function editorState(editor: Editor, selection: Location): EditorState {
+  return {
+    beforeSelection: "",
+    selection: Editor.string(editor, selection),
+    afterSelection: "",
+  };
+}
 
 type Fomrat = string;
 
