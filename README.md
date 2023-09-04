@@ -27,7 +27,7 @@ CopilotKit in action.
 ## Installation
 
 ```bash
-pnpm install @copilotkit/react-core @copilotkit/react-ui @copilotkit/react-textarea
+npm i @copilotkit/react-core @copilotkit/react-ui @copilotkit/react-textarea
 ```
 
 ## Examples
