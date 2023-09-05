@@ -3,11 +3,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { BaseSelection, Editor, Range, Location, Transforms } from "slate";
 import { useSlate, useSlateSelection } from "slate-react";
 import {
-  EditorState,
-  HoveringEditingPromptBox,
-} from "./hovering-editing-prompt-box";
+  HoveringInsertionPromptBox,
+  InsertionEditorState,
+} from "./hovering-insertion-prompt-box";
 import { Button, Icon, Menu, Portal } from "./hovering-toolbar-components";
 import { useHoveringEditorContext } from "./hovering-editor-provider";
+import {
+  getFullEditorTextWithNewlines,
+  getTextAroundCollapsedCursor,
+} from "../../lib/get-text-around-cursor";
 
 export const HoveringToolbar: () => JSX.Element | null = () => {
   const ref = useRef<HTMLDivElement>(null);
@@ -67,12 +71,12 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
     return null;
   }
 
-  const editFunction = async (
-    editorState: EditorState,
-    editingPrompt: string
+  const insertionFunction = async (
+    state: InsertionEditorState,
+    prompt: string
   ) => {
-    console.log("editing prompt", editingPrompt);
-    return editingPrompt;
+    console.log("prompt", prompt);
+    return prompt;
   };
 
   return (
@@ -82,14 +86,17 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
         className="p-2 absolute z-10 top-[-10000px] left-[-10000px] mt-[-6px] opacity-0 transition-opacity duration-700"
       >
         {isDisplayed && selection && (
-          <HoveringEditingPromptBox
+          <HoveringInsertionPromptBox
             editorState={editorState(editor, selection)}
-            editFunction={editFunction}
-            performEdit={(insertedText) => {
+            insertionFunction={insertionFunction}
+            performInsertion={(insertedText) => {
               console.log("inserted text", insertedText);
+              // replace the selection with the inserted text
+              Transforms.delete(editor, { at: selection });
               Transforms.insertText(editor, insertedText, {
-                at: Editor.end(editor, selection),
+                at: selection,
               });
+              // hide the hovering editor
               setIsDisplayed(false);
             }}
           />
@@ -99,10 +106,17 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
   );
 };
 
-function editorState(editor: Editor, selection: Location): EditorState {
+function editorState(
+  editor: Editor,
+  selection: Location
+): InsertionEditorState {
+  const textAroundCursor = getTextAroundCollapsedCursor(editor);
+  if (textAroundCursor) {
+    return textAroundCursor;
+  }
+
   return {
-    beforeSelection: "",
-    selection: Editor.string(editor, selection),
-    afterSelection: "",
+    textBeforeCursor: getFullEditorTextWithNewlines(editor),
+    textAfterCursor: "",
   };
 }

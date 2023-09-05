@@ -12,24 +12,23 @@ import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import React from "react";
 
-export type EditTextFunctionRaw = (
-  editorState: EditorState,
-  editingPrompt: string
+export type InsertTextFunctionRaw = (
+  editorState: InsertionEditorState,
+  prompt: string
 ) => Promise<string>;
 
-export interface EditorState {
-  beforeSelection: string;
-  selection: string;
-  afterSelection: string;
+export interface InsertionEditorState {
+  textBeforeCursor: string;
+  textAfterCursor: string;
 }
 
 export interface Props {
-  editorState: EditorState;
-  editFunction: EditTextFunctionRaw;
-  performEdit: (insertedText: string) => void;
+  editorState: InsertionEditorState;
+  insertionFunction: InsertTextFunctionRaw;
+  performInsertion: (insertedText: string) => void;
 }
 
-export function HoveringEditingPromptBox(props: Props) {
+export function HoveringInsertionPromptBox(props: Props) {
   const [editPrompt, setEditPrompt] = React.useState("");
 
   const [editSuggestion, setEditSuggestion] = React.useState<string | null>(
@@ -52,7 +51,7 @@ export function HoveringEditingPromptBox(props: Props) {
           <Button
             onClick={async () => {
               setLoading(true);
-              const editedText = await props.editFunction(
+              const editedText = await props.insertionFunction(
                 props.editorState,
                 editPrompt
               );
@@ -76,7 +75,7 @@ export function HoveringEditingPromptBox(props: Props) {
 
             <Button
               onClick={() => {
-                props.performEdit(editSuggestion);
+                props.performInsertion(editSuggestion);
                 setEditSuggestion(null);
               }}
             >

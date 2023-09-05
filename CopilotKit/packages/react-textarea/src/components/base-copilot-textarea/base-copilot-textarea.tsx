@@ -7,7 +7,7 @@ import { useCopilotTextareaEditor } from "../../hooks/base-copilot-textarea-impl
 import { usePopulateCopilotTextareaRef } from "../../hooks/base-copilot-textarea-implementation/use-populate-copilot-textarea-ref";
 import {
   getFullEditorTextWithNewlines,
-  getTextAroundCursor,
+  getTextAroundCollapsedCursor,
 } from "../../lib/get-text-around-cursor";
 import { addAutocompletionsToEditor } from "../../lib/slatejs-edits/add-autocompletions";
 import { clearAutocompletionsFromEditor } from "../../lib/slatejs-edits/clear-autocompletions";
@@ -182,7 +182,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
         editor={editor}
         initialValue={initialValue}
         onChange={(value) => {
-          const newEditorState = getTextAroundCursor(editor);
+          const newEditorState = getTextAroundCollapsedCursor(editor);
 
           const fullEditorText = newEditorState
             ? newEditorState.textBeforeCursor + newEditorState.textAfterCursor

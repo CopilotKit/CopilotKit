@@ -1,21 +1,41 @@
-import { Editor, Node, Path, Range, Text, Element } from "slate";
+import {
+  Editor,
+  Node,
+  Path,
+  Range,
+  Text,
+  Element,
+  BasePoint,
+  BaseRange,
+  Point,
+} from "slate";
 import { EditorAutocompleteState } from "../types/base/editor-autocomplete-state";
 
-export function getTextAroundCursor(
+export interface EditorTextState {
+  selection: BaseRange;
+
+  textBeforeCursor: string;
+  selectionText: string;
+  textAfterCursor: string;
+}
+
+export function getTextAroundCollapsedCursor(
   editor: Editor
 ): EditorAutocompleteState | null {
   const { selection } = editor;
-
   if (!selection || !Range.isCollapsed(selection)) {
     return null;
   }
+
+  const cursorPoint = selection.anchor;
+
   // Create two ranges: one before the anchor and one after
   const beforeRange: Range = {
     anchor: Editor.start(editor, []),
-    focus: selection.anchor,
+    focus: cursorPoint,
   };
   const afterRange: Range = {
-    anchor: selection.anchor,
+    anchor: cursorPoint,
     focus: Editor.end(editor, []),
   };
 
@@ -24,8 +44,39 @@ export function getTextAroundCursor(
   const after = extractTextWithNewlines(editor, afterRange);
 
   return {
-    cursorPoint: selection.anchor,
+    cursorPoint: cursorPoint,
     textBeforeCursor: before,
+    textAfterCursor: after,
+  };
+}
+
+export function getTextAroundSelection(editor: Editor): EditorTextState | null {
+  const { selection } = editor;
+  if (!selection) {
+    return null;
+  }
+
+  const wellOrderedSelection = wellOrderedRange(selection);
+
+  // Create two ranges: one before the anchor and one after
+  const beforeRange: Range = {
+    anchor: Editor.start(editor, []),
+    focus: wellOrderedSelection.anchor,
+  };
+  const afterRange: Range = {
+    anchor: wellOrderedSelection.focus,
+    focus: Editor.end(editor, []),
+  };
+
+  // Extract text for these ranges
+  const before = extractTextWithNewlines(editor, beforeRange);
+  const after = extractTextWithNewlines(editor, afterRange);
+  const selectionText = extractTextWithNewlines(editor, wellOrderedSelection);
+
+  return {
+    selection: wellOrderedSelection,
+    textBeforeCursor: before,
+    selectionText,
     textAfterCursor: after,
   };
 }
@@ -79,4 +130,18 @@ export function extractTextWithNewlines(editor: Editor, range: Range): string {
   }
 
   return text;
+}
+
+function wellOrderedRange(range: BaseRange): BaseRange {
+  const { anchor, focus } = range;
+  // if anchor is before focus, return range as is
+  if (Point.isBefore(anchor, focus)) {
+    return range;
+  }
+
+  // if focus is before anchor, return range with anchor and focus swapped
+  return {
+    anchor: focus,
+    focus: anchor,
+  };
 }
