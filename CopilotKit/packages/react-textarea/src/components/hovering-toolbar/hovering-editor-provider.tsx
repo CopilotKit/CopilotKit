@@ -5,9 +5,10 @@ interface HoveringEditorContextProps {
   setIsDisplayed: (value: boolean) => void;
 }
 
-const HoveringEditorContext = createContext<
-  HoveringEditorContextProps | undefined
->(undefined);
+const HoveringEditorContext = createContext<HoveringEditorContextProps>({
+  isDisplayed: false,
+  setIsDisplayed: () => {},
+});
 
 interface HoveringEditorProviderProps {
   children: ReactNode;

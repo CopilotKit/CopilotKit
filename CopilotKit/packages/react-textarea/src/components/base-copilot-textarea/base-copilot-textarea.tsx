@@ -24,6 +24,11 @@ import { HoveringToolbar } from "../hovering-toolbar/hovering-toolbar";
 import { makeRenderElementFunction } from "./render-element";
 import { makeRenderPlaceholderFunction } from "./render-placeholder";
 import { useAddBrandingCss } from "./use-add-branding-css";
+import {
+  HoveringEditorProvider,
+  useHoveringEditorContext,
+} from "../hovering-toolbar/hovering-editor-provider";
+import { EditableProps } from "slate-react/dist/components/editable";
 
 export interface HTMLCopilotTextAreaElement extends HTMLElement {
   value: string;
@@ -31,7 +36,7 @@ export interface HTMLCopilotTextAreaElement extends HTMLElement {
   blur: () => void;
 }
 
-export const BaseCopilotTextarea = React.forwardRef(
+const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
   (
     props: BaseCopilotTextareaProps & {
       autosuggestionsFunction: AutosuggestionsBareFunction;
@@ -58,6 +63,11 @@ export const BaseCopilotTextarea = React.forwardRef(
 
     const editor = useCopilotTextareaEditor();
 
+    const {
+      isDisplayed: hoveringEditorIsDisplayed,
+      setIsDisplayed: setHoveringEditorIsDisplayed,
+    } = useHoveringEditorContext();
+
     const insertText = useCallback(
       (autosuggestion: AutosuggestionState) => {
         Editor.insertText(editor, autosuggestion.text, {
@@ -77,7 +87,18 @@ export const BaseCopilotTextarea = React.forwardRef(
       props.autosuggestionsFunction,
       insertText,
       autosuggestionsConfig.disableWhenEmpty,
-      autosuggestionsConfig.disabled
+      autosuggestionsConfig.disabled || hoveringEditorIsDisplayed // disable autosuggestions when the hovering editor is displayed
+    );
+
+    const onKeyDownHandlerForHoveringEditor = useCallback(
+      (event: React.KeyboardEvent<HTMLDivElement>) => {
+        // if command-k, toggle the hovering editor
+        if (event.key === "k" && event.metaKey) {
+          event.preventDefault();
+          setHoveringEditorIsDisplayed(!hoveringEditorIsDisplayed);
+        }
+      },
+      [hoveringEditorIsDisplayed, setHoveringEditorIsDisplayed]
     );
 
     // sync autosuggestions state with the editor
@@ -179,6 +200,7 @@ export const BaseCopilotTextarea = React.forwardRef(
           renderElement={renderElementMemoized}
           renderPlaceholder={renderPlaceholderMemoized}
           onKeyDown={(event) => {
+            onKeyDownHandlerForHoveringEditor(event); // forward the event for internal use
             onKeyDownHandlerForAutocomplete(event); // forward the event for internal use
             props.onKeyDown?.(event); // forward the event for external use
           }}
@@ -215,3 +237,18 @@ function makeSemiFakeReactTextAreaEvent(
     },
   } as React.ChangeEvent<HTMLTextAreaElement>;
 }
+
+export const BaseCopilotTextarea = React.forwardRef(
+  (
+    props: BaseCopilotTextareaProps & {
+      autosuggestionsFunction: AutosuggestionsBareFunction;
+    },
+    ref: React.Ref<HTMLCopilotTextAreaElement>
+  ): JSX.Element => {
+    return (
+      <HoveringEditorProvider>
+        <BaseCopilotTextareaWithHoveringContext {...props} ref={ref} />
+      </HoveringEditorProvider>
+    );
+  }
+);

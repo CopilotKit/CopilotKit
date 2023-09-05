@@ -7,30 +7,19 @@ import {
   HoveringEditingPromptBox,
 } from "./hovering-editing-prompt-box";
 import { Button, Icon, Menu, Portal } from "./hovering-toolbar-components";
+import { useHoveringEditorContext } from "./hovering-editor-provider";
 
 export const HoveringToolbar: () => JSX.Element | null = () => {
   const ref = useRef<HTMLDivElement>(null);
   const editor = useSlate();
   const selection = useSlateSelection();
+  const { isDisplayed, setIsDisplayed } = useHoveringEditorContext();
 
   // only render on client
   const [isClient, setIsClient] = useState(false);
   useEffect(() => {
     setIsClient(true);
   }, []);
-
-  const [shouldDisplayHoveringToolbar, setShouldDisplayHoveringToolbar] =
-    useState(false);
-
-  // determine if hovering toolbar should be displayed
-  useEffect(() => {
-    if (!selection) {
-      setShouldDisplayHoveringToolbar(false);
-      return;
-    }
-
-    setShouldDisplayHoveringToolbar(true);
-  }, [selection]);
 
   useEffect(() => {
     const el = ref.current;
@@ -39,7 +28,7 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
       return;
     }
 
-    if (!shouldDisplayHoveringToolbar) {
+    if (!isDisplayed) {
       el.removeAttribute("style");
       return;
     }
@@ -72,9 +61,9 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
     el.style.opacity = "1";
     el.style.top = `${top}px`;
     el.style.left = `${left}px`;
-  }, [selection, shouldDisplayHoveringToolbar]);
+  }, [selection, isDisplayed]);
 
-  if (!isClient || !shouldDisplayHoveringToolbar) {
+  if (!isClient || !isDisplayed) {
     return null;
   }
 
@@ -92,7 +81,7 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
         ref={ref}
         className="p-2 absolute z-10 top-[-10000px] left-[-10000px] mt-[-6px] opacity-0 transition-opacity duration-700"
       >
-        {shouldDisplayHoveringToolbar && selection && (
+        {isDisplayed && selection && (
           <HoveringEditingPromptBox
             editorState={editorState(editor, selection)}
             editFunction={editFunction}
@@ -101,12 +90,10 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
               Transforms.insertText(editor, insertedText, {
                 at: Editor.end(editor, selection),
               });
+              setIsDisplayed(false);
             }}
           />
         )}
-        {/* <FormatButton format="bold" icon="format_bold" />
-        <FormatButton format="italic" icon="format_italic" />
-        <FormatButton format="underlined" icon="format_underlined" /> */}
       </Menu>
     </Portal>
   );
@@ -119,34 +106,3 @@ function editorState(editor: Editor, selection: Location): EditorState {
     afterSelection: "",
   };
 }
-
-type Fomrat = string;
-
-const FormatButton = ({ format, icon }: { format: Fomrat; icon: string }) => {
-  const editor = useSlate();
-  return (
-    <Button
-      reversed
-      active={isMarkActive(editor, format)}
-      onClick={() => toggleMark(editor, format)}
-    >
-      <Icon>{icon}</Icon>
-    </Button>
-  );
-};
-
-const toggleMark = (editor: Editor, format: Fomrat) => {
-  const isActive = isMarkActive(editor, format);
-
-  if (isActive) {
-    Editor.removeMark(editor, format);
-  } else {
-    Editor.addMark(editor, format, true);
-  }
-};
-
-const isMarkActive = (editor: Editor, format: Fomrat) => {
-  return false;
-  // const marks = Editor.marks(editor);
-  // return marks ? marks[format] === true : false;
-};
