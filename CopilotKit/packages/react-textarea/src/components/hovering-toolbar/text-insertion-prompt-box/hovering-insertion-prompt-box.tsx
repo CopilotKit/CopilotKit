@@ -42,12 +42,11 @@ export const HoveringInsertionPromptBox: React.FC<Props> = ({
   const [loading, setLoading] = useState(false);
 
   const promptTextAreaRef = useRef<HTMLTextAreaElement>(null);
-  useAutosizeTextArea(promptTextAreaRef.current, editPrompt);
+  useAutosizeTextArea(promptTextAreaRef, editPrompt);
 
   const suggestionTextAreaRef = useRef<HTMLTextAreaElement>(null);
-  useAutosizeTextArea(suggestionTextAreaRef.current, editSuggestion || "");
+  useAutosizeTextArea(suggestionTextAreaRef, editSuggestion || "");
 
-  
   const generateText = async () => {
     setLoading(true);
     const editedText = await insertionFunction(editorState, editPrompt);
