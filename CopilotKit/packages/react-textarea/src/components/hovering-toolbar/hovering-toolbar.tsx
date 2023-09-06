@@ -5,7 +5,7 @@ import { useSlate, useSlateSelection } from "slate-react";
 import {
   HoveringInsertionPromptBox,
   InsertionEditorState,
-} from "./hovering-insertion-prompt-box";
+} from "./text-insertion-prompt-box";
 import { Button, Icon, Menu, Portal } from "./hovering-toolbar-components";
 import { useHoveringEditorContext } from "./hovering-editor-provider";
 import {
@@ -89,6 +89,9 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
           <HoveringInsertionPromptBox
             editorState={editorState(editor, selection)}
             insertionFunction={insertionFunction}
+            closeWindow={() => {
+              setIsDisplayed(false);
+            }}
             performInsertion={(insertedText) => {
               console.log("inserted text", insertedText);
               // replace the selection with the inserted text
