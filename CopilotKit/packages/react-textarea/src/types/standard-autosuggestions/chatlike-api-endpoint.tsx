@@ -1,4 +1,4 @@
-import { MinimalChatGPTMessage } from "..";
+import { MinimalChatGPTMessage } from "./minimal-chat-gpt-message";
 
 export type ChatlikeApiEndpointImpl = (
   abortSignal: AbortSignal,
