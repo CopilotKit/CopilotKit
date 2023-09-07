@@ -62,10 +62,10 @@ export const HoveringInsertionPromptBox: React.FC<Props> = ({
           value={editPrompt}
           onChange={(e) => setEditPrompt(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && e.shiftKey) {
+            if (e.key === "Enter" && e.shiftKey) {
               e.preventDefault();
               setEditPrompt(editPrompt + "\n");
-            } else if (e.key === 'Enter') {
+            } else if (e.key === "Enter") {
               e.preventDefault();
               generateText();
             }
@@ -74,27 +74,40 @@ export const HoveringInsertionPromptBox: React.FC<Props> = ({
           className="w-full bg-slate-200 h-auto text-sm p-2 rounded-md resize-none overflow-visible focus:outline-none focus:ring-0 focus:border-none"
           rows={1}
         />
-        {(editSuggestion !== null) && (
-          <button className="h-8 right-0 p-3 flex items-center" onClick={generateText}>
+        {editSuggestion !== null && (
+          <button
+            className="h-8 right-0 p-3 flex items-center"
+            onClick={generateText}
+          >
             <i className="material-icons">refresh</i>
           </button>
         )}
       </div>
 
-      {(editSuggestion !==null) && (
-        <div className="w-full flex flex-col items-start">
-          <Label className="py-2">Suggested:</Label>
+      {editSuggestion !== null && (
+        <div className="w-full flex flex-col items-start relative gap-2">
+          <Label className="">Suggested:</Label>
 
           <textarea
             ref={suggestionTextAreaRef}
             value={editSuggestion}
             onChange={(e) => setEditSuggestion(e.target.value)}
             className="w-full text-base p-2 border border-gray-300 rounded-md resize-none bg-green-200"
-            style={{ overflow: 'auto', maxHeight: '8em' }}
+            style={{ overflow: "auto", maxHeight: "8em" }}
           />
+
+          <div className="text-left w-full text-white">
+            <Button
+              className=" bg-green-700"
+              onClick={() => {
+                performInsertion(editSuggestion);
+              }}
+            >
+              Insert <i className="material-icons">check</i>
+            </Button>
+          </div>
         </div>
       )}
-
       <BottomButton
         loading={loading}
         editSuggestion={editSuggestion}

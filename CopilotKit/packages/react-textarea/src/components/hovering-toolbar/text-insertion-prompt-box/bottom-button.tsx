@@ -7,7 +7,10 @@ interface BottomButtonProps {
   performInsertion: (insertedText: string) => void;
 }
 export const BottomButton: React.FC<BottomButtonProps> = ({
-  loading, editSuggestion, generateText, performInsertion,
+  loading,
+  editSuggestion,
+  generateText,
+  performInsertion,
 }): JSX.Element | null => {
   if (loading) {
     return (
@@ -20,7 +23,7 @@ export const BottomButton: React.FC<BottomButtonProps> = ({
     );
   }
 
-  if (editSuggestion) {
+  if (editSuggestion !== null) {
     return null;
     // return (
     //   <button

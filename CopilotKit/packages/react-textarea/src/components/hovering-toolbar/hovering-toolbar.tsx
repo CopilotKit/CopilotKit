@@ -67,6 +67,19 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
     el.style.left = `${left}px`;
   }, [selection, isDisplayed]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setIsDisplayed(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [ref, setIsDisplayed]);
+
   if (!isClient || !isDisplayed) {
     return null;
   }
