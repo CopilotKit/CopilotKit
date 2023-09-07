@@ -1,10 +1,17 @@
 import useAutosizeTextArea from "../../../hooks/misc/use-autosize-textarea";
+import { MinimalChatGPTMessage } from "../../../types";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import React, { useEffect, useRef, useState } from "react";
+import { InsertionEditorState } from "./hovering-insertion-prompt-box";
 
 export type State_SuggestionAppearing = {
   type: "suggestion-appearing";
+  initialSuggestion: SuggestionSnapshot;
+};
+
+type SuggestionSnapshot = {
+  adjustmentPrompt: string;
   suggestion: string;
 };
 
@@ -12,6 +19,11 @@ export interface SuggestionAppearingProps {
   state: State_SuggestionAppearing;
   performInsertion: (insertedText: string) => void;
   goBack: () => void;
+
+  // adjustmentGenerator: (
+  //   editorState: InsertionEditorState,
+  //   history: SuggestionSnapshot[]
+  // ) => Promise<string>;
 }
 
 export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
@@ -19,10 +31,15 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
   state,
   goBack,
 }) => {
+  const [adjustmentHistory, setAdjustmentHistory] = useState<
+    SuggestionSnapshot[]
+  >([state.initialSuggestion]);
+
   const [editSuggestion, setEditSuggestion] = useState<string>(
-    state.suggestion
+    state.initialSuggestion.suggestion
   );
   const [adjustmentPrompt, setAdjustmentPrompt] = useState<string>("");
+  const [adjustmentLoading, setAdjustmentLoading] = useState<boolean>(false);
 
   const suggestionTextAreaRef = useRef<HTMLTextAreaElement>(null);
   const adjustmentTextAreaRef = useRef<HTMLTextAreaElement>(null);
@@ -39,6 +56,15 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
     );
   }, []);
 
+  const generateAdjustment = async () => {
+    // don't generate text if the prompt is empty
+    if (!adjustmentPrompt.trim()) {
+      return;
+    }
+
+    // modify the history
+  };
+
   return (
     <div className="w-full flex flex-col items-start relative gap-2">
       <Label className="">Describe adjustments to the suggested text:</Label>
@@ -52,6 +78,7 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
             setAdjustmentPrompt(adjustmentPrompt + "\n");
           } else if (e.key === "Enter") {
             e.preventDefault();
+            generateAdjustment();
           }
         }}
         placeholder={'"make it more formal", "be more specific", ...'}
@@ -63,6 +90,7 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
       <textarea
         ref={suggestionTextAreaRef}
         value={editSuggestion}
+        disabled={adjustmentLoading}
         onChange={(e) => setEditSuggestion(e.target.value)}
         className="w-full text-base p-2 border border-gray-300 rounded-md resize-none bg-green-200"
         style={{ overflow: "auto", maxHeight: "8em" }}

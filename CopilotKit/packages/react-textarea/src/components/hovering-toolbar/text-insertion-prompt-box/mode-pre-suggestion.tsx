@@ -72,7 +72,7 @@ export const PreSuggestion: React.FC<PreSuggestionProps> = ({
       <button
         disabled={loading || !insertionPrompt.trim()}
         onClick={generateText}
-        className="w-full py-2 px-4 rounded-md text-white bg-blue-500 hover:bg-blue-700"
+        className="w-full py-2 px-4 rounded-md text-white bg-blue-500 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
       >
         {loading ? "Loading..." : "Generate Text"}
       </button>

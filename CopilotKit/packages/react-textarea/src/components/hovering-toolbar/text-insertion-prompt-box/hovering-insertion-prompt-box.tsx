@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   State_SuggestionAppearing,
   SuggestionAppearing,
@@ -30,9 +30,18 @@ export const HoveringInsertionPromptBox: React.FC<Props> = (props) => {
     type: "pre-suggestion",
   });
 
-  const handleGeneratedText = (newGeneratedText: string) => {
-    setMode({ type: "suggestion-appearing", suggestion: newGeneratedText });
-  };
+  const handleGeneratedText = useCallback(
+    (generatedText: string) => {
+      setMode({
+        type: "suggestion-appearing",
+        initialSuggestion: {
+          adjustmentPrompt: insertionPrompt,
+          suggestion: generatedText,
+        },
+      });
+    },
+    [setMode, insertionPrompt]
+  );
 
   const goBack = () => {
     setMode({ type: "pre-suggestion" });
