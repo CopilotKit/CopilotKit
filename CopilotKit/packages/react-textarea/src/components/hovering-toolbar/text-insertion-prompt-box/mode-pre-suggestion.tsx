@@ -1,5 +1,5 @@
 import useAutosizeTextArea from "../../../hooks/misc/use-autosize-textarea";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   InsertionEditorState,
   InsertTextFunctionRaw,
@@ -25,7 +25,17 @@ export const PreSuggestion: React.FC<PreSuggestionProps> = ({
   const promptTextAreaRef = useRef<HTMLTextAreaElement>(null);
   useAutosizeTextArea(promptTextAreaRef, editPrompt);
 
+  // initially focus on the prompt text area
+  useEffect(() => {
+    promptTextAreaRef.current?.focus();
+  }, []);
+
   const generateText = async () => {
+    // don't generate text if the prompt is empty
+    if (!editPrompt.trim()) {
+      return;
+    }
+
     setLoading(true);
     const editedText = await insertionFunction(editorState, editPrompt);
     setLoading(false);
@@ -33,7 +43,7 @@ export const PreSuggestion: React.FC<PreSuggestionProps> = ({
   };
 
   return (
-    <div className="flex flex-col justify-center items-start">
+    <div className="flex flex-col justify-center items-start gap-2">
       <textarea
         ref={promptTextAreaRef}
         value={editPrompt}
@@ -52,7 +62,7 @@ export const PreSuggestion: React.FC<PreSuggestionProps> = ({
         rows={1}
       />
       <button
-        disabled={loading}
+        disabled={loading || !editPrompt.trim()}
         onClick={generateText}
         className="w-full py-2 px-4 rounded-md text-white bg-blue-500 hover:bg-blue-700"
       >
