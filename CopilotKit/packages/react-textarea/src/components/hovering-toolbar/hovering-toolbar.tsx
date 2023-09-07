@@ -101,7 +101,7 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
         {isDisplayed && selection && (
           <HoveringInsertionPromptBox
             editorState={editorState(editor, selection)}
-            insertionFunction={insertionFunction}
+            insertionSuggestion={insertionFunction}
             closeWindow={() => {
               setIsDisplayed(false);
             }}

@@ -8,14 +8,16 @@ export type State_SuggestionAppearing = {
   suggestion: string;
 };
 
-interface SuggestionAppearingProps {
+export interface SuggestionAppearingProps {
   state: State_SuggestionAppearing;
   performInsertion: (insertedText: string) => void;
+  goBack: () => void;
 }
 
 export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
   performInsertion,
   state,
+  goBack,
 }) => {
   const [editSuggestion, setEditSuggestion] = useState<string>(
     state.suggestion
@@ -53,7 +55,7 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
           }
         }}
         placeholder={'"make it more formal", "be more specific", ...'}
-        className="w-full bg-slate-200 h-auto text-sm p-2 rounded-md resize-none overflow-visible focus:outline-none focus:ring-0 focus:border-none"
+        className="w-full bg-slate-100 h-auto text-sm p-2 rounded-md resize-none overflow-visible focus:outline-none focus:ring-0 focus:border-none"
         rows={1}
       />
 
@@ -70,7 +72,7 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
         <Button
           className=" bg-gray-300"
           onClick={() => {
-            performInsertion(editSuggestion);
+            goBack();
           }}
         >
           <i className="material-icons">arrow_back</i> Back

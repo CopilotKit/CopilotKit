@@ -5,7 +5,7 @@ import {
 } from "./mode-suggestion-appearing";
 import { PreSuggestion, State_PreSuggestion } from "./mode-pre-suggestion";
 
-export type InsertTextFunctionRaw = (
+export type Generator_InsertionSuggestion = (
   editorState: InsertionEditorState,
   prompt: string
 ) => Promise<string>;
@@ -19,12 +19,13 @@ type InsertionPromptState = State_PreSuggestion | State_SuggestionAppearing;
 
 export interface Props {
   editorState: InsertionEditorState;
-  insertionFunction: InsertTextFunctionRaw;
+  insertionSuggestion: Generator_InsertionSuggestion;
   performInsertion: (insertedText: string) => void;
   closeWindow: () => void;
 }
 
 export const HoveringInsertionPromptBox: React.FC<Props> = (props) => {
+  const [insertionPrompt, setInsertionPrompt] = useState<string>("");
   const [mode, setMode] = useState<InsertionPromptState>({
     type: "pre-suggestion",
   });
@@ -33,12 +34,21 @@ export const HoveringInsertionPromptBox: React.FC<Props> = (props) => {
     setMode({ type: "suggestion-appearing", suggestion: newGeneratedText });
   };
 
+  const goBack = () => {
+    setMode({ type: "pre-suggestion" });
+  };
+
   return (
     <div className="flex flex-col justify-center items-center space-y-4 rounded-md border w-96 shadow-lg p-4 border-gray- bg-white">
       {mode.type === "pre-suggestion" ? (
-        <PreSuggestion {...props} onGeneratedText={handleGeneratedText} />
+        <PreSuggestion
+          {...props}
+          insertionPrompt={insertionPrompt}
+          setInsertionPrompt={setInsertionPrompt}
+          onGeneratedText={handleGeneratedText}
+        />
       ) : (
-        <SuggestionAppearing {...props} state={mode} />
+        <SuggestionAppearing {...props} state={mode} goBack={goBack} />
       )}
     </div>
   );
