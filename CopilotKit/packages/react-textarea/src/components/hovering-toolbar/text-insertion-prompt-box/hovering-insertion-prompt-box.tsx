@@ -7,8 +7,13 @@ import { PreSuggestion, State_PreSuggestion } from "./mode-pre-suggestion";
 
 export type Generator_InsertionSuggestion = (
   editorState: InsertionEditorState,
-  prompt: string
+  prompt: string,
+  abortSignal: AbortSignal
 ) => Promise<string>;
+
+export interface InsertionEditorApiConfig {
+  insertionSuggestion: Generator_InsertionSuggestion;
+}
 
 export interface InsertionEditorState {
   textBeforeCursor: string;
@@ -19,7 +24,7 @@ type InsertionPromptState = State_PreSuggestion | State_SuggestionAppearing;
 
 export interface Props {
   editorState: InsertionEditorState;
-  insertionSuggestion: Generator_InsertionSuggestion;
+  apiConfig: InsertionEditorApiConfig;
   performInsertion: (insertedText: string) => void;
   closeWindow: () => void;
 }
@@ -52,6 +57,7 @@ export const HoveringInsertionPromptBox: React.FC<Props> = (props) => {
       {mode.type === "pre-suggestion" ? (
         <PreSuggestion
           {...props}
+          insertionSuggestion={props.apiConfig.insertionSuggestion}
           insertionPrompt={insertionPrompt}
           setInsertionPrompt={setInsertionPrompt}
           onGeneratedText={handleGeneratedText}

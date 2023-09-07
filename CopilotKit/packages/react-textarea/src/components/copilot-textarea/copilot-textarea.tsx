@@ -9,6 +9,7 @@ import {
   defaultAutosuggestionsConfig,
 } from "../../types/standard-autosuggestions";
 import { BaseCopilotTextarea } from "../base-copilot-textarea/base-copilot-textarea";
+import { useMakeStandardInsertionFunction } from "../../hooks/make-autosuggestions-function/use-make-standard-insertion-function";
 
 export interface CopilotTextareaProps extends BaseCopilotTextareaProps {
   autosuggestionsConfig: Partial<AutosuggestionsConfig> & {
@@ -36,6 +37,15 @@ export const CopilotTextarea = React.forwardRef(
       autosuggestionsConfig.forwardedParams
     );
 
+    const insertionFunction = useMakeStandardInsertionFunction(
+      autosuggestionsConfig.textareaPurpose,
+      autosuggestionsConfig.apiEndpoint,
+      autosuggestionsConfig.makeSystemPrompt,
+      autosuggestionsConfig.fewShotMessages,
+      autosuggestionsConfig.externalContextCategories,
+      {}
+    );
+
     return (
       <>
         <BaseCopilotTextarea
@@ -43,6 +53,7 @@ export const CopilotTextarea = React.forwardRef(
           {...props}
           autosuggestionsConfig={autosuggestionsConfig}
           autosuggestionsFunction={autosuggestionsFunction}
+          insertionSuggestion={insertionFunction}
         />
       </>
     );

@@ -7,6 +7,10 @@ import {
 } from "../../types";
 import { ChatlikeApiEndpoint } from "../../types/standard-autosuggestions/chatlike-api-endpoint";
 import { retry } from "../../lib/retry";
+import {
+  Generator_InsertionSuggestion,
+  InsertionEditorState,
+} from "../../components/hovering-toolbar/text-insertion-prompt-box/hovering-insertion-prompt-box";
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
  * The function takes in the text before and after the cursor, and an abort signal.
@@ -20,18 +24,22 @@ import { retry } from "../../lib/retry";
  * @param contextCategories - The categories of context strings we want to include. By default, we include the (default) "global" context category.
  * @returns A memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
  */
-export function useMakeStandardAutosuggestionFunction(
+export function useMakeStandardInsertionFunction(
   textareaPurpose: string,
   apiEndpoint: ChatlikeApiEndpoint,
   makeSystemPrompt: MakeSystemPrompt,
   fewShotMessages: MinimalChatGPTMessage[],
   contextCategories: string[] | undefined,
   forwardedProps?: { [key: string]: any }
-): AutosuggestionsBareFunction {
+): Generator_InsertionSuggestion {
   const { getContextString } = useContext(CopilotContext);
 
   return useCallback(
-    async (beforeText: string, afterText: string, abortSignal: AbortSignal) => {
+    async (
+      editorState: InsertionEditorState,
+      insertionPrompt: string,
+      abortSignal: AbortSignal
+    ) => {
       const res = await retry(async () => {
         const messages: MinimalChatGPTMessage[] = [
           {
@@ -45,12 +53,17 @@ export function useMakeStandardAutosuggestionFunction(
           {
             role: "user",
             name: "TextAfterCursor",
-            content: afterText,
+            content: editorState.textAfterCursor,
           },
           {
             role: "user",
             name: "TextBeforeCursor",
-            content: beforeText,
+            content: editorState.textBeforeCursor,
+          },
+          {
+            role: "user",
+            name: "InsertionPrompt",
+            content: insertionPrompt,
           },
         ];
 

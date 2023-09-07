@@ -13,8 +13,6 @@ export async function POST(req: Request): Promise<Response> {
     model: "gpt-4",
     stream: false,
     messages,
-    max_tokens: 50,
-    stop: [".", "?", "!"],
     ...otherProps,
   });
 

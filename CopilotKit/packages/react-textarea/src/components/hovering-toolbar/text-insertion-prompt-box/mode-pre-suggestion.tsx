@@ -35,7 +35,7 @@ export const PreSuggestion: React.FC<PreSuggestionProps> = ({
     promptTextAreaRef.current?.focus();
   }, []);
 
-  const generateText = async () => {
+  const generateText = async (abortSignal?: AbortSignal) => {
     // don't generate text if the prompt is empty
     if (!insertionPrompt.trim()) {
       return;
@@ -44,7 +44,8 @@ export const PreSuggestion: React.FC<PreSuggestionProps> = ({
     setLoading(true);
     const insertionSuggestionText = await insertionSuggestion(
       editorState,
-      insertionPrompt
+      insertionPrompt,
+      abortSignal || new AbortController().signal
     );
     setLoading(false);
     onGeneratedText(insertionSuggestionText);
@@ -71,7 +72,7 @@ export const PreSuggestion: React.FC<PreSuggestionProps> = ({
       />
       <button
         disabled={loading || !insertionPrompt.trim()}
-        onClick={generateText}
+        onClick={() => generateText()}
         className="w-full py-2 px-4 rounded-md text-white bg-blue-500 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
       >
         {loading ? "Loading..." : "Generate Text"}

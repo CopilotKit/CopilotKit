@@ -20,7 +20,10 @@ import {
 import { AutosuggestionState } from "../../types/base/autosuggestion-state";
 import { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
 import "./base-copilot-textarea.css";
-import { HoveringToolbar } from "../hovering-toolbar/hovering-toolbar";
+import {
+  HoveringToolbar,
+  HoveringToolbarApiConfig,
+} from "../hovering-toolbar/hovering-toolbar";
 import { makeRenderElementFunction } from "./render-element";
 import { makeRenderPlaceholderFunction } from "./render-placeholder";
 import { useAddBrandingCss } from "./use-add-branding-css";
@@ -36,11 +39,13 @@ export interface HTMLCopilotTextAreaElement extends HTMLElement {
   blur: () => void;
 }
 
+export interface CopilotTextareaApiConfig extends HoveringToolbarApiConfig {
+  autosuggestionsFunction: AutosuggestionsBareFunction;
+}
+
 const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
   (
-    props: BaseCopilotTextareaProps & {
-      autosuggestionsFunction: AutosuggestionsBareFunction;
-    },
+    props: BaseCopilotTextareaProps & CopilotTextareaApiConfig,
     ref: React.Ref<HTMLCopilotTextAreaElement>
   ): JSX.Element => {
     const autosuggestionsConfig: BaseAutosuggestionsConfig = {
@@ -195,7 +200,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
           props.onChange?.(makeSemiFakeReactTextAreaEvent(fullEditorText));
         }}
       >
-        <HoveringToolbar />
+        <HoveringToolbar apiConfig={props} />
         <Editable
           renderElement={renderElementMemoized}
           renderPlaceholder={renderPlaceholderMemoized}
@@ -240,9 +245,7 @@ function makeSemiFakeReactTextAreaEvent(
 
 export const BaseCopilotTextarea = React.forwardRef(
   (
-    props: BaseCopilotTextareaProps & {
-      autosuggestionsFunction: AutosuggestionsBareFunction;
-    },
+    props: BaseCopilotTextareaProps & CopilotTextareaApiConfig,
     ref: React.Ref<HTMLCopilotTextAreaElement>
   ): JSX.Element => {
     return (

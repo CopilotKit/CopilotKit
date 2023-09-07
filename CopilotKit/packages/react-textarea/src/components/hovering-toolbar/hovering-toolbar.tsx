@@ -12,8 +12,17 @@ import {
   getFullEditorTextWithNewlines,
   getTextAroundCollapsedCursor,
 } from "../../lib/get-text-around-cursor";
+import { InsertionEditorApiConfig } from "./text-insertion-prompt-box/hovering-insertion-prompt-box";
 
-export const HoveringToolbar: () => JSX.Element | null = () => {
+export type HoveringToolbarApiConfig = InsertionEditorApiConfig;
+
+export interface HoveringToolbarProps {
+  apiConfig: HoveringToolbarApiConfig;
+}
+
+export const HoveringToolbar: (
+  props: HoveringToolbarProps
+) => JSX.Element | null = (props) => {
   const ref = useRef<HTMLDivElement>(null);
   const editor = useSlate();
   const selection = useSlateSelection();
@@ -84,14 +93,6 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
     return null;
   }
 
-  const insertionFunction = async (
-    state: InsertionEditorState,
-    prompt: string
-  ) => {
-    console.log("prompt", prompt);
-    return prompt;
-  };
-
   return (
     <Portal>
       <Menu
@@ -101,7 +102,7 @@ export const HoveringToolbar: () => JSX.Element | null = () => {
         {isDisplayed && selection && (
           <HoveringInsertionPromptBox
             editorState={editorState(editor, selection)}
-            insertionSuggestion={insertionFunction}
+            apiConfig={props.apiConfig}
             closeWindow={() => {
               setIsDisplayed(false);
             }}

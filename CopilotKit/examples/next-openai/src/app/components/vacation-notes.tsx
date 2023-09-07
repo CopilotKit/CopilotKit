@@ -24,6 +24,10 @@ export function VacationNotes(): JSX.Element {
           acceptAutosuggestionKey: "Tab",
           externalContextCategories: [],
           disableWhenEmpty: true,
+          forwardedParams: {
+            max_tokens: 20,
+            stop: [".", "?", "!"],
+          },
         }}
       />
     </>
