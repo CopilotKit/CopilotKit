@@ -15,12 +15,14 @@ Get started in minutes & iterate ad-infinitum.
 - 🚧 CopilotCloudKit: integrate arbitrary LLM logic / chains / RAG, using plain code.
 
 ## Demo
-
 CopilotKit in action.
-
 <p align="center">
   <img src="./assets/demo.gif" width="500" style="border-radius: 15px;">
 </p>
+
+2-min implementation showcase / tutorial:
+https://github.com/RecursivelyAI/CopilotKit/assets/746397/6986c13e-93c2-4ce7-91c6-fed0d874afaa
+
 
 
 
