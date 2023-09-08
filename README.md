@@ -20,9 +20,10 @@ CopilotKit in action.
   <img src="./assets/demo.gif" width="500" style="border-radius: 15px;">
 </p>
 
-2-min implementation showcase / tutorial:
-https://github.com/RecursivelyAI/CopilotKit/assets/746397/6986c13e-93c2-4ce7-91c6-fed0d874afaa
+**2-min showcase + 2-min implementation tutorial:**
 
+
+https://github.com/RecursivelyAI/CopilotKit/assets/746397/b0cdf38b-ec5c-4e95-8623-364bafb70907
 
 
 
