@@ -1,9 +1,9 @@
 import useAutosizeTextArea from "../../../hooks/misc/use-autosize-textarea";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  InsertionEditorState,
   Generator_InsertionSuggestion,
-} from "./hovering-insertion-prompt-box";
+  InsertionEditorState,
+} from "../../../types/base/autosuggestions-bare-function";
 
 export type State_PreSuggestion = {
   type: "pre-suggestion";

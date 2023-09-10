@@ -3,7 +3,6 @@ import { MinimalChatGPTMessage } from "../../../types";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import React, { useEffect, useRef, useState } from "react";
-import { InsertionEditorState } from "./hovering-insertion-prompt-box";
 
 export type State_SuggestionAppearing = {
   type: "suggestion-appearing";

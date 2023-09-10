@@ -2,22 +2,20 @@ import { css } from "@emotion/css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BaseSelection, Editor, Range, Location, Transforms } from "slate";
 import { useSlate, useSlateSelection } from "slate-react";
-import {
-  HoveringInsertionPromptBox,
-  InsertionEditorState,
-} from "./text-insertion-prompt-box";
+import { HoveringInsertionPromptBox } from "./text-insertion-prompt-box";
 import { Button, Icon, Menu, Portal } from "./hovering-toolbar-components";
 import { useHoveringEditorContext } from "./hovering-editor-provider";
 import {
   getFullEditorTextWithNewlines,
   getTextAroundCollapsedCursor,
 } from "../../lib/get-text-around-cursor";
-import { InsertionEditorApiConfig } from "./text-insertion-prompt-box/hovering-insertion-prompt-box";
-
-export type HoveringToolbarApiConfig = InsertionEditorApiConfig;
+import {
+  InsertionEditorApiConfig,
+  InsertionEditorState,
+} from "../../types/base/autosuggestions-bare-function";
 
 export interface HoveringToolbarProps {
-  apiConfig: HoveringToolbarApiConfig;
+  apiConfig: InsertionEditorApiConfig;
 }
 
 export const HoveringToolbar: (
@@ -113,7 +111,6 @@ export const HoveringToolbar: (
               Transforms.insertText(editor, insertedText, {
                 at: selection,
               });
-              // hide the hovering editor
               setIsDisplayed(false);
             }}
           />

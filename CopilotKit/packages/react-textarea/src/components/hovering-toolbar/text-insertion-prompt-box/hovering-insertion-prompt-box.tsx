@@ -4,21 +4,10 @@ import {
   SuggestionAppearing,
 } from "./mode-suggestion-appearing";
 import { PreSuggestion, State_PreSuggestion } from "./mode-pre-suggestion";
-
-export type Generator_InsertionSuggestion = (
-  editorState: InsertionEditorState,
-  prompt: string,
-  abortSignal: AbortSignal
-) => Promise<string>;
-
-export interface InsertionEditorApiConfig {
-  insertionSuggestion: Generator_InsertionSuggestion;
-}
-
-export interface InsertionEditorState {
-  textBeforeCursor: string;
-  textAfterCursor: string;
-}
+import {
+  InsertionEditorApiConfig,
+  InsertionEditorState,
+} from "../../../types/base/autosuggestions-bare-function";
 
 type InsertionPromptState = State_PreSuggestion | State_SuggestionAppearing;
 
@@ -57,7 +46,7 @@ export const HoveringInsertionPromptBox: React.FC<Props> = (props) => {
       {mode.type === "pre-suggestion" ? (
         <PreSuggestion
           {...props}
-          insertionSuggestion={props.apiConfig.insertionSuggestion}
+          insertionSuggestion={props.apiConfig.insertionSuggestionFunction}
           insertionPrompt={insertionPrompt}
           setInsertionPrompt={setInsertionPrompt}
           onGeneratedText={handleGeneratedText}

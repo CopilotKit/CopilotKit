@@ -10,7 +10,8 @@ import { retry } from "../../lib/retry";
 import {
   Generator_InsertionSuggestion,
   InsertionEditorState,
-} from "../../components/hovering-toolbar/text-insertion-prompt-box/hovering-insertion-prompt-box";
+} from "../../types/base/autosuggestions-bare-function";
+
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
  * The function takes in the text before and after the cursor, and an abort signal.

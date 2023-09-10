@@ -20,10 +20,7 @@ import {
 import { AutosuggestionState } from "../../types/base/autosuggestion-state";
 import { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
 import "./base-copilot-textarea.css";
-import {
-  HoveringToolbar,
-  HoveringToolbarApiConfig,
-} from "../hovering-toolbar/hovering-toolbar";
+import { HoveringToolbar } from "../hovering-toolbar/hovering-toolbar";
 import { makeRenderElementFunction } from "./render-element";
 import { makeRenderPlaceholderFunction } from "./render-placeholder";
 import { useAddBrandingCss } from "./use-add-branding-css";
@@ -32,15 +29,15 @@ import {
   useHoveringEditorContext,
 } from "../hovering-toolbar/hovering-editor-provider";
 import { EditableProps } from "slate-react/dist/components/editable";
+import {
+  CopilotTextareaApiConfig,
+  Generator_InsertionSuggestion,
+} from "../../types/base/autosuggestions-bare-function";
 
 export interface HTMLCopilotTextAreaElement extends HTMLElement {
   value: string;
   focus: () => void;
   blur: () => void;
-}
-
-export interface CopilotTextareaApiConfig extends HoveringToolbarApiConfig {
-  autosuggestionsFunction: AutosuggestionsBareFunction;
 }
 
 const BaseCopilotTextareaWithHoveringContext = React.forwardRef(

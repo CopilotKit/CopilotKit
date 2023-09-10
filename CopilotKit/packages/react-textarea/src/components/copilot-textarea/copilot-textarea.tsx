@@ -53,7 +53,7 @@ export const CopilotTextarea = React.forwardRef(
           {...props}
           autosuggestionsConfig={autosuggestionsConfig}
           autosuggestionsFunction={autosuggestionsFunction}
-          insertionSuggestion={insertionFunction}
+          insertionSuggestionFunction={insertionFunction}
         />
       </>
     );
