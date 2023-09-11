@@ -51,8 +51,7 @@ export function useAutosuggestions(
 
       // fetch the suggestion
       const suggestion = await autosuggestionFunction(
-        editorAutocompleteState.textBeforeCursor,
-        editorAutocompleteState.textAfterCursor,
+        editorAutocompleteState,
         abortSignal
       );
 

@@ -1,13 +1,12 @@
-export type AutosuggestionsBareFunction = (
-  textBefore: string,
-  textAfter: string,
-  abortSignal: AbortSignal
-) => Promise<string>;
-
 export interface InsertionEditorState {
   textBeforeCursor: string;
   textAfterCursor: string;
 }
+
+export type AutosuggestionsBareFunction = (
+  editorState: InsertionEditorState,
+  abortSignal: AbortSignal
+) => Promise<string>;
 
 export type Generator_InsertionSuggestion = (
   editorState: InsertionEditorState,

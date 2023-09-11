@@ -7,6 +7,7 @@ import {
 } from "../../types";
 import { ChatlikeApiEndpoint } from "../../types/standard-autosuggestions/chatlike-api-endpoint";
 import { retry } from "../../lib/retry";
+import { InsertionEditorState } from "../../types/base/autosuggestions-bare-function";
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
  * The function takes in the text before and after the cursor, and an abort signal.
@@ -31,7 +32,7 @@ export function useMakeStandardAutosuggestionFunction(
   const { getContextString } = useContext(CopilotContext);
 
   return useCallback(
-    async (beforeText: string, afterText: string, abortSignal: AbortSignal) => {
+    async (editorState: InsertionEditorState, abortSignal: AbortSignal) => {
       const res = await retry(async () => {
         const messages: MinimalChatGPTMessage[] = [
           {
@@ -45,12 +46,12 @@ export function useMakeStandardAutosuggestionFunction(
           {
             role: "user",
             name: "TextAfterCursor",
-            content: afterText,
+            content: editorState.textAfterCursor,
           },
           {
             role: "user",
             name: "TextBeforeCursor",
-            content: beforeText,
+            content: editorState.textBeforeCursor,
           },
         ];
 
