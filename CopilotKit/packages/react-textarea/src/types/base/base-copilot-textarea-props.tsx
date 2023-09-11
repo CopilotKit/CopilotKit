@@ -1,6 +1,6 @@
 import { TextareaHTMLAttributes } from "react";
 import { BaseAutosuggestionsConfig } from ".";
-import { CopilotTextareaApiConfig } from "./autosuggestions-bare-function";
+import { BaseCopilotTextareaApiConfig } from "./autosuggestions-bare-function";
 
 /**
  * `BaseCopilotTextareaProps` defines the properties for the `BaseCopilotTextarea` component.
@@ -34,6 +34,6 @@ export interface BaseCopilotTextareaProps
   onChange?: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
   autosuggestionsConfig: Partial<BaseAutosuggestionsConfig> & {
     textareaPurpose: string;
-    apiConfig: CopilotTextareaApiConfig;
+    apiConfig: BaseCopilotTextareaApiConfig;
   };
 }

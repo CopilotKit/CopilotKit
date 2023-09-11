@@ -19,7 +19,7 @@ export interface InsertionEditorApiConfig {
   insertionSuggestionFunction: Generator_InsertionSuggestion;
 }
 
-export interface CopilotTextareaApiConfig {
+export interface BaseCopilotTextareaApiConfig {
   autosuggestionsFunction: AutosuggestionsBareFunction;
   insertionSuggestionFunction: Generator_InsertionSuggestion;
 }

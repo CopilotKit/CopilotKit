@@ -10,7 +10,7 @@ import {
 } from "../../types/standard-autosuggestions";
 import { BaseCopilotTextarea } from "../base-copilot-textarea/base-copilot-textarea";
 import { useMakeStandardInsertionFunction } from "../../hooks/make-autosuggestions-function/use-make-standard-insertion-function";
-import { CopilotTextareaApiConfig } from "../../types/base/autosuggestions-bare-function";
+import { BaseCopilotTextareaApiConfig } from "../../types/base/autosuggestions-bare-function";
 
 export interface CopilotTextareaProps
   extends Omit<BaseCopilotTextareaProps, "autosuggestionsConfig"> {

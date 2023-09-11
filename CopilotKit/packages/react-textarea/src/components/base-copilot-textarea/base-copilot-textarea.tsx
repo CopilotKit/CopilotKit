@@ -29,7 +29,7 @@ import {
 } from "../hovering-toolbar/hovering-editor-provider";
 import { EditableProps } from "slate-react/dist/components/editable";
 import {
-  CopilotTextareaApiConfig,
+  BaseCopilotTextareaApiConfig,
   Generator_InsertionSuggestion,
 } from "../../types/base/autosuggestions-bare-function";
 

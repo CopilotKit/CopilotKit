@@ -1,4 +1,4 @@
-import { CopilotTextareaApiConfig } from "./autosuggestions-bare-function";
+import { BaseCopilotTextareaApiConfig } from "./autosuggestions-bare-function";
 
 export interface BaseAutosuggestionsConfig {
   textareaPurpose: string;
@@ -6,7 +6,7 @@ export interface BaseAutosuggestionsConfig {
   acceptAutosuggestionKey: string;
   disableWhenEmpty: boolean;
   disabled: boolean;
-  apiConfig: CopilotTextareaApiConfig;
+  apiConfig: BaseCopilotTextareaApiConfig;
 }
 
 export const defaultBaseAutosuggestionsConfig: Omit<
