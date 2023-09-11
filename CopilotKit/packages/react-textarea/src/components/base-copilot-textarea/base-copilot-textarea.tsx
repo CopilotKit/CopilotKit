@@ -13,7 +13,6 @@ import { addAutocompletionsToEditor } from "../../lib/slatejs-edits/add-autocomp
 import { clearAutocompletionsFromEditor } from "../../lib/slatejs-edits/clear-autocompletions";
 import { replaceEditorText } from "../../lib/slatejs-edits/replace-text";
 import {
-  AutosuggestionsBareFunction,
   BaseAutosuggestionsConfig,
   defaultBaseAutosuggestionsConfig,
 } from "../../types/base";
@@ -42,7 +41,7 @@ export interface HTMLCopilotTextAreaElement extends HTMLElement {
 
 const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
   (
-    props: BaseCopilotTextareaProps & CopilotTextareaApiConfig,
+    props: BaseCopilotTextareaProps,
     ref: React.Ref<HTMLCopilotTextAreaElement>
   ): JSX.Element => {
     const autosuggestionsConfig: BaseAutosuggestionsConfig = {
@@ -86,7 +85,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
     } = useAutosuggestions(
       autosuggestionsConfig.debounceTime,
       autosuggestionsConfig.acceptAutosuggestionKey,
-      props.autosuggestionsFunction,
+      autosuggestionsConfig.apiConfig.autosuggestionsFunction,
       insertText,
       autosuggestionsConfig.disableWhenEmpty,
       autosuggestionsConfig.disabled || hoveringEditorIsDisplayed // disable autosuggestions when the hovering editor is displayed
@@ -157,7 +156,6 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       value,
       onValueChange,
       autosuggestionsConfig: autosuggestionsConfigFromProps,
-      autosuggestionsFunction,
       className,
       onChange,
       onKeyDown,
@@ -197,7 +195,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
           props.onChange?.(makeSemiFakeReactTextAreaEvent(fullEditorText));
         }}
       >
-        <HoveringToolbar apiConfig={props} />
+        <HoveringToolbar apiConfig={autosuggestionsConfig.apiConfig} />
         <Editable
           renderElement={renderElementMemoized}
           renderPlaceholder={renderPlaceholderMemoized}
@@ -242,7 +240,7 @@ function makeSemiFakeReactTextAreaEvent(
 
 export const BaseCopilotTextarea = React.forwardRef(
   (
-    props: BaseCopilotTextareaProps & CopilotTextareaApiConfig,
+    props: BaseCopilotTextareaProps,
     ref: React.Ref<HTMLCopilotTextAreaElement>
   ): JSX.Element => {
     return (

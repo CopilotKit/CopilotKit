@@ -10,11 +10,12 @@ export type MakeSystemPrompt = (
   contextString: string
 ) => string;
 
-export interface AutosuggestionsConfig extends BaseAutosuggestionsConfig {
-  apiEndpoint: ChatlikeApiEndpoint;
+export interface AutosuggestionsConfig
+  extends Omit<BaseAutosuggestionsConfig, "apiConfig"> {
   externalContextCategories: string[] | undefined;
   makeSystemPrompt: MakeSystemPrompt;
   fewShotMessages: MinimalChatGPTMessage[];
+  apiEndpoint: ChatlikeApiEndpoint;
   forwardedParams: { [key: string]: any } | undefined;
 }
 

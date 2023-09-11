@@ -10,8 +10,10 @@ import {
 } from "../../types/standard-autosuggestions";
 import { BaseCopilotTextarea } from "../base-copilot-textarea/base-copilot-textarea";
 import { useMakeStandardInsertionFunction } from "../../hooks/make-autosuggestions-function/use-make-standard-insertion-function";
+import { CopilotTextareaApiConfig } from "../../types/base/autosuggestions-bare-function";
 
-export interface CopilotTextareaProps extends BaseCopilotTextareaProps {
+export interface CopilotTextareaProps
+  extends Omit<BaseCopilotTextareaProps, "autosuggestionsConfig"> {
   autosuggestionsConfig: Partial<AutosuggestionsConfig> & {
     textareaPurpose: string;
     apiEndpoint: ChatlikeApiEndpoint;
@@ -51,9 +53,13 @@ export const CopilotTextarea = React.forwardRef(
         <BaseCopilotTextarea
           ref={ref}
           {...props}
-          autosuggestionsConfig={autosuggestionsConfig}
-          autosuggestionsFunction={autosuggestionsFunction}
-          insertionSuggestionFunction={insertionFunction}
+          autosuggestionsConfig={{
+            ...autosuggestionsConfig,
+            apiConfig: {
+              insertionSuggestionFunction: insertionFunction,
+              autosuggestionsFunction: autosuggestionsFunction,
+            },
+          }}
         />
       </>
     );
