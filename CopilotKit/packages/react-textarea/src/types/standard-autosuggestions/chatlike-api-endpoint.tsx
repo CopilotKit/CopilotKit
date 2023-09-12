@@ -6,13 +6,11 @@ export type ChatlikeApiEndpointImpl = (
   forwardedProps?: { [key: string]: any }
 ) => Promise<string>;
 
-
 export type StreamingChatlikeApiEndpointImpl = (
   abortSignal: AbortSignal,
   messages: MinimalChatGPTMessage[],
   forwardedProps?: { [key: string]: any }
 ) => Promise<ReadableStream<string>>;
-
 
 export class ChatlikeApiEndpoint {
   public run: StreamingChatlikeApiEndpointImpl;
@@ -79,4 +77,3 @@ export class ChatlikeApiEndpoint {
     return new ChatlikeApiEndpoint(run);
   }
 }
-

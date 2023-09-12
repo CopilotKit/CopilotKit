@@ -54,7 +54,7 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
       }
     };
     read();
-    
+
     return () => {
       reader.releaseLock();
     };
