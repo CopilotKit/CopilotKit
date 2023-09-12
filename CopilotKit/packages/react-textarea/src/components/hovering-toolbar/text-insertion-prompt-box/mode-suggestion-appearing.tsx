@@ -39,8 +39,11 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
   const [adjustmentLoading, setAdjustmentLoading] = useState<boolean>(false);
 
   useEffect(() => {
-    const reader = state.initialSuggestion.generatingSuggestion.getReader();
+    // reset the edit suggestion
+    setEditSuggestion("");
 
+    // read the generating suggestion stream and continuously update the edit suggestion
+    const reader = state.initialSuggestion.generatingSuggestion.getReader();
     const read = async () => {
       while (true) {
         const { done, value } = await reader.read();
@@ -50,13 +53,12 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
         setEditSuggestion((prev) => prev + value);
       }
     };
-
     read();
     
     return () => {
       reader.releaseLock();
     };
-  }, []);
+  }, [state]);
 
   const suggestionTextAreaRef = useRef<HTMLTextAreaElement>(null);
   const adjustmentTextAreaRef = useRef<HTMLTextAreaElement>(null);
