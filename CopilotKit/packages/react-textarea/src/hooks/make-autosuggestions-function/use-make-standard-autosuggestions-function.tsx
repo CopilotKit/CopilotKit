@@ -55,7 +55,21 @@ export function useMakeStandardAutosuggestionFunction(
           },
         ];
 
-        return await apiEndpoint.run(abortSignal, messages, forwardedProps);
+        const stream = await apiEndpoint.run(abortSignal, messages, forwardedProps);
+
+        // read the stream:
+        const reader = stream.getReader();
+        let result = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            break;
+          }
+          result += value;
+        }
+
+        return result;
       });
 
       return res;

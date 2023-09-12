@@ -12,7 +12,7 @@ export type State_PreSuggestion = {
 export interface PreSuggestionProps {
   editorState: InsertionEditorState;
   insertionSuggestion: Generator_InsertionSuggestion;
-  onGeneratedText: (generatedText: string) => void;
+  onGeneratedText: (generatedText: ReadableStream<string>) => void;
 
   insertionPrompt: string;
   setInsertionPrompt: (value: string) => void;
@@ -42,13 +42,14 @@ export const PreSuggestion: React.FC<PreSuggestionProps> = ({
     }
 
     setLoading(true);
-    const insertionSuggestionText = await insertionSuggestion(
+    const insertionSuggestionTextStream = await insertionSuggestion(
       editorState,
       insertionPrompt,
       abortSignal || new AbortController().signal
     );
+    onGeneratedText(insertionSuggestionTextStream);
+
     setLoading(false);
-    onGeneratedText(insertionSuggestionText);
   };
 
   return (

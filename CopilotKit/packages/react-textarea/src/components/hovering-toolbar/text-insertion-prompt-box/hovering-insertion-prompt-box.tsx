@@ -25,12 +25,12 @@ export const HoveringInsertionPromptBox: React.FC<Props> = (props) => {
   });
 
   const handleGeneratedText = useCallback(
-    (generatedText: string) => {
+    (generatingText: ReadableStream<string>) => {
       setMode({
         type: "suggestion-appearing",
         initialSuggestion: {
           adjustmentPrompt: insertionPrompt,
-          suggestion: generatedText,
+          generatingSuggestion: generatingText,
         },
       });
     },

@@ -11,7 +11,7 @@ export type State_SuggestionAppearing = {
 
 type SuggestionSnapshot = {
   adjustmentPrompt: string;
-  suggestion: string;
+  generatingSuggestion: ReadableStream<string>;
 };
 
 export interface SuggestionAppearingProps {
@@ -34,11 +34,29 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
     SuggestionSnapshot[]
   >([state.initialSuggestion]);
 
-  const [editSuggestion, setEditSuggestion] = useState<string>(
-    state.initialSuggestion.suggestion
-  );
+  const [editSuggestion, setEditSuggestion] = useState<string>("");
   const [adjustmentPrompt, setAdjustmentPrompt] = useState<string>("");
   const [adjustmentLoading, setAdjustmentLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    const reader = state.initialSuggestion.generatingSuggestion.getReader();
+
+    const read = async () => {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        setEditSuggestion((prev) => prev + value);
+      }
+    };
+
+    read();
+    
+    return () => {
+      reader.releaseLock();
+    };
+  }, []);
 
   const suggestionTextAreaRef = useRef<HTMLTextAreaElement>(null);
   const adjustmentTextAreaRef = useRef<HTMLTextAreaElement>(null);

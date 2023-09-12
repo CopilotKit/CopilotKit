@@ -12,7 +12,7 @@ export type Generator_InsertionSuggestion = (
   editorState: InsertionEditorState,
   prompt: string,
   abortSignal: AbortSignal
-) => Promise<string>;
+) => Promise<ReadableStream<string>>;
 
 export interface InsertionEditorApiConfig {
   insertionSuggestionFunction: Generator_InsertionSuggestion;
