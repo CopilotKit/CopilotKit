@@ -74,7 +74,7 @@ function TextAreas() {
               // makeSystemPrompt: makeSystemPrompt,
               // fewShotMessages: fewShotMessages,
               forwardedParams: {
-                max_tokens: 25,
+                max_tokens: 5,
                 stop: ["\n", ".", ","],
               },
             },
@@ -84,7 +84,7 @@ function TextAreas() {
               ),
             },
           },
-          debounceTime: 650,
+          debounceTime: 250,
         }}
       />
 

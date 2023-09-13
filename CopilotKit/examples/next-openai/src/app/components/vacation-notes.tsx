@@ -17,7 +17,7 @@ export function VacationNotes(): JSX.Element {
         autosuggestionsConfig={{
           textareaPurpose:
             "Travel notes from the user's previous vacations. Likely written in a colloquial style, but adjust as needed.",
-          debounceTime: 700,
+          debounceTime: 250,
           acceptAutosuggestionKey: "Tab",
           externalContextCategories: [],
           disableWhenEmpty: true,

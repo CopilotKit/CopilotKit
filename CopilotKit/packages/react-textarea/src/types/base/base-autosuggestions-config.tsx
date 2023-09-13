@@ -13,7 +13,7 @@ export const defaultBaseAutosuggestionsConfig: Omit<
   BaseAutosuggestionsConfig,
   "textareaPurpose" | "apiConfig"
 > = {
-  debounceTime: 500,
+  debounceTime: 250,
   acceptAutosuggestionKey: "Tab",
   disableWhenEmpty: true,
   disabled: false,
