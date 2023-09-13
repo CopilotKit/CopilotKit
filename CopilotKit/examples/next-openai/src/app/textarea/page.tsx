@@ -12,6 +12,7 @@ import {
   MinimalChatGPTMessage,
 } from "@copilotkit/react-textarea";
 import { useRef, useState } from "react";
+import { useStateWithLocalStorage } from "../utils";
 
 export default function CopilotTextareaDemo(): JSX.Element {
   return (
@@ -22,8 +23,14 @@ export default function CopilotTextareaDemo(): JSX.Element {
 }
 
 function TextAreas() {
-  const [detailsText, setDetailsText] = useState("");
-  const [copilotText, setCopilotText] = useState("");
+  const [detailsText, setDetailsText] = useStateWithLocalStorage(
+    "",
+    "cacheKey_detailsText"
+  );
+  const [copilotText, setCopilotText] = useStateWithLocalStorage(
+    "",
+    "cacheKey_copilotText"
+  );
 
   const announcementCategoryId = "announcement";
   useMakeCopilotReadable(detailsText, undefined, [announcementCategoryId]);
