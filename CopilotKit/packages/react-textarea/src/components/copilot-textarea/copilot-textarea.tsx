@@ -10,12 +10,12 @@ import {
 } from "../../types/autosuggestions-config";
 import { BaseCopilotTextarea } from "../base-copilot-textarea/base-copilot-textarea";
 import { useMakeStandardInsertionFunction } from "../../hooks/make-autosuggestions-function/use-make-standard-insertion-function";
-import { BaseCopilotTextareaApiConfig } from "../../types/base/autosuggestions-bare-function";
-import { ApiConfigs } from "../../types/autosuggestions-config/autosuggestions-config";
+import merge from "lodash.merge";
+import { AutosuggestionsConfigPartialOverrides } from "../../types/autosuggestions-config/autosuggestions-config";
 
 export interface CopilotTextareaProps
   extends Omit<BaseCopilotTextareaProps, "autosuggestionsConfig"> {
-  autosuggestionsConfig: Partial<AutosuggestionsConfig> & {
+  autosuggestionsConfig: Partial<AutosuggestionsConfigPartialOverrides> & {
     textareaPurpose: string;
     apiEndpoint: ChatlikeApiEndpoint;
   };
@@ -26,10 +26,10 @@ export const CopilotTextarea = React.forwardRef(
     props: CopilotTextareaProps,
     ref: React.Ref<HTMLCopilotTextAreaElement>
   ): JSX.Element => {
-    const autosuggestionsConfig: AutosuggestionsConfig = {
-      ...defaultAutosuggestionsConfig,
-      ...props.autosuggestionsConfig,
-    };
+    const autosuggestionsConfig: AutosuggestionsConfig = merge(
+      defaultAutosuggestionsConfig,
+      props.autosuggestionsConfig
+    );
 
     const autosuggestionsFunction = useMakeStandardAutosuggestionFunction(
       autosuggestionsConfig.textareaPurpose,

@@ -16,12 +16,18 @@ export interface AutosuggestionsConfig
   extends Omit<BaseAutosuggestionsConfig, "apiConfig"> {
   externalContextCategories: string[] | undefined;
   apiEndpoint: ChatlikeApiEndpoint;
-  apiConfigs: ApiConfigs;
+  apiConfigs: {
+    suggestionsApiConfig: SuggestionsApiConfig;
+    insertionApiConfig: InsertionsApiConfig;
+  };
 }
 
-export interface ApiConfigs {
-  suggestionsApiConfig: SuggestionsApiConfig;
-  insertionApiConfig: InsertionsApiConfig;
+export interface AutosuggestionsConfigPartialOverrides
+  extends Omit<AutosuggestionsConfig, "apiConfigs"> {
+  apiConfigs: {
+    suggestionsApiConfig?: Partial<SuggestionsApiConfig>;
+    insertionApiConfig?: Partial<InsertionsApiConfig>;
+  };
 }
 
 export const defaultAutosuggestionsConfig: Omit<
