@@ -12,20 +12,15 @@ import {
 } from "./insertions-api-config";
 import { ChatlikeApiEndpoint } from ".";
 
+// Like the base autosuggestions config, with 2 additional fields:
+// 1. externalContextCategories: string[] | undefined;
+// 2. instead of apiConfigs, we have chatApiConfigs: a higher-level abstraction that uses a ChatGPT-like API endpoint.
 export interface AutosuggestionsConfig
   extends Omit<BaseAutosuggestionsConfig, "apiConfig"> {
   externalContextCategories: string[] | undefined;
-  apiConfigs: {
+  chatApiConfigs: {
     suggestionsApiConfig: SuggestionsApiConfig;
     insertionApiConfig: InsertionsApiConfig;
-  };
-}
-
-export interface AutosuggestionsConfigPartialOverrides
-  extends Omit<AutosuggestionsConfig, "apiConfigs"> {
-  apiConfigs: {
-    suggestionsApiConfig?: Partial<SuggestionsApiConfig>;
-    insertionApiConfig?: Partial<InsertionsApiConfig>;
   };
 }
 
@@ -35,7 +30,7 @@ export const defaultAutosuggestionsConfig: Omit<
 > = {
   ...defaultBaseAutosuggestionsConfig,
   externalContextCategories: undefined,
-  apiConfigs: {
+  chatApiConfigs: {
     suggestionsApiConfig: defaultSuggestionsApiConfig,
     insertionApiConfig: defaultInsertionsApiConfig,
   },

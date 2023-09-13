@@ -11,11 +11,20 @@ import {
 import { BaseCopilotTextarea } from "../base-copilot-textarea/base-copilot-textarea";
 import { useMakeStandardInsertionFunction } from "../../hooks/make-autosuggestions-function/use-make-standard-insertion-function";
 import merge from "lodash.merge";
-import { AutosuggestionsConfigPartialOverrides } from "../../types/autosuggestions-config/autosuggestions-config";
+import { InsertionsApiConfig } from "../../types/autosuggestions-config/insertions-api-config";
+import { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggestions-api-config";
+
+export interface AutosuggestionsConfigUserSpecified
+  extends Partial<Omit<AutosuggestionsConfig, "chatApiConfigs">> {
+  chatApiConfigs: {
+    suggestionsApiConfig?: Partial<SuggestionsApiConfig>;
+    insertionApiConfig?: Partial<InsertionsApiConfig>;
+  };
+}
 
 export interface CopilotTextareaProps
   extends Omit<BaseCopilotTextareaProps, "autosuggestionsConfig"> {
-  autosuggestionsConfig: Partial<AutosuggestionsConfigPartialOverrides> & {
+  autosuggestionsConfig: Partial<AutosuggestionsConfigUserSpecified> & {
     textareaPurpose: string;
   };
 }
@@ -33,13 +42,13 @@ export const CopilotTextarea = React.forwardRef(
     const autosuggestionsFunction = useMakeStandardAutosuggestionFunction(
       autosuggestionsConfig.textareaPurpose,
       autosuggestionsConfig.externalContextCategories,
-      autosuggestionsConfig.apiConfigs.suggestionsApiConfig
+      autosuggestionsConfig.chatApiConfigs.suggestionsApiConfig
     );
 
     const insertionFunction = useMakeStandardInsertionFunction(
       autosuggestionsConfig.textareaPurpose,
       autosuggestionsConfig.externalContextCategories,
-      autosuggestionsConfig.apiConfigs.insertionApiConfig
+      autosuggestionsConfig.chatApiConfigs.insertionApiConfig
     );
 
     return (

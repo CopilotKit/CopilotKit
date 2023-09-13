@@ -45,7 +45,7 @@ function TextAreas() {
           textareaPurpose:
             "A COOL & SMOOTH announcement post about CopilotTextarea. No pomp, no fluff, no BS. Just the facts. Be brief, be clear, be concise. Be cool.",
           externalContextCategories: [announcementCategoryId],
-          apiConfigs: {
+          chatApiConfigs: {
             suggestionsApiConfig: {
               makeSystemPrompt: makeSystemPrompt,
               fewShotMessages: fewShotMessages,

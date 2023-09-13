@@ -21,7 +21,7 @@ export function VacationNotes(): JSX.Element {
           acceptAutosuggestionKey: "Tab",
           externalContextCategories: [],
           disableWhenEmpty: true,
-          apiConfigs: {
+          chatApiConfigs: {
             suggestionsApiConfig: {
               forwardedParams: {
                 max_tokens: 20,
