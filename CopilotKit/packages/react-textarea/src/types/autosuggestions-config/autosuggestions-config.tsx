@@ -15,7 +15,6 @@ import { ChatlikeApiEndpoint } from ".";
 export interface AutosuggestionsConfig
   extends Omit<BaseAutosuggestionsConfig, "apiConfig"> {
   externalContextCategories: string[] | undefined;
-  apiEndpoint: ChatlikeApiEndpoint;
   apiConfigs: {
     suggestionsApiConfig: SuggestionsApiConfig;
     insertionApiConfig: InsertionsApiConfig;

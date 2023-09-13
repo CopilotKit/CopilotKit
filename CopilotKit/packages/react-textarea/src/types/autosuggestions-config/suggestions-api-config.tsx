@@ -1,7 +1,9 @@
 import { MinimalChatGPTMessage } from "./subtypes/minimal-chat-gpt-message";
 import { MakeSystemPrompt } from "./subtypes/make-system-prompt";
+import { ChatlikeApiEndpoint } from "./subtypes/chatlike-api-endpoint";
 
 export interface SuggestionsApiConfig {
+  apiEndpoint: ChatlikeApiEndpoint;
   makeSystemPrompt: MakeSystemPrompt;
   fewShotMessages: MinimalChatGPTMessage[];
   forwardedParams: { [key: string]: any } | undefined;
@@ -72,6 +74,9 @@ export const defaultSuggestionsFewShotMessages: MinimalChatGPTMessage[] = [
 ];
 
 export const defaultSuggestionsApiConfig: SuggestionsApiConfig = {
+  apiEndpoint: ChatlikeApiEndpoint.standardOpenAIEndpoint(
+    "/api/copilotkit_chatlike"
+  ),
   makeSystemPrompt: defaultSuggestionsMakeSystemPrompt,
   fewShotMessages: defaultSuggestionsFewShotMessages,
   forwardedParams: undefined,

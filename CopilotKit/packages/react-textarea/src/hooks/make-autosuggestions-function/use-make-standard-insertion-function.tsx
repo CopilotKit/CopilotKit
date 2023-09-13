@@ -1,7 +1,6 @@
 import { CopilotContext } from "@copilotkit/react-core";
 import { useCallback, useContext } from "react";
 import { MinimalChatGPTMessage } from "../../types";
-import { ChatlikeApiEndpoint } from "../../types/autosuggestions-config/subtypes/chatlike-api-endpoint";
 import { retry } from "../../lib/retry";
 import {
   Generator_InsertionSuggestion,
@@ -25,7 +24,6 @@ import { InsertionsApiConfig } from "../../types/autosuggestions-config/insertio
 export function useMakeStandardInsertionFunction(
   textareaPurpose: string,
   contextCategories: string[] | undefined,
-  apiEndpoint: ChatlikeApiEndpoint,
   apiConfig: InsertionsApiConfig
 ): Generator_InsertionSuggestion {
   const { getContextString } = useContext(CopilotContext);
@@ -63,7 +61,7 @@ export function useMakeStandardInsertionFunction(
           },
         ];
 
-        return await apiEndpoint.run(
+        return await apiConfig.apiEndpoint.run(
           abortSignal,
           messages,
           apiConfig.forwardedParams
@@ -72,12 +70,6 @@ export function useMakeStandardInsertionFunction(
 
       return res;
     },
-    [
-      apiConfig,
-      apiEndpoint,
-      getContextString,
-      contextCategories,
-      textareaPurpose,
-    ]
+    [apiConfig, getContextString, contextCategories, textareaPurpose]
   );
 }

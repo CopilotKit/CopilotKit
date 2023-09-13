@@ -17,7 +17,6 @@ export interface CopilotTextareaProps
   extends Omit<BaseCopilotTextareaProps, "autosuggestionsConfig"> {
   autosuggestionsConfig: Partial<AutosuggestionsConfigPartialOverrides> & {
     textareaPurpose: string;
-    apiEndpoint: ChatlikeApiEndpoint;
   };
 }
 
@@ -34,14 +33,12 @@ export const CopilotTextarea = React.forwardRef(
     const autosuggestionsFunction = useMakeStandardAutosuggestionFunction(
       autosuggestionsConfig.textareaPurpose,
       autosuggestionsConfig.externalContextCategories,
-      autosuggestionsConfig.apiEndpoint,
       autosuggestionsConfig.apiConfigs.suggestionsApiConfig
     );
 
     const insertionFunction = useMakeStandardInsertionFunction(
       autosuggestionsConfig.textareaPurpose,
       autosuggestionsConfig.externalContextCategories,
-      autosuggestionsConfig.apiEndpoint,
       autosuggestionsConfig.apiConfigs.insertionApiConfig
     );
 

@@ -42,9 +42,6 @@ function TextAreas() {
           opacity: 0.5,
         }}
         autosuggestionsConfig={{
-          apiEndpoint: ChatlikeApiEndpoint.standardOpenAIEndpoint(
-            "/api/autosuggestions"
-          ),
           textareaPurpose:
             "A COOL & SMOOTH announcement post about CopilotTextarea. No pomp, no fluff, no BS. Just the facts. Be brief, be clear, be concise. Be cool.",
           externalContextCategories: [announcementCategoryId],

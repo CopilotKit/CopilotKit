@@ -4,7 +4,6 @@ import {
   AutosuggestionsBareFunction,
   MinimalChatGPTMessage,
 } from "../../types";
-import { ChatlikeApiEndpoint } from "../../types/autosuggestions-config/subtypes/chatlike-api-endpoint";
 import { retry } from "../../lib/retry";
 import { InsertionEditorState } from "../../types/base/autosuggestions-bare-function";
 import { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggestions-api-config";
@@ -24,7 +23,6 @@ import { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggest
 export function useMakeStandardAutosuggestionFunction(
   textareaPurpose: string,
   contextCategories: string[] | undefined,
-  apiEndpoint: ChatlikeApiEndpoint,
   apiConfig: SuggestionsApiConfig
 ): AutosuggestionsBareFunction {
   const { getContextString } = useContext(CopilotContext);
@@ -53,7 +51,7 @@ export function useMakeStandardAutosuggestionFunction(
           },
         ];
 
-        const stream = await apiEndpoint.run(
+        const stream = await apiConfig.apiEndpoint.run(
           abortSignal,
           messages,
           apiConfig.forwardedParams
@@ -76,12 +74,6 @@ export function useMakeStandardAutosuggestionFunction(
 
       return res;
     },
-    [
-      apiConfig,
-      apiEndpoint,
-      getContextString,
-      contextCategories,
-      textareaPurpose,
-    ]
+    [apiConfig, getContextString, contextCategories, textareaPurpose]
   );
 }
