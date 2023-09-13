@@ -32,6 +32,11 @@ function TextAreas() {
     "cacheKey_copilotText"
   );
 
+  const [textareaPurpose, setTextareaPurpose] = useStateWithLocalStorage(
+    "A COOL & SMOOTH announcement post about CopilotTextarea. No pomp, no fluff, no BS. Just the facts. Be brief, be clear, be concise. Be cool.",
+    "cacheKey_textareaPurpose"
+  );
+
   const announcementCategoryId = "announcement";
   useMakeCopilotReadable(detailsText, undefined, [announcementCategoryId]);
 
@@ -39,6 +44,16 @@ function TextAreas() {
 
   return (
     <div className="w-full h-full gap-10 flex flex-col items-center p-10">
+      <div className="flex w-1/2 items-start gap-3">
+        <span className="text-3xl text-white whitespace-nowrap">
+          Textarea Purpose:
+        </span>
+        <textarea
+          className="p-2 h-12 rounded-lg flex-grow overflow-x-auto overflow-y-hidden whitespace-nowrap"
+          value={textareaPurpose}
+          onChange={(event) => setTextareaPurpose(event.target.value)}
+        />
+      </div>
       <CopilotTextarea
         value={copilotText}
         ref={copilotTextareaRef}
@@ -49,16 +64,15 @@ function TextAreas() {
           opacity: 0.5,
         }}
         autosuggestionsConfig={{
-          textareaPurpose:
-            "A COOL & SMOOTH announcement post about CopilotTextarea. No pomp, no fluff, no BS. Just the facts. Be brief, be clear, be concise. Be cool.",
+          textareaPurpose: textareaPurpose,
           externalContextCategories: [announcementCategoryId],
           chatApiConfigs: {
             suggestionsApiConfig: {
               apiEndpoint: ChatlikeApiEndpoint.standardOpenAIEndpoint(
                 "/api/copilotkit_chatlike"
               ),
-              makeSystemPrompt: makeSystemPrompt,
-              fewShotMessages: fewShotMessages,
+              // makeSystemPrompt: makeSystemPrompt,
+              // fewShotMessages: fewShotMessages,
               forwardedParams: {
                 max_tokens: 25,
                 stop: ["\n", ".", ","],
@@ -95,45 +109,45 @@ function TextAreas() {
   );
 }
 
-const makeSystemPrompt: MakeSystemPrompt = (textareaPurpose, contextString) => {
-  return `
-You are a versatile writing assistant.
+// const makeSystemPrompt: MakeSystemPrompt = (textareaPurpose, contextString) => {
+//   return `
+// You are a versatile writing assistant.
 
-The user is writing some text.
-The purpose is: \"${textareaPurpose}\"
+// The user is writing some text.
+// The purpose is: \"${textareaPurpose}\"
 
-Your job is to guess what the user will write next AS BEST YOU CAN.
-Only guess a SHORT distance ahead. Usually 1 sentence, or at most 1 paragraph.
+// Your job is to guess what the user will write next AS BEST YOU CAN.
+// Only guess a SHORT distance ahead. Usually 1 sentence, or at most 1 paragraph.
 
-Adjust yourself to the user's style and implied intent.
+// Adjust yourself to the user's style and implied intent.
 
-The user will provide both the text before and after the cursor. You should use this to infer what the user is likely to write next.
-<TextAfterCursor>
-<TextBeforeCursor>
-<YourSuggestion>
+// The user will provide both the text before and after the cursor. You should use this to infer what the user is likely to write next.
+// <TextAfterCursor>
+// <TextBeforeCursor>
+// <YourSuggestion>
 
-If we need to add a whitespace character to the suggested text, make sure to explicitly add it in.
+// If we need to add a whitespace character to the suggested text, make sure to explicitly add it in.
 
-The following external context is also provided. Use it to help you make better suggestions!!!
-\`\`\`
-${contextString}
-\`\`\`
-`;
-};
+// The following external context is also provided. Use it to help you make better suggestions!!!
+// \`\`\`
+// ${contextString}
+// \`\`\`
+// `;
+// };
 
-const fewShotMessages: MinimalChatGPTMessage[] = [
-  {
-    role: "user",
-    content: "",
-    name: "TextAfterCursor",
-  },
-  {
-    role: "user",
-    content: "Introducing:",
-    name: "TextBeforeCursor",
-  },
-  {
-    role: "assistant",
-    content: "<CopilotTextarea />",
-  },
-];
+// const fewShotMessages: MinimalChatGPTMessage[] = [
+//   {
+//     role: "user",
+//     content: "",
+//     name: "TextAfterCursor",
+//   },
+//   {
+//     role: "user",
+//     content: "Introducing:",
+//     name: "TextBeforeCursor",
+//   },
+//   {
+//     role: "assistant",
+//     content: "<CopilotTextarea />",
+//   },
+// ];
