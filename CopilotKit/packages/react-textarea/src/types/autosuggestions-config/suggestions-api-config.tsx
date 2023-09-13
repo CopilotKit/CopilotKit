@@ -1,25 +1,13 @@
-import {
-  BaseAutosuggestionsConfig,
-  defaultBaseAutosuggestionsConfig,
-} from "../base";
-import { ChatlikeApiEndpoint } from "./chatlike-api-endpoint";
-import { MinimalChatGPTMessage } from "./minimal-chat-gpt-message";
+import { MinimalChatGPTMessage } from "./subtypes/minimal-chat-gpt-message";
+import { MakeSystemPrompt } from "./subtypes/make-system-prompt";
 
-export type MakeSystemPrompt = (
-  textareaPurpose: string,
-  contextString: string
-) => string;
-
-export interface AutosuggestionsConfig
-  extends Omit<BaseAutosuggestionsConfig, "apiConfig"> {
-  externalContextCategories: string[] | undefined;
+export interface SuggestionsApiConfig {
   makeSystemPrompt: MakeSystemPrompt;
   fewShotMessages: MinimalChatGPTMessage[];
-  apiEndpoint: ChatlikeApiEndpoint;
   forwardedParams: { [key: string]: any } | undefined;
 }
 
-export const defaultMakeSystemPrompt: MakeSystemPrompt = (
+export const defaultSuggestionsMakeSystemPrompt: MakeSystemPrompt = (
   textareaPurpose,
   contextString
 ) => {
@@ -47,7 +35,7 @@ ${contextString}
 `;
 };
 
-export const defaultFewShotMessages: MinimalChatGPTMessage[] = [
+export const defaultSuggestionsFewShotMessages: MinimalChatGPTMessage[] = [
   {
     role: "user",
     name: "TextAfterCursor",
@@ -82,14 +70,9 @@ export const defaultFewShotMessages: MinimalChatGPTMessage[] = [
       ' (ii) that, for purposes of this Agreement and the Merger Agreement, the applicable percentage set forth opposite the name of the Optionholder in the Distribution Waterfall shall be such the Optionholder\'s "Pro Rata Share"; ',
   },
 ];
-export const defaultAutosuggestionsConfig: Omit<
-  AutosuggestionsConfig,
-  "textareaPurpose" | "apiEndpoint"
-> = {
-  ...defaultBaseAutosuggestionsConfig,
 
-  makeSystemPrompt: defaultMakeSystemPrompt,
-  fewShotMessages: defaultFewShotMessages,
-  externalContextCategories: undefined,
+export const defaultSuggestionsApiConfig: SuggestionsApiConfig = {
+  makeSystemPrompt: defaultSuggestionsMakeSystemPrompt,
+  fewShotMessages: defaultSuggestionsFewShotMessages,
   forwardedParams: undefined,
 };

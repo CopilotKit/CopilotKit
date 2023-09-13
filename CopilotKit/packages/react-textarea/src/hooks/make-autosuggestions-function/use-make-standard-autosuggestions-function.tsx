@@ -2,12 +2,12 @@ import { CopilotContext } from "@copilotkit/react-core";
 import { useCallback, useContext } from "react";
 import {
   AutosuggestionsBareFunction,
-  MakeSystemPrompt,
   MinimalChatGPTMessage,
 } from "../../types";
-import { ChatlikeApiEndpoint } from "../../types/standard-autosuggestions/chatlike-api-endpoint";
+import { ChatlikeApiEndpoint } from "../../types/autosuggestions-config/subtypes/chatlike-api-endpoint";
 import { retry } from "../../lib/retry";
 import { InsertionEditorState } from "../../types/base/autosuggestions-bare-function";
+import { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggestions-api-config";
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
  * The function takes in the text before and after the cursor, and an abort signal.
@@ -23,11 +23,9 @@ import { InsertionEditorState } from "../../types/base/autosuggestions-bare-func
  */
 export function useMakeStandardAutosuggestionFunction(
   textareaPurpose: string,
-  apiEndpoint: ChatlikeApiEndpoint,
-  makeSystemPrompt: MakeSystemPrompt,
-  fewShotMessages: MinimalChatGPTMessage[],
   contextCategories: string[] | undefined,
-  forwardedProps?: { [key: string]: any }
+  apiEndpoint: ChatlikeApiEndpoint,
+  apiConfig: SuggestionsApiConfig
 ): AutosuggestionsBareFunction {
   const { getContextString } = useContext(CopilotContext);
 
@@ -37,12 +35,12 @@ export function useMakeStandardAutosuggestionFunction(
         const messages: MinimalChatGPTMessage[] = [
           {
             role: "system",
-            content: makeSystemPrompt(
+            content: apiConfig.makeSystemPrompt(
               textareaPurpose,
               getContextString(contextCategories)
             ),
           },
-          ...fewShotMessages,
+          ...apiConfig.fewShotMessages,
           {
             role: "user",
             name: "TextAfterCursor",
@@ -58,7 +56,7 @@ export function useMakeStandardAutosuggestionFunction(
         const stream = await apiEndpoint.run(
           abortSignal,
           messages,
-          forwardedProps
+          apiConfig.forwardedParams
         );
 
         // read the stream:
@@ -79,9 +77,8 @@ export function useMakeStandardAutosuggestionFunction(
       return res;
     },
     [
+      apiConfig,
       apiEndpoint,
-      makeSystemPrompt,
-      fewShotMessages,
       getContextString,
       contextCategories,
       textareaPurpose,

@@ -78,7 +78,8 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
           const newSuggestion = prev + value;
           // Scroll to the bottom of the textarea. We call this here to make sure scroll-to-bottom is synchronous with the state update.
           if (suggestionTextAreaRef.current) {
-            suggestionTextAreaRef.current.scrollTop = suggestionTextAreaRef.current.scrollHeight;
+            suggestionTextAreaRef.current.scrollTop =
+              suggestionTextAreaRef.current.scrollHeight;
           }
           return newSuggestion;
         });

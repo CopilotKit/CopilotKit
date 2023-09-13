@@ -1,16 +1,13 @@
 import { CopilotContext } from "@copilotkit/react-core";
 import { useCallback, useContext } from "react";
-import {
-  AutosuggestionsBareFunction,
-  MakeSystemPrompt,
-  MinimalChatGPTMessage,
-} from "../../types";
-import { ChatlikeApiEndpoint } from "../../types/standard-autosuggestions/chatlike-api-endpoint";
+import { MinimalChatGPTMessage } from "../../types";
+import { ChatlikeApiEndpoint } from "../../types/autosuggestions-config/subtypes/chatlike-api-endpoint";
 import { retry } from "../../lib/retry";
 import {
   Generator_InsertionSuggestion,
   InsertionEditorState,
 } from "../../types/base/autosuggestions-bare-function";
+import { InsertionsApiConfig } from "../../types/autosuggestions-config/insertions-api-config";
 
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
@@ -27,11 +24,9 @@ import {
  */
 export function useMakeStandardInsertionFunction(
   textareaPurpose: string,
-  apiEndpoint: ChatlikeApiEndpoint,
-  makeSystemPrompt: MakeSystemPrompt,
-  fewShotMessages: MinimalChatGPTMessage[],
   contextCategories: string[] | undefined,
-  forwardedProps?: { [key: string]: any }
+  apiEndpoint: ChatlikeApiEndpoint,
+  apiConfig: InsertionsApiConfig
 ): Generator_InsertionSuggestion {
   const { getContextString } = useContext(CopilotContext);
 
@@ -45,12 +40,12 @@ export function useMakeStandardInsertionFunction(
         const messages: MinimalChatGPTMessage[] = [
           {
             role: "system",
-            content: makeSystemPrompt(
+            content: apiConfig.makeSystemPrompt(
               textareaPurpose,
               getContextString(contextCategories)
             ),
           },
-          ...fewShotMessages,
+          ...apiConfig.fewShotMessages,
           {
             role: "user",
             name: "TextAfterCursor",
@@ -68,15 +63,18 @@ export function useMakeStandardInsertionFunction(
           },
         ];
 
-        return await apiEndpoint.run(abortSignal, messages, forwardedProps);
+        return await apiEndpoint.run(
+          abortSignal,
+          messages,
+          apiConfig.forwardedParams
+        );
       });
 
       return res;
     },
     [
+      apiConfig,
       apiEndpoint,
-      makeSystemPrompt,
-      fewShotMessages,
       getContextString,
       contextCategories,
       textareaPurpose,
