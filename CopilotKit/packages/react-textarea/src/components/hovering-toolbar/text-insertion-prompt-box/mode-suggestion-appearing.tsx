@@ -41,6 +41,21 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
   const [adjustmentPrompt, setAdjustmentPrompt] = useState<string>("");
   const [adjustmentLoading, setAdjustmentLoading] = useState<boolean>(false);
 
+  const suggestionTextAreaRef = useRef<HTMLTextAreaElement>(null);
+  const adjustmentTextAreaRef = useRef<HTMLTextAreaElement>(null);
+
+  useAutosizeTextArea(suggestionTextAreaRef, editSuggestion || "");
+  useAutosizeTextArea(adjustmentTextAreaRef, adjustmentPrompt || "");
+
+  // initially focus on the end of the suggestion text area
+  useEffect(() => {
+    suggestionTextAreaRef.current?.focus();
+    suggestionTextAreaRef.current?.setSelectionRange(
+      editSuggestion.length,
+      editSuggestion.length
+    );
+  }, []);
+
   useEffect(() => {
     // Check if the stream is already locked
     if (state.initialSuggestion.generatingSuggestion.locked) {
@@ -59,9 +74,17 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
         if (done) {
           break;
         }
-        setEditSuggestion((prev) => prev + value);
-        setSuggestionIsLoading(false);
+        setEditSuggestion((prev) => {
+          const newSuggestion = prev + value;
+          // Scroll to the bottom of the textarea. We call this here to make sure scroll-to-bottom is synchronous with the state update.
+          if (suggestionTextAreaRef.current) {
+            suggestionTextAreaRef.current.scrollTop = suggestionTextAreaRef.current.scrollHeight;
+          }
+          return newSuggestion;
+        });
       }
+
+      setSuggestionIsLoading(false);
     };
     read();
 
@@ -77,21 +100,6 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
       releaseLockIfNotClosed();
     };
   }, [state]);
-
-  const suggestionTextAreaRef = useRef<HTMLTextAreaElement>(null);
-  const adjustmentTextAreaRef = useRef<HTMLTextAreaElement>(null);
-
-  useAutosizeTextArea(suggestionTextAreaRef, editSuggestion || "");
-  useAutosizeTextArea(adjustmentTextAreaRef, adjustmentPrompt || "");
-
-  // initially focus on the end of the suggestion text area
-  useEffect(() => {
-    suggestionTextAreaRef.current?.focus();
-    suggestionTextAreaRef.current?.setSelectionRange(
-      editSuggestion.length,
-      editSuggestion.length
-    );
-  }, []);
 
   const generateAdjustment = async () => {
     // don't generate text if the prompt is empty
