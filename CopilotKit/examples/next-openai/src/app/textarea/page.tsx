@@ -47,12 +47,20 @@ function TextAreas() {
           externalContextCategories: [announcementCategoryId],
           chatApiConfigs: {
             suggestionsApiConfig: {
+              apiEndpoint: ChatlikeApiEndpoint.standardOpenAIEndpoint(
+                "/api/copilotkit_chatlike"
+              ),
               makeSystemPrompt: makeSystemPrompt,
               fewShotMessages: fewShotMessages,
               forwardedParams: {
                 max_tokens: 25,
                 stop: ["\n", ".", ","],
               },
+            },
+            insertionApiConfig: {
+              apiEndpoint: ChatlikeApiEndpoint.standardOpenAIEndpoint(
+                "/api/copilotkit_chatlike"
+              ),
             },
           },
           debounceTime: 650,

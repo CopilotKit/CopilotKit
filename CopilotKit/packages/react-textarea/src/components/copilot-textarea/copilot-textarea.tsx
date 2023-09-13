@@ -5,30 +5,18 @@ import { HTMLCopilotTextAreaElement } from "../../types";
 import { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
 import {
   AutosuggestionsConfig,
-  ChatlikeApiEndpoint,
   defaultAutosuggestionsConfig,
 } from "../../types/autosuggestions-config";
 import { BaseCopilotTextarea } from "../base-copilot-textarea/base-copilot-textarea";
 import { useMakeStandardInsertionFunction } from "../../hooks/make-autosuggestions-function/use-make-standard-insertion-function";
 import merge from "lodash.merge";
-import { InsertionsApiConfig } from "../../types/autosuggestions-config/insertions-api-config";
-import { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggestions-api-config";
-
-export interface AutosuggestionsConfigUserSpecified
-  extends Partial<Omit<AutosuggestionsConfig, "chatApiConfigs">> {
-  chatApiConfigs: {
-    suggestionsApiConfig?: Partial<SuggestionsApiConfig>;
-    insertionApiConfig?: Partial<InsertionsApiConfig>;
-  };
-}
+import { AutosuggestionsConfigUserSpecified } from "../../types/autosuggestions-config/autosuggestions-config-user-specified";
 
 // Like the base copilot textarea props,
 // but with baseAutosuggestionsConfig replaced with autosuggestionsConfig.
 export interface CopilotTextareaProps
   extends Omit<BaseCopilotTextareaProps, "baseAutosuggestionsConfig"> {
-  autosuggestionsConfig: Partial<AutosuggestionsConfigUserSpecified> & {
-    textareaPurpose: string;
-  };
+  autosuggestionsConfig: AutosuggestionsConfigUserSpecified;
 }
 
 export const CopilotTextarea = React.forwardRef(

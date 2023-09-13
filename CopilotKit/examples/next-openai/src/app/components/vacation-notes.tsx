@@ -23,10 +23,18 @@ export function VacationNotes(): JSX.Element {
           disableWhenEmpty: true,
           chatApiConfigs: {
             suggestionsApiConfig: {
+              apiEndpoint: ChatlikeApiEndpoint.standardOpenAIEndpoint(
+                "/api/copilotkit_chatlike"
+              ),
               forwardedParams: {
                 max_tokens: 20,
                 stop: [".", "?", "!"],
               },
+            },
+            insertionApiConfig: {
+              apiEndpoint: ChatlikeApiEndpoint.standardOpenAIEndpoint(
+                "/api/copilotkit_chatlike"
+              ),
             },
           },
         }}
