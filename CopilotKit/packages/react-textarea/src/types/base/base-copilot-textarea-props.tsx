@@ -32,7 +32,7 @@ export interface BaseCopilotTextareaProps
   value?: string;
   onValueChange?: (value: string) => void;
   onChange?: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  autosuggestionsConfig: Partial<BaseAutosuggestionsConfig> & {
+  baseAutosuggestionsConfig: Partial<BaseAutosuggestionsConfig> & {
     textareaPurpose: string;
     apiConfig: BaseCopilotTextareaApiConfig;
   };

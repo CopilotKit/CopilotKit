@@ -22,8 +22,10 @@ export interface AutosuggestionsConfigUserSpecified
   };
 }
 
+// Like the base copilot textarea props,
+// but with baseAutosuggestionsConfig replaced with autosuggestionsConfig.
 export interface CopilotTextareaProps
-  extends Omit<BaseCopilotTextareaProps, "autosuggestionsConfig"> {
+  extends Omit<BaseCopilotTextareaProps, "baseAutosuggestionsConfig"> {
   autosuggestionsConfig: Partial<AutosuggestionsConfigUserSpecified> & {
     textareaPurpose: string;
   };
@@ -56,7 +58,7 @@ export const CopilotTextarea = React.forwardRef(
         <BaseCopilotTextarea
           ref={ref}
           {...props}
-          autosuggestionsConfig={{
+          baseAutosuggestionsConfig={{
             ...autosuggestionsConfig,
             apiConfig: {
               insertionSuggestionFunction: insertionFunction,

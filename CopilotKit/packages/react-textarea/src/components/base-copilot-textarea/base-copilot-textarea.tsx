@@ -46,7 +46,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
   ): JSX.Element => {
     const autosuggestionsConfig: BaseAutosuggestionsConfig = {
       ...defaultBaseAutosuggestionsConfig,
-      ...props.autosuggestionsConfig,
+      ...props.baseAutosuggestionsConfig,
     };
 
     const valueOnInitialRender = useMemo(() => props.value ?? "", []);
@@ -155,7 +155,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       placeholderStyle,
       value,
       onValueChange,
-      autosuggestionsConfig: autosuggestionsConfigFromProps,
+      baseAutosuggestionsConfig: autosuggestionsConfigFromProps,
       className,
       onChange,
       onKeyDown,
