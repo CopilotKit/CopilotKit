@@ -27,6 +27,7 @@
   },
   "devDependencies": {
     "@types/jest": "^29.5.4",
+    "@types/lodash.merge": "^4.6.7",
     "@types/react": "^18.2.5",
     "@types/react-dom": "^18.2.4",
     "@types/react-syntax-highlighter": "^15.5.7",
@@ -51,6 +52,7 @@
     "ai": "^2.2.12",
     "class-variance-authority": "^0.6.1",
     "clsx": "^1.2.1",
+    "lodash.merge": "^4.6.2",
     "lucide-react": "^0.274.0",
     "material-icons": "^1.13.10",
     "nanoid": "^4.0.2",
