@@ -35,28 +35,46 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
   >([state.initialSuggestion]);
 
   const [editSuggestion, setEditSuggestion] = useState<string>("");
+  const [suggestionIsLoading, setSuggestionIsLoading] =
+    useState<boolean>(false);
+
   const [adjustmentPrompt, setAdjustmentPrompt] = useState<string>("");
   const [adjustmentLoading, setAdjustmentLoading] = useState<boolean>(false);
 
   useEffect(() => {
+    // Check if the stream is already locked
+    if (state.initialSuggestion.generatingSuggestion.locked) {
+      return;
+    }
     // reset the edit suggestion
     setEditSuggestion("");
 
     // read the generating suggestion stream and continuously update the edit suggestion
     const reader = state.initialSuggestion.generatingSuggestion.getReader();
+
     const read = async () => {
+      setSuggestionIsLoading(true);
       while (true) {
         const { done, value } = await reader.read();
         if (done) {
           break;
         }
         setEditSuggestion((prev) => prev + value);
+        setSuggestionIsLoading(false);
       }
     };
     read();
 
     return () => {
-      reader.releaseLock();
+      const releaseLockIfNotClosed = async () => {
+        try {
+          await reader.closed;
+        } catch {
+          reader.releaseLock();
+        }
+      };
+
+      releaseLockIfNotClosed();
     };
   }, [state]);
 
@@ -88,6 +106,7 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
     <div className="w-full flex flex-col items-start relative gap-2">
       <Label className="">Describe adjustments to the suggested text:</Label>
       <textarea
+        disabled={suggestionIsLoading}
         ref={adjustmentTextAreaRef}
         value={adjustmentPrompt}
         onChange={(e) => setAdjustmentPrompt(e.target.value)}

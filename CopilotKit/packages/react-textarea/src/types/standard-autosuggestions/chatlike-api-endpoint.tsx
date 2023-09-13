@@ -45,25 +45,10 @@ export class ChatlikeApiEndpoint {
           throw new Error("The response body is empty.");
         }
 
-        const fullText = await res.text();
+        // map the stream to a stream of strings
+        const stringStream = bodySteram.pipeThrough(new TextDecoderStream());
 
-        // return a stream which emits the full text and then closes
-
-        return new ReadableStream({
-          start(controller) {
-            controller.enqueue(fullText);
-            controller.close();
-          },
-        });
-
-        // return
-
-        // // map the stream to a stream of strings
-        // const stringStream = bodySteram.pipeThrough(
-        //   new TextDecoderStream()
-        // );
-
-        // return stringStream;
+        return stringStream;
       }
     );
   }
