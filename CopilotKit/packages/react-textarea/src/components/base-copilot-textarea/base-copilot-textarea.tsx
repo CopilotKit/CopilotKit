@@ -27,11 +27,8 @@ import {
   HoveringEditorProvider,
   useHoveringEditorContext,
 } from "../hovering-toolbar/hovering-editor-provider";
-import { EditableProps } from "slate-react/dist/components/editable";
-import {
-  BaseCopilotTextareaApiConfig,
-  Generator_InsertionSuggestion,
-} from "../../types/base/autosuggestions-bare-function";
+import { EditorAutocompleteState } from "../../types/base/editor-autocomplete-state";
+import { TrackerTextEditedSinceLastCursorMovement } from "./track-cursor-moved-since-last-text-change";
 
 export interface HTMLCopilotTextAreaElement extends HTMLElement {
   value: string;
@@ -52,6 +49,13 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
     const valueOnInitialRender = useMemo(() => props.value ?? "", []);
     const [lastKnownFullEditorText, setLastKnownFullEditorText] =
       useState(valueOnInitialRender);
+    const [cursorMovedSinceLastTextChange, setCursorMovedSinceLastTextChange] =
+      useState(false);
+
+    // // When the editor text changes, we want to reset the `textEditedSinceLastCursorMovement` state.
+    // useEffect(() => {
+    //   setCursorMovedSinceLastTextChange(false);
+    // }, [lastKnownFullEditorText]);
 
     const initialValue: Descendant[] = useMemo(() => {
       return [
@@ -88,9 +92,11 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       autosuggestionsConfig.apiConfig.autosuggestionsFunction,
       insertText,
       autosuggestionsConfig.disableWhenEmpty,
-      autosuggestionsConfig.disabled || hoveringEditorIsDisplayed // disable autosuggestions when the hovering editor is displayed
+      autosuggestionsConfig.disabled ||
+        hoveringEditorIsDisplayed || // disable autosuggestions when the hovering editor is displayed
+        (cursorMovedSinceLastTextChange &&
+          autosuggestionsConfig.temporarilyDisableWhenMovingCursorWithoutChangingText) // disable autosuggestions when the cursor has moved since the last text change
     );
-
     const onKeyDownHandlerForHoveringEditor = useCallback(
       (event: React.KeyboardEvent<HTMLDivElement>) => {
         // if command-k, toggle the hovering editor
@@ -188,13 +194,21 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
             ? newEditorState.textBeforeCursor + newEditorState.textAfterCursor
             : getFullEditorTextWithNewlines(editor); // we don't double-parse the editor. When `newEditorState` is null, we didn't parse the editor yet.
 
-          setLastKnownFullEditorText(fullEditorText);
+          setLastKnownFullEditorText((prev) => {
+            if (prev !== fullEditorText) {
+              setCursorMovedSinceLastTextChange(false);
+            }
+            return fullEditorText;
+          });
           onChangeHandlerForAutocomplete(newEditorState);
 
           props.onValueChange?.(fullEditorText);
           props.onChange?.(makeSemiFakeReactTextAreaEvent(fullEditorText));
         }}
       >
+        <TrackerTextEditedSinceLastCursorMovement
+          setCursorMovedSinceLastTextChange={setCursorMovedSinceLastTextChange}
+        />
         <HoveringToolbar apiConfig={autosuggestionsConfig.apiConfig} />
         <Editable
           renderElement={renderElementMemoized}

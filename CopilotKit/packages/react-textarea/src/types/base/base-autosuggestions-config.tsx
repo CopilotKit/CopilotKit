@@ -6,6 +6,7 @@ export interface BaseAutosuggestionsConfig {
   acceptAutosuggestionKey: string;
   disableWhenEmpty: boolean;
   disabled: boolean;
+  temporarilyDisableWhenMovingCursorWithoutChangingText: boolean;
   apiConfig: BaseCopilotTextareaApiConfig;
 }
 
@@ -17,4 +18,5 @@ export const defaultBaseAutosuggestionsConfig: Omit<
   acceptAutosuggestionKey: "Tab",
   disableWhenEmpty: true,
   disabled: false,
+  temporarilyDisableWhenMovingCursorWithoutChangingText: true,
 };
