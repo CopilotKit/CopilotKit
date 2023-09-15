@@ -34,12 +34,13 @@ export const HoveringToolbar: (
 
   useEffect(() => {
     const el = ref.current;
+    const { selection } = editor;
 
     if (!el) {
       return;
     }
 
-    if (!isDisplayed) {
+    if (!selection) {
       el.removeAttribute("style");
       return;
     }
@@ -52,8 +53,24 @@ export const HoveringToolbar: (
     const domRange = domSelection.getRangeAt(0);
     const rect = domRange.getBoundingClientRect();
 
+    // We use window = (0,0,0,0) as a signal that the selection is not in the original copilot-textarea,
+    // but inside the hovering window.
+    //
+    // in such case, we simply do nothing.
+    if (
+      rect.top === 0 &&
+      rect.left === 0 &&
+      rect.width === 0 &&
+      rect.height === 0
+    ) {
+      return;
+    }
+
     const minGapFromEdge = 60;
-    let top = rect.top + window.scrollY - el.offsetHeight;
+    const verticalOffsetFromCorner = 35;
+    const horizontalOffsetFromCorner = 15;
+    let top =
+      rect.top + window.scrollY - el.offsetHeight + verticalOffsetFromCorner;
     // make sure top is in the viewport and not too close to the edge
     if (top < minGapFromEdge) {
       top = rect.bottom + window.scrollY + minGapFromEdge;
@@ -61,7 +78,12 @@ export const HoveringToolbar: (
       top = rect.top + window.scrollY - el.offsetHeight - minGapFromEdge;
     }
 
-    let left = rect.left + window.scrollX - el.offsetWidth / 2 + rect.width / 2;
+    let left =
+      rect.left +
+      window.scrollX -
+      el.offsetWidth / 2 +
+      rect.width / 2 +
+      horizontalOffsetFromCorner;
     // make sure left is in the viewport and not too close to the edge
     if (left < minGapFromEdge) {
       left = minGapFromEdge;
@@ -72,7 +94,7 @@ export const HoveringToolbar: (
     el.style.opacity = "1";
     el.style.top = `${top}px`;
     el.style.left = `${left}px`;
-  }, [selection, isDisplayed]);
+  });
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -87,7 +109,7 @@ export const HoveringToolbar: (
     };
   }, [ref, setIsDisplayed]);
 
-  if (!isClient || !isDisplayed) {
+  if (!isClient) {
     return null;
   }
 
