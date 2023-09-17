@@ -12,8 +12,11 @@ export function generateRandomString(length: number) {
 
 import { useState, useEffect, useRef } from "react";
 
-export function useStateWithLocalStorage(defaultValue: string, key: string) {
-  const [state, setState] = useState(defaultValue);
+export function useStateWithLocalStorage(
+  defaultValue: string,
+  key: string
+): [string, React.Dispatch<React.SetStateAction<string>>] {
+  const [state, setState] = useState<string>(defaultValue);
   const isFirstRender = useRef(true);
 
   useEffect(() => {
