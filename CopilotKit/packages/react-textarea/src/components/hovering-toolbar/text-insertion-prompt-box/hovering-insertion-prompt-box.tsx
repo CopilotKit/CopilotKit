@@ -5,14 +5,14 @@ import {
 } from "./mode-suggestion-appearing";
 import { PreSuggestion, State_PreSuggestion } from "./mode-pre-suggestion";
 import {
+  EditingEditorState,
   InsertionEditorApiConfig,
-  InsertionEditorState,
 } from "../../../types/base/autosuggestions-bare-function";
 
 type InsertionPromptState = State_PreSuggestion | State_SuggestionAppearing;
 
 export interface Props {
-  editorState: InsertionEditorState;
+  editorState: EditingEditorState;
   apiConfig: InsertionEditorApiConfig;
   performInsertion: (insertedText: string) => void;
   closeWindow: () => void;

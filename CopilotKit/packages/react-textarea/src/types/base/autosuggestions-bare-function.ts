@@ -3,13 +3,17 @@ export interface InsertionEditorState {
   textAfterCursor: string;
 }
 
+export interface EditingEditorState extends InsertionEditorState {
+  selectedText: string;
+}
+
 export type AutosuggestionsBareFunction = (
   editorState: InsertionEditorState,
   abortSignal: AbortSignal
 ) => Promise<string>;
 
 export type Generator_InsertionSuggestion = (
-  editorState: InsertionEditorState,
+  editorState: EditingEditorState,
   prompt: string,
   abortSignal: AbortSignal
 ) => Promise<ReadableStream<string>>;

@@ -7,11 +7,11 @@ import { Button, Icon, Menu, Portal } from "./hovering-toolbar-components";
 import { useHoveringEditorContext } from "./hovering-editor-provider";
 import {
   getFullEditorTextWithNewlines,
-  getTextAroundCollapsedCursor,
+  getTextAroundSelection,
 } from "../../lib/get-text-around-cursor";
 import {
+  EditingEditorState,
   InsertionEditorApiConfig,
-  InsertionEditorState,
 } from "../../types/base/autosuggestions-bare-function";
 
 export interface HoveringToolbarProps {
@@ -142,11 +142,8 @@ export const HoveringToolbar: (
   );
 };
 
-function editorState(
-  editor: Editor,
-  selection: Location
-): InsertionEditorState {
-  const textAroundCursor = getTextAroundCollapsedCursor(editor);
+function editorState(editor: Editor, selection: Location): EditingEditorState {
+  const textAroundCursor = getTextAroundSelection(editor);
   if (textAroundCursor) {
     return textAroundCursor;
   }
@@ -154,5 +151,6 @@ function editorState(
   return {
     textBeforeCursor: getFullEditorTextWithNewlines(editor),
     textAfterCursor: "",
+    selectedText: "",
   };
 }

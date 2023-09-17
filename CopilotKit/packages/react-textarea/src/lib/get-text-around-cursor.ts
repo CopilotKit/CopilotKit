@@ -15,7 +15,7 @@ export interface EditorTextState {
   selection: BaseRange;
 
   textBeforeCursor: string;
-  selectionText: string;
+  selectedText: string;
   textAfterCursor: string;
 }
 
@@ -71,12 +71,12 @@ export function getTextAroundSelection(editor: Editor): EditorTextState | null {
   // Extract text for these ranges
   const before = extractTextWithNewlines(editor, beforeRange);
   const after = extractTextWithNewlines(editor, afterRange);
-  const selectionText = extractTextWithNewlines(editor, wellOrderedSelection);
+  const selectedText = extractTextWithNewlines(editor, wellOrderedSelection);
 
   return {
     selection: wellOrderedSelection,
     textBeforeCursor: before,
-    selectionText,
+    selectedText,
     textAfterCursor: after,
   };
 }

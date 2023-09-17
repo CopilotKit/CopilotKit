@@ -3,6 +3,7 @@ import { useCallback, useContext } from "react";
 import { MinimalChatGPTMessage } from "../../types";
 import { retry } from "../../lib/retry";
 import {
+  EditingEditorState,
   Generator_InsertionSuggestion,
   InsertionEditorState,
 } from "../../types/base/autosuggestions-bare-function";
@@ -30,7 +31,7 @@ export function useMakeStandardInsertionFunction(
 
   return useCallback(
     async (
-      editorState: InsertionEditorState,
+      editorState: EditingEditorState,
       insertionPrompt: string,
       abortSignal: AbortSignal
     ) => {
