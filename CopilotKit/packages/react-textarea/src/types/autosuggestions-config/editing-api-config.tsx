@@ -60,7 +60,7 @@ export const defaultEditingFewShotMessages: MinimalChatGPTMessage[] = [
   },
   {
     role: "user",
-    name: "Editing Prompt",
+    name: "EditingPrompt",
     content: "I bought a big watermelon",
   },
   {
