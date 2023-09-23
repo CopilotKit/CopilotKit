@@ -11,6 +11,10 @@ import {
   defaultInsertionsApiConfig,
 } from "./insertions-api-config";
 import { ChatlikeApiEndpoint } from ".";
+import {
+  EditingApiConfig,
+  defaultEditingApiConfig,
+} from "./editing-api-config";
 
 // Like the base autosuggestions config, with 2 additional fields:
 // 1. externalContextCategories: string[] | undefined;
@@ -21,6 +25,7 @@ export interface AutosuggestionsConfig
   chatApiConfigs: {
     suggestionsApiConfig: SuggestionsApiConfig;
     insertionApiConfig: InsertionsApiConfig;
+    editingApiConfig: EditingApiConfig;
   };
 }
 
@@ -33,5 +38,6 @@ export const defaultAutosuggestionsConfig: Omit<
   chatApiConfigs: {
     suggestionsApiConfig: defaultSuggestionsApiConfig,
     insertionApiConfig: defaultInsertionsApiConfig,
+    editingApiConfig: defaultEditingApiConfig,
   },
 };

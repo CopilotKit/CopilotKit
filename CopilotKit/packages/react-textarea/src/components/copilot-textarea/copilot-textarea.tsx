@@ -8,7 +8,7 @@ import {
   defaultAutosuggestionsConfig,
 } from "../../types/autosuggestions-config";
 import { BaseCopilotTextarea } from "../base-copilot-textarea/base-copilot-textarea";
-import { useMakeStandardInsertionFunction } from "../../hooks/make-autosuggestions-function/use-make-standard-insertion-function";
+import { useMakeStandardInsertionOrEditingFunction } from "../../hooks/make-autosuggestions-function/use-make-standard-insertion-function";
 import merge from "lodash.merge";
 import { AutosuggestionsConfigUserSpecified } from "../../types/autosuggestions-config/autosuggestions-config-user-specified";
 
@@ -35,11 +35,13 @@ export const CopilotTextarea = React.forwardRef(
       autosuggestionsConfig.chatApiConfigs.suggestionsApiConfig
     );
 
-    const insertionFunction = useMakeStandardInsertionFunction(
-      autosuggestionsConfig.textareaPurpose,
-      autosuggestionsConfig.externalContextCategories,
-      autosuggestionsConfig.chatApiConfigs.insertionApiConfig
-    );
+    const insertionOrEditingFunction =
+      useMakeStandardInsertionOrEditingFunction(
+        autosuggestionsConfig.textareaPurpose,
+        autosuggestionsConfig.externalContextCategories,
+        autosuggestionsConfig.chatApiConfigs.insertionApiConfig,
+        autosuggestionsConfig.chatApiConfigs.editingApiConfig
+      );
 
     return (
       <>
@@ -49,7 +51,7 @@ export const CopilotTextarea = React.forwardRef(
           baseAutosuggestionsConfig={{
             ...autosuggestionsConfig,
             apiConfig: {
-              insertionSuggestionFunction: insertionFunction,
+              insertionOrEditingFunction: insertionOrEditingFunction,
               autosuggestionsFunction: autosuggestionsFunction,
             },
           }}

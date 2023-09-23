@@ -12,17 +12,16 @@ export type AutosuggestionsBareFunction = (
   abortSignal: AbortSignal
 ) => Promise<string>;
 
-export type Generator_InsertionSuggestion = (
+export type Generator_InsertionOrEditingSuggestion = (
   editorState: EditingEditorState,
   prompt: string,
   abortSignal: AbortSignal
 ) => Promise<ReadableStream<string>>;
 
 export interface InsertionEditorApiConfig {
-  insertionSuggestionFunction: Generator_InsertionSuggestion;
+  insertionOrEditingFunction: Generator_InsertionOrEditingSuggestion;
 }
 
-export interface BaseCopilotTextareaApiConfig {
+export interface BaseCopilotTextareaApiConfig extends InsertionEditorApiConfig {
   autosuggestionsFunction: AutosuggestionsBareFunction;
-  insertionSuggestionFunction: Generator_InsertionSuggestion;
 }

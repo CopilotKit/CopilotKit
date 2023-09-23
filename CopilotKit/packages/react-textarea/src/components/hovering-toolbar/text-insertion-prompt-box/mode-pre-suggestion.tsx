@@ -2,7 +2,7 @@ import useAutosizeTextArea from "../../../hooks/misc/use-autosize-textarea";
 import React, { useEffect, useRef, useState } from "react";
 import {
   EditingEditorState,
-  Generator_InsertionSuggestion,
+  Generator_InsertionOrEditingSuggestion,
 } from "../../../types/base/autosuggestions-bare-function";
 
 export type State_PreSuggestion = {
@@ -11,7 +11,7 @@ export type State_PreSuggestion = {
 
 export interface PreSuggestionProps {
   editorState: EditingEditorState;
-  insertionSuggestion: Generator_InsertionSuggestion;
+  insertionSuggestion: Generator_InsertionOrEditingSuggestion;
   onGeneratedText: (generatedText: ReadableStream<string>) => void;
 
   insertionPrompt: string;
