@@ -114,25 +114,33 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
   return (
     <div className="w-full flex flex-col items-start relative gap-2">
       <Label className="">Describe adjustments to the suggested text:</Label>
-      <textarea
-        disabled={suggestionIsLoading}
-        ref={adjustmentTextAreaRef}
-        value={adjustmentPrompt}
-        onChange={(e) => setAdjustmentPrompt(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && e.shiftKey) {
-            e.preventDefault();
-            setAdjustmentPrompt(adjustmentPrompt + "\n");
-          } else if (e.key === "Enter") {
-            e.preventDefault();
-            generateAdjustment();
-          }
-        }}
-        placeholder={'"make it more formal", "be more specific", ...'}
-        className="w-full bg-slate-100 h-auto text-sm p-2 rounded-md resize-none overflow-visible focus:outline-none focus:ring-0 focus:border-none"
-        rows={1}
-      />
-
+      <div className="relative w-full flex items-center">
+        <textarea
+          disabled={suggestionIsLoading}
+          ref={adjustmentTextAreaRef}
+          value={adjustmentPrompt}
+          onChange={(e) => setAdjustmentPrompt(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && e.shiftKey) {
+              e.preventDefault();
+              setAdjustmentPrompt(adjustmentPrompt + "\n");
+            } else if (e.key === "Enter") {
+              e.preventDefault();
+              generateAdjustment();
+            }
+          }}
+          placeholder={'"make it more formal", "be more specific", ...'}
+          style={{ minHeight: "3rem" }}
+          className="w-full bg-slate-100 h-auto h-min-14 text-sm p-2 rounded-md resize-none overflow-visible focus:outline-none focus:ring-0 focus:border-non pr-[3rem]"
+          rows={1}
+        />
+        <button
+          onClick={generateAdjustment}
+          className="absolute right-2 bg-blue-500 text-white w-8 h-8 rounded-full flex items-center justify-center"
+        >
+          <i className="material-icons">arrow_forward</i>
+        </button>
+      </div>
       <Label className=" mt-4">Suggested:</Label>
       <textarea
         ref={suggestionTextAreaRef}
