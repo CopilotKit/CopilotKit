@@ -29,6 +29,7 @@ export const HoveringInsertionPromptBox: React.FC<Props> = (props) => {
       setMode({
         type: "suggestion-appearing",
         initialSuggestion: {
+          editorState: props.editorState,
           adjustmentPrompt: insertionPrompt,
           generatingSuggestion: generatingText,
         },
@@ -58,6 +59,10 @@ export const HoveringInsertionPromptBox: React.FC<Props> = (props) => {
           {...props}
           state={mode}
           goBack={goBack}
+          insertionOrEditingFunction={
+            props.apiConfig.insertionOrEditingFunction
+          }
+          onGeneratedText={handleGeneratedText}
         />
       )}
     </div>

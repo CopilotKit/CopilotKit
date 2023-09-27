@@ -1,5 +1,9 @@
 import useAutosizeTextArea from "../../../hooks/misc/use-autosize-textarea";
 import { MinimalChatGPTMessage } from "../../../types";
+import {
+  EditingEditorState,
+  Generator_InsertionOrEditingSuggestion,
+} from "../../../types/base/autosuggestions-bare-function";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import React, { useEffect, useRef, useState } from "react";
@@ -12,23 +16,23 @@ export type State_SuggestionAppearing = {
 type SuggestionSnapshot = {
   adjustmentPrompt: string;
   generatingSuggestion: ReadableStream<string>;
+  editorState: EditingEditorState;
 };
 
 export interface SuggestionAppearingProps {
   state: State_SuggestionAppearing;
   performInsertion: (insertedText: string) => void;
   goBack: () => void;
-
-  // adjustmentGenerator: (
-  //   editorState: InsertionEditorState,
-  //   history: SuggestionSnapshot[]
-  // ) => Promise<string>;
+  insertionOrEditingFunction: Generator_InsertionOrEditingSuggestion;
+  onGeneratedText: (generatedText: ReadableStream<string>) => void;
 }
 
 export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
   performInsertion,
   state,
   goBack,
+  insertionOrEditingFunction,
+  onGeneratedText,
 }) => {
   const [adjustmentHistory, setAdjustmentHistory] = useState<
     SuggestionSnapshot[]
@@ -108,7 +112,18 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
       return;
     }
 
-    // modify the history
+    setAdjustmentLoading(true);
+    // use insertionOrEditingFunction
+    const adjustmentSuggestionTextStream = await insertionOrEditingFunction(
+      {
+        ...state.initialSuggestion.editorState,
+        selectedText: editSuggestion,
+      },
+      adjustmentPrompt,
+      new AbortController().signal
+    );
+    setAdjustmentLoading(false);
+    onGeneratedText(adjustmentSuggestionTextStream);
   };
 
   return (
