@@ -46,13 +46,19 @@ export const HoveringInsertionPromptBox: React.FC<Props> = (props) => {
       {mode.type === "pre-suggestion" ? (
         <PreSuggestion
           {...props}
-          insertionSuggestion={props.apiConfig.insertionOrEditingFunction}
-          insertionPrompt={insertionPrompt}
-          setInsertionPrompt={setInsertionPrompt}
+          insertionOrEditingFunction={
+            props.apiConfig.insertionOrEditingFunction
+          }
+          insertionOrEditingPrompt={insertionPrompt}
+          setInsertionOrEditingPrompt={setInsertionPrompt}
           onGeneratedText={handleGeneratedText}
         />
       ) : (
-        <SuggestionAppearing {...props} state={mode} goBack={goBack} />
+        <SuggestionAppearing
+          {...props}
+          state={mode}
+          goBack={goBack}
+        />
       )}
     </div>
   );

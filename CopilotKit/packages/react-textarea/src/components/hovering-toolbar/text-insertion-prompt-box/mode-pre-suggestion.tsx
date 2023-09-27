@@ -11,19 +11,19 @@ export type State_PreSuggestion = {
 
 export interface PreSuggestionProps {
   editorState: EditingEditorState;
-  insertionSuggestion: Generator_InsertionOrEditingSuggestion;
+  insertionOrEditingFunction: Generator_InsertionOrEditingSuggestion;
   onGeneratedText: (generatedText: ReadableStream<string>) => void;
 
-  insertionPrompt: string;
-  setInsertionPrompt: (value: string) => void;
+  insertionOrEditingPrompt: string;
+  setInsertionOrEditingPrompt: (value: string) => void;
 }
 
 export const PreSuggestion: React.FC<PreSuggestionProps> = ({
   editorState,
-  insertionSuggestion,
+  insertionOrEditingFunction: insertionSuggestion,
   onGeneratedText,
-  insertionPrompt,
-  setInsertionPrompt,
+  insertionOrEditingPrompt: insertionPrompt,
+  setInsertionOrEditingPrompt: setInsertionPrompt,
 }) => {
   const [loading, setLoading] = useState(false);
 
