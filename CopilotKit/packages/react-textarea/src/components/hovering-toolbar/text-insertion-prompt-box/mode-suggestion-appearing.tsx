@@ -126,6 +126,8 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
     onGeneratedText(adjustmentSuggestionTextStream);
   };
 
+  const showLoading = suggestionIsLoading || adjustmentLoading;
+
   return (
     <div className="w-full flex flex-col items-start relative gap-2">
       <Label className="">Describe adjustments to the suggested text:</Label>
@@ -156,14 +158,30 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
           <i className="material-icons">arrow_forward</i>
         </button>
       </div>
-      <Label className=" mt-4">Suggested:</Label>
+      <div className="flex justify-between items-end w-full">
+        <Label className="mt-4">Suggested:</Label>
+        <div className="ml-auto">
+          {showLoading && (
+            <div className="flex justify-center items-center">
+              <div
+                className="inline-block h-4 w-4 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"
+                role="status"
+              >
+                <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">
+                  Loading...
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
       <textarea
         ref={suggestionTextAreaRef}
         value={editSuggestion}
         disabled={adjustmentLoading}
         onChange={(e) => setEditSuggestion(e.target.value)}
         className="w-full text-base p-2 border border-gray-300 rounded-md resize-none bg-green-200"
-        style={{ overflow: "auto", maxHeight: "8em" }}
+        style={{ overflow: "auto", maxHeight: "10em" }}
       />
 
       <div className="flex w-full gap-4 justify-start">
