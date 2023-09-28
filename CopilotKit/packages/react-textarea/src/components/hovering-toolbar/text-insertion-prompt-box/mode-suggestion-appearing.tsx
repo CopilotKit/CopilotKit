@@ -128,8 +128,8 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
 
   const showLoading = suggestionIsLoading || adjustmentLoading;
 
-  return (
-    <div className="w-full flex flex-col items-start relative gap-2">
+  const AdjustmentPromptComponent = (
+    <>
       <Label className="">Describe adjustments to the suggested text:</Label>
       <div className="relative w-full flex items-center">
         <textarea
@@ -158,6 +158,11 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
           <i className="material-icons">arrow_forward</i>
         </button>
       </div>
+    </>
+  );
+
+  const SuggestionComponent = (
+    <>
       <div className="flex justify-between items-end w-full">
         <Label className="mt-4">Suggested:</Label>
         <div className="ml-auto">
@@ -183,26 +188,37 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
         className="w-full text-base p-2 border border-gray-300 rounded-md resize-none bg-green-200"
         style={{ overflow: "auto", maxHeight: "10em" }}
       />
+    </>
+  );
 
-      <div className="flex w-full gap-4 justify-start">
-        <Button
-          className=" bg-gray-300"
-          onClick={() => {
-            goBack();
-          }}
-        >
-          <i className="material-icons">arrow_back</i> Back
-        </Button>
+  const SubmitComponent = (
+    <div className="flex w-full gap-4 justify-start">
+      <Button
+        className=" bg-gray-300"
+        onClick={() => {
+          goBack();
+        }}
+      >
+        <i className="material-icons">arrow_back</i> Back
+      </Button>
 
-        <Button
-          className=" bg-green-700 text-white"
-          onClick={() => {
-            performInsertion(editSuggestion);
-          }}
-        >
-          Insert <i className="material-icons">check</i>
-        </Button>
-      </div>
+      <Button
+        className=" bg-green-700 text-white"
+        onClick={() => {
+          performInsertion(editSuggestion);
+        }}
+      >
+        Insert <i className="material-icons">check</i>
+      </Button>
+    </div>
+  );
+
+  return (
+    <div className="w-full flex flex-col items-start relative gap-2">
+      {AdjustmentPromptComponent}
+      {SuggestionComponent}
+      {SubmitComponent}
     </div>
   );
 };
+
