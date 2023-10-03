@@ -43,7 +43,7 @@ export const HoveringInsertionPromptBox: React.FC<Props> = (props) => {
   };
 
   return (
-    <div className="flex flex-col justify-center items-center space-y-4 rounded-md border w-96 shadow-lg p-4 border-gray- bg-white">
+    <div className="flex flex-col justify-center items-center space-y-4 rounded-md border shadow-lg p-4 border-gray- bg-white" style={{width: "30rem"}}>
       {mode.type === "pre-suggestion" ? (
         <PreSuggestion
           {...props}
