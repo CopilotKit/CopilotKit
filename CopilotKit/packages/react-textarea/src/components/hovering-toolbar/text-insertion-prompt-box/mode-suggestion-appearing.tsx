@@ -4,6 +4,7 @@ import {
   EditingEditorState,
   Generator_InsertionOrEditingSuggestion,
 } from "../../../types/base/autosuggestions-bare-function";
+import { ChipWithIcon } from "../../manual-ui/chip-with-icon";
 import {
   FilePointer,
   SourceSearchBox,
@@ -51,6 +52,8 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
 
   const suggestionTextAreaRef = useRef<HTMLTextAreaElement>(null);
   const adjustmentTextAreaRef = useRef<HTMLTextAreaElement>(null);
+
+  const [filePointers, setFilePointers] = useState<FilePointer[]>([]);
 
   useAutosizeTextArea(suggestionTextAreaRef, editSuggestion || "");
   useAutosizeTextArea(adjustmentTextAreaRef, adjustmentPrompt || "");
@@ -227,10 +230,22 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
   return (
     <div className="w-full flex flex-col items-start relative gap-2">
       {AdjustmentPromptComponent}
+      { filePointers.length > 0 && (
+        <IncludedFilesPreview includedFiles={filePointers} setIncludedFiles={setFilePointers} />
+      )}
       {sourceSearchWord !== undefined && (
         <SourceSearchBox
           searchTerm={sourceSearchWord}
           recentFiles={mockFiles}
+          onSelectedFile={(filePointer) => {
+            setAdjustmentPrompt(
+              adjustmentPrompt.replace(
+                new RegExp(`@${sourceSearchWord}$`),
+                " "
+              )
+            );
+            setFilePointers((prev) => [...prev, filePointer]);
+          }}
         />
       )}
       {SuggestionComponent}
@@ -238,6 +253,40 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
     </div>
   );
 };
+
+
+interface IncludedFilesPreviewProps {
+  includedFiles: FilePointer[];
+  setIncludedFiles: React.Dispatch<React.SetStateAction<FilePointer[]>>;
+}
+
+export const IncludedFilesPreview: React.FC<IncludedFilesPreviewProps> = ({ includedFiles, setIncludedFiles }) => {
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="">Included files:</span>
+      <div className="flex flex-wrap gap-2">
+        {includedFiles.map((filePointer, index) => {
+          return (
+            <ChipWithIcon
+              key={index}
+              label={filePointer.name}
+              iconUrl="insert_drive_file" // replace with actual icon url
+              onDelete={() => {
+                // remove the file pointer from the list of included files
+                setIncludedFiles((prev) => {
+                  return prev.filter((prevFilePointer) => {
+                    return prevFilePointer.name !== filePointer.name;
+                  });
+                });
+              }}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 
 const mockFiles: FilePointer[] = [
   {

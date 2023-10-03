@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Command,
   CommandDialog,
@@ -27,14 +28,21 @@ export interface FilePointer {
 
 export interface SourceSearchBoxProps {
   searchTerm: string;
-
   recentFiles: FilePointer[];
+  onSelectedFile: (filePointer: FilePointer) => void;
 }
 
 export function SourceSearchBox(props: SourceSearchBoxProps) {
+
+  const [selectedValue, setSelectedValue] = useState<string>("");
+
   return (
     <Command
       className="rounded-lg border shadow-md"
+      value={selectedValue}
+      onValueChange={(value) => {
+        setSelectedValue(value);
+      }}
       filter={(value, search) => {
         // if the search term is empty, show all commands
         if (props.searchTerm === "") return 1;
@@ -54,15 +62,16 @@ export function SourceSearchBox(props: SourceSearchBoxProps) {
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
 
-        <CommandGroup heading="Recent files">
+        <CommandGroup heading="Recents">
           {props.recentFiles.map((filePointer) => {
             return (
               <CommandItem
                 key={`word-${filePointer.sourceApplication}.${filePointer.name}`}
                 value={filePointer.name}
-                // onSelect={(value) => {
-                //   console.log(filePointer.name)
-                // }}
+                onSelect={(value) => {
+                  console.log(filePointer.name)
+                  props.onSelectedFile(filePointer);
+                }}
               >
                 {filePointer.name}
               </CommandItem>
