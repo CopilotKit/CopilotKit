@@ -302,19 +302,18 @@ export const FileChipPreview: React.FC<FileChipPreviewProp> = ({
       onDelete={onDelete}
       avatar={
         <Avatar sx={{ backgroundColor: 'transparent' }}>
-          <IconForFilePointer filePointer={filePointer} />
+          <IconForFilePointer filePointer={filePointer} className="w-4 h-4 object-contain" />
         </Avatar>
       }
-      className="text-lg"
     />
   );
 }
 
-export function IconForFilePointer({filePointer}: {filePointer: FilePointer}): JSX.Element {
+export function IconForFilePointer({filePointer, className}: {filePointer: FilePointer, className: string}): JSX.Element {
   if(filePointer.sourceApplication === "Salesforce") {
-    return <IconSalesforce className="w-4 h-4 object-contain" />
+    return <IconSalesforce className={className} />
   } else {
-    return <IconSalesforce className="w-4 h-4 object-contain" />
+    return <IconSalesforce className={className} />
   }
 }
 

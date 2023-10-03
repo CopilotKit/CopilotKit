@@ -19,6 +19,7 @@ import {
   Smile,
   User,
 } from "lucide-react";
+import { IconForFilePointer } from "../hovering-toolbar/text-insertion-prompt-box/mode-suggestion-appearing";
 
 export interface FilePointer {
   name: string;
@@ -73,6 +74,10 @@ export function SourceSearchBox(props: SourceSearchBoxProps) {
                   props.onSelectedFile(filePointer);
                 }}
               >
+                <Logo>
+                  <IconForFilePointer filePointer={filePointer} className="" />
+                </Logo>
+                {}
                 {filePointer.name}
               </CommandItem>
             );
@@ -102,4 +107,20 @@ export function SourceSearchBox(props: SourceSearchBoxProps) {
       </CommandList>
     </Command>
   );
+}
+
+export function Logo({ children, size = '20px' }: { children: React.ReactNode; size?: string }) {
+  return (
+    <div
+      className={""}
+      style={{
+        width: size,
+        height: size,
+      }}
+    >
+      <div className={""}>
+        {children}
+      </div>
+    </div>
+  )
 }
