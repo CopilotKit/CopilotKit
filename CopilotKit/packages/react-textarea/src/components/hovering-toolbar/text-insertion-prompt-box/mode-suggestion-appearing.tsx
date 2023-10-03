@@ -4,6 +4,10 @@ import {
   EditingEditorState,
   Generator_InsertionOrEditingSuggestion,
 } from "../../../types/base/autosuggestions-bare-function";
+import {
+  FilePointer,
+  SourceSearchBox,
+} from "../../source-search-box/source-search-box";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import React, { useEffect, useRef, useState } from "react";
@@ -213,12 +217,69 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
     </div>
   );
 
+  // show source search if the last word in the adjustment prompt BEGINS with an @
+  const sourceSearchCandidate = adjustmentPrompt.split(" ").pop();
+  // if the candidate is @someCandidate, then 'someCandidate', otherwise undefined
+  const sourceSearchWord = sourceSearchCandidate?.startsWith("@")
+    ? sourceSearchCandidate.slice(1)
+    : undefined;
+
   return (
     <div className="w-full flex flex-col items-start relative gap-2">
       {AdjustmentPromptComponent}
+      {sourceSearchWord !== undefined && (
+        <SourceSearchBox
+          searchTerm={sourceSearchWord}
+          recentFiles={mockFiles}
+        />
+      )}
       {SuggestionComponent}
       {SubmitComponent}
     </div>
   );
 };
 
+const mockFiles: FilePointer[] = [
+  {
+    name: "prospecting call transcript",
+    sourceApplication: "Salesforce",
+    getContents: async () => {
+      return "some contents";
+    },
+  },
+  {
+    name: "customer feedback",
+    sourceApplication: "Zendesk",
+    getContents: async () => {
+      return "some contents";
+    },
+  },
+  {
+    name: "product specifications",
+    sourceApplication: "Google Docs",
+    getContents: async () => {
+      return "some contents";
+    },
+  },
+  {
+    name: "meeting minutes",
+    sourceApplication: "Microsoft Teams",
+    getContents: async () => {
+      return "some contents";
+    },
+  },
+  {
+    name: "project plan",
+    sourceApplication: "Trello",
+    getContents: async () => {
+      return "some contents";
+    },
+  },
+  {
+    name: "code review comments",
+    sourceApplication: "Github",
+    getContents: async () => {
+      return "some contents";
+    },
+  },
+];
