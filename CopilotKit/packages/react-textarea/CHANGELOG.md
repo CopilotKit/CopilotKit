@@ -1,5 +1,13 @@
 # ui
 
+## 0.19.0-alpha.2
+
+### Patch Changes
+
+- rebase master
+- Updated dependencies
+  - @copilotkit/react-core@0.8.0-alpha.2
+
 ## 0.19.0-alpha.1
 
 ### Patch Changes
