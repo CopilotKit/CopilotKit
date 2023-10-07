@@ -1,5 +1,11 @@
 # ui
 
+## 0.8.0-alpha.0
+
+### Minor Changes
+
+- textarea insertions deletions etc
+
 ## 0.7.0
 
 ### Minor Changes
