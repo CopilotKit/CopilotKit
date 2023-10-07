@@ -6,6 +6,7 @@ export interface EditorAutocompleteState {
   textBeforeCursor: string;
   textAfterCursor: string;
 }
+
 export function areEqual_autocompleteState(
   prev: EditorAutocompleteState,
   next: EditorAutocompleteState

@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.7.0",
+  "version": "0.8.0-alpha.1",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -34,8 +34,8 @@
     "typescript": "^4.9.4"
   },
   "dependencies": {
-    "ai": "^2.2.6",
+    "ai": "^2.2.12",
     "nanoid": "^4.0.2",
-    "openai": "^4.0.0"
+    "openai": "^4.6.0"
   }
 }

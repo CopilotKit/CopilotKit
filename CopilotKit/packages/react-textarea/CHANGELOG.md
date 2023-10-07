@@ -1,5 +1,24 @@
 # ui
 
+## 0.19.0-alpha.1
+
+### Patch Changes
+
+- prettify
+- Updated dependencies
+  - @copilotkit/react-core@0.8.0-alpha.1
+
+## 0.19.0-alpha.0
+
+### Minor Changes
+
+- textarea insertions deletions etc
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.8.0-alpha.0
+
 ## 0.18.0
 
 ### Minor Changes

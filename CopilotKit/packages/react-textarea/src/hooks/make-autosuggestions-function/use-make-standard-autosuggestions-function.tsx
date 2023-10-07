@@ -2,10 +2,11 @@ import { CopilotContext } from "@copilotkit/react-core";
 import { useCallback, useContext } from "react";
 import {
   AutosuggestionsBareFunction,
-  MakeSystemPrompt,
   MinimalChatGPTMessage,
 } from "../../types";
-import { ChatlikeApiEndpoint } from "../../types/standard-autosuggestions/chatlike-api-endpoint";
+import { retry } from "../../lib/retry";
+import { InsertionEditorState } from "../../types/base/autosuggestions-bare-function";
+import { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggestions-api-config";
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
  * The function takes in the text before and after the cursor, and an abort signal.
@@ -21,74 +22,58 @@ import { ChatlikeApiEndpoint } from "../../types/standard-autosuggestions/chatli
  */
 export function useMakeStandardAutosuggestionFunction(
   textareaPurpose: string,
-  apiEndpoint: ChatlikeApiEndpoint,
-  makeSystemPrompt: MakeSystemPrompt,
-  fewShotMessages: MinimalChatGPTMessage[],
   contextCategories: string[] | undefined,
-  forwardedProps?: { [key: string]: any }
+  apiConfig: SuggestionsApiConfig
 ): AutosuggestionsBareFunction {
   const { getContextString } = useContext(CopilotContext);
 
   return useCallback(
-    async (beforeText: string, afterText: string, abortSignal: AbortSignal) => {
+    async (editorState: InsertionEditorState, abortSignal: AbortSignal) => {
       const res = await retry(async () => {
         const messages: MinimalChatGPTMessage[] = [
           {
             role: "system",
-            content: makeSystemPrompt(
+            content: apiConfig.makeSystemPrompt(
               textareaPurpose,
               getContextString(contextCategories)
             ),
           },
-          ...fewShotMessages,
+          ...apiConfig.fewShotMessages,
           {
             role: "user",
             name: "TextAfterCursor",
-            content: afterText,
+            content: editorState.textAfterCursor,
           },
           {
             role: "user",
             name: "TextBeforeCursor",
-            content: beforeText,
+            content: editorState.textBeforeCursor,
           },
         ];
 
-        return await apiEndpoint.run(abortSignal, messages, forwardedProps);
+        const stream = await apiConfig.apiEndpoint.run(
+          abortSignal,
+          messages,
+          apiConfig.forwardedParams
+        );
+
+        // read the stream:
+        const reader = stream.getReader();
+        let result = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            break;
+          }
+          result += value;
+        }
+
+        return result;
       });
 
       return res;
     },
-    [
-      apiEndpoint,
-      makeSystemPrompt,
-      fewShotMessages,
-      getContextString,
-      contextCategories,
-      textareaPurpose,
-    ]
+    [apiConfig, getContextString, contextCategories, textareaPurpose]
   );
-}
-
-function retry<T>(
-  fn: () => Promise<T>,
-  retriesLeft: number = 2,
-  interval: number = 200,
-  backoff: number = 1.5
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    fn()
-      .then(resolve)
-      .catch((error) => {
-        if (retriesLeft === 1) {
-          reject(error);
-          return;
-        }
-
-        setTimeout(() => {
-          retry(fn, retriesLeft - 1, interval * backoff, backoff)
-            .then(resolve)
-            .catch(reject);
-        }, interval);
-      });
-  });
 }

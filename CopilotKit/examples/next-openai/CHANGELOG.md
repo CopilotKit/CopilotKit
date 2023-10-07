@@ -1,5 +1,28 @@
 # web
 
+## 1.4.0-alpha.1
+
+### Patch Changes
+
+- prettify
+- Updated dependencies
+  - @copilotkit/react-textarea@0.19.0-alpha.1
+  - @copilotkit/react-core@0.8.0-alpha.1
+  - @copilotkit/react-ui@0.9.0-alpha.1
+
+## 1.4.0-alpha.0
+
+### Minor Changes
+
+- textarea insertions deletions etc
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.19.0-alpha.0
+  - @copilotkit/react-core@0.8.0-alpha.0
+  - @copilotkit/react-ui@0.9.0-alpha.0
+
 ## 1.3.15
 
 ### Patch Changes

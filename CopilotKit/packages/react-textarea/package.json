@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.18.0",
+  "version": "0.19.0-alpha.1",
   "sideEffects": [
     "**/*.css"
   ],
@@ -27,7 +27,9 @@
   },
   "devDependencies": {
     "@types/jest": "^29.5.4",
+    "@types/lodash.merge": "^4.6.7",
     "@types/react": "^18.2.5",
+    "@types/react-dom": "^18.2.4",
     "@types/react-syntax-highlighter": "^15.5.7",
     "eslint": "^7.32.0",
     "eslint-config-custom": "workspace:*",
@@ -43,9 +45,21 @@
   },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",
-    "ai": "^2.1.22",
+    "@emotion/css": "^11.11.2",
+    "@emotion/react": "^11.11.1",
+    "@emotion/styled": "^11.11.0",
+    "@mui/material": "^5.14.11",
+    "@radix-ui/react-dialog": "^1.0.4",
+    "@radix-ui/react-label": "^2.0.2",
+    "@radix-ui/react-separator": "^1.0.3",
+    "@radix-ui/react-slot": "^1.0.2",
+    "ai": "^2.2.12",
     "class-variance-authority": "^0.6.1",
     "clsx": "^1.2.1",
+    "cmdk": "^0.2.0",
+    "lodash.merge": "^4.6.2",
+    "lucide-react": "^0.274.0",
+    "material-icons": "^1.13.10",
     "nanoid": "^4.0.2",
     "next": "^13.4.1",
     "next-themes": "^0.2.1",

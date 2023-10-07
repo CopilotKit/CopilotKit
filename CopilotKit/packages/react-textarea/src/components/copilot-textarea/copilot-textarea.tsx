@@ -5,16 +5,18 @@ import { HTMLCopilotTextAreaElement } from "../../types";
 import { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
 import {
   AutosuggestionsConfig,
-  ChatlikeApiEndpoint,
   defaultAutosuggestionsConfig,
-} from "../../types/standard-autosuggestions";
+} from "../../types/autosuggestions-config";
 import { BaseCopilotTextarea } from "../base-copilot-textarea/base-copilot-textarea";
+import { useMakeStandardInsertionOrEditingFunction } from "../../hooks/make-autosuggestions-function/use-make-standard-insertion-function";
+import merge from "lodash.merge";
+import { AutosuggestionsConfigUserSpecified } from "../../types/autosuggestions-config/autosuggestions-config-user-specified";
 
-export interface CopilotTextareaProps extends BaseCopilotTextareaProps {
-  autosuggestionsConfig: Partial<AutosuggestionsConfig> & {
-    textareaPurpose: string;
-    apiEndpoint: ChatlikeApiEndpoint;
-  };
+// Like the base copilot textarea props,
+// but with baseAutosuggestionsConfig replaced with autosuggestionsConfig.
+export interface CopilotTextareaProps
+  extends Omit<BaseCopilotTextareaProps, "baseAutosuggestionsConfig"> {
+  autosuggestionsConfig: AutosuggestionsConfigUserSpecified;
 }
 
 export const CopilotTextarea = React.forwardRef(
@@ -22,27 +24,37 @@ export const CopilotTextarea = React.forwardRef(
     props: CopilotTextareaProps,
     ref: React.Ref<HTMLCopilotTextAreaElement>
   ): JSX.Element => {
-    const autosuggestionsConfig: AutosuggestionsConfig = {
-      ...defaultAutosuggestionsConfig,
-      ...props.autosuggestionsConfig,
-    };
+    const autosuggestionsConfig: AutosuggestionsConfig = merge(
+      defaultAutosuggestionsConfig,
+      props.autosuggestionsConfig
+    );
 
     const autosuggestionsFunction = useMakeStandardAutosuggestionFunction(
       autosuggestionsConfig.textareaPurpose,
-      autosuggestionsConfig.apiEndpoint,
-      autosuggestionsConfig.makeSystemPrompt,
-      autosuggestionsConfig.fewShotMessages,
       autosuggestionsConfig.externalContextCategories,
-      autosuggestionsConfig.forwardedParams
+      autosuggestionsConfig.chatApiConfigs.suggestionsApiConfig
     );
+
+    const insertionOrEditingFunction =
+      useMakeStandardInsertionOrEditingFunction(
+        autosuggestionsConfig.textareaPurpose,
+        autosuggestionsConfig.externalContextCategories,
+        autosuggestionsConfig.chatApiConfigs.insertionApiConfig,
+        autosuggestionsConfig.chatApiConfigs.editingApiConfig
+      );
 
     return (
       <>
         <BaseCopilotTextarea
           ref={ref}
           {...props}
-          autosuggestionsConfig={autosuggestionsConfig}
-          autosuggestionsFunction={autosuggestionsFunction}
+          baseAutosuggestionsConfig={{
+            ...autosuggestionsConfig,
+            apiConfig: {
+              insertionOrEditingFunction: insertionOrEditingFunction,
+              autosuggestionsFunction: autosuggestionsFunction,
+            },
+          }}
         />
       </>
     );

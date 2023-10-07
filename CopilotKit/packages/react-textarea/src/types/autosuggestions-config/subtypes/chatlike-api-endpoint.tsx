@@ -1,4 +1,4 @@
-import { MinimalChatGPTMessage } from "..";
+import { MinimalChatGPTMessage } from "./minimal-chat-gpt-message";
 
 export type ChatlikeApiEndpointImpl = (
   abortSignal: AbortSignal,
@@ -6,10 +6,16 @@ export type ChatlikeApiEndpointImpl = (
   forwardedProps?: { [key: string]: any }
 ) => Promise<string>;
 
-export class ChatlikeApiEndpoint {
-  public run: ChatlikeApiEndpointImpl;
+export type StreamingChatlikeApiEndpointImpl = (
+  abortSignal: AbortSignal,
+  messages: MinimalChatGPTMessage[],
+  forwardedProps?: { [key: string]: any }
+) => Promise<ReadableStream<string>>;
 
-  constructor(run: ChatlikeApiEndpointImpl) {
+export class ChatlikeApiEndpoint {
+  public run: StreamingChatlikeApiEndpointImpl;
+
+  constructor(run: StreamingChatlikeApiEndpointImpl) {
     this.run = run;
   }
 
@@ -34,9 +40,15 @@ export class ChatlikeApiEndpoint {
           signal: abortSignal,
         });
 
-        const json = await res.json();
-        const suggestion = json.choices[0].message.content;
-        return suggestion;
+        const bodySteram: ReadableStream<Uint8Array> | null = res.body;
+        if (!bodySteram) {
+          throw new Error("The response body is empty.");
+        }
+
+        // map the stream to a stream of strings
+        const stringStream = bodySteram.pipeThrough(new TextDecoderStream());
+
+        return stringStream;
       }
     );
   }
@@ -46,7 +58,7 @@ export class ChatlikeApiEndpoint {
    * @param run - The implementation of the ChatlikeApiEndpointImpl interface.
    * @returns A new instance of ChatlikeApiEndpoint .
    */
-  static custom(run: ChatlikeApiEndpointImpl): ChatlikeApiEndpoint {
+  static custom(run: StreamingChatlikeApiEndpointImpl): ChatlikeApiEndpoint {
     return new ChatlikeApiEndpoint(run);
   }
 }

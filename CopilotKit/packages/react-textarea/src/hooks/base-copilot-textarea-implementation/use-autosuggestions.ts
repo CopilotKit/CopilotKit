@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Debouncer } from "../../lib/debouncer";
 import { nullableCompatibleEqualityCheck } from "../../lib/utils";
 import { AutosuggestionsBareFunction } from "../../types/base";
@@ -51,8 +51,7 @@ export function useAutosuggestions(
 
       // fetch the suggestion
       const suggestion = await autosuggestionFunction(
-        editorAutocompleteState.textBeforeCursor,
-        editorAutocompleteState.textAfterCursor,
+        editorAutocompleteState,
         abortSignal
       );
 
@@ -81,6 +80,14 @@ export function useAutosuggestions(
       ),
     [debounceTime]
   );
+
+  // clean current state when unmounting or disabling
+  useEffect(() => {
+    return () => {
+      debouncedFunction.cancel();
+      setCurrentAutocompleteSuggestion(null);
+    };
+  }, [debouncedFunction, disabled]);
 
   const onChange = useCallback(
     (newEditorState: EditorAutocompleteState | null) => {

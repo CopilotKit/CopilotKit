@@ -1,10 +1,10 @@
 "use client";
 import { FunctionCallHandler } from "ai";
-import { CompletionCreateParams } from "openai/resources/chat";
 import { ReactNode, useCallback, useState } from "react";
 import { CopilotContext } from "../context/copilot-context";
 import useTree from "../hooks/use-tree";
 import { AnnotatedFunction } from "../types/annotated-function";
+import { ChatCompletionCreateParams } from "openai/resources/chat";
 
 export function CopilotProvider({
   children,
@@ -138,13 +138,13 @@ function entryPointsToFunctionCallHandler(
 
 function entryPointsToChatCompletionFunctions(
   entryPoints: AnnotatedFunction<any[]>[]
-): CompletionCreateParams.Function[] {
+): ChatCompletionCreateParams.Function[] {
   return entryPoints.map(annotatedFunctionToChatCompletionFunction);
 }
 
 function annotatedFunctionToChatCompletionFunction(
   annotatedFunction: AnnotatedFunction<any[]>
-): CompletionCreateParams.Function {
+): ChatCompletionCreateParams.Function {
   // Create the parameters object based on the argumentAnnotations
   let parameters: { [key: string]: any } = {};
   for (let arg of annotatedFunction.argumentAnnotations) {
@@ -161,7 +161,7 @@ function annotatedFunctionToChatCompletionFunction(
   }
 
   // Create the ChatCompletionFunctions object
-  let chatCompletionFunction: CompletionCreateParams.Function = {
+  let chatCompletionFunction: ChatCompletionCreateParams.Function = {
     name: annotatedFunction.name,
     description: annotatedFunction.description,
     parameters: {
