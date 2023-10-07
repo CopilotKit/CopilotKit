@@ -74,11 +74,12 @@ export function SourceSearchBox(props: SourceSearchBoxProps) {
                   props.onSelectedFile(filePointer);
                 }}
               >
-                <Logo>
-                  <IconForFilePointer filePointer={filePointer} className="" />
+                <div className="flex flex-row gap-3 items-center bg-slate-400 ">
+                <Logo size="40px">
+                  <IconForFilePointer filePointer={filePointer} className="mx-auto my-auto" />
                 </Logo>
-                {}
                 {filePointer.name}
+                </div>
               </CommandItem>
             );
           })}
