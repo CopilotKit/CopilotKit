@@ -1,5 +1,11 @@
 # ui
 
+## 0.8.0-alpha.1
+
+### Patch Changes
+
+- prettify
+
 ## 0.8.0-alpha.0
 
 ### Minor Changes
