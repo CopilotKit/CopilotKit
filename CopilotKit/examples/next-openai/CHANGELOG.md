@@ -1,5 +1,12 @@
 # web
 
+## 1.4.0-alpha.4
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-ui@0.9.0-alpha.4
+
 ## 1.4.0-alpha.3
 
 ### Patch Changes
