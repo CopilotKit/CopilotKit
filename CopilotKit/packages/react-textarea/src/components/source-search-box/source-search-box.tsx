@@ -34,7 +34,6 @@ export interface SourceSearchBoxProps {
 }
 
 export function SourceSearchBox(props: SourceSearchBoxProps) {
-
   const [selectedValue, setSelectedValue] = useState<string>("");
 
   return (
@@ -70,15 +69,18 @@ export function SourceSearchBox(props: SourceSearchBoxProps) {
                 key={`word-${filePointer.sourceApplication}.${filePointer.name}`}
                 value={filePointer.name}
                 onSelect={(value) => {
-                  console.log(filePointer.name)
+                  console.log(filePointer.name);
                   props.onSelectedFile(filePointer);
                 }}
               >
                 <div className="flex flex-row gap-3 items-center bg-slate-400 ">
-                <Logo size="40px">
-                  <IconForFilePointer filePointer={filePointer} className="mx-auto my-auto" />
-                </Logo>
-                {filePointer.name}
+                  <Logo size="40px">
+                    <IconForFilePointer
+                      filePointer={filePointer}
+                      className="mx-auto my-auto"
+                    />
+                  </Logo>
+                  {filePointer.name}
                 </div>
               </CommandItem>
             );
@@ -110,7 +112,13 @@ export function SourceSearchBox(props: SourceSearchBoxProps) {
   );
 }
 
-export function Logo({ children, size = '20px' }: { children: React.ReactNode; size?: string }) {
+export function Logo({
+  children,
+  size = "20px",
+}: {
+  children: React.ReactNode;
+  size?: string;
+}) {
   return (
     <div
       className={""}
@@ -119,9 +127,7 @@ export function Logo({ children, size = '20px' }: { children: React.ReactNode; s
         height: size,
       }}
     >
-      <div className={""}>
-        {children}
-      </div>
+      <div className={""}>{children}</div>
     </div>
-  )
+  );
 }

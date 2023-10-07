@@ -1,5 +1,4 @@
-import React from 'react';
-
+import React from "react";
 
 export interface ChipWithIconProps {
   label: string;
@@ -7,15 +6,15 @@ export interface ChipWithIconProps {
   iconUrl: string;
 }
 
-export const ChipWithIcon: React.FC<ChipWithIconProps> = ({ label, onDelete, iconUrl }) => {
+export const ChipWithIcon: React.FC<ChipWithIconProps> = ({
+  label,
+  onDelete,
+  iconUrl,
+}) => {
   return (
     <span className="inline-flex items-center px-3 py-1 rounded-full bg-slate-200 text-sm font-medium text-white">
       {iconUrl && (
-        <img
-          src={iconUrl}
-          alt="icon"
-          className="w-4 h-4 rounded-full mr-2"
-        />
+        <img src={iconUrl} alt="icon" className="w-4 h-4 rounded-full mr-2" />
       )}
       {label}
       <button
