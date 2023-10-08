@@ -1,5 +1,11 @@
 # ui
 
+## 0.9.0-alpha.5
+
+### Minor Changes
+
+- remove coldarkDark style from react-syntax-highlighter
+
 ## 0.9.0-alpha.4
 
 ### Minor Changes
