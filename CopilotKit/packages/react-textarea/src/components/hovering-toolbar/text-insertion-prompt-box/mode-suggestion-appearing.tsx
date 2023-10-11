@@ -15,14 +15,9 @@ import React, { useEffect, useRef, useState } from "react";
 
 import Chip from "@mui/material/Chip";
 import Avatar from "@mui/material/Avatar";
+import { streamPromiseFlatten } from "../../../lib/stream-promise-flatten";
 
 export type SuggestionState = {
-  editorState: EditingEditorState;
-};
-
-export type SuggestionSnapshot = {
-  adjustmentPrompt: string;
-  generatingSuggestion: ReadableStream<string>;
   editorState: EditingEditorState;
 };
 
@@ -42,26 +37,21 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
     useState<boolean>(false);
 
   const [adjustmentPrompt, setAdjustmentPrompt] = useState<string>("");
-  const [adjustmentLoading, setAdjustmentLoading] = useState<boolean>(false);
 
   const [generatingSuggestion, setGeneratingSuggestion] =
     useState<ReadableStream<string> | null>(null);
 
-  const suggestionTextAreaRef = useRef<HTMLTextAreaElement>(null);
   const adjustmentTextAreaRef = useRef<HTMLTextAreaElement>(null);
+  const suggestionTextAreaRef = useRef<HTMLTextAreaElement>(null);
 
   const [filePointers, setFilePointers] = useState<FilePointer[]>([]);
 
   useAutosizeTextArea(suggestionTextAreaRef, editSuggestion || "");
   useAutosizeTextArea(adjustmentTextAreaRef, adjustmentPrompt || "");
 
-  // initially focus on the end of the suggestion text area
+  // initially focus on the adjustment prompt text area
   useEffect(() => {
-    suggestionTextAreaRef.current?.focus();
-    suggestionTextAreaRef.current?.setSelectionRange(
-      editSuggestion.length,
-      editSuggestion.length
-    );
+    adjustmentTextAreaRef.current?.focus();
   }, []);
 
   useEffect(() => {
@@ -123,25 +113,25 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
       return;
     }
 
-    setAdjustmentLoading(true);
-    // use insertionOrEditingFunction
-
     // if the current edit suggestion is not empty, then use it as the selected text instead of the editor state's selected text
     let editorState = state.editorState;
     if (editSuggestion !== "") {
       editorState.selectedText = editSuggestion;
     }
 
-    const adjustmentSuggestionTextStream = await insertionOrEditingFunction(
+    const adjustmentSuggestionTextStreamPromise = insertionOrEditingFunction(
       editorState,
       adjustmentPrompt,
       new AbortController().signal
     );
-    setAdjustmentLoading(false);
+    const adjustmentSuggestionTextStream = streamPromiseFlatten(
+      adjustmentSuggestionTextStreamPromise
+    );
+
     setGeneratingSuggestion(adjustmentSuggestionTextStream);
   };
 
-  const showLoading = suggestionIsLoading || adjustmentLoading;
+  const isLoading = suggestionIsLoading;
 
   const AdjustmentPromptComponent = (
     <>
@@ -181,7 +171,7 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
       <div className="flex justify-between items-end w-full">
         <Label className="mt-4">Suggested:</Label>
         <div className="ml-auto">
-          {showLoading && (
+          {isLoading && (
             <div className="flex justify-center items-center">
               <div
                 className="inline-block h-4 w-4 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"
@@ -198,7 +188,7 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
       <textarea
         ref={suggestionTextAreaRef}
         value={editSuggestion}
-        disabled={adjustmentLoading}
+        disabled={suggestionIsLoading}
         onChange={(e) => setEditSuggestion(e.target.value)}
         className="w-full text-base p-2 border border-gray-300 rounded-md resize-none bg-green-50"
         style={{ overflow: "auto", maxHeight: "10em" }}
@@ -250,8 +240,8 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
           }}
         />
       )}
-      {SuggestionComponent}
-      {SubmitComponent}
+      {generatingSuggestion ? SuggestionComponent : null}
+      {generatingSuggestion ? SubmitComponent : null}
     </div>
   );
 };
