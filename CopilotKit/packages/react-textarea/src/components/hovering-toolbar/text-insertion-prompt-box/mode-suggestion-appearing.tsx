@@ -16,42 +16,36 @@ import React, { useEffect, useRef, useState } from "react";
 import Chip from "@mui/material/Chip";
 import Avatar from "@mui/material/Avatar";
 
-export type State_SuggestionAppearing = {
-  type: "suggestion-appearing";
-  initialSuggestion: SuggestionSnapshot;
+export type SuggestionState = {
+  editorState: EditingEditorState;
 };
 
-type SuggestionSnapshot = {
+export type SuggestionSnapshot = {
   adjustmentPrompt: string;
   generatingSuggestion: ReadableStream<string>;
   editorState: EditingEditorState;
 };
 
 export interface SuggestionAppearingProps {
-  state: State_SuggestionAppearing;
+  state: SuggestionState;
   performInsertion: (insertedText: string) => void;
-  goBack: () => void;
   insertionOrEditingFunction: Generator_InsertionOrEditingSuggestion;
-  onGeneratedText: (generatedText: ReadableStream<string>) => void;
 }
 
 export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
   performInsertion,
   state,
-  goBack,
   insertionOrEditingFunction,
-  onGeneratedText,
 }) => {
-  const [adjustmentHistory, setAdjustmentHistory] = useState<
-    SuggestionSnapshot[]
-  >([state.initialSuggestion]);
-
   const [editSuggestion, setEditSuggestion] = useState<string>("");
   const [suggestionIsLoading, setSuggestionIsLoading] =
     useState<boolean>(false);
 
   const [adjustmentPrompt, setAdjustmentPrompt] = useState<string>("");
   const [adjustmentLoading, setAdjustmentLoading] = useState<boolean>(false);
+
+  const [generatingSuggestion, setGeneratingSuggestion] =
+    useState<ReadableStream<string> | null>(null);
 
   const suggestionTextAreaRef = useRef<HTMLTextAreaElement>(null);
   const adjustmentTextAreaRef = useRef<HTMLTextAreaElement>(null);
@@ -71,15 +65,21 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
   }, []);
 
   useEffect(() => {
-    // Check if the stream is already locked
-    if (state.initialSuggestion.generatingSuggestion.locked) {
+    // if no generating suggestion, do nothing
+    if (!generatingSuggestion) {
       return;
     }
+
+    // Check if the stream is already locked (i.e. already reading from it)
+    if (generatingSuggestion.locked) {
+      return;
+    }
+
     // reset the edit suggestion
     setEditSuggestion("");
 
     // read the generating suggestion stream and continuously update the edit suggestion
-    const reader = state.initialSuggestion.generatingSuggestion.getReader();
+    const reader = generatingSuggestion.getReader();
 
     const read = async () => {
       setSuggestionIsLoading(true);
@@ -90,6 +90,7 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
         }
         setEditSuggestion((prev) => {
           const newSuggestion = prev + value;
+
           // Scroll to the bottom of the textarea. We call this here to make sure scroll-to-bottom is synchronous with the state update.
           if (suggestionTextAreaRef.current) {
             suggestionTextAreaRef.current.scrollTop =
@@ -114,9 +115,9 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
 
       releaseLockIfNotClosed();
     };
-  }, [state]);
+  }, [generatingSuggestion]);
 
-  const generateAdjustment = async () => {
+  const begingGeneratingAdjustment = async () => {
     // don't generate text if the prompt is empty
     if (!adjustmentPrompt.trim()) {
       return;
@@ -124,16 +125,20 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
 
     setAdjustmentLoading(true);
     // use insertionOrEditingFunction
+
+    // if the current edit suggestion is not empty, then use it as the selected text instead of the editor state's selected text
+    let editorState = state.editorState;
+    if (editSuggestion !== "") {
+      editorState.selectedText = editSuggestion;
+    }
+
     const adjustmentSuggestionTextStream = await insertionOrEditingFunction(
-      {
-        ...state.initialSuggestion.editorState,
-        selectedText: editSuggestion,
-      },
+      editorState,
       adjustmentPrompt,
       new AbortController().signal
     );
     setAdjustmentLoading(false);
-    onGeneratedText(adjustmentSuggestionTextStream);
+    setGeneratingSuggestion(adjustmentSuggestionTextStream);
   };
 
   const showLoading = suggestionIsLoading || adjustmentLoading;
@@ -153,7 +158,7 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
               setAdjustmentPrompt(adjustmentPrompt + "\n");
             } else if (e.key === "Enter") {
               e.preventDefault();
-              generateAdjustment();
+              begingGeneratingAdjustment();
             }
           }}
           placeholder={'"make it more formal", "be more specific", ...'}
@@ -162,7 +167,7 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
           rows={1}
         />
         <button
-          onClick={generateAdjustment}
+          onClick={begingGeneratingAdjustment}
           className="absolute right-2 bg-blue-500 text-white w-8 h-8 rounded-full flex items-center justify-center"
         >
           <i className="material-icons">arrow_forward</i>
@@ -203,15 +208,6 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
 
   const SubmitComponent = (
     <div className="flex w-full gap-4 justify-start">
-      <Button
-        className=" bg-gray-300"
-        onClick={() => {
-          goBack();
-        }}
-      >
-        <i className="material-icons">arrow_back</i> Back
-      </Button>
-
       <Button
         className=" bg-green-700 text-white"
         onClick={() => {
