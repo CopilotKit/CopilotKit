@@ -11,7 +11,9 @@
     "tsconfig": "0.3.0"
   },
   "changesets": [
+    "fluffy-grapes-hunt",
     "four-countries-cry",
+    "silly-walls-hug",
     "tame-carrots-unite"
   ]
 }

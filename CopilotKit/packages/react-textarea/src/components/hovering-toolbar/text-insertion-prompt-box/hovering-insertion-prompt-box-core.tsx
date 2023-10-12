@@ -4,7 +4,6 @@ import {
   EditingEditorState,
   Generator_InsertionOrEditingSuggestion,
 } from "../../../types/base/autosuggestions-bare-function";
-import { ChipWithIcon } from "../../manual-ui/chip-with-icon";
 import {
   FilePointer,
   SourceSearchBox,
@@ -15,71 +14,59 @@ import React, { useEffect, useRef, useState } from "react";
 
 import Chip from "@mui/material/Chip";
 import Avatar from "@mui/material/Avatar";
+import { streamPromiseFlatten } from "../../../lib/stream-promise-flatten";
 
-export type State_SuggestionAppearing = {
-  type: "suggestion-appearing";
-  initialSuggestion: SuggestionSnapshot;
-};
-
-type SuggestionSnapshot = {
-  adjustmentPrompt: string;
-  generatingSuggestion: ReadableStream<string>;
+export type SuggestionState = {
   editorState: EditingEditorState;
 };
 
-export interface SuggestionAppearingProps {
-  state: State_SuggestionAppearing;
+export interface HoveringInsertionPromptBoxCoreProps {
+  state: SuggestionState;
   performInsertion: (insertedText: string) => void;
-  goBack: () => void;
   insertionOrEditingFunction: Generator_InsertionOrEditingSuggestion;
-  onGeneratedText: (generatedText: ReadableStream<string>) => void;
 }
 
-export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
-  performInsertion,
-  state,
-  goBack,
-  insertionOrEditingFunction,
-  onGeneratedText,
-}) => {
-  const [adjustmentHistory, setAdjustmentHistory] = useState<
-    SuggestionSnapshot[]
-  >([state.initialSuggestion]);
-
+export const HoveringInsertionPromptBoxCore: React.FC<
+  HoveringInsertionPromptBoxCoreProps
+> = ({ performInsertion, state, insertionOrEditingFunction }) => {
   const [editSuggestion, setEditSuggestion] = useState<string>("");
   const [suggestionIsLoading, setSuggestionIsLoading] =
     useState<boolean>(false);
 
   const [adjustmentPrompt, setAdjustmentPrompt] = useState<string>("");
-  const [adjustmentLoading, setAdjustmentLoading] = useState<boolean>(false);
 
-  const suggestionTextAreaRef = useRef<HTMLTextAreaElement>(null);
+  const [generatingSuggestion, setGeneratingSuggestion] =
+    useState<ReadableStream<string> | null>(null);
+
   const adjustmentTextAreaRef = useRef<HTMLTextAreaElement>(null);
+  const suggestionTextAreaRef = useRef<HTMLTextAreaElement>(null);
 
   const [filePointers, setFilePointers] = useState<FilePointer[]>([]);
 
   useAutosizeTextArea(suggestionTextAreaRef, editSuggestion || "");
   useAutosizeTextArea(adjustmentTextAreaRef, adjustmentPrompt || "");
 
-  // initially focus on the end of the suggestion text area
+  // initially focus on the adjustment prompt text area
   useEffect(() => {
-    suggestionTextAreaRef.current?.focus();
-    suggestionTextAreaRef.current?.setSelectionRange(
-      editSuggestion.length,
-      editSuggestion.length
-    );
+    adjustmentTextAreaRef.current?.focus();
   }, []);
 
   useEffect(() => {
-    // Check if the stream is already locked
-    if (state.initialSuggestion.generatingSuggestion.locked) {
+    // if no generating suggestion, do nothing
+    if (!generatingSuggestion) {
       return;
     }
+
+    // Check if the stream is already locked (i.e. already reading from it)
+    if (generatingSuggestion.locked) {
+      return;
+    }
+
     // reset the edit suggestion
     setEditSuggestion("");
 
     // read the generating suggestion stream and continuously update the edit suggestion
-    const reader = state.initialSuggestion.generatingSuggestion.getReader();
+    const reader = generatingSuggestion.getReader();
 
     const read = async () => {
       setSuggestionIsLoading(true);
@@ -90,6 +77,7 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
         }
         setEditSuggestion((prev) => {
           const newSuggestion = prev + value;
+
           // Scroll to the bottom of the textarea. We call this here to make sure scroll-to-bottom is synchronous with the state update.
           if (suggestionTextAreaRef.current) {
             suggestionTextAreaRef.current.scrollTop =
@@ -114,33 +102,47 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
 
       releaseLockIfNotClosed();
     };
-  }, [state]);
+  }, [generatingSuggestion]);
 
-  const generateAdjustment = async () => {
+  const begingGeneratingAdjustment = async () => {
     // don't generate text if the prompt is empty
     if (!adjustmentPrompt.trim()) {
       return;
     }
 
-    setAdjustmentLoading(true);
-    // use insertionOrEditingFunction
-    const adjustmentSuggestionTextStream = await insertionOrEditingFunction(
-      {
-        ...state.initialSuggestion.editorState,
-        selectedText: editSuggestion,
-      },
+    // if the current edit suggestion is not empty, then use it as the selected text instead of the editor state's selected text
+    let editorState = state.editorState;
+    if (editSuggestion !== "") {
+      editorState.selectedText = editSuggestion;
+    }
+
+    const adjustmentSuggestionTextStreamPromise = insertionOrEditingFunction(
+      editorState,
       adjustmentPrompt,
       new AbortController().signal
     );
-    setAdjustmentLoading(false);
-    onGeneratedText(adjustmentSuggestionTextStream);
+    const adjustmentSuggestionTextStream = streamPromiseFlatten(
+      adjustmentSuggestionTextStreamPromise
+    );
+
+    setGeneratingSuggestion(adjustmentSuggestionTextStream);
   };
 
-  const showLoading = suggestionIsLoading || adjustmentLoading;
+  const isLoading = suggestionIsLoading;
+
+  const textToEdit = editSuggestion || state.editorState.selectedText;
+  const adjustmentLabel =
+    textToEdit === ""
+      ? "Describe the text you want to insert"
+      : "Describe adjustments to the suggested text";
+  const placeholder =
+    textToEdit === ""
+      ? "e.g. 'summarize the client's top 3 pain-points from @CallTranscript'"
+      : "e.g. 'make it more formal', 'be more specific', ...";
 
   const AdjustmentPromptComponent = (
     <>
-      <Label className="">Describe adjustments to the suggested text:</Label>
+      <Label className="">{adjustmentLabel}</Label>
       <div className="relative w-full flex items-center">
         <textarea
           disabled={suggestionIsLoading}
@@ -153,16 +155,16 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
               setAdjustmentPrompt(adjustmentPrompt + "\n");
             } else if (e.key === "Enter") {
               e.preventDefault();
-              generateAdjustment();
+              begingGeneratingAdjustment();
             }
           }}
-          placeholder={'"make it more formal", "be more specific", ...'}
+          placeholder={placeholder}
           style={{ minHeight: "3rem" }}
           className="w-full bg-slate-100 h-auto h-min-14 text-sm p-2 rounded-md resize-none overflow-visible focus:outline-none focus:ring-0 focus:border-non pr-[3rem]"
           rows={1}
         />
         <button
-          onClick={generateAdjustment}
+          onClick={begingGeneratingAdjustment}
           className="absolute right-2 bg-blue-500 text-white w-8 h-8 rounded-full flex items-center justify-center"
         >
           <i className="material-icons">arrow_forward</i>
@@ -176,7 +178,7 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
       <div className="flex justify-between items-end w-full">
         <Label className="mt-4">Suggested:</Label>
         <div className="ml-auto">
-          {showLoading && (
+          {isLoading && (
             <div className="flex justify-center items-center">
               <div
                 className="inline-block h-4 w-4 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"
@@ -193,7 +195,7 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
       <textarea
         ref={suggestionTextAreaRef}
         value={editSuggestion}
-        disabled={adjustmentLoading}
+        disabled={suggestionIsLoading}
         onChange={(e) => setEditSuggestion(e.target.value)}
         className="w-full text-base p-2 border border-gray-300 rounded-md resize-none bg-green-50"
         style={{ overflow: "auto", maxHeight: "10em" }}
@@ -203,15 +205,6 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
 
   const SubmitComponent = (
     <div className="flex w-full gap-4 justify-start">
-      <Button
-        className=" bg-gray-300"
-        onClick={() => {
-          goBack();
-        }}
-      >
-        <i className="material-icons">arrow_back</i> Back
-      </Button>
-
       <Button
         className=" bg-green-700 text-white"
         onClick={() => {
@@ -254,8 +247,8 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
           }}
         />
       )}
-      {SuggestionComponent}
-      {SubmitComponent}
+      {generatingSuggestion ? SuggestionComponent : null}
+      {generatingSuggestion ? SubmitComponent : null}
     </div>
   );
 };
