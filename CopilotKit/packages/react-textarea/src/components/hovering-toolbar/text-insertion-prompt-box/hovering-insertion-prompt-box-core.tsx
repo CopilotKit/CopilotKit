@@ -20,17 +20,15 @@ export type SuggestionState = {
   editorState: EditingEditorState;
 };
 
-export interface SuggestionAppearingProps {
+export interface HoveringInsertionPromptBoxCoreProps {
   state: SuggestionState;
   performInsertion: (insertedText: string) => void;
   insertionOrEditingFunction: Generator_InsertionOrEditingSuggestion;
 }
 
-export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
-  performInsertion,
-  state,
-  insertionOrEditingFunction,
-}) => {
+export const HoveringInsertionPromptBoxCore: React.FC<
+  HoveringInsertionPromptBoxCoreProps
+> = ({ performInsertion, state, insertionOrEditingFunction }) => {
   const [editSuggestion, setEditSuggestion] = useState<string>("");
   const [suggestionIsLoading, setSuggestionIsLoading] =
     useState<boolean>(false);

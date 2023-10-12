@@ -19,7 +19,7 @@ import {
   Smile,
   User,
 } from "lucide-react";
-import { IconForFilePointer } from "../hovering-toolbar/text-insertion-prompt-box/mode-suggestion-appearing";
+import { IconForFilePointer } from "../hovering-toolbar/text-insertion-prompt-box/hovering-insertion-prompt-box-core";
 
 export interface FilePointer {
   name: string;
