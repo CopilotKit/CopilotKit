@@ -4,7 +4,6 @@ import {
   EditingEditorState,
   Generator_InsertionOrEditingSuggestion,
 } from "../../../types/base/autosuggestions-bare-function";
-import { ChipWithIcon } from "../../manual-ui/chip-with-icon";
 import {
   FilePointer,
   SourceSearchBox,
@@ -133,9 +132,19 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
 
   const isLoading = suggestionIsLoading;
 
+  const textToEdit = editSuggestion || state.editorState.selectedText;
+  const adjustmentLabel =
+    textToEdit === ""
+      ? "Describe the text you want to insert"
+      : "Describe adjustments to the suggested text";
+  const placeholder =
+    textToEdit === ""
+      ? "e.g. 'summarize the client's top 3 pain-points from @CallTranscript'"
+      : "e.g. 'make it more formal', 'be more specific', ...";
+
   const AdjustmentPromptComponent = (
     <>
-      <Label className="">Describe adjustments to the suggested text:</Label>
+      <Label className="">{adjustmentLabel}</Label>
       <div className="relative w-full flex items-center">
         <textarea
           disabled={suggestionIsLoading}
@@ -151,7 +160,7 @@ export const SuggestionAppearing: React.FC<SuggestionAppearingProps> = ({
               begingGeneratingAdjustment();
             }
           }}
-          placeholder={'"make it more formal", "be more specific", ...'}
+          placeholder={placeholder}
           style={{ minHeight: "3rem" }}
           className="w-full bg-slate-100 h-auto h-min-14 text-sm p-2 rounded-md resize-none overflow-visible focus:outline-none focus:ring-0 focus:border-non pr-[3rem]"
           rows={1}

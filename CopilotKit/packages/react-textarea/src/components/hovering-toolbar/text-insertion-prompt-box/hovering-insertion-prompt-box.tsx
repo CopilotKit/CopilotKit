@@ -1,10 +1,5 @@
 import React, { useCallback, useState } from "react";
-import {
-  SuggestionAppearing,
-  SuggestionSnapshot,
-  SuggestionState,
-} from "./mode-suggestion-appearing";
-import { PreSuggestion, State_PreSuggestion } from "./mode-pre-suggestion";
+import { SuggestionAppearing } from "./mode-suggestion-appearing";
 import {
   EditingEditorState,
   InsertionEditorApiConfig,
@@ -21,7 +16,7 @@ export const HoveringInsertionPromptBox: React.FC<Props> = (props) => {
   return (
     <div
       className="flex flex-col justify-center items-center space-y-4 rounded-md border shadow-lg p-4 border-gray- bg-white"
-      style={{ width: "30rem" }}
+      style={{ width: "35rem" }}
     >
       <SuggestionAppearing
         state={{
