@@ -1,5 +1,16 @@
 # ui
 
+## 0.9.0-alpha.3
+
+### Minor Changes
+
+- textarea edits mvp
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.8.0-alpha.3
+
 ## 0.9.0-alpha.2
 
 ### Patch Changes
