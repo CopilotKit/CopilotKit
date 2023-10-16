@@ -1,5 +1,15 @@
 # ui
 
+## 0.9.0-alpha.7
+
+### Minor Changes
+
+- react-ui missing declaration
+
+### Patch Changes
+
+- @copilotkit/react-core@0.8.0-alpha.3
+
 ## 0.9.0-alpha.6
 
 ### Minor Changes
