@@ -8,12 +8,13 @@
   "sideEffects": [
     "**/*.css"
   ],
-  "types": "./dist/index.d.ts",
-  "main": "./dist/index.mjs",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
   "exports": {
     ".": "./dist/index.mjs",
     "./styles.css": "./dist/index.css"
   },
+  "types": "./dist/index.d.ts",
   "license": "MIT",
   "scripts": {
     "build": "tsup --treeshake",
