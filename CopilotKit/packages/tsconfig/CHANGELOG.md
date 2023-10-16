@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.4.0-alpha.1
+
+### Minor Changes
+
+- package json
+
 ## 0.4.0-alpha.0
 
 ### Minor Changes

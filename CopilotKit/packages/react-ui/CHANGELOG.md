@@ -1,5 +1,15 @@
 # ui
 
+## 0.9.0-alpha.8
+
+### Minor Changes
+
+- package json
+
+### Patch Changes
+
+- @copilotkit/react-core@0.8.0-alpha.3
+
 ## 0.9.0-alpha.7
 
 ### Minor Changes
