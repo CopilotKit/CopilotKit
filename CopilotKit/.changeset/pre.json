@@ -11,14 +11,14 @@
     "tsconfig": "0.3.0"
   },
   "changesets": [
-    "fluffy-grapes-hunt",
-    "four-countries-cry",
-    "silly-walls-hug",
     "cold-keys-knock",
+    "fluffy-grapes-hunt",
     "four-countries-cry",
     "healthy-deers-march",
     "nasty-glasses-punch",
+    "silly-walls-hug",
     "tall-trainers-guess",
-    "tame-carrots-unite"
+    "tame-carrots-unite",
+    "weak-apricots-thank"
   ]
 }

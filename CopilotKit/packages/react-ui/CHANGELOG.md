@@ -1,5 +1,11 @@
 # ui
 
+## 0.9.0-alpha.6
+
+### Minor Changes
+
+- beta bump
+
 ## 0.9.0-alpha.5
 
 ### Minor Changes
