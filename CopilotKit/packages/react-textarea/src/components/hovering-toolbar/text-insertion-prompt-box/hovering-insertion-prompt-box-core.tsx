@@ -301,7 +301,7 @@ export const FileChipPreview: React.FC<FileChipPreviewProp> = ({
         <Avatar sx={{ backgroundColor: "transparent" }}>
           <IconForFilePointer
             filePointer={filePointer}
-            className="w-4 h-4 object-contain"
+            className="w-4 h-1 object-contain"
           />
         </Avatar>
       }
@@ -318,6 +318,8 @@ export function IconForFilePointer({
 }): JSX.Element {
   if (filePointer.sourceApplication === "Salesforce") {
     return <IconSalesforce className={className} />;
+  } else if (filePointer.sourceApplication === "GoogleDocs") {
+    return <IconGoogleDocs className={className} />;
   } else {
     return <IconSalesforce className={className} />;
   }
@@ -358,7 +360,44 @@ function IconSalesforce({ className, ...props }: React.ComponentProps<"svg">) {
   );
 }
 
+function IconGoogleDocs({ className, ...props }: React.ComponentProps<"svg">) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      xmlSpace="preserve"
+      viewBox="0 0 64 88"
+      {...props}
+    >
+      <path
+        d="M58 88H6c-3.3 0-6-2.7-6-6V6c0-3.3 2.7-6 6-6h36l22 22v60c0 3.3-2.7 6-6 6z"
+        style={{
+          fill: "#3086f6",
+        }}
+      />
+      <path
+        d="m42 0 22 22H42V0z"
+        style={{
+          fill: "#0c67d6",
+        }}
+      />
+      <path
+        d="M50 39H14v-5h36v5zm0 7H14v5h36v-5zM40 58H14v5h26v-5z"
+        style={{
+          fill: "#fdffff",
+        }}
+      />
+    </svg>
+  );
+}
+
 const mockFiles: FilePointer[] = [
+  {
+    name: "CopilotTextarea README",
+    sourceApplication: "GoogleDocs",
+    getContents: async () => {
+      return "some contents";
+    },
+  },
   {
     name: "prospecting call transcript",
     sourceApplication: "Salesforce",
