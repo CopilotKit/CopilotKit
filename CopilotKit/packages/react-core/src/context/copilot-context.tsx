@@ -6,6 +6,10 @@ import { TreeNodeId } from "../hooks/use-tree";
 import { AnnotatedFunction } from "../types/annotated-function";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
 
+export interface CopilotApiConfig {
+  endpointBaseUrl: string;
+}
+
 export interface CopilotContextParams {
   // function-calling
   entryPoints: Record<string, AnnotatedFunction<any[]>>;
@@ -22,6 +26,9 @@ export interface CopilotContextParams {
     categories?: string[]
   ) => TreeNodeId;
   removeContext: (id: TreeNodeId) => void;
+
+  // api endpoints
+  copilotApiConfig: CopilotApiConfig;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -34,6 +41,14 @@ const emptyCopilotContext: CopilotContextParams = {
   getContextString: () => returnAndThrowInDebug(""),
   addContext: () => "",
   removeContext: () => {},
+
+  copilotApiConfig: new (class implements CopilotApiConfig {
+    get endpointBaseUrl(): string {
+      throw new Error(
+        "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!"
+      );
+    }
+  })(),
 };
 
 export const CopilotContext =

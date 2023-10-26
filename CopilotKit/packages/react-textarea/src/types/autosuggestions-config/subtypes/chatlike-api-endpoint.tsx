@@ -1,3 +1,4 @@
+import { CopilotApiConfig } from "@copilotkit/react-core/dist/context/copilot-context";
 import { MinimalChatGPTMessage } from "./minimal-chat-gpt-message";
 
 export type ChatlikeApiEndpointImpl = (
@@ -24,14 +25,16 @@ export class ChatlikeApiEndpoint {
    * @param apiEndpoint The URL of the OpenAI-compatible API endpoint.
    * @returns A new instance of ChatlikeApiEndpoint.
    */
-  static standardOpenAIEndpoint(apiEndpoint: string): ChatlikeApiEndpoint {
+  static fromCopilotApiConfig(
+    copilotApiConfig: CopilotApiConfig
+  ): ChatlikeApiEndpoint {
     return new ChatlikeApiEndpoint(
       async (
         abortSignal: AbortSignal,
         messages: MinimalChatGPTMessage[],
         forwardedProps?: { [key: string]: any }
       ) => {
-        const res = await fetch(apiEndpoint, {
+        const res = await fetch(copilotApiConfig.endpointBaseUrl, {
           method: "POST",
           body: JSON.stringify({
             ...forwardedProps,

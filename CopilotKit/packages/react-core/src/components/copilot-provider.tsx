@@ -1,14 +1,16 @@
 "use client";
 import { FunctionCallHandler } from "ai";
 import { ReactNode, useCallback, useState } from "react";
-import { CopilotContext } from "../context/copilot-context";
+import { CopilotContext, CopilotApiConfig } from "../context/copilot-context";
 import useTree from "../hooks/use-tree";
 import { AnnotatedFunction } from "../types/annotated-function";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
 
 export function CopilotProvider({
+  copilotApiConfig,
   children,
 }: {
+  copilotApiConfig: CopilotApiConfig;
   children: ReactNode;
 }): JSX.Element {
   const [entryPoints, setEntryPoints] = useState<
@@ -77,6 +79,8 @@ export function CopilotProvider({
         getContextString,
         addContext,
         removeContext,
+
+        copilotApiConfig,
       }}
     >
       {children}

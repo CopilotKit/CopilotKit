@@ -4,15 +4,11 @@ import { SuggestionsApiConfig } from "./suggestions-api-config";
 
 // Mostly mirrors a partial SuggestionsApiConfig, but with some fields MANDATORY.
 export interface SuggestionsApiConfigUserSpecified
-  extends Partial<Omit<SuggestionsApiConfig, "apiEndpoint">> {
-  apiEndpoint: ChatlikeApiEndpoint;
-}
+  extends Partial<SuggestionsApiConfig> {}
 
 // Mostly mirrors a partial InsertionsApiConfig, but with some fields MANDATORY.
 export interface InsertionsApiConfigUserSpecified
-  extends Partial<Omit<InsertionsApiConfig, "apiEndpoint">> {
-  apiEndpoint: ChatlikeApiEndpoint;
-}
+  extends Partial<InsertionsApiConfig> {}
 
 // Mostly mirrors a partial AutosuggestionsConfig, but with some fields MANDATORY.
 export interface AutosuggestionsConfigUserSpecified

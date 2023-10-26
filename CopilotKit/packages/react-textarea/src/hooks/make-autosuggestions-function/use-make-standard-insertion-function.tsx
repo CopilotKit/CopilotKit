@@ -1,6 +1,6 @@
 import { CopilotContext } from "@copilotkit/react-core";
 import { useCallback, useContext } from "react";
-import { MinimalChatGPTMessage } from "../../types";
+import { ChatlikeApiEndpoint, MinimalChatGPTMessage } from "../../types";
 import { retry } from "../../lib/retry";
 import {
   EditingEditorState,
@@ -30,7 +30,7 @@ export function useMakeStandardInsertionOrEditingFunction(
   insertionApiConfig: InsertionsApiConfig,
   editingApiConfig: EditingApiConfig
 ): Generator_InsertionOrEditingSuggestion {
-  const { getContextString } = useContext(CopilotContext);
+  const { getContextString, copilotApiConfig } = useContext(CopilotContext);
 
   const insertionFunction = useCallback(
     async (
@@ -65,7 +65,9 @@ export function useMakeStandardInsertionOrEditingFunction(
           },
         ];
 
-        return await insertionApiConfig.apiEndpoint.run(
+        const apiEndpoint =
+          ChatlikeApiEndpoint.fromCopilotApiConfig(copilotApiConfig);
+        return await apiEndpoint.run(
           abortSignal,
           messages,
           insertionApiConfig.forwardedParams
@@ -115,7 +117,9 @@ export function useMakeStandardInsertionOrEditingFunction(
           },
         ];
 
-        return await editingApiConfig.apiEndpoint.run(
+        const apiEndpoint =
+          ChatlikeApiEndpoint.fromCopilotApiConfig(copilotApiConfig);
+        return await apiEndpoint.run(
           abortSignal,
           messages,
           editingApiConfig.forwardedParams

@@ -2,6 +2,7 @@ import { CopilotContext } from "@copilotkit/react-core";
 import { useCallback, useContext } from "react";
 import {
   AutosuggestionsBareFunction,
+  ChatlikeApiEndpoint,
   MinimalChatGPTMessage,
 } from "../../types";
 import { retry } from "../../lib/retry";
@@ -25,7 +26,7 @@ export function useMakeStandardAutosuggestionFunction(
   contextCategories: string[] | undefined,
   apiConfig: SuggestionsApiConfig
 ): AutosuggestionsBareFunction {
-  const { getContextString } = useContext(CopilotContext);
+  const { getContextString, copilotApiConfig } = useContext(CopilotContext);
 
   return useCallback(
     async (editorState: InsertionEditorState, abortSignal: AbortSignal) => {
@@ -51,7 +52,9 @@ export function useMakeStandardAutosuggestionFunction(
           },
         ];
 
-        const stream = await apiConfig.apiEndpoint.run(
+        const apiEndpoint =
+          ChatlikeApiEndpoint.fromCopilotApiConfig(copilotApiConfig);
+        const stream = await apiEndpoint.run(
           abortSignal,
           messages,
           apiConfig.forwardedParams

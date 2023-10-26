@@ -16,7 +16,11 @@ import { useStateWithLocalStorage } from "../utils";
 
 export default function CopilotTextareaDemo(): JSX.Element {
   return (
-    <CopilotProvider>
+    <CopilotProvider
+      copilotApiConfig={{
+        endpointBaseUrl: "/api/copilotkit_chatlike",
+      }}
+    >
       <TextAreas />
     </CopilotProvider>
   );
@@ -68,9 +72,6 @@ function TextAreas() {
           externalContextCategories: [announcementCategoryId],
           chatApiConfigs: {
             suggestionsApiConfig: {
-              apiEndpoint: ChatlikeApiEndpoint.standardOpenAIEndpoint(
-                "/api/copilotkit_chatlike"
-              ),
               // makeSystemPrompt: makeSystemPrompt,
               // fewShotMessages: fewShotMessages,
               forwardedParams: {
@@ -78,11 +79,7 @@ function TextAreas() {
                 stop: ["\n", ".", ","],
               },
             },
-            insertionApiConfig: {
-              apiEndpoint: ChatlikeApiEndpoint.standardOpenAIEndpoint(
-                "/api/copilotkit_chatlike"
-              ),
-            },
+            insertionApiConfig: {},
           },
           debounceTime: 250,
         }}
