@@ -8,7 +8,7 @@ export default function WaterBnb() {
   return (
     <CopilotProvider
       copilotApiConfig={{
-        endpointBaseUrl: "/api/copilotkit",
+        chatApiEndpoint: "/api/copilotkit/chat",
       }}
     >
       <CopilotSidebarUIProvider>

@@ -18,7 +18,7 @@ export default function CopilotTextareaDemo(): JSX.Element {
   return (
     <CopilotProvider
       copilotApiConfig={{
-        endpointBaseUrl: "/api/copilotkit",
+        chatApiEndpoint: "/api/copilotkit/chat",
       }}
     >
       <TextAreas />

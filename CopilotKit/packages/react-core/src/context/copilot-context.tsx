@@ -7,13 +7,13 @@ import { AnnotatedFunction } from "../types/annotated-function";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
 
 export interface CopilotApiConfig {
-  endpointBaseUrl: string;
+  chatApiEndpoint: string;
 }
 
 export function copilotApiConfigExtrapolator(config: CopilotApiConfig) {
   return {
-    get chatApiUrl(): string {
-      return `${config.endpointBaseUrl}/chat`;
+    get chatApiEndpoint(): string {
+      return `${config.chatApiEndpoint}`;
     },
   };
 }
@@ -51,7 +51,7 @@ const emptyCopilotContext: CopilotContextParams = {
   removeContext: () => {},
 
   copilotApiConfig: new (class implements CopilotApiConfig {
-    get endpointBaseUrl(): string {
+    get chatApiEndpoint(): string {
       throw new Error(
         "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!"
       );

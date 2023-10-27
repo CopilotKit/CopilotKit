@@ -59,7 +59,7 @@ export function useCopilotChat({
 
   const { messages, append, reload, stop, isLoading, input, setInput } =
     useChat({
-      api: copilotApiConfigExtrapolator(copilotApiConfig).chatApiUrl,
+      api: copilotApiConfigExtrapolator(copilotApiConfig).chatApiEndpoint,
       id: options.id,
       initialMessages: initialMessagesWithContext,
       experimental_onFunctionCall: getFunctionCallHandler(),
