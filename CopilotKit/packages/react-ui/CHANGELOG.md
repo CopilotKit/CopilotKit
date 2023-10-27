@@ -1,5 +1,16 @@
 # ui
 
+## 0.9.0-alpha.10
+
+### Minor Changes
+
+- minor bugfix
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.8.0-alpha.5
+
 ## 0.9.0-alpha.9
 
 ### Minor Changes

@@ -1,5 +1,18 @@
 # web
 
+## 1.4.0-alpha.10
+
+### Minor Changes
+
+- minor bugfix
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.19.0-alpha.8
+  - @copilotkit/react-core@0.8.0-alpha.5
+  - @copilotkit/react-ui@0.9.0-alpha.10
+
 ## 1.4.0-alpha.9
 
 ### Minor Changes

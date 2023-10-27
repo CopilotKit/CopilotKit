@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.4.0-alpha.3
+
+### Minor Changes
+
+- minor bugfix
+
 ## 0.4.0-alpha.2
 
 ### Minor Changes

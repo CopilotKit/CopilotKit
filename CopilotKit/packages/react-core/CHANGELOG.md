@@ -1,5 +1,11 @@
 # ui
 
+## 0.8.0-alpha.5
+
+### Minor Changes
+
+- minor bugfix
+
 ## 0.8.0-alpha.4
 
 ### Minor Changes
