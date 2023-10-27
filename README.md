@@ -2,7 +2,7 @@
   <img src="./assets/banner.png" width="100%" style="border-radius: 15px;">
 </div>
 
-# CopilotKit🪁 [![Discord](https://dcbadge.vercel.app/api/server/6dffbvGU3D?compact=true&style=flat)](https://discord.gg/6dffbvGU3D) [![Online Users](https://img.shields.io/discord/1122926057641742418?label=online&logo=discord&logoColor=white&color=5865F2)](https://discord.gg/6dffbvGU3D) ![GitHub CI](https://github.com/RecursivelyAI/CopilotKit/actions/workflows/ci.yml/badge.svg)
+# CopilotKit🪁 [![Discord](https://dcbadge.vercel.app/api/server/6dffbvGU3D?compact=true&style=flat)](https://discord.gg/6dffbvGU3D) ![GitHub CI](https://github.com/RecursivelyAI/CopilotKit/actions/workflows/ci.yml/badge.svg)
 
 A **powerful** & **hackable** copilot for any react app.  
 Get started in minutes & iterate ad-infinitum.
