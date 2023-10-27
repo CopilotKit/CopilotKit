@@ -65,7 +65,6 @@ export function useCopilotChat({
       experimental_onFunctionCall: getFunctionCallHandler(),
       body: {
         id: options.id,
-        previewToken,
         functions: functionDescriptions,
       },
     });
@@ -84,8 +83,6 @@ export function useCopilotChat({
     setInput,
   };
 }
-
-const previewToken = "TODO123";
 
 export function defaultSystemMessage(contextString: string): string {
   return `
