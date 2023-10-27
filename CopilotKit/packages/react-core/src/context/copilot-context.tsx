@@ -15,10 +15,6 @@ export function copilotApiConfigExtrapolator(config: CopilotApiConfig) {
     get chatApiUrl(): string {
       return `${config.endpointBaseUrl}/chat`;
     },
-
-    get textareaApiUrl(): string {
-      return `${config.endpointBaseUrl}/textarea`;
-    },
   };
 }
 

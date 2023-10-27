@@ -38,7 +38,7 @@ export class ChatlikeApiEndpoint {
         forwardedProps?: { [key: string]: any }
       ) => {
         const res = await fetch(
-          copilotApiConfigExtrapolator(copilotApiConfig).textareaApiUrl,
+          copilotApiConfigExtrapolator(copilotApiConfig).chatApiUrl,
           {
             method: "POST",
             body: JSON.stringify({

@@ -66,7 +66,7 @@ export function useCopilotChat({
       body: {
         id: options.id,
         previewToken,
-        copilotkit_manually_passed_function_descriptions: functionDescriptions,
+        functions: functionDescriptions,
       },
     });
 
