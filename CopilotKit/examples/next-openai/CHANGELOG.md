@@ -1,5 +1,18 @@
 # web
 
+## 1.4.0-alpha.9
+
+### Minor Changes
+
+- api endpoint centralization
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.19.0-alpha.7
+  - @copilotkit/react-core@0.8.0-alpha.4
+  - @copilotkit/react-ui@0.9.0-alpha.9
+
 ## 1.4.0-alpha.8
 
 ### Minor Changes

@@ -1,5 +1,16 @@
 # ui
 
+## 0.9.0-alpha.9
+
+### Minor Changes
+
+- api endpoint centralization
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.8.0-alpha.4
+
 ## 0.9.0-alpha.8
 
 ### Minor Changes

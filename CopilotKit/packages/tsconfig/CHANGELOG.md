@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.4.0-alpha.2
+
+### Minor Changes
+
+- api endpoint centralization
+
 ## 0.4.0-alpha.1
 
 ### Minor Changes

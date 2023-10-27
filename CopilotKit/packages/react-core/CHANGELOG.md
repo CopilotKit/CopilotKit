@@ -1,5 +1,11 @@
 # ui
 
+## 0.8.0-alpha.4
+
+### Minor Changes
+
+- api endpoint centralization
+
 ## 0.8.0-alpha.3
 
 ### Minor Changes
