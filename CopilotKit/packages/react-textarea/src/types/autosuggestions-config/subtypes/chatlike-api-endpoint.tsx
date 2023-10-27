@@ -1,4 +1,7 @@
-import { CopilotApiConfig } from "@copilotkit/react-core/dist/context/copilot-context";
+import {
+  CopilotApiConfig,
+  copilotApiConfigExtrapolator,
+} from "@copilotkit/react-core";
 import { MinimalChatGPTMessage } from "./minimal-chat-gpt-message";
 
 export type ChatlikeApiEndpointImpl = (
@@ -34,14 +37,17 @@ export class ChatlikeApiEndpoint {
         messages: MinimalChatGPTMessage[],
         forwardedProps?: { [key: string]: any }
       ) => {
-        const res = await fetch(copilotApiConfig.endpointBaseUrl, {
-          method: "POST",
-          body: JSON.stringify({
-            ...forwardedProps,
-            messages: messages,
-          }),
-          signal: abortSignal,
-        });
+        const res = await fetch(
+          copilotApiConfigExtrapolator(copilotApiConfig).textareaApiUrl,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              ...forwardedProps,
+              messages: messages,
+            }),
+            signal: abortSignal,
+          }
+        );
 
         const bodySteram: ReadableStream<Uint8Array> | null = res.body;
         if (!bodySteram) {

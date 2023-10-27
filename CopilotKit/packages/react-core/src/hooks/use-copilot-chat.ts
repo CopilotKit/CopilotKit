@@ -2,6 +2,7 @@ import { useMemo, useContext } from "react";
 import {
   CopilotContext,
   CopilotContextParams,
+  copilotApiConfigExtrapolator,
 } from "../context/copilot-context";
 import { useChat } from "ai/react";
 import { ChatRequestOptions, CreateMessage, Message } from "ai";
@@ -34,6 +35,7 @@ export function useCopilotChat({
     getContextString,
     getChatCompletionFunctionDescriptions,
     getFunctionCallHandler,
+    copilotApiConfig,
   } = useContext(CopilotContext);
 
   const systemMessage: Message = useMemo(() => {
@@ -57,6 +59,7 @@ export function useCopilotChat({
 
   const { messages, append, reload, stop, isLoading, input, setInput } =
     useChat({
+      api: copilotApiConfigExtrapolator(copilotApiConfig).chatApiUrl,
       id: options.id,
       initialMessages: initialMessagesWithContext,
       experimental_onFunctionCall: getFunctionCallHandler(),

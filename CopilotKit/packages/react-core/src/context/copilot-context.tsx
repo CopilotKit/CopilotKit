@@ -10,6 +10,18 @@ export interface CopilotApiConfig {
   endpointBaseUrl: string;
 }
 
+export function copilotApiConfigExtrapolator(config: CopilotApiConfig) {
+  return {
+    get chatApiUrl(): string {
+      return `${config.endpointBaseUrl}/chat`;
+    },
+
+    get textareaApiUrl(): string {
+      return `${config.endpointBaseUrl}/textarea`;
+    },
+  };
+}
+
 export interface CopilotContextParams {
   // function-calling
   entryPoints: Record<string, AnnotatedFunction<any[]>>;
