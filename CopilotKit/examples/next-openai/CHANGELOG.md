@@ -1,5 +1,18 @@
 # web
 
+## 1.5.0
+
+### Minor Changes
+
+- 0467f62: minor ergonomic improvement to CopilotProvider instantiation
+
+### Patch Changes
+
+- Updated dependencies [0467f62]
+  - @copilotkit/react-core@0.9.0
+  - @copilotkit/react-textarea@0.19.1
+  - @copilotkit/react-ui@0.9.1
+
 ## 1.4.0
 
 ### Minor Changes
