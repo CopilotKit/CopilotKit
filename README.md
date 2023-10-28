@@ -36,7 +36,7 @@ npm i @copilotkit/react-core @copilotkit/react-ui @copilotkit/react-textarea
 ## Backend
 
 You can easily use any backend/LLM - just provide the URL of any OpenAI-comaptible endpoint.
-E.g. see this [example implementation for a NextJS app](examples/next-openai/src/app/api/copilotkit/chat/route.ts).
+E.g. see this [example implementation for a NextJS app](CopilotKit/examples/next-openai/src/app/api/copilotkit/chat/route.ts).
 
 Then reference this URL in your `CopilotProvider` instantiation:
 ```typescript
