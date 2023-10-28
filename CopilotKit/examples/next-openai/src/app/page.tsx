@@ -6,11 +6,7 @@ import { VacationList } from "./components/vacation-list";
 
 export default function WaterBnb() {
   return (
-    <CopilotProvider
-      copilotApiConfig={{
-        chatApiEndpoint: "/api/copilotkit/chat",
-      }}
-    >
+    <CopilotProvider chatApiEndpoint="/api/copilotkit/chat">
       <CopilotSidebarUIProvider>
         <VacationList />
       </CopilotSidebarUIProvider>
