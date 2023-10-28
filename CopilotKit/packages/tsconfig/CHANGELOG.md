@@ -1,5 +1,16 @@
 # tsconfig
 
+## 0.4.0
+
+### Minor Changes
+
+- 1b330b5: out of beta: centralized api, textarea insertions/edits
+- 7f8d531: package json
+- 96f5630: react-ui missing declaration
+- c13ffcb: minor bugfix
+- e4fe6a5: copilot textarea documents - provide with code skeleton
+- 8e9f9b1: api endpoint centralization
+
 ## 0.4.0-alpha.4
 
 ### Minor Changes

@@ -1,5 +1,21 @@
 # ui
 
+## 0.8.0
+
+### Minor Changes
+
+- 1b330b5: out of beta: centralized api, textarea insertions/edits
+- e4ce3ab: textarea edits mvp
+- 9e201c5: textarea insertions deletions etc
+- c13ffcb: minor bugfix
+- e4fe6a5: copilot textarea documents - provide with code skeleton
+- 8e9f9b1: api endpoint centralization
+
+### Patch Changes
+
+- 12407db: rebase master
+- 939454e: prettify
+
 ## 0.8.0-alpha.6
 
 ### Minor Changes

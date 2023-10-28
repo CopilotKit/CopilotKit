@@ -1,5 +1,41 @@
 # web
 
+## 1.4.0
+
+### Minor Changes
+
+- 1b330b5: out of beta: centralized api, textarea insertions/edits
+- 9e201c5: textarea insertions deletions etc
+- 7f8d531: package json
+- 96f5630: react-ui missing declaration
+- c13ffcb: minor bugfix
+- e4fe6a5: copilot textarea documents - provide with code skeleton
+- 8e9f9b1: api endpoint centralization
+- 5829585: beta bump
+
+### Patch Changes
+
+- 12407db: rebase master
+- 939454e: prettify
+- Updated dependencies [915e89c]
+- Updated dependencies [1b330b5]
+- Updated dependencies [e4ce3ab]
+- Updated dependencies [9e201c5]
+- Updated dependencies [915e89c]
+- Updated dependencies [7f8d531]
+- Updated dependencies [96f5630]
+- Updated dependencies [1992035]
+- Updated dependencies [c13ffcb]
+- Updated dependencies [12407db]
+- Updated dependencies [e4fe6a5]
+- Updated dependencies [8e9f9b1]
+- Updated dependencies [eed7c64]
+- Updated dependencies [939454e]
+- Updated dependencies [5829585]
+  - @copilotkit/react-ui@0.9.0
+  - @copilotkit/react-textarea@0.19.0
+  - @copilotkit/react-core@0.8.0
+
 ## 1.4.0-alpha.11
 
 ### Minor Changes

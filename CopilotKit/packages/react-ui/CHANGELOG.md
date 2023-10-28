@@ -1,5 +1,37 @@
 # ui
 
+## 0.9.0
+
+### Minor Changes
+
+- 915e89c: bump alpha version after link dep
+- 1b330b5: out of beta: centralized api, textarea insertions/edits
+- e4ce3ab: textarea edits mvp
+- 9e201c5: textarea insertions deletions etc
+- 915e89c: again
+- 7f8d531: package json
+- 96f5630: react-ui missing declaration
+- 1992035: import esm not cjs variant
+- c13ffcb: minor bugfix
+- e4fe6a5: copilot textarea documents - provide with code skeleton
+- 8e9f9b1: api endpoint centralization
+- eed7c64: remove coldarkDark style from react-syntax-highlighter
+- 5829585: beta bump
+
+### Patch Changes
+
+- 12407db: rebase master
+- 939454e: prettify
+- Updated dependencies [1b330b5]
+- Updated dependencies [e4ce3ab]
+- Updated dependencies [9e201c5]
+- Updated dependencies [c13ffcb]
+- Updated dependencies [12407db]
+- Updated dependencies [e4fe6a5]
+- Updated dependencies [8e9f9b1]
+- Updated dependencies [939454e]
+  - @copilotkit/react-core@0.8.0
+
 ## 0.9.0-alpha.11
 
 ### Minor Changes
