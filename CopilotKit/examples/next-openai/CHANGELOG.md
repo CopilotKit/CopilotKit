@@ -1,5 +1,18 @@
 # web
 
+## 1.4.0-alpha.11
+
+### Minor Changes
+
+- copilot textarea documents - provide with code skeleton
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.19.0-alpha.9
+  - @copilotkit/react-core@0.8.0-alpha.6
+  - @copilotkit/react-ui@0.9.0-alpha.11
+
 ## 1.4.0-alpha.10
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.4.0-alpha.4
+
+### Minor Changes
+
+- copilot textarea documents - provide with code skeleton
+
 ## 0.4.0-alpha.3
 
 ### Minor Changes

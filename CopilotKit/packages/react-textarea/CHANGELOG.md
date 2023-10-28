@@ -1,5 +1,16 @@
 # ui
 
+## 0.19.0-alpha.9
+
+### Minor Changes
+
+- copilot textarea documents - provide with code skeleton
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.8.0-alpha.6
+
 ## 0.19.0-alpha.8
 
 ### Minor Changes
