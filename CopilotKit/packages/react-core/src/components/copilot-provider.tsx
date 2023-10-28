@@ -9,10 +9,10 @@ import { DocumentPointer } from "../types";
 import useFlatCategoryStore from "../hooks/use-flat-category-store";
 
 export function CopilotProvider({
-  copilotApiConfig,
+  chatApiEndpoint,
   children,
 }: {
-  copilotApiConfig: CopilotApiConfig;
+  chatApiEndpoint: string;
   children: ReactNode;
 }): JSX.Element {
   const [entryPoints, setEntryPoints] = useState<
@@ -110,7 +110,9 @@ export function CopilotProvider({
         getDocumentsContext,
         addDocumentContext,
         removeDocumentContext,
-        copilotApiConfig,
+        copilotApiConfig: {
+          chatApiEndpoint,
+        },
       }}
     >
       {children}

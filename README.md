@@ -33,6 +33,19 @@ https://github.com/RecursivelyAI/CopilotKit/assets/746397/b0cdf38b-ec5c-4e95-862
 npm i @copilotkit/react-core @copilotkit/react-ui @copilotkit/react-textarea
 ```
 
+## Backend
+
+You can easily use any backend/LLM - just provide the URL of any OpenAI-comaptible endpoint.
+E.g. see this [example implementation for a NextJS app](CopilotKit/examples/next-openai/src/app/api/copilotkit/chat/route.ts).
+
+Then reference this URL in your `CopilotProvider` instantiation:
+```typescript
+  <CopilotProvider chatApiEndpoint="/api/copilotkit/chat"> {/* Global state & copilot logic. Put this around the entire app */}
+    {/* ... */}
+  </CopilotProvider>
+```
+
+
 ## Examples
 
 ### NEW! `<CopilotTextarea />`
@@ -59,14 +72,13 @@ import { CopilotProvider } from "@copilotkit/react-core";
 useMakeCopilotReadable(relevantInformation)
 
 return (
-  <CopilotProvider> {/* Global state & copilot logic. Put this around the entire app to propagate `useMakeCopilotReadable` calls */}
+  <CopilotProvider chatApiEndpoint="/api/copilotkit/chat"> {/* Global state & copilot logic. Put this around the entire app */}
     <CopilotTextarea
       className="p-4 w-1/2 aspect-square font-bold text-3xl bg-slate-800 text-white rounded-lg resize-none"
       placeholder="A CopilotTextarea!"
       autosuggestionsConfig={{
         purposePrompt: "A COOL & SMOOTH announcement post about CopilotTextarea. Be brief. Be clear. Be cool.",
-        apiEndpoint: apiEndpoint1 // (see below)
-        forwardedParams: {
+        forwardedParams: { // additional arguments to customize autocompletions
           max_tokens: 25,
           stop: ["\n", ".", ","],
         },
@@ -76,34 +88,6 @@ return (
 );
 ```
 
-Easily use any backend/LLM via `ChatlikeApiEndpoint.custom(...)`, or just provide the URL of any OpenAI-comaptible endpoint:
-
-```typescript
-// If your endpoint is a standard OpenAI-compatible endpoint, just pass the URL (see `api/autosuggestions/route.ts` for an example)
-const apiEndpoint1 = ChatlikeApiEndpoint.standardOpenAIEndpoint("/api/autosuggestions") 
-
-// Or easily support any backend / LLM
-const apiEndpoint2 = ChatlikeApiEndpoint.custom(
-  async (
-    abortSignal: AbortSignal,
-    messages: MinimalChatGPTMessage[],
-    forwardedProps?: { [key: string]: any },
-  ) => {
-    const res = await fetch('api/my-sreaming-api', {
-      method: 'POST',
-      body: JSON.stringify({
-        ...forwardedProps,
-        messages: messages,
-        max_tokens: 5,
-      }),
-      signal: abortSignal,
-    });
-
-    const fullPayload = await res.text();
-    return fullPayload;
-  },
-);
-```
 
 ### Integrate copilot
 
@@ -114,7 +98,7 @@ import { CopilotSidebarUIProvider } from "@copilotkit/react-ui";
 
 export default function App(): JSX.Element {
   return (
-    <CopilotProvider> {/* Global state & copilot logic. Put this around the entire app */}
+  <CopilotProvider chatApiEndpoint="/api/copilotkit/chat"> {/* Global state & copilot logic. Put this around the entire app */}
       <CopilotSidebarUIProvider> {/* A built-in Copilot UI (or bring your own UI). Put around individual pages, or the entire app. */}
 
         <YourContent />
