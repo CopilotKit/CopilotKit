@@ -1,5 +1,11 @@
 # ui
 
+## 0.9.0
+
+### Minor Changes
+
+- 0467f62: minor ergonomic improvement to CopilotProvider instantiation
+
 ## 0.8.0
 
 ### Minor Changes
