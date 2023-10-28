@@ -2,6 +2,10 @@ import React from "react";
 import { useState } from "react";
 import { DestinationTable } from "./destination-table";
 import { VacationNotes } from "./vacation-notes";
+import {
+  useMakeCopilotDocumentReadable,
+  DocumentPointer,
+} from "@copilotkit/react-core";
 
 export type Destination = {
   name: string;
