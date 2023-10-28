@@ -5,6 +5,8 @@ import { CopilotContext, CopilotApiConfig } from "../context/copilot-context";
 import useTree from "../hooks/use-tree";
 import { AnnotatedFunction } from "../types/annotated-function";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
+import { DocumentPointer } from "../types";
+import useFlatCategoryStore from "../hooks/use-flat-category-store";
 
 export function CopilotProvider({
   copilotApiConfig,
@@ -18,6 +20,11 @@ export function CopilotProvider({
   >({});
 
   const { addElement, removeElement, printTree } = useTree();
+  const {
+    addElement: addDocument,
+    removeElement: removeDocument,
+    allElements: allDocuments,
+  } = useFlatCategoryStore<DocumentPointer>();
 
   const setEntryPoint = useCallback(
     (id: string, entryPoint: AnnotatedFunction<any[]>) => {
@@ -68,6 +75,27 @@ export function CopilotProvider({
     return entryPointsToFunctionCallHandler(Object.values(entryPoints));
   }, [entryPoints]);
 
+  const getDocumentsContext = useCallback(
+    (categories: string[] = ["global"]) => {
+      return allDocuments(categories);
+    },
+    [allDocuments]
+  );
+
+  const addDocumentContext = useCallback(
+    (documentPointer: DocumentPointer, categories: string[] = ["global"]) => {
+      return addDocument(documentPointer, categories);
+    },
+    [addDocument]
+  );
+
+  const removeDocumentContext = useCallback(
+    (documentId: string) => {
+      removeDocument(documentId);
+    },
+    [removeDocument]
+  );
+
   return (
     <CopilotContext.Provider
       value={{
@@ -79,7 +107,9 @@ export function CopilotProvider({
         getContextString,
         addContext,
         removeContext,
-
+        getDocumentsContext,
+        addDocumentContext,
+        removeDocumentContext,
         copilotApiConfig,
       }}
     >

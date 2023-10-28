@@ -16,6 +16,7 @@ import {
 
 export interface HoveringToolbarProps {
   apiConfig: InsertionEditorApiConfig;
+  contextCategories: string[];
 }
 
 export const HoveringToolbar: (
@@ -135,6 +136,7 @@ export const HoveringToolbar: (
               });
               setIsDisplayed(false);
             }}
+            contextCategories={props.contextCategories}
           />
         )}
       </Menu>

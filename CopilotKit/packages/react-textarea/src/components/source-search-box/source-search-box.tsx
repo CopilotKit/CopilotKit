@@ -19,18 +19,13 @@ import {
   Smile,
   User,
 } from "lucide-react";
-import { IconForFilePointer } from "../hovering-toolbar/text-insertion-prompt-box/hovering-insertion-prompt-box-core";
 
-export interface FilePointer {
-  name: string;
-  sourceApplication: string;
-  getContents: () => Promise<string>;
-}
+import { DocumentPointer } from "@copilotkit/react-core";
 
 export interface SourceSearchBoxProps {
   searchTerm: string;
-  recentFiles: FilePointer[];
-  onSelectedFile: (filePointer: FilePointer) => void;
+  suggestedFiles: DocumentPointer[];
+  onSelectedFile: (filePointer: DocumentPointer) => void;
 }
 
 export function SourceSearchBox(props: SourceSearchBoxProps) {
@@ -62,22 +57,23 @@ export function SourceSearchBox(props: SourceSearchBoxProps) {
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
 
-        <CommandGroup heading="Recents">
-          {props.recentFiles.map((filePointer) => {
+        <CommandGroup heading="Available resources">
+          {props.suggestedFiles.map((filePointer) => {
             return (
               <CommandItem
                 key={`word-${filePointer.sourceApplication}.${filePointer.name}`}
                 value={filePointer.name}
                 onSelect={(value) => {
-                  console.log(filePointer.name);
                   props.onSelectedFile(filePointer);
                 }}
               >
                 <div className="flex flex-row gap-3 items-center">
                   <Logo size="30px">
-                    <IconForFilePointer
-                      filePointer={filePointer}
-                      className="mx-auto my-auto"
+                    <img
+                      src={filePointer.iconImageUri}
+                      alt={filePointer.sourceApplication}
+                      width={30}
+                      height={30}
                     />
                   </Logo>
                   {filePointer.name}
@@ -87,7 +83,7 @@ export function SourceSearchBox(props: SourceSearchBoxProps) {
           })}
         </CommandGroup>
 
-        <CommandGroup heading="Suggestions">
+        {/* <CommandGroup heading="Suggestions">
           <CommandItem
             onSelect={(value) => {
               console.log(value);
@@ -105,7 +101,7 @@ export function SourceSearchBox(props: SourceSearchBoxProps) {
             <Calculator className="mr-2 h-4 w-4" />
             <span>Calculator</span>
           </CommandItem>
-        </CommandGroup>
+        </CommandGroup> */}
         <CommandSeparator />
       </CommandList>
     </Command>
@@ -121,7 +117,7 @@ export function Logo({
 }) {
   return (
     <div
-      className="flex items-center justify-center"
+      className="flex items-center justify-center bg-black"
       style={{ width: size, height: size }}
     >
       {children}
