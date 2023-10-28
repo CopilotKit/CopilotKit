@@ -1,5 +1,64 @@
 # ui
 
+## 0.19.0-alpha.9
+
+### Minor Changes
+
+- copilot textarea documents - provide with code skeleton
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.8.0-alpha.6
+
+## 0.19.0-alpha.8
+
+### Minor Changes
+
+- minor bugfix
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.8.0-alpha.5
+
+## 0.19.0-alpha.7
+
+### Minor Changes
+
+- api endpoint centralization
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.8.0-alpha.4
+
+## 0.19.0-alpha.6
+
+### Minor Changes
+
+- package json
+
+### Patch Changes
+
+- @copilotkit/react-core@0.8.0-alpha.3
+
+## 0.19.0-alpha.5
+
+### Minor Changes
+
+- react-ui missing declaration
+
+### Patch Changes
+
+- @copilotkit/react-core@0.8.0-alpha.3
+
+## 0.19.0-alpha.4
+
+### Minor Changes
+
+- beta bump
+
 ## 0.19.0-alpha.3
 
 ### Minor Changes

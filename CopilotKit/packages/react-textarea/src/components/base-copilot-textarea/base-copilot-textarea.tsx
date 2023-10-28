@@ -209,7 +209,10 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
         <TrackerTextEditedSinceLastCursorMovement
           setCursorMovedSinceLastTextChange={setCursorMovedSinceLastTextChange}
         />
-        <HoveringToolbar apiConfig={autosuggestionsConfig.apiConfig} />
+        <HoveringToolbar
+          apiConfig={autosuggestionsConfig.apiConfig}
+          contextCategories={autosuggestionsConfig.contextCategories}
+        />
         <Editable
           renderElement={renderElementMemoized}
           renderPlaceholder={renderPlaceholderMemoized}

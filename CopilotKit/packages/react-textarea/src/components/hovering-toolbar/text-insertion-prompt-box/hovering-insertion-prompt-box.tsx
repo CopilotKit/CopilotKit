@@ -10,6 +10,7 @@ export interface Props {
   apiConfig: InsertionEditorApiConfig;
   performInsertion: (insertedText: string) => void;
   closeWindow: () => void;
+  contextCategories: string[];
 }
 
 export const HoveringInsertionPromptBox: React.FC<Props> = (props) => {
@@ -24,6 +25,7 @@ export const HoveringInsertionPromptBox: React.FC<Props> = (props) => {
         }}
         performInsertion={props.performInsertion}
         insertionOrEditingFunction={props.apiConfig.insertionOrEditingFunction}
+        contextCategories={props.contextCategories}
       />
     </div>
   );

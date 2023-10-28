@@ -1,5 +1,6 @@
 import { OpenAIStream, StreamingTextResponse } from "ai";
 import OpenAI from "openai";
+import { CompletionCreateParamsStreaming } from "openai/resources/chat/completions";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -8,15 +9,13 @@ const openai = new OpenAI({
 export const runtime = "edge";
 
 export async function POST(req: Request) {
-  const { messages, copilotkit_manually_passed_function_descriptions } =
-    await req.json();
+  const forwardedProps = await req.json();
 
   const response = await openai.chat.completions.create({
     model: "gpt-4",
+    ...forwardedProps,
     stream: true,
-    messages,
-    functions: copilotkit_manually_passed_function_descriptions,
-  });
+  } as CompletionCreateParamsStreaming);
 
   const stream = OpenAIStream(response, {
     experimental_onFunctionCall: async (

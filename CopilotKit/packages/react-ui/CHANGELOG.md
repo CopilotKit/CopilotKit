@@ -1,5 +1,76 @@
 # ui
 
+## 0.9.0-alpha.11
+
+### Minor Changes
+
+- copilot textarea documents - provide with code skeleton
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.8.0-alpha.6
+
+## 0.9.0-alpha.10
+
+### Minor Changes
+
+- minor bugfix
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.8.0-alpha.5
+
+## 0.9.0-alpha.9
+
+### Minor Changes
+
+- api endpoint centralization
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.8.0-alpha.4
+
+## 0.9.0-alpha.8
+
+### Minor Changes
+
+- package json
+
+### Patch Changes
+
+- @copilotkit/react-core@0.8.0-alpha.3
+
+## 0.9.0-alpha.7
+
+### Minor Changes
+
+- react-ui missing declaration
+
+### Patch Changes
+
+- @copilotkit/react-core@0.8.0-alpha.3
+
+## 0.9.0-alpha.6
+
+### Minor Changes
+
+- beta bump
+
+## 0.9.0-alpha.5
+
+### Minor Changes
+
+- remove coldarkDark style from react-syntax-highlighter
+
+## 0.9.0-alpha.4
+
+### Minor Changes
+
+- import esm not cjs variant
+
 ## 0.9.0-alpha.3
 
 ### Minor Changes

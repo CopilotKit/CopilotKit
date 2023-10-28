@@ -1,5 +1,35 @@
 # tsconfig
 
+## 0.4.0-alpha.4
+
+### Minor Changes
+
+- copilot textarea documents - provide with code skeleton
+
+## 0.4.0-alpha.3
+
+### Minor Changes
+
+- minor bugfix
+
+## 0.4.0-alpha.2
+
+### Minor Changes
+
+- api endpoint centralization
+
+## 0.4.0-alpha.1
+
+### Minor Changes
+
+- package json
+
+## 0.4.0-alpha.0
+
+### Minor Changes
+
+- react-ui missing declaration
+
 ## 0.3.0
 
 ### Minor Changes

@@ -7,7 +7,7 @@ import { cn } from "../../lib/utils";
 import { Button, buttonVariants } from "./ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { IconArrowElbow, IconPlus } from "./ui/icons";
-import Link from "next/link";
+// import Link from "next/link";
 
 export interface PromptProps
   extends Pick<UseChatHelpers, "input" | "setInput"> {
@@ -45,7 +45,7 @@ export function PromptForm({
       <div className="relative flex max-h-60 w-full grow flex-col overflow-hidden bg-background px-8 sm:rounded-md border sm:px-12">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Link
+            {/* <Link
               href="/"
               className={cn(
                 buttonVariants({ size: "sm", variant: "outline" }),
@@ -54,7 +54,7 @@ export function PromptForm({
             >
               <IconPlus />
               <span className="sr-only">New Chat</span>
-            </Link>
+            </Link> */}
           </TooltipTrigger>
           <TooltipContent>New Chat</TooltipContent>
         </Tooltip>

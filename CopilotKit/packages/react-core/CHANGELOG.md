@@ -1,5 +1,23 @@
 # ui
 
+## 0.8.0-alpha.6
+
+### Minor Changes
+
+- copilot textarea documents - provide with code skeleton
+
+## 0.8.0-alpha.5
+
+### Minor Changes
+
+- minor bugfix
+
+## 0.8.0-alpha.4
+
+### Minor Changes
+
+- api endpoint centralization
+
 ## 0.8.0-alpha.3
 
 ### Minor Changes
