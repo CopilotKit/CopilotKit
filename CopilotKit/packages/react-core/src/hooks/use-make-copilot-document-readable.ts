@@ -13,7 +13,8 @@ import { DocumentPointer } from "../types";
  */
 export function useMakeCopilotDocumentReadable(
   document: DocumentPointer,
-  categories?: string[]
+  categories?: string[],
+  dependencies: any[] = []
 ): string | undefined {
   const { addDocumentContext, removeDocumentContext } =
     useContext(CopilotContext);
@@ -26,7 +27,7 @@ export function useMakeCopilotDocumentReadable(
     return () => {
       removeDocumentContext(id);
     };
-  }, [document, categories, addDocumentContext, removeDocumentContext]);
+  }, [categories, addDocumentContext, removeDocumentContext, ...dependencies]);
 
   return idRef.current;
 }

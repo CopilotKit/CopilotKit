@@ -67,13 +67,12 @@ export function SourceSearchBox(props: SourceSearchBoxProps) {
                   props.onSelectedFile(filePointer);
                 }}
               >
-                <div className="flex flex-row gap-3 items-center">
-                  <Logo size="30px">
+                <div className=" px-3  flex flex-row gap-1 items-center">
+                  <Logo width="20px" height="20px">
                     <img
                       src={filePointer.iconImageUri}
                       alt={filePointer.sourceApplication}
-                      width={30}
-                      height={30}
+                      className="w-full h-full"
                     />
                   </Logo>
                   {filePointer.name}
@@ -110,15 +109,17 @@ export function SourceSearchBox(props: SourceSearchBoxProps) {
 
 export function Logo({
   children,
-  size = "30px",
+  width,
+  height,
 }: {
   children: React.ReactNode;
-  size?: string;
+  width: string;
+  height: string;
 }) {
   return (
     <div
-      className="flex items-center justify-center bg-black"
-      style={{ width: size, height: size }}
+      className="flex items-center justify-center"
+      style={{ width: width, height: height }}
     >
       {children}
     </div>

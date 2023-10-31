@@ -15,7 +15,17 @@ export type Destination = {
   activities: string;
 };
 
+const document: DocumentPointer = {
+  id: "2",
+  name: "Vacation List",
+  sourceApplication: "Next-OpenAI",
+  iconImageUri: "/images/GoogleDocs.svg",
+  getContents: async () => "This is a sample document content",
+} as DocumentPointer;
+
 export function VacationList() {
+  useMakeCopilotDocumentReadable(document);
+
   return (
     <div className="px-4 sm:px-6 lg:px-8 bg-slate-50 py-4">
       <div className="sm:flex sm:items-center">
