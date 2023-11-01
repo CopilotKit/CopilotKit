@@ -267,7 +267,7 @@ export const HoveringInsertionPromptBoxCore: React.FC<
   );
 };
 
-interface IncludedFilesPreviewProps {
+export interface IncludedFilesPreviewProps {
   includedFiles: DocumentPointer[];
   setIncludedFiles: React.Dispatch<React.SetStateAction<DocumentPointer[]>>;
 }
