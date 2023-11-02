@@ -1,5 +1,16 @@
 # ui
 
+## 0.20.0
+
+### Minor Changes
+
+- document contents funneled to prompt context
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.10.0
+
 ## 0.19.1
 
 ### Patch Changes
