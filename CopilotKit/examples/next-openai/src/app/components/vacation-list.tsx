@@ -20,7 +20,7 @@ const document: DocumentPointer = {
   name: "Travel Pet Peeves",
   sourceApplication: "Google Docs",
   iconImageUri: "/images/GoogleDocs.svg",
-  getContents: async () => {
+  getContents: () => {
     return [
       "1. Crowded tourist spots",
       "2. Expensive souvenirs",
@@ -31,7 +31,7 @@ const document: DocumentPointer = {
       "7. Long layovers",
       "8. Unpredictable weather",
       "9. Poor internet connection",
-      "10. Local cuisine not matching taste"
+      "10. Local cuisine not matching taste",
     ].join("\n");
   },
 } as DocumentPointer;

@@ -3,5 +3,5 @@ export interface DocumentPointer {
   name: string;
   sourceApplication: string;
   iconImageUri: string;
-  getContents: () => Promise<string>;
+  getContents: () => string;
 }
