@@ -8,7 +8,13 @@ import { SourceSearchBox } from "../../source-search-box/source-search-box";
 import { DocumentPointer } from "@copilotkit/react-core";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
-import React, { useContext, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { streamPromiseFlatten } from "../../../lib/stream-promise-flatten";
 import { CopilotContext } from "@copilotkit/react-core";
@@ -117,7 +123,7 @@ export const HoveringInsertionPromptBoxCore: React.FC<
   }, [generatingSuggestion]);
 
   // generate an adjustment to the completed text, based on the adjustment prompt
-  const beginGeneratingAdjustment = async () => {
+  const beginGeneratingAdjustment = useCallback(async () => {
     // don't generate text if the prompt is empty
     if (!adjustmentPrompt.trim()) {
       return;
@@ -134,6 +140,7 @@ export const HoveringInsertionPromptBoxCore: React.FC<
     const adjustmentSuggestionTextStreamPromise = insertionOrEditingFunction(
       modificationState,
       adjustmentPrompt,
+      filePointers,
       new AbortController().signal
     );
     const adjustmentSuggestionTextStream = streamPromiseFlatten(
@@ -141,7 +148,13 @@ export const HoveringInsertionPromptBoxCore: React.FC<
     );
 
     setGeneratingSuggestion(adjustmentSuggestionTextStream);
-  };
+  }, [
+    adjustmentPrompt,
+    editSuggestion,
+    state.editorState,
+    insertionOrEditingFunction,
+    filePointers,
+  ]);
 
   const isLoading = suggestionIsLoading;
 
