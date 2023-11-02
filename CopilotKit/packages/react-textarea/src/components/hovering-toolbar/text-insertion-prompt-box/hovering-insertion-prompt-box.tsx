@@ -23,8 +23,8 @@ export const HoveringInsertionPromptBox: React.FC<Props> = (props) => {
         state={{
           editorState: props.editorState,
         }}
-        performInsertion={props.performInsertion}
         insertionOrEditingFunction={props.apiConfig.insertionOrEditingFunction}
+        performInsertion={props.performInsertion}
         contextCategories={props.contextCategories}
       />
     </div>

@@ -10,10 +10,9 @@ import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
 import React, { useContext, useEffect, useRef, useState } from "react";
 
-import Chip from "@mui/material/Chip";
-import Avatar from "@mui/material/Avatar";
 import { streamPromiseFlatten } from "../../../lib/stream-promise-flatten";
 import { CopilotContext } from "@copilotkit/react-core";
+import { IncludedFilesPreview } from "./included-files-preview";
 
 export type SuggestionState = {
   editorState: EditingEditorState;
@@ -80,7 +79,6 @@ export const HoveringInsertionPromptBoxCore: React.FC<
 
     // read the generating suggestion stream and continuously update the edit suggestion
     const reader = generatingSuggestion.getReader();
-
     const read = async () => {
       setSuggestionIsLoading(true);
       while (true) {
@@ -105,6 +103,7 @@ export const HoveringInsertionPromptBoxCore: React.FC<
     read();
 
     return () => {
+      // release the lock if the reader is not closed on unmount
       const releaseLockIfNotClosed = async () => {
         try {
           await reader.closed;
@@ -117,21 +116,23 @@ export const HoveringInsertionPromptBoxCore: React.FC<
     };
   }, [generatingSuggestion]);
 
-  // when the adjustment prompt changes, reset the edit suggestion
-  const begingGeneratingAdjustment = async () => {
+  // generate an adjustment to the completed text, based on the adjustment prompt
+  const beginGeneratingAdjustment = async () => {
     // don't generate text if the prompt is empty
     if (!adjustmentPrompt.trim()) {
       return;
     }
 
-    // if the current edit suggestion is not empty, then use it as the selected text instead of the editor state's selected text
-    let editorState = state.editorState;
+    // editor state includes the text being edited, and the text before/after the selection
+    // if the current edit suggestion is not empty, then use *it* as the "selected text" - instead of the editor state's selected text
+    let modificationState = state.editorState;
     if (editSuggestion !== "") {
-      editorState.selectedText = editSuggestion;
+      modificationState.selectedText = editSuggestion;
     }
 
+    // generate the adjustment suggestion
     const adjustmentSuggestionTextStreamPromise = insertionOrEditingFunction(
-      editorState,
+      modificationState,
       adjustmentPrompt,
       new AbortController().signal
     );
@@ -169,7 +170,7 @@ export const HoveringInsertionPromptBoxCore: React.FC<
               setAdjustmentPrompt(adjustmentPrompt + "\n");
             } else if (e.key === "Enter") {
               e.preventDefault();
-              begingGeneratingAdjustment();
+              beginGeneratingAdjustment();
             }
           }}
           placeholder={placeholder}
@@ -178,7 +179,7 @@ export const HoveringInsertionPromptBoxCore: React.FC<
           rows={1}
         />
         <button
-          onClick={begingGeneratingAdjustment}
+          onClick={beginGeneratingAdjustment}
           className="absolute right-2 bg-blue-500 text-white w-8 h-8 rounded-full flex items-center justify-center"
         >
           <i className="material-icons">arrow_forward</i>
@@ -264,54 +265,5 @@ export const HoveringInsertionPromptBoxCore: React.FC<
       {generatingSuggestion ? SuggestionComponent : null}
       {generatingSuggestion ? SubmitComponent : null}
     </div>
-  );
-};
-
-export interface IncludedFilesPreviewProps {
-  includedFiles: DocumentPointer[];
-  setIncludedFiles: React.Dispatch<React.SetStateAction<DocumentPointer[]>>;
-}
-
-export const IncludedFilesPreview: React.FC<IncludedFilesPreviewProps> = ({
-  includedFiles,
-  setIncludedFiles,
-}) => {
-  return (
-    <div className="flex flex-col gap-2 mt-2">
-      <Label className="">Included context:</Label>
-      <div className="flex flex-wrap gap-2">
-        {includedFiles.map((filePointer, index) => {
-          return (
-            <FileChipPreview
-              key={`file-${filePointer.sourceApplication}.${filePointer.name}`}
-              filePointer={filePointer}
-              onDelete={() => {
-                setIncludedFiles((prev) =>
-                  prev.filter((fp) => fp !== filePointer)
-                );
-              }}
-            />
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-export interface FileChipPreviewProp {
-  filePointer: DocumentPointer;
-  onDelete: () => void;
-}
-
-export const FileChipPreview: React.FC<FileChipPreviewProp> = ({
-  filePointer,
-  onDelete,
-}) => {
-  return (
-    <Chip
-      label={filePointer.name}
-      onDelete={onDelete}
-      avatar={<Avatar sx={{ backgroundColor: "transparent" }}></Avatar>}
-    />
   );
 };
