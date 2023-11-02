@@ -47,8 +47,18 @@ export function CopilotProvider({
   }, []);
 
   const getContextString = useCallback(
-    (categories: string[] = ["global"]) => {
-      return printTree(categories);
+    (documents: DocumentPointer[], categories: string[] = ["global"]) => {
+      const documentsString = documents
+        .map((document) => {
+          return `${document.name} (${
+            document.sourceApplication
+          }):\n${document.getContents()}`;
+        })
+        .join("\n\n");
+
+      const nonDocumentStrings = printTree(categories);
+
+      return `${documentsString}\n\n${nonDocumentStrings}`;
     },
     [printTree]
   );

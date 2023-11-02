@@ -10,6 +10,7 @@ import {
 } from "../../types/base/autosuggestions-bare-function";
 import { InsertionsApiConfig } from "../../types/autosuggestions-config/insertions-api-config";
 import { EditingApiConfig } from "../../types/autosuggestions-config/editing-api-config";
+import { DocumentPointer } from "@copilotkit/react-core";
 
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
@@ -36,6 +37,7 @@ export function useMakeStandardInsertionOrEditingFunction(
     async (
       editorState: EditingEditorState,
       insertionPrompt: string,
+      documents: DocumentPointer[],
       abortSignal: AbortSignal
     ) => {
       const res = await retry(async () => {
@@ -44,7 +46,7 @@ export function useMakeStandardInsertionOrEditingFunction(
             role: "system",
             content: insertionApiConfig.makeSystemPrompt(
               textareaPurpose,
-              getContextString(contextCategories)
+              getContextString(documents, contextCategories)
             ),
           },
           ...insertionApiConfig.fewShotMessages,
@@ -83,6 +85,7 @@ export function useMakeStandardInsertionOrEditingFunction(
     async (
       editorState: EditingEditorState,
       editingPrompt: string,
+      documents: DocumentPointer[],
       abortSignal: AbortSignal
     ) => {
       const res = await retry(async () => {
@@ -91,7 +94,7 @@ export function useMakeStandardInsertionOrEditingFunction(
             role: "system",
             content: editingApiConfig.makeSystemPrompt(
               textareaPurpose,
-              getContextString(contextCategories)
+              getContextString(documents, contextCategories)
             ),
           },
           ...editingApiConfig.fewShotMessages,
@@ -135,16 +138,23 @@ export function useMakeStandardInsertionOrEditingFunction(
     async (
       editorState: EditingEditorState,
       insertionPrompt: string,
+      documents: DocumentPointer[],
       abortSignal: AbortSignal
     ) => {
       if (editorState.selectedText === "") {
         return await insertionFunction(
           editorState,
           insertionPrompt,
+          documents,
           abortSignal
         );
       } else {
-        return await editingFunction(editorState, insertionPrompt, abortSignal);
+        return await editingFunction(
+          editorState,
+          insertionPrompt,
+          documents,
+          abortSignal
+        );
       }
     },
     [insertionFunction, editingFunction]

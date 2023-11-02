@@ -1,5 +1,18 @@
 # web
 
+## 1.6.0
+
+### Minor Changes
+
+- document contents funneled to prompt context
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.20.0
+  - @copilotkit/react-core@0.10.0
+  - @copilotkit/react-ui@0.9.2
+
 ## 1.5.0
 
 ### Minor Changes

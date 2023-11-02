@@ -28,7 +28,10 @@ export interface CopilotContextParams {
   getFunctionCallHandler: () => FunctionCallHandler;
 
   // text context
-  getContextString: (categories?: string[]) => string;
+  getContextString: (
+    documents: DocumentPointer[],
+    categories?: string[]
+  ) => string;
   addContext: (
     context: string,
     parentId?: string,
@@ -55,7 +58,7 @@ const emptyCopilotContext: CopilotContextParams = {
   getChatCompletionFunctionDescriptions: () => returnAndThrowInDebug([]),
   getFunctionCallHandler: () => returnAndThrowInDebug(async () => {}),
 
-  getContextString: () => returnAndThrowInDebug(""),
+  getContextString: (documents: DocumentPointer[]) => returnAndThrowInDebug(""),
   addContext: () => "",
   removeContext: () => {},
 

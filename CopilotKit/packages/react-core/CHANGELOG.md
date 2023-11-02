@@ -1,5 +1,11 @@
 # ui
 
+## 0.10.0
+
+### Minor Changes
+
+- document contents funneled to prompt context
+
 ## 0.9.0
 
 ### Minor Changes
