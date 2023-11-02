@@ -16,9 +16,14 @@ export const defaultInsertionsMakeSystemPrompt: MakeSystemPrompt = (
 The user is writing some text.
 The purpose is: \"${textareaPurpose}\"
 
+The following external context is also provided. Use it to help you make better suggestions!!!
+\`\`\`
+${contextString}
+\`\`\`
+
 The user also provides you with a prompt for INSERTIONS into the text they are writing. 
 Your job is to come up with an INSERTION into the text that the user would like AS BEST YOU CAN.
-Only guess a SHORT distance ahead. Usually 1 sentence, or at most 1 paragraph.
+Only insert a SHORT segment. Usually 1 sentence, or at most 1 paragraph.
 
 Adjust yourself to the user's style and implied intent.
 
@@ -27,13 +32,6 @@ The user will provide the text before and after the cursor, as well as the inser
 <TextBeforeCursor>
 <InsertionPrompt>
 <YourSuggestion>
-
-If we need to add a whitespace character to the suggested text, make sure to explicitly add it in.
-
-The following external context is also provided. Use it to help you make better suggestions!!!
-\`\`\`
-${contextString}
-\`\`\`
 `;
 };
 

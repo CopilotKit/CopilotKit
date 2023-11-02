@@ -17,10 +17,23 @@ export type Destination = {
 
 const document: DocumentPointer = {
   id: "2",
-  name: "Vacation List",
-  sourceApplication: "Next-OpenAI",
+  name: "Travel Pet Peeves",
+  sourceApplication: "Google Docs",
   iconImageUri: "/images/GoogleDocs.svg",
-  getContents: async () => "This is a sample document content",
+  getContents: async () => {
+    return [
+      "1. Crowded tourist spots",
+      "2. Expensive souvenirs",
+      "3. Uncomfortable airplane seats",
+      "4. Language barriers",
+      "5. Lost luggage",
+      "6. Jet lag",
+      "7. Long layovers",
+      "8. Unpredictable weather",
+      "9. Poor internet connection",
+      "10. Local cuisine not matching taste"
+    ].join("\n");
+  },
 } as DocumentPointer;
 
 export function VacationList() {

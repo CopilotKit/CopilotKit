@@ -16,6 +16,11 @@ export const defaultEditingMakeSystemPrompt: MakeSystemPrompt = (
 The user is writing some text.
 The purpose is: \"${textareaPurpose}\"
 
+The following external context is also provided. Use it to help you make better suggestions!!!
+\`\`\`
+${contextString}
+\`\`\`
+
 The user also provides you with a prompt for EDITING some text they are writing. 
 Your job is to come up with an EDIT of the text that the user would like to use - AS BEST YOU CAN.
 
@@ -28,13 +33,6 @@ The user will provide the following information; use this to infer the best rele
 <EditingPrompt>
 
 <YourEditSuggestion>
-
-If we need to add a whitespace character to the suggested edit text, make sure to explicitly add it in.
-
-The following external context is also provided. Use it to help you make better suggestions!!!
-\`\`\`
-${contextString}
-\`\`\`
 `;
 };
 
