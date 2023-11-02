@@ -46,7 +46,7 @@ export function useMakeStandardInsertionOrEditingFunction(
             role: "system",
             content: insertionApiConfig.makeSystemPrompt(
               textareaPurpose,
-              getContextString(contextCategories)
+              getContextString(documents, contextCategories)
             ),
           },
           ...insertionApiConfig.fewShotMessages,
@@ -94,7 +94,7 @@ export function useMakeStandardInsertionOrEditingFunction(
             role: "system",
             content: editingApiConfig.makeSystemPrompt(
               textareaPurpose,
-              getContextString(contextCategories)
+              getContextString(documents, contextCategories)
             ),
           },
           ...editingApiConfig.fewShotMessages,

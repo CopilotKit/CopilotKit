@@ -40,7 +40,7 @@ export function useCopilotChat({
 
   const systemMessage: Message = useMemo(() => {
     const systemMessageMaker = makeSystemMessage || defaultSystemMessage;
-    const contextString = getContextString();
+    const contextString = getContextString([]);
 
     return {
       id: "system",

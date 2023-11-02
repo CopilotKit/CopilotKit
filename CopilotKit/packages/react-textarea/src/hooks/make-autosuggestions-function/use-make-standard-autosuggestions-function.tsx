@@ -36,7 +36,7 @@ export function useMakeStandardAutosuggestionFunction(
             role: "system",
             content: apiConfig.makeSystemPrompt(
               textareaPurpose,
-              getContextString(contextCategories)
+              getContextString([], contextCategories)
             ),
           },
           ...apiConfig.fewShotMessages,
