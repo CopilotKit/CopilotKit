@@ -35,8 +35,9 @@
     {
       "group": "Getting Started",
       "pages": [
-        "getting-started/what-can-you-build",
-        "getting-started/quickstart",
+        "getting-started/quickstart-textarea",
+        "getting-started/quickstart-chatbot",
+        "getting-started/quickstart-backend",
         "getting-started/development"
       ]
     }

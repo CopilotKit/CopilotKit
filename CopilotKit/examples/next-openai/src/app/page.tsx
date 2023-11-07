@@ -1,10 +1,10 @@
 "use client";
 
-import { CopilotProvider, CopilotApiConfig } from "@copilotkit/react-core";
+import { CopilotProvider } from "@copilotkit/react-core";
 import { CopilotSidebarUIProvider } from "@copilotkit/react-ui";
 import { VacationList } from "./components/vacation-list";
 
-export default function WaterBnb() {
+export default function WaterBnb(): JSX.Element {
   return (
     <CopilotProvider chatApiEndpoint="/api/copilotkit/chat">
       <CopilotSidebarUIProvider>

@@ -1,0 +1,142 @@
+---
+title: 'Quickstart: chatbot'
+description: 'How to deeply integrate a chatbot into your application'
+---
+
+## Setup
+
+### Intall CopilotKit
+
+Install the CopilotKit frontend packagess:
+
+<CodeGroup>
+  ```bash npm
+  npm i @copilotkit/react-core @copilotkit/react-ui
+  ``` 
+  ```bash yarn
+  yarn add @copilotkit/react-core @copilotkit/react-ui
+  ```
+  ```bash pnpm
+  pnpm add @copilotkit/react-core @copilotkit/react-ui
+  ```
+</CodeGroup>
+
+### Setup the frontend
+
+A `CopilotProvider` must wrap all components which interact with CopilotKit.
+It's recommended you also get started with `CopilotSidebarUIProvider` (you can swap to a different UI provider later).
+
+For simplicity's sake, it's recommended you wrap both around your entire application:
+
+```ts
+"use client";
+import { CopilotProvider } from "@copilotkit/react-core";
+import { CopilotSidebarUIProvider } from "@copilotkit/react-ui";
+
+export default function RootLayout({children}) {
+  return (
+    <CopilotProvider chatApiEndpoint="/path_to_copilotkit_endpoint/see_below">
+      <CopilotSidebarUIProvider>
+        {children}
+      </CopilotSidebarUIProvider>
+    </CopilotProvider>
+  );
+}
+```
+
+### Setup the CopilotKit Backend Endpoint:
+
+Setup a backend endpoint (and pass its URL as the `chatApiEndpoint` argument to `CopilotProvider`, as above).
+
+See [Quickstart-Backend](/getting-started/quickstart-backend.mdx)
+
+
+## Provide context
+You likely want to provide external context to inform CopilotTextarea completions, insertions, and edits.
+
+You can do so through the `useMakeCopilotReadable` and `useMakeCopilotDocumentReadable` react hooks.
+See their respective documentation for additional details.
+
+In particular, you can specify categories which bind specific context to specific textareas, and not to others.
+
+```ts
+const employeeContextId = useMakeCopilotReadable(employeeName);
+
+// Pass a parentID to maintain a hiearchical structure.
+// Especially useful with child React components, list elements, etc.
+useMakeCopilotReadable(workProfile.description(), employeeContextId);
+useMakeCopilotReadable(metadata.description(), employeeContextId);
+
+const document: DocumentPointer = {
+  id: "2",
+  name: "Travel Pet Peeves",
+  sourceApplication: "Google Docs",
+  iconImageUri: "/images/GoogleDocs.svg",
+  getContents: () => { return getThisDocumentContents() },
+} as DocumentPointer;
+
+function SomeComponent(): JSX.Element {
+  useMakeCopilotDocumentReadable(document);
+  // ...
+}
+```
+
+
+## Let the Copilot take action
+```ts
+// Let the copilot take action on behalf of the user.
+useMakeCopilotActionable(
+  {
+    name: "setEmployeesAsSelected",
+    description: "Set the given employees as 'selected'",
+    argumentAnnotations: [
+      {
+        name: "employeeIds",
+        type: "array", items: { type: "string" }
+        description: "The IDs of employees to set as selected",
+        required: true
+      }
+    ],
+    implementation: async (employeeIds) => setEmployeesAsSelected(employeeIds),
+  },
+  []
+);
+```
+
+`CopilotTextarea` is configured essentially identically to a standard react `<textarea />`.
+
+The primary difference is the additional `autosuggestionsConfig` variable, which provides copilot-specific configurations.
+
+See the CopilotTextarea documentation for all parameters. 
+
+```ts
+import { CopilotTextarea } from "@copilotkit/react-textarea";
+import { useState } from "react";
+
+export function SomeReactComponent(): JSX.Element {
+  const [text, setText] = useState("");
+
+  return (
+    <>
+      <CopilotTextarea
+        className="px-4 py-4"
+        value={text}
+        onValueChange={(value: string) => setText(value)}
+        placeholder="What are your plans for your vacation?"
+        autosuggestionsConfig={{
+          textareaPurpose: "Travel notes from the user's previous vacations. Likely written in a colloquial style, but adjust as needed.",
+          chatApiConfigs: {
+            suggestionsApiConfig: {
+              forwardedParams: {
+                max_tokens: 20,
+                stop: [".", "?", "!"],
+              },
+            },
+          },
+        }}
+      />
+    </>
+  );
+}
+```
+

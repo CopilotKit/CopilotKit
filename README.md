@@ -33,6 +33,9 @@ https://github.com/RecursivelyAI/CopilotKit/assets/746397/b0cdf38b-ec5c-4e95-862
 npm i @copilotkit/react-core @copilotkit/react-ui @copilotkit/react-textarea
 ```
 
+## Getting started
+See quickstart in the [docs](https://docs.copilotkit.ai)
+
 ## Backend
 
 You can easily use any backend/LLM - just provide the URL of any OpenAI-comaptible endpoint.
