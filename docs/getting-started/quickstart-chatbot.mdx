@@ -1,6 +1,6 @@
 ---
-title: 'Quickstart: CopilotTextarea'
-description: 'How to integrate CopilotTextarea into your application'
+title: 'Quickstart: chatbot'
+description: 'How to deeply integrate a chatbot into your application'
 ---
 
 ## Setup
@@ -11,30 +11,34 @@ Install the CopilotKit frontend packagess:
 
 <CodeGroup>
   ```bash npm
-  npm i @copilotkit/react-core @copilotkit/react-textarea
+  npm i @copilotkit/react-core @copilotkit/react-ui
   ``` 
   ```bash yarn
-  yarn add @copilotkit/react-core @copilotkit/react-textarea
+  yarn add @copilotkit/react-core @copilotkit/react-ui
   ```
   ```bash pnpm
-  pnpm add @copilotkit/react-core @copilotkit/react-textarea
+  pnpm add @copilotkit/react-core @copilotkit/react-ui
   ```
 </CodeGroup>
 
 ### Setup the frontend
 
 A `CopilotProvider` must wrap all components which interact with CopilotKit.
+It's recommended you also get started with `CopilotSidebarUIProvider` (you can swap to a different UI provider later).
 
-For simplicity's sake, it's recommended you wrap a `CopilotProvider` around your entire application:
+For simplicity's sake, it's recommended you wrap both around your entire application:
 
 ```ts
 "use client";
 import { CopilotProvider } from "@copilotkit/react-core";
+import { CopilotSidebarUIProvider } from "@copilotkit/react-ui";
 
 export default function RootLayout({children}) {
   return (
     <CopilotProvider chatApiEndpoint="/path_to_copilotkit_endpoint/see_below">
-      {children}
+      <CopilotSidebarUIProvider>
+        {children}
+      </CopilotSidebarUIProvider>
     </CopilotProvider>
   );
 }
@@ -78,7 +82,26 @@ function SomeComponent(): JSX.Element {
 ```
 
 
-## Integrate a CopilotTextarea
+## Let the Copilot take action
+```ts
+// Let the copilot take action on behalf of the user.
+useMakeCopilotActionable(
+  {
+    name: "setEmployeesAsSelected",
+    description: "Set the given employees as 'selected'",
+    argumentAnnotations: [
+      {
+        name: "employeeIds",
+        type: "array", items: { type: "string" }
+        description: "The IDs of employees to set as selected",
+        required: true
+      }
+    ],
+    implementation: async (employeeIds) => setEmployeesAsSelected(employeeIds),
+  },
+  []
+);
+```
 
 `CopilotTextarea` is configured essentially identically to a standard react `<textarea />`.
 
