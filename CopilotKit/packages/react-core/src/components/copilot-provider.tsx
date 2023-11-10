@@ -10,9 +10,13 @@ import useFlatCategoryStore from "../hooks/use-flat-category-store";
 
 export function CopilotProvider({
   chatApiEndpoint,
+  headers,
+  body,
   children,
 }: {
   chatApiEndpoint: string;
+  headers?: Record<string, string>;
+  body?: Record<string, any>;
   children: ReactNode;
 }): JSX.Element {
   const [entryPoints, setEntryPoints] = useState<
@@ -122,6 +126,8 @@ export function CopilotProvider({
         removeDocumentContext,
         copilotApiConfig: {
           chatApiEndpoint,
+          headers: headers || {},
+          body: body || {},
         },
       }}
     >

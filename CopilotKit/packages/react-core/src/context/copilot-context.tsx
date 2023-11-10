@@ -7,8 +7,38 @@ import { AnnotatedFunction } from "../types/annotated-function";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
 import { DocumentPointer } from "../types";
 
+/**
+ * Interface for the configuration of the Copilot API.
+ */
 export interface CopilotApiConfig {
+  /**
+   * The endpoint for the chat API.
+   */
   chatApiEndpoint: string;
+
+  /**
+   * additional headers to be sent with the request
+   * @default {}
+   * @example
+   * ```
+   * {
+   *   'Authorization': 'Bearer your_token_here'
+   * }
+   * ```
+   */
+  headers: Record<string, string>;
+
+  /**
+   * Additional body params to be sent with the request
+   * @default {}
+   * @example
+   * ```
+   * {
+   *   'message': 'Hello, world!'
+   * }
+   * ```
+   */
+  body: Record<string, any>;
 }
 
 export function copilotApiConfigExtrapolator(config: CopilotApiConfig) {
@@ -71,6 +101,12 @@ const emptyCopilotContext: CopilotContextParams = {
       throw new Error(
         "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!"
       );
+    }
+    get headers(): Record<string, string> {
+      return {};
+    }
+    get body(): Record<string, any> {
+      return {};
     }
   })(),
 };
