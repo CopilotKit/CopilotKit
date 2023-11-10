@@ -12,7 +12,7 @@ export async function POST(req: Request): Promise<Response> {
   const forwardedProps = await req.json();
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4",
+    model: "gpt-4-1106-preview",
     ...forwardedProps,
     stream: true,
   } as CompletionCreateParamsStreaming);
