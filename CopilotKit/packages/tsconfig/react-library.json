@@ -4,7 +4,7 @@
   "extends": "./base.json",
   "compilerOptions": {
     "lib": ["ES2017", "DOM"],
-    "module": "CommonJS",
+    "module": "ESNext",
     "target": "ES6",
     "jsx": "react-jsx",
     "sourceMap": true,
