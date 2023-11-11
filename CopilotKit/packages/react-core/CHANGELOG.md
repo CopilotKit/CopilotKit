@@ -1,5 +1,11 @@
 # ui
 
+## 0.11.0-alpha.7
+
+### Minor Changes
+
+- js import
+
 ## 0.11.0-alpha.6
 
 ### Minor Changes

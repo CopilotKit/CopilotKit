@@ -1,5 +1,18 @@
 # web
 
+## 1.7.0-alpha.7
+
+### Minor Changes
+
+- js import
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.21.0-alpha.7
+  - @copilotkit/react-core@0.11.0-alpha.7
+  - @copilotkit/react-ui@0.10.0-alpha.7
+
 ## 1.7.0-alpha.6
 
 ### Minor Changes

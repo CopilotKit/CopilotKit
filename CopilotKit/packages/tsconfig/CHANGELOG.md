@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.5.0-alpha.2
+
+### Minor Changes
+
+- js import
+
 ## 0.5.0-alpha.1
 
 ### Minor Changes
