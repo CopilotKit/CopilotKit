@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.5.0-alpha.1
+
+### Minor Changes
+
+- undo alpha changes
+
 ## 0.5.0-alpha.0
 
 ### Minor Changes

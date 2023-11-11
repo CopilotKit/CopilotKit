@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.11.0-alpha.5",
+  "version": "0.11.0-alpha.6",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

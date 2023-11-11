@@ -1,5 +1,11 @@
 # ui
 
+## 0.11.0-alpha.6
+
+### Minor Changes
+
+- undo alpha changes
+
 ## 0.11.0-alpha.5
 
 ### Minor Changes

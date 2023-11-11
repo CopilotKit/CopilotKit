@@ -1,5 +1,16 @@
 # ui
 
+## 0.10.0-alpha.6
+
+### Minor Changes
+
+- undo alpha changes
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.11.0-alpha.6
+
 ## 0.10.0-alpha.5
 
 ### Minor Changes
