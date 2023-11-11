@@ -1,5 +1,19 @@
 # ui
 
+## 0.11.0
+
+### Minor Changes
+
+- support for custom api headers + body, fixed es5 build error on import
+- 9abfea6: js import
+- 2b9591a: esm.js maybe
+- 2b9591a: headers and body propagation
+- 2b9591a: cjs exp
+- 2b9591a: treeshake
+- 2b9591a: commonJS
+- 222f5e6: undo alpha changes
+- 2b9591a: cjs maybe
+
 ## 0.11.0-alpha.7
 
 ### Minor Changes

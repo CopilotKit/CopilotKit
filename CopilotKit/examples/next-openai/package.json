@@ -1,6 +1,6 @@
 {
   "name": "next-openai",
-  "version": "1.7.0-alpha.7",
+  "version": "1.7.0",
   "private": true,
   "scripts": {
     "dev": "NODE_OPTIONS='--inspect' next dev",

@@ -1,5 +1,14 @@
 # tsconfig
 
+## 0.5.0
+
+### Minor Changes
+
+- support for custom api headers + body, fixed es5 build error on import
+- 9abfea6: js import
+- 2b9591a: commonJS
+- 222f5e6: undo alpha changes
+
 ## 0.5.0-alpha.2
 
 ### Minor Changes
