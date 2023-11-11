@@ -1,8 +1,8 @@
 import { DocumentPointer } from "@copilotkit/react-core";
 import { Label } from "../../ui/label";
 import React from "react";
-import Chip from "@mui/material/Chip";
-import Avatar from "@mui/material/Avatar";
+import Chip from "@mui/material/Chip/Chip.js";
+import Avatar from "@mui/material/Avatar/Avatar.js";
 
 export interface IncludedFilesPreviewProps {
   includedFiles: DocumentPointer[];
