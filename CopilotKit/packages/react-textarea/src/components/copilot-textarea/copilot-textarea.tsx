@@ -24,9 +24,15 @@ export const CopilotTextarea = React.forwardRef(
     props: CopilotTextareaProps,
     ref: React.Ref<HTMLCopilotTextAreaElement>
   ): JSX.Element => {
+    // separate the AutosuggestionsConfigUserSpecified from the rest of the props
+    const {
+      autosuggestionsConfig: autosuggestionsConfigUserSpecified,
+      ...forwardedProps
+    } = props;
+
     const autosuggestionsConfig: AutosuggestionsConfig = merge(
       defaultAutosuggestionsConfig,
-      props.autosuggestionsConfig
+      autosuggestionsConfigUserSpecified
     );
 
     const autosuggestionsFunction = useMakeStandardAutosuggestionFunction(
@@ -47,7 +53,7 @@ export const CopilotTextarea = React.forwardRef(
       <>
         <BaseCopilotTextarea
           ref={ref}
-          {...props}
+          {...forwardedProps}
           baseAutosuggestionsConfig={{
             ...autosuggestionsConfig,
             apiConfig: {

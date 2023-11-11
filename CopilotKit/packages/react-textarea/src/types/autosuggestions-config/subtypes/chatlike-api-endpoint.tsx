@@ -41,8 +41,12 @@ export class ChatlikeApiEndpoint {
           copilotApiConfigExtrapolator(copilotApiConfig).chatApiEndpoint,
           {
             method: "POST",
+            headers: {
+              ...copilotApiConfig.headers,
+            },
             body: JSON.stringify({
               ...forwardedProps,
+              ...copilotApiConfig.body,
               messages: messages,
             }),
             signal: abortSignal,

@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.20.0",
+  "version": "0.21.0",
   "sideEffects": [
     "**/*.css"
   ],
@@ -62,8 +62,6 @@
     "lucide-react": "^0.274.0",
     "material-icons": "^1.13.10",
     "nanoid": "^4.0.2",
-    "next": "^13.4.1",
-    "next-themes": "^0.2.1",
     "react-dom": "^18.2.0",
     "slate": "^0.94.1",
     "slate-history": "^0.93.0",
