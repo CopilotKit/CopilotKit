@@ -1,5 +1,83 @@
 # web
 
+## 1.7.0-alpha.5
+
+### Minor Changes
+
+- commonJS
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.21.0-alpha.5
+  - @copilotkit/react-core@0.11.0-alpha.5
+  - @copilotkit/react-ui@0.10.0-alpha.5
+
+## 1.7.0-alpha.4
+
+### Minor Changes
+
+- esm.js maybe
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.21.0-alpha.4
+  - @copilotkit/react-core@0.11.0-alpha.4
+  - @copilotkit/react-ui@0.10.0-alpha.4
+
+## 1.7.0-alpha.3
+
+### Minor Changes
+
+- cjs maybe
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.21.0-alpha.3
+  - @copilotkit/react-core@0.11.0-alpha.3
+  - @copilotkit/react-ui@0.10.0-alpha.3
+
+## 1.7.0-alpha.2
+
+### Minor Changes
+
+- cjs exp
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.21.0-alpha.2
+  - @copilotkit/react-core@0.11.0-alpha.2
+  - @copilotkit/react-ui@0.10.0-alpha.2
+
+## 1.7.0-alpha.1
+
+### Minor Changes
+
+- treeshake
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.21.0-alpha.1
+  - @copilotkit/react-core@0.11.0-alpha.1
+  - @copilotkit/react-ui@0.10.0-alpha.1
+
+## 1.7.0-alpha.0
+
+### Minor Changes
+
+- headers and body propagation
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.21.0-alpha.0
+  - @copilotkit/react-core@0.11.0-alpha.0
+  - @copilotkit/react-ui@0.9.3-alpha.0
+
 ## 1.6.0
 
 ### Minor Changes

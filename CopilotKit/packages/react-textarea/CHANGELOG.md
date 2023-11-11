@@ -1,5 +1,71 @@
 # ui
 
+## 0.21.0-alpha.5
+
+### Minor Changes
+
+- commonJS
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.11.0-alpha.5
+
+## 0.21.0-alpha.4
+
+### Minor Changes
+
+- esm.js maybe
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.11.0-alpha.4
+
+## 0.21.0-alpha.3
+
+### Minor Changes
+
+- cjs maybe
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.11.0-alpha.3
+
+## 0.21.0-alpha.2
+
+### Minor Changes
+
+- cjs exp
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.11.0-alpha.2
+
+## 0.21.0-alpha.1
+
+### Minor Changes
+
+- treeshake
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.11.0-alpha.1
+
+## 0.21.0-alpha.0
+
+### Minor Changes
+
+- headers and body propagation
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.11.0-alpha.0
+
 ## 0.20.0
 
 ### Minor Changes

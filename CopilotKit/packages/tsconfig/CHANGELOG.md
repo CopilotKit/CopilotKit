@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.5.0-alpha.0
+
+### Minor Changes
+
+- commonJS
+
 ## 0.4.0
 
 ### Minor Changes
