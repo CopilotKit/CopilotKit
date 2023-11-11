@@ -19,6 +19,9 @@ export interface CopilotTextareaProps
   autosuggestionsConfig: AutosuggestionsConfigUserSpecified;
 }
 
+/**
+ * A copilot textarea that uses the standard autosuggestions function.
+ */
 export const CopilotTextarea = React.forwardRef(
   (props: CopilotTextareaProps, ref: React.Ref<HTMLCopilotTextAreaElement>): JSX.Element => {
     // separate the AutosuggestionsConfigUserSpecified from the rest of the props
