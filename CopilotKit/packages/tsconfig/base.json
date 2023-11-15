@@ -6,6 +6,7 @@
     "composite": false,
     "declaration": true,
     "declarationMap": true,
+    "declarationDir": "./dist",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "inlineSources": false,
