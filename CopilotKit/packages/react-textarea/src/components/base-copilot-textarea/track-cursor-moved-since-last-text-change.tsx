@@ -56,12 +56,12 @@ const isSelectionEqual = (a: BaseSelection, b: BaseSelection) => {
 
 /**
  * Easily keep track of the *previous* value of a variable.
- * 
+ *
  * Example:
  * ```
  * const [count, setCount] = useState(0);
  * const prevCount = usePrevious(count);
- * 
+ *
  * useEffect(() => {
  *  if (count > prevCount) {
  *   console.log('Now I know that count is bigger than before');
