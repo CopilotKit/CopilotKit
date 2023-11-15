@@ -34,7 +34,7 @@
     "typescript": "^4.9.4"
   },
   "dependencies": {
-    "ai": "^2.2.12",
+    "ai": "^2.2.23",
     "nanoid": "^4.0.2",
     "openai": "^4.6.0"
   }
