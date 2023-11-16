@@ -160,6 +160,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
     const {
       placeholderStyle,
       value,
+      hoverMenuClassname,
       onValueChange,
       baseAutosuggestionsConfig: autosuggestionsConfigFromProps,
       className,
@@ -212,6 +213,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
         <HoveringToolbar
           apiConfig={autosuggestionsConfig.apiConfig}
           contextCategories={autosuggestionsConfig.contextCategories}
+          hoverMenuClassname={hoverMenuClassname}
         />
         <Editable
           renderElement={renderElementMemoized}

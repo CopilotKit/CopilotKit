@@ -17,6 +17,7 @@ import {
 export interface HoveringToolbarProps {
   apiConfig: InsertionEditorApiConfig;
   contextCategories: string[];
+  hoverMenuClassname: string | undefined;
 }
 
 export const HoveringToolbar: (
@@ -118,7 +119,10 @@ export const HoveringToolbar: (
     <Portal>
       <Menu
         ref={ref}
-        className="p-2 absolute z-10 top-[-10000px] left-[-10000px] mt-[-6px] opacity-0 transition-opacity duration-700"
+        className={
+          props.hoverMenuClassname ||
+          "p-2 absolute z-10 top-[-10000px] left-[-10000px] mt-[-6px] opacity-0 transition-opacity duration-700"
+        }
       >
         {isDisplayed && selection && (
           <HoveringInsertionPromptBox
