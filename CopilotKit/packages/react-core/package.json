@@ -34,6 +34,7 @@
     "typescript": "^4.9.4"
   },
   "dependencies": {
+    "@copilotkit/xplat": "workspace:*",
     "ai": "^2.2.23",
     "nanoid": "^4.0.2",
     "openai": "^4.6.0"
