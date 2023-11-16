@@ -93,6 +93,10 @@ importers:
         version: 4.9.4
 
   packages/cloud:
+    dependencies:
+      '@copilotkit/xplat':
+        specifier: workspace:*
+        version: link:../xplat
     devDependencies:
       '@types/jest':
         specifier: ^29.5.4
