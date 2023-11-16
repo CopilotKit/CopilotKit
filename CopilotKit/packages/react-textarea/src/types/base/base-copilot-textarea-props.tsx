@@ -13,6 +13,8 @@ import { BaseCopilotTextareaApiConfig } from "./autosuggestions-bare-function";
  *
  * @property {React.CSSProperties} [suggestionsStyle] - Specifies the CSS styles to apply to the suggestions list.
  *
+ * @property {string} [hoverMenuClassname] - a classname to applly to the editor popover window.
+ *
  * @property {string} [value] - The initial value of the textarea. Can be controlled via `onValueChange`.
  *
  * @property {(value: string) => void} [onValueChange] - Callback invoked when the value of the textarea changes.
@@ -29,6 +31,7 @@ export interface BaseCopilotTextareaProps
   disableBranding?: boolean;
   placeholderStyle?: React.CSSProperties;
   suggestionsStyle?: React.CSSProperties;
+  hoverMenuClassname?: string;
   value?: string;
   onValueChange?: (value: string) => void;
   onChange?: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
