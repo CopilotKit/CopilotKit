@@ -2,10 +2,37 @@
   <img src="./assets/banner.png" width="100%" style="border-radius: 15px;">
 </div>
 
-# CopilotKit🪁 [![Discord](https://dcbadge.vercel.app/api/server/6dffbvGU3D?compact=true&style=flat)](https://discord.gg/6dffbvGU3D) ![GitHub CI](https://github.com/RecursivelyAI/CopilotKit/actions/workflows/ci.yml/badge.svg)
+<p align="center">
+  <a href="https://discord.gg/6dffbvGU3D">
+      <img src="https://dcbadge.vercel.app/api/server/6dffbvGU3D?compact=true&style=flat" alt="Discord">
+  </a>
+  <a href="https://github.com/RecursivelyAI/CopilotKit/actions/workflows/ci.yml">
+      <img src="https://github.com/RecursivelyAI/CopilotKit/actions/workflows/ci.yml/badge.svg" alt="GitHub CI">
+  </a>
+</p>
 
-A **powerful** & **hackable** copilot for any react app.  
-Get started in minutes & iterate ad-infinitum.
+<h1 align="center">The open-source copilot platform</h1>
+
+
+
+<div align="center">
+AI-powered components for your application.
+</div>
+
+  <p align="center">
+    <br />
+    <a href="https://docs.copilotkit.ai" rel="dofollow"><strong>Explore the docs »</strong></a>
+    <br />
+
+  <br/>
+    <a href="https://github.com/RecursivelyAI/CopilotKit/issues/new?assignees=&labels=bug&projects=&template=bug_report.md&title=">Report Bug</a>
+    ·
+    <a href="https://github.com/RecursivelyAI/CopilotKit/issues/new?assignees=&labels=feature+request&projects=&template=feature_request.md&title=">Request Feature</a>
+    ·
+  <a href="https://discord.gg/6dffbvGU3D">Join Our Discord</a>
+  </p>
+  
+
 
 ## Overview
 
