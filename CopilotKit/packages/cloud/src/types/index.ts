@@ -1,1 +1,1 @@
-export type { SampleInterface } from "./dummy";
+export {};

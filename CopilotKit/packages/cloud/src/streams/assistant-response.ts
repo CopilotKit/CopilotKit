@@ -1,5 +1,4 @@
-import { AssistantMessage } from "../types/shared";
-import { getStreamString } from "../utils/shared";
+import { AssistantMessage, getStreamString } from "@copilotkit/xplat";
 
 export function experimental_AssistantResponse(
   { threadId, messageId }: { threadId: string; messageId: string },

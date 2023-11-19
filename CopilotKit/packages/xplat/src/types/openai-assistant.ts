@@ -20,7 +20,7 @@ export interface Message {
   id: string;
   createdAt?: Date;
   content: string;
-  ui?: string | JSX.Element | JSX.Element[] | null | undefined;
+  ui?: string | null | undefined;
   role: "system" | "user" | "assistant" | "function";
   /**
    * If the message has a role of `function`, the `name` field is the name of the function.
