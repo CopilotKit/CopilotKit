@@ -7,7 +7,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || "",
 });
 
-const assistantId = "";
+const assistantId = "asst_P3HVToUKAsCiotkZfZYiHCm9";
 
 // IMPORTANT! Set the runtime to edge
 export const runtime = "edge";

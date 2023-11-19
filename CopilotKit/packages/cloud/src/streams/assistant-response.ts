@@ -1,4 +1,4 @@
-import { AssistantMessage, getStreamString } from "@copilotkit/shared";
+import { AssistantMessage, formatStreamPart } from "@copilotkit/shared";
 
 export function experimental_AssistantResponse(
   { threadId, messageId }: { threadId: string; messageId: string },
@@ -14,20 +14,20 @@ export function experimental_AssistantResponse(
 
       const sendMessage = (message: AssistantMessage) => {
         controller.enqueue(
-          textEncoder.encode(getStreamString("text", message))
+          textEncoder.encode(formatStreamPart("assistant_message", message))
         );
       };
 
       const sendError = (errorMessage: string) => {
         controller.enqueue(
-          textEncoder.encode(getStreamString("error", errorMessage))
+          textEncoder.encode(formatStreamPart("error", errorMessage))
         );
       };
 
       // send the threadId and messageId as the first message:
       controller.enqueue(
         textEncoder.encode(
-          getStreamString("control_data", {
+          formatStreamPart("assistant_control_data", {
             threadId,
             messageId,
           })
