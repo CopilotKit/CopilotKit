@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { processMessageStream } from "../utils";
-import { Message, getStreamStringTypeAndValue } from "@copilotkit/xplat";
+import { Message, getStreamStringTypeAndValue } from "@copilotkit/shared";
 
 export type AssistantStatus = "in_progress" | "awaiting_message";
 

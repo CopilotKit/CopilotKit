@@ -31,6 +31,6 @@
     "typescript": "^4.9.4"
   },
   "dependencies": {
-    "@copilotkit/xplat": "workspace:*"
+    "@copilotkit/shared": "workspace:*"
   }
 }

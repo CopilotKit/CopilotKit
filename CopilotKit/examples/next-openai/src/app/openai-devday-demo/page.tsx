@@ -1,7 +1,7 @@
 "use client";
 
 import { useAssistant_experimental } from "@copilotkit/react-core";
-import { Message } from "@copilotkit/xplat";
+import { Message } from "@copilotkit/shared";
 import { useEffect, useRef } from "react";
 
 const roleToColorMap: Record<Message["role"], string> = {

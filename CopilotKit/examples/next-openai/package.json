@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@copilotkit/cloud": "workspace:*",
-    "@copilotkit/xplat": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/react-textarea": "workspace:*",
     "@copilotkit/react-ui": "workspace:*",
