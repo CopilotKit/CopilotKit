@@ -30,6 +30,9 @@ importers:
 
   examples/next-openai:
     dependencies:
+      '@copilotkit/cloud':
+        specifier: workspace:*
+        version: link:../../packages/cloud
       '@copilotkit/react-core':
         specifier: workspace:*
         version: link:../../packages/react-core
@@ -39,6 +42,9 @@ importers:
       '@copilotkit/react-ui':
         specifier: workspace:*
         version: link:../../packages/react-ui
+      '@copilotkit/xplat':
+        specifier: workspace:*
+        version: link:../../packages/xplat
       '@heroicons/react':
         specifier: ^2.0.18
         version: 2.0.18(react@18.2.0)
