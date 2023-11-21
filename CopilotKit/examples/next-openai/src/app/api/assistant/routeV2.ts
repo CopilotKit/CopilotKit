@@ -1,6 +1,9 @@
 import { experimental_AssistantResponse } from "@copilotkit/cloud";
 import OpenAI from "openai";
 import { MessageContentText } from "openai/resources/beta/threads/messages/messages";
+import { ChatCompletionCreateParamsStreaming } from "openai/resources/chat/completions";
+
+
 
 // Create an OpenAI API client (that's edge friendly!)
 const openai = new OpenAI({
@@ -21,10 +24,14 @@ const homeTemperatures = {
 };
 
 export async function POST(req: Request) {
+
+
+
   // Parse the request body
   const input: {
     threadId: string | null;
     message: string;
+
   } = await req.json();
 
   // Create a thread if needed

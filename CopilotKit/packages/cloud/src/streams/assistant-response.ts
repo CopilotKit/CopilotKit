@@ -1,12 +1,16 @@
 import { AssistantMessage, formatStreamPart } from "@copilotkit/shared";
 
+
+
 export function experimental_AssistantResponse(
   { threadId, messageId }: { threadId: string; messageId: string },
-  process: (stream: {
-    threadId: string;
-    messageId: string;
-    sendMessage: (message: AssistantMessage) => void;
-  }) => Promise<void>
+  process: (
+    stream: {
+      threadId: string;
+      messageId: string;
+      sendMessage: (message: AssistantMessage) => void;
+    }
+  ) => Promise<void>
 ): Response {
   const stream = new ReadableStream({
     async start(controller) {

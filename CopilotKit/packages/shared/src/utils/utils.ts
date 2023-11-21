@@ -21,6 +21,13 @@ const textStreamPart: StreamPart<"0", "text", string> = {
   },
 };
 
+/**
+ * This is a utility function that helps in parsing the stream parts.
+ * It takes a JSONValue as input and returns an object with type and value.
+ * The type is a string that represents the type of the stream part.
+ * The value is the actual value of the stream part.
+ * If the input value is not a string, it throws an error.
+ */
 const functionCallStreamPart: StreamPart<
   "1",
   "function_call",

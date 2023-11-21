@@ -17,6 +17,11 @@ export interface CopilotApiConfig {
   chatApiEndpoint: string;
 
   /**
+   * The endpoint for the chat API v2.
+   */
+  chatApiEndpointV2: string;
+
+  /**
    * additional headers to be sent with the request
    * @default {}
    * @example
@@ -46,6 +51,9 @@ export function copilotApiConfigExtrapolator(config: CopilotApiConfig) {
     get chatApiEndpoint(): string {
       return `${config.chatApiEndpoint}`;
     },
+    get chatApiEndpointV2(): string {
+      return `${config.chatApiEndpointV2}`;
+    }
   };
 }
 

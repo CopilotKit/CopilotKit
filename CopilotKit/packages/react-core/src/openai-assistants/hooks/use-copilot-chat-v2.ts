@@ -1,13 +1,45 @@
 "use client";
 
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { processMessageStream } from "../utils";
 import { Message, parseStreamPart } from "@copilotkit/shared";
+import { CopilotContext, copilotApiConfigExtrapolator } from "../../context";
 
 export type AssistantStatus = "in_progress" | "awaiting_message";
 
 
-export interface UseAssistantResult {
+export interface RequestForwardingOptions {
+  /**
+     * The credentials mode to be used for the fetch request.
+     * Possible values are: 'omit', 'same-origin', 'include'.
+     * Defaults to 'same-origin'.
+     */
+  credentials?: RequestCredentials;
+  /**
+   * HTTP headers to be sent with the API request.
+   */
+  headers?: Record<string, string> | Headers;
+  /**
+   * Extra body object to be sent with the API request.
+   * @example
+   * Send a `sessionId` to the API along with the messages.
+   * ```js
+   * useChat({
+   *   body: {
+   *     sessionId: '123',
+   *   }
+   * })
+   * ```
+   */
+  body?: object;
+
+}
+export interface USeCopilotChatOptionsV2 extends RequestForwardingOptions {
+  makeSystemMessage?: (contextString: string) => string;
+  threadId?: string | undefined;
+}
+
+export interface UseCopilotChatV2Result {
   messages: Message[];
   input: string;
   handleInputChange: (e: any) => void;
@@ -16,13 +48,18 @@ export interface UseAssistantResult {
   error: unknown;
 }
 
-export function experimental_useAssistant({
-  api,
-  threadId: threadIdParam,
-}: {
-  api: string;
-  threadId?: string | undefined;
-}): UseAssistantResult {
+export function useCopilotChatV2(
+  options: USeCopilotChatOptionsV2
+): UseCopilotChatV2Result {
+
+  const {
+    getContextString,
+    getChatCompletionFunctionDescriptions,
+    getFunctionCallHandler,
+    copilotApiConfig,
+  } = useContext(CopilotContext);
+
+  
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [threadId, setThreadId] = useState<string | undefined>(undefined);
@@ -49,15 +86,26 @@ export function experimental_useAssistant({
 
     setInput("");
 
-    const result = await fetch(api, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        // always use user-provided threadId when available:
-        threadId: threadIdParam ?? threadId ?? null,
-        message: input,
-      }),
-    });
+   
+    const result = await fetch(
+      copilotApiConfigExtrapolator(copilotApiConfig).chatApiEndpointV2,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...copilotApiConfig.headers,
+          ...options.headers,
+       },
+        body: JSON.stringify({
+          // always use user-provided threadId when available:
+          threadId: options.threadId ?? threadId ?? null,
+          message: input,
+          functions: getChatCompletionFunctionDescriptions(),
+          ...copilotApiConfig.body,
+          ...options.body,
+        }),
+      }
+    );
 
     if (result.body == null) {
       throw new Error("The response body is empty.");
