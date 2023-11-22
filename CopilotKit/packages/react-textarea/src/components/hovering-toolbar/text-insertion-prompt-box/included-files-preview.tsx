@@ -48,7 +48,13 @@ export const FileChipPreview: React.FC<FileChipPreviewProp> = ({
     <Chip
       label={filePointer.name}
       onDelete={onDelete}
-      avatar={<Avatar sx={{ backgroundColor: "transparent" }}></Avatar>}
+      avatar={
+        <Avatar
+          src={filePointer.iconImageUri}
+          alt={filePointer.sourceApplication}
+          sx={{ backgroundColor: "transparent" }}
+        ></Avatar>
+      }
     />
   );
 };
