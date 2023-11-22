@@ -3,96 +3,81 @@ title: 'Development'
 description: 'Learn how to preview changes locally'
 ---
 
+## Setup Local Environment
+
 <Info>
   **Prerequisite** You should have installed Node.js (version 18.10.0 or
   higher).
 </Info>
 
-Step 1. Install Mintlify on your OS:
+Step 1. Install `pnpm` on your OS:
 
 <CodeGroup>
 
 ```bash npm
-npm i -g mintlify
+npm install -g pnpm
 ```
 
-```bash yarn
-yarn global add mintlify
+```bash brew
+brew install pnpm
 ```
 
-</CodeGroup>
-
-Step 2. Go to the docs are located (where you can find `mint.json`) and run the following command:
-
-```bash
-mintlify dev
-```
-
-The documentation website is now available at `http://localhost:3000`.
-
-### Custom Ports
-
-Mintlify uses port 3000 by default. You can use the `--port` flag to customize the port Mintlify runs on. For example, use this command to run in port 3333:
-
-```bash
-mintlify dev --port 3333
-```
-
-You will see an error like this if you try to run Mintlify in a port that's already taken:
-
-```md
-Error: listen EADDRINUSE: address already in use :::3000
-```
-
-## Mintlify Versions
-
-Each CLI is linked to a specific version of Mintlify. Please update the CLI if your local website looks different than production.
-
-<CodeGroup>
-
-```bash npm
-npm i -g mintlify@latest
-```
-
-```bash yarn
-yarn global upgrade mintlify
+```l other
+https://pnpm.io/installation
 ```
 
 </CodeGroup>
 
-## Deployment
 
-<Tip>
-  Unlimited editors available under the [Startup
-  Plan](https://mintlify.com/pricing)
-</Tip>
 
-You should see the following if the deploy successfully went through:
+Step 2. Add the required environment variables:
 
-<Frame>
-  <img src="/images/checks-passed.png" style={{ borderRadius: '0.5rem' }} />
-</Frame>
+- Go to `/[root]/CopilotKit/examples/next-openai/` 
+- Duplicate `.env.local.example`, name the duplicate `.env.local`
+- Edit `.env.local` with approrpriate values
+
+
+Step 3. Recursively install & build all dependencies:
+
+In `/[root]/CopilotKit` run:
+```bash
+pnpm -w freshbuild
+```
+
+Step 4. Run all packages & the example app in dev mode, to automatically load changes on file save.
+
+Please Note!\
+If you save files in a file that's part of the example app, the app will hot-load the changes automatically.
+But if you make changes in a **package**, you first have to go to a file of the example app, and re-save it,
+for the package changes to propagate into the running app.
+
+In `/[root]/CopilotKit/` run:
+```bash
+pnpm run dev
+```
+
+By default the app will run on `http://localhost:3000`, however if 3000 is already taken, it will try other available ports sequentially.
+To see which port was chosen, look in the output logs for something like
+
+```bash
+next-openai:dev: - ready started server on 0.0.0.0:3002, url: http://localhost:3002
+```
+
 
 ## Troubleshooting
 
 Here's how to solve some common problems when working with the CLI.
 
 <AccordionGroup>
-  <Accordion title="Mintlify is not loading">
-    Update to Node v18. Run `mintlify install` and try again.
+  <Accordion title="npm is giving errors">
+    You need to use `pnpm`, not `npm`. See above.
   </Accordion>
-  <Accordion title="No such file or directory on Windows">
-Go to the `C:/Users/Username/.mintlify/` directory and remove the `mint`
-folder. Then Open the Git Bash in this location and run `git clone
-https://github.com/mintlify/mint.git`.
-
-Repeat step 3.
-
+  <Accordion title="Unclear build error">
+Make sure you have specified the environment variables in `.env.local` as above.
   </Accordion>
-  <Accordion title="Getting an unknown error">
-    Try navigating to the root of your device and delete the ~/.mintlify folder.
-    Then run `mintlify dev` again.
+  <Accordion title="Package changes not taking affect in example app">
+    You can always try to clean and rebuild, by running `pnpm -w freshbuild` from the `[root]/CopilotKit` directory.
   </Accordion>
 </AccordionGroup>
 
-Curious about what changed in a CLI version? [Check out the CLI changelog.](/changelog/command-line)
+Need support? Check out the [#contributing](https://discord.gg/6dffbvGU3D) channel in the [Discord](https://discord.gg/6dffbvGU3D).
