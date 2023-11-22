@@ -6,116 +6,109 @@ description: 'How to setup the CopilotCloud endpoints'
 ## Setup
 
 ### Setup the CopilotKit Backend Endpoint:
-<Tabs>
-  <Tab title="Manually specified endpoint: nodeJS (typescript)">
 
-      Currently all you require is an endpoint which serves as a proxy to an OpenAI-like LLM endpoint.
-      See below for an example using NextJS edge functions.
-
-      Make sure to install the `ai` and `openai` packages:
-      <CodeGroup>
-        ```bash npm
-        npm i ai openai
-        ``` 
-        ```bash yarn
-        yarn add ai openai
-        ```
-        ```bash pnpm
-        pnpm add ai openai
-        ```
-      </CodeGroup>
+  Currently all you require is an endpoint which serves as a proxy to an OpenAI-like LLM endpoint.
+  See below for examples using NextJS edge functions / Flask.
 
 
+#### Manually specified endpoint: nodeJS (typescript)
+
+Make sure to install the `ai` and `openai` packages:
+<CodeGroup>
+  ```bash npm
+  npm i ai openai
+  ``` 
+  ```bash yarn
+  yarn add ai openai
+  ```
+  ```bash pnpm
+  pnpm add ai openai
+  ```
+</CodeGroup>
       
-      ```ts /api/copilotkit/chat/route.ts (NextJS)
-      import { OpenAIStream, StreamingTextResponse } from "ai";
-      import OpenAI from "openai";
-      import { CompletionCreateParamsStreaming } from "openai/resources/chat/completions";
+```ts /api/copilotkit/chat/route.ts (NextJS)
+import { OpenAIStream, StreamingTextResponse } from "ai";
+import OpenAI from "openai";
+import { CompletionCreateParamsStreaming } from "openai/resources/chat/completions";
 
-      const openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
-      });
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
-      export const runtime = "edge";
+export const runtime = "edge";
 
-      export async function POST(req: Request): Promise<Response> {
-        const forwardedProps = await req.json();
+export async function POST(req: Request): Promise<Response> {
+  const forwardedProps = await req.json();
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4",
-          ...forwardedProps,
-          stream: true,
-        } as CompletionCreateParamsStreaming);
+  const response = await openai.chat.completions.create({
+    model: "gpt-4",
+    ...forwardedProps,
+    stream: true,
+  } as CompletionCreateParamsStreaming);
 
-        const stream = OpenAIStream(response, {
-          experimental_onFunctionCall: async (
-            { name, arguments: args },
-            createFunctionCallMessages
-          ) => {
-            return undefined; // returning undefined to avoid sending any messages to the client when a function is called. Temporary, bc currently vercel ai sdk does not support returning both text and function calls -- although the API does support it.
-          },
-        });
+  const stream = OpenAIStream(response, {
+    experimental_onFunctionCall: async (
+      { name, arguments: args },
+      createFunctionCallMessages
+    ) => {
+      return undefined; // returning undefined to avoid sending any messages to the client when a function is called. Temporary, bc currently vercel ai sdk does not support returning both text and function calls -- although the API does support it.
+    },
+  });
 
-        return new StreamingTextResponse(stream);
-      }
-      ```
-  </Tab>
-    <Tab title="Manually specified endpoint: flask (python)">
-
-      Currently all you require is an endpoint which serves as a proxy to an OpenAI-like LLM endpoint.
-      See below for an example using a Flask server.
-
-      Make sure to install the `Flask` and `openai` packages.
-
-      
-      ```python
-      from flask import Flask, request, Response
-      from flask import Response
-      import openai
-
-      app = Flask(__name__)
-
-      # Assuming the API key is set in environment variables
-      client = openai.OpenAI(
-          api_key="" # add your api key here
-      )
-
-      def generate_stream(**forwarded_props):
-          """
-          Generator function to stream the chat completion response.
-          """
-          # Ensure streaming is enabled
-          forwarded_props['stream'] = True
-          forwarded_props['model'] = "gpt-4-1106-preview"
-
-          response_stream = client.chat.completions.create(**forwarded_props)
-
-          for response in response_stream:
-              text = response.choices[0].delta.content or ""
-              if text:
-                  yield text
+  return new StreamingTextResponse(stream);
+}
+```
 
 
-      @app.route('/copilotkit_endpoint', methods=['POST'])
-      def copilotkit_endpoint():
-          """
-          Endpoint to handle chat requests and stream responses.
-          """
+#### Manually specified endpoint: flask (python)
 
-          # Extracting all properties from the request JSON
-          forwarded_props = request.get_json(force=True)
+Make sure to install the `Flask` and `openai` packages.
 
-          # Generate and return the streaming response
-          return Response(
-              generate_stream(**forwarded_props),
-              content_type='text/plain; charset=utf-8',
-              headers={
-                  'Access-Control-Allow-Origin': '*',
-              }
-          )
-      ```
-  </Tab>
 
-</Tabs>
+```python
+from flask import Flask, request, Response
+from flask import Response
+import openai
 
+app = Flask(__name__)
+
+# Assuming the API key is set in environment variables
+client = openai.OpenAI(
+    api_key="" # add your api key here
+)
+
+def generate_stream(**forwarded_props):
+    """
+    Generator function to stream the chat completion response.
+    """
+    # Ensure streaming is enabled
+    forwarded_props['stream'] = True
+    forwarded_props['model'] = "gpt-4-1106-preview"
+
+    response_stream = client.chat.completions.create(**forwarded_props)
+
+    for response in response_stream:
+        text = response.choices[0].delta.content or ""
+        if text:
+            yield text
+
+
+@app.route('/copilotkit_endpoint', methods=['POST'])
+def copilotkit_endpoint():
+    """
+    Endpoint to handle chat requests and stream responses.
+    """
+
+    # Extracting all properties from the request JSON
+    forwarded_props = request.get_json(force=True)
+
+    # Generate and return the streaming response
+    return Response(
+        generate_stream(**forwarded_props),
+        content_type='text/plain; charset=utf-8',
+        headers={
+            'Access-Control-Allow-Origin': '*',
+        }
+    )
+```
 
