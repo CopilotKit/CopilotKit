@@ -5,166 +5,110 @@ description: 'How to setup the CopilotCloud endpoints'
 
 ## Setup
 
-### Intall CopilotKit
+### Setup the CopilotKit Backend Endpoint:
 
-Install the CopilotKit frontend packagess:
+  Currently all you require is an endpoint which serves as a proxy to an OpenAI-like LLM endpoint.
+  See below for examples using NextJS edge functions / Flask.
 
+
+#### Manually specified endpoint: nodeJS (typescript)
+
+Make sure to install the `ai` and `openai` packages:
 <CodeGroup>
   ```bash npm
-  npm i @copilotkit/react-core @copilotkit/react-textarea
+  npm i ai openai
   ``` 
   ```bash yarn
-  yarn add @copilotkit/react-core @copilotkit/react-textarea
+  yarn add ai openai
   ```
   ```bash pnpm
-  pnpm add @copilotkit/react-core @copilotkit/react-textarea
+  pnpm add ai openai
   ```
 </CodeGroup>
-
-### Setup the frontend
-
-A `CopilotProvider` must wrap all components which interact with CopilotKit.
-
-For simplicity's sake, it's recommended you wrap a `CopilotProvider` around your entire application:
-
-```ts
-"use client";
-import { CopilotProvider } from "@copilotkit/react-core";
-
-export default function RootLayout({children}) {
-  return (
-    <CopilotProvider chatApiEndpoint="/path_to_copilotkit_endpoint/see_below">
-      {children}
-    </CopilotProvider>
-  );
-}
-```
-
-### Setup the CopilotKit Backend Endpoint:
-<Tabs>
-  <Tab title="Manually specified endpoint">
-
-      Currently all you require is an endpoint which serves as a proxy to an OpenAI-like LLM endpoint.
-      See below for an example using NextJS edge functions.
-
-      Make sure to install the `ai` and `openai` packages:
-      <CodeGroup>
-        ```bash npm
-        npm i ai openai
-        ``` 
-        ```bash yarn
-        yarn add ai openai
-        ```
-        ```bash pnpm
-        pnpm add ai openai
-        ```
-      </CodeGroup>
-
-
       
-      ```ts /api/copilotkit/chat/route.ts (NextJS)
-      import { OpenAIStream, StreamingTextResponse } from "ai";
-      import OpenAI from "openai";
-      import { CompletionCreateParamsStreaming } from "openai/resources/chat/completions";
+```ts /api/copilotkit/chat/route.ts (NextJS)
+import { OpenAIStream, StreamingTextResponse } from "ai";
+import OpenAI from "openai";
+import { CompletionCreateParamsStreaming } from "openai/resources/chat/completions";
 
-      const openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
-      });
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
-      export const runtime = "edge";
+export const runtime = "edge";
 
-      export async function POST(req: Request): Promise<Response> {
-        const forwardedProps = await req.json();
+export async function POST(req: Request): Promise<Response> {
+  const forwardedProps = await req.json();
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4",
-          ...forwardedProps,
-          stream: true,
-        } as CompletionCreateParamsStreaming);
+  const response = await openai.chat.completions.create({
+    model: "gpt-4",
+    ...forwardedProps,
+    stream: true,
+  } as CompletionCreateParamsStreaming);
 
-        const stream = OpenAIStream(response, {
-          experimental_onFunctionCall: async (
-            { name, arguments: args },
-            createFunctionCallMessages
-          ) => {
-            return undefined; // returning undefined to avoid sending any messages to the client when a function is called. Temporary, bc currently vercel ai sdk does not support returning both text and function calls -- although the API does support it.
-          },
-        });
+  const stream = OpenAIStream(response, {
+    experimental_onFunctionCall: async (
+      { name, arguments: args },
+      createFunctionCallMessages
+    ) => {
+      return undefined; // returning undefined to avoid sending any messages to the client when a function is called. Temporary, bc currently vercel ai sdk does not support returning both text and function calls -- although the API does support it.
+    },
+  });
 
-        return new StreamingTextResponse(stream);
-      }
-      ```
-  </Tab>
-</Tabs>
-
-
-## Provide context
-You likely want to provide external context to inform CopilotTextarea completions, insertions, and edits.
-
-You can do so through the `useMakeCopilotReadable` and `useMakeCopilotDocumentReadable` react hooks.
-See their respective documentation for additional details.
-
-In particular, you can specify categories which bind specific context to specific textareas, and not to others.
-
-```ts
-const employeeContextId = useMakeCopilotReadable(employeeName);
-
-// Pass a parentID to maintain a hiearchical structure.
-// Especially useful with child React components, list elements, etc.
-useMakeCopilotReadable(workProfile.description(), employeeContextId);
-useMakeCopilotReadable(metadata.description(), employeeContextId);
-
-const document: DocumentPointer = {
-  id: "2",
-  name: "Travel Pet Peeves",
-  sourceApplication: "Google Docs",
-  iconImageUri: "/images/GoogleDocs.svg",
-  getContents: () => { return getThisDocumentContents() },
-} as DocumentPointer;
-
-function SomeComponent(): JSX.Element {
-  useMakeCopilotDocumentReadable(document);
-  // ...
+  return new StreamingTextResponse(stream);
 }
 ```
 
 
-## Integrate a CopilotTextarea
+#### Manually specified endpoint: flask (python)
 
-`CopilotTextarea` is configured essentially identically to a standard react `<textarea />`.
+Make sure to install the `Flask` and `openai` packages.
 
-The primary difference is the additional `autosuggestionsConfig` variable, which provides copilot-specific configurations.
 
-See the CopilotTextarea documentation for all parameters. 
+```python
+from flask import Flask, request, Response
+from flask import Response
+import openai
 
-```ts
-import { CopilotTextarea } from "@copilotkit/react-textarea";
-import { useState } from "react";
+app = Flask(__name__)
 
-export function SomeReactComponent(): JSX.Element {
-  const [text, setText] = useState("");
+# Assuming the API key is set in environment variables
+client = openai.OpenAI(
+    api_key="" # add your api key here
+)
 
-  return (
-    <>
-      <CopilotTextarea
-        className="px-4 py-4"
-        value={text}
-        onValueChange={(value: string) => setText(value)}
-        placeholder="What are your plans for your vacation?"
-        autosuggestionsConfig={{
-          textareaPurpose: "Travel notes from the user's previous vacations. Likely written in a colloquial style, but adjust as needed.",
-          chatApiConfigs: {
-            suggestionsApiConfig: {
-              forwardedParams: {
-                max_tokens: 20,
-                stop: [".", "?", "!"],
-              },
-            },
-          },
-        }}
-      />
-    </>
-  );
-}
+def generate_stream(**forwarded_props):
+    """
+    Generator function to stream the chat completion response.
+    """
+    # Ensure streaming is enabled
+    forwarded_props['stream'] = True
+    forwarded_props['model'] = "gpt-4-1106-preview"
+
+    response_stream = client.chat.completions.create(**forwarded_props)
+
+    for response in response_stream:
+        text = response.choices[0].delta.content or ""
+        if text:
+            yield text
+
+
+@app.route('/copilotkit_endpoint', methods=['POST'])
+def copilotkit_endpoint():
+    """
+    Endpoint to handle chat requests and stream responses.
+    """
+
+    # Extracting all properties from the request JSON
+    forwarded_props = request.get_json(force=True)
+
+    # Generate and return the streaming response
+    return Response(
+        generate_stream(**forwarded_props),
+        content_type='text/plain; charset=utf-8',
+        headers={
+            'Access-Control-Allow-Origin': '*',
+        }
+    )
 ```
 

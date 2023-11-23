@@ -37,8 +37,13 @@
       "pages": [
         "getting-started/quickstart-textarea",
         "getting-started/quickstart-chatbot",
-        "getting-started/quickstart-backend",
-        "getting-started/development"
+        "getting-started/quickstart-backend"
+      ]
+    },
+    {
+      "group": "Contributing",
+      "pages": [
+        "contribute/quickstart-contribute"
       ]
     }
   ],
