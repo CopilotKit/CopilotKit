@@ -37,14 +37,14 @@ export const CopilotTextarea = React.forwardRef(
 
     const autosuggestionsFunction = useMakeStandardAutosuggestionFunction(
       autosuggestionsConfig.textareaPurpose,
-      autosuggestionsConfig.externalContextCategories,
+      autosuggestionsConfig.contextCategories,
       autosuggestionsConfig.chatApiConfigs.suggestionsApiConfig
     );
 
     const insertionOrEditingFunction =
       useMakeStandardInsertionOrEditingFunction(
         autosuggestionsConfig.textareaPurpose,
-        autosuggestionsConfig.externalContextCategories,
+        autosuggestionsConfig.contextCategories,
         autosuggestionsConfig.chatApiConfigs.insertionApiConfig,
         autosuggestionsConfig.chatApiConfigs.editingApiConfig
       );

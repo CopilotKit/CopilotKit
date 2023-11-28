@@ -19,7 +19,7 @@ export function VacationNotes(): JSX.Element {
             "Travel notes from the user's previous vacations. Likely written in a colloquial style, but adjust as needed.",
           debounceTime: 250,
           acceptAutosuggestionKey: "Tab",
-          externalContextCategories: [],
+          contextCategories: [],
           disableWhenEmpty: true,
           chatApiConfigs: {
             suggestionsApiConfig: {

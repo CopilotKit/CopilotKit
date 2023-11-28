@@ -65,7 +65,7 @@ function TextAreas() {
         }}
         autosuggestionsConfig={{
           textareaPurpose: textareaPurpose,
-          externalContextCategories: [announcementCategoryId],
+          contextCategories: [salesReplyCategoryId],
           chatApiConfigs: {
             suggestionsApiConfig: {
               // makeSystemPrompt: makeSystemPrompt,
