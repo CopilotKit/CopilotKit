@@ -11,19 +11,8 @@
   </a>
 </p>
 
-<h1 align="center">The open-source copilot platform.</h1>
-
-<div align="center">
-    
-**Plug-and-play components for in-app copilots**.<br/>
-**Frontend + Backend + AI infrastructure.**
-</div>
-
- - 🌟 **Copilot Textarea:** AI-assisted text generation + editing.
- - 🌟 **Copilot Runtime:** (frontend + backend) runtimes for in-app copilots.
- - 🚧 **Copilot Cloud:** hostd SaaS for session management, plugin managment, automated fine tuning, and more.
-
-
+🌟 **Copilot Textarea:** AI-assisted text generation + editing + autocompletions. <br/>
+🌟 **Copilot Chatbot:** in-app chatbot that can see the app's state (local + cloud), can call local + cloud functions (with support for auth), can talk to 3rd party plugins, and can execute arbitrary chains.
 
   <p align="center">
     <br />
@@ -31,11 +20,13 @@
     <br />
 
   <br/>
+    <a href="https://discord.gg/6dffbvGU3D">Join our Discord</a>
+    ·
+    <a href="https://copilotkit.ai&utm_medium=github&utm_source=github">Hosted Solution</a>
+    ·
     <a href="https://github.com/RecursivelyAI/CopilotKit/issues/new?assignees=&labels=bug&projects=&template=bug_report.md&title=">Report Bug</a>
     ·
     <a href="https://github.com/RecursivelyAI/CopilotKit/issues/new?assignees=&labels=feature+request&projects=&template=feature_request.md&title=">Request Feature</a>
-    ·
-  <a href="https://discord.gg/6dffbvGU3D">Join Our Discord</a>
   </p>
   
 
