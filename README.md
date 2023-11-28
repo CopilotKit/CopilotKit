@@ -13,17 +13,8 @@
 
 <h1 align="center">The open-source copilot platform.</h1>
 
-<div align="center">
-    
-**Plug-and-play components for in-app copilots**.<br/>
-**Frontend + Backend + AI infrastructure.**
-</div>
-
- - 🌟 **Copilot Textarea:** AI-assisted text generation + editing.
- - 🌟 **Copilot Runtime:** (frontend + backend) runtimes for in-app copilots.
- - 🚧 **Copilot Cloud:** hostd SaaS for session management, plugin managment, automated fine tuning, and more.
-
-
+🌟 **Copilot Textarea:** AI-assisted text generation + editing + autocompletions. <br/>
+🌟 **Copilot Chatbot:** in-app chatbot that can see the app's state (local + cloud), can call local + cloud functions (with support for auth), and can talk to 3rd party plugins. 
 
   <p align="center">
     <br />
