@@ -2,6 +2,8 @@
 
 import {
   CopilotProvider,
+  DocumentPointer,
+  useMakeCopilotDocumentReadable,
   useMakeCopilotReadable,
 } from "@copilotkit/react-core";
 import {
@@ -22,6 +24,17 @@ export default function CopilotTextareaDemo(): JSX.Element {
   );
 }
 
+const clientTranscriptSummaryDocument: DocumentPointer = {
+  id: "clientTranscriptSummary",
+  name: "Client Call Gong Transcript",
+  sourceApplication: "Gong",
+  iconImageUri:
+    "https://asset.brandfetch.io/idHyhmcKvT/idRu6db2HA.jpeg?updated=1690987844207",
+  getContents: () => {
+    return "This is the client transcript summary";
+  },
+};
+
 function TextAreas() {
   const [detailsText, setDetailsText] = useStateWithLocalStorage(
     "",
@@ -37,10 +50,16 @@ function TextAreas() {
     "cacheKey_textareaPurpose"
   );
 
-  const announcementCategoryId = "announcement";
-  useMakeCopilotReadable(detailsText, undefined, [announcementCategoryId]);
+  const salesReplyCategoryId = "sales_reply";
+  useMakeCopilotReadable(detailsText, undefined, [salesReplyCategoryId]);
 
   const copilotTextareaRef = useRef<HTMLCopilotTextAreaElement>(null);
+
+  useMakeCopilotDocumentReadable(
+    clientTranscriptSummaryDocument,
+    [salesReplyCategoryId],
+    []
+  );
 
   return (
     <div className="w-full h-full gap-10 flex flex-col items-center p-10">
@@ -65,7 +84,7 @@ function TextAreas() {
         }}
         autosuggestionsConfig={{
           textareaPurpose: textareaPurpose,
-          externalContextCategories: [announcementCategoryId],
+          contextCategories: [salesReplyCategoryId],
           chatApiConfigs: {
             suggestionsApiConfig: {
               // makeSystemPrompt: makeSystemPrompt,

@@ -1,5 +1,23 @@
 # ui
 
+## 0.11.0
+
+### Minor Changes
+
+- contextCategories no longer optional for reading context
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.13.0
+
+## 0.10.1
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.12.0
+
 ## 0.10.0
 
 ### Minor Changes
