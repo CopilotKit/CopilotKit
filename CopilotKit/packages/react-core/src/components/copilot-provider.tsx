@@ -51,7 +51,7 @@ export function CopilotProvider({
   }, []);
 
   const getContextString = useCallback(
-    (documents: DocumentPointer[], categories: string[] = ["global"]) => {
+    (documents: DocumentPointer[], categories: string[]) => {
       const documentsString = documents
         .map((document) => {
           return `${document.name} (${
@@ -68,7 +68,11 @@ export function CopilotProvider({
   );
 
   const addContext = useCallback(
-    (context: string, parentId?: string, categories: string[] = ["global"]) => {
+    (
+      context: string,
+      parentId?: string,
+      categories: string[] = defaultCopilotContextCategories
+    ) => {
       return addElement(context, categories, parentId);
     },
     [addElement]
@@ -90,14 +94,17 @@ export function CopilotProvider({
   }, [entryPoints]);
 
   const getDocumentsContext = useCallback(
-    (categories: string[] = ["global"]) => {
+    (categories: string[]) => {
       return allDocuments(categories);
     },
     [allDocuments]
   );
 
   const addDocumentContext = useCallback(
-    (documentPointer: DocumentPointer, categories: string[] = ["global"]) => {
+    (
+      documentPointer: DocumentPointer,
+      categories: string[] = defaultCopilotContextCategories
+    ) => {
       return addDocument(documentPointer, categories);
     },
     [addDocument]
@@ -135,6 +142,8 @@ export function CopilotProvider({
     </CopilotContext.Provider>
   );
 }
+
+export const defaultCopilotContextCategories = ["global"];
 
 function entryPointsToFunctionCallHandler(
   entryPoints: AnnotatedFunction<any[]>[]

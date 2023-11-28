@@ -1,4 +1,5 @@
 import { BaseCopilotTextareaApiConfig } from "./autosuggestions-bare-function";
+import { defaultCopilotContextCategories } from "@copilotkit/react-core";
 
 export interface BaseAutosuggestionsConfig {
   textareaPurpose: string;
@@ -16,7 +17,7 @@ export const defaultBaseAutosuggestionsConfig: Omit<
   "textareaPurpose" | "apiConfig"
 > = {
   debounceTime: 250,
-  contextCategories: ["global"],
+  contextCategories: defaultCopilotContextCategories,
   acceptAutosuggestionKey: "Tab",
   disableWhenEmpty: true,
   disabled: false,

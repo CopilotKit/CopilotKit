@@ -27,7 +27,7 @@ import { DocumentPointer } from "@copilotkit/react-core";
  */
 export function useMakeStandardInsertionOrEditingFunction(
   textareaPurpose: string,
-  contextCategories: string[] | undefined,
+  contextCategories: string[],
   insertionApiConfig: InsertionsApiConfig,
   editingApiConfig: EditingApiConfig
 ): Generator_InsertionOrEditingSuggestion {
