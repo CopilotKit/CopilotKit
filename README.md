@@ -11,13 +11,19 @@
   </a>
 </p>
 
-<h1 align="center">The open-source copilot platform</h1>
-
-
+<h1 align="center">The open-source copilot platform.</h1>
 
 <div align="center">
-AI-powered components for your application.
+    
+**Plug-and-play components for in-app copilots**.<br/>
+**Frontend + Backend + AI infrastructure.**
 </div>
+
+ - 🌟 **Copilot Textarea:** AI-assisted text generation + editing.
+ - 🌟 **Copilot Runtime:** (frontend + backend) runtimes for in-app copilots. Bring your own model, or use the _assistants_ API.
+ - 🚧 **Copilot Cloud:** hostd SaaS for session management, plugin managment, automated fine tuning, and more.
+
+
 
   <p align="center">
     <br />
@@ -36,10 +42,26 @@ AI-powered components for your application.
 
 ## Overview
 
-- ✅ **NEW:** `<CopilotTextarea />`: a drop-in `<textarea />` replacement with Copilot autocompletions.
-- ✅ `useMakeCopilotReadable(...)`: Propagate granular app state to the Copilot & Textareas. 
-- ✅ `useMakeCopilotActionable(...)`: Let the Copilot take _action_ on behalf of the user.
-- 🚧 CopilotCloudKit: integrate arbitrary LLM logic / chains / RAG, using plain code.
+### CopilotTextarea: AI-assisted text generation + editing.
+- ✅ A a drop-in `<textarea />` replacement. Fully customizable visually.
+- ✅ AI editing ✨ - "list the client's top 3 pain points from the last call `@GongTranscript`"
+- ✅ autocompletions ✨ - Context-aware autocompletions (like in GitHub Copilot / Gmail)
+- ✅ App context & 3rd party context with `useMakeCopilotReadable` and `useMakeCopilotDocumentReadable`
+- 🚧 First draft ✨ - automatically populate the initial content.
+- 🚧 Bold + italics support.
+<img width="650" alt="Screenshot 2023-11-27 at 5 57 29 PM" src="https://github.com/RecursivelyAI/CopilotKit/assets/746397/ce64c287-e834-493d-be8c-dabaae03b8a1">
+
+<br/>
+<br/>
+<br/>
+
+### Copilot Runtime: (Frontend + backend) runtimes for in-app copilots.
+- ✅ propagate state with `useMakeCopilotReadable` and `useMakeCopilotDocumentReadable` ("what should I do here?")
+- ✅ frontend actions: `useMakeCopilotActionable`
+- ✅ User-referenced context using @someContext (including 3rd party)
+- ✅ Bring your own model
+- 🚧 backend actions with 3rd party authentication
+- 🚧 OpenAI _assistants_ api
 
 ## Demo
 CopilotKit in action.
@@ -78,7 +100,7 @@ Then reference this URL in your `CopilotProvider` instantiation:
 
 ## Examples
 
-### NEW! `<CopilotTextarea />`
+### `<CopilotTextarea />`
 A drop-in <textarea /> replacement with context-aware Copilot autocompletions.
 
 <p align="center">
@@ -100,6 +122,7 @@ import { CopilotProvider } from "@copilotkit/react-core";
 // call ANYWHERE in your app to provide external context (make sure you wrap the app with a <CopilotProvider >):
 // See below for more features (parent/child hierarchy, categories, etc.)
 useMakeCopilotReadable(relevantInformation)
+useMakeCopilotDocumentReadable(document)
 
 return (
   <CopilotProvider chatApiEndpoint="/api/copilotkit/chat"> {/* Global state & copilot logic. Put this around the entire app */}
