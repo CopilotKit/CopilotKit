@@ -1,5 +1,18 @@
 # web
 
+## 1.8.0
+
+### Minor Changes
+
+- fixed bug: useMakeCopilotDocumentReadable category reference
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.23.0
+  - @copilotkit/react-core@0.12.0
+  - @copilotkit/react-ui@0.10.1
+
 ## 1.7.1
 
 ### Patch Changes

@@ -1,5 +1,16 @@
 # ui
 
+## 0.23.0
+
+### Minor Changes
+
+- fixed bug: useMakeCopilotDocumentReadable category reference
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.12.0
+
 ## 0.22.0
 
 ### Minor Changes
