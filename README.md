@@ -11,8 +11,9 @@
   </a>
 </p>
 
-🌟 **Copilot Textarea:** AI-assisted text generation + editing + autocompletions. <br/>
-🌟 **Copilot Chatbot:** in-app chatbot that can see the app's state (local + cloud), can call local + cloud functions (with support for auth), can talk to 3rd party plugins, and can execute arbitrary chains.
+🌟 **Copilot Textarea:** AI-assisted text generation + editing + autocompletions. <br/><br/>
+🌟 **Copilot Chatbot:** in-app-chatbot with support for app state (frontend + backend), frontend functions (in-app actions), backend functions (auth-enabled), executing arbitrary chains, 3rd party plugins, and Cursor-style @document-fetching. <br/>
+Use OpenAI's _assistants_ api or bring your own model.
 
   <p align="center">
     <br />
@@ -22,7 +23,7 @@
   <br/>
     <a href="https://discord.gg/6dffbvGU3D">Join our Discord</a>
     ·
-    <a href="https://copilotkit.ai&utm_medium=github&utm_source=github">Hosted Solution</a>
+    <a href="https://copilotkit.ai&utm_medium=github&utm_source=github">Website</a>
     ·
     <a href="https://github.com/RecursivelyAI/CopilotKit/issues/new?assignees=&labels=bug&projects=&template=bug_report.md&title=">Report Bug</a>
     ·
@@ -46,12 +47,13 @@
 <br/>
 <br/>
 
-### Copilot Runtime: (Frontend + backend) runtimes for in-app copilots.
-- ✅ propagate state with `useMakeCopilotReadable` and `useMakeCopilotDocumentReadable` ("what should I do here?")
+### Copilot Chatbot: (frontend + backend) runtimes for in-app copilots.
+- ✅ propagate application state into the chatbot with `useMakeCopilotReadable` and `useMakeCopilotDocumentReadable`
 - ✅ frontend actions: `useMakeCopilotActionable`
 - ✅ User-referenced context using @someContext (including 3rd party)
 - ✅ Bring your own model
-- 🚧 backend actions with 3rd party authentication
+- 🚧 propagate backend state
+- 🚧 backend actions (auth enabled)
 - 🚧 OpenAI _assistants_ api
 
 ## Demo
