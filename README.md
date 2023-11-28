@@ -20,7 +20,7 @@
 </div>
 
  - 🌟 **Copilot Textarea:** AI-assisted text generation + editing.
- - 🌟 **Copilot Runtime:** (frontend + backend) runtimes for in-app copilots. Bring your own model, or use the _assistants_ API.
+ - 🌟 **Copilot Runtime:** (frontend + backend) runtimes for in-app copilots.
  - 🚧 **Copilot Cloud:** hostd SaaS for session management, plugin managment, automated fine tuning, and more.
 
 
