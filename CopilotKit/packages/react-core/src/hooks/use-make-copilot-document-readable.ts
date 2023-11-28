@@ -27,7 +27,7 @@ export function useMakeCopilotDocumentReadable(
     return () => {
       removeDocumentContext(id);
     };
-  }, [categories, addDocumentContext, removeDocumentContext, ...dependencies]);
+  }, [addDocumentContext, removeDocumentContext, ...dependencies]);
 
   return idRef.current;
 }
