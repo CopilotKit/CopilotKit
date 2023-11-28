@@ -1,5 +1,18 @@
 # web
 
+## 1.9.0
+
+### Minor Changes
+
+- contextCategories no longer optional for reading context
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.24.0
+  - @copilotkit/react-core@0.13.0
+  - @copilotkit/react-ui@0.11.0
+
 ## 1.8.0
 
 ### Minor Changes

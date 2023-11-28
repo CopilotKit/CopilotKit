@@ -1,5 +1,11 @@
 # ui
 
+## 0.13.0
+
+### Minor Changes
+
+- contextCategories no longer optional for reading context
+
 ## 0.12.0
 
 ### Minor Changes
