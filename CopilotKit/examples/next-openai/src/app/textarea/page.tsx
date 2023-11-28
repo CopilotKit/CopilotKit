@@ -28,10 +28,11 @@ const clientTranscriptSummaryDocument: DocumentPointer = {
   id: "clientTranscriptSummary",
   name: "Client Call Gong Transcript",
   sourceApplication: "Gong",
-  iconImageUri: "https://asset.brandfetch.io/idHyhmcKvT/idRu6db2HA.jpeg?updated=1690987844207",
+  iconImageUri:
+    "https://asset.brandfetch.io/idHyhmcKvT/idRu6db2HA.jpeg?updated=1690987844207",
   getContents: () => {
-    return "This is the client transcript summary"
-  }
+    return "This is the client transcript summary";
+  },
 };
 
 function TextAreas() {
