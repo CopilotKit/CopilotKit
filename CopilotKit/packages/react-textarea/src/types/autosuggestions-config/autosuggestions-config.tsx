@@ -15,13 +15,14 @@ import {
   EditingApiConfig,
   defaultEditingApiConfig,
 } from "./editing-api-config";
+import { defaultCopilotContextCategories } from "@copilotkit/react-core";
 
 // Like the base autosuggestions config, with 2 additional fields:
 // 1. contextCategories: string[] | undefined;
 // 2. instead of apiConfigs, we have chatApiConfigs: a higher-level abstraction that uses a ChatGPT-like API endpoint.
 export interface AutosuggestionsConfig
   extends Omit<BaseAutosuggestionsConfig, "apiConfig"> {
-  contextCategories: string[] | undefined;
+  contextCategories: string[];
   chatApiConfigs: {
     suggestionsApiConfig: SuggestionsApiConfig;
     insertionApiConfig: InsertionsApiConfig;
@@ -34,7 +35,7 @@ export const defaultAutosuggestionsConfig: Omit<
   "textareaPurpose" | "apiEndpoint"
 > = {
   ...defaultBaseAutosuggestionsConfig,
-  contextCategories: undefined,
+  contextCategories: defaultCopilotContextCategories,
   chatApiConfigs: {
     suggestionsApiConfig: defaultSuggestionsApiConfig,
     insertionApiConfig: defaultInsertionsApiConfig,

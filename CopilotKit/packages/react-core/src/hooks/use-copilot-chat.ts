@@ -7,6 +7,7 @@ import {
 import { useChat } from "ai/react";
 import { ChatRequestOptions, CreateMessage, Message } from "ai";
 import { UseChatOptions } from "ai";
+import { defaultCopilotContextCategories } from "../components";
 
 export interface UseCopilotChatOptions extends UseChatOptions {
   makeSystemMessage?: (contextString: string) => string;
@@ -40,7 +41,7 @@ export function useCopilotChat({
 
   const systemMessage: Message = useMemo(() => {
     const systemMessageMaker = makeSystemMessage || defaultSystemMessage;
-    const contextString = getContextString([]);
+    const contextString = getContextString([], defaultCopilotContextCategories); // TODO: make the context categories configurable
 
     return {
       id: "system",

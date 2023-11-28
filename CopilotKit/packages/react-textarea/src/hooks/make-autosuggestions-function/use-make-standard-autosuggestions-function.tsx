@@ -23,7 +23,7 @@ import { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggest
  */
 export function useMakeStandardAutosuggestionFunction(
   textareaPurpose: string,
-  contextCategories: string[] | undefined,
+  contextCategories: string[],
   apiConfig: SuggestionsApiConfig
 ): AutosuggestionsBareFunction {
   const { getContextString, copilotApiConfig } = useContext(CopilotContext);

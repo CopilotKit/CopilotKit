@@ -60,7 +60,7 @@ export interface CopilotContextParams {
   // text context
   getContextString: (
     documents: DocumentPointer[],
-    categories?: string[]
+    categories: string[]
   ) => string;
   addContext: (
     context: string,
@@ -70,7 +70,7 @@ export interface CopilotContextParams {
   removeContext: (id: TreeNodeId) => void;
 
   // document context
-  getDocumentsContext: (categories?: string[]) => DocumentPointer[];
+  getDocumentsContext: (categories: string[]) => DocumentPointer[];
   addDocumentContext: (
     documentPointer: DocumentPointer,
     categories?: string[]
@@ -88,11 +88,12 @@ const emptyCopilotContext: CopilotContextParams = {
   getChatCompletionFunctionDescriptions: () => returnAndThrowInDebug([]),
   getFunctionCallHandler: () => returnAndThrowInDebug(async () => {}),
 
-  getContextString: (documents: DocumentPointer[]) => returnAndThrowInDebug(""),
+  getContextString: (documents: DocumentPointer[], categories: string[]) =>
+    returnAndThrowInDebug(""),
   addContext: () => "",
   removeContext: () => {},
 
-  getDocumentsContext: () => returnAndThrowInDebug([]),
+  getDocumentsContext: (categories: string[]) => returnAndThrowInDebug([]),
   addDocumentContext: () => returnAndThrowInDebug(""),
   removeDocumentContext: () => {},
 
