@@ -6,7 +6,6 @@ import { Message, parseStreamPart } from "@copilotkit/shared";
 
 export type AssistantStatus = "in_progress" | "awaiting_message";
 
-
 export interface UseAssistantResult {
   messages: Message[];
   input: string;

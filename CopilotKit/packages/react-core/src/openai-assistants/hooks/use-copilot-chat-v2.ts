@@ -7,13 +7,12 @@ import { CopilotContext, copilotApiConfigExtrapolator } from "../../context";
 
 export type AssistantStatus = "in_progress" | "awaiting_message";
 
-
 export interface RequestForwardingOptions {
   /**
-     * The credentials mode to be used for the fetch request.
-     * Possible values are: 'omit', 'same-origin', 'include'.
-     * Defaults to 'same-origin'.
-     */
+   * The credentials mode to be used for the fetch request.
+   * Possible values are: 'omit', 'same-origin', 'include'.
+   * Defaults to 'same-origin'.
+   */
   credentials?: RequestCredentials;
   /**
    * HTTP headers to be sent with the API request.
@@ -32,7 +31,6 @@ export interface RequestForwardingOptions {
    * ```
    */
   body?: object;
-
 }
 export interface USeCopilotChatOptionsV2 extends RequestForwardingOptions {
   makeSystemMessage?: (contextString: string) => string;
@@ -51,7 +49,6 @@ export interface UseCopilotChatV2Result {
 export function useCopilotChatV2(
   options: USeCopilotChatOptionsV2
 ): UseCopilotChatV2Result {
-
   const {
     getContextString,
     getChatCompletionFunctionDescriptions,
@@ -59,7 +56,6 @@ export function useCopilotChatV2(
     copilotApiConfig,
   } = useContext(CopilotContext);
 
-  
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [threadId, setThreadId] = useState<string | undefined>(undefined);
@@ -86,7 +82,6 @@ export function useCopilotChatV2(
 
     setInput("");
 
-   
     const result = await fetch(
       copilotApiConfigExtrapolator(copilotApiConfig).chatApiEndpointV2,
       {
@@ -95,7 +90,7 @@ export function useCopilotChatV2(
           "Content-Type": "application/json",
           ...copilotApiConfig.headers,
           ...options.headers,
-       },
+        },
         body: JSON.stringify({
           // always use user-provided threadId when available:
           threadId: options.threadId ?? threadId ?? null,
