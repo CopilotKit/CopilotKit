@@ -32,6 +32,16 @@ Use OpenAI's _assistants_ api or bring your own model.
   
 
 
+## Installation
+
+```bash
+npm i @copilotkit/react-core @copilotkit/react-ui @copilotkit/react-textarea
+```
+
+## Getting started
+See quickstart in the [docs](https://docs.copilotkit.ai)
+
+
 ## Overview
 
 ### CopilotTextarea: AI-assisted text generation + editing.
@@ -67,27 +77,6 @@ CopilotKit in action.
 https://github.com/RecursivelyAI/CopilotKit/assets/746397/b0cdf38b-ec5c-4e95-8623-364bafb70907
 
 
-
-## Installation
-
-```bash
-npm i @copilotkit/react-core @copilotkit/react-ui @copilotkit/react-textarea
-```
-
-## Getting started
-See quickstart in the [docs](https://docs.copilotkit.ai)
-
-## Backend
-
-You can easily use any backend/LLM - just provide the URL of any OpenAI-comaptible endpoint.
-E.g. see this [example implementation for a NextJS app](CopilotKit/examples/next-openai/src/app/api/copilotkit/chat/route.ts).
-
-Then reference this URL in your `CopilotProvider` instantiation:
-```typescript
-  <CopilotProvider chatApiEndpoint="/api/copilotkit/chat"> {/* Global state & copilot logic. Put this around the entire app */}
-    {/* ... */}
-  </CopilotProvider>
-```
 
 
 ## Examples
