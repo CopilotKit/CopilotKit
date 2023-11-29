@@ -41,7 +41,6 @@ Use OpenAI's _assistants_ api or bring your own model.
 - ✅ App context & 3rd party context with `useMakeCopilotReadable` and `useMakeCopilotDocumentReadable`
 - 🚧 First draft ✨ - automatically populate the initial content.
 - 🚧 Bold + italics support.
-<img width="650" alt="Screenshot 2023-11-27 at 5 57 29 PM" src="https://github.com/RecursivelyAI/CopilotKit/assets/746397/ce64c287-e834-493d-be8c-dabaae03b8a1">
 
 <br/>
 <br/>
