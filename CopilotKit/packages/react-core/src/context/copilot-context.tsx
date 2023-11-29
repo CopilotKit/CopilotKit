@@ -53,7 +53,7 @@ export function copilotApiConfigExtrapolator(config: CopilotApiConfig) {
     },
     get chatApiEndpointV2(): string {
       return `${config.chatApiEndpointV2}`;
-    }
+    },
   };
 }
 
@@ -99,6 +99,11 @@ const emptyCopilotContext: CopilotContextParams = {
     get chatApiEndpoint(): string {
       throw new Error(
         "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!",
+      );
+    }
+    get chatApiEndpointV2(): string {
+      throw new Error(
+        "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!"
       );
     }
     get headers(): Record<string, string> {
