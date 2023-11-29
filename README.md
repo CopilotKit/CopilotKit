@@ -11,9 +11,11 @@
   </a>
 </p>
 
-🌟 **Copilot Textarea:** AI-assisted text generation + editing + autocompletions. <br/><br/>
-🌟 **Copilot Chatbot:** in-app-chatbot with support for injecting app state (frontend + backend), funneling executions to frontend functions (in-app actions) and backend functions (auth-enabled), executing arbitrary chains, 3rd party plugins, and Cursor-style @document-fetching.
+🌟 **Copilot Textarea:** AI-assisted text generation. Context-aware first draft + autocompletions + AI editing. Supports 3rd party data and Cursor-style @document-referecing ("list the client's top 3 pain points from @Gong-Call-Transcript"). <br/><br/>
+🌟 **Copilot Chatbot:** in-app-chatbot with support for app state awareness (frontend + backend), funneling executions to frontend functions (in-app actions) and backend functions (auth-enabled), executing arbitrary chains, 3rd party plugins, and Cursor-style @document-referecing. Also supports autorun and "sensitive" functions (which require user approval before execution).
 Use OpenAI's _assistants_ api, or bring your own LLM.
+
+Combines frontend SDKs, backend SDKs, and (optional) cloud infrastructure. Open-source 🪁
 
   <p align="center">
     <br />
