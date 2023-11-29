@@ -1,50 +1,17 @@
 "use client";
 import { FunctionCallHandler } from "ai";
-import { ReactNode, useCallback, useState } from "react";
-import { CopilotContext, CopilotApiConfig } from "../context/copilot-context";
-import useTree from "../hooks/use-tree";
-import { AnnotatedFunction } from "../types/annotated-function";
+import { useCallback, useState } from "react";
+import {
+  CopilotContext,
+  CopilotApiConfig,
+} from "../../context/copilot-context";
+import useTree from "../../hooks/use-tree";
+import { AnnotatedFunction } from "../../types/annotated-function";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
-import { DocumentPointer } from "../types";
-import useFlatCategoryStore from "../hooks/use-flat-category-store";
-
-/**
- * Props for the CopilotProvider when using a chat API endpoint.
- */
-export interface CopilotProviderApiEndpointProps {
-  /**
-   * The endpoint for the chat API.
-   */
-  chatApiEndpoint: string;
-
-  /**
-   * The children to be rendered within the CopilotProvider.
-   */
-  children: ReactNode;
-}
-
-/**
- * Props for the CopilotProvider when using a CopilotApiConfig.
- */
-export interface CopilotProviderApiConfigProps {
-  /**
-   * The configuration for the Copilot API.
-   */
-  chatApiConfig: CopilotApiConfig;
-
-  /**
-   * The children to be rendered within the CopilotProvider.
-   */
-  children: ReactNode;
-}
-
-/**
- * Props for the CopilotProvider component.
- * Can be either CopilotProviderApiEndpointProps or CopilotProviderApiConfigProps.
- */
-export type CopilotProviderProps =
-  | CopilotProviderApiEndpointProps
-  | CopilotProviderApiConfigProps;
+import { DocumentPointer } from "../../types";
+import useFlatCategoryStore from "../../hooks/use-flat-category-store";
+import { StandardCopilotApiConfig } from "./standard-cpilot-api-config";
+import { CopilotProviderProps } from "./copilot-provider-props";
 
 /**
  * The CopilotProvider component.
@@ -81,6 +48,9 @@ export function CopilotProvider({
   children,
   ...props
 }: CopilotProviderProps): JSX.Element {
+  // Compute all the functions and properties that we need to pass
+  // to the CopilotContext.
+
   const [entryPoints, setEntryPoints] = useState<
     Record<string, AnnotatedFunction<any[]>>
   >({});
@@ -171,6 +141,7 @@ export function CopilotProvider({
     [removeDocument],
   );
 
+  // get the appropriate CopilotApiConfig from the props
   let copilotApiConfig: CopilotApiConfig;
   if ("chatApiEndpoint" in props) {
     copilotApiConfig = new StandardCopilotApiConfig(
@@ -250,33 +221,6 @@ function entryPointsToFunctionCallHandler(
       // return functionResponse;
     }
   };
-}
-
-/**
- * A standard implementation of the CopilotApiConfig interface.
- *
- * Pass in the base URL of the chat API, the headers to be sent with each request, and the body to be sent with each request.
- * The rest of the CopilotApiConfig interface is implemented by default.
- *
- */
-export class StandardCopilotApiConfig implements CopilotApiConfig {
-  chatApiEndpoint: string;
-  headers: Record<string, string>;
-  body: Record<string, any>;
-
-  constructor(
-    chatApiEndpoint: string,
-    headers: Record<string, string>,
-    body: Record<string, any>
-  ) {
-    this.chatApiEndpoint = chatApiEndpoint;
-    this.headers = headers;
-    this.body = body;
-  }
-
-  get chatApiEndpointV2(): string {
-    return this.chatApiEndpoint + "/v2";
-  }
 }
 
 function entryPointsToChatCompletionFunctions(
