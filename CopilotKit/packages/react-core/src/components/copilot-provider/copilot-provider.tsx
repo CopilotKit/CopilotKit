@@ -1,4 +1,5 @@
 "use client";
+
 import { FunctionCallHandler } from "ai";
 import { useCallback, useState } from "react";
 import {
@@ -30,6 +31,7 @@ import { CopilotProviderProps } from "./copilot-provider-props";
  * ```
  * const copilotApiConfig = new StandardCopilotApiConfig(
  *  "https://api.copilot.chat",
+ *  "https://api.copilot.chat/v2",
  *  {},
  *  {}
  *  );
@@ -146,6 +148,7 @@ export function CopilotProvider({
   if ("chatApiEndpoint" in props) {
     copilotApiConfig = new StandardCopilotApiConfig(
       props.chatApiEndpoint,
+      props.chatApiEndpointV2 || `${props.chatApiEndpoint}/v2`,
       {},
       {}
     );

@@ -1,9 +1,8 @@
-"use client";
-
-import { useContext, useState } from "react";
+import { useContext, useMemo, useState } from "react";
 import { processMessageStream } from "../utils";
 import { Message, parseStreamPart } from "@copilotkit/shared";
 import { CopilotContext, copilotApiConfigExtrapolator } from "../../context";
+import { defaultCopilotContextCategories } from "../../components";
 
 export type AssistantStatus = "in_progress" | "awaiting_message";
 
@@ -32,7 +31,7 @@ export interface RequestForwardingOptions {
    */
   body?: object;
 }
-export interface USeCopilotChatOptionsV2 extends RequestForwardingOptions {
+export interface UseCopilotChatOptionsV2 extends RequestForwardingOptions {
   makeSystemMessage?: (contextString: string) => string;
   threadId?: string | undefined;
 }
@@ -47,7 +46,7 @@ export interface UseCopilotChatV2Result {
 }
 
 export function useCopilotChatV2(
-  options: USeCopilotChatOptionsV2
+  options: UseCopilotChatOptionsV2
 ): UseCopilotChatV2Result {
   const {
     getContextString,
@@ -61,6 +60,18 @@ export function useCopilotChatV2(
   const [threadId, setThreadId] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<AssistantStatus>("awaiting_message");
   const [error, setError] = useState<unknown | undefined>(undefined);
+
+  const systemMessage: Message = useMemo(() => {
+    const systemMessageMaker =
+      options.makeSystemMessage || defaultSystemMessage;
+    const contextString = getContextString([], defaultCopilotContextCategories); // TODO: make the context categories configurable
+
+    return {
+      id: "system",
+      content: systemMessageMaker(contextString),
+      role: "system",
+    };
+  }, [getContextString, options.makeSystemMessage]);
 
   const handleInputChange = (e: any) => {
     setInput(e.target.value);
@@ -82,25 +93,24 @@ export function useCopilotChatV2(
 
     setInput("");
 
-    const result = await fetch(
-      copilotApiConfigExtrapolator(copilotApiConfig).chatApiEndpointV2,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...copilotApiConfig.headers,
-          ...options.headers,
-        },
-        body: JSON.stringify({
-          // always use user-provided threadId when available:
-          threadId: options.threadId ?? threadId ?? null,
-          message: input,
-          functions: getChatCompletionFunctionDescriptions(),
-          ...copilotApiConfig.body,
-          ...options.body,
-        }),
-      }
-    );
+    const apiUrl =
+      copilotApiConfigExtrapolator(copilotApiConfig).chatApiEndpointV2;
+    const result = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...copilotApiConfig.headers,
+        ...options.headers,
+      },
+      body: JSON.stringify({
+        // always use user-provided threadId when available:
+        threadId: options.threadId ?? threadId ?? null,
+        message: input,
+        functions: getChatCompletionFunctionDescriptions(),
+        ...copilotApiConfig.body,
+        ...options.body,
+      }),
+    });
 
     if (result.body == null) {
       throw new Error("The response body is empty.");
@@ -158,4 +168,26 @@ export function useCopilotChatV2(
     status,
     error,
   };
+}
+
+export function defaultSystemMessage(contextString: string): string {
+  return `
+Please act as an efficient, competent, conscientious, and industrious professional assistant.
+
+Help the user achieve their goals, and you do so in a way that is as efficient as possible, without unnecessary fluff, but also without sacrificing professionalism.
+Always be polite and respectful, and prefer brevity over verbosity.
+
+The user has provided you with the following context:
+\`\`\`
+${contextString}
+\`\`\`
+
+They have also provided you with functions you can call to initiate actions on their behalf, or functions you can call to receive more information.
+
+Please assist them as best you can.
+
+You can ask them for clarifying questions if needed, but don't be annoying about it. If you can reasonably 'fill in the blanks' yourself, do so.
+
+If you would like to call a function, call it without saying anything else.
+`;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { experimental_useAssistant } from "@copilotkit/react-core";
+import { useCopilotChatV2 } from "@copilotkit/react-core";
 import { Message } from "@copilotkit/shared";
 import { useEffect, useRef } from "react";
 
@@ -13,9 +13,7 @@ const roleToColorMap: Record<Message["role"], string> = {
 
 export default function Chat() {
   const { status, messages, input, submitMessage, handleInputChange, error } =
-    experimental_useAssistant({
-      api: "/api/assistant",
-    });
+    useCopilotChatV2({});
 
   // When status changes to accepting messages, focus the input:
   const inputRef = useRef<HTMLInputElement>(null);

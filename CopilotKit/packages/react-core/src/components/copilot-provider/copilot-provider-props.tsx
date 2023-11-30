@@ -13,6 +13,16 @@ export interface CopilotProviderApiEndpointProps {
   chatApiEndpoint: string;
 
   /**
+   * The endpoint for the chat API v2.
+   * If not provided, defaults to chatApiEndpoint + "/v2".
+   * This is used for the chat API v2.
+   * If you are not using the chat API v2, you can ignore this.
+   * @default chatApiEndpoint + "/v2"
+   * @optional
+   */
+  chatApiEndpointV2?: string;
+
+  /**
    * The children to be rendered within the CopilotProvider.
    */
   children: ReactNode;

@@ -1,3 +1,5 @@
+"usee client";
+
 import React from "react";
 import { useState } from "react";
 import { DestinationTable } from "./destination-table";
