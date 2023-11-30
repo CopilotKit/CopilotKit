@@ -11,8 +11,14 @@
   </a>
 </p>
 
-🌟 **Copilot Textarea:** AI-assisted text generation. Context-aware first draft + autocompletions + AI editing. Supports 3rd party data and Cursor-style @document-referecing ("list the client's top 3 pain points from @Gong-Call-Transcript"). <br/><br/>
-🌟 **Copilot Chatbot:** in-app-chatbot with support for app state awareness (frontend + backend), funneling executions to frontend functions (in-app actions) and backend functions (auth-enabled), executing arbitrary chains, 3rd party plugins, and Cursor-style @document-referecing. Also supports autorun and "sensitive" functions (which require user approval before execution).
+<h1 align="center">
+The Open-Source Copilot Platform
+</h1>
+
+🌟 **\<CopilotTextarea />:** AI-assisted text generation, anywhere. Context-aware first draft + autocompletions + AI editing. Supports 3rd party data and Cursor-style @document-referecing (e.g. "list the client's top 3 pain points from @Gong-Call-Transcript"). <br/><br/>
+🌟 **Copilot Chatbot:** in-app-chatbot with support for app state awareness (frontend + backend), funneling executions to frontend and backend functions (in-app actions vs. auth-enabled functions), and executing arbitrary chains.
+Functions can be designated "auto-run" or "sensitive" (to require user approval before execution).
+Also supports 3rd party plugins, and Cursor-style @document-referecing.
 Use OpenAI's _assistants_ api, or bring your own LLM.
 
 Combines frontend SDKs, backend SDKs, and (optional) cloud infrastructure. Open-source 🪁
@@ -34,29 +40,17 @@ Combines frontend SDKs, backend SDKs, and (optional) cloud infrastructure. Open-
   
 
 
-## Installation
-
-```bash
-npm i @copilotkit/react-core @copilotkit/react-ui @copilotkit/react-textarea
-```
-
-## Getting started
-See quickstart in the [docs](https://docs.copilotkit.ai)
-
 
 ## Overview
 
 ### CopilotTextarea: AI-assisted text generation + editing.
-- ✅ A a drop-in `<textarea />` replacement. Fully customizable visually.
+- ✅ A a drop-in `<textarea />` replacement. Supports all `<textarea />` customizations.
 - ✅ AI editing ✨ - "list the client's top 3 pain points from the last call `@GongTranscript`"
 - ✅ autocompletions ✨ - Context-aware autocompletions (like in GitHub Copilot / Gmail)
 - ✅ App context & 3rd party context with `useMakeCopilotReadable` and `useMakeCopilotDocumentReadable`
 - 🚧 First draft ✨ - automatically populate the initial content.
 - 🚧 Bold + italics support.
 
-<br/>
-<br/>
-<br/>
 
 ### Copilot Chatbot: (frontend + backend) runtimes for in-app copilots.
 - ✅ propagate application state into the chatbot with `useMakeCopilotReadable` and `useMakeCopilotDocumentReadable`
@@ -68,17 +62,19 @@ See quickstart in the [docs](https://docs.copilotkit.ai)
 - 🚧 OpenAI _assistants_ api
 
 ## Demo
-CopilotKit in action.
-<p align="center">
-  <img src="./assets/demo.gif" width="500" style="border-radius: 15px;">
-</p>
-
 **2-min showcase + 2-min implementation tutorial:**
-
 
 https://github.com/RecursivelyAI/CopilotKit/assets/746397/b0cdf38b-ec5c-4e95-8623-364bafb70907
 
 
+## Installation
+
+```bash
+npm i @copilotkit/react-core @copilotkit/react-ui @copilotkit/react-textarea
+```
+
+## Getting started
+See quickstart in the [docs](https://docs.copilotkit.ai)
 
 
 ## Examples
