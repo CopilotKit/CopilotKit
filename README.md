@@ -17,7 +17,7 @@ The Open-Source Copilot Platform
 
 🌟 **\<CopilotTextarea />:** AI-assisted text generation, anywhere. Context-aware first draft + autocompletions + AI editing.
 Supports 3rd party data and Cursor-style @document-referecing (e.g. "list the client's top 3 pain points from @Gong-Call-Transcript").
-Performance automatically improves as it learns your users' writing patterns (optional cloud add-on). <br/><br/>
+Optional add-on: automatically gets better & better as it learns your users' writing patterns. OpenAI by default - or bring your own model. <br/><br/>
 
 🌟 **Copilot Chatbot:** in-app-chatbot with support for app state awareness (frontend + backend), funneling executions to frontend and backend functions (in-app actions vs. auth-enabled functions), and executing arbitrary chains.
 Functions can be designated "auto-run" or "sensitive" (to require user approval before execution).
@@ -26,10 +26,10 @@ Use OpenAI's _assistants_ api, or bring your own LLM.
 
 Combines frontend SDKs, backend SDKs, and (optional) cloud infrastructure. Open-source 🪁
 
-  <p align="center">
-    <br />
+<p align="center">
+  <br />
     <a href="https://docs.copilotkit.ai" rel="dofollow"><strong>Explore the docs »</strong></a>
-    <br />
+  <br />
 
   <br/>
     <a href="https://discord.gg/6dffbvGU3D">Join our Discord</a>
@@ -39,8 +39,15 @@ Combines frontend SDKs, backend SDKs, and (optional) cloud infrastructure. Open-
     <a href="https://github.com/RecursivelyAI/CopilotKit/issues/new?assignees=&labels=bug&projects=&template=bug_report.md&title=">Report Bug</a>
     ·
     <a href="https://github.com/RecursivelyAI/CopilotKit/issues/new?assignees=&labels=feature+request&projects=&template=feature_request.md&title=">Request Feature</a>
-  </p>
+</p>
+
+ <p align="center">
+    <a href="https://calendly.com/atai_/copilotkit" rel="dofollow"><strong> Book a call »</strong></a>
+    <br />
+</p>
   
+
+
 
 
 
