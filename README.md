@@ -264,3 +264,7 @@ Contributions are welcome! 🎉
 [![Discord](https://dcbadge.vercel.app/api/server/6dffbvGU3D?compact=true&style=flat)](https://discord.gg/6dffbvGU3D)
 <!-- [![Discord](https://img.shields.io/discord/1122926057641742418.svg)](https://discord.gg/6dffbvGU3D) -->
 
+## Contact
+
+atai <at> copilotkit.ai
+
