@@ -20,7 +20,7 @@ export const Button = React.forwardRef(
         reversed: boolean;
       } & BaseProps
     >,
-    ref: Ref<HTMLSpanElement | null>
+    ref: Ref<HTMLSpanElement | null>,
   ) => (
     <span
       {...props}
@@ -29,24 +29,15 @@ export const Button = React.forwardRef(
         className,
         css`
           cursor: pointer;
-          color: ${reversed
-            ? active
-              ? "white"
-              : "#aaa"
-            : active
-            ? "black"
-            : "#ccc"};
-        `
+          color: ${reversed ? (active ? "white" : "#aaa") : active ? "black" : "#ccc"};
+        `,
       )}
     />
-  )
+  ),
 );
 
 export const Icon = React.forwardRef(
-  (
-    { className, ...props }: PropsWithChildren<BaseProps>,
-    ref: Ref<HTMLSpanElement | null>
-  ) => (
+  ({ className, ...props }: PropsWithChildren<BaseProps>, ref: Ref<HTMLSpanElement | null>) => (
     <span
       {...props}
       ref={ref as Ref<HTMLSpanElement>}
@@ -56,17 +47,14 @@ export const Icon = React.forwardRef(
         css`
           font-size: 18px;
           vertical-align: text-bottom;
-        `
+        `,
       )}
     />
-  )
+  ),
 );
 
 export const Menu = React.forwardRef(
-  (
-    { className, ...props }: PropsWithChildren<BaseProps>,
-    ref: Ref<HTMLDivElement | null>
-  ) => (
+  ({ className, ...props }: PropsWithChildren<BaseProps>, ref: Ref<HTMLDivElement | null>) => (
     <div
       {...props}
       data-test-id="menu"
@@ -81,22 +69,17 @@ export const Menu = React.forwardRef(
           & > * + * {
             margin-left: 15px;
           }
-        `
+        `,
       )}
     />
-  )
+  ),
 );
 export const Portal = ({ children }: { children: React.ReactNode }) => {
-  return typeof document === "object"
-    ? ReactDOM.createPortal(children, document.body)
-    : null;
+  return typeof document === "object" ? ReactDOM.createPortal(children, document.body) : null;
 };
 
 export const Toolbar = React.forwardRef(
-  (
-    { className, ...props }: PropsWithChildren<BaseProps>,
-    ref?: Ref<HTMLDivElement>
-  ) => (
+  ({ className, ...props }: PropsWithChildren<BaseProps>, ref?: Ref<HTMLDivElement>) => (
     <Menu
       {...props}
       ref={ref}
@@ -108,8 +91,8 @@ export const Toolbar = React.forwardRef(
           margin: 0 -20px;
           border-bottom: 2px solid #eee;
           margin-bottom: 20px;
-        `
+        `,
       )}
     />
-  )
+  ),
 );

@@ -9,18 +9,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { IconArrowElbow, IconPlus } from "./ui/icons";
 // import Link from "next/link";
 
-export interface PromptProps
-  extends Pick<UseChatHelpers, "input" | "setInput"> {
+export interface PromptProps extends Pick<UseChatHelpers, "input" | "setInput"> {
   onSubmit: (value: string) => Promise<void>;
   isLoading: boolean;
 }
 
-export function PromptForm({
-  onSubmit,
-  input,
-  setInput,
-  isLoading,
-}: PromptProps) {
+export function PromptForm({ onSubmit, input, setInput, isLoading }: PromptProps) {
   const { formRef, onKeyDown } = useEnterSubmit();
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
 

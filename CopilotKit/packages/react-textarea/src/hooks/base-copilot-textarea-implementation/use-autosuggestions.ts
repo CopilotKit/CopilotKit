@@ -16,13 +16,11 @@ export interface UseAutosuggestionsResult {
 
 export function useAutosuggestions(
   debounceTime: number,
-  shouldAcceptAutosuggestionOnKeyPress: (
-    event: React.KeyboardEvent<HTMLDivElement>
-  ) => boolean,
+  shouldAcceptAutosuggestionOnKeyPress: (event: React.KeyboardEvent<HTMLDivElement>) => boolean,
   autosuggestionFunction: AutosuggestionsBareFunction,
   insertAutocompleteSuggestion: (suggestion: AutosuggestionState) => void,
   disableWhenEmpty: boolean,
-  disabled: boolean
+  disabled: boolean,
 ): UseAutosuggestionsResult {
   const [previousAutocompleteState, setPreviousAutocompleteState] =
     useState<EditorAutocompleteState | null>(null);
@@ -32,12 +30,9 @@ export function useAutosuggestions(
 
   const awaitForAndAppendSuggestion: (
     editorAutocompleteState: EditorAutocompleteState,
-    abortSignal: AbortSignal
+    abortSignal: AbortSignal,
   ) => Promise<void> = useCallback(
-    async (
-      editorAutocompleteState: EditorAutocompleteState,
-      abortSignal: AbortSignal
-    ) => {
+    async (editorAutocompleteState: EditorAutocompleteState, abortSignal: AbortSignal) => {
       // early return if disabled
       if (disabled) {
         return;
@@ -52,10 +47,7 @@ export function useAutosuggestions(
       }
 
       // fetch the suggestion
-      const suggestion = await autosuggestionFunction(
-        editorAutocompleteState,
-        abortSignal
-      );
+      const suggestion = await autosuggestionFunction(editorAutocompleteState, abortSignal);
 
       // We'll assume for now that the autocomplete function might or might not respect the abort signal.
       if (!suggestion || abortSignal.aborted) {
@@ -67,20 +59,12 @@ export function useAutosuggestions(
         point: editorAutocompleteState.cursorPoint,
       });
     },
-    [
-      autosuggestionFunction,
-      setCurrentAutocompleteSuggestion,
-      disableWhenEmpty,
-      disabled,
-    ]
+    [autosuggestionFunction, setCurrentAutocompleteSuggestion, disableWhenEmpty, disabled],
   );
 
   const debouncedFunction = useMemo(
-    () =>
-      new Debouncer<[editorAutocompleteState: EditorAutocompleteState]>(
-        debounceTime
-      ),
-    [debounceTime]
+    () => new Debouncer<[editorAutocompleteState: EditorAutocompleteState]>(debounceTime),
+    [debounceTime],
   );
 
   // clean current state when unmounting or disabling
@@ -96,7 +80,7 @@ export function useAutosuggestions(
       const editorStateHasChanged = !nullableCompatibleEqualityCheck(
         areEqual_autocompleteState,
         previousAutocompleteState,
-        newEditorState
+        newEditorState,
       );
       setPreviousAutocompleteState(newEditorState);
 
@@ -121,7 +105,7 @@ export function useAutosuggestions(
       debouncedFunction,
       awaitForAndAppendSuggestion,
       setCurrentAutocompleteSuggestion,
-    ]
+    ],
   );
 
   const keyDownHandler = useCallback(
@@ -139,7 +123,7 @@ export function useAutosuggestions(
       setCurrentAutocompleteSuggestion,
       insertAutocompleteSuggestion,
       shouldAcceptAutosuggestionOnKeyPress,
-    ]
+    ],
   );
 
   return {

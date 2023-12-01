@@ -29,11 +29,7 @@ function IconNextChat({
           gradientUnits="userSpaceOnUse"
         >
           <stop stopColor={inverted ? "white" : "black"} />
-          <stop
-            offset={1}
-            stopColor={inverted ? "white" : "black"}
-            stopOpacity={0}
-          />
+          <stop offset={1} stopColor={inverted ? "white" : "black"} stopOpacity={0} />
         </linearGradient>
         <linearGradient
           id={`gradient-${id}-2`}
@@ -44,11 +40,7 @@ function IconNextChat({
           gradientUnits="userSpaceOnUse"
         >
           <stop stopColor={inverted ? "white" : "black"} />
-          <stop
-            offset={1}
-            stopColor={inverted ? "white" : "black"}
-            stopOpacity={0}
-          />
+          <stop offset={1} stopColor={inverted ? "white" : "black"} stopOpacity={0} />
         </linearGradient>
       </defs>
       <path
@@ -76,13 +68,7 @@ function IconNextChat({
           d="M14.2896 14.0018L7.146 4.8H5.80005V11.1973H6.87681V6.16743L13.4444 14.6529C13.7407 14.4545 14.0231 14.2369 14.2896 14.0018Z"
           fill={`url(#gradient-${id}-1)`}
         />
-        <rect
-          x="11.2222"
-          y="4.8"
-          width="1.06667"
-          height="6.4"
-          fill={`url(#gradient-${id}-2)`}
-        />
+        <rect x="11.2222" y="4.8" width="1.06667" height="6.4" fill={`url(#gradient-${id}-2)`} />
       </g>
     </svg>
   );
@@ -113,10 +99,7 @@ function IconVercel({ className, ...props }: React.ComponentProps<"svg">) {
       className={cn("h-4 w-4", className)}
       {...props}
     >
-      <path
-        d="M37.5896 0.25L74.5396 64.25H0.639648L37.5896 0.25Z"
-        fill="currentColor"
-      ></path>
+      <path d="M37.5896 0.25L74.5396 64.25H0.639648L37.5896 0.25Z" fill="currentColor"></path>
     </svg>
   );
 }
@@ -442,10 +425,7 @@ function IconUsers({ className, ...props }: React.ComponentProps<"svg">) {
   );
 }
 
-function IconExternalLink({
-  className,
-  ...props
-}: React.ComponentProps<"svg">) {
+function IconExternalLink({ className, ...props }: React.ComponentProps<"svg">) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -459,10 +439,7 @@ function IconExternalLink({
   );
 }
 
-function IconChevronUpDown({
-  className,
-  ...props
-}: React.ComponentProps<"svg">) {
+function IconChevronUpDown({ className, ...props }: React.ComponentProps<"svg">) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"

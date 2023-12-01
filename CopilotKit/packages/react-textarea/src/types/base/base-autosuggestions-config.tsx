@@ -51,17 +51,13 @@ export interface BaseAutosuggestionsConfig {
   disableWhenEmpty: boolean;
   disabled: boolean;
   temporarilyDisableWhenMovingCursorWithoutChangingText: boolean;
-  shouldAcceptAutosuggestionOnKeyPress: (
-    event: React.KeyboardEvent<HTMLDivElement>
-  ) => boolean;
-  shouldToggleHoveringEditorOnKeyPress: (
-    event: React.KeyboardEvent<HTMLDivElement>
-  ) => boolean;
+  shouldAcceptAutosuggestionOnKeyPress: (event: React.KeyboardEvent<HTMLDivElement>) => boolean;
+  shouldToggleHoveringEditorOnKeyPress: (event: React.KeyboardEvent<HTMLDivElement>) => boolean;
 }
 
 // by default, command-k toggles the hovering editor
 const defaultShouldToggleHoveringEditorOnKeyPress = (
-  event: React.KeyboardEvent<HTMLDivElement>
+  event: React.KeyboardEvent<HTMLDivElement>,
 ) => {
   // if command-k, toggle the hovering editor
   if (event.key === "k" && event.metaKey) {
@@ -71,7 +67,7 @@ const defaultShouldToggleHoveringEditorOnKeyPress = (
 };
 
 const defaultShouldAcceptAutosuggestionOnKeyPress = (
-  event: React.KeyboardEvent<HTMLDivElement>
+  event: React.KeyboardEvent<HTMLDivElement>,
 ) => {
   // if tab, accept the autosuggestion
   if (event.key === "Tab") {
@@ -101,8 +97,6 @@ export const defaultBaseAutosuggestionsConfig: Omit<
   disableWhenEmpty: true,
   disabled: false,
   temporarilyDisableWhenMovingCursorWithoutChangingText: true,
-  shouldToggleHoveringEditorOnKeyPress:
-    defaultShouldToggleHoveringEditorOnKeyPress,
-  shouldAcceptAutosuggestionOnKeyPress:
-    defaultShouldAcceptAutosuggestionOnKeyPress,
+  shouldToggleHoveringEditorOnKeyPress: defaultShouldToggleHoveringEditorOnKeyPress,
+  shouldAcceptAutosuggestionOnKeyPress: defaultShouldAcceptAutosuggestionOnKeyPress,
 };

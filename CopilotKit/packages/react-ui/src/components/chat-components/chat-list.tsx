@@ -9,9 +9,7 @@ export interface ChatList {
 
 export function ChatList({ messages }: ChatList) {
   // we don't want to display system messages
-  const displayedMessages = messages.filter(
-    (message) => message.role !== "system"
-  );
+  const displayedMessages = messages.filter((message) => message.role !== "system");
 
   if (!displayedMessages.length) {
     return null;
@@ -22,9 +20,7 @@ export function ChatList({ messages }: ChatList) {
       {displayedMessages.map((message, index) => (
         <div key={index}>
           <ChatMessage message={message} />
-          {index < displayedMessages.length - 1 && (
-            <Separator className="my-4 md:my-4" />
-          )}
+          {index < displayedMessages.length - 1 && <Separator className="my-4 md:my-4" />}
         </div>
       ))}
     </div>

@@ -1,8 +1,7 @@
 "use client";
 export function generateRandomString(length: number) {
   let result = "";
-  const characters =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   const charactersLength = characters.length;
   for (let i = 0; i < length; i++) {
     result += characters.charAt(Math.floor(Math.random() * charactersLength));
@@ -14,7 +13,7 @@ import { useState, useEffect, useRef } from "react";
 
 export function useStateWithLocalStorage(
   defaultValue: string,
-  key: string
+  key: string,
 ): [string, React.Dispatch<React.SetStateAction<string>>] {
   const [state, setState] = useState<string>(defaultValue);
   const isFirstRender = useRef(true);

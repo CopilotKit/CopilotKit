@@ -24,7 +24,7 @@ import { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggest
 export function useMakeStandardAutosuggestionFunction(
   textareaPurpose: string,
   contextCategories: string[],
-  apiConfig: SuggestionsApiConfig
+  apiConfig: SuggestionsApiConfig,
 ): AutosuggestionsBareFunction {
   const { getContextString, copilotApiConfig } = useContext(CopilotContext);
 
@@ -36,7 +36,7 @@ export function useMakeStandardAutosuggestionFunction(
             role: "system",
             content: apiConfig.makeSystemPrompt(
               textareaPurpose,
-              getContextString([], contextCategories)
+              getContextString([], contextCategories),
             ),
           },
           ...apiConfig.fewShotMessages,
@@ -52,13 +52,8 @@ export function useMakeStandardAutosuggestionFunction(
           },
         ];
 
-        const apiEndpoint =
-          ChatlikeApiEndpoint.fromCopilotApiConfig(copilotApiConfig);
-        const stream = await apiEndpoint.run(
-          abortSignal,
-          messages,
-          apiConfig.forwardedParams
-        );
+        const apiEndpoint = ChatlikeApiEndpoint.fromCopilotApiConfig(copilotApiConfig);
+        const stream = await apiEndpoint.run(abortSignal, messages, apiConfig.forwardedParams);
 
         // read the stream:
         const reader = stream.getReader();
@@ -77,6 +72,6 @@ export function useMakeStandardAutosuggestionFunction(
 
       return res;
     },
-    [apiConfig, getContextString, contextCategories, textareaPurpose]
+    [apiConfig, getContextString, contextCategories, textareaPurpose],
   );
 }

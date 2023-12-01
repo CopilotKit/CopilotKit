@@ -13,10 +13,7 @@ export function clearAutocompletionsFromEditor(editor: CustomEditor) {
     try {
       Transforms.removeNodes(editor, { at: path });
     } catch (e) {
-      console.log(
-        "CopilotTextarea.clearAutocompletionsFromEditor: error removing node",
-        e
-      );
+      console.log("CopilotTextarea.clearAutocompletionsFromEditor: error removing node", e);
     }
   }
 }

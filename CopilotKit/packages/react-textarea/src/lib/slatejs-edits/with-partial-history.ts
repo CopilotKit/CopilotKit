@@ -3,14 +3,11 @@ import { HistoryEditor } from "slate-history";
 
 // Copy-pasted from `https://github.com/ianstormtaylor/slate/blob/main/packages/slate-history/src/with-history.ts`
 // With one exception: the `shouldSave` function is passed in as an argument to `withPartialHistory` instead of being hardcoded
-export type ShouldSaveToHistory = (
-  op: Operation,
-  prev: Operation | undefined
-) => boolean;
+export type ShouldSaveToHistory = (op: Operation, prev: Operation | undefined) => boolean;
 
 export const withPartialHistory = <T extends Editor>(
   editor: T,
-  shouldSave: ShouldSaveToHistory
+  shouldSave: ShouldSaveToHistory,
 ) => {
   const e = editor as T & HistoryEditor;
   const { apply } = e;
@@ -69,8 +66,7 @@ export const withPartialHistory = <T extends Editor>(
     const { operations, history } = e;
     const { undos } = history;
     const lastBatch = undos[undos.length - 1];
-    const lastOp =
-      lastBatch && lastBatch.operations[lastBatch.operations.length - 1];
+    const lastOp = lastBatch && lastBatch.operations[lastBatch.operations.length - 1];
     let save = HistoryEditor.isSaving(e);
     let merge = HistoryEditor.isMerging(e);
 
@@ -144,10 +140,7 @@ const shouldMerge = (op: Operation, prev: Operation | undefined): boolean => {
   return false;
 };
 
-export const defaultShouldSave = (
-  op: Operation,
-  prev: Operation | undefined
-): boolean => {
+export const defaultShouldSave = (op: Operation, prev: Operation | undefined): boolean => {
   if (op.type === "set_selection") {
     return false;
   }

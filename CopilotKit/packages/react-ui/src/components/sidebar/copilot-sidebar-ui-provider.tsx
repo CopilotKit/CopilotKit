@@ -8,9 +8,7 @@ export interface CopilotSidebarUIProviderProps {
   children: ReactNode;
 }
 
-export function CopilotSidebarUIProvider({
-  children,
-}: CopilotSidebarUIProviderProps) {
+export function CopilotSidebarUIProvider({ children }: CopilotSidebarUIProviderProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const toggleSidebar = useCallback(() => {
@@ -18,9 +16,7 @@ export function CopilotSidebarUIProvider({
   }, []);
 
   return (
-    <CopilotSidebarContext.Provider
-      value={{ isSidebarOpen: sidebarOpen, toggleSidebar }}
-    >
+    <CopilotSidebarContext.Provider value={{ isSidebarOpen: sidebarOpen, toggleSidebar }}>
       <>
         <div
           style={{

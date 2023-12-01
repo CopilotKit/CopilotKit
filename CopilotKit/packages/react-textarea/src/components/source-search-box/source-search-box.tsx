@@ -11,14 +11,7 @@ import {
   CommandShortcut,
 } from "../ui/command";
 
-import {
-  Calculator,
-  Calendar,
-  CreditCard,
-  Settings,
-  Smile,
-  User,
-} from "lucide-react";
+import { Calculator, Calendar, CreditCard, Settings, Smile, User } from "lucide-react";
 
 import { DocumentPointer } from "@copilotkit/react-core";
 
@@ -117,10 +110,7 @@ export function Logo({
   height: string;
 }) {
   return (
-    <div
-      className="flex items-center justify-center"
-      style={{ width: width, height: height }}
-    >
+    <div className="flex items-center justify-center" style={{ width: width, height: height }}>
       {children}
     </div>
   );

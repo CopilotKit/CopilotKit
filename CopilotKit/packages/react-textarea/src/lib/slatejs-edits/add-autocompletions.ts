@@ -4,7 +4,7 @@ import { CustomEditor } from "../../types/base/custom-editor";
 export function addAutocompletionsToEditor(
   editor: CustomEditor,
   newSuggestion: string,
-  point: BasePoint
+  point: BasePoint,
 ) {
   const editorPosition = editor.selection;
 
@@ -20,7 +20,7 @@ export function addAutocompletionsToEditor(
     ],
     {
       at: point,
-    }
+    },
   );
 
   // restore cursor position

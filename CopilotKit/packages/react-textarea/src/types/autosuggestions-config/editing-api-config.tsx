@@ -9,7 +9,7 @@ export interface EditingApiConfig {
 
 export const defaultEditingMakeSystemPrompt: MakeSystemPrompt = (
   textareaPurpose,
-  contextString
+  contextString,
 ) => {
   return `You are a versatile writing assistant.
   
@@ -45,14 +45,12 @@ export const defaultEditingFewShotMessages: MinimalChatGPTMessage[] = [
   {
     role: "user",
     name: "TextToEdit",
-    content:
-      "While I was there I also picked up some apples, oranges, and bananas. ",
+    content: "While I was there I also picked up some apples, oranges, and bananas. ",
   },
   {
     role: "user",
     name: "TextAfterCursor",
-    content:
-      "The grocery store was having a sale on fruit, so I decided to stock up.",
+    content: "The grocery store was having a sale on fruit, so I decided to stock up.",
   },
   {
     role: "user",

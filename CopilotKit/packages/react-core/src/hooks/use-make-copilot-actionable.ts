@@ -7,7 +7,7 @@ import { nanoid } from "nanoid";
 
 export function useMakeCopilotActionable<ActionInput extends any[]>(
   annotatedFunction: AnnotatedFunction<ActionInput>,
-  dependencies: any[]
+  dependencies: any[],
 ) {
   const idRef = useRef(nanoid()); // generate a unique id
   const { setEntryPoint, removeEntryPoint } = useContext(CopilotContext);
@@ -19,14 +19,11 @@ export function useMakeCopilotActionable<ActionInput extends any[]>(
       argumentAnnotations: annotatedFunction.argumentAnnotations,
       implementation: annotatedFunction.implementation,
     }),
-    dependencies
+    dependencies,
   );
 
   useEffect(() => {
-    setEntryPoint(
-      idRef.current,
-      memoizedAnnotatedFunction as AnnotatedFunction<any[]>
-    );
+    setEntryPoint(idRef.current, memoizedAnnotatedFunction as AnnotatedFunction<any[]>);
 
     return () => {
       removeEntryPoint(idRef.current);

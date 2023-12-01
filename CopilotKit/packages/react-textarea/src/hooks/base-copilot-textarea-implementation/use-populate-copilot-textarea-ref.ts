@@ -8,16 +8,13 @@ import { CustomEditor } from "../../types/base/custom-editor";
 
 export function usePopulateCopilotTextareaRef(
   editor: Editor,
-  ref: React.Ref<HTMLCopilotTextAreaElement>
+  ref: React.Ref<HTMLCopilotTextAreaElement>,
 ) {
   React.useImperativeHandle(
     ref,
     () => {
       class Combined {
-        constructor(
-          private customMethods: CustomMethods,
-          private editorHtmlElement: HTMLElement
-        ) {}
+        constructor(private customMethods: CustomMethods, private editorHtmlElement: HTMLElement) {}
 
         [key: string]: any;
 
@@ -62,11 +59,7 @@ export function usePopulateCopilotTextareaRef(
         get(target: any, propKey: keyof CustomMethods | keyof HTMLElement) {
           return target.get(target, propKey);
         },
-        set(
-          target: any,
-          propKey: keyof CustomMethods | keyof HTMLElement,
-          value: any
-        ) {
+        set(target: any, propKey: keyof CustomMethods | keyof HTMLElement, value: any) {
           return target.set(target, propKey, value);
         },
       };
@@ -96,6 +89,6 @@ export function usePopulateCopilotTextareaRef(
       const combined = new Combined(customMethods, editorHtmlElement);
       return new Proxy(combined, handler);
     },
-    [editor]
+    [editor],
   );
 }

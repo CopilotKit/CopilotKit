@@ -1,11 +1,9 @@
 import { RenderElementProps, RenderPlaceholderProps } from "slate-react";
 
-export type RenderPlaceholderFunction = (
-  props: RenderPlaceholderProps
-) => JSX.Element;
+export type RenderPlaceholderFunction = (props: RenderPlaceholderProps) => JSX.Element;
 
 export function makeRenderPlaceholderFunction(
-  placeholderStyle?: React.CSSProperties
+  placeholderStyle?: React.CSSProperties,
 ): RenderPlaceholderFunction {
   return (props: RenderPlaceholderProps) => {
     const { style, ...restAttributes } = props.attributes;

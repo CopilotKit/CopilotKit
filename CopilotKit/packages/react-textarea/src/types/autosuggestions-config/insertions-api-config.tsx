@@ -9,7 +9,7 @@ export interface InsertionsApiConfig {
 
 export const defaultInsertionsMakeSystemPrompt: MakeSystemPrompt = (
   textareaPurpose,
-  contextString
+  contextString,
 ) => {
   return `You are a versatile writing assistant.
   
@@ -39,8 +39,7 @@ export const defaultInsertionsFewShotMessages: MinimalChatGPTMessage[] = [
   {
     role: "user",
     name: "TextAfterCursor",
-    content:
-      "While I was there I also picked up some apples, oranges, and bananas.",
+    content: "While I was there I also picked up some apples, oranges, and bananas.",
   },
   {
     role: "user",

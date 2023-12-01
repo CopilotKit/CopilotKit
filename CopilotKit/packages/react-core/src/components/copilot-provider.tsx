@@ -19,9 +19,7 @@ export function CopilotProvider({
   body?: Record<string, any>;
   children: ReactNode;
 }): JSX.Element {
-  const [entryPoints, setEntryPoints] = useState<
-    Record<string, AnnotatedFunction<any[]>>
-  >({});
+  const [entryPoints, setEntryPoints] = useState<Record<string, AnnotatedFunction<any[]>>>({});
 
   const { addElement, removeElement, printTree } = useTree();
   const {
@@ -30,17 +28,14 @@ export function CopilotProvider({
     allElements: allDocuments,
   } = useFlatCategoryStore<DocumentPointer>();
 
-  const setEntryPoint = useCallback(
-    (id: string, entryPoint: AnnotatedFunction<any[]>) => {
-      setEntryPoints((prevPoints) => {
-        return {
-          ...prevPoints,
-          [id]: entryPoint,
-        };
-      });
-    },
-    []
-  );
+  const setEntryPoint = useCallback((id: string, entryPoint: AnnotatedFunction<any[]>) => {
+    setEntryPoints((prevPoints) => {
+      return {
+        ...prevPoints,
+        [id]: entryPoint,
+      };
+    });
+  }, []);
 
   const removeEntryPoint = useCallback((id: string) => {
     setEntryPoints((prevPoints) => {
@@ -54,9 +49,7 @@ export function CopilotProvider({
     (documents: DocumentPointer[], categories: string[]) => {
       const documentsString = documents
         .map((document) => {
-          return `${document.name} (${
-            document.sourceApplication
-          }):\n${document.getContents()}`;
+          return `${document.name} (${document.sourceApplication}):\n${document.getContents()}`;
         })
         .join("\n\n");
 
@@ -64,25 +57,25 @@ export function CopilotProvider({
 
       return `${documentsString}\n\n${nonDocumentStrings}`;
     },
-    [printTree]
+    [printTree],
   );
 
   const addContext = useCallback(
     (
       context: string,
       parentId?: string,
-      categories: string[] = defaultCopilotContextCategories
+      categories: string[] = defaultCopilotContextCategories,
     ) => {
       return addElement(context, categories, parentId);
     },
-    [addElement]
+    [addElement],
   );
 
   const removeContext = useCallback(
     (id: string) => {
       removeElement(id);
     },
-    [removeElement]
+    [removeElement],
   );
 
   const getChatCompletionFunctionDescriptions = useCallback(() => {
@@ -97,24 +90,21 @@ export function CopilotProvider({
     (categories: string[]) => {
       return allDocuments(categories);
     },
-    [allDocuments]
+    [allDocuments],
   );
 
   const addDocumentContext = useCallback(
-    (
-      documentPointer: DocumentPointer,
-      categories: string[] = defaultCopilotContextCategories
-    ) => {
+    (documentPointer: DocumentPointer, categories: string[] = defaultCopilotContextCategories) => {
       return addDocument(documentPointer, categories);
     },
-    [addDocument]
+    [addDocument],
   );
 
   const removeDocumentContext = useCallback(
     (documentId: string) => {
       removeDocument(documentId);
     },
-    [removeDocument]
+    [removeDocument],
   );
 
   return (
@@ -146,19 +136,15 @@ export function CopilotProvider({
 export const defaultCopilotContextCategories = ["global"];
 
 function entryPointsToFunctionCallHandler(
-  entryPoints: AnnotatedFunction<any[]>[]
+  entryPoints: AnnotatedFunction<any[]>[],
 ): FunctionCallHandler {
   return async (chatMessages, functionCall) => {
-    let entrypointsByFunctionName: Record<
-      string,
-      AnnotatedFunction<any[]>
-    > = {};
+    let entrypointsByFunctionName: Record<string, AnnotatedFunction<any[]>> = {};
     for (let entryPoint of entryPoints) {
       entrypointsByFunctionName[entryPoint.name] = entryPoint;
     }
 
-    const entryPointFunction =
-      entrypointsByFunctionName[functionCall.name || ""];
+    const entryPointFunction = entrypointsByFunctionName[functionCall.name || ""];
     if (entryPointFunction) {
       let parsedFunctionCallArguments: Record<string, any>[] = [];
       if (functionCall.arguments) {
@@ -168,9 +154,7 @@ function entryPointsToFunctionCallHandler(
       const paramsInCorrectOrder: any[] = [];
       for (let arg of entryPointFunction.argumentAnnotations) {
         paramsInCorrectOrder.push(
-          parsedFunctionCallArguments[
-            arg.name as keyof typeof parsedFunctionCallArguments
-          ]
+          parsedFunctionCallArguments[arg.name as keyof typeof parsedFunctionCallArguments],
         );
       }
 
@@ -198,13 +182,13 @@ function entryPointsToFunctionCallHandler(
 }
 
 function entryPointsToChatCompletionFunctions(
-  entryPoints: AnnotatedFunction<any[]>[]
+  entryPoints: AnnotatedFunction<any[]>[],
 ): ChatCompletionCreateParams.Function[] {
   return entryPoints.map(annotatedFunctionToChatCompletionFunction);
 }
 
 function annotatedFunctionToChatCompletionFunction(
-  annotatedFunction: AnnotatedFunction<any[]>
+  annotatedFunction: AnnotatedFunction<any[]>,
 ): ChatCompletionCreateParams.Function {
   // Create the parameters object based on the argumentAnnotations
   let parameters: { [key: string]: any } = {};

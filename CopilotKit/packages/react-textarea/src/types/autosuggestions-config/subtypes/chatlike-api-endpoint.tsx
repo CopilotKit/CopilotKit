@@ -1,19 +1,16 @@
-import {
-  CopilotApiConfig,
-  copilotApiConfigExtrapolator,
-} from "@copilotkit/react-core";
+import { CopilotApiConfig, copilotApiConfigExtrapolator } from "@copilotkit/react-core";
 import { MinimalChatGPTMessage } from "./minimal-chat-gpt-message";
 
 export type ChatlikeApiEndpointImpl = (
   abortSignal: AbortSignal,
   messages: MinimalChatGPTMessage[],
-  forwardedProps?: { [key: string]: any }
+  forwardedProps?: { [key: string]: any },
 ) => Promise<string>;
 
 export type StreamingChatlikeApiEndpointImpl = (
   abortSignal: AbortSignal,
   messages: MinimalChatGPTMessage[],
-  forwardedProps?: { [key: string]: any }
+  forwardedProps?: { [key: string]: any },
 ) => Promise<ReadableStream<string>>;
 
 export class ChatlikeApiEndpoint {
@@ -28,30 +25,25 @@ export class ChatlikeApiEndpoint {
    * @param apiEndpoint The URL of the OpenAI-compatible API endpoint.
    * @returns A new instance of ChatlikeApiEndpoint.
    */
-  static fromCopilotApiConfig(
-    copilotApiConfig: CopilotApiConfig
-  ): ChatlikeApiEndpoint {
+  static fromCopilotApiConfig(copilotApiConfig: CopilotApiConfig): ChatlikeApiEndpoint {
     return new ChatlikeApiEndpoint(
       async (
         abortSignal: AbortSignal,
         messages: MinimalChatGPTMessage[],
-        forwardedProps?: { [key: string]: any }
+        forwardedProps?: { [key: string]: any },
       ) => {
-        const res = await fetch(
-          copilotApiConfigExtrapolator(copilotApiConfig).chatApiEndpoint,
-          {
-            method: "POST",
-            headers: {
-              ...copilotApiConfig.headers,
-            },
-            body: JSON.stringify({
-              ...forwardedProps,
-              ...copilotApiConfig.body,
-              messages: messages,
-            }),
-            signal: abortSignal,
-          }
-        );
+        const res = await fetch(copilotApiConfigExtrapolator(copilotApiConfig).chatApiEndpoint, {
+          method: "POST",
+          headers: {
+            ...copilotApiConfig.headers,
+          },
+          body: JSON.stringify({
+            ...forwardedProps,
+            ...copilotApiConfig.body,
+            messages: messages,
+          }),
+          signal: abortSignal,
+        });
 
         const bodySteram: ReadableStream<Uint8Array> | null = res.body;
         if (!bodySteram) {
@@ -62,7 +54,7 @@ export class ChatlikeApiEndpoint {
         const stringStream = bodySteram.pipeThrough(new TextDecoderStream());
 
         return stringStream;
-      }
+      },
     );
   }
 

@@ -1,14 +1,4 @@
-import {
-  Editor,
-  Node,
-  Path,
-  Range,
-  Text,
-  Element,
-  BasePoint,
-  BaseRange,
-  Point,
-} from "slate";
+import { Editor, Node, Path, Range, Text, Element, BasePoint, BaseRange, Point } from "slate";
 import { EditorAutocompleteState } from "../types/base/editor-autocomplete-state";
 
 export interface EditorTextState {
@@ -19,9 +9,7 @@ export interface EditorTextState {
   textAfterCursor: string;
 }
 
-export function getTextAroundCollapsedCursor(
-  editor: Editor
-): EditorAutocompleteState | null {
+export function getTextAroundCollapsedCursor(editor: Editor): EditorAutocompleteState | null {
   const { selection } = editor;
   if (!selection || !Range.isCollapsed(selection)) {
     return null;

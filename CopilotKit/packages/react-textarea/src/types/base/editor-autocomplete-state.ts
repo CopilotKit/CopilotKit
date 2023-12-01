@@ -9,7 +9,7 @@ export interface EditorAutocompleteState {
 
 export function areEqual_autocompleteState(
   prev: EditorAutocompleteState,
-  next: EditorAutocompleteState
+  next: EditorAutocompleteState,
 ) {
   return (
     prev.cursorPoint.offset === next.cursorPoint.offset &&

@@ -11,14 +11,14 @@ export interface EditingEditorState extends InsertionEditorState {
 
 export type AutosuggestionsBareFunction = (
   editorState: InsertionEditorState,
-  abortSignal: AbortSignal
+  abortSignal: AbortSignal,
 ) => Promise<string>;
 
 export type Generator_InsertionOrEditingSuggestion = (
   editorState: EditingEditorState,
   prompt: string,
   documents: DocumentPointer[],
-  abortSignal: AbortSignal
+  abortSignal: AbortSignal,
 ) => Promise<ReadableStream<string>>;
 
 export interface InsertionEditorApiConfig {

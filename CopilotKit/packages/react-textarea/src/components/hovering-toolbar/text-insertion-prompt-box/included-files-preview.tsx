@@ -23,9 +23,7 @@ export const IncludedFilesPreview: React.FC<IncludedFilesPreviewProps> = ({
               key={`file-${filePointer.sourceApplication}.${filePointer.name}`}
               filePointer={filePointer}
               onDelete={() => {
-                setIncludedFiles((prev) =>
-                  prev.filter((fp) => fp !== filePointer)
-                );
+                setIncludedFiles((prev) => prev.filter((fp) => fp !== filePointer));
               }}
             />
           );
@@ -40,10 +38,7 @@ export interface FileChipPreviewProp {
   onDelete: () => void;
 }
 
-export const FileChipPreview: React.FC<FileChipPreviewProp> = ({
-  filePointer,
-  onDelete,
-}) => {
+export const FileChipPreview: React.FC<FileChipPreviewProp> = ({ filePointer, onDelete }) => {
   return (
     <Chip
       label={filePointer.name}
