@@ -82,30 +82,40 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       [editor]
     );
 
+    const shouldDisableAutosuggestions =
+      // textarea is manually disabled:
+      autosuggestionsConfig.disabled ||
+      // hovering editor is displayed:
+      hoveringEditorIsDisplayed ||
+      // the cursor has moved since the last text change AND we are configured to disable autosuggestions in this case:
+      (cursorMovedSinceLastTextChange &&
+        autosuggestionsConfig.temporarilyDisableWhenMovingCursorWithoutChangingText);
+
     const {
       currentAutocompleteSuggestion,
       onChangeHandler: onChangeHandlerForAutocomplete,
       onKeyDownHandler: onKeyDownHandlerForAutocomplete,
     } = useAutosuggestions(
       autosuggestionsConfig.debounceTime,
-      autosuggestionsConfig.acceptAutosuggestionKey,
+      autosuggestionsConfig.shouldAcceptAutosuggestionOnKeyPress,
       autosuggestionsConfig.apiConfig.autosuggestionsFunction,
       insertText,
       autosuggestionsConfig.disableWhenEmpty,
-      autosuggestionsConfig.disabled ||
-        hoveringEditorIsDisplayed || // disable autosuggestions when the hovering editor is displayed
-        (cursorMovedSinceLastTextChange &&
-          autosuggestionsConfig.temporarilyDisableWhenMovingCursorWithoutChangingText) // disable autosuggestions when the cursor has moved since the last text change
+      shouldDisableAutosuggestions
     );
+
     const onKeyDownHandlerForHoveringEditor = useCallback(
       (event: React.KeyboardEvent<HTMLDivElement>) => {
-        // if command-k, toggle the hovering editor
-        if (event.key === "k" && event.metaKey) {
+        if (autosuggestionsConfig.shouldToggleHoveringEditorOnKeyPress(event)) {
           event.preventDefault();
           setHoveringEditorIsDisplayed(!hoveringEditorIsDisplayed);
         }
       },
-      [hoveringEditorIsDisplayed, setHoveringEditorIsDisplayed]
+      [
+        hoveringEditorIsDisplayed,
+        setHoveringEditorIsDisplayed,
+        autosuggestionsConfig.shouldToggleHoveringEditorOnKeyPress,
+      ]
     );
 
     // sync autosuggestions state with the editor

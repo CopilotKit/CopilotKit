@@ -16,7 +16,9 @@ export interface UseAutosuggestionsResult {
 
 export function useAutosuggestions(
   debounceTime: number,
-  acceptAutosuggestionKey: string,
+  shouldAcceptAutosuggestionOnKeyPress: (
+    event: React.KeyboardEvent<HTMLDivElement>
+  ) => boolean,
   autosuggestionFunction: AutosuggestionsBareFunction,
   insertAutocompleteSuggestion: (suggestion: AutosuggestionState) => void,
   disableWhenEmpty: boolean,
@@ -125,7 +127,7 @@ export function useAutosuggestions(
   const keyDownHandler = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
       if (currentAutocompleteSuggestion) {
-        if (event.key === acceptAutosuggestionKey) {
+        if (shouldAcceptAutosuggestionOnKeyPress(event)) {
           event.preventDefault();
           insertAutocompleteSuggestion(currentAutocompleteSuggestion);
           setCurrentAutocompleteSuggestion(null);
@@ -136,7 +138,7 @@ export function useAutosuggestions(
       currentAutocompleteSuggestion,
       setCurrentAutocompleteSuggestion,
       insertAutocompleteSuggestion,
-      acceptAutosuggestionKey,
+      shouldAcceptAutosuggestionOnKeyPress,
     ]
   );
 
