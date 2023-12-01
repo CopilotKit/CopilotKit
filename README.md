@@ -11,21 +11,6 @@
   </a>
 </p>
 
-<h1 align="center">
-The Open-Source Copilot Platform
-</h1>
-
-🌟 **\<CopilotTextarea />:** AI-assisted text generation, anywhere. Context-aware first draft + autocompletions + AI editing.
-Supports 3rd party data and Cursor-style @document-referecing (e.g. "list the client's top 3 pain points from @Gong-Call-Transcript").
-Optional add-on: automatically improves as it learns your users' writing patterns. Uses OpenAI by default - or bring your own model. <br/><br/>
-
-🌟 **Copilot Chatbot:** in-app-chatbot with support for app state awareness (frontend + backend), funneling executions to frontend and backend functions (in-app actions vs. auth-enabled functions), and executing arbitrary chains.
-Functions can be designated "auto-run" or "sensitive" (to require user approval before execution).
-Also supports 3rd party plugins, and Cursor-style @document-referecing.
-Use OpenAI's _assistants_ api, or bring your own LLM.
-
-Combines frontend SDKs, backend SDKs, and (optional) cloud infrastructure. Open-source 🪁
-
 <p align="center">
   <br />
     <a href="https://docs.copilotkit.ai" rel="dofollow"><strong>Explore the docs »</strong></a>
@@ -48,6 +33,23 @@ Combines frontend SDKs, backend SDKs, and (optional) cloud infrastructure. Open-
 </p>
   
 
+<h1 align="center">
+The Open-Source Copilot Platform
+</h1>
+
+🌟 **\<CopilotTextarea />:** <br />
+AI-assisted text generation.<br />
+Auto first-draft + autocompletions + AI editing, indexed on your users' content.<br/>
+Starting with React. Use any LLM. <br/>
+
+
+
+🌟 **Copilot Chatbot:** <br />
+A framework for building in-app AI chatbots, indexed on the current app state & user context. <br />
+Easily build deep interactivity with the app frontend & backend, and with 3rd party plugins. <br />
+AI "second brain" for your users, on tap.
+
+Combines frontend SDKs, backend SDKs, and (optional) cloud infrastructure. Open-source 🪁
 
 
 
