@@ -8,9 +8,7 @@
  * @returns {ReadableStream<A>} - The flattened stream.
  */
 
-export function streamPromiseFlatten<A>(
-  promise: Promise<ReadableStream<A>>
-): ReadableStream<A> {
+export function streamPromiseFlatten<A>(promise: Promise<ReadableStream<A>>): ReadableStream<A> {
   return new ReadableStream<A>({
     async start(controller) {
       try {

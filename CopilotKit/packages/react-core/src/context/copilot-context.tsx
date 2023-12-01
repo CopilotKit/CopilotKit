@@ -58,23 +58,13 @@ export interface CopilotContextParams {
   getFunctionCallHandler: () => FunctionCallHandler;
 
   // text context
-  getContextString: (
-    documents: DocumentPointer[],
-    categories: string[]
-  ) => string;
-  addContext: (
-    context: string,
-    parentId?: string,
-    categories?: string[]
-  ) => TreeNodeId;
+  getContextString: (documents: DocumentPointer[], categories: string[]) => string;
+  addContext: (context: string, parentId?: string, categories?: string[]) => TreeNodeId;
   removeContext: (id: TreeNodeId) => void;
 
   // document context
   getDocumentsContext: (categories: string[]) => DocumentPointer[];
-  addDocumentContext: (
-    documentPointer: DocumentPointer,
-    categories?: string[]
-  ) => TreeNodeId;
+  addDocumentContext: (documentPointer: DocumentPointer, categories?: string[]) => TreeNodeId;
   removeDocumentContext: (documentId: string) => void;
 
   // api endpoints
@@ -100,7 +90,7 @@ const emptyCopilotContext: CopilotContextParams = {
   copilotApiConfig: new (class implements CopilotApiConfig {
     get chatApiEndpoint(): string {
       throw new Error(
-        "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!"
+        "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!",
       );
     }
     get headers(): Record<string, string> {
@@ -112,12 +102,11 @@ const emptyCopilotContext: CopilotContextParams = {
   })(),
 };
 
-export const CopilotContext =
-  React.createContext<CopilotContextParams>(emptyCopilotContext);
+export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);
 
 function returnAndThrowInDebug<T>(value: T): T {
   throw new Error(
-    "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!"
+    "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!",
   );
   return value;
 }

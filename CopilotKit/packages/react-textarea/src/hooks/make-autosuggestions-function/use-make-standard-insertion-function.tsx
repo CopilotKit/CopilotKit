@@ -29,7 +29,7 @@ export function useMakeStandardInsertionOrEditingFunction(
   textareaPurpose: string,
   contextCategories: string[],
   insertionApiConfig: InsertionsApiConfig,
-  editingApiConfig: EditingApiConfig
+  editingApiConfig: EditingApiConfig,
 ): Generator_InsertionOrEditingSuggestion {
   const { getContextString, copilotApiConfig } = useContext(CopilotContext);
 
@@ -38,7 +38,7 @@ export function useMakeStandardInsertionOrEditingFunction(
       editorState: EditingEditorState,
       insertionPrompt: string,
       documents: DocumentPointer[],
-      abortSignal: AbortSignal
+      abortSignal: AbortSignal,
     ) => {
       const res = await retry(async () => {
         const messages: MinimalChatGPTMessage[] = [
@@ -46,7 +46,7 @@ export function useMakeStandardInsertionOrEditingFunction(
             role: "system",
             content: insertionApiConfig.makeSystemPrompt(
               textareaPurpose,
-              getContextString(documents, contextCategories)
+              getContextString(documents, contextCategories),
             ),
           },
           ...insertionApiConfig.fewShotMessages,
@@ -67,18 +67,13 @@ export function useMakeStandardInsertionOrEditingFunction(
           },
         ];
 
-        const apiEndpoint =
-          ChatlikeApiEndpoint.fromCopilotApiConfig(copilotApiConfig);
-        return await apiEndpoint.run(
-          abortSignal,
-          messages,
-          insertionApiConfig.forwardedParams
-        );
+        const apiEndpoint = ChatlikeApiEndpoint.fromCopilotApiConfig(copilotApiConfig);
+        return await apiEndpoint.run(abortSignal, messages, insertionApiConfig.forwardedParams);
       });
 
       return res;
     },
-    [insertionApiConfig, getContextString, contextCategories, textareaPurpose]
+    [insertionApiConfig, getContextString, contextCategories, textareaPurpose],
   );
 
   const editingFunction = useCallback(
@@ -86,7 +81,7 @@ export function useMakeStandardInsertionOrEditingFunction(
       editorState: EditingEditorState,
       editingPrompt: string,
       documents: DocumentPointer[],
-      abortSignal: AbortSignal
+      abortSignal: AbortSignal,
     ) => {
       const res = await retry(async () => {
         const messages: MinimalChatGPTMessage[] = [
@@ -94,7 +89,7 @@ export function useMakeStandardInsertionOrEditingFunction(
             role: "system",
             content: editingApiConfig.makeSystemPrompt(
               textareaPurpose,
-              getContextString(documents, contextCategories)
+              getContextString(documents, contextCategories),
             ),
           },
           ...editingApiConfig.fewShotMessages,
@@ -120,18 +115,13 @@ export function useMakeStandardInsertionOrEditingFunction(
           },
         ];
 
-        const apiEndpoint =
-          ChatlikeApiEndpoint.fromCopilotApiConfig(copilotApiConfig);
-        return await apiEndpoint.run(
-          abortSignal,
-          messages,
-          editingApiConfig.forwardedParams
-        );
+        const apiEndpoint = ChatlikeApiEndpoint.fromCopilotApiConfig(copilotApiConfig);
+        return await apiEndpoint.run(abortSignal, messages, editingApiConfig.forwardedParams);
       });
 
       return res;
     },
-    [editingApiConfig, getContextString, contextCategories, textareaPurpose]
+    [editingApiConfig, getContextString, contextCategories, textareaPurpose],
   );
 
   const insertionOrEditingFunction = useCallback(
@@ -139,25 +129,15 @@ export function useMakeStandardInsertionOrEditingFunction(
       editorState: EditingEditorState,
       insertionPrompt: string,
       documents: DocumentPointer[],
-      abortSignal: AbortSignal
+      abortSignal: AbortSignal,
     ) => {
       if (editorState.selectedText === "") {
-        return await insertionFunction(
-          editorState,
-          insertionPrompt,
-          documents,
-          abortSignal
-        );
+        return await insertionFunction(editorState, insertionPrompt, documents, abortSignal);
       } else {
-        return await editingFunction(
-          editorState,
-          insertionPrompt,
-          documents,
-          abortSignal
-        );
+        return await editingFunction(editorState, insertionPrompt, documents, abortSignal);
       }
     },
-    [insertionFunction, editingFunction]
+    [insertionFunction, editingFunction],
   );
 
   return insertionOrEditingFunction;

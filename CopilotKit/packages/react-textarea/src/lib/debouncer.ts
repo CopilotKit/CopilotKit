@@ -1,6 +1,4 @@
-export type AsyncFunction<T extends any[]> = (
-  ...args: [...T, AbortSignal]
-) => Promise<void>;
+export type AsyncFunction<T extends any[]> = (...args: [...T, AbortSignal]) => Promise<void>;
 
 export class Debouncer<T extends any[]> {
   private timeoutId?: number;

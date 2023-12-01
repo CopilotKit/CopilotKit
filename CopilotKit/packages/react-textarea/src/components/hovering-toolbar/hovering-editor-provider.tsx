@@ -14,9 +14,7 @@ interface HoveringEditorProviderProps {
   children: ReactNode;
 }
 
-export const HoveringEditorProvider = ({
-  children,
-}: HoveringEditorProviderProps) => {
+export const HoveringEditorProvider = ({ children }: HoveringEditorProviderProps) => {
   const [isDisplayed, setIsDisplayed] = useState(false);
 
   return (

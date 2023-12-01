@@ -20,34 +20,27 @@ export interface CopilotTextareaProps
 }
 
 export const CopilotTextarea = React.forwardRef(
-  (
-    props: CopilotTextareaProps,
-    ref: React.Ref<HTMLCopilotTextAreaElement>
-  ): JSX.Element => {
+  (props: CopilotTextareaProps, ref: React.Ref<HTMLCopilotTextAreaElement>): JSX.Element => {
     // separate the AutosuggestionsConfigUserSpecified from the rest of the props
-    const {
-      autosuggestionsConfig: autosuggestionsConfigUserSpecified,
-      ...forwardedProps
-    } = props;
+    const { autosuggestionsConfig: autosuggestionsConfigUserSpecified, ...forwardedProps } = props;
 
     const autosuggestionsConfig: AutosuggestionsConfig = merge(
       defaultAutosuggestionsConfig,
-      autosuggestionsConfigUserSpecified
+      autosuggestionsConfigUserSpecified,
     );
 
     const autosuggestionsFunction = useMakeStandardAutosuggestionFunction(
       autosuggestionsConfig.textareaPurpose,
       autosuggestionsConfig.contextCategories,
-      autosuggestionsConfig.chatApiConfigs.suggestionsApiConfig
+      autosuggestionsConfig.chatApiConfigs.suggestionsApiConfig,
     );
 
-    const insertionOrEditingFunction =
-      useMakeStandardInsertionOrEditingFunction(
-        autosuggestionsConfig.textareaPurpose,
-        autosuggestionsConfig.contextCategories,
-        autosuggestionsConfig.chatApiConfigs.insertionApiConfig,
-        autosuggestionsConfig.chatApiConfigs.editingApiConfig
-      );
+    const insertionOrEditingFunction = useMakeStandardInsertionOrEditingFunction(
+      autosuggestionsConfig.textareaPurpose,
+      autosuggestionsConfig.contextCategories,
+      autosuggestionsConfig.chatApiConfigs.insertionApiConfig,
+      autosuggestionsConfig.chatApiConfigs.editingApiConfig,
+    );
 
     return (
       <>
@@ -64,5 +57,5 @@ export const CopilotTextarea = React.forwardRef(
         />
       </>
     );
-  }
+  },
 );

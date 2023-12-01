@@ -14,10 +14,9 @@ import { DocumentPointer } from "../types";
 export function useMakeCopilotDocumentReadable(
   document: DocumentPointer,
   categories?: string[],
-  dependencies: any[] = []
+  dependencies: any[] = [],
 ): string | undefined {
-  const { addDocumentContext, removeDocumentContext } =
-    useContext(CopilotContext);
+  const { addDocumentContext, removeDocumentContext } = useContext(CopilotContext);
   const idRef = useRef<string>();
 
   useEffect(() => {

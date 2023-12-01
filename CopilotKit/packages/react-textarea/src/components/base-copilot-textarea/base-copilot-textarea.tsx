@@ -12,10 +12,7 @@ import {
 import { addAutocompletionsToEditor } from "../../lib/slatejs-edits/add-autocompletions";
 import { clearAutocompletionsFromEditor } from "../../lib/slatejs-edits/clear-autocompletions";
 import { replaceEditorText } from "../../lib/slatejs-edits/replace-text";
-import {
-  BaseAutosuggestionsConfig,
-  defaultBaseAutosuggestionsConfig,
-} from "../../types/base";
+import { BaseAutosuggestionsConfig, defaultBaseAutosuggestionsConfig } from "../../types/base";
 import { AutosuggestionState } from "../../types/base/autosuggestion-state";
 import { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
 import "./base-copilot-textarea.css";
@@ -37,20 +34,15 @@ export interface HTMLCopilotTextAreaElement extends HTMLElement {
 }
 
 const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
-  (
-    props: BaseCopilotTextareaProps,
-    ref: React.Ref<HTMLCopilotTextAreaElement>
-  ): JSX.Element => {
+  (props: BaseCopilotTextareaProps, ref: React.Ref<HTMLCopilotTextAreaElement>): JSX.Element => {
     const autosuggestionsConfig: BaseAutosuggestionsConfig = {
       ...defaultBaseAutosuggestionsConfig,
       ...props.baseAutosuggestionsConfig,
     };
 
     const valueOnInitialRender = useMemo(() => props.value ?? "", []);
-    const [lastKnownFullEditorText, setLastKnownFullEditorText] =
-      useState(valueOnInitialRender);
-    const [cursorMovedSinceLastTextChange, setCursorMovedSinceLastTextChange] =
-      useState(false);
+    const [lastKnownFullEditorText, setLastKnownFullEditorText] = useState(valueOnInitialRender);
+    const [cursorMovedSinceLastTextChange, setCursorMovedSinceLastTextChange] = useState(false);
 
     // // When the editor text changes, we want to reset the `textEditedSinceLastCursorMovement` state.
     // useEffect(() => {
@@ -68,10 +60,8 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
 
     const editor = useCopilotTextareaEditor();
 
-    const {
-      isDisplayed: hoveringEditorIsDisplayed,
-      setIsDisplayed: setHoveringEditorIsDisplayed,
-    } = useHoveringEditorContext();
+    const { isDisplayed: hoveringEditorIsDisplayed, setIsDisplayed: setHoveringEditorIsDisplayed } =
+      useHoveringEditorContext();
 
     const insertText = useCallback(
       (autosuggestion: AutosuggestionState) => {
@@ -79,8 +69,17 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
           at: autosuggestion.point,
         });
       },
-      [editor]
+      [editor],
     );
+
+    const shouldDisableAutosuggestions =
+      // textarea is manually disabled:
+      autosuggestionsConfig.disabled ||
+      // hovering editor is displayed:
+      hoveringEditorIsDisplayed ||
+      // the cursor has moved since the last text change AND we are configured to disable autosuggestions in this case:
+      (cursorMovedSinceLastTextChange &&
+        autosuggestionsConfig.temporarilyDisableWhenMovingCursorWithoutChangingText);
 
     const {
       currentAutocompleteSuggestion,
@@ -88,24 +87,25 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       onKeyDownHandler: onKeyDownHandlerForAutocomplete,
     } = useAutosuggestions(
       autosuggestionsConfig.debounceTime,
-      autosuggestionsConfig.acceptAutosuggestionKey,
+      autosuggestionsConfig.shouldAcceptAutosuggestionOnKeyPress,
       autosuggestionsConfig.apiConfig.autosuggestionsFunction,
       insertText,
       autosuggestionsConfig.disableWhenEmpty,
-      autosuggestionsConfig.disabled ||
-        hoveringEditorIsDisplayed || // disable autosuggestions when the hovering editor is displayed
-        (cursorMovedSinceLastTextChange &&
-          autosuggestionsConfig.temporarilyDisableWhenMovingCursorWithoutChangingText) // disable autosuggestions when the cursor has moved since the last text change
+      shouldDisableAutosuggestions,
     );
+
     const onKeyDownHandlerForHoveringEditor = useCallback(
       (event: React.KeyboardEvent<HTMLDivElement>) => {
-        // if command-k, toggle the hovering editor
-        if (event.key === "k" && event.metaKey) {
+        if (autosuggestionsConfig.shouldToggleHoveringEditorOnKeyPress(event)) {
           event.preventDefault();
           setHoveringEditorIsDisplayed(!hoveringEditorIsDisplayed);
         }
       },
-      [hoveringEditorIsDisplayed, setHoveringEditorIsDisplayed]
+      [
+        hoveringEditorIsDisplayed,
+        setHoveringEditorIsDisplayed,
+        autosuggestionsConfig.shouldToggleHoveringEditorOnKeyPress,
+      ],
     );
 
     // sync autosuggestions state with the editor
@@ -115,7 +115,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
         addAutocompletionsToEditor(
           editor,
           currentAutocompleteSuggestion.text,
-          currentAutocompleteSuggestion.point
+          currentAutocompleteSuggestion.point,
         );
       }
     }, [currentAutocompleteSuggestion]);
@@ -177,10 +177,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       const baseClassName = "copilot-textarea";
       const brandingClass = disableBranding ? "no-branding" : "with-branding";
       const defaultTailwindClassName = "bg-white overflow-y-auto resize-y";
-      const mergedClassName = twMerge(
-        defaultTailwindClassName,
-        className ?? ""
-      );
+      const mergedClassName = twMerge(defaultTailwindClassName, className ?? "");
       return `${baseClassName} ${brandingClass} ${mergedClassName}`;
     })();
 
@@ -228,7 +225,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
         />
       </Slate>
     );
-  }
+  },
 );
 
 // Consumers of <textarea> expect a `onChange: (React.ChangeEvent<HTMLTextAreaElement>) => void` event handler to be passed in.
@@ -243,7 +240,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
 //
 // If this proves problematic, we can always revisit this decision.
 function makeSemiFakeReactTextAreaEvent(
-  currentText: string
+  currentText: string,
 ): React.ChangeEvent<HTMLTextAreaElement> {
   return {
     target: {
@@ -258,14 +255,11 @@ function makeSemiFakeReactTextAreaEvent(
 }
 
 export const BaseCopilotTextarea = React.forwardRef(
-  (
-    props: BaseCopilotTextareaProps,
-    ref: React.Ref<HTMLCopilotTextAreaElement>
-  ): JSX.Element => {
+  (props: BaseCopilotTextareaProps, ref: React.Ref<HTMLCopilotTextAreaElement>): JSX.Element => {
     return (
       <HoveringEditorProvider>
         <BaseCopilotTextareaWithHoveringContext {...props} ref={ref} />
       </HoveringEditorProvider>
     );
-  }
+  },
 );

@@ -8,13 +8,7 @@ import { SourceSearchBox } from "../../source-search-box/source-search-box";
 import { DocumentPointer } from "@copilotkit/react-core";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
-import React, {
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
 
 import { streamPromiseFlatten } from "../../../lib/stream-promise-flatten";
 import { CopilotContext } from "@copilotkit/react-core";
@@ -31,9 +25,7 @@ export interface HoveringInsertionPromptBoxCoreProps {
   contextCategories: string[];
 }
 
-export const HoveringInsertionPromptBoxCore: React.FC<
-  HoveringInsertionPromptBoxCoreProps
-> = ({
+export const HoveringInsertionPromptBoxCore: React.FC<HoveringInsertionPromptBoxCoreProps> = ({
   performInsertion,
   state,
   insertionOrEditingFunction,
@@ -42,13 +34,13 @@ export const HoveringInsertionPromptBoxCore: React.FC<
   const { getDocumentsContext } = useContext(CopilotContext);
 
   const [editSuggestion, setEditSuggestion] = useState<string>("");
-  const [suggestionIsLoading, setSuggestionIsLoading] =
-    useState<boolean>(false);
+  const [suggestionIsLoading, setSuggestionIsLoading] = useState<boolean>(false);
 
   const [adjustmentPrompt, setAdjustmentPrompt] = useState<string>("");
 
-  const [generatingSuggestion, setGeneratingSuggestion] =
-    useState<ReadableStream<string> | null>(null);
+  const [generatingSuggestion, setGeneratingSuggestion] = useState<ReadableStream<string> | null>(
+    null,
+  );
 
   const adjustmentTextAreaRef = useRef<HTMLTextAreaElement>(null);
   const suggestionTextAreaRef = useRef<HTMLTextAreaElement>(null);
@@ -97,8 +89,7 @@ export const HoveringInsertionPromptBoxCore: React.FC<
 
           // Scroll to the bottom of the textarea. We call this here to make sure scroll-to-bottom is synchronous with the state update.
           if (suggestionTextAreaRef.current) {
-            suggestionTextAreaRef.current.scrollTop =
-              suggestionTextAreaRef.current.scrollHeight;
+            suggestionTextAreaRef.current.scrollTop = suggestionTextAreaRef.current.scrollHeight;
           }
           return newSuggestion;
         });
@@ -141,10 +132,10 @@ export const HoveringInsertionPromptBoxCore: React.FC<
       modificationState,
       adjustmentPrompt,
       filePointers,
-      new AbortController().signal
+      new AbortController().signal,
     );
     const adjustmentSuggestionTextStream = streamPromiseFlatten(
-      adjustmentSuggestionTextStreamPromise
+      adjustmentSuggestionTextStreamPromise,
     );
 
     setGeneratingSuggestion(adjustmentSuggestionTextStream);
@@ -255,19 +246,14 @@ export const HoveringInsertionPromptBoxCore: React.FC<
     <div className="w-full flex flex-col items-start relative gap-2">
       {AdjustmentPromptComponent}
       {filePointers.length > 0 && (
-        <IncludedFilesPreview
-          includedFiles={filePointers}
-          setIncludedFiles={setFilePointers}
-        />
+        <IncludedFilesPreview includedFiles={filePointers} setIncludedFiles={setFilePointers} />
       )}
       {sourceSearchWord !== undefined && (
         <SourceSearchBox
           searchTerm={sourceSearchWord}
           suggestedFiles={suggestedFiles}
           onSelectedFile={(filePointer) => {
-            setAdjustmentPrompt(
-              adjustmentPrompt.replace(new RegExp(`@${sourceSearchWord}$`), "")
-            );
+            setAdjustmentPrompt(adjustmentPrompt.replace(new RegExp(`@${sourceSearchWord}$`), ""));
             setFilePointers((prev) => [...prev, filePointer]);
 
             // focus back on the adjustment prompt, and move the cursor to the end

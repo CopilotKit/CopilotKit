@@ -17,28 +17,19 @@ interface FlatCategoryStoreElement<T> {
 
 const useFlatCategoryStore = <T>(): UseFlatCategoryStoreReturn<T> => {
   const [elements, dispatch] = useReducer<
-    React.Reducer<
-      Map<FlatCategoryStoreId, FlatCategoryStoreElement<T>>,
-      Action<T>
-    >
-  >(
-    flatCategoryStoreReducer,
-    new Map<FlatCategoryStoreId, FlatCategoryStoreElement<T>>()
-  );
+    React.Reducer<Map<FlatCategoryStoreId, FlatCategoryStoreElement<T>>, Action<T>>
+  >(flatCategoryStoreReducer, new Map<FlatCategoryStoreId, FlatCategoryStoreElement<T>>());
 
-  const addElement = useCallback(
-    (value: T, categories: string[]): FlatCategoryStoreId => {
-      const newId = nanoid();
-      dispatch({
-        type: "ADD_ELEMENT",
-        value,
-        id: newId,
-        categories,
-      });
-      return newId;
-    },
-    []
-  );
+  const addElement = useCallback((value: T, categories: string[]): FlatCategoryStoreId => {
+    const newId = nanoid();
+    dispatch({
+      type: "ADD_ELEMENT",
+      value,
+      id: newId,
+      categories,
+    });
+    return newId;
+  }, []);
 
   const removeElement = useCallback((id: FlatCategoryStoreId): void => {
     dispatch({ type: "REMOVE_ELEMENT", id });
@@ -55,7 +46,7 @@ const useFlatCategoryStore = <T>(): UseFlatCategoryStoreReturn<T> => {
       });
       return result;
     },
-    [elements]
+    [elements],
   );
 
   return { addElement, removeElement, allElements };
@@ -76,7 +67,7 @@ type Action<T> =
 // Reducer
 function flatCategoryStoreReducer<T>(
   state: Map<FlatCategoryStoreId, FlatCategoryStoreElement<T>>,
-  action: Action<T>
+  action: Action<T>,
 ): Map<FlatCategoryStoreId, FlatCategoryStoreElement<T>> {
   switch (action.type) {
     case "ADD_ELEMENT": {
@@ -101,8 +92,7 @@ function flatCategoryStoreReducer<T>(
 }
 
 function setsHaveIntersection<T>(setA: Set<T>, setB: Set<T>): boolean {
-  const [smallerSet, largerSet] =
-    setA.size <= setB.size ? [setA, setB] : [setB, setA];
+  const [smallerSet, largerSet] = setA.size <= setB.size ? [setA, setB] : [setB, setA];
 
   for (let item of smallerSet) {
     if (largerSet.has(item)) {

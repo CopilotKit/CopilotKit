@@ -18,9 +18,7 @@ export function ChatMessage({ message, ...props }: ChatMessageProps) {
       <div
         className={cn(
           "flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border shadow",
-          message.role === "user"
-            ? "bg-background"
-            : "bg-primary text-primary-foreground"
+          message.role === "user" ? "bg-background" : "bg-primary text-primary-foreground",
         )}
       >
         {message.role === "user" ? <IconUser /> : <IconOpenAI />}
@@ -36,9 +34,7 @@ export function ChatMessage({ message, ...props }: ChatMessageProps) {
             code({ children, className, inline, ...props }) {
               if (children.length) {
                 if (children[0] == "▍") {
-                  return (
-                    <span className="mt-1 animate-pulse cursor-default">▍</span>
-                  );
+                  return <span className="mt-1 animate-pulse cursor-default">▍</span>;
                 }
 
                 children[0] = (children[0] as string).replace("`▍`", "▍");

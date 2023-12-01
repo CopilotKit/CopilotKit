@@ -17,11 +17,9 @@ export interface UseCopilotChatReturn {
   visibleMessages: Message[];
   append: (
     message: Message | CreateMessage,
-    chatRequestOptions?: ChatRequestOptions
+    chatRequestOptions?: ChatRequestOptions,
   ) => Promise<string | null | undefined>;
-  reload: (
-    chatRequestOptions?: ChatRequestOptions
-  ) => Promise<string | null | undefined>;
+  reload: (chatRequestOptions?: ChatRequestOptions) => Promise<string | null | undefined>;
   stop: () => void;
   isLoading: boolean;
   input: string;
@@ -50,32 +48,29 @@ export function useCopilotChat({
     };
   }, [getContextString, makeSystemMessage]);
 
-  const initialMessagesWithContext = [systemMessage].concat(
-    options.initialMessages || []
-  );
+  const initialMessagesWithContext = [systemMessage].concat(options.initialMessages || []);
 
   const functionDescriptions = useMemo(() => {
     return getChatCompletionFunctionDescriptions();
   }, [getChatCompletionFunctionDescriptions]);
 
-  const { messages, append, reload, stop, isLoading, input, setInput } =
-    useChat({
-      ...options,
-      api: copilotApiConfigExtrapolator(copilotApiConfig).chatApiEndpoint,
+  const { messages, append, reload, stop, isLoading, input, setInput } = useChat({
+    ...options,
+    api: copilotApiConfigExtrapolator(copilotApiConfig).chatApiEndpoint,
+    id: options.id,
+    initialMessages: initialMessagesWithContext,
+    experimental_onFunctionCall: getFunctionCallHandler(),
+    headers: { ...copilotApiConfig.headers, ...options.headers },
+    body: {
       id: options.id,
-      initialMessages: initialMessagesWithContext,
-      experimental_onFunctionCall: getFunctionCallHandler(),
-      headers: { ...copilotApiConfig.headers, ...options.headers },
-      body: {
-        id: options.id,
-        functions: functionDescriptions,
-        ...copilotApiConfig.body,
-        ...options.body,
-      },
-    });
+      functions: functionDescriptions,
+      ...copilotApiConfig.body,
+      ...options.body,
+    },
+  });
 
   const visibleMessages = messages.filter(
-    (message) => message.role === "user" || message.role === "assistant"
+    (message) => message.role === "user" || message.role === "assistant",
   );
 
   return {

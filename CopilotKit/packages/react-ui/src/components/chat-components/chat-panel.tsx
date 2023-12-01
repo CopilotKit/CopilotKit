@@ -7,13 +7,7 @@ import { IconRefresh, IconStop } from "./ui/icons";
 export interface ChatPanelProps
   extends Pick<
     UseChatHelpers,
-    | "append"
-    | "isLoading"
-    | "reload"
-    | "messages"
-    | "stop"
-    | "input"
-    | "setInput"
+    "append" | "isLoading" | "reload" | "messages" | "stop" | "input" | "setInput"
   > {
   id?: string;
 }
@@ -36,21 +30,13 @@ export function ChatPanel({
       <div className="mx-auto sm:max-w-2xl sm:px-4">
         <div className="flex h-10 items-center justify-center mb-4">
           {isLoading ? (
-            <Button
-              variant="outline"
-              onClick={() => stop()}
-              className="bg-background"
-            >
+            <Button variant="outline" onClick={() => stop()} className="bg-background">
               <IconStop className="mr-2" />
               Stop generating
             </Button>
           ) : (
             messages?.length > 0 && (
-              <Button
-                variant="outline"
-                onClick={() => reload()}
-                className="bg-background"
-              >
+              <Button variant="outline" onClick={() => reload()} className="bg-background">
                 <IconRefresh className="mr-2" />
                 Regenerate response
               </Button>

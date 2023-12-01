@@ -8,7 +8,7 @@ interface TrackerTextEditedSinceLastCursorMovementProps {
   setCursorMovedSinceLastTextChange: (value: boolean) => void;
 }
 export function TrackerTextEditedSinceLastCursorMovement(
-  props: TrackerTextEditedSinceLastCursorMovementProps
+  props: TrackerTextEditedSinceLastCursorMovementProps,
 ): JSX.Element {
   const cursorState: RelevantEditorState = useSlateSelector((state) => ({
     selection: state.selection,
@@ -33,10 +33,7 @@ type RelevantEditorState = {
   selection: BaseSelection;
   text: string;
 };
-const cursorChangedWithoutTextChanged = (
-  prev: RelevantEditorState,
-  next: RelevantEditorState
-) => {
+const cursorChangedWithoutTextChanged = (prev: RelevantEditorState, next: RelevantEditorState) => {
   // Check if the selection has changed
   const isSelectionChanged = !isSelectionEqual(prev.selection, next.selection);
 

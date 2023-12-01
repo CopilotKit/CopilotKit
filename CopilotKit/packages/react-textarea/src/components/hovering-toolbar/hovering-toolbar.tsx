@@ -20,9 +20,7 @@ export interface HoveringToolbarProps {
   hoverMenuClassname: string | undefined;
 }
 
-export const HoveringToolbar: (
-  props: HoveringToolbarProps
-) => JSX.Element | null = (props) => {
+export const HoveringToolbar: (props: HoveringToolbarProps) => JSX.Element | null = (props) => {
   const ref = useRef<HTMLDivElement>(null);
   const editor = useSlate();
   const selection = useSlateSelection();
@@ -59,20 +57,14 @@ export const HoveringToolbar: (
     // but inside the hovering window.
     //
     // in such case, we simply do nothing.
-    if (
-      rect.top === 0 &&
-      rect.left === 0 &&
-      rect.width === 0 &&
-      rect.height === 0
-    ) {
+    if (rect.top === 0 && rect.left === 0 && rect.width === 0 && rect.height === 0) {
       return;
     }
 
     const minGapFromEdge = 60;
     const verticalOffsetFromCorner = 35;
     const horizontalOffsetFromCorner = 15;
-    let top =
-      rect.top + window.scrollY - el.offsetHeight + verticalOffsetFromCorner;
+    let top = rect.top + window.scrollY - el.offsetHeight + verticalOffsetFromCorner;
     // make sure top is in the viewport and not too close to the edge
     if (top < minGapFromEdge) {
       top = rect.bottom + window.scrollY + minGapFromEdge;
@@ -81,11 +73,7 @@ export const HoveringToolbar: (
     }
 
     let left =
-      rect.left +
-      window.scrollX -
-      el.offsetWidth / 2 +
-      rect.width / 2 +
-      horizontalOffsetFromCorner;
+      rect.left + window.scrollX - el.offsetWidth / 2 + rect.width / 2 + horizontalOffsetFromCorner;
     // make sure left is in the viewport and not too close to the edge
     if (left < minGapFromEdge) {
       left = minGapFromEdge;

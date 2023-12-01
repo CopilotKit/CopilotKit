@@ -2,7 +2,7 @@ export function retry<T>(
   fn: () => Promise<T>,
   retriesLeft: number = 2,
   interval: number = 200,
-  backoff: number = 1.5
+  backoff: number = 1.5,
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     fn()

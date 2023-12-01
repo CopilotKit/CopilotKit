@@ -13,9 +13,7 @@ interface ChatComponentInjectionsProps {
   EmptyScreen?: React.FC<EmptyScreenProps>;
 }
 
-interface CopilotChatProps
-  extends UseCopilotChatOptions,
-    ChatComponentInjectionsProps {}
+interface CopilotChatProps extends UseCopilotChatOptions, ChatComponentInjectionsProps {}
 
 export function CopilotChat({
   id,
@@ -23,8 +21,11 @@ export function CopilotChat({
   makeSystemMessage,
   EmptyScreen = DefaultEmptyScreen,
 }: CopilotChatProps) {
-  const { visibleMessages, append, reload, stop, isLoading, input, setInput } =
-    useCopilotChat({ id, initialMessages, makeSystemMessage });
+  const { visibleMessages, append, reload, stop, isLoading, input, setInput } = useCopilotChat({
+    id,
+    initialMessages,
+    makeSystemMessage,
+  });
 
   return (
     <div className="w-full h-full flex flex-col overflow-hidden box-border items-start">

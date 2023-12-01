@@ -22,7 +22,7 @@ export function replaceEditorText(editor: Editor, newText: string) {
       ],
       {
         at: [0],
-      }
+      },
     );
   }
 }

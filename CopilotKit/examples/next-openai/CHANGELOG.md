@@ -1,5 +1,18 @@
 # web
 
+## 1.10.0
+
+### Minor Changes
+
+- shouldToggleHoveringEditorOnKeyPress
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.25.0
+  - @copilotkit/react-core@0.14.0
+  - @copilotkit/react-ui@0.12.0
+
 ## 1.9.0
 
 ### Minor Changes
