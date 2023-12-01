@@ -17,7 +17,7 @@ The Open-Source Copilot Platform
 
 🌟 **\<CopilotTextarea />:** AI-assisted text generation, anywhere. Context-aware first draft + autocompletions + AI editing.
 Supports 3rd party data and Cursor-style @document-referecing (e.g. "list the client's top 3 pain points from @Gong-Call-Transcript").
-Optional add-on: automatically gets better & better as it learns your users' writing patterns. OpenAI by default - or bring your own model. <br/><br/>
+Optional add-on: automatically improves as it learns your users' writing patterns. Uses OpenAI by default - or bring your own model. <br/><br/>
 
 🌟 **Copilot Chatbot:** in-app-chatbot with support for app state awareness (frontend + backend), funneling executions to frontend and backend functions (in-app actions vs. auth-enabled functions), and executing arbitrary chains.
 Functions can be designated "auto-run" or "sensitive" (to require user approval before execution).
@@ -42,6 +42,7 @@ Combines frontend SDKs, backend SDKs, and (optional) cloud infrastructure. Open-
 </p>
 
  <p align="center">
+   Need help?
     <a href="https://calendly.com/atai_/copilotkit" rel="dofollow"><strong> Book a call »</strong></a>
     <br />
 </p>
