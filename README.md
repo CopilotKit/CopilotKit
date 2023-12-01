@@ -266,5 +266,5 @@ Contributions are welcome! 🎉
 
 ## Contact
 
-atai <at> copilotkit.ai
+atai `<at>` copilotkit.ai
 
