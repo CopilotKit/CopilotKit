@@ -27,7 +27,7 @@
 </p>
 
  <p align="center">
-   Need help?
+   Questions or suggestions?
     <a href="https://calendly.com/atai_/copilotkit" rel="dofollow"><strong> Book a call »</strong></a>
     <br />
 </p>
