@@ -1,5 +1,16 @@
 # ui
 
+## 0.12.0
+
+### Minor Changes
+
+- shouldToggleHoveringEditorOnKeyPress
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.14.0
+
 ## 0.11.0
 
 ### Minor Changes
