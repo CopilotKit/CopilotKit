@@ -27,7 +27,7 @@
 </p>
 
  <p align="center">
-   Questions or suggestions?
+   Need help?
     <a href="https://calendly.com/atai_/copilotkit" rel="dofollow"><strong> Book a call »</strong></a>
     <br />
 </p>
@@ -39,7 +39,7 @@ The Open-Source Copilot Platform
 
 🌟 **\<CopilotTextarea />:** <br />
 AI-assisted text generation.<br />
-Auto first-draft + autocompletions + AI editing, indexed on your users' content.<br/>
+Autocompletions + AI editing + generate from scratch. Indexed on your users' content.<br/>
 Starting with React. Use any LLM. <br/>
 
 
@@ -54,25 +54,31 @@ Combines frontend SDKs, backend SDKs, and (optional) cloud infrastructure. Open-
 
 
 
-## Overview
+## 🎯 Features Overview
 
 ### CopilotTextarea: AI-assisted text generation + editing.
 - ✅ A a drop-in `<textarea />` replacement. Supports all `<textarea />` customizations.
-- ✅ AI editing ✨ - "list the client's top 3 pain points from the last call `@GongTranscript`"
-- ✅ autocompletions ✨ - Context-aware autocompletions (like in GitHub Copilot / Gmail)
+- ✅ Context-aware autocompletions ✨ (like in GitHub Copilot)
+- ✅ AI editing ✨ - "list the client's top 3 pain points from the last call using @SalesforceData"
+- 🟩 Generate from scratch ✨ - automatically populate the initial content based on given context
 - ✅ App context & 3rd party context with `useMakeCopilotReadable` and `useMakeCopilotDocumentReadable`
-- 🚧 First draft ✨ - automatically populate the initial content.
-- 🚧 Bold + italics support.
+- ✅ Fully custsomizable prompt engineering
+- 🟩 Arbitrary LLM chains.
+- 🟩 Bold + italics.
 
 
 ### Copilot Chatbot: (frontend + backend) runtimes for in-app copilots.
-- ✅ propagate application state into the chatbot with `useMakeCopilotReadable` and `useMakeCopilotDocumentReadable`
-- ✅ frontend actions: `useMakeCopilotActionable`
-- ✅ User-referenced context using @someContext (including 3rd party)
+- ✅ Index on frontend app state (via `useMakeCopilotReadable` and `useMakeCopilotDocumentReadable`)
+- 🟩 Index on backend state
+- ✅ frontend function calling runtime (in-app actions) (via `useMakeCopilotActionable`)
+- 🟩 backend function calling runtime (auth enabled)
+- 🟩 Autorun vs. "sensitive" functions (require user approval before execution).
+- ✅ Cursor-style @document-referecing.
 - ✅ Bring your own model
-- 🚧 propagate backend state
-- 🚧 backend actions (auth enabled)
-- 🚧 OpenAI _assistants_ api
+- 🟩 3rd party plugins
+- 🟩 execute arbitrary LLM chains
+- 🟩 OpenAI _assistants_ api
+- ✅ Fully customize UI
 
 ## Demo
 **2-min showcase + 2-min implementation tutorial:**
