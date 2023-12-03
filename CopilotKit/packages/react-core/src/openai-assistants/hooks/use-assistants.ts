@@ -41,10 +41,7 @@ export function experimental_useAssistant({
 
     setStatus("in_progress");
 
-    setMessages((messages) => [
-      ...messages,
-      { id: "", role: "user", content: input },
-    ]);
+    setMessages((messages) => [...messages, { id: "", role: "user", content: input }]);
 
     setInput("");
 

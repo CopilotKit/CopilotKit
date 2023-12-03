@@ -12,8 +12,7 @@ const roleToColorMap: Record<Message["role"], string> = {
 };
 
 export default function Chat() {
-  const { status, messages, input, submitMessage, handleInputChange, error } =
-    useCopilotChatV2({});
+  const { status, messages, input, submitMessage, handleInputChange, error } = useCopilotChatV2({});
 
   // When status changes to accepting messages, focus the input:
   const inputRef = useRef<HTMLInputElement>(null);
@@ -27,18 +26,12 @@ export default function Chat() {
     <div className="flex flex-col w-full max-w-md py-24 mx-auto stretch">
       {error != null && (
         <div className="relative bg-red-500 text-white px-6 py-4 rounded-md">
-          <span className="block sm:inline">
-            Error: {(error as any).toString()}
-          </span>
+          <span className="block sm:inline">Error: {(error as any).toString()}</span>
         </div>
       )}
 
       {messages.map((m: Message) => (
-        <div
-          key={m.id}
-          className="whitespace-pre-wrap"
-          style={{ color: roleToColorMap[m.role] }}
-        >
+        <div key={m.id} className="whitespace-pre-wrap" style={{ color: roleToColorMap[m.role] }}>
           <strong>{`${m.role}: `}</strong>
           {m.content}
           <br />

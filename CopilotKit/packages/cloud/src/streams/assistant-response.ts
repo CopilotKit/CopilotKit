@@ -6,22 +6,18 @@ export function experimental_AssistantResponse(
     threadId: string;
     messageId: string;
     sendMessage: (message: AssistantMessage) => void;
-  }) => Promise<void>
+  }) => Promise<void>,
 ): Response {
   const stream = new ReadableStream({
     async start(controller) {
       const textEncoder = new TextEncoder();
 
       const sendMessage = (message: AssistantMessage) => {
-        controller.enqueue(
-          textEncoder.encode(formatStreamPart("assistant_message", message))
-        );
+        controller.enqueue(textEncoder.encode(formatStreamPart("assistant_message", message)));
       };
 
       const sendError = (errorMessage: string) => {
-        controller.enqueue(
-          textEncoder.encode(formatStreamPart("error", errorMessage))
-        );
+        controller.enqueue(textEncoder.encode(formatStreamPart("error", errorMessage)));
       };
 
       // send the threadId and messageId as the first message:
@@ -30,8 +26,8 @@ export function experimental_AssistantResponse(
           formatStreamPart("assistant_control_data", {
             threadId,
             messageId,
-          })
-        )
+          }),
+        ),
       );
 
       try {

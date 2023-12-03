@@ -47,6 +47,4 @@ export interface CopilotProviderApiConfigProps {
  * Can be either CopilotProviderApiEndpointProps or CopilotProviderApiConfigProps.
  */
 
-export type CopilotProviderProps =
-  | CopilotProviderApiEndpointProps
-  | CopilotProviderApiConfigProps;
+export type CopilotProviderProps = CopilotProviderApiEndpointProps | CopilotProviderApiConfigProps;

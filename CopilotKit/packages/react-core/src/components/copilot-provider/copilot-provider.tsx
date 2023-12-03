@@ -2,10 +2,7 @@
 
 import { FunctionCallHandler } from "ai";
 import { useCallback, useState } from "react";
-import {
-  CopilotContext,
-  CopilotApiConfig,
-} from "../../context/copilot-context";
+import { CopilotContext, CopilotApiConfig } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
 import { AnnotatedFunction } from "../../types/annotated-function";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
@@ -46,16 +43,11 @@ import { CopilotProviderProps } from "./copilot-provider-props";
  * @param props - The props for the component.
  * @returns The CopilotProvider component.
  */
-export function CopilotProvider({
-  children,
-  ...props
-}: CopilotProviderProps): JSX.Element {
+export function CopilotProvider({ children, ...props }: CopilotProviderProps): JSX.Element {
   // Compute all the functions and properties that we need to pass
   // to the CopilotContext.
 
-  const [entryPoints, setEntryPoints] = useState<
-    Record<string, AnnotatedFunction<any[]>>
-  >({});
+  const [entryPoints, setEntryPoints] = useState<Record<string, AnnotatedFunction<any[]>>>({});
 
   const { addElement, removeElement, printTree } = useTree();
   const {
@@ -150,7 +142,7 @@ export function CopilotProvider({
       props.chatApiEndpoint,
       props.chatApiEndpointV2 || `${props.chatApiEndpoint}/v2`,
       {},
-      {}
+      {},
     );
   } else {
     copilotApiConfig = props.chatApiConfig;

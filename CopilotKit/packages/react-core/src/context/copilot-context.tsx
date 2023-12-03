@@ -103,7 +103,7 @@ const emptyCopilotContext: CopilotContextParams = {
     }
     get chatApiEndpointV2(): string {
       throw new Error(
-        "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!"
+        "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!",
       );
     }
     get headers(): Record<string, string> {

@@ -65,16 +65,13 @@ export interface HTMLCopilotTextAreaElement extends HTMLElement {
  * for figuring out which contnet to fill in.
  */
 export const BaseCopilotTextarea = React.forwardRef(
-  (
-    props: BaseCopilotTextareaProps,
-    ref: React.Ref<HTMLCopilotTextAreaElement>
-  ): JSX.Element => {
+  (props: BaseCopilotTextareaProps, ref: React.Ref<HTMLCopilotTextAreaElement>): JSX.Element => {
     return (
       <HoveringEditorProvider>
         <BaseCopilotTextareaWithHoveringContext {...props} ref={ref} />
       </HoveringEditorProvider>
     );
-  }
+  },
 );
 
 /**

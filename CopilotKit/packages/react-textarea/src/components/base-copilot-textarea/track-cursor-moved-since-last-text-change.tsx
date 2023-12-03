@@ -37,7 +37,7 @@ type RelevantEditorState = {
 
 const cursorChangedWithoutTextChanged = (
   prev: RelevantEditorState,
-  next: RelevantEditorState
+  next: RelevantEditorState,
 ): boolean => {
   // Check if the selection has changed
   const isSelectionChanged = !isSelectionEqual(prev.selection, next.selection);

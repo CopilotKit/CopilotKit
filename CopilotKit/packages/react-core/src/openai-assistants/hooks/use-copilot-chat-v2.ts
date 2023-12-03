@@ -45,9 +45,7 @@ export interface UseCopilotChatV2Result {
   error: unknown;
 }
 
-export function useCopilotChatV2(
-  options: UseCopilotChatOptionsV2
-): UseCopilotChatV2Result {
+export function useCopilotChatV2(options: UseCopilotChatOptionsV2): UseCopilotChatV2Result {
   const {
     getContextString,
     getChatCompletionFunctionDescriptions,
@@ -62,8 +60,7 @@ export function useCopilotChatV2(
   const [error, setError] = useState<unknown | undefined>(undefined);
 
   const systemMessage: Message = useMemo(() => {
-    const systemMessageMaker =
-      options.makeSystemMessage || defaultSystemMessage;
+    const systemMessageMaker = options.makeSystemMessage || defaultSystemMessage;
     const contextString = getContextString([], defaultCopilotContextCategories); // TODO: make the context categories configurable
 
     return {
@@ -86,15 +83,11 @@ export function useCopilotChatV2(
 
     setStatus("in_progress");
 
-    setMessages((messages) => [
-      ...messages,
-      { id: "", role: "user", content: input },
-    ]);
+    setMessages((messages) => [...messages, { id: "", role: "user", content: input }]);
 
     setInput("");
 
-    const apiUrl =
-      copilotApiConfigExtrapolator(copilotApiConfig).chatApiEndpointV2;
+    const apiUrl = copilotApiConfigExtrapolator(copilotApiConfig).chatApiEndpointV2;
     const result = await fetch(apiUrl, {
       method: "POST",
       headers: {

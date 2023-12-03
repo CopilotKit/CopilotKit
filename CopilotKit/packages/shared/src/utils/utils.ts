@@ -1,8 +1,4 @@
-import {
-  AssistantMessage,
-  FunctionCall,
-  JSONValue,
-} from "../types/openai-assistant";
+import { AssistantMessage, FunctionCall, JSONValue } from "../types/openai-assistant";
 
 export interface StreamPart<CODE extends string, NAME extends string, TYPE> {
   code: CODE;
@@ -28,11 +24,7 @@ const textStreamPart: StreamPart<"0", "text", string> = {
  * The value is the actual value of the stream part.
  * If the input value is not a string, it throws an error.
  */
-const functionCallStreamPart: StreamPart<
-  "1",
-  "function_call",
-  { function_call: FunctionCall }
-> = {
+const functionCallStreamPart: StreamPart<"1", "function_call", { function_call: FunctionCall }> = {
   code: "1",
   name: "function_call",
   parse: (value: JSONValue) => {
@@ -47,9 +39,7 @@ const functionCallStreamPart: StreamPart<
       typeof value.function_call.name !== "string" ||
       typeof value.function_call.arguments !== "string"
     ) {
-      throw new Error(
-        '"function_call" parts expect an object with a "function_call" property.'
-      );
+      throw new Error('"function_call" parts expect an object with a "function_call" property.');
     }
 
     return {
@@ -82,45 +72,44 @@ const errorStreamPart: StreamPart<"3", "error", string> = {
   },
 };
 
-const assistantMessage: StreamPart<"4", "assistant_message", AssistantMessage> =
-  {
-    code: "4",
-    name: "assistant_message",
-    parse: (value: JSONValue) => {
-      if (
-        value == null ||
-        typeof value !== "object" ||
-        !("id" in value) ||
-        !("role" in value) ||
-        !("content" in value) ||
-        typeof value.id !== "string" ||
-        typeof value.role !== "string" ||
-        value.role !== "assistant" ||
-        !Array.isArray(value.content) ||
-        !value.content.every(
-          (item) =>
-            item != null &&
-            typeof item === "object" &&
-            "type" in item &&
-            item.type === "text" &&
-            "text" in item &&
-            item.text != null &&
-            typeof item.text === "object" &&
-            "value" in item.text &&
-            typeof item.text.value === "string"
-        )
-      ) {
-        throw new Error(
-          '"assistant_message" parts expect an object with an "id", "role", and "content" property.'
-        );
-      }
+const assistantMessage: StreamPart<"4", "assistant_message", AssistantMessage> = {
+  code: "4",
+  name: "assistant_message",
+  parse: (value: JSONValue) => {
+    if (
+      value == null ||
+      typeof value !== "object" ||
+      !("id" in value) ||
+      !("role" in value) ||
+      !("content" in value) ||
+      typeof value.id !== "string" ||
+      typeof value.role !== "string" ||
+      value.role !== "assistant" ||
+      !Array.isArray(value.content) ||
+      !value.content.every(
+        (item) =>
+          item != null &&
+          typeof item === "object" &&
+          "type" in item &&
+          item.type === "text" &&
+          "text" in item &&
+          item.text != null &&
+          typeof item.text === "object" &&
+          "value" in item.text &&
+          typeof item.text.value === "string",
+      )
+    ) {
+      throw new Error(
+        '"assistant_message" parts expect an object with an "id", "role", and "content" property.',
+      );
+    }
 
-      return {
-        type: "assistant_message",
-        value: value as AssistantMessage,
-      };
-    },
-  };
+    return {
+      type: "assistant_message",
+      value: value as AssistantMessage,
+    };
+  },
+};
 
 const assistantControlData: StreamPart<
   "5",
@@ -142,7 +131,7 @@ const assistantControlData: StreamPart<
       typeof value.messageId !== "string"
     ) {
       throw new Error(
-        '"assistant_control_data" parts expect an object with a "threadId" and "messageId" property.'
+        '"assistant_control_data" parts expect an object with a "threadId" and "messageId" property.',
       );
     }
 
@@ -265,7 +254,7 @@ export const parseStreamPart = (line: string): StreamPartType => {
  */
 export function formatStreamPart<T extends keyof StreamPartValueType>(
   type: T,
-  value: StreamPartValueType[T]
+  value: StreamPartValueType[T],
 ): StreamString {
   const streamPart = streamParts.find((part) => part.name === type);
 
@@ -278,7 +267,7 @@ export function formatStreamPart<T extends keyof StreamPartValueType>(
 
 export const isStreamStringEqualToType = (
   type: keyof typeof StreamStringPrefixes,
-  value: string
+  value: string,
 ): value is StreamString =>
   value.startsWith(`${StreamStringPrefixes[type]}:`) && value.endsWith("\n");
 

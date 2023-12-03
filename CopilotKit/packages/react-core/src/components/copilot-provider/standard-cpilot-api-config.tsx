@@ -18,7 +18,7 @@ export class StandardCopilotApiConfig implements CopilotApiConfig {
     chatApiEndpoint: string,
     chatApiEndpointV2: string,
     headers: Record<string, string>,
-    body: Record<string, any>
+    body: Record<string, any>,
   ) {
     this.chatApiEndpoint = chatApiEndpoint;
     this.chatApiEndpointV2 = chatApiEndpointV2;

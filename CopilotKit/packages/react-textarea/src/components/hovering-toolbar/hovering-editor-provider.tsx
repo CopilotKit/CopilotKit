@@ -18,9 +18,7 @@ export interface HoveringEditorProviderProps {
  * A context provider for the hovering editor over the `CopilotTextarea`
  * (used to edit and insert text into the `CopilotTextarea`).
  */
-export const HoveringEditorProvider: React.FC<HoveringEditorProviderProps> = ({
-  children,
-}) => {
+export const HoveringEditorProvider: React.FC<HoveringEditorProviderProps> = ({ children }) => {
   const [isDisplayed, setIsDisplayed] = useState<boolean>(false);
 
   return (

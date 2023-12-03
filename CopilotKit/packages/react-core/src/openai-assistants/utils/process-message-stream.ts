@@ -1,6 +1,6 @@
 export async function processMessageStream(
   reader: ReadableStreamDefaultReader<Uint8Array>,
-  processMessage: (message: string) => void | Promise<void>
+  processMessage: (message: string) => void | Promise<void>,
 ) {
   const decoder = new TextDecoder();
   let buffer = "";
