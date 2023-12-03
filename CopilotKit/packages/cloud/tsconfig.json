@@ -1,5 +1,8 @@
 {
   "extends": "tsconfig/base.json",
+  "compilerOptions": {
+    "lib": ["es2017", "dom"],
+  },
   "include": ["."],
   "exclude": [
     "dist",

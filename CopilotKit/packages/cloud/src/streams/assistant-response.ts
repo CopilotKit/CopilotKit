@@ -9,7 +9,7 @@ export function experimental_AssistantResponse(
   }) => Promise<void>,
 ): Response {
   const stream = new ReadableStream({
-    async start(controller) {
+    async start(controller): Promise<void> {
       const textEncoder = new TextEncoder();
 
       const sendMessage = (message: AssistantMessage) => {
