@@ -42,7 +42,7 @@ In-app chatbots, and AI-enabled TextArea.
 </h3>
 
 🌟 **Copilot Chatbot:** <br />
-A framework for building in-app AI chatbots, indexed on the current app state & user context. <br />
+Build powerful **in-app AI chatbots** that can "see" the current app state + take action inside your app. <br />
 The AI chatbot can talk to your app frontend & backend, and to 3rd party services (Salesforce, Dropbox, etc.) via plugins. <br />
 AI "second brain" for your users, on tap.
 
