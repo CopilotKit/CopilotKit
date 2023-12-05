@@ -47,7 +47,7 @@ The AI chatbot can talk to your app frontend & backend, and to 3rd party service
 AI "second brain" for your users, on tap.
 
 🌟 **\<CopilotTextarea />:** <br />
-AI-assisted text generation.<br />
+AI-assisted text generation. Drop-in replacement for any `<textarea />.`<br />
 Autocompletions + AI editing + generate from scratch. Indexed on your users' content.<br/>
 Starting with React. Use any LLM. <br/>
 
