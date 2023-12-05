@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://github.com/RecursivelyAI/CopilotKit/assets/746397/3f08d195-212c-49e0-ae73-7b6cd0168adf" width="90%" style="border-radius: 15px;">
+  <img src="./assets/banner.png" width="100%" style="border-radius: 15px;">
 </div>
 
 <p align="center">
@@ -37,9 +37,13 @@
 The Open-Source Copilot Platform
 </h1>
 
+<h3 align="center">
+In-app chatbots, and AI-enabled TextArea.
+</h3>
+
 🌟 **Copilot Chatbot:** <br />
 A framework for building in-app AI chatbots, indexed on the current app state & user context. <br />
-Easily build deep interactivity with the app frontend & backend, and with 3rd party plugins. <br />
+The AI chatbot can talk to your app frontend & backend, and to 3rd party services (Salesforce, Dropbox, etc.) via plugins. <br />
 AI "second brain" for your users, on tap.
 
 🌟 **\<CopilotTextarea />:** <br />
