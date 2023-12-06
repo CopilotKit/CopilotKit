@@ -1,5 +1,10 @@
+
 <div align="center">
-  <img src="./assets/banner.png" width="100%" style="border-radius: 15px;">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/RecursivelyAI/CopilotKit/assets/746397/5890217b-524e-49c5-a89e-b8743d2acd51">
+    <img alt="Novu Logo" src="https://github.com/RecursivelyAI/CopilotKit/assets/746397/bd5c9079-929b-4d55-bdc9-16d1c8181b71" height="80"/>
+  </picture>
+  </a>
 </div>
 
 <p align="center">
@@ -9,7 +14,20 @@
   <a href="https://github.com/RecursivelyAI/CopilotKit/actions/workflows/ci.yml">
       <img src="https://github.com/RecursivelyAI/CopilotKit/actions/workflows/ci.yml/badge.svg" alt="GitHub CI">
   </a>
+
+  <a href="https://www.npmjs.com/package/@copilotkit/react-core">
+    <img src="https://img.shields.io/npm/v/@copilotkit/react-core" alt="NPM">
+  <img src="https://img.shields.io/github/license/novuhq/novu" alt="MIT">
+  
 </p>
+
+<h1 align="center">
+The Open-Source Copilot Platform
+</h1>
+
+<h3 align="center">
+In-app chatbots, and AI-enabled TextArea.
+</h3>
 
 <p align="center">
   <br />
@@ -33,16 +51,14 @@
 </p>
   
 
-<h1 align="center">
-The Open-Source Copilot Platform
-</h1>
 
-<h3 align="center">
-In-app chatbots, and AI-enabled TextArea.
-</h3>
+<div align="center">
+  <img src="https://github.com/RecursivelyAI/CopilotKit/assets/746397/1aa17608-46a5-4e2f-aad5-19c8f5c5f1bd" height="220px" style="border-radius: 35px;">
+</div>
+<br/>
 
-🌟 **Copilot Chatbot:** <br />
-Build powerful **in-app AI chatbots** that can "see" the current app state + take action inside your app. <br />
+🌟 **\<CopilotPortal />:** <br />
+Build **in-app AI chatbots** that can "see" the current app state + take action inside your app. <br />
 The AI chatbot can talk to your app frontend & backend, and to 3rd party services (Salesforce, Dropbox, etc.) via plugins. <br />
 AI "second brain" for your users, on tap.
 
