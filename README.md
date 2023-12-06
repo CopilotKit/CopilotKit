@@ -37,7 +37,7 @@ In-app chatbots, and AI-enabled TextArea.
   <br/>
     <a href="https://discord.gg/6dffbvGU3D">Join our Discord</a>
     ·
-    <a href="https://copilotkit.ai&utm_medium=github&utm_source=github">Website</a>
+    <a href="https://copilotkit.ai?utm_medium=github&utm_source=github">Website</a>
     ·
     <a href="https://github.com/RecursivelyAI/CopilotKit/issues/new?assignees=&labels=bug&projects=&template=bug_report.md&title=">Report Bug</a>
     ·
