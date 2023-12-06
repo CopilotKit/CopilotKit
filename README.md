@@ -1,8 +1,8 @@
 
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/RecursivelyAI/CopilotKit/assets/746397/5890217b-524e-49c5-a89e-b8743d2acd51">
-    <img alt="Novu Logo" src="https://github.com/RecursivelyAI/CopilotKit/assets/746397/bd5c9079-929b-4d55-bdc9-16d1c8181b71" height="80"/>
+    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/CopilotKit/CopilotKit/assets/746397/5890217b-524e-49c5-a89e-b8743d2acd51">
+    <img alt="CopilotKit Logo" src="https://github.com/CopilotKit/CopilotKit/assets/746397/bd5c9079-929b-4d55-bdc9-16d1c8181b71" width="450px" max-width="100%"/>
   </picture>
   </a>
 </div>
@@ -11,13 +11,13 @@
   <a href="https://discord.gg/6dffbvGU3D">
       <img src="https://dcbadge.vercel.app/api/server/6dffbvGU3D?compact=true&style=flat" alt="Discord">
   </a>
-  <a href="https://github.com/RecursivelyAI/CopilotKit/actions/workflows/ci.yml">
-      <img src="https://github.com/RecursivelyAI/CopilotKit/actions/workflows/ci.yml/badge.svg" alt="GitHub CI">
+  <a href="https://github.com/CopilotKit/CopilotKit/actions/workflows/ci.yml">
+      <img src="https://github.com/CopilotKit/CopilotKit/actions/workflows/ci.yml/badge.svg" alt="GitHub CI">
   </a>
 
   <a href="https://www.npmjs.com/package/@copilotkit/react-core">
     <img src="https://img.shields.io/npm/v/@copilotkit/react-core" alt="NPM">
-  <img src="https://img.shields.io/github/license/novuhq/novu" alt="MIT">
+  <img src="https://img.shields.io/github/license/CopilotKit/CopilotKit" alt="MIT">
   
 </p>
 
@@ -39,9 +39,9 @@ In-app chatbots, and AI-enabled TextArea.
     ·
     <a href="https://copilotkit.ai?utm_medium=github&utm_source=github">Website</a>
     ·
-    <a href="https://github.com/RecursivelyAI/CopilotKit/issues/new?assignees=&labels=bug&projects=&template=bug_report.md&title=">Report Bug</a>
+    <a href="https://github.com/CopilotKit/CopilotKit/issues/new?assignees=&labels=bug&projects=&template=bug_report.md&title=">Report Bug</a>
     ·
-    <a href="https://github.com/RecursivelyAI/CopilotKit/issues/new?assignees=&labels=feature+request&projects=&template=feature_request.md&title=">Request Feature</a>
+    <a href="https://github.com/CopilotKit/CopilotKit/issues/new?assignees=&labels=feature+request&projects=&template=feature_request.md&title=">Request Feature</a>
 </p>
 
  <p align="center">
@@ -53,7 +53,7 @@ In-app chatbots, and AI-enabled TextArea.
 
 
 <div align="center">
-  <img src="https://github.com/RecursivelyAI/CopilotKit/assets/746397/1aa17608-46a5-4e2f-aad5-19c8f5c5f1bd" height="220px" style="border-radius: 35px;">
+  <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/1aa17608-46a5-4e2f-aad5-19c8f5c5f1bd" height="220px" style="border-radius: 35px;">
 </div>
 <br/>
 
@@ -101,7 +101,7 @@ Combines frontend SDKs, backend SDKs, and (optional) cloud infrastructure. Open-
 ## Demo
 **2-min showcase + 2-min implementation tutorial:**
 
-https://github.com/RecursivelyAI/CopilotKit/assets/746397/b0cdf38b-ec5c-4e95-8623-364bafb70907
+https://github.com/CopilotKit/CopilotKit/assets/746397/b0cdf38b-ec5c-4e95-8623-364bafb70907
 
 
 ## Installation
