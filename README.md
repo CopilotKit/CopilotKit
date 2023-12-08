@@ -21,6 +21,7 @@
   
 </p>
 
+
 <h1 align="center">
 The Open-Source Copilot Platform
 </h1>
@@ -28,6 +29,14 @@ The Open-Source Copilot Platform
 <h3 align="center">
 In-app chatbots, and AI-enabled TextArea.
 </h3>
+
+<div align="center">
+  <picture>
+    <img alt="Backed by Techstars" src="https://github.com/CopilotKit/CopilotKit/assets/746397/a5029e89-0986-4dfc-bbd6-61d18944ae59" width="150px" max-width="100%"/>
+  </picture>
+  </a>
+</div>
+
 
 <p align="center">
   <br />
