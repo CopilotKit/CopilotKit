@@ -27,7 +27,7 @@ The Open-Source Copilot Platform
 </h1>
 
 <h3 align="center">
-In-app chatbots, and AI-enabled TextArea.
+in-app chatbots, and AI-enabled Textareas.
 </h3>
 
 <div align="center">
