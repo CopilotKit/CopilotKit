@@ -62,7 +62,7 @@ in-app chatbots, and AI-enabled Textareas.
 
 
 <div align="center">
-  <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/1aa17608-46a5-4e2f-aad5-19c8f5c5f1bd" height="220px" style="border-radius: 35px;">
+  <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/1aa17608-46a5-4e2f-aad5-19c8f5c5f1bd" width="900px" max-width="100%" style="border-radius: 35px;">
 </div>
 <br/>
 
