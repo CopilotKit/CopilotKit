@@ -27,7 +27,7 @@ The Open-Source Copilot Platform
 </h1>
 
 <h3 align="center">
-In-app chatbots, and AI-enabled TextArea.
+in-app chatbots, and AI-enabled Textareas.
 </h3>
 
 <div align="center">
@@ -62,7 +62,7 @@ In-app chatbots, and AI-enabled TextArea.
 
 
 <div align="center">
-  <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/1aa17608-46a5-4e2f-aad5-19c8f5c5f1bd" height="220px" style="border-radius: 35px;">
+  <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/1aa17608-46a5-4e2f-aad5-19c8f5c5f1bd" width="900px" max-width="100%" style="border-radius: 35px;">
 </div>
 <br/>
 
