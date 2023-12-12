@@ -89,7 +89,7 @@ Combines frontend SDKs, backend SDKs, and (optional) cloud infrastructure. Open-
 - ✅ AI editing ✨ - "list the client's top 3 pain points from the last call using @SalesforceData"
 - 🟩 Generate from scratch ✨ - automatically populate the initial content based on given context
 - ✅ App context & 3rd party context with `useMakeCopilotReadable` and `useMakeCopilotDocumentReadable`
-- ✅ Fully custsomizable prompt engineering
+- ✅ Fully customizable prompt engineering
 - 🟩 Arbitrary LLM chains.
 - 🟩 Bold + italics.
 
