@@ -11,9 +11,21 @@ export function makeRenderElementFunction(
         return <DefaultElement {...props} />;
       case "suggestion":
         return <SuggestionElement {...props} suggestionsStyle={suggestionsStyle} />;
+      case "bold": // Handle bold formatting
+        return <BoldElement {...props} />;
+      case "italic": // Handle italic formatting
+        return <ItalicElement {...props} />;
     }
   };
 }
+
+const BoldElement = (props: RenderElementProps) => {
+  return <strong {...props.attributes}>{props.children}</strong>;
+};
+
+const ItalicElement = (props: RenderElementProps) => {
+  return <em {...props.attributes}>{props.children}</em>;
+};
 
 const DefaultElement = (props: RenderElementProps) => {
   return <div {...props.attributes}>{props.children}</div>;

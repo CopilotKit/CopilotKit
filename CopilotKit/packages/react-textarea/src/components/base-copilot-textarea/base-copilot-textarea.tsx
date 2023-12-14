@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Descendant, Editor } from "slate";
-import { Editable, Slate } from "slate-react";
+import { Descendant, Editor ,Transforms, Text } from "slate";
+import { Editable, Slate,RenderElementProps } from "slate-react";
 import { twMerge } from "tailwind-merge";
 import { useAutosuggestions } from "../../hooks/base-copilot-textarea-implementation/use-autosuggestions";
 import { useCopilotTextareaEditor } from "../../hooks/base-copilot-textarea-implementation/use-copilot-textarea-editor";
@@ -128,8 +128,54 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       };
     }, [props.suggestionsStyle]);
 
+   const toggleFormat = (editor: Editor, format: string) => {
+  const isActive = isFormatActive(editor, format);
+  Transforms.setNodes(
+    editor,
+    { [format]: isActive ? null : true },
+    { match: Text.isText, split: true }
+  );
+};
+
+const isFormatActive = (editor: Editor, format: string) => {
+  const [match] = Editor.nodes(editor, {
+    match: (n) => n[format] === true,
+    universal: true,
+  });
+  return !!match;
+};
+
+const boldElement = (props: RenderElementProps) => {
+  return (
+    <strong
+      {...props.attributes}
+      onClick={() => toggleFormat(props.editor, 'bold')}
+      style={{ fontWeight: isFormatActive(props.editor, 'bold') ? 'bold' : 'normal' }}
+    >
+      {props.children}
+    </strong>
+  );
+};
+
+const italicElement = (props: RenderElementProps) => {
+  return (
+    <em
+      {...props.attributes}
+      onClick={() => toggleFormat(props.editor, 'italic')}
+      style={{ fontStyle: isFormatActive(props.editor, 'italic') ? 'italic' : 'normal' }}
+    >
+      {props.children}
+    </em>
+  );
+};
+
+
     const renderElementMemoized = useMemo(() => {
-      return makeRenderElementFunction(suggestionStyleAugmented);
+      return makeRenderElementFunction({
+        suggestionStyleAugmented,
+        bold: boldElement,
+        italic: italicElement,
+      });
     }, [suggestionStyleAugmented]);
 
     const renderPlaceholderMemoized = useMemo(() => {
