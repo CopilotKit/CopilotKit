@@ -80,12 +80,12 @@ Make sure to install the `ai` and `portkey-ai` packages:
 ```ts /api/copilotkit/chat/route.ts (NextJS)
 import { OpenAIStream, StreamingTextResponse } from "ai";
 import Portkey from "portkey-ai";
-import { CompletionsBodyStreaming } from 'portkey-ai/apis/completions';
+import { CompletionsBodyStreaming } from "portkey-ai/src/apis/completions";
 
 const portkey = new Portkey({
   apiKey: process.env.PORTKEY_API_KEY,       // Get from https://app.portkey.ai/
   /*****************************/  
-  provider: 'openai'                         // Change to 'azure-openai', 'anthropic', 'google-palm', 'anyscale' etc.
+  provider: 'openai',                        // Change to 'azure-openai', 'anthropic', 'google-palm', 'anyscale' etc.
   Authorization: process.env.OPENAI_API_KEY, // Pass the Bearer auth key for the chosen provider
   /*****************************/
 });
