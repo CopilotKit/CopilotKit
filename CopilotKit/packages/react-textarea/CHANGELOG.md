@@ -1,5 +1,16 @@
 # ui
 
+## 0.26.0-alpha.0
+
+### Minor Changes
+
+- backend sdks prep
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.15.0-alpha.0
+
 ## 0.25.0
 
 ### Minor Changes
