@@ -36,6 +36,7 @@
   "dependencies": {
     "ai": "^2.2.12",
     "nanoid": "^4.0.2",
-    "openai": "^4.6.0"
+    "openai": "^4.6.0",
+    "portkey-ai": "^1.1.0"
   }
 }
