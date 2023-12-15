@@ -63,7 +63,7 @@ export function useCopilotChat({
     headers: { ...copilotApiConfig.headers, ...options.headers },
     body: {
       id: options.id,
-      functions: functionDescriptions,
+      functions: functionDescriptions.length > 0 ? functionDescriptions : undefined,
       ...copilotApiConfig.body,
       ...options.body,
     },
