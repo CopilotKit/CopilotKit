@@ -88,6 +88,9 @@ export function useCopilotChatV2(options: UseCopilotChatOptionsV2): UseCopilotCh
     setInput("");
 
     const apiUrl = copilotApiConfigExtrapolator(copilotApiConfig).chatApiEndpointV2;
+
+    const functions = getChatCompletionFunctionDescriptions();
+
     const result = await fetch(apiUrl, {
       method: "POST",
       headers: {
@@ -99,7 +102,7 @@ export function useCopilotChatV2(options: UseCopilotChatOptionsV2): UseCopilotCh
         // always use user-provided threadId when available:
         threadId: options.threadId ?? threadId ?? null,
         message: input,
-        functions: getChatCompletionFunctionDescriptions(),
+        ...(functions.length > 0 && { functions: functions }),
         ...copilotApiConfig.body,
         ...options.body,
       }),
