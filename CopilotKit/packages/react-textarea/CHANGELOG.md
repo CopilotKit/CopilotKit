@@ -1,5 +1,16 @@
 # ui
 
+## 0.26.0-alpha.1
+
+### Minor Changes
+
+- Filter out empty function descriptions
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.15.0-alpha.1
+
 ## 0.26.0-alpha.0
 
 ### Minor Changes

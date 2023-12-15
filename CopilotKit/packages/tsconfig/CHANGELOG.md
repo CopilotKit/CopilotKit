@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.6.0-alpha.1
+
+### Minor Changes
+
+- Filter out empty function descriptions
+
 ## 0.6.0-alpha.0
 
 ### Minor Changes
