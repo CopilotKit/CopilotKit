@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.6.0-alpha.6
+
+### Minor Changes
+
+- rebase
+
 ## 0.6.0-alpha.5
 
 ### Minor Changes
