@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.6.0-alpha.5
+
+### Minor Changes
+
+- carry function propagation fix to chat v2
+
 ## 0.6.0-alpha.4
 
 ### Minor Changes

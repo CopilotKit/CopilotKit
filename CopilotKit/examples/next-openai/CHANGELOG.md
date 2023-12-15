@@ -1,5 +1,20 @@
 # web
 
+## 1.11.0-alpha.5
+
+### Minor Changes
+
+- carry function propagation fix to chat v2
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.26.0-alpha.5
+  - @copilotkit/react-core@0.15.0-alpha.5
+  - @copilotkit/react-ui@0.13.0-alpha.5
+  - @copilotkit/shared@0.1.0-alpha.5
+  - @copilotkit/cloud@0.1.0-alpha.5
+
 ## 1.11.0-alpha.4
 
 ### Minor Changes

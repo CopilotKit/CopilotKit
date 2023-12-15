@@ -1,5 +1,16 @@
 # ui
 
+## 0.15.0-alpha.5
+
+### Minor Changes
+
+- carry function propagation fix to chat v2
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.1.0-alpha.5
+
 ## 0.15.0-alpha.4
 
 ### Minor Changes
