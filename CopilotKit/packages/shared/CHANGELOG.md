@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 0.1.0-alpha.2
+
+### Minor Changes
+
+- trying again
+
 ## 0.1.0-alpha.1
 
 ### Minor Changes

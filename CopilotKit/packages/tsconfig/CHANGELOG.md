@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.6.0-alpha.2
+
+### Minor Changes
+
+- trying again
+
 ## 0.6.0-alpha.1
 
 ### Minor Changes
