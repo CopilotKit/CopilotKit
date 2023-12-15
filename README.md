@@ -238,7 +238,7 @@ function Department(props: DepartmentProps): JSX.Element {
   // Let the copilot take action on behalf of the user.
   useMakeCopilotActionable(
     {
-      name: "setEmployeesAsSelected",
+      name: "setEmployeesAsSelected", // no spaces allowed in the function name
       description: "Set the given employees as 'selected'",
       argumentAnnotations: [
         {
