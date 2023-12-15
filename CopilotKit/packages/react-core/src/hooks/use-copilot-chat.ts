@@ -55,9 +55,6 @@ export function useCopilotChat({
     return getChatCompletionFunctionDescriptions();
   }, [getChatCompletionFunctionDescriptions]);
 
-  const forwardedFunctionDescriptions = functionDescriptions.length > 0 ? functionDescriptions : undefined;
-  console.log("forwardedFunctionDescriptions", forwardedFunctionDescriptions);
-
   const { messages, append, reload, stop, isLoading, input, setInput } = useChat({
     ...options,
     api: copilotApiConfigExtrapolator(copilotApiConfig).chatApiEndpoint,
@@ -67,7 +64,7 @@ export function useCopilotChat({
     headers: { ...copilotApiConfig.headers, ...options.headers },
     body: {
       id: options.id,
-      functions: forwardedFunctionDescriptions,
+      ...((functionDescriptions.length > 0) && { functions: functionDescriptions }),
       ...copilotApiConfig.body,
       ...options.body,
     },
