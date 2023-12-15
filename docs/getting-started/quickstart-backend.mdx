@@ -29,7 +29,7 @@ Make sure to install the `ai` and `openai` packages:
 ```ts /api/copilotkit/chat/route.ts (NextJS)
 import { OpenAIStream, StreamingTextResponse } from "ai";
 import OpenAI from "openai";
-import { CompletionCreateParamsStreaming } from "openai/resources/chat/completions";
+import { ChatCompletionCreateParamsStreaming } from "openai/resources/chat/completions";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -44,7 +44,7 @@ export async function POST(req: Request): Promise<Response> {
     model: "gpt-4",
     ...forwardedProps,
     stream: true,
-  } as CompletionCreateParamsStreaming);
+  } as ChatCompletionCreateParamsStreaming);
 
   const stream = OpenAIStream(response, {
     experimental_onFunctionCall: async (
