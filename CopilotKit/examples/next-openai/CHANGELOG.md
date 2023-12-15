@@ -1,5 +1,20 @@
 # web
 
+## 1.11.0-alpha.4
+
+### Minor Changes
+
+- only forward functions if non-empty
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.26.0-alpha.4
+  - @copilotkit/react-core@0.15.0-alpha.4
+  - @copilotkit/react-ui@0.13.0-alpha.4
+  - @copilotkit/shared@0.1.0-alpha.4
+  - @copilotkit/cloud@0.1.0-alpha.4
+
 ## 1.11.0-alpha.3
 
 ### Minor Changes

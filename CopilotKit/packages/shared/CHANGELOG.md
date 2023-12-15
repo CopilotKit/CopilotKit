@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 0.1.0-alpha.4
+
+### Minor Changes
+
+- only forward functions if non-empty
+
 ## 0.1.0-alpha.3
 
 ### Minor Changes

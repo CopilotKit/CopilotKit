@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.6.0-alpha.4
+
+### Minor Changes
+
+- only forward functions if non-empty
+
 ## 0.6.0-alpha.3
 
 ### Minor Changes

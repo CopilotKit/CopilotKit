@@ -1,5 +1,16 @@
 # ui
 
+## 0.15.0-alpha.4
+
+### Minor Changes
+
+- only forward functions if non-empty
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.1.0-alpha.4
+
 ## 0.15.0-alpha.3
 
 ### Minor Changes
