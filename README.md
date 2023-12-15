@@ -79,6 +79,15 @@ Starting with React. Use any LLM. <br/>
 Combines frontend SDKs, backend SDKs, and (optional) cloud infrastructure. Open-source 🪁
 
 
+## Installation
+
+```bash
+npm i @copilotkit/react-core @copilotkit/react-ui @copilotkit/react-textarea
+```
+
+
+## Getting started
+See quickstart in the [docs](https://docs.copilotkit.ai)
 
 
 ## 🎯 Features Overview
@@ -113,14 +122,8 @@ Combines frontend SDKs, backend SDKs, and (optional) cloud infrastructure. Open-
 https://github.com/CopilotKit/CopilotKit/assets/746397/b0cdf38b-ec5c-4e95-8623-364bafb70907
 
 
-## Installation
 
-```bash
-npm i @copilotkit/react-core @copilotkit/react-ui @copilotkit/react-textarea
-```
 
-## Getting started
-See quickstart in the [docs](https://docs.copilotkit.ai)
 
 
 ## Examples
