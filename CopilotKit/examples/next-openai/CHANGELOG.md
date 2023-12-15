@@ -1,5 +1,20 @@
 # web
 
+## 1.11.0-alpha.3
+
+### Minor Changes
+
+- debugging
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.26.0-alpha.3
+  - @copilotkit/react-core@0.15.0-alpha.3
+  - @copilotkit/react-ui@0.13.0-alpha.3
+  - @copilotkit/shared@0.1.0-alpha.3
+  - @copilotkit/cloud@0.1.0-alpha.3
+
 ## 1.11.0-alpha.2
 
 ### Minor Changes

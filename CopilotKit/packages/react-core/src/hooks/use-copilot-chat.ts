@@ -56,6 +56,7 @@ export function useCopilotChat({
   }, [getChatCompletionFunctionDescriptions]);
 
   const forwardedFunctionDescriptions = functionDescriptions.length > 0 ? functionDescriptions : undefined;
+  console.log("forwardedFunctionDescriptions", forwardedFunctionDescriptions);
 
   const { messages, append, reload, stop, isLoading, input, setInput } = useChat({
     ...options,
