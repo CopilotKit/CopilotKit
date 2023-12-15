@@ -1,6 +1,6 @@
 import { OpenAIStream, StreamingTextResponse } from "ai";
 import OpenAI from "openai";
-import { CompletionCreateParamsStreaming } from "openai/resources/chat/completions";
+import { ChatCompletionCreateParamsStreaming } from "openai/resources/chat/completions";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -15,7 +15,7 @@ export async function POST(req: Request): Promise<Response> {
     model: "gpt-4-1106-preview",
     ...forwardedProps,
     stream: true,
-  } as CompletionCreateParamsStreaming);
+  } as ChatCompletionCreateParamsStreaming);
 
   const stream = OpenAIStream(response, {
     experimental_onFunctionCall: async ({ name, arguments: args }, createFunctionCallMessages) => {

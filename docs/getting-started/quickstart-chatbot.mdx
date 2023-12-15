@@ -32,6 +32,8 @@ For simplicity's sake, it's recommended you wrap both around your entire applica
 "use client";
 import { CopilotProvider } from "@copilotkit/react-core";
 import { CopilotSidebarUIProvider } from "@copilotkit/react-ui";
+import "@copilotkit/react-textarea/styles.css"; // also import this if you want to use the CopilotTextarea component
+import "@copilotkit/react-ui/styles.css"; // also import this if you want to use the chatbot component
 
 export default function RootLayout({children}) {
   return (
@@ -87,7 +89,7 @@ function SomeComponent(): JSX.Element {
 // Let the copilot take action on behalf of the user.
 useMakeCopilotActionable(
   {
-    name: "setEmployeesAsSelected",
+    name: "setEmployeesAsSelected", // no spaces allowed in the function name
     description: "Set the given employees as 'selected'",
     argumentAnnotations: [
       {

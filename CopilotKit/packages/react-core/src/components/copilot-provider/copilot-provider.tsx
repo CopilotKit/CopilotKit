@@ -1,24 +1,52 @@
 "use client";
-import { FunctionCallHandler } from "ai";
-import { ReactNode, useCallback, useState } from "react";
-import { CopilotContext, CopilotApiConfig } from "../context/copilot-context";
-import useTree from "../hooks/use-tree";
-import { AnnotatedFunction } from "../types/annotated-function";
-import { ChatCompletionCreateParams } from "openai/resources/chat";
-import { DocumentPointer } from "../types";
-import useFlatCategoryStore from "../hooks/use-flat-category-store";
 
-export function CopilotProvider({
-  chatApiEndpoint,
-  headers,
-  body,
-  children,
-}: {
-  chatApiEndpoint: string;
-  headers?: Record<string, string>;
-  body?: Record<string, any>;
-  children: ReactNode;
-}): JSX.Element {
+import { FunctionCallHandler } from "ai";
+import { useCallback, useState } from "react";
+import { CopilotContext, CopilotApiConfig } from "../../context/copilot-context";
+import useTree from "../../hooks/use-tree";
+import { AnnotatedFunction } from "../../types/annotated-function";
+import { ChatCompletionCreateParams } from "openai/resources/chat";
+import { DocumentPointer } from "../../types";
+import useFlatCategoryStore from "../../hooks/use-flat-category-store";
+import { StandardCopilotApiConfig } from "./standard-cpilot-api-config";
+import { CopilotProviderProps } from "./copilot-provider-props";
+
+/**
+ * The CopilotProvider component.
+ * This component provides the Copilot context to its children.
+ * It can be configured either with a chat API endpoint or a CopilotApiConfig.
+ *
+ * Example usage:
+ * ```
+ * <CopilotProvider chatApiEndpoint="https://api.copilot.chat">
+ *    <App />
+ * </CopilotProvider>
+ * ```
+ *
+ * or
+ *
+ * ```
+ * const copilotApiConfig = new StandardCopilotApiConfig(
+ *  "https://api.copilot.chat",
+ *  "https://api.copilot.chat/v2",
+ *  {},
+ *  {}
+ *  );
+ *
+ * // ...
+ *
+ * <CopilotProvider chatApiConfig={copilotApiConfig}>
+ *    <App />
+ * </CopilotProvider>
+ * ```
+ *
+ * @param props - The props for the component.
+ * @returns The CopilotProvider component.
+ */
+export function CopilotProvider({ children, ...props }: CopilotProviderProps): JSX.Element {
+  // Compute all the functions and properties that we need to pass
+  // to the CopilotContext.
+
   const [entryPoints, setEntryPoints] = useState<Record<string, AnnotatedFunction<any[]>>>({});
 
   const { addElement, removeElement, printTree } = useTree();
@@ -107,6 +135,19 @@ export function CopilotProvider({
     [removeDocument],
   );
 
+  // get the appropriate CopilotApiConfig from the props
+  let copilotApiConfig: CopilotApiConfig;
+  if ("chatApiEndpoint" in props) {
+    copilotApiConfig = new StandardCopilotApiConfig(
+      props.chatApiEndpoint,
+      props.chatApiEndpointV2 || `${props.chatApiEndpoint}/v2`,
+      {},
+      {},
+    );
+  } else {
+    copilotApiConfig = props.chatApiConfig;
+  }
+
   return (
     <CopilotContext.Provider
       value={{
@@ -121,11 +162,7 @@ export function CopilotProvider({
         getDocumentsContext,
         addDocumentContext,
         removeDocumentContext,
-        copilotApiConfig: {
-          chatApiEndpoint,
-          headers: headers || {},
-          body: body || {},
-        },
+        copilotApiConfig: copilotApiConfig,
       }}
     >
       {children}

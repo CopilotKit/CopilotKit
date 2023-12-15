@@ -17,6 +17,11 @@ export interface CopilotApiConfig {
   chatApiEndpoint: string;
 
   /**
+   * The endpoint for the chat API v2.
+   */
+  chatApiEndpointV2: string;
+
+  /**
    * additional headers to be sent with the request
    * @default {}
    * @example
@@ -45,6 +50,9 @@ export function copilotApiConfigExtrapolator(config: CopilotApiConfig) {
   return {
     get chatApiEndpoint(): string {
       return `${config.chatApiEndpoint}`;
+    },
+    get chatApiEndpointV2(): string {
+      return `${config.chatApiEndpointV2}`;
     },
   };
 }
@@ -89,6 +97,11 @@ const emptyCopilotContext: CopilotContextParams = {
 
   copilotApiConfig: new (class implements CopilotApiConfig {
     get chatApiEndpoint(): string {
+      throw new Error(
+        "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!",
+      );
+    }
+    get chatApiEndpointV2(): string {
       throw new Error(
         "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!",
       );

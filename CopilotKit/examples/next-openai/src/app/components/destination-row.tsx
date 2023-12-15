@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import { Destination } from "./vacation-list";
 import { useMakeCopilotReadable } from "@copilotkit/react-core";

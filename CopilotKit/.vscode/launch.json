@@ -29,7 +29,7 @@
             "sourceMaps": true
         },
         {
-            "name": "run everything in dev mode",
+            "name": "run packages in dev mode",
             "type": "node",
             "request": "launch",
             "runtimeExecutable": "pnpm",
@@ -37,7 +37,7 @@
                 "run",
                 "dev"
             ],
-            "cwd": "${workspaceFolder}",
+            "cwd": "${workspaceFolder}/packages",
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen"
         }
@@ -45,7 +45,7 @@
     "compounds": [
         {
             "name": "examples/next-openai: Full",
-            "configurations": ["run everything in dev mode", "examples/next-openai: Node", "examples/next-openai: Chrome"]
+            "configurations": ["run packages in dev mode", "examples/next-openai: Node", "examples/next-openai: Chrome"]
         }
     ]
 }

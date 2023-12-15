@@ -8,6 +8,7 @@ import { useChat } from "ai/react";
 import { ChatRequestOptions, CreateMessage, Message } from "ai";
 import { UseChatOptions } from "ai";
 import { defaultCopilotContextCategories } from "../components";
+import { ChatCompletionCreateParams } from "openai/resources/chat";
 
 export interface UseCopilotChatOptions extends UseChatOptions {
   makeSystemMessage?: (contextString: string) => string;
@@ -50,7 +51,7 @@ export function useCopilotChat({
 
   const initialMessagesWithContext = [systemMessage].concat(options.initialMessages || []);
 
-  const functionDescriptions = useMemo(() => {
+  const functionDescriptions: ChatCompletionCreateParams.Function[] = useMemo(() => {
     return getChatCompletionFunctionDescriptions();
   }, [getChatCompletionFunctionDescriptions]);
 
@@ -63,7 +64,7 @@ export function useCopilotChat({
     headers: { ...copilotApiConfig.headers, ...options.headers },
     body: {
       id: options.id,
-      functions: functionDescriptions,
+      ...(functionDescriptions.length > 0 && { functions: functionDescriptions }),
       ...copilotApiConfig.body,
       ...options.body,
     },
