@@ -1,5 +1,18 @@
 # tsconfig
 
+## 0.6.0
+
+### Minor Changes
+
+- 8a5cecd: only forward functions if non-empty
+- 87f1fa0: rebase
+- 15d4afc: debugging
+- c40a0d1: Filter out empty function descriptions
+- prep for chat protocol v2
+- bbd152e: backend sdks prep
+- 8517bb1: trying again
+- 478840a: carry function propagation fix to chat v2
+
 ## 0.6.0-alpha.6
 
 ### Minor Changes

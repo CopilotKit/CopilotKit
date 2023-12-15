@@ -1,5 +1,30 @@
 # @copilotkit/cloud
 
+## 0.1.0
+
+### Minor Changes
+
+- 8a5cecd: only forward functions if non-empty
+- 87f1fa0: rebase
+- 15d4afc: debugging
+- c40a0d1: Filter out empty function descriptions
+- prep for chat protocol v2
+- bbd152e: backend sdks prep
+- 8517bb1: trying again
+- 478840a: carry function propagation fix to chat v2
+
+### Patch Changes
+
+- Updated dependencies [8a5cecd]
+- Updated dependencies [87f1fa0]
+- Updated dependencies [15d4afc]
+- Updated dependencies [c40a0d1]
+- Updated dependencies
+- Updated dependencies [bbd152e]
+- Updated dependencies [8517bb1]
+- Updated dependencies [478840a]
+  - @copilotkit/shared@0.1.0
+
 ## 0.1.0-alpha.6
 
 ### Minor Changes
