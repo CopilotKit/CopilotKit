@@ -4,6 +4,8 @@ export type RenderElementFunction = (props: RenderElementProps) => JSX.Element;
 
 export function makeRenderElementFunction(
   suggestionsStyle: React.CSSProperties,
+  boldElement: (props: RenderElementProps) => JSX.Element,
+  italicElement: (props: RenderElementProps) => JSX.Element,
 ): RenderElementFunction {
   return (props: RenderElementProps) => {
     switch (props.element.type) {
@@ -11,6 +13,18 @@ export function makeRenderElementFunction(
         return <DefaultElement {...props} />;
       case "suggestion":
         return <SuggestionElement {...props} suggestionsStyle={suggestionsStyle} />;
+      case "bold": // Handle bold formatting using CSS
+        return (
+          <span {...props.attributes} style={{ fontWeight: "bold" }}>
+            {props.children}
+          </span>
+        );
+      case "italic": // Handle italic formatting using CSS
+        return (
+          <span {...props.attributes} style={{ fontStyle: "italic" }}>
+            {props.children}
+          </span>
+        );
     }
   };
 }

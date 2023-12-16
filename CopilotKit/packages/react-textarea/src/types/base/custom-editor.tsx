@@ -15,8 +15,17 @@ export type SuggestionElement = {
   content: string;
   children: CustomText[];
 };
+export type BoldElement = {
+  type: "bold";
+  children: CustomText[];
+};
 
-export type CustomElement = ParagraphElement | SuggestionElement;
+export type ItalicElement = {
+  type: "italic";
+  children: CustomText[];
+};
+
+export type CustomElement = ParagraphElement | SuggestionElement | BoldElement | ItalicElement;
 export type SuggestionAwareText = { text: string };
 export type CustomText = SuggestionAwareText;
 
