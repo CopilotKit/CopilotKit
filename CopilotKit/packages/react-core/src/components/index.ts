@@ -1,1 +1,1 @@
-export { CopilotProvider, defaultCopilotContextCategories } from "./copilot-provider";
+export * from "./copilot-provider";

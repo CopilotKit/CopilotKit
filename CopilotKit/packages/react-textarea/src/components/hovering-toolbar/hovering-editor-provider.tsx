@@ -10,12 +10,16 @@ const HoveringEditorContext = createContext<HoveringEditorContextProps>({
   setIsDisplayed: () => {},
 });
 
-interface HoveringEditorProviderProps {
+export interface HoveringEditorProviderProps {
   children: ReactNode;
 }
 
-export const HoveringEditorProvider = ({ children }: HoveringEditorProviderProps) => {
-  const [isDisplayed, setIsDisplayed] = useState(false);
+/**
+ * A context provider for the hovering editor over the `CopilotTextarea`
+ * (used to edit and insert text into the `CopilotTextarea`).
+ */
+export const HoveringEditorProvider: React.FC<HoveringEditorProviderProps> = ({ children }) => {
+  const [isDisplayed, setIsDisplayed] = useState<boolean>(false);
 
   return (
     <HoveringEditorContext.Provider value={{ isDisplayed, setIsDisplayed }}>

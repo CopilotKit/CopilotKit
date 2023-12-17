@@ -1,5 +1,139 @@
 # web
 
+## 1.11.0
+
+### Minor Changes
+
+- 8a5cecd: only forward functions if non-empty
+- 87f1fa0: rebase
+- 15d4afc: debugging
+- c40a0d1: Filter out empty function descriptions
+- prep for chat protocol v2
+- bbd152e: backend sdks prep
+- 8517bb1: trying again
+- 478840a: carry function propagation fix to chat v2
+
+### Patch Changes
+
+- Updated dependencies [8a5cecd]
+- Updated dependencies [87f1fa0]
+- Updated dependencies [15d4afc]
+- Updated dependencies [c40a0d1]
+- Updated dependencies
+- Updated dependencies [bbd152e]
+- Updated dependencies [8517bb1]
+- Updated dependencies [478840a]
+  - @copilotkit/react-textarea@0.26.0
+  - @copilotkit/react-core@0.15.0
+  - @copilotkit/react-ui@0.13.0
+  - @copilotkit/shared@0.1.0
+  - @copilotkit/cloud@0.1.0
+
+## 1.11.0-alpha.6
+
+### Minor Changes
+
+- rebase
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.26.0-alpha.6
+  - @copilotkit/react-core@0.15.0-alpha.6
+  - @copilotkit/react-ui@0.13.0-alpha.6
+  - @copilotkit/shared@0.1.0-alpha.6
+  - @copilotkit/cloud@0.1.0-alpha.6
+
+## 1.11.0-alpha.5
+
+### Minor Changes
+
+- carry function propagation fix to chat v2
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.26.0-alpha.5
+  - @copilotkit/react-core@0.15.0-alpha.5
+  - @copilotkit/react-ui@0.13.0-alpha.5
+  - @copilotkit/shared@0.1.0-alpha.5
+  - @copilotkit/cloud@0.1.0-alpha.5
+
+## 1.11.0-alpha.4
+
+### Minor Changes
+
+- only forward functions if non-empty
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.26.0-alpha.4
+  - @copilotkit/react-core@0.15.0-alpha.4
+  - @copilotkit/react-ui@0.13.0-alpha.4
+  - @copilotkit/shared@0.1.0-alpha.4
+  - @copilotkit/cloud@0.1.0-alpha.4
+
+## 1.11.0-alpha.3
+
+### Minor Changes
+
+- debugging
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.26.0-alpha.3
+  - @copilotkit/react-core@0.15.0-alpha.3
+  - @copilotkit/react-ui@0.13.0-alpha.3
+  - @copilotkit/shared@0.1.0-alpha.3
+  - @copilotkit/cloud@0.1.0-alpha.3
+
+## 1.11.0-alpha.2
+
+### Minor Changes
+
+- trying again
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.26.0-alpha.2
+  - @copilotkit/react-core@0.15.0-alpha.2
+  - @copilotkit/react-ui@0.13.0-alpha.2
+  - @copilotkit/shared@0.1.0-alpha.2
+  - @copilotkit/cloud@0.1.0-alpha.2
+
+## 1.11.0-alpha.1
+
+### Minor Changes
+
+- Filter out empty function descriptions
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.26.0-alpha.1
+  - @copilotkit/react-core@0.15.0-alpha.1
+  - @copilotkit/react-ui@0.13.0-alpha.1
+  - @copilotkit/shared@0.1.0-alpha.1
+  - @copilotkit/cloud@0.1.0-alpha.1
+
+## 1.11.0-alpha.0
+
+### Minor Changes
+
+- backend sdks prep
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.26.0-alpha.0
+  - @copilotkit/react-core@0.15.0-alpha.0
+  - @copilotkit/react-ui@0.13.0-alpha.0
+  - @copilotkit/shared@0.1.0-alpha.0
+  - @copilotkit/cloud@0.1.0-alpha.0
+
 ## 1.10.0
 
 ### Minor Changes

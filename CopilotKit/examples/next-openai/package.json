@@ -1,6 +1,6 @@
 {
   "name": "next-openai",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "private": true,
   "scripts": {
     "dev": "NODE_OPTIONS='--inspect' next dev",
@@ -10,14 +10,16 @@
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
   },
   "dependencies": {
+    "@copilotkit/cloud": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
-    "@copilotkit/react-ui": "workspace:*",
     "@copilotkit/react-textarea": "workspace:*",
+    "@copilotkit/react-ui": "workspace:*",
     "@heroicons/react": "^2.0.18",
-    "ai": "^2.2.12",
-    "openai": "^4.0.0",
+    "ai": "^2.2.24",
     "next": "^13.4.9",
     "next-themes": "^0.2.1",
+    "openai": "^4.19.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
@@ -31,6 +33,6 @@
     "tailwind-config": "workspace:*",
     "tailwindcss": "^3.2.4",
     "tsconfig": "workspace:*",
-    "typescript": "^4.9.4"
+    "typescript": "^5.1.3"
   }
 }

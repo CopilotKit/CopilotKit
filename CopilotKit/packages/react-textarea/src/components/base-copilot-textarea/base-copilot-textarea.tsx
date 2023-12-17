@@ -27,12 +27,62 @@ import {
 import { EditorAutocompleteState } from "../../types/base/editor-autocomplete-state";
 import { TrackerTextEditedSinceLastCursorMovement } from "./track-cursor-moved-since-last-text-change";
 
+/**
+ * Purpose: to be used as the `ref` type for `CopilotTextarea` and `BaseCopilotTextarea`.
+ *
+ * This interface extends `HTMLElement`, and is the subset of `HTMLTextAreaElement` that "actually matters".
+ * It provides the core functionality that consumers of `HTMLTextAreaElement` need 99.9% of the time:
+ * - `value`: the current value of the textarea
+ * - `focus`: make the textarea focused
+ * - `blur`: make the textarea unfocused
+ */
 export interface HTMLCopilotTextAreaElement extends HTMLElement {
+  /**
+   * The current value of the textarea.
+   */
   value: string;
+
+  /**
+   * focus on the textarea
+   */
   focus: () => void;
+
+  /**
+   * unfocus the textarea.
+   *
+   * Called `blur` for syntactic compatibility with `HTMLTextAreaElement`.
+   */
   blur: () => void;
 }
 
+/**
+ * Not intended for direct use. Use CopilotTextarea instead.
+ *
+ * The `BaseCopilotTextarea` includes the basic UX component,
+ * without the business logic / AI logic that makes the content useful and coherent.
+ *
+ * It is useful if you want to build your own backend, with fully custom business logic
+ * for figuring out which contnet to fill in.
+ */
+export const BaseCopilotTextarea = React.forwardRef(
+  (props: BaseCopilotTextareaProps, ref: React.Ref<HTMLCopilotTextAreaElement>): JSX.Element => {
+    return (
+      <HoveringEditorProvider>
+        <BaseCopilotTextareaWithHoveringContext {...props} ref={ref} />
+      </HoveringEditorProvider>
+    );
+  },
+);
+
+/**
+ * Not intended for direct use. Use `CopilotTextarea` instead.
+ *
+ * This is the private core of the `BaseCopilotTextarea` component.
+ * For practical purposes the implementation is cleaner assuming containment in a `HoveringEditorProviderContext`.
+ *
+ * Therefore we separate the core logic into this component,
+ * and wrap it in a `HoveringEditorProviderContext` in `BaseCopilotTextarea`.
+ */
 const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
   (props: BaseCopilotTextareaProps, ref: React.Ref<HTMLCopilotTextAreaElement>): JSX.Element => {
     const autosuggestionsConfig: BaseAutosuggestionsConfig = {
@@ -253,13 +303,3 @@ function makeSemiFakeReactTextAreaEvent(
     },
   } as React.ChangeEvent<HTMLTextAreaElement>;
 }
-
-export const BaseCopilotTextarea = React.forwardRef(
-  (props: BaseCopilotTextareaProps, ref: React.Ref<HTMLCopilotTextAreaElement>): JSX.Element => {
-    return (
-      <HoveringEditorProvider>
-        <BaseCopilotTextareaWithHoveringContext {...props} ref={ref} />
-      </HoveringEditorProvider>
-    );
-  },
-);

@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import { DestinationRow } from "./destination-row";
 import { Destination } from "./vacation-list";

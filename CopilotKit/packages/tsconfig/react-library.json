@@ -3,9 +3,9 @@
   "display": "React Library",
   "extends": "./base.json",
   "compilerOptions": {
-    "lib": ["ES2017", "DOM"],
+    "lib": ["dom", "ES2017"],
     "module": "ESNext",
-    "target": "ES6",
+    "target": "es6",
     "jsx": "react-jsx",
     "sourceMap": true,
     "declarationDir": "./dist",

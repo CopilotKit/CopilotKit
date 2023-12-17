@@ -63,6 +63,17 @@ To see which port was chosen, look in the output logs for something like
 next-openai:dev: - ready started server on 0.0.0.0:3002, url: http://localhost:3002
 ```
 
+## Testing your solution
+Before submitting a pull request, please run the following locally:
+
+1. Lint your code:
+`pnpm -w format`
+
+2. Make sure there are no build errors:
+`pnpm -w freshbuild`
+
+3. Make sure tests are passing
+`pnpm run test`
 
 ## Troubleshooting
 

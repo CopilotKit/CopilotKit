@@ -1,0 +1,24 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"jest.disabledWorkspaceFolders": [
+			"CopilotKit",
+			"eslint-config-custom",
+			"cloud",
+			"react-textarea",
+			"shared",
+			"tsconfig",
+			"react-ui",
+			"react-core",
+			"tailwind-config",
+			"next-openai",
+			".next",
+			"CopilotKit",
+			"types"
+		]
+	}
+}
