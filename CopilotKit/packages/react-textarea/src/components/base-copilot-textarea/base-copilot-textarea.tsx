@@ -145,33 +145,33 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       return !!match;
     };
 
-    const boldElement = (props: RenderElementProps) => {
-      return (
-        <strong
-          {...props.attributes}
-          onClick={() => toggleFormat(props.editor, "bold")}
-          style={{ fontWeight: isFormatActive(props.editor, "bold") ? "bold" : "normal" }}
-        >
-          {props.children}
-        </strong>
-      );
-    };
+    // const boldElement = (props: RenderElementProps) => {
+    //   return (
+    //     <strong
+    //       {...props.attributes}
+    //       onClick={() => toggleFormat(props.editor, "bold")}
+    //       style={{ fontWeight: isFormatActive(props.editor, "bold") ? "bold" : "normal" }}
+    //     >
+    //       {props.children}
+    //     </strong>
+    //   );
+    // };
 
-    const italicElement = (props: RenderElementProps) => {
-      return (
-        <em
-          {...props.attributes}
-          onClick={() => toggleFormat(props.editor, "italic")}
-          style={{ fontStyle: isFormatActive(props.editor, "italic") ? "italic" : "normal" }}
-        >
-          {props.children}
-        </em>
-      );
-    };
+    // const italicElement = (props: RenderElementProps) => {
+    //   return (
+    //     <em
+    //       {...props.attributes}
+    //       onClick={() => toggleFormat(props.editor, "italic")}
+    //       style={{ fontStyle: isFormatActive(props.editor, "italic") ? "italic" : "normal" }}
+    //     >
+    //       {props.children}
+    //     </em>
+    //   );
+    // };
 
     const renderElementMemoized = useMemo(() => {
       return makeRenderElementFunction(suggestionStyleAugmented);
-    }, [suggestionStyleAugmented, boldElement, italicElement]);
+    }, [suggestionStyleAugmented]);
 
     const renderPlaceholderMemoized = useMemo(() => {
       // For some reason slateJS specifies a top value of 0, which makes for strange styling. We override this here.
