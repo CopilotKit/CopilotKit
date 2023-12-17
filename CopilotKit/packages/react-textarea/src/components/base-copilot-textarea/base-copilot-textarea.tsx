@@ -170,7 +170,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
     };
 
     const renderElementMemoized = useMemo(() => {
-      return makeRenderElementFunction(suggestionStyleAugmented, boldElement, italicElement);
+      return makeRenderElementFunction(suggestionStyleAugmented);
     }, [suggestionStyleAugmented, boldElement, italicElement]);
 
     const renderPlaceholderMemoized = useMemo(() => {
