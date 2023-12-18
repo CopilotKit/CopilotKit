@@ -3,7 +3,7 @@ import { RenderElementProps } from "slate-react";
 export type RenderElementFunction = (props: RenderElementProps) => JSX.Element;
 
 export function makeRenderElementFunction(
-  suggestionsStyle: React.CSSProperties
+  suggestionsStyle: React.CSSProperties,
 ): RenderElementFunction {
   return (props: RenderElementProps) => {
     switch (props.element.type) {

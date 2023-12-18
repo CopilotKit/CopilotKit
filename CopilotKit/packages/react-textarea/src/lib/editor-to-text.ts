@@ -36,20 +36,23 @@ function nodeChildrenToTextComponents(
     return true;
   });
 
-  return nonIgnorableItems
-    .map((node) => {
-      if (Element.isElement(node)) {
-        switch (node.type) {
-          case "paragraph":
-            return nodeChildrenToTextComponents(editor, node.children);
-          case "suggestion":
-            return [];
+  return (
+    nonIgnorableItems
+      .map((node) => {
+        if (Element.isElement(node)) {
+          switch (node.type) {
+            case "paragraph":
+              return nodeChildrenToTextComponents(editor, node.children);
+            case "suggestion":
+              return [];
+          }
+        } else {
+          return [node];
         }
-      } else {
-        return [node];
-      }
-    })
-    .reduce((acc : SuggestionAwareText[], val) => acc.concat(val == undefined ?[]: val), []) ?? [];
+      })
+      .reduce((acc: SuggestionAwareText[], val) => acc.concat(val == undefined ? [] : val), []) ??
+    []
+  );
 }
 
 export const editorToText = (editor: BaseEditor & ReactEditor & HistoryEditor) => {
