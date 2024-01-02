@@ -15,10 +15,15 @@ import { CopilotProviderProps } from "./copilot-provider-props";
  * The CopilotProvider component.
  * This component provides the Copilot context to its children.
  * It can be configured either with a chat API endpoint or a CopilotApiConfig.
+ * 
+ * NOTE: The backend can use OpenAI, or you can bring your own LLM.
+ * For examples of the backend api implementation, see `examples/next-openai` usage (under `src/api/copilotkit`),
+ * or read the documentation at https://docs.copilotkit.ai
+ * In particular, Getting-Started > Quickstart-Backend: https://docs.copilotkit.ai/getting-started/quickstart-backend
  *
  * Example usage:
  * ```
- * <CopilotProvider chatApiEndpoint="https://api.copilot.chat">
+ * <CopilotProvider chatApiEndpoint="https://your.copilotkit.api">
  *    <App />
  * </CopilotProvider>
  * ```
@@ -27,8 +32,8 @@ import { CopilotProviderProps } from "./copilot-provider-props";
  *
  * ```
  * const copilotApiConfig = new StandardCopilotApiConfig(
- *  "https://api.copilot.chat",
- *  "https://api.copilot.chat/v2",
+ *  "https://your.copilotkit.api/v1",
+ *  "https://your.copilotkit.api/v2",
  *  {},
  *  {}
  *  );
