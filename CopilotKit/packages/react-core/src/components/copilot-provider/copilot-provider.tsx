@@ -8,7 +8,7 @@ import { AnnotatedFunction } from "../../types/annotated-function";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
 import { DocumentPointer } from "../../types";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
-import { StandardCopilotApiConfig } from "./standard-cpilot-api-config";
+import { StandardCopilotApiConfig } from "./standard-copilot-api-config";
 import { CopilotProviderProps } from "./copilot-provider-props";
 
 /**
