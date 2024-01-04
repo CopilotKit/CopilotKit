@@ -10,7 +10,7 @@ import { useState } from "react";
 
 const HelloWorld = () => {
   return (
-    <CopilotProvider chatApiEndpoint="/api/copilotkit/chat">
+    <CopilotProvider chatApiEndpoint="/api/copilotkit/openai">
       <CopilotSidebarUIProvider>
         <Presentation />
       </CopilotSidebarUIProvider>
