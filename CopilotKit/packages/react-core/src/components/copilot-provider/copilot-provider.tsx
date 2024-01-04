@@ -15,7 +15,7 @@ import { CopilotProviderProps } from "./copilot-provider-props";
  * The CopilotProvider component.
  * This component provides the Copilot context to its children.
  * It can be configured either with a chat API endpoint or a CopilotApiConfig.
- * 
+ *
  * NOTE: The backend can use OpenAI, or you can bring your own LLM.
  * For examples of the backend api implementation, see `examples/next-openai` usage (under `src/api/copilotkit`),
  * or read the documentation at https://docs.copilotkit.ai
@@ -55,6 +55,7 @@ export function CopilotProvider({ children, ...props }: CopilotProviderProps): J
   const [entryPoints, setEntryPoints] = useState<Record<string, AnnotatedFunction<any[]>>>({});
 
   const { addElement, removeElement, printTree } = useTree();
+
   const {
     addElement: addDocument,
     removeElement: removeDocument,
