@@ -6,7 +6,7 @@ import { VacationList } from "./components/vacation-list";
 
 export default function WaterBnb(): JSX.Element {
   return (
-    <CopilotProvider chatApiEndpoint="/api/copilotkit/chat">
+    <CopilotProvider chatApiEndpoint="/api/copilotkit/openai">
       <CopilotSidebarUIProvider>
         <VacationList />
       </CopilotSidebarUIProvider>

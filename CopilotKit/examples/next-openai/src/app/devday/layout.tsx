@@ -10,8 +10,8 @@ type LayoutProps = {
 const Layout = ({ children }: LayoutProps) => {
   return (
     <CopilotProvider
-      chatApiEndpoint="/api/copilotkit/chat"
-      chatApiEndpointV2="/api/copilotkit/v2/assistant"
+      chatApiEndpoint="/api/copilotkit/openai"
+      chatApiEndpointV2="/api/copilotkit_v2_work-in-progress/assistant"
     >
       {children}
     </CopilotProvider>

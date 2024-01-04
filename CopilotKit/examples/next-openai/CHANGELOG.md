@@ -1,5 +1,18 @@
 # web
 
+## 1.12.0
+
+### Minor Changes
+
+- fixed backend pointing
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.16.0
+  - @copilotkit/react-textarea@0.26.1
+  - @copilotkit/react-ui@0.13.1
+
 ## 1.11.0
 
 ### Minor Changes
