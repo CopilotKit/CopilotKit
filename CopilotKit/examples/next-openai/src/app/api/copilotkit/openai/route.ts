@@ -1,12 +1,9 @@
 import { OpenAIStream, StreamingTextResponse } from "ai";
-import Portkey from "portkey-ai";
+import OpenAI from "openai";
+import { ChatCompletionCreateParamsStreaming } from "openai/resources/chat/completions";
 
-const portkey = new Portkey({
-  apiKey: process.env.PORTKEY_API_KEY, // Get from https://app.portkey.ai/
-  /*****************************/
-  provider: "openai", // Change to 'azure-openai', 'anthropic', 'google-palm', 'anyscale' etc.
-  Authorization: process.env.OPENAI_API_KEY, // Pass the Bearer auth key for the chosen provider
-  /*****************************/
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 export const runtime = "edge";
@@ -14,17 +11,11 @@ export const runtime = "edge";
 export async function POST(req: Request): Promise<Response> {
   const forwardedProps = await req.json();
 
-  const portkeyResponse = await portkey.chat.completions.create({
-    model: "gpt-4",
+  const response = await openai.chat.completions.create({
+    model: "gpt-4-1106-preview",
     ...forwardedProps,
     stream: true,
-  });
-
-  const jsonResponseString = JSON.stringify(portkeyResponse);
-
-  const response = new Response(jsonResponseString, {
-    headers: { "Content-Type": "application/json" },
-  });
+  } as ChatCompletionCreateParamsStreaming);
 
   const stream = OpenAIStream(response, {
     experimental_onFunctionCall: async ({ name, arguments: args }, createFunctionCallMessages) => {
