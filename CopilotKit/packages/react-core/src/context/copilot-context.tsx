@@ -66,14 +66,14 @@ export interface CopilotContextParams {
   getFunctionCallHandler: () => FunctionCallHandler;
 
   // text context
-  getContextString: (documents: DocumentPointer[], categories: string[]) => string;
   addContext: (context: string, parentId?: string, categories?: string[]) => TreeNodeId;
   removeContext: (id: TreeNodeId) => void;
+  getContextString: (documents: DocumentPointer[], categories: string[]) => string;
 
   // document context
-  getDocumentsContext: (categories: string[]) => DocumentPointer[];
   addDocumentContext: (documentPointer: DocumentPointer, categories?: string[]) => TreeNodeId;
   removeDocumentContext: (documentId: string) => void;
+  getDocumentsContext: (categories: string[]) => DocumentPointer[];
 
   // api endpoints
   copilotApiConfig: CopilotApiConfig;
