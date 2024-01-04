@@ -1,5 +1,12 @@
 # ui
 
+## 0.13.1
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.16.0
+
 ## 0.13.0
 
 ### Minor Changes
