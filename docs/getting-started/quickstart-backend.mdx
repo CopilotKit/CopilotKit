@@ -8,7 +8,7 @@ description: 'How to setup the CopilotCloud endpoints'
 ### Setup the CopilotKit Backend Endpoint:
 
   Currently all you require is an endpoint which serves as a proxy to an OpenAI-like LLM endpoint.
-  See below for examples using NextJS edge functions / Flask.
+  See below for examples using NextJS edge functions, [Portkey Gatewway](https://portkey.ai/), and Flask.
 
 
 #### Manually specified endpoint: nodeJS (typescript)
@@ -58,6 +58,69 @@ export async function POST(req: Request): Promise<Response> {
   return new StreamingTextResponse(stream);
 }
 ```
+
+
+#### Portkey endpoint for connecting to 20+ LLMs: nodeJS (typescript)
+
+[Portkey](https://portkey.ai/) serves as a unified gateway to access over 20 LLMs, such as OpenAI, Azure OpenAI, Anthropic, Google, and more. 
+It also enhances your app's reliability with features like load balancing various models or keys, triggering automated fallbacks in case of failures, and more.
+
+Make sure to install the `ai` and `portkey-ai` packages:
+<CodeGroup>
+  ```bash npm
+  npm i ai portkey-ai
+  ``` 
+  ```bash yarn
+  yarn add ai portkey-ai
+  ```
+  ```bash pnpm
+  pnpm add ai portkey-ai
+  ```
+</CodeGroup>
+      
+```ts /api/copilotkit/chat/route.ts (NextJS)
+import { OpenAIStream, StreamingTextResponse } from "ai";
+import Portkey from "portkey-ai";
+
+const portkey = new Portkey({
+  apiKey: process.env.PORTKEY_API_KEY,       // Get from https://app.portkey.ai/
+  /*****************************/  
+  provider: 'openai',                        // Change to 'azure-openai', 'anthropic', 'google-palm', 'anyscale' etc.
+  Authorization: process.env.OPENAI_API_KEY, // Pass the Bearer auth key for the chosen provider
+  /*****************************/
+});
+
+export const runtime = "edge";
+
+export async function POST(req: Request): Promise<Response> {
+  const forwardedProps = await req.json();
+
+  const portkeyResponse = await portkey.chat.completions.create({
+    model: "gpt-4",
+    ...forwardedProps,
+    stream: true,
+  });
+
+  const jsonResponseString = JSON.stringify(portkeyResponse);
+  
+  const response = new Response(jsonResponseString, {
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+  const stream = OpenAIStream(response, {
+    experimental_onFunctionCall: async (
+      { name, arguments: args },
+      createFunctionCallMessages
+    ) => {
+      return undefined; // returning undefined to avoid sending any messages to the client when a function is called. Temporary, bc currently vercel ai sdk does not support returning both text and function calls -- although the API does support it.
+    },
+  });
+
+  return new StreamingTextResponse(stream);
+}
+```
+
+Check out the [Portkey docs](https://portkey.ai/docs/welcome/integration-guides) to learn how to connect other LLMs and use more Portkey feautres like caching, tagging, tracing, and more.
 
 
 #### Manually specified endpoint: flask (python)
