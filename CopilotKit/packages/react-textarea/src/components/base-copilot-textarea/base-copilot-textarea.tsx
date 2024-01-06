@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Descendant, Editor } from "slate";
-import { Editable, Slate } from "slate-react";
+import { Descendant, Editor, Transforms, Text } from "slate";
+import { Editable, Slate, RenderElementProps } from "slate-react";
 import { twMerge } from "tailwind-merge";
 import { useAutosuggestions } from "../../hooks/base-copilot-textarea-implementation/use-autosuggestions";
 import { useCopilotTextareaEditor } from "../../hooks/base-copilot-textarea-implementation/use-copilot-textarea-editor";
@@ -27,62 +27,12 @@ import {
 import { EditorAutocompleteState } from "../../types/base/editor-autocomplete-state";
 import { TrackerTextEditedSinceLastCursorMovement } from "./track-cursor-moved-since-last-text-change";
 
-/**
- * Purpose: to be used as the `ref` type for `CopilotTextarea` and `BaseCopilotTextarea`.
- *
- * This interface extends `HTMLElement`, and is the subset of `HTMLTextAreaElement` that "actually matters".
- * It provides the core functionality that consumers of `HTMLTextAreaElement` need 99.9% of the time:
- * - `value`: the current value of the textarea
- * - `focus`: make the textarea focused
- * - `blur`: make the textarea unfocused
- */
 export interface HTMLCopilotTextAreaElement extends HTMLElement {
-  /**
-   * The current value of the textarea.
-   */
   value: string;
-
-  /**
-   * focus on the textarea
-   */
   focus: () => void;
-
-  /**
-   * unfocus the textarea.
-   *
-   * Called `blur` for syntactic compatibility with `HTMLTextAreaElement`.
-   */
   blur: () => void;
 }
 
-/**
- * Not intended for direct use. Use CopilotTextarea instead.
- *
- * The `BaseCopilotTextarea` includes the basic UX component,
- * without the business logic / AI logic that makes the content useful and coherent.
- *
- * It is useful if you want to build your own backend, with fully custom business logic
- * for figuring out which contnet to fill in.
- */
-export const BaseCopilotTextarea = React.forwardRef(
-  (props: BaseCopilotTextareaProps, ref: React.Ref<HTMLCopilotTextAreaElement>): JSX.Element => {
-    return (
-      <HoveringEditorProvider>
-        <BaseCopilotTextareaWithHoveringContext {...props} ref={ref} />
-      </HoveringEditorProvider>
-    );
-  },
-);
-
-/**
- * Not intended for direct use. Use `CopilotTextarea` instead.
- *
- * This is the private core of the `BaseCopilotTextarea` component.
- * For practical purposes the implementation is cleaner assuming containment in a `HoveringEditorProviderContext`.
- *
- * Therefore we separate the core logic into this component,
- * and wrap it in a `HoveringEditorProviderContext` in `BaseCopilotTextarea`.
- */
 const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
   (props: BaseCopilotTextareaProps, ref: React.Ref<HTMLCopilotTextAreaElement>): JSX.Element => {
     const autosuggestionsConfig: BaseAutosuggestionsConfig = {
@@ -177,6 +127,47 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
         ...props.suggestionsStyle,
       };
     }, [props.suggestionsStyle]);
+
+    const toggleFormat = (editor: Editor, format: string) => {
+      const isActive = isFormatActive(editor, format);
+      Transforms.setNodes(
+        editor,
+        { [format]: isActive ? null : true },
+        { match: Text.isText, split: true },
+      );
+    };
+
+    const isFormatActive = (editor: Editor, format: string) => {
+      const [match] = Editor.nodes(editor, {
+        match: (n: any) => (n as any)[format] === true, // Using 'any' type assertion here
+        universal: true,
+      });
+      return !!match;
+    };
+
+    // const boldElement = (props: RenderElementProps) => {
+    //   return (
+    //     <strong
+    //       {...props.attributes}
+    //       onClick={() => toggleFormat(props.editor, "bold")}
+    //       style={{ fontWeight: isFormatActive(props.editor, "bold") ? "bold" : "normal" }}
+    //     >
+    //       {props.children}
+    //     </strong>
+    //   );
+    // };
+
+    // const italicElement = (props: RenderElementProps) => {
+    //   return (
+    //     <em
+    //       {...props.attributes}
+    //       onClick={() => toggleFormat(props.editor, "italic")}
+    //       style={{ fontStyle: isFormatActive(props.editor, "italic") ? "italic" : "normal" }}
+    //     >
+    //       {props.children}
+    //     </em>
+    //   );
+    // };
 
     const renderElementMemoized = useMemo(() => {
       return makeRenderElementFunction(suggestionStyleAugmented);
@@ -303,3 +294,13 @@ function makeSemiFakeReactTextAreaEvent(
     },
   } as React.ChangeEvent<HTMLTextAreaElement>;
 }
+
+export const BaseCopilotTextarea = React.forwardRef(
+  (props: BaseCopilotTextareaProps, ref: React.Ref<HTMLCopilotTextAreaElement>): JSX.Element => {
+    return (
+      <HoveringEditorProvider>
+        <BaseCopilotTextareaWithHoveringContext {...props} ref={ref} />
+      </HoveringEditorProvider>
+    );
+  },
+);

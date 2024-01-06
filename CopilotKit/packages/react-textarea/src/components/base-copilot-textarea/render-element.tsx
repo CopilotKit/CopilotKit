@@ -11,6 +11,18 @@ export function makeRenderElementFunction(
         return <DefaultElement {...props} />;
       case "suggestion":
         return <SuggestionElement {...props} suggestionsStyle={suggestionsStyle} />;
+      case "bold": // Handle bold formatting using CSS
+        return (
+          <span {...props.attributes} style={{ fontWeight: "bold" }}>
+            {props.children}
+          </span>
+        );
+      case "italic": // Handle italic formatting using CSS
+        return (
+          <span {...props.attributes} style={{ fontStyle: "italic" }}>
+            {props.children}
+          </span>
+        );
     }
   };
 }
