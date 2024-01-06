@@ -9,19 +9,26 @@ const openai = new OpenAI({
 export const runtime = "edge";
 
 export async function POST(req: Request): Promise<Response> {
-  const forwardedProps = await req.json();
+  try {
+    const forwardedProps = await req.json();
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4-1106-preview",
-    ...forwardedProps,
-    stream: true,
-  } as ChatCompletionCreateParamsStreaming);
+    const response = await openai.chat.completions.create({
+      model: "gpt-4-1106-preview",
+      ...forwardedProps,
+      stream: true,
+    } as ChatCompletionCreateParamsStreaming);
 
-  const stream = OpenAIStream(response, {
-    experimental_onFunctionCall: async ({ name, arguments: args }, createFunctionCallMessages) => {
-      return undefined; // returning undefined to avoid sending any messages to the client when a function is called. Temporary, bc currently vercel ai sdk does not support returning both text and function calls -- although the API does support it.
-    },
-  });
+    const stream = OpenAIStream(response, {
+      experimental_onFunctionCall: async (
+        { name, arguments: args },
+        createFunctionCallMessages,
+      ) => {
+        return undefined; // returning undefined to avoid sending any messages to the client when a function is called. Temporary, bc currently vercel ai sdk does not support returning both text and function calls -- although the API does support it.
+      },
+    });
 
-  return new StreamingTextResponse(stream);
+    return new StreamingTextResponse(stream);
+  } catch (error) {
+    return new Response("", { status: 500, statusText: error.error.message });
+  }
 }
