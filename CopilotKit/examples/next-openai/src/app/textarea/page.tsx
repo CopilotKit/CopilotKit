@@ -18,7 +18,7 @@ import { useStateWithLocalStorage } from "../utils";
 
 export default function CopilotTextareaDemo(): JSX.Element {
   return (
-    <CopilotProvider chatApiEndpoint="/api/copilotkit/chat">
+    <CopilotProvider chatApiEndpoint="/api/copilotkit/openai">
       <TextAreas />
     </CopilotProvider>
   );
