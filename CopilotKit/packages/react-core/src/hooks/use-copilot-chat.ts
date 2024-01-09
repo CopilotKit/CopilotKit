@@ -70,6 +70,10 @@ export function useCopilotChat({
     },
   });
 
+  // TODO: This is a hack to update the system message with the correct context string.
+  // Fix this properly by replacing useChat with a custom hook
+  messages[0].content = initialMessagesWithContext[0].content;
+
   const visibleMessages = messages.filter(
     (message) => message.role === "user" || message.role === "assistant",
   );
