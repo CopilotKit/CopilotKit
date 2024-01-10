@@ -71,6 +71,8 @@ export function useCopilotChat({
   });
 
   // TODO: This is a hack to update the system message with the correct context string.
+  // It's problematic because it's mutating the internal state of the useChat hook by
+  // changing the messages array.
   // Fix this properly by replacing useChat with a custom hook
   messages[0].content = initialMessagesWithContext[0].content;
 
