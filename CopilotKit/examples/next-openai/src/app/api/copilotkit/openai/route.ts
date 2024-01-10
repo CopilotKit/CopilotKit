@@ -1,6 +1,7 @@
 import { OpenAIStream, StreamingTextResponse } from "ai";
 import OpenAI from "openai";
 import { ChatCompletionCreateParamsStreaming } from "openai/resources/chat/completions";
+import fetch from "node-fetch";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -29,6 +30,7 @@ export async function POST(req: Request): Promise<Response> {
 
     return new StreamingTextResponse(stream);
   } catch (error) {
-    return new Response("", { status: 500, statusText: error.error.message });
+    const errorPayload = JSON.parse(error.message);
+return new Response(JSON.stringify(errorPayload), { status: 500 });
   }
 }
