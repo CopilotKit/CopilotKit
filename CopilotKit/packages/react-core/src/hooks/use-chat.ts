@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Message, FunctionCallHandler } from "../types/message";
+import { Message, Function, FunctionCallHandler } from "../types";
+import { nanoid } from "nanoid";
+import { ChatCompletionClient } from "../openai/chat-completion-client";
 
 export type UseChatOptions = {
   /**
@@ -40,6 +42,10 @@ export type UseChatOptions = {
    * ```
    */
   body?: object;
+  /**
+   * Function definitions to be sent to the API.
+   */
+  functions?: Function[];
 };
 
 type UseChatHelpers = {
@@ -74,12 +80,97 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const runChatCompletion = async (): Promise<Message> => {
+    return new Promise<Message>((resolve, reject) => {
+      setIsLoading(true);
+
+      // Note: The runChatCompletion function closes over the messages state variable.
+      // This means that messages will stay static throughout the lifetime of the function.
+      // The rest of the code in this function will use the messages variable as it was
+      // when runChatCompletion was called.
+      const assistantMessage: Message = {
+        id: nanoid(),
+        createdAt: new Date(),
+        content: "",
+        role: "assistant",
+      };
+
+      // Assistant messages are always copied when using setState
+      setMessages([...messages, { ...assistantMessage }]);
+
+      const messagesWithContext = [...(options.systemMessages || []), ...messages];
+
+      const client = new ChatCompletionClient({
+        url: options.api || "/api/copilotkit/openai",
+      });
+
+      const cleanup = () => {
+        client.off("content");
+        client.off("end");
+        client.off("error");
+        client.off("function");
+      };
+
+      client.on("content", (content) => {
+        assistantMessage.content += content;
+        setMessages([...messages, { ...assistantMessage }]);
+      });
+
+      client.on("end", () => {
+        setIsLoading(false);
+        cleanup();
+        resolve({ ...assistantMessage });
+      });
+
+      client.on("error", (error) => {
+        setIsLoading(false);
+        cleanup();
+        reject(error);
+      });
+
+      client.on("function", async (functionCall) => {
+        assistantMessage.function_call = functionCall;
+        setMessages([...messages, { ...assistantMessage }]);
+        // quit early if we get a function call
+        setIsLoading(false);
+        cleanup();
+        resolve({ ...assistantMessage });
+      });
+
+      client.fetch({
+        messages: messagesWithContext,
+        functions: options.functions,
+        headers: options.headers,
+      });
+    });
+  };
+
+  const runChatCompletionAndHandleFunctionCall = async (): Promise<void> => {
+    const message = await runChatCompletion();
+    if (message.function_call && options.onFunctionCall) {
+      await options.onFunctionCall(messages, message.function_call);
+    }
+  };
+
   const append = async (message: Message): Promise<void> => {
-    throw new Error("Not implemented");
+    if (isLoading) {
+      return;
+    }
+    setMessages([...messages, message]);
+    return runChatCompletionAndHandleFunctionCall();
   };
 
   const reload = async (): Promise<void> => {
-    throw new Error("Not implemented");
+    if (isLoading || messages.length === 0) {
+      return;
+    }
+    const lastMessage = messages[messages.length - 1];
+
+    if (lastMessage.role === "assistant") {
+      setMessages(messages.slice(0, -1));
+    }
+
+    return runChatCompletionAndHandleFunctionCall();
   };
 
   const stop = (): void => {
