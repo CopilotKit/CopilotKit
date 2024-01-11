@@ -70,7 +70,29 @@ type UseChatHelpers = {
 };
 
 export function useChat(options: UseChatOptions): UseChatHelpers {
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  throw new Error("Not implemented");
+  const append = async (message: Message): Promise<void> => {
+    throw new Error("Not implemented");
+  };
+
+  const reload = async (): Promise<void> => {
+    throw new Error("Not implemented");
+  };
+
+  const stop = (): void => {
+    throw new Error("Not implemented");
+  };
+
+  return {
+    messages,
+    append,
+    reload,
+    stop,
+    isLoading,
+    input,
+    setInput,
+  };
 }
