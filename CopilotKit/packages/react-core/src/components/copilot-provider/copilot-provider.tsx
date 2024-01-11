@@ -188,15 +188,15 @@ function entryPointsToFunctionCallHandler(
 
     const entryPointFunction = entrypointsByFunctionName[functionCall.name || ""];
     if (entryPointFunction) {
-      let parsedFunctionCallArguments: Record<string, any>[] = [];
+      let functionCallArguments: Record<string, any>[] = [];
       if (functionCall.arguments) {
-        parsedFunctionCallArguments = JSON.parse(functionCall.arguments);
+        functionCallArguments = JSON.parse(functionCall.arguments);
       }
 
       const paramsInCorrectOrder: any[] = [];
       for (let arg of entryPointFunction.argumentAnnotations) {
         paramsInCorrectOrder.push(
-          parsedFunctionCallArguments[arg.name as keyof typeof parsedFunctionCallArguments],
+          functionCallArguments[arg.name as keyof typeof functionCallArguments],
         );
       }
 

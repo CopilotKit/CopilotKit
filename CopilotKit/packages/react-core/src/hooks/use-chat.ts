@@ -125,7 +125,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       });
 
       client.on("function", async (functionCall) => {
-        assistantMessage.function_call = functionCall;
+        assistantMessage.function_call = {
+          name: functionCall.name,
+          arguments: JSON.stringify(functionCall.arguments),
+        };
         setMessages([...messages, { ...assistantMessage }]);
         // quit early if we get a function call
         setIsLoading(false);

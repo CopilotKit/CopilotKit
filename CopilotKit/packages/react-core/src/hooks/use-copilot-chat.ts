@@ -45,8 +45,6 @@ export function useCopilotChat({
     };
   }, [getContextString, makeSystemMessage]);
 
-  // const initialMessagesWithContext = [systemMessage].concat(options.systemMessages || []);
-
   const functionDescriptions: ChatCompletionCreateParams.Function[] = useMemo(() => {
     return getChatCompletionFunctionDescriptions();
   }, [getChatCompletionFunctionDescriptions]);
@@ -56,11 +54,10 @@ export function useCopilotChat({
     api: copilotApiConfigExtrapolator(copilotApiConfig).chatApiEndpoint,
     id: options.id,
     initialMessages: [systemMessage].concat(options.initialMessages || []),
+    functions: functionDescriptions,
     onFunctionCall: getFunctionCallHandler(),
     headers: { ...copilotApiConfig.headers, ...options.headers },
     body: {
-      id: options.id,
-      ...(functionDescriptions.length > 0 && { functions: functionDescriptions }),
       ...copilotApiConfig.body,
       ...options.body,
     },
