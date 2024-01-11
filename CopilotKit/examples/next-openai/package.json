@@ -16,7 +16,6 @@
     "@copilotkit/react-textarea": "workspace:*",
     "@copilotkit/react-ui": "workspace:*",
     "@heroicons/react": "^2.0.18",
-    "ai": "^2.2.24",
     "next": "^13.4.9",
     "next-themes": "^0.2.1",
     "openai": "^4.19.0",

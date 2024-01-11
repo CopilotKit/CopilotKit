@@ -48,9 +48,6 @@ importers:
       '@heroicons/react':
         specifier: ^2.0.18
         version: 2.0.18(react@18.2.0)
-      ai:
-        specifier: ^2.2.24
-        version: 2.2.24(react@18.2.0)(solid-js@1.7.11)(svelte@4.2.0)(vue@3.3.4)
       next:
         specifier: ^13.4.9
         version: 13.4.9(react-dom@18.2.0)(react@18.2.0)
@@ -3330,37 +3327,6 @@ packages:
 
   /ai@2.2.23(react@18.2.0)(solid-js@1.7.11)(svelte@4.2.0)(vue@3.3.4):
     resolution: {integrity: sha512-pToIoSX7mXy7t8+D8xN6OjlEvtufbY5fPDzoSzf3zR/Z2ajw1rE6d9hOFyKSZ+ZTNdZ1xklabWf21qj2gP1REA==}
-    engines: {node: '>=14.6'}
-    peerDependencies:
-      react: ^18.2.0
-      solid-js: ^1.7.7
-      svelte: ^3.0.0 || ^4.0.0
-      vue: ^3.3.4
-    peerDependenciesMeta:
-      react:
-        optional: true
-      solid-js:
-        optional: true
-      svelte:
-        optional: true
-      vue:
-        optional: true
-    dependencies:
-      eventsource-parser: 1.0.0
-      nanoid: 3.3.6
-      react: 18.2.0
-      solid-js: 1.7.11
-      solid-swr-store: 0.10.7(solid-js@1.7.11)(swr-store@0.10.6)
-      sswr: 2.0.0(svelte@4.2.0)
-      svelte: 4.2.0
-      swr: 2.2.0(react@18.2.0)
-      swr-store: 0.10.6
-      swrv: 1.0.4(vue@3.3.4)
-      vue: 3.3.4
-    dev: false
-
-  /ai@2.2.24(react@18.2.0)(solid-js@1.7.11)(svelte@4.2.0)(vue@3.3.4):
-    resolution: {integrity: sha512-j9f89SC08SxN50wKp4ccIGniUMtCsslvOBbYGBCSIvDbMBQaNTZuKW4Id8tmfEeNMV9mwZZ5wRNj6/1Z/pFwYA==}
     engines: {node: '>=14.6'}
     peerDependencies:
       react: ^18.2.0
