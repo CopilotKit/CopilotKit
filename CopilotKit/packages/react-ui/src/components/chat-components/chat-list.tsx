@@ -1,4 +1,4 @@
-import { type Message } from "ai";
+import { type Message } from "@copilotkit/react-core";
 
 import { Separator } from "./ui/separator";
 import { ChatMessage } from "./chat-message";

@@ -18,7 +18,7 @@ export type UseChatOptions = {
   /**
    * System messages of the chat. Defaults to an empty array.
    */
-  systemMessages?: Message[];
+  initialMessages?: Message[];
   /**
    * Callback function to be called when a function call is received.
    * If the function returns a `ChatRequest` object, the request will be sent
@@ -48,7 +48,7 @@ export type UseChatOptions = {
   functions?: Function[];
 };
 
-type UseChatHelpers = {
+export type UseChatHelpers = {
   /** Current messages in the chat */
   messages: Message[];
   /**
@@ -98,7 +98,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       // Assistant messages are always copied when using setState
       setMessages([...messages, { ...assistantMessage }]);
 
-      const messagesWithContext = [...(options.systemMessages || []), ...messages];
+      const messagesWithContext = [...(options.initialMessages || []), ...messages];
 
       const client = new ChatCompletionClient({
         url: options.api || "/api/copilotkit/openai",

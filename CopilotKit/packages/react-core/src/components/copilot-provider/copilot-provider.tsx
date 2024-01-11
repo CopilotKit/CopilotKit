@@ -1,12 +1,11 @@
 "use client";
 
-import { FunctionCallHandler } from "ai";
 import { useCallback, useState } from "react";
 import { CopilotContext, CopilotApiConfig } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
 import { AnnotatedFunction } from "../../types/annotated-function";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
-import { DocumentPointer } from "../../types";
+import { DocumentPointer, FunctionCallHandler } from "../../types";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { StandardCopilotApiConfig } from "./standard-copilot-api-config";
 import { CopilotProviderProps } from "./copilot-provider-props";

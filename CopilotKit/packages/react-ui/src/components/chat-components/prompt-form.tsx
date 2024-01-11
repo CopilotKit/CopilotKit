@@ -1,6 +1,6 @@
 import * as React from "react";
 import TextareaAutosize from "react-textarea-autosize";
-import { UseChatHelpers } from "ai/react";
+import { UseChatHelpers } from "@copilotkit/react-core";
 
 import { useEnterSubmit } from "../../hooks/use-enter-submit";
 import { cn } from "../../lib/utils";
