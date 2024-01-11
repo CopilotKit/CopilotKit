@@ -80,14 +80,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const runChatCompletion = async (): Promise<Message> => {
+  const runChatCompletion = async (messages: Message[]): Promise<Message> => {
     return new Promise<Message>((resolve, reject) => {
       setIsLoading(true);
 
-      // Note: The runChatCompletion function closes over the messages state variable.
-      // This means that messages will stay static throughout the lifetime of the function.
-      // The rest of the code in this function will use the messages variable as it was
-      // when runChatCompletion was called.
       const assistantMessage: Message = {
         id: nanoid(),
         createdAt: new Date(),
@@ -145,8 +141,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     });
   };
 
-  const runChatCompletionAndHandleFunctionCall = async (): Promise<void> => {
-    const message = await runChatCompletion();
+  const runChatCompletionAndHandleFunctionCall = async (messages: Message[]): Promise<void> => {
+    const message = await runChatCompletion(messages);
     if (message.function_call && options.onFunctionCall) {
       await options.onFunctionCall(messages, message.function_call);
     }
@@ -156,21 +152,24 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     if (isLoading) {
       return;
     }
-    setMessages([...messages, message]);
-    return runChatCompletionAndHandleFunctionCall();
+    const newMessages = [...messages, message];
+    setMessages(newMessages);
+    return runChatCompletionAndHandleFunctionCall(newMessages);
   };
 
   const reload = async (): Promise<void> => {
     if (isLoading || messages.length === 0) {
       return;
     }
+    let newMessages = [...messages];
     const lastMessage = messages[messages.length - 1];
 
     if (lastMessage.role === "assistant") {
-      setMessages(messages.slice(0, -1));
+      newMessages = newMessages.slice(0, -1);
     }
+    setMessages(newMessages);
 
-    return runChatCompletionAndHandleFunctionCall();
+    return runChatCompletionAndHandleFunctionCall(newMessages);
   };
 
   const stop = (): void => {
