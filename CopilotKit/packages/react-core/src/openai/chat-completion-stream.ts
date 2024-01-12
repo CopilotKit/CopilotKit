@@ -3,7 +3,7 @@ import {
   ChatCompletionTransportFetchParams,
 } from "./chat-completion-transport";
 
-interface ChatCompletionStreamConfiguration {
+export interface ChatCompletionStreamConfiguration {
   url: string;
   model?: string;
 }
