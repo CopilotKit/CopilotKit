@@ -7,7 +7,6 @@ import {
   useMakeCopilotReadable,
 } from "@copilotkit/react-core";
 import {
-  ChatlikeApiEndpoint,
   CopilotTextarea,
   HTMLCopilotTextAreaElement,
   MakeSystemPrompt,

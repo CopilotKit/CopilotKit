@@ -1,4 +1,4 @@
-import { AutosuggestionsConfig, ChatlikeApiEndpoint } from ".";
+import { AutosuggestionsConfig } from ".";
 import { InsertionsApiConfig } from "./insertions-api-config";
 import { SuggestionsApiConfig } from "./suggestions-api-config";
 

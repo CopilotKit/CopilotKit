@@ -1,7 +1,6 @@
 import { BaseAutosuggestionsConfig, defaultBaseAutosuggestionsConfig } from "../base";
 import { SuggestionsApiConfig, defaultSuggestionsApiConfig } from "./suggestions-api-config";
 import { InsertionsApiConfig, defaultInsertionsApiConfig } from "./insertions-api-config";
-import { ChatlikeApiEndpoint } from ".";
 import { EditingApiConfig, defaultEditingApiConfig } from "./editing-api-config";
 import { defaultCopilotContextCategories } from "@copilotkit/react-core";
 
