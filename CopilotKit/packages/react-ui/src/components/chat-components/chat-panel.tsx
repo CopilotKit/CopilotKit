@@ -1,8 +1,9 @@
-import { type UseChatHelpers } from "ai/react";
+import { type UseChatHelpers } from "@copilotkit/react-core";
 
 import { Button } from "./ui/button";
 import { PromptForm } from "./prompt-form";
 import { IconRefresh, IconStop } from "./ui/icons";
+import { nanoid } from "nanoid";
 
 export interface ChatPanelProps
   extends Pick<
@@ -47,7 +48,7 @@ export function ChatPanel({
           <PromptForm
             onSubmit={async (value) => {
               await append({
-                id,
+                id: id || nanoid(),
                 content: value,
                 role: "user",
               });

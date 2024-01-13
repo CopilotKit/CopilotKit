@@ -4,9 +4,8 @@ import {
   CopilotContextParams,
   copilotApiConfigExtrapolator,
 } from "../context/copilot-context";
-import { useChat } from "ai/react";
-import { ChatRequestOptions, CreateMessage, Message } from "ai";
-import { UseChatOptions } from "ai";
+import { Message } from "../types";
+import { UseChatOptions, useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
 
@@ -16,11 +15,8 @@ export interface UseCopilotChatOptions extends UseChatOptions {
 
 export interface UseCopilotChatReturn {
   visibleMessages: Message[];
-  append: (
-    message: Message | CreateMessage,
-    chatRequestOptions?: ChatRequestOptions,
-  ) => Promise<string | null | undefined>;
-  reload: (chatRequestOptions?: ChatRequestOptions) => Promise<string | null | undefined>;
+  append: (message: Message) => Promise<void>;
+  reload: () => Promise<void>;
   stop: () => void;
   isLoading: boolean;
   input: string;
@@ -49,8 +45,6 @@ export function useCopilotChat({
     };
   }, [getContextString, makeSystemMessage]);
 
-  const initialMessagesWithContext = [systemMessage].concat(options.initialMessages || []);
-
   const functionDescriptions: ChatCompletionCreateParams.Function[] = useMemo(() => {
     return getChatCompletionFunctionDescriptions();
   }, [getChatCompletionFunctionDescriptions]);
@@ -59,12 +53,11 @@ export function useCopilotChat({
     ...options,
     api: copilotApiConfigExtrapolator(copilotApiConfig).chatApiEndpoint,
     id: options.id,
-    initialMessages: initialMessagesWithContext,
-    experimental_onFunctionCall: getFunctionCallHandler(),
+    initialMessages: [systemMessage].concat(options.initialMessages || []),
+    functions: functionDescriptions,
+    onFunctionCall: getFunctionCallHandler(),
     headers: { ...copilotApiConfig.headers, ...options.headers },
     body: {
-      id: options.id,
-      ...(functionDescriptions.length > 0 && { functions: functionDescriptions }),
       ...copilotApiConfig.body,
       ...options.body,
     },

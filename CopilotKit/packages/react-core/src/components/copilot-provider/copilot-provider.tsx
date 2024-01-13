@@ -1,12 +1,11 @@
 "use client";
 
-import { FunctionCallHandler } from "ai";
 import { useCallback, useState } from "react";
 import { CopilotContext, CopilotApiConfig } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
 import { AnnotatedFunction } from "../../types/annotated-function";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
-import { DocumentPointer } from "../../types";
+import { DocumentPointer, FunctionCallHandler } from "../../types";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { StandardCopilotApiConfig } from "./standard-copilot-api-config";
 import { CopilotProviderProps } from "./copilot-provider-props";
@@ -189,15 +188,15 @@ function entryPointsToFunctionCallHandler(
 
     const entryPointFunction = entrypointsByFunctionName[functionCall.name || ""];
     if (entryPointFunction) {
-      let parsedFunctionCallArguments: Record<string, any>[] = [];
+      let functionCallArguments: Record<string, any>[] = [];
       if (functionCall.arguments) {
-        parsedFunctionCallArguments = JSON.parse(functionCall.arguments);
+        functionCallArguments = JSON.parse(functionCall.arguments);
       }
 
       const paramsInCorrectOrder: any[] = [];
       for (let arg of entryPointFunction.argumentAnnotations) {
         paramsInCorrectOrder.push(
-          parsedFunctionCallArguments[arg.name as keyof typeof parsedFunctionCallArguments],
+          functionCallArguments[arg.name as keyof typeof functionCallArguments],
         );
       }
 

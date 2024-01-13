@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { UseChatHelpers } from "ai/react";
+import { UseChatHelpers } from "@copilotkit/react-core";
 
 import { Button } from "./ui/button";
 import { ExternalLink } from "./external-link";
