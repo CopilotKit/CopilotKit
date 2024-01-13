@@ -1,5 +1,16 @@
 # ui
 
+## 0.14.0-alpha.4
+
+### Minor Changes
+
+- insertion default prompt update
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.17.0-alpha.4
+
 ## 0.14.0-alpha.3
 
 ### Minor Changes
