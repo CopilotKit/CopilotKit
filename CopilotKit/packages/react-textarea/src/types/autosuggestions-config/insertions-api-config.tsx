@@ -38,8 +38,6 @@ The conversation will be structured as follows:
 `;
 };
 
-
-
 export const defaultInsertionsFewShotMessages: MinimalChatGPTMessage[] = [
   {
     role: "user",
