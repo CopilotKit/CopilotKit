@@ -46,17 +46,6 @@ export interface CopilotApiConfig {
   body: Record<string, any>;
 }
 
-export function copilotApiConfigExtrapolator(config: CopilotApiConfig) {
-  return {
-    get chatApiEndpoint(): string {
-      return `${config.chatApiEndpoint}`;
-    },
-    get chatApiEndpointV2(): string {
-      return `${config.chatApiEndpointV2}`;
-    },
-  };
-}
-
 export interface CopilotContextParams {
   // function-calling
   entryPoints: Record<string, AnnotatedFunction<any[]>>;

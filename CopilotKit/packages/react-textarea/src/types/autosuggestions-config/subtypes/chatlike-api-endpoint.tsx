@@ -1,4 +1,4 @@
-import { CopilotApiConfig, copilotApiConfigExtrapolator } from "@copilotkit/react-core";
+import { CopilotApiConfig } from "@copilotkit/react-core";
 import { MinimalChatGPTMessage } from "./minimal-chat-gpt-message";
 
 export type ChatlikeApiEndpointImpl = (
@@ -32,7 +32,7 @@ export class ChatlikeApiEndpoint {
         messages: MinimalChatGPTMessage[],
         forwardedProps?: { [key: string]: any },
       ) => {
-        const res = await fetch(copilotApiConfigExtrapolator(copilotApiConfig).chatApiEndpoint, {
+        const res = await fetch(copilotApiConfig.chatApiEndpoint, {
           method: "POST",
           headers: {
             ...copilotApiConfig.headers,
