@@ -1,5 +1,18 @@
 # web
 
+## 1.13.0-alpha.1
+
+### Minor Changes
+
+- strictly propagate copilot api params through the fetch arguments - not through any constructors
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.27.0-alpha.1
+  - @copilotkit/react-core@0.17.0-alpha.1
+  - @copilotkit/react-ui@0.14.0-alpha.1
+
 ## 1.13.0-alpha.0
 
 ### Minor Changes

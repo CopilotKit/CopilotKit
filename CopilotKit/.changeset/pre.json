@@ -13,6 +13,7 @@
     "tsconfig": "0.6.0"
   },
   "changesets": [
-    "polite-dancers-sort"
+    "polite-dancers-sort",
+    "proud-laws-brush"
   ]
 }

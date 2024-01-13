@@ -1,5 +1,16 @@
 # ui
 
+## 0.27.0-alpha.1
+
+### Minor Changes
+
+- strictly propagate copilot api params through the fetch arguments - not through any constructors
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.17.0-alpha.1
+
 ## 0.27.0-alpha.0
 
 ### Minor Changes
