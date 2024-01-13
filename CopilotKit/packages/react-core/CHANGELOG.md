@@ -1,5 +1,11 @@
 # ui
 
+## 0.17.0-alpha.2
+
+### Minor Changes
+
+- useChat: do not separately propagate options.url to constructor
+
 ## 0.17.0-alpha.1
 
 ### Minor Changes

@@ -1,5 +1,18 @@
 # web
 
+## 1.13.0-alpha.2
+
+### Minor Changes
+
+- useChat: do not separately propagate options.url to constructor
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.27.0-alpha.2
+  - @copilotkit/react-core@0.17.0-alpha.2
+  - @copilotkit/react-ui@0.14.0-alpha.2
+
 ## 1.13.0-alpha.1
 
 ### Minor Changes
