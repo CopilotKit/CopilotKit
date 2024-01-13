@@ -15,7 +15,7 @@ export class ChatCompletionStream {
     this.url = params.url;
   }
 
-  public async fetch(params: ChatCompletionTransportFetchParams) {
+  public async fetch(params: ChatCompletionTransportFetchParams): Promise<ReadableStream<string>> {
     params = { ...params };
     params.functions = undefined;
 
