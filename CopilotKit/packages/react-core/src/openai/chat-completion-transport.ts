@@ -19,6 +19,7 @@ export interface ChatCompletionTransportFetchParams {
   maxTokens?: number;
   headers?: Record<string, string> | Headers;
   body?: object;
+  signal?: AbortSignal;
 }
 
 const DEFAULT_MODEL = "gpt-4-1106-preview";
@@ -52,6 +53,7 @@ export class ChatCompletionTransport extends EventEmitter<ChatCompletionTranspor
     temperature,
     headers,
     body,
+    signal,
   }: ChatCompletionTransportFetchParams): Promise<void> {
     await this.cleanup();
 
@@ -81,6 +83,7 @@ export class ChatCompletionTransport extends EventEmitter<ChatCompletionTranspor
           ...(functions.length != 0 ? { function_call: "auto" } : {}),
           ...(body ? { ...body } : {}),
         }),
+        signal,
       });
 
       if (!response.ok) {
