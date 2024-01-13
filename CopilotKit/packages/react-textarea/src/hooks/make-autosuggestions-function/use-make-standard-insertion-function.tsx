@@ -73,7 +73,14 @@ export function useMakeStandardInsertionOrEditingFunction(
 
         return await chatCompletionStream.fetch({
           messages: messages as Message[],
+          headers: {
+            ...copilotApiConfig.headers,
+          },
+          body: {
+            ...copilotApiConfig.body,
+          },
           ...insertionApiConfig.forwardedParams,
+          signal: abortSignal,
         });
       });
 
@@ -121,8 +128,21 @@ export function useMakeStandardInsertionOrEditingFunction(
           },
         ];
 
-        const apiEndpoint = ChatlikeApiEndpoint.fromCopilotApiConfig(copilotApiConfig);
-        return await apiEndpoint.run(abortSignal, messages, editingApiConfig.forwardedParams);
+        const chatCompletionStream = new ChatCompletionStream({
+          url: copilotApiConfig.chatApiEndpoint,
+        });
+
+        return await chatCompletionStream.fetch({
+          messages: messages as Message[],
+          headers: {
+            ...copilotApiConfig.headers,
+          },
+          body: {
+            ...copilotApiConfig.body,
+          },
+          ...editingApiConfig.forwardedParams,
+          signal: abortSignal,
+        });
       });
 
       return res;
