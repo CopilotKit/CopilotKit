@@ -1,5 +1,18 @@
 # web
 
+## 1.13.0-alpha.3
+
+### Minor Changes
+
+- textarea editing: default prompt + few shot update
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.27.0-alpha.3
+  - @copilotkit/react-core@0.17.0-alpha.3
+  - @copilotkit/react-ui@0.14.0-alpha.3
+
 ## 1.13.0-alpha.2
 
 ### Minor Changes

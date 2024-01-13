@@ -1,5 +1,16 @@
 # ui
 
+## 0.27.0-alpha.3
+
+### Minor Changes
+
+- textarea editing: default prompt + few shot update
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.17.0-alpha.3
+
 ## 0.27.0-alpha.2
 
 ### Minor Changes
