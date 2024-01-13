@@ -1,5 +1,16 @@
 # ui
 
+## 0.27.0-alpha.0
+
+### Minor Changes
+
+- remove vercel ai
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.17.0-alpha.0
+
 ## 0.26.1
 
 ### Patch Changes

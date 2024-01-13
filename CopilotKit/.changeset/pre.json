@@ -1,0 +1,18 @@
+{
+  "mode": "pre",
+  "tag": "alpha",
+  "initialVersions": {
+    "next-openai": "1.12.0",
+    "@copilotkit/cloud": "0.1.0",
+    "eslint-config-custom": "0.2.0",
+    "@copilotkit/react-core": "0.16.0",
+    "@copilotkit/react-textarea": "0.26.1",
+    "@copilotkit/react-ui": "0.13.1",
+    "@copilotkit/shared": "0.1.0",
+    "tailwind-config": "0.1.0",
+    "tsconfig": "0.6.0"
+  },
+  "changesets": [
+    "polite-dancers-sort"
+  ]
+}

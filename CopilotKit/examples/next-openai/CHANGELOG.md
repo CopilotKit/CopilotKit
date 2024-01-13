@@ -1,5 +1,18 @@
 # web
 
+## 1.13.0-alpha.0
+
+### Minor Changes
+
+- remove vercel ai
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.27.0-alpha.0
+  - @copilotkit/react-core@0.17.0-alpha.0
+  - @copilotkit/react-ui@0.14.0-alpha.0
+
 ## 1.12.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # ui
 
+## 0.17.0-alpha.0
+
+### Minor Changes
+
+- remove vercel ai
+
 ## 0.16.0
 
 ### Minor Changes
