@@ -47,14 +47,13 @@ export function useCopilotChat({
 
   const { messages, append, reload, stop, isLoading, input, setInput } = useChat({
     ...options,
-    api: copilotApiConfig.chatApiEndpoint,
+    copilotConfig: copilotApiConfig,
     id: options.id,
     initialMessages: [systemMessage].concat(options.initialMessages || []),
     functions: functionDescriptions,
     onFunctionCall: getFunctionCallHandler(),
-    headers: { ...copilotApiConfig.headers, ...options.headers },
+    headers: { ...options.headers },
     body: {
-      ...copilotApiConfig.body,
       ...options.body,
     },
   });

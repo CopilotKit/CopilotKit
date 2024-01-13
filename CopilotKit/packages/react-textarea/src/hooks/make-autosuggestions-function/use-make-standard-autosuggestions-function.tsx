@@ -56,13 +56,8 @@ export function useMakeStandardAutosuggestionFunction(
 
         const stream = await chatCompletionStream.fetch({
           messages: messages as Message[],
-          headers: {
-            ...copilotApiConfig.headers,
-          },
-          body: {
-            ...copilotApiConfig.body,
-          },
           ...apiConfig.forwardedParams,
+          copilotConfig: copilotApiConfig,
           signal: abortSignal,
         });
 

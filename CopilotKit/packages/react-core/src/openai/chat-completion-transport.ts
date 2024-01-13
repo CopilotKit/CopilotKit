@@ -1,5 +1,6 @@
 import EventEmitter from "eventemitter3";
 import { Message, Function } from "../types";
+import { CopilotApiConfig } from "../context";
 
 export interface ChatCompletionTransportConfiguration {
   url: string;
@@ -19,6 +20,7 @@ export interface ChatCompletionTransportFetchParams {
   maxTokens?: number;
   headers?: Record<string, string> | Headers;
   body?: object;
+  copilotConfig: CopilotApiConfig;
   signal?: AbortSignal;
 }
 
@@ -49,6 +51,7 @@ export class ChatCompletionTransport extends EventEmitter<ChatCompletionTranspor
   public async fetch({
     model,
     messages,
+    copilotConfig,
     functions,
     temperature,
     headers,
@@ -72,6 +75,7 @@ export class ChatCompletionTransport extends EventEmitter<ChatCompletionTranspor
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...copilotConfig.headers,
           ...(headers ? { ...headers } : {}),
         },
         body: JSON.stringify({
@@ -81,6 +85,7 @@ export class ChatCompletionTransport extends EventEmitter<ChatCompletionTranspor
           ...(functions.length ? { functions } : {}),
           ...(temperature ? { temperature } : {}),
           ...(functions.length != 0 ? { function_call: "auto" } : {}),
+          ...copilotConfig.body,
           ...(body ? { ...body } : {}),
         }),
         signal,

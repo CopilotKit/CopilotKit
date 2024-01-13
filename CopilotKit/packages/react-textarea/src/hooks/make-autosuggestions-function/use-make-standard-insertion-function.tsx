@@ -73,13 +73,8 @@ export function useMakeStandardInsertionOrEditingFunction(
 
         return await chatCompletionStream.fetch({
           messages: messages as Message[],
-          headers: {
-            ...copilotApiConfig.headers,
-          },
-          body: {
-            ...copilotApiConfig.body,
-          },
           ...insertionApiConfig.forwardedParams,
+          copilotConfig: copilotApiConfig,
           signal: abortSignal,
         });
       });
@@ -134,13 +129,8 @@ export function useMakeStandardInsertionOrEditingFunction(
 
         return await chatCompletionStream.fetch({
           messages: messages as Message[],
-          headers: {
-            ...copilotApiConfig.headers,
-          },
-          body: {
-            ...copilotApiConfig.body,
-          },
           ...editingApiConfig.forwardedParams,
+          copilotConfig: copilotApiConfig,
           signal: abortSignal,
         });
       });
