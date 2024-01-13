@@ -102,7 +102,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
       const messagesWithContext = [...(options.initialMessages || []), ...messages];
 
       const client = new ChatCompletionClient({
-        url: options.api || "/api/copilotkit/openai",
+        url: options.api,
       });
 
       const cleanup = () => {
@@ -142,10 +142,10 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
       });
 
       client.fetch({
+        copilotConfig: options.copilotConfig,
         messages: messagesWithContext,
         functions: options.functions,
         headers: options.headers,
-        copilotConfig: options.copilotConfig,
       });
     });
   };

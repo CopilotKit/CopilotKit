@@ -19,9 +19,7 @@ export class ChatCompletionStream {
     params = { ...params };
     params.functions = undefined;
 
-    const transport = new ChatCompletionTransport({
-      url: this.url,
-    });
+    const transport = new ChatCompletionTransport({});
 
     const cleanup = () => {
       transport.off("data");

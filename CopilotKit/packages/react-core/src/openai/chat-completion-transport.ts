@@ -2,9 +2,7 @@ import EventEmitter from "eventemitter3";
 import { Message, Function } from "../types";
 import { CopilotApiConfig } from "../context";
 
-export interface ChatCompletionTransportConfiguration {
-  url: string;
-}
+export interface ChatCompletionTransportConfiguration {}
 
 interface ChatCompletionTransportEvents {
   end: void;
@@ -13,6 +11,7 @@ interface ChatCompletionTransportEvents {
 }
 
 export interface ChatCompletionTransportFetchParams {
+  copilotConfig: CopilotApiConfig;
   model?: string;
   messages: Message[];
   functions?: Function[];
@@ -20,7 +19,6 @@ export interface ChatCompletionTransportFetchParams {
   maxTokens?: number;
   headers?: Record<string, string> | Headers;
   body?: object;
-  copilotConfig: CopilotApiConfig;
   signal?: AbortSignal;
 }
 
@@ -29,11 +27,9 @@ const DEFAULT_MODEL = "gpt-4-1106-preview";
 export class ChatCompletionTransport extends EventEmitter<ChatCompletionTransportEvents> {
   private buffer = new Uint8Array();
   private bodyReader: ReadableStreamDefaultReader<Uint8Array> | null = null;
-  private url: string;
 
-  constructor({ url }: ChatCompletionTransportConfiguration) {
+  constructor(params: ChatCompletionTransportConfiguration) {
     super();
-    this.url = url;
   }
 
   private async cleanup() {
@@ -49,9 +45,9 @@ export class ChatCompletionTransport extends EventEmitter<ChatCompletionTranspor
   }
 
   public async fetch({
+    copilotConfig,
     model,
     messages,
-    copilotConfig,
     functions,
     temperature,
     headers,
@@ -71,7 +67,7 @@ export class ChatCompletionTransport extends EventEmitter<ChatCompletionTranspor
     });
 
     try {
-      const response = await fetch(this.url, {
+      const response = await fetch(copilotConfig.chatApiEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
