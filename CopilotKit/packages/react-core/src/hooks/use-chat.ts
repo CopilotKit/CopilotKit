@@ -101,9 +101,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
 
       const messagesWithContext = [...(options.initialMessages || []), ...messages];
 
-      const client = new ChatCompletionClient({
-        url: options.api,
-      });
+      const client = new ChatCompletionClient({});
 
       const cleanup = () => {
         client.off("content");
