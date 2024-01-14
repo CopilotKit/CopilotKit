@@ -1,5 +1,17 @@
 # ui
 
+## 0.17.0
+
+### Minor Changes
+
+- factor useChat into internal core
+- a7b417a: insertion default prompt update
+- 88d6654: release useChat fixes
+- 51de9d5: textarea editing: default prompt + few shot update
+- fa84257: remove vercel ai
+- 98a37c8: strictly propagate copilot api params through the fetch arguments - not through any constructors
+- 250032d: useChat: do not separately propagate options.url to constructor
+
 ## 0.17.0-alpha.5
 
 ### Minor Changes
