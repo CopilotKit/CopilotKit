@@ -64,6 +64,7 @@ In particular, you can specify categories which bind specific context to specifi
 "use client";
 
 import { useMakeCopilotReadable } from '@copilotkit/react-core';
+import { useMakeCopilotDocumentReadable, DocumentPointer } from '@copilotkit/react-document';
 
 // You can pass top-level data to the Copilot engine by calling `useMakeCopilotReadable`.
 const employeeContextId = useMakeCopilotReadable(employeeName);
@@ -80,13 +81,12 @@ const document: DocumentPointer = {
   name: "Travel Pet Peeves",
   sourceApplication: "Google Docs",
   iconImageUri: "/images/GoogleDocs.svg",
-  getContents: () => { return getThisDocumentContents() },
+  getContents: () => { return "hello document" },
 } as DocumentPointer;
 
-function SomeComponent(): JSX.Element {
-  useMakeCopilotDocumentReadable(document);
-  // ...
-}
+// ...then, in a react component:
+useMakeCopilotDocumentReadable(document);// You can pass top-level data to the Copilot engine by calling `useMakeCopilotReadable`.
+const employeeContextId = useMakeCopilotReadable(employeeName);
 ```
 
 
