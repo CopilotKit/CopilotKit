@@ -1,7 +1,7 @@
 import { useContext, useMemo, useState } from "react";
 import { processMessageStream } from "../utils";
 import { Message, parseStreamPart } from "@copilotkit/shared";
-import { CopilotContext, copilotApiConfigExtrapolator } from "../../context";
+import { CopilotContext } from "../../context";
 import { defaultCopilotContextCategories } from "../../components";
 
 export type AssistantStatus = "in_progress" | "awaiting_message";
@@ -87,7 +87,7 @@ export function useCopilotChatV2(options: UseCopilotChatOptionsV2): UseCopilotCh
 
     setInput("");
 
-    const apiUrl = copilotApiConfigExtrapolator(copilotApiConfig).chatApiEndpointV2;
+    const apiUrl = copilotApiConfig.chatApiEndpointV2;
 
     const functions = getChatCompletionFunctionDescriptions();
 

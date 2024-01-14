@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Message, Function, FunctionCallHandler } from "../types";
 import { nanoid } from "nanoid";
 import { ChatCompletionClient } from "../openai/chat-completion-client";
+import { CopilotApiConfig } from "../context";
 
 export type UseChatOptions = {
   /**
@@ -75,7 +76,11 @@ export type UseChatHelpers = {
   isLoading: boolean;
 };
 
-export function useChat(options: UseChatOptions): UseChatHelpers {
+export type UseChatOptionsWithCopilotConfig = UseChatOptions & {
+  copilotConfig: CopilotApiConfig;
+};
+
+export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelpers {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -96,9 +101,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
       const messagesWithContext = [...(options.initialMessages || []), ...messages];
 
-      const client = new ChatCompletionClient({
-        url: options.api || "/api/copilotkit/openai",
-      });
+      const client = new ChatCompletionClient({});
 
       const cleanup = () => {
         client.off("content");
@@ -137,6 +140,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       });
 
       client.fetch({
+        copilotConfig: options.copilotConfig,
         messages: messagesWithContext,
         functions: options.functions,
         headers: options.headers,
