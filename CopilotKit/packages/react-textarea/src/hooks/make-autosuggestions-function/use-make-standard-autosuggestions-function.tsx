@@ -1,13 +1,11 @@
-import { CopilotContext } from "@copilotkit/react-core";
+import { CopilotContext, Message } from "@copilotkit/react-core";
 import { useCallback, useContext } from "react";
-import {
-  AutosuggestionsBareFunction,
-  ChatlikeApiEndpoint,
-  MinimalChatGPTMessage,
-} from "../../types";
+import { AutosuggestionsBareFunction, MinimalChatGPTMessage } from "../../types";
 import { retry } from "../../lib/retry";
 import { InsertionEditorState } from "../../types/base/autosuggestions-bare-function";
 import { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggestions-api-config";
+import { ChatCompletionStream } from "@copilotkit/react-core";
+
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
  * The function takes in the text before and after the cursor, and an abort signal.
@@ -52,14 +50,22 @@ export function useMakeStandardAutosuggestionFunction(
           },
         ];
 
-        const apiEndpoint = ChatlikeApiEndpoint.fromCopilotApiConfig(copilotApiConfig);
-        const stream = await apiEndpoint.run(abortSignal, messages, apiConfig.forwardedParams);
+        const chatCompletionStream = new ChatCompletionStream({
+          url: copilotApiConfig.chatApiEndpoint,
+        });
+
+        const stream = await chatCompletionStream.fetch({
+          messages: messages as Message[],
+          ...apiConfig.forwardedParams,
+          copilotConfig: copilotApiConfig,
+          signal: abortSignal,
+        });
 
         // read the stream:
         const reader = stream.getReader();
         let result = "";
 
-        while (true) {
+        while (!abortSignal.aborted) {
           const { done, value } = await reader.read();
           if (done) {
             break;

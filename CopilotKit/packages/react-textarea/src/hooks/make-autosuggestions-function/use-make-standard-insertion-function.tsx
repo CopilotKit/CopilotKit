@@ -1,6 +1,6 @@
-import { CopilotContext } from "@copilotkit/react-core";
+import { ChatCompletionStream, CopilotContext, Message } from "@copilotkit/react-core";
 import { useCallback, useContext } from "react";
-import { ChatlikeApiEndpoint, MinimalChatGPTMessage } from "../../types";
+import { MinimalChatGPTMessage } from "../../types";
 import { retry } from "../../lib/retry";
 import {
   EditingEditorState,
@@ -67,8 +67,16 @@ export function useMakeStandardInsertionOrEditingFunction(
           },
         ];
 
-        const apiEndpoint = ChatlikeApiEndpoint.fromCopilotApiConfig(copilotApiConfig);
-        return await apiEndpoint.run(abortSignal, messages, insertionApiConfig.forwardedParams);
+        const chatCompletionStream = new ChatCompletionStream({
+          url: copilotApiConfig.chatApiEndpoint,
+        });
+
+        return await chatCompletionStream.fetch({
+          messages: messages as Message[],
+          ...insertionApiConfig.forwardedParams,
+          copilotConfig: copilotApiConfig,
+          signal: abortSignal,
+        });
       });
 
       return res;
@@ -115,8 +123,16 @@ export function useMakeStandardInsertionOrEditingFunction(
           },
         ];
 
-        const apiEndpoint = ChatlikeApiEndpoint.fromCopilotApiConfig(copilotApiConfig);
-        return await apiEndpoint.run(abortSignal, messages, editingApiConfig.forwardedParams);
+        const chatCompletionStream = new ChatCompletionStream({
+          url: copilotApiConfig.chatApiEndpoint,
+        });
+
+        return await chatCompletionStream.fetch({
+          messages: messages as Message[],
+          ...editingApiConfig.forwardedParams,
+          copilotConfig: copilotApiConfig,
+          signal: abortSignal,
+        });
       });
 
       return res;

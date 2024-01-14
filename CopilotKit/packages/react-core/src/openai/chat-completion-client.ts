@@ -1,11 +1,11 @@
 import EventEmitter from "eventemitter3";
 import { Function, Message, Role } from "../types";
-import { ChatCompletionStream, ChatCompletionStreamFetchParams } from "./chat-completion-stream";
+import {
+  ChatCompletionTransport,
+  ChatCompletionTransportFetchParams,
+} from "./chat-completion-transport";
 
-interface ChatCompletionClientConfiguration {
-  url: string;
-  model?: string;
-}
+interface ChatCompletionClientConfiguration {}
 
 interface ChatCompletionClientEvents {
   content: string;
@@ -34,35 +34,29 @@ export interface ChatCompletionChunk {
 const DEFAULT_MAX_TOKENS = 8192;
 
 export class ChatCompletionClient extends EventEmitter<ChatCompletionClientEvents> {
-  private url: string;
-  private model?: string;
-
-  private chatCompletionStream: ChatCompletionStream | null = null;
+  private chatCompletionTransport: ChatCompletionTransport | null = null;
   private mode: "function" | "message" | null = null;
   private functionCallName: string = "";
   private functionCallArguments: string = "";
 
   constructor(params: ChatCompletionClientConfiguration) {
     super();
-    this.model = params.model;
-    this.url = params.url;
   }
 
-  public async fetch(params: ChatCompletionStreamFetchParams) {
+  public async fetch(params: ChatCompletionTransportFetchParams) {
     params = { ...params };
-    if (this.model && this.model in maxTokensByModel) {
-      params.maxTokens ||= maxTokensByModel[this.model];
+    if (params.model && params.model in maxTokensByModel) {
+      params.maxTokens ||= maxTokensByModel[params.model];
     } else {
       params.maxTokens ||= DEFAULT_MAX_TOKENS;
     }
 
     params.functions ||= [];
-    params.model = this.model;
     params.messages = this.buildPrompt(params);
     return await this.runPrompt(params);
   }
 
-  private buildPrompt(params: ChatCompletionStreamFetchParams): Message[] {
+  private buildPrompt(params: ChatCompletionTransportFetchParams): Message[] {
     let maxTokens = params.maxTokens!;
     const messages = params.messages!;
     const functions = params.functions!;
@@ -106,16 +100,14 @@ export class ChatCompletionClient extends EventEmitter<ChatCompletionClientEvent
     return result;
   }
 
-  private async runPrompt(params: ChatCompletionStreamFetchParams): Promise<void> {
-    this.chatCompletionStream = new ChatCompletionStream({
-      url: this.url,
-    });
+  private async runPrompt(params: ChatCompletionTransportFetchParams): Promise<void> {
+    this.chatCompletionTransport = new ChatCompletionTransport({});
 
-    this.chatCompletionStream.on("data", this.onData);
-    this.chatCompletionStream.on("error", this.onError);
-    this.chatCompletionStream.on("end", this.onEnd);
+    this.chatCompletionTransport.on("data", this.onData);
+    this.chatCompletionTransport.on("error", this.onError);
+    this.chatCompletionTransport.on("end", this.onEnd);
 
-    await this.chatCompletionStream.fetch(params);
+    await this.chatCompletionTransport.fetch(params);
   }
 
   private onData = (data: ChatCompletionChunk) => {
@@ -188,12 +180,12 @@ export class ChatCompletionClient extends EventEmitter<ChatCompletionClientEvent
   }
 
   private cleanup() {
-    if (this.chatCompletionStream) {
-      this.chatCompletionStream.off("data", this.onData);
-      this.chatCompletionStream.off("error", this.onError);
-      this.chatCompletionStream.off("end", this.onEnd);
+    if (this.chatCompletionTransport) {
+      this.chatCompletionTransport.off("data", this.onData);
+      this.chatCompletionTransport.off("error", this.onError);
+      this.chatCompletionTransport.off("end", this.onEnd);
     }
-    this.chatCompletionStream = null;
+    this.chatCompletionTransport = null;
     this.mode = null;
     this.functionCallName = "";
     this.functionCallArguments = "";

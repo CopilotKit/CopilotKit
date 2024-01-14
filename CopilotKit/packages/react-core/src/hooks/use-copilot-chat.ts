@@ -1,9 +1,5 @@
 import { useMemo, useContext } from "react";
-import {
-  CopilotContext,
-  CopilotContextParams,
-  copilotApiConfigExtrapolator,
-} from "../context/copilot-context";
+import { CopilotContext, CopilotContextParams } from "../context/copilot-context";
 import { Message } from "../types";
 import { UseChatOptions, useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
@@ -51,14 +47,13 @@ export function useCopilotChat({
 
   const { messages, append, reload, stop, isLoading, input, setInput } = useChat({
     ...options,
-    api: copilotApiConfigExtrapolator(copilotApiConfig).chatApiEndpoint,
+    copilotConfig: copilotApiConfig,
     id: options.id,
     initialMessages: [systemMessage].concat(options.initialMessages || []),
     functions: functionDescriptions,
     onFunctionCall: getFunctionCallHandler(),
-    headers: { ...copilotApiConfig.headers, ...options.headers },
+    headers: { ...options.headers },
     body: {
-      ...copilotApiConfig.body,
       ...options.body,
     },
   });
