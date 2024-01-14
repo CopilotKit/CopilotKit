@@ -13,23 +13,21 @@ description: 'How to setup the CopilotCloud endpoints'
 
 #### Manually specified endpoint: nodeJS (typescript)
 
-Make sure to install the `ai` and `openai` packages:
+Make sure to install the `openai` package (or use any openai-compatible LLM provider):
 <CodeGroup>
   ```bash npm
-  npm i ai openai
+  npm i openai
   ``` 
   ```bash yarn
-  yarn add ai openai
+  yarn add openai
   ```
   ```bash pnpm
-  pnpm add ai openai
+  pnpm add openai
   ```
 </CodeGroup>
       
-```ts /api/copilotkit/chat/route.ts (NextJS)
-import { OpenAIStream, StreamingTextResponse } from "ai";
+```ts /api/copilotkit/openai/route.ts (NextJS)
 import OpenAI from "openai";
-import { ChatCompletionCreateParamsStreaming } from "openai/resources/chat/completions";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -38,24 +36,21 @@ const openai = new OpenAI({
 export const runtime = "edge";
 
 export async function POST(req: Request): Promise<Response> {
-  const forwardedProps = await req.json();
+  try {
+    const forwardedProps = await req.json();
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4",
-    ...forwardedProps,
-    stream: true,
-  } as ChatCompletionCreateParamsStreaming);
+    const stream = openai.beta.chat.completions
+      .stream({
+        model: "gpt-4-1106-preview",
+        ...forwardedProps,
+        stream: true,
+      })
+      .toReadableStream();
 
-  const stream = OpenAIStream(response, {
-    experimental_onFunctionCall: async (
-      { name, arguments: args },
-      createFunctionCallMessages
-    ) => {
-      return undefined; // returning undefined to avoid sending any messages to the client when a function is called. Temporary, bc currently vercel ai sdk does not support returning both text and function calls -- although the API does support it.
-    },
-  });
-
-  return new StreamingTextResponse(stream);
+    return new Response(stream);
+  } catch (error) {
+    return new Response("", { status: 500, statusText: error.error.message });
+  }
 }
 ```
 
