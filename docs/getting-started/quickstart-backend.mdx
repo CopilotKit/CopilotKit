@@ -25,6 +25,11 @@ Make sure to install the `openai` package (or use any openai-compatible LLM prov
   pnpm add openai
   ```
 </CodeGroup>
+
+Remember to add any required environment variables. E.g. to use OpenAI:
+```env .env.local
+OPENAI_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
       
 ```ts /api/copilotkit/openai/route.ts (NextJS)
 import OpenAI from "openai";
