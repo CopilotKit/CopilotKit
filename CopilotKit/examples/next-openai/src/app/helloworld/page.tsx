@@ -25,6 +25,7 @@ const Presentation = () => {
   });
 
   useMakeCopilotReadable("This is the current slide: " + JSON.stringify(state));
+
   useMakeCopilotActionable(
     {
       name: "presentSlide",
