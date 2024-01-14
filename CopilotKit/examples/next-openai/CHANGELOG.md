@@ -1,5 +1,18 @@
 # web
 
+## 1.13.0-alpha.5
+
+### Minor Changes
+
+- release useChat fixes
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.27.0-alpha.5
+  - @copilotkit/react-core@0.17.0-alpha.5
+  - @copilotkit/react-ui@0.14.0-alpha.5
+
 ## 1.13.0-alpha.4
 
 ### Minor Changes

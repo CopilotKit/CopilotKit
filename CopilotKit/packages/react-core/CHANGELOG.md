@@ -1,5 +1,11 @@
 # ui
 
+## 0.17.0-alpha.5
+
+### Minor Changes
+
+- release useChat fixes
+
 ## 0.17.0-alpha.4
 
 ### Minor Changes

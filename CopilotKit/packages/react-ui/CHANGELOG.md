@@ -1,5 +1,16 @@
 # ui
 
+## 0.14.0-alpha.5
+
+### Minor Changes
+
+- release useChat fixes
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.17.0-alpha.5
+
 ## 0.14.0-alpha.4
 
 ### Minor Changes
