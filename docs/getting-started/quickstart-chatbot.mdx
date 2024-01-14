@@ -61,10 +61,17 @@ See their respective documentation for additional details.
 In particular, you can specify categories which bind specific context to specific textareas, and not to others.
 
 ```ts
+"use client";
+
+import { useMakeCopilotReadable } from '@copilotkit/react-core';
+
+// You can pass top-level data to the Copilot engine by calling `useMakeCopilotReadable`.
 const employeeContextId = useMakeCopilotReadable(employeeName);
 
 // Pass a parentID to maintain a hiearchical structure.
-// Especially useful with child React components, list elements, etc.
+//
+// This example is a bit artificial, but this sort of hiearchical data
+// comes in handy with child React components, list elements, etc.
 useMakeCopilotReadable(workProfile.description(), employeeContextId);
 useMakeCopilotReadable(metadata.description(), employeeContextId);
 
@@ -85,6 +92,10 @@ function SomeComponent(): JSX.Element {
 
 ## Let the Copilot take action
 ```ts
+"use client";
+
+import { useMakeCopilotActionable } from '@copilotkit/react-core';
+
 // Let the copilot take action on behalf of the user.
 useMakeCopilotActionable(
   {
