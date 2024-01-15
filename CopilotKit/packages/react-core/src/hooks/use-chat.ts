@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Message, Function, FunctionCallHandler } from "../types";
 import { nanoid } from "nanoid";
 import { ChatCompletionClient } from "../openai/chat-completion-client";
@@ -84,10 +84,14 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const abortControllerRef = useRef<AbortController>();
 
   const runChatCompletion = async (messages: Message[]): Promise<Message> => {
     return new Promise<Message>((resolve, reject) => {
       setIsLoading(true);
+
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
 
       const assistantMessage: Message = {
         id: nanoid(),
@@ -108,7 +112,15 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
         client.off("end");
         client.off("error");
         client.off("function");
+
+        abortControllerRef.current = undefined;
       };
+
+      abortController.signal.addEventListener("abort", () => {
+        cleanup();
+        setIsLoading(false);
+        reject(new DOMException("Aborted", "AbortError"));
+      });
 
       client.on("content", (content) => {
         assistantMessage.content += content;
@@ -144,6 +156,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
         messages: messagesWithContext,
         functions: options.functions,
         headers: options.headers,
+        signal: abortController.signal,
       });
     });
   };
@@ -180,7 +193,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
   };
 
   const stop = (): void => {
-    throw new Error("Not implemented");
+    abortControllerRef.current?.abort();
   };
 
   return {
