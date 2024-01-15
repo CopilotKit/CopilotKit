@@ -1,6 +1,6 @@
 "use client";
 
-import { FunctionCallHandler } from "../types";
+import { FunctionCallHandler } from "@copilotkit/shared";
 import React from "react";
 import { TreeNodeId } from "../hooks/use-tree";
 import { AnnotatedFunction } from "../types/annotated-function";
