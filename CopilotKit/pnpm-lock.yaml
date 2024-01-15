@@ -100,6 +100,9 @@ importers:
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared
+      js-tiktoken:
+        specifier: ^1.0.8
+        version: 1.0.8
     devDependencies:
       '@types/jest':
         specifier: ^29.5.4
@@ -3504,6 +3507,10 @@ packages:
     resolution: {integrity: sha512-Y5gU45svrR5tI2Vt/X9GPd3L0HNIKzGu202EjxrXMpuc2V2CiKgemAbUUsqYmZJvPtCXoUKjNZwBJzsNScUbXA==}
     dev: false
 
+  /base64-js@1.5.1:
+    resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
+    dev: false
+
   /better-path-resolve@1.0.0:
     resolution: {integrity: sha512-pbnl5XzGBdrFU/wT4jqmJVPn2B6UHPBOhzMQkY/SPUPB6QtUXtmBHBIwCbXJol93mOpGMnQyP/+BB19q04xj7g==}
     engines: {node: '>=4'}
@@ -5872,6 +5879,12 @@ packages:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
     engines: {node: '>=10'}
     dev: true
+
+  /js-tiktoken@1.0.8:
+    resolution: {integrity: sha512-r7XK3E9/I+SOrbAGqb39pyO/rHAS1diAOSRAvaaLfHgXjkUSK9AiSd+r84Vn2f/GvXJYRAxKj8NHrUvqlaH5qg==}
+    dependencies:
+      base64-js: 1.5.1
+    dev: false
 
   /js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
