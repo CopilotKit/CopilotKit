@@ -1,5 +1,5 @@
 import EventEmitter from "eventemitter3";
-import { Message, Function } from "../types";
+import { Message, Function } from "@copilotkit/shared";
 import { CopilotApiConfig } from "../context";
 
 export interface ChatCompletionTransportConfiguration {}

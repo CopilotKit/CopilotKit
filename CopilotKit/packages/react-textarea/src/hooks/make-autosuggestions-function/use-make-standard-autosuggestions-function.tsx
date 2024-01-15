@@ -1,4 +1,5 @@
-import { CopilotContext, Message } from "@copilotkit/react-core";
+import { Message } from "@copilotkit/shared";
+import { CopilotContext } from "@copilotkit/react-core";
 import { useCallback, useContext } from "react";
 import { AutosuggestionsBareFunction, MinimalChatGPTMessage } from "../../types";
 import { retry } from "../../lib/retry";

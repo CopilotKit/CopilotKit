@@ -1,4 +1,5 @@
-import { ChatCompletionStream, CopilotContext, Message } from "@copilotkit/react-core";
+import { Message } from "@copilotkit/shared";
+import { ChatCompletionStream, CopilotContext } from "@copilotkit/react-core";
 import { useCallback, useContext } from "react";
 import { MinimalChatGPTMessage } from "../../types";
 import { retry } from "../../lib/retry";

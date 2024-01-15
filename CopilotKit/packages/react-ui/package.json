@@ -44,6 +44,7 @@
   },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
     "@heroicons/react": "^2.0.18",
     "@radix-ui/react-alert-dialog": "^1.0.4",
     "@radix-ui/react-dialog": "^1.0.4",

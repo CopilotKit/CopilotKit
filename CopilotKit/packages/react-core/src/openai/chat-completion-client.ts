@@ -1,5 +1,5 @@
 import EventEmitter from "eventemitter3";
-import { Function, Message, Role } from "../types";
+import { Function, Message, Role } from "@copilotkit/shared";
 import {
   ChatCompletionTransport,
   ChatCompletionTransportFetchParams,

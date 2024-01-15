@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Message, Function, FunctionCallHandler } from "../types";
+import { Message, Function, FunctionCallHandler, FunctionCall } from "@copilotkit/shared";
 import { nanoid } from "nanoid";
 import { ChatCompletionClient } from "../openai/chat-completion-client";
 import { CopilotApiConfig } from "../context";
@@ -151,7 +151,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
   const runChatCompletionAndHandleFunctionCall = async (messages: Message[]): Promise<void> => {
     const message = await runChatCompletion(messages);
     if (message.function_call && options.onFunctionCall) {
-      await options.onFunctionCall(messages, message.function_call);
+      await options.onFunctionCall(messages, message.function_call as FunctionCall);
     }
   };
 

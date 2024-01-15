@@ -1,6 +1,6 @@
 import { useMemo, useContext } from "react";
-import { CopilotContext, CopilotContextParams } from "../context/copilot-context";
-import { Message } from "../types";
+import { CopilotContext } from "../context/copilot-context";
+import { Message } from "@copilotkit/shared";
 import { UseChatOptions, useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
