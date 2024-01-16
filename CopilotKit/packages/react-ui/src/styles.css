@@ -167,7 +167,7 @@
 }
 
 /* chat.css */
-.copilotKitChat {
+.copilotKitPopup {
   position: fixed;
   bottom: 1rem;
   right: 1rem;
@@ -185,7 +185,7 @@
   touch-action: manipulation;
 }
 
-.copilotKitChat svg {
+.copilotKitPopup svg {
   display: inline-block;
   vertical-align: middle;
 }
@@ -458,11 +458,43 @@
     right: 1rem;
     top: auto;
     left: auto;
-    border-width: 1px;
+    border-width: 0px;
     margin-bottom: 1rem;
     width: 24rem;
     height: 600px;
     min-height: 200px;
     max-height: calc(100% - 6rem);
+  }
+}
+
+/* animations.css */
+
+.copilotKitActivityDot1 {
+  animation: copilotKitActivityDotsAnimation 1.05s infinite;
+}
+.copilotKitActivityDot2 {
+  animation-delay: 0.1s;
+}
+.copilotKitActivityDot3 {
+  animation-delay: 0.2s;
+}
+@keyframes copilotKitActivityDotsAnimation {
+  0%,
+  57.14% {
+    animation-timing-function: cubic-bezier(0.33, 0.66, 0.66, 1);
+    transform: translate(0);
+  }
+  28.57% {
+    animation-timing-function: cubic-bezier(0.33, 0, 0.66, 0.33);
+    transform: translateY(-6px);
+  }
+  100% {
+    transform: translate(0);
+  }
+}
+
+@keyframes copilotKitSpinAnimation {
+  to {
+    transform: rotate(360deg);
   }
 }
