@@ -33,7 +33,7 @@ export const CopilotKitPopup: React.FC<CopilotKitPopupProps> = ({
   defaultOpen = false,
   clickOutsideToClose = true,
   hitEscapeToClose = true,
-  hotkey = "K",
+  hotkey = "k",
   icons,
   labels,
   colorScheme,
