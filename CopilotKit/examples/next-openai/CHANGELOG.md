@@ -1,5 +1,17 @@
 # web
 
+## 1.13.1-alpha.0
+
+### Patch Changes
+
+- fix stop generate
+- Updated dependencies
+  - @copilotkit/cloud@0.1.1-alpha.0
+  - @copilotkit/react-core@0.17.1-alpha.0
+  - @copilotkit/react-textarea@0.27.1-alpha.0
+  - @copilotkit/react-ui@0.14.1-alpha.0
+  - @copilotkit/shared@0.1.1-alpha.0
+
 ## 1.13.0
 
 ### Minor Changes

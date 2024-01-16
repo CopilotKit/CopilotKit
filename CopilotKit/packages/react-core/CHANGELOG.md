@@ -1,5 +1,13 @@
 # ui
 
+## 0.17.1-alpha.0
+
+### Patch Changes
+
+- fix stop generate
+- Updated dependencies
+  - @copilotkit/shared@0.1.1-alpha.0
+
 ## 0.17.0
 
 ### Minor Changes

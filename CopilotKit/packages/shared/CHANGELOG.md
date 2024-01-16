@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 0.1.1-alpha.0
+
+### Patch Changes
+
+- fix stop generate
+
 ## 0.1.0
 
 ### Minor Changes
