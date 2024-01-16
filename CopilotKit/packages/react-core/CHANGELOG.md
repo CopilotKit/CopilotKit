@@ -1,5 +1,17 @@
 # ui
 
+## 0.17.1
+
+### Patch Changes
+
+- stop generating button working
+- aa6bc5a: fix stop generate
+- cf0bde6: change order of operations on stop cleanup
+- Updated dependencies
+- Updated dependencies [aa6bc5a]
+- Updated dependencies [cf0bde6]
+  - @copilotkit/shared@0.1.1
+
 ## 0.17.1-alpha.1
 
 ### Patch Changes
