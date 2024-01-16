@@ -75,7 +75,7 @@ export const CopilotKitPopup: React.FC<CopilotKitPopupProps> = ({
 
   return (
     <TemporaryContext.Provider value={ctx}>
-      <div className={`copilotKitAssistantWindow ${colorSchemeClass}`}>
+      <div className={`copilotKitPopup ${colorSchemeClass}`}>
         <Button open={open} setOpen={setOpen}></Button>
         <Window
           open={open}
