@@ -15,8 +15,6 @@ const HelloWorld = () => {
       <Temporary>
         <CopilotKitPopup />
       </Temporary>
-      {/* <CopilotSidebarUIProvider>
-      </CopilotSidebarUIProvider> */}
     </CopilotProvider>
   );
 };
