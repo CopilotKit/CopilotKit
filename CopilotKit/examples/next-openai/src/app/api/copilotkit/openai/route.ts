@@ -6,6 +6,12 @@ const openai = new OpenAI({
 
 export const runtime = "edge";
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
 export async function POST(req: Request): Promise<Response> {
   try {
     const forwardedProps = await req.json();
@@ -18,7 +24,12 @@ export async function POST(req: Request): Promise<Response> {
       })
       .toReadableStream();
 
-    return new Response(stream);
+    return new Response(stream, {
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type": "application/json",
+      },
+    });
   } catch (error) {
     return new Response("", { status: 500, statusText: error.error.message });
   }
