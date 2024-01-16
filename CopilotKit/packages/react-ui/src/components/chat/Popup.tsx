@@ -52,8 +52,11 @@ export const CopilotKitPopup: React.FC<CopilotKitPopupProps> = ({
   const [open, setOpen] = React.useState(defaultOpen);
 
   const sendMessage = async (message: string) => {
-    // TODO send message
-    // await copilotKit.runChatCompletion(message);
+    append({
+      id: nanoid(),
+      content: message,
+      role: "user",
+    });
   };
 
   const ctx = useMemo(() => {
