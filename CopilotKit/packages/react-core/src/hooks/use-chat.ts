@@ -117,8 +117,8 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
       };
 
       abortController.signal.addEventListener("abort", () => {
-        cleanup();
         setIsLoading(false);
+        cleanup();
         reject(new DOMException("Aborted", "AbortError"));
       });
 
