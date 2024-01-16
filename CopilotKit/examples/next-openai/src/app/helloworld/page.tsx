@@ -5,16 +5,19 @@ import {
   useMakeCopilotActionable,
   useMakeCopilotReadable,
 } from "@copilotkit/react-core";
-import { CopilotSidebarUIProvider, CopilotKitPopup, Temporary } from "@copilotkit/react-ui";
+import { CopilotKitPopup } from "@copilotkit/react-ui";
 import { useState } from "react";
 
 const HelloWorld = () => {
   return (
     <CopilotProvider chatApiEndpoint="/api/copilotkit/openai">
       <Presentation />
-      <Temporary>
-        <CopilotKitPopup />
-      </Temporary>
+      <CopilotKitPopup
+        labels={{
+          title: "Presentation Copilot",
+          initial: "Hi you! 👋 I can give you a presentation on any topic.",
+        }}
+      />
     </CopilotProvider>
   );
 };
