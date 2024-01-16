@@ -1,3 +1,468 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* TODO: The CSS below should be split into separate files. Temporarily put it here to make it work faster. */
+
+/* colors.css */
+:root {
+  --copilot-kit-primary-color: rgb(59 130 246);
+  --copilot-kit-contrast-color: rgb(255 255 255);
+  --copilot-kit-secondary-color: rgb(243 244 246);
+  --copilot-kit-secondary-contrast-color: rgb(0 0 0);
+  --copilot-kit-background-color: rgb(255 255 255);
+  --copilot-kit-muted-color: rgb(106 106 106);
+  --copilot-kit-separator-color: rgba(0, 0, 0, 0.08);
+  --copilot-kit-scrollbar-color: rgba(0, 0, 0, 0.2);
+
+  --copilot-kit-button-background-color: var(--copilot-kit-primary-color);
+
+  /* The color of the icon in the open/close button */
+  --copilot-kit-button-icon-color: var(--copilot-kit-contrast-color);
+
+  /* The background color of the header of the chat window */
+  --copilot-kit-header-background-color: var(--copilot-kit-primary-color);
+
+  /* The color of the title in the header of the chat window */
+  --copilot-kit-header-title-color: var(--copilot-kit-contrast-color);
+
+  /* The color of the close button in the header of the chat window */
+  --copilot-kit-header-close-button-color: var(--copilot-kit-contrast-color);
+
+  /* The color of the separator between the header and the messages area */
+  --copilot-kit-header-separator-color: var(--copilot-kit-separator-color);
+
+  /* The background color of the input area */
+  --copilot-kit-input-background-color: var(--copilot-kit-background-color);
+
+  /* The color of the send button */
+  --copilot-kit-input-send-button-color: var(--copilot-kit-primary-color);
+
+  /* The color of the send button when disabled */
+  --copilot-kit-input-send-button-disabled-color: var(--copilot-kit-muted-color);
+
+  /* The color of the placeholder text in the input area */
+  --copilot-kit-input-placeholder-color: var(--copilot-kit-muted-color);
+
+  /* The color of the text in the input area */
+  --copilot-kit-input-color: var(--copilot-kit-secondary-contrast-color);
+
+  /* The color of the separator between the input area and the messages area */
+  --copilot-kit-input-separator-color: var(--copilot-kit-separator-color);
+
+  /* The background color of the messages area */
+  --copilot-kit-messages-background-color: var(--copilot-kit-background-color);
+
+  /* The background color of a user message */
+  --copilot-kit-message-user-background-color: var(--copilot-kit-primary-color);
+  --copilot-kit-message-user-color: var(--copilot-kit-contrast-color);
+
+  /* The background color of a assistant message */
+  --copilot-kit-message-assistant-background-color: var(--copilot-kit-secondary-color);
+  --copilot-kit-message-assistant-color: var(--copilot-kit-secondary-contrast-color);
+
+  /*
+   * Dark Mode
+   */
+
+  --copilot-kit-dark-primary-color: rgb(59 130 246);
+  --copilot-kit-dark-contrast-color: rgb(255 255 255);
+  --copilot-kit-dark-secondary-color: rgb(37, 36, 42);
+  --copilot-kit-dark-secondary-contrast-color: rgb(255 255 255);
+  --copilot-kit-dark-background-color: rgb(0 0 0);
+  --copilot-kit-dark-muted-color: rgb(106 106 106);
+  --copilot-kit-dark-separator-color: rgba(255, 255, 255, 0.15);
+  --copilot-kit-dark-scrollbar-color: rgba(255, 255, 255, 0.3);
+  --copilot-kit-dark-button-background-color: var(--copilot-kit-dark-primary-color);
+  --copilot-kit-dark-button-icon-color: var(--copilot-kit-dark-contrast-color);
+  --copilot-kit-dark-header-background-color: var(--copilot-kit-dark-primary-color);
+  --copilot-kit-dark-header-title-color: var(--copilot-kit-dark-contrast-color);
+  --copilot-kit-dark-header-close-button-color: var(--copilot-kit-dark-contrast-color);
+  --copilot-kit-dark-header-separator-color: var(--copilot-kit-dark-separator-color);
+  --copilot-kit-dark-input-background-color: var(--copilot-kit-dark-background-color);
+  --copilot-kit-dark-input-send-button-color: var(--copilot-kit-dark-primary-color);
+  --copilot-kit-dark-input-send-button-disabled-color: var(--copilot-kit-dark-muted-color);
+  --copilot-kit-dark-input-placeholder-color: var(--copilot-kit-dark-muted-color);
+  --copilot-kit-dark-input-color: var(--copilot-kit-dark-secondary-contrast-color);
+  --copilot-kit-dark-input-separator-color: var(--copilot-kit-dark-separator-color);
+  --copilot-kit-dark-messages-background-color: var(--copilot-kit-dark-background-color);
+  --copilot-kit-dark-message-user-background-color: var(--copilot-kit-dark-primary-color);
+  --copilot-kit-dark-message-user-color: var(--copilot-kit-dark-contrast-color);
+  --copilot-kit-dark-message-assistant-background-color: var(--copilot-kit-dark-secondary-color);
+  --copilot-kit-dark-message-assistant-color: var(--copilot-kit-dark-secondary-contrast-color);
+}
+
+.copilotKitColorSchemeDark,
+.copilotKitColorSchemeDark * {
+  color-scheme: light dark;
+  --copilot-kit-primary-color: var(--copilot-kit-dark-primary-color);
+  --copilot-kit-contrast-color: var(--copilot-kit-dark-contrast-color);
+  --copilot-kit-secondary-color: var(--copilot-kit-dark-secondary-color);
+  --copilot-kit-secondary-contrast-color: var(--copilot-kit-dark-secondary-contrast-color);
+  --copilot-kit-background-color: var(--copilot-kit-dark-background-color);
+  --copilot-kit-muted-color: var(--copilot-kit-dark-muted-color);
+  --copilot-kit-separator-color: var(--copilot-kit-dark-separator-color);
+  --copilot-kit-scrollbar-color: var(--copilot-kit-dark-scrollbar-color);
+  --copilot-kit-button-background-color: var(--copilot-kit-dark-button-background-color);
+  --copilot-kit-button-icon-color: var(--copilot-kit-dark-button-icon-color);
+  --copilot-kit-header-background-color: var(--copilot-kit-dark-header-background-color);
+  --copilot-kit-header-title-color: var(--copilot-kit-dark-header-title-color);
+  --copilot-kit-header-close-button-color: var(--copilot-kit-dark-header-close-button-color);
+  --copilot-kit-header-separator-color: var(--copilot-kit-dark-header-separator-color);
+  --copilot-kit-input-background-color: var(--copilot-kit-dark-input-background-color);
+  --copilot-kit-input-send-button-color: var(--copilot-kit-dark-input-send-button-color);
+  --copilot-kit-input-send-button-disabled-color: var(
+    --copilot-kit-dark-input-send-button-disabled-color
+  );
+  --copilot-kit-input-placeholder-color: var(--copilot-kit-dark-input-placeholder-color);
+  --copilot-kit-input-color: var(--copilot-kit-dark-input-color);
+  --copilot-kit-input-separator-color: var(--copilot-kit-dark-input-separator-color);
+  --copilot-kit-messages-background-color: var(--copilot-kit-dark-messages-background-color);
+  --copilot-kit-message-user-background-color: var(
+    --copilot-kit-dark-message-user-background-color
+  );
+  --copilot-kit-message-user-color: var(--copilot-kit-dark-message-user-color);
+  --copilot-kit-message-assistant-background-color: var(
+    --copilot-kit-dark-message-assistant-background-color
+  );
+  --copilot-kit-message-assistant-color: var(--copilot-kit-dark-message-assistant-color);
+}
+
+@media (prefers-color-scheme: dark) {
+  .copilotKitColorSchemeAuto,
+  .copilotKitColorSchemeAuto * {
+    color-scheme: light dark;
+    --copilot-kit-primary-color: var(--copilot-kit-dark-primary-color);
+    --copilot-kit-contrast-color: var(--copilot-kit-dark-contrast-color);
+    --copilot-kit-secondary-color: var(--copilot-kit-dark-secondary-color);
+    --copilot-kit-secondary-contrast-color: var(--copilot-kit-dark-secondary-contrast-color);
+    --copilot-kit-background-color: var(--copilot-kit-dark-background-color);
+    --copilot-kit-muted-color: var(--copilot-kit-dark-muted-color);
+    --copilot-kit-separator-color: var(--copilot-kit-dark-separator-color);
+    --copilot-kit-scrollbar-color: var(--copilot-kit-dark-scrollbar-color);
+    --copilot-kit-button-background-color: var(--copilot-kit-dark-button-background-color);
+    --copilot-kit-button-icon-color: var(--copilot-kit-dark-button-icon-color);
+    --copilot-kit-header-background-color: var(--copilot-kit-dark-header-background-color);
+    --copilot-kit-header-title-color: var(--copilot-kit-dark-header-title-color);
+    --copilot-kit-header-close-button-color: var(--copilot-kit-dark-header-close-button-color);
+    --copilot-kit-header-separator-color: var(--copilot-kit-dark-header-separator-color);
+    --copilot-kit-input-background-color: var(--copilot-kit-dark-input-background-color);
+    --copilot-kit-input-send-button-color: var(--copilot-kit-dark-input-send-button-color);
+    --copilot-kit-input-send-button-disabled-color: var(
+      --copilot-kit-dark-input-send-button-disabled-color
+    );
+    --copilot-kit-input-placeholder-color: var(--copilot-kit-dark-input-placeholder-color);
+    --copilot-kit-input-color: var(--copilot-kit-dark-input-color);
+    --copilot-kit-input-separator-color: var(--copilot-kit-dark-input-separator-color);
+    --copilot-kit-messages-background-color: var(--copilot-kit-dark-messages-background-color);
+    --copilot-kit-message-user-background-color: var(
+      --copilot-kit-dark-message-user-background-color
+    );
+    --copilot-kit-message-user-color: var(--copilot-kit-dark-message-user-color);
+    --copilot-kit-message-assistant-background-color: var(
+      --copilot-kit-dark-message-assistant-background-color
+    );
+    --copilot-kit-message-assistant-color: var(--copilot-kit-dark-message-assistant-color);
+  }
+}
+
+/* chat.css */
+.copilotKitChat {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 30;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  -moz-tab-size: 4;
+  -o-tab-size: 4;
+  tab-size: 4;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji";
+  font-feature-settings: normal;
+  font-variation-settings: normal;
+  touch-action: manipulation;
+}
+
+.copilotKitChat svg {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* button.css */
+.copilotKitButton {
+  width: 3.5rem;
+  height: 3.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  outline: none;
+  position: relative;
+  transform: scale(1);
+  transition: transform 200ms;
+  background-color: var(--copilot-kit-button-background-color);
+  color: var(--copilot-kit-button-icon-color);
+  cursor: pointer;
+}
+
+.copilotKitButton:hover {
+  transform: scale(1.1);
+}
+
+.copilotKitButton:active {
+  transform: scale(0.75);
+}
+
+.copilotKitButtonIcon {
+  transition: opacity 100ms, transform 300ms;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* State when the chat is open */
+.copilotKitButton.open .copilotKitButtonIconOpen {
+  transform: translate(-50%, -50%) scale(0) rotate(90deg);
+  opacity: 0;
+}
+
+.copilotKitButton.open .copilotKitButtonIconClose {
+  transform: translate(-50%, -50%) scale(1) rotate(0deg);
+  opacity: 1;
+}
+
+/* State when the chat is closed */
+.copilotKitButton:not(.open) .copilotKitButtonIconOpen {
+  transform: translate(-50%, -50%) scale(1) rotate(0deg);
+  opacity: 1;
+}
+
+.copilotKitButton:not(.open) .copilotKitButtonIconClose {
+  transform: translate(-50%, -50%) scale(0) rotate(-90deg);
+  opacity: 0;
+}
+
+/* header.css */
+.copilotKitHeader {
+  height: 56px;
+  font-weight: 500;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  background-color: var(--copilot-kit-header-background-color);
+  color: var(--copilot-kit-header-title-color);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-bottom: 1px solid var(--copilot-kit-header-separator-color);
+}
+
+@media (min-width: 640px) {
+  .copilotKitHeader {
+    padding-left: 24px;
+    padding-right: 24px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+  }
+}
+
+.copilotKitHeader > button {
+  border: 0;
+  padding: 0px;
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  outline: none;
+  color: var(--copilot-kit-header-close-button-color);
+  background-color: transparent;
+  cursor: pointer;
+}
+
+.copilotKitHeader > button:focus {
+  outline: none;
+}
+
+/* input.css */
+
+.copilotKitInput {
+  border-top: 1px solid var(--copilot-kit-input-separator-color);
+  padding-left: 2rem;
+  padding-right: 2.5rem;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  cursor: text;
+  position: relative;
+  border-bottom-left-radius: 0.75rem;
+  border-bottom-right-radius: 0.75rem;
+  background-color: var(--copilot-kit-input-background-color);
+}
+
+.copilotKitInput > button {
+  position: absolute;
+  right: 0.5rem;
+  padding: 0.25rem;
+  cursor: pointer;
+  transition-property: transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+  transform: scale(1);
+  color: rgba(0, 0, 0, 0.25);
+  -webkit-appearance: button;
+  appearance: button;
+  background-color: transparent;
+  background-image: none;
+  text-transform: none;
+  font-family: inherit;
+  font-size: 100%;
+  font-weight: inherit;
+  line-height: inherit;
+  border: 0;
+  margin: 0;
+  text-indent: 0px;
+  text-shadow: none;
+  display: inline-block;
+  text-align: center;
+}
+
+.copilotKitInput > button:not([disabled]) {
+  color: var(--copilot-kit-input-send-button-color);
+}
+
+.copilotKitInput > button:not([disabled]):hover {
+  transform: scale(1.1);
+}
+
+.copilotKitInput > button[disabled] {
+  color: var(--copilot-kit-input-send-button-disabled-color);
+}
+
+.copilotKitInput > textarea {
+  width: 100%;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  resize: none;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  cursor: text;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+  font-weight: inherit;
+  color: var(--copilot-kit-input-color);
+  border: 0px;
+  background-color: var(--copilot-kit-input-background-color);
+}
+
+.copilotKitInput > textarea::placeholder {
+  color: var(--copilot-kit-input-placeholder-color);
+  opacity: 1;
+}
+
+/* messages.css */
+
+.copilotKitMessages {
+  overflow-y: scroll;
+  flex: 1;
+  padding: 1rem 2rem;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--copilot-kit-messages-background-color);
+}
+
+.copilotKitMessages::-webkit-scrollbar {
+  width: 9px;
+}
+
+.copilotKitMessages::-webkit-scrollbar-thumb {
+  background-color: var(--copilot-kit-scrollbar-color);
+  border-radius: 10rem;
+  border: 2px solid var(--copilot-kit-messages-background-color);
+}
+
+.copilotKitMessages::-webkit-scrollbar-track-piece:start {
+  background: transparent;
+}
+
+.copilotKitMessages::-webkit-scrollbar-track-piece:end {
+  background: transparent;
+}
+
+.copilotKitMessage {
+  border-radius: 0.5rem;
+  padding: 1rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  overflow-wrap: break-word;
+  max-width: 80%;
+  margin-bottom: 0.5rem;
+}
+
+.copilotKitMessage.copilotKitUserMessage {
+  background: var(--copilot-kit-message-user-background-color);
+  color: var(--copilot-kit-message-user-color);
+  margin-left: auto;
+}
+
+.copilotKitMessage.copilotKitAssistantMessage {
+  background: var(--copilot-kit-message-assistant-background-color);
+  color: var(--copilot-kit-message-assistant-color);
+  margin-right: auto;
+}
+
+.copilotKitMessage.copilotKitUserMessage + .copilotKitMessage.copilotKitAssistantMessage {
+  margin-top: 1.5rem;
+}
+
+.copilotKitMessage.copilotKitAssistantMessage + .copilotKitMessage.copilotKitUserMessage {
+  margin-top: 1.5rem;
+}
+
+/* window.css */
+.copilotKitWindow {
+  position: fixed;
+  inset: 0px;
+  transform-origin: bottom;
+  border-color: rgb(229 231 235);
+  background-color: rgb(255 255 255);
+  border-radius: 0.75rem;
+  box-shadow: rgba(0, 0, 0, 0.16) 0px 5px 40px;
+  flex-direction: column;
+  transition: opacity 100ms ease-out, transform 200ms ease-out;
+  opacity: 0;
+  transform: scale(0.95) translateY(20px);
+  display: flex;
+  pointer-events: none;
+}
+
+.copilotKitWindow.open {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+}
+
+@media (min-width: 640px) {
+  .copilotKitWindow {
+    transform-origin: bottom right;
+    bottom: 5rem;
+    right: 1rem;
+    top: auto;
+    left: auto;
+    border-width: 1px;
+    margin-bottom: 1rem;
+    width: 24rem;
+    height: 600px;
+    min-height: 200px;
+    max-height: calc(100% - 6rem);
+  }
+}
