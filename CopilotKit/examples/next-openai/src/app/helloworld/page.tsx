@@ -5,15 +5,18 @@ import {
   useMakeCopilotActionable,
   useMakeCopilotReadable,
 } from "@copilotkit/react-core";
-import { CopilotSidebarUIProvider } from "@copilotkit/react-ui";
+import { CopilotSidebarUIProvider, CopilotKitPopup, Temporary } from "@copilotkit/react-ui";
 import { useState } from "react";
 
 const HelloWorld = () => {
   return (
     <CopilotProvider chatApiEndpoint="/api/copilotkit/openai">
-      <CopilotSidebarUIProvider>
-        <Presentation />
-      </CopilotSidebarUIProvider>
+      <Presentation />
+      <Temporary>
+        <CopilotKitPopup />
+      </Temporary>
+      {/* <CopilotSidebarUIProvider>
+      </CopilotSidebarUIProvider> */}
     </CopilotProvider>
   );
 };
