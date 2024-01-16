@@ -34,3 +34,7 @@ export async function POST(req: Request): Promise<Response> {
     return new Response("", { status: 500, statusText: error.error.message });
   }
 }
+
+export async function OPTIONS(): Promise<Response> {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
