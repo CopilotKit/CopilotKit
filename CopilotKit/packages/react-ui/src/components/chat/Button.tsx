@@ -1,9 +1,9 @@
 import React from "react";
 import { ButtonProps } from "./props";
-import { useTemporaryContext } from "./TemporaryContext";
+import { useChatContext } from "./ChatContext";
 
 export const Button: React.FC<ButtonProps> = ({ open, setOpen }) => {
-  const context = useTemporaryContext();
+  const context = useChatContext();
   // To ensure that the mouse handler fires even when the button is scaled down
   // we wrap the button in a div and attach the handler to the div
   return (

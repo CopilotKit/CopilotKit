@@ -1,10 +1,10 @@
 import React, { useRef, useState } from "react";
 import { InputProps } from "./props";
-import { useTemporaryContext } from "./TemporaryContext";
-import AutoResizingTextarea from "./TextArea";
+import { useChatContext } from "./ChatContext";
+import AutoResizingTextarea from "./Textarea";
 
 export const Input: React.FC<InputProps> = ({ inProgress, onSend }) => {
-  const context = useTemporaryContext();
+  const context = useChatContext();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleDivClick = (event: React.MouseEvent<HTMLDivElement>) => {

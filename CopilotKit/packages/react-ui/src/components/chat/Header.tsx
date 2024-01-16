@@ -1,9 +1,9 @@
 import React from "react";
 import { HeaderProps } from "./props";
-import { useTemporaryContext } from "./TemporaryContext";
+import { useChatContext } from "./ChatContext";
 
 export const Header: React.FC<HeaderProps> = ({ setOpen }) => {
-  const context = useTemporaryContext();
+  const context = useChatContext();
 
   return (
     <div className="copilotKitHeader">

@@ -1,9 +1,17 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { MessagesProps } from "./props";
-import { useTemporaryContext } from "./TemporaryContext";
+import { useChatContext } from "./ChatContext";
+import { nanoid } from "nanoid";
+import { Message } from "@copilotkit/react-core";
 
 export const Messages: React.FC<MessagesProps> = ({ messages, inProgress }) => {
-  const context = useTemporaryContext();
+  const context = useChatContext();
+  const initialMessages = useMemo(
+    () => makeInitialMessages(context.labels.initial),
+    [context.labels.initial],
+  );
+  messages = [...initialMessages, ...messages];
+
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -75,3 +83,20 @@ export const Messages: React.FC<MessagesProps> = ({ messages, inProgress }) => {
     </div>
   );
 };
+
+function makeInitialMessages(initial?: string | string[]): Message[] {
+  let initialArray: string[] = [];
+  if (initial) {
+    if (Array.isArray(initial)) {
+      initialArray.push(...initial);
+    } else {
+      initialArray.push(initial);
+    }
+  }
+
+  return initialArray.map((message) => ({
+    id: nanoid(),
+    role: "assistant",
+    content: message,
+  }));
+}
