@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 0.1.1-alpha.1
+
+### Patch Changes
+
+- change order of operations on stop cleanup
+
 ## 0.1.1-alpha.0
 
 ### Patch Changes

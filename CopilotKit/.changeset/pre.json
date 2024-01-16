@@ -13,6 +13,7 @@
     "tsconfig": "0.6.0"
   },
   "changesets": [
-    "fluffy-cherries-double"
+    "fluffy-cherries-double",
+    "lucky-scissors-cry"
   ]
 }
