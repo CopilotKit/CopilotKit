@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo } from "react";
 import {
-  CopilotKitColorScheme,
-  CopilotKitIcons,
-  TemporaryContext,
-  useTemporaryContext,
-} from "./TemporaryContext";
+  CopilotKitChatColorScheme,
+  CopilotKitChatIcons,
+  ChatContextProvider,
+  CopilotKitChatLabels,
+} from "./ChatContext";
 import { useCopilotChat } from "@copilotkit/react-core";
 import { ButtonProps, HeaderProps, WindowProps, MessagesProps, InputProps } from "./props";
 import { Window as DefaultWindow } from "./Window";
@@ -19,8 +19,9 @@ interface CopilotKitPopupProps {
   clickOutsideToClose?: boolean;
   hitEscapeToClose?: boolean;
   hotkey?: string;
-  icons?: CopilotKitIcons;
-  colorScheme?: CopilotKitColorScheme;
+  icons?: CopilotKitChatIcons;
+  labels?: CopilotKitChatLabels;
+  colorScheme?: CopilotKitChatColorScheme;
   Window?: React.ComponentType<WindowProps>;
   Button?: React.ComponentType<ButtonProps>;
   Header?: React.ComponentType<HeaderProps>;
@@ -34,6 +35,7 @@ export const CopilotKitPopup: React.FC<CopilotKitPopupProps> = ({
   hitEscapeToClose = true,
   hotkey = "K",
   icons,
+  labels,
   colorScheme,
   Window = DefaultWindow,
   Button = DefaultButton,
@@ -47,8 +49,6 @@ export const CopilotKitPopup: React.FC<CopilotKitPopupProps> = ({
     makeSystemMessage: undefined,
   });
 
-  const context = useTemporaryContext();
-
   const [open, setOpen] = React.useState(defaultOpen);
 
   const sendMessage = async (message: string) => {
@@ -59,22 +59,13 @@ export const CopilotKitPopup: React.FC<CopilotKitPopupProps> = ({
     });
   };
 
-  const ctx = useMemo(() => {
-    return {
-      ...context,
-      icons: {
-        ...context.icons,
-        ...icons,
-      },
-      colorScheme: colorScheme || context.colorScheme,
-    };
-  }, [context, icons, colorScheme]);
+  colorScheme = colorScheme || "auto";
 
   const colorSchemeClass =
-    "copilotKitColorScheme" + ctx.colorScheme[0].toUpperCase() + ctx.colorScheme.slice(1);
+    "copilotKitColorScheme" + colorScheme[0].toUpperCase() + colorScheme.slice(1);
 
   return (
-    <TemporaryContext.Provider value={ctx}>
+    <ChatContextProvider icons={icons} labels={labels}>
       <div className={`copilotKitPopup ${colorSchemeClass}`}>
         <Button open={open} setOpen={setOpen}></Button>
         <Window
@@ -89,6 +80,6 @@ export const CopilotKitPopup: React.FC<CopilotKitPopupProps> = ({
           <Input inProgress={isLoading} onSend={sendMessage} />
         </Window>
       </div>
-    </TemporaryContext.Provider>
+    </ChatContextProvider>
   );
 };
