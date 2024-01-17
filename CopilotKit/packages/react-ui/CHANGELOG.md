@@ -1,5 +1,16 @@
 # ui
 
+## 0.15.0-alpha.0
+
+### Minor Changes
+
+- propagate makeSystemMessage through CopilotSidebarUIProvider
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.18.0-alpha.0
+
 ## 0.14.1
 
 ### Patch Changes

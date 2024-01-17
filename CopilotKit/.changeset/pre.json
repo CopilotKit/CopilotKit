@@ -12,5 +12,7 @@
     "tailwind-config": "0.1.0",
     "tsconfig": "0.6.0"
   },
-  "changesets": []
+  "changesets": [
+    "fifty-berries-beam"
+  ]
 }

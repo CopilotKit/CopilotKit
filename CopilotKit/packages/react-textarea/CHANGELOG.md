@@ -1,5 +1,12 @@
 # ui
 
+## 0.27.2-alpha.0
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.18.0-alpha.0
+
 ## 0.27.1
 
 ### Patch Changes

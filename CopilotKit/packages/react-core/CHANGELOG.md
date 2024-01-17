@@ -1,5 +1,11 @@
 # ui
 
+## 0.18.0-alpha.0
+
+### Minor Changes
+
+- propagate makeSystemMessage through CopilotSidebarUIProvider
+
 ## 0.17.1
 
 ### Patch Changes
