@@ -6,9 +6,10 @@ import { TooltipProvider } from "../chat-components/ui/tooltip";
 
 export interface CopilotSidebarUIProviderProps {
   children: ReactNode;
+  makeSystemMessage?: (contextString: string) => string;
 }
 
-export function CopilotSidebarUIProvider({ children }: CopilotSidebarUIProviderProps) {
+export function CopilotSidebarUIProvider({ children, ...props }: CopilotSidebarUIProviderProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const toggleSidebar = useCallback(() => {
@@ -48,7 +49,10 @@ export function CopilotSidebarUIProvider({ children }: CopilotSidebarUIProviderP
             }}
           >
             <TooltipProvider>
-              <CopilotSidebar setSidebarOpen={setSidebarOpen} />
+              <CopilotSidebar
+                setSidebarOpen={setSidebarOpen}
+                makeSystemMessage={props.makeSystemMessage}
+              />
             </TooltipProvider>
           </div>
           {!sidebarOpen && (

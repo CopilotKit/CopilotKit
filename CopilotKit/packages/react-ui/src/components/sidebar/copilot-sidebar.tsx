@@ -3,6 +3,7 @@ import { CopilotChat } from "../chat-components/copilot-chat";
 
 export interface SidebarProps {
   setSidebarOpen: (open: boolean) => void;
+  makeSystemMessage?: (contextString: string) => string;
 }
 
 export function CopilotSidebar(props: SidebarProps): JSX.Element {
@@ -12,7 +13,7 @@ export function CopilotSidebar(props: SidebarProps): JSX.Element {
       style={{ width: "100%", height: "100%" }}
     >
       <TopBar {...props} />
-      <CopilotChat />
+      <CopilotChat makeSystemMessage={props.makeSystemMessage} />
     </div>
   );
 }
