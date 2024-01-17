@@ -15,6 +15,7 @@ import { Input as DefaultInput } from "./Input";
 import { nanoid } from "nanoid";
 
 interface CopilotKitPopupProps {
+  instructions?: string;
   defaultOpen?: boolean;
   clickOutsideToClose?: boolean;
   hitEscapeToClose?: boolean;
@@ -30,6 +31,7 @@ interface CopilotKitPopupProps {
 }
 
 export const CopilotKitPopup: React.FC<CopilotKitPopupProps> = ({
+  instructions,
   defaultOpen = false,
   clickOutsideToClose = true,
   hitEscapeToClose = true,
@@ -45,7 +47,15 @@ export const CopilotKitPopup: React.FC<CopilotKitPopupProps> = ({
 }) => {
   const { visibleMessages, append, reload, stop, isLoading, input, setInput } = useCopilotChat({
     id: nanoid(),
-    initialMessages: [], // TODO merge instructions
+    initialMessages: instructions
+      ? [
+          {
+            id: nanoid(),
+            content: instructions,
+            role: "system",
+          },
+        ]
+      : [],
     makeSystemMessage: undefined,
   });
 
