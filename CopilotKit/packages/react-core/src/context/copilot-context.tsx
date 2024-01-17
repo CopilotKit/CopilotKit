@@ -1,9 +1,8 @@
 "use client";
 
-import { FunctionCallHandler } from "@copilotkit/shared";
+import { FunctionCallHandler, AnnotatedFunction } from "@copilotkit/shared";
 import React from "react";
 import { TreeNodeId } from "../hooks/use-tree";
-import { AnnotatedFunction } from "../types/annotated-function";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
 import { DocumentPointer } from "../types";
 
