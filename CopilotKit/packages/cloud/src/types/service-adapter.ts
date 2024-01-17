@@ -6,4 +6,5 @@ export type CopilotKitOpenAIConfiguration = {
   provider?: "openai"; // default to openai
   apiKey?: string;
   model?: string;
+  functions?: any;
 };
