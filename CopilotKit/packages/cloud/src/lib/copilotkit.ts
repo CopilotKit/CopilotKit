@@ -8,11 +8,13 @@ type CopilotKitConstructorParams = CopilotKitOpenAIConfiguration;
 export class CopilotKit {
   private serviceAdapter!: CopilotKitServiceAdapter;
 
-  constructor(params: CopilotKitConstructorParams) {
-    if (params.provider === undefined || params.provider === "openai") {
-      this.serviceAdapter = new OpenAIAdapter(params);
+  constructor(params?: CopilotKitConstructorParams) {
+    if (!params || params.provider === undefined || params.provider === "openai") {
+      this.serviceAdapter = new OpenAIAdapter(params || {});
     }
   }
 
-  stream() {}
+  stream(forwardedProps: any): ReadableStream<any> {
+    return this.serviceAdapter.stream(forwardedProps);
+  }
 }

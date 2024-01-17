@@ -24,6 +24,7 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
         ...forwardedProps,
         stream: true,
         messages,
+        ...(this.params.model ? { model: this.params.model } : {}),
       })
       .toReadableStream();
   }
