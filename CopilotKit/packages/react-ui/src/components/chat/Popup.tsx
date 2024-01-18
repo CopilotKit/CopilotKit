@@ -53,16 +53,8 @@ export const CopilotKitPopup: React.FC<CopilotKitPopupProps> = ({
 }) => {
   const { visibleMessages, append, reload, stop, isLoading, input, setInput } = useCopilotChat({
     id: nanoid(),
-    initialMessages: instructions
-      ? [
-          {
-            id: nanoid(),
-            content: instructions,
-            role: "system",
-          },
-        ]
-      : [],
-    makeSystemMessage: makeSystemMessage,
+    makeSystemMessage,
+    additionalInstructions: instructions,
     headers,
     body,
   });

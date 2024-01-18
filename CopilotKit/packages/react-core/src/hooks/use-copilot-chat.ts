@@ -7,6 +7,7 @@ import { ChatCompletionCreateParams } from "openai/resources/chat";
 
 export interface UseCopilotChatOptions extends UseChatOptions {
   makeSystemMessage?: SystemMessageFunction;
+  additionalInstructions?: string;
 }
 
 export interface UseCopilotChatReturn {
@@ -21,6 +22,7 @@ export interface UseCopilotChatReturn {
 
 export function useCopilotChat({
   makeSystemMessage,
+  additionalInstructions,
   ...options
 }: UseCopilotChatOptions): UseCopilotChatReturn {
   const {
@@ -36,7 +38,7 @@ export function useCopilotChat({
 
     return {
       id: "system",
-      content: systemMessageMaker(contextString),
+      content: systemMessageMaker(contextString, additionalInstructions),
       role: "system",
     };
   }, [getContextString, makeSystemMessage]);
