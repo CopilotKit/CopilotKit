@@ -11,7 +11,6 @@
 - hotkey?: string; The hotkey to open the popup
 - icons?: CopilotKitChatIcons; Users can override icons
 - labels?: CopilotKitChatLabels; Users can override labels
-- colorScheme?: CopilotKitChatColorScheme; light, dark or auto
 - Window?: React.ComponentType<WindowProps>; Users can override the Window component
 - Button?: React.ComponentType<ButtonProps>; Users can override the Button component
 - Header?: React.ComponentType<HeaderProps>; Users can override the Header component

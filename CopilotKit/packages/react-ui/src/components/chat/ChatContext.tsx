@@ -1,8 +1,6 @@
 import React, { useMemo } from "react";
 import * as DefaultIcons from "./Icons";
 
-export type CopilotKitChatColorScheme = "auto" | "light" | "dark";
-
 export interface CopilotKitChatIcons {
   openIcon?: React.ReactNode;
   closeIcon?: React.ReactNode;
@@ -24,7 +22,6 @@ export interface CopilotKitChatLabels {
 interface ChatContext {
   labels: Required<CopilotKitChatLabels>;
   icons: Required<CopilotKitChatIcons>;
-  colorScheme: CopilotKitChatColorScheme;
 }
 
 export const ChatContext = React.createContext<ChatContext | undefined>(undefined);
@@ -70,7 +67,6 @@ export const ChatContextProvider: React.FC<ChatContextProps> = ({
         ...labels,
       },
 
-      colorScheme: "auto" as CopilotKitChatColorScheme,
       icons: {
         ...{
           openIcon: DefaultIcons.OpenIcon,
