@@ -11,8 +11,6 @@ import { nanoid } from "nanoid";
 
 interface CopilotKitPopupProps {
   instructions?: string;
-  headers?: Record<string, string> | Headers;
-  body?: object;
   defaultOpen?: boolean;
   clickOutsideToClose?: boolean;
   hitEscapeToClose?: boolean;
@@ -29,8 +27,6 @@ interface CopilotKitPopupProps {
 
 export const CopilotKitPopup: React.FC<CopilotKitPopupProps> = ({
   instructions,
-  headers,
-  body,
   defaultOpen = false,
   clickOutsideToClose = true,
   hitEscapeToClose = true,
@@ -48,8 +44,6 @@ export const CopilotKitPopup: React.FC<CopilotKitPopupProps> = ({
     id: nanoid(),
     makeSystemMessage,
     additionalInstructions: instructions,
-    headers,
-    body,
   });
 
   const [open, setOpen] = React.useState(defaultOpen);
