@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from "react";
+import React from "react";
 import { CopilotKitChatIcons, ChatContextProvider, CopilotKitChatLabels } from "./ChatContext";
 import { SystemMessageFunction, useCopilotChat } from "@copilotkit/react-core";
 import { ButtonProps, HeaderProps, WindowProps, MessagesProps, InputProps } from "./props";
