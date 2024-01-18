@@ -5,7 +5,7 @@ import {
   ChatContextProvider,
   CopilotKitChatLabels,
 } from "./ChatContext";
-import { useCopilotChat } from "@copilotkit/react-core";
+import { SystemMessageFunction, useCopilotChat } from "@copilotkit/react-core";
 import { ButtonProps, HeaderProps, WindowProps, MessagesProps, InputProps } from "./props";
 import { Window as DefaultWindow } from "./Window";
 import { Button as DefaultButton } from "./Button";
@@ -25,6 +25,7 @@ interface CopilotKitPopupProps {
   icons?: CopilotKitChatIcons;
   labels?: CopilotKitChatLabels;
   colorScheme?: CopilotKitChatColorScheme;
+  makeSystemMessage?: SystemMessageFunction;
   Window?: React.ComponentType<WindowProps>;
   Button?: React.ComponentType<ButtonProps>;
   Header?: React.ComponentType<HeaderProps>;
@@ -43,6 +44,7 @@ export const CopilotKitPopup: React.FC<CopilotKitPopupProps> = ({
   icons,
   labels,
   colorScheme,
+  makeSystemMessage,
   Window = DefaultWindow,
   Button = DefaultButton,
   Header = DefaultHeader,
@@ -60,7 +62,7 @@ export const CopilotKitPopup: React.FC<CopilotKitPopupProps> = ({
           },
         ]
       : [],
-    makeSystemMessage: undefined,
+    makeSystemMessage: makeSystemMessage,
     headers,
     body,
   });

@@ -1,12 +1,12 @@
 import { useMemo, useContext } from "react";
 import { CopilotContext, CopilotContextParams } from "../context/copilot-context";
-import { Message } from "../types";
+import { Message, SystemMessageFunction } from "../types";
 import { UseChatOptions, useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
 
 export interface UseCopilotChatOptions extends UseChatOptions {
-  makeSystemMessage?: (contextString: string) => string;
+  makeSystemMessage?: SystemMessageFunction;
 }
 
 export interface UseCopilotChatReturn {
@@ -73,8 +73,12 @@ export function useCopilotChat({
   };
 }
 
-export function defaultSystemMessage(contextString: string): string {
-  return `
+export function defaultSystemMessage(
+  contextString: string,
+  additionalInstructions?: string,
+): string {
+  return (
+    `
 Please act as an efficient, competent, conscientious, and industrious professional assistant.
 
 Help the user achieve their goals, and you do so in a way that is as efficient as possible, without unnecessary fluff, but also without sacrificing professionalism.
@@ -92,5 +96,6 @@ Please assist them as best you can.
 You can ask them for clarifying questions if needed, but don't be annoying about it. If you can reasonably 'fill in the blanks' yourself, do so.
 
 If you would like to call a function, call it without saying anything else.
-`;
+` + (additionalInstructions ? `\n\n${additionalInstructions}` : "")
+  );
 }
