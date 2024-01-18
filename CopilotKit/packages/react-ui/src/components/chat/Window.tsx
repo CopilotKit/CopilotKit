@@ -111,7 +111,7 @@ export const Window = ({
 
   return (
     <div className={`copilotKitWindow${open ? " open" : ""}`} ref={windowRef}>
-      {open && children}
+      {children}
     </div>
   );
 };

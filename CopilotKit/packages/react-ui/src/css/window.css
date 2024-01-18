@@ -14,10 +14,20 @@
   pointer-events: none;
 }
 
+.copilotKitSidebar .copilotKitWindow {
+  border-radius: 0;
+  opacity: 1;
+  transform: translateX(100%);
+}
+
 .copilotKitWindow.open {
   opacity: 1;
   transform: scale(1) translateY(0);
   pointer-events: auto;
+}
+
+.copilotKitSidebar .copilotKitWindow.open {
+  transform: translateX(0);
 }
 
 @media (min-width: 640px) {
@@ -33,5 +43,16 @@
     height: 600px;
     min-height: 200px;
     max-height: calc(100% - 6rem);
+  }
+
+  .copilotKitSidebar .copilotKitWindow {
+    bottom: 0;
+    right: 0;
+    top: auto;
+    left: auto;
+    width: 28rem;
+    min-height: 100%;
+    margin-bottom: 0;
+    max-height: none;
   }
 }

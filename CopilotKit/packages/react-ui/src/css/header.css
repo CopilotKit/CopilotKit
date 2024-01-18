@@ -12,6 +12,10 @@
   border-bottom: 1px solid var(--copilot-kit-header-separator-color);
 }
 
+.copilotKitSidebar .copilotKitHeader {
+  border-radius: 0;
+}
+
 @media (min-width: 640px) {
   .copilotKitHeader {
     padding-left: 24px;
