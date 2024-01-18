@@ -8,6 +8,8 @@ export interface CopilotKitChatIcons {
   sendIcon?: React.ReactNode;
   activityIcon?: React.ReactNode;
   spinnerIcon?: React.ReactNode;
+  stopIcon?: React.ReactNode;
+  regenerateIcon?: React.ReactNode;
 }
 
 export interface CopilotKitChatLabels {
@@ -17,6 +19,8 @@ export interface CopilotKitChatLabels {
   thinking?: string;
   done?: string;
   error?: string;
+  stopGenerating?: string;
+  regenerateResponse?: string;
 }
 
 interface ChatContext {
@@ -63,6 +67,8 @@ export const ChatContextProvider: React.FC<ChatContextProps> = ({
           thinking: "Thinking...",
           done: "✅ Done",
           error: "❌ An error occurred. Please try again.",
+          stopGenerating: "Stop generating",
+          regenerateResponse: "Regenerate response",
         },
         ...labels,
       },
@@ -75,6 +81,8 @@ export const ChatContextProvider: React.FC<ChatContextProps> = ({
           sendIcon: DefaultIcons.SendIcon,
           activityIcon: DefaultIcons.ActivityIcon,
           spinnerIcon: DefaultIcons.SpinnerIcon,
+          stopIcon: DefaultIcons.StopIcon,
+          regenerateIcon: DefaultIcons.RegenerateIcon,
         },
         icons,
       },

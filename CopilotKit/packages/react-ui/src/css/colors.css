@@ -53,4 +53,9 @@
   /* The background color of a assistant message */
   --copilot-kit-message-assistant-background-color: var(--copilot-kit-secondary-color);
   --copilot-kit-message-assistant-color: var(--copilot-kit-secondary-contrast-color);
+
+  /* The color of the response control button */
+  --copilot-kit-response-button-border-color: var(--copilot-kit-separator-color);
+  --copilot-kit-response-button-color: #333;
+  --copilot-kit-response-button-background-color: #fff;
 }

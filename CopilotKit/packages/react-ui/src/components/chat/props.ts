@@ -27,4 +27,5 @@ export interface MessagesProps {
 export interface InputProps {
   inProgress: boolean;
   onSend: (text: string) => void;
+  children?: React.ReactNode;
 }

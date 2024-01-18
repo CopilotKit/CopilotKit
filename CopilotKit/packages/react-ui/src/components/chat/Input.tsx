@@ -3,7 +3,7 @@ import { InputProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import AutoResizingTextarea from "./Textarea";
 
-export const Input: React.FC<InputProps> = ({ inProgress, onSend }) => {
+export const Input: React.FC<InputProps> = ({ inProgress, onSend, children }) => {
   const context = useChatContext();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -28,7 +28,8 @@ export const Input: React.FC<InputProps> = ({ inProgress, onSend }) => {
 
   return (
     <div className="copilotKitInput" onClick={handleDivClick}>
-      <button disabled={disabled} onClick={send}>
+      <span>{children}</span>
+      <button className="copilotKitSendButton" disabled={disabled} onClick={send}>
         {icon}
       </button>
       <AutoResizingTextarea

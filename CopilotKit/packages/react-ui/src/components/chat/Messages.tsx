@@ -45,7 +45,11 @@ export const Messages: React.FC<MessagesProps> = ({ messages, inProgress }) => {
                 {context.icons.spinnerIcon}
               </div>
             );
-          } else if (!inProgress && !message.content && message.function_call) {
+          } else if (
+            (!inProgress || index != messages.length - 1) &&
+            !message.content &&
+            message.function_call
+          ) {
             return (
               <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
                 {context.labels.done}

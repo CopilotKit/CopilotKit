@@ -8,6 +8,7 @@ import { Header as DefaultHeader } from "./Header";
 import { Messages as DefaultMessages } from "./Messages";
 import { Input as DefaultInput } from "./Input";
 import { nanoid } from "nanoid";
+import { ResponseButton } from "./Response";
 
 export interface CopilotKitChatProps {
   instructions?: string;
@@ -71,7 +72,11 @@ export const CopilotKitChat: React.FC<CopilotKitChatProps> = ({
         >
           <Header open={open} setOpen={setOpen} />
           <Messages messages={visibleMessages} inProgress={isLoading} />
-          <Input inProgress={isLoading} onSend={sendMessage} />
+          <Input inProgress={isLoading} onSend={sendMessage}>
+            {visibleMessages.length > 0 && (
+              <ResponseButton onClick={isLoading ? stop : reload} inProgress={isLoading} />
+            )}
+          </Input>
         </Window>
       </div>
     </ChatContextProvider>
