@@ -3,6 +3,7 @@ import { MessagesProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import { nanoid } from "nanoid";
 import { Message } from "@copilotkit/react-core";
+import { Markdown } from "./Markdown";
 
 export const Messages: React.FC<MessagesProps> = ({ messages, inProgress }) => {
   const context = useChatContext();
@@ -64,7 +65,7 @@ export const Messages: React.FC<MessagesProps> = ({ messages, inProgress }) => {
           else {
             return (
               <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-                {message.content}
+                <Markdown content={message.content} />
               </div>
             );
           }
