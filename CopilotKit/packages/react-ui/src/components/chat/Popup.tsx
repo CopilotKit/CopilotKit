@@ -1,77 +1,10 @@
 import React from "react";
-import { CopilotKitChatIcons, ChatContextProvider, CopilotKitChatLabels } from "./ChatContext";
-import { SystemMessageFunction, useCopilotChat } from "@copilotkit/react-core";
-import { ButtonProps, HeaderProps, WindowProps, MessagesProps, InputProps } from "./props";
-import { Window as DefaultWindow } from "./Window";
-import { Button as DefaultButton } from "./Button";
-import { Header as DefaultHeader } from "./Header";
-import { Messages as DefaultMessages } from "./Messages";
-import { Input as DefaultInput } from "./Input";
-import { nanoid } from "nanoid";
+import { CopilotKitChat, CopilotKitChatProps } from "./Chat";
 
-interface CopilotKitPopupProps {
-  instructions?: string;
-  defaultOpen?: boolean;
-  clickOutsideToClose?: boolean;
-  hitEscapeToClose?: boolean;
-  hotkey?: string;
-  icons?: CopilotKitChatIcons;
-  labels?: CopilotKitChatLabels;
-  makeSystemMessage?: SystemMessageFunction;
-  Window?: React.ComponentType<WindowProps>;
-  Button?: React.ComponentType<ButtonProps>;
-  Header?: React.ComponentType<HeaderProps>;
-  Messages?: React.ComponentType<MessagesProps>;
-  Input?: React.ComponentType<InputProps>;
-}
-
-export const CopilotKitPopup: React.FC<CopilotKitPopupProps> = ({
-  instructions,
-  defaultOpen = false,
-  clickOutsideToClose = true,
-  hitEscapeToClose = true,
-  hotkey = "e",
-  icons,
-  labels,
-  makeSystemMessage,
-  Window = DefaultWindow,
-  Button = DefaultButton,
-  Header = DefaultHeader,
-  Messages = DefaultMessages,
-  Input = DefaultInput,
-}) => {
-  const { visibleMessages, append, reload, stop, isLoading, input, setInput } = useCopilotChat({
-    id: nanoid(),
-    makeSystemMessage,
-    additionalInstructions: instructions,
-  });
-
-  const [open, setOpen] = React.useState(defaultOpen);
-
-  const sendMessage = async (message: string) => {
-    append({
-      id: nanoid(),
-      content: message,
-      role: "user",
-    });
+export const CopilotKitPopup: React.FC<CopilotKitChatProps> = (props) => {
+  props = {
+    ...props,
+    className: props.className ? props.className + " copilotKitPopup" : "copilotKitPopup",
   };
-
-  return (
-    <ChatContextProvider icons={icons} labels={labels}>
-      <div className={"copilotKitPopup"}>
-        <Button open={open} setOpen={setOpen}></Button>
-        <Window
-          open={open}
-          setOpen={setOpen}
-          clickOutsideToClose={clickOutsideToClose}
-          hotkey={hotkey}
-          hitEscapeToClose={hitEscapeToClose}
-        >
-          <Header open={open} setOpen={setOpen} />
-          <Messages messages={visibleMessages} inProgress={isLoading} />
-          <Input inProgress={isLoading} onSend={sendMessage} />
-        </Window>
-      </div>
-    </ChatContextProvider>
-  );
+  return <CopilotKitChat {...props} />;
 };
