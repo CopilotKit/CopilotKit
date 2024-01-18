@@ -15,6 +15,7 @@ const HelloWorld = () => {
       <Presentation />
 
       <CopilotKitSidebar
+        defaultOpen={true}
         labels={{
           title: "Presentation Copilot",
           initial: "Hi you! 👋 I can give you a presentation on any topic.",
@@ -58,6 +59,7 @@ const Presentation = () => {
           required: true,
         },
       ],
+
       implementation: async (message, backgroundImage) => {
         setState({
           message: message,
