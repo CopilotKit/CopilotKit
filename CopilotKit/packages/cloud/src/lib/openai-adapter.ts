@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { CopilotKitOpenAIConfiguration, CopilotKitServiceAdapter } from "../types/service-adapter";
 import { limitOpenAIMessagesToTokenCount, maxTokensForOpenAIModel } from "../utils/openai";
-import { AnnotatedFunction, decodeChatCompletion, parseChatCompletion } from "@copilotkit/shared";
+import { AnnotatedFunction, parseChatCompletion } from "@copilotkit/shared";
 
 const DEFAULT_MODEL = "gpt-4-1106-preview";
 
@@ -19,10 +19,12 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
       maxTokensForOpenAIModel(forwardedProps.model || DEFAULT_MODEL),
     );
 
+    // combine client and server defined functions
     let allFunctions = functions.map(annotatedFunctionToChatCompletionFunction);
     const serverFunctionNames = functions.map((fn) => fn.name);
     if (forwardedProps.functions) {
       allFunctions = allFunctions.concat(
+        // filter out any client functions that are already defined on the server
         forwardedProps.functions.filter((fn: any) => !serverFunctionNames.includes(fn.name)),
       );
     }
@@ -40,6 +42,12 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
     return this.handleServerSideFunctions(stream, functions);
   }
 
+  /**
+   * This function decides what to handle server side and what to forward to the client.
+   * It also handles the execution of server side functions.
+   *
+   * TODO: add proper error handling and logging
+   */
   private handleServerSideFunctions(
     stream: ReadableStream<Uint8Array>,
     functions: AnnotatedFunction<any[]>[],
@@ -65,16 +73,14 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
       }
     }
 
-    let mode: "function" | "message" | null = null;
+    // Keep track of current state as we process the stream
+
     let executeThisFunctionCall = false;
     let functionCallName = "";
     let functionCallArguments = "";
 
     const executeFunctionCall = async (): Promise<boolean> => {
-      console.log("executing function call", functionCallName, functionCallArguments);
-
       const fn = functionsByName[functionCallName];
-      console.log(fn);
       let args: Record<string, any>[] = [];
       if (functionCallArguments) {
         args = JSON.parse(functionCallArguments);
@@ -86,7 +92,7 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
       await fn.implementation(...paramsInCorrectOrder);
 
       executeThisFunctionCall = false;
-      mode = null;
+
       functionCallName = "";
       functionCallArguments = "";
       return true;
@@ -99,44 +105,57 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
             const { done, value } = await reader.read();
             if (done) {
               if (executeThisFunctionCall) {
+                // We are at the end of the stream and still have a function call to execute
                 await executeFunctionCall();
               }
-              const payload = new TextEncoder().encode("[DONE]\n\n");
+              const payload = new TextEncoder().encode("data: [DONE]\n\n");
               controller.enqueue(payload);
               await cleanup(controller);
               return;
             }
 
-            // The definition of the current function call has ended, execute it
+            // We are in the middle of a function call and got a non function call chunk
+            // so we need to execute the function call first
             if (executeThisFunctionCall && !value.choices[0].delta.function_call) {
               if (!(await executeFunctionCall())) {
                 return;
               }
             }
 
-            mode = value.choices[0].delta.function_call ? "function" : "message";
+            let mode: "function" | "message" = value.choices[0].delta.function_call
+              ? "function"
+              : "message";
 
             // if we get a message, emit the content and continue;
+            // TODO add -> data: as prefix
             if (mode === "message") {
               if (value.choices[0].delta.content) {
-                const payload = new TextEncoder().encode(JSON.stringify(value) + "\n\n");
+                const payload = new TextEncoder().encode("data: " + JSON.stringify(value) + "\n\n");
                 controller.enqueue(payload);
               }
               continue;
             }
             // if we get a function call, emit it only if we don't execute it server side
             else if (mode === "function") {
+              // Set the function name if present
               if (value.choices[0].delta.function_call!.name) {
                 functionCallName = value.choices[0].delta.function_call!.name!;
               }
+              // If we have argument streamed back, add them to the function call arguments
               if (value.choices[0].delta.function_call!.arguments) {
                 functionCallArguments += value.choices[0].delta.function_call!.arguments!;
               }
               if (!executeThisFunctionCall) {
+                // Decide if we should execute the function call server side
+
                 if (!(functionCallName in functionsByName)) {
-                  const payload = new TextEncoder().encode(JSON.stringify(value) + "\n\n");
+                  // Just forward the function call to the client
+                  const payload = new TextEncoder().encode(
+                    "data: " + JSON.stringify(value) + "\n\n",
+                  );
                   controller.enqueue(payload);
                 } else {
+                  // Execute the function call server side
                   executeThisFunctionCall = true;
                 }
               }
