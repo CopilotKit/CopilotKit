@@ -7,18 +7,18 @@ export async function POST(req: Request): Promise<Response> {
     const copilotKit = new CopilotKit({
       functions: [
         {
-          name: "doSomethingServerSide",
-          description: "This tells GPT what to do.",
+          name: "sayHello",
+          description: "Says hello to someone.",
           argumentAnnotations: [
             {
               name: "arg",
               type: "string",
-              description: "This explains GPT what the arg is.",
+              description: "The name of the person to say hello to.",
               required: true,
             },
           ],
           implementation: async (arg) => {
-            console.log("doSomethingServerSide", arg);
+            console.log("Hello from the server", arg, "!");
           },
         },
       ],
