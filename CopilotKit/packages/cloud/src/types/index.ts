@@ -1,1 +1,1 @@
-export type { CopilotKitServiceAdapter, CopilotKitOpenAIConfiguration } from "./service-adapter";
+export type { CopilotKitServiceAdapter } from "./service-adapter";
