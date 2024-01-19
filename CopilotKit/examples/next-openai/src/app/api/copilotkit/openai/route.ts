@@ -24,7 +24,7 @@ export async function POST(req: Request): Promise<Response> {
       ],
     });
 
-    return new Response(copilotKit.stream(req.json()));
+    return new Response(copilotKit.stream(await req.json()));
   } catch (error) {
     return new Response("", { status: 500, statusText: error.error.message });
   }
