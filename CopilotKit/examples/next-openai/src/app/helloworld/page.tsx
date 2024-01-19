@@ -12,15 +12,15 @@ import { useState } from "react";
 const HelloWorld = () => {
   return (
     <CopilotProvider chatApiEndpoint="/api/copilotkit/openai">
-      <Presentation />
-
       <CopilotKitSidebar
         defaultOpen={true}
         labels={{
           title: "Presentation Copilot",
           initial: "Hi you! 👋 I can give you a presentation on any topic.",
         }}
-      />
+      >
+        <Presentation />
+      </CopilotKitSidebar>
       {/* <CopilotKitPopup
         labels={{
           title: "Presentation Copilot",

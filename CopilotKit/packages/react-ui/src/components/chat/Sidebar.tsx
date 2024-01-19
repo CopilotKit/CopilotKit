@@ -1,10 +1,31 @@
-import React from "react";
+import React, { useState } from "react";
 import { CopilotKitChat, CopilotKitChatProps } from "./Chat";
 
-export const CopilotKitSidebar: React.FC<CopilotKitChatProps> = (props) => {
+interface CopilotKitSidebarProps extends CopilotKitChatProps {
+  children?: React.ReactNode;
+}
+
+export const CopilotKitSidebar: React.FC<CopilotKitSidebarProps> = (props) => {
   props = {
     ...props,
     className: props.className ? props.className + " copilotKitSidebar" : "copilotKitSidebar",
   };
-  return <CopilotKitChat {...props} />;
+  const [expandedClassName, setExpandedClassName] = useState(
+    props.defaultOpen ? "sidebarExpanded" : "",
+  );
+
+  const onSetOpen = (open: boolean) => {
+    // TODO: call onSetOpen
+    // props.onSetOpen?.(open);
+    setExpandedClassName(open ? "sidebarExpanded" : "");
+  };
+
+  props.onSetOpen = onSetOpen;
+
+  return (
+    <div className={`copilotKitSidebarContentWrapper ${expandedClassName}`}>
+      {props.children}
+      <CopilotKitChat {...props} />
+    </div>
+  );
 };

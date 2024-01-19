@@ -20,3 +20,13 @@
   display: inline-block;
   vertical-align: middle;
 }
+
+.copilotKitSidebarContentWrapper {
+  overflow: visible;
+  margin-right: 0px;
+  transition: margin-right 0.3s ease;
+}
+
+.copilotKitSidebarContentWrapper.sidebarExpanded {
+  margin-right: 24rem;
+}

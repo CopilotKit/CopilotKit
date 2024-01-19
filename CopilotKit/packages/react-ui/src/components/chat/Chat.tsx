@@ -43,6 +43,11 @@ export interface CopilotKitChatProps {
   hitEscapeToClose?: boolean;
 
   /**
+   * A callback that gets called when the chat window opens or closes.
+   */
+  onSetOpen?: (open: boolean) => void;
+
+  /**
    * The hotkey to open the chat window.
    * Uses Command-<hotkey> on a Mac and Ctrl-<hotkey> on Windows.
    * @default "e"
@@ -103,6 +108,7 @@ export const CopilotKitChat: React.FC<CopilotKitChatProps> = ({
   defaultOpen = false,
   clickOutsideToClose = true,
   hitEscapeToClose = true,
+  onSetOpen,
   hotkey = "e",
   icons,
   labels,
@@ -120,7 +126,12 @@ export const CopilotKitChat: React.FC<CopilotKitChatProps> = ({
     additionalInstructions: instructions,
   });
 
-  const [open, setOpen] = React.useState(defaultOpen);
+  const [openState, setOpenState] = React.useState(defaultOpen);
+
+  const setOpen = (open: boolean) => {
+    onSetOpen?.(open);
+    setOpenState(open);
+  };
 
   const sendMessage = async (message: string) => {
     append({
@@ -133,15 +144,15 @@ export const CopilotKitChat: React.FC<CopilotKitChatProps> = ({
   return (
     <ChatContextProvider icons={icons} labels={labels}>
       <div className={className}>
-        <Button open={open} setOpen={setOpen}></Button>
+        <Button open={openState} setOpen={setOpen}></Button>
         <Window
-          open={open}
+          open={openState}
           setOpen={setOpen}
           clickOutsideToClose={clickOutsideToClose}
           hotkey={hotkey}
           hitEscapeToClose={hitEscapeToClose}
         >
-          <Header open={open} setOpen={setOpen} />
+          <Header open={openState} setOpen={setOpen} />
           <Messages messages={visibleMessages} inProgress={isLoading} />
           <Input inProgress={isLoading} onSend={sendMessage}>
             {visibleMessages.length > 0 && (
