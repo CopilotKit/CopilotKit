@@ -15,17 +15,14 @@ export const CopilotKitSidebar: React.FC<CopilotKitSidebarProps> = (props) => {
   );
 
   const onSetOpen = (open: boolean) => {
-    // TODO: call onSetOpen
-    // props.onSetOpen?.(open);
+    props.onSetOpen?.(open);
     setExpandedClassName(open ? "sidebarExpanded" : "");
   };
-
-  props.onSetOpen = onSetOpen;
 
   return (
     <div className={`copilotKitSidebarContentWrapper ${expandedClassName}`}>
       {props.children}
-      <CopilotKitChat {...props} />
+      <CopilotKitChat {...props} {...{ onSetOpen }} />
     </div>
   );
 };
