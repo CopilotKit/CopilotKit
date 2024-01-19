@@ -5,7 +5,7 @@ import { AutosuggestionsBareFunction, MinimalChatGPTMessage } from "../../types"
 import { retry } from "../../lib/retry";
 import { InsertionEditorState } from "../../types/base/autosuggestions-bare-function";
 import { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggestions-api-config";
-import { ChatCompletionStream } from "@copilotkit/react-core";
+import { fetchAndDecodeChatCompletionAsText } from "@copilotkit/react-core";
 
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
@@ -51,21 +51,20 @@ export function useMakeStandardAutosuggestionFunction(
           },
         ];
 
-        const chatCompletionStream = new ChatCompletionStream({
-          url: copilotApiConfig.chatApiEndpoint,
-        });
-
-        const stream = await chatCompletionStream.fetch({
+        const response = await fetchAndDecodeChatCompletionAsText({
           messages: messages as Message[],
           ...apiConfig.forwardedParams,
           copilotConfig: copilotApiConfig,
           signal: abortSignal,
         });
 
-        // read the stream:
-        const reader = stream.getReader();
-        let result = "";
+        if (!response.events) {
+          throw new Error("Failed to fetch chat completion");
+        }
 
+        const reader = response.events.getReader();
+
+        let result = "";
         while (!abortSignal.aborted) {
           const { done, value } = await reader.read();
           if (done) {
@@ -73,7 +72,6 @@ export function useMakeStandardAutosuggestionFunction(
           }
           result += value;
         }
-
         return result;
       });
 

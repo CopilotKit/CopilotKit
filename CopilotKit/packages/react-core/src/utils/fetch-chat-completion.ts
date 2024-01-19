@@ -1,7 +1,12 @@
-import { Message, Function } from "@copilotkit/shared";
+import {
+  Message,
+  Function,
+  ChatCompletionEvent,
+  decodeChatCompletion,
+  parseChatCompletion,
+  decodeChatCompletionAsText,
+} from "@copilotkit/shared";
 import { CopilotApiConfig } from "../context";
-
-const DEFAULT_MODEL = "gpt-4-1106-preview";
 
 export interface FetchChatCompletionParams {
   copilotConfig: CopilotApiConfig;
@@ -27,7 +32,6 @@ export async function fetchChatCompletion({
 }: FetchChatCompletionParams): Promise<Response> {
   temperature ||= 0.5;
   functions ||= [];
-  model ||= DEFAULT_MODEL;
 
   // clean up any extra properties from messages
   const cleanedMessages = messages.map((message) => {
@@ -55,40 +59,37 @@ export async function fetchChatCompletion({
     signal,
   });
 
+  return response;
+}
+
+export interface DecodedChatCompletionResponse extends Response {
+  events: ReadableStream<ChatCompletionEvent> | null;
+}
+
+export async function fetchAndDecodeChatCompletion(
+  params: FetchChatCompletionParams,
+): Promise<DecodedChatCompletionResponse> {
+  const response = await fetchChatCompletion(params);
   if (!response.ok || !response.body) {
-    return response;
+    return { ...response, events: null };
   }
+  const events = await decodeChatCompletion(parseChatCompletion(response.body));
+  return { ...response, events };
+}
 
-  const reader = response.body.getReader();
-  const buffer = new Uint8Array();
+export interface DecodedChatCompletionResponseAsText extends Response {
+  events: ReadableStream<string> | null;
+}
 
-  async function cleanup() {
-    if (reader) {
-      try {
-        await reader.cancel();
-      } catch (error) {
-        console.warn("Failed to cancel reader:", error);
-      }
-    }
+export async function fetchAndDecodeChatCompletionAsText(
+  params: FetchChatCompletionParams,
+): Promise<DecodedChatCompletionResponseAsText> {
+  const response = await fetchChatCompletion(params);
+  if (!response.ok || !response.body) {
+    return { ...response, events: null };
   }
-
-  const stream = new ReadableStream({
-    async pull(controller) {
-      while (true) {
-        const { done, value } = await reader.read();
-
-        if (done) {
-          // TODO Process any remaining buffer
-          controller.close();
-          return;
-        }
-
-        // TODO Process value
-      }
-    },
-  });
-
-  return new Response(stream, {
-    headers: response.headers,
-  });
+  const events = await decodeChatCompletionAsText(
+    decodeChatCompletion(parseChatCompletion(response.body)),
+  );
+  return { ...response, events };
 }
