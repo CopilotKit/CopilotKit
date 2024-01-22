@@ -76,13 +76,13 @@ export interface CopilotKitChatLabels {
   placeholder?: string;
 
   /**
-   * The message to display while the chat is thinking.
+   * The message to display while the chat GPT is "thinking".
    * @default "Thinking..."
    */
   thinking?: string;
 
   /**
-   * The message to display when the chat is done thinking.
+   * The message to display when the chat is done executing a function.
    * @default "✅ Done"
    */
   done?: string;
@@ -94,13 +94,13 @@ export interface CopilotKitChatLabels {
   error?: string;
 
   /**
-   * The message to display when the user clicks the stop button.
+   * The label to display on the stop button.
    * @default "Stop generating"
    */
   stopGenerating?: string;
 
   /**
-   * The message to display when the user clicks the regenerate button.
+   * The label to display on the regenerate button.
    * @default "Regenerate response"
    */
   regenerateResponse?: string;
