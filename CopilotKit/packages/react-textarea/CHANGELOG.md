@@ -1,5 +1,33 @@
 # ui
 
+## 0.27.1
+
+### Patch Changes
+
+- stop generating button working
+- aa6bc5a: fix stop generate
+- cf0bde6: change order of operations on stop cleanup
+- Updated dependencies
+- Updated dependencies [aa6bc5a]
+- Updated dependencies [cf0bde6]
+  - @copilotkit/react-core@0.17.1
+
+## 0.27.1-alpha.1
+
+### Patch Changes
+
+- change order of operations on stop cleanup
+- Updated dependencies
+  - @copilotkit/react-core@0.17.1-alpha.1
+
+## 0.27.1-alpha.0
+
+### Patch Changes
+
+- fix stop generate
+- Updated dependencies
+  - @copilotkit/react-core@0.17.1-alpha.0
+
 ## 0.27.0
 
 ### Minor Changes

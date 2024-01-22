@@ -1,5 +1,45 @@
 # web
 
+## 1.13.1
+
+### Patch Changes
+
+- stop generating button working
+- aa6bc5a: fix stop generate
+- cf0bde6: change order of operations on stop cleanup
+- Updated dependencies
+- Updated dependencies [aa6bc5a]
+- Updated dependencies [cf0bde6]
+  - @copilotkit/react-textarea@0.27.1
+  - @copilotkit/react-core@0.17.1
+  - @copilotkit/react-ui@0.14.1
+  - @copilotkit/shared@0.1.1
+  - @copilotkit/cloud@0.1.1
+
+## 1.13.1-alpha.1
+
+### Patch Changes
+
+- change order of operations on stop cleanup
+- Updated dependencies
+  - @copilotkit/react-textarea@0.27.1-alpha.1
+  - @copilotkit/react-core@0.17.1-alpha.1
+  - @copilotkit/react-ui@0.14.1-alpha.1
+  - @copilotkit/shared@0.1.1-alpha.1
+  - @copilotkit/cloud@0.1.1-alpha.1
+
+## 1.13.1-alpha.0
+
+### Patch Changes
+
+- fix stop generate
+- Updated dependencies
+  - @copilotkit/cloud@0.1.1-alpha.0
+  - @copilotkit/react-core@0.17.1-alpha.0
+  - @copilotkit/react-textarea@0.27.1-alpha.0
+  - @copilotkit/react-ui@0.14.1-alpha.0
+  - @copilotkit/shared@0.1.1-alpha.0
+
 ## 1.13.0
 
 ### Minor Changes

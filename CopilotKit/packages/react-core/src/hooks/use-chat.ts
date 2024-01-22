@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Message, Function, FunctionCallHandler, FunctionCall } from "@copilotkit/shared";
 import { nanoid } from "nanoid";
 import { fetchAndDecodeChatCompletion } from "../utils/fetch-chat-completion";
@@ -84,6 +84,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const abortControllerRef = useRef<AbortController>();
 
   const runChatCompletion = async (messages: Message[]): Promise<Message> => {
     setIsLoading(true);
@@ -93,8 +94,9 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
       content: "",
       role: "assistant",
     };
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
-    // Assistant messages are always copied when using setState
     setMessages([...messages, { ...assistantMessage }]);
 
     const messagesWithContext = [...(options.initialMessages || []), ...messages];
@@ -103,6 +105,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
       messages: messagesWithContext,
       functions: options.functions,
       headers: options.headers,
+      signal: abortController.signal,
     });
 
     if (!response.events) {
@@ -172,7 +175,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
   };
 
   const stop = (): void => {
-    throw new Error("Not implemented");
+    abortControllerRef.current?.abort();
   };
 
   return {
