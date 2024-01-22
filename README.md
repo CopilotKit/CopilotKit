@@ -132,7 +132,7 @@ See quickstart in the [docs](https://docs.copilotkit.ai)
 A drop-in <textarea /> replacement with context-aware Copilot autocompletions.
 
 <p align="center">
-  <img src="./assets/CopilotTextarea.gif" width="792" height="480" style="border-radius: 15px;">
+  <img src="./assets/CopilotTextarea.gif" width="648" height="476" style="border-radius: 15px;">
 </p>
 
 #### Features
