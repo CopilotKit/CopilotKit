@@ -1,0 +1,98 @@
+---
+title: "CopilotProvider"
+description: "Provides the Copilot context to its children."
+---
+
+This component provides the Copilot context to its children.
+It can be configured either with a chat API endpoint or a `CopilotApiConfig`.
+
+<Note>
+  The backend can use OpenAI, or you can bring your own LLM.
+  For examples of the backend api implementation, see `examples/next-openai` or the 
+  [backend docs](https://docs.copilotkit.ai/getting-started/quickstart-backend).
+</Note>
+
+<RequestExample>
+  ```jsx CopilotProvider Example
+  import { CopilotProvider } from "@copilotkit/react-core";
+
+  <CopilotProvider 
+    chatApiEndpoint="https://your.copilotkit.api">
+    <YourApp/>
+  </CopilotProvider>
+  ```
+</RequestExample>
+
+## Example usage
+
+```jsx
+<CopilotProvider chatApiEndpoint="https://your.copilotkit.api">
+  <App />
+</CopilotProvider>
+
+// or
+
+const copilotApiConfig = new StandardCopilotApiConfig(
+  "https://your.copilotkit.api/v1",
+  "https://your.copilotkit.api/v2",
+  {},
+  {}
+);
+
+// ...
+
+<CopilotProvider chatApiConfig={copilotApiConfig}>
+  <App />
+</CopilotProvider>
+```
+
+## Props
+
+<ResponseField name="chatApiEndpoint" type="string" required>
+  The endpoint for the chat API.
+</ResponseField>
+
+<ResponseField name="chatApiEndpointV2" type="string" default="chatApiEndpoint + '/v2'">
+  The endpoint for the chat API v2. If not provided, defaults to chatApiEndpoint + "/v2".
+  This is used for the chat API v2. If you are not using the chat API v2, you can ignore this.
+</ResponseField>
+
+<ResponseField name="children" type="ReactNode">
+  The children to be rendered within the CopilotProvider.
+</ResponseField>
+
+<ResponseField name="chatApiConfig" type="CopilotApiConfig">
+  The configuration for the Copilot API.
+
+  <Expandable title="CopilotApiConfig">
+    <ResponseField name="chatApiEndpoint" type="string" required>
+      The endpoint for the chat API.
+    </ResponseField>
+
+    <ResponseField name="chatApiEndpointV2" type="string">
+      The endpoint for the chat API v2.
+    </ResponseField>
+
+    <ResponseField name="headers" type="Record<string, string>">
+      Additional headers to be sent with the request.
+      
+      For example:
+```js
+{
+  'Authorization': 'Bearer your_token_here'
+}
+```
+    </ResponseField>
+
+    <ResponseField name="body" type="Record<string, string>">
+      Additional body params to be sent with the request.
+      
+      For example:
+```js
+{
+  'message': 'Hello, world!'
+}
+```
+    </ResponseField>
+  </Expandable>
+</ResponseField>
