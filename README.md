@@ -117,9 +117,9 @@ See quickstart in the [docs](https://docs.copilotkit.ai)
 - ✅ Fully customize UI
 
 ## Demo
-**2-min showcase + 2-min implementation tutorial:**
+**3-min showcase + 3-min implementation tutorial:**
 
-https://github.com/CopilotKit/CopilotKit/assets/746397/b0cdf38b-ec5c-4e95-8623-364bafb70907
+[CopilotKit_Demo_Jan_zjgjk0.webm](https://github.com/CopilotKit/CopilotKit/assets/746397/b1749282-a3e4-4ef4-a780-7d03f30edf5b)
 
 
 
@@ -132,7 +132,7 @@ https://github.com/CopilotKit/CopilotKit/assets/746397/b0cdf38b-ec5c-4e95-8623-3
 A drop-in <textarea /> replacement with context-aware Copilot autocompletions.
 
 <p align="center">
-  <img src="./assets/CopilotTextarea.gif" width="400" height="400" style="border-radius: 15px;">
+  <img src="./assets/CopilotTextarea.gif" width="648" height="476" style="border-radius: 15px;">
 </p>
 
 #### Features
