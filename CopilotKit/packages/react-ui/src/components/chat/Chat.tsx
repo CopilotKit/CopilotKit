@@ -1,14 +1,21 @@
-import React, { useCallback, useEffect, useMemo } from "react";
+import React from "react";
 import { CopilotKitChatIcons, ChatContextProvider, CopilotKitChatLabels } from "./ChatContext";
 import { SystemMessageFunction, useCopilotChat } from "@copilotkit/react-core";
-import { ButtonProps, HeaderProps, WindowProps, MessagesProps, InputProps } from "./props";
+import {
+  ButtonProps,
+  HeaderProps,
+  WindowProps,
+  MessagesProps,
+  InputProps,
+  ResponseButtonProps,
+} from "./props";
 import { Window as DefaultWindow } from "./Window";
 import { Button as DefaultButton } from "./Button";
 import { Header as DefaultHeader } from "./Header";
 import { Messages as DefaultMessages } from "./Messages";
 import { Input as DefaultInput } from "./Input";
 import { nanoid } from "nanoid";
-import { ResponseButton } from "./Response";
+import { ResponseButton as DefaultResponseButton } from "./Response";
 
 /**
  * Props for CopilotKitChat component.
@@ -73,6 +80,12 @@ export interface CopilotKitChatProps {
   makeSystemMessage?: SystemMessageFunction;
 
   /**
+   * Whether to show the response button.
+   * @default true
+   */
+  showResponseButton?: boolean;
+
+  /**
    * A custom Window component to use instead of the default.
    */
   Window?: React.ComponentType<WindowProps>;
@@ -98,6 +111,11 @@ export interface CopilotKitChatProps {
   Input?: React.ComponentType<InputProps>;
 
   /**
+   * A custom ResponseButton component to use instead of the default.
+   */
+  ResponseButton?: React.ComponentType<ResponseButtonProps>;
+
+  /**
    * A class name to apply to the root element.
    */
   className?: string;
@@ -113,11 +131,13 @@ export const CopilotKitChat: React.FC<CopilotKitChatProps> = ({
   icons,
   labels,
   makeSystemMessage,
+  showResponseButton = true,
   Window = DefaultWindow,
   Button = DefaultButton,
   Header = DefaultHeader,
   Messages = DefaultMessages,
   Input = DefaultInput,
+  ResponseButton = DefaultResponseButton,
   className,
 }) => {
   const { visibleMessages, append, reload, stop, isLoading, input, setInput } = useCopilotChat({
@@ -155,7 +175,7 @@ export const CopilotKitChat: React.FC<CopilotKitChatProps> = ({
           <Header open={openState} setOpen={setOpen} />
           <Messages messages={visibleMessages} inProgress={isLoading} />
           <Input inProgress={isLoading} onSend={sendMessage}>
-            {visibleMessages.length > 0 && (
+            {showResponseButton && visibleMessages.length > 0 && (
               <ResponseButton onClick={isLoading ? stop : reload} inProgress={isLoading} />
             )}
           </Input>

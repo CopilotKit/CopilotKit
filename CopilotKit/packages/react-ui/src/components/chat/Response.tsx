@@ -1,10 +1,6 @@
 import React from "react";
 import { useChatContext } from "./ChatContext";
-
-type ResponseButtonProps = {
-  onClick: () => void;
-  inProgress: boolean;
-};
+import { ResponseButtonProps } from "./props";
 
 export const ResponseButton: React.FC<ResponseButtonProps> = ({ onClick, inProgress }) => {
   const context = useChatContext();

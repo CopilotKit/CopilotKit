@@ -29,3 +29,8 @@ export interface InputProps {
   onSend: (text: string) => void;
   children?: React.ReactNode;
 }
+
+export interface ResponseButtonProps {
+  onClick: () => void;
+  inProgress: boolean;
+}
