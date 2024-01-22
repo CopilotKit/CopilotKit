@@ -14,7 +14,7 @@
   - @copilotkit/react-core@0.17.1
   - @copilotkit/react-ui@0.14.1
   - @copilotkit/shared@0.1.1
-  - @copilotkit/cloud@0.1.1
+  - @copilotkit/backend@0.1.1
 
 ## 1.13.1-alpha.1
 
@@ -26,7 +26,7 @@
   - @copilotkit/react-core@0.17.1-alpha.1
   - @copilotkit/react-ui@0.14.1-alpha.1
   - @copilotkit/shared@0.1.1-alpha.1
-  - @copilotkit/cloud@0.1.1-alpha.1
+  - @copilotkit/backend@0.1.1-alpha.1
 
 ## 1.13.1-alpha.0
 
@@ -34,7 +34,7 @@
 
 - fix stop generate
 - Updated dependencies
-  - @copilotkit/cloud@0.1.1-alpha.0
+  - @copilotkit/backend@0.1.1-alpha.0
   - @copilotkit/react-core@0.17.1-alpha.0
   - @copilotkit/react-textarea@0.27.1-alpha.0
   - @copilotkit/react-ui@0.14.1-alpha.0
@@ -183,7 +183,7 @@
   - @copilotkit/react-core@0.15.0
   - @copilotkit/react-ui@0.13.0
   - @copilotkit/shared@0.1.0
-  - @copilotkit/cloud@0.1.0
+  - @copilotkit/backend@0.1.0
 
 ## 1.11.0-alpha.6
 
@@ -198,7 +198,7 @@
   - @copilotkit/react-core@0.15.0-alpha.6
   - @copilotkit/react-ui@0.13.0-alpha.6
   - @copilotkit/shared@0.1.0-alpha.6
-  - @copilotkit/cloud@0.1.0-alpha.6
+  - @copilotkit/backend@0.1.0-alpha.6
 
 ## 1.11.0-alpha.5
 
@@ -213,7 +213,7 @@
   - @copilotkit/react-core@0.15.0-alpha.5
   - @copilotkit/react-ui@0.13.0-alpha.5
   - @copilotkit/shared@0.1.0-alpha.5
-  - @copilotkit/cloud@0.1.0-alpha.5
+  - @copilotkit/backend@0.1.0-alpha.5
 
 ## 1.11.0-alpha.4
 
@@ -228,7 +228,7 @@
   - @copilotkit/react-core@0.15.0-alpha.4
   - @copilotkit/react-ui@0.13.0-alpha.4
   - @copilotkit/shared@0.1.0-alpha.4
-  - @copilotkit/cloud@0.1.0-alpha.4
+  - @copilotkit/backend@0.1.0-alpha.4
 
 ## 1.11.0-alpha.3
 
@@ -243,7 +243,7 @@
   - @copilotkit/react-core@0.15.0-alpha.3
   - @copilotkit/react-ui@0.13.0-alpha.3
   - @copilotkit/shared@0.1.0-alpha.3
-  - @copilotkit/cloud@0.1.0-alpha.3
+  - @copilotkit/backend@0.1.0-alpha.3
 
 ## 1.11.0-alpha.2
 
@@ -258,7 +258,7 @@
   - @copilotkit/react-core@0.15.0-alpha.2
   - @copilotkit/react-ui@0.13.0-alpha.2
   - @copilotkit/shared@0.1.0-alpha.2
-  - @copilotkit/cloud@0.1.0-alpha.2
+  - @copilotkit/backend@0.1.0-alpha.2
 
 ## 1.11.0-alpha.1
 
@@ -273,7 +273,7 @@
   - @copilotkit/react-core@0.15.0-alpha.1
   - @copilotkit/react-ui@0.13.0-alpha.1
   - @copilotkit/shared@0.1.0-alpha.1
-  - @copilotkit/cloud@0.1.0-alpha.1
+  - @copilotkit/backend@0.1.0-alpha.1
 
 ## 1.11.0-alpha.0
 
@@ -288,7 +288,7 @@
   - @copilotkit/react-core@0.15.0-alpha.0
   - @copilotkit/react-ui@0.13.0-alpha.0
   - @copilotkit/shared@0.1.0-alpha.0
-  - @copilotkit/cloud@0.1.0-alpha.0
+  - @copilotkit/backend@0.1.0-alpha.0
 
 ## 1.10.0
 

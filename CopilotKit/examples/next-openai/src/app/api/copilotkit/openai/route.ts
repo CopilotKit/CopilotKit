@@ -1,4 +1,4 @@
-import { CopilotKitBackend } from "@copilotkit/cloud";
+import { CopilotKitBackend } from "@copilotkit/backend";
 
 export const runtime = "edge";
 

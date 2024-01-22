@@ -1,4 +1,4 @@
-import { experimental_AssistantResponse } from "@copilotkit/cloud";
+import { experimental_AssistantResponse } from "@copilotkit/backend";
 import OpenAI from "openai";
 import { MessageContentText } from "openai/resources/beta/threads/messages/messages";
 import { ChatCompletionCreateParamsStreaming } from "openai/resources/chat/completions";

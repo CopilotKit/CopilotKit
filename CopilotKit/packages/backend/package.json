@@ -1,5 +1,5 @@
 {
-  "name": "@copilotkit/cloud",
+  "name": "@copilotkit/backend",
   "private": false,
   "publishConfig": {
     "access": "public"
