@@ -40,7 +40,7 @@
     },
     {
       "group": "API Reference",
-      "pages": ["api-reference/popup", "api-reference/sidebar"]
+      "pages": ["reference/CopilotKitPopup", "reference/CopilotKitSidebar"]
     },
     {
       "group": "Contributing",
