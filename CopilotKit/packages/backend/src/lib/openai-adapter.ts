@@ -6,12 +6,27 @@ import { openaiStreamInterceptor } from "../utils";
 
 const DEFAULT_MODEL = "gpt-4-1106-preview";
 
+export interface OpenAIAdapterParams {
+  openai?: OpenAI;
+  model?: string;
+  debug?: boolean;
+}
+
 export class OpenAIAdapter implements CopilotKitServiceAdapter {
-  constructor(
-    private openai: OpenAI = new OpenAI({}),
-    private model: string = DEFAULT_MODEL,
-    private debug: boolean = false,
-  ) {}
+  private openai: OpenAI = new OpenAI({});
+  private model: string = DEFAULT_MODEL;
+  private debug: boolean = false;
+  constructor(params?: OpenAIAdapterParams) {
+    if (params?.openai) {
+      this.openai = params.openai;
+    }
+    if (params?.model) {
+      this.model = params.model;
+    }
+    if (params?.debug) {
+      this.debug = params.debug;
+    }
+  }
 
   stream(functions: AnnotatedFunction<any[]>[], forwardedProps: any): ReadableStream {
     const messages = limitOpenAIMessagesToTokenCount(
