@@ -1,1 +1,1 @@
-export * from "./copilotkit";
+export * from "./copilotkit-backend";

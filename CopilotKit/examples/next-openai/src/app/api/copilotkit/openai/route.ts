@@ -1,10 +1,10 @@
-import { CopilotKit } from "@copilotkit/cloud";
+import { CopilotKitBackend } from "@copilotkit/cloud";
 
 export const runtime = "edge";
 
 export async function POST(req: Request): Promise<Response> {
   try {
-    const copilotKit = new CopilotKit({
+    const copilotKit = new CopilotKitBackend({
       functions: [
         {
           name: "sayHello",

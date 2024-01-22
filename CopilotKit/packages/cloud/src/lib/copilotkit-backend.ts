@@ -6,7 +6,7 @@ interface CopilotKitConstructorParams {
   functions?: AnnotatedFunction<any[]>[];
 }
 
-export class CopilotKit {
+export class CopilotKitBackend {
   private functions: AnnotatedFunction<any[]>[] = [];
 
   constructor(params?: CopilotKitConstructorParams) {
