@@ -35,7 +35,6 @@
   },
   "dependencies": {
     "@copilotkit/shared": "workspace:*",
-    "nanoid": "^4.0.2",
-    "openai": "^4.6.0"
+    "nanoid": "^4.0.2"
   }
 }

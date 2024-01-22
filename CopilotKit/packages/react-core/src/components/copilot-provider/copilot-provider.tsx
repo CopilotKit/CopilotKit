@@ -1,9 +1,9 @@
 "use client";
 
+import { Function } from "@copilotkit/shared";
 import { useCallback, useState } from "react";
 import { CopilotContext, CopilotApiConfig } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
-import { ChatCompletionCreateParams } from "openai/resources/chat";
 import { DocumentPointer } from "../../types";
 import {
   FunctionCallHandler,
@@ -227,8 +227,6 @@ function entryPointsToFunctionCallHandler(
   };
 }
 
-function entryPointsToChatCompletionFunctions(
-  entryPoints: AnnotatedFunction<any[]>[],
-): ChatCompletionCreateParams.Function[] {
+function entryPointsToChatCompletionFunctions(entryPoints: AnnotatedFunction<any[]>[]): Function[] {
   return entryPoints.map(annotatedFunctionToChatCompletionFunction);
 }

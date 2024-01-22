@@ -1,9 +1,8 @@
 import { useMemo, useContext } from "react";
 import { CopilotContext } from "../context/copilot-context";
-import { Message } from "@copilotkit/shared";
+import { Message, Function } from "@copilotkit/shared";
 import { UseChatOptions, useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
-import { ChatCompletionCreateParams } from "openai/resources/chat";
 
 export interface UseCopilotChatOptions extends UseChatOptions {
   makeSystemMessage?: (contextString: string) => string;
@@ -41,7 +40,7 @@ export function useCopilotChat({
     };
   }, [getContextString, makeSystemMessage]);
 
-  const functionDescriptions: ChatCompletionCreateParams.Function[] = useMemo(() => {
+  const functionDescriptions: Function[] = useMemo(() => {
     return getChatCompletionFunctionDescriptions();
   }, [getChatCompletionFunctionDescriptions]);
 
