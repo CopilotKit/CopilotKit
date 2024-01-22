@@ -1,4 +1,4 @@
-import { CopilotKitBackend } from "@copilotkit/backend";
+import { CopilotKitBackend, OpenAIAdapter } from "@copilotkit/backend";
 
 export const runtime = "edge";
 
@@ -23,5 +23,5 @@ export async function POST(req: Request): Promise<Response> {
     ],
   });
 
-  return copilotKit.response(req);
+  return copilotKit.response(req, new OpenAIAdapter({}));
 }

@@ -1,6 +1,5 @@
 import { AnnotatedFunction } from "@copilotkit/shared";
 import { CopilotKitServiceAdapter } from "../types";
-import { OpenAIAdapter } from "./openai-adapter";
 
 interface CopilotKitConstructorParams {
   functions?: AnnotatedFunction<any[]>[];
@@ -22,17 +21,11 @@ export class CopilotKitBackend {
     this.functions = this.functions.filter((f) => f.name !== funcName);
   }
 
-  stream(
-    forwardedProps: any,
-    serviceAdapter: CopilotKitServiceAdapter = new OpenAIAdapter(),
-  ): ReadableStream {
+  stream(forwardedProps: any, serviceAdapter: CopilotKitServiceAdapter): ReadableStream {
     return serviceAdapter.stream(this.functions, forwardedProps);
   }
 
-  async response(
-    req: Request,
-    serviceAdapter: CopilotKitServiceAdapter = new OpenAIAdapter(),
-  ): Promise<Response> {
+  async response(req: Request, serviceAdapter: CopilotKitServiceAdapter): Promise<Response> {
     try {
       return new Response(this.stream(await req.json(), serviceAdapter));
     } catch (error: any) {
