@@ -5,7 +5,7 @@ import { CopilotContext, CopilotApiConfig } from "../../context/copilot-context"
 import useTree from "../../hooks/use-tree";
 import { ChatCompletionCreateParams } from "openai/resources/chat";
 import { DocumentPointer } from "../../types";
-import { FunctionCallHandler, AnnotatedFunction } from "@copilotkit/shared";
+import { FunctionCallHandler, AnnotatedFunction, Function } from "@copilotkit/shared";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { StandardCopilotApiConfig } from "./standard-copilot-api-config";
 import { CopilotProviderProps } from "./copilot-provider-props";
@@ -231,7 +231,7 @@ function entryPointsToChatCompletionFunctions(
 
 function annotatedFunctionToChatCompletionFunction(
   annotatedFunction: AnnotatedFunction<any[]>,
-): ChatCompletionCreateParams.Function {
+): Function {
   // Create the parameters object based on the argumentAnnotations
   let parameters: { [key: string]: any } = {};
   for (let arg of annotatedFunction.argumentAnnotations) {
@@ -248,7 +248,7 @@ function annotatedFunctionToChatCompletionFunction(
   }
 
   // Create the ChatCompletionFunctions object
-  let chatCompletionFunction: ChatCompletionCreateParams.Function = {
+  let chatCompletionFunction: Function = {
     name: annotatedFunction.name,
     description: annotatedFunction.description,
     parameters: {
