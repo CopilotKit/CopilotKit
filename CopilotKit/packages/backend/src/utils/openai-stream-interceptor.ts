@@ -9,6 +9,7 @@ import { AnnotatedFunction, parseChatCompletion } from "@copilotkit/shared";
 export function openaiStreamInterceptor(
   stream: ReadableStream<Uint8Array>,
   functions: AnnotatedFunction<any[]>[],
+  debug: boolean = false,
 ): ReadableStream {
   const functionsByName = functions.reduce((acc, fn) => {
     acc[fn.name] = fn;
@@ -66,6 +67,9 @@ export function openaiStreamInterceptor(
         try {
           const { done, value } = await reader.read();
           if (done) {
+            if (debug) {
+              console.log("data: [DONE]\n\n");
+            }
             if (executeThisFunctionCall) {
               // We are at the end of the stream and still have a function call to execute
               await executeFunctionCall();
@@ -74,6 +78,8 @@ export function openaiStreamInterceptor(
             controller.enqueue(payload);
             await cleanup(controller);
             return;
+          } else if (debug) {
+            console.log("data: " + JSON.stringify(value) + "\n\n");
           }
 
           // We are in the middle of a function call and got a non function call chunk
