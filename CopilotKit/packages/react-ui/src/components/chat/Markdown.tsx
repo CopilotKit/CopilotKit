@@ -18,11 +18,7 @@ type MarkdownProps = {
 export const Markdown: React.FC<MarkdownProps> = ({ content }) => {
   return (
     <div className="copilotKitMarkdown">
-      <MemoizedReactMarkdown
-        className="prose break-words dark:prose-invert prose-p:leading-relaxed prose-pre:p-0"
-        components={components}
-        remarkPlugins={[remarkGfm, remarkMath]}
-      >
+      <MemoizedReactMarkdown components={components} remarkPlugins={[remarkGfm, remarkMath]}>
         {content}
       </MemoizedReactMarkdown>
     </div>
@@ -36,7 +32,16 @@ const components: Components = {
   code({ children, className, inline, ...props }) {
     if (children.length) {
       if (children[0] == "▍") {
-        return <span className="mt-1 animate-pulse cursor-default">▍</span>;
+        return (
+          <span
+            style={{
+              animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+              marginTop: "0.25rem",
+            }}
+          >
+            ▍
+          </span>
+        );
       }
 
       children[0] = (children[0] as string).replace("`▍`", "▍");

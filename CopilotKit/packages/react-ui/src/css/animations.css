@@ -27,3 +27,9 @@
     transform: rotate(360deg);
   }
 }
+
+@keyframes copilotKitPulseAnimation {
+  50% {
+    opacity: 0.5;
+  }
+}

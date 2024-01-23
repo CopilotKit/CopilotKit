@@ -54,9 +54,70 @@
   padding: 0.7em 0;
 }
 
-.copilotKitMarkdown ul > li {
-  display: block;
-  margin: 0;
-  min-height: 28px;
-  padding-left: 0.5em;
+.copilotKitMarkdown ul {
+  list-style-type: disc;
+  padding-left: 20px;
+  overflow: visible;
+}
+
+.copilotKitMarkdown li {
+  list-style-type: inherit;
+  list-style-position: outside;
+  margin-left: 0;
+  padding-left: 0;
+  position: relative;
+  overflow: visible;
+}
+
+.copilotKitCodeBlock {
+  position: relative;
+  width: 100%;
+  background-color: rgb(9 9 11);
+  border-radius: 0.375rem;
+}
+
+.copilotKitCodeBlockToolbar {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  background-color: rgb(39 39 42);
+  padding-left: 1rem;
+  padding-top: 0.09rem;
+  padding-bottom: 0.09rem;
+  color: rgb(228, 228, 228);
+  border-top-left-radius: 0.375rem;
+  border-top-right-radius: 0.375rem;
+  font-family: sans-serif;
+}
+
+.copilotKitCodeBlockToolbarLanguage {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  text-transform: lowercase;
+}
+
+.copilotKitCodeBlockToolbarButtons {
+  display: flex;
+  align-items: center;
+  margin-right: 0.25rem;
+  margin-left: 0.25rem;
+}
+
+.copilotKitCodeBlockToolbarButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  height: 2.5rem;
+  width: 2.5rem;
+  padding: 3px;
+  margin: 2px;
+}
+
+.copilotKitCodeBlockToolbarButton:hover {
+  background-color: rgb(55, 55, 58);
 }

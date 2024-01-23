@@ -12,24 +12,6 @@ interface CodeActionButtonProps {
   children: React.ReactNode;
 }
 
-const CodeActionButton: FC<CodeActionButtonProps> = ({ onClick, children }) => {
-  let className =
-    "inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background " +
-    "transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
-    "focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ";
-
-  className +=
-    "hover:bg-zinc-800 focus-visible:ring-1 focus-visible:ring-slate-700 focus-visible:ring-offset-0 ";
-  className += "hover:bg-accent hover:text-accent-foreground ";
-  className += "h-10 w-10";
-
-  return (
-    <button className={className} onClick={onClick}>
-      {children}
-    </button>
-  );
-};
-
 interface Props {
   language: string;
   value: string;
@@ -109,18 +91,18 @@ const CodeBlock: FC<Props> = memo(({ language, value }) => {
   };
 
   return (
-    <div className="codeblock relative w-full bg-zinc-950 font-sans">
-      <div className="flex w-full items-center justify-between bg-zinc-800 px-6 py-0.5 pr-4 text-zinc-100">
-        <span className="text-xs lowercase">{language}</span>
-        <div className="flex items-center space-x-1">
-          <CodeActionButton onClick={downloadAsFile}>
+    <div className="copilotKitCodeBlock">
+      <div className="copilotKitCodeBlockToolbar">
+        <span className="copilotKitCodeBlockToolbarLanguage">{language}</span>
+        <div className="copilotKitCodeBlockToolbarButtons">
+          <button className="copilotKitCodeBlockToolbarButton" onClick={downloadAsFile}>
             <DownloadIcon />
             <span className="sr-only">Download</span>
-          </CodeActionButton>
-          <CodeActionButton onClick={onCopy}>
+          </button>
+          <button className="copilotKitCodeBlockToolbarButton" onClick={onCopy}>
             {isCopied ? <CheckIcon /> : <CopyIcon />}
             <span className="sr-only">Copy code</span>
-          </CodeActionButton>
+          </button>
         </div>
       </div>
       <SyntaxHighlighter
@@ -129,6 +111,8 @@ const CodeBlock: FC<Props> = memo(({ language, value }) => {
         PreTag="div"
         customStyle={{
           margin: 0,
+          borderBottomLeftRadius: "0.375rem",
+          borderBottomRightRadius: "0.375rem",
         }}
       >
         {value}
