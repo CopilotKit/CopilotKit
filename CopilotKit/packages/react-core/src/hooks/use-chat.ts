@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
-import { Message, Function, FunctionCallHandler } from "../types";
+import { Message, Function, FunctionCallHandler, FunctionCall } from "@copilotkit/shared";
 import { nanoid } from "nanoid";
-import { ChatCompletionClient } from "../openai/chat-completion-client";
+import { fetchAndDecodeChatCompletion } from "../utils/fetch-chat-completion";
 import { CopilotApiConfig } from "../context";
 
 export type UseChatOptions = {
@@ -87,84 +87,66 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
   const abortControllerRef = useRef<AbortController>();
 
   const runChatCompletion = async (messages: Message[]): Promise<Message> => {
-    return new Promise<Message>((resolve, reject) => {
-      setIsLoading(true);
+    setIsLoading(true);
+    const assistantMessage: Message = {
+      id: nanoid(),
+      createdAt: new Date(),
+      content: "",
+      role: "assistant",
+    };
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
+    setMessages([...messages, { ...assistantMessage }]);
 
-      const assistantMessage: Message = {
-        id: nanoid(),
-        createdAt: new Date(),
-        content: "",
-        role: "assistant",
-      };
-
-      // Assistant messages are always copied when using setState
-      setMessages([...messages, { ...assistantMessage }]);
-
-      const messagesWithContext = [...(options.initialMessages || []), ...messages];
-
-      const client = new ChatCompletionClient({});
-
-      const cleanup = () => {
-        client.off("content");
-        client.off("end");
-        client.off("error");
-        client.off("function");
-
-        abortControllerRef.current = undefined;
-      };
-
-      abortController.signal.addEventListener("abort", () => {
-        setIsLoading(false);
-        cleanup();
-        reject(new DOMException("Aborted", "AbortError"));
-      });
-
-      client.on("content", (content) => {
-        assistantMessage.content += content;
-        setMessages([...messages, { ...assistantMessage }]);
-      });
-
-      client.on("end", () => {
-        setIsLoading(false);
-        cleanup();
-        resolve({ ...assistantMessage });
-      });
-
-      client.on("error", (error) => {
-        setIsLoading(false);
-        cleanup();
-        reject(error);
-      });
-
-      client.on("function", async (functionCall) => {
-        assistantMessage.function_call = {
-          name: functionCall.name,
-          arguments: JSON.stringify(functionCall.arguments),
-        };
-        setMessages([...messages, { ...assistantMessage }]);
-        // quit early if we get a function call
-        setIsLoading(false);
-        cleanup();
-        resolve({ ...assistantMessage });
-      });
-
-      client.fetch({
-        copilotConfig: options.copilotConfig,
-        messages: messagesWithContext,
-        functions: options.functions,
-        headers: options.headers,
-        signal: abortController.signal,
-      });
+    const messagesWithContext = [...(options.initialMessages || []), ...messages];
+    const response = await fetchAndDecodeChatCompletion({
+      copilotConfig: options.copilotConfig,
+      messages: messagesWithContext,
+      functions: options.functions,
+      headers: options.headers,
+      signal: abortController.signal,
     });
+
+    if (!response.events) {
+      throw new Error("Failed to fetch chat completion");
+    }
+
+    const reader = response.events.getReader();
+
+    while (true) {
+      try {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          setIsLoading(false);
+          return { ...assistantMessage };
+        }
+
+        if (value.type === "content") {
+          assistantMessage.content += value.content;
+          setMessages([...messages, { ...assistantMessage }]);
+        } else if (value.type === "function") {
+          assistantMessage.function_call = {
+            name: value.name,
+            arguments: JSON.stringify(value.arguments),
+          };
+          setMessages([...messages, { ...assistantMessage }]);
+          // quit early if we get a function call
+          setIsLoading(false);
+          return { ...assistantMessage };
+        }
+      } catch (error) {
+        setIsLoading(false);
+        throw error;
+      }
+    }
   };
 
   const runChatCompletionAndHandleFunctionCall = async (messages: Message[]): Promise<void> => {
     const message = await runChatCompletion(messages);
     if (message.function_call && options.onFunctionCall) {
-      await options.onFunctionCall(messages, message.function_call);
+      await options.onFunctionCall(messages, message.function_call as FunctionCall);
     }
   };
 

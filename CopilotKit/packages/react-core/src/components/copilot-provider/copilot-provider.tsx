@@ -1,11 +1,15 @@
 "use client";
 
+import { Function } from "@copilotkit/shared";
 import { useCallback, useState } from "react";
 import { CopilotContext, CopilotApiConfig } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
-import { AnnotatedFunction } from "../../types/annotated-function";
-import { ChatCompletionCreateParams } from "openai/resources/chat";
-import { DocumentPointer, FunctionCallHandler } from "../../types";
+import { DocumentPointer } from "../../types";
+import {
+  FunctionCallHandler,
+  AnnotatedFunction,
+  annotatedFunctionToChatCompletionFunction,
+} from "@copilotkit/shared";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { StandardCopilotApiConfig } from "./standard-copilot-api-config";
 import { CopilotProviderProps } from "./copilot-provider-props";
@@ -223,40 +227,6 @@ function entryPointsToFunctionCallHandler(
   };
 }
 
-function entryPointsToChatCompletionFunctions(
-  entryPoints: AnnotatedFunction<any[]>[],
-): ChatCompletionCreateParams.Function[] {
+function entryPointsToChatCompletionFunctions(entryPoints: AnnotatedFunction<any[]>[]): Function[] {
   return entryPoints.map(annotatedFunctionToChatCompletionFunction);
-}
-
-function annotatedFunctionToChatCompletionFunction(
-  annotatedFunction: AnnotatedFunction<any[]>,
-): ChatCompletionCreateParams.Function {
-  // Create the parameters object based on the argumentAnnotations
-  let parameters: { [key: string]: any } = {};
-  for (let arg of annotatedFunction.argumentAnnotations) {
-    // isolate the args we should forward inline
-    let { name, required, ...forwardedArgs } = arg;
-    parameters[arg.name] = forwardedArgs;
-  }
-
-  let requiredParameterNames: string[] = [];
-  for (let arg of annotatedFunction.argumentAnnotations) {
-    if (arg.required) {
-      requiredParameterNames.push(arg.name);
-    }
-  }
-
-  // Create the ChatCompletionFunctions object
-  let chatCompletionFunction: ChatCompletionCreateParams.Function = {
-    name: annotatedFunction.name,
-    description: annotatedFunction.description,
-    parameters: {
-      type: "object",
-      properties: parameters,
-      required: requiredParameterNames,
-    },
-  };
-
-  return chatCompletionFunction;
 }

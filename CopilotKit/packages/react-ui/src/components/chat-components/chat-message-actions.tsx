@@ -1,6 +1,6 @@
 "use client";
 
-import { type Message } from "@copilotkit/react-core";
+import { Message } from "@copilotkit/shared";
 
 import { Button } from "./ui/button";
 import { IconCheck, IconCopy } from "./ui/icons";

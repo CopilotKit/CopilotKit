@@ -43,6 +43,7 @@
     "typescript": "^5.1.3"
   },
   "dependencies": {
+    "@copilotkit/shared": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
     "@heroicons/react": "^2.0.18",
     "@radix-ui/react-alert-dialog": "^1.0.4",

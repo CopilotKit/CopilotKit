@@ -1,36 +1,30 @@
 ---
-title: 'Quickstart: Backend'
-description: 'How to setup the CopilotCloud endpoints'
+title: "Quickstart: Backend"
+description: "How to setup the CopilotBackend endpoints"
 ---
 
 ## Setup
 
 ### Setup the CopilotKit Backend Endpoint:
 
-  Currently all you require is an endpoint which serves as a proxy to an OpenAI-like LLM endpoint.
-  See below for examples using NextJS edge functions / Flask.
-
+Currently all you require is an endpoint which serves as a proxy to an OpenAI-like LLM endpoint.
+See below for examples using NextJS edge functions / Flask.
 
 #### Manually specified endpoint: nodeJS (typescript)
 
 Make sure to install the `openai` package (or use any openai-compatible LLM provider):
+
 <CodeGroup>
-  ```bash npm
-  npm i openai
-  ``` 
-  ```bash yarn
-  yarn add openai
-  ```
-  ```bash pnpm
-  pnpm add openai
-  ```
+  ```bash npm npm i openai ``` ```bash yarn yarn add openai ``` ```bash pnpm
+  pnpm add openai ```
 </CodeGroup>
 
 Remember to add any required environment variables. E.g. to use OpenAI:
+
 ```env .env.local
 OPENAI_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
-      
+
 ```ts /api/copilotkit/openai/route.ts (NextJS)
 import OpenAI from "openai";
 
@@ -59,11 +53,9 @@ export async function POST(req: Request): Promise<Response> {
 }
 ```
 
-
 #### Manually specified endpoint: flask (python)
 
 Make sure to install the `Flask` and `openai` packages.
-
 
 ```python
 from flask import Flask, request, Response
@@ -111,4 +103,3 @@ def copilotkit_endpoint():
         }
     )
 ```
-

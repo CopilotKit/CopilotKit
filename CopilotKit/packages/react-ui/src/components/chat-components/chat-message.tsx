@@ -1,4 +1,4 @@
-import { Message } from "@copilotkit/react-core";
+import { Message } from "@copilotkit/shared";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 

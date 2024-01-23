@@ -1,4 +1,4 @@
-import { Message } from "@copilotkit/react-core";
+import { Message } from "@copilotkit/shared";
 
 export interface ButtonProps {
   open: boolean;
