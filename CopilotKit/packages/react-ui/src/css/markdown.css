@@ -1,0 +1,62 @@
+.copilotKitMarkdown h1,
+.copilotKitMarkdown h2,
+.copilotKitMarkdown h3,
+.copilotKitMarkdown h4,
+.copilotKitMarkdown h5,
+.copilotKitMarkdown h6 {
+  font-weight: bold;
+  line-height: 1.2;
+  margin-bottom: 1rem;
+}
+
+.copilotKitMarkdown h1 {
+  font-size: 1.5em;
+}
+
+.copilotKitMarkdown h2 {
+  font-size: 1.25em;
+  font-weight: 600;
+}
+
+.copilotKitMarkdown h3 {
+  font-size: 1.1em;
+}
+
+.copilotKitMarkdown h4 {
+  font-size: 1em;
+}
+
+.copilotKitMarkdown h5 {
+  font-size: 0.9em;
+}
+
+.copilotKitMarkdown h6 {
+  font-size: 0.8em;
+}
+
+.copilotKitMarkdown p {
+  margin-bottom: 1.25em;
+}
+
+.copilotKitMarkdown pre {
+  margin-bottom: 1.25em;
+}
+
+.copilotKitMarkdown blockquote {
+  border-color: rgb(142, 142, 160);
+  border-left-width: 2px;
+  border-left-style: solid;
+  line-height: 1.2;
+  padding-left: 10px;
+}
+
+.copilotKitMarkdown blockquote p {
+  padding: 0.7em 0;
+}
+
+.copilotKitMarkdown ul > li {
+  display: block;
+  margin: 0;
+  min-height: 28px;
+  padding-left: 0.5em;
+}

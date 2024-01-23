@@ -17,19 +17,21 @@ type MarkdownProps = {
 
 export const Markdown: React.FC<MarkdownProps> = ({ content }) => {
   return (
-    <MemoizedReactMarkdown
-      className="prose break-words dark:prose-invert prose-p:leading-relaxed prose-pre:p-0 text-sm"
-      components={components}
-      remarkPlugins={[remarkGfm, remarkMath]}
-    >
-      {content}
-    </MemoizedReactMarkdown>
+    <div className="copilotKitMarkdown">
+      <MemoizedReactMarkdown
+        className="prose break-words dark:prose-invert prose-p:leading-relaxed prose-pre:p-0"
+        components={components}
+        remarkPlugins={[remarkGfm, remarkMath]}
+      >
+        {content}
+      </MemoizedReactMarkdown>
+    </div>
   );
 };
 
 const components: Components = {
   p({ children }) {
-    return <p className="mb-2 last:mb-0">{children}</p>;
+    return <p>{children}</p>;
   },
   code({ children, className, inline, ...props }) {
     if (children.length) {

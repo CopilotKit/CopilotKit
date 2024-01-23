@@ -2,6 +2,7 @@
 
 import { FC, memo } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus as highlightStyle } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 import { useCopyToClipboard } from "../../hooks/use-copy-to-clipboard";
 import { CheckIcon, CopyIcon, DownloadIcon } from "./Icons";
@@ -109,7 +110,7 @@ const CodeBlock: FC<Props> = memo(({ language, value }) => {
 
   return (
     <div className="codeblock relative w-full bg-zinc-950 font-sans">
-      <div className="flex w-full items-center justify-between bg-zinc-800 px-6 py-2 pr-4 text-zinc-100">
+      <div className="flex w-full items-center justify-between bg-zinc-800 px-6 py-0.5 pr-4 text-zinc-100">
         <span className="text-xs lowercase">{language}</span>
         <div className="flex items-center space-x-1">
           <CodeActionButton onClick={downloadAsFile}>
@@ -124,19 +125,10 @@ const CodeBlock: FC<Props> = memo(({ language, value }) => {
       </div>
       <SyntaxHighlighter
         language={language}
+        style={highlightStyle}
         PreTag="div"
-        showLineNumbers
         customStyle={{
           margin: 0,
-          width: "100%",
-          background: "transparent",
-          padding: "1.5rem 1rem",
-        }}
-        codeTagProps={{
-          style: {
-            fontSize: "0.9rem",
-            fontFamily: "var(--font-mono)",
-          },
         }}
       >
         {value}
