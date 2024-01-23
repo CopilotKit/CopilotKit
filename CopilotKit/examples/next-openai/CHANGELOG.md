@@ -1,5 +1,18 @@
 # web
 
+## 1.14.0-alpha.0
+
+### Minor Changes
+
+- New Copilot ui
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.18.0-alpha.0
+  - @copilotkit/react-ui@0.15.0-alpha.0
+  - @copilotkit/react-textarea@0.27.2-alpha.0
+
 ## 1.13.1
 
 ### Patch Changes

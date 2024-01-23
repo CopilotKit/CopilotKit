@@ -1,0 +1,57 @@
+.copilotKitMessages {
+  overflow-y: scroll;
+  flex: 1;
+  padding: 1rem 2rem;
+  padding-bottom: 3rem;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--copilot-kit-messages-background-color);
+}
+
+.copilotKitMessages::-webkit-scrollbar {
+  width: 9px;
+}
+
+.copilotKitMessages::-webkit-scrollbar-thumb {
+  background-color: var(--copilot-kit-scrollbar-color);
+  border-radius: 10rem;
+  border: 2px solid var(--copilot-kit-messages-background-color);
+}
+
+.copilotKitMessages::-webkit-scrollbar-track-piece:start {
+  background: transparent;
+}
+
+.copilotKitMessages::-webkit-scrollbar-track-piece:end {
+  background: transparent;
+}
+
+.copilotKitMessage {
+  border-radius: 0.5rem;
+  padding: 1rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  overflow-wrap: break-word;
+  max-width: 80%;
+  margin-bottom: 0.5rem;
+}
+
+.copilotKitMessage.copilotKitUserMessage {
+  background: var(--copilot-kit-message-user-background-color);
+  color: var(--copilot-kit-message-user-color);
+  margin-left: auto;
+}
+
+.copilotKitMessage.copilotKitAssistantMessage {
+  background: var(--copilot-kit-message-assistant-background-color);
+  color: var(--copilot-kit-message-assistant-color);
+  margin-right: auto;
+}
+
+.copilotKitMessage.copilotKitUserMessage + .copilotKitMessage.copilotKitAssistantMessage {
+  margin-top: 1.5rem;
+}
+
+.copilotKitMessage.copilotKitAssistantMessage + .copilotKitMessage.copilotKitUserMessage {
+  margin-top: 1.5rem;
+}
