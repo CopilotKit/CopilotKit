@@ -5,15 +5,28 @@ import {
   useMakeCopilotActionable,
   useMakeCopilotReadable,
 } from "@copilotkit/react-core";
-import { CopilotSidebarUIProvider } from "@copilotkit/react-ui";
+import { CopilotKitPopup } from "@copilotkit/react-ui";
+import { CopilotKitSidebar } from "@copilotkit/react-ui";
 import { useState } from "react";
 
 const HelloWorld = () => {
   return (
     <CopilotProvider chatApiEndpoint="/api/copilotkit/openai">
-      <CopilotSidebarUIProvider>
+      <CopilotKitSidebar
+        defaultOpen={true}
+        labels={{
+          title: "Presentation Copilot",
+          initial: "Hi you! 👋 I can give you a presentation on any topic.",
+        }}
+      >
         <Presentation />
-      </CopilotSidebarUIProvider>
+      </CopilotKitSidebar>
+      {/* <CopilotKitPopup
+        labels={{
+          title: "Presentation Copilot",
+          initial: "Hi you! 👋 I can give you a presentation on any topic.",
+        }}
+      /> */}
     </CopilotProvider>
   );
 };
@@ -46,6 +59,7 @@ const Presentation = () => {
           required: true,
         },
       ],
+
       implementation: async (message, backgroundImage) => {
         setState({
           message: message,

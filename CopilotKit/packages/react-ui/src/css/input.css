@@ -1,0 +1,79 @@
+.copilotKitInput {
+  border-top: 1px solid var(--copilot-kit-input-separator-color);
+  padding-left: 2rem;
+  padding-right: 2.5rem;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  cursor: text;
+  position: relative;
+  border-bottom-left-radius: 0.75rem;
+  border-bottom-right-radius: 0.75rem;
+  background-color: var(--copilot-kit-input-background-color);
+}
+
+.copilotKitInput > button {
+  position: absolute;
+  right: 0.5rem;
+  padding: 0.25rem;
+  cursor: pointer;
+  transition-property: transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+  transform: scale(1);
+  color: rgba(0, 0, 0, 0.25);
+  -webkit-appearance: button;
+  appearance: button;
+  background-color: transparent;
+  background-image: none;
+  text-transform: none;
+  font-family: inherit;
+  font-size: 100%;
+  font-weight: inherit;
+  line-height: inherit;
+  border: 0;
+  margin: 0;
+  text-indent: 0px;
+  text-shadow: none;
+  display: inline-block;
+  text-align: center;
+}
+
+.copilotKitInput > button:not([disabled]) {
+  color: var(--copilot-kit-input-send-button-color);
+}
+
+.copilotKitInput > button:not([disabled]):hover {
+  transform: scale(1.1);
+}
+
+.copilotKitInput > button[disabled] {
+  color: var(--copilot-kit-input-send-button-disabled-color);
+}
+
+.copilotKitInput > textarea {
+  width: 100%;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  resize: none;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  cursor: text;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+  font-weight: inherit;
+  color: var(--copilot-kit-input-color);
+  border: 0px;
+  background-color: var(--copilot-kit-input-background-color);
+}
+
+.copilotKitInput > textarea::placeholder {
+  color: var(--copilot-kit-input-placeholder-color);
+  opacity: 1;
+}

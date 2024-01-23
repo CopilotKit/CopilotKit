@@ -1,0 +1,54 @@
+.copilotKitButton {
+  width: 3.5rem;
+  height: 3.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  outline: none;
+  position: relative;
+  transform: scale(1);
+  transition: transform 200ms;
+  background-color: var(--copilot-kit-button-background-color);
+  color: var(--copilot-kit-button-icon-color);
+  cursor: pointer;
+}
+
+.copilotKitButton:hover {
+  transform: scale(1.1);
+}
+
+.copilotKitButton:active {
+  transform: scale(0.75);
+}
+
+.copilotKitButtonIcon {
+  transition: opacity 100ms, transform 300ms;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* State when the chat is open */
+.copilotKitButton.open .copilotKitButtonIconOpen {
+  transform: translate(-50%, -50%) scale(0) rotate(90deg);
+  opacity: 0;
+}
+
+.copilotKitButton.open .copilotKitButtonIconClose {
+  transform: translate(-50%, -50%) scale(1) rotate(0deg);
+  opacity: 1;
+}
+
+/* State when the chat is closed */
+.copilotKitButton:not(.open) .copilotKitButtonIconOpen {
+  transform: translate(-50%, -50%) scale(1) rotate(0deg);
+  opacity: 1;
+}
+
+.copilotKitButton:not(.open) .copilotKitButtonIconClose {
+  transform: translate(-50%, -50%) scale(0) rotate(-90deg);
+  opacity: 0;
+}

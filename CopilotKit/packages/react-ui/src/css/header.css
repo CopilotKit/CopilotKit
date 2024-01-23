@@ -1,0 +1,43 @@
+.copilotKitHeader {
+  height: 56px;
+  font-weight: 500;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  background-color: var(--copilot-kit-header-background-color);
+  color: var(--copilot-kit-header-title-color);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-bottom: 1px solid var(--copilot-kit-header-separator-color);
+}
+
+.copilotKitSidebar .copilotKitHeader {
+  border-radius: 0;
+}
+
+@media (min-width: 640px) {
+  .copilotKitHeader {
+    padding-left: 24px;
+    padding-right: 24px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+  }
+}
+
+.copilotKitHeader > button {
+  border: 0;
+  padding: 0px;
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  outline: none;
+  color: var(--copilot-kit-header-close-button-color);
+  background-color: transparent;
+  cursor: pointer;
+}
+
+.copilotKitHeader > button:focus {
+  outline: none;
+}
