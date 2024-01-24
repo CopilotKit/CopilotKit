@@ -1,5 +1,5 @@
 import React from "react";
-import { CopilotKitChatIcons, ChatContextProvider, CopilotKitChatLabels } from "./ChatContext";
+import { CopilotChatIcons, ChatContextProvider, CopilotChatLabels } from "./ChatContext";
 import { SystemMessageFunction, useCopilotChat } from "@copilotkit/react-core";
 import {
   ButtonProps,
@@ -18,9 +18,9 @@ import { nanoid } from "nanoid";
 import { ResponseButton as DefaultResponseButton } from "./Response";
 
 /**
- * Props for CopilotKitChat component.
+ * Props for CopilotChat component.
  */
-export interface CopilotKitChatProps {
+export interface CopilotChatProps {
   /**
    * Custom instructions to be added to the system message. Use this property to
    * provide additional context or guidance to the language model, influencing
@@ -64,12 +64,12 @@ export interface CopilotKitChatProps {
   /**
    * Icons can be used to set custom icons for the chat window.
    */
-  icons?: CopilotKitChatIcons;
+  icons?: CopilotChatIcons;
 
   /**
    * Labels can be used to set custom labels for the chat window.
    */
-  labels?: CopilotKitChatLabels;
+  labels?: CopilotChatLabels;
 
   /**
    * A function that takes in context string and instructions and returns
@@ -121,7 +121,7 @@ export interface CopilotKitChatProps {
   className?: string;
 }
 
-export const CopilotKitChat: React.FC<CopilotKitChatProps> = ({
+export const CopilotChat: React.FC<CopilotChatProps> = ({
   instructions,
   defaultOpen = false,
   clickOutsideToClose = true,
