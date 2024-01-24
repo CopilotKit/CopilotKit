@@ -29,21 +29,6 @@ It can be configured either with a chat API endpoint or a `CopilotApiConfig`.
 <CopilotKit url="https://your.copilotkit.api">
   <App />
 </CopilotKit>
-
-// or
-
-const copilotApiConfig = new StandardCopilotApiConfig(
-  "https://your.copilotkit.api/v1",
-  "https://your.copilotkit.api/v2",
-  {},
-  {}
-);
-
-// ...
-
-<CopilotKit chatApiConfig={copilotApiConfig}>
-  <App />
-</CopilotKit>
 ```
 
 ## Props
