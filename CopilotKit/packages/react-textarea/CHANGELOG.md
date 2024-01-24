@@ -1,5 +1,31 @@
 # ui
 
+## 0.28.0-alpha.2
+
+### Minor Changes
+
+- .2
+- .3
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+  - @copilotkit/react-core@0.18.0-alpha.2
+  - @copilotkit/shared@0.2.0-alpha.1
+
+## 0.28.0-alpha.1
+
+### Minor Changes
+
+- build naming refactor
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.18.0-alpha.1
+  - @copilotkit/shared@0.2.0-alpha.0
+
 ## 0.27.2-alpha.0
 
 ### Patch Changes

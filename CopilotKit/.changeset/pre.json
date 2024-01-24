@@ -10,9 +10,13 @@
     "@copilotkit/react-ui": "0.14.1",
     "@copilotkit/shared": "0.1.1",
     "tailwind-config": "0.1.0",
-    "tsconfig": "0.6.0"
+    "tsconfig": "0.6.0",
+    "@copilotkit/backend": "0.1.1"
   },
   "changesets": [
-    "eighty-pugs-provide"
+    "eighty-pugs-provide",
+    "olive-gorillas-sparkle",
+    "selfish-suns-chew",
+    "twelve-frogs-work"
   ]
 }

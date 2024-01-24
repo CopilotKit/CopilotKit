@@ -1,5 +1,29 @@
 # @copilotkit/cloud
 
+## 0.2.0-alpha.1
+
+### Minor Changes
+
+- .2
+- .3
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+  - @copilotkit/shared@0.2.0-alpha.1
+
+## 0.2.0-alpha.0
+
+### Minor Changes
+
+- build naming refactor
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.2.0-alpha.0
+
 ## 0.1.1
 
 ### Patch Changes
