@@ -17,7 +17,7 @@ It can be configured either with a chat API endpoint or a `CopilotApiConfig`.
   import { CopilotKit } from "@copilotkit/react-core";
 
   <CopilotKit 
-    chatApiEndpoint="https://your.copilotkit.api">
+    url="https://your.copilotkit.api">
     <YourApp/>
   </CopilotKit>
   ```
@@ -26,7 +26,7 @@ It can be configured either with a chat API endpoint or a `CopilotApiConfig`.
 ## Example usage
 
 ```jsx
-<CopilotKit chatApiEndpoint="https://your.copilotkit.api">
+<CopilotKit url="https://your.copilotkit.api">
   <App />
 </CopilotKit>
 
@@ -48,51 +48,32 @@ const copilotApiConfig = new StandardCopilotApiConfig(
 
 ## Props
 
-<ResponseField name="chatApiEndpoint" type="string" required>
+<ResponseField name="url" type="string" required>
   The endpoint for the chat API.
-</ResponseField>
-
-<ResponseField name="chatApiEndpointV2" type="string" default="chatApiEndpoint + '/v2'">
-  The endpoint for the chat API v2. If not provided, defaults to chatApiEndpoint + "/v2".
-  This is used for the chat API v2. If you are not using the chat API v2, you can ignore this.
 </ResponseField>
 
 <ResponseField name="children" type="ReactNode">
   The children to be rendered within the CopilotKit.
 </ResponseField>
 
-<ResponseField name="chatApiConfig" type="CopilotApiConfig">
-  The configuration for the Copilot API.
-
-  <Expandable title="CopilotApiConfig">
-    <ResponseField name="chatApiEndpoint" type="string" required>
-      The endpoint for the chat API.
-    </ResponseField>
-
-    <ResponseField name="chatApiEndpointV2" type="string">
-      The endpoint for the chat API v2.
-    </ResponseField>
-
-    <ResponseField name="headers" type="Record<string, string>">
-      Additional headers to be sent with the request.
-      
-      For example:
+<ResponseField name="headers" type="Record<string, string>">
+  Additional headers to be sent with the request.
+  
+  For example:
 ```js
 {
   'Authorization': 'Bearer your_token_here'
 }
 ```
-    </ResponseField>
+</ResponseField>
 
-    <ResponseField name="body" type="Record<string, string>">
-      Additional body params to be sent with the request.
-      
-      For example:
+<ResponseField name="body" type="Record<string, string>">
+  Additional body params to be sent with the request.
+  
+  For example:
 ```js
 {
   'message': 'Hello, world!'
 }
 ```
-    </ResponseField>
-  </Expandable>
 </ResponseField>

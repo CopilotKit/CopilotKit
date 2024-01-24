@@ -34,7 +34,7 @@ import "@copilotkit/react-textarea/styles.css"; // also import this if you want 
 
 export default function RootLayout({children}) {
   return (
-    <CopilotKit chatApiEndpoint="/path_to_copilotkit_endpoint/see_below">
+    <CopilotKit url="/path_to_copilotkit_endpoint/see_below">
       {children}
     </CopilotKit>
   );
@@ -43,7 +43,7 @@ export default function RootLayout({children}) {
 
 ### Setup the CopilotKit Backend Endpoint:
 
-Setup a backend endpoint (and pass its URL as the `chatApiEndpoint` argument to `CopilotKit`, as above).
+Setup a backend endpoint (and pass its URL as the `url` argument to `CopilotKit`, as above).
 
 See [Quickstart-Backend](/getting-started/quickstart-backend)
 

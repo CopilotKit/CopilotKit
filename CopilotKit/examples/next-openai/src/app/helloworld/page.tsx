@@ -10,7 +10,7 @@ import { useState } from "react";
 
 const HelloWorld = () => {
   return (
-    <CopilotKit chatApiEndpoint="/api/copilotkit/openai">
+    <CopilotKit url="/api/copilotkit/openai">
       <CopilotSidebar
         defaultOpen={true}
         labels={{

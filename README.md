@@ -144,7 +144,7 @@ useMakeCopilotReadable(relevantInformation);
 useMakeCopilotDocumentReadable(document);
 
 return (
-  <CopilotKit chatApiEndpoint="/api/copilotkit/chat">
+  <CopilotKit url="/api/copilotkit/chat">
     {" "}
     {/* Global state & copilot logic. Put this around the entire app */}
     <CopilotTextarea
@@ -173,7 +173,7 @@ import { CopilotSidebar } from "@copilotkit/react-ui";
 
 export default function App(): JSX.Element {
   return (
-    <CopilotKit chatApiEndpoint="/api/copilotkit/chat">
+    <CopilotKit url="/api/copilotkit/chat">
       {" "}
       {/* Global state & copilot logic. Put this around the entire app */}
       <CopilotSidebar>

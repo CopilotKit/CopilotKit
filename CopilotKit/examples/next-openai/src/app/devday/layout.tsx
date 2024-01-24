@@ -8,14 +8,7 @@ type LayoutProps = {
 };
 
 const Layout = ({ children }: LayoutProps) => {
-  return (
-    <CopilotKit
-      chatApiEndpoint="/api/copilotkit/openai"
-      chatApiEndpointV2="/api/copilotkit_v2_work-in-progress/assistant"
-    >
-      {children}
-    </CopilotKit>
-  );
+  return <CopilotKit url="/api/copilotkit/openai">{children}</CopilotKit>;
 };
 
 export default Layout;

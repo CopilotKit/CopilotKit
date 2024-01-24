@@ -12,7 +12,7 @@ import {
 } from "@copilotkit/shared";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { StandardCopilotApiConfig } from "./standard-copilot-api-config";
-import { CopilotKitProps } from "./copilot-provider-props";
+import { CopilotKitProps } from "./copilotkit-props";
 
 /**
  * The CopilotKit component.
@@ -26,7 +26,7 @@ import { CopilotKitProps } from "./copilot-provider-props";
  *
  * Example usage:
  * ```
- * <CopilotKit chatApiEndpoint="https://your.copilotkit.api">
+ * <CopilotKit url="https://your.copilotkit.api">
  *    <App />
  * </CopilotKit>
  * ```
@@ -145,17 +145,12 @@ export function CopilotKit({ children, ...props }: CopilotKitProps): JSX.Element
   );
 
   // get the appropriate CopilotApiConfig from the props
-  let copilotApiConfig: CopilotApiConfig;
-  if ("chatApiEndpoint" in props) {
-    copilotApiConfig = new StandardCopilotApiConfig(
-      props.chatApiEndpoint,
-      props.chatApiEndpointV2 || `${props.chatApiEndpoint}/v2`,
-      {},
-      {},
-    );
-  } else {
-    copilotApiConfig = props.chatApiConfig;
-  }
+  const copilotApiConfig: CopilotApiConfig = new StandardCopilotApiConfig(
+    props.url,
+    `${props.url}/v2`,
+    props.headers || {},
+    props.body || {},
+  );
 
   return (
     <CopilotContext.Provider
