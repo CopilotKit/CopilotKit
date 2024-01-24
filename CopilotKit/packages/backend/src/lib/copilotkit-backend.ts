@@ -1,14 +1,14 @@
 import { AnnotatedFunction } from "@copilotkit/shared";
 import { CopilotKitServiceAdapter } from "../types";
 
-interface CopilotKitConstructorParams {
+interface CopilotBackendConstructorParams {
   functions?: AnnotatedFunction<any[]>[];
 }
 
-export class CopilotKitBackend {
+export class CopilotBackend {
   private functions: AnnotatedFunction<any[]>[] = [];
 
-  constructor(params?: CopilotKitConstructorParams) {
+  constructor(params?: CopilotBackendConstructorParams) {
     this.functions = params?.functions || [];
   }
 
