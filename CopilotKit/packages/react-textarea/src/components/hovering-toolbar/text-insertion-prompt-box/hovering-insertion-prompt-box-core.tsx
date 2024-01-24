@@ -1,5 +1,4 @@
 import useAutosizeTextArea from "../../../hooks/misc/use-autosize-textarea";
-import { MinimalChatGPTMessage } from "../../../types";
 import {
   EditingEditorState,
   Generator_InsertionOrEditingSuggestion,
