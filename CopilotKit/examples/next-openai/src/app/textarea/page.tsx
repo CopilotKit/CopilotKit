@@ -6,16 +6,11 @@ import {
   useMakeCopilotDocumentReadable,
   useMakeCopilotReadable,
 } from "@copilotkit/react-core";
-import {
-  CopilotTextarea,
-  HTMLCopilotTextAreaElement,
-  MakeSystemPrompt,
-  MinimalChatGPTMessage,
-} from "@copilotkit/react-textarea";
-import { useRef, useState } from "react";
+import { CopilotTextarea, HTMLCopilotTextAreaElement } from "@copilotkit/react-textarea";
+import { useRef } from "react";
 import { useStateWithLocalStorage } from "../utils";
 
-export default function CopilotTextareaDemo(): JSX.Element {
+export default function CopilotTextareaDemo() {
   return (
     <CopilotKit url="/api/copilotkit/openai">
       <TextAreas />

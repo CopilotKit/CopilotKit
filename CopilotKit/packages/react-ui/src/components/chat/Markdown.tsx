@@ -1,4 +1,3 @@
-import React from "react";
 import { FC, memo } from "react";
 import ReactMarkdown, { Options, Components } from "react-markdown";
 import { CodeBlock } from "./CodeBlock";
@@ -15,7 +14,7 @@ type MarkdownProps = {
   content: string;
 };
 
-export const Markdown: React.FC<MarkdownProps> = ({ content }) => {
+export const Markdown = ({ content }: MarkdownProps) => {
   return (
     <div className="copilotKitMarkdown">
       <MemoizedReactMarkdown components={components} remarkPlugins={[remarkGfm, remarkMath]}>

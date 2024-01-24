@@ -9,10 +9,10 @@ export interface IncludedFilesPreviewProps {
   setIncludedFiles: React.Dispatch<React.SetStateAction<DocumentPointer[]>>;
 }
 
-export const IncludedFilesPreview: React.FC<IncludedFilesPreviewProps> = ({
+export const IncludedFilesPreview = ({
   includedFiles,
   setIncludedFiles,
-}) => {
+}: IncludedFilesPreviewProps) => {
   return (
     <div className="flex flex-col gap-2 mt-2">
       <Label className="">Included context:</Label>
@@ -33,12 +33,12 @@ export const IncludedFilesPreview: React.FC<IncludedFilesPreviewProps> = ({
   );
 };
 
-export interface FileChipPreviewProp {
+export interface FileChipPreviewProps {
   filePointer: DocumentPointer;
   onDelete: () => void;
 }
 
-export const FileChipPreview: React.FC<FileChipPreviewProp> = ({ filePointer, onDelete }) => {
+export const FileChipPreview = ({ filePointer, onDelete }: FileChipPreviewProps) => {
   return (
     <Chip
       label={filePointer.name}

@@ -5,7 +5,7 @@ import { nanoid } from "nanoid";
 import { Message } from "@copilotkit/shared";
 import { Markdown } from "./Markdown";
 
-export const Messages: React.FC<MessagesProps> = ({ messages, inProgress }) => {
+export const Messages = ({ messages, inProgress }: MessagesProps) => {
   const context = useChatContext();
   const initialMessages = useMemo(
     () => makeInitialMessages(context.labels.initial),

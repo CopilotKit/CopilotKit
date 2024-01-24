@@ -5,7 +5,7 @@ interface CopilotSidebarProps extends CopilotChatProps {
   children?: React.ReactNode;
 }
 
-export const CopilotSidebar: React.FC<CopilotSidebarProps> = (props) => {
+export const CopilotSidebar = (props: CopilotSidebarProps) => {
   props = {
     ...props,
     className: props.className ? props.className + " copilotKitSidebar" : "copilotKitSidebar",

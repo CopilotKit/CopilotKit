@@ -8,7 +8,7 @@ import { SourceSearchBox } from "../../source-search-box/source-search-box";
 import { DocumentPointer } from "@copilotkit/react-core";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
-import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 
 import { streamPromiseFlatten } from "../../../lib/stream-promise-flatten";
 import { CopilotContext } from "@copilotkit/react-core";
@@ -25,12 +25,12 @@ export interface HoveringInsertionPromptBoxCoreProps {
   contextCategories: string[];
 }
 
-export const HoveringInsertionPromptBoxCore: React.FC<HoveringInsertionPromptBoxCoreProps> = ({
+export const HoveringInsertionPromptBoxCore = ({
   performInsertion,
   state,
   insertionOrEditingFunction,
   contextCategories,
-}) => {
+}: HoveringInsertionPromptBoxCoreProps) => {
   const { getDocumentsContext } = useContext(CopilotContext);
 
   const [editSuggestion, setEditSuggestion] = useState<string>("");

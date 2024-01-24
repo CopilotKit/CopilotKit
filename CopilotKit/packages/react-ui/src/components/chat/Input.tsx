@@ -3,7 +3,7 @@ import { InputProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import AutoResizingTextarea from "./Textarea";
 
-export const Input: React.FC<InputProps> = ({ inProgress, onSend, children }) => {
+export const Input = ({ inProgress, onSend, children }: InputProps) => {
   const context = useChatContext();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 

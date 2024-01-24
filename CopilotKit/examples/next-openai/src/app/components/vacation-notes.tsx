@@ -1,7 +1,7 @@
 import { CopilotTextarea } from "@copilotkit/react-textarea";
 import { useState } from "react";
 
-export function VacationNotes(): JSX.Element {
+export function VacationNotes() {
   const [text, setText] = useState("");
 
   return (

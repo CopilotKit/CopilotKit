@@ -171,7 +171,7 @@ import "@copilotkit/react-ui/styles.css"; // add to the app-global css
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 
-export default function App(): JSX.Element {
+export default function App() {
   return (
     <CopilotKit url="/api/copilotkit/chat">
       {" "}
@@ -205,7 +205,7 @@ export default function App(): JSX.Element {
 import { useMakeCopilotReadable } from "@copilotkit/react-core";
 
 
-function Employee(props: EmployeeProps): JSX.Element {
+function Employee(props: EmployeeProps) {
   const { employeeName, workProfile, metadata } = props;
 
   // propagate any information copilot
@@ -228,7 +228,7 @@ function Employee(props: EmployeeProps): JSX.Element {
 ```typescript
 import { useMakeCopilotActionable } from "@copilotkit/react-core";
 
-function Department(props: DepartmentProps): JSX.Element {
+function Department(props: DepartmentProps) {
   // ...
 
   // Let the copilot take action on behalf of the user.
