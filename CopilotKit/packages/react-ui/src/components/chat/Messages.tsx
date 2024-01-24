@@ -2,7 +2,7 @@ import React, { useEffect, useMemo } from "react";
 import { MessagesProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import { nanoid } from "nanoid";
-import { Message } from "@copilotkit/react-core";
+import { Message } from "@copilotkit/shared";
 import { Markdown } from "./Markdown";
 
 export const Messages: React.FC<MessagesProps> = ({ messages, inProgress }) => {

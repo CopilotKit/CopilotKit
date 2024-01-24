@@ -1,4 +1,5 @@
-import { ChatCompletionStream, CopilotContext, Message } from "@copilotkit/react-core";
+import { Message } from "@copilotkit/shared";
+import { CopilotContext } from "@copilotkit/react-core";
 import { useCallback, useContext } from "react";
 import { MinimalChatGPTMessage } from "../../types";
 import { retry } from "../../lib/retry";
@@ -11,6 +12,7 @@ import {
 import { InsertionsApiConfig } from "../../types/autosuggestions-config/insertions-api-config";
 import { EditingApiConfig } from "../../types/autosuggestions-config/editing-api-config";
 import { DocumentPointer } from "@copilotkit/react-core";
+import { fetchAndDecodeChatCompletionAsText } from "@copilotkit/react-core";
 
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
@@ -67,16 +69,13 @@ export function useMakeStandardInsertionOrEditingFunction(
           },
         ];
 
-        const chatCompletionStream = new ChatCompletionStream({
-          url: copilotApiConfig.chatApiEndpoint,
-        });
-
-        return await chatCompletionStream.fetch({
+        const stream = await fetchAndDecodeChatCompletionAsText({
           messages: messages as Message[],
           ...insertionApiConfig.forwardedParams,
           copilotConfig: copilotApiConfig,
           signal: abortSignal,
         });
+        return stream.events!;
       });
 
       return res;
@@ -123,16 +122,13 @@ export function useMakeStandardInsertionOrEditingFunction(
           },
         ];
 
-        const chatCompletionStream = new ChatCompletionStream({
-          url: copilotApiConfig.chatApiEndpoint,
-        });
-
-        return await chatCompletionStream.fetch({
+        const stream = await fetchAndDecodeChatCompletionAsText({
           messages: messages as Message[],
           ...editingApiConfig.forwardedParams,
           copilotConfig: copilotApiConfig,
           signal: abortSignal,
         });
+        return stream.events!;
       });
 
       return res;
