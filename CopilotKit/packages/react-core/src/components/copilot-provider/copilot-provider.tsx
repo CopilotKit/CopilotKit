@@ -12,10 +12,10 @@ import {
 } from "@copilotkit/shared";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { StandardCopilotApiConfig } from "./standard-copilot-api-config";
-import { CopilotProviderProps } from "./copilot-provider-props";
+import { CopilotKitProps } from "./copilot-provider-props";
 
 /**
- * The CopilotProvider component.
+ * The CopilotKit component.
  * This component provides the Copilot context to its children.
  * It can be configured either with a chat API endpoint or a CopilotApiConfig.
  *
@@ -26,9 +26,9 @@ import { CopilotProviderProps } from "./copilot-provider-props";
  *
  * Example usage:
  * ```
- * <CopilotProvider chatApiEndpoint="https://your.copilotkit.api">
+ * <CopilotKit chatApiEndpoint="https://your.copilotkit.api">
  *    <App />
- * </CopilotProvider>
+ * </CopilotKit>
  * ```
  *
  * or
@@ -43,15 +43,15 @@ import { CopilotProviderProps } from "./copilot-provider-props";
  *
  * // ...
  *
- * <CopilotProvider chatApiConfig={copilotApiConfig}>
+ * <CopilotKit chatApiConfig={copilotApiConfig}>
  *    <App />
- * </CopilotProvider>
+ * </CopilotKit>
  * ```
  *
  * @param props - The props for the component.
- * @returns The CopilotProvider component.
+ * @returns The CopilotKit component.
  */
-export function CopilotProvider({ children, ...props }: CopilotProviderProps): JSX.Element {
+export function CopilotKit({ children, ...props }: CopilotKitProps): JSX.Element {
   // Compute all the functions and properties that we need to pass
   // to the CopilotContext.
 

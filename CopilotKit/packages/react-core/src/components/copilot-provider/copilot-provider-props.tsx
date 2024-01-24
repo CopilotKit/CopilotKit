@@ -3,10 +3,10 @@ import { ReactNode } from "react";
 import { CopilotApiConfig } from "../../context/copilot-context";
 
 /**
- * Props for the CopilotProvider when using a chat API endpoint.
+ * Props for the CopilotKit when using a chat API endpoint.
  */
 
-export interface CopilotProviderApiEndpointProps {
+export interface CopilotKitApiEndpointProps {
   /**
    * The endpoint for the chat API.
    */
@@ -23,28 +23,28 @@ export interface CopilotProviderApiEndpointProps {
   chatApiEndpointV2?: string;
 
   /**
-   * The children to be rendered within the CopilotProvider.
+   * The children to be rendered within the CopilotKit.
    */
   children: ReactNode;
 }
 /**
- * Props for the CopilotProvider when using a CopilotApiConfig.
+ * Props for the CopilotKit when using a CopilotApiConfig.
  */
 
-export interface CopilotProviderApiConfigProps {
+export interface CopilotKitApiConfigProps {
   /**
    * The configuration for the Copilot API.
    */
   chatApiConfig: CopilotApiConfig;
 
   /**
-   * The children to be rendered within the CopilotProvider.
+   * The children to be rendered within the CopilotKit.
    */
   children: ReactNode;
 }
 /**
- * Props for the CopilotProvider component.
- * Can be either CopilotProviderApiEndpointProps or CopilotProviderApiConfigProps.
+ * Props for the CopilotKit component.
+ * Can be either CopilotKitApiEndpointProps or CopilotKitApiConfigProps.
  */
 
-export type CopilotProviderProps = CopilotProviderApiEndpointProps | CopilotProviderApiConfigProps;
+export type CopilotKitProps = CopilotKitApiEndpointProps | CopilotKitApiConfigProps;

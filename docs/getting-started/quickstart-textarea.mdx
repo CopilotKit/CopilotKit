@@ -5,7 +5,7 @@ description: 'How to integrate CopilotTextarea into your application'
 
 ## Setup
 
-### Intall CopilotKit
+### Install CopilotKit
 
 Install the CopilotKit frontend packagess:
 
@@ -23,27 +23,27 @@ Install the CopilotKit frontend packagess:
 
 ### Setup the frontend
 
-A `CopilotProvider` must wrap all components which interact with CopilotKit.
+A `CopilotKit` must wrap all components which interact with CopilotKit.
 
-For simplicity's sake, it's recommended you wrap a `CopilotProvider` around your entire application:
+For simplicity's sake, it's recommended you wrap a `CopilotKit` around your entire application:
 
 ```ts
 "use client";
-import { CopilotProvider } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core";
 import "@copilotkit/react-textarea/styles.css"; // also import this if you want to use the CopilotTextarea component
 
 export default function RootLayout({children}) {
   return (
-    <CopilotProvider chatApiEndpoint="/path_to_copilotkit_endpoint/see_below">
+    <CopilotKit chatApiEndpoint="/path_to_copilotkit_endpoint/see_below">
       {children}
-    </CopilotProvider>
+    </CopilotKit>
   );
 }
 ```
 
 ### Setup the CopilotKit Backend Endpoint:
 
-Setup a backend endpoint (and pass its URL as the `chatApiEndpoint` argument to `CopilotProvider`, as above).
+Setup a backend endpoint (and pass its URL as the `chatApiEndpoint` argument to `CopilotKit`, as above).
 
 See [Quickstart-Backend](/getting-started/quickstart-backend)
 
@@ -65,7 +65,7 @@ import { useMakeCopilotDocumentReadable, DocumentPointer } from '@copilotkit/rea
 // You can pass top-level data to the Copilot engine by calling `useMakeCopilotReadable`.
 const employeeContextId = useMakeCopilotReadable(employeeName);
 
-// Pass a parentID to maintain a hiearchical structure.
+// Pass a parentID to maintain a hierarchical structure.
 // Especially useful with child React components, list elements, etc.
 useMakeCopilotReadable(workProfile.description(), employeeContextId);
 useMakeCopilotReadable(metadata.description(), employeeContextId);

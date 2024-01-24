@@ -41,8 +41,8 @@
     {
       "group": "API Reference",
       "pages": [
-        "reference/CopilotProvider",
-        "reference/CopilotKitPopup",
+        "reference/CopilotKit",
+        "reference/CopilotPopup",
         "reference/CopilotSidebar"
       ]
     },

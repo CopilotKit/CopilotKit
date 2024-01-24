@@ -84,14 +84,10 @@ const emptyCopilotContext: CopilotContextParams = {
 
   copilotApiConfig: new (class implements CopilotApiConfig {
     get chatApiEndpoint(): string {
-      throw new Error(
-        "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!",
-      );
+      throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
     }
     get chatApiEndpointV2(): string {
-      throw new Error(
-        "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!",
-      );
+      throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
     }
     get headers(): Record<string, string> {
       return {};
@@ -105,8 +101,6 @@ const emptyCopilotContext: CopilotContextParams = {
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);
 
 function returnAndThrowInDebug<T>(value: T): T {
-  throw new Error(
-    "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!",
-  );
+  throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
   return value;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  CopilotProvider,
+  CopilotKit,
   useMakeCopilotActionable,
   useMakeCopilotReadable,
 } from "@copilotkit/react-core";
@@ -10,7 +10,7 @@ import { useState } from "react";
 
 const HelloWorld = () => {
   return (
-    <CopilotProvider chatApiEndpoint="/api/copilotkit/openai">
+    <CopilotKit chatApiEndpoint="/api/copilotkit/openai">
       <CopilotSidebar
         defaultOpen={true}
         labels={{
@@ -20,7 +20,7 @@ const HelloWorld = () => {
       >
         <Presentation />
       </CopilotSidebar>
-    </CopilotProvider>
+    </CopilotKit>
   );
 };
 

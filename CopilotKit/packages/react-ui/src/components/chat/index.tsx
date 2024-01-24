@@ -1,3 +1,3 @@
 export * from "./props";
-export { CopilotKitPopup } from "./Popup";
+export { CopilotPopup } from "./Popup";
 export { CopilotSidebar } from "./Sidebar";

@@ -1,5 +1,5 @@
 ---
-title: "CopilotProvider"
+title: "<CopilotKit />"
 description: "Provides the Copilot context to its children."
 ---
 
@@ -13,22 +13,22 @@ It can be configured either with a chat API endpoint or a `CopilotApiConfig`.
 </Note>
 
 <RequestExample>
-  ```jsx CopilotProvider Example
-  import { CopilotProvider } from "@copilotkit/react-core";
+  ```jsx CopilotKit Example
+  import { CopilotKit } from "@copilotkit/react-core";
 
-  <CopilotProvider 
+  <CopilotKit 
     chatApiEndpoint="https://your.copilotkit.api">
     <YourApp/>
-  </CopilotProvider>
+  </CopilotKit>
   ```
 </RequestExample>
 
 ## Example usage
 
 ```jsx
-<CopilotProvider chatApiEndpoint="https://your.copilotkit.api">
+<CopilotKit chatApiEndpoint="https://your.copilotkit.api">
   <App />
-</CopilotProvider>
+</CopilotKit>
 
 // or
 
@@ -41,9 +41,9 @@ const copilotApiConfig = new StandardCopilotApiConfig(
 
 // ...
 
-<CopilotProvider chatApiConfig={copilotApiConfig}>
+<CopilotKit chatApiConfig={copilotApiConfig}>
   <App />
-</CopilotProvider>
+</CopilotKit>
 ```
 
 ## Props
@@ -58,7 +58,7 @@ const copilotApiConfig = new StandardCopilotApiConfig(
 </ResponseField>
 
 <ResponseField name="children" type="ReactNode">
-  The children to be rendered within the CopilotProvider.
+  The children to be rendered within the CopilotKit.
 </ResponseField>
 
 <ResponseField name="chatApiConfig" type="CopilotApiConfig">

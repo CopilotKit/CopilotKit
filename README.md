@@ -136,15 +136,15 @@ A drop-in <textarea /> replacement with context-aware Copilot autocompletions.
 ```typescript
 import "@copilotkit/react-textarea/styles.css"; // add to the app-global css
 import { CopilotTextarea } from "@copilotkit/react-textarea";
-import { CopilotProvider } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core";
 
-// call ANYWHERE in your app to provide external context (make sure you wrap the app with a <CopilotProvider >):
+// call ANYWHERE in your app to provide external context (make sure you wrap the app with a <CopilotKit >):
 // See below for more features (parent/child hierarchy, categories, etc.)
 useMakeCopilotReadable(relevantInformation);
 useMakeCopilotDocumentReadable(document);
 
 return (
-  <CopilotProvider chatApiEndpoint="/api/copilotkit/chat">
+  <CopilotKit chatApiEndpoint="/api/copilotkit/chat">
     {" "}
     {/* Global state & copilot logic. Put this around the entire app */}
     <CopilotTextarea
@@ -160,7 +160,7 @@ return (
         },
       }}
     />
-  </CopilotProvider>
+  </CopilotKit>
 );
 ```
 
@@ -168,12 +168,12 @@ return (
 
 ```typescript
 import "@copilotkit/react-ui/styles.css"; // add to the app-global css
-import { CopilotProvider } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 
 export default function App(): JSX.Element {
   return (
-    <CopilotProvider chatApiEndpoint="/api/copilotkit/chat">
+    <CopilotKit chatApiEndpoint="/api/copilotkit/chat">
       {" "}
       {/* Global state & copilot logic. Put this around the entire app */}
       <CopilotSidebar>
@@ -181,7 +181,7 @@ export default function App(): JSX.Element {
         {/* A built-in Copilot UI (or bring your own UI). Put around individual pages, or the entire app. */}
         <YourContent />
       </CopilotSidebar>
-    </CopilotProvider>
+    </CopilotKit>
   );
 }
 ```
