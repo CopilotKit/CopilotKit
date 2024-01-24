@@ -51,7 +51,7 @@ import { CopilotProviderProps } from "./copilot-provider-props";
  * @param props - The props for the component.
  * @returns The CopilotProvider component.
  */
-export function CopilotProvider({ children, ...props }: CopilotProviderProps): JSX.Element {
+export function CopilotProvider({ children, ...props }: CopilotProviderProps) {
   // Compute all the functions and properties that we need to pass
   // to the CopilotContext.
 

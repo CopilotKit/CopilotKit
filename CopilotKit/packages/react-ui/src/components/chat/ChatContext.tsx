@@ -132,14 +132,14 @@ interface ChatContextProps {
   children?: React.ReactNode;
 }
 
-export const ChatContextProvider: React.FC<ChatContextProps> = ({
+export const ChatContextProvider = ({
   // temperature,
   // instructions,
   // maxFeedback,
   labels,
   icons,
   children,
-}) => {
+}: ChatContextProps) => {
   const context = useMemo(
     () => ({
       labels: {

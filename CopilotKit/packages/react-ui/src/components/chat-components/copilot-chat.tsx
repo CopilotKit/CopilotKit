@@ -6,8 +6,7 @@ import { ChatList } from "./chat-list";
 import { ChatPanel } from "./chat-panel";
 import { DefaultEmptyScreen, EmptyScreenProps } from "./default-empty-screen";
 import { ChatScrollAnchor } from "./chat-scroll-anchor";
-import { UseCopilotChatOptions } from "@copilotkit/react-core";
-import { useCopilotChat } from "@copilotkit/react-core";
+import { UseCopilotChatOptions, useCopilotChat } from "@copilotkit/react-core";
 
 interface ChatComponentInjectionsProps {
   EmptyScreen?: React.FC<EmptyScreenProps>;

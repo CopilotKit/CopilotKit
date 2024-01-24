@@ -1,4 +1,4 @@
-import React, { ReactNode, useCallback } from "react";
+import { ReactNode, useCallback } from "react";
 import { useState } from "react";
 import { CopilotSidebar } from "./copilot-sidebar";
 import { CopilotSidebarContext } from "./sidebar-context";

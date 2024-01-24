@@ -1,4 +1,3 @@
-import React from "react";
 import { FC, memo } from "react";
 import ReactMarkdown, { Options, Components } from "react-markdown";
 import { CodeBlock } from "./CodeBlock";
@@ -15,7 +14,7 @@ type MarkdownProps = {
   content: string;
 };
 
-export const Markdown: React.FC<MarkdownProps> = ({ content }) => {
+export const Markdown = ({ content }: MarkdownProps) => {
   return (
     <MemoizedReactMarkdown
       className="prose break-words dark:prose-invert prose-p:leading-relaxed prose-pre:p-0 text-sm"

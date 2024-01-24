@@ -24,7 +24,6 @@ import {
   HoveringEditorProvider,
   useHoveringEditorContext,
 } from "../hovering-toolbar/hovering-editor-provider";
-import { EditorAutocompleteState } from "../../types/base/editor-autocomplete-state";
 import { TrackerTextEditedSinceLastCursorMovement } from "./track-cursor-moved-since-last-text-change";
 
 /**
@@ -65,7 +64,7 @@ export interface HTMLCopilotTextAreaElement extends HTMLElement {
  * for figuring out which contnet to fill in.
  */
 export const BaseCopilotTextarea = React.forwardRef(
-  (props: BaseCopilotTextareaProps, ref: React.Ref<HTMLCopilotTextAreaElement>): JSX.Element => {
+  (props: BaseCopilotTextareaProps, ref: React.Ref<HTMLCopilotTextAreaElement>) => {
     return (
       <HoveringEditorProvider>
         <BaseCopilotTextareaWithHoveringContext {...props} ref={ref} />
@@ -84,7 +83,7 @@ export const BaseCopilotTextarea = React.forwardRef(
  * and wrap it in a `HoveringEditorProviderContext` in `BaseCopilotTextarea`.
  */
 const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
-  (props: BaseCopilotTextareaProps, ref: React.Ref<HTMLCopilotTextAreaElement>): JSX.Element => {
+  (props: BaseCopilotTextareaProps, ref: React.Ref<HTMLCopilotTextAreaElement>) => {
     const autosuggestionsConfig: BaseAutosuggestionsConfig = {
       ...defaultBaseAutosuggestionsConfig,
       ...props.baseAutosuggestionsConfig,

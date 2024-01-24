@@ -1,8 +1,7 @@
-import React from "react";
 import { useChatContext } from "./ChatContext";
 import { ResponseButtonProps } from "./props";
 
-export const ResponseButton: React.FC<ResponseButtonProps> = ({ onClick, inProgress }) => {
+export const ResponseButton = ({ onClick, inProgress }: ResponseButtonProps) => {
   const context = useChatContext();
   return (
     <button onClick={onClick} className="copilotKitResponseButton">

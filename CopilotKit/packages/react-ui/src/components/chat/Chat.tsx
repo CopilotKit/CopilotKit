@@ -121,7 +121,7 @@ export interface CopilotKitChatProps {
   className?: string;
 }
 
-export const CopilotKitChat: React.FC<CopilotKitChatProps> = ({
+export const CopilotKitChat = ({
   instructions,
   defaultOpen = false,
   clickOutsideToClose = true,
@@ -139,7 +139,7 @@ export const CopilotKitChat: React.FC<CopilotKitChatProps> = ({
   Input = DefaultInput,
   ResponseButton = DefaultResponseButton,
   className,
-}) => {
+}: CopilotKitChatProps) => {
   const { visibleMessages, append, reload, stop, isLoading, input, setInput } = useCopilotChat({
     id: nanoid(),
     makeSystemMessage,

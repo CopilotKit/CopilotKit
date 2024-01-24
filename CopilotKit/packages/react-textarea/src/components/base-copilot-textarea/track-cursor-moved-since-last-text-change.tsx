@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { BaseSelection } from "slate";
 import { useSlateSelector } from "slate-react";
 import { Range } from "slate";
@@ -9,7 +9,7 @@ interface TrackerTextEditedSinceLastCursorMovementProps {
 }
 export function TrackerTextEditedSinceLastCursorMovement(
   props: TrackerTextEditedSinceLastCursorMovementProps,
-): JSX.Element {
+) {
   const cursorState: RelevantEditorState = useSlateSelector((state) => ({
     selection: state.selection,
     text: editorToText(state),

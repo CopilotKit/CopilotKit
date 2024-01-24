@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, ReactNode } from "react";
+import { createContext, useState, useContext, ReactNode } from "react";
 
 interface HoveringEditorContextProps {
   isDisplayed: boolean;
@@ -18,7 +18,7 @@ export interface HoveringEditorProviderProps {
  * A context provider for the hovering editor over the `CopilotTextarea`
  * (used to edit and insert text into the `CopilotTextarea`).
  */
-export const HoveringEditorProvider: React.FC<HoveringEditorProviderProps> = ({ children }) => {
+export const HoveringEditorProvider = ({ children }: HoveringEditorProviderProps) => {
   const [isDisplayed, setIsDisplayed] = useState<boolean>(false);
 
   return (

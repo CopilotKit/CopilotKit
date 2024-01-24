@@ -1,4 +1,3 @@
-import React, { useCallback, useState } from "react";
 import { HoveringInsertionPromptBoxCore } from "./hovering-insertion-prompt-box-core";
 import {
   EditingEditorState,
@@ -13,7 +12,7 @@ export interface Props {
   contextCategories: string[];
 }
 
-export const HoveringInsertionPromptBox: React.FC<Props> = (props) => {
+export const HoveringInsertionPromptBox = (props: Props) => {
   return (
     <div
       className="flex flex-col justify-center items-center space-y-4 rounded-md border shadow-lg p-4 border-gray- bg-white"

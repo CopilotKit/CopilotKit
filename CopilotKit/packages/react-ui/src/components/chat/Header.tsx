@@ -1,8 +1,7 @@
-import React from "react";
 import { HeaderProps } from "./props";
 import { useChatContext } from "./ChatContext";
 
-export const Header: React.FC<HeaderProps> = ({ setOpen }) => {
+export const Header = ({ setOpen }: HeaderProps) => {
   const context = useChatContext();
 
   return (

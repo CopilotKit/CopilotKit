@@ -24,7 +24,7 @@ export interface EmptyScreenProps {
   setInput: React.Dispatch<React.SetStateAction<string>>;
 }
 
-export const DefaultEmptyScreen: React.FC<EmptyScreenProps> = (props) => {
+export const DefaultEmptyScreen = (props: EmptyScreenProps) => {
   return (
     <div className="mx-auto max-w-2xl px-4">
       <div className="rounded-lg border bg-background p-8">
