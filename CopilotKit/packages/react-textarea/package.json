@@ -11,7 +11,7 @@
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "exports": {
-    ".": "./dist/index.mjs",
+    ".": "./dist/index.js",
     "./styles.css": "./dist/index.css"
   },
   "types": "./dist/index.d.ts",
