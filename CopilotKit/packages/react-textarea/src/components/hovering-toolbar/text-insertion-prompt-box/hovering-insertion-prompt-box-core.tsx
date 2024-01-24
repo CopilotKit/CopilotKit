@@ -57,7 +57,11 @@ export const HoveringInsertionPromptBoxCore: React.FC<HoveringInsertionPromptBox
 
   // initially focus on the adjustment prompt text area
   useEffect(() => {
-    adjustmentTextAreaRef.current?.focus();
+    // focus in the next tick, making sure the adjustment prompt text area is rendered
+    // this fixes https://github.com/CopilotKit/CopilotKit/issues/171
+    setTimeout(() => {
+      adjustmentTextAreaRef.current?.focus();
+    }, 0);
   }, []);
 
   // continuously read the generating suggestion stream and update the edit suggestion
