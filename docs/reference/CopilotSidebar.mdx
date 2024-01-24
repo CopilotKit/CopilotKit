@@ -1,25 +1,33 @@
 ---
-title: "CopilotKitPopup"
-description: "A chatbot popup component for CopilotKit."
+title: "<CopilotSidebar />"
+description: "A chatbot sidebar component for CopilotKit."
 ---
 
-A chatbot popup component for the CopilotKit framework. The component allows for a high degree
-of customization through various props and custom CSS.
-
-See [CopilotKitSidebar](./CopilotKitSidebar) for a sidebar version of this component.
+A chatbot sidebar component for the CopilotKit framework. Highly customizable through various props and custom CSS.
 
 <RequestExample>
-  ```jsx CopilotKitPopup Example
-  import { CopilotKitPopup } from "@copilotkit/react-ui";
+  ```jsx CopilotSidebar Example
+  import { CopilotSidebar } from "@copilotkit/react-ui";
 
-  <CopilotKitPopup
+  <CopilotSidebar
     labels={{
       title: "Your Assistant",
       initial: "Hi! 👋 How can I assist you today?",
     }}
-  />
+  >
+    <YourApp/>
+  </CopilotSidebar>  
   ```
 </RequestExample>
+
+
+See [CopilotPopup](./CopilotPopup) for a popup version of this component.
+
+<Note>
+  To make the sidebar push your content to the side, wrap your content in the
+  sidebar component. If you want the sidebar to overlay your content, place the
+  sidebar component outside of your content.
+</Note>
 
 ## Custom CSS
 
@@ -30,7 +38,7 @@ For example, to set the primary color to purple:
 
 ```jsx
 <div style={{ "--copilot-kit-primary-color": "#7D5BA6" }}>
-  <CopilotKitPopup />
+  <CopilotSidebar />
 </div>
 ```
 
@@ -78,13 +86,13 @@ For example:
   Ctrl-`hotkey` on Windows.
 </ResponseField>
 
-<ResponseField name="icons" type="CopilotKitChatIcons">
+<ResponseField name="icons" type="CopilotChatIcons">
   `icons` can be used to set custom icons for the chat window.
 </ResponseField>
 
-<ResponseField name="labels" type="CopilotKitChatLabels">
+<ResponseField name="labels" type="CopilotChatLabels">
   `labels` can be used to set custom labels for the chat window.
-  <Expandable title="CopilotKitChatLabels">
+  <Expandable title="CopilotChatLabels">
 
     <ResponseField name="initial" type="string | string[]">
       The initial message(s) to display in the chat window.
