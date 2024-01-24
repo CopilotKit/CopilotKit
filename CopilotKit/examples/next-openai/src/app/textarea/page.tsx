@@ -1,13 +1,12 @@
 "use client";
 
 import {
-  CopilotProvider,
+  CopilotKit,
   DocumentPointer,
   useMakeCopilotDocumentReadable,
   useMakeCopilotReadable,
 } from "@copilotkit/react-core";
 import {
-  ChatlikeApiEndpoint,
   CopilotTextarea,
   HTMLCopilotTextAreaElement,
   MakeSystemPrompt,
@@ -18,9 +17,9 @@ import { useStateWithLocalStorage } from "../utils";
 
 export default function CopilotTextareaDemo(): JSX.Element {
   return (
-    <CopilotProvider chatApiEndpoint="/api/copilotkit/chat">
+    <CopilotKit url="/api/copilotkit/openai">
       <TextAreas />
-    </CopilotProvider>
+    </CopilotKit>
   );
 }
 

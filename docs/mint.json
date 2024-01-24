@@ -28,9 +28,7 @@
     "name": "Dashboard",
     "url": "https://dashboard.mintlify.com"
   },
-  "tabs": [
-   
-  ],
+  "tabs": [],
   "navigation": [
     {
       "group": "Getting Started",
@@ -41,10 +39,16 @@
       ]
     },
     {
-      "group": "Contributing",
+      "group": "API Reference",
       "pages": [
-        "contribute/quickstart-contribute"
+        "reference/CopilotKit",
+        "reference/CopilotPopup",
+        "reference/CopilotSidebar"
       ]
+    },
+    {
+      "group": "Contributing",
+      "pages": ["contribute/quickstart-contribute"]
     }
   ],
   "footerSocials": {

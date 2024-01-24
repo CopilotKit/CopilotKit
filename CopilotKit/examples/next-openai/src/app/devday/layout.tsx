@@ -1,6 +1,6 @@
 "use client";
 
-import { CopilotProvider } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core";
 import { ReactNode } from "react";
 
 type LayoutProps = {
@@ -8,14 +8,7 @@ type LayoutProps = {
 };
 
 const Layout = ({ children }: LayoutProps) => {
-  return (
-    <CopilotProvider
-      chatApiEndpoint="/api/copilotkit/chat"
-      chatApiEndpointV2="/api/copilotkit/v2/assistant"
-    >
-      {children}
-    </CopilotProvider>
-  );
+  return <CopilotKit url="/api/copilotkit/openai">{children}</CopilotKit>;
 };
 
 export default Layout;

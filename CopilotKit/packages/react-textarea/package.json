@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.26.0",
+  "version": "0.27.2-alpha.0",
   "sideEffects": [
     "**/*.css"
   ],
@@ -46,6 +46,7 @@
   },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
     "@emotion/css": "^11.11.2",
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
@@ -54,7 +55,6 @@
     "@radix-ui/react-label": "^2.0.2",
     "@radix-ui/react-separator": "^1.0.3",
     "@radix-ui/react-slot": "^1.0.2",
-    "ai": "^2.2.23",
     "class-variance-authority": "^0.6.1",
     "clsx": "^1.2.1",
     "cmdk": "^0.2.0",

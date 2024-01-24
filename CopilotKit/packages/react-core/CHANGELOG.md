@@ -1,5 +1,93 @@
 # ui
 
+## 0.18.0-alpha.0
+
+### Minor Changes
+
+- New Copilot ui
+
+## 0.17.1
+
+### Patch Changes
+
+- stop generating button working
+- aa6bc5a: fix stop generate
+- cf0bde6: change order of operations on stop cleanup
+- Updated dependencies
+- Updated dependencies [aa6bc5a]
+- Updated dependencies [cf0bde6]
+  - @copilotkit/shared@0.1.1
+
+## 0.17.1-alpha.1
+
+### Patch Changes
+
+- change order of operations on stop cleanup
+- Updated dependencies
+  - @copilotkit/shared@0.1.1-alpha.1
+
+## 0.17.1-alpha.0
+
+### Patch Changes
+
+- fix stop generate
+- Updated dependencies
+  - @copilotkit/shared@0.1.1-alpha.0
+
+## 0.17.0
+
+### Minor Changes
+
+- factor useChat into internal core
+- a7b417a: insertion default prompt update
+- 88d6654: release useChat fixes
+- 51de9d5: textarea editing: default prompt + few shot update
+- fa84257: remove vercel ai
+- 98a37c8: strictly propagate copilot api params through the fetch arguments - not through any constructors
+- 250032d: useChat: do not separately propagate options.url to constructor
+
+## 0.17.0-alpha.5
+
+### Minor Changes
+
+- release useChat fixes
+
+## 0.17.0-alpha.4
+
+### Minor Changes
+
+- insertion default prompt update
+
+## 0.17.0-alpha.3
+
+### Minor Changes
+
+- textarea editing: default prompt + few shot update
+
+## 0.17.0-alpha.2
+
+### Minor Changes
+
+- useChat: do not separately propagate options.url to constructor
+
+## 0.17.0-alpha.1
+
+### Minor Changes
+
+- strictly propagate copilot api params through the fetch arguments - not through any constructors
+
+## 0.17.0-alpha.0
+
+### Minor Changes
+
+- remove vercel ai
+
+## 0.16.0
+
+### Minor Changes
+
+- fixed backend pointing
+
 ## 0.15.0
 
 ### Minor Changes

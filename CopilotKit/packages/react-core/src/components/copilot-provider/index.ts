@@ -1,7 +1,3 @@
-export { CopilotProvider, defaultCopilotContextCategories } from "./copilot-provider";
+export { CopilotKit, defaultCopilotContextCategories } from "./copilotkit";
 
-export type {
-  CopilotProviderApiEndpointProps,
-  CopilotProviderApiConfigProps,
-  CopilotProviderProps,
-} from "./copilot-provider-props";
+export type { CopilotKitProps } from "./copilotkit-props";

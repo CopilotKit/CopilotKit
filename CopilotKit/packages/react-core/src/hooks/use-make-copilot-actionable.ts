@@ -2,7 +2,7 @@
 
 import { useRef, useContext, useEffect, useMemo } from "react";
 import { CopilotContext } from "../context/copilot-context";
-import { AnnotatedFunction } from "../types/annotated-function";
+import { AnnotatedFunction } from "@copilotkit/shared";
 import { nanoid } from "nanoid";
 
 export function useMakeCopilotActionable<ActionInput extends any[]>(

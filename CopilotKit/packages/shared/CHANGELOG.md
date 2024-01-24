@@ -1,5 +1,25 @@
 # @copilotkit/shared
 
+## 0.1.1
+
+### Patch Changes
+
+- stop generating button working
+- aa6bc5a: fix stop generate
+- cf0bde6: change order of operations on stop cleanup
+
+## 0.1.1-alpha.1
+
+### Patch Changes
+
+- change order of operations on stop cleanup
+
+## 0.1.1-alpha.0
+
+### Patch Changes
+
+- fix stop generate
+
 ## 0.1.0
 
 ### Minor Changes

@@ -1,10 +1,8 @@
 "use client";
 
-import { FunctionCallHandler } from "ai";
+import { FunctionCallHandler, AnnotatedFunction, Function } from "@copilotkit/shared";
 import React from "react";
 import { TreeNodeId } from "../hooks/use-tree";
-import { AnnotatedFunction } from "../types/annotated-function";
-import { ChatCompletionCreateParams } from "openai/resources/chat";
 import { DocumentPointer } from "../types";
 
 /**
@@ -46,34 +44,23 @@ export interface CopilotApiConfig {
   body: Record<string, any>;
 }
 
-export function copilotApiConfigExtrapolator(config: CopilotApiConfig) {
-  return {
-    get chatApiEndpoint(): string {
-      return `${config.chatApiEndpoint}`;
-    },
-    get chatApiEndpointV2(): string {
-      return `${config.chatApiEndpointV2}`;
-    },
-  };
-}
-
 export interface CopilotContextParams {
   // function-calling
   entryPoints: Record<string, AnnotatedFunction<any[]>>;
   setEntryPoint: (id: string, entryPoint: AnnotatedFunction<any[]>) => void;
   removeEntryPoint: (id: string) => void;
-  getChatCompletionFunctionDescriptions: () => ChatCompletionCreateParams.Function[];
+  getChatCompletionFunctionDescriptions: () => Function[];
   getFunctionCallHandler: () => FunctionCallHandler;
 
   // text context
-  getContextString: (documents: DocumentPointer[], categories: string[]) => string;
   addContext: (context: string, parentId?: string, categories?: string[]) => TreeNodeId;
   removeContext: (id: TreeNodeId) => void;
+  getContextString: (documents: DocumentPointer[], categories: string[]) => string;
 
   // document context
-  getDocumentsContext: (categories: string[]) => DocumentPointer[];
   addDocumentContext: (documentPointer: DocumentPointer, categories?: string[]) => TreeNodeId;
   removeDocumentContext: (documentId: string) => void;
+  getDocumentsContext: (categories: string[]) => DocumentPointer[];
 
   // api endpoints
   copilotApiConfig: CopilotApiConfig;
@@ -97,14 +84,10 @@ const emptyCopilotContext: CopilotContextParams = {
 
   copilotApiConfig: new (class implements CopilotApiConfig {
     get chatApiEndpoint(): string {
-      throw new Error(
-        "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!",
-      );
+      throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
     }
     get chatApiEndpointV2(): string {
-      throw new Error(
-        "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!",
-      );
+      throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
     }
     get headers(): Record<string, string> {
       return {};
@@ -118,8 +101,6 @@ const emptyCopilotContext: CopilotContextParams = {
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);
 
 function returnAndThrowInDebug<T>(value: T): T {
-  throw new Error(
-    "Remember to wrap your app in a `<CopilotProvider> {...} </CopilotProvider>` !!!",
-  );
+  throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
   return value;
 }

@@ -1,0 +1,61 @@
+:root {
+  --copilot-kit-primary-color: rgb(59 130 246);
+  --copilot-kit-contrast-color: rgb(255 255 255);
+  --copilot-kit-secondary-color: rgb(243 244 246);
+  --copilot-kit-secondary-contrast-color: rgb(0 0 0);
+  --copilot-kit-background-color: rgb(255 255 255);
+  --copilot-kit-muted-color: rgb(106 106 106);
+  --copilot-kit-separator-color: rgba(0, 0, 0, 0.08);
+  --copilot-kit-scrollbar-color: rgba(0, 0, 0, 0.2);
+
+  --copilot-kit-button-background-color: var(--copilot-kit-primary-color);
+
+  /* The color of the icon in the open/close button */
+  --copilot-kit-button-icon-color: var(--copilot-kit-contrast-color);
+
+  /* The background color of the header of the chat window */
+  --copilot-kit-header-background-color: var(--copilot-kit-primary-color);
+
+  /* The color of the title in the header of the chat window */
+  --copilot-kit-header-title-color: var(--copilot-kit-contrast-color);
+
+  /* The color of the close button in the header of the chat window */
+  --copilot-kit-header-close-button-color: var(--copilot-kit-contrast-color);
+
+  /* The color of the separator between the header and the messages area */
+  --copilot-kit-header-separator-color: var(--copilot-kit-separator-color);
+
+  /* The background color of the input area */
+  --copilot-kit-input-background-color: var(--copilot-kit-background-color);
+
+  /* The color of the send button */
+  --copilot-kit-input-send-button-color: var(--copilot-kit-primary-color);
+
+  /* The color of the send button when disabled */
+  --copilot-kit-input-send-button-disabled-color: var(--copilot-kit-muted-color);
+
+  /* The color of the placeholder text in the input area */
+  --copilot-kit-input-placeholder-color: var(--copilot-kit-muted-color);
+
+  /* The color of the text in the input area */
+  --copilot-kit-input-color: var(--copilot-kit-secondary-contrast-color);
+
+  /* The color of the separator between the input area and the messages area */
+  --copilot-kit-input-separator-color: var(--copilot-kit-separator-color);
+
+  /* The background color of the messages area */
+  --copilot-kit-messages-background-color: var(--copilot-kit-background-color);
+
+  /* The background color of a user message */
+  --copilot-kit-message-user-background-color: var(--copilot-kit-primary-color);
+  --copilot-kit-message-user-color: var(--copilot-kit-contrast-color);
+
+  /* The background color of a assistant message */
+  --copilot-kit-message-assistant-background-color: var(--copilot-kit-secondary-color);
+  --copilot-kit-message-assistant-color: var(--copilot-kit-secondary-contrast-color);
+
+  /* The color of the response control button */
+  --copilot-kit-response-button-border-color: var(--copilot-kit-separator-color);
+  --copilot-kit-response-button-color: #333;
+  --copilot-kit-response-button-background-color: #fff;
+}

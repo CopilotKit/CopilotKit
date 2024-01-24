@@ -1,3 +1,15 @@
+@import "./css/colors.css";
+@import "./css/popup.css";
+@import "./css/sidebar.css";
+@import "./css/button.css";
+@import "./css/header.css";
+@import "./css/input.css";
+@import "./css/messages.css";
+@import "./css/window.css";
+@import "./css/animations.css";
+@import "./css/response.css";
+@import "./css/markdown.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

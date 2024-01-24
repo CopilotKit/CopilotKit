@@ -1,26 +1,19 @@
 import { useMemo, useContext } from "react";
-import {
-  CopilotContext,
-  CopilotContextParams,
-  copilotApiConfigExtrapolator,
-} from "../context/copilot-context";
-import { useChat } from "ai/react";
-import { ChatRequestOptions, CreateMessage, Message } from "ai";
-import { UseChatOptions } from "ai";
+import { CopilotContext } from "../context/copilot-context";
+import { Message, Function } from "@copilotkit/shared";
+import { SystemMessageFunction } from "../types";
+import { UseChatOptions, useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
-import { ChatCompletionCreateParams } from "openai/resources/chat";
 
 export interface UseCopilotChatOptions extends UseChatOptions {
-  makeSystemMessage?: (contextString: string) => string;
+  makeSystemMessage?: SystemMessageFunction;
+  additionalInstructions?: string;
 }
 
 export interface UseCopilotChatReturn {
   visibleMessages: Message[];
-  append: (
-    message: Message | CreateMessage,
-    chatRequestOptions?: ChatRequestOptions,
-  ) => Promise<string | null | undefined>;
-  reload: (chatRequestOptions?: ChatRequestOptions) => Promise<string | null | undefined>;
+  append: (message: Message) => Promise<void>;
+  reload: () => Promise<void>;
   stop: () => void;
   isLoading: boolean;
   input: string;
@@ -29,6 +22,7 @@ export interface UseCopilotChatReturn {
 
 export function useCopilotChat({
   makeSystemMessage,
+  additionalInstructions,
   ...options
 }: UseCopilotChatOptions): UseCopilotChatReturn {
   const {
@@ -44,28 +38,24 @@ export function useCopilotChat({
 
     return {
       id: "system",
-      content: systemMessageMaker(contextString),
+      content: systemMessageMaker(contextString, additionalInstructions),
       role: "system",
     };
   }, [getContextString, makeSystemMessage]);
 
-  const initialMessagesWithContext = [systemMessage].concat(options.initialMessages || []);
-
-  const functionDescriptions: ChatCompletionCreateParams.Function[] = useMemo(() => {
+  const functionDescriptions: Function[] = useMemo(() => {
     return getChatCompletionFunctionDescriptions();
   }, [getChatCompletionFunctionDescriptions]);
 
   const { messages, append, reload, stop, isLoading, input, setInput } = useChat({
     ...options,
-    api: copilotApiConfigExtrapolator(copilotApiConfig).chatApiEndpoint,
+    copilotConfig: copilotApiConfig,
     id: options.id,
-    initialMessages: initialMessagesWithContext,
-    experimental_onFunctionCall: getFunctionCallHandler(),
-    headers: { ...copilotApiConfig.headers, ...options.headers },
+    initialMessages: [systemMessage].concat(options.initialMessages || []),
+    functions: functionDescriptions,
+    onFunctionCall: getFunctionCallHandler(),
+    headers: { ...options.headers },
     body: {
-      id: options.id,
-      ...(functionDescriptions.length > 0 && { functions: functionDescriptions }),
-      ...copilotApiConfig.body,
       ...options.body,
     },
   });
@@ -85,8 +75,12 @@ export function useCopilotChat({
   };
 }
 
-export function defaultSystemMessage(contextString: string): string {
-  return `
+export function defaultSystemMessage(
+  contextString: string,
+  additionalInstructions?: string,
+): string {
+  return (
+    `
 Please act as an efficient, competent, conscientious, and industrious professional assistant.
 
 Help the user achieve their goals, and you do so in a way that is as efficient as possible, without unnecessary fluff, but also without sacrificing professionalism.
@@ -104,5 +98,6 @@ Please assist them as best you can.
 You can ask them for clarifying questions if needed, but don't be annoying about it. If you can reasonably 'fill in the blanks' yourself, do so.
 
 If you would like to call a function, call it without saying anything else.
-`;
+` + (additionalInstructions ? `\n\n${additionalInstructions}` : "")
+  );
 }

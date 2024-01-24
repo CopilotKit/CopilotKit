@@ -1,5 +1,174 @@
 # web
 
+## 1.14.0-alpha.0
+
+### Minor Changes
+
+- New Copilot ui
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.18.0-alpha.0
+  - @copilotkit/react-ui@0.15.0-alpha.0
+  - @copilotkit/react-textarea@0.27.2-alpha.0
+
+## 1.13.1
+
+### Patch Changes
+
+- stop generating button working
+- aa6bc5a: fix stop generate
+- cf0bde6: change order of operations on stop cleanup
+- Updated dependencies
+- Updated dependencies [aa6bc5a]
+- Updated dependencies [cf0bde6]
+  - @copilotkit/react-textarea@0.27.1
+  - @copilotkit/react-core@0.17.1
+  - @copilotkit/react-ui@0.14.1
+  - @copilotkit/shared@0.1.1
+  - @copilotkit/backend@0.1.1
+
+## 1.13.1-alpha.1
+
+### Patch Changes
+
+- change order of operations on stop cleanup
+- Updated dependencies
+  - @copilotkit/react-textarea@0.27.1-alpha.1
+  - @copilotkit/react-core@0.17.1-alpha.1
+  - @copilotkit/react-ui@0.14.1-alpha.1
+  - @copilotkit/shared@0.1.1-alpha.1
+  - @copilotkit/backend@0.1.1-alpha.1
+
+## 1.13.1-alpha.0
+
+### Patch Changes
+
+- fix stop generate
+- Updated dependencies
+  - @copilotkit/backend@0.1.1-alpha.0
+  - @copilotkit/react-core@0.17.1-alpha.0
+  - @copilotkit/react-textarea@0.27.1-alpha.0
+  - @copilotkit/react-ui@0.14.1-alpha.0
+  - @copilotkit/shared@0.1.1-alpha.0
+
+## 1.13.0
+
+### Minor Changes
+
+- factor useChat into internal core
+- a7b417a: insertion default prompt update
+- 88d6654: release useChat fixes
+- 51de9d5: textarea editing: default prompt + few shot update
+- fa84257: remove vercel ai
+- 98a37c8: strictly propagate copilot api params through the fetch arguments - not through any constructors
+- 250032d: useChat: do not separately propagate options.url to constructor
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies [a7b417a]
+- Updated dependencies [88d6654]
+- Updated dependencies [51de9d5]
+- Updated dependencies [fa84257]
+- Updated dependencies [98a37c8]
+- Updated dependencies [250032d]
+  - @copilotkit/react-textarea@0.27.0
+  - @copilotkit/react-core@0.17.0
+  - @copilotkit/react-ui@0.14.0
+
+## 1.13.0-alpha.5
+
+### Minor Changes
+
+- release useChat fixes
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.27.0-alpha.5
+  - @copilotkit/react-core@0.17.0-alpha.5
+  - @copilotkit/react-ui@0.14.0-alpha.5
+
+## 1.13.0-alpha.4
+
+### Minor Changes
+
+- insertion default prompt update
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.27.0-alpha.4
+  - @copilotkit/react-core@0.17.0-alpha.4
+  - @copilotkit/react-ui@0.14.0-alpha.4
+
+## 1.13.0-alpha.3
+
+### Minor Changes
+
+- textarea editing: default prompt + few shot update
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.27.0-alpha.3
+  - @copilotkit/react-core@0.17.0-alpha.3
+  - @copilotkit/react-ui@0.14.0-alpha.3
+
+## 1.13.0-alpha.2
+
+### Minor Changes
+
+- useChat: do not separately propagate options.url to constructor
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.27.0-alpha.2
+  - @copilotkit/react-core@0.17.0-alpha.2
+  - @copilotkit/react-ui@0.14.0-alpha.2
+
+## 1.13.0-alpha.1
+
+### Minor Changes
+
+- strictly propagate copilot api params through the fetch arguments - not through any constructors
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.27.0-alpha.1
+  - @copilotkit/react-core@0.17.0-alpha.1
+  - @copilotkit/react-ui@0.14.0-alpha.1
+
+## 1.13.0-alpha.0
+
+### Minor Changes
+
+- remove vercel ai
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.27.0-alpha.0
+  - @copilotkit/react-core@0.17.0-alpha.0
+  - @copilotkit/react-ui@0.14.0-alpha.0
+
+## 1.12.0
+
+### Minor Changes
+
+- fixed backend pointing
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.16.0
+  - @copilotkit/react-textarea@0.26.1
+  - @copilotkit/react-ui@0.13.1
+
 ## 1.11.0
 
 ### Minor Changes
@@ -27,7 +196,7 @@
   - @copilotkit/react-core@0.15.0
   - @copilotkit/react-ui@0.13.0
   - @copilotkit/shared@0.1.0
-  - @copilotkit/cloud@0.1.0
+  - @copilotkit/backend@0.1.0
 
 ## 1.11.0-alpha.6
 
@@ -42,7 +211,7 @@
   - @copilotkit/react-core@0.15.0-alpha.6
   - @copilotkit/react-ui@0.13.0-alpha.6
   - @copilotkit/shared@0.1.0-alpha.6
-  - @copilotkit/cloud@0.1.0-alpha.6
+  - @copilotkit/backend@0.1.0-alpha.6
 
 ## 1.11.0-alpha.5
 
@@ -57,7 +226,7 @@
   - @copilotkit/react-core@0.15.0-alpha.5
   - @copilotkit/react-ui@0.13.0-alpha.5
   - @copilotkit/shared@0.1.0-alpha.5
-  - @copilotkit/cloud@0.1.0-alpha.5
+  - @copilotkit/backend@0.1.0-alpha.5
 
 ## 1.11.0-alpha.4
 
@@ -72,7 +241,7 @@
   - @copilotkit/react-core@0.15.0-alpha.4
   - @copilotkit/react-ui@0.13.0-alpha.4
   - @copilotkit/shared@0.1.0-alpha.4
-  - @copilotkit/cloud@0.1.0-alpha.4
+  - @copilotkit/backend@0.1.0-alpha.4
 
 ## 1.11.0-alpha.3
 
@@ -87,7 +256,7 @@
   - @copilotkit/react-core@0.15.0-alpha.3
   - @copilotkit/react-ui@0.13.0-alpha.3
   - @copilotkit/shared@0.1.0-alpha.3
-  - @copilotkit/cloud@0.1.0-alpha.3
+  - @copilotkit/backend@0.1.0-alpha.3
 
 ## 1.11.0-alpha.2
 
@@ -102,7 +271,7 @@
   - @copilotkit/react-core@0.15.0-alpha.2
   - @copilotkit/react-ui@0.13.0-alpha.2
   - @copilotkit/shared@0.1.0-alpha.2
-  - @copilotkit/cloud@0.1.0-alpha.2
+  - @copilotkit/backend@0.1.0-alpha.2
 
 ## 1.11.0-alpha.1
 
@@ -117,7 +286,7 @@
   - @copilotkit/react-core@0.15.0-alpha.1
   - @copilotkit/react-ui@0.13.0-alpha.1
   - @copilotkit/shared@0.1.0-alpha.1
-  - @copilotkit/cloud@0.1.0-alpha.1
+  - @copilotkit/backend@0.1.0-alpha.1
 
 ## 1.11.0-alpha.0
 
@@ -132,7 +301,7 @@
   - @copilotkit/react-core@0.15.0-alpha.0
   - @copilotkit/react-ui@0.13.0-alpha.0
   - @copilotkit/shared@0.1.0-alpha.0
-  - @copilotkit/cloud@0.1.0-alpha.0
+  - @copilotkit/backend@0.1.0-alpha.0
 
 ## 1.10.0
 
