@@ -37,11 +37,7 @@ It can be configured either with a chat API endpoint or a `CopilotApiConfig`.
   The endpoint for the chat API.
 </ResponseField>
 
-<ResponseField name="children" type="ReactNode">
-  The children to be rendered within the CopilotKit.
-</ResponseField>
-
-<ResponseField name="headers" type="Record<string, string>">
+<ResponseField name="headers" type="Record<string, string>" default="{}">
   Additional headers to be sent with the request.
   
   For example:
@@ -52,7 +48,7 @@ It can be configured either with a chat API endpoint or a `CopilotApiConfig`.
 ```
 </ResponseField>
 
-<ResponseField name="body" type="Record<string, string>">
+<ResponseField name="body" type="Record<string, string>" default="{}">
   Additional body params to be sent with the request.
   
   For example:
@@ -61,4 +57,9 @@ It can be configured either with a chat API endpoint or a `CopilotApiConfig`.
   'message': 'Hello, world!'
 }
 ```
+</ResponseField>
+
+
+<ResponseField name="children" type="ReactNode">
+  The children to be rendered within the CopilotKit.
 </ResponseField>
