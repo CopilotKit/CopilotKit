@@ -2,9 +2,9 @@ import React, { useMemo } from "react";
 import * as DefaultIcons from "./Icons";
 
 /**
- * Icons for CopilotKitChat component.
+ * Icons for CopilotChat component.
  */
-export interface CopilotKitChatIcons {
+export interface CopilotChatIcons {
   /**
    * The icon to use for the open chat button.
    * @default <OpenIcon />
@@ -55,9 +55,9 @@ export interface CopilotKitChatIcons {
 }
 
 /**
- * Labels for CopilotKitChat component.
+ * Labels for CopilotChat component.
  */
-export interface CopilotKitChatLabels {
+export interface CopilotChatLabels {
   /**
    * The initial message(s) to display in the chat window.
    */
@@ -107,8 +107,8 @@ export interface CopilotKitChatLabels {
 }
 
 interface ChatContext {
-  labels: Required<CopilotKitChatLabels>;
-  icons: Required<CopilotKitChatIcons>;
+  labels: Required<CopilotChatLabels>;
+  icons: Required<CopilotChatIcons>;
 }
 
 export const ChatContext = React.createContext<ChatContext | undefined>(undefined);
@@ -127,8 +127,8 @@ interface ChatContextProps {
   // temperature?: number;
   // instructions?: string;
   // maxFeedback?: number;
-  labels?: CopilotKitChatLabels;
-  icons?: CopilotKitChatIcons;
+  labels?: CopilotChatLabels;
+  icons?: CopilotChatIcons;
   children?: React.ReactNode;
 }
 

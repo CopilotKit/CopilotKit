@@ -1,0 +1,65 @@
+---
+title: "<CopilotKit />"
+description: "Provides the Copilot context to its children."
+---
+
+This component provides the Copilot context to its children.
+It can be configured either with a chat API endpoint or a `CopilotApiConfig`.
+
+<Note>
+  The backend can use OpenAI, or you can bring your own LLM.
+  For examples of the backend api implementation, see `examples/next-openai` or the 
+  [backend docs](https://docs.copilotkit.ai/getting-started/quickstart-backend).
+</Note>
+
+<RequestExample>
+  ```jsx CopilotKit Example
+  import { CopilotKit } from "@copilotkit/react-core";
+
+  <CopilotKit 
+    url="https://your.copilotkit.api">
+    <YourApp/>
+  </CopilotKit>
+  ```
+</RequestExample>
+
+## Example usage
+
+```jsx
+<CopilotKit url="https://your.copilotkit.api">
+  <App />
+</CopilotKit>
+```
+
+## Props
+
+<ResponseField name="url" type="string" required>
+  The endpoint for the chat API.
+</ResponseField>
+
+<ResponseField name="headers" type="Record<string, string>" default="{}">
+  Additional headers to be sent with the request.
+  
+  For example:
+```js
+{
+  'Authorization': 'Bearer your_token_here'
+}
+```
+</ResponseField>
+
+<ResponseField name="body" type="Record<string, string>" default="{}">
+  Additional body params to be sent with the request.
+  
+  For example:
+```js
+{
+  'message': 'Hello, world!'
+}
+```
+</ResponseField>
+
+
+<ResponseField name="children" type="ReactNode">
+  The children to be rendered within the CopilotKit.
+</ResponseField>

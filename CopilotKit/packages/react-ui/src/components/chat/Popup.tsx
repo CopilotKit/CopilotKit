@@ -1,9 +1,9 @@
-import { CopilotKitChat, CopilotKitChatProps } from "./Chat";
+import { CopilotChat, CopilotChatProps } from "./Chat";
 
-export const CopilotKitPopup = (props: CopilotKitChatProps) => {
+export const CopilotPopup = (props: CopilotChatProps) => {
   props = {
     ...props,
     className: props.className ? props.className + " copilotKitPopup" : "copilotKitPopup",
   };
-  return <CopilotKitChat {...props} />;
+  return <CopilotChat {...props} />;
 };

@@ -16,24 +16,31 @@ type MarkdownProps = {
 
 export const Markdown = ({ content }: MarkdownProps) => {
   return (
-    <MemoizedReactMarkdown
-      className="prose break-words dark:prose-invert prose-p:leading-relaxed prose-pre:p-0 text-sm"
-      components={components}
-      remarkPlugins={[remarkGfm, remarkMath]}
-    >
-      {content}
-    </MemoizedReactMarkdown>
+    <div className="copilotKitMarkdown">
+      <MemoizedReactMarkdown components={components} remarkPlugins={[remarkGfm, remarkMath]}>
+        {content}
+      </MemoizedReactMarkdown>
+    </div>
   );
 };
 
 const components: Components = {
   p({ children }) {
-    return <p className="mb-2 last:mb-0">{children}</p>;
+    return <p>{children}</p>;
   },
   code({ children, className, inline, ...props }) {
     if (children.length) {
       if (children[0] == "▍") {
-        return <span className="mt-1 animate-pulse cursor-default">▍</span>;
+        return (
+          <span
+            style={{
+              animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+              marginTop: "0.25rem",
+            }}
+          >
+            ▍
+          </span>
+        );
       }
 
       children[0] = (children[0] as string).replace("`▍`", "▍");

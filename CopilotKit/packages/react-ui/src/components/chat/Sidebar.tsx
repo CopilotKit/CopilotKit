@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { CopilotKitChat, CopilotKitChatProps } from "./Chat";
+import { CopilotChat, CopilotChatProps } from "./Chat";
 
-interface CopilotKitSidebarProps extends CopilotKitChatProps {
+interface CopilotSidebarProps extends CopilotChatProps {
   children?: React.ReactNode;
 }
 
-export const CopilotKitSidebar = (props: CopilotKitSidebarProps) => {
+export const CopilotSidebar = (props: CopilotSidebarProps) => {
   props = {
     ...props,
     className: props.className ? props.className + " copilotKitSidebar" : "copilotKitSidebar",
@@ -22,7 +22,7 @@ export const CopilotKitSidebar = (props: CopilotKitSidebarProps) => {
   return (
     <div className={`copilotKitSidebarContentWrapper ${expandedClassName}`}>
       {props.children}
-      <CopilotKitChat {...props} {...{ onSetOpen }} />
+      <CopilotChat {...props} {...{ onSetOpen }} />
     </div>
   );
 };

@@ -1,15 +1,15 @@
 "use client";
 
-import { CopilotProvider } from "@copilotkit/react-core";
-import { CopilotKitSidebar } from "@copilotkit/react-ui";
+import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotSidebar } from "@copilotkit/react-ui";
 import { VacationList } from "./components/vacation-list";
 
 export default function WaterBnb() {
   return (
-    <CopilotProvider chatApiEndpoint="/api/copilotkit/openai">
-      <CopilotKitSidebar>
+    <CopilotKit url="/api/copilotkit/openai">
+      <CopilotSidebar>
         <VacationList />
-      </CopilotKitSidebar>
-    </CopilotProvider>
+      </CopilotSidebar>
+    </CopilotKit>
   );
 }

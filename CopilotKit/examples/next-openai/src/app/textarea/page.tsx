@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  CopilotProvider,
+  CopilotKit,
   DocumentPointer,
   useMakeCopilotDocumentReadable,
   useMakeCopilotReadable,
@@ -15,9 +15,9 @@ import { useStateWithLocalStorage } from "../utils";
 
 export default function CopilotTextareaDemo() {
   return (
-    <CopilotProvider chatApiEndpoint="/api/copilotkit/openai">
+    <CopilotKit url="/api/copilotkit/openai">
       <TextAreas />
-    </CopilotProvider>
+    </CopilotKit>
   );
 }
 
