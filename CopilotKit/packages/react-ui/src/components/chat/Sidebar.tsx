@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { CopilotKitChat, CopilotKitChatProps } from "./Chat";
 
-interface CopilotKitSidebarProps extends CopilotKitChatProps {
+interface CopilotSidebarProps extends CopilotKitChatProps {
   children?: React.ReactNode;
 }
 
-export const CopilotKitSidebar: React.FC<CopilotKitSidebarProps> = (props) => {
+export const CopilotSidebar: React.FC<CopilotSidebarProps> = (props) => {
   props = {
     ...props,
     className: props.className ? props.className + " copilotKitSidebar" : "copilotKitSidebar",

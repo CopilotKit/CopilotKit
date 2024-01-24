@@ -43,7 +43,7 @@
       "pages": [
         "reference/CopilotProvider",
         "reference/CopilotKitPopup",
-        "reference/CopilotKitSidebar"
+        "reference/CopilotSidebar"
       ]
     },
     {
