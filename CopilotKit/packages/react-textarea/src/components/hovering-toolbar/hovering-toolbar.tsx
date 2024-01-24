@@ -1,9 +1,8 @@
-import { css } from "@emotion/css";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { BaseSelection, Editor, Range, Location, Transforms } from "slate";
+import { useEffect, useRef, useState } from "react";
+import { Editor, Location, Transforms } from "slate";
 import { useSlate, useSlateSelection } from "slate-react";
 import { HoveringInsertionPromptBox } from "./text-insertion-prompt-box";
-import { Button, Icon, Menu, Portal } from "./hovering-toolbar-components";
+import { Menu, Portal } from "./hovering-toolbar-components";
 import { useHoveringEditorContext } from "./hovering-editor-provider";
 import {
   getFullEditorTextWithNewlines,
@@ -20,7 +19,7 @@ export interface HoveringToolbarProps {
   hoverMenuClassname: string | undefined;
 }
 
-export const HoveringToolbar: (props: HoveringToolbarProps) => JSX.Element | null = (props) => {
+export const HoveringToolbar = (props: HoveringToolbarProps) => {
   const ref = useRef<HTMLDivElement>(null);
   const editor = useSlate();
   const selection = useSlateSelection();
