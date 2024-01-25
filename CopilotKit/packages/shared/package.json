@@ -14,7 +14,7 @@
   "types": "./dist/index.d.ts",
   "license": "MIT",
   "scripts": {
-    "build": "tsup  --clean",
+    "build": "tsup --clean",
     "dev": "tsup --watch --no-splitting",
     "test": "jest",
     "check-types": "tsc --noEmit",
