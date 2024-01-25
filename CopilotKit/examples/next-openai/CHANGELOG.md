@@ -1,5 +1,42 @@
 # web
 
+## 1.14.0
+
+### Minor Changes
+
+- eba87c7: .4
+- 29ee27e: New Copilot ui
+- 61168c7: no treeshake
+- fb32fe3: .2
+- eba87c7: .3
+- new chatbot ui, new component names, new build system, new docs
+- 61168c7: no treeshake take 2
+- 61168c7: remove treeshake in build
+- fb32fe3: build naming refactor
+- eba87c7: .5
+- 61168c7: cache clean
+- fb32fe3: .3
+
+### Patch Changes
+
+- Updated dependencies [eba87c7]
+- Updated dependencies [29ee27e]
+- Updated dependencies [61168c7]
+- Updated dependencies [fb32fe3]
+- Updated dependencies [eba87c7]
+- Updated dependencies
+- Updated dependencies [61168c7]
+- Updated dependencies [61168c7]
+- Updated dependencies [fb32fe3]
+- Updated dependencies [eba87c7]
+- Updated dependencies [61168c7]
+- Updated dependencies [fb32fe3]
+  - @copilotkit/react-textarea@0.28.0
+  - @copilotkit/react-core@0.18.0
+  - @copilotkit/react-ui@0.15.0
+  - @copilotkit/backend@0.2.0
+  - @copilotkit/shared@0.2.0
+
 ## 1.14.0-alpha.9
 
 ### Minor Changes
