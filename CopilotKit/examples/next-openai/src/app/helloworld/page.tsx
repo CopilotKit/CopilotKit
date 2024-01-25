@@ -66,22 +66,30 @@ const Presentation = () => {
     [],
   );
 
-  const context = useCopilotContext();
+  const randomSlideTask = new CopilotTask({
+    instructions: "Make a random slide",
+    context: useCopilotContext(),
+  });
+
+  const [randomSlideTaskRunning, setRandomSlideTaskRunning] = useState(false);
 
   return (
     <div className="relative">
       <Slide {...state} />
       <button
-        className="absolute bottom-0 left-0 mb-4 ml-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+        disabled={randomSlideTaskRunning}
+        className={`absolute bottom-0 left-0 mb-4 ml-4 bg-blue-500 text-white font-bold py-2 px-4 rounded
+        ${randomSlideTaskRunning ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"}`}
         onClick={async () => {
-          const task = new CopilotTask({
-            instructions: "Make a random slide",
-            context: context,
-          });
-          await task.run();
+          try {
+            setRandomSlideTaskRunning(true);
+            await randomSlideTask.run();
+          } finally {
+            setRandomSlideTaskRunning(false);
+          }
         }}
       >
-        Make random slide
+        {randomSlideTaskRunning ? "Generating slide..." : "Make random slide"}
       </button>
     </div>
   );
