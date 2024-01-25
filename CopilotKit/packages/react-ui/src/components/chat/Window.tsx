@@ -6,7 +6,7 @@ export const Window = ({
   setOpen,
   children,
   clickOutsideToClose,
-  hotkey,
+  shortcut,
   hitEscapeToClose,
 }: WindowProps) => {
   const windowRef = React.useRef<HTMLDivElement>(null);
@@ -45,14 +45,14 @@ export const Window = ({
       ) {
         setOpen(false);
       } else if (
-        event.key === hotkey &&
+        event.key === shortcut &&
         ((isMacOS() && event.metaKey) || (!isMacOS() && event.ctrlKey)) &&
         (!isInput || isDescendantOfWrapper)
       ) {
         setOpen(!open);
       }
     },
-    [hitEscapeToClose, hotkey, open, setOpen],
+    [hitEscapeToClose, shortcut, open, setOpen],
   );
 
   const adjustForMobile = useCallback(() => {
