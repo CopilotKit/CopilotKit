@@ -1,5 +1,23 @@
 # @copilotkit/shared
 
+## 0.2.0-alpha.4
+
+### Minor Changes
+
+- .5
+
+## 0.2.0-alpha.3
+
+### Minor Changes
+
+- .4
+
+## 0.2.0-alpha.2
+
+### Minor Changes
+
+- .3
+
 ## 0.2.0-alpha.1
 
 ### Minor Changes
