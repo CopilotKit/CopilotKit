@@ -100,6 +100,10 @@ const emptyCopilotContext: CopilotContextParams = {
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);
 
+export function useCopilotContext(): CopilotContextParams {
+  return React.useContext(CopilotContext);
+}
+
 function returnAndThrowInDebug<T>(value: T): T {
   throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
   return value;
