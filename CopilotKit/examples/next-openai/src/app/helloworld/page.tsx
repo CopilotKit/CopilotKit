@@ -14,7 +14,6 @@ const HelloWorld = () => {
   return (
     <CopilotKit url="/api/copilotkit/openai">
       <CopilotSidebar
-        clickOutsideToClose={false}
         defaultOpen={true}
         labels={{
           title: "Presentation Copilot",
