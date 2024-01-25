@@ -145,7 +145,9 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
 
     const onKeyDownHandlerForHoveringEditor = useCallback(
       (event: React.KeyboardEvent<HTMLDivElement>) => {
-        if (autosuggestionsConfig.shouldToggleHoveringEditorOnKeyPress(event)) {
+        if (
+          autosuggestionsConfig.shouldToggleHoveringEditorOnKeyPress(event, props.shortcut ?? "k")
+        ) {
           event.preventDefault();
           setHoveringEditorIsDisplayed(!hoveringEditorIsDisplayed);
         }
