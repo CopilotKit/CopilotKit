@@ -1,5 +1,67 @@
 # ui
 
+## 0.15.0-alpha.5
+
+### Minor Changes
+
+- .5
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.18.0-alpha.5
+  - @copilotkit/shared@0.2.0-alpha.4
+
+## 0.15.0-alpha.4
+
+### Minor Changes
+
+- .4
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.18.0-alpha.4
+  - @copilotkit/shared@0.2.0-alpha.3
+
+## 0.15.0-alpha.3
+
+### Minor Changes
+
+- .3
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.18.0-alpha.3
+  - @copilotkit/shared@0.2.0-alpha.2
+
+## 0.15.0-alpha.2
+
+### Minor Changes
+
+- .2
+- .3
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+  - @copilotkit/react-core@0.18.0-alpha.2
+  - @copilotkit/shared@0.2.0-alpha.1
+
+## 0.15.0-alpha.1
+
+### Minor Changes
+
+- build naming refactor
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.18.0-alpha.1
+  - @copilotkit/shared@0.2.0-alpha.0
+
 ## 0.15.0-alpha.0
 
 ### Minor Changes

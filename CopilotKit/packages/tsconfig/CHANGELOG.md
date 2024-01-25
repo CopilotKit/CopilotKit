@@ -1,5 +1,36 @@
 # tsconfig
 
+## 0.7.0-alpha.4
+
+### Minor Changes
+
+- .5
+
+## 0.7.0-alpha.3
+
+### Minor Changes
+
+- .4
+
+## 0.7.0-alpha.2
+
+### Minor Changes
+
+- .3
+
+## 0.7.0-alpha.1
+
+### Minor Changes
+
+- .2
+- .3
+
+## 0.7.0-alpha.0
+
+### Minor Changes
+
+- build naming refactor
+
 ## 0.6.0
 
 ### Minor Changes

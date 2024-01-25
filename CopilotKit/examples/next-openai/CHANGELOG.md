@@ -1,5 +1,82 @@
 # web
 
+## 1.14.0-alpha.5
+
+### Minor Changes
+
+- .5
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.28.0-alpha.5
+  - @copilotkit/react-core@0.18.0-alpha.5
+  - @copilotkit/react-ui@0.15.0-alpha.5
+  - @copilotkit/backend@0.2.0-alpha.4
+  - @copilotkit/shared@0.2.0-alpha.4
+
+## 1.14.0-alpha.4
+
+### Minor Changes
+
+- .4
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.28.0-alpha.4
+  - @copilotkit/react-core@0.18.0-alpha.4
+  - @copilotkit/react-ui@0.15.0-alpha.4
+  - @copilotkit/backend@0.2.0-alpha.3
+  - @copilotkit/shared@0.2.0-alpha.3
+
+## 1.14.0-alpha.3
+
+### Minor Changes
+
+- .3
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.28.0-alpha.3
+  - @copilotkit/react-core@0.18.0-alpha.3
+  - @copilotkit/react-ui@0.15.0-alpha.3
+  - @copilotkit/backend@0.2.0-alpha.2
+  - @copilotkit/shared@0.2.0-alpha.2
+
+## 1.14.0-alpha.2
+
+### Minor Changes
+
+- .2
+- .3
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+  - @copilotkit/react-textarea@0.28.0-alpha.2
+  - @copilotkit/react-core@0.18.0-alpha.2
+  - @copilotkit/react-ui@0.15.0-alpha.2
+  - @copilotkit/backend@0.2.0-alpha.1
+  - @copilotkit/shared@0.2.0-alpha.1
+
+## 1.14.0-alpha.1
+
+### Minor Changes
+
+- build naming refactor
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.2.0-alpha.0
+  - @copilotkit/react-core@0.18.0-alpha.1
+  - @copilotkit/react-textarea@0.28.0-alpha.1
+  - @copilotkit/react-ui@0.15.0-alpha.1
+  - @copilotkit/shared@0.2.0-alpha.0
+
 ## 1.14.0-alpha.0
 
 ### Minor Changes
