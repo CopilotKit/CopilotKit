@@ -1,5 +1,49 @@
 # @copilotkit/cloud
 
+## 0.2.0-alpha.8
+
+### Minor Changes
+
+- cache clean
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.2.0-alpha.8
+
+## 0.2.0-alpha.7
+
+### Minor Changes
+
+- no treeshake
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.2.0-alpha.7
+
+## 0.2.0-alpha.6
+
+### Minor Changes
+
+- no treeshake take 2
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.2.0-alpha.6
+
+## 0.2.0-alpha.5
+
+### Minor Changes
+
+- remove treeshake in build
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.2.0-alpha.5
+
 ## 0.2.0-alpha.4
 
 ### Minor Changes

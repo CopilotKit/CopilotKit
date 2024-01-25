@@ -1,5 +1,65 @@
 # web
 
+## 1.14.0-alpha.9
+
+### Minor Changes
+
+- cache clean
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.28.0-alpha.9
+  - @copilotkit/react-core@0.18.0-alpha.9
+  - @copilotkit/react-ui@0.15.0-alpha.9
+  - @copilotkit/backend@0.2.0-alpha.8
+  - @copilotkit/shared@0.2.0-alpha.8
+
+## 1.14.0-alpha.8
+
+### Minor Changes
+
+- no treeshake
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.28.0-alpha.8
+  - @copilotkit/react-core@0.18.0-alpha.8
+  - @copilotkit/react-ui@0.15.0-alpha.8
+  - @copilotkit/backend@0.2.0-alpha.7
+  - @copilotkit/shared@0.2.0-alpha.7
+
+## 1.14.0-alpha.7
+
+### Minor Changes
+
+- no treeshake take 2
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.28.0-alpha.7
+  - @copilotkit/react-core@0.18.0-alpha.7
+  - @copilotkit/react-ui@0.15.0-alpha.7
+  - @copilotkit/backend@0.2.0-alpha.6
+  - @copilotkit/shared@0.2.0-alpha.6
+
+## 1.14.0-alpha.6
+
+### Minor Changes
+
+- remove treeshake in build
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.2.0-alpha.5
+  - @copilotkit/react-core@0.18.0-alpha.6
+  - @copilotkit/react-textarea@0.28.0-alpha.6
+  - @copilotkit/react-ui@0.15.0-alpha.6
+  - @copilotkit/shared@0.2.0-alpha.5
+
 ## 1.14.0-alpha.5
 
 ### Minor Changes

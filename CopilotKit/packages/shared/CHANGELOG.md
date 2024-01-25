@@ -1,5 +1,29 @@
 # @copilotkit/shared
 
+## 0.2.0-alpha.8
+
+### Minor Changes
+
+- cache clean
+
+## 0.2.0-alpha.7
+
+### Minor Changes
+
+- no treeshake
+
+## 0.2.0-alpha.6
+
+### Minor Changes
+
+- no treeshake take 2
+
+## 0.2.0-alpha.5
+
+### Minor Changes
+
+- remove treeshake in build
+
 ## 0.2.0-alpha.4
 
 ### Minor Changes

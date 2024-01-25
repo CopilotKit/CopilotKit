@@ -1,5 +1,29 @@
 # eslint-config-custom
 
+## 0.3.0-alpha.8
+
+### Minor Changes
+
+- cache clean
+
+## 0.3.0-alpha.7
+
+### Minor Changes
+
+- no treeshake
+
+## 0.3.0-alpha.6
+
+### Minor Changes
+
+- no treeshake take 2
+
+## 0.3.0-alpha.5
+
+### Minor Changes
+
+- remove treeshake in build
+
 ## 0.3.0-alpha.4
 
 ### Minor Changes
