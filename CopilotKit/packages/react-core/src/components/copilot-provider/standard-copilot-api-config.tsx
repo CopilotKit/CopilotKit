@@ -10,18 +10,11 @@ import { CopilotApiConfig } from "../../context/copilot-context";
 
 export class StandardCopilotApiConfig implements CopilotApiConfig {
   chatApiEndpoint: string;
-  chatApiEndpointV2: string;
   headers: Record<string, string>;
   body: Record<string, any>;
 
-  constructor(
-    chatApiEndpoint: string,
-    chatApiEndpointV2: string,
-    headers: Record<string, string>,
-    body: Record<string, any>,
-  ) {
+  constructor(chatApiEndpoint: string, headers: Record<string, string>, body: Record<string, any>) {
     this.chatApiEndpoint = chatApiEndpoint;
-    this.chatApiEndpointV2 = chatApiEndpointV2;
     this.headers = headers;
     this.body = body;
   }

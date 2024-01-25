@@ -147,7 +147,6 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // get the appropriate CopilotApiConfig from the props
   const copilotApiConfig: CopilotApiConfig = new StandardCopilotApiConfig(
     props.url,
-    `${props.url}/v2`,
     props.headers || {},
     props.body || {},
   );
