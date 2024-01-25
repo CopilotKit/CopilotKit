@@ -66,6 +66,8 @@ export class CopilotTask {
       console.warn(
         "You provided both a context and functions to CopilotTask. The functions will be ignored.",
       );
+    } else if (!this.context && !config.functions?.length) {
+      throw new Error("No context or functions provided for CopilotTask");
     }
 
     if (this.context) {
@@ -82,15 +84,6 @@ export class CopilotTask {
     }
   }
 
-  addFunction(func: AnnotatedFunction<any[]>): void {
-    this.removeFunction(func.name);
-    this.functions.push(func);
-  }
-
-  removeFunction(funcName: string): void {
-    this.functions = this.functions.filter((f) => f.name !== funcName);
-  }
-
   async run(): Promise<void> {
     const functions = this.functions.map(annotatedFunctionToChatCompletionFunction);
     let contextString = "";
@@ -102,10 +95,6 @@ export class CopilotTask {
 
     if (this.context) {
       contextString += this.context.getContextString([], defaultCopilotContextCategories);
-    }
-
-    if (this.functions.length === 0) {
-      throw new Error("No functions defined for CopilotTask");
     }
 
     const systemMessage: Message = {

@@ -1,5 +1,7 @@
 "use client";
 
+import { useCopilotContext } from "@copilotkit/react-core";
+import { CopilotTask } from "@copilotkit/react-core";
 import {
   CopilotKit,
   useMakeCopilotActionable,
@@ -12,6 +14,7 @@ const HelloWorld = () => {
   return (
     <CopilotKit url="/api/copilotkit/openai">
       <CopilotSidebar
+        clickOutsideToClose={false}
         defaultOpen={true}
         labels={{
           title: "Presentation Copilot",
@@ -63,7 +66,25 @@ const Presentation = () => {
     [],
   );
 
-  return <Slide {...state} />;
+  const context = useCopilotContext();
+
+  return (
+    <div className="relative">
+      <Slide {...state} />
+      <button
+        className="absolute bottom-0 left-0 mb-4 ml-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+        onClick={async () => {
+          const task = new CopilotTask({
+            instructions: "Make a random slide",
+            context: context,
+          });
+          await task.run();
+        }}
+      >
+        Make random slide
+      </button>
+    </div>
+  );
 };
 
 type SlideProps = {
