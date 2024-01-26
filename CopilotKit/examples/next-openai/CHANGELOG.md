@@ -1,5 +1,20 @@
 # web
 
+## 1.15.0-alpha.0
+
+### Minor Changes
+
+- node-native backend support
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.3.0-alpha.0
+  - @copilotkit/react-core@0.19.0-alpha.0
+  - @copilotkit/react-textarea@0.29.0-alpha.0
+  - @copilotkit/react-ui@0.16.0-alpha.0
+  - @copilotkit/shared@0.3.0-alpha.0
+
 ## 1.14.0
 
 ### Minor Changes

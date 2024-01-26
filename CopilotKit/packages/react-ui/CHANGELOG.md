@@ -1,5 +1,17 @@
 # ui
 
+## 0.16.0-alpha.0
+
+### Minor Changes
+
+- node-native backend support
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.19.0-alpha.0
+  - @copilotkit/shared@0.3.0-alpha.0
+
 ## 0.15.0
 
 ### Minor Changes

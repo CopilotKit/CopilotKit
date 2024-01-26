@@ -1,5 +1,16 @@
 # @copilotkit/cloud
 
+## 0.3.0-alpha.0
+
+### Minor Changes
+
+- node-native backend support
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.3.0-alpha.0
+
 ## 0.2.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.4.0-alpha.0
+
+### Minor Changes
+
+- node-native backend support
+
 ## 0.3.0
 
 ### Minor Changes

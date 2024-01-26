@@ -1,0 +1,19 @@
+{
+  "mode": "pre",
+  "tag": "alpha",
+  "initialVersions": {
+    "next-openai": "1.14.0",
+    "node": "1.14.0",
+    "@copilotkit/backend": "0.2.0",
+    "eslint-config-custom": "0.3.0",
+    "@copilotkit/react-core": "0.18.0",
+    "@copilotkit/react-textarea": "0.28.0",
+    "@copilotkit/react-ui": "0.15.0",
+    "@copilotkit/shared": "0.2.0",
+    "tailwind-config": "0.2.0",
+    "tsconfig": "0.7.0"
+  },
+  "changesets": [
+    "unlucky-geese-type"
+  ]
+}

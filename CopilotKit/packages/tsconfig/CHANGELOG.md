@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.8.0-alpha.0
+
+### Minor Changes
+
+- node-native backend support
+
 ## 0.7.0
 
 ### Minor Changes
