@@ -49,8 +49,12 @@ export interface CopilotContextParams {
   entryPoints: Record<string, AnnotatedFunction<any[]>>;
   setEntryPoint: (id: string, entryPoint: AnnotatedFunction<any[]>) => void;
   removeEntryPoint: (id: string) => void;
-  getChatCompletionFunctionDescriptions: () => Function[];
-  getFunctionCallHandler: () => FunctionCallHandler;
+  getChatCompletionFunctionDescriptions: (
+    customEntryPoints?: Record<string, AnnotatedFunction<any[]>>,
+  ) => Function[];
+  getFunctionCallHandler: (
+    customEntryPoints?: Record<string, AnnotatedFunction<any[]>>,
+  ) => FunctionCallHandler;
 
   // text context
   addContext: (context: string, parentId?: string, categories?: string[]) => TreeNodeId;

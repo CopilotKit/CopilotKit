@@ -1,11 +1,5 @@
-import {
-  AnnotatedFunction,
-  FunctionCall,
-  Message,
-  Role,
-  annotatedFunctionToChatCompletionFunction,
-} from "@copilotkit/shared";
-import { CopilotApiConfig, CopilotContextParams } from "../context";
+import { AnnotatedFunction, FunctionCall, Message } from "@copilotkit/shared";
+import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
 import { fetchAndDecodeChatCompletion } from "../utils/fetch-chat-completion";
 
@@ -19,73 +13,43 @@ export interface CopilotTaskConfig {
    */
   data?: any;
   /**
-   * An optional context object to use for the task.
-   */
-  context?: CopilotContextParams;
-  /**
    * Function definitions to be sent to the API.
    */
   functions?: AnnotatedFunction<any[]>[];
   /**
-   * The API endpoint that accepts a `{ messages: Message[] }` object and returns
+   * Whether to include the copilot readable context in the task.
    */
-  url?: string;
+  includeCopilotReadable?: boolean;
+
   /**
-   * HTTP headers to be sent with the API request.
+   * Whether to include functions defined via useMakeCopilotActionable in the task.
    */
-  headers?: Record<string, string>;
-  /**
-   * Extra body object to be sent with the API request.
-   * @example
-   * Send a `sessionId` to the API along with the messages.
-   * ```js
-   * useChat({
-   *   body: {
-   *     sessionId: '123',
-   *   }
-   * })
-   * ```
-   */
-  body?: object;
+  includeCopilotActionable?: boolean;
 }
 
 export class CopilotTask {
   private instructions: string;
   private data?: any;
-  private context?: CopilotContextParams;
   private functions: AnnotatedFunction<any[]>[];
-  private copilotConfig: CopilotApiConfig;
+  private includeCopilotReadable: boolean;
+  private includeCopilotActionable: boolean;
 
   constructor(config: CopilotTaskConfig) {
     this.instructions = config.instructions;
     this.data = config.data;
-    this.context = config.context;
     this.functions = config.functions || [];
-
-    if (this.context && config.functions?.length) {
-      console.warn(
-        "You provided both a context and functions to CopilotTask. The functions will be ignored.",
-      );
-    } else if (!this.context && !config.functions?.length) {
-      throw new Error("No context or functions provided for CopilotTask");
-    }
-
-    if (this.context) {
-      this.copilotConfig = this.context.copilotApiConfig;
-    } else if (config.url) {
-      this.copilotConfig = {
-        chatApiEndpoint: config.url,
-        chatApiEndpointV2: config.url, // TODO remove
-        headers: config.headers || {},
-        body: config.body || {},
-      };
-    } else {
-      throw new Error("No context or url provided for CopilotTask");
-    }
+    this.includeCopilotReadable = config.includeCopilotReadable || true;
+    this.includeCopilotActionable = config.includeCopilotActionable || true;
   }
 
-  async run(): Promise<void> {
-    const functions = this.functions.map(annotatedFunctionToChatCompletionFunction);
+  async run(context: CopilotContextParams): Promise<void> {
+    const entryPoints = this.includeCopilotActionable ? Object.assign({}, context.entryPoints) : {};
+
+    // merge functions into entry points
+    for (const fn of this.functions) {
+      entryPoints[fn.name] = fn;
+    }
+
     let contextString = "";
 
     if (this.data) {
@@ -93,8 +57,8 @@ export class CopilotTask {
         (typeof this.data === "string" ? this.data : JSON.stringify(this.data)) + "\n\n";
     }
 
-    if (this.context) {
-      contextString += this.context.getContextString([], defaultCopilotContextCategories);
+    if (this.includeCopilotReadable) {
+      contextString += context.getContextString([], defaultCopilotContextCategories);
     }
 
     const systemMessage: Message = {
@@ -106,10 +70,11 @@ export class CopilotTask {
     const messages = [systemMessage];
 
     const response = await fetchAndDecodeChatCompletion({
-      copilotConfig: this.copilotConfig,
+      copilotConfig: context.copilotApiConfig,
       messages: messages,
-      functions: this.context ? this.context.getChatCompletionFunctionDescriptions() : functions,
-      headers: this.copilotConfig.headers,
+      functions: context.getChatCompletionFunctionDescriptions(entryPoints),
+      headers: context.copilotApiConfig.headers,
+      body: context.copilotApiConfig.body,
     });
 
     if (!response.events) {
@@ -139,41 +104,8 @@ export class CopilotTask {
       throw new Error("No function call occurred");
     }
 
-    if (this.context) {
-      // use the function call handler of the context
-      const functionCallHandler = this.context.getFunctionCallHandler();
-      await functionCallHandler(messages, functionCall);
-    } else {
-      // manually call function
-      await callFunction(this.functions, functionCall);
-    }
-  }
-}
-
-// TODO move this to shared
-async function callFunction(entryPoints: AnnotatedFunction<any[]>[], functionCall: FunctionCall) {
-  let entrypointsByFunctionName: Record<string, AnnotatedFunction<any[]>> = {};
-  for (let entryPoint of entryPoints) {
-    entrypointsByFunctionName[entryPoint.name] = entryPoint;
-  }
-
-  const entryPointFunction = entrypointsByFunctionName[functionCall.name || ""];
-  if (entryPointFunction) {
-    let functionCallArguments: Record<string, any>[] = [];
-    if (functionCall.arguments) {
-      functionCallArguments = JSON.parse(functionCall.arguments);
-    }
-
-    const paramsInCorrectOrder: any[] = [];
-    for (let arg of entryPointFunction.argumentAnnotations) {
-      paramsInCorrectOrder.push(
-        functionCallArguments[arg.name as keyof typeof functionCallArguments],
-      );
-    }
-
-    await entryPointFunction.implementation(...paramsInCorrectOrder);
-  } else {
-    throw new Error(`No function found with name ${functionCall.name}`);
+    const functionCallHandler = context.getFunctionCallHandler(entryPoints);
+    await functionCallHandler(messages, functionCall);
   }
 }
 

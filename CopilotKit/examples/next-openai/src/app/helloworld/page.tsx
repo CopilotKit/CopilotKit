@@ -67,8 +67,9 @@ const Presentation = () => {
 
   const randomSlideTask = new CopilotTask({
     instructions: "Make a random slide",
-    context: useCopilotContext(),
   });
+
+  const context = useCopilotContext();
 
   const [randomSlideTaskRunning, setRandomSlideTaskRunning] = useState(false);
 
@@ -82,7 +83,7 @@ const Presentation = () => {
         onClick={async () => {
           try {
             setRandomSlideTaskRunning(true);
-            await randomSlideTask.run();
+            await randomSlideTask.run(context);
           } finally {
             setRandomSlideTaskRunning(false);
           }
