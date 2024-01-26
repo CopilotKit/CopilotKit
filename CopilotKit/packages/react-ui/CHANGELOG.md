@@ -1,5 +1,17 @@
 # ui
 
+## 0.16.0-alpha.1
+
+### Minor Changes
+
+- clean node example impl
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.19.0-alpha.1
+  - @copilotkit/shared@0.3.0-alpha.1
+
 ## 0.16.0-alpha.0
 
 ### Minor Changes

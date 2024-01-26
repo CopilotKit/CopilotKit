@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.4.0-alpha.1
+
+### Minor Changes
+
+- clean node example impl
+
 ## 0.4.0-alpha.0
 
 ### Minor Changes
