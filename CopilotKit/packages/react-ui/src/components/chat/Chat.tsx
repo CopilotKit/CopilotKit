@@ -55,11 +55,11 @@ export interface CopilotChatProps {
   onSetOpen?: (open: boolean) => void;
 
   /**
-   * The hotkey to open the chat window.
-   * Uses Command-<hotkey> on a Mac and Ctrl-<hotkey> on Windows.
+   * The shortcut key to open the chat window.
+   * Uses Command-<shortcut> on a Mac and Ctrl-<shortcut> on Windows.
    * @default "e"
    */
-  hotkey?: string;
+  shortcut?: string;
 
   /**
    * Icons can be used to set custom icons for the chat window.
@@ -127,7 +127,7 @@ export const CopilotChat = ({
   clickOutsideToClose = true,
   hitEscapeToClose = true,
   onSetOpen,
-  hotkey = "e",
+  shortcut = "e",
   icons,
   labels,
   makeSystemMessage,
@@ -169,7 +169,7 @@ export const CopilotChat = ({
           open={openState}
           setOpen={setOpen}
           clickOutsideToClose={clickOutsideToClose}
-          hotkey={hotkey}
+          shortcut={shortcut}
           hitEscapeToClose={hitEscapeToClose}
         >
           <Header open={openState} setOpen={setOpen} />
