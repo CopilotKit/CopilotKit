@@ -8,17 +8,19 @@ const HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
+process.env.OPENAI_API_KEY = "";
+
 const server = http.createServer((request, response) => {
   try {
-    const headers =
-      request.method === "POST" ? { ...HEADERS, "Content-Type": "application/json" } : HEADERS;
+    const headers = {
+      ...HEADERS,
+      ...(request.method === "POST" && { "Content-Type": "application/json" }),
+    };
     response.writeHead(200, headers);
     if (request.method == "POST") {
       const copilotKit = new CopilotBackend();
-      console.log("streaming response");
-      copilotKit.streamHttpServerResponse(request, response, new OpenAIAdapter({})).then(() => {
-        console.log("streaming response done");
-      });
+      const openaiAdapter = new OpenAIAdapter();
+      copilotKit.streamHttpServerResponse(request, response, openaiAdapter);
     } else {
       response.end("openai server");
     }
