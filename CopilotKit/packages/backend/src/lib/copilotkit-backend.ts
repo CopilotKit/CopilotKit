@@ -1,5 +1,8 @@
+import http from "http";
+import stream from "stream";
 import { AnnotatedFunction } from "@copilotkit/shared";
 import { CopilotKitServiceAdapter } from "../types";
+import { nodeServerParseJSONBody } from "../utils/node-http-server";
 
 interface CopilotBackendConstructorParams {
   functions?: AnnotatedFunction<any[]>[];
@@ -31,5 +34,16 @@ export class CopilotBackend {
     } catch (error: any) {
       return new Response("", { status: 500, statusText: error.error.message });
     }
+  }
+
+  async writeHttpServerResponse(
+    req: http.ClientRequest,
+    res: http.ServerResponse,
+    serviceAdapter: CopilotKitServiceAdapter,
+  ) {
+    const forwardedProps = await nodeServerParseJSONBody(req);
+    const webStream = this.stream(forwardedProps, serviceAdapter);
+    // we get a type error here that can be ignored
+    stream.Readable.fromWeb(webStream as any).pipe(res);
   }
 }
