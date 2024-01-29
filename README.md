@@ -70,7 +70,7 @@ in-app chatbots, and AI-enabled Textareas.
 
 <h3 align="center">
   <strong> Fundemental building blocks</strong> for powering rich Copilot experiences and AI-native applications. <br/> <br/>
-  Code-first & fully customizable.
+  Code-first & fully customizable -- and also works out of the box.
 </h3>
 
 ---
@@ -130,7 +130,11 @@ But roughtly:
 - ✅ `useMakeCopilotReadable`: give frontend state to the copilot
 - ✅ `useMakeCopilotDocumentReadable`: give document state to the copilot, especially useful with 3rd party state (e.g. Gong call transcript).
 - ✅ `useMakeCopilotActionable`: Let the copilot interact with the application
+- 🚧 use custom UX elements inside the chat (coming soon)
 
+### Built-in backend hooks
+- backend `functions` (via `CopilotBackend` component)
+- `OpenAIAdapter` - use OpenAI LLMs. Create dedicated adapters to support arbitrary LLMs.
 
 
 ## Examples
