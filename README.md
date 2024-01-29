@@ -12,7 +12,7 @@
   </a>
   <a href="https://github.com/CopilotKit/CopilotKit/actions/workflows/ci.yml">
       <img src="https://github.com/CopilotKit/CopilotKit/actions/workflows/ci.yml/badge.svg" alt="GitHub CI">
-  </a>out
+  </a>
 
   <a href="https://www.npmjs.com/package/@copilotkit/react-core">
     <img src="https://img.shields.io/npm/v/@copilotkit/react-core" alt="NPM">
@@ -71,7 +71,7 @@ in-app chatbots, and AI-enabled Textareas.
 <h3 align="center">
   <strong> Fundemental building blocks</strong> for powering rich Copilot experiences and AI-native applications. <br/> <br/>
   Code-first & fully customizable. <br/>
-  (and also works out of the box)
+  (also works out of the box)
 </h3>
 
 ---
