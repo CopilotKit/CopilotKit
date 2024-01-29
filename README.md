@@ -61,7 +61,7 @@ in-app chatbots, and AI-enabled Textareas.
 </p>
 
 <p align="center">
-  <strong>Copilot support:</strong> We're happy to support your Copilot integration efforts! <br/>
+  <strong>Copilot support:</strong> We're happy to support your Copilot integration efforts. <br/>
   You can receive support on <a href="https://discord.gg/6dffbvGU3D">our discord</a>
    or by <a href="https://calendly.com/atai_/copilotkit" rel="dofollow"> booking a call with us</a>.
 </p>
@@ -111,6 +111,28 @@ See quickstart in the [docs](https://docs.copilotkit.ai)
 
 [CopilotKit_Demo_Jan_zjgjk0.webm](https://github.com/CopilotKit/CopilotKit/assets/746397/b1749282-a3e4-4ef4-a780-7d03f30edf5b)
 
+
+## Building blocks
+A more comprehensive and up-to-date overview is available in the [docs](https://docs.copilotkit.ai). <br/>
+But roughtly:
+
+### Built-in UI components
+
+- ✅ `<CopilotSidebar>`: Built in, hackable Copilot UI (optional - you can bring your own UI).
+- ✅ `<CopilotPopup>`: Built in popup UI.
+- ✅ `<CopilotChat>`: Standalone chat UI
+- ✅ `<CopilotTextarea />`: drop-in `<textarea />` replacement with Copilot autocompletions.
+- ✅ `useCopilotChat()` for fully-custom UI component
+
+
+### Built-in frontend hooks
+
+- ✅ `useMakeCopilotReadable`: give frontend state to the copilot
+- ✅ `useMakeCopilotDocumentReadable`: give document state to the copilot, especially useful with 3rd party state (e.g. Gong call transcript).
+- ✅ `useMakeCopilotActionable`: Let the copilot interact with the application
+
+
+
 ## Examples
 
 ### `<CopilotSidebar />`
@@ -120,7 +142,7 @@ import "@copilotkit/react-ui/styles.css"; // add to the app-global css
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 
-function MyAmazing Content() {
+function MyAmazingContent() {
     const importantInfo = useImportantInfo()
     useMakeCopilotReadable("very importnat information: " + importantInfo)
 
@@ -162,6 +184,7 @@ export default function App() {
   return (
     <CopilotKit url="/api/copilotkit/chat"> {/* Global state & copilot logic. Put this around the entire app */}
       <CopilotSidebar> {/* A built-in Copilot UI (or bring your own UI). Put around individual pages, or the entire app. */}
+        <MyAmazingContent />
       </CopilotSidebar>
     </CopilotKit>
   );
@@ -170,12 +193,11 @@ export default function App() {
 
 ### `<CopilotTextarea />`
 
-A drop-in <textarea /> replacement with context-aware Copilot autocompletions.
-
-`useMakeCopilotReadable` applies here too.
+A drop-in <textarea /> replacement with autocompletions, AI insertions/edits, and generate-from-scratch. <br/>
+Indexed on data provided to the Copilot.
 
 <p align="center">
-  <img src="./assets/CopilotTextarea.gif" width="648" height="476" style="border-radius: 15px;">
+  <img src="./assets/CopilotTextarea.gif" width="648" style="border-radius: 15px; max-width="100%"">
 </p>
 
 
@@ -190,9 +212,7 @@ useMakeCopilotReadable(relevantInformation);
 useMakeCopilotDocumentReadable(document);
 
 return (
-  <CopilotKit url="/api/copilotkit/chat">
-    {" "}
-    {/* Global state & copilot logic. Put this around the entire app */}
+  <CopilotKit url="/api/copilotkit/chat"> {/* Global state & copilot logic. Put this around the entire app */}
     <CopilotTextarea
       className="p-4 w-1/2 aspect-square font-bold text-3xl bg-slate-800 text-white rounded-lg resize-none"
       placeholder="A CopilotTextarea!"
@@ -217,18 +237,14 @@ return (
 
 ### Copilot-App Interaction
 
-- ✅ `useMakeCopilotReadable`: give static information to the copilot, in sync with on-screen state
-- ✅ `useMakeCopilotActionable`: Let the copilot take action on behalf of the user
+- ✅ `useMakeCopilotReadable`: give frontend state to the copilot
+- ✅ `useMakeCopilotDocumentReadable`: give document state to the copilot, especially useful with 3rd party state (e.g. Gong call transcript)
+- ✅ `useMakeCopilotActionable`: Let the copilot interact with the application
 - 🚧 `useMakeCopilotAskable`: let the copilot ask for additional information when needed (coming soon)
+- 🚧 `useCopilotChain`: provide usecase-specific chain
 - 🚧 `useEditCopilotMessage`: edit the (unsent) typed user message to the copilot (coming soon)
 - 🚧 copilot-assisted navigation: go to the best page to achieve some objective.
-- 🚧 CopilotCloudKit: integrate arbitrary LLM logic / chains / RAG, using plain code.
-
-### UI components
-
-- ✅ `<CopilotSidebar>`: Built in, hackable Copilot UI (optional - you can bring your own UI).
-- ✅ `<CopilotPopup>`: Built in popup UI.
-- ✅ `<CopilotTextarea />`: drop-in `<textarea />` replacement with Copilot autocompletions.
+- 🚧 Copilot Cloud: From hosting, chat history, analytics, and evals, to automatic Copilot personalization and self-improvement.
 
 ### Integrations
 
