@@ -95,6 +95,31 @@ importers:
         specifier: ^5.1.3
         version: 5.1.3
 
+  examples/node:
+    dependencies:
+      '@copilotkit/backend':
+        specifier: workspace:*
+        version: link:../../packages/backend
+      '@copilotkit/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      openai:
+        specifier: ^4.19.0
+        version: 4.19.0
+    devDependencies:
+      '@types/node':
+        specifier: ^18.11.17
+        version: 18.17.15
+      eslint-config-custom:
+        specifier: workspace:*
+        version: link:../../packages/eslint-config-custom
+      tsconfig:
+        specifier: workspace:*
+        version: link:../../packages/tsconfig
+      typescript:
+        specifier: ^5.1.3
+        version: 5.1.3
+
   packages/backend:
     dependencies:
       '@copilotkit/shared':

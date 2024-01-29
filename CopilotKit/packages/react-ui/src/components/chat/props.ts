@@ -10,7 +10,7 @@ export interface WindowProps {
   setOpen: (open: boolean) => void;
   clickOutsideToClose: boolean;
   hitEscapeToClose: boolean;
-  hotkey: string;
+  shortcut: string;
   children?: React.ReactNode;
 }
 
