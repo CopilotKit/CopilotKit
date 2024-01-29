@@ -1,5 +1,42 @@
 # @copilotkit/cloud
 
+## 0.3.0
+
+### Minor Changes
+
+- node CopilotBackend support
+- 58a8524: clean node example impl
+- a34a226: node-native backend support
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies [58a8524]
+- Updated dependencies [a34a226]
+  - @copilotkit/shared@0.3.0
+
+## 0.3.0-alpha.1
+
+### Minor Changes
+
+- clean node example impl
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.3.0-alpha.1
+
+## 0.3.0-alpha.0
+
+### Minor Changes
+
+- node-native backend support
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.3.0-alpha.0
+
 ## 0.2.0
 
 ### Minor Changes

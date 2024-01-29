@@ -1,5 +1,25 @@
 # tailwind-config
 
+## 0.3.0
+
+### Minor Changes
+
+- node CopilotBackend support
+- 58a8524: clean node example impl
+- a34a226: node-native backend support
+
+## 0.3.0-alpha.1
+
+### Minor Changes
+
+- clean node example impl
+
+## 0.3.0-alpha.0
+
+### Minor Changes
+
+- node-native backend support
+
 ## 0.2.0
 
 ### Minor Changes

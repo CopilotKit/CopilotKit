@@ -13,13 +13,11 @@ export interface OpenAIAdapterParams {
 }
 
 export class OpenAIAdapter implements CopilotKitServiceAdapter {
-  private openai: OpenAI = new OpenAI({});
+  private openai: OpenAI;
   private model: string = DEFAULT_MODEL;
   private debug: boolean = false;
   constructor(params?: OpenAIAdapterParams) {
-    if (params?.openai) {
-      this.openai = params.openai;
-    }
+    this.openai = params?.openai || new OpenAI({});
     if (params?.model) {
       this.model = params.model;
     }

@@ -1,0 +1,20 @@
+{
+  "name": "node",
+  "version": "1.15.0",
+  "private": true,
+  "scripts": {
+    "start": "node dist/index.js",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@copilotkit/backend": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
+    "openai": "^4.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.11.17",
+    "eslint-config-custom": "workspace:*",
+    "tsconfig": "workspace:*",
+    "typescript": "^5.1.3"
+  }
+}

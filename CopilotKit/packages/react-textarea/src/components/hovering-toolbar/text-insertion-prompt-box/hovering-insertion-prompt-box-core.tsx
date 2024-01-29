@@ -12,6 +12,7 @@ import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { streamPromiseFlatten } from "../../../lib/stream-promise-flatten";
 import { CopilotContext } from "@copilotkit/react-core";
 import { IncludedFilesPreview } from "./included-files-preview";
+import { useHoveringEditorContext } from "../hovering-editor-provider";
 
 export type SuggestionState = {
   editorState: EditingEditorState;
@@ -164,6 +165,8 @@ export const HoveringInsertionPromptBoxCore = ({
       ? "e.g. 'summarize the client's top 3 pain-points from @CallTranscript'"
       : "e.g. 'make it more formal', 'be more specific', ...";
 
+  const { setIsDisplayed } = useHoveringEditorContext();
+
   const AdjustmentPromptComponent = (
     <>
       <Label className="">{adjustmentLabel}</Label>
@@ -180,6 +183,9 @@ export const HoveringInsertionPromptBoxCore = ({
             } else if (e.key === "Enter") {
               e.preventDefault();
               beginGeneratingAdjustment();
+            } else if (e.key == "Escape") {
+              e.preventDefault();
+              setIsDisplayed(false);
             }
           }}
           placeholder={placeholder}

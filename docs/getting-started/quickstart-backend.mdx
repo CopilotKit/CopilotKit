@@ -7,17 +7,27 @@ description: "How to setup the CopilotBackend endpoints"
 
 ### Setup the CopilotKit Backend Endpoint:
 
-Currently all you require is an endpoint which serves as a proxy to an OpenAI-like LLM endpoint.
-See below for examples using NextJS edge functions / Flask.
+To sign up to the Copilot Cloud waitlist click [here](https://forms.gle/mKsuL5e7AFSa1KF48).
+For now you must host your own Backend, which is straightforward:
 
-#### Manually specified endpoint: nodeJS (typescript)
+### Install CopilotKit Backend packages
 
-Make sure to install the `openai` package (or use any openai-compatible LLM provider):
+Install the CopilotKit backend packagess:
 
 <CodeGroup>
-  ```bash npm npm i openai ``` ```bash yarn yarn add openai ``` ```bash pnpm
-  pnpm add openai ```
+  ```bash npm
+  npm i @copilotkit/backend
+  ``` 
+  ```bash yarn
+  yarn add @copilotkit/backend
+  ```
+  ```bash pnpm
+  pnpm add @copilotkit/backend
+  ```
 </CodeGroup>
+
+
+#### Manually specified endpoint: Next.js edge function (typescript)
 
 Remember to add any required environment variables. E.g. to use OpenAI:
 
@@ -25,7 +35,7 @@ Remember to add any required environment variables. E.g. to use OpenAI:
 OPENAI_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-```ts /api/copilotkit/openai/route.ts (NextJS)
+```ts /api/copilotkit/openai/route.ts (Next.js)
 import { CopilotBackend, OpenAIAdapter } from "@copilotkit/backend";
 
 export const runtime = "edge";
@@ -37,53 +47,48 @@ export async function POST(req: Request): Promise<Response> {
 }
 ```
 
-#### Manually specified endpoint: flask (python)
 
-Make sure to install the `Flask` and `openai` packages.
+#### Manually specified endpoint: Node.js (typescript)
 
-```python
-from flask import Flask, request, Response
-from flask import Response
-import openai
+Remember to add any required environment variables. E.g. to use OpenAI:
 
-app = Flask(__name__)
+```env .env.local
+OPENAI_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
 
-# Assuming the API key is set in environment variables
-client = openai.OpenAI(
-    api_key="" # add your api key here
-)
+```ts index.ts (Node.js)
+import http from "http";
+import { CopilotBackend, OpenAIAdapter } from "@copilotkit/backend";
 
-def generate_stream(**forwarded_props):
-    """
-    Generator function to stream the chat completion response.
-    """
-    # Ensure streaming is enabled
-    forwarded_props['stream'] = True
-    forwarded_props['model'] = "gpt-4-1106-preview"
+const HEADERS = {
+  // make sure to modify CORS headers to match your frontend's origin
+  "Access-Control-Allow-Origin": "http://localhost:3000",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
 
-    response_stream = client.chat.completions.create(**forwarded_props)
+const server = http.createServer((request, response) => {
+  try {
+    const headers = {
+      ...HEADERS,
+      ...(request.method === "POST" && { "Content-Type": "application/json" }),
+    };
+    response.writeHead(200, headers);
+    if (request.method == "POST") {
+      const copilotKit = new CopilotBackend();
+      const openaiAdapter = new OpenAIAdapter();
+      copilotKit.streamHttpServerResponse(request, response, openaiAdapter);
+    } else {
+      response.end("openai server");
+    }
+  } catch (err) {
+    console.error(err);
+    response.end("error");
+  }
+});
 
-    for response in response_stream:
-        text = response.choices[0].delta.content or ""
-        if text:
-            yield text
-
-
-@app.route('/copilotkit_endpoint', methods=['POST'])
-def copilotkit_endpoint():
-    """
-    Endpoint to handle chat requests and stream responses.
-    """
-
-    # Extracting all properties from the request JSON
-    forwarded_props = request.get_json(force=True)
-
-    # Generate and return the streaming response
-    return Response(
-        generate_stream(**forwarded_props),
-        content_type='text/plain; charset=utf-8',
-        headers={
-            'Access-Control-Allow-Origin': '*',
-        }
-    )
+const port = 4201;
+const host = "localhost";
+server.listen(port, host);
+console.log(`Listening at http://${host}:${port}`);
 ```

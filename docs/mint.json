@@ -43,7 +43,9 @@
       "pages": [
         "reference/CopilotKit",
         "reference/CopilotPopup",
-        "reference/CopilotSidebar"
+        "reference/CopilotSidebar",
+        "reference/useMakeCopilotReadable",
+        "reference/useMakeCopilotActionable"
       ]
     },
     {
