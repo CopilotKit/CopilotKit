@@ -12,7 +12,7 @@
   </a>
   <a href="https://github.com/CopilotKit/CopilotKit/actions/workflows/ci.yml">
       <img src="https://github.com/CopilotKit/CopilotKit/actions/workflows/ci.yml/badge.svg" alt="GitHub CI">
-  </a>out
+  </a>
 
   <a href="https://www.npmjs.com/package/@copilotkit/react-core">
     <img src="https://img.shields.io/npm/v/@copilotkit/react-core" alt="NPM">
