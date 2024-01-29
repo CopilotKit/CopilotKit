@@ -27,22 +27,20 @@ export interface CopilotTaskConfig {
   includeCopilotActionable?: boolean;
 }
 
-export class CopilotTask {
+export class CopilotTask<T = any> {
   private instructions: string;
-  private data?: any;
   private functions: AnnotatedFunction<any[]>[];
   private includeCopilotReadable: boolean;
   private includeCopilotActionable: boolean;
 
   constructor(config: CopilotTaskConfig) {
     this.instructions = config.instructions;
-    this.data = config.data;
     this.functions = config.functions || [];
     this.includeCopilotReadable = config.includeCopilotReadable || true;
     this.includeCopilotActionable = config.includeCopilotActionable || true;
   }
 
-  async run(context: CopilotContextParams): Promise<void> {
+  async run(context: CopilotContextParams, data?: T): Promise<void> {
     const entryPoints = this.includeCopilotActionable ? Object.assign({}, context.entryPoints) : {};
 
     // merge functions into entry points
@@ -52,9 +50,8 @@ export class CopilotTask {
 
     let contextString = "";
 
-    if (this.data) {
-      contextString =
-        (typeof this.data === "string" ? this.data : JSON.stringify(this.data)) + "\n\n";
+    if (data) {
+      contextString = (typeof data === "string" ? data : JSON.stringify(data)) + "\n\n";
     }
 
     if (this.includeCopilotReadable) {
