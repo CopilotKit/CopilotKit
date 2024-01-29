@@ -48,6 +48,9 @@ importers:
       '@heroicons/react':
         specifier: ^2.0.18
         version: 2.0.18(react@18.2.0)
+      '@langchain/openai':
+        specifier: ^0.0.13
+        version: 0.0.13
       next:
         specifier: ^13.4.9
         version: 13.4.9(react-dom@18.2.0)(react@18.2.0)
@@ -125,6 +128,12 @@ importers:
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared
+      '@langchain/core':
+        specifier: ^0.1.18
+        version: 0.1.18
+      '@langchain/openai':
+        specifier: ^0.0.13
+        version: 0.0.13
       js-tiktoken:
         specifier: ^1.0.8
         version: 1.0.8

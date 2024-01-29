@@ -33,6 +33,8 @@
   },
   "dependencies": {
     "@copilotkit/shared": "workspace:*",
+    "@langchain/core": "^0.1.18",
+    "@langchain/openai": "^0.0.13",
     "js-tiktoken": "^1.0.8",
     "langchain": "^0.1.9",
     "openai": "^4.19.0"
