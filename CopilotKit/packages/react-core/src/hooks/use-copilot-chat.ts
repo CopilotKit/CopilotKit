@@ -1,6 +1,6 @@
 import { useMemo, useContext } from "react";
 import { CopilotContext } from "../context/copilot-context";
-import { Message, Function } from "@copilotkit/shared";
+import { Message, FunctionDefinition } from "@copilotkit/shared";
 import { SystemMessageFunction } from "../types";
 import { UseChatOptions, useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
@@ -43,7 +43,7 @@ export function useCopilotChat({
     };
   }, [getContextString, makeSystemMessage]);
 
-  const functionDescriptions: Function[] = useMemo(() => {
+  const functionDescriptions: FunctionDefinition[] = useMemo(() => {
     return getChatCompletionFunctionDescriptions();
   }, [getChatCompletionFunctionDescriptions]);
 

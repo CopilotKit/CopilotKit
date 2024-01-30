@@ -1,8 +1,8 @@
-import { AnnotatedFunction, Function } from "../types";
+import { AnnotatedFunction, FunctionDefinition } from "../types";
 
 export function annotatedFunctionToChatCompletionFunction(
   annotatedFunction: AnnotatedFunction<any[]>,
-): Function {
+): FunctionDefinition {
   // Create the parameters object based on the argumentAnnotations
   let parameters: { [key: string]: any } = {};
   for (let arg of annotatedFunction.argumentAnnotations) {
@@ -19,7 +19,7 @@ export function annotatedFunctionToChatCompletionFunction(
   }
 
   // Create the ChatCompletionFunctions object
-  let chatCompletionFunction: Function = {
+  let chatCompletionFunction: FunctionDefinition = {
     name: annotatedFunction.name,
     description: annotatedFunction.description,
     parameters: {

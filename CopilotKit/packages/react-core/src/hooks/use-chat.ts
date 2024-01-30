@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Message, Function, FunctionCallHandler, FunctionCall } from "@copilotkit/shared";
+import { Message, FunctionDefinition, FunctionCallHandler, FunctionCall } from "@copilotkit/shared";
 import { nanoid } from "nanoid";
 import { fetchAndDecodeChatCompletion } from "../utils/fetch-chat-completion";
 import { CopilotApiConfig } from "../context";
@@ -46,7 +46,7 @@ export type UseChatOptions = {
   /**
    * Function definitions to be sent to the API.
    */
-  functions?: Function[];
+  functions?: FunctionDefinition[];
 };
 
 export type UseChatHelpers = {

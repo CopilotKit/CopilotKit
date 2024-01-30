@@ -1,8 +1,8 @@
-import { Message, Function } from "@copilotkit/shared";
+import { Message, FunctionDefinition } from "@copilotkit/shared";
 
 export function limitOpenAIMessagesToTokenCount(
   messages: Message[],
-  functions: Function[],
+  functions: FunctionDefinition[],
   maxTokens: number,
 ): Message[] {
   const result: Message[] = [];
@@ -68,7 +68,7 @@ const maxTokensByModel: { [key: string]: number } = {
   "gpt-3.5-turbo-16k-0613": 16385,
 };
 
-function countFunctionsTokens(functions: Function[]): number {
+function countFunctionsTokens(functions: FunctionDefinition[]): number {
   if (functions.length === 0) {
     return 0;
   }

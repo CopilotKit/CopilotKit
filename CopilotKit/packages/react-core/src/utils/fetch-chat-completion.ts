@@ -1,6 +1,6 @@
 import {
   Message,
-  Function,
+  FunctionDefinition,
   ChatCompletionEvent,
   decodeChatCompletion,
   parseChatCompletion,
@@ -12,7 +12,7 @@ export interface FetchChatCompletionParams {
   copilotConfig: CopilotApiConfig;
   model?: string;
   messages: Message[];
-  functions?: Function[];
+  functions?: FunctionDefinition[];
   temperature?: number;
   maxTokens?: number;
   headers?: Record<string, string> | Headers;
