@@ -1,5 +1,7 @@
 "use client";
 
+import { useCopilotContext } from "@copilotkit/react-core";
+import { CopilotTask } from "@copilotkit/react-core";
 import {
   CopilotKit,
   useMakeCopilotActionable,
@@ -63,7 +65,34 @@ const Presentation = () => {
     [],
   );
 
-  return <Slide {...state} />;
+  const randomSlideTask = new CopilotTask({
+    instructions: "Make a random slide",
+  });
+
+  const context = useCopilotContext();
+
+  const [randomSlideTaskRunning, setRandomSlideTaskRunning] = useState(false);
+
+  return (
+    <div className="relative">
+      <Slide {...state} />
+      <button
+        disabled={randomSlideTaskRunning}
+        className={`absolute bottom-0 left-0 mb-4 ml-4 bg-blue-500 text-white font-bold py-2 px-4 rounded
+        ${randomSlideTaskRunning ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"}`}
+        onClick={async () => {
+          try {
+            setRandomSlideTaskRunning(true);
+            await randomSlideTask.run(context);
+          } finally {
+            setRandomSlideTaskRunning(false);
+          }
+        }}
+      >
+        {randomSlideTaskRunning ? "Generating slide..." : "Make random slide"}
+      </button>
+    </div>
+  );
 };
 
 type SlideProps = {

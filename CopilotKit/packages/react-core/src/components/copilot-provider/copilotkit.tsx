@@ -115,13 +115,19 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     [removeElement],
   );
 
-  const getChatCompletionFunctionDescriptions = useCallback(() => {
-    return entryPointsToChatCompletionFunctions(Object.values(entryPoints));
-  }, [entryPoints]);
+  const getChatCompletionFunctionDescriptions = useCallback(
+    (customEntryPoints?: Record<string, AnnotatedFunction<any[]>>) => {
+      return entryPointsToChatCompletionFunctions(Object.values(customEntryPoints || entryPoints));
+    },
+    [entryPoints],
+  );
 
-  const getFunctionCallHandler = useCallback(() => {
-    return entryPointsToFunctionCallHandler(Object.values(entryPoints));
-  }, [entryPoints]);
+  const getFunctionCallHandler = useCallback(
+    (customEntryPoints?: Record<string, AnnotatedFunction<any[]>>) => {
+      return entryPointsToFunctionCallHandler(Object.values(customEntryPoints || entryPoints));
+    },
+    [entryPoints],
+  );
 
   const getDocumentsContext = useCallback(
     (categories: string[]) => {

@@ -3,6 +3,7 @@ export * from "./context";
 export * from "./hooks";
 export * from "./types";
 export * from "./openai-assistants";
+export * from "./lib";
 export {
   type FetchChatCompletionParams,
   fetchChatCompletion,
