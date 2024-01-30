@@ -9,10 +9,6 @@ export interface CopilotTaskConfig {
    */
   instructions: string;
   /**
-   * The data to use for the task.
-   */
-  data?: any;
-  /**
    * Function definitions to be sent to the API.
    */
   functions?: AnnotatedFunction<any[]>[];
