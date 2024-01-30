@@ -48,6 +48,9 @@ importers:
       '@heroicons/react':
         specifier: ^2.0.18
         version: 2.0.18(react@18.2.0)
+      '@langchain/core':
+        specifier: ^0.1.18
+        version: 0.1.18
       '@langchain/openai':
         specifier: ^0.0.13
         version: 0.0.13
