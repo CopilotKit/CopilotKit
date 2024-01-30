@@ -9,6 +9,14 @@ export interface ChatCompletionChunk {
         name?: string;
         arguments?: string;
       };
+      tool_calls?: {
+        index: number;
+        id?: string;
+        function: {
+          arguments?: string;
+          name?: string;
+        };
+      }[];
     };
   }[];
 }
