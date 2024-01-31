@@ -69,7 +69,7 @@ export class CopilotTask<T = any> {
     const response = await fetchAndDecodeChatCompletion({
       copilotConfig: context.copilotApiConfig,
       messages: messages,
-      functions: context.getChatCompletionFunctionDescriptions(entryPoints),
+      tools: context.getChatCompletionFunctionDescriptions(entryPoints),
       headers: context.copilotApiConfig.headers,
       body: context.copilotApiConfig.body,
     });

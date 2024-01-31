@@ -60,6 +60,11 @@ export interface FunctionDefinition {
   description?: string;
 }
 
+export interface ToolDefinition {
+  type: "function";
+  function: FunctionDefinition;
+}
+
 export type FunctionCallHandler = (
   chatMessages: Message[],
   functionCall: FunctionCall,

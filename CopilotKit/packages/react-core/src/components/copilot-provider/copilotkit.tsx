@@ -13,6 +13,7 @@ import {
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { StandardCopilotApiConfig } from "./standard-copilot-api-config";
 import { CopilotKitProps } from "./copilotkit-props";
+import { ToolDefinition } from "@copilotkit/shared";
 
 /**
  * The CopilotKit component.
@@ -230,6 +231,6 @@ function entryPointsToFunctionCallHandler(
 
 function entryPointsToChatCompletionFunctions(
   entryPoints: AnnotatedFunction<any[]>[],
-): FunctionDefinition[] {
+): ToolDefinition[] {
   return entryPoints.map(annotatedFunctionToChatCompletionFunction);
 }

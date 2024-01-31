@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Message, FunctionDefinition, FunctionCallHandler, FunctionCall } from "@copilotkit/shared";
+import { Message, ToolDefinition, FunctionCallHandler, FunctionCall } from "@copilotkit/shared";
 import { nanoid } from "nanoid";
 import { fetchAndDecodeChatCompletion } from "../utils/fetch-chat-completion";
 import { CopilotApiConfig } from "../context";
@@ -46,7 +46,7 @@ export type UseChatOptions = {
   /**
    * Function definitions to be sent to the API.
    */
-  functions?: FunctionDefinition[];
+  tools?: ToolDefinition[];
 };
 
 export type UseChatHelpers = {
@@ -103,7 +103,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
     const response = await fetchAndDecodeChatCompletion({
       copilotConfig: options.copilotConfig,
       messages: messagesWithContext,
-      functions: options.functions,
+      tools: options.tools,
       headers: options.headers,
       signal: abortController.signal,
     });

@@ -1,18 +1,16 @@
-import { Message, FunctionDefinition } from "@copilotkit/shared";
+import { Message, ToolDefinition } from "@copilotkit/shared";
 
 export function limitOpenAIMessagesToTokenCount(
   messages: Message[],
-  functions: FunctionDefinition[],
+  tools: ToolDefinition[],
   maxTokens: number,
 ): Message[] {
   const result: Message[] = [];
-  const functionsNumTokens = countFunctionsTokens(functions);
-  if (functionsNumTokens > maxTokens) {
-    throw new Error(
-      `Too many tokens in function definitions: ${functionsNumTokens} > ${maxTokens}`,
-    );
+  const toolsNumTokens = countToolsTokens(tools);
+  if (toolsNumTokens > maxTokens) {
+    throw new Error(`Too many tokens in function definitions: ${toolsNumTokens} > ${maxTokens}`);
   }
-  maxTokens -= functionsNumTokens;
+  maxTokens -= toolsNumTokens;
 
   for (const message of messages) {
     if (message.role === "system") {
@@ -68,7 +66,7 @@ const maxTokensByModel: { [key: string]: number } = {
   "gpt-3.5-turbo-16k-0613": 16385,
 };
 
-function countFunctionsTokens(functions: FunctionDefinition[]): number {
+function countToolsTokens(functions: ToolDefinition[]): number {
   if (functions.length === 0) {
     return 0;
   }

@@ -29,19 +29,27 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
   stream(functions: AnnotatedFunction<any[]>[], forwardedProps: any): ReadableStream {
     const messages = limitOpenAIMessagesToTokenCount(
       forwardedProps.messages || [],
-      forwardedProps.functions || [],
+      forwardedProps.tools || [],
       maxTokensForOpenAIModel(forwardedProps.model || DEFAULT_MODEL),
     );
 
-    // combine client and server defined functions
-    let allFunctions = functions.map(annotatedFunctionToChatCompletionFunction);
+    // combine client and server defined tools
+    let allTools = functions.map(annotatedFunctionToChatCompletionFunction);
     const serverFunctionNames = functions.map((fn) => fn.name);
-    if (forwardedProps.functions) {
-      allFunctions = allFunctions.concat(
+    if (forwardedProps.tools) {
+      allTools = allTools.concat(
         // filter out any client functions that are already defined on the server
-        forwardedProps.functions.filter((fn: any) => !serverFunctionNames.includes(fn.name)),
+        forwardedProps.tools.filter((fn: any) => !serverFunctionNames.includes(fn.name)),
       );
     }
+
+    console.log({
+      model: this.model,
+      ...forwardedProps,
+      stream: true,
+      messages: messages as any,
+      ...(allTools.length > 0 ? { tools: allTools } : {}),
+    });
 
     const stream = this.openai.beta.chat.completions
       .stream({
@@ -49,7 +57,7 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
         ...forwardedProps,
         stream: true,
         messages: messages as any,
-        ...(allFunctions.length > 0 ? { functions: allFunctions } : {}),
+        ...(allTools.length > 0 ? { tools: allTools } : {}),
       })
       .toReadableStream();
     return openaiStreamInterceptor(stream, functions, this.debug);

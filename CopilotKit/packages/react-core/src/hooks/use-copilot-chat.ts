@@ -1,6 +1,6 @@
 import { useMemo, useContext } from "react";
 import { CopilotContext } from "../context/copilot-context";
-import { Message, FunctionDefinition } from "@copilotkit/shared";
+import { Message, ToolDefinition } from "@copilotkit/shared";
 import { SystemMessageFunction } from "../types";
 import { UseChatOptions, useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
@@ -43,7 +43,7 @@ export function useCopilotChat({
     };
   }, [getContextString, makeSystemMessage]);
 
-  const functionDescriptions: FunctionDefinition[] = useMemo(() => {
+  const functionDescriptions: ToolDefinition[] = useMemo(() => {
     return getChatCompletionFunctionDescriptions();
   }, [getChatCompletionFunctionDescriptions]);
 
@@ -52,7 +52,7 @@ export function useCopilotChat({
     copilotConfig: copilotApiConfig,
     id: options.id,
     initialMessages: [systemMessage].concat(options.initialMessages || []),
-    functions: functionDescriptions,
+    tools: functionDescriptions,
     onFunctionCall: getFunctionCallHandler(),
     headers: { ...options.headers },
     body: {

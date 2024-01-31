@@ -1,6 +1,6 @@
 import {
   Message,
-  FunctionDefinition,
+  ToolDefinition,
   ChatCompletionEvent,
   decodeChatCompletion,
   parseChatCompletion,
@@ -12,7 +12,7 @@ export interface FetchChatCompletionParams {
   copilotConfig: CopilotApiConfig;
   model?: string;
   messages: Message[];
-  functions?: FunctionDefinition[];
+  tools?: ToolDefinition[];
   temperature?: number;
   maxTokens?: number;
   headers?: Record<string, string> | Headers;
@@ -24,14 +24,14 @@ export async function fetchChatCompletion({
   copilotConfig,
   model,
   messages,
-  functions,
+  tools,
   temperature,
   headers,
   body,
   signal,
 }: FetchChatCompletionParams): Promise<Response> {
   temperature ||= 0.5;
-  functions ||= [];
+  tools ||= [];
 
   // clean up any extra properties from messages
   const cleanedMessages = messages.map((message) => {
@@ -50,9 +50,9 @@ export async function fetchChatCompletion({
       model,
       messages: cleanedMessages,
       stream: true,
-      ...(functions.length ? { functions } : {}),
+      ...(tools.length ? { tools } : {}),
       ...(temperature ? { temperature } : {}),
-      ...(functions.length != 0 ? { function_call: "auto" } : {}),
+      ...(tools.length != 0 ? { tool_choice: "auto" } : {}),
       ...copilotConfig.body,
       ...(body ? { ...body } : {}),
     }),
