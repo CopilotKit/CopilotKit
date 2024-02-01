@@ -79,7 +79,7 @@ export class CopilotTask<T = any> {
     }
 
     const reader = response.events.getReader();
-    let functionCall: FunctionCall | undefined;
+    let functionCalls: FunctionCall[] = [];
 
     while (true) {
       const { done, value } = await reader.read();
@@ -89,20 +89,22 @@ export class CopilotTask<T = any> {
       }
 
       if (value.type === "function") {
-        functionCall = {
+        functionCalls.push({
           name: value.name,
           arguments: JSON.stringify(value.arguments),
-        };
+        });
         break;
       }
     }
 
-    if (!functionCall) {
+    if (!functionCalls.length) {
       throw new Error("No function call occurred");
     }
 
     const functionCallHandler = context.getFunctionCallHandler(entryPoints);
-    await functionCallHandler(messages, functionCall);
+    for (const functionCall of functionCalls) {
+      await functionCallHandler(messages, functionCall);
+    }
   }
 }
 
