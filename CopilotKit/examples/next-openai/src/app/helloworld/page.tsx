@@ -9,6 +9,34 @@ import {
 } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useState } from "react";
+import EasySpeech from "easy-speech";
+
+const easySpeechDetect = EasySpeech.detect();
+const isSpeechSupported =
+  easySpeechDetect.speechSynthesis !== undefined &&
+  easySpeechDetect.speechSynthesisUtterance !== undefined;
+
+if (isSpeechSupported) {
+  EasySpeech.init({ maxTimeout: 5000, interval: 250 }).catch((e) => console.error(e));
+}
+
+function getVoice(language: string) {
+  const voicesByLanguage = {};
+  for (const voice of EasySpeech.voices()) {
+    const lang = voice.lang.split("-")[0];
+    voicesByLanguage[lang] ||= [];
+    voicesByLanguage[lang].push(voice);
+  }
+
+  const voices = voicesByLanguage[language] || voicesByLanguage["en"];
+  for (const voice of voices) {
+    if (voice.name.includes("Karen")) {
+      // Karen sounds ok
+      return voice;
+    }
+  }
+  return voices[0];
+}
 
 const HelloWorld = () => {
   return (
@@ -53,15 +81,31 @@ const Presentation = () => {
             "What to display in the background of the slide (i.e. 'dog' or 'house'), or 'none' for a blank background",
           required: true,
         },
+        {
+          name: "speech",
+          type: "string",
+          description: "An informative speech about the current slide.",
+          required: true,
+        },
+        {
+          name: "language",
+          type: "string",
+          description: "The language code used for the speech.",
+          required: false,
+        },
       ],
 
-      implementation: async (message, backgroundImage) => {
+      implementation: async (message, backgroundImage, speech, language) => {
         setState({
           message: message,
           backgroundImage: backgroundImage,
         });
 
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        if (isSpeechSupported) {
+          await EasySpeech.speak({ text: speech, voice: getVoice(language) });
+        } else {
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+        }
       },
     },
     [],
