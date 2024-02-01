@@ -65,7 +65,8 @@ const Presentation = () => {
   useMakeCopilotActionable(
     {
       name: "presentSlide",
-      description: "Present a slide in the presentation you are giving.",
+      description:
+        "Present a slide in the presentation you are giving. Call this function multiple times to present multiple slides.",
       argumentAnnotations: [
         {
           name: "message",
@@ -102,8 +103,19 @@ const Presentation = () => {
         });
 
         if (isSpeechSupported) {
-          await EasySpeech.speak({ text: speech, voice: getVoice(language) });
-          console.log("Done speaking");
+          // sometimes EasySpeech does not return, work around that
+          const speechPromise = EasySpeech.speak({ text: speech, voice: getVoice(language) });
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Timed out")), 15000),
+          );
+
+          try {
+            await Promise.race([speechPromise, timeoutPromise]);
+          } catch (error) {
+            console.error(error);
+          }
+          // wait a bit before continuing
+          await new Promise((resolve) => setTimeout(resolve, 500));
         } else {
           await new Promise((resolve) => setTimeout(resolve, 3000));
         }
@@ -113,7 +125,7 @@ const Presentation = () => {
   );
 
   const randomSlideTask = new CopilotTask({
-    instructions: "Make a random slide",
+    instructions: "Make a random slide related to the current topic",
   });
 
   const context = useCopilotContext();
