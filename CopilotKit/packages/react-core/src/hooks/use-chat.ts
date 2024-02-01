@@ -141,8 +141,8 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
           newMessages[newMessages.length - 1] = currentMessage;
           setMessages([...messages, ...newMessages]);
         } else if (value.type === "function") {
-          if (currentMessage.content != "") {
-            // Create a new message if the previous one is a text message
+          // Create a new message if the previous one is not empty
+          if (currentMessage.content != "" || currentMessage.function_call) {
             currentMessage = {
               id: nanoid(),
               createdAt: new Date(),
