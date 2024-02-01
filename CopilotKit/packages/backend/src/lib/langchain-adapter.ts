@@ -10,7 +10,7 @@ import { IterableReadableStream } from "@langchain/core/utils/stream";
 import { CopilotKitServiceAdapter } from "../types";
 
 export type LangChainMessageStream = IterableReadableStream<BaseMessageChunk>;
-export type LangChainReturnType = LangChainMessageStream | BaseMessageChunk | string;
+export type LangChainReturnType = LangChainMessageStream | BaseMessageChunk | string | AIMessage;
 
 export class LangChainAdapter implements CopilotKitServiceAdapter {
   constructor(private chainFn: (forwardedProps: any) => Promise<LangChainReturnType>) {}
@@ -20,28 +20,36 @@ export class LangChainAdapter implements CopilotKitServiceAdapter {
 
     const result = await this.chainFn(forwardedProps);
 
-    // We support 3 types of return values from LangChain functions:
+    // We support several types of return values from LangChain functions:
 
-    // 1. LangChainMessageStream
-    // In this case we get streaming output from LangChain and proxy the stream to the client.
-    if (result instanceof IterableReadableStream) {
-      return this.streamResult(result);
+    // 1. string
+    // Just send one chunk with the string as the content.
+    if (typeof result === "string") {
+      return new SingleChunkReadableStream(result);
     }
-    // 2. BaseMessageChunk
-    // The is a single chunk of output that might contain a function call.
-    // We wrap this in a stream and send it to the client.
-    else if (result instanceof BaseMessageChunk) {
+
+    // 2. AIMessage
+    // Send the content and function call of the AIMessage as the content of the chunk.
+    else if ("content" in result && typeof result.content === "string") {
+      return new SingleChunkReadableStream(result.content, result.additional_kwargs.function_call);
+    }
+
+    // 3. BaseMessageChunk
+    // Send the content and function call of the AIMessage as the content of the chunk.
+    else if ("lc_kwargs" in result) {
       return new SingleChunkReadableStream(
         result.lc_kwargs?.content,
         result.lc_kwargs?.function_call,
       );
     }
-    // 3. string
-    // Just send one chunk with the string as the content.
-    else if (typeof result === "string") {
-      return new SingleChunkReadableStream(result);
+
+    // 4. IterableReadableStream
+    // Stream the result of the LangChain function.
+    else if ("getReader" in result) {
+      return this.streamResult(result);
     }
 
+    console.error("Invalid return type from LangChain function.");
     throw new Error("Invalid return type from LangChain function.");
   }
 
