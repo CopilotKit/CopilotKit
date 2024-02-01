@@ -8,6 +8,7 @@ import {
 } from "@langchain/core/messages";
 import { IterableReadableStream } from "@langchain/core/utils/stream";
 import { CopilotKitServiceAdapter } from "../types";
+import { writeChatCompletionChunk, writeChatCompletionEnd } from "../utils";
 
 export type LangChainMessageStream = IterableReadableStream<BaseMessageChunk>;
 export type LangChainReturnType = LangChainMessageStream | BaseMessageChunk | string | AIMessage;
@@ -110,8 +111,7 @@ export class LangChainAdapter implements CopilotKitServiceAdapter {
             const { done, value } = await reader.read();
 
             if (done) {
-              const payload = new TextEncoder().encode("data: [DONE]\n\n");
-              controller.enqueue(payload);
+              writeChatCompletionEnd(controller);
               await cleanup(controller);
               return;
             }
@@ -129,8 +129,7 @@ export class LangChainAdapter implements CopilotKitServiceAdapter {
                 },
               ],
             };
-            const payload = new TextEncoder().encode("data: " + JSON.stringify(chunk) + "\n\n");
-            controller.enqueue(payload);
+            writeChatCompletionChunk(controller, chunk);
           } catch (error) {
             controller.error(error);
             await cleanup(controller);
@@ -163,11 +162,8 @@ class SingleChunkReadableStream extends ReadableStream<any> {
             },
           ],
         };
-        let payload = new TextEncoder().encode("data: " + JSON.stringify(chunk) + "\n\n");
-        controller.enqueue(payload);
-
-        payload = new TextEncoder().encode("data: [DONE]\n\n");
-        controller.enqueue(payload);
+        writeChatCompletionChunk(controller, chunk);
+        writeChatCompletionEnd(controller);
 
         controller.close();
       },
