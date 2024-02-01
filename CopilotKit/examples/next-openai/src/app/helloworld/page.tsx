@@ -103,6 +103,7 @@ const Presentation = () => {
 
         if (isSpeechSupported) {
           await EasySpeech.speak({ text: speech, voice: getVoice(language) });
+          console.log("Done speaking");
         } else {
           await new Promise((resolve) => setTimeout(resolve, 3000));
         }
