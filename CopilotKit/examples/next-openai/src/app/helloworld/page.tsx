@@ -106,7 +106,7 @@ const Presentation = () => {
           // sometimes EasySpeech does not return, work around that
           const speechPromise = EasySpeech.speak({ text: speech, voice: getVoice(language) });
           const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Timed out")), 15000),
+            setTimeout(() => reject(new Error("Timed out")), 30000),
           );
 
           try {
