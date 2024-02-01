@@ -1,0 +1,119 @@
+---
+title: "CopilotTask"
+description: "Execute one-off tasks using Copilot intelligence."
+---
+
+This class is used to execute one-off tasks, for example on button press. It
+can use the context available via [useMakeCopilotReadable](../useMakeCopilotReadable)
+and the actions provided by [useMakeCopilotActionable](../useMakeCopilotActionable), or
+you can provided your own context and actions.
+
+<RequestExample>
+  ```jsx CopilotTask Example
+  import { 
+    CopilotTask, 
+    useCopilotContext 
+  } from "@copilotkit/react-core";
+
+  const task = new CopilotTask({
+    instructions: "Set a random message",
+    functions: [
+      {
+      name: "setMessage",
+      description: "Set the message.",
+      argumentAnnotations: [
+        {
+          name: "message",
+          type: "string",
+          description:
+            "A message to display.",
+          required: true,
+        },      
+      ],
+
+      implementation: async (message) => {
+        // ...
+      },
+    }
+    ]
+  });
+  const context = useCopilotContext();
+  await task.run(context);
+  ```
+</RequestExample>
+
+In the simplest case, use CopilotTask in the context of your app by giving it instructions on what to do.
+
+```jsx
+import { 
+    CopilotTask, 
+    useCopilotContext 
+  } from "@copilotkit/react-core";
+  
+const randomSlideTask = new CopilotTask({
+  instructions: "Make a random slide",
+});
+
+const context = useCopilotContext();
+
+return (
+  <button onClick={() => randomSlideTask.run(context)}>
+    Make a random slide
+  </button>
+);
+```
+
+Have a look at the [Hello world example](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/examples/next-openai/src/app/helloworld/page.tsx) 
+for a more complete example.
+
+It's also possible to provide your own context and actions. In addition, you can specify to ignore
+`useMakeCopilotReadable` and `useMakeCopilotActionable`.
+
+```jsx
+import { 
+    CopilotTask, 
+    useCopilotContext 
+  } from "@copilotkit/react-core";
+  
+const standaloneTask = new CopilotTask({
+  instructions: "Do something standalone",
+  data: [...],
+  functions: [...],
+  includeCopilotReadable: false, // Don't use current context
+  includeCopilotActionable: false, // Don't use current actions
+});
+
+const context = useCopilotContext();
+
+standaloneTask.run(context);
+```
+
+## Constructor
+
+<ResponseField name="instructions" type="string" required>
+  The instructions to be given to the assistant.
+</ResponseField>
+
+<ResponseField name="functions" type="AnnotatedFunction">
+  An array of function definitions that can be called.
+</ResponseField>
+
+<ResponseField name="includeCopilotReadable" type="boolean">
+  Whether to include the copilot readable context in the task.
+</ResponseField>
+
+<ResponseField name="includeCopilotActionable" type="boolean">
+  Whether to include functions defined via `useMakeCopilotActionable` in the task.
+</ResponseField>
+
+## run()
+
+Run the task.
+
+<ResponseField name="context" type="CopilotContext" required>
+  The CopilotContext to use for the task. Use `useCopilotContext` to obtain the current context.
+</ResponseField>
+
+<ResponseField name="data" type="any">
+  The data to use for the task.
+</ResponseField>
