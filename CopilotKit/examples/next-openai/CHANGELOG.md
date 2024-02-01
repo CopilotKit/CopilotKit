@@ -1,5 +1,20 @@
 # web
 
+## 1.16.0-tools.0
+
+### Minor Changes
+
+- Test the tools API
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.20.0-tools.0
+  - @copilotkit/backend@0.4.0-tools.0
+  - @copilotkit/shared@0.4.0-tools.0
+  - @copilotkit/react-textarea@0.30.0-tools.0
+  - @copilotkit/react-ui@0.17.0-tools.0
+
 ## 1.15.0
 
 ### Minor Changes
