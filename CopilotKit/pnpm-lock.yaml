@@ -48,6 +48,9 @@ importers:
       '@heroicons/react':
         specifier: ^2.0.18
         version: 2.0.18(react@18.2.0)
+      easy-speech:
+        specifier: ^2.3.1
+        version: 2.3.1
       next:
         specifier: ^13.4.9
         version: 13.4.9(react-dom@18.2.0)(react@18.2.0)
@@ -4126,6 +4129,11 @@ packages:
     dependencies:
       '@babel/runtime': 7.23.1
       csstype: 3.1.2
+    dev: false
+
+  /easy-speech@2.3.1:
+    resolution: {integrity: sha512-oM7vvpbjmC9Ci/6CR/9DnGHci5hCSkXtlSy1aAFzXGdQPR4IH4jqkc/hQAM+slhCLM/wn/QrpgPOUGbxuR+Z3g==}
+    engines: {node: '>= 14.x'}
     dev: false
 
   /electron-to-chromium@1.4.284:
