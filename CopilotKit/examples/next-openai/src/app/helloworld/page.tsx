@@ -30,8 +30,11 @@ function getVoice(language: string) {
 
   const voices = voicesByLanguage[language] || voicesByLanguage["en"];
   for (const voice of voices) {
-    if (voice.name.includes("Karen")) {
+    if (language == "en" && voice.name.includes("Karen")) {
       // Karen sounds ok
+      return voice;
+    } else if (language == "de" && voice.name.includes("Anna")) {
+      // Anna sounds quite good
       return voice;
     }
   }
