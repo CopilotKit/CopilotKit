@@ -197,6 +197,8 @@ export function copilotkitStreamInterceptor(
             await executeFunctionCall();
           }
 
+          currentFnIndex = index;
+
           // if we get a message, emit the content and continue;
           if (mode === "message") {
             if (value.choices[0].delta.content) {
