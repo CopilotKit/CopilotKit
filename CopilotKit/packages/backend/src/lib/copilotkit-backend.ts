@@ -1,9 +1,5 @@
 import http from "http";
-import {
-  AnnotatedFunction,
-  annotatedFunctionToChatCompletionFunction,
-  FunctionDefinition,
-} from "@copilotkit/shared";
+import { AnnotatedFunction, annotatedFunctionToChatCompletionFunction } from "@copilotkit/shared";
 import { CopilotKitServiceAdapter } from "../types";
 import { copilotkitStreamInterceptor } from "../utils";
 import { ToolDefinition } from "@copilotkit/shared";
