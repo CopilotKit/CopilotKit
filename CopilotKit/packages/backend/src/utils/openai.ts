@@ -110,7 +110,7 @@ function countTokens(text: string): number {
  *
  * TODO: add proper error handling and logging
  */
-export function openaiStreamInterceptor(
+export function copilotkitStreamInterceptor(
   stream: ReadableStream<Uint8Array>,
   functions: AnnotatedFunction<any[]>[],
   debug: boolean = false,

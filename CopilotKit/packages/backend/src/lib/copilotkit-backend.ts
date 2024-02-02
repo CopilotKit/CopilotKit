@@ -5,7 +5,7 @@ import {
   Function,
 } from "@copilotkit/shared";
 import { CopilotKitServiceAdapter } from "../types";
-import { openaiStreamInterceptor } from "../utils";
+import { copilotkitStreamInterceptor } from "../utils";
 
 interface CopilotBackendConstructorParams {
   functions?: AnnotatedFunction<any[]>[];
@@ -43,7 +43,7 @@ export class CopilotBackend {
       ...forwardedProps,
       functions: mergedFunctions,
     });
-    return openaiStreamInterceptor(openaiCompatibleStream, this.functions, this.debug);
+    return copilotkitStreamInterceptor(openaiCompatibleStream, this.functions, this.debug);
   }
 
   async response(req: Request, serviceAdapter: CopilotKitServiceAdapter): Promise<Response> {
