@@ -97,8 +97,18 @@ const Presentation = () => {
 
         if (window.speechSynthesis !== undefined) {
           const utterance = new SpeechSynthesisUtterance(speech);
-          utterance.voice = getVoice(language);
+          utterance.voice = getVoice(language || "en");
+
+          const speechFinished = new Promise<void>((resolve) => {
+            utterance.onend = function () {
+              resolve();
+            };
+          });
+
           window.speechSynthesis.speak(utterance);
+
+          await speechFinished;
+
           // wait a bit before continuing
           await new Promise((resolve) => setTimeout(resolve, 500));
         } else {
