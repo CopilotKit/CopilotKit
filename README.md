@@ -69,14 +69,13 @@ in-app chatbots, and AI-enabled Textareas.
 ---
 
 <h3 align="center">
-  <strong> Fundemental building blocks</strong> for powering rich Copilot experiences and AI-native applications. <br/> <br/>
-  Code-first & fully customizable. <br/>
-  (also works out of the box)
+  Building blocks for AI Copilots & AI-native Applications.
 </h3>
 
-<h3 align="center">
-  Use OpenAI or bring your own LLM.
-</h3>
+<div align="center">
+    Code-first & fully customizable. Use OpenAI or bring your own LLM. <br/>
+
+</div>
 
 ---
 
@@ -95,9 +94,15 @@ AI-assisted text generation. Drop-in replacement for any `<textarea />.`<br />
 Autocompletions + AI editing + generate from scratch. Indexed on your users' content.<br/>
 
 ## How does it work
-You **define simple standalone entrypoints** into your application, and the Copilot execution engine takes care of the rest.
+**Define the following simple entry-points** into your application, and the CopilotKit🪁 execution engine takes care of the rest!
+-  **Application state** (frontend + backend + 3rd party)
+-  **Application interaction** (via plain typescript code, frontend + backend)
+-  **Purpose-specific LLM chains**
+-  **Application interaction** (via plain typescript code, frontend + backend)
+-  and more.
 
-You can define entrypoints into **application state** (frontend + backend + 3rd party), **application interaction** (via plain typescript code, frontend + backend), usecase-specific **LLM chains**, and more.
+CopilotKit also provides builit-in (fully-customizable) Copilot-native UX components, including: <br/>
+`CopilotChat`, `CopilotSidebar`, `CopilotPopup`, and `CopilotTextarea`.
 
 
 ## Installation
