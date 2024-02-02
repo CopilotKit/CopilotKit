@@ -32,7 +32,7 @@ export class LangChainAdapter implements CopilotKitServiceAdapter {
     // 2. AIMessage
     // Send the content and function call of the AIMessage as the content of the chunk.
     else if ("content" in result && typeof result.content === "string") {
-      return new SingleChunkReadableStream(result.content, result.additional_kwargs.function_call);
+      return new SingleChunkReadableStream(result.content, result.additional_kwargs?.function_call);
     }
 
     // 3. BaseMessageChunk
