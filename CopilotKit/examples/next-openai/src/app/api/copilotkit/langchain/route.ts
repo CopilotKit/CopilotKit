@@ -1,4 +1,8 @@
-import { CopilotBackend, OpenAIAdapter } from "@copilotkit/backend";
+import { CopilotBackend, LangChainAdapter } from "@copilotkit/backend";
+
+import { ChatOpenAI } from "@langchain/openai";
+import { ChatPromptTemplate } from "@langchain/core/prompts";
+import { StringOutputParser } from "@langchain/core/output_parsers";
 
 export const runtime = "edge";
 
@@ -23,5 +27,11 @@ export async function POST(req: Request): Promise<Response> {
     ],
   });
 
-  return copilotKit.response(req, new OpenAIAdapter());
+  return copilotKit.response(
+    req,
+    new LangChainAdapter(async (forwardedProps) => {
+      const model = new ChatOpenAI({ modelName: "gpt-4" });
+      return model.stream(forwardedProps.messages, { functions: forwardedProps.functions });
+    }),
+  );
 }

@@ -1,16 +1,25 @@
 import http from "http";
-import { AnnotatedFunction } from "@copilotkit/shared";
+import {
+  AnnotatedFunction,
+  annotatedFunctionToChatCompletionFunction,
+  FunctionDefinition,
+} from "@copilotkit/shared";
 import { CopilotKitServiceAdapter } from "../types";
+import { copilotkitStreamInterceptor } from "../utils";
+import { ToolDefinition } from "@copilotkit/shared";
 
 interface CopilotBackendConstructorParams {
   functions?: AnnotatedFunction<any[]>[];
+  debug?: boolean;
 }
 
 export class CopilotBackend {
   private functions: AnnotatedFunction<any[]>[] = [];
+  private debug: boolean = false;
 
   constructor(params?: CopilotBackendConstructorParams) {
     this.functions = params?.functions || [];
+    this.debug = params?.debug || false;
   }
 
   addFunction(func: AnnotatedFunction<any[]>): void {
@@ -22,15 +31,27 @@ export class CopilotBackend {
     this.functions = this.functions.filter((f) => f.name !== funcName);
   }
 
-  stream(forwardedProps: any, serviceAdapter: CopilotKitServiceAdapter): ReadableStream {
-    return serviceAdapter.stream(this.functions, forwardedProps);
+  async stream(
+    forwardedProps: any,
+    serviceAdapter: CopilotKitServiceAdapter,
+  ): Promise<ReadableStream> {
+    const mergedTools = mergeServerSideTools(
+      this.functions.map(annotatedFunctionToChatCompletionFunction),
+      forwardedProps.tools,
+    );
+
+    const openaiCompatibleStream = await serviceAdapter.stream({
+      ...forwardedProps,
+      tools: mergedTools,
+    });
+    return copilotkitStreamInterceptor(openaiCompatibleStream, this.functions, this.debug);
   }
 
   async response(req: Request, serviceAdapter: CopilotKitServiceAdapter): Promise<Response> {
     try {
-      return new Response(this.stream(await req.json(), serviceAdapter));
+      return new Response(await this.stream(await req.json(), serviceAdapter));
     } catch (error: any) {
-      return new Response("", { status: 500, statusText: error.error.message });
+      return new Response("", { status: 500, statusText: error.message });
     }
   }
 
@@ -51,7 +72,7 @@ export class CopilotBackend {
       });
     });
     const forwardedProps = await bodyParser;
-    const stream = this.stream(forwardedProps, serviceAdapter);
+    const stream = await this.stream(forwardedProps, serviceAdapter);
     const reader = stream.getReader();
 
     while (true) {
@@ -64,4 +85,19 @@ export class CopilotBackend {
       }
     }
   }
+}
+
+export function mergeServerSideTools(
+  serverTools: ToolDefinition[],
+  clientTools?: ToolDefinition[],
+) {
+  let allTools: ToolDefinition[] = serverTools.slice();
+  const serverToolsNames = serverTools.map((tool) => tool.function.name);
+  if (clientTools) {
+    allTools = allTools.concat(
+      // filter out any client functions that are already defined on the server
+      clientTools.filter((tool: ToolDefinition) => !serverToolsNames.includes(tool.function.name)),
+    );
+  }
+  return allTools;
 }
