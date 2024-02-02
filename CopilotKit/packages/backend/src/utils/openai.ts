@@ -1,6 +1,5 @@
-import { Message, Function, ChatCompletionChunk } from "@copilotkit/shared";
+import { Message, ToolDefinition, ChatCompletionChunk } from "@copilotkit/shared";
 import { AnnotatedFunction, parseChatCompletion } from "@copilotkit/shared";
-import { write } from "fs";
 
 export function writeChatCompletionChunk(
   controller: ReadableStreamDefaultController<any>,
@@ -17,17 +16,15 @@ export function writeChatCompletionEnd(controller: ReadableStreamDefaultControll
 
 export function limitOpenAIMessagesToTokenCount(
   messages: Message[],
-  functions: Function[],
+  tools: ToolDefinition[],
   maxTokens: number,
 ): Message[] {
   const result: Message[] = [];
-  const functionsNumTokens = countFunctionsTokens(functions);
-  if (functionsNumTokens > maxTokens) {
-    throw new Error(
-      `Too many tokens in function definitions: ${functionsNumTokens} > ${maxTokens}`,
-    );
+  const toolsNumTokens = countToolsTokens(tools);
+  if (toolsNumTokens > maxTokens) {
+    throw new Error(`Too many tokens in function definitions: ${toolsNumTokens} > ${maxTokens}`);
   }
-  maxTokens -= functionsNumTokens;
+  maxTokens -= toolsNumTokens;
 
   for (const message of messages) {
     if (message.role === "system") {
@@ -83,7 +80,7 @@ const maxTokensByModel: { [key: string]: number } = {
   "gpt-3.5-turbo-16k-0613": 16385,
 };
 
-function countFunctionsTokens(functions: Function[]): number {
+function countToolsTokens(functions: ToolDefinition[]): number {
   if (functions.length === 0) {
     return 0;
   }
@@ -146,6 +143,8 @@ export function copilotkitStreamInterceptor(
   let functionCallName = "";
   let functionCallArguments = "";
 
+  let currentFnIndex = 0;
+
   const executeFunctionCall = async (): Promise<boolean> => {
     const fn = functionsByName[functionCallName];
     let args: Record<string, any>[] = [];
@@ -185,17 +184,20 @@ export function copilotkitStreamInterceptor(
             console.log("data: " + JSON.stringify(value) + "\n\n");
           }
 
-          // We are in the middle of a function call and got a non function call chunk
-          // so we need to execute the function call first
-          if (executeThisFunctionCall && !value.choices[0].delta.function_call) {
-            if (!(await executeFunctionCall())) {
-              return;
-            }
-          }
-
-          let mode: "function" | "message" = value.choices[0].delta.function_call
+          let mode: "function" | "message" = value.choices[0].delta.tool_calls
             ? "function"
             : "message";
+
+          const index = (value.choices[0].delta.tool_calls?.[0]?.index || 0) as number;
+
+          // We are in the middle of a function call and got a non function call chunk
+          // or a different function call
+          // => execute the function call first
+          if (executeThisFunctionCall && (mode != "function" || index != currentFnIndex)) {
+            await executeFunctionCall();
+          }
+
+          currentFnIndex = index;
 
           // if we get a message, emit the content and continue;
           if (mode === "message") {
@@ -207,12 +209,12 @@ export function copilotkitStreamInterceptor(
           // if we get a function call, emit it only if we don't execute it server side
           else if (mode === "function") {
             // Set the function name if present
-            if (value.choices[0].delta.function_call!.name) {
-              functionCallName = value.choices[0].delta.function_call!.name!;
+            if (value.choices[0].delta.tool_calls?.[0]?.function?.name) {
+              functionCallName = value.choices[0].delta.tool_calls![0].function.name!;
             }
             // If we have argument streamed back, add them to the function call arguments
-            if (value.choices[0].delta.function_call!.arguments) {
-              functionCallArguments += value.choices[0].delta.function_call!.arguments!;
+            if (value.choices[0].delta.tool_calls?.[0]?.function?.arguments) {
+              functionCallArguments += value.choices[0].delta.tool_calls![0].function.arguments!;
             }
             if (!executeThisFunctionCall) {
               // Decide if we should execute the function call server side

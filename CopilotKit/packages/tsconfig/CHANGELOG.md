@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.9.0-tools.0
+
+### Minor Changes
+
+- Test the tools API
+
 ## 0.8.0
 
 ### Minor Changes

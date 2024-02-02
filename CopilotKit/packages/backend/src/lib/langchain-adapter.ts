@@ -32,16 +32,13 @@ export class LangChainAdapter implements CopilotKitServiceAdapter {
     // 2. AIMessage
     // Send the content and function call of the AIMessage as the content of the chunk.
     else if ("content" in result && typeof result.content === "string") {
-      return new SingleChunkReadableStream(result.content, result.additional_kwargs?.function_call);
+      return new SingleChunkReadableStream(result.content, result.additional_kwargs?.tool_calls);
     }
 
     // 3. BaseMessageChunk
     // Send the content and function call of the AIMessage as the content of the chunk.
     else if ("lc_kwargs" in result) {
-      return new SingleChunkReadableStream(
-        result.lc_kwargs?.content,
-        result.lc_kwargs?.function_call,
-      );
+      return new SingleChunkReadableStream(result.lc_kwargs?.content, result.lc_kwargs?.tool_calls);
     }
 
     // 4. IterableReadableStream
@@ -116,7 +113,7 @@ export class LangChainAdapter implements CopilotKitServiceAdapter {
               return;
             }
 
-            const functionCall = value.lc_kwargs?.additional_kwargs?.function_call;
+            const toolCalls = value.lc_kwargs?.additional_kwargs?.tool_calls;
             const content = value?.lc_kwargs?.content;
             const chunk: ChatCompletionChunk = {
               choices: [
@@ -124,7 +121,7 @@ export class LangChainAdapter implements CopilotKitServiceAdapter {
                   delta: {
                     role: "assistant",
                     content: content,
-                    ...(functionCall ? { function_call: functionCall } : {}),
+                    ...(toolCalls ? { tool_calls: toolCalls } : {}),
                   },
                 },
               ],
@@ -148,7 +145,7 @@ export class LangChainAdapter implements CopilotKitServiceAdapter {
  * A ReadableStream that only emits a single chunk.
  */
 class SingleChunkReadableStream extends ReadableStream<any> {
-  constructor(content: string = "", functionCall?: any) {
+  constructor(content: string = "", toolCalls?: any) {
     super({
       start(controller) {
         const chunk: ChatCompletionChunk = {
@@ -157,7 +154,7 @@ class SingleChunkReadableStream extends ReadableStream<any> {
               delta: {
                 role: "assistant",
                 content,
-                ...(functionCall ? { function_call: functionCall } : {}),
+                ...(toolCalls ? { tool_calls: toolCalls } : {}),
               },
             },
           ],

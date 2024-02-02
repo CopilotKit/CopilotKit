@@ -1,5 +1,16 @@
 # ui
 
+## 0.20.0-tools.0
+
+### Minor Changes
+
+- Test the tools API
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.4.0-tools.0
+
 ## 0.19.0
 
 ### Minor Changes

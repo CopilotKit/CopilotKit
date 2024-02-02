@@ -22,7 +22,7 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
   stream(forwardedProps: any): ReadableStream {
     const messages = limitOpenAIMessagesToTokenCount(
       forwardedProps.messages || [],
-      forwardedProps.functions || [],
+      forwardedProps.tools || [],
       maxTokensForOpenAIModel(forwardedProps.model || DEFAULT_MODEL),
     );
 
@@ -32,7 +32,7 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
         ...forwardedProps,
         stream: true,
         messages: messages as any,
-        ...(forwardedProps.functions.length > 0 ? { functions: forwardedProps.functions } : {}),
+        ...(forwardedProps.tools.length > 0 ? { tools: forwardedProps.tools } : {}),
       })
       .toReadableStream();
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Function } from "@copilotkit/shared";
+import { FunctionDefinition } from "@copilotkit/shared";
 import { useCallback, useState } from "react";
 import { CopilotContext, CopilotApiConfig } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
@@ -13,6 +13,7 @@ import {
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { StandardCopilotApiConfig } from "./standard-copilot-api-config";
 import { CopilotKitProps } from "./copilotkit-props";
+import { ToolDefinition } from "@copilotkit/shared";
 
 /**
  * The CopilotKit component.
@@ -228,6 +229,8 @@ function entryPointsToFunctionCallHandler(
   };
 }
 
-function entryPointsToChatCompletionFunctions(entryPoints: AnnotatedFunction<any[]>[]): Function[] {
+function entryPointsToChatCompletionFunctions(
+  entryPoints: AnnotatedFunction<any[]>[],
+): ToolDefinition[] {
   return entryPoints.map(annotatedFunctionToChatCompletionFunction);
 }

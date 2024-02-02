@@ -10,6 +10,27 @@ import {
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useState } from "react";
 
+function getVoice(language: string) {
+  const voicesByLanguage = {};
+  for (const voice of window.speechSynthesis.getVoices()) {
+    const lang = voice.lang.split("-")[0];
+    voicesByLanguage[lang] ||= [];
+    voicesByLanguage[lang].push(voice);
+  }
+
+  const voices = voicesByLanguage[language] || voicesByLanguage["en"];
+  for (const voice of voices) {
+    if (language == "en" && voice.name.includes("Karen")) {
+      // Karen sounds ok
+      return voice;
+    } else if (language == "de" && voice.name.includes("Anna")) {
+      // Anna sounds quite good
+      return voice;
+    }
+  }
+  return voices[0];
+}
+
 const HelloWorld = () => {
   return (
     <CopilotKit url="/api/copilotkit/openai">
@@ -37,7 +58,8 @@ const Presentation = () => {
   useMakeCopilotActionable(
     {
       name: "presentSlide",
-      description: "Present a slide in the presentation you are giving.",
+      description:
+        "Present a slide in the presentation you are giving. Call this function multiple times to present multiple slides.",
       argumentAnnotations: [
         {
           name: "message",
@@ -53,20 +75,52 @@ const Presentation = () => {
             "What to display in the background of the slide (i.e. 'dog' or 'house'), or 'none' for a blank background",
           required: true,
         },
+        {
+          name: "speech",
+          type: "string",
+          description: "An informative speech about the current slide.",
+          required: true,
+        },
+        {
+          name: "language",
+          type: "string",
+          description: "The language code used for the speech.",
+          required: false,
+        },
       ],
 
-      implementation: async (message, backgroundImage) => {
+      implementation: async (message, backgroundImage, speech, language) => {
         setState({
           message: message,
           backgroundImage: backgroundImage,
         });
+
+        if (window.speechSynthesis !== undefined) {
+          const utterance = new SpeechSynthesisUtterance(speech);
+          utterance.voice = getVoice(language || "en");
+
+          const speechFinished = new Promise<void>((resolve) => {
+            utterance.onend = function () {
+              resolve();
+            };
+          });
+
+          window.speechSynthesis.speak(utterance);
+
+          await speechFinished;
+
+          // wait a bit before continuing
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        } else {
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+        }
       },
     },
     [],
   );
 
   const randomSlideTask = new CopilotTask({
-    instructions: "Make a random slide",
+    instructions: "Make a random slide related to the current topic",
   });
 
   const context = useCopilotContext();

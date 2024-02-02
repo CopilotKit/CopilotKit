@@ -1,0 +1,19 @@
+{
+  "mode": "pre",
+  "tag": "tools",
+  "initialVersions": {
+    "next-openai": "1.15.0",
+    "node": "1.15.0",
+    "@copilotkit/backend": "0.3.0",
+    "eslint-config-custom": "0.4.0",
+    "@copilotkit/react-core": "0.19.0",
+    "@copilotkit/react-textarea": "0.29.0",
+    "@copilotkit/react-ui": "0.16.0",
+    "@copilotkit/shared": "0.3.0",
+    "tailwind-config": "0.3.0",
+    "tsconfig": "0.8.0"
+  },
+  "changesets": [
+    "metal-comics-enjoy"
+  ]
+}

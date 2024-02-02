@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Message, Function, FunctionCallHandler, FunctionCall } from "@copilotkit/shared";
+import { Message, ToolDefinition, FunctionCallHandler } from "@copilotkit/shared";
 import { nanoid } from "nanoid";
 import { fetchAndDecodeChatCompletion } from "../utils/fetch-chat-completion";
 import { CopilotApiConfig } from "../context";
@@ -46,7 +46,7 @@ export type UseChatOptions = {
   /**
    * Function definitions to be sent to the API.
    */
-  functions?: Function[];
+  tools?: ToolDefinition[];
 };
 
 export type UseChatHelpers = {
@@ -86,24 +86,27 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
   const [isLoading, setIsLoading] = useState(false);
   const abortControllerRef = useRef<AbortController>();
 
-  const runChatCompletion = async (messages: Message[]): Promise<Message> => {
+  const runChatCompletion = async (messages: Message[]): Promise<Message[]> => {
     setIsLoading(true);
-    const assistantMessage: Message = {
-      id: nanoid(),
-      createdAt: new Date(),
-      content: "",
-      role: "assistant",
-    };
+
+    const newMessages: Message[] = [
+      {
+        id: nanoid(),
+        createdAt: new Date(),
+        content: "",
+        role: "assistant",
+      },
+    ];
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
-    setMessages([...messages, { ...assistantMessage }]);
+    setMessages([...messages, ...newMessages]);
 
     const messagesWithContext = [...(options.initialMessages || []), ...messages];
     const response = await fetchAndDecodeChatCompletion({
       copilotConfig: options.copilotConfig,
       messages: messagesWithContext,
-      functions: options.functions,
+      tools: options.tools,
       headers: options.headers,
       signal: abortController.signal,
     });
@@ -113,41 +116,60 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
     }
 
     const reader = response.events.getReader();
-
-    while (true) {
-      try {
+    try {
+      while (true) {
         const { done, value } = await reader.read();
 
         if (done) {
-          setIsLoading(false);
-          return { ...assistantMessage };
+          return newMessages.slice();
         }
 
+        let currentMessage = Object.assign({}, newMessages[newMessages.length - 1]);
+
         if (value.type === "content") {
-          assistantMessage.content += value.content;
-          setMessages([...messages, { ...assistantMessage }]);
+          if (currentMessage.function_call) {
+            // Create a new message if the previous one is a function call
+            currentMessage = {
+              id: nanoid(),
+              createdAt: new Date(),
+              content: "",
+              role: "assistant",
+            };
+            newMessages.push(currentMessage);
+          }
+          currentMessage.content += value.content;
+          newMessages[newMessages.length - 1] = currentMessage;
+          setMessages([...messages, ...newMessages]);
         } else if (value.type === "function") {
-          assistantMessage.function_call = {
+          // Create a new message if the previous one is not empty
+          if (currentMessage.content != "" || currentMessage.function_call) {
+            currentMessage = {
+              id: nanoid(),
+              createdAt: new Date(),
+              content: "",
+              role: "assistant",
+            };
+            newMessages.push(currentMessage);
+          }
+          currentMessage.function_call = {
             name: value.name,
             arguments: JSON.stringify(value.arguments),
           };
-          setMessages([...messages, { ...assistantMessage }]);
-          // quit early if we get a function call
-          setIsLoading(false);
-          return { ...assistantMessage };
+
+          newMessages[newMessages.length - 1] = currentMessage;
+          setMessages([...messages, ...newMessages]);
+
+          // Execute the function call
+          await options.onFunctionCall?.(messages, currentMessage.function_call);
         }
-      } catch (error) {
-        setIsLoading(false);
-        throw error;
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const runChatCompletionAndHandleFunctionCall = async (messages: Message[]): Promise<void> => {
-    const message = await runChatCompletion(messages);
-    if (message.function_call && options.onFunctionCall) {
-      await options.onFunctionCall(messages, message.function_call as FunctionCall);
-    }
+    await runChatCompletion(messages);
   };
 
   const append = async (message: Message): Promise<void> => {

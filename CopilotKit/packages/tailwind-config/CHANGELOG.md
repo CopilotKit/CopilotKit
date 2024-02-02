@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 0.4.0-tools.0
+
+### Minor Changes
+
+- Test the tools API
+
 ## 0.3.0
 
 ### Minor Changes

@@ -1,11 +1,8 @@
 import http from "http";
-import {
-  AnnotatedFunction,
-  annotatedFunctionToChatCompletionFunction,
-  Function,
-} from "@copilotkit/shared";
+import { AnnotatedFunction, annotatedFunctionToChatCompletionFunction } from "@copilotkit/shared";
 import { CopilotKitServiceAdapter } from "../types";
 import { copilotkitStreamInterceptor } from "../utils";
+import { ToolDefinition } from "@copilotkit/shared";
 
 interface CopilotBackendConstructorParams {
   functions?: AnnotatedFunction<any[]>[];
@@ -34,14 +31,14 @@ export class CopilotBackend {
     forwardedProps: any,
     serviceAdapter: CopilotKitServiceAdapter,
   ): Promise<ReadableStream> {
-    const mergedFunctions = mergeServerSideFunctions(
+    const mergedTools = mergeServerSideTools(
       this.functions.map(annotatedFunctionToChatCompletionFunction),
-      forwardedProps.functions,
+      forwardedProps.tools,
     );
 
     const openaiCompatibleStream = await serviceAdapter.stream({
       ...forwardedProps,
-      functions: mergedFunctions,
+      tools: mergedTools,
     });
     return copilotkitStreamInterceptor(openaiCompatibleStream, this.functions, this.debug);
   }
@@ -86,14 +83,17 @@ export class CopilotBackend {
   }
 }
 
-export function mergeServerSideFunctions(serverFns: Function[], clientFns?: Function[]) {
-  let allFunctions: Function[] = serverFns.slice();
-  const serverFunctionNames = serverFns.map((fn) => fn.name);
-  if (clientFns) {
-    allFunctions = allFunctions.concat(
+export function mergeServerSideTools(
+  serverTools: ToolDefinition[],
+  clientTools?: ToolDefinition[],
+) {
+  let allTools: ToolDefinition[] = serverTools.slice();
+  const serverToolsNames = serverTools.map((tool) => tool.function.name);
+  if (clientTools) {
+    allTools = allTools.concat(
       // filter out any client functions that are already defined on the server
-      clientFns.filter((fn: any) => !serverFunctionNames.includes(fn.name)),
+      clientTools.filter((tool: ToolDefinition) => !serverToolsNames.includes(tool.function.name)),
     );
   }
-  return allFunctions;
+  return allTools;
 }
