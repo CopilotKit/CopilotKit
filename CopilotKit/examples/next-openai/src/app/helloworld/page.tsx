@@ -9,20 +9,10 @@ import {
 } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useState } from "react";
-import EasySpeech from "easy-speech";
-
-const easySpeechDetect = EasySpeech.detect();
-const isSpeechSupported =
-  easySpeechDetect.speechSynthesis !== undefined &&
-  easySpeechDetect.speechSynthesisUtterance !== undefined;
-
-if (isSpeechSupported) {
-  EasySpeech.init({ maxTimeout: 5000, interval: 250 }).catch((e) => console.error(e));
-}
 
 function getVoice(language: string) {
   const voicesByLanguage = {};
-  for (const voice of EasySpeech.voices()) {
+  for (const voice of window.speechSynthesis.getVoices()) {
     const lang = voice.lang.split("-")[0];
     voicesByLanguage[lang] ||= [];
     voicesByLanguage[lang].push(voice);
@@ -105,18 +95,10 @@ const Presentation = () => {
           backgroundImage: backgroundImage,
         });
 
-        if (isSpeechSupported) {
-          // sometimes EasySpeech does not return, work around that
-          const speechPromise = EasySpeech.speak({ text: speech, voice: getVoice(language) });
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Timed out")), 30000),
-          );
-
-          try {
-            await Promise.race([speechPromise, timeoutPromise]);
-          } catch (error) {
-            console.error(error);
-          }
+        if (window.speechSynthesis !== undefined) {
+          const utterance = new SpeechSynthesisUtterance(speech);
+          utterance.voice = getVoice(language);
+          window.speechSynthesis.speak(utterance);
           // wait a bit before continuing
           await new Promise((resolve) => setTimeout(resolve, 500));
         } else {

@@ -16,7 +16,6 @@
     "@copilotkit/react-ui": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@heroicons/react": "^2.0.18",
-    "easy-speech": "^2.3.1",
     "@langchain/core": "^0.1.18",
     "@langchain/openai": "^0.0.13",
     "next": "^13.4.9",
