@@ -21,8 +21,8 @@
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
   },
   "devDependencies": {
-    "@types/node": "^18.11.17",
     "@types/jest": "^29.5.4",
+    "@types/node": "^18.11.17",
     "eslint": "^7.32.0",
     "eslint-config-custom": "workspace:*",
     "jest": "^29.6.4",
@@ -33,7 +33,10 @@
   },
   "dependencies": {
     "@copilotkit/shared": "workspace:*",
+    "@langchain/core": "^0.1.18",
+    "@langchain/openai": "^0.0.13",
     "js-tiktoken": "^1.0.8",
+    "langchain": "^0.1.9",
     "openai": "^4.19.0"
   }
 }

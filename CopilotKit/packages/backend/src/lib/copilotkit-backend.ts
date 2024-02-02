@@ -1,16 +1,24 @@
 import http from "http";
-import { AnnotatedFunction } from "@copilotkit/shared";
+import {
+  AnnotatedFunction,
+  annotatedFunctionToChatCompletionFunction,
+  Function,
+} from "@copilotkit/shared";
 import { CopilotKitServiceAdapter } from "../types";
+import { copilotkitStreamInterceptor } from "../utils";
 
 interface CopilotBackendConstructorParams {
   functions?: AnnotatedFunction<any[]>[];
+  debug?: boolean;
 }
 
 export class CopilotBackend {
   private functions: AnnotatedFunction<any[]>[] = [];
+  private debug: boolean = false;
 
   constructor(params?: CopilotBackendConstructorParams) {
     this.functions = params?.functions || [];
+    this.debug = params?.debug || false;
   }
 
   addFunction(func: AnnotatedFunction<any[]>): void {
@@ -22,15 +30,27 @@ export class CopilotBackend {
     this.functions = this.functions.filter((f) => f.name !== funcName);
   }
 
-  stream(forwardedProps: any, serviceAdapter: CopilotKitServiceAdapter): ReadableStream {
-    return serviceAdapter.stream(this.functions, forwardedProps);
+  async stream(
+    forwardedProps: any,
+    serviceAdapter: CopilotKitServiceAdapter,
+  ): Promise<ReadableStream> {
+    const mergedFunctions = mergeServerSideFunctions(
+      this.functions.map(annotatedFunctionToChatCompletionFunction),
+      forwardedProps.functions,
+    );
+
+    const openaiCompatibleStream = await serviceAdapter.stream({
+      ...forwardedProps,
+      functions: mergedFunctions,
+    });
+    return copilotkitStreamInterceptor(openaiCompatibleStream, this.functions, this.debug);
   }
 
   async response(req: Request, serviceAdapter: CopilotKitServiceAdapter): Promise<Response> {
     try {
-      return new Response(this.stream(await req.json(), serviceAdapter));
+      return new Response(await this.stream(await req.json(), serviceAdapter));
     } catch (error: any) {
-      return new Response("", { status: 500, statusText: error.error.message });
+      return new Response("", { status: 500, statusText: error.message });
     }
   }
 
@@ -51,7 +71,7 @@ export class CopilotBackend {
       });
     });
     const forwardedProps = await bodyParser;
-    const stream = this.stream(forwardedProps, serviceAdapter);
+    const stream = await this.stream(forwardedProps, serviceAdapter);
     const reader = stream.getReader();
 
     while (true) {
@@ -64,4 +84,16 @@ export class CopilotBackend {
       }
     }
   }
+}
+
+export function mergeServerSideFunctions(serverFns: Function[], clientFns?: Function[]) {
+  let allFunctions: Function[] = serverFns.slice();
+  const serverFunctionNames = serverFns.map((fn) => fn.name);
+  if (clientFns) {
+    allFunctions = allFunctions.concat(
+      // filter out any client functions that are already defined on the server
+      clientFns.filter((fn: any) => !serverFunctionNames.includes(fn.name)),
+    );
+  }
+  return allFunctions;
 }
