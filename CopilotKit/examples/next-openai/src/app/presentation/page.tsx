@@ -9,27 +9,7 @@ import {
 } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useState } from "react";
-
-function getVoice(language: string) {
-  const voicesByLanguage = {};
-  for (const voice of window.speechSynthesis.getVoices()) {
-    const lang = voice.lang.split("-")[0];
-    voicesByLanguage[lang] ||= [];
-    voicesByLanguage[lang].push(voice);
-  }
-
-  const voices = voicesByLanguage[language] || voicesByLanguage["en"];
-  for (const voice of voices) {
-    if (language == "en" && voice.name.includes("Karen")) {
-      // Karen sounds ok
-      return voice;
-    } else if (language == "de" && voice.name.includes("Anna")) {
-      // Anna sounds quite good
-      return voice;
-    }
-  }
-  return voices[0];
-}
+import { browserSpeak, getVoice } from "./speech-utils";
 
 const HelloWorld = () => {
   return (
@@ -94,24 +74,10 @@ const Presentation = () => {
           message: message,
           backgroundImage: backgroundImage,
         });
-
-        if (window.speechSynthesis !== undefined) {
-          const utterance = new SpeechSynthesisUtterance(speech);
-          utterance.voice = getVoice(language || "en");
-
-          const speechFinished = new Promise<void>((resolve) => {
-            utterance.onend = function () {
-              resolve();
-            };
-          });
-
-          window.speechSynthesis.speak(utterance);
-
-          await speechFinished;
-
-          // wait a bit before continuing
-          await new Promise((resolve) => setTimeout(resolve, 500));
-        } else {
+        
+        const speechFinished = await browserSpeak(speech, language);
+        if (speechFinished === undefined) {
+          console.log("Speech synthesis not supported in this browser");
           await new Promise((resolve) => setTimeout(resolve, 3000));
         }
       },
