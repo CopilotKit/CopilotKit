@@ -9,7 +9,7 @@ import {
 } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useState } from "react";
-import { browserSpeak, getVoice } from "./speech-utils";
+import { browserSpeak, playht_speak } from "./speech-utils";
 
 const HelloWorld = () => {
   return (
@@ -29,7 +29,7 @@ const HelloWorld = () => {
 
 const Presentation = () => {
   const [state, setState] = useState({
-    message: "Hello World!",
+    message: "Provide instructions for the kind of deck you want to make.",
     backgroundImage: "none",
   });
 
@@ -75,7 +75,7 @@ const Presentation = () => {
           backgroundImage: backgroundImage,
         });
         
-        const speechFinished = await browserSpeak(speech, language);
+        const speechFinished = await playht_speak(speech, language);
         if (speechFinished === undefined) {
           console.log("Speech synthesis not supported in this browser");
           await new Promise((resolve) => setTimeout(resolve, 3000));

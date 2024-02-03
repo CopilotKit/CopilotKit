@@ -39,3 +39,29 @@ export async function browserSpeak(speech: string, language: string | undefined)
     return undefined;
   }
 }
+
+export async function playht_speak(speech: string, language: string | undefined): Promise<void | undefined> {
+  // endpoint for mp3 stream: /api/text-to-speech
+  const response = await fetch("/api/text-to-speech", {
+    method: "POST",
+    body: JSON.stringify({ text: speech, language }),
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+
+  // grab audioUrl from response
+  const audioUrl = (await response.json()).audioUrl;
+
+  // create audio element and play
+  const audio = new Audio(audioUrl);
+  const speechFinished = new Promise<void>((resolve) => {
+    audio.onended = function () {
+      resolve();
+    };
+  }
+  );
+  audio.play();
+
+  return speechFinished;
+}
