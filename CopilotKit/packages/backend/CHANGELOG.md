@@ -1,5 +1,16 @@
 # @copilotkit/cloud
 
+## 0.4.0-demofixes.1
+
+### Minor Changes
+
+- helloworld to presentation, refactor audio gen to util
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.4.0-demofixes.1
+
 ## 0.4.0-tools.0
 
 ### Minor Changes

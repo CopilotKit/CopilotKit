@@ -1,5 +1,17 @@
 # ui
 
+## 0.30.0-demofixes.1
+
+### Minor Changes
+
+- helloworld to presentation, refactor audio gen to util
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.20.0-demofixes.1
+  - @copilotkit/shared@0.4.0-demofixes.1
+
 ## 0.30.0-tools.0
 
 ### Minor Changes

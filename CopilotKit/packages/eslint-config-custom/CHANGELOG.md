@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.5.0-demofixes.1
+
+### Minor Changes
+
+- helloworld to presentation, refactor audio gen to util
+
 ## 0.5.0-tools.0
 
 ### Minor Changes

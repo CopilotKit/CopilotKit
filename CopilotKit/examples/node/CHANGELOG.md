@@ -1,5 +1,17 @@
 # node
 
+## 1.16.0-demofixes.1
+
+### Minor Changes
+
+- helloworld to presentation, refactor audio gen to util
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.4.0-demofixes.1
+  - @copilotkit/shared@0.4.0-demofixes.1
+
 ## 1.16.0-tools.0
 
 ### Minor Changes
