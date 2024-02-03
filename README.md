@@ -69,11 +69,13 @@ in-app chatbots, and AI-enabled Textareas.
 ---
 
 <h3 align="center">
-  Building blocks for AI Copilots & AI-native Applications.
+  Building blocks for AI Copilots, <br/>
+  and AI-native Applications.
 </h3>
 
 <div align="center">
-    Code-first & fully customizable. Use OpenAI or bring your own LLM. <br/>
+    Code-first & fully customizable. <br/>
+  Bring your own LLM. <br/>
 
 </div>
 
