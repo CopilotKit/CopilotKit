@@ -72,7 +72,7 @@ const Presentation = () => {
           name: "backgroundImage",
           type: "string",
           description:
-            "What to display in the background of the slide (i.e. 'dog' or 'house'), or 'none' for a blank background",
+            "What to display in the background of the slide (i.e. 'dog' or 'house')",
           required: true,
         },
         {
