@@ -8,9 +8,9 @@ import {
   useMakeCopilotReadable,
 } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-const globalAudio = new Audio();
+let globalAudio: any = undefined;
 let globalAudioEnabled = false;
 
 const HelloWorld = () => {
@@ -35,6 +35,14 @@ const Presentation = () => {
     message: "Hello World!",
     backgroundImage: "none",
   });
+
+  useEffect(() => {
+    if (!globalAudio) {
+      globalAudio = new Audio();
+    }
+  }, []);
+
+  const [audioEnabled, setAudioEnabled] = useState(false);
 
   useMakeCopilotReadable("This is the current slide: " + JSON.stringify(state));
 
@@ -78,7 +86,7 @@ const Presentation = () => {
           backgroundImage: backgroundImage,
         });
 
-        if (globalAudioEnabled) {
+        if (audioEnabled) {
           const encodedText = encodeURIComponent(speech);
           const url = `/api/tts?text=${encodedText}`;
           globalAudio.src = url;
@@ -94,7 +102,7 @@ const Presentation = () => {
         }
       },
     },
-    [],
+    [audioEnabled],
   );
 
   const randomSlideTask = new CopilotTask({
@@ -104,7 +112,6 @@ const Presentation = () => {
   const context = useCopilotContext();
 
   const [randomSlideTaskRunning, setRandomSlideTaskRunning] = useState(false);
-  const [audioEnabled, setAudioEnabled] = useState(false);
 
   return (
     <div className="relative">
