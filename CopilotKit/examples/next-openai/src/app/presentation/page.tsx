@@ -15,7 +15,7 @@ import "./styles.css";
 let globalAudio: any = undefined;
 let globalAudioEnabled = false;
 
-const HelloWorld = () => {
+const Demo = () => {
   return (
     <CopilotKit url="/api/copilotkit/openai">
       <CopilotSidebar
@@ -154,4 +154,4 @@ const Slide = ({ markdown, backgroundImage }: SlideProps) => {
   );
 };
 
-export default HelloWorld;
+export default Demo;
