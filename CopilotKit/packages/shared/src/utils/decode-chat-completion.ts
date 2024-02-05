@@ -15,12 +15,20 @@ export interface ChatCompletionFunctionEvent {
   type: "function";
   name: string;
   arguments: any;
+  scope: "client" | "server";
+}
+
+export interface ChatCompletionResultEvent {
+  type: "result";
+  content: string;
+  name: string;
 }
 
 export type ChatCompletionEvent =
   | ChatCompletionContentEvent
   | ChatCompletionPartialEvent
-  | ChatCompletionFunctionEvent;
+  | ChatCompletionFunctionEvent
+  | ChatCompletionResultEvent;
 
 export function decodeChatCompletion(
   stream: ReadableStream<ChatCompletionChunk>,
@@ -30,6 +38,7 @@ export function decodeChatCompletion(
   let mode: "function" | "message" | null = null;
   let functionCallName: string = "";
   let functionCallArguments: string = "";
+  let functionCallScope: "client" | "server" = "client";
 
   async function cleanup(controller?: ReadableStreamDefaultController<any>) {
     if (controller) {
@@ -59,6 +68,7 @@ export function decodeChatCompletion(
           type: "function",
           name: functionCallName,
           arguments: args,
+          scope: functionCallScope,
         });
 
         mode = null;
@@ -79,6 +89,8 @@ export function decodeChatCompletion(
             return;
           }
 
+          // TODO what can we get here now, since we can also get results back
+
           // In case we are in a function call but the next message is
           // - not a function call
           // - another function call (when name is present)
@@ -97,7 +109,16 @@ export function decodeChatCompletion(
 
           // if we get a message, emit the content and continue;
           if (mode === "message") {
-            if (value.choices[0].delta.content) {
+            // if we got a result message, send a result event
+            if (value.choices[0].delta.role === "function") {
+              controller.enqueue({
+                type: "result",
+                content: value.choices[0].delta.content!,
+                name: value.choices[0].delta.name!,
+              });
+            }
+            // otherwise, send a content event
+            else if (value.choices[0].delta.content) {
               controller.enqueue({
                 type: "content",
                 content: value.choices[0].delta.content,
@@ -112,6 +133,9 @@ export function decodeChatCompletion(
             }
             if (value.choices[0].delta.tool_calls![0].function.arguments) {
               functionCallArguments += value.choices[0].delta.tool_calls![0].function.arguments!;
+            }
+            if (value.choices[0].delta.tool_calls![0].function.scope) {
+              functionCallScope = value.choices[0].delta.tool_calls![0].function.scope!;
             }
             controller.enqueue({
               type: "partial",

@@ -144,6 +144,19 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
           currentMessage.content += value.content;
           newMessages[newMessages.length - 1] = currentMessage;
           setMessages([...messages, ...newMessages]);
+        } else if (value.type === "result") {
+          // When we get a result message, it is already complete
+          currentMessage = {
+            id: nanoid(),
+            role: "function",
+            content: value.content,
+            name: value.name,
+          };
+          newMessages.push(currentMessage);
+          setMessages([...messages, ...newMessages]);
+
+          // After receiving a result, feed back the new messages to GPT
+          feedback = true;
         } else if (value.type === "function") {
           // Create a new message if the previous one is not empty
           if (
@@ -162,6 +175,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
           currentMessage.function_call = {
             name: value.name,
             arguments: JSON.stringify(value.arguments),
+            scope: value.scope,
           };
 
           newMessages[newMessages.length - 1] = currentMessage;
@@ -169,12 +183,16 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
 
           // Execute the function call
           try {
-            if (options.onFunctionCall) {
+            if (options.onFunctionCall && value.scope === "client") {
               const result = await options.onFunctionCall(messages, currentMessage.function_call);
+              let resultString = "";
+              if (result !== undefined) {
+                resultString = typeof result === "string" ? result : JSON.stringify(result);
+              }
               currentMessage = {
                 id: nanoid(),
                 role: "function",
-                content: result === undefined ? "" : result,
+                content: resultString,
                 name: currentMessage.function_call!.name!,
               };
               newMessages.push(currentMessage);

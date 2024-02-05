@@ -145,7 +145,9 @@ export function copilotkitStreamInterceptor(
 
   let currentFnIndex = 0;
 
-  const executeFunctionCall = async (): Promise<boolean> => {
+  const executeFunctionCall = async (
+    controller: ReadableStreamDefaultController<any>,
+  ): Promise<boolean> => {
     const fn = functionsByName[functionCallName];
     let args: Record<string, any>[] = [];
     if (functionCallArguments) {
@@ -155,12 +157,32 @@ export function copilotkitStreamInterceptor(
     for (let arg of fn.argumentAnnotations) {
       paramsInCorrectOrder.push(args[arg.name as keyof typeof args]);
     }
-    await fn.implementation(...paramsInCorrectOrder);
+    const result = await fn.implementation(...paramsInCorrectOrder);
+
+    let resultString = "";
+    if (result !== undefined) {
+      resultString = typeof result === "string" ? result : JSON.stringify(result);
+    }
+
+    const chunk: ChatCompletionChunk = {
+      choices: [
+        {
+          delta: {
+            role: "function",
+            content: resultString,
+            name: functionCallName,
+          },
+        },
+      ],
+    };
+
+    writeChatCompletionChunk(controller, chunk);
 
     executeThisFunctionCall = false;
 
     functionCallName = "";
     functionCallArguments = "";
+
     return true;
   };
 
@@ -175,7 +197,7 @@ export function copilotkitStreamInterceptor(
             }
             if (executeThisFunctionCall) {
               // We are at the end of the stream and still have a function call to execute
-              await executeFunctionCall();
+              await executeFunctionCall(controller);
             }
             writeChatCompletionEnd(controller);
             await cleanup(controller);
@@ -194,7 +216,7 @@ export function copilotkitStreamInterceptor(
           // or a different function call
           // => execute the function call first
           if (executeThisFunctionCall && (mode != "function" || index != currentFnIndex)) {
-            await executeFunctionCall();
+            await executeFunctionCall(controller);
           }
 
           currentFnIndex = index;
@@ -218,15 +240,18 @@ export function copilotkitStreamInterceptor(
             }
             if (!executeThisFunctionCall) {
               // Decide if we should execute the function call server side
-
-              if (!(functionCallName in functionsByName)) {
-                // Just forward the function call to the client
-                writeChatCompletionChunk(controller, value);
-              } else {
-                // Execute the function call server side
+              if (functionCallName in functionsByName) {
                 executeThisFunctionCall = true;
               }
             }
+
+            if (value.choices[0].delta.tool_calls) {
+              // To avoid the client executing the function call as well, we set the scope to "server"
+              value.choices[0].delta.tool_calls[0].function.scope = executeThisFunctionCall
+                ? "server"
+                : "client";
+            }
+            writeChatCompletionChunk(controller, value);
             continue;
           }
         } catch (error) {

@@ -108,6 +108,7 @@ const Presentation = () => {
           window.speechSynthesis.speak(utterance);
 
           await speechFinished;
+          console.log("Speech finished.");
 
           // wait a bit before continuing
           await new Promise((resolve) => setTimeout(resolve, 500));

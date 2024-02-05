@@ -13,6 +13,11 @@ export interface FunctionCall {
    * The name of the function to call.
    */
   name?: string;
+
+  /**
+   * Temporarily add scope to the function call.
+   */
+  scope?: "client" | "server";
 }
 
 /**
