@@ -114,6 +114,8 @@ const Presentation = () => {
         } else {
           await new Promise((resolve) => setTimeout(resolve, 3000));
         }
+
+        return "Presented slide: " + JSON.stringify({ message, backgroundImage });
       },
     },
     [],
