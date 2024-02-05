@@ -10,7 +10,6 @@ import {
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useEffect, useState } from "react";
 import Markdown from "react-markdown";
-import { AudioEnable, AudioDisable } from "./icons";
 import "./styles.css";
 
 let globalAudio: any = undefined;
@@ -26,6 +25,13 @@ const HelloWorld = () => {
           initial: "Hi you! 👋 I can give you a presentation on any topic.",
         }}
         clickOutsideToClose={false}
+        onSubmitMessage={async (message) => {
+          if (!globalAudioEnabled) {
+            globalAudio.play();
+            globalAudio.pause();
+          }
+          globalAudioEnabled = true;
+        }}
       >
         <Presentation />
       </CopilotSidebar>
@@ -44,8 +50,6 @@ const Presentation = () => {
       globalAudio = new Audio();
     }
   }, []);
-
-  const [audioEnabled, setAudioEnabled] = useState(false);
 
   useMakeCopilotReadable("This is the current slide: " + JSON.stringify(state));
 
@@ -84,23 +88,19 @@ const Presentation = () => {
 
         console.log("Presenting slide: ", markdown, backgroundImage, speech);
 
-        if (audioEnabled) {
-          const encodedText = encodeURIComponent(speech);
-          const url = `/api/tts?text=${encodedText}`;
-          globalAudio.src = url;
-          await globalAudio.play();
-          await new Promise<void>((resolve) => {
-            globalAudio.onended = function () {
-              resolve();
-            };
-          });
-          await new Promise((resolve) => setTimeout(resolve, 500));
-        } else {
-          await new Promise((resolve) => setTimeout(resolve, 3000));
-        }
+        const encodedText = encodeURIComponent(speech);
+        const url = `/api/tts?text=${encodedText}`;
+        globalAudio.src = url;
+        await globalAudio.play();
+        await new Promise<void>((resolve) => {
+          globalAudio.onended = function () {
+            resolve();
+          };
+        });
+        await new Promise((resolve) => setTimeout(resolve, 500));
       },
     },
-    [audioEnabled],
+    [],
   );
 
   const randomSlideTask = new CopilotTask({
@@ -128,30 +128,6 @@ const Presentation = () => {
         }}
       >
         {randomSlideTaskRunning ? "Generating slide..." : "Make random slide"}
-      </button>
-      <button
-        className="absolute top-0 left-0 mt-4 ml-4 bg-blue-500 text-white font-bold py-2 px-4 rounded"
-        onClick={() => {
-          // do this, otherwise the browser will block the audio
-          if (!globalAudioEnabled) {
-            globalAudio.play();
-            globalAudio.pause();
-          }
-          globalAudioEnabled = true;
-          setAudioEnabled(!audioEnabled);
-        }}
-      >
-        {audioEnabled ? (
-          <div className="flex">
-            <div className="mr-2">{AudioDisable}</div>
-            Disable audio
-          </div>
-        ) : (
-          <div className="flex">
-            <div className="mr-2">{AudioEnable}</div>
-            Enable audio
-          </div>
-        )}
       </button>
     </div>
   );
