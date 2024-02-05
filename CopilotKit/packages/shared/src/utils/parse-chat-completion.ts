@@ -15,6 +15,12 @@ export interface ChatCompletionChunk {
         function: {
           arguments?: string;
           name?: string;
+          // TODO:
+          // Temporarily add scope to the OpenAI protocol until we
+          // have our own protocol.
+          // When scope is "server", the client will not attempt to
+          // execute the function.
+          scope?: "client" | "server";
         };
       }[];
     };
