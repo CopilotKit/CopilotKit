@@ -9,6 +9,9 @@ import {
 } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useEffect, useState } from "react";
+import Markdown from "react-markdown";
+import { AudioEnable, AudioDisable } from "./icons";
+import "./styles.css";
 
 let globalAudio: any = undefined;
 let globalAudioEnabled = false;
@@ -32,8 +35,8 @@ const HelloWorld = () => {
 
 const Presentation = () => {
   const [state, setState] = useState({
-    message: "Hello World!",
-    backgroundImage: "none",
+    markdown: `# Hello World!`,
+    backgroundImage: "hello",
   });
 
   useEffect(() => {
@@ -53,17 +56,16 @@ const Presentation = () => {
         "Present a slide in the presentation you are giving. Call this function multiple times to present multiple slides.",
       argumentAnnotations: [
         {
-          name: "message",
+          name: "markdown",
           type: "string",
           description:
-            "A message to display in the presentation slide, max 30 words, but make it informative.",
+            "The text to display in the presentation slide. Use simple markdown to outline your speech, like a headline, lists, paragraphs, etc.",
           required: true,
         },
         {
           name: "backgroundImage",
           type: "string",
-          description:
-            "What to display in the background of the slide (i.e. 'dog' or 'house'), or 'none' for a blank background",
+          description: "What to display in the background of the slide (i.e. 'dog' or 'house').",
           required: true,
         },
         {
@@ -72,19 +74,15 @@ const Presentation = () => {
           description: "An informative speech about the current slide.",
           required: true,
         },
-        {
-          name: "language",
-          type: "string",
-          description: "The language code used for the speech.",
-          required: false,
-        },
       ],
 
-      implementation: async (message, backgroundImage, speech, language) => {
+      implementation: async (markdown, backgroundImage, speech) => {
         setState({
-          message: message,
-          backgroundImage: backgroundImage,
+          markdown,
+          backgroundImage,
         });
+
+        console.log("Presenting slide: ", markdown, backgroundImage, speech);
 
         if (audioEnabled) {
           const encodedText = encodeURIComponent(speech);
@@ -143,22 +141,30 @@ const Presentation = () => {
           setAudioEnabled(!audioEnabled);
         }}
       >
-        {audioEnabled ? "Disable audio" : "Enable audio"}
+        {audioEnabled ? (
+          <div className="flex">
+            <div className="mr-2">{AudioDisable}</div>
+            Disable audio
+          </div>
+        ) : (
+          <div className="flex">
+            <div className="mr-2">{AudioEnable}</div>
+            Enable audio
+          </div>
+        )}
       </button>
     </div>
   );
 };
 
 type SlideProps = {
-  message: string;
+  markdown: string;
   backgroundImage: string;
 };
 
-const Slide = ({ message, backgroundImage }: SlideProps) => {
-  if (backgroundImage !== "none") {
-    backgroundImage =
-      'url("https://source.unsplash.com/featured/?' + encodeURIComponent(backgroundImage) + '")';
-  }
+const Slide = ({ markdown, backgroundImage }: SlideProps) => {
+  backgroundImage =
+    'url("https://source.unsplash.com/featured/?' + encodeURIComponent(backgroundImage) + '")';
   return (
     <div
       className="h-screen w-full flex flex-col justify-center items-center text-5xl text-white bg-cover bg-center bg-no-repeat p-10 text-center"
@@ -167,7 +173,7 @@ const Slide = ({ message, backgroundImage }: SlideProps) => {
         textShadow: "1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000",
       }}
     >
-      {message}
+      <Markdown className="markdown">{markdown}</Markdown>
     </div>
   );
 };
