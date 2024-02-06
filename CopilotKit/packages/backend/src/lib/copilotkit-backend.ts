@@ -1,11 +1,11 @@
 import http from "http";
 import { AnnotatedFunction, annotatedFunctionToChatCompletionFunction } from "@copilotkit/shared";
-import { Chain, CopilotKitServiceAdapter } from "../types";
+import { CopilotKitServiceAdapter } from "../types";
 import { copilotkitStreamInterceptor } from "../utils";
 import { ToolDefinition } from "@copilotkit/shared";
 
 interface CopilotBackendConstructorParams {
-  actions?: (AnnotatedFunction<any[]> | Chain)[];
+  functions?: AnnotatedFunction<any[]>[];
   debug?: boolean;
 }
 
@@ -14,17 +14,7 @@ export class CopilotBackend {
   private debug: boolean = false;
 
   constructor(params?: CopilotBackendConstructorParams) {
-    for (const action of params?.actions || []) {
-      if ("chainUrl" in action) {
-        // TODO convert chain to function
-        // steps:
-        // - retrieve the schema from the chainUrl
-        // - create a new function with argument annotations from the schema
-        // - add the new function to this.functions
-      } else {
-        this.functions.push(action);
-      }
-    }
+    this.functions = params?.functions || [];
     this.debug = params?.debug || false;
   }
 
