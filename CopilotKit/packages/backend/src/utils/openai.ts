@@ -1,3 +1,4 @@
+import { encodeResult } from "@copilotkit/shared";
 import { Message, ToolDefinition, ChatCompletionChunk } from "@copilotkit/shared";
 import { AnnotatedFunction, parseChatCompletion } from "@copilotkit/shared";
 
@@ -159,17 +160,12 @@ export function copilotkitStreamInterceptor(
     }
     const result = await fn.implementation(...paramsInCorrectOrder);
 
-    let resultString = "";
-    if (result !== undefined) {
-      resultString = typeof result === "string" ? result : JSON.stringify(result);
-    }
-
     const chunk: ChatCompletionChunk = {
       choices: [
         {
           delta: {
             role: "function",
-            content: resultString,
+            content: encodeResult(result),
             name: functionCallName,
           },
         },

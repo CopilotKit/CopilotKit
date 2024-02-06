@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Message, ToolDefinition, FunctionCallHandler } from "@copilotkit/shared";
+import { Message, ToolDefinition, FunctionCallHandler, encodeResult } from "@copilotkit/shared";
 import { nanoid } from "nanoid";
 import { fetchAndDecodeChatCompletion } from "../utils/fetch-chat-completion";
 import { CopilotApiConfig } from "../context";
@@ -185,14 +185,11 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
           try {
             if (options.onFunctionCall && value.scope === "client") {
               const result = await options.onFunctionCall(messages, currentMessage.function_call);
-              let resultString = "";
-              if (result !== undefined) {
-                resultString = typeof result === "string" ? result : JSON.stringify(result);
-              }
+
               currentMessage = {
                 id: nanoid(),
                 role: "function",
-                content: resultString,
+                content: encodeResult(result),
                 name: currentMessage.function_call!.name!,
               };
               newMessages.push(currentMessage);
