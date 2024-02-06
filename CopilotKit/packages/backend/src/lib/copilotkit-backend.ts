@@ -18,15 +18,6 @@ export class CopilotBackend {
     this.debug = params?.debug || false;
   }
 
-  addFunction(func: AnnotatedFunction<any[]>): void {
-    this.removeFunction(func.name);
-    this.functions.push(func);
-  }
-
-  removeFunction(funcName: string): void {
-    this.functions = this.functions.filter((f) => f.name !== funcName);
-  }
-
   async stream(
     forwardedProps: any,
     serviceAdapter: CopilotKitServiceAdapter,
