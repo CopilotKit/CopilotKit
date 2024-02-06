@@ -73,7 +73,7 @@ export interface ToolDefinition {
 export type FunctionCallHandler = (
   chatMessages: Message[],
   functionCall: FunctionCall,
-) => Promise<void>;
+) => Promise<any>;
 
 export type AssistantMessage = {
   id: string;
