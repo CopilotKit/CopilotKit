@@ -55,6 +55,11 @@ export interface CopilotChatProps {
   onSetOpen?: (open: boolean) => void;
 
   /**
+   * A callback that gets called when a new message it submitted.
+   */
+  onSubmitMessage?: (message: string) => void;
+
+  /**
    * The shortcut key to open the chat window.
    * Uses Command-<shortcut> on a Mac and Ctrl-<shortcut> on Windows.
    * @default "e"
@@ -127,6 +132,7 @@ export const CopilotChat = ({
   clickOutsideToClose = true,
   hitEscapeToClose = true,
   onSetOpen,
+  onSubmitMessage,
   shortcut = "e",
   icons,
   labels,
@@ -154,6 +160,7 @@ export const CopilotChat = ({
   };
 
   const sendMessage = async (message: string) => {
+    onSubmitMessage?.(message);
     append({
       id: nanoid(),
       content: message,
