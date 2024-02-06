@@ -1,4 +1,5 @@
 import { Message, ToolDefinition, ChatCompletionChunk } from "@copilotkit/shared";
+import { AnnotatedFunction, parseChatCompletion } from "@copilotkit/shared";
 
 export function writeChatCompletionChunk(
   controller: ReadableStreamDefaultController<any>,
@@ -6,51 +7,6 @@ export function writeChatCompletionChunk(
 ) {
   const payload = new TextEncoder().encode("data: " + JSON.stringify(chunk) + "\n\n");
   controller!.enqueue(payload);
-}
-
-export function writeChatCompletionContent(
-  controller: ReadableStreamDefaultController<any>,
-  content: string = "",
-  toolCalls?: any,
-) {
-  const chunk: ChatCompletionChunk = {
-    choices: [
-      {
-        delta: {
-          role: "assistant",
-          content: content,
-          ...(toolCalls ? { tool_calls: toolCalls } : {}),
-        },
-      },
-    ],
-  };
-
-  writeChatCompletionChunk(controller, chunk);
-}
-
-export function writeChatCompletionResult(
-  controller: ReadableStreamDefaultController<any>,
-  functionName: string,
-  result: any,
-) {
-  let resultString = "";
-  if (result !== undefined) {
-    resultString = typeof result === "string" ? result : JSON.stringify(result);
-  }
-
-  const chunk: ChatCompletionChunk = {
-    choices: [
-      {
-        delta: {
-          role: "function",
-          content: resultString,
-          name: functionName,
-        },
-      },
-    ],
-  };
-
-  writeChatCompletionChunk(controller, chunk);
 }
 
 export function writeChatCompletionEnd(controller: ReadableStreamDefaultController<any>) {
@@ -143,4 +99,169 @@ function countMessageTokens(message: Message): number {
 
 function countTokens(text: string): number {
   return text.length / 3;
+}
+
+/**
+ * This function decides what to handle server side and what to forward to the client.
+ * It also handles the execution of server side functions.
+ *
+ * TODO: add proper error handling and logging
+ */
+export function copilotkitStreamInterceptor(
+  stream: ReadableStream<Uint8Array>,
+  functions: AnnotatedFunction<any[]>[],
+  debug: boolean = false,
+): ReadableStream {
+  const functionsByName = functions.reduce((acc, fn) => {
+    acc[fn.name] = fn;
+    return acc;
+  }, {} as Record<string, AnnotatedFunction<any[]>>);
+
+  const decodedStream = parseChatCompletion(stream);
+  const reader = decodedStream.getReader();
+
+  async function cleanup(controller?: ReadableStreamDefaultController<any>) {
+    if (controller) {
+      try {
+        controller.close();
+      } catch (_) {}
+    }
+    if (reader) {
+      try {
+        await reader.cancel();
+      } catch (_) {}
+    }
+  }
+
+  // Keep track of current state as we process the stream
+
+  // Loop Invariant:
+  // Either we are in the middle of a function call that should be executed on the backend = TRUE
+  // or we are in the middle of processing a chunk that should be forwarded to the client = FALSE
+  let executeThisFunctionCall = false;
+
+  let functionCallName = "";
+  let functionCallArguments = "";
+
+  let currentFnIndex = 0;
+
+  const executeFunctionCall = async (
+    controller: ReadableStreamDefaultController<any>,
+  ): Promise<boolean> => {
+    const fn = functionsByName[functionCallName];
+    let args: Record<string, any>[] = [];
+    if (functionCallArguments) {
+      args = JSON.parse(functionCallArguments);
+    }
+    const paramsInCorrectOrder: any[] = [];
+    for (let arg of fn.argumentAnnotations) {
+      paramsInCorrectOrder.push(args[arg.name as keyof typeof args]);
+    }
+    const result = await fn.implementation(...paramsInCorrectOrder);
+
+    let resultString = "";
+    if (result !== undefined) {
+      resultString = typeof result === "string" ? result : JSON.stringify(result);
+    }
+
+    const chunk: ChatCompletionChunk = {
+      choices: [
+        {
+          delta: {
+            role: "function",
+            content: resultString,
+            name: functionCallName,
+          },
+        },
+      ],
+    };
+
+    writeChatCompletionChunk(controller, chunk);
+
+    executeThisFunctionCall = false;
+
+    functionCallName = "";
+    functionCallArguments = "";
+
+    return true;
+  };
+
+  return new ReadableStream({
+    async pull(controller) {
+      while (true) {
+        try {
+          const { done, value } = await reader.read();
+          if (done) {
+            if (debug) {
+              console.log("data: [DONE]\n\n");
+            }
+            if (executeThisFunctionCall) {
+              // We are at the end of the stream and still have a function call to execute
+              await executeFunctionCall(controller);
+            }
+            writeChatCompletionEnd(controller);
+            await cleanup(controller);
+            return;
+          } else if (debug) {
+            console.log("data: " + JSON.stringify(value) + "\n\n");
+          }
+
+          let mode: "function" | "message" = value.choices[0].delta.tool_calls
+            ? "function"
+            : "message";
+
+          const index = (value.choices[0].delta.tool_calls?.[0]?.index || 0) as number;
+
+          // We are in the middle of a function call and got a non function call chunk
+          // or a different function call
+          // => execute the function call first
+          if (executeThisFunctionCall && (mode != "function" || index != currentFnIndex)) {
+            await executeFunctionCall(controller);
+          }
+
+          currentFnIndex = index;
+
+          // if we get a message, emit the content and continue;
+          if (mode === "message") {
+            if (value.choices[0].delta.content) {
+              writeChatCompletionChunk(controller, value);
+            }
+            continue;
+          }
+          // if we get a function call, emit it only if we don't execute it server side
+          else if (mode === "function") {
+            // Set the function name if present
+            if (value.choices[0].delta.tool_calls?.[0]?.function?.name) {
+              functionCallName = value.choices[0].delta.tool_calls![0].function.name!;
+            }
+            // If we have argument streamed back, add them to the function call arguments
+            if (value.choices[0].delta.tool_calls?.[0]?.function?.arguments) {
+              functionCallArguments += value.choices[0].delta.tool_calls![0].function.arguments!;
+            }
+            if (!executeThisFunctionCall) {
+              // Decide if we should execute the function call server side
+              if (functionCallName in functionsByName) {
+                executeThisFunctionCall = true;
+              }
+            }
+
+            if (value.choices[0].delta.tool_calls) {
+              // To avoid the client executing the function call as well, we set the scope to "server"
+              value.choices[0].delta.tool_calls[0].function.scope = executeThisFunctionCall
+                ? "server"
+                : "client";
+            }
+            writeChatCompletionChunk(controller, value);
+            continue;
+          }
+        } catch (error) {
+          controller.error(error);
+          return;
+        }
+      }
+    },
+    cancel() {
+      reader.cancel();
+    },
+  });
 }
