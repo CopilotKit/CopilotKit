@@ -22,7 +22,8 @@
     "next-themes": "^0.2.1",
     "openai": "^4.19.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-markdown": "^8.0.7"
   },
   "devDependencies": {
     "@types/node": "^18.11.17",
