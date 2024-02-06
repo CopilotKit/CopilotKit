@@ -8,30 +8,14 @@ import {
   useMakeCopilotReadable,
 } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Markdown from "react-markdown";
+import "./styles.css";
 
-function getVoice(language: string) {
-  const voicesByLanguage = {};
-  for (const voice of window.speechSynthesis.getVoices()) {
-    const lang = voice.lang.split("-")[0];
-    voicesByLanguage[lang] ||= [];
-    voicesByLanguage[lang].push(voice);
-  }
+let globalAudio: any = undefined;
+let globalAudioEnabled = false;
 
-  const voices = voicesByLanguage[language] || voicesByLanguage["en"];
-  for (const voice of voices) {
-    if (language == "en" && voice.name.includes("Karen")) {
-      // Karen sounds ok
-      return voice;
-    } else if (language == "de" && voice.name.includes("Anna")) {
-      // Anna sounds quite good
-      return voice;
-    }
-  }
-  return voices[0];
-}
-
-const HelloWorld = () => {
+const Demo = () => {
   return (
     <CopilotKit url="/api/copilotkit/openai">
       <CopilotSidebar
@@ -39,6 +23,14 @@ const HelloWorld = () => {
         labels={{
           title: "Presentation Copilot",
           initial: "Hi you! 👋 I can give you a presentation on any topic.",
+        }}
+        clickOutsideToClose={false}
+        onSubmitMessage={async (message) => {
+          if (!globalAudioEnabled) {
+            globalAudio.play();
+            globalAudio.pause();
+          }
+          globalAudioEnabled = true;
         }}
       >
         <Presentation />
@@ -49,9 +41,15 @@ const HelloWorld = () => {
 
 const Presentation = () => {
   const [state, setState] = useState({
-    message: "Hello World!",
-    backgroundImage: "none",
+    markdown: `# Hello World!`,
+    backgroundImage: "hello",
   });
+
+  useEffect(() => {
+    if (!globalAudio) {
+      globalAudio = new Audio();
+    }
+  }, []);
 
   useMakeCopilotReadable("This is the current slide: " + JSON.stringify(state));
 
@@ -62,17 +60,16 @@ const Presentation = () => {
         "Present a slide in the presentation you are giving. Call this function multiple times to present multiple slides.",
       argumentAnnotations: [
         {
-          name: "message",
+          name: "markdown",
           type: "string",
           description:
-            "A message to display in the presentation slide, max 30 words, but make it informative.",
+            "The text to display in the presentation slide. Use simple markdown to outline your speech, like a headline, lists, paragraphs, etc.",
           required: true,
         },
         {
           name: "backgroundImage",
           type: "string",
-          description:
-            "What to display in the background of the slide (i.e. 'dog' or 'house'), or 'none' for a blank background",
+          description: "What to display in the background of the slide (i.e. 'dog' or 'house').",
           required: true,
         },
         {
@@ -81,39 +78,26 @@ const Presentation = () => {
           description: "An informative speech about the current slide.",
           required: true,
         },
-        {
-          name: "language",
-          type: "string",
-          description: "The language code used for the speech.",
-          required: false,
-        },
       ],
 
-      implementation: async (message, backgroundImage, speech, language) => {
+      implementation: async (markdown, backgroundImage, speech) => {
         setState({
-          message: message,
-          backgroundImage: backgroundImage,
+          markdown,
+          backgroundImage,
         });
 
-        if (window.speechSynthesis !== undefined) {
-          const utterance = new SpeechSynthesisUtterance(speech);
-          utterance.voice = getVoice(language || "en");
+        console.log("Presenting slide: ", markdown, backgroundImage, speech);
 
-          const speechFinished = new Promise<void>((resolve) => {
-            utterance.onend = function () {
-              resolve();
-            };
-          });
-
-          window.speechSynthesis.speak(utterance);
-
-          await speechFinished;
-
-          // wait a bit before continuing
-          await new Promise((resolve) => setTimeout(resolve, 500));
-        } else {
-          await new Promise((resolve) => setTimeout(resolve, 3000));
-        }
+        const encodedText = encodeURIComponent(speech);
+        const url = `/api/tts?text=${encodedText}`;
+        globalAudio.src = url;
+        await globalAudio.play();
+        await new Promise<void>((resolve) => {
+          globalAudio.onended = function () {
+            resolve();
+          };
+        });
+        await new Promise((resolve) => setTimeout(resolve, 500));
       },
     },
     [],
@@ -150,15 +134,13 @@ const Presentation = () => {
 };
 
 type SlideProps = {
-  message: string;
+  markdown: string;
   backgroundImage: string;
 };
 
-const Slide = ({ message, backgroundImage }: SlideProps) => {
-  if (backgroundImage !== "none") {
-    backgroundImage =
-      'url("https://source.unsplash.com/featured/?' + encodeURIComponent(backgroundImage) + '")';
-  }
+const Slide = ({ markdown, backgroundImage }: SlideProps) => {
+  backgroundImage =
+    'url("https://source.unsplash.com/featured/?' + encodeURIComponent(backgroundImage) + '")';
   return (
     <div
       className="h-screen w-full flex flex-col justify-center items-center text-5xl text-white bg-cover bg-center bg-no-repeat p-10 text-center"
@@ -167,9 +149,9 @@ const Slide = ({ message, backgroundImage }: SlideProps) => {
         textShadow: "1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000",
       }}
     >
-      {message}
+      <Markdown className="markdown">{markdown}</Markdown>
     </div>
   );
 };
 
-export default HelloWorld;
+export default Demo;
