@@ -1,7 +1,9 @@
 import { AssistantMessage, FunctionCall, JSONValue } from "../types/openai-assistant";
 
 export function encodeResult(result: string): string {
-  if (typeof result === "string") {
+  if (result === undefined) {
+    return "";
+  } else if (typeof result === "string") {
     return result;
   } else {
     return JSON.stringify(result);
