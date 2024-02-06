@@ -47,6 +47,8 @@ export class LangChainAdapter implements CopilotKitServiceAdapter {
       return this.streamResult(result);
     }
 
+    // TODO write function call result!
+
     console.error("Invalid return type from LangChain function.");
     throw new Error("Invalid return type from LangChain function.");
   }
