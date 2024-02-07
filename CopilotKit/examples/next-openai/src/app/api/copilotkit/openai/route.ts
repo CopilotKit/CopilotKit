@@ -18,6 +18,7 @@ export async function POST(req: Request): Promise<Response> {
         ],
         implementation: async (arg) => {
           console.log("Hello from the server", arg, "!");
+          return `I said hello to ${arg}! Give the user feedback on this in a funny way!`;
         },
       },
     ],

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Message, ToolDefinition, FunctionCallHandler } from "@copilotkit/shared";
+import { Message, ToolDefinition, FunctionCallHandler, encodeResult } from "@copilotkit/shared";
 import { nanoid } from "nanoid";
 import { fetchAndDecodeChatCompletion } from "../utils/fetch-chat-completion";
 import { CopilotApiConfig } from "../context";
@@ -116,19 +116,23 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
     }
 
     const reader = response.events.getReader();
+
+    // Whether to feed back the new messages to GPT
+    let feedback = false;
+
     try {
       while (true) {
         const { done, value } = await reader.read();
 
         if (done) {
-          return newMessages.slice();
+          break;
         }
 
         let currentMessage = Object.assign({}, newMessages[newMessages.length - 1]);
 
         if (value.type === "content") {
-          if (currentMessage.function_call) {
-            // Create a new message if the previous one is a function call
+          if (currentMessage.function_call || currentMessage.role === "function") {
+            // Create a new message if the previous one is a function call or result
             currentMessage = {
               id: nanoid(),
               createdAt: new Date(),
@@ -140,9 +144,26 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
           currentMessage.content += value.content;
           newMessages[newMessages.length - 1] = currentMessage;
           setMessages([...messages, ...newMessages]);
+        } else if (value.type === "result") {
+          // When we get a result message, it is already complete
+          currentMessage = {
+            id: nanoid(),
+            role: "function",
+            content: value.content,
+            name: value.name,
+          };
+          newMessages.push(currentMessage);
+          setMessages([...messages, ...newMessages]);
+
+          // After receiving a result, feed back the new messages to GPT
+          feedback = true;
         } else if (value.type === "function") {
           // Create a new message if the previous one is not empty
-          if (currentMessage.content != "" || currentMessage.function_call) {
+          if (
+            currentMessage.content != "" ||
+            currentMessage.function_call ||
+            currentMessage.role == "function"
+          ) {
             currentMessage = {
               id: nanoid(),
               createdAt: new Date(),
@@ -154,14 +175,44 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
           currentMessage.function_call = {
             name: value.name,
             arguments: JSON.stringify(value.arguments),
+            scope: value.scope,
           };
 
           newMessages[newMessages.length - 1] = currentMessage;
           setMessages([...messages, ...newMessages]);
 
           // Execute the function call
-          await options.onFunctionCall?.(messages, currentMessage.function_call);
+          try {
+            if (options.onFunctionCall && value.scope === "client") {
+              const result = await options.onFunctionCall(messages, currentMessage.function_call);
+
+              currentMessage = {
+                id: nanoid(),
+                role: "function",
+                content: encodeResult(result),
+                name: currentMessage.function_call!.name!,
+              };
+              newMessages.push(currentMessage);
+              setMessages([...messages, ...newMessages]);
+
+              // After a function call, feed back the new messages to GPT
+              feedback = true;
+            }
+          } catch (error) {
+            console.error("Failed to execute function call", error);
+            // TODO: Handle error
+            // this should go to the message itself
+          }
         }
+      }
+
+      // If we want feedback, run the completion again and return the results
+      if (feedback) {
+        return await runChatCompletion([...messages, ...newMessages]);
+      }
+      // otherwise, return the new messages
+      else {
+        return newMessages.slice();
       }
     } finally {
       setIsLoading(false);

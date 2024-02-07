@@ -13,6 +13,11 @@ export interface FunctionCall {
    * The name of the function to call.
    */
   name?: string;
+
+  /**
+   * Temporarily add scope to the function call.
+   */
+  scope?: "client" | "server";
 }
 
 /**
@@ -68,7 +73,7 @@ export interface ToolDefinition {
 export type FunctionCallHandler = (
   chatMessages: Message[],
   functionCall: FunctionCall,
-) => Promise<void>;
+) => Promise<any>;
 
 export type AssistantMessage = {
   id: string;

@@ -5,6 +5,14 @@ export interface ChatCompletionChunk {
     delta: {
       role: Role;
       content?: string | null;
+
+      // TODO:
+      // Temporarily add name to the OpenAI protocol until we
+      // have our own protocol.
+      // When name is set, we return the result of a server-side
+      // function call.
+      name?: string;
+
       function_call?: {
         name?: string;
         arguments?: string;
@@ -14,7 +22,14 @@ export interface ChatCompletionChunk {
         id?: string;
         function: {
           arguments?: string;
+
           name?: string;
+          // TODO:
+          // Temporarily add scope to the OpenAI protocol until we
+          // have our own protocol.
+          // When scope is "server", the client will not attempt to
+          // execute the function.
+          scope?: "client" | "server";
         };
       }[];
     };

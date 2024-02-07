@@ -1,5 +1,15 @@
 import { AssistantMessage, FunctionCall, JSONValue } from "../types/openai-assistant";
 
+export function encodeResult(result: string): string {
+  if (result === undefined) {
+    return "";
+  } else if (typeof result === "string") {
+    return result;
+  } else {
+    return JSON.stringify(result);
+  }
+}
+
 export interface StreamPart<CODE extends string, NAME extends string, TYPE> {
   code: CODE;
   name: NAME;
