@@ -1,4 +1,4 @@
-import { AnnotatedFunction, AnnotatedFunctionArgument } from "@copilotkit/shared";
+import { AnnotatedFunction } from "@copilotkit/shared";
 import { RemoteChain } from "../types";
 import { RemoteRunnable } from "langchain/runnables/remote";
 
