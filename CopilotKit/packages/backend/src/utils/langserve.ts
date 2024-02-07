@@ -7,3 +7,7 @@ export function remoteChainToAnnotatedFunction(chain: RemoteChain): AnnotatedFun
 
   throw new Error("Not implemented");
 }
+
+export function inferLangServeParameters(chain: RemoteChain): RemoteChain {
+  return chain;
+}
