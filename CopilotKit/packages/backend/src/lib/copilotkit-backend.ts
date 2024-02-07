@@ -1,34 +1,26 @@
 import http from "http";
-import {
-  AnnotatedFunction,
-  AnnotatedFunctionArgument,
-  annotatedFunctionToChatCompletionFunction,
-} from "@copilotkit/shared";
+import { AnnotatedFunction, annotatedFunctionToChatCompletionFunction } from "@copilotkit/shared";
 import { RemoteChain, CopilotKitServiceAdapter } from "../types";
-import { copilotkitStreamInterceptor } from "../utils";
+import { copilotkitStreamInterceptor, remoteChainToAnnotatedFunction } from "../utils";
 import { ToolDefinition } from "@copilotkit/shared";
-import { RemoteRunnable } from "langchain/runnables/remote";
 
 interface CopilotBackendConstructorParams {
-  actions?: (AnnotatedFunction<any[]> | RemoteChain)[];
+  actions?: AnnotatedFunction<any[]>[];
+  langserve?: RemoteChain[];
   debug?: boolean;
 }
 
 export class CopilotBackend {
   private functions: AnnotatedFunction<any[]>[] = [];
+  private langserve: Promise<AnnotatedFunction<any[]>>[] = [];
   private debug: boolean = false;
 
   constructor(params?: CopilotBackendConstructorParams) {
     for (const action of params?.actions || []) {
-      if ("chainUrl" in action) {
-        // TODO convert chain to function
-        // steps:
-        // - retrieve the schema from the chainUrl
-        // - create a new function with argument annotations from the schema
-        // - add the new function to this.functions
-      } else {
-        this.functions.push(action);
-      }
+      this.functions.push(action);
+    }
+    for (const chain of params?.langserve || []) {
+      this.langserve.push(remoteChainToAnnotatedFunction(chain));
     }
     this.debug = params?.debug || false;
   }
@@ -37,16 +29,26 @@ export class CopilotBackend {
     forwardedProps: any,
     serviceAdapter: CopilotKitServiceAdapter,
   ): Promise<ReadableStream> {
-    const mergedTools = mergeServerSideTools(
+    const langserveFunctions = await Promise.all(this.langserve);
+
+    // merge server side functions with langserve functions
+    let mergedTools = mergeServerSideTools(
       this.functions.map(annotatedFunctionToChatCompletionFunction),
-      forwardedProps.tools,
+      langserveFunctions.map(annotatedFunctionToChatCompletionFunction),
     );
+
+    // merge with client side functions
+    mergedTools = mergeServerSideTools(mergedTools, forwardedProps.tools);
 
     const openaiCompatibleStream = await serviceAdapter.stream({
       ...forwardedProps,
       tools: mergedTools,
     });
-    return copilotkitStreamInterceptor(openaiCompatibleStream, this.functions, this.debug);
+    return copilotkitStreamInterceptor(
+      openaiCompatibleStream,
+      [...this.functions, ...langserveFunctions],
+      this.debug,
+    );
   }
 
   async response(req: Request, serviceAdapter: CopilotKitServiceAdapter): Promise<Response> {

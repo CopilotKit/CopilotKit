@@ -8,11 +8,6 @@ export const runtime = "edge";
 export async function POST(req: Request): Promise<Response> {
   const copilotKit = new CopilotBackend({
     actions: [
-      await inferLangServeParameters({
-        chainUrl: "http://localhost:8000/agent",
-        name: "askTheAgent",
-        description: "Ask the agent about something",
-      }),
       {
         name: "sayHello",
         description: "Says hello to someone.",
@@ -38,6 +33,14 @@ export async function POST(req: Request): Promise<Response> {
             name: name,
           });
         },
+      },
+    ],
+    langserve: [
+      {
+        chainUrl: "http://localhost:8000/retriever",
+        name: "askTheRetriever",
+        description:
+          "Ask the agent about something. Call this function when the user specifically wants to ask the retriever something.",
       },
     ],
   });
