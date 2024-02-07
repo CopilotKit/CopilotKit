@@ -1,2 +1,2 @@
 export type { CopilotKitServiceAdapter } from "./service-adapter";
-export * from "./langchain";
+export * from "./langserve";
