@@ -6,6 +6,14 @@
 .copilotKitMarkdown h6 {
   font-weight: bold;
   line-height: 1.2;
+}
+
+.copilotKitMarkdown h1:not(:last-child),
+.copilotKitMarkdown h2:not(:last-child),
+.copilotKitMarkdown h3:not(:last-child),
+.copilotKitMarkdown h4:not(:last-child),
+.copilotKitMarkdown h5:not(:last-child),
+.copilotKitMarkdown h6:not(:last-child) {
   margin-bottom: 1rem;
 }
 
@@ -34,11 +42,11 @@
   font-size: 0.8em;
 }
 
-.copilotKitMarkdown p {
+.copilotKitMarkdown p:not(:last-child) {
   margin-bottom: 1.25em;
 }
 
-.copilotKitMarkdown pre {
+.copilotKitMarkdown pre:not(:last-child) {
   margin-bottom: 1.25em;
 }
 
