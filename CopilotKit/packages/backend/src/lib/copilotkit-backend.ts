@@ -1,11 +1,16 @@
 import http from "http";
-import { AnnotatedFunction, annotatedFunctionToChatCompletionFunction } from "@copilotkit/shared";
-import { Chain, CopilotKitServiceAdapter } from "../types";
+import {
+  AnnotatedFunction,
+  AnnotatedFunctionArgument,
+  annotatedFunctionToChatCompletionFunction,
+} from "@copilotkit/shared";
+import { RemoteChain, CopilotKitServiceAdapter } from "../types";
 import { copilotkitStreamInterceptor } from "../utils";
 import { ToolDefinition } from "@copilotkit/shared";
+import { RemoteRunnable } from "langchain/runnables/remote";
 
 interface CopilotBackendConstructorParams {
-  actions?: (AnnotatedFunction<any[]> | Chain)[];
+  actions?: (AnnotatedFunction<any[]> | RemoteChain)[];
   debug?: boolean;
 }
 

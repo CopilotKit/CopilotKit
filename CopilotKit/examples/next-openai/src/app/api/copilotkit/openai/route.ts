@@ -5,6 +5,7 @@ export const runtime = "edge";
 export async function POST(req: Request): Promise<Response> {
   const copilotKit = new CopilotBackend({
     actions: [
+      { chainUrl: "http://localhost:8000", name: "xyz", description: "xyz" },
       {
         name: "sayHello",
         description: "Says hello to someone.",

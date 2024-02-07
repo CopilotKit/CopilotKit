@@ -1,8 +1,8 @@
 import { AnnotatedFunctionArgument } from "@copilotkit/shared";
 
-export interface Chain {
+export interface RemoteChain {
   name: string;
   description: string;
   chainUrl: string;
-  argumentAnnotations?: AnnotatedFunctionArgument[];
+  argumentAnnotations: AnnotatedFunctionArgument[];
 }
