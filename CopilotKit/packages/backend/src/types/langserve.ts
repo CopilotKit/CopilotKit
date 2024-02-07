@@ -6,6 +6,5 @@ export interface RemoteChain {
   chainUrl: string;
 
   argumentAnnotations?: AnnotatedFunctionArgument[];
-  callType?: "invoke" | "stream";
   argumentType?: "single" | "multi";
 }

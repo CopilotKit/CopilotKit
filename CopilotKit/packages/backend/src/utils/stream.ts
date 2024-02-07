@@ -55,9 +55,11 @@ async function executeFunctionCall(
     while (true) {
       try {
         const { done, value } = await reader.read();
+
         if (done) {
           break;
         }
+
         writeChatCompletionContent(
           controller,
           value?.lc_kwargs?.content,

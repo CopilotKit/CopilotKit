@@ -1,5 +1,4 @@
 import { CopilotBackend, OpenAIAdapter } from "@copilotkit/backend";
-import { inferLangServeParameters } from "@copilotkit/backend";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { ChatOpenAI } from "@langchain/openai";
 
@@ -41,6 +40,12 @@ export async function POST(req: Request): Promise<Response> {
         name: "askTheRetriever",
         description:
           "Ask the agent about something. Call this function when the user specifically wants to ask the retriever something.",
+      },
+      {
+        chainUrl: "http://localhost:8000/agent",
+        name: "askAboutEugeneThoughts",
+        description:
+          "Ask what Eugene thinks about something. Call this function when the user specifically wants to ask Eugene something.",
       },
     ],
   });

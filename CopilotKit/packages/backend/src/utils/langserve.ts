@@ -12,7 +12,6 @@ export async function remoteChainToAnnotatedFunction(
     chain = await inferLangServeParameters(chain);
   }
 
-  chain.callType ||= "invoke";
   chain.argumentType ||= "multi";
 
   return {
@@ -29,11 +28,7 @@ export async function remoteChainToAnnotatedFunction(
           input[chain.argumentAnnotations![i].name] = args[i];
         }
       }
-      if (chain.callType === "invoke") {
-        return await runnable.invoke(input);
-      } else if (chain.callType === "stream") {
-        return runnable.stream(input);
-      }
+      return await runnable.invoke(input);
     },
   };
 }
