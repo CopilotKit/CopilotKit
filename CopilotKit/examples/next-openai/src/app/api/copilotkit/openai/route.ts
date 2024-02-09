@@ -37,15 +37,14 @@ export async function POST(req: Request): Promise<Response> {
     langserve: [
       {
         chainUrl: "http://localhost:8000/retriever",
-        name: "askTheRetriever",
-        description:
-          "Ask the agent about something. Call this function when the user specifically wants to ask the retriever something.",
+        name: "askAboutAnimals",
+        description: "Always call this function if the users asks about a certain animal.",
       },
       {
         chainUrl: "http://localhost:8000/agent",
         name: "askAboutEugeneThoughts",
         description:
-          "Ask what Eugene thinks about something. Call this function when the user specifically wants to ask Eugene something.",
+          "Always call this function if the users asks about Eugene's thoughts on a certain topic.",
       },
     ],
   });
