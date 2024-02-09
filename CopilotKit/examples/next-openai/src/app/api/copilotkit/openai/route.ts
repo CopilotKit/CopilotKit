@@ -34,19 +34,19 @@ export async function POST(req: Request): Promise<Response> {
         },
       },
     ],
-    langserve: [
-      {
-        chainUrl: "http://localhost:8000/retriever",
-        name: "askAboutAnimals",
-        description: "Always call this function if the users asks about a certain animal.",
-      },
-      {
-        chainUrl: "http://localhost:8000/agent",
-        name: "askAboutEugeneThoughts",
-        description:
-          "Always call this function if the users asks about Eugene's thoughts on a certain topic.",
-      },
-    ],
+    // langserve: [
+    //   {
+    //     chainUrl: "http://localhost:8000/retriever",
+    //     name: "askAboutAnimals",
+    //     description: "Always call this function if the users asks about a certain animal.",
+    //   },
+    //   {
+    //     chainUrl: "http://localhost:8000/agent",
+    //     name: "askAboutEugeneThoughts",
+    //     description:
+    //       "Always call this function if the users asks about Eugene's thoughts on a certain topic.",
+    //   },
+    // ],
   });
 
   return copilotKit.response(req, new OpenAIAdapter());
