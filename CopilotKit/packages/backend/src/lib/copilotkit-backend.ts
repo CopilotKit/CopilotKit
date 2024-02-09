@@ -31,6 +31,15 @@ export class CopilotBackend {
     forwardedProps: any,
     serviceAdapter: CopilotKitServiceAdapter,
   ): Promise<ReadableStream> {
+    // get keys backendOnlyPropsKeys in order to remove them from the forwardedProps
+    const backendOnlyPropsKeys = forwardedProps.backend_only_props_keys;
+    if (backendOnlyPropsKeys) {
+      backendOnlyPropsKeys.forEach((key: string) => {
+        delete forwardedProps[key];
+      });
+      delete forwardedProps["backend_only_props_keys"];
+    }
+
     const mergedTools = mergeServerSideTools(
       this.functions.map(annotatedFunctionToChatCompletionFunction),
       forwardedProps.tools,

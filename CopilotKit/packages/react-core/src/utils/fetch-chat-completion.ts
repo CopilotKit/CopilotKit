@@ -54,6 +54,9 @@ export async function fetchChatCompletion({
       ...(temperature ? { temperature } : {}),
       ...(tools.length != 0 ? { tool_choice: "auto" } : {}),
       ...copilotConfig.body,
+      ...copilotConfig.backendOnlyProps,
+      //get backendOnlyPropsKeys to backend to remove them from the forwardedProps
+      backend_only_props_keys: Object.keys(copilotConfig['body'] || {}),
       ...(body ? { ...body } : {}),
     }),
     signal,

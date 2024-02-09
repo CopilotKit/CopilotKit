@@ -42,6 +42,18 @@ export interface CopilotApiConfig {
    * ```
    */
   body: Record<string, any>;
+
+  /**
+   * Backend only props that will be combined to body params to be sent with the request
+   * @default {}
+   * @example
+   * ```
+   * {
+   *   'user_id': 'user_id'
+   * }
+   * ```
+   */
+  backendOnlyProps?: Record<string, any>;
 }
 
 export interface CopilotContextParams {
