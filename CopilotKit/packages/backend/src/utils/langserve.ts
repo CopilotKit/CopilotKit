@@ -39,7 +39,11 @@ export async function inferLangServeParameters(chain: RemoteChain): Promise<Remo
   const supportedTypes = ["string", "number", "boolean"];
 
   let schemaUrl = chain.chainUrl.replace(/\/+$/, "") + "/input_schema";
-  let schema = await fetch(schemaUrl).then((res) => res.json());
+  let schema = await fetch(schemaUrl)
+    .then((res) => res.json())
+    .catch(() => {
+      throw new Error("Failed to fetch langserve schema at " + schemaUrl);
+    });
   // for now, don't use json schema, just do a simple conversion
 
   if (supportedTypes.includes(schema.type)) {

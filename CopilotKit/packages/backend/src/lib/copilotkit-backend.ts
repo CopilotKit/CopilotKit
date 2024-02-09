@@ -29,7 +29,16 @@ export class CopilotBackend {
     forwardedProps: any,
     serviceAdapter: CopilotKitServiceAdapter,
   ): Promise<ReadableStream> {
-    const langserveFunctions = await Promise.all(this.langserve);
+    const langserveFunctions: AnnotatedFunction<any[]>[] = [];
+
+    for (const chainPromise of this.langserve) {
+      try {
+        const chain = await chainPromise;
+        langserveFunctions.push(chain);
+      } catch (error) {
+        console.error("Error loading langserve chain:", error);
+      }
+    }
 
     // merge server side functions with langserve functions
     let mergedTools = mergeServerSideTools(
