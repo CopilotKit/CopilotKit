@@ -1,4 +1,4 @@
-import { Message, ToolDefinition, ChatCompletionChunk } from "@copilotkit/shared";
+import { Message, ToolDefinition, ChatCompletionChunk, encodeResult } from "@copilotkit/shared";
 
 export function writeChatCompletionChunk(
   controller: ReadableStreamDefaultController<any>,
@@ -33,10 +33,7 @@ export function writeChatCompletionResult(
   functionName: string,
   result: any,
 ) {
-  let resultString = "";
-  if (result !== undefined) {
-    resultString = typeof result === "string" ? result : JSON.stringify(result);
-  }
+  let resultString = encodeResult(result);
 
   const chunk: ChatCompletionChunk = {
     choices: [
