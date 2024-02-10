@@ -5,6 +5,7 @@ import {
   decodeChatCompletion,
   parseChatCompletion,
   decodeChatCompletionAsText,
+  EXCLUDE_FROM_FORWARD_PROPS_KEYS,
 } from "@copilotkit/shared";
 import { CopilotApiConfig } from "../context";
 
@@ -55,8 +56,7 @@ export async function fetchChatCompletion({
       ...(tools.length != 0 ? { tool_choice: "auto" } : {}),
       ...copilotConfig.body,
       ...copilotConfig.backendOnlyProps,
-      //get backendOnlyPropsKeys to backend to remove them from the forwardedProps
-      backend_only_props_keys: Object.keys(copilotConfig["body"] || {}),
+      ...(Object.keys(copilotConfig["body"] ?? {}).length > 0 ? { [EXCLUDE_FROM_FORWARD_PROPS_KEYS]: Object.keys(copilotConfig["body"] ?? {}) } : {}),
       ...(body ? { ...body } : {}),
     }),
     signal,
