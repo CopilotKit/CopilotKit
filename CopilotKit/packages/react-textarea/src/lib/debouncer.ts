@@ -1,7 +1,7 @@
 export type AsyncFunction<T extends any[]> = (...args: [...T, AbortSignal]) => Promise<void>;
 
 export class Debouncer<T extends any[]> {
-  private timeoutId?: number;
+  private timeoutId?: ReturnType<typeof setTimeout>;
   private activeAbortController?: AbortController;
 
   constructor(private wait: number) {}
