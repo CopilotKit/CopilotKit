@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
+# save the current branch
+current_branch=$(git branch --show-current)
+
 # quit if the current branch is main
-if [ "$(git branch --show-current)" = "main" ]; then
+if [ "$current_branch" = "main" ]; then
   printf "\e[41m\e[97m!!\e[0m Error: Can't release beta from main branch\n"
   exit 1
 fi
