@@ -3,7 +3,9 @@ set -e  # Exit immediately if a command exits with a non-zero status.
 
 # load .env.local if present
 if [ -f .env.local ]; then
+  set -a # automatically export all variables
   source .env.local
+  set +a # stop automatically exporting
 fi
 
 # if GH_TOKEN is not set, quit
