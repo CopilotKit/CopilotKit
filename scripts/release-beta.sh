@@ -12,9 +12,10 @@ if [ -n "$(git status --porcelain)" ]; then
   exit 1
 fi
 
-echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+echo ""
+echo "================================"
 echo "!! Releasing new beta version !!"
-echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+echo "================================"
 echo ""
 
 echo "Continue? (y/n)"
