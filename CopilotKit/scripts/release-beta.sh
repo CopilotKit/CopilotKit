@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -e  # Exit immediately if a command exits with a non-zero status.
 
 # save the current branch
 current_branch=$(git branch --show-current)
@@ -31,5 +32,5 @@ fi
 # create a new beta version named "beta-<current-branch>"
 pnpm changeset pre enter "beta-$current_branch"
 
-#select the packages you want to push an update for
+# select the packages you want to push an update for
 pnpm changeset
