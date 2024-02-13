@@ -27,3 +27,9 @@ if [ "$response" != "y" ]; then
   printf "\e[41m\e[97m!!\e[0m Error: Aborted"
   exit 1
 fi
+
+# create a new beta version named "beta-<current-branch>"
+pnpm changeset pre enter "beta-$current_branch"
+
+#select the packages you want to push an update for
+pnpm changeset
