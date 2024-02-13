@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.9.0-beta-automation.1
+
+### Minor Changes
+
+- Test automation
+
 ## 0.9.0-tools.0
 
 ### Minor Changes
