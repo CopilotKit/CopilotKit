@@ -1,5 +1,13 @@
 # node
 
+## 1.16.0-mmeqa-13-02-2024.2
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.4.0-mmeqa-13-02-2024.2
+  - @copilotkit/shared@0.4.0-mmeqa-13-02-2024.2
+
 ## 1.16.0-beta-automation.1
 
 ### Minor Changes

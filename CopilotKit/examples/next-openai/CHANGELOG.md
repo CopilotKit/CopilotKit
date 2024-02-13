@@ -1,5 +1,16 @@
 # web
 
+## 1.16.0-mmeqa-13-02-2024.2
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.20.0-mmeqa-13-02-2024.2
+  - @copilotkit/backend@0.4.0-mmeqa-13-02-2024.2
+  - @copilotkit/shared@0.4.0-mmeqa-13-02-2024.2
+  - @copilotkit/react-textarea@0.30.0-mmeqa-13-02-2024.2
+  - @copilotkit/react-ui@0.17.0-mmeqa-13-02-2024.2
+
 ## 1.16.0-beta-automation.1
 
 ### Minor Changes

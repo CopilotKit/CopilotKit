@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 0.4.0-mmeqa-13-02-2024.2
+
+### Minor Changes
+
+- QA 13-02-2024
+
 ## 0.4.0-beta-automation.1
 
 ### Minor Changes
