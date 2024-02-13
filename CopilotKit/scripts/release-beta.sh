@@ -36,3 +36,6 @@ pnpm changeset pre enter --branch $current_branch "beta-$current_branch"
 
 # select the packages you want to push an update for
 pnpm changeset
+
+# get out of pre mode
+pnpm changeset pre exit
