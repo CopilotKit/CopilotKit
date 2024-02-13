@@ -39,4 +39,16 @@ export interface CopilotKitProps {
    * The children to be rendered within the CopilotKit.
    */
   children: ReactNode;
+
+  /**
+   * Backend only props that will be combined to body params to be sent with the request
+   * @default {}
+   * @example
+   * ```
+   * {
+   *   'user_id': 'users_id',
+   * }
+   * ```
+   */
+  backendOnlyProps?: Record<string, any>;
 }

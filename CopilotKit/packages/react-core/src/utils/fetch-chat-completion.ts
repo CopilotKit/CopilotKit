@@ -5,6 +5,7 @@ import {
   decodeChatCompletion,
   parseChatCompletion,
   decodeChatCompletionAsText,
+  EXCLUDE_FROM_FORWARD_PROPS_KEYS,
 } from "@copilotkit/shared";
 import { CopilotApiConfig } from "../context";
 
@@ -54,6 +55,10 @@ export async function fetchChatCompletion({
       ...(temperature ? { temperature } : {}),
       ...(tools.length != 0 ? { tool_choice: "auto" } : {}),
       ...copilotConfig.body,
+      ...copilotConfig.backendOnlyProps,
+      ...(Object.keys(copilotConfig["body"] ?? {}).length > 0
+        ? { [EXCLUDE_FROM_FORWARD_PROPS_KEYS]: Object.keys(copilotConfig["body"] ?? {}) }
+        : {}),
       ...(body ? { ...body } : {}),
     }),
     signal,
