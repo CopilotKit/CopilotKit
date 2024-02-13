@@ -1,5 +1,17 @@
 # node
 
+## 1.16.0-beta-automation.1
+
+### Minor Changes
+
+- Test automation
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.4.0-beta-automation.1
+  - @copilotkit/shared@0.4.0-beta-automation.1
+
 ## 1.16.0-tools.0
 
 ### Minor Changes
