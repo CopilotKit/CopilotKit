@@ -17,9 +17,7 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 
 echo ""
-echo "Branch: $current_branch" 
-echo ""
-
+echo "Branch: beta-$current_branch" 
 echo ""
 echo "================================"
 echo "!! Releasing new beta version !!"
@@ -33,8 +31,8 @@ if [ "$response" != "y" ]; then
   exit 1
 fi
 
-# # create a new beta version named "beta-<current-branch>"
-# pnpm changeset pre enter "beta-$current_branch"
+# create a new beta version named "beta-<current-branch>"
+pnpm changeset pre enter --branch $current_branch --tag "beta-<current-branch>"
 
-# # select the packages you want to push an update for
-# pnpm changeset
+# select the packages you want to push an update for
+pnpm changeset
