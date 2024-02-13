@@ -73,11 +73,22 @@ git add -A && git commit -m "Beta release $current_branch" && git push
 sleep 3
 
 # Manually trigger the CI
-# curl -X POST \
-#   -H "Accept: application/vnd.github.v3+json" \
-#   -H "Authorization: token $GH_TOKEN" \
-#   -d "{\"ref\":\"$current_branch\"}" \
-#   https://api.github.com/repos/CopilotKit/CopilotKit/actions/workflows/release.yml/dispatches
+curl -X POST \
+  -H "Accept: application/vnd.github.v3+json" \
+  -H "Authorization: token $GH_TOKEN" \
+  -d "{\"ref\":\"$current_branch\"}" \
+  https://api.github.com/repos/CopilotKit/CopilotKit/actions/workflows/release.yml/dispatches
+
+echo "Please wait for the CI to finish"
+
+# get out of pre mode
+echo "======================================"
+echo "!! Please wait for the CI to finish !!"
+echo "======================================"
+echo ""
+
+# wait for the CI to finish
+echo "Press any key to continue"
 
 # get out of pre mode
 pnpm changeset pre exit
