@@ -89,6 +89,7 @@ echo ""
 
 # wait for the CI to finish
 echo "Press any key to continue"
+read -r response
 
 # get out of pre mode
 pnpm changeset pre exit
