@@ -56,8 +56,8 @@ pnpm changeset pre enter $cleaned_branch
 # select the packages you want to push an update for
 pnpm changeset
 
-# get out of pre mode
-pnpm changeset pre exit
+# bump the version
+pnpm changeset version
 
 echo "Commit and run CI? (y/n)"
 read -r response
@@ -67,7 +67,7 @@ if [ "$response" != "y" ]; then
 fi
 
 # Stage and commit
-git add -A && git commit -m "Beta release $current_branch"
+git add -A && git commit -m "Beta release $current_branch" && git push
 
 # Sleep a little so that GitHub picks up the change
 sleep 3
@@ -77,4 +77,10 @@ sleep 3
 #   -H "Accept: application/vnd.github.v3+json" \
 #   -H "Authorization: token $GH_TOKEN" \
 #   -d "{\"ref\":\"$current_branch\"}" \
-#   https://api.github.com/repos/CopilotKit/CopilotKit/actions/workflows/ci.yml/dispatches
+#   https://api.github.com/repos/CopilotKit/CopilotKit/actions/workflows/release.yml/dispatches
+
+# get out of pre mode
+pnpm changeset pre exit
+
+# push the changes
+git add -A && git commit -m "Beta release $current_branch - exit pre mode" && git push
