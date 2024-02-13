@@ -32,7 +32,7 @@ if [ "$response" != "y" ]; then
 fi
 
 # create a new beta version named "beta-<current-branch>"
-pnpm changeset pre enter --branch $current_branch "beta-$current_branch"
+pnpm changeset pre enter $current_branch --branch $current_branch
 
 # select the packages you want to push an update for
 pnpm changeset
