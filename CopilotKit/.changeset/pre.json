@@ -1,19 +1,20 @@
 {
-  "mode": "exit",
-  "tag": "tools",
+  "mode": "pre",
+  "tag": "beta-automation",
   "initialVersions": {
-    "next-openai": "1.15.0",
-    "node": "1.15.0",
-    "@copilotkit/backend": "0.3.0",
-    "eslint-config-custom": "0.4.0",
-    "@copilotkit/react-core": "0.19.0",
-    "@copilotkit/react-textarea": "0.29.0",
-    "@copilotkit/react-ui": "0.16.0",
-    "@copilotkit/shared": "0.3.0",
-    "tailwind-config": "0.3.0",
-    "tsconfig": "0.8.0"
+    "next-openai": "1.16.0-tools.0",
+    "node": "1.16.0-tools.0",
+    "@copilotkit/backend": "0.4.0-tools.0",
+    "eslint-config-custom": "0.5.0-tools.0",
+    "@copilotkit/react-core": "0.20.0-tools.0",
+    "@copilotkit/react-textarea": "0.30.0-tools.0",
+    "@copilotkit/react-ui": "0.17.0-tools.0",
+    "@copilotkit/shared": "0.4.0-tools.0",
+    "tailwind-config": "0.4.0-tools.0",
+    "tsconfig": "0.9.0-tools.0"
   },
   "changesets": [
-    "metal-comics-enjoy"
+    "metal-comics-enjoy",
+    "moody-suns-sort"
   ]
 }
