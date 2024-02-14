@@ -29,12 +29,22 @@ if [ -n "$(git status --porcelain)" ]; then
   exit 1
 fi
 
+# replace underscores in current_branch with hyphens
+package=$(echo $current_branch | sed 's/_/-/g')
+
+# replace all non-alphanumeric characters except hyphens
+package=$(echo $package | sed 's/[^a-zA-Z0-9-]/-/g')
+
+# chop leading and trailing hyphens
+package=$(echo $package | sed 's/^-//;s/-$//')
+
 echo ""
-echo "Branch: beta-$current_branch" 
+echo "Branch: $current_branch" 
+echo "Package: $package"
 echo ""
-echo "================================"
-echo "!! Releasing new beta version !!"
-echo "================================"
+echo "==============================="
+echo "!! Releasing new pre release !!"
+echo "==============================="
 echo ""
 
 echo "Continue? (y/n)"
@@ -44,19 +54,10 @@ if [ "$response" != "y" ]; then
   exit 1
 fi
 
-# replace underscores in current_branch with hyphens
-cleaned_branch=$(echo $current_branch | sed 's/_/-/g')
+# enter pre mode
+pnpm changeset pre enter $package
 
-# replace all non-alphanumeric characters except hyphens
-cleaned_branch=$(echo $cleaned_branch | sed 's/[^a-zA-Z0-9-]/-/g')
-
-# chop leading and trailing hyphens
-cleaned_branch=$(echo $cleaned_branch | sed 's/^-//;s/-$//')
-
-# create a new beta version named "beta-<current-branch>"
-pnpm changeset pre enter $cleaned_branch
-
-# select the packages you want to push an update for
+# select the packages to push an update for
 pnpm changeset
 
 # bump the version
@@ -96,4 +97,4 @@ sleep 30
 pnpm changeset pre exit
 
 # push the changes
-git add -A && git commit -m "Beta release $current_branch - exit pre mode" && git push
+git add -A && git commit -m "Pre release $current_branch - exit pre mode" && git push
