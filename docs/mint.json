@@ -46,7 +46,8 @@
         "reference/CopilotSidebar",
         "reference/useMakeCopilotReadable",
         "reference/useMakeCopilotActionable",
-        "reference/CopilotTask"
+        "reference/CopilotTask",
+        "reference/CopilotBackend"
       ]
     },
     {
