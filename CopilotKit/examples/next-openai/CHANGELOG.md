@@ -1,5 +1,20 @@
 # web
 
+## 1.16.0-mme-fix-tools-error.4
+
+### Minor Changes
+
+- Pre release new packages for backendOnlyProps
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.4.0-mme-fix-tools-error.4
+  - @copilotkit/react-core@0.20.0-mme-fix-tools-error.2
+  - @copilotkit/react-textarea@0.30.0-mme-fix-tools-error.2
+  - @copilotkit/react-ui@0.17.0-mme-fix-tools-error.2
+  - @copilotkit/shared@0.4.0-mme-fix-tools-error.2
+
 ## 1.16.0-mme-fix-tools-error.3
 
 ### Patch Changes

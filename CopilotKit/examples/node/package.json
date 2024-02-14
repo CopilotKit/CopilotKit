@@ -1,6 +1,6 @@
 {
   "name": "node",
-  "version": "1.16.0-mme-fix-tools-error.3",
+  "version": "1.16.0-mme-fix-tools-error.4",
   "private": true,
   "scripts": {
     "start": "node dist/index.js",

@@ -1,5 +1,16 @@
 # ui
 
+## 0.20.0-mme-fix-tools-error.2
+
+### Minor Changes
+
+- Pre release new packages for backendOnlyProps
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.4.0-mme-fix-tools-error.2
+
 ## 0.20.0-beta-automation.1
 
 ### Minor Changes

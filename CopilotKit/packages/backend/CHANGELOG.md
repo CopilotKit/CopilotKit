@@ -1,5 +1,16 @@
 # @copilotkit/cloud
 
+## 0.4.0-mme-fix-tools-error.4
+
+### Minor Changes
+
+- Pre release new packages for backendOnlyProps
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.4.0-mme-fix-tools-error.2
+
 ## 0.4.0-mme-fix-tools-error.3
 
 ### Minor Changes

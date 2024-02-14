@@ -1,5 +1,17 @@
 # node
 
+## 1.16.0-mme-fix-tools-error.4
+
+### Minor Changes
+
+- Pre release new packages for backendOnlyProps
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.4.0-mme-fix-tools-error.4
+  - @copilotkit/shared@0.4.0-mme-fix-tools-error.2
+
 ## 1.16.0-mme-fix-tools-error.3
 
 ### Patch Changes
