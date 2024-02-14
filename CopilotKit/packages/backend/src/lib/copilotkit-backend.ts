@@ -1,20 +1,31 @@
 import http from "http";
-import { AnnotatedFunction, annotatedFunctionToChatCompletionFunction } from "@copilotkit/shared";
-import { CopilotKitServiceAdapter } from "../types";
-import { copilotkitStreamInterceptor } from "../utils";
-import { ToolDefinition } from "@copilotkit/shared";
+import {
+  AnnotatedFunction,
+  annotatedFunctionToChatCompletionFunction,
+  ToolDefinition,
+  EXCLUDE_FROM_FORWARD_PROPS_KEYS,
+} from "@copilotkit/shared";
+import { copilotkitStreamInterceptor, remoteChainToAnnotatedFunction } from "../utils";
+import { RemoteChain, CopilotKitServiceAdapter } from "../types";
 
 interface CopilotBackendConstructorParams {
-  functions?: AnnotatedFunction<any[]>[];
+  actions?: AnnotatedFunction<any[]>[];
+  langserve?: RemoteChain[];
   debug?: boolean;
 }
 
 export class CopilotBackend {
   private functions: AnnotatedFunction<any[]>[] = [];
+  private langserve: Promise<AnnotatedFunction<any[]>>[] = [];
   private debug: boolean = false;
 
   constructor(params?: CopilotBackendConstructorParams) {
-    this.functions = params?.functions || [];
+    for (const action of params?.actions || []) {
+      this.functions.push(action);
+    }
+    for (const chain of params?.langserve || []) {
+      this.langserve.push(remoteChainToAnnotatedFunction(chain));
+    }
     this.debug = params?.debug || false;
   }
 
@@ -27,20 +38,59 @@ export class CopilotBackend {
     this.functions = this.functions.filter((f) => f.name !== funcName);
   }
 
+  removeBackendOnlyProps(forwardedProps: any): void {
+    this.removeBackendOnlyProps(forwardedProps);
+    // Get keys backendOnlyPropsKeys in order to remove them from the forwardedProps
+    const backendOnlyPropsKeys = forwardedProps[EXCLUDE_FROM_FORWARD_PROPS_KEYS];
+    if (Array.isArray(backendOnlyPropsKeys)) {
+      backendOnlyPropsKeys.forEach((key) => {
+        const success = Reflect.deleteProperty(forwardedProps, key);
+        if (!success) {
+          console.error(`Failed to delete property ${key}`);
+        }
+      });
+      // After deleting individual backend-only properties, delete the EXCLUDE_FROM_FORWARD_PROPS_KEYS property itself from forwardedProps
+      const success = Reflect.deleteProperty(forwardedProps, EXCLUDE_FROM_FORWARD_PROPS_KEYS);
+      if (!success) {
+        console.error(`Failed to delete EXCLUDE_FROM_FORWARD_PROPS_KEYS`);
+      }
+    } else if (backendOnlyPropsKeys) {
+      console.error("backendOnlyPropsKeys is not an array");
+    }
+  }
   async stream(
     forwardedProps: any,
     serviceAdapter: CopilotKitServiceAdapter,
   ): Promise<ReadableStream> {
-    const mergedTools = mergeServerSideTools(
+    const langserveFunctions: AnnotatedFunction<any[]>[] = [];
+
+    for (const chainPromise of this.langserve) {
+      try {
+        const chain = await chainPromise;
+        langserveFunctions.push(chain);
+      } catch (error) {
+        console.error("Error loading langserve chain:", error);
+      }
+    }
+
+    // merge server side functions with langserve functions
+    let mergedTools = mergeServerSideTools(
       this.functions.map(annotatedFunctionToChatCompletionFunction),
-      forwardedProps.tools,
+      langserveFunctions.map(annotatedFunctionToChatCompletionFunction),
     );
+
+    // merge with client side functions
+    mergedTools = mergeServerSideTools(mergedTools, forwardedProps.tools);
 
     const openaiCompatibleStream = await serviceAdapter.stream({
       ...forwardedProps,
       tools: mergedTools,
     });
-    return copilotkitStreamInterceptor(openaiCompatibleStream, this.functions, this.debug);
+    return copilotkitStreamInterceptor(
+      openaiCompatibleStream,
+      [...this.functions, ...langserveFunctions],
+      this.debug,
+    );
   }
 
   async response(req: Request, serviceAdapter: CopilotKitServiceAdapter): Promise<Response> {
