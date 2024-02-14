@@ -1,5 +1,17 @@
 # ui
 
+## 0.17.0-mme-qa-14-02-2024.2
+
+### Minor Changes
+
+- QA 14-02-2024
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.20.0-mme-qa-14-02-2024.2
+  - @copilotkit/shared@0.4.0-mme-qa-14-02-2024.2
+
 ## 0.17.0-beta-automation.1
 
 ### Minor Changes
