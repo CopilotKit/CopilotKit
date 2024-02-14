@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "mme-fix-tools-error",
   "initialVersions": {
     "next-openai": "1.16.0-beta-automation.1",
