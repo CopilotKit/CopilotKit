@@ -1,5 +1,11 @@
 # @copilotkit/cloud
 
+## 0.4.0-mme-fix-tools-error.2
+
+### Minor Changes
+
+- Don't send empty tools array to OpenAI
+
 ## 0.4.0-beta-automation.1
 
 ### Minor Changes

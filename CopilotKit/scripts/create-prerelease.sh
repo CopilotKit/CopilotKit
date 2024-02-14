@@ -19,7 +19,7 @@ current_branch=$(git branch --show-current)
 
 # quit if the current branch is main
 if [ "$current_branch" = "main" ]; then
-  printf "\e[41m\e[97m!!\e[0m Error: Can't release beta from main branch\n"
+  printf "\e[41m\e[97m!!\e[0m Error: Can't release pre release from main branch\n"
   exit 1
 fi
 
@@ -29,12 +29,22 @@ if [ -n "$(git status --porcelain)" ]; then
   exit 1
 fi
 
+# replace underscores in current_branch with hyphens
+package=$(echo $current_branch | sed 's/_/-/g')
+
+# replace all non-alphanumeric characters except hyphens
+package=$(echo $package | sed 's/[^a-zA-Z0-9-]/-/g')
+
+# chop leading and trailing hyphens
+package=$(echo $package | sed 's/^-//;s/-$//')
+
 echo ""
-echo "Branch: beta-$current_branch" 
+echo "Branch: $current_branch" 
+echo "Package: $package"
 echo ""
-echo "================================"
-echo "!! Releasing new beta version !!"
-echo "================================"
+echo "==============================="
+echo "!! Releasing new pre release !!"
+echo "==============================="
 echo ""
 
 echo "Continue? (y/n)"
@@ -44,16 +54,10 @@ if [ "$response" != "y" ]; then
   exit 1
 fi
 
-# replace underscores in current_branch with hyphens
-cleaned_branch=$(echo $current_branch | sed 's/_/-/g')
+# enter pre mode
+pnpm changeset pre enter $package
 
-# replace all non-alphanumeric characters except hyphens with nothing
-cleaned_branch=$(echo $cleaned_branch | sed 's/[^a-zA-Z0-9-]//g')
-
-# create a new beta version named "beta-<current-branch>"
-pnpm changeset pre enter $cleaned_branch
-
-# select the packages you want to push an update for
+# select the packages to push an update for
 pnpm changeset
 
 # bump the version
@@ -67,7 +71,7 @@ if [ "$response" != "y" ]; then
 fi
 
 # Stage and commit
-git add -A && git commit -m "Beta release $current_branch" && git push
+git add -A && git commit -m "Pre release $current_branch" && git push
 
 # Sleep a little so that GitHub picks up the change
 sleep 3
@@ -79,20 +83,18 @@ curl -X POST \
   -d "{\"ref\":\"$current_branch\"}" \
   https://api.github.com/repos/CopilotKit/CopilotKit/actions/workflows/release.yml/dispatches
 
-echo "Please wait for the CI to finish"
 
 # get out of pre mode
-echo "======================================"
-echo "!! Please wait for the CI to finish !!"
-echo "======================================"
+echo "=================================================="
+echo "!! Automatically exiting pre mode in 30 seconds !!"
+echo "=================================================="
 echo ""
 
-# wait for the CI to finish
-echo "Press any key to continue"
-read -r response
+# wait for 30 seconds
+sleep 30
 
 # get out of pre mode
 pnpm changeset pre exit
 
 # push the changes
-git add -A && git commit -m "Beta release $current_branch - exit pre mode" && git push
+git add -A && git commit -m "Pre release $current_branch - exit pre mode" && git push

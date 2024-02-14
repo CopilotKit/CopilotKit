@@ -20,6 +20,15 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
   }
 
   stream(forwardedProps: any): ReadableStream {
+    // copy forwardedProps to avoid modifying the original object
+    forwardedProps = { ...forwardedProps };
+
+    // Remove tools if there are none to avoid OpenAI API errors
+    // when sending an empty array of tools
+    if (forwardedProps.tools && forwardedProps.tools.length === 0) {
+      delete forwardedProps.tools;
+    }
+
     const messages = limitOpenAIMessagesToTokenCount(
       forwardedProps.messages || [],
       forwardedProps.tools || [],
@@ -32,7 +41,6 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
         ...forwardedProps,
         stream: true,
         messages: messages as any,
-        ...(forwardedProps.tools.length > 0 ? { tools: forwardedProps.tools } : {}),
       })
       .toReadableStream();
   }
