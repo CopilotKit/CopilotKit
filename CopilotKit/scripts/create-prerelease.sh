@@ -19,7 +19,7 @@ current_branch=$(git branch --show-current)
 
 # quit if the current branch is main
 if [ "$current_branch" = "main" ]; then
-  printf "\e[41m\e[97m!!\e[0m Error: Can't release beta from main branch\n"
+  printf "\e[41m\e[97m!!\e[0m Error: Can't release pre release from main branch\n"
   exit 1
 fi
 
@@ -71,7 +71,7 @@ if [ "$response" != "y" ]; then
 fi
 
 # Stage and commit
-git add -A && git commit -m "Beta release $current_branch" && git push
+git add -A && git commit -m "Pre release $current_branch" && git push
 
 # Sleep a little so that GitHub picks up the change
 sleep 3
