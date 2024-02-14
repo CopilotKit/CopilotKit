@@ -47,8 +47,8 @@ fi
 # replace underscores in current_branch with hyphens
 cleaned_branch=$(echo $current_branch | sed 's/_/-/g')
 
-# replace all non-alphanumeric characters except hyphens with nothing
-cleaned_branch=$(echo $cleaned_branch | sed 's/[^a-zA-Z0-9-]//g')
+# replace all non-alphanumeric characters except hyphens
+cleaned_branch=$(echo $cleaned_branch | sed 's/[^a-zA-Z0-9-]/-/g')
 
 # create a new beta version named "beta-<current-branch>"
 pnpm changeset pre enter $cleaned_branch
