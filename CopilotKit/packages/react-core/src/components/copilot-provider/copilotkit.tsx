@@ -156,7 +156,10 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     props.url,
     `${props.url}/v2`,
     props.headers || {},
-    props.body || {},
+    {
+      ...props.body,
+      ...props.backendOnlyProps,
+    },
   );
 
   return (

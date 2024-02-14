@@ -1,8 +1,12 @@
 import http from "http";
-import { AnnotatedFunction, annotatedFunctionToChatCompletionFunction } from "@copilotkit/shared";
-import { RemoteChain, CopilotKitServiceAdapter } from "../types";
+import {
+  AnnotatedFunction,
+  annotatedFunctionToChatCompletionFunction,
+  ToolDefinition,
+  EXCLUDE_FROM_FORWARD_PROPS_KEYS,
+} from "@copilotkit/shared";
 import { copilotkitStreamInterceptor, remoteChainToAnnotatedFunction } from "../utils";
-import { ToolDefinition } from "@copilotkit/shared";
+import { RemoteChain, CopilotKitServiceAdapter } from "../types";
 
 interface CopilotBackendConstructorParams {
   actions?: AnnotatedFunction<any[]>[];
@@ -25,6 +29,35 @@ export class CopilotBackend {
     this.debug = params?.debug || false;
   }
 
+  addFunction(func: AnnotatedFunction<any[]>): void {
+    this.removeFunction(func.name);
+    this.functions.push(func);
+  }
+
+  removeFunction(funcName: string): void {
+    this.functions = this.functions.filter((f) => f.name !== funcName);
+  }
+
+  removeBackendOnlyProps(forwardedProps: any): void {
+    this.removeBackendOnlyProps(forwardedProps);
+    // Get keys backendOnlyPropsKeys in order to remove them from the forwardedProps
+    const backendOnlyPropsKeys = forwardedProps[EXCLUDE_FROM_FORWARD_PROPS_KEYS];
+    if (Array.isArray(backendOnlyPropsKeys)) {
+      backendOnlyPropsKeys.forEach((key) => {
+        const success = Reflect.deleteProperty(forwardedProps, key);
+        if (!success) {
+          console.error(`Failed to delete property ${key}`);
+        }
+      });
+      // After deleting individual backend-only properties, delete the EXCLUDE_FROM_FORWARD_PROPS_KEYS property itself from forwardedProps
+      const success = Reflect.deleteProperty(forwardedProps, EXCLUDE_FROM_FORWARD_PROPS_KEYS);
+      if (!success) {
+        console.error(`Failed to delete EXCLUDE_FROM_FORWARD_PROPS_KEYS`);
+      }
+    } else if (backendOnlyPropsKeys) {
+      console.error("backendOnlyPropsKeys is not an array");
+    }
+  }
   async stream(
     forwardedProps: any,
     serviceAdapter: CopilotKitServiceAdapter,
