@@ -50,6 +50,9 @@ cleaned_branch=$(echo $current_branch | sed 's/_/-/g')
 # replace all non-alphanumeric characters except hyphens
 cleaned_branch=$(echo $cleaned_branch | sed 's/[^a-zA-Z0-9-]/-/g')
 
+# chop leading and trailing hyphens
+cleaned_branch=$(echo $cleaned_branch | sed 's/^-//;s/-$//')
+
 # create a new beta version named "beta-<current-branch>"
 pnpm changeset pre enter $cleaned_branch
 
