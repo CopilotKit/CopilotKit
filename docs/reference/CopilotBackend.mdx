@@ -1,0 +1,168 @@
+---
+title: "CopilotBackend"
+description: "Handles requests from frontend, provides function calling and various LLM backends."
+---
+
+<RequestExample>
+  ```jsx CopilotKitBackend Example
+  import { 
+    CopilotBackend, 
+    OpenAIAdapter 
+  } from "@copilotkit/backend";
+
+  export async function POST(req: Request) {
+    const copilotKit = new CopilotBackend();
+    return copilotKit.response(req, new OpenAIAdapter());
+  }
+```
+</RequestExample>
+
+This class is the main entry point for the backend. It handles requests from the frontend, provides function calling and various LLM backends.
+
+Currently, you can use `OpenAIAdapter` for direct access to the OpenAI API and `LangChainAdapter` to use the LangChain API as a backend.
+
+## OpenAIAdapter
+
+Simply pass an instance of `OpenAIAdapter` to the `response` method of `CopilotBackend` to use OpenAI as a backend.
+
+```typescript
+const copilotKit = new CopilotBackend();
+return copilotKit.response(req, new OpenAIAdapter());
+```
+
+## LangChainAdapter
+
+To use LangChain as a backend, provide a handler function to the adapter with your custom LangChain logic.
+The async handler function can return:
+- a simple `string` response
+- a LangChain stream `IterableReadableStream`
+- a LangChain `BaseMessageChunk` object
+- a LangChain `AIMessage` object
+
+This example streams back OpenAI messages via LangChain:
+```typescript
+return copilotKit.response(
+  req,
+  new LangChainAdapter(async (forwardedProps) => {
+    const model = new ChatOpenAI(
+      { modelName: "gpt-4-1106-preview" }
+    );
+    return model.stream(
+      forwardedProps.messages, 
+      { tools: forwardedProps.tools }
+    );
+  }),
+);
+```
+
+## Server Side Actions
+
+CopilotKit supports actions that can be executed on the server side. You can define server side actions by passing the `actions` parameter:
+
+```typescript
+const copilotKit = new CopilotBackend({
+  actions: [
+    {
+      name: "sayHello",
+      description: "Says hello to someone.",
+      argumentAnnotations: [
+        {
+          name: "arg",
+          type: "string",
+          description: "The name of the person to say hello to.",
+          required: true,
+        },
+      ],
+      implementation: async (arg) => {
+        console.log("Hello from the server", arg, "!");
+      },
+    },
+  ],
+});
+```
+
+Server side actions can also return a result which becomes part of the message history.
+
+This is useful because it gives the LLM context about what happened on the server side. In addition,
+it can be used to look up information from a vector or relational database and other sources.
+
+In addition to that, server side actions can also come from LangChain, including support for streaming responses.
+
+Returned results can be of the following type:
+- anything serializable to JSON
+- `string`
+- LangChain types:
+  - `IterableReadableStream`
+  - `BaseMessageChunk`
+  - `AIMessage`
+
+## LangServe
+
+The backend also supports LangServe, enabling you to connect to existing chains, for example python based chains.
+Use the `langserve` parameter to specify URLs for LangServe.
+
+```typescript
+const copilotKit = new CopilotBackend({
+  langserve: [
+    {
+      chainUrl: "http://my-langserve.chain",
+      name: "performResearch",
+      description: "Performs research on a given topic.",
+    }
+  ],
+});
+```
+
+When left out, arguments are automatically inferred from the schema provided by LangServe.
+
+## Constructor
+
+<ResponseField name="actions" type="AnnotatedFunction">
+  A list of server side actions that can be executed.
+</ResponseField>
+
+<ResponseField name="langserve" type="RemoteChain">
+  An array of LangServer URLs.
+</ResponseField>
+
+
+## response(request, adapter)
+
+Handle a HTTP request and return a `Response` object.
+
+<ResponseField name="request" type="Request" required="true">
+  The HTTP request object.
+</ResponseField>
+
+<ResponseField name="adapter" type="CopilotKitServiceAdapter" required="true">
+  The adapter to use for the response.
+</ResponseField>
+
+## stream(forwardedProps, adapter)
+
+Returns a `ReadableStream` that can be used to stream messages back to the client.
+
+<ResponseField name="forwardedProps" type="any" required="true">
+  The properties forwarded to the adapter. This includes messages, functions etc.
+</ResponseField>
+
+<ResponseField name="adapter" type="CopilotKitServiceAdapter" required="true">
+  The adapter to use for the response.
+</ResponseField>
+
+## streamHttpServerResponse(req, res, adapter)
+
+Streams messages back to the client using the HTTP response object. Use with express,
+or Node.js HTTP server.
+
+<ResponseField name="req" type="Request" required="true">
+  The HTTP request object.
+</ResponseField>
+
+<ResponseField name="res" type="Response" required="true">
+  The HTTP response object.
+</ResponseField>
+
+<ResponseField name="adapter" type="CopilotKitServiceAdapter" required="true">
+  The adapter to use for the response.
+</ResponseField>
