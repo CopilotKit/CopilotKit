@@ -1,5 +1,11 @@
 # @copilotkit/cloud
 
+## 0.4.0-mme-fix-tools-error.3
+
+### Minor Changes
+
+- Test build
+
 ## 0.4.0-mme-fix-tools-error.2
 
 ### Minor Changes

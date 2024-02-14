@@ -1,5 +1,12 @@
 # web
 
+## 1.16.0-mme-fix-tools-error.3
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.4.0-mme-fix-tools-error.3
+
 ## 1.16.0-mme-fix-tools-error.2
 
 ### Patch Changes
