@@ -89,9 +89,8 @@ echo "!! Automatically exiting pre mode in 30 seconds !!"
 echo "=================================================="
 echo ""
 
-# wait for the CI to finish
-echo "Press any key to continue"
-read -r response
+# wait for 30 seconds
+sleep 30
 
 # get out of pre mode
 pnpm changeset pre exit
