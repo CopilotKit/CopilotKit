@@ -28,7 +28,11 @@ async function search(state: { agentState: AgentState }): Promise<{ agentState: 
     k: 10,
   });
   let topic = state.agentState.topic;
-  const docs = await retriever.getRelevantDocuments(state.agentState.topic);
+  // must be at least 5 characters long
+  if (topic.length < 5) {
+    topic = "topic: " + topic;
+  }
+  const docs = await retriever.getRelevantDocuments(topic);
   return {
     agentState: {
       ...state.agentState,
@@ -63,7 +67,6 @@ async function curate(state: { agentState: AgentState }): Promise<{ agentState: 
       },
     },
   );
-  console.log(response.content);
   const urls = JSON.parse(response.content as string).urls;
   const searchResults = JSON.parse(state.agentState.searchResults!);
   const newSearchResults = searchResults.filter((result: any) => {

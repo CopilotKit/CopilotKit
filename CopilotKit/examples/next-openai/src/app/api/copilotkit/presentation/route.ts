@@ -36,7 +36,8 @@ const sayHelloAction: AnnotatedFunction<any> = {
 const researchAction: AnnotatedFunction<any> = {
   name: "research",
   description:
-    "Call this function when the user requests research on a certain topic. After researching, make a presentation.",
+    "Call this function when the user requests research on a certain topic. \n" +
+    "IMPORTANT: NEVER call this function UNLESS the user explicitly requests research.",
   argumentAnnotations: [
     {
       name: "topic",

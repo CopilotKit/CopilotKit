@@ -8,12 +8,20 @@ import {
   useMakeCopilotReadable,
 } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import "./styles.css";
 
 let globalAudio: any = undefined;
 let globalAudioEnabled = false;
+
+function enableAudioOnUserInteraction() {
+  if (!globalAudioEnabled) {
+    globalAudio.play();
+    globalAudio.pause();
+  }
+  globalAudioEnabled = true;
+}
 
 const Demo = () => {
   return (
@@ -26,11 +34,7 @@ const Demo = () => {
         }}
         clickOutsideToClose={false}
         onSubmitMessage={async (message) => {
-          if (!globalAudioEnabled) {
-            globalAudio.play();
-            globalAudio.pause();
-          }
-          globalAudioEnabled = true;
+          enableAudioOnUserInteraction();
         }}
       >
         <Presentation />
@@ -39,11 +43,37 @@ const Demo = () => {
   );
 };
 
-const Presentation = () => {
-  const [state, setState] = useState({
-    markdown: `# Hello World!`,
-    backgroundImage: "hello",
+interface Slide {
+  markdown: string;
+  backgroundImage: string;
+  speech: string;
+}
+
+async function speak(text: string) {
+  globalAudio.pause();
+  globalAudio.currentTime = 0;
+  const encodedText = encodeURIComponent(text);
+  const url = `/api/tts?text=${encodedText}`;
+  globalAudio.src = url;
+  globalAudio.play();
+  await new Promise<void>((resolve) => {
+    globalAudio.onended = function () {
+      resolve();
+    };
   });
+  await new Promise((resolve) => setTimeout(resolve, 500));
+}
+
+const Presentation = () => {
+  const [slides, setSlides] = useState<Slide[]>([
+    {
+      markdown: `# Welcome to our presentation!`,
+      backgroundImage: "hello",
+      speech: "Welcome to our presentation!",
+    },
+  ]);
+
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
 
   useEffect(() => {
     if (!globalAudio) {
@@ -51,13 +81,16 @@ const Presentation = () => {
     }
   }, []);
 
-  useMakeCopilotReadable("This is the current slide: " + JSON.stringify(state));
+  const currentSlide = slides[currentSlideIndex];
+
+  useMakeCopilotReadable("These are all the slides: " + JSON.stringify(slides));
+  useMakeCopilotReadable("This is the current slide: " + JSON.stringify(currentSlide));
 
   useMakeCopilotActionable(
     {
-      name: "presentSlide",
+      name: "addSlide",
       description:
-        "Present a slide in the presentation you are giving. Call this function multiple times to present multiple slides.",
+        "Adds a slide in the presentation you are giving. Call this function multiple times to present multiple slides.",
       argumentAnnotations: [
         {
           name: "markdown",
@@ -81,64 +114,77 @@ const Presentation = () => {
       ],
 
       implementation: async (markdown, backgroundImage, speech) => {
-        setState({
-          markdown,
-          backgroundImage,
-        });
-
         console.log("Presenting slide: ", markdown, backgroundImage, speech);
-
-        const encodedText = encodeURIComponent(speech);
-        const url = `/api/tts?text=${encodedText}`;
-        globalAudio.src = url;
-        await globalAudio.play();
-        await new Promise<void>((resolve) => {
-          globalAudio.onended = function () {
-            resolve();
-          };
-        });
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        setSlides((slides) => [...slides, { markdown, backgroundImage, speech }]);
+        setCurrentSlideIndex((i) => i + 1);
+        await speak(speech);
       },
     },
     [],
   );
 
-  const randomSlideTask = new CopilotTask({
-    instructions: "Make a random slide related to the current topic",
-  });
-
   const context = useCopilotContext();
+  const nextSlideTask = new CopilotTask({
+    instructions: "Make the next slide related to the current topic",
+  });
 
   const [randomSlideTaskRunning, setRandomSlideTaskRunning] = useState(false);
 
+  let nextSlideLabel = "Next Slide";
+  if (randomSlideTaskRunning) {
+    nextSlideLabel = "Generating slide...";
+  } else if (currentSlideIndex + 1 === slides.length) {
+    nextSlideLabel = "Generate Next Slide";
+  }
+
   return (
     <div className="relative">
-      <Slide {...state} />
+      <SlideComponent {...currentSlide} />
       <button
         disabled={randomSlideTaskRunning}
-        className={`absolute bottom-0 left-0 mb-4 ml-4 bg-blue-500 text-white font-bold py-2 px-4 rounded
+        className={`absolute bottom-0 right-0 mb-6 mr-32 bg-blue-500 text-white font-bold py-2 px-4 rounded
         ${randomSlideTaskRunning ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"}`}
         onClick={async () => {
-          try {
-            setRandomSlideTaskRunning(true);
-            await randomSlideTask.run(context);
-          } finally {
-            setRandomSlideTaskRunning(false);
+          enableAudioOnUserInteraction();
+
+          if (currentSlideIndex + 1 === slides.length) {
+            try {
+              setRandomSlideTaskRunning(true);
+              await nextSlideTask.run(context);
+            } finally {
+              setRandomSlideTaskRunning(false);
+            }
+          } else {
+            setCurrentSlideIndex((i) => i + 1);
+            speak(slides[currentSlideIndex + 1].speech);
           }
         }}
       >
-        {randomSlideTaskRunning ? "Generating slide..." : "Make random slide"}
+        {nextSlideLabel}
+      </button>
+
+      <button
+        disabled={randomSlideTaskRunning || currentSlideIndex === 0}
+        className={`absolute bottom-0 left-0 mb-6 ml-4 bg-blue-500 text-white font-bold py-2 px-4 rounded
+        ${
+          randomSlideTaskRunning || currentSlideIndex === 0
+            ? "opacity-50 cursor-not-allowed"
+            : "hover:bg-blue-700"
+        }`}
+        onClick={async () => {
+          if (currentSlideIndex > 0) {
+            setCurrentSlideIndex((i) => i - 1);
+            speak(slides[currentSlideIndex - 1].speech);
+          }
+        }}
+      >
+        Previous Slide
       </button>
     </div>
   );
 };
 
-type SlideProps = {
-  markdown: string;
-  backgroundImage: string;
-};
-
-const Slide = ({ markdown, backgroundImage }: SlideProps) => {
+const SlideComponent = ({ markdown, backgroundImage }: Slide) => {
   backgroundImage =
     'url("https://source.unsplash.com/featured/?' + encodeURIComponent(backgroundImage) + '")';
   return (
