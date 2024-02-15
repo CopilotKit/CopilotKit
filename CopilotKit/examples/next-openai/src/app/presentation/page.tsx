@@ -17,7 +17,7 @@ let globalAudioEnabled = false;
 
 const Demo = () => {
   return (
-    <CopilotKit url="/api/copilotkit/openai">
+    <CopilotKit url="/api/copilotkit/presentation">
       <CopilotSidebar
         defaultOpen={true}
         labels={{

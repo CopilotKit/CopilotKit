@@ -48,12 +48,21 @@ importers:
       '@heroicons/react':
         specifier: ^2.0.18
         version: 2.0.18(react@18.2.0)
+      '@langchain/community':
+        specifier: ^0.0.28
+        version: 0.0.28
       '@langchain/core':
         specifier: ^0.1.18
         version: 0.1.18
+      '@langchain/langgraph':
+        specifier: ^0.0.7
+        version: 0.0.7
       '@langchain/openai':
         specifier: ^0.0.13
         version: 0.0.13
+      langchain:
+        specifier: ^0.1.9
+        version: 0.1.9
       next:
         specifier: ^13.4.9
         version: 13.4.9(react-dom@18.2.0)(react@18.2.0)
@@ -1666,8 +1675,8 @@ packages:
     resolution: {integrity: sha512-dfLbk+PwWvFzSxwk3n5ySL0hfBog779o8h68wK/7/APo/7cgyWp5jcXockbxdk5kFRkbeXWm4Fbi9FrdN381sA==}
     dev: false
 
-  /@langchain/community@0.0.21:
-    resolution: {integrity: sha512-2b3azTwY3i4hKeNpxXhZ34h9CQHvPu1kNTxAT8mSuOwkA0ZZ+DQ1niOT0Ai1K0ZrSyice5aivgvy6v7Jf0yFZw==}
+  /@langchain/community@0.0.28:
+    resolution: {integrity: sha512-fR96wYtQPZ+iw3g5byp05ekGdQ5p+a+xR/RU9BpqW19Jk6g//szmp8Sagl3cTbTuzNlADaYw9IbYBLzd9W/Bhw==}
     engines: {node: '>=18'}
     peerDependencies:
       '@aws-crypto/sha256-js': ^5.0.0
@@ -1681,7 +1690,7 @@ packages:
       '@aws-sdk/credential-provider-node': ^3.388.0
       '@azure/search-documents': ^12.0.0
       '@clickhouse/client': ^0.2.5
-      '@cloudflare/ai': ^1.0.12
+      '@cloudflare/ai': '*'
       '@datastax/astra-db-ts': ^0.1.4
       '@elastic/elasticsearch': ^8.4.0
       '@getmetal/metal-sdk': '*'
@@ -1693,7 +1702,7 @@ packages:
       '@huggingface/inference': ^2.6.4
       '@mozilla/readability': '*'
       '@opensearch-project/opensearch': '*'
-      '@pinecone-database/pinecone': ^1.1.0
+      '@pinecone-database/pinecone': '*'
       '@planetscale/database': ^1.8.0
       '@qdrant/js-client-rest': ^1.2.0
       '@raycast/api': ^1.55.2
@@ -1708,22 +1717,25 @@ packages:
       '@tensorflow/tfjs-converter': '*'
       '@tensorflow/tfjs-core': '*'
       '@upstash/redis': ^1.20.6
+      '@upstash/vector': ^1.0.2
       '@vercel/kv': ^0.2.3
       '@vercel/postgres': ^0.5.0
       '@writerai/writer-sdk': ^0.40.2
       '@xata.io/client': ^0.28.0
       '@xenova/transformers': ^2.5.4
       '@zilliz/milvus2-sdk-node': '>=2.2.7'
+      better-sqlite3: ^9.4.0
       cassandra-driver: ^4.7.2
       chromadb: '*'
-      closevector-common: 0.1.0-alpha.1
-      closevector-node: 0.1.0-alpha.10
-      closevector-web: 0.1.0-alpha.16
-      cohere-ai: '>=6.0.0'
+      closevector-common: 0.1.3
+      closevector-node: 0.1.6
+      closevector-web: 0.1.6
+      cohere-ai: '*'
       convex: ^1.3.1
       discord.js: ^14.14.1
+      dria: ^0.0.3
       faiss-node: ^0.5.1
-      firebase-admin: ^11.9.0
+      firebase-admin: ^11.9.0 || ^12.0.0
       google-auth-library: ^8.9.0
       googleapis: ^126.0.1
       hnswlib-node: ^1.4.2
@@ -1741,14 +1753,14 @@ packages:
       pg-copy-streams: ^6.0.5
       pickleparser: ^0.2.1
       portkey-ai: ^0.1.11
-      redis: ^4.6.4
+      redis: '*'
       replicate: ^0.18.0
       typeorm: ^0.3.12
       typesense: ^1.5.3
       usearch: ^1.1.1
       vectordb: ^0.1.4
       voy-search: 0.6.2
-      weaviate-ts-client: ^1.4.0
+      weaviate-ts-client: '*'
       web-auth-library: ^1.0.3
       ws: ^8.14.2
     peerDependenciesMeta:
@@ -1828,6 +1840,8 @@ packages:
         optional: true
       '@upstash/redis':
         optional: true
+      '@upstash/vector':
+        optional: true
       '@vercel/kv':
         optional: true
       '@vercel/postgres':
@@ -1839,6 +1853,8 @@ packages:
       '@xenova/transformers':
         optional: true
       '@zilliz/milvus2-sdk-node':
+        optional: true
+      better-sqlite3:
         optional: true
       cassandra-driver:
         optional: true
@@ -1855,6 +1871,8 @@ packages:
       convex:
         optional: true
       discord.js:
+        optional: true
+      dria:
         optional: true
       faiss-node:
         optional: true
@@ -1915,8 +1933,8 @@ packages:
       ws:
         optional: true
     dependencies:
-      '@langchain/core': 0.1.18
-      '@langchain/openai': 0.0.13
+      '@langchain/core': 0.1.28
+      '@langchain/openai': 0.0.14
       flat: 5.0.2
       langsmith: 0.0.63
       uuid: 9.0.1
@@ -1942,11 +1960,48 @@ packages:
       zod-to-json-schema: 3.22.4(zod@3.22.4)
     dev: false
 
+  /@langchain/core@0.1.28:
+    resolution: {integrity: sha512-8f4VUCO2cIoGQGLc9SiiGyb4JsIAVKs1b/qtOj1WvxD3Z8W93lYFsuSEpFdyppkimx8N+MpDdWG+Nd/9RJ3Xyg==}
+    engines: {node: '>=18'}
+    dependencies:
+      ansi-styles: 5.2.0
+      camelcase: 6.3.0
+      decamelize: 1.2.0
+      js-tiktoken: 1.0.8
+      langsmith: 0.0.63
+      ml-distance: 4.0.1
+      p-queue: 6.6.2
+      p-retry: 4.6.2
+      uuid: 9.0.1
+      zod: 3.22.4
+      zod-to-json-schema: 3.22.4(zod@3.22.4)
+    dev: false
+
+  /@langchain/langgraph@0.0.7:
+    resolution: {integrity: sha512-d3RdFwtwwA39CW3eq9ASblnL330y6dAXZXmw7anV4XWgb++a/Xj0i1UrVri+efUUoa23BROr/p/j3nvyH1jmLg==}
+    engines: {node: '>=18'}
+    dependencies:
+      '@langchain/core': 0.1.28
+    dev: false
+
   /@langchain/openai@0.0.13:
     resolution: {integrity: sha512-kgPwFiUA5Abmt8Q/cDhC4o1o5QAYuq962CqneVieMIgTUOJhYqB8Na4/7JI0EIfEZuUP2uuTrtqsulbLpGNQ8w==}
     engines: {node: '>=18'}
     dependencies:
       '@langchain/core': 0.1.18
+      js-tiktoken: 1.0.8
+      openai: 4.26.0
+      zod: 3.22.4
+      zod-to-json-schema: 3.22.4(zod@3.22.4)
+    transitivePeerDependencies:
+      - encoding
+    dev: false
+
+  /@langchain/openai@0.0.14:
+    resolution: {integrity: sha512-co6nRylPrLGY/C3JYxhHt6cxLq07P086O7K3QaZH7SFFErIN9wSzJonpvhZR07DEUq6eK6wKgh2ORxA/NcjSRQ==}
+    engines: {node: '>=18'}
+    dependencies:
+      '@langchain/core': 0.1.28
       js-tiktoken: 1.0.8
       openai: 4.26.0
       zod: 3.22.4
@@ -6019,8 +6074,8 @@ packages:
         optional: true
     dependencies:
       '@anthropic-ai/sdk': 0.9.1
-      '@langchain/community': 0.0.21
-      '@langchain/core': 0.1.18
+      '@langchain/community': 0.0.28
+      '@langchain/core': 0.1.28
       '@langchain/openai': 0.0.13
       binary-extensions: 2.2.0
       expr-eval: 2.0.2
@@ -6067,16 +6122,19 @@ packages:
       - '@tensorflow/tfjs-converter'
       - '@tensorflow/tfjs-core'
       - '@upstash/redis'
+      - '@upstash/vector'
       - '@vercel/postgres'
       - '@writerai/writer-sdk'
       - '@xenova/transformers'
       - '@zilliz/milvus2-sdk-node'
+      - better-sqlite3
       - cassandra-driver
       - closevector-common
       - closevector-node
       - closevector-web
       - cohere-ai
       - discord.js
+      - dria
       - encoding
       - firebase-admin
       - hnswlib-node
