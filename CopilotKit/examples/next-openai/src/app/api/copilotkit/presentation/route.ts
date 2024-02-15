@@ -37,7 +37,7 @@ const researchAction: AnnotatedFunction<any> = {
   name: "research",
   description:
     "Call this function when the user requests research on a certain topic. \n" +
-    "IMPORTANT: NEVER call this function UNLESS the user explicitly requests research.",
+    "IMPORTANT: NEVER call this function UNLESS the user explicitly requests research!",
   argumentAnnotations: [
     {
       name: "topic",
@@ -47,6 +47,7 @@ const researchAction: AnnotatedFunction<any> = {
     },
   ],
   implementation: async (topic) => {
+    console.log("Researching topic: ", topic);
     return await researchWithLangGraph(topic);
   },
 };

@@ -94,7 +94,8 @@ const Presentation = ({ chatInProgress }: { chatInProgress: boolean }) => {
     {
       name: "addSlide",
       description:
-        "Adds a slide in the presentation you are giving. Call this function multiple times to present multiple slides.",
+        "Add a slide in the presentation you are giving. Call this function multiple times to present multiple slides.\n" +
+        "After you get new information, you must call this function to present the results.",
       argumentAnnotations: [
         {
           name: "markdown",
