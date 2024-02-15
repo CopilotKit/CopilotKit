@@ -52,7 +52,7 @@ const researchAction: AnnotatedFunction<any> = {
 
 export async function POST(req: Request): Promise<Response> {
   const actions: AnnotatedFunction<any>[] = [sayHelloAction];
-  if (process.env.TAVILY_API_KEY) {
+  if (process.env["TAVILY_API_KEY"]) {
     actions.push(researchAction);
   }
   const copilotKit = new CopilotBackend({
