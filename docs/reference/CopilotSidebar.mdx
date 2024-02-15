@@ -20,7 +20,6 @@ A chatbot sidebar component for the CopilotKit framework. Highly customizable th
   ```
 </RequestExample>
 
-
 See [CopilotPopup](./CopilotPopup) for a popup version of this component.
 
 <Note>
@@ -79,6 +78,11 @@ For example:
 <ResponseField name="onSetOpen" type="function">
   A callback `(open: boolean) => void` that gets called when the chat window
   opens or closes.
+</ResponseField>
+
+<ResponseField name="onSetInProgress" type="function">
+  A callback `(inProgress: boolean) => void` that gets called when the in
+  progress status changes.
 </ResponseField>
 
 <ResponseField name="shortcut" type="string" default="e">

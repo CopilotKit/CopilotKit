@@ -24,6 +24,7 @@ function enableAudioOnUserInteraction() {
 }
 
 const Demo = () => {
+  const [chatInProgress, setChatInProgress] = useState(false);
   return (
     <CopilotKit url="/api/copilotkit/presentation">
       <CopilotSidebar
@@ -36,8 +37,11 @@ const Demo = () => {
         onSubmitMessage={async (message) => {
           enableAudioOnUserInteraction();
         }}
+        onInProgress={(inProgress) => {
+          setChatInProgress(inProgress);
+        }}
       >
-        <Presentation />
+        <Presentation chatInProgress={chatInProgress} />
       </CopilotSidebar>
     </CopilotKit>
   );
@@ -64,7 +68,7 @@ async function speak(text: string) {
   await new Promise((resolve) => setTimeout(resolve, 500));
 }
 
-const Presentation = () => {
+const Presentation = ({ chatInProgress }: { chatInProgress: boolean }) => {
   const [slides, setSlides] = useState<Slide[]>([
     {
       markdown: `# Welcome to our presentation!`,
@@ -137,13 +141,16 @@ const Presentation = () => {
     nextSlideLabel = "Generate Next Slide";
   }
 
+  const nextDisabled = randomSlideTaskRunning || chatInProgress;
+  const prevDisabled = randomSlideTaskRunning || currentSlideIndex === 0 || chatInProgress;
+
   return (
     <div className="relative">
       <SlideComponent {...currentSlide} />
       <button
-        disabled={randomSlideTaskRunning}
+        disabled={nextDisabled}
         className={`absolute bottom-0 right-0 mb-6 mr-32 bg-blue-500 text-white font-bold py-2 px-4 rounded
-        ${randomSlideTaskRunning ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"}`}
+        ${nextDisabled ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"}`}
         onClick={async () => {
           enableAudioOnUserInteraction();
 
@@ -164,13 +171,9 @@ const Presentation = () => {
       </button>
 
       <button
-        disabled={randomSlideTaskRunning || currentSlideIndex === 0}
+        disabled={prevDisabled}
         className={`absolute bottom-0 left-0 mb-6 ml-4 bg-blue-500 text-white font-bold py-2 px-4 rounded
-        ${
-          randomSlideTaskRunning || currentSlideIndex === 0
-            ? "opacity-50 cursor-not-allowed"
-            : "hover:bg-blue-700"
-        }`}
+        ${prevDisabled ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"}`}
         onClick={async () => {
           if (currentSlideIndex > 0) {
             setCurrentSlideIndex((i) => i - 1);
