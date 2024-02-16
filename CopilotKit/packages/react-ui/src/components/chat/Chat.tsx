@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { CopilotChatIcons, ChatContextProvider, CopilotChatLabels } from "./ChatContext";
 import { SystemMessageFunction, useCopilotChat } from "@copilotkit/react-core";
 import {
@@ -53,6 +53,11 @@ export interface CopilotChatProps {
    * A callback that gets called when the chat window opens or closes.
    */
   onSetOpen?: (open: boolean) => void;
+
+  /**
+   * A callback that gets called when the in progress state changes.
+   */
+  onInProgress?: (inProgress: boolean) => void;
 
   /**
    * A callback that gets called when a new message it submitted.
@@ -133,6 +138,7 @@ export const CopilotChat = ({
   hitEscapeToClose = true,
   onSetOpen,
   onSubmitMessage,
+  onInProgress,
   shortcut = "e",
   icons,
   labels,
@@ -151,6 +157,10 @@ export const CopilotChat = ({
     makeSystemMessage,
     additionalInstructions: instructions,
   });
+
+  useEffect(() => {
+    onInProgress?.(isLoading);
+  }, [isLoading]);
 
   const [openState, setOpenState] = React.useState(defaultOpen);
 

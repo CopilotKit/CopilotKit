@@ -73,6 +73,11 @@ For example:
   opens or closes.
 </ResponseField>
 
+<ResponseField name="onSetInProgress" type="function">
+  A callback `(inProgress: boolean) => void` that gets called when the in
+  progress status changes.
+</ResponseField>
+
 <ResponseField name="shortcut" type="string" default="e">
   The shortcut key to open the chat window. Uses Command-`shortcut` on a Mac and
   Ctrl-`shortcut` on Windows.
