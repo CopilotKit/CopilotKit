@@ -1,5 +1,14 @@
 # node
 
+## 1.16.0-mme-pre-16-02-2024.3
+
+### Patch Changes
+
+- Pre-release
+- Updated dependencies
+  - @copilotkit/backend@0.4.0-mme-pre-16-02-2024.3
+  - @copilotkit/shared@0.4.0-mme-pre-16-02-2024.2
+
 ## 1.16.0-mme-fix-tools-error.2
 
 ### Patch Changes

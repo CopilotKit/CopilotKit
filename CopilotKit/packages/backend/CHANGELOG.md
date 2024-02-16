@@ -1,5 +1,13 @@
 # @copilotkit/cloud
 
+## 0.4.0-mme-pre-16-02-2024.3
+
+### Patch Changes
+
+- Pre-release
+- Updated dependencies
+  - @copilotkit/shared@0.4.0-mme-pre-16-02-2024.2
+
 ## 0.4.0-mme-fix-tools-error.2
 
 ### Minor Changes

@@ -1,5 +1,14 @@
 # ui
 
+## 0.30.0-mme-pre-16-02-2024.2
+
+### Patch Changes
+
+- Pre-release
+- Updated dependencies
+  - @copilotkit/react-core@0.20.0-mme-pre-16-02-2024.2
+  - @copilotkit/shared@0.4.0-mme-pre-16-02-2024.2
+
 ## 0.30.0-beta-automation.1
 
 ### Minor Changes
