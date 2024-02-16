@@ -9,16 +9,16 @@ export interface CopilotTaskConfig {
    */
   instructions: string;
   /**
-   * Function definitions to be sent to the API.
+   * Action definitions to be sent to the API.
    */
-  functions?: AnnotatedFunction<any[]>[];
+  actions?: AnnotatedFunction<any[]>[];
   /**
    * Whether to include the copilot readable context in the task.
    */
   includeCopilotReadable?: boolean;
 
   /**
-   * Whether to include functions defined via useMakeCopilotActionable in the task.
+   * Whether to include actions defined via useMakeCopilotActionable in the task.
    */
   includeCopilotActionable?: boolean;
 }
@@ -31,7 +31,7 @@ export class CopilotTask<T = any> {
 
   constructor(config: CopilotTaskConfig) {
     this.instructions = config.instructions;
-    this.functions = config.functions || [];
+    this.functions = config.actions || [];
     this.includeCopilotReadable = config.includeCopilotReadable || true;
     this.includeCopilotActionable = config.includeCopilotActionable || true;
   }
