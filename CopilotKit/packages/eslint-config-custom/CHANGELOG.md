@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.5.0-mme-pre-16-02-2024.3
+
+### Minor Changes
+
+- Pre-release
+
 ## 0.5.0-mme-pre-16-02-2024.2
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "tailwind-config",
-  "version": "0.4.0-mme-pre-16-02-2024.2",
+  "version": "0.4.0-mme-pre-16-02-2024.3",
   "private": true,
   "main": "index.js",
   "devDependencies": {

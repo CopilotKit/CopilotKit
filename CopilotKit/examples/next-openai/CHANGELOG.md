@@ -1,5 +1,20 @@
 # web
 
+## 1.16.0-mme-pre-16-02-2024.4
+
+### Minor Changes
+
+- Pre-release
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.30.0-mme-pre-16-02-2024.3
+  - @copilotkit/react-core@0.20.0-mme-pre-16-02-2024.3
+  - @copilotkit/react-ui@0.17.0-mme-pre-16-02-2024.3
+  - @copilotkit/backend@0.4.0-mme-pre-16-02-2024.4
+  - @copilotkit/shared@0.4.0-mme-pre-16-02-2024.3
+
 ## 1.16.0-mme-pre-16-02-2024.3
 
 ### Patch Changes
