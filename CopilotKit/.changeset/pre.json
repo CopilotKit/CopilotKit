@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "mme-pre-16-02-2024",
   "initialVersions": {
     "next-openai": "1.16.0-mme-fix-tools-error.2",
