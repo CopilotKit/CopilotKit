@@ -1,5 +1,13 @@
 # @copilotkit/shared
 
+## 0.4.0
+
+### Minor Changes
+
+- CopilotTask, function return values, LangChain support, LangServe support
+- 401e474: Test the tools API
+- 2f3296e: Test automation
+
 ## 0.4.0-beta-automation.1
 
 ### Minor Changes

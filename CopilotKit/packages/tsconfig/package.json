@@ -1,6 +1,6 @@
 {
   "name": "tsconfig",
-  "version": "0.9.0-beta-automation.1",
+  "version": "0.9.0",
   "private": true,
   "license": "MIT",
   "publishConfig": {

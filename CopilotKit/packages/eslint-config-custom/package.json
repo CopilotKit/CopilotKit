@@ -1,7 +1,7 @@
 {
   "name": "eslint-config-custom",
   "private": true,
-  "version": "0.5.0-beta-automation.1",
+  "version": "0.5.0",
   "main": "index.js",
   "license": "MIT",
   "dependencies": {

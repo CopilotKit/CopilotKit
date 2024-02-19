@@ -1,5 +1,25 @@
 # web
 
+## 1.16.0
+
+### Minor Changes
+
+- CopilotTask, function return values, LangChain support, LangServe support
+- 401e474: Test the tools API
+- 2f3296e: Test automation
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies [b0e92a1]
+- Updated dependencies [401e474]
+- Updated dependencies [2f3296e]
+  - @copilotkit/backend@0.4.0
+  - @copilotkit/react-core@0.20.0
+  - @copilotkit/react-textarea@0.30.0
+  - @copilotkit/react-ui@0.17.0
+  - @copilotkit/shared@0.4.0
+
 ## 1.16.0-mme-fix-tools-error.2
 
 ### Patch Changes
