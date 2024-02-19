@@ -1,5 +1,21 @@
 # @copilotkit/cloud
 
+## 0.4.0
+
+### Minor Changes
+
+- CopilotTask, function return values, LangChain support, LangServe support
+- b0e92a1: Don't send empty tools array to OpenAI
+- 401e474: Test the tools API
+- 2f3296e: Test automation
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies [401e474]
+- Updated dependencies [2f3296e]
+  - @copilotkit/shared@0.4.0
+
 ## 0.4.0-mme-fix-tools-error.2
 
 ### Minor Changes
