@@ -42,7 +42,7 @@
     "ts-jest": "^29.1.1",
     "tsconfig": "workspace:*",
     "tsup": "^6.7.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.2.3"
   },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",

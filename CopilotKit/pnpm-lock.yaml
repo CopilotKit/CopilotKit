@@ -101,7 +101,7 @@ importers:
         specifier: workspace:*
         version: link:../../packages/tsconfig
       typescript:
-        specifier: ^5.3.3
+        specifier: ^5.2.3
         version: 5.3.3
 
   examples/node:
@@ -126,7 +126,7 @@ importers:
         specifier: workspace:*
         version: link:../../packages/tsconfig
       typescript:
-        specifier: ^5.3.3
+        specifier: ^5.2.3
         version: 5.3.3
 
   packages/backend:
@@ -175,7 +175,7 @@ importers:
         specifier: ^6.7.0
         version: 6.7.0(typescript@5.3.3)
       typescript:
-        specifier: ^5.3.3
+        specifier: ^5.2.3
         version: 5.3.3
 
   packages/eslint-config-custom:
@@ -230,7 +230,7 @@ importers:
         specifier: ^6.7.0
         version: 6.7.0(typescript@5.3.3)
       typescript:
-        specifier: ^5.3.3
+        specifier: ^5.2.3
         version: 5.3.3
 
   packages/react-textarea:
@@ -348,7 +348,7 @@ importers:
         specifier: ^6.7.0
         version: 6.7.0(postcss@8.4.20)(typescript@5.3.3)
       typescript:
-        specifier: ^5.3.3
+        specifier: ^5.2.3
         version: 5.3.3
 
   packages/react-ui:
@@ -415,7 +415,7 @@ importers:
         specifier: ^6.7.0
         version: 6.7.0(postcss@8.4.20)(typescript@5.3.3)
       typescript:
-        specifier: ^5.3.3
+        specifier: ^5.2.3
         version: 5.3.3
 
   packages/shared:
@@ -442,7 +442,7 @@ importers:
         specifier: ^6.7.0
         version: 6.7.0(typescript@5.3.3)
       typescript:
-        specifier: ^5.3.3
+        specifier: ^5.2.3
         version: 5.3.3
 
   packages/tailwind-config:
