@@ -35,6 +35,6 @@
     "tailwind-config": "workspace:*",
     "tailwindcss": "^3.2.4",
     "tsconfig": "workspace:*",
-    "typescript": "^5.1.3"
+    "typescript": "^5.3.3"
   }
 }

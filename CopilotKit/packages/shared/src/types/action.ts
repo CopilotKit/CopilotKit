@@ -74,7 +74,7 @@ type Action<T extends Parameter[] | [] = []> = {
 // uncomment when done
 
 // prettier-ignore
-export function useCopilotAction</*const*/T extends Parameter[] | [] = []>(action: Action<T>): void {
+export function useCopilotAction<const T extends Parameter[] | [] = []>(action: Action<T>): void {
   // Function implementation...
 }
 
