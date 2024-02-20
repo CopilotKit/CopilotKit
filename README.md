@@ -26,15 +26,17 @@ The Open-Source Copilot Platform
 </h1>
 
 <h3 align="center">
-in-app chatbots, AI-enabled Textareas, and more.
+in-app chatbots, AI-enabled Textareas, and more...
 </h3>
 
 <div align="center">
-  <picture>
-    <img alt="Backed by Techstars" src="https://github.com/CopilotKit/CopilotKit/assets/746397/a5029e89-0986-4dfc-bbd6-61d18944ae59" width="150px" max-width="100%"/>
-  </picture>
+  <a href="https://forms.gle/mKsuL5e7AFSa1KF48">
+    <picture>
+      <img alt="Reserve your place for Copilot Cloud (80 early adopter spots) Early registration closes Feb 22nd" src="https://github.com/CopilotKit/CopilotKit/assets/746397/c5175b17-afa8-4ace-96b4-55a331845c4c" width="360px" style="max-width:100%; border-radius: 10px;"/>
+    </picture>
   </a>
 </div>
+
 
 
 
