@@ -15,7 +15,7 @@ useCopilotAction({
       ],
     },
     { name: "arg4", type: "number[]" },
-  ] as const,
+  ],
   handler: ({ arg1, arg2, arg3, arg4 }) => {
     const x = arg3.nestedArg1;
     const z = arg3.xyz;
