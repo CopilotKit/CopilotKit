@@ -62,7 +62,9 @@ function convertAttribute(attribute: Parameter): any {
         acc[attr.name] = convertAttribute(attr);
         return acc;
       }, {} as any);
-      required = attribute.attributes?.filter((attr) => attr.required).map((attr) => attr.name);
+      required = attribute.attributes
+        ?.filter((attr) => attr.required !== false)
+        .map((attr) => attr.name);
       return {
         type: "object",
         description: attribute.description,
@@ -98,11 +100,15 @@ function convertAttribute(attribute: Parameter): any {
         acc[attr.name] = convertAttribute(attr);
         return acc;
       }, {} as any);
-      required = attribute.attributes?.filter((attr) => attr.required).map((attr) => attr.name);
+      required = attribute.attributes
+        ?.filter((attr) => attr.required !== false)
+        .map((attr) => attr.name);
       return {
         type: "array",
         items: {
           type: "object",
+          ...(properties ? { properties } : {}),
+          ...(required && required.length != 0 ? { required } : {}),
         },
         description: attribute.description,
       };
@@ -118,7 +124,7 @@ export function actionToChatCompletionFunction(action: Action<any>): ToolDefinit
 
   let requiredParameterNames: string[] = [];
   for (let arg of action.parameters || []) {
-    if (arg.required) {
+    if (arg.required !== false) {
       requiredParameterNames.push(arg.name);
     }
   }

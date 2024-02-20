@@ -2,11 +2,7 @@
 
 import { useCopilotContext } from "@copilotkit/react-core";
 import { CopilotTask } from "@copilotkit/react-core";
-import {
-  CopilotKit,
-  useMakeCopilotActionable,
-  useMakeCopilotReadable,
-} from "@copilotkit/react-core";
+import { CopilotKit, useMakeCopilotReadable } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useEffect, useState } from "react";
 import Markdown from "react-markdown";
@@ -55,37 +51,27 @@ const Presentation = () => {
   useMakeCopilotReadable("This is the current slide: " + JSON.stringify(state));
 
   useCopilotAction({
-    name: "sayHello",
+    name: "inventNewHobbies",
     parameters: [
       {
-        name: "person",
-        description: "the person to say hello to.",
-        type: "object",
+        name: "newHobbies",
+        description: "new hobbies you invented",
+        type: "object[]",
         attributes: [
           {
             name: "name",
             type: "string",
-            description: "The name of the person to say hello to.",
+            description: "The name of the new hobby",
             required: true,
           },
-          {
-            name: "age",
-            type: "number",
-            description: "The age of the person to say hello to.",
-            required: false,
-          },
-          {
-            name: "hobbies",
-            type: "string[]",
-            description: "The hobbies of the person to say hello to.",
-            required: false,
-          },
         ],
-        // required: false,
       },
     ],
-    handler: async ({ person }) => {
-      // console.log("Hello from the presentation!", person.);
+    handler: async ({ newHobbies }) => {
+      console.log("Invented new hobbies: ", newHobbies);
+      for (const hobby of newHobbies) {
+        console.log("Invented new hobby: ", hobby.name);
+      }
     },
   });
 
