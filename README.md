@@ -26,7 +26,7 @@ The Open-Source Copilot Platform
 </h1>
 
 <h3 align="center">
-in-app chatbots, and AI-enabled Textareas.
+in-app chatbots, AI-enabled Textareas, and more.
 </h3>
 
 <div align="center">
@@ -100,7 +100,6 @@ Autocompletions + AI editing + generate from scratch. Indexed on your users' con
 -  **Application state** (frontend + backend + 3rd party)
 -  **Application interaction** (via plain typescript code, frontend + backend)
 -  **Purpose-specific LLM chains**
--  **Application interaction** (via plain typescript code, frontend + backend)
 -  and more.
 
 CopilotKit also provides builit-in (fully-customizable) Copilot-native UX components, including: <br/>
