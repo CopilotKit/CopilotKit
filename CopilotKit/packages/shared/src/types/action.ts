@@ -62,34 +62,20 @@ type MappedParameterTypes<T extends Parameter[]> = {
       TypeMap[P["type"] extends keyof TypeMap ? P["type"] : "string"];
 };
 
-type Action<T extends Parameter[]> = {
-  parameters: [...T];
-  handler: (args: MappedParameterTypes<T>) => void;
+type Action<T extends Parameter[] | [] = []> = {
+  name: string;
+  description?: string;
+  parameters?: T;
+  handler: T extends [] ? () => void : (args: MappedParameterTypes<T>) => void;
 };
 
-// TODO add const back (prettier chokes on it)
-export function useCopilotAction</* const */ T extends Parameter[]>(action: Action<T>): void {}
+// Prettier chokes on the `const` in the function signature
+// as a workaround, comment out the const keyword when working with this code and
+// uncomment when done
 
-// Usage Example:
-useCopilotAction({
-  parameters: [
-    { name: "arg1", type: "string", enum: ["option1", "option2", "option3"], required: false },
-    { name: "arg2", type: "number" },
-    {
-      name: "arg3",
-      type: "object",
-      attributes: [
-        { name: "nestedArg1", type: "boolean" },
-        { name: "xyz", required: false },
-      ] as const,
-    },
-    { name: "arg4", type: "number[]" },
-  ] as const,
-  handler: ({ arg1, arg2, arg3, arg4 }) => {
-    const x = arg3.nestedArg1;
-    const z = arg3.xyz;
-    console.log(arg1, arg2, arg3);
-  },
-});
+// prettier-ignore
+export function useCopilotAction</*const*/T extends Parameter[] | [] = []>(action: Action<T>): void {
+  // Function implementation...
+}
 
 // https://community.openai.com/t/function-call-complex-arrays-as-parameters/295648/3
