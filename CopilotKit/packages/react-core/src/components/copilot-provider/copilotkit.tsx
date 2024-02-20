@@ -199,7 +199,7 @@ function entryPointsToFunctionCallHandler(actions: Action<any>[]): FunctionCallH
       if (functionCall.arguments) {
         functionCallArguments = JSON.parse(functionCall.arguments);
       }
-      await action.handler(functionCallArguments);
+      return await action.handler(functionCallArguments);
     }
   };
 }
