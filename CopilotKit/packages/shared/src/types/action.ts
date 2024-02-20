@@ -29,36 +29,37 @@ export type ObjectParameter = {
   type: "object" | "object[]";
   description?: string;
   required?: boolean;
-  attributes?: Parameter[]; // Optional for defining nested object structures
+  attributes?: Parameter[];
 };
 
 export type Parameter = BaseParameter | StringParameter | ObjectParameter;
 
 type MappedParameterTypes<T extends Parameter[]> = {
-  // Check if enum is defined
+  // Check if the parameter has an 'enum' defined
   [P in T[number] as P["name"]]: P extends { enum: Array<infer E> }
-    ? // Ensure the inferred type E is string to match enum usage
-      E extends string
-      ? // Check if the parameter is marked as not required
-        P["required"] extends false
-        ? // Make the type union with undefined
-          E | undefined
-        : // Use the inferred  type directly
-          E
-      : // If E is not string, this case should never happen
-        never
-    : // Handle object types with attributes
-    P extends { type: "object" | "object[]"; attributes: infer Attributes }
+    ? E extends string // Ensure the enum values are strings
+      ? P["required"] extends false // Check if the parameter is optional
+        ? E | undefined // If so, include 'undefined' in the type
+        : E // Otherwise, use the enum type directly
+      : never // This case should not occur since 'enum' implies string values
+    : // Handle parameters defined as 'object' with specified attributes
+    P extends { type: "object"; attributes: infer Attributes }
     ? Attributes extends Parameter[]
-      ? // Recursively process nested attributes
-        MappedParameterTypes<Attributes>
-      : never
-    : // For types without enum and not object with attributes
-    // Check if the parameter is marked as not required
+      ? MappedParameterTypes<Attributes> // Recursively map the attributes of the object
+      : never // If 'attributes' is not an array of Parameters, this is invalid
+    : // Handle parameters defined as 'object[]' without specified attributes
+    P extends { type: "object[]"; attributes?: never }
+    ? any[] // Default to 'any[]' for arrays of objects without specific attributes
+    : // Handle parameters defined as 'object[]' with specified attributes
+    P extends { type: "object[]"; attributes: infer Attributes }
+    ? Attributes extends Parameter[]
+      ? MappedParameterTypes<Attributes>[] // Recursively map each object in the array
+      : any[] // Default to 'any[]' if attributes are not properly defined
+    : // Handle all other parameter types
     P["required"] extends false
-    ? // Make the type union with undefined
+    ? // Include 'undefined' for optional parameters
       TypeMap[P["type"] extends keyof TypeMap ? P["type"] : "string"] | undefined
-    : // Directly use TypeMap for type resolution
+    : // Use the direct mapping from 'TypeMap' for the parameter's type
       TypeMap[P["type"] extends keyof TypeMap ? P["type"] : "string"];
 };
 
