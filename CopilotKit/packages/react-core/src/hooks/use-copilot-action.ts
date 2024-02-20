@@ -1,11 +1,36 @@
+"use client";
+
 import { Action, AnnotatedFunction, Parameter } from "@copilotkit/shared";
+import { useRef, useContext, useEffect, useMemo } from "react";
+import { CopilotContext } from "../context/copilot-context";
+import { nanoid } from "nanoid";
+
 // Prettier chokes on the `const` in the function signature
 // as a workaround, comment out the const keyword when working with this code and
 // uncomment when done
 
 // prettier-ignore
-export function useCopilotAction</*const*/ T extends Parameter[] | [] = []>(action: Action<T>): void {
-  // Function implementation...
+export function useCopilotAction<const T extends Parameter[] | [] = []>(action: Action<T>, dependencies?: any[]): void {
+  const idRef = useRef(nanoid()); // generate a unique id
+  const { setEntryPoint, removeEntryPoint } = useContext(CopilotContext);
+
+  const memoizedAction: Action<T> = useMemo(
+    () => ({
+      name: action.name,
+      description: action.description,
+      parameters: action.parameters,
+      handler: action.handler,
+    }),
+    dependencies,
+  );
+
+  useEffect(() => {
+    setEntryPoint(idRef.current, action);
+
+    return () => {
+      removeEntryPoint(idRef.current);
+    };
+  }, [memoizedAction, setEntryPoint, removeEntryPoint]);
 }
 
 export function annotatedFunctionToAction(

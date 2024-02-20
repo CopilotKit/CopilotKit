@@ -11,6 +11,7 @@ import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import "./styles.css";
+import { useCopilotAction } from "@copilotkit/react-core";
 
 let globalAudio: any = undefined;
 let globalAudioEnabled = false;
@@ -53,34 +54,30 @@ const Presentation = () => {
 
   useMakeCopilotReadable("This is the current slide: " + JSON.stringify(state));
 
-  useMakeCopilotActionable(
+  useCopilotAction(
     {
       name: "presentSlide",
       description:
         "Present a slide in the presentation you are giving. Call this function multiple times to present multiple slides.",
-      argumentAnnotations: [
+      parameters: [
         {
           name: "markdown",
           type: "string",
           description:
             "The text to display in the presentation slide. Use simple markdown to outline your speech, like a headline, lists, paragraphs, etc.",
-          required: true,
         },
         {
           name: "backgroundImage",
           type: "string",
           description: "What to display in the background of the slide (i.e. 'dog' or 'house').",
-          required: true,
         },
         {
           name: "speech",
           type: "string",
           description: "An informative speech about the current slide.",
-          required: true,
         },
       ],
-
-      implementation: async (markdown, backgroundImage, speech) => {
+      handler: async ({ markdown, backgroundImage, speech }) => {
         setState({
           markdown,
           backgroundImage,

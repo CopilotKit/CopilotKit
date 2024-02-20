@@ -5,11 +5,7 @@ import { useCallback, useState } from "react";
 import { CopilotContext, CopilotApiConfig } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
 import { DocumentPointer } from "../../types";
-import {
-  FunctionCallHandler,
-  AnnotatedFunction,
-  annotatedFunctionToChatCompletionFunction,
-} from "@copilotkit/shared";
+import { FunctionCallHandler, actionToChatCompletionFunction, Action } from "@copilotkit/shared";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { StandardCopilotApiConfig } from "./standard-copilot-api-config";
 import { CopilotKitProps } from "./copilotkit-props";
@@ -56,7 +52,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // Compute all the functions and properties that we need to pass
   // to the CopilotContext.
 
-  const [entryPoints, setEntryPoints] = useState<Record<string, AnnotatedFunction<any[]>>>({});
+  const [entryPoints, setEntryPoints] = useState<Record<string, Action<any>>>({});
 
   const { addElement, removeElement, printTree } = useTree();
 
@@ -66,7 +62,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     allElements: allDocuments,
   } = useFlatCategoryStore<DocumentPointer>();
 
-  const setEntryPoint = useCallback((id: string, entryPoint: AnnotatedFunction<any[]>) => {
+  const setEntryPoint = useCallback((id: string, entryPoint: Action<any>) => {
     setEntryPoints((prevPoints) => {
       return {
         ...prevPoints,
@@ -117,14 +113,14 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   );
 
   const getChatCompletionFunctionDescriptions = useCallback(
-    (customEntryPoints?: Record<string, AnnotatedFunction<any[]>>) => {
+    (customEntryPoints?: Record<string, Action<any>>) => {
       return entryPointsToChatCompletionFunctions(Object.values(customEntryPoints || entryPoints));
     },
     [entryPoints],
   );
 
   const getFunctionCallHandler = useCallback(
-    (customEntryPoints?: Record<string, AnnotatedFunction<any[]>>) => {
+    (customEntryPoints?: Record<string, Action<any>>) => {
       return entryPointsToFunctionCallHandler(Object.values(customEntryPoints || entryPoints));
     },
     [entryPoints],
@@ -186,54 +182,24 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
 
 export const defaultCopilotContextCategories = ["global"];
 
-function entryPointsToFunctionCallHandler(
-  entryPoints: AnnotatedFunction<any[]>[],
-): FunctionCallHandler {
+function entryPointsToChatCompletionFunctions(actions: Action<any>[]): ToolDefinition[] {
+  return actions.map(actionToChatCompletionFunction);
+}
+
+function entryPointsToFunctionCallHandler(actions: Action<any>[]): FunctionCallHandler {
   return async (chatMessages, functionCall) => {
-    let entrypointsByFunctionName: Record<string, AnnotatedFunction<any[]>> = {};
-    for (let entryPoint of entryPoints) {
-      entrypointsByFunctionName[entryPoint.name] = entryPoint;
+    let actionsByFunctionName: Record<string, Action<any>> = {};
+    for (let action of actions) {
+      actionsByFunctionName[action.name] = action;
     }
 
-    const entryPointFunction = entrypointsByFunctionName[functionCall.name || ""];
-    if (entryPointFunction) {
+    const action = actionsByFunctionName[functionCall.name || ""];
+    if (action) {
       let functionCallArguments: Record<string, any>[] = [];
       if (functionCall.arguments) {
         functionCallArguments = JSON.parse(functionCall.arguments);
       }
-
-      const paramsInCorrectOrder: any[] = [];
-      for (let arg of entryPointFunction.argumentAnnotations) {
-        paramsInCorrectOrder.push(
-          functionCallArguments[arg.name as keyof typeof functionCallArguments],
-        );
-      }
-
-      await entryPointFunction.implementation(...paramsInCorrectOrder);
-
-      // commented out becasue for now we don't want to return anything
-      // const result = await entryPointFunction.implementation(
-      //   ...parsedFunctionCallArguments
-      // );
-      // const functionResponse: ChatRequest = {
-      //   messages: [
-      //     ...chatMessages,
-      //     {
-      //       id: nanoid(),
-      //       name: functionCall.name,
-      //       role: 'function' as const,
-      //       content: JSON.stringify(result),
-      //     },
-      //   ],
-      // };
-
-      // return functionResponse;
+      await action.handler(functionCallArguments);
     }
   };
-}
-
-function entryPointsToChatCompletionFunctions(
-  entryPoints: AnnotatedFunction<any[]>[],
-): ToolDefinition[] {
-  return entryPoints.map(annotatedFunctionToChatCompletionFunction);
 }

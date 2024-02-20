@@ -9,14 +9,14 @@ type TypeMap = {
   "object[]": object[];
 };
 
-type BaseParameter = {
+export type BaseParameter = {
   name: string;
   type?: Exclude<keyof TypeMap, "string" | "object" | "object[]">; // Exclude object types for BaseParameter
   description?: string;
   required?: boolean;
 };
 
-type StringParameter = {
+export type StringParameter = {
   name: string;
   type: "string";
   description?: string;
@@ -24,7 +24,7 @@ type StringParameter = {
   enum?: string[];
 };
 
-type ObjectParameter = {
+export type ObjectParameter = {
   name: string;
   type: "object" | "object[]";
   description?: string;
