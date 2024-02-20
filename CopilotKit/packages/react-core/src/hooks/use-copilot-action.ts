@@ -16,6 +16,7 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(action: 
 
   const memoizedAction: Action<T> = useMemo(
     () => ({
+      
       name: action.name,
       description: action.description,
       parameters: action.parameters,

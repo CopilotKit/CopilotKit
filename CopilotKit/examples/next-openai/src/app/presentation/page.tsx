@@ -54,6 +54,41 @@ const Presentation = () => {
 
   useMakeCopilotReadable("This is the current slide: " + JSON.stringify(state));
 
+  useCopilotAction({
+    name: "sayHello",
+    parameters: [
+      {
+        name: "person",
+        description: "the person to say hello to.",
+        type: "object",
+        attributes: [
+          {
+            name: "name",
+            type: "string",
+            description: "The name of the person to say hello to.",
+            required: true,
+          },
+          {
+            name: "age",
+            type: "number",
+            description: "The age of the person to say hello to.",
+            required: false,
+          },
+          {
+            name: "hobbies",
+            type: "string[]",
+            description: "The hobbies of the person to say hello to.",
+            required: false,
+          },
+        ],
+        // required: false,
+      },
+    ],
+    handler: async ({ person }) => {
+      // console.log("Hello from the presentation!", person.);
+    },
+  });
+
   useCopilotAction(
     {
       name: "presentSlide",
@@ -77,7 +112,7 @@ const Presentation = () => {
           description: "An informative speech about the current slide.",
         },
       ],
-      handler: async ({ markdown, backgroundImage, speech }) => {
+      handler: async ({ markdown, speech, backgroundImage }) => {
         setState({
           markdown,
           backgroundImage,
