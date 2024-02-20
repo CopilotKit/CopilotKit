@@ -5,6 +5,7 @@ import { CopilotContext } from "../context/copilot-context";
 import { AnnotatedFunction } from "@copilotkit/shared";
 import { nanoid } from "nanoid";
 
+// @deprecated use useCopilotAction instead
 export function useMakeCopilotActionable<ActionInput extends any[]>(
   annotatedFunction: AnnotatedFunction<ActionInput>,
   dependencies: any[],

@@ -32,7 +32,7 @@ type ObjectParameter = {
   attributes?: Parameter[]; // Optional for defining nested object structures
 };
 
-type Parameter = BaseParameter | StringParameter | ObjectParameter;
+export type Parameter = BaseParameter | StringParameter | ObjectParameter;
 
 type MappedParameterTypes<T extends Parameter[]> = {
   // Check if enum is defined
@@ -62,20 +62,9 @@ type MappedParameterTypes<T extends Parameter[]> = {
       TypeMap[P["type"] extends keyof TypeMap ? P["type"] : "string"];
 };
 
-type Action<T extends Parameter[] | [] = []> = {
+export type Action<T extends Parameter[] | [] = []> = {
   name: string;
   description?: string;
   parameters?: T;
-  handler: T extends [] ? () => void : (args: MappedParameterTypes<T>) => void;
+  handler: T extends [] ? () => void : (args: MappedParameterTypes<T>) => any | Promise<any>;
 };
-
-// Prettier chokes on the `const` in the function signature
-// as a workaround, comment out the const keyword when working with this code and
-// uncomment when done
-
-// prettier-ignore
-export function useCopilotAction<const T extends Parameter[] | [] = []>(action: Action<T>): void {
-  // Function implementation...
-}
-
-// https://community.openai.com/t/function-call-complex-arrays-as-parameters/295648/3
