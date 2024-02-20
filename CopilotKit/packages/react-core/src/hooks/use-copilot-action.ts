@@ -21,7 +21,7 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(action: 
       parameters: action.parameters,
       handler: action.handler,
     }),
-    dependencies,
+    dependencies || [],
   );
 
   useEffect(() => {
