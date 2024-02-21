@@ -12,7 +12,7 @@ export async function POST(req: Request): Promise<Response> {
       {
         name: "sayHello",
         description: "Says hello to someone.",
-        argumentAnnotations: [
+        parameters: [
           {
             name: "arg",
             type: "string",
@@ -20,7 +20,7 @@ export async function POST(req: Request): Promise<Response> {
             required: true,
           },
         ],
-        implementation: async (arg) => {
+        handler: async ({ arg }) => {
           console.log("Hello from the server", arg, "!");
         },
       },

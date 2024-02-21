@@ -1,41 +1,47 @@
 import http from "http";
 import {
-  AnnotatedFunction,
-  annotatedFunctionToChatCompletionFunction,
+  Action,
   ToolDefinition,
   EXCLUDE_FROM_FORWARD_PROPS_KEYS,
+  actionToChatCompletionFunction,
+  Parameter,
 } from "@copilotkit/shared";
-import { copilotkitStreamInterceptor, remoteChainToAnnotatedFunction } from "../utils";
+import { copilotkitStreamInterceptor, remoteChainToAction } from "../utils";
 import { RemoteChain, CopilotKitServiceAdapter } from "../types";
 
 interface CopilotBackendConstructorParams {
-  actions?: AnnotatedFunction<any[]>[];
+  actions?: Action<any>[];
   langserve?: RemoteChain[];
   debug?: boolean;
 }
 
 export class CopilotBackend {
-  private functions: AnnotatedFunction<any[]>[] = [];
-  private langserve: Promise<AnnotatedFunction<any[]>>[] = [];
+  private actions: Action<any>[] = [];
+  private langserve: Promise<Action<any>>[] = [];
   private debug: boolean = false;
 
   constructor(params?: CopilotBackendConstructorParams) {
     for (const action of params?.actions || []) {
-      this.functions.push(action);
+      this.actions.push(action);
     }
     for (const chain of params?.langserve || []) {
-      this.langserve.push(remoteChainToAnnotatedFunction(chain));
+      this.langserve.push(remoteChainToAction(chain));
     }
     this.debug = params?.debug || false;
   }
 
-  addFunction(func: AnnotatedFunction<any[]>): void {
-    this.removeFunction(func.name);
-    this.functions.push(func);
+  // Prettier chokes on the `const` in the function signature
+  // as a workaround, comment out the const keyword when working with this code and
+  // uncomment when done
+
+  // prettier-ignore
+  addAction<const T extends Parameter[] | [] = []>(action: Action<T>): void {
+    this.removeAction(action.name);
+    this.actions.push(action);
   }
 
-  removeFunction(funcName: string): void {
-    this.functions = this.functions.filter((f) => f.name !== funcName);
+  removeAction(actionName: string): void {
+    this.actions = this.actions.filter((f) => f.name !== actionName);
   }
 
   removeBackendOnlyProps(forwardedProps: any): void {
@@ -62,7 +68,7 @@ export class CopilotBackend {
     forwardedProps: any,
     serviceAdapter: CopilotKitServiceAdapter,
   ): Promise<ReadableStream> {
-    const langserveFunctions: AnnotatedFunction<any[]>[] = [];
+    const langserveFunctions: Action<any>[] = [];
 
     for (const chainPromise of this.langserve) {
       try {
@@ -75,8 +81,8 @@ export class CopilotBackend {
 
     // merge server side functions with langserve functions
     let mergedTools = mergeServerSideTools(
-      this.functions.map(annotatedFunctionToChatCompletionFunction),
-      langserveFunctions.map(annotatedFunctionToChatCompletionFunction),
+      this.actions.map(actionToChatCompletionFunction),
+      langserveFunctions.map(actionToChatCompletionFunction),
     );
 
     // merge with client side functions
@@ -88,7 +94,7 @@ export class CopilotBackend {
     });
     return copilotkitStreamInterceptor(
       openaiCompatibleStream,
-      [...this.functions, ...langserveFunctions],
+      [...this.actions, ...langserveFunctions],
       this.debug,
     );
   }
