@@ -1,0 +1,74 @@
+---
+title: 'Quickstart: Copilot Skills (LangChain & LangGraph)'
+description: 'How to integrate standalone LangChains and LangGraphs'
+---
+
+
+## Background
+
+With a single line of code, you can bring specialized LLM Chains and Graphs into your in-app AI Copilot.
+
+CopilotKit wraps your app, and routes relevant state as input to standalone skill chains (state can come from the frontend, backend, 3rd party integrations, or from the user).
+
+When the chain returns, the Copilot Engine funnels its output to in-app interaction as needed.
+
+Example repo: https://github.com/CopilotKit/presentation-demo
+
+
+## Server Side Actions
+
+CopilotKit supports actions that can be executed on the server side. You can define server side actions by passing the `actions` parameter:
+
+```typescript
+const copilotKit = new CopilotBackend({
+  actions: [
+    {
+      name: "sayHello",
+      description: "Says hello to someone.",
+      argumentAnnotations: [
+        {
+          name: "arg",
+          type: "string",
+          description: "The name of the person to say hello to.",
+          required: true,
+        },
+      ],
+      implementation: async (arg) => {
+        console.log("Hello from the server", arg, "!");
+      },
+    },
+  ],
+});
+```
+
+Server side actions can also return a result which becomes part of the message history.
+
+This is useful because it gives the LLM context about what happened on the server side. In addition,
+it can be used to look up information from a vector or relational database and other sources.
+
+In addition to that, server side actions can also come from LangChain, including support for streaming responses.
+
+Returned results can be of the following type:
+- anything serializable to JSON
+- `string`
+- LangChain types:
+  - `IterableReadableStream`
+  - `BaseMessageChunk`
+  - `AIMessage`
+
+## LangServe
+
+The backend also supports LangServe, enabling you to connect to existing chains, for example python based chains.
+Use the `langserve` parameter to specify URLs for LangServe.
+
+```typescript
+const copilotKit = new CopilotBackend({
+  langserve: [
+    {
+      chainUrl: "http://my-langserve.chain",
+      name: "performResearch",
+      description: "Performs research on a given topic.",
+    }
+  ],
+});
+```

@@ -35,7 +35,8 @@
       "pages": [
         "getting-started/quickstart-textarea",
         "getting-started/quickstart-chatbot",
-        "getting-started/quickstart-backend"
+        "getting-started/quickstart-backend",
+        "getting-started/quickstart-skills-langchain"
       ]
     },
     {
