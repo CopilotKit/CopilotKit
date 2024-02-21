@@ -50,31 +50,6 @@ const Presentation = () => {
 
   useMakeCopilotReadable("This is the current slide: " + JSON.stringify(state));
 
-  useCopilotAction({
-    name: "inventNewHobbies",
-    parameters: [
-      {
-        name: "newHobbies",
-        description: "new hobbies you invented",
-        type: "object[]",
-        attributes: [
-          {
-            name: "name",
-            type: "string",
-            description: "The name of the new hobby",
-            required: true,
-          },
-        ],
-      },
-    ],
-    handler: async ({ newHobbies }) => {
-      console.log("Invented new hobbies: ", newHobbies);
-      for (const hobby of newHobbies) {
-        console.log("Invented new hobby: ", hobby.name);
-      }
-    },
-  });
-
   useCopilotAction(
     {
       name: "presentSlide",
