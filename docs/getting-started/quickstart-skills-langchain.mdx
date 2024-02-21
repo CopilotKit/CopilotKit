@@ -17,12 +17,8 @@ When the chain returns, the Copilot Engine funnels its output to in-app interact
 
 Example repo: https://github.com/CopilotKit/presentation-demo
 
-## Roadmap
 
-
-
-
-## Server Side Actions with LangChain
+## Backend Actions: LangChainJS
 
 Adding your custom chains into CopilotKit is a straightforward process. Simply return the call to LangChain
 and CopilotKit will automatically handle the rest.
@@ -70,7 +66,7 @@ If you want to return a result which should not be presented, you can just retur
 These results will then be fed back to the LLM which can use them to make further decisions.
 
 
-## Python/LangServe
+## Backend Actions: LangServe (LangChain Python)
 
 The backend also supports LangServe, enabling you to connect to existing chains, written in Python or JavaScript.
 Use the `langserve` parameter to specify URLs for LangServe.
@@ -94,3 +90,6 @@ make the chain available to the LLM via function calling.
 
 Check out [this example](https://github.com/CopilotKit/presentation-demo/blob/main/src/app/api/copilotkit/route.ts) to see how to integrate LangGraphs into your app.
 
+
+## Coming soon:
+- Frontend LangChain integrations 
