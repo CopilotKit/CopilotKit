@@ -12,6 +12,14 @@ import { useCopilotAction } from "@copilotkit/react-core";
 let globalAudio: any = undefined;
 let globalAudioEnabled = false;
 
+function enableGlobalAudio() {
+  if (!globalAudioEnabled) {
+    globalAudio.play();
+    globalAudio.pause();
+  }
+  globalAudioEnabled = true;
+}
+
 const Demo = () => {
   return (
     <CopilotKit url="/api/copilotkit/openai">
@@ -23,11 +31,7 @@ const Demo = () => {
         }}
         clickOutsideToClose={false}
         onSubmitMessage={async (message) => {
-          if (!globalAudioEnabled) {
-            globalAudio.play();
-            globalAudio.pause();
-          }
-          globalAudioEnabled = true;
+          enableGlobalAudio();
         }}
       >
         <Presentation />
@@ -112,6 +116,7 @@ const Presentation = () => {
         className={`absolute bottom-0 left-0 mb-4 ml-4 bg-blue-500 text-white font-bold py-2 px-4 rounded
         ${randomSlideTaskRunning ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"}`}
         onClick={async () => {
+          enableGlobalAudio();
           try {
             setRandomSlideTaskRunning(true);
             await randomSlideTask.run(context);
