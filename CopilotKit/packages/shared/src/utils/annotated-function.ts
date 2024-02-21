@@ -36,20 +36,12 @@ export function annotatedFunctionToChatCompletionFunction(
 }
 
 function convertAttribute(attribute: Parameter): any {
-  let properties: { [key: string]: any } = {};
-  let required: string[] | undefined = undefined;
-
   switch (attribute.type) {
-    case undefined:
-      return {
-        type: "string",
-        description: attribute.description,
-      };
     case "string":
       return {
         type: "string",
         description: attribute.description,
-        ...(attribute.enum ? { enum: attribute.enum } : {}),
+        ...(attribute.enum && { enum: attribute.enum }),
       };
     case "number":
     case "boolean":
@@ -58,58 +50,44 @@ function convertAttribute(attribute: Parameter): any {
         description: attribute.description,
       };
     case "object":
-      properties = attribute.attributes?.reduce((acc, attr) => {
+    case "object[]":
+      const properties = attribute.attributes?.reduce((acc, attr) => {
         acc[attr.name] = convertAttribute(attr);
         return acc;
-      }, {} as any);
-      required = attribute.attributes
+      }, {} as Record<string, any>);
+      const required = attribute.attributes
         ?.filter((attr) => attr.required !== false)
         .map((attr) => attr.name);
+      if (attribute.type === "object[]") {
+        return {
+          type: "array",
+          items: {
+            type: "object",
+            ...(properties && { properties }),
+            ...(required && required.length > 0 && { required }),
+          },
+          description: attribute.description,
+        };
+      }
       return {
         type: "object",
         description: attribute.description,
-        ...(properties ? { properties } : {}),
-        ...(required && required.length != 0 ? { required } : {}),
+        ...(properties && { properties }),
+        ...(required && required.length > 0 && { required }),
       };
-    case "string[]":
+    default:
+      // Handle arrays of primitive types and undefined attribute.type
+      if (attribute.type?.endsWith("[]")) {
+        const itemType = attribute.type.slice(0, -2);
+        return {
+          type: "array",
+          items: { type: itemType },
+          description: attribute.description,
+        };
+      }
+      // Fallback for undefined type or any other unexpected type
       return {
-        type: "array",
-        items: {
-          type: "string",
-        },
-        description: attribute.description,
-      };
-    case "number[]":
-      return {
-        type: "array",
-        items: {
-          type: "number",
-        },
-        description: attribute.description,
-      };
-    case "boolean[]":
-      return {
-        type: "array",
-        items: {
-          type: "boolean",
-        },
-        description: attribute.description,
-      };
-    case "object[]":
-      properties = attribute.attributes?.reduce((acc, attr) => {
-        acc[attr.name] = convertAttribute(attr);
-        return acc;
-      }, {} as any);
-      required = attribute.attributes
-        ?.filter((attr) => attr.required !== false)
-        .map((attr) => attr.name);
-      return {
-        type: "array",
-        items: {
-          type: "object",
-          ...(properties ? { properties } : {}),
-          ...(required && required.length != 0 ? { required } : {}),
-        },
+        type: "string",
         description: attribute.description,
       };
   }
