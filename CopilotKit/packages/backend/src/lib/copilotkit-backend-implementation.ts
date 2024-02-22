@@ -9,7 +9,7 @@ import {
 import { copilotkitStreamInterceptor, remoteChainToAction } from "../utils";
 import { RemoteChain, CopilotKitServiceAdapter } from "../types";
 
-interface CopilotBackendConstructorParams {
+interface CopilotBackendImplementationConstructorParams {
   actions?: Action<any>[];
   langserve?: RemoteChain[];
   debug?: boolean;
@@ -20,7 +20,7 @@ export class CopilotBackendImplementation {
   private langserve: Promise<Action<any>>[] = [];
   private debug: boolean = false;
 
-  constructor(params?: CopilotBackendConstructorParams) {
+  constructor(params?: CopilotBackendImplementationConstructorParams) {
     for (const action of params?.actions || []) {
       this.actions.push(action);
     }
