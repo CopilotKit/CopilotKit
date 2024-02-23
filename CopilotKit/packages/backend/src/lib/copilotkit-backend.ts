@@ -14,6 +14,11 @@ interface CopilotBackendConstructorParams {
   debug?: boolean;
 }
 
+interface CopilotBackendResult {
+  stream: ReadableStream;
+  headers?: Record<string, string>;
+}
+
 export class CopilotBackend {
   private functions: AnnotatedFunction<any[]>[] = [];
   private langserve: Promise<AnnotatedFunction<any[]>>[] = [];
@@ -61,7 +66,7 @@ export class CopilotBackend {
   async stream(
     forwardedProps: any,
     serviceAdapter: CopilotKitServiceAdapter,
-  ): Promise<ReadableStream> {
+  ): Promise<CopilotBackendResult> {
     const langserveFunctions: AnnotatedFunction<any[]>[] = [];
 
     for (const chainPromise of this.langserve) {
@@ -82,20 +87,32 @@ export class CopilotBackend {
     // merge with client side functions
     mergedTools = mergeServerSideTools(mergedTools, forwardedProps.tools);
 
-    const openaiCompatibleStream = await serviceAdapter.stream({
+    const result = await serviceAdapter.stream({
       ...forwardedProps,
       tools: mergedTools,
     });
-    return copilotkitStreamInterceptor(
-      openaiCompatibleStream,
-      [...this.functions, ...langserveFunctions],
-      this.debug,
-    );
+
+    if ("getReader" in result) {
+      const stream = copilotkitStreamInterceptor(
+        result,
+        [...this.functions, ...langserveFunctions],
+        this.debug,
+      );
+      return { stream };
+    } else {
+      const stream = copilotkitStreamInterceptor(
+        result.stream,
+        [...this.functions, ...langserveFunctions],
+        this.debug,
+      );
+      return { stream, headers: result.headers };
+    }
   }
 
   async response(req: Request, serviceAdapter: CopilotKitServiceAdapter): Promise<Response> {
     try {
-      return new Response(await this.stream(await req.json(), serviceAdapter));
+      const result = await this.stream(await req.json(), serviceAdapter);
+      return new Response(result.stream, result.headers);
     } catch (error: any) {
       return new Response("", { status: 500, statusText: error.message });
     }
@@ -118,8 +135,11 @@ export class CopilotBackend {
       });
     });
     const forwardedProps = await bodyParser;
-    const stream = await this.stream(forwardedProps, serviceAdapter);
-    const reader = stream.getReader();
+    const result = await this.stream(forwardedProps, serviceAdapter);
+    const reader = result.stream.getReader();
+    if (result.headers) {
+      res.writeHead(200, result.headers);
+    }
 
     while (true) {
       const { done, value } = await reader.read();
