@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.9.1-atai-0223-fix-backendOnlyProps.1
+
+### Patch Changes
+
+- fix- bring back removeBackendOnlyProps
+
 ## 0.9.1-atai-0223-fix-backendOnlyProps.0
 
 ### Patch Changes
