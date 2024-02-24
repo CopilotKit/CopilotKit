@@ -1,5 +1,13 @@
 # @copilotkit/cloud
 
+## 0.4.1-atai-0223-fix-backendOnlyProps.0
+
+### Patch Changes
+
+- fix: bring back removeBackendOnlyProps
+- Updated dependencies
+  - @copilotkit/shared@0.4.1-atai-0223-fix-backendOnlyProps.0
+
 ## 0.4.0
 
 ### Minor Changes

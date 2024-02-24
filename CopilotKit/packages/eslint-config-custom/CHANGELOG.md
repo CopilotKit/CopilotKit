@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.5.1-atai-0223-fix-backendOnlyProps.0
+
+### Patch Changes
+
+- fix: bring back removeBackendOnlyProps
+
 ## 0.5.0
 
 ### Minor Changes
