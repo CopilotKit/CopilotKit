@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "atai-0223-fix-backendOnlyProps",
   "initialVersions": {
     "next-openai": "1.16.1-atai-0223-fix-backendOnlyProps.0",
