@@ -62,7 +62,7 @@ export class CopilotBackend {
     serviceAdapter: CopilotKitServiceAdapter,
   ): Promise<ReadableStream> {
     this.removeBackendOnlyProps(forwardedProps);
-    
+
     const langserveFunctions: AnnotatedFunction<any[]>[] = [];
 
     for (const chainPromise of this.langserve) {
