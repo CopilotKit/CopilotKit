@@ -1,6 +1,6 @@
 {
   "name": "node",
-  "version": "1.16.1-atai-0223-fix-backendOnlyProps.1",
+  "version": "1.16.1",
   "private": true,
   "scripts": {
     "start": "node dist/index.js",

@@ -1,5 +1,18 @@
 # ui
 
+## 0.17.1
+
+### Patch Changes
+
+- 5ec8ad4: fix- bring back removeBackendOnlyProps
+- 5a154d0: fix: bring back removeBackendOnlyProps
+- fix: bring back removeBackendOnlyProps
+- Updated dependencies [5ec8ad4]
+- Updated dependencies [5a154d0]
+- Updated dependencies
+  - @copilotkit/react-core@0.20.1
+  - @copilotkit/shared@0.4.1
+
 ## 0.17.1-atai-0223-fix-backendOnlyProps.1
 
 ### Patch Changes
