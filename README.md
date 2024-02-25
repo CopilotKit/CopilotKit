@@ -29,13 +29,7 @@ The Open-Source Copilot Platform
 in-app chatbots, AI-enabled Textareas, and more...
 </h3>
 
-<div align="center">
-  <a href="https://forms.gle/mKsuL5e7AFSa1KF48">
-    <picture>
-      <img alt="Reserve your place for Copilot Cloud (80 early adopter spots) Early registration closes Feb 22nd" src="https://github.com/CopilotKit/CopilotKit/assets/746397/c5175b17-afa8-4ace-96b4-55a331845c4c" width="360px" style="max-width:100%; border-radius: 10px;"/>
-    </picture>
-  </a>
-</div>
+
 
 
 
