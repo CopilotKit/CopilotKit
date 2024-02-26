@@ -1,5 +1,17 @@
 # node
 
+## 1.17.0-mme-experimental-actions.0
+
+### Minor Changes
+
+- QA new action type
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.5.0-mme-experimental-actions.0
+  - @copilotkit/shared@0.5.0-mme-experimental-actions.0
+
 ## 1.16.1
 
 ### Patch Changes

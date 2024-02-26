@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.6.0-mme-experimental-actions.0
+
+### Minor Changes
+
+- QA new action type
+
 ## 0.5.1
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 0.5.0-mme-experimental-actions.0
+
+### Minor Changes
+
+- QA new action type
+
 ## 0.4.1
 
 ### Patch Changes

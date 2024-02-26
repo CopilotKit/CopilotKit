@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.10.0-mme-experimental-actions.0
+
+### Minor Changes
+
+- QA new action type
+
 ## 0.9.1
 
 ### Patch Changes
