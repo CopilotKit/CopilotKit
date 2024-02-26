@@ -59,10 +59,13 @@ export class CopilotBackendImplementation {
       console.error("backendOnlyPropsKeys is not an array");
     }
   }
+
   async stream(
     forwardedProps: any,
     serviceAdapter: CopilotKitServiceAdapter,
   ): Promise<ReadableStream> {
+    this.removeBackendOnlyProps(forwardedProps);
+
     const langserveFunctions: Action<any>[] = [];
 
     for (const chainPromise of this.langserve) {

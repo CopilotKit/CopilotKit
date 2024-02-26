@@ -1,5 +1,36 @@
 # node
 
+## 1.16.1
+
+### Patch Changes
+
+- 5ec8ad4: fix- bring back removeBackendOnlyProps
+- 5a154d0: fix: bring back removeBackendOnlyProps
+- fix: bring back removeBackendOnlyProps
+- Updated dependencies [5ec8ad4]
+- Updated dependencies [5a154d0]
+- Updated dependencies
+  - @copilotkit/backend@0.4.1
+  - @copilotkit/shared@0.4.1
+
+## 1.16.1-atai-0223-fix-backendOnlyProps.1
+
+### Patch Changes
+
+- fix- bring back removeBackendOnlyProps
+- Updated dependencies
+  - @copilotkit/backend@0.4.1-atai-0223-fix-backendOnlyProps.1
+  - @copilotkit/shared@0.4.1-atai-0223-fix-backendOnlyProps.1
+
+## 1.16.1-atai-0223-fix-backendOnlyProps.0
+
+### Patch Changes
+
+- fix: bring back removeBackendOnlyProps
+- Updated dependencies
+  - @copilotkit/backend@0.4.1-atai-0223-fix-backendOnlyProps.0
+  - @copilotkit/shared@0.4.1-atai-0223-fix-backendOnlyProps.0
+
 ## 1.16.0
 
 ### Minor Changes
