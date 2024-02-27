@@ -6,9 +6,5 @@ export interface CopilotKitServiceAdapterReturnType {
 export interface CopilotKitServiceAdapter {
   stream(
     forwardedProps: any,
-  ):
-    | ReadableStream
-    | Promise<ReadableStream>
-    | CopilotKitServiceAdapterReturnType
-    | Promise<CopilotKitServiceAdapterReturnType>;
+  ): Promise<ReadableStream> | Promise<CopilotKitServiceAdapterReturnType>;
 }

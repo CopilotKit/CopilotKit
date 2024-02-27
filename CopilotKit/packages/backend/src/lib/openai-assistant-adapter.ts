@@ -79,9 +79,11 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
       const toolCallsIds =
         status.required_action?.submit_tool_outputs.tool_calls.map((toolCall) => toolCall.id) || [];
 
+      // throw an error if the number of function results is greater than the number of tool calls
       if (toolCallsIds.length >= functionResults.length) {
         const toolOutputs: any[] = [];
 
+        // match tool ids with function results
         for (let i = 0; i < functionResults.length; i++) {
           const toolCallId = toolCallsIds[i];
           const functionResult = functionResults[i];
@@ -100,6 +102,8 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
         );
       }
     }
+
+    // TODO make it obvious what we are doing here
     if (!run) {
       // append all missing messages to the thread
       if (
@@ -135,6 +139,7 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
     let requiredAction: OpenAI.Beta.Threads.Runs.Run.RequiredAction | null = null;
 
     do {
+      // this will go once the API supports streaming
       await new Promise((resolve) => setTimeout(resolve, 100));
       const status = await this.openai.beta.threads.runs.retrieve(threadId, run.id);
 

@@ -19,7 +19,7 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
     }
   }
 
-  stream(forwardedProps: any): ReadableStream {
+  async stream(forwardedProps: any): Promise<ReadableStream> {
     // copy forwardedProps to avoid modifying the original object
     forwardedProps = { ...forwardedProps };
 
