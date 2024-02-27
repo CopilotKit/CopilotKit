@@ -44,7 +44,6 @@ export class CopilotBackend {
   }
 
   removeBackendOnlyProps(forwardedProps: any): void {
-    this.removeBackendOnlyProps(forwardedProps);
     // Get keys backendOnlyPropsKeys in order to remove them from the forwardedProps
     const backendOnlyPropsKeys = forwardedProps[EXCLUDE_FROM_FORWARD_PROPS_KEYS];
     if (Array.isArray(backendOnlyPropsKeys)) {
@@ -67,6 +66,7 @@ export class CopilotBackend {
     forwardedProps: any,
     serviceAdapter: CopilotKitServiceAdapter,
   ): Promise<CopilotBackendResult> {
+    this.removeBackendOnlyProps(forwardedProps);
     const langserveFunctions: AnnotatedFunction<any[]>[] = [];
 
     for (const chainPromise of this.langserve) {
