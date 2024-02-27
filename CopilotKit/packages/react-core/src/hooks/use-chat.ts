@@ -112,7 +112,6 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
     if (runIdRef.current) {
       copilotConfigBody.runId = runIdRef.current;
     }
-    console.log("Running chat completion", messages, copilotConfigBody);
 
     const messagesWithContext = [...(options.initialMessages || []), ...messages];
     const response = await fetchAndDecodeChatCompletion({

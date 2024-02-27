@@ -45,9 +45,6 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
       delete forwardedProps.tools;
     }
 
-    console.log("forwardedProps.threadId", forwardedProps.threadId);
-    console.log("forwardedProps.runId", forwardedProps.runId);
-
     // get the thread from forwardedProps or create a new one
     const threadId: string =
       forwardedProps.threadId || (await this.openai.beta.threads.create()).id;
@@ -66,7 +63,7 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
       forwardMessages[forwardMessages.length - 1].role === "function" &&
       forwardedProps.runId
     ) {
-      console.log("collecting function results");
+      const status = await this.openai.beta.threads.runs.retrieve(threadId, forwardedProps.runId);
 
       const functionResults: Message[] = [];
       // get all function results at the tail of the messages
@@ -79,32 +76,28 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
         }
       }
 
-      console.log("functionResults", functionResults);
-      console.log("looking at forwardMessages[i]", forwardMessages[i]);
+      const toolCallsIds =
+        status.required_action?.submit_tool_outputs.tool_calls.map((toolCall) => toolCall.id) || [];
 
-      if (forwardMessages[i].role === "assistant" && forwardMessages[i].tool_calls) {
-        const toolCallsIds = forwardMessages[i].tool_calls.map((toolCall: any) => toolCall.id);
-        console.log("toolCallsIds", toolCallsIds);
-        if (toolCallsIds.length >= functionResults.length) {
-          const toolOutputs: any[] = [];
+      if (toolCallsIds.length >= functionResults.length) {
+        const toolOutputs: any[] = [];
 
-          for (let i = 0; i < functionResults.length; i++) {
-            const toolCallId = toolCallsIds[i];
-            const functionResult = functionResults[i];
-            toolOutputs.push({
-              tool_call_id: toolCallId,
-              content: functionResult.content || "",
-            });
-          }
-
-          run = await this.openai.beta.threads.runs.submitToolOutputs(
-            threadId,
-            forwardedProps.runId,
-            {
-              tool_outputs: toolOutputs,
-            },
-          );
+        for (let i = 0; i < functionResults.length; i++) {
+          const toolCallId = toolCallsIds[i];
+          const functionResult = functionResults[i];
+          toolOutputs.push({
+            tool_call_id: toolCallId,
+            output: functionResult.content || "",
+          });
         }
+
+        run = await this.openai.beta.threads.runs.submitToolOutputs(
+          threadId,
+          forwardedProps.runId,
+          {
+            tool_outputs: toolOutputs,
+          },
+        );
       }
     }
     if (!run) {
@@ -143,9 +136,7 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
 
     do {
       await new Promise((resolve) => setTimeout(resolve, 100));
-      console.log("Checking thread run status");
       const status = await this.openai.beta.threads.runs.retrieve(threadId, run.id);
-      console.log("status", status.status);
 
       if (status.status === "completed") {
         break;

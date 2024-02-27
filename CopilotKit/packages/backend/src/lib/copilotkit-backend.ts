@@ -112,7 +112,6 @@ export class CopilotBackend {
   async response(req: Request, serviceAdapter: CopilotKitServiceAdapter): Promise<Response> {
     try {
       const result = await this.stream(await req.json(), serviceAdapter);
-      console.log("headers", result.headers);
       return new Response(result.stream, { headers: result.headers });
     } catch (error: any) {
       return new Response("", { status: 500, statusText: error.message });
