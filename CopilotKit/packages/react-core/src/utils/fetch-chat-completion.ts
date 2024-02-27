@@ -76,10 +76,12 @@ export async function fetchAndDecodeChatCompletion(
 ): Promise<DecodedChatCompletionResponse> {
   const response = await fetchChatCompletion(params);
   if (!response.ok || !response.body) {
-    return { ...response, events: null };
+    (response as any).events = null;
+  } else {
+    const events = await decodeChatCompletion(parseChatCompletion(response.body));
+    (response as any).events = events;
   }
-  const events = await decodeChatCompletion(parseChatCompletion(response.body));
-  return { ...response, events };
+  return response as any;
 }
 
 export interface DecodedChatCompletionResponseAsText extends Response {
@@ -91,10 +93,13 @@ export async function fetchAndDecodeChatCompletionAsText(
 ): Promise<DecodedChatCompletionResponseAsText> {
   const response = await fetchChatCompletion(params);
   if (!response.ok || !response.body) {
-    return { ...response, events: null };
+    (response as any).events = null;
+  } else {
+    const events = await decodeChatCompletionAsText(
+      decodeChatCompletion(parseChatCompletion(response.body)),
+    );
+    (response as any).events = events;
   }
-  const events = await decodeChatCompletionAsText(
-    decodeChatCompletion(parseChatCompletion(response.body)),
-  );
-  return { ...response, events };
+
+  return response as any;
 }

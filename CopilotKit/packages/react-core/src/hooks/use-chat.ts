@@ -85,7 +85,8 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const abortControllerRef = useRef<AbortController>();
-  const [threadId, setThreadId] = useState<string | null>(null);
+  const threadIdRef = useRef<string | null>(null);
+  const runIdRef = useRef<string | null>(null);
 
   const runChatCompletion = async (messages: Message[]): Promise<Message[]> => {
     setIsLoading(true);
@@ -103,11 +104,15 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
 
     setMessages([...messages, ...newMessages]);
 
-    // add threadId to the body if it exists
+    // add threadId and runId to the body if it exists
     const copilotConfigBody = options.copilotConfig.body || {};
-    if (threadId) {
-      copilotConfigBody.threadId = threadId;
+    if (threadIdRef.current) {
+      copilotConfigBody.threadId = threadIdRef.current;
     }
+    if (runIdRef.current) {
+      copilotConfigBody.runId = runIdRef.current;
+    }
+    console.log("Running chat completion", messages, copilotConfigBody);
 
     const messagesWithContext = [...(options.initialMessages || []), ...messages];
     const response = await fetchAndDecodeChatCompletion({
@@ -118,8 +123,12 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
       signal: abortController.signal,
     });
 
-    if (response.headers.get("threadId")) {
-      setThreadId(response.headers.get("threadId"));
+    if (response.headers.get("threadid")) {
+      threadIdRef.current = response.headers.get("threadid");
+    }
+
+    if (response.headers.get("runid")) {
+      runIdRef.current = response.headers.get("runid");
     }
 
     if (!response.events) {
