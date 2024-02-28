@@ -31,7 +31,10 @@ export function useCopilotActionImplementation<T extends Array<any> = []>(
     removeEntryPoint,
     action.description,
     action.name,
+    // This should be faster than deep equality checking
+    // In addition, all major JS engines guarantee the order of object keys
     JSON.stringify(action.parameters),
+    // dependencies set by the developer
     ...(dependencies || []),
   ]);
 }
