@@ -56,18 +56,24 @@ export async function fetchChatCompletion({
       ...(tools.length != 0 ? { tool_choice: "auto" } : {}),
       ...copilotConfig.body,
       ...copilotConfig.backendOnlyProps,
-      ...(Object.keys(copilotConfig["body"] ?? {}).length > 0
-        ? {
-            [EXCLUDE_FROM_FORWARD_PROPS_KEYS]: Object.keys(copilotConfig["backendOnlyProps"] ?? {}),
-            // was: [EXCLUDE_FROM_FORWARD_PROPS_KEYS]: Object.keys(copilotConfig["body"] ?? {}),
-          }
-        : {}),
+      ...excludeBackendOnlyProps(copilotConfig),
       ...(body ? { ...body } : {}),
     }),
     signal,
   });
 
   return response;
+}
+
+function excludeBackendOnlyProps(copilotConfig: any) {
+  const backendOnlyProps = copilotConfig.backendOnlyProps ?? {};
+  if (Object.keys(backendOnlyProps).length > 0) {
+    return {
+      [EXCLUDE_FROM_FORWARD_PROPS_KEYS]: Object.keys(backendOnlyProps),
+    };
+  } else {
+    return {};
+  }
 }
 
 export interface DecodedChatCompletionResponse extends Response {
