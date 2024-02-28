@@ -3,29 +3,23 @@ import { CopilotKitServiceAdapter, CopilotKitResponse } from "../types/service-a
 import { writeChatCompletionChunk, writeChatCompletionEnd } from "../utils/openai";
 import { ChatCompletionChunk, Message } from "@copilotkit/shared";
 
-const DEFAULT_MODEL = "gpt-4-1106-preview";
 const RUN_STATUS_POLL_INTERVAL = 100;
 
 export interface OpenAIAssistantAdapterParams {
   assistantId: string;
   openai?: OpenAI;
-  model?: string;
   codeInterpreterEnabled?: boolean;
   retrievalEnabled?: boolean;
 }
 
 export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
   private openai: OpenAI;
-  private model: string = DEFAULT_MODEL;
   private codeInterpreterEnabled: boolean;
   private assistantId: string;
   private retrievalEnabled: boolean;
 
   constructor(params: OpenAIAssistantAdapterParams) {
     this.openai = params.openai || new OpenAI({});
-    if (params.model) {
-      this.model = params.model;
-    }
     this.codeInterpreterEnabled = params.codeInterpreterEnabled === false || true;
     this.retrievalEnabled = params.retrievalEnabled === false || true;
     this.assistantId = params.assistantId;
@@ -112,7 +106,6 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
     // run the thread
     let run = await this.openai.beta.threads.runs.create(threadId, {
       assistant_id: this.assistantId,
-      model: this.model,
       instructions,
       tools: tools,
     });
