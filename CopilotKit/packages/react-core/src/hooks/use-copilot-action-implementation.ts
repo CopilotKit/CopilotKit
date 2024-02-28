@@ -5,30 +5,35 @@ import { useRef, useContext, useEffect, useMemo } from "react";
 import { CopilotContext } from "../context/copilot-context";
 import { nanoid } from "nanoid";
 
-export function useCopilotActionImplementation<T extends Parameter[] | [] = []>(
+export function useCopilotActionImplementation<T extends Array<any> = []>(
   action: Action<T>,
   dependencies?: any[],
 ): void {
-  const idRef = useRef(nanoid()); // generate a unique id
-  const { setEntryPoint, removeEntryPoint } = useContext(CopilotContext);
+  const { setEntryPoint, removeEntryPoint, entryPoints } = useContext(CopilotContext);
+  const idRef = useRef<string>(nanoid());
 
-  const memoizedAction: Action<T> = useMemo(
-    () => ({
-      name: action.name,
-      description: action.description,
-      parameters: action.parameters,
-      handler: action.handler,
-    }),
-    dependencies || [],
-  );
+  // If the developer doesn't provide dependencies, we assume they want to
+  // update the handler when the action object changes.
+  // This ensures that any captured variables in the handler are up to date.
+  if (dependencies === undefined) {
+    if (entryPoints[idRef.current]) {
+      entryPoints[idRef.current].handler = action.handler;
+    }
+  }
 
   useEffect(() => {
     setEntryPoint(idRef.current, action);
-
     return () => {
       removeEntryPoint(idRef.current);
     };
-  }, [memoizedAction, setEntryPoint, removeEntryPoint]);
+  }, [
+    setEntryPoint,
+    removeEntryPoint,
+    action.description,
+    action.name,
+    JSON.stringify(action.parameters),
+    ...(dependencies || []),
+  ]);
 }
 
 export function annotatedFunctionToAction(
