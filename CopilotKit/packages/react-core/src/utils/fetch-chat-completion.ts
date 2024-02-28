@@ -59,6 +59,7 @@ export async function fetchChatCompletion({
       ...(Object.keys(copilotConfig["body"] ?? {}).length > 0
         ? {
             [EXCLUDE_FROM_FORWARD_PROPS_KEYS]: Object.keys(copilotConfig["backendOnlyProps"] ?? {}),
+            // was: [EXCLUDE_FROM_FORWARD_PROPS_KEYS]: Object.keys(copilotConfig["body"] ?? {}),
           }
         : {}),
       ...(body ? { ...body } : {}),

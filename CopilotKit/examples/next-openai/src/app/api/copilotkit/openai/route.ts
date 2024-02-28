@@ -51,6 +51,6 @@ export async function POST(req: Request): Promise<Response> {
 
   return copilotKit.response(
     req,
-    new OpenAIAssistantAdapter({ assistantId: "asst_oRVCILrsezzrtNoKmcsXLZQj" }),
+    new OpenAIAssistantAdapter({ assistantId: "asst_NyzWFlvTLdKBKQMOte1BKWym" }),
   );
 }

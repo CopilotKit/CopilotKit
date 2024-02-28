@@ -31,6 +31,7 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
       if (status.status === "completed" || status.status === "requires_action") {
         return status;
       } else if (status.status !== "in_progress" && status.status !== "queued") {
+        console.error(`Thread run failed with status: ${status.status}`);
         throw new Error(`Thread run failed with status: ${status.status}`);
       }
       await new Promise((resolve) => setTimeout(resolve, RUN_STATUS_POLL_INTERVAL));
@@ -75,9 +76,14 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
       });
     }
 
-    run = await this.openai.beta.threads.runs.submitToolOutputs(threadId, runId, {
-      tool_outputs: toolOutputs,
-    });
+    try {
+      run = await this.openai.beta.threads.runs.submitToolOutputs(threadId, runId, {
+        tool_outputs: toolOutputs,
+      });
+    } catch (error) {
+      console.error("Error submitting tool outputs:", error);
+      throw error;
+    }
 
     return await this.waitForRun(run);
   }
@@ -147,6 +153,7 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
     }
     // unsupported message
     else {
+      console.error("No actionable message found in the messages");
       throw new Error("No actionable message found in the messages");
     }
 
