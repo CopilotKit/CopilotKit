@@ -62,7 +62,7 @@ export class CopilotBackend {
       console.error("backendOnlyPropsKeys is not an array");
     }
   }
-  async stream(
+  private async getResponse(
     forwardedProps: any,
     serviceAdapter: CopilotKitServiceAdapter,
   ): Promise<CopilotBackendResult> {
@@ -87,31 +87,21 @@ export class CopilotBackend {
     // merge with client side functions
     mergedTools = mergeServerSideTools(mergedTools, forwardedProps.tools);
 
-    const result = await serviceAdapter.stream({
+    const result = await serviceAdapter.getResponse({
       ...forwardedProps,
       tools: mergedTools,
     });
-
-    if ("getReader" in result) {
-      const stream = copilotkitStreamInterceptor(
-        result,
-        [...this.functions, ...langserveFunctions],
-        this.debug,
-      );
-      return { stream };
-    } else {
-      const stream = copilotkitStreamInterceptor(
-        result.stream,
-        [...this.functions, ...langserveFunctions],
-        this.debug,
-      );
-      return { stream, headers: result.headers };
-    }
+    const stream = copilotkitStreamInterceptor(
+      result.stream,
+      [...this.functions, ...langserveFunctions],
+      this.debug,
+    );
+    return { stream, headers: result.headers };
   }
 
   async response(req: Request, serviceAdapter: CopilotKitServiceAdapter): Promise<Response> {
     try {
-      const result = await this.stream(await req.json(), serviceAdapter);
+      const result = await this.getResponse(await req.json(), serviceAdapter);
       return new Response(result.stream, { headers: result.headers });
     } catch (error: any) {
       return new Response("", { status: 500, statusText: error.message });
@@ -135,7 +125,7 @@ export class CopilotBackend {
       });
     });
     const forwardedProps = await bodyParser;
-    const result = await this.stream(forwardedProps, serviceAdapter);
+    const result = await this.getResponse(forwardedProps, serviceAdapter);
     const reader = result.stream.getReader();
     if (result.headers) {
       res.writeHead(200, result.headers);

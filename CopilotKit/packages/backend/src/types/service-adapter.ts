@@ -1,10 +1,8 @@
-export interface CopilotKitServiceAdapterReturnType {
+export interface CopilotKitResponse {
   stream: ReadableStream;
   headers?: Record<string, string>;
 }
 
 export interface CopilotKitServiceAdapter {
-  stream(
-    forwardedProps: any,
-  ): Promise<ReadableStream> | Promise<CopilotKitServiceAdapterReturnType>;
+  getResponse(forwardedProps: any): Promise<CopilotKitResponse>;
 }

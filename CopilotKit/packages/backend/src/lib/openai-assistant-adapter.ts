@@ -1,8 +1,5 @@
 import OpenAI from "openai";
-import {
-  CopilotKitServiceAdapter,
-  CopilotKitServiceAdapterReturnType,
-} from "../types/service-adapter";
+import { CopilotKitServiceAdapter, CopilotKitResponse } from "../types/service-adapter";
 import { writeChatCompletionChunk, writeChatCompletionEnd } from "../utils/openai";
 import { ChatCompletionChunk, Message } from "@copilotkit/shared";
 
@@ -33,7 +30,7 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
     this.assistantId = params.assistantId;
   }
 
-  async stream(forwardedProps: any): Promise<CopilotKitServiceAdapterReturnType> {
+  async getResponse(forwardedProps: any): Promise<CopilotKitResponse> {
     // copy forwardedProps to avoid modifying the original object
     forwardedProps = { ...forwardedProps };
 

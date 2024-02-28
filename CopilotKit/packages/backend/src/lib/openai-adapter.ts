@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { CopilotKitServiceAdapter } from "../types/service-adapter";
+import { CopilotKitResponse, CopilotKitServiceAdapter } from "../types/service-adapter";
 import { limitOpenAIMessagesToTokenCount, maxTokensForOpenAIModel } from "../utils/openai";
 
 const DEFAULT_MODEL = "gpt-4-1106-preview";
@@ -19,7 +19,7 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
     }
   }
 
-  async stream(forwardedProps: any): Promise<ReadableStream> {
+  async getResponse(forwardedProps: any): Promise<CopilotKitResponse> {
     // copy forwardedProps to avoid modifying the original object
     forwardedProps = { ...forwardedProps };
 
@@ -35,7 +35,7 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
       maxTokensForOpenAIModel(forwardedProps.model || DEFAULT_MODEL),
     );
 
-    return this.openai.beta.chat.completions
+    const stream = this.openai.beta.chat.completions
       .stream({
         model: this.model,
         ...forwardedProps,
@@ -43,5 +43,7 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
         messages: messages as any,
       })
       .toReadableStream();
+
+    return { stream };
   }
 }
