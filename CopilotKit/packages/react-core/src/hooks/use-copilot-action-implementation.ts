@@ -5,6 +5,15 @@ import { useRef, useContext, useEffect, useMemo } from "react";
 import { CopilotContext } from "../context/copilot-context";
 import { nanoid } from "nanoid";
 
+// We implement useCopilotActionImplementation dependency handling so that
+// the developer has the option to not provide any dependencies.
+// In this case, we assume they want to update the handler on each rerender.
+// To avoid getting stuck in an infinite loop, we update the handler directly,
+// skipping React state updates.
+// This is ok in this case, because the handler is not part of any UI that
+// needs to be updated.
+// useCallback, useMemo or other memoization techniques are not suitable here,
+// because they will cause a infinite rerender loop.
 export function useCopilotActionImplementation<T extends Array<any> = []>(
   action: Action<T>,
   dependencies?: any[],
