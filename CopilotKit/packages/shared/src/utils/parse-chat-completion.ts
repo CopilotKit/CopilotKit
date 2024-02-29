@@ -3,6 +3,7 @@ import { Role } from "../types/openai-assistant";
 export interface ChatCompletionChunk {
   choices: {
     delta: {
+      id?: string;
       role: Role;
       content?: string | null;
 

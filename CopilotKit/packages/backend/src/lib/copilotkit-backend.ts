@@ -11,6 +11,7 @@ interface CopilotBackendConstructorParams<T extends Parameter[]| [] = []> {
   debug?: boolean;
 }
 
+
 export class CopilotBackend<const T extends Parameter[]| [] = []> extends CopilotBackendImplementation {
   constructor(params?: CopilotBackendConstructorParams<T>) {
     super(params);

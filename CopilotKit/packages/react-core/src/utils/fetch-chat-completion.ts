@@ -56,15 +56,24 @@ export async function fetchChatCompletion({
       ...(tools.length != 0 ? { tool_choice: "auto" } : {}),
       ...copilotConfig.body,
       ...copilotConfig.backendOnlyProps,
-      ...(Object.keys(copilotConfig["body"] ?? {}).length > 0
-        ? { [EXCLUDE_FROM_FORWARD_PROPS_KEYS]: Object.keys(copilotConfig["body"] ?? {}) }
-        : {}),
+      ...excludeBackendOnlyProps(copilotConfig),
       ...(body ? { ...body } : {}),
     }),
     signal,
   });
 
   return response;
+}
+
+function excludeBackendOnlyProps(copilotConfig: any) {
+  const backendOnlyProps = copilotConfig.backendOnlyProps ?? {};
+  if (Object.keys(backendOnlyProps).length > 0) {
+    return {
+      [EXCLUDE_FROM_FORWARD_PROPS_KEYS]: Object.keys(backendOnlyProps),
+    };
+  } else {
+    return {};
+  }
 }
 
 export interface DecodedChatCompletionResponse extends Response {
@@ -76,10 +85,12 @@ export async function fetchAndDecodeChatCompletion(
 ): Promise<DecodedChatCompletionResponse> {
   const response = await fetchChatCompletion(params);
   if (!response.ok || !response.body) {
-    return { ...response, events: null };
+    (response as any).events = null;
+  } else {
+    const events = await decodeChatCompletion(parseChatCompletion(response.body));
+    (response as any).events = events;
   }
-  const events = await decodeChatCompletion(parseChatCompletion(response.body));
-  return { ...response, events };
+  return response as any;
 }
 
 export interface DecodedChatCompletionResponseAsText extends Response {
@@ -91,10 +102,13 @@ export async function fetchAndDecodeChatCompletionAsText(
 ): Promise<DecodedChatCompletionResponseAsText> {
   const response = await fetchChatCompletion(params);
   if (!response.ok || !response.body) {
-    return { ...response, events: null };
+    (response as any).events = null;
+  } else {
+    const events = await decodeChatCompletionAsText(
+      decodeChatCompletion(parseChatCompletion(response.body)),
+    );
+    (response as any).events = events;
   }
-  const events = await decodeChatCompletionAsText(
-    decodeChatCompletion(parseChatCompletion(response.body)),
-  );
-  return { ...response, events };
+
+  return response as any;
 }

@@ -85,6 +85,8 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const abortControllerRef = useRef<AbortController>();
+  const threadIdRef = useRef<string | null>(null);
+  const runIdRef = useRef<string | null>(null);
 
   const runChatCompletion = async (messages: Message[]): Promise<Message[]> => {
     setIsLoading(true);
@@ -102,14 +104,31 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
 
     setMessages([...messages, ...newMessages]);
 
+    // add threadId and runId to the body if it exists
+    const copilotConfigBody = options.copilotConfig.body || {};
+    if (threadIdRef.current) {
+      copilotConfigBody.threadId = threadIdRef.current;
+    }
+    if (runIdRef.current) {
+      copilotConfigBody.runId = runIdRef.current;
+    }
+
     const messagesWithContext = [...(options.initialMessages || []), ...messages];
     const response = await fetchAndDecodeChatCompletion({
-      copilotConfig: options.copilotConfig,
+      copilotConfig: { ...options.copilotConfig, body: copilotConfigBody },
       messages: messagesWithContext,
       tools: options.tools,
       headers: options.headers,
       signal: abortController.signal,
     });
+
+    if (response.headers.get("threadid")) {
+      threadIdRef.current = response.headers.get("threadid");
+    }
+
+    if (response.headers.get("runid")) {
+      runIdRef.current = response.headers.get("runid");
+    }
 
     if (!response.events) {
       throw new Error("Failed to fetch chat completion");

@@ -13,8 +13,5 @@
     "tailwind-config": "0.5.0-mme-experimental-actions.0",
     "tsconfig": "0.10.0-mme-experimental-actions.0"
   },
-  "changesets": [
-    "funny-spies-unite",
-    "tall-buttons-occur"
-  ]
+  "changesets": ["funny-spies-unite", "tall-buttons-occur"]
 }

@@ -9,6 +9,7 @@ import {
 import { IterableReadableStream } from "@langchain/core/utils/stream";
 import { CopilotKitServiceAdapter } from "../types";
 import { writeChatCompletionChunk, writeChatCompletionEnd } from "../utils";
+import { CopilotKitResponse } from "../types/service-adapter";
 
 export type LangChainMessageStream = IterableReadableStream<BaseMessageChunk>;
 export type LangChainReturnType = LangChainMessageStream | BaseMessageChunk | string | AIMessage;
@@ -16,7 +17,7 @@ export type LangChainReturnType = LangChainMessageStream | BaseMessageChunk | st
 export class LangChainAdapter implements CopilotKitServiceAdapter {
   constructor(private chainFn: (forwardedProps: any) => Promise<LangChainReturnType>) {}
 
-  async stream(forwardedProps: any): Promise<ReadableStream<any>> {
+  async getResponse(forwardedProps: any): Promise<CopilotKitResponse> {
     forwardedProps = this.transformProps(forwardedProps);
 
     const result = await this.chainFn(forwardedProps);
@@ -26,25 +27,36 @@ export class LangChainAdapter implements CopilotKitServiceAdapter {
     // 1. string
     // Just send one chunk with the string as the content.
     if (typeof result === "string") {
-      return new SingleChunkReadableStream(result);
+      return {
+        stream: new SingleChunkReadableStream(result),
+      };
     }
 
     // 2. AIMessage
     // Send the content and function call of the AIMessage as the content of the chunk.
     else if ("content" in result && typeof result.content === "string") {
-      return new SingleChunkReadableStream(result.content, result.additional_kwargs?.tool_calls);
+      return {
+        stream: new SingleChunkReadableStream(result.content, result.additional_kwargs?.tool_calls),
+      };
     }
 
     // 3. BaseMessageChunk
     // Send the content and function call of the AIMessage as the content of the chunk.
     else if ("lc_kwargs" in result) {
-      return new SingleChunkReadableStream(result.lc_kwargs?.content, result.lc_kwargs?.tool_calls);
+      return {
+        stream: new SingleChunkReadableStream(
+          result.lc_kwargs?.content,
+          result.lc_kwargs?.tool_calls,
+        ),
+      };
     }
 
     // 4. IterableReadableStream
     // Stream the result of the LangChain function.
     else if ("getReader" in result) {
-      return this.streamResult(result);
+      return {
+        stream: this.streamResult(result),
+      };
     }
 
     // TODO write function call result!
