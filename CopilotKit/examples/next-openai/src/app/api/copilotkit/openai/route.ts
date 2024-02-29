@@ -1,6 +1,4 @@
-import { CopilotBackend, OpenAIAssistantAdapter } from "@copilotkit/backend";
-import { ChatPromptTemplate } from "@langchain/core/prompts";
-import { ChatOpenAI } from "@langchain/openai";
+import { CopilotBackend, OpenAIAdapter } from "@copilotkit/backend";
 
 export const runtime = "edge";
 
@@ -49,8 +47,5 @@ export async function POST(req: Request): Promise<Response> {
     // ],
   });
 
-  return copilotKit.response(
-    req,
-    new OpenAIAssistantAdapter({ assistantId: "asst_NyzWFlvTLdKBKQMOte1BKWym" }),
-  );
+  return copilotKit.response(req, new OpenAIAdapter());
 }
