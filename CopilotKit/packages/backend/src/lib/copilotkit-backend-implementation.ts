@@ -108,7 +108,8 @@ export class CopilotBackendImplementation {
 
   async response(req: Request, serviceAdapter: CopilotKitServiceAdapter): Promise<Response> {
     try {
-      return new Response(await this.stream(await req.json(), serviceAdapter));
+      const response = await this.getResponse(await req.json(), serviceAdapter);
+      return new Response(response.stream, { headers: response.headers });
     } catch (error: any) {
       return new Response("", { status: 500, statusText: error.message });
     }
@@ -131,7 +132,9 @@ export class CopilotBackendImplementation {
       });
     });
     const forwardedProps = await bodyParser;
-    const stream = await this.stream(forwardedProps, serviceAdapter);
+    const response = await this.getResponse(forwardedProps, serviceAdapter);
+    res.writeHead(200, response.headers);
+    const stream = response.stream;
     const reader = stream.getReader();
 
     while (true) {
