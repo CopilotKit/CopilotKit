@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "mme-assistant-api",
   "initialVersions": {
     "next-openai": "1.16.1",
