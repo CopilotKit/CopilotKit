@@ -1,5 +1,27 @@
 # @copilotkit/cloud
 
+## 0.5.0-mme-experimental-actions.1
+
+### Minor Changes
+
+- Alpha
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.5.0-mme-experimental-actions.1
+
+## 0.5.0-mme-experimental-actions.0
+
+### Minor Changes
+
+- QA new action type
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.5.0-mme-experimental-actions.0
+
 ## 0.4.1
 
 ### Patch Changes

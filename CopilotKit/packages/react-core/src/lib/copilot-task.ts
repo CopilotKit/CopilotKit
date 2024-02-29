@@ -1,4 +1,4 @@
-import { AnnotatedFunction, FunctionCall, Message } from "@copilotkit/shared";
+import { Action, AnnotatedFunction, FunctionCall, Message } from "@copilotkit/shared";
 import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
 import { fetchAndDecodeChatCompletion } from "../utils/fetch-chat-completion";
@@ -11,7 +11,7 @@ export interface CopilotTaskConfig {
   /**
    * Action definitions to be sent to the API.
    */
-  actions?: AnnotatedFunction<any[]>[];
+  actions?: Action<any>[];
   /**
    * Whether to include the copilot readable context in the task.
    */
@@ -25,13 +25,13 @@ export interface CopilotTaskConfig {
 
 export class CopilotTask<T = any> {
   private instructions: string;
-  private functions: AnnotatedFunction<any[]>[];
+  private actions: Action<any>[];
   private includeCopilotReadable: boolean;
   private includeCopilotActionable: boolean;
 
   constructor(config: CopilotTaskConfig) {
     this.instructions = config.instructions;
-    this.functions = config.actions || [];
+    this.actions = config.actions || [];
     this.includeCopilotReadable = config.includeCopilotReadable || true;
     this.includeCopilotActionable = config.includeCopilotActionable || true;
   }
@@ -40,7 +40,7 @@ export class CopilotTask<T = any> {
     const entryPoints = this.includeCopilotActionable ? Object.assign({}, context.entryPoints) : {};
 
     // merge functions into entry points
-    for (const fn of this.functions) {
+    for (const fn of this.actions) {
       entryPoints[fn.name] = fn;
     }
 

@@ -4,7 +4,11 @@ import { useRef, useContext, useEffect, useMemo } from "react";
 import { CopilotContext } from "../context/copilot-context";
 import { AnnotatedFunction } from "@copilotkit/shared";
 import { nanoid } from "nanoid";
+import { annotatedFunctionToAction } from "./use-copilot-action-implementation";
 
+/**
+ * @deprecated Use the useCopilotAction function instead.
+ */
 export function useMakeCopilotActionable<ActionInput extends any[]>(
   annotatedFunction: AnnotatedFunction<ActionInput>,
   dependencies: any[],
@@ -23,7 +27,8 @@ export function useMakeCopilotActionable<ActionInput extends any[]>(
   );
 
   useEffect(() => {
-    setEntryPoint(idRef.current, memoizedAnnotatedFunction as AnnotatedFunction<any[]>);
+    const action = annotatedFunctionToAction(memoizedAnnotatedFunction as AnnotatedFunction<any[]>);
+    setEntryPoint(idRef.current, action);
 
     return () => {
       removeEntryPoint(idRef.current);

@@ -10,7 +10,7 @@ export async function POST(req: Request): Promise<Response> {
       {
         name: "sayHello",
         description: "Says hello to someone.",
-        argumentAnnotations: [
+        parameters: [
           {
             name: "name",
             type: "string",
@@ -18,7 +18,7 @@ export async function POST(req: Request): Promise<Response> {
             required: true,
           },
         ],
-        implementation: async (name) => {
+        handler: async ({ name }) => {
           const prompt = ChatPromptTemplate.fromMessages([
             [
               "system",

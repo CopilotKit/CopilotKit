@@ -1,4 +1,4 @@
-import { AnnotatedFunction, parseChatCompletion } from "@copilotkit/shared";
+import { Action, parseChatCompletion } from "@copilotkit/shared";
 import {
   writeChatCompletionChunk,
   writeChatCompletionContent,
@@ -12,7 +12,7 @@ import {
  */
 async function executeFunctionCall(
   controller: ReadableStreamDefaultController<any>,
-  fun: AnnotatedFunction<any[]>,
+  action: Action<any>,
   functionCallArguments: string,
 ): Promise<void> {
   // Prepare arguments for function calling
@@ -20,20 +20,16 @@ async function executeFunctionCall(
   if (functionCallArguments) {
     args = JSON.parse(functionCallArguments);
   }
-  const paramsInCorrectOrder: any[] = [];
-  for (let arg of fun.argumentAnnotations) {
-    paramsInCorrectOrder.push(args[arg.name as keyof typeof args]);
-  }
 
   // call the function
-  const result = await fun.implementation(...paramsInCorrectOrder);
+  const result = await action.handler(args);
 
   // We support several types of return values from functions:
 
   // 1. string
   // Just send the result as the content of the chunk.
   if (typeof result === "string") {
-    writeChatCompletionResult(controller, fun.name, result);
+    writeChatCompletionResult(controller, action.name, result);
   }
 
   // 2. AIMessage
@@ -74,7 +70,7 @@ async function executeFunctionCall(
 
   // 5. Any other type, return JSON result
   else {
-    writeChatCompletionResult(controller, fun.name, result);
+    writeChatCompletionResult(controller, action.name, result);
   }
 }
 
@@ -86,13 +82,13 @@ async function executeFunctionCall(
  */
 export function copilotkitStreamInterceptor(
   stream: ReadableStream<Uint8Array>,
-  functions: AnnotatedFunction<any[]>[],
+  actions: Action<any>[],
   debug: boolean = false,
 ): ReadableStream {
-  const functionsByName = functions.reduce((acc, fn) => {
+  const functionsByName = actions.reduce((acc, fn) => {
     acc[fn.name] = fn;
     return acc;
-  }, {} as Record<string, AnnotatedFunction<any[]>>);
+  }, {} as Record<string, Action<any>>);
 
   const decodedStream = parseChatCompletion(stream);
   const reader = decodedStream.getReader();
@@ -125,8 +121,8 @@ export function copilotkitStreamInterceptor(
   const flushFunctionCall = async (
     controller: ReadableStreamDefaultController<any>,
   ): Promise<void> => {
-    const fun = functionsByName[functionCallName];
-    await executeFunctionCall(controller, fun, functionCallArguments);
+    const action = functionsByName[functionCallName];
+    await executeFunctionCall(controller, action, functionCallArguments);
 
     executeThisFunctionCall = false;
     functionCallName = "";

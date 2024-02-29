@@ -1,0 +1,115 @@
+---
+title: "useCopilotAction"
+description: "A hook for providing actions the Copilot can call."
+---
+
+`useCopilotAction` is a React hook that lets you integrate
+actionable functions in the Copilot chat. The Copilot can then call these
+actions to trigger actions in your application, allowing for interactive
+and dynamic behavior controlled by the Copilot.
+
+You can define actions with parameters of any complexity. CopilotKit will relay
+these definitions to the LLM and subsequently invoke your action handler with the
+parameters you've defined.
+
+In addition, the types of all parameters in your action handler are automatically
+inferred from the action definition. This enables the use of TypeScript for
+ensuring type safety and enabling autocompletion in your action handlers.
+
+<RequestExample>
+  ```jsx useCopilotAction Example
+  useCopilotAction(
+    {
+      name: "sayHello",
+      description: "Say hello to someone.",
+      parameters: [
+        {
+          name: "name",
+          type: "string",
+          description: "name of the person to say greet",
+        },
+      ],
+      handler: async ({name}) => {
+        alert(`Hello, ${name}!`);
+      },
+    }
+  );
+````
+</RequestExample>
+
+## Parameters
+
+<ResponseField name="action" type="Action" required>
+  The function made available to the Copilot. See [Action](#action).
+</ResponseField>
+
+<ResponseField name="dependencies" type="any[]">
+  An optional array of dependencies.
+</ResponseField>
+
+## Action
+
+<ResponseField name="name" type="string" required>
+  The name of the action.
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  A description of the action. This is used to instruct the Copilot on how to
+  use the action.
+</ResponseField>
+
+<ResponseField name="parameters" type="Parameter[]">
+  The parameters of the action. See [Parameter](#parameter).
+</ResponseField>
+
+<ResponseField name="handler" type="(args) => Promise<any>" required>
+  The handler of the action.
+</ResponseField>
+
+## Parameter
+
+<ResponseField name="name" type="string" required>
+  The name of the parameter.
+</ResponseField>
+
+<ResponseField
+  name="type"
+  type="'string' | 'number' | 'boolean' | 'object' | 'string[]' | 'number[]' | 'boolean[]' | 'object[]'"
+  required
+>
+  The type of the argument.
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  A description of the argument. This is used to instruct the Copilot on what
+  this argument is used for.
+</ResponseField>
+
+<ResponseField name="required" type="boolean">
+  Wether or not the argument is required. Defaults to true.
+</ResponseField>
+
+<ResponseField name="attributes">
+If the argument is of a complex type, i.e. `object` or `object[]`, this field
+lets you define the attributes of the object. For example:
+```js
+{
+  name: "addresses",
+  description: "The addresses extracted from the text.",
+  type: "object[]",
+  attributes: [
+    {
+      name: "street",
+      type: "string",
+      description: "The street of the address.",
+    },
+    {
+      name: "city",
+      type: "string",
+      description: "The city of the address.",
+    },
+    // ...
+  ],
+}
+````
+</ResponseField>
