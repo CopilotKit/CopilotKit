@@ -1,0 +1,108 @@
+---
+title: "Upgrading to useCopilotAction"
+description: "Upgrading to the new useCopilotAction hook"
+---
+
+This guide will help you migrate from `useMakeCopilotActionable` to `useCopilotAction`.
+
+`useCopilotAction` is a new hook that replaces `useMakeCopilotActionable`. It provides a more flexible and powerful way to interact with CopilotKit. By using `useCopilotAction`, you can define complex objects for your function parameters. It also provides extensive type inference for compile time safety and IDE completions.
+
+## Migrating from `useMakeCopilotActionable`
+
+Let's look at an example of how to upgrade to `useCopilotAction`:
+
+```ts
+// Before
+useMakeCopilotActionable(
+  {
+    name: "greetUser",
+    description: "Greets the user with a message.",
+    argumentAnnotations: [
+      {
+        name: "message",
+        type: "string",
+        description: "The message to display to the user.",
+        required: true,
+      },
+    ],
+
+    implementation: async (message) => {
+      console.log(`${message}!`);
+    },
+  },
+  []
+);
+
+// After
+useCopilotAction({
+  name: "greetUser",
+  // description is now optional
+  description: "Greets the user with a message.",
+  parameters: [
+    {
+      name: "message",
+      // the rest of the properties are optional..
+
+      // type defaults to "string"
+      type: "string",
+      description: "The message to display to the user.",
+      // required is now optional, true by default
+    },
+  ],
+  // implementation is now called handler
+  // handler receives typed parameters, in this case { message: string }
+  handler: async ({ message }) => {
+    console.log(`${message}!`);
+  },
+});
+```
+
+## Complex parameters
+
+`useCopilotAction` allows you to define complex parameters. For example, you can define a function
+to extract address information:
+
+```ts
+useCopilotAction({
+  name: "extractAddresses",
+  description: "Extracts address information.",
+  parameters: {
+    address: {
+      name: "address",
+      type: "object[]",
+      description: "The extracted address information.",
+      attributes: [
+        {
+          name: "street",
+          type: "string",
+          description: "The street name.",
+        },
+        {
+          name: "city",
+          type: "string",
+          description: "The city name.",
+        },
+        {
+          name: "state",
+          type: "string",
+          description: "The state name.",
+        },
+        {
+          name: "zip",
+          type: "string",
+          description: "The zip code.",
+        },
+      ],
+    },
+  },
+  handler: async ({ addresses }) => {
+    for (const address of addresses) {
+      // address will be typed!
+      console.log(`Street: ${address.street}`);
+      console.log(`City: ${address.city}`);
+      console.log(`State: ${address.state}`);
+      console.log(`Zip: ${address.zip}`);
+    }
+  },
+});
+```

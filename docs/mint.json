@@ -54,6 +54,10 @@
     {
       "group": "Contributing",
       "pages": ["contribute/quickstart-contribute"]
+    },
+    {
+      "group": "Articles",
+      "pages": ["articles/use-copilot-action"]
     }
   ],
   "footerSocials": {
