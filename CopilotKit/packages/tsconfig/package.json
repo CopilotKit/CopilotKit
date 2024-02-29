@@ -1,6 +1,6 @@
 {
   "name": "tsconfig",
-  "version": "0.10.0-mme-assistant-api.0",
+  "version": "0.10.0-mme-experimental-actions.1",
   "private": true,
   "license": "MIT",
   "publishConfig": {

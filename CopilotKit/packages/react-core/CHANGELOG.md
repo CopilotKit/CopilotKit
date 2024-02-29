@@ -1,6 +1,6 @@
 # ui
 
-## 0.21.0-mme-assistant-api.0
+## 0.21.0-mme-experimental-actions.1
 
 ### Minor Changes
 
@@ -9,7 +9,18 @@
 ### Patch Changes
 
 - Updated dependencies
-  - @copilotkit/shared@0.5.0-mme-assistant-api.0
+  - @copilotkit/shared@0.5.0-mme-experimental-actions.1
+
+## 0.21.0-mme-experimental-actions.0
+
+### Minor Changes
+
+- QA new action type
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.5.0-mme-experimental-actions.0
 
 ## 0.20.1
 

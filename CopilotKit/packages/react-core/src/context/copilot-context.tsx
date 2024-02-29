@@ -1,6 +1,6 @@
 "use client";
 
-import { FunctionCallHandler, AnnotatedFunction, ToolDefinition } from "@copilotkit/shared";
+import { FunctionCallHandler, AnnotatedFunction, ToolDefinition, Action } from "@copilotkit/shared";
 import React from "react";
 import { TreeNodeId } from "../hooks/use-tree";
 import { DocumentPointer } from "../types";
@@ -58,15 +58,13 @@ export interface CopilotApiConfig {
 
 export interface CopilotContextParams {
   // function-calling
-  entryPoints: Record<string, AnnotatedFunction<any[]>>;
-  setEntryPoint: (id: string, entryPoint: AnnotatedFunction<any[]>) => void;
+  entryPoints: Record<string, Action<any>>;
+  setEntryPoint: (id: string, entryPoint: Action<any>) => void;
   removeEntryPoint: (id: string) => void;
   getChatCompletionFunctionDescriptions: (
-    customEntryPoints?: Record<string, AnnotatedFunction<any[]>>,
+    customEntryPoints?: Record<string, Action<any>>,
   ) => ToolDefinition[];
-  getFunctionCallHandler: (
-    customEntryPoints?: Record<string, AnnotatedFunction<any[]>>,
-  ) => FunctionCallHandler;
+  getFunctionCallHandler: (customEntryPoints?: Record<string, Action<any>>) => FunctionCallHandler;
 
   // text context
   addContext: (context: string, parentId?: string, categories?: string[]) => TreeNodeId;

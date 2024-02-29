@@ -15,15 +15,14 @@ export async function POST(req: Request): Promise<Response> {
         name: "research",
         description:
           "Call this function when the user requests research on a certain topic. After researching, make a presentation.",
-        argumentAnnotations: [
+        parameters: [
           {
             name: "topic",
             type: "string",
             description: "The topic to research.",
-            required: true,
           },
         ],
-        implementation: async (topic) => {
+        handler: async ({ topic }) => {
           const response = await fetch("http://localhost:8000/generate_newspaper_html", {
             method: "POST",
             headers: {

@@ -1,32 +1,27 @@
-import { AnnotatedFunction } from "@copilotkit/shared";
+import { Action } from "@copilotkit/shared";
 import { RemoteChain } from "../types";
 import { RemoteRunnable } from "langchain/runnables/remote";
 
-export async function remoteChainToAnnotatedFunction(
-  chain: RemoteChain,
-): Promise<AnnotatedFunction<any[]>> {
+export async function remoteChainToAction(chain: RemoteChain): Promise<Action<any>> {
   chain = { ...chain };
   const runnable = new RemoteRunnable({ url: chain.chainUrl });
 
-  if (!chain.argumentAnnotations) {
+  if (!chain.parameters) {
     chain = await inferLangServeParameters(chain);
   }
 
-  chain.argumentType ||= "multi";
+  chain.parameterType ||= "multi";
 
   return {
     name: chain.name,
     description: chain.description,
-    argumentAnnotations: chain.argumentAnnotations!,
-    implementation: async (...args: any[]) => {
+    parameters: chain.parameters!,
+    handler: async (args: any) => {
       let input: any;
-      if (chain.argumentType === "single") {
-        input = args[0];
+      if (chain.parameterType === "single") {
+        input = args[Object.keys(args)[0]];
       } else {
-        input = {};
-        for (let i = 0; i < args.length; i++) {
-          input[chain.argumentAnnotations![i].name] = args[i];
-        }
+        input = args;
       }
       return await runnable.invoke(input);
     },
@@ -47,18 +42,17 @@ export async function inferLangServeParameters(chain: RemoteChain): Promise<Remo
   // for now, don't use json schema, just do a simple conversion
 
   if (supportedTypes.includes(schema.type)) {
-    chain.argumentType = "single";
-    chain.argumentAnnotations = [
+    chain.parameterType = "single";
+    chain.parameters = [
       {
         name: "input",
         type: schema.type,
         description: "The input to the chain",
-        required: true,
       },
     ];
   } else if (schema.type === "object") {
-    chain.argumentType = "multi";
-    chain.argumentAnnotations = Object.keys(schema.properties).map((key) => {
+    chain.parameterType = "multi";
+    chain.parameters = Object.keys(schema.properties).map((key) => {
       let property = schema.properties[key];
       if (!supportedTypes.includes(property.type)) {
         throw new Error("Unsupported schema type");
