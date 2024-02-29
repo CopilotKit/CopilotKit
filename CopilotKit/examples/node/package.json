@@ -1,6 +1,6 @@
 {
   "name": "node",
-  "version": "1.17.0-mme-experimental-actions.0",
+  "version": "1.17.0-mme-experimental-actions.1",
   "private": true,
   "scripts": {
     "start": "node dist/index.js",
