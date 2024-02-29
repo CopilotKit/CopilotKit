@@ -62,6 +62,7 @@ export class CopilotBackend {
       console.error("backendOnlyPropsKeys is not an array");
     }
   }
+
   private async getResponse(
     forwardedProps: any,
     serviceAdapter: CopilotKitServiceAdapter,
@@ -87,16 +88,21 @@ export class CopilotBackend {
     // merge with client side functions
     mergedTools = mergeServerSideTools(mergedTools, forwardedProps.tools);
 
-    const result = await serviceAdapter.getResponse({
-      ...forwardedProps,
-      tools: mergedTools,
-    });
-    const stream = copilotkitStreamInterceptor(
-      result.stream,
-      [...this.functions, ...langserveFunctions],
-      this.debug,
-    );
-    return { stream, headers: result.headers };
+    try {
+      const result = await serviceAdapter.getResponse({
+        ...forwardedProps,
+        tools: mergedTools,
+      });
+      const stream = copilotkitStreamInterceptor(
+        result.stream,
+        [...this.functions, ...langserveFunctions],
+        this.debug,
+      );
+      return { stream, headers: result.headers };
+    } catch (error) {
+      console.error("Error getting response:", error);
+      throw error;
+    }
   }
 
   async response(req: Request, serviceAdapter: CopilotKitServiceAdapter): Promise<Response> {

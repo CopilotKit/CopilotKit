@@ -76,14 +76,9 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
       });
     }
 
-    try {
-      run = await this.openai.beta.threads.runs.submitToolOutputs(threadId, runId, {
-        tool_outputs: toolOutputs,
-      });
-    } catch (error) {
-      console.error("Error submitting tool outputs:", error);
-      throw error;
-    }
+    run = await this.openai.beta.threads.runs.submitToolOutputs(threadId, runId, {
+      tool_outputs: toolOutputs,
+    });
 
     return await this.waitForRun(run);
   }
