@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.6.0-mme-assistant-api.0
+
+### Minor Changes
+
+- Alpha
+
 ## 0.5.1
 
 ### Patch Changes

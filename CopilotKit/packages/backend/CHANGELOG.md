@@ -1,5 +1,16 @@
 # @copilotkit/cloud
 
+## 0.5.0-mme-assistant-api.0
+
+### Minor Changes
+
+- Alpha
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.5.0-mme-assistant-api.0
+
 ## 0.4.1
 
 ### Patch Changes

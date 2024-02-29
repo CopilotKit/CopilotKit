@@ -1,5 +1,17 @@
 # ui
 
+## 0.31.0-mme-assistant-api.0
+
+### Minor Changes
+
+- Alpha
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.21.0-mme-assistant-api.0
+  - @copilotkit/shared@0.5.0-mme-assistant-api.0
+
 ## 0.30.1
 
 ### Patch Changes

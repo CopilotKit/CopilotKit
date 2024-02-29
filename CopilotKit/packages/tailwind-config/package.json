@@ -1,6 +1,6 @@
 {
   "name": "tailwind-config",
-  "version": "0.4.1",
+  "version": "0.5.0-mme-assistant-api.0",
   "private": true,
   "main": "index.js",
   "devDependencies": {

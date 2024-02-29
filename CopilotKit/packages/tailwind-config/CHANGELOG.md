@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 0.5.0-mme-assistant-api.0
+
+### Minor Changes
+
+- Alpha
+
 ## 0.4.1
 
 ### Patch Changes

@@ -1,5 +1,20 @@
 # web
 
+## 1.17.0-mme-assistant-api.0
+
+### Minor Changes
+
+- Alpha
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.21.0-mme-assistant-api.0
+  - @copilotkit/backend@0.5.0-mme-assistant-api.0
+  - @copilotkit/shared@0.5.0-mme-assistant-api.0
+  - @copilotkit/react-textarea@0.31.0-mme-assistant-api.0
+  - @copilotkit/react-ui@0.18.0-mme-assistant-api.0
+
 ## 1.16.1
 
 ### Patch Changes

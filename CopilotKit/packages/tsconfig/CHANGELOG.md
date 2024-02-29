@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.10.0-mme-assistant-api.0
+
+### Minor Changes
+
+- Alpha
+
 ## 0.9.1
 
 ### Patch Changes
