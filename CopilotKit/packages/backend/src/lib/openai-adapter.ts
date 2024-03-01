@@ -37,7 +37,7 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
     const messages = limitOpenAIMessagesToTokenCount(
       forwardedProps.messages || [],
       forwardedProps.tools || [],
-      maxTokensForOpenAIModel(forwardedProps.model || DEFAULT_MODEL),
+      maxTokensForOpenAIModel(forwardedProps.model || this.model),
     );
 
     const stream = this.openai.beta.chat.completions
