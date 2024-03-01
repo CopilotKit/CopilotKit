@@ -34,7 +34,7 @@ export type ObjectParameter = {
 
 export type Parameter = BaseParameter | StringParameter | ObjectParameter;
 
-type MappedParameterTypes<T extends Parameter[]> = {
+export type MappedParameterTypes<T extends Parameter[]> = {
   // Check if the parameter has an 'enum' defined
   [P in T[number] as P["name"]]: P extends { enum: Array<infer E> }
     ? E extends string // Ensure the enum values are strings
@@ -67,5 +67,7 @@ export type Action<T extends Parameter[] | [] = []> = {
   name: string;
   description?: string;
   parameters?: T;
-  handler: T extends [] ? () => void : (args: MappedParameterTypes<T>) => any | Promise<any>;
+  handler: T extends []
+    ? () => any | Promise<any>
+    : (args: MappedParameterTypes<T>) => any | Promise<any>;
 };

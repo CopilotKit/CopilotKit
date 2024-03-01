@@ -1,7 +1,8 @@
 "use client";
 
-import { Action, AnnotatedFunction, Parameter } from "@copilotkit/shared";
-import { useRef, useContext, useEffect, useMemo } from "react";
+import { AnnotatedFunction, Parameter } from "@copilotkit/shared";
+import { useRef, useContext, useEffect } from "react";
+import { FrontendAction } from "../types/frontend-action";
 import { CopilotContext } from "../context/copilot-context";
 import { nanoid } from "nanoid";
 
@@ -15,7 +16,7 @@ import { nanoid } from "nanoid";
 // useCallback, useMemo or other memoization techniques are not suitable here,
 // because they will cause a infinite rerender loop.
 export function useCopilotActionImplementation<T extends Array<any> = []>(
-  action: Action<T>,
+  action: FrontendAction<T>,
   dependencies?: any[],
 ): void {
   const { setEntryPoint, removeEntryPoint, entryPoints } = useContext(CopilotContext);
@@ -50,7 +51,7 @@ export function useCopilotActionImplementation<T extends Array<any> = []>(
 
 export function annotatedFunctionToAction(
   annotatedFunction: AnnotatedFunction<any[]>,
-): Action<any> {
+): FrontendAction<any> {
   const parameters: Parameter[] = annotatedFunction.argumentAnnotations.map((annotation) => {
     switch (annotation.type) {
       case "string":
