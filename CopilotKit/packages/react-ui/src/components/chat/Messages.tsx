@@ -46,16 +46,19 @@ export const Messages = ({ messages, inProgress }: MessagesProps) => {
 
             if (message.partialFunctionCall) {
               for (const action of Object.values(entryPoints)) {
-                if (action.name === message.partialFunctionCall.name) {
-                  if (action.inProgressLabel) {
-                    if (typeof action.inProgressLabel === "function") {
-                      inProgressLabel = action.inProgressLabel(
-                        message.partialFunctionCall.arguments as any,
-                        message.function_call !== undefined,
-                      );
-                    } else {
-                      inProgressLabel = action.inProgressLabel;
-                    }
+                if (action.name === message.partialFunctionCall.name && action.inProgressLabel) {
+                  // the label is a function, call it with the arguments
+                  if (typeof action.inProgressLabel === "function") {
+                    inProgressLabel = action.inProgressLabel(
+                      message.partialFunctionCall.arguments as any,
+                      // if function_call is undefined, the arguments are incomplete
+                      message.function_call !== undefined,
+                    );
+                  }
+                  // the label is a string
+                  else {
+                    // (don't do an additional type check so we get a compile error if we add a new type)
+                    inProgressLabel = action.inProgressLabel;
                   }
                 }
               }
