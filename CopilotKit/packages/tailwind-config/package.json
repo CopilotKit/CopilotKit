@@ -1,6 +1,6 @@
 {
   "name": "tailwind-config",
-  "version": "0.5.0-mme-experimental-actions.1",
+  "version": "0.5.0-atai-0301-OpenAIAdapaterGetter.2",
   "private": true,
   "main": "index.js",
   "devDependencies": {

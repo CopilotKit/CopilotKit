@@ -1,5 +1,12 @@
 # tsconfig
 
+## 0.10.0-atai-0301-OpenAIAdapaterGetter.2
+
+### Minor Changes
+
+- be00d61: Alpha
+- OpenAIAdapter: make openai instance gettable
+
 ## 0.10.0-mme-experimental-actions.1
 
 ### Minor Changes
