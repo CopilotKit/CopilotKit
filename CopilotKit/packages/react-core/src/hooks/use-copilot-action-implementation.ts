@@ -23,11 +23,14 @@ export function useCopilotActionImplementation<T extends Array<any> = []>(
   const idRef = useRef<string>(nanoid());
 
   // If the developer doesn't provide dependencies, we assume they want to
-  // update the handler when the action object changes.
+  // update handler and inProgressLabel function when the action object changes.
   // This ensures that any captured variables in the handler are up to date.
   if (dependencies === undefined) {
     if (entryPoints[idRef.current]) {
       entryPoints[idRef.current].handler = action.handler;
+      if (typeof action.inProgressLabel === "function") {
+        entryPoints[idRef.current].inProgressLabel = action.inProgressLabel;
+      }
     }
   }
 
@@ -44,6 +47,8 @@ export function useCopilotActionImplementation<T extends Array<any> = []>(
     // This should be faster than deep equality checking
     // In addition, all major JS engines guarantee the order of object keys
     JSON.stringify(action.parameters),
+    // include inProgressLabel if it's a string only
+    typeof action.inProgressLabel === "string" ? action.inProgressLabel : undefined,
     // dependencies set by the developer
     ...(dependencies || []),
   ]);
