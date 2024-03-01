@@ -89,8 +89,6 @@ export function decodeChatCompletion(
             return;
           }
 
-          // TODO what can we get here now, since we can also get results back
-
           // In case we are in a function call but the next message is
           // - not a function call
           // - another function call (when name is present)

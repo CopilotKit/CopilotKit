@@ -37,6 +37,7 @@
   },
   "dependencies": {
     "@copilotkit/shared": "workspace:*",
-    "nanoid": "^4.0.2"
+    "nanoid": "^4.0.2",
+    "untruncate-json": "^0.0.1"
   }
 }

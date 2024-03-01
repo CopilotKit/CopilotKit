@@ -201,6 +201,9 @@ importers:
       nanoid:
         specifier: ^4.0.2
         version: 4.0.2
+      untruncate-json:
+        specifier: ^0.0.1
+        version: 0.0.1
     devDependencies:
       '@types/jest':
         specifier: ^29.5.4
@@ -9266,6 +9269,10 @@ packages:
   /universalify@0.1.2:
     resolution: {integrity: sha512-rBJeI5CXAlmy1pV+617WB9J63U6XcazHHF2f2dbJix4XzpUF0RS3Zbj0FGIOCAva5P/d/GBOYaACQ1w+0azUkg==}
     engines: {node: '>= 4.0.0'}
+    dev: false
+
+  /untruncate-json@0.0.1:
+    resolution: {integrity: sha512-4W9enDK4X1y1s2S/Rz7ysw6kDuMS3VmRjMFg7GZrNO+98OSe+x5Lh7PKYoVjy3lW/1wmhs6HW0lusnQRHgMarA==}
     dev: false
 
   /update-browserslist-db@1.0.10(browserslist@4.21.4):

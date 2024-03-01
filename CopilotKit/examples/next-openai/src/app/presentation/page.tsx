@@ -95,6 +95,15 @@ const Presentation = () => {
       });
       await new Promise((resolve) => setTimeout(resolve, 500));
     },
+    inProgressLabel: ({ markdown, speech }, complete) => {
+      if (complete) {
+        return "Presenting slide...";
+      }
+      if (markdown && speech) {
+        return `Generating speech...`;
+      }
+      return `Generating content...`;
+    },
   });
 
   const randomSlideTask = new CopilotTask({

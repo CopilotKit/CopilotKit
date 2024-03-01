@@ -4,8 +4,10 @@ import { useChatContext } from "./ChatContext";
 import { nanoid } from "nanoid";
 import { Message } from "@copilotkit/shared";
 import { Markdown } from "./Markdown";
+import { useCopilotContext } from "@copilotkit/react-core";
 
 export const Messages = ({ messages, inProgress }: MessagesProps) => {
+  const { entryPoints } = useCopilotContext();
   const context = useChatContext();
   const initialMessages = useMemo(
     () => makeInitialMessages(context.labels.initial),
@@ -40,9 +42,28 @@ export const Messages = ({ messages, inProgress }: MessagesProps) => {
           );
         } else if (message.role == "assistant") {
           if (isCurrentMessage && inProgress && !message.content) {
+            let inProgressLabel = "";
+
+            if (message.partialFunctionCall) {
+              for (const action of Object.values(entryPoints)) {
+                if (action.name === message.partialFunctionCall.name) {
+                  if (action.inProgressLabel) {
+                    if (typeof action.inProgressLabel === "function") {
+                      inProgressLabel = action.inProgressLabel(
+                        message.partialFunctionCall.arguments as any,
+                        message.function_call !== undefined,
+                      );
+                    } else {
+                      inProgressLabel = action.inProgressLabel;
+                    }
+                  }
+                }
+              }
+            }
             return (
               <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
                 {context.icons.spinnerIcon}
+                {inProgressLabel && <span className="inProgressLabel">{inProgressLabel}</span>}
               </div>
             );
           } else if (

@@ -55,3 +55,7 @@
 .copilotKitMessage.copilotKitAssistantMessage + .copilotKitMessage.copilotKitUserMessage {
   margin-top: 1.5rem;
 }
+
+.copilotKitMessage .inProgressLabel {
+  margin-left: 10px;
+}

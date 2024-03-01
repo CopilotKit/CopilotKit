@@ -39,7 +39,13 @@ export interface Message {
    * contains the function call name and arguments. Otherwise, the field should
    * not be set.
    */
-  function_call?: string | FunctionCall;
+  function_call?: FunctionCall;
+
+  /**
+   * Partial function call contains the function call name and arguments as they are
+   * streamed from the model. This is used to display the function call in the UI.
+   */
+  partialFunctionCall?: FunctionCall;
 }
 
 export interface FunctionDefinition {
