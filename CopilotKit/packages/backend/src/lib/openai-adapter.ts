@@ -23,7 +23,7 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
       this.model = params.model;
     }
   }
-  
+
   async getResponse(forwardedProps: any): Promise<CopilotKitResponse> {
     // copy forwardedProps to avoid modifying the original object
     forwardedProps = { ...forwardedProps };
