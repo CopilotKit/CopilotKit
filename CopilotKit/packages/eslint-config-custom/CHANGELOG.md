@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.6.0-atai-0301-OpenAIAdapaterGetter.3
+
+### Minor Changes
+
+- OpenAIAdapter-getter
+
 ## 0.6.0-atai-0301-OpenAIAdapaterGetter.2
 
 ### Minor Changes

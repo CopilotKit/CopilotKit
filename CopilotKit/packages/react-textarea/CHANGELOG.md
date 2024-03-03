@@ -1,5 +1,17 @@
 # ui
 
+## 0.31.0-atai-0301-OpenAIAdapaterGetter.3
+
+### Minor Changes
+
+- OpenAIAdapter-getter
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.21.0-atai-0301-OpenAIAdapaterGetter.3
+  - @copilotkit/shared@0.5.0-atai-0301-OpenAIAdapaterGetter.3
+
 ## 0.31.0-atai-0301-OpenAIAdapaterGetter.2
 
 ### Minor Changes

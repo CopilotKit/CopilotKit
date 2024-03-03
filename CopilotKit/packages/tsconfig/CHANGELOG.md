@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.10.0-atai-0301-OpenAIAdapaterGetter.3
+
+### Minor Changes
+
+- OpenAIAdapter-getter
+
 ## 0.10.0-atai-0301-OpenAIAdapaterGetter.2
 
 ### Minor Changes
