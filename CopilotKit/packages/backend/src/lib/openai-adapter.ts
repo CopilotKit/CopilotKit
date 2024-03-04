@@ -10,10 +10,15 @@ export interface OpenAIAdapterParams {
 }
 
 export class OpenAIAdapter implements CopilotKitServiceAdapter {
-  private openai: OpenAI;
   private model: string = DEFAULT_MODEL;
+
+  private _openai: OpenAI;
+  public get openai(): OpenAI {
+    return this._openai;
+  }
+
   constructor(params?: OpenAIAdapterParams) {
-    this.openai = params?.openai || new OpenAI({});
+    this._openai = params?.openai || new OpenAI({});
     if (params?.model) {
       this.model = params.model;
     }
@@ -32,7 +37,7 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
     const messages = limitOpenAIMessagesToTokenCount(
       forwardedProps.messages || [],
       forwardedProps.tools || [],
-      maxTokensForOpenAIModel(forwardedProps.model || DEFAULT_MODEL),
+      maxTokensForOpenAIModel(forwardedProps.model || this.model),
     );
 
     const stream = this.openai.beta.chat.completions
