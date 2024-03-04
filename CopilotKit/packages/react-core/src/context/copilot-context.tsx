@@ -2,7 +2,7 @@
 
 import { FunctionCallHandler, ToolDefinition } from "@copilotkit/shared";
 import { FrontendAction } from "../types/frontend-action";
-import React from "react";
+import React, { Ref } from "react";
 import { TreeNodeId } from "../hooks/use-tree";
 import { DocumentPointer } from "../types";
 
@@ -62,6 +62,7 @@ export interface CopilotContextParams {
   entryPoints: Record<string, FrontendAction<any>>;
   setEntryPoint: (id: string, entryPoint: FrontendAction<any>) => void;
   removeEntryPoint: (id: string) => void;
+  chatComponentsCache: React.RefObject<Record<string, Function | string>>;
   getChatCompletionFunctionDescriptions: (
     customEntryPoints?: Record<string, FrontendAction<any>>,
   ) => ToolDefinition[];
@@ -89,7 +90,7 @@ const emptyCopilotContext: CopilotContextParams = {
   removeEntryPoint: () => {},
   getChatCompletionFunctionDescriptions: () => returnAndThrowInDebug([]),
   getFunctionCallHandler: () => returnAndThrowInDebug(async () => {}),
-
+  chatComponentsCache: { current: {} },
   getContextString: (documents: DocumentPointer[], categories: string[]) =>
     returnAndThrowInDebug(""),
   addContext: () => "",

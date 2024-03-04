@@ -19,24 +19,32 @@ export function useCopilotActionImplementation<T extends Array<any> = []>(
   action: FrontendAction<T>,
   dependencies?: any[],
 ): void {
-  const { setEntryPoint, removeEntryPoint, entryPoints } = useContext(CopilotContext);
+  const { setEntryPoint, removeEntryPoint, entryPoints, chatComponentsCache } =
+    useContext(CopilotContext);
   const idRef = useRef<string>(nanoid());
 
   // If the developer doesn't provide dependencies, we assume they want to
-  // update handler and inProgressLabel function when the action object changes.
+  // update handler and render function when the action object changes.
   // This ensures that any captured variables in the handler are up to date.
   if (dependencies === undefined) {
     if (entryPoints[idRef.current]) {
       entryPoints[idRef.current].handler = action.handler;
-      if (typeof action.inProgressLabel === "function") {
-        entryPoints[idRef.current].inProgressLabel = action.inProgressLabel;
+      if (typeof action.render === "function") {
+        if (chatComponentsCache.current !== null) {
+          chatComponentsCache.current[action.name] = action.render;
+        }
       }
     }
   }
 
   useEffect(() => {
     setEntryPoint(idRef.current, action);
+    if (chatComponentsCache.current !== null && action.render !== undefined) {
+      chatComponentsCache.current[action.name] = action.render;
+    }
     return () => {
+      // NOTE: For now, we don't remove the chatComponentsCache entry when the action is removed.
+      // This is because we currently don't have access to the messages array in CopilotContext.
       removeEntryPoint(idRef.current);
     };
   }, [
@@ -47,8 +55,8 @@ export function useCopilotActionImplementation<T extends Array<any> = []>(
     // This should be faster than deep equality checking
     // In addition, all major JS engines guarantee the order of object keys
     JSON.stringify(action.parameters),
-    // include inProgressLabel if it's a string only
-    typeof action.inProgressLabel === "string" ? action.inProgressLabel : undefined,
+    // include render only if it's a string
+    typeof action.render === "string" ? action.render : undefined,
     // dependencies set by the developer
     ...(dependencies || []),
   ]);

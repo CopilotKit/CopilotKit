@@ -10,6 +10,14 @@ export function encodeResult(result: string): string {
   }
 }
 
+export function decodeResult(result: string): any {
+  try {
+    return JSON.parse(result);
+  } catch (e) {
+    return result;
+  }
+}
+
 export interface StreamPart<CODE extends string, NAME extends string, TYPE> {
   code: CODE;
   name: NAME;

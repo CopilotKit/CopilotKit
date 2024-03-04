@@ -95,14 +95,8 @@ const Presentation = () => {
       });
       await new Promise((resolve) => setTimeout(resolve, 500));
     },
-    inProgressLabel: ({ markdown, speech }, complete) => {
-      if (complete) {
-        return "Presenting slide...";
-      }
-      if (markdown && speech) {
-        return `Generating speech...`;
-      }
-      return `Generating content...`;
+    render: (props) => {
+      return <div className="bg-red-500">{props.status}</div>;
     },
   });
 
