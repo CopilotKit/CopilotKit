@@ -90,8 +90,9 @@ export const Messages = ({ messages, inProgress }: MessagesProps) => {
               }
               // render is a function
               else {
-                const args =
-                  message.function_call?.arguments || message.partialFunctionCall?.arguments;
+                const args = message.function_call
+                  ? JSON.parse(message.function_call.arguments || "{}")
+                  : message.partialFunctionCall?.arguments;
                 let status = "inProgress";
                 if (functionResults[message.id] !== undefined) {
                   status = "complete";
