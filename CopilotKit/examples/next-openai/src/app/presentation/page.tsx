@@ -95,9 +95,6 @@ const Presentation = () => {
       });
       await new Promise((resolve) => setTimeout(resolve, 500));
     },
-    render: (props) => {
-      return <div className="bg-red-500">{props.status}</div>;
-    },
   });
 
   const randomSlideTask = new CopilotTask({
