@@ -61,7 +61,8 @@ export function useCopilotChat({
   });
 
   const visibleMessages = messages.filter(
-    (message) => message.role === "user" || message.role === "assistant",
+    (message) =>
+      message.role === "user" || message.role === "assistant" || message.role === "function",
   );
 
   return {

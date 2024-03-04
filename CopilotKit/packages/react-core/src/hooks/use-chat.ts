@@ -1,8 +1,16 @@
 import { useRef, useState } from "react";
-import { Message, ToolDefinition, FunctionCallHandler, encodeResult } from "@copilotkit/shared";
+import {
+  Message,
+  ToolDefinition,
+  FunctionCallHandler,
+  encodeResult,
+  FunctionCall,
+} from "@copilotkit/shared";
+
 import { nanoid } from "nanoid";
 import { fetchAndDecodeChatCompletion } from "../utils/fetch-chat-completion";
 import { CopilotApiConfig } from "../context";
+import untruncateJson from "untruncate-json";
 
 export type UseChatOptions = {
   /**
@@ -176,7 +184,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
 
           // After receiving a result, feed back the new messages to GPT
           feedback = true;
-        } else if (value.type === "function") {
+        } else if (value.type === "function" || value.type === "partial") {
           // Create a new message if the previous one is not empty
           if (
             currentMessage.content != "" ||
@@ -191,36 +199,53 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
             };
             newMessages.push(currentMessage);
           }
-          currentMessage.function_call = {
-            name: value.name,
-            arguments: JSON.stringify(value.arguments),
-            scope: value.scope,
-          };
+          if (value.type === "function") {
+            currentMessage.function_call = {
+              name: value.name,
+              arguments: JSON.stringify(value.arguments),
+              scope: value.scope,
+            };
+          } else if (value.type === "partial") {
+            let partialArguments: any = {};
+            try {
+              partialArguments = JSON.parse(untruncateJson(value.arguments));
+            } catch (e) {}
+
+            currentMessage.partialFunctionCall = {
+              name: value.name,
+              arguments: partialArguments,
+            };
+          }
 
           newMessages[newMessages.length - 1] = currentMessage;
           setMessages([...messages, ...newMessages]);
 
-          // Execute the function call
-          try {
-            if (options.onFunctionCall && value.scope === "client") {
-              const result = await options.onFunctionCall(messages, currentMessage.function_call);
+          if (value.type === "function") {
+            // Execute the function call
+            try {
+              if (options.onFunctionCall && value.scope === "client") {
+                const result = await options.onFunctionCall(
+                  messages,
+                  currentMessage.function_call as FunctionCall,
+                );
 
-              currentMessage = {
-                id: nanoid(),
-                role: "function",
-                content: encodeResult(result),
-                name: currentMessage.function_call!.name!,
-              };
-              newMessages.push(currentMessage);
-              setMessages([...messages, ...newMessages]);
+                currentMessage = {
+                  id: nanoid(),
+                  role: "function",
+                  content: encodeResult(result),
+                  name: (currentMessage.function_call! as FunctionCall).name!,
+                };
+                newMessages.push(currentMessage);
+                setMessages([...messages, ...newMessages]);
 
-              // After a function call, feed back the new messages to GPT
-              feedback = true;
+                // After a function call, feed back the new messages to GPT
+                feedback = true;
+              }
+            } catch (error) {
+              console.error("Failed to execute function call", error);
+              // TODO: Handle error
+              // this should go to the message itself
             }
-          } catch (error) {
-            console.error("Failed to execute function call", error);
-            // TODO: Handle error
-            // this should go to the message itself
           }
         }
       }

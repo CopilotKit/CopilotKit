@@ -1,17 +1,11 @@
 # eslint-config-custom
 
-## 0.6.0-atai-0301-OpenAIAdapaterGetter.3
-
-### Minor Changes
-
-- OpenAIAdapter-getter
-
-## 0.6.0-atai-0301-OpenAIAdapaterGetter.2
+## 0.6.0-mme-function-call-labels.2
 
 ### Minor Changes
 
 - be00d61: Alpha
-- OpenAIAdapter: make openai instance gettable
+- QA
 
 ## 0.6.0-mme-experimental-actions.1
 

@@ -1,4 +1,5 @@
-import { Action, AnnotatedFunction, FunctionCall, Message } from "@copilotkit/shared";
+import { FunctionCall, Message } from "@copilotkit/shared";
+import { FrontendAction } from "../types/frontend-action";
 import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
 import { fetchAndDecodeChatCompletion } from "../utils/fetch-chat-completion";
@@ -11,7 +12,7 @@ export interface CopilotTaskConfig {
   /**
    * Action definitions to be sent to the API.
    */
-  actions?: Action<any>[];
+  actions?: FrontendAction<any>[];
   /**
    * Whether to include the copilot readable context in the task.
    */
@@ -25,7 +26,7 @@ export interface CopilotTaskConfig {
 
 export class CopilotTask<T = any> {
   private instructions: string;
-  private actions: Action<any>[];
+  private actions: FrontendAction<any>[];
   private includeCopilotReadable: boolean;
   private includeCopilotActionable: boolean;
 

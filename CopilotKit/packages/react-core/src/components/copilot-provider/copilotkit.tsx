@@ -1,11 +1,11 @@
 "use client";
 
-import { FunctionDefinition } from "@copilotkit/shared";
-import { useCallback, useState } from "react";
+import { Ref, useCallback, useRef, useState } from "react";
 import { CopilotContext, CopilotApiConfig } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
 import { DocumentPointer } from "../../types";
-import { FunctionCallHandler, actionToChatCompletionFunction, Action } from "@copilotkit/shared";
+import { FunctionCallHandler, actionToChatCompletionFunction } from "@copilotkit/shared";
+import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { StandardCopilotApiConfig } from "./standard-copilot-api-config";
 import { CopilotKitProps } from "./copilotkit-props";
@@ -52,8 +52,8 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // Compute all the functions and properties that we need to pass
   // to the CopilotContext.
 
-  const [entryPoints, setEntryPoints] = useState<Record<string, Action<any>>>({});
-
+  const [entryPoints, setEntryPoints] = useState<Record<string, FrontendAction<any>>>({});
+  const chatComponentsCache = useRef<Record<string, Function | string>>({});
   const { addElement, removeElement, printTree } = useTree();
 
   const {
@@ -62,7 +62,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     allElements: allDocuments,
   } = useFlatCategoryStore<DocumentPointer>();
 
-  const setEntryPoint = useCallback((id: string, entryPoint: Action<any>) => {
+  const setEntryPoint = useCallback((id: string, entryPoint: FrontendAction<any>) => {
     setEntryPoints((prevPoints) => {
       return {
         ...prevPoints,
@@ -113,14 +113,14 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   );
 
   const getChatCompletionFunctionDescriptions = useCallback(
-    (customEntryPoints?: Record<string, Action<any>>) => {
+    (customEntryPoints?: Record<string, FrontendAction<any>>) => {
       return entryPointsToChatCompletionFunctions(Object.values(customEntryPoints || entryPoints));
     },
     [entryPoints],
   );
 
   const getFunctionCallHandler = useCallback(
-    (customEntryPoints?: Record<string, Action<any>>) => {
+    (customEntryPoints?: Record<string, FrontendAction<any>>) => {
       return entryPointsToFunctionCallHandler(Object.values(customEntryPoints || entryPoints));
     },
     [entryPoints],
@@ -162,6 +162,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     <CopilotContext.Provider
       value={{
         entryPoints,
+        chatComponentsCache,
         getChatCompletionFunctionDescriptions,
         getFunctionCallHandler,
         setEntryPoint,
@@ -182,13 +183,13 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
 
 export const defaultCopilotContextCategories = ["global"];
 
-function entryPointsToChatCompletionFunctions(actions: Action<any>[]): ToolDefinition[] {
+function entryPointsToChatCompletionFunctions(actions: FrontendAction<any>[]): ToolDefinition[] {
   return actions.map(actionToChatCompletionFunction);
 }
 
-function entryPointsToFunctionCallHandler(actions: Action<any>[]): FunctionCallHandler {
+function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): FunctionCallHandler {
   return async (chatMessages, functionCall) => {
-    let actionsByFunctionName: Record<string, Action<any>> = {};
+    let actionsByFunctionName: Record<string, FrontendAction<any>> = {};
     for (let action of actions) {
       actionsByFunctionName[action.name] = action;
     }

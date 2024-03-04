@@ -1,30 +1,18 @@
 # ui
 
-## 0.18.0-atai-0301-OpenAIAdapaterGetter.3
-
-### Minor Changes
-
-- OpenAIAdapter-getter
-
-### Patch Changes
-
-- Updated dependencies
-  - @copilotkit/react-core@0.21.0-atai-0301-OpenAIAdapaterGetter.3
-  - @copilotkit/shared@0.5.0-atai-0301-OpenAIAdapaterGetter.3
-
-## 0.18.0-atai-0301-OpenAIAdapaterGetter.2
+## 0.18.0-mme-function-call-labels.2
 
 ### Minor Changes
 
 - be00d61: Alpha
-- OpenAIAdapter: make openai instance gettable
+- QA
 
 ### Patch Changes
 
 - Updated dependencies [be00d61]
 - Updated dependencies
-  - @copilotkit/react-core@0.21.0-atai-0301-OpenAIAdapaterGetter.2
-  - @copilotkit/shared@0.5.0-atai-0301-OpenAIAdapaterGetter.2
+  - @copilotkit/react-core@0.21.0-mme-function-call-labels.2
+  - @copilotkit/shared@0.5.0-mme-function-call-labels.2
 
 ## 0.18.0-mme-experimental-actions.1
 

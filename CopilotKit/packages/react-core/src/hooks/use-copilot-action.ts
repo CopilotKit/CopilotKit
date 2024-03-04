@@ -1,13 +1,14 @@
 "use client";
 
-import { Action, Parameter } from "@copilotkit/shared";
+import { Parameter } from "@copilotkit/shared";
+import { FrontendAction } from "../types/frontend-action";
 import { useCopilotActionImplementation } from "./use-copilot-action-implementation";
 
   // Prettier chokes on the `const` in the function signature
   // To have the main implementation checked by prettier, we split 
   // this into a separate file
   // prettier-ignore
-export function useCopilotAction<const T extends Parameter[] | [] = []>(action: Action<T>, dependencies?: any[]): void {
+export function useCopilotAction<const T extends Parameter[] | [] = []>(action: FrontendAction<T>, dependencies?: any[]): void {
   return useCopilotActionImplementation(action, dependencies);
 }
 

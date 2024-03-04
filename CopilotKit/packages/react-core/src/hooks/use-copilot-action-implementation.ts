@@ -1,7 +1,8 @@
 "use client";
 
-import { Action, AnnotatedFunction, Parameter } from "@copilotkit/shared";
-import { useRef, useContext, useEffect, useMemo } from "react";
+import { AnnotatedFunction, Parameter } from "@copilotkit/shared";
+import { useRef, useContext, useEffect } from "react";
+import { FrontendAction } from "../types/frontend-action";
 import { CopilotContext } from "../context/copilot-context";
 import { nanoid } from "nanoid";
 
@@ -15,24 +16,35 @@ import { nanoid } from "nanoid";
 // useCallback, useMemo or other memoization techniques are not suitable here,
 // because they will cause a infinite rerender loop.
 export function useCopilotActionImplementation<T extends Array<any> = []>(
-  action: Action<T>,
+  action: FrontendAction<T>,
   dependencies?: any[],
 ): void {
-  const { setEntryPoint, removeEntryPoint, entryPoints } = useContext(CopilotContext);
+  const { setEntryPoint, removeEntryPoint, entryPoints, chatComponentsCache } =
+    useContext(CopilotContext);
   const idRef = useRef<string>(nanoid());
 
   // If the developer doesn't provide dependencies, we assume they want to
-  // update the handler when the action object changes.
+  // update handler and render function when the action object changes.
   // This ensures that any captured variables in the handler are up to date.
   if (dependencies === undefined) {
     if (entryPoints[idRef.current]) {
       entryPoints[idRef.current].handler = action.handler;
+      if (typeof action.render === "function") {
+        if (chatComponentsCache.current !== null) {
+          chatComponentsCache.current[action.name] = action.render;
+        }
+      }
     }
   }
 
   useEffect(() => {
     setEntryPoint(idRef.current, action);
+    if (chatComponentsCache.current !== null && action.render !== undefined) {
+      chatComponentsCache.current[action.name] = action.render;
+    }
     return () => {
+      // NOTE: For now, we don't remove the chatComponentsCache entry when the action is removed.
+      // This is because we currently don't have access to the messages array in CopilotContext.
       removeEntryPoint(idRef.current);
     };
   }, [
@@ -43,6 +55,8 @@ export function useCopilotActionImplementation<T extends Array<any> = []>(
     // This should be faster than deep equality checking
     // In addition, all major JS engines guarantee the order of object keys
     JSON.stringify(action.parameters),
+    // include render only if it's a string
+    typeof action.render === "string" ? action.render : undefined,
     // dependencies set by the developer
     ...(dependencies || []),
   ]);
@@ -50,7 +64,7 @@ export function useCopilotActionImplementation<T extends Array<any> = []>(
 
 export function annotatedFunctionToAction(
   annotatedFunction: AnnotatedFunction<any[]>,
-): Action<any> {
+): FrontendAction<any> {
   const parameters: Parameter[] = annotatedFunction.argumentAnnotations.map((annotation) => {
     switch (annotation.type) {
       case "string":
