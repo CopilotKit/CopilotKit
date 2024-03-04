@@ -1,6 +1,6 @@
 {
   "name": "tsconfig",
-  "version": "0.10.0-mme-experimental-actions.1",
+  "version": "0.10.0-atai-0301-OpenAIAdapaterGetter.3",
   "private": true,
   "license": "MIT",
   "publishConfig": {
