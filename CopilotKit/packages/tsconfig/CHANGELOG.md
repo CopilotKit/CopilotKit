@@ -1,5 +1,12 @@
 # tsconfig
 
+## 0.10.0-mme-function-call-labels.2
+
+### Minor Changes
+
+- be00d61: Alpha
+- QA
+
 ## 0.10.0-mme-experimental-actions.1
 
 ### Minor Changes

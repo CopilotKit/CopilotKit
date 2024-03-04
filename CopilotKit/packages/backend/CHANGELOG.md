@@ -1,5 +1,18 @@
 # @copilotkit/cloud
 
+## 0.5.0-mme-function-call-labels.2
+
+### Minor Changes
+
+- be00d61: Alpha
+- QA
+
+### Patch Changes
+
+- Updated dependencies [be00d61]
+- Updated dependencies
+  - @copilotkit/shared@0.5.0-mme-function-call-labels.2
+
 ## 0.5.0-mme-experimental-actions.1
 
 ### Minor Changes
