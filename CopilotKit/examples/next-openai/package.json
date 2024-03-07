@@ -16,14 +16,17 @@
     "@copilotkit/react-ui": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@heroicons/react": "^2.0.18",
-    "@langchain/core": "^0.1.18",
-    "@langchain/openai": "^0.0.13",
     "next": "^13.4.9",
     "next-themes": "^0.2.1",
-    "openai": "^4.19.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-markdown": "^8.0.7"
+    "react-markdown": "^8.0.7",
+    "@langchain/community": "^0.0.29",
+    "@langchain/core": "^0.1.29",
+    "@langchain/langgraph": "^0.0.7",
+    "@langchain/openai": "^0.0.14",
+    "langchain": "^0.1.19",
+    "openai": "^4.28.0"
   },
   "devDependencies": {
     "@types/node": "^18.11.17",

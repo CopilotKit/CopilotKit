@@ -1,5 +1,5 @@
 "use client";
-import { useMakeCopilotActionable } from "@copilotkit/react-core";
+import { useCopilotAction, useMakeCopilotActionable } from "@copilotkit/react-core";
 import { useState } from "react";
 import Markdown from "react-markdown";
 
@@ -21,52 +21,43 @@ export const Slide = (props: SlideProps) => {
     'url("https://source.unsplash.com/featured/?' +
     encodeURIComponent(props.slide.backgroundImageDescription) +
     '")';
-  console.log("backgroundImage", backgroundImage);
-  console.log(props.slide.backgroundImageDescription);
 
-  useMakeCopilotActionable(
-    {
-      name: "updateSlide",
-      description: "Update the current slide.",
-      argumentAnnotations: [
-        {
-          name: "title",
-          type: "string",
-          description: "The title of the slide. Should be a few words long.",
-          required: true,
-        },
-        {
-          name: "content",
-          type: "string",
-          description: "The content of the slide. Should generally consits of a few bullet points.",
-          required: true,
-        },
-        {
-          name: "backgroundImageDescription",
-          type: "string",
-          description:
-            "What to display in the background of the slide. For example, 'dog', 'house', etc.",
-          required: true,
-        },
-        {
-          name: "spokenNarration",
-          type: "string",
-          description:
-            "The spoken narration for the slide. This is what the user will hear when the slide is shown.",
-          required: true,
-        },
-      ],
-      implementation: async (title, content, backgroundImageDescription, spokenNarration) => {
-        props.partialUpdateSlide({
-          title,
-          content,
-          backgroundImageDescription,
-          spokenNarration,
-        });
+  useCopilotAction({
+    name: "updateSlide",
+    description: "Update the current slide.",
+    parameters: [
+      {
+        name: "title",
+        type: "string",
+        description: "The title of the slide. Should be a few words long.",
       },
+      {
+        name: "content",
+        type: "string",
+        description: "The content of the slide. Should generally consist of a few bullet points.",
+      },
+      {
+        name: "backgroundImageDescription",
+        type: "string",
+        description:
+          "Simple description what to display in the background of the slide. For example, 'dog', 'house', etc.",
+      },
+      {
+        name: "spokenNarration",
+        type: "string",
+        description:
+          "The spoken narration for the slide. This is what the user will hear when the slide is shown.",
+      },
+    ],
+    handler: async ({ title, content, backgroundImageDescription, spokenNarration }) => {
+      props.partialUpdateSlide({
+        title,
+        content,
+        backgroundImageDescription,
+        spokenNarration,
+      });
     },
-    [props.partialUpdateSlide],
-  );
+  });
 
   return (
     <>

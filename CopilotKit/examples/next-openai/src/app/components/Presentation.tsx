@@ -1,5 +1,5 @@
 "use client";
-import { useCopilotContext } from "@copilotkit/react-core";
+import { useCopilotAction, useCopilotContext } from "@copilotkit/react-core";
 import { CopilotTask } from "@copilotkit/react-core";
 import { useMakeCopilotActionable, useMakeCopilotReadable } from "@copilotkit/react-core";
 import { useCallback, useMemo, useState } from "react";
@@ -31,41 +31,36 @@ export const Presentation = ({ chatInProgress }: { chatInProgress: boolean }) =>
   useMakeCopilotReadable("These are all the slides: " + JSON.stringify(slides));
   useMakeCopilotReadable("This is the current slide: " + JSON.stringify(currentSlide));
 
-  useMakeCopilotActionable(
+  useCopilotAction(
     {
       name: "appendSlide",
       description:
         "Add a slide after all the existing slides. Call this function multiple times to add multiple slides.",
-      argumentAnnotations: [
+      parameters: [
         {
           name: "title",
           type: "string",
           description: "The title of the slide. Should be a few words long.",
-          required: true,
         },
         {
           name: "content",
           type: "string",
           description: "The content of the slide. Should generally consits of a few bullet points.",
-          required: true,
         },
         {
           name: "backgroundImageDescription",
           type: "string",
           description:
             "What to display in the background of the slide. For example, 'dog', 'house', etc.",
-          required: true,
         },
         {
           name: "spokenNarration",
           type: "string",
           description:
             "The text to read while presenting the slide. Should be distinct from the slide's content, and can include additional context, references, etc. Will be read aloud as-is. Should be a few sentences long, clear, and smooth to read.",
-          required: true,
         },
       ],
-
-      implementation: async (title, content, backgroundImageDescription, spokenNarration) => {
+      handler: async ({ title, content, backgroundImageDescription, spokenNarration }) => {
         const newSlide: SlideModel = {
           title,
           content,
@@ -82,7 +77,7 @@ export const Presentation = ({ chatInProgress }: { chatInProgress: boolean }) =>
   const context = useCopilotContext();
   const generateSlideTask = new CopilotTask({
     instructions:
-      "Make the next slide related to the overall topic of the presentation. It will be inserted after the current slide. Do NOT carry any research",
+      "Make the next slide related to the overall topic of the presentation. It will be inserted after the current slide.",
   });
   const [generateSlideTaskRunning, setGenerateSlideTaskRunning] = useState(false);
 
@@ -140,7 +135,6 @@ export const Presentation = ({ chatInProgress }: { chatInProgress: boolean }) =>
         <ActionButton
           disabled={generateSlideTaskRunning || chatInProgress || slides.length === 1}
           onClick={() => {
-            console.log("delete slide");
             // delete the current slide
             setSlides((slides) => [
               ...slides.slice(0, currentSlideIndex),
