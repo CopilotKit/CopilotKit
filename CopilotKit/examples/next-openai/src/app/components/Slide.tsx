@@ -57,6 +57,7 @@ export const Slide = (props: SlideProps) => {
         spokenNarration,
       });
     },
+    render: "Updating slide...",
   });
 
   return (

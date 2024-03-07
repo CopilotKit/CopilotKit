@@ -31,48 +31,46 @@ export const Presentation = ({ chatInProgress }: { chatInProgress: boolean }) =>
   useMakeCopilotReadable("These are all the slides: " + JSON.stringify(slides));
   useMakeCopilotReadable("This is the current slide: " + JSON.stringify(currentSlide));
 
-  useCopilotAction(
-    {
-      name: "appendSlide",
-      description:
-        "Add a slide after all the existing slides. Call this function multiple times to add multiple slides.",
-      parameters: [
-        {
-          name: "title",
-          type: "string",
-          description: "The title of the slide. Should be a few words long.",
-        },
-        {
-          name: "content",
-          type: "string",
-          description: "The content of the slide. Should generally consits of a few bullet points.",
-        },
-        {
-          name: "backgroundImageDescription",
-          type: "string",
-          description:
-            "What to display in the background of the slide. For example, 'dog', 'house', etc.",
-        },
-        {
-          name: "spokenNarration",
-          type: "string",
-          description:
-            "The text to read while presenting the slide. Should be distinct from the slide's content, and can include additional context, references, etc. Will be read aloud as-is. Should be a few sentences long, clear, and smooth to read.",
-        },
-      ],
-      handler: async ({ title, content, backgroundImageDescription, spokenNarration }) => {
-        const newSlide: SlideModel = {
-          title,
-          content,
-          backgroundImageDescription,
-          spokenNarration,
-        };
-
-        setSlides((slides) => [...slides, newSlide]);
+  useCopilotAction({
+    name: "appendSlide",
+    description:
+      "Add a slide after all the existing slides. Call this function multiple times to add multiple slides.",
+    parameters: [
+      {
+        name: "title",
+        type: "string",
+        description: "The title of the slide. Should be a few words long.",
       },
+      {
+        name: "content",
+        type: "string",
+        description: "The content of the slide. Should generally consists of a few bullet points.",
+      },
+      {
+        name: "backgroundImageDescription",
+        type: "string",
+        description:
+          "What to display in the background of the slide. For example, 'dog', 'house', etc.",
+      },
+      {
+        name: "spokenNarration",
+        type: "string",
+        description:
+          "The text to read while presenting the slide. Should be distinct from the slide's content, and can include additional context, references, etc. Will be read aloud as-is. Should be a few sentences long, clear, and smooth to read.",
+      },
+    ],
+    handler: async ({ title, content, backgroundImageDescription, spokenNarration }) => {
+      const newSlide: SlideModel = {
+        title,
+        content,
+        backgroundImageDescription,
+        spokenNarration,
+      };
+
+      setSlides((slides) => [...slides, newSlide]);
     },
-    [setSlides],
-  );
+    render: "Adding slide...",
+  });
 
   const context = useCopilotContext();
   const generateSlideTask = new CopilotTask({
