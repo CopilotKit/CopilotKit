@@ -181,7 +181,7 @@ export const CopilotChat = ({
         >
           <Header open={openState} setOpen={setOpen} />
           <Messages messages={visibleMessages} inProgress={isLoading} />
-          <Input inProgress={isLoading} onSend={sendMessage}>
+          <Input inProgress={isLoading} onSend={sendMessage} isVisible={openState}>
             {showResponseButton && visibleMessages.length > 0 && (
               <ResponseButton onClick={isLoading ? stop : reload} inProgress={isLoading} />
             )}

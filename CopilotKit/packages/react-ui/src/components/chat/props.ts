@@ -28,6 +28,7 @@ export interface InputProps {
   inProgress: boolean;
   onSend: (text: string) => void;
   children?: React.ReactNode;
+  isVisible?: boolean;
 }
 
 export interface ResponseButtonProps {

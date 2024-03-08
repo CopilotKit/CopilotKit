@@ -1,9 +1,9 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { InputProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import AutoResizingTextarea from "./Textarea";
 
-export const Input = ({ inProgress, onSend, children }: InputProps) => {
+export const Input = ({ inProgress, onSend, children, isVisible = false }: InputProps) => {
   const context = useChatContext();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -22,6 +22,12 @@ export const Input = ({ inProgress, onSend, children }: InputProps) => {
 
     textareaRef.current?.focus();
   };
+
+  useEffect(() => {
+    if (isVisible) {
+      textareaRef.current?.focus();
+    }
+  }, [isVisible]);
 
   const icon = inProgress ? context.icons.activityIcon : context.icons.sendIcon;
   const disabled = inProgress || text.length === 0;
