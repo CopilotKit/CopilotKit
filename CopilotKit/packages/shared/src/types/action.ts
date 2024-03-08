@@ -52,7 +52,7 @@ type OtherParameterType<Type, Required> = Required extends false
   ? TypeMap[Type extends keyof TypeMap ? Type : "string"] | undefined
   : TypeMap[Type extends keyof TypeMap ? Type : "string"];
 
-/* eslint-disable */
+// prettier-ignore
 export type MappedParameterTypes<T extends Parameter[]> = {
     [P in T[number] as P["name"]]: P extends { enum: Array<infer E> } ? EnumParameterType<E, P["required"]>
     : P extends { type: "object"; attributes: infer Attributes } ? ObjectTypeParameter<Attributes>
@@ -60,7 +60,6 @@ export type MappedParameterTypes<T extends Parameter[]> = {
     : P extends { type: "object[]"; attributes: infer Attributes } ? ObjectArrayTypeParameter<Attributes>
     : OtherParameterType<P["type"], P["required"]>;
 };
-/* eslint-enable */
 
 export type Action<T extends Parameter[] | [] = []> = {
   name: string;
