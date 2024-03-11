@@ -25,13 +25,14 @@
 The Open-Source Copilot Platform
 </h1>
 
-<h3 align="center">
-Plug-and-play, fully customizable Copilot building blocks:
-</h3>
+<h2 align="center">
+Build, deploy, and operate best-in-class AI Copilots.
+</h2>
 
-<p align="center">
-For building app-aware AI chatbots, AI Textareas, and AI agents that can interact with your app based on context.
-</p>
+<h3 align="center">
+App-aware AI chatbots, AI agents, and AI Textareas <br />
+  that can interact with your app based on context.
+</h3>
 
 
 
@@ -69,8 +70,8 @@ For building app-aware AI chatbots, AI Textareas, and AI agents that can intera
 
 <div align="center">
   <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/ea8edde4-dbde-40b4-bb60-e55bd1023094" width="700px" max-width="100%" style="border-radius: 35px;">
-  <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/e01c2825-bafd-4539-8b18-665c2cdcac2f" width="700px" max-width="100%" style="border-radius: 35px;">
   <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/1d0373f6-5932-4c4e-84e9-bfdbad53f38f" width="700px" max-width="100%" style="border-radius: 35px;">
+  <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/e01c2825-bafd-4539-8b18-665c2cdcac2f" width="700px" max-width="100%" style="border-radius: 35px;">
   <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/cc7f5aee-8373-4174-a4d5-87db3c28153e" width="700px" max-width="100%" style="border-radius: 35px;">
 </div>
 <br/>
