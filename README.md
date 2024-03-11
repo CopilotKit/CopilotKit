@@ -26,11 +26,12 @@ The Open-Source Copilot Platform
 </h1>
 
 <h3 align="center">
-in-app chatbots, AI-enabled Textareas, and more...
+Plug-and-play, fully customizable Copilot building blocks:
 </h3>
 
-
-
+<p align="center">
+For building app-aware AI chatbots, AI Textareas, and AI agents that can interact with your app based on context.
+</p>
 
 
 
@@ -64,32 +65,38 @@ in-app chatbots, AI-enabled Textareas, and more...
 
 ---
 
-<h3 align="center">
-  Building blocks for AI Copilots, <br/>
-  and AI-native Applications.
-</h3>
+
 
 <div align="center">
-    Code-first & fully customizable. <br/>
-  Bring your own LLM. <br/>
-
-</div>
-
----
-
-<div align="center">
-  <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/32c896bc-0a22-42eb-9137-67da82f67708" width="900px" max-width="100%" style="border-radius: 35px;">
+  <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/ea8edde4-dbde-40b4-bb60-e55bd1023094" width="700px" max-width="100%" style="border-radius: 35px;">
+  <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/e01c2825-bafd-4539-8b18-665c2cdcac2f" width="700px" max-width="100%" style="border-radius: 35px;">
+  <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/1d0373f6-5932-4c4e-84e9-bfdbad53f38f" width="700px" max-width="100%" style="border-radius: 35px;">
+  <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/cc7f5aee-8373-4174-a4d5-87db3c28153e" width="700px" max-width="100%" style="border-radius: 35px;">
 </div>
 <br/>
 
 🌟 **\<CopilotChat />:** <br />
-Build **in-app AI chatbots** that can "see" the current app state + take action inside your app. <br />
+Build **app-aware AI chatbots** that can "see" the current app state + take action inside your app. <br />
 The AI chatbot can talk to your app frontend & backend, and to 3rd party services (Salesforce, Dropbox, etc.) via plugins. <br />
-AI "second brain" for your users, on tap.
+AI "second brain" for your users, on tap. <br/>
+Supports generative UI.
 
 🌟 **\<CopilotTextarea />:** <br />
 AI-assisted text generation. Drop-in replacement for any `<textarea />.`<br />
-Autocompletions + AI editing + generate from scratch. Indexed on your users' content.<br/>
+Autocompletions + AI editing + generate from scratch. Grounded on your users' data and Copilot application context.<br/>
+
+🌟 **Copilot Skills (powered by LangChain):** <br />
+Bring specialized LLM Chains and Graphs into in-app AI Copilot, with a few lines of code (native LangChain / LangGraph, or via LangServe).
+CopilotKit wraps your app, and routes relevant state as input to standalone skill chains (state can come from the frontend, backend, 3rd party integrations, or from the user).
+When the chain returns, the Copilot Engine funnels its output to in-app interaction as needed.
+
+🌟 **Co-Agents (powered by LangChain):** <br />
+Allow end-users to observe and intervene in an agent’s internal operations, with native application UX.
+For instance you can mark certain operations / data sources as sensitive- requiring explicit user approval before the agent carries out said operations (for instance removing an item from a CRM).
+ **Interventions can also happen retroactively**:
+Co-agents allow end-users to _**review previously-run agent operations**_, identify and **_correct_** mistakes in intermediate steps if any were made, and **restart agent operation from that point onwards**.
+
+
 
 ## How does it work
 **Define the following simple entry-points** into your application, and the CopilotKit🪁 execution engine takes care of the rest!
@@ -98,8 +105,6 @@ Autocompletions + AI editing + generate from scratch. Indexed on your users' con
 -  **Purpose-specific LLM chains**
 -  and more.
 
-CopilotKit also provides builit-in (fully-customizable) Copilot-native UX components, including: <br/>
-`CopilotChat`, `CopilotSidebar`, `CopilotPopup`, and `CopilotTextarea`.
 
 
 ## Installation
