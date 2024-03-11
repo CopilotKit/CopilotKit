@@ -78,7 +78,7 @@ AI "second brain" for your users, on tap.
 
 🌟 **\<CopilotTextarea />:** <br />
 AI-assisted text generation. Drop-in replacement for any `<textarea />.`<br />
-Autocompletions + AI editing + generate from scratch. Indexed on your users' content.<br/>
+Autocompletions + AI editing + generate from scratch. Grounded on your users' data and Copilot application context.<br/>
 
 🌟 **Copilot Skills (powered by LangChain):** <br />
 Integrate LangChain / LangGraph agents (natively, or via LangServe)
