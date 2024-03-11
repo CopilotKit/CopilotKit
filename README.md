@@ -26,11 +26,12 @@ The Open-Source Copilot Platform
 </h1>
 
 <h3 align="center">
-in-app chatbots, AI-enabled Textareas, and more...
+Plug-and-play, fully customizable Copilot building blocks:
 </h3>
 
-
-
+<p align="center">
+For building app-aware AI chatbots, AI Textareas, and AI agents that can interact with your app based on context.
+</p>
 
 
 
