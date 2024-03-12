@@ -1,22 +1,25 @@
 {
-  "mode": "exit",
-  "tag": "mme-function-call-labels",
+  "mode": "pre",
+  "tag": "mme-prerelease-demo",
   "initialVersions": {
-    "next-openai": "1.17.0-mme-experimental-actions.1",
-    "node": "1.17.0-mme-experimental-actions.1",
-    "@copilotkit/backend": "0.5.0-mme-experimental-actions.1",
-    "eslint-config-custom": "0.6.0-mme-experimental-actions.1",
-    "@copilotkit/react-core": "0.21.0-mme-experimental-actions.1",
-    "@copilotkit/react-textarea": "0.31.0-mme-experimental-actions.1",
-    "@copilotkit/react-ui": "0.18.0-mme-experimental-actions.1",
-    "@copilotkit/shared": "0.5.0-mme-experimental-actions.1",
-    "tailwind-config": "0.5.0-mme-experimental-actions.1",
-    "tsconfig": "0.10.0-mme-experimental-actions.1"
+    "next-openai": "1.17.0-mme-function-call-labels.2",
+    "node": "1.17.0-mme-function-call-labels.2",
+    "@copilotkit/backend": "0.5.0-mme-function-call-labels.2",
+    "eslint-config-custom": "0.6.0-mme-function-call-labels.2",
+    "@copilotkit/react-core": "0.21.0-mme-function-call-labels.2",
+    "@copilotkit/react-textarea": "0.31.0-mme-function-call-labels.2",
+    "@copilotkit/react-ui": "0.18.0-mme-function-call-labels.2",
+    "@copilotkit/shared": "0.5.0-mme-function-call-labels.2",
+    "tailwind-config": "0.5.0-mme-function-call-labels.2",
+    "tsconfig": "0.10.0-mme-function-call-labels.2"
   },
   "changesets": [
     "dirty-zebras-divide",
     "funny-spies-unite",
+    "honest-colts-judge",
+    "large-spoons-burn",
     "light-oranges-wait",
+    "light-roses-destroy",
     "tall-buttons-occur"
   ]
 }

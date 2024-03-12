@@ -1,5 +1,13 @@
 # tailwind-config
 
+## 0.5.0-mme-prerelease-demo.3
+
+### Minor Changes
+
+- 3fbee5d: OpenAIAdapter-getter
+- 3f5ad60: OpenAIAdapter: make openai instance gettable
+- Pre release for demos
+
 ## 0.5.0-mme-function-call-labels.2
 
 ### Minor Changes
