@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "mme-prerelease-demo",
   "initialVersions": {
     "next-openai": "1.17.0-mme-function-call-labels.2",
