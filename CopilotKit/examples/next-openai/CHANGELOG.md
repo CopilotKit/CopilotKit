@@ -1,5 +1,20 @@
 # web
 
+## 1.17.0-mme-prerelease-demo.4
+
+### Minor Changes
+
+- Pre: Fix instructions not updating
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.31.0-mme-prerelease-demo.4
+  - @copilotkit/react-core@0.21.0-mme-prerelease-demo.4
+  - @copilotkit/react-ui@0.18.0-mme-prerelease-demo.4
+  - @copilotkit/backend@0.5.0-mme-prerelease-demo.4
+  - @copilotkit/shared@0.5.0-mme-prerelease-demo.4
+
 ## 1.17.0-mme-prerelease-demo.3
 
 ### Minor Changes

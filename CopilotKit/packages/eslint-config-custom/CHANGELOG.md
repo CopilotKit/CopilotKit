@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.6.0-mme-prerelease-demo.4
+
+### Minor Changes
+
+- Pre: Fix instructions not updating
+
 ## 0.6.0-mme-prerelease-demo.3
 
 ### Minor Changes

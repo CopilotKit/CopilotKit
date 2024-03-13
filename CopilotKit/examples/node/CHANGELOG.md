@@ -1,5 +1,17 @@
 # node
 
+## 1.17.0-mme-prerelease-demo.4
+
+### Minor Changes
+
+- Pre: Fix instructions not updating
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.5.0-mme-prerelease-demo.4
+  - @copilotkit/shared@0.5.0-mme-prerelease-demo.4
+
 ## 1.17.0-mme-prerelease-demo.3
 
 ### Minor Changes
