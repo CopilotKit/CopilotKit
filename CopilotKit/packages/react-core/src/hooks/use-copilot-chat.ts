@@ -41,7 +41,7 @@ export function useCopilotChat({
       content: systemMessageMaker(contextString, additionalInstructions),
       role: "system",
     };
-  }, [getContextString, makeSystemMessage]);
+  }, [getContextString, makeSystemMessage, additionalInstructions]);
 
   const functionDescriptions: ToolDefinition[] = useMemo(() => {
     return getChatCompletionFunctionDescriptions();
