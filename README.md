@@ -30,7 +30,7 @@ Build, deploy, and operate best-in-class AI Copilots.
 </h2>
 
 <h3 align="center">
-App-aware AI chatbots, AI agents, and AI Textareas <br />
+App-aware AI chatbots, in-app agents, and AI Textareas <br />
   that can interact with your app based on context.
 </h3>
 
@@ -155,11 +155,9 @@ const copilotKit = new CopilotBackend({
 });
 ```
 
-🌟 **Co-Agents (powered by LangChain):** <br />
-Allow end-users to observe and intervene in an agent’s internal operations, with native application UX.
-For instance you can mark certain operations / data sources as sensitive- requiring explicit user approval before the agent carries out said operations (for instance removing an item from a CRM).
- **Interventions can also happen retroactively**:
-Co-agents allow end-users to _**review previously-run agent operations**_, identify and **_correct_** mistakes in intermediate steps if any were made, and **restart agent operation from that point onwards**.
+🌟 **Co-Agents (powered by LangChain. Coming soon.):** <br />
+Allow end-users to observe and intervene in an in-app agent’s operations, with native application UX.
+End users can **_correct_** mistakes in intermediate steps if any were made, and **restart agent operation from that point onwards**.
 
 
 
