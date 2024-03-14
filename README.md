@@ -87,17 +87,50 @@ App-aware AI chatbots, AI agents, and AI Textareas <br />
 🌟 **\<CopilotChat />:** <br />
 Build **app-aware AI chatbots** that can "see" the current app state + take action inside your app. <br />
 The AI chatbot can talk to your app frontend & backend, and to 3rd party services (Salesforce, Dropbox, etc.) via plugins. <br />
-AI "second brain" for your users, on tap. <br/>
 Supports generative UI.
+Start in seconds:
+```
+export default function App() {
+  return (
+    <CopilotKit url="/api/copilotkit/chat"> {/* Global state & copilot logic. Put this around the entire app */}
+      <CopilotSidebar> {/* A built-in Copilot UI (or bring your own UI). Put around individual pages, or the entire app. */}
+        <MyAmazingContent />
+      </CopilotSidebar>
+    </CopilotKit>
+  );
+
+  // Now you can provide *context* entrypoints (frontend, backend, 3rd party),
+  // *action* entrypoints (frontend, backend, 3rd party),
+  // *agent* entrypoints (Copilot Skills, via LangChain / LangGraph).
+  // and soon: co-agents.
+  //
+  // See below.
+
+}
+```
 
 🌟 **\<CopilotTextarea />:** <br />
 AI-assisted text generation. Drop-in replacement for any `<textarea />.`<br />
 Autocompletions + AI editing + generate from scratch. Grounded on your users' data and Copilot application context.<br/>
+Simply change `textarea` to `CopilotTextarea`.
+
 
 🌟 **Copilot Skills (powered by LangChain):** <br />
 Bring specialized LLM Chains and Graphs into in-app AI Copilot, with a few lines of code (native LangChain / LangGraph, or via LangServe).
 CopilotKit wraps your app, and routes relevant state as input to standalone skill chains (state can come from the frontend, backend, 3rd party integrations, or from the user).
 When the chain returns, the Copilot Engine funnels its output to in-app interaction as needed.
+```
+const copilotKit = new CopilotBackend({
+   actions: [researchAgentNativeLangchain],
+   langserve: [
+    {
+      chainUrl: "http://my-langserve.chain",
+      name: "performResearch",
+      description: "Performs research on a given topic.",
+    }
+  ],
+});
+```
 
 🌟 **Co-Agents (powered by LangChain):** <br />
 Allow end-users to observe and intervene in an agent’s internal operations, with native application UX.
