@@ -34,6 +34,14 @@ App-aware AI chatbots, AI agents, and AI Textareas <br />
   that can interact with your app based on context.
 </h3>
 
+<div align="center">
+  <a href="https://forms.gle/mKsuL5e7AFSa1KF48">
+    <picture>
+      <img alt="Reserve your place for Copilot Cloud (80 early adopter spots) Early registration closes Feb 22nd" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/356e87db-1f3d-4530-bc1e-295ad1b65816" width="360px" style="max-width:100%; border-radius: 10px;"/>
+    </picture>
+  </a>
+</div>
+
 
 
 <p align="center">
@@ -76,20 +84,76 @@ App-aware AI chatbots, AI agents, and AI Textareas <br />
 </div>
 <br/>
 
+## Templates
+
+<table align="center">
+  <tr>
+    <td align="center" valign="top">
+      Todo App ("hello world") <br/>
+      <a href="https://github.com/CopilotKit/example_app-todo">https://github.com/CopilotKit/example_app-todo</a> <br/><br>
+      <a href="https://github.com/CopilotKit/presentation-demo">
+        <img alt="Todo App" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/63798c02-1892-4d2d-bc9f-2994b7c88694" width="200px" style="max-width:100%; border-radius: 10px;"/>
+      </a>
+    </td>
+    <td align="center" valign="top">
+      Presentation Demo: <br/>
+      <a href="https://github.com/CopilotKit/presentation-demo">https://github.com/CopilotKit/presentation-demo</a> <br/><br>
+      <a href="https://github.com/CopilotKit/presentation-demo">
+        <img alt="Presentation-Demo" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="200px" style="max-width:100%; border-radius: 10px;"/>
+      </a>
+    </td>
+  </tr>
+</table>
+
+## Components
+
 🌟 **\<CopilotChat />:** <br />
 Build **app-aware AI chatbots** that can "see" the current app state + take action inside your app. <br />
 The AI chatbot can talk to your app frontend & backend, and to 3rd party services (Salesforce, Dropbox, etc.) via plugins. <br />
-AI "second brain" for your users, on tap. <br/>
 Supports generative UI.
+Start in seconds:
+```
+export default function App() {
+  return (
+    <CopilotKit url="/api/copilotkit/chat"> {/* Global state & copilot logic. Put this around the entire app */}
+      <CopilotSidebar> {/* A built-in Copilot UI (or bring your own UI). Put around individual pages, or the entire app. */}
+        <MyAmazingContent />
+      </CopilotSidebar>
+    </CopilotKit>
+  );
+
+  // Now you can provide *context* entrypoints (frontend, backend, 3rd party),
+  // *action* entrypoints (frontend, backend, 3rd party),
+  // *agent* entrypoints (Copilot Skills, via LangChain / LangGraph).
+  // and soon: co-agents.
+  //
+  // See below.
+
+}
+```
 
 🌟 **\<CopilotTextarea />:** <br />
 AI-assisted text generation. Drop-in replacement for any `<textarea />.`<br />
 Autocompletions + AI editing + generate from scratch. Grounded on your users' data and Copilot application context.<br/>
+Simply change `textarea` to `CopilotTextarea`.
+
 
 🌟 **Copilot Skills (powered by LangChain):** <br />
 Bring specialized LLM Chains and Graphs into in-app AI Copilot, with a few lines of code (native LangChain / LangGraph, or via LangServe).
 CopilotKit wraps your app, and routes relevant state as input to standalone skill chains (state can come from the frontend, backend, 3rd party integrations, or from the user).
 When the chain returns, the Copilot Engine funnels its output to in-app interaction as needed.
+```
+const copilotKit = new CopilotBackend({
+   actions: [researchAgentNativeLangchain],
+   langserve: [
+    {
+      chainUrl: "http://my-langserve.chain",
+      name: "performResearch",
+      description: "Performs research on a given topic.",
+    }
+  ],
+});
+```
 
 🌟 **Co-Agents (powered by LangChain):** <br />
 Allow end-users to observe and intervene in an agent’s internal operations, with native application UX.
