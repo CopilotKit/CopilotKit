@@ -84,6 +84,29 @@ App-aware AI chatbots, AI agents, and AI Textareas <br />
 </div>
 <br/>
 
+## Templates
+
+<table align="center">
+  <tr>
+    <td align="center" valign="top">
+      Todo App ("hello world") <br/>
+      <a href="https://github.com/CopilotKit/example_app-todo">https://github.com/CopilotKit/example_app-todo</a> <br/><br>
+      <a href="https://github.com/CopilotKit/presentation-demo">
+        <img alt="Todo App" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/63798c02-1892-4d2d-bc9f-2994b7c88694" width="200px" style="max-width:100%; border-radius: 10px;"/>
+      </a>
+    </td>
+    <td align="center" valign="top">
+      Presentation Demo: <br/>
+      <a href="https://github.com/CopilotKit/presentation-demo">https://github.com/CopilotKit/presentation-demo</a> <br/><br>
+      <a href="https://github.com/CopilotKit/presentation-demo">
+        <img alt="Presentation-Demo" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="200px" style="max-width:100%; border-radius: 10px;"/>
+      </a>
+    </td>
+  </tr>
+</table>
+
+## Components
+
 🌟 **\<CopilotChat />:** <br />
 Build **app-aware AI chatbots** that can "see" the current app state + take action inside your app. <br />
 The AI chatbot can talk to your app frontend & backend, and to 3rd party services (Salesforce, Dropbox, etc.) via plugins. <br />
