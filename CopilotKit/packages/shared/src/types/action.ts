@@ -31,14 +31,12 @@ interface ObjectArrayParameter extends AbstractParameter {
   attributes?: Parameter[];
 }
 
+type SpecialParameters = StringParameter | ObjectParameter | ObjectArrayParameter;
 interface BaseParameter extends AbstractParameter {
-  type?: Exclude<
-    AbstractParameter["type"],
-    StringParameter["type"] | ObjectParameter["type"] | ObjectArrayParameter["type"]
-  >;
+  type?: Exclude<AbstractParameter["type"], SpecialParameters["type"]>;
 }
 
-export type Parameter = BaseParameter | StringParameter | ObjectParameter | ObjectArrayParameter;
+export type Parameter = BaseParameter | SpecialParameters;
 
 type OptionalParameterType<P extends AbstractParameter> = P["required"] extends false
   ? undefined
