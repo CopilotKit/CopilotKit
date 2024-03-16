@@ -117,18 +117,32 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
   async getResponse(forwardedProps: any): Promise<CopilotKitResponse> {
     // copy forwardedProps to avoid modifying the original object
     forwardedProps = { ...forwardedProps };
-
+  
     const forwardMessages = forwardedProps.messages || [];
-
+  
     // Remove tools if there are none to avoid OpenAI API errors
     // when sending an empty array of tools
     if (forwardedProps.tools && forwardedProps.tools.length === 0) {
       delete forwardedProps.tools;
     }
-
+  
     // get the thread from forwardedProps or create a new one
     const threadId: string =
       forwardedProps.threadId || (await this.openai.beta.threads.create()).id;
+  
+    // Use createAndStream for user messages
+    if (
+      forwardMessages.length > 0 &&
+      forwardMessages[forwardMessages.length - 1].role === "user"
+    ) {
+      const run = await this.openai.beta.threads.runs.createAndStream(threadId, {
+        assistant_id: this.assistantId,
+        instructions: this.buildInstructions(forwardMessages),
+        tools: this.buildTools(forwardedProps),
+      });
+  
+      return this.handleStreamingRun(run);
+    }
 
     let run: OpenAI.Beta.Threads.Runs.Run | null = null;
 
@@ -139,18 +153,11 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
     ) {
       run = await this.submitToolOutputs(threadId, forwardedProps.runId, forwardMessages);
     }
-    // submit user message
-    else if (
-      forwardMessages.length > 0 &&
-      forwardMessages[forwardMessages.length - 1].role === "user"
-    ) {
-      run = await this.submitUserMessage(threadId, forwardedProps);
-    }
-    // unsupported message
     else {
       console.error("No actionable message found in the messages");
       throw new Error("No actionable message found in the messages");
     }
+
 
     if (run.status === "requires_action") {
       // return the tool calls
@@ -176,6 +183,77 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
         headers: { threadId },
       };
     }
+  }
+
+  async buildInstructions(forwardMessages: Message[]): Promise<string> {
+    const instructions = forwardMessages
+      .filter((message) => message.role === "system")
+      .map((message) => message.content)
+      .join("\n\n");
+  
+    return instructions;
+  }
+
+  async buildTools(forwardedProps: any): Promise<any[]> {
+    const tools = [
+      ...(forwardedProps.tools || []), 
+      ...(this.codeInterpreterEnabled ? [{ type: "code_interpreter" }] : []),
+      ...(this.retrievalEnabled ? [{ type: "retrieval" }] : []),
+    ];
+  
+    return tools;
+  }
+
+  async handleStreamingRun(run: OpenAI.Beta.Threads.Runs.RunStream) {
+    return new Promise((resolve) => {
+      const chunks: ChatCompletionChunk[] = [];
+      let toolCalls: OpenAI.Beta.Threads.Runs.RequiredActionFunctionToolCall[] = [];
+  
+      run.on('textCreated', () => {
+        chunks.length = 0; // Reset chunks on new response
+      });
+  
+      run.on('textDelta', (textDelta) => {
+        const content = textDelta.value;
+        chunks.push({
+          choices: [
+            {
+              delta: {
+                content,
+                role: "assistant",
+                tool_calls, // Maintain tool calls across deltas
+              },
+            },
+          ],
+        });
+      });
+  
+      run.on('toolCallCreated', (toolCall) => {
+        toolCalls.push(toolCall);
+      });
+  
+      run.on('end', () => {
+        const response = {
+          stream: new ReadableStream({
+            pull(controller) {
+              if (chunks.length > 0) {
+                controller.enqueue(chunks.shift());
+              } else {
+                controller.close();
+              }
+            },
+            cancel() {},
+          }),
+          headers: { threadId: run.thread_id },
+        };
+        resolve(response);
+      });
+  
+      run.on('error', (error) => {
+        console.error("Error in OpenAI stream:", error);
+        reject(error);
+      });
+    });
   }
 }
 
