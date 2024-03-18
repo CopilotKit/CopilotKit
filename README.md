@@ -33,14 +33,6 @@ Build, deploy, and operate best-in-class AI Copilots.
 in-app AI chatbots, AI agents, and AI Textareas.
 </h3>
 
-<div align="center">
-  <a href="https://forms.gle/mKsuL5e7AFSa1KF48">
-    <picture>
-      <img alt="Reserve your place for Copilot Cloud (80 early adopter spots) Early registration closes Feb 22nd" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/356e87db-1f3d-4530-bc1e-295ad1b65816" width="360px" style="max-width:100%; border-radius: 10px;"/>
-    </picture>
-  </a>
-</div>
-
 
 
 <p align="center">
