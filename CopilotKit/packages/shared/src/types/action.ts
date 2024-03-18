@@ -67,14 +67,16 @@ type BaseParameterType<P extends AbstractParameter> = P extends { type: infer T 
     : never
   : string;
 
-export type MappedParameterTypes<T extends Parameter[]> = {
-  [P in T[number] as P["name"]]:
-    | OptionalParameterType<P>
-    | StringParameterType<P>
-    | ObjectParameterType<P>
-    | ObjectArrayParameterType<P>
-    | BaseParameterType<P>;
-};
+export type MappedParameterTypes<T extends Parameter[] | [] = []> = T extends []
+  ? Record<string, any>
+  : {
+      [P in T[number] as P["name"]]:
+        | OptionalParameterType<P>
+        | StringParameterType<P>
+        | ObjectParameterType<P>
+        | ObjectArrayParameterType<P>
+        | BaseParameterType<P>;
+    };
 
 export type Action<T extends Parameter[] | [] = []> = {
   name: string;
