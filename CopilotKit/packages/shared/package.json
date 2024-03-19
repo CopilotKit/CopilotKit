@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.5.0-mme-function-call-labels.2",
+  "version": "0.5.0-mme-pre-release.3",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

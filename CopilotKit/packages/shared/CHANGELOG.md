@@ -1,5 +1,13 @@
 # @copilotkit/shared
 
+## 0.5.0-mme-pre-release.3
+
+### Minor Changes
+
+- Pre Release
+- 3fbee5d: OpenAIAdapter-getter
+- 3f5ad60: OpenAIAdapter: make openai instance gettable
+
 ## 0.5.0-mme-function-call-labels.2
 
 ### Minor Changes
