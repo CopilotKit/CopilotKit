@@ -1,5 +1,3 @@
-"use client";
-
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useState } from "react";
@@ -7,7 +5,7 @@ import "./styles.css";
 import { Presentation } from "../components/Presentation";
 
 export default function AIPresentation() {
-  const [chatInProgress, setChatInProgress] = useState(false);
+  // const [chatInProgress, setChatInProgress] = useState(false);
   return (
     <CopilotKit url="/api/copilotkit/presentation">
       <CopilotSidebar
@@ -18,11 +16,11 @@ export default function AIPresentation() {
           initial: "Hi you! 👋 I can help you create a presentation on any topic.",
         }}
         clickOutsideToClose={false}
-        onInProgress={(inProgress) => {
-          setChatInProgress(inProgress);
-        }}
+        // onInProgress={(inProgress) => {
+        //   // setChatInProgress(inProgress);
+        // }}
       >
-        <Presentation chatInProgress={chatInProgress} />
+        <Presentation chatInProgress={false} />
       </CopilotSidebar>
     </CopilotKit>
   );
