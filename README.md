@@ -22,11 +22,11 @@
 
 
 <h1 align="center">
-The Open-Source Copilot Platform
+The Open-Source Copilot Framework
 </h1>
 
 <h2 align="center">
-Build, deploy, and operate best-in-class AI Copilots.
+Build, deploy, and operate fully custom AI Copilots.
 </h2>
 
 <h3 align="center">
