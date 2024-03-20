@@ -1,5 +1,19 @@
 # @copilotkit/shared
 
+## 0.5.0
+
+### Minor Changes
+
+- c4010e7: Pre Release
+- be00d61: Alpha
+- ec8481c: Alpha
+- 3fbee5d: OpenAIAdapter-getter
+- e09dc44: Test backward compatibility of AnnotatedFunction on the backend
+- 3f5ad60: OpenAIAdapter: make openai instance gettable
+- 0dd6180: QA
+- 225812d: QA new action type
+- New actions: custom chat components, and typed arguments
+
 ## 0.5.0-mme-deprecate-annotated-function.4
 
 ### Minor Changes

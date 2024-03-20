@@ -1,6 +1,6 @@
 {
   "name": "tsconfig",
-  "version": "0.10.0-mme-deprecate-annotated-function.4",
+  "version": "0.10.0",
   "private": true,
   "license": "MIT",
   "publishConfig": {

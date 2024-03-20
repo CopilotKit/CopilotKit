@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.18.0-mme-deprecate-annotated-function.4",
+  "version": "0.18.0",
   "sideEffects": [
     "**/*.css"
   ],
