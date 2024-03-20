@@ -1,5 +1,39 @@
 # web
 
+## 1.17.0-mme-deprecate-annotated-function.4
+
+### Minor Changes
+
+- Test backward compatibility of AnnotatedFunction on the backend
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.31.0-mme-deprecate-annotated-function.4
+  - @copilotkit/react-core@0.21.0-mme-deprecate-annotated-function.4
+  - @copilotkit/react-ui@0.18.0-mme-deprecate-annotated-function.4
+  - @copilotkit/backend@0.5.0-mme-deprecate-annotated-function.4
+  - @copilotkit/shared@0.5.0-mme-deprecate-annotated-function.4
+
+## 1.17.0-mme-pre-release.3
+
+### Minor Changes
+
+- Pre Release
+- 3fbee5d: OpenAIAdapter-getter
+- 3f5ad60: OpenAIAdapter: make openai instance gettable
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies [3fbee5d]
+- Updated dependencies [3f5ad60]
+  - @copilotkit/backend@0.5.0-mme-pre-release.3
+  - @copilotkit/react-core@0.21.0-mme-pre-release.3
+  - @copilotkit/react-textarea@0.31.0-mme-pre-release.3
+  - @copilotkit/react-ui@0.18.0-mme-pre-release.3
+  - @copilotkit/shared@0.5.0-mme-pre-release.3
+
 ## 1.17.0-mme-function-call-labels.2
 
 ### Minor Changes

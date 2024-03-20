@@ -1,5 +1,19 @@
 # tsconfig
 
+## 0.10.0-mme-deprecate-annotated-function.4
+
+### Minor Changes
+
+- Test backward compatibility of AnnotatedFunction on the backend
+
+## 0.10.0-mme-pre-release.3
+
+### Minor Changes
+
+- Pre Release
+- 3fbee5d: OpenAIAdapter-getter
+- 3f5ad60: OpenAIAdapter: make openai instance gettable
+
 ## 0.10.0-mme-function-call-labels.2
 
 ### Minor Changes
