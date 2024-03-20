@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "mme-deprecate-annotated-function",
   "initialVersions": {
     "next-openai": "1.17.0-mme-pre-release.3",
