@@ -1,6 +1,6 @@
 {
   "name": "node",
-  "version": "1.17.0-mme-deprecate-annotated-function.4",
+  "version": "1.17.0",
   "private": true,
   "scripts": {
     "start": "node dist/index.js",
