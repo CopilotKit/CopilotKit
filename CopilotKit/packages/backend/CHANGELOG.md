@@ -1,5 +1,16 @@
 # @copilotkit/cloud
 
+## 0.5.0-mme-deprecate-annotated-function.4
+
+### Minor Changes
+
+- Test backward compatibility of AnnotatedFunction on the backend
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.5.0-mme-deprecate-annotated-function.4
+
 ## 0.5.0-mme-pre-release.3
 
 ### Minor Changes

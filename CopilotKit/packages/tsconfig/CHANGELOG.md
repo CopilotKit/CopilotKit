@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.10.0-mme-deprecate-annotated-function.4
+
+### Minor Changes
+
+- Test backward compatibility of AnnotatedFunction on the backend
+
 ## 0.10.0-mme-pre-release.3
 
 ### Minor Changes
