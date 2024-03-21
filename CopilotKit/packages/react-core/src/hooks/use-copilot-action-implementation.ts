@@ -1,5 +1,3 @@
-"use client";
-
 import { AnnotatedFunction, Parameter } from "@copilotkit/shared";
 import { useRef, useContext, useEffect } from "react";
 import { FrontendAction } from "../types/frontend-action";

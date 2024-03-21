@@ -1,5 +1,3 @@
-"use client";
-
 import { FunctionCallHandler, ToolDefinition } from "@copilotkit/shared";
 import { FrontendAction } from "../types/frontend-action";
 import React, { Ref } from "react";

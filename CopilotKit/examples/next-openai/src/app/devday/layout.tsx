@@ -1,5 +1,3 @@
-"use client";
-
 import { CopilotKit } from "@copilotkit/react-core";
 import { ReactNode } from "react";
 
