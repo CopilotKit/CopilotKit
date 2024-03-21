@@ -61,3 +61,35 @@ get_latest_prerelease_versions() {
 get_latest_copilotkit_prerelase_versions() {
   get_latest_prerelease_versions $1 "@copilotkit/backend" "@copilotkit/react-core" "@copilotkit/react-textarea" "@copilotkit/react-ui" "@copilotkit/shared"
 }
+
+use_local_packages() {
+    echo "Building local packages..."
+    pnpm -w freshbuild
+    echo "Done building local packages."
+    packages="file:$(pwd)/packages/backend file:$(pwd)/packages/react-core file:$(pwd)/packages/react-textarea file:$(pwd)/packages/react-ui file:$(pwd)/packages/shared"
+}
+
+yarn_install_packages() {
+    local app_path="$1"
+
+    if [ -z "$packages" ]; then        
+        use_local_packages;
+    fi
+
+    (cd "$app_path" && yarn add $packages)
+
+    info "Package manager: yarn"
+    info "Using CopilotKit packages: $packages"
+}
+
+npm_install_packages() {
+    local app_path="$1"
+
+    if [ -z "$packages" ]; then
+        use_local_packages;
+    fi
+
+    (cd "$app_path" && npm install $packages --save)
+    info "Package manager: npm"
+    info "Using CopilotKit packages: $packages"
+}
