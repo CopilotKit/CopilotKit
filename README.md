@@ -22,25 +22,16 @@
 
 
 <h1 align="center">
-The Open-Source Copilot Platform
+The Open-Source Copilot Framework
 </h1>
 
 <h2 align="center">
-Build, deploy, and operate best-in-class AI Copilots.
+Build, deploy, and operate fully custom AI Copilots.
 </h2>
 
 <h3 align="center">
-App-aware AI chatbots, in-app agents, and AI Textareas <br />
-  that can interact with your app based on context.
+in-app AI chatbots, AI agents, and AI Textareas.
 </h3>
-
-<div align="center">
-  <a href="https://forms.gle/mKsuL5e7AFSa1KF48">
-    <picture>
-      <img alt="Reserve your place for Copilot Cloud (80 early adopter spots) Early registration closes Feb 22nd" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/356e87db-1f3d-4530-bc1e-295ad1b65816" width="360px" style="max-width:100%; border-radius: 10px;"/>
-    </picture>
-  </a>
-</div>
 
 
 
@@ -78,13 +69,13 @@ App-aware AI chatbots, in-app agents, and AI Textareas <br />
 
 <div align="center">
   <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/ea8edde4-dbde-40b4-bb60-e55bd1023094" width="700px" max-width="100%" style="border-radius: 35px;">
+  <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/731a57bf-ece4-48aa-8792-7bf288fdc3fd" width="700px" max-width="100%" style="border-radius: 35px;">
+  <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/2e47721d-01a1-4719-9871-1dbdbea638ac" width="700px" max-width="100%" style="border-radius: 35px;">
   <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/1d0373f6-5932-4c4e-84e9-bfdbad53f38f" width="700px" max-width="100%" style="border-radius: 35px;">
-  <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/e01c2825-bafd-4539-8b18-665c2cdcac2f" width="700px" max-width="100%" style="border-radius: 35px;">
-  <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/cc7f5aee-8373-4174-a4d5-87db3c28153e" width="700px" max-width="100%" style="border-radius: 35px;">
 </div>
 <br/>
 
-## Templates
+## "Hello World" Templates
 
 <table align="center">
   <tr>
@@ -110,30 +101,10 @@ App-aware AI chatbots, in-app agents, and AI Textareas <br />
 🌟 **\<CopilotChat />:** <br />
 Build **app-aware AI chatbots** that can "see" the current app state + take action inside your app. <br />
 The AI chatbot can talk to your app frontend & backend, and to 3rd party services (Salesforce, Dropbox, etc.) via plugins. <br />
-Supports generative UI.
-Start in seconds:
-```
-export default function App() {
-  return (
-    <CopilotKit url="/api/copilotkit/chat"> {/* Global state & copilot logic. Put this around the entire app */}
-      <CopilotSidebar> {/* A built-in Copilot UI (or bring your own UI). Put around individual pages, or the entire app. */}
-        <MyAmazingContent />
-      </CopilotSidebar>
-    </CopilotKit>
-  );
-
-  // Now you can provide *context* entrypoints (frontend, backend, 3rd party),
-  // *action* entrypoints (frontend, backend, 3rd party),
-  // *agent* entrypoints (Copilot Skills, via LangChain / LangGraph).
-  // and soon: co-agents.
-  //
-  // See below.
-
-}
-```
+Supports generative UI. Start in seconds:
 
 🌟 **\<CopilotTextarea />:** <br />
-AI-assisted text generation. Drop-in replacement for any `<textarea />.`<br />
+Drop-in replacement for any `<textarea />.` AI-assisted text generation. <br />
 Autocompletions + AI editing + generate from scratch. Grounded on your users' data and Copilot application context.<br/>
 Simply change `textarea` to `CopilotTextarea`.
 
@@ -142,18 +113,6 @@ Simply change `textarea` to `CopilotTextarea`.
 Bring specialized LLM Chains and Graphs into in-app AI Copilot, with a few lines of code (native LangChain / LangGraph, or via LangServe).
 CopilotKit wraps your app, and routes relevant state as input to standalone skill chains (state can come from the frontend, backend, 3rd party integrations, or from the user).
 When the chain returns, the Copilot Engine funnels its output to in-app interaction as needed.
-```
-const copilotKit = new CopilotBackend({
-   actions: [researchAgentNativeLangchain],
-   langserve: [
-    {
-      chainUrl: "http://my-langserve.chain",
-      name: "performResearch",
-      description: "Performs research on a given topic.",
-    }
-  ],
-});
-```
 
 🌟 **Co-Agents (powered by LangChain. Coming soon.):** <br />
 Allow end-users to observe and intervene in an in-app agent’s operations, with native application UX.

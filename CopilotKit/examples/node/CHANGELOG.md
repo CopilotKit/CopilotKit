@@ -1,5 +1,61 @@
 # node
 
+## 1.17.0
+
+### Minor Changes
+
+- c4010e7: Pre Release
+- be00d61: Alpha
+- ec8481c: Alpha
+- 3fbee5d: OpenAIAdapter-getter
+- e09dc44: Test backward compatibility of AnnotatedFunction on the backend
+- 3f5ad60: OpenAIAdapter: make openai instance gettable
+- 0dd6180: QA
+- 225812d: QA new action type
+- New actions: custom chat components, and typed arguments
+
+### Patch Changes
+
+- Updated dependencies [c4010e7]
+- Updated dependencies [be00d61]
+- Updated dependencies [ec8481c]
+- Updated dependencies [3fbee5d]
+- Updated dependencies [e09dc44]
+- Updated dependencies [3f5ad60]
+- Updated dependencies [0dd6180]
+- Updated dependencies [225812d]
+- Updated dependencies
+  - @copilotkit/backend@0.5.0
+  - @copilotkit/shared@0.5.0
+
+## 1.17.0-mme-deprecate-annotated-function.4
+
+### Minor Changes
+
+- Test backward compatibility of AnnotatedFunction on the backend
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.5.0-mme-deprecate-annotated-function.4
+  - @copilotkit/shared@0.5.0-mme-deprecate-annotated-function.4
+
+## 1.17.0-mme-pre-release.3
+
+### Minor Changes
+
+- Pre Release
+- 3fbee5d: OpenAIAdapter-getter
+- 3f5ad60: OpenAIAdapter: make openai instance gettable
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies [3fbee5d]
+- Updated dependencies [3f5ad60]
+  - @copilotkit/backend@0.5.0-mme-pre-release.3
+  - @copilotkit/shared@0.5.0-mme-pre-release.3
+
 ## 1.17.0-mme-function-call-labels.2
 
 ### Minor Changes

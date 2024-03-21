@@ -2,7 +2,7 @@ import { useRef, useContext, useEffect, useMemo } from "react";
 import { CopilotContext } from "../context/copilot-context";
 import { AnnotatedFunction } from "@copilotkit/shared";
 import { nanoid } from "nanoid";
-import { annotatedFunctionToAction } from "./use-copilot-action-implementation";
+import { annotatedFunctionToAction } from "@copilotkit/shared";
 
 /**
  * @deprecated Use the useCopilotAction function instead.

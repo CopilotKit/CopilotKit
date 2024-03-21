@@ -5,6 +5,8 @@ import {
   EXCLUDE_FROM_FORWARD_PROPS_KEYS,
   actionToChatCompletionFunction,
   Parameter,
+  AnnotatedFunction,
+  annotatedFunctionToAction,
 } from "@copilotkit/shared";
 import { copilotkitStreamInterceptor, remoteChainToAction } from "../utils";
 import { RemoteChain, CopilotKitServiceAdapter } from "../types";
@@ -15,7 +17,7 @@ interface CopilotBackendResult {
 }
 
 interface CopilotBackendImplementationConstructorParams {
-  actions?: Action<any>[];
+  actions?: Action<any>[] | AnnotatedFunction<any>[];
   langserve?: RemoteChain[];
   debug?: boolean;
 }
@@ -27,7 +29,11 @@ export class CopilotBackendImplementation {
 
   constructor(params?: CopilotBackendImplementationConstructorParams) {
     for (const action of params?.actions || []) {
-      this.actions.push(action);
+      if ("argumentAnnotations" in action) {
+        this.actions.push(annotatedFunctionToAction(action));
+      } else {
+        this.actions.push(action);
+      }
     }
     for (const chain of params?.langserve || []) {
       this.langserve.push(remoteChainToAction(chain));
@@ -35,9 +41,13 @@ export class CopilotBackendImplementation {
     this.debug = params?.debug || false;
   }
 
-  addAction(action: Action<any>): void {
+  addAction(action: Action<any> | AnnotatedFunction<any>): void {
     this.removeAction(action.name);
-    this.actions.push(action);
+    if ("argumentAnnotations" in action) {
+      this.actions.push(annotatedFunctionToAction(action));
+    } else {
+      this.actions.push(action);
+    }
   }
 
   removeAction(actionName: string): void {

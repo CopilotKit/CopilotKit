@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.31.0-mme-function-call-labels.2",
+  "version": "0.31.0",
   "sideEffects": [
     "**/*.css"
   ],
