@@ -1,7 +1,5 @@
 import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar } from "@copilotkit/react-ui";
-import { CopilotForm } from "@copilotkit/react-ui";
-import { CopilotInput } from "@copilotkit/react-ui";
+import { CopilotSidebar, CopilotForm, CopilotInput } from "@copilotkit/react-ui";
 import "./styles.css";
 
 export default function FormDemo() {
