@@ -32,6 +32,7 @@ export default function FormDemo() {
               placeholder="List of ingredients"
               type="text"
               className="p-2 border rounded-md"
+              description="When this is empty, you mus provide the ingredients"
             />
 
             <div>
@@ -55,7 +56,12 @@ export default function FormDemo() {
             </div>
 
             <label>
-              <CopilotInput name="isSpicy" type="checkbox" className="mr-2" />
+              <CopilotInput
+                name="isSpicy"
+                type="checkbox"
+                className="mr-2"
+                description="When this is checked, you must make the ingredients spicy"
+              />
               Spicy
             </label>
           </CopilotForm>
