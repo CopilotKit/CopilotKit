@@ -50,7 +50,7 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
       stream.on("error", (error) => {
         reject(error); // Reject the promise with the error
       });
-      stream.on("chatCompletion", () => {
+      stream.on("connect", () => {
         resolve({ stream: stream.toReadableStream() });
       });
     });
