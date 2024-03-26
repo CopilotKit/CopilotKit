@@ -7,7 +7,7 @@ useCopilotAction({
       name: "arg",
       type: "string",
       description: "The optional argument to display.",
-      optional: true,
+      required: false,
     },
   ],
   handler: async ({ arg }) => {
