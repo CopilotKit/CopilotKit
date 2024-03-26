@@ -18,10 +18,46 @@ export default function FormDemo() {
           <CopilotForm
             name="recipe"
             description="Form to fill for a recipe"
-            className="flex flex-col"
+            className="flex flex-col border p-4 rounded-md shadow-md space-y-4 w-96"
           >
-            <CopilotInput name="dish" placeholder="dish" />
-            <CopilotInput name="ingredients" placeholder="ingredients" />
+            <h1 className="text-2xl font-bold">Recipe Form</h1>
+            <CopilotInput
+              name="dish"
+              placeholder="Name of the dish"
+              type="text"
+              className="p-2 border rounded-md"
+            />
+            <CopilotInput
+              name="ingredients"
+              placeholder="List of ingredients"
+              type="text"
+              className="p-2 border rounded-md"
+            />
+
+            <div>
+              <label className="block">
+                <CopilotInput name="dishType" type="radio" value="Vegetarian" className="mr-2" />
+                Vegetarian
+              </label>
+              <label className="block">
+                <CopilotInput
+                  name="dishType"
+                  type="radio"
+                  value="Non-Vegetarian"
+                  className="mr-2"
+                />
+                Non-Vegetarian
+              </label>
+              <label className="block">
+                <CopilotInput name="dishType" type="radio" value="Vegan" className="mr-2" />
+                Vegan
+              </label>
+            </div>
+
+            <label>
+              <CopilotInput name="isSpicy" type="checkbox" className="mr-2" />
+              Spicy
+            </label>
           </CopilotForm>
         </div>
       </CopilotSidebar>

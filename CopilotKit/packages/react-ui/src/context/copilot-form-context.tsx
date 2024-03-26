@@ -7,13 +7,14 @@ interface CopilotFormData {
   description?: string;
   value: any;
   type: React.InputHTMLAttributes<HTMLInputElement>["type"];
+  values?: string[];
 }
 
 interface CopilotFormContextType {
   data: Record<string, CopilotFormData>;
   name: string;
   description?: string;
-  setData: (key: string, value: CopilotFormData) => void;
+  setData: React.Dispatch<React.SetStateAction<Record<string, CopilotFormData>>>;
 }
 
 interface CopilotFormProviderProps {
@@ -34,12 +35,8 @@ export const CopilotFormProvider: React.FC<CopilotFormProviderProps> = ({
   const [data, setData] = useState<Record<string, CopilotFormData>>({});
 
   // convert parameters
-  const parameters: Parameter[] = Object.values(data).map((item) => ({
-    name: item.name,
-    type: "string",
-    description: item.description,
-    required: false,
-  }));
+  const parameters: Parameter[] = Object.values(data).map(formDataToParameter);
+  console.log(parameters);
 
   useMakeCopilotReadable(`Form: ${name}\nData: ${JSON.stringify(data)}\n\n`);
 
@@ -51,6 +48,7 @@ export const CopilotFormProvider: React.FC<CopilotFormProviderProps> = ({
     description: description,
     parameters,
     handler: (args) => {
+      console.log(args);
       onFill?.(args);
       setData((prevData) => {
         const newData = { ...prevData };
@@ -68,9 +66,7 @@ export const CopilotFormProvider: React.FC<CopilotFormProviderProps> = ({
     data,
     name,
     description,
-    setData: (key: string, value: CopilotFormData) => {
-      setData((prevData) => ({ ...prevData, [key]: value }));
-    },
+    setData,
   };
 
   return <CopilotFormContext.Provider value={contextValue}>{children}</CopilotFormContext.Provider>;
@@ -82,4 +78,31 @@ export function useCopilotFormContext(): CopilotFormContextType {
     throw new Error("useCopilotFormContext must be used within a CopilotFormProvider");
   }
   return context;
+}
+
+export function formDataToParameter(data: CopilotFormData): Parameter {
+  switch (data.type) {
+    case "radio":
+      return {
+        name: data.name,
+        type: "string",
+        description: data.description,
+        required: false,
+        enum: data.values,
+      };
+    case "checkbox":
+      return {
+        name: data.name,
+        type: "boolean",
+        description: data.description,
+        required: false,
+      };
+    default:
+      return {
+        name: data.name,
+        type: "string",
+        description: data.description,
+        required: false,
+      };
+  }
 }
