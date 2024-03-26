@@ -1,5 +1,4 @@
-"use client";
-
+"use client"; // need use client to use useRef
 import {
   CopilotKit,
   DocumentPointer,

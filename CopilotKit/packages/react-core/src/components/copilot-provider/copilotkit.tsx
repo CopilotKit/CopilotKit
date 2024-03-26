@@ -1,5 +1,3 @@
-"use client";
-
 import { Ref, useCallback, useRef, useState } from "react";
 import { CopilotContext, CopilotApiConfig } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
