@@ -16,6 +16,9 @@ In addition, the types of all parameters in your action handler are automaticall
 inferred from the action definition. This enables the use of TypeScript for
 ensuring type safety and enabling autocompletion in your action handlers.
 
+useCopilotAction takes an optional `render()` function that lets you render a
+custom component or string instead of the default message component.
+
 <RequestExample>
   ```jsx useCopilotAction Example
   useCopilotAction(
@@ -64,6 +67,46 @@ ensuring type safety and enabling autocompletion in your action handlers.
 
 <ResponseField name="handler" type="(args) => Promise<any>" required>
   The handler of the action.
+</ResponseField>
+
+<ResponseField name="render" type="function | string">
+  Render lets you define a custom component or string to render instead of the
+  default.
+
+In the simplest case, you can provide a string to render a text message.
+
+```js
+{
+  // ...
+  render: "Hello, world!",
+}
+```
+
+You can also provide a function to dynamically set the content of the message.
+
+```js
+{
+  // ...
+  render: ({status, args, result}) => status === "complete" ? "Done!" : "Processing...",
+}
+```
+
+In this case, `status` is the execution status of the action, `args` are the
+possibly incomplete, streaming arguments, and `result` is the result of the action.
+
+Finally, you can return a React component to render a custom component.
+
+```js
+{
+  // ...
+  render: ({status, args, result}) => (
+    <div>
+      {status === "complete" ? "Done!" : "Processing..."}
+    </div>
+  ),
+}
+```
+
 </ResponseField>
 
 ## Parameter
