@@ -1,12 +1,11 @@
 "use client";
 import { useCopilotAction, useCopilotContext } from "@copilotkit/react-core";
 import { CopilotTask } from "@copilotkit/react-core";
-import { useMakeCopilotActionable, useMakeCopilotReadable } from "@copilotkit/react-core";
+import { useMakeCopilotReadable } from "@copilotkit/react-core";
 import { useCallback, useMemo, useState } from "react";
 import {
   BackwardIcon,
   ForwardIcon,
-  PencilIcon,
   PlusIcon,
   SparklesIcon,
   SpeakerWaveIcon,
