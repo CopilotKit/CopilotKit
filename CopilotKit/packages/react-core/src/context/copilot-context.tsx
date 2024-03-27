@@ -1,5 +1,5 @@
 import { FunctionCallHandler, ToolDefinition } from "@copilotkit/shared";
-import { FrontendAction } from "../types/frontend-action";
+import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
 import React, { Ref } from "react";
 import { TreeNodeId } from "../hooks/use-tree";
 import { DocumentPointer } from "../types";
@@ -55,12 +55,14 @@ export interface CopilotApiConfig {
   backendOnlyProps?: Record<string, any>;
 }
 
+export type InChatRenderFunction = (props: ActionRenderProps<any>) => string | JSX.Element;
+
 export interface CopilotContextParams {
   // function-calling
   entryPoints: Record<string, FrontendAction<any>>;
   setEntryPoint: (id: string, entryPoint: FrontendAction<any>) => void;
   removeEntryPoint: (id: string) => void;
-  chatComponentsCache: React.RefObject<Record<string, Function | string>>;
+  chatComponentsCache: React.RefObject<Record<string, InChatRenderFunction | string>>;
   getChatCompletionFunctionDescriptions: (
     customEntryPoints?: Record<string, FrontendAction<any>>,
   ) => ToolDefinition[];

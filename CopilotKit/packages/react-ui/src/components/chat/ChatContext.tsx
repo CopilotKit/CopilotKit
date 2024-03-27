@@ -82,12 +82,6 @@ export interface CopilotChatLabels {
   thinking?: string;
 
   /**
-   * The message to display when the chat is done executing a function.
-   * @default "✅ Done"
-   */
-  done?: string;
-
-  /**
    * The message to display when an error occurs.
    * @default "❌ An error occurred. Please try again."
    */
@@ -148,7 +142,6 @@ export const ChatContextProvider = ({
           title: "CopilotKit",
           placeholder: "Type a message...",
           thinking: "Thinking...",
-          done: "✅ Done",
           error: "❌ An error occurred. Please try again.",
           stopGenerating: "Stop generating",
           regenerateResponse: "Regenerate response",

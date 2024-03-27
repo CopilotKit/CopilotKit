@@ -54,3 +54,5 @@ export type FrontendAction<T extends Parameter[] | [] = []> = Action<T> & {
         ? (props: ActionRenderPropsNoArgs<T>) => string | React.ReactElement
         : (props: ActionRenderProps<T>) => string | React.ReactElement);
 };
+
+export type RenderFunctionStatus = ActionRenderProps<any>["status"];

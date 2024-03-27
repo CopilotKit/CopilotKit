@@ -1,5 +1,9 @@
 import { Ref, useCallback, useRef, useState } from "react";
-import { CopilotContext, CopilotApiConfig } from "../../context/copilot-context";
+import {
+  CopilotContext,
+  CopilotApiConfig,
+  InChatRenderFunction,
+} from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
 import { DocumentPointer } from "../../types";
 import { FunctionCallHandler, actionToChatCompletionFunction } from "@copilotkit/shared";
@@ -51,7 +55,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // to the CopilotContext.
 
   const [entryPoints, setEntryPoints] = useState<Record<string, FrontendAction<any>>>({});
-  const chatComponentsCache = useRef<Record<string, Function | string>>({});
+  const chatComponentsCache = useRef<Record<string, InChatRenderFunction | string>>({});
   const { addElement, removeElement, printTree } = useTree();
 
   const {
