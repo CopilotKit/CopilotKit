@@ -79,13 +79,9 @@ export const Messages = ({ messages, inProgress }: MessagesProps) => {
                     </div>
                   );
                 }
-                // show done message
+                // Done - silent by default to avoid a series of "done" messages
                 else {
-                  return (
-                    <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-                      {context.labels.done}
-                    </div>
-                  );
+                  return null;
                 }
               }
               // render is a function
@@ -108,6 +104,11 @@ export const Messages = ({ messages, inProgress }: MessagesProps) => {
                   result: functionResults[message.id],
                 });
 
+                // No result and complete: stay silent
+                if (!result && status === "complete") {
+                  return null;
+                }
+
                 if (typeof result === "string") {
                   return (
                     <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
@@ -125,12 +126,13 @@ export const Messages = ({ messages, inProgress }: MessagesProps) => {
             }
             // No render function found- show the default message
             else if ((!inProgress || !isCurrentMessage) && message.function_call) {
-              // Done
-              return (
-                <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-                  {context.labels.done}
-                </div>
-              );
+              // Done - silent by default to avoid a series of "done" messages
+              return null;
+              // return (
+              //   <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
+              //     {context.labels.done}
+              //   </div>
+              // );
             } else {
               // In progress
               return (
