@@ -4,7 +4,7 @@ import { useChatContext } from "./ChatContext";
 import { nanoid } from "nanoid";
 import { Message, decodeResult } from "@copilotkit/shared";
 import { Markdown } from "./Markdown";
-import { useCopilotContext } from "@copilotkit/react-core";
+import { ActionRenderProps, RenderFunctionStatus, useCopilotContext } from "@copilotkit/react-core";
 
 export const Messages = ({ messages, inProgress }: MessagesProps) => {
   const { chatComponentsCache } = useCopilotContext();
@@ -90,7 +90,7 @@ export const Messages = ({ messages, inProgress }: MessagesProps) => {
                   ? JSON.parse(message.function_call.arguments || "{}")
                   : message.partialFunctionCall?.arguments;
 
-                let status = "inProgress";
+                let status: RenderFunctionStatus = "inProgress";
 
                 if (functionResults[message.id] !== undefined) {
                   status = "complete";
@@ -98,27 +98,27 @@ export const Messages = ({ messages, inProgress }: MessagesProps) => {
                   status = "executing";
                 }
 
-                const result = render({
-                  status,
+                const toRender = render({
+                  status: status as any,
                   args,
                   result: functionResults[message.id],
                 });
 
                 // No result and complete: stay silent
-                if (!result && status === "complete") {
+                if (!toRender && status === "complete") {
                   return null;
                 }
 
-                if (typeof result === "string") {
+                if (typeof toRender === "string") {
                   return (
                     <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-                      {isCurrentMessage && inProgress && context.icons.spinnerIcon} {result}
+                      {isCurrentMessage && inProgress && context.icons.spinnerIcon} {toRender}
                     </div>
                   );
                 } else {
                   return (
                     <div key={index} className="copilotKitCustomAssistantMessage">
-                      {result}
+                      {toRender}
                     </div>
                   );
                 }
