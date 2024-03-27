@@ -128,11 +128,6 @@ export const Messages = ({ messages, inProgress }: MessagesProps) => {
             else if ((!inProgress || !isCurrentMessage) && message.function_call) {
               // Done - silent by default to avoid a series of "done" messages
               return null;
-              // return (
-              //   <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-              //     {context.labels.done}
-              //   </div>
-              // );
             } else {
               // In progress
               return (
