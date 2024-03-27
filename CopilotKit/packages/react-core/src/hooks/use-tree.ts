@@ -78,8 +78,7 @@ const addMessage = (nodes: Tree, threadId: string, messages: any[]): Tree => {
   const updatedNodes = nodes.map((node) => {
     if (node.id === threadId) {
       found = true;
-      const updatedMessages = node.messages ? [...node.messages, ...messages] : [...messages];
-      return { ...node, messages: updatedMessages };
+      return { ...node, messages: messages }; // Overwrite the existing messages array
     } else if (node.children.length) {
       const updatedChildren = addMessage(node.children, threadId, messages);
       return { ...node, children: updatedChildren };
@@ -98,9 +97,7 @@ const addMessage = (nodes: Tree, threadId: string, messages: any[]): Tree => {
     updatedNodes.push(newNode);
   }
 
-  console.log("updatedNodes", updatedNodes);
   localStorage.setItem('treeState', JSON.stringify(updatedNodes));
-
 
   return updatedNodes;
 };

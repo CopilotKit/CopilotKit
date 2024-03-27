@@ -104,11 +104,18 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
 
   useEffect(() => {
     const msgs = getMessagesContext("1");
-    if(msgs){
-    //  console.log("msgs", msgs);
+    if (msgs) {
       setMessages(msgs);
     }
   }, []);
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (messages.length > 0) {
+        addMessageContext("1",messages);
+      }
+    }
+  }, [messages,isLoading]);
 
   const runChatCompletion = async (messages: Message[]): Promise<Message[]> => {
     setIsLoading(true);
@@ -127,8 +134,6 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
 
 
     setMessages([...messages, ...newMessages]);
-    addMessageContext("1",messages);
-
     // add threadId and runId to the body if it exists
     const copilotConfigBody = options.copilotConfig.body || {};
     if (threadIdRef.current) {
@@ -147,7 +152,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
       signal: abortController.signal,
     });
 
-    
+
     if (response.headers.get("threadid")) {
       threadIdRef.current = response.headers.get("threadid");
     }
@@ -313,10 +318,6 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
     abortControllerRef.current?.abort();
   };
 
-
- // console.log("message", messages);
-
-  
 
   return {
     messages,
