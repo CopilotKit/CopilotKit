@@ -1,5 +1,3 @@
-"use client";
-
 import { Ref, useCallback, useRef, useState } from "react";
 import { CopilotContext, CopilotApiConfig } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
@@ -54,10 +52,12 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
 
   const [entryPoints, setEntryPoints] = useState<Record<string, FrontendAction<any>>>({});
   const chatComponentsCache = useRef<Record<string, Function | string>>({});
-  const { addElement, removeElement, printTree } = useTree();
+  const { addElement, removeElement, printTree, addMessageElement,getMessagesElement } = useTree();
 
   const {
     addElement: addDocument,
+    addMessageElement: addMessage,
+    getMessagesElement: getMessages,
     removeElement: removeDocument,
     allElements: allDocuments,
   } = useFlatCategoryStore<DocumentPointer>();
@@ -112,6 +112,34 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     [removeElement],
   );
 
+  const addMessageContext = useCallback(
+    (threadId: string, messages: any[]) => {
+      addMessageElement(threadId, messages);
+    },
+    [addMessageElement],
+  );
+
+  const getMessagesContext = useCallback(
+    (threadId: string) => {
+      return getMessagesElement(threadId);
+    },
+    [getMessagesElement],
+  );
+
+  const messageContext = useCallback(
+    (threadId: string, messages: any[]) => {
+      addMessage(threadId, messages);
+    },
+    [addMessage],
+  );
+
+  const messagesContext = useCallback(
+    (threadId: string) => {
+      return getMessages(threadId);
+    },
+    [getMessages],
+  );
+
   const getChatCompletionFunctionDescriptions = useCallback(
     (customEntryPoints?: Record<string, FrontendAction<any>>) => {
       return entryPointsToChatCompletionFunctions(Object.values(customEntryPoints || entryPoints));
@@ -147,6 +175,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     [removeDocument],
   );
 
+
   // get the appropriate CopilotApiConfig from the props
   const copilotApiConfig: CopilotApiConfig = new StandardCopilotApiConfig(
     props.url,
@@ -172,7 +201,11 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         removeContext,
         getDocumentsContext,
         addDocumentContext,
+        addMessageContext,
+        getMessagesContext,
         removeDocumentContext,
+        messageContext,
+        messagesContext,
         copilotApiConfig: copilotApiConfig,
       }}
     >

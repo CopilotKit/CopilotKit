@@ -5,6 +5,8 @@ export type FlatCategoryStoreId = string;
 
 export interface UseFlatCategoryStoreReturn<T> {
   addElement: (value: T, categories: string[]) => FlatCategoryStoreId;
+  addMessageElement: (threadId: string, messages: any[]) => FlatCategoryStoreId;
+  getMessagesElement: (threadId: string) => any[];
   removeElement: (id: FlatCategoryStoreId) => void;
   allElements: (categories: string[]) => T[];
 }
@@ -13,6 +15,11 @@ interface FlatCategoryStoreElement<T> {
   id: FlatCategoryStoreId;
   value: T;
   categories: Set<string>;
+}
+
+interface FlatMessagesStoreElement {
+  id: FlatCategoryStoreId;
+  list: any[];
 }
 
 const useFlatCategoryStore = <T>(): UseFlatCategoryStoreReturn<T> => {
@@ -29,6 +36,15 @@ const useFlatCategoryStore = <T>(): UseFlatCategoryStoreReturn<T> => {
       categories,
     });
     return newId;
+  }, []);
+
+  const addMessageElement = useCallback((threadId: string, messages: any[]): FlatCategoryStoreId => {
+    const newId = nanoid();
+    return newId;
+  }, []);
+
+  const getMessagesElement = useCallback((threadId: string): any[] => {
+    return [];
   }, []);
 
   const removeElement = useCallback((id: FlatCategoryStoreId): void => {
@@ -49,7 +65,7 @@ const useFlatCategoryStore = <T>(): UseFlatCategoryStoreReturn<T> => {
     [elements],
   );
 
-  return { addElement, removeElement, allElements };
+  return { addElement, removeElement, allElements, addMessageElement, getMessagesElement };
 };
 
 export default useFlatCategoryStore;
@@ -57,11 +73,11 @@ export default useFlatCategoryStore;
 // Action types
 type Action<T> =
   | {
-      type: "ADD_ELEMENT";
-      value: T;
-      id: FlatCategoryStoreId;
-      categories: string[];
-    }
+    type: "ADD_ELEMENT";
+    value: T;
+    id: FlatCategoryStoreId;
+    categories: string[];
+  }
   | { type: "REMOVE_ELEMENT"; id: FlatCategoryStoreId };
 
 // Reducer

@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useContext, useEffect } from "react";
+import { CopilotContext } from "../context/copilot-context";
 import {
   Message,
   ToolDefinition,
@@ -96,6 +97,19 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
   const threadIdRef = useRef<string | null>(null);
   const runIdRef = useRef<string | null>(null);
 
+  const {
+    addMessageContext,
+    getMessagesContext
+  } = useContext(CopilotContext);
+
+  useEffect(() => {
+    const msgs = getMessagesContext("1");
+    if(msgs){
+    //  console.log("msgs", msgs);
+      setMessages(msgs);
+    }
+  }, []);
+
   const runChatCompletion = async (messages: Message[]): Promise<Message[]> => {
     setIsLoading(true);
 
@@ -110,7 +124,10 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
+
+
     setMessages([...messages, ...newMessages]);
+    addMessageContext("1",messages);
 
     // add threadId and runId to the body if it exists
     const copilotConfigBody = options.copilotConfig.body || {};
@@ -130,6 +147,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
       signal: abortController.signal,
     });
 
+    
     if (response.headers.get("threadid")) {
       threadIdRef.current = response.headers.get("threadid");
     }
@@ -209,7 +227,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
             let partialArguments: any = {};
             try {
               partialArguments = JSON.parse(untruncateJson(value.arguments));
-            } catch (e) {}
+            } catch (e) { }
 
             currentMessage.partialFunctionCall = {
               name: value.name,
@@ -294,6 +312,11 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
   const stop = (): void => {
     abortControllerRef.current?.abort();
   };
+
+
+ // console.log("message", messages);
+
+  
 
   return {
     messages,

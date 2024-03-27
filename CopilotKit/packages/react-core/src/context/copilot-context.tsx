@@ -1,5 +1,3 @@
-"use client";
-
 import { FunctionCallHandler, ToolDefinition } from "@copilotkit/shared";
 import { FrontendAction } from "../types/frontend-action";
 import React, { Ref } from "react";
@@ -80,25 +78,37 @@ export interface CopilotContextParams {
   removeDocumentContext: (documentId: string) => void;
   getDocumentsContext: (categories: string[]) => DocumentPointer[];
 
+  // messages
+  addMessageContext: (threadId: any, message: any) => void;
+  getMessagesContext: (threadId: any) => any[];
+  messagesContext: (threadId: string) => void;
+  messageContext: (threadId: string, messages: any[]) => void;
+
   // api endpoints
   copilotApiConfig: CopilotApiConfig;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
   entryPoints: {},
-  setEntryPoint: () => {},
-  removeEntryPoint: () => {},
+  setEntryPoint: () => { },
+  removeEntryPoint: () => { },
   getChatCompletionFunctionDescriptions: () => returnAndThrowInDebug([]),
-  getFunctionCallHandler: () => returnAndThrowInDebug(async () => {}),
+  getFunctionCallHandler: () => returnAndThrowInDebug(async () => { }),
   chatComponentsCache: { current: {} },
   getContextString: (documents: DocumentPointer[], categories: string[]) =>
     returnAndThrowInDebug(""),
   addContext: () => "",
-  removeContext: () => {},
+  removeContext: () => { },
 
   getDocumentsContext: (categories: string[]) => returnAndThrowInDebug([]),
   addDocumentContext: () => returnAndThrowInDebug(""),
-  removeDocumentContext: () => {},
+  removeDocumentContext: () => { },
+
+  //messages
+  addMessageContext: (threadId: any, message: any) => returnAndThrowInDebug(""),
+  getMessagesContext: (threadId: any) => returnAndThrowInDebug([]),
+  messagesContext: (threadId: string) => returnAndThrowInDebug([]),
+  messageContext: () => "",
 
   copilotApiConfig: new (class implements CopilotApiConfig {
     get chatApiEndpoint(): string {

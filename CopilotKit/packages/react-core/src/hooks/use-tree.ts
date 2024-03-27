@@ -9,6 +9,7 @@ export interface TreeNode {
   children: TreeNode[];
   parentId?: TreeNodeId;
   categories: Set<string>;
+  messages?: any[]; // Add this line
 }
 
 export type Tree = TreeNode[];
@@ -16,6 +17,8 @@ export type Tree = TreeNode[];
 export interface UseTreeReturn {
   tree: Tree;
   addElement: (value: string, categories: string[], parentId?: TreeNodeId) => TreeNodeId;
+  addMessageElement: (threadId: string, messages: any[]) => TreeNodeId;
+  getMessagesElement: (threadId: string) => any[];
   printTree: (categories: string[]) => string;
   removeElement: (id: TreeNodeId) => void;
 }
@@ -32,6 +35,18 @@ const findNode = (nodes: Tree, id: TreeNodeId): TreeNode | undefined => {
   }
   return undefined;
 };
+
+const findFromLocalStorage = (id: TreeNodeId) => {
+  const nodesString = localStorage.getItem('treeState');
+  if (!nodesString) return undefined;
+  const nodes = JSON.parse(nodesString);
+  for (const node of nodes) {
+    if (node.id === id) {
+      return node;
+    }
+  }
+  return undefined;
+}
 
 const removeNode = (nodes: Tree, id: TreeNodeId): Tree => {
   return nodes.reduce((result: Tree, node) => {
@@ -56,6 +71,40 @@ const addNode = (nodes: Tree, newNode: TreeNode, parentId?: TreeNodeId): Tree =>
     return node;
   });
 };
+
+const addMessage = (nodes: Tree, threadId: string, messages: any[]): Tree => {
+  let found = false;
+
+  const updatedNodes = nodes.map((node) => {
+    if (node.id === threadId) {
+      found = true;
+      const updatedMessages = node.messages ? [...node.messages, ...messages] : [...messages];
+      return { ...node, messages: updatedMessages };
+    } else if (node.children.length) {
+      const updatedChildren = addMessage(node.children, threadId, messages);
+      return { ...node, children: updatedChildren };
+    }
+    return node;
+  });
+
+  if (!found) {
+    const newNode: TreeNode = {
+      id: threadId,
+      value: "", // Assuming a default or empty value, adjust as necessary
+      children: [],
+      categories: new Set(), // Assuming an empty set, adjust as necessary
+      messages: messages,
+    };
+    updatedNodes.push(newNode);
+  }
+
+  console.log("updatedNodes", updatedNodes);
+  localStorage.setItem('treeState', JSON.stringify(updatedNodes));
+
+
+  return updatedNodes;
+};
+
 
 const treeIndentationRepresentation = (index: number, indentLevel: number): string => {
   if (indentLevel === 0) {
@@ -92,11 +141,11 @@ const printNode = (node: TreeNode, prefix = "", indentLevel = 0): string => {
 
   node.children.forEach(
     (child, index) =>
-      (output += printNode(
-        child,
-        `${childPrePrefix}${treeIndentationRepresentation(index, indentLevel + 1)}. `,
-        indentLevel + 1,
-      )),
+    (output += printNode(
+      child,
+      `${childPrePrefix}${treeIndentationRepresentation(index, indentLevel + 1)}. `,
+      indentLevel + 1,
+    )),
   );
   return output;
 };
@@ -104,13 +153,14 @@ const printNode = (node: TreeNode, prefix = "", indentLevel = 0): string => {
 // Action types
 type Action =
   | {
-      type: "ADD_NODE";
-      value: string;
-      parentId?: string;
-      id: string;
-      categories: string[];
-    }
-  | { type: "REMOVE_NODE"; id: string };
+    type: "ADD_NODE";
+    value: string;
+    parentId?: string;
+    id: string;
+    categories: string[];
+  }
+  | { type: "REMOVE_NODE"; id: string }
+  | { type: "ADD_MESSAGE"; threadId: string; messages: any[] }
 
 // Reducer function
 function treeReducer(state: Tree, action: Action): Tree {
@@ -133,6 +183,8 @@ function treeReducer(state: Tree, action: Action): Tree {
     }
     case "REMOVE_NODE":
       return removeNode(state, action.id);
+    case "ADD_MESSAGE":
+      return addMessage(state, action.threadId, action.messages);
     default:
       return state;
   }
@@ -156,6 +208,17 @@ const useTree = (): UseTreeReturn => {
     },
     [],
   );
+
+  const addMessageElement = useCallback((threadId: string, messages: any[]): TreeNodeId => {
+    const newNodeId = nanoid(); // Generate new ID outside of dispatch
+    dispatch({ type: "ADD_MESSAGE", threadId, messages });
+    return newNodeId; // Return the new ID
+  }, []);
+
+  const getMessagesElement = useCallback((threadId: string): any[] => {
+    const node = findFromLocalStorage(threadId);
+    return node?.messages || [];
+  }, [tree]);
 
   const removeElement = useCallback((id: TreeNodeId): void => {
     dispatch({ type: "REMOVE_NODE", id });
@@ -184,7 +247,7 @@ const useTree = (): UseTreeReturn => {
     [tree],
   );
 
-  return { tree, addElement, printTree, removeElement };
+  return { tree, addElement, printTree, removeElement, addMessageElement, getMessagesElement };
 };
 
 export default useTree;
