@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.7.0
+
+### Minor Changes
+
+- Improve Next.js support and action rendering
+
 ## 0.6.0
 
 ### Minor Changes
