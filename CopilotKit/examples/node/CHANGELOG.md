@@ -1,5 +1,17 @@
 # node
 
+## 1.18.0
+
+### Minor Changes
+
+- Improve Next.js support and action rendering
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.6.0
+  - @copilotkit/shared@0.6.0
+
 ## 1.17.0
 
 ### Minor Changes

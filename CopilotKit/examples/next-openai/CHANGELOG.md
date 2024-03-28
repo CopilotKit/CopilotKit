@@ -1,5 +1,20 @@
 # web
 
+## 1.18.0
+
+### Minor Changes
+
+- Improve Next.js support and action rendering
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.6.0
+  - @copilotkit/react-core@0.22.0
+  - @copilotkit/react-textarea@0.32.0
+  - @copilotkit/react-ui@0.19.0
+  - @copilotkit/shared@0.6.0
+
 ## 1.17.0
 
 ### Minor Changes

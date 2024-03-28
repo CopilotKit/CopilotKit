@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.11.0
+
+### Minor Changes
+
+- Improve Next.js support and action rendering
+
 ## 0.10.0
 
 ### Minor Changes

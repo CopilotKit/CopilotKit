@@ -1,5 +1,16 @@
 # @copilotkit/cloud
 
+## 0.6.0
+
+### Minor Changes
+
+- Improve Next.js support and action rendering
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.6.0
+
 ## 0.5.0
 
 ### Minor Changes

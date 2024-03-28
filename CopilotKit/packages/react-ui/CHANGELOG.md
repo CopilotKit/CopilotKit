@@ -1,5 +1,17 @@
 # ui
 
+## 0.19.0
+
+### Minor Changes
+
+- Improve Next.js support and action rendering
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.22.0
+  - @copilotkit/shared@0.6.0
+
 ## 0.18.0
 
 ### Minor Changes
