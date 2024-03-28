@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.11.0-mme-pre.0
+
+### Minor Changes
+
+- Pre release improved action calling
+
 ## 0.10.0
 
 ### Minor Changes

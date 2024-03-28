@@ -1,0 +1,19 @@
+{
+  "mode": "pre",
+  "tag": "mme-pre",
+  "initialVersions": {
+    "next-openai": "1.17.0",
+    "node": "1.17.0",
+    "@copilotkit/backend": "0.5.0",
+    "eslint-config-custom": "0.6.0",
+    "@copilotkit/react-core": "0.21.0",
+    "@copilotkit/react-textarea": "0.31.0",
+    "@copilotkit/react-ui": "0.18.0",
+    "@copilotkit/shared": "0.5.0",
+    "tailwind-config": "0.5.0",
+    "tsconfig": "0.10.0"
+  },
+  "changesets": [
+    "healthy-readers-jam"
+  ]
+}

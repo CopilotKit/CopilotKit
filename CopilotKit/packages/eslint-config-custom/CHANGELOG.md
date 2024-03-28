@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.7.0-mme-pre.0
+
+### Minor Changes
+
+- Pre release improved action calling
+
 ## 0.6.0
 
 ### Minor Changes

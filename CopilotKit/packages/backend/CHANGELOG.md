@@ -1,5 +1,16 @@
 # @copilotkit/cloud
 
+## 0.6.0-mme-pre.0
+
+### Minor Changes
+
+- Pre release improved action calling
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.6.0-mme-pre.0
+
 ## 0.5.0
 
 ### Minor Changes

@@ -1,5 +1,17 @@
 # ui
 
+## 0.32.0-mme-pre.0
+
+### Minor Changes
+
+- Pre release improved action calling
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.22.0-mme-pre.0
+  - @copilotkit/shared@0.6.0-mme-pre.0
+
 ## 0.31.0
 
 ### Minor Changes

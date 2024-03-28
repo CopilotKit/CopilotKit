@@ -1,5 +1,20 @@
 # web
 
+## 1.18.0-mme-pre.0
+
+### Minor Changes
+
+- Pre release improved action calling
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.6.0-mme-pre.0
+  - @copilotkit/react-core@0.22.0-mme-pre.0
+  - @copilotkit/react-textarea@0.32.0-mme-pre.0
+  - @copilotkit/react-ui@0.19.0-mme-pre.0
+  - @copilotkit/shared@0.6.0-mme-pre.0
+
 ## 1.17.0
 
 ### Minor Changes
