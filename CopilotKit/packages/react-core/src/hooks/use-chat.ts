@@ -139,6 +139,16 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
     }
 
     if (!response.events) {
+      setMessages([
+        ...messages,
+        {
+          id: nanoid(),
+          createdAt: new Date(),
+          content: response.statusText,
+          role: "assistant",
+        },
+      ]);
+      setIsLoading(false);
       throw new Error("Failed to fetch chat completion");
     }
 
