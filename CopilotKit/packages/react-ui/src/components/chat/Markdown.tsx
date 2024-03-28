@@ -28,12 +28,17 @@ const components: Components = {
   p({ children }) {
     return <p>{children}</p>;
   },
-  a({children, ...props}) {
+  a({ children, ...props }) {
     return (
-      <a {...props} target="_blank" rel="noopener noreferrer">
+      <a
+        style={{ color: "blue", textDecoration: "underline" }}
+        {...props}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
         {children}
       </a>
-    )
+    );
   },
   code({ children, className, inline, ...props }) {
     if (children.length) {
