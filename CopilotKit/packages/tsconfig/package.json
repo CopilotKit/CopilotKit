@@ -1,6 +1,6 @@
 {
   "name": "tsconfig",
-  "version": "0.12.0-mme-firebase-fixes.0",
+  "version": "0.12.0",
   "private": true,
   "license": "MIT",
   "publishConfig": {

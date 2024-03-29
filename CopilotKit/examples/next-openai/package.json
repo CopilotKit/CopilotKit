@@ -1,6 +1,6 @@
 {
   "name": "next-openai",
-  "version": "1.19.0-mme-firebase-fixes.0",
+  "version": "1.19.0",
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_OPTIONS='--inspect' next dev",
