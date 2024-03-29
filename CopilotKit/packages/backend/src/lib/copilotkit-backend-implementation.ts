@@ -124,7 +124,12 @@ export class CopilotBackendImplementation {
     }
   }
 
-  async streamHttpServerResponse(req: any, res: any, serviceAdapter: CopilotKitServiceAdapter) {
+  async streamHttpServerResponse(
+    req: any,
+    res: any,
+    serviceAdapter: CopilotKitServiceAdapter,
+    headers?: Record<string, string>,
+  ) {
     const bodyParser = new Promise<any>((resolve, reject) => {
       if ("body" in req) {
         resolve(req.body);
@@ -142,7 +147,8 @@ export class CopilotBackendImplementation {
     });
     const forwardedProps = await bodyParser;
     const response = await this.getResponse(forwardedProps, serviceAdapter);
-    res.writeHead(200, response.headers);
+    const mergedHeaders = { ...headers, ...response.headers };
+    res.writeHead(200, mergedHeaders);
     const stream = response.stream;
     const reader = stream.getReader();
 
