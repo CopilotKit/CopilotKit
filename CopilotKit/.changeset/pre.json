@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "mme-firebase-fixes",
   "initialVersions": {
     "next-openai": "1.18.0",
