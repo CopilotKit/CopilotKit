@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.33.0-mme-firebase-fixes.0",
+  "version": "0.33.0",
   "sideEffects": [
     "**/*.css"
   ],

@@ -1,5 +1,12 @@
 # eslint-config-custom
 
+## 0.8.0
+
+### Minor Changes
+
+- 899aa6e: Backend improvements for running on GCP
+- Improve streamHttpServerResponse for express and firebase apps
+
 ## 0.8.0-mme-firebase-fixes.0
 
 ### Minor Changes

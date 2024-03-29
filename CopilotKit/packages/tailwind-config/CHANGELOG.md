@@ -1,5 +1,12 @@
 # tailwind-config
 
+## 0.7.0
+
+### Minor Changes
+
+- 899aa6e: Backend improvements for running on GCP
+- Improve streamHttpServerResponse for express and firebase apps
+
 ## 0.7.0-mme-firebase-fixes.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
   "name": "tailwind-config",
-  "version": "0.7.0-mme-firebase-fixes.0",
+  "version": "0.7.0",
   "private": true,
   "main": "index.js",
   "devDependencies": {
