@@ -1,4 +1,3 @@
-import http from "http";
 import {
   Action,
   ToolDefinition,
@@ -125,18 +124,14 @@ export class CopilotBackendImplementation {
     }
   }
 
-  async streamHttpServerResponse(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    serviceAdapter: CopilotKitServiceAdapter,
-  ) {
+  async streamHttpServerResponse(req: any, res: any, serviceAdapter: CopilotKitServiceAdapter) {
     const bodyParser = new Promise<any>((resolve, reject) => {
       if ("body" in req) {
         resolve(req.body);
         return;
       }
       let body = "";
-      req.on("data", (chunk) => (body += chunk.toString()));
+      req.on("data", (chunk: any) => (body += chunk.toString()));
       req.on("end", () => {
         try {
           resolve(JSON.parse(body));
