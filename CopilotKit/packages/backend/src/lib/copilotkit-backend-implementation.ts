@@ -131,6 +131,10 @@ export class CopilotBackendImplementation {
     serviceAdapter: CopilotKitServiceAdapter,
   ) {
     const bodyParser = new Promise<any>((resolve, reject) => {
+      if ("body" in req) {
+        resolve(req.body);
+        return;
+      }
       let body = "";
       req.on("data", (chunk) => (body += chunk.toString()));
       req.on("end", () => {
