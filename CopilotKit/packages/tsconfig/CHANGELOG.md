@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.12.0-mme-firebase-fixes.0
+
+### Minor Changes
+
+- Backend improvements for running on GCP
+
 ## 0.11.0
 
 ### Minor Changes

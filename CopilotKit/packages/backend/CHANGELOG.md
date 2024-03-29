@@ -1,5 +1,16 @@
 # @copilotkit/cloud
 
+## 0.7.0-mme-firebase-fixes.0
+
+### Minor Changes
+
+- Backend improvements for running on GCP
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.7.0-mme-firebase-fixes.0
+
 ## 0.6.0
 
 ### Minor Changes

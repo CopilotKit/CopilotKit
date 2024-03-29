@@ -1,4 +1,3 @@
-import http from "http";
 import {
   Action,
   ToolDefinition,
@@ -126,13 +125,18 @@ export class CopilotBackendImplementation {
   }
 
   async streamHttpServerResponse(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
+    req: any,
+    res: any,
     serviceAdapter: CopilotKitServiceAdapter,
+    headers?: Record<string, string>,
   ) {
     const bodyParser = new Promise<any>((resolve, reject) => {
+      if ("body" in req) {
+        resolve(req.body);
+        return;
+      }
       let body = "";
-      req.on("data", (chunk) => (body += chunk.toString()));
+      req.on("data", (chunk: any) => (body += chunk.toString()));
       req.on("end", () => {
         try {
           resolve(JSON.parse(body));
@@ -143,7 +147,8 @@ export class CopilotBackendImplementation {
     });
     const forwardedProps = await bodyParser;
     const response = await this.getResponse(forwardedProps, serviceAdapter);
-    res.writeHead(200, response.headers);
+    const mergedHeaders = { ...headers, ...response.headers };
+    res.writeHead(200, mergedHeaders);
     const stream = response.stream;
     const reader = stream.getReader();
 
