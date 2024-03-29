@@ -15,17 +15,9 @@ For now you must host your own Backend, which is straightforward:
 Install the CopilotKit backend packagess:
 
 <CodeGroup>
-  ```bash npm
-  npm i @copilotkit/backend
-  ``` 
-  ```bash yarn
-  yarn add @copilotkit/backend
-  ```
-  ```bash pnpm
-  pnpm add @copilotkit/backend
-  ```
+  ```bash npm npm i @copilotkit/backend ``` ```bash yarn yarn add
+  @copilotkit/backend ``` ```bash pnpm pnpm add @copilotkit/backend ```
 </CodeGroup>
-
 
 #### Manually specified endpoint: Next.js edge function (typescript)
 
@@ -46,7 +38,6 @@ export async function POST(req: Request): Promise<Response> {
   return copilotKit.response(req, new OpenAIAdapter());
 }
 ```
-
 
 #### Manually specified endpoint: Node.js (typescript)
 
@@ -92,3 +83,7 @@ const host = "localhost";
 server.listen(port, host);
 console.log(`Listening at http://${host}:${port}`);
 ```
+
+#### Firebase (GCP) Cloud Function
+
+See this repo for a full example: https://github.com/CopilotKit/copilotkit-firebase-demo
