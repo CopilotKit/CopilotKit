@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.8.0-mme-firebase-fixes.0
+
+### Minor Changes
+
+- Backend improvements for running on GCP
+
 ## 0.7.0
 
 ### Minor Changes

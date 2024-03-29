@@ -1,5 +1,17 @@
 # ui
 
+## 0.20.0-mme-firebase-fixes.0
+
+### Minor Changes
+
+- Backend improvements for running on GCP
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.23.0-mme-firebase-fixes.0
+  - @copilotkit/shared@0.7.0-mme-firebase-fixes.0
+
 ## 0.19.0
 
 ### Minor Changes
