@@ -171,7 +171,7 @@ export const ChatContextProvider = ({
       open,
       setOpen,
     }),
-    [labels, icons],
+    [labels, icons, open, setOpen],
   );
   return <ChatContext.Provider value={context}>{children}</ChatContext.Provider>;
 };
