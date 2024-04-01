@@ -179,7 +179,7 @@ export const CopilotChat = ({
   };
 
   return (
-    <ChatContextProvider icons={icons} labels={labels}>
+    <ChatContextProvider icons={icons} labels={labels} open={openState} setOpen={setOpenState}>
       <div className={className}>
         <Button open={openState} setOpen={setOpen}></Button>
         <Window
