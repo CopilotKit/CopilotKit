@@ -272,6 +272,10 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
             props.onKeyDown?.(event); // forward the event for external use
           }}
           className={moddedClassName}
+          onBlur={(ev) => {
+            props.onBlur?.(ev);
+            clearAutocompletionsFromEditor(editor);
+          }}
           {...propsToForward}
         />
       </Slate>
