@@ -1,6 +1,5 @@
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
-import { useState } from "react";
 import "./styles.css";
 import { Presentation } from "../components/Presentation";
 
