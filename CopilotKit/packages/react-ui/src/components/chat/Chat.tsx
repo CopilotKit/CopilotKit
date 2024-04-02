@@ -129,6 +129,11 @@ export interface CopilotChatProps {
    * A class name to apply to the root element.
    */
   className?: string;
+
+  /**
+   * Children to render.
+   */
+  children?: React.ReactNode;
 }
 
 export const CopilotChat = ({
@@ -151,6 +156,7 @@ export const CopilotChat = ({
   Input = DefaultInput,
   ResponseButton = DefaultResponseButton,
   className,
+  children,
 }: CopilotChatProps) => {
   const { visibleMessages, append, reload, stop, isLoading, input, setInput } = useCopilotChat({
     id: nanoid(),
@@ -180,6 +186,7 @@ export const CopilotChat = ({
 
   return (
     <ChatContextProvider icons={icons} labels={labels} open={openState} setOpen={setOpenState}>
+      {children}
       <div className={className}>
         <Button open={openState} setOpen={setOpen}></Button>
         <Window
