@@ -57,13 +57,7 @@ export const HoveringInsertionPromptBoxCore = ({
 
   // initially focus on the adjustment prompt text area
   useEffect(() => {
-    // Focus in the next tick, making sure the adjustment prompt text area is rendered
-    // TODO: This happens in Safari, but not in Chrome. Need to look further into this,
-    // because focus() should not throw IndexSizeError.
-    // this fixes https://github.com/CopilotKit/CopilotKit/issues/171
-    setTimeout(() => {
-      adjustmentTextAreaRef.current?.focus();
-    }, 0);
+    adjustmentTextAreaRef.current?.focus();
   }, []);
 
   // continuously read the generating suggestion stream and update the edit suggestion
