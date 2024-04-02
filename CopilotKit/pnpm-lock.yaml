@@ -60,6 +60,9 @@ importers:
       '@langchain/openai':
         specifier: ^0.0.14
         version: 0.0.14
+      clsx:
+        specifier: ^1.2.1
+        version: 1.2.1
       langchain:
         specifier: ^0.1.19
         version: 0.1.25
