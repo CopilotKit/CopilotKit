@@ -55,13 +55,11 @@ export const Icon = React.forwardRef(
 
 export const Menu = React.forwardRef(
   ({ className, ...props }: PropsWithChildren<BaseProps>, ref: Ref<HTMLDivElement | null>) => {
-    // TODO figure out why this is necessary (i.e. can't access ref.current without it)
-    const refOrUndefined = (ref as any).current ? (ref as Ref<HTMLDivElement>) : undefined;
     return (
       <div
         {...props}
         data-test-id="menu"
-        ref={refOrUndefined}
+        ref={ref as Ref<HTMLDivElement>}
         className={cx(
           className,
           css`

@@ -273,6 +273,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
           }}
           className={moddedClassName}
           onBlur={(ev) => {
+            // clear autocompletion on blur
             props.onBlur?.(ev);
             clearAutocompletionsFromEditor(editor);
           }}
