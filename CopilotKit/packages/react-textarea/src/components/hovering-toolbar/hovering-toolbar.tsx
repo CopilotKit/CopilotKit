@@ -45,7 +45,7 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
     }
 
     const domSelection = window.getSelection();
-    if (!domSelection) {
+    if (!domSelection || domSelection.rangeCount === 0) {
       return;
     }
 
