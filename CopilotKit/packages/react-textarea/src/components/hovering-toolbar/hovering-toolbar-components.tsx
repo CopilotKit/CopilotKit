@@ -54,25 +54,27 @@ export const Icon = React.forwardRef(
 );
 
 export const Menu = React.forwardRef(
-  ({ className, ...props }: PropsWithChildren<BaseProps>, ref: Ref<HTMLDivElement | null>) => (
-    <div
-      {...props}
-      data-test-id="menu"
-      ref={ref as Ref<HTMLDivElement>}
-      className={cx(
-        className,
-        css`
-          & > * {
-            display: inline-block;
-          }
+  ({ className, ...props }: PropsWithChildren<BaseProps>, ref: Ref<HTMLDivElement | null>) => {
+    return (
+      <div
+        {...props}
+        data-test-id="menu"
+        ref={ref as Ref<HTMLDivElement>}
+        className={cx(
+          className,
+          css`
+            & > * {
+              display: inline-block;
+            }
 
-          & > * + * {
-            margin-left: 15px;
-          }
-        `,
-      )}
-    />
-  ),
+            & > * + * {
+              margin-left: 15px;
+            }
+          `,
+        )}
+      />
+    );
+  },
 );
 export const Portal = ({ children }: { children: React.ReactNode }) => {
   return typeof document === "object" ? ReactDOM.createPortal(children, document.body) : null;

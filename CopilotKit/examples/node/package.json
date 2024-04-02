@@ -1,6 +1,6 @@
 {
   "name": "node",
-  "version": "1.19.0-mme-firebase-fixes.0",
+  "version": "1.19.0",
   "private": true,
   "scripts": {
     "start": "node dist/index.js",
