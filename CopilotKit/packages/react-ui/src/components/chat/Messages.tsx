@@ -4,10 +4,10 @@ import { useChatContext } from "./ChatContext";
 import { nanoid } from "nanoid";
 import { Message, decodeResult } from "@copilotkit/shared";
 import { Markdown } from "./Markdown";
-import { useCopilotContext } from "@copilotkit/react-core";
+import { ActionRenderProps, RenderFunctionStatus, useCopilotContext } from "@copilotkit/react-core";
 
 export const Messages = ({ messages, inProgress }: MessagesProps) => {
-  const { entryPoints, chatComponentsCache } = useCopilotContext();
+  const { chatComponentsCache } = useCopilotContext();
   const context = useChatContext();
   const initialMessages = useMemo(
     () => makeInitialMessages(context.labels.initial),
@@ -79,13 +79,9 @@ export const Messages = ({ messages, inProgress }: MessagesProps) => {
                     </div>
                   );
                 }
-                // show done message
+                // Done - silent by default to avoid a series of "done" messages
                 else {
-                  return (
-                    <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-                      {context.labels.done}
-                    </div>
-                  );
+                  return null;
                 }
               }
               // render is a function
@@ -94,7 +90,7 @@ export const Messages = ({ messages, inProgress }: MessagesProps) => {
                   ? JSON.parse(message.function_call.arguments || "{}")
                   : message.partialFunctionCall?.arguments;
 
-                let status = "inProgress";
+                let status: RenderFunctionStatus = "inProgress";
 
                 if (functionResults[message.id] !== undefined) {
                   status = "complete";
@@ -102,22 +98,27 @@ export const Messages = ({ messages, inProgress }: MessagesProps) => {
                   status = "executing";
                 }
 
-                const result = render({
-                  status,
+                const toRender = render({
+                  status: status as any,
                   args,
                   result: functionResults[message.id],
                 });
 
-                if (typeof result === "string") {
+                // No result and complete: stay silent
+                if (!toRender && status === "complete") {
+                  return null;
+                }
+
+                if (typeof toRender === "string") {
                   return (
                     <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-                      {isCurrentMessage && inProgress && context.icons.spinnerIcon} {result}
+                      {isCurrentMessage && inProgress && context.icons.spinnerIcon} {toRender}
                     </div>
                   );
                 } else {
                   return (
                     <div key={index} className="copilotKitCustomAssistantMessage">
-                      {result}
+                      {toRender}
                     </div>
                   );
                 }
@@ -125,12 +126,8 @@ export const Messages = ({ messages, inProgress }: MessagesProps) => {
             }
             // No render function found- show the default message
             else if ((!inProgress || !isCurrentMessage) && message.function_call) {
-              // Done
-              return (
-                <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-                  {context.labels.done}
-                </div>
-              );
+              // Done - silent by default to avoid a series of "done" messages
+              return null;
             } else {
               // In progress
               return (
@@ -146,82 +143,7 @@ export const Messages = ({ messages, inProgress }: MessagesProps) => {
               <Markdown content={message.content} />
             </div>
           );
-
-          // if (isCurrentMessage && inProgress && !message.content) {
-          //   // let inProgressLabel = "";
-
-          //   if (message.partialFunctionCall) {
-          //     for (const action of Object.values(entryPoints)) {
-          //       if (
-          //         (action as any).name === message.partialFunctionCall.name &&
-          //         (action as any).render
-          //       ) {
-          //         //       // the label is a function, call it with the arguments
-          //         //       if (typeof action.inProgressLabel === "function") {
-          //         //         inProgressLabel = action.inProgressLabel(
-          //         //           message.partialFunctionCall.arguments as any,
-          //         //           // if function_call is undefined, the arguments are incomplete
-          //         //           message.function_call !== undefined,
-          //         //         );
-          //         //       }
-          //         //       // the label is a string
-          //         //       else {
-          //         //         // (don't do an additional type check so we get a compile error if we add a new type)
-          //         //         inProgressLabel = action.inProgressLabel;
-          //         //       }
-          //       }
-          //     }
-          //   }
-          //   return (
-          //     <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-          //       {context.icons.spinnerIcon}
-          //       {/* {inProgressLabel && <span className="inProgressLabel">{inProgressLabel}</span>} */}
-          //     </div>
-          //   );
-          // } else if (
-          //   (!inProgress || index != messages.length - 1) &&
-          //   !message.content &&
-          //   message.function_call
-          // ) {
-          //   return (
-          //     <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-          //       {context.labels.done}
-          //     </div>
-          //   );
-          // }
-          // TODO: Add back partial message
-          // This shows up when the assistant is executing a function
-          //
-          // else if (message.status === "partial") {
-          //   return (
-          //     <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-          //       {context.labels.thinking} {context.icons.spinnerIcon}
-          //     </div>
-          //   );
-          // }
-          // else {
-          //   return (
-          //     <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-          //       <Markdown content={message.content} />
-          //     </div>
-          //   );
-          // }
         }
-        // TODO: Add back function and error messages
-        //
-        // else if (message.role === "function" && message.status === "success") {
-        //   return (
-        //     <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-        //       {context.labels.done}
-        //     </div>
-        //   );
-        // } else if (message.status === "error") {
-        //   return (
-        //     <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-        //       {context.labels.error}
-        //     </div>
-        //   );
-        // }
       })}
       <div ref={messagesEndRef} />
     </div>

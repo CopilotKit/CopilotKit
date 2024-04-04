@@ -1,7 +1,4 @@
-"use client";
-import { useCopilotAction, useMakeCopilotActionable } from "@copilotkit/react-core";
-import { useState } from "react";
-import Markdown from "react-markdown";
+import { useCopilotAction } from "@copilotkit/react-core";
 
 export interface SlideModel {
   title: string;

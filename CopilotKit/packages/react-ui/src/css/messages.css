@@ -40,6 +40,7 @@
   background: var(--copilot-kit-message-user-background-color);
   color: var(--copilot-kit-message-user-color);
   margin-left: auto;
+  white-space: pre-wrap;
 }
 
 .copilotKitMessage.copilotKitAssistantMessage {

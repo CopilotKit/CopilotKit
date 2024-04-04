@@ -1,5 +1,24 @@
 # tsconfig
 
+## 0.12.0
+
+### Minor Changes
+
+- 899aa6e: Backend improvements for running on GCP
+- Improve streamHttpServerResponse for express and firebase apps
+
+## 0.12.0-mme-firebase-fixes.0
+
+### Minor Changes
+
+- Backend improvements for running on GCP
+
+## 0.11.0
+
+### Minor Changes
+
+- Improve Next.js support and action rendering
+
 ## 0.10.0
 
 ### Minor Changes

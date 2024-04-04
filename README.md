@@ -87,12 +87,19 @@ in-app AI chatbots, AI agents, and AI Textareas.
       </a>
     </td>
     <td align="center" valign="top">
-      Presentation Demo: <br/>
+      PowerPoint + Copilot <br/>
       <a href="https://github.com/CopilotKit/presentation-demo">https://github.com/CopilotKit/presentation-demo</a> <br/><br>
       <a href="https://github.com/CopilotKit/presentation-demo">
         <img alt="Presentation-Demo" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="200px" style="max-width:100%; border-radius: 10px;"/>
       </a>
     </td>
+<!--     <td align="center" valign="top">
+      Enterprise Onboarding <br/>
+      <a href="https://github.com/CopilotKit/campaign-manager-demo">https://github.com/CopilotKit/campaign-manager-demo</a> <br/><br>
+      <a href="https://github.com/CopilotKit/campaign-manager-demo">
+        <img alt="Presentation-Demo" src="https://github.com/CopilotKit/CopilotKit/assets/746397/3cea8976-55bd-4687-aa53-1ce3b3a41643" width="200px" style="max-width:100%; border-radius: 10px;"/>
+      </a>
+    </td> -->
   </tr>
 </table>
 

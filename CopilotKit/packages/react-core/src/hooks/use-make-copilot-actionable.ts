@@ -1,5 +1,3 @@
-"use client";
-
 import { useRef, useContext, useEffect, useMemo } from "react";
 import { CopilotContext } from "../context/copilot-context";
 import { AnnotatedFunction } from "@copilotkit/shared";

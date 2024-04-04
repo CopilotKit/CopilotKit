@@ -1,4 +1,4 @@
-"use client";
+"use client"; // need use client for useRef, useEffect
 
 import { useCopilotChatV2 } from "@copilotkit/react-core";
 import { Message } from "@copilotkit/shared";
