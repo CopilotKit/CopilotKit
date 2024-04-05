@@ -1,5 +1,14 @@
 # tsconfig
 
+## 0.13.0
+
+### Minor Changes
+
+- 1f06d29: declare esm/cjs/types in export
+- fix esm error
+- 5a0b2cf: Inline codeblock style to avoid ESM error
+- e12b921: ESM by default
+
 ## 0.13.0-mme-esm-error.2
 
 ### Minor Changes
