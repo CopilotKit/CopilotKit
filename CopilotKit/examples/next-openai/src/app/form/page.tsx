@@ -1,8 +1,11 @@
+"use client";
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotSidebar, CopilotForm, CopilotInput } from "@copilotkit/react-ui";
 import "./styles.css";
+import { useState } from "react";
 
 export default function FormDemo() {
+  const [dish, setDish] = useState("spaghetti carbonara");
   return (
     <CopilotKit url="/api/copilotkit/openai">
       <CopilotSidebar
@@ -14,7 +17,8 @@ export default function FormDemo() {
         }}
         clickOutsideToClose={false}
       >
-        <div className="bg-white h-screen flex justify-center items-center">
+        <div className="bg-white h-screen flex justify-center items-center flex-col">
+          <h2 className="text-2xl font-bold uppercase mb-10">{dish}</h2>
           <CopilotForm
             name="recipe"
             description="Form to fill for a recipe"
@@ -25,6 +29,8 @@ export default function FormDemo() {
               name="dish"
               placeholder="Name of the dish"
               type="text"
+              value={dish}
+              onChange={(e) => setDish(e.target.value)}
               className="p-2 border rounded-md"
             />
             <CopilotInput
@@ -35,7 +41,7 @@ export default function FormDemo() {
               description="When this is empty, you mus provide the ingredients"
             />
 
-            <div>
+            {/* <div>
               <label className="block">
                 <CopilotInput name="dishType" type="radio" value="Vegetarian" className="mr-2" />
                 Vegetarian
@@ -63,7 +69,7 @@ export default function FormDemo() {
                 description="When this is checked, you must make the ingredients spicy"
               />
               Spicy
-            </label>
+            </label> */}
           </CopilotForm>
         </div>
       </CopilotSidebar>
