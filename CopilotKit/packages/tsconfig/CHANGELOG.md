@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.13.0-mme-esm-error.0
+
+### Minor Changes
+
+- ESM by default
+
 ## 0.12.0
 
 ### Minor Changes

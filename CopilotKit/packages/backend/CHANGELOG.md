@@ -1,5 +1,16 @@
 # @copilotkit/cloud
 
+## 0.8.0-mme-esm-error.0
+
+### Minor Changes
+
+- ESM by default
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.8.0-mme-esm-error.0
+
 ## 0.7.0
 
 ### Minor Changes

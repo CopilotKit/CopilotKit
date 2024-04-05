@@ -1,5 +1,17 @@
 # node
 
+## 1.20.0-mme-esm-error.0
+
+### Minor Changes
+
+- ESM by default
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.8.0-mme-esm-error.0
+  - @copilotkit/backend@0.8.0-mme-esm-error.0
+
 ## 1.19.0
 
 ### Minor Changes

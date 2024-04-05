@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 0.8.0-mme-esm-error.0
+
+### Minor Changes
+
+- ESM by default
+
 ## 0.7.0
 
 ### Minor Changes

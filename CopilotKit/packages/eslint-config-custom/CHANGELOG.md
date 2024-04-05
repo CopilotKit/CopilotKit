@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.9.0-mme-esm-error.0
+
+### Minor Changes
+
+- ESM by default
+
 ## 0.8.0
 
 ### Minor Changes
