@@ -120,6 +120,10 @@ CodeBlock.displayName = "CodeBlock";
 
 export { CodeBlock };
 
+// import { vscDarkPlus as highlightStyle } from "react-syntax-highlighter/dist/esm/styles/prism";
+// As a workaround, we inline the vscDarkPlus from react-syntax-highlighter.
+// Importing it as recommended in the documentation leads to build errors in the non app router
+// (Next.js classic) setup.
 const highlightStyle: any = {
   'pre[class*="language-"]': {
     color: "#d4d4d4",
