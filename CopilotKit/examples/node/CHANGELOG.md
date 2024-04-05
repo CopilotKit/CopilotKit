@@ -1,5 +1,59 @@
 # node
 
+## 1.20.0
+
+### Minor Changes
+
+- 1f06d29: declare esm/cjs/types in export
+- fix esm error
+- 5a0b2cf: Inline codeblock style to avoid ESM error
+- e12b921: ESM by default
+
+### Patch Changes
+
+- Updated dependencies [1f06d29]
+- Updated dependencies
+- Updated dependencies [5a0b2cf]
+- Updated dependencies [e12b921]
+  - @copilotkit/backend@0.8.0
+  - @copilotkit/shared@0.8.0
+
+## 1.20.0-mme-esm-error.2
+
+### Minor Changes
+
+- Inline codeblock style to avoid ESM error
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.8.0-mme-esm-error.2
+  - @copilotkit/shared@0.8.0-mme-esm-error.2
+
+## 1.20.0-mme-esm-error.1
+
+### Minor Changes
+
+- declare esm/cjs/types in export
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.8.0-mme-esm-error.1
+  - @copilotkit/shared@0.8.0-mme-esm-error.1
+
+## 1.20.0-mme-esm-error.0
+
+### Minor Changes
+
+- ESM by default
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.8.0-mme-esm-error.0
+  - @copilotkit/backend@0.8.0-mme-esm-error.0
+
 ## 1.19.0
 
 ### Minor Changes

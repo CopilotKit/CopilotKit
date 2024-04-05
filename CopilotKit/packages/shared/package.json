@@ -4,12 +4,16 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.7.0",
+  "version": "0.8.0",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "exports": {
-    ".": "./dist/index.js"
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
   },
   "types": "./dist/index.d.ts",
   "license": "MIT",
