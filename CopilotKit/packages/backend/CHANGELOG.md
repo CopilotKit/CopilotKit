@@ -1,5 +1,16 @@
 # @copilotkit/cloud
 
+## 0.8.0-mme-esm-error.2
+
+### Minor Changes
+
+- Inline codeblock style to avoid ESM error
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.8.0-mme-esm-error.2
+
 ## 0.8.0-mme-esm-error.1
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 0.8.0-mme-esm-error.2
+
+### Minor Changes
+
+- Inline codeblock style to avoid ESM error
+
 ## 0.8.0-mme-esm-error.1
 
 ### Minor Changes

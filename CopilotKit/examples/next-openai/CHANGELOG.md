@@ -1,5 +1,20 @@
 # web
 
+## 1.20.0-mme-esm-error.2
+
+### Minor Changes
+
+- Inline codeblock style to avoid ESM error
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.34.0-mme-esm-error.2
+  - @copilotkit/react-core@0.24.0-mme-esm-error.2
+  - @copilotkit/react-ui@0.21.0-mme-esm-error.2
+  - @copilotkit/backend@0.8.0-mme-esm-error.2
+  - @copilotkit/shared@0.8.0-mme-esm-error.2
+
 ## 1.20.0-mme-esm-error.1
 
 ### Minor Changes

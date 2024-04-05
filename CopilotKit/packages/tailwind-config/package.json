@@ -1,6 +1,6 @@
 {
   "name": "tailwind-config",
-  "version": "0.8.0-mme-esm-error.1",
+  "version": "0.8.0-mme-esm-error.2",
   "private": true,
   "main": "index.js",
   "devDependencies": {

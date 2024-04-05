@@ -1,5 +1,17 @@
 # node
 
+## 1.20.0-mme-esm-error.2
+
+### Minor Changes
+
+- Inline codeblock style to avoid ESM error
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.8.0-mme-esm-error.2
+  - @copilotkit/shared@0.8.0-mme-esm-error.2
+
 ## 1.20.0-mme-esm-error.1
 
 ### Minor Changes

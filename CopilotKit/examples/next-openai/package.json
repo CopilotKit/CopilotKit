@@ -1,6 +1,6 @@
 {
   "name": "next-openai",
-  "version": "1.20.0-mme-esm-error.1",
+  "version": "1.20.0-mme-esm-error.2",
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_OPTIONS='--inspect' next dev",
