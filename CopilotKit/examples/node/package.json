@@ -1,6 +1,6 @@
 {
   "name": "node",
-  "version": "1.20.0-mme-esm-error.0",
+  "version": "1.20.0-mme-esm-error.1",
   "private": true,
   "scripts": {
     "start": "node dist/index.js",

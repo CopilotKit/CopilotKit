@@ -1,5 +1,17 @@
 # node
 
+## 1.20.0-mme-esm-error.1
+
+### Minor Changes
+
+- declare esm/cjs/types in export
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.8.0-mme-esm-error.1
+  - @copilotkit/shared@0.8.0-mme-esm-error.1
+
 ## 1.20.0-mme-esm-error.0
 
 ### Minor Changes

@@ -1,5 +1,17 @@
 # ui
 
+## 0.34.0-mme-esm-error.1
+
+### Minor Changes
+
+- declare esm/cjs/types in export
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.24.0-mme-esm-error.1
+  - @copilotkit/shared@0.8.0-mme-esm-error.1
+
 ## 0.34.0-mme-esm-error.0
 
 ### Minor Changes

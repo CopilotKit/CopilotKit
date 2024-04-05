@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.9.0-mme-esm-error.1
+
+### Minor Changes
+
+- declare esm/cjs/types in export
+
 ## 0.9.0-mme-esm-error.0
 
 ### Minor Changes
