@@ -1,0 +1,24 @@
+.copilotKitMessages footer .suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.copilotKitMessages footer h6 {
+  font-weight: 500;
+  font-size: 0.7rem;
+  margin-bottom: 8px;
+}
+
+.copilotKitMessages footer .suggestions button {
+  padding: 8px 12px;
+  font-size: 0.7rem;
+  border-radius: 0.5rem;
+  background: var(--copilot-kit-message-user-background-color);
+  color: var(--copilot-kit-message-user-color);
+  transition: transform 0.3s ease;
+}
+
+.copilotKitMessages footer .suggestions button:hover {
+  transform: scale(1.05);
+}

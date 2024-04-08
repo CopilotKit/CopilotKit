@@ -34,7 +34,14 @@ export default function useUpdateSlide({ partialUpdateSlide }: UpdateSlideParams
       });
     },
     render: (props) => {
-      return <SlidePreview {...props.args} done={props.status === "complete"} />;
+      return (
+        <SlidePreview
+          {...props.args}
+          done={props.status === "complete"}
+          inProgressLabel="Updating slide..."
+          doneLabel="Slide updated."
+        />
+      );
     },
   });
 }

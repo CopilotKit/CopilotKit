@@ -26,7 +26,7 @@ export async function extract<const T extends Parameter[]>({
   const { messages } = context;
 
   const action: Action<any> = {
-    name: instructions,
+    name: "extract",
     parameters,
     handler: (args: any) => {},
   };

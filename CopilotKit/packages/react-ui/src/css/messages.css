@@ -2,7 +2,6 @@
   overflow-y: scroll;
   flex: 1;
   padding: 1rem 2rem;
-  padding-bottom: 3rem;
   display: flex;
   flex-direction: column;
   background-color: var(--copilot-kit-messages-background-color);
@@ -64,4 +63,11 @@
 
 .copilotKitMessage .inProgressLabel {
   margin-left: 10px;
+}
+
+.copilotKitMessages footer {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
 }

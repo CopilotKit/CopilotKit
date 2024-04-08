@@ -19,15 +19,21 @@ export interface HeaderProps {
   setOpen: (open: boolean) => void;
 }
 
+export interface SuggestionsProps {
+  title: string;
+  message: string;
+  onClick: (message: string) => void;
+}
+
 export interface MessagesProps {
   messages: Message[];
   inProgress: boolean;
+  children?: React.ReactNode;
 }
 
 export interface InputProps {
   inProgress: boolean;
   onSend: (text: string) => void;
-  children?: React.ReactNode;
   isVisible?: boolean;
 }
 

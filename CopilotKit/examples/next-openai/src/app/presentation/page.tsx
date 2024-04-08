@@ -23,6 +23,21 @@ export default function AIPresentation() {
           initial: "Hi you! 👋 I can help you create a presentation on any topic.",
         }}
         clickOutsideToClose={false}
+        initialSuggestions={[
+          {
+            title: "Make a presentation about AI",
+            message: "Make a new presentation about AI by updating the current slide.",
+          },
+          {
+            title: "Create another slide",
+            message: "Create another slide based on the current one",
+          },
+          {
+            title: "Research CopilotKit",
+            message: "Research CopilotKit and make 5 slides about it.",
+          },
+        ]}
+        autoSuggest={true}
       >
         <Presentation performResearch={performResearch} setPerformResearch={setPerformResearch} />
       </CopilotSidebar>

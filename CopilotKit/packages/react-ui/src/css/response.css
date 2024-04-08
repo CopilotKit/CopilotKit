@@ -14,10 +14,7 @@
   text-decoration: none;
   text-transform: none;
   white-space: nowrap;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  top: -44px;
+  margin-top: 15px;
 }
 
 .copilotKitResponseButton:hover {

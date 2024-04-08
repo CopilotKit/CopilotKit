@@ -57,7 +57,7 @@ export async function fetchChatCompletion({
       stream: true,
       ...(tools.length ? { tools } : {}),
       ...(temperature ? { temperature } : {}),
-      ...(tools.length != 0 ? { tool_choice: "auto" } : {}),
+      ...(tools.length != 0 ? { tool_choice: toolChoice } : {}),
       ...copilotConfig.body,
       ...copilotConfig.backendOnlyProps,
       ...excludeBackendOnlyProps(copilotConfig),
