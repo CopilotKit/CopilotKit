@@ -19,6 +19,7 @@ export interface FetchChatCompletionParams {
   headers?: Record<string, string> | Headers;
   body?: object;
   signal?: AbortSignal;
+  toolChoice?: string | { type: "function"; function: { name: string } };
 }
 
 export async function fetchChatCompletion({
@@ -30,6 +31,7 @@ export async function fetchChatCompletion({
   headers,
   body,
   signal,
+  toolChoice,
 }: FetchChatCompletionParams): Promise<Response> {
   temperature ||= 0.5;
   tools ||= [];
@@ -39,6 +41,8 @@ export async function fetchChatCompletion({
     const { content, role, name, function_call } = message;
     return { content, role, name, function_call };
   });
+
+  toolChoice ||= "auto";
 
   const response = await fetch(copilotConfig.chatApiEndpoint, {
     method: "POST",
