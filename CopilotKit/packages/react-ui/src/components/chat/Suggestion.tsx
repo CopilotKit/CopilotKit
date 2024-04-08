@@ -17,6 +17,7 @@ export function Suggestion({ title, message, onClick }: SuggestionsProps) {
 export const reloadSuggestions = async (
   context: CopilotContextParams,
   setCurrentSuggestions: (suggestions: { title: string; message: string }[]) => void,
+  abortSignal: AbortSignal,
 ) => {
   try {
     const tools = JSON.stringify(
@@ -50,6 +51,7 @@ export const reloadSuggestions = async (
         messages: true,
         readable: true,
       },
+      abortSignal,
     });
     setCurrentSuggestions(suggestions || []);
   } catch (error) {

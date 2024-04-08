@@ -197,7 +197,11 @@ export const CopilotChat = ({
   useEffect(() => {
     onInProgress?.(isLoading);
     if (!isLoading && autoSuggest && currentSuggestions.length === 0) {
-      reloadSuggestions(context, setCurrentSuggestions);
+      reloadSuggestions(
+        context,
+        setCurrentSuggestions,
+        suggestionsAbortControllerRef.current.signal,
+      );
     }
   }, [isLoading, autoSuggest]);
 
