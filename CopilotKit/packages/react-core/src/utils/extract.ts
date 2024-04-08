@@ -1,7 +1,28 @@
-import { Action, FunctionCall, MappedParameterTypes, Message, Parameter } from "@copilotkit/shared";
+import { Action, MappedParameterTypes, Message, Parameter } from "@copilotkit/shared";
 import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
 import { fetchAndDecodeChatCompletion } from "./fetch-chat-completion";
+import untruncateJson from "untruncate-json";
+
+interface InitialState<T extends Parameter[] | [] = []> {
+  status: "initial";
+  args: Partial<MappedParameterTypes<T>>;
+}
+
+interface InProgressState<T extends Parameter[] | [] = []> {
+  status: "inProgress";
+  args: Partial<MappedParameterTypes<T>>;
+}
+
+interface CompleteState<T extends Parameter[] | [] = []> {
+  status: "complete";
+  args: MappedParameterTypes<T>;
+}
+
+type StreamHandlerArgs<T extends Parameter[] | [] = []> =
+  | InitialState<T>
+  | InProgressState<T>
+  | CompleteState<T>;
 
 interface ExtractOptions<T extends Parameter[]> {
   context: CopilotContextParams;
@@ -10,6 +31,7 @@ interface ExtractOptions<T extends Parameter[]> {
   include?: IncludeOptions;
   data?: any;
   abortSignal?: AbortSignal;
+  stream?: (args: StreamHandlerArgs<T>) => void;
 }
 
 interface IncludeOptions {
@@ -24,6 +46,7 @@ export async function extract<const T extends Parameter[]>({
   include,
   data,
   abortSignal,
+  stream,
 }: ExtractOptions<T>): Promise<MappedParameterTypes<T>> {
   const { messages } = context;
 
@@ -67,6 +90,7 @@ export async function extract<const T extends Parameter[]>({
   }
 
   const reader = response.events.getReader();
+  let isInitial = true;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -75,7 +99,22 @@ export async function extract<const T extends Parameter[]>({
       break;
     }
 
+    if (value.type === "partial") {
+      try {
+        let partialArguments = JSON.parse(untruncateJson(value.arguments));
+        stream?.({
+          status: isInitial ? "initial" : "inProgress",
+          args: partialArguments as Partial<MappedParameterTypes<T>>,
+        });
+        isInitial = false;
+      } catch (e) {}
+    }
+
     if (value.type === "function") {
+      stream?.({
+        status: "complete",
+        args: value.arguments as MappedParameterTypes<T>,
+      });
       return value.arguments as MappedParameterTypes<T>;
     }
   }
