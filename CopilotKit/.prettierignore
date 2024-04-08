@@ -3,5 +3,3 @@ README.md
 .nuxt
 node_modules
 dist
-packages/react-core/src/hooks/use-copilot-action.ts
-packages/backend/src/lib/copilotkit-backend.ts
