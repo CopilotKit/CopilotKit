@@ -25,7 +25,7 @@ export const reloadSuggestions = async (
     const { suggestions } = await extract({
       context,
       instructions:
-        "SUGGEST WHAT THE USER COULD SAY NEXT. Make sure to keep the suggestions highly relevant and useful to the current conversation.",
+        "Suggest what the user could say next. Make sure to keep the suggestions highly relevant and useful to the current conversation.",
       data: "Available tools: " + tools + "\n\n",
       parameters: [
         {

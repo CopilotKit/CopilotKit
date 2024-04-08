@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { CopilotChatIcons, ChatContextProvider, CopilotChatLabels } from "./ChatContext";
 import {
   SystemMessageFunction,
@@ -185,6 +185,13 @@ export const CopilotChat = ({
   });
 
   const [currentSuggestions, setCurrentSuggestions] = React.useState(initialSuggestions || []);
+  const suggestionsAbortControllerRef = useRef<AbortController>(new AbortController());
+
+  const abortSuggestions = () => {
+    suggestionsAbortControllerRef.current?.abort();
+    suggestionsAbortControllerRef.current = new AbortController();
+  };
+
   const context = useCopilotContext();
 
   useEffect(() => {
@@ -202,6 +209,7 @@ export const CopilotChat = ({
   };
 
   const sendMessage = async (message: string) => {
+    abortSuggestions();
     setCurrentSuggestions([]);
     onSubmitMessage?.(message);
     append({

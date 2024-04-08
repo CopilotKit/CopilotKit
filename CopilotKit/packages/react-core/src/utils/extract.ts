@@ -9,6 +9,7 @@ interface ExtractOptions<T extends Parameter[]> {
   parameters: T;
   include?: IncludeOptions;
   data?: any;
+  abortSignal?: AbortSignal;
 }
 
 interface IncludeOptions {
@@ -22,6 +23,7 @@ export async function extract<const T extends Parameter[]>({
   parameters,
   include,
   data,
+  abortSignal,
 }: ExtractOptions<T>): Promise<MappedParameterTypes<T>> {
   const { messages } = context;
 
@@ -57,6 +59,7 @@ export async function extract<const T extends Parameter[]>({
     headers: context.copilotApiConfig.headers,
     body: context.copilotApiConfig.body,
     toolChoice: { type: "function", function: { name: "extract" } },
+    signal: abortSignal,
   });
 
   if (!response.events) {
