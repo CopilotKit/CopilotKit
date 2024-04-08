@@ -6,7 +6,7 @@ import {
 } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
 import { DocumentPointer } from "../../types";
-import { FunctionCallHandler, actionToChatCompletionFunction } from "@copilotkit/shared";
+import { FunctionCallHandler, Message, actionToChatCompletionFunction } from "@copilotkit/shared";
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { StandardCopilotApiConfig } from "./standard-copilot-api-config";
@@ -57,6 +57,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const [entryPoints, setEntryPoints] = useState<Record<string, FrontendAction<any>>>({});
   const chatComponentsCache = useRef<Record<string, InChatRenderFunction | string>>({});
   const { addElement, removeElement, printTree } = useTree();
+  const [messages, setMessages] = useState<Message[]>([]);
 
   const {
     addElement: addDocument,
@@ -176,6 +177,8 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         addDocumentContext,
         removeDocumentContext,
         copilotApiConfig: copilotApiConfig,
+        messages,
+        setMessages,
       }}
     >
       {children}

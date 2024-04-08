@@ -1,4 +1,4 @@
-import { FunctionCallHandler, ToolDefinition } from "@copilotkit/shared";
+import { FunctionCallHandler, Message, ToolDefinition } from "@copilotkit/shared";
 import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
 import React, { Ref } from "react";
 import { TreeNodeId } from "../hooks/use-tree";
@@ -70,6 +70,9 @@ export interface CopilotContextParams {
     customEntryPoints?: Record<string, FrontendAction<any>>,
   ) => FunctionCallHandler;
 
+  messages: Message[];
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+
   // text context
   addContext: (context: string, parentId?: string, categories?: string[]) => TreeNodeId;
   removeContext: (id: TreeNodeId) => void;
@@ -95,6 +98,8 @@ const emptyCopilotContext: CopilotContextParams = {
     returnAndThrowInDebug(""),
   addContext: () => "",
   removeContext: () => {},
+  messages: [],
+  setMessages: () => returnAndThrowInDebug([]),
 
   getDocumentsContext: (categories: string[]) => returnAndThrowInDebug([]),
   addDocumentContext: () => returnAndThrowInDebug(""),
