@@ -51,10 +51,13 @@ function convertAttribute(attribute: Parameter): any {
       };
     case "object":
     case "object[]":
-      const properties = attribute.attributes?.reduce((acc, attr) => {
-        acc[attr.name] = convertAttribute(attr);
-        return acc;
-      }, {} as Record<string, any>);
+      const properties = attribute.attributes?.reduce(
+        (acc, attr) => {
+          acc[attr.name] = convertAttribute(attr);
+          return acc;
+        },
+        {} as Record<string, any>,
+      );
       const required = attribute.attributes
         ?.filter((attr) => attr.required !== false)
         .map((attr) => attr.name);
