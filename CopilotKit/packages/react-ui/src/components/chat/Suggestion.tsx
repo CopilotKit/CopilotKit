@@ -18,7 +18,6 @@ export const reloadSuggestions = async (
   context: CopilotContextParams,
   setCurrentSuggestions: (suggestions: { title: string; message: string }[]) => void,
 ) => {
-  console.log("Reloading suggestions");
   try {
     const tools = JSON.stringify(
       context.getChatCompletionFunctionDescriptions(context.entryPoints),
@@ -52,8 +51,7 @@ export const reloadSuggestions = async (
         readable: true,
       },
     });
-    console.log("Suggestions", suggestions);
-    setCurrentSuggestions(suggestions);
+    setCurrentSuggestions(suggestions || []);
   } catch (error) {
     console.error("Error reloading suggestions", error);
   }
