@@ -184,7 +184,13 @@ export const CopilotChat = ({
     additionalInstructions: instructions,
   });
 
-  const [currentSuggestions, setCurrentSuggestions] = React.useState(initialSuggestions || []);
+  const [currentSuggestions, setCurrentSuggestions] = React.useState<
+    {
+      title: string;
+      message: string;
+      partial?: boolean;
+    }[]
+  >(initialSuggestions || []);
   const suggestionsAbortControllerRef = useRef<AbortController>(new AbortController());
 
   const abortSuggestions = () => {
@@ -246,6 +252,7 @@ export const CopilotChat = ({
                       key={index}
                       title={suggestion.title}
                       message={suggestion.message}
+                      partial={suggestion.partial}
                       onClick={(message) => sendMessage(message)}
                     />
                   ))}

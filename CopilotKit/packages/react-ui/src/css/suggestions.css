@@ -18,7 +18,14 @@
   color: var(--copilot-kit-message-user-color);
   transition: transform 0.3s ease;
 }
-
-.copilotKitMessages footer .suggestions button:hover {
+.copilotKitMessages footer .suggestions button:not(:disabled):hover {
   transform: scale(1.05);
+}
+
+.copilotKitMessages footer .suggestions button:disabled {
+  cursor: wait;
+}
+
+.copilotKitMessages footer .suggestions button svg {
+  margin-right: 6px;
 }

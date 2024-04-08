@@ -22,6 +22,7 @@ export interface HeaderProps {
 export interface SuggestionsProps {
   title: string;
   message: string;
+  partial?: boolean;
   onClick: (message: string) => void;
 }
 

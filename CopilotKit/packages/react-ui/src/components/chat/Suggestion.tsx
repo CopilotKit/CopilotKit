@@ -1,15 +1,20 @@
 import { CopilotContextParams, extract } from "@copilotkit/react-core";
 import { SuggestionsProps } from "./props";
+import { useChatContext } from "./ChatContext";
+import { SmallSpinnerIcon } from "./Icons";
 
-export function Suggestion({ title, message, onClick }: SuggestionsProps) {
+export function Suggestion({ title, message, onClick, partial }: SuggestionsProps) {
+  // const context = useChatContext();
   return (
     <button
+      disabled={partial}
       onClick={(e) => {
         e.preventDefault();
         onClick(message);
       }}
     >
-      {title}
+      {partial && SmallSpinnerIcon}
+      <span>{title}</span>
     </button>
   );
 }
@@ -23,7 +28,7 @@ export const reloadSuggestions = async (
     const tools = JSON.stringify(
       context.getChatCompletionFunctionDescriptions(context.entryPoints),
     );
-    const { suggestions } = await extract({
+    await extract({
       context,
       instructions:
         "Suggest what the user could say next. Make sure to keep the suggestions highly relevant and useful to the current conversation.",
@@ -52,8 +57,24 @@ export const reloadSuggestions = async (
         readable: true,
       },
       abortSignal,
+      stream: ({ status, args }) => {
+        const newSuggestions: { title: string; message: string; partial: boolean }[] = [];
+        const suggestions = args.suggestions || [];
+        for (let i = 0; i < suggestions.length; i++) {
+          const { title, message } = suggestions[i];
+
+          // If this is the last suggestion and the status is not complete, mark it as partial
+          const partial = i == suggestions.length - 1 && status !== "complete";
+
+          newSuggestions.push({
+            title,
+            message,
+            partial,
+          });
+        }
+        setCurrentSuggestions(newSuggestions);
+      },
     });
-    setCurrentSuggestions(suggestions || []);
   } catch (error) {
     console.error("Error reloading suggestions", error);
   }
