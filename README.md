@@ -116,10 +116,8 @@ Autocompletions + AI editing + generate from scratch. Grounded on your users' da
 Simply change `textarea` to `CopilotTextarea`.
 
 
-🌟 **Copilot Skills (powered by LangChain):** <br />
-Bring specialized LLM Chains and Graphs into in-app AI Copilot, with a few lines of code (native LangChain / LangGraph, or via LangServe).
-CopilotKit wraps your app, and routes relevant state as input to standalone skill chains (state can come from the frontend, backend, 3rd party integrations, or from the user).
-When the chain returns, the Copilot Engine funnels its output to in-app interaction as needed.
+🌟 **In-App Agents (powered by LangChain):** <br />
+Give agents access to realtime application context, and let agents take action inside applications.
 
 🌟 **Co-Agents (powered by LangChain. Coming soon.):** <br />
 Allow end-users to observe and intervene in an in-app agent’s operations, with native application UX.
