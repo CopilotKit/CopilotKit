@@ -1,4 +1,4 @@
-import { Action, parseChatCompletion } from "@copilotkit/shared";
+import { Action, ChatCompletionChunk, parseChatCompletion } from "@copilotkit/shared";
 import {
   writeChatCompletionChunk,
   writeChatCompletionContent,
@@ -210,4 +210,32 @@ export function copilotkitStreamInterceptor(
       reader.cancel();
     },
   });
+}
+
+/**
+ * A ReadableStream that only emits a single chunk.
+ */
+export class SingleChunkReadableStream extends ReadableStream<any> {
+  constructor(content: string = "", toolCalls?: any) {
+    super({
+      start(controller) {
+        const chunk: ChatCompletionChunk = {
+          choices: [
+            {
+              delta: {
+                role: "assistant",
+                content,
+                ...(toolCalls ? { tool_calls: toolCalls } : {}),
+              },
+            },
+          ],
+        };
+        writeChatCompletionChunk(controller, chunk);
+        writeChatCompletionEnd(controller);
+
+        controller.close();
+      },
+      cancel() {},
+    });
+  }
 }

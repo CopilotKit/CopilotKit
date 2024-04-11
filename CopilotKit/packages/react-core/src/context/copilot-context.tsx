@@ -9,6 +9,11 @@ import { DocumentPointer } from "../types";
  */
 export interface CopilotApiConfig {
   /**
+   * The API key for Copilot Cloud.
+   */
+  apiKey?: string;
+
+  /**
    * The endpoint for the chat API.
    */
   chatApiEndpoint: string;

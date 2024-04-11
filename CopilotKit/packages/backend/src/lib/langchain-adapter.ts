@@ -10,6 +10,7 @@ import { IterableReadableStream } from "@langchain/core/utils/stream";
 import { CopilotKitServiceAdapter } from "../types";
 import { writeChatCompletionChunk, writeChatCompletionEnd } from "../utils";
 import { CopilotKitResponse } from "../types/service-adapter";
+import { SingleChunkReadableStream } from "../utils";
 
 export type LangChainMessageStream = IterableReadableStream<BaseMessageChunk>;
 export type LangChainReturnType = LangChainMessageStream | BaseMessageChunk | string | AIMessage;
@@ -151,34 +152,6 @@ export class LangChainAdapter implements CopilotKitServiceAdapter {
       cancel() {
         cleanup();
       },
-    });
-  }
-}
-
-/**
- * A ReadableStream that only emits a single chunk.
- */
-class SingleChunkReadableStream extends ReadableStream<any> {
-  constructor(content: string = "", toolCalls?: any) {
-    super({
-      start(controller) {
-        const chunk: ChatCompletionChunk = {
-          choices: [
-            {
-              delta: {
-                role: "assistant",
-                content,
-                ...(toolCalls ? { tool_calls: toolCalls } : {}),
-              },
-            },
-          ],
-        };
-        writeChatCompletionChunk(controller, chunk);
-        writeChatCompletionEnd(controller);
-
-        controller.close();
-      },
-      cancel() {},
     });
   }
 }

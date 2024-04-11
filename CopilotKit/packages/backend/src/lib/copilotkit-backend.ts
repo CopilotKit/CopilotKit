@@ -7,8 +7,13 @@ import {
   AnnotatedFunction,
   annotatedFunctionToAction,
 } from "@copilotkit/shared";
-import { copilotkitStreamInterceptor, remoteChainToAction } from "../utils";
+import {
+  SingleChunkReadableStream,
+  copilotkitStreamInterceptor,
+  remoteChainToAction,
+} from "../utils";
 import { RemoteChain, CopilotKitServiceAdapter } from "../types";
+import { cloudLogChat } from "./cloud";
 
 interface CopilotBackendResult {
   stream: ReadableStream;
@@ -26,6 +31,9 @@ interface CopilotDeprecatedBackendConstructorParams<T extends Parameter[] | [] =
   langserve?: RemoteChain[];
   debug?: boolean;
 }
+
+const CONTENT_POLICY_VIOLATION_RESPONSE =
+  "Thank you for your request. Unfortunately, we're unable to fulfill it as it doesn't align with our content policy. We appreciate your understanding and are here to help with any other questions or requests you might have.";
 
 export class CopilotBackend<const T extends Parameter[] | [] = []> {
   private actions: Action<any>[] = [];
@@ -94,6 +102,16 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
     serviceAdapter: CopilotKitServiceAdapter,
   ): Promise<CopilotBackendResult> {
     this.removeBackendOnlyProps(forwardedProps);
+
+    // In case a Copilot Cloud API key is set, remove it from forwardedProps
+    const apiKey = forwardedProps.apiKey;
+    delete forwardedProps.apiKey;
+
+    // if an API key is set, log the chat to Copilot Cloud
+    const cloudLogChatPromise = apiKey
+      ? cloudLogChat(apiKey, forwardedProps)
+      : Promise.resolve("allowed");
+
     const langserveFunctions: Action<any>[] = [];
 
     for (const chainPromise of this.langserve) {
@@ -119,6 +137,24 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
         ...forwardedProps,
         tools: mergedTools,
       });
+
+      // wait for the cloud log chat to finish before streaming back the response
+      // NOTE: in case there was no API key set, this will resolve immediately
+      try {
+        const status = await cloudLogChatPromise;
+        if (status === "denied") {
+          // the chat was denied. instead of streaming back the response,
+          // we let the client know...
+          // TODO- this should not be a hardcoded message
+          return {
+            stream: new SingleChunkReadableStream(CONTENT_POLICY_VIOLATION_RESPONSE),
+            headers: result.headers,
+          };
+        }
+      } catch (error) {
+        console.error("Error logging chat:", error);
+      }
+
       const stream = copilotkitStreamInterceptor(
         result.stream,
         [...this.actions, ...langserveFunctions],

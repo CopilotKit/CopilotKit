@@ -9,7 +9,6 @@ import { DocumentPointer } from "../../types";
 import { FunctionCallHandler, Message, actionToChatCompletionFunction } from "@copilotkit/shared";
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
-import { StandardCopilotApiConfig } from "./standard-copilot-api-config";
 import { CopilotKitProps } from "./copilotkit-props";
 import { ToolDefinition } from "@copilotkit/shared";
 
@@ -26,23 +25,6 @@ import { ToolDefinition } from "@copilotkit/shared";
  * Example usage:
  * ```
  * <CopilotKit url="https://your.copilotkit.api">
- *    <App />
- * </CopilotKit>
- * ```
- *
- * or
- *
- * ```
- * const copilotApiConfig = new StandardCopilotApiConfig(
- *  "https://your.copilotkit.api/v1",
- *  "https://your.copilotkit.api/v2",
- *  {},
- *  {}
- *  );
- *
- * // ...
- *
- * <CopilotKit chatApiConfig={copilotApiConfig}>
  *    <App />
  * </CopilotKit>
  * ```
@@ -151,15 +133,16 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   );
 
   // get the appropriate CopilotApiConfig from the props
-  const copilotApiConfig: CopilotApiConfig = new StandardCopilotApiConfig(
-    props.url,
-    `${props.url}/v2`,
-    props.headers || {},
-    {
+  const copilotApiConfig: CopilotApiConfig = {
+    apiKey: props.apiKey,
+    chatApiEndpoint: props.url,
+    chatApiEndpointV2: `${props.url}/v2`,
+    headers: props.headers || {},
+    body: {
       ...props.body,
       ...props.backendOnlyProps,
     },
-  );
+  };
 
   return (
     <CopilotContext.Provider
