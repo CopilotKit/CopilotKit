@@ -85,10 +85,13 @@ export function copilotkitStreamInterceptor(
   actions: Action<any>[],
   debug: boolean = false,
 ): ReadableStream {
-  const functionsByName = actions.reduce((acc, fn) => {
-    acc[fn.name] = fn;
-    return acc;
-  }, {} as Record<string, Action<any>>);
+  const functionsByName = actions.reduce(
+    (acc, fn) => {
+      acc[fn.name] = fn;
+      return acc;
+    },
+    {} as Record<string, Action<any>>,
+  );
 
   const decodedStream = parseChatCompletion(stream);
   const reader = decodedStream.getReader();

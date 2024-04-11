@@ -290,7 +290,7 @@ export const isStreamStringEqualToType = (
   value.startsWith(`${StreamStringPrefixes[type]}:`) && value.endsWith("\n");
 
 export type StreamString =
-  `${typeof StreamStringPrefixes[keyof typeof StreamStringPrefixes]}:${string}\n`;
+  `${(typeof StreamStringPrefixes)[keyof typeof StreamStringPrefixes]}:${string}\n`;
 
 /**
  * A header sent to the client so it knows how to handle parsing the stream (as a deprecated text response or using the new prefixed protocol)

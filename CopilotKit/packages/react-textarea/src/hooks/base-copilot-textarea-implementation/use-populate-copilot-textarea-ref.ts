@@ -14,7 +14,10 @@ export function usePopulateCopilotTextareaRef(
     ref,
     () => {
       class Combined {
-        constructor(private customMethods: CustomMethods, private editorHtmlElement: HTMLElement) {}
+        constructor(
+          private customMethods: CustomMethods,
+          private editorHtmlElement: HTMLElement,
+        ) {}
 
         [key: string]: any;
 

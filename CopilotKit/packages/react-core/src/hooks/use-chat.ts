@@ -58,8 +58,6 @@ export type UseChatOptions = {
 };
 
 export type UseChatHelpers = {
-  /** Current messages in the chat */
-  messages: Message[];
   /**
    * Append a user message to the chat list. This triggers the API call to fetch
    * the assistant's response.
@@ -86,10 +84,18 @@ export type UseChatHelpers = {
 
 export type UseChatOptionsWithCopilotConfig = UseChatOptions & {
   copilotConfig: CopilotApiConfig;
+  /**
+   * The current list of messages in the chat.
+   */
+  messages: Message[];
+  /**
+   * The setState-powered method to update the chat messages.
+   */
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
 };
 
 export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelpers {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const { messages, setMessages } = options;
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const abortControllerRef = useRef<AbortController>();
@@ -296,7 +302,6 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
   };
 
   return {
-    messages,
     append,
     reload,
     stop,
