@@ -33,7 +33,7 @@ interface CopilotDeprecatedBackendConstructorParams<T extends Parameter[] | [] =
 }
 
 const CONTENT_POLICY_VIOLATION_RESPONSE =
-  "Thank you for your request. Unfortunately, we're unable to fulfill it as it doesn't align with our content policy. We appreciate your understanding and are here to help with any other questions or requests you might have.";
+  "Thank you for your request. Unfortunately, we're unable to fulfill it as it doesn't align with our content policy. We appreciate your understanding.";
 
 export class CopilotBackend<const T extends Parameter[] | [] = []> {
   private actions: Action<any>[] = [];
