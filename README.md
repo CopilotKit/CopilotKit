@@ -36,7 +36,7 @@ in-app AI chatbots, AI agents, and AI Textareas.
 
 
 <p align="center">
-  <br />
+  <br/>
     <a href="https://docs.copilotkit.ai" rel="dofollow"><strong>Explore the docs »</strong></a>
   <br />
 </p>
@@ -53,15 +53,18 @@ in-app AI chatbots, AI agents, and AI Textareas.
 
 <p align="center">
    Questions?
-    <a href="https://calendly.com/atai_/copilotkit" rel="dofollow"><strong> Book a call with us  »</strong></a>
+    <a href="https://discord.gg/6dffbvGU3D"> Join our discord  »</a>
     <br />
 </p>
 
 <p align="center">
-  <strong>Copilot support:</strong> We're happy to support your Copilot integration efforts. <br/>
-  You can receive support on <a href="https://discord.gg/6dffbvGU3D">our discord</a>
-   or by <a href="https://calendly.com/atai_/copilotkit" rel="dofollow"> booking a call with us</a>.
+    <br />
+    <a href="https://docs.google.com/forms/d/1L2OIj7s6T2Oso-7FWrS7LcOAYg6afZlTB0R06ZmcW3A"><strong> Apply to join the Copilot Cloud Waitlist </strong></a>
+    <br />
 </p>
+
+
+
 
 ---
 
