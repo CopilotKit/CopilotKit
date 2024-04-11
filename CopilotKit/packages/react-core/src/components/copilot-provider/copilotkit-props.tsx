@@ -6,6 +6,11 @@ import { ReactNode } from "react";
 
 export interface CopilotKitProps {
   /**
+   * The api key for Copilot Cloud.
+   */
+  apiKey?: string;
+
+  /**
    * The endpoint for the chat API.
    */
   url: string;
