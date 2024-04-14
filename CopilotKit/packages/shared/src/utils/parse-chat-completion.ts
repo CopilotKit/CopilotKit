@@ -10,8 +10,13 @@ export interface ToolCallFunctionCall {
   // When scope is "server", the client will not attempt to
   // execute the function.
   scope?: "client" | "server";
-};
+}
 
+export interface ToolCallPayload {
+  index: number;
+  id?: string;
+  function: ToolCallFunctionCall;
+}
 
 export interface ChatCompletionChunk {
   choices: {
@@ -31,11 +36,7 @@ export interface ChatCompletionChunk {
         name?: string;
         arguments?: string;
       };
-      tool_calls?: {
-        index: number;
-        id?: string;
-        function: ToolCallFunctionCall
-      }[];
+      tool_calls?: ToolCallPayload[];
     };
   }[];
 }
