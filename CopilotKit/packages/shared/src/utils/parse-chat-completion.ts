@@ -1,5 +1,18 @@
 import { Role } from "../types/openai-assistant";
 
+export interface ToolCallFunctionCall {
+  arguments?: string;
+
+  name?: string;
+  // TODO:
+  // Temporarily add scope to the OpenAI protocol until we
+  // have our own protocol.
+  // When scope is "server", the client will not attempt to
+  // execute the function.
+  scope?: "client" | "server";
+};
+
+
 export interface ChatCompletionChunk {
   choices: {
     delta: {
@@ -21,17 +34,7 @@ export interface ChatCompletionChunk {
       tool_calls?: {
         index: number;
         id?: string;
-        function: {
-          arguments?: string;
-
-          name?: string;
-          // TODO:
-          // Temporarily add scope to the OpenAI protocol until we
-          // have our own protocol.
-          // When scope is "server", the client will not attempt to
-          // execute the function.
-          scope?: "client" | "server";
-        };
+        function: ToolCallFunctionCall
       }[];
     };
   }[];

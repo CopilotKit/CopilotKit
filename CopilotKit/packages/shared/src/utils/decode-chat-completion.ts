@@ -1,4 +1,4 @@
-import { ChatCompletionChunk } from "./parse-chat-completion";
+import { ChatCompletionChunk, ToolCallFunctionCall } from "./parse-chat-completion";
 
 export interface ChatCompletionContentEvent {
   type: "content";
@@ -35,7 +35,11 @@ export function decodeChatCompletion(
 ): ReadableStream<ChatCompletionEvent> {
   const reader = stream.getReader();
 
-  let mode: "function" | "message" | null = null;
+  type Mode =
+    | { type: "function"; function: ToolCallFunctionCall }
+    | { type: "message"; associatedValue: string };
+
+  let mode: Mode | null = null;
   let functionCallName: string = "";
   let functionCallArguments: string = "";
   let functionCallScope: "client" | "server" = "client";
@@ -82,19 +86,19 @@ export function decodeChatCompletion(
           const { done, value } = await reader.read();
 
           if (done) {
-            if (mode === "function") {
+            if (mode?.type === "function") {
               flushFunctionCall();
             }
             await cleanup(controller);
             return;
           }
 
-          // In case we are in a function call but the next message is
+          // In case we are currently handling a function call but the next message is either
           // - not a function call
-          // - another function call (when name is present)
-          // => flush it.
+          // - or is another function call (indicated by the presence of 'name' field in the next function call object)
+          // => flush the current function call.
           if (
-            mode === "function" &&
+            mode?.type === "function" &&
             (!value.choices[0].delta.tool_calls?.[0]?.function ||
               value.choices[0].delta.tool_calls?.[0]?.function.name)
           ) {
@@ -103,10 +107,15 @@ export function decodeChatCompletion(
             }
           }
 
-          mode = value.choices[0].delta.tool_calls?.[0]?.function ? "function" : "message";
+          const maybeFunctionCall = value.choices[0].delta.tool_calls?.[0]?.function;
+          if (maybeFunctionCall) {
+            mode = { type: "function", function: maybeFunctionCall };
+          } else {
+            mode = { type: "message", associatedValue: value.choices[0].delta.content! };
+          }
 
           // if we get a message, emit the content and continue;
-          if (mode === "message") {
+          if (mode.type === "message") {
             // if we got a result message, send a result event
             if (value.choices[0].delta.role === "function") {
               controller.enqueue({
@@ -125,16 +134,22 @@ export function decodeChatCompletion(
             continue;
           }
           // if we get a function call, buffer the name and arguments, then emit a partial event.
-          else if (mode === "function") {
-            if (value.choices[0].delta.tool_calls![0].function.name) {
-              functionCallName = value.choices[0].delta.tool_calls![0].function.name!;
+          else if (mode.type === "function") {
+            const maybeFunctionCallName = mode.function.name;
+            if (maybeFunctionCallName) {
+              functionCallName = maybeFunctionCallName;
             }
-            if (value.choices[0].delta.tool_calls![0].function.arguments) {
-              functionCallArguments += value.choices[0].delta.tool_calls![0].function.arguments!;
+
+            const maybeFunctionCallArguments = mode.function.arguments;
+            if (maybeFunctionCallArguments) {
+              functionCallArguments += maybeFunctionCallArguments;
             }
-            if (value.choices[0].delta.tool_calls![0].function.scope) {
-              functionCallScope = value.choices[0].delta.tool_calls![0].function.scope!;
+
+            const maybeFunctionCallScope = mode.function.scope;
+            if (maybeFunctionCallScope) {
+              functionCallScope = maybeFunctionCallScope;
             }
+
             controller.enqueue({
               type: "partial",
               name: functionCallName,
