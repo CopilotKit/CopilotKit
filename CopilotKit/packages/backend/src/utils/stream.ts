@@ -155,16 +155,14 @@ export function copilotkitStreamInterceptor(
             console.log("data: " + JSON.stringify(value) + "\n\n");
           }
 
-          type Mode =
-            | { type: "function"; toolCall: ToolCallPayload }
-            | { type: "message"; associatedValue: string };
+          type Mode = { type: "function"; toolCall: ToolCallPayload } | { type: "message" };
 
           let mode: Mode;
           const maybeToolCall = value.choices[0].delta.tool_calls?.[0];
           if (maybeToolCall) {
             mode = { type: "function", toolCall: maybeToolCall };
           } else {
-            mode = { type: "message", associatedValue: value.choices[0].delta.content! };
+            mode = { type: "message" };
           }
 
           const nextChunkIndex = mode.type === "function" ? mode.toolCall.index : null;

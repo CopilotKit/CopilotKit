@@ -35,9 +35,7 @@ export function decodeChatCompletion(
 ): ReadableStream<ChatCompletionEvent> {
   const reader = stream.getReader();
 
-  type Mode =
-    | { type: "function"; function: ToolCallFunctionCall }
-    | { type: "message"; associatedValue: string };
+  type Mode = { type: "function"; function: ToolCallFunctionCall } | { type: "message" };
 
   let mode: Mode | null = null;
   let functionCallName: string = "";
@@ -111,7 +109,7 @@ export function decodeChatCompletion(
           if (maybeFunctionCall) {
             mode = { type: "function", function: maybeFunctionCall };
           } else {
-            mode = { type: "message", associatedValue: value.choices[0].delta.content! };
+            mode = { type: "message" };
           }
 
           // if we get a message, emit the content and continue;
