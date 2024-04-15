@@ -1,5 +1,17 @@
 # @copilotkit/shared
 
+## 0.9.0-function-calling-fixes.1
+
+### Minor Changes
+
+- gpt-4-turbo-april-2024 function calling fixes
+
+## 0.9.0-alpha.0
+
+### Minor Changes
+
+- gpt-4-turbo-april-2024
+
 ## 0.8.0
 
 ### Minor Changes

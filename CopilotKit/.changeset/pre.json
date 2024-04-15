@@ -1,0 +1,20 @@
+{
+  "mode": "pre",
+  "tag": "function-calling-fixes",
+  "initialVersions": {
+    "next-openai": "1.21.0-alpha.0",
+    "node": "1.21.0-alpha.0",
+    "@copilotkit/backend": "0.9.0-alpha.0",
+    "eslint-config-custom": "0.10.0-alpha.0",
+    "@copilotkit/react-core": "0.25.0-alpha.0",
+    "@copilotkit/react-textarea": "0.35.0-alpha.0",
+    "@copilotkit/react-ui": "0.22.0-alpha.0",
+    "@copilotkit/shared": "0.9.0-alpha.0",
+    "tailwind-config": "0.9.0-alpha.0",
+    "tsconfig": "0.14.0-alpha.0"
+  },
+  "changesets": [
+    "curly-eyes-sing",
+    "thirty-bananas-kneel"
+  ]
+}
