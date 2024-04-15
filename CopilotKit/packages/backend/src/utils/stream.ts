@@ -75,10 +75,13 @@ async function executeFunctionCall(
 }
 
 /**
- * This function decides what to handle server side and what to forward to the client.
- * It also handles the execution of server side functions.
+ * This function intercepts the stream from the chat completion and processes it according to the defined actions.
+ * It decodes the stream, executes any server-side functions as specified in the actions, and forwards the rest to the client.
  *
- * TODO: add proper error handling and logging
+ * @param stream - The incoming ReadableStream of Uint8Array from the chat completion.
+ * @param actions - An array of Action objects that define server-side functions to be executed.
+ * @param debug - A boolean flag to enable debug logging.
+ * @returns A new ReadableStream that is the result of processing the incoming stream.
  */
 export function copilotkitStreamInterceptor(
   stream: ReadableStream<Uint8Array>,
@@ -147,17 +150,17 @@ export function copilotkitStreamInterceptor(
             await cleanup(controller);
             return;
           } // done == true (terminal case)
-          
+
           if (debug) {
             console.log("data: " + JSON.stringify(value) + "\n\n");
           }
 
-          type Mode = 
-            { type: "function"; toolCall: ToolCallPayload } |
-            { type: "message"; associatedValue: string };
+          type Mode =
+            | { type: "function"; toolCall: ToolCallPayload }
+            | { type: "message"; associatedValue: string };
 
           let mode: Mode;
-          const maybeToolCall = value.choices[0].delta.tool_calls?.[0]
+          const maybeToolCall = value.choices[0].delta.tool_calls?.[0];
           if (maybeToolCall) {
             mode = { type: "function", toolCall: maybeToolCall };
           } else {
@@ -168,7 +171,10 @@ export function copilotkitStreamInterceptor(
           // If We are in the middle of a function call and got a non function call chunk
           // or a different function call
           // => execute the function call first
-          if (executeThisFunctionCall && (mode.type != "function" || nextChunkIndex != currentFnIndex)) {
+          if (
+            executeThisFunctionCall &&
+            (mode.type != "function" || nextChunkIndex != currentFnIndex)
+          ) {
             await flushFunctionCall(controller);
           }
           currentFnIndex = nextChunkIndex;
@@ -186,12 +192,12 @@ export function copilotkitStreamInterceptor(
             // Set the function name if present
             const maybeFunctionName = mode.toolCall.function.name;
             if (maybeFunctionName) {
-              functionCallName = maybeFunctionName
+              functionCallName = maybeFunctionName;
             }
             // If we have argument streamed back, add them to the function call arguments
             const maybeArguments = mode.toolCall.function.arguments;
             if (mode.toolCall.function.arguments) {
-              functionCallArguments += maybeArguments
+              functionCallArguments += maybeArguments;
             }
             if (!executeThisFunctionCall) {
               // Decide if we should execute the function call server side
@@ -199,9 +205,9 @@ export function copilotkitStreamInterceptor(
                 executeThisFunctionCall = true;
               }
             }
-              mode.toolCall.function.scope = executeThisFunctionCall ? "server" : "client";
-              writeChatCompletionChunk(controller, value);
-              continue;
+            mode.toolCall.function.scope = executeThisFunctionCall ? "server" : "client";
+            writeChatCompletionChunk(controller, value);
+            continue;
           }
         } catch (error) {
           controller.error(error);
