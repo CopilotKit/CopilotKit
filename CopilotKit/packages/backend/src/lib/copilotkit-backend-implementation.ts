@@ -89,25 +89,18 @@ export class CopilotBackendImplementation {
       }
     }
 
-    // merge server side functions with langserve functions
-    let mergedTools = mergeServerSideTools(
-      this.actions.map(actionToChatCompletionFunction),
-      langserveFunctions.map(actionToChatCompletionFunction),
-    );
-
-    // merge with client side functions
-    mergedTools = mergeServerSideTools(mergedTools, forwardedProps.tools);
+    const serversideTools: Action<any>[] = [...this.actions, ...langserveFunctions];
+    const mergedTools = flattenToolCallsNoDuplicates([
+      ...serversideTools.map(actionToChatCompletionFunction),
+      ...forwardedProps.tools,
+    ]);
 
     try {
       const result = await serviceAdapter.getResponse({
         ...forwardedProps,
         tools: mergedTools,
       });
-      const stream = copilotkitStreamInterceptor(
-        result.stream,
-        [...this.actions, ...langserveFunctions],
-        this.debug,
-      );
+      const stream = copilotkitStreamInterceptor(result.stream, serversideTools, this.debug);
       return { stream, headers: result.headers };
     } catch (error) {
       console.error("Error getting response:", error);
@@ -164,17 +157,14 @@ export class CopilotBackendImplementation {
   }
 }
 
-export function mergeServerSideTools(
-  serverTools: ToolDefinition[],
-  clientTools?: ToolDefinition[],
-) {
-  let allTools: ToolDefinition[] = serverTools.slice();
-  const serverToolsNames = serverTools.map((tool) => tool.function.name);
-  if (clientTools) {
-    allTools = allTools.concat(
-      // filter out any client functions that are already defined on the server
-      clientTools.filter((tool: ToolDefinition) => !serverToolsNames.includes(tool.function.name)),
-    );
+export function flattenToolCallsNoDuplicates(toolsByPriority: ToolDefinition[]): ToolDefinition[] {
+  let allTools: ToolDefinition[] = [];
+  const allToolNames: string[] = [];
+  for (const tool of toolsByPriority) {
+    if (!allToolNames.includes(tool.function.name)) {
+      allTools.push(tool);
+      allToolNames.push(tool.function.name);
+    }
   }
   return allTools;
 }
