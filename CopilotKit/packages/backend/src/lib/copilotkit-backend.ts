@@ -103,13 +103,13 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
   ): Promise<CopilotBackendResult> {
     this.removeBackendOnlyProps(forwardedProps);
 
-    // In case a Copilot Cloud API key is set, remove it from forwardedProps
-    const apiKey = forwardedProps.apiKey;
-    delete forwardedProps.apiKey;
+    // In case Copilot Cloud is configured remove it from the forwardedProps
+    const cloud = forwardedProps.cloud;
+    delete forwardedProps.cloud;
 
     // if an API key is set, log the chat to Copilot Cloud
-    const cloudLogChatPromise = apiKey
-      ? cloudLogChat(apiKey, forwardedProps)
+    const cloudLogChatPromise = cloud
+      ? cloudLogChat(cloud, forwardedProps)
       : Promise.resolve("allowed");
 
     const langserveFunctions: Action<any>[] = [];

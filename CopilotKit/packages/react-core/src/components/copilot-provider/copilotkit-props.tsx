@@ -11,6 +11,14 @@ export interface CopilotKitProps {
   apiKey?: string;
 
   /**
+   * Cloud feature: Restrict to a specific topic.
+   */
+  cloudRestrictToTopic?: {
+    validTopics: string[];
+    invalidTopics?: string[];
+  };
+
+  /**
    * The endpoint for the chat API.
    */
   url: string;

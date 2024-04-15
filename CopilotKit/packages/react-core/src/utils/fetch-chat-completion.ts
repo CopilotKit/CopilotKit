@@ -58,7 +58,7 @@ export async function fetchChatCompletion({
       ...copilotConfig.backendOnlyProps,
       ...excludeBackendOnlyProps(copilotConfig),
       ...(body ? { ...body } : {}),
-      ...(copilotConfig.apiKey ? { apiKey: copilotConfig.apiKey } : {}),
+      ...(copilotConfig.cloud ? { cloud: copilotConfig.cloud } : {}),
     }),
     signal,
   });

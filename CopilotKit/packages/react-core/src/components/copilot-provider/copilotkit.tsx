@@ -132,9 +132,19 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     [removeDocument],
   );
 
+  if (!props.apiKey) {
+    if (props.cloudRestrictToTopic) {
+      throw new Error(
+        "To use the cloudRestrictToTopic feature, please sign up at https://copilotkit.ai and provide an apiKey.",
+      );
+    }
+  }
+
   // get the appropriate CopilotApiConfig from the props
   const copilotApiConfig: CopilotApiConfig = {
-    apiKey: props.apiKey,
+    ...(props.apiKey
+      ? { cloud: { apiKey: props.apiKey, restrictToTopic: props.cloudRestrictToTopic } }
+      : {}),
     chatApiEndpoint: props.url,
     chatApiEndpointV2: `${props.url}/v2`,
     headers: props.headers || {},

@@ -4,14 +4,22 @@ import React, { Ref } from "react";
 import { TreeNodeId } from "../hooks/use-tree";
 import { DocumentPointer } from "../types";
 
+export interface CopilotCloudConfig {
+  apiKey: string;
+  restrictToTopic?: {
+    validTopics: string[];
+    invalidTopics?: string[];
+  };
+}
+
 /**
  * Interface for the configuration of the Copilot API.
  */
 export interface CopilotApiConfig {
   /**
-   * The API key for Copilot Cloud.
+   * The configuration for Copilot Cloud.
    */
-  apiKey?: string;
+  cloud?: CopilotCloudConfig;
 
   /**
    * The endpoint for the chat API.
