@@ -1,5 +1,16 @@
 # @copilotkit/cloud
 
+## 0.9.0-function-calling-fixes.2
+
+### Minor Changes
+
+- fix backend function calling return values
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.9.0-function-calling-fixes.2
+
 ## 0.9.0-function-calling-fixes.1
 
 ### Minor Changes

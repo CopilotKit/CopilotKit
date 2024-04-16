@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.22.0-function-calling-fixes.1",
+  "version": "0.22.0-function-calling-fixes.2",
   "sideEffects": [
     "**/*.css"
   ],

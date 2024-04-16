@@ -1,6 +1,6 @@
 {
   "name": "next-openai",
-  "version": "1.21.0-function-calling-fixes.1",
+  "version": "1.21.0-function-calling-fixes.2",
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_OPTIONS='--inspect' next dev",

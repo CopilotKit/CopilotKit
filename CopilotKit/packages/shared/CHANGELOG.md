@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 0.9.0-function-calling-fixes.2
+
+### Minor Changes
+
+- fix backend function calling return values
+
 ## 0.9.0-function-calling-fixes.1
 
 ### Minor Changes

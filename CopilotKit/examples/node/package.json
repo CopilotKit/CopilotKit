@@ -1,6 +1,6 @@
 {
   "name": "node",
-  "version": "1.21.0-function-calling-fixes.1",
+  "version": "1.21.0-function-calling-fixes.2",
   "private": true,
   "scripts": {
     "start": "node dist/index.js",
