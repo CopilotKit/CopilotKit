@@ -28,25 +28,25 @@ async function executeFunctionCall(
 
   // 1. string
   // Just send the result as the content of the chunk.
-  if (typeof result === "string") {
+  if (result && typeof result === "string") {
     writeChatCompletionResult(controller, action.name, result);
   }
 
   // 2. AIMessage
   // Send the content and function call of the AIMessage as the content of the chunk.
-  else if ("content" in result && typeof result.content === "string") {
+  else if (result && "content" in result && typeof result.content === "string") {
     writeChatCompletionContent(controller, result.content, result.additional_kwargs?.tool_calls);
   }
 
   // 3. BaseMessageChunk
   // Send the content and function call of the AIMessage as the content of the chunk.
-  else if ("lc_kwargs" in result) {
+  else if (result && "lc_kwargs" in result) {
     writeChatCompletionContent(controller, result.lc_kwargs?.content, result.lc_kwargs?.tool_calls);
   }
 
   // 4. IterableReadableStream
   // Stream the result of the LangChain function.
-  else if ("getReader" in result) {
+  else if (result && "getReader" in result) {
     let reader = result.getReader();
     while (true) {
       try {
