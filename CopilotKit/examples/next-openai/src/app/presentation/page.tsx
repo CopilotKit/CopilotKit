@@ -11,7 +11,7 @@ export default function AIPresentation() {
   return (
     <CopilotKit
       url="/api/copilotkit/presentation"
-      apiKey="co-269299cf2f18a87b981df61ff4d9162fc2f45ff710ce89baf46e7f678ec60fbd"
+      apiKey="co-6a3a450c20bfdd472af3e83bf40e161cd57f5468b0113317940a631a95ff323a"
     >
       <CopilotSidebar
         instructions={
