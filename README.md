@@ -33,6 +33,15 @@ Build, deploy, and operate fully custom AI Copilots.
 in-app AI chatbots, AI agents, and AI Textareas.
 </h3>
 
+<div align="center">
+  <a href="https://xwvjd1qy6rx.typeform.com/to/hO695BY6">
+    <picture>
+      <img alt="Apply for Copilot Cloud Early Access!" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/2602b138-d3d2-4036-b816-8f2c11f1b5b0" width="320px" style="max-width:100%; border-radius: 10px;"/>
+    </picture>
+  </a>
+</div>
+
+
 
 
 <p align="center">
