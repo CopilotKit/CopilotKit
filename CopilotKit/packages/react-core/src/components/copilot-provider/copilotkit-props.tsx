@@ -14,6 +14,7 @@ export interface CopilotKitProps {
    * Cloud feature: Restrict to a specific topic.
    */
   cloudRestrictToTopic?: {
+    enabled?: boolean;
     validTopics: string[];
     invalidTopics?: string[];
   };
