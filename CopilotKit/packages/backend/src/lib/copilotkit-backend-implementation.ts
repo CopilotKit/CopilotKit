@@ -120,7 +120,7 @@ export class CopilotBackendImplementation {
       const response = await this.getResponse(await req.json(), serviceAdapter);
       return new Response(response.stream, { headers: response.headers });
     } catch (error: any) {
-      return new Response("", { status: 500, statusText: error.message });
+      return new Response(error, { status: error.status });
     }
   }
 
