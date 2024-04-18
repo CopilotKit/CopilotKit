@@ -40,15 +40,19 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
       maxTokensForOpenAIModel(forwardedProps.model || this.model),
     );
 
-    const stream = this.openai.beta.chat.completions
-      .stream({
+    return new Promise((resolve, reject) => {
+      const stream = this.openai.beta.chat.completions.stream({
         model: this.model,
         ...forwardedProps,
         stream: true,
         messages: messages as any,
-      })
-      .toReadableStream();
-
-    return { stream };
+      });
+      stream.on("error", (error) => {
+        reject(error); // Reject the promise with the error
+      });
+      stream.on("connect", () => {
+        resolve({ stream: stream.toReadableStream() });
+      });
+    });
   }
 }

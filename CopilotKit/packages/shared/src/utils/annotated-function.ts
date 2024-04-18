@@ -123,3 +123,54 @@ export function actionToChatCompletionFunction(action: Action<any>): ToolDefinit
 
   return chatCompletionFunction;
 }
+
+export function annotatedFunctionToAction(
+  annotatedFunction: AnnotatedFunction<any[]>,
+): Action<any> {
+  const parameters: Parameter[] = annotatedFunction.argumentAnnotations.map((annotation) => {
+    switch (annotation.type) {
+      case "string":
+      case "number":
+      case "boolean":
+      case "object":
+        return {
+          name: annotation.name,
+          description: annotation.description,
+          type: annotation.type,
+          required: annotation.required,
+        };
+      case "array":
+        let type;
+        if (annotation.items.type === "string") {
+          type = "string[]";
+        } else if (annotation.items.type === "number") {
+          type = "number[]";
+        } else if (annotation.items.type === "boolean") {
+          type = "boolean[]";
+        } else if (annotation.items.type === "object") {
+          type = "object[]";
+        } else {
+          type = "string[]";
+        }
+        return {
+          name: annotation.name,
+          description: annotation.description,
+          type: type as any,
+          required: annotation.required,
+        };
+    }
+  });
+
+  return {
+    name: annotatedFunction.name,
+    description: annotatedFunction.description,
+    parameters: parameters,
+    handler: (args) => {
+      const paramsInCorrectOrder: any[] = [];
+      for (let arg of annotatedFunction.argumentAnnotations) {
+        paramsInCorrectOrder.push(args[arg.name]);
+      }
+      return annotatedFunction.implementation(...paramsInCorrectOrder);
+    },
+  };
+}

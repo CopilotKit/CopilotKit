@@ -1,5 +1,79 @@
 # tsconfig
 
+## 0.13.0
+
+### Minor Changes
+
+- 1f06d29: declare esm/cjs/types in export
+- fix esm error
+- 5a0b2cf: Inline codeblock style to avoid ESM error
+- e12b921: ESM by default
+
+## 0.13.0-mme-esm-error.2
+
+### Minor Changes
+
+- Inline codeblock style to avoid ESM error
+
+## 0.13.0-mme-esm-error.1
+
+### Minor Changes
+
+- declare esm/cjs/types in export
+
+## 0.13.0-mme-esm-error.0
+
+### Minor Changes
+
+- ESM by default
+
+## 0.12.0
+
+### Minor Changes
+
+- 899aa6e: Backend improvements for running on GCP
+- Improve streamHttpServerResponse for express and firebase apps
+
+## 0.12.0-mme-firebase-fixes.0
+
+### Minor Changes
+
+- Backend improvements for running on GCP
+
+## 0.11.0
+
+### Minor Changes
+
+- Improve Next.js support and action rendering
+
+## 0.10.0
+
+### Minor Changes
+
+- c4010e7: Pre Release
+- be00d61: Alpha
+- ec8481c: Alpha
+- 3fbee5d: OpenAIAdapter-getter
+- e09dc44: Test backward compatibility of AnnotatedFunction on the backend
+- 3f5ad60: OpenAIAdapter: make openai instance gettable
+- 0dd6180: QA
+- 225812d: QA new action type
+- New actions: custom chat components, and typed arguments
+
+## 0.10.0-mme-deprecate-annotated-function.4
+
+### Minor Changes
+
+- Test backward compatibility of AnnotatedFunction on the backend
+
+## 0.10.0-mme-pre-release.3
+
+### Minor Changes
+
+- Pre Release
+- 3fbee5d: OpenAIAdapter-getter
+- 3f5ad60: OpenAIAdapter: make openai instance gettable
+
 ## 0.10.0-mme-function-call-labels.2
 
 ### Minor Changes

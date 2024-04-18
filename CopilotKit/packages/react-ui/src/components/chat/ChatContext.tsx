@@ -82,12 +82,6 @@ export interface CopilotChatLabels {
   thinking?: string;
 
   /**
-   * The message to display when the chat is done executing a function.
-   * @default "✅ Done"
-   */
-  done?: string;
-
-  /**
    * The message to display when an error occurs.
    * @default "❌ An error occurred. Please try again."
    */
@@ -109,6 +103,8 @@ export interface CopilotChatLabels {
 interface ChatContext {
   labels: Required<CopilotChatLabels>;
   icons: Required<CopilotChatIcons>;
+  open: boolean;
+  setOpen: (open: boolean) => void;
 }
 
 export const ChatContext = React.createContext<ChatContext | undefined>(undefined);
@@ -130,6 +126,8 @@ interface ChatContextProps {
   labels?: CopilotChatLabels;
   icons?: CopilotChatIcons;
   children?: React.ReactNode;
+  open: boolean;
+  setOpen: (open: boolean) => void;
 }
 
 export const ChatContextProvider = ({
@@ -139,6 +137,8 @@ export const ChatContextProvider = ({
   labels,
   icons,
   children,
+  open,
+  setOpen,
 }: ChatContextProps) => {
   const context = useMemo(
     () => ({
@@ -148,7 +148,6 @@ export const ChatContextProvider = ({
           title: "CopilotKit",
           placeholder: "Type a message...",
           thinking: "Thinking...",
-          done: "✅ Done",
           error: "❌ An error occurred. Please try again.",
           stopGenerating: "Stop generating",
           regenerateResponse: "Regenerate response",
@@ -169,8 +168,10 @@ export const ChatContextProvider = ({
         },
         icons,
       },
+      open,
+      setOpen,
     }),
-    [labels, icons],
+    [labels, icons, open, setOpen],
   );
   return <ChatContext.Provider value={context}>{children}</ChatContext.Provider>;
 };

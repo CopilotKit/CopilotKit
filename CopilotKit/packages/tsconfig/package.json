@@ -1,6 +1,6 @@
 {
   "name": "tsconfig",
-  "version": "0.10.0-mme-function-call-labels.2",
+  "version": "0.13.0",
   "private": true,
   "license": "MIT",
   "publishConfig": {
