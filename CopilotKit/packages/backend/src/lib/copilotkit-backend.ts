@@ -13,7 +13,7 @@ import {
   remoteChainToAction,
 } from "../utils";
 import { RemoteChain, CopilotKitServiceAdapter } from "../types";
-import { cloudLogChat } from "./cloud";
+import { cloudCheckGuardrailsInput } from "./cloud";
 
 interface CopilotBackendResult {
   stream: ReadableStream;
@@ -108,8 +108,8 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
     delete forwardedProps.cloud;
 
     // if an API key is set, log the chat to Copilot Cloud
-    const cloudLogChatPromise = cloud
-      ? cloudLogChat(cloud, forwardedProps)
+    const cloudCheckGuardrailsInputPromise = cloud
+      ? cloudCheckGuardrailsInput(forwardedProps, cloud)
       : Promise.resolve("allowed");
 
     const langserveFunctions: Action<any>[] = [];
@@ -141,7 +141,7 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
       // wait for the cloud log chat to finish before streaming back the response
       // NOTE: in case there was no API key set, this will resolve immediately
       try {
-        const status = await cloudLogChatPromise;
+        const status = await cloudCheckGuardrailsInputPromise;
         if (status === "denied") {
           // the chat was denied. instead of streaming back the response,
           // we let the client know...

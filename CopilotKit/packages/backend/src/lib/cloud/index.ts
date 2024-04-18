@@ -1,1 +1,1 @@
-export { cloudLogChat } from "./log-chat";
+export { cloudCheckGuardrailsInput } from "./check-guardrails-input";
