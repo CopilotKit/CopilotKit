@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { processMessageStream } from "../utils";
 import { Message, parseStreamPart } from "@copilotkit/shared";

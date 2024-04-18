@@ -1,10 +1,11 @@
-import http from "http";
 import {
   Action,
   ToolDefinition,
   EXCLUDE_FROM_FORWARD_PROPS_KEYS,
   actionToChatCompletionFunction,
   Parameter,
+  AnnotatedFunction,
+  annotatedFunctionToAction,
 } from "@copilotkit/shared";
 import { copilotkitStreamInterceptor, remoteChainToAction } from "../utils";
 import { RemoteChain, CopilotKitServiceAdapter } from "../types";
@@ -15,7 +16,7 @@ interface CopilotBackendResult {
 }
 
 interface CopilotBackendImplementationConstructorParams {
-  actions?: Action<any>[];
+  actions?: Action<any>[] | AnnotatedFunction<any>[];
   langserve?: RemoteChain[];
   debug?: boolean;
 }
@@ -27,7 +28,11 @@ export class CopilotBackendImplementation {
 
   constructor(params?: CopilotBackendImplementationConstructorParams) {
     for (const action of params?.actions || []) {
-      this.actions.push(action);
+      if ("argumentAnnotations" in action) {
+        this.actions.push(annotatedFunctionToAction(action));
+      } else {
+        this.actions.push(action);
+      }
     }
     for (const chain of params?.langserve || []) {
       this.langserve.push(remoteChainToAction(chain));
@@ -35,9 +40,13 @@ export class CopilotBackendImplementation {
     this.debug = params?.debug || false;
   }
 
-  addAction(action: Action<any>): void {
+  addAction(action: Action<any> | AnnotatedFunction<any>): void {
     this.removeAction(action.name);
-    this.actions.push(action);
+    if ("argumentAnnotations" in action) {
+      this.actions.push(annotatedFunctionToAction(action));
+    } else {
+      this.actions.push(action);
+    }
   }
 
   removeAction(actionName: string): void {
@@ -116,13 +125,18 @@ export class CopilotBackendImplementation {
   }
 
   async streamHttpServerResponse(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
+    req: any,
+    res: any,
     serviceAdapter: CopilotKitServiceAdapter,
+    headers?: Record<string, string>,
   ) {
     const bodyParser = new Promise<any>((resolve, reject) => {
+      if ("body" in req) {
+        resolve(req.body);
+        return;
+      }
       let body = "";
-      req.on("data", (chunk) => (body += chunk.toString()));
+      req.on("data", (chunk: any) => (body += chunk.toString()));
       req.on("end", () => {
         try {
           resolve(JSON.parse(body));
@@ -133,7 +147,8 @@ export class CopilotBackendImplementation {
     });
     const forwardedProps = await bodyParser;
     const response = await this.getResponse(forwardedProps, serviceAdapter);
-    res.writeHead(200, response.headers);
+    const mergedHeaders = { ...headers, ...response.headers };
+    res.writeHead(200, mergedHeaders);
     const stream = response.stream;
     const reader = stream.getReader();
 

@@ -22,29 +22,24 @@
 
 
 <h1 align="center">
-The Open-Source Copilot Platform
+The Open-Source Copilot Framework
 </h1>
 
 <h2 align="center">
-Build, deploy, and operate best-in-class AI Copilots.
+Build, deploy, and operate fully custom AI Copilots.
 </h2>
 
 <h3 align="center">
 in-app AI chatbots, AI agents, and AI Textareas.
 </h3>
 
-<div align="center">
-  <a href="https://forms.gle/mKsuL5e7AFSa1KF48">
-    <picture>
-      <img alt="Reserve your place for Copilot Cloud (80 early adopter spots) Early registration closes Feb 22nd" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/356e87db-1f3d-4530-bc1e-295ad1b65816" width="360px" style="max-width:100%; border-radius: 10px;"/>
-    </picture>
-  </a>
-</div>
+
+
 
 
 
 <p align="center">
-  <br />
+  <br/>
     <a href="https://docs.copilotkit.ai" rel="dofollow"><strong>Explore the docs »</strong></a>
   <br />
 </p>
@@ -61,15 +56,18 @@ in-app AI chatbots, AI agents, and AI Textareas.
 
 <p align="center">
    Questions?
-    <a href="https://calendly.com/atai_/copilotkit" rel="dofollow"><strong> Book a call with us  »</strong></a>
+    <a href="https://discord.gg/6dffbvGU3D"> Join our discord  »</a>
     <br />
 </p>
 
 <p align="center">
-  <strong>Copilot support:</strong> We're happy to support your Copilot integration efforts. <br/>
-  You can receive support on <a href="https://discord.gg/6dffbvGU3D">our discord</a>
-   or by <a href="https://calendly.com/atai_/copilotkit" rel="dofollow"> booking a call with us</a>.
+    <br />
+    <a href="https://docs.google.com/forms/d/1L2OIj7s6T2Oso-7FWrS7LcOAYg6afZlTB0R06ZmcW3A"><strong> Apply to join the Copilot Cloud Waitlist </strong></a>
+    <br />
 </p>
+
+
+
 
 ---
 
@@ -95,12 +93,19 @@ in-app AI chatbots, AI agents, and AI Textareas.
       </a>
     </td>
     <td align="center" valign="top">
-      Presentation Demo: <br/>
+      PowerPoint + Copilot <br/>
       <a href="https://github.com/CopilotKit/presentation-demo">https://github.com/CopilotKit/presentation-demo</a> <br/><br>
       <a href="https://github.com/CopilotKit/presentation-demo">
         <img alt="Presentation-Demo" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="200px" style="max-width:100%; border-radius: 10px;"/>
       </a>
     </td>
+<!--     <td align="center" valign="top">
+      Enterprise Onboarding <br/>
+      <a href="https://github.com/CopilotKit/campaign-manager-demo">https://github.com/CopilotKit/campaign-manager-demo</a> <br/><br>
+      <a href="https://github.com/CopilotKit/campaign-manager-demo">
+        <img alt="Presentation-Demo" src="https://github.com/CopilotKit/CopilotKit/assets/746397/3cea8976-55bd-4687-aa53-1ce3b3a41643" width="200px" style="max-width:100%; border-radius: 10px;"/>
+      </a>
+    </td> -->
   </tr>
 </table>
 
@@ -117,10 +122,8 @@ Autocompletions + AI editing + generate from scratch. Grounded on your users' da
 Simply change `textarea` to `CopilotTextarea`.
 
 
-🌟 **Copilot Skills (powered by LangChain):** <br />
-Bring specialized LLM Chains and Graphs into in-app AI Copilot, with a few lines of code (native LangChain / LangGraph, or via LangServe).
-CopilotKit wraps your app, and routes relevant state as input to standalone skill chains (state can come from the frontend, backend, 3rd party integrations, or from the user).
-When the chain returns, the Copilot Engine funnels its output to in-app interaction as needed.
+🌟 **In-App Agents (powered by LangChain):** <br />
+Give agents access to realtime application context, and let agents take action inside applications.
 
 🌟 **Co-Agents (powered by LangChain. Coming soon.):** <br />
 Allow end-users to observe and intervene in an in-app agent’s operations, with native application UX.

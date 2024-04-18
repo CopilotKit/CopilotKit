@@ -1,5 +1,3 @@
-"use client";
-
 import { Parameter } from "@copilotkit/shared";
 import { FrontendAction } from "../types/frontend-action";
 import { useCopilotActionImplementation } from "./use-copilot-action-implementation";

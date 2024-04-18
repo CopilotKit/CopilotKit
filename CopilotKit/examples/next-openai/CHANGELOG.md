@@ -1,5 +1,183 @@
 # web
 
+## 1.20.0
+
+### Minor Changes
+
+- 1f06d29: declare esm/cjs/types in export
+- fix esm error
+- 5a0b2cf: Inline codeblock style to avoid ESM error
+- e12b921: ESM by default
+
+### Patch Changes
+
+- Updated dependencies [1f06d29]
+- Updated dependencies
+- Updated dependencies [5a0b2cf]
+- Updated dependencies [e12b921]
+  - @copilotkit/react-textarea@0.34.0
+  - @copilotkit/react-core@0.24.0
+  - @copilotkit/react-ui@0.21.0
+  - @copilotkit/backend@0.8.0
+  - @copilotkit/shared@0.8.0
+
+## 1.20.0-mme-esm-error.2
+
+### Minor Changes
+
+- Inline codeblock style to avoid ESM error
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.34.0-mme-esm-error.2
+  - @copilotkit/react-core@0.24.0-mme-esm-error.2
+  - @copilotkit/react-ui@0.21.0-mme-esm-error.2
+  - @copilotkit/backend@0.8.0-mme-esm-error.2
+  - @copilotkit/shared@0.8.0-mme-esm-error.2
+
+## 1.20.0-mme-esm-error.1
+
+### Minor Changes
+
+- declare esm/cjs/types in export
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.34.0-mme-esm-error.1
+  - @copilotkit/react-core@0.24.0-mme-esm-error.1
+  - @copilotkit/react-ui@0.21.0-mme-esm-error.1
+  - @copilotkit/backend@0.8.0-mme-esm-error.1
+  - @copilotkit/shared@0.8.0-mme-esm-error.1
+
+## 1.20.0-mme-esm-error.0
+
+### Minor Changes
+
+- ESM by default
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.34.0-mme-esm-error.0
+  - @copilotkit/react-core@0.24.0-mme-esm-error.0
+  - @copilotkit/react-ui@0.21.0-mme-esm-error.0
+  - @copilotkit/shared@0.8.0-mme-esm-error.0
+  - @copilotkit/backend@0.8.0-mme-esm-error.0
+
+## 1.19.0
+
+### Minor Changes
+
+- 899aa6e: Backend improvements for running on GCP
+- Improve streamHttpServerResponse for express and firebase apps
+
+### Patch Changes
+
+- Updated dependencies [899aa6e]
+- Updated dependencies
+  - @copilotkit/backend@0.7.0
+  - @copilotkit/react-core@0.23.0
+  - @copilotkit/react-textarea@0.33.0
+  - @copilotkit/react-ui@0.20.0
+  - @copilotkit/shared@0.7.0
+
+## 1.19.0-mme-firebase-fixes.0
+
+### Minor Changes
+
+- Backend improvements for running on GCP
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.7.0-mme-firebase-fixes.0
+  - @copilotkit/react-core@0.23.0-mme-firebase-fixes.0
+  - @copilotkit/react-textarea@0.33.0-mme-firebase-fixes.0
+  - @copilotkit/react-ui@0.20.0-mme-firebase-fixes.0
+  - @copilotkit/shared@0.7.0-mme-firebase-fixes.0
+
+## 1.18.0
+
+### Minor Changes
+
+- Improve Next.js support and action rendering
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.6.0
+  - @copilotkit/react-core@0.22.0
+  - @copilotkit/react-textarea@0.32.0
+  - @copilotkit/react-ui@0.19.0
+  - @copilotkit/shared@0.6.0
+
+## 1.17.0
+
+### Minor Changes
+
+- c4010e7: Pre Release
+- be00d61: Alpha
+- ec8481c: Alpha
+- 3fbee5d: OpenAIAdapter-getter
+- e09dc44: Test backward compatibility of AnnotatedFunction on the backend
+- 3f5ad60: OpenAIAdapter: make openai instance gettable
+- 0dd6180: QA
+- 225812d: QA new action type
+- New actions: custom chat components, and typed arguments
+
+### Patch Changes
+
+- Updated dependencies [c4010e7]
+- Updated dependencies [be00d61]
+- Updated dependencies [ec8481c]
+- Updated dependencies [3fbee5d]
+- Updated dependencies [e09dc44]
+- Updated dependencies [3f5ad60]
+- Updated dependencies [0dd6180]
+- Updated dependencies [225812d]
+- Updated dependencies
+  - @copilotkit/backend@0.5.0
+  - @copilotkit/react-core@0.21.0
+  - @copilotkit/react-textarea@0.31.0
+  - @copilotkit/react-ui@0.18.0
+  - @copilotkit/shared@0.5.0
+
+## 1.17.0-mme-deprecate-annotated-function.4
+
+### Minor Changes
+
+- Test backward compatibility of AnnotatedFunction on the backend
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.31.0-mme-deprecate-annotated-function.4
+  - @copilotkit/react-core@0.21.0-mme-deprecate-annotated-function.4
+  - @copilotkit/react-ui@0.18.0-mme-deprecate-annotated-function.4
+  - @copilotkit/backend@0.5.0-mme-deprecate-annotated-function.4
+  - @copilotkit/shared@0.5.0-mme-deprecate-annotated-function.4
+
+## 1.17.0-mme-pre-release.3
+
+### Minor Changes
+
+- Pre Release
+- 3fbee5d: OpenAIAdapter-getter
+- 3f5ad60: OpenAIAdapter: make openai instance gettable
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies [3fbee5d]
+- Updated dependencies [3f5ad60]
+  - @copilotkit/backend@0.5.0-mme-pre-release.3
+  - @copilotkit/react-core@0.21.0-mme-pre-release.3
+  - @copilotkit/react-textarea@0.31.0-mme-pre-release.3
+  - @copilotkit/react-ui@0.18.0-mme-pre-release.3
+  - @copilotkit/shared@0.5.0-mme-pre-release.3
+
 ## 1.17.0-mme-function-call-labels.2
 
 ### Minor Changes

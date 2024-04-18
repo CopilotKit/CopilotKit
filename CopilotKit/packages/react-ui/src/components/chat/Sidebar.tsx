@@ -21,8 +21,9 @@ export const CopilotSidebar = (props: CopilotSidebarProps) => {
 
   return (
     <div className={`copilotKitSidebarContentWrapper ${expandedClassName}`}>
-      {props.children}
-      <CopilotChat {...props} {...{ onSetOpen }} />
+      <CopilotChat {...props} {...{ onSetOpen }}>
+        {props.children}
+      </CopilotChat>
     </div>
   );
 };
