@@ -1,5 +1,16 @@
 # @copilotkit/cloud
 
+## 0.9.0-mme-cloud.0
+
+### Minor Changes
+
+- Support input guardrails (cloud)
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.9.0-mme-cloud.0
+
 ## 0.8.0
 
 ### Minor Changes

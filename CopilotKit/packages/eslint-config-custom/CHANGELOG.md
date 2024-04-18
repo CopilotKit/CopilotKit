@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.10.0-mme-cloud.0
+
+### Minor Changes
+
+- Support input guardrails (cloud)
+
 ## 0.9.0
 
 ### Minor Changes

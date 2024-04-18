@@ -1,5 +1,20 @@
 # web
 
+## 1.21.0-mme-cloud.0
+
+### Minor Changes
+
+- Support input guardrails (cloud)
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.35.0-mme-cloud.0
+  - @copilotkit/react-core@0.25.0-mme-cloud.0
+  - @copilotkit/backend@0.9.0-mme-cloud.0
+  - @copilotkit/shared@0.9.0-mme-cloud.0
+  - @copilotkit/react-ui@0.22.0-mme-cloud.0
+
 ## 1.20.0
 
 ### Minor Changes

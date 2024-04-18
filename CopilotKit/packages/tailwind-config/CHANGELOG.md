@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 0.9.0-mme-cloud.0
+
+### Minor Changes
+
+- Support input guardrails (cloud)
+
 ## 0.8.0
 
 ### Minor Changes
