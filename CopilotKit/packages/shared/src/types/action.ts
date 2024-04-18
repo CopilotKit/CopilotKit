@@ -9,57 +9,74 @@ type TypeMap = {
   "object[]": object[];
 };
 
-export type BaseParameter = {
+type AbstractParameter = {
   name: string;
-  type?: Exclude<keyof TypeMap, "string" | "object" | "object[]">; // Exclude object types for BaseParameter
+  type?: keyof TypeMap;
   description?: string;
   required?: boolean;
 };
 
-export type StringParameter = {
-  name: string;
+interface StringParameter extends AbstractParameter {
   type: "string";
-  description?: string;
-  required?: boolean;
   enum?: string[];
-};
+}
 
-export type ObjectParameter = {
-  name: string;
-  type: "object" | "object[]";
-  description?: string;
-  required?: boolean;
+interface ObjectParameter extends AbstractParameter {
+  type: "object";
   attributes?: Parameter[];
-};
+}
 
-export type Parameter = BaseParameter | StringParameter | ObjectParameter;
+interface ObjectArrayParameter extends AbstractParameter {
+  type: "object[]";
+  attributes?: Parameter[];
+}
 
-type EnumParameterType<E, Required> = E extends string
-  ? Required extends false
-    ? E | undefined
-    : E
+type SpecialParameters = StringParameter | ObjectParameter | ObjectArrayParameter;
+interface BaseParameter extends AbstractParameter {
+  type?: Exclude<AbstractParameter["type"], SpecialParameters["type"]>;
+}
+
+export type Parameter = BaseParameter | SpecialParameters;
+
+type OptionalParameterType<P extends AbstractParameter> = P["required"] extends false
+  ? undefined
   : never;
 
-type ObjectTypeParameter<Attributes> = Attributes extends Parameter[]
-  ? MappedParameterTypes<Attributes>
+type StringParameterType<P> = P extends StringParameter
+  ? P extends { enum?: Array<infer E> }
+    ? E
+    : string
   : never;
 
-type ObjectArrayTypeParameter<Attributes> = Attributes extends Parameter[]
-  ? MappedParameterTypes<Attributes>[]
-  : any[];
+type ObjectParameterType<P> = P extends ObjectParameter
+  ? P extends { attributes?: infer Attributes extends Parameter[] }
+    ? MappedParameterTypes<Attributes>
+    : object
+  : never;
 
-type OtherParameterType<Type, Required> = Required extends false
-  ? TypeMap[Type extends keyof TypeMap ? Type : "string"] | undefined
-  : TypeMap[Type extends keyof TypeMap ? Type : "string"];
+type ObjectArrayParameterType<P> = P extends ObjectArrayParameter
+  ? P extends { attributes?: infer Attributes extends Parameter[] }
+    ? MappedParameterTypes<Attributes>[]
+    : any[]
+  : never;
 
-// prettier-ignore
-export type MappedParameterTypes<T extends Parameter[]> = {
-    [P in T[number] as P["name"]]: P extends { enum: Array<infer E> } ? EnumParameterType<E, P["required"]>
-    : P extends { type: "object"; attributes: infer Attributes } ? ObjectTypeParameter<Attributes>
-    : P extends { type: "object[]"; attributes?: never } ? any[]
-    : P extends { type: "object[]"; attributes: infer Attributes } ? ObjectArrayTypeParameter<Attributes>
-    : OtherParameterType<P["type"], P["required"]>;
-};
+type MappedTypeOrString<T> = T extends keyof TypeMap ? TypeMap[T] : string;
+type BaseParameterType<P extends AbstractParameter> = P extends { type: infer T }
+  ? T extends BaseParameter["type"]
+    ? MappedTypeOrString<T>
+    : never
+  : string;
+
+export type MappedParameterTypes<T extends Parameter[] | [] = []> = T extends []
+  ? Record<string, any>
+  : {
+      [P in T[number] as P["name"]]:
+        | OptionalParameterType<P>
+        | StringParameterType<P>
+        | ObjectParameterType<P>
+        | ObjectArrayParameterType<P>
+        | BaseParameterType<P>;
+    };
 
 export type Action<T extends Parameter[] | [] = []> = {
   name: string;
