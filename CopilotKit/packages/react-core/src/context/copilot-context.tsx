@@ -5,7 +5,7 @@ import { TreeNodeId } from "../hooks/use-tree";
 import { DocumentPointer } from "../types";
 
 export interface CopilotCloudConfig {
-  apiKey: string;
+  publicApiKey: string;
   restrictToTopic?: {
     validTopics: string[];
     invalidTopics?: string[];

@@ -6,9 +6,9 @@ import { ReactNode } from "react";
 
 export interface CopilotKitProps {
   /**
-   * The api key for Copilot Cloud.
+   * The public API key for Copilot Cloud.
    */
-  apiKey?: string;
+  publicApiKey?: string;
 
   /**
    * Cloud feature: Restrict to a specific topic.
@@ -22,7 +22,7 @@ export interface CopilotKitProps {
   /**
    * The endpoint for the chat API.
    */
-  url: string;
+  url?: string;
 
   /**
    * additional headers to be sent with the request

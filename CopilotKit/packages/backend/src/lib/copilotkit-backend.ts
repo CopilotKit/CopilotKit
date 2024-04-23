@@ -152,7 +152,7 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
           };
         }
       } catch (error) {
-        console.error("Error logging chat:", error);
+        console.error("Error checking guardrails:", error);
       }
 
       const stream = copilotkitStreamInterceptor(

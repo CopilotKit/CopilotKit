@@ -101,6 +101,11 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
   const abortControllerRef = useRef<AbortController>();
   const threadIdRef = useRef<string | null>(null);
   const runIdRef = useRef<string | null>(null);
+  const publicApiKey = options.copilotConfig.cloud?.publicApiKey;
+  const headers = {
+    ...(options.headers || {}),
+    ...(publicApiKey ? { Authorization: `ApiKey ${publicApiKey}` } : {}),
+  };
 
   const runChatCompletion = async (messages: Message[]): Promise<Message[]> => {
     setIsLoading(true);
@@ -132,7 +137,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
       copilotConfig: { ...options.copilotConfig, body: copilotConfigBody },
       messages: messagesWithContext,
       tools: options.tools,
-      headers: options.headers,
+      headers: headers,
       signal: abortController.signal,
     });
 

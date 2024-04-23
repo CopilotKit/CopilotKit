@@ -10,8 +10,7 @@ export default function AIPresentation() {
 
   return (
     <CopilotKit
-      url="/api/copilotkit/presentation"
-      apiKey="co-db6fe9ddcd91e5466b6fc3e55f981d8d250b2f6dff9c7f640da4249f8534c2fd"
+      publicApiKey="co-public-033cc359ffc5e0991c3e5a0ac434ccca"
       cloudRestrictToTopic={{
         validTopics: ["presentation", "small-talk", "music"],
         invalidTopics: ["math", "science", "history"],

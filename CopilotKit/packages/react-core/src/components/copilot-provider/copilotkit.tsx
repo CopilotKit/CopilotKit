@@ -6,7 +6,12 @@ import {
 } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
 import { DocumentPointer } from "../../types";
-import { FunctionCallHandler, Message, actionToChatCompletionFunction } from "@copilotkit/shared";
+import {
+  COPILOT_CLOUD_CHAT_URL,
+  FunctionCallHandler,
+  Message,
+  actionToChatCompletionFunction,
+} from "@copilotkit/shared";
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { CopilotKitProps } from "./copilotkit-props";
@@ -35,6 +40,12 @@ import { ToolDefinition } from "@copilotkit/shared";
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // Compute all the functions and properties that we need to pass
   // to the CopilotContext.
+
+  if (!props.url && !props.publicApiKey) {
+    throw new Error("Please provide either a url or a publicApiKey to the CopilotKit component.");
+  }
+
+  const chatApiEndpoint = props.url || COPILOT_CLOUD_CHAT_URL;
 
   const [entryPoints, setEntryPoints] = useState<Record<string, FrontendAction<any>>>({});
   const chatComponentsCache = useRef<Record<string, InChatRenderFunction | string>>({});
@@ -132,20 +143,20 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     [removeDocument],
   );
 
-  if (!props.apiKey) {
+  if (!props.publicApiKey) {
     if (props.cloudRestrictToTopic) {
       throw new Error(
-        "To use the cloudRestrictToTopic feature, please sign up at https://copilotkit.ai and provide an apiKey.",
+        "To use the cloudRestrictToTopic feature, please sign up at https://copilotkit.ai and provide a publicApiKey.",
       );
     }
   }
 
   // get the appropriate CopilotApiConfig from the props
   const copilotApiConfig: CopilotApiConfig = {
-    ...(props.apiKey
-      ? { cloud: { apiKey: props.apiKey, restrictToTopic: props.cloudRestrictToTopic } }
+    ...(props.publicApiKey
+      ? { cloud: { publicApiKey: props.publicApiKey, restrictToTopic: props.cloudRestrictToTopic } }
       : {}),
-    chatApiEndpoint: props.url,
+    chatApiEndpoint: chatApiEndpoint,
     chatApiEndpointV2: `${props.url}/v2`,
     headers: props.headers || {},
     body: {
