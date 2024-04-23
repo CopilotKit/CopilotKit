@@ -5,6 +5,7 @@ import {
   FunctionCallHandler,
   encodeResult,
   FunctionCall,
+  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
 } from "@copilotkit/shared";
 
 import { nanoid } from "nanoid";
@@ -101,10 +102,10 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
   const abortControllerRef = useRef<AbortController>();
   const threadIdRef = useRef<string | null>(null);
   const runIdRef = useRef<string | null>(null);
-  const publicApiKey = options.copilotConfig.cloud?.publicApiKey;
+  const publicApiKey = options.copilotConfig.publicApiKey;
   const headers = {
     ...(options.headers || {}),
-    ...(publicApiKey ? { Authorization: `ApiKey ${publicApiKey}` } : {}),
+    ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
   };
 
   const runChatCompletion = async (messages: Message[]): Promise<Message[]> => {

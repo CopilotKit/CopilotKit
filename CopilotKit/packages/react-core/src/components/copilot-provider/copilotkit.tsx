@@ -153,9 +153,8 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
 
   // get the appropriate CopilotApiConfig from the props
   const copilotApiConfig: CopilotApiConfig = {
-    ...(props.publicApiKey
-      ? { cloud: { publicApiKey: props.publicApiKey, restrictToTopic: props.cloudRestrictToTopic } }
-      : {}),
+    publicApiKey: props.publicApiKey,
+    ...(props.publicApiKey ? { cloud: { restrictToTopic: props.cloudRestrictToTopic } } : {}),
     chatApiEndpoint: chatApiEndpoint,
     chatApiEndpointV2: `${props.url}/v2`,
     headers: props.headers || {},

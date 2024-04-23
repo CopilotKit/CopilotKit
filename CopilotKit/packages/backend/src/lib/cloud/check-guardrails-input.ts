@@ -1,4 +1,4 @@
-import { Message } from "@copilotkit/shared";
+import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER, Message } from "@copilotkit/shared";
 import { COPILOT_CLOUD_API_URL } from "@copilotkit/shared";
 
 export interface CloudCheckGuardrailsInputParams {
@@ -12,7 +12,7 @@ export interface CloudCheckGuardrailsInputParams {
   };
 }
 
-const COPILOT_CLOUD_LOG_CHAT_URL = `${COPILOT_CLOUD_API_URL}/copilotkit/guardrails/input`;
+const COPILOT_CLOUD_GUARDRAILS_INPUT_URL = `${COPILOT_CLOUD_API_URL}/copilotkit/guardrails/input`;
 
 function convertToInputParams(forwardedProps: any, cloud: any): CloudCheckGuardrailsInputParams {
   let guardrails = undefined;
@@ -30,23 +30,22 @@ function convertToInputParams(forwardedProps: any, cloud: any): CloudCheckGuardr
   };
 }
 
-export async function cloudCheckGuardrailsInput(forwardedProps: any, cloud: any): Promise<string> {
-  if (!cloud.publicApiKey) {
-    throw new Error("No public API key set for Copilot Cloud");
-  }
-  const publicApiKey = cloud.publicApiKey;
-
+export async function cloudCheckGuardrailsInput(
+  forwardedProps: any,
+  cloud: any,
+  publicApiKey: string,
+): Promise<string> {
   // add guardrails to the cloud props
   const guardrailsProps = convertToInputParams(forwardedProps, cloud);
   if (!guardrailsProps.guardrails) {
     return "allowed";
   }
 
-  const response = await fetch(COPILOT_CLOUD_LOG_CHAT_URL, {
+  const response = await fetch(COPILOT_CLOUD_GUARDRAILS_INPUT_URL, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `ApiKey ${publicApiKey}`,
+      [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey,
     },
     body: JSON.stringify({ ...guardrailsProps }),
   });

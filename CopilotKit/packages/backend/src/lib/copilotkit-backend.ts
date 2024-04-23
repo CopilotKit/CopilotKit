@@ -6,6 +6,7 @@ import {
   Parameter,
   AnnotatedFunction,
   annotatedFunctionToAction,
+  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
 } from "@copilotkit/shared";
 import {
   SingleChunkReadableStream,
@@ -100,6 +101,7 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
   private async getResponse(
     forwardedProps: any,
     serviceAdapter: CopilotKitServiceAdapter,
+    publicApiKey?: string,
   ): Promise<CopilotBackendResult> {
     this.removeBackendOnlyProps(forwardedProps);
 
@@ -108,8 +110,8 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
     delete forwardedProps.cloud;
 
     // if an API key is set, log the chat to Copilot Cloud
-    const cloudCheckGuardrailsInputPromise = cloud
-      ? cloudCheckGuardrailsInput(forwardedProps, cloud)
+    const cloudCheckGuardrailsInputPromise = publicApiKey
+      ? cloudCheckGuardrailsInput(forwardedProps, cloud, publicApiKey)
       : Promise.resolve("allowed");
 
     const langserveFunctions: Action<any>[] = [];
@@ -168,8 +170,9 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
   }
 
   async response(req: Request, serviceAdapter: CopilotKitServiceAdapter): Promise<Response> {
+    const publicApiKey = req.headers.get(COPILOT_CLOUD_PUBLIC_API_KEY_HEADER) || undefined;
     try {
-      const response = await this.getResponse(await req.json(), serviceAdapter);
+      const response = await this.getResponse(await req.json(), serviceAdapter, publicApiKey);
       return new Response(response.stream, { headers: response.headers });
     } catch (error: any) {
       return new Response("", { status: 500, statusText: error.message });
@@ -198,7 +201,8 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
       });
     });
     const forwardedProps = await bodyParser;
-    const response = await this.getResponse(forwardedProps, serviceAdapter);
+    const publicApiKey = req.headers[COPILOT_CLOUD_PUBLIC_API_KEY_HEADER] || undefined;
+    const response = await this.getResponse(forwardedProps, serviceAdapter, publicApiKey);
     const mergedHeaders = { ...headers, ...response.headers };
     res.writeHead(200, mergedHeaders);
     const stream = response.stream;
