@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 0.9.0-mme-cloud.1
+
+### Minor Changes
+
+- Unify api key handling
+
 ## 0.9.0-mme-cloud.0
 
 ### Minor Changes

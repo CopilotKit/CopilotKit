@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.10.0-mme-cloud.1
+
+### Minor Changes
+
+- Unify api key handling
+
 ## 0.10.0-mme-cloud.0
 
 ### Minor Changes

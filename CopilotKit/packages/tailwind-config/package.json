@@ -1,6 +1,6 @@
 {
   "name": "tailwind-config",
-  "version": "0.9.0-mme-cloud.0",
+  "version": "0.9.0-mme-cloud.1",
   "private": true,
   "main": "index.js",
   "devDependencies": {

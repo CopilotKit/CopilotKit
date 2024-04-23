@@ -1,5 +1,17 @@
 # ui
 
+## 0.35.0-mme-cloud.1
+
+### Minor Changes
+
+- Unify api key handling
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.25.0-mme-cloud.1
+  - @copilotkit/shared@0.9.0-mme-cloud.1
+
 ## 0.35.0-mme-cloud.0
 
 ### Minor Changes
