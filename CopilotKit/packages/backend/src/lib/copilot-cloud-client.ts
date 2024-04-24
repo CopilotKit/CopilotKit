@@ -13,6 +13,7 @@ export interface CloudCheckGuardrailsInputParams {
 
 export interface CloudCheckGuardrailsInputResponse {
   status: "allowed" | "denied";
+  reason: string;
 }
 
 export abstract class CopilotCloudClient {
@@ -56,6 +57,6 @@ export class DefaultCopilotCloudClient extends CopilotCloudClient {
       throw new Error("Failed to check input guardrails: " + message);
     }
     const json = await response.json();
-    return { status: json.status };
+    return { status: json.status, reason: json.reason };
   }
 }

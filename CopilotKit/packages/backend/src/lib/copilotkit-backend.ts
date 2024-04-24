@@ -152,9 +152,8 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
           if (checkGuardrailsInputResult.status === "denied") {
             // the chat was denied. instead of streaming back the response,
             // we let the client know...
-            // TODO- this should not be a hardcoded message
             return {
-              stream: new SingleChunkReadableStream(CONTENT_POLICY_VIOLATION_RESPONSE),
+              stream: new SingleChunkReadableStream(checkGuardrailsInputResult.reason),
               headers: result.headers,
             };
           }
