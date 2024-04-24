@@ -85,6 +85,11 @@ in-app AI chatbots, AI agents, and AI Textareas.
 </div>
 <br/>
 
+<div align="center">
+  <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/e2c4c311-0f2c-409f-9f65-5c8454e0c583" width="700px" max-width="100%" style="border-radius: 35px;">
+</div>
+
+
 ## "Hello World" Templates
 
 <table align="center">
