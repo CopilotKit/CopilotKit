@@ -33,10 +33,11 @@
     {
       "group": "Getting Started",
       "pages": [
-        "getting-started/quickstart-textarea",
         "getting-started/quickstart-chatbot",
+        "getting-started/quickstart-textarea",
         "getting-started/quickstart-backend",
-        "getting-started/quickstart-skills-langchain"
+        "getting-started/quickstart-skills-langchain",
+        "getting-started/tutorials"
       ]
     },
     {
