@@ -1,5 +1,23 @@
 # tsconfig
 
+## 0.14.0-function-calling-fixes.2
+
+### Minor Changes
+
+- fix backend function calling return values
+
+## 0.14.0-function-calling-fixes.1
+
+### Minor Changes
+
+- gpt-4-turbo-april-2024 function calling fixes
+
+## 0.14.0-alpha.0
+
+### Minor Changes
+
+- gpt-4-turbo-april-2024
+
 ## 0.13.0
 
 ### Minor Changes

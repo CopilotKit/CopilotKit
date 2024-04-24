@@ -1,4 +1,4 @@
-import { Action, parseChatCompletion } from "@copilotkit/shared";
+import { Action, parseChatCompletion, ToolCallPayload } from "@copilotkit/shared";
 import {
   writeChatCompletionChunk,
   writeChatCompletionContent,
@@ -28,25 +28,25 @@ async function executeFunctionCall(
 
   // 1. string
   // Just send the result as the content of the chunk.
-  if (typeof result === "string") {
+  if (result && typeof result === "string") {
     writeChatCompletionResult(controller, action.name, result);
   }
 
   // 2. AIMessage
   // Send the content and function call of the AIMessage as the content of the chunk.
-  else if ("content" in result && typeof result.content === "string") {
+  else if (result && "content" in result && typeof result.content === "string") {
     writeChatCompletionContent(controller, result.content, result.additional_kwargs?.tool_calls);
   }
 
   // 3. BaseMessageChunk
   // Send the content and function call of the AIMessage as the content of the chunk.
-  else if ("lc_kwargs" in result) {
+  else if (result && "lc_kwargs" in result) {
     writeChatCompletionContent(controller, result.lc_kwargs?.content, result.lc_kwargs?.tool_calls);
   }
 
   // 4. IterableReadableStream
   // Stream the result of the LangChain function.
-  else if ("getReader" in result) {
+  else if (result && "getReader" in result) {
     let reader = result.getReader();
     while (true) {
       try {
@@ -75,10 +75,13 @@ async function executeFunctionCall(
 }
 
 /**
- * This function decides what to handle server side and what to forward to the client.
- * It also handles the execution of server side functions.
+ * This function intercepts the stream from the chat completion and processes it according to the defined actions.
+ * It decodes the stream, executes any server-side functions as specified in the actions, and forwards the rest to the client.
  *
- * TODO: add proper error handling and logging
+ * @param stream - The incoming ReadableStream of Uint8Array from the chat completion.
+ * @param actions - An array of Action objects that define server-side functions to be executed.
+ * @param debug - A boolean flag to enable debug logging.
+ * @returns A new ReadableStream that is the result of processing the incoming stream.
  */
 export function copilotkitStreamInterceptor(
   stream: ReadableStream<Uint8Array>,
@@ -116,7 +119,7 @@ export function copilotkitStreamInterceptor(
   let functionCallName = "";
   let functionCallArguments = "";
 
-  let currentFnIndex = 0;
+  let currentFnIndex: number | null = null;
 
   const flushFunctionCall = async (
     controller: ReadableStreamDefaultController<any>,
@@ -134,6 +137,7 @@ export function copilotkitStreamInterceptor(
       while (true) {
         try {
           const { done, value } = await reader.read();
+
           if (done) {
             if (debug) {
               console.log("data: [DONE]\n\n");
@@ -145,41 +149,53 @@ export function copilotkitStreamInterceptor(
             writeChatCompletionEnd(controller);
             await cleanup(controller);
             return;
-          } else if (debug) {
+          } // done == true (terminal case)
+
+          if (debug) {
             console.log("data: " + JSON.stringify(value) + "\n\n");
           }
 
-          let mode: "function" | "message" = value.choices[0].delta.tool_calls
-            ? "function"
-            : "message";
+          type Mode = { type: "function"; toolCall: ToolCallPayload } | { type: "message" };
 
-          const index = (value.choices[0].delta.tool_calls?.[0]?.index || 0) as number;
-
-          // We are in the middle of a function call and got a non function call chunk
-          // or a different function call
-          // => execute the function call first
-          if (executeThisFunctionCall && (mode != "function" || index != currentFnIndex)) {
-            await flushFunctionCall(controller);
+          let mode: Mode;
+          const maybeToolCall = value.choices[0].delta.tool_calls?.[0];
+          if (maybeToolCall) {
+            mode = { type: "function", toolCall: maybeToolCall };
+          } else {
+            mode = { type: "message" };
           }
 
-          currentFnIndex = index;
+          const nextChunkIndex = mode.type === "function" ? mode.toolCall.index : null;
+          // If We are in the middle of a function call and got a non function call chunk
+          // or a different function call
+          // => execute the function call first
+          if (
+            executeThisFunctionCall &&
+            (mode.type != "function" || nextChunkIndex != currentFnIndex)
+          ) {
+            await flushFunctionCall(controller);
+          }
+          currentFnIndex = nextChunkIndex;
 
           // if we get a message, emit the content and continue;
-          if (mode === "message") {
+          if (mode.type === "message") {
             if (value.choices[0].delta.content) {
               writeChatCompletionChunk(controller, value);
             }
             continue;
           }
+
           // if we get a function call, emit it only if we don't execute it server side
-          else if (mode === "function") {
+          else if (mode.type === "function") {
             // Set the function name if present
-            if (value.choices[0].delta.tool_calls?.[0]?.function?.name) {
-              functionCallName = value.choices[0].delta.tool_calls![0].function.name!;
+            const maybeFunctionName = mode.toolCall.function.name;
+            if (maybeFunctionName) {
+              functionCallName = maybeFunctionName;
             }
             // If we have argument streamed back, add them to the function call arguments
-            if (value.choices[0].delta.tool_calls?.[0]?.function?.arguments) {
-              functionCallArguments += value.choices[0].delta.tool_calls![0].function.arguments!;
+            const maybeArguments = mode.toolCall.function.arguments;
+            if (mode.toolCall.function.arguments) {
+              functionCallArguments += maybeArguments;
             }
             if (!executeThisFunctionCall) {
               // Decide if we should execute the function call server side
@@ -187,13 +203,7 @@ export function copilotkitStreamInterceptor(
                 executeThisFunctionCall = true;
               }
             }
-
-            if (value.choices[0].delta.tool_calls) {
-              // To avoid the client executing the function call as well, we set the scope to "server"
-              value.choices[0].delta.tool_calls[0].function.scope = executeThisFunctionCall
-                ? "server"
-                : "client";
-            }
+            mode.toolCall.function.scope = executeThisFunctionCall ? "server" : "client";
             writeChatCompletionChunk(controller, value);
             continue;
           }
