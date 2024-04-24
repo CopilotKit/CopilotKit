@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.14.0-mme-cloud.4
+
+### Minor Changes
+
+- Include reason in guardrails response
+
 ## 0.14.0-mme-cloud.3
 
 ### Minor Changes

@@ -1,5 +1,16 @@
 # @copilotkit/cloud
 
+## 0.9.0-mme-cloud.4
+
+### Minor Changes
+
+- Include reason in guardrails response
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.9.0-mme-cloud.4
+
 ## 0.9.0-mme-cloud.3
 
 ### Minor Changes

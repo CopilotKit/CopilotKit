@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.10.0-mme-cloud.4
+
+### Minor Changes
+
+- Include reason in guardrails response
+
 ## 0.10.0-mme-cloud.3
 
 ### Minor Changes
