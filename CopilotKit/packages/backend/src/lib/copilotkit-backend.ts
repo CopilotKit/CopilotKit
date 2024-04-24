@@ -133,7 +133,6 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
 
     // merge with client side functions
     mergedTools = mergeServerSideTools(mergedTools, forwardedProps.tools);
-    console.log("Forwarded props:", forwardedProps);
 
     try {
       const result = await serviceAdapter.getResponse({
@@ -208,7 +207,7 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
       });
     });
     const forwardedProps = await bodyParser;
-    const publicApiKey = req.headers[COPILOT_CLOUD_PUBLIC_API_KEY_HEADER] || undefined;
+    const publicApiKey = req.header(COPILOT_CLOUD_PUBLIC_API_KEY_HEADER) || undefined;
     const response = await this.getResponse(forwardedProps, serviceAdapter, publicApiKey);
     const mergedHeaders = { ...headers, ...response.headers };
     res.writeHead(200, mergedHeaders);
