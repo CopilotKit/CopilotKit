@@ -1,5 +1,17 @@
 # ui
 
+## 0.22.0-mme-cloud.3
+
+### Minor Changes
+
+- Retrieve public API key
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.25.0-mme-cloud.3
+  - @copilotkit/shared@0.9.0-mme-cloud.3
+
 ## 0.22.0-mme-cloud.2
 
 ### Minor Changes

@@ -1,5 +1,20 @@
 # web
 
+## 1.21.0-mme-cloud.3
+
+### Minor Changes
+
+- Retrieve public API key
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.35.0-mme-cloud.3
+  - @copilotkit/react-core@0.25.0-mme-cloud.3
+  - @copilotkit/react-ui@0.22.0-mme-cloud.3
+  - @copilotkit/backend@0.9.0-mme-cloud.3
+  - @copilotkit/shared@0.9.0-mme-cloud.3
+
 ## 1.21.0-mme-cloud.2
 
 ### Minor Changes

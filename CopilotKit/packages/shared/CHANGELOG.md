@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 0.9.0-mme-cloud.3
+
+### Minor Changes
+
+- Retrieve public API key
+
 ## 0.9.0-mme-cloud.2
 
 ### Minor Changes

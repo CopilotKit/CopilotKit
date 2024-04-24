@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.14.0-mme-cloud.3
+
+### Minor Changes
+
+- Retrieve public API key
+
 ## 0.14.0-mme-cloud.2
 
 ### Minor Changes

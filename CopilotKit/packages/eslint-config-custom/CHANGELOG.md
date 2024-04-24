@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.10.0-mme-cloud.3
+
+### Minor Changes
+
+- Retrieve public API key
+
 ## 0.10.0-mme-cloud.2
 
 ### Minor Changes
