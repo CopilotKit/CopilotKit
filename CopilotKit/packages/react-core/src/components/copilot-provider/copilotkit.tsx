@@ -8,6 +8,7 @@ import useTree from "../../hooks/use-tree";
 import { DocumentPointer } from "../../types";
 import {
   COPILOT_CLOUD_CHAT_URL,
+  CopilotCloudConfig,
   FunctionCallHandler,
   Message,
   actionToChatCompletionFunction,
@@ -151,10 +152,25 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     }
   }
 
+  let cloud: CopilotCloudConfig | undefined = undefined;
+  if (props.publicApiKey) {
+    cloud = {
+      guardrails: {
+        input: {
+          restrictToTopic: {
+            enabled: props.cloudRestrictToTopic ? true : false,
+            validTopics: props.cloudRestrictToTopic?.validTopics || [],
+            invalidTopics: props.cloudRestrictToTopic?.invalidTopics || [],
+          },
+        },
+      },
+    };
+  }
+
   // get the appropriate CopilotApiConfig from the props
   const copilotApiConfig: CopilotApiConfig = {
     publicApiKey: props.publicApiKey,
-    ...(props.publicApiKey ? { cloud: { restrictToTopic: props.cloudRestrictToTopic } } : {}),
+    ...(cloud ? { cloud } : {}),
     chatApiEndpoint: chatApiEndpoint,
     chatApiEndpointV2: `${props.url}/v2`,
     headers: props.headers || {},

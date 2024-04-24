@@ -7,6 +7,7 @@ import {
   AnnotatedFunction,
   annotatedFunctionToAction,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
+  CopilotCloudConfig,
 } from "@copilotkit/shared";
 import {
   SingleChunkReadableStream,
@@ -14,7 +15,7 @@ import {
   remoteChainToAction,
 } from "../utils";
 import { RemoteChain, CopilotKitServiceAdapter } from "../types";
-import { cloudCheckGuardrailsInput } from "./cloud";
+import { CopilotCloudClient, DefaultCopilotCloudClient } from "./copilot-cloud-client";
 
 interface CopilotBackendResult {
   stream: ReadableStream;
@@ -25,12 +26,14 @@ interface CopilotBackendConstructorParams<T extends Parameter[] | [] = []> {
   actions?: Action<T>[];
   langserve?: RemoteChain[];
   debug?: boolean;
+  cloudClient?: CopilotCloudClient;
 }
 
 interface CopilotDeprecatedBackendConstructorParams<T extends Parameter[] | [] = []> {
   actions?: AnnotatedFunction<any>[];
   langserve?: RemoteChain[];
   debug?: boolean;
+  cloudClient?: CopilotCloudClient;
 }
 
 const CONTENT_POLICY_VIOLATION_RESPONSE =
@@ -40,6 +43,7 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
   private actions: Action<any>[] = [];
   private langserve: Promise<Action<any>>[] = [];
   private debug: boolean = false;
+  private cloudClient: CopilotCloudClient;
 
   constructor(params?: CopilotBackendConstructorParams<T>);
   // @deprecated use Action<T> instead of AnnotatedFunction<T>
@@ -58,6 +62,7 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
       this.langserve.push(remoteChainToAction(chain));
     }
     this.debug = params?.debug || false;
+    this.cloudClient = params?.cloudClient || new DefaultCopilotCloudClient();
   }
 
   addAction<const T extends Parameter[] | [] = []>(action: Action<T>): void;
@@ -106,13 +111,8 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
     this.removeBackendOnlyProps(forwardedProps);
 
     // In case Copilot Cloud is configured remove it from the forwardedProps
-    const cloud = forwardedProps.cloud;
+    const cloud: CopilotCloudConfig = forwardedProps.cloud;
     delete forwardedProps.cloud;
-
-    // if an API key is set, log the chat to Copilot Cloud
-    const cloudCheckGuardrailsInputPromise = publicApiKey
-      ? cloudCheckGuardrailsInput(forwardedProps, cloud, publicApiKey)
-      : Promise.resolve("allowed");
 
     const langserveFunctions: Action<any>[] = [];
 
@@ -133,6 +133,7 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
 
     // merge with client side functions
     mergedTools = mergeServerSideTools(mergedTools, forwardedProps.tools);
+    console.log("Forwarded props:", forwardedProps);
 
     try {
       const result = await serviceAdapter.getResponse({
@@ -140,21 +141,27 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
         tools: mergedTools,
       });
 
-      // wait for the cloud log chat to finish before streaming back the response
-      // NOTE: in case there was no API key set, this will resolve immediately
-      try {
-        const status = await cloudCheckGuardrailsInputPromise;
-        if (status === "denied") {
-          // the chat was denied. instead of streaming back the response,
-          // we let the client know...
-          // TODO- this should not be a hardcoded message
-          return {
-            stream: new SingleChunkReadableStream(CONTENT_POLICY_VIOLATION_RESPONSE),
-            headers: result.headers,
-          };
+      if (publicApiKey !== undefined) {
+        // wait for the cloud log chat to finish before streaming back the response
+        try {
+          const checkGuardrailsInputResult = await this.cloudClient.checkGuardrailsInput({
+            cloud,
+            publicApiKey,
+            messages: forwardedProps.messages || [],
+          });
+
+          if (checkGuardrailsInputResult.status === "denied") {
+            // the chat was denied. instead of streaming back the response,
+            // we let the client know...
+            // TODO- this should not be a hardcoded message
+            return {
+              stream: new SingleChunkReadableStream(CONTENT_POLICY_VIOLATION_RESPONSE),
+              headers: result.headers,
+            };
+          }
+        } catch (error) {
+          console.error("Error checking guardrails:", error);
         }
-      } catch (error) {
-        console.error("Error checking guardrails:", error);
       }
 
       const stream = copilotkitStreamInterceptor(

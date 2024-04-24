@@ -1,15 +1,13 @@
-import { FunctionCallHandler, Message, ToolDefinition } from "@copilotkit/shared";
+import {
+  CopilotCloudConfig,
+  FunctionCallHandler,
+  Message,
+  ToolDefinition,
+} from "@copilotkit/shared";
 import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
 import React, { Ref } from "react";
 import { TreeNodeId } from "../hooks/use-tree";
 import { DocumentPointer } from "../types";
-
-export interface CopilotCloudConfig {
-  restrictToTopic?: {
-    validTopics: string[];
-    invalidTopics?: string[];
-  };
-}
 
 /**
  * Interface for the configuration of the Copilot API.
