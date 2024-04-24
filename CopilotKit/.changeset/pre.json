@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "mme-cloud",
   "initialVersions": {
     "next-openai": "1.21.0-mme-cloud.2",
