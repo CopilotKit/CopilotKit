@@ -3,7 +3,7 @@
 import React from "react";
 import { DestinationRow } from "./destination-row";
 import { Destination } from "./vacation-list";
-import { useMakeCopilotActionable, useMakeCopilotReadable } from "@copilotkit/react-core";
+import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
 
 export type DestinationTableProps = {
   destinations: Destination[];
@@ -38,7 +38,10 @@ function Thead() {
 }
 
 export function DestinationTable({ destinations, heading }: DestinationTableProps) {
-  const copilotPointer = useMakeCopilotReadable(heading);
+  const copilotPointer = useCopilotReadable({
+    description: "Destination table",
+    value: heading,
+  });
 
   const [checkedRows, setCheckedRows] = React.useState<Record<string, boolean>>({});
   const handleCheckChange = (destinationName: string, isChecked: boolean) => {
@@ -48,22 +51,19 @@ export function DestinationTable({ destinations, heading }: DestinationTableProp
     }));
   };
 
-  useMakeCopilotActionable(
+  useCopilotAction(
     {
       name: `selectDestinations_${toCamelCase(heading)}`,
       description: `Set the given destinations as 'selected', on the ${heading} table`,
-      argumentAnnotations: [
+      parameters: [
         {
           name: "destinationNames",
-          type: "array",
-          items: {
-            type: "string",
-          },
+          type: "string[]",
           description: "The names of the destinations to select",
           required: true,
         },
       ],
-      implementation: async (destinationNames: string[]) => {
+      handler: async ({ destinationNames }) => {
         setCheckedRows((prevState) => {
           const newState = { ...prevState };
           destinationNames.forEach((destinationName) => {
@@ -76,22 +76,19 @@ export function DestinationTable({ destinations, heading }: DestinationTableProp
     [],
   );
 
-  useMakeCopilotActionable(
+  useCopilotAction(
     {
       name: `deselectDestinations_${toCamelCase(heading)}`,
       description: `Set the given destinations as de-selected (unselected), on the ${heading} table`,
-      argumentAnnotations: [
+      parameters: [
         {
           name: "destinationNames",
-          type: "array",
-          items: {
-            type: "string",
-          },
+          type: "string[]",
           description: "The names of the destinations to de-select",
           required: true,
         },
       ],
-      implementation: async (destinationNames: string[]) => {
+      handler: async ({ destinationNames }) => {
         setCheckedRows((prevState) => {
           const newState = { ...prevState };
           destinationNames.forEach((destinationName) => {

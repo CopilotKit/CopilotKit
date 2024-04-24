@@ -19,26 +19,39 @@ export interface CopilotTaskConfig {
   includeCopilotReadable?: boolean;
 
   /**
-   * Whether to include actions defined via useMakeCopilotActionable in the task.
+   * Whether to include actions defined via useCopilotAction in the task.
+   * @deprecated Use the `includeCopilotActions` property instead.
    */
   includeCopilotActionable?: boolean;
+
+  /**
+   * Whether to include actions defined via useCopilotAction in the task.
+   */
+  includeCopilotActions?: boolean;
 }
 
 export class CopilotTask<T = any> {
   private instructions: string;
   private actions: FrontendAction<any>[];
   private includeCopilotReadable: boolean;
-  private includeCopilotActionable: boolean;
+  private includeCopilotActions: boolean;
 
   constructor(config: CopilotTaskConfig) {
     this.instructions = config.instructions;
     this.actions = config.actions || [];
-    this.includeCopilotReadable = config.includeCopilotReadable || true;
-    this.includeCopilotActionable = config.includeCopilotActionable || true;
+    this.includeCopilotReadable =
+      config.includeCopilotReadable !== undefined ? config.includeCopilotReadable : true;
+    if (config.includeCopilotActions !== undefined) {
+      this.includeCopilotActions = config.includeCopilotActions;
+    } else if (config.includeCopilotActionable !== undefined) {
+      this.includeCopilotActions = config.includeCopilotActionable;
+    } else {
+      this.includeCopilotActions = true;
+    }
   }
 
   async run(context: CopilotContextParams, data?: T): Promise<void> {
-    const entryPoints = this.includeCopilotActionable ? Object.assign({}, context.entryPoints) : {};
+    const entryPoints = this.includeCopilotActions ? Object.assign({}, context.entryPoints) : {};
 
     // merge functions into entry points
     for (const fn of this.actions) {
