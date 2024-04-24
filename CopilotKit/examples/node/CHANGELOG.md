@@ -1,5 +1,17 @@
 # node
 
+## 1.21.0-mme-cloud.2
+
+### Minor Changes
+
+- streamline cloud configuration
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.9.0-mme-cloud.2
+  - @copilotkit/shared@0.9.0-mme-cloud.2
+
 ## 1.21.0-mme-cloud.1
 
 ### Minor Changes

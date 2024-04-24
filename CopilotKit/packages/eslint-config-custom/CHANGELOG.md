@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.10.0-mme-cloud.2
+
+### Minor Changes
+
+- streamline cloud configuration
+
 ## 0.10.0-mme-cloud.1
 
 ### Minor Changes

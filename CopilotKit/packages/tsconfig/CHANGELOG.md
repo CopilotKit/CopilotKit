@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.14.0-mme-cloud.2
+
+### Minor Changes
+
+- streamline cloud configuration
+
 ## 0.14.0-mme-cloud.1
 
 ### Minor Changes
