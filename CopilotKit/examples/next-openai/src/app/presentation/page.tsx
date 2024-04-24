@@ -11,7 +11,7 @@ export default function AIPresentation() {
   return (
     <CopilotKit
       publicApiKey="co-public-7f1efedaa3c2d0da35a7d14bd8595373"
-      url="http://localhost:4000/copilotkit/engine/openai"
+      url="http://localhost:4000/copilotkit/chat/openai"
       cloudRestrictToTopic={{
         validTopics: ["presentation", "music"],
         invalidTopics: ["math", "science", "history"],
