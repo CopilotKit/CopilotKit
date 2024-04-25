@@ -39,15 +39,9 @@ export class CopilotTask<T = any> {
   constructor(config: CopilotTaskConfig) {
     this.instructions = config.instructions;
     this.actions = config.actions || [];
-    this.includeCopilotReadable =
-      config.includeCopilotReadable !== undefined ? config.includeCopilotReadable : true;
-    if (config.includeCopilotActions !== undefined) {
-      this.includeCopilotActions = config.includeCopilotActions;
-    } else if (config.includeCopilotActionable !== undefined) {
-      this.includeCopilotActions = config.includeCopilotActionable;
-    } else {
-      this.includeCopilotActions = true;
-    }
+    this.includeCopilotReadable = config.includeCopilotReadable !== false;
+    this.includeCopilotActions =
+      config.includeCopilotActions !== false && config.includeCopilotActionable !== false;
   }
 
   async run(context: CopilotContextParams, data?: T): Promise<void> {
