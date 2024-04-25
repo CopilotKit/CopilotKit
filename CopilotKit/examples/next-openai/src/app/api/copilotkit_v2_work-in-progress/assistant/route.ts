@@ -1,6 +1,6 @@
 import { experimental_AssistantResponse } from "@copilotkit/backend";
 import OpenAI from "openai";
-import { MessageContentText } from "openai/resources/beta/threads/messages/messages";
+import { MessageContent } from "openai/resources/beta/threads/messages/messages";
 
 // Create an OpenAI API client (that's edge friendly!)
 const openai = new OpenAI({
@@ -124,9 +124,10 @@ export async function POST(req: Request) {
         sendMessage({
           id: message.id,
           role: "assistant",
-          content: message.content.filter(
-            (content) => content.type === "text",
-          ) as Array<MessageContentText>,
+          content: message.content.filter((content) => content.type === "text") as {
+            type: "text";
+            text: { value: string };
+          }[],
         });
       }
     },
