@@ -34,7 +34,7 @@ in-app AI chatbots, AI agents, and AI Textareas.
 </h3>
 
 <div align="center">
-  <a href="https://xwvjd1qy6rx.typeform.com/to/hO695BY6">
+  <a href="https://go.copilotkit.ai/kM4Lo86">
     <picture>
       <img alt="Apply for Copilot Cloud Early Access!" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/e5723ae4-d09c-4944-a5d1-f1bbc06d8158" width="320px" style="max-width:100%; border-radius: 10px;"/>
     </picture>
