@@ -86,7 +86,7 @@ in-app AI chatbots, AI agents, and AI Textareas.
 <br/>
 
 <div align="center">
-  <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/e2c4c311-0f2c-409f-9f65-5c8454e0c583" width="700px" max-width="100%" style="border-radius: 35px;">
+  <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/1a420e0a-3731-4105-b95c-01e07652723b" width="700px" max-width="100%" style="border-radius: 35px;">
 </div>
 
 
