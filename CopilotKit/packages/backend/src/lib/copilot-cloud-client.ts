@@ -1,5 +1,6 @@
 import {
   COPILOT_CLOUD_API_URL,
+  COPILOT_CLOUD_VERSION,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   CopilotCloudConfig,
   Message,
@@ -32,7 +33,7 @@ export class DefaultCopilotCloudClient extends CopilotCloudClient {
     publicApiKey,
     messages,
   }: CloudCheckGuardrailsInputParams): Promise<CloudCheckGuardrailsInputResponse> {
-    const url = `${this.cloudApiUrl}/copilotkit/guardrails/input`;
+    const url = `${this.cloudApiUrl}/${COPILOT_CLOUD_VERSION}/copilotkit/guardrails/input`;
 
     const response = await fetch(url, {
       method: "PUT",
