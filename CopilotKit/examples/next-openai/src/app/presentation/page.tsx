@@ -10,11 +10,10 @@ export default function AIPresentation() {
 
   return (
     <CopilotKit
-      publicApiKey="co-public-7f1efedaa3c2d0da35a7d14bd8595373"
-      url="http://localhost:4000/v1/copilotkit/runtime/chat"
+      publicApiKey="co-public-033cc359ffc5e0991c3e5a0ac434ccca"
       cloudRestrictToTopic={{
         validTopics: ["presentation", "music"],
-        invalidTopics: ["math", "science", "history"],
+        invalidTopics: ["math", "science"],
       }}
     >
       <CopilotSidebar
