@@ -12,7 +12,7 @@ export default function AIPresentation() {
     <CopilotKit
       publicApiKey="co-public-033cc359ffc5e0991c3e5a0ac434ccca"
       cloudRestrictToTopic={{
-        validTopics: ["presentation", "music"],
+        // validTopics: ["presentation", "music"],
         invalidTopics: ["math", "science"],
       }}
     >
