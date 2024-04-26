@@ -10,7 +10,7 @@ export default function AIPresentation() {
 
   return (
     <CopilotKit
-      publicApiKey="co-public-7f1efedaa3c2d0da35a7d14bd8595373"
+      publicApiKey="co-public-a38d5fd77b506f945b5bc1f655dae16a"
       cloudRestrictToTopic={{
         validTopics: ["presentation", "pop music"],
         invalidTopics: ["the rolling stones"],
