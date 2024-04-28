@@ -66,24 +66,20 @@ import { CopilotBackend, OpenAIAdapter } from "@copilotkit/backend";
 const HEADERS = {
   // make sure to modify CORS headers to match your frontend's origin
   "Access-Control-Allow-Origin": "http://localhost:3000",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT, PATCH, DELETE",
+  "Access-Control-Allow-Headers": "X-Requested-With,content-type",
 };
 
 const server = http.createServer((request, response) => {
   try {
-    const headers = {
-      ...HEADERS,
-      ...(request.method === "POST" && { "Content-Type": "application/json" }),
-    };
-    response.writeHead(200, headers);
-    if (request.method == "POST") {
-      const copilotKit = new CopilotBackend();
-      const openaiAdapter = new OpenAIAdapter();
-      copilotKit.streamHttpServerResponse(request, response, openaiAdapter);
-    } else {
-      response.end("openai server");
+    console.log(`Received request with method: ${request.method}`);
+    if (request.method === "OPTIONS") {
+      response.writeHead(200, HEADERS);
+      response.end();
+      return;
     }
+    const copilotKit = new CopilotBackend();
+    copilotKit.streamHttpServerResponse(request, response, new OpenAIAdapter({}), HEADERS);
   } catch (err) {
     console.error(err);
     response.end("error");
@@ -91,9 +87,9 @@ const server = http.createServer((request, response) => {
 });
 
 const port = 4201;
-const host = "localhost";
-server.listen(port, host);
-console.log(`Listening at http://${host}:${port}`);
+server.listen(port, () => {
+  console.log(`Server running at http://${"localhost"}:${port}/`);
+});
 ```
 
 #### Firebase (GCP) Cloud Function (typescript)
