@@ -35,15 +35,15 @@ in-app AI chatbots, AI agents, and AI Textareas.
 
 <p align="center">
   <a href="https://discord.com/invite/6dffbvGU3D">
-    <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/bf8d96ea-3aeb-4c9a-9043-96a868b7ad0f" alt="Join our Discord" height="50">
+    <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/bf8d96ea-3aeb-4c9a-9043-96a868b7ad0f" alt="Join our Discord" height="30">
   </a>
   &nbsp;&middot;&nbsp;
   <a href="https://docs.copilotkit.ai/getting-started/quickstart-chatbot">
-    <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/a4a0fd04-6aee-4e02-9c3e-3f11d60b4e8b" alt="Read the Docs" height="50">
+    <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/a4a0fd04-6aee-4e02-9c3e-3f11d60b4e8b" alt="Read the Docs" height="30">
   </a>
   &nbsp;&middot;&nbsp;
   <a href="https://docs.google.com/forms/d/e/1FAIpQLScjAFh4RYQhchWkPeXfQTS4p0C_prLDmSWQ6dlJItzzFDOYAg/viewform">
-    <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/28ca62a8-cf93-4d3f-96b0-dc11bf89b734" alt="Try Copilot Cloud" height="50">
+    <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/28ca62a8-cf93-4d3f-96b0-dc11bf89b734" alt="Try Copilot Cloud" height="30">
   </a>
 </p>
 
