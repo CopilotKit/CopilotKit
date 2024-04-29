@@ -32,41 +32,22 @@ Build, deploy, and operate fully custom AI Copilots.
 in-app AI chatbots, AI agents, and AI Textareas.
 </h3>
 
-<div align="center">
-  <a href="https://go.copilotkit.ai/kM4Lo86">
-    <picture>
-      <img alt="Apply for Copilot Cloud Early Access!" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/e5723ae4-d09c-4944-a5d1-f1bbc06d8158" width="320px" style="max-width:100%; border-radius: 10px;"/>
-    </picture>
+
+<p align="center">
+  <a href="https://discord.com/invite/6dffbvGU3D">
+    <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/bf8d96ea-3aeb-4c9a-9043-96a868b7ad0f" alt="Join our Discord" height="50">
   </a>
-</div>
-
-<p align="center">
-  <br/>
-    <a href="https://docs.copilotkit.ai" rel="dofollow"><strong>Explore the docs »</strong></a>
-  <br />
+  &nbsp;&middot;&nbsp;
+  <a href="https://docs.copilotkit.ai/getting-started/quickstart-chatbot">
+    <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/a4a0fd04-6aee-4e02-9c3e-3f11d60b4e8b" alt="Read the Docs" height="50">
+  </a>
+  &nbsp;&middot;&nbsp;
+  <a href="https://docs.google.com/forms/d/e/1FAIpQLScjAFh4RYQhchWkPeXfQTS4p0C_prLDmSWQ6dlJItzzFDOYAg/viewform">
+    <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/28ca62a8-cf93-4d3f-96b0-dc11bf89b734" alt="Try Copilot Cloud" height="50">
+  </a>
 </p>
 
-<p align="center">
-    <a href="https://discord.gg/6dffbvGU3D">Join our Discord</a>
-    ·
-    <a href="https://copilotkit.ai?utm_medium=github&utm_source=github">Website</a>
-    ·
-    <a href="https://github.com/CopilotKit/CopilotKit/issues/new?assignees=&labels=bug&projects=&template=bug_report.md&title=">Report Bug</a>
-    ·
-    <a href="https://github.com/CopilotKit/CopilotKit/issues/new?assignees=&labels=feature+request&projects=&template=feature_request.md&title=">Request Feature</a>
-</p>
 
-<p align="center">
-   Questions?
-    <a href="https://discord.gg/6dffbvGU3D"> Join our discord  »</a>
-    <br />
-</p>
-
-<p align="center">
-    <br />
-    <a href="https://docs.google.com/forms/d/1L2OIj7s6T2Oso-7FWrS7LcOAYg6afZlTB0R06ZmcW3A"><strong> Apply to join the Copilot Cloud Waitlist </strong></a>
-    <br />
-</p>
 
 ---
 
