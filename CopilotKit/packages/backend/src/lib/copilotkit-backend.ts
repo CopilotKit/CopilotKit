@@ -15,7 +15,7 @@ import {
   remoteChainToAction,
 } from "../utils";
 import { RemoteChain, CopilotKitServiceAdapter } from "../types";
-import { CopilotCloudClient, DefaultCopilotCloudClient } from "./copilot-cloud-client";
+import { CopilotCloud, RemoteCopilotCloud } from "./copilot-cloud";
 
 interface CopilotBackendResult {
   stream: ReadableStream;
@@ -26,14 +26,14 @@ interface CopilotBackendConstructorParams<T extends Parameter[] | [] = []> {
   actions?: Action<T>[];
   langserve?: RemoteChain[];
   debug?: boolean;
-  cloudClient?: CopilotCloudClient;
+  copilotCloud?: CopilotCloud;
 }
 
 interface CopilotDeprecatedBackendConstructorParams<T extends Parameter[] | [] = []> {
   actions?: AnnotatedFunction<any>[];
   langserve?: RemoteChain[];
   debug?: boolean;
-  cloudClient?: CopilotCloudClient;
+  copilotCloud?: CopilotCloud;
 }
 
 const CONTENT_POLICY_VIOLATION_RESPONSE =
@@ -43,7 +43,7 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
   private actions: Action<any>[] = [];
   private langserve: Promise<Action<any>>[] = [];
   private debug: boolean = false;
-  private cloudClient: CopilotCloudClient;
+  private copilotCloud: CopilotCloud;
 
   constructor(params?: CopilotBackendConstructorParams<T>);
   // @deprecated use Action<T> instead of AnnotatedFunction<T>
@@ -62,7 +62,7 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
       this.langserve.push(remoteChainToAction(chain));
     }
     this.debug = params?.debug || false;
-    this.cloudClient = params?.cloudClient || new DefaultCopilotCloudClient();
+    this.copilotCloud = params?.copilotCloud || new RemoteCopilotCloud();
   }
 
   addAction<const T extends Parameter[] | [] = []>(action: Action<T>): void;
@@ -140,7 +140,7 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
       if (publicApiKey !== undefined) {
         // wait for the cloud log chat to finish before streaming back the response
         try {
-          const checkGuardrailsInputResult = await this.cloudClient.checkGuardrailsInput({
+          const checkGuardrailsInputResult = await this.copilotCloud.checkGuardrailsInput({
             cloud,
             publicApiKey,
             messages: forwardedProps.messages || [],

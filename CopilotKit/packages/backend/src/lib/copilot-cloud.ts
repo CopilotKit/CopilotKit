@@ -17,13 +17,13 @@ export interface CloudCheckGuardrailsInputResponse {
   reason: string;
 }
 
-export abstract class CopilotCloudClient {
+export abstract class CopilotCloud {
   abstract checkGuardrailsInput(
     params: CloudCheckGuardrailsInputParams,
   ): Promise<CloudCheckGuardrailsInputResponse>;
 }
 
-export class DefaultCopilotCloudClient extends CopilotCloudClient {
+export class RemoteCopilotCloud extends CopilotCloud {
   constructor(private readonly cloudApiUrl: string = COPILOT_CLOUD_API_URL) {
     super();
   }
