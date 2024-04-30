@@ -1,34 +1,22 @@
 # @copilotkit/shared
 
-## 0.9.0-mme-cloud.4
+## 0.9.0-function-calling-fixes.2
 
 ### Minor Changes
 
-- Include reason in guardrails response
+- fix backend function calling return values
 
-## 0.9.0-mme-cloud.3
-
-### Minor Changes
-
-- Retrieve public API key
-
-## 0.9.0-mme-cloud.2
+## 0.9.0-function-calling-fixes.1
 
 ### Minor Changes
 
-- streamline cloud configuration
+- gpt-4-turbo-april-2024 function calling fixes
 
-## 0.9.0-mme-cloud.1
-
-### Minor Changes
-
-- Unify api key handling
-
-## 0.9.0-mme-cloud.0
+## 0.9.0-alpha.0
 
 ### Minor Changes
 
-- Support input guardrails (cloud)
+- gpt-4-turbo-april-2024
 
 ## 0.8.0
 

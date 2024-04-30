@@ -26,7 +26,7 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   // This ensures that any captured variables in the handler are up to date.
   if (dependencies === undefined) {
     if (entryPoints[idRef.current]) {
-      entryPoints[idRef.current].handler = action.handler;
+      entryPoints[idRef.current].handler = action.handler as any;
       if (typeof action.render === "function") {
         if (chatComponentsCache.current !== null) {
           chatComponentsCache.current[action.name] = action.render;
@@ -36,7 +36,7 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   }
 
   useEffect(() => {
-    setEntryPoint(idRef.current, action);
+    setEntryPoint(idRef.current, action as any);
     if (chatComponentsCache.current !== null && action.render !== undefined) {
       chatComponentsCache.current[action.name] = action.render;
     }

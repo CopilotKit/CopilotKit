@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Destination } from "./vacation-list";
-import { useMakeCopilotReadable } from "@copilotkit/react-core";
+import { useCopilotReadable } from "@copilotkit/react-core";
 
 export type DestinationRowProps = {
   destination: Destination;
@@ -17,16 +17,17 @@ export function DestinationRow({
   onCheckChange,
   parentCopilotPointer,
 }: DestinationRowProps) {
-  useMakeCopilotReadable(
-    JSON.stringify({
+  useCopilotReadable({
+    description: "A row in the destination list",
+    value: {
       name: destination.name,
       country: destination.country,
       description: destination.description,
       activities: destination.activities,
       isSelected: isChecked,
-    }),
-    parentCopilotPointer,
-  );
+    },
+    parentId: parentCopilotPointer,
+  });
 
   return (
     <tr key={destination.name}>
