@@ -1,9 +1,5 @@
 "use client";
-import {
-  CopilotKit,
-  useMakeCopilotActionable,
-  useMakeCopilotReadable,
-} from "@copilotkit/react-core";
+import { CopilotKit, useMakeCopilotActionable, useCopilotReadable } from "@copilotkit/react-core";
 import { CopilotTextarea } from "@copilotkit/react-textarea";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
@@ -13,7 +9,10 @@ import "@copilotkit/react-ui/styles.css";
 function InsideHome() {
   const [message, setMessage] = useState("Hello World!");
   const [text, setText] = useState("");
-  useMakeCopilotReadable("This is the current message: " + JSON.stringify(message));
+  useCopilotReadable({
+    description: "This is the current message",
+    value: message,
+  });
   useMakeCopilotActionable(
     {
       name: "displayMessage",

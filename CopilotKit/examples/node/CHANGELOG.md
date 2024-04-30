@@ -1,5 +1,41 @@
 # node
 
+## 1.21.0-function-calling-fixes.2
+
+### Minor Changes
+
+- fix backend function calling return values
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.9.0-function-calling-fixes.2
+  - @copilotkit/shared@0.9.0-function-calling-fixes.2
+
+## 1.21.0-function-calling-fixes.1
+
+### Minor Changes
+
+- gpt-4-turbo-april-2024 function calling fixes
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.9.0-function-calling-fixes.1
+  - @copilotkit/shared@0.9.0-function-calling-fixes.1
+
+## 1.21.0-alpha.0
+
+### Minor Changes
+
+- gpt-4-turbo-april-2024
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.9.0-alpha.0
+  - @copilotkit/shared@0.9.0-alpha.0
+
 ## 1.20.0
 
 ### Minor Changes

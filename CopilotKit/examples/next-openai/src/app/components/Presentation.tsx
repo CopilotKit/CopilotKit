@@ -1,7 +1,7 @@
 "use client";
 import { useCopilotAction, useCopilotContext } from "@copilotkit/react-core";
 import { CopilotTask } from "@copilotkit/react-core";
-import { useMakeCopilotReadable } from "@copilotkit/react-core";
+import { useCopilotReadable } from "@copilotkit/react-core";
 import { useCallback, useMemo, useState } from "react";
 import {
   BackwardIcon,
@@ -27,8 +27,14 @@ export const Presentation = ({ chatInProgress }: { chatInProgress: boolean }) =>
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const currentSlide = useMemo(() => slides[currentSlideIndex], [slides, currentSlideIndex]);
 
-  useMakeCopilotReadable("These are all the slides: " + JSON.stringify(slides));
-  useMakeCopilotReadable("This is the current slide: " + JSON.stringify(currentSlide));
+  useCopilotReadable({
+    description: "These are all the slides",
+    value: slides,
+  });
+  useCopilotReadable({
+    description: "This is the current slide",
+    value: currentSlide,
+  });
 
   useCopilotAction({
     name: "appendSlide",

@@ -1,5 +1,5 @@
 "use client";
-import { useMakeCopilotReadable } from "@copilotkit/react-core";
+import { useCopilotReadable } from "@copilotkit/react-core";
 import { useCallback, useMemo, useState } from "react";
 import { Slide } from "./Slide";
 import { Header } from "./Header";
@@ -25,12 +25,18 @@ export const Presentation = ({ performResearch, setPerformResearch }: Presentati
   /**
    * This makes all slides available to the Copilot.
    */
-  useMakeCopilotReadable("These are all the slides: " + JSON.stringify(slides));
+  useCopilotReadable({
+    description: "These are all the slides",
+    value: slides,
+  });
 
   /**
    * This makes the current slide available to the Copilot.
    */
-  useMakeCopilotReadable("This is the current slide: " + JSON.stringify(currentSlide));
+  useCopilotReadable({
+    description: "This is the current slide",
+    value: currentSlide,
+  });
 
   /**
    * This action allows the Copilot to append a new slide to the presentation.

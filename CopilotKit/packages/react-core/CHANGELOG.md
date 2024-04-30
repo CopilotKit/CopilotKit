@@ -1,5 +1,38 @@
 # ui
 
+## 0.25.0-function-calling-fixes.2
+
+### Minor Changes
+
+- fix backend function calling return values
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.9.0-function-calling-fixes.2
+
+## 0.25.0-function-calling-fixes.1
+
+### Minor Changes
+
+- gpt-4-turbo-april-2024 function calling fixes
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.9.0-function-calling-fixes.1
+
+## 0.25.0-alpha.0
+
+### Minor Changes
+
+- gpt-4-turbo-april-2024
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.9.0-alpha.0
+
 ## 0.24.0
 
 ### Minor Changes

@@ -73,8 +73,8 @@ importers:
         specifier: ^0.2.1
         version: 0.2.1(next@13.4.9)(react-dom@18.2.0)(react@18.2.0)
       openai:
-        specifier: ^4.28.0
-        version: 4.28.4
+        specifier: ^4.33.1
+        version: 4.33.1
       react:
         specifier: ^18.2.0
         version: 18.2.0
@@ -128,8 +128,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/shared
       openai:
-        specifier: ^4.19.0
-        version: 4.19.0
+        specifier: ^4.33.1
+        version: 4.33.1
     devDependencies:
       '@types/node':
         specifier: ^18.11.17
@@ -162,8 +162,8 @@ importers:
         specifier: ^0.1.9
         version: 0.1.9
       openai:
-        specifier: ^4.19.0
-        version: 4.19.0
+        specifier: ^4.33.1
+        version: 4.33.1
     devDependencies:
       '@types/jest':
         specifier: ^29.5.4
@@ -2298,7 +2298,7 @@ packages:
     dependencies:
       '@langchain/core': 0.1.43
       js-tiktoken: 1.0.8
-      openai: 4.28.4
+      openai: 4.33.1
       zod: 3.22.4
       zod-to-json-schema: 3.22.4(zod@3.22.4)
     transitivePeerDependencies:
@@ -2311,7 +2311,7 @@ packages:
     dependencies:
       '@langchain/core': 0.1.43
       js-tiktoken: 1.0.8
-      openai: 4.28.4
+      openai: 4.33.1
       zod: 3.22.4
       zod-to-json-schema: 3.22.4(zod@3.22.4)
     transitivePeerDependencies:
@@ -8028,32 +8028,14 @@ packages:
       mimic-fn: 2.1.0
     dev: true
 
-  /openai@4.19.0:
-    resolution: {integrity: sha512-cJbl0noZyAaXVKBTMMq6X5BAvP1pm2rWYDBnZes99NL+Zh5/4NmlAwyuhTZEru5SqGGZIoiYKeMPXy4bm9DI0w==}
+  /openai@4.33.1:
+    resolution: {integrity: sha512-0DH572aSxGTT1JPOXgJQ9mjiuSPg/7scPot8hLc5I1mfQxPxLXTZWJpWerKaIWOuPkR2nrB0SamGDEehH8RuWA==}
     hasBin: true
     dependencies:
       '@types/node': 18.17.15
       '@types/node-fetch': 2.6.4
       abort-controller: 3.0.0
       agentkeepalive: 4.5.0
-      digest-fetch: 1.3.0
-      form-data-encoder: 1.7.2
-      formdata-node: 4.4.1
-      node-fetch: 2.7.0
-      web-streams-polyfill: 3.2.1
-    transitivePeerDependencies:
-      - encoding
-    dev: false
-
-  /openai@4.28.4:
-    resolution: {integrity: sha512-RNIwx4MT/F0zyizGcwS+bXKLzJ8QE9IOyigDG/ttnwB220d58bYjYFp0qjvGwEFBO6+pvFVIDABZPGDl46RFsg==}
-    hasBin: true
-    dependencies:
-      '@types/node': 18.17.15
-      '@types/node-fetch': 2.6.4
-      abort-controller: 3.0.0
-      agentkeepalive: 4.5.0
-      digest-fetch: 1.3.0
       form-data-encoder: 1.7.2
       formdata-node: 4.4.1
       node-fetch: 2.7.0

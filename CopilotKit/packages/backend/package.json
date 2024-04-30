@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.8.0",
+  "version": "0.9.0-function-calling-fixes.2",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -37,6 +37,6 @@
     "@langchain/openai": "^0.0.13",
     "js-tiktoken": "^1.0.8",
     "langchain": "^0.1.9",
-    "openai": "^4.19.0"
+    "openai": "^4.33.1"
   }
 }

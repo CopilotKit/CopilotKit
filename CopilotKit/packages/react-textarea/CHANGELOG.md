@@ -1,5 +1,41 @@
 # ui
 
+## 0.35.0-function-calling-fixes.2
+
+### Minor Changes
+
+- fix backend function calling return values
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.25.0-function-calling-fixes.2
+  - @copilotkit/shared@0.9.0-function-calling-fixes.2
+
+## 0.35.0-function-calling-fixes.1
+
+### Minor Changes
+
+- gpt-4-turbo-april-2024 function calling fixes
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.25.0-function-calling-fixes.1
+  - @copilotkit/shared@0.9.0-function-calling-fixes.1
+
+## 0.35.0-alpha.0
+
+### Minor Changes
+
+- gpt-4-turbo-april-2024
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.9.0-alpha.0
+  - @copilotkit/react-core@0.25.0-alpha.0
+
 ## 0.34.0
 
 ### Minor Changes
