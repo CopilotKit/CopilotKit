@@ -1,4 +1,9 @@
-import { Action, parseChatCompletion, ToolCallPayload } from "@copilotkit/shared";
+import {
+  Action,
+  parseChatCompletion,
+  ToolCallPayload,
+  ChatCompletionChunk,
+} from "@copilotkit/shared";
 import {
   writeChatCompletionChunk,
   writeChatCompletionContent,
