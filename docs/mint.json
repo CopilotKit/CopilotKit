@@ -49,7 +49,7 @@
         "reference/useMakeCopilotReadable",
         "reference/useCopilotAction",
         "reference/CopilotTask",
-        "reference/CopilotBackend"
+        "reference/CopilotRuntime"
       ]
     },
     {

@@ -1,10 +1,12 @@
 ---
 title: "Quickstart: Backend"
-description: "How to setup the CopilotBackend endpoints"
+description: "How to setup the CopilotRuntime endpoints"
 ---
 
-<img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3" />
-
+<img
+  referrerpolicy="no-referrer-when-downgrade"
+  src="https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3"
+/>
 
 ## Setup
 
@@ -18,17 +20,9 @@ For now you must host your own Backend, which is straightforward:
 Install the CopilotKit backend packagess:
 
 <CodeGroup>
-  ```bash npm
-  npm i @copilotkit/backend
-  ``` 
-  ```bash yarn
-  yarn add @copilotkit/backend
-  ```
-  ```bash pnpm
-  pnpm add @copilotkit/backend
-  ```
+  ```bash npm npm i @copilotkit/backend ``` ```bash yarn yarn add
+  @copilotkit/backend ``` ```bash pnpm pnpm add @copilotkit/backend ```
 </CodeGroup>
-
 
 #### Manually specified endpoint: Next.js edge function (typescript)
 
@@ -39,17 +33,16 @@ OPENAI_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 ```ts /api/copilotkit/openai/route.ts (Next.js)
-import { CopilotBackend, OpenAIAdapter } from "@copilotkit/backend";
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
 
 export const runtime = "edge";
 
 export async function POST(req: Request): Promise<Response> {
-  const copilotKit = new CopilotBackend();
+  const copilotKit = new CopilotRuntime();
 
   return copilotKit.response(req, new OpenAIAdapter());
 }
 ```
-
 
 #### Manually specified endpoint: Node.js (typescript)
 
@@ -61,7 +54,7 @@ OPENAI_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 ```ts index.ts (Node.js)
 import http from "http";
-import { CopilotBackend, OpenAIAdapter } from "@copilotkit/backend";
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
 
 const HEADERS = {
   // make sure to modify CORS headers to match your frontend's origin
@@ -78,7 +71,7 @@ const server = http.createServer((request, response) => {
     };
     response.writeHead(200, headers);
     if (request.method == "POST") {
-      const copilotKit = new CopilotBackend();
+      const copilotKit = new CopilotRuntime();
       const openaiAdapter = new OpenAIAdapter();
       copilotKit.streamHttpServerResponse(request, response, openaiAdapter);
     } else {
