@@ -19,7 +19,12 @@ export interface CopilotKitProps {
   };
 
   /**
-   * The endpoint for the chat API.
+   * the endpoint for the Copilot Runtime instance.
+   */
+  runtimeUrl?: string;
+
+  /**
+   * @deprecated use runtimeUrl instead
    */
   url?: string;
 

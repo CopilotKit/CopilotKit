@@ -46,7 +46,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     throw new Error("Please provide either a url or a publicApiKey to the CopilotKit component.");
   }
 
-  const chatApiEndpoint = props.url || COPILOT_CLOUD_CHAT_URL;
+  const chatApiEndpoint = props.runtimeUrl || props.url || COPILOT_CLOUD_CHAT_URL;
 
   const [entryPoints, setEntryPoints] = useState<Record<string, FrontendAction<any>>>({});
   const chatComponentsCache = useRef<Record<string, InChatRenderFunction | string>>({});
