@@ -1,6 +1,6 @@
 {
   "name": "tsconfig",
-  "version": "0.14.0-mme-cloud.4",
+  "version": "0.14.0-mme-cloud.5",
   "private": true,
   "license": "MIT",
   "publishConfig": {

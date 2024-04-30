@@ -1,5 +1,16 @@
 # ui
 
+## 0.25.0-mme-cloud.5
+
+### Minor Changes
+
+- Update comments
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.9.0-mme-cloud.5
+
 ## 0.25.0-mme-cloud.4
 
 ### Minor Changes

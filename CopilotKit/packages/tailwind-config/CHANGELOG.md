@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 0.9.0-mme-cloud.5
+
+### Minor Changes
+
+- Update comments
+
 ## 0.9.0-mme-cloud.4
 
 ### Minor Changes

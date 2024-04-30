@@ -1,5 +1,20 @@
 # web
 
+## 1.21.0-mme-cloud.5
+
+### Minor Changes
+
+- Update comments
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.35.0-mme-cloud.5
+  - @copilotkit/react-core@0.25.0-mme-cloud.5
+  - @copilotkit/react-ui@0.22.0-mme-cloud.5
+  - @copilotkit/backend@0.9.0-mme-cloud.5
+  - @copilotkit/shared@0.9.0-mme-cloud.5
+
 ## 1.21.0-mme-cloud.4
 
 ### Minor Changes
