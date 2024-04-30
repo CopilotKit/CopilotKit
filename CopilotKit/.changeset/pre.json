@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "function-calling-fixes",
   "initialVersions": {
     "next-openai": "1.21.0-alpha.0",
