@@ -8,6 +8,7 @@
     "**/Thumbs.db": true,
     "**/node_modules/": true,
     "**/dist/": true,
-    "**/.turbo": true
+    "**/.turbo": true,
+    "**/.next": true
   }
 }
