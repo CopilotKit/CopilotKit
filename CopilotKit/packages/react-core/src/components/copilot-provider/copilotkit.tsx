@@ -26,7 +26,7 @@ import { ToolDefinition } from "@copilotkit/shared";
  * NOTE: The backend can use OpenAI, or you can bring your own LLM.
  * For examples of the backend api implementation, see `examples/next-openai` usage (under `src/api/copilotkit`),
  * or read the documentation at https://docs.copilotkit.ai
- * In particular, Getting-Started > Quickstart-Backend: https://docs.copilotkit.ai/getting-started/quickstart-backend
+ * In particular, Getting-Started > Quickstart-Runtime: https://docs.copilotkit.ai/getting-started/quickstart-runtime
  *
  * Example usage:
  * ```

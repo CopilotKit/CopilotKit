@@ -1,10 +1,12 @@
 ---
-title: 'Quickstart: CopilotTextarea'
-description: 'How to integrate CopilotTextarea into your application'
+title: "Quickstart: CopilotTextarea"
+description: "How to integrate CopilotTextarea into your application"
 ---
 
-<img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3" />
-
+<img
+  referrerpolicy="no-referrer-when-downgrade"
+  src="https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3"
+/>
 
 ## Setup
 
@@ -35,7 +37,7 @@ For simplicity's sake, it's recommended you wrap a `CopilotKit` around your enti
 import { CopilotKit } from "@copilotkit/react-core";
 import "@copilotkit/react-textarea/styles.css"; // also import this if you want to use the CopilotTextarea component
 
-export default function RootLayout({children}) {
+export default function RootLayout({ children }) {
   return (
     <CopilotKit url="/path_to_copilotkit_endpoint/see_below">
       {children}
@@ -44,14 +46,14 @@ export default function RootLayout({children}) {
 }
 ```
 
-### Setup the CopilotKit Backend Endpoint:
+### Setup the CopilotKit Runtime Endpoint:
 
 Setup a backend endpoint (and pass its URL as the `url` argument to `CopilotKit`, as above).
 
-See [Quickstart-Backend](/getting-started/quickstart-backend)
-
+See [Quickstart-Runtime](/getting-started/quickstart-runtime)
 
 ## Provide context
+
 You likely want to provide external context to inform CopilotTextarea completions, insertions, and edits.
 
 You can do so through the `useMakeCopilotReadable` and `useMakeCopilotDocumentReadable` react hooks.
@@ -83,9 +85,7 @@ const document: DocumentPointer = {
 
 // ...then, in a react component:
 useMakeCopilotDocumentReadable(document);
-
 ```
-
 
 ## Integrate a CopilotTextarea
 
@@ -93,7 +93,7 @@ useMakeCopilotDocumentReadable(document);
 
 The primary difference is the additional `autosuggestionsConfig` variable, which provides copilot-specific configurations.
 
-See the CopilotTextarea documentation for all parameters. 
+See the CopilotTextarea documentation for all parameters.
 
 ```ts
 import { CopilotTextarea } from "@copilotkit/react-textarea";
@@ -125,4 +125,3 @@ export function SomeReactComponent() {
   );
 }
 ```
-
