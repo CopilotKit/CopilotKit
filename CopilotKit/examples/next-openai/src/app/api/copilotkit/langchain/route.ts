@@ -1,4 +1,4 @@
-import { CopilotBackend, LangChainAdapter } from "@copilotkit/backend";
+import { CopilotRuntime, LangChainAdapter } from "@copilotkit/backend";
 
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
@@ -7,7 +7,7 @@ import { StringOutputParser } from "@langchain/core/output_parsers";
 export const runtime = "edge";
 
 export async function POST(req: Request): Promise<Response> {
-  const copilotKit = new CopilotBackend({
+  const copilotKit = new CopilotRuntime({
     actions: [
       {
         name: "sayHello",

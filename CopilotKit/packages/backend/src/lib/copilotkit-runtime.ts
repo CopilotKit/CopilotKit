@@ -17,19 +17,19 @@ import {
 import { RemoteChain, CopilotKitServiceAdapter } from "../types";
 import { CopilotCloud, RemoteCopilotCloud } from "./copilot-cloud";
 
-interface CopilotBackendResult {
+interface CopilotRuntimeResult {
   stream: ReadableStream;
   headers?: Record<string, string>;
 }
 
-interface CopilotBackendConstructorParams<T extends Parameter[] | [] = []> {
+interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> {
   actions?: Action<T>[];
   langserve?: RemoteChain[];
   debug?: boolean;
   copilotCloud?: CopilotCloud;
 }
 
-interface CopilotDeprecatedBackendConstructorParams<T extends Parameter[] | [] = []> {
+interface CopilotDeprecatedRuntimeConstructorParams<T extends Parameter[] | [] = []> {
   actions?: AnnotatedFunction<any>[];
   langserve?: RemoteChain[];
   debug?: boolean;
@@ -39,17 +39,17 @@ interface CopilotDeprecatedBackendConstructorParams<T extends Parameter[] | [] =
 const CONTENT_POLICY_VIOLATION_RESPONSE =
   "Thank you for your request. Unfortunately, we're unable to fulfill it as it doesn't align with our content policy. We appreciate your understanding.";
 
-export class CopilotBackend<const T extends Parameter[] | [] = []> {
+export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private actions: Action<any>[] = [];
   private langserve: Promise<Action<any>>[] = [];
   private debug: boolean = false;
   private copilotCloud: CopilotCloud;
 
-  constructor(params?: CopilotBackendConstructorParams<T>);
+  constructor(params?: CopilotRuntimeConstructorParams<T>);
   // @deprecated use Action<T> instead of AnnotatedFunction<T>
-  constructor(params?: CopilotDeprecatedBackendConstructorParams<T>);
+  constructor(params?: CopilotDeprecatedRuntimeConstructorParams<T>);
   constructor(
-    params?: CopilotBackendConstructorParams<T> | CopilotDeprecatedBackendConstructorParams<T>,
+    params?: CopilotRuntimeConstructorParams<T> | CopilotDeprecatedRuntimeConstructorParams<T>,
   ) {
     for (const action of params?.actions || []) {
       if ("argumentAnnotations" in action) {
@@ -107,7 +107,7 @@ export class CopilotBackend<const T extends Parameter[] | [] = []> {
     forwardedProps: any,
     serviceAdapter: CopilotKitServiceAdapter,
     publicApiKey?: string,
-  ): Promise<CopilotBackendResult> {
+  ): Promise<CopilotRuntimeResult> {
     this.removeBackendOnlyProps(forwardedProps);
 
     // In case Copilot Cloud is configured remove it from the forwardedProps
@@ -229,3 +229,8 @@ export function flattenToolCallsNoDuplicates(toolsByPriority: ToolDefinition[]):
   }
   return allTools;
 }
+
+/**
+ * @deprecated use CopilotRuntime instead
+ */
+export class CopilotBackend extends CopilotRuntime {}
