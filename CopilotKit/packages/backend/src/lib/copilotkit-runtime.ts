@@ -231,6 +231,6 @@ export function flattenToolCallsNoDuplicates(toolsByPriority: ToolDefinition[]):
 }
 
 /**
- * @deprecated use CopilotRuntime instead.
+ * @deprecated use CopilotRuntime instead
  */
 export class CopilotBackend extends CopilotRuntime {}
