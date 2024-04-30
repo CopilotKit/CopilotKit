@@ -1,5 +1,17 @@
 # node
 
+## 1.21.0-mme-cloud.4
+
+### Minor Changes
+
+- Update comments
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.9.0-mme-cloud.4
+  - @copilotkit/shared@0.9.0-mme-cloud.4
+
 ## 1.21.0-mme-cloud.3
 
 ### Minor Changes
