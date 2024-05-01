@@ -196,7 +196,12 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       });
     });
     const forwardedProps = await bodyParser;
-    const publicApiKey = req.header(COPILOT_CLOUD_PUBLIC_API_KEY_HEADER) || undefined;
+    const publicApiKey =
+      (req.header
+        ? // use header() in express
+          req.header(COPILOT_CLOUD_PUBLIC_API_KEY_HEADER)
+        : // use getHeader() in node http
+          req.getHeader(COPILOT_CLOUD_PUBLIC_API_KEY_HEADER)) || undefined;
     const response = await this.getResponse(forwardedProps, serviceAdapter, publicApiKey);
     const mergedHeaders = { ...headers, ...response.headers };
     res.writeHead(200, mergedHeaders);
