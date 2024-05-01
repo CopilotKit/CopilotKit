@@ -6,10 +6,15 @@ import {
 } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
 import { DocumentPointer } from "../../types";
-import { FunctionCallHandler, actionToChatCompletionFunction } from "@copilotkit/shared";
+import {
+  COPILOT_CLOUD_CHAT_URL,
+  CopilotCloudConfig,
+  FunctionCallHandler,
+  Message,
+  actionToChatCompletionFunction,
+} from "@copilotkit/shared";
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
-import { StandardCopilotApiConfig } from "./standard-copilot-api-config";
 import { CopilotKitProps } from "./copilotkit-props";
 import { ToolDefinition } from "@copilotkit/shared";
 
@@ -21,28 +26,11 @@ import { ToolDefinition } from "@copilotkit/shared";
  * NOTE: The backend can use OpenAI, or you can bring your own LLM.
  * For examples of the backend api implementation, see `examples/next-openai` usage (under `src/api/copilotkit`),
  * or read the documentation at https://docs.copilotkit.ai
- * In particular, Getting-Started > Quickstart-Backend: https://docs.copilotkit.ai/getting-started/quickstart-backend
+ * In particular, Getting-Started > Quickstart-Runtime: https://docs.copilotkit.ai/getting-started/quickstart-runtime
  *
  * Example usage:
  * ```
  * <CopilotKit url="https://your.copilotkit.api">
- *    <App />
- * </CopilotKit>
- * ```
- *
- * or
- *
- * ```
- * const copilotApiConfig = new StandardCopilotApiConfig(
- *  "https://your.copilotkit.api/v1",
- *  "https://your.copilotkit.api/v2",
- *  {},
- *  {}
- *  );
- *
- * // ...
- *
- * <CopilotKit chatApiConfig={copilotApiConfig}>
  *    <App />
  * </CopilotKit>
  * ```
@@ -54,9 +42,16 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // Compute all the functions and properties that we need to pass
   // to the CopilotContext.
 
+  if (!props.runtimeUrl && !props.url && !props.publicApiKey) {
+    throw new Error("Please provide either a url or a publicApiKey to the CopilotKit component.");
+  }
+
+  const chatApiEndpoint = props.runtimeUrl || props.url || COPILOT_CLOUD_CHAT_URL;
+
   const [entryPoints, setEntryPoints] = useState<Record<string, FrontendAction<any>>>({});
   const chatComponentsCache = useRef<Record<string, InChatRenderFunction | string>>({});
   const { addElement, removeElement, printTree } = useTree();
+  const [messages, setMessages] = useState<Message[]>([]);
 
   const {
     addElement: addDocument,
@@ -149,16 +144,41 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     [removeDocument],
   );
 
+  if (!props.publicApiKey) {
+    if (props.cloudRestrictToTopic) {
+      throw new Error(
+        "To use the cloudRestrictToTopic feature, please sign up at https://copilotkit.ai and provide a publicApiKey.",
+      );
+    }
+  }
+
+  let cloud: CopilotCloudConfig | undefined = undefined;
+  if (props.publicApiKey) {
+    cloud = {
+      guardrails: {
+        input: {
+          restrictToTopic: {
+            enabled: props.cloudRestrictToTopic ? true : false,
+            validTopics: props.cloudRestrictToTopic?.validTopics || [],
+            invalidTopics: props.cloudRestrictToTopic?.invalidTopics || [],
+          },
+        },
+      },
+    };
+  }
+
   // get the appropriate CopilotApiConfig from the props
-  const copilotApiConfig: CopilotApiConfig = new StandardCopilotApiConfig(
-    props.url,
-    `${props.url}/v2`,
-    props.headers || {},
-    {
+  const copilotApiConfig: CopilotApiConfig = {
+    publicApiKey: props.publicApiKey,
+    ...(cloud ? { cloud } : {}),
+    chatApiEndpoint: chatApiEndpoint,
+    chatApiEndpointV2: `${props.url}/v2`,
+    headers: props.headers || {},
+    body: {
       ...props.body,
       ...props.backendOnlyProps,
     },
-  );
+  };
 
   return (
     <CopilotContext.Provider
@@ -176,6 +196,8 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         addDocumentContext,
         removeDocumentContext,
         copilotApiConfig: copilotApiConfig,
+        messages,
+        setMessages,
       }}
     >
       {children}

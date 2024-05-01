@@ -7,7 +7,7 @@ description: "Execute one-off tasks using Copilot intelligence."
 
 This class is used to execute one-off tasks, for example on button press. It
 can use the context available via [useMakeCopilotReadable](../useMakeCopilotReadable)
-and the actions provided by [useMakeCopilotActionable](../useMakeCopilotActionable), or
+and the actions provided by [useCopilotAction](../useCopilotAction), or
 you can provided your own context and actions.
 
 <RequestExample>
@@ -69,7 +69,7 @@ Have a look at the [Hello world example](https://github.com/CopilotKit/CopilotKi
 for a more complete example.
 
 It's also possible to provide your own context and actions. In addition, you can specify to ignore
-`useMakeCopilotReadable` and `useMakeCopilotActionable`.
+`useCopilotReadable` and `useCopilotAction`.
 
 ```jsx
 import { 
@@ -82,7 +82,7 @@ const standaloneTask = new CopilotTask({
   data: [...],
   actions: [...],
   includeCopilotReadable: false, // Don't use current context
-  includeCopilotActionable: false, // Don't use current actions
+  includeCopilotActions: false, // Don't use current actions
 });
 
 const context = useCopilotContext();
@@ -105,7 +105,7 @@ standaloneTask.run(context);
 </ResponseField>
 
 <ResponseField name="includeCopilotActionable" type="boolean">
-  Whether to include actions defined via `useMakeCopilotActionable` in the task.
+  Whether to include actions defined via `useCopilotAction` in the task.
 </ResponseField>
 
 ## run()

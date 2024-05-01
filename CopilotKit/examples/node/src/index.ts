@@ -1,5 +1,5 @@
 import http from "http";
-import { CopilotBackend, OpenAIAdapter } from "@copilotkit/backend";
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
 
 const HEADERS = {
   // make sure to modify CORS headers to match your frontend's origin
@@ -18,7 +18,7 @@ const server = http.createServer((request, response) => {
     };
     response.writeHead(200, headers);
     if (request.method == "POST") {
-      const copilotKit = new CopilotBackend();
+      const copilotKit = new CopilotRuntime();
       const openaiAdapter = new OpenAIAdapter();
       copilotKit.streamHttpServerResponse(request, response, openaiAdapter);
     } else {

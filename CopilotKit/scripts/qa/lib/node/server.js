@@ -14,7 +14,7 @@ var server = http.createServer(function (req, res) {
     res.end();
     return;
   }
-  var copilotKit = new backend.CopilotBackend();
+  var copilotKit = new backend.CopilotRuntime();
   copilotKit.streamHttpServerResponse(req, res, new backend.OpenAIAdapter({}), HEADERS);
 });
 server.listen(port, function () {

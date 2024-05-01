@@ -9,12 +9,12 @@
 
 import { onRequest } from "firebase-functions/v2/https";
 // import * as logger from "firebase-functions/logger";
-import { CopilotBackend, OpenAIAdapter } from "@copilotkit/backend";
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
 
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript
 
 export const copilotKit = onRequest((request, response) => {
-  const copilotKit = new CopilotBackend();
+  const copilotKit = new CopilotRuntime();
   copilotKit.streamHttpServerResponse(request, response, new OpenAIAdapter({}));
 });

@@ -30,6 +30,8 @@ export function useCopilotChat({
     getChatCompletionFunctionDescriptions,
     getFunctionCallHandler,
     copilotApiConfig,
+    messages,
+    setMessages,
   } = useContext(CopilotContext);
 
   const systemMessage: Message = useMemo(() => {
@@ -47,7 +49,7 @@ export function useCopilotChat({
     return getChatCompletionFunctionDescriptions();
   }, [getChatCompletionFunctionDescriptions]);
 
-  const { messages, append, reload, stop, isLoading, input, setInput } = useChat({
+  const { append, reload, stop, isLoading, input, setInput } = useChat({
     ...options,
     copilotConfig: copilotApiConfig,
     id: options.id,
@@ -58,6 +60,8 @@ export function useCopilotChat({
     body: {
       ...options.body,
     },
+    messages,
+    setMessages,
   });
 
   const visibleMessages = messages.filter(

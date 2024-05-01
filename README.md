@@ -151,8 +151,8 @@ But roughtly:
 
 - ✅ `useCopilotReadable`: give frontend state to the copilot
 - ✅ `useMakeCopilotDocumentReadable`: give document state to the copilot, especially useful with 3rd party state (e.g. Gong call transcript).
-- ✅ `useMakeCopilotActionable`: frontend application interaction
-- ✅ `CopilotBackend`: backend application interaction
+- ✅ `useCopilotAction`: frontend application interaction
+- ✅ `CopilotRuntime`: server side runtime
 - 🚧 `useCopilotChain`: provide usecase-specific LLM chains
 
 ### Built-in UI components
@@ -180,22 +180,19 @@ function MyAmazingContent() {
     value: importantInfo,
   });
 
-  useMakeCopilotActionable(
+  useCopilotAction(
     {
       name: `selectDestinations_${toCamelCase(heading)}`,
       description: `Set the given destinations as 'selected', on the ${heading} table`,
-      argumentAnnotations: [
+      parameters: [
         {
           name: "destinationNames",
-          type: "array",
-          items: {
-            type: "string",
-          },
+          type: "string[]",
           description: "The names of the destinations to select",
           required: true,
         },
       ],
-      implementation: async (destinationNames: string[]) => {
+      handler: async ({ destinationNames }) => {
         setCheckedRows((prevState) => {
           const newState = { ...prevState };
           destinationNames.forEach((destinationName) => {
@@ -277,7 +274,7 @@ return (
 
 - ✅ `useCopilotReadable`: give frontend state to the copilot
 - ✅ `useMakeCopilotDocumentReadable`: give document state to the copilot, especially useful with 3rd party state (e.g. Gong call transcript)
-- ✅ `useMakeCopilotActionable`: Let the copilot interact with the application
+- ✅ `useCopilotAction`: Let the copilot interact with the application
 - 🚧 `useMakeCopilotAskable`: let the copilot ask for additional information when needed (coming soon)
 - 🚧 `useCopilotChain`: provide usecase-specific chain
 - 🚧 `useEditCopilotMessage`: edit the (unsent) typed user message to the copilot (coming soon)

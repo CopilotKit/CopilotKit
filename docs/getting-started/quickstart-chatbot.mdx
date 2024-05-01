@@ -1,9 +1,12 @@
 ---
-title: 'Quickstart: chatbot'
-description: 'How to deeply integrate a chatbot into your application'
+title: "Quickstart: chatbot"
+description: "How to deeply integrate a chatbot into your application"
 ---
 
-<img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3" />
+<img
+  referrerpolicy="no-referrer-when-downgrade"
+  src="https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3"
+/>
 
 ## Setup
 
@@ -34,7 +37,7 @@ For simplicity's sake, it's recommended you wrap both around your entire applica
 "use client";
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css"; 
+import "@copilotkit/react-ui/styles.css";
 
 export default function RootLayout({children}) {
   return (
@@ -51,13 +54,13 @@ export default function RootLayout({children}) {
 
 Setup a backend endpoint (and pass its URL as the `url` argument to `CopilotKit`, as above).
 
-See [Quickstart-Backend](/getting-started/quickstart-backend)
-
+See [Quickstart-Backend](/getting-started/quickstart-runtime)
 
 ## Provide context
+
 You likely want to provide external context to inform CopilotTextarea completions, insertions, and edits.
 
-You can do so through the `useMakeCopilotReadable` and `useMakeCopilotDocumentReadable` react hooks.
+You can do so through the `useCopilotReadable` and `useMakeCopilotDocumentReadable` react hooks.
 See their respective documentation for additional details.
 
 In particular, you can specify categories which bind specific context to specific textareas, and not to others.
@@ -65,53 +68,72 @@ In particular, you can specify categories which bind specific context to specifi
 ```ts
 "use client";
 
-import { useMakeCopilotReadable } from '@copilotkit/react-core';
-import { useMakeCopilotDocumentReadable, DocumentPointer } from '@copilotkit/react-document';
+import { useCopilotReadable } from "@copilotkit/react-core";
+import {
+  useMakeCopilotDocumentReadable,
+  DocumentPointer,
+} from "@copilotkit/react-document";
 
-// You can pass top-level data to the Copilot engine by calling `useMakeCopilotReadable`.
-const employeeContextId = useMakeCopilotReadable(employeeName);
+// You can pass top-level data to the Copilot engine by calling `useCopilotReadable`.
+const employeeContextId = useCopilotReadable({
+  description: "Employee name",
+  value: employeeName,
+});
 
 // Pass a parentID to maintain a hiearchical structure.
 //
 // This example is a bit artificial, but this sort of hiearchical data
 // comes in handy with child React components, list elements, etc.
-useMakeCopilotReadable(workProfile.description(), employeeContextId);
-useMakeCopilotReadable(metadata.description(), employeeContextId);
+useCopilotReadable({
+  description: "Employee work profile",
+  value: workProfile.description(),
+  parentId: employeeContextId,
+});
+useCopilotReadable({
+  description: "Employee metadata",
+  value: metadata.description(),
+  parentId: employeeContextId,
+});
 
 const document: DocumentPointer = {
   id: "2",
   name: "Travel Pet Peeves",
   sourceApplication: "Google Docs",
   iconImageUri: "/images/GoogleDocs.svg",
-  getContents: () => { return "hello document" },
+  getContents: () => {
+    return "hello document";
+  },
 } as DocumentPointer;
 
 // ...then, in a react component:
-useMakeCopilotDocumentReadable(document);// You can pass top-level data to the Copilot engine by calling `useMakeCopilotReadable`.
-const employeeContextId = useMakeCopilotReadable(employeeName);
+useMakeCopilotDocumentReadable(document); // You can pass top-level data to the Copilot engine by calling `useCopilotReadable`.
+const employeeContextId = useCopilotReadable({
+  description: "Employee name",
+  value: employeeName,
+});
 ```
 
-
 ## Let the Copilot take action
+
 ```ts
 "use client";
 
-import { useMakeCopilotActionable } from '@copilotkit/react-core';
+import { useCopilotAction } from "@copilotkit/react-core";
 
 // Let the copilot take action on behalf of the user.
-useMakeCopilotActionable(
+useCopilotAction(
   {
     name: "setEmployeesAsSelected", // no spaces allowed in the function name
     description: "Set the given employees as 'selected'",
-    argumentAnnotations: [
+    parameters: [
       {
         name: "employeeIds",
-        type: "array", items: { type: "string" }
+        type: "string[]",
         description: "The IDs of employees to set as selected",
-        required: true
-      }
+        required: true,
+      },
     ],
-    implementation: async (employeeIds) => setEmployeesAsSelected(employeeIds),
+    handler: async ({ employeeIds }) => setEmployeesAsSelected(employeeIds),
   },
   []
 );
@@ -121,7 +143,7 @@ useMakeCopilotActionable(
 
 The primary difference is the additional `autosuggestionsConfig` variable, which provides copilot-specific configurations.
 
-See the CopilotTextarea documentation for all parameters. 
+See the CopilotTextarea documentation for all parameters.
 
 ```ts
 import { CopilotTextarea } from "@copilotkit/react-textarea";
@@ -138,7 +160,8 @@ export function SomeReactComponent() {
         onValueChange={(value: string) => setText(value)}
         placeholder="What are your plans for your vacation?"
         autosuggestionsConfig={{
-          textareaPurpose: "Travel notes from the user's previous vacations. Likely written in a colloquial style, but adjust as needed.",
+          textareaPurpose:
+            "Travel notes from the user's previous vacations. Likely written in a colloquial style, but adjust as needed.",
           chatApiConfigs: {
             suggestionsApiConfig: {
               forwardedParams: {
@@ -153,4 +176,3 @@ export function SomeReactComponent() {
   );
 }
 ```
-

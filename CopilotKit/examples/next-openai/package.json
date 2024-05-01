@@ -1,6 +1,6 @@
 {
   "name": "next-openai",
-  "version": "1.21.0-function-calling-fixes.2",
+  "version": "1.21.0-mme-cloud.7",
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_OPTIONS='--inspect' next dev",
@@ -16,10 +16,10 @@
     "@copilotkit/react-ui": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@heroicons/react": "^2.0.18",
-    "@langchain/community": "^0.0.29",
-    "@langchain/core": "^0.1.29",
-    "@langchain/langgraph": "^0.0.7",
-    "@langchain/openai": "^0.0.14",
+    "@langchain/community": "^0.0.53",
+    "@langchain/core": "^0.1.61",
+    "@langchain/langgraph": "^0.0.12",
+    "@langchain/openai": "^0.0.28",
     "clsx": "^1.2.1",
     "langchain": "^0.1.19",
     "next": "^13.4.9",

@@ -5,6 +5,7 @@ import {
   FunctionCallHandler,
   encodeResult,
   FunctionCall,
+  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
 } from "@copilotkit/shared";
 
 import { nanoid } from "nanoid";
@@ -58,8 +59,6 @@ export type UseChatOptions = {
 };
 
 export type UseChatHelpers = {
-  /** Current messages in the chat */
-  messages: Message[];
   /**
    * Append a user message to the chat list. This triggers the API call to fetch
    * the assistant's response.
@@ -86,15 +85,28 @@ export type UseChatHelpers = {
 
 export type UseChatOptionsWithCopilotConfig = UseChatOptions & {
   copilotConfig: CopilotApiConfig;
+  /**
+   * The current list of messages in the chat.
+   */
+  messages: Message[];
+  /**
+   * The setState-powered method to update the chat messages.
+   */
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
 };
 
 export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelpers {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const { messages, setMessages } = options;
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const abortControllerRef = useRef<AbortController>();
   const threadIdRef = useRef<string | null>(null);
   const runIdRef = useRef<string | null>(null);
+  const publicApiKey = options.copilotConfig.publicApiKey;
+  const headers = {
+    ...(options.headers || {}),
+    ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
+  };
 
   const runChatCompletion = async (messages: Message[]): Promise<Message[]> => {
     setIsLoading(true);
@@ -126,7 +138,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
       copilotConfig: { ...options.copilotConfig, body: copilotConfigBody },
       messages: messagesWithContext,
       tools: options.tools,
-      headers: options.headers,
+      headers: headers,
       signal: abortController.signal,
     });
 
@@ -306,7 +318,6 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
   };
 
   return {
-    messages,
     append,
     reload,
     stop,

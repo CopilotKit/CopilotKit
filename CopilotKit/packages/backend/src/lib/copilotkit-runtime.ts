@@ -6,27 +6,48 @@ import {
   Parameter,
   AnnotatedFunction,
   annotatedFunctionToAction,
+  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
+  CopilotCloudConfig,
 } from "@copilotkit/shared";
-import { copilotkitStreamInterceptor, remoteChainToAction } from "../utils";
+import {
+  SingleChunkReadableStream,
+  copilotkitStreamInterceptor,
+  remoteChainToAction,
+} from "../utils";
 import { RemoteChain, CopilotKitServiceAdapter } from "../types";
+import { CopilotCloud, RemoteCopilotCloud } from "./copilot-cloud";
 
-interface CopilotBackendResult {
+interface CopilotRuntimeResult {
   stream: ReadableStream;
   headers?: Record<string, string>;
 }
 
-interface CopilotBackendImplementationConstructorParams {
-  actions?: Action<any>[] | AnnotatedFunction<any>[];
+interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> {
+  actions?: Action<T>[];
   langserve?: RemoteChain[];
   debug?: boolean;
+  copilotCloud?: CopilotCloud;
 }
 
-export class CopilotBackendImplementation {
+interface CopilotDeprecatedRuntimeConstructorParams<T extends Parameter[] | [] = []> {
+  actions?: AnnotatedFunction<any>[];
+  langserve?: RemoteChain[];
+  debug?: boolean;
+  copilotCloud?: CopilotCloud;
+}
+
+export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private actions: Action<any>[] = [];
   private langserve: Promise<Action<any>>[] = [];
   private debug: boolean = false;
+  private copilotCloud: CopilotCloud;
 
-  constructor(params?: CopilotBackendImplementationConstructorParams) {
+  constructor(params?: CopilotRuntimeConstructorParams<T>);
+  // @deprecated use Action<T> instead of AnnotatedFunction<T>
+  constructor(params?: CopilotDeprecatedRuntimeConstructorParams<T>);
+  constructor(
+    params?: CopilotRuntimeConstructorParams<T> | CopilotDeprecatedRuntimeConstructorParams<T>,
+  ) {
     for (const action of params?.actions || []) {
       if ("argumentAnnotations" in action) {
         this.actions.push(annotatedFunctionToAction(action));
@@ -38,9 +59,15 @@ export class CopilotBackendImplementation {
       this.langserve.push(remoteChainToAction(chain));
     }
     this.debug = params?.debug || false;
+    this.copilotCloud = params?.copilotCloud || new RemoteCopilotCloud();
   }
 
-  addAction(action: Action<any> | AnnotatedFunction<any>): void {
+  addAction<const T extends Parameter[] | [] = []>(action: Action<T>): void;
+  /** @deprecated Use addAction with Action<T> instead. */
+  addAction(action: AnnotatedFunction<any>): void;
+  addAction<const T extends Parameter[] | [] = []>(
+    action: Action<T> | AnnotatedFunction<any>,
+  ): void {
     this.removeAction(action.name);
     if ("argumentAnnotations" in action) {
       this.actions.push(annotatedFunctionToAction(action));
@@ -76,8 +103,14 @@ export class CopilotBackendImplementation {
   private async getResponse(
     forwardedProps: any,
     serviceAdapter: CopilotKitServiceAdapter,
-  ): Promise<CopilotBackendResult> {
+    publicApiKey?: string,
+  ): Promise<CopilotRuntimeResult> {
     this.removeBackendOnlyProps(forwardedProps);
+
+    // In case Copilot Cloud is configured remove it from the forwardedProps
+    const cloud: CopilotCloudConfig = forwardedProps.cloud;
+    delete forwardedProps.cloud;
+
     const langserveFunctions: Action<any>[] = [];
 
     for (const chainPromise of this.langserve) {
@@ -92,7 +125,7 @@ export class CopilotBackendImplementation {
     const serversideTools: Action<any>[] = [...this.actions, ...langserveFunctions];
     const mergedTools = flattenToolCallsNoDuplicates([
       ...serversideTools.map(actionToChatCompletionFunction),
-      ...forwardedProps.tools,
+      ...(forwardedProps.tools || []),
     ]);
 
     try {
@@ -100,6 +133,28 @@ export class CopilotBackendImplementation {
         ...forwardedProps,
         tools: mergedTools,
       });
+
+      if (publicApiKey !== undefined) {
+        // wait for the cloud log chat to finish before streaming back the response
+        try {
+          const checkGuardrailsInputResult = await this.copilotCloud.checkGuardrailsInput({
+            cloud,
+            publicApiKey,
+            messages: forwardedProps.messages || [],
+          });
+
+          if (checkGuardrailsInputResult.status === "denied") {
+            // the chat was denied. instead of streaming back the response,
+            // we let the client know...
+            return {
+              stream: new SingleChunkReadableStream(checkGuardrailsInputResult.reason),
+              headers: result.headers,
+            };
+          }
+        } catch (error) {
+          console.error("Error checking guardrails:", error);
+        }
+      }
       const stream = copilotkitStreamInterceptor(result.stream, serversideTools, this.debug);
       return { stream, headers: result.headers };
     } catch (error) {
@@ -109,8 +164,10 @@ export class CopilotBackendImplementation {
   }
 
   async response(req: Request, serviceAdapter: CopilotKitServiceAdapter): Promise<Response> {
+    const publicApiKey = req.headers.get(COPILOT_CLOUD_PUBLIC_API_KEY_HEADER) || undefined;
     try {
-      const response = await this.getResponse(await req.json(), serviceAdapter);
+      const forwardedProps = await req.json();
+      const response = await this.getResponse(forwardedProps, serviceAdapter, publicApiKey);
       return new Response(response.stream, { headers: response.headers });
     } catch (error: any) {
       return new Response(error, { status: error.status });
@@ -139,7 +196,13 @@ export class CopilotBackendImplementation {
       });
     });
     const forwardedProps = await bodyParser;
-    const response = await this.getResponse(forwardedProps, serviceAdapter);
+    const publicApiKey =
+      (req.header
+        ? // use header() in express
+          req.header(COPILOT_CLOUD_PUBLIC_API_KEY_HEADER)
+        : // use headers in node http
+          req.headers[COPILOT_CLOUD_PUBLIC_API_KEY_HEADER.toLowerCase()]) || undefined;
+    const response = await this.getResponse(forwardedProps, serviceAdapter, publicApiKey);
     const mergedHeaders = { ...headers, ...response.headers };
     res.writeHead(200, mergedHeaders);
     const stream = response.stream;
@@ -168,3 +231,8 @@ export function flattenToolCallsNoDuplicates(toolsByPriority: ToolDefinition[]):
   }
   return allTools;
 }
+
+/**
+ * @deprecated use CopilotRuntime instead
+ */
+export class CopilotBackend extends CopilotRuntime {}

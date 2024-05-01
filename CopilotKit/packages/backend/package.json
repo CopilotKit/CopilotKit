@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.9.0-function-calling-fixes.2",
+  "version": "0.9.0-mme-cloud.7",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -33,10 +33,11 @@
   },
   "dependencies": {
     "@copilotkit/shared": "workspace:*",
-    "@langchain/core": "^0.1.18",
-    "@langchain/openai": "^0.0.13",
+    "@langchain/core": "^0.1.61",
+    "@langchain/openai": "^0.0.28",
     "js-tiktoken": "^1.0.8",
-    "langchain": "^0.1.9",
-    "openai": "^4.33.1"
+    "langchain": "^0.1.36",
+    "openai": "^4.33.1",
+    "zod": "^3.23.3"
   }
 }

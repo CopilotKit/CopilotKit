@@ -1,4 +1,4 @@
-import { Message } from "@copilotkit/shared";
+import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER, Message } from "@copilotkit/shared";
 import { CopilotContext } from "@copilotkit/react-core";
 import { useCallback, useContext } from "react";
 import { AutosuggestionsBareFunction, MinimalChatGPTMessage } from "../../types";
@@ -26,6 +26,10 @@ export function useMakeStandardAutosuggestionFunction(
   apiConfig: SuggestionsApiConfig,
 ): AutosuggestionsBareFunction {
   const { getContextString, copilotApiConfig } = useContext(CopilotContext);
+  const publicApiKey = copilotApiConfig.publicApiKey;
+  const headers = {
+    ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
+  };
 
   return useCallback(
     async (editorState: InsertionEditorState, abortSignal: AbortSignal) => {
@@ -56,6 +60,7 @@ export function useMakeStandardAutosuggestionFunction(
           ...apiConfig.forwardedParams,
           copilotConfig: copilotApiConfig,
           signal: abortSignal,
+          headers: headers,
         });
 
         if (!response.events) {

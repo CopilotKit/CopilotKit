@@ -15,7 +15,7 @@
   "devDependencies": {
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",
-    "prettier": "^2.7.1",
+    "prettier": "^3.2.5",
     "prettier-plugin-tailwindcss": "^0.1.11",
     "turbo": "latest"
   },

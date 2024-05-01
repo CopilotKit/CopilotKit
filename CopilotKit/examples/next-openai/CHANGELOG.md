@@ -1,5 +1,90 @@
 # web
 
+## 1.21.0-mme-cloud.7
+
+### Minor Changes
+
+- Get api key from headers dict
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.35.0-mme-cloud.7
+  - @copilotkit/react-core@0.25.0-mme-cloud.7
+  - @copilotkit/react-ui@0.22.0-mme-cloud.7
+  - @copilotkit/backend@0.9.0-mme-cloud.7
+  - @copilotkit/shared@0.9.0-mme-cloud.7
+
+## 1.21.0-mme-cloud.6
+
+### Minor Changes
+
+- Upgrade langchain
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.35.0-mme-cloud.6
+  - @copilotkit/react-core@0.25.0-mme-cloud.6
+  - @copilotkit/react-ui@0.22.0-mme-cloud.6
+  - @copilotkit/backend@0.9.0-mme-cloud.6
+  - @copilotkit/shared@0.9.0-mme-cloud.6
+
+## 1.21.0-mme-cloud.5
+
+### Minor Changes
+
+- Update comments
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.35.0-mme-cloud.5
+  - @copilotkit/react-core@0.25.0-mme-cloud.5
+  - @copilotkit/react-ui@0.22.0-mme-cloud.5
+  - @copilotkit/backend@0.9.0-mme-cloud.5
+  - @copilotkit/shared@0.9.0-mme-cloud.5
+
+## 1.21.0-mme-cloud.4
+
+### Minor Changes
+
+- Update comments
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.35.0-mme-cloud.4
+  - @copilotkit/react-core@0.25.0-mme-cloud.4
+  - @copilotkit/react-ui@0.22.0-mme-cloud.4
+  - @copilotkit/backend@0.9.0-mme-cloud.4
+  - @copilotkit/shared@0.9.0-mme-cloud.4
+
+## 1.21.0-mme-cloud.3
+
+### Minor Changes
+
+- 85c029b: streamline cloud configuration
+- Rename
+- a5ade3b: Support input guardrails (cloud)
+- 12ff590: Unify api key handling
+- f0c4745: Include reason in guardrails response
+- 17f4b1b: Retrieve public API key
+
+### Patch Changes
+
+- Updated dependencies [85c029b]
+- Updated dependencies
+- Updated dependencies [a5ade3b]
+- Updated dependencies [12ff590]
+- Updated dependencies [f0c4745]
+- Updated dependencies [17f4b1b]
+  - @copilotkit/react-textarea@0.35.0-mme-cloud.3
+  - @copilotkit/react-core@0.25.0-mme-cloud.3
+  - @copilotkit/react-ui@0.22.0-mme-cloud.3
+  - @copilotkit/backend@0.9.0-mme-cloud.3
+  - @copilotkit/shared@0.9.0-mme-cloud.3
+
 ## 1.21.0-function-calling-fixes.2
 
 ### Minor Changes

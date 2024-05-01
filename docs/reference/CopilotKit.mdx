@@ -3,15 +3,18 @@ title: "<CopilotKit />"
 description: "Provides the Copilot context to its children."
 ---
 
-<img referrerpolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be" />
+<img
+  referrerpolicy="no-referrer-when-downgrade"
+  src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be"
+/>
 
 This component provides the Copilot context to its children.
 It can be configured either with a chat API endpoint or a `CopilotApiConfig`.
 
 <Note>
-  The backend can use OpenAI, or you can bring your own LLM.
-  For examples of the backend api implementation, see `examples/next-openai` or the 
-  [backend docs](https://docs.copilotkit.ai/getting-started/quickstart-backend).
+  The backend can use OpenAI, or you can bring your own LLM. For examples of the
+  backend api implementation, see `examples/next-openai` or the [backend
+  docs](https://docs.copilotkit.ai/getting-started/quickstart-runtime).
 </Note>
 
 <RequestExample>
@@ -60,7 +63,6 @@ It can be configured either with a chat API endpoint or a `CopilotApiConfig`.
 }
 ```
 </ResponseField>
-
 
 <ResponseField name="children" type="ReactNode">
   The children to be rendered within the CopilotKit.

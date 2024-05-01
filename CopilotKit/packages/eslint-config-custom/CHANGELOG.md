@@ -1,5 +1,40 @@
 # eslint-config-custom
 
+## 0.10.0-mme-cloud.7
+
+### Minor Changes
+
+- Get api key from headers dict
+
+## 0.10.0-mme-cloud.6
+
+### Minor Changes
+
+- Upgrade langchain
+
+## 0.10.0-mme-cloud.5
+
+### Minor Changes
+
+- Update comments
+
+## 0.10.0-mme-cloud.4
+
+### Minor Changes
+
+- Update comments
+
+## 0.10.0-mme-cloud.3
+
+### Minor Changes
+
+- 85c029b: streamline cloud configuration
+- Rename
+- a5ade3b: Support input guardrails (cloud)
+- 12ff590: Unify api key handling
+- f0c4745: Include reason in guardrails response
+- 17f4b1b: Retrieve public API key
+
 ## 0.10.0-function-calling-fixes.2
 
 ### Minor Changes

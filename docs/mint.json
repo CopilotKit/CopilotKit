@@ -35,7 +35,7 @@
       "pages": [
         "getting-started/quickstart-chatbot",
         "getting-started/quickstart-textarea",
-        "getting-started/quickstart-backend",
+        "getting-started/quickstart-runtime",
         "getting-started/quickstart-skills-langchain",
         "getting-started/tutorials"
       ]
@@ -46,10 +46,10 @@
         "reference/CopilotKit",
         "reference/CopilotPopup",
         "reference/CopilotSidebar",
-        "reference/useMakeCopilotReadable",
+        "reference/useCopilotReadable",
         "reference/useCopilotAction",
         "reference/CopilotTask",
-        "reference/CopilotBackend"
+        "reference/CopilotRuntime"
       ]
     },
     {

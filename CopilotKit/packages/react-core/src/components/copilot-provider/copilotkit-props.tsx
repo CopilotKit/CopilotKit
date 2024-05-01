@@ -6,9 +6,27 @@ import { ReactNode } from "react";
 
 export interface CopilotKitProps {
   /**
-   * The endpoint for the chat API.
+   * The public API key for Copilot Cloud.
    */
-  url: string;
+  publicApiKey?: string;
+
+  /**
+   * Cloud feature: Restrict to a specific topic.
+   */
+  cloudRestrictToTopic?: {
+    validTopics?: string[];
+    invalidTopics?: string[];
+  };
+
+  /**
+   * the endpoint for the Copilot Runtime instance.
+   */
+  runtimeUrl?: string;
+
+  /**
+   * @deprecated use runtimeUrl instead
+   */
+  url?: string;
 
   /**
    * additional headers to be sent with the request
