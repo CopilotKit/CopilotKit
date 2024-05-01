@@ -41,7 +41,7 @@ import "@copilotkit/react-ui/styles.css";
 
 export default function RootLayout({children}) {
   return (
-    <CopilotKit url="/path_to_copilotkit_endpoint/see_below">
+    <CopilotKit publicApiKey="the api key or self host (see below)">
       <CopilotSidebar>
         {children}
       </CopilotSidebar>
@@ -52,9 +52,7 @@ export default function RootLayout({children}) {
 
 ### Setup the Copilot Runtime endpoint:
 
-Setup the runtime endpoint (and pass its URL as the `url` argument to `CopilotKit`, as above).
-
-See [Quickstart-Backend](/getting-started/quickstart-runtime)
+Setup the Copilot Runtime endpoint, see [Quickstart-Runtime](/getting-started/quickstart-runtime)
 
 ## Provide context
 

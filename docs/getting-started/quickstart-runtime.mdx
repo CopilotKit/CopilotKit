@@ -9,26 +9,25 @@ description: "How to setup the CopilotRuntime endpoints"
   src="https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3"
 />
 
-## Setup
+## Option 1: Use Copilot Cloud
 
 ### Get a free hosted Copilot Runtime via Copilot Cloud:
 
-<a
-  key="copilot-cloud"
-  href="https://docs.google.com/forms/d/e/1FAIpQLScjAFh4RYQhchWkPeXfQTS4p0C_prLDmSWQ6dlJItzzFDOYAg/viewform"
->
-  <img
-    src="https://github.com/CopilotKit/CopilotKit/assets/131273140/28ca62a8-cf93-4d3f-96b0-dc11bf89b734"
-    alt="Try Copilot Cloud"
-    height="30"
-  />
-</a>
+<a href="https://go.copilotkit.ai/cloud"> <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/7f6159ad-d86b-4f38-9219-88312800a7f7" alt="Try Copilot Cloud" height="30"/> </a>
 
-Hosted cloud coming soon. Secure your spot here <a href="https://go.copilotkit.ai/cloud"> <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/7f6159ad-d86b-4f38-9219-88312800a7f7" alt="Try Copilot Cloud" height="30"/> </a>
+Initialize CopilotKit using your public API key:
+
+```
+<CopilotKit publicApiKey="Your Copilot Cloud API key">
+  <YourApp/>
+</CopilotKit>
+```
+
+## Option 2: Host your own Copilot Runtime
 
 ### Install CopilotKit Backend packages
 
-Install the CopilotKit backend packagess:
+Install the CopilotKit backend packages:
 
 <CodeGroup>
 

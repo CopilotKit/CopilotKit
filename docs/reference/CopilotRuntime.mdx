@@ -9,7 +9,7 @@ description: "Handles requests from frontend, provides function calling and vari
 />
 
 <RequestExample>
-  ```jsx CopilotKitBackend Example
+  ```jsx CopilotRuntime Example
   import { 
     CopilotRuntime, 
     OpenAIAdapter 
@@ -23,7 +23,7 @@ return copilotKit.response(req, new OpenAIAdapter());
 ````
 </RequestExample>
 
-This class is the main entry point for the backend. It handles requests from the frontend, provides function calling and various LLM backends.
+This class is the main entry point for the runtime. It handles requests from the frontend, provides function calling and various LLM backends.
 
 Currently, you can use `OpenAIAdapter` for direct access to the OpenAI API and `LangChainAdapter` to use the LangChain API as a backend.
 

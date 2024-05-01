@@ -13,7 +13,7 @@ It can be configured either with a chat API endpoint or a `CopilotApiConfig`.
 
 <Note>
   The backend can use OpenAI, or you can bring your own LLM. For examples of the
-  backend api implementation, see `examples/next-openai` or the [backend
+  backend api implementation, see `examples/next-openai` or the [runtime
   docs](https://docs.copilotkit.ai/getting-started/quickstart-runtime).
 </Note>
 
@@ -22,7 +22,7 @@ It can be configured either with a chat API endpoint or a `CopilotApiConfig`.
   import { CopilotKit } from "@copilotkit/react-core";
 
   <CopilotKit 
-    url="https://your.copilotkit.api">
+    runtimeUrl="https://your.copilotkit.api">
     <YourApp/>
   </CopilotKit>
   ```
@@ -31,14 +31,18 @@ It can be configured either with a chat API endpoint or a `CopilotApiConfig`.
 ## Example usage
 
 ```jsx
-<CopilotKit url="https://your.copilotkit.api">
+<CopilotKit publicApiKey="the api key or self host (see below)">
   <App />
 </CopilotKit>
 ```
 
 ## Props
 
-<ResponseField name="url" type="string" required>
+<ResponseField name="apiKey" type="string">
+  Your Copilot Cloud API key.
+</ResponseField>
+
+<ResponseField name="runtimeUrl" type="string">
   The endpoint for the chat API.
 </ResponseField>
 

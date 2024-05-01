@@ -1,5 +1,24 @@
 # @copilotkit/shared
 
+## 0.9.0
+
+### Minor Changes
+
+- 718520b: gpt-4-turbo-april-2024 function calling fixes
+- 95bcbd8: streamline cloud configuration
+- 95bcbd8: Rename
+- 95bcbd8: Upgrade langchain
+- 95bcbd8: Support input guardrails (cloud)
+- 95bcbd8: Unify api key handling
+- CopilotCloud V1, useCopilotReadable and more...
+- 95bcbd8: Get api key from headers dict
+- 95bcbd8: Update comments
+- 95bcbd8: Include reason in guardrails response
+- 718520b: gpt-4-turbo-april-2024
+- 95bcbd8: Update comments
+- 5f6f57a: fix backend function calling return values
+- 95bcbd8: Retrieve public API key
+
 ## 0.9.0-mme-cloud.7
 
 ### Minor Changes
