@@ -21,7 +21,7 @@ echo ""
 # Remove prev project and run create-next-app
 rm -rf $NEXT_APP_PATH
 if [ "$pkg_manager" = "yarn" ]; then
-    yarn create next-app $NEXT_APP_PATH --ts --eslint --no-tailwind --src-dir --app --import-alias="@/*"
+    (cd /tmp && yarn create next-app $NEXT_APP_PATH --ts --eslint --no-tailwind --src-dir --app --import-alias="@/*")
 elif [ "$pkg_manager" = "npm" ]; then
     npx create-next-app $NEXT_APP_PATH --ts --eslint --use-npm --no-tailwind --src-dir --app --import-alias="@/*"
 fi
