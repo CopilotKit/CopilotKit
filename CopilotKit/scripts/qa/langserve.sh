@@ -13,8 +13,8 @@ echo "Creating langserve app in $LANGSERVE_APP_PATH and $LANGSERVE_PYTHON_APP_PA
 # prepare the python app
 mkdir -p $LANGSERVE_PYTHON_APP_PATH
 mkdir -p $LANGSERVE_PYTHON_APP_PATH/app
-cp "${SCRIPT_DIR}/lib/langserve/requirements.txt" $LANGSERVE_PYTHON_APP_PATH
-cp "${SCRIPT_DIR}/lib/langserve/app/server.py" $LANGSERVE_PYTHON_APP_PATH/app
+cp "scripts/qa/lib/langserve/requirements.txt" $LANGSERVE_PYTHON_APP_PATH
+cp "scripts/qa/lib/langserve/app/server.py" $LANGSERVE_PYTHON_APP_PATH/app
 
 pushd $LANGSERVE_PYTHON_APP_PATH
 python3 -m venv venv
