@@ -1,5 +1,20 @@
 # web
 
+## 1.21.0-mme-cloud.7
+
+### Minor Changes
+
+- Get api key from headers dict
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.35.0-mme-cloud.7
+  - @copilotkit/react-core@0.25.0-mme-cloud.7
+  - @copilotkit/react-ui@0.22.0-mme-cloud.7
+  - @copilotkit/backend@0.9.0-mme-cloud.7
+  - @copilotkit/shared@0.9.0-mme-cloud.7
+
 ## 1.21.0-mme-cloud.6
 
 ### Minor Changes

@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.22.0-mme-cloud.6",
+  "version": "0.22.0-mme-cloud.7",
   "sideEffects": [
     "**/*.css"
   ],

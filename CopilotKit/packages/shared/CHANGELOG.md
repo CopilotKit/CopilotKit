@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 0.9.0-mme-cloud.7
+
+### Minor Changes
+
+- Get api key from headers dict
+
 ## 0.9.0-mme-cloud.6
 
 ### Minor Changes

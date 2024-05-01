@@ -1,6 +1,6 @@
 {
   "name": "next-openai",
-  "version": "1.21.0-mme-cloud.6",
+  "version": "1.21.0-mme-cloud.7",
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_OPTIONS='--inspect' next dev",

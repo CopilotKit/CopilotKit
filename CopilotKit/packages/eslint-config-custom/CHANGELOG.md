@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.10.0-mme-cloud.7
+
+### Minor Changes
+
+- Get api key from headers dict
+
 ## 0.10.0-mme-cloud.6
 
 ### Minor Changes

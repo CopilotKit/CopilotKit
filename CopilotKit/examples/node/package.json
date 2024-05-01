@@ -1,6 +1,6 @@
 {
   "name": "node",
-  "version": "1.21.0-mme-cloud.6",
+  "version": "1.21.0-mme-cloud.7",
   "private": true,
   "scripts": {
     "start": "node dist/index.js",
