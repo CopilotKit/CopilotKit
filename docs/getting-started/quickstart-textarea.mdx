@@ -41,16 +41,16 @@ import "@copilotkit/react-textarea/styles.css"; // also import this if you want 
 
 export default function RootLayout({ children }) {
   return (
-    <CopilotKit url="/path_to_copilotkit_endpoint/see_below">
+    <CopilotKit publicApiKey="the api key or self host (see below)">
       {children}
     </CopilotKit>
   );
 }
 ```
 
-### Setup the CopilotKit Runtime Endpoint:
+### Setup the Copilot Runtime endpoint:
 
-Setup the runtime endpoint (and pass its URL as the `url` argument to `CopilotKit`, as above).
+Setup the Copilot Runtime endpoint, see [Quickstart-Runtime](/getting-started/quickstart-runtime)
 
 See [Quickstart-Runtime](/getting-started/quickstart-runtime)
 
