@@ -1,5 +1,17 @@
 # node
 
+## 1.21.0-mme-cloud.6
+
+### Minor Changes
+
+- Upgrade langchain
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.9.0-mme-cloud.6
+  - @copilotkit/shared@0.9.0-mme-cloud.6
+
 ## 1.21.0-mme-cloud.5
 
 ### Minor Changes

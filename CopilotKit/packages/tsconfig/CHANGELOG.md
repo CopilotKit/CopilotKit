@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.14.0-mme-cloud.6
+
+### Minor Changes
+
+- Upgrade langchain
+
 ## 0.14.0-mme-cloud.5
 
 ### Minor Changes

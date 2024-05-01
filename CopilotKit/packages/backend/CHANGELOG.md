@@ -1,5 +1,16 @@
 # @copilotkit/cloud
 
+## 0.9.0-mme-cloud.6
+
+### Minor Changes
+
+- Upgrade langchain
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.9.0-mme-cloud.6
+
 ## 0.9.0-mme-cloud.5
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.10.0-mme-cloud.6
+
+### Minor Changes
+
+- Upgrade langchain
+
 ## 0.10.0-mme-cloud.5
 
 ### Minor Changes
