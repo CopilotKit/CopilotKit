@@ -1,5 +1,46 @@
 # web
 
+## 1.21.0
+
+### Minor Changes
+
+- 718520b: gpt-4-turbo-april-2024 function calling fixes
+- 95bcbd8: streamline cloud configuration
+- 95bcbd8: Rename
+- 95bcbd8: Upgrade langchain
+- 95bcbd8: Support input guardrails (cloud)
+- 95bcbd8: Unify api key handling
+- CopilotCloud V1, useCopilotReadable and more...
+- 95bcbd8: Get api key from headers dict
+- 95bcbd8: Update comments
+- 95bcbd8: Include reason in guardrails response
+- 718520b: gpt-4-turbo-april-2024
+- 95bcbd8: Update comments
+- 5f6f57a: fix backend function calling return values
+- 95bcbd8: Retrieve public API key
+
+### Patch Changes
+
+- Updated dependencies [718520b]
+- Updated dependencies [95bcbd8]
+- Updated dependencies [95bcbd8]
+- Updated dependencies [95bcbd8]
+- Updated dependencies [95bcbd8]
+- Updated dependencies [95bcbd8]
+- Updated dependencies
+- Updated dependencies [95bcbd8]
+- Updated dependencies [95bcbd8]
+- Updated dependencies [95bcbd8]
+- Updated dependencies [718520b]
+- Updated dependencies [95bcbd8]
+- Updated dependencies [5f6f57a]
+- Updated dependencies [95bcbd8]
+  - @copilotkit/react-textarea@0.35.0
+  - @copilotkit/react-core@0.25.0
+  - @copilotkit/react-ui@0.22.0
+  - @copilotkit/backend@0.9.0
+  - @copilotkit/shared@0.9.0
+
 ## 1.21.0-mme-cloud.7
 
 ### Minor Changes
