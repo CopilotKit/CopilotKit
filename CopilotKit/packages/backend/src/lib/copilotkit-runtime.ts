@@ -36,9 +36,6 @@ interface CopilotDeprecatedRuntimeConstructorParams<T extends Parameter[] | [] =
   copilotCloud?: CopilotCloud;
 }
 
-const CONTENT_POLICY_VIOLATION_RESPONSE =
-  "Thank you for your request. Unfortunately, we're unable to fulfill it as it doesn't align with our content policy. We appreciate your understanding.";
-
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private actions: Action<any>[] = [];
   private langserve: Promise<Action<any>>[] = [];
