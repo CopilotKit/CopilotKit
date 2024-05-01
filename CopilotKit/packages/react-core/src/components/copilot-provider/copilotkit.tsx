@@ -42,7 +42,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // Compute all the functions and properties that we need to pass
   // to the CopilotContext.
 
-  if (!props.url && !props.publicApiKey) {
+  if (!props.runtimeUrl && !props.url && !props.publicApiKey) {
     throw new Error("Please provide either a url or a publicApiKey to the CopilotKit component.");
   }
 

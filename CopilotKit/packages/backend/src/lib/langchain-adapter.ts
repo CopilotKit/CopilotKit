@@ -3,8 +3,10 @@ import {
   AIMessage,
   BaseMessage,
   BaseMessageChunk,
+  FunctionMessage,
   HumanMessage,
   SystemMessage,
+  ToolMessage,
 } from "@langchain/core/messages";
 import { IterableReadableStream } from "@langchain/core/utils/stream";
 import { CopilotKitServiceAdapter } from "../types";
@@ -79,13 +81,37 @@ export class LangChainAdapter implements CopilotKitServiceAdapter {
     // map messages to langchain format
     if (forwardedProps.messages && Array.isArray(forwardedProps.messages)) {
       const newMessages: BaseMessage[] = [];
+
       for (const message of forwardedProps.messages) {
         if (message.role === "user") {
           newMessages.push(new HumanMessage(message.content));
         } else if (message.role === "assistant") {
-          newMessages.push(new AIMessage(message.content));
+          if (message.function_call) {
+            newMessages.push(
+              new AIMessage({
+                content: "",
+                tool_calls: [
+                  {
+                    id: message.function_call.name + "-" + forwardedProps.messages.indexOf(message),
+                    args: JSON.parse(message.function_call.arguments),
+                    name: message.function_call.name,
+                  },
+                ],
+              }),
+            );
+          } else {
+            newMessages.push(new AIMessage(message.content));
+          }
         } else if (message.role === "system") {
           newMessages.push(new SystemMessage(message.content));
+        } else if (message.role == "function") {
+          // An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'
+          newMessages.push(
+            new ToolMessage({
+              content: message.content,
+              tool_call_id: message.name + "-" + (forwardedProps.messages.indexOf(message) - 1),
+            }),
+          );
         }
       }
       forwardedPropsCopy.messages = newMessages;

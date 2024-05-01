@@ -9,13 +9,7 @@ export default function AIPresentation() {
   const [performResearch, setPerformResearch] = useState(false);
 
   return (
-    <CopilotKit
-      publicApiKey="co-public-a38d5fd77b506f945b5bc1f655dae16a"
-      cloudRestrictToTopic={{
-        validTopics: ["presentation", "pop music"],
-        invalidTopics: ["the rolling stones"],
-      }}
-    >
+    <CopilotKit runtimeUrl="/api/copilotkit/langchain">
       <CopilotSidebar
         instructions={
           "Help the user create and edit a powerpoint-style presentation." +
