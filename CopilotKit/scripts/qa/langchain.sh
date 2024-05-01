@@ -45,11 +45,7 @@ fi
 # Re-enable -e
 set -e
 
-if [ "$pkg_manager" = "yarn" ]; then
-    yarn dev > /dev/null 2>&1 &
-elif [ "$pkg_manager" = "npm" ]; then
-    npm run dev > /dev/null 2>&1 &
-fi
+npm run dev > /dev/null 2>&1 &
 
 pid1=$!
 
