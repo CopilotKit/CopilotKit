@@ -4,7 +4,7 @@ description: "How to integrate CopilotTextarea into your application"
 ---
 
 <img
-  referrerpolicy="no-referrer-when-downgrade"
+  referrerPolicy="no-referrer-when-downgrade"
   src="https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3"
 />
 
@@ -15,15 +15,17 @@ description: "How to integrate CopilotTextarea into your application"
 Install the CopilotKit frontend packagess:
 
 <CodeGroup>
-  ```bash npm
-  npm i @copilotkit/react-core @copilotkit/react-textarea
-  ``` 
-  ```bash yarn
-  yarn add @copilotkit/react-core @copilotkit/react-textarea
-  ```
-  ```bash pnpm
-  pnpm add @copilotkit/react-core @copilotkit/react-textarea
-  ```
+```bash npm 
+  npm i @copilotkit/react-core @copilotkit/react-textarea 
+```
+
+```bash yarn 
+  yarn add @copilotkit/react-core @copilotkit/react-textarea 
+```
+
+```bash pnpm 
+  pnpm add @copilotkit/react-core @copilotkit/react-textarea 
+```
 </CodeGroup>
 
 ### Setup the frontend
@@ -48,7 +50,7 @@ export default function RootLayout({ children }) {
 
 ### Setup the CopilotKit Runtime Endpoint:
 
-Setup a backend endpoint (and pass its URL as the `url` argument to `CopilotKit`, as above).
+Setup the runtime endpoint (and pass its URL as the `url` argument to `CopilotKit`, as above).
 
 See [Quickstart-Runtime](/getting-started/quickstart-runtime)
 
@@ -56,7 +58,7 @@ See [Quickstart-Runtime](/getting-started/quickstart-runtime)
 
 You likely want to provide external context to inform CopilotTextarea completions, insertions, and edits.
 
-You can do so through the `useMakeCopilotReadable` and `useMakeCopilotDocumentReadable` react hooks.
+You can do so through the `useCopilotReadable` and `useMakeCopilotDocumentReadable` react hooks.
 See their respective documentation for additional details.
 
 In particular, you can specify categories which bind specific context to specific textareas, and not to others.
@@ -64,23 +66,39 @@ In particular, you can specify categories which bind specific context to specifi
 ```ts
 "use client";
 
-import { useMakeCopilotReadable } from '@copilotkit/react-core';
-import { useMakeCopilotDocumentReadable, DocumentPointer } from '@copilotkit/react-document';
+import { useCopilotReadable } from "@copilotkit/react-core";
+import {
+  useMakeCopilotDocumentReadable,
+  DocumentPointer,
+} from "@copilotkit/react-document";
 
-// You can pass top-level data to the Copilot engine by calling `useMakeCopilotReadable`.
-const employeeContextId = useMakeCopilotReadable(employeeName);
+// You can pass top-level data to the Copilot engine by calling `useCopilotReadable`.
+const employeeContextId = useCopilotReadable({
+  description: "Employee name",
+  value: employeeName,
+});
 
 // Pass a parentID to maintain a hierarchical structure.
 // Especially useful with child React components, list elements, etc.
-useMakeCopilotReadable(workProfile.description(), employeeContextId);
-useMakeCopilotReadable(metadata.description(), employeeContextId);
+useCopilotReadable({
+  description: "Work profile",
+  value: workProfile.description(),
+  parentId: employeeContextId,
+});
+useCopilotReadable({
+  description: "Employee work profile",
+  value: workProfile.description(),
+  parentId: employeeContextId,
+});
 
 const document: DocumentPointer = {
   id: "2",
   name: "Travel Pet Peeves",
   sourceApplication: "Google Docs",
   iconImageUri: "/images/GoogleDocs.svg",
-  getContents: () => { return "hello document" },
+  getContents: () => {
+    return "hello document";
+  },
 } as DocumentPointer;
 
 // ...then, in a react component:
@@ -110,7 +128,8 @@ export function SomeReactComponent() {
         onValueChange={(value: string) => setText(value)}
         placeholder="What are your plans for your vacation?"
         autosuggestionsConfig={{
-          textareaPurpose: "Travel notes from the user's previous vacations. Likely written in a colloquial style, but adjust as needed.",
+          textareaPurpose:
+            "Travel notes from the user's previous vacations. Likely written in a colloquial style, but adjust as needed.",
           chatApiConfigs: {
             suggestionsApiConfig: {
               forwardedParams: {
