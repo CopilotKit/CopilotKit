@@ -42,7 +42,7 @@ in-app AI chatbots, AI agents, and AI Textareas.
     <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/a4a0fd04-6aee-4e02-9c3e-3f11d60b4e8b" alt="Read the Docs" height="30">
   </a>
   &nbsp;&middot;&nbsp;
-  <a href="https://docs.google.com/forms/d/e/1FAIpQLScjAFh4RYQhchWkPeXfQTS4p0C_prLDmSWQ6dlJItzzFDOYAg/viewform">
+  <a href="https://go.copilotkit.ai/kM4Lo86">
     <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/28ca62a8-cf93-4d3f-96b0-dc11bf89b734" alt="Try Copilot Cloud" height="30">
   </a>
 </p>
