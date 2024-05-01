@@ -125,7 +125,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     const serversideTools: Action<any>[] = [...this.actions, ...langserveFunctions];
     const mergedTools = flattenToolCallsNoDuplicates([
       ...serversideTools.map(actionToChatCompletionFunction),
-      ...forwardedProps.tools,
+      ...(forwardedProps.tools || []),
     ]);
 
     try {
@@ -155,7 +155,6 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
           console.error("Error checking guardrails:", error);
         }
       }
-
       const stream = copilotkitStreamInterceptor(result.stream, serversideTools, this.debug);
       return { stream, headers: result.headers };
     } catch (error) {
@@ -167,7 +166,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   async response(req: Request, serviceAdapter: CopilotKitServiceAdapter): Promise<Response> {
     const publicApiKey = req.headers.get(COPILOT_CLOUD_PUBLIC_API_KEY_HEADER) || undefined;
     try {
-      const response = await this.getResponse(await req.json(), serviceAdapter, publicApiKey);
+      const forwardedProps = await req.json();
+      const response = await this.getResponse(forwardedProps, serviceAdapter, publicApiKey);
       return new Response(response.stream, { headers: response.headers });
     } catch (error: any) {
       return new Response(error, { status: error.status });
