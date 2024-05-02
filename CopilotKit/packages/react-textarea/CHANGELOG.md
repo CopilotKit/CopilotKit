@@ -1,5 +1,11 @@
 # ui
 
+## 0.36.0-mme-fix-packaging-issues.0
+
+### Minor Changes
+
+- Remove mui package
+
 ## 0.35.0
 
 ### Minor Changes

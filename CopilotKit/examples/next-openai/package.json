@@ -1,6 +1,6 @@
 {
   "name": "next-openai",
-  "version": "1.21.0",
+  "version": "1.21.1-mme-fix-packaging-issues.0",
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_OPTIONS='--inspect' next dev",

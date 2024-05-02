@@ -1,5 +1,12 @@
 # web
 
+## 1.21.1-mme-fix-packaging-issues.0
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.36.0-mme-fix-packaging-issues.0
+
 ## 1.21.0
 
 ### Minor Changes
