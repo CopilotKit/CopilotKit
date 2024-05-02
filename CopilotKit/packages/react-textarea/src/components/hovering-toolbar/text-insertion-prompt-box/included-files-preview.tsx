@@ -1,6 +1,7 @@
 import { DocumentPointer } from "@copilotkit/react-core";
 import { Label } from "../../ui/label";
 import React from "react";
+import clsx from "clsx";
 
 export interface IncludedFilesPreviewProps {
   includedFiles: DocumentPointer[];
@@ -48,49 +49,22 @@ function FileChipPreview({
   return (
     <div>
       <button
-        style={{
-          fontSize: "0.8125rem",
-          display: "inline-flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "32px",
-          color: "rgba(0, 0, 0, 0.87)",
-          backgroundColor: "rgba(0, 0, 0, 0.08)",
-          borderRadius: "16px",
-          whiteSpace: "nowrap",
-          boxSizing: "border-box",
-          border: 0,
-          verticalAlign: "middle",
-          outline: 0,
-          cursor: "default",
-        }}
+        className={clsx(
+          "inline-flex justify-center items-center h-8 text-[0.8125rem] text-[rgba(0,0,0,0.87)]",
+          "bg-[rgba(0,0,0,0.08)] rounded-full whitespace-nowrap box-border border-0 align-middle",
+          "outline-none cursor-default",
+        )}
       >
         <img
-          style={{
-            marginLeft: "5px",
-            width: "24px",
-            height: "24px",
-            backgroundColor: "transparent",
-            borderRadius: "50%",
-          }}
+          className="ml-[5px] w-[24px] h-[24px] bg-transparent rounded-full"
           src={filePointer.iconImageUri}
           alt={filePointer.sourceApplication}
         />
-        <span style={{ marginLeft: "5px" }}>{filePointer.name}</span>
+        <span className="ml-[5px]">{filePointer.name}</span>
         <svg
-          style={{
-            color: color,
-            fontSize: "22px",
-            cursor: "pointer",
-            margin: "0 5px 0 5px",
-            userSelect: "none",
-            width: "1em",
-            height: "1em",
-            display: "inline-block",
-            fill: "currentColor",
-            flexShrink: 0,
-          }}
-          viewBox="0 0 24 24" // Defines the size of the original design space
+          className="text-[22px] cursor-pointer mx-[5px] user-select-none w-[1em] h-[1em] inline-block fill-current flex-shrink-0"
+          style={{ color }}
+          viewBox="0 0 24 24"
           preserveAspectRatio="xMidYMid meet"
           onClick={onDelete}
           onMouseOver={() => setColor("rgba(0, 0, 0, 0.54)")}
