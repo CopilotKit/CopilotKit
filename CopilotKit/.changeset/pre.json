@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "mme-fix-packaging-issues",
   "initialVersions": {
     "next-openai": "1.21.0",
