@@ -6,6 +6,7 @@
     "lint": "turbo lint",
     "clean": "turbo clean",
     "test": "turbo test",
+    "docs": "typedoc --plugin typedoc-plugin-markdown --out tdocs",
     "check-types": "turbo check-types",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-prettier": "prettier --check \"**/*.{ts,tsx,md}\"",
@@ -17,7 +18,9 @@
     "eslint-config-custom": "workspace:*",
     "prettier": "^3.2.5",
     "prettier-plugin-tailwindcss": "^0.1.11",
-    "turbo": "latest"
+    "turbo": "latest",
+    "typedoc": "^0.25.13",
+    "typedoc-plugin-markdown": "^3.17.1"
   },
   "packageManager": "pnpm@7.15.0",
   "dependencies": {
