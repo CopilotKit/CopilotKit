@@ -6,7 +6,7 @@
     "lint": "turbo lint",
     "clean": "turbo clean",
     "test": "turbo test",
-    "docs": "typedoc --plugin typedoc-plugin-markdown --out tdocs",
+    "docs": "./scripts/docs/gen.sh",
     "check-types": "turbo check-types",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-prettier": "prettier --check \"**/*.{ts,tsx,md}\"",
