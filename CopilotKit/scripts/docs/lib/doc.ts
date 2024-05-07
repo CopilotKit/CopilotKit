@@ -1,6 +1,7 @@
 import { AnnotatedDoc } from "./mdx";
 import { SourceFile } from "./source";
 import { Comments } from "./comments";
+const fs = require("fs");
 
 export class Documentation {
   constructor(private readonly annotation: AnnotatedDoc) {}
@@ -8,7 +9,8 @@ export class Documentation {
   async generate() {
     const generatedDocumentation = await this.generatedDocs();
     if (generatedDocumentation) {
-      console.log(`Writing file ${this.annotation.path}`);
+      fs.writeFileSync(this.annotation.path, generatedDocumentation);
+      console.log(`File ${this.annotation.path} written successfully`);
     }
   }
 
