@@ -165,11 +165,12 @@ export class SourceFile {
             member.modifiers?.every((modifier) => modifier.kind !== ts.SyntaxKind.PrivateKeyword)
           ) {
             const functionComments = Comments.getTsDocCommentsForFunction(member, this.sourceFile);
-            const signature =
+            let signature =
               member.name.getText() +
               "(" +
               member.parameters.map((param) => param.getText()).join(", ") +
               ")";
+            signature = signature.replace(/</g, "&lt;").replace(/>/g, "&gt;");
             const methodDefinition = {
               signature,
               comment: functionComments.comment,

@@ -13,10 +13,10 @@
  *     OpenAIAdapter
  *   } from "@copilotkit/backend";
  *
- * export async function POST(req: Request) {
- *   const copilotKit = new CopilotRuntime();
- *   return copilotKit.response(req, new OpenAIAdapter());
- * }
+ *   export async function POST(req: Request) {
+ *     const copilotKit = new CopilotRuntime();
+ *     return copilotKit.response(req, new OpenAIAdapter());
+ *   }
  *
  * ```
  * </RequestExample>
