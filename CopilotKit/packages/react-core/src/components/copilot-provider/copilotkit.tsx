@@ -1,3 +1,40 @@
+/**
+ * Provides the Copilot context to its children.
+ * 
+ * <img
+ *   referrerPolicy="no-referrer-when-downgrade"
+ *   src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be"
+ * />
+ * 
+ * This component provides the Copilot context to its children.
+ * It can be configured either with a chat API endpoint or a `CopilotApiConfig`.
+ * 
+ * <Note>
+ *   The backend can use OpenAI, or you can bring your own LLM. For examples of the
+ *   backend api implementation, see `examples/next-openai` or the [runtime
+ *   docs](https://docs.copilotkit.ai/getting-started/quickstart-runtime).
+ * </Note>
+ * 
+ * <RequestExample>
+ *   ```jsx CopilotKit Example
+ *   import { CopilotKit } from "@copilotkit/react-core";
+ * 
+ *   <CopilotKit 
+ *     runtimeUrl="https://your.copilotkit.api">
+ *     <YourApp/>
+ *   </CopilotKit>
+ *   ```
+ * </RequestExample>
+ * 
+ * ## Example usage
+ * 
+ * ```jsx
+ * <CopilotKit publicApiKey="the api key or self host (see below)">
+ *   <App />
+ * </CopilotKit>
+```
+ */
+
 import { Ref, useCallback, useRef, useState } from "react";
 import {
   CopilotContext,
@@ -18,26 +55,6 @@ import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { CopilotKitProps } from "./copilotkit-props";
 import { ToolDefinition } from "@copilotkit/shared";
 
-/**
- * The CopilotKit component.
- * This component provides the Copilot context to its children.
- * It can be configured either with a chat API endpoint or a CopilotApiConfig.
- *
- * NOTE: The backend can use OpenAI, or you can bring your own LLM.
- * For examples of the backend api implementation, see `examples/next-openai` usage (under `src/api/copilotkit`),
- * or read the documentation at https://docs.copilotkit.ai
- * In particular, Getting-Started > Quickstart-Runtime: https://docs.copilotkit.ai/getting-started/quickstart-runtime
- *
- * Example usage:
- * ```
- * <CopilotKit url="https://your.copilotkit.api">
- *    <App />
- * </CopilotKit>
- * ```
- *
- * @param props - The props for the component.
- * @returns The CopilotKit component.
- */
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // Compute all the functions and properties that we need to pass
   // to the CopilotContext.

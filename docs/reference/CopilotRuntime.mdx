@@ -3,6 +3,8 @@ title: "CopilotRuntime"
 description: "Handles requests from frontend, provides function calling and various LLM backends."
 ---
 
+{/* GENERATE-DOCS path=packages/backend/src/lib/copilotkit-runtime.ts class=CopilotRuntime */}
+
 <img
   referrerPolicy="no-referrer-when-downgrade"
   src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be"
@@ -16,8 +18,8 @@ description: "Handles requests from frontend, provides function calling and vari
   } from "@copilotkit/backend";
 
 export async function POST(req: Request) {
-const copilotKit = new CopilotRuntime();
-return copilotKit.response(req, new OpenAIAdapter());
+  const copilotKit = new CopilotRuntime();
+  return copilotKit.response(req, new OpenAIAdapter());
 }
 
 ````
