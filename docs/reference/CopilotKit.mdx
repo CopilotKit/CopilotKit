@@ -3,6 +3,8 @@ title: "<CopilotKit />"
 description: "Provides the Copilot context to its children."
 ---
 
+{/* GENERATE-DOCS path=packages/react-core/src/components/copilot-provider/copilotkit.tsx component=CopilotKit */}
+
 <img
   referrerPolicy="no-referrer-when-downgrade"
   src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be"
@@ -38,36 +40,50 @@ It can be configured either with a chat API endpoint or a `CopilotApiConfig`.
 
 ## Props
 
-<ResponseField name="apiKey" type="string">
-  Your Copilot Cloud API key.
+<ResponseField name="publicApiKey" type="string" >
+Your Copilot Cloud API key.
 </ResponseField>
 
-<ResponseField name="runtimeUrl" type="string">
-  The endpoint for the chat API.
+<ResponseField name="cloudRestrictToTopic" type="{ validTopics?: string[]; invalidTopics?: string[]; }" >
+Cloud feature: Restrict input to a specific topic.
 </ResponseField>
 
-<ResponseField name="headers" type="Record<string, string>" default="{}">
-  Additional headers to be sent with the request.
-  
+<ResponseField name="runtimeUrl" type="string" >
+the endpoint for the Copilot Runtime instance.
+</ResponseField>
+
+<ResponseField name="headers" type="Record<string, string>" >
+Additional headers to be sent with the request.
+ 
   For example:
-```js
-{
-  'Authorization': 'Bearer your_token_here'
-}
-```
+  ```js
+  {
+    'Authorization': 'Bearer your_token_here'
+  }
+  ```
 </ResponseField>
 
-<ResponseField name="body" type="Record<string, string>" default="{}">
-  Additional body params to be sent with the request.
-  
+<ResponseField name="body" type="Record<string, any>" >
+Additional body params to be sent with the request
   For example:
-```js
-{
-  'message': 'Hello, world!'
-}
-```
+  ```js
+  {
+    'message': 'Hello, world!'
+  }
+  ```
 </ResponseField>
 
-<ResponseField name="children" type="ReactNode">
-  The children to be rendered within the CopilotKit.
+<ResponseField name="children" type="ReactNode" required>
+The children to be rendered within the CopilotKit.
 </ResponseField>
+
+<ResponseField name="backendOnlyProps" type="Record<string, any>" >
+Backend only props that will be combined to body params to be sent with the request
+  For example:
+  ```js
+  {
+    'user_id': 'users_id',
+  }
+  ```
+</ResponseField>
+

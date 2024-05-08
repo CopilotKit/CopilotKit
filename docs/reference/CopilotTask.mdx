@@ -3,20 +3,22 @@ title: "CopilotTask"
 description: "Execute one-off tasks using Copilot intelligence."
 ---
 
+{/* GENERATE-DOCS path=packages/react-core/src/lib/copilot-task.ts class=CopilotTask */}
+ 
 <img referrerPolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be" />
-
+ 
 This class is used to execute one-off tasks, for example on button press. It
 can use the context available via [useCopilotReadable](../useCopilotReadable)
 and the actions provided by [useCopilotAction](../useCopilotAction), or
-you can provided your own context and actions.
-
+you can provide your own context and actions.
+ 
 <RequestExample>
   ```jsx CopilotTask Example
-  import { 
-    CopilotTask, 
-    useCopilotContext 
+  import {
+    CopilotTask,
+    useCopilotContext
   } from "@copilotkit/react-core";
-
+ 
   const task = new CopilotTask({
     instructions: "Set a random message",
     actions: [
@@ -30,9 +32,9 @@ you can provided your own context and actions.
           description:
             "A message to display.",
           required: true,
-        },      
+        },
       ],
-
+ 
       implementation: async (message) => {
         // ...
       },
@@ -43,40 +45,40 @@ you can provided your own context and actions.
   await task.run(context);
   ```
 </RequestExample>
-
+ 
 In the simplest case, use CopilotTask in the context of your app by giving it instructions on what to do.
-
+ 
 ```jsx
-import { 
-    CopilotTask, 
-    useCopilotContext 
+import {
+    CopilotTask,
+    useCopilotContext
   } from "@copilotkit/react-core";
-  
+ 
 const randomSlideTask = new CopilotTask({
   instructions: "Make a random slide",
 });
-
+ 
 const context = useCopilotContext();
-
+ 
 return (
   <button onClick={() => randomSlideTask.run(context)}>
     Make a random slide
   </button>
 );
 ```
-
-Have a look at the [Hello world example](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/examples/next-openai/src/app/helloworld/page.tsx) 
+ 
+Have a look at the [Presentation example](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/examples/next-openai/src/app/presentation/page.tsx)
 for a more complete example.
-
+ 
 It's also possible to provide your own context and actions. In addition, you can specify to ignore
 `useCopilotReadable` and `useCopilotAction`.
-
+ 
 ```jsx
-import { 
-    CopilotTask, 
-    useCopilotContext 
+import {
+    CopilotTask,
+    useCopilotContext
   } from "@copilotkit/react-core";
-  
+ 
 const standaloneTask = new CopilotTask({
   instructions: "Do something standalone",
   data: [...],
@@ -84,38 +86,39 @@ const standaloneTask = new CopilotTask({
   includeCopilotReadable: false, // Don't use current context
   includeCopilotActions: false, // Don't use current actions
 });
-
+ 
 const context = useCopilotContext();
-
+ 
 standaloneTask.run(context);
 ```
 
 ## Constructor
 
 <ResponseField name="instructions" type="string" required>
-  The instructions to be given to the assistant.
+The instructions to be given to the assistant.
 </ResponseField>
 
-<ResponseField name="actions" type="AnnotatedFunction">
-  An array of action definitions that can be called.
+<ResponseField name="actions" type="FrontendAction<any>[]" >
+An array of action definitions that can be called.
 </ResponseField>
 
-<ResponseField name="includeCopilotReadable" type="boolean">
-  Whether to include the copilot readable context in the task.
+<ResponseField name="includeCopilotReadable" type="boolean" >
+Whether to include the copilot readable context in the task.
 </ResponseField>
 
-<ResponseField name="includeCopilotActionable" type="boolean">
-  Whether to include actions defined via `useCopilotAction` in the task.
+<ResponseField name="includeCopilotActions" type="boolean" >
+Whether to include actions defined via useCopilotAction in the task.
 </ResponseField>
 
-## run()
+## run(context: CopilotContextParams, data?: T)
 
 Run the task.
 
-<ResponseField name="context" type="CopilotContext" required>
-  The CopilotContext to use for the task. Use `useCopilotContext` to obtain the current context.
+<ResponseField name="context" type="CopilotContextParams" required>
+The CopilotContext to use for the task. Use `useCopilotContext` to obtain the current context.
 </ResponseField>
 
-<ResponseField name="data" type="any">
-  The data to use for the task.
+<ResponseField name="data" type="T" >
+The data to use for the task.
 </ResponseField>
+
