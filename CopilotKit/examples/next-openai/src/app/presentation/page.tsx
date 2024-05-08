@@ -9,7 +9,7 @@ export default function AIPresentation() {
   const [performResearch, setPerformResearch] = useState(false);
 
   return (
-    <CopilotKit url="/api/copilotkit/presentation">
+    <CopilotKit runtimeUrl="/api/copilotkit/langchain">
       <CopilotSidebar
         instructions={
           "Help the user create and edit a powerpoint-style presentation." +

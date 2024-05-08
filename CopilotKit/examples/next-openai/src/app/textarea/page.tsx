@@ -2,8 +2,8 @@
 import {
   CopilotKit,
   DocumentPointer,
+  useCopilotReadable,
   useMakeCopilotDocumentReadable,
-  useMakeCopilotReadable,
 } from "@copilotkit/react-core";
 import { CopilotTextarea, HTMLCopilotTextAreaElement } from "@copilotkit/react-textarea";
 import { useRef } from "react";
@@ -11,7 +11,7 @@ import { useStateWithLocalStorage } from "../utils";
 
 export default function CopilotTextareaDemo() {
   return (
-    <CopilotKit url="/api/copilotkit/openai">
+    <CopilotKit publicApiKey="co-public-a38d5fd77b506f945b5bc1f655dae16a">
       <TextAreas />
     </CopilotKit>
   );
@@ -37,7 +37,11 @@ function TextAreas() {
   );
 
   const salesReplyCategoryId = "sales_reply";
-  useMakeCopilotReadable(detailsText, undefined, [salesReplyCategoryId]);
+  useCopilotReadable({
+    description: "Details Text",
+    value: detailsText,
+    categories: [salesReplyCategoryId],
+  });
 
   const copilotTextareaRef = useRef<HTMLCopilotTextAreaElement>(null);
 

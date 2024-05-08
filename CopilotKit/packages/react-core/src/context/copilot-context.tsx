@@ -1,4 +1,9 @@
-import { FunctionCallHandler, Message, ToolDefinition } from "@copilotkit/shared";
+import {
+  CopilotCloudConfig,
+  FunctionCallHandler,
+  Message,
+  ToolDefinition,
+} from "@copilotkit/shared";
 import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
 import React, { Ref } from "react";
 import { TreeNodeId } from "../hooks/use-tree";
@@ -8,6 +13,16 @@ import { DocumentPointer } from "../types";
  * Interface for the configuration of the Copilot API.
  */
 export interface CopilotApiConfig {
+  /**
+   * The public API key for Copilot Cloud.
+   */
+  publicApiKey?: string;
+
+  /**
+   * The configuration for Copilot Cloud.
+   */
+  cloud?: CopilotCloudConfig;
+
   /**
    * The endpoint for the chat API.
    */

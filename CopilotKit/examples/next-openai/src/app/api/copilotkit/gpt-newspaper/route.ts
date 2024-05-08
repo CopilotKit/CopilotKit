@@ -1,4 +1,4 @@
-import { CopilotBackend, OpenAIAdapter } from "@copilotkit/backend";
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
 
 // -----------------
 // To run this example:
@@ -9,7 +9,7 @@ import { CopilotBackend, OpenAIAdapter } from "@copilotkit/backend";
 export const runtime = "edge";
 
 export async function POST(req: Request): Promise<Response> {
-  const copilotKit = new CopilotBackend({
+  const copilotKit = new CopilotRuntime({
     actions: [
       {
         name: "research",

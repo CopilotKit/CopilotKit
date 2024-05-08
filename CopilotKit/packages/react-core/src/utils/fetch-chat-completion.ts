@@ -62,6 +62,7 @@ export async function fetchChatCompletion({
       ...copilotConfig.backendOnlyProps,
       ...excludeBackendOnlyProps(copilotConfig),
       ...(body ? { ...body } : {}),
+      ...(copilotConfig.cloud ? { cloud: copilotConfig.cloud } : {}),
     }),
     signal,
   });

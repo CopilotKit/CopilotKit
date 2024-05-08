@@ -1,0 +1,78 @@
+---
+title: "Quickstart: Copilot Runtime"
+description: "How to setup the CopilotRuntime endpoints"
+---
+
+
+<img
+  referrerPolicy="no-referrer-when-downgrade"
+  src="https://static.scarf.sh/a.png?x-pxid=ffc9f65d-0186-4575-b065-61d62ea9d7d3"
+/>
+
+## Option 1: Use Copilot Cloud
+
+### Get a free hosted Copilot Runtime via Copilot Cloud:
+
+<a href="https://go.copilotkit.ai/cloud"> <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/7f6159ad-d86b-4f38-9219-88312800a7f7" alt="Try Copilot Cloud" height="30"/> </a>
+
+Initialize CopilotKit using your public API key:
+
+```
+<CopilotKit publicApiKey="Your Copilot Cloud API key">
+  <YourApp/>
+</CopilotKit>
+```
+
+## Option 2: Host your own Copilot Runtime
+
+### Install CopilotKit Backend packages
+
+Install the CopilotKit backend packages:
+
+<CodeGroup>
+
+```bash npm
+  npm i @copilotkit/backend
+```
+
+```bash yarn
+  yarn add @copilotkit/backend
+```
+
+```bash pnpm
+  pnpm add @copilotkit/backend
+```
+
+</CodeGroup>
+
+#### Manually specified endpoint: Next.js edge function (typescript)
+
+Remember to add any required environment variables. E.g. to use OpenAI:
+
+```env .env.local
+OPENAI_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+<iframe
+  frameBorder="0"
+  scrolling="no"
+  style={{ width: "100%", height: "205px" }}
+  allow="clipboard-write"
+  src="https://emgithub.com/iframe.html?target=https%3A%2F%2Fgithub.com%2FCopilotKit%2FCopilotKit%2Fblob%2Fmain%2FCopilotKit%2Fscripts%2Fqa%2Flib%2Fnext%2Froute.ts&style=default&type=code&showBorder=on&showLineNumbers=on&showFileMeta=on&showFullPath=on&showCopy=on"
+></iframe>
+
+#### Manually specified endpoint: Node.js (typescript)
+
+Remember to add any required environment variables. E.g. to use OpenAI:
+
+<iframe
+  frameBorder="0"
+  scrolling="no"
+  style={{ width: "100%", height: "541px" }}
+  allow="clipboard-write"
+  src="https://emgithub.com/iframe.html?target=https%3A%2F%2Fgithub.com%2FCopilotKit%2FCopilotKit%2Fblob%2Fmain%2FCopilotKit%2Fscripts%2Fqa%2Flib%2Fnode%2Fserver.js&style=default&type=code&showBorder=on&showLineNumbers=on&showFileMeta=on&showFullPath=on&showCopy=on"
+></iframe>
+
+#### Firebase (GCP) Cloud Function (typescript)
+
+See this repo for a full example: https://github.com/CopilotKit/copilotkit-firebase-demo

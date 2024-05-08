@@ -1,5 +1,140 @@
 # ui
 
+## 0.25.0
+
+### Minor Changes
+
+- 718520b: gpt-4-turbo-april-2024 function calling fixes
+- 95bcbd8: streamline cloud configuration
+- 95bcbd8: Rename
+- 95bcbd8: Upgrade langchain
+- 95bcbd8: Support input guardrails (cloud)
+- 95bcbd8: Unify api key handling
+- CopilotCloud V1, useCopilotReadable and more...
+- 95bcbd8: Get api key from headers dict
+- 95bcbd8: Update comments
+- 95bcbd8: Include reason in guardrails response
+- 718520b: gpt-4-turbo-april-2024
+- 95bcbd8: Update comments
+- 5f6f57a: fix backend function calling return values
+- 95bcbd8: Retrieve public API key
+
+### Patch Changes
+
+- Updated dependencies [718520b]
+- Updated dependencies [95bcbd8]
+- Updated dependencies [95bcbd8]
+- Updated dependencies [95bcbd8]
+- Updated dependencies [95bcbd8]
+- Updated dependencies [95bcbd8]
+- Updated dependencies
+- Updated dependencies [95bcbd8]
+- Updated dependencies [95bcbd8]
+- Updated dependencies [95bcbd8]
+- Updated dependencies [718520b]
+- Updated dependencies [95bcbd8]
+- Updated dependencies [5f6f57a]
+- Updated dependencies [95bcbd8]
+  - @copilotkit/shared@0.9.0
+
+## 0.25.0-mme-cloud.7
+
+### Minor Changes
+
+- Get api key from headers dict
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.9.0-mme-cloud.7
+
+## 0.25.0-mme-cloud.6
+
+### Minor Changes
+
+- Upgrade langchain
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.9.0-mme-cloud.6
+
+## 0.25.0-mme-cloud.5
+
+### Minor Changes
+
+- Update comments
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.9.0-mme-cloud.5
+
+## 0.25.0-mme-cloud.4
+
+### Minor Changes
+
+- Update comments
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.9.0-mme-cloud.4
+
+## 0.25.0-mme-cloud.3
+
+### Minor Changes
+
+- 85c029b: streamline cloud configuration
+- Rename
+- a5ade3b: Support input guardrails (cloud)
+- 12ff590: Unify api key handling
+- f0c4745: Include reason in guardrails response
+- 17f4b1b: Retrieve public API key
+
+### Patch Changes
+
+- Updated dependencies [85c029b]
+- Updated dependencies
+- Updated dependencies [a5ade3b]
+- Updated dependencies [12ff590]
+- Updated dependencies [f0c4745]
+- Updated dependencies [17f4b1b]
+  - @copilotkit/shared@0.9.0-mme-cloud.3
+
+## 0.25.0-function-calling-fixes.2
+
+### Minor Changes
+
+- fix backend function calling return values
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.9.0-function-calling-fixes.2
+
+## 0.25.0-function-calling-fixes.1
+
+### Minor Changes
+
+- gpt-4-turbo-april-2024 function calling fixes
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.9.0-function-calling-fixes.1
+
+## 0.25.0-alpha.0
+
+### Minor Changes
+
+- gpt-4-turbo-april-2024
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.9.0-alpha.0
+
 ## 0.24.0
 
 ### Minor Changes

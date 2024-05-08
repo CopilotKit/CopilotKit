@@ -20,7 +20,6 @@
   
 </p>
 
-
 <h1 align="center">
 The Open-Source Copilot Framework
 </h1>
@@ -34,38 +33,23 @@ in-app AI chatbots, AI agents, and AI Textareas.
 </h3>
 
 
-
 <p align="center">
-  <br />
-    <a href="https://docs.copilotkit.ai" rel="dofollow"><strong>Explore the docs »</strong></a>
-  <br />
+  <a href="https://discord.com/invite/6dffbvGU3D">
+    <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/bf8d96ea-3aeb-4c9a-9043-96a868b7ad0f" alt="Join our Discord" height="30">
+  </a>
+  &nbsp;&middot;&nbsp;
+  <a href="https://docs.copilotkit.ai/getting-started/quickstart-chatbot">
+    <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/a4a0fd04-6aee-4e02-9c3e-3f11d60b4e8b" alt="Read the Docs" height="30">
+  </a>
+  &nbsp;&middot;&nbsp;
+  <a href="https://go.copilotkit.ai/kM4Lo86">
+    <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/28ca62a8-cf93-4d3f-96b0-dc11bf89b734" alt="Try Copilot Cloud" height="30">
+  </a>
 </p>
 
-<p align="center">
-    <a href="https://discord.gg/6dffbvGU3D">Join our Discord</a>
-    ·
-    <a href="https://copilotkit.ai?utm_medium=github&utm_source=github">Website</a>
-    ·
-    <a href="https://github.com/CopilotKit/CopilotKit/issues/new?assignees=&labels=bug&projects=&template=bug_report.md&title=">Report Bug</a>
-    ·
-    <a href="https://github.com/CopilotKit/CopilotKit/issues/new?assignees=&labels=feature+request&projects=&template=feature_request.md&title=">Request Feature</a>
-</p>
 
-<p align="center">
-   Questions?
-    <a href="https://calendly.com/atai_/copilotkit" rel="dofollow"><strong> Book a call with us  »</strong></a>
-    <br />
-</p>
-
-<p align="center">
-  <strong>Copilot support:</strong> We're happy to support your Copilot integration efforts. <br/>
-  You can receive support on <a href="https://discord.gg/6dffbvGU3D">our discord</a>
-   or by <a href="https://calendly.com/atai_/copilotkit" rel="dofollow"> booking a call with us</a>.
-</p>
 
 ---
-
-
 
 <div align="center">
   <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/ea8edde4-dbde-40b4-bb60-e55bd1023094" width="700px" max-width="100%" style="border-radius: 35px;">
@@ -74,6 +58,10 @@ in-app AI chatbots, AI agents, and AI Textareas.
   <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/1d0373f6-5932-4c4e-84e9-bfdbad53f38f" width="700px" max-width="100%" style="border-radius: 35px;">
 </div>
 <br/>
+
+<div align="center">
+  <img src="https://github.com/CopilotKit/CopilotKit/assets/746397/1a420e0a-3731-4105-b95c-01e07652723b" width="700px" max-width="100%" style="border-radius: 35px;">
+</div>
 
 ## "Hello World" Templates
 
@@ -91,6 +79,13 @@ in-app AI chatbots, AI agents, and AI Textareas.
       <a href="https://github.com/CopilotKit/presentation-demo">https://github.com/CopilotKit/presentation-demo</a> <br/><br>
       <a href="https://github.com/CopilotKit/presentation-demo">
         <img alt="Presentation-Demo" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="200px" style="max-width:100%; border-radius: 10px;"/>
+      </a>
+    </td>
+    <td align="center" valign="top">
+      Spreadsheets + Copilot <br/>
+      <a href="https://github.com/CopilotKit/spreadsheet-demo">https://github.com/CopilotKit/spreadsheet-demo</a> <br/><br>
+      <a href="https://github.com/CopilotKit/spreadsheet-demo">
+        <img alt="Presentation-Demo" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/871e4c9c-0ced-490b-9e3f-8594de7c5c89" width="200px" style="max-width:100%; border-radius: 10px;"/>
       </a>
     </td>
 <!--     <td align="center" valign="top">
@@ -115,26 +110,21 @@ Drop-in replacement for any `<textarea />.` AI-assisted text generation. <br />
 Autocompletions + AI editing + generate from scratch. Grounded on your users' data and Copilot application context.<br/>
 Simply change `textarea` to `CopilotTextarea`.
 
-
-🌟 **Copilot Skills (powered by LangChain):** <br />
-Bring specialized LLM Chains and Graphs into in-app AI Copilot, with a few lines of code (native LangChain / LangGraph, or via LangServe).
-CopilotKit wraps your app, and routes relevant state as input to standalone skill chains (state can come from the frontend, backend, 3rd party integrations, or from the user).
-When the chain returns, the Copilot Engine funnels its output to in-app interaction as needed.
+🌟 **In-App Agents (powered by LangChain):** <br />
+Give agents access to realtime application context, and let agents take action inside applications.
 
 🌟 **Co-Agents (powered by LangChain. Coming soon.):** <br />
 Allow end-users to observe and intervene in an in-app agent’s operations, with native application UX.
 End users can **_correct_** mistakes in intermediate steps if any were made, and **restart agent operation from that point onwards**.
 
-
-
 ## How does it work
+
 **Define the following simple entry-points** into your application, and the CopilotKit🪁 execution engine takes care of the rest!
--  **Application state** (frontend + backend + 3rd party)
--  **Application interaction** (via plain typescript code, frontend + backend)
--  **Purpose-specific LLM chains**
--  and more.
 
-
+- **Application state** (frontend + backend + 3rd party)
+- **Application interaction** (via plain typescript code, frontend + backend)
+- **Purpose-specific LLM chains**
+- and more.
 
 ## Installation
 
@@ -152,17 +142,17 @@ See quickstart in the [docs](https://docs.copilotkit.ai)
 
 [CopilotKit_Demo_Jan_zjgjk0.webm](https://github.com/CopilotKit/CopilotKit/assets/746397/b1749282-a3e4-4ef4-a780-7d03f30edf5b)
 
-
 ## Building blocks
+
 A more comprehensive and up-to-date overview is available in the [docs](https://docs.copilotkit.ai). <br/>
 But roughtly:
 
 ### Copilot entrypoints
 
-- ✅ `useMakeCopilotReadable`: give frontend state to the copilot
+- ✅ `useCopilotReadable`: give frontend state to the copilot
 - ✅ `useMakeCopilotDocumentReadable`: give document state to the copilot, especially useful with 3rd party state (e.g. Gong call transcript).
-- ✅ `useMakeCopilotActionable`: frontend application interaction
-- ✅ `CopilotBackend`: backend application interaction
+- ✅ `useCopilotAction`: frontend application interaction
+- ✅ `CopilotRuntime`: server side runtime
 - 🚧 `useCopilotChain`: provide usecase-specific LLM chains
 
 ### Built-in UI components
@@ -174,9 +164,6 @@ But roughtly:
 - ✅ `useCopilotChat()` for fully-custom UI component
 - 🚧 use custom UX elements inside the chat (coming soon)
 
-
-
-
 ## Examples
 
 ### `<CopilotSidebar />`
@@ -187,47 +174,48 @@ import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 
 function MyAmazingContent() {
-    const importantInfo = useImportantInfo()
-    useMakeCopilotReadable("very importnat information: " + importantInfo)
+  const importantInfo = useImportantInfo();
+  useCopilotReadable({
+    description: "Very important information",
+    value: importantInfo,
+  });
 
-    useMakeCopilotActionable(
-      {
-        name: `selectDestinations_${toCamelCase(heading)}`,
-        description: `Set the given destinations as 'selected', on the ${heading} table`,
-        argumentAnnotations: [
-          {
-            name: "destinationNames",
-            type: "array",
-            items: {
-              type: "string",
-            },
-            description: "The names of the destinations to select",
-            required: true,
-          },
-        ],
-        implementation: async (destinationNames: string[]) => {
-          setCheckedRows((prevState) => {
-            const newState = { ...prevState };
-            destinationNames.forEach((destinationName) => {
-              newState[destinationName] = true;
-            });
-            return newState;
-          });
+  useCopilotAction(
+    {
+      name: `selectDestinations_${toCamelCase(heading)}`,
+      description: `Set the given destinations as 'selected', on the ${heading} table`,
+      parameters: [
+        {
+          name: "destinationNames",
+          type: "string[]",
+          description: "The names of the destinations to select",
+          required: true,
         },
+      ],
+      handler: async ({ destinationNames }) => {
+        setCheckedRows((prevState) => {
+          const newState = { ...prevState };
+          destinationNames.forEach((destinationName) => {
+            newState[destinationName] = true;
+          });
+          return newState;
+        });
       },
-      [],
-    );
+    },
+    []
+  );
 
-
-    return (
-       <YourContent />
-    )
+  return <YourContent />;
 }
 
 export default function App() {
   return (
-    <CopilotKit url="/api/copilotkit/chat"> {/* Global state & copilot logic. Put this around the entire app */}
-      <CopilotSidebar> {/* A built-in Copilot UI (or bring your own UI). Put around individual pages, or the entire app. */}
+    <CopilotKit url="/api/copilotkit/chat">
+      {" "}
+      {/* Global state & copilot logic. Put this around the entire app */}
+      <CopilotSidebar>
+        {" "}
+        {/* A built-in Copilot UI (or bring your own UI). Put around individual pages, or the entire app. */}
         <MyAmazingContent />
       </CopilotSidebar>
     </CopilotKit>
@@ -244,7 +232,6 @@ Indexed on data provided to the Copilot.
   <img src="./assets/CopilotTextarea.gif" width="648" style="border-radius: 15px; max-width="100%"">
 </p>
 
-
 ```typescript
 import "@copilotkit/react-textarea/styles.css"; // add to the app-global css
 import { CopilotTextarea } from "@copilotkit/react-textarea";
@@ -252,11 +239,16 @@ import { CopilotKit } from "@copilotkit/react-core";
 
 // call ANYWHERE in your app to provide external context (make sure you wrap the app with a <CopilotKit >):
 // See below for more features (parent/child hierarchy, categories, etc.)
-useMakeCopilotReadable(relevantInformation);
+useCopilotReadable({
+  description: "The description of your data",
+  value: relevantInformation,
+});
 useMakeCopilotDocumentReadable(document);
 
 return (
-  <CopilotKit url="/api/copilotkit/chat"> {/* Global state & copilot logic. Put this around the entire app */}
+  <CopilotKit url="/api/copilotkit/chat">
+    {" "}
+    {/* Global state & copilot logic. Put this around the entire app */}
     <CopilotTextarea
       className="p-4 w-1/2 aspect-square font-bold text-3xl bg-slate-800 text-white rounded-lg resize-none"
       placeholder="A CopilotTextarea!"
@@ -274,16 +266,15 @@ return (
 );
 ```
 
-
 ## Near-Term Roadmap
 
 ### 📊 Please vote on features via the Issues tab!
 
 ### Copilot-App Interaction
 
-- ✅ `useMakeCopilotReadable`: give frontend state to the copilot
+- ✅ `useCopilotReadable`: give frontend state to the copilot
 - ✅ `useMakeCopilotDocumentReadable`: give document state to the copilot, especially useful with 3rd party state (e.g. Gong call transcript)
-- ✅ `useMakeCopilotActionable`: Let the copilot interact with the application
+- ✅ `useCopilotAction`: Let the copilot interact with the application
 - 🚧 `useMakeCopilotAskable`: let the copilot ask for additional information when needed (coming soon)
 - 🚧 `useCopilotChain`: provide usecase-specific chain
 - 🚧 `useEditCopilotMessage`: edit the (unsent) typed user message to the copilot (coming soon)

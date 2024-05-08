@@ -1,3 +1,40 @@
+/**
+ * Provides the Copilot context to its children.
+ * 
+ * <img
+ *   referrerPolicy="no-referrer-when-downgrade"
+ *   src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be"
+ * />
+ * 
+ * This component provides the Copilot context to its children.
+ * It can be configured either with a chat API endpoint or a `CopilotApiConfig`.
+ * 
+ * <Note>
+ *   The backend can use OpenAI, or you can bring your own LLM. For examples of the
+ *   backend api implementation, see `examples/next-openai` or the [runtime
+ *   docs](https://docs.copilotkit.ai/getting-started/quickstart-runtime).
+ * </Note>
+ * 
+ * <RequestExample>
+ *   ```jsx CopilotKit Example
+ *   import { CopilotKit } from "@copilotkit/react-core";
+ * 
+ *   <CopilotKit 
+ *     runtimeUrl="https://your.copilotkit.api">
+ *     <YourApp/>
+ *   </CopilotKit>
+ *   ```
+ * </RequestExample>
+ * 
+ * ## Example usage
+ * 
+ * ```jsx
+ * <CopilotKit publicApiKey="the api key or self host (see below)">
+ *   <App />
+ * </CopilotKit>
+```
+ */
+
 import { Ref, useCallback, useRef, useState } from "react";
 import {
   CopilotContext,
@@ -6,53 +43,29 @@ import {
 } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
 import { DocumentPointer } from "../../types";
-import { FunctionCallHandler, Message, actionToChatCompletionFunction } from "@copilotkit/shared";
+
+import {
+  COPILOT_CLOUD_CHAT_URL,
+  CopilotCloudConfig,
+  FunctionCallHandler,
+  Message,
+  actionToChatCompletionFunction,
+} from "@copilotkit/shared";
+
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
-import { StandardCopilotApiConfig } from "./standard-copilot-api-config";
 import { CopilotKitProps } from "./copilotkit-props";
 import { ToolDefinition } from "@copilotkit/shared";
 
-/**
- * The CopilotKit component.
- * This component provides the Copilot context to its children.
- * It can be configured either with a chat API endpoint or a CopilotApiConfig.
- *
- * NOTE: The backend can use OpenAI, or you can bring your own LLM.
- * For examples of the backend api implementation, see `examples/next-openai` usage (under `src/api/copilotkit`),
- * or read the documentation at https://docs.copilotkit.ai
- * In particular, Getting-Started > Quickstart-Backend: https://docs.copilotkit.ai/getting-started/quickstart-backend
- *
- * Example usage:
- * ```
- * <CopilotKit url="https://your.copilotkit.api">
- *    <App />
- * </CopilotKit>
- * ```
- *
- * or
- *
- * ```
- * const copilotApiConfig = new StandardCopilotApiConfig(
- *  "https://your.copilotkit.api/v1",
- *  "https://your.copilotkit.api/v2",
- *  {},
- *  {}
- *  );
- *
- * // ...
- *
- * <CopilotKit chatApiConfig={copilotApiConfig}>
- *    <App />
- * </CopilotKit>
- * ```
- *
- * @param props - The props for the component.
- * @returns The CopilotKit component.
- */
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // Compute all the functions and properties that we need to pass
   // to the CopilotContext.
+
+  if (!props.runtimeUrl && !props.url && !props.publicApiKey) {
+    throw new Error("Please provide either a url or a publicApiKey to the CopilotKit component.");
+  }
+
+  const chatApiEndpoint = props.runtimeUrl || props.url || COPILOT_CLOUD_CHAT_URL;
 
   const [entryPoints, setEntryPoints] = useState<Record<string, FrontendAction<any>>>({});
   const chatComponentsCache = useRef<Record<string, InChatRenderFunction | string>>({});
@@ -150,16 +163,41 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     [removeDocument],
   );
 
+  if (!props.publicApiKey) {
+    if (props.cloudRestrictToTopic) {
+      throw new Error(
+        "To use the cloudRestrictToTopic feature, please sign up at https://copilotkit.ai and provide a publicApiKey.",
+      );
+    }
+  }
+
+  let cloud: CopilotCloudConfig | undefined = undefined;
+  if (props.publicApiKey) {
+    cloud = {
+      guardrails: {
+        input: {
+          restrictToTopic: {
+            enabled: props.cloudRestrictToTopic ? true : false,
+            validTopics: props.cloudRestrictToTopic?.validTopics || [],
+            invalidTopics: props.cloudRestrictToTopic?.invalidTopics || [],
+          },
+        },
+      },
+    };
+  }
+
   // get the appropriate CopilotApiConfig from the props
-  const copilotApiConfig: CopilotApiConfig = new StandardCopilotApiConfig(
-    props.url,
-    `${props.url}/v2`,
-    props.headers || {},
-    {
+  const copilotApiConfig: CopilotApiConfig = {
+    publicApiKey: props.publicApiKey,
+    ...(cloud ? { cloud } : {}),
+    chatApiEndpoint: chatApiEndpoint,
+    chatApiEndpointV2: `${props.url}/v2`,
+    headers: props.headers || {},
+    body: {
       ...props.body,
       ...props.backendOnlyProps,
     },
-  );
+  };
 
   return (
     <CopilotContext.Provider
