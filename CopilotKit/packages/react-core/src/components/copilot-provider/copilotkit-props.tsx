@@ -6,12 +6,12 @@ import { ReactNode } from "react";
 
 export interface CopilotKitProps {
   /**
-   * The public API key for Copilot Cloud.
+   * Your Copilot Cloud API key.
    */
   publicApiKey?: string;
 
   /**
-   * Cloud feature: Restrict to a specific topic.
+   * Cloud feature: Restrict input to a specific topic.
    */
   cloudRestrictToTopic?: {
     validTopics?: string[];
@@ -29,10 +29,10 @@ export interface CopilotKitProps {
   url?: string;
 
   /**
-   * additional headers to be sent with the request
-   * @default {}
-   * @example
-   * ```
+   * Additional headers to be sent with the request.
+   *
+   * For example:
+   * ```js
    * {
    *   'Authorization': 'Bearer your_token_here'
    * }
@@ -42,9 +42,8 @@ export interface CopilotKitProps {
 
   /**
    * Additional body params to be sent with the request
-   * @default {}
-   * @example
-   * ```
+   * For example:
+   * ```js
    * {
    *   'message': 'Hello, world!'
    * }
@@ -59,9 +58,8 @@ export interface CopilotKitProps {
 
   /**
    * Backend only props that will be combined to body params to be sent with the request
-   * @default {}
-   * @example
-   * ```
+   * For example:
+   * ```js
    * {
    *   'user_id': 'users_id',
    * }

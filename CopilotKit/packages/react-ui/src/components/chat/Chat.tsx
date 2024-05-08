@@ -66,8 +66,8 @@ export interface CopilotChatProps {
 
   /**
    * The shortcut key to open the chat window.
-   * Uses Command-<shortcut> on a Mac and Ctrl-<shortcut> on Windows.
-   * @default "e"
+   * Uses Command-[shortcut] on a Mac and Ctrl-[shortcut] on Windows.
+   * @default "/"
    */
   shortcut?: string;
 
