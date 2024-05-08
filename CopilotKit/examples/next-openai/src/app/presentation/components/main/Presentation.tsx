@@ -1,6 +1,6 @@
 "use client";
 import { useCopilotReadable } from "@copilotkit/react-core";
-import { useCallback, useMemo, useState } from "react";
+import { use, useCallback, useMemo, useState } from "react";
 import { Slide } from "./Slide";
 import { Header } from "./Header";
 import useAppendSlide from "../../actions/useAppendSlide";
@@ -53,8 +53,16 @@ export const Presentation = ({ performResearch, setPerformResearch }: Presentati
    */
   useCopilotChatSuggestion(
     {
-      instructions:
-        "Provide highly relevant suggestions related to the content of a new slide based on the existing slides.",
+      instructions: "Suggest a new slide based on the existing slides.",
+    },
+    [currentSlide],
+  );
+
+  useCopilotChatSuggestion(
+    {
+      instructions: "Suggest what could be improved about the current slide.",
+      minSuggestions: 0,
+      maxSuggestions: 1,
     },
     [currentSlide],
   );
