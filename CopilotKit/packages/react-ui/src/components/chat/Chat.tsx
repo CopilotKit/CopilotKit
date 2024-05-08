@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { CopilotChatIcons, ChatContextProvider, CopilotChatLabels } from "./ChatContext";
 import {
   SystemMessageFunction,
@@ -23,6 +23,7 @@ import { Input as DefaultInput } from "./Input";
 import { nanoid } from "nanoid";
 import { ResponseButton as DefaultResponseButton } from "./Response";
 import { Suggestion, reloadSuggestions } from "./Suggestion";
+import { CopilotChatSuggestion, CopilotChatSuggestionConfiguration } from "../../types/suggestions";
 
 /**
  * Props for CopilotChat component.
@@ -97,17 +98,6 @@ export interface CopilotChatProps {
   makeSystemMessage?: SystemMessageFunction;
 
   /**
-   * The initial suggestions to show in the chat window.
-   */
-  initialSuggestions?: { title: string; message: string }[];
-
-  /**
-   * Whether to auto suggest messages based on the user's input.
-   * @default true
-   */
-  autoSuggest?: boolean;
-
-  /**
    * Whether to show the response button.
    * @default true
    */
@@ -154,6 +144,8 @@ export interface CopilotChatProps {
   children?: React.ReactNode;
 }
 
+const SUGGESTIONS_DEBOUNCE_TIME = 1000;
+
 export const CopilotChat = ({
   instructions,
   defaultOpen = false,
@@ -165,8 +157,6 @@ export const CopilotChat = ({
   icons,
   labels,
   makeSystemMessage,
-  initialSuggestions,
-  autoSuggest,
   showResponseButton = true,
   onInProgress,
   Window = DefaultWindow,
@@ -184,32 +174,59 @@ export const CopilotChat = ({
     additionalInstructions: instructions,
   });
 
-  const [currentSuggestions, setCurrentSuggestions] = React.useState<
-    {
-      title: string;
-      message: string;
-      partial?: boolean;
-    }[]
-  >(initialSuggestions || []);
-  const suggestionsAbortControllerRef = useRef<AbortController>(new AbortController());
+  const [currentSuggestions, setCurrentSuggestions] = React.useState<CopilotChatSuggestion[]>([]);
+  const suggestionsAbortControllerRef = useRef<AbortController | null>(null);
+  const debounceTimerRef = useRef<any>();
 
   const abortSuggestions = () => {
     suggestionsAbortControllerRef.current?.abort();
-    suggestionsAbortControllerRef.current = new AbortController();
+    suggestionsAbortControllerRef.current = null;
   };
 
   const context = useCopilotContext();
 
+  const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
+    [key: string]: CopilotChatSuggestionConfiguration;
+  }>({});
+
+  const addChatSuggestionConfiguration = (
+    id: string,
+    suggestion: CopilotChatSuggestionConfiguration,
+  ) => {
+    setChatSuggestionConfiguration((prev) => ({ ...prev, [id]: suggestion }));
+  };
+
+  const removeChatSuggestion = (id: string) => {
+    setChatSuggestionConfiguration((prev) => {
+      const { [id]: _, ...rest } = prev;
+      return rest;
+    });
+  };
+
   useEffect(() => {
     onInProgress?.(isLoading);
-    if (!isLoading && autoSuggest && currentSuggestions.length === 0) {
-      reloadSuggestions(
-        context,
-        setCurrentSuggestions,
-        suggestionsAbortControllerRef.current.signal,
-      );
-    }
-  }, [isLoading, autoSuggest]);
+
+    abortSuggestions();
+
+    debounceTimerRef.current = setTimeout(
+      () => {
+        if (!isLoading && Object.keys(chatSuggestionConfiguration).length !== 0) {
+          suggestionsAbortControllerRef.current = new AbortController();
+          reloadSuggestions(
+            context,
+            chatSuggestionConfiguration,
+            setCurrentSuggestions,
+            suggestionsAbortControllerRef,
+          );
+        }
+      },
+      currentSuggestions.length == 0 ? 0 : SUGGESTIONS_DEBOUNCE_TIME,
+    );
+
+    return () => {
+      clearTimeout(debounceTimerRef.current);
+    };
+  }, [isLoading, chatSuggestionConfiguration]);
 
   const [openState, setOpenState] = React.useState(defaultOpen);
 
@@ -230,7 +247,14 @@ export const CopilotChat = ({
   };
 
   return (
-    <ChatContextProvider icons={icons} labels={labels} open={openState} setOpen={setOpenState}>
+    <ChatContextProvider
+      icons={icons}
+      labels={labels}
+      open={openState}
+      setOpen={setOpenState}
+      addChatSuggestionConfiguration={addChatSuggestionConfiguration}
+      removeChatSuggestionConfiguration={removeChatSuggestion}
+    >
       {children}
       <div className={className}>
         <Button open={openState} setOpen={setOpen}></Button>

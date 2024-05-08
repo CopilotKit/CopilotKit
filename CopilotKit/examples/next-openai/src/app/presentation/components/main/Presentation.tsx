@@ -5,6 +5,7 @@ import { Slide } from "./Slide";
 import { Header } from "./Header";
 import useAppendSlide from "../../actions/useAppendSlide";
 import { SlideModel } from "../../types";
+import { useCopilotChatSuggestion } from "@copilotkit/react-ui";
 
 interface PresentationProps {
   performResearch: boolean;
@@ -46,6 +47,17 @@ export const Presentation = ({ performResearch, setPerformResearch }: Presentati
     setCurrentSlideIndex,
     slides,
   });
+
+  /**
+   * Auto Suggestions
+   */
+  useCopilotChatSuggestion(
+    {
+      instructions:
+        "Provide highly relevant suggestions related to the content of a new slide based on the existing slides.",
+    },
+    [currentSlide],
+  );
 
   const updateCurrentSlide = useCallback(
     (partialSlide: Partial<SlideModel>) => {
