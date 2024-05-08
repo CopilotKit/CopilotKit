@@ -1,0 +1,6 @@
+{
+  "entryPoints": ["packages/*"],
+  "name": "CopilotKit Typedoc",
+  "entryPointStrategy": "packages",
+  "includeVersion": false
+}

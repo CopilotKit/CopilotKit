@@ -6,6 +6,7 @@
     "lint": "turbo lint",
     "clean": "turbo clean",
     "test": "turbo test",
+    "docs": "ts-node ./scripts/docs/gen.ts",
     "check-types": "turbo check-types",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-prettier": "prettier --check \"**/*.{ts,tsx,md}\"",
@@ -13,11 +14,18 @@
     "freshbuild": "pnpm clean && pnpm install && pnpm build"
   },
   "devDependencies": {
+    "@microsoft/tsdoc": "^0.14.2",
+    "@types/node": "^18.11.17",
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",
+    "glob": "^10.3.12",
+    "install": "^0.13.0",
+    "npm": "^10.7.0",
     "prettier": "^3.2.5",
     "prettier-plugin-tailwindcss": "^0.1.11",
-    "turbo": "latest"
+    "ts-node": "^10.9.2",
+    "turbo": "latest",
+    "typescript": "^5.2.3"
   },
   "packageManager": "pnpm@7.15.0",
   "dependencies": {

@@ -30,13 +30,19 @@ https://pnpm.io/installation
 
 </CodeGroup>
 
-Step 2. Add the required environment variables:
+Step 3. Install the required dev dependencies:
+- Go to `<CopilotKit Directory>/CopilotKit/`
+- Run `pnpm -w install --dev`
+- Press `Y` to accept (read question first). 
+
+
+Step 3. Add the required environment variables:
 
 - Go to `<CopilotKit Directory>/CopilotKit/examples/next-openai/`
 - Duplicate `.env.local.example`, name the duplicate `.env.local`
 - Edit `.env.local` with approrpriate values
 
-Step 3. Recursively install & build all dependencies:
+Step 4. Recursively install & build all dependencies:
 
 In `<CopilotKit Directory>/CopilotKit` run:
 
@@ -44,7 +50,7 @@ In `<CopilotKit Directory>/CopilotKit` run:
 pnpm -w freshbuild
 ```
 
-Step 4. Run all packages & the example app in dev mode, to automatically load changes on file save.
+Step 5. Run all packages & the example app in dev mode, to automatically load changes on file save.
 
 Please Note!\
 If you save files in a file that's part of the example app, the app will hot-load the changes automatically.
