@@ -144,7 +144,7 @@ export interface CopilotChatProps {
   children?: React.ReactNode;
 }
 
-const SUGGESTIONS_DEBOUNCE_TIME = 1000;
+const SUGGESTIONS_DEBOUNCE_TIMEOUT = 1000;
 
 export const CopilotChat = ({
   instructions,
@@ -220,7 +220,7 @@ export const CopilotChat = ({
           );
         }
       },
-      currentSuggestions.length == 0 ? 0 : SUGGESTIONS_DEBOUNCE_TIME,
+      currentSuggestions.length == 0 ? 0 : SUGGESTIONS_DEBOUNCE_TIMEOUT,
     );
 
     return () => {
