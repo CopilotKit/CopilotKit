@@ -61,7 +61,7 @@ export const Presentation = ({ performResearch, setPerformResearch }: Presentati
   useCopilotChatSuggestions(
     {
       instructions:
-        "Suggest specifically what could be improved about the current slide. " +
+        "Suggest specifically what could be improved about the content of current slide. " +
         "The specific suggestion should be in the button text. " +
         "Do not suggest to update the background image.",
       minSuggestions: 0,
