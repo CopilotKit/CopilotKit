@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo } from "react";
-import { MessagesProps } from "./props";
+import { MessagesProps, SuggestionsProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import { nanoid } from "nanoid";
 import { Message, decodeResult } from "@copilotkit/shared";
 import { Markdown } from "./Markdown";
 import { ActionRenderProps, RenderFunctionStatus, useCopilotContext } from "@copilotkit/react-core";
 
-export const Messages = ({ messages, inProgress }: MessagesProps) => {
+export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
   const { chatComponentsCache } = useCopilotContext();
   const context = useChatContext();
   const initialMessages = useMemo(
@@ -145,7 +145,7 @@ export const Messages = ({ messages, inProgress }: MessagesProps) => {
           );
         }
       })}
-      <div ref={messagesEndRef} />
+      <footer ref={messagesEndRef}>{children}</footer>
     </div>
   );
 };

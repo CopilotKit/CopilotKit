@@ -34,3 +34,11 @@ body {
   bottom: 0;
   left: 0;
 }
+
+.custom-suggestion {
+  padding: 8px 12px;
+  font-size: 0.7rem;
+  border-radius: 0.5rem;
+  background: #4169e1;
+  color: white;
+}

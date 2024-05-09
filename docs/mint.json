@@ -48,6 +48,7 @@
         "reference/CopilotSidebar",
         "reference/useCopilotReadable",
         "reference/useCopilotAction",
+        "reference/useCopilotChatSuggestions",
         "reference/CopilotTask",
         "reference/CopilotRuntime"
       ]

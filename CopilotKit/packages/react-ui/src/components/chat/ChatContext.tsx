@@ -1,5 +1,6 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import * as DefaultIcons from "./Icons";
+import { CopilotChatSuggestion, CopilotChatSuggestionConfiguration } from "../../types/suggestions";
 
 /**
  * Icons for CopilotChat component.
@@ -105,6 +106,11 @@ interface ChatContext {
   icons: Required<CopilotChatIcons>;
   open: boolean;
   setOpen: (open: boolean) => void;
+  addChatSuggestionConfiguration: (
+    id: string,
+    suggestion: CopilotChatSuggestionConfiguration,
+  ) => void;
+  removeChatSuggestionConfiguration: (id: string) => void;
 }
 
 export const ChatContext = React.createContext<ChatContext | undefined>(undefined);
@@ -128,6 +134,11 @@ interface ChatContextProps {
   children?: React.ReactNode;
   open: boolean;
   setOpen: (open: boolean) => void;
+  addChatSuggestionConfiguration: (
+    id: string,
+    suggestion: CopilotChatSuggestionConfiguration,
+  ) => void;
+  removeChatSuggestionConfiguration: (id: string) => void;
 }
 
 export const ChatContextProvider = ({
@@ -139,39 +150,40 @@ export const ChatContextProvider = ({
   children,
   open,
   setOpen,
+  addChatSuggestionConfiguration,
+  removeChatSuggestionConfiguration,
 }: ChatContextProps) => {
-  const context = useMemo(
-    () => ({
-      labels: {
-        ...{
-          initial: "",
-          title: "CopilotKit",
-          placeholder: "Type a message...",
-          thinking: "Thinking...",
-          error: "❌ An error occurred. Please try again.",
-          stopGenerating: "Stop generating",
-          regenerateResponse: "Regenerate response",
-        },
-        ...labels,
+  const context = {
+    labels: {
+      ...{
+        initial: "",
+        title: "CopilotKit",
+        placeholder: "Type a message...",
+        thinking: "Thinking...",
+        error: "❌ An error occurred. Please try again.",
+        stopGenerating: "Stop generating",
+        regenerateResponse: "Regenerate response",
       },
+      ...labels,
+    },
 
-      icons: {
-        ...{
-          openIcon: DefaultIcons.OpenIcon,
-          closeIcon: DefaultIcons.CloseIcon,
-          headerCloseIcon: DefaultIcons.HeaderCloseIcon,
-          sendIcon: DefaultIcons.SendIcon,
-          activityIcon: DefaultIcons.ActivityIcon,
-          spinnerIcon: DefaultIcons.SpinnerIcon,
-          stopIcon: DefaultIcons.StopIcon,
-          regenerateIcon: DefaultIcons.RegenerateIcon,
-        },
-        icons,
+    icons: {
+      ...{
+        openIcon: DefaultIcons.OpenIcon,
+        closeIcon: DefaultIcons.CloseIcon,
+        headerCloseIcon: DefaultIcons.HeaderCloseIcon,
+        sendIcon: DefaultIcons.SendIcon,
+        activityIcon: DefaultIcons.ActivityIcon,
+        spinnerIcon: DefaultIcons.SpinnerIcon,
+        stopIcon: DefaultIcons.StopIcon,
+        regenerateIcon: DefaultIcons.RegenerateIcon,
       },
-      open,
-      setOpen,
-    }),
-    [labels, icons, open, setOpen],
-  );
+      icons,
+    },
+    open,
+    setOpen,
+    addChatSuggestionConfiguration,
+    removeChatSuggestionConfiguration,
+  };
   return <ChatContext.Provider value={context}>{children}</ChatContext.Provider>;
 };

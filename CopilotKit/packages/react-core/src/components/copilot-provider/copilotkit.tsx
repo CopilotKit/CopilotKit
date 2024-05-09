@@ -43,6 +43,7 @@ import {
 } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
 import { DocumentPointer } from "../../types";
+
 import {
   COPILOT_CLOUD_CHAT_URL,
   CopilotCloudConfig,
@@ -50,6 +51,7 @@ import {
   Message,
   actionToChatCompletionFunction,
 } from "@copilotkit/shared";
+
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { CopilotKitProps } from "./copilotkit-props";

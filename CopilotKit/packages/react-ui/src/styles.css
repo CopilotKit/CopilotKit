@@ -9,6 +9,7 @@
 @import "./css/animations.css";
 @import "./css/response.css";
 @import "./css/markdown.css";
+@import "./css/suggestions.css";
 
 @tailwind base;
 @tailwind components;

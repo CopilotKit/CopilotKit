@@ -1,6 +1,11 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { CopilotChatIcons, ChatContextProvider, CopilotChatLabels } from "./ChatContext";
-import { SystemMessageFunction, useCopilotChat } from "@copilotkit/react-core";
+import {
+  SystemMessageFunction,
+  extract,
+  useCopilotChat,
+  useCopilotContext,
+} from "@copilotkit/react-core";
 import {
   ButtonProps,
   HeaderProps,
@@ -8,6 +13,7 @@ import {
   MessagesProps,
   InputProps,
   ResponseButtonProps,
+  SuggestionsProps,
 } from "./props";
 import { Window as DefaultWindow } from "./Window";
 import { Button as DefaultButton } from "./Button";
@@ -16,6 +22,8 @@ import { Messages as DefaultMessages } from "./Messages";
 import { Input as DefaultInput } from "./Input";
 import { nanoid } from "nanoid";
 import { ResponseButton as DefaultResponseButton } from "./Response";
+import { Suggestion, reloadSuggestions } from "./Suggestion";
+import { CopilotChatSuggestion, CopilotChatSuggestionConfiguration } from "../../types/suggestions";
 
 /**
  * Props for CopilotChat component.
@@ -136,6 +144,8 @@ export interface CopilotChatProps {
   children?: React.ReactNode;
 }
 
+const SUGGESTIONS_DEBOUNCE_TIMEOUT = 1000;
+
 export const CopilotChat = ({
   instructions,
   defaultOpen = false,
@@ -164,9 +174,59 @@ export const CopilotChat = ({
     additionalInstructions: instructions,
   });
 
+  const [currentSuggestions, setCurrentSuggestions] = React.useState<CopilotChatSuggestion[]>([]);
+  const suggestionsAbortControllerRef = useRef<AbortController | null>(null);
+  const debounceTimerRef = useRef<any>();
+
+  const abortSuggestions = () => {
+    suggestionsAbortControllerRef.current?.abort();
+    suggestionsAbortControllerRef.current = null;
+  };
+
+  const context = useCopilotContext();
+
+  const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
+    [key: string]: CopilotChatSuggestionConfiguration;
+  }>({});
+
+  const addChatSuggestionConfiguration = (
+    id: string,
+    suggestion: CopilotChatSuggestionConfiguration,
+  ) => {
+    setChatSuggestionConfiguration((prev) => ({ ...prev, [id]: suggestion }));
+  };
+
+  const removeChatSuggestion = (id: string) => {
+    setChatSuggestionConfiguration((prev) => {
+      const { [id]: _, ...rest } = prev;
+      return rest;
+    });
+  };
+
   useEffect(() => {
     onInProgress?.(isLoading);
-  }, [isLoading]);
+
+    abortSuggestions();
+
+    debounceTimerRef.current = setTimeout(
+      () => {
+        if (!isLoading && Object.keys(chatSuggestionConfiguration).length !== 0) {
+          suggestionsAbortControllerRef.current = new AbortController();
+          reloadSuggestions(
+            context,
+            chatSuggestionConfiguration,
+            setCurrentSuggestions,
+            suggestionsAbortControllerRef,
+          );
+        }
+      },
+      currentSuggestions.length == 0 ? 0 : SUGGESTIONS_DEBOUNCE_TIMEOUT,
+    );
+
+    return () => {
+      clearTimeout(debounceTimerRef.current);
+    };
+  }, [isLoading, chatSuggestionConfiguration]);
 
   const [openState, setOpenState] = React.useState(defaultOpen);
 
@@ -176,6 +236,8 @@ export const CopilotChat = ({
   };
 
   const sendMessage = async (message: string) => {
+    abortSuggestions();
+    setCurrentSuggestions([]);
     onSubmitMessage?.(message);
     append({
       id: nanoid(),
@@ -185,7 +247,14 @@ export const CopilotChat = ({
   };
 
   return (
-    <ChatContextProvider icons={icons} labels={labels} open={openState} setOpen={setOpenState}>
+    <ChatContextProvider
+      icons={icons}
+      labels={labels}
+      open={openState}
+      setOpen={setOpenState}
+      addChatSuggestionConfiguration={addChatSuggestionConfiguration}
+      removeChatSuggestionConfiguration={removeChatSuggestion}
+    >
       {children}
       <div className={className}>
         <Button open={openState} setOpen={setOpen}></Button>
@@ -197,12 +266,29 @@ export const CopilotChat = ({
           hitEscapeToClose={hitEscapeToClose}
         >
           <Header open={openState} setOpen={setOpen} />
-          <Messages messages={visibleMessages} inProgress={isLoading} />
-          <Input inProgress={isLoading} onSend={sendMessage} isVisible={openState}>
+          <Messages messages={visibleMessages} inProgress={isLoading}>
+            {currentSuggestions.length > 0 && (
+              <div>
+                <h6>Suggested:</h6>
+                <div className="suggestions">
+                  {currentSuggestions.map((suggestion, index) => (
+                    <Suggestion
+                      key={index}
+                      title={suggestion.title}
+                      message={suggestion.message}
+                      partial={suggestion.partial}
+                      className={suggestion.className}
+                      onClick={(message) => sendMessage(message)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
             {showResponseButton && visibleMessages.length > 0 && (
               <ResponseButton onClick={isLoading ? stop : reload} inProgress={isLoading} />
             )}
-          </Input>
+          </Messages>
+          <Input inProgress={isLoading} onSend={sendMessage} isVisible={openState} />
         </Window>
       </div>
     </ChatContextProvider>

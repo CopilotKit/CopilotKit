@@ -49,7 +49,14 @@ export default function useAppendSlide({
       setCurrentSlideIndex((i) => slides.length);
     },
     render: (props) => {
-      return <SlidePreview {...props.args} done={props.status === "complete"} />;
+      return (
+        <SlidePreview
+          {...props.args}
+          done={props.status === "complete"}
+          inProgressLabel="Adding slide..."
+          doneLabel="Slide added."
+        />
+      );
     },
   });
 }
