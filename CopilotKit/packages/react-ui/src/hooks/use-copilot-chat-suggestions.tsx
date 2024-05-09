@@ -1,9 +1,12 @@
-import { useEffect, useRef } from "react";
+/**
+ * A hook for providing suggestions to the user in the Copilot chat.
+ */
+import { useEffect } from "react";
 import { useChatContext } from "../components";
 import { nanoid } from "nanoid";
 import { CopilotChatSuggestionConfiguration } from "../types/suggestions";
 
-export function useCopilotChatSuggestion(
+export function useCopilotChatSuggestions(
   {
     instructions,
     className,
