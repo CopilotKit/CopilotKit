@@ -1,4 +1,10 @@
-import { Action, MappedParameterTypes, Message, Parameter } from "@copilotkit/shared";
+import {
+  Action,
+  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
+  MappedParameterTypes,
+  Message,
+  Parameter,
+} from "@copilotkit/shared";
 import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
 import { fetchAndDecodeChatCompletion } from "./fetch-chat-completion";
@@ -75,11 +81,18 @@ export async function extract<const T extends Parameter[]>({
     role: "system",
   };
 
+  const headers = {
+    ...(context.copilotApiConfig.headers || {}),
+    ...(context.copilotApiConfig.publicApiKey
+      ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: context.copilotApiConfig.publicApiKey }
+      : {}),
+  };
+
   const response = await fetchAndDecodeChatCompletion({
     copilotConfig: context.copilotApiConfig,
     messages: includeMessages ? [systemMessage, ...messages] : [systemMessage],
     tools: context.getChatCompletionFunctionDescriptions({ extract: action }),
-    headers: context.copilotApiConfig.headers,
+    headers,
     body: context.copilotApiConfig.body,
     toolChoice: { type: "function", function: { name: "extract" } },
     signal: abortSignal,
