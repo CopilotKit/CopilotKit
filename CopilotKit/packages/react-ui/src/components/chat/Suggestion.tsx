@@ -32,13 +32,18 @@ export const reloadSuggestions = async (
 
   for (const config of Object.values(chatSuggestionConfiguration)) {
     try {
+      const numOfSuggestionsInstructions =
+        config.minSuggestions === 0
+          ? `Produce up to ${config.maxSuggestions} suggestions. ` +
+            `If there are no highly relevant suggestions you can think of, provide an empty array.`
+          : `Produce between ${config.minSuggestions} and ${config.maxSuggestions} suggestions.`;
       const result = await extract({
         context,
         instructions:
           "Suggest what the user could say next. Provide clear, highly relevant suggestions. Do not literally suggest function calls. " +
           config.instructions +
           "\n\n" +
-          `Produce between ${config.minSuggestions} and ${config.maxSuggestions} suggestions.`,
+          numOfSuggestionsInstructions,
         data: "Available tools: " + tools + "\n\n",
         parameters: [
           {
