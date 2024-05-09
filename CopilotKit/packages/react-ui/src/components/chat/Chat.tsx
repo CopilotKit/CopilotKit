@@ -277,6 +277,7 @@ export const CopilotChat = ({
                       title={suggestion.title}
                       message={suggestion.message}
                       partial={suggestion.partial}
+                      className={suggestion.className}
                       onClick={(message) => sendMessage(message)}
                     />
                   ))}

@@ -96,7 +96,6 @@ export const SmallSpinnerIcon = (
   <svg
     style={{
       animation: "copilotKitSpinAnimation 1s linear infinite",
-      color: "rgb(107 114 128)",
     }}
     width="13"
     height="13"

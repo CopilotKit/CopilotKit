@@ -9,7 +9,11 @@ export default function AIPresentation() {
   const [performResearch, setPerformResearch] = useState(false);
 
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit/langchain">
+    <CopilotKit
+      runtimeUrl="/api/copilotkit/openai"
+      // runtimeUrl="https://api.next.copilotkit.ai/v1/copilotkit/runtime/chat"
+      // publicApiKey="ck_pub_c191723c211758fd2b89d4b48c40ff59"
+    >
       <CopilotSidebar
         instructions={
           "Help the user create and edit a powerpoint-style presentation." +

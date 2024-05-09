@@ -23,6 +23,7 @@ export interface SuggestionsProps {
   title: string;
   message: string;
   partial?: boolean;
+  className?: string;
   onClick: (message: string) => void;
 }
 

@@ -4,7 +4,12 @@ import { nanoid } from "nanoid";
 import { CopilotChatSuggestionConfiguration } from "../types/suggestions";
 
 export function useCopilotChatSuggestion(
-  { instructions, minSuggestions = 1, maxSuggestions = 3 }: CopilotChatSuggestionConfiguration,
+  {
+    instructions,
+    className,
+    minSuggestions = 1,
+    maxSuggestions = 3,
+  }: CopilotChatSuggestionConfiguration,
   dependencies: any[] = [],
 ) {
   const chatContext = useChatContext();
@@ -16,6 +21,7 @@ export function useCopilotChatSuggestion(
       instructions,
       minSuggestions,
       maxSuggestions,
+      className,
     });
 
     return () => {

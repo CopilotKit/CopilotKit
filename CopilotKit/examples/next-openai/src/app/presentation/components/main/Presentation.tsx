@@ -63,6 +63,7 @@ export const Presentation = ({ performResearch, setPerformResearch }: Presentati
       instructions: "Suggest what could be improved about the current slide.",
       minSuggestions: 0,
       maxSuggestions: 1,
+      className: "custom-suggestion",
     },
     [currentSlide],
   );

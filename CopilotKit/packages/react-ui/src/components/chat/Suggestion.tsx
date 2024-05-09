@@ -3,8 +3,7 @@ import { SuggestionsProps } from "./props";
 import { SmallSpinnerIcon } from "./Icons";
 import { CopilotChatSuggestion, CopilotChatSuggestionConfiguration } from "../../types/suggestions";
 
-export function Suggestion({ title, message, onClick, partial }: SuggestionsProps) {
-  // const context = useChatContext();
+export function Suggestion({ title, message, onClick, partial, className }: SuggestionsProps) {
   return (
     <button
       disabled={partial}
@@ -12,6 +11,7 @@ export function Suggestion({ title, message, onClick, partial }: SuggestionsProp
         e.preventDefault();
         onClick(message);
       }}
+      className={className || "suggestion"}
     >
       {partial && SmallSpinnerIcon}
       <span>{title}</span>
@@ -69,6 +69,10 @@ export const reloadSuggestions = async (
           const suggestions = args.suggestions || [];
           const newSuggestions: CopilotChatSuggestion[] = [];
           for (let i = 0; i < suggestions.length; i++) {
+            // if GPT provides too many suggestions, limit the number of suggestions
+            if (config.maxSuggestions !== undefined && i >= config.maxSuggestions) {
+              break;
+            }
             const { title, message } = suggestions[i];
 
             // If this is the last suggestion and the status is not complete, mark it as partial
@@ -78,6 +82,7 @@ export const reloadSuggestions = async (
               title,
               message,
               partial,
+              className: config.className,
             });
           }
           setCurrentSuggestions([...allSuggestions, ...newSuggestions]);
