@@ -78,28 +78,59 @@ custom component or string instead of the default message component.
   Render lets you define a custom component or string to render instead of the
   default.
 
-In the simplest case, you can provide a string to render a text message.
+  #### Rendering a Waiting Message
+
+  You might want to display a message to the user while they are waiting for an 
+  action to complete. To do this, provide a string to `render`.
+  
+```js
+{
+  // ...
+  render: "Processing...",
+}
+```
+
+  This will display a spinner and the message "Processing..." while the action is
+  running:
+
+  <img src="/images/useCopilotAction/render-string.png" width="200" />
+
+  When the action completes, the message will disappear.
+
+  #### Rendering a Dynamic Message
+
+  You can also provide a function to dynamically set the content of the message. This function will
+  be called multiple times while the arguments are constructed and when the action is executed.
 
 ```js
 {
   // ...
-  render: "Hello, world!",
+  render: ({ status, args, result }) => 
+    (status === "complete" ? "☑️ Done!" : "Processing..."),
 }
 ```
 
-You can also provide a function to dynamically set the content of the message.
+  The function will be called with `status`, `args`, and `result` properties.
 
-```js
-{
-  // ...
-  render: ({status, args, result}) => status === "complete" ? "Done!" : "Processing...",
-}
-```
+  `status` can be one of the following values:
+  - `"inProgress"`: The parameters of the action are being constructed by the language model.
+    `args` are dynamically streamed to the function, allowing you to adjust your message in real-time.    
+  - `"executing"`: The action handler is executing.
+  - `"complete"`: The action handler has completed execution. `result` is the result of the action.
 
-In this case, `status` is the execution status of the action, `args` are the
-possibly incomplete, streaming arguments, and `result` is the result of the action.
+  `args` are the arguments passed to the action. When the status is `"inProgress"`, they are
+  possibly incomplete.
 
-Finally, you can return a React component to render a custom component.
+  `result` is the result of the action. It is only available when the status is `"complete"`.
+  
+  If you want the message to disappear when the action is complete, return a falsy value. 
+  Otherwise, return a string to display.
+
+  <img src="/images/useCopilotAction/render-dynamic.png" width="200" />
+
+  #### Generative UI
+
+  Finally, you can return a React component instead of a string to render a custom component.
 
 ```js
 {
@@ -111,6 +142,15 @@ Finally, you can return a React component to render a custom component.
   ),
 }
 ```
+
+  By using the streaming `args` parameter, you can create a generative UI that updates in real-time as 
+  the arguments are being constructed.
+
+  <div style={{display: "flex", justifyContent: "space-between"}}>
+    <img src="/images/useCopilotAction/render-generative-spreadsheet.gif" width="200" />
+    <img src="/images/useCopilotAction/render-generative-presentation.gif" width="200" />
+  </div>
+
 
 </ResponseField>
 
