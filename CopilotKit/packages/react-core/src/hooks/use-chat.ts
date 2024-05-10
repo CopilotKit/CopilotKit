@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useContext, useEffect } from "react";
+import { CopilotContext } from "../context/copilot-context";
 import {
   Message,
   ToolDefinition,
@@ -123,7 +124,6 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
     abortControllerRef.current = abortController;
 
     setMessages([...messages, ...newMessages]);
-
     // add threadId and runId to the body if it exists
     const copilotConfigBody = options.copilotConfig.body || {};
     if (threadIdRef.current) {
