@@ -3,8 +3,8 @@
  *
  * <img referrerPolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be" />
  *
- * This React hook integrates auto-generated chat suggestions into your application by utilizing the
- * current state. It dynamically manages suggestions based on provided configurations and
+ * This React hook integrates auto-generated chat suggestions into your application in the context of your
+ * app's state. It dynamically manages suggestions based on provided configurations and
  * dependencies.
  *
  * <RequestExample>
