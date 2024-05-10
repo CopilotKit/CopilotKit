@@ -34,7 +34,6 @@
  * </CopilotKit>
 ```
  */
-
 import { Ref, useCallback, useRef, useState } from "react";
 import {
   CopilotContext,
