@@ -1,6 +1,6 @@
 "use client";
-import { useCopilotReadable } from "@copilotkit/react-core";
-import { use, useCallback, useMemo, useState } from "react";
+import { useCopilotContext, useCopilotReadable } from "@copilotkit/react-core";
+import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { Slide } from "./Slide";
 import { Header } from "./Header";
 import useAppendSlide from "../../actions/useAppendSlide";
@@ -13,6 +13,26 @@ interface PresentationProps {
 }
 
 export const Presentation = ({ performResearch, setPerformResearch }: PresentationProps) => {
+  // Load messages from local storage
+
+  // const { messages, setMessages } = useCopilotContext();
+
+  // // save to local storage when messages change
+  // useEffect(() => {
+  //   if (messages.length !== 0) {
+  //     localStorage.setItem("copilotkit-messages", JSON.stringify(messages));
+  //   }
+  // }, [JSON.stringify(messages)]);
+
+  // // initially load from local storage
+  // useEffect(() => {
+  //   const messages = localStorage.getItem("copilotkit-messages");
+  //   if (messages) {
+  //     console.log("got messages from local storage", messages);
+  //     setMessages(JSON.parse(messages));
+  //   }
+  // }, []);
+
   const [slides, setSlides] = useState<SlideModel[]>([
     {
       content: "This is the first slide.",
