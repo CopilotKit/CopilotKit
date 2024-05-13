@@ -5,7 +5,7 @@ import {
   ToolDefinition,
 } from "@copilotkit/shared";
 import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
-import React, { Ref } from "react";
+import React from "react";
 import { TreeNodeId } from "../hooks/use-tree";
 import { DocumentPointer } from "../types";
 
