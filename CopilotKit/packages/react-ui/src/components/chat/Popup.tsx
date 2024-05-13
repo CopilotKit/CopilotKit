@@ -1,6 +1,8 @@
 /**
  * A chatbot popup component for CopilotKit.
  *
+ * <img src="/images/CopilotPopup/CopilotPopup.gif" width="500" />
+ *
  * <img referrerPolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be" />
  *
  * A chatbot popup component for the CopilotKit framework. The component allows for a high degree

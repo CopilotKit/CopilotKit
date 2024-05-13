@@ -1,6 +1,8 @@
 /**
  * A chatbot sidebar component for CopilotKit.
  *
+ * <img src="/images/CopilotSidebar/CopilotSidebar.gif" width="500" />
+ *
  * <img referrerPolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be" />
  *
  * A chatbot sidebar component for the CopilotKit framework. Highly customizable through various props and custom CSS.
