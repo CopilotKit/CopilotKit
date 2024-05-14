@@ -285,9 +285,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
           ...forwardedProps,
           tools: mergedTools,
         },
-        {
-          onFinalChatCompletion: options.onFinalChatCompletion,
-        },
+        options,
       );
 
       if (publicApiKey !== undefined) {
