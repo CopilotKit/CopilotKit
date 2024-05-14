@@ -381,7 +381,6 @@ or Node.js HTTP server.
         : // use headers in node http
           req.headers[COPILOT_CLOUD_PUBLIC_API_KEY_HEADER.toLowerCase()]) || undefined;
 
-
     const response = await this.getResponse(
       forwardedProps,
       {
