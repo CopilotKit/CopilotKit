@@ -1,9 +1,11 @@
 /**
  * A hook for providing suggestions to the user in the Copilot chat.
  *
+ * <img src="/images/useCopilotChatSuggestions/use-copilot-chat-suggestions.gif" width="500" />
+ *
  * <img referrerPolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be" />
  *
- * This React hook integrates auto-generated chat suggestions into your application in the context of your
+ * `useCopilotChatSuggestions` integrates auto-generated chat suggestions into your application in the context of your
  * app's state. It dynamically manages suggestions based on provided configurations and
  * dependencies.
  *

@@ -41,18 +41,26 @@
       ]
     },
     {
-      "group": "API Reference",
+      "group": "Components",
       "pages": [
         "reference/CopilotKit",
         "reference/CopilotPopup",
-        "reference/CopilotSidebar",
-        "reference/useCopilotReadable",
-        "reference/useCopilotAction",
-        "reference/useCopilotChatSuggestions",
-        "reference/CopilotTask",
-        "reference/CopilotRuntime"
+        "reference/CopilotSidebar"
       ]
     },
+    {
+      "group": "Hooks",
+      "pages": [
+        "reference/useCopilotReadable",
+        "reference/useCopilotAction",
+        "reference/useCopilotChatSuggestions"
+      ]
+    },
+    {
+      "group": "Classes",
+      "pages": ["reference/CopilotTask", "reference/CopilotRuntime"]
+    },
+
     {
       "group": "Contributing",
       "pages": ["contribute/quickstart-contribute"]
