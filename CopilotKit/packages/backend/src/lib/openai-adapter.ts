@@ -33,7 +33,7 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
   async getResponse(
     forwardedProps: any,
     options: {
-      onFinalChatCompletion?: OnFinalChatCompletionCallback<ChatCompletion | Chat>;
+      onFinalChatCompletion?: OnFinalChatCompletionCallback<ChatCompletion>;
     } = {},
   ): Promise<CopilotKitResponse> {
     // copy forwardedProps to avoid modifying the original object
