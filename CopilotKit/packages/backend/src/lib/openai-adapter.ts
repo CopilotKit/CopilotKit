@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { CopilotKitResponse, CopilotKitServiceAdapter } from "../types/service-adapter";
 import { limitOpenAIMessagesToTokenCount, maxTokensForOpenAIModel } from "../utils/openai";
 
-const DEFAULT_MODEL = "gpt-4-1106-preview";
+const DEFAULT_MODEL = "gpt-4o";
 
 export interface OpenAIAdapterParams {
   openai?: OpenAI;
