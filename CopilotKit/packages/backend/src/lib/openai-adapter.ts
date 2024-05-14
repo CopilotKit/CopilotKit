@@ -5,7 +5,7 @@ import {
   OnFinalChatCompletionCallback,
 } from "../types/service-adapter";
 import { limitOpenAIMessagesToTokenCount, maxTokensForOpenAIModel } from "../utils/openai";
-import { Chat, ChatCompletion } from "openai/resources";
+import { ChatCompletion } from "openai/resources";
 import { ChatCompletionStream } from "openai/lib/ChatCompletionStream";
 
 const DEFAULT_MODEL = "gpt-4-1106-preview";

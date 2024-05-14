@@ -3,7 +3,7 @@ export interface CopilotKitResponse {
   headers?: Record<string, string>;
 }
 
-export type OnFinalChatCompletionCallback<T = any> = ((response: T) => void) | null;
+export type OnFinalChatCompletionCallback<T = any> = (response: T) => void;
 
 export type GetResponseOptions = {
   onFinalChatCompletion?: OnFinalChatCompletionCallback;
