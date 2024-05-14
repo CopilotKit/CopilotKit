@@ -1,6 +1,12 @@
 import OpenAI from "openai";
-import { CopilotKitResponse, CopilotKitServiceAdapter } from "../types/service-adapter";
+import {
+  CopilotKitResponse,
+  CopilotKitServiceAdapter,
+  OnFinalChatCompletionCallback,
+} from "../types/service-adapter";
 import { limitOpenAIMessagesToTokenCount, maxTokensForOpenAIModel } from "../utils/openai";
+import { Chat, ChatCompletion } from "openai/resources";
+import { ChatCompletionStream } from "openai/lib/ChatCompletionStream";
 
 const DEFAULT_MODEL = "gpt-4-1106-preview";
 
@@ -24,7 +30,12 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
     }
   }
 
-  async getResponse(forwardedProps: any): Promise<CopilotKitResponse> {
+  async getResponse(
+    forwardedProps: any,
+    options: {
+      onFinalChatCompletion?: OnFinalChatCompletionCallback<ChatCompletion | Chat>;
+    } = {},
+  ): Promise<CopilotKitResponse> {
     // copy forwardedProps to avoid modifying the original object
     forwardedProps = { ...forwardedProps };
 
@@ -49,18 +60,36 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
         }
       });
 
-      const stream = this.openai.beta.chat.completions.stream({
-        model: this.model,
-        ...forwardedProps,
-        stream: true,
-        messages: messages as any,
-      });
+      let stream: ChatCompletionStream;
+
+      try {
+        stream = this.openai.beta.chat.completions.stream({
+          model: this.model,
+          ...forwardedProps,
+          stream: true,
+          messages: messages as any,
+        });
+      } catch (error) {
+        return reject(error);
+      }
+
       stream.on("error", (error) => {
         reject(error); // Reject the promise with the error
       });
+
       stream.on("connect", () => {
         resolve({ stream: stream.toReadableStream() });
       });
+
+      if (options.onFinalChatCompletion) {
+        stream
+          .finalChatCompletion()
+          .then(options.onFinalChatCompletion)
+          .catch((error) => {
+            reject(error);
+            console.error("Error getting final chat completion", error);
+          });
+      }
     });
   }
 }

@@ -157,6 +157,7 @@ import {
 } from "../utils";
 import { RemoteChain, CopilotKitServiceAdapter } from "../types";
 import { CopilotCloud, RemoteCopilotCloud } from "./copilot-cloud";
+import { GetResponseOptions } from "../types/service-adapter";
 
 interface CopilotRuntimeResult {
   stream: ReadableStream;
@@ -251,6 +252,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
   private async getResponse(
     forwardedProps: any,
+    options: GetResponseOptions = {},
     serviceAdapter: CopilotKitServiceAdapter,
     publicApiKey?: string,
   ): Promise<CopilotRuntimeResult> {
@@ -278,10 +280,15 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     ]);
 
     try {
-      const result = await serviceAdapter.getResponse({
-        ...forwardedProps,
-        tools: mergedTools,
-      });
+      const result = await serviceAdapter.getResponse(
+        {
+          ...forwardedProps,
+          tools: mergedTools,
+        },
+        {
+          onFinalChatCompletion: options.onFinalChatCompletion,
+        },
+      );
 
       if (publicApiKey !== undefined) {
         // wait for the cloud log chat to finish before streaming back the response
@@ -320,9 +327,15 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
    */
   async response(req: Request, serviceAdapter: CopilotKitServiceAdapter): Promise<Response> {
     const publicApiKey = req.headers.get(COPILOT_CLOUD_PUBLIC_API_KEY_HEADER) || undefined;
+
     try {
       const forwardedProps = await req.json();
-      const response = await this.getResponse(forwardedProps, serviceAdapter, publicApiKey);
+      const response = await this.getResponse(
+        forwardedProps,
+        undefined,
+        serviceAdapter,
+        publicApiKey,
+      );
       return new Response(response.stream, { headers: response.headers });
     } catch (error: any) {
       return new Response(error, { status: error.status });
@@ -343,6 +356,7 @@ or Node.js HTTP server.
     res: any,
     serviceAdapter: CopilotKitServiceAdapter,
     headers?: Record<string, string>,
+    options?: GetResponseOptions,
   ) {
     const bodyParser = new Promise<any>((resolve, reject) => {
       if ("body" in req) {
@@ -366,7 +380,20 @@ or Node.js HTTP server.
           req.header(COPILOT_CLOUD_PUBLIC_API_KEY_HEADER)
         : // use headers in node http
           req.headers[COPILOT_CLOUD_PUBLIC_API_KEY_HEADER.toLowerCase()]) || undefined;
-    const response = await this.getResponse(forwardedProps, serviceAdapter, publicApiKey);
+
+
+    const response = await this.getResponse(
+      forwardedProps,
+      {
+        onFinalChatCompletion: (finalChatCompletion) => {
+          if (options?.onFinalChatCompletion) {
+            options.onFinalChatCompletion(finalChatCompletion);
+          }
+        },
+      },
+      serviceAdapter,
+      publicApiKey,
+    );
     const mergedHeaders = { ...headers, ...response.headers };
     res.writeHead(200, mergedHeaders);
     const stream = response.stream;
