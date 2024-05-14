@@ -87,7 +87,6 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
           .then(options.onFinalChatCompletion)
           .catch((error) => {
             reject(error);
-            console.error("Error getting final chat completion", error);
           });
       }
     });
