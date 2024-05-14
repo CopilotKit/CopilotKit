@@ -14,7 +14,6 @@
     "freshbuild": "pnpm clean && pnpm install && pnpm build"
   },
   "devDependencies": {
-    "@microsoft/tsdoc": "^0.14.2",
     "@types/node": "^18.11.17",
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",
@@ -27,7 +26,7 @@
     "turbo": "latest",
     "typescript": "^5.2.3"
   },
-  "packageManager": "pnpm@7.15.0",
+  "packageManager": "pnpm@8.14.3",
   "dependencies": {
     "@changesets/cli": "^2.26.2"
   }
