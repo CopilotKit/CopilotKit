@@ -25,6 +25,7 @@ import { ResponseButton as DefaultResponseButton } from "./Response";
 import { Suggestion, reloadSuggestions } from "./Suggestion";
 import { CopilotChatSuggestion, CopilotChatSuggestionConfiguration } from "../../types/suggestions";
 import { requestMicAndPlaybackPermission } from "./audio";
+import { Message } from "@copilotkit/shared";
 
 /**
  * Props for CopilotChat component.
@@ -229,14 +230,34 @@ export const CopilotChat = ({
     };
   }, [isLoading, chatSuggestionConfiguration]);
 
+  const setOpen = (open: boolean) => {
+    onSetOpen?.(open);
+    setOpenState(open);
+  };
+
+  const sendMessage = async (messageContent: string) => {
+    abortSuggestions();
+    setCurrentSuggestions([]);
+    onSubmitMessage?.(messageContent);
+    const message: Message = {
+      id: nanoid(),
+      content: messageContent,
+      role: "user",
+    };
+    append(message);
+    return message;
+  };
+
   const [openState, setOpenState] = React.useState(defaultOpen);
   const [pushToTalkState, setPushToTalkState] = React.useState(false);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const [lastMessageIdBeforeAudio, setLastMessageIdBeforeAudio] = useState<string | null>(null);
 
   useEffect(() => {
     if (pushToTalkState) {
+      console.log("HERE");
       if (!mediaStreamRef.current || !audioContextRef.current) {
         setPushToTalkState(false);
         requestMicAndPlaybackPermission().then((res) => {
@@ -247,14 +268,33 @@ export const CopilotChat = ({
         });
       } else {
         console.log("Recording started");
+        const recordedChunks: Blob[] = [];
+
         mediaRecorderRef.current = new MediaRecorder(mediaStreamRef.current);
-        mediaRecorderRef.current.start();
-        mediaRecorderRef.current.ondataavailable = (event) => {
+        mediaRecorderRef.current.start(1000);
+        mediaRecorderRef.current.ondataavailable = async (event) => {
           console.log("Recorded audio: ", event.data);
+          recordedChunks.push(event.data);
         };
-        mediaRecorderRef.current.onstop = () => {
+        mediaRecorderRef.current.onstop = async () => {
           console.log("Recording stopped");
-          // Process the recorded audio data here if needed
+          const completeBlob = new Blob(recordedChunks, { type: "audio/mp4" });
+
+          const formData = new FormData();
+          formData.append("file", completeBlob, "recording.mp4");
+
+          const response = await fetch(context.copilotApiConfig.transcribeAudioUrl!, {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error(`Error: ${response.statusText}`);
+          }
+
+          const transcription = await response.json();
+          const message = await sendMessage(transcription.text);
+          setLastMessageIdBeforeAudio(message.id);
         };
       }
     } else {
@@ -270,21 +310,38 @@ export const CopilotChat = ({
     };
   }, [pushToTalkState]);
 
-  const setOpen = (open: boolean) => {
-    onSetOpen?.(open);
-    setOpenState(open);
-  };
+  useEffect(() => {
+    if (lastMessageIdBeforeAudio && !isLoading) {
+      if (audioContextRef.current) {
+        const lastMessageIndex = context.messages.findIndex(
+          (message) => message.id === lastMessageIdBeforeAudio,
+        );
 
-  const sendMessage = async (message: string) => {
-    abortSuggestions();
-    setCurrentSuggestions([]);
-    onSubmitMessage?.(message);
-    append({
-      id: nanoid(),
-      content: message,
-      role: "user",
-    });
-  };
+        const messagesAfterLast = context.messages
+          .slice(lastMessageIndex + 1)
+          .filter((message) => message.role === "assistant" && message.content);
+
+        const text = messagesAfterLast.map((message) => message.content).join("\n");
+        const encodedText = encodeURIComponent(text);
+        const url = `${context.copilotApiConfig.textToSpeechUrl}?text=${encodedText}`;
+
+        fetch(url)
+          .then((response) => response.arrayBuffer())
+          .then((arrayBuffer) => audioContextRef.current!.decodeAudioData(arrayBuffer))
+          .then((audioBuffer) => {
+            const source = audioContextRef.current!.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContextRef.current!.destination);
+            source.start(0);
+          })
+          .catch((error) => {
+            console.error("Error with decoding audio data", error);
+          });
+
+        setLastMessageIdBeforeAudio(null);
+      }
+    }
+  }, [isLoading]);
 
   return (
     <ChatContextProvider

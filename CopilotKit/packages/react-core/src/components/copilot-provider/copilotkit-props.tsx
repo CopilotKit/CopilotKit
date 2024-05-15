@@ -24,6 +24,16 @@ export interface CopilotKitProps {
   runtimeUrl?: string;
 
   /**
+   * The endpoint for the Copilot transcribe audio service.
+   */
+  transcribeAudioUrl?: string;
+
+  /**
+   * The endpoint for the Copilot text to speech service.
+   */
+  textToSpeechUrl?: string;
+
+  /**
    * @deprecated use runtimeUrl instead
    */
   url?: string;

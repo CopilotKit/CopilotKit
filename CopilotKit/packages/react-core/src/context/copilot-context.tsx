@@ -29,6 +29,16 @@ export interface CopilotApiConfig {
   chatApiEndpoint: string;
 
   /**
+   * The endpoint for the Copilot transcribe audio service.
+   */
+  transcribeAudioUrl?: string;
+
+  /**
+   * The endpoint for the Copilot text to speech service.
+   */
+  textToSpeechUrl?: string;
+
+  /**
    * The endpoint for the chat API v2.
    */
   chatApiEndpointV2: string;
