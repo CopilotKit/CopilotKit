@@ -3,6 +3,8 @@ import { Message } from "@copilotkit/shared";
 export interface ButtonProps {
   open: boolean;
   setOpen: (open: boolean) => void;
+  pushToTalk: boolean;
+  setPushToTalk: (pushToTalk: boolean) => void;
 }
 
 export interface WindowProps {

@@ -24,6 +24,7 @@ import { nanoid } from "nanoid";
 import { ResponseButton as DefaultResponseButton } from "./Response";
 import { Suggestion, reloadSuggestions } from "./Suggestion";
 import { CopilotChatSuggestion, CopilotChatSuggestionConfiguration } from "../../types/suggestions";
+import { requestMicAndPlaybackPermission } from "./audio";
 
 /**
  * Props for CopilotChat component.
@@ -229,6 +230,45 @@ export const CopilotChat = ({
   }, [isLoading, chatSuggestionConfiguration]);
 
   const [openState, setOpenState] = React.useState(defaultOpen);
+  const [pushToTalkState, setPushToTalkState] = React.useState(false);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+
+  useEffect(() => {
+    if (pushToTalkState) {
+      if (!mediaStreamRef.current || !audioContextRef.current) {
+        setPushToTalkState(false);
+        requestMicAndPlaybackPermission().then((res) => {
+          if (res) {
+            mediaStreamRef.current = res.stream;
+            audioContextRef.current = res.audioContext;
+          }
+        });
+      } else {
+        console.log("Recording started");
+        mediaRecorderRef.current = new MediaRecorder(mediaStreamRef.current);
+        mediaRecorderRef.current.start();
+        mediaRecorderRef.current.ondataavailable = (event) => {
+          console.log("Recorded audio: ", event.data);
+        };
+        mediaRecorderRef.current.onstop = () => {
+          console.log("Recording stopped");
+          // Process the recorded audio data here if needed
+        };
+      }
+    } else {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
+    }
+
+    return () => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, [pushToTalkState]);
 
   const setOpen = (open: boolean) => {
     onSetOpen?.(open);
@@ -257,7 +297,12 @@ export const CopilotChat = ({
     >
       {children}
       <div className={className}>
-        <Button open={openState} setOpen={setOpen}></Button>
+        <Button
+          open={openState}
+          setOpen={setOpen}
+          pushToTalk={pushToTalkState}
+          setPushToTalk={setPushToTalkState}
+        ></Button>
         <Window
           open={openState}
           setOpen={setOpen}
