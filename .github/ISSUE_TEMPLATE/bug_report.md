@@ -30,10 +30,14 @@ If applicable, add screenshots to help explain your problem.
 - Frontend Framework: [e.g. Next, Remix]
 - Backend Framework (if self-hosted): [e.g. Next, Node, Firebase]
 
-**Additional context**
-Add any other context about the problem here.
+**CopilotKit Packages**
+Add the output of this command:
 
-**Example Code**
+```sh
+cat **/package.json | grep "@copilotkit"
+```
+
+**Frontend Code**
 Provide any code related to the issue, especially CopilotKit components and hooks.
 
 ```tsx
@@ -51,4 +55,18 @@ useCopilotReadable({
 useCopilotAction({
   ... your action config
 })
+```
+
+**Backend Code**
+
+If you self-host the runtime, please provide the relevant backend code.
+For example, provide your server side actions:
+
+```ts
+const copilotKit = new CopilotRuntime({
+  actions: [
+    // ... your actions
+  ],
+});
+// ... your server side code
 ```
