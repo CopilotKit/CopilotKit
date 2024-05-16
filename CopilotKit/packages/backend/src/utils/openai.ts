@@ -108,6 +108,10 @@ const DEFAULT_MAX_TOKENS = 8192;
 
 const maxTokensByModel: { [key: string]: number } = {
   // GPT-4
+  "gpt-4o": 128000,
+  "gpt-4o-2024-05-13": 128000,
+  "gpt-4-turbo": 128000,
+  "gpt-4-turbo-2024-04-09": 128000,
   "gpt-4-0125-preview": 128000,
   "gpt-4-turbo-preview": 128000,
   "gpt-4-1106-preview": 128000,
