@@ -1,4 +1,4 @@
-import { Message } from "@copilotkit/shared";
+import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER, Message } from "@copilotkit/shared";
 import { CopilotContext } from "@copilotkit/react-core";
 import { useCallback, useContext } from "react";
 import { MinimalChatGPTMessage } from "../../types";
@@ -34,6 +34,11 @@ export function useMakeStandardInsertionOrEditingFunction(
   editingApiConfig: EditingApiConfig,
 ): Generator_InsertionOrEditingSuggestion {
   const { getContextString, copilotApiConfig } = useContext(CopilotContext);
+  const headers = {
+    ...(copilotApiConfig.publicApiKey
+      ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey }
+      : {}),
+  };
 
   const insertionFunction = useCallback(
     async (
@@ -74,6 +79,7 @@ export function useMakeStandardInsertionOrEditingFunction(
           ...insertionApiConfig.forwardedParams,
           copilotConfig: copilotApiConfig,
           signal: abortSignal,
+          headers,
         });
         return stream.events!;
       });
@@ -127,6 +133,7 @@ export function useMakeStandardInsertionOrEditingFunction(
           ...editingApiConfig.forwardedParams,
           copilotConfig: copilotApiConfig,
           signal: abortSignal,
+          headers,
         });
         return stream.events!;
       });
