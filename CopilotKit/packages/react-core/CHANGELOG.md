@@ -1,5 +1,16 @@
 # ui
 
+## 0.36.0-mme-push-to-talk.0
+
+### Minor Changes
+
+- Add push to talk prototype
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.36.0-mme-push-to-talk.0
+
 ## 0.25.0
 
 ### Minor Changes

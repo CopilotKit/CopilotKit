@@ -1,6 +1,6 @@
 {
   "name": "tailwind-config",
-  "version": "0.9.0",
+  "version": "0.10.0-mme-push-to-talk.0",
   "private": true,
   "main": "index.js",
   "devDependencies": {

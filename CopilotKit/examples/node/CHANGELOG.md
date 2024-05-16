@@ -1,5 +1,17 @@
 # node
 
+## 1.22.0-mme-push-to-talk.0
+
+### Minor Changes
+
+- Add push to talk prototype
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.36.0-mme-push-to-talk.0
+  - @copilotkit/shared@0.36.0-mme-push-to-talk.0
+
 ## 1.21.0
 
 ### Minor Changes
