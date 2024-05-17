@@ -63,6 +63,9 @@ importers:
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@google/generative-ai':
+        specifier: ^0.11.2
+        version: 0.11.2
       '@heroicons/react':
         specifier: ^2.0.18
         version: 2.0.18(react@18.2.0)
@@ -167,6 +170,9 @@ importers:
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared
+      '@google/generative-ai':
+        specifier: ^0.11.2
+        version: 0.11.2
       '@langchain/core':
         specifier: ^0.1.61
         version: 0.1.61
@@ -1440,6 +1446,11 @@ packages:
 
   /@floating-ui/utils@0.1.6:
     resolution: {integrity: sha512-OfX7E2oUDYxtBvsuS4e/jSn4Q9Qb6DzgeYtsAdkPZ47znpoNsMgZw0+tVijiv3uGNR6dgNlty6r9rzIzHjtd/A==}
+    dev: false
+
+  /@google/generative-ai@0.11.2:
+    resolution: {integrity: sha512-/nE5rhIGQqp78+Q/BedH9/rnZOWFTMxAnpw7pkim6W5kOcrntycFlrR6a8Djc2FDTgn6ToPZ2RHbIRk2tg7LyA==}
+    engines: {node: '>=18.0.0'}
     dev: false
 
   /@heroicons/react@2.0.18(react@18.2.0):

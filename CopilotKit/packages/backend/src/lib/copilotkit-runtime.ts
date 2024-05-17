@@ -53,6 +53,18 @@
  * - `codeInterpreterEnabled` (optional): Whether to enable the code interpreter. Defaults to `true`.
  * - `retrievalEnabled` (optional): Whether to enable the retrieval. Defaults to `true`.
  *
+ * ## GoogleGenerativeAIAdapter
+ *
+ * To use Google Gemini as backend, use `GoogleGenerativeAIAdapter`:
+ *
+ * ```typescript
+ * const copilotKit = new CopilotRuntime();
+ * const genAI = new GoogleGenerativeAI(process.env["GOOGLE_API_KEY"]!);
+ * const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+ *
+ * return copilotKit.response(req, new GoogleGenerativeAIAdapter({ model }));
+ * ```
+ *
  * ## LangChainAdapter
  *
  * To use LangChain as a backend, provide a handler function to the adapter with your custom LangChain logic.
