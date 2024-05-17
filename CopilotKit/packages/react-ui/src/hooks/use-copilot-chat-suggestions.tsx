@@ -1,6 +1,11 @@
 /**
  * A hook for providing suggestions to the user in the Copilot chat.
  *
+ * <Warning>
+ *   useCopilotChatSuggestions is experimental. The interface is not final and
+ *   can change without further notice.
+ * </Warning>
+ *
  * <img src="/images/useCopilotChatSuggestions/use-copilot-chat-suggestions.gif" width="500" />
  *
  * <img referrerPolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be" />
