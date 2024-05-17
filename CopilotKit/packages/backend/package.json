@@ -33,6 +33,7 @@
   },
   "dependencies": {
     "@copilotkit/shared": "workspace:*",
+    "@google/generative-ai": "^0.11.2",
     "@langchain/core": "^0.1.61",
     "@langchain/openai": "^0.0.28",
     "js-tiktoken": "^1.0.8",
