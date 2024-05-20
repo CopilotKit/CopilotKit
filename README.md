@@ -66,8 +66,8 @@ in-app AI chatbots, AI agents, and AI Textareas.
   <tr>
     <td align="center" valign="top">
       PowerPoint + Copilot + Voice <br/>
-      <a href="https://github.com/CopilotKit/presentation-voice">https://github.com/CopilotKit/presentation-voice</a> <br/><br>
-      <a href="https://github.com/CopilotKit/presentation-voice">
+      <a href="https://go.copilotkit.ai/PowerPointVoiceTemplate">https://github.com/CopilotKit/presentation-voice</a> <br/><br>
+      <a href="https://go.copilotkit.ai/PowerPointVoiceTemplate">
         <img alt="Presentation-Voice" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="200px" style="max-width:100%; border-radius: 10px;"/>
       </a>
     </td>
