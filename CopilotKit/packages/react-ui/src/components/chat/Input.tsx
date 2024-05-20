@@ -2,9 +2,17 @@ import React, { useEffect, useRef, useState } from "react";
 import { InputProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import AutoResizingTextarea from "./Textarea";
+import { usePushToTalk } from "../../hooks/use-push-to-talk";
+import { useCopilotContext } from "@copilotkit/react-core";
 
 export const Input = ({ inProgress, onSend, isVisible = false }: InputProps) => {
   const context = useChatContext();
+  const copilotContext = useCopilotContext();
+
+  const pushToTalkConfigured =
+    copilotContext.copilotApiConfig.textToSpeechUrl !== undefined &&
+    copilotContext.copilotApiConfig.transcribeAudioUrl !== undefined;
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleDivClick = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -29,14 +37,23 @@ export const Input = ({ inProgress, onSend, isVisible = false }: InputProps) => 
     }
   }, [isVisible]);
 
-  const icon = inProgress ? context.icons.activityIcon : context.icons.sendIcon;
-  const disabled = inProgress || text.length === 0;
+  const { pushToTalkState, setPushToTalkState } = usePushToTalk({
+    sendFunction: onSend,
+    inProgress,
+  });
+
+  const sendIcon =
+    inProgress || pushToTalkState === "transcribing"
+      ? context.icons.activityIcon
+      : context.icons.sendIcon;
+  const showPushToTalk =
+    pushToTalkConfigured &&
+    (pushToTalkState === "idle" || pushToTalkState === "recording") &&
+    !inProgress;
+  const sendDisabled = inProgress || text.length === 0 || pushToTalkState !== "idle";
 
   return (
     <div className="copilotKitInput" onClick={handleDivClick}>
-      <button className="copilotKitSendButton" disabled={disabled} onClick={send}>
-        {icon}
-      </button>
       <AutoResizingTextarea
         ref={textareaRef}
         placeholder={context.labels.placeholder}
@@ -51,6 +68,21 @@ export const Input = ({ inProgress, onSend, isVisible = false }: InputProps) => 
           }
         }}
       />
+      <div className="copilotKitInputControls">
+        {showPushToTalk && (
+          <button
+            onClick={() =>
+              setPushToTalkState(pushToTalkState === "idle" ? "recording" : "transcribing")
+            }
+            className={pushToTalkState === "recording" ? "copilotKitPushToTalkRecording" : ""}
+          >
+            {context.icons.pushToTalkIcon}
+          </button>
+        )}
+        <button disabled={sendDisabled} onClick={send}>
+          {sendIcon}
+        </button>
+      </div>
     </div>
   );
 };

@@ -1,7 +1,7 @@
 .copilotKitInput {
   border-top: 1px solid var(--copilot-kit-input-separator-color);
   padding-left: 2rem;
-  padding-right: 2.5rem;
+  padding-right: 1rem;
   padding-top: 1rem;
   padding-bottom: 1rem;
   display: flex;
@@ -13,9 +13,7 @@
   background-color: var(--copilot-kit-input-background-color);
 }
 
-.copilotKitInput > button {
-  position: absolute;
-  right: 0.5rem;
+.copilotKitInput > .copilotKitInputControls > button {
   padding: 0.25rem;
   cursor: pointer;
   transition-property: transform;
@@ -38,22 +36,27 @@
   text-shadow: none;
   display: inline-block;
   text-align: center;
+  margin-left: 0.5rem; /* Add margin to separate button from textarea */
 }
 
-.copilotKitInput > button:not([disabled]) {
+.copilotKitInput > .copilotKitInputControls > button:not([disabled]) {
   color: var(--copilot-kit-input-send-button-color);
 }
 
-.copilotKitInput > button:not([disabled]):hover {
+.copilotKitInput > .copilotKitInputControls > button:not([disabled]):hover {
   transform: scale(1.1);
 }
 
-.copilotKitInput > button[disabled] {
+.copilotKitInput > .copilotKitInputControls > button[disabled] {
   color: var(--copilot-kit-input-send-button-disabled-color);
 }
 
+.copilotKitInputControls {
+  display: flex;
+}
+
 .copilotKitInput > textarea {
-  width: 100%;
+  flex: 1; /* Allow textarea to take up remaining space */
   outline: 2px solid transparent;
   outline-offset: 2px;
   resize: none;
@@ -76,4 +79,11 @@
 .copilotKitInput > textarea::placeholder {
   color: var(--copilot-kit-input-placeholder-color);
   opacity: 1;
+}
+
+.copilotKitInput > .copilotKitInputControls > button.copilotKitPushToTalkRecording {
+  background-color: red;
+  color: white;
+  border-radius: 50%;
+  animation: copilotKitPulseAnimation 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }

@@ -1,11 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { CopilotChatIcons, ChatContextProvider, CopilotChatLabels } from "./ChatContext";
-import {
-  SystemMessageFunction,
-  extract,
-  useCopilotChat,
-  useCopilotContext,
-} from "@copilotkit/react-core";
+import { SystemMessageFunction, useCopilotChat, useCopilotContext } from "@copilotkit/react-core";
 import {
   ButtonProps,
   HeaderProps,
@@ -13,7 +8,6 @@ import {
   MessagesProps,
   InputProps,
   ResponseButtonProps,
-  SuggestionsProps,
 } from "./props";
 import { Window as DefaultWindow } from "./Window";
 import { Button as DefaultButton } from "./Button";
@@ -24,7 +18,6 @@ import { nanoid } from "nanoid";
 import { ResponseButton as DefaultResponseButton } from "./Response";
 import { Suggestion, reloadSuggestions } from "./Suggestion";
 import { CopilotChatSuggestion, CopilotChatSuggestionConfiguration } from "../../types/suggestions";
-import { requestMicAndPlaybackPermission } from "./audio";
 import { Message } from "@copilotkit/shared";
 
 /**
@@ -249,99 +242,6 @@ export const CopilotChat = ({
   };
 
   const [openState, setOpenState] = React.useState(defaultOpen);
-  const [pushToTalkState, setPushToTalkState] = React.useState(false);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const [lastMessageIdBeforeAudio, setLastMessageIdBeforeAudio] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (pushToTalkState) {
-      console.log("HERE");
-      if (!mediaStreamRef.current || !audioContextRef.current) {
-        setPushToTalkState(false);
-        requestMicAndPlaybackPermission().then((res) => {
-          if (res) {
-            mediaStreamRef.current = res.stream;
-            audioContextRef.current = res.audioContext;
-          }
-        });
-      } else {
-        console.log("Recording started");
-        const recordedChunks: Blob[] = [];
-
-        mediaRecorderRef.current = new MediaRecorder(mediaStreamRef.current);
-        mediaRecorderRef.current.start(1000);
-        mediaRecorderRef.current.ondataavailable = async (event) => {
-          console.log("Recorded audio: ", event.data);
-          recordedChunks.push(event.data);
-        };
-        mediaRecorderRef.current.onstop = async () => {
-          console.log("Recording stopped");
-          const completeBlob = new Blob(recordedChunks, { type: "audio/mp4" });
-
-          const formData = new FormData();
-          formData.append("file", completeBlob, "recording.mp4");
-
-          const response = await fetch(context.copilotApiConfig.transcribeAudioUrl!, {
-            method: "POST",
-            body: formData,
-          });
-
-          if (!response.ok) {
-            throw new Error(`Error: ${response.statusText}`);
-          }
-
-          const transcription = await response.json();
-          const message = await sendMessage(transcription.text);
-          setLastMessageIdBeforeAudio(message.id);
-        };
-      }
-    } else {
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-        mediaRecorderRef.current.stop();
-      }
-    }
-
-    return () => {
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-        mediaRecorderRef.current.stop();
-      }
-    };
-  }, [pushToTalkState]);
-
-  useEffect(() => {
-    if (lastMessageIdBeforeAudio && !isLoading) {
-      if (audioContextRef.current) {
-        const lastMessageIndex = context.messages.findIndex(
-          (message) => message.id === lastMessageIdBeforeAudio,
-        );
-
-        const messagesAfterLast = context.messages
-          .slice(lastMessageIndex + 1)
-          .filter((message) => message.role === "assistant" && message.content);
-
-        const text = messagesAfterLast.map((message) => message.content).join("\n");
-        const encodedText = encodeURIComponent(text);
-        const url = `${context.copilotApiConfig.textToSpeechUrl}?text=${encodedText}`;
-
-        fetch(url)
-          .then((response) => response.arrayBuffer())
-          .then((arrayBuffer) => audioContextRef.current!.decodeAudioData(arrayBuffer))
-          .then((audioBuffer) => {
-            const source = audioContextRef.current!.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(audioContextRef.current!.destination);
-            source.start(0);
-          })
-          .catch((error) => {
-            console.error("Error with decoding audio data", error);
-          });
-
-        setLastMessageIdBeforeAudio(null);
-      }
-    }
-  }, [isLoading]);
 
   return (
     <ChatContextProvider
@@ -354,12 +254,7 @@ export const CopilotChat = ({
     >
       {children}
       <div className={className}>
-        <Button
-          open={openState}
-          setOpen={setOpen}
-          pushToTalk={pushToTalkState}
-          setPushToTalk={setPushToTalkState}
-        ></Button>
+        <Button open={openState} setOpen={setOpen}></Button>
         <Window
           open={openState}
           setOpen={setOpen}

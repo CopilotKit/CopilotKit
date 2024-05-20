@@ -3,8 +3,6 @@ import { Message } from "@copilotkit/shared";
 export interface ButtonProps {
   open: boolean;
   setOpen: (open: boolean) => void;
-  pushToTalk: boolean;
-  setPushToTalk: (pushToTalk: boolean) => void;
 }
 
 export interface WindowProps {
@@ -37,7 +35,7 @@ export interface MessagesProps {
 
 export interface InputProps {
   inProgress: boolean;
-  onSend: (text: string) => void;
+  onSend: (text: string) => Promise<Message>;
   isVisible?: boolean;
 }
 

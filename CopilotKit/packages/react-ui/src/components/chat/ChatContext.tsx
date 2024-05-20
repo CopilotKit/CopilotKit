@@ -53,6 +53,13 @@ export interface CopilotChatIcons {
    * @default <RegenerateIcon />
    */
   regenerateIcon?: React.ReactNode;
+
+  /**
+   * The icons to use for push to talk.
+   * @default <PushToTalkIcon />
+   */
+
+  pushToTalkIcon?: React.ReactNode;
 }
 
 /**
@@ -177,6 +184,7 @@ export const ChatContextProvider = ({
         spinnerIcon: DefaultIcons.SpinnerIcon,
         stopIcon: DefaultIcons.StopIcon,
         regenerateIcon: DefaultIcons.RegenerateIcon,
+        pushToTalkIcon: DefaultIcons.PushToTalkIcon,
       },
       icons,
     },
