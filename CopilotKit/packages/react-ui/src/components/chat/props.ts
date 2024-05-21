@@ -35,7 +35,7 @@ export interface MessagesProps {
 
 export interface InputProps {
   inProgress: boolean;
-  onSend: (text: string) => void;
+  onSend: (text: string) => Promise<Message>;
   isVisible?: boolean;
 }
 

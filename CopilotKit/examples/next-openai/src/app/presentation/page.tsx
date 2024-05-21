@@ -9,7 +9,11 @@ export default function AIPresentation() {
   const [performResearch, setPerformResearch] = useState(false);
 
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit/openai">
+    <CopilotKit
+      runtimeUrl="/api/copilotkit/openai"
+      transcribeAudioUrl="/api/transcribe"
+      textToSpeechUrl="/api/tts"
+    >
       <CopilotSidebar
         instructions={
           "Help the user create and edit a powerpoint-style presentation." +

@@ -1,6 +1,6 @@
 {
   "name": "node",
-  "version": "1.21.0",
+  "version": "1.22.0-mme-push-to-talk.0",
   "private": true,
   "scripts": {
     "start": "node dist/index.js",

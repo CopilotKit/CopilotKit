@@ -1,0 +1,19 @@
+{
+  "mode": "exit",
+  "tag": "mme-push-to-talk",
+  "initialVersions": {
+    "next-openai": "1.21.0",
+    "node": "1.21.0",
+    "@copilotkit/backend": "0.9.0",
+    "eslint-config-custom": "0.10.0",
+    "@copilotkit/react-core": "0.25.0",
+    "@copilotkit/react-textarea": "0.35.0",
+    "@copilotkit/react-ui": "0.22.0",
+    "@copilotkit/shared": "0.9.0",
+    "tailwind-config": "0.9.0",
+    "tsconfig": "0.14.0"
+  },
+  "changesets": [
+    "eight-crabs-fold"
+  ]
+}

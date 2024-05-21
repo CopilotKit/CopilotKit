@@ -1,11 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { CopilotChatIcons, ChatContextProvider, CopilotChatLabels } from "./ChatContext";
-import {
-  SystemMessageFunction,
-  extract,
-  useCopilotChat,
-  useCopilotContext,
-} from "@copilotkit/react-core";
+import { SystemMessageFunction, useCopilotChat, useCopilotContext } from "@copilotkit/react-core";
 import {
   ButtonProps,
   HeaderProps,
@@ -13,7 +8,6 @@ import {
   MessagesProps,
   InputProps,
   ResponseButtonProps,
-  SuggestionsProps,
 } from "./props";
 import { Window as DefaultWindow } from "./Window";
 import { Button as DefaultButton } from "./Button";
@@ -24,6 +18,7 @@ import { nanoid } from "nanoid";
 import { ResponseButton as DefaultResponseButton } from "./Response";
 import { Suggestion, reloadSuggestions } from "./Suggestion";
 import { CopilotChatSuggestion, CopilotChatSuggestionConfiguration } from "../../types/suggestions";
+import { Message } from "@copilotkit/shared";
 
 /**
  * Props for CopilotChat component.
@@ -228,23 +223,25 @@ export const CopilotChat = ({
     };
   }, [isLoading, chatSuggestionConfiguration]);
 
-  const [openState, setOpenState] = React.useState(defaultOpen);
-
   const setOpen = (open: boolean) => {
     onSetOpen?.(open);
     setOpenState(open);
   };
 
-  const sendMessage = async (message: string) => {
+  const sendMessage = async (messageContent: string) => {
     abortSuggestions();
     setCurrentSuggestions([]);
-    onSubmitMessage?.(message);
-    append({
+    onSubmitMessage?.(messageContent);
+    const message: Message = {
       id: nanoid(),
-      content: message,
+      content: messageContent,
       role: "user",
-    });
+    };
+    append(message);
+    return message;
   };
+
+  const [openState, setOpenState] = React.useState(defaultOpen);
 
   return (
     <ChatContextProvider

@@ -1,5 +1,20 @@
 # web
 
+## 1.22.0-mme-push-to-talk.0
+
+### Minor Changes
+
+- Add push to talk prototype
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.36.0-mme-push-to-talk.0
+  - @copilotkit/react-ui@0.36.0-mme-push-to-talk.0
+  - @copilotkit/backend@0.36.0-mme-push-to-talk.0
+  - @copilotkit/react-textarea@0.36.0-mme-push-to-talk.0
+  - @copilotkit/shared@0.36.0-mme-push-to-talk.0
+
 ## 1.21.0
 
 ### Minor Changes

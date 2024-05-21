@@ -6,7 +6,7 @@ export default defineConfig((options: Options) => ({
   dts: true,
   minify: false,
   external: ["react"],
-  sourcemap: false,
+  sourcemap: true,
   exclude: [
     "**/*.test.ts", // Exclude TypeScript test files
     "**/*.test.tsx", // Exclude TypeScript React test files

@@ -196,6 +196,8 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
       ...props.body,
       ...props.backendOnlyProps,
     },
+    transcribeAudioUrl: props.transcribeAudioUrl,
+    textToSpeechUrl: props.textToSpeechUrl,
   };
 
   return (
