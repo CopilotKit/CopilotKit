@@ -32,7 +32,6 @@ Build, deploy, and operate fully custom AI Copilots.
 in-app AI chatbots, AI agents, and AI Textareas.
 </h3>
 
-
 <p align="center">
   <a href="https://discord.com/invite/6dffbvGU3D">
     <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/bf8d96ea-3aeb-4c9a-9043-96a868b7ad0f" alt="Join our Discord" height="30">
@@ -46,8 +45,6 @@ in-app AI chatbots, AI agents, and AI Textareas.
     <img src="https://github.com/CopilotKit/CopilotKit/assets/131273140/28ca62a8-cf93-4d3f-96b0-dc11bf89b734" alt="Try Copilot Cloud" height="30">
   </a>
 </p>
-
-
 
 ---
 
@@ -67,6 +64,13 @@ in-app AI chatbots, AI agents, and AI Textareas.
 
 <table align="center">
   <tr>
+    <td align="center" valign="top">
+      PowerPoint + Copilot + Voice <br/>
+      <a href="https://go.copilotkit.ai/PowerPointVoiceTemplate">https://github.com/CopilotKit/presentation-voice</a> <br/><br>
+      <a href="https://go.copilotkit.ai/PowerPointVoiceTemplate">
+        <img alt="Presentation-Voice" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="200px" style="max-width:100%; border-radius: 10px;"/>
+      </a>
+    </td>
     <td align="center" valign="top">
       "Hello World" (A Todo App) <br/>
       <a href="https://github.com/CopilotKit/example_app-todo">https://github.com/CopilotKit/example_app-todo</a> <br/><br>
