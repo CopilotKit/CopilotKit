@@ -1,5 +1,5 @@
 import * as ts from "typescript";
-import * as fs from "fs/promises";
+import * as fs from "fs";
 import { existsSync } from "fs";
 import { dirname, resolve } from "path";
 import { Comments } from "./comments";
@@ -30,8 +30,8 @@ export class SourceFile {
 
   constructor(private readonly filePath: string) {}
 
-  async parse() {
-    const fileContents = await fs.readFile(this.filePath, "utf8");
+  parse() {
+    const fileContents = fs.readFileSync(this.filePath, "utf8");
     this.sourceFile = ts.createSourceFile(
       this.filePath,
       fileContents,
@@ -43,7 +43,7 @@ export class SourceFile {
   /**
    * Get the interface definition of the first argument of the function or class constructor.
    */
-  async getArg0Interface(name: string): Promise<InterfaceDefinition> {
+  getArg0Interface(name: string): InterfaceDefinition {
     let interfaceName: string = "";
 
     const visit = (node: ts.Node) => {
@@ -71,6 +71,32 @@ export class SourceFile {
           interfaceName = constructor.parameters[0].type.typeName.getText();
         }
       }
+      // if we find a matching forwardRef declaration
+      else if (ts.isVariableStatement(node) || ts.isVariableDeclaration(node)) {
+        const declarations = ts.isVariableStatement(node)
+          ? node.declarationList.declarations
+          : [node];
+
+        declarations.forEach((declaration) => {
+          if (
+            ts.isVariableDeclaration(declaration) &&
+            declaration.name.getText() === name &&
+            declaration.initializer &&
+            ts.isCallExpression(declaration.initializer) &&
+            declaration.initializer.expression.getText() === "React.forwardRef"
+          ) {
+            const func = declaration.initializer.arguments[0];
+            if (
+              ts.isArrowFunction(func) &&
+              func.parameters.length &&
+              func.parameters[0].type &&
+              ts.isTypeReferenceNode(func.parameters[0].type)
+            ) {
+              interfaceName = func.parameters[0].type.typeName.getText();
+            }
+          }
+        });
+      }
 
       ts.forEachChild(node, visit);
     };
@@ -83,11 +109,10 @@ export class SourceFile {
     }
 
     // extract the interface definition
-    let interfaceFilePath =
-      this.findTypeDeclaration(this.sourceFile, interfaceName) || this.filePath;
+    let interfaceFilePath = this.findTypeDeclaration(interfaceName) || this.filePath;
 
     const interfaceSource = new SourceFile(interfaceFilePath);
-    await interfaceSource.parse();
+    interfaceSource.parse();
 
     return interfaceSource.extractInterfaceDefinition(interfaceName);
   }
@@ -95,17 +120,64 @@ export class SourceFile {
   /**
    * Extracts the interface definition from the source file.
    */
-  protected async extractInterfaceDefinition(interfaceName: string): Promise<InterfaceDefinition> {
+  protected extractInterfaceDefinition(interfaceName: string): InterfaceDefinition {
     const definition: InterfaceDefinition = {
       name: interfaceName,
       properties: [],
     };
     const visit = (node: ts.Node) => {
       if (ts.isInterfaceDeclaration(node) && node.name.text === interfaceName) {
+        let omittedProperties: Set<string> = new Set();
+
+        // Check for extended interfaces
+        if (node.heritageClauses && node.heritageClauses.length > 0) {
+          const firstClause = node.heritageClauses[0];
+          firstClause.types.forEach((type) => {
+            const typeName = type.expression.getText(this.sourceFile);
+            let extendedInterfaceName = typeName;
+
+            // Check if the type is an Omit
+            if (typeName.startsWith("Omit")) {
+              const omitArgs = type.typeArguments;
+              if (omitArgs && omitArgs.length > 0) {
+                extendedInterfaceName = omitArgs[0].getText(this.sourceFile);
+                if (omitArgs.length > 1) {
+                  const omittedProps = omitArgs[1];
+                  if (ts.isUnionTypeNode(omittedProps)) {
+                    omittedProps.types.forEach((prop) => {
+                      omittedProperties.add(prop.getText(this.sourceFile).replace(/['"]/g, ""));
+                    });
+                  } else if (ts.isLiteralTypeNode(omittedProps)) {
+                    omittedProperties.add(
+                      omittedProps.getText(this.sourceFile).replace(/['"]/g, ""),
+                    );
+                  }
+                }
+              }
+            }
+
+            const extendedInterfaceFilePath = this.findTypeDeclaration(extendedInterfaceName);
+            if (extendedInterfaceFilePath) {
+              // Parse the extended interface file and extract its definition
+              const extendedInterfaceSource = new SourceFile(extendedInterfaceFilePath);
+              extendedInterfaceSource.parse();
+              const extendedDefinition =
+                extendedInterfaceSource.extractInterfaceDefinition(extendedInterfaceName);
+              // Merge properties from the extended interface, excluding omitted properties
+              extendedDefinition.properties.forEach((prop) => {
+                if (!omittedProperties.has(prop.name)) {
+                  definition.properties.push(prop);
+                }
+              });
+            }
+          });
+        }
         node.members.forEach((member) => {
           if (ts.isPropertySignature(member)) {
+            const propertyName = member.name.getText(this.sourceFile);
+
             definition.properties.push({
-              name: member.name.getText(this.sourceFile),
+              name: propertyName,
               type: (member.type?.getText(this.sourceFile) || "unknown")
                 .replace(/\n/g, "")
                 .replace(/\s+/g, " "),
@@ -125,8 +197,8 @@ export class SourceFile {
   /**
    * Finds the absolute declaration file path of a type if imported.
    */
-  findTypeDeclaration(sourceFile: ts.SourceFile, typeName: string): string | null {
-    for (const statement of sourceFile.statements) {
+  findTypeDeclaration(typeName: string): string | null {
+    for (const statement of this.sourceFile.statements) {
       if (ts.isImportDeclaration(statement) && statement.importClause) {
         const namedBindings = statement.importClause.namedBindings;
         if (namedBindings && ts.isNamedImports(namedBindings)) {
@@ -136,7 +208,7 @@ export class SourceFile {
           if (imports.length > 0) {
             const moduleSpecifier = (statement.moduleSpecifier as ts.StringLiteral).text;
             // Resolve the path relative to the directory of the current source file
-            let resolvedPath = resolve(dirname(sourceFile.fileName), moduleSpecifier);
+            let resolvedPath = resolve(dirname(this.sourceFile.fileName), moduleSpecifier);
 
             if (existsSync(resolvedPath + ".ts")) {
               return resolvedPath + ".ts";
@@ -154,7 +226,7 @@ export class SourceFile {
   /**
    * Get the public method definitions of a class.
    */
-  async getPublicMethodDefinitions(className: string): Promise<MethodDefinition[]> {
+  getPublicMethodDefinitions(className: string): MethodDefinition[] {
     const methodDefinitions: MethodDefinition[] = [];
 
     const visit = (node: ts.Node) => {
