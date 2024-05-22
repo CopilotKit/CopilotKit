@@ -48,7 +48,7 @@ const AutoResizingTextarea = forwardRef<HTMLTextAreaElement, AutoResizingTextare
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         style={{
-          overflow: "hidden",
+          overflow: "auto",
           resize: "none",
           maxHeight: `${maxHeight}px`,
         }}
