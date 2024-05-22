@@ -31,7 +31,7 @@ export class Documentation {
     const [description, ...rest] = comment.split("\n");
     const remarks = rest.join("\n");
 
-    const arg0InterfaceDefinition = await source.getArg0Interface(this.annotation.name);
+    const arg0Interface = await source.getArg0Interface(this.annotation.name);
 
     let result: string = "";
     result += `---\n`;
@@ -52,8 +52,8 @@ export class Documentation {
       result += `## Constructor\n\n`;
     }
 
-    if (arg0InterfaceDefinition) {
-      for (const property of arg0InterfaceDefinition.properties) {
+    if (arg0Interface) {
+      for (const property of arg0Interface.properties) {
         if (property.comment.includes("@deprecated")) {
           continue;
         }
@@ -61,6 +61,17 @@ export class Documentation {
         result += `<ResponseField name="${property.name}" type="${property.type}" ${property.required ? "required" : ""}>\n`;
         result += `${property.comment}\n`;
         result += `</ResponseField>\n\n`;
+      }
+    } else if (this.annotation.type === "class") {
+      const constr = source.getConstructorDefinition(this.annotation.name);
+      if (constr) {
+        result += `## ${constr.signature}\n\n`;
+        result += `${constr.comment}\n\n`;
+        for (const param of constr.parameters) {
+          result += `<ResponseField name="${param.name}" type="${param.type}" ${param.required ? "required" : ""}>\n`;
+          result += `${param.comment}\n`;
+          result += `</ResponseField>\n\n`;
+        }
       }
     }
 

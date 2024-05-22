@@ -253,11 +253,8 @@ export class SourceFile {
    */
   private extractMethodDefinition(member: ts.MethodDeclaration): MethodDefinition {
     const functionComments = Comments.getTsDocCommentsForFunction(member, this.sourceFile);
-    let signature =
-      member.name.getText() +
-      "(" +
-      member.parameters.map((param) => param.getText()).join(", ") +
-      ")";
+    const name = ts.isConstructorDeclaration(member) ? "constructor" : member.name.getText();
+    let signature = name + "(" + member.parameters.map((param) => param.getText()).join(", ") + ")";
     signature = signature.replace(/</g, "&lt;").replace(/>/g, "&gt;");
     return {
       signature,

@@ -60,16 +60,17 @@
     {
       "group": "Classes",
       "pages": [
+        "reference/classes/CopilotTask",
+        "reference/classes/CopilotRuntime",
         {
-          "group": "Backend",
+          "group": "Runtime Adapters",
           "pages": [
-            "reference/classes/CopilotRuntime",
             "reference/classes/OpenAIAdapter",
             "reference/classes/OpenAIAssistantAdapter",
-            "reference/classes/LangChainAdapter"
+            "reference/classes/LangChainAdapter",
+            "reference/classes/GoogleGenerativeAIAdapter"
           ]
-        },
-        "reference/classes/CopilotTask"
+        }
       ]
     },
 

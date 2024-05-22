@@ -115,5 +115,30 @@ The shortcut to use to open the editor popover window. Default is `"Cmd-k"`.
 <ResponseField name="autosuggestionsConfig" type="AutosuggestionsConfigUserSpecified" required>
 Configuration settings for the autosuggestions feature.
   Includes a mandatory `textareaPurpose` to guide the autosuggestions.
+ 
+  Autosuggestions can be configured as follows:
+ 
+  ```ts
+  {
+   // the purpose of the textarea
+   textareaPurpose: string,
+   chatApiConfigs: {
+     // the config for the suggestions api (optional)
+     suggestionsApiConfig: {
+       // use this to provide a custom system prompt
+       makeSystemPrompt: (textareaPurpose: string, contextString: string) => string;
+       // custom few shot messages
+       fewShotMessages: MinimalChatGPTMessage[];
+       forwardedParams: {
+         // max number of tokens to generate
+         max_tokens: number,
+         // stop generating when these characters are encountered, e.g. [".", "?", "!"]
+         stop: string[],
+       },
+     },
+     insertionApiConfig: //... the same options as suggestionsApiConfig
+   },
+  }
+  ```
 </ResponseField>
 

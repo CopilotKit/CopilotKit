@@ -1,0 +1,49 @@
+---
+title: "GoogleGenerativeAIAdapter"
+description: "CopilotKit Adapter for Google Gemini"
+---
+
+{/* GENERATE-DOCS path=packages/backend/src/lib/google-genai-adapter.ts class=GoogleGenerativeAIAdapter */}
+ 
+Use this adapter for a Google Gemini backend.
+ 
+<RequestExample>
+```typescript
+const copilotKit = new CopilotRuntime();
+return copilotKit.response(
+  req,
+  new GoogleGenerativeAIAdapter()
+);
+```
+</RequestExample>
+ 
+To set up a different model, pass the model prop:
+ 
+```typescript
+const copilotKit = new CopilotRuntime();
+const genAI = new GoogleGenerativeAI(
+ process.env["GOOGLE_API_KEY"]!
+);
+const model = genAI.getGenerativeModel(
+ { model: "gemini-pro" }
+);
+return copilotKit.response(
+  req,
+  new GoogleGenerativeAIAdapter()
+);
+```
+
+## Constructor
+
+<ResponseField name="model" type="GenerativeModel" >
+A custom `GenerativeModel` to use for the request.
+</ResponseField>
+
+## getResponse(forwardedProps: any)
+
+
+
+<ResponseField name="forwardedProps" type="any" required>
+
+</ResponseField>
+
