@@ -52,14 +52,16 @@ export class Documentation {
       result += `## Constructor\n\n`;
     }
 
-    for (const property of arg0InterfaceDefinition.properties) {
-      if (property.comment.includes("@deprecated")) {
-        continue;
-      }
+    if (arg0InterfaceDefinition) {
+      for (const property of arg0InterfaceDefinition.properties) {
+        if (property.comment.includes("@deprecated")) {
+          continue;
+        }
 
-      result += `<ResponseField name="${property.name}" type="${property.type}" ${property.required ? "required" : ""}>\n`;
-      result += `${property.comment}\n`;
-      result += `</ResponseField>\n\n`;
+        result += `<ResponseField name="${property.name}" type="${property.type}" ${property.required ? "required" : ""}>\n`;
+        result += `${property.comment}\n`;
+        result += `</ResponseField>\n\n`;
+      }
     }
 
     if (this.annotation.type === "class") {

@@ -1,3 +1,6 @@
+/**
+ * CopilotKit Adapter for OpenAI
+ */
 import OpenAI from "openai";
 import { CopilotKitResponse, CopilotKitServiceAdapter } from "../types/service-adapter";
 import { limitOpenAIMessagesToTokenCount, maxTokensForOpenAIModel } from "../utils/openai";

@@ -1,3 +1,6 @@
+/**
+ * CopilotKit Adapter for the OpenAI Assistant API
+ */
 import OpenAI from "openai";
 import { CopilotKitServiceAdapter, CopilotKitResponse } from "../types/service-adapter";
 import { writeChatCompletionChunk, writeChatCompletionEnd } from "../utils/openai";

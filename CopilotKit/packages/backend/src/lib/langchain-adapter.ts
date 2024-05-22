@@ -1,3 +1,7 @@
+/**
+ * CopilotKit Adapter for LangChain
+ */
+
 import { ChatCompletionChunk } from "@copilotkit/shared";
 import {
   AIMessage,

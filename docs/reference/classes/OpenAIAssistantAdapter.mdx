@@ -1,0 +1,70 @@
+---
+title: "OpenAIAssistantAdapter"
+description: "CopilotKit Adapter for the OpenAI Assistant API"
+---
+
+{/* GENERATE-DOCS path=packages/backend/src/lib/openai-assistant-adapter.ts class=OpenAIAssistantAdapter */}
+
+
+## Constructor
+
+<ResponseField name="assistantId" type="string" required>
+
+</ResponseField>
+
+<ResponseField name="openai" type="OpenAI" >
+
+</ResponseField>
+
+<ResponseField name="codeInterpreterEnabled" type="boolean" >
+
+</ResponseField>
+
+<ResponseField name="retrievalEnabled" type="boolean" >
+
+</ResponseField>
+
+## waitForRun(run: OpenAI.Beta.Threads.Runs.Run)
+
+
+
+<ResponseField name="run" type="OpenAI.Beta.Threads.Runs.Run" required>
+
+</ResponseField>
+
+## submitToolOutputs(threadId: string, runId: string, forwardMessages: Message[])
+
+
+
+<ResponseField name="threadId" type="string" required>
+
+</ResponseField>
+
+<ResponseField name="runId" type="string" required>
+
+</ResponseField>
+
+<ResponseField name="forwardMessages" type="Message[]" required>
+
+</ResponseField>
+
+## submitUserMessage(threadId: string, forwardedProps: any)
+
+
+
+<ResponseField name="threadId" type="string" required>
+
+</ResponseField>
+
+<ResponseField name="forwardedProps" type="any" required>
+
+</ResponseField>
+
+## getResponse(forwardedProps: any)
+
+
+
+<ResponseField name="forwardedProps" type="any" required>
+
+</ResponseField>
+
