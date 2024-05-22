@@ -1,18 +1,57 @@
+/**
+ * CopilotKit Adapter for Google Gemini
+ *
+ * Use this adapter for a Google Gemini backend.
+ *
+ * <RequestExample>
+ * ```typescript
+ * const copilotKit = new CopilotRuntime();
+ * return copilotKit.response(
+ *   req,
+ *   new GoogleGenerativeAIAdapter()
+ * );
+ * ```
+ * </RequestExample>
+ *
+ * To set up a different model, pass the model prop:
+ *
+ * ```typescript
+ * const copilotKit = new CopilotRuntime();
+ * const genAI = new GoogleGenerativeAI(
+ *  process.env["GOOGLE_API_KEY"]!
+ * );
+ * const model = genAI.getGenerativeModel(
+ *  { model: "gemini-pro" }
+ * );
+ * return copilotKit.response(
+ *   req,
+ *   new GoogleGenerativeAIAdapter()
+ * );
+ * ```
+ */
 import { CopilotKitServiceAdapter } from "../types";
 import { CopilotKitResponse } from "../types/service-adapter";
-import { Content, GenerativeModel, Tool } from "@google/generative-ai";
+import { Content, GenerativeModel, GoogleGenerativeAI, Tool } from "@google/generative-ai";
 import { writeChatCompletionChunk, writeChatCompletionEnd } from "../utils";
 import { ChatCompletionChunk, Message } from "@copilotkit/shared";
 
-type GoogleGenerativeAIAdapterOptions = {
-  model: GenerativeModel;
-};
+interface GoogleGenerativeAIAdapterOptions {
+  /**
+   * A custom `GenerativeModel` to use for the request.
+   */
+  model?: GenerativeModel;
+}
 
 export class GoogleGenerativeAIAdapter implements CopilotKitServiceAdapter {
   private model: GenerativeModel;
 
-  constructor(options: GoogleGenerativeAIAdapterOptions) {
-    this.model = options.model;
+  constructor(options?: GoogleGenerativeAIAdapterOptions) {
+    if (options?.model) {
+      this.model = options.model;
+    } else {
+      const genAI = new GoogleGenerativeAI(process.env["GOOGLE_API_KEY"]!);
+      this.model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    }
   }
 
   async getResponse(forwardedProps: any): Promise<CopilotKitResponse> {

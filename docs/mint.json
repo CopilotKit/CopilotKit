@@ -43,23 +43,35 @@
     {
       "group": "Components",
       "pages": [
-        "reference/CopilotKit",
-        "reference/CopilotTextarea",
-        "reference/CopilotPopup",
-        "reference/CopilotSidebar"
+        "reference/components/CopilotKit",
+        "reference/components/CopilotTextarea",
+        "reference/components/CopilotPopup",
+        "reference/components/CopilotSidebar"
       ]
     },
     {
       "group": "Hooks",
       "pages": [
-        "reference/useCopilotReadable",
-        "reference/useCopilotAction",
-        "reference/useCopilotChatSuggestions"
+        "reference/hooks/useCopilotReadable",
+        "reference/hooks/useCopilotAction",
+        "reference/hooks/useCopilotChatSuggestions"
       ]
     },
     {
       "group": "Classes",
-      "pages": ["reference/CopilotTask", "reference/CopilotRuntime"]
+      "pages": [
+        "reference/classes/CopilotTask",
+        "reference/classes/CopilotRuntime",
+        {
+          "group": "Runtime Adapters",
+          "pages": [
+            "reference/classes/OpenAIAdapter",
+            "reference/classes/OpenAIAssistantAdapter",
+            "reference/classes/LangChainAdapter",
+            "reference/classes/GoogleGenerativeAIAdapter"
+          ]
+        }
+      ]
     },
 
     {

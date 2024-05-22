@@ -43,7 +43,7 @@ export class SourceFile {
   /**
    * Get the interface definition of the first argument of the function or class constructor.
    */
-  getArg0Interface(name: string): InterfaceDefinition {
+  getArg0Interface(name: string): InterfaceDefinition | null {
     let interfaceName: string = "";
 
     const visit = (node: ts.Node) => {
@@ -105,7 +105,7 @@ export class SourceFile {
     visit(this.sourceFile);
 
     if (!interfaceName) {
-      throw new Error(`No interface found for ${name}`);
+      return null;
     }
 
     // extract the interface definition
@@ -236,26 +236,7 @@ export class SourceFile {
             ts.isMethodDeclaration(member) &&
             member.modifiers?.every((modifier) => modifier.kind !== ts.SyntaxKind.PrivateKeyword)
           ) {
-            const functionComments = Comments.getTsDocCommentsForFunction(member, this.sourceFile);
-            let signature =
-              member.name.getText() +
-              "(" +
-              member.parameters.map((param) => param.getText()).join(", ") +
-              ")";
-            signature = signature.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            const methodDefinition = {
-              signature,
-              comment: functionComments.comment,
-              parameters: member.parameters.map((param) => {
-                return {
-                  name: param.name.getText(),
-                  type: param.type?.getText() || "unknown",
-                  required: !param.questionToken,
-                  comment: functionComments.params[param.name.getText()] || "",
-                };
-              }),
-            };
-            methodDefinitions.push(methodDefinition);
+            methodDefinitions.push(this.extractMethodDefinition(member));
           }
         });
       }
@@ -265,5 +246,48 @@ export class SourceFile {
     visit(this.sourceFile);
 
     return methodDefinitions;
+  }
+
+  /**
+   * Extracts the method definition from a method declaration.
+   */
+  private extractMethodDefinition(member: ts.MethodDeclaration): MethodDefinition {
+    const functionComments = Comments.getTsDocCommentsForFunction(member, this.sourceFile);
+    const name = ts.isConstructorDeclaration(member) ? "constructor" : member.name.getText();
+    let signature = name + "(" + member.parameters.map((param) => param.getText()).join(", ") + ")";
+    signature = signature.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return {
+      signature,
+      comment: functionComments.comment,
+      parameters: member.parameters.map((param) => {
+        return {
+          name: param.name.getText(),
+          type: param.type?.getText() || "unknown",
+          required: !param.questionToken,
+          comment: functionComments.params[param.name.getText()] || "",
+        };
+      }),
+    };
+  }
+
+  /**
+   * Get the constructor definition of a class.
+   */
+  getConstructorDefinition(className: string): MethodDefinition | null {
+    let constructorDefinition: MethodDefinition | null = null;
+
+    const visit = (node: ts.Node) => {
+      if (ts.isClassDeclaration(node) && node.name?.getText() === className) {
+        const constr = node.members.find((member) => ts.isConstructorDeclaration(member)) as any;
+        if (constr) {
+          constructorDefinition = this.extractMethodDefinition(constr);
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+
+    visit(this.sourceFile);
+
+    return constructorDefinition;
   }
 }

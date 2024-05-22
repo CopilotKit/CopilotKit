@@ -1,0 +1,47 @@
+---
+title: "OpenAIAssistantAdapter"
+description: "CopilotKit Adapter for the OpenAI Assistant API."
+---
+
+{/* GENERATE-DOCS path=packages/backend/src/lib/openai-assistant-adapter.ts class=OpenAIAssistantAdapter */}
+ 
+Use this adapter to get responses from the OpenAI Assistant API.
+ 
+<RequestExample>
+```typescript
+const copilotKit = new CopilotRuntime();
+return copilotKit.response(
+  req,
+  new OpenAIAssistantAdapter({
+   assistantId: "your-assistant-id"
+  })
+);
+```
+</RequestExample>
+
+## Constructor
+
+<ResponseField name="assistantId" type="string" required>
+The ID of the assistant to use.
+</ResponseField>
+
+<ResponseField name="openai" type="OpenAI" >
+An instance of `OpenAI` to use for the request. If not provided, a new instance will be created.
+</ResponseField>
+
+<ResponseField name="codeInterpreterEnabled" type="boolean" >
+Whether to enable the code interpreter. Defaults to `true`.
+</ResponseField>
+
+<ResponseField name="retrievalEnabled" type="boolean" >
+Whether to enable retrieval. Defaults to `true`.
+</ResponseField>
+
+## getResponse(forwardedProps: any)
+
+
+
+<ResponseField name="forwardedProps" type="any" required>
+
+</ResponseField>
+
