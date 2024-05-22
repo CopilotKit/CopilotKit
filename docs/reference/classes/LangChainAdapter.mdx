@@ -1,0 +1,45 @@
+---
+title: "LangChainAdapter"
+description: "CopilotKit Adapter for LangChain"
+---
+
+{/* GENERATE-DOCS path=packages/backend/src/lib/langchain-adapter.ts class=LangChainAdapter */}
+ 
+Use this adapter to use LangChain as a backend.
+ 
+```typescript
+return copilotKit.response(
+  req,
+  new LangChainAdapter(async (forwardedProps) => {
+    const model = new ChatOpenAI({ modelName: "gpt-4o" });
+    return model.stream(forwardedProps.messages, {
+      tools: forwardedProps.tools,
+    });
+  })
+);
+```
+The async handler function can return:
+ 
+- a simple `string` response
+- a LangChain stream `IterableReadableStream`
+- a LangChain `BaseMessageChunk` object
+- a LangChain `AIMessage` object
+
+## Constructor
+
+## constructor(private chainFn: (forwardedProps: any) =&gt; Promise&lt;LangChainReturnType&gt;)
+
+To use LangChain as a backend, provide a handler function to the adapter with your custom LangChain logic.
+
+<ResponseField name="chainFn" type="(forwardedProps: any) => Promise<LangChainReturnType>" required>
+
+</ResponseField>
+
+## getResponse(forwardedProps: any)
+
+
+
+<ResponseField name="forwardedProps" type="any" required>
+
+</ResponseField>
+

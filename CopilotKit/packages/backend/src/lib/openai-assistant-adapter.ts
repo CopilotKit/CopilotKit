@@ -1,3 +1,20 @@
+/**
+ * CopilotKit Adapter for the OpenAI Assistant API.
+ *
+ * Use this adapter to get responses from the OpenAI Assistant API.
+ *
+ * <RequestExample>
+ * ```typescript
+ * const copilotKit = new CopilotRuntime();
+ * return copilotKit.response(
+ *   req,
+ *   new OpenAIAssistantAdapter({
+ *    assistantId: "your-assistant-id"
+ *   })
+ * );
+ * ```
+ * </RequestExample>
+ */
 import OpenAI from "openai";
 import { CopilotKitServiceAdapter, CopilotKitResponse } from "../types/service-adapter";
 import { writeChatCompletionChunk, writeChatCompletionEnd } from "../utils/openai";
@@ -6,9 +23,24 @@ import { ChatCompletionChunk, Message } from "@copilotkit/shared";
 const RUN_STATUS_POLL_INTERVAL = 100;
 
 export interface OpenAIAssistantAdapterParams {
+  /**
+   * The ID of the assistant to use.
+   */
   assistantId: string;
+
+  /**
+   * An instance of `OpenAI` to use for the request. If not provided, a new instance will be created.
+   */
   openai?: OpenAI;
+
+  /**
+   * Whether to enable the code interpreter. Defaults to `true`.
+   */
   codeInterpreterEnabled?: boolean;
+
+  /**
+   * Whether to enable retrieval. Defaults to `true`.
+   */
   retrievalEnabled?: boolean;
 }
 
@@ -25,7 +57,9 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
     this.assistantId = params.assistantId;
   }
 
-  async waitForRun(run: OpenAI.Beta.Threads.Runs.Run): Promise<OpenAI.Beta.Threads.Runs.Run> {
+  private async waitForRun(
+    run: OpenAI.Beta.Threads.Runs.Run,
+  ): Promise<OpenAI.Beta.Threads.Runs.Run> {
     while (true) {
       const status = await this.openai.beta.threads.runs.retrieve(run.thread_id, run.id);
       if (status.status === "completed" || status.status === "requires_action") {
@@ -38,7 +72,7 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
     }
   }
 
-  async submitToolOutputs(threadId: string, runId: string, forwardMessages: Message[]) {
+  private async submitToolOutputs(threadId: string, runId: string, forwardMessages: Message[]) {
     let run = await this.openai.beta.threads.runs.retrieve(threadId, runId);
 
     if (!run.required_action) {
@@ -83,7 +117,7 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
     return await this.waitForRun(run);
   }
 
-  async submitUserMessage(threadId: string, forwardedProps: any) {
+  private async submitUserMessage(threadId: string, forwardedProps: any) {
     const forwardMessages = forwardedProps.messages || [];
 
     const message = forwardMessages[forwardMessages.length - 1];

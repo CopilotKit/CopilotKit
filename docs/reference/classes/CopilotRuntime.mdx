@@ -27,71 +27,18 @@ description: "Handles requests from frontend, provides function calling and vari
  
 This class is the main entry point for the runtime. It handles requests from the frontend, provides function calling and various LLM backends.
  
-Currently, you can use `OpenAIAdapter` for direct access to the OpenAI API and `LangChainAdapter` to use the LangChain API as a backend.
- 
-## OpenAIAdapter
- 
-Simply pass an instance of `OpenAIAdapter` to the `response` method of `CopilotRuntime` to use OpenAI as a backend.
- 
+For example, to use OpenAI as a backend (check the [OpenAI Adapter](./OpenAIAdapter) docs for more info):
 ```typescript
 const copilotKit = new CopilotRuntime();
 return copilotKit.response(req, new OpenAIAdapter());
-````
- 
-## OpenAIAssistantAdapter
- 
-To use the assistant API as backend, use `OpenAIAssistantAdapter`:
- 
-```typescript
-const copilotKit = new CopilotRuntime();
-return copilotKit.response(
-  req,
-  new OpenAIAssistantAdapter({ assistantId: "your-assistant-id" })
-);
 ```
  
-The assistant adapter supports the following configuration options:
+Currently we support:
  
-- `assistantId` (required): The ID of the assistant to use.
-- `openai` (optional): An instance of `OpenAI` to use for the request. If not provided, a new instance will be created.
-- `codeInterpreterEnabled` (optional): Whether to enable the code interpreter. Defaults to `true`.
-- `retrievalEnabled` (optional): Whether to enable the retrieval. Defaults to `true`.
- 
-## GoogleGenerativeAIAdapter
- 
-To use Google Gemini as backend, use `GoogleGenerativeAIAdapter`:
- 
-```typescript
-const copilotKit = new CopilotRuntime();
-const genAI = new GoogleGenerativeAI(process.env["GOOGLE_API_KEY"]!);
-const model = genAI.getGenerativeModel({ model: "gemini-pro" });
- 
-return copilotKit.response(req, new GoogleGenerativeAIAdapter({ model }));
-```
- 
-## LangChainAdapter
- 
-To use LangChain as a backend, provide a handler function to the adapter with your custom LangChain logic.
-The async handler function can return:
- 
-- a simple `string` response
-- a LangChain stream `IterableReadableStream`
-- a LangChain `BaseMessageChunk` object
-- a LangChain `AIMessage` object
- 
-This example streams back OpenAI messages via LangChain:
- 
-```typescript
-return copilotKit.response(
-  req,
-  new LangChainAdapter(async (forwardedProps) => {
-    const model = new ChatOpenAI({ modelName: "gpt-4-1106-preview" });
-    return model.stream(forwardedProps.messages, {
-      tools: forwardedProps.tools,
-    });
-  })
-);
-```
+- [OpenAI](./OpenAIAdapter)
+- [LangChain](./LangChainAdapter)
+- [OpenAI Assistant API](./OpenAIAssistantAdapter)
+- [Google Gemini](./GoogleGenerativeAIAdapter)
  
 ## Server Side Actions
  
