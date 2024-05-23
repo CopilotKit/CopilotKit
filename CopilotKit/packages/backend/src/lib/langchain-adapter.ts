@@ -47,6 +47,20 @@ export class LangChainAdapter implements CopilotKitServiceAdapter {
    */
   constructor(private chainFn: (forwardedProps: any) => Promise<LangChainReturnType>) {}
 
+  public static convertToolsToJsonSchema(tools: any) {
+    return tools.map((tool: any) => ({
+      name: tool.function.name,
+      description: tool.function.description,
+      input_schema: {
+        type: "object",
+        properties: tool.function.parameters.properties,
+        required: tool.function.parameters.required,
+        additionalProperties: false,
+        $schema: "http://json-schema.org/draft-07/schema#",
+      },
+    }));
+  }
+
   async getResponse(forwardedProps: any): Promise<CopilotKitResponse> {
     forwardedProps = this.transformProps(forwardedProps);
 
@@ -181,8 +195,34 @@ export class LangChainAdapter implements CopilotKitServiceAdapter {
               return;
             }
 
-            const toolCalls = value.lc_kwargs?.additional_kwargs?.tool_calls;
-            const content = value?.lc_kwargs?.content;
+            // console.log(JSON.stringify(value, null, 2));
+
+            let toolCalls = value.lc_kwargs?.additional_kwargs?.tool_calls;
+
+            if (!toolCalls && value.lc_kwargs?.tool_calls) {
+              toolCalls = value.lc_kwargs.tool_calls.map((toolCall: any) => ({
+                index: 0,
+                function: {
+                  ...(toolCall.name ? { name: toolCall.name } : {}),
+
+                  arguments:
+                    typeof toolCall.args === "string"
+                      ? toolCall.args
+                      : JSON.stringify(toolCall.args),
+                },
+                id: toolCall.id,
+              }));
+            }
+
+            let content = value?.lc_kwargs?.content;
+            if (
+              !content &&
+              value?.lc_kwargs?.content &&
+              value?.lc_kwargs?.content.length > 0 &&
+              value?.lc_kwargs?.content[0].type === "text"
+            ) {
+              content = value.lc_kwargs.content[0].text;
+            }
             const chunk: ChatCompletionChunk = {
               choices: [
                 {

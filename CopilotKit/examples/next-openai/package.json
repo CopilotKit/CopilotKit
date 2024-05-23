@@ -17,6 +17,7 @@
     "@copilotkit/shared": "workspace:*",
     "@google/generative-ai": "^0.11.2",
     "@heroicons/react": "^2.0.18",
+    "@langchain/anthropic": "^0.1.21",
     "@langchain/community": "^0.0.53",
     "@langchain/core": "^0.1.61",
     "@langchain/langgraph": "^0.0.12",
