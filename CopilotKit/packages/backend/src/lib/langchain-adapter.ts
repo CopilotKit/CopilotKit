@@ -216,7 +216,8 @@ export class LangChainAdapter implements CopilotKitServiceAdapter {
 
             let content = value?.lc_kwargs?.content;
             if (
-              !content &&
+              content &&
+              typeof content !== "string" &&
               value?.lc_kwargs?.content &&
               value?.lc_kwargs?.content.length > 0 &&
               value?.lc_kwargs?.content[0].type === "text"
