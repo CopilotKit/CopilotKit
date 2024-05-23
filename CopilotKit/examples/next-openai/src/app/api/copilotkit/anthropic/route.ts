@@ -2,9 +2,7 @@ import { CopilotRuntime, LangChainAdapter } from "@copilotkit/backend";
 import { ChatAnthropic } from "@langchain/anthropic";
 
 export async function POST(req: Request): Promise<Response> {
-  const copilotKit = new CopilotRuntime({
-    actions: [],
-  });
+  const copilotKit = new CopilotRuntime();
 
   return copilotKit.response(
     req,
