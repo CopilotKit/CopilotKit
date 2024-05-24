@@ -7,7 +7,9 @@
   border-radius: 0.75rem;
   box-shadow: rgba(0, 0, 0, 0.16) 0px 5px 40px;
   flex-direction: column;
-  transition: opacity 100ms ease-out, transform 200ms ease-out;
+  transition:
+    opacity 100ms ease-out,
+    transform 200ms ease-out;
   opacity: 0;
   transform: scale(0.95) translateY(20px);
   display: flex;
