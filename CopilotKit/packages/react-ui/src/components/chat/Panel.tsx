@@ -1,17 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { CopilotChatIcons, ChatContextProvider, CopilotChatLabels } from "./ChatContext";
-import { SystemMessageFunction, useCopilotChat, useCopilotContext } from "@copilotkit/react-core";
-import {
-  ButtonProps,
-  HeaderProps,
-  WindowProps,
-  MessagesProps,
-  InputProps,
-  ResponseButtonProps,
-} from "./props";
-import { Window as DefaultWindow } from "./Window";
-import { Button as DefaultButton } from "./Button";
-import { Header as DefaultHeader } from "./Header";
+import { ChatContextProvider } from "./ChatContext";
+import { useCopilotChat, useCopilotContext } from "@copilotkit/react-core";
+
 import { Messages as DefaultMessages } from "./Messages";
 import { Input as DefaultInput } from "./Input";
 import { nanoid } from "nanoid";
