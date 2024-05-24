@@ -1,24 +1,71 @@
+/**
+ * An embeddable chat panel for CopilotKit.
+ *
+ * <img src="/images/CopilotPanel/CopilotPanel.gif" width="500" />
+ *
+ * A chatbot panel component for the CopilotKit framework. The component allows for a high degree
+ * of customization through various props and custom CSS.
+ *
+ * <RequestExample>
+ *   ```jsx CopilotPanel Example
+ *   import { CopilotPanel } from "@copilotkit/react-ui";
+ *
+ *   <CopilotPanel
+ *     labels={{
+ *       title: "Your Assistant",
+ *       initial: "Hi! 👋 How can I assist you today?",
+ *     }}
+ *   />
+ *   ```
+ * </RequestExample>
+ *
+ * ## Custom CSS
+ *
+ * You can customize the colors of the panel by overriding the CSS variables
+ * defined in the [default styles](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-ui/src/css/colors.css).
+ *
+ * For example, to set the primary color to purple:
+ *
+ * ```jsx
+ * <div style={{ "--copilot-kit-primary-color": "#7D5BA6" }}>
+ *   <CopilotPopup />
+ * </div>
+ * ```
+ *
+ * To further customize the panel, you can override the CSS classes defined
+ * [here](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-ui/src/css/).
+ *
+ * For example:
+ *
+ * ```css
+ * .copilotKitButton {
+ *   border-radius: 0;
+ * }
+ * ```
+ */
+
 import { ChatContextProvider } from "./ChatContext";
 import { Messages as DefaultMessages } from "./Messages";
 import { Input as DefaultInput } from "./Input";
 import { ResponseButton as DefaultResponseButton } from "./Response";
-import { Suggestion, reloadSuggestions } from "./Suggestion";
+import { Suggestion } from "./Suggestion";
 import { CopilotChatProps } from "./Chat";
 import { useCopilotChatLogic } from "../../hooks/use-copilot-chat-logic";
 
-type CopilotPanelProps = Omit<
-  CopilotChatProps,
-  | "defaultOpen"
-  | "clickOutsideToClose"
-  | "hitEscapeToClose"
-  | "shortcut"
-  | "onSetOpen"
-  | "Window"
-  | "Button"
-  | "Header"
->;
+export interface CopilotPanelProps
+  extends Omit<
+    CopilotChatProps,
+    | "defaultOpen"
+    | "clickOutsideToClose"
+    | "hitEscapeToClose"
+    | "shortcut"
+    | "onSetOpen"
+    | "Window"
+    | "Button"
+    | "Header"
+  > {}
 
-export const CopilotPanel = ({
+export function CopilotPanel({
   instructions,
   onSubmitMessage,
   icons,
@@ -31,7 +78,7 @@ export const CopilotPanel = ({
   ResponseButton = DefaultResponseButton,
   className,
   children,
-}: CopilotPanelProps) => {
+}: CopilotPanelProps) {
   const {
     visibleMessages,
     isLoading,
@@ -82,4 +129,4 @@ export const CopilotPanel = ({
       </div>
     </ChatContextProvider>
   );
-};
+}
