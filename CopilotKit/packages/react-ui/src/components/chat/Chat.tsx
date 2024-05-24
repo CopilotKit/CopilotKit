@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
 import { CopilotChatIcons, ChatContextProvider, CopilotChatLabels } from "./ChatContext";
-import { SystemMessageFunction, useCopilotChat, useCopilotContext } from "@copilotkit/react-core";
+import { SystemMessageFunction } from "@copilotkit/react-core";
 import {
   ButtonProps,
   HeaderProps,
@@ -14,11 +14,9 @@ import { Button as DefaultButton } from "./Button";
 import { Header as DefaultHeader } from "./Header";
 import { Messages as DefaultMessages } from "./Messages";
 import { Input as DefaultInput } from "./Input";
-import { nanoid } from "nanoid";
 import { ResponseButton as DefaultResponseButton } from "./Response";
-import { Suggestion, reloadSuggestions } from "./Suggestion";
-import { CopilotChatSuggestion, CopilotChatSuggestionConfiguration } from "../../types/suggestions";
-import { Message } from "@copilotkit/shared";
+import { Suggestion } from "./Suggestion";
+import { useCopilotChatLogic } from "../../hooks/use-copilot-chat-logic";
 
 /**
  * Props for CopilotChat component.
@@ -163,85 +161,23 @@ export const CopilotChat = ({
   className,
   children,
 }: CopilotChatProps) => {
-  const { visibleMessages, append, reload, stop, isLoading, input, setInput } = useCopilotChat({
-    id: nanoid(),
-    makeSystemMessage,
-    additionalInstructions: instructions,
-  });
+  const {
+    visibleMessages,
+    isLoading,
+    currentSuggestions,
+    sendMessage,
+    addChatSuggestionConfiguration,
+    removeChatSuggestion,
+    stop,
+    reload,
+  } = useCopilotChatLogic(instructions, makeSystemMessage, onInProgress, onSubmitMessage);
 
-  const [currentSuggestions, setCurrentSuggestions] = React.useState<CopilotChatSuggestion[]>([]);
-  const suggestionsAbortControllerRef = useRef<AbortController | null>(null);
-  const debounceTimerRef = useRef<any>();
-
-  const abortSuggestions = () => {
-    suggestionsAbortControllerRef.current?.abort();
-    suggestionsAbortControllerRef.current = null;
-  };
-
-  const context = useCopilotContext();
-
-  const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
-    [key: string]: CopilotChatSuggestionConfiguration;
-  }>({});
-
-  const addChatSuggestionConfiguration = (
-    id: string,
-    suggestion: CopilotChatSuggestionConfiguration,
-  ) => {
-    setChatSuggestionConfiguration((prev) => ({ ...prev, [id]: suggestion }));
-  };
-
-  const removeChatSuggestion = (id: string) => {
-    setChatSuggestionConfiguration((prev) => {
-      const { [id]: _, ...rest } = prev;
-      return rest;
-    });
-  };
-
-  useEffect(() => {
-    onInProgress?.(isLoading);
-
-    abortSuggestions();
-
-    debounceTimerRef.current = setTimeout(
-      () => {
-        if (!isLoading && Object.keys(chatSuggestionConfiguration).length !== 0) {
-          suggestionsAbortControllerRef.current = new AbortController();
-          reloadSuggestions(
-            context,
-            chatSuggestionConfiguration,
-            setCurrentSuggestions,
-            suggestionsAbortControllerRef,
-          );
-        }
-      },
-      currentSuggestions.length == 0 ? 0 : SUGGESTIONS_DEBOUNCE_TIMEOUT,
-    );
-
-    return () => {
-      clearTimeout(debounceTimerRef.current);
-    };
-  }, [isLoading, chatSuggestionConfiguration]);
+  const [openState, setOpenState] = React.useState(defaultOpen);
 
   const setOpen = (open: boolean) => {
     onSetOpen?.(open);
     setOpenState(open);
   };
-
-  const sendMessage = async (messageContent: string) => {
-    abortSuggestions();
-    setCurrentSuggestions([]);
-    onSubmitMessage?.(messageContent);
-    const message: Message = {
-      id: nanoid(),
-      content: messageContent,
-      role: "user",
-    };
-    append(message);
-    return message;
-  };
-
-  const [openState, setOpenState] = React.useState(defaultOpen);
 
   return (
     <ChatContextProvider
