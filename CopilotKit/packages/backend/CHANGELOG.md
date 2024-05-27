@@ -1,5 +1,16 @@
 # @copilotkit/cloud
 
+## 0.8.0
+
+### Minor Changes
+
+- chat suggestions, embeddable chat component, gemini adapter, push to talk
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.8.0
+
 ## 0.7.0
 
 ### Minor Changes

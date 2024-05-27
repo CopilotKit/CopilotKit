@@ -1,5 +1,17 @@
 # node
 
+## 1.20.0
+
+### Minor Changes
+
+- chat suggestions, embeddable chat component, gemini adapter, push to talk
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.8.0
+  - @copilotkit/shared@0.8.0
+
 ## 1.19.0
 
 ### Minor Changes

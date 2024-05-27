@@ -1,5 +1,17 @@
 # ui
 
+## 0.21.0
+
+### Minor Changes
+
+- chat suggestions, embeddable chat component, gemini adapter, push to talk
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.24.0
+  - @copilotkit/shared@0.8.0
+
 ## 0.20.0
 
 ### Minor Changes

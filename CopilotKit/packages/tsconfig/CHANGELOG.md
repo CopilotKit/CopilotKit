@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.13.0
+
+### Minor Changes
+
+- chat suggestions, embeddable chat component, gemini adapter, push to talk
+
 ## 0.12.0
 
 ### Minor Changes

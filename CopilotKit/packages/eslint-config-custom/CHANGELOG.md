@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.9.0
+
+### Minor Changes
+
+- chat suggestions, embeddable chat component, gemini adapter, push to talk
+
 ## 0.8.0
 
 ### Minor Changes
