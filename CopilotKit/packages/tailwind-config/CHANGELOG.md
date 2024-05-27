@@ -1,5 +1,12 @@
 # tailwind-config
 
+## 0.10.0
+
+### Minor Changes
+
+- 8baa862: Add push to talk prototype
+- chat suggestions, standalone chat component, gemini adapter, push to talk
+
 ## 0.10.0-mme-push-to-talk.0
 
 ### Minor Changes
