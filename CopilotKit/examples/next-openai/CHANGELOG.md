@@ -1,5 +1,22 @@
 # web
 
+## 1.22.0
+
+### Minor Changes
+
+- 8baa862: Add push to talk prototype
+- chat suggestions, standalone chat component, gemini adapter, push to talk
+
+### Patch Changes
+
+- Updated dependencies [8baa862]
+- Updated dependencies
+  - @copilotkit/react-core@0.36.0
+  - @copilotkit/react-ui@0.36.0
+  - @copilotkit/backend@0.36.0
+  - @copilotkit/react-textarea@0.36.0
+  - @copilotkit/shared@0.36.0
+
 ## 1.22.0-mme-push-to-talk.0
 
 ### Minor Changes
