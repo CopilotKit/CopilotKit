@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { SystemMessageFunction, useCopilotChat, useCopilotContext } from "@copilotkit/react-core";
 import { nanoid } from "nanoid";
 import { reloadSuggestions } from "../components/chat/Suggestion";
-import { CopilotChatSuggestion, CopilotChatSuggestionConfiguration } from "../types/suggestions";
+import { CopilotChatSuggestion } from "../types/suggestions";
 import { Message } from "@copilotkit/shared";
 
 const SUGGESTIONS_DEBOUNCE_TIMEOUT = 1000;
@@ -30,24 +30,6 @@ export const useCopilotChatLogic = (
 
   const context = useCopilotContext();
 
-  const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
-    [key: string]: CopilotChatSuggestionConfiguration;
-  }>({});
-
-  const addChatSuggestionConfiguration = (
-    id: string,
-    suggestion: CopilotChatSuggestionConfiguration,
-  ) => {
-    setChatSuggestionConfiguration((prev) => ({ ...prev, [id]: suggestion }));
-  };
-
-  const removeChatSuggestion = (id: string) => {
-    setChatSuggestionConfiguration((prev) => {
-      const { [id]: _, ...rest } = prev;
-      return rest;
-    });
-  };
-
   useEffect(() => {
     onInProgress?.(isLoading);
 
@@ -55,11 +37,11 @@ export const useCopilotChatLogic = (
 
     debounceTimerRef.current = setTimeout(
       () => {
-        if (!isLoading && Object.keys(chatSuggestionConfiguration).length !== 0) {
+        if (!isLoading && Object.keys(context.chatSuggestionConfiguration).length !== 0) {
           suggestionsAbortControllerRef.current = new AbortController();
           reloadSuggestions(
             context,
-            chatSuggestionConfiguration,
+            context.chatSuggestionConfiguration,
             setCurrentSuggestions,
             suggestionsAbortControllerRef,
           );
@@ -71,7 +53,7 @@ export const useCopilotChatLogic = (
     return () => {
       clearTimeout(debounceTimerRef.current);
     };
-  }, [isLoading, chatSuggestionConfiguration]);
+  }, [isLoading, context.chatSuggestionConfiguration]);
 
   const sendMessage = async (messageContent: string) => {
     abortSuggestions();
@@ -91,8 +73,6 @@ export const useCopilotChatLogic = (
     isLoading,
     currentSuggestions,
     sendMessage,
-    addChatSuggestionConfiguration,
-    removeChatSuggestion,
     stop,
     reload,
     input,

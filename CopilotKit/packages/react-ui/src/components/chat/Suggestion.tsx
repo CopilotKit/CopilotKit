@@ -1,7 +1,11 @@
-import { CopilotContextParams, extract } from "@copilotkit/react-core";
+import {
+  CopilotContextParams,
+  extract,
+  CopilotChatSuggestionConfiguration,
+} from "@copilotkit/react-core";
 import { SuggestionsProps } from "./props";
 import { SmallSpinnerIcon } from "./Icons";
-import { CopilotChatSuggestion, CopilotChatSuggestionConfiguration } from "../../types/suggestions";
+import { CopilotChatSuggestion } from "../../types/suggestions";
 
 export function Suggestion({ title, message, onClick, partial, className }: SuggestionsProps) {
   return (

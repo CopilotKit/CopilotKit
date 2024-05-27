@@ -166,8 +166,7 @@ export const CopilotChat = ({
     isLoading,
     currentSuggestions,
     sendMessage,
-    addChatSuggestionConfiguration,
-    removeChatSuggestion,
+
     stop,
     reload,
   } = useCopilotChatLogic(instructions, makeSystemMessage, onInProgress, onSubmitMessage);
@@ -180,14 +179,7 @@ export const CopilotChat = ({
   };
 
   return (
-    <ChatContextProvider
-      icons={icons}
-      labels={labels}
-      open={openState}
-      setOpen={setOpenState}
-      addChatSuggestionConfiguration={addChatSuggestionConfiguration}
-      removeChatSuggestionConfiguration={removeChatSuggestion}
-    >
+    <ChatContextProvider icons={icons} labels={labels} open={openState} setOpen={setOpenState}>
       {children}
       <div className={className}>
         <Button open={openState} setOpen={setOpen}></Button>

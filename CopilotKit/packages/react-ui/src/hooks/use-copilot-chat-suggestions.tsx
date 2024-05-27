@@ -66,7 +66,7 @@
 import { useEffect } from "react";
 import { useChatContext } from "../components";
 import { nanoid } from "nanoid";
-import { CopilotChatSuggestionConfiguration } from "../types/suggestions";
+import { CopilotChatSuggestionConfiguration, useCopilotContext } from "@copilotkit/react-core";
 
 export function useCopilotChatSuggestions(
   {
@@ -77,12 +77,12 @@ export function useCopilotChatSuggestions(
   }: CopilotChatSuggestionConfiguration,
   dependencies: any[] = [],
 ) {
-  const chatContext = useChatContext();
+  const context = useCopilotContext();
 
   useEffect(() => {
     const id = nanoid();
 
-    chatContext.addChatSuggestionConfiguration(id, {
+    context.addChatSuggestionConfiguration(id, {
       instructions,
       minSuggestions,
       maxSuggestions,
@@ -90,7 +90,7 @@ export function useCopilotChatSuggestions(
     });
 
     return () => {
-      chatContext.removeChatSuggestionConfiguration(id);
+      context.removeChatSuggestionConfiguration(id);
     };
   }, dependencies);
 }

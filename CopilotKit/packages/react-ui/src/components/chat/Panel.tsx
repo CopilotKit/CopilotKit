@@ -79,26 +79,11 @@ export function CopilotPanel({
   className,
   children,
 }: CopilotPanelProps) {
-  const {
-    visibleMessages,
-    isLoading,
-    currentSuggestions,
-    sendMessage,
-    addChatSuggestionConfiguration,
-    removeChatSuggestion,
-    stop,
-    reload,
-  } = useCopilotChatLogic(instructions, makeSystemMessage, onInProgress, onSubmitMessage);
+  const { visibleMessages, isLoading, currentSuggestions, sendMessage, stop, reload } =
+    useCopilotChatLogic(instructions, makeSystemMessage, onInProgress, onSubmitMessage);
 
   return (
-    <ChatContextProvider
-      icons={icons}
-      labels={labels}
-      open={true}
-      setOpen={() => {}}
-      addChatSuggestionConfiguration={addChatSuggestionConfiguration}
-      removeChatSuggestionConfiguration={removeChatSuggestion}
-    >
+    <ChatContextProvider icons={icons} labels={labels} open={true} setOpen={() => {}}>
       <div className={className}>
         <div className="copilotKitPanel open">
           {children}
