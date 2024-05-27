@@ -152,6 +152,9 @@ export function CopilotChat({
   const { visibleMessages, isLoading, currentSuggestions, sendMessage, stop, reload } =
     useCopilotChatLogic(instructions, makeSystemMessage, onInProgress, onSubmitMessage);
 
+  const chatContext = React.useContext(ChatContext);
+  const isVisible = chatContext ? chatContext.open : true;
+
   return (
     <WrappedCopilotChat icons={icons} labels={labels} className={className}>
       <Messages messages={visibleMessages} inProgress={isLoading}>
@@ -176,7 +179,7 @@ export function CopilotChat({
           <ResponseButton onClick={isLoading ? stop : reload} inProgress={isLoading} />
         )}
       </Messages>
-      <Input inProgress={isLoading} onSend={sendMessage} isVisible={true} />
+      <Input inProgress={isLoading} onSend={sendMessage} isVisible={isVisible} />
     </WrappedCopilotChat>
   );
 }
