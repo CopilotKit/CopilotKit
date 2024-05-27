@@ -1,5 +1,17 @@
 # node
 
+## 1.22.0-mme-pre.4
+
+### Minor Changes
+
+- Fix autofocus
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.36.0-mme-pre.4
+  - @copilotkit/shared@0.36.0-mme-pre.4
+
 ## 1.22.0-mme-pre.3
 
 ### Minor Changes

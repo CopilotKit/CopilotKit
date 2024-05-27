@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.11.0-mme-pre.4
+
+### Minor Changes
+
+- Fix autofocus
+
 ## 0.11.0-mme-pre.3
 
 ### Minor Changes

@@ -1,21 +1,22 @@
 {
-  "mode": "exit",
+  "mode": "pre",
   "tag": "mme-pre",
   "initialVersions": {
-    "next-openai": "1.22.0-mme-pre.2",
-    "node": "1.22.0-mme-pre.2",
-    "@copilotkit/backend": "0.36.0-mme-pre.2",
-    "eslint-config-custom": "0.11.0-mme-pre.2",
-    "@copilotkit/react-core": "0.36.0-mme-pre.2",
-    "@copilotkit/react-textarea": "0.36.0-mme-pre.2",
-    "@copilotkit/react-ui": "0.36.0-mme-pre.2",
-    "@copilotkit/shared": "0.36.0-mme-pre.2",
-    "tailwind-config": "0.10.0-mme-pre.2",
-    "tsconfig": "0.15.0-mme-pre.2"
+    "next-openai": "1.22.0-mme-pre.3",
+    "node": "1.22.0-mme-pre.3",
+    "@copilotkit/backend": "0.36.0-mme-pre.3",
+    "eslint-config-custom": "0.11.0-mme-pre.3",
+    "@copilotkit/react-core": "0.36.0-mme-pre.3",
+    "@copilotkit/react-textarea": "0.36.0-mme-pre.3",
+    "@copilotkit/react-ui": "0.36.0-mme-pre.3",
+    "@copilotkit/shared": "0.36.0-mme-pre.3",
+    "tailwind-config": "0.10.0-mme-pre.3",
+    "tsconfig": "0.15.0-mme-pre.3"
   },
   "changesets": [
     "eight-crabs-fold",
     "nine-lobsters-work",
+    "ninety-ways-listen",
     "quick-taxis-pay",
     "silent-baboons-exist"
   ]

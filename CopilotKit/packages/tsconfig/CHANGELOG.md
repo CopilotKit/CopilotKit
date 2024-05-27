@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.15.0-mme-pre.4
+
+### Minor Changes
+
+- Fix autofocus
+
 ## 0.15.0-mme-pre.3
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 0.36.0-mme-pre.4
+
+### Minor Changes
+
+- Fix autofocus
+
 ## 0.36.0-mme-pre.3
 
 ### Minor Changes
