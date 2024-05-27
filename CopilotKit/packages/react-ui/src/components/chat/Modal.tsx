@@ -100,10 +100,10 @@ export const CopilotModal = ({
           <Header open={openState} setOpen={setOpen} />
           <CopilotChat
             instructions={instructions}
-            makeSystemMessage={makeSystemMessage}
-            onInProgress={onInProgress}
             onSubmitMessage={onSubmitMessage}
+            makeSystemMessage={makeSystemMessage}
             showResponseButton={showResponseButton}
+            onInProgress={onInProgress}
             Messages={Messages}
             Input={Input}
             ResponseButton={ResponseButton}

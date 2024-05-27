@@ -139,8 +139,6 @@ export interface CopilotChatProps {
 export function CopilotChat({
   instructions,
   onSubmitMessage,
-  icons,
-  labels,
   makeSystemMessage,
   showResponseButton = true,
   onInProgress,
@@ -148,49 +146,61 @@ export function CopilotChat({
   Input = DefaultInput,
   ResponseButton = DefaultResponseButton,
   className,
+  icons,
+  labels,
 }: CopilotChatProps) {
   const { visibleMessages, isLoading, currentSuggestions, sendMessage, stop, reload } =
     useCopilotChatLogic(instructions, makeSystemMessage, onInProgress, onSubmitMessage);
 
-  const context = React.useContext(ChatContext);
-  let open = true;
-  let setOpen: (open: boolean) => void = () => {};
-  if (context) {
-    icons = context.icons;
-    labels = context.labels;
-    open = context.open;
-    setOpen = context.setOpen;
-  }
-
   return (
-    <ChatContextProvider icons={icons} labels={labels} open={open} setOpen={setOpen}>
-      <div className={`copilotKitPanel ${className}`}>
-        <Messages messages={visibleMessages} inProgress={isLoading}>
-          {currentSuggestions.length > 0 && (
-            <div>
-              <h6>Suggested:</h6>
-              <div className="suggestions">
-                {currentSuggestions.map((suggestion, index) => (
-                  <Suggestion
-                    key={index}
-                    title={suggestion.title}
-                    message={suggestion.message}
-                    partial={suggestion.partial}
-                    className={suggestion.className}
-                    onClick={(message) => sendMessage(message)}
-                  />
-                ))}
-              </div>
+    <WrappedCopilotChat icons={icons} labels={labels} className={className}>
+      <Messages messages={visibleMessages} inProgress={isLoading}>
+        {currentSuggestions.length > 0 && (
+          <div>
+            <h6>Suggested:</h6>
+            <div className="suggestions">
+              {currentSuggestions.map((suggestion, index) => (
+                <Suggestion
+                  key={index}
+                  title={suggestion.title}
+                  message={suggestion.message}
+                  partial={suggestion.partial}
+                  className={suggestion.className}
+                  onClick={(message) => sendMessage(message)}
+                />
+              ))}
             </div>
-          )}
-          {showResponseButton && visibleMessages.length > 0 && (
-            <ResponseButton onClick={isLoading ? stop : reload} inProgress={isLoading} />
-          )}
-        </Messages>
-        <Input inProgress={isLoading} onSend={sendMessage} isVisible={true} />
-      </div>
-    </ChatContextProvider>
+          </div>
+        )}
+        {showResponseButton && visibleMessages.length > 0 && (
+          <ResponseButton onClick={isLoading ? stop : reload} inProgress={isLoading} />
+        )}
+      </Messages>
+      <Input inProgress={isLoading} onSend={sendMessage} isVisible={true} />
+    </WrappedCopilotChat>
   );
+}
+
+export function WrappedCopilotChat({
+  children,
+  icons,
+  labels,
+  className,
+}: {
+  children: React.ReactNode;
+  icons?: CopilotChatIcons;
+  labels?: CopilotChatLabels;
+  className?: string;
+}) {
+  const chatContext = React.useContext(ChatContext);
+  if (!chatContext) {
+    return (
+      <ChatContextProvider icons={icons} labels={labels} open={true} setOpen={() => {}}>
+        <div className={`copilotKitChat ${className}`}>{children}</div>
+      </ChatContextProvider>
+    );
+  }
+  return <>{children}</>;
 }
 
 const SUGGESTIONS_DEBOUNCE_TIMEOUT = 1000;
