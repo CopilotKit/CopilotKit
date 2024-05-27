@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 0.36.0-mme-pre.1
+
+### Minor Changes
+
+- Pre: CopilotChat, useCopilotChatSuggestions
+
 ## 0.36.0-mme-push-to-talk.0
 
 ### Minor Changes

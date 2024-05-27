@@ -1,5 +1,16 @@
 # @copilotkit/cloud
 
+## 0.36.0-mme-pre.1
+
+### Minor Changes
+
+- Pre: CopilotChat, useCopilotChatSuggestions
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.36.0-mme-pre.1
+
 ## 0.36.0-mme-push-to-talk.0
 
 ### Minor Changes
