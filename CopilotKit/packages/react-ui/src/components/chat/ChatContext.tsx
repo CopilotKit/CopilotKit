@@ -83,12 +83,6 @@ export interface CopilotChatLabels {
   placeholder?: string;
 
   /**
-   * The message to display while the chat GPT is "thinking".
-   * @default "Thinking..."
-   */
-  thinking?: string;
-
-  /**
    * The message to display when an error occurs.
    * @default "❌ An error occurred. Please try again."
    */
@@ -153,7 +147,6 @@ export const ChatContextProvider = ({
         initial: "",
         title: "CopilotKit",
         placeholder: "Type a message...",
-        thinking: "Thinking...",
         error: "❌ An error occurred. Please try again.",
         stopGenerating: "Stop generating",
         regenerateResponse: "Regenerate response",
