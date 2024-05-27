@@ -1,5 +1,16 @@
 # ui
 
+## 0.36.0-mme-pre.2
+
+### Minor Changes
+
+- Fix sidebar layout
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.36.0-mme-pre.2
+
 ## 0.36.0-mme-pre.1
 
 ### Minor Changes

@@ -1,20 +1,21 @@
 {
-  "mode": "exit",
+  "mode": "pre",
   "tag": "mme-pre",
   "initialVersions": {
-    "next-openai": "1.22.0-mme-push-to-talk.0",
-    "node": "1.22.0-mme-push-to-talk.0",
-    "@copilotkit/backend": "0.36.0-mme-push-to-talk.0",
-    "eslint-config-custom": "0.11.0-mme-push-to-talk.0",
-    "@copilotkit/react-core": "0.36.0-mme-push-to-talk.0",
-    "@copilotkit/react-textarea": "0.36.0-mme-push-to-talk.0",
-    "@copilotkit/react-ui": "0.36.0-mme-push-to-talk.0",
-    "@copilotkit/shared": "0.36.0-mme-push-to-talk.0",
-    "tailwind-config": "0.10.0-mme-push-to-talk.0",
-    "tsconfig": "0.15.0-mme-push-to-talk.0"
+    "next-openai": "1.22.0-mme-pre.1",
+    "node": "1.22.0-mme-pre.1",
+    "@copilotkit/backend": "0.36.0-mme-pre.1",
+    "eslint-config-custom": "0.11.0-mme-pre.1",
+    "@copilotkit/react-core": "0.36.0-mme-pre.1",
+    "@copilotkit/react-textarea": "0.36.0-mme-pre.1",
+    "@copilotkit/react-ui": "0.36.0-mme-pre.1",
+    "@copilotkit/shared": "0.36.0-mme-pre.1",
+    "tailwind-config": "0.10.0-mme-pre.1",
+    "tsconfig": "0.15.0-mme-pre.1"
   },
   "changesets": [
     "eight-crabs-fold",
-    "quick-taxis-pay"
+    "quick-taxis-pay",
+    "silent-baboons-exist"
   ]
 }

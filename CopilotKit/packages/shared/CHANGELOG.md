@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 0.36.0-mme-pre.2
+
+### Minor Changes
+
+- Fix sidebar layout
+
 ## 0.36.0-mme-pre.1
 
 ### Minor Changes

@@ -1,5 +1,17 @@
 # node
 
+## 1.22.0-mme-pre.2
+
+### Minor Changes
+
+- Fix sidebar layout
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.36.0-mme-pre.2
+  - @copilotkit/shared@0.36.0-mme-pre.2
+
 ## 1.22.0-mme-pre.1
 
 ### Minor Changes

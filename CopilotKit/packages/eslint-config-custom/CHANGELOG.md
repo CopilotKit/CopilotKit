@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.11.0-mme-pre.2
+
+### Minor Changes
+
+- Fix sidebar layout
+
 ## 0.11.0-mme-pre.1
 
 ### Minor Changes

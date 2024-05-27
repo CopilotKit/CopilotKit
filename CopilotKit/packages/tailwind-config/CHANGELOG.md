@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 0.10.0-mme-pre.2
+
+### Minor Changes
+
+- Fix sidebar layout
+
 ## 0.10.0-mme-pre.1
 
 ### Minor Changes
