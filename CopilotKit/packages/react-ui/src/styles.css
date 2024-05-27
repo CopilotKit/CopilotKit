@@ -10,6 +10,7 @@
 @import "./css/response.css";
 @import "./css/markdown.css";
 @import "./css/suggestions.css";
+@import "./css/panel.css";
 
 @tailwind base;
 @tailwind components;

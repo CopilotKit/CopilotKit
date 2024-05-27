@@ -48,12 +48,12 @@
  * ```
  */
 
-import { CopilotChat, CopilotChatProps } from "./Chat";
+import { CopilotModal, CopilotModalProps } from "./Modal";
 
-export function CopilotPopup(props: CopilotChatProps) {
+export function CopilotPopup(props: CopilotModalProps) {
   props = {
     ...props,
     className: props.className ? props.className + " copilotKitPopup" : "copilotKitPopup",
   };
-  return <CopilotChat {...props}>{props.children}</CopilotChat>;
+  return <CopilotModal {...props}>{props.children}</CopilotModal>;
 }
