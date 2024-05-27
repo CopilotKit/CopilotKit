@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 0.10.0-mme-pre.3
+
+### Minor Changes
+
+- Fix textarea autofocus
+
 ## 0.10.0-mme-pre.2
 
 ### Minor Changes

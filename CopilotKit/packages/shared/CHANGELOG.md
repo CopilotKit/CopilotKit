@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 0.36.0-mme-pre.3
+
+### Minor Changes
+
+- Fix textarea autofocus
+
 ## 0.36.0-mme-pre.2
 
 ### Minor Changes

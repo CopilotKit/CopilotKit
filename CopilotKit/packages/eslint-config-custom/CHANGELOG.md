@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.11.0-mme-pre.3
+
+### Minor Changes
+
+- Fix textarea autofocus
+
 ## 0.11.0-mme-pre.2
 
 ### Minor Changes

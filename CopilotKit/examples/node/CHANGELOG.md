@@ -1,5 +1,17 @@
 # node
 
+## 1.22.0-mme-pre.3
+
+### Minor Changes
+
+- Fix textarea autofocus
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.36.0-mme-pre.3
+  - @copilotkit/shared@0.36.0-mme-pre.3
+
 ## 1.22.0-mme-pre.2
 
 ### Minor Changes
