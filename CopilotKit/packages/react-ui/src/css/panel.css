@@ -1,4 +1,4 @@
-.copilotKitPanel {
+.copilotKitChat {
   z-index: 30;
   line-height: 1.5;
   -webkit-text-size-adjust: 100%;
@@ -25,14 +25,14 @@
   touch-action: manipulation;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  /* height: 100%; */
 }
 
-.copilotKitPanel svg {
+.copilotKitChat svg {
   display: inline-block;
   vertical-align: middle;
 }
 
-.copilotKitPanel .copilotKitMessages {
+.copilotKitChat .copilotKitMessages {
   flex-grow: 1;
 }
