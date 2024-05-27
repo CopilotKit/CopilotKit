@@ -47,7 +47,7 @@
         "reference/components/CopilotTextarea",
         "reference/components/CopilotPopup",
         "reference/components/CopilotSidebar",
-        "reference/components/CopilotPanel"
+        "reference/components/CopilotChat"
       ]
     },
     {

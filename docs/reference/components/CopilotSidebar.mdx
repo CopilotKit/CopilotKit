@@ -70,33 +70,12 @@ Custom instructions to be added to the system message. Use this property to
   user's needs or the application's requirements.
 </ResponseField>
 
-<ResponseField name="defaultOpen" type="boolean" >
-Whether the chat window should be open by default.
-</ResponseField>
-
-<ResponseField name="clickOutsideToClose" type="boolean" >
-If the chat window should close when the user clicks outside of it.
-</ResponseField>
-
-<ResponseField name="hitEscapeToClose" type="boolean" >
-If the chat window should close when the user hits the Escape key.
-</ResponseField>
-
-<ResponseField name="onSetOpen" type="(open: boolean) => void" >
-A callback that gets called when the chat window opens or closes.
-</ResponseField>
-
 <ResponseField name="onInProgress" type="(inProgress: boolean) => void" >
 A callback that gets called when the in progress state changes.
 </ResponseField>
 
 <ResponseField name="onSubmitMessage" type="(message: string) => void" >
 A callback that gets called when a new message it submitted.
-</ResponseField>
-
-<ResponseField name="shortcut" type="string" >
-The shortcut key to open the chat window.
-  Uses Command-[shortcut] on a Mac and Ctrl-[shortcut] on Windows.
 </ResponseField>
 
 <ResponseField name="icons" type="CopilotChatIcons" >
@@ -118,18 +97,6 @@ A function that takes in context string and instructions and returns
 Whether to show the response button.
 </ResponseField>
 
-<ResponseField name="Window" type="React.ComponentType<WindowProps>" >
-A custom Window component to use instead of the default.
-</ResponseField>
-
-<ResponseField name="Button" type="React.ComponentType<ButtonProps>" >
-A custom Button component to use instead of the default.
-</ResponseField>
-
-<ResponseField name="Header" type="React.ComponentType<HeaderProps>" >
-A custom Header component to use instead of the default.
-</ResponseField>
-
 <ResponseField name="Messages" type="React.ComponentType<MessagesProps>" >
 A custom Messages component to use instead of the default.
 </ResponseField>
@@ -148,5 +115,38 @@ A class name to apply to the root element.
 
 <ResponseField name="children" type="React.ReactNode" >
 Children to render.
+</ResponseField>
+
+<ResponseField name="defaultOpen" type="boolean" >
+Whether the chat window should be open by default.
+</ResponseField>
+
+<ResponseField name="clickOutsideToClose" type="boolean" >
+If the chat window should close when the user clicks outside of it.
+</ResponseField>
+
+<ResponseField name="hitEscapeToClose" type="boolean" >
+If the chat window should close when the user hits the Escape key.
+</ResponseField>
+
+<ResponseField name="shortcut" type="string" >
+The shortcut key to open the chat window.
+  Uses Command-[shortcut] on a Mac and Ctrl-[shortcut] on Windows.
+</ResponseField>
+
+<ResponseField name="onSetOpen" type="(open: boolean) => void" >
+A callback that gets called when the chat window opens or closes.
+</ResponseField>
+
+<ResponseField name="Window" type="React.ComponentType<WindowProps>" >
+A custom Window component to use instead of the default.
+</ResponseField>
+
+<ResponseField name="Button" type="React.ComponentType<ButtonProps>" >
+A custom Button component to use instead of the default.
+</ResponseField>
+
+<ResponseField name="Header" type="React.ComponentType<HeaderProps>" >
+A custom Header component to use instead of the default.
 </ResponseField>
 

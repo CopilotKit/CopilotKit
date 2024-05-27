@@ -1,5 +1,5 @@
 export * from "./props";
 export { CopilotPopup } from "./Popup";
 export { CopilotSidebar } from "./Sidebar";
-export { CopilotPanel } from "./Panel";
+export { CopilotChat } from "./Chat";
 export { useChatContext } from "./ChatContext";

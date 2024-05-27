@@ -56,9 +56,9 @@
  * ```
  */
 import React, { useState } from "react";
-import { CopilotChat, CopilotChatProps } from "./Chat";
+import { CopilotModal, CopilotModalProps } from "./Modal";
 
-export function CopilotSidebar(props: CopilotChatProps) {
+export function CopilotSidebar(props: CopilotModalProps) {
   props = {
     ...props,
     className: props.className ? props.className + " copilotKitSidebar" : "copilotKitSidebar",
@@ -74,9 +74,9 @@ export function CopilotSidebar(props: CopilotChatProps) {
 
   return (
     <div className={`copilotKitSidebarContentWrapper ${expandedClassName}`}>
-      <CopilotChat {...props} {...{ onSetOpen }}>
+      <CopilotModal {...props} {...{ onSetOpen }}>
         {props.children}
-      </CopilotChat>
+      </CopilotModal>
     </div>
   );
 }

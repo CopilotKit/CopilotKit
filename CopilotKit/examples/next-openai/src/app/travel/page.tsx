@@ -1,6 +1,6 @@
 "use client";
 
-import { CopilotPanel } from "@copilotkit/react-ui";
+import { CopilotChat } from "@copilotkit/react-ui";
 import "./styles.css";
 import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
 import { useState } from "react";
@@ -87,7 +87,7 @@ function TravelPlanner() {
 
   return (
     <div className="h-full flex">
-      <CopilotPanel
+      <CopilotChat
         className="w-2/3 h-full border-r border-gray-200"
         labels={{
           initial: "Hi you! 👋 Let's book your next vacation. Ask me anything.",
