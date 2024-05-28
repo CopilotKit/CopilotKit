@@ -149,7 +149,7 @@ See quickstart in the [docs](https://docs.copilotkit.ai)
 ## Building blocks
 
 A more comprehensive and up-to-date overview is available in the [docs](https://docs.copilotkit.ai). <br/>
-But roughtly:
+But roughly:
 
 ### Copilot entrypoints
 
