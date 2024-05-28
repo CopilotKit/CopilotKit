@@ -2,6 +2,7 @@ import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
 import OpenAI from "openai";
 
 export const runtime = "edge";
+const AZURE_OPENAI_API_KEY = "AZURE_OPENAI_API_KEY";
 
 export async function POST(req: Request): Promise<Response> {
   const copilotKit = new CopilotRuntime();
@@ -14,7 +15,7 @@ export async function POST(req: Request): Promise<Response> {
   // Navigate to the Azure OpenAI Studio to deploy a model.
   const model = "<your model>";
 
-  const apiKey = process.env["AZURE_OPENAI_API_KEY"];
+  const apiKey = process.env[AZURE_OPENAI_API_KEY];
   if (!apiKey) {
     throw new Error("The AZURE_OPENAI_API_KEY environment variable is missing or empty.");
   }
