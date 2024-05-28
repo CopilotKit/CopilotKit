@@ -94,10 +94,15 @@ export type UseChatOptionsWithCopilotConfig = UseChatOptions & {
    * The setState-powered method to update the chat messages.
    */
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+
+  /**
+   * A callback to get the latest system message.
+   */
+  makeSystemMessageCallback: () => Message;
 };
 
 export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelpers {
-  const { messages, setMessages } = options;
+  const { messages, setMessages, makeSystemMessageCallback } = options;
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const abortControllerRef = useRef<AbortController>();
@@ -133,7 +138,9 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
       copilotConfigBody.runId = runIdRef.current;
     }
 
-    const messagesWithContext = [...(options.initialMessages || []), ...messages];
+    const systemMessage = makeSystemMessageCallback();
+
+    const messagesWithContext = [systemMessage, ...(options.initialMessages || []), ...messages];
     const response = await fetchAndDecodeChatCompletion({
       copilotConfig: { ...options.copilotConfig, body: copilotConfigBody },
       messages: messagesWithContext,
@@ -274,6 +281,11 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
 
       // If we want feedback, run the completion again and return the results
       if (feedback) {
+        // wait for next tick to make sure all the react state updates
+        // TODO: This is a hack, is there a more robust way to do this?
+        // - tried using react-dom's flushSync, but it did not work
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
         return await runChatCompletion([...messages, ...newMessages]);
       }
       // otherwise, return the new messages

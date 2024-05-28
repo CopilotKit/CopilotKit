@@ -1,4 +1,4 @@
-import { useMemo, useContext } from "react";
+import { useMemo, useContext, useRef, useEffect, useCallback } from "react";
 import { CopilotContext } from "../context/copilot-context";
 import { Message, ToolDefinition } from "@copilotkit/shared";
 import { SystemMessageFunction } from "../types";
@@ -34,15 +34,23 @@ export function useCopilotChat({
     setMessages,
   } = useContext(CopilotContext);
 
-  const systemMessage: Message = useMemo(() => {
+  // To ensure that useChat always has the latest readables, we store `getContextString` in a ref and update
+  // it whenever it changes.
+  const latestGetContextString = useRef(getContextString);
+  useEffect(() => {
+    latestGetContextString.current = getContextString;
+  }, [getContextString]);
+
+  const makeSystemMessageCallback = useCallback(() => {
     const systemMessageMaker = makeSystemMessage || defaultSystemMessage;
-    const contextString = getContextString([], defaultCopilotContextCategories); // TODO: make the context categories configurable
+    // this always gets the latest context string
+    const contextString = latestGetContextString.current([], defaultCopilotContextCategories); // TODO: make the context categories configurable
 
     return {
       id: "system",
       content: systemMessageMaker(contextString, additionalInstructions),
       role: "system",
-    };
+    } as Message;
   }, [getContextString, makeSystemMessage, additionalInstructions]);
 
   const functionDescriptions: ToolDefinition[] = useMemo(() => {
@@ -53,7 +61,7 @@ export function useCopilotChat({
     ...options,
     copilotConfig: copilotApiConfig,
     id: options.id,
-    initialMessages: [systemMessage].concat(options.initialMessages || []),
+    initialMessages: options.initialMessages || [],
     tools: functionDescriptions,
     onFunctionCall: getFunctionCallHandler(),
     headers: { ...options.headers },
@@ -62,6 +70,7 @@ export function useCopilotChat({
     },
     messages,
     setMessages,
+    makeSystemMessageCallback,
   });
 
   const visibleMessages = messages.filter(
