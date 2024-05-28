@@ -8,3 +8,4 @@ export { useMakeCopilotReadable } from "./use-make-copilot-readable";
 export { useMakeCopilotDocumentReadable } from "./use-make-copilot-document-readable";
 export { type UseChatHelpers } from "./use-chat";
 export { useCopilotReadable } from "./use-copilot-readable";
+export { useCopilotAddMessage } from "./use-copilot-add-message";
