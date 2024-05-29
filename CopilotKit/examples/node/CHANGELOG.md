@@ -1,5 +1,17 @@
 # node
 
+## 1.23.0-mme-remove-css-reset.0
+
+### Minor Changes
+
+- Remove CSS reset from react-ui
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.37.0-mme-remove-css-reset.0
+  - @copilotkit/shared@0.37.0-mme-remove-css-reset.0
+
 ## 1.22.0
 
 ### Minor Changes

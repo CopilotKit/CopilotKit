@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.12.0-mme-remove-css-reset.0
+
+### Minor Changes
+
+- Remove CSS reset from react-ui
+
 ## 0.11.0
 
 ### Minor Changes

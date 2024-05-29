@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 0.11.0-mme-remove-css-reset.0
+
+### Minor Changes
+
+- Remove CSS reset from react-ui
+
 ## 0.10.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.16.0-mme-remove-css-reset.0
+
+### Minor Changes
+
+- Remove CSS reset from react-ui
+
 ## 0.15.0
 
 ### Minor Changes
