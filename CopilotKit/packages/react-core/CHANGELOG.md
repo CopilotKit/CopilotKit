@@ -1,5 +1,16 @@
 # ui
 
+## 0.37.0-mme-fix-feedback-readable.0
+
+### Minor Changes
+
+- Fix: Stale CopilotReadable
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.37.0-mme-fix-feedback-readable.0
+
 ## 0.36.0
 
 ### Minor Changes
