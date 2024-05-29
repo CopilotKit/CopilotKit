@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "mme-remove-css-reset",
   "initialVersions": {
     "next-openai": "1.22.0",
