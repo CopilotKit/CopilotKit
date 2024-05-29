@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "mme-fix-feedback-readable",
   "initialVersions": {
     "next-openai": "1.22.0",
