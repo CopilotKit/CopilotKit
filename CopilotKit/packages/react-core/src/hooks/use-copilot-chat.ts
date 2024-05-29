@@ -5,19 +5,54 @@ import { SystemMessageFunction } from "../types";
 import { UseChatOptions, useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
 
-export interface UseCopilotChatOptions extends UseChatOptions {
+export interface UseCopilotChatOptions {
+  /**
+   * A unique identifier for the chat. If not provided, a random one will be
+   * generated. When provided, the `useChat` hook with the same `id` will
+   * have shared states across components.
+   */
+  id?: string;
+
+  /**
+   * HTTP headers to be sent with the API request.
+   */
+  headers?: Record<string, string> | Headers;
+
+  /**
+   * Extra body object to be sent with the API request.
+   * @example
+   * Send a `sessionId` to the API along with the messages.
+   * ```js
+   * useChat({
+   *   body: {
+   *     sessionId: '123',
+   *   }
+   * })
+   * ```
+   */
+  body?: object;
+  /**
+   * System messages of the chat. Defaults to an empty array.
+   */
+  initialMessages?: Message[];
+
+  /**
+   * A function to generate the system message. Defaults to `defaultSystemMessage`.
+   */
   makeSystemMessage?: SystemMessageFunction;
+
+  /**
+   * Additional instructions to the system message.
+   */
   additionalInstructions?: string;
 }
 
 export interface UseCopilotChatReturn {
   visibleMessages: Message[];
-  append: (message: Message) => Promise<void>;
-  reload: () => Promise<void>;
-  stop: () => void;
+  appendMessage: (message: Message) => Promise<void>;
+  reloadMessages: () => Promise<void>;
+  stopGeneration: () => void;
   isLoading: boolean;
-  input: string;
-  setInput: React.Dispatch<React.SetStateAction<string>>;
 }
 
 export function useCopilotChat({
@@ -32,6 +67,8 @@ export function useCopilotChat({
     copilotApiConfig,
     messages,
     setMessages,
+    isLoading,
+    setIsLoading,
   } = useContext(CopilotContext);
 
   // To ensure that useChat always has the latest readables, we store `getContextString` in a ref and update
@@ -57,7 +94,7 @@ export function useCopilotChat({
     return getChatCompletionFunctionDescriptions();
   }, [getChatCompletionFunctionDescriptions]);
 
-  const { append, reload, stop, isLoading, input, setInput } = useChat({
+  const { append, reload, stop } = useChat({
     ...options,
     copilotConfig: copilotApiConfig,
     id: options.id,
@@ -71,6 +108,8 @@ export function useCopilotChat({
     messages,
     setMessages,
     makeSystemMessageCallback,
+    isLoading,
+    setIsLoading,
   });
 
   const visibleMessages = messages.filter(
@@ -80,12 +119,10 @@ export function useCopilotChat({
 
   return {
     visibleMessages,
-    append,
-    reload,
-    stop,
+    appendMessage: append,
+    reloadMessages: reload,
+    stopGeneration: stop,
     isLoading,
-    input,
-    setInput,
   };
 }
 

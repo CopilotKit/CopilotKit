@@ -96,9 +96,6 @@ export interface CopilotContextParams {
     customEntryPoints?: Record<string, FrontendAction<any>>,
   ) => FunctionCallHandler;
 
-  messages: Message[];
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
-
   // text context
   addContext: (context: string, parentId?: string, categories?: string[]) => TreeNodeId;
   removeContext: (id: TreeNodeId) => void;
@@ -109,7 +106,13 @@ export interface CopilotContextParams {
   removeDocumentContext: (documentId: string) => void;
   getDocumentsContext: (categories: string[]) => DocumentPointer[];
 
-  // suggestions configuration
+  // chat
+  messages: Message[];
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+
+  isLoading: boolean;
+  setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
+
   chatSuggestionConfiguration: { [key: string]: CopilotChatSuggestionConfiguration };
   addChatSuggestionConfiguration: (
     id: string,
@@ -125,15 +128,21 @@ const emptyCopilotContext: CopilotContextParams = {
   entryPoints: {},
   setEntryPoint: () => {},
   removeEntryPoint: () => {},
-  getChatCompletionFunctionDescriptions: () => returnAndThrowInDebug([]),
-  getFunctionCallHandler: () => returnAndThrowInDebug(async () => {}),
+
   chatComponentsCache: { current: {} },
   getContextString: (documents: DocumentPointer[], categories: string[]) =>
     returnAndThrowInDebug(""),
   addContext: () => "",
   removeContext: () => {},
+
+  getChatCompletionFunctionDescriptions: () => returnAndThrowInDebug([]),
+  getFunctionCallHandler: () => returnAndThrowInDebug(async () => {}),
+
   messages: [],
   setMessages: () => returnAndThrowInDebug([]),
+
+  isLoading: false,
+  setIsLoading: () => returnAndThrowInDebug(false),
 
   getDocumentsContext: (categories: string[]) => returnAndThrowInDebug([]),
   addDocumentContext: () => returnAndThrowInDebug(""),
