@@ -282,8 +282,10 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
       // If we want feedback, run the completion again and return the results
       if (feedback) {
         // wait for next tick to make sure all the react state updates
-        // TODO: This is a hack, is there a more robust way to do this?
+        // All updates are propagating to the React storage system, so we need
+        // to wait until this is finished.
         // - tried using react-dom's flushSync, but it did not work
+        // - tried setTimeout(0)
         await new Promise((resolve) => setTimeout(resolve, 10));
 
         return await runChatCompletion([...messages, ...newMessages]);
