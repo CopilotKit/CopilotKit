@@ -1,5 +1,20 @@
 # web
 
+## 1.23.0-mme-pre.0
+
+### Minor Changes
+
+- Azure support
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.37.0-mme-pre.0
+  - @copilotkit/react-core@0.37.0-mme-pre.0
+  - @copilotkit/react-textarea@0.37.0-mme-pre.0
+  - @copilotkit/react-ui@0.37.0-mme-pre.0
+  - @copilotkit/shared@0.37.0-mme-pre.0
+
 ## 1.22.0
 
 ### Minor Changes

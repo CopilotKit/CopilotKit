@@ -1,5 +1,17 @@
 # ui
 
+## 0.37.0-mme-pre.0
+
+### Minor Changes
+
+- Azure support
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.37.0-mme-pre.0
+  - @copilotkit/shared@0.37.0-mme-pre.0
+
 ## 0.36.0
 
 ### Minor Changes

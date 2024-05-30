@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.16.0-mme-pre.0
+
+### Minor Changes
+
+- Azure support
+
 ## 0.15.0
 
 ### Minor Changes

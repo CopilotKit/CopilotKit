@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 0.11.0-mme-pre.0
+
+### Minor Changes
+
+- Azure support
+
 ## 0.10.0
 
 ### Minor Changes

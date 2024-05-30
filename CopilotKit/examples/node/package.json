@@ -1,6 +1,6 @@
 {
   "name": "node",
-  "version": "1.22.0",
+  "version": "1.23.0-mme-pre.0",
   "private": true,
   "scripts": {
     "start": "node dist/index.js",

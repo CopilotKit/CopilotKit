@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 0.37.0-mme-pre.0
+
+### Minor Changes
+
+- Azure support
+
 ## 0.36.0
 
 ### Minor Changes

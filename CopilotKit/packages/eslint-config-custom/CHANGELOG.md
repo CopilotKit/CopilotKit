@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.12.0-mme-pre.0
+
+### Minor Changes
+
+- Azure support
+
 ## 0.11.0
 
 ### Minor Changes
