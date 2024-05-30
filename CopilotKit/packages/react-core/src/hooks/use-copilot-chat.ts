@@ -1,3 +1,33 @@
+/**
+ * A hook for accessing Copilot's chat API.
+ *
+ * `useCopilotChat` is a React hook that provides access to the Copilot chat API.
+ * You can use it to programmatically send or edit messages in a chat.
+ *
+ * It is the building block of the chat components that come with CopilotKit. If
+ * you are looking for a headless option for building chat UIs, this is the hook
+ * you want to use.
+ *
+ * <RequestExample>
+ *   ```jsx useCopilotChat Example
+ *   import { useCopilotChat }
+ *     from "@copilotkit/react-core";
+ *
+ *   const { appendMessage } = useCopilotChat();
+ *   appendMessage({ content: "Hello, world!", role: "user", id: "1" });
+ *   ```
+ * </RequestExample>
+ *
+ * useCopilotChat returns an object with the following properties:
+ * - `visibleMessages`: An array of messages that are currently visible in the chat.
+ * - `appendMessage`: A function to append a message to the chat.
+ * - `setMessages`: A function to set the messages in the chat.
+ * - `deleteMessage`: A function to delete a message from the chat.
+ * - `reloadMessages`: A function to reload the messages from the API.
+ * - `stopGeneration`: A function to stop the generation of the next message.
+ * - `isLoading`: A boolean indicating if the chat is loading.
+ *
+ */
 import { useMemo, useContext, useRef, useEffect, useCallback } from "react";
 import { CopilotContext } from "../context/copilot-context";
 import { Message, ToolDefinition } from "@copilotkit/shared";
@@ -45,6 +75,7 @@ export interface UseCopilotChatOptions {
 export interface UseCopilotChatReturn {
   visibleMessages: Message[];
   appendMessage: (message: Message) => Promise<void>;
+  setMessages: (messages: Message[]) => void;
   deleteMessage: (messageId: string) => void;
   reloadMessages: () => Promise<void>;
   stopGeneration: () => void;
@@ -123,6 +154,7 @@ export function useCopilotChat({
   return {
     visibleMessages,
     appendMessage: append,
+    setMessages,
     reloadMessages: reload,
     stopGeneration: stop,
     deleteMessage,

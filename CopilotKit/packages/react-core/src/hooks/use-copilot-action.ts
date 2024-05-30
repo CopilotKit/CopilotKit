@@ -4,7 +4,7 @@ import { CopilotContext } from "../context/copilot-context";
 import { nanoid } from "nanoid";
 import { Parameter } from "@copilotkit/shared";
 
-// We implement useCopilotActionImplementation dependency handling so that
+// We implement useCopilotAction dependency handling so that
 // the developer has the option to not provide any dependencies.
 // In this case, we assume they want to update the handler on each rerender.
 // To avoid getting stuck in an infinite loop, we update the handler directly,
