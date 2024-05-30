@@ -71,6 +71,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const { addElement, removeElement, printTree } = useTree();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [chatInstructions, setChatInstructions] = useState("");
 
   const {
     addElement: addDocument,
@@ -242,6 +243,8 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         chatSuggestionConfiguration,
         addChatSuggestionConfiguration,
         removeChatSuggestionConfiguration,
+        chatInstructions,
+        setChatInstructions,
       }}
     >
       {children}

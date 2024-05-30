@@ -149,6 +149,12 @@ export function CopilotChat({
   icons,
   labels,
 }: CopilotChatProps) {
+  const context = useCopilotContext();
+
+  useEffect(() => {
+    context.setChatInstructions(instructions || "");
+  }, [instructions]);
+
   const {
     visibleMessages,
     isLoading,
@@ -156,7 +162,7 @@ export function CopilotChat({
     sendMessage,
     stopGeneration,
     reloadMessages,
-  } = useCopilotChatLogic(instructions, makeSystemMessage, onInProgress, onSubmitMessage);
+  } = useCopilotChatLogic(makeSystemMessage, onInProgress, onSubmitMessage);
 
   const chatContext = React.useContext(ChatContext);
   const isVisible = chatContext ? chatContext.open : true;
@@ -218,7 +224,6 @@ export function WrappedCopilotChat({
 const SUGGESTIONS_DEBOUNCE_TIMEOUT = 1000;
 
 export const useCopilotChatLogic = (
-  instructions?: string,
   makeSystemMessage?: SystemMessageFunction,
   onInProgress?: (isLoading: boolean) => void,
   onSubmitMessage?: (messageContent: string) => void,
@@ -227,7 +232,6 @@ export const useCopilotChatLogic = (
     useCopilotChat({
       id: nanoid(),
       makeSystemMessage,
-      additionalInstructions: instructions,
     });
 
   const [currentSuggestions, setCurrentSuggestions] = useState<CopilotChatSuggestion[]>([]);

@@ -2,7 +2,7 @@ import { useMemo, useContext, useRef, useEffect, useCallback } from "react";
 import { CopilotContext } from "../context/copilot-context";
 import { Message, ToolDefinition } from "@copilotkit/shared";
 import { SystemMessageFunction } from "../types";
-import { UseChatOptions, useChat } from "./use-chat";
+import { useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
 
 export interface UseCopilotChatOptions {
@@ -40,16 +40,12 @@ export interface UseCopilotChatOptions {
    * A function to generate the system message. Defaults to `defaultSystemMessage`.
    */
   makeSystemMessage?: SystemMessageFunction;
-
-  /**
-   * Additional instructions to the system message.
-   */
-  additionalInstructions?: string;
 }
 
 export interface UseCopilotChatReturn {
   visibleMessages: Message[];
   appendMessage: (message: Message) => Promise<void>;
+  deleteMessage: (messageId: string) => void;
   reloadMessages: () => Promise<void>;
   stopGeneration: () => void;
   isLoading: boolean;
@@ -57,9 +53,8 @@ export interface UseCopilotChatReturn {
 
 export function useCopilotChat({
   makeSystemMessage,
-  additionalInstructions,
   ...options
-}: UseCopilotChatOptions): UseCopilotChatReturn {
+}: UseCopilotChatOptions = {}): UseCopilotChatReturn {
   const {
     getContextString,
     getChatCompletionFunctionDescriptions,
@@ -69,7 +64,15 @@ export function useCopilotChat({
     setMessages,
     isLoading,
     setIsLoading,
+    chatInstructions,
   } = useContext(CopilotContext);
+
+  const deleteMessage = useCallback(
+    (messageId: string) => {
+      setMessages((prev) => prev.filter((message) => message.id !== messageId));
+    },
+    [setMessages],
+  );
 
   // To ensure that useChat always has the latest readables, we store `getContextString` in a ref and update
   // it whenever it changes.
@@ -85,10 +88,10 @@ export function useCopilotChat({
 
     return {
       id: "system",
-      content: systemMessageMaker(contextString, additionalInstructions),
+      content: systemMessageMaker(contextString, chatInstructions),
       role: "system",
     } as Message;
-  }, [getContextString, makeSystemMessage, additionalInstructions]);
+  }, [getContextString, makeSystemMessage, chatInstructions]);
 
   const functionDescriptions: ToolDefinition[] = useMemo(() => {
     return getChatCompletionFunctionDescriptions();
@@ -122,6 +125,7 @@ export function useCopilotChat({
     appendMessage: append,
     reloadMessages: reload,
     stopGeneration: stop,
+    deleteMessage,
     isLoading,
   };
 }

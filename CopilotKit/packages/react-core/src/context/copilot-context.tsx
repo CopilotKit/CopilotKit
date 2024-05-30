@@ -120,6 +120,9 @@ export interface CopilotContextParams {
   ) => void;
   removeChatSuggestionConfiguration: (id: string) => void;
 
+  chatInstructions: string;
+  setChatInstructions: React.Dispatch<React.SetStateAction<string>>;
+
   // api endpoints
   copilotApiConfig: CopilotApiConfig;
 }
@@ -143,6 +146,9 @@ const emptyCopilotContext: CopilotContextParams = {
 
   isLoading: false,
   setIsLoading: () => returnAndThrowInDebug(false),
+
+  chatInstructions: "",
+  setChatInstructions: () => returnAndThrowInDebug(""),
 
   getDocumentsContext: (categories: string[]) => returnAndThrowInDebug([]),
   addDocumentContext: () => returnAndThrowInDebug(""),
