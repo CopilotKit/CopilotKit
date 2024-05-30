@@ -1,0 +1,91 @@
+---
+title: "Quickstart: Azure"
+description: "How to run CopilotKit with Azure OpenAI as a backend"
+---
+
+CopilotKit can also run with Azure OpenAI as a backend. 
+
+## Applying for Azure OpenAI
+
+If you are using Azure OpenAI for the first time, you need to fill out a form and apply. 
+Go to the Azure Portal and search for OpenAI. You will get a link to the "Request Access 
+to Azure OpenAI Service" form. Fill out the form and wait a day or two for the approval.
+
+<img src="/images/quickstart-azure/azure-step0-apply.png" width="500" />
+
+## Create the resource
+
+First, you need to create a new Azure OpenAI resource.
+
+Take note of the instance name, we will use this when setting up the runtime in code.
+
+<img src="/images/quickstart-azure/azure-step1-basic.png" width="500" />
+
+Next, enable access from all networks.
+
+<img src="/images/quickstart-azure/azure-step2-network.png" width="500" />
+
+Add the tags you want and click "Create".
+
+<img src="/images/quickstart-azure/azure-step3-tags.png" width="500" />
+<img src="/images/quickstart-azure/azure-step4-review.png" width="500" />
+
+Select Resource Management &gt; Model Deployment and click "Manage Deployments"
+
+<img src="/images/quickstart-azure/azure-step5-deployments.png" width="500" />
+
+Click Deployments > Create New Deployment
+
+<img src="/images/quickstart-azure/azure-step6-create-deployment.png" width="500" />
+
+Fill out the form for the model. Take note of the name you give to the model, we will user
+it later.
+
+<img src="/images/quickstart-azure/azure-step7-deploy-model.png" width="500" />
+
+Verify your deployment was created.
+
+<img src="/images/quickstart-azure/azure-step8-verify.png" width="500" />
+
+The model will not be available immediately, but you will have to wait up to 10 min.
+
+If you get this error in the Chat sandbox, the model is not ready yet:
+
+<img src="/images/quickstart-azure/azure-step9-wait.png" width="500" />
+
+
+Once you got everything set up, you can now connect to OpenAI through Azure:
+
+```ts
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
+import OpenAI from "openai";
+
+export const runtime = "edge";
+const AZURE_OPENAI_API_KEY = "AZURE_OPENAI_API_KEY";
+
+export async function POST(req: Request): Promise<Response> {
+  const copilotKit = new CopilotRuntime();
+
+  // The name of your Azure OpenAI Instance.
+  // https://learn.microsoft.com/en-us/azure/cognitive-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource
+  const instance = "<your instance name>";
+
+  // Corresponds to your Model deployment within your OpenAI resource, e.g. my-gpt35-16k-deployment
+  // Navigate to the Azure OpenAI Studio to deploy a model.
+  const model = "<your model>";
+
+  const apiKey = process.env[AZURE_OPENAI_API_KEY];
+  if (!apiKey) {
+    throw new Error("The AZURE_OPENAI_API_KEY environment variable is missing or empty.");
+  }
+
+  const openai = new OpenAI({
+    apiKey,
+    baseURL: `https://${instance}.openai.azure.com/openai/deployments/${model}`,
+    defaultQuery: { "api-version": "2024-04-01-preview" },
+    defaultHeaders: { "api-key": apiKey },
+  });
+
+  return copilotKit.response(req, new OpenAIAdapter({ openai }));
+}
+```

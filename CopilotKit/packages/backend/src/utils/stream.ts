@@ -159,6 +159,11 @@ export function copilotkitStreamInterceptor(
             return;
           } // done == true (terminal case)
 
+          // Azure
+          if (value.choices.length == 0 || !value.choices[0].delta) {
+            continue;
+          }
+
           if (debug) {
             console.log("data: " + JSON.stringify(value) + "\n\n");
           }
