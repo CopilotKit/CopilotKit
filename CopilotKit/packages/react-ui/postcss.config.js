@@ -37,8 +37,8 @@ module.exports = {
         }
       },
     },
-    require("tailwindcss"),
-    require("autoprefixer"),
+    // require("tailwindcss"),
+    // require("autoprefixer"),
   ],
 };
 

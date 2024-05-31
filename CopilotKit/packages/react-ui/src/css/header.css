@@ -5,11 +5,11 @@
   justify-content: center;
   align-items: center;
   position: relative;
-  background-color: var(--copilot-kit-header-background-color);
-  color: var(--copilot-kit-header-title-color);
+  background-color: var(--copilot-kit-primary-color);
+  color: var(--copilot-kit-contrast-color);
   border-top-left-radius: 0;
   border-top-right-radius: 0;
-  border-bottom: 1px solid var(--copilot-kit-header-separator-color);
+  border-bottom: 1px solid var(--copilot-kit-separator-color);
 }
 
 .copilotKitSidebar .copilotKitHeader {
@@ -33,7 +33,7 @@
   right: 16px;
   transform: translateY(-50%);
   outline: none;
-  color: var(--copilot-kit-header-close-button-color);
+  color: var(--copilot-kit-contrast-color);
   background-color: transparent;
   cursor: pointer;
 }

@@ -4,7 +4,7 @@
   padding: 1rem 2rem;
   display: flex;
   flex-direction: column;
-  background-color: var(--copilot-kit-messages-background-color);
+  background-color: var(--copilot-kit-background-color);
 }
 
 .copilotKitMessages::-webkit-scrollbar {
@@ -14,7 +14,7 @@
 .copilotKitMessages::-webkit-scrollbar-thumb {
   background-color: var(--copilot-kit-scrollbar-color);
   border-radius: 10rem;
-  border: 2px solid var(--copilot-kit-messages-background-color);
+  border: 2px solid var(--copilot-kit-background-color);
 }
 
 .copilotKitMessages::-webkit-scrollbar-track-piece:start {
@@ -36,15 +36,15 @@
 }
 
 .copilotKitMessage.copilotKitUserMessage {
-  background: var(--copilot-kit-message-user-background-color);
-  color: var(--copilot-kit-message-user-color);
+  background: var(--copilot-kit-primary-color);
+  color: var(--copilot-kit-contrast-color);
   margin-left: auto;
   white-space: pre-wrap;
 }
 
 .copilotKitMessage.copilotKitAssistantMessage {
-  background: var(--copilot-kit-message-assistant-background-color);
-  color: var(--copilot-kit-message-assistant-color);
+  background: var(--copilot-kit-secondary-color);
+  color: var(--copilot-kit-secondary-contrast-color);
   margin-right: auto;
 }
 
