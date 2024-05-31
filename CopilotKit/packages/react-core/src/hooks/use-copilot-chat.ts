@@ -96,19 +96,15 @@ export function useCopilotChat({
     chatInstructions,
   } = useContext(CopilotContext);
 
+  // We need to ensure that makeSystemMessageCallback always uses the latest
+  // useCopilotReadable data.
+  const latestGetContextString = useUpdatedRef(getContextString);
   const deleteMessage = useCallback(
     (messageId: string) => {
       setMessages((prev) => prev.filter((message) => message.id !== messageId));
     },
     [setMessages],
   );
-
-  // To ensure that useChat always has the latest readables, we store `getContextString` in a ref and update
-  // it whenever it changes.
-  const latestGetContextString = useRef(getContextString);
-  useEffect(() => {
-    latestGetContextString.current = getContextString;
-  }, [getContextString]);
 
   const makeSystemMessageCallback = useCallback(() => {
     const systemMessageMaker = makeSystemMessage || defaultSystemMessage;
@@ -158,6 +154,18 @@ export function useCopilotChat({
     deleteMessage,
     isLoading,
   };
+}
+
+// store `value` in a ref and update
+// it whenever it changes.
+function useUpdatedRef<T>(value: T) {
+  const ref = useRef(value);
+
+  useEffect(() => {
+    ref.current = value;
+  }, [value]);
+
+  return ref;
 }
 
 export function defaultSystemMessage(
