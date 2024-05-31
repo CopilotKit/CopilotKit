@@ -149,8 +149,20 @@ export function CopilotChat({
   icons,
   labels,
 }: CopilotChatProps) {
-  const { visibleMessages, isLoading, currentSuggestions, sendMessage, stop, reload } =
-    useCopilotChatLogic(instructions, makeSystemMessage, onInProgress, onSubmitMessage);
+  const context = useCopilotContext();
+
+  useEffect(() => {
+    context.setChatInstructions(instructions || "");
+  }, [instructions]);
+
+  const {
+    visibleMessages,
+    isLoading,
+    currentSuggestions,
+    sendMessage,
+    stopGeneration,
+    reloadMessages,
+  } = useCopilotChatLogic(makeSystemMessage, onInProgress, onSubmitMessage);
 
   const chatContext = React.useContext(ChatContext);
   const isVisible = chatContext ? chatContext.open : true;
@@ -176,7 +188,10 @@ export function CopilotChat({
           </div>
         )}
         {showResponseButton && visibleMessages.length > 0 && (
-          <ResponseButton onClick={isLoading ? stop : reload} inProgress={isLoading} />
+          <ResponseButton
+            onClick={isLoading ? stopGeneration : reloadMessages}
+            inProgress={isLoading}
+          />
         )}
       </Messages>
       <Input inProgress={isLoading} onSend={sendMessage} isVisible={isVisible} />
@@ -209,16 +224,15 @@ export function WrappedCopilotChat({
 const SUGGESTIONS_DEBOUNCE_TIMEOUT = 1000;
 
 export const useCopilotChatLogic = (
-  instructions?: string,
   makeSystemMessage?: SystemMessageFunction,
   onInProgress?: (isLoading: boolean) => void,
   onSubmitMessage?: (messageContent: string) => void,
 ) => {
-  const { visibleMessages, append, reload, stop, isLoading, input, setInput } = useCopilotChat({
-    id: nanoid(),
-    makeSystemMessage,
-    additionalInstructions: instructions,
-  });
+  const { visibleMessages, appendMessage, reloadMessages, stopGeneration, isLoading } =
+    useCopilotChat({
+      id: nanoid(),
+      makeSystemMessage,
+    });
 
   const [currentSuggestions, setCurrentSuggestions] = useState<CopilotChatSuggestion[]>([]);
   const suggestionsAbortControllerRef = useRef<AbortController | null>(null);
@@ -265,7 +279,7 @@ export const useCopilotChatLogic = (
       content: messageContent,
       role: "user",
     };
-    append(message);
+    appendMessage(message);
     return message;
   };
 
@@ -274,9 +288,7 @@ export const useCopilotChatLogic = (
     isLoading,
     currentSuggestions,
     sendMessage,
-    stop,
-    reload,
-    input,
-    setInput,
+    stopGeneration,
+    reloadMessages,
   };
 };

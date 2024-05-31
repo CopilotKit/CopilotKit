@@ -55,6 +55,7 @@
       "pages": [
         "reference/hooks/useCopilotReadable",
         "reference/hooks/useCopilotAction",
+        "reference/hooks/useCopilotChat",
         "reference/hooks/useCopilotChatSuggestions"
       ]
     },
@@ -81,7 +82,13 @@
     },
     {
       "group": "Articles",
-      "pages": ["articles/use-copilot-action"]
+      "pages": [
+        {
+          "group": "How-to",
+          "pages": ["howto/azure"]
+        },
+        "articles/use-copilot-action"
+      ]
     }
   ],
   "footerSocials": {

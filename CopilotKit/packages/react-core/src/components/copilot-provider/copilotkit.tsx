@@ -70,6 +70,8 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const chatComponentsCache = useRef<Record<string, InChatRenderFunction | string>>({});
   const { addElement, removeElement, printTree } = useTree();
   const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [chatInstructions, setChatInstructions] = useState("");
 
   const {
     addElement: addDocument,
@@ -236,9 +238,13 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         copilotApiConfig: copilotApiConfig,
         messages,
         setMessages,
+        isLoading,
+        setIsLoading,
         chatSuggestionConfiguration,
         addChatSuggestionConfiguration,
         removeChatSuggestionConfiguration,
+        chatInstructions,
+        setChatInstructions,
       }}
     >
       {children}
