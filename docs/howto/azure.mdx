@@ -56,36 +56,4 @@ If you get this error in the Chat sandbox, the model is not ready yet:
 
 Once you got everything set up, you can now connect to OpenAI through Azure:
 
-```ts
-import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
-import OpenAI from "openai";
-
-export const runtime = "edge";
-const AZURE_OPENAI_API_KEY = "AZURE_OPENAI_API_KEY";
-
-export async function POST(req: Request): Promise<Response> {
-  const copilotKit = new CopilotRuntime();
-
-  // The name of your Azure OpenAI Instance.
-  // https://learn.microsoft.com/en-us/azure/cognitive-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource
-  const instance = "<your instance name>";
-
-  // Corresponds to your Model deployment within your OpenAI resource, e.g. my-gpt35-16k-deployment
-  // Navigate to the Azure OpenAI Studio to deploy a model.
-  const model = "<your model>";
-
-  const apiKey = process.env[AZURE_OPENAI_API_KEY];
-  if (!apiKey) {
-    throw new Error("The AZURE_OPENAI_API_KEY environment variable is missing or empty.");
-  }
-
-  const openai = new OpenAI({
-    apiKey,
-    baseURL: `https://${instance}.openai.azure.com/openai/deployments/${model}`,
-    defaultQuery: { "api-version": "2024-04-01-preview" },
-    defaultHeaders: { "api-key": apiKey },
-  });
-
-  return copilotKit.response(req, new OpenAIAdapter({ openai }));
-}
-```
+<iframe frameBorder="0" scrolling="no" style={{width: "100%", height: "730px"}} allow="clipboard-write" src="https://emgithub.com/iframe.html?target=https%3A%2F%2Fgithub.com%2FCopilotKit%2FCopilotKit%2Fblob%2Fmain%2FCopilotKit%2Fexamples%2Fnext-openai%2Fsrc%2Fapp%2Fapi%2Fcopilotkit%2Fazure%2Froute.ts&style=default&type=code&showBorder=on&showLineNumbers=on&showFileMeta=on&showFullPath=on&showCopy=on"></iframe>
