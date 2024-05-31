@@ -37,7 +37,6 @@
         "getting-started/quickstart-textarea",
         "getting-started/quickstart-runtime",
         "getting-started/quickstart-skills-langchain",
-        "getting-started/quickstart-azure",
         "getting-started/tutorials"
       ]
     },
@@ -83,7 +82,13 @@
     },
     {
       "group": "Articles",
-      "pages": ["articles/use-copilot-action"]
+      "pages": [
+        {
+          "group": "How-to",
+          "pages": ["howto/azure"]
+        },
+        "articles/use-copilot-action"
+      ]
     }
   ],
   "footerSocials": {
