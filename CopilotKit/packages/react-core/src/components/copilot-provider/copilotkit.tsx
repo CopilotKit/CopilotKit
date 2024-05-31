@@ -200,6 +200,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     },
     transcribeAudioUrl: props.transcribeAudioUrl,
     textToSpeechUrl: props.textToSpeechUrl,
+    credentials: props.credentials,
   };
 
   const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
