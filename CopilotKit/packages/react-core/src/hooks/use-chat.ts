@@ -76,12 +76,6 @@ export type UseChatHelpers = {
    * Abort the current request immediately, keep the generated tokens if any.
    */
   stop: () => void;
-  /** The current value of the input */
-  input: string;
-  /** setState-powered method to update the input value */
-  setInput: React.Dispatch<React.SetStateAction<string>>;
-  /** Whether the API request is in progress */
-  isLoading: boolean;
 };
 
 export type UseChatOptionsWithCopilotConfig = UseChatOptions & {
@@ -94,12 +88,25 @@ export type UseChatOptionsWithCopilotConfig = UseChatOptions & {
    * The setState-powered method to update the chat messages.
    */
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+
+  /**
+   * A callback to get the latest system message.
+   */
+  makeSystemMessageCallback: () => Message;
+
+  /**
+   * Whether the API request is in progress
+   */
+  isLoading: boolean;
+
+  /**
+   * setState-powered method to update the isChatLoading value
+   */
+  setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelpers {
-  const { messages, setMessages } = options;
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const { messages, setMessages, makeSystemMessageCallback } = options;
   const abortControllerRef = useRef<AbortController>();
   const threadIdRef = useRef<string | null>(null);
   const runIdRef = useRef<string | null>(null);
@@ -110,7 +117,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
   };
 
   const runChatCompletion = async (messages: Message[]): Promise<Message[]> => {
-    setIsLoading(true);
+    options.setIsLoading(true);
 
     const newMessages: Message[] = [
       {
@@ -133,7 +140,9 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
       copilotConfigBody.runId = runIdRef.current;
     }
 
-    const messagesWithContext = [...(options.initialMessages || []), ...messages];
+    const systemMessage = makeSystemMessageCallback();
+
+    const messagesWithContext = [systemMessage, ...(options.initialMessages || []), ...messages];
     const response = await fetchAndDecodeChatCompletion({
       copilotConfig: { ...options.copilotConfig, body: copilotConfigBody },
       messages: messagesWithContext,
@@ -160,7 +169,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
           role: "assistant",
         },
       ]);
-      setIsLoading(false);
+      options.setIsLoading(false);
       throw new Error("Failed to fetch chat completion");
     }
 
@@ -274,6 +283,11 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
 
       // If we want feedback, run the completion again and return the results
       if (feedback) {
+        // wait for next tick to make sure all the react state updates
+        // TODO: This is a hack, is there a more robust way to do this?
+        // - tried using react-dom's flushSync, but it did not work
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
         return await runChatCompletion([...messages, ...newMessages]);
       }
       // otherwise, return the new messages
@@ -281,7 +295,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
         return newMessages.slice();
       }
     } finally {
-      setIsLoading(false);
+      options.setIsLoading(false);
     }
   };
 
@@ -290,7 +304,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
   };
 
   const append = async (message: Message): Promise<void> => {
-    if (isLoading) {
+    if (options.isLoading) {
       return;
     }
     const newMessages = [...messages, message];
@@ -299,7 +313,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
   };
 
   const reload = async (): Promise<void> => {
-    if (isLoading || messages.length === 0) {
+    if (options.isLoading || messages.length === 0) {
       return;
     }
     let newMessages = [...messages];
@@ -321,8 +335,5 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
     append,
     reload,
     stop,
-    isLoading,
-    input,
-    setInput,
   };
 }

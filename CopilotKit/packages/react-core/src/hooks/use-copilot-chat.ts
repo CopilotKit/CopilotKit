@@ -1,30 +1,89 @@
-import { useMemo, useContext } from "react";
+/**
+ * A hook for accessing Copilot's chat API.
+ *
+ * `useCopilotChat` is a React hook that lets you directly interact with the
+ * Copilot instance. Use to implement a fully custom UI (headless UI) or to
+ * programmatically interact with the Copilot instance managed by the default
+ * UI.
+ *
+ * <RequestExample>
+ *   ```jsx useCopilotChat Example
+ *   import { useCopilotChat }
+ *     from "@copilotkit/react-core";
+ *
+ *   const { appendMessage } = useCopilotChat();
+ *   appendMessage({ content: "Hello, world!", role: "user", id: "1" });
+ *   ```
+ * </RequestExample>
+ *
+ * useCopilotChat returns an object with the following properties:
+ * - `visibleMessages`: An array of messages that are currently visible in the chat.
+ * - `appendMessage`: A function to append a message to the chat.
+ * - `setMessages`: A function to set the messages in the chat.
+ * - `deleteMessage`: A function to delete a message from the chat.
+ * - `reloadMessages`: A function to reload the messages from the API.
+ * - `stopGeneration`: A function to stop the generation of the next message.
+ * - `isLoading`: A boolean indicating if the chat is loading.
+ *
+ */
+import { useMemo, useContext, useRef, useEffect, useCallback } from "react";
 import { CopilotContext } from "../context/copilot-context";
 import { Message, ToolDefinition } from "@copilotkit/shared";
 import { SystemMessageFunction } from "../types";
-import { UseChatOptions, useChat } from "./use-chat";
+import { useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
 
-export interface UseCopilotChatOptions extends UseChatOptions {
+export interface UseCopilotChatOptions {
+  /**
+   * A unique identifier for the chat. If not provided, a random one will be
+   * generated. When provided, the `useChat` hook with the same `id` will
+   * have shared states across components.
+   */
+  id?: string;
+
+  /**
+   * HTTP headers to be sent with the API request.
+   */
+  headers?: Record<string, string> | Headers;
+
+  /**
+   * Extra body object to be sent with the API request.
+   * @example
+   * Send a `sessionId` to the API along with the messages.
+   * ```js
+   * useChat({
+   *   body: {
+   *     sessionId: '123',
+   *   }
+   * })
+   * ```
+   */
+  body?: object;
+  /**
+   * System messages of the chat. Defaults to an empty array.
+   */
+  initialMessages?: Message[];
+
+  /**
+   * A function to generate the system message. Defaults to `defaultSystemMessage`.
+   */
   makeSystemMessage?: SystemMessageFunction;
-  additionalInstructions?: string;
 }
 
 export interface UseCopilotChatReturn {
   visibleMessages: Message[];
-  append: (message: Message) => Promise<void>;
-  reload: () => Promise<void>;
-  stop: () => void;
+  appendMessage: (message: Message) => Promise<void>;
+  setMessages: (messages: Message[]) => void;
+  deleteMessage: (messageId: string) => void;
+  reloadMessages: () => Promise<void>;
+  stopGeneration: () => void;
   isLoading: boolean;
-  input: string;
-  setInput: React.Dispatch<React.SetStateAction<string>>;
 }
 
 export function useCopilotChat({
   makeSystemMessage,
-  additionalInstructions,
   ...options
-}: UseCopilotChatOptions): UseCopilotChatReturn {
+}: UseCopilotChatOptions = {}): UseCopilotChatReturn {
   const {
     getContextString,
     getChatCompletionFunctionDescriptions,
@@ -32,28 +91,46 @@ export function useCopilotChat({
     copilotApiConfig,
     messages,
     setMessages,
+    isLoading,
+    setIsLoading,
+    chatInstructions,
   } = useContext(CopilotContext);
 
-  const systemMessage: Message = useMemo(() => {
+  const deleteMessage = useCallback(
+    (messageId: string) => {
+      setMessages((prev) => prev.filter((message) => message.id !== messageId));
+    },
+    [setMessages],
+  );
+
+  // To ensure that useChat always has the latest readables, we store `getContextString` in a ref and update
+  // it whenever it changes.
+  const latestGetContextString = useRef(getContextString);
+  useEffect(() => {
+    latestGetContextString.current = getContextString;
+  }, [getContextString]);
+
+  const makeSystemMessageCallback = useCallback(() => {
     const systemMessageMaker = makeSystemMessage || defaultSystemMessage;
-    const contextString = getContextString([], defaultCopilotContextCategories); // TODO: make the context categories configurable
+    // this always gets the latest context string
+    const contextString = latestGetContextString.current([], defaultCopilotContextCategories); // TODO: make the context categories configurable
 
     return {
       id: "system",
-      content: systemMessageMaker(contextString, additionalInstructions),
+      content: systemMessageMaker(contextString, chatInstructions),
       role: "system",
-    };
-  }, [getContextString, makeSystemMessage, additionalInstructions]);
+    } as Message;
+  }, [getContextString, makeSystemMessage, chatInstructions]);
 
   const functionDescriptions: ToolDefinition[] = useMemo(() => {
     return getChatCompletionFunctionDescriptions();
   }, [getChatCompletionFunctionDescriptions]);
 
-  const { append, reload, stop, isLoading, input, setInput } = useChat({
+  const { append, reload, stop } = useChat({
     ...options,
     copilotConfig: copilotApiConfig,
     id: options.id,
-    initialMessages: [systemMessage].concat(options.initialMessages || []),
+    initialMessages: options.initialMessages || [],
     tools: functionDescriptions,
     onFunctionCall: getFunctionCallHandler(),
     headers: { ...options.headers },
@@ -62,6 +139,9 @@ export function useCopilotChat({
     },
     messages,
     setMessages,
+    makeSystemMessageCallback,
+    isLoading,
+    setIsLoading,
   });
 
   const visibleMessages = messages.filter(
@@ -71,12 +151,12 @@ export function useCopilotChat({
 
   return {
     visibleMessages,
-    append,
-    reload,
-    stop,
+    appendMessage: append,
+    setMessages,
+    reloadMessages: reload,
+    stopGeneration: stop,
+    deleteMessage,
     isLoading,
-    input,
-    setInput,
   };
 }
 

@@ -55,6 +55,7 @@
       "pages": [
         "reference/hooks/useCopilotReadable",
         "reference/hooks/useCopilotAction",
+        "reference/hooks/useCopilotChat",
         "reference/hooks/useCopilotChatSuggestions"
       ]
     },

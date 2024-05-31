@@ -1,5 +1,17 @@
 # node
 
+## 1.23.0-mme-fix-feedback-readable.0
+
+### Minor Changes
+
+- Fix: Stale CopilotReadable
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.37.0-mme-fix-feedback-readable.0
+  - @copilotkit/shared@0.37.0-mme-fix-feedback-readable.0
+
 ## 1.22.0
 
 ### Minor Changes

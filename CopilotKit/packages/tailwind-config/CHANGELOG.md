@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 0.11.0-mme-fix-feedback-readable.0
+
+### Minor Changes
+
+- Fix: Stale CopilotReadable
+
 ## 0.10.0
 
 ### Minor Changes

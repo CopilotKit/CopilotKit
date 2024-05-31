@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.16.0-mme-fix-feedback-readable.0
+
+### Minor Changes
+
+- Fix: Stale CopilotReadable
+
 ## 0.15.0
 
 ### Minor Changes
