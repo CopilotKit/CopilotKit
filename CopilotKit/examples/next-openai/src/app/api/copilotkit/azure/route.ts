@@ -7,9 +7,9 @@ const AZURE_OPENAI_API_KEY = "AZURE_OPENAI_API_KEY";
 export async function POST(req: Request): Promise<Response> {
   const copilotKit = new CopilotRuntime();
 
-  // The name of your Azure OpenAI Resource.
+  // The name of your Azure OpenAI Instance.
   // https://learn.microsoft.com/en-us/azure/cognitive-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource
-  const resource = "<your resource name>";
+  const instance = "<your instance name>";
 
   // Corresponds to your Model deployment within your OpenAI resource, e.g. my-gpt35-16k-deployment
   // Navigate to the Azure OpenAI Studio to deploy a model.
@@ -22,8 +22,8 @@ export async function POST(req: Request): Promise<Response> {
 
   const openai = new OpenAI({
     apiKey,
-    baseURL: `https://${resource}.openai.azure.com/openai/deployments/${model}`,
-    defaultQuery: { "api-version": "2023-06-01-preview" },
+    baseURL: `https://${instance}.openai.azure.com/openai/deployments/${model}`,
+    defaultQuery: { "api-version": "2024-04-01-preview" },
     defaultHeaders: { "api-key": apiKey },
   });
 
