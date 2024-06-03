@@ -1,19 +1,20 @@
 {
   "mode": "exit",
-  "tag": "mme-fix-feedback-readable",
+  "tag": "mme-fix-textarea-css",
   "initialVersions": {
-    "next-openai": "1.22.0",
-    "node": "1.22.0",
-    "@copilotkit/backend": "0.36.0",
-    "eslint-config-custom": "0.11.0",
-    "@copilotkit/react-core": "0.36.0",
-    "@copilotkit/react-textarea": "0.36.0",
-    "@copilotkit/react-ui": "0.36.0",
-    "@copilotkit/shared": "0.36.0",
-    "tailwind-config": "0.10.0",
-    "tsconfig": "0.15.0"
+    "next-openai": "1.23.0-mme-fix-feedback-readable.0",
+    "node": "1.23.0-mme-fix-feedback-readable.0",
+    "@copilotkit/backend": "0.37.0-mme-fix-feedback-readable.0",
+    "eslint-config-custom": "0.12.0-mme-fix-feedback-readable.0",
+    "@copilotkit/react-core": "0.37.0-mme-fix-feedback-readable.0",
+    "@copilotkit/react-textarea": "0.37.0-mme-fix-feedback-readable.0",
+    "@copilotkit/react-ui": "0.37.0-mme-fix-feedback-readable.0",
+    "@copilotkit/shared": "0.37.0-mme-fix-feedback-readable.0",
+    "tailwind-config": "0.11.0-mme-fix-feedback-readable.0",
+    "tsconfig": "0.16.0-mme-fix-feedback-readable.0"
   },
   "changesets": [
-    "big-mangos-mate"
+    "big-mangos-mate",
+    "proud-cheetahs-relax"
   ]
 }

@@ -59,11 +59,7 @@ export class GoogleGenerativeAIAdapter implements CopilotKitServiceAdapter {
 
     const history = this.transformMessages(messages.slice(0, -1));
     const currentMessage = messages[messages.length - 1];
-    const systemMessage = messages
-      .filter((m: Message) => m.role === "system")
-      .map((m: Message) => m.content)
-      .join("\n")
-      .trim();
+    const systemMessage = messages.shift()?.content.trim() || "";
 
     const is1stGenGeminiPro = this.model.model === "gemini-pro";
 
@@ -134,7 +130,13 @@ export class GoogleGenerativeAIAdapter implements CopilotKitServiceAdapter {
 
   transformMessages(messages: Message[]): Content[] {
     return messages
-      .filter((m) => m.role === "user" || m.role === "assistant" || m.role === "function")
+      .filter(
+        (m) =>
+          m.role === "user" ||
+          m.role === "assistant" ||
+          m.role === "function" ||
+          m.role === "system",
+      )
       .map(this.transformMessage);
   }
 
@@ -175,6 +177,17 @@ export class GoogleGenerativeAIAdapter implements CopilotKitServiceAdapter {
                 content: tryParseJson(message.content),
               },
             },
+          },
+        ],
+      };
+    } else if (message.role === "system") {
+      return {
+        role: "user",
+        parts: [
+          {
+            text:
+              "THE FOLLOWING MESSAGE IS NOT A USER MESSAGE. IT IS A SYSTEM MESSAGE: " +
+              message.content,
           },
         ],
       };

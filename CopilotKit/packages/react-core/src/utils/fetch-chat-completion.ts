@@ -65,6 +65,7 @@ export async function fetchChatCompletion({
       ...(copilotConfig.cloud ? { cloud: copilotConfig.cloud } : {}),
     }),
     signal,
+    credentials: copilotConfig.credentials,
   });
 
   return response;
