@@ -5,5 +5,8 @@ module.exports = {
   plugins: {
     tailwindcss: {},
     autoprefixer: {},
+    "postcss-prefix-selector": {
+      prefix: ".copilot-kit-textarea-css-scope",
+    },
   },
 };
