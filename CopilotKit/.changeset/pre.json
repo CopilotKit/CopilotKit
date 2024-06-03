@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "mme-fix-textarea-css",
   "initialVersions": {
     "next-openai": "1.23.0-mme-fix-feedback-readable.0",
