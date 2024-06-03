@@ -73,6 +73,7 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
   }
 
   private async submitToolOutputs(threadId: string, runId: string, forwardMessages: Message[]) {
+    forwardMessages = transformMessages(forwardMessages);
     let run = await this.openai.beta.threads.runs.retrieve(threadId, runId);
 
     if (!run.required_action) {
@@ -118,7 +119,9 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
   }
 
   private async submitUserMessage(threadId: string, forwardedProps: any) {
-    const forwardMessages = forwardedProps.messages || [];
+    const forwardMessages = transformMessages(forwardedProps.messages || []);
+
+    const instructions = forwardMessages.shift()?.content || "";
 
     const message = forwardMessages[forwardMessages.length - 1];
     await this.openai.beta.threads.messages.create(threadId, {
@@ -131,12 +134,6 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
       ...(this.codeInterpreterEnabled ? [{ type: "code_interpreter" }] : []),
       ...(this.retrievalEnabled ? [{ type: "retrieval" }] : []),
     ];
-
-    // build instructions by joining all system messages
-    const instructions = forwardMessages
-      .filter((message: Message) => message.role === "system")
-      .map((message: Message) => message.content)
-      .join("\n\n");
 
     // run the thread
     let run = await this.openai.beta.threads.runs.create(threadId, {
@@ -211,6 +208,20 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
       };
     }
   }
+}
+
+function transformMessages(messages: Message[]): Message[] {
+  return messages.map((message) => {
+    if (message.role === "system") {
+      return {
+        ...message,
+        role: "user",
+        content:
+          "THE FOLLOWING MESSAGE IS NOT A USER MESSAGE. IT IS A SYSTEM MESSAGE: " + message.content,
+      };
+    }
+    return message;
+  });
 }
 
 class AssistantSingleChunkReadableStream extends ReadableStream<any> {
