@@ -1,6 +1,6 @@
 {
   "name": "tailwind-config",
-  "version": "0.11.0-mme-fix-textarea-css.1",
+  "version": "0.11.0-mme-pre.2",
   "private": true,
   "main": "index.js",
   "devDependencies": {

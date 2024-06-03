@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.37.0-mme-fix-textarea-css.1",
+  "version": "0.37.0-mme-pre.2",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

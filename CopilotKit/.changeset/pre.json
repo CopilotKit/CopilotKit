@@ -1,20 +1,21 @@
 {
-  "mode": "exit",
-  "tag": "mme-fix-textarea-css",
+  "mode": "pre",
+  "tag": "mme-pre",
   "initialVersions": {
-    "next-openai": "1.23.0-mme-fix-feedback-readable.0",
-    "node": "1.23.0-mme-fix-feedback-readable.0",
-    "@copilotkit/backend": "0.37.0-mme-fix-feedback-readable.0",
-    "eslint-config-custom": "0.12.0-mme-fix-feedback-readable.0",
-    "@copilotkit/react-core": "0.37.0-mme-fix-feedback-readable.0",
-    "@copilotkit/react-textarea": "0.37.0-mme-fix-feedback-readable.0",
-    "@copilotkit/react-ui": "0.37.0-mme-fix-feedback-readable.0",
-    "@copilotkit/shared": "0.37.0-mme-fix-feedback-readable.0",
-    "tailwind-config": "0.11.0-mme-fix-feedback-readable.0",
-    "tsconfig": "0.16.0-mme-fix-feedback-readable.0"
+    "next-openai": "1.23.0-mme-fix-textarea-css.1",
+    "node": "1.23.0-mme-fix-textarea-css.1",
+    "@copilotkit/backend": "0.37.0-mme-fix-textarea-css.1",
+    "eslint-config-custom": "0.12.0-mme-fix-textarea-css.1",
+    "@copilotkit/react-core": "0.37.0-mme-fix-textarea-css.1",
+    "@copilotkit/react-textarea": "0.37.0-mme-fix-textarea-css.1",
+    "@copilotkit/react-ui": "0.37.0-mme-fix-textarea-css.1",
+    "@copilotkit/shared": "0.37.0-mme-fix-textarea-css.1",
+    "tailwind-config": "0.11.0-mme-fix-textarea-css.1",
+    "tsconfig": "0.16.0-mme-fix-textarea-css.1"
   },
   "changesets": [
     "big-mangos-mate",
-    "proud-cheetahs-relax"
+    "proud-cheetahs-relax",
+    "wet-spiders-watch"
   ]
 }

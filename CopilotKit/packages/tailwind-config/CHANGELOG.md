@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 0.11.0-mme-pre.2
+
+### Minor Changes
+
+- CSS improvements, hidden messages, useCopilotChat
+
 ## 0.11.0-mme-fix-textarea-css.1
 
 ### Minor Changes

@@ -1,5 +1,17 @@
 # node
 
+## 1.23.0-mme-pre.2
+
+### Minor Changes
+
+- CSS improvements, hidden messages, useCopilotChat
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.37.0-mme-pre.2
+  - @copilotkit/shared@0.37.0-mme-pre.2
+
 ## 1.23.0-mme-fix-textarea-css.1
 
 ### Minor Changes
