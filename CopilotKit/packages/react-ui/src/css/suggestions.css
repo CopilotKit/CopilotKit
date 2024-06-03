@@ -14,8 +14,8 @@
   padding: 8px 12px;
   font-size: 0.7rem;
   border-radius: 0.5rem;
-  background: var(--copilot-kit-message-user-background-color);
-  color: var(--copilot-kit-message-user-color);
+  background: var(--copilot-kit-primary-color);
+  color: var(--copilot-kit-contrast-color);
 }
 
 .copilotKitMessages footer .suggestions button {

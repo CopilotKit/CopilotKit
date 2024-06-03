@@ -10,8 +10,8 @@
   position: relative;
   transform: scale(1);
   transition: transform 200ms;
-  background-color: var(--copilot-kit-button-background-color);
-  color: var(--copilot-kit-button-icon-color);
+  background-color: var(--copilot-kit-primary-color);
+  color: var(--copilot-kit-contrast-color);
   cursor: pointer;
 }
 
@@ -24,7 +24,9 @@
 }
 
 .copilotKitButtonIcon {
-  transition: opacity 100ms, transform 300ms;
+  transition:
+    opacity 100ms,
+    transform 300ms;
   position: absolute;
   top: 50%;
   left: 50%;
