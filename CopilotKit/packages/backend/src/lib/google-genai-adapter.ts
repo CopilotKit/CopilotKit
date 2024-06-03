@@ -61,16 +61,17 @@ export class GoogleGenerativeAIAdapter implements CopilotKitServiceAdapter {
     const currentMessage = messages[messages.length - 1];
     const systemMessage = messages.shift()?.content.trim() || "";
 
-    const is1stGenGeminiPro = this.model.model === "gemini-pro";
+    const isFirstGenGeminiPro =
+      this.model.model === "gemini-pro" || this.model.model === "models/gemini-pro";
 
     const chat = this.model.startChat({
       history: [
         ...history,
         // gemini-pro does not support system instructions, so we need to add them to the history
-        ...(is1stGenGeminiPro ? [{ role: "user", parts: [{ text: systemMessage }] }] : []),
+        ...(isFirstGenGeminiPro ? [{ role: "user", parts: [{ text: systemMessage }] }] : []),
       ],
       // only gemini-1.5-pro-latest and later supports setting system instructions
-      ...(is1stGenGeminiPro
+      ...(isFirstGenGeminiPro
         ? {}
         : { systemInstruction: { role: "user", parts: [{ text: systemMessage }] } }),
       tools: this.transformTools(forwardedProps.tools || []),
