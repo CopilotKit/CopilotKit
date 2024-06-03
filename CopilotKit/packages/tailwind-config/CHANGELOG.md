@@ -1,5 +1,13 @@
 # tailwind-config
 
+## 0.11.0
+
+### Minor Changes
+
+- f771353: Fix: Stale CopilotReadable
+- 9df8d43: Remove unneeded tailwind components
+- CSS improvements, useCopilotChat, invisible messages
+
 ## 0.11.0-mme-fix-textarea-css.1
 
 ### Minor Changes
