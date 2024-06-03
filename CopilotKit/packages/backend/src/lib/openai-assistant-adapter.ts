@@ -119,11 +119,13 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
   }
 
   private async submitUserMessage(threadId: string, forwardedProps: any) {
-    const forwardMessages = transformMessages(forwardedProps.messages || []);
-
+    let forwardMessages = forwardedProps.messages || [];
     const instructions = forwardMessages.shift()?.content || "";
 
+    forwardMessages = transformMessages(forwardMessages);
+
     const message = forwardMessages[forwardMessages.length - 1];
+
     await this.openai.beta.threads.messages.create(threadId, {
       role: message.role as "user",
       content: message.content,
@@ -172,8 +174,8 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
     }
     // submit user message
     else if (
-      forwardMessages.length > 0 &&
-      forwardMessages[forwardMessages.length - 1].role === "user"
+      (forwardMessages.length > 0 && forwardMessages[forwardMessages.length - 1].role === "user") ||
+      forwardMessages[forwardMessages.length - 1].role === "system"
     ) {
       run = await this.submitUserMessage(threadId, forwardedProps);
     }
