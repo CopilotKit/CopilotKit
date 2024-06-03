@@ -1,6 +1,6 @@
 {
   "name": "node",
-  "version": "1.23.0-mme-fix-textarea-css.1",
+  "version": "1.23.0",
   "private": true,
   "scripts": {
     "start": "node dist/index.js",
