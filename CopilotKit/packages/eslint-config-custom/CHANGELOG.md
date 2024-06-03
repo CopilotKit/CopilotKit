@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.12.0-mme-fix-textarea-css.1
+
+### Minor Changes
+
+- Remove unneeded tailwind components
+
 ## 0.12.0-mme-fix-feedback-readable.0
 
 ### Minor Changes

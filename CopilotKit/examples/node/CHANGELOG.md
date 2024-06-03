@@ -1,5 +1,17 @@
 # node
 
+## 1.23.0-mme-fix-textarea-css.1
+
+### Minor Changes
+
+- Remove unneeded tailwind components
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.37.0-mme-fix-textarea-css.1
+  - @copilotkit/shared@0.37.0-mme-fix-textarea-css.1
+
 ## 1.23.0-mme-fix-feedback-readable.0
 
 ### Minor Changes
