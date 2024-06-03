@@ -76,4 +76,10 @@ export interface CopilotKitProps {
    * ```
    */
   backendOnlyProps?: Record<string, any>;
+
+  /**
+   * Indicates whether the user agent should send or receive cookies from the other domain
+   * in the case of cross-origin requests.
+   */
+  credentials?: RequestCredentials;
 }
