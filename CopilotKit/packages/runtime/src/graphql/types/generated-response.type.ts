@@ -18,7 +18,7 @@ export class Message {
   role: MessageRole;
 
   @Field(() => [String])
-  text: string[];
+  content: string[];
 
   @Field(() => Boolean)
   isStream: boolean;

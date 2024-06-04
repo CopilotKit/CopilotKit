@@ -8,10 +8,10 @@ export class GenerateResponseInput {
   @Field(() => [MessageInput])
   messages: MessageInput[];
 
-  @Field(() => FrontendInput)
-  frontend: FrontendInput;
+  @Field(() => FrontendInput, { nullable: true })
+  frontend?: FrontendInput;
 
-  @Field(() => CloudInput)
-  cloud: CloudInput;
+  @Field(() => CloudInput, { nullable: true })
+  cloud?: CloudInput;
 }
 

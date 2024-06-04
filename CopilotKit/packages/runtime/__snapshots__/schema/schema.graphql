@@ -14,13 +14,13 @@ input CloudInput {
 }
 
 input FrontendInput {
-  actions: [ActionInput!]!
-  toDeprecate_fullContext: String!
+  actions: [ActionInput!]
+  toDeprecate_fullContext: String
 }
 
 input GenerateResponseInput {
-  cloud: CloudInput!
-  frontend: FrontendInput!
+  cloud: CloudInput
+  frontend: FrontendInput
   messages: [MessageInput!]!
 }
 
@@ -45,9 +45,9 @@ input GuardrailsRuleInput {
 }
 
 type Message {
+  content: [String!]!
   isStream: Boolean!
   role: MessageRole!
-  text: [String!]!
 }
 
 input MessageInput {

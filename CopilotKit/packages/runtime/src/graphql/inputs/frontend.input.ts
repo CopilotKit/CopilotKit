@@ -3,10 +3,10 @@ import { ActionInput } from "./action.input";
 
 @InputType()
 export class FrontendInput {
-  @Field(() => String)
-  toDeprecate_fullContext: string;
+  @Field(() => String, { nullable: true })
+  toDeprecate_fullContext?: string;
 
-  @Field(() => [ActionInput])
-  actions: ActionInput[];
+  @Field(() => [ActionInput], { nullable: true })
+  actions?: ActionInput[];
 }
 

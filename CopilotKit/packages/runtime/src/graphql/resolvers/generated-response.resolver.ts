@@ -33,13 +33,13 @@ export class GeneratedResponseResolver {
       interruption: firstValueFrom(interruption),
       messages: new Repeater(async (pushMessage, stopStreamingMessages) => {
         for (const message of data.messages) {
-          pushMessage({ role: message.role, text: [message.content], isStream: false });
+          pushMessage({ role: message.role, content: [message.content], isStream: false });
         }
 
         pushMessage({
           isStream: true,
           role: MessageRole.assistant,
-          text: await (async () => {
+          content: await (async () => {
             const { stream, headers } = await copilotRuntime.gqlResponse(openaiAdapter, {
               messages: data.messages
             });
