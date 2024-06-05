@@ -17,10 +17,15 @@ async function main() {
     ],
   });
 
-  result.subscribe(({ data }) => {
-    const { messages } = data?.generateResponse!;
-    console.log("messages", messages);
-  });
+  const reader = CopilotRuntimeClient.asStream(result).getReader();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    console.log("messages", value?.generateResponse.messages, done);
+    if (done) {
+      break;
+    }
+  }
 }
 
 main();

@@ -41,6 +41,7 @@
   },
   "dependencies": {
     "@copilotkit/shared": "workspace:*",
+    "@copilotkit/runtime-client-gql": "workspace:*",
     "nanoid": "^4.0.2",
     "untruncate-json": "^0.0.1"
   }

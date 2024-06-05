@@ -7,12 +7,14 @@ import {
   encodeResult,
   FunctionCall,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
+  Role,
 } from "@copilotkit/shared";
 
 import { nanoid } from "nanoid";
 import { fetchAndDecodeChatCompletion } from "../utils/fetch-chat-completion";
 import { CopilotApiConfig } from "../context";
 import untruncateJson from "untruncate-json";
+import { CopilotRuntimeClient, MessageRole } from "@copilotkit/runtime-client-gql";
 
 export type UseChatOptions = {
   /**
@@ -116,10 +118,14 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
     ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
   };
 
+  const runtimeClient = new CopilotRuntimeClient({
+    url: options.copilotConfig.chatApiEndpoint,
+  });
+
   const runChatCompletion = async (messages: Message[]): Promise<Message[]> => {
     options.setIsLoading(true);
 
-    const newMessages: Message[] = [
+    let newMessages: Message[] = [
       {
         id: nanoid(),
         createdAt: new Date(),
@@ -127,53 +133,87 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
         role: "assistant",
       },
     ];
+
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
     setMessages([...messages, ...newMessages]);
+
+    // TODO-PROTOCOL deal with threadId and runId
     // add threadId and runId to the body if it exists
-    const copilotConfigBody = options.copilotConfig.body || {};
-    if (threadIdRef.current) {
-      copilotConfigBody.threadId = threadIdRef.current;
-    }
-    if (runIdRef.current) {
-      copilotConfigBody.runId = runIdRef.current;
-    }
+    // const copilotConfigBody = options.copilotConfig.body || {};
+    // if (threadIdRef.current) {
+    //   copilotConfigBody.threadId = threadIdRef.current;
+    // }
+    // if (runIdRef.current) {
+    //   copilotConfigBody.runId = runIdRef.current;
+    // }
 
     const systemMessage = makeSystemMessageCallback();
 
     const messagesWithContext = [systemMessage, ...(options.initialMessages || []), ...messages];
-    const response = await fetchAndDecodeChatCompletion({
-      copilotConfig: { ...options.copilotConfig, body: copilotConfigBody },
-      messages: messagesWithContext,
-      tools: options.tools,
-      headers: headers,
-      signal: abortController.signal,
+
+    const response = runtimeClient.generateResponse({
+      messages: messagesWithContext.map((message) => {
+        let role: MessageRole;
+        switch (message.role) {
+          case "assistant":
+            role = MessageRole.Assistant;
+            break;
+          case "user":
+            role = MessageRole.User;
+            break;
+          case "system":
+            role = MessageRole.System;
+            break;
+          default:
+            throw new Error("Message role not supported yet.");
+        }
+        return {
+          role,
+          content: message.content,
+        };
+      }),
     });
 
-    if (response.headers.get("threadid")) {
-      threadIdRef.current = response.headers.get("threadid");
-    }
+    // TODO-PROTOCOL make sure all options are included in the final version
+    //
+    // const response = await fetchAndDecodeChatCompletion({
+    //   copilotConfig: { ...options.copilotConfig, body: copilotConfigBody },
+    //   messages: messagesWithContext,
+    //   tools: options.tools,
+    //   headers: headers,
+    //   signal: abortController.signal,
+    // });
 
-    if (response.headers.get("runid")) {
-      runIdRef.current = response.headers.get("runid");
-    }
+    // TODO-PROTOCOL include threadId
+    //
+    // if (response.headers.get("threadid")) {
+    //   threadIdRef.current = response.headers.get("threadid");
+    // }
 
-    if (!response.events) {
-      setMessages([
-        ...messages,
-        {
-          id: nanoid(),
-          createdAt: new Date(),
-          content: response.statusText,
-          role: "assistant",
-        },
-      ]);
-      options.setIsLoading(false);
-      throw new Error("Failed to fetch chat completion");
-    }
+    // TODO-PROTOCOL include runId
+    //
+    // if (response.headers.get("runid")) {
+    //   runIdRef.current = response.headers.get("runid");
+    // }
 
-    const reader = response.events.getReader();
+    // TODO-PROTOCOL handle errors
+    // if (!response.events) {
+    //   setMessages([
+    //     ...messages,
+    //     {
+    //       id: nanoid(),
+    //       createdAt: new Date(),
+    //       content: response.statusText,
+    //       role: "assistant",
+    //     },
+    //   ]);
+    //   options.setIsLoading(false);
+    //   throw new Error("Failed to fetch chat completion");
+    // }
+
+    const reader = CopilotRuntimeClient.asStream(response).getReader();
 
     // Whether to feed back the new messages to GPT
     let feedback = false;
@@ -186,99 +226,125 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
           break;
         }
 
-        let currentMessage = Object.assign({}, newMessages[newMessages.length - 1]);
-
-        if (value.type === "content") {
-          if (currentMessage.function_call || currentMessage.role === "function") {
-            // Create a new message if the previous one is a function call or result
-            currentMessage = {
-              id: nanoid(),
-              createdAt: new Date(),
-              content: "",
-              role: "assistant",
-            };
-            newMessages.push(currentMessage);
+        newMessages = [];
+        for (const message of value.generateResponse.messages) {
+          let role: Role;
+          if (message.role == MessageRole.Assistant) {
+            role = "assistant";
+          } else if (message.role == MessageRole.User) {
+            role = "user";
+          } else if (message.role == MessageRole.System) {
+            role = "system";
+          } else {
+            throw new Error("Message role not supported yet.");
           }
-          currentMessage.content += value.content;
-          newMessages[newMessages.length - 1] = currentMessage;
-          setMessages([...messages, ...newMessages]);
-        } else if (value.type === "result") {
-          // When we get a result message, it is already complete
-          currentMessage = {
+          const content = message.content.join("");
+          newMessages.push({
             id: nanoid(),
-            role: "function",
-            content: value.content,
-            name: value.name,
-          };
-          newMessages.push(currentMessage);
-          setMessages([...messages, ...newMessages]);
-
-          // After receiving a result, feed back the new messages to GPT
-          feedback = true;
-        } else if (value.type === "function" || value.type === "partial") {
-          // Create a new message if the previous one is not empty
-          if (
-            currentMessage.content != "" ||
-            currentMessage.function_call ||
-            currentMessage.role == "function"
-          ) {
-            currentMessage = {
-              id: nanoid(),
-              createdAt: new Date(),
-              content: "",
-              role: "assistant",
-            };
-            newMessages.push(currentMessage);
-          }
-          if (value.type === "function") {
-            currentMessage.function_call = {
-              name: value.name,
-              arguments: JSON.stringify(value.arguments),
-              scope: value.scope,
-            };
-          } else if (value.type === "partial") {
-            let partialArguments: any = {};
-            try {
-              partialArguments = JSON.parse(untruncateJson(value.arguments));
-            } catch (e) {}
-
-            currentMessage.partialFunctionCall = {
-              name: value.name,
-              arguments: partialArguments,
-            };
-          }
-
-          newMessages[newMessages.length - 1] = currentMessage;
-          setMessages([...messages, ...newMessages]);
-
-          if (value.type === "function") {
-            // Execute the function call
-            try {
-              if (options.onFunctionCall && value.scope === "client") {
-                const result = await options.onFunctionCall(
-                  messages,
-                  currentMessage.function_call as FunctionCall,
-                );
-
-                currentMessage = {
-                  id: nanoid(),
-                  role: "function",
-                  content: encodeResult(result),
-                  name: (currentMessage.function_call! as FunctionCall).name!,
-                };
-                newMessages.push(currentMessage);
-                setMessages([...messages, ...newMessages]);
-
-                // After a function call, feed back the new messages to GPT
-                feedback = true;
-              }
-            } catch (error) {
-              console.error("Failed to execute function call", error);
-              // TODO: Handle error
-              // this should go to the message itself
-            }
-          }
+            createdAt: new Date(),
+            content,
+            role,
+          });
         }
+        if (newMessages.length > 0) {
+          setMessages([...messages, ...newMessages]);
+        }
+
+        // TODO-PROTOCOL: deal with all this, possibly in a more elegant manner
+        //
+        // let currentMessage = Object.assign({}, newMessages[newMessages.length - 1]);
+
+        // if (value.type === "content") {
+        //   if (currentMessage.function_call || currentMessage.role === "function") {
+        //     // Create a new message if the previous one is a function call or result
+        //     currentMessage = {
+        //       id: nanoid(),
+        //       createdAt: new Date(),
+        //       content: "",
+        //       role: "assistant",
+        //     };
+        //     newMessages.push(currentMessage);
+        //   }
+        //   currentMessage.content += value.content;
+        //   newMessages[newMessages.length - 1] = currentMessage;
+        //   setMessages([...messages, ...newMessages]);
+        // } else if (value.type === "result") {
+        //   // When we get a result message, it is already complete
+        //   currentMessage = {
+        //     id: nanoid(),
+        //     role: "function",
+        //     content: value.content,
+        //     name: value.name,
+        //   };
+        //   newMessages.push(currentMessage);
+        //   setMessages([...messages, ...newMessages]);
+
+        //   // After receiving a result, feed back the new messages to GPT
+        //   feedback = true;
+        // } else if (value.type === "function" || value.type === "partial") {
+        //   // Create a new message if the previous one is not empty
+        //   if (
+        //     currentMessage.content != "" ||
+        //     currentMessage.function_call ||
+        //     currentMessage.role == "function"
+        //   ) {
+        //     currentMessage = {
+        //       id: nanoid(),
+        //       createdAt: new Date(),
+        //       content: "",
+        //       role: "assistant",
+        //     };
+        //     newMessages.push(currentMessage);
+        //   }
+        //   if (value.type === "function") {
+        //     currentMessage.function_call = {
+        //       name: value.name,
+        //       arguments: JSON.stringify(value.arguments),
+        //       scope: value.scope,
+        //     };
+        //   } else if (value.type === "partial") {
+        //     let partialArguments: any = {};
+        //     try {
+        //       partialArguments = JSON.parse(untruncateJson(value.arguments));
+        //     } catch (e) {}
+
+        //     currentMessage.partialFunctionCall = {
+        //       name: value.name,
+        //       arguments: partialArguments,
+        //     };
+        //   }
+
+        //   newMessages[newMessages.length - 1] = currentMessage;
+        //   setMessages([...messages, ...newMessages]);
+
+        //   if (value.type === "function") {
+        //     // Execute the function call
+        //     try {
+        //       if (options.onFunctionCall && value.scope === "client") {
+        //         const result = await options.onFunctionCall(
+        //           messages,
+        //           currentMessage.function_call as FunctionCall,
+        //         );
+
+        //         currentMessage = {
+        //           id: nanoid(),
+        //           role: "function",
+        //           content: encodeResult(result),
+        //           name: (currentMessage.function_call! as FunctionCall).name!,
+        //         };
+        //         newMessages.push(currentMessage);
+        //         setMessages([...messages, ...newMessages]);
+
+        //         // After a function call, feed back the new messages to GPT
+        //         feedback = true;
+        //       }
+        //     } catch (error) {
+        //       console.error("Failed to execute function call", error);
+        //       // TODO: Handle error
+        //       // this should go to the message itself
+        //     }
+        //   }
+        // }
       }
 
       // If we want feedback, run the completion again and return the results

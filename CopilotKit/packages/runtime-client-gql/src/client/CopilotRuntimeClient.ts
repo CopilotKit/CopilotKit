@@ -4,6 +4,7 @@ import {
   GenerateResponseMutationVariables,
 } from "../graphql/@generated/graphql";
 import { generateResponseMutation } from "../graphql/mutations";
+import { OperationResultSource, OperationResult } from "urql";
 
 interface CopilotRuntimeClientOptions {
   url: string;
@@ -20,9 +21,22 @@ export class CopilotRuntimeClient {
   }
 
   generateResponse(data: GenerateResponseMutationVariables["data"]) {
-    return this.client.mutation<
-      GenerateResponseMutation,
-      GenerateResponseMutationVariables
-    >(generateResponseMutation, { data });
+    return this.client.mutation<GenerateResponseMutation, GenerateResponseMutationVariables>(
+      generateResponseMutation,
+      { data },
+    );
+  }
+
+  static asStream<S, T>(source: OperationResultSource<OperationResult<S, { data: T }>>) {
+    return new ReadableStream<S>({
+      start(controller) {
+        source.subscribe(({ data, hasNext }) => {
+          controller.enqueue(data);
+          if (!hasNext) {
+            controller.close();
+          }
+        });
+      },
+    });
   }
 }
