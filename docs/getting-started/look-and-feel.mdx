@@ -1,0 +1,134 @@
+---
+title: Customize the Look and Feel
+description: 'Customizing the look and feel of CopilotKit'
+---
+import "/snippets/index.css";
+
+## Custom Colors
+
+The easiest way to change the colors is to override CopilotKit CSS variables.
+
+**Hover over the different UI elements below to see the names of the CSS variables that you can change.**
+
+<div className="" style={{
+  width: "384px",
+  height: "600px",
+  cursor: "pointer"
+}}> 
+  <div className="open">
+    <div className="copilotKitHeader">
+      <div>CopilotKit</div>
+      <button aria-label="Close">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth="1.5"
+          stroke="currentColor"
+          width={24}
+          height={24}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M6 18L18 6M6 6l12 12"
+          />
+        </svg>
+      </button>
+    </div>
+    <div className="copilotKitMessages">
+      <div className="copilotKitMessage copilotKitAssistantMessage">
+        <div className="copilotKitMarkdown">
+          <p>Hi you! 👋 I can help you create a presentation on any topic.</p>
+        </div>
+      </div>
+      <div className="copilotKitMessage copilotKitUserMessage">hi</div>
+      <div className="copilotKitMessage copilotKitAssistantMessage">
+        <div className="copilotKitMarkdown">
+          <p>Hello! How can I assist you with your presentation today?</p>
+        </div>
+      </div>
+      <footer>
+        <div>
+          <h6>Suggested:</h6>
+          <div className="suggestions">
+            <button className="suggestion">
+              <span>Company Overview</span>
+            </button>
+            <button className="suggestion">
+              <span>Mission Statement</span>
+            </button>
+            <button className="suggestion">
+              <span>Product Highlights</span>
+            </button>
+            <button className="custom-suggestion">
+              <span>Enhance Spoken Narration</span>
+            </button>
+          </div>
+        </div>
+        <button className="copilotKitResponseButton">
+          <span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 256 256"
+              fill="currentColor"
+              style={{ height: "1rem", width: "1rem" }}
+            >
+              <path d="M197.67 186.37a8 8 0 0 1 0 11.29C196.58 198.73 170.82 224 128 224c-37.39 0-64.53-22.4-80-39.85V208a8 8 0 0 1-16 0v-48a8 8 0 0 1 8-8h48a8 8 0 0 1 0 16H55.44C67.76 183.35 93 208 128 208c36 0 58.14-21.46 58.36-21.68a8 8 0 0 1 11.31.05ZM216 40a8 8 0 0 0-8 8v23.85C192.53 54.4 165.39 32 128 32c-42.82 0-68.58 25.27-69.66 26.34a8 8 0 0 0 11.3 11.34C69.86 69.46 92 48 128 48c35 0 60.24 24.65 72.56 40H168a8 8 0 0 0 0 16h48a8 8 0 0 0 8-8V48a8 8 0 0 0-8-8Z" />
+            </svg>
+          </span>
+          Regenerate response
+        </button>
+      </footer>
+    </div>
+    <div className="copilotKitInput">
+      <textarea
+        placeholder="Type a message..."
+        style={{ overflow: "auto", resize: "none", maxHeight: 100, height: 20 }}
+        rows={1}
+        defaultValue={""}
+      />
+      <div className="copilotKitInputControls">
+        <button className="">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="1.5"
+            stroke="currentColor"
+            className="w-6 h-6"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"
+            />
+          </svg>
+        </button>
+        <button disabled="">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            width={24}
+            height={24}
+            strokeWidth="1.5"
+            stroke="currentColor"
+            style={{}}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div className="red" onClick={() => alert("bye")}>
+xyz
+</div>
+
