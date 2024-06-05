@@ -6,7 +6,7 @@ import {
   MessageRole,
 } from "../types/generated-response.type";
 import { Repeater } from "graphql-yoga";
-import { GraphQLContext } from "../../test-server/test-server";
+import type { GraphQLContext } from "../../test-server/test-server";
 import { GenerationInterruption } from "../types/generation-interruption";
 import { CopilotRuntime, OpenAIAdapter } from "../../lib";
 import { OpenAI } from "openai";

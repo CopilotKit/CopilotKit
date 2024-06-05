@@ -3,7 +3,7 @@ import { Response } from "express";
 import { OutgoingHttpHeaders } from "http2";
 
 export function interceptStreamAndGetFinalResponse(
-  stream: ReadableStream<any>,
+  stream: any,
   onChunk: (chunk: string) => void,
 ): Promise<{
   messages: Message[];
