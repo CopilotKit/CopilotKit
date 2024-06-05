@@ -40,6 +40,7 @@
     "@graphql-typed-document-node/core": "^3.2.0",
     "@types/node": "^20.12.12",
     "ts-node": "^10.9.2",
+    "tsup": "^6.7.0",
     "typescript": "^5.4.5"
   },
   "dependencies": {
