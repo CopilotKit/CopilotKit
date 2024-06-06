@@ -2,21 +2,65 @@
 title: Customize the Look and Feel
 description: 'Customizing the look and feel of CopilotKit'
 ---
-import "/snippets/index.css";
 
 ## Custom Colors
 
-The easiest way to change the colors is to override CopilotKit CSS variables.
 
-**Hover over the different UI elements below to see the names of the CSS variables that you can change.**
 
-<div className="" style={{
+**Hover over the different UI elements below to see the CSS variable names.**
+
+export const handleMouseMove = (e) => {
+  const tooltip = document.querySelector('.tooltip');
+  tooltip.style.display = 'block';
+  const rect = tooltip.parentElement.getBoundingClientRect();
+  tooltip.style.left = `${e.clientX - rect.left + 15}px`;
+  tooltip.style.top = `${e.clientY - rect.top + 15}px`;
+
+  let element = e.target;
+
+  while (element && element !== document.body) {
+    console.log(element.classList);
+    if (element.classList.contains('copilotKitHeader')) {
+      tooltip.innerHTML = '<b>--copilot-kit-primary-color</b>: Header background color.<br/><br/><b>--copilot-kit-contrast-color</b>: Header foreground color.';
+      return;
+    } else if (element.classList.contains('copilotKitAssistantMessage')) {
+      tooltip.innerHTML = '<b>--copilot-kit-secondary-color</b>: Assistant message background color.<br/><br/><b>--copilot-kit-secondary-contrast-color</b>: Assistant message foreground color.';
+      return;
+    } else if (element.classList.contains('copilotKitUserMessage')) {
+      tooltip.innerHTML = '<b>--copilot-kit-primary-color</b>: User message background color.<br/><br/><b>--copilot-kit-contrast-color</b>: User message foreground color.';
+      return;
+    } else if (element.classList.contains('copilotKitMessages')) {
+      tooltip.innerHTML = '<b>--copilot-kit-background-color</b>: Chat window background color.<br/><br/><b>--copilot-kit-scrollbar-color</b>: Chat window scrollbar color.<br/><br/><b>--copilot-kit-separator-color</b>: Bottom separator color.';
+      return;
+    } else if (element.classList.contains('micButton')) {
+      tooltip.innerHTML = '<b>--copilot-kit-primary-color</b>: Active button color';
+      return;
+    } else if (element.classList.contains('sendButton')) {
+      tooltip.innerHTML = '<b>--copilot-kit-muted-color</b>: Muted button color';
+      return;
+    } else if (element.classList.contains('copilotKitInput')) {
+      tooltip.innerHTML = '<b>--copilot-kit-muted-color</b>: Placeholder color.';
+      return;
+    }
+    element = element.parentElement;
+  }
+
+  tooltip.style.display = 'none';
+};
+
+export const handleMouseLeave = (e) => {
+  const tooltip = document.querySelector('.tooltip');
+  tooltip.style.display = 'none';
+};
+
+<div className="tooltip">Close CopilotKit</div>
+ 
+<div className="" onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave} style={{
   width: "384px",
-  height: "600px",
   cursor: "pointer"
 }}> 
   <div className="open">
-    <div className="copilotKitHeader">
+    <div className="copilotKitHeader" >
       <div>CopilotKit</div>
       <button aria-label="Close">
         <svg
@@ -34,38 +78,13 @@ The easiest way to change the colors is to override CopilotKit CSS variables.
             d="M6 18L18 6M6 6l12 12"
           />
         </svg>
-      </button>
+      </button>      
     </div>
     <div className="copilotKitMessages">
-      <div className="copilotKitMessage copilotKitAssistantMessage">
-        <div className="copilotKitMarkdown">
-          <p>Hi you! 👋 I can help you create a presentation on any topic.</p>
-        </div>
-      </div>
-      <div className="copilotKitMessage copilotKitUserMessage">hi</div>
-      <div className="copilotKitMessage copilotKitAssistantMessage">
-        <div className="copilotKitMarkdown">
-          <p>Hello! How can I assist you with your presentation today?</p>
-        </div>
-      </div>
+      <div className="copilotKitMessage copilotKitAssistantMessage">Hi you! 👋 I can help you create a presentation on any topic.</div>
+      <div className="copilotKitMessage copilotKitUserMessage">Hello CopilotKit!</div>     
       <footer>
-        <div>
-          <h6>Suggested:</h6>
-          <div className="suggestions">
-            <button className="suggestion">
-              <span>Company Overview</span>
-            </button>
-            <button className="suggestion">
-              <span>Mission Statement</span>
-            </button>
-            <button className="suggestion">
-              <span>Product Highlights</span>
-            </button>
-            <button className="custom-suggestion">
-              <span>Enhance Spoken Narration</span>
-            </button>
-          </div>
-        </div>
+        
         <button className="copilotKitResponseButton">
           <span>
             <svg
@@ -82,14 +101,15 @@ The easiest way to change the colors is to override CopilotKit CSS variables.
       </footer>
     </div>
     <div className="copilotKitInput">
-      <textarea
+      <input
         placeholder="Type a message..."
         style={{ overflow: "auto", resize: "none", maxHeight: 100, height: 20 }}
         rows={1}
         defaultValue={""}
+        disabled="disabled"
       />
       <div className="copilotKitInputControls">
-        <button className="">
+        <button className="micButton">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
@@ -105,7 +125,7 @@ The easiest way to change the colors is to override CopilotKit CSS variables.
             />
           </svg>
         </button>
-        <button disabled="">
+        <button className="sendButton" disabled="disabled">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
@@ -128,7 +148,113 @@ The easiest way to change the colors is to override CopilotKit CSS variables.
   </div>
 </div>
 
-<div className="red" onClick={() => alert("bye")}>
-xyz
-</div>
+The easiest way to change the colors is to override CopilotKit CSS variables. You can simply wrap
+CopilotKit in a div and override the CSS variables. `CopilotKitCSSProperties` will have the variable
+names as types:
 
+```tsx
+ <div
+    style={
+      {
+        "--copilot-kit-primary-color": "#222222",
+      } as CopilotKitCSSProperties
+    }
+  >
+    <CopilotSidebar .../>
+  </div>
+```
+
+## Custom CSS
+
+In addition to customizing the colors, the CopilotKit CSS is structured in a way that you can easily customize the CSS classes.
+
+ 
+Have a look at the CSS classes defined
+[here](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-ui/src/css/).
+ 
+For example:
+ 
+```css
+.copilotKitButton {
+  border-radius: 0;
+}
+```
+
+## Custom Icons
+
+You can customize the icons by passing the `icons` prop to the `CopilotSidebar`, `CopilotPopup` or `CopilotChat`.
+
+We support the following icons:
+
+- `openIcon`: The icon to use for the open chat button.
+- `closeIcon`: The icon to use for the close chat button.
+- `headerCloseIcon`: The icon to use for the close chat button in the header.
+- `sendIcon`: The icon to use for the send button.
+- `activityIcon`: The icon to use for the activity indicator.
+- `spinnerIcon`: The icon to use for the spinner.
+- `stopIcon`: The icon to use for the stop button.
+- `regenerateIcon`: The icon to use for the regenerate button.
+- `pushToTalkIcon`: The icon to use for push to talk.
+
+## Custom Labels
+
+To customize labels, pass the `labels` prop to the `CopilotSidebar`, `CopilotPopup` or `CopilotChat`.
+
+- `initial`: The initial message(s) to display in the chat window.
+- `title`: The title to display in the header.
+- `placeholder`: The placeholder to display in the input.
+- `stopGenerating`: The label to display on the stop button.
+- `regenerateResponse`: The label to display on the regenerate button.
+
+## Swapping out components
+
+To completely customize the look and feel of CopilotKit, you can swap out the components of the chat window.
+
+The following components can be customized by passing it as props to the `CopilotChat` component:
+
+- `Window`: The window component that contains the chat.
+- `Button`: The button for opening/closing the chat window.
+- `Header`: The chat header.
+- `Messages`: The chat messages area.
+- `Input`: The chat input.
+- `ResponseButton`: The button for regenerating a response.
+
+For example, to customize the response button, you can pass a custom component to the `ResponseButton` prop:
+
+<img src="/images/look-and-feel/custom-response.png" width="500" />
+
+
+```tsx
+const CustomResponseButton = ({ onClick, inProgress }: ResponseButtonProps) => {
+  return (
+    <div style={{ 
+        display: "flex", 
+        marginTop: "10px" 
+      }}>
+      <button
+        style={{ 
+          flex: 1, 
+          border: "1px solid #eee", 
+          borderRadius: "4px", 
+          marginRight: "5px" 
+        }}
+      >
+        👍
+      </button>
+      <button style={{ 
+        flex: 1, 
+        border: "1px solid #eee", 
+        borderRadius: "4px" 
+      }}>👎</button>
+    </div>
+  );
+};
+
+<CopilotSidebar ResponseButton={CustomResponseButton}>
+...
+</CopilotSidebar>
+```
+
+Have a look at the props file to see the different interfaces for components that can be swapped:
+
+<iframe frameBorder="0" scrolling="no" style={{width:"100%", height:"1024px"}} allow="clipboard-write" src="https://emgithub.com/iframe.html?target=https%3A%2F%2Fgithub.com%2FCopilotKit%2FCopilotKit%2Fblob%2Fmain%2FCopilotKit%2Fpackages%2Freact-ui%2Fsrc%2Fcomponents%2Fchat%2Fprops.ts&style=default&type=code&showBorder=on&showLineNumbers=on&showFileMeta=on&showFullPath=on&showCopy=on"></iframe>
