@@ -30,6 +30,8 @@ export class GeneratedResponseResolver {
         //   pushMessage({ role: message.role, content: [message.content], isStream: false });
         // }
         pushMessage({
+          // TODO-PROTOCOL: replace with real id
+          id: Math.random().toString(16).slice(2),
           isStream: true,
           role: MessageRole.assistant,
           content: await (async () => {

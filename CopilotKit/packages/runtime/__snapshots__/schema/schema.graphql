@@ -46,6 +46,7 @@ input GuardrailsRuleInput {
 
 type Message {
   content: [String!]!
+  id: String!
   isStream: Boolean!
   role: MessageRole!
 }

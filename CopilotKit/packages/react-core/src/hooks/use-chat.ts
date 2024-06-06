@@ -127,7 +127,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
 
     let newMessages: Message[] = [
       {
-        id: nanoid(),
+        id: "--PLACEHOLDER-MESSAGE-ID--",
         createdAt: new Date(),
         content: "",
         role: "assistant",
@@ -240,7 +240,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
           }
           const content = message.content.join("");
           newMessages.push({
-            id: nanoid(),
+            id: message.id,
             createdAt: new Date(),
             content,
             role,
