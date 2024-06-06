@@ -1,6 +1,6 @@
 import { graphql } from "./@generated/gql";
 
-export const generateResponseMutation = graphql(/** GraphQL **/`
+export const generateResponseMutation = graphql(/** GraphQL **/ `
   mutation generateResponse($data: GenerateResponseInput!) {
     generateResponse(data: $data) {
       ... on GeneratedResponse @defer {
@@ -10,6 +10,7 @@ export const generateResponseMutation = graphql(/** GraphQL **/`
         }
       }
       messages @stream {
+        id
         role
         content @stream
         isStream

@@ -14,6 +14,9 @@ registerEnumType(MessageRole, {
 
 @ObjectType()
 export class Message {
+  @Field(() => String)
+  id: string;
+
   @Field(() => MessageRole)
   role: MessageRole;
 
@@ -30,8 +33,5 @@ export class GeneratedResponse {
   messages: Message[];
 
   @Field(() => GenerationInterruption)
-  interruption: GenerationInterruption
+  interruption: GenerationInterruption;
 }
-
-
- 
