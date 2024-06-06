@@ -5,6 +5,12 @@ import { CloudInput } from "./cloud.input";
 
 @InputType()
 export class GenerateResponseInput {
+  @Field({ nullable: true })
+  threadId?: string;
+
+  @Field({ nullable: true })
+  runId?: string;
+
   @Field(() => [MessageInput])
   messages: MessageInput[];
 
@@ -14,4 +20,3 @@ export class GenerateResponseInput {
   @Field(() => CloudInput, { nullable: true })
   cloud?: CloudInput;
 }
-

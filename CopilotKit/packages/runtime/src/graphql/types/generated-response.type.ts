@@ -29,6 +29,12 @@ export class Message {
 
 @ObjectType()
 export class GeneratedResponse {
+  @Field(() => String)
+  threadId!: string;
+
+  @Field({ nullable: true })
+  runId?: string;
+
   @Field(() => [Message])
   messages: Message[];
 

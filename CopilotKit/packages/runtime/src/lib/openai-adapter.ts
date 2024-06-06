@@ -33,7 +33,12 @@
  *
  */
 import OpenAI from "openai";
-import { CopilotKitResponse, CopilotKitServiceAdapter } from "../types/service-adapter";
+import {
+  CopilotKitResponse,
+  CopilotKitServiceAdapter,
+  CopilotKitServiceAdapterRequest,
+  CopilotKitServiceAdapterResponse,
+} from "../types/service-adapter";
 import { limitOpenAIMessagesToTokenCount, maxTokensForOpenAIModel } from "../utils/openai";
 
 const DEFAULT_MODEL = "gpt-4o";
@@ -95,6 +100,35 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
         ...forwardedProps,
         stream: true,
         messages: messages as any,
+      });
+      stream.on("error", (error) => {
+        reject(error); // Reject the promise with the error
+      });
+      stream.on("connect", () => {
+        resolve({ stream: stream.toReadableStream() });
+      });
+    });
+  }
+
+  process(request: CopilotKitServiceAdapterRequest): Promise<CopilotKitServiceAdapterResponse> {
+    const model = request.model || this.model;
+    const tools = request.tools || [];
+
+    let messages: any[] = request.messages.map((message) => {
+      return {
+        role: message.role,
+        content: message.content,
+      };
+    });
+
+    messages = limitOpenAIMessagesToTokenCount(messages, tools, maxTokensForOpenAIModel(model));
+
+    return new Promise((resolve, reject) => {
+      const stream = this.openai.beta.chat.completions.stream({
+        model: model,
+        stream: true,
+        messages: messages as any,
+        ...(tools.length > 0 && { tools }),
       });
       stream.on("error", (error) => {
         reject(error); // Reject the promise with the error

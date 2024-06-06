@@ -35,22 +35,40 @@ import {
 import { IterableReadableStream } from "@langchain/core/utils/stream";
 import { CopilotKitServiceAdapter } from "../types";
 import { writeChatCompletionChunk, writeChatCompletionEnd } from "../utils";
-import { CopilotKitResponse } from "../types/service-adapter";
+import {
+  CopilotKitResponse,
+  CopilotKitServiceAdapterRequest,
+  CopilotKitServiceAdapterResponse,
+} from "../types/service-adapter";
 import { SingleChunkReadableStream } from "../utils";
+import { MessageInput } from "../graphql/inputs/message.input";
 
 export type LangChainMessageStream = IterableReadableStream<BaseMessageChunk>;
 export type LangChainReturnType = LangChainMessageStream | BaseMessageChunk | string | AIMessage;
+
+interface ChainFnParameters extends Omit<CopilotKitServiceAdapterRequest, "messages"> {
+  messages: BaseMessage[];
+}
+
+interface LangChainAdapterOptions {
+  chainFn: (parameters: ChainFnParameters) => Promise<LangChainReturnType>;
+}
 
 export class LangChainAdapter implements CopilotKitServiceAdapter {
   /**
    * To use LangChain as a backend, provide a handler function to the adapter with your custom LangChain logic.
    */
-  constructor(private chainFn: (forwardedProps: any) => Promise<LangChainReturnType>) {}
+  constructor(private options: LangChainAdapterOptions) {}
 
-  async getResponse(forwardedProps: any): Promise<CopilotKitResponse> {
-    forwardedProps = this.transformProps(forwardedProps);
+  async process(
+    request: CopilotKitServiceAdapterRequest,
+  ): Promise<CopilotKitServiceAdapterResponse> {
+    const messages = this.transformMessages(request.messages);
 
-    const result = await this.chainFn(forwardedProps);
+    const result = await this.options.chainFn({
+      ...request,
+      messages,
+    });
 
     // We support several types of return values from LangChain functions:
 
@@ -102,49 +120,50 @@ export class LangChainAdapter implements CopilotKitServiceAdapter {
    * @param forwardedProps
    * @returns {any}
    */
-  private transformProps(forwardedProps: any) {
-    const forwardedPropsCopy = Object.assign({}, forwardedProps);
-
+  private transformMessages(messages: MessageInput[]) {
     // map messages to langchain format
-    if (forwardedProps.messages && Array.isArray(forwardedProps.messages)) {
-      const newMessages: BaseMessage[] = [];
 
-      for (const message of forwardedProps.messages) {
-        if (message.role === "user") {
-          newMessages.push(new HumanMessage(message.content));
-        } else if (message.role === "assistant") {
-          if (message.function_call) {
-            newMessages.push(
-              new AIMessage({
-                content: "",
-                tool_calls: [
-                  {
-                    id: message.function_call.name + "-" + forwardedProps.messages.indexOf(message),
-                    args: JSON.parse(message.function_call.arguments),
-                    name: message.function_call.name,
-                  },
-                ],
-              }),
-            );
-          } else {
-            newMessages.push(new AIMessage(message.content));
-          }
-        } else if (message.role === "system") {
-          newMessages.push(new SystemMessage(message.content));
-        } else if (message.role == "function") {
-          // An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'
-          newMessages.push(
-            new ToolMessage({
-              content: message.content,
-              tool_call_id: message.name + "-" + (forwardedProps.messages.indexOf(message) - 1),
-            }),
-          );
-        }
+    const newMessages: BaseMessage[] = [];
+
+    for (const message of messages) {
+      if (message.role === "user") {
+        newMessages.push(new HumanMessage(message.content));
+      } else if (message.role === "assistant") {
+        // TODO-PROTOCOL: implement function calls
+        //
+        // if (message.function_call) {
+        //   newMessages.push(
+        //     new AIMessage({
+        //       content: "",
+        //       tool_calls: [
+        //         {
+        //           id: message.function_call.name + "-" + forwardedProps.messages.indexOf(message),
+        //           args: JSON.parse(message.function_call.arguments),
+        //           name: message.function_call.name,
+        //         },
+        //       ],
+        //     }),
+        //   );
+        // } else {
+        newMessages.push(new AIMessage(message.content));
+        // }
+      } else if (message.role === "system") {
+        newMessages.push(new SystemMessage(message.content));
       }
-      forwardedPropsCopy.messages = newMessages;
+      // TODO-PROTOCOL: implement function calls
+      //
+      // else if (message.role == "function") {
+      //   // An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'
+      //   newMessages.push(
+      //     new ToolMessage({
+      //       content: message.content,
+      //       tool_call_id: message.name + "-" + (forwardedProps.messages.indexOf(message) - 1),
+      //     }),
+      //   );
+      // }
     }
 
-    return forwardedPropsCopy;
+    return newMessages;
   }
 
   /**

@@ -35,8 +35,10 @@ export class GeneratedResponseResolver {
           isStream: true,
           role: MessageRole.assistant,
           content: await (async () => {
-            const { stream, headers } = await copilotRuntime.gqlResponse(openaiAdapter, {
+            const { stream, threadId, runId } = await copilotRuntime.gqlResponse(openaiAdapter, {
               messages: data.messages,
+              threadId: data.threadId,
+              runId: data.runId,
             });
 
             return new Repeater(async (pushTextChunk, stopStreamingText) => {

@@ -16,7 +16,12 @@
  * </RequestExample>
  */
 import OpenAI from "openai";
-import { CopilotKitServiceAdapter, CopilotKitResponse } from "../types/service-adapter";
+import {
+  CopilotKitServiceAdapter,
+  CopilotKitResponse,
+  CopilotKitServiceAdapterRequest,
+  CopilotKitServiceAdapterResponse,
+} from "../types/service-adapter";
 import { writeChatCompletionChunk, writeChatCompletionEnd } from "../utils/openai";
 import { ChatCompletionChunk, Message } from "@copilotkit/shared";
 
@@ -147,37 +152,30 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
     return await this.waitForRun(run);
   }
 
-  async getResponse(forwardedProps: any): Promise<CopilotKitResponse> {
-    // copy forwardedProps to avoid modifying the original object
-    forwardedProps = { ...forwardedProps };
-
-    const forwardMessages = forwardedProps.messages || [];
-
-    // Remove tools if there are none to avoid OpenAI API errors
-    // when sending an empty array of tools
-    if (forwardedProps.tools && forwardedProps.tools.length === 0) {
-      delete forwardedProps.tools;
-    }
-
+  async process(
+    request: CopilotKitServiceAdapterRequest,
+  ): Promise<CopilotKitServiceAdapterResponse> {
     // get the thread from forwardedProps or create a new one
-    const threadId: string =
-      forwardedProps.threadId || (await this.openai.beta.threads.create()).id;
+    const threadId: string = request.threadId || (await this.openai.beta.threads.create()).id;
 
     let run: OpenAI.Beta.Threads.Runs.Run | null = null;
 
-    // submit function outputs
+    // TODO-PROTOCOL: support function calls
+    // // submit function outputs
+    // if (
+    //   request.messages.length > 0 &&
+    //   request.messages[request.messages.length - 1].role === "function"
+    // ) {
+    //   run = await this.submitToolOutputs(threadId, request.runId, request.messages);
+    // }
+    // // submit user message
+    // else
     if (
-      forwardMessages.length > 0 &&
-      forwardMessages[forwardMessages.length - 1].role === "function"
+      (request.messages.length > 0 &&
+        request.messages[request.messages.length - 1].role === "user") ||
+      request.messages[request.messages.length - 1].role === "system"
     ) {
-      run = await this.submitToolOutputs(threadId, forwardedProps.runId, forwardMessages);
-    }
-    // submit user message
-    else if (
-      (forwardMessages.length > 0 && forwardMessages[forwardMessages.length - 1].role === "user") ||
-      forwardMessages[forwardMessages.length - 1].role === "system"
-    ) {
-      run = await this.submitUserMessage(threadId, forwardedProps);
+      run = await this.submitUserMessage(threadId, request);
     }
     // unsupported message
     else {
@@ -192,7 +190,8 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
           "",
           run.required_action!.submit_tool_outputs.tool_calls,
         ),
-        headers: { threadId, runId: run.id },
+        threadId,
+        runId: run.id,
       };
     } else {
       // return the last message
@@ -206,7 +205,7 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
 
       return {
         stream: new AssistantSingleChunkReadableStream(contentString),
-        headers: { threadId },
+        threadId,
       };
     }
   }

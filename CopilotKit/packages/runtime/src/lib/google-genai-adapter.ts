@@ -30,10 +30,14 @@
  * ```
  */
 import { CopilotKitServiceAdapter } from "../types";
-import { CopilotKitResponse } from "../types/service-adapter";
+import {
+  CopilotKitServiceAdapterRequest,
+  CopilotKitServiceAdapterResponse,
+} from "../types/service-adapter";
 import { Content, GenerativeModel, GoogleGenerativeAI, Tool } from "@google/generative-ai";
 import { writeChatCompletionChunk, writeChatCompletionEnd } from "../utils";
 import { ChatCompletionChunk, Message } from "@copilotkit/shared";
+import { MessageInput } from "../graphql/inputs/message.input";
 
 interface GoogleGenerativeAIAdapterOptions {
   /**
@@ -54,8 +58,11 @@ export class GoogleGenerativeAIAdapter implements CopilotKitServiceAdapter {
     }
   }
 
-  async getResponse(forwardedProps: any): Promise<CopilotKitResponse> {
-    const messages = forwardedProps.messages;
+  async process(
+    request: CopilotKitServiceAdapterRequest,
+  ): Promise<CopilotKitServiceAdapterResponse> {
+    const messages = request.messages;
+    const tools = request.tools || [];
 
     const history = this.transformMessages(messages.slice(0, -1));
     const currentMessage = messages[messages.length - 1];
@@ -74,7 +81,7 @@ export class GoogleGenerativeAIAdapter implements CopilotKitServiceAdapter {
       ...(isFirstGenGeminiPro
         ? {}
         : { systemInstruction: { role: "user", parts: [{ text: systemMessage }] } }),
-      tools: this.transformTools(forwardedProps.tools || []),
+      tools: this.transformTools(tools || []),
     });
 
     const result = await chat.sendMessageStream(this.transformMessage(currentMessage).parts);
@@ -129,59 +136,64 @@ export class GoogleGenerativeAIAdapter implements CopilotKitServiceAdapter {
     };
   }
 
-  transformMessages(messages: Message[]): Content[] {
+  transformMessages(messages: MessageInput[]): Content[] {
     return messages
       .filter(
         (m) =>
           m.role === "user" ||
           m.role === "assistant" ||
-          m.role === "function" ||
+          // TODO-PROTOCOL: implement function calls
+          // m.role === "function" ||
           m.role === "system",
       )
       .map(this.transformMessage);
   }
 
-  transformMessage(message: Message): Content {
+  transformMessage(message: MessageInput): Content {
     if (message.role === "user") {
       return {
         role: "user",
         parts: [{ text: message.content }],
       };
     } else if (message.role === "assistant") {
-      if (message.function_call) {
-        return {
-          role: "model",
-          parts: [
-            {
-              functionCall: {
-                name: message.function_call.name!,
-                args: JSON.parse(message.function_call!.arguments!),
-              },
-            },
-          ],
-        };
-      } else {
-        return {
-          role: "model",
-          parts: [{ text: message.content.replace("\\\\n", "\n") }],
-        };
-      }
-    } else if (message.role === "function") {
+      // TODO-PROTOCOL: implement function calls
+      // if (message.function_call) {
+      //   return {
+      //     role: "model",
+      //     parts: [
+      //       {
+      //         functionCall: {
+      //           name: message.function_call.name!,
+      //           args: JSON.parse(message.function_call!.arguments!),
+      //         },
+      //       },
+      //     ],
+      //   };
+      // } else {
       return {
-        role: "function",
-        parts: [
-          {
-            functionResponse: {
-              name: message.name!,
-              response: {
-                name: message.name!,
-                content: tryParseJson(message.content),
-              },
-            },
-          },
-        ],
+        role: "model",
+        parts: [{ text: message.content.replace("\\\\n", "\n") }],
       };
-    } else if (message.role === "system") {
+      // }
+    }
+    // TODO-PROTOCOL: implement function calls
+    // else if (message.role === "function") {
+    //   return {
+    //     role: "function",
+    //     parts: [
+    //       {
+    //         functionResponse: {
+    //           name: message.name!,
+    //           response: {
+    //             name: message.name!,
+    //             content: tryParseJson(message.content),
+    //           },
+    //         },
+    //       },
+    //     ],
+    //   };
+    // }
+    else if (message.role === "system") {
       return {
         role: "user",
         parts: [

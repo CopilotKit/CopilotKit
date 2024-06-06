@@ -272,22 +272,32 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     }
   }
 
-  async gqlResponse(serviceAdapter: CopilotKitServiceAdapter, {
-    messages
-  }: {
-    messages: MessageInput[]
-  }) {
+  async gqlResponse(
+    serviceAdapter: CopilotKitServiceAdapter,
+    {
+      messages,
+      threadId,
+      runId,
+    }: {
+      messages: MessageInput[];
+      threadId?: string;
+      runId?: string;
+    },
+  ) {
     const publicApiKey = undefined;
 
     try {
       // TODO: forwardedProps / customProperties
-      const response = await this.getResponse({
-        messages
-      }, serviceAdapter, publicApiKey);
-      return {
-        stream: response.stream,
-        headers: response.headers,
-      };
+      const response = await this.getResponse(
+        {
+          messages,
+          threadId,
+          runId,
+        },
+        serviceAdapter,
+        publicApiKey,
+      );
+      return response;
     } catch (error) {
       console.error("Error getting response:", error);
       throw error;
