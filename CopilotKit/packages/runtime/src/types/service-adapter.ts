@@ -5,7 +5,7 @@ export interface CopilotKitResponse {
   headers?: Record<string, string>;
 }
 
-export interface CopilotKitServiceAdapterRequest {
+export interface CopilotRuntimeChatCompletionRequest {
   model?: string;
 
   // TODO-PROTOCOL: replace any with a more specific type once we have it in graphql
@@ -14,7 +14,7 @@ export interface CopilotKitServiceAdapterRequest {
   threadId?: string;
 }
 
-export interface CopilotKitServiceAdapterResponse {
+export interface CopilotRuntimeChatCompletionResponse {
   stream: ReadableStream;
   threadId?: string;
   runId?: string;
@@ -22,5 +22,7 @@ export interface CopilotKitServiceAdapterResponse {
 
 export interface CopilotKitServiceAdapter {
   // getResponse(forwardedProps: any): Promise<CopilotKitResponse>;
-  process(request: CopilotKitServiceAdapterRequest): Promise<CopilotKitServiceAdapterResponse>;
+  process(
+    request: CopilotRuntimeChatCompletionRequest,
+  ): Promise<CopilotRuntimeChatCompletionResponse>;
 }

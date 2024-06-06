@@ -15,6 +15,8 @@ export const generateResponseMutation = graphql(/** GraphQL **/ `
         content @stream
         isStream
       }
+      threadId
+      runId
     }
   }
 `);

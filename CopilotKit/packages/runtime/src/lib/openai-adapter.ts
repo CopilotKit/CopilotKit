@@ -36,8 +36,8 @@ import OpenAI from "openai";
 import {
   CopilotKitResponse,
   CopilotKitServiceAdapter,
-  CopilotKitServiceAdapterRequest,
-  CopilotKitServiceAdapterResponse,
+  CopilotRuntimeChatCompletionRequest,
+  CopilotRuntimeChatCompletionResponse,
 } from "../types/service-adapter";
 import { limitOpenAIMessagesToTokenCount, maxTokensForOpenAIModel } from "../utils/openai";
 
@@ -110,7 +110,9 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
     });
   }
 
-  process(request: CopilotKitServiceAdapterRequest): Promise<CopilotKitServiceAdapterResponse> {
+  process(
+    request: CopilotRuntimeChatCompletionRequest,
+  ): Promise<CopilotRuntimeChatCompletionResponse> {
     const model = request.model || this.model;
     const tools = request.tools || [];
 

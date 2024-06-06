@@ -37,8 +37,8 @@ import { CopilotKitServiceAdapter } from "../types";
 import { writeChatCompletionChunk, writeChatCompletionEnd } from "../utils";
 import {
   CopilotKitResponse,
-  CopilotKitServiceAdapterRequest,
-  CopilotKitServiceAdapterResponse,
+  CopilotRuntimeChatCompletionRequest,
+  CopilotRuntimeChatCompletionResponse,
 } from "../types/service-adapter";
 import { SingleChunkReadableStream } from "../utils";
 import { MessageInput } from "../graphql/inputs/message.input";
@@ -46,7 +46,7 @@ import { MessageInput } from "../graphql/inputs/message.input";
 export type LangChainMessageStream = IterableReadableStream<BaseMessageChunk>;
 export type LangChainReturnType = LangChainMessageStream | BaseMessageChunk | string | AIMessage;
 
-interface ChainFnParameters extends Omit<CopilotKitServiceAdapterRequest, "messages"> {
+interface ChainFnParameters extends Omit<CopilotRuntimeChatCompletionRequest, "messages"> {
   messages: BaseMessage[];
 }
 
@@ -61,8 +61,8 @@ export class LangChainAdapter implements CopilotKitServiceAdapter {
   constructor(private options: LangChainAdapterOptions) {}
 
   async process(
-    request: CopilotKitServiceAdapterRequest,
-  ): Promise<CopilotKitServiceAdapterResponse> {
+    request: CopilotRuntimeChatCompletionRequest,
+  ): Promise<CopilotRuntimeChatCompletionResponse> {
     const messages = this.transformMessages(request.messages);
 
     const result = await this.options.chainFn({

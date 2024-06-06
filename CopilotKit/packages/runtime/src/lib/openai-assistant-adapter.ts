@@ -19,8 +19,8 @@ import OpenAI from "openai";
 import {
   CopilotKitServiceAdapter,
   CopilotKitResponse,
-  CopilotKitServiceAdapterRequest,
-  CopilotKitServiceAdapterResponse,
+  CopilotRuntimeChatCompletionRequest,
+  CopilotRuntimeChatCompletionResponse,
 } from "../types/service-adapter";
 import { writeChatCompletionChunk, writeChatCompletionEnd } from "../utils/openai";
 import { ChatCompletionChunk, Message } from "@copilotkit/shared";
@@ -153,8 +153,8 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
   }
 
   async process(
-    request: CopilotKitServiceAdapterRequest,
-  ): Promise<CopilotKitServiceAdapterResponse> {
+    request: CopilotRuntimeChatCompletionRequest,
+  ): Promise<CopilotRuntimeChatCompletionResponse> {
     // get the thread from forwardedProps or create a new one
     const threadId: string = request.threadId || (await this.openai.beta.threads.create()).id;
 

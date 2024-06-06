@@ -139,21 +139,13 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
 
     setMessages([...messages, ...newMessages]);
 
-    // TODO-PROTOCOL deal with threadId and runId
-    // add threadId and runId to the body if it exists
-    // const copilotConfigBody = options.copilotConfig.body || {};
-    // if (threadIdRef.current) {
-    //   copilotConfigBody.threadId = threadIdRef.current;
-    // }
-    // if (runIdRef.current) {
-    //   copilotConfigBody.runId = runIdRef.current;
-    // }
-
     const systemMessage = makeSystemMessageCallback();
 
     const messagesWithContext = [systemMessage, ...(options.initialMessages || []), ...messages];
 
     const response = runtimeClient.generateResponse({
+      threadId: threadIdRef.current,
+      runId: runIdRef.current,
       messages: messagesWithContext.map((message) => {
         let role: MessageRole;
         switch (message.role) {
@@ -186,18 +178,6 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
     //   signal: abortController.signal,
     // });
 
-    // TODO-PROTOCOL include threadId
-    //
-    // if (response.headers.get("threadid")) {
-    //   threadIdRef.current = response.headers.get("threadid");
-    // }
-
-    // TODO-PROTOCOL include runId
-    //
-    // if (response.headers.get("runid")) {
-    //   runIdRef.current = response.headers.get("runid");
-    // }
-
     // TODO-PROTOCOL handle errors
     // if (!response.events) {
     //   setMessages([
@@ -225,6 +205,9 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
         if (done) {
           break;
         }
+
+        threadIdRef.current = value.generateResponse.threadId;
+        runIdRef.current = value.generateResponse.runId;
 
         newMessages = [];
         for (const message of value.generateResponse.messages) {

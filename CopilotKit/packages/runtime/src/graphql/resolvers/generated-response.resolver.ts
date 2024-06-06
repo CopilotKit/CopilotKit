@@ -8,6 +8,7 @@ import { GenerationInterruption } from "../types/generation-interruption";
 import { CopilotRuntime, OpenAIAdapter } from "../../lib";
 import { OpenAI } from "openai";
 import { interceptStreamAndGetFinalResponse } from "../../lib/stream-utils";
+import { nanoid } from "nanoid";
 
 @Resolver(() => Response)
 export class GeneratedResponseResolver {
@@ -23,6 +24,12 @@ export class GeneratedResponseResolver {
     const openaiAdapter = new OpenAIAdapter({ openai: openai as any });
 
     const interruption = new Subject<GenerationInterruption>();
+    const { stream, threadId, runId } = await copilotRuntime.gqlResponse(openaiAdapter, {
+      messages: data.messages,
+      threadId: data.threadId,
+      runId: data.runId,
+    });
+
     const response = {
       interruption: firstValueFrom(interruption),
       messages: new Repeater(async (pushMessage, stopStreamingMessages) => {
@@ -30,17 +37,12 @@ export class GeneratedResponseResolver {
         //   pushMessage({ role: message.role, content: [message.content], isStream: false });
         // }
         pushMessage({
-          // TODO-PROTOCOL: replace with real id
-          id: Math.random().toString(16).slice(2),
+          id: nanoid(),
+          threadId,
+          runId,
           isStream: true,
           role: MessageRole.assistant,
           content: await (async () => {
-            const { stream, threadId, runId } = await copilotRuntime.gqlResponse(openaiAdapter, {
-              messages: data.messages,
-              threadId: data.threadId,
-              runId: data.runId,
-            });
-
             return new Repeater(async (pushTextChunk, stopStreamingText) => {
               console.log("repeater start");
               await interceptStreamAndGetFinalResponse(stream, (chunk: string) => {

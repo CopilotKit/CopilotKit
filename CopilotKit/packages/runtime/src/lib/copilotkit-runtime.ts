@@ -117,6 +117,7 @@ import {
 import { RemoteChain, CopilotKitServiceAdapter } from "../types";
 import { CopilotCloud, RemoteCopilotCloud } from "./copilot-cloud";
 import { MessageInput } from "../graphql/inputs/message.input";
+import { CopilotRuntimeChatCompletionResponse } from "../types/service-adapter";
 
 interface CopilotRuntimeResult {
   stream: ReadableStream;
@@ -213,7 +214,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     forwardedProps: any,
     serviceAdapter: CopilotKitServiceAdapter,
     publicApiKey?: string,
-  ): Promise<CopilotRuntimeResult> {
+  ): Promise<CopilotRuntimeChatCompletionResponse> {
     this.removeBackendOnlyProps(forwardedProps);
 
     // In case Copilot Cloud is configured remove it from the forwardedProps
@@ -238,7 +239,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     ]);
 
     try {
-      const result = await serviceAdapter.getResponse({
+      // TODO-PROTOCOL: type this and support function calls
+      const result = await serviceAdapter.process({
         ...forwardedProps,
         tools: mergedTools,
       });
@@ -257,7 +259,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
             // we let the client know...
             return {
               stream: new SingleChunkReadableStream(checkGuardrailsInputResult.reason),
-              headers: result.headers,
+              // headers: result.headers,
             };
           }
         } catch (error) {
@@ -265,7 +267,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         }
       }
       const stream = copilotkitStreamInterceptor(result.stream, serversideTools, this.debug);
-      return { stream, headers: result.headers };
+      return { ...result, stream };
     } catch (error) {
       console.error("Error getting response:", error);
       throw error;
@@ -315,7 +317,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     try {
       const forwardedProps = await req.json();
       const response = await this.getResponse(forwardedProps, serviceAdapter, publicApiKey);
-      return new Response(response.stream, { headers: response.headers });
+      return new Response(response.stream);
     } catch (error: any) {
       return new Response(error, { status: error.status });
     }
@@ -359,7 +361,7 @@ or Node.js HTTP server.
         : // use headers in node http
           req.headers[COPILOT_CLOUD_PUBLIC_API_KEY_HEADER.toLowerCase()]) || undefined;
     const response = await this.getResponse(forwardedProps, serviceAdapter, publicApiKey);
-    const mergedHeaders = { ...headers, ...response.headers };
+    const mergedHeaders = { ...headers };
     res.writeHead(200, mergedHeaders);
     const stream = response.stream;
     const reader = stream.getReader();

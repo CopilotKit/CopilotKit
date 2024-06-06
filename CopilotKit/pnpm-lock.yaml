@@ -504,6 +504,9 @@ importers:
       langchain:
         specifier: ^0.1.36
         version: 0.1.36
+      nanoid:
+        specifier: ^4.0.2
+        version: 4.0.2
       openai:
         specifier: ^4.33.1
         version: 4.33.1

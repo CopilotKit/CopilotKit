@@ -31,8 +31,8 @@
  */
 import { CopilotKitServiceAdapter } from "../types";
 import {
-  CopilotKitServiceAdapterRequest,
-  CopilotKitServiceAdapterResponse,
+  CopilotRuntimeChatCompletionRequest,
+  CopilotRuntimeChatCompletionResponse,
 } from "../types/service-adapter";
 import { Content, GenerativeModel, GoogleGenerativeAI, Tool } from "@google/generative-ai";
 import { writeChatCompletionChunk, writeChatCompletionEnd } from "../utils";
@@ -59,8 +59,8 @@ export class GoogleGenerativeAIAdapter implements CopilotKitServiceAdapter {
   }
 
   async process(
-    request: CopilotKitServiceAdapterRequest,
-  ): Promise<CopilotKitServiceAdapterResponse> {
+    request: CopilotRuntimeChatCompletionRequest,
+  ): Promise<CopilotRuntimeChatCompletionResponse> {
     const messages = request.messages;
     const tools = request.tools || [];
 
