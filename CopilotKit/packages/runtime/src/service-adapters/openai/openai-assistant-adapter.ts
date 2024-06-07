@@ -17,12 +17,11 @@
  */
 import OpenAI from "openai";
 import {
-  CopilotKitServiceAdapter,
-  CopilotKitResponse,
+  CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
-} from "../types/service-adapter";
-import { writeChatCompletionChunk, writeChatCompletionEnd } from "../utils/openai";
+} from "../service-adapter";
+import { writeChatCompletionChunk, writeChatCompletionEnd } from "../../utils/openai";
 import { ChatCompletionChunk, Message } from "@copilotkit/shared";
 
 const RUN_STATUS_POLL_INTERVAL = 100;
@@ -49,7 +48,7 @@ export interface OpenAIAssistantAdapterParams {
   retrievalEnabled?: boolean;
 }
 
-export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
+export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
   private openai: OpenAI;
   private codeInterpreterEnabled: boolean;
   private assistantId: string;
@@ -161,16 +160,16 @@ export class OpenAIAssistantAdapter implements CopilotKitServiceAdapter {
     let run: OpenAI.Beta.Threads.Runs.Run | null = null;
 
     // TODO-PROTOCOL: support function calls
-    // // submit function outputs
-    // if (
-    //   request.messages.length > 0 &&
-    //   request.messages[request.messages.length - 1].role === "function"
-    // ) {
-    //   run = await this.submitToolOutputs(threadId, request.runId, request.messages);
-    // }
-    // // submit user message
-    // else
+    // submit function outputs
     if (
+      request.messages.length > 0 &&
+      request.messages[request.messages.length - 1].role === "function"
+    ) {
+      // @ts-ignore
+      run = await this.submitToolOutputs(threadId, request.runId, request.messages);
+    }
+    // submit user message
+    else if (
       (request.messages.length > 0 &&
         request.messages[request.messages.length - 1].role === "user") ||
       request.messages[request.messages.length - 1].role === "system"

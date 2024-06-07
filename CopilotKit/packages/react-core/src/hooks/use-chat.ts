@@ -206,8 +206,8 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
           break;
         }
 
-        threadIdRef.current = value.generateResponse.threadId;
-        runIdRef.current = value.generateResponse.runId;
+        threadIdRef.current = value.generateResponse.threadId || null;
+        runIdRef.current = value.generateResponse.runId || null;
 
         newMessages = [];
         for (const message of value.generateResponse.messages) {

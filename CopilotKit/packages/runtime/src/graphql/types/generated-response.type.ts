@@ -5,6 +5,7 @@ export enum MessageRole {
   user = "user",
   assistant = "assistant",
   system = "system",
+  function = "function",
 }
 
 registerEnumType(MessageRole, {

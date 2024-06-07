@@ -29,15 +29,15 @@
  * );
  * ```
  */
-import { CopilotKitServiceAdapter } from "../types";
+import { CopilotServiceAdapter } from "../service-adapter";
 import {
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
-} from "../types/service-adapter";
+} from "../service-adapter";
 import { Content, GenerativeModel, GoogleGenerativeAI, Tool } from "@google/generative-ai";
-import { writeChatCompletionChunk, writeChatCompletionEnd } from "../utils";
-import { ChatCompletionChunk, Message } from "@copilotkit/shared";
-import { MessageInput } from "../graphql/inputs/message.input";
+import { writeChatCompletionChunk, writeChatCompletionEnd } from "../../utils";
+import { ChatCompletionChunk } from "@copilotkit/shared";
+import { MessageInput } from "../../graphql/inputs/message.input";
 
 interface GoogleGenerativeAIAdapterOptions {
   /**
@@ -46,7 +46,7 @@ interface GoogleGenerativeAIAdapterOptions {
   model?: GenerativeModel;
 }
 
-export class GoogleGenerativeAIAdapter implements CopilotKitServiceAdapter {
+export class GoogleGenerativeAIAdapter implements CopilotServiceAdapter {
   private model: GenerativeModel;
 
   constructor(options?: GoogleGenerativeAIAdapterOptions) {
@@ -157,43 +157,47 @@ export class GoogleGenerativeAIAdapter implements CopilotKitServiceAdapter {
       };
     } else if (message.role === "assistant") {
       // TODO-PROTOCOL: implement function calls
-      // if (message.function_call) {
-      //   return {
-      //     role: "model",
-      //     parts: [
-      //       {
-      //         functionCall: {
-      //           name: message.function_call.name!,
-      //           args: JSON.parse(message.function_call!.arguments!),
-      //         },
-      //       },
-      //     ],
-      //   };
-      // } else {
-      return {
-        role: "model",
-        parts: [{ text: message.content.replace("\\\\n", "\n") }],
-      };
-      // }
+      // @ts-ignore
+      if (message.function_call) {
+        return {
+          role: "model",
+          parts: [
+            {
+              functionCall: {
+                // @ts-ignore
+                name: message.function_call.name!,
+                // @ts-ignore
+                args: JSON.parse(message.function_call!.arguments!),
+              },
+            },
+          ],
+        };
+      } else {
+        return {
+          role: "model",
+          parts: [{ text: message.content.replace("\\\\n", "\n") }],
+        };
+      }
     }
     // TODO-PROTOCOL: implement function calls
-    // else if (message.role === "function") {
-    //   return {
-    //     role: "function",
-    //     parts: [
-    //       {
-    //         functionResponse: {
-    //           name: message.name!,
-    //           response: {
-    //             name: message.name!,
-    //             content: tryParseJson(message.content),
-    //           },
-    //         },
-    //       },
-    //     ],
-    //   };
-    // }
-    else if (message.role === "system") {
+    else if (message.role === "function") {
+      return {
+        role: "function",
+        parts: [
+          {
+            functionResponse: {
+              // @ts-ignore
+              name: message.name!,
+              response: {
+                // @ts-ignore
+                name: message.name!,
+                content: tryParseJson(message.content),
+              },
+            },
+          },
+        ],
+      };
+    } else if (message.role === "system") {
       return {
         role: "user",
         parts: [

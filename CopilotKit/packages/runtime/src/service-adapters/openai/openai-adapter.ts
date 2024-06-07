@@ -33,8 +33,13 @@
  *
  */
 import OpenAI from "openai";
-import { CopilotKitResponse, CopilotKitServiceAdapter } from "../types/service-adapter";
-import { limitOpenAIMessagesToTokenCount, maxTokensForOpenAIModel } from "../utils/openai";
+import {
+  CopilotKitResponse,
+  CopilotServiceAdapter,
+  CopilotRuntimeChatCompletionRequest,
+  CopilotRuntimeChatCompletionResponse,
+} from "../service-adapter";
+import { limitOpenAIMessagesToTokenCount, maxTokensForOpenAIModel } from "../../utils/openai";
 
 const DEFAULT_MODEL = "gpt-4o";
 
@@ -50,7 +55,7 @@ export interface OpenAIAdapterParams {
   model?: string;
 }
 
-export class OpenAIAdapter implements CopilotKitServiceAdapter {
+export class OpenAIAdapter implements CopilotServiceAdapter {
   private model: string = DEFAULT_MODEL;
 
   private _openai: OpenAI;
@@ -65,36 +70,27 @@ export class OpenAIAdapter implements CopilotKitServiceAdapter {
     }
   }
 
-  async getResponse(forwardedProps: any): Promise<CopilotKitResponse> {
-    // copy forwardedProps to avoid modifying the original object
-    forwardedProps = { ...forwardedProps };
+  process(
+    request: CopilotRuntimeChatCompletionRequest,
+  ): Promise<CopilotRuntimeChatCompletionResponse> {
+    const model = request.model || this.model;
+    const tools = request.tools || [];
 
-    // Remove tools if there are none to avoid OpenAI API errors
-    // when sending an empty array of tools
-    if (forwardedProps.tools && forwardedProps.tools.length === 0) {
-      delete forwardedProps.tools;
-    }
+    let messages: any[] = request.messages.map((message) => {
+      return {
+        role: message.role,
+        content: message.content,
+      };
+    });
 
-    const messages = limitOpenAIMessagesToTokenCount(
-      forwardedProps.messages || [],
-      forwardedProps.tools || [],
-      maxTokensForOpenAIModel(forwardedProps.model || this.model),
-    );
+    messages = limitOpenAIMessagesToTokenCount(messages, tools, maxTokensForOpenAIModel(model));
 
     return new Promise((resolve, reject) => {
-      // remove message.function_call.scope if it's present.
-      // scope is a field we inject as a temporary workaround (see elsewhere), which openai doesn't understand
-      messages.forEach((message) => {
-        if (message.function_call?.scope) {
-          delete message.function_call.scope;
-        }
-      });
-
       const stream = this.openai.beta.chat.completions.stream({
-        model: this.model,
-        ...forwardedProps,
+        model: model,
         stream: true,
         messages: messages as any,
+        ...(tools.length > 0 && { tools }),
       });
       stream.on("error", (error) => {
         reject(error); // Reject the promise with the error

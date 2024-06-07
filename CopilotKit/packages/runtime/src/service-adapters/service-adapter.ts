@@ -20,8 +20,7 @@ export interface CopilotRuntimeChatCompletionResponse {
   runId?: string;
 }
 
-export interface CopilotKitServiceAdapter {
-  // getResponse(forwardedProps: any): Promise<CopilotKitResponse>;
+export interface CopilotServiceAdapter {
   process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse>;

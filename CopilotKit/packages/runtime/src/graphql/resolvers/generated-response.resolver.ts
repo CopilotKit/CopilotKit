@@ -24,13 +24,21 @@ export class GeneratedResponseResolver {
     const openaiAdapter = new OpenAIAdapter({ openai: openai as any });
 
     const interruption = new Subject<GenerationInterruption>();
-    const { stream, threadId, runId } = await copilotRuntime.gqlResponse(openaiAdapter, {
+    const {
+      stream,
+      threadId: serviceThreadId,
+      runId,
+    } = await copilotRuntime.gqlResponse(openaiAdapter, {
       messages: data.messages,
       threadId: data.threadId,
       runId: data.runId,
     });
 
+    const threadId = serviceThreadId || nanoid();
+
     const response = {
+      threadId,
+      runId,
       interruption: firstValueFrom(interruption),
       messages: new Repeater(async (pushMessage, stopStreamingMessages) => {
         // for (const message of data.messages) {
@@ -38,8 +46,6 @@ export class GeneratedResponseResolver {
         // }
         pushMessage({
           id: nanoid(),
-          threadId,
-          runId,
           isStream: true,
           role: MessageRole.assistant,
           content: await (async () => {

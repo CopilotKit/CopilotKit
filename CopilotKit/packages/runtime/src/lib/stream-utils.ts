@@ -18,7 +18,7 @@ export function interceptStreamAndGetFinalResponse(
       for await (const chunk of stream) {
         const str = decoder.decode(chunk);
         const json = await parseResponseString(str);
-        
+
         // Stream over
         if (json.length === 0) {
           break;

@@ -109,15 +109,11 @@ import {
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   CopilotCloudConfig,
 } from "@copilotkit/shared";
-import {
-  SingleChunkReadableStream,
-  copilotkitStreamInterceptor,
-  remoteChainToAction,
-} from "../utils";
-import { RemoteChain, CopilotKitServiceAdapter } from "../types";
+import { SingleChunkReadableStream, copilotkitStreamInterceptor } from "../utils";
+import { RemoteChain, RemoteChainImplementation, CopilotServiceAdapter } from "../service-adapters";
 import { CopilotCloud, RemoteCopilotCloud } from "./copilot-cloud";
 import { MessageInput } from "../graphql/inputs/message.input";
-import { CopilotRuntimeChatCompletionResponse } from "../types/service-adapter";
+import { CopilotRuntimeChatCompletionResponse } from "../service-adapters/service-adapter";
 
 interface CopilotRuntimeResult {
   stream: ReadableStream;
@@ -166,7 +162,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       }
     }
     for (const chain of params?.langserve || []) {
-      this.langserve.push(remoteChainToAction(chain));
+      const remoteChain = new RemoteChainImplementation(chain);
+      this.langserve.push(remoteChain.toAction());
     }
     this.debug = params?.debug || false;
     this.copilotCloud = params?.copilotCloud || new RemoteCopilotCloud();
@@ -212,7 +209,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
   private async getResponse(
     forwardedProps: any,
-    serviceAdapter: CopilotKitServiceAdapter,
+    serviceAdapter: CopilotServiceAdapter,
     publicApiKey?: string,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
     this.removeBackendOnlyProps(forwardedProps);
@@ -275,7 +272,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   }
 
   async gqlResponse(
-    serviceAdapter: CopilotKitServiceAdapter,
+    serviceAdapter: CopilotServiceAdapter,
     {
       messages,
       threadId,
@@ -312,7 +309,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
    * @param req The HTTP request
    * @param serviceAdapter The adapter to use for the response.
    */
-  async response(req: Request, serviceAdapter: CopilotKitServiceAdapter): Promise<Response> {
+  async response(req: Request, serviceAdapter: CopilotServiceAdapter): Promise<Response> {
     const publicApiKey = req.headers.get(COPILOT_CLOUD_PUBLIC_API_KEY_HEADER) || undefined;
     try {
       const forwardedProps = await req.json();
@@ -335,7 +332,7 @@ or Node.js HTTP server.
   async streamHttpServerResponse(
     req: any,
     res: any,
-    serviceAdapter: CopilotKitServiceAdapter,
+    serviceAdapter: CopilotServiceAdapter,
     headers?: Record<string, string>,
   ) {
     const bodyParser = new Promise<any>((resolve, reject) => {

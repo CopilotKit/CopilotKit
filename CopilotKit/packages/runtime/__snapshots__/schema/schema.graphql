@@ -22,11 +22,15 @@ input GenerateResponseInput {
   cloud: CloudInput
   frontend: FrontendInput
   messages: [MessageInput!]!
+  runId: String
+  threadId: String
 }
 
 type GeneratedResponse {
   interruption: GenerationInterruption!
   messages: [Message!]!
+  runId: String
+  threadId: String!
 }
 
 type GenerationInterruption {
@@ -59,6 +63,7 @@ input MessageInput {
 """The role of the message"""
 enum MessageRole {
   assistant
+  function
   system
   user
 }

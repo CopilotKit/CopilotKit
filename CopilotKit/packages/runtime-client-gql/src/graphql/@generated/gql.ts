@@ -13,7 +13,7 @@ import type { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-
  * Therefore it is highly recommended to use the babel or swc plugin for production.
  */
 const documents = {
-    "\n  mutation generateResponse($data: GenerateResponseInput!) {\n    generateResponse(data: $data) {\n      ... on GeneratedResponse @defer {\n        interruption {\n          interrupted\n          reason\n        }\n      }\n      messages @stream {\n        id\n        role\n        content @stream\n        isStream\n      }\n    }\n  }\n": types.GenerateResponseDocument,
+    "\n  mutation generateResponse($data: GenerateResponseInput!) {\n    generateResponse(data: $data) {\n      ... on GeneratedResponse @defer {\n        interruption {\n          interrupted\n          reason\n        }\n      }\n      messages @stream {\n        id\n        role\n        content @stream\n        isStream\n      }\n      threadId\n      runId\n    }\n  }\n": types.GenerateResponseDocument,
 };
 
 /**
@@ -33,7 +33,7 @@ export function graphql(source: string): unknown;
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  mutation generateResponse($data: GenerateResponseInput!) {\n    generateResponse(data: $data) {\n      ... on GeneratedResponse @defer {\n        interruption {\n          interrupted\n          reason\n        }\n      }\n      messages @stream {\n        id\n        role\n        content @stream\n        isStream\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation generateResponse($data: GenerateResponseInput!) {\n    generateResponse(data: $data) {\n      ... on GeneratedResponse @defer {\n        interruption {\n          interrupted\n          reason\n        }\n      }\n      messages @stream {\n        id\n        role\n        content @stream\n        isStream\n      }\n    }\n  }\n"];
+export function graphql(source: "\n  mutation generateResponse($data: GenerateResponseInput!) {\n    generateResponse(data: $data) {\n      ... on GeneratedResponse @defer {\n        interruption {\n          interrupted\n          reason\n        }\n      }\n      messages @stream {\n        id\n        role\n        content @stream\n        isStream\n      }\n      threadId\n      runId\n    }\n  }\n"): (typeof documents)["\n  mutation generateResponse($data: GenerateResponseInput!) {\n    generateResponse(data: $data) {\n      ... on GeneratedResponse @defer {\n        interruption {\n          interrupted\n          reason\n        }\n      }\n      messages @stream {\n        id\n        role\n        content @stream\n        isStream\n      }\n      threadId\n      runId\n    }\n  }\n"];
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {};
