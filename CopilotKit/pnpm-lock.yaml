@@ -48,9 +48,6 @@ importers:
 
   examples/next-openai:
     dependencies:
-      '@copilotkit/backend':
-        specifier: workspace:*
-        version: link:../../packages/backend
       '@copilotkit/react-core':
         specifier: workspace:*
         version: link:../../packages/react-core
@@ -60,6 +57,9 @@ importers:
       '@copilotkit/react-ui':
         specifier: workspace:*
         version: link:../../packages/react-ui
+      '@copilotkit/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -142,9 +142,9 @@ importers:
 
   examples/node:
     dependencies:
-      '@copilotkit/backend':
+      '@copilotkit/runtime':
         specifier: workspace:*
-        version: link:../../packages/backend
+        version: link:../../packages/runtime
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -161,61 +161,6 @@ importers:
       tsconfig:
         specifier: workspace:*
         version: link:../../packages/tsconfig
-      typescript:
-        specifier: ^5.2.3
-        version: 5.3.3
-
-  packages/backend:
-    dependencies:
-      '@copilotkit/shared':
-        specifier: workspace:*
-        version: link:../shared
-      '@google/generative-ai':
-        specifier: ^0.11.2
-        version: 0.11.2
-      '@langchain/core':
-        specifier: ^0.1.61
-        version: 0.1.61
-      '@langchain/openai':
-        specifier: ^0.0.28
-        version: 0.0.28
-      js-tiktoken:
-        specifier: ^1.0.8
-        version: 1.0.8
-      langchain:
-        specifier: ^0.1.36
-        version: 0.1.36
-      openai:
-        specifier: ^4.33.1
-        version: 4.33.1
-      zod:
-        specifier: ^3.23.3
-        version: 3.23.5
-    devDependencies:
-      '@types/jest':
-        specifier: ^29.5.4
-        version: 29.5.4
-      '@types/node':
-        specifier: ^18.11.17
-        version: 18.17.15
-      eslint:
-        specifier: ^8.56.0
-        version: 8.56.0
-      eslint-config-custom:
-        specifier: workspace:*
-        version: link:../eslint-config-custom
-      jest:
-        specifier: ^29.6.4
-        version: 29.6.4(@types/node@18.17.15)(ts-node@10.9.2)
-      ts-jest:
-        specifier: ^29.1.1
-        version: 29.1.1(@babel/core@7.22.17)(esbuild@0.17.19)(jest@29.6.4)(typescript@5.3.3)
-      tsconfig:
-        specifier: workspace:*
-        version: link:../tsconfig
-      tsup:
-        specifier: ^6.7.0
-        version: 6.7.0(ts-node@10.9.2)(typescript@5.3.3)
       typescript:
         specifier: ^5.2.3
         version: 5.3.3

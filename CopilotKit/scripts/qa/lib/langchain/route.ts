@@ -1,4 +1,4 @@
-import { CopilotRuntime, LangChainAdapter } from "@copilotkit/backend";
+import { CopilotRuntime, LangChainAdapter } from "@copilotkit/runtime";
 
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
@@ -29,9 +29,11 @@ export async function POST(req: Request): Promise<Response> {
 
   return copilotKit.response(
     req,
-    new LangChainAdapter(async (forwardedProps) => {
-      const model = new ChatOpenAI({ modelName: "gpt-4-1106-preview" });
-      return model.stream(forwardedProps.messages, { tools: forwardedProps.tools });
+    new LangChainAdapter({
+      chainFn: async (forwardedProps) => {
+        const model = new ChatOpenAI({ modelName: "gpt-4-1106-preview" });
+        return model.stream(forwardedProps.messages, { tools: forwardedProps.tools });
+      },
     }),
   );
 }

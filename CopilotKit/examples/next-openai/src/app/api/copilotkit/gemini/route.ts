@@ -1,4 +1,4 @@
-import { CopilotRuntime, GoogleGenerativeAIAdapter } from "@copilotkit/backend";
+import { CopilotRuntime, GoogleGenerativeAIAdapter } from "@copilotkit/runtime";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export async function POST(req: Request): Promise<Response> {

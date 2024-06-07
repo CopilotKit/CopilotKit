@@ -1,4 +1,4 @@
-import { experimental_AssistantResponse } from "@copilotkit/backend";
+import { experimental_AssistantResponse } from "@copilotkit/runtime";
 import OpenAI from "openai";
 import { MessageContent } from "openai/resources/beta/threads/messages/messages";
 

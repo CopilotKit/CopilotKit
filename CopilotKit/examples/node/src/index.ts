@@ -1,5 +1,5 @@
 import http from "http";
-import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
 
 const HEADERS = {
   // make sure to modify CORS headers to match your frontend's origin

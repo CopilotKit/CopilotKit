@@ -1,6 +1,6 @@
 // Next.js API route support: https://nextjs.org/docs/api-routes/introduction
 import type { NextApiRequest, NextApiResponse } from "next";
-import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
   const copilotKit = new CopilotRuntime({});

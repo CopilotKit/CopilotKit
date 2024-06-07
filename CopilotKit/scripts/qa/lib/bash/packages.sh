@@ -25,7 +25,7 @@ get_latest_versions() {
 }
 
 get_latest_copilotkit_versions() {
-  get_latest_versions "@copilotkit/backend" "@copilotkit/react-core" "@copilotkit/react-textarea" "@copilotkit/react-ui" "@copilotkit/shared"
+  get_latest_versions "@copilotkit/runtime" "@copilotkit/react-core" "@copilotkit/react-textarea" "@copilotkit/react-ui" "@copilotkit/shared"
 }
 
 get_latest_prerelease_versions() {
@@ -59,7 +59,7 @@ get_latest_prerelease_versions() {
 }
 
 get_latest_copilotkit_prerelase_versions() {
-  get_latest_prerelease_versions $1 "@copilotkit/backend" "@copilotkit/react-core" "@copilotkit/react-textarea" "@copilotkit/react-ui" "@copilotkit/shared"
+  get_latest_prerelease_versions $1 "@copilotkit/runtime" "@copilotkit/react-core" "@copilotkit/react-textarea" "@copilotkit/react-ui" "@copilotkit/shared"
 }
 
 use_local_packages() {

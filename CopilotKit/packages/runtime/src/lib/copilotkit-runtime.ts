@@ -11,7 +11,7 @@
  *   import {
  *     CopilotRuntime,
  *     OpenAIAdapter
- *   } from "@copilotkit/backend";
+ *   } from "@copilotkit/runtime";
  *
  *   export async function POST(req: Request) {
  *     const copilotKit = new CopilotRuntime();

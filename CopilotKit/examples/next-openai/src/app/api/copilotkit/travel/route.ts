@@ -1,4 +1,4 @@
-import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
 import { research } from "./tavily";
 
 export const runtime = "edge";

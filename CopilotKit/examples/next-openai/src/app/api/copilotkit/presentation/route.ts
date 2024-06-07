@@ -1,4 +1,4 @@
-import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
 import { researchWithLangGraph } from "./research";
 import { Action } from "@copilotkit/shared";
 

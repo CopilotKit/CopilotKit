@@ -7,7 +7,7 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@copilotkit/backend": "workspace:*",
+    "@copilotkit/runtime": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "openai": "^4.33.1"
   },
