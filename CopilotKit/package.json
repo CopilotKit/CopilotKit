@@ -28,6 +28,8 @@
   },
   "packageManager": "pnpm@8.14.3",
   "dependencies": {
-    "@changesets/cli": "^2.26.2"
+    "@changesets/cli": "^2.26.2",
+    "@langchain/community": "^0.0.53",
+    "groq-sdk": "^0.4.0"
   }
 }
