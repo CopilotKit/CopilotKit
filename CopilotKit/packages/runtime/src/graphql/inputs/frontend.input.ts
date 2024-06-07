@@ -6,7 +6,6 @@ export class FrontendInput {
   @Field(() => String, { nullable: true })
   toDeprecate_fullContext?: string;
 
-  @Field(() => [ActionInput], { nullable: true })
-  actions?: ActionInput[];
+  @Field(() => [ActionInput])
+  actions: ActionInput[];
 }
-

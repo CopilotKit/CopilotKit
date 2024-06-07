@@ -110,7 +110,7 @@ import {
   CopilotCloudConfig,
 } from "@copilotkit/shared";
 import { SingleChunkReadableStream, copilotkitStreamInterceptor } from "../utils";
-import { RemoteChain, RemoteChainImplementation, CopilotServiceAdapter } from "../service-adapters";
+import { RemoteChain, CopilotServiceAdapter } from "../service-adapters";
 import { CopilotCloud, RemoteCopilotCloud } from "./copilot-cloud";
 import { MessageInput } from "../graphql/inputs/message.input";
 import { CopilotRuntimeChatCompletionResponse } from "../service-adapters/service-adapter";
@@ -162,7 +162,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       }
     }
     for (const chain of params?.langserve || []) {
-      const remoteChain = new RemoteChainImplementation(chain);
+      const remoteChain = new RemoteChain(chain);
       this.langserve.push(remoteChain.toAction());
     }
     this.debug = params?.debug || false;

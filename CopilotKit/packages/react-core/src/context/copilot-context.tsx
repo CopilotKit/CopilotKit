@@ -91,9 +91,9 @@ export type InChatRenderFunction = (props: ActionRenderProps<any>) => string | J
 
 export interface CopilotContextParams {
   // function-calling
-  entryPoints: Record<string, FrontendAction<any>>;
-  setEntryPoint: (id: string, entryPoint: FrontendAction<any>) => void;
-  removeEntryPoint: (id: string) => void;
+  actions: Record<string, FrontendAction<any>>;
+  setAction: (id: string, action: FrontendAction<any>) => void;
+  removeAction: (id: string) => void;
   chatComponentsCache: React.RefObject<Record<string, InChatRenderFunction | string>>;
   getChatCompletionFunctionDescriptions: (
     customEntryPoints?: Record<string, FrontendAction<any>>,
@@ -134,9 +134,9 @@ export interface CopilotContextParams {
 }
 
 const emptyCopilotContext: CopilotContextParams = {
-  entryPoints: {},
-  setEntryPoint: () => {},
-  removeEntryPoint: () => {},
+  actions: {},
+  setAction: () => {},
+  removeAction: () => {},
 
   chatComponentsCache: { current: {} },
   getContextString: (documents: DocumentPointer[], categories: string[]) =>

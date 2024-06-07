@@ -14,8 +14,8 @@ export class GenerateResponseInput {
   @Field(() => [MessageInput])
   messages: MessageInput[];
 
-  @Field(() => FrontendInput, { nullable: true })
-  frontend?: FrontendInput;
+  @Field(() => FrontendInput)
+  frontend: FrontendInput;
 
   @Field(() => CloudInput, { nullable: true })
   cloud?: CloudInput;

@@ -8,26 +8,17 @@ import {
   FunctionCall,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   Role,
+  Action,
+  actionParametersToJsonSchema,
 } from "@copilotkit/shared";
 
 import { nanoid } from "nanoid";
 import { fetchAndDecodeChatCompletion } from "../utils/fetch-chat-completion";
 import { CopilotApiConfig } from "../context";
 import untruncateJson from "untruncate-json";
-import { CopilotRuntimeClient, MessageRole } from "@copilotkit/runtime-client-gql";
+import { CopilotRuntimeClient, MessageInput, MessageRole } from "@copilotkit/runtime-client-gql";
 
 export type UseChatOptions = {
-  /**
-   * The API endpoint that accepts a `{ messages: Message[] }` object and returns
-   * a stream of tokens of the AI chat response. Defaults to `/api/chat`.
-   */
-  api?: string;
-  /**
-   * A unique identifier for the chat. If not provided, a random one will be
-   * generated. When provided, the `useChat` hook with the same `id` will
-   * have shared states across components.
-   */
-  id?: string;
   /**
    * System messages of the chat. Defaults to an empty array.
    */
@@ -39,49 +30,15 @@ export type UseChatOptions = {
    */
   onFunctionCall?: FunctionCallHandler;
   /**
-   * HTTP headers to be sent with the API request.
-   */
-  headers?: Record<string, string> | Headers;
-  /**
-   * Extra body object to be sent with the API request.
-   * @example
-   * Send a `sessionId` to the API along with the messages.
-   * ```js
-   * useChat({
-   *   body: {
-   *     sessionId: '123',
-   *   }
-   * })
-   * ```
-   */
-  body?: object;
-  /**
    * Function definitions to be sent to the API.
    */
-  tools?: ToolDefinition[];
-};
+  actions: Action[];
 
-export type UseChatHelpers = {
   /**
-   * Append a user message to the chat list. This triggers the API call to fetch
-   * the assistant's response.
-   * @param message The message to append
+   * The CopilotKit API configuration.
    */
-  append: (message: Message) => Promise<void>;
-  /**
-   * Reload the last AI chat response for the given chat history. If the last
-   * message isn't from the assistant, it will request the API to generate a
-   * new response.
-   */
-  reload: () => Promise<void>;
-  /**
-   * Abort the current request immediately, keep the generated tokens if any.
-   */
-  stop: () => void;
-};
-
-export type UseChatOptionsWithCopilotConfig = UseChatOptions & {
   copilotConfig: CopilotApiConfig;
+
   /**
    * The current list of messages in the chat.
    */
@@ -107,23 +64,51 @@ export type UseChatOptionsWithCopilotConfig = UseChatOptions & {
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
-export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelpers {
-  const { messages, setMessages, makeSystemMessageCallback } = options;
+export type UseChatHelpers = {
+  /**
+   * Append a user message to the chat list. This triggers the API call to fetch
+   * the assistant's response.
+   * @param message The message to append
+   */
+  append: (message: Message) => Promise<void>;
+  /**
+   * Reload the last AI chat response for the given chat history. If the last
+   * message isn't from the assistant, it will request the API to generate a
+   * new response.
+   */
+  reload: () => Promise<void>;
+  /**
+   * Abort the current request immediately, keep the generated tokens if any.
+   */
+  stop: () => void;
+};
+
+export function useChat(options: UseChatOptions): UseChatHelpers {
+  const {
+    messages,
+    setMessages,
+    makeSystemMessageCallback,
+    copilotConfig,
+    setIsLoading,
+    initialMessages,
+    isLoading,
+    actions,
+  } = options;
   const abortControllerRef = useRef<AbortController>();
   const threadIdRef = useRef<string | null>(null);
   const runIdRef = useRef<string | null>(null);
-  const publicApiKey = options.copilotConfig.publicApiKey;
+  const publicApiKey = copilotConfig.publicApiKey;
   const headers = {
-    ...(options.headers || {}),
+    ...(copilotConfig.headers || {}),
     ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
   };
 
   const runtimeClient = new CopilotRuntimeClient({
-    url: options.copilotConfig.chatApiEndpoint,
+    url: copilotConfig.chatApiEndpoint,
   });
 
   const runChatCompletion = async (messages: Message[]): Promise<Message[]> => {
-    options.setIsLoading(true);
+    setIsLoading(true);
 
     let newMessages: Message[] = [
       {
@@ -141,31 +126,19 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
 
     const systemMessage = makeSystemMessageCallback();
 
-    const messagesWithContext = [systemMessage, ...(options.initialMessages || []), ...messages];
+    const messagesWithContext = [systemMessage, ...(initialMessages || []), ...messages];
 
     const response = runtimeClient.generateResponse({
+      frontend: {
+        actions: actions.map((action) => ({
+          name: action.name,
+          description: action.description || "",
+          jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
+        })),
+      },
       threadId: threadIdRef.current,
       runId: runIdRef.current,
-      messages: messagesWithContext.map((message) => {
-        let role: MessageRole;
-        switch (message.role) {
-          case "assistant":
-            role = MessageRole.Assistant;
-            break;
-          case "user":
-            role = MessageRole.User;
-            break;
-          case "system":
-            role = MessageRole.System;
-            break;
-          default:
-            throw new Error("Message role not supported yet.");
-        }
-        return {
-          role,
-          content: message.content,
-        };
-      }),
+      messages: messagesWithContext as MessageInput[],
     });
 
     // TODO-PROTOCOL make sure all options are included in the final version
@@ -209,26 +182,11 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
         threadIdRef.current = value.generateResponse.threadId || null;
         runIdRef.current = value.generateResponse.runId || null;
 
-        newMessages = [];
-        for (const message of value.generateResponse.messages) {
-          let role: Role;
-          if (message.role == MessageRole.Assistant) {
-            role = "assistant";
-          } else if (message.role == MessageRole.User) {
-            role = "user";
-          } else if (message.role == MessageRole.System) {
-            role = "system";
-          } else {
-            throw new Error("Message role not supported yet.");
-          }
-          const content = message.content.join("");
-          newMessages.push({
-            id: message.id,
-            createdAt: new Date(),
-            content,
-            role,
-          });
-        }
+        newMessages = value.generateResponse.messages.map((message) => ({
+          ...message,
+          content: message.content.join(""),
+        }));
+
         if (newMessages.length > 0) {
           setMessages([...messages, ...newMessages]);
         }
@@ -344,7 +302,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
         return newMessages.slice();
       }
     } finally {
-      options.setIsLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -353,7 +311,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
   };
 
   const append = async (message: Message): Promise<void> => {
-    if (options.isLoading) {
+    if (isLoading) {
       return;
     }
     const newMessages = [...messages, message];
@@ -362,7 +320,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
   };
 
   const reload = async (): Promise<void> => {
-    if (options.isLoading || messages.length === 0) {
+    if (isLoading || messages.length === 0) {
       return;
     }
     let newMessages = [...messages];

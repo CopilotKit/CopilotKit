@@ -141,11 +141,11 @@ export class CopilotTask<T = any> {
    * @param data The data to use for the task.
    */
   async run(context: CopilotContextParams, data?: T): Promise<void> {
-    const entryPoints = this.includeCopilotActions ? Object.assign({}, context.entryPoints) : {};
+    const actions = this.includeCopilotActions ? Object.assign({}, context.actions) : {};
 
     // merge functions into entry points
     for (const fn of this.actions) {
-      entryPoints[fn.name] = fn;
+      actions[fn.name] = fn;
     }
 
     let contextString = "";
@@ -169,7 +169,7 @@ export class CopilotTask<T = any> {
     const response = await fetchAndDecodeChatCompletion({
       copilotConfig: context.copilotApiConfig,
       messages: messages,
-      tools: context.getChatCompletionFunctionDescriptions(entryPoints),
+      tools: context.getChatCompletionFunctionDescriptions(actions),
       headers: context.copilotApiConfig.headers,
       body: context.copilotApiConfig.body,
     });
@@ -201,7 +201,7 @@ export class CopilotTask<T = any> {
       throw new Error("No function call occurred");
     }
 
-    const functionCallHandler = context.getFunctionCallHandler(entryPoints);
+    const functionCallHandler = context.getFunctionCallHandler(actions);
     for (const functionCall of functionCalls) {
       await functionCallHandler(messages, functionCall);
     }

@@ -14,13 +14,13 @@ input CloudInput {
 }
 
 input FrontendInput {
-  actions: [ActionInput!]
+  actions: [ActionInput!]!
   toDeprecate_fullContext: String
 }
 
 input GenerateResponseInput {
   cloud: CloudInput
-  frontend: FrontendInput
+  frontend: FrontendInput!
   messages: [MessageInput!]!
   runId: String
   threadId: String

@@ -66,7 +66,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
 
   const chatApiEndpoint = props.runtimeUrl || props.url || COPILOT_CLOUD_CHAT_URL;
 
-  const [entryPoints, setEntryPoints] = useState<Record<string, FrontendAction<any>>>({});
+  const [actions, setActions] = useState<Record<string, FrontendAction<any>>>({});
   const chatComponentsCache = useRef<Record<string, InChatRenderFunction | string>>({});
   const { addElement, removeElement, printTree } = useTree();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -79,17 +79,17 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     allElements: allDocuments,
   } = useFlatCategoryStore<DocumentPointer>();
 
-  const setEntryPoint = useCallback((id: string, entryPoint: FrontendAction<any>) => {
-    setEntryPoints((prevPoints) => {
+  const setAction = useCallback((id: string, action: FrontendAction<any>) => {
+    setActions((prevPoints) => {
       return {
         ...prevPoints,
-        [id]: entryPoint,
+        [id]: action,
       };
     });
   }, []);
 
-  const removeEntryPoint = useCallback((id: string) => {
-    setEntryPoints((prevPoints) => {
+  const removeAction = useCallback((id: string) => {
+    setActions((prevPoints) => {
       const newPoints = { ...prevPoints };
       delete newPoints[id];
       return newPoints;
@@ -131,16 +131,16 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
 
   const getChatCompletionFunctionDescriptions = useCallback(
     (customEntryPoints?: Record<string, FrontendAction<any>>) => {
-      return entryPointsToChatCompletionFunctions(Object.values(customEntryPoints || entryPoints));
+      return entryPointsToChatCompletionFunctions(Object.values(customEntryPoints || actions));
     },
-    [entryPoints],
+    [actions],
   );
 
   const getFunctionCallHandler = useCallback(
     (customEntryPoints?: Record<string, FrontendAction<any>>) => {
-      return entryPointsToFunctionCallHandler(Object.values(customEntryPoints || entryPoints));
+      return entryPointsToFunctionCallHandler(Object.values(customEntryPoints || actions));
     },
-    [entryPoints],
+    [actions],
   );
 
   const getDocumentsContext = useCallback(
@@ -224,12 +224,12 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   return (
     <CopilotContext.Provider
       value={{
-        entryPoints,
+        actions,
         chatComponentsCache,
         getChatCompletionFunctionDescriptions,
         getFunctionCallHandler,
-        setEntryPoint,
-        removeEntryPoint,
+        setAction,
+        removeAction,
         getContextString,
         addContext,
         removeContext,

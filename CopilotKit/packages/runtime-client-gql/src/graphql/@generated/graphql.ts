@@ -27,13 +27,13 @@ export type CloudInput = {
 };
 
 export type FrontendInput = {
-  actions?: InputMaybe<Array<ActionInput>>;
+  actions: Array<ActionInput>;
   toDeprecate_fullContext?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type GenerateResponseInput = {
   cloud?: InputMaybe<CloudInput>;
-  frontend?: InputMaybe<FrontendInput>;
+  frontend: FrontendInput;
   messages: Array<MessageInput>;
   runId?: InputMaybe<Scalars['String']['input']>;
   threadId?: InputMaybe<Scalars['String']['input']>;

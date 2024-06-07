@@ -94,6 +94,7 @@ export function useCopilotChat({
     isLoading,
     setIsLoading,
     chatInstructions,
+    actions,
   } = useContext(CopilotContext);
 
   // We need to ensure that makeSystemMessageCallback always uses the latest
@@ -124,15 +125,10 @@ export function useCopilotChat({
 
   const { append, reload, stop } = useChat({
     ...options,
+    actions: Object.values(actions),
     copilotConfig: copilotApiConfig,
-    id: options.id,
     initialMessages: options.initialMessages || [],
-    tools: functionDescriptions,
     onFunctionCall: getFunctionCallHandler(),
-    headers: { ...options.headers },
-    body: {
-      ...options.body,
-    },
     messages,
     setMessages,
     makeSystemMessageCallback,

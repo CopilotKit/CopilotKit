@@ -9,25 +9,28 @@ export interface RemoteChain {
   parameterType: "single" | "multi";
 }
 
-export class RemoteChainImplementation {
-  constructor(public remoteChain: RemoteChain) {
-    this.remoteChain = { ...remoteChain };
-    this.remoteChain.parameterType ||= "multi";
+export class RemoteChain implements RemoteChain {
+  constructor(options: RemoteChain) {
+    this.name = options.name;
+    this.description = options.description;
+    this.chainUrl = options.chainUrl;
+    this.parameters = options.parameters;
+    this.parameterType = options.parameterType || "multi";
   }
 
   async toAction(): Promise<Action<any>> {
-    if (!this.remoteChain.parameters) {
+    if (!this.parameters) {
       await this.inferLangServeParameters();
     }
 
     return {
-      name: this.remoteChain.name,
-      description: this.remoteChain.description,
-      parameters: this.remoteChain.parameters!,
+      name: this.name,
+      description: this.description,
+      parameters: this.parameters!,
       handler: async (args: any) => {
-        const runnable = new RemoteRunnable({ url: this.remoteChain.chainUrl });
+        const runnable = new RemoteRunnable({ url: this.chainUrl });
         let input: any;
-        if (this.remoteChain.parameterType === "single") {
+        if (this.parameterType === "single") {
           input = args[Object.keys(args)[0]];
         } else {
           input = args;
@@ -40,7 +43,7 @@ export class RemoteChainImplementation {
   async inferLangServeParameters() {
     const supportedTypes = ["string", "number", "boolean"];
 
-    let schemaUrl = this.remoteChain.chainUrl.replace(/\/+$/, "") + "/input_schema";
+    let schemaUrl = this.chainUrl.replace(/\/+$/, "") + "/input_schema";
     let schema = await fetch(schemaUrl)
       .then((res) => res.json())
       .catch(() => {
@@ -49,8 +52,8 @@ export class RemoteChainImplementation {
     // for now, don't use json schema, just do a simple conversion
 
     if (supportedTypes.includes(schema.type)) {
-      this.remoteChain.parameterType = "single";
-      this.remoteChain.parameters = [
+      this.parameterType = "single";
+      this.parameters = [
         {
           name: "input",
           type: schema.type,
@@ -58,8 +61,8 @@ export class RemoteChainImplementation {
         },
       ];
     } else if (schema.type === "object") {
-      this.remoteChain.parameterType = "multi";
-      this.remoteChain.parameters = Object.keys(schema.properties).map((key) => {
+      this.parameterType = "multi";
+      this.parameters = Object.keys(schema.properties).map((key) => {
         let property = schema.properties[key];
         if (!supportedTypes.includes(property.type)) {
           throw new Error("Unsupported schema type");
