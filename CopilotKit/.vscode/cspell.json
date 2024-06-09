@@ -8,6 +8,7 @@
     "kwargs",
     "langserve",
     "ondataavailable",
-    "untruncate"
+    "untruncate",
+    "serverside"
   ]
 }

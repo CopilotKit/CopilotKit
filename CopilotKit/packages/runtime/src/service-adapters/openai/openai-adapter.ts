@@ -34,12 +34,12 @@
  */
 import OpenAI from "openai";
 import {
-  CopilotKitResponse,
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
 } from "../service-adapter";
 import { limitOpenAIMessagesToTokenCount, maxTokensForOpenAIModel } from "../../utils/openai";
+import { Message } from "@copilotkit/shared";
 
 const DEFAULT_MODEL = "gpt-4o";
 
@@ -70,12 +70,13 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     }
   }
 
-  process(
+  async process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
-    const model = request.model || this.model;
-    const tools = request.tools || [];
+    const { model = this.model, tools = [], eventSource } = request;
 
+    // TODO-PROTOCOL: this is any because the message input type does not have id
+    // change it.
     let messages: any[] = request.messages.map((message) => {
       return {
         role: message.role,
@@ -85,19 +86,57 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
 
     messages = limitOpenAIMessagesToTokenCount(messages, tools, maxTokensForOpenAIModel(model));
 
-    return new Promise((resolve, reject) => {
+    eventSource.stream(async (eventStream$) => {
       const stream = this.openai.beta.chat.completions.stream({
         model: model,
         stream: true,
         messages: messages as any,
         ...(tools.length > 0 && { tools }),
       });
-      stream.on("error", (error) => {
-        reject(error); // Reject the promise with the error
-      });
-      stream.on("connect", () => {
-        resolve({ stream: stream.toReadableStream() });
-      });
+      let mode: "function" | "message" | null = null;
+      for await (const chunk of stream) {
+        const toolCall = chunk.choices[0].delta.tool_calls?.[0];
+        const content = chunk.choices[0].delta.content;
+
+        // When switching from message to function or vice versa,
+        // send the respective end event.
+        if (mode === "message" && toolCall.function) {
+          mode = null;
+          eventStream$.sendTextMessageEnd();
+        } else if (mode === "function" && !toolCall.function) {
+          mode = null;
+          eventStream$.sendToolCallEnd();
+        }
+
+        // If we send a new message type, send the appropriate start event.
+        if (mode === null) {
+          if (toolCall.function) {
+            mode = "function";
+            eventStream$.sendToolCallStart(toolCall.id, toolCall.function!.name);
+          } else if (content) {
+            mode = "message";
+            eventStream$.sendTextMessageStart(chunk.id);
+          }
+        }
+
+        // send the content events
+        if (mode === "message" && content) {
+          eventStream$.sendTextMessageContent(content);
+        } else if (mode === "function" && toolCall.function?.arguments) {
+          eventStream$.sendToolCallArgs(toolCall.function.arguments);
+        }
+      }
+
+      // send the end events
+      if (mode === "message") {
+        eventStream$.sendTextMessageEnd();
+      } else if (mode === "function") {
+        eventStream$.sendToolCallEnd();
+      }
+
+      eventStream$.complete();
     });
+
+    return {};
   }
 }

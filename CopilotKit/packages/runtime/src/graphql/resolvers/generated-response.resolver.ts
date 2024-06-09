@@ -1,5 +1,5 @@
 import { Arg, Ctx, Mutation, Query, Resolver } from "type-graphql";
-import { Subject, firstValueFrom } from "rxjs";
+import { Subject, firstValueFrom, skipWhile, takeUntil, takeWhile } from "rxjs";
 import { GenerateResponseInput } from "../inputs/generate-response.input";
 import { GeneratedResponse, MessageRole } from "../types/generated-response.type";
 import { Repeater } from "graphql-yoga";
@@ -7,59 +7,66 @@ import type { GraphQLContext } from "../../test-server/test-server";
 import { GenerationInterruption } from "../types/generation-interruption";
 import { CopilotRuntime, OpenAIAdapter } from "../../lib";
 import { OpenAI } from "openai";
-import { interceptStreamAndGetFinalResponse } from "../../lib/stream-utils";
 import { nanoid } from "nanoid";
+import { RuntimeEvent, RuntimeEventTypes } from "../../service-adapters/events";
 
 @Resolver(() => Response)
 export class GeneratedResponseResolver {
-  @Query(() => String)
-  async hello() {
-    return "Hello World";
-  }
-
   @Mutation(() => GeneratedResponse)
   async generateResponse(@Arg("data") data: GenerateResponseInput, @Ctx() ctx: GraphQLContext) {
     const openai = new OpenAI();
     const copilotRuntime = new CopilotRuntime();
-    const openaiAdapter = new OpenAIAdapter({ openai: openai as any });
+    const openaiAdapter = new OpenAIAdapter({ openai });
 
     const interruption = new Subject<GenerationInterruption>();
     const {
-      stream,
-      threadId: serviceThreadId,
+      eventSource,
+      threadId = nanoid(),
       runId,
-    } = await copilotRuntime.gqlResponse(openaiAdapter, {
+    } = await copilotRuntime.process({
+      serviceAdapter: openaiAdapter,
       messages: data.messages,
+      actions: [],
       threadId: data.threadId,
       runId: data.runId,
+      publicApiKey: undefined,
     });
-
-    const threadId = serviceThreadId || nanoid();
 
     const response = {
       threadId,
       runId,
       interruption: firstValueFrom(interruption),
       messages: new Repeater(async (pushMessage, stopStreamingMessages) => {
-        // for (const message of data.messages) {
-        //   pushMessage({ role: message.role, content: [message.content], isStream: false });
-        // }
-        pushMessage({
-          id: nanoid(),
-          isStream: true,
-          role: MessageRole.assistant,
-          content: await (async () => {
-            return new Repeater(async (pushTextChunk, stopStreamingText) => {
-              console.log("repeater start");
-              await interceptStreamAndGetFinalResponse(stream, (chunk: string) => {
-                pushTextChunk(chunk);
-              });
-              console.log("repeater finish");
-              stopStreamingText();
-              stopStreamingMessages();
-              interruption.next({ interrupted: false });
-            });
-          })(),
+        const eventStream = eventSource.process([]);
+        eventStream.subscribe({
+          next: (event) => {
+            switch (event.type) {
+              case RuntimeEventTypes.TextMessageStart:
+                const messageContentStream = eventStream
+                  .pipe(skipWhile((e) => e !== event))
+                  .pipe(takeWhile((e) => e.type != RuntimeEventTypes.TextMessageEnd));
+
+                pushMessage({
+                  id: nanoid(),
+                  isStream: true,
+                  role: MessageRole.assistant,
+                  content: new Repeater(async (pushTextChunk, stopStreamingText) => {
+                    await messageContentStream.forEach(async (e: RuntimeEvent) => {
+                      if (e.type == RuntimeEventTypes.TextMessageContent) {
+                        await pushTextChunk(e.content);
+                      }
+                    });
+                    stopStreamingText();
+                  }),
+                });
+                break;
+            }
+          },
+          error: (err) => console.error("Error in event source", err),
+          complete: () => {
+            stopStreamingMessages();
+            interruption.next({ interrupted: false });
+          },
         });
       }),
     };

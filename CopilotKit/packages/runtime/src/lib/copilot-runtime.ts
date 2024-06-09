@@ -103,6 +103,7 @@ import {
   ToolDefinition,
   EXCLUDE_FROM_FORWARD_PROPS_KEYS,
   actionToChatCompletionFunction,
+  actionParametersToJsonSchema,
   Parameter,
   AnnotatedFunction,
   annotatedFunctionToAction,
@@ -114,10 +115,22 @@ import { RemoteChain, CopilotServiceAdapter } from "../service-adapters";
 import { CopilotCloud, RemoteCopilotCloud } from "./copilot-cloud";
 import { MessageInput } from "../graphql/inputs/message.input";
 import { CopilotRuntimeChatCompletionResponse } from "../service-adapters/service-adapter";
+import { ActionInput } from "../graphql/inputs/action.input";
+import { RuntimeEventSource } from "../service-adapters/events";
 
-interface CopilotRuntimeResult {
-  stream: ReadableStream;
-  headers?: Record<string, string>;
+interface CopilotRuntimeRequest {
+  serviceAdapter: CopilotServiceAdapter;
+  messages: MessageInput[];
+  actions: ActionInput[];
+  threadId?: string;
+  runId?: string;
+  publicApiKey?: string;
+}
+
+interface CopilotRuntimeResponse {
+  threadId?: string;
+  runId?: string;
+  eventSource: RuntimeEventSource;
 }
 
 interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> {
@@ -207,16 +220,16 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     }
   }
 
-  private async getResponse(
-    forwardedProps: any,
-    serviceAdapter: CopilotServiceAdapter,
-    publicApiKey?: string,
-  ): Promise<CopilotRuntimeChatCompletionResponse> {
-    this.removeBackendOnlyProps(forwardedProps);
-
-    // In case Copilot Cloud is configured remove it from the forwardedProps
-    const cloud: CopilotCloudConfig = forwardedProps.cloud;
-    delete forwardedProps.cloud;
+  async process({
+    serviceAdapter,
+    messages,
+    actions,
+    threadId,
+    runId,
+    publicApiKey,
+  }: CopilotRuntimeRequest): Promise<CopilotRuntimeResponse> {
+    // TODO-PROTOCOL: cloud configuration
+    // const cloud: CopilotCloudConfig = forwardedProps.cloud;
 
     const langserveFunctions: Action<any>[] = [];
 
@@ -229,79 +242,105 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       }
     }
 
-    const serversideTools: Action<any>[] = [...this.actions, ...langserveFunctions];
-    const mergedTools = flattenToolCallsNoDuplicates([
-      ...serversideTools.map(actionToChatCompletionFunction),
-      ...(forwardedProps.tools || []),
+    const serverSideActions: Action<any>[] = [...this.actions, ...langserveFunctions];
+    const serverSideActionsSchema = serverSideActions.map((action) => ({
+      type: "function",
+      function: {
+        name: action.name,
+        description: action.description,
+        parameters: actionParametersToJsonSchema(action.parameters),
+      },
+    }));
+    const clientSideActionsSchema = actions.map((action) => ({
+      type: "function" as any,
+      function: {
+        name: action.name,
+        description: action.description,
+        parameters: JSON.parse(action.jsonSchema),
+      },
+    }));
+
+    const mergedToolsSchema = flattenToolCallsNoDuplicates([
+      ...serverSideActionsSchema,
+      ...clientSideActionsSchema,
     ]);
 
     try {
+      const eventSource = new RuntimeEventSource();
       // TODO-PROTOCOL: type this and support function calls
       const result = await serviceAdapter.process({
-        ...forwardedProps,
-        tools: mergedTools,
+        messages,
+        tools: mergedToolsSchema,
+        threadId,
+        // TODO-PROTOCOL add runId here
+        eventSource,
       });
 
-      if (publicApiKey !== undefined) {
-        // wait for the cloud log chat to finish before streaming back the response
-        try {
-          const checkGuardrailsInputResult = await this.copilotCloud.checkGuardrailsInput({
-            cloud,
-            publicApiKey,
-            messages: forwardedProps.messages || [],
-          });
+      // TODO-PROTOCOL add guardrails
+      //
+      // if (publicApiKey !== undefined) {
+      //   // wait for the cloud log chat to finish before streaming back the response
+      //   try {
+      //     const checkGuardrailsInputResult = await this.copilotCloud.checkGuardrailsInput({
+      //       cloud,
+      //       publicApiKey,
+      //       messages: forwardedProps.messages || [],
+      //     });
 
-          if (checkGuardrailsInputResult.status === "denied") {
-            // the chat was denied. instead of streaming back the response,
-            // we let the client know...
-            return {
-              stream: new SingleChunkReadableStream(checkGuardrailsInputResult.reason),
-              // headers: result.headers,
-            };
-          }
-        } catch (error) {
-          console.error("Error checking guardrails:", error);
-        }
-      }
-      const stream = copilotkitStreamInterceptor(result.stream, serversideTools, this.debug);
-      return { ...result, stream };
+      //     if (checkGuardrailsInputResult.status === "denied") {
+      //       // the chat was denied. instead of streaming back the response,
+      //       // we let the client know...
+      //       return {
+      //         stream: new SingleChunkReadableStream(checkGuardrailsInputResult.reason),
+      //         // headers: result.headers,
+      //       };
+      //     }
+      //   } catch (error) {
+      //     console.error("Error checking guardrails:", error);
+      //   }
+      // }
+      return {
+        threadId: result.threadId,
+        runId: result.runId,
+        eventSource,
+      };
     } catch (error) {
       console.error("Error getting response:", error);
       throw error;
     }
   }
 
-  async gqlResponse(
-    serviceAdapter: CopilotServiceAdapter,
-    {
-      messages,
-      threadId,
-      runId,
-    }: {
-      messages: MessageInput[];
-      threadId?: string;
-      runId?: string;
-    },
-  ) {
-    const publicApiKey = undefined;
+  // async gqlResponse(
+  //   serviceAdapter: CopilotServiceAdapter,
+  //   {
+  //     messages,
+  //     threadId,
+  //     runId,
+  //   }: {
+  //     messages: MessageInput[];
+  //     threadId?: string;
+  //     runId?: string;
+  //   },
+  // ) {
+  //   const publicApiKey = undefined;
 
-    try {
-      // TODO: forwardedProps / customProperties
-      const response = await this.getResponse(
-        {
-          messages,
-          threadId,
-          runId,
-        },
-        serviceAdapter,
-        publicApiKey,
-      );
-      return response;
-    } catch (error) {
-      console.error("Error getting response:", error);
-      throw error;
-    }
-  }
+  //   try {
+  //     // TODO: forwardedProps / customProperties
+  //     const response = await this.getResponse(
+  //       {
+  //         messages,
+  //         threadId,
+  //         runId,
+  //       },
+  //       serviceAdapter,
+  //       publicApiKey,
+  //     );
+  //     return response;
+  //   } catch (error) {
+  //     console.error("Error getting response:", error);
+  //     throw error;
+  //   }
+  // }
 
   /**
    * Returns a `Response` object for streaming back the result to the client
@@ -313,8 +352,9 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     const publicApiKey = req.headers.get(COPILOT_CLOUD_PUBLIC_API_KEY_HEADER) || undefined;
     try {
       const forwardedProps = await req.json();
-      const response = await this.getResponse(forwardedProps, serviceAdapter, publicApiKey);
-      return new Response(response.stream);
+      throw new Error("obsolete");
+      // const response = await this.getResponse(forwardedProps, serviceAdapter, publicApiKey);
+      // return new Response(response.stream);
     } catch (error: any) {
       return new Response(error, { status: error.status });
     }
@@ -357,21 +397,22 @@ or Node.js HTTP server.
           req.header(COPILOT_CLOUD_PUBLIC_API_KEY_HEADER)
         : // use headers in node http
           req.headers[COPILOT_CLOUD_PUBLIC_API_KEY_HEADER.toLowerCase()]) || undefined;
-    const response = await this.getResponse(forwardedProps, serviceAdapter, publicApiKey);
+    // const response = await this.getResponse(forwardedProps, serviceAdapter, publicApiKey);
+    throw new Error("obsolete");
     const mergedHeaders = { ...headers };
     res.writeHead(200, mergedHeaders);
-    const stream = response.stream;
-    const reader = stream.getReader();
+    // const stream = response.stream;
+    // const reader = stream.getReader();
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        res.end();
-        break;
-      } else {
-        res.write(new TextDecoder().decode(value));
-      }
-    }
+    // while (true) {
+    //   const { done, value } = await reader.read();
+    //   if (done) {
+    //     res.end();
+    //     break;
+    //   } else {
+    //     res.write(new TextDecoder().decode(value));
+    //   }
+    // }
   }
 }
 
