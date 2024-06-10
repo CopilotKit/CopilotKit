@@ -10,7 +10,11 @@ import {
 
 import { CopilotApiConfig } from "../context";
 import untruncateJson from "untruncate-json";
-import { CopilotRuntimeClient, MessageRole } from "@copilotkit/runtime-client-gql";
+import {
+  CopilotRuntimeClient,
+  MessageRole,
+  MessageInputType,
+} from "@copilotkit/runtime-client-gql";
 
 export type UseChatOptions = {
   /**
@@ -133,8 +137,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       },
       threadId: threadIdRef.current,
       runId: runIdRef.current,
-      messages: messagesWithContext.map(({ content, role }) => ({
-        content,
+      messages: messagesWithContext.map(({ id, content, role }) => ({
+        id,
+        type: MessageInputType.Text,
+        textMessage: { content },
         role: role as MessageRole,
       })),
     });
@@ -197,13 +203,13 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         newMessages = [];
 
         for (const message of value.generateResponse.messages) {
-          if (message.__typename === "TextMessage") {
+          if (message.__typename === "TextMessageOutput") {
             newMessages.push({
               id: message.id,
               role: message.role,
               content: message.content.join(""),
             });
-          } else if (message.__typename === "ActionExecutionMessage") {
+          } else if (message.__typename === "ActionExecutionMessageOutput") {
             newMessages.push({
               id: message.id,
               role: message.role,

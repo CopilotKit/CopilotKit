@@ -3,7 +3,7 @@
 # !!!   DO NOT MODIFY THIS FILE BY YOURSELF   !!!
 # -----------------------------------------------
 
-type ActionExecutionMessage implements BaseMessage {
+type ActionExecutionMessageOutput implements BaseMessageOutput {
   arguments: [String!]!
   id: String!
   name: String!
@@ -24,7 +24,7 @@ input ActionInput {
   name: String!
 }
 
-interface BaseMessage {
+interface BaseMessageOutput {
   id: String!
   role: MessageRole!
   status: MessageStatus!
@@ -49,7 +49,7 @@ input GenerateResponseInput {
 
 type GeneratedResponse {
   interruption: GenerationInterruption!
-  messages: [BaseMessage!]!
+  messages: [BaseMessageOutput!]!
   runId: String
   threadId: String!
 }
@@ -70,8 +70,14 @@ input GuardrailsRuleInput {
 }
 
 input MessageInput {
-  content: String!
+  id: String!
   role: MessageRole!
+  textMessage: TextMessageInput
+  type: MessageInputType!
+}
+
+enum MessageInputType {
+  text
 }
 
 """The role of the message"""
@@ -94,7 +100,11 @@ type Query {
   hello: String!
 }
 
-type TextMessage implements BaseMessage {
+input TextMessageInput {
+  content: String!
+}
+
+type TextMessageOutput implements BaseMessageOutput {
   content: [String!]!
   id: String!
   role: MessageRole!

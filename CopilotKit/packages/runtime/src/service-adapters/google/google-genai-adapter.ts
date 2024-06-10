@@ -66,7 +66,7 @@ export class GoogleGenerativeAIAdapter implements CopilotServiceAdapter {
 
     const history = this.transformMessages(messages.slice(0, -1));
     const currentMessage = messages[messages.length - 1];
-    const systemMessage = messages.shift()?.content.trim() || "";
+    const systemMessage = messages.shift()?.textMessage?.content.trim() || "";
 
     const isFirstGenGeminiPro =
       this.model.model === "gemini-pro" || this.model.model === "models/gemini-pro";
@@ -153,7 +153,7 @@ export class GoogleGenerativeAIAdapter implements CopilotServiceAdapter {
     if (message.role === "user") {
       return {
         role: "user",
-        parts: [{ text: message.content }],
+        parts: [{ text: message.textMessage?.content }],
       };
     } else if (message.role === "assistant") {
       // TODO-PROTOCOL: implement function calls
@@ -175,7 +175,7 @@ export class GoogleGenerativeAIAdapter implements CopilotServiceAdapter {
       } else {
         return {
           role: "model",
-          parts: [{ text: message.content.replace("\\\\n", "\n") }],
+          parts: [{ text: message.textMessage?.content.replace("\\\\n", "\n") }],
         };
       }
     }
@@ -191,7 +191,7 @@ export class GoogleGenerativeAIAdapter implements CopilotServiceAdapter {
               response: {
                 // @ts-ignore
                 name: message.name!,
-                content: tryParseJson(message.content),
+                content: tryParseJson(message.textMessage?.content),
               },
             },
           },
@@ -204,7 +204,7 @@ export class GoogleGenerativeAIAdapter implements CopilotServiceAdapter {
           {
             text:
               "THE FOLLOWING MESSAGE IS NOT A USER MESSAGE. IT IS A SYSTEM MESSAGE: " +
-              message.content,
+              message.textMessage?.content,
           },
         ],
       };

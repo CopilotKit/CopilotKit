@@ -1,4 +1,4 @@
-import { Field, InterfaceType, ObjectType, createUnionType, registerEnumType } from "type-graphql";
+import { Field, InterfaceType, ObjectType, registerEnumType } from "type-graphql";
 import { GenerationInterruption } from "./generation-interruption";
 
 export enum MessageRole {
@@ -36,14 +36,14 @@ export class MessageStatus {
 @InterfaceType({
   resolveType(value) {
     if (value.hasOwnProperty("content")) {
-      return TextMessage;
+      return TextMessageOutput;
     } else if (value.hasOwnProperty("name")) {
-      return ActionExecutionMessage;
+      return ActionExecutionMessageOutput;
     }
     return undefined;
   },
 })
-abstract class BaseMessage {
+abstract class BaseMessageOutput {
   @Field(() => String)
   id: string;
 
@@ -54,14 +54,14 @@ abstract class BaseMessage {
   status: MessageStatus;
 }
 
-@ObjectType({ implements: BaseMessage })
-export class TextMessage {
+@ObjectType({ implements: BaseMessageOutput })
+export class TextMessageOutput {
   @Field(() => [String])
   content: string[];
 }
 
-@ObjectType({ implements: BaseMessage })
-export class ActionExecutionMessage {
+@ObjectType({ implements: BaseMessageOutput })
+export class ActionExecutionMessageOutput {
   @Field(() => String)
   name: string;
 
@@ -72,21 +72,6 @@ export class ActionExecutionMessage {
   arguments: string[];
 }
 
-// const MessageUnion = createUnionType({
-//   name: "MessageUnion",
-//   types: () => [TextMessage, ActionExecutionMessage] as const,
-//   resolveType: (value) => {
-//     // if value has own property content
-//     if (value.hasOwnProperty("content")) {
-//       return TextMessage;
-//     } else if (value.hasOwnProperty("name")) {
-//       return ActionExecutionMessage;
-//     }
-
-//     return undefined;
-//   },
-// });
-
 @ObjectType()
 export class GeneratedResponse {
   @Field(() => String)
@@ -95,8 +80,8 @@ export class GeneratedResponse {
   @Field({ nullable: true })
   runId?: string;
 
-  @Field(() => [BaseMessage])
-  messages: (typeof BaseMessage)[];
+  @Field(() => [BaseMessageOutput])
+  messages: (typeof BaseMessageOutput)[];
 
   @Field(() => GenerationInterruption)
   interruption: GenerationInterruption;

@@ -127,7 +127,7 @@ export class LangChainAdapter implements CopilotServiceAdapter {
 
     for (const message of messages) {
       if (message.role === "user") {
-        newMessages.push(new HumanMessage(message.content));
+        newMessages.push(new HumanMessage(message.textMessage?.content));
       } else if (message.role === "assistant") {
         // TODO-PROTOCOL: implement function calls
 
@@ -149,17 +149,17 @@ export class LangChainAdapter implements CopilotServiceAdapter {
             }),
           );
         } else {
-          newMessages.push(new AIMessage(message.content));
+          newMessages.push(new AIMessage(message.textMessage?.content));
         }
       } else if (message.role === "system") {
-        newMessages.push(new SystemMessage(message.content));
+        newMessages.push(new SystemMessage(message.textMessage?.content));
       }
       // TODO-PROTOCOL: implement function calls
       else if (message.role == "function") {
         // An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'
         newMessages.push(
           new ToolMessage({
-            content: message.content,
+            content: message.textMessage?.content,
             // @ts-ignore
             tool_call_id: message.name + "-" + (forwardedProps.messages.indexOf(message) - 1),
           }),
