@@ -3,10 +3,29 @@
 # !!!   DO NOT MODIFY THIS FILE BY YOURSELF   !!!
 # -----------------------------------------------
 
+type ActionExecutionMessage implements BaseMessage {
+  arguments: [String!]!
+  id: String!
+  name: String!
+  role: MessageRole!
+  scope: ActionExecutionScope!
+}
+
+"""The scope of the action"""
+enum ActionExecutionScope {
+  client
+  server
+}
+
 input ActionInput {
   description: String!
   jsonSchema: String!
   name: String!
+}
+
+interface BaseMessage {
+  id: String!
+  role: MessageRole!
 }
 
 input CloudInput {
@@ -28,7 +47,7 @@ input GenerateResponseInput {
 
 type GeneratedResponse {
   interruption: GenerationInterruption!
-  messages: [Message!]!
+  messages: [MessageUnion!]!
   runId: String
   threadId: String!
 }
@@ -48,13 +67,6 @@ input GuardrailsRuleInput {
   id: String!
 }
 
-type Message {
-  content: [String!]!
-  id: String!
-  isStream: Boolean!
-  role: MessageRole!
-}
-
 input MessageInput {
   content: String!
   role: MessageRole!
@@ -68,10 +80,18 @@ enum MessageRole {
   user
 }
 
+union MessageUnion = ActionExecutionMessage | TextMessage
+
 type Mutation {
   generateResponse(data: GenerateResponseInput!): GeneratedResponse!
 }
 
 type Query {
   hello: String!
+}
+
+type TextMessage implements BaseMessage {
+  content: [String!]!
+  id: String!
+  role: MessageRole!
 }

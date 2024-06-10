@@ -10,10 +10,19 @@ export const generateResponseMutation = graphql(/** GraphQL **/ `
         }
       }
       messages @stream {
-        id
-        role
-        content @stream
-        isStream
+        __typename
+        ... on TextMessage {
+          id
+          role
+          content @stream
+        }
+        ... on ActionExecutionMessage {
+          id
+          role
+          name
+          scope
+          arguments @stream
+        }
       }
       threadId
       runId

@@ -105,14 +105,14 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
           eventStream$.sendTextMessageEnd();
         } else if (mode === "function" && !toolCallFunction) {
           mode = null;
-          eventStream$.sendToolCallEnd();
+          eventStream$.sendActionExecutionEnd();
         }
 
         // If we send a new message type, send the appropriate start event.
         if (mode === null) {
           if (toolCallFunction) {
             mode = "function";
-            eventStream$.sendToolCallStart(toolCallId, toolCallFunction!.name);
+            eventStream$.sendActionExecutionStart(toolCallId, toolCallFunction!.name);
           } else if (content) {
             mode = "message";
             eventStream$.sendTextMessageStart(chunk.id);
@@ -123,7 +123,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
         if (mode === "message" && content) {
           eventStream$.sendTextMessageContent(content);
         } else if (mode === "function" && toolCallFunction.arguments) {
-          eventStream$.sendToolCallArgs(toolCallFunction.arguments);
+          eventStream$.sendActionExecutionArgs(toolCallFunction.arguments);
         }
       }
 
@@ -131,7 +131,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       if (mode === "message") {
         eventStream$.sendTextMessageEnd();
       } else if (mode === "function") {
-        eventStream$.sendToolCallEnd();
+        eventStream$.sendActionExecutionEnd();
       }
 
       eventStream$.complete();

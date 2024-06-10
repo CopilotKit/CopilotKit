@@ -51,6 +51,9 @@ export class GeneratedResponseResolver {
         eventStream.subscribe({
           next: async (event) => {
             switch (event.type) {
+              ////////////////////////////////
+              // TextMessageStart
+              ////////////////////////////////
               case RuntimeEventTypes.TextMessageStart:
                 // create a sub stream that contains the message content
                 const messageContentStream = eventStream.pipe(
@@ -63,7 +66,6 @@ export class GeneratedResponseResolver {
                 // push the new message
                 pushMessage({
                   id: nanoid(),
-                  isStream: true,
                   role: MessageRole.assistant,
                   content: new Repeater(async (pushTextChunk, stopStreamingText) => {
                     // push the message content

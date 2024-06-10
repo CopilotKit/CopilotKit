@@ -186,8 +186,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         runIdRef.current = value.generateResponse.runId || null;
 
         newMessages = value.generateResponse.messages.map((message) => ({
-          ...message,
-          content: message.content.join(""),
+          id: message.id,
+          role: message.role,
+          content: "content" in message ? message.content.join("") : "",
         }));
 
         if (newMessages.length > 0) {
