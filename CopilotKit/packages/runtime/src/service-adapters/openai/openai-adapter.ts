@@ -95,24 +95,25 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       });
       let mode: "function" | "message" | null = null;
       for await (const chunk of stream) {
-        const toolCall = chunk.choices[0].delta.tool_calls?.[0];
+        const toolCallFunction = chunk.choices[0].delta.tool_calls?.[0]?.function;
+        const toolCallId = chunk.choices[0].delta.tool_calls?.[0]?.id;
         const content = chunk.choices[0].delta.content;
 
         // When switching from message to function or vice versa,
         // send the respective end event.
-        if (mode === "message" && toolCall.function) {
+        if (mode === "message" && toolCallFunction) {
           mode = null;
           eventStream$.sendTextMessageEnd();
-        } else if (mode === "function" && !toolCall.function) {
+        } else if (mode === "function" && !toolCallFunction) {
           mode = null;
           eventStream$.sendToolCallEnd();
         }
 
         // If we send a new message type, send the appropriate start event.
         if (mode === null) {
-          if (toolCall.function) {
+          if (toolCallFunction) {
             mode = "function";
-            eventStream$.sendToolCallStart(toolCall.id, toolCall.function!.name);
+            eventStream$.sendToolCallStart(toolCallId, toolCallFunction!.name);
           } else if (content) {
             mode = "message";
             eventStream$.sendTextMessageStart(chunk.id);
@@ -122,8 +123,8 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
         // send the content events
         if (mode === "message" && content) {
           eventStream$.sendTextMessageContent(content);
-        } else if (mode === "function" && toolCall.function?.arguments) {
-          eventStream$.sendToolCallArgs(toolCall.function.arguments);
+        } else if (mode === "function" && toolCallFunction.arguments) {
+          eventStream$.sendToolCallArgs(toolCallFunction.arguments);
         }
       }
 

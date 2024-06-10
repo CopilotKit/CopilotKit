@@ -138,7 +138,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       },
       threadId: threadIdRef.current,
       runId: runIdRef.current,
-      messages: messagesWithContext as MessageInput[],
+      messages: messagesWithContext.map(({ content, role }) => ({
+        content,
+        role: role as MessageRole,
+      })),
     });
 
     // TODO-PROTOCOL make sure all options are included in the final version

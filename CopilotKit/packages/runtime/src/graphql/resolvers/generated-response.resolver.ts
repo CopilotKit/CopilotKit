@@ -1,5 +1,5 @@
 import { Arg, Ctx, Mutation, Query, Resolver } from "type-graphql";
-import { Subject, firstValueFrom, skipWhile, takeUntil, takeWhile } from "rxjs";
+import { Subject, firstValueFrom, shareReplay, skipWhile, takeWhile } from "rxjs";
 import { GenerateResponseInput } from "../inputs/generate-response.input";
 import { GeneratedResponse, MessageRole } from "../types/generated-response.type";
 import { Repeater } from "graphql-yoga";
@@ -12,6 +12,11 @@ import { RuntimeEvent, RuntimeEventTypes } from "../../service-adapters/events";
 
 @Resolver(() => Response)
 export class GeneratedResponseResolver {
+  @Query(() => String)
+  async hello() {
+    return "Hello World";
+  }
+
   @Mutation(() => GeneratedResponse)
   async generateResponse(@Arg("data") data: GenerateResponseInput, @Ctx() ctx: GraphQLContext) {
     const openai = new OpenAI();
@@ -37,20 +42,31 @@ export class GeneratedResponseResolver {
       runId,
       interruption: firstValueFrom(interruption),
       messages: new Repeater(async (pushMessage, stopStreamingMessages) => {
-        const eventStream = eventSource.process([]);
+        // run and process the event stream
+        const eventStream = eventSource.process([]).pipe(
+          // shareReplay() ensures that later subscribers will see the whole stream instead of
+          // just the events that were emitted after the subscriber was added.
+          shareReplay(),
+        );
         eventStream.subscribe({
-          next: (event) => {
+          next: async (event) => {
             switch (event.type) {
               case RuntimeEventTypes.TextMessageStart:
-                const messageContentStream = eventStream
-                  .pipe(skipWhile((e) => e !== event))
-                  .pipe(takeWhile((e) => e.type != RuntimeEventTypes.TextMessageEnd));
+                // create a sub stream that contains the message content
+                const messageContentStream = eventStream.pipe(
+                  // skip until this message start event
+                  skipWhile((e) => e !== event),
+                  // take until the message end event
+                  takeWhile((e) => e.type != RuntimeEventTypes.TextMessageEnd),
+                );
 
+                // push the new message
                 pushMessage({
                   id: nanoid(),
                   isStream: true,
                   role: MessageRole.assistant,
                   content: new Repeater(async (pushTextChunk, stopStreamingText) => {
+                    // push the message content
                     await messageContentStream.forEach(async (e: RuntimeEvent) => {
                       if (e.type == RuntimeEventTypes.TextMessageContent) {
                         await pushTextChunk(e.content);

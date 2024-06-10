@@ -21,7 +21,7 @@ export interface CreateCopilotRuntimeServerOptions {
 
 export async function createContext(
   initialContext: YogaInitialContext,
-  serverOptions: CreateCopilotRuntimeServerOptions
+  serverOptions: CreateCopilotRuntimeServerOptions,
 ): Promise<Partial<GraphQLContext>> {
   console.debug(`[DEBUG] incoming request`);
 
@@ -38,9 +38,7 @@ export async function createContext(
   return ctx;
 }
 
-async function createGraphQLServer(
-  options?: CreateCopilotRuntimeServerOptions
-) {
+async function createGraphQLServer(options?: CreateCopilotRuntimeServerOptions) {
   const schema = await buildSchema({
     resolvers: [GeneratedResponseResolver],
     emitSchemaFile: "./__snapshots__/schema/schema.graphql",
