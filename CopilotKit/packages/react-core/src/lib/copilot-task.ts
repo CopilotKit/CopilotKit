@@ -203,7 +203,11 @@ export class CopilotTask<T = any> {
 
     const functionCallHandler = context.getFunctionCallHandler(actions);
     for (const functionCall of functionCalls) {
-      await functionCallHandler(messages, functionCall);
+      await functionCallHandler({
+        messages,
+        name: functionCall.name,
+        args: functionCall.arguments,
+      });
     }
   }
 }

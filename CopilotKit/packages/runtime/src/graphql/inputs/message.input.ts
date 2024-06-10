@@ -9,4 +9,3 @@ export class MessageInput {
   @Field(() => MessageRole)
   role: MessageRole;
 }
-

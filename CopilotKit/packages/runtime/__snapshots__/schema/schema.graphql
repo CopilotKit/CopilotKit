@@ -49,7 +49,7 @@ input GenerateResponseInput {
 
 type GeneratedResponse {
   interruption: GenerationInterruption!
-  messages: [MessageUnion!]!
+  messages: [BaseMessage!]!
   runId: String
   threadId: String!
 }
@@ -85,8 +85,6 @@ enum MessageRole {
 type MessageStatus {
   isDoneStreaming: Boolean!
 }
-
-union MessageUnion = ActionExecutionMessage | TextMessage
 
 type Mutation {
   generateResponse(data: GenerateResponseInput!): GeneratedResponse!

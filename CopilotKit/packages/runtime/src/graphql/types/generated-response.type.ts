@@ -33,7 +33,16 @@ export class MessageStatus {
   isDoneStreaming: boolean;
 }
 
-@InterfaceType()
+@InterfaceType({
+  resolveType(value) {
+    if (value.hasOwnProperty("content")) {
+      return TextMessage;
+    } else if (value.hasOwnProperty("name")) {
+      return ActionExecutionMessage;
+    }
+    return undefined;
+  },
+})
 abstract class BaseMessage {
   @Field(() => String)
   id: string;
@@ -63,20 +72,20 @@ export class ActionExecutionMessage {
   arguments: string[];
 }
 
-const MessageUnion = createUnionType({
-  name: "MessageUnion",
-  types: () => [TextMessage, ActionExecutionMessage] as const,
-  resolveType: (value) => {
-    // if value has own property content
-    if (value.hasOwnProperty("content")) {
-      return TextMessage;
-    } else if (value.hasOwnProperty("name")) {
-      return ActionExecutionMessage;
-    }
+// const MessageUnion = createUnionType({
+//   name: "MessageUnion",
+//   types: () => [TextMessage, ActionExecutionMessage] as const,
+//   resolveType: (value) => {
+//     // if value has own property content
+//     if (value.hasOwnProperty("content")) {
+//       return TextMessage;
+//     } else if (value.hasOwnProperty("name")) {
+//       return ActionExecutionMessage;
+//     }
 
-    return undefined;
-  },
-});
+//     return undefined;
+//   },
+// });
 
 @ObjectType()
 export class GeneratedResponse {
@@ -86,8 +95,8 @@ export class GeneratedResponse {
   @Field({ nullable: true })
   runId?: string;
 
-  @Field(() => [MessageUnion])
-  messages: (typeof MessageUnion)[];
+  @Field(() => [BaseMessage])
+  messages: (typeof BaseMessage)[];
 
   @Field(() => GenerationInterruption)
   interruption: GenerationInterruption;

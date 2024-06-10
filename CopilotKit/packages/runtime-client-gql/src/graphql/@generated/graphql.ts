@@ -64,7 +64,7 @@ export type GenerateResponseInput = {
 export type GeneratedResponse = {
   __typename?: 'GeneratedResponse';
   interruption: GenerationInterruption;
-  messages: Array<MessageUnion>;
+  messages: Array<BaseMessage>;
   runId?: Maybe<Scalars['String']['output']>;
   threadId: Scalars['String']['output'];
 };
@@ -102,8 +102,6 @@ export type MessageStatus = {
   __typename?: 'MessageStatus';
   isDoneStreaming: Scalars['Boolean']['output'];
 };
-
-export type MessageUnion = ActionExecutionMessage | TextMessage;
 
 export type Mutation = {
   __typename?: 'Mutation';
