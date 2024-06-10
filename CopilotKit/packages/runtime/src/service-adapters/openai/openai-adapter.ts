@@ -39,7 +39,6 @@ import {
   CopilotRuntimeChatCompletionResponse,
 } from "../service-adapter";
 import { limitOpenAIMessagesToTokenCount, maxTokensForOpenAIModel } from "../../utils/openai";
-import { Message } from "@copilotkit/shared";
 
 const DEFAULT_MODEL = "gpt-4o";
 

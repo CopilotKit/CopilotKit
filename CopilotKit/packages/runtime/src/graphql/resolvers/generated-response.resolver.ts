@@ -31,7 +31,7 @@ export class GeneratedResponseResolver {
     } = await copilotRuntime.process({
       serviceAdapter: openaiAdapter,
       messages: data.messages,
-      actions: [],
+      actions: data.frontend.actions,
       threadId: data.threadId,
       runId: data.runId,
       publicApiKey: undefined,

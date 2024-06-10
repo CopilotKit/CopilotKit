@@ -1,4 +1,5 @@
 import { Message, ToolDefinition, ChatCompletionChunk, encodeResult } from "@copilotkit/shared";
+import { MessageInput } from "../graphql/inputs/message.input";
 
 export function writeChatCompletionChunk(
   controller: ReadableStreamDefaultController<any>,
