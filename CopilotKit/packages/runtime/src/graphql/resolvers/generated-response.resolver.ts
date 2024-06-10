@@ -56,7 +56,7 @@ export class GeneratedResponseResolver {
               ////////////////////////////////
               case RuntimeEventTypes.TextMessageStart:
                 // create a sub stream that contains the message content
-                const messageContentStream = eventStream.pipe(
+                const textMessageContentStream = eventStream.pipe(
                   // skip until this message start event
                   skipWhile((e) => e !== event),
                   // take until the message end event
@@ -69,12 +69,35 @@ export class GeneratedResponseResolver {
                   role: MessageRole.assistant,
                   content: new Repeater(async (pushTextChunk, stopStreamingText) => {
                     // push the message content
-                    await messageContentStream.forEach(async (e: RuntimeEvent) => {
+                    await textMessageContentStream.forEach(async (e: RuntimeEvent) => {
                       if (e.type == RuntimeEventTypes.TextMessageContent) {
                         await pushTextChunk(e.content);
                       }
                     });
                     stopStreamingText();
+                  }),
+                });
+                break;
+              ////////////////////////////////
+              // ActionExecutionStart
+              ////////////////////////////////
+              case RuntimeEventTypes.ActionExecutionStart:
+                const actionExecutionArgumentStream = eventStream.pipe(
+                  skipWhile((e) => e !== event),
+                  takeWhile((e) => e.type != RuntimeEventTypes.ActionExecutionEnd),
+                );
+                pushMessage({
+                  id: nanoid(),
+                  role: MessageRole.assistant,
+                  name: event.actionName,
+                  scope: event.scope!,
+                  arguments: new Repeater(async (pushArgumentsChunk, stopStreamingArguments) => {
+                    await actionExecutionArgumentStream.forEach(async (e: RuntimeEvent) => {
+                      if (e.type == RuntimeEventTypes.ActionExecutionArgs) {
+                        await pushArgumentsChunk(e.args);
+                      }
+                    });
+                    stopStreamingArguments();
                   }),
                 });
                 break;

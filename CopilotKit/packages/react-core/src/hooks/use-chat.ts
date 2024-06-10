@@ -185,11 +185,22 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         threadIdRef.current = value.generateResponse.threadId || null;
         runIdRef.current = value.generateResponse.runId || null;
 
-        newMessages = value.generateResponse.messages.map((message) => ({
-          id: message.id,
-          role: message.role,
-          content: "content" in message ? message.content.join("") : "",
-        }));
+        if (value.generateResponse.messages.length === 0) {
+          continue;
+        }
+
+        newMessages = [];
+
+        for (const message of value.generateResponse.messages) {
+          if (message.__typename === "TextMessage") {
+            newMessages.push({
+              id: message.id,
+              role: message.role,
+              content: message.content.join(""),
+            });
+          } else if (message.__typename === "ActionExecutionMessage") {
+          }
+        }
 
         if (newMessages.length > 0) {
           setMessages([...messages, ...newMessages]);

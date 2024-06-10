@@ -23,24 +23,24 @@ export type RuntimeEvent =
   | { type: RuntimeEventTypes.TextMessageEnd }
   | {
       type: RuntimeEventTypes.ActionExecutionStart;
-      toolCallId: string;
-      toolName: string;
+      actionExecutionId: string;
+      actionName: string;
       scope?: FunctionCallScope;
     }
   | { type: RuntimeEventTypes.ActionExecutionArgs; args: string }
   | { type: RuntimeEventTypes.ActionExecutionEnd }
   | {
       type: RuntimeEventTypes.ActionExecutionResult;
-      toolName: string;
-      toolCallId: string;
+      actionName: string;
+      actionExecutionId: string;
       result: string;
     };
 
 interface RuntimeEventWithState {
   event: RuntimeEvent | null;
-  callFunctionServerSide: boolean;
+  callActionServerSide: boolean;
   action: Action<any> | null;
-  toolCallId: string | null;
+  actionExecutionId: string | null;
   args: string;
 }
 
@@ -69,11 +69,11 @@ class RuntimeEventSubject extends Subject<RuntimeEvent> {
     this.sendTextMessageEnd();
   }
 
-  sendActionExecutionStart(actionExecutionId: string, toolName: string) {
+  sendActionExecutionStart(actionExecutionId: string, actionName: string) {
     this.next({
       type: RuntimeEventTypes.ActionExecutionStart,
-      toolCallId: actionExecutionId,
-      toolName,
+      actionExecutionId,
+      actionName,
     });
   }
 
@@ -91,8 +91,13 @@ class RuntimeEventSubject extends Subject<RuntimeEvent> {
     this.sendActionExecutionEnd();
   }
 
-  sendActionExecutionResult(toolCallId: string, toolName: string, result: string) {
-    this.next({ type: RuntimeEventTypes.ActionExecutionResult, toolName, toolCallId, result });
+  sendActionExecutionResult(actionExecutionId: string, actionName: string, result: string) {
+    this.next({
+      type: RuntimeEventTypes.ActionExecutionResult,
+      actionName,
+      actionExecutionId,
+      result,
+    });
   }
 }
 
@@ -112,7 +117,7 @@ export class RuntimeEventSource {
       // mark tools for server side execution
       map((event) => {
         if (event.type === RuntimeEventTypes.ActionExecutionStart) {
-          event.scope = serversideActions.find((action) => action.name === event.toolName)
+          event.scope = serversideActions.find((action) => action.name === event.actionName)
             ? "server"
             : "client";
         }
@@ -122,11 +127,11 @@ export class RuntimeEventSource {
       scan(
         (acc, event) => {
           if (event.type === RuntimeEventTypes.ActionExecutionStart) {
-            acc.callFunctionServerSide = event.scope === "server";
+            acc.callActionServerSide = event.scope === "server";
             acc.args = "";
-            acc.toolCallId = event.toolCallId;
-            if (acc.callFunctionServerSide) {
-              acc.action = serversideActions.find((action) => action.name === event.toolName);
+            acc.actionExecutionId = event.actionExecutionId;
+            if (acc.callActionServerSide) {
+              acc.action = serversideActions.find((action) => action.name === event.actionName);
             }
           } else if (event.type === RuntimeEventTypes.ActionExecutionArgs) {
             acc.args += event.args;
@@ -137,23 +142,23 @@ export class RuntimeEventSource {
         },
         {
           event: null,
-          callFunctionServerSide: false,
+          callActionServerSide: false,
           args: "",
-          toolCallId: null,
+          actionExecutionId: null,
           action: null,
         } as RuntimeEventWithState,
       ),
       concatMap((eventWithState) => {
         if (
           eventWithState.event!.type === RuntimeEventTypes.ActionExecutionEnd &&
-          eventWithState.callFunctionServerSide
+          eventWithState.callActionServerSide
         ) {
           const toolCallEventStream$ = new RuntimeEventSubject();
-          executeToolCall(
+          executeAction(
             toolCallEventStream$,
             eventWithState.action!,
             eventWithState.args,
-            eventWithState.toolCallId,
+            eventWithState.actionExecutionId,
           ).catch((error) => {
             console.error(error);
           });
@@ -166,16 +171,16 @@ export class RuntimeEventSource {
   }
 }
 
-async function executeToolCall(
+async function executeAction(
   eventStream$: RuntimeEventSubject,
   action: Action<any>,
-  functionCallArguments: string,
-  toolCallId: string,
+  actionArguments: string,
+  actionExecutionId: string,
 ) {
   // Prepare arguments for function calling
   let args: Record<string, any>[] = [];
-  if (functionCallArguments) {
-    args = JSON.parse(functionCallArguments);
+  if (actionArguments) {
+    args = JSON.parse(actionArguments);
   }
 
   // call the function
@@ -278,6 +283,6 @@ async function executeToolCall(
 
   // 5. Any other type, return JSON result
   else {
-    eventStream$.sendActionExecutionResult(toolCallId, action.name, JSON.stringify(result));
+    eventStream$.sendActionExecutionResult(actionExecutionId, action.name, JSON.stringify(result));
   }
 }
