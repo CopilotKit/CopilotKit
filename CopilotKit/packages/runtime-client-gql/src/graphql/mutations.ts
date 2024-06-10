@@ -11,14 +11,19 @@ export const generateResponseMutation = graphql(/** GraphQL **/ `
       }
       messages @stream {
         __typename
-        ... on TextMessage {
+        ... on BaseMessage {
           id
           role
+        }
+        ... on BaseMessage @defer {
+          status {
+            isDoneStreaming
+          }
+        }
+        ... on TextMessage {
           content @stream
         }
         ... on ActionExecutionMessage {
-          id
-          role
           name
           scope
           arguments @stream

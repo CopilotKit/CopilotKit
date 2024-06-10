@@ -23,6 +23,7 @@ export type ActionExecutionMessage = BaseMessage & {
   name: Scalars['String']['output'];
   role: MessageRole;
   scope: ActionExecutionScope;
+  status: MessageStatus;
 };
 
 /** The scope of the action */
@@ -40,6 +41,7 @@ export type ActionInput = {
 export type BaseMessage = {
   id: Scalars['String']['output'];
   role: MessageRole;
+  status: MessageStatus;
 };
 
 export type CloudInput = {
@@ -96,6 +98,11 @@ export enum MessageRole {
   User = 'user'
 }
 
+export type MessageStatus = {
+  __typename?: 'MessageStatus';
+  isDoneStreaming: Scalars['Boolean']['output'];
+};
+
 export type MessageUnion = ActionExecutionMessage | TextMessage;
 
 export type Mutation = {
@@ -118,6 +125,7 @@ export type TextMessage = BaseMessage & {
   content: Array<Scalars['String']['output']>;
   id: Scalars['String']['output'];
   role: MessageRole;
+  status: MessageStatus;
 };
 
 export type GenerateResponseMutationVariables = Exact<{
@@ -125,7 +133,7 @@ export type GenerateResponseMutationVariables = Exact<{
 }>;
 
 
-export type GenerateResponseMutation = { __typename?: 'Mutation', generateResponse: { __typename?: 'GeneratedResponse', threadId: string, runId?: string | null, messages: Array<{ __typename: 'ActionExecutionMessage', id: string, role: MessageRole, name: string, scope: ActionExecutionScope, arguments: Array<string> } | { __typename: 'TextMessage', id: string, role: MessageRole, content: Array<string> }> } & ({ __typename?: 'GeneratedResponse', interruption: { __typename?: 'GenerationInterruption', interrupted: boolean, reason?: string | null } } | { __typename?: 'GeneratedResponse', interruption?: never }) };
+export type GenerateResponseMutation = { __typename?: 'Mutation', generateResponse: { __typename?: 'GeneratedResponse', threadId: string, runId?: string | null, messages: Array<{ __typename: 'ActionExecutionMessage', id: string, role: MessageRole, name: string, scope: ActionExecutionScope, arguments: Array<string>, status: { __typename?: 'MessageStatus', isDoneStreaming: boolean } } | { __typename: 'TextMessage', id: string, role: MessageRole, content: Array<string>, status: { __typename?: 'MessageStatus', isDoneStreaming: boolean } }> } & ({ __typename?: 'GeneratedResponse', interruption: { __typename?: 'GenerationInterruption', interrupted: boolean, reason?: string | null } } | { __typename?: 'GeneratedResponse', interruption?: never }) };
 
 
-export const GenerateResponseDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"generateResponse"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"data"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"GenerateResponseInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"generateResponse"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"data"},"value":{"kind":"Variable","name":{"kind":"Name","value":"data"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"GeneratedResponse"}},"directives":[{"kind":"Directive","name":{"kind":"Name","value":"defer"}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"interruption"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"interrupted"}},{"kind":"Field","name":{"kind":"Name","value":"reason"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"messages"},"directives":[{"kind":"Directive","name":{"kind":"Name","value":"stream"}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"TextMessage"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"content"},"directives":[{"kind":"Directive","name":{"kind":"Name","value":"stream"}}]}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"ActionExecutionMessage"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"role"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"scope"}},{"kind":"Field","name":{"kind":"Name","value":"arguments"},"directives":[{"kind":"Directive","name":{"kind":"Name","value":"stream"}}]}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"threadId"}},{"kind":"Field","name":{"kind":"Name","value":"runId"}}]}}]}}]} as unknown as DocumentNode<GenerateResponseMutation, GenerateResponseMutationVariables>;
+export const GenerateResponseDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"generateResponse"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"data"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"GenerateResponseInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"generateResponse"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"data"},"value":{"kind":"Variable","name":{"kind":"Name","value":"data"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"GeneratedResponse"}},"directives":[{"kind":"Directive","name":{"kind":"Name","value":"defer"}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"interruption"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"interrupted"}},{"kind":"Field","name":{"kind":"Name","value":"reason"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"messages"},"directives":[{"kind":"Directive","name":{"kind":"Name","value":"stream"}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"BaseMessage"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"role"}}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"BaseMessage"}},"directives":[{"kind":"Directive","name":{"kind":"Name","value":"defer"}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"status"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"isDoneStreaming"}}]}}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"TextMessage"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"content"},"directives":[{"kind":"Directive","name":{"kind":"Name","value":"stream"}}]}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"ActionExecutionMessage"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"scope"}},{"kind":"Field","name":{"kind":"Name","value":"arguments"},"directives":[{"kind":"Directive","name":{"kind":"Name","value":"stream"}}]}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"threadId"}},{"kind":"Field","name":{"kind":"Name","value":"runId"}}]}}]}}]} as unknown as DocumentNode<GenerateResponseMutation, GenerateResponseMutationVariables>;

@@ -260,17 +260,17 @@ function entryPointsToChatCompletionFunctions(actions: FrontendAction<any>[]): T
 }
 
 function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): FunctionCallHandler {
-  return async (chatMessages, functionCall) => {
+  return async ({ messages, name, args }) => {
     let actionsByFunctionName: Record<string, FrontendAction<any>> = {};
     for (let action of actions) {
       actionsByFunctionName[action.name] = action;
     }
 
-    const action = actionsByFunctionName[functionCall.name || ""];
+    const action = actionsByFunctionName[name || ""];
     if (action) {
       let functionCallArguments: Record<string, any>[] = [];
-      if (functionCall.arguments) {
-        functionCallArguments = JSON.parse(functionCall.arguments);
+      if (args) {
+        functionCallArguments = JSON.parse(args);
       }
       return await action.handler(functionCallArguments);
     }

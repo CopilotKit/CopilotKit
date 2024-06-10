@@ -9,6 +9,7 @@ type ActionExecutionMessage implements BaseMessage {
   name: String!
   role: MessageRole!
   scope: ActionExecutionScope!
+  status: MessageStatus!
 }
 
 """The scope of the action"""
@@ -26,6 +27,7 @@ input ActionInput {
 interface BaseMessage {
   id: String!
   role: MessageRole!
+  status: MessageStatus!
 }
 
 input CloudInput {
@@ -80,6 +82,10 @@ enum MessageRole {
   user
 }
 
+type MessageStatus {
+  isDoneStreaming: Boolean!
+}
+
 union MessageUnion = ActionExecutionMessage | TextMessage
 
 type Mutation {
@@ -94,4 +100,5 @@ type TextMessage implements BaseMessage {
   content: [String!]!
   id: String!
   role: MessageRole!
+  status: MessageStatus!
 }

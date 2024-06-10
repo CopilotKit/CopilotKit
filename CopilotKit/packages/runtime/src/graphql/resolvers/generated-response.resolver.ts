@@ -1,7 +1,7 @@
 import { Arg, Ctx, Mutation, Query, Resolver } from "type-graphql";
 import { Subject, firstValueFrom, shareReplay, skipWhile, takeWhile } from "rxjs";
 import { GenerateResponseInput } from "../inputs/generate-response.input";
-import { GeneratedResponse, MessageRole } from "../types/generated-response.type";
+import { GeneratedResponse, MessageRole, MessageStatus } from "../types/generated-response.type";
 import { Repeater } from "graphql-yoga";
 import type { GraphQLContext } from "../../test-server/test-server";
 import { GenerationInterruption } from "../types/generation-interruption";
@@ -63,10 +63,14 @@ export class GeneratedResponseResolver {
                   takeWhile((e) => e.type != RuntimeEventTypes.TextMessageEnd),
                 );
 
+                // signal when we are done streaming
+                const streamingTextStatus = new Subject<MessageStatus>();
+
                 // push the new message
                 pushMessage({
                   id: nanoid(),
                   role: MessageRole.assistant,
+                  status: firstValueFrom(streamingTextStatus),
                   content: new Repeater(async (pushTextChunk, stopStreamingText) => {
                     // push the message content
                     await textMessageContentStream.forEach(async (e: RuntimeEvent) => {
@@ -75,6 +79,7 @@ export class GeneratedResponseResolver {
                       }
                     });
                     stopStreamingText();
+                    streamingTextStatus.next(new MessageStatus({ isDoneStreaming: true }));
                   }),
                 });
                 break;
@@ -86,9 +91,11 @@ export class GeneratedResponseResolver {
                   skipWhile((e) => e !== event),
                   takeWhile((e) => e.type != RuntimeEventTypes.ActionExecutionEnd),
                 );
+                const streamingArgumentsStatus = new Subject<MessageStatus>();
                 pushMessage({
                   id: nanoid(),
                   role: MessageRole.assistant,
+                  status: firstValueFrom(streamingArgumentsStatus),
                   name: event.actionName,
                   scope: event.scope!,
                   arguments: new Repeater(async (pushArgumentsChunk, stopStreamingArguments) => {
@@ -98,6 +105,7 @@ export class GeneratedResponseResolver {
                       }
                     });
                     stopStreamingArguments();
+                    streamingArgumentsStatus.next(new MessageStatus({ isDoneStreaming: true }));
                   }),
                 });
                 break;

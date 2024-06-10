@@ -1,22 +1,16 @@
-import { useRef, useState, useContext, useEffect } from "react";
-import { CopilotContext } from "../context/copilot-context";
+import { useRef } from "react";
 import {
   Message,
-  ToolDefinition,
   FunctionCallHandler,
   encodeResult,
-  FunctionCall,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
-  Role,
   Action,
   actionParametersToJsonSchema,
 } from "@copilotkit/shared";
 
-import { nanoid } from "nanoid";
-import { fetchAndDecodeChatCompletion } from "../utils/fetch-chat-completion";
 import { CopilotApiConfig } from "../context";
 import untruncateJson from "untruncate-json";
-import { CopilotRuntimeClient, MessageInput, MessageRole } from "@copilotkit/runtime-client-gql";
+import { CopilotRuntimeClient, MessageRole } from "@copilotkit/runtime-client-gql";
 
 export type UseChatOptions = {
   /**
@@ -93,6 +87,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     initialMessages,
     isLoading,
     actions,
+    onFunctionCall,
   } = options;
   const abortControllerRef = useRef<AbortController>();
   const threadIdRef = useRef<string | null>(null);
@@ -144,6 +139,14 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       })),
     });
 
+    const getPartialArguments = (args: string[]) => {
+      try {
+        return JSON.parse(untruncateJson(args.join("")));
+      } catch (e) {
+        return {};
+      }
+    };
+
     // TODO-PROTOCOL make sure all options are included in the final version
     //
     // const response = await fetchAndDecodeChatCompletion({
@@ -174,6 +177,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     // Whether to feed back the new messages to GPT
     let feedback = false;
 
+    let results: { [id: string]: string } = {};
+
     try {
       while (true) {
         const { done, value } = await reader.read();
@@ -199,6 +204,41 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               content: message.content.join(""),
             });
           } else if (message.__typename === "ActionExecutionMessage") {
+            newMessages.push({
+              id: message.id,
+              role: message.role,
+              content: "",
+              ...(message.status?.isDoneStreaming
+                ? {
+                    function_call: {
+                      name: message.name,
+                      arguments: message.arguments.join(""),
+                      scope: message.scope,
+                    },
+                  }
+                : {
+                    partialFunctionCall: {
+                      name: message.name,
+                      arguments: getPartialArguments(message.arguments),
+                    },
+                  }),
+            });
+            if (message.status?.isDoneStreaming && message.scope === "client" && onFunctionCall) {
+              if (!(message.id in results)) {
+                const result = await onFunctionCall({
+                  messages,
+                  name: message.name,
+                  args: message.arguments.join(""),
+                });
+                results[message.id] = result;
+              }
+              newMessages.push({
+                id: message.id + "-result",
+                role: "function",
+                content: encodeResult(results[message.id]),
+                name: message.name,
+              });
+            }
           }
         }
 
@@ -303,17 +343,20 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         // }
       }
 
-      // If we want feedback, run the completion again and return the results
-      if (feedback) {
+      if (
+        // if we have client side results
+        Object.values(results).length ||
+        // or the last message we received is a result
+        newMessages.findIndex((message) => message.role === "function") === newMessages.length - 1
+      ) {
+        // run the completion again and return the result
+
         // wait for next tick to make sure all the react state updates
-        // TODO: This is a hack, is there a more robust way to do this?
         // - tried using react-dom's flushSync, but it did not work
         await new Promise((resolve) => setTimeout(resolve, 10));
 
         return await runChatCompletion([...messages, ...newMessages]);
-      }
-      // otherwise, return the new messages
-      else {
+      } else {
         return newMessages.slice();
       }
     } finally {

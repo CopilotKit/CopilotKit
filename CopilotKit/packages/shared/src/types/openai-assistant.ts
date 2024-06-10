@@ -76,10 +76,13 @@ export interface ToolDefinition {
   function: FunctionDefinition;
 }
 
-export type FunctionCallHandler = (
-  chatMessages: Message[],
-  functionCall: FunctionCall,
-) => Promise<any>;
+export interface FunctionCallHandlerArguments {
+  messages: Message[];
+  name?: string;
+  args?: string;
+}
+
+export type FunctionCallHandler = (args: FunctionCallHandlerArguments) => Promise<any>;
 
 export type AssistantMessage = {
   id: string;

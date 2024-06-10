@@ -23,6 +23,16 @@ registerEnumType(ActionExecutionScope, {
   description: "The scope of the action",
 });
 
+@ObjectType()
+export class MessageStatus {
+  constructor({ isDoneStreaming }: { isDoneStreaming: boolean }) {
+    this.isDoneStreaming = isDoneStreaming;
+  }
+
+  @Field(() => Boolean)
+  isDoneStreaming: boolean;
+}
+
 @InterfaceType()
 abstract class BaseMessage {
   @Field(() => String)
@@ -30,6 +40,9 @@ abstract class BaseMessage {
 
   @Field(() => MessageRole)
   role: MessageRole;
+
+  @Field(() => MessageStatus)
+  status: MessageStatus;
 }
 
 @ObjectType({ implements: BaseMessage })
