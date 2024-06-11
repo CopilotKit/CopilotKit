@@ -38,8 +38,8 @@ import {
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
 } from "../service-adapter";
-import { limitOpenAIMessagesToTokenCount, maxTokensForOpenAIModel } from "../../utils/openai";
 import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "@copilotkit/shared";
+import { limitMessagesToTokenCount } from "./utils";
 
 const DEFAULT_MODEL = "gpt-4o";
 
@@ -75,11 +75,8 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
   ): Promise<CopilotRuntimeChatCompletionResponse> {
     const { model = this.model, tools = [], eventSource } = request;
 
-    const messages = limitOpenAIMessagesToTokenCount(
-      request.messages,
-      tools,
-      maxTokensForOpenAIModel(model),
-    ).map(convertMessageToOpenAI);
+    let messages = request.messages.map(convertMessageToOpenAI);
+    messages = limitMessagesToTokenCount(messages, tools, model);
 
     eventSource.stream(async (eventStream$) => {
       const stream = this.openai.beta.chat.completions.stream({

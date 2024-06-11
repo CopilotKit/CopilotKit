@@ -108,7 +108,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   });
 
   const runChatCompletion = async (previousMessages: Message[]): Promise<Message[]> => {
-    console.log("runChatCompletion", previousMessages);
     setIsLoading(true);
 
     // this message is just a placeholder. It will disappear once the first real message

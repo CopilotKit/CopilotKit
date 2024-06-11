@@ -9,6 +9,7 @@
     "langserve",
     "ondataavailable",
     "untruncate",
-    "serverside"
+    "serverside",
+    "Tiktoken"
   ]
 }

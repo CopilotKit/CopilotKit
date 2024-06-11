@@ -10,7 +10,6 @@ import { CopilotRuntime, OpenAIAdapter } from "../../lib";
 import { OpenAI } from "openai";
 import { nanoid } from "nanoid";
 import { RuntimeEvent, RuntimeEventTypes } from "../../service-adapters/events";
-import { Action } from "@copilotkit/shared";
 
 @Resolver(() => Response)
 export class GeneratedResponseResolver {
