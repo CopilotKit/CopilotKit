@@ -1,4 +1,4 @@
-import { IMessage } from "./message";
+import { Message } from "./message";
 
 export interface FunctionDefinition {
   /**
@@ -29,7 +29,7 @@ export interface ToolDefinition {
 }
 
 export interface FunctionCallHandlerArguments {
-  messages: IMessage[];
+  messages: Message[];
   name: string;
   args: any;
 }

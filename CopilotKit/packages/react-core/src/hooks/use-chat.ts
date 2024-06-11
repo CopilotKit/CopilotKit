@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import {
-  IMessage,
+  Message,
   FunctionCallHandler,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   Action,
@@ -21,7 +21,7 @@ export type UseChatOptions = {
   /**
    * System messages of the chat. Defaults to an empty array.
    */
-  initialMessages?: IMessage[];
+  initialMessages?: Message[];
   /**
    * Callback function to be called when a function call is received.
    * If the function returns a `ChatRequest` object, the request will be sent
@@ -41,11 +41,11 @@ export type UseChatOptions = {
   /**
    * The current list of messages in the chat.
    */
-  messages: IMessage[];
+  messages: Message[];
   /**
    * The setState-powered method to update the chat messages.
    */
-  setMessages: React.Dispatch<React.SetStateAction<IMessage[]>>;
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
 
   /**
    * A callback to get the latest system message.
@@ -69,7 +69,7 @@ export type UseChatHelpers = {
    * the assistant's response.
    * @param message The message to append
    */
-  append: (message: IMessage) => Promise<void>;
+  append: (message: Message) => Promise<void>;
   /**
    * Reload the last AI chat response for the given chat history. If the last
    * message isn't from the assistant, it will request the API to generate a
@@ -107,13 +107,13 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     url: copilotConfig.chatApiEndpoint,
   });
 
-  const runChatCompletion = async (previousMessages: IMessage[]): Promise<IMessage[]> => {
+  const runChatCompletion = async (previousMessages: Message[]): Promise<Message[]> => {
     console.log("runChatCompletion", previousMessages);
     setIsLoading(true);
 
     // this message is just a placeholder. It will disappear once the first real message
     // is received
-    let newMessages: IMessage[] = [
+    let newMessages: Message[] = [
       new TextMessage({
         id: "--PLACEHOLDER-MESSAGE-ID--",
         createdAt: new Date(),
@@ -251,11 +251,11 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     }
   };
 
-  const runChatCompletionAndHandleFunctionCall = async (messages: IMessage[]): Promise<void> => {
+  const runChatCompletionAndHandleFunctionCall = async (messages: Message[]): Promise<void> => {
     await runChatCompletion(messages);
   };
 
-  const append = async (message: IMessage): Promise<void> => {
+  const append = async (message: Message): Promise<void> => {
     if (isLoading) {
       return;
     }

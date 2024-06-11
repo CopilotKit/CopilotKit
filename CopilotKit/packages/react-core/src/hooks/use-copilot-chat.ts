@@ -28,7 +28,7 @@
  */
 import { useMemo, useContext, useRef, useEffect, useCallback } from "react";
 import { CopilotContext } from "../context/copilot-context";
-import { IMessage, TextMessage, ToolDefinition } from "@copilotkit/shared";
+import { Message, TextMessage, ToolDefinition } from "@copilotkit/shared";
 import { SystemMessageFunction } from "../types";
 import { useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
@@ -62,7 +62,7 @@ export interface UseCopilotChatOptions {
   /**
    * System messages of the chat. Defaults to an empty array.
    */
-  initialMessages?: IMessage[];
+  initialMessages?: Message[];
 
   /**
    * A function to generate the system message. Defaults to `defaultSystemMessage`.
@@ -71,9 +71,9 @@ export interface UseCopilotChatOptions {
 }
 
 export interface UseCopilotChatReturn {
-  visibleMessages: IMessage[];
-  appendMessage: (message: IMessage) => Promise<void>;
-  setMessages: (messages: IMessage[]) => void;
+  visibleMessages: Message[];
+  appendMessage: (message: Message) => Promise<void>;
+  setMessages: (messages: Message[]) => void;
   deleteMessage: (messageId: string) => void;
   reloadMessages: () => Promise<void>;
   stopGeneration: () => void;

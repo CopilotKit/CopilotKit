@@ -2,7 +2,7 @@ import {
   Action,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   MappedParameterTypes,
-  IMessage,
+  Message,
   Parameter,
   TextMessage,
 } from "@copilotkit/shared";
@@ -76,7 +76,7 @@ export async function extract<const T extends Parameter[]>({
     contextString += context.getContextString([], defaultCopilotContextCategories);
   }
 
-  const systemMessage: IMessage = new TextMessage({
+  const systemMessage: Message = new TextMessage({
     id: "system",
     content: makeSystemMessage(contextString, instructions),
     role: "system",

@@ -47,7 +47,7 @@ import {
   COPILOT_CLOUD_CHAT_URL,
   CopilotCloudConfig,
   FunctionCallHandler,
-  IMessage,
+  Message,
   actionToChatCompletionFunction,
 } from "@copilotkit/shared";
 
@@ -69,7 +69,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const [actions, setActions] = useState<Record<string, FrontendAction<any>>>({});
   const chatComponentsCache = useRef<Record<string, InChatRenderFunction | string>>({});
   const { addElement, removeElement, printTree } = useTree();
-  const [messages, setMessages] = useState<IMessage[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [chatInstructions, setChatInstructions] = useState("");
 

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo } from "react";
 import { MessagesProps, SuggestionsProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import { nanoid } from "nanoid";
-import { ActionExecutionMessage, IMessage, ResultMessage, TextMessage } from "@copilotkit/shared";
+import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "@copilotkit/shared";
 import { Markdown } from "./Markdown";
 import { RenderFunctionStatus, useCopilotContext } from "@copilotkit/react-core";
 
@@ -141,7 +141,7 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
   );
 };
 
-function makeInitialMessages(initial?: string | string[]): IMessage[] {
+function makeInitialMessages(initial?: string | string[]): Message[] {
   let initialArray: string[] = [];
   if (initial) {
     if (Array.isArray(initial)) {

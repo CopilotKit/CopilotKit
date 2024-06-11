@@ -1,7 +1,7 @@
 import {
   CopilotCloudConfig,
   FunctionCallHandler,
-  IMessage,
+  Message,
   ToolDefinition,
 } from "@copilotkit/shared";
 import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
@@ -111,8 +111,8 @@ export interface CopilotContextParams {
   getDocumentsContext: (categories: string[]) => DocumentPointer[];
 
   // chat
-  messages: IMessage[];
-  setMessages: React.Dispatch<React.SetStateAction<IMessage[]>>;
+  messages: Message[];
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
 
   isLoading: boolean;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;

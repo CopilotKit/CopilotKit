@@ -1,8 +1,8 @@
-import { ActionExecutionMessage, IMessage, ResultMessage, TextMessage } from "@copilotkit/shared";
+import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "@copilotkit/shared";
 import { MessageInput } from "../graphql/inputs/message.input";
 
-export function convertGqlInputToMessages(inputMessages: MessageInput[]): IMessage[] {
-  const messages: IMessage[] = [];
+export function convertGqlInputToMessages(inputMessages: MessageInput[]): Message[] {
+  const messages: Message[] = [];
 
   for (const message of inputMessages) {
     if (message.textMessage) {

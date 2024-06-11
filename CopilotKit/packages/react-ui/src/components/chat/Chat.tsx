@@ -59,7 +59,7 @@ import { SystemMessageFunction, useCopilotChat, useCopilotContext } from "@copil
 import { nanoid } from "nanoid";
 import { reloadSuggestions } from "./Suggestion";
 import { CopilotChatSuggestion } from "../../types/suggestions";
-import { IMessage, TextMessage } from "@copilotkit/shared";
+import { Message, TextMessage } from "@copilotkit/shared";
 import { InputProps, MessagesProps, ResponseButtonProps } from "./props";
 
 /**
@@ -274,7 +274,7 @@ export const useCopilotChatLogic = (
     abortSuggestions();
     setCurrentSuggestions([]);
     onSubmitMessage?.(messageContent);
-    const message: IMessage = new TextMessage({
+    const message: Message = new TextMessage({
       id: nanoid(),
       content: messageContent,
       role: "user",

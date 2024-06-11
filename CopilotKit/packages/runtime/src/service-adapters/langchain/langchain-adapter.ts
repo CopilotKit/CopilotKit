@@ -43,7 +43,7 @@ import {
 import { SingleChunkReadableStream } from "../../utils";
 import { MessageInput } from "../../graphql/inputs/message.input";
 import { TextMessage } from "@copilotkit/shared";
-import { IMessage } from "@copilotkit/shared";
+import { Message } from "@copilotkit/shared";
 
 export type LangChainMessageStream = IterableReadableStream<BaseMessageChunk>;
 export type LangChainReturnType = LangChainMessageStream | BaseMessageChunk | string | AIMessage;
@@ -122,7 +122,7 @@ export class LangChainAdapter implements CopilotServiceAdapter {
    * @param forwardedProps
    * @returns {any}
    */
-  private transformMessages(messages: IMessage[]) {
+  private transformMessages(messages: Message[]) {
     // map messages to langchain format
 
     const newMessages: BaseMessage[] = [];

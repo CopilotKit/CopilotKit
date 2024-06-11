@@ -1,8 +1,8 @@
 import { GenerateResponseMutation, MessageInput } from "../graphql/@generated/graphql";
-import { ActionExecutionMessage, IMessage, ResultMessage, TextMessage } from "@copilotkit/shared";
+import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "@copilotkit/shared";
 import untruncateJson from "untruncate-json";
 
-export function convertMessagesToGqlInput(messages: IMessage[]): MessageInput[] {
+export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
   return messages.map((message) => {
     if (message instanceof TextMessage) {
       return {
@@ -40,7 +40,7 @@ export function convertMessagesToGqlInput(messages: IMessage[]): MessageInput[] 
 
 export function convertGqlOutputToMessages(
   messages: GenerateResponseMutation["generateResponse"]["messages"],
-): IMessage[] {
+): Message[] {
   return messages.map((message) => {
     if (message.__typename === "TextMessageOutput") {
       return new TextMessage({

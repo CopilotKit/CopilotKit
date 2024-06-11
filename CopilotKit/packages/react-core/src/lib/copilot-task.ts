@@ -89,7 +89,7 @@
  * ```
  */
 
-import { IMessage, TextMessage } from "@copilotkit/shared";
+import { Message, TextMessage } from "@copilotkit/shared";
 import { FrontendAction } from "../types/frontend-action";
 import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
@@ -164,7 +164,7 @@ export class CopilotTask<T = any> {
       createdAt: new Date(),
     });
 
-    const messages: IMessage[] = [systemMessage];
+    const messages: Message[] = [systemMessage];
 
     // TODO-PROTOCOL
     throw new Error("Not implemented");

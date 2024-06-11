@@ -1,4 +1,4 @@
-export abstract class IMessage {
+export abstract class Message {
   abstract id: string;
   abstract isDoneStreaming: boolean;
   abstract createdAt: Date;
@@ -14,7 +14,7 @@ interface TextMessageParams {
   createdAt: Date;
 }
 
-export class TextMessage extends IMessage {
+export class TextMessage extends Message {
   id: string;
   isDoneStreaming: boolean;
   role: Role;
@@ -40,7 +40,7 @@ interface ActionExecutionMessageParams {
   createdAt: Date;
 }
 
-export class ActionExecutionMessage extends IMessage {
+export class ActionExecutionMessage extends Message {
   id: string;
   isDoneStreaming: boolean;
   name: string;
@@ -67,7 +67,7 @@ interface ResultMessageParams {
   createdAt: Date;
 }
 
-export class ResultMessage extends IMessage {
+export class ResultMessage extends Message {
   id: string;
   isDoneStreaming: boolean;
   actionExecutionId: string;

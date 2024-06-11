@@ -1,5 +1,5 @@
 import {
-  IMessage,
+  Message,
   ToolDefinition,
   ChatCompletionChunk,
   TextMessage,
@@ -63,11 +63,11 @@ export function writeChatCompletionEnd(controller: ReadableStreamDefaultControll
 }
 
 export function limitOpenAIMessagesToTokenCount(
-  messages: IMessage[],
+  messages: Message[],
   tools: ToolDefinition[],
   maxTokens: number,
-): IMessage[] {
-  const result: IMessage[] = [];
+): Message[] {
+  const result: Message[] = [];
   const toolsNumTokens = countToolsTokens(tools);
   if (toolsNumTokens > maxTokens) {
     throw new Error(`Too many tokens in function definitions: ${toolsNumTokens} > ${maxTokens}`);
@@ -150,7 +150,7 @@ function countToolsTokens(functions: ToolDefinition[]): number {
   return countTokens(json);
 }
 
-function countMessageTokens(message: IMessage): number {
+function countMessageTokens(message: Message): number {
   if (message instanceof TextMessage) {
     return countTokens(message.content);
   } else if (message instanceof ActionExecutionMessage) {
