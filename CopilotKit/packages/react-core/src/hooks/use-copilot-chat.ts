@@ -86,7 +86,6 @@ export function useCopilotChat({
 }: UseCopilotChatOptions = {}): UseCopilotChatReturn {
   const {
     getContextString,
-    getChatCompletionFunctionDescriptions,
     getFunctionCallHandler,
     copilotApiConfig,
     messages,
@@ -119,10 +118,6 @@ export function useCopilotChat({
       createdAt: new Date(),
     });
   }, [getContextString, makeSystemMessage, chatInstructions]);
-
-  const functionDescriptions: ToolDefinition[] = useMemo(() => {
-    return getChatCompletionFunctionDescriptions();
-  }, [getChatCompletionFunctionDescriptions]);
 
   const { append, reload, stop } = useChat({
     ...options,

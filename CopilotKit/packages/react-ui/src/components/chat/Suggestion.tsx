@@ -30,6 +30,9 @@ export const reloadSuggestions = async (
   abortControllerRef: React.MutableRefObject<AbortController | null>,
 ) => {
   const abortController = abortControllerRef.current;
+  // TODO-PROTOCOL
+  // getChatCompletionFunctionDescriptions needs to go
+  // @ts-ignore
   const tools = JSON.stringify(context.getChatCompletionFunctionDescriptions(context.actions));
 
   const allSuggestions: CopilotChatSuggestion[] = [];

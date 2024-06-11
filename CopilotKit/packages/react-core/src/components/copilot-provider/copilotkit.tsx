@@ -129,13 +129,6 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     [removeElement],
   );
 
-  const getChatCompletionFunctionDescriptions = useCallback(
-    (customEntryPoints?: Record<string, FrontendAction<any>>) => {
-      return entryPointsToChatCompletionFunctions(Object.values(customEntryPoints || actions));
-    },
-    [actions],
-  );
-
   const getFunctionCallHandler = useCallback(
     (customEntryPoints?: Record<string, FrontendAction<any>>) => {
       return entryPointsToFunctionCallHandler(Object.values(customEntryPoints || actions));
@@ -226,7 +219,6 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
       value={{
         actions,
         chatComponentsCache,
-        getChatCompletionFunctionDescriptions,
         getFunctionCallHandler,
         setAction,
         removeAction,

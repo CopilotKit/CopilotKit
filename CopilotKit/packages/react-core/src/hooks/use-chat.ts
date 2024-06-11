@@ -11,7 +11,11 @@ import {
 } from "@copilotkit/shared";
 
 import { CopilotApiConfig } from "../context";
-import { CopilotRuntimeClient } from "@copilotkit/runtime-client-gql";
+import {
+  CopilotRuntimeClient,
+  convertMessagesToGqlInput,
+  convertGqlOutputToMessages,
+} from "@copilotkit/runtime-client-gql";
 
 export type UseChatOptions = {
   /**
@@ -104,6 +108,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   });
 
   const runChatCompletion = async (previousMessages: IMessage[]): Promise<IMessage[]> => {
+    console.log("runChatCompletion", previousMessages);
     setIsLoading(true);
 
     // this message is just a placeholder. It will disappear once the first real message
@@ -137,7 +142,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         },
         threadId: threadIdRef.current,
         runId: runIdRef.current,
-        messages: CopilotRuntimeClient.convertMessagesToGqlInput(messagesWithContext),
+        messages: convertMessagesToGqlInput(messagesWithContext),
       }),
     );
 
@@ -181,9 +186,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         threadIdRef.current = value.generateResponse.threadId || null;
         runIdRef.current = value.generateResponse.runId || null;
 
-        const messages = CopilotRuntimeClient.convertGqlOutputToMessages(
-          value.generateResponse.messages,
-        );
+        const messages = convertGqlOutputToMessages(value.generateResponse.messages);
 
         if (messages.length === 0) {
           continue;

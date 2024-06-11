@@ -95,9 +95,7 @@ export interface CopilotContextParams {
   setAction: (id: string, action: FrontendAction<any>) => void;
   removeAction: (id: string) => void;
   chatComponentsCache: React.RefObject<Record<string, InChatRenderFunction | string>>;
-  getChatCompletionFunctionDescriptions: (
-    customEntryPoints?: Record<string, FrontendAction<any>>,
-  ) => ToolDefinition[];
+
   getFunctionCallHandler: (
     customEntryPoints?: Record<string, FrontendAction<any>>,
   ) => FunctionCallHandler;
@@ -144,7 +142,6 @@ const emptyCopilotContext: CopilotContextParams = {
   addContext: () => "",
   removeContext: () => {},
 
-  getChatCompletionFunctionDescriptions: () => returnAndThrowInDebug([]),
   getFunctionCallHandler: () => returnAndThrowInDebug(async () => {}),
 
   messages: [],

@@ -1,2 +1,2 @@
-export { CopilotRuntimeClient } from "./client/CopilotRuntimeClient";
+export * from "./client";
 export * from "./graphql/@generated/graphql";
