@@ -183,6 +183,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           break;
         }
 
+        if (!value.generateResponse) {
+          continue;
+        }
+
         threadIdRef.current = value.generateResponse.threadId || null;
         runIdRef.current = value.generateResponse.runId || null;
 

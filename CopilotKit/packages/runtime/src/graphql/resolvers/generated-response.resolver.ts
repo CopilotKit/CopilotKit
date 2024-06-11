@@ -10,6 +10,7 @@ import { CopilotRuntime, OpenAIAdapter } from "../../lib";
 import { OpenAI } from "openai";
 import { nanoid } from "nanoid";
 import { RuntimeEvent, RuntimeEventTypes } from "../../service-adapters/events";
+import { Action } from "@copilotkit/shared";
 
 @Resolver(() => Response)
 export class GeneratedResponseResolver {
@@ -21,7 +22,26 @@ export class GeneratedResponseResolver {
   @Mutation(() => GeneratedResponse)
   async generateResponse(@Arg("data") data: GenerateResponseInput, @Ctx() ctx: GraphQLContext) {
     const openai = new OpenAI();
-    const copilotRuntime = new CopilotRuntime();
+    const copilotRuntime = new CopilotRuntime({
+      actions: [
+        {
+          name: "sayHello",
+          description: "say hello so someone by roasting their name",
+          parameters: [
+            {
+              name: "roast",
+              description: "A sentence or two roasting the name of the person",
+              type: "string",
+              required: true,
+            },
+          ],
+          handler: ({ roast }) => {
+            console.log(roast);
+            return "The person has been roasted.";
+          },
+        },
+      ],
+    });
     const openaiAdapter = new OpenAIAdapter({ openai });
 
     const interruption = new Subject<GenerationInterruption>();
@@ -44,7 +64,7 @@ export class GeneratedResponseResolver {
       interruption: firstValueFrom(interruption),
       messages: new Repeater(async (pushMessage, stopStreamingMessages) => {
         // run and process the event stream
-        const eventStream = eventSource.process([]).pipe(
+        const eventStream = eventSource.process(copilotRuntime.actions).pipe(
           // shareReplay() ensures that later subscribers will see the whole stream instead of
           // just the events that were emitted after the subscriber was added.
           shareReplay(),
@@ -95,7 +115,7 @@ export class GeneratedResponseResolver {
                 );
                 const streamingArgumentsStatus = new Subject<MessageStatus>();
                 pushMessage({
-                  id: nanoid(),
+                  id: event.actionExecutionId,
                   status: firstValueFrom(streamingArgumentsStatus),
                   createdAt: new Date(),
                   name: event.actionName,

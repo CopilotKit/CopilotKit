@@ -191,7 +191,7 @@ async function executeAction(
   // 1. string
   // Just send the result as the content of the chunk.
   if (result && typeof result === "string") {
-    eventStream$.sendTextMessage(nanoid(), result);
+    eventStream$.sendActionExecutionResult(actionExecutionId, action.name, result);
   }
 
   // 2. AIMessage
@@ -285,4 +285,6 @@ async function executeAction(
   else {
     eventStream$.sendActionExecutionResult(actionExecutionId, action.name, JSON.stringify(result));
   }
+
+  eventStream$.complete();
 }

@@ -153,7 +153,7 @@ interface CopilotDeprecatedRuntimeConstructorParams<T extends Parameter[] | [] =
 }
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
-  private actions: Action<any>[] = [];
+  public actions: Action<any>[] = [];
   private langserve: Promise<Action<any>>[] = [];
   private debug: boolean = false;
   private copilotCloud: CopilotCloud;

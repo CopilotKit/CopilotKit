@@ -18,6 +18,8 @@ export class MessageStatus {
       return TextMessageOutput;
     } else if (value.hasOwnProperty("name")) {
       return ActionExecutionMessageOutput;
+    } else if (value.hasOwnProperty("result")) {
+      return ResultMessageOutput;
     }
     return undefined;
   },
