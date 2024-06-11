@@ -77,7 +77,6 @@ in-app AI chatbots, AI agents, and AI Textareas.
       </a>
     </td>    
     <td align="center" valign="top">
-      Spreadsheets + Copilot <br/>
       <a href="https://go.copilotkit.ai/PowerPointAI">Spreadsheets + Copilot</a> <br/><br>
       <a href="https://go.copilotkit.ai/PowerPointAI">
         <img alt="Presentation-Demo" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/871e4c9c-0ced-490b-9e3f-8594de7c5c89" width="200px" style="max-width:100%; border-radius: 10px;"/>
