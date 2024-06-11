@@ -39,7 +39,7 @@ import {
   CopilotRuntimeChatCompletionResponse,
 } from "../service-adapter";
 import { limitOpenAIMessagesToTokenCount, maxTokensForOpenAIModel } from "../../utils/openai";
-import { ActionExecutionMessage, ResultMessage, TextMessage } from "@copilotkit/shared";
+import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "@copilotkit/shared";
 
 const DEFAULT_MODEL = "gpt-4o";
 
@@ -75,36 +75,11 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
   ): Promise<CopilotRuntimeChatCompletionResponse> {
     const { model = this.model, tools = [], eventSource } = request;
 
-    let messages: any[] = request.messages.map((message) => {
-      if (message instanceof TextMessage) {
-        return {
-          role: message.role,
-          content: message.content,
-        };
-      } else if (message instanceof ActionExecutionMessage) {
-        return {
-          role: "assistant",
-          tool_calls: [
-            {
-              id: message.id,
-              type: "function",
-              function: {
-                name: message.name,
-                arguments: JSON.stringify(message.arguments),
-              },
-            },
-          ],
-        };
-      } else if (message instanceof ResultMessage) {
-        return {
-          role: "tool",
-          content: message.result,
-          tool_call_id: message.actionExecutionId,
-        };
-      }
-    });
-
-    messages = limitOpenAIMessagesToTokenCount(messages, tools, maxTokensForOpenAIModel(model));
+    const messages = limitOpenAIMessagesToTokenCount(
+      request.messages,
+      tools,
+      maxTokensForOpenAIModel(model),
+    ).map(convertMessageToOpenAI);
 
     eventSource.stream(async (eventStream$) => {
       const stream = this.openai.beta.chat.completions.stream({
@@ -115,26 +90,25 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       });
       let mode: "function" | "message" | null = null;
       for await (const chunk of stream) {
-        // console.log("tool calls", chunk.choices[0].delta.tool_calls);
-        const toolCallFunction = chunk.choices[0].delta.tool_calls?.[0]?.function;
-        const toolCallId = chunk.choices[0].delta.tool_calls?.[0]?.id;
+        const toolCall = chunk.choices[0].delta.tool_calls?.[0];
         const content = chunk.choices[0].delta.content;
 
         // When switching from message to function or vice versa,
         // send the respective end event.
-        if (mode === "message" && toolCallFunction) {
+        // If toolCall?.id is defined, it means a new tool call starts.
+        if (mode === "message" && toolCall?.id) {
           mode = null;
           eventStream$.sendTextMessageEnd();
-        } else if (mode === "function" && !toolCallFunction) {
+        } else if (mode === "function" && (toolCall === undefined || toolCall?.id)) {
           mode = null;
           eventStream$.sendActionExecutionEnd();
         }
 
         // If we send a new message type, send the appropriate start event.
         if (mode === null) {
-          if (toolCallFunction) {
+          if (toolCall?.id) {
             mode = "function";
-            eventStream$.sendActionExecutionStart(toolCallId, toolCallFunction!.name);
+            eventStream$.sendActionExecutionStart(toolCall!.id, toolCall!.function!.name);
           } else if (content) {
             mode = "message";
             eventStream$.sendTextMessageStart(chunk.id);
@@ -144,8 +118,8 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
         // send the content events
         if (mode === "message" && content) {
           eventStream$.sendTextMessageContent(content);
-        } else if (mode === "function" && toolCallFunction.arguments) {
-          eventStream$.sendActionExecutionArgs(toolCallFunction.arguments);
+        } else if (mode === "function" && toolCall?.function?.arguments) {
+          eventStream$.sendActionExecutionArgs(toolCall.function.arguments);
         }
       }
 
@@ -160,5 +134,34 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     });
 
     return {};
+  }
+}
+
+function convertMessageToOpenAI(message: Message) {
+  if (message instanceof TextMessage) {
+    return {
+      role: message.role,
+      content: message.content,
+    };
+  } else if (message instanceof ActionExecutionMessage) {
+    return {
+      role: "assistant",
+      tool_calls: [
+        {
+          id: message.id,
+          type: "function",
+          function: {
+            name: message.name,
+            arguments: JSON.stringify(message.arguments),
+          },
+        },
+      ],
+    };
+  } else if (message instanceof ResultMessage) {
+    return {
+      role: "tool",
+      content: message.result,
+      tool_call_id: message.actionExecutionId,
+    };
   }
 }
