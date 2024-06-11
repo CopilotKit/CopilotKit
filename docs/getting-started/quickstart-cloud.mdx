@@ -1,0 +1,43 @@
+---
+title: "Quickstart: Copilot Cloud"
+description: "Using Copilot Cloud"
+---
+
+
+<img
+  referrerPolicy="no-referrer-when-downgrade"
+  src="https://static.scarf.sh/a.png?x-pxid=063db110-1ad3-48ef-a8a2-089fa3169bda"
+/>
+
+## Cloud Setup
+
+1. [Sign up for Copilot Cloud](https://cloud.copilotkit.ai), and then sign in.
+
+2. After signup, follow the on-screen Copilot Cloud onboarding to configure your cloud, e.g. by providing the OpenAI API Key to be used by Copilot Cloud.
+
+3. Lastly, copy your **Copilot Cloud Public API Key**.
+
+
+## Use the cloud-hosted Copilot Runtime
+
+Copilot Cloud offers a **hosted version of the Copilot Runtime.**
+
+Simply point your CopilotKit wrapper at your Copilot Cloud instance using your Copilot Cloud **public API key**:
+
+(for more detail about the CopilotKit wrapper, see [Quickstart-Chatbot](/getting-started/quickstart-chatbot) or [Quickstart-Textarea](/getting-started/quickstart-textarea))
+
+```
+<CopilotKit publicApiKey="Your Copilot Cloud API key">
+  <YourApp/>
+</CopilotKit>
+```
+
+
+## Use cloud-native features
+
+You can now make use of **any feature whose name in the SDK is prefixed by `cloud`**.
+
+You don't need any extra setup, those features just work when Copilot Cloud is used.
+
+e.g. see `cloudRestrictToTopic` - to keep the chatbot narrowly focused on a specific purpose (or disallow certain topics)
+(see [CopilotKit props](https://docs.copilotkit.ai/reference/components/CopilotKit#props)).
