@@ -48,6 +48,7 @@
     "@urql/core": "^5.0.3",
     "graphql": "^16.8.1",
     "untruncate-json": "^0.0.1",
-    "urql": "^4.1.0"
+    "urql": "^4.1.0",
+    "wonka": "^6.3.4"
   }
 }

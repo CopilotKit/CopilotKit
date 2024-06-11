@@ -525,6 +525,9 @@ importers:
       urql:
         specifier: ^4.1.0
         version: 4.1.0(@urql/core@5.0.3)(react@18.2.0)
+      wonka:
+        specifier: ^6.3.4
+        version: 6.3.4
     devDependencies:
       '@graphql-codegen/cli':
         specifier: ^5.0.2

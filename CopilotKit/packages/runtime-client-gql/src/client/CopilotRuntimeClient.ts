@@ -1,6 +1,9 @@
 import { Client, cacheExchange, fetchExchange } from "@urql/core";
+import { pipe, map, subscribe, Subscription } from "wonka";
 
 import {
+  Exact,
+  GenerateResponseInput,
   GenerateResponseMutation,
   GenerateResponseMutationVariables,
   MessageInput,
@@ -39,6 +42,22 @@ export class CopilotRuntimeClient {
       GenerateResponseMutation,
       GenerateResponseMutationVariables
     >(generateResponseMutation, { data });
+    const stream = pipe(
+      result,
+      map(({ data }) => data),
+    );
+    // return {
+    //   subscribe(
+    //     onResult: (
+    //       value: OperationResult<GenerateResponseMutation, Exact<{ data: GenerateResponseInput }>>,
+    //     ) => void,
+    //   ): Subscription {
+    //     // return subscribe(onResult)(stream);
+    //   },
+    // };
+    const subscription = subscribe((response) => {
+      console.log("Received response:", response);
+    })(stream);
     return result;
   }
 
