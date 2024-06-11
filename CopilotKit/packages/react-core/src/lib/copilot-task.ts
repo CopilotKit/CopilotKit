@@ -161,7 +161,6 @@ export class CopilotTask<T = any> {
       id: "system",
       content: taskSystemMessage(contextString, this.instructions),
       role: "system",
-      isStreaming: false,
       createdAt: new Date(),
     });
 

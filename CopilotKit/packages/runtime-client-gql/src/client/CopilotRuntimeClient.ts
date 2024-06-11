@@ -1,9 +1,6 @@
 import { Client, cacheExchange, fetchExchange } from "@urql/core";
-import { pipe, map, subscribe, Subscription } from "wonka";
 
 import {
-  Exact,
-  GenerateResponseInput,
   GenerateResponseMutation,
   GenerateResponseMutationVariables,
   MessageInput,
@@ -11,22 +8,11 @@ import {
 import { generateResponseMutation } from "../graphql/mutations";
 import { OperationResultSource, OperationResult } from "urql";
 import { ActionExecutionMessage, IMessage, ResultMessage, TextMessage } from "@copilotkit/shared";
-import { convertGqlOutputToMessages, convertMessagesToGqlInput } from "./conversion";
+import untruncateJson from "untruncate-json";
 
 interface CopilotRuntimeClientOptions {
   url: string;
 }
-
-type CustomGenerateResponseData = Omit<GenerateResponseMutationVariables["data"], "messages"> & {
-  messages: IMessage[];
-};
-
-type CustomGenerateResponseMutation = Omit<
-  GenerateResponseMutation["generateResponse"],
-  "messages"
-> & {
-  messages: IMessage[];
-};
 
 export class CopilotRuntimeClient {
   client: Client;
@@ -38,27 +24,10 @@ export class CopilotRuntimeClient {
     });
   }
   generateResponse(data: GenerateResponseMutationVariables["data"]) {
-    const result = this.client.mutation<
-      GenerateResponseMutation,
-      GenerateResponseMutationVariables
-    >(generateResponseMutation, { data });
-    const stream = pipe(
-      result,
-      map(({ data }) => data),
+    return this.client.mutation<GenerateResponseMutation, GenerateResponseMutationVariables>(
+      generateResponseMutation,
+      { data },
     );
-    // return {
-    //   subscribe(
-    //     onResult: (
-    //       value: OperationResult<GenerateResponseMutation, Exact<{ data: GenerateResponseInput }>>,
-    //     ) => void,
-    //   ): Subscription {
-    //     // return subscribe(onResult)(stream);
-    //   },
-    // };
-    const subscription = subscribe((response) => {
-      console.log("Received response:", response);
-    })(stream);
-    return result;
   }
 
   static asStream<S, T>(source: OperationResultSource<OperationResult<S, { data: T }>>) {
@@ -74,24 +43,82 @@ export class CopilotRuntimeClient {
     });
   }
 
-  // TODO-PROTOCOL: use wonka pipe & map to implement this
-  generateResponseAsStream(data: CustomGenerateResponseData) {
-    const source = this.client.mutation<
-      GenerateResponseMutation,
-      GenerateResponseMutationVariables
-    >(generateResponseMutation, {
-      data: { ...data, messages: convertMessagesToGqlInput(data.messages) },
+  static convertMessagesToGqlInput(messages: IMessage[]): MessageInput[] {
+    return messages.map((message) => {
+      if (message instanceof TextMessage) {
+        return {
+          id: message.id,
+          createdAt: message.createdAt,
+          textMessage: {
+            content: message.content,
+            role: message.role as any,
+          },
+        };
+      } else if (message instanceof ActionExecutionMessage) {
+        return {
+          id: message.id,
+          createdAt: message.createdAt,
+          actionExecutionMessage: {
+            name: message.name,
+            arguments: JSON.stringify(message.arguments),
+            scope: message.scope as any,
+          },
+        };
+      } else if (message instanceof ResultMessage) {
+        return {
+          id: message.id,
+          createdAt: message.createdAt,
+          resultMessage: {
+            result: message.result,
+            actionExecutionId: message.actionExecutionId,
+          },
+        };
+      } else {
+        throw new Error("Unknown message type");
+      }
     });
+  }
 
-    return new ReadableStream<GenerateResponseMutation>({
-      start(controller) {
-        source.subscribe(({ data, hasNext }) => {
-          controller.enqueue(data);
-          if (!hasNext) {
-            controller.close();
-          }
+  static convertGqlOutputToMessages(
+    messages: GenerateResponseMutation["generateResponse"]["messages"],
+  ): IMessage[] {
+    return messages.map((message) => {
+      if (message.__typename === "TextMessageOutput") {
+        return new TextMessage({
+          id: message.id,
+          role: message.role as any,
+          content: message.content.join(""),
+          createdAt: new Date(),
+          isDoneStreaming: message.status?.isDoneStreaming || false,
         });
-      },
+      } else if (message.__typename === "ActionExecutionMessageOutput") {
+        return new ActionExecutionMessage({
+          id: message.id,
+          name: message.name,
+          arguments: CopilotRuntimeClient.getPartialArguments(message.arguments),
+          scope: message.scope as any,
+          createdAt: new Date(),
+          isDoneStreaming: message.status?.isDoneStreaming || false,
+        });
+      } else if (message.__typename === "ResultMessageOutput") {
+        return new ResultMessage({
+          id: message.id,
+          result: message.result,
+          actionExecutionId: message.actionExecutionId,
+          createdAt: new Date(),
+          isDoneStreaming: true,
+        });
+      }
+
+      throw new Error("Unknown message type");
     });
+  }
+
+  private static getPartialArguments(args: string[]) {
+    try {
+      return JSON.parse(untruncateJson(args.join("")));
+    } catch (e) {
+      return {};
+    }
   }
 }

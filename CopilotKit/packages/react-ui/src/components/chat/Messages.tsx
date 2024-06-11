@@ -97,7 +97,7 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
 
               if (functionResults[message.id] !== undefined) {
                 status = "complete";
-              } else if (message.isStreaming) {
+              } else if (!message.isDoneStreaming) {
                 status = "executing";
               }
 
@@ -162,7 +162,6 @@ function makeInitialMessages(initial?: string | string[]): IMessage[] {
         id: nanoid(),
         role: "assistant",
         content: message,
-        isStreaming: false,
         createdAt: new Date(),
       }),
   );

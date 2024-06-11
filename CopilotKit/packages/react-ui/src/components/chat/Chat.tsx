@@ -279,7 +279,6 @@ export const useCopilotChatLogic = (
       content: messageContent,
       role: "user",
       createdAt: new Date(),
-      isStreaming: false,
     });
     appendMessage(message);
     return message;

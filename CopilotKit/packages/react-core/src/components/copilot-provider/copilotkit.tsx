@@ -266,13 +266,9 @@ function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): Funct
       actionsByFunctionName[action.name] = action;
     }
 
-    const action = actionsByFunctionName[name || ""];
+    const action = actionsByFunctionName[name];
     if (action) {
-      let functionCallArguments: Record<string, any>[] = [];
-      if (args) {
-        functionCallArguments = JSON.parse(args);
-      }
-      return await action.handler(functionCallArguments);
+      return await action.handler(args);
     }
   };
 }

@@ -80,7 +80,6 @@ export async function extract<const T extends Parameter[]>({
     id: "system",
     content: makeSystemMessage(contextString, instructions),
     role: "system",
-    isStreaming: false,
     createdAt: new Date(),
   });
 

@@ -11,7 +11,6 @@ import {
 } from "@copilotkit/shared";
 
 import { CopilotApiConfig } from "../context";
-import untruncateJson from "untruncate-json";
 import { CopilotRuntimeClient } from "@copilotkit/runtime-client-gql";
 
 export type UseChatOptions = {
@@ -104,7 +103,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     url: copilotConfig.chatApiEndpoint,
   });
 
-  const runChatCompletion = async (messages: IMessage[]): Promise<IMessage[]> => {
+  const runChatCompletion = async (previousMessages: IMessage[]): Promise<IMessage[]> => {
     setIsLoading(true);
 
     // this message is just a placeholder. It will disappear once the first real message
@@ -115,31 +114,32 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         createdAt: new Date(),
         content: "",
         role: "assistant",
-        isStreaming: false,
       }),
     ];
 
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
-    setMessages([...messages, ...newMessages]);
+    setMessages([...previousMessages, ...newMessages]);
 
     const systemMessage = makeSystemMessageCallback();
 
-    const messagesWithContext = [systemMessage, ...(initialMessages || []), ...messages];
+    const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
 
-    const stream = runtimeClient.generateResponseAsStream({
-      frontend: {
-        actions: actions.map((action) => ({
-          name: action.name,
-          description: action.description || "",
-          jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
-        })),
-      },
-      threadId: threadIdRef.current,
-      runId: runIdRef.current,
-      messages: messagesWithContext,
-    });
+    const stream = CopilotRuntimeClient.asStream(
+      runtimeClient.generateResponse({
+        frontend: {
+          actions: actions.map((action) => ({
+            name: action.name,
+            description: action.description || "",
+            jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
+          })),
+        },
+        threadId: threadIdRef.current,
+        runId: runIdRef.current,
+        messages: CopilotRuntimeClient.convertMessagesToGqlInput(messagesWithContext),
+      }),
+    );
 
     // TODO-PROTOCOL make sure all options are included in the final version
     //
@@ -166,11 +166,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     //   throw new Error("Failed to fetch chat completion");
     // }
 
-    // TODO map to the correct types
     const reader = stream.getReader();
-
-    // Whether to feed back the new messages to GPT
-    let feedback = false;
 
     let results: { [id: string]: string } = {};
 
@@ -178,36 +174,39 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       while (true) {
         const { done, value } = await reader.read();
 
-        console.log(value);
-
         if (done) {
           break;
         }
 
-        threadIdRef.current = value.threadId || null;
-        runIdRef.current = value.runId || null;
+        threadIdRef.current = value.generateResponse.threadId || null;
+        runIdRef.current = value.generateResponse.runId || null;
 
-        if (value.messages.length === 0) {
+        const messages = CopilotRuntimeClient.convertGqlOutputToMessages(
+          value.generateResponse.messages,
+        );
+
+        if (messages.length === 0) {
           continue;
         }
 
         newMessages = [];
 
-        for (const message of value.messages) {
+        for (const message of messages) {
           newMessages.push(message);
 
           if (
             message instanceof ActionExecutionMessage &&
-            !message.isStreaming &&
+            message.isDoneStreaming &&
             message.scope === "client" &&
             onFunctionCall
           ) {
+            console.log(message);
             if (!(message.id in results)) {
               // execute action
               const result = await onFunctionCall({
-                messages,
+                messages: previousMessages,
                 name: message.name,
-                args: message.arguments.join(""),
+                args: message.arguments,
               });
               results[message.id] = result;
             }
@@ -218,7 +217,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 id: message.id + "-result",
                 result: ResultMessage.encodeResult(results[message.id]),
                 actionExecutionId: message.id,
-                isStreaming: false,
                 createdAt: new Date(),
               }),
             );
@@ -226,7 +224,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         }
 
         if (newMessages.length > 0) {
-          setMessages([...messages, ...newMessages]);
+          setMessages([...previousMessages, ...newMessages]);
         }
       }
 
@@ -242,7 +240,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         // - tried using react-dom's flushSync, but it did not work
         await new Promise((resolve) => setTimeout(resolve, 10));
 
-        return await runChatCompletion([...messages, ...newMessages]);
+        return await runChatCompletion([...previousMessages, ...newMessages]);
       } else {
         return newMessages.slice();
       }

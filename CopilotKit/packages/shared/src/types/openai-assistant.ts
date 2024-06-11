@@ -1,6 +1,6 @@
 export abstract class IMessage {
   abstract id: string;
-  abstract isStreaming: boolean;
+  abstract isDoneStreaming: boolean;
   abstract createdAt: Date;
 }
 
@@ -8,7 +8,7 @@ export type IRole = "system" | "user" | "assistant";
 
 interface TextMessageParams {
   id: string;
-  isStreaming: boolean;
+  isDoneStreaming?: boolean;
   role: IRole;
   content: string;
   createdAt: Date;
@@ -16,7 +16,7 @@ interface TextMessageParams {
 
 export class TextMessage extends IMessage {
   id: string;
-  isStreaming: boolean;
+  isDoneStreaming: boolean;
   role: IRole;
   content: string;
   createdAt: Date;
@@ -24,7 +24,7 @@ export class TextMessage extends IMessage {
   constructor(params: TextMessageParams) {
     super();
     this.id = params.id;
-    this.isStreaming = params.isStreaming;
+    this.isDoneStreaming = params.isDoneStreaming ?? true;
     this.role = params.role;
     this.content = params.content;
     this.createdAt = params.createdAt;
@@ -33,7 +33,7 @@ export class TextMessage extends IMessage {
 
 interface ActionExecutionMessageParams {
   id: string;
-  isStreaming: boolean;
+  isDoneStreaming?: boolean;
   name: string;
   arguments: string;
   scope: "client" | "server";
@@ -42,7 +42,7 @@ interface ActionExecutionMessageParams {
 
 export class ActionExecutionMessage extends IMessage {
   id: string;
-  isStreaming: boolean;
+  isDoneStreaming: boolean;
   name: string;
   arguments: any;
   scope: "client" | "server";
@@ -51,7 +51,7 @@ export class ActionExecutionMessage extends IMessage {
   constructor(params: ActionExecutionMessageParams) {
     super();
     this.id = params.id;
-    this.isStreaming = params.isStreaming;
+    this.isDoneStreaming = params.isDoneStreaming ?? true;
     this.name = params.name;
     this.arguments = params.arguments;
     this.scope = params.scope;
@@ -61,7 +61,7 @@ export class ActionExecutionMessage extends IMessage {
 
 interface ResultMessageParams {
   id: string;
-  isStreaming: boolean;
+  isDoneStreaming?: boolean;
   actionExecutionId: string;
   result: string;
   createdAt: Date;
@@ -69,7 +69,7 @@ interface ResultMessageParams {
 
 export class ResultMessage extends IMessage {
   id: string;
-  isStreaming: boolean;
+  isDoneStreaming: boolean;
   actionExecutionId: string;
   result: string;
   createdAt: Date;
@@ -77,7 +77,7 @@ export class ResultMessage extends IMessage {
   constructor(params: ResultMessageParams) {
     super();
     this.id = params.id;
-    this.isStreaming = params.isStreaming;
+    this.isDoneStreaming = params.isDoneStreaming ?? true;
     this.actionExecutionId = params.actionExecutionId;
     this.result = params.result;
     this.createdAt = params.createdAt;
@@ -174,8 +174,8 @@ export interface ToolDefinition {
 
 export interface FunctionCallHandlerArguments {
   messages: IMessage[];
-  name?: string;
-  args?: string;
+  name: string;
+  args: any;
 }
 
 export type FunctionCallHandler = (args: FunctionCallHandlerArguments) => Promise<any>;

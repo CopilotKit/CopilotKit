@@ -116,7 +116,6 @@ export function useCopilotChat({
       id: "system",
       content: systemMessageMaker(contextString, chatInstructions),
       role: "system",
-      isStreaming: false,
       createdAt: new Date(),
     });
   }, [getContextString, makeSystemMessage, chatInstructions]);
