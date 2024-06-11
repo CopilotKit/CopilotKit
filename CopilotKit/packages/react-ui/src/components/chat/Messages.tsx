@@ -2,13 +2,7 @@ import React, { useEffect, useMemo } from "react";
 import { MessagesProps, SuggestionsProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import { nanoid } from "nanoid";
-import {
-  ActionExecutionMessage,
-  IMessage,
-  ResultMessage,
-  TextMessage,
-  decodeResult,
-} from "@copilotkit/shared";
+import { ActionExecutionMessage, IMessage, ResultMessage, TextMessage } from "@copilotkit/shared";
 import { Markdown } from "./Markdown";
 import { RenderFunctionStatus, useCopilotContext } from "@copilotkit/react-core";
 
@@ -32,7 +26,7 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
       ) as ResultMessage | undefined;
 
       if (resultMessage) {
-        functionResults[id] = decodeResult(resultMessage.result || "");
+        functionResults[id] = ResultMessage.decodeResult(resultMessage.result || "");
       }
     }
   }

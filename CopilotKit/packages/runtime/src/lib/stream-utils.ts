@@ -1,4 +1,4 @@
-import { Message, parseChatCompletion, decodeChatCompletion } from "@copilotkit/shared";
+import { parseChatCompletion, decodeChatCompletion } from "@copilotkit/shared";
 import { Response } from "express";
 import { OutgoingHttpHeaders } from "http2";
 
@@ -6,7 +6,8 @@ export function interceptStreamAndGetFinalResponse(
   stream: any,
   onChunk: (chunk: string) => void,
 ): Promise<{
-  messages: Message[];
+  // TODO-PROTOCOL: switch to graphql
+  messages: any[];
   headers: OutgoingHttpHeaders;
 }> {
   console.log("intercepting stream");
@@ -59,8 +60,8 @@ async function parseResponseString(responseString: string) {
   const events = decodeChatCompletion(parseChatCompletion(readableStream));
   const reader = events.getReader();
 
-  const messages: Message[] = [];
-  let streamingContentMessage: Message | undefined = undefined;
+  const messages: any[] = [];
+  let streamingContentMessage: any | undefined = undefined;
 
   while (true) {
     const { done, value } = await reader.read();

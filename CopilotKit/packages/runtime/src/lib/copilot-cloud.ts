@@ -3,13 +3,13 @@ import {
   COPILOT_CLOUD_VERSION,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   CopilotCloudConfig,
-  Message,
 } from "@copilotkit/shared";
 
 export interface CloudCheckGuardrailsInputParams {
   cloud: CopilotCloudConfig;
   publicApiKey: string;
-  messages: Message[];
+  // TODO-PROTOCOL: switch to graphql
+  messages: any[];
 }
 
 export interface CloudCheckGuardrailsInputResponse {

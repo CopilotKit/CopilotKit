@@ -1,5 +1,3 @@
-import { Role } from "../types/openai-assistant";
-
 export interface ToolCallFunctionCall {
   arguments?: string;
 
@@ -22,7 +20,7 @@ export interface ChatCompletionChunk {
   choices: {
     delta: {
       id?: string;
-      role: Role;
+      role: any;
       content?: string | null;
 
       // TODO:

@@ -1,4 +1,4 @@
-import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER, Message } from "@copilotkit/shared";
+import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER } from "@copilotkit/shared";
 import { CopilotContext } from "@copilotkit/react-core";
 import { useCallback, useContext } from "react";
 import { AutosuggestionsBareFunction, MinimalChatGPTMessage } from "../../types";
@@ -56,7 +56,7 @@ export function useMakeStandardAutosuggestionFunction(
         ];
 
         const response = await fetchAndDecodeChatCompletionAsText({
-          messages: messages as Message[],
+          messages: messages as any[],
           ...apiConfig.forwardedParams,
           copilotConfig: copilotApiConfig,
           signal: abortSignal,

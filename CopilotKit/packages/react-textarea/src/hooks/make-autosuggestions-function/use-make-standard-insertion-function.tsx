@@ -1,4 +1,4 @@
-import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER, Message } from "@copilotkit/shared";
+import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER } from "@copilotkit/shared";
 import { CopilotContext } from "@copilotkit/react-core";
 import { useCallback, useContext } from "react";
 import { MinimalChatGPTMessage } from "../../types";
@@ -75,7 +75,8 @@ export function useMakeStandardInsertionOrEditingFunction(
         ];
 
         const stream = await fetchAndDecodeChatCompletionAsText({
-          messages: messages as Message[],
+          // TODO-PROTOCOL switch to graphql
+          messages: messages as any[],
           ...insertionApiConfig.forwardedParams,
           copilotConfig: copilotApiConfig,
           signal: abortSignal,
@@ -129,7 +130,8 @@ export function useMakeStandardInsertionOrEditingFunction(
         ];
 
         const stream = await fetchAndDecodeChatCompletionAsText({
-          messages: messages as Message[],
+          // TODO-PROTOCOL switch to graphql
+          messages: messages as any[],
           ...editingApiConfig.forwardedParams,
           copilotConfig: copilotApiConfig,
           signal: abortSignal,

@@ -1,6 +1,5 @@
 // TODO-PROTOCOL: remove
 import {
-  Message,
   ToolDefinition,
   ChatCompletionEvent,
   decodeChatCompletion,
@@ -13,7 +12,7 @@ import { CopilotApiConfig } from "../context";
 export interface FetchChatCompletionParams {
   copilotConfig: CopilotApiConfig;
   model?: string;
-  messages: Message[];
+  messages: any[];
   tools?: ToolDefinition[];
   temperature?: number;
   maxTokens?: number;

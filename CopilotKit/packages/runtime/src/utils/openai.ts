@@ -1,12 +1,11 @@
 import {
-  Message,
+  IMessage,
   ToolDefinition,
   ChatCompletionChunk,
-  encodeResult,
   TextMessage,
   ActionExecutionMessage,
+  ResultMessage,
 } from "@copilotkit/shared";
-import { IMessage } from "@copilotkit/shared";
 
 export function writeChatCompletionChunk(
   controller: ReadableStreamDefaultController<any>,
@@ -41,7 +40,7 @@ export function writeChatCompletionResult(
   functionName: string,
   result: any,
 ) {
-  let resultString = encodeResult(result);
+  let resultString = ResultMessage.encodeResult(result);
 
   const chunk: ChatCompletionChunk = {
     choices: [

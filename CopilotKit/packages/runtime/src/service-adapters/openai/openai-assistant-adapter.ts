@@ -22,7 +22,7 @@ import {
   CopilotRuntimeChatCompletionResponse,
 } from "../service-adapter";
 import { writeChatCompletionChunk, writeChatCompletionEnd } from "../../utils/openai";
-import { ChatCompletionChunk, Message } from "@copilotkit/shared";
+import { ChatCompletionChunk } from "@copilotkit/shared";
 
 const RUN_STATUS_POLL_INTERVAL = 100;
 
@@ -76,7 +76,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     }
   }
 
-  private async submitToolOutputs(threadId: string, runId: string, forwardMessages: Message[]) {
+  private async submitToolOutputs(threadId: string, runId: string, forwardMessages: any[]) {
     forwardMessages = transformMessages(forwardMessages);
     let run = await this.openai.beta.threads.runs.retrieve(threadId, runId);
 
@@ -84,7 +84,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
       throw new Error("No tool outputs required");
     }
 
-    const functionResults: Message[] = [];
+    const functionResults: any[] = [];
     // get all function results at the tail of the messages
     let i = forwardMessages.length - 1;
     for (; i >= 0; i--) {
@@ -215,7 +215,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
   }
 }
 
-function transformMessages(messages: Message[]): Message[] {
+function transformMessages(messages: any[]): any[] {
   return messages.map((message) => {
     if (message.role === "system") {
       return {
