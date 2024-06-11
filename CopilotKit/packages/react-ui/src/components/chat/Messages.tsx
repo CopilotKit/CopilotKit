@@ -14,6 +14,7 @@ import { RenderFunctionStatus, useCopilotContext } from "@copilotkit/react-core"
 
 export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
   const { chatComponentsCache } = useCopilotContext();
+
   const context = useChatContext();
   const initialMessages = useMemo(
     () => makeInitialMessages(context.labels.initial),

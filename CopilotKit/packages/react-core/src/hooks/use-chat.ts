@@ -200,7 +200,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             message.scope === "client" &&
             onFunctionCall
           ) {
-            console.log(message);
             if (!(message.id in results)) {
               // execute action
               const result = await onFunctionCall({

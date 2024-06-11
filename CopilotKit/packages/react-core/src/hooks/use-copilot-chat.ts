@@ -137,12 +137,8 @@ export function useCopilotChat({
     setIsLoading,
   });
 
-  const visibleMessages = messages.filter(
-    (message) => message instanceof TextMessage && message.role != "system",
-  );
-
   return {
-    visibleMessages,
+    visibleMessages: messages,
     appendMessage: append,
     setMessages,
     reloadMessages: reload,
