@@ -65,30 +65,21 @@ in-app AI chatbots, AI agents, and AI Textareas.
 <table align="center">
   <tr>
     <td align="center" valign="top">
-      PowerPoint + Copilot + Voice <br/>
-      <a href="https://go.copilotkit.ai/PowerPointVoiceTemplate">https://github.com/CopilotKit/presentation-voice</a> <br/><br>
+      <a href="https://go.copilotkit.ai/PowerPointVoiceTemplate">PowerPoint + Copilot + Voice</a> <br/><br>
       <a href="https://go.copilotkit.ai/PowerPointVoiceTemplate">
         <img alt="Presentation-Voice" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="200px" style="max-width:100%; border-radius: 10px;"/>
       </a>
     </td>
     <td align="center" valign="top">
-      "Hello World" (A Todo App) <br/>
-      <a href="https://github.com/CopilotKit/example_app-todo">https://github.com/CopilotKit/example_app-todo</a> <br/><br>
-      <a href="https://github.com/CopilotKit/presentation-demo">
+      <a href="https://go.copilotkit.ai/todoAI">"Hello World" (A Todo App)</a> <br/><br>
+      <a href="https://go.copilotkit.ai/todoAI">
         <img alt="Todo App" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/63798c02-1892-4d2d-bc9f-2994b7c88694" width="200px" style="max-width:100%; border-radius: 10px;"/>
       </a>
-    </td>
-    <td align="center" valign="top">
-      PowerPoint + Copilot <br/>
-      <a href="https://github.com/CopilotKit/presentation-demo">https://github.com/CopilotKit/presentation-demo</a> <br/><br>
-      <a href="https://github.com/CopilotKit/presentation-demo">
-        <img alt="Presentation-Demo" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="200px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td>
+    </td>    
     <td align="center" valign="top">
       Spreadsheets + Copilot <br/>
-      <a href="https://github.com/CopilotKit/spreadsheet-demo">https://github.com/CopilotKit/spreadsheet-demo</a> <br/><br>
-      <a href="https://github.com/CopilotKit/spreadsheet-demo">
+      <a href="https://go.copilotkit.ai/PowerPointAI">Spreadsheets + Copilot</a> <br/><br>
+      <a href="https://go.copilotkit.ai/PowerPointAI">
         <img alt="Presentation-Demo" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/871e4c9c-0ced-490b-9e3f-8594de7c5c89" width="200px" style="max-width:100%; border-radius: 10px;"/>
       </a>
     </td>
