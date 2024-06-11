@@ -65,8 +65,8 @@ in-app AI chatbots, AI agents, and AI Textareas.
 <table align="center">
   <tr>
     <td align="center" valign="top">
-      <a href="https://go.copilotkit.ai/PowerPointVoiceTemplate">PowerPoint + Copilot + Voice</a> <br/><br>
-      <a href="https://go.copilotkit.ai/PowerPointVoiceTemplate">
+      <a href="https://go.copilotkit.ai/PowerPointAI">PowerPoint + Copilot + Voice</a> <br/><br>
+      <a href="https://go.copilotkit.ai/PowerPointAI">
         <img alt="Presentation-Voice" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="200px" style="max-width:100%; border-radius: 10px;"/>
       </a>
     </td>
@@ -77,8 +77,8 @@ in-app AI chatbots, AI agents, and AI Textareas.
       </a>
     </td>    
     <td align="center" valign="top">
-      <a href="https://go.copilotkit.ai/PowerPointAI">Spreadsheets + Copilot</a> <br/><br>
-      <a href="https://go.copilotkit.ai/PowerPointAI">
+      <a href="https://go.copilotkit.ai/SpreadsheetAI">Spreadsheets + Copilot</a> <br/><br>
+      <a href="https://go.copilotkit.ai/SpreadsheetAI">
         <img alt="Presentation-Demo" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/871e4c9c-0ced-490b-9e3f-8594de7c5c89" width="200px" style="max-width:100%; border-radius: 10px;"/>
       </a>
     </td>
