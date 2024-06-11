@@ -28,7 +28,7 @@
  */
 import { useMemo, useContext, useRef, useEffect, useCallback } from "react";
 import { CopilotContext } from "../context/copilot-context";
-import { Message, ToolDefinition } from "@copilotkit/shared";
+import { IMessage, TextMessage, ToolDefinition } from "@copilotkit/shared";
 import { SystemMessageFunction } from "../types";
 import { useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
@@ -62,7 +62,7 @@ export interface UseCopilotChatOptions {
   /**
    * System messages of the chat. Defaults to an empty array.
    */
-  initialMessages?: Message[];
+  initialMessages?: IMessage[];
 
   /**
    * A function to generate the system message. Defaults to `defaultSystemMessage`.
@@ -71,9 +71,9 @@ export interface UseCopilotChatOptions {
 }
 
 export interface UseCopilotChatReturn {
-  visibleMessages: Message[];
-  appendMessage: (message: Message) => Promise<void>;
-  setMessages: (messages: Message[]) => void;
+  visibleMessages: IMessage[];
+  appendMessage: (message: IMessage) => Promise<void>;
+  setMessages: (messages: IMessage[]) => void;
   deleteMessage: (messageId: string) => void;
   reloadMessages: () => Promise<void>;
   stopGeneration: () => void;
@@ -112,11 +112,13 @@ export function useCopilotChat({
     // this always gets the latest context string
     const contextString = latestGetContextString.current([], defaultCopilotContextCategories); // TODO: make the context categories configurable
 
-    return {
+    return new TextMessage({
       id: "system",
       content: systemMessageMaker(contextString, chatInstructions),
       role: "system",
-    } as Message;
+      isStreaming: false,
+      createdAt: new Date(),
+    });
   }, [getContextString, makeSystemMessage, chatInstructions]);
 
   const functionDescriptions: ToolDefinition[] = useMemo(() => {
@@ -137,8 +139,7 @@ export function useCopilotChat({
   });
 
   const visibleMessages = messages.filter(
-    (message) =>
-      message.role === "user" || message.role === "assistant" || message.role === "function",
+    (message) => message instanceof TextMessage && message.role != "system",
   );
 
   return {

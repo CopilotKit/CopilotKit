@@ -1,3 +1,4 @@
+// TODO-PROTOCOL: remove
 import {
   Message,
   ToolDefinition,

@@ -163,7 +163,8 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     // submit function outputs
     if (
       request.messages.length > 0 &&
-      request.messages[request.messages.length - 1].role === "function"
+      // @ts-ignore
+      request.messages[request.messages.length - 1].textMessage?.role === "function"
     ) {
       // @ts-ignore
       run = await this.submitToolOutputs(threadId, request.runId, request.messages);
@@ -171,8 +172,8 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     // submit user message
     else if (
       (request.messages.length > 0 &&
-        request.messages[request.messages.length - 1].role === "user") ||
-      request.messages[request.messages.length - 1].role === "system"
+        request.messages[request.messages.length - 1].textMessage?.role === "user") ||
+      request.messages[request.messages.length - 1].textMessage?.role === "system"
     ) {
       run = await this.submitUserMessage(threadId, request);
     }

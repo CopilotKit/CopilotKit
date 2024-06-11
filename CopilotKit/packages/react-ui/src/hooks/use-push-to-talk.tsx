@@ -1,5 +1,5 @@
-import { CopilotContextParams, useCopilotContext } from "@copilotkit/react-core";
-import { Message } from "@copilotkit/shared";
+import { useCopilotContext } from "@copilotkit/react-core";
+import { IMessage, TextMessage } from "@copilotkit/shared";
 import { MutableRefObject, useEffect, useRef, useState } from "react";
 
 export const checkMicrophonePermission = async () => {
@@ -94,7 +94,7 @@ const playAudioResponse = (text: string, textToSpeechUrl: string, audioContext: 
 
 export type PushToTalkState = "idle" | "recording" | "transcribing";
 
-export type SendFunction = (text: string) => Promise<Message>;
+export type SendFunction = (text: string) => Promise<IMessage>;
 
 export const usePushToTalk = ({
   sendFunction,
@@ -149,7 +149,9 @@ export const usePushToTalk = ({
 
       const messagesAfterLast = context.messages
         .slice(lastMessageIndex + 1)
-        .filter((message) => message.role === "assistant" && message.content);
+        .filter(
+          (message) => message instanceof TextMessage && message.role === "assistant",
+        ) as TextMessage[];
 
       const text = messagesAfterLast.map((message) => message.content).join("\n");
       playAudioResponse(text, context.copilotApiConfig.textToSpeechUrl!, audioContextRef.current!);

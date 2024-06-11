@@ -140,22 +140,22 @@ export class GoogleGenerativeAIAdapter implements CopilotServiceAdapter {
     return messages
       .filter(
         (m) =>
-          m.role === "user" ||
-          m.role === "assistant" ||
+          m.textMessage?.role === "user" ||
+          m.textMessage?.role === "assistant" ||
           // TODO-PROTOCOL: implement function calls
           // m.role === "function" ||
-          m.role === "system",
+          m.textMessage?.role === "system",
       )
       .map(this.transformMessage);
   }
 
   transformMessage(message: MessageInput): Content {
-    if (message.role === "user") {
+    if (message.textMessage?.role === "user") {
       return {
         role: "user",
         parts: [{ text: message.textMessage?.content }],
       };
-    } else if (message.role === "assistant") {
+    } else if (message.textMessage?.role === "assistant") {
       // TODO-PROTOCOL: implement function calls
       // @ts-ignore
       if (message.function_call) {
@@ -180,7 +180,8 @@ export class GoogleGenerativeAIAdapter implements CopilotServiceAdapter {
       }
     }
     // TODO-PROTOCOL: implement function calls
-    else if (message.role === "function") {
+    // @ts-ignore
+    else if (message.textMessage?.role === "function") {
       return {
         role: "function",
         parts: [
@@ -197,7 +198,7 @@ export class GoogleGenerativeAIAdapter implements CopilotServiceAdapter {
           },
         ],
       };
-    } else if (message.role === "system") {
+    } else if (message.textMessage?.role === "system") {
       return {
         role: "user",
         parts: [

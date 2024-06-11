@@ -13,7 +13,7 @@ export const generateResponseMutation = graphql(/** GraphQL **/ `
         __typename
         ... on BaseMessageOutput {
           id
-          role
+          createdAt
         }
         ... on BaseMessageOutput @defer {
           status {
@@ -22,11 +22,16 @@ export const generateResponseMutation = graphql(/** GraphQL **/ `
         }
         ... on TextMessageOutput {
           content @stream
+          role
         }
         ... on ActionExecutionMessageOutput {
           name
           scope
           arguments @stream
+        }
+        ... on ResultMessageOutput {
+          result
+          actionExecutionId
         }
       }
       threadId

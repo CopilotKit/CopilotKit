@@ -1,26 +1,24 @@
 import { useRef } from "react";
 import {
-  Message,
+  IMessage,
   FunctionCallHandler,
-  encodeResult,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   Action,
   actionParametersToJsonSchema,
+  TextMessage,
+  ActionExecutionMessage,
+  ResultMessage,
 } from "@copilotkit/shared";
 
 import { CopilotApiConfig } from "../context";
 import untruncateJson from "untruncate-json";
-import {
-  CopilotRuntimeClient,
-  MessageRole,
-  MessageInputType,
-} from "@copilotkit/runtime-client-gql";
+import { CopilotRuntimeClient } from "@copilotkit/runtime-client-gql";
 
 export type UseChatOptions = {
   /**
    * System messages of the chat. Defaults to an empty array.
    */
-  initialMessages?: Message[];
+  initialMessages?: IMessage[];
   /**
    * Callback function to be called when a function call is received.
    * If the function returns a `ChatRequest` object, the request will be sent
@@ -40,16 +38,16 @@ export type UseChatOptions = {
   /**
    * The current list of messages in the chat.
    */
-  messages: Message[];
+  messages: IMessage[];
   /**
    * The setState-powered method to update the chat messages.
    */
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  setMessages: React.Dispatch<React.SetStateAction<IMessage[]>>;
 
   /**
    * A callback to get the latest system message.
    */
-  makeSystemMessageCallback: () => Message;
+  makeSystemMessageCallback: () => TextMessage;
 
   /**
    * Whether the API request is in progress
@@ -68,7 +66,7 @@ export type UseChatHelpers = {
    * the assistant's response.
    * @param message The message to append
    */
-  append: (message: Message) => Promise<void>;
+  append: (message: IMessage) => Promise<void>;
   /**
    * Reload the last AI chat response for the given chat history. If the last
    * message isn't from the assistant, it will request the API to generate a
@@ -106,16 +104,19 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     url: copilotConfig.chatApiEndpoint,
   });
 
-  const runChatCompletion = async (messages: Message[]): Promise<Message[]> => {
+  const runChatCompletion = async (messages: IMessage[]): Promise<IMessage[]> => {
     setIsLoading(true);
 
-    let newMessages: Message[] = [
-      {
+    // this message is just a placeholder. It will disappear once the first real message
+    // is received
+    let newMessages: IMessage[] = [
+      new TextMessage({
         id: "--PLACEHOLDER-MESSAGE-ID--",
         createdAt: new Date(),
         content: "",
         role: "assistant",
-      },
+        isStreaming: false,
+      }),
     ];
 
     const abortController = new AbortController();
@@ -127,7 +128,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
     const messagesWithContext = [systemMessage, ...(initialMessages || []), ...messages];
 
-    const response = runtimeClient.generateResponse({
+    const stream = runtimeClient.generateResponseAsStream({
       frontend: {
         actions: actions.map((action) => ({
           name: action.name,
@@ -137,21 +138,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       },
       threadId: threadIdRef.current,
       runId: runIdRef.current,
-      messages: messagesWithContext.map(({ id, content, role }) => ({
-        id,
-        type: MessageInputType.Text,
-        textMessage: { content },
-        role: role as MessageRole,
-      })),
+      messages: messagesWithContext,
     });
-
-    const getPartialArguments = (args: string[]) => {
-      try {
-        return JSON.parse(untruncateJson(args.join("")));
-      } catch (e) {
-        return {};
-      }
-    };
 
     // TODO-PROTOCOL make sure all options are included in the final version
     //
@@ -178,7 +166,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     //   throw new Error("Failed to fetch chat completion");
     // }
 
-    const reader = CopilotRuntimeClient.asStream(response).getReader();
+    // TODO map to the correct types
+    const reader = stream.getReader();
 
     // Whether to feed back the new messages to GPT
     let feedback = false;
@@ -189,171 +178,63 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       while (true) {
         const { done, value } = await reader.read();
 
+        console.log(value);
+
         if (done) {
           break;
         }
 
-        threadIdRef.current = value.generateResponse.threadId || null;
-        runIdRef.current = value.generateResponse.runId || null;
+        threadIdRef.current = value.threadId || null;
+        runIdRef.current = value.runId || null;
 
-        if (value.generateResponse.messages.length === 0) {
+        if (value.messages.length === 0) {
           continue;
         }
 
         newMessages = [];
 
-        for (const message of value.generateResponse.messages) {
-          if (message.__typename === "TextMessageOutput") {
-            newMessages.push({
-              id: message.id,
-              role: message.role,
-              content: message.content.join(""),
-            });
-          } else if (message.__typename === "ActionExecutionMessageOutput") {
-            newMessages.push({
-              id: message.id,
-              role: message.role,
-              content: "",
-              ...(message.status?.isDoneStreaming
-                ? {
-                    function_call: {
-                      name: message.name,
-                      arguments: message.arguments.join(""),
-                      scope: message.scope,
-                    },
-                  }
-                : {
-                    partialFunctionCall: {
-                      name: message.name,
-                      arguments: getPartialArguments(message.arguments),
-                    },
-                  }),
-            });
-            if (message.status?.isDoneStreaming && message.scope === "client" && onFunctionCall) {
-              if (!(message.id in results)) {
-                const result = await onFunctionCall({
-                  messages,
-                  name: message.name,
-                  args: message.arguments.join(""),
-                });
-                results[message.id] = result;
-              }
-              newMessages.push({
-                id: message.id + "-result",
-                role: "function",
-                content: encodeResult(results[message.id]),
+        for (const message of value.messages) {
+          newMessages.push(message);
+
+          if (
+            message instanceof ActionExecutionMessage &&
+            !message.isStreaming &&
+            message.scope === "client" &&
+            onFunctionCall
+          ) {
+            if (!(message.id in results)) {
+              // execute action
+              const result = await onFunctionCall({
+                messages,
                 name: message.name,
+                args: message.arguments.join(""),
               });
+              results[message.id] = result;
             }
+
+            // add the result message
+            newMessages.push(
+              new ResultMessage({
+                id: message.id + "-result",
+                result: ResultMessage.encodeResult(results[message.id]),
+                actionExecutionId: message.id,
+                isStreaming: false,
+                createdAt: new Date(),
+              }),
+            );
           }
         }
 
         if (newMessages.length > 0) {
           setMessages([...messages, ...newMessages]);
         }
-
-        // TODO-PROTOCOL: deal with all this, possibly in a more elegant manner
-        //
-        // let currentMessage = Object.assign({}, newMessages[newMessages.length - 1]);
-
-        // if (value.type === "content") {
-        //   if (currentMessage.function_call || currentMessage.role === "function") {
-        //     // Create a new message if the previous one is a function call or result
-        //     currentMessage = {
-        //       id: nanoid(),
-        //       createdAt: new Date(),
-        //       content: "",
-        //       role: "assistant",
-        //     };
-        //     newMessages.push(currentMessage);
-        //   }
-        //   currentMessage.content += value.content;
-        //   newMessages[newMessages.length - 1] = currentMessage;
-        //   setMessages([...messages, ...newMessages]);
-        // } else if (value.type === "result") {
-        //   // When we get a result message, it is already complete
-        //   currentMessage = {
-        //     id: nanoid(),
-        //     role: "function",
-        //     content: value.content,
-        //     name: value.name,
-        //   };
-        //   newMessages.push(currentMessage);
-        //   setMessages([...messages, ...newMessages]);
-
-        //   // After receiving a result, feed back the new messages to GPT
-        //   feedback = true;
-        // } else if (value.type === "function" || value.type === "partial") {
-        //   // Create a new message if the previous one is not empty
-        //   if (
-        //     currentMessage.content != "" ||
-        //     currentMessage.function_call ||
-        //     currentMessage.role == "function"
-        //   ) {
-        //     currentMessage = {
-        //       id: nanoid(),
-        //       createdAt: new Date(),
-        //       content: "",
-        //       role: "assistant",
-        //     };
-        //     newMessages.push(currentMessage);
-        //   }
-        //   if (value.type === "function") {
-        //     currentMessage.function_call = {
-        //       name: value.name,
-        //       arguments: JSON.stringify(value.arguments),
-        //       scope: value.scope,
-        //     };
-        //   } else if (value.type === "partial") {
-        //     let partialArguments: any = {};
-        //     try {
-        //       partialArguments = JSON.parse(untruncateJson(value.arguments));
-        //     } catch (e) {}
-
-        //     currentMessage.partialFunctionCall = {
-        //       name: value.name,
-        //       arguments: partialArguments,
-        //     };
-        //   }
-
-        //   newMessages[newMessages.length - 1] = currentMessage;
-        //   setMessages([...messages, ...newMessages]);
-
-        //   if (value.type === "function") {
-        //     // Execute the function call
-        //     try {
-        //       if (options.onFunctionCall && value.scope === "client") {
-        //         const result = await options.onFunctionCall(
-        //           messages,
-        //           currentMessage.function_call as FunctionCall,
-        //         );
-
-        //         currentMessage = {
-        //           id: nanoid(),
-        //           role: "function",
-        //           content: encodeResult(result),
-        //           name: (currentMessage.function_call! as FunctionCall).name!,
-        //         };
-        //         newMessages.push(currentMessage);
-        //         setMessages([...messages, ...newMessages]);
-
-        //         // After a function call, feed back the new messages to GPT
-        //         feedback = true;
-        //       }
-        //     } catch (error) {
-        //       console.error("Failed to execute function call", error);
-        //       // TODO: Handle error
-        //       // this should go to the message itself
-        //     }
-        //   }
-        // }
       }
 
       if (
         // if we have client side results
         Object.values(results).length ||
         // or the last message we received is a result
-        newMessages.findIndex((message) => message.role === "function") === newMessages.length - 1
+        (newMessages.length && newMessages[newMessages.length - 1] instanceof ResultMessage)
       ) {
         // run the completion again and return the result
 
@@ -370,11 +251,11 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     }
   };
 
-  const runChatCompletionAndHandleFunctionCall = async (messages: Message[]): Promise<void> => {
+  const runChatCompletionAndHandleFunctionCall = async (messages: IMessage[]): Promise<void> => {
     await runChatCompletion(messages);
   };
 
-  const append = async (message: Message): Promise<void> => {
+  const append = async (message: IMessage): Promise<void> => {
     if (isLoading) {
       return;
     }
@@ -390,9 +271,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     let newMessages = [...messages];
     const lastMessage = messages[messages.length - 1];
 
-    if (lastMessage.role === "assistant") {
+    if (lastMessage instanceof TextMessage && lastMessage.role === "assistant") {
       newMessages = newMessages.slice(0, -1);
     }
+
     setMessages(newMessages);
 
     return runChatCompletionAndHandleFunctionCall(newMessages);

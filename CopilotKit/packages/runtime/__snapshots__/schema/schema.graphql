@@ -3,11 +3,17 @@
 # !!!   DO NOT MODIFY THIS FILE BY YOURSELF   !!!
 # -----------------------------------------------
 
+input ActionExecutionMessageInput {
+  arguments: String!
+  name: String!
+  scope: ActionExecutionScope!
+}
+
 type ActionExecutionMessageOutput implements BaseMessageOutput {
   arguments: [String!]!
+  createdAt: DateTimeISO!
   id: String!
   name: String!
-  role: MessageRole!
   scope: ActionExecutionScope!
   status: MessageStatus!
 }
@@ -25,14 +31,19 @@ input ActionInput {
 }
 
 interface BaseMessageOutput {
+  createdAt: DateTimeISO!
   id: String!
-  role: MessageRole!
   status: MessageStatus!
 }
 
 input CloudInput {
   guardrails: GuardrailsInput!
 }
+
+"""
+A date-time string at UTC, such as 2007-12-03T10:15:30Z, compliant with the `date-time` format outlined in section 5.6 of the RFC 3339 profile of the ISO 8601 standard for representation of dates and times using the Gregorian calendar.This scalar is serialized to a string in ISO 8601 format and parsed from a string in ISO 8601 format.
+"""
+scalar DateTimeISO
 
 input FrontendInput {
   actions: [ActionInput!]!
@@ -70,20 +81,16 @@ input GuardrailsRuleInput {
 }
 
 input MessageInput {
+  actionExecutionMessage: ActionExecutionMessageInput
+  createdAt: DateTimeISO!
   id: String!
-  role: MessageRole!
+  resultMessage: ResultMessageInput
   textMessage: TextMessageInput
-  type: MessageInputType!
-}
-
-enum MessageInputType {
-  text
 }
 
 """The role of the message"""
 enum MessageRole {
   assistant
-  function
   system
   user
 }
@@ -100,12 +107,27 @@ type Query {
   hello: String!
 }
 
+input ResultMessageInput {
+  actionExecutionId: String!
+  result: String!
+}
+
+type ResultMessageOutput implements BaseMessageOutput {
+  actionExecutionId: String!
+  createdAt: DateTimeISO!
+  id: String!
+  result: String!
+  status: MessageStatus!
+}
+
 input TextMessageInput {
   content: String!
+  role: MessageRole!
 }
 
 type TextMessageOutput implements BaseMessageOutput {
   content: [String!]!
+  createdAt: DateTimeISO!
   id: String!
   role: MessageRole!
   status: MessageStatus!

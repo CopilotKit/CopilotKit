@@ -1,27 +1,6 @@
-import { Field, InterfaceType, ObjectType, registerEnumType } from "type-graphql";
+import { Field, InterfaceType, ObjectType } from "type-graphql";
 import { GenerationInterruption } from "./generation-interruption";
-
-export enum MessageRole {
-  user = "user",
-  assistant = "assistant",
-  system = "system",
-  function = "function",
-}
-
-export enum ActionExecutionScope {
-  server = "server",
-  client = "client",
-}
-
-registerEnumType(MessageRole, {
-  name: "MessageRole",
-  description: "The role of the message",
-});
-
-registerEnumType(ActionExecutionScope, {
-  name: "ActionExecutionScope",
-  description: "The scope of the action",
-});
+import { MessageRole, ActionExecutionScope } from "./enums";
 
 @ObjectType()
 export class MessageStatus {
@@ -47,8 +26,8 @@ abstract class BaseMessageOutput {
   @Field(() => String)
   id: string;
 
-  @Field(() => MessageRole)
-  role: MessageRole;
+  @Field(() => Date)
+  createdAt: Date;
 
   @Field(() => MessageStatus)
   status: MessageStatus;
@@ -56,6 +35,9 @@ abstract class BaseMessageOutput {
 
 @ObjectType({ implements: BaseMessageOutput })
 export class TextMessageOutput {
+  @Field(() => MessageRole)
+  role: MessageRole;
+
   @Field(() => [String])
   content: string[];
 }
@@ -70,6 +52,15 @@ export class ActionExecutionMessageOutput {
 
   @Field(() => [String])
   arguments: string[];
+}
+
+@ObjectType({ implements: BaseMessageOutput })
+export class ResultMessageOutput {
+  @Field(() => String)
+  actionExecutionId: string;
+
+  @Field(() => String)
+  result: string;
 }
 
 @ObjectType()

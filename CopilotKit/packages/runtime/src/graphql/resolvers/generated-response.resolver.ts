@@ -1,7 +1,8 @@
 import { Arg, Ctx, Mutation, Query, Resolver } from "type-graphql";
 import { Subject, firstValueFrom, shareReplay, skipWhile, takeWhile } from "rxjs";
 import { GenerateResponseInput } from "../inputs/generate-response.input";
-import { GeneratedResponse, MessageRole, MessageStatus } from "../types/generated-response.type";
+import { GeneratedResponse, MessageStatus } from "../types/generated-response.type";
+import { MessageRole } from "../types/enums";
 import { Repeater } from "graphql-yoga";
 import type { GraphQLContext } from "../../test-server/test-server";
 import { GenerationInterruption } from "../types/generation-interruption";
@@ -69,8 +70,9 @@ export class GeneratedResponseResolver {
                 // push the new message
                 pushMessage({
                   id: nanoid(),
-                  role: MessageRole.assistant,
                   status: firstValueFrom(streamingTextStatus),
+                  createdAt: new Date(),
+                  role: MessageRole.assistant,
                   content: new Repeater(async (pushTextChunk, stopStreamingText) => {
                     // push the message content
                     await textMessageContentStream.forEach(async (e: RuntimeEvent) => {
@@ -94,8 +96,8 @@ export class GeneratedResponseResolver {
                 const streamingArgumentsStatus = new Subject<MessageStatus>();
                 pushMessage({
                   id: nanoid(),
-                  role: MessageRole.assistant,
                   status: firstValueFrom(streamingArgumentsStatus),
+                  createdAt: new Date(),
                   name: event.actionName,
                   scope: event.scope!,
                   arguments: new Repeater(async (pushArgumentsChunk, stopStreamingArguments) => {
@@ -107,6 +109,18 @@ export class GeneratedResponseResolver {
                     stopStreamingArguments();
                     streamingArgumentsStatus.next(new MessageStatus({ isDoneStreaming: true }));
                   }),
+                });
+                break;
+              ////////////////////////////////
+              // ActionExecutionResult
+              ////////////////////////////////
+              case RuntimeEventTypes.ActionExecutionResult:
+                pushMessage({
+                  id: nanoid(),
+                  status: new MessageStatus({ isDoneStreaming: true }),
+                  createdAt: new Date(),
+                  actionExecutionId: event.actionExecutionId,
+                  result: event.result,
                 });
                 break;
             }

@@ -78,7 +78,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     // change it.
     let messages: any[] = request.messages.map((message) => {
       return {
-        role: message.role,
+        role: message.textMessage?.role,
         content: message.textMessage?.content,
       };
     });

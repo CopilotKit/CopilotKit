@@ -1,4 +1,4 @@
-import { Message } from "@copilotkit/shared";
+import { IMessage } from "@copilotkit/shared";
 
 export interface ButtonProps {
   open: boolean;
@@ -28,14 +28,14 @@ export interface SuggestionsProps {
 }
 
 export interface MessagesProps {
-  messages: Message[];
+  messages: IMessage[];
   inProgress: boolean;
   children?: React.ReactNode;
 }
 
 export interface InputProps {
   inProgress: boolean;
-  onSend: (text: string) => Promise<Message>;
+  onSend: (text: string) => Promise<IMessage>;
   isVisible?: boolean;
 }
 

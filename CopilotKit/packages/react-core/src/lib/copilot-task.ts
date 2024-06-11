@@ -89,11 +89,10 @@
  * ```
  */
 
-import { FunctionCall, Message } from "@copilotkit/shared";
+import { IMessage, TextMessage } from "@copilotkit/shared";
 import { FrontendAction } from "../types/frontend-action";
 import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
-import { fetchAndDecodeChatCompletion } from "../utils/fetch-chat-completion";
 
 export interface CopilotTaskConfig {
   /**
@@ -158,57 +157,62 @@ export class CopilotTask<T = any> {
       contextString += context.getContextString([], defaultCopilotContextCategories);
     }
 
-    const systemMessage: Message = {
+    const systemMessage = new TextMessage({
       id: "system",
       content: taskSystemMessage(contextString, this.instructions),
       role: "system",
-    };
-
-    const messages = [systemMessage];
-
-    const response = await fetchAndDecodeChatCompletion({
-      copilotConfig: context.copilotApiConfig,
-      messages: messages,
-      tools: context.getChatCompletionFunctionDescriptions(actions),
-      headers: context.copilotApiConfig.headers,
-      body: context.copilotApiConfig.body,
+      isStreaming: false,
+      createdAt: new Date(),
     });
 
-    if (!response.events) {
-      throw new Error("Failed to execute task");
-    }
+    const messages: IMessage[] = [systemMessage];
 
-    const reader = response.events.getReader();
-    let functionCalls: FunctionCall[] = [];
+    // TODO-PROTOCOL
+    throw new Error("Not implemented");
 
-    while (true) {
-      const { done, value } = await reader.read();
+    // const response = await fetchAndDecodeChatCompletion({
+    //   copilotConfig: context.copilotApiConfig,
+    //   messages: messages,
+    //   tools: context.getChatCompletionFunctionDescriptions(actions),
+    //   headers: context.copilotApiConfig.headers,
+    //   body: context.copilotApiConfig.body,
+    // });
 
-      if (done) {
-        break;
-      }
+    // if (!response.events) {
+    //   throw new Error("Failed to execute task");
+    // }
 
-      if (value.type === "function") {
-        functionCalls.push({
-          name: value.name,
-          arguments: JSON.stringify(value.arguments),
-        });
-        break;
-      }
-    }
+    // const reader = response.events.getReader();
+    // let functionCalls: FunctionCall[] = [];
 
-    if (!functionCalls.length) {
-      throw new Error("No function call occurred");
-    }
+    // while (true) {
+    //   const { done, value } = await reader.read();
 
-    const functionCallHandler = context.getFunctionCallHandler(actions);
-    for (const functionCall of functionCalls) {
-      await functionCallHandler({
-        messages,
-        name: functionCall.name,
-        args: functionCall.arguments,
-      });
-    }
+    //   if (done) {
+    //     break;
+    //   }
+
+    //   if (value.type === "function") {
+    //     functionCalls.push({
+    //       name: value.name,
+    //       arguments: JSON.stringify(value.arguments),
+    //     });
+    //     break;
+    //   }
+    // }
+
+    // if (!functionCalls.length) {
+    //   throw new Error("No function call occurred");
+    // }
+
+    // const functionCallHandler = context.getFunctionCallHandler(actions);
+    // for (const functionCall of functionCalls) {
+    //   await functionCallHandler({
+    //     messages,
+    //     name: functionCall.name,
+    //     args: functionCall.arguments,
+    //   });
+    // }
   }
 }
 

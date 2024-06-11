@@ -2,8 +2,9 @@ import {
   Action,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   MappedParameterTypes,
-  Message,
+  IMessage,
   Parameter,
+  TextMessage,
 } from "@copilotkit/shared";
 import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
@@ -75,11 +76,13 @@ export async function extract<const T extends Parameter[]>({
     contextString += context.getContextString([], defaultCopilotContextCategories);
   }
 
-  const systemMessage: Message = {
+  const systemMessage: IMessage = new TextMessage({
     id: "system",
     content: makeSystemMessage(contextString, instructions),
     role: "system",
-  };
+    isStreaming: false,
+    createdAt: new Date(),
+  });
 
   const headers = {
     ...(context.copilotApiConfig.headers || {}),
@@ -88,49 +91,50 @@ export async function extract<const T extends Parameter[]>({
       : {}),
   };
 
-  const response = await fetchAndDecodeChatCompletion({
-    copilotConfig: context.copilotApiConfig,
-    messages: includeMessages ? [systemMessage, ...messages] : [systemMessage],
-    tools: context.getChatCompletionFunctionDescriptions({ extract: action }),
-    headers,
-    body: context.copilotApiConfig.body,
-    toolChoice: { type: "function", function: { name: "extract" } },
-    signal: abortSignal,
-  });
+  throw new Error("Not implemented");
+  // const response = await fetchAndDecodeChatCompletion({
+  //   copilotConfig: context.copilotApiConfig,
+  //   messages: includeMessages ? [systemMessage, ...messages] : [systemMessage],
+  //   tools: context.getChatCompletionFunctionDescriptions({ extract: action }),
+  //   headers,
+  //   body: context.copilotApiConfig.body,
+  //   toolChoice: { type: "function", function: { name: "extract" } },
+  //   signal: abortSignal,
+  // });
 
-  if (!response.events) {
-    throw new Error("extract() failed: Could not fetch chat completion");
-  }
+  // if (!response.events) {
+  //   throw new Error("extract() failed: Could not fetch chat completion");
+  // }
 
-  const reader = response.events.getReader();
-  let isInitial = true;
+  // const reader = response.events.getReader();
+  // let isInitial = true;
 
-  while (true) {
-    const { done, value } = await reader.read();
+  // while (true) {
+  //   const { done, value } = await reader.read();
 
-    if (done) {
-      break;
-    }
+  //   if (done) {
+  //     break;
+  //   }
 
-    if (value.type === "partial") {
-      try {
-        let partialArguments = JSON.parse(untruncateJson(value.arguments));
-        stream?.({
-          status: isInitial ? "initial" : "inProgress",
-          args: partialArguments as Partial<MappedParameterTypes<T>>,
-        });
-        isInitial = false;
-      } catch (e) {}
-    }
+  //   if (value.type === "partial") {
+  //     try {
+  //       let partialArguments = JSON.parse(untruncateJson(value.arguments));
+  //       stream?.({
+  //         status: isInitial ? "initial" : "inProgress",
+  //         args: partialArguments as Partial<MappedParameterTypes<T>>,
+  //       });
+  //       isInitial = false;
+  //     } catch (e) {}
+  //   }
 
-    if (value.type === "function") {
-      stream?.({
-        status: "complete",
-        args: value.arguments as MappedParameterTypes<T>,
-      });
-      return value.arguments as MappedParameterTypes<T>;
-    }
-  }
+  //   if (value.type === "function") {
+  //     stream?.({
+  //       status: "complete",
+  //       args: value.arguments as MappedParameterTypes<T>,
+  //     });
+  //     return value.arguments as MappedParameterTypes<T>;
+  //   }
+  // }
 
   throw new Error("extract() failed: No function call occurred");
 }
