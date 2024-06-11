@@ -39,6 +39,7 @@ import {
   CopilotRuntimeChatCompletionResponse,
 } from "../service-adapter";
 import { limitOpenAIMessagesToTokenCount, maxTokensForOpenAIModel } from "../../utils/openai";
+import { ActionExecutionMessage, ResultMessage, TextMessage } from "@copilotkit/shared";
 
 const DEFAULT_MODEL = "gpt-4o";
 
@@ -74,13 +75,33 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
   ): Promise<CopilotRuntimeChatCompletionResponse> {
     const { model = this.model, tools = [], eventSource } = request;
 
-    // TODO-PROTOCOL: this is any because the message input type does not have id
-    // change it.
     let messages: any[] = request.messages.map((message) => {
-      return {
-        role: message.textMessage?.role,
-        content: message.textMessage?.content,
-      };
+      if (message instanceof TextMessage) {
+        return {
+          role: message.role,
+          content: message.content,
+        };
+      } else if (message instanceof ActionExecutionMessage) {
+        return {
+          role: "assistant",
+          tool_calls: [
+            {
+              id: message.id,
+              type: "function",
+              function: {
+                name: message.name,
+                arguments: JSON.stringify(message.arguments),
+              },
+            },
+          ],
+        };
+      } else if (message instanceof ResultMessage) {
+        return {
+          role: "tool",
+          content: message.result,
+          tool_call_id: message.actionExecutionId,
+        };
+      }
     });
 
     messages = limitOpenAIMessagesToTokenCount(messages, tools, maxTokensForOpenAIModel(model));
@@ -94,6 +115,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       });
       let mode: "function" | "message" | null = null;
       for await (const chunk of stream) {
+        // console.log("tool calls", chunk.choices[0].delta.tool_calls);
         const toolCallFunction = chunk.choices[0].delta.tool_calls?.[0]?.function;
         const toolCallId = chunk.choices[0].delta.tool_calls?.[0]?.id;
         const content = chunk.choices[0].delta.content;

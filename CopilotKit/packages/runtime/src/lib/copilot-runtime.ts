@@ -102,21 +102,18 @@ import {
   Action,
   ToolDefinition,
   EXCLUDE_FROM_FORWARD_PROPS_KEYS,
-  actionToChatCompletionFunction,
   actionParametersToJsonSchema,
   Parameter,
   AnnotatedFunction,
   annotatedFunctionToAction,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
-  CopilotCloudConfig,
 } from "@copilotkit/shared";
-import { SingleChunkReadableStream, copilotkitStreamInterceptor } from "../utils";
 import { RemoteChain, CopilotServiceAdapter } from "../service-adapters";
 import { CopilotCloud, RemoteCopilotCloud } from "./copilot-cloud";
 import { MessageInput } from "../graphql/inputs/message.input";
-import { CopilotRuntimeChatCompletionResponse } from "../service-adapters/service-adapter";
 import { ActionInput } from "../graphql/inputs/action.input";
 import { RuntimeEventSource } from "../service-adapters/events";
+import { convertGqlInputToMessages } from "../service-adapters/conversion";
 
 interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
@@ -269,7 +266,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       const eventSource = new RuntimeEventSource();
       // TODO-PROTOCOL: type this and support function calls
       const result = await serviceAdapter.process({
-        messages,
+        messages: convertGqlInputToMessages(messages),
         tools: mergedToolsSchema,
         threadId,
         // TODO-PROTOCOL add runId here

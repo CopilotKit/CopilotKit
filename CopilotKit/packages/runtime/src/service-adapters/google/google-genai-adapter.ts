@@ -36,7 +36,7 @@ import {
 } from "../service-adapter";
 import { Content, GenerativeModel, GoogleGenerativeAI, Tool } from "@google/generative-ai";
 import { writeChatCompletionChunk, writeChatCompletionEnd } from "../../utils";
-import { ChatCompletionChunk } from "@copilotkit/shared";
+import { ChatCompletionChunk, TextMessage } from "@copilotkit/shared";
 import { MessageInput } from "../../graphql/inputs/message.input";
 
 interface GoogleGenerativeAIAdapterOptions {
@@ -66,7 +66,7 @@ export class GoogleGenerativeAIAdapter implements CopilotServiceAdapter {
 
     const history = this.transformMessages(messages.slice(0, -1));
     const currentMessage = messages[messages.length - 1];
-    const systemMessage = messages.shift()?.textMessage?.content.trim() || "";
+    const systemMessage = (messages.shift() as TextMessage).content.trim() || "";
 
     const isFirstGenGeminiPro =
       this.model.model === "gemini-pro" || this.model.model === "models/gemini-pro";

@@ -22,7 +22,7 @@
  * - a LangChain `AIMessage` object
  */
 
-import { ChatCompletionChunk } from "@copilotkit/shared";
+import { ActionExecutionMessage, ChatCompletionChunk, ResultMessage } from "@copilotkit/shared";
 import {
   AIMessage,
   BaseMessage,
@@ -42,6 +42,8 @@ import {
 } from "../service-adapter";
 import { SingleChunkReadableStream } from "../../utils";
 import { MessageInput } from "../../graphql/inputs/message.input";
+import { TextMessage } from "@copilotkit/shared";
+import { IMessage } from "@copilotkit/shared";
 
 export type LangChainMessageStream = IterableReadableStream<BaseMessageChunk>;
 export type LangChainReturnType = LangChainMessageStream | BaseMessageChunk | string | AIMessage;
@@ -120,48 +122,38 @@ export class LangChainAdapter implements CopilotServiceAdapter {
    * @param forwardedProps
    * @returns {any}
    */
-  private transformMessages(messages: MessageInput[]) {
+  private transformMessages(messages: IMessage[]) {
     // map messages to langchain format
 
     const newMessages: BaseMessage[] = [];
 
     for (const message of messages) {
-      if (message.textMessage?.role === "user") {
-        newMessages.push(new HumanMessage(message.textMessage?.content));
-      } else if (message.textMessage?.role === "assistant") {
-        // TODO-PROTOCOL: implement function calls
-
-        // @ts-ignore
-        if (message.function_call) {
-          newMessages.push(
-            new AIMessage({
-              content: "",
-              tool_calls: [
-                {
-                  // @ts-ignore
-                  id: message.function_call.name + "-" + forwardedProps.messages.indexOf(message),
-                  // @ts-ignore
-                  args: JSON.parse(message.function_call.arguments),
-                  // @ts-ignore
-                  name: message.function_call.name,
-                },
-              ],
-            }),
-          );
-        } else {
-          newMessages.push(new AIMessage(message.textMessage?.content));
+      if (message instanceof TextMessage) {
+        if (message.role == "user") {
+          newMessages.push(new HumanMessage(message.content));
+        } else if (message.role == "assistant") {
+          newMessages.push(new AIMessage(message.content));
+        } else if (message.role === "system") {
+          newMessages.push(new SystemMessage(message.content));
         }
-      } else if (message.textMessage?.role === "system") {
-        newMessages.push(new SystemMessage(message.textMessage?.content));
-      }
-      // TODO-PROTOCOL: implement function calls
-      else if (message.textMessage?.role == "function") {
-        // An assistant message with 'tool_calls' must be followed by tool messages responding to each 'tool_call_id'
+      } else if (message instanceof ActionExecutionMessage) {
+        newMessages.push(
+          new AIMessage({
+            content: "",
+            tool_calls: [
+              {
+                id: message.id,
+                args: message.arguments,
+                name: message.name,
+              },
+            ],
+          }),
+        );
+      } else if (message instanceof ResultMessage) {
         newMessages.push(
           new ToolMessage({
-            content: message.textMessage?.content,
-            // @ts-ignore
-            tool_call_id: message.name + "-" + (forwardedProps.messages.indexOf(message) - 1),
+            content: message.result,
+            tool_call_id: message.actionExecutionId,
           }),
         );
       }

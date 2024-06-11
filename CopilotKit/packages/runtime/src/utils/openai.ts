@@ -1,5 +1,12 @@
-import { Message, ToolDefinition, ChatCompletionChunk, encodeResult } from "@copilotkit/shared";
-import { MessageInput } from "../graphql/inputs/message.input";
+import {
+  Message,
+  ToolDefinition,
+  ChatCompletionChunk,
+  encodeResult,
+  TextMessage,
+  ActionExecutionMessage,
+} from "@copilotkit/shared";
+import { IMessage } from "@copilotkit/shared";
 
 export function writeChatCompletionChunk(
   controller: ReadableStreamDefaultController<any>,
@@ -57,11 +64,11 @@ export function writeChatCompletionEnd(controller: ReadableStreamDefaultControll
 }
 
 export function limitOpenAIMessagesToTokenCount(
-  messages: Message[],
+  messages: IMessage[],
   tools: ToolDefinition[],
   maxTokens: number,
-): Message[] {
-  const result: Message[] = [];
+): IMessage[] {
+  const result: IMessage[] = [];
   const toolsNumTokens = countToolsTokens(tools);
   if (toolsNumTokens > maxTokens) {
     throw new Error(`Too many tokens in function definitions: ${toolsNumTokens} > ${maxTokens}`);
@@ -69,7 +76,7 @@ export function limitOpenAIMessagesToTokenCount(
   maxTokens -= toolsNumTokens;
 
   for (const message of messages) {
-    if (message.role === "system") {
+    if (message instanceof TextMessage && message.role === "system") {
       const numTokens = countMessageTokens(message);
       maxTokens -= numTokens;
 
@@ -83,7 +90,7 @@ export function limitOpenAIMessagesToTokenCount(
 
   const reversedMessages = [...messages].reverse();
   for (const message of reversedMessages) {
-    if (message.role === "system") {
+    if (message instanceof TextMessage && message.role === "system") {
       result.unshift(message);
       continue;
     } else if (cutoff) {
@@ -144,11 +151,13 @@ function countToolsTokens(functions: ToolDefinition[]): number {
   return countTokens(json);
 }
 
-function countMessageTokens(message: Message): number {
-  if (message.content) {
+function countMessageTokens(message: IMessage): number {
+  if (message instanceof TextMessage) {
     return countTokens(message.content);
-  } else if (message.function_call) {
-    return countTokens(JSON.stringify(message.function_call));
+  } else if (message instanceof ActionExecutionMessage) {
+    return countTokens(
+      JSON.stringify({ name: message.name, arguments: JSON.stringify(message.arguments) }),
+    );
   }
   return 0;
 }

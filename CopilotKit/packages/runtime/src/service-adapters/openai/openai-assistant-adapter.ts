@@ -172,7 +172,11 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     // submit user message
     else if (
       (request.messages.length > 0 &&
+        // TODO-PROTOCOL
+        // make this work
+        // @ts-ignore
         request.messages[request.messages.length - 1].textMessage?.role === "user") ||
+      // @ts-ignore
       request.messages[request.messages.length - 1].textMessage?.role === "system"
     ) {
       run = await this.submitUserMessage(threadId, request);

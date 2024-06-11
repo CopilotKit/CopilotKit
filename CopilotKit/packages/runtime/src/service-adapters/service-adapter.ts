@@ -1,4 +1,4 @@
-import { MessageInput } from "../graphql/inputs/message.input";
+import { IMessage } from "@copilotkit/shared";
 import { RuntimeEventSource } from "./events";
 
 export interface CopilotKitResponse {
@@ -12,7 +12,7 @@ export interface CopilotRuntimeChatCompletionRequest {
 
   // TODO-PROTOCOL: replace any with a more specific type once we have it in graphql
   tools?: any[];
-  messages: MessageInput[];
+  messages: IMessage[];
   threadId?: string;
 }
 
