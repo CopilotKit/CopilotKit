@@ -32,6 +32,8 @@ export async function POST(req: Request): Promise<Response> {
     new LangChainAdapter({
       chainFn: async (forwardedProps) => {
         const model = new ChatOpenAI({ modelName: "gpt-4-1106-preview" });
+        // TODO-PROTOCOL: fix compile error
+        // @ts-ignore
         return model.stream(forwardedProps.messages, { tools: forwardedProps.tools });
       },
     }),

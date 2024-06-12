@@ -38,8 +38,11 @@ import {
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
 } from "../service-adapter";
-import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "@copilotkit/shared";
-import { limitMessagesToTokenCount } from "./utils";
+import {
+  convertActionInputToOpenAITool,
+  convertMessageToOpenAIMessage,
+  limitMessagesToTokenCount,
+} from "./utils";
 
 const DEFAULT_MODEL = "gpt-4o";
 
@@ -55,6 +58,8 @@ export interface OpenAIAdapterParams {
   model?: string;
 }
 
+// TODO-PROTOCOL
+// function calls are broken again
 export class OpenAIAdapter implements CopilotServiceAdapter {
   private model: string = DEFAULT_MODEL;
 
@@ -70,19 +75,23 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     }
   }
 
-  async process(
-    request: CopilotRuntimeChatCompletionRequest,
-  ): Promise<CopilotRuntimeChatCompletionResponse> {
-    const { model = this.model, tools = [], eventSource } = request;
+  async process({
+    model = this.model,
+    messages,
+    actions,
+    eventSource,
+  }: CopilotRuntimeChatCompletionRequest): Promise<CopilotRuntimeChatCompletionResponse> {
+    const tools = actions.map(convertActionInputToOpenAITool);
 
-    let messages = request.messages.map(convertMessageToOpenAI);
-    messages = limitMessagesToTokenCount(messages, tools, model);
+    let openaiMessages = messages.map(convertMessageToOpenAIMessage);
+    openaiMessages = limitMessagesToTokenCount(messages, tools, model);
 
     eventSource.stream(async (eventStream$) => {
+      // TODO move this up
       const stream = this.openai.beta.chat.completions.stream({
         model: model,
         stream: true,
-        messages: messages as any,
+        messages: openaiMessages,
         ...(tools.length > 0 && { tools }),
       });
       let mode: "function" | "message" | null = null;
@@ -131,34 +140,5 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     });
 
     return {};
-  }
-}
-
-function convertMessageToOpenAI(message: Message) {
-  if (message instanceof TextMessage) {
-    return {
-      role: message.role,
-      content: message.content,
-    };
-  } else if (message instanceof ActionExecutionMessage) {
-    return {
-      role: "assistant",
-      tool_calls: [
-        {
-          id: message.id,
-          type: "function",
-          function: {
-            name: message.name,
-            arguments: JSON.stringify(message.arguments),
-          },
-        },
-      ],
-    };
-  } else if (message instanceof ResultMessage) {
-    return {
-      role: "tool",
-      content: message.result,
-      tool_call_id: message.actionExecutionId,
-    };
   }
 }

@@ -21,10 +21,17 @@ import {
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
 } from "../service-adapter";
-import { writeChatCompletionChunk, writeChatCompletionEnd } from "../../utils/openai";
-import { ChatCompletionChunk } from "@copilotkit/shared";
-
-const RUN_STATUS_POLL_INTERVAL = 100;
+import { Message, ResultMessage, TextMessage } from "@copilotkit/shared";
+import {
+  convertActionInputToOpenAITool,
+  convertMessageToOpenAIMessage,
+  convertSystemMessageToAssistantAPI,
+} from "./utils";
+import { RunSubmitToolOutputsStreamParams } from "openai/resources/beta/threads/runs/runs";
+import { AssistantStream } from "openai/lib/AssistantStream";
+import { RuntimeEventSource } from "../events";
+import { ActionInput } from "../../graphql/inputs/action.input";
+import { AssistantStreamEvent, AssistantTool } from "openai/resources/beta/assistants";
 
 export interface OpenAIAssistantAdapterParams {
   /**
@@ -45,141 +52,42 @@ export interface OpenAIAssistantAdapterParams {
   /**
    * Whether to enable retrieval. Defaults to `true`.
    */
-  retrievalEnabled?: boolean;
+  fileSearchEnabled?: boolean;
 }
 
 export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
   private openai: OpenAI;
   private codeInterpreterEnabled: boolean;
   private assistantId: string;
-  private retrievalEnabled: boolean;
+  private fileSearchEnabled: boolean;
 
   constructor(params: OpenAIAssistantAdapterParams) {
     this.openai = params.openai || new OpenAI({});
     this.codeInterpreterEnabled = params.codeInterpreterEnabled === false || true;
-    this.retrievalEnabled = params.retrievalEnabled === false || true;
+    this.fileSearchEnabled = params.fileSearchEnabled === false || true;
     this.assistantId = params.assistantId;
   }
 
-  private async waitForRun(
-    run: OpenAI.Beta.Threads.Runs.Run,
-  ): Promise<OpenAI.Beta.Threads.Runs.Run> {
-    while (true) {
-      const status = await this.openai.beta.threads.runs.retrieve(run.thread_id, run.id);
-      if (status.status === "completed" || status.status === "requires_action") {
-        return status;
-      } else if (status.status !== "in_progress" && status.status !== "queued") {
-        console.error(`Thread run failed with status: ${status.status}`);
-        throw new Error(`Thread run failed with status: ${status.status}`);
-      }
-      await new Promise((resolve) => setTimeout(resolve, RUN_STATUS_POLL_INTERVAL));
-    }
-  }
-
-  private async submitToolOutputs(threadId: string, runId: string, forwardMessages: any[]) {
-    forwardMessages = transformMessages(forwardMessages);
-    let run = await this.openai.beta.threads.runs.retrieve(threadId, runId);
-
-    if (!run.required_action) {
-      throw new Error("No tool outputs required");
-    }
-
-    const functionResults: any[] = [];
-    // get all function results at the tail of the messages
-    let i = forwardMessages.length - 1;
-    for (; i >= 0; i--) {
-      if (forwardMessages[i].role === "function") {
-        functionResults.unshift(forwardMessages[i]);
-      } else {
-        break;
-      }
-    }
-
-    const toolCallsIds = run.required_action.submit_tool_outputs.tool_calls.map(
-      (toolCall) => toolCall.id,
-    );
-
-    if (toolCallsIds.length != functionResults.length) {
-      throw new Error("Number of function results does not match the number of tool calls");
-    }
-
-    const toolOutputs: any[] = [];
-
-    // match tool ids with function results
-    for (let i = 0; i < functionResults.length; i++) {
-      const toolCallId = toolCallsIds[i];
-      const functionResult = functionResults[i];
-      toolOutputs.push({
-        tool_call_id: toolCallId,
-        output: functionResult.content || "",
-      });
-    }
-
-    run = await this.openai.beta.threads.runs.submitToolOutputs(threadId, runId, {
-      tool_outputs: toolOutputs,
-    });
-
-    return await this.waitForRun(run);
-  }
-
-  private async submitUserMessage(threadId: string, forwardedProps: any) {
-    let forwardMessages = forwardedProps.messages || [];
-    const instructions = forwardMessages.shift()?.content || "";
-
-    forwardMessages = transformMessages(forwardMessages);
-
-    const message = forwardMessages[forwardMessages.length - 1];
-
-    await this.openai.beta.threads.messages.create(threadId, {
-      role: message.role as "user",
-      content: message.content,
-    });
-
-    const tools = [
-      ...(forwardedProps.tools || []),
-      ...(this.codeInterpreterEnabled ? [{ type: "code_interpreter" }] : []),
-      ...(this.retrievalEnabled ? [{ type: "retrieval" }] : []),
-    ];
-
-    // run the thread
-    let run = await this.openai.beta.threads.runs.create(threadId, {
-      assistant_id: this.assistantId,
-      instructions,
-      tools: tools,
-    });
-
-    return await this.waitForRun(run);
-  }
-
-  async process(
-    request: CopilotRuntimeChatCompletionRequest,
-  ): Promise<CopilotRuntimeChatCompletionResponse> {
-    // get the thread from forwardedProps or create a new one
-    const threadId: string = request.threadId || (await this.openai.beta.threads.create()).id;
-
+  async process({
+    messages,
+    actions,
+    eventSource,
+    threadId,
+    runId,
+  }: CopilotRuntimeChatCompletionRequest): Promise<CopilotRuntimeChatCompletionResponse> {
     let run: OpenAI.Beta.Threads.Runs.Run | null = null;
 
-    // TODO-PROTOCOL: support function calls
+    // if we don't have a threadId, create a new thread
+    threadId ||= (await this.openai.beta.threads.create()).id;
+    const lastMessage = messages.at(-1);
+
     // submit function outputs
-    if (
-      request.messages.length > 0 &&
-      // @ts-ignore
-      request.messages[request.messages.length - 1].textMessage?.role === "function"
-    ) {
-      // @ts-ignore
-      run = await this.submitToolOutputs(threadId, request.runId, request.messages);
+    if (lastMessage instanceof ResultMessage && runId) {
+      run = await this.submitToolOutputs(threadId, runId, messages, eventSource);
     }
     // submit user message
-    else if (
-      (request.messages.length > 0 &&
-        // TODO-PROTOCOL
-        // make this work
-        // @ts-ignore
-        request.messages[request.messages.length - 1].textMessage?.role === "user") ||
-      // @ts-ignore
-      request.messages[request.messages.length - 1].textMessage?.role === "system"
-    ) {
-      run = await this.submitUserMessage(threadId, request);
+    else if (lastMessage instanceof TextMessage) {
+      run = await this.submitUserMessage(threadId, messages, actions, eventSource);
     }
     // unsupported message
     else {
@@ -187,85 +95,210 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
       throw new Error("No actionable message found in the messages");
     }
 
-    if (run.status === "requires_action") {
-      // return the tool calls
-      return {
-        stream: new AssistantSingleChunkReadableStream(
-          "",
-          run.required_action!.submit_tool_outputs.tool_calls,
-        ),
-        threadId,
-        runId: run.id,
-      };
-    } else {
-      // return the last message
-      const newMessages = await this.openai.beta.threads.messages.list(threadId, {
-        limit: 1,
-        order: "desc",
-      });
+    // TODO-PROTOCOL:
+    // implement streaming
+    // if (run.status === "requires_action") {
+    //   // return the tool calls
+    //   return {
+    //     stream: new AssistantSingleChunkReadableStream(
+    //       "",
+    //       run.required_action!.submit_tool_outputs.tool_calls,
+    //     ),
+    //     threadId,
+    //     runId: run.id,
+    //   };
+    // } else {
+    //   // return the last message
+    //   const newMessages = await this.openai.beta.threads.messages.list(threadId, {
+    //     limit: 1,
+    //     order: "desc",
+    //   });
 
-      const content = newMessages.data[0].content[0];
-      const contentString = content.type === "text" ? content.text.value : "";
+    //   const content = newMessages.data[0].content[0];
+    //   const contentString = content.type === "text" ? content.text.value : "";
 
-      return {
-        stream: new AssistantSingleChunkReadableStream(contentString),
-        threadId,
-      };
-    }
+    //   return {
+    //     stream: new AssistantSingleChunkReadableStream(contentString),
+    //     threadId,
+    //   };
+    // }
+
+    return {
+      threadId,
+      runId: run.id,
+    };
   }
-}
 
-function transformMessages(messages: any[]): any[] {
-  return messages.map((message) => {
-    if (message.role === "system") {
-      return {
-        ...message,
-        role: "user",
-        content:
-          "THE FOLLOWING MESSAGE IS NOT A USER MESSAGE. IT IS A SYSTEM MESSAGE: " + message.content,
-      };
-    }
-    return message;
-  });
-}
+  // private async waitForRun(
+  //   run: OpenAI.Beta.Threads.Runs.Run,
+  // ): Promise<OpenAI.Beta.Threads.Runs.Run> {
+  //   while (true) {
+  //     const status = await this.openai.beta.threads.runs.retrieve(run.thread_id, run.id);
+  //     if (status.status === "completed" || status.status === "requires_action") {
+  //       return status;
+  //     } else if (status.status !== "in_progress" && status.status !== "queued") {
+  //       console.error(`Thread run failed with status: ${status.status}`);
+  //       throw new Error(`Thread run failed with status: ${status.status}`);
+  //     }
+  //     await new Promise((resolve) => setTimeout(resolve, RUN_STATUS_POLL_INTERVAL));
+  //   }
+  // }
 
-class AssistantSingleChunkReadableStream extends ReadableStream<any> {
-  constructor(
-    content: string,
-    toolCalls?: OpenAI.Beta.Threads.Runs.RequiredActionFunctionToolCall[],
+  private async submitToolOutputs(
+    threadId: string,
+    runId: string,
+    messages: Message[],
+    eventSource: RuntimeEventSource,
   ) {
-    super({
-      start(controller) {
-        let tool_calls: any = undefined;
-        if (toolCalls) {
-          tool_calls = toolCalls.map((toolCall, index) => {
-            return {
-              index,
-              id: toolCall.id,
-              function: {
-                name: toolCall.function.name,
-                arguments: toolCall.function.arguments,
-              },
-            };
-          });
-        }
-        const chunk: ChatCompletionChunk = {
-          choices: [
-            {
-              delta: {
-                content: content,
-                role: "assistant",
-                tool_calls,
-              },
-            },
-          ],
-        };
-        writeChatCompletionChunk(controller, chunk);
-        writeChatCompletionEnd(controller);
+    let run = await this.openai.beta.threads.runs.retrieve(threadId, runId);
+    if (!run.required_action) {
+      throw new Error("No tool outputs required");
+    }
 
-        controller.close();
+    // get the required tool call ids
+    const toolCallsIds = run.required_action.submit_tool_outputs.tool_calls.map(
+      (toolCall) => toolCall.id,
+    );
+
+    // search for these tool calls
+    const resultMessages = messages.filter(
+      (message) =>
+        message instanceof ResultMessage && toolCallsIds.includes(message.actionExecutionId),
+    ) as ResultMessage[];
+
+    if (toolCallsIds.length != resultMessages.length) {
+      throw new Error("Number of function results does not match the number of tool calls");
+    }
+
+    // submit the tool outputs
+    const toolOutputs: RunSubmitToolOutputsStreamParams.ToolOutput[] = resultMessages.map(
+      (message) => {
+        return {
+          tool_call_id: message.actionExecutionId,
+          output: message.result,
+        };
       },
-      cancel() {},
+    );
+
+    const stream = this.openai.beta.threads.runs.submitToolOutputsStream(threadId, runId, {
+      tool_outputs: toolOutputs,
+    });
+
+    await this.streamResponse(stream, eventSource);
+
+    return stream.currentRun();
+  }
+
+  private async submitUserMessage(
+    threadId: string,
+    messages: Message[],
+    actions: ActionInput[],
+    eventSource: RuntimeEventSource,
+  ) {
+    messages = [...messages];
+
+    // get the instruction message
+    const instructionsMessage = messages.shift();
+    const instructions =
+      instructionsMessage instanceof TextMessage ? instructionsMessage.content : "";
+
+    // get the latest user message
+    const userMessage = messages
+      .map(convertMessageToOpenAIMessage)
+      .map(convertSystemMessageToAssistantAPI)
+      .at(-1);
+
+    if (!(userMessage instanceof TextMessage && userMessage.role === "user")) {
+      throw new Error("No user message found");
+    }
+
+    // create a new message on the thread
+    await this.openai.beta.threads.messages.create(threadId, {
+      role: "user",
+      content: userMessage.content,
+    });
+
+    const openaiTools = actions.map(convertActionInputToOpenAITool);
+
+    const tools = [
+      ...openaiTools,
+      ...(this.codeInterpreterEnabled ? [{ type: "code_interpreter" } as AssistantTool] : []),
+      ...(this.fileSearchEnabled ? [{ type: "file_search" } as AssistantTool] : []),
+    ];
+
+    // run the thread
+    let stream = this.openai.beta.threads.runs.stream(threadId, {
+      assistant_id: this.assistantId,
+      instructions,
+      tools: tools,
+    });
+
+    await this.streamResponse(stream, eventSource);
+
+    return stream.currentRun();
+  }
+
+  private async streamResponse(stream: AssistantStream, eventSource: RuntimeEventSource) {
+    eventSource.stream(async (eventStream$) => {
+      for await (const chunk of stream) {
+        console.log(chunk);
+      }
+      eventStream$.complete();
     });
   }
 }
+
+// function transformMessages(messages: any[]): any[] {
+//   return messages.map((message) => {
+//     if (message.role === "system") {
+//       return {
+//         ...message,
+//         role: "user",
+//         content:
+//           "THE FOLLOWING MESSAGE IS NOT A USER MESSAGE. IT IS A SYSTEM MESSAGE: " + message.content,
+//       };
+//     }
+//     return message;
+//   });
+// }
+
+// class AssistantSingleChunkReadableStream extends ReadableStream<any> {
+//   constructor(
+//     content: string,
+//     toolCalls?: OpenAI.Beta.Threads.Runs.RequiredActionFunctionToolCall[],
+//   ) {
+//     super({
+//       start(controller) {
+//         let tool_calls: any = undefined;
+//         if (toolCalls) {
+//           tool_calls = toolCalls.map((toolCall, index) => {
+//             return {
+//               index,
+//               id: toolCall.id,
+//               function: {
+//                 name: toolCall.function.name,
+//                 arguments: toolCall.function.arguments,
+//               },
+//             };
+//           });
+//         }
+//         const chunk: ChatCompletionChunk = {
+//           choices: [
+//             {
+//               delta: {
+//                 content: content,
+//                 role: "assistant",
+//                 tool_calls,
+//               },
+//             },
+//           ],
+//         };
+//         writeChatCompletionChunk(controller, chunk);
+//         writeChatCompletionEnd(controller);
+
+//         controller.close();
+//       },
+//       cancel() {},
+//     });
+//   }
+// }

@@ -247,10 +247,6 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
 
 export const defaultCopilotContextCategories = ["global"];
 
-function entryPointsToChatCompletionFunctions(actions: FrontendAction<any>[]): ToolDefinition[] {
-  return actions.map(actionToChatCompletionFunction);
-}
-
 function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): FunctionCallHandler {
   return async ({ messages, name, args }) => {
     let actionsByFunctionName: Record<string, FrontendAction<any>> = {};

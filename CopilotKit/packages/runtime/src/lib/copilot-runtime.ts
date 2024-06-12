@@ -220,7 +220,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   async process({
     serviceAdapter,
     messages,
-    actions,
+    actions: clientSideActionsInput,
     threadId,
     runId,
     publicApiKey,
@@ -239,27 +239,34 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       }
     }
 
-    const serverSideActions: Action<any>[] = [...this.actions, ...langserveFunctions];
-    const serverSideActionsSchema = serverSideActions.map((action) => ({
-      type: "function",
-      function: {
+    const serverSideActionsInput: ActionInput[] = [...this.actions, ...langserveFunctions].map(
+      (action) => ({
         name: action.name,
         description: action.description,
-        parameters: actionParametersToJsonSchema(action.parameters),
-      },
-    }));
-    const clientSideActionsSchema = actions.map((action) => ({
-      type: "function" as any,
-      function: {
-        name: action.name,
-        description: action.description,
-        parameters: JSON.parse(action.jsonSchema),
-      },
-    }));
+        jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters)),
+      }),
+    );
 
-    const mergedToolsSchema = flattenToolCallsNoDuplicates([
-      ...serverSideActionsSchema,
-      ...clientSideActionsSchema,
+    // const serverSideActionsSchema = serverSideActions.map((action) => ({
+    //   type: "function",
+    //   function: {
+    //     name: action.name,
+    //     description: action.description,
+    //     parameters: actionParametersToJsonSchema(action.parameters),
+    //   },
+    // }));
+    // const clientSideActionsSchema = actions.map((action) => ({
+    //   type: "function" as any,
+    //   function: {
+    //     name: action.name,
+    //     description: action.description,
+    //     parameters: JSON.parse(action.jsonSchema),
+    //   },
+    // }));
+
+    const actions = flattenToolCallsNoDuplicates2([
+      ...serverSideActionsInput,
+      ...clientSideActionsInput,
     ]);
 
     try {
@@ -267,9 +274,9 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       // TODO-PROTOCOL: type this and support function calls
       const result = await serviceAdapter.process({
         messages: convertGqlInputToMessages(messages),
-        tools: mergedToolsSchema,
+        actions,
         threadId,
-        // TODO-PROTOCOL add runId here
+        runId,
         eventSource,
       });
 
@@ -420,6 +427,18 @@ export function flattenToolCallsNoDuplicates(toolsByPriority: ToolDefinition[]):
     if (!allToolNames.includes(tool.function.name)) {
       allTools.push(tool);
       allToolNames.push(tool.function.name);
+    }
+  }
+  return allTools;
+}
+
+export function flattenToolCallsNoDuplicates2(toolsByPriority: ActionInput[]): ActionInput[] {
+  let allTools: ActionInput[] = [];
+  const allToolNames: string[] = [];
+  for (const tool of toolsByPriority) {
+    if (!allToolNames.includes(tool.name)) {
+      allTools.push(tool);
+      allToolNames.push(tool.name);
     }
   }
   return allTools;

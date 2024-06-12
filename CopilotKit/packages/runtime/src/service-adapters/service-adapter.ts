@@ -1,5 +1,6 @@
 import { Message } from "@copilotkit/shared";
 import { RuntimeEventSource } from "./events";
+import { ActionInput } from "../graphql/inputs/action.input";
 
 export interface CopilotKitResponse {
   stream: ReadableStream;
@@ -7,13 +8,12 @@ export interface CopilotKitResponse {
 }
 
 export interface CopilotRuntimeChatCompletionRequest {
-  model?: string;
   eventSource: RuntimeEventSource;
-
-  // TODO-PROTOCOL: replace any with a more specific type once we have it in graphql
-  tools?: any[];
   messages: Message[];
+  actions: ActionInput[];
+  model?: string;
   threadId?: string;
+  runId?: string;
 }
 
 export interface CopilotRuntimeChatCompletionResponse {

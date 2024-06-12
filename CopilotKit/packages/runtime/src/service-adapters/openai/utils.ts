@@ -1,4 +1,7 @@
-import { Tiktoken, TiktokenModel, encoding_for_model } from "tiktoken";
+import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "@copilotkit/shared";
+import { Tiktoken, TiktokenModel, encodingForModel } from "js-tiktoken";
+import { ActionInput } from "../../graphql/inputs/action.input";
+import { ChatCompletionMessageParam, ChatCompletionTool } from "openai/resources";
 
 export function limitMessagesToTokenCount(
   messages: any[],
@@ -98,9 +101,59 @@ function countMessageTokens(model: string, message: any): number {
 function countTokens(model: string, text: string): number {
   let enc: Tiktoken;
   try {
-    enc = encoding_for_model(model as TiktokenModel);
+    enc = encodingForModel(model as TiktokenModel);
   } catch (e) {
-    enc = encoding_for_model("gpt-4o");
+    enc = encodingForModel("gpt-4");
   }
   return enc.encode(text).length;
+}
+
+export function convertActionInputToOpenAITool(action: ActionInput): ChatCompletionTool {
+  return {
+    type: "function",
+    function: {
+      name: action.name,
+      description: action.description,
+      parameters: JSON.parse(action.jsonSchema),
+    },
+  };
+}
+
+export function convertMessageToOpenAIMessage(message: Message): ChatCompletionMessageParam {
+  if (message instanceof TextMessage) {
+    return {
+      role: message.role,
+      content: message.content,
+    };
+  } else if (message instanceof ActionExecutionMessage) {
+    return {
+      role: "assistant",
+      tool_calls: [
+        {
+          id: message.id,
+          type: "function",
+          function: {
+            name: message.name,
+            arguments: JSON.stringify(message.arguments),
+          },
+        },
+      ],
+    };
+  } else if (message instanceof ResultMessage) {
+    return {
+      role: "tool",
+      content: message.result,
+      tool_call_id: message.actionExecutionId,
+    };
+  }
+}
+
+export function convertSystemMessageToAssistantAPI(message: ChatCompletionMessageParam) {
+  return {
+    ...message,
+    ...(message.role === "system" && {
+      role: "assistant",
+      content: "THE FOLLOWING MESSAGE IS A SYSTEM MESSAGE: " + message.content,
+    }),
+  };
 }

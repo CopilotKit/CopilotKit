@@ -62,6 +62,8 @@ export class GoogleGenerativeAIAdapter implements CopilotServiceAdapter {
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
     const messages = request.messages;
+    // TODO-PROTOCOL: tools was renamed
+    // @ts-ignore
     const tools = request.tools || [];
 
     const history = this.transformMessages(messages.slice(0, -1));
