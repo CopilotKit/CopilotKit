@@ -84,16 +84,16 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     const tools = actions.map(convertActionInputToOpenAITool);
 
     let openaiMessages = messages.map(convertMessageToOpenAIMessage);
-    openaiMessages = limitMessagesToTokenCount(messages, tools, model);
+    openaiMessages = limitMessagesToTokenCount(openaiMessages, tools, model);
+
+    const stream = this.openai.beta.chat.completions.stream({
+      model: model,
+      stream: true,
+      messages: openaiMessages,
+      ...(tools.length > 0 && { tools }),
+    });
 
     eventSource.stream(async (eventStream$) => {
-      // TODO move this up
-      const stream = this.openai.beta.chat.completions.stream({
-        model: model,
-        stream: true,
-        messages: openaiMessages,
-        ...(tools.length > 0 && { tools }),
-      });
       let mode: "function" | "message" | null = null;
       for await (const chunk of stream) {
         const toolCall = chunk.choices[0].delta.tool_calls?.[0];
