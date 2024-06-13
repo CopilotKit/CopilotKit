@@ -1,0 +1,22 @@
+{
+  "name": "node-express",
+  "version": "1.23.0",
+  "private": true,
+  "scripts": {
+    "start": "node dist/index.js",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@copilotkit/runtime": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
+    "express": "^4.19.2",
+    "openai": "^4.33.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^18.11.17",
+    "eslint-config-custom": "workspace:*",
+    "tsconfig": "workspace:*",
+    "typescript": "^5.2.3"
+  }
+}

@@ -15,7 +15,7 @@
   "license": "MIT",
   "scripts": {
     "build": "tsup --clean",
-    "dev": "tsup --watch --no-splitting",
+    "dev": "tsup --watch",
     "test": "jest",
     "check-types": "tsc --noEmit",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
