@@ -1,8 +1,6 @@
 {
   "extends": "tsconfig/nextjs.json",
   "compilerOptions": {
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
     "plugins": [
       {
         "name": "next"
