@@ -1,7 +1,9 @@
 import { defineConfig, Options } from "tsup";
 
 export default defineConfig((options: Options) => ({
-  entry: ["src/**/*.{ts,tsx}"],
+  ...options,
+  clean: true,
+  entry: ["src/**/index.ts"],
   format: ["esm", "cjs"],
   dts: true,
   minify: false,
@@ -12,5 +14,4 @@ export default defineConfig((options: Options) => ({
     "**/*.test.tsx", // Exclude TypeScript React test files
     "**/__tests__/*", // Exclude any files inside a __tests__ directory
   ],
-  ...options,
 }));

@@ -4,7 +4,7 @@ import { GenerateResponseInput } from "../inputs/generate-response.input";
 import { GeneratedResponse, MessageStatus } from "../types/generated-response.type";
 import { MessageRole } from "../types/enums";
 import { Repeater } from "graphql-yoga";
-import type { GraphQLContext } from "../../test-server/test-server";
+import type { GraphQLContext } from "../../lib/integrations";
 import { GenerationInterruption } from "../types/generation-interruption";
 import { CopilotRuntime, LangChainAdapter, OpenAIAdapter } from "../../lib";
 import { OpenAI } from "openai";

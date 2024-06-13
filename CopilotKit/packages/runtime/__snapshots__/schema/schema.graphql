@@ -18,7 +18,9 @@ type ActionExecutionMessageOutput implements BaseMessageOutput {
   status: MessageStatus!
 }
 
-"""The scope of the action"""
+"""
+The scope of the action
+"""
 enum ActionExecutionScope {
   client
   server
@@ -88,7 +90,9 @@ input MessageInput {
   textMessage: TextMessageInput
 }
 
-"""The role of the message"""
+"""
+The role of the message
+"""
 enum MessageRole {
   assistant
   system
@@ -109,13 +113,11 @@ type Query {
 
 input ResultMessageInput {
   actionExecutionId: String!
-  actionName: String!
   result: String!
 }
 
 type ResultMessageOutput implements BaseMessageOutput {
   actionExecutionId: String!
-  actionName: String!
   createdAt: DateTimeISO!
   id: String!
   result: String!

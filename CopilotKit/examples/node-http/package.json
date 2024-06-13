@@ -1,5 +1,5 @@
 {
-  "name": "node",
+  "name": "node-http",
   "version": "1.23.0",
   "private": true,
   "scripts": {

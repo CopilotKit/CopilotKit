@@ -1,9 +1,9 @@
 {
-  "name": "next-openai",
-  "version": "1.23.0",
+  "name": "next-pages-router",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "cross-env NODE_OPTIONS='--inspect' next dev",
+    "dev": "next dev",
     "start": "next start",
     "lint": "next lint",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
@@ -22,24 +22,23 @@
     "@langchain/openai": "^0.0.28",
     "clsx": "^1.2.1",
     "langchain": "^0.1.19",
-    "next": "^13.4.9",
-    "next-themes": "^0.2.1",
     "openai": "^4.33.1",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-markdown": "^8.0.7"
+    "react": "^18",
+    "react-dom": "^18",
+    "next": "14.2.4"
   },
   "devDependencies": {
+    "typescript": "^5.2.3",
     "@types/node": "^18.11.17",
     "@types/react": "^18.2.5",
     "@types/react-dom": "^18.2.4",
-    "autoprefixer": "^10.4.13",
-    "cross-env": "^7.0.3",
-    "eslint-config-custom": "workspace:*",
     "postcss": "^8.4.20",
+    "autoprefixer": "^10.4.13",
     "tailwind-config": "workspace:*",
     "tailwindcss": "^3.2.4",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.4",
     "tsconfig": "workspace:*",
-    "typescript": "^5.2.3"
+    "eslint-config-custom": "workspace:*"
   }
 }
