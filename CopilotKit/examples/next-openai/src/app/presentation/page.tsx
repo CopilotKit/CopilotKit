@@ -10,7 +10,7 @@ export default function AIPresentation() {
 
   return (
     <CopilotKit
-      runtimeUrl="http://localhost:4001/graphql"
+      runtimeUrl="/api/copilotkit"
       transcribeAudioUrl="/api/transcribe"
       textToSpeechUrl="/api/tts"
     >

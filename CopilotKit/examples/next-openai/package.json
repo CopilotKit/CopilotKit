@@ -4,16 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_OPTIONS='--inspect' next dev",
-    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
   },
   "dependencies": {
-    "@copilotkit/runtime": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/react-textarea": "workspace:*",
     "@copilotkit/react-ui": "workspace:*",
+    "@copilotkit/runtime": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@google/generative-ai": "^0.11.2",
     "@heroicons/react": "^2.0.18",

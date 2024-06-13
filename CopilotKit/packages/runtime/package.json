@@ -18,10 +18,10 @@
     "dev": "tsup --watch --no-splitting",
     "test": "jest",
     "check-types": "tsc --noEmit",
-    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next",
-    "test-server": "nodemon ./src/test-server/test-server.ts"
+    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
   },
   "devDependencies": {
+    "@swc/core": "1.5.28",
     "@types/express": "^4.17.21",
     "@types/jest": "^29.5.4",
     "@types/node": "^18.11.17",
