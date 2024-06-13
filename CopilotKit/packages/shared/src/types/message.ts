@@ -63,6 +63,7 @@ interface ResultMessageParams {
   id: string;
   isDoneStreaming?: boolean;
   actionExecutionId: string;
+  actionName: string;
   result: string;
   createdAt: Date;
 }
@@ -71,6 +72,7 @@ export class ResultMessage extends Message {
   id: string;
   isDoneStreaming: boolean;
   actionExecutionId: string;
+  actionName: string;
   result: string;
   createdAt: Date;
 
@@ -79,6 +81,7 @@ export class ResultMessage extends Message {
     this.id = params.id;
     this.isDoneStreaming = params.isDoneStreaming ?? true;
     this.actionExecutionId = params.actionExecutionId;
+    this.actionName = params.actionName;
     this.result = params.result;
     this.createdAt = params.createdAt;
   }

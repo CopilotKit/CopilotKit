@@ -30,6 +30,7 @@ export function convertGqlInputToMessages(inputMessages: MessageInput[]): Messag
           id: message.id,
           createdAt: message.createdAt,
           actionExecutionId: message.resultMessage.actionExecutionId,
+          actionName: message.resultMessage.actionName,
           result: message.resultMessage.result,
         }),
       );

@@ -30,6 +30,7 @@ export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
         resultMessage: {
           result: message.result,
           actionExecutionId: message.actionExecutionId,
+          actionName: message.actionName,
         },
       };
     } else {
@@ -64,6 +65,7 @@ export function convertGqlOutputToMessages(
         id: message.id,
         result: message.result,
         actionExecutionId: message.actionExecutionId,
+        actionName: message.actionName,
         createdAt: new Date(),
         isDoneStreaming: true,
       });

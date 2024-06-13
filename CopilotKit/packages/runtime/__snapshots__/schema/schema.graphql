@@ -109,11 +109,13 @@ type Query {
 
 input ResultMessageInput {
   actionExecutionId: String!
+  actionName: String!
   result: String!
 }
 
 type ResultMessageOutput implements BaseMessageOutput {
   actionExecutionId: String!
+  actionName: String!
   createdAt: DateTimeISO!
   id: String!
   result: String!

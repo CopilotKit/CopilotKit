@@ -1,4 +1,5 @@
 import { Action } from "@copilotkit/shared";
+import { AIMessage, BaseMessageChunk } from "@langchain/core/messages";
 import { nanoid } from "nanoid";
 import { of, concat, Subject, map, scan, concatMap } from "rxjs";
 
@@ -196,33 +197,31 @@ async function executeAction(
 
   // 2. AIMessage
   // Send the content and function call of the AIMessage as the content of the chunk.
-  else if (result && "content" in result && typeof result.content === "string") {
+  else if (result instanceof AIMessage) {
     if (result.content) {
-      eventStream$.sendTextMessage(nanoid(), result.content);
+      eventStream$.sendTextMessage(nanoid(), result.content as string);
     }
-    if (result.additional_kwargs?.tool_calls) {
-      for (const toolCall of result.additional_kwargs.tool_calls) {
-        eventStream$.sendActionExecution(
-          toolCall.id || nanoid(),
-          toolCall.function.name || "unknown",
-          toolCall.function.arguments || "",
-        );
-      }
+    for (const toolCall of result.tool_calls) {
+      eventStream$.sendActionExecution(
+        toolCall.id || nanoid(),
+        toolCall.name,
+        JSON.stringify(toolCall.args),
+      );
     }
   }
 
   // 3. BaseMessageChunk
   // Send the content and function call of the AIMessage as the content of the chunk.
-  else if (result && "lc_kwargs" in result) {
+  else if (result instanceof BaseMessageChunk) {
     if (result.lc_kwargs?.content) {
-      eventStream$.sendTextMessage(nanoid(), result.lc_kwargs.content);
+      eventStream$.sendTextMessage(nanoid(), result.content as string);
     }
     if (result.lc_kwargs?.tool_calls) {
-      for (const toolCall of result.lc_kwargs.tool_calls) {
+      for (const toolCall of result.lc_kwargs?.tool_calls) {
         eventStream$.sendActionExecution(
           toolCall.id || nanoid(),
-          toolCall.function.name || "unknown",
-          toolCall.function.arguments || "",
+          toolCall.name,
+          JSON.stringify(toolCall.args),
         );
       }
     }
@@ -235,7 +234,6 @@ async function executeAction(
 
     let mode: "function" | "message" | null = null;
 
-    // TODO-PROTOCOL: this duplicates the openai adapter logic
     while (true) {
       try {
         const { done, value } = await reader.read();

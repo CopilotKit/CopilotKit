@@ -139,6 +139,7 @@ export class GeneratedResponseResolver {
                   status: new MessageStatus({ isDoneStreaming: true }),
                   createdAt: new Date(),
                   actionExecutionId: event.actionExecutionId,
+                  actionName: event.actionName,
                   result: event.result,
                 });
                 break;

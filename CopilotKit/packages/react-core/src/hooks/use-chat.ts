@@ -222,6 +222,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 id: message.id + "-result",
                 result: ResultMessage.encodeResult(results[message.id]),
                 actionExecutionId: message.id,
+                actionName: message.name,
                 createdAt: new Date(),
               }),
             );

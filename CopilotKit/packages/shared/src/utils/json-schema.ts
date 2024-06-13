@@ -1,6 +1,42 @@
-import { Action, Parameter } from "../types";
+import { Parameter } from "../types";
 
-export function actionParametersToJsonSchema(actionParameters: Parameter[]) {
+export type JSONSchemaString = {
+  type: "string";
+  description?: string;
+  enum?: string[];
+};
+
+export type JSONSchemaNumber = {
+  type: "number";
+  description?: string;
+};
+
+export type JSONSchemaBoolean = {
+  type: "boolean";
+  description?: string;
+};
+
+export type JSONSchemaObject = {
+  type: "object";
+  properties?: Record<string, JSONSchema>;
+  required?: string[];
+  description?: string;
+};
+
+export type JSONSchemaArray = {
+  type: "array";
+  items: JSONSchema;
+  description?: string;
+};
+
+export type JSONSchema =
+  | JSONSchemaString
+  | JSONSchemaNumber
+  | JSONSchemaBoolean
+  | JSONSchemaObject
+  | JSONSchemaArray;
+
+export function actionParametersToJsonSchema(actionParameters: Parameter[]): JSONSchema {
   // Create the parameters object based on the argumentAnnotations
   let parameters: { [key: string]: any } = {};
   for (let parameter of actionParameters || []) {
@@ -22,7 +58,7 @@ export function actionParametersToJsonSchema(actionParameters: Parameter[]) {
   };
 }
 
-function convertAttribute(attribute: Parameter): any {
+function convertAttribute(attribute: Parameter): JSONSchema {
   switch (attribute.type) {
     case "string":
       return {
@@ -71,7 +107,7 @@ function convertAttribute(attribute: Parameter): any {
         const itemType = attribute.type.slice(0, -2);
         return {
           type: "array",
-          items: { type: itemType },
+          items: { type: itemType as any },
           description: attribute.description,
         };
       }
