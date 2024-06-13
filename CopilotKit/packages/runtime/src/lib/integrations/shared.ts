@@ -37,6 +37,6 @@ export function getCommonConfig(runtimeOptions?: CreateCopilotRuntimeServerOptio
   return {
     schema,
     plugins: [useDeferStream()],
-    context: (ctx: YogaInitialContext) => createContext(ctx, runtimeOptions),
+    context: (ctx: YogaInitialContext): Promise<Partial<GraphQLContext>> => createContext(ctx, runtimeOptions),
   };
 }
