@@ -22,19 +22,19 @@
  * - a LangChain `AIMessage` object
  */
 
-import { AIMessage, BaseMessage, BaseMessageChunk } from "@langchain/core/messages";
-import { IterableReadableStream } from "@langchain/core/utils/stream";
+import { BaseMessage } from "@langchain/core/messages";
 import { CopilotServiceAdapter } from "../service-adapter";
 import {
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
 } from "../service-adapter";
-import { convertActionInputToLangchainTool, convertMessageToLangchainMessage } from "./utils";
+import {
+  convertActionInputToLangChainTool,
+  convertMessageToLangChainMessage,
+  streamLangChainResponse,
+} from "./utils";
 import { DynamicStructuredTool } from "@langchain/core/tools";
-import { nanoid } from "nanoid";
-
-export type LangChainMessageStream = IterableReadableStream<BaseMessageChunk>;
-export type LangChainReturnType = LangChainMessageStream | BaseMessageChunk | string | AIMessage;
+import { LangChainReturnType } from "./types";
 
 interface ChainFnParameters {
   model: string;
@@ -63,110 +63,18 @@ export class LangChainAdapter implements CopilotServiceAdapter {
     runId,
   }: CopilotRuntimeChatCompletionRequest): Promise<CopilotRuntimeChatCompletionResponse> {
     const result = await this.options.chainFn({
-      messages: messages.map(convertMessageToLangchainMessage),
-      tools: actions.map(convertActionInputToLangchainTool),
+      messages: messages.map(convertMessageToLangChainMessage),
+      tools: actions.map(convertActionInputToLangChainTool),
       model,
       threadId,
       runId,
     });
 
     eventSource.stream(async (eventStream$) => {
-      // We support several types of return values from LangChain functions:
-
-      // 1. string
-      // Just send one chunk with the string as the content.
-      if (typeof result === "string") {
-        eventStream$.sendTextMessage(nanoid(), result);
-      }
-
-      // 2. AIMessage
-      // Send the content and function call of the AIMessage as the content of the chunk.
-      // else if ("content" in result && typeof result.content === "string") {
-      else if (result instanceof AIMessage) {
-        if (result.content) {
-          eventStream$.sendTextMessage(nanoid(), result.content as string);
-        }
-        for (const toolCall of result.tool_calls) {
-          eventStream$.sendActionExecution(
-            toolCall.id || nanoid(),
-            toolCall.name,
-            JSON.stringify(toolCall.args),
-          );
-        }
-      }
-
-      // 3. BaseMessageChunk
-      // Send the content and function call of the AIMessage as the content of the chunk.
-      else if (result instanceof BaseMessageChunk) {
-        if (result.lc_kwargs?.content) {
-          eventStream$.sendTextMessage(nanoid(), result.content as string);
-        }
-        if (result.lc_kwargs?.tool_calls) {
-          for (const toolCall of result.lc_kwargs?.tool_calls) {
-            eventStream$.sendActionExecution(
-              toolCall.id || nanoid(),
-              toolCall.name,
-              JSON.stringify(toolCall.args),
-            );
-          }
-        }
-      }
-
-      // 4. IterableReadableStream
-      // Stream the result of the LangChain function.
-      else if ("getReader" in result) {
-        let reader = result.getReader();
-
-        let mode: "function" | "message" | null = null;
-
-        while (true) {
-          try {
-            const { done, value } = await reader.read();
-
-            const toolCall = value.lc_kwargs?.additional_kwargs?.tool_calls?.[0];
-            const content = value?.lc_kwargs?.content;
-
-            // When switching from message to function or vice versa,
-            // or when we are done, send the respective end event.
-            if (mode === "message" && (toolCall.function || done)) {
-              mode = null;
-              eventStream$.sendTextMessageEnd();
-            } else if (mode === "function" && (!toolCall.function || done)) {
-              mode = null;
-              eventStream$.sendActionExecutionEnd();
-            }
-
-            if (done) {
-              break;
-            }
-
-            // If we send a new message type, send the appropriate start event.
-            if (mode === null) {
-              if (toolCall.function) {
-                mode = "function";
-                eventStream$.sendActionExecutionStart(toolCall.id, toolCall.function!.name);
-              } else if (content) {
-                mode = "message";
-                eventStream$.sendTextMessageStart(nanoid());
-              }
-            }
-
-            // send the content events
-            if (mode === "message" && content) {
-              eventStream$.sendTextMessageContent(content);
-            } else if (mode === "function" && toolCall.function?.arguments) {
-              eventStream$.sendActionExecutionArgs(toolCall.function.arguments);
-            }
-          } catch (error) {
-            console.error("Error reading from stream", error);
-            break;
-          }
-        }
-      } else {
-        throw new Error("Invalid return type from LangChain function.");
-      }
-
-      eventStream$.complete();
+      await streamLangChainResponse({
+        result,
+        eventStream$,
+      });
     });
 
     return {};

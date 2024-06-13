@@ -1,7 +1,8 @@
 import { Action } from "@copilotkit/shared";
 import { AIMessage, BaseMessageChunk } from "@langchain/core/messages";
 import { nanoid } from "nanoid";
-import { of, concat, Subject, map, scan, concatMap } from "rxjs";
+import { of, concat, Subject, map, scan, concatMap, ReplaySubject } from "rxjs";
+import { streamLangChainResponse } from "./langchain/utils";
 
 export enum RuntimeEventTypes {
   TextMessageStart = "TextMessageStart",
@@ -47,7 +48,7 @@ interface RuntimeEventWithState {
 
 type EventSourceCallback = (eventStream$: RuntimeEventSubject) => Promise<void>;
 
-class RuntimeEventSubject extends Subject<RuntimeEvent> {
+export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
   constructor() {
     super();
   }
@@ -187,102 +188,12 @@ async function executeAction(
   // call the function
   const result = await action.handler(args);
 
-  // We support several types of return values from functions:
-
-  // 1. string
-  // Just send the result as the content of the chunk.
-  if (result && typeof result === "string") {
-    eventStream$.sendActionExecutionResult(actionExecutionId, action.name, result);
-  }
-
-  // 2. AIMessage
-  // Send the content and function call of the AIMessage as the content of the chunk.
-  else if (result instanceof AIMessage) {
-    if (result.content) {
-      eventStream$.sendTextMessage(nanoid(), result.content as string);
-    }
-    for (const toolCall of result.tool_calls) {
-      eventStream$.sendActionExecution(
-        toolCall.id || nanoid(),
-        toolCall.name,
-        JSON.stringify(toolCall.args),
-      );
-    }
-  }
-
-  // 3. BaseMessageChunk
-  // Send the content and function call of the AIMessage as the content of the chunk.
-  else if (result instanceof BaseMessageChunk) {
-    if (result.lc_kwargs?.content) {
-      eventStream$.sendTextMessage(nanoid(), result.content as string);
-    }
-    if (result.lc_kwargs?.tool_calls) {
-      for (const toolCall of result.lc_kwargs?.tool_calls) {
-        eventStream$.sendActionExecution(
-          toolCall.id || nanoid(),
-          toolCall.name,
-          JSON.stringify(toolCall.args),
-        );
-      }
-    }
-  }
-
-  // 4. IterableReadableStream
-  // Stream the result of the LangChain function.
-  else if (result && "getReader" in result) {
-    let reader = result.getReader();
-
-    let mode: "function" | "message" | null = null;
-
-    while (true) {
-      try {
-        const { done, value } = await reader.read();
-
-        const toolCall = value.lc_kwargs?.additional_kwargs?.tool_calls?.[0];
-        const content = value?.lc_kwargs?.content;
-
-        // When switching from message to function or vice versa,
-        // or when we are done, send the respective end event.
-        if (mode === "message" && (toolCall.function || done)) {
-          mode = null;
-          eventStream$.sendTextMessageEnd();
-        } else if (mode === "function" && (!toolCall.function || done)) {
-          mode = null;
-          eventStream$.sendActionExecutionEnd();
-        }
-
-        if (done) {
-          break;
-        }
-
-        // If we send a new message type, send the appropriate start event.
-        if (mode === null) {
-          if (toolCall.function) {
-            mode = "function";
-            eventStream$.sendActionExecutionStart(toolCall.id, toolCall.function!.name);
-          } else if (content) {
-            mode = "message";
-            eventStream$.sendTextMessageStart(nanoid());
-          }
-        }
-
-        // send the content events
-        if (mode === "message" && content) {
-          eventStream$.sendTextMessageContent(content);
-        } else if (mode === "function" && toolCall.function?.arguments) {
-          eventStream$.sendActionExecutionArgs(toolCall.function.arguments);
-        }
-      } catch (error) {
-        console.error("Error reading from stream", error);
-        break;
-      }
-    }
-  }
-
-  // 5. Any other type, return JSON result
-  else {
-    eventStream$.sendActionExecutionResult(actionExecutionId, action.name, JSON.stringify(result));
-  }
-
-  eventStream$.complete();
+  await streamLangChainResponse({
+    result,
+    eventStream$,
+    actionExecution: {
+      name: action.name,
+      id: actionExecutionId,
+    },
+  });
 }
