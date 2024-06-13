@@ -22,34 +22,26 @@
  * - a LangChain `AIMessage` object
  */
 
-import { ActionExecutionMessage, ChatCompletionChunk, ResultMessage } from "@copilotkit/shared";
-import {
-  AIMessage,
-  BaseMessage,
-  BaseMessageChunk,
-  FunctionMessage,
-  HumanMessage,
-  SystemMessage,
-  ToolMessage,
-} from "@langchain/core/messages";
-import { IterableReadableStream } from "@langchain/core/utils/stream";
+import { BaseMessage } from "@langchain/core/messages";
 import { CopilotServiceAdapter } from "../service-adapter";
-import { writeChatCompletionChunk, writeChatCompletionEnd } from "../../utils";
 import {
-  CopilotKitResponse,
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
 } from "../service-adapter";
-import { SingleChunkReadableStream } from "../../utils";
-import { MessageInput } from "../../graphql/inputs/message.input";
-import { TextMessage } from "@copilotkit/shared";
-import { Message } from "@copilotkit/shared";
+import {
+  convertActionInputToLangChainTool,
+  convertMessageToLangChainMessage,
+  streamLangChainResponse,
+} from "./utils";
+import { DynamicStructuredTool } from "@langchain/core/tools";
+import { LangChainReturnType } from "./types";
 
-export type LangChainMessageStream = IterableReadableStream<BaseMessageChunk>;
-export type LangChainReturnType = LangChainMessageStream | BaseMessageChunk | string | AIMessage;
-
-interface ChainFnParameters extends Omit<CopilotRuntimeChatCompletionRequest, "messages"> {
+interface ChainFnParameters {
+  model: string;
   messages: BaseMessage[];
+  tools: DynamicStructuredTool[];
+  threadId?: string;
+  runId?: string;
 }
 
 interface LangChainAdapterOptions {
@@ -62,164 +54,29 @@ export class LangChainAdapter implements CopilotServiceAdapter {
    */
   constructor(private options: LangChainAdapterOptions) {}
 
-  async process(
-    request: CopilotRuntimeChatCompletionRequest,
-  ): Promise<CopilotRuntimeChatCompletionResponse> {
-    const messages = this.transformMessages(request.messages);
-
+  async process({
+    eventSource,
+    model,
+    actions,
+    messages,
+    threadId,
+    runId,
+  }: CopilotRuntimeChatCompletionRequest): Promise<CopilotRuntimeChatCompletionResponse> {
     const result = await this.options.chainFn({
-      ...request,
-      messages,
+      messages: messages.map(convertMessageToLangChainMessage),
+      tools: actions.map(convertActionInputToLangChainTool),
+      model,
+      threadId,
+      runId,
     });
 
-    // We support several types of return values from LangChain functions:
-
-    // 1. string
-    // Just send one chunk with the string as the content.
-    if (typeof result === "string") {
-      return {
-        stream: new SingleChunkReadableStream(result),
-      };
-    }
-
-    // 2. AIMessage
-    // Send the content and function call of the AIMessage as the content of the chunk.
-    else if ("content" in result && typeof result.content === "string") {
-      return {
-        stream: new SingleChunkReadableStream(result.content, result.additional_kwargs?.tool_calls),
-      };
-    }
-
-    // 3. BaseMessageChunk
-    // Send the content and function call of the AIMessage as the content of the chunk.
-    else if ("lc_kwargs" in result) {
-      return {
-        stream: new SingleChunkReadableStream(
-          result.lc_kwargs?.content,
-          result.lc_kwargs?.tool_calls,
-        ),
-      };
-    }
-
-    // 4. IterableReadableStream
-    // Stream the result of the LangChain function.
-    else if ("getReader" in result) {
-      return {
-        stream: this.streamResult(result),
-      };
-    }
-
-    // TODO write function call result!
-
-    console.error("Invalid return type from LangChain function.");
-    throw new Error("Invalid return type from LangChain function.");
-  }
-
-  /**
-   * Transforms the props that are forwarded to the LangChain function.
-   * Currently this just transforms the messages to the format that LangChain expects.
-   *
-   * @param forwardedProps
-   * @returns {any}
-   */
-  private transformMessages(messages: Message[]) {
-    // map messages to langchain format
-
-    const newMessages: BaseMessage[] = [];
-
-    for (const message of messages) {
-      if (message instanceof TextMessage) {
-        if (message.role == "user") {
-          newMessages.push(new HumanMessage(message.content));
-        } else if (message.role == "assistant") {
-          newMessages.push(new AIMessage(message.content));
-        } else if (message.role === "system") {
-          newMessages.push(new SystemMessage(message.content));
-        }
-      } else if (message instanceof ActionExecutionMessage) {
-        newMessages.push(
-          new AIMessage({
-            content: "",
-            tool_calls: [
-              {
-                id: message.id,
-                args: message.arguments,
-                name: message.name,
-              },
-            ],
-          }),
-        );
-      } else if (message instanceof ResultMessage) {
-        newMessages.push(
-          new ToolMessage({
-            content: message.result,
-            tool_call_id: message.actionExecutionId,
-          }),
-        );
-      }
-    }
-
-    return newMessages;
-  }
-
-  /**
-   * Reads from the LangChainMessageStream and converts the output to a ReadableStream.
-   *
-   * @param streamedChain
-   * @returns ReadableStream
-   */
-  streamResult(streamedChain: LangChainMessageStream): ReadableStream<any> {
-    let reader = streamedChain.getReader();
-
-    async function cleanup(controller?: ReadableStreamDefaultController<BaseMessageChunk>) {
-      if (controller) {
-        try {
-          controller.close();
-        } catch (_) {}
-      }
-      if (reader) {
-        try {
-          await reader.cancel();
-        } catch (_) {}
-      }
-    }
-
-    return new ReadableStream<any>({
-      async pull(controller) {
-        while (true) {
-          try {
-            const { done, value } = await reader.read();
-
-            if (done) {
-              writeChatCompletionEnd(controller);
-              await cleanup(controller);
-              return;
-            }
-
-            const toolCalls = value.lc_kwargs?.additional_kwargs?.tool_calls;
-            const content = value?.lc_kwargs?.content;
-            const chunk: ChatCompletionChunk = {
-              choices: [
-                {
-                  delta: {
-                    role: "assistant",
-                    content: content,
-                    ...(toolCalls ? { tool_calls: toolCalls } : {}),
-                  },
-                },
-              ],
-            };
-            writeChatCompletionChunk(controller, chunk);
-          } catch (error) {
-            controller.error(error);
-            await cleanup(controller);
-            return;
-          }
-        }
-      },
-      cancel() {
-        cleanup();
-      },
+    eventSource.stream(async (eventStream$) => {
+      await streamLangChainResponse({
+        result,
+        eventStream$,
+      });
     });
+
+    return {};
   }
 }

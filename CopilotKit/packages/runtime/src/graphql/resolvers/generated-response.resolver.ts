@@ -6,10 +6,11 @@ import { MessageRole } from "../types/enums";
 import { Repeater } from "graphql-yoga";
 import type { GraphQLContext } from "../../lib/integrations";
 import { GenerationInterruption } from "../types/generation-interruption";
-import { CopilotRuntime, OpenAIAdapter } from "../../lib";
+import { CopilotRuntime, LangChainAdapter, OpenAIAdapter } from "../../lib";
 import { OpenAI } from "openai";
 import { nanoid } from "nanoid";
 import { RuntimeEvent, RuntimeEventTypes } from "../../service-adapters/events";
+import { ChatOpenAI } from "@langchain/openai";
 
 @Resolver(() => Response)
 export class GeneratedResponseResolver {
@@ -24,24 +25,20 @@ export class GeneratedResponseResolver {
     const copilotRuntime = new CopilotRuntime({
       actions: [
         {
-          name: "sayHello",
-          description: "say hello so someone by roasting their name",
-          parameters: [
-            {
-              name: "roast",
-              description: "A sentence or two roasting the name of the person",
-              type: "string",
-              required: true,
-            },
-          ],
-          handler: ({ roast }) => {
-            console.log(roast);
-            return "The person has been roasted.";
+          name: "askSecret",
+          description: "Ask for the secret",
+          handler: () => {
+            return "The secret is 42";
           },
         },
       ],
     });
-    const openaiAdapter = new OpenAIAdapter({ openai });
+    const openaiAdapter = new LangChainAdapter({
+      async chainFn({ messages, tools }) {
+        const model = new ChatOpenAI({ modelName: "gpt-4" }).bindTools(tools);
+        return model.stream(messages);
+      },
+    });
 
     const interruption = new Subject<GenerationInterruption>();
     const {
@@ -139,6 +136,7 @@ export class GeneratedResponseResolver {
                   status: new MessageStatus({ isDoneStreaming: true }),
                   createdAt: new Date(),
                   actionExecutionId: event.actionExecutionId,
+                  actionName: event.actionName,
                   result: event.result,
                 });
                 break;

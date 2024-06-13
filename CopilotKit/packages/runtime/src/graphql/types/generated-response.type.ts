@@ -62,6 +62,9 @@ export class ResultMessageOutput {
   actionExecutionId: string;
 
   @Field(() => String)
+  actionName: string;
+
+  @Field(() => String)
   result: string;
 }
 

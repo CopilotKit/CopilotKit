@@ -49,5 +49,8 @@ export class ResultMessageInput {
   actionExecutionId: string;
 
   @Field(() => String)
+  actionName: string;
+
+  @Field(() => String)
   result: string;
 }

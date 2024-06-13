@@ -32,6 +32,7 @@ export const generateResponseMutation = graphql(/** GraphQL **/ `
         ... on ResultMessageOutput {
           result
           actionExecutionId
+          actionName
         }
       }
       threadId

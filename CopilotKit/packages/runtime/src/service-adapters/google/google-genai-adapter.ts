@@ -34,10 +34,10 @@ import {
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
 } from "../service-adapter";
-import { Content, GenerativeModel, GoogleGenerativeAI, Tool } from "@google/generative-ai";
-import { writeChatCompletionChunk, writeChatCompletionEnd } from "../../utils";
-import { ChatCompletionChunk, TextMessage } from "@copilotkit/shared";
-import { MessageInput } from "../../graphql/inputs/message.input";
+import { GenerativeModel, GoogleGenerativeAI } from "@google/generative-ai";
+import { TextMessage } from "@copilotkit/shared";
+import { convertMessageToGoogleGenAIMessage, transformActionToGoogleGenAITool } from "./utils";
+import { nanoid } from "nanoid";
 
 interface GoogleGenerativeAIAdapterOptions {
   /**
@@ -61,14 +61,26 @@ export class GoogleGenerativeAIAdapter implements CopilotServiceAdapter {
   async process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
-    const messages = request.messages;
-    // TODO-PROTOCOL: tools was renamed
-    // @ts-ignore
-    const tools = request.tools || [];
+    const { messages, actions, eventSource } = request;
 
-    const history = this.transformMessages(messages.slice(0, -1));
-    const currentMessage = messages[messages.length - 1];
-    const systemMessage = (messages.shift() as TextMessage).content.trim() || "";
+    // get the history (everything except the first and last message)
+    const history = messages.slice(1, -1).map(convertMessageToGoogleGenAIMessage);
+
+    // get the current message (the last message)
+    const currentMessage = convertMessageToGoogleGenAIMessage(messages.at(-1));
+    if (!currentMessage) {
+      throw new Error("No current message");
+    }
+
+    let systemMessage: string;
+    const firstMessage = messages.at(0);
+    if (firstMessage instanceof TextMessage && firstMessage.role === "system") {
+      systemMessage = firstMessage.content.trim();
+    } else {
+      throw new Error("First message is not a system message");
+    }
+
+    const tools = actions.map(transformActionToGoogleGenAITool);
 
     const isFirstGenGeminiPro =
       this.model.model === "gemini-pro" || this.model.model === "models/gemini-pro";
@@ -83,181 +95,39 @@ export class GoogleGenerativeAIAdapter implements CopilotServiceAdapter {
       ...(isFirstGenGeminiPro
         ? {}
         : { systemInstruction: { role: "user", parts: [{ text: systemMessage }] } }),
-      tools: this.transformTools(tools || []),
+      tools,
     });
 
-    const result = await chat.sendMessageStream(this.transformMessage(currentMessage).parts);
+    const result = await chat.sendMessageStream(currentMessage.parts);
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        for await (const chunk of result.stream) {
-          const chunkText = chunk.text();
-          const ccChunk: ChatCompletionChunk = {
-            choices: [
-              {
-                delta: {
-                  role: "assistant",
-                  content: chunkText,
-                },
-              },
-            ],
-          };
-
-          writeChatCompletionChunk(controller, ccChunk);
+    eventSource.stream(async (eventStream$) => {
+      let isTextMessage = false;
+      for await (const chunk of result.stream) {
+        const chunkText = chunk.text();
+        if (!isTextMessage) {
+          isTextMessage = true;
+          eventStream$.sendTextMessageStart(nanoid());
         }
-        let calls = (await result.response).functionCalls();
-        if (calls && calls.length > 0) {
-          const ccChunk: ChatCompletionChunk = {
-            choices: [
-              {
-                delta: {
-                  role: "assistant",
-                  content: "",
-                  tool_calls: calls.map((call, ix) => ({
-                    index: ix,
-                    id: ix + "",
-                    function: {
-                      name: call.name,
-                      arguments: JSON.stringify(replaceNewlinesInObject(call.args)),
-                    },
-                  })),
-                },
-              },
-            ],
-          };
+        eventStream$.sendTextMessageContent(chunkText);
+      }
+      if (isTextMessage) {
+        eventStream$.sendTextMessageEnd();
+      }
 
-          writeChatCompletionChunk(controller, ccChunk);
+      let calls = (await result.response).functionCalls();
+      if (calls) {
+        for (let call of calls) {
+          eventStream$.sendActionExecution(
+            nanoid(),
+            call.name,
+            JSON.stringify(replaceNewlinesInObject(call.args)),
+          );
         }
-        writeChatCompletionEnd(controller);
-        controller.close();
-      },
+      }
+      eventStream$.complete();
     });
 
-    return {
-      stream,
-    };
-  }
-
-  transformMessages(messages: MessageInput[]): Content[] {
-    return messages
-      .filter(
-        (m) =>
-          m.textMessage?.role === "user" ||
-          m.textMessage?.role === "assistant" ||
-          // TODO-PROTOCOL: implement function calls
-          // m.role === "function" ||
-          m.textMessage?.role === "system",
-      )
-      .map(this.transformMessage);
-  }
-
-  transformMessage(message: MessageInput): Content {
-    if (message.textMessage?.role === "user") {
-      return {
-        role: "user",
-        parts: [{ text: message.textMessage?.content }],
-      };
-    } else if (message.textMessage?.role === "assistant") {
-      // TODO-PROTOCOL: implement function calls
-      // @ts-ignore
-      if (message.function_call) {
-        return {
-          role: "model",
-          parts: [
-            {
-              functionCall: {
-                // @ts-ignore
-                name: message.function_call.name!,
-                // @ts-ignore
-                args: JSON.parse(message.function_call!.arguments!),
-              },
-            },
-          ],
-        };
-      } else {
-        return {
-          role: "model",
-          parts: [{ text: message.textMessage?.content.replace("\\\\n", "\n") }],
-        };
-      }
-    }
-    // TODO-PROTOCOL: implement function calls
-    // @ts-ignore
-    else if (message.textMessage?.role === "function") {
-      return {
-        role: "function",
-        parts: [
-          {
-            functionResponse: {
-              // @ts-ignore
-              name: message.name!,
-              response: {
-                // @ts-ignore
-                name: message.name!,
-                content: tryParseJson(message.textMessage?.content),
-              },
-            },
-          },
-        ],
-      };
-    } else if (message.textMessage?.role === "system") {
-      return {
-        role: "user",
-        parts: [
-          {
-            text:
-              "THE FOLLOWING MESSAGE IS NOT A USER MESSAGE. IT IS A SYSTEM MESSAGE: " +
-              message.textMessage?.content,
-          },
-        ],
-      };
-    }
-
-    throw new Error("Invalid message role");
-  }
-
-  transformTools(tools: any[]) {
-    return tools.map(this.transformTool);
-  }
-
-  transformTool(tool: any): Tool {
-    const name = tool.function.name;
-    const description = tool.function.description;
-    const parameters = tool.function.parameters;
-
-    const transformProperties = (props: any) => {
-      for (const key in props) {
-        if (props[key].type) {
-          props[key].type = props[key].type.toUpperCase();
-        }
-        if (props[key].properties) {
-          transformProperties(props[key].properties);
-        }
-      }
-    };
-
-    transformProperties(parameters);
-
-    return {
-      functionDeclarations: [
-        {
-          name,
-          description,
-          parameters,
-        },
-      ],
-    };
-  }
-}
-
-function tryParseJson(str?: string) {
-  if (!str) {
-    return "";
-  }
-  try {
-    return JSON.parse(str);
-  } catch (e) {
-    return str;
+    return {};
   }
 }
 
