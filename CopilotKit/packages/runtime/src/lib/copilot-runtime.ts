@@ -247,24 +247,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       }),
     );
 
-    // const serverSideActionsSchema = serverSideActions.map((action) => ({
-    //   type: "function",
-    //   function: {
-    //     name: action.name,
-    //     description: action.description,
-    //     parameters: actionParametersToJsonSchema(action.parameters),
-    //   },
-    // }));
-    // const clientSideActionsSchema = actions.map((action) => ({
-    //   type: "function" as any,
-    //   function: {
-    //     name: action.name,
-    //     description: action.description,
-    //     parameters: JSON.parse(action.jsonSchema),
-    //   },
-    // }));
-
-    const actions = flattenToolCallsNoDuplicates2([
+    const actions = flattenToolCallsNoDuplicates([
       ...serverSideActionsInput,
       ...clientSideActionsInput,
     ]);
@@ -313,38 +296,6 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       throw error;
     }
   }
-
-  // async gqlResponse(
-  //   serviceAdapter: CopilotServiceAdapter,
-  //   {
-  //     messages,
-  //     threadId,
-  //     runId,
-  //   }: {
-  //     messages: MessageInput[];
-  //     threadId?: string;
-  //     runId?: string;
-  //   },
-  // ) {
-  //   const publicApiKey = undefined;
-
-  //   try {
-  //     // TODO: forwardedProps / customProperties
-  //     const response = await this.getResponse(
-  //       {
-  //         messages,
-  //         threadId,
-  //         runId,
-  //       },
-  //       serviceAdapter,
-  //       publicApiKey,
-  //     );
-  //     return response;
-  //   } catch (error) {
-  //     console.error("Error getting response:", error);
-  //     throw error;
-  //   }
-  // }
 
   /**
    * Returns a `Response` object for streaming back the result to the client
@@ -420,19 +371,7 @@ or Node.js HTTP server.
   }
 }
 
-export function flattenToolCallsNoDuplicates(toolsByPriority: ToolDefinition[]): ToolDefinition[] {
-  let allTools: ToolDefinition[] = [];
-  const allToolNames: string[] = [];
-  for (const tool of toolsByPriority) {
-    if (!allToolNames.includes(tool.function.name)) {
-      allTools.push(tool);
-      allToolNames.push(tool.function.name);
-    }
-  }
-  return allTools;
-}
-
-export function flattenToolCallsNoDuplicates2(toolsByPriority: ActionInput[]): ActionInput[] {
+export function flattenToolCallsNoDuplicates(toolsByPriority: ActionInput[]): ActionInput[] {
   let allTools: ActionInput[] = [];
   const allToolNames: string[] = [];
   for (const tool of toolsByPriority) {
