@@ -3,33 +3,40 @@ import { GuardrailsOptions } from "../guardrails";
 import { buildSchemaSync } from "type-graphql";
 import { GeneratedResponseResolver } from "../../graphql/resolvers/generated-response.resolver";
 import { useDeferStream } from "@graphql-yoga/plugin-defer-stream";
+import { CopilotRuntime } from "../copilot-runtime";
+import { CopilotServiceAdapter } from "../../service-adapters";
+
+type CopilotKitContext = {
+  runtime: CopilotRuntime;
+  serviceAdapter: CopilotServiceAdapter;
+};
 
 export type GraphQLContext = YogaInitialContext & {
-  runtimeServerOptions: CreateCopilotRuntimeServerOptions;
+  _copilotkit: CopilotKitContext,
 };
 
 export interface CreateCopilotRuntimeServerOptions {
-  authorize?: (ctx: YogaInitialContext) => Promise<void>;
+  runtime: CopilotRuntime;
+  serviceAdapter: CopilotServiceAdapter;
   guardrails?: GuardrailsOptions;
 }
 
 export async function createContext(
   initialContext: YogaInitialContext,
-  serverOptions: CreateCopilotRuntimeServerOptions = {},
+  copilotKitContext: CopilotKitContext
 ): Promise<Partial<GraphQLContext>> {
+
   const ctx: GraphQLContext = {
     ...initialContext,
-    runtimeServerOptions: serverOptions,
+    _copilotkit: {
+      ...copilotKitContext,
+    },
   };
-
-  if (serverOptions?.authorize) {
-    await serverOptions.authorize(ctx);
-  }
 
   return ctx;
 }
 
-export function getCommonConfig(runtimeOptions?: CreateCopilotRuntimeServerOptions) {
+export function getCommonConfig(options?: CreateCopilotRuntimeServerOptions) {
   const schema = buildSchemaSync({
     resolvers: [GeneratedResponseResolver],
   });
@@ -37,6 +44,6 @@ export function getCommonConfig(runtimeOptions?: CreateCopilotRuntimeServerOptio
   return {
     schema,
     plugins: [useDeferStream()],
-    context: (ctx: YogaInitialContext): Promise<Partial<GraphQLContext>> => createContext(ctx, runtimeOptions),
+    context: (ctx: YogaInitialContext): Promise<Partial<GraphQLContext>> => createContext(ctx, options),
   };
 }

@@ -130,7 +130,7 @@ interface CopilotRuntimeResponse {
   eventSource: RuntimeEventSource;
 }
 
-interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> {
+export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> {
   /*
    * A list of server side actions that can be executed.
    */

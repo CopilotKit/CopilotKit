@@ -6,8 +6,6 @@ import { MessageRole } from "../types/enums";
 import { Repeater } from "graphql-yoga";
 import type { GraphQLContext } from "../../lib/integrations";
 import { GenerationInterruption } from "../types/generation-interruption";
-import { CopilotRuntime, LangChainAdapter, OpenAIAdapter } from "../../lib";
-import { OpenAI } from "openai";
 import { nanoid } from "nanoid";
 import { RuntimeEvent, RuntimeEventTypes } from "../../service-adapters/events";
 import { ChatOpenAI } from "@langchain/openai";
@@ -21,24 +19,8 @@ export class GeneratedResponseResolver {
 
   @Mutation(() => GeneratedResponse)
   async generateResponse(@Arg("data") data: GenerateResponseInput, @Ctx() ctx: GraphQLContext) {
-    const openai = new OpenAI();
-    const copilotRuntime = new CopilotRuntime({
-      actions: [
-        {
-          name: "askSecret",
-          description: "Ask for the secret",
-          handler: () => {
-            return "The secret is 42";
-          },
-        },
-      ],
-    });
-    const openaiAdapter = new LangChainAdapter({
-      async chainFn({ messages, tools }) {
-        const model = new ChatOpenAI({ modelName: "gpt-4" }).bindTools(tools);
-        return model.stream(messages);
-      },
-    });
+    const copilotRuntime = ctx._copilotkit.runtime;
+    const serviceAdapter = ctx._copilotkit.serviceAdapter;
 
     const interruption = new Subject<GenerationInterruption>();
     const {
@@ -46,7 +28,7 @@ export class GeneratedResponseResolver {
       threadId = nanoid(),
       runId,
     } = await copilotRuntime.process({
-      serviceAdapter: openaiAdapter,
+      serviceAdapter,
       messages: data.messages,
       actions: data.frontend.actions,
       threadId: data.threadId,

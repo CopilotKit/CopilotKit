@@ -1,28 +1,29 @@
 import { createYoga } from "graphql-yoga";
-import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
+import { getCommonConfig } from "../shared";
+import { CopilotRuntime } from "../../copilot-runtime";
+import { CopilotServiceAdapter } from "../../../service-adapters";
 
-export function copilotRuntimeNextJSAppRouterEndpoint(
-  options: CreateCopilotRuntimeServerOptions & {
-    graphql: {
-      endpoint: string;
-    };
-  },
-) {
-  const graphqlOptions = options.graphql;
-  const runtimeOptions = {
-    ...options,
-    graphql: undefined,
-  };
+export function copilotRuntimeNextJSAppRouterEndpoint({
+  runtime,
+  endpoint,
+  serviceAdapter,
+}: {
+  runtime: CopilotRuntime;
+  serviceAdapter: CopilotServiceAdapter;
+  endpoint: string;
+}) {
+  const commonConfig = getCommonConfig({ runtime, serviceAdapter });
 
-  const { handleRequest } = createYoga({
-    ...getCommonConfig(runtimeOptions),
-    graphqlEndpoint: graphqlOptions.endpoint,
+  const yoga = createYoga({
+    ...commonConfig,
+    graphqlEndpoint: endpoint,
     fetchAPI: { Response: globalThis.Response },
   });
 
   return {
-    GET: handleRequest,
-    POST: handleRequest,
-    OPTIONS: handleRequest,
+    handleRequest: yoga,
+    GET: yoga,
+    POST: yoga,
+    OPTIONS: yoga,
   };
 }

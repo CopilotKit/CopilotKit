@@ -1,5 +1,7 @@
 import { YogaServerInstance, createYoga } from "graphql-yoga";
-import { CreateCopilotRuntimeServerOptions, GraphQLContext, getCommonConfig } from "../shared";
+import { GraphQLContext, getCommonConfig } from "../shared";
+import { CopilotRuntime } from "../../copilot-runtime";
+import { CopilotServiceAdapter } from "../../../service-adapters";
 
 export const config = {
   api: {
@@ -9,21 +11,28 @@ export const config = {
 
 export type CopilotRuntimeServerInstance<T> = YogaServerInstance<T, Partial<GraphQLContext>>;
 
-export function copilotRuntimeNextJSPagesRouterEndpoint<T>(
-  options: CreateCopilotRuntimeServerOptions & {
-    graphql: {
-      endpoint: string;
-    };
-  },
-): CopilotRuntimeServerInstance<T> {
-  const graphqlOptions = options.graphql;
-  const runtimeOptions = {
-    ...options,
-    graphql: undefined,
-  };
+// Theis import is needed to fix the type error
+// Fix is currently in TypeScript 5.5 beta, waiting for stable version
+// https://github.com/microsoft/TypeScript/issues/42873#issuecomment-2066874644
+export type {} from "@whatwg-node/server";
 
-  return createYoga<T, Partial<GraphQLContext>>({
-    ...getCommonConfig(runtimeOptions),
-    graphqlEndpoint: graphqlOptions.endpoint,
+export function copilotRuntimeNextJSPagesRouterEndpoint(
+  {
+    runtime,
+    endpoint,
+    serviceAdapter,
+  }: {
+    runtime: CopilotRuntime;
+    serviceAdapter: CopilotServiceAdapter;
+    endpoint: string;
+  }
+): CopilotRuntimeServerInstance<GraphQLContext> {
+  const commonConfig = getCommonConfig({ runtime, serviceAdapter });
+
+  const yoga = createYoga({
+    ...commonConfig,
+    graphqlEndpoint: endpoint,
   });
+
+  return yoga;
 }

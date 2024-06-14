@@ -29,6 +29,9 @@
     ],
     "@copilotkit/react-textarea/*": [
       "../packages/react-textarea/*"
+    ],
+    "@copilotkit/react-runtime/*": [
+      "../packages/runtime/*"
     ]
   }
 }
