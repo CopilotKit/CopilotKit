@@ -100,7 +100,6 @@
 
 import {
   Action,
-  ToolDefinition,
   EXCLUDE_FROM_FORWARD_PROPS_KEYS,
   actionParametersToJsonSchema,
   Parameter,

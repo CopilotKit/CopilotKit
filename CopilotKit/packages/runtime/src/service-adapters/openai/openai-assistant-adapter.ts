@@ -21,7 +21,7 @@ import {
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
 } from "../service-adapter";
-import { Message, ResultMessage, TextMessage } from "@copilotkit/shared";
+import { Message, ResultMessage, TextMessage } from "../../graphql/types/converted";
 import {
   convertActionInputToOpenAITool,
   convertMessageToOpenAIMessage,

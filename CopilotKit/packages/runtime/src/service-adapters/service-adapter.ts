@@ -1,4 +1,4 @@
-import { Message } from "@copilotkit/shared";
+import { Message } from "../graphql/types/converted";
 import { RuntimeEventSource } from "./events";
 import { ActionInput } from "../graphql/inputs/action.input";
 

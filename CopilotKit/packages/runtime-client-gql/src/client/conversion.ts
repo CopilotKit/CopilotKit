@@ -1,6 +1,7 @@
-import { GenerateResponseMutation, MessageInput } from "../graphql/@generated/graphql";
-import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "@copilotkit/shared";
+import { GenerateResponseMutation, MessageInput, MessageStatusCode } from "../graphql/@generated/graphql";
+import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "./conversion.types";
 import untruncateJson from "untruncate-json";
+import { plainToInstance } from "class-transformer";
 
 export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
   return messages.map((message) => {
@@ -44,30 +45,30 @@ export function convertGqlOutputToMessages(
 ): Message[] {
   return messages.map((message) => {
     if (message.__typename === "TextMessageOutput") {
-      return new TextMessage({
+      return plainToInstance(TextMessage, {
         id: message.id,
-        role: message.role as any,
+        role: message.role,
         content: message.content.join(""),
         createdAt: new Date(),
-        isDoneStreaming: message.status?.isDoneStreaming || false,
+        status: message.status || { code: MessageStatusCode.Pending }
       });
     } else if (message.__typename === "ActionExecutionMessageOutput") {
-      return new ActionExecutionMessage({
+      return plainToInstance(ActionExecutionMessage, {
         id: message.id,
         name: message.name,
         arguments: getPartialArguments(message.arguments),
-        scope: message.scope as any,
+        scope: message.scope,
         createdAt: new Date(),
-        isDoneStreaming: message.status?.isDoneStreaming || false,
+        status: message.status || { code: MessageStatusCode.Pending }
       });
     } else if (message.__typename === "ResultMessageOutput") {
-      return new ResultMessage({
+      return plainToInstance(ResultMessage, {
         id: message.id,
         result: message.result,
         actionExecutionId: message.actionExecutionId,
         actionName: message.actionName,
         createdAt: new Date(),
-        isDoneStreaming: true,
+        status: message.status || { code: MessageStatusCode.Pending }
       });
     }
 

@@ -1,17 +1,7 @@
 import { Field, InterfaceType, ObjectType } from "type-graphql";
 import { GenerationInterruption } from "./generation-interruption";
 import { MessageRole, ActionExecutionScope } from "./enums";
-
-@ObjectType()
-export class MessageStatus {
-  constructor({ isDoneStreaming }: { isDoneStreaming: boolean }) {
-    this.isDoneStreaming = isDoneStreaming;
-  }
-
-  @Field(() => Boolean)
-  isDoneStreaming: boolean;
-}
-
+import { MessageStatusUnion} from "./message-status.type";
 @InterfaceType({
   resolveType(value) {
     if (value.hasOwnProperty("content")) {
@@ -31,8 +21,8 @@ abstract class BaseMessageOutput {
   @Field(() => Date)
   createdAt: Date;
 
-  @Field(() => MessageStatus)
-  status: MessageStatus;
+  @Field(() => MessageStatusUnion)
+  status: typeof MessageStatusUnion;
 }
 
 @ObjectType({ implements: BaseMessageOutput })

@@ -1,5 +1,6 @@
-import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "@copilotkit/shared";
+import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "../graphql/types/converted";
 import { MessageInput } from "../graphql/inputs/message.input";
+import { plainToInstance } from "class-transformer";
 
 export function convertGqlInputToMessages(inputMessages: MessageInput[]): Message[] {
   const messages: Message[] = [];
@@ -7,16 +8,16 @@ export function convertGqlInputToMessages(inputMessages: MessageInput[]): Messag
   for (const message of inputMessages) {
     if (message.textMessage) {
       messages.push(
-        new TextMessage({
+        plainToInstance(TextMessage, {
           id: message.id,
           createdAt: message.createdAt,
           role: message.textMessage.role,
           content: message.textMessage.content,
-        }),
+        })
       );
     } else if (message.actionExecutionMessage) {
       messages.push(
-        new ActionExecutionMessage({
+        plainToInstance(ActionExecutionMessage, {
           id: message.id,
           createdAt: message.createdAt,
           name: message.actionExecutionMessage.name,
@@ -26,7 +27,7 @@ export function convertGqlInputToMessages(inputMessages: MessageInput[]): Messag
       );
     } else if (message.resultMessage) {
       messages.push(
-        new ResultMessage({
+        plainToInstance(ResultMessage, {
           id: message.id,
           createdAt: message.createdAt,
           actionExecutionId: message.resultMessage.actionExecutionId,

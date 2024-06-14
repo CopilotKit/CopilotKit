@@ -44,8 +44,10 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
+    "@copilotkit/runtime": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@urql/core": "^5.0.3",
+    "class-transformer": "^0.5.1",
     "graphql": "^16.8.1",
     "untruncate-json": "^0.0.1",
     "urql": "^4.1.0",

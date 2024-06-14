@@ -17,7 +17,16 @@ export const generateResponseMutation = graphql(/** GraphQL **/ `
         }
         ... on BaseMessageOutput @defer {
           status {
-            isDoneStreaming
+            ... on SuccessMessageStatus {
+              code
+            }
+            ... on FailedMessageStatus {
+              code
+              reason
+            }
+            ... on PendingMessageStatus {
+              code
+            }
           }
         }
         ... on TextMessageOutput {

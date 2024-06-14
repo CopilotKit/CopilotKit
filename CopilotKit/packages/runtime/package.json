@@ -18,7 +18,8 @@
     "dev": "tsup --watch",
     "test": "jest",
     "check-types": "tsc --noEmit",
-    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
+    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next",
+    "generate-graphql-schema": "rm -rf __snapshots__ && ts-node ./scripts/generate-gql-schema.ts"
   },
   "devDependencies": {
     "@swc/core": "1.5.28",
@@ -42,6 +43,7 @@
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
     "@langchain/core": "^0.1.61",
     "@langchain/openai": "^0.0.28",
+    "class-transformer": "^0.5.1",
     "express": "^4.19.2",
     "graphql": "^16.8.1",
     "graphql-scalars": "^1.23.0",

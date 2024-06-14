@@ -35,7 +35,7 @@ import {
   CopilotRuntimeChatCompletionResponse,
 } from "../service-adapter";
 import { GenerativeModel, GoogleGenerativeAI } from "@google/generative-ai";
-import { TextMessage } from "@copilotkit/shared";
+import { TextMessage } from "../../graphql/types/converted";
 import { convertMessageToGoogleGenAIMessage, transformActionToGoogleGenAITool } from "./utils";
 import { nanoid } from "nanoid";
 

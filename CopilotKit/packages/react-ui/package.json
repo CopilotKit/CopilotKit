@@ -47,8 +47,10 @@
     "typescript": "^5.2.3"
   },
   "dependencies": {
-    "@copilotkit/shared": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/runtime-client-gql": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
+    "class-transformer": "^0.5.1",
     "nanoid": "^4.0.2",
     "react-markdown": "^8.0.7",
     "react-syntax-highlighter": "^15.5.0",

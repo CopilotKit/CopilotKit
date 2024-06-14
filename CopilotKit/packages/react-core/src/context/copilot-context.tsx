@@ -1,4 +1,5 @@
-import { CopilotCloudConfig, FunctionCallHandler, Message } from "@copilotkit/shared";
+import { CopilotCloudConfig, FunctionCallHandler } from "@copilotkit/shared";
+import { Message } from "@copilotkit/runtime-client-gql";
 import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
 import React from "react";
 import { TreeNodeId } from "../hooks/use-tree";

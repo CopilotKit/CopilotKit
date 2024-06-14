@@ -26,12 +26,14 @@
  * - `isLoading`: A boolean indicating if the chat is loading.
  *
  */
-import { useMemo, useContext, useRef, useEffect, useCallback } from "react";
+import { useContext, useRef, useEffect, useCallback } from "react";
 import { CopilotContext } from "../context/copilot-context";
-import { Message, TextMessage, ToolDefinition } from "@copilotkit/shared";
+import { Message, TextMessage } from "@copilotkit/runtime-client-gql";
 import { SystemMessageFunction } from "../types";
 import { useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
+import { MessageStatusCode } from "@copilotkit/runtime-client-gql";
+import { plainToInstance } from "class-transformer";
 
 export interface UseCopilotChatOptions {
   /**
@@ -111,12 +113,15 @@ export function useCopilotChat({
     // this always gets the latest context string
     const contextString = latestGetContextString.current([], defaultCopilotContextCategories); // TODO: make the context categories configurable
 
-    return new TextMessage({
+    return plainToInstance(TextMessage, {
       id: "system",
       content: systemMessageMaker(contextString, chatInstructions),
       role: "system",
       createdAt: new Date(),
-    });
+      status: {
+        code: MessageStatusCode.Success
+      }
+    })
   }, [getContextString, makeSystemMessage, chatInstructions]);
 
   const { append, reload, stop } = useChat({

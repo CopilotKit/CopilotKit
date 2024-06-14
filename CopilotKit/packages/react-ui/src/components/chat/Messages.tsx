@@ -1,10 +1,17 @@
 import React, { useEffect, useMemo } from "react";
-import { MessagesProps, SuggestionsProps } from "./props";
+import { MessagesProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import { nanoid } from "nanoid";
-import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "@copilotkit/shared";
 import { Markdown } from "./Markdown";
 import { RenderFunctionStatus, useCopilotContext } from "@copilotkit/react-core";
+import {
+  MessageStatusCode,
+  ActionExecutionMessage,
+  Message,
+  ResultMessage,
+  TextMessage,
+} from "@copilotkit/runtime-client-gql";
+import { plainToInstance } from "class-transformer";
 
 export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
   const { chatComponentsCache } = useCopilotContext();
@@ -92,7 +99,7 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
 
               if (functionResults[message.id] !== undefined) {
                 status = "complete";
-              } else if (!message.isDoneStreaming) {
+              } else if (message.status.code !== MessageStatusCode.Pending) {
                 status = "executing";
               }
 
@@ -151,13 +158,12 @@ function makeInitialMessages(initial?: string | string[]): Message[] {
     }
   }
 
-  return initialArray.map(
-    (message) =>
-      new TextMessage({
-        id: nanoid(),
-        role: "assistant",
-        content: message,
-        createdAt: new Date(),
-      }),
+  return initialArray.map((message) =>
+    plainToInstance(TextMessage, {
+      id: nanoid(),
+      role: "assistant",
+      content: message,
+      createdAt: new Date(),
+    }),
   );
 }

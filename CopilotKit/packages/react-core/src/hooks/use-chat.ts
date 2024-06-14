@@ -1,21 +1,23 @@
 import { useRef } from "react";
 import {
-  Message,
   FunctionCallHandler,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   Action,
   actionParametersToJsonSchema,
+} from "@copilotkit/shared";
+import {
+  Message,
   TextMessage,
   ActionExecutionMessage,
   ResultMessage,
-} from "@copilotkit/shared";
-
-import { CopilotApiConfig } from "../context";
-import {
   CopilotRuntimeClient,
   convertMessagesToGqlInput,
   convertGqlOutputToMessages,
+  MessageStatusCode,
 } from "@copilotkit/runtime-client-gql";
+
+import { CopilotApiConfig } from "../context";
+import { plainToInstance } from "class-transformer";
 
 export type UseChatOptions = {
   /**
@@ -113,11 +115,14 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     // this message is just a placeholder. It will disappear once the first real message
     // is received
     let newMessages: Message[] = [
-      new TextMessage({
+      plainToInstance(TextMessage, {
         id: "--PLACEHOLDER-MESSAGE-ID--",
         createdAt: new Date(),
         content: "",
         role: "assistant",
+        status: {
+          code: MessageStatusCode.Success,
+        },
       }),
     ];
 
@@ -202,7 +207,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
           if (
             message instanceof ActionExecutionMessage &&
-            message.isDoneStreaming &&
+            message.status.code !== MessageStatusCode.Pending &&
             message.scope === "client" &&
             onFunctionCall
           ) {
@@ -218,12 +223,15 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
             // add the result message
             newMessages.push(
-              new ResultMessage({
+              plainToInstance(ResultMessage, {
                 id: message.id + "-result",
                 result: ResultMessage.encodeResult(results[message.id]),
                 actionExecutionId: message.id,
                 actionName: message.name,
                 createdAt: new Date(),
+                status: {
+                  code: MessageStatusCode.Success,
+                },
               }),
             );
           }

@@ -36,13 +36,19 @@ export async function createContext(
   return ctx;
 }
 
-export function getCommonConfig(options?: CreateCopilotRuntimeServerOptions) {
+export function buildSchema(options: {
+  emitSchemaFile?: string;
+} = {}) {
   const schema = buildSchemaSync({
     resolvers: [GeneratedResponseResolver],
+    emitSchemaFile: options.emitSchemaFile,
   });
+  return schema;
+}
 
+export function getCommonConfig(options?: CreateCopilotRuntimeServerOptions) {
   return {
-    schema,
+    schema: buildSchema(),
     plugins: [useDeferStream()],
     context: (ctx: YogaInitialContext): Promise<Partial<GraphQLContext>> => createContext(ctx, options),
   };

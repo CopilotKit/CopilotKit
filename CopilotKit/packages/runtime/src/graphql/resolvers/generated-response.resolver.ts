@@ -1,14 +1,14 @@
 import { Arg, Ctx, Mutation, Query, Resolver } from "type-graphql";
 import { Subject, firstValueFrom, shareReplay, skipWhile, takeWhile } from "rxjs";
 import { GenerateResponseInput } from "../inputs/generate-response.input";
-import { GeneratedResponse, MessageStatus } from "../types/generated-response.type";
+import { GeneratedResponse } from "../types/generated-response.type";
 import { MessageRole } from "../types/enums";
 import { Repeater } from "graphql-yoga";
 import type { GraphQLContext } from "../../lib/integrations";
 import { GenerationInterruption } from "../types/generation-interruption";
 import { nanoid } from "nanoid";
 import { RuntimeEvent, RuntimeEventTypes } from "../../service-adapters/events";
-import { ChatOpenAI } from "@langchain/openai";
+import { MessageStatusUnion, SuccessMessageStatus } from "../types/message-status.type";
 
 @Resolver(() => Response)
 export class GeneratedResponseResolver {
@@ -63,7 +63,7 @@ export class GeneratedResponseResolver {
                 );
 
                 // signal when we are done streaming
-                const streamingTextStatus = new Subject<MessageStatus>();
+                const streamingTextStatus = new Subject<typeof MessageStatusUnion>();
 
                 // push the new message
                 pushMessage({
@@ -79,7 +79,7 @@ export class GeneratedResponseResolver {
                       }
                     });
                     stopStreamingText();
-                    streamingTextStatus.next(new MessageStatus({ isDoneStreaming: true }));
+                    streamingTextStatus.next(new SuccessMessageStatus());
                   }),
                 });
                 break;
@@ -91,7 +91,7 @@ export class GeneratedResponseResolver {
                   skipWhile((e) => e !== event),
                   takeWhile((e) => e.type != RuntimeEventTypes.ActionExecutionEnd),
                 );
-                const streamingArgumentsStatus = new Subject<MessageStatus>();
+                const streamingArgumentsStatus = new Subject<typeof MessageStatusUnion>();
                 pushMessage({
                   id: event.actionExecutionId,
                   status: firstValueFrom(streamingArgumentsStatus),
@@ -105,7 +105,7 @@ export class GeneratedResponseResolver {
                       }
                     });
                     stopStreamingArguments();
-                    streamingArgumentsStatus.next(new MessageStatus({ isDoneStreaming: true }));
+                    streamingArgumentsStatus.next(new SuccessMessageStatus());
                   }),
                 });
                 break;
@@ -115,7 +115,7 @@ export class GeneratedResponseResolver {
               case RuntimeEventTypes.ActionExecutionResult:
                 pushMessage({
                   id: nanoid(),
-                  status: new MessageStatus({ isDoneStreaming: true }),
+                  status: new SuccessMessageStatus(),
                   createdAt: new Date(),
                   actionExecutionId: event.actionExecutionId,
                   actionName: event.actionName,

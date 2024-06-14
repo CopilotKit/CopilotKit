@@ -2,14 +2,12 @@ import {
   Action,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   MappedParameterTypes,
-  Message,
   Parameter,
-  TextMessage,
 } from "@copilotkit/shared";
+import { Message, MessageStatusCode, TextMessage } from "@copilotkit/runtime-client-gql";
 import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
-import { fetchAndDecodeChatCompletion } from "./fetch-chat-completion";
-import untruncateJson from "untruncate-json";
+import { plainToInstance } from "class-transformer";
 
 interface InitialState<T extends Parameter[] | [] = []> {
   status: "initial";
@@ -76,11 +74,14 @@ export async function extract<const T extends Parameter[]>({
     contextString += context.getContextString([], defaultCopilotContextCategories);
   }
 
-  const systemMessage: Message = new TextMessage({
+  const systemMessage: Message = plainToInstance(TextMessage, {
     id: "system",
     content: makeSystemMessage(contextString, instructions),
     role: "system",
     createdAt: new Date(),
+    status: {
+      code: MessageStatusCode.Success
+    }
   });
 
   const headers = {

@@ -3,3 +3,4 @@
 # misc
 .DS_Store
 *.pem
+__snapshots__

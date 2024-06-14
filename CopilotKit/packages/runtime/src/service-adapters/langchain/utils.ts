@@ -1,10 +1,9 @@
 import {
-  Action,
   ActionExecutionMessage,
   Message,
   ResultMessage,
   TextMessage,
-} from "@copilotkit/shared";
+} from "../../graphql/types/converted";
 import {
   AIMessage,
   AIMessageChunk,

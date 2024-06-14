@@ -1,4 +1,4 @@
-import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "@copilotkit/shared";
+import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "../../graphql/types/converted";
 import { Tiktoken, TiktokenModel, encodingForModel } from "js-tiktoken";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { ChatCompletionMessageParam, ChatCompletionTool } from "openai/resources";

@@ -1,7 +1,10 @@
 import type { CodegenConfig } from "@graphql-codegen/cli";
+import path from "node:path";
+
+const schema = path.resolve(__dirname, "../runtime/__snapshots__/schema/schema.graphql");
 
 const config: CodegenConfig = {
-  schema: "../runtime/__snapshots__/schema/schema.graphql",
+  schema,
   documents: ["./**/*.tsx", "./**/*.ts"],
   generates: {
     "./src/graphql/@generated/": {

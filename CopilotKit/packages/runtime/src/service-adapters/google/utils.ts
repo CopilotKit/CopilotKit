@@ -1,4 +1,4 @@
-import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "@copilotkit/shared";
+import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "../../graphql/types/converted";
 import { Tool } from "@google/generative-ai";
 import { ActionInput } from "../../graphql/inputs/action.input";
 
@@ -26,7 +26,7 @@ export function convertMessageToGoogleGenAIMessage(message: Message) {
         {
           functionCall: {
             name: message.name,
-            args: JSON.parse(message.arguments),
+            args: message.arguments,
           },
         },
       ],

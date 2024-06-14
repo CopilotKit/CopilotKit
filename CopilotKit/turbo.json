@@ -15,8 +15,17 @@
     "check-types": {
       "dependsOn": ["^build"]
     },
+    "generate-graphql-schema": {
+      "cache": false,
+      "outputs": ["packages/runtime/__snapshots__/schema/schema.graphql"]
+    },
+    "graphql-codegen": {
+      "cache": false,
+      "dependsOn": ["^generate-graphql-schema"],
+      "outputs": ["packages/runtime-client-gql/src/@generated/**/*"]
+    },
     "dev": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "graphql-codegen", "^graphql-codegen"],
       "cache": false,
       "persistent": true
     },
