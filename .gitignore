@@ -4,3 +4,4 @@
 .DS_Store
 *.pem
 __snapshots__
+@generated
