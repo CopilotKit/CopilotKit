@@ -5,14 +5,16 @@ import { ChatCompletionResolver } from "../../graphql/resolvers/chat-completion.
 import { useDeferStream } from "@graphql-yoga/plugin-defer-stream";
 import { CopilotRuntime } from "../copilot-runtime";
 import { CopilotServiceAdapter } from "../../service-adapters";
+import { PropertyInput } from "../../graphql/inputs/properties.input";
 
 type CopilotKitContext = {
   runtime: CopilotRuntime;
   serviceAdapter: CopilotServiceAdapter;
+  properties: PropertyInput[];
 };
 
 export type GraphQLContext = YogaInitialContext & {
-  _copilotkit: CopilotKitContext,
+  _copilotkit: CopilotKitContext;
 };
 
 export interface CreateCopilotRuntimeServerOptions {
@@ -23,9 +25,8 @@ export interface CreateCopilotRuntimeServerOptions {
 
 export async function createContext(
   initialContext: YogaInitialContext,
-  copilotKitContext: CopilotKitContext
+  copilotKitContext: CopilotKitContext,
 ): Promise<Partial<GraphQLContext>> {
-
   const ctx: GraphQLContext = {
     ...initialContext,
     _copilotkit: {
@@ -36,9 +37,11 @@ export async function createContext(
   return ctx;
 }
 
-export function buildSchema(options: {
-  emitSchemaFile?: string;
-} = {}) {
+export function buildSchema(
+  options: {
+    emitSchemaFile?: string;
+  } = {},
+) {
   const schema = buildSchemaSync({
     resolvers: [ChatCompletionResolver],
     emitSchemaFile: options.emitSchemaFile,
@@ -50,6 +53,11 @@ export function getCommonConfig(options?: CreateCopilotRuntimeServerOptions) {
   return {
     schema: buildSchema(),
     plugins: [useDeferStream()],
-    context: (ctx: YogaInitialContext): Promise<Partial<GraphQLContext>> => createContext(ctx, options),
+    context: (ctx: YogaInitialContext): Promise<Partial<GraphQLContext>> =>
+      createContext(ctx, {
+        runtime: options.runtime,
+        serviceAdapter: options.serviceAdapter,
+        properties: [],
+      }),
   };
 }

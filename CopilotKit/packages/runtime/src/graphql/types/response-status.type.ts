@@ -1,4 +1,4 @@
-import { Field, ObjectType, createUnionType, registerEnumType } from "type-graphql";
+import { Field, InterfaceType, ObjectType, createUnionType, registerEnumType } from "type-graphql";
 
 export enum ResponseStatusCode {
   Pending = "pending",
@@ -10,23 +10,37 @@ registerEnumType(ResponseStatusCode, {
   name: "ResponseStatusCode"
 })
 
+@InterfaceType({
+  resolveType(value) {
+    if (value.code === ResponseStatusCode.Success) {
+      return SuccessResponseStatus;
+    } else if (value.code === ResponseStatusCode.Failed) {
+      return FailedResponseStatus;
+    } else if (value.code === ResponseStatusCode.Pending) {
+      return PendingResponseStatus;
+    }
+    return undefined;
+  },
+})
+
+
 @ObjectType()
-class BaseResponseStatus {
+abstract class BaseResponseStatus {
   @Field(() => ResponseStatusCode)
   code: ResponseStatusCode;
 }
 
-@ObjectType()
+@ObjectType({ implements: BaseResponseStatus })
 export class PendingResponseStatus extends BaseResponseStatus {
   code: ResponseStatusCode = ResponseStatusCode.Pending;
 }
 
-@ObjectType()
+@ObjectType({ implements: BaseResponseStatus })
 export class SuccessResponseStatus extends BaseResponseStatus {
   code: ResponseStatusCode = ResponseStatusCode.Success;
 }
 
-@ObjectType()
+@ObjectType({ implements: BaseResponseStatus })
 export class FailedResponseStatus extends BaseResponseStatus {
   code: ResponseStatusCode = ResponseStatusCode.Failed;
 
