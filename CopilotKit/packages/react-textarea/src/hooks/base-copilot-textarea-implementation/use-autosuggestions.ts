@@ -12,11 +12,13 @@ export interface UseAutosuggestionsResult {
   currentAutocompleteSuggestion: AutosuggestionState | null;
   onChangeHandler: (newEditorState: EditorAutocompleteState | null) => void;
   onKeyDownHandler: (event: React.KeyboardEvent<HTMLDivElement>) => void;
+  onTouchStartHandler: (event: React.TouchEvent<HTMLDivElement>) => void;
 }
 
 export function useAutosuggestions(
   debounceTime: number,
   shouldAcceptAutosuggestionOnKeyPress: (event: React.KeyboardEvent<HTMLDivElement>) => boolean,
+  shouldAcceptAutosuggestionOnTouch: (event: React.TouchEvent<HTMLDivElement>) => boolean,
   autosuggestionFunction: AutosuggestionsBareFunction,
   insertAutocompleteSuggestion: (suggestion: AutosuggestionState) => void,
   disableWhenEmpty: boolean,
@@ -108,10 +110,14 @@ export function useAutosuggestions(
     ],
   );
 
-  const keyDownHandler = useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
+  const keyDownOrTouchHandler = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
       if (currentAutocompleteSuggestion) {
-        if (shouldAcceptAutosuggestionOnKeyPress(event)) {
+        const shouldAcceptSuggestion =
+          event instanceof KeyboardEvent
+            ? shouldAcceptAutosuggestionOnKeyPress(event as React.KeyboardEvent<HTMLDivElement>)
+            : shouldAcceptAutosuggestionOnTouch(event as React.TouchEvent<HTMLDivElement>);
+        if (shouldAcceptSuggestion) {
           event.preventDefault();
           insertAutocompleteSuggestion(currentAutocompleteSuggestion);
           setCurrentAutocompleteSuggestion(null);
@@ -129,6 +135,7 @@ export function useAutosuggestions(
   return {
     currentAutocompleteSuggestion,
     onChangeHandler: onChange,
-    onKeyDownHandler: keyDownHandler,
+    onKeyDownHandler: keyDownOrTouchHandler,
+    onTouchStartHandler: keyDownOrTouchHandler,
   };
 }
