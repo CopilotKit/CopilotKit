@@ -3,6 +3,20 @@ import { graphql } from "./@generated/gql";
 export const createChatCompletionMutation = graphql(/** GraphQL **/ `
   mutation createChatCompletion($data: CreateChatCompletionInput!) {
     createChatCompletion(data: $data) {
+      threadId
+      runId
+      status {
+        ... on PendingResponseStatus {
+         	code 
+        }
+        ... on SuccessResponseStatus {
+         	code 
+        }
+        ... on FailedResponseStatus {
+         	code
+          reason
+        }
+      }
       messages @stream {
         __typename
         ... on BaseMessageOutput {
@@ -38,8 +52,6 @@ export const createChatCompletionMutation = graphql(/** GraphQL **/ `
           actionName
         }
       }
-      threadId
-      runId
     }
   }
 `);
