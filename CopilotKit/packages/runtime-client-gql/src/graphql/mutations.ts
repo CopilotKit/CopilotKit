@@ -14,6 +14,10 @@ export const createChatCompletionMutation = graphql(/** GraphQL **/ `
       }
       messages @stream {
         __typename
+        ... on BaseMessageOutput {
+          id
+          createdAt
+        }
         ... on BaseMessageOutput @defer {
           status {
             ... on SuccessMessageStatus {
