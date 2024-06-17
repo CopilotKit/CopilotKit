@@ -9,6 +9,7 @@ import { nanoid } from "nanoid";
 import { RuntimeEvent, RuntimeEventTypes } from "../../service-adapters/events";
 import { MessageStatusUnion, SuccessMessageStatus } from "../types/message-status.type";
 import { ResponseStatusUnion, SuccessResponseStatus } from "../types/response-status.type";
+import { PropertyInput } from "../inputs/properties.input";
 
 @Resolver(() => Response)
 export class ChatCompletionResolver {
@@ -18,10 +19,15 @@ export class ChatCompletionResolver {
   }
 
   @Mutation(() => ChatCompletion)
-  async createChatCompletion(@Arg("data") data: CreateChatCompletionInput, @Ctx() ctx: GraphQLContext) {
+  async createChatCompletion(
+    @Arg("data") data: CreateChatCompletionInput,
+    @Arg("properties", () => [PropertyInput], { nullable: true }) properties: PropertyInput[] = [],
+    @Ctx() ctx: GraphQLContext,
+  ) {
+    ctx._copilotkit.properties = [...ctx._copilotkit.properties, ...properties];
+
     const copilotRuntime = ctx._copilotkit.runtime;
     const serviceAdapter = ctx._copilotkit.serviceAdapter;
-
     const responseStatus = new Subject<typeof ResponseStatusUnion>();
 
     const {
