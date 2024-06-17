@@ -1,5 +1,6 @@
-import { Field } from "type-graphql";
+import { Field, InputType } from "type-graphql";
 
+@InputType()
 export class BaseMessage {
   @Field(() => String)
   id: string;

@@ -1,11 +1,19 @@
 import { graphql } from "./@generated/gql";
 
-export const generateResponseMutation = graphql(/** GraphQL **/ `
-  mutation generateResponse($data: GenerateResponseInput!) {
-    generateResponse(data: $data) {
-      ... on GeneratedResponse @defer {
-        interruption {
-          interrupted
+export const createChatCompletionMutation = graphql(/** GraphQL **/ `
+  mutation createChatCompletion($data: CreateChatCompletionInput!) {
+    createChatCompletion(data: $data) {
+      threadId
+      runId
+      status {
+        ... on PendingResponseStatus {
+          code
+        }
+        ... on SuccessResponseStatus {
+          code
+        }
+        ... on FailedResponseStatus {
+          code
           reason
         }
       }
@@ -44,8 +52,6 @@ export const generateResponseMutation = graphql(/** GraphQL **/ `
           actionName
         }
       }
-      threadId
-      runId
     }
   }
 `);
