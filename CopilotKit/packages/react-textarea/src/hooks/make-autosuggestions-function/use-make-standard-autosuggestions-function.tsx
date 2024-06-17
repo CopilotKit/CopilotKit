@@ -5,8 +5,13 @@ import { AutosuggestionsBareFunction } from "../../types";
 import { retry } from "../../lib/retry";
 import { InsertionEditorState } from "../../types/base/autosuggestions-bare-function";
 import { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggestions-api-config";
-import { fetchAndDecodeChatCompletionAsText } from "@copilotkit/react-core";
-import { Message, TextMessage } from "@copilotkit/runtime-client-gql";
+import {
+  CopilotRuntimeClient,
+  Message,
+  TextMessage,
+  convertGqlOutputToMessages,
+  convertMessagesToGqlInput,
+} from "@copilotkit/runtime-client-gql";
 import { plainToInstance } from "class-transformer";
 import { nanoid } from "nanoid";
 
@@ -45,49 +50,55 @@ export function useMakeStandardAutosuggestionFunction(
               textareaPurpose,
               getContextString([], contextCategories),
             ),
+            createdAt: new Date(),
           }),
           ...apiConfig.fewShotMessages,
           plainToInstance(TextMessage, {
             id: nanoid(),
             role: "user",
             content: editorState.textAfterCursor,
+            createdAt: new Date(),
           }),
           plainToInstance(TextMessage, {
             id: nanoid(),
             role: "user",
-            name: "TextAfterCursor",
-            content: editorState.textAfterCursor,
+            content: `<TextAfterCursor>${editorState.textAfterCursor}</TextAfterCursor>`,
+            createdAt: new Date(),
           }),
           plainToInstance(TextMessage, {
             id: nanoid(),
             role: "user",
-            name: "TextBeforeCursor",
-            content: editorState.textBeforeCursor,
+            content: `<TextBeforeCursor>${editorState.textBeforeCursor}</TextBeforeCursor>`,
+            createdAt: new Date(),
           }),
         ];
 
-        const response = await fetchAndDecodeChatCompletionAsText({
-          messages: messages as any[],
-          ...apiConfig.forwardedParams,
-          copilotConfig: copilotApiConfig,
-          signal: abortSignal,
-          headers: headers,
+        const runtimeClient = new CopilotRuntimeClient({
+          url: copilotApiConfig.chatApiEndpoint,
         });
 
-        if (!response.events) {
-          throw new Error("Failed to fetch chat completion");
-        }
-
-        const reader = response.events.getReader();
+        const response = await runtimeClient
+          .createChatCompletion({
+            frontend: {
+              actions: [],
+            },
+            messages: convertMessagesToGqlInput(messages),
+          })
+          .toPromise();
 
         let result = "";
-        while (!abortSignal.aborted) {
-          const { done, value } = await reader.read();
-          if (done) {
+        for (const message of convertGqlOutputToMessages(
+          response.data?.createChatCompletion?.messages ?? [],
+        )) {
+          if (abortSignal.aborted) {
             break;
           }
-          result += value;
+          if (message instanceof TextMessage) {
+            result += message.content;
+            console.log(message.content);
+          }
         }
+
         return result;
       });
 

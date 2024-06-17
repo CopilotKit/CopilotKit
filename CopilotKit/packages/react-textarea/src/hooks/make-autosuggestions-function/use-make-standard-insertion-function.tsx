@@ -15,7 +15,6 @@ import {
 import { InsertionsApiConfig } from "../../types/autosuggestions-config/insertions-api-config";
 import { EditingApiConfig } from "../../types/autosuggestions-config/editing-api-config";
 import { DocumentPointer } from "@copilotkit/react-core";
-import { fetchAndDecodeChatCompletionAsText } from "@copilotkit/react-core";
 import { nanoid } from "nanoid";
 import { plainToInstance } from "class-transformer";
 
@@ -50,7 +49,7 @@ export function useMakeStandardInsertionOrEditingFunction(
   });
 
   async function runtimeClientResponseToStringStream(
-    responsePromise: ReturnType<typeof runtimeClient.generateResponse>,
+    responsePromise: ReturnType<typeof runtimeClient.createChatCompletion>,
   ) {
     const messagesStream = await CopilotRuntimeClient.asStream(responsePromise);
 
@@ -108,7 +107,7 @@ export function useMakeStandardInsertionOrEditingFunction(
         ];
 
         return runtimeClientResponseToStringStream(
-          runtimeClient.generateResponse({
+          runtimeClient.createChatCompletion({
             frontend: {
               actions: [],
             },
@@ -168,7 +167,7 @@ export function useMakeStandardInsertionOrEditingFunction(
 
         // TODO-PROTOCOL: forwarded props, headers and abort signal
         return runtimeClientResponseToStringStream(
-          runtimeClient.generateResponse({
+          runtimeClient.createChatCompletion({
             frontend: {
               actions: [],
             },

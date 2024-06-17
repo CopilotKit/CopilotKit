@@ -11,7 +11,7 @@ import { useStateWithLocalStorage } from "../utils";
 
 export default function CopilotTextareaDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit/openai">
+    <CopilotKit runtimeUrl="/api/copilotkit">
       <TextAreas />
     </CopilotKit>
   );

@@ -46,47 +46,55 @@ export const defaultInsertionsFewShotMessages: Message[] = [
     role: "user",
     content:
       "<TextAfterCursor>While I was there I also picked up some apples, oranges, and bananas.</TextAfterCursor>",
+    createdAt: new Date(),
   }),
   plainToInstance(TextMessage, {
     id: nanoid(),
     role: "user",
     content:
       "<TextBeforeCursor>This morning I woke up and went straight to the grocery store.</TextBeforeCursor>",
+    createdAt: new Date(),
   }),
   plainToInstance(TextMessage, {
     id: nanoid(),
     role: "user",
     content: "<InsertionPrompt>I bought a big watermelon</InsertionPrompt>",
+    createdAt: new Date(),
   }),
   plainToInstance(TextMessage, {
     id: nanoid(),
     role: "assistant",
     content:
       "When I arrived I went straight to the produce section and picked out a big watermelon.",
+    createdAt: new Date(),
   }),
   plainToInstance(TextMessage, {
     id: nanoid(),
     role: "user",
     content:
       "<TextAfterCursor>and (iii) to the appointment of the Equityholders' Representative pursuant to Section 10.7 of the Merger Agreement and to the provisions thereof.</TextAfterCursor>",
+    createdAt: new Date(),
   }),
   plainToInstance(TextMessage, {
     id: nanoid(),
     role: "user",
     content:
       '<TextBeforeCursor>The Optionholder, in the Optionholder\'s capacity as a holder of vested Options, hereby irrevocably and unconditionally agrees: (i) that the Optionholder shall be deemed an "Equityholder" under the Merger Agreement and shall be entitled to the rights and benefits, and subject to the obligations, of an "Equityholder" thereunder;</TextBeforeCursor>',
+    createdAt: new Date(),
   }),
   plainToInstance(TextMessage, {
     id: nanoid(),
     role: "user",
     content:
       "<InsertionPrompt>add section about the optionholder's pro rata share</InsertionPrompt>",
+    createdAt: new Date(),
   }),
   plainToInstance(TextMessage, {
     id: nanoid(),
     role: "assistant",
     content:
       ' (ii) that, for purposes of this Agreement and the Merger Agreement, the applicable percentage set forth opposite the name of the Optionholder in the Distribution Waterfall shall be such the Optionholder\'s "Pro Rata Share"; ',
+    createdAt: new Date(),
   }),
 ];
 
