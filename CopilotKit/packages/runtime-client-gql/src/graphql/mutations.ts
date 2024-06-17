@@ -1,8 +1,8 @@
 import { graphql } from "./@generated/gql";
 
 export const createChatCompletionMutation = graphql(/** GraphQL **/ `
-  mutation createChatCompletion($data: CreateChatCompletionInput!) {
-    createChatCompletion(data: $data) {
+  mutation createChatCompletion($data: CreateChatCompletionInput!, $properties: [PropertyInput!]) {
+    createChatCompletion(data: $data, properties: $properties) {
       threadId
       runId
       status {
