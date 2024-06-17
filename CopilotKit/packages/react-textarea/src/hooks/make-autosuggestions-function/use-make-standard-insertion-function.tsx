@@ -5,6 +5,7 @@ import {
   CopilotRuntimeClient,
   Message,
   TextMessage,
+  convertGqlOutputToMessages,
   convertMessagesToGqlInput,
 } from "@copilotkit/runtime-client-gql";
 import { retry } from "../../lib/retry";
@@ -56,14 +57,27 @@ export function useMakeStandardInsertionOrEditingFunction(
     return new ReadableStream({
       async start(controller) {
         const reader = messagesStream.getReader();
+        let sentContent = "";
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) {
             break;
           }
 
-          if (value instanceof TextMessage) {
-            controller.enqueue(value.content);
+          const messages = convertGqlOutputToMessages(value.createChatCompletion.messages);
+
+          let newContent = "";
+
+          for (const message of messages) {
+            if (message instanceof TextMessage) {
+              newContent += message.content;
+            }
+          }
+          if (newContent) {
+            const contentToSend = newContent.slice(sentContent.length);
+            controller.enqueue(contentToSend);
+            sentContent += contentToSend;
           }
         }
         controller.close();
@@ -87,22 +101,26 @@ export function useMakeStandardInsertionOrEditingFunction(
               textareaPurpose,
               getContextString(documents, contextCategories),
             ),
+            createdAt: new Date(),
           }),
           ...insertionApiConfig.fewShotMessages,
           plainToInstance(TextMessage, {
             id: nanoid(),
             role: "user",
             content: `<TextAfterCursor>${editorState.textAfterCursor}</TextAfterCursor>`,
+            createdAt: new Date(),
           }),
           plainToInstance(TextMessage, {
             id: nanoid(),
             role: "user",
             content: `<TextBeforeCursor>${editorState.textBeforeCursor}</TextBeforeCursor>`,
+            createdAt: new Date(),
           }),
           plainToInstance(TextMessage, {
             id: nanoid(),
             role: "user",
             content: `<InsertionPrompt>${insertionPrompt}</InsertionPrompt>`,
+            createdAt: new Date(),
           }),
         ];
 
@@ -137,27 +155,32 @@ export function useMakeStandardInsertionOrEditingFunction(
               textareaPurpose,
               getContextString(documents, contextCategories),
             ),
+            createdAt: new Date(),
           }),
           ...editingApiConfig.fewShotMessages,
           plainToInstance(TextMessage, {
             id: nanoid(),
             role: "user",
             content: `<TextBeforeCursor>${editorState.textBeforeCursor}</TextBeforeCursor>`,
+            createdAt: new Date(),
           }),
           plainToInstance(TextMessage, {
             id: nanoid(),
             role: "user",
             content: `<TextToEdit>${editorState.selectedText}</TextToEdit>`,
+            createdAt: new Date(),
           }),
           plainToInstance(TextMessage, {
             id: nanoid(),
             role: "user",
             content: `<TextAfterCursor>${editorState.textAfterCursor}</TextAfterCursor>`,
+            createdAt: new Date(),
           }),
           plainToInstance(TextMessage, {
             id: nanoid(),
             role: "user",
             content: `<EditingPrompt>${editingPrompt}</EditingPrompt>`,
+            createdAt: new Date(),
           }),
         ];
 

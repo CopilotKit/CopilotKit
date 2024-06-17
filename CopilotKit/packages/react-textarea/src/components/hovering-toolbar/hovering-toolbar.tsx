@@ -120,7 +120,6 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
               setIsDisplayed(false);
             }}
             performInsertion={(insertedText) => {
-              console.log("inserted text", insertedText);
               // replace the selection with the inserted text
               Transforms.delete(editor, { at: selection });
               Transforms.insertText(editor, insertedText, {
