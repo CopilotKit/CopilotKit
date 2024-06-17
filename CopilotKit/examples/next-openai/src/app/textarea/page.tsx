@@ -130,20 +130,3 @@ function TextAreas() {
 // \`\`\`
 // `;
 // };
-
-// const fewShotMessages: MinimalChatGPTMessage[] = [
-//   {
-//     role: "user",
-//     content: "",
-//     name: "TextAfterCursor",
-//   },
-//   {
-//     role: "user",
-//     content: "Introducing:",
-//     name: "TextBeforeCursor",
-//   },
-//   {
-//     role: "assistant",
-//     content: "<CopilotTextarea />",
-//   },
-// ];

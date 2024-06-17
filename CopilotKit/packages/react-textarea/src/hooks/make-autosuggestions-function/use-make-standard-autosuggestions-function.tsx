@@ -1,11 +1,14 @@
 import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER } from "@copilotkit/shared";
 import { CopilotContext } from "@copilotkit/react-core";
 import { useCallback, useContext } from "react";
-import { AutosuggestionsBareFunction, MinimalChatGPTMessage } from "../../types";
+import { AutosuggestionsBareFunction } from "../../types";
 import { retry } from "../../lib/retry";
 import { InsertionEditorState } from "../../types/base/autosuggestions-bare-function";
 import { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggestions-api-config";
 import { fetchAndDecodeChatCompletionAsText } from "@copilotkit/react-core";
+import { Message, TextMessage } from "@copilotkit/runtime-client-gql";
+import { plainToInstance } from "class-transformer";
+import { nanoid } from "nanoid";
 
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
@@ -34,25 +37,33 @@ export function useMakeStandardAutosuggestionFunction(
   return useCallback(
     async (editorState: InsertionEditorState, abortSignal: AbortSignal) => {
       const res = await retry(async () => {
-        const messages: MinimalChatGPTMessage[] = [
-          {
+        const messages: Message[] = [
+          plainToInstance(TextMessage, {
+            id: nanoid(),
             role: "system",
             content: apiConfig.makeSystemPrompt(
               textareaPurpose,
               getContextString([], contextCategories),
             ),
-          },
+          }),
           ...apiConfig.fewShotMessages,
-          {
+          plainToInstance(TextMessage, {
+            id: nanoid(),
+            role: "user",
+            content: editorState.textAfterCursor,
+          }),
+          plainToInstance(TextMessage, {
+            id: nanoid(),
             role: "user",
             name: "TextAfterCursor",
             content: editorState.textAfterCursor,
-          },
-          {
+          }),
+          plainToInstance(TextMessage, {
+            id: nanoid(),
             role: "user",
             name: "TextBeforeCursor",
             content: editorState.textBeforeCursor,
-          },
+          }),
         ];
 
         const response = await fetchAndDecodeChatCompletionAsText({

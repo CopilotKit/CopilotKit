@@ -48,6 +48,7 @@
     "@copilotkit/shared": "workspace:*",
     "@urql/core": "^5.0.3",
     "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
     "graphql": "^16.8.1",
     "untruncate-json": "^0.0.1",
     "urql": "^4.1.0",
