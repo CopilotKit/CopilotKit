@@ -89,12 +89,20 @@
  * ```
  */
 
-import { Message, TextMessage } from "@copilotkit/runtime-client-gql";
+import {
+  ActionExecutionMessage,
+  CopilotRuntimeClient,
+  Message,
+  TextMessage,
+  convertGqlOutputToMessages,
+  convertMessagesToGqlInput,
+} from "@copilotkit/runtime-client-gql";
 import { FrontendAction } from "../types/frontend-action";
 import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
 import { MessageStatusCode } from "@copilotkit/runtime-client-gql";
 import { plainToInstance } from "class-transformer";
+import { actionParametersToJsonSchema } from "@copilotkit/shared";
 
 export interface CopilotTaskConfig {
   /**
@@ -165,58 +173,41 @@ export class CopilotTask<T = any> {
       role: "system",
       createdAt: new Date(),
       status: {
-        code: MessageStatusCode.Success
-      }
+        code: MessageStatusCode.Success,
+      },
     });
 
     const messages: Message[] = [systemMessage];
 
-    // TODO-PROTOCOL
-    throw new Error("Not implemented");
+    const runtimeClient = new CopilotRuntimeClient({
+      url: context.copilotApiConfig.chatApiEndpoint,
+    });
 
-    // const response = await fetchAndDecodeChatCompletion({
-    //   copilotConfig: context.copilotApiConfig,
-    //   messages: messages,
-    //   tools: context.getChatCompletionFunctionDescriptions(actions),
-    //   headers: context.copilotApiConfig.headers,
-    //   body: context.copilotApiConfig.body,
-    // });
+    const response = await runtimeClient
+      .generateResponse({
+        frontend: {
+          actions: Object.values(actions).map((action) => ({
+            name: action.name,
+            description: action.description || "",
+            jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
+          })),
+        },
+        messages: convertMessagesToGqlInput(messages),
+      })
+      .toPromise();
 
-    // if (!response.events) {
-    //   throw new Error("Failed to execute task");
-    // }
+    const functionCallHandler = context.getFunctionCallHandler(actions);
+    const functionCalls = convertGqlOutputToMessages(
+      response.data?.generateResponse?.messages || [],
+    ).filter((m): m is ActionExecutionMessage => m instanceof ActionExecutionMessage);
 
-    // const reader = response.events.getReader();
-    // let functionCalls: FunctionCall[] = [];
-
-    // while (true) {
-    //   const { done, value } = await reader.read();
-
-    //   if (done) {
-    //     break;
-    //   }
-
-    //   if (value.type === "function") {
-    //     functionCalls.push({
-    //       name: value.name,
-    //       arguments: JSON.stringify(value.arguments),
-    //     });
-    //     break;
-    //   }
-    // }
-
-    // if (!functionCalls.length) {
-    //   throw new Error("No function call occurred");
-    // }
-
-    // const functionCallHandler = context.getFunctionCallHandler(actions);
-    // for (const functionCall of functionCalls) {
-    //   await functionCallHandler({
-    //     messages,
-    //     name: functionCall.name,
-    //     args: functionCall.arguments,
-    //   });
-    // }
+    for (const functionCall of functionCalls) {
+      await functionCallHandler({
+        messages,
+        name: functionCall.name,
+        args: functionCall.arguments,
+      });
+    }
   }
 }
 

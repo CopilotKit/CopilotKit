@@ -58,8 +58,6 @@ export interface OpenAIAdapterParams {
   model?: string;
 }
 
-// TODO-PROTOCOL
-// function calls are broken again
 export class OpenAIAdapter implements CopilotServiceAdapter {
   private model: string = DEFAULT_MODEL;
 
