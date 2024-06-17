@@ -1,28 +1,29 @@
 import { Arg, Ctx, Mutation, Query, Resolver } from "type-graphql";
 import { Subject, firstValueFrom, shareReplay, skipWhile, takeWhile } from "rxjs";
-import { GenerateResponseInput } from "../inputs/generate-response.input";
-import { GeneratedResponse } from "../types/generated-response.type";
+import { CreateChatCompletionInput } from "../inputs/create-chat-completion.input";
+import { ChatCompletion } from "../types/chat-completion.type";
 import { MessageRole } from "../types/enums";
 import { Repeater } from "graphql-yoga";
 import type { GraphQLContext } from "../../lib/integrations";
-import { GenerationInterruption } from "../types/generation-interruption";
 import { nanoid } from "nanoid";
 import { RuntimeEvent, RuntimeEventTypes } from "../../service-adapters/events";
 import { MessageStatusUnion, SuccessMessageStatus } from "../types/message-status.type";
+import { ResponseStatusUnion, SuccessResponseStatus } from "../types/response-status.type";
 
 @Resolver(() => Response)
-export class GeneratedResponseResolver {
+export class ChatCompletionResolver {
   @Query(() => String)
   async hello() {
     return "Hello World";
   }
 
-  @Mutation(() => GeneratedResponse)
-  async generateResponse(@Arg("data") data: GenerateResponseInput, @Ctx() ctx: GraphQLContext) {
+  @Mutation(() => ChatCompletion)
+  async createChatCompletion(@Arg("data") data: CreateChatCompletionInput, @Ctx() ctx: GraphQLContext) {
     const copilotRuntime = ctx._copilotkit.runtime;
     const serviceAdapter = ctx._copilotkit.serviceAdapter;
 
-    const interruption = new Subject<GenerationInterruption>();
+    const responseStatus = new Subject<typeof ResponseStatusUnion>();
+
     const {
       eventSource,
       threadId = nanoid(),
@@ -39,7 +40,7 @@ export class GeneratedResponseResolver {
     const response = {
       threadId,
       runId,
-      interruption: firstValueFrom(interruption),
+      status: firstValueFrom(responseStatus),
       messages: new Repeater(async (pushMessage, stopStreamingMessages) => {
         // run and process the event stream
         const eventStream = eventSource.process(copilotRuntime.actions).pipe(
@@ -126,8 +127,8 @@ export class GeneratedResponseResolver {
           },
           error: (err) => console.error("Error in event source", err),
           complete: () => {
+            responseStatus.next(new SuccessResponseStatus());
             stopStreamingMessages();
-            interruption.next({ interrupted: false });
           },
         });
       }),

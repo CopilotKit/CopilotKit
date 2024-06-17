@@ -1,7 +1,8 @@
 import { Field, InterfaceType, ObjectType } from "type-graphql";
-import { GenerationInterruption } from "./generation-interruption";
 import { MessageRole, ActionExecutionScope } from "./enums";
 import { MessageStatusUnion} from "./message-status.type";
+import { ResponseStatusUnion } from "./response-status.type";
+
 @InterfaceType({
   resolveType(value) {
     if (value.hasOwnProperty("content")) {
@@ -14,6 +15,7 @@ import { MessageStatusUnion} from "./message-status.type";
     return undefined;
   },
 })
+
 abstract class BaseMessageOutput {
   @Field(() => String)
   id: string;
@@ -59,16 +61,16 @@ export class ResultMessageOutput {
 }
 
 @ObjectType()
-export class GeneratedResponse {
+export class ChatCompletion {
   @Field(() => String)
   threadId!: string;
+
+  @Field(() => ResponseStatusUnion)
+  status: typeof ResponseStatusUnion;
 
   @Field({ nullable: true })
   runId?: string;
 
   @Field(() => [BaseMessageOutput])
   messages: (typeof BaseMessageOutput)[];
-
-  @Field(() => GenerationInterruption)
-  interruption: GenerationInterruption;
 }
