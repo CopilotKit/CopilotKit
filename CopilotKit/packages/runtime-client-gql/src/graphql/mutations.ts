@@ -7,13 +7,13 @@ export const createChatCompletionMutation = graphql(/** GraphQL **/ `
       runId
       status {
         ... on PendingResponseStatus {
-         	code 
+          code
         }
         ... on SuccessResponseStatus {
-         	code 
+          code
         }
         ... on FailedResponseStatus {
-         	code
+          code
           reason
         }
       }
