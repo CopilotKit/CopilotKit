@@ -5,24 +5,15 @@ export const createChatCompletionMutation = graphql(/** GraphQL **/ `
     createChatCompletion(data: $data, properties: $properties) {
       threadId
       runId
-      status {
-        ... on PendingResponseStatus {
-          code
-        }
-        ... on SuccessResponseStatus {
-          code
-        }
-        ... on FailedResponseStatus {
-          code
-          reason
+      ... on ChatCompletion @defer {
+        status {
+          ... on BaseResponseStatus {
+            code
+          }
         }
       }
       messages @stream {
         __typename
-        ... on BaseMessageOutput {
-          id
-          createdAt
-        }
         ... on BaseMessageOutput @defer {
           status {
             ... on SuccessMessageStatus {
