@@ -1,7 +1,7 @@
 import { YogaInitialContext } from "graphql-yoga";
 import { GuardrailsOptions } from "../guardrails";
 import { buildSchemaSync } from "type-graphql";
-import { GeneratedResponseResolver } from "../../graphql/resolvers/generated-response.resolver";
+import { ChatCompletionResolver } from "../../graphql/resolvers/chat-completion.resolver";
 import { useDeferStream } from "@graphql-yoga/plugin-defer-stream";
 import { CopilotRuntime } from "../copilot-runtime";
 import { CopilotServiceAdapter } from "../../service-adapters";
@@ -40,7 +40,7 @@ export function buildSchema(options: {
   emitSchemaFile?: string;
 } = {}) {
   const schema = buildSchemaSync({
-    resolvers: [GeneratedResponseResolver],
+    resolvers: [ChatCompletionResolver],
     emitSchemaFile: options.emitSchemaFile,
   });
   return schema;
