@@ -1,4 +1,4 @@
-import { CreateChatCompletionMutation, MessageInput, MessageStatusCode } from "../graphql/@generated/graphql";
+import { RunCopilotChatMutation, MessageInput, MessageStatusCode } from "../graphql/@generated/graphql";
 import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "./conversion.types";
 import untruncateJson from "untruncate-json";
 import { plainToInstance } from "class-transformer";
@@ -41,7 +41,7 @@ export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
 }
 
 export function convertGqlOutputToMessages(
-  messages: CreateChatCompletionMutation["createChatCompletion"]["messages"],
+  messages: RunCopilotChatMutation["runCopilotChat"]["messages"],
 ): Message[] {
   return messages.map((message) => {
     if (message.__typename === "TextMessageOutput") {
