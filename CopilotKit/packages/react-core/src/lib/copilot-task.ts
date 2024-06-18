@@ -184,7 +184,7 @@ export class CopilotTask<T = any> {
     });
 
     const response = await runtimeClient
-      .createChatCompletion({
+      .runCopilotChat({
         frontend: {
           actions: Object.values(actions).map((action) => ({
             name: action.name,
@@ -198,7 +198,7 @@ export class CopilotTask<T = any> {
 
     const functionCallHandler = context.getFunctionCallHandler(actions);
     const functionCalls = convertGqlOutputToMessages(
-      response.data?.createChatCompletion?.messages || [],
+      response.data?.runCopilotChat?.messages || [],
     ).filter((m): m is ActionExecutionMessage => m instanceof ActionExecutionMessage);
 
     for (const functionCall of functionCalls) {
