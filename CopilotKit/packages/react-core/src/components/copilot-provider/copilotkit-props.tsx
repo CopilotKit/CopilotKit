@@ -82,4 +82,9 @@ export interface CopilotKitProps {
    * in the case of cross-origin requests.
    */
   credentials?: RequestCredentials;
+
+  /**
+   * Turn on debug mode
+   */
+  debug?: boolean;
 }
