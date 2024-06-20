@@ -13,6 +13,7 @@ export default function AIPresentation() {
       runtimeUrl="/api/copilotkit/openai"
       transcribeAudioUrl="/api/transcribe"
       textToSpeechUrl="/api/tts"
+      debug={true}
     >
       <div
         style={

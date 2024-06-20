@@ -64,6 +64,8 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     throw new Error("Please provide either a url or a publicApiKey to the CopilotKit component.");
   }
 
+  const debug = props.debug;
+
   const chatApiEndpoint = props.runtimeUrl || props.url || COPILOT_CLOUD_CHAT_URL;
 
   const [entryPoints, setEntryPoints] = useState<Record<string, FrontendAction<any>>>({});
@@ -138,7 +140,10 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
 
   const getFunctionCallHandler = useCallback(
     (customEntryPoints?: Record<string, FrontendAction<any>>) => {
-      return entryPointsToFunctionCallHandler(Object.values(customEntryPoints || entryPoints));
+      return entryPointsToFunctionCallHandler(
+        Object.values(customEntryPoints || entryPoints),
+        debug || false,
+      );
     },
     [entryPoints],
   );
@@ -246,6 +251,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         removeChatSuggestionConfiguration,
         chatInstructions,
         setChatInstructions,
+        debug: debug === undefined ? false : debug,
       }}
     >
       {children}
@@ -259,7 +265,10 @@ function entryPointsToChatCompletionFunctions(actions: FrontendAction<any>[]): T
   return actions.map(actionToChatCompletionFunction);
 }
 
-function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): FunctionCallHandler {
+function entryPointsToFunctionCallHandler(
+  actions: FrontendAction<any>[],
+  debug: boolean,
+): FunctionCallHandler {
   return async (chatMessages, functionCall) => {
     let actionsByFunctionName: Record<string, FrontendAction<any>> = {};
     for (let action of actions) {
@@ -271,7 +280,18 @@ function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): Funct
       if (functionCall.arguments) {
         functionCallArguments = JSON.parse(functionCall.arguments);
       }
+      if (debug) {
+        console.log(`[COPILOTKIT DEBUG]:`, action.name, functionCallArguments);
+      }
       return await action.handler(functionCallArguments);
+    } else {
+      if (debug) {
+        console.log(
+          `[COPILOTKIT DEBUG]: No function found for`,
+          functionCall.name,
+          functionCall.arguments,
+        );
+      }
     }
   };
 }
