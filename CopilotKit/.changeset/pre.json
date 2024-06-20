@@ -1,0 +1,19 @@
+{
+  "mode": "pre",
+  "tag": "mme-pre",
+  "initialVersions": {
+    "next-openai": "1.23.0",
+    "node": "1.23.0",
+    "@copilotkit/backend": "0.37.0",
+    "eslint-config-custom": "0.12.0",
+    "@copilotkit/react-core": "0.37.0",
+    "@copilotkit/react-textarea": "0.37.0",
+    "@copilotkit/react-ui": "0.37.0",
+    "@copilotkit/shared": "0.37.0",
+    "tailwind-config": "0.11.0",
+    "tsconfig": "0.16.0"
+  },
+  "changesets": [
+    "seven-suns-remember"
+  ]
+}

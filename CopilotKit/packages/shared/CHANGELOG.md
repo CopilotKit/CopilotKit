@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 0.38.0-mme-pre.0
+
+### Minor Changes
+
+- Update actions in run loop
+
 ## 0.37.0
 
 ### Minor Changes

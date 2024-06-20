@@ -1,5 +1,17 @@
 # ui
 
+## 0.38.0-mme-pre.0
+
+### Minor Changes
+
+- Update actions in run loop
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.38.0-mme-pre.0
+  - @copilotkit/shared@0.38.0-mme-pre.0
+
 ## 0.37.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 0.12.0-mme-pre.0
+
+### Minor Changes
+
+- Update actions in run loop
+
 ## 0.11.0
 
 ### Minor Changes

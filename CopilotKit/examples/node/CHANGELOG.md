@@ -1,5 +1,17 @@
 # node
 
+## 1.24.0-mme-pre.0
+
+### Minor Changes
+
+- Update actions in run loop
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/backend@0.38.0-mme-pre.0
+  - @copilotkit/shared@0.38.0-mme-pre.0
+
 ## 1.23.0
 
 ### Minor Changes
