@@ -1,5 +1,16 @@
 # @copilotkit/cloud
 
+## 0.38.0-mme-pre.1
+
+### Minor Changes
+
+- Add debug mode
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@0.38.0-mme-pre.1
+
 ## 0.38.0-mme-pre.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.13.0-mme-pre.1
+
+### Minor Changes
+
+- Add debug mode
+
 ## 0.13.0-mme-pre.0
 
 ### Minor Changes

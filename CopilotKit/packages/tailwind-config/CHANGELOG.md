@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 0.12.0-mme-pre.1
+
+### Minor Changes
+
+- Add debug mode
+
 ## 0.12.0-mme-pre.0
 
 ### Minor Changes

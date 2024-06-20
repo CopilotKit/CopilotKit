@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.17.0-mme-pre.1
+
+### Minor Changes
+
+- Add debug mode
+
 ## 0.17.0-mme-pre.0
 
 ### Minor Changes

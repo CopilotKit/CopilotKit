@@ -1,5 +1,20 @@
 # web
 
+## 1.24.0-mme-pre.1
+
+### Minor Changes
+
+- Add debug mode
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.38.0-mme-pre.1
+  - @copilotkit/react-core@0.38.0-mme-pre.1
+  - @copilotkit/react-ui@0.38.0-mme-pre.1
+  - @copilotkit/backend@0.38.0-mme-pre.1
+  - @copilotkit/shared@0.38.0-mme-pre.1
+
 ## 1.24.0-mme-pre.0
 
 ### Minor Changes
