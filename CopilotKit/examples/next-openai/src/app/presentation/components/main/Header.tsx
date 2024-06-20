@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { SlideModel } from "../../types";
-import { useMemo } from "react";
-import { useCopilotContext } from "@copilotkit/react-core";
+import { use, useMemo, useState } from "react";
+import { useCopilotAction, useCopilotContext } from "@copilotkit/react-core";
 import { SlideNumberIndicator } from "../misc/SlideNumberIndicator";
 import { GenerateSlideButton } from "../buttons/GenerateSlideButton";
 import { SpeakCurrentSlideButton } from "../buttons/SpeakCurrentSlideButton";
@@ -20,6 +20,24 @@ interface HeaderProps {
   setPerformResearch: (fn: (b: boolean) => boolean) => void;
 }
 
+export function SharingIndicator() {
+  const [sharingWith, setSharingWith] = useState<string | null>(null);
+  useCopilotAction({
+    name: "shareWith",
+    parameters: [
+      {
+        name: "email",
+        type: "string",
+      },
+    ],
+    handler: ({ email }) => {
+      console.log("Share with", email);
+      setSharingWith(email);
+    },
+  });
+  return <div>Sharing Documentation with {sharingWith ?? "nobody"}</div>;
+}
+
 export function Header({
   currentSlideIndex,
   setCurrentSlideIndex,
@@ -34,6 +52,23 @@ export function Header({
    * We need to get the context here to run a Copilot task for generating a slide
    **/
   const context = useCopilotContext();
+
+  const [isSharing, setIsSharing] = useState(false);
+
+  useCopilotAction({
+    name: "setIsSharing",
+    description:
+      "Enable sharing. Note: This only enables sharing, you still need to call `shareWith` to share with an actual email",
+    parameters: [
+      {
+        name: "isSharing",
+        type: "boolean",
+      },
+    ],
+    handler: async ({ isSharing }) => {
+      setIsSharing(isSharing);
+    },
+  });
 
   return (
     <header className={clsx("text-white items-center flex p-4")}>
@@ -68,6 +103,8 @@ export function Header({
         <SpeakCurrentSlideButton spokenNarration={currentSlide.spokenNarration} />
 
         <DeleteSlideButton {...{ currentSlideIndex, setCurrentSlideIndex, slides, setSlides }} />
+
+        {isSharing && <SharingIndicator />}
       </div>
     </header>
   );

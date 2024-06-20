@@ -265,7 +265,6 @@ function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): Funct
     for (let action of actions) {
       actionsByFunctionName[action.name] = action;
     }
-
     const action = actionsByFunctionName[functionCall.name || ""];
     if (action) {
       let functionCallArguments: Record<string, any>[] = [];

@@ -122,13 +122,16 @@ export function useCopilotChat({
     return getChatCompletionFunctionDescriptions();
   }, [getChatCompletionFunctionDescriptions]);
 
+  const tools = useUpdatedRef(functionDescriptions);
+  const onFunctionCall = useUpdatedRef(getFunctionCallHandler());
+
   const { append, reload, stop } = useChat({
     ...options,
     copilotConfig: copilotApiConfig,
     id: options.id,
     initialMessages: options.initialMessages || [],
-    tools: functionDescriptions,
-    onFunctionCall: getFunctionCallHandler(),
+    tools: tools,
+    onFunctionCall: onFunctionCall,
     headers: { ...options.headers },
     body: {
       ...options.body,
@@ -156,8 +159,15 @@ export function useCopilotChat({
   };
 }
 
-// store `value` in a ref and update
-// it whenever it changes.
+/**
+ * A lot of our functions get called in the same run loop. Hooks get called with state,
+ * then process async long running loops. If the hook gets called with the new state,
+ * we want ongoing runloops to use the latest state.
+ *
+ * For example, the first action updated the context, now the second action should
+ * see the latest context.
+ */
+
 function useUpdatedRef<T>(value: T) {
   const ref = useRef(value);
 

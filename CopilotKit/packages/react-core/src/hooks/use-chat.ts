@@ -35,7 +35,7 @@ export type UseChatOptions = {
    * If the function returns a `ChatRequest` object, the request will be sent
    * automatically to the API and will be used to update the chat.
    */
-  onFunctionCall?: FunctionCallHandler;
+  onFunctionCall?: React.MutableRefObject<FunctionCallHandler>;
   /**
    * HTTP headers to be sent with the API request.
    */
@@ -56,7 +56,7 @@ export type UseChatOptions = {
   /**
    * Function definitions to be sent to the API.
    */
-  tools?: ToolDefinition[];
+  tools?: React.MutableRefObject<ToolDefinition[]>;
 };
 
 export type UseChatHelpers = {
@@ -146,7 +146,7 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
     const response = await fetchAndDecodeChatCompletion({
       copilotConfig: { ...options.copilotConfig, body: copilotConfigBody },
       messages: messagesWithContext,
-      tools: options.tools,
+      tools: options.tools?.current,
       headers: headers,
       signal: abortController.signal,
     });
@@ -254,8 +254,8 @@ export function useChat(options: UseChatOptionsWithCopilotConfig): UseChatHelper
           if (value.type === "function") {
             // Execute the function call
             try {
-              if (options.onFunctionCall && value.scope === "client") {
-                const result = await options.onFunctionCall(
+              if (options.onFunctionCall?.current && value.scope === "client") {
+                const result = await options.onFunctionCall.current(
                   messages,
                   currentMessage.function_call as FunctionCall,
                 );
