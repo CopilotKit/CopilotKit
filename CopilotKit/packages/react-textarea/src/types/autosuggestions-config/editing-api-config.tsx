@@ -1,6 +1,5 @@
-import { Message, TextMessage } from "@copilotkit/runtime-client-gql";
+import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { MakeSystemPrompt } from "./subtypes/make-system-prompt";
-import { plainToInstance } from "class-transformer";
 import { nanoid } from "nanoid";
 
 export interface EditingApiConfig {
@@ -40,74 +39,54 @@ The conversation will be structured as follows:
 };
 
 export const defaultEditingFewShotMessages: Message[] = [
-  plainToInstance(TextMessage, {
-    id: nanoid(),
-    role: "user",
+  new TextMessage({
+    role: Role.User,
     content:
       "<TextBeforeCursor>This morning I woke up and went straight to the grocery store. </TextBeforeCursor>",
-    createdAt: new Date(),
   }),
-  plainToInstance(TextMessage, {
-    id: nanoid(),
-    role: "user",
+  new TextMessage({
+    role: Role.User,
     content:
       "<TextToEdit>While I was there I picked up some apples, oranges, and bananas. </TextToEdit>",
-    createdAt: new Date(),
   }),
-  plainToInstance(TextMessage, {
-    id: nanoid(),
-    role: "user",
+  new TextMessage({
+    role: Role.User,
     content:
       "<TextAfterCursor>The grocery store was having a sale on fruit, so I decided to stock up.</TextAfterCursor>",
-    createdAt: new Date(),
   }),
-  plainToInstance(TextMessage, {
-    id: nanoid(),
-    role: "user",
+  new TextMessage({
+    role: Role.User,
     content: "<EditingPrompt>I also bought a big watermelon</EditingPrompt>",
-    createdAt: new Date(),
   }),
-  plainToInstance(TextMessage, {
-    id: nanoid(),
-    role: "assistant",
+  new TextMessage({
+    role: Role.Assistant,
     content:
       "While I was there I picked up some apples, oranges, and bananas, and a big watermelon.",
-    createdAt: new Date(),
   }),
 
-  plainToInstance(TextMessage, {
-    id: nanoid(),
-    role: "user",
+  new TextMessage({
+    role: Role.User,
     content:
       "<TextBeforeCursor>Yesterday, I spent the afternoon working on my new project.</TextBeforeCursor>",
-    createdAt: new Date(),
   }),
-  plainToInstance(TextMessage, {
-    id: nanoid(),
-    role: "user",
+  new TextMessage({
+    role: Role.User,
     content: "<TextToEdit>It's quite challenging and requires a lot of focus.</TextToEdit>",
-    createdAt: new Date(),
   }),
-  plainToInstance(TextMessage, {
-    id: nanoid(),
-    role: "user",
+  new TextMessage({
+    role: Role.User,
     content:
       "<TextAfterCursor>I'm really excited about the potential outcomes of this project.</TextAfterCursor>",
-    createdAt: new Date(),
   }),
-  plainToInstance(TextMessage, {
-    id: nanoid(),
-    role: "user",
+  new TextMessage({
+    role: Role.User,
     content:
       "<EditingPrompt>emphasize the complexity and my enthusiasm for the project</EditingPrompt>",
-    createdAt: new Date(),
   }),
-  plainToInstance(TextMessage, {
-    id: nanoid(),
-    role: "assistant",
+  new TextMessage({
+    role: Role.Assistant,
     content:
       "It's a highly complex task that demands intense concentration, but I'm incredibly enthusiastic about the promising prospects of this project.",
-    createdAt: new Date(),
   }),
 ];
 

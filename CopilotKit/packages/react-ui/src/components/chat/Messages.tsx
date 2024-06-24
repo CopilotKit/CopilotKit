@@ -10,8 +10,8 @@ import {
   Message,
   ResultMessage,
   TextMessage,
+  Role,
 } from "@copilotkit/runtime-client-gql";
-import { plainToInstance } from "class-transformer";
 
 export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
   const { chatComponentsCache } = useCopilotContext();
@@ -158,12 +158,11 @@ function makeInitialMessages(initial?: string | string[]): Message[] {
     }
   }
 
-  return initialArray.map((message) =>
-    plainToInstance(TextMessage, {
-      id: nanoid(),
-      role: "assistant",
-      content: message,
-      createdAt: new Date(),
-    }),
+  return initialArray.map(
+    (message) =>
+      new TextMessage({
+        role: Role.Assistant,
+        content: message,
+      }),
   );
 }

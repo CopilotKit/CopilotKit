@@ -14,10 +14,11 @@ import {
   convertMessagesToGqlInput,
   convertGqlOutputToMessages,
   MessageStatusCode,
+  MessageRole,
+  Role,
 } from "@copilotkit/runtime-client-gql";
 
 import { CopilotApiConfig } from "../context";
-import { plainToInstance } from "class-transformer";
 
 export type UseChatOptions = {
   /**
@@ -115,14 +116,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     // this message is just a placeholder. It will disappear once the first real message
     // is received
     let newMessages: Message[] = [
-      plainToInstance(TextMessage, {
-        id: "--PLACEHOLDER-MESSAGE-ID--",
-        createdAt: new Date(),
+      new TextMessage({
         content: "",
-        role: "assistant",
-        status: {
-          code: MessageStatusCode.Success,
-        },
+        role: Role.Assistant,
       }),
     ];
 
@@ -223,15 +219,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
             // add the result message
             newMessages.push(
-              plainToInstance(ResultMessage, {
-                id: message.id + "-result",
+              new ResultMessage({
                 result: ResultMessage.encodeResult(results[message.id]),
                 actionExecutionId: message.id,
                 actionName: message.name,
-                createdAt: new Date(),
-                status: {
-                  code: MessageStatusCode.Success,
-                },
               }),
             );
           }

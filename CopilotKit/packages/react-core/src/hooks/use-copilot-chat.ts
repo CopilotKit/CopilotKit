@@ -28,12 +28,11 @@
  */
 import { useContext, useRef, useEffect, useCallback } from "react";
 import { CopilotContext } from "../context/copilot-context";
-import { Message, TextMessage } from "@copilotkit/runtime-client-gql";
+import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { SystemMessageFunction } from "../types";
 import { useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
 import { MessageStatusCode } from "@copilotkit/runtime-client-gql";
-import { plainToInstance } from "class-transformer";
 
 export interface UseCopilotChatOptions {
   /**
@@ -113,15 +112,10 @@ export function useCopilotChat({
     // this always gets the latest context string
     const contextString = latestGetContextString.current([], defaultCopilotContextCategories); // TODO: make the context categories configurable
 
-    return plainToInstance(TextMessage, {
-      id: "system",
+    return new TextMessage({
       content: systemMessageMaker(contextString, chatInstructions),
-      role: "system",
-      createdAt: new Date(),
-      status: {
-        code: MessageStatusCode.Success
-      }
-    })
+      role: Role.System,
+    });
   }, [getContextString, makeSystemMessage, chatInstructions]);
 
   const { append, reload, stop } = useChat({

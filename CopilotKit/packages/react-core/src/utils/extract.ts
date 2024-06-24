@@ -4,10 +4,9 @@ import {
   MappedParameterTypes,
   Parameter,
 } from "@copilotkit/shared";
-import { Message, MessageStatusCode, TextMessage } from "@copilotkit/runtime-client-gql";
+import { Message, MessageStatusCode, Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
-import { plainToInstance } from "class-transformer";
 
 interface InitialState<T extends Parameter[] | [] = []> {
   status: "initial";
@@ -74,14 +73,9 @@ export async function extract<const T extends Parameter[]>({
     contextString += context.getContextString([], defaultCopilotContextCategories);
   }
 
-  const systemMessage: Message = plainToInstance(TextMessage, {
-    id: "system",
+  const systemMessage: Message = new TextMessage({
     content: makeSystemMessage(contextString, instructions),
-    role: "system",
-    createdAt: new Date(),
-    status: {
-      code: MessageStatusCode.Success
-    }
+    role: Role.System,
   });
 
   const headers = {

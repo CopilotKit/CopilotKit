@@ -1,3 +1,4 @@
+import { nanoid } from "nanoid";
 import {
   ActionExecutionMessageInput,
   MessageRole,
@@ -5,6 +6,7 @@ import {
   ResultMessageInput,
   TextMessageInput,
   BaseMessageOutput,
+  MessageStatusCode,
 } from "../graphql/@generated/graphql";
 
 export class Message {
@@ -13,14 +15,18 @@ export class Message {
   status: MessageStatus;
 
   constructor(props: any) {
+    props.id ??= nanoid();
+    props.status ??= { code: MessageStatusCode.Success };
+    props.createdAt ??= new Date();
     Object.assign(this, props);
   }
 }
 
-export type Role = MessageRole;
+// alias Role to MessageRole
+export const Role = MessageRole;
 
-// when constructing any message, status is optional
-type MessageConstructorOptions = Omit<Message, "status"> & { status?: Message["status"] };
+// when constructing any message, the base fields are optional
+type MessageConstructorOptions = Partial<Message>;
 
 type TextMessageConstructorOptions = MessageConstructorOptions & TextMessageInput;
 
@@ -35,7 +41,7 @@ export class TextMessage extends Message implements TextMessageConstructorOption
 
 type ActionExecutionMessageConstructorOptions = MessageConstructorOptions &
   Omit<ActionExecutionMessageInput, "arguments"> & {
-    arguments: ActionExecutionMessageInput["arguments"];
+    arguments: Record<string, any>;
   };
 
 export class ActionExecutionMessage

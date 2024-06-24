@@ -1,4 +1,9 @@
-import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "../graphql/types/converted";
+import {
+  ActionExecutionMessage,
+  Message,
+  ResultMessage,
+  TextMessage,
+} from "../graphql/types/converted";
 import { MessageInput } from "../graphql/inputs/message.input";
 import { plainToInstance } from "class-transformer";
 
@@ -13,7 +18,7 @@ export function convertGqlInputToMessages(inputMessages: MessageInput[]): Messag
           createdAt: message.createdAt,
           role: message.textMessage.role,
           content: message.textMessage.content,
-        })
+        }),
       );
     } else if (message.actionExecutionMessage) {
       messages.push(
