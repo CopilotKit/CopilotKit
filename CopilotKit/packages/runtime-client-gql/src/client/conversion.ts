@@ -1,5 +1,9 @@
-import { CreateChatCompletionMutation, MessageInput, MessageStatusCode } from "../graphql/@generated/graphql";
-import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "./conversion.types";
+import {
+  CreateChatCompletionMutation,
+  MessageInput,
+  MessageStatusCode,
+} from "../graphql/@generated/graphql";
+import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "./types";
 import untruncateJson from "untruncate-json";
 import { plainToInstance } from "class-transformer";
 
@@ -50,7 +54,7 @@ export function convertGqlOutputToMessages(
         role: message.role,
         content: message.content.join(""),
         createdAt: new Date(),
-        status: message.status || { code: MessageStatusCode.Pending }
+        status: message.status || { code: MessageStatusCode.Pending },
       });
     } else if (message.__typename === "ActionExecutionMessageOutput") {
       return plainToInstance(ActionExecutionMessage, {
@@ -59,7 +63,7 @@ export function convertGqlOutputToMessages(
         arguments: getPartialArguments(message.arguments),
         scope: message.scope,
         createdAt: new Date(),
-        status: message.status || { code: MessageStatusCode.Pending }
+        status: message.status || { code: MessageStatusCode.Pending },
       });
     } else if (message.__typename === "ResultMessageOutput") {
       return plainToInstance(ResultMessage, {
@@ -68,7 +72,7 @@ export function convertGqlOutputToMessages(
         actionExecutionId: message.actionExecutionId,
         actionName: message.actionName,
         createdAt: new Date(),
-        status: message.status || { code: MessageStatusCode.Pending }
+        status: message.status || { code: MessageStatusCode.Pending },
       });
     }
 

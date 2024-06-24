@@ -1,3 +1,3 @@
 export * from "./CopilotRuntimeClient";
 export { convertMessagesToGqlInput, convertGqlOutputToMessages } from "./conversion";
-export * from "./conversion.types";
+export * from "./types";
