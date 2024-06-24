@@ -66,22 +66,22 @@ in-app AI chatbots, AI agents, and AI Textareas.
   <tr>
     <td align="center" valign="top">
       PowerPoint + Copilot + Voice <br/>
-      <a href="https://go.copilotkit.ai/PowerPointAI">https://github.com/CopilotKit/demo-presentation-voice</a> <br/><br>
-      <a href="https://go.copilotkit.ai/PowerPointAI">
+      <a href="https://github.com/CopilotKit/demo-presentation-voice">https://github.com/CopilotKit/demo-presentation-voice</a> <br/><br>
+      <a href="https://github.com/CopilotKit/demo-presentation-voice">
         <img alt="Presentation-Voice" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="200px" style="max-width:100%; border-radius: 10px;"/>
       </a>
     </td>
     <td align="center" valign="top">
       "Hello World" (A Todo App) <br/>
-      <a href="https://go.copilotkit.ai/todoAI">https://github.com/CopilotKit/demo-todo</a> <br/><br>
-      <a href="https://go.copilotkit.ai/todoAI">
+      <a href="https://github.com/CopilotKit/demo-todo">https://github.com/CopilotKit/demo-todo</a> <br/><br>
+      <a href="https://github.com/CopilotKit/demo-todo">
         <img alt="Todo App" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/63798c02-1892-4d2d-bc9f-2994b7c88694" width="200px" style="max-width:100%; border-radius: 10px;"/>
       </a>
     </td>    
     <td align="center" valign="top">
       Spreadsheets + Copilot <br/>
-      <a href="https://go.copilotkit.ai/SpreadsheetAI">https://github.com/CopilotKit/demo-spreadsheet</a> <br/><br>
-      <a href="https://go.copilotkit.ai/SpreadsheetAI">
+      <a href="https://github.com/CopilotKit/demo-spreadsheet">https://github.com/CopilotKit/demo-spreadsheet</a> <br/><br>
+      <a href="https://github.com/CopilotKit/demo-spreadsheet">
         <img alt="Presentation-Demo" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/871e4c9c-0ced-490b-9e3f-8594de7c5c89" width="200px" style="max-width:100%; border-radius: 10px;"/>
       </a>
     </td>
