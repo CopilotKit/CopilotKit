@@ -4,12 +4,12 @@ import { RunCopilotChatInput } from "../inputs/run-copilot-chat.input";
 import { CopilotChatResponse } from "../types/copilot-chat-response.type";
 import { MessageRole } from "../types/enums";
 import { Repeater } from "graphql-yoga";
-import type { GraphQLContext } from "../../lib/integrations";
+import type { CopilotRequestContextProperties, GraphQLContext } from "../../lib/integrations";
 import { nanoid } from "nanoid";
 import { RuntimeEvent, RuntimeEventTypes } from "../../service-adapters/events";
 import { MessageStatusUnion, SuccessMessageStatus } from "../types/message-status.type";
 import { ResponseStatusUnion, SuccessResponseStatus } from "../types/response-status.type";
-import { PropertyInput } from "../inputs/properties.input";
+import { GraphQLJSONObject } from "graphql-scalars";
 
 @Resolver(() => CopilotChatResponse)
 export class CopilotChatResolver {
@@ -20,12 +20,13 @@ export class CopilotChatResolver {
 
   @Mutation(() => CopilotChatResponse)
   async runCopilotChat(
-    @Arg("data") data: RunCopilotChatInput,
-    @Arg("properties", () => [PropertyInput], { nullable: true }) properties: PropertyInput[] = [],
     @Ctx() ctx: GraphQLContext,
+    @Arg("data") data: RunCopilotChatInput,
+    @Arg("properties", () => GraphQLJSONObject, { nullable: true }) properties?: CopilotRequestContextProperties,
   ) {
-    ctx._copilotkit.properties = [...ctx._copilotkit.properties, ...properties];
-
+    if (properties) {
+      ctx._copilotkit.properties = { ...ctx._copilotkit.properties, ...properties };
+    }
     const copilotRuntime = ctx._copilotkit.runtime;
     const serviceAdapter = ctx._copilotkit.serviceAdapter;
     const responseStatus = new Subject<typeof ResponseStatusUnion>();

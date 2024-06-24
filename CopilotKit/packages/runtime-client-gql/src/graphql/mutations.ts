@@ -1,7 +1,7 @@
 import { graphql } from "./@generated/gql";
 
 export const runCopilotChatMutation = graphql(/** GraphQL **/ `
-  mutation runCopilotChat($data: RunCopilotChatInput!, $properties: [PropertyInput!]) {
+  mutation runCopilotChat($data: RunCopilotChatInput!, $properties: JSONObject) {
     runCopilotChat(data: $data, properties: $properties) {
       threadId
       runId
