@@ -5,12 +5,14 @@ import { CopilotChatResolver } from "../../graphql/resolvers/run-copilot-chat.re
 import { useDeferStream } from "@graphql-yoga/plugin-defer-stream";
 import { CopilotRuntime } from "../copilot-runtime";
 import { CopilotServiceAdapter } from "../../service-adapters";
-import { PropertyInput } from "../../graphql/inputs/properties.input";
+
+type AnyPrimitive = string | boolean | number | null;
+export type CopilotRequestContextProperties = Record<string, AnyPrimitive | Record<string, AnyPrimitive>>;
 
 type CopilotKitContext = {
   runtime: CopilotRuntime;
   serviceAdapter: CopilotServiceAdapter;
-  properties: PropertyInput[];
+  properties: CopilotRequestContextProperties;
 };
 
 export type GraphQLContext = YogaInitialContext & {
@@ -57,7 +59,7 @@ export function getCommonConfig(options?: CreateCopilotRuntimeServerOptions) {
       createContext(ctx, {
         runtime: options.runtime,
         serviceAdapter: options.serviceAdapter,
-        properties: [],
+        properties: {},
       }),
   };
 }
