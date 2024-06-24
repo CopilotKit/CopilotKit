@@ -1,31 +1,63 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": ["**/.env.*local"],
-  "globalEnv": ["OPENAI_API_KEY"],
+  "globalDependencies": [
+    "**/.env.*local"
+  ],
+  "globalEnv": [
+    "OPENAI_API_KEY"
+  ],
   "pipeline": {
     "build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+      "dependsOn": [
+        "^build",
+        "^generate-graphql-schema",
+        "generate-graphql-schema",
+        "^graphql-codegen",
+        "graphql-codegen"
+      ],
+      "outputs": [
+        "dist/**",
+        ".next/**",
+        "!.next/cache/**"
+      ]
     },
     "test": {
-      "dependsOn": ["^build"],
-      "outputs": ["coverage/**", "!.next/**", "!.next/cache/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "coverage/**",
+        "!.next/**",
+        "!.next/cache/**"
+      ]
     },
     "lint": {},
     "check-types": {
-      "dependsOn": ["^build"]
+      "dependsOn": [
+        "^build"
+      ]
     },
     "generate-graphql-schema": {
       "cache": false,
-      "outputs": ["packages/runtime/__snapshots__/schema/schema.graphql"]
+      "outputs": [
+        "packages/runtime/__snapshots__/schema/schema.graphql"
+      ]
     },
     "graphql-codegen": {
       "cache": false,
-      "dependsOn": ["^generate-graphql-schema"],
-      "outputs": ["packages/runtime-client-gql/src/@generated/**/*"]
+      "dependsOn": [
+        "^generate-graphql-schema"
+      ],
+      "outputs": [
+        "packages/runtime-client-gql/src/@generated/**/*"
+      ]
     },
     "dev": {
-      "dependsOn": ["^build", "graphql-codegen", "^graphql-codegen"],
+      "dependsOn": [
+        "^build",
+        "graphql-codegen",
+        "^graphql-codegen"
+      ],
       "cache": false,
       "persistent": true
     },

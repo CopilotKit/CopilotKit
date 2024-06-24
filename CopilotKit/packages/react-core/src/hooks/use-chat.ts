@@ -132,7 +132,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
 
     const stream = CopilotRuntimeClient.asStream(
-      runtimeClient.createChatCompletion({
+      runtimeClient.runCopilotChat({
         frontend: {
           actions: actions.map((action) => ({
             name: action.name,
@@ -183,14 +183,14 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           break;
         }
 
-        if (!value.createChatCompletion) {
+        if (!value.runCopilotChat) {
           continue;
         }
 
-        threadIdRef.current = value.createChatCompletion.threadId || null;
-        runIdRef.current = value.createChatCompletion.runId || null;
+        threadIdRef.current = value.runCopilotChat.threadId || null;
+        runIdRef.current = value.runCopilotChat.runId || null;
 
-        const messages = convertGqlOutputToMessages(value.createChatCompletion.messages);
+        const messages = convertGqlOutputToMessages(value.runCopilotChat.messages);
 
         if (messages.length === 0) {
           continue;

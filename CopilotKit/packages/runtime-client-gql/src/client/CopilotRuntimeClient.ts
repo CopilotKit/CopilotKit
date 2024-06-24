@@ -1,10 +1,10 @@
 import { Client, cacheExchange, fetchExchange } from "@urql/core";
 
 import {
-  CreateChatCompletionMutation,
-  CreateChatCompletionMutationVariables,
+  RunCopilotChatMutation,
+  RunCopilotChatMutationVariables,
 } from "../graphql/@generated/graphql";
-import { createChatCompletionMutation } from "../graphql/mutations";
+import { runCopilotChatMutation } from "../graphql/mutations";
 import { OperationResultSource, OperationResult } from "urql";
 
 interface CopilotRuntimeClientOptions {
@@ -21,10 +21,13 @@ export class CopilotRuntimeClient {
     });
   }
 
-  createChatCompletion(data: CreateChatCompletionMutationVariables["data"]) {
-    return this.client.mutation<CreateChatCompletionMutation, CreateChatCompletionMutationVariables>(
-      createChatCompletionMutation,
-      { data },
+  runCopilotChat(
+    data: RunCopilotChatMutationVariables["data"],
+    properties?: RunCopilotChatMutationVariables["properties"],
+  ) {
+    return this.client.mutation<RunCopilotChatMutation, RunCopilotChatMutationVariables>(
+      runCopilotChatMutation,
+      { data, properties },
     );
   }
 

@@ -1,9 +1,10 @@
 import {
-  CreateChatCompletionMutation,
+  RunCopilotChatMutation,
   MessageInput,
   MessageStatusCode,
 } from "../graphql/@generated/graphql";
 import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "./types";
+
 import untruncateJson from "untruncate-json";
 
 export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
@@ -44,7 +45,7 @@ export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
 }
 
 export function convertGqlOutputToMessages(
-  messages: CreateChatCompletionMutation["createChatCompletion"]["messages"],
+  messages: RunCopilotChatMutation["runCopilotChat"]["messages"],
 ): Message[] {
   return messages.map((message) => {
     if (message.__typename === "TextMessageOutput") {

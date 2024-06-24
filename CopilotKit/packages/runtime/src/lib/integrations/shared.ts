@@ -1,16 +1,18 @@
 import { YogaInitialContext } from "graphql-yoga";
 import { GuardrailsOptions } from "../guardrails";
 import { buildSchemaSync } from "type-graphql";
-import { ChatCompletionResolver } from "../../graphql/resolvers/chat-completion.resolver";
+import { CopilotChatResolver } from "../../graphql/resolvers/run-copilot-chat.resolver";
 import { useDeferStream } from "@graphql-yoga/plugin-defer-stream";
 import { CopilotRuntime } from "../copilot-runtime";
 import { CopilotServiceAdapter } from "../../service-adapters";
-import { PropertyInput } from "../../graphql/inputs/properties.input";
+
+type AnyPrimitive = string | boolean | number | null;
+export type CopilotRequestContextProperties = Record<string, AnyPrimitive | Record<string, AnyPrimitive>>;
 
 type CopilotKitContext = {
   runtime: CopilotRuntime;
   serviceAdapter: CopilotServiceAdapter;
-  properties: PropertyInput[];
+  properties: CopilotRequestContextProperties;
 };
 
 export type GraphQLContext = YogaInitialContext & {
@@ -43,7 +45,7 @@ export function buildSchema(
   } = {},
 ) {
   const schema = buildSchemaSync({
-    resolvers: [ChatCompletionResolver],
+    resolvers: [CopilotChatResolver],
     emitSchemaFile: options.emitSchemaFile,
   });
   return schema;
@@ -57,7 +59,7 @@ export function getCommonConfig(options?: CreateCopilotRuntimeServerOptions) {
       createContext(ctx, {
         runtime: options.runtime,
         serviceAdapter: options.serviceAdapter,
-        properties: [],
+        properties: {},
       }),
   };
 }

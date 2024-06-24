@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "start:dev": "next dev",
     "start": "next start",
     "lint": "next lint",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"

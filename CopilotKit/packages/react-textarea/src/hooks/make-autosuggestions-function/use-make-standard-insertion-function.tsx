@@ -50,7 +50,7 @@ export function useMakeStandardInsertionOrEditingFunction(
   });
 
   async function runtimeClientResponseToStringStream(
-    responsePromise: ReturnType<typeof runtimeClient.createChatCompletion>,
+    responsePromise: ReturnType<typeof runtimeClient.runCopilotChat>,
   ) {
     const messagesStream = await CopilotRuntimeClient.asStream(responsePromise);
 
@@ -65,7 +65,7 @@ export function useMakeStandardInsertionOrEditingFunction(
             break;
           }
 
-          const messages = convertGqlOutputToMessages(value.createChatCompletion.messages);
+          const messages = convertGqlOutputToMessages(value.runCopilotChat.messages);
 
           let newContent = "";
 
@@ -117,7 +117,7 @@ export function useMakeStandardInsertionOrEditingFunction(
         ];
 
         return runtimeClientResponseToStringStream(
-          runtimeClient.createChatCompletion({
+          runtimeClient.runCopilotChat({
             frontend: {
               actions: [],
             },
@@ -172,7 +172,7 @@ export function useMakeStandardInsertionOrEditingFunction(
 
         // TODO-PROTOCOL: forwarded props, headers and abort signal
         return runtimeClientResponseToStringStream(
-          runtimeClient.createChatCompletion({
+          runtimeClient.runCopilotChat({
             frontend: {
               actions: [],
             },
