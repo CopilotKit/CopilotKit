@@ -21,10 +21,13 @@ export class CopilotRuntimeClient {
     });
   }
 
-  runCopilotChat(data: RunCopilotChatMutationVariables["data"]) {
+  runCopilotChat(
+    data: RunCopilotChatMutationVariables["data"],
+    properties?: RunCopilotChatMutationVariables["properties"],
+  ) {
     return this.client.mutation<RunCopilotChatMutation, RunCopilotChatMutationVariables>(
       runCopilotChatMutation,
-      { data },
+      { data, properties },
     );
   }
 
