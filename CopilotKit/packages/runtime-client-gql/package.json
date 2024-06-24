@@ -24,6 +24,7 @@
     "check-types": "tsc --noEmit",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next",
     "graphql-codegen": "graphql-codegen",
+    "graphql-codegen:watch": "graphql-codegen --watch",
     "sample-usage": "ts-node ./src/sample-usage.ts"
   },
   "peerDependencies": {
@@ -38,6 +39,7 @@
     "@graphql-codegen/typescript-urql": "^4.0.0",
     "@graphql-codegen/urql-introspection": "^3.0.0",
     "@graphql-typed-document-node/core": "^3.2.0",
+    "@parcel/watcher": "^2.4.1",
     "@types/node": "^20.12.12",
     "ts-node": "^10.9.2",
     "tsup": "^6.7.0",
