@@ -21,6 +21,15 @@
         "!.next/cache/**"
       ]
     },
+    "dev": {
+      "dependsOn": [
+        "^build",
+        "graphql-codegen:watch",
+        "^graphql-codegen:watch"
+      ],
+      "cache": false,
+      "persistent": true
+    },
     "test": {
       "dependsOn": [
         "^build"
@@ -52,14 +61,11 @@
         "packages/runtime-client-gql/src/@generated/**/*"
       ]
     },
-    "dev": {
-      "dependsOn": [
-        "^build",
-        "graphql-codegen",
-        "^graphql-codegen"
-      ],
+    "graphql-codegen:watch": {
       "cache": false,
-      "persistent": true
+      "outputs": [
+        "packages/runtime-client-gql/src/@generated/**/*"
+      ]
     },
     "clean": {
       "cache": false

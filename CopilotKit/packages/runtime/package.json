@@ -15,7 +15,7 @@
   "license": "MIT",
   "scripts": {
     "build": "tsup --clean",
-    "dev": "tsup --watch",
+    "dev": "tsup --watch --onSuccess \"pnpm run generate-graphql-schema\"",
     "test": "jest",
     "check-types": "tsc --noEmit",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next",

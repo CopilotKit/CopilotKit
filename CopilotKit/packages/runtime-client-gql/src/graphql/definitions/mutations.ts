@@ -1,4 +1,4 @@
-import { graphql } from "./@generated/gql";
+import { graphql } from "../@generated/gql";
 
 export const runCopilotChatMutation = graphql(/** GraphQL **/ `
   mutation runCopilotChat($data: RunCopilotChatInput!, $properties: JSONObject) {

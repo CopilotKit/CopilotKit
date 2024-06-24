@@ -5,7 +5,7 @@ const schema = path.resolve(__dirname, "../runtime/__snapshots__/schema/schema.g
 
 const config: CodegenConfig = {
   schema,
-  documents: ["./**/*.tsx", "./**/*.ts"],
+  documents: ["src/graphql/definitions/**/*.{ts,tsx}"],
   generates: {
     "./src/graphql/@generated/": {
       preset: "client",

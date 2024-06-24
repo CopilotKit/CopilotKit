@@ -4,7 +4,7 @@ import {
   RunCopilotChatMutation,
   RunCopilotChatMutationVariables,
 } from "../graphql/@generated/graphql";
-import { runCopilotChatMutation } from "../graphql/mutations";
+import { runCopilotChatMutation } from "../graphql/definitions/mutations";
 import { OperationResultSource, OperationResult } from "urql";
 
 interface CopilotRuntimeClientOptions {
