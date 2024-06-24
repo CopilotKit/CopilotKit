@@ -78,7 +78,7 @@ export function useMakeStandardAutosuggestionFunction(
         });
 
         const response = await runtimeClient
-          .createChatCompletion({
+          .runCopilotChat({
             frontend: {
               actions: [],
             },
@@ -88,7 +88,7 @@ export function useMakeStandardAutosuggestionFunction(
 
         let result = "";
         for (const message of convertGqlOutputToMessages(
-          response.data?.createChatCompletion?.messages ?? [],
+          response.data?.runCopilotChat?.messages ?? [],
         )) {
           if (abortSignal.aborted) {
             break;
