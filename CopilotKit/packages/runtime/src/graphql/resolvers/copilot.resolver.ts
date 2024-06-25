@@ -1,7 +1,7 @@
 import { Arg, Ctx, Mutation, Query, Resolver } from "type-graphql";
 import { Subject, firstValueFrom, shareReplay, skipWhile, takeWhile } from "rxjs";
-import { RunCopilotChatInput } from "../inputs/run-copilot-chat.input";
-import { CopilotChatResponse } from "../types/copilot-chat-response.type";
+import { GenerateCopilotResponseInput } from "../inputs/generate-copilot-response.input";
+import { CopilotResponse } from "../types/copilot-response.type";
 import { MessageRole } from "../types/enums";
 import { Repeater } from "graphql-yoga";
 import type { CopilotRequestContextProperties, GraphQLContext } from "../../lib/integrations";
@@ -11,17 +11,17 @@ import { MessageStatusUnion, SuccessMessageStatus } from "../types/message-statu
 import { ResponseStatusUnion, SuccessResponseStatus } from "../types/response-status.type";
 import { GraphQLJSONObject } from "graphql-scalars";
 
-@Resolver(() => CopilotChatResponse)
-export class CopilotChatResolver {
+@Resolver(() => CopilotResponse)
+export class CopilotResolver {
   @Query(() => String)
   async hello() {
     return "Hello World";
   }
 
-  @Mutation(() => CopilotChatResponse)
-  async runCopilotChat(
+  @Mutation(() => CopilotResponse)
+  async generateCopilotResponse(
     @Ctx() ctx: GraphQLContext,
-    @Arg("data") data: RunCopilotChatInput,
+    @Arg("data") data: GenerateCopilotResponseInput,
     @Arg("properties", () => GraphQLJSONObject, { nullable: true }) properties?: CopilotRequestContextProperties,
   ) {
     if (properties) {

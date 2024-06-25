@@ -61,7 +61,7 @@ export class ResultMessageOutput {
 }
 
 @ObjectType()
-export class CopilotChatResponse {
+export class CopilotResponse {
   @Field(() => String)
   threadId!: string;
 
