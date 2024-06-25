@@ -93,6 +93,7 @@ import {
   ActionExecutionMessage,
   CopilotRuntimeClient,
   Message,
+  Role,
   TextMessage,
   convertGqlOutputToMessages,
   convertMessagesToGqlInput,
@@ -101,7 +102,6 @@ import { FrontendAction } from "../types/frontend-action";
 import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
 import { MessageStatusCode } from "@copilotkit/runtime-client-gql";
-import { plainToInstance } from "class-transformer";
 import { actionParametersToJsonSchema } from "@copilotkit/shared";
 
 export interface CopilotTaskConfig {
@@ -167,14 +167,9 @@ export class CopilotTask<T = any> {
       contextString += context.getContextString([], defaultCopilotContextCategories);
     }
 
-    const systemMessage = plainToInstance(TextMessage, {
-      id: "system",
+    const systemMessage = new TextMessage({
       content: taskSystemMessage(contextString, this.instructions),
-      role: "system",
-      createdAt: new Date(),
-      status: {
-        code: MessageStatusCode.Success,
-      },
+      role: Role.System,
     });
 
     const messages: Message[] = [systemMessage];

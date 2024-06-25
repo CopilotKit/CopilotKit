@@ -8,11 +8,11 @@ import { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggest
 import {
   CopilotRuntimeClient,
   Message,
+  Role,
   TextMessage,
   convertGqlOutputToMessages,
   convertMessagesToGqlInput,
 } from "@copilotkit/runtime-client-gql";
-import { plainToInstance } from "class-transformer";
 import { nanoid } from "nanoid";
 
 /**
@@ -43,33 +43,25 @@ export function useMakeStandardAutosuggestionFunction(
     async (editorState: InsertionEditorState, abortSignal: AbortSignal) => {
       const res = await retry(async () => {
         const messages: Message[] = [
-          plainToInstance(TextMessage, {
-            id: nanoid(),
-            role: "system",
+          new TextMessage({
+            role: Role.System,
             content: apiConfig.makeSystemPrompt(
               textareaPurpose,
               getContextString([], contextCategories),
             ),
-            createdAt: new Date(),
           }),
           ...apiConfig.fewShotMessages,
-          plainToInstance(TextMessage, {
-            id: nanoid(),
-            role: "user",
+          new TextMessage({
+            role: Role.User,
             content: editorState.textAfterCursor,
-            createdAt: new Date(),
           }),
-          plainToInstance(TextMessage, {
-            id: nanoid(),
-            role: "user",
+          new TextMessage({
+            role: Role.User,
             content: `<TextAfterCursor>${editorState.textAfterCursor}</TextAfterCursor>`,
-            createdAt: new Date(),
           }),
-          plainToInstance(TextMessage, {
-            id: nanoid(),
-            role: "user",
+          new TextMessage({
+            role: Role.User,
             content: `<TextBeforeCursor>${editorState.textBeforeCursor}</TextBeforeCursor>`,
-            createdAt: new Date(),
           }),
         ];
 

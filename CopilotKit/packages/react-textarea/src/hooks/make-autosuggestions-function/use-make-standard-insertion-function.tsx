@@ -4,6 +4,7 @@ import { useCallback, useContext } from "react";
 import {
   CopilotRuntimeClient,
   Message,
+  Role,
   TextMessage,
   convertGqlOutputToMessages,
   convertMessagesToGqlInput,
@@ -17,7 +18,6 @@ import { InsertionsApiConfig } from "../../types/autosuggestions-config/insertio
 import { EditingApiConfig } from "../../types/autosuggestions-config/editing-api-config";
 import { DocumentPointer } from "@copilotkit/react-core";
 import { nanoid } from "nanoid";
-import { plainToInstance } from "class-transformer";
 
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
@@ -94,33 +94,25 @@ export function useMakeStandardInsertionOrEditingFunction(
     ) => {
       const res = await retry(async () => {
         const messages: Message[] = [
-          plainToInstance(TextMessage, {
-            id: nanoid(),
-            role: "system",
+          new TextMessage({
+            role: Role.System,
             content: insertionApiConfig.makeSystemPrompt(
               textareaPurpose,
               getContextString(documents, contextCategories),
             ),
-            createdAt: new Date(),
           }),
           ...insertionApiConfig.fewShotMessages,
-          plainToInstance(TextMessage, {
-            id: nanoid(),
-            role: "user",
+          new TextMessage({
+            role: Role.User,
             content: `<TextAfterCursor>${editorState.textAfterCursor}</TextAfterCursor>`,
-            createdAt: new Date(),
           }),
-          plainToInstance(TextMessage, {
-            id: nanoid(),
-            role: "user",
+          new TextMessage({
+            role: Role.User,
             content: `<TextBeforeCursor>${editorState.textBeforeCursor}</TextBeforeCursor>`,
-            createdAt: new Date(),
           }),
-          plainToInstance(TextMessage, {
-            id: nanoid(),
-            role: "user",
+          new TextMessage({
+            role: Role.User,
             content: `<InsertionPrompt>${insertionPrompt}</InsertionPrompt>`,
-            createdAt: new Date(),
           }),
         ];
 
@@ -148,39 +140,29 @@ export function useMakeStandardInsertionOrEditingFunction(
     ) => {
       const res = await retry(async () => {
         const messages: Message[] = [
-          plainToInstance(TextMessage, {
-            id: nanoid(),
-            role: "system",
+          new TextMessage({
+            role: Role.System,
             content: editingApiConfig.makeSystemPrompt(
               textareaPurpose,
               getContextString(documents, contextCategories),
             ),
-            createdAt: new Date(),
           }),
           ...editingApiConfig.fewShotMessages,
-          plainToInstance(TextMessage, {
-            id: nanoid(),
-            role: "user",
+          new TextMessage({
+            role: Role.User,
             content: `<TextBeforeCursor>${editorState.textBeforeCursor}</TextBeforeCursor>`,
-            createdAt: new Date(),
           }),
-          plainToInstance(TextMessage, {
-            id: nanoid(),
-            role: "user",
+          new TextMessage({
+            role: Role.User,
             content: `<TextToEdit>${editorState.selectedText}</TextToEdit>`,
-            createdAt: new Date(),
           }),
-          plainToInstance(TextMessage, {
-            id: nanoid(),
-            role: "user",
+          new TextMessage({
+            role: Role.User,
             content: `<TextAfterCursor>${editorState.textAfterCursor}</TextAfterCursor>`,
-            createdAt: new Date(),
           }),
-          plainToInstance(TextMessage, {
-            id: nanoid(),
-            role: "user",
+          new TextMessage({
+            role: Role.User,
             content: `<EditingPrompt>${editingPrompt}</EditingPrompt>`,
-            createdAt: new Date(),
           }),
         ];
 

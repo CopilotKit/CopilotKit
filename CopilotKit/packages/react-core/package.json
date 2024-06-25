@@ -42,7 +42,6 @@
   "dependencies": {
     "@copilotkit/runtime-client-gql": "workspace:*",
     "@copilotkit/shared": "workspace:*",
-    "class-transformer": "^0.5.1",
     "nanoid": "^4.0.2",
     "untruncate-json": "^0.0.1"
   }

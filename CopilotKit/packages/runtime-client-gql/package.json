@@ -50,6 +50,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "graphql": "^16.8.1",
+    "nanoid": "^5.0.7",
     "untruncate-json": "^0.0.1",
     "urql": "^4.1.0",
     "wonka": "^6.3.4"
