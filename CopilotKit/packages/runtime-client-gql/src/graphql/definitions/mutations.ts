@@ -1,11 +1,11 @@
 import { graphql } from "../@generated/gql";
 
-export const runCopilotChatMutation = graphql(/** GraphQL **/ `
-  mutation runCopilotChat($data: RunCopilotChatInput!, $properties: JSONObject) {
-    runCopilotChat(data: $data, properties: $properties) {
+export const generateCopilotResponseMutation = graphql(/** GraphQL **/ `
+  mutation generateCopilotResponse($data: GenerateCopilotResponseInput!, $properties: JSONObject) {
+    generateCopilotResponse(data: $data, properties: $properties) {
       threadId
       runId
-      ... on CopilotChatResponse @defer {
+      ... on CopilotResponse @defer {
         status {
           ... on BaseResponseStatus {
             code

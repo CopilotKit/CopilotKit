@@ -1,5 +1,5 @@
 import {
-  RunCopilotChatMutation,
+  GenerateCopilotResponseMutation,
   MessageInput,
   MessageStatusCode,
 } from "../graphql/@generated/graphql";
@@ -45,7 +45,7 @@ export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
 }
 
 export function convertGqlOutputToMessages(
-  messages: RunCopilotChatMutation["runCopilotChat"]["messages"],
+  messages: GenerateCopilotResponseMutation["generateCopilotResponse"]["messages"],
 ): Message[] {
   return messages.map((message) => {
     if (message.__typename === "TextMessageOutput") {

@@ -4,7 +4,7 @@ import { FrontendInput } from "./frontend.input";
 import { CloudInput } from "./cloud.input";
 
 @InputType()
-export class RunCopilotChatInput {
+export class GenerateCopilotResponseInput {
   @Field(() => String, { nullable: true })
   threadId?: string;
 
