@@ -70,7 +70,7 @@ export function useMakeStandardAutosuggestionFunction(
         });
 
         const response = await runtimeClient
-          .runCopilotChat({
+          .generateCopilotResponse({
             frontend: {
               actions: [],
             },
@@ -80,7 +80,7 @@ export function useMakeStandardAutosuggestionFunction(
 
         let result = "";
         for (const message of convertGqlOutputToMessages(
-          response.data?.runCopilotChat?.messages ?? [],
+          response.data?.generateCopilotResponse?.messages ?? [],
         )) {
           if (abortSignal.aborted) {
             break;
