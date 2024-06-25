@@ -1,12 +1,15 @@
-import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
+import {
+  CopilotRuntime,
+  OpenAIAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import { NextRequest } from "next/server";
 import OpenAI from "openai";
 
 export const runtime = "edge";
 const AZURE_OPENAI_API_KEY = "AZURE_OPENAI_API_KEY";
 
-export async function POST(req: Request): Promise<Response> {
-  const copilotKit = new CopilotRuntime();
-
+export const POST = async (req: NextRequest) => {
   // The name of your Azure OpenAI Instance.
   // https://learn.microsoft.com/en-us/azure/cognitive-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource
   const instance = "<your instance name>";
@@ -27,7 +30,14 @@ export async function POST(req: Request): Promise<Response> {
     defaultHeaders: { "api-key": apiKey },
   });
 
-  // TODO-PROTOCOL: there is a compile error
-  // @ts-ignore
-  return copilotKit.response(req, new OpenAIAdapter({ openai }));
-}
+  const runtime = new CopilotRuntime();
+  const serviceAdapter = new OpenAIAdapter();
+
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: req.nextUrl.pathname,
+  });
+
+  return handleRequest(req);
+};
