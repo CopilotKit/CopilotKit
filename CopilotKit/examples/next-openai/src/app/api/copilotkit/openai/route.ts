@@ -5,8 +5,6 @@ import {
 } from "@copilotkit/runtime";
 import { NextRequest } from "next/server";
 
-export const runtime = "edge";
-
 export const POST = async (req: NextRequest) => {
   const runtime = new CopilotRuntime({
     // debug: true,

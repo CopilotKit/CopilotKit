@@ -7,8 +7,6 @@ import { researchWithLangGraph } from "./research";
 import { Action } from "@copilotkit/shared";
 import { NextRequest } from "next/server";
 
-export const runtime = "edge";
-
 const researchAction = {
   name: "research",
   description:

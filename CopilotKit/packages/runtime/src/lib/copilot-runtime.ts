@@ -98,15 +98,7 @@
  * When left out, arguments are automatically inferred from the schema provided by LangServe.
  */
 
-import {
-  Action,
-  EXCLUDE_FROM_FORWARD_PROPS_KEYS,
-  actionParametersToJsonSchema,
-  Parameter,
-  AnnotatedFunction,
-  annotatedFunctionToAction,
-  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
-} from "@copilotkit/shared";
+import { Action, actionParametersToJsonSchema, Parameter } from "@copilotkit/shared";
 import { RemoteChain, CopilotServiceAdapter } from "../service-adapters";
 import { CopilotCloud, RemoteCopilotCloud } from "./copilot-cloud";
 import { MessageInput } from "../graphql/inputs/message.input";
@@ -144,32 +136,15 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
   copilotCloud?: CopilotCloud;
 }
 
-interface CopilotDeprecatedRuntimeConstructorParams<T extends Parameter[] | [] = []> {
-  actions?: AnnotatedFunction<any>[];
-  langserve?: RemoteChain[];
-  debug?: boolean;
-  copilotCloud?: CopilotCloud;
-}
-
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   public actions: Action<any>[] = [];
   private langserve: Promise<Action<any>>[] = [];
   private debug: boolean = false;
   private copilotCloud: CopilotCloud;
 
-  constructor(params?: CopilotRuntimeConstructorParams<T>);
-  // @deprecated use Action<T> instead of AnnotatedFunction<T>
-  constructor(params?: CopilotDeprecatedRuntimeConstructorParams<T>);
-  constructor(
-    params?: CopilotRuntimeConstructorParams<T> | CopilotDeprecatedRuntimeConstructorParams<T>,
-  ) {
-    for (const action of params?.actions || []) {
-      if ("argumentAnnotations" in action) {
-        this.actions.push(annotatedFunctionToAction(action));
-      } else {
-        this.actions.push(action);
-      }
-    }
+  constructor(params?: CopilotRuntimeConstructorParams<T>) {
+    this.actions = params?.actions || [];
+
     for (const chain of params?.langserve || []) {
       const remoteChain = new RemoteChain(chain);
       this.langserve.push(remoteChain.toAction());
@@ -178,42 +153,13 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     this.copilotCloud = params?.copilotCloud || new RemoteCopilotCloud();
   }
 
-  addAction<const T extends Parameter[] | [] = []>(action: Action<T>): void;
-  /** @deprecated Use addAction with Action<T> instead. */
-  addAction(action: AnnotatedFunction<any>): void;
-  addAction<const T extends Parameter[] | [] = []>(
-    action: Action<T> | AnnotatedFunction<any>,
-  ): void {
+  addAction<const T extends Parameter[] | [] = []>(action: Action<T>): void {
     this.removeAction(action.name);
-    if ("argumentAnnotations" in action) {
-      this.actions.push(annotatedFunctionToAction(action));
-    } else {
-      this.actions.push(action);
-    }
+    this.actions.push(action);
   }
 
   removeAction(actionName: string): void {
     this.actions = this.actions.filter((f) => f.name !== actionName);
-  }
-
-  removeBackendOnlyProps(forwardedProps: any): void {
-    // Get keys backendOnlyPropsKeys in order to remove them from the forwardedProps
-    const backendOnlyPropsKeys = forwardedProps[EXCLUDE_FROM_FORWARD_PROPS_KEYS];
-    if (Array.isArray(backendOnlyPropsKeys)) {
-      backendOnlyPropsKeys.forEach((key) => {
-        const success = Reflect.deleteProperty(forwardedProps, key);
-        if (!success) {
-          console.error(`Failed to delete property ${key}`);
-        }
-      });
-      // After deleting individual backend-only properties, delete the EXCLUDE_FROM_FORWARD_PROPS_KEYS property itself from forwardedProps
-      const success = Reflect.deleteProperty(forwardedProps, EXCLUDE_FROM_FORWARD_PROPS_KEYS);
-      if (!success) {
-        console.error(`Failed to delete EXCLUDE_FROM_FORWARD_PROPS_KEYS`);
-      }
-    } else if (backendOnlyPropsKeys) {
-      console.error("backendOnlyPropsKeys is not an array");
-    }
   }
 
   async process({
@@ -294,79 +240,6 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       console.error("Error getting response:", error);
       throw error;
     }
-  }
-
-  /**
-   * Returns a `Response` object for streaming back the result to the client
-   *
-   * @param req The HTTP request
-   * @param serviceAdapter The adapter to use for the response.
-   */
-  async response(req: Request, serviceAdapter: CopilotServiceAdapter): Promise<Response> {
-    const publicApiKey = req.headers.get(COPILOT_CLOUD_PUBLIC_API_KEY_HEADER) || undefined;
-    try {
-      const forwardedProps = await req.json();
-      throw new Error("obsolete");
-      // const response = await this.getResponse(forwardedProps, serviceAdapter, publicApiKey);
-      // return new Response(response.stream);
-    } catch (error: any) {
-      return new Response(error, { status: error.status });
-    }
-  }
-
-  /**
-   * Streams messages back to the client using the HTTP response object. Use with express,
-or Node.js HTTP server.
-    *
-    * @param req The HTTP request
-    * @param res The HTTP response
-    * @param serviceAdapter The adapter to use for the response.
-    * @param headers Additional headers to send with the response.
-    */
-  async streamHttpServerResponse(
-    req: any,
-    res: any,
-    serviceAdapter: CopilotServiceAdapter,
-    headers?: Record<string, string>,
-  ) {
-    const bodyParser = new Promise<any>((resolve, reject) => {
-      if ("body" in req) {
-        resolve(req.body);
-        return;
-      }
-      let body = "";
-      req.on("data", (chunk: any) => (body += chunk.toString()));
-      req.on("end", () => {
-        try {
-          resolve(JSON.parse(body));
-        } catch (error) {
-          reject(error);
-        }
-      });
-    });
-    const forwardedProps = await bodyParser;
-    const publicApiKey =
-      (req.header
-        ? // use header() in express
-          req.header(COPILOT_CLOUD_PUBLIC_API_KEY_HEADER)
-        : // use headers in node http
-          req.headers[COPILOT_CLOUD_PUBLIC_API_KEY_HEADER.toLowerCase()]) || undefined;
-    // const response = await this.getResponse(forwardedProps, serviceAdapter, publicApiKey);
-    throw new Error("obsolete");
-    const mergedHeaders = { ...headers };
-    res.writeHead(200, mergedHeaders);
-    // const stream = response.stream;
-    // const reader = stream.getReader();
-
-    // while (true) {
-    //   const { done, value } = await reader.read();
-    //   if (done) {
-    //     res.end();
-    //     break;
-    //   } else {
-    //     res.write(new TextDecoder().decode(value));
-    //   }
-    // }
   }
 }
 

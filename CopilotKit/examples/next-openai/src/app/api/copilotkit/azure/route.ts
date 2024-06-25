@@ -6,7 +6,6 @@ import {
 import { NextRequest } from "next/server";
 import OpenAI from "openai";
 
-export const runtime = "edge";
 const AZURE_OPENAI_API_KEY = "AZURE_OPENAI_API_KEY";
 
 export const POST = async (req: NextRequest) => {
@@ -31,7 +30,7 @@ export const POST = async (req: NextRequest) => {
   });
 
   const runtime = new CopilotRuntime();
-  const serviceAdapter = new OpenAIAdapter();
+  const serviceAdapter = new OpenAIAdapter({ openai });
 
   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
     runtime,
