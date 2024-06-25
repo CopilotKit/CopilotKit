@@ -132,7 +132,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
 
     const stream = CopilotRuntimeClient.asStream(
-      runtimeClient.run({
+      runtimeClient.generateCopilotResponse({
         frontend: {
           actions: actions.map((action) => ({
             name: action.name,
