@@ -99,7 +99,7 @@
  */
 
 import { Action, actionParametersToJsonSchema, Parameter } from "@copilotkit/shared";
-import { RemoteChain, CopilotServiceAdapter } from "../service-adapters";
+import { RemoteChain, RemoteChainParameters, CopilotServiceAdapter } from "../service-adapters";
 import { CopilotCloud, RemoteCopilotCloud } from "./copilot-cloud";
 import { MessageInput } from "../graphql/inputs/message.input";
 import { ActionInput } from "../graphql/inputs/action.input";
@@ -130,7 +130,7 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
   /*
    * An array of LangServer URLs.
    */
-  langserve?: RemoteChain[];
+  langserve?: RemoteChainParameters[];
 
   debug?: boolean;
   copilotCloud?: CopilotCloud;

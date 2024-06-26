@@ -66,7 +66,7 @@ use_local_packages() {
     echo "Building local packages..."
     pnpm -w freshbuild
     echo "Done building local packages."
-    packages="file:$(pwd)/packages/backend file:$(pwd)/packages/react-core file:$(pwd)/packages/react-textarea file:$(pwd)/packages/react-ui file:$(pwd)/packages/shared"
+    packages="file:$(pwd)/packages/runtime file:$(pwd)/packages/react-core file:$(pwd)/packages/react-textarea file:$(pwd)/packages/react-ui file:$(pwd)/packages/shared"
 }
 
 yarn_install_packages() {
