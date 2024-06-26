@@ -18,4 +18,3 @@ export class GuardrailsResult {
   @Field(() => String, { nullable: true })
   reason?: string;
 }
-

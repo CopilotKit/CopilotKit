@@ -2,8 +2,8 @@ import { Field, InputType, Int, createUnionType } from "type-graphql";
 
 const PrimitiveUnion = createUnionType({
   name: "Primitive",
-  types: () => [String, Number, Boolean] as const
-})
+  types: () => [String, Number, Boolean] as const,
+});
 
 @InputType()
 export class CustomPropertyInput {
@@ -13,4 +13,3 @@ export class CustomPropertyInput {
   @Field(() => PrimitiveUnion)
   value: string;
 }
-

@@ -22,7 +22,8 @@ export class CopilotResolver {
   async generateCopilotResponse(
     @Ctx() ctx: GraphQLContext,
     @Arg("data") data: GenerateCopilotResponseInput,
-    @Arg("properties", () => GraphQLJSONObject, { nullable: true }) properties?: CopilotRequestContextProperties,
+    @Arg("properties", () => GraphQLJSONObject, { nullable: true })
+    properties?: CopilotRequestContextProperties,
   ) {
     if (properties) {
       ctx._copilotkit.properties = { ...ctx._copilotkit.properties, ...properties };

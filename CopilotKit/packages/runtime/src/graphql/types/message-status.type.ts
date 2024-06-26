@@ -3,12 +3,12 @@ import { Field, ObjectType, createUnionType, registerEnumType } from "type-graph
 export enum MessageStatusCode {
   Pending = "pending",
   Success = "success",
-  Failed ="failed",
+  Failed = "failed",
 }
 
 registerEnumType(MessageStatusCode, {
-  name: "MessageStatusCode"
-})
+  name: "MessageStatusCode",
+});
 
 @ObjectType()
 class BaseMessageStatus {
