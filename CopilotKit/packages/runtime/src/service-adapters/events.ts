@@ -1,6 +1,7 @@
 import { Action } from "@copilotkit/shared";
-import { of, concat, map, scan, concatMap, ReplaySubject } from "rxjs";
+import { of, concat, map, scan, concatMap, ReplaySubject, Subject, firstValueFrom } from "rxjs";
 import { streamLangChainResponse } from "./langchain/utils";
+import { GuardrailsResult } from "../graphql/types/guardrails-result.type";
 
 export enum RuntimeEventTypes {
   TextMessageStart = "TextMessageStart",
@@ -109,7 +110,13 @@ export class RuntimeEventSource {
     this.callback = callback;
   }
 
-  process(serversideActions: Action<any>[]) {
+  process({
+    serversideActions,
+    guardrailsResult$,
+  }: {
+    serversideActions: Action<any>[];
+    guardrailsResult$?: Subject<GuardrailsResult>;
+  }) {
     this.callback(this.eventStream$).catch((error) => {
       console.error("Error in event source callback", error);
     });
@@ -156,6 +163,7 @@ export class RuntimeEventSource {
           const toolCallEventStream$ = new RuntimeEventSubject();
           executeAction(
             toolCallEventStream$,
+            guardrailsResult$ ? guardrailsResult$ : null,
             eventWithState.action!,
             eventWithState.args,
             eventWithState.actionExecutionId,
@@ -173,10 +181,20 @@ export class RuntimeEventSource {
 
 async function executeAction(
   eventStream$: RuntimeEventSubject,
+  guardrailsResult$: Subject<GuardrailsResult> | null,
   action: Action<any>,
   actionArguments: string,
   actionExecutionId: string,
 ) {
+  if (guardrailsResult$) {
+    const { status } = await firstValueFrom(guardrailsResult$);
+
+    if (status === "denied") {
+      eventStream$.complete();
+      return;
+    }
+  }
+
   // Prepare arguments for function calling
   let args: Record<string, any>[] = [];
   if (actionArguments) {

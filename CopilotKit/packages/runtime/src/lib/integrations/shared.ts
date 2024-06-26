@@ -1,10 +1,10 @@
 import { YogaInitialContext } from "graphql-yoga";
-import { GuardrailsOptions } from "../guardrails";
 import { buildSchemaSync } from "type-graphql";
 import { CopilotResolver } from "../../graphql/resolvers/copilot.resolver";
 import { useDeferStream } from "@graphql-yoga/plugin-defer-stream";
 import { CopilotRuntime } from "../copilot-runtime";
 import { CopilotServiceAdapter } from "../../service-adapters";
+import { CopilotCloudOptions } from "../cloud";
 
 type AnyPrimitive = string | boolean | number | null;
 export type CopilotRequestContextProperties = Record<string, AnyPrimitive | Record<string, AnyPrimitive>>;
@@ -13,6 +13,8 @@ type CopilotKitContext = {
   runtime: CopilotRuntime;
   serviceAdapter: CopilotServiceAdapter;
   properties: CopilotRequestContextProperties;
+  cloud: CopilotCloudOptions;
+  baseUrl?: string;
 };
 
 export type GraphQLContext = YogaInitialContext & {
@@ -22,7 +24,9 @@ export type GraphQLContext = YogaInitialContext & {
 export interface CreateCopilotRuntimeServerOptions {
   runtime: CopilotRuntime;
   serviceAdapter: CopilotServiceAdapter;
-  guardrails?: GuardrailsOptions;
+  endpoint: string;
+  baseUrl?: string;
+  cloud?: CopilotCloudOptions;
 }
 
 export async function createContext(
@@ -59,7 +63,9 @@ export function getCommonConfig(options?: CreateCopilotRuntimeServerOptions) {
       createContext(ctx, {
         runtime: options.runtime,
         serviceAdapter: options.serviceAdapter,
-        properties: {}
+        properties: {},
+        cloud: options.cloud,
+        baseUrl: options.baseUrl,
       }),
   };
 }

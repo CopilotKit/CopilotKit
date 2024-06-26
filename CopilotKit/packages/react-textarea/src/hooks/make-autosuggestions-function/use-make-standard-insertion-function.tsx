@@ -47,6 +47,8 @@ export function useMakeStandardInsertionOrEditingFunction(
 
   const runtimeClient = new CopilotRuntimeClient({
     url: copilotApiConfig.chatApiEndpoint,
+    publicApiKey: copilotApiConfig.publicApiKey,
+    headers,
   });
 
   async function runtimeClientResponseToStringStream(
@@ -168,6 +170,8 @@ export function useMakeStandardInsertionOrEditingFunction(
 
         const runtimeClient = new CopilotRuntimeClient({
           url: copilotApiConfig.chatApiEndpoint,
+          publicApiKey: copilotApiConfig.publicApiKey,
+          headers,
         });
 
         // TODO-PROTOCOL: forwarded props, headers and abort signal

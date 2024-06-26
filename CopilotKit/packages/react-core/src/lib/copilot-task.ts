@@ -176,6 +176,8 @@ export class CopilotTask<T = any> {
 
     const runtimeClient = new CopilotRuntimeClient({
       url: context.copilotApiConfig.chatApiEndpoint,
+      publicApiKey: context.copilotApiConfig.publicApiKey,
+      headers: context.copilotApiConfig.headers,
     });
 
     const response = await runtimeClient
