@@ -32,7 +32,7 @@ export class CopilotRuntimeClient {
       exchanges: [cacheExchange, fetchExchange],
       fetchOptions: {
         headers,
-      }
+      },
     });
   }
 

@@ -6,7 +6,7 @@ export function copilotRuntimeNodeHttpEndpoint({
   endpoint,
   baseUrl,
   serviceAdapter,
-  cloud
+  cloud,
 }: CreateCopilotRuntimeServerOptions) {
   const commonConfig = getCommonConfig({ runtime, endpoint, baseUrl, serviceAdapter, cloud });
 

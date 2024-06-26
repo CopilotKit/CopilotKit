@@ -69,7 +69,6 @@ const invokeGuardrails = async ({
       body: JSON.stringify(body),
     });
 
-    
     const resultJson: GuardrailsResult = await guardrailsResult.json();
     onResult(resultJson);
   }
@@ -159,7 +158,10 @@ export class CopilotResolver {
 
         // run and process the event stream
         const eventStream = eventSource
-          .process({ serversideActions: copilotRuntime.actions, guardrailsResult$: data.cloud?.guardrails ? guardrailsResult$ : null })
+          .process({
+            serversideActions: copilotRuntime.actions,
+            guardrailsResult$: data.cloud?.guardrails ? guardrailsResult$ : null,
+          })
           .pipe(
             // shareReplay() ensures that later subscribers will see the whole stream instead of
             // just the events that were emitted after the subscriber was added.
