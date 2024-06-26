@@ -152,7 +152,7 @@ export async function streamLangChainResponse({
 
   // 4. IterableReadableStream
   // Stream the result of the LangChain function.
-  else if ("getReader" in result) {
+  else if (result && "getReader" in result) {
     let reader = result.getReader();
 
     let mode: "function" | "message" | null = null;
@@ -219,10 +219,11 @@ export async function streamLangChainResponse({
       }
     }
   } else if (actionExecution) {
+    console.log("RUNNING INTO THIS");
     eventStream$.sendActionExecutionResult(
       actionExecution.id,
       actionExecution.name,
-      JSON.stringify(result),
+      encodeResult(result),
     );
   }
 
@@ -232,4 +233,14 @@ export async function streamLangChainResponse({
   }
 
   eventStream$.complete();
+}
+
+function encodeResult(result: any): string {
+  if (result === undefined) {
+    return "";
+  } else if (typeof result === "string") {
+    return result;
+  } else {
+    return JSON.stringify(result);
+  }
 }

@@ -24,7 +24,6 @@ const runtime = new CopilotRuntime({
       ],
       handler: ({ roast }) => {
         console.log(roast);
-        return "The person has been roasted.";
       },
     },
   ],
