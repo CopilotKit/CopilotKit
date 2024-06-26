@@ -16,6 +16,7 @@ type CopilotKitContext = {
   runtime: CopilotRuntime;
   serviceAdapter: CopilotServiceAdapter;
   properties: CopilotRequestContextProperties;
+  debug: boolean;
 };
 
 export type GraphQLContext = YogaInitialContext & {
@@ -26,6 +27,7 @@ export interface CreateCopilotRuntimeServerOptions {
   runtime: CopilotRuntime;
   serviceAdapter: CopilotServiceAdapter;
   guardrails?: GuardrailsOptions;
+  debug?: boolean;
 }
 
 export async function createContext(
@@ -63,6 +65,7 @@ export function getCommonConfig(options?: CreateCopilotRuntimeServerOptions) {
         runtime: options.runtime,
         serviceAdapter: options.serviceAdapter,
         properties: {},
+        debug: options.debug ?? false,
       }),
   };
 }

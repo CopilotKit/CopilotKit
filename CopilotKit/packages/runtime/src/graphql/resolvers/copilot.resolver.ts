@@ -30,6 +30,7 @@ export class CopilotResolver {
     }
     const copilotRuntime = ctx._copilotkit.runtime;
     const serviceAdapter = ctx._copilotkit.serviceAdapter;
+    const debug = ctx._copilotkit.debug;
     const responseStatus = new Subject<typeof ResponseStatusUnion>();
 
     const {
@@ -58,6 +59,10 @@ export class CopilotResolver {
         );
         eventStream.subscribe({
           next: async (event) => {
+            if (debug) {
+              const { type, ...rest } = event;
+              console.log(`[EVENT ${type}]`, JSON.stringify(rest));
+            }
             switch (event.type) {
               ////////////////////////////////
               // TextMessageStart

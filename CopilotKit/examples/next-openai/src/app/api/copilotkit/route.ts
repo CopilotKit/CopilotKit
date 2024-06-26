@@ -30,20 +30,21 @@ const runtime = new CopilotRuntime({
   ],
 });
 
-// export const { GET, POST, OPTIONS } = copilotRuntimeNextJSAppRouterEndpoint({
-//   runtime,
-//   serviceAdapter,
-//   endpoint: "/api/copilotkit",
-// });
+export const { GET, POST, OPTIONS } = copilotRuntimeNextJSAppRouterEndpoint({
+  runtime,
+  serviceAdapter,
+  endpoint: "/api/copilotkit",
+  debug: true,
+}) as any;
 
 // OR
 
-export const POST = async (req: NextRequest) => {
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime,
-    serviceAdapter,
-    endpoint: "/api/copilotkit",
-  });
+// export const POST = async (req: NextRequest) => {
+//   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+//     runtime,
+//     serviceAdapter,
+//     endpoint: "/api/copilotkit",
+//   });
 
-  return handleRequest(req);
-};
+//   return handleRequest(req);
+// };

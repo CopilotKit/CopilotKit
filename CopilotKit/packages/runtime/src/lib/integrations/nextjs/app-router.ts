@@ -7,12 +7,14 @@ export function copilotRuntimeNextJSAppRouterEndpoint({
   runtime,
   endpoint,
   serviceAdapter,
+  debug,
 }: {
   runtime: CopilotRuntime;
   serviceAdapter: CopilotServiceAdapter;
   endpoint: string;
+  debug?: boolean;
 }) {
-  const commonConfig = getCommonConfig({ runtime, serviceAdapter });
+  const commonConfig = getCommonConfig({ runtime, serviceAdapter, debug });
 
   const yoga = createYoga({
     ...commonConfig,
