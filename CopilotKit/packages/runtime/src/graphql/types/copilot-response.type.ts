@@ -1,6 +1,6 @@
 import { Field, InterfaceType, ObjectType } from "type-graphql";
 import { MessageRole, ActionExecutionScope } from "./enums";
-import { MessageStatusUnion} from "./message-status.type";
+import { MessageStatusUnion } from "./message-status.type";
 import { ResponseStatusUnion } from "./response-status.type";
 
 @InterfaceType({
@@ -15,7 +15,6 @@ import { ResponseStatusUnion } from "./response-status.type";
     return undefined;
   },
 })
-
 abstract class BaseMessageOutput {
   @Field(() => String)
   id: string;

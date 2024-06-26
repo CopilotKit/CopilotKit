@@ -7,7 +7,10 @@ import { CopilotRuntime } from "../copilot-runtime";
 import { CopilotServiceAdapter } from "../../service-adapters";
 
 type AnyPrimitive = string | boolean | number | null;
-export type CopilotRequestContextProperties = Record<string, AnyPrimitive | Record<string, AnyPrimitive>>;
+export type CopilotRequestContextProperties = Record<
+  string,
+  AnyPrimitive | Record<string, AnyPrimitive>
+>;
 
 type CopilotKitContext = {
   runtime: CopilotRuntime;
@@ -59,7 +62,7 @@ export function getCommonConfig(options?: CreateCopilotRuntimeServerOptions) {
       createContext(ctx, {
         runtime: options.runtime,
         serviceAdapter: options.serviceAdapter,
-        properties: {}
+        properties: {},
       }),
   };
 }

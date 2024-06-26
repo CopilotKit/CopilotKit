@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import Image from "next/image";
 import { Inter } from "next/font/google";
@@ -14,21 +14,19 @@ export default function Home() {
       transcribeAudioUrl="/api/transcribe"
       textToSpeechUrl="/api/tts"
     >
-        <CopilotSidebar
-          instructions={
-            "Be friendly and helpful to the user."
-          }
-          defaultOpen={true}
-          labels={{
-            title: "Copilot",
-            initial: "Hi you! 👋 I can help you with anything.",
-          }}
-          clickOutsideToClose={false}
-        >
-          <div>
-            <h1>Hello</h1>
-          </div>
-        </CopilotSidebar>
+      <CopilotSidebar
+        instructions={"Be friendly and helpful to the user."}
+        defaultOpen={true}
+        labels={{
+          title: "Copilot",
+          initial: "Hi you! 👋 I can help you with anything.",
+        }}
+        clickOutsideToClose={false}
+      >
+        <div>
+          <h1>Hello</h1>
+        </div>
+      </CopilotSidebar>
     </CopilotKit>
   );
 }

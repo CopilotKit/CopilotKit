@@ -13,7 +13,7 @@ const config: CodegenConfig = {
         useTypeImports: true,
         withHooks: false,
       },
-      plugins: []
+      plugins: [],
     },
   },
   hooks: {},
