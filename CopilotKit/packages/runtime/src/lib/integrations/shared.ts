@@ -7,7 +7,10 @@ import { CopilotServiceAdapter } from "../../service-adapters";
 import { CopilotCloudOptions } from "../cloud";
 
 type AnyPrimitive = string | boolean | number | null;
-export type CopilotRequestContextProperties = Record<string, AnyPrimitive | Record<string, AnyPrimitive>>;
+export type CopilotRequestContextProperties = Record<
+  string,
+  AnyPrimitive | Record<string, AnyPrimitive>
+>;
 
 type CopilotKitContext = {
   runtime: CopilotRuntime;

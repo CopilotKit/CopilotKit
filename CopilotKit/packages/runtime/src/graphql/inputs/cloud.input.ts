@@ -6,4 +6,3 @@ export class CloudInput {
   @Field(() => GuardrailsInput, { nullable: true })
   guardrails?: GuardrailsInput;
 }
-

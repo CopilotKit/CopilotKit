@@ -134,9 +134,11 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
       currentAutocompleteSuggestion,
       onChangeHandler: onChangeHandlerForAutocomplete,
       onKeyDownHandler: onKeyDownHandlerForAutocomplete,
+      onTouchStartHandler: onTouchStartHandlerForAutocomplete,
     } = useAutosuggestions(
       autosuggestionsConfig.debounceTime,
       autosuggestionsConfig.shouldAcceptAutosuggestionOnKeyPress,
+      autosuggestionsConfig.shouldAcceptAutosuggestionOnTouch,
       autosuggestionsConfig.apiConfig.autosuggestionsFunction,
       insertText,
       autosuggestionsConfig.disableWhenEmpty,
@@ -270,6 +272,9 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
             onKeyDownHandlerForHoveringEditor(event); // forward the event for internal use
             onKeyDownHandlerForAutocomplete(event); // forward the event for internal use
             props.onKeyDown?.(event); // forward the event for external use
+          }}
+          onTouchStart={(event) => {
+            onTouchStartHandlerForAutocomplete(event); // forward the event for internal use
           }}
           className={moddedClassName}
           onBlur={(ev) => {

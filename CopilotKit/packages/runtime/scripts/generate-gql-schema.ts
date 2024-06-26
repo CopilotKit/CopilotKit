@@ -11,4 +11,3 @@ buildSchema({
 });
 
 console.log(`Schema generated to ${outputPath}`);
-

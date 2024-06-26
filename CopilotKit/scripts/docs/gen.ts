@@ -1,7 +1,9 @@
 import { Documentation } from "./lib/doc";
 import { getAnnotatedMdxDocs } from "./lib/mdx";
+import { copyFileSync } from "fs";
 
 const DOCS_PATH = "../docs";
+const CSS_PATH = "packages/react-ui/dist/index.css";
 
 getAnnotatedMdxDocs(DOCS_PATH)
   .then(async (annotations) => {
@@ -9,6 +11,10 @@ getAnnotatedMdxDocs(DOCS_PATH)
       const doc = new Documentation(annotation);
       await doc.generate();
     }
+  })
+  .then(async () => {
+    // copy over the style.css file
+    copyFileSync(CSS_PATH, "../docs/_snippets/style.css");
   })
   .catch((error) => {
     console.error("Error generating docs:", error);

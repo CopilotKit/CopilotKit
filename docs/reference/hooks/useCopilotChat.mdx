@@ -5,12 +5,10 @@ description: "A hook for accessing Copilot's chat API."
 
 {/* GENERATE-DOCS path=packages/react-core/src/hooks/use-copilot-chat.ts hook=useCopilotChat */}
  
-`useCopilotChat` is a React hook that provides access to the Copilot chat API.
-You can use it to programmatically send or edit messages in a chat.
- 
-It is the building block of the chat components that come with CopilotKit. If
-you are looking for a headless option for building chat UIs, this is the hook
-you want to use.
+`useCopilotChat` is a React hook that lets you directly interact with the
+Copilot instance. Use to implement a fully custom UI (headless UI) or to
+programmatically interact with the Copilot instance managed by the default
+UI.
  
 <RequestExample>
   ```jsx useCopilotChat Example

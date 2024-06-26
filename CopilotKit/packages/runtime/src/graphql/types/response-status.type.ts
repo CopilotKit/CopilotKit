@@ -3,12 +3,12 @@ import { Field, InterfaceType, ObjectType, createUnionType, registerEnumType } f
 export enum ResponseStatusCode {
   Pending = "pending",
   Success = "success",
-  Failed ="failed",
+  Failed = "failed",
 }
 
 registerEnumType(ResponseStatusCode, {
-  name: "ResponseStatusCode"
-})
+  name: "ResponseStatusCode",
+});
 
 @InterfaceType({
   resolveType(value) {
@@ -22,8 +22,6 @@ registerEnumType(ResponseStatusCode, {
     return undefined;
   },
 })
-
-
 @ObjectType()
 abstract class BaseResponseStatus {
   @Field(() => ResponseStatusCode)
