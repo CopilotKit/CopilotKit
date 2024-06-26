@@ -2,13 +2,20 @@ import {
   Action,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   MappedParameterTypes,
-  Message,
   Parameter,
+  actionParametersToJsonSchema,
 } from "@copilotkit/shared";
+import {
+  ActionExecutionMessage,
+  Message,
+  Role,
+  TextMessage,
+  convertGqlOutputToMessages,
+} from "@copilotkit/runtime-client-gql";
 import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
-import { fetchAndDecodeChatCompletion } from "./fetch-chat-completion";
-import untruncateJson from "untruncate-json";
+import { CopilotRuntimeClient } from "@copilotkit/runtime-client-gql";
+import { convertMessagesToGqlInput } from "@copilotkit/runtime-client-gql";
 
 interface InitialState<T extends Parameter[] | [] = []> {
   status: "initial";
@@ -75,12 +82,12 @@ export async function extract<const T extends Parameter[]>({
     contextString += context.getContextString([], defaultCopilotContextCategories);
   }
 
-  const systemMessage: Message = {
-    id: "system",
+  const systemMessage: Message = new TextMessage({
     content: makeSystemMessage(contextString, instructions),
-    role: "system",
-  };
+    role: Role.System,
+  });
 
+  // TODO-PROTOCOL: Include headers?
   const headers = {
     ...(context.copilotApiConfig.headers || {}),
     ...(context.copilotApiConfig.publicApiKey
@@ -88,22 +95,33 @@ export async function extract<const T extends Parameter[]>({
       : {}),
   };
 
-  const response = await fetchAndDecodeChatCompletion({
-    copilotConfig: context.copilotApiConfig,
-    messages: includeMessages ? [systemMessage, ...messages] : [systemMessage],
-    tools: context.getChatCompletionFunctionDescriptions({ extract: action }),
-    headers,
-    body: context.copilotApiConfig.body,
-    toolChoice: { type: "function", function: { name: "extract" } },
-    signal: abortSignal,
+  const runtimeClient = new CopilotRuntimeClient({
+    url: context.copilotApiConfig.chatApiEndpoint,
   });
 
-  if (!response.events) {
-    throw new Error("extract() failed: Could not fetch chat completion");
-  }
+  const response = CopilotRuntimeClient.asStream(
+    runtimeClient.generateCopilotResponse({
+      frontend: {
+        actions: [
+          {
+            name: action.name,
+            description: action.description || "",
+            jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
+          },
+        ],
+      },
 
-  const reader = response.events.getReader();
+      messages: convertMessagesToGqlInput(
+        includeMessages ? [systemMessage, ...messages] : [systemMessage],
+      ),
+    }),
+  );
+
+  const reader = response.getReader();
+
   let isInitial = true;
+
+  let actionExecutionMessage: ActionExecutionMessage | undefined = undefined;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -112,27 +130,34 @@ export async function extract<const T extends Parameter[]>({
       break;
     }
 
-    if (value.type === "partial") {
-      try {
-        let partialArguments = JSON.parse(untruncateJson(value.arguments));
-        stream?.({
-          status: isInitial ? "initial" : "inProgress",
-          args: partialArguments as Partial<MappedParameterTypes<T>>,
-        });
-        isInitial = false;
-      } catch (e) {}
+    actionExecutionMessage = convertGqlOutputToMessages(
+      value.generateCopilotResponse.messages,
+    ).find((msg) => msg instanceof ActionExecutionMessage) as ActionExecutionMessage | undefined;
+
+    if (!actionExecutionMessage) {
+      continue;
     }
 
-    if (value.type === "function") {
-      stream?.({
-        status: "complete",
-        args: value.arguments as MappedParameterTypes<T>,
-      });
-      return value.arguments as MappedParameterTypes<T>;
-    }
+    stream?.({
+      status: isInitial ? "initial" : "inProgress",
+      args: actionExecutionMessage.arguments as Partial<MappedParameterTypes<T>>,
+    });
+
+    isInitial = false;
   }
 
-  throw new Error("extract() failed: No function call occurred");
+  if (!actionExecutionMessage) {
+    throw new Error("extract() failed: No function call occurred");
+  }
+
+  stream?.({
+    status: "complete",
+    args: actionExecutionMessage.arguments as MappedParameterTypes<T>,
+  });
+
+  console.log("result:", actionExecutionMessage.arguments);
+
+  return actionExecutionMessage.arguments as MappedParameterTypes<T>;
 }
 
 function makeSystemMessage(contextString: string, instructions: string): string {
@@ -147,7 +172,7 @@ The user has provided you with the following context:
 ${contextString}
 \`\`\`
 
-They have also provided you with a function you MUST call to initiate actions on their behalf.
+They have also provided you with a function called extract you MUST call to initiate actions on their behalf.
 
 Please assist them as best you can.
 

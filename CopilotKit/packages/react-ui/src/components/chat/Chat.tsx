@@ -59,7 +59,7 @@ import { SystemMessageFunction, useCopilotChat, useCopilotContext } from "@copil
 import { nanoid } from "nanoid";
 import { reloadSuggestions } from "./Suggestion";
 import { CopilotChatSuggestion } from "../../types/suggestions";
-import { Message } from "@copilotkit/shared";
+import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { InputProps, MessagesProps, ResponseButtonProps } from "./props";
 
 /**
@@ -274,11 +274,10 @@ export const useCopilotChatLogic = (
     abortSuggestions();
     setCurrentSuggestions([]);
     onSubmitMessage?.(messageContent);
-    const message: Message = {
-      id: nanoid(),
+    const message: Message = new TextMessage({
       content: messageContent,
-      role: "user",
-    };
+      role: Role.User,
+    });
     appendMessage(message);
     return message;
   };

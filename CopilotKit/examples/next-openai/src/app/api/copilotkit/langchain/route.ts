@@ -1,13 +1,14 @@
-import { CopilotRuntime, LangChainAdapter } from "@copilotkit/backend";
+import {
+  CopilotRuntime,
+  LangChainAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
 
 import { ChatOpenAI } from "@langchain/openai";
-import { ChatPromptTemplate } from "@langchain/core/prompts";
-import { StringOutputParser } from "@langchain/core/output_parsers";
+import { NextRequest } from "next/server";
 
-export const runtime = "edge";
-
-export async function POST(req: Request): Promise<Response> {
-  const copilotKit = new CopilotRuntime({
+export const POST = async (req: NextRequest) => {
+  const runtime = new CopilotRuntime({
     actions: [
       {
         name: "sayHello",
@@ -27,11 +28,19 @@ export async function POST(req: Request): Promise<Response> {
     ],
   });
 
-  return copilotKit.response(
-    req,
-    new LangChainAdapter(async (forwardedProps) => {
+  const serviceAdapter = new LangChainAdapter({
+    chainFn: async ({ messages, tools }) => {
       const model = new ChatOpenAI({ modelName: "gpt-4-1106-preview" });
-      return model.stream(forwardedProps.messages, { tools: forwardedProps.tools });
-    }),
-  );
-}
+
+      return model.stream(messages, { tools });
+    },
+  });
+
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: req.nextUrl.pathname,
+  });
+
+  return handleRequest(req);
+};

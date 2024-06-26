@@ -1,0 +1,260 @@
+/**
+ * CopilotKit Adapter for the OpenAI Assistant API.
+ *
+ * Use this adapter to get responses from the OpenAI Assistant API.
+ *
+ * <RequestExample>
+ * ```typescript
+ * const copilotKit = new CopilotRuntime();
+ * return copilotKit.response(
+ *   req,
+ *   new OpenAIAssistantAdapter({
+ *    assistantId: "your-assistant-id"
+ *   })
+ * );
+ * ```
+ * </RequestExample>
+ */
+import OpenAI from "openai";
+import {
+  CopilotServiceAdapter,
+  CopilotRuntimeChatCompletionRequest,
+  CopilotRuntimeChatCompletionResponse,
+} from "../service-adapter";
+import { Message, ResultMessage, TextMessage } from "../../graphql/types/converted";
+import {
+  convertActionInputToOpenAITool,
+  convertMessageToOpenAIMessage,
+  convertSystemMessageToAssistantAPI,
+} from "./utils";
+import { RunSubmitToolOutputsStreamParams } from "openai/resources/beta/threads/runs/runs";
+import { AssistantStream } from "openai/lib/AssistantStream";
+import { RuntimeEventSource } from "../events";
+import { ActionInput } from "../../graphql/inputs/action.input";
+import { AssistantStreamEvent, AssistantTool } from "openai/resources/beta/assistants";
+
+export interface OpenAIAssistantAdapterParams {
+  /**
+   * The ID of the assistant to use.
+   */
+  assistantId: string;
+
+  /**
+   * An instance of `OpenAI` to use for the request. If not provided, a new instance will be created.
+   */
+  openai?: OpenAI;
+
+  /**
+   * Whether to enable the code interpreter. Defaults to `true`.
+   */
+  codeInterpreterEnabled?: boolean;
+
+  /**
+   * Whether to enable retrieval. Defaults to `true`.
+   */
+  fileSearchEnabled?: boolean;
+}
+
+export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
+  private openai: OpenAI;
+  private codeInterpreterEnabled: boolean;
+  private assistantId: string;
+  private fileSearchEnabled: boolean;
+
+  constructor(params: OpenAIAssistantAdapterParams) {
+    this.openai = params.openai || new OpenAI({});
+    this.codeInterpreterEnabled = params.codeInterpreterEnabled === false || true;
+    this.fileSearchEnabled = params.fileSearchEnabled === false || true;
+    this.assistantId = params.assistantId;
+  }
+
+  async process({
+    messages,
+    actions,
+    eventSource,
+    threadId,
+    runId,
+  }: CopilotRuntimeChatCompletionRequest): Promise<CopilotRuntimeChatCompletionResponse> {
+    // if we don't have a threadId, create a new thread
+    threadId ||= (await this.openai.beta.threads.create()).id;
+    const lastMessage = messages.at(-1);
+
+    let nextRunId: string | undefined = undefined;
+
+    // submit function outputs
+    if (lastMessage instanceof ResultMessage && runId) {
+      nextRunId = await this.submitToolOutputs(threadId, runId, messages, eventSource);
+    }
+    // submit user message
+    else if (lastMessage instanceof TextMessage) {
+      nextRunId = await this.submitUserMessage(threadId, messages, actions, eventSource);
+    }
+    // unsupported message
+    else {
+      throw new Error("No actionable message found in the messages");
+    }
+
+    return {
+      threadId,
+      runId: nextRunId,
+    };
+  }
+
+  private async submitToolOutputs(
+    threadId: string,
+    runId: string,
+    messages: Message[],
+    eventSource: RuntimeEventSource,
+  ) {
+    let run = await this.openai.beta.threads.runs.retrieve(threadId, runId);
+    if (!run.required_action) {
+      throw new Error("No tool outputs required");
+    }
+
+    // get the required tool call ids
+    const toolCallsIds = run.required_action.submit_tool_outputs.tool_calls.map(
+      (toolCall) => toolCall.id,
+    );
+
+    // search for these tool calls
+    const resultMessages = messages.filter(
+      (message) =>
+        message instanceof ResultMessage && toolCallsIds.includes(message.actionExecutionId),
+    ) as ResultMessage[];
+
+    if (toolCallsIds.length != resultMessages.length) {
+      throw new Error("Number of function results does not match the number of tool calls");
+    }
+
+    // submit the tool outputs
+    const toolOutputs: RunSubmitToolOutputsStreamParams.ToolOutput[] = resultMessages.map(
+      (message) => {
+        return {
+          tool_call_id: message.actionExecutionId,
+          output: message.result,
+        };
+      },
+    );
+
+    const stream = this.openai.beta.threads.runs.submitToolOutputsStream(threadId, runId, {
+      tool_outputs: toolOutputs,
+    });
+
+    await this.streamResponse(stream, eventSource);
+    return runId;
+  }
+
+  private async submitUserMessage(
+    threadId: string,
+    messages: Message[],
+    actions: ActionInput[],
+    eventSource: RuntimeEventSource,
+  ) {
+    messages = [...messages];
+
+    // get the instruction message
+    const instructionsMessage = messages.shift();
+    const instructions =
+      instructionsMessage instanceof TextMessage ? instructionsMessage.content : "";
+
+    // get the latest user message
+    const userMessage = messages
+      .map(convertMessageToOpenAIMessage)
+      .map(convertSystemMessageToAssistantAPI)
+      .at(-1);
+
+    if (userMessage.role !== "user") {
+      throw new Error("No user message found");
+    }
+
+    // create a new message on the thread
+    await this.openai.beta.threads.messages.create(threadId, {
+      role: "user",
+      content: userMessage.content,
+    });
+
+    const openaiTools = actions.map(convertActionInputToOpenAITool);
+
+    const tools = [
+      ...openaiTools,
+      ...(this.codeInterpreterEnabled ? [{ type: "code_interpreter" } as AssistantTool] : []),
+      ...(this.fileSearchEnabled ? [{ type: "file_search" } as AssistantTool] : []),
+    ];
+
+    // run the thread
+    let stream = this.openai.beta.threads.runs.stream(threadId, {
+      assistant_id: this.assistantId,
+      instructions,
+      tools: tools,
+    });
+
+    await this.streamResponse(stream, eventSource);
+
+    return getRunIdFromStream(stream);
+  }
+
+  private async streamResponse(stream: AssistantStream, eventSource: RuntimeEventSource) {
+    eventSource.stream(async (eventStream$) => {
+      let inFunctionCall = false;
+
+      for await (const chunk of stream) {
+        switch (chunk.event) {
+          case "thread.message.created":
+            if (inFunctionCall) {
+              eventStream$.sendActionExecutionEnd();
+            }
+            eventStream$.sendTextMessageStart(chunk.data.id);
+            break;
+          case "thread.message.delta":
+            if (chunk.data.delta.content?.[0].type === "text") {
+              eventStream$.sendTextMessageContent(chunk.data.delta.content?.[0].text.value);
+            }
+            break;
+          case "thread.message.completed":
+            eventStream$.sendTextMessageEnd();
+            break;
+          case "thread.run.step.delta":
+            let toolCallId: string | undefined;
+            let toolCallName: string | undefined;
+            let toolCallArgs: string | undefined;
+            if (
+              chunk.data.delta.step_details.type === "tool_calls" &&
+              chunk.data.delta.step_details.tool_calls?.[0].type === "function"
+            ) {
+              toolCallId = chunk.data.delta.step_details.tool_calls?.[0].id;
+              toolCallName = chunk.data.delta.step_details.tool_calls?.[0].function.name;
+              toolCallArgs = chunk.data.delta.step_details.tool_calls?.[0].function.arguments;
+            }
+
+            if (toolCallName && toolCallId) {
+              if (inFunctionCall) {
+                eventStream$.sendActionExecutionEnd();
+              }
+              inFunctionCall = true;
+              eventStream$.sendActionExecutionStart(toolCallId, toolCallName);
+            } else if (toolCallArgs) {
+              eventStream$.sendActionExecutionArgs(toolCallArgs);
+            }
+            break;
+        }
+      }
+      if (inFunctionCall) {
+        eventStream$.sendActionExecutionEnd();
+      }
+      eventStream$.complete();
+    });
+  }
+}
+
+function getRunIdFromStream(stream: AssistantStream): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    let runIdGetter = (event: AssistantStreamEvent) => {
+      if (event.event === "thread.run.created") {
+        const runId = event.data.id;
+        stream.off("event", runIdGetter);
+        resolve(runId);
+      }
+    };
+    stream.on("event", runIdGetter);
+  });
+}

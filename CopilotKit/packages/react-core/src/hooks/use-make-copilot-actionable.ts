@@ -12,7 +12,7 @@ export function useMakeCopilotActionable<ActionInput extends any[]>(
   dependencies: any[],
 ) {
   const idRef = useRef(nanoid()); // generate a unique id
-  const { setEntryPoint, removeEntryPoint } = useContext(CopilotContext);
+  const { setAction, removeAction } = useContext(CopilotContext);
 
   const memoizedAnnotatedFunction: AnnotatedFunction<ActionInput> = useMemo(
     () => ({
@@ -26,10 +26,10 @@ export function useMakeCopilotActionable<ActionInput extends any[]>(
 
   useEffect(() => {
     const action = annotatedFunctionToAction(memoizedAnnotatedFunction as AnnotatedFunction<any[]>);
-    setEntryPoint(idRef.current, action);
+    setAction(idRef.current, action);
 
     return () => {
-      removeEntryPoint(idRef.current);
+      removeAction(idRef.current);
     };
-  }, [memoizedAnnotatedFunction, setEntryPoint, removeEntryPoint]);
+  }, [memoizedAnnotatedFunction, setAction, removeAction]);
 }

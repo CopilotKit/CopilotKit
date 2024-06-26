@@ -1,9 +1,10 @@
-import { MinimalChatGPTMessage } from "./subtypes/minimal-chat-gpt-message";
+import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { MakeSystemPrompt } from "./subtypes/make-system-prompt";
+import { nanoid } from "nanoid";
 
 export interface SuggestionsApiConfig {
   makeSystemPrompt: MakeSystemPrompt;
-  fewShotMessages: MinimalChatGPTMessage[];
+  fewShotMessages: Message[];
   forwardedParams: { [key: string]: any } | undefined;
 }
 
@@ -35,38 +36,36 @@ ${contextString}
 `;
 };
 
-export const defaultSuggestionsFewShotMessages: MinimalChatGPTMessage[] = [
-  {
-    role: "user",
-    name: "TextAfterCursor",
-    content: "While I was there I also picked up some apples, oranges, and bananas.",
-  },
-  {
-    role: "user",
+export const defaultSuggestionsFewShotMessages: Message[] = [
+  new TextMessage({
+    role: Role.User,
+    content:
+      "<TextAfterCursor>While I was there I also picked up some apples, oranges, and bananas.</TextAfterCursor>",
+  }),
+  new TextMessage({
+    role: Role.User,
     content: "This morning I woke up and went straight to the grocery store.",
-  },
-  {
-    role: "assistant",
+  }),
+  new TextMessage({
+    role: Role.Assistant,
     content:
       " When I arrived I went straight to the produce section and picked out a big watermelon. ",
-  },
-  {
-    role: "user",
-    name: "TextAfterCursor",
+  }),
+  new TextMessage({
+    role: Role.User,
     content:
-      "and (iii) to the appointment of the Equityholders' Representative pursuant to Section 10.7 of the Merger Agreement and to the provisions thereof.",
-  },
-  {
-    role: "user",
-    name: "TextBeforeCursor",
+      "<TextAfterCursor>and (iii) to the appointment of the Equityholders' Representative pursuant to Section 10.7 of the Merger Agreement and to the provisions thereof.</TextAfterCursor>",
+  }),
+  new TextMessage({
+    role: Role.User,
     content:
-      'The Optionholder, in the Optionholder\'s capacity as a holder of vested Options, hereby irrevocably and unconditionally agrees: (i) that the Optionholder shall be deemed an "Equityholder" under the Merger Agreement and shall be entitled to the rights and benefits, and subject to the obligations, of an "Equityholder" thereunder;',
-  },
-  {
-    role: "assistant",
+      '<TextBeforeCursor>The Optionholder, in the Optionholder\'s capacity as a holder of vested Options, hereby irrevocably and unconditionally agrees: (i) that the Optionholder shall be deemed an "Equityholder" under the Merger Agreement and shall be entitled to the rights and benefits, and subject to the obligations, of an "Equityholder" thereunder;</TextBeforeCursor>',
+  }),
+  new TextMessage({
+    role: Role.Assistant,
     content:
       ' (ii) that, for purposes of this Agreement and the Merger Agreement, the applicable percentage set forth opposite the name of the Optionholder in the Distribution Waterfall shall be such the Optionholder\'s "Pro Rata Share"; ',
-  },
+  }),
 ];
 
 export const defaultSuggestionsApiConfig: SuggestionsApiConfig = {

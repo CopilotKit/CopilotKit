@@ -1,11 +1,19 @@
-import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER, Message } from "@copilotkit/shared";
+import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER } from "@copilotkit/shared";
 import { CopilotContext } from "@copilotkit/react-core";
 import { useCallback, useContext } from "react";
-import { AutosuggestionsBareFunction, MinimalChatGPTMessage } from "../../types";
+import { AutosuggestionsBareFunction } from "../../types";
 import { retry } from "../../lib/retry";
 import { InsertionEditorState } from "../../types/base/autosuggestions-bare-function";
 import { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggestions-api-config";
-import { fetchAndDecodeChatCompletionAsText } from "@copilotkit/react-core";
+import {
+  CopilotRuntimeClient,
+  Message,
+  Role,
+  TextMessage,
+  convertGqlOutputToMessages,
+  convertMessagesToGqlInput,
+} from "@copilotkit/runtime-client-gql";
+import { nanoid } from "nanoid";
 
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
@@ -34,49 +42,55 @@ export function useMakeStandardAutosuggestionFunction(
   return useCallback(
     async (editorState: InsertionEditorState, abortSignal: AbortSignal) => {
       const res = await retry(async () => {
-        const messages: MinimalChatGPTMessage[] = [
-          {
-            role: "system",
+        const messages: Message[] = [
+          new TextMessage({
+            role: Role.System,
             content: apiConfig.makeSystemPrompt(
               textareaPurpose,
               getContextString([], contextCategories),
             ),
-          },
+          }),
           ...apiConfig.fewShotMessages,
-          {
-            role: "user",
-            name: "TextAfterCursor",
+          new TextMessage({
+            role: Role.User,
             content: editorState.textAfterCursor,
-          },
-          {
-            role: "user",
-            name: "TextBeforeCursor",
-            content: editorState.textBeforeCursor,
-          },
+          }),
+          new TextMessage({
+            role: Role.User,
+            content: `<TextAfterCursor>${editorState.textAfterCursor}</TextAfterCursor>`,
+          }),
+          new TextMessage({
+            role: Role.User,
+            content: `<TextBeforeCursor>${editorState.textBeforeCursor}</TextBeforeCursor>`,
+          }),
         ];
 
-        const response = await fetchAndDecodeChatCompletionAsText({
-          messages: messages as Message[],
-          ...apiConfig.forwardedParams,
-          copilotConfig: copilotApiConfig,
-          signal: abortSignal,
-          headers: headers,
+        const runtimeClient = new CopilotRuntimeClient({
+          url: copilotApiConfig.chatApiEndpoint,
         });
 
-        if (!response.events) {
-          throw new Error("Failed to fetch chat completion");
-        }
-
-        const reader = response.events.getReader();
+        const response = await runtimeClient
+          .generateCopilotResponse({
+            frontend: {
+              actions: [],
+            },
+            messages: convertMessagesToGqlInput(messages),
+          })
+          .toPromise();
 
         let result = "";
-        while (!abortSignal.aborted) {
-          const { done, value } = await reader.read();
-          if (done) {
+        for (const message of convertGqlOutputToMessages(
+          response.data?.generateCopilotResponse?.messages ?? [],
+        )) {
+          if (abortSignal.aborted) {
             break;
           }
-          result += value;
+          if (message instanceof TextMessage) {
+            result += message.content;
+            console.log(message.content);
+          }
         }
+
         return result;
       });
 

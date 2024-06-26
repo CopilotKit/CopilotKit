@@ -1,9 +1,5 @@
-import {
-  CopilotCloudConfig,
-  FunctionCallHandler,
-  Message,
-  ToolDefinition,
-} from "@copilotkit/shared";
+import { CopilotCloudConfig, FunctionCallHandler } from "@copilotkit/shared";
+import { Message } from "@copilotkit/runtime-client-gql";
 import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
 import React from "react";
 import { TreeNodeId } from "../hooks/use-tree";
@@ -91,13 +87,11 @@ export type InChatRenderFunction = (props: ActionRenderProps<any>) => string | J
 
 export interface CopilotContextParams {
   // function-calling
-  entryPoints: Record<string, FrontendAction<any>>;
-  setEntryPoint: (id: string, entryPoint: FrontendAction<any>) => void;
-  removeEntryPoint: (id: string) => void;
+  actions: Record<string, FrontendAction<any>>;
+  setAction: (id: string, action: FrontendAction<any>) => void;
+  removeAction: (id: string) => void;
   chatComponentsCache: React.RefObject<Record<string, InChatRenderFunction | string>>;
-  getChatCompletionFunctionDescriptions: (
-    customEntryPoints?: Record<string, FrontendAction<any>>,
-  ) => ToolDefinition[];
+
   getFunctionCallHandler: (
     customEntryPoints?: Record<string, FrontendAction<any>>,
   ) => FunctionCallHandler;
@@ -134,9 +128,9 @@ export interface CopilotContextParams {
 }
 
 const emptyCopilotContext: CopilotContextParams = {
-  entryPoints: {},
-  setEntryPoint: () => {},
-  removeEntryPoint: () => {},
+  actions: {},
+  setAction: () => {},
+  removeAction: () => {},
 
   chatComponentsCache: { current: {} },
   getContextString: (documents: DocumentPointer[], categories: string[]) =>
@@ -144,7 +138,6 @@ const emptyCopilotContext: CopilotContextParams = {
   addContext: () => "",
   removeContext: () => {},
 
-  getChatCompletionFunctionDescriptions: () => returnAndThrowInDebug([]),
   getFunctionCallHandler: () => returnAndThrowInDebug(async () => {}),
 
   messages: [],

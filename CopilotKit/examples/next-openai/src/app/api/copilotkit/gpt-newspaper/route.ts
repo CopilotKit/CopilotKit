@@ -1,4 +1,9 @@
-import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
+import {
+  CopilotRuntime,
+  OpenAIAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import { NextRequest } from "next/server";
 
 // -----------------
 // To run this example:
@@ -6,10 +11,8 @@ import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
 // - follow the instructions in NOTES.md
 // -----------------
 
-export const runtime = "edge";
-
-export async function POST(req: Request): Promise<Response> {
-  const copilotKit = new CopilotRuntime({
+export const POST = async (req: NextRequest) => {
+  const runtime = new CopilotRuntime({
     actions: [
       {
         name: "research",
@@ -41,5 +44,13 @@ export async function POST(req: Request): Promise<Response> {
     ],
   });
 
-  return copilotKit.response(req, new OpenAIAdapter());
-}
+  const serviceAdapter = new OpenAIAdapter();
+
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: req.nextUrl.pathname,
+  });
+
+  return handleRequest(req);
+};

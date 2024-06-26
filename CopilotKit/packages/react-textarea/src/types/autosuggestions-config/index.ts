@@ -1,7 +1,6 @@
 export { defaultAutosuggestionsConfig } from "./autosuggestions-config";
 export type { AutosuggestionsConfig } from "./autosuggestions-config";
 
-export type { MinimalChatGPTMessage } from "./subtypes/minimal-chat-gpt-message";
 export type { MakeSystemPrompt } from "./subtypes/make-system-prompt";
 
 export type { AutosuggestionsConfigUserSpecified } from "./autosuggestions-config-user-specified";

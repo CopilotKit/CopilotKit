@@ -40,6 +40,7 @@
     "typescript": "^5.2.3"
   },
   "dependencies": {
+    "@copilotkit/runtime-client-gql": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "nanoid": "^4.0.2",
     "untruncate-json": "^0.0.1"

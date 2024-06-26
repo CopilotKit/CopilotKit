@@ -1,4 +1,4 @@
-import { Message } from "@copilotkit/shared";
+import { Message } from "@copilotkit/runtime-client-gql";
 
 export interface ButtonProps {
   open: boolean;

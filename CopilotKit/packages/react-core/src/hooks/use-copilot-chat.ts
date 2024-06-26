@@ -26,12 +26,13 @@
  * - `isLoading`: A boolean indicating if the chat is loading.
  *
  */
-import { useMemo, useContext, useRef, useEffect, useCallback } from "react";
+import { useContext, useRef, useEffect, useCallback } from "react";
 import { CopilotContext } from "../context/copilot-context";
-import { Message, ToolDefinition } from "@copilotkit/shared";
+import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { SystemMessageFunction } from "../types";
 import { useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
+import { MessageStatusCode } from "@copilotkit/runtime-client-gql";
 
 export interface UseCopilotChatOptions {
   /**
@@ -86,7 +87,6 @@ export function useCopilotChat({
 }: UseCopilotChatOptions = {}): UseCopilotChatReturn {
   const {
     getContextString,
-    getChatCompletionFunctionDescriptions,
     getFunctionCallHandler,
     copilotApiConfig,
     messages,
@@ -94,6 +94,7 @@ export function useCopilotChat({
     isLoading,
     setIsLoading,
     chatInstructions,
+    actions,
   } = useContext(CopilotContext);
 
   // We need to ensure that makeSystemMessageCallback always uses the latest
@@ -111,28 +112,18 @@ export function useCopilotChat({
     // this always gets the latest context string
     const contextString = latestGetContextString.current([], defaultCopilotContextCategories); // TODO: make the context categories configurable
 
-    return {
-      id: "system",
+    return new TextMessage({
       content: systemMessageMaker(contextString, chatInstructions),
-      role: "system",
-    } as Message;
+      role: Role.System,
+    });
   }, [getContextString, makeSystemMessage, chatInstructions]);
-
-  const functionDescriptions: ToolDefinition[] = useMemo(() => {
-    return getChatCompletionFunctionDescriptions();
-  }, [getChatCompletionFunctionDescriptions]);
 
   const { append, reload, stop } = useChat({
     ...options,
+    actions: Object.values(actions),
     copilotConfig: copilotApiConfig,
-    id: options.id,
     initialMessages: options.initialMessages || [],
-    tools: functionDescriptions,
     onFunctionCall: getFunctionCallHandler(),
-    headers: { ...options.headers },
-    body: {
-      ...options.body,
-    },
     messages,
     setMessages,
     makeSystemMessageCallback,
@@ -140,13 +131,8 @@ export function useCopilotChat({
     setIsLoading,
   });
 
-  const visibleMessages = messages.filter(
-    (message) =>
-      message.role === "user" || message.role === "assistant" || message.role === "function",
-  );
-
   return {
-    visibleMessages,
+    visibleMessages: messages,
     appendMessage: append,
     setMessages,
     reloadMessages: reload,

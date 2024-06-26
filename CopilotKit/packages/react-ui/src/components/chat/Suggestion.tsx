@@ -6,6 +6,7 @@ import {
 import { SuggestionsProps } from "./props";
 import { SmallSpinnerIcon } from "./Icons";
 import { CopilotChatSuggestion } from "../../types/suggestions";
+import { actionParametersToJsonSchema } from "@copilotkit/shared";
 
 export function Suggestion({ title, message, onClick, partial, className }: SuggestionsProps) {
   return (
@@ -30,7 +31,14 @@ export const reloadSuggestions = async (
   abortControllerRef: React.MutableRefObject<AbortController | null>,
 ) => {
   const abortController = abortControllerRef.current;
-  const tools = JSON.stringify(context.getChatCompletionFunctionDescriptions(context.entryPoints));
+
+  const tools = JSON.stringify(
+    Object.values(context.actions).map((action) => ({
+      name: action.name,
+      description: action.description,
+      jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters)),
+    })),
+  );
 
   const allSuggestions: CopilotChatSuggestion[] = [];
 

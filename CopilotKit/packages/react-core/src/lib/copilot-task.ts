@@ -89,11 +89,20 @@
  * ```
  */
 
-import { FunctionCall, Message } from "@copilotkit/shared";
+import {
+  ActionExecutionMessage,
+  CopilotRuntimeClient,
+  Message,
+  Role,
+  TextMessage,
+  convertGqlOutputToMessages,
+  convertMessagesToGqlInput,
+} from "@copilotkit/runtime-client-gql";
 import { FrontendAction } from "../types/frontend-action";
 import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
-import { fetchAndDecodeChatCompletion } from "../utils/fetch-chat-completion";
+import { MessageStatusCode } from "@copilotkit/runtime-client-gql";
+import { actionParametersToJsonSchema } from "@copilotkit/shared";
 
 export interface CopilotTaskConfig {
   /**
@@ -141,11 +150,11 @@ export class CopilotTask<T = any> {
    * @param data The data to use for the task.
    */
   async run(context: CopilotContextParams, data?: T): Promise<void> {
-    const entryPoints = this.includeCopilotActions ? Object.assign({}, context.entryPoints) : {};
+    const actions = this.includeCopilotActions ? Object.assign({}, context.actions) : {};
 
     // merge functions into entry points
     for (const fn of this.actions) {
-      entryPoints[fn.name] = fn;
+      actions[fn.name] = fn;
     }
 
     let contextString = "";
@@ -158,52 +167,41 @@ export class CopilotTask<T = any> {
       contextString += context.getContextString([], defaultCopilotContextCategories);
     }
 
-    const systemMessage: Message = {
-      id: "system",
+    const systemMessage = new TextMessage({
       content: taskSystemMessage(contextString, this.instructions),
-      role: "system",
-    };
-
-    const messages = [systemMessage];
-
-    const response = await fetchAndDecodeChatCompletion({
-      copilotConfig: context.copilotApiConfig,
-      messages: messages,
-      tools: context.getChatCompletionFunctionDescriptions(entryPoints),
-      headers: context.copilotApiConfig.headers,
-      body: context.copilotApiConfig.body,
+      role: Role.System,
     });
 
-    if (!response.events) {
-      throw new Error("Failed to execute task");
-    }
+    const messages: Message[] = [systemMessage];
 
-    const reader = response.events.getReader();
-    let functionCalls: FunctionCall[] = [];
+    const runtimeClient = new CopilotRuntimeClient({
+      url: context.copilotApiConfig.chatApiEndpoint,
+    });
 
-    while (true) {
-      const { done, value } = await reader.read();
+    const response = await runtimeClient
+      .generateCopilotResponse({
+        frontend: {
+          actions: Object.values(actions).map((action) => ({
+            name: action.name,
+            description: action.description || "",
+            jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
+          })),
+        },
+        messages: convertMessagesToGqlInput(messages),
+      })
+      .toPromise();
 
-      if (done) {
-        break;
-      }
+    const functionCallHandler = context.getFunctionCallHandler(actions);
+    const functionCalls = convertGqlOutputToMessages(
+      response.data?.generateCopilotResponse?.messages || [],
+    ).filter((m): m is ActionExecutionMessage => m instanceof ActionExecutionMessage);
 
-      if (value.type === "function") {
-        functionCalls.push({
-          name: value.name,
-          arguments: JSON.stringify(value.arguments),
-        });
-        break;
-      }
-    }
-
-    if (!functionCalls.length) {
-      throw new Error("No function call occurred");
-    }
-
-    const functionCallHandler = context.getFunctionCallHandler(entryPoints);
     for (const functionCall of functionCalls) {
-      await functionCallHandler(messages, functionCall);
+      await functionCallHandler({
+        messages,
+        name: functionCall.name,
+        args: functionCall.arguments,
+      });
     }
   }
 }
