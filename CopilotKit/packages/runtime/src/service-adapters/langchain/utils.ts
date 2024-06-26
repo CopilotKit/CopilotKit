@@ -219,7 +219,6 @@ export async function streamLangChainResponse({
       }
     }
   } else if (actionExecution) {
-    console.log("RUNNING INTO THIS");
     eventStream$.sendActionExecutionResult(
       actionExecution.id,
       actionExecution.name,
