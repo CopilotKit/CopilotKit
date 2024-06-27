@@ -1,10 +1,4 @@
-import { FailedResponseStatus } from "../graphql/types/response-status.type";
-
-export enum FailedResponseStatusReason {
-  GUARDRAILS_VALIDATION_FAILED = "GUARDRAILS_VALIDATION_FAILED",
-  MESSAGE_STREAM_INTERRUPTED = "MESSAGE_STREAM_INTERRUPTED",
-  UNKNOWN_ERROR = "UNKNOWN_ERROR",
-}
+import { FailedResponseStatus, FailedResponseStatusReason } from "../graphql/types/response-status.type";
 
 export class GuardrailsValidationFailureResponse extends FailedResponseStatus {
   reason = FailedResponseStatusReason.GUARDRAILS_VALIDATION_FAILED;
