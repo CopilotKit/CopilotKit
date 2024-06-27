@@ -72,8 +72,7 @@ export type CommonConfig = {
 };
 
 export function getCommonConfig(options: CreateCopilotRuntimeServerOptions): CommonConfig {
-  const logLevel =
-    (process.env.LOG_LEVEL as LogLevel) || (options.logLevel as LogLevel) || "error";
+  const logLevel = (process.env.LOG_LEVEL as LogLevel) || (options.logLevel as LogLevel) || "error";
   const logger = createLogger({ level: logLevel, component: "getCommonConfig" });
   logger.debug("Getting common config");
 
