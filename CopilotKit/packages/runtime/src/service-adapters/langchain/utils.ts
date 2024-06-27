@@ -75,7 +75,7 @@ export function convertJsonSchemaToZodSchema(jsonSchema: any, required: boolean)
   }
 }
 
-export function convertActionInputToLangChainTool(actionInput: ActionInput): DynamicStructuredTool {
+export function convertActionInputToLangChainTool(actionInput: ActionInput): any {
   return new DynamicStructuredTool({
     name: actionInput.name,
     description: actionInput.description,
@@ -96,6 +96,40 @@ interface StreamLangChainResponseParams {
     id: string;
     name: string;
   };
+}
+
+function getConstructorName(object: any): string {
+  if (object && typeof object === "object" && object.constructor && object.constructor.name) {
+    return object.constructor.name;
+  }
+  return "";
+}
+
+function isAIMessage(message: any): message is AIMessage {
+  return getConstructorName(message) === "AIMessage";
+}
+
+function isAIMessageChunk(message: any): message is AIMessageChunk {
+  return getConstructorName(message) === "AIMessageChunk";
+}
+
+function isBaseMessageChunk(message: any): message is BaseMessageChunk {
+  return getConstructorName(message) === "BaseMessageChunk";
+}
+
+function maybeSendActionExecutionResultIsMessage(
+  eventStream$: RuntimeEventSubject,
+  actionExecution?: { id: string; name: string },
+) {
+  // language models need a result after the function call
+  // we simply let them know that we are sending a message
+  if (actionExecution) {
+    eventStream$.sendActionExecutionResult(
+      actionExecution.id,
+      actionExecution.name,
+      "Sending a message",
+    );
+  }
 }
 
 export async function streamLangChainResponse({
@@ -119,8 +153,9 @@ export async function streamLangChainResponse({
 
   // 2. AIMessage
   // Send the content and function call of the AIMessage as the content of the chunk.
-  // else if ("content" in result && typeof result.content === "string") {
-  else if (result instanceof AIMessage) {
+  else if (isAIMessage(result)) {
+    maybeSendActionExecutionResultIsMessage(eventStream$, actionExecution);
+
     if (result.content) {
       eventStream$.sendTextMessage(nanoid(), result.content as string);
     }
@@ -135,7 +170,9 @@ export async function streamLangChainResponse({
 
   // 3. BaseMessageChunk
   // Send the content and function call of the AIMessage as the content of the chunk.
-  else if (result instanceof BaseMessageChunk) {
+  else if (isBaseMessageChunk(result)) {
+    maybeSendActionExecutionResultIsMessage(eventStream$, actionExecution);
+
     if (result.lc_kwargs?.content) {
       eventStream$.sendTextMessage(nanoid(), result.content as string);
     }
@@ -152,7 +189,9 @@ export async function streamLangChainResponse({
 
   // 4. IterableReadableStream
   // Stream the result of the LangChain function.
-  else if ("getReader" in result) {
+  else if (result && "getReader" in result) {
+    maybeSendActionExecutionResultIsMessage(eventStream$, actionExecution);
+
     let reader = result.getReader();
 
     let mode: "function" | "message" | null = null;
@@ -165,15 +204,15 @@ export async function streamLangChainResponse({
         let toolCallId: string | undefined = undefined;
         let toolCallArgs: string | undefined = undefined;
         let hasToolCall: boolean = false;
-        let content = value.content as string;
+        let content = value?.content as string;
 
-        if (value instanceof AIMessageChunk) {
+        if (isAIMessageChunk(value)) {
           let chunk = value.tool_call_chunks?.[0];
           toolCallName = chunk?.name;
           toolCallId = chunk?.id;
           toolCallArgs = chunk?.args;
           hasToolCall = chunk != undefined;
-        } else if (value instanceof BaseMessageChunk) {
+        } else if (isBaseMessageChunk(value)) {
           let chunk = value.additional_kwargs?.tool_calls?.[0];
           toolCallName = chunk?.function?.name;
           toolCallId = chunk?.id;
@@ -222,7 +261,7 @@ export async function streamLangChainResponse({
     eventStream$.sendActionExecutionResult(
       actionExecution.id,
       actionExecution.name,
-      JSON.stringify(result),
+      encodeResult(result),
     );
   }
 
@@ -232,4 +271,14 @@ export async function streamLangChainResponse({
   }
 
   eventStream$.complete();
+}
+
+function encodeResult(result: any): string {
+  if (result === undefined) {
+    return "";
+  } else if (typeof result === "string") {
+    return result;
+  } else {
+    return JSON.stringify(result);
+  }
 }

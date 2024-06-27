@@ -1,16 +1,22 @@
 import { Parameter, Action } from "@copilotkit/shared";
 import { RemoteRunnable } from "langchain/runnables/remote";
 
-export interface RemoteChain {
+export interface RemoteChainParameters {
+  name: string;
+  description: string;
+  chainUrl: string;
+  parameters?: Parameter[];
+  parameterType?: "single" | "multi";
+}
+
+export class RemoteChain {
   name: string;
   description: string;
   chainUrl: string;
   parameters?: Parameter[];
   parameterType: "single" | "multi";
-}
 
-export class RemoteChain implements RemoteChain {
-  constructor(options: RemoteChain) {
+  constructor(options: RemoteChainParameters) {
     this.name = options.name;
     this.description = options.description;
     this.chainUrl = options.chainUrl;

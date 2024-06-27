@@ -30,12 +30,14 @@ export class CopilotResolver {
     }
     const copilotRuntime = ctx._copilotkit.runtime;
     const serviceAdapter = ctx._copilotkit.serviceAdapter;
+    const debug = ctx._copilotkit.debug;
     const responseStatus = new Subject<typeof ResponseStatusUnion>();
 
     const {
       eventSource,
       threadId = nanoid(),
       runId,
+      actions,
     } = await copilotRuntime.process({
       serviceAdapter,
       messages: data.messages,
@@ -51,13 +53,17 @@ export class CopilotResolver {
       status: firstValueFrom(responseStatus),
       messages: new Repeater(async (pushMessage, stopStreamingMessages) => {
         // run and process the event stream
-        const eventStream = eventSource.process(copilotRuntime.actions).pipe(
+        const eventStream = eventSource.process(actions).pipe(
           // shareReplay() ensures that later subscribers will see the whole stream instead of
           // just the events that were emitted after the subscriber was added.
           shareReplay(),
         );
         eventStream.subscribe({
           next: async (event) => {
+            if (debug) {
+              const { type, ...rest } = event;
+              console.log(`[EVENT ${type}]`, JSON.stringify(rest));
+            }
             switch (event.type) {
               ////////////////////////////////
               // TextMessageStart

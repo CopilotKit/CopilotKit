@@ -11,7 +11,7 @@ export const config = {
 
 export type CopilotRuntimeServerInstance<T> = YogaServerInstance<T, Partial<GraphQLContext>>;
 
-// Theis import is needed to fix the type error
+// This import is needed to fix the type error
 // Fix is currently in TypeScript 5.5 beta, waiting for stable version
 // https://github.com/microsoft/TypeScript/issues/42873#issuecomment-2066874644
 export type {} from "@whatwg-node/server";
@@ -20,12 +20,14 @@ export function copilotRuntimeNextJSPagesRouterEndpoint({
   runtime,
   endpoint,
   serviceAdapter,
+  debug,
 }: {
   runtime: CopilotRuntime;
   serviceAdapter: CopilotServiceAdapter;
   endpoint: string;
+  debug?: boolean;
 }): CopilotRuntimeServerInstance<GraphQLContext> {
-  const commonConfig = getCommonConfig({ runtime, serviceAdapter });
+  const commonConfig = getCommonConfig({ runtime, serviceAdapter, debug });
 
   const yoga = createYoga({
     ...commonConfig,

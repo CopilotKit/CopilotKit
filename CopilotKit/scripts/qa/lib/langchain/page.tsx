@@ -42,14 +42,14 @@ function InsideHome() {
   return (
     <>
       <div>{message}</div>
-      <CopilotTextarea
+      {/* <CopilotTextarea
         value={text}
         onChange={(e) => setText(e.target.value)}
         autosuggestionsConfig={{
           textareaPurpose: "an outline of a presentation about elephants",
           chatApiConfigs: {},
         }}
-      />
+      /> */}
     </>
   );
 }

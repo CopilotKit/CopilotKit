@@ -38,7 +38,7 @@ export function convertMessageToGoogleGenAIMessage(message: Message) {
     };
   } else if (message instanceof ResultMessage) {
     return {
-      role: "model",
+      role: "function",
       parts: [
         {
           functionResponse: {
