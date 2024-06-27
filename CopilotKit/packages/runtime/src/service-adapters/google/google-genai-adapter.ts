@@ -104,6 +104,9 @@ export class GoogleGenerativeAIAdapter implements CopilotServiceAdapter {
       let isTextMessage = false;
       for await (const chunk of result.stream) {
         const chunkText = chunk.text();
+        if (chunkText === "") {
+          continue;
+        }
         if (!isTextMessage) {
           isTextMessage = true;
           eventStream$.sendTextMessageStart(nanoid());

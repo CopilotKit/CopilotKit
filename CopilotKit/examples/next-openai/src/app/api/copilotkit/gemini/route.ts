@@ -6,10 +6,12 @@ import {
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextRequest } from "next/server";
 
+const env = process.env;
+
 export const POST = async (req: NextRequest) => {
   const runtime = new CopilotRuntime();
 
-  const genAI = new GoogleGenerativeAI(process.env["GOOGLE_API_KEY" + ""]!);
+  const genAI = new GoogleGenerativeAI(env["GOOGLE_API_KEY"]!);
   const model = genAI.getGenerativeModel({ model: "gemini-pro" });
   const serviceAdapter = new GoogleGenerativeAIAdapter({ model });
 
