@@ -14,18 +14,16 @@ export type CopilotRuntimeServerInstance<T> = YogaServerInstance<T, Partial<Grap
 // https://github.com/microsoft/TypeScript/issues/42873#issuecomment-2066874644
 export type {} from "@whatwg-node/server";
 
-export function copilotRuntimeNextJSPagesRouterEndpoint({
-  runtime,
-  endpoint,
-  baseUrl,
-  serviceAdapter,
-  cloud,
-}: CreateCopilotRuntimeServerOptions): CopilotRuntimeServerInstance<GraphQLContext> {
-  const commonConfig = getCommonConfig({ runtime, endpoint, baseUrl, serviceAdapter, cloud });
+export function copilotRuntimeNextJSPagesRouterEndpoint(
+  options: CreateCopilotRuntimeServerOptions,
+): CopilotRuntimeServerInstance<GraphQLContext> {
+  const commonConfig = getCommonConfig(options);
+  const logger = commonConfig.logging;
+  logger.debug("Creating NextJS Pages Router endpoint");
 
   const yoga = createYoga({
     ...commonConfig,
-    graphqlEndpoint: endpoint,
+    graphqlEndpoint: options.endpoint,
   });
 
   return yoga;

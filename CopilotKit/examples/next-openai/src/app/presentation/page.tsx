@@ -11,6 +11,8 @@ export default function AIPresentation() {
   return (
     <CopilotKit
       runtimeUrl="/api/copilotkit"
+      // runtimeUrl="http://localhost:4001/copilotkit"
+      // publicApiKey="ck_pub_115d6e2a9659e0a153759a417331b71d"
       transcribeAudioUrl="/api/transcribe"
       textToSpeechUrl="/api/tts"
     >
