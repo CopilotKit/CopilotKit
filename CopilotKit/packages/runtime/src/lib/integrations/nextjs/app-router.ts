@@ -18,8 +18,8 @@ export function copilotRuntimeNextJSAppRouterEndpoint({
 
   return {
     handleRequest: yoga,
-    GET: yoga,
-    POST: yoga,
-    OPTIONS: yoga,
+    GET: yoga as any,
+    POST: yoga as any,
+    OPTIONS: yoga as any,
   };
 }
