@@ -54,6 +54,8 @@
     "langchain": "^0.1.36",
     "nanoid": "3.3.4",
     "openai": "^4.50.0",
+    "pino": "^9.2.0",
+    "pino-pretty": "^11.2.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "tiktoken": "^1.0.15",
