@@ -1,10 +1,10 @@
 import { YogaInitialContext } from "graphql-yoga";
-import { GuardrailsOptions } from "../guardrails";
 import { buildSchemaSync } from "type-graphql";
 import { CopilotResolver } from "../../graphql/resolvers/copilot.resolver";
 import { useDeferStream } from "@graphql-yoga/plugin-defer-stream";
 import { CopilotRuntime } from "../copilot-runtime";
 import { CopilotServiceAdapter } from "../../service-adapters";
+import { CopilotCloudOptions } from "../cloud";
 
 type AnyPrimitive = string | boolean | number | null;
 export type CopilotRequestContextProperties = Record<
@@ -12,33 +12,31 @@ export type CopilotRequestContextProperties = Record<
   AnyPrimitive | Record<string, AnyPrimitive>
 >;
 
-type CopilotKitContext = {
-  runtime: CopilotRuntime;
-  serviceAdapter: CopilotServiceAdapter;
-  properties: CopilotRequestContextProperties;
-  debug: boolean;
-};
-
 export type GraphQLContext = YogaInitialContext & {
-  _copilotkit: CopilotKitContext;
+  _copilotkit: CreateCopilotRuntimeServerOptions;
+  properties: CopilotRequestContextProperties;
 };
 
 export interface CreateCopilotRuntimeServerOptions {
   runtime: CopilotRuntime;
   serviceAdapter: CopilotServiceAdapter;
-  guardrails?: GuardrailsOptions;
-  debug?: boolean;
+  endpoint: string;
+  baseUrl?: string;
+  cloud?: CopilotCloudOptions;
+  properties?: CopilotRequestContextProperties;
 }
 
 export async function createContext(
   initialContext: YogaInitialContext,
-  copilotKitContext: CopilotKitContext,
+  copilotKitContext: CreateCopilotRuntimeServerOptions,
+  properties: CopilotRequestContextProperties = {},
 ): Promise<Partial<GraphQLContext>> {
   const ctx: GraphQLContext = {
     ...initialContext,
     _copilotkit: {
       ...copilotKitContext,
     },
+    properties: { ...properties },
   };
 
   return ctx;
@@ -61,11 +59,6 @@ export function getCommonConfig(options?: CreateCopilotRuntimeServerOptions) {
     schema: buildSchema(),
     plugins: [useDeferStream()],
     context: (ctx: YogaInitialContext): Promise<Partial<GraphQLContext>> =>
-      createContext(ctx, {
-        runtime: options.runtime,
-        serviceAdapter: options.serviceAdapter,
-        properties: {},
-        debug: options.debug ?? false,
-      }),
+      createContext(ctx, options, options.properties),
   };
 }

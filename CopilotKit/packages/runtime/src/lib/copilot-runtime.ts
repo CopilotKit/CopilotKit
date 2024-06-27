@@ -171,9 +171,6 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     runId,
     publicApiKey,
   }: CopilotRuntimeRequest): Promise<CopilotRuntimeResponse> {
-    // TODO-PROTOCOL: cloud configuration
-    // const cloud: CopilotCloudConfig = forwardedProps.cloud;
-
     const langserveFunctions: Action<any>[] = [];
 
     for (const chainPromise of this.langserve) {
@@ -209,29 +206,6 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         eventSource,
       });
 
-      // TODO-PROTOCOL add guardrails
-      //
-      // if (publicApiKey !== undefined) {
-      //   // wait for the cloud log chat to finish before streaming back the response
-      //   try {
-      //     const checkGuardrailsInputResult = await this.copilotCloud.checkGuardrailsInput({
-      //       cloud,
-      //       publicApiKey,
-      //       messages: forwardedProps.messages || [],
-      //     });
-
-      //     if (checkGuardrailsInputResult.status === "denied") {
-      //       // the chat was denied. instead of streaming back the response,
-      //       // we let the client know...
-      //       return {
-      //         stream: new SingleChunkReadableStream(checkGuardrailsInputResult.reason),
-      //         // headers: result.headers,
-      //       };
-      //     }
-      //   } catch (error) {
-      //     console.error("Error checking guardrails:", error);
-      //   }
-      // }
       return {
         threadId: result.threadId,
         runId: result.runId,

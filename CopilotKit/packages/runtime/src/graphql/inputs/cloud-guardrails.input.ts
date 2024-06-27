@@ -2,9 +2,6 @@ import { Field, InputType } from "type-graphql";
 
 @InputType()
 export class GuardrailsRuleInput {
-  @Field(() => String)
-  id: string;
-
   @Field(() => [String], { nullable: true })
   allowList?: string[] = [];
 
@@ -14,6 +11,6 @@ export class GuardrailsRuleInput {
 
 @InputType()
 export class GuardrailsInput {
-  @Field(() => [GuardrailsRuleInput], { nullable: true })
-  inputValidationRules?: GuardrailsRuleInput[] = [];
+  @Field(() => GuardrailsRuleInput, { nullable: true })
+  inputValidationRules: GuardrailsRuleInput = { allowList: [], denyList: [] };
 }

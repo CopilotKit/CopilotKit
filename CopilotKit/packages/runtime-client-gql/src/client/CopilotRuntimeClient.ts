@@ -9,15 +9,30 @@ import { OperationResultSource, OperationResult } from "urql";
 
 interface CopilotRuntimeClientOptions {
   url: string;
+  publicApiKey?: string;
+  headers?: Record<string, string>;
 }
 
 export class CopilotRuntimeClient {
   client: Client;
 
   constructor(options: CopilotRuntimeClientOptions) {
+    const headers: Record<string, string> = {};
+
+    if (options.headers) {
+      Object.assign(headers, options.headers);
+    }
+
+    if (options.publicApiKey) {
+      headers["x-copilotcloud-public-api-key"] = options.publicApiKey;
+    }
+
     this.client = new Client({
       url: options.url,
       exchanges: [cacheExchange, fetchExchange],
+      fetchOptions: {
+        headers,
+      },
     });
   }
 

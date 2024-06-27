@@ -1,20 +1,14 @@
 import { createYoga } from "graphql-yoga";
-import { getCommonConfig } from "../shared";
-import { CopilotRuntime } from "../../copilot-runtime";
-import { CopilotServiceAdapter } from "../../../service-adapters";
+import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
 
 export function copilotRuntimeNodeHttpEndpoint({
   runtime,
   endpoint,
+  baseUrl,
   serviceAdapter,
-  debug,
-}: {
-  runtime: CopilotRuntime;
-  serviceAdapter: CopilotServiceAdapter;
-  endpoint: string;
-  debug?: boolean;
-}) {
-  const commonConfig = getCommonConfig({ runtime, serviceAdapter, debug });
+  cloud,
+}: CreateCopilotRuntimeServerOptions) {
+  const commonConfig = getCommonConfig({ runtime, endpoint, baseUrl, serviceAdapter, cloud });
 
   const yoga = createYoga({
     ...commonConfig,

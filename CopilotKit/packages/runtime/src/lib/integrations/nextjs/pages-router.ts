@@ -1,7 +1,5 @@
 import { YogaServerInstance, createYoga } from "graphql-yoga";
-import { GraphQLContext, getCommonConfig } from "../shared";
-import { CopilotRuntime } from "../../copilot-runtime";
-import { CopilotServiceAdapter } from "../../../service-adapters";
+import { CreateCopilotRuntimeServerOptions, GraphQLContext, getCommonConfig } from "../shared";
 
 export const config = {
   api: {
@@ -19,15 +17,11 @@ export type {} from "@whatwg-node/server";
 export function copilotRuntimeNextJSPagesRouterEndpoint({
   runtime,
   endpoint,
+  baseUrl,
   serviceAdapter,
-  debug,
-}: {
-  runtime: CopilotRuntime;
-  serviceAdapter: CopilotServiceAdapter;
-  endpoint: string;
-  debug?: boolean;
-}): CopilotRuntimeServerInstance<GraphQLContext> {
-  const commonConfig = getCommonConfig({ runtime, serviceAdapter, debug });
+  cloud,
+}: CreateCopilotRuntimeServerOptions): CopilotRuntimeServerInstance<GraphQLContext> {
+  const commonConfig = getCommonConfig({ runtime, endpoint, baseUrl, serviceAdapter, cloud });
 
   const yoga = createYoga({
     ...commonConfig,

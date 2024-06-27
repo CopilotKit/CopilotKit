@@ -97,6 +97,8 @@ export async function extract<const T extends Parameter[]>({
 
   const runtimeClient = new CopilotRuntimeClient({
     url: context.copilotApiConfig.chatApiEndpoint,
+    publicApiKey: context.copilotApiConfig.publicApiKey,
+    headers,
   });
 
   const response = CopilotRuntimeClient.asStream(
@@ -154,8 +156,6 @@ export async function extract<const T extends Parameter[]>({
     status: "complete",
     args: actionExecutionMessage.arguments as MappedParameterTypes<T>,
   });
-
-  console.log("result:", actionExecutionMessage.arguments);
 
   return actionExecutionMessage.arguments as MappedParameterTypes<T>;
 }

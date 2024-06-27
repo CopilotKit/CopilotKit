@@ -3,6 +3,6 @@ import { GuardrailsInput } from "./cloud-guardrails.input";
 
 @InputType()
 export class CloudInput {
-  @Field(() => GuardrailsInput)
-  guardrails: GuardrailsInput;
+  @Field(() => GuardrailsInput, { nullable: true })
+  guardrails?: GuardrailsInput;
 }

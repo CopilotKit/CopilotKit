@@ -67,6 +67,8 @@ export function useMakeStandardAutosuggestionFunction(
 
         const runtimeClient = new CopilotRuntimeClient({
           url: copilotApiConfig.chatApiEndpoint,
+          publicApiKey: copilotApiConfig.publicApiKey,
+          headers: copilotApiConfig.headers,
         });
 
         const response = await runtimeClient

@@ -108,6 +108,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
   const runtimeClient = new CopilotRuntimeClient({
     url: copilotConfig.chatApiEndpoint,
+    publicApiKey: copilotConfig.publicApiKey,
+    headers,
   });
 
   const runChatCompletion = async (previousMessages: Message[]): Promise<Message[]> => {

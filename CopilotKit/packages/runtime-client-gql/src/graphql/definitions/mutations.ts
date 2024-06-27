@@ -10,6 +10,10 @@ export const generateCopilotResponseMutation = graphql(/** GraphQL **/ `
           ... on BaseResponseStatus {
             code
           }
+          ... on FailedResponseStatus {
+            reason
+            details
+          }
         }
       }
       messages @stream {

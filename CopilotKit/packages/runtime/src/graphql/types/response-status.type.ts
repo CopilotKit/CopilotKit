@@ -1,3 +1,4 @@
+import { GraphQLJSON } from "graphql-scalars";
 import { Field, InterfaceType, ObjectType, createUnionType, registerEnumType } from "type-graphql";
 
 export enum ResponseStatusCode {
@@ -38,12 +39,25 @@ export class SuccessResponseStatus extends BaseResponseStatus {
   code: ResponseStatusCode = ResponseStatusCode.Success;
 }
 
+export enum FailedResponseStatusReason {
+  GUARDRAILS_VALIDATION_FAILED = "GUARDRAILS_VALIDATION_FAILED",
+  MESSAGE_STREAM_INTERRUPTED = "MESSAGE_STREAM_INTERRUPTED",
+  UNKNOWN_ERROR = "UNKNOWN_ERROR",
+}
+
+registerEnumType(FailedResponseStatusReason, {
+  name: "FailedResponseStatusReason",
+});
+
 @ObjectType({ implements: BaseResponseStatus })
 export class FailedResponseStatus extends BaseResponseStatus {
   code: ResponseStatusCode = ResponseStatusCode.Failed;
 
-  @Field(() => String)
-  reason: string;
+  @Field(() => FailedResponseStatusReason)
+  reason: FailedResponseStatusReason;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  details?: Record<string, any> = null;
 }
 
 export const ResponseStatusUnion = createUnionType({
