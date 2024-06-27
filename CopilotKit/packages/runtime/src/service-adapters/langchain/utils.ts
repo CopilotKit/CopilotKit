@@ -75,7 +75,7 @@ export function convertJsonSchemaToZodSchema(jsonSchema: any, required: boolean)
   }
 }
 
-export function convertActionInputToLangChainTool(actionInput: ActionInput): DynamicStructuredTool {
+export function convertActionInputToLangChainTool(actionInput: ActionInput): any {
   return new DynamicStructuredTool({
     name: actionInput.name,
     description: actionInput.description,
@@ -98,24 +98,23 @@ interface StreamLangChainResponseParams {
   };
 }
 
+function getConstructorName(object: any): string {
+  if (object && typeof object === "object" && object.constructor && object.constructor.name) {
+    return object.constructor.name;
+  }
+  return "";
+}
+
 function isAIMessage(message: any): message is AIMessage {
-  return (
-    message &&
-    typeof message === "object" &&
-    message.constructor &&
-    message.constructor.name &&
-    message.constructor.name === "AIMessage"
-  );
+  return getConstructorName(message) === "AIMessage";
+}
+
+function isAIMessageChunk(message: any): message is AIMessageChunk {
+  return getConstructorName(message) === "AIMessageChunk";
 }
 
 function isBaseMessageChunk(message: any): message is BaseMessageChunk {
-  return (
-    message &&
-    typeof message === "object" &&
-    message.constructor &&
-    message.constructor.name &&
-    message.constructor.name === "BaseMessageChunk"
-  );
+  return getConstructorName(message) === "BaseMessageChunk";
 }
 
 function maybeSendActionExecutionResultIsMessage(
@@ -205,15 +204,15 @@ export async function streamLangChainResponse({
         let toolCallId: string | undefined = undefined;
         let toolCallArgs: string | undefined = undefined;
         let hasToolCall: boolean = false;
-        let content = value.content as string;
+        let content = value?.content as string;
 
-        if (value instanceof AIMessageChunk) {
+        if (isAIMessageChunk(value)) {
           let chunk = value.tool_call_chunks?.[0];
           toolCallName = chunk?.name;
           toolCallId = chunk?.id;
           toolCallArgs = chunk?.args;
           hasToolCall = chunk != undefined;
-        } else if (value instanceof BaseMessageChunk) {
+        } else if (isBaseMessageChunk(value)) {
           let chunk = value.additional_kwargs?.tool_calls?.[0];
           toolCallName = chunk?.function?.name;
           toolCallId = chunk?.id;
