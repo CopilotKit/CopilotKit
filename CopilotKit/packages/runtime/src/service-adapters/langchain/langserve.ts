@@ -13,14 +13,14 @@ export class RemoteChain {
   name: string;
   description: string;
   chainUrl: string;
-  parameters: Parameter[];
+  parameters?: Parameter[];
   parameterType: "single" | "multi";
 
   constructor(options: RemoteChainParameters) {
     this.name = options.name;
     this.description = options.description;
     this.chainUrl = options.chainUrl;
-    this.parameters = options.parameters || [];
+    this.parameters = options.parameters;
     this.parameterType = options.parameterType || "multi";
   }
 

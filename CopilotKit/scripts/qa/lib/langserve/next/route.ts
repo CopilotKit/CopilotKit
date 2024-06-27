@@ -34,6 +34,32 @@ const runtime = new CopilotRuntime({
         });
       },
     },
+    {
+      name: "sayGoodbye",
+      description: "Says goodbye to someone.",
+      parameters: [
+        {
+          name: "name",
+          type: "string",
+          description: "The name of the person to say goodbye to.",
+          required: true,
+        },
+      ],
+      handler: async ({ name }) => {
+        const prompt = ChatPromptTemplate.fromMessages([
+          [
+            "system",
+            "The user tells you their name. Say goodbye to the person in the most " +
+              " ridiculous way, roasting their name.",
+          ],
+          ["user", "My name is {name}"],
+        ]);
+        const chain = prompt.pipe(new ChatOpenAI());
+        return chain.stream({
+          name: name,
+        });
+      },
+    },
   ],
   langserve: [
     {

@@ -37,6 +37,7 @@ export class CopilotResolver {
       eventSource,
       threadId = nanoid(),
       runId,
+      actions,
     } = await copilotRuntime.process({
       serviceAdapter,
       messages: data.messages,
@@ -52,7 +53,7 @@ export class CopilotResolver {
       status: firstValueFrom(responseStatus),
       messages: new Repeater(async (pushMessage, stopStreamingMessages) => {
         // run and process the event stream
-        const eventStream = eventSource.process(copilotRuntime.actions).pipe(
+        const eventStream = eventSource.process(actions).pipe(
           // shareReplay() ensures that later subscribers will see the whole stream instead of
           // just the events that were emitted after the subscriber was added.
           shareReplay(),
