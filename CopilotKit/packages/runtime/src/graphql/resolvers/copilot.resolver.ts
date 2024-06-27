@@ -23,15 +23,16 @@ import {
   MessageStatusUnion,
   SuccessMessageStatus,
 } from "../types/message-status.type";
-import {
-  FailedResponseStatus,
-  ResponseStatusUnion,
-  SuccessResponseStatus,
-} from "../types/response-status.type";
+import { ResponseStatusUnion, SuccessResponseStatus } from "../types/response-status.type";
 import { GraphQLJSONObject } from "graphql-scalars";
 import { plainToInstance } from "class-transformer";
 import { GuardrailsResult } from "../types/guardrails-result.type";
 import { GraphQLError } from "graphql";
+import {
+  GuardrailsValidationFailureResponse,
+  MessageStreamInterruptedResponse,
+  UnknownErrorResponse,
+} from "../../utils";
 
 const invokeGuardrails = async ({
   baseUrl,
@@ -107,7 +108,7 @@ export class CopilotResolver {
     const copilotRuntime = ctx._copilotkit.runtime;
     const serviceAdapter = ctx._copilotkit.serviceAdapter;
     const responseStatus$ = new ReplaySubject<typeof ResponseStatusUnion>();
-    const interruptStreaming$ = new ReplaySubject<void>();
+    const interruptStreaming$ = new ReplaySubject<{ reason: string; messageId?: string }>();
     const guardrailsResult$ = new ReplaySubject<GuardrailsResult>();
 
     let copilotCloudBaseUrl: string;
@@ -147,9 +148,11 @@ export class CopilotResolver {
               guardrailsResult$.next(result);
               if (result.status === "denied") {
                 responseStatus$.next(
-                  plainToInstance(FailedResponseStatus, { reason: result.reason }),
+                  new GuardrailsValidationFailureResponse({ guardrailsReason: result.reason }),
                 );
-                interruptStreaming$.next();
+                interruptStreaming$.next({
+                  reason: `Interrupted due to Guardrails validation failure. Reason: ${result.reason}`,
+                });
               }
             },
           });
@@ -189,9 +192,12 @@ export class CopilotResolver {
 
                 // signal when we are done streaming
                 const streamingTextStatus = new Subject<typeof MessageStatusUnion>();
+
+                const messageId = nanoid();
+
                 // push the new message
                 pushMessage({
-                  id: nanoid(),
+                  id: messageId,
                   status: firstValueFrom(streamingTextStatus),
                   createdAt: new Date(),
                   role: MessageRole.assistant,
@@ -202,10 +208,12 @@ export class CopilotResolver {
                       .pipe(
                         shareReplay(),
                         take(1),
-                        tap(() => {
+                        tap(({ reason, messageId }) => {
                           streamingTextStatus.next(
-                            plainToInstance(FailedMessageStatus, { reason: "Interrupted" }),
+                            plainToInstance(FailedMessageStatus, { reason }),
                           );
+
+                          responseStatus$.next(new MessageStreamInterruptedResponse({ messageId }));
                           stopStreamingText();
                           textSubscription.unsubscribe();
                         }),
@@ -220,14 +228,15 @@ export class CopilotResolver {
                       },
                       error: (err) => {
                         console.error("Error in text message content stream", err);
-                        streamingTextStatus.next(
-                          plainToInstance(FailedMessageStatus, { reason: "Error" }),
-                        );
+                        interruptStreaming$.next({
+                          reason: "Error streaming message content",
+                          messageId,
+                        });
                         stopStreamingText();
                         textSubscription.unsubscribe();
                       },
                       complete: () => {
-                        streamingTextStatus.next(plainToInstance(SuccessMessageStatus, {}));
+                        streamingTextStatus.next(new SuccessMessageStatus());
                         stopStreamingText();
                         textSubscription.unsubscribe();
                       },
@@ -261,13 +270,16 @@ export class CopilotResolver {
                       error: (err) => {
                         console.error("Error in action execution argument stream", err);
                         streamingArgumentsStatus.next(
-                          plainToInstance(FailedMessageStatus, { reason: "Error" }),
+                          plainToInstance(FailedMessageStatus, {
+                            reason:
+                              "An unknown error has occurred in the action execution argument stream",
+                          }),
                         );
                         stopStreamingArguments();
                         actionExecutionArgumentSubscription.unsubscribe();
                       },
                       complete: () => {
-                        streamingArgumentsStatus.next(plainToInstance(SuccessMessageStatus, {}));
+                        streamingArgumentsStatus.next(new SuccessMessageStatus());
                         stopStreamingArguments();
                         actionExecutionArgumentSubscription.unsubscribe();
                       },
@@ -281,7 +293,7 @@ export class CopilotResolver {
               case RuntimeEventTypes.ActionExecutionResult:
                 pushMessage({
                   id: nanoid(),
-                  status: plainToInstance(SuccessMessageStatus, {}),
+                  status: new SuccessMessageStatus(),
                   createdAt: new Date(),
                   actionExecutionId: event.actionExecutionId,
                   actionName: event.actionName,
@@ -292,7 +304,11 @@ export class CopilotResolver {
           },
           error: (err) => {
             console.error("Error in event stream", err);
-            responseStatus$.next(plainToInstance(FailedResponseStatus, { reason: "Error" }));
+            responseStatus$.next(
+              new UnknownErrorResponse({
+                description: `An unknown error has occurred in the event stream`,
+              }),
+            );
             eventStreamSubscription.unsubscribe();
             stopStreamingMessages();
           },
@@ -300,7 +316,7 @@ export class CopilotResolver {
             if (data.cloud?.guardrails) {
               await firstValueFrom(guardrailsResult$);
             }
-            responseStatus$.next(plainToInstance(SuccessResponseStatus, {}));
+            responseStatus$.next(new SuccessResponseStatus());
             eventStreamSubscription.unsubscribe();
             stopStreamingMessages();
           },

@@ -12,6 +12,7 @@ export const generateCopilotResponseMutation = graphql(/** GraphQL **/ `
           }
           ... on FailedResponseStatus {
             reason
+            details
           }
         }
       }

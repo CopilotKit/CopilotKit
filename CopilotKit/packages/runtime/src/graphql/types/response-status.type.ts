@@ -1,3 +1,4 @@
+import { GraphQLJSON } from "graphql-scalars";
 import { Field, InterfaceType, ObjectType, createUnionType, registerEnumType } from "type-graphql";
 
 export enum ResponseStatusCode {
@@ -44,6 +45,9 @@ export class FailedResponseStatus extends BaseResponseStatus {
 
   @Field(() => String)
   reason: string;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  details?: Record<string, any> = null;
 }
 
 export const ResponseStatusUnion = createUnionType({
