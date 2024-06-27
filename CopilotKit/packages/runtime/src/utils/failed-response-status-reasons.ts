@@ -5,7 +5,7 @@ import {
 
 export class GuardrailsValidationFailureResponse extends FailedResponseStatus {
   reason = FailedResponseStatusReason.GUARDRAILS_VALIDATION_FAILED;
-  details: {
+  declare details: {
     guardrailsReason: string;
   };
 
@@ -19,7 +19,7 @@ export class GuardrailsValidationFailureResponse extends FailedResponseStatus {
 
 export class MessageStreamInterruptedResponse extends FailedResponseStatus {
   reason = FailedResponseStatusReason.MESSAGE_STREAM_INTERRUPTED;
-  details: {
+  declare details: {
     messageId: string;
     description: string;
   };
@@ -35,7 +35,7 @@ export class MessageStreamInterruptedResponse extends FailedResponseStatus {
 
 export class UnknownErrorResponse extends FailedResponseStatus {
   reason = FailedResponseStatusReason.UNKNOWN_ERROR;
-  details: {
+  declare details: {
     description?: string;
   };
 
