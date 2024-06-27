@@ -125,6 +125,7 @@ export class CopilotResolver {
       eventSource,
       threadId = nanoid(),
       runId,
+      actions,
     } = await copilotRuntime.process({
       serviceAdapter,
       messages: data.messages,

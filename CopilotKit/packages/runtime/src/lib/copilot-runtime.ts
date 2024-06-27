@@ -99,7 +99,7 @@
  */
 
 import { Action, actionParametersToJsonSchema, Parameter } from "@copilotkit/shared";
-import { RemoteChain, CopilotServiceAdapter } from "../service-adapters";
+import { RemoteChain, RemoteChainParameters, CopilotServiceAdapter } from "../service-adapters";
 import { CopilotCloud, RemoteCopilotCloud } from "./copilot-cloud";
 import { MessageInput } from "../graphql/inputs/message.input";
 import { ActionInput } from "../graphql/inputs/action.input";
@@ -119,6 +119,7 @@ interface CopilotRuntimeResponse {
   threadId?: string;
   runId?: string;
   eventSource: RuntimeEventSource;
+  actions: Action<any>[];
 }
 
 export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> {
@@ -130,7 +131,7 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
   /*
    * An array of LangServer URLs.
    */
-  langserve?: RemoteChain[];
+  langserve?: RemoteChainParameters[];
 
   debug?: boolean;
   copilotCloud?: CopilotCloud;
@@ -181,15 +182,15 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       }
     }
 
-    const serverSideActionsInput: ActionInput[] = [...this.actions, ...langserveFunctions].map(
-      (action) => ({
-        name: action.name,
-        description: action.description,
-        jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters)),
-      }),
-    );
+    const actions = [...this.actions, ...langserveFunctions];
 
-    const actions = flattenToolCallsNoDuplicates([
+    const serverSideActionsInput: ActionInput[] = actions.map((action) => ({
+      name: action.name,
+      description: action.description,
+      jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters)),
+    }));
+
+    const actionInputs = flattenToolCallsNoDuplicates([
       ...serverSideActionsInput,
       ...clientSideActionsInput,
     ]);
@@ -199,7 +200,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       // TODO-PROTOCOL: type this and support function calls
       const result = await serviceAdapter.process({
         messages: convertGqlInputToMessages(messages),
-        actions,
+        actions: actionInputs,
         threadId,
         runId,
         eventSource,
@@ -209,6 +210,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         threadId: result.threadId,
         runId: result.runId,
         eventSource,
+        actions,
       };
     } catch (error) {
       console.error("Error getting response:", error);
