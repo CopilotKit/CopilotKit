@@ -1,8 +1,58 @@
-// Next.js API route support: https://nextjs.org/docs/api-routes/introduction
-import type { NextApiRequest, NextApiResponse } from "next";
-import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
+import {
+  CopilotRuntime,
+  OpenAIAdapter,
+  copilotRuntimeNextJSPagesRouterEndpoint,
+} from "@copilotkit/runtime";
+import { NextApiRequest, NextApiResponse } from "next";
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  const copilotKit = new CopilotRuntime({});
-  copilotKit.streamHttpServerResponse(req, res, new OpenAIAdapter({ model: "gpt-4o" }));
-}
+const serviceAdapter = new OpenAIAdapter();
+
+const runtime = new CopilotRuntime({
+  actions: [
+    {
+      name: "sayHello",
+      description: "say hello so someone by roasting their name",
+      parameters: [
+        {
+          name: "roast",
+          description: "A sentence or two roasting the name of the person",
+          type: "string",
+          required: true,
+        },
+      ],
+      handler: ({ roast }) => {
+        console.log(roast);
+        return "The person has been roasted.";
+      },
+    },
+  ],
+});
+
+// This is required for file upload to work
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+// const copilotRuntimeHandler = copilotRuntimeNextJSPagesRouterEndpoint({
+//   endpoint: "/api/copilotkit",
+//   runtime,
+//   serviceAdapter,
+// });
+
+// export default copilotRuntimeHandler;
+
+// OR
+
+const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+  const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
+    endpoint: "/api/copilotkit",
+    runtime,
+    serviceAdapter,
+  });
+
+  return await handleRequest(req, res);
+};
+
+export default handler;
