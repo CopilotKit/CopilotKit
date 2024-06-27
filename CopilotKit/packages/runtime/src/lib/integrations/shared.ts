@@ -12,16 +12,9 @@ export type CopilotRequestContextProperties = Record<
   AnyPrimitive | Record<string, AnyPrimitive>
 >;
 
-type CopilotKitContext = {
-  runtime: CopilotRuntime;
-  serviceAdapter: CopilotServiceAdapter;
-  properties: CopilotRequestContextProperties;
-  cloud: CopilotCloudOptions;
-  baseUrl?: string;
-};
-
 export type GraphQLContext = YogaInitialContext & {
-  _copilotkit: CopilotKitContext;
+  _copilotkit: CreateCopilotRuntimeServerOptions;
+  properties: CopilotRequestContextProperties;
 };
 
 export interface CreateCopilotRuntimeServerOptions {
@@ -30,17 +23,20 @@ export interface CreateCopilotRuntimeServerOptions {
   endpoint: string;
   baseUrl?: string;
   cloud?: CopilotCloudOptions;
+  properties?: CopilotRequestContextProperties;
 }
 
 export async function createContext(
   initialContext: YogaInitialContext,
-  copilotKitContext: CopilotKitContext,
+  copilotKitContext: CreateCopilotRuntimeServerOptions,
+  properties: CopilotRequestContextProperties = {},
 ): Promise<Partial<GraphQLContext>> {
   const ctx: GraphQLContext = {
     ...initialContext,
     _copilotkit: {
       ...copilotKitContext,
     },
+    properties: { ...properties },
   };
 
   return ctx;
@@ -63,12 +59,6 @@ export function getCommonConfig(options?: CreateCopilotRuntimeServerOptions) {
     schema: buildSchema(),
     plugins: [useDeferStream()],
     context: (ctx: YogaInitialContext): Promise<Partial<GraphQLContext>> =>
-      createContext(ctx, {
-        runtime: options.runtime,
-        serviceAdapter: options.serviceAdapter,
-        properties: {},
-        cloud: options.cloud,
-        baseUrl: options.baseUrl,
-      }),
+      createContext(ctx, options, options.properties),
   };
 }

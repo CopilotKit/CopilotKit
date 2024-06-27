@@ -91,7 +91,7 @@ export class CopilotResolver {
     properties?: CopilotRequestContextProperties,
   ) {
     if (properties) {
-      ctx._copilotkit.properties = { ...ctx._copilotkit.properties, ...properties };
+      ctx.properties = { ...ctx.properties, ...properties };
     }
 
     let copilotCloudPublicApiKey: string | null = null;

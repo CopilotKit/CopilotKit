@@ -157,8 +157,6 @@ export async function extract<const T extends Parameter[]>({
     args: actionExecutionMessage.arguments as MappedParameterTypes<T>,
   });
 
-  console.log("result:", actionExecutionMessage.arguments);
-
   return actionExecutionMessage.arguments as MappedParameterTypes<T>;
 }
 
