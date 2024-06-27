@@ -98,6 +98,41 @@ interface StreamLangChainResponseParams {
   };
 }
 
+function isAIMessage(message: any): message is AIMessage {
+  return (
+    message &&
+    typeof message === "object" &&
+    message.constructor &&
+    message.constructor.name &&
+    message.constructor.name === "AIMessage"
+  );
+}
+
+function isBaseMessageChunk(message: any): message is BaseMessageChunk {
+  return (
+    message &&
+    typeof message === "object" &&
+    message.constructor &&
+    message.constructor.name &&
+    message.constructor.name === "BaseMessageChunk"
+  );
+}
+
+function maybeSendActionExecutionResultIsMessage(
+  eventStream$: RuntimeEventSubject,
+  actionExecution?: { id: string; name: string },
+) {
+  // language models need a result after the function call
+  // we simply let them know that we are sending a message
+  if (actionExecution) {
+    eventStream$.sendActionExecutionResult(
+      actionExecution.id,
+      actionExecution.name,
+      "Sending a message",
+    );
+  }
+}
+
 export async function streamLangChainResponse({
   result,
   eventStream$,
@@ -119,8 +154,9 @@ export async function streamLangChainResponse({
 
   // 2. AIMessage
   // Send the content and function call of the AIMessage as the content of the chunk.
-  // else if ("content" in result && typeof result.content === "string") {
-  else if (result instanceof AIMessage) {
+  else if (isAIMessage(result)) {
+    maybeSendActionExecutionResultIsMessage(eventStream$, actionExecution);
+
     if (result.content) {
       eventStream$.sendTextMessage(nanoid(), result.content as string);
     }
@@ -135,7 +171,9 @@ export async function streamLangChainResponse({
 
   // 3. BaseMessageChunk
   // Send the content and function call of the AIMessage as the content of the chunk.
-  else if (result instanceof BaseMessageChunk) {
+  else if (isBaseMessageChunk(result)) {
+    maybeSendActionExecutionResultIsMessage(eventStream$, actionExecution);
+
     if (result.lc_kwargs?.content) {
       eventStream$.sendTextMessage(nanoid(), result.content as string);
     }
@@ -153,6 +191,8 @@ export async function streamLangChainResponse({
   // 4. IterableReadableStream
   // Stream the result of the LangChain function.
   else if (result && "getReader" in result) {
+    maybeSendActionExecutionResultIsMessage(eventStream$, actionExecution);
+
     let reader = result.getReader();
 
     let mode: "function" | "message" | null = null;

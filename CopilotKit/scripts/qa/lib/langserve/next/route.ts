@@ -1,4 +1,8 @@
-import { CopilotRuntime, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
+import {
+  CopilotRuntime,
+  OpenAIAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { ChatOpenAI } from "@langchain/openai";
 
@@ -46,9 +50,11 @@ const runtime = new CopilotRuntime({
   ],
 });
 
+const serviceAdapter = new OpenAIAdapter();
+
 export const { GET, POST, OPTIONS } = copilotRuntimeNextJSAppRouterEndpoint({
   runtime,
   serviceAdapter,
-  endpoint: "/api/copilotkit",
+  endpoint: "/api/copilotkit/openai",
   debug: true,
 }) as any;
