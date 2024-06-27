@@ -1,5 +1,6 @@
 import { Arg, Ctx, Mutation, Query, Resolver } from "type-graphql";
 import {
+  ReplaySubject,
   Subject,
   Subscription,
   finalize,
@@ -105,9 +106,9 @@ export class CopilotResolver {
 
     const copilotRuntime = ctx._copilotkit.runtime;
     const serviceAdapter = ctx._copilotkit.serviceAdapter;
-    const responseStatus$ = new Subject<typeof ResponseStatusUnion>();
-    const interruptStreaming$ = new Subject<void>();
-    const guardrailsResult$ = new Subject<GuardrailsResult>();
+    const responseStatus$ = new ReplaySubject<typeof ResponseStatusUnion>();
+    const interruptStreaming$ = new ReplaySubject<void>();
+    const guardrailsResult$ = new ReplaySubject<GuardrailsResult>();
 
     let copilotCloudBaseUrl: string;
 
@@ -199,6 +200,7 @@ export class CopilotResolver {
 
                     interruptStreaming$
                       .pipe(
+                        shareReplay(),
                         take(1),
                         tap(() => {
                           streamingTextStatus.next(
