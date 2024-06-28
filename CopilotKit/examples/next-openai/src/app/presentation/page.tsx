@@ -10,13 +10,9 @@ export default function AIPresentation() {
 
   return (
     <CopilotKit
-      runtimeUrl="http://localhost:4000/copilotkit"
-      publicApiKey="ck_pub_cf06b5e842c06f221c9e05ec9aab2a5c"
+      runtimeUrl="/api/copilotkit"
       transcribeAudioUrl="/api/transcribe"
       textToSpeechUrl="/api/tts"
-      cloudRestrictToTopic={{
-        validTopics: ["math"],
-      }}
     >
       <div
         style={
