@@ -4,7 +4,7 @@ description: "A context-aware, auto-completing textarea."
 ---
 
 {/* GENERATE-DOCS path=packages/react-textarea/src/components/copilot-textarea/copilot-textarea.tsx component=CopilotTextarea */}
-
+ 
 <RequestExample>
 ```jsx CopilotTextarea Example
 <CopilotTextarea
@@ -80,40 +80,36 @@ export function ExampleComponent() {
 
 ## Props
 
-<ResponseField name="disableBranding" type="boolean">
-  Determines whether the CopilotKit branding should be disabled. Default is
-  `false`.
+<ResponseField name="disableBranding" type="boolean" >
+Determines whether the CopilotKit branding should be disabled. Default is `false`.
 </ResponseField>
 
-<ResponseField name="placeholderStyle" type="React.CSSProperties">
-  Specifies the CSS styles to apply to the placeholder text.
+<ResponseField name="placeholderStyle" type="React.CSSProperties" >
+Specifies the CSS styles to apply to the placeholder text.
 </ResponseField>
 
-<ResponseField name="suggestionsStyle" type="React.CSSProperties">
-  Specifies the CSS styles to apply to the suggestions list.
+<ResponseField name="suggestionsStyle" type="React.CSSProperties" >
+Specifies the CSS styles to apply to the suggestions list.
 </ResponseField>
 
-<ResponseField name="hoverMenuClassname" type="string">
-  A class name to apply to the editor popover window.
+<ResponseField name="hoverMenuClassname" type="string" >
+A class name to apply to the editor popover window.
 </ResponseField>
 
-<ResponseField name="value" type="string">
-  The initial value of the textarea. Can be controlled via `onValueChange`.
+<ResponseField name="value" type="string" >
+The initial value of the textarea. Can be controlled via `onValueChange`.
 </ResponseField>
 
-<ResponseField name="onValueChange" type="(value: string) => void">
-  Callback invoked when the value of the textarea changes.
+<ResponseField name="onValueChange" type="(value: string) => void" >
+Callback invoked when the value of the textarea changes.
 </ResponseField>
 
-<ResponseField
-  name="onChange"
-  type="(event: React.ChangeEvent<HTMLTextAreaElement>) => void"
->
-  Callback invoked when a `change` event is triggered on the textarea element.
+<ResponseField name="onChange" type="(event: React.ChangeEvent<HTMLTextAreaElement>) => void" >
+Callback invoked when a `change` event is triggered on the textarea element.
 </ResponseField>
 
-<ResponseField name="shortcut" type="string">
-  The shortcut to use to open the editor popover window. Default is `"Cmd-k"`.
+<ResponseField name="shortcut" type="string" >
+The shortcut to use to open the editor popover window. Default is `"Cmd-k"`.
 </ResponseField>
 
 <ResponseField name="autosuggestionsConfig" type="AutosuggestionsConfigUserSpecified" required>
@@ -145,3 +141,4 @@ Configuration settings for the autosuggestions feature.
   }
   ```
 </ResponseField>
+
