@@ -8,7 +8,7 @@ function prepare() {
   if (fs.existsSync(DOCS_SNIPPETS_DIR)) {
     console.log("Cleaning up existing snippets...");
     fs.rmSync(DOCS_SNIPPETS_DIR, { recursive: true });
-}
+  }
 }
 
 function parseJSDocProperty({ jsDoc, property }: { jsDoc: string; property: string }) {
@@ -52,7 +52,7 @@ ${cleanFileContent.trim()}
 
       fs.mkdirSync(path.dirname(targetPath), { recursive: true });
       fs.writeFileSync(targetPath, finalContent);
-      
+
       console.log("Successfully copied file to ", targetPath);
     }
   });
