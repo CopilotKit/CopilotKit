@@ -1,5 +1,18 @@
 # ui
 
+## 0.38.0-mme-alpha.0
+
+### Minor Changes
+
+- GraphQL based protocol
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@0.38.0-mme-alpha.0
+  - @copilotkit/runtime-client-gql@0.38.0-mme-alpha.0
+  - @copilotkit/shared@0.38.0-mme-alpha.0
+
 ## 0.37.0
 
 ### Minor Changes

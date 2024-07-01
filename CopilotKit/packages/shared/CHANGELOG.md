@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 0.38.0-mme-alpha.0
+
+### Minor Changes
+
+- GraphQL based protocol
+
 ## 0.37.0
 
 ### Minor Changes
