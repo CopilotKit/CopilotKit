@@ -33,7 +33,6 @@ import {
   MessageStreamInterruptedResponse,
   UnknownErrorResponse,
 } from "../../utils";
-import { CopilotRuntimeLogger } from "../../lib/logger";
 
 const invokeGuardrails = async ({
   baseUrl,
@@ -170,7 +169,6 @@ export class CopilotResolver {
             baseUrl: copilotCloudBaseUrl,
             copilotCloudPublicApiKey,
             data,
-            logger,
             onResult: (result) => {
               logger.debug({ status: result.status }, "Guardrails validation done");
               guardrailsResult$.next(result);
