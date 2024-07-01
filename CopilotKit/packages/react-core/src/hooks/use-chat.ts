@@ -203,7 +203,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           break;
         }
 
-        if (!value.generateCopilotResponse) {
+        if (!value?.generateCopilotResponse) {
           continue;
         }
 
