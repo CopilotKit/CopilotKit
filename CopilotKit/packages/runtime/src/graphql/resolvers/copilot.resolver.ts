@@ -26,7 +26,7 @@ import {
 import { ResponseStatusUnion, SuccessResponseStatus } from "../types/response-status.type";
 import { GraphQLJSONObject } from "graphql-scalars";
 import { plainToInstance } from "class-transformer";
-import { GuardrailsResult } from "../types/guardrails-result.type";
+import { GuardrailsResult, GuardrailsResultStatus } from "../types/guardrails-result.type";
 import { GraphQLError } from "graphql";
 import {
   GuardrailsValidationFailureResponse,
@@ -47,18 +47,26 @@ const invokeGuardrails = async ({
   onResult: (result: GuardrailsResult) => void;
   onError: (err: Error) => void;
 }) => {
-  const lastUserTextMessageIndex = data.messages.reverse().findIndex((msg) => {
-    if (msg.textMessage && msg.textMessage.role === MessageRole.user) {
-      return msg;
-    }
-  });
+  if (
+    data.messages.length &&
+    data.messages[data.messages.length - 1].textMessage?.role === MessageRole.user
+  ) {
+    const messages = data.messages
+      .filter(
+        (m) =>
+          m.textMessage !== undefined &&
+          (m.textMessage.role === MessageRole.user || m.textMessage.role === MessageRole.assistant),
+      )
+      .map((m) => ({
+        role: m.textMessage!.role,
+        content: m.textMessage.content,
+      }));
 
-  if (lastUserTextMessageIndex !== -1) {
-    const lastMessage = data.messages[lastUserTextMessageIndex];
-    const restOfMessages = data.messages.slice(0, lastUserTextMessageIndex);
+    const lastMessage = messages[messages.length - 1];
+    const restOfMessages = messages.slice(0, -1);
 
     const body = {
-      input: lastMessage.textMessage.content,
+      input: lastMessage.content,
       validTopics: data.cloud.guardrails.inputValidationRules.allowList,
       invalidTopics: data.cloud.guardrails.inputValidationRules.denyList,
       messages: restOfMessages,
@@ -200,7 +208,7 @@ export class CopilotResolver {
         // run and process the event stream
         const eventStream = eventSource
           .process({
-            serversideActions: copilotRuntime.actions,
+            serversideActions: actions,
             guardrailsResult$: data.cloud?.guardrails ? guardrailsResult$ : null,
           })
           .pipe(
