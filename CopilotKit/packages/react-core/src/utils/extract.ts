@@ -101,21 +101,25 @@ export async function extract<const T extends Parameter[]>({
   });
 
   const response = CopilotRuntimeClient.asStream(
-    runtimeClient.generateCopilotResponse({
-      frontend: {
-        actions: [
-          {
-            name: action.name,
-            description: action.description || "",
-            jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
-          },
-        ],
-      },
+    runtimeClient.generateCopilotResponse(
+      {
+        frontend: {
+          actions: [
+            {
+              name: action.name,
+              description: action.description || "",
+              jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
+            },
+          ],
+        },
 
-      messages: convertMessagesToGqlInput(
-        includeMessages ? [systemMessage, ...messages] : [systemMessage],
-      ),
-    }),
+        messages: convertMessagesToGqlInput(
+          includeMessages ? [systemMessage, ...messages] : [systemMessage],
+        ),
+      },
+      undefined,
+      abortSignal,
+    ),
   );
 
   const reader = response.getReader();
