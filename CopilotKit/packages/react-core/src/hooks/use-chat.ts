@@ -133,30 +133,34 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
 
     const stream = CopilotRuntimeClient.asStream(
-      runtimeClient.generateCopilotResponse({
-        frontend: {
-          actions: actions.map((action) => ({
-            name: action.name,
-            description: action.description || "",
-            jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
-          })),
-        },
-        threadId: threadIdRef.current,
-        runId: runIdRef.current,
-        messages: convertMessagesToGqlInput(messagesWithContext),
-        ...(copilotConfig.cloud
-          ? {
-              cloud: {
-                guardrails: {
-                  inputValidationRules: {
-                    allowList: copilotConfig.cloud.guardrails.input.restrictToTopic.validTopics,
-                    denyList: copilotConfig.cloud.guardrails.input.restrictToTopic.invalidTopics,
+      runtimeClient.generateCopilotResponse(
+        {
+          frontend: {
+            actions: actions.map((action) => ({
+              name: action.name,
+              description: action.description || "",
+              jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
+            })),
+          },
+          threadId: threadIdRef.current,
+          runId: runIdRef.current,
+          messages: convertMessagesToGqlInput(messagesWithContext),
+          ...(copilotConfig.cloud
+            ? {
+                cloud: {
+                  guardrails: {
+                    inputValidationRules: {
+                      allowList: copilotConfig.cloud.guardrails.input.restrictToTopic.validTopics,
+                      denyList: copilotConfig.cloud.guardrails.input.restrictToTopic.invalidTopics,
+                    },
                   },
                 },
-              },
-            }
-          : {}),
-      }),
+              }
+            : {}),
+        },
+        undefined,
+        abortControllerRef.current?.signal,
+      ),
     );
 
     const guardrailsEnabled =
@@ -199,7 +203,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           break;
         }
 
-        if (!value.generateCopilotResponse) {
+        if (!value?.generateCopilotResponse) {
           continue;
         }
 

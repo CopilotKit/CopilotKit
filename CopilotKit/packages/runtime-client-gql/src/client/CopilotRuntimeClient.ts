@@ -39,11 +39,18 @@ export class CopilotRuntimeClient {
   generateCopilotResponse(
     data: GenerateCopilotResponseMutationVariables["data"],
     properties?: GenerateCopilotResponseMutationVariables["properties"],
+    signal?: AbortSignal,
   ) {
-    return this.client.mutation<
+    const result = this.client.mutation<
       GenerateCopilotResponseMutation,
       GenerateCopilotResponseMutationVariables
-    >(generateCopilotResponseMutation, { data, properties });
+    >(
+      generateCopilotResponseMutation,
+      { data, properties },
+      { fetch: (url, opts) => fetch(url, { ...opts, signal }) },
+    );
+
+    return result;
   }
 
   static asStream<S, T>(source: OperationResultSource<OperationResult<S, { data: T }>>) {
