@@ -41,10 +41,21 @@ export class CopilotRuntimeClient {
     properties?: GenerateCopilotResponseMutationVariables["properties"],
     signal?: AbortSignal,
   ) {
+    function fetchWithAbortSignal(url: RequestInfo, opts: RequestInit): Promise<Response> {
+      return fetch(url, {
+        ...opts,
+        signal,
+      });
+    }
+
     return this.client.mutation<
       GenerateCopilotResponseMutation,
       GenerateCopilotResponseMutationVariables
-    >(generateCopilotResponseMutation, { data, properties }, { fetchOptions: { signal } });
+    >(
+      generateCopilotResponseMutation,
+      { data, properties },
+      { fetch: fetchWithAbortSignal as any },
+    );
   }
 
   static asStream<S, T>(source: OperationResultSource<OperationResult<S, { data: T }>>) {
