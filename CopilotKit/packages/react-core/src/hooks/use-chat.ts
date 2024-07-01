@@ -159,7 +159,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             : {}),
         },
         undefined,
-        abortController.signal,
+        abortControllerRef.current?.signal,
       ),
     );
 
@@ -324,6 +324,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   };
 
   const stop = (): void => {
+    console.log("calling abort on", abortControllerRef.current?.signal);
     abortControllerRef.current?.abort();
   };
 
