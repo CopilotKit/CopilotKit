@@ -123,7 +123,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         role: Role.Assistant,
       }),
     ];
-
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
@@ -134,19 +133,38 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
 
     const stream = CopilotRuntimeClient.asStream(
-      runtimeClient.generateCopilotResponse({
-        frontend: {
-          actions: actions.map((action) => ({
-            name: action.name,
-            description: action.description || "",
-            jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
-          })),
+      runtimeClient.generateCopilotResponse(
+        {
+          frontend: {
+            actions: actions.map((action) => ({
+              name: action.name,
+              description: action.description || "",
+              jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
+            })),
+          },
+          threadId: threadIdRef.current,
+          runId: runIdRef.current,
+          messages: convertMessagesToGqlInput(messagesWithContext),
+          ...(copilotConfig.cloud
+            ? {
+                cloud: {
+                  guardrails: {
+                    inputValidationRules: {
+                      allowList: copilotConfig.cloud.guardrails.input.restrictToTopic.validTopics,
+                      denyList: copilotConfig.cloud.guardrails.input.restrictToTopic.invalidTopics,
+                    },
+                  },
+                },
+              }
+            : {}),
         },
-        threadId: threadIdRef.current,
-        runId: runIdRef.current,
-        messages: convertMessagesToGqlInput(messagesWithContext),
-      }),
+        undefined,
+        abortControllerRef.current?.signal,
+      ),
     );
+
+    const guardrailsEnabled =
+      copilotConfig.cloud?.guardrails?.input?.restrictToTopic.enabled || false;
 
     // TODO-PROTOCOL make sure all options are included in the final version
     //
@@ -185,7 +203,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           break;
         }
 
-        if (!value.generateCopilotResponse) {
+        if (!value?.generateCopilotResponse) {
           continue;
         }
 
@@ -200,33 +218,53 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
         newMessages = [];
 
-        for (const message of messages) {
-          newMessages.push(message);
+        // request failed, display error message
+        if (
+          value.generateCopilotResponse.status?.__typename === "FailedResponseStatus" &&
+          value.generateCopilotResponse.status.reason === "GUARDRAILS_VALIDATION_FAILED"
+        ) {
+          newMessages = [
+            new TextMessage({
+              role: MessageRole.Assistant,
+              content: value.generateCopilotResponse.status.details?.guardrailsReason || "",
+            }),
+          ];
+        }
 
-          if (
-            message instanceof ActionExecutionMessage &&
-            message.status.code !== MessageStatusCode.Pending &&
-            message.scope === "client" &&
-            onFunctionCall
-          ) {
-            if (!(message.id in results)) {
-              // execute action
-              const result = await onFunctionCall({
-                messages: previousMessages,
-                name: message.name,
-                args: message.arguments,
-              });
-              results[message.id] = result;
+        // add messages to the chat
+        else {
+          for (const message of messages) {
+            newMessages.push(message);
+
+            if (
+              message instanceof ActionExecutionMessage &&
+              message.status.code !== MessageStatusCode.Pending &&
+              message.scope === "client" &&
+              onFunctionCall
+            ) {
+              if (!(message.id in results)) {
+                // Do not execute a function call if guardrails are enabled but the status is not known
+                if (guardrailsEnabled && value.generateCopilotResponse.status === undefined) {
+                  break;
+                }
+                // execute action
+                const result = await onFunctionCall({
+                  messages: previousMessages,
+                  name: message.name,
+                  args: message.arguments,
+                });
+                results[message.id] = result;
+              }
+
+              // add the result message
+              newMessages.push(
+                new ResultMessage({
+                  result: ResultMessage.encodeResult(results[message.id]),
+                  actionExecutionId: message.id,
+                  actionName: message.name,
+                }),
+              );
             }
-
-            // add the result message
-            newMessages.push(
-              new ResultMessage({
-                result: ResultMessage.encodeResult(results[message.id]),
-                actionExecutionId: message.id,
-                actionName: message.name,
-              }),
-            );
           }
         }
 

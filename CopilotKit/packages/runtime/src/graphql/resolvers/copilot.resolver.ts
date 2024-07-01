@@ -26,40 +26,47 @@ import {
 import { ResponseStatusUnion, SuccessResponseStatus } from "../types/response-status.type";
 import { GraphQLJSONObject } from "graphql-scalars";
 import { plainToInstance } from "class-transformer";
-import { GuardrailsResult } from "../types/guardrails-result.type";
+import { GuardrailsResult, GuardrailsResultStatus } from "../types/guardrails-result.type";
 import { GraphQLError } from "graphql";
 import {
   GuardrailsValidationFailureResponse,
   MessageStreamInterruptedResponse,
   UnknownErrorResponse,
 } from "../../utils";
-import { CopilotRuntimeLogger } from "../../lib/logger";
 
 const invokeGuardrails = async ({
   baseUrl,
   copilotCloudPublicApiKey,
   data,
-  logger,
   onResult,
+  onError,
 }: {
   baseUrl: string;
   copilotCloudPublicApiKey: string;
   data: GenerateCopilotResponseInput;
-  logger: CopilotRuntimeLogger;
   onResult: (result: GuardrailsResult) => void;
+  onError: (err: Error) => void;
 }) => {
-  const lastUserTextMessageIndex = data.messages.reverse().findIndex((msg) => {
-    if (msg.textMessage && msg.textMessage.role === MessageRole.user) {
-      return msg;
-    }
-  });
+  if (
+    data.messages.length &&
+    data.messages[data.messages.length - 1].textMessage?.role === MessageRole.user
+  ) {
+    const messages = data.messages
+      .filter(
+        (m) =>
+          m.textMessage !== undefined &&
+          (m.textMessage.role === MessageRole.user || m.textMessage.role === MessageRole.assistant),
+      )
+      .map((m) => ({
+        role: m.textMessage!.role,
+        content: m.textMessage.content,
+      }));
 
-  if (lastUserTextMessageIndex !== -1) {
-    const lastMessage = data.messages[lastUserTextMessageIndex];
-    const restOfMessages = data.messages.slice(0, lastUserTextMessageIndex);
+    const lastMessage = messages[messages.length - 1];
+    const restOfMessages = messages.slice(0, -1);
 
     const body = {
-      input: lastMessage.textMessage.content,
+      input: lastMessage.content,
       validTopics: data.cloud.guardrails.inputValidationRules.allowList,
       invalidTopics: data.cloud.guardrails.inputValidationRules.denyList,
       messages: restOfMessages,
@@ -74,8 +81,12 @@ const invokeGuardrails = async ({
       body: JSON.stringify(body),
     });
 
-    const resultJson: GuardrailsResult = await guardrailsResult.json();
-    onResult(resultJson);
+    if (guardrailsResult.ok) {
+      const resultJson: GuardrailsResult = await guardrailsResult.json();
+      onResult(resultJson);
+    } else {
+      onError(await guardrailsResult.json());
+    }
   }
 };
 
@@ -166,7 +177,6 @@ export class CopilotResolver {
             baseUrl: copilotCloudBaseUrl,
             copilotCloudPublicApiKey,
             data,
-            logger,
             onResult: (result) => {
               logger.debug({ status: result.status }, "Guardrails validation done");
               guardrailsResult$.next(result);
@@ -179,6 +189,17 @@ export class CopilotResolver {
                 });
               }
             },
+            onError: (err) => {
+              logger.error({ err }, "Error in guardrails validation");
+              responseStatus$.next(
+                new UnknownErrorResponse({
+                  description: `An unknown error has occurred in the guardrails validation`,
+                }),
+              );
+              interruptStreaming$.next({
+                reason: `Interrupted due to unknown error in guardrails validation`,
+              });
+            },
           });
         }
 
@@ -187,7 +208,7 @@ export class CopilotResolver {
         // run and process the event stream
         const eventStream = eventSource
           .process({
-            serversideActions: copilotRuntime.actions,
+            serversideActions: actions,
             guardrailsResult$: data.cloud?.guardrails ? guardrailsResult$ : null,
           })
           .pipe(
@@ -246,7 +267,7 @@ export class CopilotResolver {
 
                           responseStatus$.next(new MessageStreamInterruptedResponse({ messageId }));
                           stopStreamingText();
-                          textSubscription.unsubscribe();
+                          textSubscription?.unsubscribe();
                         }),
                       )
                       .subscribe();
@@ -266,13 +287,13 @@ export class CopilotResolver {
                           messageId,
                         });
                         stopStreamingText();
-                        textSubscription.unsubscribe();
+                        textSubscription?.unsubscribe();
                       },
                       complete: () => {
                         logger.debug("Text message content stream completed");
                         streamingTextStatus.next(new SuccessMessageStatus());
                         stopStreamingText();
-                        textSubscription.unsubscribe();
+                        textSubscription?.unsubscribe();
                       },
                     });
                   }),
@@ -313,13 +334,13 @@ export class CopilotResolver {
                           }),
                         );
                         stopStreamingArguments();
-                        actionExecutionArgumentSubscription.unsubscribe();
+                        actionExecutionArgumentSubscription?.unsubscribe();
                       },
                       complete: () => {
                         logger.debug("Action execution argument stream completed");
                         streamingArgumentsStatus.next(new SuccessMessageStatus());
                         stopStreamingArguments();
-                        actionExecutionArgumentSubscription.unsubscribe();
+                        actionExecutionArgumentSubscription?.unsubscribe();
                       },
                     });
                   }),
@@ -348,7 +369,7 @@ export class CopilotResolver {
                 description: `An unknown error has occurred in the event stream`,
               }),
             );
-            eventStreamSubscription.unsubscribe();
+            eventStreamSubscription?.unsubscribe();
             stopStreamingMessages();
           },
           complete: async () => {
@@ -358,7 +379,7 @@ export class CopilotResolver {
               await firstValueFrom(guardrailsResult$);
             }
             responseStatus$.next(new SuccessResponseStatus());
-            eventStreamSubscription.unsubscribe();
+            eventStreamSubscription?.unsubscribe();
             stopStreamingMessages();
           },
         });

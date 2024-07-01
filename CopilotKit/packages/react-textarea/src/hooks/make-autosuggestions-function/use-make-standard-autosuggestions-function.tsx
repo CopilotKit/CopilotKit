@@ -72,12 +72,16 @@ export function useMakeStandardAutosuggestionFunction(
         });
 
         const response = await runtimeClient
-          .generateCopilotResponse({
-            frontend: {
-              actions: [],
+          .generateCopilotResponse(
+            {
+              frontend: {
+                actions: [],
+              },
+              messages: convertMessagesToGqlInput(messages),
             },
-            messages: convertMessagesToGqlInput(messages),
-          })
+            undefined,
+            abortSignal,
+          )
           .toPromise();
 
         let result = "";
