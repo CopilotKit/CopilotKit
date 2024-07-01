@@ -324,7 +324,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   };
 
   const stop = (): void => {
-    console.log("calling abort on", abortControllerRef.current?.signal);
     abortControllerRef.current?.abort();
   };
 
