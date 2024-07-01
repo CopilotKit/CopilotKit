@@ -1,5 +1,17 @@
 # node
 
+## 1.24.0-mme-pre.0
+
+### Minor Changes
+
+- GraphQL based protocol
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime@0.38.0-mme-pre.0
+  - @copilotkit/shared@0.38.0-mme-pre.0
+
 ## 1.23.0
 
 ### Minor Changes

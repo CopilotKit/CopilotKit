@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.17.0-mme-pre.0
+
+### Minor Changes
+
+- GraphQL based protocol
+
 ## 0.16.0
 
 ### Minor Changes

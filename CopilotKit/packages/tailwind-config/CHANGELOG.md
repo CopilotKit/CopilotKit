@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 0.12.0-mme-pre.0
+
+### Minor Changes
+
+- GraphQL based protocol
+
 ## 0.11.0
 
 ### Minor Changes
