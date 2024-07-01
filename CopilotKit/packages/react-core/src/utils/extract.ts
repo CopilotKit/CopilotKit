@@ -87,7 +87,6 @@ export async function extract<const T extends Parameter[]>({
     role: Role.System,
   });
 
-  // TODO-PROTOCOL: Include headers?
   const headers = {
     ...(context.copilotApiConfig.headers || {}),
     ...(context.copilotApiConfig.publicApiKey

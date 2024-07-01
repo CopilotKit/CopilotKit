@@ -100,7 +100,6 @@
 
 import { Action, actionParametersToJsonSchema, Parameter } from "@copilotkit/shared";
 import { RemoteChain, RemoteChainParameters, CopilotServiceAdapter } from "../service-adapters";
-import { CopilotCloud, RemoteCopilotCloud } from "./copilot-cloud";
 import { MessageInput } from "../graphql/inputs/message.input";
 import { ActionInput } from "../graphql/inputs/action.input";
 import { RuntimeEventSource } from "../service-adapters/events";
@@ -134,14 +133,12 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
   langserve?: RemoteChainParameters[];
 
   debug?: boolean;
-  copilotCloud?: CopilotCloud;
 }
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   public actions: Action<any>[] = [];
   private langserve: Promise<Action<any>>[] = [];
   private debug: boolean = false;
-  private copilotCloud: CopilotCloud;
 
   constructor(params?: CopilotRuntimeConstructorParams<T>) {
     this.actions = params?.actions || [];
@@ -151,7 +148,6 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       this.langserve.push(remoteChain.toAction());
     }
     this.debug = params?.debug || false;
-    this.copilotCloud = params?.copilotCloud || new RemoteCopilotCloud();
   }
 
   addAction<const T extends Parameter[] | [] = []>(action: Action<T>): void {
