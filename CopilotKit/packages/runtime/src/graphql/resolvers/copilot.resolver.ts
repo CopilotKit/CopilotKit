@@ -203,7 +203,7 @@ export class CopilotResolver {
         // run and process the event stream
         const eventStream = eventSource
           .process({
-            serversideActions: copilotRuntime.actions,
+            serversideActions: actions,
             guardrailsResult$: data.cloud?.guardrails ? guardrailsResult$ : null,
           })
           .pipe(
