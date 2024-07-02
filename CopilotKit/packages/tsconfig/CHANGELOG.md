@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.17.0-mme-alpha.1
+
+### Minor Changes
+
+- Fix: Missing server action results
+
 ## 0.17.0-mme-alpha.0
 
 ### Minor Changes

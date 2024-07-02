@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 0.12.0-mme-alpha.1
+
+### Minor Changes
+
+- Fix: Missing server action results
+
 ## 0.12.0-mme-alpha.0
 
 ### Minor Changes

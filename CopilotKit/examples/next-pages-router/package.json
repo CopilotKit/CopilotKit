@@ -1,6 +1,6 @@
 {
   "name": "next-pages-router",
-  "version": "0.2.0-mme-alpha.0",
+  "version": "0.2.0-mme-alpha.1",
   "private": true,
   "scripts": {
     "start:dev": "next dev",
