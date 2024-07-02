@@ -104,13 +104,13 @@ import { MessageInput } from "../graphql/inputs/message.input";
 import { ActionInput } from "../graphql/inputs/action.input";
 import { RuntimeEventSource } from "../service-adapters/events";
 import { convertGqlInputToMessages } from "../service-adapters/conversion";
-import { GraphQLContext } from "./integrations";
+import { Message } from "../graphql/types/converted";
 
 interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
   messages: MessageInput[];
   actions: ActionInput[];
-  ctx: GraphQLContext;
+  customProperties: any;
   threadId?: string;
   runId?: string;
   publicApiKey?: string;
@@ -125,9 +125,23 @@ interface CopilotRuntimeResponse {
 
 type ActionsConfiguration<T extends Parameter[] | [] = []> =
   | Action<T>[]
-  | ((ctx: GraphQLContext) => Action<T>[]);
+  | ((ctx: { customProperties: any }) => Action<T>[]);
+
+interface OnBeforeRequestOptions {
+  threadId?: string;
+  runId?: string;
+  messages: Message[];
+  customProperties: any;
+}
+
+type OnBeforeRequestHandler = (options: OnBeforeRequestOptions) => void | Promise<void>;
 
 export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> {
+  /**
+   * A function that is called before the request is processed.
+   */
+  onBeforeRequest?: OnBeforeRequestHandler;
+
   /*
    * A list of server side actions that can be executed.
    */
@@ -142,6 +156,7 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   public actions: ActionsConfiguration<T>;
   private langserve: Promise<Action<any>>[] = [];
+  private onBeforeRequest?: OnBeforeRequestHandler;
 
   constructor(params?: CopilotRuntimeConstructorParams<T>) {
     this.actions = params?.actions || [];
@@ -150,6 +165,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       const remoteChain = new RemoteChain(chain);
       this.langserve.push(remoteChain.toAction());
     }
+
+    this.onBeforeRequest = params?.onBeforeRequest;
   }
 
   async process({
@@ -158,7 +175,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     actions: clientSideActionsInput,
     threadId,
     runId,
-    ctx,
+    customProperties,
   }: CopilotRuntimeRequest): Promise<CopilotRuntimeResponse> {
     const langserveFunctions: Action<any>[] = [];
 
@@ -171,11 +188,12 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       }
     }
 
-    const actions = typeof this.actions === "function" ? this.actions(ctx) : this.actions;
+    const configuredActions =
+      typeof this.actions === "function" ? this.actions({ customProperties }) : this.actions;
 
-    const allActions = [...actions, ...langserveFunctions];
+    const actions = [...configuredActions, ...langserveFunctions];
 
-    const serverSideActionsInput: ActionInput[] = allActions.map((action) => ({
+    const serverSideActionsInput: ActionInput[] = actions.map((action) => ({
       name: action.name,
       description: action.description,
       jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters)),
@@ -185,12 +203,20 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       ...serverSideActionsInput,
       ...clientSideActionsInput,
     ]);
+    const convertedMessages = convertGqlInputToMessages(messages);
+
+    await this.onBeforeRequest?.({
+      threadId,
+      runId,
+      messages: convertedMessages,
+      customProperties,
+    });
 
     try {
       const eventSource = new RuntimeEventSource();
 
       const result = await serviceAdapter.process({
-        messages: convertGqlInputToMessages(messages),
+        messages: convertedMessages,
         actions: actionInputs,
         threadId,
         runId,
@@ -201,7 +227,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         threadId: result.threadId,
         runId: result.runId,
         eventSource,
-        actions: allActions,
+        actions: actions,
       };
     } catch (error) {
       console.error("Error getting response:", error);
@@ -221,8 +247,3 @@ export function flattenToolCallsNoDuplicates(toolsByPriority: ActionInput[]): Ac
   }
   return allTools;
 }
-
-/**
- * @deprecated use CopilotRuntime instead
- */
-export class CopilotBackend extends CopilotRuntime {}
