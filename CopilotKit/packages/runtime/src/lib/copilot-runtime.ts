@@ -110,6 +110,7 @@ interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
   messages: MessageInput[];
   actions: ActionInput[];
+  outputMessagesPromise: Promise<Message[]>;
   customProperties: any;
   threadId?: string;
   runId?: string;
@@ -136,11 +137,25 @@ interface OnBeforeRequestOptions {
 
 type OnBeforeRequestHandler = (options: OnBeforeRequestOptions) => void | Promise<void>;
 
+interface OnAfterRequestOptions {
+  threadId?: string;
+  runId?: string;
+  messages: Message[];
+  customProperties: any;
+}
+
+type OnAfterRequestHandler = (options: OnAfterRequestOptions) => void | Promise<void>;
+
 export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> {
   /**
    * A function that is called before the request is processed.
    */
   onBeforeRequest?: OnBeforeRequestHandler;
+
+  /**
+   * A function that is called after the request is processed.
+   */
+  onAfterRequest?: OnAfterRequestHandler;
 
   /*
    * A list of server side actions that can be executed.
@@ -157,6 +172,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   public actions: ActionsConfiguration<T>;
   private langserve: Promise<Action<any>>[] = [];
   private onBeforeRequest?: OnBeforeRequestHandler;
+  private onAfterRequest?: OnAfterRequestHandler;
 
   constructor(params?: CopilotRuntimeConstructorParams<T>) {
     this.actions = params?.actions || [];
@@ -167,6 +183,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     }
 
     this.onBeforeRequest = params?.onBeforeRequest;
+    this.onAfterRequest = params?.onAfterRequest;
   }
 
   async process({
@@ -176,6 +193,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     threadId,
     runId,
     customProperties,
+    outputMessagesPromise,
   }: CopilotRuntimeRequest): Promise<CopilotRuntimeResponse> {
     const langserveFunctions: Action<any>[] = [];
 
@@ -222,6 +240,17 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         runId,
         eventSource,
       });
+
+      outputMessagesPromise
+        .then((messages) => {
+          this.onAfterRequest?.({
+            threadId: result.threadId,
+            runId: result.runId,
+            messages,
+            customProperties,
+          });
+        })
+        .catch((_error) => {});
 
       return {
         threadId: result.threadId,
