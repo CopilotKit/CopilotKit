@@ -119,12 +119,16 @@ export function useMakeStandardInsertionOrEditingFunction(
         ];
 
         return runtimeClientResponseToStringStream(
-          runtimeClient.generateCopilotResponse({
-            frontend: {
-              actions: [],
+          runtimeClient.generateCopilotResponse(
+            {
+              frontend: {
+                actions: [],
+              },
+              messages: convertMessagesToGqlInput(messages),
             },
-            messages: convertMessagesToGqlInput(messages),
-          }),
+            undefined,
+            abortSignal,
+          ),
         );
       });
 
@@ -176,12 +180,16 @@ export function useMakeStandardInsertionOrEditingFunction(
 
         // TODO-PROTOCOL: forwarded props, headers and abort signal
         return runtimeClientResponseToStringStream(
-          runtimeClient.generateCopilotResponse({
-            frontend: {
-              actions: [],
+          runtimeClient.generateCopilotResponse(
+            {
+              frontend: {
+                actions: [],
+              },
+              messages: convertMessagesToGqlInput(messages),
             },
-            messages: convertMessagesToGqlInput(messages),
-          }),
+            undefined,
+            abortSignal,
+          ),
         );
       });
 
