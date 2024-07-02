@@ -158,38 +158,13 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               }
             : {}),
         },
-        undefined,
+        copilotConfig.customProperties,
         abortControllerRef.current?.signal,
       ),
     );
 
     const guardrailsEnabled =
       copilotConfig.cloud?.guardrails?.input?.restrictToTopic.enabled || false;
-
-    // TODO-PROTOCOL make sure all options are included in the final version
-    //
-    // const response = await fetchAndDecodeChatCompletion({
-    //   copilotConfig: { ...options.copilotConfig, body: copilotConfigBody },
-    //   messages: messagesWithContext,
-    //   tools: options.tools,
-    //   headers: headers,
-    //   signal: abortController.signal,
-    // });
-
-    // TODO-PROTOCOL handle errors
-    // if (!response.events) {
-    //   setMessages([
-    //     ...messages,
-    //     {
-    //       id: nanoid(),
-    //       createdAt: new Date(),
-    //       content: response.statusText,
-    //       role: "assistant",
-    //     },
-    //   ]);
-    //   options.setIsLoading(false);
-    //   throw new Error("Failed to fetch chat completion");
-    // }
 
     const reader = stream.getReader();
 

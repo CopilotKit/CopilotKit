@@ -181,16 +181,19 @@ export class CopilotTask<T = any> {
     });
 
     const response = await runtimeClient
-      .generateCopilotResponse({
-        frontend: {
-          actions: Object.values(actions).map((action) => ({
-            name: action.name,
-            description: action.description || "",
-            jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
-          })),
+      .generateCopilotResponse(
+        {
+          frontend: {
+            actions: Object.values(actions).map((action) => ({
+              name: action.name,
+              description: action.description || "",
+              jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
+            })),
+          },
+          messages: convertMessagesToGqlInput(messages),
         },
-        messages: convertMessagesToGqlInput(messages),
-      })
+        context.copilotApiConfig.customProperties,
+      )
       .toPromise();
 
     const functionCallHandler = context.getFunctionCallHandler(actions);

@@ -53,19 +53,7 @@ export interface CopilotApiConfig {
   headers: Record<string, string>;
 
   /**
-   * Additional body params to be sent with the request
-   * @default {}
-   * @example
-   * ```
-   * {
-   *   'message': 'Hello, world!'
-   * }
-   * ```
-   */
-  body: Record<string, any>;
-
-  /**
-   * Backend only props that will be combined to body params to be sent with the request
+   * Custom properties to be sent with the request
    * @default {}
    * @example
    * ```
@@ -74,7 +62,7 @@ export interface CopilotApiConfig {
    * }
    * ```
    */
-  backendOnlyProps?: Record<string, any>;
+  customProperties?: Record<string, any>;
 
   /**
    * Indicates whether the user agent should send or receive cookies from the other domain

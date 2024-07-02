@@ -158,6 +158,7 @@ export class CopilotResolver {
       threadId: data.threadId,
       runId: data.runId,
       publicApiKey: undefined,
+      ctx,
     });
 
     logger.debug("Event source created, creating response");

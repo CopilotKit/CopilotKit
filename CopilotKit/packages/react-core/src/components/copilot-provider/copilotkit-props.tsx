@@ -67,7 +67,7 @@ export interface CopilotKitProps {
   children: ReactNode;
 
   /**
-   * Backend only props that will be combined to body params to be sent with the request
+   * Custom properties to be sent with the request
    * For example:
    * ```js
    * {
@@ -75,7 +75,7 @@ export interface CopilotKitProps {
    * }
    * ```
    */
-  backendOnlyProps?: Record<string, any>;
+  customProperties?: Record<string, any>;
 
   /**
    * Indicates whether the user agent should send or receive cookies from the other domain

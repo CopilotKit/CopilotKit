@@ -104,11 +104,13 @@ import { MessageInput } from "../graphql/inputs/message.input";
 import { ActionInput } from "../graphql/inputs/action.input";
 import { RuntimeEventSource } from "../service-adapters/events";
 import { convertGqlInputToMessages } from "../service-adapters/conversion";
+import { GraphQLContext } from "./integrations";
 
 interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
   messages: MessageInput[];
   actions: ActionInput[];
+  ctx: GraphQLContext;
   threadId?: string;
   runId?: string;
   publicApiKey?: string;
@@ -121,24 +123,25 @@ interface CopilotRuntimeResponse {
   actions: Action<any>[];
 }
 
+type ActionsConfiguration<T extends Parameter[] | [] = []> =
+  | Action<T>[]
+  | ((ctx: GraphQLContext) => Action<T>[]);
+
 export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> {
   /*
    * A list of server side actions that can be executed.
    */
-  actions?: Action<T>[];
+  actions?: ActionsConfiguration<T>;
 
   /*
    * An array of LangServer URLs.
    */
   langserve?: RemoteChainParameters[];
-
-  debug?: boolean;
 }
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
-  public actions: Action<any>[] = [];
+  public actions: ActionsConfiguration<T>;
   private langserve: Promise<Action<any>>[] = [];
-  private debug: boolean = false;
 
   constructor(params?: CopilotRuntimeConstructorParams<T>) {
     this.actions = params?.actions || [];
@@ -147,16 +150,6 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       const remoteChain = new RemoteChain(chain);
       this.langserve.push(remoteChain.toAction());
     }
-    this.debug = params?.debug || false;
-  }
-
-  addAction<const T extends Parameter[] | [] = []>(action: Action<T>): void {
-    this.removeAction(action.name);
-    this.actions.push(action);
-  }
-
-  removeAction(actionName: string): void {
-    this.actions = this.actions.filter((f) => f.name !== actionName);
   }
 
   async process({
@@ -165,7 +158,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     actions: clientSideActionsInput,
     threadId,
     runId,
-    publicApiKey,
+    ctx,
   }: CopilotRuntimeRequest): Promise<CopilotRuntimeResponse> {
     const langserveFunctions: Action<any>[] = [];
 
@@ -178,9 +171,11 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       }
     }
 
-    const actions = [...this.actions, ...langserveFunctions];
+    const actions = typeof this.actions === "function" ? this.actions(ctx) : this.actions;
 
-    const serverSideActionsInput: ActionInput[] = actions.map((action) => ({
+    const allActions = [...actions, ...langserveFunctions];
+
+    const serverSideActionsInput: ActionInput[] = allActions.map((action) => ({
       name: action.name,
       description: action.description,
       jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters)),
@@ -193,7 +188,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
     try {
       const eventSource = new RuntimeEventSource();
-      // TODO-PROTOCOL: type this and support function calls
+
       const result = await serviceAdapter.process({
         messages: convertGqlInputToMessages(messages),
         actions: actionInputs,
@@ -206,7 +201,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         threadId: result.threadId,
         runId: result.runId,
         eventSource,
-        actions,
+        actions: allActions,
       };
     } catch (error) {
       console.error("Error getting response:", error);

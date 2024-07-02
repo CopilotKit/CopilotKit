@@ -185,10 +185,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     chatApiEndpoint: chatApiEndpoint,
     chatApiEndpointV2: `${props.url}/v2`,
     headers: props.headers || {},
-    body: {
-      ...props.body,
-      ...props.backendOnlyProps,
-    },
+    customProperties: props.customProperties || {},
     transcribeAudioUrl: props.transcribeAudioUrl,
     textToSpeechUrl: props.textToSpeechUrl,
     credentials: props.credentials,
