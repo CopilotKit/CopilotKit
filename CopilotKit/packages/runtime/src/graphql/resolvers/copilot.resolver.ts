@@ -216,8 +216,7 @@ export class CopilotResolver {
             // just the events that were emitted after the subscriber was added.
             shareReplay(),
             finalize(() => {
-              logger.debug("Event stream finalized, stopping streaming messages");
-              stopStreamingMessages();
+              logger.debug("Event stream finalized");
             }),
           );
 
@@ -350,7 +349,7 @@ export class CopilotResolver {
               // ActionExecutionResult
               ////////////////////////////////
               case RuntimeEventTypes.ActionExecutionResult:
-                logger.debug("Action execution result event received");
+                logger.debug({ result: event.result }, "Action execution result event received");
                 pushMessage({
                   id: nanoid(),
                   status: new SuccessMessageStatus(),
