@@ -1,0 +1,87 @@
+---
+title: "Upgrading to version 1.0"
+description: "Upgrading to version 1.0"
+---
+
+This guide will help you migrate from to version 1.0 from a previous CopilotKit version.
+
+## Upgrading a NextJS app router project
+
+Before 1.0:
+
+```ts
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
+
+export async function POST(req: Request): Promise<Response> {
+  const copilotKit = new CopilotRuntime();
+  return copilotKit.response(req, new OpenAIAdapter({}));
+}
+```
+
+After 1.0:
+
+```ts
+import { NextRequest } from "next/server";
+import {
+  CopilotRuntime,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime: new CopilotRuntime(),
+    serviceAdapter: new OpenAIAdapter(),
+    endpoint: req.nextUrl.pathname,
+  });
+
+  return handleRequest(req);
+};
+```
+
+## Upgrading a NextJS pages router project
+
+Before 1.0:
+
+```ts
+import type { NextApiRequest, NextApiResponse } from "next";
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
+
+export default function handler(req: NextApiRequest, res: NextApiResponse) {
+  const copilotKit = new CopilotRuntime({});
+  copilotKit.streamHttpServerResponse(
+    req,
+    res,
+    new OpenAIAdapter({ model: "gpt-4o" })
+  );
+}
+```
+
+After 1.0:
+
+```ts
+import {
+  CopilotRuntime,
+  OpenAIAdapter,
+  copilotRuntimeNextJSPagesRouterEndpoint,
+} from "@copilotkit/runtime";
+import { NextApiRequest, NextApiResponse } from "next";
+
+// This is required for file upload to work
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+  const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
+    endpoint: "/api/copilotkit",
+    runtime: new CopilotRuntime(),
+    serviceAdapter: new OpenAIAdapter(),
+  });
+
+  return await handleRequest(req, res);
+};
+
+export default handler;
+```
