@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 0.13.0-beta.0
+
+### Minor Changes
+
+- Beta
+
 ## 0.12.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # tsconfig
 
+## 0.17.0-beta.0
+
+### Minor Changes
+
+- Beta
+
 ## 0.16.0
 
 ### Minor Changes

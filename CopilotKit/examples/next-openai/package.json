@@ -1,6 +1,6 @@
 {
   "name": "next-openai",
-  "version": "1.23.0",
+  "version": "1.24.0-beta.0",
   "private": true,
   "scripts": {
     "start:dev": "next dev",

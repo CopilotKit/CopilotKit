@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 0.38.0-beta.0
+
+### Minor Changes
+
+- Beta
+
 ## 0.37.0
 
 ### Minor Changes

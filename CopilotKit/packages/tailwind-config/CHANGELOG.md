@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 0.12.0-beta.0
+
+### Minor Changes
+
+- Beta
+
 ## 0.11.0
 
 ### Minor Changes

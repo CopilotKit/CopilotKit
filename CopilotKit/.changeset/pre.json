@@ -1,0 +1,22 @@
+{
+  "mode": "pre",
+  "tag": "beta",
+  "initialVersions": {
+    "next-openai": "1.23.0",
+    "next-pages-router": "0.1.0",
+    "node-express": "1.23.0",
+    "node-http": "1.23.0",
+    "eslint-config-custom": "0.12.0",
+    "@copilotkit/react-core": "0.37.0",
+    "@copilotkit/react-textarea": "0.37.0",
+    "@copilotkit/react-ui": "0.37.0",
+    "@copilotkit/runtime": "0.37.0",
+    "@copilotkit/runtime-client-gql": "0.37.0",
+    "@copilotkit/shared": "0.37.0",
+    "tailwind-config": "0.11.0",
+    "tsconfig": "0.16.0"
+  },
+  "changesets": [
+    "chilly-lizards-hammer"
+  ]
+}
