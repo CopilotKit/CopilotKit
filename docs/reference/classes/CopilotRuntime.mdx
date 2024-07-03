@@ -3,7 +3,7 @@ title: "CopilotRuntime"
 description: "Handles requests from frontend, provides function calling and various LLM backends."
 ---
 
-{/* GENERATE-DOCS path=packages/backend/src/lib/copilotkit-runtime.ts class=CopilotRuntime */}
+{/* GENERATE-DOCS path=packages/runtime/src/lib/copilot-runtime.ts class=CopilotRuntime */}
  
 <img
   referrerPolicy="no-referrer-when-downgrade"
@@ -15,7 +15,7 @@ description: "Handles requests from frontend, provides function calling and vari
   import {
     CopilotRuntime,
     OpenAIAdapter
-  } from "@copilotkit/backend";
+  } from "@copilotkit/runtime";
  
   export async function POST(req: Request) {
     const copilotKit = new CopilotRuntime();
@@ -103,51 +103,42 @@ When left out, arguments are automatically inferred from the schema provided by 
 
 ## Constructor
 
-<ResponseField name="actions" type="Action<T>[]" >
+<ResponseField name="middleware" type="Middleware" >
+Middleware to be used by the runtime.
+ 
+  ```ts
+  onBeforeRequest: (options: {
+    threadId?: string;
+    runId?: string;
+    inputMessages: Message[];
+    properties: any;
+  }) => void | Promise<void>;
+  ```
+ 
+  ```ts
+  onAfterRequest: (options: {
+    threadId?: string;
+    runId?: string;
+    inputMessages: Message[];
+    outputMessages: Message[];
+    properties: any;
+  }) => void | Promise<void>;
+  ```
+</ResponseField>
+
+<ResponseField name="actions" type="ActionsConfiguration<T>" >
 A list of server side actions that can be executed.
 </ResponseField>
 
-<ResponseField name="langserve" type="RemoteChain[]" >
+<ResponseField name="langserve" type="RemoteChainParameters[]" >
 An array of LangServer URLs.
 </ResponseField>
 
-<ResponseField name="debug" type="boolean" >
+## process(request: CopilotRuntimeRequest)
 
-</ResponseField>
 
-<ResponseField name="copilotCloud" type="CopilotCloud" >
 
-</ResponseField>
+<ResponseField name="request" type="CopilotRuntimeRequest" required>
 
-## response(req: Request, serviceAdapter: CopilotKitServiceAdapter)
-
-Returns a `Response` object for streaming back the result to the client
-
-<ResponseField name="req" type="Request" required>
-The HTTP request
-</ResponseField>
-
-<ResponseField name="serviceAdapter" type="CopilotKitServiceAdapter" required>
-The adapter to use for the response.
-</ResponseField>
-
-## streamHttpServerResponse(req: any, res: any, serviceAdapter: CopilotKitServiceAdapter, headers?: Record&lt;string, string&gt;)
-
-Streams messages back to the client using the HTTP response object. Use with express,
-
-<ResponseField name="req" type="any" required>
-The HTTP request
-</ResponseField>
-
-<ResponseField name="res" type="any" required>
-The HTTP response
-</ResponseField>
-
-<ResponseField name="serviceAdapter" type="CopilotKitServiceAdapter" required>
-The adapter to use for the response.
-</ResponseField>
-
-<ResponseField name="headers" type="Record<string, string>" >
-Additional headers to send with the response.
 </ResponseField>
 

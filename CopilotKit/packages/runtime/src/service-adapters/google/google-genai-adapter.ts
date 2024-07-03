@@ -130,7 +130,9 @@ export class GoogleGenerativeAIAdapter implements CopilotServiceAdapter {
       eventStream$.complete();
     });
 
-    return {};
+    return {
+      threadId: request.threadId || nanoid(),
+    };
   }
 }
 

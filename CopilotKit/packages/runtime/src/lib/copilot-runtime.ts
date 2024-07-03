@@ -118,7 +118,7 @@ interface CopilotRuntimeRequest {
 }
 
 interface CopilotRuntimeResponse {
-  threadId?: string;
+  threadId: string;
   runId?: string;
   eventSource: RuntimeEventSource;
   actions: Action<any>[];
@@ -131,16 +131,17 @@ type ActionsConfiguration<T extends Parameter[] | [] = []> =
 interface OnBeforeRequestOptions {
   threadId?: string;
   runId?: string;
-  messages: Message[];
+  inputMessages: Message[];
   properties: any;
 }
 
 type OnBeforeRequestHandler = (options: OnBeforeRequestOptions) => void | Promise<void>;
 
 interface OnAfterRequestOptions {
-  threadId?: string;
+  threadId: string;
   runId?: string;
-  messages: Message[];
+  inputMessages: Message[];
+  outputMessages: Message[];
   properties: any;
 }
 
@@ -161,6 +162,25 @@ interface Middleware {
 export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> {
   /**
    * Middleware to be used by the runtime.
+   *
+   * ```ts
+   * onBeforeRequest: (options: {
+   *   threadId?: string;
+   *   runId?: string;
+   *   inputMessages: Message[];
+   *   properties: any;
+   * }) => void | Promise<void>;
+   * ```
+   *
+   * ```ts
+   * onAfterRequest: (options: {
+   *   threadId?: string;
+   *   runId?: string;
+   *   inputMessages: Message[];
+   *   outputMessages: Message[];
+   *   properties: any;
+   * }) => void | Promise<void>;
+   * ```
    */
   middleware?: Middleware;
 
@@ -193,15 +213,16 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     this.onAfterRequest = params?.middleware?.onAfterRequest;
   }
 
-  async process({
-    serviceAdapter,
-    messages,
-    actions: clientSideActionsInput,
-    threadId,
-    runId,
-    properties,
-    outputMessagesPromise,
-  }: CopilotRuntimeRequest): Promise<CopilotRuntimeResponse> {
+  async process(request: CopilotRuntimeRequest): Promise<CopilotRuntimeResponse> {
+    const {
+      serviceAdapter,
+      messages,
+      actions: clientSideActionsInput,
+      threadId,
+      runId,
+      properties,
+      outputMessagesPromise,
+    } = request;
     const langserveFunctions: Action<any>[] = [];
 
     for (const chainPromise of this.langserve) {
@@ -228,12 +249,12 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       ...serverSideActionsInput,
       ...clientSideActionsInput,
     ]);
-    const convertedMessages = convertGqlInputToMessages(messages);
+    const inputMessages = convertGqlInputToMessages(messages);
 
     await this.onBeforeRequest?.({
       threadId,
       runId,
-      messages: convertedMessages,
+      inputMessages,
       properties,
     });
 
@@ -241,7 +262,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       const eventSource = new RuntimeEventSource();
 
       const result = await serviceAdapter.process({
-        messages: convertedMessages,
+        messages: inputMessages,
         actions: actionInputs,
         threadId,
         runId,
@@ -249,11 +270,12 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       });
 
       outputMessagesPromise
-        .then((messages) => {
+        .then((outputMessages) => {
           this.onAfterRequest?.({
             threadId: result.threadId,
             runId: result.runId,
-            messages,
+            inputMessages,
+            outputMessages,
             properties,
           });
         })
