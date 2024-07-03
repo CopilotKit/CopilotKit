@@ -192,7 +192,7 @@ export class CopilotTask<T = any> {
           },
           messages: convertMessagesToGqlInput(messages),
         },
-        context.copilotApiConfig.customProperties,
+        context.copilotApiConfig.properties,
       )
       .toPromise();
 

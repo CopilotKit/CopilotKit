@@ -111,7 +111,7 @@ interface CopilotRuntimeRequest {
   messages: MessageInput[];
   actions: ActionInput[];
   outputMessagesPromise: Promise<Message[]>;
-  customProperties: any;
+  properties: any;
   threadId?: string;
   runId?: string;
   publicApiKey?: string;
@@ -126,13 +126,13 @@ interface CopilotRuntimeResponse {
 
 type ActionsConfiguration<T extends Parameter[] | [] = []> =
   | Action<T>[]
-  | ((ctx: { customProperties: any }) => Action<T>[]);
+  | ((ctx: { properties: any }) => Action<T>[]);
 
 interface OnBeforeRequestOptions {
   threadId?: string;
   runId?: string;
   messages: Message[];
-  customProperties: any;
+  properties: any;
 }
 
 type OnBeforeRequestHandler = (options: OnBeforeRequestOptions) => void | Promise<void>;
@@ -141,7 +141,7 @@ interface OnAfterRequestOptions {
   threadId?: string;
   runId?: string;
   messages: Message[];
-  customProperties: any;
+  properties: any;
 }
 
 type OnAfterRequestHandler = (options: OnAfterRequestOptions) => void | Promise<void>;
@@ -192,7 +192,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     actions: clientSideActionsInput,
     threadId,
     runId,
-    customProperties,
+    properties,
     outputMessagesPromise,
   }: CopilotRuntimeRequest): Promise<CopilotRuntimeResponse> {
     const langserveFunctions: Action<any>[] = [];
@@ -207,7 +207,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     }
 
     const configuredActions =
-      typeof this.actions === "function" ? this.actions({ customProperties }) : this.actions;
+      typeof this.actions === "function" ? this.actions({ properties }) : this.actions;
 
     const actions = [...configuredActions, ...langserveFunctions];
 
@@ -227,7 +227,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       threadId,
       runId,
       messages: convertedMessages,
-      customProperties,
+      properties,
     });
 
     try {
@@ -247,7 +247,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
             threadId: result.threadId,
             runId: result.runId,
             messages,
-            customProperties,
+            properties,
           });
         })
         .catch((_error) => {});

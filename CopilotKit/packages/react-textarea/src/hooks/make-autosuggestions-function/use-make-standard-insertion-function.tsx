@@ -126,7 +126,7 @@ export function useMakeStandardInsertionOrEditingFunction(
               },
               messages: convertMessagesToGqlInput(messages),
             },
-            copilotApiConfig.customProperties,
+            copilotApiConfig.properties,
             abortSignal,
           ),
         );
@@ -186,7 +186,7 @@ export function useMakeStandardInsertionOrEditingFunction(
               },
               messages: convertMessagesToGqlInput(messages),
             },
-            copilotApiConfig.customProperties,
+            copilotApiConfig.properties,
             abortSignal,
           ),
         );

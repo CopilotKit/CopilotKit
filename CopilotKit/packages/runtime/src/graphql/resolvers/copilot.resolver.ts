@@ -168,7 +168,7 @@ export class CopilotResolver {
       threadId: data.threadId,
       runId: data.runId,
       publicApiKey: undefined,
-      customProperties: ctx.properties || {},
+      properties: ctx.properties || {},
       outputMessagesPromise,
     });
 

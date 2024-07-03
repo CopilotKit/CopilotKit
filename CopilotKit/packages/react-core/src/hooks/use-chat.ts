@@ -158,7 +158,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               }
             : {}),
         },
-        copilotConfig.customProperties,
+        copilotConfig.properties,
         abortControllerRef.current?.signal,
       ),
     );

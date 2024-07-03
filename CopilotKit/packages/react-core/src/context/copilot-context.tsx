@@ -62,7 +62,7 @@ export interface CopilotApiConfig {
    * }
    * ```
    */
-  customProperties?: Record<string, any>;
+  properties?: Record<string, any>;
 
   /**
    * Indicates whether the user agent should send or receive cookies from the other domain
