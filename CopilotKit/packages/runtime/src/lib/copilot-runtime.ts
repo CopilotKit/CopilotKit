@@ -146,7 +146,7 @@ interface OnAfterRequestOptions {
 
 type OnAfterRequestHandler = (options: OnAfterRequestOptions) => void | Promise<void>;
 
-export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> {
+interface Middleware {
   /**
    * A function that is called before the request is processed.
    */
@@ -156,6 +156,13 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
    * A function that is called after the request is processed.
    */
   onAfterRequest?: OnAfterRequestHandler;
+}
+
+export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> {
+  /**
+   * Middleware to be used by the runtime.
+   */
+  middleware?: Middleware;
 
   /*
    * A list of server side actions that can be executed.
@@ -182,8 +189,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       this.langserve.push(remoteChain.toAction());
     }
 
-    this.onBeforeRequest = params?.onBeforeRequest;
-    this.onAfterRequest = params?.onAfterRequest;
+    this.onBeforeRequest = params?.middleware?.onBeforeRequest;
+    this.onAfterRequest = params?.middleware?.onAfterRequest;
   }
 
   async process({
