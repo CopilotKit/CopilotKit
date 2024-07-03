@@ -117,7 +117,7 @@ export async function extract<const T extends Parameter[]>({
           includeMessages ? [systemMessage, ...messages] : [systemMessage],
         ),
       },
-      undefined,
+      context.copilotApiConfig.properties,
       abortSignal,
     ),
   );

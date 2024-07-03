@@ -68,15 +68,13 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     this.assistantId = params.assistantId;
   }
 
-  async process({
-    messages,
-    actions,
-    eventSource,
-    threadId,
-    runId,
-  }: CopilotRuntimeChatCompletionRequest): Promise<CopilotRuntimeChatCompletionResponse> {
+  async process(
+    request: CopilotRuntimeChatCompletionRequest,
+  ): Promise<CopilotRuntimeChatCompletionResponse> {
+    const { messages, actions, eventSource, runId } = request;
     // if we don't have a threadId, create a new thread
-    threadId ||= (await this.openai.beta.threads.create()).id;
+    let threadId = request.threadId || (await this.openai.beta.threads.create()).id;
+
     const lastMessage = messages.at(-1);
 
     let nextRunId: string | undefined = undefined;

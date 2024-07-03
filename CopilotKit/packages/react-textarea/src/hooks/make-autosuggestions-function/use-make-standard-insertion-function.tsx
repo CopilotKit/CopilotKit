@@ -126,7 +126,7 @@ export function useMakeStandardInsertionOrEditingFunction(
               },
               messages: convertMessagesToGqlInput(messages),
             },
-            undefined,
+            copilotApiConfig.properties,
             abortSignal,
           ),
         );
@@ -178,7 +178,6 @@ export function useMakeStandardInsertionOrEditingFunction(
           headers,
         });
 
-        // TODO-PROTOCOL: forwarded props, headers and abort signal
         return runtimeClientResponseToStringStream(
           runtimeClient.generateCopilotResponse(
             {
@@ -187,7 +186,7 @@ export function useMakeStandardInsertionOrEditingFunction(
               },
               messages: convertMessagesToGqlInput(messages),
             },
-            undefined,
+            copilotApiConfig.properties,
             abortSignal,
           ),
         );

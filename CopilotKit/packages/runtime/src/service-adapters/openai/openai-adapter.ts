@@ -43,6 +43,7 @@ import {
   convertMessageToOpenAIMessage,
   limitMessagesToTokenCount,
 } from "./utils";
+import { nanoid } from "nanoid";
 
 const DEFAULT_MODEL = "gpt-4o";
 
@@ -73,12 +74,10 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     }
   }
 
-  async process({
-    model = this.model,
-    messages,
-    actions,
-    eventSource,
-  }: CopilotRuntimeChatCompletionRequest): Promise<CopilotRuntimeChatCompletionResponse> {
+  async process(
+    request: CopilotRuntimeChatCompletionRequest,
+  ): Promise<CopilotRuntimeChatCompletionResponse> {
+    const { threadId, model = this.model, messages, actions, eventSource } = request;
     const tools = actions.map(convertActionInputToOpenAITool);
 
     let openaiMessages = messages.map(convertMessageToOpenAIMessage);
@@ -137,6 +136,8 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       eventStream$.complete();
     });
 
-    return {};
+    return {
+      threadId: threadId || nanoid(),
+    };
   }
 }

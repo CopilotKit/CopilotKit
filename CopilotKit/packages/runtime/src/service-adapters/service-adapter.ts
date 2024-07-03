@@ -17,8 +17,7 @@ export interface CopilotRuntimeChatCompletionRequest {
 }
 
 export interface CopilotRuntimeChatCompletionResponse {
-  stream?: ReadableStream;
-  threadId?: string;
+  threadId: string;
   runId?: string;
 }
 

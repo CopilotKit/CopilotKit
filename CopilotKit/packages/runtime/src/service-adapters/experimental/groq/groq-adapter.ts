@@ -107,7 +107,9 @@ export class ExperimentalGroqAdapter implements CopilotServiceAdapter {
 
       eventStream$.complete();
     });
-    return {};
+    return {
+      threadId: request.threadId || nanoid(),
+    };
   }
 }
 

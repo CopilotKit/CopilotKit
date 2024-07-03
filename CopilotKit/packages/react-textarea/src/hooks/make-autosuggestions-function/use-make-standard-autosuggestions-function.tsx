@@ -79,7 +79,7 @@ export function useMakeStandardAutosuggestionFunction(
               },
               messages: convertMessagesToGqlInput(messages),
             },
-            undefined,
+            copilotApiConfig.properties,
             abortSignal,
           )
           .toPromise();
