@@ -81,6 +81,11 @@ export interface CopilotApiConfig {
    * in the case of cross-origin requests.
    */
   credentials?: RequestCredentials;
+
+  /**
+   * Properties that will be sent to the backend
+   */
+  properties?: Record<string, any>;
 }
 
 export type InChatRenderFunction = (props: ActionRenderProps<any>) => string | JSX.Element;
