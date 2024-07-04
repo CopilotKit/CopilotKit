@@ -2,9 +2,19 @@ import { Field, InputType } from "type-graphql";
 import { MessageInput } from "./message.input";
 import { FrontendInput } from "./frontend.input";
 import { CloudInput } from "./cloud.input";
+import { CopilotRequestType } from "../types/enums";
+
+@InputType()
+export class GenerateCopilotResponseMetadataInput {
+  @Field(() => CopilotRequestType, { nullable: true })
+  requestType: CopilotRequestType;
+}
 
 @InputType()
 export class GenerateCopilotResponseInput {
+  @Field(() => GenerateCopilotResponseMetadataInput, { nullable: false })
+  metadata: GenerateCopilotResponseMetadataInput;
+
   @Field(() => String, { nullable: true })
   threadId?: string;
 

@@ -8,6 +8,7 @@ import {
   TextMessage,
   convertGqlOutputToMessages,
   convertMessagesToGqlInput,
+  CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
 import { retry } from "../../lib/retry";
 import {
@@ -119,16 +120,19 @@ export function useMakeStandardInsertionOrEditingFunction(
         ];
 
         return runtimeClientResponseToStringStream(
-          runtimeClient.generateCopilotResponse(
-            {
+          runtimeClient.generateCopilotResponse({
+            data: {
               frontend: {
                 actions: [],
               },
               messages: convertMessagesToGqlInput(messages),
+              metadata: {
+                requestType: CopilotRequestType.TextareaCompletion,
+              },
             },
-            copilotApiConfig.properties,
-            abortSignal,
-          ),
+            properties: copilotApiConfig.properties,
+            signal: abortSignal,
+          }),
         );
       });
 
@@ -179,16 +183,19 @@ export function useMakeStandardInsertionOrEditingFunction(
         });
 
         return runtimeClientResponseToStringStream(
-          runtimeClient.generateCopilotResponse(
-            {
+          runtimeClient.generateCopilotResponse({
+            data: {
               frontend: {
                 actions: [],
               },
               messages: convertMessagesToGqlInput(messages),
+              metadata: {
+                requestType: CopilotRequestType.TextareaCompletion,
+              },
             },
-            copilotApiConfig.properties,
-            abortSignal,
-          ),
+            properties: copilotApiConfig.properties,
+            signal: abortSignal,
+          }),
         );
       });
 

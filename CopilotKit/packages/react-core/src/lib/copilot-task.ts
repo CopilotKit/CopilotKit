@@ -97,6 +97,7 @@ import {
   TextMessage,
   convertGqlOutputToMessages,
   convertMessagesToGqlInput,
+  CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
 import { FrontendAction } from "../types/frontend-action";
 import { CopilotContextParams } from "../context";
@@ -181,8 +182,8 @@ export class CopilotTask<T = any> {
     });
 
     const response = await runtimeClient
-      .generateCopilotResponse(
-        {
+      .generateCopilotResponse({
+        data: {
           frontend: {
             actions: Object.values(actions).map((action) => ({
               name: action.name,
@@ -191,9 +192,12 @@ export class CopilotTask<T = any> {
             })),
           },
           messages: convertMessagesToGqlInput(messages),
+          metadata: {
+            requestType: CopilotRequestType.Task,
+          },
         },
-        context.copilotApiConfig.properties,
-      )
+        properties: context.copilotApiConfig.properties,
+      })
       .toPromise();
 
     const functionCallHandler = context.getFunctionCallHandler(actions);
