@@ -85,3 +85,134 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
 export default handler;
 ```
+
+## Upgrading a Node http server backend
+
+Before 1.0:
+
+```ts
+import * as http from "http";
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
+
+const port = 4000;
+var HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT, PATCH, DELETE",
+  "Access-Control-Allow-Headers": "X-Requested-With,content-type",
+};
+var server = http.createServer(function (req, res) {
+  // Respond to OPTIONS (preflight) request
+  if (req.method === "OPTIONS") {
+    res.writeHead(200, HEADERS);
+    res.end();
+    return;
+  }
+  var copilotKit = new CopilotRuntime();
+  copilotKit.streamHttpServerResponse(req, res, new OpenAIAdapter(), HEADERS);
+});
+server.listen(port, function () {
+  console.log(`Server running at http://localhost:${port}`);
+});
+```
+
+After 1.0:
+
+```ts
+import * as http from "http";
+import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
+
+const port = 4000;
+var HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT, PATCH, DELETE",
+  "Access-Control-Allow-Headers": "X-Requested-With,content-type",
+};
+
+const handler = copilotRuntimeNodeHttpEndpoint({
+  endpoint: "/",
+  runtime: new CopilotRuntime(),
+  serviceAdapter: new OpenAIAdapter(),
+});
+
+var server = http.createServer(function (req, res) {
+  // Respond to OPTIONS (preflight) request
+  if (req.method === "OPTIONS") {
+    res.writeHead(200, HEADERS);
+    res.end();
+    return;
+  }
+
+  return handler(req, res);
+});
+server.listen(port, function () {
+  console.log(`Server running at http://localhost:${port}`);
+});
+```
+
+## Upgrading an express server backend
+
+
+Before 1.0:
+
+```ts
+import express from "express";
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
+
+const port = 4000;
+var HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT, PATCH, DELETE",
+  "Access-Control-Allow-Headers": "X-Requested-With,content-type",
+};
+
+const app = express();
+
+app.use("/", (req, res, next) => {
+  if (req.method === "OPTIONS") {
+    res.writeHead(200, HEADERS);
+    res.end();
+    return;
+  }
+  var copilotKit = new CopilotRuntime();
+  copilotKit.streamHttpServerResponse(req, res, new OpenAIAdapter(), HEADERS);
+});
+
+app.listen(port, () => {
+  console.log("Listening at http://localhost:4000/");
+});
+```
+
+After 1.0:
+
+```ts
+import express from "express";
+import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
+
+const port = 4000;
+var HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT, PATCH, DELETE",
+  "Access-Control-Allow-Headers": "X-Requested-With,content-type",
+};
+
+const handler = copilotRuntimeNodeHttpEndpoint({
+  endpoint: "/",
+  runtime: new CopilotRuntime(),
+  serviceAdapter: new OpenAIAdapter(),
+});
+
+const app = express();
+
+app.use("/", (req, res, next) => {
+  if (req.method === "OPTIONS") {
+    res.writeHead(200, HEADERS);
+    res.end();
+    return;
+  }
+  return handler(req, res, next);
+});
+
+app.listen(port, () => {
+  console.log("Listening at http://localhost:4000/");
+});
+```

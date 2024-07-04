@@ -27,9 +27,29 @@ echo "Testing upgrading to pre-release versions: $packages"
 (cd $UPGRADE_NODE_APP_PATH && npm install -D typescript ts-node @types/node)
 
 
-cp scripts/qa/lib/upgrade-node/page.tsx $UPGRADE_NODE_APP_PATH/src/app/page.tsx
-cp scripts/qa/lib/upgrade-node/server.ts $UPGRADE_NODE_APP_PATH/server.ts
+cp scripts/qa/lib/upgrade-node/old/page.tsx $UPGRADE_NODE_APP_PATH/src/app/page.tsx
+cp scripts/qa/lib/upgrade-node/old/server.ts $UPGRADE_NODE_APP_PATH/server.ts
 
+jq '. * {
+  "ts-node": {
+    "compilerOptions": {
+      "module": "commonjs"
+    }
+  }
+}' $UPGRADE_NODE_APP_PATH/tsconfig.json > $UPGRADE_NODE_APP_PATH/temp.json && mv $UPGRADE_NODE_APP_PATH/temp.json $UPGRADE_NODE_APP_PATH/tsconfig.json
+
+prompt "Check server.ts and page.tsx. Are they without errors in VSCode?"
+
+echo "Upgrading packages"
+
+(cd $UPGRADE_NODE_APP_PATH && npm install $packages --save)
+
+cp scripts/qa/lib/upgrade-node/new/page.tsx $UPGRADE_NODE_APP_PATH/src/app/page.tsx
+cp scripts/qa/lib/upgrade-node/new/server.ts $UPGRADE_NODE_APP_PATH/server.ts
+
+prompt "Check server.ts and page.tsx again. Are they without errors in VSCode?"
+
+echo "now run ts-node server.ts to test"
 cleanup;
 
 exit 0;

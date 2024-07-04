@@ -1,22 +1,29 @@
-var http = require("http");
-var backend = require("@copilotkit/backend");
-var port = 4000;
+import * as http from "http";
+import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
+
+const port = 4000;
 var HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS, PUT, PATCH, DELETE",
   "Access-Control-Allow-Headers": "X-Requested-With,content-type",
 };
+
+const handler = copilotRuntimeNodeHttpEndpoint({
+  endpoint: "/",
+  runtime: new CopilotRuntime(),
+  serviceAdapter: new OpenAIAdapter(),
+});
+
 var server = http.createServer(function (req, res) {
-  console.log("got req with method: ".concat(req.method));
   // Respond to OPTIONS (preflight) request
   if (req.method === "OPTIONS") {
     res.writeHead(200, HEADERS);
     res.end();
     return;
   }
-  var copilotKit = new backend.CopilotRuntime();
-  copilotKit.streamHttpServerResponse(req, res, new backend.OpenAIAdapter({}), HEADERS);
+
+  return handler(req, res);
 });
 server.listen(port, function () {
-  console.log("Server running at http://localhost:".concat(port, "/"));
+  console.log(`Server running at http://localhost:${port}`);
 });
