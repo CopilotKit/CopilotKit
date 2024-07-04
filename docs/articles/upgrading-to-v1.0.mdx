@@ -216,3 +216,54 @@ app.listen(port, () => {
   console.log("Listening at http://localhost:4000/");
 });
 ```
+
+## Upgrading a NestJS server backend
+
+
+Before 1.0:
+
+```ts
+import { All, Controller, Req, Res } from '@nestjs/common';
+import { AppService } from './app.service';
+import { CopilotRuntime, OpenAIAdapter } from '@copilotkit/backend';
+
+@Controller()
+export class AppController {
+  constructor(private readonly appService: AppService) {}
+
+  @All('/copilotkit')
+  copilotkit(@Req() req: Request, @Res() res: Response) {
+    const copilotKit = new CopilotRuntime();
+    const openaiAdapter = new OpenAIAdapter();
+    copilotKit.streamHttpServerResponse(req, res, openaiAdapter);
+  }
+}
+```
+
+After 1.0:
+
+```ts
+import { All, Controller, Req, Res } from '@nestjs/common';
+import { AppService } from './app.service';
+import {
+  CopilotRuntime,
+  OpenAIAdapter,
+  copilotRuntimeNestEndpoint,
+} from '@copilotkit/runtime';
+
+@Controller()
+export class AppController {
+  constructor(private readonly appService: AppService) {}
+
+  @All('/copilotkit')
+  copilotkit(@Req() req: Request, @Res() res: Response) {
+    const copilotRuntimeHandler = copilotRuntimeNestEndpoint({
+      endpoint: '/copilotkit',
+      runtime: new CopilotRuntime(),
+      serviceAdapter: new OpenAIAdapter(),
+    });
+
+    return copilotRuntimeHandler(req, res);
+  }
+}
+```
