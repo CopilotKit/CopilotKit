@@ -11,6 +11,6 @@ export class GuardrailsRuleInput {
 
 @InputType()
 export class GuardrailsInput {
-  @Field(() => GuardrailsRuleInput, { nullable: true })
-  inputValidationRules: GuardrailsRuleInput = { allowList: [], denyList: [] };
+  @Field(() => GuardrailsRuleInput, { nullable: false })
+  inputValidationRules: GuardrailsRuleInput;
 }
