@@ -41,9 +41,9 @@ export class CopilotRuntimeClient {
     properties,
     signal,
   }: {
-    data: GenerateCopilotResponseMutationVariables["data"],
-    properties?: GenerateCopilotResponseMutationVariables["properties"],
-    signal?: AbortSignal,
+    data: GenerateCopilotResponseMutationVariables["data"];
+    properties?: GenerateCopilotResponseMutationVariables["properties"];
+    signal?: AbortSignal;
   }) {
     const result = this.client.mutation<
       GenerateCopilotResponseMutation,
