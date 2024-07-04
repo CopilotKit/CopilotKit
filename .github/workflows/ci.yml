@@ -20,10 +20,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - run: "ls -la"
+      - run: "cat package.json"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
+        with:
+          version: "8.14.3"
     
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v2
