@@ -20,6 +20,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+    
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v2
         with:
@@ -27,9 +30,6 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: '**/pnpm-lock.yaml'
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-      
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
