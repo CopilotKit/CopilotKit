@@ -148,12 +148,18 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           ...(copilotConfig.cloud
             ? {
                 cloud: {
-                  guardrails: {
-                    inputValidationRules: {
-                      allowList: copilotConfig.cloud.guardrails.input.restrictToTopic.validTopics,
-                      denyList: copilotConfig.cloud.guardrails.input.restrictToTopic.invalidTopics,
-                    },
-                  },
+                  ...(copilotConfig.cloud.guardrails?.input?.restrictToTopic?.enabled
+                    ? {
+                        guardrails: {
+                          inputValidationRules: {
+                            allowList:
+                              copilotConfig.cloud.guardrails.input.restrictToTopic.validTopics,
+                            denyList:
+                              copilotConfig.cloud.guardrails.input.restrictToTopic.invalidTopics,
+                          },
+                        },
+                      }
+                    : {}),
                 },
               }
             : {}),
