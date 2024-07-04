@@ -9,7 +9,7 @@ export interface SlideProps {
 
 export const Slide = (props: SlideProps) => {
   const backgroundImage =
-    'url("https://source.unsplash.com/featured/?' +
+    'url("https://loremflickr.com/800/600/' +
     encodeURIComponent(props.slide.backgroundImageDescription) +
     '")';
 
