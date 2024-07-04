@@ -36,6 +36,6 @@
   },
   "dependencies": {
     "chalk": "4.1.2",
-    "posthog-js": "^1.142.1"
+    "posthog-node": "^4.0.1"
   }
 }

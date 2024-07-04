@@ -1,9 +1,10 @@
-import posthog from "posthog-js";
+import { PostHog } from "posthog-node";
 import { AnalyticsEvents } from "./events";
 import { flattenObject, printSecurityNotice } from "./utils";
+import { randomUUID } from "crypto";
 
 export class TelemetryClient {
-  posthog: typeof posthog | undefined;
+  posthog: PostHog | undefined;
   globalProperties: Record<string, any> = {};
   cloudConfiguration: { publicApiKey: string; baseUrl: string } | null = null;
   packageName: string;
@@ -47,21 +48,13 @@ export class TelemetryClient {
       (process.env as any).COPILOTKIT_TELEMETRY_BASE_URL ||
       "https://telemetry.copilotkit.ai";
 
-    posthog.init(posthogToken || "token", {
-      api_host: `${this.telemetryBaseUrl}/telemetry/ingest`,
-      person_profiles: "identified_only",
-      // Opt out of any automatic capturing of events
-      enable_heatmaps: false,
-      enable_recording_console_log: false,
-      capture_pageleave: false,
-      capture_pageview: false,
-      capture_performance: false,
-      autocapture: false,
+    this.posthog = new PostHog(posthogToken || "token", {
+      host: `${this.telemetryBaseUrl}/telemetry/ingest`,
     });
 
     this.setGlobalProperties({
-      $lib: packageName,
-      $lib_version: packageVersion,
+      "copilotkit.package.name": packageName,
+      "copilotkit.package.version": packageVersion,
     });
 
     // Eliminates a PostHog error on Next.js
@@ -80,7 +73,7 @@ export class TelemetryClient {
   }
 
   async capture<K extends keyof AnalyticsEvents>(event: K, properties: AnalyticsEvents[K]) {
-    if (!this.shouldSendEvent()) {
+    if (!this.shouldSendEvent() || !this.posthog) {
       return;
     }
 
@@ -99,7 +92,11 @@ export class TelemetryClient {
         {} as Record<string, any>,
       );
 
-    posthog.capture(event as string, orderedPropertiesWithGlobal);
+    this.posthog.capture({
+      distinctId: randomUUID(),
+      event,
+      properties: { ...orderedPropertiesWithGlobal },
+    });
   }
 
   async checkForUpdates() {
@@ -123,7 +120,10 @@ export class TelemetryClient {
 
   setTelemetryBaseUrl(url: string) {
     this.telemetryBaseUrl = url;
-    posthog.set_config({ api_host: `${url}/telemetry/ingest` });
+
+    if (this.posthog) {
+      this.posthog.host = `${url}/telemetry/ingest`;
+    }
   }
 
   setGlobalProperties(properties: Record<string, any>) {
