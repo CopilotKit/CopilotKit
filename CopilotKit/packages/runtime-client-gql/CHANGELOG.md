@@ -1,4 +1,4 @@
-# @copilotkit/runtime
+# @copilotkit/runtime-client-gql
 
 ## 1.0.0-beta.0
 
@@ -15,4 +15,5 @@
 ### Patch Changes
 
 - Updated dependencies
+  - @copilotkit/runtime@1.0.0-beta.0
   - @copilotkit/shared@1.0.0-beta.0
