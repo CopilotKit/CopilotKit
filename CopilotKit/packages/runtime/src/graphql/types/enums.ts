@@ -11,6 +11,14 @@ export enum ActionExecutionScope {
   client = "client",
 }
 
+export enum CopilotRequestType {
+  Chat = "Chat",
+  Task = "Task",
+  TextareaCompletion = "TextareaCompletion",
+  TextareaPopover = "TextareaPopover",
+  Suggestion = "Suggestion",
+}
+
 registerEnumType(MessageRole, {
   name: "MessageRole",
   description: "The role of the message",
@@ -19,4 +27,9 @@ registerEnumType(MessageRole, {
 registerEnumType(ActionExecutionScope, {
   name: "ActionExecutionScope",
   description: "The scope of the action",
+});
+
+registerEnumType(CopilotRequestType, {
+  name: "CopilotRequestType",
+  description: "The type of Copilot request",
 });

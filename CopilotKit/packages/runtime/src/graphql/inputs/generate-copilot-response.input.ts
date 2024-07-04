@@ -1,24 +1,12 @@
-import { Field, InputType, registerEnumType } from "type-graphql";
+import { Field, InputType } from "type-graphql";
 import { MessageInput } from "./message.input";
 import { FrontendInput } from "./frontend.input";
 import { CloudInput } from "./cloud.input";
-
-export enum CopilotRequestType {
-  Chat = "Chat",
-  Task = "Task",
-  TextareaCompletion = "TextareaCompletion",
-  TextareaPopover = "TextareaPopover",
-  Suggestion = "Suggestion",
-}
-
-registerEnumType(CopilotRequestType, {
-  name: "CopilotRequestType",
-  description: "The type of Copilot request",
-});
+import { CopilotRequestType } from "../types/enums";
 
 @InputType()
 export class GenerateCopilotResponseMetadataInput {
-  @Field(() => String, { nullable: true })
+  @Field(() => CopilotRequestType, { nullable: true })
   requestType: CopilotRequestType;
 }
 
