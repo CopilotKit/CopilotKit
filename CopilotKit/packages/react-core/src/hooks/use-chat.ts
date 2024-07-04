@@ -16,6 +16,7 @@ import {
   MessageStatusCode,
   MessageRole,
   Role,
+  CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
 
 import { CopilotApiConfig } from "../context";
@@ -133,8 +134,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
 
     const stream = CopilotRuntimeClient.asStream(
-      runtimeClient.generateCopilotResponse(
-        {
+      runtimeClient.generateCopilotResponse({
+        data: {
           frontend: {
             actions: actions.map((action) => ({
               name: action.name,
@@ -163,10 +164,13 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 },
               }
             : {}),
+          metadata: {
+            requestType: CopilotRequestType.Chat,
+          },
         },
-        copilotConfig.properties,
-        abortControllerRef.current?.signal,
-      ),
+        properties: copilotConfig.properties,
+        signal: abortControllerRef.current?.signal,
+      }),
     );
 
     const guardrailsEnabled =

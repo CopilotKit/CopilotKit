@@ -11,6 +11,7 @@ import {
   Role,
   TextMessage,
   convertGqlOutputToMessages,
+  CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
 import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
@@ -45,6 +46,7 @@ interface ExtractOptions<T extends Parameter[]> {
   data?: any;
   abortSignal?: AbortSignal;
   stream?: (args: StreamHandlerArgs<T>) => void;
+  requestType?: CopilotRequestType;
 }
 
 interface IncludeOptions {
@@ -60,6 +62,7 @@ export async function extract<const T extends Parameter[]>({
   data,
   abortSignal,
   stream,
+  requestType = CopilotRequestType.Task,
 }: ExtractOptions<T>): Promise<MappedParameterTypes<T>> {
   const { messages } = context;
 
@@ -101,8 +104,8 @@ export async function extract<const T extends Parameter[]>({
   });
 
   const response = CopilotRuntimeClient.asStream(
-    runtimeClient.generateCopilotResponse(
-      {
+    runtimeClient.generateCopilotResponse({
+      data: {
         frontend: {
           actions: [
             {
@@ -116,10 +119,13 @@ export async function extract<const T extends Parameter[]>({
         messages: convertMessagesToGqlInput(
           includeMessages ? [systemMessage, ...messages] : [systemMessage],
         ),
+        metadata: {
+          requestType: requestType,
+        },
       },
-      context.copilotApiConfig.properties,
-      abortSignal,
-    ),
+      properties: context.copilotApiConfig.properties,
+      signal: abortSignal,
+    }),
   );
 
   const reader = response.getReader();
