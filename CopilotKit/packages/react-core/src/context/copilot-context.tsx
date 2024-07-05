@@ -36,11 +36,6 @@ export interface CopilotApiConfig {
   textToSpeechUrl?: string;
 
   /**
-   * The endpoint for the chat API v2.
-   */
-  chatApiEndpointV2: string;
-
-  /**
    * additional headers to be sent with the request
    * @default {}
    * @example
@@ -53,19 +48,7 @@ export interface CopilotApiConfig {
   headers: Record<string, string>;
 
   /**
-   * Additional body params to be sent with the request
-   * @default {}
-   * @example
-   * ```
-   * {
-   *   'message': 'Hello, world!'
-   * }
-   * ```
-   */
-  body: Record<string, any>;
-
-  /**
-   * Backend only props that will be combined to body params to be sent with the request
+   * Custom properties to be sent with the request
    * @default {}
    * @example
    * ```
@@ -74,7 +57,7 @@ export interface CopilotApiConfig {
    * }
    * ```
    */
-  backendOnlyProps?: Record<string, any>;
+  properties?: Record<string, any>;
 
   /**
    * Indicates whether the user agent should send or receive cookies from the other domain
@@ -157,9 +140,7 @@ const emptyCopilotContext: CopilotContextParams = {
     get chatApiEndpoint(): string {
       throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
     }
-    get chatApiEndpointV2(): string {
-      throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
-    }
+
     get headers(): Record<string, string> {
       return {};
     }

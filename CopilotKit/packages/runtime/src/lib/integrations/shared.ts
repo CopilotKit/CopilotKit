@@ -7,6 +7,7 @@ import { CopilotServiceAdapter } from "../../service-adapters";
 import { CopilotCloudOptions } from "../cloud";
 import { LogLevel, createLogger } from "../../lib/logger";
 import { createYoga } from "graphql-yoga";
+import telemetry from "../telemetry-client";
 
 const logger = createLogger();
 
@@ -23,7 +24,7 @@ export type GraphQLContext = YogaInitialContext & {
 };
 
 export interface CreateCopilotRuntimeServerOptions {
-  runtime: CopilotRuntime;
+  runtime: CopilotRuntime<any>;
   serviceAdapter: CopilotServiceAdapter;
   endpoint: string;
   baseUrl?: string;
@@ -74,9 +75,21 @@ export type CommonConfig = {
 export function getCommonConfig(options: CreateCopilotRuntimeServerOptions): CommonConfig {
   const logLevel = (process.env.LOG_LEVEL as LogLevel) || (options.logLevel as LogLevel) || "error";
   const logger = createLogger({ level: logLevel, component: "getCommonConfig" });
-  logger.debug("Getting common config");
 
   const contextLogger = createLogger({ level: logLevel });
+
+  if (options.cloud) {
+    telemetry.setCloudConfiguration({
+      publicApiKey: options.cloud.publicApiKey,
+      baseUrl: options.cloud.baseUrl,
+    });
+  }
+
+  telemetry.setGlobalProperties({
+    runtime: {
+      serviceAdapter: options.serviceAdapter.constructor.name,
+    },
+  });
 
   return {
     logging: createLogger({ component: "Yoga GraphQL", level: logLevel }),

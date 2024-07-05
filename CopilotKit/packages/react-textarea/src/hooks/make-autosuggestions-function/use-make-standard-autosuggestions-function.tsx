@@ -12,8 +12,8 @@ import {
   TextMessage,
   convertGqlOutputToMessages,
   convertMessagesToGqlInput,
+  CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
-import { nanoid } from "nanoid";
 
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
@@ -72,16 +72,19 @@ export function useMakeStandardAutosuggestionFunction(
         });
 
         const response = await runtimeClient
-          .generateCopilotResponse(
-            {
+          .generateCopilotResponse({
+            data: {
               frontend: {
                 actions: [],
               },
               messages: convertMessagesToGqlInput(messages),
+              metadata: {
+                requestType: CopilotRequestType.TextareaCompletion,
+              },
             },
-            undefined,
-            abortSignal,
-          )
+            properties: copilotApiConfig.properties,
+            signal: abortSignal,
+          })
           .toPromise();
 
         let result = "";

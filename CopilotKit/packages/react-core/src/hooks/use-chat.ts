@@ -16,6 +16,7 @@ import {
   MessageStatusCode,
   MessageRole,
   Role,
+  CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
 
 import { CopilotApiConfig } from "../context";
@@ -133,8 +134,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
 
     const stream = CopilotRuntimeClient.asStream(
-      runtimeClient.generateCopilotResponse(
-        {
+      runtimeClient.generateCopilotResponse({
+        data: {
           frontend: {
             actions: actions.map((action) => ({
               name: action.name,
@@ -148,48 +149,32 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           ...(copilotConfig.cloud
             ? {
                 cloud: {
-                  guardrails: {
-                    inputValidationRules: {
-                      allowList: copilotConfig.cloud.guardrails.input.restrictToTopic.validTopics,
-                      denyList: copilotConfig.cloud.guardrails.input.restrictToTopic.invalidTopics,
-                    },
-                  },
+                  ...(copilotConfig.cloud.guardrails?.input?.restrictToTopic?.enabled
+                    ? {
+                        guardrails: {
+                          inputValidationRules: {
+                            allowList:
+                              copilotConfig.cloud.guardrails.input.restrictToTopic.validTopics,
+                            denyList:
+                              copilotConfig.cloud.guardrails.input.restrictToTopic.invalidTopics,
+                          },
+                        },
+                      }
+                    : {}),
                 },
               }
             : {}),
+          metadata: {
+            requestType: CopilotRequestType.Chat,
+          },
         },
-        undefined,
-        abortControllerRef.current?.signal,
-      ),
+        properties: copilotConfig.properties,
+        signal: abortControllerRef.current?.signal,
+      }),
     );
 
     const guardrailsEnabled =
       copilotConfig.cloud?.guardrails?.input?.restrictToTopic.enabled || false;
-
-    // TODO-PROTOCOL make sure all options are included in the final version
-    //
-    // const response = await fetchAndDecodeChatCompletion({
-    //   copilotConfig: { ...options.copilotConfig, body: copilotConfigBody },
-    //   messages: messagesWithContext,
-    //   tools: options.tools,
-    //   headers: headers,
-    //   signal: abortController.signal,
-    // });
-
-    // TODO-PROTOCOL handle errors
-    // if (!response.events) {
-    //   setMessages([
-    //     ...messages,
-    //     {
-    //       id: nanoid(),
-    //       createdAt: new Date(),
-    //       content: response.statusText,
-    //       role: "assistant",
-    //     },
-    //   ]);
-    //   options.setIsLoading(false);
-    //   throw new Error("Failed to fetch chat completion");
-    // }
 
     const reader = stream.getReader();
 

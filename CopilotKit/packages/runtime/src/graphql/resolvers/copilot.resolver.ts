@@ -26,13 +26,15 @@ import {
 import { ResponseStatusUnion, SuccessResponseStatus } from "../types/response-status.type";
 import { GraphQLJSONObject } from "graphql-scalars";
 import { plainToInstance } from "class-transformer";
-import { GuardrailsResult, GuardrailsResultStatus } from "../types/guardrails-result.type";
+import { GuardrailsResult } from "../types/guardrails-result.type";
 import { GraphQLError } from "graphql";
 import {
   GuardrailsValidationFailureResponse,
   MessageStreamInterruptedResponse,
   UnknownErrorResponse,
 } from "../../utils";
+import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "../types/converted";
+import telemetry from "../../lib/telemetry-client";
 
 const invokeGuardrails = async ({
   baseUrl,
@@ -47,6 +49,8 @@ const invokeGuardrails = async ({
   onResult: (result: GuardrailsResult) => void;
   onError: (err: Error) => void;
 }) => {
+  console.log("invokeGuardrails.baseUrl", baseUrl);
+
   if (
     data.messages.length &&
     data.messages[data.messages.length - 1].textMessage?.role === MessageRole.user
@@ -104,6 +108,11 @@ export class CopilotResolver {
     @Arg("properties", () => GraphQLJSONObject, { nullable: true })
     properties?: CopilotRequestContextProperties,
   ) {
+    telemetry.capture("oss.runtime.copilot_request_created", {
+      "cloud.guardrails.enabled": data.cloud?.guardrails !== undefined,
+      requestType: data.metadata.requestType,
+    });
+
     let logger = ctx.logger.child({ component: "CopilotResolver.generateCopilotResponse" });
     logger.debug({ data }, "Generating Copilot response");
 
@@ -132,18 +141,28 @@ export class CopilotResolver {
 
       if (process.env.COPILOT_CLOUD_BASE_URL) {
         copilotCloudBaseUrl = process.env.COPILOT_CLOUD_BASE_URL;
-      } else if (ctx._copilotkit.baseUrl) {
-        copilotCloudBaseUrl = ctx._copilotkit.baseUrl;
+      } else if (ctx._copilotkit.cloud?.baseUrl) {
+        copilotCloudBaseUrl = ctx._copilotkit.cloud?.baseUrl;
       } else {
         copilotCloudBaseUrl = "https://api.cloud.copilotkit.ai";
       }
 
       logger = logger.child({ copilotCloudBaseUrl });
     }
+
     logger.debug("Setting up subjects");
     const responseStatus$ = new ReplaySubject<typeof ResponseStatusUnion>();
     const interruptStreaming$ = new ReplaySubject<{ reason: string; messageId?: string }>();
     const guardrailsResult$ = new ReplaySubject<GuardrailsResult>();
+
+    let outputMessages: Message[] = [];
+    let resolveOutputMessagesPromise: (messages: Message[]) => void;
+    let rejectOutputMessagesPromise: (err: Error) => void;
+
+    const outputMessagesPromise = new Promise<Message[]>((resolve, reject) => {
+      resolveOutputMessagesPromise = resolve;
+      rejectOutputMessagesPromise = reject;
+    });
 
     logger.debug("Processing");
     const {
@@ -158,6 +177,8 @@ export class CopilotResolver {
       threadId: data.threadId,
       runId: data.runId,
       publicApiKey: undefined,
+      properties: ctx.properties || {},
+      outputMessagesPromise,
     });
 
     logger.debug("Event source created, creating response");
@@ -180,13 +201,27 @@ export class CopilotResolver {
             onResult: (result) => {
               logger.debug({ status: result.status }, "Guardrails validation done");
               guardrailsResult$.next(result);
+
+              // Guardrails validation failed
               if (result.status === "denied") {
+                // send the reason to the client and interrupt streaming
                 responseStatus$.next(
                   new GuardrailsValidationFailureResponse({ guardrailsReason: result.reason }),
                 );
                 interruptStreaming$.next({
                   reason: `Interrupted due to Guardrails validation failure. Reason: ${result.reason}`,
                 });
+
+                // resolve messages promise to the middleware
+                outputMessages = [
+                  plainToInstance(TextMessage, {
+                    id: nanoid(),
+                    createdAt: new Date(),
+                    content: result.reason,
+                    role: MessageRole.assistant,
+                  }),
+                ];
+                resolveOutputMessagesPromise(outputMessages);
               }
             },
             onError: (err) => {
@@ -199,6 +234,9 @@ export class CopilotResolver {
               interruptStreaming$.next({
                 reason: `Interrupted due to unknown error in guardrails validation`,
               });
+
+              // reject the middleware promise
+              rejectOutputMessagesPromise(err);
             },
           });
         }
@@ -216,8 +254,7 @@ export class CopilotResolver {
             // just the events that were emitted after the subscriber was added.
             shareReplay(),
             finalize(() => {
-              logger.debug("Event stream finalized, stopping streaming messages");
-              stopStreamingMessages();
+              logger.debug("Event stream finalized");
             }),
           );
 
@@ -252,6 +289,7 @@ export class CopilotResolver {
                   content: new Repeater(async (pushTextChunk, stopStreamingText) => {
                     logger.debug("Text message content repeater created");
 
+                    const textChunks: string[] = [];
                     let textSubscription: Subscription;
 
                     interruptStreaming$
@@ -278,6 +316,7 @@ export class CopilotResolver {
                       next: async (e: RuntimeEvent) => {
                         if (e.type == RuntimeEventTypes.TextMessageContent) {
                           await pushTextChunk(e.content);
+                          textChunks.push(e.content);
                         }
                       },
                       error: (err) => {
@@ -294,6 +333,15 @@ export class CopilotResolver {
                         streamingTextStatus.next(new SuccessMessageStatus());
                         stopStreamingText();
                         textSubscription?.unsubscribe();
+
+                        outputMessages.push(
+                          plainToInstance(TextMessage, {
+                            id: messageId,
+                            createdAt: new Date(),
+                            content: textChunks.join(""),
+                            role: MessageRole.assistant,
+                          }),
+                        );
                       },
                     });
                   }),
@@ -318,11 +366,14 @@ export class CopilotResolver {
                   arguments: new Repeater(async (pushArgumentsChunk, stopStreamingArguments) => {
                     logger.debug("Action execution argument stream created");
 
+                    const argumentChunks: string[] = [];
                     let actionExecutionArgumentSubscription: Subscription;
+
                     actionExecutionArgumentSubscription = actionExecutionArgumentStream.subscribe({
                       next: async (e: RuntimeEvent) => {
                         if (e.type == RuntimeEventTypes.ActionExecutionArgs) {
                           await pushArgumentsChunk(e.args);
+                          argumentChunks.push(e.args);
                         }
                       },
                       error: (err) => {
@@ -341,6 +392,16 @@ export class CopilotResolver {
                         streamingArgumentsStatus.next(new SuccessMessageStatus());
                         stopStreamingArguments();
                         actionExecutionArgumentSubscription?.unsubscribe();
+
+                        outputMessages.push(
+                          plainToInstance(ActionExecutionMessage, {
+                            id: event.actionExecutionId,
+                            createdAt: new Date(),
+                            name: event.actionName,
+                            scope: event.scope!,
+                            arguments: argumentChunks.join(""),
+                          }),
+                        );
                       },
                     });
                   }),
@@ -350,7 +411,7 @@ export class CopilotResolver {
               // ActionExecutionResult
               ////////////////////////////////
               case RuntimeEventTypes.ActionExecutionResult:
-                logger.debug("Action execution result event received");
+                logger.debug({ result: event.result }, "Action execution result event received");
                 pushMessage({
                   id: nanoid(),
                   status: new SuccessMessageStatus(),
@@ -359,6 +420,16 @@ export class CopilotResolver {
                   actionName: event.actionName,
                   result: event.result,
                 });
+
+                outputMessages.push(
+                  plainToInstance(ResultMessage, {
+                    id: nanoid(),
+                    createdAt: new Date(),
+                    actionExecutionId: event.actionExecutionId,
+                    actionName: event.actionName,
+                    result: event.result,
+                  }),
+                );
                 break;
             }
           },
@@ -371,6 +442,8 @@ export class CopilotResolver {
             );
             eventStreamSubscription?.unsubscribe();
             stopStreamingMessages();
+
+            rejectOutputMessagesPromise(err);
           },
           complete: async () => {
             logger.debug("Event stream completed");
@@ -381,6 +454,8 @@ export class CopilotResolver {
             responseStatus$.next(new SuccessResponseStatus());
             eventStreamSubscription?.unsubscribe();
             stopStreamingMessages();
+
+            resolveOutputMessagesPromise(outputMessages);
           },
         });
       }),

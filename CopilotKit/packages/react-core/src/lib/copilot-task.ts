@@ -97,6 +97,7 @@ import {
   TextMessage,
   convertGqlOutputToMessages,
   convertMessagesToGqlInput,
+  CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
 import { FrontendAction } from "../types/frontend-action";
 import { CopilotContextParams } from "../context";
@@ -120,12 +121,6 @@ export interface CopilotTaskConfig {
 
   /**
    * Whether to include actions defined via useCopilotAction in the task.
-   * @deprecated Use the `includeCopilotActions` property instead.
-   */
-  includeCopilotActionable?: boolean;
-
-  /**
-   * Whether to include actions defined via useCopilotAction in the task.
    */
   includeCopilotActions?: boolean;
 }
@@ -140,8 +135,7 @@ export class CopilotTask<T = any> {
     this.instructions = config.instructions;
     this.actions = config.actions || [];
     this.includeCopilotReadable = config.includeCopilotReadable !== false;
-    this.includeCopilotActions =
-      config.includeCopilotActions !== false && config.includeCopilotActionable !== false;
+    this.includeCopilotActions = config.includeCopilotActions !== false;
   }
 
   /**
@@ -182,14 +176,20 @@ export class CopilotTask<T = any> {
 
     const response = await runtimeClient
       .generateCopilotResponse({
-        frontend: {
-          actions: Object.values(actions).map((action) => ({
-            name: action.name,
-            description: action.description || "",
-            jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
-          })),
+        data: {
+          frontend: {
+            actions: Object.values(actions).map((action) => ({
+              name: action.name,
+              description: action.description || "",
+              jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
+            })),
+          },
+          messages: convertMessagesToGqlInput(messages),
+          metadata: {
+            requestType: CopilotRequestType.Task,
+          },
         },
-        messages: convertMessagesToGqlInput(messages),
+        properties: context.copilotApiConfig.properties,
       })
       .toPromise();
 

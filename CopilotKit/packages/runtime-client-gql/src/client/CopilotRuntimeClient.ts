@@ -36,11 +36,15 @@ export class CopilotRuntimeClient {
     });
   }
 
-  generateCopilotResponse(
-    data: GenerateCopilotResponseMutationVariables["data"],
-    properties?: GenerateCopilotResponseMutationVariables["properties"],
-    signal?: AbortSignal,
-  ) {
+  generateCopilotResponse({
+    data,
+    properties,
+    signal,
+  }: {
+    data: GenerateCopilotResponseMutationVariables["data"];
+    properties?: GenerateCopilotResponseMutationVariables["properties"];
+    signal?: AbortSignal;
+  }) {
     const result = this.client.mutation<
       GenerateCopilotResponseMutation,
       GenerateCopilotResponseMutationVariables

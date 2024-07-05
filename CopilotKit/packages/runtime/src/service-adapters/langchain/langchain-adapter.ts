@@ -35,6 +35,7 @@ import {
 } from "./utils";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { LangChainReturnType } from "./types";
+import { nanoid } from "nanoid";
 
 interface ChainFnParameters {
   model: string;
@@ -54,14 +55,10 @@ export class LangChainAdapter implements CopilotServiceAdapter {
    */
   constructor(private options: LangChainAdapterOptions) {}
 
-  async process({
-    eventSource,
-    model,
-    actions,
-    messages,
-    threadId,
-    runId,
-  }: CopilotRuntimeChatCompletionRequest): Promise<CopilotRuntimeChatCompletionResponse> {
+  async process(
+    request: CopilotRuntimeChatCompletionRequest,
+  ): Promise<CopilotRuntimeChatCompletionResponse> {
+    const { eventSource, model, actions, messages, threadId, runId } = request;
     const result = await this.options.chainFn({
       messages: messages.map(convertMessageToLangChainMessage),
       tools: actions.map(convertActionInputToLangChainTool),
@@ -77,6 +74,8 @@ export class LangChainAdapter implements CopilotServiceAdapter {
       });
     });
 
-    return {};
+    return {
+      threadId: threadId || nanoid(),
+    };
   }
 }

@@ -34,7 +34,7 @@
  * </CopilotKit>
 ```
  */
-import { Ref, useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   CopilotContext,
   CopilotApiConfig,
@@ -58,11 +58,13 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // Compute all the functions and properties that we need to pass
   // to the CopilotContext.
 
-  if (!props.runtimeUrl && !props.url && !props.publicApiKey) {
-    throw new Error("Please provide either a url or a publicApiKey to the CopilotKit component.");
+  if (!props.runtimeUrl && !props.publicApiKey) {
+    throw new Error(
+      "Please provide either a runtimeUrl or a publicApiKey to the CopilotKit component.",
+    );
   }
 
-  const chatApiEndpoint = props.runtimeUrl || props.url || COPILOT_CLOUD_CHAT_URL;
+  const chatApiEndpoint = props.runtimeUrl || COPILOT_CLOUD_CHAT_URL;
 
   const [actions, setActions] = useState<Record<string, FrontendAction<any>>>({});
   const chatComponentsCache = useRef<Record<string, InChatRenderFunction | string>>({});
@@ -183,12 +185,8 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     publicApiKey: props.publicApiKey,
     ...(cloud ? { cloud } : {}),
     chatApiEndpoint: chatApiEndpoint,
-    chatApiEndpointV2: `${props.url}/v2`,
     headers: props.headers || {},
-    body: {
-      ...props.body,
-      ...props.backendOnlyProps,
-    },
+    properties: props.properties || {},
     transcribeAudioUrl: props.transcribeAudioUrl,
     textToSpeechUrl: props.textToSpeechUrl,
     credentials: props.credentials,
