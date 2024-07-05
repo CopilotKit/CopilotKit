@@ -90,6 +90,12 @@
         },
         "articles/upgrading-to-v1.0"
       ]
+    },
+    {
+      "group": "Telemetry",
+      "pages": [
+        "telemetry/telemetry"
+      ]
     }
   ],
   "footerSocials": {
