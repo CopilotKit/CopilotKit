@@ -1,9 +1,12 @@
+import { copyQaSnippetsToMintlify } from "./lib/copy-qa-snippets-to-mintlify";
 import { Documentation } from "./lib/doc";
 import { getAnnotatedMdxDocs } from "./lib/mdx";
 import { copyFileSync } from "fs";
 
 const DOCS_PATH = "../docs";
 const CSS_PATH = "packages/react-ui/dist/index.css";
+
+copyQaSnippetsToMintlify();
 
 getAnnotatedMdxDocs(DOCS_PATH)
   .then(async (annotations) => {
