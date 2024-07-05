@@ -1,0 +1,24 @@
+{
+  "mode": "exit",
+  "tag": "beta",
+  "initialVersions": {
+    "next-openai": "2.0.0-beta.1",
+    "next-pages-router": "1.0.0-beta.1",
+    "node-express": "2.0.0-beta.1",
+    "node-http": "2.0.0-beta.1",
+    "eslint-config-custom": "1.0.0-beta.0",
+    "@copilotkit/react-core": "1.0.0-beta.1",
+    "@copilotkit/react-textarea": "1.0.0-beta.1",
+    "@copilotkit/react-ui": "1.0.0-beta.1",
+    "@copilotkit/runtime": "1.0.0-beta.1",
+    "@copilotkit/runtime-client-gql": "1.0.0-beta.1",
+    "@copilotkit/shared": "1.0.0-beta.1",
+    "tailwind-config": "1.0.0-beta.0",
+    "tsconfig": "1.0.0-beta.0"
+  },
+  "changesets": [
+    "big-cobras-punch",
+    "early-singers-appear",
+    "lovely-teachers-fry"
+  ]
+}

@@ -1,4 +1,4 @@
-# @copilotkit/runtime
+# @copilotkit/runtime-client-gql
 
 ## 1.0.0-beta.2
 
@@ -6,6 +6,7 @@
 
 - Set default Copilot Cloud runtime URL to versioned URL (v1)
 - Updated dependencies
+  - @copilotkit/runtime@1.0.0-beta.2
   - @copilotkit/shared@1.0.0-beta.2
 
 ## 1.0.0-beta.1
@@ -14,6 +15,7 @@
 
 - Introduce anonymous telemetry
 - Updated dependencies
+  - @copilotkit/runtime@1.0.0-beta.1
   - @copilotkit/shared@1.0.0-beta.1
 
 ## 1.0.0-beta.0
@@ -31,4 +33,5 @@
 ### Patch Changes
 
 - Updated dependencies
+  - @copilotkit/runtime@1.0.0-beta.0
   - @copilotkit/shared@1.0.0-beta.0

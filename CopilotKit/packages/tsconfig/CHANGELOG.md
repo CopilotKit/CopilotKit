@@ -1,5 +1,17 @@
 # tsconfig
 
+## 1.0.0-beta.0
+
+### Major Changes
+
+- V1.0 Release Candidate
+
+  - A robust new protocol between the frontend and the Copilot Runtime
+  - Support for Copilot Cloud
+  - Generative UI
+  - Support for LangChain universal tool calling
+  - OpenAI assistant API streaming
+
 ## 0.16.0
 
 ### Minor Changes

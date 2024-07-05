@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.37.0",
+  "version": "1.0.0-beta.2",
   "sideEffects": [
     "**/*.css"
   ],
