@@ -1,5 +1,17 @@
 # eslint-config-custom
 
+## 1.0.0
+
+### Major Changes
+
+- b6a4b6eb: V1.0 Release Candidate
+
+  - A robust new protocol between the frontend and the Copilot Runtime
+  - Support for Copilot Cloud
+  - Generative UI
+  - Support for LangChain universal tool calling
+  - OpenAI assistant API streaming
+
 ## 1.0.0-beta.0
 
 ### Major Changes
