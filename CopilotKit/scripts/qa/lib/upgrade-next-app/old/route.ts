@@ -1,4 +1,4 @@
-import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
 
 export async function POST(req: Request): Promise<Response> {
   const copilotKit = new CopilotRuntime({
@@ -7,7 +7,7 @@ export async function POST(req: Request): Promise<Response> {
         name: "research",
         description:
           "Call this function to conduct research on a certain topic. Respect other notes about when to call this function",
-        argumentAnnotations: [
+        parameters: [
           {
             name: "topic",
             type: "string",
@@ -15,7 +15,7 @@ export async function POST(req: Request): Promise<Response> {
             required: true,
           },
         ],
-        implementation: async (topic) => {
+        handler: async ({ topic }) => {
           console.log("Researching topic: ", topic);
           return "The secret is xyz";
         },

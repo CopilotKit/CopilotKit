@@ -1,5 +1,5 @@
 "use client";
-import { CopilotKit, useMakeCopilotActionable, useCopilotReadable } from "@copilotkit/react-core";
+import { CopilotKit, useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
 import { CopilotTextarea } from "@copilotkit/react-textarea";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
@@ -13,11 +13,11 @@ function InsideHome() {
     description: "This is the current message",
     value: message,
   });
-  useMakeCopilotActionable(
+  useCopilotAction(
     {
       name: "displayMessage",
       description: "Display a message.",
-      argumentAnnotations: [
+      parameters: [
         {
           name: "message",
           type: "string",
@@ -25,7 +25,7 @@ function InsideHome() {
           required: true,
         },
       ],
-      implementation: async (message) => {
+      handler: async ({ message }) => {
         setMessage(message);
       },
     },
@@ -34,20 +34,12 @@ function InsideHome() {
   return (
     <>
       <div>{message}</div>
-      <CopilotTextarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        autosuggestionsConfig={{
-          textareaPurpose: "an outline of a presentation about elephants",
-          chatApiConfigs: {},
-        }}
-      />
     </>
   );
 }
 export default function Home() {
   return (
-    <CopilotKit url="/api/copilotkit/openai">
+    <CopilotKit url="http://localhost:4000">
       <CopilotSidebar
         defaultOpen={true}
         labels={{
