@@ -56,11 +56,6 @@ export class TelemetryClient {
       "copilotkit.package.name": packageName,
       "copilotkit.package.version": packageVersion,
     });
-
-    // Eliminates a PostHog error on Next.js
-    if (typeof (globalThis as any).navigator !== "undefined") {
-      (globalThis as any).navigator = {};
-    }
   }
 
   private shouldSendEvent() {
