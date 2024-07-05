@@ -1,4 +1,3 @@
-
 /**
  * CopilotRuntime Adapter for Unify.
  *
