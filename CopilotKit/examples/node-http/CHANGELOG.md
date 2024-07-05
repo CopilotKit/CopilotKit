@@ -1,5 +1,13 @@
 # node
 
+## 2.0.0-beta.1
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime@1.0.0-beta.1
+  - @copilotkit/shared@1.0.0-beta.1
+
 ## 2.0.0-beta.0
 
 ### Major Changes

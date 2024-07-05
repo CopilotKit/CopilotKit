@@ -1,5 +1,14 @@
 # ui
 
+## 1.0.0-beta.1
+
+### Patch Changes
+
+- Introduce anonymous telemetry
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.0.0-beta.1
+  - @copilotkit/shared@1.0.0-beta.1
+
 ## 1.0.0-beta.0
 
 ### Major Changes

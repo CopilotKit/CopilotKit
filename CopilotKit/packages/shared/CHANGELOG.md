@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.0.0-beta.1
+
+### Patch Changes
+
+- Introduce anonymous telemetry
+
 ## 1.0.0-beta.0
 
 ### Major Changes
