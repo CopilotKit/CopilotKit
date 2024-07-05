@@ -3,7 +3,7 @@ title: "LangChainAdapter"
 description: "CopilotKit Adapter for LangChain"
 ---
 
-{/* GENERATE-DOCS path=packages/backend/src/lib/langchain-adapter.ts class=LangChainAdapter */}
+{/* GENERATE-DOCS path=packages/runtime/src/service-adapters/langchain/langchain-adapter.ts class=LangChainAdapter */}
  
 Use this adapter to use LangChain as a backend.
  
@@ -27,19 +27,15 @@ The async handler function can return:
 
 ## Constructor
 
-## constructor(private chainFn: (forwardedProps: any) =&gt; Promise&lt;LangChainReturnType&gt;)
-
-To use LangChain as a backend, provide a handler function to the adapter with your custom LangChain logic.
-
-<ResponseField name="chainFn" type="(forwardedProps: any) => Promise<LangChainReturnType>" required>
+<ResponseField name="chainFn" type="(parameters: ChainFnParameters) => Promise<LangChainReturnType>" required>
 
 </ResponseField>
 
-## getResponse(forwardedProps: any)
+## process(request: CopilotRuntimeChatCompletionRequest)
 
 
 
-<ResponseField name="forwardedProps" type="any" required>
+<ResponseField name="request" type="CopilotRuntimeChatCompletionRequest" required>
 
 </ResponseField>
 

@@ -2,13 +2,21 @@ import {
   Action,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   MappedParameterTypes,
-  Message,
   Parameter,
+  actionParametersToJsonSchema,
 } from "@copilotkit/shared";
+import {
+  ActionExecutionMessage,
+  Message,
+  Role,
+  TextMessage,
+  convertGqlOutputToMessages,
+  CopilotRequestType,
+} from "@copilotkit/runtime-client-gql";
 import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
-import { fetchAndDecodeChatCompletion } from "./fetch-chat-completion";
-import untruncateJson from "untruncate-json";
+import { CopilotRuntimeClient } from "@copilotkit/runtime-client-gql";
+import { convertMessagesToGqlInput } from "@copilotkit/runtime-client-gql";
 
 interface InitialState<T extends Parameter[] | [] = []> {
   status: "initial";
@@ -38,6 +46,7 @@ interface ExtractOptions<T extends Parameter[]> {
   data?: any;
   abortSignal?: AbortSignal;
   stream?: (args: StreamHandlerArgs<T>) => void;
+  requestType?: CopilotRequestType;
 }
 
 interface IncludeOptions {
@@ -53,6 +62,7 @@ export async function extract<const T extends Parameter[]>({
   data,
   abortSignal,
   stream,
+  requestType = CopilotRequestType.Task,
 }: ExtractOptions<T>): Promise<MappedParameterTypes<T>> {
   const { messages } = context;
 
@@ -75,11 +85,10 @@ export async function extract<const T extends Parameter[]>({
     contextString += context.getContextString([], defaultCopilotContextCategories);
   }
 
-  const systemMessage: Message = {
-    id: "system",
+  const systemMessage: Message = new TextMessage({
     content: makeSystemMessage(contextString, instructions),
-    role: "system",
-  };
+    role: Role.System,
+  });
 
   const headers = {
     ...(context.copilotApiConfig.headers || {}),
@@ -88,22 +97,42 @@ export async function extract<const T extends Parameter[]>({
       : {}),
   };
 
-  const response = await fetchAndDecodeChatCompletion({
-    copilotConfig: context.copilotApiConfig,
-    messages: includeMessages ? [systemMessage, ...messages] : [systemMessage],
-    tools: context.getChatCompletionFunctionDescriptions({ extract: action }),
+  const runtimeClient = new CopilotRuntimeClient({
+    url: context.copilotApiConfig.chatApiEndpoint,
+    publicApiKey: context.copilotApiConfig.publicApiKey,
     headers,
-    body: context.copilotApiConfig.body,
-    toolChoice: { type: "function", function: { name: "extract" } },
-    signal: abortSignal,
   });
 
-  if (!response.events) {
-    throw new Error("extract() failed: Could not fetch chat completion");
-  }
+  const response = CopilotRuntimeClient.asStream(
+    runtimeClient.generateCopilotResponse({
+      data: {
+        frontend: {
+          actions: [
+            {
+              name: action.name,
+              description: action.description || "",
+              jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
+            },
+          ],
+        },
 
-  const reader = response.events.getReader();
+        messages: convertMessagesToGqlInput(
+          includeMessages ? [systemMessage, ...messages] : [systemMessage],
+        ),
+        metadata: {
+          requestType: requestType,
+        },
+      },
+      properties: context.copilotApiConfig.properties,
+      signal: abortSignal,
+    }),
+  );
+
+  const reader = response.getReader();
+
   let isInitial = true;
+
+  let actionExecutionMessage: ActionExecutionMessage | undefined = undefined;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -112,27 +141,32 @@ export async function extract<const T extends Parameter[]>({
       break;
     }
 
-    if (value.type === "partial") {
-      try {
-        let partialArguments = JSON.parse(untruncateJson(value.arguments));
-        stream?.({
-          status: isInitial ? "initial" : "inProgress",
-          args: partialArguments as Partial<MappedParameterTypes<T>>,
-        });
-        isInitial = false;
-      } catch (e) {}
+    actionExecutionMessage = convertGqlOutputToMessages(
+      value.generateCopilotResponse.messages,
+    ).find((msg) => msg instanceof ActionExecutionMessage) as ActionExecutionMessage | undefined;
+
+    if (!actionExecutionMessage) {
+      continue;
     }
 
-    if (value.type === "function") {
-      stream?.({
-        status: "complete",
-        args: value.arguments as MappedParameterTypes<T>,
-      });
-      return value.arguments as MappedParameterTypes<T>;
-    }
+    stream?.({
+      status: isInitial ? "initial" : "inProgress",
+      args: actionExecutionMessage.arguments as Partial<MappedParameterTypes<T>>,
+    });
+
+    isInitial = false;
   }
 
-  throw new Error("extract() failed: No function call occurred");
+  if (!actionExecutionMessage) {
+    throw new Error("extract() failed: No function call occurred");
+  }
+
+  stream?.({
+    status: "complete",
+    args: actionExecutionMessage.arguments as MappedParameterTypes<T>,
+  });
+
+  return actionExecutionMessage.arguments as MappedParameterTypes<T>;
 }
 
 function makeSystemMessage(contextString: string, instructions: string): string {
@@ -147,7 +181,7 @@ The user has provided you with the following context:
 ${contextString}
 \`\`\`
 
-They have also provided you with a function you MUST call to initiate actions on their behalf.
+They have also provided you with a function called extract you MUST call to initiate actions on their behalf.
 
 Please assist them as best you can.
 

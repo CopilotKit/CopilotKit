@@ -1,5 +1,82 @@
 # web
 
+## 1.0.0
+
+### Major Changes
+
+- b6a4b6eb: V1.0 Release Candidate
+
+  - A robust new protocol between the frontend and the Copilot Runtime
+  - Support for Copilot Cloud
+  - Generative UI
+  - Support for LangChain universal tool calling
+  - OpenAI assistant API streaming
+
+- V1.0 Release
+
+  - A robust new protocol between the frontend and the Copilot Runtime
+  - Support for Copilot Cloud
+  - Generative UI
+  - Support for LangChain universal tool calling
+  - OpenAI assistant API streaming
+
+### Patch Changes
+
+- Updated dependencies [b6a4b6eb]
+- Updated dependencies [b6a4b6eb]
+- Updated dependencies [b6a4b6eb]
+- Updated dependencies
+  - @copilotkit/react-core@1.0.0
+  - @copilotkit/react-textarea@1.0.0
+  - @copilotkit/react-ui@1.0.0
+  - @copilotkit/runtime@1.0.0
+  - @copilotkit/shared@1.0.0
+
+## 1.0.0-beta.2
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@1.0.0-beta.2
+  - @copilotkit/react-core@1.0.0-beta.2
+  - @copilotkit/react-ui@1.0.0-beta.2
+  - @copilotkit/runtime@1.0.0-beta.2
+  - @copilotkit/shared@1.0.0-beta.2
+
+## 1.23.0
+
+### Minor Changes
+
+- f771353: Fix: Stale CopilotReadable
+- 9df8d43: Remove unneeded tailwind components
+- CSS improvements, useCopilotChat, invisible messages
+
+### Patch Changes
+
+- Updated dependencies [f771353]
+- Updated dependencies [9df8d43]
+- Updated dependencies
+  - @copilotkit/react-core@0.37.0
+  - @copilotkit/backend@0.37.0
+  - @copilotkit/react-textarea@0.37.0
+  - @copilotkit/react-ui@0.37.0
+  - @copilotkit/shared@0.37.0
+
+## 1.23.0-mme-fix-textarea-css.1
+
+### Minor Changes
+
+- Remove unneeded tailwind components
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@0.37.0-mme-fix-textarea-css.1
+  - @copilotkit/backend@0.37.0-mme-fix-textarea-css.1
+  - @copilotkit/react-core@0.37.0-mme-fix-textarea-css.1
+  - @copilotkit/react-ui@0.37.0-mme-fix-textarea-css.1
+  - @copilotkit/shared@0.37.0-mme-fix-textarea-css.1
+
 ## 1.23.0-mme-fix-feedback-readable.0
 
 ### Minor Changes

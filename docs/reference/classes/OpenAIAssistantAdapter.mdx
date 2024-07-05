@@ -3,7 +3,7 @@ title: "OpenAIAssistantAdapter"
 description: "CopilotKit Adapter for the OpenAI Assistant API."
 ---
 
-{/* GENERATE-DOCS path=packages/backend/src/lib/openai-assistant-adapter.ts class=OpenAIAssistantAdapter */}
+{/* GENERATE-DOCS path=packages/runtime/src/service-adapters/openai/openai-assistant-adapter.ts class=OpenAIAssistantAdapter */}
  
 Use this adapter to get responses from the OpenAI Assistant API.
  
@@ -33,15 +33,15 @@ An instance of `OpenAI` to use for the request. If not provided, a new instance 
 Whether to enable the code interpreter. Defaults to `true`.
 </ResponseField>
 
-<ResponseField name="retrievalEnabled" type="boolean" >
+<ResponseField name="fileSearchEnabled" type="boolean" >
 Whether to enable retrieval. Defaults to `true`.
 </ResponseField>
 
-## getResponse(forwardedProps: any)
+## process(request: CopilotRuntimeChatCompletionRequest)
 
 
 
-<ResponseField name="forwardedProps" type="any" required>
+<ResponseField name="request" type="CopilotRuntimeChatCompletionRequest" required>
 
 </ResponseField>
 

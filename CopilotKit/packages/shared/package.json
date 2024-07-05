@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.37.0-mme-fix-feedback-readable.0",
+  "version": "1.0.0",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -20,11 +20,10 @@
   "scripts": {
     "build": "tsup --clean",
     "dev": "tsup --watch --no-splitting",
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "check-types": "tsc --noEmit",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
   },
-  "peerDependencies": {},
   "devDependencies": {
     "@types/jest": "^29.5.4",
     "eslint": "^8.56.0",
@@ -35,5 +34,8 @@
     "tsup": "^6.7.0",
     "typescript": "^5.2.3"
   },
-  "dependencies": {}
+  "dependencies": {
+    "chalk": "4.1.2",
+    "posthog-node": "^4.0.1"
+  }
 }

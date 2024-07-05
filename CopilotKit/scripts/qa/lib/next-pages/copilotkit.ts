@@ -1,8 +1,27 @@
-// Next.js API route support: https://nextjs.org/docs/api-routes/introduction
-import type { NextApiRequest, NextApiResponse } from "next";
-import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
+/**
+ * @filePath pages/api/copilotkit.ts
+ */
+import { NextApiRequest, NextApiResponse } from "next";
+import {
+  CopilotRuntime,
+  OpenAIAdapter,
+  copilotRuntimeNextJSPagesRouterEndpoint,
+} from "@copilotkit/runtime";
+import OpenAI from "openai";
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  const copilotKit = new CopilotRuntime({});
-  copilotKit.streamHttpServerResponse(req, res, new OpenAIAdapter({ model: "gpt-4o" }));
-}
+const openai = new OpenAI();
+const serviceAdapter = new OpenAIAdapter({ openai });
+
+const runtime = new CopilotRuntime();
+
+const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+  const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
+    endpoint: "/api/copilotkit",
+    runtime,
+    serviceAdapter,
+  });
+
+  return await handleRequest(req, res);
+};
+
+export default handler;

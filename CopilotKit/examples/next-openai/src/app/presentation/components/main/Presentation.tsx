@@ -5,7 +5,7 @@ import { Slide } from "./Slide";
 import { Header } from "./Header";
 import useAppendSlide from "../../actions/useAppendSlide";
 import { SlideModel } from "../../types";
-import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
+import { CopilotKitCSSProperties, useCopilotChatSuggestions } from "@copilotkit/react-ui";
 
 interface PresentationProps {
   performResearch: boolean;

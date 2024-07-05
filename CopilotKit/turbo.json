@@ -4,8 +4,19 @@
   "globalEnv": ["OPENAI_API_KEY"],
   "pipeline": {
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": [
+        "^build",
+        "^generate-graphql-schema",
+        "generate-graphql-schema",
+        "^graphql-codegen",
+        "graphql-codegen"
+      ],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+    },
+    "dev": {
+      "dependsOn": ["^build", "graphql-codegen:watch", "^graphql-codegen:watch"],
+      "cache": false,
+      "persistent": true
     },
     "test": {
       "dependsOn": ["^build"],
@@ -15,10 +26,18 @@
     "check-types": {
       "dependsOn": ["^build"]
     },
-    "dev": {
-      "dependsOn": ["^build"],
+    "generate-graphql-schema": {
       "cache": false,
-      "persistent": true
+      "outputs": ["packages/runtime/__snapshots__/schema/schema.graphql"]
+    },
+    "graphql-codegen": {
+      "cache": false,
+      "dependsOn": ["^generate-graphql-schema"],
+      "outputs": ["packages/runtime-client-gql/src/@generated/**/*"]
+    },
+    "graphql-codegen:watch": {
+      "cache": false,
+      "outputs": ["packages/runtime-client-gql/src/@generated/**/*"]
     },
     "clean": {
       "cache": false

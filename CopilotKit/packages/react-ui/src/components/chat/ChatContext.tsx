@@ -166,7 +166,7 @@ export const ChatContextProvider = ({
         regenerateIcon: DefaultIcons.RegenerateIcon,
         pushToTalkIcon: DefaultIcons.PushToTalkIcon,
       },
-      icons,
+      ...icons,
     },
     open,
     setOpen,

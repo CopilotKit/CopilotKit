@@ -34,7 +34,7 @@
  * </CopilotKit>
 ```
  */
-import { Ref, useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   CopilotContext,
   CopilotApiConfig,
@@ -47,26 +47,26 @@ import {
   COPILOT_CLOUD_CHAT_URL,
   CopilotCloudConfig,
   FunctionCallHandler,
-  Message,
-  actionToChatCompletionFunction,
 } from "@copilotkit/shared";
+import { Message } from "@copilotkit/runtime-client-gql";
 
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { CopilotKitProps } from "./copilotkit-props";
-import { ToolDefinition } from "@copilotkit/shared";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // Compute all the functions and properties that we need to pass
   // to the CopilotContext.
 
-  if (!props.runtimeUrl && !props.url && !props.publicApiKey) {
-    throw new Error("Please provide either a url or a publicApiKey to the CopilotKit component.");
+  if (!props.runtimeUrl && !props.publicApiKey) {
+    throw new Error(
+      "Please provide either a runtimeUrl or a publicApiKey to the CopilotKit component.",
+    );
   }
 
-  const chatApiEndpoint = props.runtimeUrl || props.url || COPILOT_CLOUD_CHAT_URL;
+  const chatApiEndpoint = props.runtimeUrl || COPILOT_CLOUD_CHAT_URL;
 
-  const [entryPoints, setEntryPoints] = useState<Record<string, FrontendAction<any>>>({});
+  const [actions, setActions] = useState<Record<string, FrontendAction<any>>>({});
   const chatComponentsCache = useRef<Record<string, InChatRenderFunction | string>>({});
   const { addElement, removeElement, printTree } = useTree();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -79,17 +79,17 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     allElements: allDocuments,
   } = useFlatCategoryStore<DocumentPointer>();
 
-  const setEntryPoint = useCallback((id: string, entryPoint: FrontendAction<any>) => {
-    setEntryPoints((prevPoints) => {
+  const setAction = useCallback((id: string, action: FrontendAction<any>) => {
+    setActions((prevPoints) => {
       return {
         ...prevPoints,
-        [id]: entryPoint,
+        [id]: action,
       };
     });
   }, []);
 
-  const removeEntryPoint = useCallback((id: string) => {
-    setEntryPoints((prevPoints) => {
+  const removeAction = useCallback((id: string) => {
+    setActions((prevPoints) => {
       const newPoints = { ...prevPoints };
       delete newPoints[id];
       return newPoints;
@@ -129,18 +129,11 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     [removeElement],
   );
 
-  const getChatCompletionFunctionDescriptions = useCallback(
-    (customEntryPoints?: Record<string, FrontendAction<any>>) => {
-      return entryPointsToChatCompletionFunctions(Object.values(customEntryPoints || entryPoints));
-    },
-    [entryPoints],
-  );
-
   const getFunctionCallHandler = useCallback(
     (customEntryPoints?: Record<string, FrontendAction<any>>) => {
-      return entryPointsToFunctionCallHandler(Object.values(customEntryPoints || entryPoints));
+      return entryPointsToFunctionCallHandler(Object.values(customEntryPoints || actions));
     },
-    [entryPoints],
+    [actions],
   );
 
   const getDocumentsContext = useCallback(
@@ -192,14 +185,11 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     publicApiKey: props.publicApiKey,
     ...(cloud ? { cloud } : {}),
     chatApiEndpoint: chatApiEndpoint,
-    chatApiEndpointV2: `${props.url}/v2`,
     headers: props.headers || {},
-    body: {
-      ...props.body,
-      ...props.backendOnlyProps,
-    },
+    properties: props.properties || {},
     transcribeAudioUrl: props.transcribeAudioUrl,
     textToSpeechUrl: props.textToSpeechUrl,
+    credentials: props.credentials,
   };
 
   const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
@@ -223,12 +213,11 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   return (
     <CopilotContext.Provider
       value={{
-        entryPoints,
+        actions,
         chatComponentsCache,
-        getChatCompletionFunctionDescriptions,
         getFunctionCallHandler,
-        setEntryPoint,
-        removeEntryPoint,
+        setAction,
+        removeAction,
         getContextString,
         addContext,
         removeContext,
@@ -254,24 +243,16 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
 
 export const defaultCopilotContextCategories = ["global"];
 
-function entryPointsToChatCompletionFunctions(actions: FrontendAction<any>[]): ToolDefinition[] {
-  return actions.map(actionToChatCompletionFunction);
-}
-
 function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): FunctionCallHandler {
-  return async (chatMessages, functionCall) => {
+  return async ({ messages, name, args }) => {
     let actionsByFunctionName: Record<string, FrontendAction<any>> = {};
     for (let action of actions) {
       actionsByFunctionName[action.name] = action;
     }
 
-    const action = actionsByFunctionName[functionCall.name || ""];
+    const action = actionsByFunctionName[name];
     if (action) {
-      let functionCallArguments: Record<string, any>[] = [];
-      if (functionCall.arguments) {
-        functionCallArguments = JSON.parse(functionCall.arguments);
-      }
-      return await action.handler(functionCallArguments);
+      return await action.handler(args);
     }
   };
 }

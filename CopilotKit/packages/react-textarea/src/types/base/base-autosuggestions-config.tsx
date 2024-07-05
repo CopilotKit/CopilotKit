@@ -30,6 +30,18 @@ import { defaultCopilotContextCategories } from "@copilotkit/react-core";
  * }
  * ```
  *
+ * @property {(event: React.TouchEvent<HTMLDivElement>) => boolean} shouldAcceptAutosuggestionOnTouch - A function that determines whether to accept the current autosuggestion based on a mobile touch event. By default, the touching the end of a suggestion will accept it. Example code:
+ *
+ * ```typescript
+ * const shouldAcceptAutosuggestionOnTouch =  (event: React.TouchEvent<HTMLDivElement>) => {
+ *   // if tab, accept the autosuggestion
+ *   if (event.type === "touchstart") {
+ *     return true;
+ *   }
+ *   return false;
+ * }
+ * ```
+ *
  * @property {(event: React.KeyboardEvent<HTMLDivElement>) => boolean} shouldToggleHoveringEditorOnKeyPress - A function that determines whether to toggle the hovering editor based on a key press event. By default, the Command + K key combination is used to toggle the hovering editor. Example code:
  *
  * ```typescript
@@ -52,6 +64,7 @@ export interface BaseAutosuggestionsConfig {
   disabled: boolean;
   temporarilyDisableWhenMovingCursorWithoutChangingText: boolean;
   shouldAcceptAutosuggestionOnKeyPress: (event: React.KeyboardEvent<HTMLDivElement>) => boolean;
+  shouldAcceptAutosuggestionOnTouch: (event: React.TouchEvent<HTMLDivElement>) => boolean;
   shouldToggleHoveringEditorOnKeyPress: (
     event: React.KeyboardEvent<HTMLDivElement>,
     shortcut: string,
@@ -80,6 +93,8 @@ const defaultShouldAcceptAutosuggestionOnKeyPress = (
   return false;
 };
 
+const defaultShouldAcceptAutosuggestionOnTouch = () => true;
+
 /**
  * Default configuration for the BaseAutosuggestions.
  *
@@ -90,6 +105,7 @@ const defaultShouldAcceptAutosuggestionOnKeyPress = (
  * @property {boolean} temporarilyDisableWhenMovingCursorWithoutChangingText - Whether to temporarily disable the autosuggestions when the cursor is moved without changing the text.
  * @property {(event: React.KeyboardEvent<HTMLDivElement>) => boolean} shouldToggleHoveringEditorOnKeyPress - A function that determines whether to toggle the hovering editor based on a key press event.
  * @property {(event: React.KeyboardEvent<HTMLDivElement>) => boolean} shouldAcceptAutosuggestionOnKeyPress - A function that determines whether to accept the autosuggestion based on a key press event.
+ * @property {() => boolean} defaultShouldAcceptAutosuggestionOnTouch - A function that determines whether to accept the autosuggestion based on a mobile touch event.
  */
 
 export const defaultBaseAutosuggestionsConfig: Omit<
@@ -103,4 +119,5 @@ export const defaultBaseAutosuggestionsConfig: Omit<
   temporarilyDisableWhenMovingCursorWithoutChangingText: true,
   shouldToggleHoveringEditorOnKeyPress: defaultShouldToggleHoveringEditorOnKeyPress,
   shouldAcceptAutosuggestionOnKeyPress: defaultShouldAcceptAutosuggestionOnKeyPress,
+  shouldAcceptAutosuggestionOnTouch: defaultShouldAcceptAutosuggestionOnTouch,
 };

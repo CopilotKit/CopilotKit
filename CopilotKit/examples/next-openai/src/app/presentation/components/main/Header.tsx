@@ -36,7 +36,7 @@ export function Header({
   const context = useCopilotContext();
 
   return (
-    <header className={clsx("bg-customBlack text-white items-center flex p-4")}>
+    <header className={clsx("text-white items-center flex p-4")}>
       <div className="flex-0 flex space-x-1">
         {/* Back */}
         <NavButton

@@ -107,8 +107,9 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
       <Menu
         ref={ref}
         className={
-          props.hoverMenuClassname ||
-          "p-2 absolute z-10 top-[-10000px] left-[-10000px] mt-[-6px] opacity-0 transition-opacity duration-700"
+          "copilot-kit-textarea-css-scope " +
+          (props.hoverMenuClassname ||
+            "p-2 absolute z-10 top-[-10000px] left-[-10000px] mt-[-6px] opacity-0 transition-opacity duration-700")
         }
       >
         {isDisplayed && selection && (
@@ -119,7 +120,6 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
               setIsDisplayed(false);
             }}
             performInsertion={(insertedText) => {
-              console.log("inserted text", insertedText);
               // replace the selection with the inserted text
               Transforms.delete(editor, { at: selection });
               Transforms.insertText(editor, insertedText, {

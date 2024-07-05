@@ -1,5 +1,5 @@
 .copilotKitInput {
-  border-top: 1px solid var(--copilot-kit-input-separator-color);
+  border-top: 1px solid var(--copilot-kit-separator-color);
   padding-left: 2rem;
   padding-right: 1rem;
   padding-top: 1rem;
@@ -10,7 +10,7 @@
   position: relative;
   border-bottom-left-radius: 0.75rem;
   border-bottom-right-radius: 0.75rem;
-  background-color: var(--copilot-kit-input-background-color);
+  background-color: var(--copilot-kit-background-color);
 }
 
 .copilotKitInput > .copilotKitInputControls > button {
@@ -40,7 +40,7 @@
 }
 
 .copilotKitInput > .copilotKitInputControls > button:not([disabled]) {
-  color: var(--copilot-kit-input-send-button-color);
+  color: var(--copilot-kit-primary-color);
 }
 
 .copilotKitInput > .copilotKitInputControls > button:not([disabled]):hover {
@@ -48,7 +48,7 @@
 }
 
 .copilotKitInput > .copilotKitInputControls > button[disabled] {
-  color: var(--copilot-kit-input-send-button-disabled-color);
+  color: var(--copilot-kit-muted-color);
 }
 
 .copilotKitInputControls {
@@ -71,13 +71,13 @@
   padding: 0;
   font-family: inherit;
   font-weight: inherit;
-  color: var(--copilot-kit-input-color);
+  color: var(--copilot-kit-secondary-contrast-color);
   border: 0px;
-  background-color: var(--copilot-kit-input-background-color);
+  background-color: var(--copilot-kit-background-color);
 }
 
 .copilotKitInput > textarea::placeholder {
-  color: var(--copilot-kit-input-placeholder-color);
+  color: var(--copilot-kit-muted-color);
   opacity: 1;
 }
 

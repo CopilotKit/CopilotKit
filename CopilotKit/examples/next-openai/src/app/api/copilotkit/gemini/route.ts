@@ -1,10 +1,25 @@
-import { CopilotRuntime, GoogleGenerativeAIAdapter } from "@copilotkit/backend";
+import {
+  CopilotRuntime,
+  GoogleGenerativeAIAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { NextRequest } from "next/server";
 
-export async function POST(req: Request): Promise<Response> {
-  const copilotKit = new CopilotRuntime();
-  const genAI = new GoogleGenerativeAI(process.env["GOOGLE_API_KEY" + ""]!);
+const env = process.env;
+
+export const POST = async (req: NextRequest) => {
+  const runtime = new CopilotRuntime();
+
+  const genAI = new GoogleGenerativeAI(env["GOOGLE_API_KEY"]!);
   const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+  const serviceAdapter = new GoogleGenerativeAIAdapter({ model });
 
-  return copilotKit.response(req, new GoogleGenerativeAIAdapter({ model }));
-}
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: req.nextUrl.pathname,
+  });
+
+  return handleRequest(req);
+};

@@ -1,5 +1,68 @@
 # @copilotkit/shared
 
+## 1.0.0
+
+### Major Changes
+
+- b6a4b6eb: V1.0 Release Candidate
+
+  - A robust new protocol between the frontend and the Copilot Runtime
+  - Support for Copilot Cloud
+  - Generative UI
+  - Support for LangChain universal tool calling
+  - OpenAI assistant API streaming
+
+- V1.0 Release
+
+  - A robust new protocol between the frontend and the Copilot Runtime
+  - Support for Copilot Cloud
+  - Generative UI
+  - Support for LangChain universal tool calling
+  - OpenAI assistant API streaming
+
+### Patch Changes
+
+- b6a4b6eb: Introduce anonymous telemetry
+- b6a4b6eb: Set default Copilot Cloud runtime URL to versioned URL (v1)
+
+## 1.0.0-beta.2
+
+### Patch Changes
+
+- Set default Copilot Cloud runtime URL to versioned URL (v1)
+
+## 1.0.0-beta.1
+
+### Patch Changes
+
+- Introduce anonymous telemetry
+
+## 1.0.0-beta.0
+
+### Major Changes
+
+- V1.0 Release Candidate
+
+  - A robust new protocol between the frontend and the Copilot Runtime
+  - Support for Copilot Cloud
+  - Generative UI
+  - Support for LangChain universal tool calling
+  - OpenAI assistant API streaming
+
+## 0.37.0
+
+### Minor Changes
+
+- f771353: Fix: Stale CopilotReadable
+- 9df8d43: Remove unneeded tailwind components
+- CSS improvements, useCopilotChat, invisible messages
+
+## 0.37.0-mme-fix-textarea-css.1
+
+### Minor Changes
+
+- Remove unneeded tailwind components
+
 ## 0.37.0-mme-fix-feedback-readable.0
 
 ### Minor Changes

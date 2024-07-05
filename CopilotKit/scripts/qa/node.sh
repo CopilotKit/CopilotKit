@@ -17,7 +17,7 @@ npm_install_packages $NODE_APP_PATH
 
 
 cp scripts/qa/lib/node/page.tsx $NODE_APP_PATH/src/app/page.tsx
-cp scripts/qa/lib/node/server.js $NODE_APP_PATH/server.js
+cp scripts/qa/lib/node/server.ts $NODE_APP_PATH/server.ts
 
 # Temporarily disable -e 
 set +e
@@ -43,7 +43,7 @@ npm run dev > /dev/null 2>&1 &
 pid1=$!
 
 # Start node server
-node server.js > /dev/null 2>&1 &
+node npx ts-node server.ts > /dev/null 2>&1 &
 pid2=$!
 popd
 

@@ -3,7 +3,7 @@ title: "OpenAIAdapter"
 description: "CopilotRuntime Adapter for OpenAI."
 ---
 
-{/* GENERATE-DOCS path=packages/backend/src/lib/openai-adapter.ts class=OpenAIAdapter */}
+{/* GENERATE-DOCS path=packages/runtime/src/service-adapters/openai/openai-adapter.ts class=OpenAIAdapter */}
  
 <RequestExample>
 ```jsx CopilotRuntime Example
@@ -45,11 +45,11 @@ An optional OpenAI instance to use.
 The model to use.
 </ResponseField>
 
-## getResponse(forwardedProps: any)
+## process(request: CopilotRuntimeChatCompletionRequest)
 
 
 
-<ResponseField name="forwardedProps" type="any" required>
+<ResponseField name="request" type="CopilotRuntimeChatCompletionRequest" required>
 
 </ResponseField>
 

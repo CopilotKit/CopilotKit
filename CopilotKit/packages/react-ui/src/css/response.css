@@ -1,6 +1,6 @@
 .copilotKitResponseButton {
   background-color: var(--copilot-kit-response-button-background-color);
-  border: 1px solid var(--copilot-kit-response-button-border-color);
+  border: 1px solid var(--copilot-kit-separator-color);
   border-radius: 4px;
   color: var(--copilot-kit-response-button-color);
   cursor: pointer;

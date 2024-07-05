@@ -1,4 +1,4 @@
-import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
 import type { ActionFunctionArgs } from "@remix-run/node";
 
 export async function action({ request }: ActionFunctionArgs) {

@@ -1,9 +1,10 @@
+import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { MakeSystemPrompt } from "./subtypes/make-system-prompt";
-import { MinimalChatGPTMessage } from "./subtypes/minimal-chat-gpt-message";
+import { nanoid } from "nanoid";
 
 export interface EditingApiConfig {
   makeSystemPrompt: MakeSystemPrompt;
-  fewShotMessages: MinimalChatGPTMessage[];
+  fewShotMessages: Message[];
   forwardedParams: { [key: string]: any } | undefined;
 }
 
@@ -37,58 +38,56 @@ The conversation will be structured as follows:
 `;
 };
 
-export const defaultEditingFewShotMessages: MinimalChatGPTMessage[] = [
-  {
-    role: "user",
-    name: "TextBeforeCursor",
-    content: "This morning I woke up and went straight to the grocery store. ",
-  },
-  {
-    role: "user",
-    name: "TextToEdit",
-    content: "While I was there I picked up some apples, oranges, and bananas. ",
-  },
-  {
-    role: "user",
-    name: "TextAfterCursor",
-    content: "The grocery store was having a sale on fruit, so I decided to stock up.",
-  },
-  {
-    role: "user",
-    name: "EditingPrompt",
-    content: "I also bought a big watermelon",
-  },
-  {
-    role: "assistant",
+export const defaultEditingFewShotMessages: Message[] = [
+  new TextMessage({
+    role: Role.User,
+    content:
+      "<TextBeforeCursor>This morning I woke up and went straight to the grocery store. </TextBeforeCursor>",
+  }),
+  new TextMessage({
+    role: Role.User,
+    content:
+      "<TextToEdit>While I was there I picked up some apples, oranges, and bananas. </TextToEdit>",
+  }),
+  new TextMessage({
+    role: Role.User,
+    content:
+      "<TextAfterCursor>The grocery store was having a sale on fruit, so I decided to stock up.</TextAfterCursor>",
+  }),
+  new TextMessage({
+    role: Role.User,
+    content: "<EditingPrompt>I also bought a big watermelon</EditingPrompt>",
+  }),
+  new TextMessage({
+    role: Role.Assistant,
     content:
       "While I was there I picked up some apples, oranges, and bananas, and a big watermelon.",
-  },
+  }),
 
-  {
-    role: "user",
-    name: "TextBeforeCursor",
-    content: "Yesterday, I spent the afternoon working on my new project. ",
-  },
-  {
-    role: "user",
-    name: "TextToEdit",
-    content: "It's quite challenging and requires a lot of focus. ",
-  },
-  {
-    role: "user",
-    name: "TextAfterCursor",
-    content: "I'm really excited about the potential outcomes of this project.",
-  },
-  {
-    role: "user",
-    name: "EditingPrompt",
-    content: "emphasize the complexity and my enthusiasm for the project",
-  },
-  {
-    role: "assistant",
+  new TextMessage({
+    role: Role.User,
+    content:
+      "<TextBeforeCursor>Yesterday, I spent the afternoon working on my new project.</TextBeforeCursor>",
+  }),
+  new TextMessage({
+    role: Role.User,
+    content: "<TextToEdit>It's quite challenging and requires a lot of focus.</TextToEdit>",
+  }),
+  new TextMessage({
+    role: Role.User,
+    content:
+      "<TextAfterCursor>I'm really excited about the potential outcomes of this project.</TextAfterCursor>",
+  }),
+  new TextMessage({
+    role: Role.User,
+    content:
+      "<EditingPrompt>emphasize the complexity and my enthusiasm for the project</EditingPrompt>",
+  }),
+  new TextMessage({
+    role: Role.Assistant,
     content:
       "It's a highly complex task that demands intense concentration, but I'm incredibly enthusiastic about the promising prospects of this project.",
-  },
+  }),
 ];
 
 export const defaultEditingApiConfig: EditingApiConfig = {

@@ -1,1 +1,1 @@
-export {};
+export type { CopilotKitCSSProperties } from "./css";

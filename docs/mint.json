@@ -10,12 +10,12 @@
   },
   "favicon": "/favicon.svg",
   "colors": {
-    "primary": "#0D9373",
-    "light": "#07C983",
-    "dark": "#0D9373",
+    "primary": "#086fde",
+    "light": "#4da9ff",
+    "dark": "#086fde",
     "anchors": {
-      "from": "#0D9373",
-      "to": "#07C983"
+      "from": "#53a3f9",
+      "to": "#53a3f9"
     }
   },
   "topbarLinks": [
@@ -37,6 +37,7 @@
         "getting-started/quickstart-textarea",
         "getting-started/quickstart-runtime",
         "getting-started/quickstart-skills-langchain",
+        "getting-started/look-and-feel",
         "getting-started/tutorials"
       ]
     },
@@ -87,7 +88,13 @@
           "group": "How-to",
           "pages": ["howto/azure"]
         },
-        "articles/use-copilot-action"
+        "articles/upgrading-to-v1.0"
+      ]
+    },
+    {
+      "group": "Telemetry",
+      "pages": [
+        "telemetry/telemetry"
       ]
     }
   ],

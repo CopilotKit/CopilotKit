@@ -1,19 +1,18 @@
 {
   "name": "next-openai",
-  "version": "1.23.0-mme-fix-feedback-readable.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "cross-env NODE_OPTIONS='--inspect' next dev",
-    "build": "next build",
+    "start:dev": "next dev",
     "start": "next start",
     "lint": "next lint",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
   },
   "dependencies": {
-    "@copilotkit/backend": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/react-textarea": "workspace:*",
     "@copilotkit/react-ui": "workspace:*",
+    "@copilotkit/runtime": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@google/generative-ai": "^0.11.2",
     "@heroicons/react": "^2.0.18",
@@ -25,7 +24,7 @@
     "langchain": "^0.1.19",
     "next": "^13.4.9",
     "next-themes": "^0.2.1",
-    "openai": "^4.33.1",
+    "openai": "^4.50.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^8.0.7"

@@ -107,7 +107,7 @@ export interface CopilotTextareaProps
    *      // use this to provide a custom system prompt
    *      makeSystemPrompt: (textareaPurpose: string, contextString: string) => string;
    *      // custom few shot messages
-   *      fewShotMessages: MinimalChatGPTMessage[];
+   *      fewShotMessages: Message[];
    *      forwardedParams: {
    *        // max number of tokens to generate
    *        max_tokens: number,

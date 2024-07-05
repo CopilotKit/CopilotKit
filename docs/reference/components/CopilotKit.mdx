@@ -85,13 +85,18 @@ Additional body params to be sent with the request
 The children to be rendered within the CopilotKit.
 </ResponseField>
 
-<ResponseField name="backendOnlyProps" type="Record<string, any>" >
-Backend only props that will be combined to body params to be sent with the request
+<ResponseField name="properties" type="Record<string, any>" >
+Custom properties to be sent with the request
   For example:
   ```js
   {
     'user_id': 'users_id',
   }
   ```
+</ResponseField>
+
+<ResponseField name="credentials" type="RequestCredentials" >
+Indicates whether the user agent should send or receive cookies from the other domain
+  in the case of cross-origin requests.
 </ResponseField>
 

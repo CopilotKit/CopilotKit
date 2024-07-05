@@ -1,9 +1,5 @@
-import {
-  CopilotCloudConfig,
-  FunctionCallHandler,
-  Message,
-  ToolDefinition,
-} from "@copilotkit/shared";
+import { CopilotCloudConfig, FunctionCallHandler } from "@copilotkit/shared";
+import { Message } from "@copilotkit/runtime-client-gql";
 import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
 import React from "react";
 import { TreeNodeId } from "../hooks/use-tree";
@@ -40,11 +36,6 @@ export interface CopilotApiConfig {
   textToSpeechUrl?: string;
 
   /**
-   * The endpoint for the chat API v2.
-   */
-  chatApiEndpointV2: string;
-
-  /**
    * additional headers to be sent with the request
    * @default {}
    * @example
@@ -57,19 +48,7 @@ export interface CopilotApiConfig {
   headers: Record<string, string>;
 
   /**
-   * Additional body params to be sent with the request
-   * @default {}
-   * @example
-   * ```
-   * {
-   *   'message': 'Hello, world!'
-   * }
-   * ```
-   */
-  body: Record<string, any>;
-
-  /**
-   * Backend only props that will be combined to body params to be sent with the request
+   * Custom properties to be sent with the request
    * @default {}
    * @example
    * ```
@@ -78,20 +57,24 @@ export interface CopilotApiConfig {
    * }
    * ```
    */
-  backendOnlyProps?: Record<string, any>;
+  properties?: Record<string, any>;
+
+  /**
+   * Indicates whether the user agent should send or receive cookies from the other domain
+   * in the case of cross-origin requests.
+   */
+  credentials?: RequestCredentials;
 }
 
 export type InChatRenderFunction = (props: ActionRenderProps<any>) => string | JSX.Element;
 
 export interface CopilotContextParams {
   // function-calling
-  entryPoints: Record<string, FrontendAction<any>>;
-  setEntryPoint: (id: string, entryPoint: FrontendAction<any>) => void;
-  removeEntryPoint: (id: string) => void;
+  actions: Record<string, FrontendAction<any>>;
+  setAction: (id: string, action: FrontendAction<any>) => void;
+  removeAction: (id: string) => void;
   chatComponentsCache: React.RefObject<Record<string, InChatRenderFunction | string>>;
-  getChatCompletionFunctionDescriptions: (
-    customEntryPoints?: Record<string, FrontendAction<any>>,
-  ) => ToolDefinition[];
+
   getFunctionCallHandler: (
     customEntryPoints?: Record<string, FrontendAction<any>>,
   ) => FunctionCallHandler;
@@ -128,9 +111,9 @@ export interface CopilotContextParams {
 }
 
 const emptyCopilotContext: CopilotContextParams = {
-  entryPoints: {},
-  setEntryPoint: () => {},
-  removeEntryPoint: () => {},
+  actions: {},
+  setAction: () => {},
+  removeAction: () => {},
 
   chatComponentsCache: { current: {} },
   getContextString: (documents: DocumentPointer[], categories: string[]) =>
@@ -138,7 +121,6 @@ const emptyCopilotContext: CopilotContextParams = {
   addContext: () => "",
   removeContext: () => {},
 
-  getChatCompletionFunctionDescriptions: () => returnAndThrowInDebug([]),
   getFunctionCallHandler: () => returnAndThrowInDebug(async () => {}),
 
   messages: [],
@@ -158,9 +140,7 @@ const emptyCopilotContext: CopilotContextParams = {
     get chatApiEndpoint(): string {
       throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
     }
-    get chatApiEndpointV2(): string {
-      throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
-    }
+
     get headers(): Record<string, string> {
       return {};
     }

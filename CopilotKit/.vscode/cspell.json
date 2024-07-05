@@ -1,5 +1,15 @@
 {
   "version": "0.2",
   "language": "en",
-  "words": ["openai", "copilotkit", "langchain", "kwargs", "langserve", "ondataavailable"]
+  "words": [
+    "openai",
+    "copilotkit",
+    "langchain",
+    "kwargs",
+    "langserve",
+    "ondataavailable",
+    "untruncate",
+    "serverside",
+    "Tiktoken"
+  ]
 }
