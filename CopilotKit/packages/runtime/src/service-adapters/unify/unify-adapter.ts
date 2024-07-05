@@ -17,40 +17,50 @@
  * );
  * ```
  *
- * To use your custom Unify instance, pass the `unify` property.
+ * To use a custom OpenAI instance, pass the `openai` property.
  * ```jsx
- * const unify = new Unify({
+ * const unifyOpenAi = new OpenAI({
  *   apiKey: "your-api-key"
  * });
  *
  * const copilotKit = new CopilotRuntime();
  * return copilotKit.response(
  *   req,
- *   new Unify({ unify }),
+ *   new UnifyAdapter({ openai: unifyOpenAi }),
  * );
  * ```
  *
  */
-import { OpenAIAdapter, OpenAIAdapterParams } from "./openai-adapter";
-import { CopilotKitResponse, CopilotKitServiceAdapter } from "../types/service-adapter";
+import { OpenAIAdapter, OpenAIAdapterParams } from "../openai/openai-adapter";
+import {
+  CopilotRuntimeChatCompletionRequest,
+  CopilotRuntimeChatCompletionResponse,
+  CopilotServiceAdapter,
+} from "../service-adapter";
 
 const UNIFY_BASE_URL = "https://api.unify.ai/v0/chat/completions";
+const UNIFY_API_KEY = "UNIFY_API_KEY";
 
-export class UnifyAdapter implements CopilotKitServiceAdapter {
+export interface UnifyAdapterParams extends OpenAIAdapterParams {
+  apiKey?: string;
+}
+
+export class UnifyAdapter implements CopilotServiceAdapter {
   private openaiAdapter: OpenAIAdapter;
 
-  constructor(params?: OpenAIAdapterParams) {
+  constructor(params?: UnifyAdapterParams) {
     this.openaiAdapter = new OpenAIAdapter(params);
+    this.openaiAdapter.openai.baseURL = UNIFY_BASE_URL;
+
+    const unifyApiKeyOverride: string | undefined = process.env[UNIFY_API_KEY] || params?.apiKey;
+    if (unifyApiKeyOverride) {
+      this.openaiAdapter.openai.apiKey = unifyApiKeyOverride;
+    }
   }
 
-  async getResponse(forwardedProps: any): Promise<CopilotKitResponse> {
-    // Create a copy of forwardedProps to avoid modifying the original object
-    const unifyProps = { ...forwardedProps };
-
-    // Replace the base URL with the Unify URL
-    unifyProps.baseUrl = UNIFY_BASE_URL;
-
-    // Call the OpenAIAdapter's getResponse method with the modified props
-    return this.openaiAdapter.getResponse(unifyProps);
+  process(
+    request: CopilotRuntimeChatCompletionRequest,
+  ): Promise<CopilotRuntimeChatCompletionResponse> {
+    return this.openaiAdapter.process(request);
   }
 }
