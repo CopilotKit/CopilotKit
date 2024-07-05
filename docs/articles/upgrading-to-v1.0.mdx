@@ -24,6 +24,7 @@ After 1.0:
 import { NextRequest } from "next/server";
 import {
   CopilotRuntime,
+  OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 
@@ -119,7 +120,11 @@ After 1.0:
 
 ```ts
 import * as http from "http";
-import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
+import {
+  CopilotRuntime,
+  OpenAIAdapter,
+  copilotRuntimeNodeHttpEndpoint,
+} from "@copilotkit/runtime";
 
 const port = 4000;
 var HEADERS = {
@@ -150,7 +155,6 @@ server.listen(port, function () {
 ```
 
 ## Upgrading an express server backend
-
 
 Before 1.0:
 
@@ -186,7 +190,11 @@ After 1.0:
 
 ```ts
 import express from "express";
-import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
+import {
+  CopilotRuntime,
+  OpenAIAdapter,
+  copilotRuntimeNodeHttpEndpoint,
+} from "@copilotkit/runtime";
 
 const port = 4000;
 var HEADERS = {
@@ -219,19 +227,18 @@ app.listen(port, () => {
 
 ## Upgrading a NestJS server backend
 
-
 Before 1.0:
 
 ```ts
-import { All, Controller, Req, Res } from '@nestjs/common';
-import { AppService } from './app.service';
-import { CopilotRuntime, OpenAIAdapter } from '@copilotkit/backend';
+import { All, Controller, Req, Res } from "@nestjs/common";
+import { AppService } from "./app.service";
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
 
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
-  @All('/copilotkit')
+  @All("/copilotkit")
   copilotkit(@Req() req: Request, @Res() res: Response) {
     const copilotKit = new CopilotRuntime();
     const openaiAdapter = new OpenAIAdapter();
@@ -243,22 +250,22 @@ export class AppController {
 After 1.0:
 
 ```ts
-import { All, Controller, Req, Res } from '@nestjs/common';
-import { AppService } from './app.service';
+import { All, Controller, Req, Res } from "@nestjs/common";
+import { AppService } from "./app.service";
 import {
   CopilotRuntime,
   OpenAIAdapter,
   copilotRuntimeNestEndpoint,
-} from '@copilotkit/runtime';
+} from "@copilotkit/runtime";
 
 @Controller()
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
-  @All('/copilotkit')
+  @All("/copilotkit")
   copilotkit(@Req() req: Request, @Res() res: Response) {
     const copilotRuntimeHandler = copilotRuntimeNestEndpoint({
-      endpoint: '/copilotkit',
+      endpoint: "/copilotkit",
       runtime: new CopilotRuntime(),
       serviceAdapter: new OpenAIAdapter(),
     });
