@@ -121,12 +121,6 @@ export interface CopilotTaskConfig {
 
   /**
    * Whether to include actions defined via useCopilotAction in the task.
-   * @deprecated Use the `includeCopilotActions` property instead.
-   */
-  includeCopilotActionable?: boolean;
-
-  /**
-   * Whether to include actions defined via useCopilotAction in the task.
    */
   includeCopilotActions?: boolean;
 }
@@ -141,8 +135,7 @@ export class CopilotTask<T = any> {
     this.instructions = config.instructions;
     this.actions = config.actions || [];
     this.includeCopilotReadable = config.includeCopilotReadable !== false;
-    this.includeCopilotActions =
-      config.includeCopilotActions !== false && config.includeCopilotActionable !== false;
+    this.includeCopilotActions = config.includeCopilotActions !== false;
   }
 
   /**
