@@ -34,11 +34,6 @@ export interface CopilotKitProps {
   textToSpeechUrl?: string;
 
   /**
-   * @deprecated use runtimeUrl instead
-   */
-  url?: string;
-
-  /**
    * Additional headers to be sent with the request.
    *
    * For example:

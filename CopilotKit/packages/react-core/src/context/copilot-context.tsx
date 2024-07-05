@@ -36,11 +36,6 @@ export interface CopilotApiConfig {
   textToSpeechUrl?: string;
 
   /**
-   * The endpoint for the chat API v2.
-   */
-  chatApiEndpointV2: string;
-
-  /**
    * additional headers to be sent with the request
    * @default {}
    * @example
@@ -145,9 +140,7 @@ const emptyCopilotContext: CopilotContextParams = {
     get chatApiEndpoint(): string {
       throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
     }
-    get chatApiEndpointV2(): string {
-      throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
-    }
+
     get headers(): Record<string, string> {
       return {};
     }
