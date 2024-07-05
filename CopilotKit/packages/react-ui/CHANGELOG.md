@@ -1,5 +1,15 @@
 # ui
 
+## 1.0.0-beta.2
+
+### Patch Changes
+
+- Set default Copilot Cloud runtime URL to versioned URL (v1)
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.0.0-beta.2
+  - @copilotkit/react-core@1.0.0-beta.2
+  - @copilotkit/shared@1.0.0-beta.2
+
 ## 1.0.0-beta.1
 
 ### Patch Changes
