@@ -90,6 +90,12 @@
         },
         "articles/use-copilot-action"
       ]
+    },
+    {
+      "group": "Telemetry",
+      "pages": [
+        "telemetry/telemetry"
+      ]
     }
   ],
   "footerSocials": {

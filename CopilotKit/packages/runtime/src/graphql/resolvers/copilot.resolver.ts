@@ -26,7 +26,7 @@ import {
 import { ResponseStatusUnion, SuccessResponseStatus } from "../types/response-status.type";
 import { GraphQLJSONObject } from "graphql-scalars";
 import { plainToInstance } from "class-transformer";
-import { GuardrailsResult, GuardrailsResultStatus } from "../types/guardrails-result.type";
+import { GuardrailsResult } from "../types/guardrails-result.type";
 import { GraphQLError } from "graphql";
 import {
   GuardrailsValidationFailureResponse,
@@ -34,6 +34,7 @@ import {
   UnknownErrorResponse,
 } from "../../utils";
 import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "../types/converted";
+import telemetry from "../../lib/telemetry-client";
 
 const invokeGuardrails = async ({
   baseUrl,
@@ -48,6 +49,8 @@ const invokeGuardrails = async ({
   onResult: (result: GuardrailsResult) => void;
   onError: (err: Error) => void;
 }) => {
+  console.log("invokeGuardrails.baseUrl", baseUrl);
+
   if (
     data.messages.length &&
     data.messages[data.messages.length - 1].textMessage?.role === MessageRole.user
@@ -105,6 +108,11 @@ export class CopilotResolver {
     @Arg("properties", () => GraphQLJSONObject, { nullable: true })
     properties?: CopilotRequestContextProperties,
   ) {
+    telemetry.capture("oss.runtime.copilot_request_created", {
+      "cloud.guardrails.enabled": data.cloud?.guardrails !== undefined,
+      requestType: data.metadata.requestType,
+    });
+
     let logger = ctx.logger.child({ component: "CopilotResolver.generateCopilotResponse" });
     logger.debug({ data }, "Generating Copilot response");
 
@@ -133,14 +141,15 @@ export class CopilotResolver {
 
       if (process.env.COPILOT_CLOUD_BASE_URL) {
         copilotCloudBaseUrl = process.env.COPILOT_CLOUD_BASE_URL;
-      } else if (ctx._copilotkit.baseUrl) {
-        copilotCloudBaseUrl = ctx._copilotkit.baseUrl;
+      } else if (ctx._copilotkit.cloud?.baseUrl) {
+        copilotCloudBaseUrl = ctx._copilotkit.cloud?.baseUrl;
       } else {
         copilotCloudBaseUrl = "https://api.cloud.copilotkit.ai";
       }
 
       logger = logger.child({ copilotCloudBaseUrl });
     }
+
     logger.debug("Setting up subjects");
     const responseStatus$ = new ReplaySubject<typeof ResponseStatusUnion>();
     const interruptStreaming$ = new ReplaySubject<{ reason: string; messageId?: string }>();
