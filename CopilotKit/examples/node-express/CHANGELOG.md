@@ -8,7 +8,6 @@
   - @copilotkit/runtime@1.0.0-beta.2
   - @copilotkit/shared@1.0.0-beta.2
 
-
 ## 1.23.0
 
 ### Minor Changes
