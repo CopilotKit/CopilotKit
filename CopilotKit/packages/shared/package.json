@@ -35,7 +35,7 @@
     "typescript": "^5.2.3"
   },
   "dependencies": {
-    "chalk": "4.1.2",
-    "posthog-node": "^4.0.1"
+    "@segment/analytics-node": "^2.1.2",
+    "chalk": "4.1.2"
   }
 }

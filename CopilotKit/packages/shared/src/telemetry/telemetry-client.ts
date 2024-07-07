@@ -1,10 +1,10 @@
-import { PostHog } from "posthog-node";
+import { Analytics } from "@segment/analytics-node";
 import { AnalyticsEvents } from "./events";
 import { flattenObject, printSecurityNotice } from "./utils";
 import { randomUUID } from "crypto";
 
 export class TelemetryClient {
-  posthog: PostHog | undefined;
+  segment: Analytics | undefined;
   globalProperties: Record<string, any> = {};
   cloudConfiguration: { publicApiKey: string; baseUrl: string } | null = null;
   packageName: string;
@@ -12,20 +12,19 @@ export class TelemetryClient {
   private telemetryDisabled: boolean = false;
   private telemetryBaseUrl: string | undefined;
   private sampleRate: number = 0.05;
+  private anonymousId = `anon_${randomUUID()}`;
 
   constructor({
     packageName,
     packageVersion,
     telemetryDisabled,
     telemetryBaseUrl,
-    posthogToken,
     sampleRate,
   }: {
     packageName: string;
     packageVersion: string;
     telemetryDisabled?: boolean;
     telemetryBaseUrl?: string;
-    posthogToken?: string;
     sampleRate?: number;
   }) {
     this.packageName = packageName;
@@ -48,8 +47,9 @@ export class TelemetryClient {
       (process.env as any).COPILOTKIT_TELEMETRY_BASE_URL ||
       "https://telemetry.copilotkit.ai";
 
-    this.posthog = new PostHog(posthogToken || "token", {
-      host: `${this.telemetryBaseUrl}/telemetry/ingest`,
+    this.segment = new Analytics({
+      // eslint-disable-next-line
+      writeKey: process.env.COPILOTKIT_SEGMENT_WRITE_KEY || "n7XAZtQCGS2v1vvBy3LgBCv2h3Y8whja",
     });
 
     this.setGlobalProperties({
@@ -68,7 +68,7 @@ export class TelemetryClient {
   }
 
   async capture<K extends keyof AnalyticsEvents>(event: K, properties: AnalyticsEvents[K]) {
-    if (!this.shouldSendEvent() || !this.posthog) {
+    if (!this.shouldSendEvent() || !this.segment) {
       return;
     }
 
@@ -87,8 +87,8 @@ export class TelemetryClient {
         {} as Record<string, any>,
       );
 
-    this.posthog.capture({
-      distinctId: randomUUID(),
+    this.segment.track({
+      anonymousId: this.anonymousId,
       event,
       properties: { ...orderedPropertiesWithGlobal },
     });
@@ -113,14 +113,6 @@ export class TelemetryClient {
     printSecurityNotice(result);
   }
 
-  setTelemetryBaseUrl(url: string) {
-    this.telemetryBaseUrl = url;
-
-    if (this.posthog) {
-      this.posthog.host = `${url}/telemetry/ingest`;
-    }
-  }
-
   setGlobalProperties(properties: Record<string, any>) {
     const flattenedProperties = flattenObject(properties);
     this.globalProperties = { ...this.globalProperties, ...flattenedProperties };
@@ -142,7 +134,9 @@ export class TelemetryClient {
 
     _sampleRate = sampleRate ?? 0.05;
 
+    // eslint-disable-next-line
     if (process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE) {
+      // eslint-disable-next-line
       _sampleRate = parseFloat(process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE);
     }
 
