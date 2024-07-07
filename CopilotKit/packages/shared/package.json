@@ -1,6 +1,11 @@
 {
   "name": "@copilotkit/shared",
   "private": false,
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
   "publishConfig": {
     "access": "public"
   },
@@ -37,5 +42,6 @@
   "dependencies": {
     "@segment/analytics-node": "^2.1.2",
     "chalk": "4.1.2"
-  }
+  },
+  "keywords": ["copilotkit", "copilot", "react", "nextjs", "nodejs", "ai", "assistant", "javascript", "automation", "textarea"]
 }

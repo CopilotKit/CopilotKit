@@ -1,6 +1,11 @@
 {
   "name": "@copilotkit/react-ui",
   "private": false,
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
   "publishConfig": {
     "access": "public"
   },
@@ -55,5 +60,6 @@
     "react-syntax-highlighter": "^15.5.0",
     "remark-gfm": "^3.0.1",
     "remark-math": "^5.1.1"
-  }
+  },
+  "keywords": ["copilotkit", "copilot", "react", "nextjs", "nodejs", "ai", "assistant", "javascript", "automation", "textarea"]
 }

@@ -1,6 +1,11 @@
 {
   "name": "@copilotkit/react-textarea",
   "private": false,
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
   "publishConfig": {
     "access": "public"
   },
@@ -73,5 +78,6 @@
     "slate-history": "^0.93.0",
     "slate-react": "^0.98.1",
     "tailwind-merge": "^1.13.2"
-  }
+  },
+  "keywords": ["copilotkit", "copilot", "react", "nextjs", "nodejs", "ai", "assistant", "javascript", "automation", "textarea"]
 }
