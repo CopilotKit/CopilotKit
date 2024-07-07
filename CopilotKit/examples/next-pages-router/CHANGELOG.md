@@ -1,5 +1,16 @@
 # next-pages-router
 
+## 1.0.3
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@1.0.3
+  - @copilotkit/react-textarea@1.0.3
+  - @copilotkit/react-ui@1.0.3
+  - @copilotkit/runtime@1.0.3
+  - @copilotkit/shared@1.0.3
+
 ## 1.0.2
 
 ### Patch Changes
