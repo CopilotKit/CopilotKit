@@ -1,5 +1,14 @@
 # ui
 
+## 1.0.1
+
+### Patch Changes
+
+- Remove PostHog, use Segment Anonymous Telemetry instead
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.0.1
+  - @copilotkit/shared@1.0.1
+
 ## 1.0.0
 
 ### Major Changes
