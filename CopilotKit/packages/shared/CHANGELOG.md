@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.0.2
+
+### Patch Changes
+
+- Add README.md and homepage/url to published packages
+
 ## 1.0.1
 
 ### Patch Changes

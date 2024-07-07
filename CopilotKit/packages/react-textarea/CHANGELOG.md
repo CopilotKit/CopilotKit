@@ -1,5 +1,15 @@
 # ui
 
+## 1.0.2
+
+### Patch Changes
+
+- Add README.md and homepage/url to published packages
+- Updated dependencies
+  - @copilotkit/react-core@1.0.2
+  - @copilotkit/runtime-client-gql@1.0.2
+  - @copilotkit/shared@1.0.2
+
 ## 1.0.1
 
 ### Patch Changes
