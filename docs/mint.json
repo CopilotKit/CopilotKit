@@ -76,7 +76,12 @@
         }
       ]
     },
-
+    {
+      "group": "Telemetry",
+      "pages": [
+        "telemetry/telemetry"
+      ]
+    },
     {
       "group": "Contributing",
       "pages": ["contribute/quickstart-contribute"]
@@ -88,13 +93,10 @@
           "group": "How-to",
           "pages": ["howto/azure"]
         },
-        "articles/upgrading-to-v1.0"
-      ]
-    },
-    {
-      "group": "Telemetry",
-      "pages": [
-        "telemetry/telemetry"
+        {
+          "group": "Migration Guides",
+          "pages": ["articles/upgrading-to-v1.0"]
+        }
       ]
     }
   ],
