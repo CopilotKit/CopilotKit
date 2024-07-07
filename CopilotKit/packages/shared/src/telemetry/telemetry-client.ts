@@ -87,11 +87,11 @@ export class TelemetryClient {
         {} as Record<string, any>,
       );
 
-      this.segment.track({
-        anonymousId: this.anonymousId,
-        event,
-        properties: { ...orderedPropertiesWithGlobal },
-      })
+    this.segment.track({
+      anonymousId: this.anonymousId,
+      event,
+      properties: { ...orderedPropertiesWithGlobal },
+    });
   }
 
   async checkForUpdates() {
