@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.0.1
+
+### Patch Changes
+
+- Remove PostHog, use Segment Anonymous Telemetry instead
+
 ## 1.0.0
 
 ### Major Changes
