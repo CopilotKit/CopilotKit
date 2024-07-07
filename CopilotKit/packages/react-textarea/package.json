@@ -78,5 +78,6 @@
     "slate-history": "^0.93.0",
     "slate-react": "^0.98.1",
     "tailwind-merge": "^1.13.2"
-  }
+  },
+  "keywords": ["copilotkit", "copilot", "react", "nextjs", "nodejs", "ai", "assistant", "javascript", "automation", "textarea"]
 }

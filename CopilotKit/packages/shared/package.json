@@ -42,5 +42,6 @@
   "dependencies": {
     "@segment/analytics-node": "^2.1.2",
     "chalk": "4.1.2"
-  }
+  },
+  "keywords": ["copilotkit", "copilot", "react", "nextjs", "nodejs", "ai", "assistant", "javascript", "automation", "textarea"]
 }

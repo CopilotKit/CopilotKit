@@ -50,5 +50,6 @@
     "@scarf/scarf": "^1.3.0",
     "nanoid": "^4.0.2",
     "untruncate-json": "^0.0.1"
-  }
+  },
+  "keywords": ["copilotkit", "copilot", "react", "nextjs", "nodejs", "ai", "assistant", "javascript", "automation", "textarea"]
 }

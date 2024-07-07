@@ -29,5 +29,6 @@
   "packageManager": "pnpm@8.14.3",
   "dependencies": {
     "@changesets/cli": "^2.26.2"
-  }
+  },
+  "keywords": ["copilotkit", "copilot", "react", "nextjs", "nodejs", "ai", "assistant", "javascript", "automation", "textarea"]
 }

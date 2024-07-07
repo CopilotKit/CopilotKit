@@ -62,5 +62,6 @@
     "untruncate-json": "^0.0.1",
     "urql": "^4.1.0",
     "wonka": "^6.3.4"
-  }
+  },
+  "keywords": ["copilotkit", "copilot", "react", "nextjs", "nodejs", "ai", "assistant", "javascript", "automation", "textarea"]
 }
