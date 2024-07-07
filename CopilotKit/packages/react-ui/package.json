@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sideEffects": [
     "**/*.css"
   ],
@@ -61,5 +61,16 @@
     "remark-gfm": "^3.0.1",
     "remark-math": "^5.1.1"
   },
-  "keywords": ["copilotkit", "copilot", "react", "nextjs", "nodejs", "ai", "assistant", "javascript", "automation", "textarea"]
+  "keywords": [
+    "copilotkit",
+    "copilot",
+    "react",
+    "nextjs",
+    "nodejs",
+    "ai",
+    "assistant",
+    "javascript",
+    "automation",
+    "textarea"
+  ]
 }

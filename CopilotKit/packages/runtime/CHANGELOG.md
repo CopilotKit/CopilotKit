@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.0.3
+
+### Patch Changes
+
+- Add README.md to published packages and add keywords to package.json
+- Updated dependencies
+  - @copilotkit/shared@1.0.3
+
 ## 1.0.2
 
 ### Patch Changes

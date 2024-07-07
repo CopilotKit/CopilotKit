@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.0.3
+
+### Patch Changes
+
+- Add README.md to published packages and add keywords to package.json
+
 ## 1.0.2
 
 ### Patch Changes
