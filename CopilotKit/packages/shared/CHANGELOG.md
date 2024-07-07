@@ -4,7 +4,7 @@
 
 ### Patch Changes
 
-- Add README.md and metadata to homepage/url to published packages
+- Add README.md and homepage/url to published packages
 
 ## 1.0.1
 

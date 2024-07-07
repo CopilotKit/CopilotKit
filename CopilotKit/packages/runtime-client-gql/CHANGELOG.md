@@ -4,7 +4,7 @@
 
 ### Patch Changes
 
-- Add README.md and metadata to homepage/url to published packages
+- Add README.md and homepage/url to published packages
 - Updated dependencies
   - @copilotkit/runtime@1.0.2
   - @copilotkit/shared@1.0.2

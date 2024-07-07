@@ -4,7 +4,7 @@
 
 ### Patch Changes
 
-- Add README.md and metadata to homepage/url to published packages
+- Add README.md and homepage/url to published packages
 - Updated dependencies
   - @copilotkit/react-core@1.0.2
   - @copilotkit/runtime-client-gql@1.0.2
