@@ -1,6 +1,5 @@
 {
   "name": "@copilotkit/react-textarea",
-  "version": "1.0.1",
   "private": false,
   "homepage": "https://github.com/CopilotKit/CopilotKit",
   "repository": {
@@ -10,6 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
+  "version": "1.0.2",
   "sideEffects": [
     "**/*.css"
   ],
