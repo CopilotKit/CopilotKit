@@ -16,7 +16,6 @@ import { CopilotResponse } from "../types/copilot-response.type";
 import { MessageRole } from "../types/enums";
 import { Repeater } from "graphql-yoga";
 import type { CopilotRequestContextProperties, GraphQLContext } from "../../lib/integrations";
-import { nanoid } from "nanoid";
 import { RuntimeEvent, RuntimeEventTypes } from "../../service-adapters/events";
 import {
   FailedMessageStatus,
@@ -35,6 +34,7 @@ import {
 } from "../../utils";
 import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "../types/converted";
 import telemetry from "../../lib/telemetry-client";
+import { randomId } from "@copilotkit/shared";
 
 const invokeGuardrails = async ({
   baseUrl,
@@ -167,7 +167,7 @@ export class CopilotResolver {
     logger.debug("Processing");
     const {
       eventSource,
-      threadId = nanoid(),
+      threadId = randomId(),
       runId,
       actions,
     } = await copilotRuntime.process({
@@ -215,7 +215,7 @@ export class CopilotResolver {
                 // resolve messages promise to the middleware
                 outputMessages = [
                   plainToInstance(TextMessage, {
-                    id: nanoid(),
+                    id: randomId(),
                     createdAt: new Date(),
                     content: result.reason,
                     role: MessageRole.assistant,
@@ -278,7 +278,7 @@ export class CopilotResolver {
                 // signal when we are done streaming
                 const streamingTextStatus = new Subject<typeof MessageStatusUnion>();
 
-                const messageId = nanoid();
+                const messageId = randomId();
 
                 // push the new message
                 pushMessage({
@@ -413,7 +413,7 @@ export class CopilotResolver {
               case RuntimeEventTypes.ActionExecutionResult:
                 logger.debug({ result: event.result }, "Action execution result event received");
                 pushMessage({
-                  id: nanoid(),
+                  id: randomId(),
                   status: new SuccessMessageStatus(),
                   createdAt: new Date(),
                   actionExecutionId: event.actionExecutionId,
@@ -423,7 +423,7 @@ export class CopilotResolver {
 
                 outputMessages.push(
                   plainToInstance(ResultMessage, {
-                    id: nanoid(),
+                    id: randomId(),
                     createdAt: new Date(),
                     actionExecutionId: event.actionExecutionId,
                     actionName: event.actionName,

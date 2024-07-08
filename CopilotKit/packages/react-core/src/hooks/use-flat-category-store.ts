@@ -1,5 +1,5 @@
-import { nanoid } from "nanoid";
 import { useCallback, useReducer } from "react";
+import { randomId } from "@copilotkit/shared";
 
 export type FlatCategoryStoreId = string;
 
@@ -21,7 +21,7 @@ const useFlatCategoryStore = <T>(): UseFlatCategoryStoreReturn<T> => {
   >(flatCategoryStoreReducer, new Map<FlatCategoryStoreId, FlatCategoryStoreElement<T>>());
 
   const addElement = useCallback((value: T, categories: string[]): FlatCategoryStoreId => {
-    const newId = nanoid();
+    const newId = randomId();
     dispatch({
       type: "ADD_ELEMENT",
       value,

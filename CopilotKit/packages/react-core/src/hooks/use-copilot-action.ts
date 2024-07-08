@@ -1,8 +1,7 @@
 import { useRef, useContext, useEffect } from "react";
 import { FrontendAction } from "../types/frontend-action";
 import { CopilotContext } from "../context/copilot-context";
-import { nanoid } from "nanoid";
-import { Parameter } from "@copilotkit/shared";
+import { Parameter, randomId } from "@copilotkit/shared";
 
 // We implement useCopilotAction dependency handling so that
 // the developer has the option to not provide any dependencies.
@@ -18,7 +17,7 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   dependencies?: any[],
 ): void {
   const { setAction, removeAction, actions, chatComponentsCache } = useContext(CopilotContext);
-  const idRef = useRef<string>(nanoid());
+  const idRef = useRef<string>(randomId());
 
   // If the developer doesn't provide dependencies, we assume they want to
   // update handler and render function when the action object changes.
