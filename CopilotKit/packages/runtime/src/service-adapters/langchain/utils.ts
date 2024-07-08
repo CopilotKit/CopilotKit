@@ -18,7 +18,7 @@ import { z } from "zod";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { LangChainReturnType } from "./types";
 import { RuntimeEventSubject } from "../events";
-import { nanoid } from "nanoid";
+import { randomId } from "@copilotkit/shared";
 
 export function convertMessageToLangChainMessage(message: Message): BaseMessage {
   if (message instanceof TextMessage) {
@@ -144,7 +144,7 @@ export async function streamLangChainResponse({
   if (typeof result === "string") {
     if (!actionExecution) {
       // Just send one chunk with the string as the content.
-      eventStream$.sendTextMessage(nanoid(), result);
+      eventStream$.sendTextMessage(randomId(), result);
     } else {
       // Send as a result
       eventStream$.sendActionExecutionResult(actionExecution.id, actionExecution.name, result);
@@ -157,11 +157,11 @@ export async function streamLangChainResponse({
     maybeSendActionExecutionResultIsMessage(eventStream$, actionExecution);
 
     if (result.content) {
-      eventStream$.sendTextMessage(nanoid(), result.content as string);
+      eventStream$.sendTextMessage(randomId(), result.content as string);
     }
     for (const toolCall of result.tool_calls) {
       eventStream$.sendActionExecution(
-        toolCall.id || nanoid(),
+        toolCall.id || randomId(),
         toolCall.name,
         JSON.stringify(toolCall.args),
       );
@@ -174,12 +174,12 @@ export async function streamLangChainResponse({
     maybeSendActionExecutionResultIsMessage(eventStream$, actionExecution);
 
     if (result.lc_kwargs?.content) {
-      eventStream$.sendTextMessage(nanoid(), result.content as string);
+      eventStream$.sendTextMessage(randomId(), result.content as string);
     }
     if (result.lc_kwargs?.tool_calls) {
       for (const toolCall of result.lc_kwargs?.tool_calls) {
         eventStream$.sendActionExecution(
-          toolCall.id || nanoid(),
+          toolCall.id || randomId(),
           toolCall.name,
           JSON.stringify(toolCall.args),
         );
@@ -242,7 +242,7 @@ export async function streamLangChainResponse({
             eventStream$.sendActionExecutionStart(toolCallId, toolCallName);
           } else if (content) {
             mode = "message";
-            eventStream$.sendTextMessageStart(nanoid());
+            eventStream$.sendTextMessageStart(randomId());
           }
         }
 

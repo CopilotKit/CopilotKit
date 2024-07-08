@@ -43,7 +43,7 @@ import {
   convertMessageToOpenAIMessage,
   limitMessagesToTokenCount,
 } from "./utils";
-import { nanoid } from "nanoid";
+import { randomId } from "@copilotkit/shared";
 
 const DEFAULT_MODEL = "gpt-4o";
 
@@ -137,7 +137,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     });
 
     return {
-      threadId: threadId || nanoid(),
+      threadId: threadId || randomId(),
     };
   }
 }

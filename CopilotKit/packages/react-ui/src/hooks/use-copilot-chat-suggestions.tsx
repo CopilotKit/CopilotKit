@@ -64,9 +64,8 @@
  */
 
 import { useEffect } from "react";
-import { useChatContext } from "../components";
-import { nanoid } from "nanoid";
-import { CopilotChatSuggestionConfiguration, useCopilotContext } from "@copilotkit/react-core";
+import { useCopilotContext } from "@copilotkit/react-core";
+import { randomId } from "@copilotkit/shared";
 
 interface UseCopilotChatSuggestionsConfiguration {
   /**
@@ -101,7 +100,7 @@ export function useCopilotChatSuggestions(
   const context = useCopilotContext();
 
   useEffect(() => {
-    const id = nanoid();
+    const id = randomId();
 
     context.addChatSuggestionConfiguration(id, {
       instructions,

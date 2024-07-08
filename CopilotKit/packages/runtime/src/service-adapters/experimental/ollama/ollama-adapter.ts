@@ -17,16 +17,14 @@
  * );
  * ```
  */
-import { nanoid } from "nanoid";
 import { TextMessage } from "../../../graphql/types/converted";
 import {
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
 } from "../../service-adapter";
-// import { writeChatCompletionChunk, writeChatCompletionEnd } from "../utils";
-// import { ChatCompletionChunk, Message } from "@copilotkit/shared";
 import { Ollama } from "@langchain/community/llms/ollama";
+import { randomId } from "@copilotkit/shared";
 
 const DEFAULT_MODEL = "llama3:latest";
 
@@ -60,7 +58,7 @@ export class ExperimentalOllamaAdapter implements CopilotServiceAdapter {
     const _stream = await ollama.stream(contents); // [TODO] role info is dropped...
 
     eventSource.stream(async (eventStream$) => {
-      eventStream$.sendTextMessageStart(nanoid());
+      eventStream$.sendTextMessageStart(randomId());
       for await (const chunkText of _stream) {
         eventStream$.sendTextMessageContent(chunkText);
       }
@@ -71,7 +69,7 @@ export class ExperimentalOllamaAdapter implements CopilotServiceAdapter {
       eventStream$.complete();
     });
     return {
-      threadId: request.threadId || nanoid(),
+      threadId: request.threadId || randomId(),
     };
   }
 }

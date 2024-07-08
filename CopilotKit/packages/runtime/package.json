@@ -57,7 +57,6 @@
     "groq-sdk": "^0.5.0",
     "js-tiktoken": "^1.0.8",
     "langchain": "^0.1.36",
-    "nanoid": "3.3.4",
     "openai": "^4.50.0",
     "pino": "^9.2.0",
     "pino-pretty": "^11.2.1",

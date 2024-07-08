@@ -1,6 +1,5 @@
 import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { MakeSystemPrompt } from "./subtypes/make-system-prompt";
-import { nanoid } from "nanoid";
 
 export interface SuggestionsApiConfig {
   makeSystemPrompt: MakeSystemPrompt;

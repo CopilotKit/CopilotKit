@@ -17,13 +17,13 @@
  * );
  * ```
  */
-import { nanoid } from "nanoid";
 import { TextMessage } from "../../../graphql/types/converted";
 import {
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
 } from "../../service-adapter";
+import { randomId } from "@copilotkit/shared";
 
 import Groq from "groq-sdk";
 
@@ -95,7 +95,7 @@ export class ExperimentalGroqAdapter implements CopilotServiceAdapter {
     });
 
     request.eventSource.stream(async (eventStream$) => {
-      eventStream$.sendTextMessageStart(nanoid());
+      eventStream$.sendTextMessageStart(randomId());
       for await (const chunk of _stream) {
         if (chunk.choices[0]?.delta?.content) {
           eventStream$.sendTextMessageContent(chunk.choices[0]?.delta?.content);
@@ -108,7 +108,7 @@ export class ExperimentalGroqAdapter implements CopilotServiceAdapter {
       eventStream$.complete();
     });
     return {
-      threadId: request.threadId || nanoid(),
+      threadId: request.threadId || randomId(),
     };
   }
 }
