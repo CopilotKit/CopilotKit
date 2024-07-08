@@ -1,5 +1,5 @@
 /**
- * CopilotRuntime Adapter for Unify.
+ * CopilotKit Adapter for Unify
  *
  * <RequestExample>
  * ```jsx CopilotRuntime Example
@@ -13,54 +13,70 @@
  * const copilotKit = new CopilotRuntime();
  * return copilotKit.response(
  *   req,
- *   new UnifyAdapter({ model: "llama-3-70b-chat@together-ai" }),
+ *   new UnifyAdapter({ model: "llama-3-8b-chat@fireworks-ai" }),
  * );
  * ```
- *
- * To use a custom OpenAI instance, pass the `openai` property.
- * ```jsx
- * const unifyOpenAi = new OpenAI({
- *   apiKey: "your-api-key"
- * });
- *
- * const copilotKit = new CopilotRuntime();
- * return copilotKit.response(
- *   req,
- *   new UnifyAdapter({ openai: unifyOpenAi }),
- * );
- * ```
- *
  */
-import { OpenAIAdapter, OpenAIAdapterParams } from "../openai/openai-adapter";
+import { nanoid } from "nanoid";
+import { TextMessage } from "../../graphql/types/converted";
 import {
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
   CopilotServiceAdapter,
 } from "../service-adapter";
+import OpenAI from "openai";
 
-const UNIFY_BASE_URL = "https://api.unify.ai/v0/chat/completions";
-const UNIFY_API_KEY = "UNIFY_API_KEY";
-
-export interface UnifyAdapterParams extends OpenAIAdapterParams {
+export interface UnifyAdapterParams {
   apiKey?: string;
 }
 
 export class UnifyAdapter implements CopilotServiceAdapter {
-  private openaiAdapter: OpenAIAdapter;
+  private apiKey: string;
 
-  constructor(params?: UnifyAdapterParams) {
-    this.openaiAdapter = new OpenAIAdapter(params);
-    this.openaiAdapter.openai.baseURL = UNIFY_BASE_URL;
-
-    const unifyApiKeyOverride: string | undefined = process.env[UNIFY_API_KEY] || params?.apiKey;
-    if (unifyApiKeyOverride) {
-      this.openaiAdapter.openai.apiKey = unifyApiKeyOverride;
+  constructor(options?: UnifyAdapterParams) {
+    if (options?.apiKey) {
+      this.apiKey = options.apiKey;
+    } else {
+      this.apiKey = "UNIFY_API_KEY";
     }
   }
 
-  process(
+  async process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
-    return this.openaiAdapter.process(request);
+    const openai = new OpenAI({
+      apiKey: this.apiKey,
+      baseURL: "https://api.unify.ai/v0/"
+    });
+
+    const messages = (
+      request.messages.filter((m) => m instanceof TextMessage) as TextMessage[]
+    ).map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    const _stream = await openai.chat.completions.create({
+      model: request.model,
+      messages: messages,
+      stream: true
+    });
+
+    request.eventSource.stream(async (eventStream$) => {
+      eventStream$.sendTextMessageStart(nanoid());
+      for await (const chunk of _stream) {
+        if (chunk.choices[0]?.delta?.content) {
+          eventStream$.sendTextMessageContent(chunk.choices[0]?.delta?.content);
+        }
+      }
+      eventStream$.sendTextMessageEnd();
+      // we may need to add this later.. [nc]
+      // let calls = (await result.response).functionCalls();
+
+      eventStream$.complete();
+    });
+    return {
+      threadId: request.threadId || nanoid(),
+    };
   }
 }
