@@ -1,8 +1,10 @@
 <div align="center">
-  <a href="https://ai88.substack.com/p/copilotkit-v1-launch">
+  <a href="https://ai88.substack.com/p/copilotkit-v1-launch" style="font-size: 16px; font-weight: bold;">
     CopilotKit v1.0 release! Read about it here.
   </a>
 </div>
+
+<br/>
 
 <div align="center">
   <picture>
