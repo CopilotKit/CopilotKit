@@ -1,4 +1,10 @@
 <div align="center">
+  <a href="https://ai88.substack.com/p/copilotkit-v1-launch">
+    CopilotKit v1.0 release! Read about it here.
+  </a>
+</div>
+
+<div align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://github.com/CopilotKit/CopilotKit/assets/746397/5890217b-524e-49c5-a89e-b8743d2acd51">
     <img alt="CopilotKit Logo" src="https://github.com/CopilotKit/CopilotKit/assets/746397/bd5c9079-929b-4d55-bdc9-16d1c8181b71" width="450px" max-width="100%"/>
