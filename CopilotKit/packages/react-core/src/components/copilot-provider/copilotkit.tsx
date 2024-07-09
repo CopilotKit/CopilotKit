@@ -252,8 +252,12 @@ function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): Funct
     const action = actionsByFunctionName[name];
     let result: any = undefined;
     if (action) {
+      console.log("Calling function");
       result = await action.handler(args);
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      console.log("function called");
+      console.log("waiting for 2 seconds");
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      console.log("done waiting");
     }
     return result;
   };
