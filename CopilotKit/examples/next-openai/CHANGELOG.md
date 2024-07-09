@@ -1,5 +1,17 @@
 # web
 
+## 1.0.4-mme-pre-flush-sync.1
+
+### Patch Changes
+
+- wait, no flushSync
+- Updated dependencies
+  - @copilotkit/react-textarea@1.0.4-mme-pre-flush-sync.1
+  - @copilotkit/react-core@1.0.4-mme-pre-flush-sync.1
+  - @copilotkit/react-ui@1.0.4-mme-pre-flush-sync.1
+  - @copilotkit/runtime@1.0.4-mme-pre-flush-sync.1
+  - @copilotkit/shared@1.0.4-mme-pre-flush-sync.1
+
 ## 1.0.4-mme-pre-flush-sync.0
 
 ### Patch Changes

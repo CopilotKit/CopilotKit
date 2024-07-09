@@ -1,6 +1,6 @@
 {
   "name": "tailwind-config",
-  "version": "1.0.1-mme-pre-flush-sync.0",
+  "version": "1.0.1-mme-pre-flush-sync.1",
   "private": true,
   "main": "index.js",
   "devDependencies": {

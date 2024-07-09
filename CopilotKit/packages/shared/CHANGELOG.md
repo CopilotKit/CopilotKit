@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.0.4-mme-pre-flush-sync.1
+
+### Patch Changes
+
+- wait, no flushSync
+
 ## 1.0.4-mme-pre-flush-sync.0
 
 ### Patch Changes
