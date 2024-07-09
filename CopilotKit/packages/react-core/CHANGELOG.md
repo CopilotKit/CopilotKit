@@ -1,5 +1,14 @@
 # ui
 
+## 1.0.5
+
+### Patch Changes
+
+- Include @copilotkit/runtime-client-gql NPM package version in request to Runtime
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.0.5
+  - @copilotkit/shared@1.0.5
+
 ## 1.0.4
 
 ### Patch Changes
