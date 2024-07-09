@@ -1,4 +1,5 @@
 import { Client, cacheExchange, fetchExchange } from "@urql/core";
+import * as packageJson from "../../package.json";
 
 import {
   GenerateCopilotResponseMutation,
@@ -31,7 +32,10 @@ export class CopilotRuntimeClient {
       url: options.url,
       exchanges: [cacheExchange, fetchExchange],
       fetchOptions: {
-        headers,
+        headers: {
+          ...headers,
+          "X-CopilotKit-Runtime-Client-GQL-Version": packageJson.version,
+        },
       },
     });
   }
