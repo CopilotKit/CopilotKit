@@ -46,7 +46,7 @@ export class UnifyAdapter implements CopilotServiceAdapter {
   ): Promise<CopilotRuntimeChatCompletionResponse> {
     const openai = new OpenAI({
       apiKey: this.apiKey,
-      baseURL: "https://api.unify.ai/v0/"
+      baseURL: "https://api.unify.ai/v0/",
     });
 
     const messages = (
@@ -59,7 +59,7 @@ export class UnifyAdapter implements CopilotServiceAdapter {
     const _stream = await openai.chat.completions.create({
       model: request.model,
       messages: messages,
-      stream: true
+      stream: true,
     });
 
     request.eventSource.stream(async (eventStream$) => {
