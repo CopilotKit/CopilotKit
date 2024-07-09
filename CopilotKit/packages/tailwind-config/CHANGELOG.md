@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 1.0.1-mme-pre-flush-sync.3
+
+### Patch Changes
+
+- try flushsync again
+
 ## 1.0.1-mme-pre-flush-sync.2
 
 ### Patch Changes

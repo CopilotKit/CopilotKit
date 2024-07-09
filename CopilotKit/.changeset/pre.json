@@ -1,23 +1,24 @@
 {
-  "mode": "exit",
+  "mode": "pre",
   "tag": "mme-pre-flush-sync",
   "initialVersions": {
-    "next-openai": "1.0.4-mme-pre-flush-sync.1",
-    "next-pages-router": "1.0.4-mme-pre-flush-sync.1",
-    "node-express": "1.0.4-mme-pre-flush-sync.1",
-    "node-http": "1.0.4-mme-pre-flush-sync.1",
-    "eslint-config-custom": "1.0.1-mme-pre-flush-sync.1",
-    "@copilotkit/react-core": "1.0.4-mme-pre-flush-sync.1",
-    "@copilotkit/react-textarea": "1.0.4-mme-pre-flush-sync.1",
-    "@copilotkit/react-ui": "1.0.4-mme-pre-flush-sync.1",
-    "@copilotkit/runtime": "1.0.4-mme-pre-flush-sync.1",
-    "@copilotkit/runtime-client-gql": "1.0.4-mme-pre-flush-sync.1",
-    "@copilotkit/shared": "1.0.4-mme-pre-flush-sync.1",
-    "tailwind-config": "1.0.1-mme-pre-flush-sync.1",
-    "tsconfig": "1.0.1-mme-pre-flush-sync.1"
+    "next-openai": "1.0.4-mme-pre-flush-sync.2",
+    "next-pages-router": "1.0.4-mme-pre-flush-sync.2",
+    "node-express": "1.0.4-mme-pre-flush-sync.2",
+    "node-http": "1.0.4-mme-pre-flush-sync.2",
+    "eslint-config-custom": "1.0.1-mme-pre-flush-sync.2",
+    "@copilotkit/react-core": "1.0.4-mme-pre-flush-sync.2",
+    "@copilotkit/react-textarea": "1.0.4-mme-pre-flush-sync.2",
+    "@copilotkit/react-ui": "1.0.4-mme-pre-flush-sync.2",
+    "@copilotkit/runtime": "1.0.4-mme-pre-flush-sync.2",
+    "@copilotkit/runtime-client-gql": "1.0.4-mme-pre-flush-sync.2",
+    "@copilotkit/shared": "1.0.4-mme-pre-flush-sync.2",
+    "tailwind-config": "1.0.1-mme-pre-flush-sync.2",
+    "tsconfig": "1.0.1-mme-pre-flush-sync.2"
   },
   "changesets": [
     "beige-flies-drive",
+    "good-hats-retire",
     "late-ads-tan",
     "stale-mirrors-reflect"
   ]

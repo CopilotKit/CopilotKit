@@ -1,6 +1,6 @@
 {
   "name": "next-pages-router",
-  "version": "1.0.4-mme-pre-flush-sync.2",
+  "version": "1.0.4-mme-pre-flush-sync.3",
   "private": true,
   "scripts": {
     "start:dev": "next dev",

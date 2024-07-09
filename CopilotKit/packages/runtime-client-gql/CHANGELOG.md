@@ -1,5 +1,14 @@
 # @copilotkit/runtime-client-gql
 
+## 1.0.4-mme-pre-flush-sync.3
+
+### Patch Changes
+
+- try flushsync again
+- Updated dependencies
+  - @copilotkit/runtime@1.0.4-mme-pre-flush-sync.3
+  - @copilotkit/shared@1.0.4-mme-pre-flush-sync.3
+
 ## 1.0.4-mme-pre-flush-sync.2
 
 ### Patch Changes
