@@ -17,7 +17,6 @@
  * );
  * ```
  */
-import { nanoid } from "nanoid";
 import { TextMessage } from "../../graphql/types/converted";
 import {
   CopilotRuntimeChatCompletionRequest,
@@ -25,6 +24,7 @@ import {
   CopilotServiceAdapter,
 } from "../service-adapter";
 import OpenAI from "openai";
+import { randomId } from "@copilotkit/shared";
 
 export interface UnifyAdapterParams {
   apiKey?: string;
@@ -76,7 +76,7 @@ export class UnifyAdapter implements CopilotServiceAdapter {
       eventStream$.complete();
     });
     return {
-      threadId: request.threadId || nanoid(),
+      threadId: request.threadId || randomId(),
     };
   }
 }
