@@ -1,5 +1,15 @@
 # ui
 
+## 1.0.4-mme-pre-flush-sync.0
+
+### Patch Changes
+
+- Use flushSync()
+- Updated dependencies
+  - @copilotkit/react-core@1.0.4-mme-pre-flush-sync.0
+  - @copilotkit/runtime-client-gql@1.0.4-mme-pre-flush-sync.0
+  - @copilotkit/shared@1.0.4-mme-pre-flush-sync.0
+
 ## 1.0.3
 
 ### Patch Changes

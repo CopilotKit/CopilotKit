@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 1.0.1-mme-pre-flush-sync.0
+
+### Patch Changes
+
+- Use flushSync()
+
 ## 1.0.0
 
 ### Major Changes

@@ -1,0 +1,22 @@
+{
+  "mode": "pre",
+  "tag": "mme-pre-flush-sync",
+  "initialVersions": {
+    "next-openai": "1.0.3",
+    "next-pages-router": "1.0.3",
+    "node-express": "1.0.3",
+    "node-http": "1.0.3",
+    "eslint-config-custom": "1.0.0",
+    "@copilotkit/react-core": "1.0.3",
+    "@copilotkit/react-textarea": "1.0.3",
+    "@copilotkit/react-ui": "1.0.3",
+    "@copilotkit/runtime": "1.0.3",
+    "@copilotkit/runtime-client-gql": "1.0.3",
+    "@copilotkit/shared": "1.0.3",
+    "tailwind-config": "1.0.0",
+    "tsconfig": "1.0.0"
+  },
+  "changesets": [
+    "beige-flies-drive"
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "name": "tsconfig",
-  "version": "1.0.0",
+  "version": "1.0.1-mme-pre-flush-sync.0",
   "private": true,
   "license": "MIT",
   "publishConfig": {

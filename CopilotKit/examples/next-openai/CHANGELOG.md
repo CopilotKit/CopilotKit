@@ -1,5 +1,17 @@
 # web
 
+## 1.0.4-mme-pre-flush-sync.0
+
+### Patch Changes
+
+- Use flushSync()
+- Updated dependencies
+  - @copilotkit/react-core@1.0.4-mme-pre-flush-sync.0
+  - @copilotkit/react-textarea@1.0.4-mme-pre-flush-sync.0
+  - @copilotkit/react-ui@1.0.4-mme-pre-flush-sync.0
+  - @copilotkit/runtime@1.0.4-mme-pre-flush-sync.0
+  - @copilotkit/shared@1.0.4-mme-pre-flush-sync.0
+
 ## 1.0.3
 
 ### Patch Changes
