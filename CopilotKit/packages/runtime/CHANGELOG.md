@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.0.4-mme-pre-flush-sync.2
+
+### Patch Changes
+
+- Add logs and wait 2 seconds
+- Updated dependencies
+  - @copilotkit/shared@1.0.4-mme-pre-flush-sync.2
+
 ## 1.0.4-mme-pre-flush-sync.1
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "next-openai",
-  "version": "1.0.4-mme-pre-flush-sync.1",
+  "version": "1.0.4-mme-pre-flush-sync.2",
   "private": true,
   "scripts": {
     "start:dev": "next dev",

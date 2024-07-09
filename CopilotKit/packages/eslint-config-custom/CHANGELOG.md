@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 1.0.1-mme-pre-flush-sync.2
+
+### Patch Changes
+
+- Add logs and wait 2 seconds
+
 ## 1.0.1-mme-pre-flush-sync.1
 
 ### Patch Changes
