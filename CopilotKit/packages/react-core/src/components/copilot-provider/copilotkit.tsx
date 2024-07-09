@@ -52,6 +52,7 @@ import { Message } from "@copilotkit/runtime-client-gql";
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { CopilotKitProps } from "./copilotkit-props";
+import { flushSync } from "react-dom";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // Compute all the functions and properties that we need to pass
@@ -252,12 +253,17 @@ function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): Funct
     const action = actionsByFunctionName[name];
     let result: any = undefined;
     if (action) {
-      console.log("Calling function");
-      result = await action.handler(args);
-      console.log("function called");
-      console.log("waiting for 2 seconds");
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      console.log("done waiting");
+      await new Promise<void>((resolve, reject) => {
+        flushSync(async () => {
+          try {
+            result = await action.handler(args);
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        });
+      });
+      await new Promise((resolve) => setTimeout(resolve, 20));
     }
     return result;
   };
