@@ -28,10 +28,12 @@ import { randomId } from "@copilotkit/shared";
 
 export interface UnifyAdapterParams {
   apiKey?: string;
+  model: string;
 }
 
 export class UnifyAdapter implements CopilotServiceAdapter {
   private apiKey: string;
+  private model: string;
 
   constructor(options?: UnifyAdapterParams) {
     if (options?.apiKey) {
@@ -39,6 +41,7 @@ export class UnifyAdapter implements CopilotServiceAdapter {
     } else {
       this.apiKey = "UNIFY_API_KEY";
     }
+    this.model = options?.model;
   }
 
   async process(
@@ -57,17 +60,17 @@ export class UnifyAdapter implements CopilotServiceAdapter {
     }));
 
     const _stream = await openai.chat.completions.create({
-      model: request.model,
+      model: this.model,
       messages: messages,
       stream: true,
     });
 
     request.eventSource.stream(async (eventStream$) => {
-      eventStream$.sendTextMessageStart(nanoid());
+      eventStream$.sendTextMessageStart(randomId());
       for await (const chunk of _stream) {
-        if (chunk.choices[0]?.delta?.content) {
-          eventStream$.sendTextMessageContent(chunk.choices[0]?.delta?.content);
-        }
+        const content = chunk.choices[0].delta.content;
+        if (content)
+          eventStream$.sendTextMessageContent(content);
       }
       eventStream$.sendTextMessageEnd();
       // we may need to add this later.. [nc]
