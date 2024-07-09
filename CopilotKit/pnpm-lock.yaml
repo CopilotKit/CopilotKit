@@ -325,9 +325,6 @@ importers:
       '@scarf/scarf':
         specifier: ^1.3.0
         version: 1.3.0
-      react-dom:
-        specifier: ^18.2.0
-        version: 18.3.1(react@18.2.0)
       untruncate-json:
         specifier: ^0.0.1
         version: 0.0.1
@@ -338,9 +335,6 @@ importers:
       '@types/react':
         specifier: ^18.2.5
         version: 18.2.5
-      '@types/react-dom':
-        specifier: ^18.2.4
-        version: 18.2.4
       eslint:
         specifier: ^8.56.0
         version: 8.56.0
@@ -12048,16 +12042,6 @@ packages:
       scheduler: 0.23.0
     dev: false
 
-  /react-dom@18.3.1(react@18.2.0):
-    resolution: {integrity: sha512-5m4nQKp+rZRb09LNH59GM4BxTh9251/ylbKIbpe7TpGxfJ+9kv6BLkLBXIjjspbgbnIBNqlI23tRnTWT0snUIw==}
-    peerDependencies:
-      react: ^18.3.1
-    dependencies:
-      loose-envify: 1.4.0
-      react: 18.2.0
-      scheduler: 0.23.2
-    dev: false
-
   /react-is@16.13.1:
     resolution: {integrity: sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==}
 
@@ -12536,12 +12520,6 @@ packages:
 
   /scheduler@0.23.0:
     resolution: {integrity: sha512-CtuThmgHNg7zIZWAXi3AsyIzA3n4xx7aNyjwC2VJldO2LMVDhFK+63xGqq6CsJH4rTAt6/M+N4GhZiDYPx9eUw==}
-    dependencies:
-      loose-envify: 1.4.0
-    dev: false
-
-  /scheduler@0.23.2:
-    resolution: {integrity: sha512-UOShsPwz7NrMUqhR6t0hWjFduvOzbtv7toDH1/hIrfRNIDBnnBWd0CwJTGvTpngVlmwGCdP9/Zl/tVrDqcuYzQ==}
     dependencies:
       loose-envify: 1.4.0
     dev: false
@@ -13570,7 +13548,7 @@ packages:
       execa: 5.1.1
       globby: 11.1.0
       joycon: 3.1.1
-      postcss-load-config: 3.1.4(postcss@8.4.20)(ts-node@10.9.2)
+      postcss-load-config: 3.1.4(postcss@8.4.38)(ts-node@10.9.2)
       resolve-from: 5.0.0
       rollup: 3.4.0
       source-map: 0.8.0-beta.0
@@ -13643,7 +13621,7 @@ packages:
       execa: 5.1.1
       globby: 11.1.0
       joycon: 3.1.1
-      postcss-load-config: 3.1.4(postcss@8.4.20)(ts-node@10.9.2)
+      postcss-load-config: 3.1.4(postcss@8.4.38)(ts-node@10.9.2)
       resolve-from: 5.0.0
       rollup: 3.4.0
       source-map: 0.8.0-beta.0

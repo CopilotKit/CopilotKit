@@ -30,8 +30,7 @@
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
   },
   "peerDependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react": "^18.2.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.4",
@@ -43,8 +42,7 @@
     "ts-jest": "^29.1.1",
     "tsconfig": "workspace:*",
     "tsup": "^6.7.0",
-    "typescript": "^5.2.3",
-    "@types/react-dom": "^18.2.4"
+    "typescript": "^5.2.3"
   },
   "dependencies": {
     "@copilotkit/runtime-client-gql": "workspace:*",
