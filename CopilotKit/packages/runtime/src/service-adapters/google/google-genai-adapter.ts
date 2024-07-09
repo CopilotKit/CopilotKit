@@ -37,7 +37,7 @@ import {
 import { GenerativeModel, GoogleGenerativeAI } from "@google/generative-ai";
 import { TextMessage } from "../../graphql/types/converted";
 import { convertMessageToGoogleGenAIMessage, transformActionToGoogleGenAITool } from "./utils";
-import { nanoid } from "nanoid";
+import { randomId } from "@copilotkit/shared";
 
 interface GoogleGenerativeAIAdapterOptions {
   /**
@@ -109,7 +109,7 @@ export class GoogleGenerativeAIAdapter implements CopilotServiceAdapter {
         }
         if (!isTextMessage) {
           isTextMessage = true;
-          eventStream$.sendTextMessageStart(nanoid());
+          eventStream$.sendTextMessageStart(randomId());
         }
         eventStream$.sendTextMessageContent(chunkText);
       }
@@ -121,7 +121,7 @@ export class GoogleGenerativeAIAdapter implements CopilotServiceAdapter {
       if (calls) {
         for (let call of calls) {
           eventStream$.sendActionExecution(
-            nanoid(),
+            randomId(),
             call.name,
             JSON.stringify(replaceNewlinesInObject(call.args)),
           );
@@ -131,7 +131,7 @@ export class GoogleGenerativeAIAdapter implements CopilotServiceAdapter {
     });
 
     return {
-      threadId: request.threadId || nanoid(),
+      threadId: request.threadId || randomId(),
     };
   }
 }

@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.0.3",
+  "version": "1.0.4",
   "sideEffects": [
     "**/*.css"
   ],
@@ -72,7 +72,6 @@
     "lodash.merge": "^4.6.2",
     "lucide-react": "^0.274.0",
     "material-icons": "^1.13.10",
-    "nanoid": "^4.0.2",
     "react-dom": "^18.2.0",
     "slate": "^0.94.1",
     "slate-history": "^0.93.0",

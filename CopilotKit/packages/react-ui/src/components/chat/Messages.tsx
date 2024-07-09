@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo } from "react";
 import { MessagesProps } from "./props";
 import { useChatContext } from "./ChatContext";
-import { nanoid } from "nanoid";
 import { Markdown } from "./Markdown";
 import { RenderFunctionStatus, useCopilotContext } from "@copilotkit/react-core";
 import {

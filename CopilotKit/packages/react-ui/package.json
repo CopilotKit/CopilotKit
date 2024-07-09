@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.0.3",
+  "version": "1.0.4",
   "sideEffects": [
     "**/*.css"
   ],
@@ -55,7 +55,6 @@
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/runtime-client-gql": "workspace:*",
     "@copilotkit/shared": "workspace:*",
-    "nanoid": "^4.0.2",
     "react-markdown": "^8.0.7",
     "react-syntax-highlighter": "^15.5.0",
     "remark-gfm": "^3.0.1",
