@@ -586,9 +586,6 @@ importers:
       groq-sdk:
         specifier: ^0.5.0
         version: 0.5.0
-      js-tiktoken:
-        specifier: ^1.0.8
-        version: 1.0.11
       langchain:
         specifier: ^0.1.36
         version: 0.1.36
@@ -607,9 +604,6 @@ importers:
       rxjs:
         specifier: ^7.8.1
         version: 7.8.1
-      tiktoken:
-        specifier: ^1.0.15
-        version: 1.0.15
       type-graphql:
         specifier: 2.0.0-rc.1
         version: 2.0.0-rc.1(graphql-scalars@1.23.0)(graphql@16.8.1)
@@ -13253,10 +13247,6 @@ packages:
   /through@2.3.8:
     resolution: {integrity: sha512-w89qg7PI8wAdvX60bMDP+bFoD5Dvhm9oLheFp5O4a2QF0cSBGsBX4qZmadPMvVqlLJBBci+WqGGOAPvcDeNSVg==}
     dev: true
-
-  /tiktoken@1.0.15:
-    resolution: {integrity: sha512-sCsrq/vMWUSEW29CJLNmPvWxlVp7yh2tlkAjpJltIKqp5CKf98ZNpdeHRmAlPVFlGEbswDc6SmI8vz64W/qErw==}
-    dev: false
 
   /tiny-invariant@1.0.6:
     resolution: {integrity: sha512-FOyLWWVjG+aC0UqG76V53yAWdXfH8bO6FNmyZOuUrzDzK8DI3/JRY25UD7+g49JWM1LXwymsKERB+DzI0dTEQA==}
