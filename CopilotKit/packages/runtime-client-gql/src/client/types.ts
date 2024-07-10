@@ -1,4 +1,4 @@
-import { nanoid } from "nanoid";
+import { randomId } from "@copilotkit/shared";
 import {
   ActionExecutionMessageInput,
   MessageRole,
@@ -15,7 +15,7 @@ export class Message {
   status: MessageStatus;
 
   constructor(props: any) {
-    props.id ??= nanoid();
+    props.id ??= randomId();
     props.status ??= { code: MessageStatusCode.Success };
     props.createdAt ??= new Date();
     Object.assign(this, props);

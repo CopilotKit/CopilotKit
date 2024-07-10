@@ -1,5 +1,84 @@
 # @copilotkit/shared
 
+## 1.0.5
+
+### Patch Changes
+
+- Include @copilotkit/runtime-client-gql NPM package version in request to Runtime
+
+## 1.0.4
+
+### Patch Changes
+
+- Remove nanoid
+
+## 1.0.3
+
+### Patch Changes
+
+- Add README.md to published packages and add keywords to package.json
+
+## 1.0.2
+
+### Patch Changes
+
+- Add README.md and homepage/url to published packages
+
+## 1.0.1
+
+### Patch Changes
+
+- Remove PostHog, use Segment Anonymous Telemetry instead
+
+## 1.0.0
+
+### Major Changes
+
+- b6a4b6eb: V1.0 Release Candidate
+
+  - A robust new protocol between the frontend and the Copilot Runtime
+  - Support for Copilot Cloud
+  - Generative UI
+  - Support for LangChain universal tool calling
+  - OpenAI assistant API streaming
+
+- V1.0 Release
+
+  - A robust new protocol between the frontend and the Copilot Runtime
+  - Support for Copilot Cloud
+  - Generative UI
+  - Support for LangChain universal tool calling
+  - OpenAI assistant API streaming
+
+### Patch Changes
+
+- b6a4b6eb: Introduce anonymous telemetry
+- b6a4b6eb: Set default Copilot Cloud runtime URL to versioned URL (v1)
+
+## 1.0.0-beta.2
+
+### Patch Changes
+
+- Set default Copilot Cloud runtime URL to versioned URL (v1)
+
+## 1.0.0-beta.1
+
+### Patch Changes
+
+- Introduce anonymous telemetry
+
+## 1.0.0-beta.0
+
+### Major Changes
+
+- V1.0 Release Candidate
+
+  - A robust new protocol between the frontend and the Copilot Runtime
+  - Support for Copilot Cloud
+  - Generative UI
+  - Support for LangChain universal tool calling
+  - OpenAI assistant API streaming
+
 ## 0.37.0
 
 ### Minor Changes

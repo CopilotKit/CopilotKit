@@ -8,6 +8,7 @@ import {
   TextMessage,
   convertGqlOutputToMessages,
   convertMessagesToGqlInput,
+  CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
 import { retry } from "../../lib/retry";
 import {
@@ -17,7 +18,7 @@ import {
 import { InsertionsApiConfig } from "../../types/autosuggestions-config/insertions-api-config";
 import { EditingApiConfig } from "../../types/autosuggestions-config/editing-api-config";
 import { DocumentPointer } from "@copilotkit/react-core";
-import { nanoid } from "nanoid";
+import { randomId } from "@copilotkit/shared";
 
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
@@ -119,16 +120,19 @@ export function useMakeStandardInsertionOrEditingFunction(
         ];
 
         return runtimeClientResponseToStringStream(
-          runtimeClient.generateCopilotResponse(
-            {
+          runtimeClient.generateCopilotResponse({
+            data: {
               frontend: {
                 actions: [],
               },
               messages: convertMessagesToGqlInput(messages),
+              metadata: {
+                requestType: CopilotRequestType.TextareaCompletion,
+              },
             },
-            copilotApiConfig.properties,
-            abortSignal,
-          ),
+            properties: copilotApiConfig.properties,
+            signal: abortSignal,
+          }),
         );
       });
 
@@ -179,16 +183,19 @@ export function useMakeStandardInsertionOrEditingFunction(
         });
 
         return runtimeClientResponseToStringStream(
-          runtimeClient.generateCopilotResponse(
-            {
+          runtimeClient.generateCopilotResponse({
+            data: {
               frontend: {
                 actions: [],
               },
               messages: convertMessagesToGqlInput(messages),
+              metadata: {
+                requestType: CopilotRequestType.TextareaCompletion,
+              },
             },
-            copilotApiConfig.properties,
-            abortSignal,
-          ),
+            properties: copilotApiConfig.properties,
+            signal: abortSignal,
+          }),
         );
       });
 

@@ -7,6 +7,7 @@ import { SuggestionsProps } from "./props";
 import { SmallSpinnerIcon } from "./Icons";
 import { CopilotChatSuggestion } from "../../types/suggestions";
 import { actionParametersToJsonSchema } from "@copilotkit/shared";
+import { CopilotRequestType } from "@copilotkit/runtime-client-gql";
 
 export function Suggestion({ title, message, onClick, partial, className }: SuggestionsProps) {
   return (
@@ -57,6 +58,7 @@ export const reloadSuggestions = async (
           "\n\n" +
           numOfSuggestionsInstructions,
         data: "Available tools: " + tools + "\n\n",
+        requestType: CopilotRequestType.Task,
         parameters: [
           {
             name: "suggestions",

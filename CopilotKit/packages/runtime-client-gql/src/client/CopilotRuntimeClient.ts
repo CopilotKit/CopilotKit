@@ -1,4 +1,5 @@
 import { Client, cacheExchange, fetchExchange } from "@urql/core";
+import * as packageJson from "../../package.json";
 
 import {
   GenerateCopilotResponseMutation,
@@ -31,16 +32,23 @@ export class CopilotRuntimeClient {
       url: options.url,
       exchanges: [cacheExchange, fetchExchange],
       fetchOptions: {
-        headers,
+        headers: {
+          ...headers,
+          "X-CopilotKit-Runtime-Client-GQL-Version": packageJson.version,
+        },
       },
     });
   }
 
-  generateCopilotResponse(
-    data: GenerateCopilotResponseMutationVariables["data"],
-    properties?: GenerateCopilotResponseMutationVariables["properties"],
-    signal?: AbortSignal,
-  ) {
+  generateCopilotResponse({
+    data,
+    properties,
+    signal,
+  }: {
+    data: GenerateCopilotResponseMutationVariables["data"];
+    properties?: GenerateCopilotResponseMutationVariables["properties"];
+    signal?: AbortSignal;
+  }) {
     const result = this.client.mutation<
       GenerateCopilotResponseMutation,
       GenerateCopilotResponseMutationVariables

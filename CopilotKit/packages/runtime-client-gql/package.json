@@ -1,10 +1,15 @@
 {
   "name": "@copilotkit/runtime-client-gql",
   "private": false,
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.37.0",
+  "version": "1.0.5",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -24,8 +29,7 @@
     "check-types": "tsc --noEmit",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next",
     "graphql-codegen": "graphql-codegen",
-    "graphql-codegen:watch": "graphql-codegen --watch",
-    "sample-usage": "ts-node ./src/sample-usage.ts"
+    "graphql-codegen:watch": "graphql-codegen --watch"
   },
   "peerDependencies": {
     "react": "^18.2.0"
@@ -54,9 +58,20 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "graphql": "^16.8.1",
-    "nanoid": "^5.0.7",
     "untruncate-json": "^0.0.1",
     "urql": "^4.1.0",
     "wonka": "^6.3.4"
-  }
+  },
+  "keywords": [
+    "copilotkit",
+    "copilot",
+    "react",
+    "nextjs",
+    "nodejs",
+    "ai",
+    "assistant",
+    "javascript",
+    "automation",
+    "textarea"
+  ]
 }

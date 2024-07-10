@@ -1,4 +1,4 @@
-import { nanoid } from "nanoid";
+import { randomId } from "@copilotkit/shared";
 import { useCallback, useReducer } from "react";
 
 export type TreeNodeId = string;
@@ -144,7 +144,7 @@ const useTree = (): UseTreeReturn => {
 
   const addElement = useCallback(
     (value: string, categories: string[], parentId?: string): TreeNodeId => {
-      const newNodeId = nanoid(); // Generate new ID outside of dispatch
+      const newNodeId = randomId(); // Generate new ID outside of dispatch
       dispatch({
         type: "ADD_NODE",
         value,

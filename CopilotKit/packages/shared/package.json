@@ -1,10 +1,15 @@
 {
   "name": "@copilotkit/shared",
   "private": false,
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.37.0",
+  "version": "1.0.5",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -24,7 +29,6 @@
     "check-types": "tsc --noEmit",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
   },
-  "peerDependencies": {},
   "devDependencies": {
     "@types/jest": "^29.5.4",
     "eslint": "^8.56.0",
@@ -35,5 +39,20 @@
     "tsup": "^6.7.0",
     "typescript": "^5.2.3"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@segment/analytics-node": "^2.1.2",
+    "chalk": "4.1.2"
+  },
+  "keywords": [
+    "copilotkit",
+    "copilot",
+    "react",
+    "nextjs",
+    "nodejs",
+    "ai",
+    "assistant",
+    "javascript",
+    "automation",
+    "textarea"
+  ]
 }

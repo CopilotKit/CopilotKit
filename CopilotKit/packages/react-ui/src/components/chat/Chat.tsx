@@ -56,11 +56,11 @@ import { ResponseButton as DefaultResponseButton } from "./Response";
 import { Suggestion } from "./Suggestion";
 import React, { useEffect, useRef, useState } from "react";
 import { SystemMessageFunction, useCopilotChat, useCopilotContext } from "@copilotkit/react-core";
-import { nanoid } from "nanoid";
 import { reloadSuggestions } from "./Suggestion";
 import { CopilotChatSuggestion } from "../../types/suggestions";
 import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { InputProps, MessagesProps, ResponseButtonProps } from "./props";
+import { randomId } from "@copilotkit/shared";
 
 /**
  * Props for CopilotChat component.
@@ -230,7 +230,7 @@ export const useCopilotChatLogic = (
 ) => {
   const { visibleMessages, appendMessage, reloadMessages, stopGeneration, isLoading } =
     useCopilotChat({
-      id: nanoid(),
+      id: randomId(),
       makeSystemMessage,
     });
 

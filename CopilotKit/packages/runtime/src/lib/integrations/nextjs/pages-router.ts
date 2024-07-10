@@ -1,5 +1,6 @@
 import { YogaServerInstance, createYoga } from "graphql-yoga";
 import { CreateCopilotRuntimeServerOptions, GraphQLContext, getCommonConfig } from "../shared";
+import telemetry from "../../telemetry-client";
 
 export const config = {
   api: {
@@ -18,6 +19,15 @@ export function copilotRuntimeNextJSPagesRouterEndpoint(
   options: CreateCopilotRuntimeServerOptions,
 ): CopilotRuntimeServerInstance<GraphQLContext> {
   const commonConfig = getCommonConfig(options);
+
+  telemetry.setGlobalProperties({
+    runtime: {
+      framework: "nextjs-pages-router",
+    },
+  });
+
+  telemetry.capture("oss.runtime.instance_created", {});
+
   const logger = commonConfig.logging;
   logger.debug("Creating NextJS Pages Router endpoint");
 

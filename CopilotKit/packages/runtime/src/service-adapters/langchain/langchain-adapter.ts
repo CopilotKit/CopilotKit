@@ -35,7 +35,7 @@ import {
 } from "./utils";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { LangChainReturnType } from "./types";
-import { nanoid } from "nanoid";
+import { randomId } from "@copilotkit/shared";
 
 interface ChainFnParameters {
   model: string;
@@ -75,7 +75,7 @@ export class LangChainAdapter implements CopilotServiceAdapter {
     });
 
     return {
-      threadId: threadId || nanoid(),
+      threadId: threadId || randomId(),
     };
   }
 }
