@@ -11,6 +11,12 @@ export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServ
     },
   });
 
+  if (options.properties?._copilotkit) {
+    telemetry.setGlobalProperties({
+      _copilotkit: options.properties._copilotkit,
+    });
+  }
+
   telemetry.capture("oss.runtime.instance_created", {});
 
   const logger = commonConfig.logging;

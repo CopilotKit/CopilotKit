@@ -10,7 +10,6 @@ export class TelemetryClient {
   packageName: string;
   packageVersion: string;
   private telemetryDisabled: boolean = false;
-  private telemetryBaseUrl: string | undefined;
   private sampleRate: number = 0.05;
   private anonymousId = `anon_${randomUUID()}`;
 
@@ -42,14 +41,13 @@ export class TelemetryClient {
 
     this.setSampleRate(sampleRate);
 
-    this.telemetryBaseUrl =
-      telemetryBaseUrl ||
-      (process.env as any).COPILOTKIT_TELEMETRY_BASE_URL ||
-      "https://telemetry.copilotkit.ai";
+    // eslint-disable-next-line
+    const writeKey = process.env.COPILOTKIT_SEGMENT_WRITE_KEY || "n7XAZtQCGS2v1vvBy3LgBCv2h3Y8whja";
+
+    console.log("writeKey", writeKey);
 
     this.segment = new Analytics({
-      // eslint-disable-next-line
-      writeKey: process.env.COPILOTKIT_SEGMENT_WRITE_KEY || "n7XAZtQCGS2v1vvBy3LgBCv2h3Y8whja",
+      writeKey,
     });
 
     this.setGlobalProperties({
@@ -59,18 +57,16 @@ export class TelemetryClient {
   }
 
   private shouldSendEvent() {
-    if (!this.telemetryBaseUrl) {
-      return false;
-    }
-
     const randomNumber = Math.random();
     return randomNumber < this.sampleRate;
   }
 
   async capture<K extends keyof AnalyticsEvents>(event: K, properties: AnalyticsEvents[K]) {
+    console.log("pre send event check");
     if (!this.shouldSendEvent() || !this.segment) {
       return;
     }
+    console.log("post send event check");
 
     const flattenedProperties = flattenObject(properties);
     const propertiesWithGlobal = {
@@ -92,25 +88,6 @@ export class TelemetryClient {
       event,
       properties: { ...orderedPropertiesWithGlobal },
     });
-  }
-
-  async checkForUpdates() {
-    const url = `${this.telemetryBaseUrl}/check-for-updates?packageName=${this.packageName}&packageVersion=${this.packageVersion}`;
-
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      return;
-    }
-
-    const result = await response.json();
-    const { advisory, severity } = result;
-
-    if (!advisory && (severity === "low" || severity === "none")) {
-      return;
-    }
-
-    printSecurityNotice(result);
   }
 
   setGlobalProperties(properties: Record<string, any>) {
