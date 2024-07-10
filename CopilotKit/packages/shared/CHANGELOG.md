@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.0.7
+
+### Patch Changes
+
+- Add \_copilotkit internal properties to runtime
+
 ## 1.0.6
 
 ### Patch Changes

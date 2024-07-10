@@ -1,5 +1,13 @@
 # node
 
+## 1.0.7
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime@1.0.7
+  - @copilotkit/shared@1.0.7
+
 ## 1.0.6
 
 ### Patch Changes
