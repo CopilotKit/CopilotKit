@@ -1,5 +1,15 @@
 # ui
 
+## 1.0.7
+
+### Patch Changes
+
+- Add \_copilotkit internal properties to runtime
+- Updated dependencies
+  - @copilotkit/react-core@1.0.7
+  - @copilotkit/runtime-client-gql@1.0.7
+  - @copilotkit/shared@1.0.7
+
 ## 1.0.6
 
 ### Patch Changes
