@@ -141,6 +141,10 @@ export async function extract<const T extends Parameter[]>({
       break;
     }
 
+    if (abortSignal?.aborted) {
+      throw new Error("Aborted");
+    }
+
     actionExecutionMessage = convertGqlOutputToMessages(
       value.generateCopilotResponse.messages,
     ).find((msg) => msg instanceof ActionExecutionMessage) as ActionExecutionMessage | undefined;
