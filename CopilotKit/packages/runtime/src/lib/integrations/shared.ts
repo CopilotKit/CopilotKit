@@ -85,6 +85,14 @@ export function getCommonConfig(options: CreateCopilotRuntimeServerOptions): Com
     });
   }
 
+  if (options.properties?._copilotkit) {
+    telemetry.setGlobalProperties({
+      _copilotkit: {
+        ...(options.properties._copilotkit as Record<string, any>),
+      },
+    });
+  }
+
   telemetry.setGlobalProperties({
     runtime: {
       serviceAdapter: options.serviceAdapter.constructor.name,
