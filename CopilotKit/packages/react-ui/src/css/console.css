@@ -1,0 +1,126 @@
+.copilotKitDevConsole {
+  background-color: #f3f4f6;
+  height: 60px;
+  padding-left: 10px;
+  padding-right: 10px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #cecece;
+}
+
+.copilotKitDevConsole.copilotKitDevConsoleUpgrade,
+.copilotKitDevConsole.copilotKitDevConsoleWarnOutdated {
+  height: 100px;
+}
+
+.copilotKitDevConsole.copilotKitDevConsoleWarnOutdated {
+  background-color: #f9caca;
+}
+
+.copilotKitDevConsole .copilotKitVersionInfo {
+  flex: 1;
+  margin-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.copilotKitDevConsole .copilotKitVersionInfo header {
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.copilotKitDevConsole .copilotKitVersionInfo footer {
+  margin-top: 10px;
+}
+
+.copilotKitDevConsole .copilotKitVersionInfo footer button {
+  font-size: 11px;
+  font-weight: normal;
+  font-family: monospace;
+  background-color: white;
+  border: 1px solid #979797;
+  padding: 1px 12px;
+  padding-left: 5px;
+  border-radius: 4px;
+  display: inline-block;
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  width: 260px;
+  text-overflow: ellipsis;
+}
+
+.copilotKitDevConsole .copilotKitVersionInfo header aside {
+  display: inline;
+  font-weight: normal;
+  color: #7f7a7a;
+  margin-left: 5px;
+}
+
+.copilotKitDevConsole .copilotKitVersionInfo section {
+  font-size: 11px;
+}
+
+.copilotKitDevConsole .copilotKitVersionInfo section svg {
+  margin-left: 3px;
+  margin-top: -3px;
+}
+
+.copilotKitDevConsole .copilotKitDebugMenuButton {
+  font-size: 11px;
+  font-weight: bold;
+  display: flex;
+  width: 90px;
+  height: 30px;
+  background-color: #d8d8d8;
+  border: 1px solid #979797;
+  border-radius: 6px;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+}
+
+.copilotKitDevConsole .copilotKitDebugMenuButton:hover {
+  background-color: #c7c7c7;
+}
+
+.copilotKitDevConsole .copilotKitDebugMenuButton > svg {
+  margin-left: 10px;
+}
+
+.copilotKitDebugMenu {
+  background-color: #d8d8d8;
+  margin-top: 2px;
+  border-radius: 6px;
+  border: 1px solid #979797;
+  padding: 0.25rem;
+  outline: none;
+  font-size: 13px;
+}
+
+.copilotKitDebugMenuItem {
+  padding-top: 3px;
+  padding-bottom: 3px;
+  padding-left: 10px;
+  padding-right: 10px;
+  display: block;
+  width: 100%;
+  text-align: left;
+}
+
+.copilotKitDebugMenuItem:hover {
+  background-color: #c7c7c7;
+  border-radius: 4px;
+}
+
+.copilotKitDebugMenu[data-closed] {
+  transform: scale(0.95); /* data-[closed]:scale-95 */
+  opacity: 0; /* data-[closed]:opacity-0 */
+}
+
+.copilotKitDebugMenu hr {
+  height: 1px;
+  border-color: #979797;
+  margin: 0.25rem;
+}
