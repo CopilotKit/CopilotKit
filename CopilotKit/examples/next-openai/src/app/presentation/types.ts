@@ -1,5 +1,5 @@
 export interface SlideModel {
   content: string;
-  backgroundImageDescription: string;
+  backgroundImageUrl: string;
   spokenNarration: string;
 }

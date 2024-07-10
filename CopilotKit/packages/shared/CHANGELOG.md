@@ -1,5 +1,17 @@
 # @copilotkit/shared
 
+## 1.0.5
+
+### Patch Changes
+
+- Include @copilotkit/runtime-client-gql NPM package version in request to Runtime
+
+## 1.0.4
+
+### Patch Changes
+
+- Remove nanoid
+
 ## 1.0.3
 
 ### Patch Changes

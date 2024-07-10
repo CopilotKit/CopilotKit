@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 1.0.1
+
+### Patch Changes
+
+- Remove nanoid
+
 ## 1.0.0
 
 ### Major Changes
