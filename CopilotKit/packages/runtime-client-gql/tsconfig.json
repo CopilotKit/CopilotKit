@@ -1,7 +1,8 @@
 {
   "extends": "../tsconfig/base.json",
   "compilerOptions": {
-    "strictPropertyInitialization": false
+    "strictPropertyInitialization": false,
+    "resolveJsonModule": true
   },
   "include": ["."],
   "exclude": [
