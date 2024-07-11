@@ -35,6 +35,7 @@ export interface UnifyAdapterParams {
 export class UnifyAdapter implements CopilotServiceAdapter {
   private apiKey: string;
   private model: string;
+  private start: boolean;
 
   constructor(options?: UnifyAdapterParams) {
     if (options?.apiKey) {
@@ -43,6 +44,7 @@ export class UnifyAdapter implements CopilotServiceAdapter {
       this.apiKey = "UNIFY_API_KEY";
     }
     this.model = options?.model;
+    this.start = true;
   }
 
   async process(
@@ -63,9 +65,17 @@ export class UnifyAdapter implements CopilotServiceAdapter {
       ...(tools.length > 0 && { tools }),
     });
 
+    let model = null;
     request.eventSource.stream(async (eventStream$) => {
       let mode: "function" | "message" | null = null;
       for await (const chunk of stream) {
+        if (this.start) {
+          model = chunk.model;
+          eventStream$.sendTextMessageStart(randomId());
+          eventStream$.sendTextMessageContent(`Model used: ${model}\n`);
+          eventStream$.sendTextMessageEnd();
+          this.start = false;
+        }
         const toolCall = chunk.choices[0].delta.tool_calls?.[0];
         const content = chunk.choices[0].delta.content;
 
