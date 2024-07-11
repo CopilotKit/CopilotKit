@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 1.0.3-integrations-unify.1
+
+### Patch Changes
+
+- Unify adapter support
+
 ## 1.0.3-integrations-unify.0
 
 ### Patch Changes

@@ -1,22 +1,23 @@
 {
-  "mode": "exit",
+  "mode": "pre",
   "tag": "integrations-unify",
   "initialVersions": {
-    "next-openai": "1.0.7",
-    "next-pages-router": "1.0.7",
-    "node-express": "1.0.7",
-    "node-http": "1.0.7",
-    "eslint-config-custom": "1.0.2",
-    "@copilotkit/react-core": "1.0.7",
-    "@copilotkit/react-textarea": "1.0.7",
-    "@copilotkit/react-ui": "1.0.7",
-    "@copilotkit/runtime": "1.0.7",
-    "@copilotkit/runtime-client-gql": "1.0.7",
-    "@copilotkit/shared": "1.0.7",
-    "tailwind-config": "1.0.2",
-    "tsconfig": "1.0.2"
+    "next-openai": "1.0.8-integrations-unify.0",
+    "next-pages-router": "1.0.8-integrations-unify.0",
+    "node-express": "1.0.8-integrations-unify.0",
+    "node-http": "1.0.8-integrations-unify.0",
+    "eslint-config-custom": "1.0.3-integrations-unify.0",
+    "@copilotkit/react-core": "1.0.8-integrations-unify.0",
+    "@copilotkit/react-textarea": "1.0.8-integrations-unify.0",
+    "@copilotkit/react-ui": "1.0.8-integrations-unify.0",
+    "@copilotkit/runtime": "1.0.8-integrations-unify.0",
+    "@copilotkit/runtime-client-gql": "1.0.8-integrations-unify.0",
+    "@copilotkit/shared": "1.0.8-integrations-unify.0",
+    "tailwind-config": "1.0.3-integrations-unify.0",
+    "tsconfig": "1.0.3-integrations-unify.0"
   },
   "changesets": [
+    "long-panthers-hear",
     "silver-mails-cough"
   ]
 }

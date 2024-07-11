@@ -1,5 +1,17 @@
 # next-pages-router
 
+## 1.0.8-integrations-unify.1
+
+### Patch Changes
+
+- Unify adapter support
+- Updated dependencies
+  - @copilotkit/react-textarea@1.0.8-integrations-unify.1
+  - @copilotkit/react-core@1.0.8-integrations-unify.1
+  - @copilotkit/react-ui@1.0.8-integrations-unify.1
+  - @copilotkit/runtime@1.0.8-integrations-unify.1
+  - @copilotkit/shared@1.0.8-integrations-unify.1
+
 ## 1.0.8-integrations-unify.0
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # @copilotkit/runtime-client-gql
 
+## 1.0.8-integrations-unify.1
+
+### Patch Changes
+
+- Unify adapter support
+- Updated dependencies
+  - @copilotkit/runtime@1.0.8-integrations-unify.1
+  - @copilotkit/shared@1.0.8-integrations-unify.1
+
 ## 1.0.8-integrations-unify.0
 
 ### Patch Changes
