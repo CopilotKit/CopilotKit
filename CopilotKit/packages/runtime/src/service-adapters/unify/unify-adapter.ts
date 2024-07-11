@@ -56,7 +56,7 @@ export class UnifyAdapter implements CopilotServiceAdapter {
 
     const messages = request.messages.map(convertMessageToOpenAIMessage);
 
-    const _stream = await openai.chat.completions.create({
+    const stream = await openai.chat.completions.create({
       model: this.model,
       messages: messages,
       stream: true,
@@ -65,9 +65,9 @@ export class UnifyAdapter implements CopilotServiceAdapter {
 
     request.eventSource.stream(async (eventStream$) => {
       let mode: "function" | "message" | null = null;
-      for await (const chunk of _stream) {
-        const toolCall = chunk.choices[0].delta?.tool_calls[0];
-        const content = chunk.choices[0].delta?.content;
+      for await (const chunk of stream) {
+        const toolCall = chunk.choices[0].delta.tool_calls?.[0];
+        const content = chunk.choices[0].delta.content;
 
         // When switching from message to function or vice versa,
         // send the respective end event.
@@ -108,6 +108,7 @@ export class UnifyAdapter implements CopilotServiceAdapter {
 
       eventStream$.complete();
     });
+
     return {
       threadId: request.threadId || randomId(),
     };
