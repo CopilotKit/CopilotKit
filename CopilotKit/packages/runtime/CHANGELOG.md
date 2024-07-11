@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.0.8-integrations-unify.0
+
+### Patch Changes
+
+- Unify adapter support
+- Updated dependencies
+  - @copilotkit/shared@1.0.8-integrations-unify.0
+
 ## 1.0.7
 
 ### Patch Changes

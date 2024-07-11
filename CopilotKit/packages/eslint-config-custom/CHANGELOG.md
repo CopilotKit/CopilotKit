@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 1.0.3-integrations-unify.0
+
+### Patch Changes
+
+- Unify adapter support
+
 ## 1.0.2
 
 ### Patch Changes

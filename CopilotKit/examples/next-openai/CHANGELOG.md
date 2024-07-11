@@ -1,5 +1,17 @@
 # web
 
+## 1.0.8-integrations-unify.0
+
+### Patch Changes
+
+- Unify adapter support
+- Updated dependencies
+  - @copilotkit/react-core@1.0.8-integrations-unify.0
+  - @copilotkit/react-textarea@1.0.8-integrations-unify.0
+  - @copilotkit/react-ui@1.0.8-integrations-unify.0
+  - @copilotkit/runtime@1.0.8-integrations-unify.0
+  - @copilotkit/shared@1.0.8-integrations-unify.0
+
 ## 1.0.7
 
 ### Patch Changes
