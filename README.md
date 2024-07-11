@@ -1,6 +1,6 @@
 <div align="center">
   <a href="https://ai88.substack.com/p/copilotkit-v1-launch">
-    CopilotKit v1.0 release! Read about it here.
+    CopilotKit v1.0 release! Read about it here
   </a>
 </div>
 
