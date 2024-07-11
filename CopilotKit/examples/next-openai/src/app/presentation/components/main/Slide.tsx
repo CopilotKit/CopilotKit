@@ -8,10 +8,7 @@ export interface SlideProps {
 }
 
 export const Slide = (props: SlideProps) => {
-  const backgroundImage =
-    'url("https://source.unsplash.com/featured/?' +
-    encodeURIComponent(props.slide.backgroundImageDescription) +
-    '")';
+  const backgroundImage = `url("${props.slide.backgroundImageUrl}")`;
 
   /**
    * This action allows the Copilot to update the current slide.

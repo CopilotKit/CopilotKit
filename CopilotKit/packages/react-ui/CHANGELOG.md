@@ -1,5 +1,26 @@
 # ui
 
+## 1.0.7
+
+### Patch Changes
+
+- Add \_copilotkit internal properties to runtime
+- Updated dependencies
+  - @copilotkit/react-core@1.0.7
+  - @copilotkit/runtime-client-gql@1.0.7
+  - @copilotkit/shared@1.0.7
+
+## 1.0.6
+
+### Patch Changes
+
+- - Proactively prevent race conditions
+  - Improve token counting performance
+- Updated dependencies
+  - @copilotkit/react-core@1.0.6
+  - @copilotkit/runtime-client-gql@1.0.6
+  - @copilotkit/shared@1.0.6
+
 ## 1.0.5
 
 ### Patch Changes
