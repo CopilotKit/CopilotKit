@@ -1,4 +1,4 @@
-interface CopilotKitVersion {
+export interface CopilotKitVersion {
   current: string;
   latest: string;
   severity: "low" | "medium" | "high";
