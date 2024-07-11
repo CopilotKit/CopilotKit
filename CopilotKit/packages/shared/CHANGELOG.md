@@ -1,5 +1,18 @@
 # @copilotkit/shared
 
+## 1.0.7
+
+### Patch Changes
+
+- Add \_copilotkit internal properties to runtime
+
+## 1.0.6
+
+### Patch Changes
+
+- - Proactively prevent race conditions
+  - Improve token counting performance
+
 ## 1.0.5
 
 ### Patch Changes

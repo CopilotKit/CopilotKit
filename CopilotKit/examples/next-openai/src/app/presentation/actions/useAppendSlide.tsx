@@ -24,9 +24,9 @@ export default function useAppendSlide({
           "The content of the slide. MUST consist of a title, then an empty newline, then a few bullet points. Always between 1-3 bullet points - no more, no less.",
       },
       {
-        name: "backgroundImageDescription",
+        name: "backgroundImageUrl",
         description:
-          "What to display in the background of the slide. For example, 'dog', 'house', etc.",
+          "The url of the background image for the slide. Use the getImageUrl tool to retrieve a URL for a topic.",
       },
       {
         name: "spokenNarration",
@@ -38,10 +38,10 @@ export default function useAppendSlide({
       },
     ],
 
-    handler: async ({ content, backgroundImageDescription, spokenNarration }) => {
+    handler: async ({ content, backgroundImageUrl, spokenNarration }) => {
       const newSlide: SlideModel = {
         content,
-        backgroundImageDescription,
+        backgroundImageUrl,
         spokenNarration,
       };
 

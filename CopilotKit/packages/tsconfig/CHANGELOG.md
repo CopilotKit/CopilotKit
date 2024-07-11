@@ -1,5 +1,12 @@
 # tsconfig
 
+## 1.0.2
+
+### Patch Changes
+
+- - Proactively prevent race conditions
+  - Improve token counting performance
+
 ## 1.0.1
 
 ### Patch Changes

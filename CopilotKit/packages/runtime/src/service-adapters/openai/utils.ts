@@ -4,7 +4,6 @@ import {
   ResultMessage,
   TextMessage,
 } from "../../graphql/types/converted";
-import { Tiktoken, TiktokenModel, encodingForModel } from "js-tiktoken";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { ChatCompletionMessageParam, ChatCompletionTool } from "openai/resources";
 
@@ -104,13 +103,7 @@ function countMessageTokens(model: string, message: any): number {
 }
 
 function countTokens(model: string, text: string): number {
-  let enc: Tiktoken;
-  try {
-    enc = encodingForModel(model as TiktokenModel);
-  } catch (e) {
-    enc = encodingForModel("gpt-4");
-  }
-  return enc.encode(text).length;
+  return text.length / 3;
 }
 
 export function convertActionInputToOpenAITool(action: ActionInput): ChatCompletionTool {
