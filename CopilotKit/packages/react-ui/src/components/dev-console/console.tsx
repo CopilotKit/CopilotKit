@@ -40,7 +40,7 @@ export function CopilotDevConsole() {
   const [versionStatus, setVersionStatus] = useState<VersionStatus>("unknown");
   const [latestVersion, setLatestVersion] = useState<string>("");
   const consoleRef = useRef<HTMLDivElement>(null);
-  const [debugButtonMode, setDebugButtonMode] = useState<"none" | "full" | "compact">("none");
+  const [debugButtonMode, setDebugButtonMode] = useState<"full" | "compact">("full");
 
   const checkForUpdates = (force: boolean = false) => {
     setVersionStatus("checking");
@@ -213,13 +213,10 @@ export default function DebugMenuButton({
 }: {
   setShowDevConsole: (show: boolean) => void;
   checkForUpdates: (force: boolean) => void;
-  mode: "none" | "full" | "compact";
+  mode: "full" | "compact";
 }) {
   const context = useCopilotContext();
 
-  if (mode === "none") {
-    return null;
-  }
   return (
     <div className="bg-black fixed top-24 w-52 text-right">
       <Menu>

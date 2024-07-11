@@ -22,7 +22,7 @@ export default function AIPresentation() {
           } as CopilotKitCSSProperties
         }
       >
-        <CopilotPopup
+        <CopilotSidebar
           instructions={
             "Help the user create and edit a powerpoint-style presentation." +
             (!performResearch
@@ -37,7 +37,7 @@ export default function AIPresentation() {
           clickOutsideToClose={false}
         >
           <Presentation performResearch={performResearch} setPerformResearch={setPerformResearch} />
-        </CopilotPopup>
+        </CopilotSidebar>
       </div>
     </CopilotKit>
   );
