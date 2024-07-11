@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.0.5",
+  "version": "1.0.7",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -55,14 +55,12 @@
     "graphql-scalars": "^1.23.0",
     "graphql-yoga": "^5.3.1",
     "groq-sdk": "^0.5.0",
-    "js-tiktoken": "^1.0.8",
     "langchain": "^0.1.36",
     "openai": "^4.50.0",
     "pino": "^9.2.0",
     "pino-pretty": "^11.2.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "tiktoken": "^1.0.15",
     "type-graphql": "2.0.0-rc.1",
     "zod": "^3.23.3"
   },
