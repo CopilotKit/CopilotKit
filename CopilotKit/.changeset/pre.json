@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "integrations-unify",
   "initialVersions": {
     "next-openai": "1.0.8-integrations-unify.0",
