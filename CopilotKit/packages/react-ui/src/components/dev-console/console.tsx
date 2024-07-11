@@ -39,6 +39,8 @@ export function CopilotDevConsole() {
   const dontRunTwiceInDevMode = useRef(false);
   const [versionStatus, setVersionStatus] = useState<VersionStatus>("unknown");
   const [latestVersion, setLatestVersion] = useState<string>("");
+  const consoleRef = useRef<HTMLDivElement>(null);
+  const [debugButtonMode, setDebugButtonMode] = useState<"none" | "full" | "compact">("none");
 
   const checkForUpdates = (force: boolean = false) => {
     setVersionStatus("checking");
@@ -68,11 +70,45 @@ export function CopilotDevConsole() {
     checkForUpdates();
   }, []);
 
+  useEffect(() => {
+    const handleResize = (entries: ResizeObserverEntry[]) => {
+      for (let entry of entries) {
+        if (entry.target === consoleRef.current) {
+          const width = entry.contentRect.width;
+          if (width < 400) {
+            setDebugButtonMode("compact");
+          } else {
+            setDebugButtonMode("full");
+          }
+        }
+      }
+    };
+
+    const observer = new ResizeObserver(handleResize);
+    if (consoleRef.current) {
+      observer.observe(consoleRef.current);
+
+      const initialWidth = consoleRef.current.getBoundingClientRect().width;
+      if (initialWidth < 400) {
+        setDebugButtonMode("compact");
+      } else {
+        setDebugButtonMode("full");
+      }
+    }
+
+    return () => {
+      if (consoleRef.current) {
+        observer.unobserve(consoleRef.current);
+      }
+    };
+  }, [consoleRef.current]);
+
   if (!showDevConsole) {
     return null;
   }
   return (
     <div
+      ref={consoleRef}
       className={
         "copilotKitDevConsole " +
         (versionStatus === "update-available" ? "copilotKitDevConsoleUpgrade" : "") +
@@ -91,7 +127,11 @@ export function CopilotDevConsole() {
         latestVersion={latestVersion}
       />
 
-      <DebugMenuButton setShowDevConsole={setShowDevConsole} checkForUpdates={checkForUpdates} />
+      <DebugMenuButton
+        setShowDevConsole={setShowDevConsole}
+        checkForUpdates={checkForUpdates}
+        mode={debugButtonMode}
+      />
     </div>
   );
 }
@@ -169,15 +209,23 @@ function VersionInfo({
 export default function DebugMenuButton({
   setShowDevConsole,
   checkForUpdates,
+  mode,
 }: {
   setShowDevConsole: (show: boolean) => void;
   checkForUpdates: (force: boolean) => void;
+  mode: "none" | "full" | "compact";
 }) {
   const context = useCopilotContext();
+
+  if (mode === "none") {
+    return null;
+  }
   return (
     <div className="bg-black fixed top-24 w-52 text-right">
       <Menu>
-        <MenuButton className="copilotKitDebugMenuButton">Debug {ChevronDownIcon}</MenuButton>
+        <MenuButton className={`copilotKitDebugMenuButton ${mode === "compact" ? "compact" : ""}`}>
+          {mode == "compact" ? "Debug" : <>Debug {ChevronDownIcon}</>}
+        </MenuButton>
 
         <MenuItems
           transition

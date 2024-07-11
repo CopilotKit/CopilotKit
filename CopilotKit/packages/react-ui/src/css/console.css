@@ -1,16 +1,12 @@
 .copilotKitDevConsole {
   background-color: #f3f4f6;
-  height: 60px;
   padding-left: 10px;
   padding-right: 10px;
   display: flex;
   align-items: center;
   border-bottom: 1px solid #cecece;
-}
-
-.copilotKitDevConsole.copilotKitDevConsoleUpgrade,
-.copilotKitDevConsole.copilotKitDevConsoleWarnOutdated {
-  height: 100px;
+  padding-top: 10px;
+  padding-bottom: 10px;
 }
 
 .copilotKitDevConsole.copilotKitDevConsoleWarnOutdated {
@@ -79,6 +75,14 @@
   align-items: center;
   justify-content: center;
   outline: none;
+}
+
+.copilotKitDebugMenuButton.compact {
+  width: 35px;
+  color: black;
+  justify-content: center;
+  outline: none;
+  font-size: 8px;
 }
 
 .copilotKitDevConsole .copilotKitDebugMenuButton:hover {

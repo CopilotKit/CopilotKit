@@ -1,6 +1,6 @@
 "use client";
 import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
+import { CopilotKitCSSProperties, CopilotPopup, CopilotSidebar } from "@copilotkit/react-ui";
 import "./styles.css";
 import { Presentation } from "./components/main/Presentation";
 import { useState } from "react";
@@ -22,7 +22,7 @@ export default function AIPresentation() {
           } as CopilotKitCSSProperties
         }
       >
-        <CopilotSidebar
+        <CopilotPopup
           instructions={
             "Help the user create and edit a powerpoint-style presentation." +
             (!performResearch
@@ -37,7 +37,7 @@ export default function AIPresentation() {
           clickOutsideToClose={false}
         >
           <Presentation performResearch={performResearch} setPerformResearch={setPerformResearch} />
-        </CopilotSidebar>
+        </CopilotPopup>
       </div>
     </CopilotKit>
   );
