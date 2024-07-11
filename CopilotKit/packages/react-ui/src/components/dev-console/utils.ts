@@ -1,4 +1,5 @@
 import { CopilotContextParams, defaultCopilotContextCategories } from "@copilotkit/react-core";
+import { CopilotKitVersion } from "./types";
 
 export function shouldShowDevConsole(showDevConsole: boolean | "auto"): boolean {
   if (typeof showDevConsole === "boolean") {
