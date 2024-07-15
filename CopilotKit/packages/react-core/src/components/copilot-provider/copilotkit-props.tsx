@@ -77,4 +77,11 @@ export interface CopilotKitProps {
    * in the case of cross-origin requests.
    */
   credentials?: RequestCredentials;
+
+  /**
+   * Whether to show the dev console.
+   *
+   * If set to "auto", the dev console will be show on localhost only.
+   */
+  showDevConsole?: boolean | "auto";
 }

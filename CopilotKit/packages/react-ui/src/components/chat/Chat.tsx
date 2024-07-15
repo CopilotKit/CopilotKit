@@ -62,6 +62,8 @@ import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { InputProps, MessagesProps, ResponseButtonProps } from "./props";
 import { randomId } from "@copilotkit/shared";
 
+import { CopilotDevConsole } from "../dev-console";
+
 /**
  * Props for CopilotChat component.
  */
@@ -169,6 +171,7 @@ export function CopilotChat({
 
   return (
     <WrappedCopilotChat icons={icons} labels={labels} className={className}>
+      <CopilotDevConsole />
       <Messages messages={visibleMessages} inProgress={isLoading}>
         {currentSuggestions.length > 0 && (
           <div>

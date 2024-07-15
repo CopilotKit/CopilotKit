@@ -108,6 +108,8 @@ export interface CopilotContextParams {
 
   // api endpoints
   copilotApiConfig: CopilotApiConfig;
+
+  showDevConsole: boolean | "auto";
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -152,6 +154,7 @@ const emptyCopilotContext: CopilotContextParams = {
   chatSuggestionConfiguration: {},
   addChatSuggestionConfiguration: () => {},
   removeChatSuggestionConfiguration: () => {},
+  showDevConsole: "auto",
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);
