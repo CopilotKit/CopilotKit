@@ -1,13 +1,13 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
   "tasks": {
     "build": {
+      "cache": false,
+      "persistent": false,
+      "interactive": false,
       "dependsOn": [
-        "^build",
-        "^generate-graphql-schema",
-        "generate-graphql-schema",
-        "^graphql-codegen",
-        "graphql-codegen"
+        "^build"
       ],
       "outputs": [
         "dist/**",
@@ -15,11 +15,24 @@
         "!.next/cache/**"
       ]
     },
-    "dev": {
+    "@copilotkit/runtime#generate-graphql-schema": {
+      "cache": false,
+      "persistent": false,
+      "dependsOn": [
+        "^build"
+      ]
+    },
+    "@copilotkit/runtime-client-gql#graphql-codegen": {
+      "cache": false,
+      "persistent": false,
       "dependsOn": [
         "^build",
-        "graphql-codegen:watch",
-        "^graphql-codegen:watch"
+        "@copilotkit/runtime#generate-graphql-schema"
+      ]
+    },
+    "dev": {
+      "dependsOn": [
+        "^build"
       ],
       "cache": false,
       "persistent": true
@@ -38,27 +51,6 @@
     "check-types": {
       "dependsOn": [
         "^build"
-      ]
-    },
-    "generate-graphql-schema": {
-      "cache": false,
-      "outputs": [
-        "packages/runtime/__snapshots__/schema/schema.graphql"
-      ]
-    },
-    "graphql-codegen": {
-      "cache": false,
-      "dependsOn": [
-        "^generate-graphql-schema"
-      ],
-      "outputs": [
-        "packages/runtime-client-gql/src/@generated/**/*"
-      ]
-    },
-    "graphql-codegen:watch": {
-      "cache": false,
-      "outputs": [
-        "packages/runtime-client-gql/src/@generated/**/*"
       ]
     },
     "clean": {
