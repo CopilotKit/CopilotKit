@@ -11,7 +11,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-prettier": "prettier --check \"**/*.{ts,tsx,md}\"",
     "publish-packages": "turbo run build lint && changeset version && changeset publish",
-    "freshbuild": "pnpm clean && pnpm install && pnpm build"
+    "freshbuild": "pnpm -w clean && pnpm i && pnpm -w build"
   },
   "devDependencies": {
     "@types/node": "^18.11.17",
@@ -23,12 +23,24 @@
     "prettier": "^3.2.5",
     "prettier-plugin-tailwindcss": "^0.1.11",
     "ts-node": "^10.9.2",
-    "turbo": "latest",
+    "turbo": "^2.0.6",
     "typescript": "^5.2.3"
   },
-  "packageManager": "pnpm@8.14.3",
+  "packageManager": "pnpm@9.5.0",
   "dependencies": {
     "@changesets/cli": "^2.26.2"
   },
-  "keywords": ["copilotkit", "copilot", "react", "nextjs", "nodejs", "ai", "assistant", "javascript", "automation", "textarea"]
+  "keywords": [
+    "copilotkit",
+    "copilot",
+    "react",
+    "nextjs",
+    "nodejs",
+    "ai",
+    "assistant",
+    "javascript",
+    "automation",
+    "textarea"
+  ],
+  "name": "CopilotKit"
 }

@@ -3,3 +3,4 @@ README.md
 .nuxt
 node_modules
 dist
+**/@generated
