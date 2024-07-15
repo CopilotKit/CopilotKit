@@ -35,7 +35,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run Prettier check
-        run: pnpm run check-prettier
+        run: npx turbo run check-prettier
 
   eslint:
     name: 'ESLint'
@@ -63,7 +63,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run ESLint check
-        run: pnpm run lint
+        run: npx turbo run lint
 
   types:
     name: 'TypeScript'
@@ -90,8 +90,5 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build
-        run: npx turbo run build
-
       - name: Run TypeScript type check
-        run: pnpm run check-types
+        run: npx turbo run check-types

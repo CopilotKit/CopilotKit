@@ -35,5 +35,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build
+        run: npx turbo run build
+
       - name: Run tests
-        run: pnpm test
+        run: npx turbo run test
