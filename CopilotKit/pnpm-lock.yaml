@@ -40,7 +40,7 @@ importers:
         specifier: ^10.9.2
         version: 10.9.2(@swc/core@1.5.28)(@types/node@18.17.15)(typescript@5.3.3)
       turbo:
-        specifier: latest
+        specifier: ^1.10.13
         version: 1.10.13
       typescript:
         specifier: ^5.2.3
@@ -13560,7 +13560,7 @@ packages:
       execa: 5.1.1
       globby: 11.1.0
       joycon: 3.1.1
-      postcss-load-config: 3.1.4(postcss@8.4.20)(ts-node@10.9.2)
+      postcss-load-config: 3.1.4(postcss@8.4.38)(ts-node@10.9.2)
       resolve-from: 5.0.0
       rollup: 3.4.0
       source-map: 0.8.0-beta.0
@@ -13633,7 +13633,7 @@ packages:
       execa: 5.1.1
       globby: 11.1.0
       joycon: 3.1.1
-      postcss-load-config: 3.1.4(postcss@8.4.20)(ts-node@10.9.2)
+      postcss-load-config: 3.1.4(postcss@8.4.38)(ts-node@10.9.2)
       resolve-from: 5.0.0
       rollup: 3.4.0
       source-map: 0.8.0-beta.0
