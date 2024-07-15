@@ -10,9 +10,15 @@
  *   ```jsx useCopilotChat Example
  *   import { useCopilotChat }
  *     from "@copilotkit/react-core";
+ *   import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
  *
  *   const { appendMessage } = useCopilotChat();
- *   appendMessage({ content: "Hello, world!", role: "user", id: "1" });
+ *   appendMessage(
+ *     new TextMessage({
+ *       content: "Hello World",
+ *       role: Role.User,
+ *     }),
+ *   );
  *   ```
  * </RequestExample>
  *
