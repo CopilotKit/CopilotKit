@@ -22,7 +22,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: "9.5"
 
       - name: Use Node.js 20
         uses: actions/setup-node@v3
@@ -78,7 +78,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: "9.5"
 
       - name: Use Node.js 20
         uses: actions/setup-node@v3
