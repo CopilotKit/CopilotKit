@@ -19,11 +19,11 @@
   "types": "./dist/index.d.ts",
   "license": "MIT",
   "scripts": {
-    "build": "tsup",
+    "build": "tsup --onSuccess \"pnpm run generate-graphql-schema\"",
     "dev": "tsup --watch --onSuccess \"pnpm run generate-graphql-schema\"",
     "test": "jest --passWithNoTests",
     "check-types": "tsc --noEmit",
-    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next",
+    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next && rm -rf __snapshots__",
     "generate-graphql-schema": "rm -rf __snapshots__ && ts-node ./scripts/generate-gql-schema.ts"
   },
   "devDependencies": {
