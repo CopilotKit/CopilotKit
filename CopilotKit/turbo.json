@@ -55,6 +55,12 @@
     },
     "clean": {
       "cache": false
+    },
+    "//#format": {
+      "cache": false
+    },
+    "//#freshbuild": {
+      "cache": false
     }
   }
 }
