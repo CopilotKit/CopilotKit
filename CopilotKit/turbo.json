@@ -38,8 +38,9 @@
       "persistent": true
     },
     "test": {
+      "cache": false,
       "dependsOn": [
-        "^build"
+        "build"
       ],
       "outputs": [
         "coverage/**",
@@ -49,8 +50,9 @@
     },
     "lint": {},
     "check-types": {
+      "cache": false,
       "dependsOn": [
-        "^build"
+        "build"
       ]
     },
     "clean": {
