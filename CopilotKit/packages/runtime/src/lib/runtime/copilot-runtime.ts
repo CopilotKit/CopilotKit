@@ -99,22 +99,24 @@
  */
 
 import { Action, actionParametersToJsonSchema, Parameter } from "@copilotkit/shared";
-import { RemoteChain, RemoteChainParameters, CopilotServiceAdapter } from "../service-adapters";
-import { MessageInput } from "../graphql/inputs/message.input";
-import { ActionInput } from "../graphql/inputs/action.input";
-import { RuntimeEventSource } from "../service-adapters/events";
-import { convertGqlInputToMessages } from "../service-adapters/conversion";
-import { Message } from "../graphql/types/converted";
+import { RemoteChain, RemoteChainParameters, CopilotServiceAdapter } from "../../service-adapters";
+import { MessageInput } from "../../graphql/inputs/message.input";
+import { ActionInput } from "../../graphql/inputs/action.input";
+import { RuntimeEventSource } from "../../service-adapters/events";
+import { convertGqlInputToMessages } from "../../service-adapters/conversion";
+import { Message } from "../../graphql/types/converted";
+import { fetchRemoteActions, RemoteActionDefinition } from "./remote-actions";
+import { GraphQLContext } from "../integrations/shared";
 
 interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
   messages: MessageInput[];
   actions: ActionInput[];
   outputMessagesPromise: Promise<Message[]>;
-  properties: any;
   threadId?: string;
   runId?: string;
   publicApiKey?: string;
+  graphqlContext: GraphQLContext;
 }
 
 interface CopilotRuntimeResponse {
@@ -190,6 +192,11 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
   actions?: ActionsConfiguration<T>;
 
   /*
+   * A list of remote actions that can be executed.
+   */
+  remoteActions?: RemoteActionDefinition[];
+
+  /*
    * An array of LangServer URLs.
    */
   langserve?: RemoteChainParameters[];
@@ -197,6 +204,7 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   public actions: ActionsConfiguration<T>;
+  private remoteActionDefinitions: RemoteActionDefinition[];
   private langserve: Promise<Action<any>>[] = [];
   private onBeforeRequest?: OnBeforeRequestHandler;
   private onAfterRequest?: OnAfterRequestHandler;
@@ -209,6 +217,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       this.langserve.push(remoteChain.toAction());
     }
 
+    this.remoteActionDefinitions = params?.remoteActions || [];
+
     this.onBeforeRequest = params?.middleware?.onBeforeRequest;
     this.onAfterRequest = params?.middleware?.onAfterRequest;
   }
@@ -220,8 +230,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       actions: clientSideActionsInput,
       threadId,
       runId,
-      properties,
       outputMessagesPromise,
+      graphqlContext,
     } = request;
     const langserveFunctions: Action<any>[] = [];
 
@@ -234,10 +244,18 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       }
     }
 
-    const configuredActions =
-      typeof this.actions === "function" ? this.actions({ properties }) : this.actions;
+    // Fetch remote actions
+    const remoteActions = await fetchRemoteActions({
+      remoteActionDefinitions: this.remoteActionDefinitions,
+      graphqlContext,
+    });
 
-    const actions = [...configuredActions, ...langserveFunctions];
+    const configuredActions =
+      typeof this.actions === "function"
+        ? this.actions({ properties: graphqlContext.properties })
+        : this.actions;
+
+    const actions = [...configuredActions, ...langserveFunctions, ...remoteActions];
 
     const serverSideActionsInput: ActionInput[] = actions.map((action) => ({
       name: action.name,
@@ -255,7 +273,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       threadId,
       runId,
       inputMessages,
-      properties,
+      properties: graphqlContext.properties,
     });
 
     try {
@@ -276,7 +294,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
             runId: result.runId,
             inputMessages,
             outputMessages,
-            properties,
+            properties: graphqlContext.properties,
           });
         })
         .catch((_error) => {});

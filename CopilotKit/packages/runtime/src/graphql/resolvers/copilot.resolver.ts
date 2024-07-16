@@ -116,13 +116,13 @@ export class CopilotResolver {
     let logger = ctx.logger.child({ component: "CopilotResolver.generateCopilotResponse" });
     logger.debug({ data }, "Generating Copilot response");
 
-    const copilotRuntime = ctx._copilotkit.runtime;
-    const serviceAdapter = ctx._copilotkit.serviceAdapter;
-
     if (properties) {
       logger.debug("Properties provided, merging with context properties");
       ctx.properties = { ...ctx.properties, ...properties };
     }
+
+    const copilotRuntime = ctx._copilotkit.runtime;
+    const serviceAdapter = ctx._copilotkit.serviceAdapter;
 
     let copilotCloudPublicApiKey: string | null = null;
     let copilotCloudBaseUrl: string;
@@ -177,8 +177,8 @@ export class CopilotResolver {
       threadId: data.threadId,
       runId: data.runId,
       publicApiKey: undefined,
-      properties: ctx.properties || {},
       outputMessagesPromise,
+      graphqlContext: ctx,
     });
 
     logger.debug("Event source created, creating response");

@@ -2,7 +2,7 @@ import { YogaInitialContext } from "graphql-yoga";
 import { buildSchemaSync } from "type-graphql";
 import { CopilotResolver } from "../../graphql/resolvers/copilot.resolver";
 import { useDeferStream } from "@graphql-yoga/plugin-defer-stream";
-import { CopilotRuntime } from "../copilot-runtime";
+import { CopilotRuntime } from "../runtime/copilot-runtime";
 import { CopilotServiceAdapter } from "../../service-adapters";
 import { CopilotCloudOptions } from "../cloud";
 import { LogLevel, createLogger } from "../../lib/logger";
