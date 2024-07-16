@@ -6,11 +6,11 @@
  * ```typescript
  * return copilotKit.response(
  *   req,
- *   new LangChainAdapter(async (forwardedProps) => {
- *     const model = new ChatOpenAI({ modelName: "gpt-4o" });
- *     return model.stream(forwardedProps.messages, {
- *       tools: forwardedProps.tools,
- *     });
+ *   new LangChainAdapter({
+ *     chainFn: async ({ messages, tools }) => {
+ *       const model = new ChatOpenAI({ modelName: "gpt-4o" });
+ *       return model.stream(messages, { tools });
+ *     },
  *   })
  * );
  * ```
