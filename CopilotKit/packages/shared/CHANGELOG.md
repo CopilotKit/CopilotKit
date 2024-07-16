@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.0.8-mme-pre-dev-console.1
+
+### Patch Changes
+
+- Don't show expired version on pre releases
+
 ## 1.0.8-mme-pre-dev-console.0
 
 ### Patch Changes

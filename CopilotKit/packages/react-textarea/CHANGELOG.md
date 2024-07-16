@@ -1,5 +1,15 @@
 # ui
 
+## 1.0.8-mme-pre-dev-console.1
+
+### Patch Changes
+
+- Don't show expired version on pre releases
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.0.8-mme-pre-dev-console.1
+  - @copilotkit/react-core@1.0.8-mme-pre-dev-console.1
+  - @copilotkit/shared@1.0.8-mme-pre-dev-console.1
+
 ## 1.0.8-mme-pre-dev-console.0
 
 ### Patch Changes
