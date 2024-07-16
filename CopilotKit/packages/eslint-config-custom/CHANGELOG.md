@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 1.0.3-mme-pre-dev-console.0
+
+### Patch Changes
+
+- Pre: Dev Console
+
 ## 1.0.2
 
 ### Patch Changes

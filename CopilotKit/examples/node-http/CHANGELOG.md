@@ -1,5 +1,14 @@
 # node
 
+## 1.0.8-mme-pre-dev-console.0
+
+### Patch Changes
+
+- Pre: Dev Console
+- Updated dependencies
+  - @copilotkit/runtime@1.0.8-mme-pre-dev-console.0
+  - @copilotkit/shared@1.0.8-mme-pre-dev-console.0
+
 ## 1.0.7
 
 ### Patch Changes
