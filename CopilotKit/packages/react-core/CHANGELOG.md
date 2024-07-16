@@ -1,5 +1,14 @@
 # ui
 
+## 1.0.8-mme-pre-dev-console.2
+
+### Patch Changes
+
+- Update from main
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.0.8-mme-pre-dev-console.2
+  - @copilotkit/shared@1.0.8-mme-pre-dev-console.2
+
 ## 1.0.8-mme-pre-dev-console.1
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 1.0.3-mme-pre-dev-console.2
+
+### Patch Changes
+
+- Update from main
+
 ## 1.0.3-mme-pre-dev-console.1
 
 ### Patch Changes
