@@ -49,8 +49,6 @@ const invokeGuardrails = async ({
   onResult: (result: GuardrailsResult) => void;
   onError: (err: Error) => void;
 }) => {
-  console.log("invokeGuardrails.baseUrl", baseUrl);
-
   if (
     data.messages.length &&
     data.messages[data.messages.length - 1].textMessage?.role === MessageRole.user
