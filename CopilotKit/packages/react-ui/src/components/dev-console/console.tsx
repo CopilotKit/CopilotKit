@@ -47,7 +47,7 @@ export function CopilotDevConsole() {
     getPublishedCopilotKitVersion(currentVersion, force)
       .then((v) => {
         setLatestVersion(v.latest);
-        if (v.current === v.latest) {
+        if (v.current === v.latest || /[a-zA-Z]/.test(v.current)) {
           setVersionStatus("latest");
         } else if (v.severity !== "low") {
           setVersionStatus("outdated");
