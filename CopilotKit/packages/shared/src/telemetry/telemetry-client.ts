@@ -44,8 +44,6 @@ export class TelemetryClient {
     // eslint-disable-next-line
     const writeKey = process.env.COPILOTKIT_SEGMENT_WRITE_KEY || "n7XAZtQCGS2v1vvBy3LgBCv2h3Y8whja";
 
-    console.log("writeKey", writeKey);
-
     this.segment = new Analytics({
       writeKey,
     });
@@ -62,11 +60,9 @@ export class TelemetryClient {
   }
 
   async capture<K extends keyof AnalyticsEvents>(event: K, properties: AnalyticsEvents[K]) {
-    console.log("pre send event check");
     if (!this.shouldSendEvent() || !this.segment) {
       return;
     }
-    console.log("post send event check");
 
     const flattenedProperties = flattenObject(properties);
     const propertiesWithGlobal = {
