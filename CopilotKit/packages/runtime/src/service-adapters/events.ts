@@ -2,6 +2,7 @@ import { Action } from "@copilotkit/shared";
 import { of, concat, map, scan, concatMap, ReplaySubject, Subject, firstValueFrom } from "rxjs";
 import { streamLangChainResponse } from "./langchain/utils";
 import { GuardrailsResult } from "../graphql/types/guardrails-result.type";
+import telemetry from "../lib/telemetry-client";
 
 export enum RuntimeEventTypes {
   TextMessageStart = "TextMessageStart",
@@ -170,6 +171,8 @@ export class RuntimeEventSource {
           ).catch((error) => {
             console.error(error);
           });
+
+          telemetry.capture("oss.runtime.server_action_executed", {});
           return concat(of(eventWithState.event!), toolCallEventStream$);
         } else {
           return of(eventWithState.event!);

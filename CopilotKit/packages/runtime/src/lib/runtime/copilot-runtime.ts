@@ -105,7 +105,7 @@ import { ActionInput } from "../../graphql/inputs/action.input";
 import { RuntimeEventSource } from "../../service-adapters/events";
 import { convertGqlInputToMessages } from "../../service-adapters/conversion";
 import { Message } from "../../graphql/types/converted";
-import { fetchRemoteActions, RemoteActionDefinition } from "./remote-actions";
+import { setupRemoteActions, RemoteActionDefinition } from "./remote-actions";
 import { GraphQLContext } from "../integrations/shared";
 
 interface CopilotRuntimeRequest {
@@ -245,7 +245,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     }
 
     // Fetch remote actions
-    const remoteActions = await fetchRemoteActions({
+    const remoteActions = await setupRemoteActions({
       remoteActionDefinitions: this.remoteActionDefinitions,
       graphqlContext,
     });
