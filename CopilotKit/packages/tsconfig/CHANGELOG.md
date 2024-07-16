@@ -1,5 +1,11 @@
 # tsconfig
 
+## 1.0.3-pre-async-submit-message.0
+
+### Patch Changes
+
+- await onSubmitMessage contributed by @Steve-04
+
 ## 1.0.2
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # ui
 
+## 1.0.9-pre-async-submit-message.0
+
+### Patch Changes
+
+- await onSubmitMessage contributed by @Steve-04
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.0.9-pre-async-submit-message.0
+  - @copilotkit/shared@1.0.9-pre-async-submit-message.0
+
 ## 1.0.8
 
 ### Patch Changes

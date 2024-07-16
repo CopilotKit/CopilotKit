@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.0.9-pre-async-submit-message.0
+
+### Patch Changes
+
+- await onSubmitMessage contributed by @Steve-04
+
 ## 1.0.8
 
 ### Patch Changes

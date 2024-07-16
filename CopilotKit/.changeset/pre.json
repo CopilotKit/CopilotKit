@@ -1,0 +1,22 @@
+{
+  "mode": "pre",
+  "tag": "pre-async-submit-message",
+  "initialVersions": {
+    "next-openai": "1.0.8",
+    "next-pages-router": "1.0.8",
+    "node-express": "1.0.8",
+    "node-http": "1.0.8",
+    "eslint-config-custom": "1.0.2",
+    "@copilotkit/react-core": "1.0.8",
+    "@copilotkit/react-textarea": "1.0.8",
+    "@copilotkit/react-ui": "1.0.8",
+    "@copilotkit/runtime": "1.0.8",
+    "@copilotkit/runtime-client-gql": "1.0.8",
+    "@copilotkit/shared": "1.0.8",
+    "tailwind-config": "1.0.2",
+    "tsconfig": "1.0.2"
+  },
+  "changesets": [
+    "curvy-ties-sparkle"
+  ]
+}
