@@ -26,7 +26,9 @@ body:
     id: expected-behavior
     attributes:
       label: ✅ Expected Behavior
-      description: Tell us what you expected to happen.
+      description: |
+        Tell us what you expected to happen.
+        If relevant, please include screenshots as well.
       placeholder: |
         e.g. "When clicking the Copilot chat button, I expected X..."
     validations:
@@ -36,7 +38,9 @@ body:
     id: actual-behavior
     attributes:
       label: ❌ Actual Behavior
-      description: Tell us what actually happened.
+      description: |
+        Tell us what actually happened.
+        If relevant, please include screenshots as well.
       placeholder: |
         e.g. "An error appeared in the console, and nothing happened."
     validations:
