@@ -48,7 +48,10 @@ body:
     attributes:
       label: 𝌚 CopilotKit Version
       description: |
-        Please run the following command in your project and paste the output below: `npm ls | grep "@copilotkit"`
+        Please run the following command in your project and paste the output below:
+        ```bash
+        npm ls | grep "@copilotkit"`
+        ```
       placeholder: |
         Run `npm ls | grep "@copilotkit"` and paste the output here.
       render: shell
