@@ -3,13 +3,14 @@ title: "Quickstart: contributing"
 description: "Learn how to preview changes locally"
 ---
 
-<img referrerPolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=8011bb91-c783-4a1e-8d0d-ed3215e40d8b" />
+<img
+  referrerPolicy="no-referrer-when-downgrade"
+  src="https://static.scarf.sh/a.png?x-pxid=8011bb91-c783-4a1e-8d0d-ed3215e40d8b"
+/>
 
 ## Setup Local Environment
 
-<Info>
-  **Prerequisite** You should have installed Node.js (version 20.x).
-</Info>
+<Info>**Prerequisite** You should have installed Node.js (version 20.x).</Info>
 
 Step 1. Install `pnpm` on your OS (version 9.5 or higher):
 
@@ -26,17 +27,15 @@ brew install pnpm
 ```l other
 https://pnpm.io/installation
 ```
+
 </CodeGroup>
 
 Step 2. Install turbo v2.x on your OS:
 
-<CodeGroup>
-```bash npm
-npm install -g turbo
-```
-</CodeGroup>
+<CodeGroup>```bash npm npm install -g turbo ```</CodeGroup>
 
 Step 3. Install the required dependencies:
+
 - Go to `<CopilotKit Directory>/CopilotKit/`
 - Run `pnpm i`
 
@@ -65,6 +64,12 @@ In `<CopilotKit Directory>/CopilotKit/` run:
 
 ```bash
 turbo run dev
+```
+
+To run the demos, go to `<CopilotKit Directory>/CopilotKit/examples/next-openai/` and run:
+
+```bash
+pnpm start:dev
 ```
 
 By default the app will run on `http://localhost:3000`, however if 3000 is already taken, it will try other available ports sequentially.
