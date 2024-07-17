@@ -1,0 +1,84 @@
+name: Bug Report
+description: Found a bug? Report it here!
+title: "🐛 Bug: "
+labels: ["bug"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to fill out this bug report. Please choose a short and descriptive title for your issue.
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: ♻️ Reproduction Steps
+      description: Explain how to reproduce the the bug
+      placeholder: |
+        e.g. "I implemented CopilotKit in a fresh Next.js application, clicked on X, and then Y happened."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: 👀 Expected Behavior
+      description: Tell us what you expected to happen.
+      placeholder: |
+        e.g. "When clicking the Copilot chat button, I expected X..."
+    validations:
+      required: true
+
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: 🙊 Actual Behavior
+      description: Tell us what actually happened.
+      placeholder: |
+        e.g. "An error appeared in the console, and nothing happened."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: version
+    attributes:
+      label: "#️⃣ Version"
+      description: What version of CopilotKit are you using?
+      options:
+        - "Version 1.x (Default)"
+      default: 0
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checkboxes
+    attributes:
+      label:  Please tick the relevant options
+      options:
+        - label: I am using Copilot Cloud
+          required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 📄 Logs (Optional)
+      description: |
+        Please provide any logs or error messages that may be useful.  
+        - For Copilot Runtime, please provide any errors in the terminal.
+        - For CopilotKit on the browser, please provide any errors that appear in the browser's developer tools.
+      placeholder: |
+        This is optional.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-information
+    attributes:
+      label: 💡 Additional Information (Optional)
+      description: Please provide as much information as possible, such as your operating system, browser, etcetera.
+      placeholder: |
+        This is optional.
+    validations:
+      required: false
