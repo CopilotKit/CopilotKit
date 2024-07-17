@@ -50,7 +50,7 @@ body:
   - type: textarea
     id: version
     attributes:
-      label: 💻 CopilotKit Versions
+      label: 💻 CopilotKit Version
       description: |
         Please run the following command in your project and paste the output below: `npm ls | grep "@copilotkit"`
       placeholder: |
