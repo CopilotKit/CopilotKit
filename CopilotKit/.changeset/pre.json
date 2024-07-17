@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "mme-modify-append-message",
   "initialVersions": {
     "next-openai": "1.0.8",
