@@ -1,0 +1,9 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Discord
+    url: https://discord.com/invite/6dffbvGU3D
+    about: Join the Discord server to ask questions and get help.
+  - name: Documentation
+    url: https://docs.copilot.ai
+    about: Read the documentation to get started.
+
