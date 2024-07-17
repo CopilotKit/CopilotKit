@@ -19,7 +19,6 @@ body:
         2.
         3.
         ...
-      render: bash
     validations:
       required: true
 
@@ -43,20 +42,15 @@ body:
     validations:
       required: true
 
-  - type: checkboxes
-    id: checkboxes
-    attributes:
-      label: "☑️ Please tick the relevant checkboxes:"
-      options:
-        - label: I am using Copilot Cloud
-          required: false
-
   - type: textarea
     id: version
     attributes:
       label: 𝌚 CopilotKit Version
       description: |
-        Please run the following command in your project and paste the output below: `npm ls | grep "@copilotkit"`
+        Please run the following command in your project and paste the output below:
+        ```bash
+        npm ls | grep "@copilotkit"`
+        ```
       placeholder: |
         Run `npm ls | grep "@copilotkit"` and paste the output here.
       render: shell
