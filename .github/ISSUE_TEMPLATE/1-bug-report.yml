@@ -57,7 +57,7 @@ body:
         Run `npm ls | grep "@copilotkit"` and paste the output here.
       render: shell
     validations:
-      required: false
+      required: true
 
   - type: textarea
     id: logs
@@ -70,15 +70,5 @@ body:
       placeholder: |
         This is optional.
       render: shell
-    validations:
-      required: false
-
-  - type: textarea
-    id: additional-information
-    attributes:
-      label: 💡 Additional Information (Optional)
-      description: Please provide as much information as possible, such as your operating system, browser, etcetera.
-      placeholder: |
-        This is optional.
     validations:
       required: false
