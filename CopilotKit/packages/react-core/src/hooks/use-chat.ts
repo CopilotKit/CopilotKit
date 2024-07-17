@@ -284,10 +284,22 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   };
 
   const append = async (message: Message): Promise<void> => {
+    let existingMessages = [...messages];
     if (isLoading) {
-      return;
+      abortControllerRef.current?.abort();
+      while (existingMessages.length > 0) {
+        const lastMessage = existingMessages[existingMessages.length - 1];
+        if (
+          lastMessage instanceof TextMessage &&
+          lastMessage.role === (message instanceof TextMessage ? message.role : Role.User)
+        ) {
+          existingMessages.pop();
+          break;
+        }
+        existingMessages.pop();
+      }
     }
-    const newMessages = [...messages, message];
+    const newMessages = [...existingMessages, message];
     setMessages(newMessages);
     return runChatCompletionAndHandleFunctionCall(newMessages);
   };
@@ -310,6 +322,15 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
   const stop = (): void => {
     abortControllerRef.current?.abort();
+
+    let newMessages = [...messages];
+    const lastMessage = messages[messages.length - 1];
+
+    if (lastMessage instanceof TextMessage && lastMessage.role === "assistant") {
+      newMessages = newMessages.slice(0, -1);
+    }
+
+    setMessages(newMessages);
   };
 
   return {
