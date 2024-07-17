@@ -14,15 +14,18 @@ body:
     attributes:
       label: ♻️ Reproduction Steps
       description: Explain how to reproduce the the bug
-      placeholder: |
-        e.g. "I implemented CopilotKit in a fresh Next.js application, clicked on X, and then Y happened."
+      value: |
+        1.
+        2.
+        3.
+        ...
     validations:
       required: true
 
   - type: textarea
     id: expected-behavior
     attributes:
-      label: 👀 Expected Behavior
+      label: ✅ Expected Behavior
       description: Tell us what you expected to happen.
       placeholder: |
         e.g. "When clicking the Copilot chat button, I expected X..."
@@ -32,27 +35,22 @@ body:
   - type: textarea
     id: actual-behavior
     attributes:
-      label: 🙊 Actual Behavior
+      label: ❌ Actual Behavior
       description: Tell us what actually happened.
       placeholder: |
         e.g. "An error appeared in the console, and nothing happened."
     validations:
       required: true
 
-  - type: checkboxes
-    id: checkboxes
-    attributes:
-      label: "☑️ Please tick the relevant checkboxes:"
-      options:
-        - label: I am using Copilot Cloud
-          required: false
-
   - type: textarea
     id: version
     attributes:
-      label: 💻 CopilotKit Version
+      label: 𝌚 CopilotKit Version
       description: |
-        Please run the following command in your project and paste the output below: `npm ls | grep "@copilotkit"`
+        Please run the following command in your project and paste the output below:
+        ```bash
+        npm ls | grep "@copilotkit"`
+        ```
       placeholder: |
         Run `npm ls | grep "@copilotkit"` and paste the output here.
       render: shell
