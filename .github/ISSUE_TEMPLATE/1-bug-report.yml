@@ -43,14 +43,6 @@ body:
     validations:
       required: true
 
-  - type: checkboxes
-    id: checkboxes
-    attributes:
-      label: "☑️ Please tick the relevant checkboxes:"
-      options:
-        - label: I am using Copilot Cloud
-          required: false
-
   - type: textarea
     id: version
     attributes:
