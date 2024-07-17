@@ -1,4 +1,4 @@
-name: Bug Report
+name: 🐛 Bug Report
 description: Found a bug? Report it here!
 title: "🐛 Bug: "
 labels: ["bug"]
@@ -29,7 +29,6 @@ body:
     validations:
       required: true
 
-
   - type: textarea
     id: actual-behavior
     attributes:
@@ -40,24 +39,25 @@ body:
     validations:
       required: true
 
-  - type: dropdown
-    id: version
-    attributes:
-      label: "#️⃣ Version"
-      description: What version of CopilotKit are you using?
-      options:
-        - "Version 1.x (Default)"
-      default: 0
-    validations:
-      required: true
-
   - type: checkboxes
     id: checkboxes
     attributes:
-      label:  Please tick the relevant options
+      label: "☑️ Please tick the relevant checkboxes:"
       options:
         - label: I am using Copilot Cloud
           required: false
+
+  - type: textarea
+    id: version
+    attributes:
+      label: 💻 CopilotKit Versions
+      description: |
+        Please run the following command in your project and paste the output below: `npm ls | grep "@copilotkit"`
+      placeholder: |
+        Run `npm ls | grep "@copilotkit"` and paste the output here.
+      render: shell
+    validations:
+      required: false
 
   - type: textarea
     id: logs
