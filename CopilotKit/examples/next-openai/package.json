@@ -1,6 +1,6 @@
 {
   "name": "next-openai",
-  "version": "1.0.8",
+  "version": "1.0.9-mme-modify-append-message.0",
   "private": true,
   "scripts": {
     "start:dev": "next dev",

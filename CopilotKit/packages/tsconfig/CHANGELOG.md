@@ -1,5 +1,11 @@
 # tsconfig
 
+## 1.0.3-mme-modify-append-message.0
+
+### Patch Changes
+
+- Modify appendMessage to replace current message when in progress
+
 ## 1.0.2
 
 ### Patch Changes

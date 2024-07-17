@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.0.9-mme-modify-append-message.0
+
+### Patch Changes
+
+- Modify appendMessage to replace current message when in progress
+- Updated dependencies
+  - @copilotkit/shared@1.0.9-mme-modify-append-message.0
+
 ## 1.0.8
 
 ### Patch Changes
