@@ -19,7 +19,18 @@ export const Window = ({
 
       const parentElement = windowRef.current?.parentElement;
 
-      if (open && parentElement && !parentElement.contains(event.target as any)) {
+      let className = "";
+      if (event.target instanceof HTMLElement) {
+        className = event.target.className;
+      }
+
+      if (
+        open &&
+        parentElement &&
+        !parentElement.contains(event.target as any) &&
+        // prevent closing the window when clicking on the debug menu
+        !className.includes("copilotKitDebugMenu")
+      ) {
         setOpen(false);
       }
     },
