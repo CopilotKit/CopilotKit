@@ -1,7 +1,7 @@
 name: 📚 Documentation Issue
 description: Let us know how we can improve the documentation.
 title: "📚 Documentation: "
-labels: ["docs"]
+labels: ["documentation"]
 assignees: []
 body:
   - type: markdown
