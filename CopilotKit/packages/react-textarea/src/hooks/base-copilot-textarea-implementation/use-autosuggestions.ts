@@ -114,9 +114,10 @@ export function useAutosuggestions(
     (event: React.KeyboardEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
       if (currentAutocompleteSuggestion) {
         const shouldAcceptSuggestion =
-          event instanceof KeyboardEvent
-            ? shouldAcceptAutosuggestionOnKeyPress(event as React.KeyboardEvent<HTMLDivElement>)
-            : shouldAcceptAutosuggestionOnTouch(event as React.TouchEvent<HTMLDivElement>);
+          event.type === "touchstart"
+            ? shouldAcceptAutosuggestionOnTouch(event as React.TouchEvent<HTMLDivElement>)
+            : shouldAcceptAutosuggestionOnKeyPress(event as React.KeyboardEvent<HTMLDivElement>);
+
         if (shouldAcceptSuggestion) {
           event.preventDefault();
           insertAutocompleteSuggestion(currentAutocompleteSuggestion);
