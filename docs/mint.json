@@ -84,7 +84,10 @@
     },
     {
       "group": "Contributing",
-      "pages": ["contribute/quickstart-contribute"]
+      "pages": [
+        "contributing/how-to-contribute",
+        "contributing/advanced-package-linking"
+      ]
     },
     {
       "group": "Articles",
