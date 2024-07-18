@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 1.0.3
+
+### Patch Changes
+
+- Dev console, bugfixes
+
 ## 1.0.2
 
 ### Patch Changes

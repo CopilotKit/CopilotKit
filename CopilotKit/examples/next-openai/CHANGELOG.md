@@ -1,5 +1,17 @@
 # web
 
+## 1.0.9
+
+### Patch Changes
+
+- Dev console, bugfixes
+- Updated dependencies
+  - @copilotkit/react-core@1.0.9
+  - @copilotkit/react-textarea@1.0.9
+  - @copilotkit/react-ui@1.0.9
+  - @copilotkit/runtime@1.0.9
+  - @copilotkit/shared@1.0.9
+
 ## 1.0.8
 
 ### Patch Changes
