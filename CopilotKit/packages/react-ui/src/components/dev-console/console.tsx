@@ -44,10 +44,20 @@ export function CopilotDevConsole() {
 
   const checkForUpdates = (force: boolean = false) => {
     setVersionStatus("checking");
+
     getPublishedCopilotKitVersion(currentVersion, force)
       .then((v) => {
         setLatestVersion(v.latest);
-        if (v.current === v.latest || /[a-zA-Z]/.test(v.current)) {
+        let versionOk = false;
+
+        // match exact version or a version with a letter (e.g. 1.0.0-alpha.1)
+        if (v.current === v.latest) {
+          versionOk = true;
+        } else if (/[a-zA-Z]/.test(v.current)) {
+          versionOk = true;
+        }
+
+        if (versionOk) {
           setVersionStatus("latest");
         } else if (v.severity !== "low") {
           setVersionStatus("outdated");
