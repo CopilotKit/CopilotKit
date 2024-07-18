@@ -311,7 +311,7 @@ return (
 
 Contributions are welcome! 🎉
 
-Check out the [contribution quickstart on our docs](https://docs.copilotkit.ai/contribute/quickstart-contribute#quickstart-contributing) to get started.
+We have a dedicated [Contributing](https://docs.copilotkit.ai/contributing/how-to-contribute) section in our documentation with detailed guides on how to get started contributing to CopilotKit.
 
 [Join the Discord](https://discord.gg/6dffbvGU3D)
 [![Discord](https://dcbadge.vercel.app/api/server/6dffbvGU3D?compact=true&style=flat)](https://discord.gg/6dffbvGU3D)
