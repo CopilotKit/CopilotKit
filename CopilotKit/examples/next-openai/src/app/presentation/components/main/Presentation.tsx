@@ -39,6 +39,7 @@ export const Presentation = ({ performResearch, setPerformResearch }: Presentati
       backgroundImageUrl:
         "https://loremflickr.com/cache/resized/65535_53415810728_d1db6e2660_h_800_600_nofilter.jpg",
       spokenNarration: "This is the first slide. Welcome to our presentation!",
+      backgroundImageDescription: "A default image placeholder",
     },
   ]);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
