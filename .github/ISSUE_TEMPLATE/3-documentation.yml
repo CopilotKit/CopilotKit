@@ -1,0 +1,21 @@
+name: 📚 Documentation Issue
+description: Let us know how we can improve the documentation.
+title: "📚 Documentation: "
+labels: ["documentation"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        We appreciate you taking the time to help us make our documentation better!
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 💬 Let us know how we can improve our documentation.
+      description: |
+        If you are referring to an existing page in the documentation, please provide a link.
+      placeholder: |
+        Type your idea here...
+    validations:
+      required: true

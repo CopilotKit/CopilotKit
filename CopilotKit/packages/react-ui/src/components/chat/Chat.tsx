@@ -86,7 +86,7 @@ export interface CopilotChatProps {
   /**
    * A callback that gets called when a new message it submitted.
    */
-  onSubmitMessage?: (message: string) => void;
+  onSubmitMessage?: (message: string) => void | Promise<void>;
 
   /**
    * Icons can be used to set custom icons for the chat window.
@@ -276,7 +276,13 @@ export const useCopilotChatLogic = (
   const sendMessage = async (messageContent: string) => {
     abortSuggestions();
     setCurrentSuggestions([]);
-    onSubmitMessage?.(messageContent);
+    if (onSubmitMessage) {
+      try {
+        await onSubmitMessage(messageContent);
+      } catch (error) {
+        console.error("Error in onSubmitMessage:", error);
+      }
+    }
     const message: Message = new TextMessage({
       content: messageContent,
       role: Role.User,

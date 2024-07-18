@@ -93,7 +93,7 @@ const defaultShouldAcceptAutosuggestionOnKeyPress = (
   return false;
 };
 
-const defaultShouldAcceptAutosuggestionOnTouch = () => true;
+const defaultShouldAcceptAutosuggestionOnTouch = () => false;
 
 /**
  * Default configuration for the BaseAutosuggestions.

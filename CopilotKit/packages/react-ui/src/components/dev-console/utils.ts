@@ -78,10 +78,19 @@ export async function getPublishedCopilotKitVersion(
 }
 
 export function logReadables(context: CopilotContextParams) {
-  console.log(context.getContextString([], defaultCopilotContextCategories));
+  const readables = context.getContextString([], defaultCopilotContextCategories).trim();
+  if (readables.length === 0) {
+    console.log("No readables found");
+    return;
+  }
+  console.log(readables);
 }
 
 export function logActions(context: CopilotContextParams) {
+  if (Object.values(context.actions).length === 0) {
+    console.log("No actions found");
+    return;
+  }
   for (const action of Object.values(context.actions)) {
     console.group(action.name);
     console.log("name", action.name);

@@ -1,0 +1,24 @@
+name: 🚀 Feature Request
+description: Have an idea for enhancements or features? Let us know!
+title: "🚀 Feature Request: "
+labels: ["feature request"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to fill out this feature request ticket. Please choose a short and descriptive title.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 🎤 Tell us your idea
+      description: |
+        We want to make it as easy as possible for you to suggest enhancements or features. Please use the textareas below to describe your idea. Some high-level guidelines:
+        - What is your idea?
+        - Do you have any use case(s) in mind?
+        - Who would find this useful?
+      placeholder: |
+        Type your idea here...
+    validations:
+      required: true

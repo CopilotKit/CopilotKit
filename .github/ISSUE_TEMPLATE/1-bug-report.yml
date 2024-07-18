@@ -1,0 +1,76 @@
+name: 🐛 Bug Report
+description: Found a bug? Report it here!
+title: "🐛 Bug: "
+labels: ["bug"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to fill out this bug report. Please choose a short and descriptive title for your issue.
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: ♻️ Reproduction Steps
+      description: Explain how to reproduce the the bug
+      value: |
+        1.
+        2.
+        3.
+        ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: ✅ Expected Behavior
+      description: |
+        Tell us what you expected to happen.
+        If relevant, please include screenshots as well.
+      placeholder: |
+        e.g. "When clicking the Copilot chat button, I expected X..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: ❌ Actual Behavior
+      description: |
+        Tell us what actually happened.
+        If relevant, please include screenshots as well.
+      placeholder: |
+        e.g. "An error appeared in the console, and nothing happened."
+    validations:
+      required: true
+
+  - type: textarea
+    id: version
+    attributes:
+      label: 𝌚 CopilotKit Version
+      description: |
+        Please run the following command in your project and paste the output below:
+        ```bash
+        npm ls | grep "@copilotkit"`
+        ```
+      placeholder: |
+        Run `npm ls | grep "@copilotkit"` and paste the output here.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 📄 Logs (Optional)
+      description: |
+        Please provide any logs or error messages that may be useful.  
+        - For Copilot Runtime, please provide any errors in the terminal.
+        - For CopilotKit on the browser, please provide any errors that appear in the browser's developer tools.
+      placeholder: |
+        This is optional.
+      render: shell
+    validations:
+      required: false

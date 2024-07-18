@@ -1,5 +1,17 @@
 # @copilotkit/shared
 
+## 1.0.9
+
+### Patch Changes
+
+- Dev console, bugfixes
+
+## 1.0.8
+
+### Patch Changes
+
+- Remove redundant console logs
+
 ## 1.0.7
 
 ### Patch Changes
