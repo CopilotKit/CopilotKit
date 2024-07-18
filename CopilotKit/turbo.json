@@ -64,6 +64,14 @@
     },
     "//#freshbuild": {
       "cache": false
+    },
+    "link:global": {
+      "cache": false,
+      "persistent": false
+    },
+    "unlink:global": {
+      "cache": false,
+      "persistent": false
     }
   }
 }
