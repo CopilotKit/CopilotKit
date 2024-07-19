@@ -14,6 +14,9 @@ export class MessageInput extends BaseMessage {
 
   @Field(() => ResultMessageInput, { nullable: true })
   resultMessage?: ResultMessageInput;
+
+  @Field(() => AgentMessageInput, { nullable: true })
+  agentMessage?: AgentMessageInput;
 }
 
 @InputType()
@@ -47,4 +50,22 @@ export class ResultMessageInput {
 
   @Field(() => String)
   result: string;
+}
+
+@InputType()
+export class AgentMessageInput {
+  @Field(() => String)
+  threadId: string;
+
+  @Field(() => String)
+  agentName: string;
+
+  @Field(() => MessageRole)
+  role: MessageRole;
+
+  @Field(() => String)
+  state: string;
+
+  @Field(() => Boolean)
+  running: boolean;
 }

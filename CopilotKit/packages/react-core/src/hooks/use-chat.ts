@@ -17,6 +17,7 @@ import {
   MessageRole,
   Role,
   CopilotRequestType,
+  AgentMessage,
 } from "@copilotkit/runtime-client-gql";
 
 import { CopilotApiConfig } from "../context";
@@ -184,6 +185,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       while (true) {
         const { done, value } = await reader.read();
 
+        console.log(value);
+
         if (done) {
           break;
         }
@@ -258,6 +261,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         }
       }
 
+      const lastMessage = newMessages.at(-1) as any;
+
       if (
         // if we have client side results
         Object.values(results).length ||
@@ -271,6 +276,44 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         await new Promise((resolve) => setTimeout(resolve, 10));
 
         return await runChatCompletion([...previousMessages, ...newMessages]);
+      } else if (lastMessage instanceof AgentMessage) {
+        // the agent needs an answer
+        if (lastMessage.state?.copilot?.ask?.question && !lastMessage.state?.copilot?.ask?.answer) {
+          newMessages.push(
+            new TextMessage({
+              content: lastMessage.state.copilot.ask.question,
+              role: MessageRole.Assistant,
+            }),
+          );
+          setMessages([...previousMessages, ...newMessages]);
+
+          return newMessages.slice();
+        }
+
+        // continue running the agent
+        else if (lastMessage.running) {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          return await runChatCompletion([...previousMessages, ...newMessages]);
+        }
+
+        // the agent is done, add the result
+        else {
+          const actionExecutionMessage = newMessages
+            .slice()
+            .reverse()
+            .find(
+              (message) => message instanceof ActionExecutionMessage,
+            )! as ActionExecutionMessage;
+
+          const resultMessage = new ResultMessage({
+            actionExecutionId: actionExecutionMessage.id,
+            actionName: actionExecutionMessage.name,
+            result: ResultMessage.encodeResult(lastMessage.state),
+          });
+
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          return await runChatCompletion([...previousMessages, ...newMessages, resultMessage]);
+        }
       } else {
         return newMessages.slice();
       }

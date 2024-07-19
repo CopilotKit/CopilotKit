@@ -3,6 +3,37 @@ import { GraphQLContext } from "../integrations/shared";
 import { Logger } from "pino";
 import telemetry from "../../lib/telemetry-client";
 
+export type AgentResult = {
+  threadId: string;
+  state: string;
+  name: string;
+  running: boolean;
+  __agentMessage: true;
+};
+
+export function isAgentResult(
+  obj: any,
+  checkAgentMessageFlag: boolean = false,
+): obj is AgentResult {
+  if (checkAgentMessageFlag) {
+    return (
+      typeof obj === "object" &&
+      obj !== null &&
+      "__agentMessage" in obj &&
+      obj.__agentMessage === true
+    );
+  } else {
+    return (
+      typeof obj === "object" &&
+      obj !== null &&
+      "threadId" in obj &&
+      "state" in obj &&
+      "running" in obj &&
+      "name" in obj
+    );
+  }
+}
+
 export type RemoteActionDefinition = {
   url: string;
   onBeforeRequest?: ({ ctx }: { ctx: GraphQLContext }) => {
@@ -103,11 +134,63 @@ function constructActions({
       }
 
       const requestResult = await response.json();
-      const result = requestResult["result"];
-      logger.debug({ actionName: action.name, result }, "Executed remote action");
-      return result;
+
+      if (isAgentResult(requestResult)) {
+        logger.debug({ actionName: action.name, result: requestResult }, "Started agent session");
+        // TODO: instead of __agentMessage, we should use __copilotKit: {type: "agentMessage"}
+        return { ...requestResult, __agentMessage: true };
+      } else {
+        const result = requestResult["result"];
+        logger.debug({ actionName: action.name, result }, "Executed remote action");
+        return result;
+      }
     },
   }));
+}
+
+export async function executeAgent({
+  agentName,
+  threadId,
+  state,
+  url,
+  onBeforeRequest,
+  graphqlContext,
+  logger,
+}: {
+  agentName: string;
+  threadId: string;
+  state: string;
+  url: string;
+  onBeforeRequest?: RemoteActionDefinition["onBeforeRequest"];
+  graphqlContext: GraphQLContext;
+  logger: Logger;
+}): Promise<AgentResult> {
+  logger.debug({ agentName, threadId, state }, "Executing remote action");
+
+  const headers = createHeaders(onBeforeRequest, graphqlContext);
+  telemetry.capture("oss.runtime.remote_action_executed", {});
+
+  const response = await fetch(`${url}/actions/execute`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      threadId,
+      state,
+      name: agentName,
+    }),
+  });
+
+  if (!response.ok) {
+    logger.error(
+      { url, status: response.status, body: await response.text() },
+      "Failed to execute remote agent",
+    );
+    throw new Error("Failed to execute remote agent");
+  }
+
+  const requestResult = await response.json();
+  logger.debug({ agentName, threadId, state }, "Executed remote agent");
+  return { ...requestResult, __agentMessage: true };
 }
 
 export async function setupRemoteActions({
@@ -144,4 +227,41 @@ export async function setupRemoteActions({
   );
 
   return result.flat();
+}
+
+export async function fetchRemoteActionLocations({
+  remoteActionDefinitions,
+  graphqlContext,
+}: {
+  remoteActionDefinitions: RemoteActionDefinition[];
+  graphqlContext: GraphQLContext;
+}): Promise<Map<string, string>> {
+  const logger = graphqlContext.logger.child({
+    component: "remote-actions.fetchRemoteActionLocations",
+  });
+  logger.debug({ remoteActionDefinitions }, "Fetching remote action locations");
+
+  // Remove duplicates of remoteActionDefinitions.url
+  const filtered = remoteActionDefinitions.filter(
+    (value, index, self) => index === self.findIndex((t) => t.url === value.url),
+  );
+
+  const result = new Map<string, string>();
+
+  await Promise.all(
+    filtered.map(async (actionDefinition) => {
+      const json = await fetchActionsFromUrl({
+        url: actionDefinition.url,
+        onBeforeRequest: actionDefinition.onBeforeRequest,
+        graphqlContext,
+        logger: logger.child({ component: "remote-actions.fetchActionsFromUrl", actionDefinition }),
+      });
+
+      json["actions"].forEach((action) => {
+        result.set(action.name, actionDefinition.url);
+      });
+    }),
+  );
+
+  return result;
 }

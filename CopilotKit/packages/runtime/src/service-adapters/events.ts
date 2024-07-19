@@ -3,6 +3,7 @@ import { of, concat, map, scan, concatMap, ReplaySubject, Subject, firstValueFro
 import { streamLangChainResponse } from "./langchain/utils";
 import { GuardrailsResult } from "../graphql/types/guardrails-result.type";
 import telemetry from "../lib/telemetry-client";
+import { isAgentResult } from "../lib/runtime/remote-actions";
 
 export enum RuntimeEventTypes {
   TextMessageStart = "TextMessageStart",
@@ -12,6 +13,7 @@ export enum RuntimeEventTypes {
   ActionExecutionArgs = "ActionExecutionArgs",
   ActionExecutionEnd = "ActionExecutionEnd",
   ActionExecutionResult = "ActionExecutionResult",
+  AgentMessage = "AgentMessage",
 }
 
 type FunctionCallScope = "client" | "server";
@@ -36,6 +38,13 @@ export type RuntimeEvent =
       actionName: string;
       actionExecutionId: string;
       result: string;
+    }
+  | {
+      type: RuntimeEventTypes.AgentMessage;
+      threadId: string;
+      agentName: string;
+      state: string;
+      running: boolean;
     };
 
 interface RuntimeEventWithState {
@@ -99,6 +108,16 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
       actionName,
       actionExecutionId,
       result,
+    });
+  }
+
+  sendAgentMessage(threadId: string, agentName: string, state: string, running: boolean) {
+    this.next({
+      type: RuntimeEventTypes.AgentMessage,
+      threadId,
+      agentName,
+      state,
+      running,
     });
   }
 }
@@ -207,12 +226,17 @@ async function executeAction(
   // call the function
   const result = await action.handler(args);
 
-  await streamLangChainResponse({
-    result,
-    eventStream$,
-    actionExecution: {
-      name: action.name,
-      id: actionExecutionId,
-    },
-  });
+  if (isAgentResult(result, true)) {
+    eventStream$.sendAgentMessage(result.threadId, result.name, result.state, result.running);
+    eventStream$.complete();
+  } else {
+    await streamLangChainResponse({
+      result,
+      eventStream$,
+      actionExecution: {
+        name: action.name,
+        id: actionExecutionId,
+      },
+    });
+  }
 }

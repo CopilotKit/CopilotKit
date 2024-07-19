@@ -11,6 +11,9 @@ import { ResponseStatusUnion } from "./response-status.type";
       return ActionExecutionMessageOutput;
     } else if (value.hasOwnProperty("result")) {
       return ResultMessageOutput;
+    } else if (value.hasOwnProperty("agentName")) {
+      console.log("resolve AgentMessageOutput", value);
+      return AgentMessageOutput;
     }
     return undefined;
   },
@@ -57,6 +60,24 @@ export class ResultMessageOutput {
 
   @Field(() => String)
   result: string;
+}
+
+@ObjectType({ implements: BaseMessageOutput })
+export class AgentMessageOutput {
+  @Field(() => String)
+  threadId: string;
+
+  @Field(() => String)
+  agentName: string;
+
+  @Field(() => MessageRole)
+  role: MessageRole;
+
+  @Field(() => String)
+  state: string;
+
+  @Field(() => Boolean)
+  running: boolean;
 }
 
 @ObjectType()

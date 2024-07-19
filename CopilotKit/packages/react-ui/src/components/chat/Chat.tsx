@@ -58,7 +58,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { SystemMessageFunction, useCopilotChat, useCopilotContext } from "@copilotkit/react-core";
 import { reloadSuggestions } from "./Suggestion";
 import { CopilotChatSuggestion } from "../../types/suggestions";
-import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
+import { Message, Role, TextMessage, AgentMessage } from "@copilotkit/runtime-client-gql";
 import { InputProps, MessagesProps, ResponseButtonProps } from "./props";
 import { randomId } from "@copilotkit/shared";
 
@@ -229,7 +229,7 @@ const SUGGESTIONS_DEBOUNCE_TIMEOUT = 1000;
 export const useCopilotChatLogic = (
   makeSystemMessage?: SystemMessageFunction,
   onInProgress?: (isLoading: boolean) => void,
-  onSubmitMessage?: (messageContent: string) => void,
+  onSubmitMessage?: (messageContent: string) => Promise<void> | void,
 ) => {
   const { visibleMessages, appendMessage, reloadMessages, stopGeneration, isLoading } =
     useCopilotChat({
@@ -283,12 +283,35 @@ export const useCopilotChatLogic = (
         console.error("Error in onSubmitMessage:", error);
       }
     }
-    const message: Message = new TextMessage({
-      content: messageContent,
-      role: Role.User,
-    });
-    appendMessage(message);
-    return message;
+
+    const [lastMessage] = visibleMessages.slice(-1);
+
+    if (lastMessage instanceof AgentMessage) {
+      const newState = {
+        ...lastMessage.state,
+      };
+
+      newState.copilot ||= {};
+      newState.copilot.ask ||= {};
+      newState.copilot.ask.answer = messageContent;
+
+      const message = new AgentMessage({
+        role: Role.User,
+        agentName: lastMessage.agentName,
+        state: newState,
+        running: lastMessage.running,
+        threadId: lastMessage.threadId,
+      });
+      appendMessage(message);
+      return message;
+    } else {
+      const message: Message = new TextMessage({
+        content: messageContent,
+        role: Role.User,
+      });
+      appendMessage(message);
+      return message;
+    }
   };
 
   return {

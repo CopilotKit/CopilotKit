@@ -32,7 +32,13 @@ import {
   MessageStreamInterruptedResponse,
   UnknownErrorResponse,
 } from "../../utils";
-import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "../types/converted";
+import {
+  ActionExecutionMessage,
+  AgentMessage,
+  Message,
+  ResultMessage,
+  TextMessage,
+} from "../types/converted";
 import telemetry from "../../lib/telemetry-client";
 import { randomId } from "@copilotkit/shared";
 
@@ -426,6 +432,33 @@ export class CopilotResolver {
                     actionExecutionId: event.actionExecutionId,
                     actionName: event.actionName,
                     result: event.result,
+                  }),
+                );
+                break;
+              ////////////////////////////////
+              // AgentMessage
+              ////////////////////////////////
+              case RuntimeEventTypes.AgentMessage:
+                logger.debug({ event }, "Agent message event received");
+                pushMessage({
+                  id: randomId(),
+                  status: new SuccessMessageStatus(),
+                  threadId: event.threadId,
+                  agentName: event.agentName,
+                  state: event.state,
+                  running: event.running,
+                  role: MessageRole.assistant,
+                  createdAt: new Date(),
+                });
+                outputMessages.push(
+                  plainToInstance(AgentMessage, {
+                    id: randomId(),
+                    threadId: event.threadId,
+                    agentName: event.agentName,
+                    state: event.state,
+                    running: event.running,
+                    role: MessageRole.assistant,
+                    createdAt: new Date(),
                   }),
                 );
                 break;
