@@ -74,12 +74,13 @@ function constructActions({
   graphqlContext: GraphQLContext;
   logger: Logger;
 }): Action<any>[] {
-  return json.map((action) => ({
+  return json["actions"].map((action) => ({
     name: action.name,
     description: action.description,
     parameters: action.parameters,
     handler: async (args: any) => {
       logger.debug({ actionName: action.name, args }, "Executing remote action");
+
       const headers = createHeaders(onBeforeRequest, graphqlContext);
       telemetry.capture("oss.runtime.remote_action_executed", {});
 
@@ -101,7 +102,8 @@ function constructActions({
         return "Failed to execute remote action";
       }
 
-      const result = await response.text();
+      const requestResult = await response.json();
+      const result = requestResult["result"];
       logger.debug({ actionName: action.name, result }, "Executed remote action");
       return result;
     },
