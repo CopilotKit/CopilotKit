@@ -64,6 +64,7 @@ export function useAutosuggestions(
     [autosuggestionFunction, setCurrentAutocompleteSuggestion, disableWhenEmpty, disabled],
   );
 
+  // we memo it because it's a stateful object (need to call cancel on the same object)
   const debouncedFunction = useMemo(
     () => new Debouncer<[editorAutocompleteState: EditorAutocompleteState]>(debounceTime),
     [debounceTime],
