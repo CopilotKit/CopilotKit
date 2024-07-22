@@ -1,9 +1,10 @@
+import { threadId } from "node:worker_threads";
 import {
   GenerateCopilotResponseMutation,
   MessageInput,
   MessageStatusCode,
 } from "../graphql/@generated/graphql";
-import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "./types";
+import { ActionExecutionMessage, AgentMessage, Message, ResultMessage, TextMessage } from "./types";
 
 import untruncateJson from "untruncate-json";
 
@@ -36,6 +37,18 @@ export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
           result: message.result,
           actionExecutionId: message.actionExecutionId,
           actionName: message.actionName,
+        },
+      };
+    } else if (message instanceof AgentMessage) {
+      return {
+        id: message.id,
+        createdAt: message.createdAt,
+        agentMessage: {
+          threadId: message.threadId,
+          role: message.role,
+          agentName: message.agentName,
+          running: message.running,
+          state: JSON.stringify(message.state),
         },
       };
     } else {
@@ -73,6 +86,16 @@ export function convertGqlOutputToMessages(
         actionName: message.actionName,
         createdAt: new Date(),
         status: message.status || { code: MessageStatusCode.Pending },
+      });
+    } else if (message.__typename === "AgentMessageOutput") {
+      return new AgentMessage({
+        id: message.id,
+        threadId: message.threadId,
+        role: message.role,
+        agentName: message.agentName,
+        running: message.running,
+        state: JSON.parse(message.state),
+        createdAt: new Date(),
       });
     }
 

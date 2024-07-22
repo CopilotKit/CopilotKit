@@ -185,8 +185,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       while (true) {
         const { done, value } = await reader.read();
 
-        console.log(value);
-
         if (done) {
           break;
         }
@@ -277,42 +275,35 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
         return await runChatCompletion([...previousMessages, ...newMessages]);
       } else if (lastMessage instanceof AgentMessage) {
-        // the agent needs an answer
+        // Human in the loop, return control to the user
         if (lastMessage.state?.copilot?.ask?.question && !lastMessage.state?.copilot?.ask?.answer) {
-          newMessages.push(
-            new TextMessage({
-              content: lastMessage.state.copilot.ask.question,
-              role: MessageRole.Assistant,
-            }),
-          );
           setMessages([...previousMessages, ...newMessages]);
 
           return newMessages.slice();
-        }
+        } else {
+          // continue running the agent
+          if (lastMessage.running) {
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            return await runChatCompletion([...previousMessages, ...newMessages]);
+          }
 
-        // continue running the agent
-        else if (lastMessage.running) {
-          await new Promise((resolve) => setTimeout(resolve, 10));
-          return await runChatCompletion([...previousMessages, ...newMessages]);
-        }
+          // the agent is done, add the result
+          else {
+            const actionExecutionMessage = previousMessages
+              .slice()
+              .reverse()
+              .find(
+                (message) => message instanceof ActionExecutionMessage,
+              )! as ActionExecutionMessage;
 
-        // the agent is done, add the result
-        else {
-          const actionExecutionMessage = newMessages
-            .slice()
-            .reverse()
-            .find(
-              (message) => message instanceof ActionExecutionMessage,
-            )! as ActionExecutionMessage;
+            const resultMessage = new ResultMessage({
+              actionExecutionId: actionExecutionMessage.id,
+              actionName: actionExecutionMessage.name,
+              result: ResultMessage.encodeResult(lastMessage.state),
+            });
 
-          const resultMessage = new ResultMessage({
-            actionExecutionId: actionExecutionMessage.id,
-            actionName: actionExecutionMessage.name,
-            result: ResultMessage.encodeResult(lastMessage.state),
-          });
-
-          await new Promise((resolve) => setTimeout(resolve, 10));
-          return await runChatCompletion([...previousMessages, ...newMessages, resultMessage]);
+            setMessages([...previousMessages, ...newMessages, resultMessage]);
+          }
         }
       } else {
         return newMessages.slice();
@@ -330,6 +321,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     if (isLoading) {
       return;
     }
+
     const newMessages = [...messages, message];
     setMessages(newMessages);
     return runChatCompletionAndHandleFunctionCall(newMessages);

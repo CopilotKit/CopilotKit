@@ -12,7 +12,6 @@ import { ResponseStatusUnion } from "./response-status.type";
     } else if (value.hasOwnProperty("result")) {
       return ResultMessageOutput;
     } else if (value.hasOwnProperty("agentName")) {
-      console.log("resolve AgentMessageOutput", value);
       return AgentMessageOutput;
     }
     return undefined;

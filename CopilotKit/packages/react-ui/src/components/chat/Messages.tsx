@@ -10,6 +10,7 @@ import {
   ResultMessage,
   TextMessage,
   Role,
+  AgentMessage,
 } from "@copilotkit/runtime-client-gql";
 
 export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
@@ -62,6 +63,16 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
               {message.content}
             </div>
           );
+        } else if (
+          message instanceof AgentMessage &&
+          message.role === "user" &&
+          message.state?.copilot?.ask?.answer
+        ) {
+          return (
+            <div key={index} className="copilotKitMessage copilotKitUserMessage">
+              {message.state?.copilot?.ask?.answer}
+            </div>
+          );
         } else if (message instanceof TextMessage && message.role == "assistant") {
           return (
             <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
@@ -70,6 +81,16 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
               ) : (
                 <Markdown content={message.content} />
               )}
+            </div>
+          );
+        } else if (
+          message instanceof AgentMessage &&
+          message.role === "assistant" &&
+          (message.state?.copilot?.ask?.question || message.state?.copilot?.message?.text)
+        ) {
+          return (
+            <div key={index} className="copilotKitMessage copilotKitAssistantMessage">
+              {message.state?.copilot?.ask?.question || message.state?.copilot?.message?.text}
             </div>
           );
         } else if (message instanceof ActionExecutionMessage) {

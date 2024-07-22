@@ -235,7 +235,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
     const agentName = message.agentName;
     const threadId = message.threadId;
-    const state = message.state;
+    const state = JSON.parse(message.state);
 
     // Fetch remote actions
     const remoteActions = await fetchRemoteActionLocations({
@@ -270,6 +270,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
       eventSource.stream(async (eventStream$) => {
         eventStream$.sendAgentMessage(result.threadId, agentName, result.state, result.running);
+        eventStream$.complete();
       });
 
       outputMessagesPromise
