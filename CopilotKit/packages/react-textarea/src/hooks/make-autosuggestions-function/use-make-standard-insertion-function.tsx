@@ -50,6 +50,7 @@ export function useMakeStandardInsertionOrEditingFunction(
     url: copilotApiConfig.chatApiEndpoint,
     publicApiKey: copilotApiConfig.publicApiKey,
     headers,
+    credentials: copilotApiConfig.credentials,
   });
 
   async function runtimeClientResponseToStringStream(
@@ -180,6 +181,7 @@ export function useMakeStandardInsertionOrEditingFunction(
           url: copilotApiConfig.chatApiEndpoint,
           publicApiKey: copilotApiConfig.publicApiKey,
           headers,
+          credentials: copilotApiConfig.credentials,
         });
 
         return runtimeClientResponseToStringStream(

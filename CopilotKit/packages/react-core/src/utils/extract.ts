@@ -101,6 +101,7 @@ export async function extract<const T extends Parameter[]>({
     url: context.copilotApiConfig.chatApiEndpoint,
     publicApiKey: context.copilotApiConfig.publicApiKey,
     headers,
+    credentials: context.copilotApiConfig.credentials,
   });
 
   const response = CopilotRuntimeClient.asStream(

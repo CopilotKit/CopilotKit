@@ -12,6 +12,7 @@ interface CopilotRuntimeClientOptions {
   url: string;
   publicApiKey?: string;
   headers?: Record<string, string>;
+  credentials?: RequestCredentials;
 }
 
 export class CopilotRuntimeClient {
@@ -36,6 +37,7 @@ export class CopilotRuntimeClient {
           ...headers,
           "X-CopilotKit-Runtime-Client-GQL-Version": packageJson.version,
         },
+        ...(options.credentials ? { credentials: options.credentials } : {}),
       },
     });
   }
