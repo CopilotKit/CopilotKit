@@ -47,36 +47,42 @@ export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
 export function convertGqlOutputToMessages(
   messages: GenerateCopilotResponseMutation["generateCopilotResponse"]["messages"],
 ): Message[] {
-  return messages.map((message) => {
+  return messages.flatMap((message): Message[] => {
     if (message.__typename === "TextMessageOutput") {
-      return new TextMessage({
-        id: message.id,
-        role: message.role,
-        content: message.content.join(""),
-        createdAt: new Date(),
-        status: message.status || { code: MessageStatusCode.Pending },
-      });
+      return [
+        new TextMessage({
+          id: message.id,
+          role: message.role,
+          content: message.content.join(""),
+          createdAt: new Date(),
+          status: message.status || { code: MessageStatusCode.Pending },
+        }),
+      ];
     } else if (message.__typename === "ActionExecutionMessageOutput") {
-      return new ActionExecutionMessage({
-        id: message.id,
-        name: message.name,
-        arguments: getPartialArguments(message.arguments),
-        scope: message.scope,
-        createdAt: new Date(),
-        status: message.status || { code: MessageStatusCode.Pending },
-      });
+      return [
+        new ActionExecutionMessage({
+          id: message.id,
+          name: message.name,
+          arguments: getPartialArguments(message.arguments),
+          scope: message.scope,
+          createdAt: new Date(),
+          status: message.status || { code: MessageStatusCode.Pending },
+        }),
+      ];
     } else if (message.__typename === "ResultMessageOutput") {
-      return new ResultMessage({
-        id: message.id,
-        result: message.result,
-        actionExecutionId: message.actionExecutionId,
-        actionName: message.actionName,
-        createdAt: new Date(),
-        status: message.status || { code: MessageStatusCode.Pending },
-      });
+      return [
+        new ResultMessage({
+          id: message.id,
+          result: message.result,
+          actionExecutionId: message.actionExecutionId,
+          actionName: message.actionName,
+          createdAt: new Date(),
+          status: message.status || { code: MessageStatusCode.Pending },
+        }),
+      ];
     }
-
-    throw new Error("Unknown message type");
+    console.log(`Unknown message type: ${JSON.stringify(message)}`);
+    return [];
   });
 }
 
