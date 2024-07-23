@@ -4,7 +4,7 @@ import { VacationList } from "./components/vacation-list";
 
 export default function WaterBnb() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit">
+    <CopilotKit runtimeUrl="/api/copilotkit/groq">
       <CopilotSidebar>
         <VacationList />
       </CopilotSidebar>
