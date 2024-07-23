@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.0.9",
+  "version": "1.0.10-atai-athena-fix.0",
   "sideEffects": [
     "**/*.css"
   ],

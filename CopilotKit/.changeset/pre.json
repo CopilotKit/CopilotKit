@@ -1,0 +1,22 @@
+{
+  "mode": "pre",
+  "tag": "atai-athena-fix",
+  "initialVersions": {
+    "next-openai": "1.0.9",
+    "next-pages-router": "1.0.9",
+    "node-express": "1.0.9",
+    "node-http": "1.0.9",
+    "@copilotkit/react-core": "1.0.9",
+    "@copilotkit/react-textarea": "1.0.9",
+    "@copilotkit/react-ui": "1.0.9",
+    "@copilotkit/runtime": "1.0.9",
+    "@copilotkit/runtime-client-gql": "1.0.9",
+    "@copilotkit/shared": "1.0.9",
+    "eslint-config-custom": "1.0.3",
+    "tailwind-config": "1.0.3",
+    "tsconfig": "1.0.3"
+  },
+  "changesets": [
+    "tricky-eggs-play"
+  ]
+}

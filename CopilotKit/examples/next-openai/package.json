@@ -1,6 +1,6 @@
 {
   "name": "next-openai",
-  "version": "1.0.9",
+  "version": "1.0.10-atai-athena-fix.0",
   "private": true,
   "scripts": {
     "start:dev": "next dev",

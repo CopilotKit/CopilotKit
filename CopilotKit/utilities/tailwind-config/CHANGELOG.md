@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 1.0.4-atai-athena-fix.0
+
+### Patch Changes
+
+- more robust message mapping
+
 ## 1.0.3
 
 ### Patch Changes

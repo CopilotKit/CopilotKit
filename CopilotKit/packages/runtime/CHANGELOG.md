@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.0.10-atai-athena-fix.0
+
+### Patch Changes
+
+- more robust message mapping
+- Updated dependencies
+  - @copilotkit/shared@1.0.10-atai-athena-fix.0
+
 ## 1.0.9
 
 ### Patch Changes
