@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.0.8",
+  "version": "1.0.9",
   "sideEffects": [
     "**/*.css"
   ],
@@ -30,7 +30,9 @@
     "dev": "tsup --watch --no-splitting",
     "test": "jest",
     "check-types": "tsc --noEmit",
-    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
+    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next",
+    "link:global": "pnpm link --global",
+    "unlink:global": "pnpm unlink --global"
   },
   "peerDependencies": {
     "react": "^18.2.0"

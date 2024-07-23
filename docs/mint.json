@@ -84,7 +84,16 @@
     },
     {
       "group": "Contributing",
-      "pages": ["contribute/quickstart-contribute"]
+      "pages": [
+        {
+          "group": "Code Contributions",
+          "pages": [
+            "contributing/how-to-contribute",
+            "contributing/advanced-package-linking"
+          ]
+        },
+        "contributing/documentation-contributions"
+      ]
     },
     {
       "group": "Articles",
