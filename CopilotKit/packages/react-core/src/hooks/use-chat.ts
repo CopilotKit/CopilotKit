@@ -281,6 +281,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           lastMessage.state?.coagent?.execute?.name === "ask" &&
           !lastMessage.state?.coagent?.execute?.result?.answer
         ) {
+          // TODO: Maybe not needed
           setMessages([...previousMessages, ...newMessages]);
 
           return newMessages.slice();
