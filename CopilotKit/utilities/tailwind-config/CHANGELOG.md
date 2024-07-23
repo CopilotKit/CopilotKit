@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 1.1.0
+
+### Minor Changes
+
+- Official support for Groq (`GroqAdapter`)
+
 ## 1.0.3
 
 ### Patch Changes
