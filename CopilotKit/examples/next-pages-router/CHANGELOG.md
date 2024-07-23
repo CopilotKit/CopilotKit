@@ -1,5 +1,20 @@
 # next-pages-router
 
+## 1.1.0
+
+### Minor Changes
+
+- Official support for Groq (`GroqAdapter`)
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@1.1.0
+  - @copilotkit/react-textarea@1.1.0
+  - @copilotkit/react-ui@1.1.0
+  - @copilotkit/runtime@1.1.0
+  - @copilotkit/shared@1.1.0
+
 ## 1.0.9
 
 ### Patch Changes

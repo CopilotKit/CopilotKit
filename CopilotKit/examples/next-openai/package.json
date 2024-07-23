@@ -1,6 +1,6 @@
 {
   "name": "next-openai",
-  "version": "1.0.9",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
     "start:dev": "next dev",
@@ -21,6 +21,7 @@
     "@langchain/langgraph": "^0.0.12",
     "@langchain/openai": "^0.0.28",
     "clsx": "^1.2.1",
+    "groq-sdk": "^0.5.0",
     "langchain": "^0.1.19",
     "next": "^13.4.9",
     "next-themes": "^0.2.1",

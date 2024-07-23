@@ -1,5 +1,17 @@
 # @copilotkit/runtime-client-gql
 
+## 1.1.0
+
+### Minor Changes
+
+- Official support for Groq (`GroqAdapter`)
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime@1.1.0
+  - @copilotkit/shared@1.1.0
+
 ## 1.0.9
 
 ### Patch Changes
