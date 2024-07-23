@@ -303,6 +303,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             });
 
             setMessages([...previousMessages, ...newMessages, resultMessage]);
+            return newMessages.slice();
           }
         }
       } else {
