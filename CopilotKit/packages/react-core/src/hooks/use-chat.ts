@@ -276,7 +276,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         return await runChatCompletion([...previousMessages, ...newMessages]);
       } else if (lastMessage instanceof AgentMessage) {
         // Human in the loop, return control to the user
-        if (lastMessage.state?.copilot?.ask?.question && !lastMessage.state?.copilot?.ask?.answer) {
+        if (
+          lastMessage.state?.coagent?.execute?.name === "ask" &&
+          !lastMessage.state?.coagent?.execute?.result?.answer
+        ) {
           setMessages([...previousMessages, ...newMessages]);
 
           return newMessages.slice();

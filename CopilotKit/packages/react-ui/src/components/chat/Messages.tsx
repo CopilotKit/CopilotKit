@@ -66,11 +66,12 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
         } else if (
           message instanceof AgentMessage &&
           message.role === "user" &&
-          message.state?.copilot?.ask?.answer
+          message.state?.coagent?.execute?.name === "ask" &&
+          message.state?.coagent?.execute?.result?.answer
         ) {
           return (
             <div key={index} className="copilotKitMessage copilotKitUserMessage">
-              {message.state?.copilot?.ask?.answer}
+              {message.state?.coagent?.execute?.result?.answer}
             </div>
           );
         } else if (message instanceof TextMessage && message.role == "assistant") {
@@ -86,11 +87,15 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
         } else if (
           message instanceof AgentMessage &&
           message.role === "assistant" &&
-          (message.state?.copilot?.ask?.question || message.state?.copilot?.message?.text)
+          ((message.state?.coagent?.execute?.name === "ask" &&
+            message.state?.coagent?.execute?.arguments?.question) ||
+            (message.state?.coagent?.execute?.name === "message" &&
+              message.state?.coagent?.execute?.arguments?.text))
         ) {
           return (
             <div key={index} className="copilotKitMessage copilotKitAssistantMessage">
-              {message.state?.copilot?.ask?.question || message.state?.copilot?.message?.text}
+              {message.state?.coagent?.execute?.arguments?.question ||
+                message.state?.coagent?.execute?.arguments?.text}
             </div>
           );
         } else if (message instanceof ActionExecutionMessage) {

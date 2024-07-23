@@ -291,9 +291,9 @@ export const useCopilotChatLogic = (
         ...lastMessage.state,
       };
 
-      newState.copilot ||= {};
-      newState.copilot.ask ||= {};
-      newState.copilot.ask.answer = messageContent;
+      newState.coagent ||= {};
+      newState.coagent.execute ||= { name: "ask" };
+      newState.coagent.execute.result = { answer: messageContent };
 
       const message = new AgentMessage({
         role: Role.User,
