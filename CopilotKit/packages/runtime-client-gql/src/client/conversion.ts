@@ -8,38 +8,45 @@ import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "./t
 import untruncateJson from "untruncate-json";
 
 export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
-  return messages.map((message) => {
+  return messages.flatMap((message): MessageInput[] => {
     if (message instanceof TextMessage) {
-      return {
-        id: message.id,
-        createdAt: message.createdAt,
-        textMessage: {
-          content: message.content,
-          role: message.role as any,
+      return [
+        {
+          id: message.id,
+          createdAt: message.createdAt,
+          textMessage: {
+            content: message.content,
+            role: message.role as any,
+          },
         },
-      };
+      ];
     } else if (message instanceof ActionExecutionMessage) {
-      return {
-        id: message.id,
-        createdAt: message.createdAt,
-        actionExecutionMessage: {
-          name: message.name,
-          arguments: JSON.stringify(message.arguments),
-          scope: message.scope as any,
+      return [
+        {
+          id: message.id,
+          createdAt: message.createdAt,
+          actionExecutionMessage: {
+            name: message.name,
+            arguments: JSON.stringify(message.arguments),
+            scope: message.scope as any,
+          },
         },
-      };
+      ];
     } else if (message instanceof ResultMessage) {
-      return {
-        id: message.id,
-        createdAt: message.createdAt,
-        resultMessage: {
-          result: message.result,
-          actionExecutionId: message.actionExecutionId,
-          actionName: message.actionName,
+      return [
+        {
+          id: message.id,
+          createdAt: message.createdAt,
+          resultMessage: {
+            result: message.result,
+            actionExecutionId: message.actionExecutionId,
+            actionName: message.actionName,
+          },
         },
-      };
+      ];
     } else {
-      throw new Error("Unknown message type");
+      console.log(`Unknown message type: ${message.constructor.name}`);
+      return [];
     }
   });
 }
