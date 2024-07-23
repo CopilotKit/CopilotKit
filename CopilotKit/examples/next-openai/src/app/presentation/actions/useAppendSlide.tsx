@@ -38,11 +38,17 @@ export default function useAppendSlide({
       },
       {
         name: "backgroundImageDescription",
-        description: "The description of the background image. This is optional and can be used to describe the image to the user.",
-      }
+        description:
+          "The description of the background image. This is optional and can be used to describe the image to the user.",
+      },
     ],
 
-    handler: async ({ content, backgroundImageUrl, spokenNarration, backgroundImageDescription }) => {
+    handler: async ({
+      content,
+      backgroundImageUrl,
+      spokenNarration,
+      backgroundImageDescription,
+    }) => {
       const newSlide: SlideModel = {
         content,
         backgroundImageUrl,
