@@ -128,7 +128,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
-    setMessages(prevMessages => [...prevMessages, ...newMessages])
+    setMessages((prevMessages) => [...prevMessages, ...newMessages]);
 
     const systemMessage = makeSystemMessageCallback();
 
@@ -255,7 +255,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         }
 
         if (newMessages.length > 0) {
-          setMessages(prevMessages => [...prevMessages, ...newMessages])
+          setMessages((prevMessages) => [...prevMessages, ...newMessages]);
         }
       }
 
@@ -288,7 +288,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     if (isLoading) {
       return;
     }
-    setMessages(prevMessages => [...prevMessages, message]);
+    setMessages((prevMessages) => [...prevMessages, message]);
     // No need to pass new messages here. runChatCompletion uses setState (setMessages) which takes it from prev state
     return runChatCompletionAndHandleFunctionCall([]);
   };
