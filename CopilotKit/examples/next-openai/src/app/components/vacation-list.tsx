@@ -3,6 +3,7 @@ import React from "react";
 import { DestinationTable } from "./destination-table";
 import { VacationNotes } from "./vacation-notes";
 import { useMakeCopilotDocumentReadable, DocumentPointer } from "@copilotkit/react-core";
+import { useHighlightToAsk } from "@copilotkit/react-ui";
 
 export type Destination = {
   name: string;
@@ -35,6 +36,7 @@ const document: DocumentPointer = {
 
 export function VacationList() {
   useMakeCopilotDocumentReadable(document);
+  useHighlightToAsk();
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 bg-slate-50 py-4">

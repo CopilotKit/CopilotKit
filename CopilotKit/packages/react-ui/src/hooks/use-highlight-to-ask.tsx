@@ -1,39 +1,8 @@
-import { useCopilotReadable, useCopilotChat } from "@copilotkit/react-core";
+import { useCopilotChat } from "@copilotkit/react-core";
 import { useEffect, useRef, useState } from "react";
 import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
 
-export interface UseHighlightToAskConfigurations {
-  /**
-   * The description of the information to be added to the Copilot context.
-   */
-  description: string;
-  /**
-   * The value to be added to the Copilot context.
-   */
-  value: any;
-  /**
-   * The ID of the parent context, if any.
-   */
-  parentId?: string;
-  /**
-   * An array of categories to control which context are visible where. Particularly useful
-   * with CopilotTextarea (see `useMakeAutosuggestionFunction`)
-   */
-  categories?: string[];
-
-  /**
-   * A custom conversion function to use to serialize the value to a string. If not provided, the value
-   * will be serialized using `JSON.stringify`.
-   */
-  convert?: (description: string, value: any) => string;
-}
-
-export function useHighlightToAsk(
-  { description, value, parentId, categories, convert }: UseHighlightToAskConfigurations,
-  dependencies?: any[],
-) {
-  useCopilotReadable({ description, value, parentId, categories, convert }, dependencies);
-
+export function useHighlightToAsk() {
   const { appendMessage } = useCopilotChat();
 
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
@@ -96,6 +65,8 @@ export function useHighlightToAsk(
             left: rect.right + window.scrollX,
           });
         }
+      } else {
+        removeHighlightedText();
       }
     }
     setHighlightedText(text);
@@ -108,15 +79,6 @@ export function useHighlightToAsk(
   useEffect(() => {
     createTooltipElement();
     listenToHighlightedText();
-
-    return () => {
-      if (typeof window !== "undefined") {
-        document.removeEventListener("mouseup", removeHighlightedText);
-        if (tooltipRef.current) {
-          document.body.removeChild(tooltipRef.current);
-        }
-      }
-    };
   }, []);
 
   useEffect(() => {
