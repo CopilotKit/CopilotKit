@@ -5,3 +5,4 @@ export { GoogleGenerativeAIAdapter } from "./google/google-genai-adapter";
 export { LangChainAdapter } from "./langchain/langchain-adapter";
 export { RemoteChain, type RemoteChainParameters } from "./langchain/langserve";
 export { UnifyAdapter } from "./unify/unify-adapter";
+export { GroqAdapter } from "./groq/groq-adapter";

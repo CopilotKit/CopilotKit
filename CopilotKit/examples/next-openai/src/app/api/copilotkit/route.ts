@@ -1,13 +1,16 @@
 import { NextRequest } from "next/server";
 import {
   CopilotRuntime,
-  OpenAIAdapter,
+  GroqAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import OpenAI from "openai";
+import { Groq } from "groq-sdk";
 
-const openai = new OpenAI();
-const serviceAdapter = new OpenAIAdapter({ openai });
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
+});
+
+const serviceAdapter = new GroqAdapter({ groq });
 const UNSPLASH_ACCESS_KEY_ENV = "UNSPLASH_ACCESS_KEY";
 const UNSPLASH_ACCESS_KEY = process.env[UNSPLASH_ACCESS_KEY_ENV];
 
