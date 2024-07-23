@@ -46,7 +46,9 @@ export function useMakeStandardAutosuggestionFunction(
           new TextMessage({
             role: Role.System,
             content: apiConfig.makeSystemPrompt(
-              textareaPurpose,
+              // TODO temporary hack, remove
+              textareaPurpose +
+                "\nYOU MUST PROVIDE A VERY SHORT COMPLETION, 10 WORDS MAX. THESE COMPLETIONS DO NOT HAVE TO BE FULL SENTENCES.",
               getContextString([], contextCategories),
             ),
           }),
