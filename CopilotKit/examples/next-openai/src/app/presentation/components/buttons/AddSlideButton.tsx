@@ -18,6 +18,7 @@ export function AddSlideButton({
       onClick={() => {
         const newSlide: SlideModel = {
           content: "",
+          backgroundImageUrl: "",
           backgroundImageDescription: "random",
           spokenNarration: "",
         };
