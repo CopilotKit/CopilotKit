@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.1.0
+
+### Minor Changes
+
+- Official support for Groq (`GroqAdapter`)
+
 ## 1.0.9
 
 ### Patch Changes
