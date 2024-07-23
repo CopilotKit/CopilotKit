@@ -36,13 +36,18 @@ export default function useAppendSlide({
           "Should be a few sentences long, clear, and smooth to read." +
           "DO NOT include meta-commentary, such as 'in this slide', 'we explore', etc.",
       },
+      {
+        name: "backgroundImageDescription",
+        description: "The description of the background image. This is optional and can be used to describe the image to the user.",
+      }
     ],
 
-    handler: async ({ content, backgroundImageUrl, spokenNarration }) => {
+    handler: async ({ content, backgroundImageUrl, spokenNarration, backgroundImageDescription }) => {
       const newSlide: SlideModel = {
         content,
         backgroundImageUrl,
         spokenNarration,
+        backgroundImageDescription,
       };
 
       setSlides((slides) => [...slides, newSlide]);
