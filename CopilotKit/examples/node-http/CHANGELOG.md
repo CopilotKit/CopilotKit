@@ -1,5 +1,13 @@
 # node
 
+## 1.0.10-fix-append-message-override-issue.0
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime@1.0.10-fix-append-message-override-issue.0
+  - @copilotkit/shared@1.0.10-fix-append-message-override-issue.0
+
 ## 1.0.9
 
 ### Patch Changes
