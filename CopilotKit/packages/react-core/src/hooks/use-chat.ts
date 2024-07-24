@@ -256,13 +256,13 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
         if (newMessages.length > 0) {
           setMessages((prevMessages) => {
-            const prevMessagesList = prevMessages
+            const prevMessagesList = prevMessages;
             // Since we are streaming, the last message (by the assistant) needs to be constantly replaced
-            if (prevMessages[prevMessages.length - 1]?.role === 'assistant') {
-              prevMessagesList.pop()
+            if (prevMessages[prevMessages.length - 1]?.role === "assistant") {
+              prevMessagesList.pop();
             }
 
-            return [...prevMessagesList, ...newMessages]
+            return [...prevMessagesList, ...newMessages];
           });
         }
       }
