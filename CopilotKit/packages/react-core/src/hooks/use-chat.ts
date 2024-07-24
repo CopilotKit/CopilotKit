@@ -258,7 +258,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           setMessages((prevMessages) => {
             const prevMessagesList = prevMessages;
             // Since we are streaming, the last message (by the assistant) needs to be constantly replaced
-            if (prevMessages[prevMessages.length - 1]?.role === "assistant") {
+            if (
+              (prevMessages[prevMessages.length - 1] as TextMessage | undefined)?.role ===
+              "assistant"
+            ) {
               prevMessagesList.pop();
             }
 
