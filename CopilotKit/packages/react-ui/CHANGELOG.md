@@ -1,5 +1,15 @@
 # ui
 
+## 1.0.10-fix-append-message-pr-494.0
+
+### Patch Changes
+
+- Attempt to fix .appendMessage (contributed by @ranst91)
+- Updated dependencies
+  - @copilotkit/react-core@1.0.10-fix-append-message-pr-494.0
+  - @copilotkit/runtime-client-gql@1.0.10-fix-append-message-pr-494.0
+  - @copilotkit/shared@1.0.10-fix-append-message-pr-494.0
+
 ## 1.0.9
 
 ### Patch Changes

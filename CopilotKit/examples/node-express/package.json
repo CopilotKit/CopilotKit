@@ -1,6 +1,6 @@
 {
   "name": "node-express",
-  "version": "1.0.9",
+  "version": "1.0.10-fix-append-message-pr-494.0",
   "private": true,
   "scripts": {
     "start": "node dist/index.js",

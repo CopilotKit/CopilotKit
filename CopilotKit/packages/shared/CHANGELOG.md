@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.0.10-fix-append-message-pr-494.0
+
+### Patch Changes
+
+- Attempt to fix .appendMessage (contributed by @ranst91)
+
 ## 1.0.9
 
 ### Patch Changes
