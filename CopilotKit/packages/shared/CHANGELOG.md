@@ -1,11 +1,5 @@
 # @copilotkit/shared
 
-## 1.0.10-fix-append-message-override-issue.0
-
-### Patch Changes
-
-- Attempted .appendMessage fix by @ranst91
-
 ## 1.0.9
 
 ### Patch Changes
