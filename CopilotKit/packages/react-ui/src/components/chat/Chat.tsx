@@ -292,7 +292,7 @@ export const useCopilotChatLogic = (
         console.error("Error in onSubmitMessage:", error);
       }
     }
-    
+
     return message;
   };
 
