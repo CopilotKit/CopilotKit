@@ -1,22 +1,23 @@
 {
-  "mode": "exit",
+  "mode": "pre",
   "tag": "atai-0724-athena-fix",
   "initialVersions": {
-    "next-openai": "1.1.0",
-    "next-pages-router": "1.1.0",
-    "node-express": "1.1.0",
-    "node-http": "1.1.0",
-    "@copilotkit/react-core": "1.1.0",
-    "@copilotkit/react-textarea": "1.1.0",
-    "@copilotkit/react-ui": "1.1.0",
-    "@copilotkit/runtime": "1.1.0",
-    "@copilotkit/runtime-client-gql": "1.1.0",
-    "@copilotkit/shared": "1.1.0",
-    "eslint-config-custom": "1.1.0",
-    "tailwind-config": "1.1.0",
-    "tsconfig": "1.1.0"
+    "next-openai": "1.1.1-atai-0724-athena-fix.0",
+    "next-pages-router": "1.1.1-atai-0724-athena-fix.0",
+    "node-express": "1.1.1-atai-0724-athena-fix.0",
+    "node-http": "1.1.1-atai-0724-athena-fix.0",
+    "@copilotkit/react-core": "1.1.1-atai-0724-athena-fix.0",
+    "@copilotkit/react-textarea": "1.1.1-atai-0724-athena-fix.0",
+    "@copilotkit/react-ui": "1.1.1-atai-0724-athena-fix.0",
+    "@copilotkit/runtime": "1.1.1-atai-0724-athena-fix.0",
+    "@copilotkit/runtime-client-gql": "1.1.1-atai-0724-athena-fix.0",
+    "@copilotkit/shared": "1.1.1-atai-0724-athena-fix.0",
+    "eslint-config-custom": "1.1.1-atai-0724-athena-fix.0",
+    "tailwind-config": "1.1.1-atai-0724-athena-fix.0",
+    "tsconfig": "1.1.1-atai-0724-athena-fix.0"
   },
   "changesets": [
-    "cold-dodos-decide"
+    "cold-dodos-decide",
+    "hot-oranges-heal"
   ]
 }

@@ -1,5 +1,15 @@
 # ui
 
+## 1.1.1-atai-0724-athena-fix.1
+
+### Patch Changes
+
+- state-abuse resistance for useCopilotChat
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.1.1-atai-0724-athena-fix.1
+  - @copilotkit/react-core@1.1.1-atai-0724-athena-fix.1
+  - @copilotkit/shared@1.1.1-atai-0724-athena-fix.1
+
 ## 1.1.1-atai-0724-athena-fix.0
 
 ### Patch Changes

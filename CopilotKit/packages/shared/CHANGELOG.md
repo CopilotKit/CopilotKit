@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.1.1-atai-0724-athena-fix.1
+
+### Patch Changes
+
+- state-abuse resistance for useCopilotChat
+
 ## 1.1.1-atai-0724-athena-fix.0
 
 ### Patch Changes
