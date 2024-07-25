@@ -1,6 +1,6 @@
 {
   "name": "tsconfig",
-  "version": "1.1.0",
+  "version": "1.1.1-atai-0724-athena-fix.0",
   "private": true,
   "license": "MIT",
   "publishConfig": {
