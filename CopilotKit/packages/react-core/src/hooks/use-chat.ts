@@ -285,6 +285,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   };
 
   const append = async (message: Message): Promise<void> => {
+    console.log("append function.message", message);
+    console.log("append function.messages", messages);
+    console.log("append function.isLoading", isLoading);
+
     if (isLoading) {
       return;
     }
