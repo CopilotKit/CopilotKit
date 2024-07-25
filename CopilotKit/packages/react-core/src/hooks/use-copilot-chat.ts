@@ -137,13 +137,55 @@ export function useCopilotChat({
     setIsLoading,
   });
 
+  // this is a workaround born out of a bug that Athena insessently ran into.
+  // We could not find the origin of the bug, however, it was clear that an outdated version of the append function was being used somehow --
+  // it referecned the old state of the messages array, and not the latest one.
+  //
+  // We want to make copilotkit as abuse-proof as possible, so we are adding this workaround to ensure that the latest version of the append function is always used.
+  //
+  // How does this work?
+  // we store the relevant function in a ref that is always up-to-date, and then we use that ref in the callback.
+  const latestAppend = useUpdatedRef(append);
+  const latestAppendFunc = useCallback(
+    (message: Message) => {
+      return latestAppend.current(message);
+    },
+    [latestAppend],
+  );
+
+  const latestReload = useUpdatedRef(reload);
+  const latestReloadFunc = useCallback(() => {
+    return latestReload.current();
+  }, [latestReload]);
+
+  const latestStop = useUpdatedRef(stop);
+  const latestStopFunc = useCallback(() => {
+    return latestStop.current();
+  }, [latestStop]);
+
+  const latestDelete = useUpdatedRef(deleteMessage);
+  const latestDeleteFunc = useCallback(
+    (messageId: string) => {
+      return latestDelete.current(messageId);
+    },
+    [latestDelete],
+  );
+
+  const latestSetMessages = useUpdatedRef(setMessages);
+  const latestSetMessagesFunc = useCallback(
+    (messages: Message[]) => {
+      return latestSetMessages.current(messages);
+    },
+    [latestSetMessages],
+  );
+
   return {
     visibleMessages: messages,
-    appendMessage: append,
-    setMessages,
-    reloadMessages: reload,
-    stopGeneration: stop,
-    deleteMessage,
+    appendMessage: latestAppendFunc,
+    setMessages: latestSetMessagesFunc,
+    reloadMessages: latestReloadFunc,
+    stopGeneration: latestStopFunc,
+    deleteMessage: latestDeleteFunc,
     isLoading,
   };
 }
