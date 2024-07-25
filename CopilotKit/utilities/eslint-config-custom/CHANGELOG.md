@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 1.1.1-atai-0724-athena-fix.2
+
+### Patch Changes
+
+- remove unnecessary logging
+
 ## 1.1.1-atai-0724-athena-fix.1
 
 ### Patch Changes

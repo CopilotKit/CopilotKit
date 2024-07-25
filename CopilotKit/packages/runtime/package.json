@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.1.1-atai-0724-athena-fix.1",
+  "version": "1.1.1-atai-0724-athena-fix.2",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
