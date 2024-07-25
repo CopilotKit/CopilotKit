@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "atai-0724-athena-fix",
   "initialVersions": {
     "next-openai": "1.1.1-atai-0724-athena-fix.1",
