@@ -276,6 +276,15 @@ export const useCopilotChatLogic = (
   const sendMessage = async (messageContent: string) => {
     abortSuggestions();
     setCurrentSuggestions([]);
+
+    const message: Message = new TextMessage({
+      content: messageContent,
+      role: Role.User,
+    });
+
+    // Append the message immediately to make it visible
+    appendMessage(message);
+
     if (onSubmitMessage) {
       try {
         await onSubmitMessage(messageContent);
@@ -283,11 +292,7 @@ export const useCopilotChatLogic = (
         console.error("Error in onSubmitMessage:", error);
       }
     }
-    const message: Message = new TextMessage({
-      content: messageContent,
-      role: Role.User,
-    });
-    appendMessage(message);
+    
     return message;
   };
 
