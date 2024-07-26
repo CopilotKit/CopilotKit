@@ -1,0 +1,9 @@
+# *
+User-agent: *
+Allow: /
+
+# Host
+Host: https://docs.copilotkit.ai
+
+# Sitemaps
+Sitemap: https://docs.copilotkit.ai/sitemap.xml
