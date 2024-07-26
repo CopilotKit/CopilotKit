@@ -77,7 +77,7 @@ const defaultShouldToggleHoveringEditorOnKeyPress = (
   shortcut: string,
 ) => {
   // if command-k, toggle the hovering editor
-  if (event.key === shortcut && event.metaKey) {
+  if (event.key === shortcut && ((isMacOS() && event.metaKey) || (!isMacOS() && event.ctrlKey))) {
     return true;
   }
   return false;
@@ -121,3 +121,7 @@ export const defaultBaseAutosuggestionsConfig: Omit<
   shouldAcceptAutosuggestionOnKeyPress: defaultShouldAcceptAutosuggestionOnKeyPress,
   shouldAcceptAutosuggestionOnTouch: defaultShouldAcceptAutosuggestionOnTouch,
 };
+
+function isMacOS() {
+  return /Mac|iMac|Macintosh/i.test(navigator.userAgent);
+}
