@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+h1, h2, h3, h4, h5, h6 {
+  @apply border-b-0 !important;
+}
+
+.nextra-sidebar-container {
+  @apply w-72;
+}
+
+:root {
+  --nextra-bg: #fffbf5;
+}
+
+body {
+  background: var(--nextra-bg);
+}
+
+
+footer {
+  background-color: var(--nextra-bg) !important;
+}
+
+.nextra-code pre {
+  background: #fffdfa;
+}
+
+.ck-property-reference:not(:last-child) {
+  @apply border-b border-b-neutral-100;
+}
+
+.ck-property-reference .ck-property-reference {
+  @apply ml-6;
+}
+
+button:has(.nested-title) {
+  @apply mt-6 pointer-events-none;
+}
+
+button:has(.nested-title) > svg {
+  @apply hidden;
+}
+
+.nested-title {
+  @apply text-gray-900 font-semibold [&:not(:first-child)]:mt-5 mb-2 pb-1.5;
+}
+
+li:has(.icon-container) > div > div > ul {
+  @apply ml-0 pl-0 before:w-0;
+}
+
+li:has(.icon-container) > div > div > ul ul {
+  @apply ml-2 px-2 before:w-[1px];
+}
+
+.nextra-breadcrumb .icon-container .icon { 
+  @apply hidden;
+}

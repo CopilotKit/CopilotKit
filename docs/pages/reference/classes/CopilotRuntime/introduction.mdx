@@ -1,0 +1,144 @@
+import { Tabs } from "nextra/components";
+
+# Introduction: Copilot Runtime
+
+<br/>
+<img
+  referrerPolicy="no-referrer-when-downgrade"
+  src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be"
+/>
+
+This class is the main entry point for the runtime. It handles requests from the frontend, provides function calling and various LLM backends.
+ 
+
+## Example
+
+For example, to use OpenAI as a backend (check the [OpenAI Service Adapter](/reference-classes/copilot-runtime/service-adapters/openai-adapter) docs for more info):
+
+<Tabs items={[
+  "Next.js App Router",
+  "Next.js Pages Router",
+  "Node.js Express",
+  "Node.js HTTP",
+  "NestJS"
+]}>
+  <Tabs.Tab>
+    Create a new route to handle the `/api/copilotkit` endpoint.
+
+    ```ts showLineNumbers filename="app/copilotkit/route.ts"
+    import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
+    import OpenAI from "openai";
+
+    const openai = new OpenAI();
+
+    export async function POST(req: Request): Promise<Response> {
+      const serviceAdapter = new OpenAIAdapter({ openai });
+      const copilotKit = new CopilotRuntime();
+      return copilotKit.response(req, serviceAdapter);
+    }
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    Create a new route to handle the `/api/copilotkit` endpoint:
+
+    ```ts showLineNumbers filename="pages/api/copilotkit.ts"
+    import { NextApiRequest, NextApiResponse } from "next";
+    import {
+      CopilotRuntime,
+      OpenAIAdapter,
+      copilotRuntimeNextJSPagesRouterEndpoint,
+    } from "@copilotkit/runtime";
+    import OpenAI from "openai";
+
+    const openai = new OpenAI();
+
+    const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+      const serviceAdapter = new OpenAIAdapter({ openai });
+      const runtime = new CopilotRuntime();
+
+      const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
+        endpoint: "/api/copilotkit",
+        runtime,
+        serviceAdapter,
+      });
+
+      return await handleRequest(req, res);
+    };
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    Create a new Express.js app and set up the Copilot Runtime handler:
+
+    ```ts showLineNumbers filename="server.ts"
+    import express from "express";
+    import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
+    import OpenAI from "openai";
+
+    const app = express();
+    const openai = new OpenAI();
+
+    app.use("/copilotkit", (req, res, next) => {
+      const serviceAdapter = new OpenAIAdapter({ openai });
+      const runtime = new CopilotRuntime();
+      const handler = copilotRuntimeNodeHttpEndpoint({
+        endpoint: "/copilotkit",
+        runtime,
+        serviceAdapter,
+      });
+
+      return handler(req, res, next);
+    });
+
+    app.listen(4000, () => {
+      console.log("Listening at http://localhost:4000/copilotkit");
+    });
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    Set up a simple Node.js HTTP server and use the Copilot Runtime to handle requests:
+
+    ```ts showLineNumbers filename="server.ts"
+    import { createServer } from "node:http";
+    import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
+    import OpenAI from "openai";
+
+    const openai = new OpenAI();
+
+    const server = createServer((req, res) => {
+      const serviceAdapter = new OpenAIAdapter({ openai });
+      const runtime = new CopilotRuntime();
+      const handler = copilotRuntimeNodeHttpEndpoint({
+        endpoint: "/copilotkit",
+        runtime,
+        serviceAdapter,
+      });
+
+      return handler(req, res);
+    });
+
+    server.listen(4000, () => {
+      console.log("Listening at http://localhost:4000/copilotkit");
+    });
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+  ```ts showLineNumbers filename="copilotkit.controller.ts"
+  import { All, Controller, Req, Res } from "@nestjs/common";
+  import { AppService } from "./app.service";
+  import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
+
+  @Controller()
+  export class AppController {
+    constructor(private readonly appService: AppService) {}
+
+    @All("/copilotkit")
+    copilotkit(@Req() req: Request, @Res() res: Response) {
+      const copilotKit = new CopilotRuntime();
+      const openaiAdapter = new OpenAIAdapter();
+      copilotKit.streamHttpServerResponse(req, res, openaiAdapter);
+    }
+  }
+  ```
+  </Tabs.Tab>
+</Tabs>
+
