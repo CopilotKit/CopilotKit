@@ -40,6 +40,9 @@ export default async function handler(
           style={{
             backgroundColor: "#000000",
             background: "#FAEEDC",
+            backgroundImage: "url('https://docs.copilotkit.ai/images/opengraph-background.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "0% 0%",
             width: "100%",
             height: "100%",
             padding: "5%",
