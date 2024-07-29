@@ -15,7 +15,7 @@ export default {
     title: <SideNavTitleWithIcon title="Agents (LangChain)" icon={PiGraphDuotone} />,
   },
   "customize-look-and-feel": {
-    title: <SideNavTitleWithIcon title="Customize Look and Feel" icon={LuBrush} />,
+    title: <SideNavTitleWithIcon title="Customize Look & Feel" icon={LuBrush} />,
   }
 }
 
