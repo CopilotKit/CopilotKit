@@ -7,13 +7,13 @@ const withNextra = nextra({
 })
 
 export default withNextra({
-  async redirects() {
-    return [
-      {
-        source: "/",
-        destination: "/what-is-copilotkit",
-        permanent: true,
-      }
-    ]
-  }
+  // async redirects() {
+  //   return [
+  //     {
+  //       source: "/",
+  //       destination: "/what-is-copilotkit",
+  //       permanent: true,
+  //     }
+  //   ]
+  // }
 });
