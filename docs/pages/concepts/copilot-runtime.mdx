@@ -1,1 +1,184 @@
+import { Tabs } from "nextra/components";
+import { Frame } from "../../components";
+
 # Copilot Runtime
+
+The Copilot Runtime is the back-end component of CopilotKit, handling the communication with LLM, message history, state and more.
+
+<Frame>
+  <div className="w-full pb-4">
+  ```mermaid
+  sequenceDiagram
+    participant core as @copilotkit/react-core
+    participant runtime as Copilot Runtime
+    participant llm as LLM
+
+    core->>runtime: "Hey, my name is Uli."
+    runtime->>llm: Request
+    llm->>runtime: Response
+    runtime->>core: "Hello Uli, how can I help you?"
+  ```
+  </div>
+</Frame>
+
+You may choose to self-host the Copilot Runtime, or use Copilot Cloud (recommended).
+
+## Service Adapters
+
+Service Adapters are responsible for executive the request with the LLM and standardize the request/resopnse format in a way that the Copilot Runtime can understand.
+
+Currently, we support the following service providers/adapters:
+
+- [OpenAIAdapter](/reference/classes/CopilotRuntime/service-adapters/OpenAIAdapter)
+- [OpenAIAssistantAdapter](/reference/classes/CopilotRuntime/service-adapters/OpenAIAssistantAdapter)
+- [LangChainAdapter](/reference/classes/CopilotRuntime/service-adapters/LangChainAdapter)
+- [GroqAdapter](/reference/classes/CopilotRuntime/service-adapters/GroqAdapter)
+- [GoogleGenerativeAIAdapter](/reference/classes/CopilotRuntime/service-adapters/GoogleGenerativeAIAdapter)
+
+## Integration
+
+### Step 1: Create an Endpoint
+
+Copilot Runtime is designed to run as a handler for HTTP endpoints (typically `/copilotkit` or `/api/copilotkit`). We provide plug and play support for many common frameworks.
+
+<Tabs items={[
+  "Next.js App Router",
+  "Next.js Pages Router",
+  "Node.js Express",
+  "Node.js HTTP",
+  "NestJS"
+]}>
+  <Tabs.Tab>
+    Create a new route to handle the `/api/copilotkit` endpoint.
+
+    ```ts showLineNumbers filename="app/copilotkit/route.ts"
+    import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
+    import OpenAI from "openai";
+
+    const openai = new OpenAI();
+
+    export async function POST(req: Request): Promise<Response> {
+      const serviceAdapter = new OpenAIAdapter({ openai });
+      const copilotKit = new CopilotRuntime();
+      return copilotKit.response(req, serviceAdapter);
+    }
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    Create a new route to handle the `/api/copilotkit` endpoint:
+
+    ```ts showLineNumbers filename="pages/api/copilotkit.ts"
+    import { NextApiRequest, NextApiResponse } from "next";
+    import {
+      CopilotRuntime,
+      OpenAIAdapter,
+      copilotRuntimeNextJSPagesRouterEndpoint,
+    } from "@copilotkit/runtime";
+    import OpenAI from "openai";
+
+    const openai = new OpenAI();
+
+    const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+      const serviceAdapter = new OpenAIAdapter({ openai });
+      const runtime = new CopilotRuntime();
+
+      const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
+        endpoint: "/api/copilotkit",
+        runtime,
+        serviceAdapter,
+      });
+
+      return await handleRequest(req, res);
+    };
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    Create a new Express.js app and set up the Copilot Runtime handler:
+
+    ```ts showLineNumbers filename="server.ts"
+    import express from "express";
+    import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
+    import OpenAI from "openai";
+
+    const app = express();
+    const openai = new OpenAI();
+
+    app.use("/copilotkit", (req, res, next) => {
+      const serviceAdapter = new OpenAIAdapter({ openai });
+      const runtime = new CopilotRuntime();
+      const handler = copilotRuntimeNodeHttpEndpoint({
+        endpoint: "/copilotkit",
+        runtime,
+        serviceAdapter,
+      });
+
+      return handler(req, res, next);
+    });
+
+    app.listen(4000, () => {
+      console.log("Listening at http://localhost:4000/copilotkit");
+    });
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    Set up a simple Node.js HTTP server and use the Copilot Runtime to handle requests:
+
+    ```ts showLineNumbers filename="server.ts"
+    import { createServer } from "node:http";
+    import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
+    import OpenAI from "openai";
+
+    const openai = new OpenAI();
+
+    const server = createServer((req, res) => {
+      const serviceAdapter = new OpenAIAdapter({ openai });
+      const runtime = new CopilotRuntime();
+      const handler = copilotRuntimeNodeHttpEndpoint({
+        endpoint: "/copilotkit",
+        runtime,
+        serviceAdapter,
+      });
+
+      return handler(req, res);
+    });
+
+    server.listen(4000, () => {
+      console.log("Listening at http://localhost:4000/copilotkit");
+    });
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+  ```ts showLineNumbers filename="copilotkit.controller.ts"
+  import { All, Controller, Req, Res } from "@nestjs/common";
+  import { AppService } from "./app.service";
+  import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
+
+  @Controller()
+  export class AppController {
+    constructor(private readonly appService: AppService) {}
+
+    @All("/copilotkit")
+    copilotkit(@Req() req: Request, @Res() res: Response) {
+      const copilotKit = new CopilotRuntime();
+      const openaiAdapter = new OpenAIAdapter();
+      copilotKit.streamHttpServerResponse(req, res, openaiAdapter);
+    }
+  }
+  ```
+  </Tabs.Tab>
+</Tabs>
+
+### Step 2: Configure the `<CopilotKit>` Provider
+
+Now you can configure the `<CopilotKit>` provider to point to your Copilot Runtime URL. For example, if your runtime endpoint is served at `http://localhost:3000/api/runtime`, you can configure the provider like this:
+
+```tsx
+<CopilotKit runtimeUrl="http://localhost:3000/api/runtime">
+  ...
+</CopilotKit>
+```
+
+## Further Reading
+
+- [`CopilotRuntime` Class Reference](/reference/classes/copilot-runtime/CopilotRuntime)
+- [Service Adapters](/reference/classes/CopilotRuntime/service-adapters/OpenAIAdapter)
