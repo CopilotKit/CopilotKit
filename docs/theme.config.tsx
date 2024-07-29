@@ -21,6 +21,7 @@ const themeConfig: DocsThemeConfig = {
         <meta name="msapplication-TileColor" content="#4f46e5"/>
         <meta name="theme-color" content="#ffffff"/>
         <meta name="charset" content="utf-8"/>
+        <meta property="description" content="CopilotKit is the simplest way to integrate production-ready Copilots into any product." />
 
         <link rel="sitemap" type="application/xml" href="/sitemap.xml"/>
         <link rel="icon" href="/favicon.ico" />
@@ -29,7 +30,9 @@ const themeConfig: DocsThemeConfig = {
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
         <link rel="canonical" href={pagePath} />
 
-        <meta name="og:url" content={pagePath} />
+        <meta property="og:description" content="CopilotKit is the simplest way to integrate production-ready Copilots into any product." />
+        <meta property="og:site_name" content="CopilotKit Documentation" />
+        <meta name="og:url" content={`https://docs.copilotkit.ai/${pagePath}`} />
         <meta name="og:title" content={ogTitle} />
         <meta name="og:image" content={ogImageUrl} />
         <meta name="og:type" content="website" />
