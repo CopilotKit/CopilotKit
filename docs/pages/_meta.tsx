@@ -1,9 +1,3 @@
-import { SideNavTitleWithIcon } from "../components/sidenav/sidenav-title-with-icon";
-import { RiChat3Line, RiServerLine } from "react-icons/ri";
-import { BsTextareaT } from "react-icons/bs";
-import { PiFunction } from "react-icons/pi";
-import { LuZap } from "react-icons/lu";
-
 export default {
   "___getting-started": {
     type: "separator",
@@ -16,15 +10,18 @@ export default {
     title: "Quickstart: Chatbot",
   },
   "tutorial-ai-todo-list-copilot": {
-    title: "Tutorial: AI Todo List Copilot",
+    title: "Tutorial: Todo List Copilot",
+  },
+  "tutorial-textarea": {
+    title: "Tutorial: Textarea Autocomplete",
+  },
+  "concepts": {
+    title: <span className="nested-title">Concepts</span>,
+    type: "doc",
   },
   "reference": {
     title: <span className="nested-title">Reference</span>,
     type: "doc",
-  },
-  "reference/hooks": {
-    title: "Hooks",
-    type: "page",
   },
   "___contributing": {
     type: "separator",
