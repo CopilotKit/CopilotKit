@@ -1,6 +1,6 @@
 export default {
-  "introduction": {
-    title: "Introduction",
+  "CopilotRuntime": {
+    title: "CopilotRuntime",
   },
   "service-adapters": {
     title: "Service Adapters",
