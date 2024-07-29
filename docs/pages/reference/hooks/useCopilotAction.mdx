@@ -51,77 +51,9 @@ useCopilotAction({
 });
 ```
 
-### Generative UI
+## Generative UI
 
-By implementing `render` and returning a React component, you can provide custom
-UI elements that update in real-time as `args` are dynamically streamed to the action.
-
-<div className="flex space-x-4 w-full mx-auto my-4 justify-center">
-  <img
-    src="/images/use-copilot-action/render-generative-spreadsheet.gif"
-    className="w-auto"
-  />
-  <img
-    src="/images/use-copilot-action/render-generative-presentation.gif"
-    className="w-auto"
-  />
-</div>
-
-For example this shows "Processing..." while the action is executing and "Done!" when it is complete:
-
-```tsx
-useCopilotAction(
-  {
-    ...,
-    render: ({status, args, result}) => (
-      <div>
-        {status === "complete" ? "Done!" : "Processing..."}
-      </div>
-    ),
-  }
-);
-```
-
-For in-depth examples of custom rendering, see the
-[Spreadsheet](https://github.com/CopilotKit/spreadsheet-demo/blob/343456c523d49e51c4982fcf46dfd7f03bde3167/src/app/page.tsx#L82) and
-[Presentation](https://github.com/CopilotKit/presentation-demo/blob/main/src/app/actions/useAppendSlide.tsx) demos.
-
-### Rendering a Dynamic Message
-
-You can also return a string from `render` to display a message that updates in real-time as the action is executed.
-
-```tsx
-useCopilotAction(
-  {
-    ...,
-    render: ({status, args, result}) => (status === "complete" ? "☑️ Done!" : "Processing...")
-  }
-);
-```
-
-If you want the message to disappear when the action is complete, return a falsy value. Otherwise, return a string to display.
-
-<br />
-<img src="/images/use-copilot-action/render-dynamic.gif" width="250" />
-<br />
-
-### Rendering a Waiting Message
-
-Sometimes, you might want to display a simple message to let the user know that the action is in progress. To do this, provide a string to `render`:
-
-```tsx
-useCopilotAction(
-  {
-    ...,
-    render: "Processing..."
-  }
-);
-```
-
-This will display a spinner and your message while the action is
-running that disappears when the action is complete.
-
-<img src="/images/use-copilot-action/render-string.gif" width="250" />
+This hooks enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/concepts/generative-ui) page.
 
 ## Parameters
 

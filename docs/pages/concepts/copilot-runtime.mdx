@@ -1,19 +1,45 @@
 import { Tabs } from "nextra/components";
+import { Frame } from "../../components";
 
-# Introduction: Copilot Runtime
+# Copilot Runtime
 
-<br/>
-<img
-  referrerPolicy="no-referrer-when-downgrade"
-  src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be"
-/>
+The Copilot Runtime is the back-end component of CopilotKit, handling the communication with LLM, message history, state and more.
 
-This class is the main entry point for the runtime. It handles requests from the frontend, provides function calling and various LLM backends.
- 
+<Frame>
+  <div className="w-full pb-4">
+  ```mermaid
+  sequenceDiagram
+    participant core as @copilotkit/react-core
+    participant runtime as Copilot Runtime
+    participant llm as LLM
 
-## Example
+    core->>runtime: "Hey, my name is Uli."
+    runtime->>llm: Request
+    llm->>runtime: Response
+    runtime->>core: "Hello Uli, how can I help you?"
+  ```
+  </div>
+</Frame>
 
-For example, to use OpenAI as a backend (check the [OpenAI Service Adapter](/reference-classes/copilot-runtime/service-adapters/openai-adapter) docs for more info):
+You may choose to self-host the Copilot Runtime, or use Copilot Cloud (recommended).
+
+## Service Adapters
+
+Service Adapters are responsible for executive the request with the LLM and standardize the request/resopnse format in a way that the Copilot Runtime can understand.
+
+Currently, we support the following service providers/adapters:
+
+- [OpenAIAdapter](/reference/classes/CopilotRuntime/service-adapters/OpenAIAdapter)
+- [OpenAIAssistantAdapter](/reference/classes/CopilotRuntime/service-adapters/OpenAIAssistantAdapter)
+- [LangChainAdapter](/reference/classes/CopilotRuntime/service-adapters/LangChainAdapter)
+- [GroqAdapter](/reference/classes/CopilotRuntime/service-adapters/GroqAdapter)
+- [GoogleGenerativeAIAdapter](/reference/classes/CopilotRuntime/service-adapters/GoogleGenerativeAIAdapter)
+
+## Integration
+
+### Step 1: Create an Endpoint
+
+Copilot Runtime is designed to run as a handler for HTTP endpoints (typically `/copilotkit` or `/api/copilotkit`). We provide plug and play support for many common frameworks.
 
 <Tabs items={[
   "Next.js App Router",
@@ -142,3 +168,17 @@ For example, to use OpenAI as a backend (check the [OpenAI Service Adapter](/ref
   </Tabs.Tab>
 </Tabs>
 
+### Step 2: Configure the `<CopilotKit>` Provider
+
+Now you can configure the `<CopilotKit>` provider to point to your Copilot Runtime URL. For example, if your runtime endpoint is served at `http://localhost:3000/api/runtime`, you can configure the provider like this:
+
+```tsx
+<CopilotKit runtimeUrl="http://localhost:3000/api/runtime">
+  ...
+</CopilotKit>
+```
+
+## Further Reading
+
+- [`CopilotRuntime` Class Reference](/reference/classes/copilot-runtime/CopilotRuntime)
+- [Service Adapters](/reference/classes/CopilotRuntime/service-adapters/OpenAIAdapter)
