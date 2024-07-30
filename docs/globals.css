@@ -6,12 +6,17 @@ h1, h2, h3, h4, h5, h6 {
   @apply border-b-0 !important;
 }
 
-.nextra-sidebar-container {
-  @apply w-72;
-}
-
 :root {
   --nextra-bg: #fffbf5;
+}
+
+.nextra-sidebar-container {
+  @apply w-full md:w-72;
+  background: var(--nextra-bg);
+}
+
+.nextra-nav-container {
+  background: var(--nextra-bg);
 }
 
 body {
@@ -20,7 +25,7 @@ body {
 
 
 footer {
-  background-color: var(--nextra-bg) !important;
+  background-color: var(--nextra-bg);
 }
 
 .nextra-code pre {
