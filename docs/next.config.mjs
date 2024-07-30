@@ -7,6 +7,9 @@ const withNextra = nextra({
 })
 
 export default withNextra({
+  env: {
+    RB2B_ID: process.env.RB2B_ID,
+  },
   async redirects() {
     return [
       {
