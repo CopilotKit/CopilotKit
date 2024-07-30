@@ -2,6 +2,8 @@ import "../globals.css";
 import { AppProps } from "next/app";
 import { IBM_Plex_Sans } from "next/font/google";
 import { useRB2B } from "../lib/hooks/useRB2B";
+import { PostHogProvider } from "posthog-js/react";
+import { usePostHog } from "../lib/hooks/usePostHog";
 
 const plex = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -10,10 +12,13 @@ const plex = IBM_Plex_Sans({
 
 export default function App({ Component, pageProps }: AppProps) {
   useRB2B();
+  const { posthog } = usePostHog();
 
   return (
-    <main className={plex.className}>
-      <Component {...pageProps} />
-    </main>
+    <PostHogProvider client={posthog}>
+      <main className={plex.className}>
+        <Component {...pageProps} />
+      </main>
+    </PostHogProvider>
   );
 }
