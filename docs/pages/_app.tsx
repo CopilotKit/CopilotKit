@@ -4,6 +4,7 @@ import { IBM_Plex_Sans } from "next/font/google";
 import { useRB2B } from "../lib/hooks/useRB2B";
 import { PostHogProvider } from "posthog-js/react";
 import { usePostHog } from "../lib/hooks/usePostHog";
+import { ScarfPixel } from "../lib/ScarfPixel";
 
 const plex = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -15,10 +16,13 @@ export default function App({ Component, pageProps }: AppProps) {
   const { posthog } = usePostHog();
 
   return (
-    <PostHogProvider client={posthog}>
-      <main className={plex.className}>
-        <Component {...pageProps} />
-      </main>
-    </PostHogProvider>
+    <>
+      <PostHogProvider client={posthog}>
+        <main className={plex.className}>
+          <Component {...pageProps} />
+        </main>
+      </PostHogProvider>
+      <ScarfPixel />
+    </>
   );
 }
