@@ -75,3 +75,7 @@ li:has(.icon-container) > div > div > ul ul {
 .nextra-sidebar-container .icon-container .icon {
   @apply flex !important;
 }
+
+.nextra-code button[title="Toggle word wrap"] {
+  background: var(--nextra-bg);
+}
