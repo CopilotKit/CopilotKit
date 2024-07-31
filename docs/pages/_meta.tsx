@@ -1,4 +1,12 @@
+import { LinkToCopilotCloud } from "../components/link-to-copilot-cloud";
+
 export default {
+  "copilot-cloud": {
+    title: (
+      <LinkToCopilotCloud asLink={false} className="disable-menu bg-indigo-500 py-1 px-4 text-white font-medium rounded-full" />
+    ),
+    type: "menu",
+  },
   "___getting-started": {
     type: "separator",
     title: "Getting Started",
@@ -15,15 +23,15 @@ export default {
   "tutorial-textarea": {
     title: "Tutorial: Textarea Autocomplete",
   },
-  "concepts": {
+  concepts: {
     title: <span className="nested-title">Concepts</span>,
     type: "doc",
   },
-  "reference": {
+  reference: {
     title: <span className="nested-title">Reference</span>,
     type: "doc",
   },
-  "___contributing": {
+  ___contributing: {
     type: "separator",
     title: "Contributing",
   },
@@ -33,7 +41,7 @@ export default {
   "documentation-contributions": {
     title: "Documentation Contributions",
   },
-  "___extras": {
+  ___extras: {
     type: "separator",
     title: "Extras",
   },

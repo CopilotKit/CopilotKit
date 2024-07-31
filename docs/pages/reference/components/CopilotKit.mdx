@@ -1,5 +1,6 @@
 import { Tabs } from "nextra/components";
 import { PropertyReference } from "../../../components/reference/property-reference";
+import { LinkToCopilotCloud } from "../../../components";
 
 # `<CopilotKit />`
 
@@ -10,7 +11,7 @@ This component will typically wrap your entire application (or a sub-tree of you
 <Tabs items={["Copilot Cloud (Recommended)", "Self-hosted Runtime"]}>
   <Tabs.Tab>
 
-    You can get your Copilot Cloud API key for free by [signing up here](https://cloud.copilotkit.ai).
+    You can get your Copilot Cloud API key for free by <LinkToCopilotCloud>signing up here</LinkToCopilotCloud>.
 
     ```tsx
     import { CopilotKit } from "@copilotkit/react-core";
@@ -41,7 +42,7 @@ This component will typically wrap your entire application (or a sub-tree of you
 </PropertyReference>
 
 <PropertyReference name="publicApiKey" type="string">
-  Your Copilot Cloud API key. Don't have it yet? [Click here to sign up for free](https://cloud.copilotkit.ai).
+  Your Copilot Cloud API key. Don't have it yet? <LinkToCopilotCloud>Click here to sign up for free</LinkToCopilotCloud>.
 </PropertyReference>
 
 <PropertyReference name="cloudRestrictToTopic" cloudOnly type="{ validTopics?: string[]; invalidTopics?: string[]; }" >

@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@clerk/nextjs": "^5.2.8",
     "@stackblitz/sdk": "^1.11.0",
     "@vercel/og": "^0.6.2",
     "next": "^14.2.5",
