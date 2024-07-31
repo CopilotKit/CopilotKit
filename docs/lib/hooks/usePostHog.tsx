@@ -8,7 +8,6 @@ const POSTHOG_HOST = process.env.POSTHOG_HOST;
 
 if (typeof window !== "undefined") {
   if (POSTHOG_KEY && POSTHOG_HOST) {
-    console.log("Initializing PostHog");
     posthog.init(POSTHOG_KEY, {
       api_host: POSTHOG_HOST,
       person_profiles: "identified_only",
