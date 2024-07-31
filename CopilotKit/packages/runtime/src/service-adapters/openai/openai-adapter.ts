@@ -90,6 +90,14 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     let openaiMessages = messages.map(convertMessageToOpenAIMessage);
     openaiMessages = limitMessagesToTokenCount(openaiMessages, tools, model);
 
+    let toolChoice: any = forwardedParameters?.toolChoice;
+    if (forwardedParameters?.toolChoice === "function") {
+      toolChoice = {
+        type: "function",
+        function: { name: forwardedParameters.toolChoiceFunctionName },
+      };
+    }
+
     const stream = this.openai.beta.chat.completions.stream({
       model: model,
       stream: true,
@@ -97,6 +105,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       ...(tools.length > 0 && { tools }),
       ...(forwardedParameters?.maxTokens && { max_tokens: forwardedParameters.maxTokens }),
       ...(forwardedParameters?.stop && { stop: forwardedParameters.stop }),
+      ...(toolChoice && { tool_choice: toolChoice }),
     });
 
     eventSource.stream(async (eventStream$) => {

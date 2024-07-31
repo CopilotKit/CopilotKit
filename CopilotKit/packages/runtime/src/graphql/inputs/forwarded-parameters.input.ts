@@ -10,4 +10,10 @@ export class ForwardedParametersInput {
 
   @Field(() => [String], { nullable: true })
   stop?: string[];
+
+  @Field(() => String, { nullable: true })
+  toolChoice?: String;
+
+  @Field(() => String, { nullable: true })
+  toolChoiceFunctionName?: string;
 }
