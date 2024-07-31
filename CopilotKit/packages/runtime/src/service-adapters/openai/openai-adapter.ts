@@ -77,7 +77,14 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
   async process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
-    const { threadId, model = this.model, messages, actions, eventSource } = request;
+    const {
+      threadId,
+      model = this.model,
+      messages,
+      actions,
+      eventSource,
+      forwardedParameters,
+    } = request;
     const tools = actions.map(convertActionInputToOpenAITool);
 
     let openaiMessages = messages.map(convertMessageToOpenAIMessage);
@@ -88,6 +95,8 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       stream: true,
       messages: openaiMessages,
       ...(tools.length > 0 && { tools }),
+      ...(forwardedParameters?.maxTokens && { max_tokens: forwardedParameters.maxTokens }),
+      ...(forwardedParameters?.stop && { stop: forwardedParameters.stop }),
     });
 
     eventSource.stream(async (eventStream$) => {

@@ -179,6 +179,7 @@ export class CopilotResolver {
       publicApiKey: undefined,
       properties: ctx.properties || {},
       outputMessagesPromise,
+      forwardedParameters: data.forwardedParameters,
     });
 
     logger.debug("Event source created, creating response");

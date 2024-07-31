@@ -4,7 +4,8 @@ import { MakeSystemPrompt } from "./subtypes/make-system-prompt";
 export interface SuggestionsApiConfig {
   makeSystemPrompt: MakeSystemPrompt;
   fewShotMessages: Message[];
-  forwardedParams: { [key: string]: any } | undefined;
+  maxTokens?: number;
+  stop?: string[];
 }
 
 export const defaultSuggestionsMakeSystemPrompt: MakeSystemPrompt = (
@@ -70,5 +71,4 @@ export const defaultSuggestionsFewShotMessages: Message[] = [
 export const defaultSuggestionsApiConfig: SuggestionsApiConfig = {
   makeSystemPrompt: defaultSuggestionsMakeSystemPrompt,
   fewShotMessages: defaultSuggestionsFewShotMessages,
-  forwardedParams: undefined,
 };
