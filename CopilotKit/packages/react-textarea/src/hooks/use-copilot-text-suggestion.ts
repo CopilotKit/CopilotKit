@@ -32,7 +32,7 @@ interface CopilotTextSuggestionResult {
 export function useCopilotTextSuggestion({
   textBeforeCursor,
   textAfterCursor,
-  instructions = "Autocomplete the text",
+  instructions = "Provide context or purpose of the textarea.",
   contextCategories = defaultCopilotContextCategories,
   makeSystemPrompt = defaultSuggestionsMakeSystemPrompt,
   fewShotMessages = defaultSuggestionsFewShotMessages,
