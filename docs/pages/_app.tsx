@@ -2,9 +2,9 @@ import "../globals.css";
 import { AppProps } from "next/app";
 import { IBM_Plex_Sans } from "next/font/google";
 import { useRB2B } from "../lib/hooks/useRB2B";
-import { PostHogProvider } from "posthog-js/react";
-import { usePostHog } from "../lib/hooks/usePostHog";
 import { ScarfPixel } from "../lib/ScarfPixel";
+import { ClerkProvider } from "@clerk/nextjs";
+import { PostHogProvider } from "../lib/providers/PostHogProvider";
 
 const plex = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -13,16 +13,17 @@ const plex = IBM_Plex_Sans({
 
 export default function App({ Component, pageProps }: AppProps) {
   useRB2B();
-  const { posthog } = usePostHog();
 
   return (
     <>
-      <PostHogProvider client={posthog}>
-        <main className={plex.className}>
-          <Component {...pageProps} />
-        </main>
-      </PostHogProvider>
-      <ScarfPixel />
+      <ClerkProvider publishableKey={process.env.CLERK_PUBLISHABLE_KEY}>
+        <PostHogProvider>
+          <main className={plex.className}>
+            <Component {...pageProps} />
+          </main>
+        </PostHogProvider>
+        <ScarfPixel />
+      </ClerkProvider>
     </>
   );
 }
