@@ -16,6 +16,7 @@ interface CopilotTextSuggestionParams {
   disabled?: boolean;
   disableOnEmpty?: boolean;
   state?: any;
+  onTextSuggestion?: (suggestion: string) => void;
 
   contextCategories?: string[];
   makeSystemPrompt?: MakeSystemPrompt;
@@ -41,6 +42,7 @@ export function useCopilotTextSuggestion({
   debounceTime = 250,
   disabled = false,
   disableOnEmpty = true,
+  onTextSuggestion,
   state,
 }: CopilotTextSuggestionParams): CopilotTextSuggestionResult {
   const [suggestion, setSuggestion] = useState<string | undefined>(undefined);
@@ -83,6 +85,7 @@ export function useCopilotTextSuggestion({
       );
 
       setSuggestion(completion);
+      onTextSuggestion?.(completion);
     }, debounceTime);
 
     setCurrentAbortController(abortController);
