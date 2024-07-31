@@ -12,6 +12,7 @@ export default withNextra({
     POSTHOG_KEY: process.env.POSTHOG_KEY,
     POSTHOG_HOST: process.env.POSTHOG_HOST,
     SCARF_PIXEL_ID: process.env.SCARF_PIXEL_ID,
+    CLERK_PUBLISHABLE_KEY: process.env.CLERK_PUBLISHABLE_KEY || "pk_live_Y2xlcmsuY29waWxvdGtpdC5haSQ",
   },
   async redirects() {
     return [

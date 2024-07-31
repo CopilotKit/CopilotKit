@@ -48,6 +48,14 @@ button:has(.nested-title) > svg {
   @apply hidden;
 }
 
+button:has(.disable-menu) > svg {
+  @apply hidden;
+}
+
+[id^="headlessui-menu-items-"] {
+  @apply hidden !important;
+}
+
 .nested-title {
   @apply text-gray-900 font-semibold [&:not(:first-child)]:mt-5 mb-2 pb-1.5;
 }
