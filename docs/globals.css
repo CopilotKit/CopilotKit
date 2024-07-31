@@ -68,6 +68,10 @@ li:has(.icon-container) > div > div > ul ul {
   @apply ml-2 px-2 before:w-[1px];
 }
 
-.nextra-breadcrumb .icon-container .icon { 
+.icon-container .icon { 
   @apply hidden;
+}
+
+.nextra-sidebar-container .icon-container .icon {
+  @apply flex !important;
 }
