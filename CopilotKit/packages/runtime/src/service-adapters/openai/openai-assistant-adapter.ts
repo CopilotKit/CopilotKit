@@ -32,6 +32,7 @@ import { AssistantStream } from "openai/lib/AssistantStream";
 import { RuntimeEventSource } from "../events";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { AssistantStreamEvent, AssistantTool } from "openai/resources/beta/assistants";
+import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-parameters.input";
 
 export interface OpenAIAssistantAdapterParams {
   /**
@@ -71,7 +72,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
   async process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
-    const { messages, actions, eventSource, runId } = request;
+    const { messages, actions, eventSource, runId, forwardedParameters } = request;
     // if we don't have a threadId, create a new thread
     let threadId = request.threadId || (await this.openai.beta.threads.create()).id;
 
@@ -85,7 +86,13 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     }
     // submit user message
     else if (lastMessage instanceof TextMessage) {
-      nextRunId = await this.submitUserMessage(threadId, messages, actions, eventSource);
+      nextRunId = await this.submitUserMessage(
+        threadId,
+        messages,
+        actions,
+        eventSource,
+        forwardedParameters,
+      );
     }
     // unsupported message
     else {
@@ -147,6 +154,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     messages: Message[],
     actions: ActionInput[],
     eventSource: RuntimeEventSource,
+    forwardedParameters: ForwardedParametersInput,
   ) {
     messages = [...messages];
 
@@ -184,6 +192,9 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
       assistant_id: this.assistantId,
       instructions,
       tools: tools,
+      ...(forwardedParameters?.maxTokens && {
+        max_completion_tokens: forwardedParameters.maxTokens,
+      }),
     });
 
     await this.streamResponse(stream, eventSource);
