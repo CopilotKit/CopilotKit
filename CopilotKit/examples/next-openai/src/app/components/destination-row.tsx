@@ -3,6 +3,7 @@
 import React from "react";
 import { Destination } from "./vacation-list";
 import { useCopilotReadable } from "@copilotkit/react-core";
+import Image from "next/image";
 
 export type DestinationRowProps = {
   destination: Destination;
@@ -34,7 +35,7 @@ export function DestinationRow({
       <td className="whitespace-nowrap py-5 pl-4 px-3 text-sm">
         <div className="flex items-center">
           <div className="h-20 w-20 flex-shrink-0">
-            <img className="h-full w-full rounded-full" src={destination.image} alt="" />
+            <Image className="h-full w-full rounded-full" src={destination.image} alt="" />
           </div>
           <div className="ml-4">
             <div className="font-medium text-gray-900">{destination.name}</div>
