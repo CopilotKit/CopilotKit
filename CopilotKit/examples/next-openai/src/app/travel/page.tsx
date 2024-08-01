@@ -4,6 +4,7 @@ import { CopilotChat } from "@copilotkit/react-ui";
 import "./styles.css";
 import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
 import { useState } from "react";
+import Image from "next/image";
 
 interface BookableItem {
   name: string;
@@ -54,7 +55,7 @@ function TravelPlanner() {
             <p className="text-sm">{args.description || ""}</p>
           </div>
           {status == "complete" && (
-            <img className="rounded-b-lg" src={args.image || ""} alt={args.title || ""} />
+            <Image className="rounded-b-lg" src={args.image || ""} alt={args.title || ""} />
           )}
         </div>
       );
