@@ -48,6 +48,7 @@ export function convertGqlInputToMessages(inputMessages: MessageInput[]): Messag
           threadId: message.agentMessage.threadId,
           createdAt: message.createdAt,
           agentName: message.agentMessage.agentName,
+          nodeName: message.agentMessage.nodeName,
           role: message.agentMessage.role,
           state: message.agentMessage.state,
           running: message.agentMessage.running,

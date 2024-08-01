@@ -69,6 +69,9 @@ export class AgentMessageOutput {
   @Field(() => String)
   agentName: string;
 
+  @Field(() => String)
+  nodeName: string;
+
   @Field(() => MessageRole)
   role: MessageRole;
 

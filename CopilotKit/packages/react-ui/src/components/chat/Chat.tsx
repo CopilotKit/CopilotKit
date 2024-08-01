@@ -298,6 +298,7 @@ export const useCopilotChatLogic = (
       const message = new AgentMessage({
         role: Role.User,
         agentName: lastMessage.agentName,
+        nodeName: lastMessage.nodeName,
         state: newState,
         running: lastMessage.running,
         threadId: lastMessage.threadId,

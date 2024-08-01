@@ -1,5 +1,5 @@
 "use client";
-import { useCopilotContext, useCopilotReadable } from "@copilotkit/react-core";
+import { useCopilotAction, useCopilotContext, useCopilotReadable } from "@copilotkit/react-core";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { Slide } from "./Slide";
 import { Header } from "./Header";
@@ -68,6 +68,22 @@ export const Presentation = ({ performResearch, setPerformResearch }: Presentati
     setSlides,
     setCurrentSlideIndex,
     slides,
+  });
+
+  useCopilotAction({
+    name: "confirmUserName",
+    description: "Confirm the user's name",
+    parameters: [
+      {
+        name: "name",
+        type: "string",
+        description: "The user's name",
+      },
+    ],
+    handler: ({ name }) => {
+      const confirmed = window.confirm(`Confirm your name: ${name}`);
+      return { confirmed };
+    },
   });
 
   /**

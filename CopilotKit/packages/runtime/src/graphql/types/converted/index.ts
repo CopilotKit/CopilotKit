@@ -32,6 +32,7 @@ export class ResultMessage extends BaseMessage implements ResultMessageInput {
 export class AgentMessage extends BaseMessage implements AgentMessageInput {
   threadId: string;
   agentName: string;
+  nodeName: string;
   role: MessageRole;
   state: string;
   running: boolean;

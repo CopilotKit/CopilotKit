@@ -68,4 +68,7 @@ export class AgentMessageInput {
 
   @Field(() => Boolean)
   running: boolean;
+
+  @Field(() => String)
+  nodeName: string;
 }

@@ -43,6 +43,7 @@ export type RuntimeEvent =
       type: RuntimeEventTypes.AgentMessage;
       threadId: string;
       agentName: string;
+      nodeName: string;
       state: string;
       running: boolean;
     };
@@ -111,11 +112,18 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
     });
   }
 
-  sendAgentMessage(threadId: string, agentName: string, state: string, running: boolean) {
+  sendAgentMessage(
+    threadId: string,
+    agentName: string,
+    nodeName: string,
+    state: string,
+    running: boolean,
+  ) {
     this.next({
       type: RuntimeEventTypes.AgentMessage,
       threadId,
       agentName,
+      nodeName,
       state,
       running,
     });
@@ -227,7 +235,13 @@ async function executeAction(
   const result = await action.handler(args);
 
   if (isAgentResult(result, true)) {
-    eventStream$.sendAgentMessage(result.threadId, result.name, result.state, result.running);
+    eventStream$.sendAgentMessage(
+      result.threadId,
+      result.name,
+      result.nodeName,
+      result.state,
+      result.running,
+    );
     eventStream$.complete();
   } else {
     await streamLangChainResponse({

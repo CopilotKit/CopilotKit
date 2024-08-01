@@ -94,4 +94,5 @@ export class AgentMessage extends Message implements Omit<AgentMessageInput, "st
   running: AgentMessageInput["running"];
   threadId: AgentMessageInput["threadId"];
   role: AgentMessageInput["role"];
+  nodeName: AgentMessageInput["nodeName"];
 }

@@ -7,6 +7,7 @@ export type AgentResult = {
   threadId: string;
   state: string;
   name: string;
+  nodeName: string;
   running: boolean;
   __agentMessage: true;
 };
@@ -150,6 +151,7 @@ function constructActions({
 
 export async function executeAgent({
   agentName,
+  nodeName,
   threadId,
   state,
   url,
@@ -158,6 +160,7 @@ export async function executeAgent({
   logger,
 }: {
   agentName: string;
+  nodeName: string;
   threadId: string;
   state: string;
   url: string;
@@ -177,6 +180,7 @@ export async function executeAgent({
       threadId,
       state,
       name: agentName,
+      nodeName,
     }),
   });
 

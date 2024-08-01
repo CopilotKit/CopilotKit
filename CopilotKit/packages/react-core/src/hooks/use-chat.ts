@@ -223,6 +223,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           for (const message of messages) {
             newMessages.push(message);
 
+            // execute regular action executions
             if (
               message instanceof ActionExecutionMessage &&
               message.status.code !== MessageStatusCode.Pending &&
@@ -277,6 +278,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         return await runChatCompletion([...previousMessages, ...newMessages]);
       } else if (lastMessage instanceof AgentMessage) {
         // Human in the loop, return control to the user
+
         if (
           lastMessage.state?.coagent?.execute?.name === "ask" &&
           !lastMessage.state?.coagent?.execute?.result?.answer
@@ -285,6 +287,39 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           setMessages([...previousMessages, ...newMessages]);
 
           return newMessages.slice();
+        } else if (
+          lastMessage.state?.coagent?.execute?.name &&
+          !lastMessage.state?.coagent?.execute?.result &&
+          lastMessage.state?.coagent?.execute?.name !== "ask" &&
+          lastMessage.state?.coagent?.execute?.name !== "message" &&
+          onFunctionCall
+        ) {
+          console.log(lastMessage);
+          // execute the action and update the state
+          const result = await onFunctionCall({
+            messages: previousMessages,
+            name: lastMessage.state.coagent.execute.name,
+            args: lastMessage.state.coagent.execute.arguments,
+          });
+
+          const newState = JSON.parse(JSON.stringify(lastMessage.state));
+
+          newState.coagent.execute.result = result;
+
+          const message = new AgentMessage({
+            role: Role.User,
+            agentName: lastMessage.agentName,
+            nodeName: lastMessage.nodeName,
+            state: newState,
+            running: lastMessage.running,
+            threadId: lastMessage.threadId,
+          });
+
+          newMessages.push(message);
+
+          // continue running the agent
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          return await runChatCompletion([...previousMessages, ...newMessages]);
         } else {
           // continue running the agent
           if (lastMessage.running) {
