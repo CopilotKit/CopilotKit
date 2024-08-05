@@ -3,8 +3,8 @@
   "version": "1.1.0",
   "private": true,
   "scripts": {
-    "start": "node dist/index.js",
-    "start:dev": "nodemon ./src/index.ts"
+    "example-start": "node dist/index.js",
+    "example-dev": "nodemon ./src/index.ts"
   },
   "dependencies": {
     "@copilotkit/runtime": "workspace:*",

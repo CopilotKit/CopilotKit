@@ -1,0 +1,105 @@
+import { Callout } from "nextra/components";
+import { Tabs } from "nextra/components";
+import { LinkToCopilotCloud } from "../components";
+
+# Quickstart: Chatbot
+
+<Callout type="info">
+  This is a quickstart guide with a few plug-and-plain code snippets.
+  
+  If you'd like to follow a tutorial instead and learn more about CopilotKit, we recommend starting with the [AI
+  Todo List Copilot tutorial](/tutorial-ai-todo-list-copilot/overview).
+</Callout>
+
+## Setup the frontend
+
+First, you must wrap all components that interact with your copilot with the [`<CopilotKit />`](/reference/components/CopilotKit) provider.
+
+Additionally, let's use the [`<CopilotSidebar />`](/reference/components/CopilotSidebar) UI component to display the copilot chat sidebar. Some other options you can choose from are [`<CopilotPopup />`](/reference/components/CopilotPopup) and [`<CopilotChat />`](/reference/components/CopilotChat).
+
+<Callout type="info">
+  Copilot Cloud is the easiest way to get started with CopilotKit.  <LinkToCopilotCloud>Sign up for free and get your public API key</LinkToCopilotCloud>, then replace `<your-public-api-key>` with your actual API key.
+
+  If you prefer to self-host, you will need to [set up your Copilot Runtime endpoint](/concepts/copilot-runtime).
+</Callout>
+
+```tsx filename="layout.tsx" showLineNumbers /<your-public-api-key>/
+"use client";
+
+import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotSidebar } from "@copilotkit/react-ui";
+import "@copilotkit/react-ui/styles.css";
+
+export default function RootLayout({children}) {
+  return (
+    <CopilotKit publicApiKey="<your-public-api-key>">
+      <CopilotSidebar>
+        {children}
+      </CopilotSidebar>
+    </CopilotKit>
+  );
+}
+```
+
+## Copilot Readable State
+
+You likely want to provide state knowledge to the copilot. You can achieve this by using the [`useCopilotReadable`](/reference/hooks/useCopilotReadable) hook.
+
+```tsx filename="YourComponent.tsx" showLineNumbers {1,7-10}
+import { useCopilotReadable } from "@copilotkit/react-core";
+
+export function YourComponent() {
+  const { employees } = useEmployees();
+
+  // Define Copilot readable state
+  useCopilotReadable({
+    description: "List of available users",
+    value: users,
+  });
+
+  return (
+    <>...</>
+  );
+}
+```
+
+## Let the Copilot take action
+
+Aside from being aware of the state, you can make your copilots even more powerful by allowing them to take actions. You can achieve this by using the [`useCopilotAction`](/reference/hooks/useCopilotAction) hook.
+
+```tsx filename="YourComponent.tsx" showLineNumbers {13-25} /useCopilotAction/1
+import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
+
+export function YourComponent() {
+  const { employees, selectEmployee } = useEmployees();
+
+  // Define Copilot readable state
+  useCopilotReadable({
+    description: "List of available users",
+    value: users,
+  });
+
+  // Define Copilot action
+  useCopilotAction({
+    name: "Select an employee",
+    description: "Select an employee from the list",
+    parameters: [
+      {
+        name: "employeeId",
+        type: "string",
+        description: "The ID of the employee to select",
+        required: true,
+      }
+    ],
+    handler: async ({ employeeId }) => selectEmployee(employeeId),
+  });
+
+  return (
+    <>...</>
+  );
+}
+```
+
+## Next Steps
+
+We highly recommend checkout out our simple [AI Todo List Copilot Tutorial](/tutorial-ai-todo-list-copilot/overview) to learn more about CopilotKit.

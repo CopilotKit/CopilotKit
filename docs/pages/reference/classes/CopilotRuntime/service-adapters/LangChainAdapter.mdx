@@ -1,0 +1,40 @@
+import { PropertyReference } from "../../../../../components/reference/property-reference";
+
+# LangChainAdapter
+
+Copilot Runtime adapter for LangChain.
+
+## Example
+
+```ts
+import { CopilotRuntime, LangChainAdapter } from "@copilotkit/runtime";
+import { ChatOpenAI } from "@langchain/openai";
+
+const copilotKit = new CopilotRuntime();
+
+const model = new ChatOpenAI({
+  model: "gpt-4o",
+  apiKey: "<your-api-key>",
+});
+
+const serviceAdapter = new LangChainAdapter({ 
+  chainFn: async ({ messages, tools }) => {
+    return model.stream(messages, { tools });
+  }
+});
+
+return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+```
+
+The asynchronous handler funtion (`chainFn`) can return any of the following:
+
+- A simple `string` response
+- A LangChain stream (`IterableReadableStream`)
+- A LangChain `BaseMessageChunk` object
+- A LangChain `AIMessage` object
+
+## Constructor Parameters
+
+<PropertyReference name="parameters" type="ChainFnParameters" required>
+  The parameters to pass to the chain function.
+</PropertyReference>

@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - 'docs/**'
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
