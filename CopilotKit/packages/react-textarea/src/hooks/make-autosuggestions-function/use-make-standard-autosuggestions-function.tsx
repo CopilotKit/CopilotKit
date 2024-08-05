@@ -34,10 +34,12 @@ export function useMakeStandardAutosuggestionFunction(
   apiConfig: SuggestionsApiConfig,
 ): AutosuggestionsBareFunction {
   const { getContextString, copilotApiConfig } = useContext(CopilotContext);
-  const publicApiKey = copilotApiConfig.publicApiKey;
+  const { chatApiEndpoint: url, publicApiKey, credentials, properties } = copilotApiConfig;
   const headers = {
+    ...copilotApiConfig.headers,
     ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
   };
+  const { maxTokens, stop } = apiConfig;
 
   return useCallback(
     async (editorState: InsertionEditorState, abortSignal: AbortSignal) => {
@@ -66,10 +68,10 @@ export function useMakeStandardAutosuggestionFunction(
         ];
 
         const runtimeClient = new CopilotRuntimeClient({
-          url: copilotApiConfig.chatApiEndpoint,
-          publicApiKey: copilotApiConfig.publicApiKey,
-          headers: copilotApiConfig.headers,
-          credentials: copilotApiConfig.credentials,
+          url,
+          publicApiKey,
+          headers,
+          credentials,
         });
 
         const response = await runtimeClient
@@ -82,8 +84,12 @@ export function useMakeStandardAutosuggestionFunction(
               metadata: {
                 requestType: CopilotRequestType.TextareaCompletion,
               },
+              forwardedParameters: {
+                maxTokens,
+                stop,
+              },
             },
-            properties: copilotApiConfig.properties,
+            properties,
             signal: abortSignal,
           })
           .toPromise();
