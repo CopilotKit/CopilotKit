@@ -81,8 +81,7 @@ export const Presentation = ({ performResearch, setPerformResearch }: Presentati
       },
     ],
     handler: ({ name }) => {
-      const confirmed = window.confirm(`Confirm your name: ${name}`);
-      return { confirmed };
+      return window.confirm(`Confirm your name: ${name}`);
     },
   });
 
