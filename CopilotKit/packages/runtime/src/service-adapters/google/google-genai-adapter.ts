@@ -1,32 +1,23 @@
 /**
- * CopilotKit Adapter for Google Gemini
+ * Copilot Runtime adapter for Google Generative AI (e.g. Gemini).
  *
- * Use this adapter for a Google Gemini backend.
+ * ## Example
  *
- * <RequestExample>
- * ```typescript
+ * ```ts
+ * import { CopilotRuntime, GoogleGenerativeAIAdapter } from "@copilotkit/runtime";
+ * const { GoogleGenerativeAI } = require("@google/generative-ai");
+ *
+ * const genAI = new GoogleGenerativeAI(process.env["GOOGLE_API_KEY"]);
+ *
  * const copilotKit = new CopilotRuntime();
- * return copilotKit.response(
- *   req,
- *   new GoogleGenerativeAIAdapter()
- * );
- * ```
- * </RequestExample>
  *
- * To set up a different model, pass the model prop:
+ * const model = genAI.getGenerativeModel({
+ *   model: "gemini-pro"
+ * });
  *
- * ```typescript
- * const copilotKit = new CopilotRuntime();
- * const genAI = new GoogleGenerativeAI(
- *  process.env["GOOGLE_API_KEY"]!
- * );
- * const model = genAI.getGenerativeModel(
- *  { model: "gemini-pro" }
- * );
- * return copilotKit.response(
- *   req,
- *   new GoogleGenerativeAIAdapter()
- * );
+ * const serviceAdapter = new GoogleGenerativeAIAdapter({ model });
+ *
+ * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
  * ```
  */
 import { CopilotServiceAdapter } from "../service-adapter";
@@ -41,7 +32,7 @@ import { randomId } from "@copilotkit/shared";
 
 interface GoogleGenerativeAIAdapterOptions {
   /**
-   * A custom `GenerativeModel` to use for the request.
+   * A custom Google Generative AI model to use.
    */
   model?: GenerativeModel;
 }

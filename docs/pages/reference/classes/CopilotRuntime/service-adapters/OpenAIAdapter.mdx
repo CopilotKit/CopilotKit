@@ -13,7 +13,7 @@ import OpenAI from "openai";
 const copilotKit = new CopilotRuntime();
 
 const openai = new OpenAI({
-  organization: "<your-organization-id>",
+  organization: "<your-organization-id>", // optional
   apiKey: "<your-api-key>",
 });
 
@@ -25,10 +25,10 @@ return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
 ## Constructor Parameters
 
 <PropertyReference name="openai" type="OpenAI">
-  An optional OpenAI instance to use. If not provided, a new instance will be created.
+  An optional OpenAI instance to use. If not provided, a new instance will be
+  created.
 </PropertyReference>
 
 <PropertyReference name="model" type="string">
   The model to use.
 </PropertyReference>
-

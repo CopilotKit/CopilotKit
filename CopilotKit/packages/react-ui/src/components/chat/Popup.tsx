@@ -1,36 +1,49 @@
 /**
- * A chatbot popup component for CopilotKit.
- *
- * <img src="/images/CopilotPopup/CopilotPopup.gif" width="500" />
- *
- * <img referrerPolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be" />
+ * <br/>
+ * <img src="/images/CopilotPopup.gif" width="500" />
  *
  * A chatbot popup component for the CopilotKit framework. The component allows for a high degree
  * of customization through various props and custom CSS.
  *
- * See [CopilotSidebar](./CopilotSidebar) for a sidebar version of this component.
+ * See [CopilotSidebar](/reference/components/CopilotSidebar) for a sidebar version of this component.
  *
- * <RequestExample>
- *   ```jsx CopilotPopup Example
- *   import { CopilotPopup } from "@copilotkit/react-ui";
+ * ## Example
  *
- *   <CopilotPopup
- *     labels={{
- *       title: "Your Assistant",
- *       initial: "Hi! 👋 How can I assist you today?",
- *     }}
- *   />
- *   ```
- * </RequestExample>
+ * ```tsx
+ * import { CopilotPopup } from "@copilotkit/react-ui";
  *
- * ## Custom CSS
+ * <CopilotPopup
+ *   labels={{
+ *     title: "Your Assistant",
+ *     initial: "Hi! 👋 How can I assist you today?",
+ *   }}
+ * />
+ * ```
+ *
+ * ## Usage
+ *
+ * ### Install Dependencies
+ *
+ * This component is part of the [@copilotkit/react-ui](https://npmjs.com/package/@copilotkit/react-ui) package.
+ *
+ * ```shell npm2yarn \"@copilotkit/react-ui"\
+ * npm install @copilotkit/react-core @copilotkit/react-ui
+ * ```
+ *
+ * ### Custom Styles
+ *
+ * To opt-in for the built-in styles, make sure to import the following at the root of your application:
+ *
+ * ```tsx
+ * import "@copilotkit/react-ui/styles.css";
+ * ```
  *
  * You can customize the colors of the chat window by overriding the CSS variables
  * defined in the [default styles](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-ui/src/css/colors.css).
  *
  * For example, to set the primary color to purple:
  *
- * ```jsx
+ * ```tsx
  * <div style={{ "--copilot-kit-primary-color": "#7D5BA6" }}>
  *   <CopilotPopup />
  * </div>

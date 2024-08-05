@@ -1,38 +1,34 @@
 /**
- * Provides the Copilot context to its children.
- * 
- * <img
- *   referrerPolicy="no-referrer-when-downgrade"
- *   src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be"
- * />
- * 
- * This component provides the Copilot context to its children.
- * It can be configured either with a chat API endpoint or a `CopilotApiConfig`.
- * 
- * <Note>
- *   The backend can use OpenAI, or you can bring your own LLM. For examples of the
- *   backend api implementation, see `examples/next-openai` or the [runtime
- *   docs](https://docs.copilotkit.ai/getting-started/quickstart-runtime).
- * </Note>
- * 
- * <RequestExample>
- *   ```jsx CopilotKit Example
- *   import { CopilotKit } from "@copilotkit/react-core";
- * 
- *   <CopilotKit 
- *     runtimeUrl="https://your.copilotkit.api">
- *     <YourApp/>
- *   </CopilotKit>
- *   ```
- * </RequestExample>
- * 
- * ## Example usage
- * 
- * ```jsx
- * <CopilotKit publicApiKey="the api key or self host (see below)">
- *   <App />
- * </CopilotKit>
-```
+ * This component will typically wrap your entire application (or a sub-tree of your application where you want to have a copilot). It provides the copilot context to all other components and hooks.
+ *
+ * ## Example
+ *
+ * <Tabs items={["Copilot Cloud (Recommended)", "Self-hosted Runtime"]}>
+ *   <Tabs.Tab>
+ *
+ *     You can get your Copilot Cloud API key for free by <LinkToCopilotCloud>signing up here</LinkToCopilotCloud>.
+ *
+ *     ```tsx
+ *     import { CopilotKit } from "@copilotkit/react-core";
+ *
+ *     <CopilotKit publicApiKey="<your-public-api-key>">
+ *       // ... your app ...
+ *     </CopilotKit>
+ *     ```
+ *   </Tabs.Tab>
+ *
+ *   <Tabs.Tab>
+ *     You can find more information about self-hosting CopilotKit [here](/concepts/copilot-runtime).
+ *
+ *     ```tsx
+ *     import { CopilotKit } from "@copilotkit/react-core";
+ *
+ *     <CopilotKit runtimeUrl="<your-runtime-url>">
+ *       // ... your app ...
+ *     </CopilotKit>
+ *     ```
+ *   </Tabs.Tab>
+ * </Tabs>
  */
 import { useCallback, useRef, useState } from "react";
 import {

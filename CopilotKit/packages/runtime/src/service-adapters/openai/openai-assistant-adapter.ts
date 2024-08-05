@@ -1,19 +1,28 @@
 /**
- * CopilotKit Adapter for the OpenAI Assistant API.
+ * Copilot Runtime adapter for the OpenAI Assistant API.
  *
- * Use this adapter to get responses from the OpenAI Assistant API.
+ * ## Example
  *
- * <RequestExample>
- * ```typescript
+ * ```ts
+ * import { CopilotRuntime, OpenAIAssistantAdapter } from "@copilotkit/runtime";
+ * import OpenAI from "openai";
+ *
  * const copilotKit = new CopilotRuntime();
- * return copilotKit.response(
- *   req,
- *   new OpenAIAssistantAdapter({
- *    assistantId: "your-assistant-id"
- *   })
- * );
+ *
+ * const openai = new OpenAI({
+ *   organization: "<your-organization-id>",
+ *   apiKey: "<your-api-key>",
+ * });
+ *
+ * const serviceAdapter = new OpenAIAssistantAdapter({
+ *   openai,
+ *   assistantId: "<your-assistant-id>",
+ *   codeInterpreterEnabled: true,
+ *   fileSearchEnabled: true,
+ * });
+ *
+ * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
  * ```
- * </RequestExample>
  */
 import OpenAI from "openai";
 import {
@@ -40,17 +49,19 @@ export interface OpenAIAssistantAdapterParams {
   assistantId: string;
 
   /**
-   * An instance of `OpenAI` to use for the request. If not provided, a new instance will be created.
+   * An optional OpenAI instance to use. If not provided, a new instance will be created.
    */
   openai?: OpenAI;
 
   /**
-   * Whether to enable the code interpreter. Defaults to `true`.
+   * Whether to enable code interpretation.
+   * @default true
    */
   codeInterpreterEnabled?: boolean;
 
   /**
-   * Whether to enable retrieval. Defaults to `true`.
+   * Whether to enable file search.
+   * @default true
    */
   fileSearchEnabled?: boolean;
 }

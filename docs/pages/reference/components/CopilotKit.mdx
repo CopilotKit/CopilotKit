@@ -20,6 +20,7 @@ This component will typically wrap your entire application (or a sub-tree of you
       // ... your app ...
     </CopilotKit>
     ```
+
   </Tabs.Tab>
 
   <Tabs.Tab>
@@ -32,6 +33,7 @@ This component will typically wrap your entire application (or a sub-tree of you
       // ... your app ...
     </CopilotKit>
     ```
+
   </Tabs.Tab>
 </Tabs>
 
@@ -42,22 +44,28 @@ This component will typically wrap your entire application (or a sub-tree of you
 </PropertyReference>
 
 <PropertyReference name="publicApiKey" type="string">
-  Your Copilot Cloud API key. Don't have it yet? <LinkToCopilotCloud>Click here to sign up for free</LinkToCopilotCloud>.
+  Your Copilot Cloud API key. Don't have it yet?{" "}
+  <LinkToCopilotCloud>Click here to sign up for free</LinkToCopilotCloud>.
 </PropertyReference>
 
-<PropertyReference name="cloudRestrictToTopic" cloudOnly type="{ validTopics?: string[]; invalidTopics?: string[]; }" >
+<PropertyReference
+  name="cloudRestrictToTopic"
+  cloudOnly
+  type="{ validTopics?: string[]; invalidTopics?: string[]; }"
+>
   Restrict input to a specific topic.
 </PropertyReference>
 
-<PropertyReference name="runtimeUrl" type="string" >
-  The endpoint for the Copilot Runtime instance. [Click here for more information](/concepts/copilot-runtime).
+<PropertyReference name="runtimeUrl" type="string">
+  The endpoint for the Copilot Runtime instance. [Click here for more
+  information](/concepts/copilot-runtime).
 </PropertyReference>
 
-<PropertyReference name="transcribeAudioUrl" type="string" >
+<PropertyReference name="transcribeAudioUrl" type="string">
   The endpoint for the Copilot transcribe audio service.
 </PropertyReference>
 
-<PropertyReference name="textToSpeechUrl" type="string" >
+<PropertyReference name="textToSpeechUrl" type="string">
   The endpoint for the Copilot text to speech service.
 </PropertyReference>
 
@@ -75,12 +83,14 @@ This component will typically wrap your entire application (or a sub-tree of you
 <PropertyReference name="body" type="Record<string, any>" >
   Additional body params to be sent with the request
 
-  For example:
-  ```json
-  {
-    "message": "Hello, world!"
-  }
-  ```
+For example:
+
+```json
+{
+  "message": "Hello, world!"
+}
+```
+
 </PropertyReference>
 
 <PropertyReference name="properties" type="Record<string, any>" >
@@ -94,12 +104,12 @@ This component will typically wrap your entire application (or a sub-tree of you
   ```
 </PropertyReference>
 
-<PropertyReference name="credentials" type="RequestCredentials" >
-  Indicates whether the user agent should send or receive cookies from the other domain in the case of cross-origin requests.
+<PropertyReference name="credentials" type="RequestCredentials">
+  Indicates whether the user agent should send or receive cookies from the other
+  domain in the case of cross-origin requests.
 </PropertyReference>
 
-<PropertyReference name="showDevConsole" type={`boolean | "auto"`} >
-  Whether to show the dev console.
- 
-  If set to "auto", the dev console will be show on localhost only.
+<PropertyReference name="showDevConsole" type={`boolean | "auto"`}>
+  Whether to show the dev console. If set to "auto", the dev console will be
+  show on localhost only.
 </PropertyReference>
