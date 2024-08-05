@@ -46,17 +46,6 @@ export interface CopilotKitProps {
   headers?: Record<string, string>;
 
   /**
-   * Additional body params to be sent with the request
-   * For example:
-   * ```js
-   * {
-   *   'message': 'Hello, world!'
-   * }
-   * ```
-   */
-  body?: Record<string, any>;
-
-  /**
    * The children to be rendered within the CopilotKit.
    */
   children: ReactNode;

@@ -58,20 +58,6 @@ export interface UseCopilotChatOptions {
    * HTTP headers to be sent with the API request.
    */
   headers?: Record<string, string> | Headers;
-
-  /**
-   * Extra body object to be sent with the API request.
-   * @example
-   * Send a `sessionId` to the API along with the messages.
-   * ```js
-   * useChat({
-   *   body: {
-   *     sessionId: '123',
-   *   }
-   * })
-   * ```
-   */
-  body?: object;
   /**
    * System messages of the chat. Defaults to an empty array.
    */
