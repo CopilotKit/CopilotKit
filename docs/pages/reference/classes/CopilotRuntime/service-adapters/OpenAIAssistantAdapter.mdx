@@ -1,47 +1,51 @@
 import { PropertyReference } from "../../../../../components/reference/property-reference";
 
+import { LinkToCopilotCloud } from "../../../../../components";
+
+import { Tabs } from "nextra/components";
+
 # OpenAIAssistantAdapter
 
 Copilot Runtime adapter for the OpenAI Assistant API.
-
+ 
 ## Example
-
+ 
 ```ts
 import { CopilotRuntime, OpenAIAssistantAdapter } from "@copilotkit/runtime";
 import OpenAI from "openai";
-
+ 
 const copilotKit = new CopilotRuntime();
-
+ 
 const openai = new OpenAI({
   organization: "<your-organization-id>",
   apiKey: "<your-api-key>",
 });
-
-const serviceAdapter = new OpenAIAssistantAdapter({ 
+ 
+const serviceAdapter = new OpenAIAssistantAdapter({
   openai,
   assistantId: "<your-assistant-id>",
   codeInterpreterEnabled: true,
   fileSearchEnabled: true,
 });
-
+ 
 return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
 ```
 
 ## Constructor Parameters
 
-<PropertyReference name="assistantId" type="string" required>
-  The ID of the assistant to use.
+<PropertyReference name="assistantId" type="string" required > 
+The ID of the assistant to use.
 </PropertyReference>
 
-<PropertyReference name="openai" type="OpenAI">
-  An optional OpenAI instance to use. If not provided, a new instance will be created.
+<PropertyReference name="openai" type="OpenAI"  > 
+An optional OpenAI instance to use. If not provided, a new instance will be created.
 </PropertyReference>
 
-<PropertyReference name="codeInterpreterEnabled" type="boolean" default={false}>
-  Whether to enable code interpretation.
+<PropertyReference name="codeInterpreterEnabled" type="boolean"  default="true"> 
+Whether to enable code interpretation.
 </PropertyReference>
 
-<PropertyReference name="fileSearchEnabled" type="boolean" default={false}>
-  Whether to enable file search.
+<PropertyReference name="fileSearchEnabled" type="boolean"  default="true"> 
+Whether to enable file search.
 </PropertyReference>
 

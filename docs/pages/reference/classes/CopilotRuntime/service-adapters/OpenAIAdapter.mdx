@@ -1,34 +1,39 @@
 import { PropertyReference } from "../../../../../components/reference/property-reference";
 
+import { LinkToCopilotCloud } from "../../../../../components";
+
+import { Tabs } from "nextra/components";
+
 # OpenAIAdapter
 
 Copilot Runtime adapter for OpenAI.
-
+ 
 ## Example
-
+ 
 ```ts
 import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
 import OpenAI from "openai";
-
+ 
 const copilotKit = new CopilotRuntime();
-
+ 
 const openai = new OpenAI({
   organization: "<your-organization-id>", // optional
   apiKey: "<your-api-key>",
 });
-
+ 
 const serviceAdapter = new OpenAIAdapter({ openai });
-
+ 
 return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
 ```
 
 ## Constructor Parameters
 
-<PropertyReference name="openai" type="OpenAI">
-  An optional OpenAI instance to use. If not provided, a new instance will be
+<PropertyReference name="openai" type="OpenAI"  > 
+An optional OpenAI instance to use.  If not provided, a new instance will be
   created.
 </PropertyReference>
 
-<PropertyReference name="model" type="string">
-  The model to use.
+<PropertyReference name="model" type="string"  > 
+The model to use.
 </PropertyReference>
+

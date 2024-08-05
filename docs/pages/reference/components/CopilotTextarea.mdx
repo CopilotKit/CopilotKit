@@ -1,23 +1,27 @@
 import { PropertyReference } from "../../../components/reference/property-reference";
 
+import { LinkToCopilotCloud } from "../../../components";
+
+import { Tabs } from "nextra/components";
+
 # `<CopilotTextarea />`
 
 <br/>
 <img src="/images/CopilotTextarea.gif" width="500" />
-
+ 
 `<CopilotTextarea>` is a React component that acts as a drop-in replacement for the standard `<textarea>`,
  offering enhanced autocomplete features powered by AI. It is context-aware, integrating seamlessly with the
 [`useCopilotReadable`](/reference/hooks/useCopilotReadable) hook to provide intelligent suggestions based on the application context.
  
 In addition, it provides a hovering editor window (available by default via `Cmd + K` on Mac and `Ctrl + K` on Windows) that allows the user to
 suggest changes to the text, for example providing a summary or rephrasing the text.
-
-
+ 
+ 
 ## Example
-
+ 
 ```tsx
 import { CopilotTextarea } from '@copilot/react-ui';
-
+ 
 <CopilotTextarea
   autosuggestionsConfig={{
     textareaPurpose:
@@ -26,19 +30,19 @@ import { CopilotTextarea } from '@copilot/react-ui';
   }}
 />
 ```
-
+ 
 ## Usage
-
+ 
 ### Install Dependencies
-
+ 
 This component is part of the [@copilotkit/react-ui](https://npmjs.com/package/@copilotkit/react-ui) package.
-
+ 
 ```shell npm2yarn \"@copilotkit/react-ui"\
 npm install @copilotkit/react-core @copilotkit/react-ui
 ```
-
+ 
 ### Usage
-
+ 
 Use the CopilotTextarea component in your React application similarly to a standard `<textarea />`,
 with additional configurations for AI-powered features.
  
@@ -75,7 +79,39 @@ export function ExampleComponent() {
 
 ## Properties
 
-<PropertyReference name="autosuggestionsConfig" type="AutosuggestionsConfigUserSpecified" required>
+<PropertyReference name="disableBranding" type="boolean"  > 
+Determines whether the CopilotKit branding should be disabled. Default is `false`.
+</PropertyReference>
+
+<PropertyReference name="placeholderStyle" type="React.CSSProperties"  > 
+Specifies the CSS styles to apply to the placeholder text.
+</PropertyReference>
+
+<PropertyReference name="suggestionsStyle" type="React.CSSProperties"  > 
+Specifies the CSS styles to apply to the suggestions list.
+</PropertyReference>
+
+<PropertyReference name="hoverMenuClassname" type="string"  > 
+A class name to apply to the editor popover window.
+</PropertyReference>
+
+<PropertyReference name="value" type="string"  > 
+The initial value of the textarea. Can be controlled via `onValueChange`.
+</PropertyReference>
+
+<PropertyReference name="onValueChange" type="(value: string) => void"  > 
+Callback invoked when the value of the textarea changes.
+</PropertyReference>
+
+<PropertyReference name="onChange" type="(event: React.ChangeEvent<HTMLTextAreaElement>) => void"  > 
+Callback invoked when a `change` event is triggered on the textarea element.
+</PropertyReference>
+
+<PropertyReference name="shortcut" type="string"  > 
+The shortcut to use to open the editor popover window. Default is `"Cmd-k"`.
+</PropertyReference>
+
+<PropertyReference name="autosuggestionsConfig" type="AutosuggestionsConfigUserSpecified" required > 
 Configuration settings for the autosuggestions feature.
   Includes a mandatory `textareaPurpose` to guide the autosuggestions.
  
@@ -105,34 +141,3 @@ Configuration settings for the autosuggestions feature.
   ```
 </PropertyReference>
 
-<PropertyReference name="disableBranding" type="boolean" >
-Determines whether the CopilotKit branding should be disabled. Default is `false`.
-</PropertyReference>
-
-<PropertyReference name="placeholderStyle" type="React.CSSProperties" >
-Specifies the CSS styles to apply to the placeholder text.
-</PropertyReference>
-
-<PropertyReference name="suggestionsStyle" type="React.CSSProperties" >
-Specifies the CSS styles to apply to the suggestions list.
-</PropertyReference>
-
-<PropertyReference name="hoverMenuClassname" type="string" >
-A class name to apply to the editor popover window.
-</PropertyReference>
-
-<PropertyReference name="value" type="string" >
-The initial value of the textarea. Can be controlled via `onValueChange`.
-</PropertyReference>
-
-<PropertyReference name="onValueChange" type="(value: string) => void" >
-Callback invoked when the value of the textarea changes.
-</PropertyReference>
-
-<PropertyReference name="onChange" type="(event: React.ChangeEvent<HTMLTextAreaElement>) => void" >
-Callback invoked when a `change` event is triggered on the textarea element.
-</PropertyReference>
-
-<PropertyReference name="shortcut" type="string" >
-The shortcut to use to open the editor popover window. Default is `"Cmd + K"`.
-</PropertyReference>
