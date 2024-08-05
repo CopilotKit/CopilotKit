@@ -21,7 +21,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   {
     sourcePath: "packages/runtime/src/service-adapters/openai/openai-adapter.ts",
     destinationPath:
-      "docs/pages/reference/classes/CopilotRuntime/service-adapters/OpenAiAdapter.mdx",
+      "docs/pages/reference/classes/CopilotRuntime/service-adapters/OpenAIAdapter.mdx",
     className: "OpenAIAdapter",
   },
   {
