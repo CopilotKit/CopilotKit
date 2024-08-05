@@ -3,6 +3,7 @@ import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotKitCSSProperties, CopilotPopup, CopilotSidebar } from "@copilotkit/react-ui";
 import "./styles.css";
 import { Presentation } from "./components/main/Presentation";
+
 import { useState } from "react";
 
 export default function AIPresentation() {
