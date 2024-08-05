@@ -234,7 +234,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         removeChatSuggestionConfiguration,
         chatInstructions,
         setChatInstructions,
-        showDevConsole: props.showDevConsole || "auto",
+        showDevConsole: props.showDevConsole === undefined ? "auto" : props.showDevConsole,
       }}
     >
       {children}
