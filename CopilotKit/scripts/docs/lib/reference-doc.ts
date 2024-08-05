@@ -52,6 +52,7 @@ export class ReferenceDoc {
     result += `import { PropertyReference } from "${importPathPrefix}components/reference/property-reference";\n\n`;
     result += `import { LinkToCopilotCloud } from "${importPathPrefix}components";\n\n`;
     result += 'import { Tabs } from "nextra/components";\n\n';
+    result += 'import { Callout } from "nextra/components";\n\n';
 
     // title
     if (this.referenceDoc.component) {
@@ -76,8 +77,9 @@ export class ReferenceDoc {
         if (property.comment.includes("@deprecated")) {
           continue;
         }
+        const type = property.type.replace(/"/g, "'");
 
-        result += `<PropertyReference name="${property.name}" type="${property.type}" ${property.required ? "required" : ""} ${property.defaultValue ? `default="${property.defaultValue}"` : ""}> \n`;
+        result += `<PropertyReference name="${property.name}" type="${type}" ${property.required ? "required" : ""} ${property.defaultValue ? `default="${property.defaultValue}"` : ""}> \n`;
         result += `${property.comment}\n`;
         result += `</PropertyReference>\n\n`;
       }
@@ -87,7 +89,9 @@ export class ReferenceDoc {
         result += `## ${constr.signature}\n\n`;
         result += `${constr.comment}\n\n`;
         for (const param of constr.parameters) {
-          result += `<PropertyReference name="${param.name}" type="${param.type}" ${param.required ? "required" : ""}>\n`;
+          const type = param.type.replace(/"/g, "'");
+
+          result += `<PropertyReference name="${param.name}" type="${type}" ${param.required ? "required" : ""}>\n`;
           result += `${param.comment}\n`;
           result += `</PropertyReference>\n\n`;
         }
@@ -113,7 +117,9 @@ export class ReferenceDoc {
         result += `<PropertyReference name="${methodName}" type="${methodArgs}">\n`;
         result += `${method.comment}\n\n`;
         for (const param of method.parameters) {
-          result += `  <PropertyReference name="${param.name}" type="${param.type}" ${param.required ? "required" : ""}>\n`;
+          const type = param.type.replace(/"/g, "'");
+
+          result += `  <PropertyReference name="${param.name}" type="${type}" ${param.required ? "required" : ""}>\n`;
           result += `  ${param.comment}\n`;
           result += `  </PropertyReference>\n\n`;
         }

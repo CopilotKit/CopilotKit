@@ -4,6 +4,8 @@ import { LinkToCopilotCloud } from "../../../components";
 
 import { Tabs } from "nextra/components";
 
+import { Callout } from "nextra/components";
+
 # useCopilotChat
 
 `useCopilotChat` is a React hook that lets you directly interact with the
@@ -55,19 +57,6 @@ A unique identifier for the chat. If not provided, a random one will be
 
 <PropertyReference name="headers" type="Record<string, string> | Headers"  > 
 HTTP headers to be sent with the API request.
-</PropertyReference>
-
-<PropertyReference name="body" type="object"  > 
-Extra body object to be sent with the API request.
-  @example
-  Send a `sessionId` to the API along with the messages.
-  ```js
-  useChat({
-    body: {
-      sessionId: '123',
-    }
-  })
-  ```
 </PropertyReference>
 
 <PropertyReference name="initialMessages" type="Message[]"  > 

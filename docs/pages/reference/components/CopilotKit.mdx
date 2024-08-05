@@ -4,6 +4,8 @@ import { LinkToCopilotCloud } from "../../../components";
 
 import { Tabs } from "nextra/components";
 
+import { Callout } from "nextra/components";
+
 # `<CopilotKit />`
 
 This component will typically wrap your entire application (or a sub-tree of your application where you want to have a copilot). It provides the copilot context to all other components and hooks.
@@ -70,16 +72,6 @@ Additional headers to be sent with the request.
   ```
 </PropertyReference>
 
-<PropertyReference name="body" type="Record<string, any>"  > 
-Additional body params to be sent with the request
-  For example:
-  ```js
-  {
-    'message': 'Hello, world!'
-  }
-  ```
-</PropertyReference>
-
 <PropertyReference name="children" type="ReactNode" required > 
 The children to be rendered within the CopilotKit.
 </PropertyReference>
@@ -99,7 +91,7 @@ Indicates whether the user agent should send or receive cookies from the other d
   in the case of cross-origin requests.
 </PropertyReference>
 
-<PropertyReference name="showDevConsole" type="boolean | "auto""  > 
+<PropertyReference name="showDevConsole" type="boolean | 'auto'"  > 
 Whether to show the dev console.
  
   If set to "auto", the dev console will be show on localhost only.

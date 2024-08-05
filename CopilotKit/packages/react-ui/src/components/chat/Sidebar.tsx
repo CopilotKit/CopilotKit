@@ -1,27 +1,24 @@
 /**
  * <br/>
- * <img src="/images/CopilotTextarea.gif" width="500" />
+ * <img src="/images/CopilotSidebar.gif" width="500" />
  *
- * `<CopilotTextarea>` is a React component that acts as a drop-in replacement for the standard `<textarea>`,
- *  offering enhanced autocomplete features powered by AI. It is context-aware, integrating seamlessly with the
- * [`useCopilotReadable`](/reference/hooks/useCopilotReadable) hook to provide intelligent suggestions based on the application context.
+ * A chatbot sidebar component for the CopilotKit framework. Highly customizable through various props and custom CSS.
  *
- * In addition, it provides a hovering editor window (available by default via `Cmd + K` on Mac and `Ctrl + K` on Windows) that allows the user to
- * suggest changes to the text, for example providing a summary or rephrasing the text.
- *
+ * See [CopilotPopup](/reference/components/CopilotPopup) for a popup version of this component.
  *
  * ## Example
  *
  * ```tsx
- * import { CopilotTextarea } from '@copilot/react-ui';
+ * import { CopilotSidebar } from "@copilotkit/react-ui";
  *
- * <CopilotTextarea
- *   autosuggestionsConfig={{
- *     textareaPurpose:
- *      "the body of an email message",
- *     chatApiConfigs: {},
+ * <CopilotSidebar
+ *   labels={{
+ *     title: "Your Assistant",
+ *     initial: "Hi! 👋 How can I assist you today?",
  *   }}
- * />
+ * >
+ *   <YourApp/>
+ * </CopilotSidebar>
  * ```
  *
  * ## Usage
@@ -34,37 +31,33 @@
  * npm install @copilotkit/react-core @copilotkit/react-ui
  * ```
  *
- * ### Usage
+ * ### Custom Styles
  *
- * Use the CopilotTextarea component in your React application similarly to a standard `<textarea />`,
- * with additional configurations for AI-powered features.
+ * To opt-in for the built-in styles, make sure to import the following at the root of your application:
+ *
+ * ```tsx
+ * import "@copilotkit/react-ui/styles.css";
+ * ```
+ *
+ * You can customize the colors of the chat window by overriding the CSS variables
+ * defined in the [default styles](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-ui/src/css/colors.css).
+ *
+ * For example, to set the primary color to purple:
+ *
+ * ```jsx
+ * <div style={{ "--copilot-kit-primary-color": "#7D5BA6" }}>
+ *   <CopilotSidebar />
+ * </div>
+ * ```
+ *
+ * To further customize the chat window, you can override the CSS classes defined
+ * [here](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-ui/src/css/).
  *
  * For example:
  *
- * ```tsx
- * import { CopilotTextarea } from "@copilotkit/react-textarea";
- * import { useState } from "react";
- *
- * export function ExampleComponent() {
- *   const [text, setText] = useState("");
- *
- *   return (
- *     <CopilotTextarea
- *       className="custom-textarea-class"
- *       value={text}
- *       onValueChange={(value: string) => setText(value)}
- *       placeholder="Enter your text here..."
- *       autosuggestionsConfig={{
- *         textareaPurpose: "Provide context or purpose of the textarea.",
- *         chatApiConfigs: {
- *           suggestionsApiConfig: {
- *             max_tokens: 20,
- *             stop: [".", "?", "!"],
- *           },
- *         },
- *       }}
- *     />
- *   );
+ * ```css
+ * .copilotKitButton {
+ *   border-radius: 0;
  * }
  * ```
  */
