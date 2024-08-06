@@ -1,37 +1,43 @@
 /**
- * A chatbot sidebar component for CopilotKit.
- *
- * <img src="/images/CopilotSidebar/CopilotSidebar.gif" width="500" />
- *
- * <img referrerPolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be" />
+ * <br/>
+ * <img src="/images/CopilotSidebar.gif" width="500" />
  *
  * A chatbot sidebar component for the CopilotKit framework. Highly customizable through various props and custom CSS.
  *
- * <RequestExample>
- *   ```jsx CopilotSidebar Example
- *   import { CopilotSidebar } from "@copilotkit/react-ui";
+ * See [CopilotPopup](/reference/components/CopilotPopup) for a popup version of this component.
  *
- *   <CopilotSidebar
- *     labels={{
- *       title: "Your Assistant",
- *       initial: "Hi! 👋 How can I assist you today?",
- *     }}
- *   >
- *     <YourApp/>
- *   </CopilotSidebar>
- *   ```
- * </RequestExample>
+ * ## Example
  *
+ * ```tsx
+ * import { CopilotSidebar } from "@copilotkit/react-ui";
  *
- * See [CopilotPopup](./CopilotPopup) for a popup version of this component.
+ * <CopilotSidebar
+ *   labels={{
+ *     title: "Your Assistant",
+ *     initial: "Hi! 👋 How can I assist you today?",
+ *   }}
+ * >
+ *   <YourApp/>
+ * </CopilotSidebar>
+ * ```
  *
- * <Note>
- *   To make the sidebar push your content to the side, wrap your content in the
- *   sidebar component. If you want the sidebar to overlay your content, place the
- *   sidebar component outside of your content.
- * </Note>
+ * ## Usage
  *
- * ## Custom CSS
+ * ### Install Dependencies
+ *
+ * This component is part of the [@copilotkit/react-ui](https://npmjs.com/package/@copilotkit/react-ui) package.
+ *
+ * ```shell npm2yarn \"@copilotkit/react-ui"\
+ * npm install @copilotkit/react-core @copilotkit/react-ui
+ * ```
+ *
+ * ### Custom Styles
+ *
+ * To opt-in for the built-in styles, make sure to import the following at the root of your application:
+ *
+ * ```tsx
+ * import "@copilotkit/react-ui/styles.css";
+ * ```
  *
  * You can customize the colors of the chat window by overriding the CSS variables
  * defined in the [default styles](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-ui/src/css/colors.css).

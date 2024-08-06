@@ -5,3 +5,4 @@
 *.pem
 __snapshots__
 @generated
+node_modules

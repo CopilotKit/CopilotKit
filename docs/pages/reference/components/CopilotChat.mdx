@@ -1,18 +1,24 @@
 import { PropertyReference } from "../../../components/reference/property-reference";
 
+import { LinkToCopilotCloud } from "../../../components";
+
+import { Tabs } from "nextra/components";
+
+import { Callout } from "nextra/components";
+
 # `<CopilotChat />`
 
 <br/>
 <img src="/images/CopilotChat.gif" width="500" />
-
+ 
 A chatbot panel component for the CopilotKit framework. The component allows for a high degree
 of customization through various props and custom CSS.
  
 ## Example
-
+ 
 ```tsx
 import { CopilotChat } from "@copilotkit/react-ui";
-
+ 
 <CopilotChat
   labels={{
     title: "Your Assistant",
@@ -20,30 +26,30 @@ import { CopilotChat } from "@copilotkit/react-ui";
   }}
 />
 ```
-
+ 
 ## Usage
-
+ 
 ### Install Dependencies
-
+ 
 This component is part of the [@copilotkit/react-ui](https://npmjs.com/package/@copilotkit/react-ui) package.
-
+ 
 ```shell npm2yarn \"@copilotkit/react-ui"\
 npm install @copilotkit/react-core @copilotkit/react-ui
 ```
-
+ 
 ### Custom Styles
-
+ 
 To opt-in for the built-in styles, make sure to import the following at the root of your application:
-
+ 
 ```tsx
 import "@copilotkit/react-ui/styles.css";
 ```
-
+ 
 You can customize the colors of the panel by overriding the CSS variables
 defined in the [default styles](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-ui/src/css/colors.css).
  
 For example, to set the primary color to purple:
-
+ 
 ```tsx
 <div style={{ "--copilot-kit-primary-color": "#7D5BA6" }}>
   <CopilotPopup />
@@ -59,11 +65,10 @@ For example:
 .copilotKitButton {
   border-radius: 0;
 }
-```
 
 ## Properties
 
-<PropertyReference name="instructions" type="string" >
+<PropertyReference name="instructions" type="string"  > 
 Custom instructions to be added to the system message. Use this property to
   provide additional context or guidance to the language model, influencing
   its responses. These instructions can include specific directions,
@@ -72,50 +77,50 @@ Custom instructions to be added to the system message. Use this property to
   user's needs or the application's requirements.
 </PropertyReference>
 
-<PropertyReference name="onInProgress" type="(inProgress: boolean) => void" >
+<PropertyReference name="onInProgress" type="(inProgress: boolean) => void"  > 
 A callback that gets called when the in progress state changes.
 </PropertyReference>
 
-<PropertyReference name="onSubmitMessage" type="(message: string) => void" >
+<PropertyReference name="onSubmitMessage" type="(message: string) => void | Promise<void>"  > 
 A callback that gets called when a new message it submitted.
 </PropertyReference>
 
-<PropertyReference name="icons" type="CopilotChatIcons" >
+<PropertyReference name="icons" type="CopilotChatIcons"  > 
 Icons can be used to set custom icons for the chat window.
 </PropertyReference>
 
-<PropertyReference name="labels" type="CopilotChatLabels" >
+<PropertyReference name="labels" type="CopilotChatLabels"  > 
 Labels can be used to set custom labels for the chat window.
 </PropertyReference>
 
-<PropertyReference name="makeSystemMessage" type="SystemMessageFunction" >
+<PropertyReference name="makeSystemMessage" type="SystemMessageFunction"  > 
 A function that takes in context string and instructions and returns
   the system message to include in the chat request.
   Use this to completely override the system message, when providing
   instructions is not enough.
 </PropertyReference>
 
-<PropertyReference name="showResponseButton" type="boolean" >
+<PropertyReference name="showResponseButton" type="boolean"  default="true"> 
 Whether to show the response button.
 </PropertyReference>
 
-<PropertyReference name="Messages" type="React.ComponentType<MessagesProps>" >
+<PropertyReference name="Messages" type="React.ComponentType<MessagesProps>"  > 
 A custom Messages component to use instead of the default.
 </PropertyReference>
 
-<PropertyReference name="Input" type="React.ComponentType<InputProps>" >
+<PropertyReference name="Input" type="React.ComponentType<InputProps>"  > 
 A custom Input component to use instead of the default.
 </PropertyReference>
 
-<PropertyReference name="ResponseButton" type="React.ComponentType<ResponseButtonProps>" >
+<PropertyReference name="ResponseButton" type="React.ComponentType<ResponseButtonProps>"  > 
 A custom ResponseButton component to use instead of the default.
 </PropertyReference>
 
-<PropertyReference name="className" type="string" >
+<PropertyReference name="className" type="string"  > 
 A class name to apply to the root element.
 </PropertyReference>
 
-<PropertyReference name="children" type="React.ReactNode" >
+<PropertyReference name="children" type="React.ReactNode"  > 
 Children to render.
 </PropertyReference>
 

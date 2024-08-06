@@ -1,20 +1,24 @@
 import { PropertyReference } from "../../../components/reference/property-reference";
 
+import { LinkToCopilotCloud } from "../../../components";
+
+import { Tabs } from "nextra/components";
+
+import { Callout } from "nextra/components";
+
 # CopilotTask
- 
-<img referrerPolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be" />
- 
+
 This class is used to execute one-off tasks, for example on button press. It can use the context available via [useCopilotReadable](/reference/hooks/useCopilotReadable) and the actions provided by [useCopilotAction](/reference/hooks/useCopilotAction), or you can provide your own context and actions.
  
 ## Example
 In the simplest case, use CopilotTask in the context of your app by giving it instructions on what to do.
-
+ 
 ```tsx
 import { CopilotTask, useCopilotContext } from "@copilotkit/react-core";
-
+ 
 export function MyComponent() {
   const context = useCopilotContext();
-  
+ 
   const task = new CopilotTask({
     instructions: "Set a random message",
     actions: [
@@ -30,18 +34,18 @@ export function MyComponent() {
           required: true,
         },
       ],
-
+ 
       implementation: async (message) => {
         // ...
       },
     }
     ]
   });
-
+ 
   const executeTask = async () => {
     await task.run(context, action);
   }
-
+ 
   return (
     <>
       <button onClick={executeTask}>
@@ -56,26 +60,24 @@ Have a look at the [Presentation Example App](https://github.com/CopilotKit/Copi
 
 ## Constructor Parameters
 
-<PropertyReference name="instructions" type="string" required>
+<PropertyReference name="instructions" type="string" required > 
 The instructions to be given to the assistant.
 </PropertyReference>
 
-<PropertyReference name="actions" type="FrontendAction<any>[]" >
+<PropertyReference name="actions" type="FrontendAction<any>[]"  > 
 An array of action definitions that can be called.
 </PropertyReference>
 
-<PropertyReference name="includeCopilotReadable" type="boolean" >
+<PropertyReference name="includeCopilotReadable" type="boolean"  > 
 Whether to include the copilot readable context in the task.
 </PropertyReference>
 
-<PropertyReference name="includeCopilotActions" type="boolean" >
+<PropertyReference name="includeCopilotActions" type="boolean"  > 
 Whether to include actions defined via useCopilotAction in the task.
 </PropertyReference>
 
-## Methods
-
-<PropertyReference name="run" type="CopilotContextParams" required>
-  Run the task.
+<PropertyReference name="run" type="context: CopilotContextParams, data?: T">
+Run the task.
 
   <PropertyReference name="context" type="CopilotContextParams" required>
   The CopilotContext to use for the task. Use `useCopilotContext` to obtain the current context.
@@ -84,4 +86,6 @@ Whether to include actions defined via useCopilotAction in the task.
   <PropertyReference name="data" type="T" >
   The data to use for the task.
   </PropertyReference>
+
 </PropertyReference>
+

@@ -1,44 +1,55 @@
-import { Callout } from 'nextra/components'
 import { PropertyReference } from "../../../../components/reference/property-reference";
 
-# Introduction: Copilot Runtime
+import { LinkToCopilotCloud } from "../../../../components";
+
+import { Tabs } from "nextra/components";
+
+import { Callout } from "nextra/components";
+
+# CopilotRuntime
 
 <Callout type="info">
   This is the reference for the `CopilotRuntime` class. For more information and example code snippets, please see [Concept: Copilot Runtime](/concepts/copilot-runtime).
 </Callout>
-
+ 
 ## Usage
-
+ 
 ```tsx
 import { CopilotRuntime } from "@copilotkit/runtime";
-
+ 
 const copilotKit = new CopilotRuntime();
 ```
 
-## Methods
+## Constructor Parameters
 
-<PropertyReference name="process(runtimeRequest: CopilotRuntimeRequest)" type=": Promise<CopilotRuntimeResponse>">
-  <PropertyReference name="runtimeRequest" type="CopilotRuntimeRequest" required>
-    <PropertyReference name="serviceAdapter" type="CopilotServiceAdapter" required>
-      The service adapter to use.
-    </PropertyReference>
-    <PropertyReference name="messages" type="MessageInput[]" required>
-      The message history.
-    </PropertyReference>
-    <PropertyReference name="actions" type="ActionInput[]">
-      Any actions to be considered for the execution.
-    </PropertyReference>
-    <PropertyReference name="properties" type="Record<string, AnyPrimitive>">
-      Properties that will be forwarded.
-    </PropertyReference>
-    <PropertyReference name="threadId" type="string">
-      The thread ID to use.
-    </PropertyReference>
-    <PropertyReference name="runId" type="string">
-      The run ID to use.
-    </PropertyReference>
-    <PropertyReference name="publicApiKey" type="string">
-      Ability to provide a public API key to establish a runtime -> cloud communication.
-    </PropertyReference>
-  </PropertyReference>
+<PropertyReference name="middleware" type="Middleware"  > 
+Middleware to be used by the runtime.
+ 
+  ```ts
+  onBeforeRequest: (options: {
+    threadId?: string;
+    runId?: string;
+    inputMessages: Message[];
+    properties: any;
+  }) => void | Promise<void>;
+  ```
+ 
+  ```ts
+  onAfterRequest: (options: {
+    threadId?: string;
+    runId?: string;
+    inputMessages: Message[];
+    outputMessages: Message[];
+    properties: any;
+  }) => void | Promise<void>;
+  ```
 </PropertyReference>
+
+<PropertyReference name="actions" type="ActionsConfiguration<T>"  > 
+A list of server side actions that can be executed.
+</PropertyReference>
+
+<PropertyReference name="langserve" type="RemoteChainParameters[]"  > 
+An array of LangServer URLs.
+</PropertyReference>
+
