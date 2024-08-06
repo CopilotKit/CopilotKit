@@ -3,6 +3,7 @@ import { MessageInput } from "./message.input";
 import { FrontendInput } from "./frontend.input";
 import { CloudInput } from "./cloud.input";
 import { CopilotRequestType } from "../types/enums";
+import { ForwardedParametersInput } from "./forwarded-parameters.input";
 
 @InputType()
 export class GenerateCopilotResponseMetadataInput {
@@ -29,4 +30,7 @@ export class GenerateCopilotResponseInput {
 
   @Field(() => CloudInput, { nullable: true })
   cloud?: CloudInput;
+
+  @Field(() => ForwardedParametersInput, { nullable: true })
+  forwardedParameters?: ForwardedParametersInput;
 }

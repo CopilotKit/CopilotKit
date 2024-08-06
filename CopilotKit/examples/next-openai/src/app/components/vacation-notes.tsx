@@ -28,10 +28,8 @@ export function VacationNotes() {
 
           chatApiConfigs: {
             suggestionsApiConfig: {
-              forwardedParams: {
-                max_tokens: 20,
-                stop: [".", "?", "!"],
-              },
+              maxTokens: 20,
+              stop: [".", "?", "!"],
             },
             insertionApiConfig: {},
           },

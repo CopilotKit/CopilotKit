@@ -61,17 +61,36 @@ export class GroqAdapter implements CopilotServiceAdapter {
   async process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
-    const { threadId, model = this.model, messages, actions, eventSource } = request;
+    const {
+      threadId,
+      model = this.model,
+      messages,
+      actions,
+      eventSource,
+      forwardedParameters,
+    } = request;
     const tools = actions.map(convertActionInputToOpenAITool);
 
     let openaiMessages = messages.map(convertMessageToOpenAIMessage);
     openaiMessages = limitMessagesToTokenCount(openaiMessages, tools, model);
 
+    let toolChoice: any = forwardedParameters?.toolChoice;
+    if (forwardedParameters?.toolChoice === "function") {
+      toolChoice = {
+        type: "function",
+        function: { name: forwardedParameters.toolChoiceFunctionName },
+      };
+    }
     const stream = await this.groq.chat.completions.create({
       model: model,
       stream: true,
       messages: openaiMessages,
       ...(tools.length > 0 && { tools }),
+      ...(forwardedParameters?.maxTokens && {
+        max_tokens: forwardedParameters.maxTokens,
+      }),
+      ...(forwardedParameters?.stop && { stop: forwardedParameters.stop }),
+      ...(toolChoice && { tool_choice: toolChoice }),
     });
 
     eventSource.stream(async (eventStream$) => {

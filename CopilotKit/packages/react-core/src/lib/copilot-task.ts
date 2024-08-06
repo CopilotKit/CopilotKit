@@ -150,6 +150,9 @@ export class CopilotTask<T = any> {
           metadata: {
             requestType: CopilotRequestType.Task,
           },
+          forwardedParameters: {
+            toolChoice: "required",
+          },
         },
         properties: context.copilotApiConfig.properties,
       })

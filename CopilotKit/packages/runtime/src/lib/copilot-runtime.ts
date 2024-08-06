@@ -19,6 +19,7 @@ import { ActionInput } from "../graphql/inputs/action.input";
 import { RuntimeEventSource } from "../service-adapters/events";
 import { convertGqlInputToMessages } from "../service-adapters/conversion";
 import { Message } from "../graphql/types/converted";
+import { ForwardedParametersInput } from "../graphql/inputs/forwarded-parameters.input";
 
 interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
@@ -29,6 +30,7 @@ interface CopilotRuntimeRequest {
   threadId?: string;
   runId?: string;
   publicApiKey?: string;
+  forwardedParameters?: ForwardedParametersInput;
 }
 
 interface CopilotRuntimeResponse {
@@ -136,6 +138,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       runId,
       properties,
       outputMessagesPromise,
+      forwardedParameters,
     } = request;
     const langserveFunctions: Action<any>[] = [];
 
@@ -181,6 +184,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         threadId,
         runId,
         eventSource,
+        forwardedParameters,
       });
 
       outputMessagesPromise

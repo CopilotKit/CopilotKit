@@ -58,10 +58,8 @@
  *         textareaPurpose: "Provide context or purpose of the textarea.",
  *         chatApiConfigs: {
  *           suggestionsApiConfig: {
- *             forwardedParams: {
- *               max_tokens: 20,
- *               stop: [".", "?", "!"],
- *             },
+ *             maxTokens: 20,
+ *             stop: [".", "?", "!"],
  *           },
  *         },
  *       }}
@@ -104,14 +102,13 @@ export interface CopilotTextareaProps
    *      makeSystemPrompt: (textareaPurpose: string, contextString: string) => string;
    *      // custom few shot messages
    *      fewShotMessages: Message[];
-   *      forwardedParams: {
-   *        // max number of tokens to generate
-   *        max_tokens: number,
-   *        // stop generating when these characters are encountered, e.g. [".", "?", "!"]
-   *        stop: string[],
-   *      },
+   *      // max number of tokens to generate
+   *      maxTokens: number,
+   *      // stop generating when these characters are encountered, e.g. [".", "?", "!"]
+   *      stop: string[],
    *    },
-   *    insertionApiConfig: //... the same options as suggestionsApiConfig
+   *  },
+   *    insertionApiConfig: //... the similar options as suggestionsApiConfig
    *  },
    * }
    * ```
