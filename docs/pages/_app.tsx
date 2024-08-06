@@ -1,10 +1,10 @@
 import "../globals.css";
 import { AppProps } from "next/app";
 import { IBM_Plex_Sans } from "next/font/google";
-import { useRB2B } from "../lib/hooks/useRB2B";
-import { ScarfPixel } from "../lib/ScarfPixel";
+import { useRB2B } from "@/lib/hooks/useRB2B";
+import { ScarfPixel } from "@/lib/ScarfPixel";
+import { PostHogProvider } from "@/lib/providers/PostHogProvider";
 import { ClerkProvider } from "@clerk/nextjs";
-import { PostHogProvider } from "../lib/providers/PostHogProvider";
 
 const plex = IBM_Plex_Sans({
   subsets: ["latin"],

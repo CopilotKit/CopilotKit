@@ -49,8 +49,7 @@ export class ReferenceDoc {
     for (let i = 0; i < slashes - 2; i++) {
       importPathPrefix += "../";
     }
-    result += `import { PropertyReference } from "${importPathPrefix}components/reference/property-reference";\n\n`;
-    result += `import { LinkToCopilotCloud } from "${importPathPrefix}components";\n\n`;
+    result += `import { PropertyReference, LinkToCopilotCloud } from "@/components";\n\n`;
     result += 'import { Tabs } from "nextra/components";\n\n';
     result += 'import { Callout } from "nextra/components";\n\n';
 

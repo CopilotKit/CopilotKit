@@ -1,4 +1,4 @@
-import { LinkToCopilotCloud } from "../components/link-to-copilot-cloud";
+import { LinkToCopilotCloud } from "@/components";
 
 export default {
   "copilot-cloud": {
