@@ -13,13 +13,13 @@
  */
 
 import { Action, actionParametersToJsonSchema, Parameter } from "@copilotkit/shared";
-import { RemoteChain, RemoteChainParameters, CopilotServiceAdapter } from "../service-adapters";
-import { MessageInput } from "../graphql/inputs/message.input";
-import { ActionInput } from "../graphql/inputs/action.input";
-import { RuntimeEventSource } from "../service-adapters/events";
-import { convertGqlInputToMessages } from "../service-adapters/conversion";
-import { Message } from "../graphql/types/converted";
-import { ForwardedParametersInput } from "../graphql/inputs/forwarded-parameters.input";
+import { RemoteChain, RemoteChainParameters, CopilotServiceAdapter } from "../../service-adapters";
+import { MessageInput } from "../../graphql/inputs/message.input";
+import { ActionInput } from "../../graphql/inputs/action.input";
+import { RuntimeEventSource } from "../../service-adapters/events";
+import { convertGqlInputToMessages } from "../../service-adapters/conversion";
+import { Message } from "../../graphql/types/converted";
+import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-parameters.input";
 import {
   setupRemoteActions,
   RemoteActionDefinition,
