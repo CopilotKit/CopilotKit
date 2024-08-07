@@ -60,7 +60,7 @@ function createHeaders(
   return headers;
 }
 
-async function fetchActionsFromUrl({
+async function fetchRemoteInfo({
   url,
   onBeforeRequest,
   graphqlContext,
@@ -74,7 +74,7 @@ async function fetchActionsFromUrl({
   logger.debug({ url }, "Fetching actions from url");
   const headers = createHeaders(onBeforeRequest, graphqlContext);
 
-  const response = await fetch(`${url}/actions/list`, {
+  const response = await fetch(`${url}/info`, {
     method: "POST",
     headers,
     body: JSON.stringify({ properties: graphqlContext.properties }),
@@ -214,7 +214,7 @@ export async function setupRemoteActions({
 
   const result = await Promise.all(
     filtered.map(async (actionDefinition) => {
-      const json = await fetchActionsFromUrl({
+      const json = await fetchRemoteInfo({
         url: actionDefinition.url,
         onBeforeRequest: actionDefinition.onBeforeRequest,
         graphqlContext,
@@ -254,7 +254,7 @@ export async function fetchRemoteActionLocations({
 
   await Promise.all(
     filtered.map(async (actionDefinition) => {
-      const json = await fetchActionsFromUrl({
+      const json = await fetchRemoteInfo({
         url: actionDefinition.url,
         onBeforeRequest: actionDefinition.onBeforeRequest,
         graphqlContext,
