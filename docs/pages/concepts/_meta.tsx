@@ -1,15 +1,16 @@
 import { SideNavTitleWithIcon } from "@/components";
-import { FaNodeJs } from "react-icons/fa";
 import { FaReact } from "react-icons/fa";
 import { PiGraphDuotone } from "react-icons/pi";
 import { LuBrush } from "react-icons/lu";
+import { HiOutlineServerStack } from "react-icons/hi2";
+
 
 export default {
   "generative-ui": {
     title: <SideNavTitleWithIcon title="Generative UI" icon={FaReact} />,
   },
-  "copilot-runtime": {
-    title: <SideNavTitleWithIcon title="Copilot Runtime" icon={FaNodeJs} />,
+  "self-hosting": {
+    title: <SideNavTitleWithIcon title="Self Hosting" icon={HiOutlineServerStack} />,
   },
   "agents": {
     title: <SideNavTitleWithIcon title="Agents (LangChain)" icon={PiGraphDuotone} />,

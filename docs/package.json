@@ -16,6 +16,7 @@
     "@clerk/nextjs": "^5.2.8",
     "@stackblitz/sdk": "^1.11.0",
     "@vercel/og": "^0.6.2",
+    "classnames": "^2.5.1",
     "next": "^14.2.5",
     "next-sitemap": "^4.2.3",
     "nextra": "3.0.0-alpha.28",
@@ -24,7 +25,8 @@
     "posthog-js": "^1.151.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-icons": "^5.2.1"
+    "react-icons": "^5.2.1",
+    "usehooks-ts": "^3.1.0"
   },
   "devDependencies": {
     "@types/node": "20.14.11",
