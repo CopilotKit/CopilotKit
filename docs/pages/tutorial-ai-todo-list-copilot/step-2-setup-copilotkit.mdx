@@ -1,5 +1,7 @@
 import { Callout } from "nextra/components"
-import { LinkToCopilotCloud } from "@/components";
+import { TailoredExperience, LinkToCopilotCloud, Accordion } from "@/components";
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
 
 # Step 2: Setup CopilotKit
 
@@ -16,40 +18,64 @@ To install the CopilotKit dependencies, run the following:
 npm install @copilotkit/react-core @copilotkit/react-ui
 ```
 
-## Configure the `<CopilotKit>` provider
+## Setup CopilotKit
+<TailoredExperience.Toggle />
 
-<Callout type="info">
-  In this example, we use Copilot Cloud, which is the easiest way to get started with CopilotKit.
-  <LinkToCopilotCloud>Click here to sign up for free and get your API key</LinkToCopilotCloud>.
+<TailoredExperience.CloudContent>
 
-  If you prefer to self-host the Copilot Runtime, refer to [this guide](/concepts/copilot-runtime).
-</Callout>
+  ### Configure the `<CopilotKit />` Provider
 
-The `<CopilotKit>` provider will wrap our app. Let's add it to the `page.tsx` file.
+  The `<CopilotKit>` provider will wrap our app. Let's add it to the `page.tsx` file.
 
-```tsx filename="app/page.tsx" showLineNumbers {5,9,13}
-"use client";
+  <Callout type="info">
+    <LinkToCopilotCloud>Click here to get your Copilot Cloud API key for free</LinkToCopilotCloud>. Then, replace `<your-public-api-key>` with your actual API key.
+  </Callout>
 
-import { TasksList } from "@/components/TasksList";
-import { TasksProvider } from "@/lib/hooks/use-tasks";
-import { CopilotKit } from "@copilotkit/react-core";
+  ```tsx filename="app/page.tsx" showLineNumbers {5,9,13}
+  "use client";
 
-export default function Home() {
-  return (
-    <CopilotKit publicApiKey={"<your-public-api-key>"}>
-      <TasksProvider>
-        <TasksList />
-      </TasksProvider>
-    </CopilotKit>
-  );
-}
-```
+  import { TasksList } from "@/components/TasksList";
+  import { TasksProvider } from "@/lib/hooks/use-tasks";
+  import { CopilotKit } from "@copilotkit/react-core";
 
-Let's break this down:
+  export default function Home() {
+    return (
+      <CopilotKit publicApiKey={"<your-public-api-key>"}>
+        <TasksProvider>
+          <TasksList />
+        </TasksProvider>
+      </CopilotKit>
+    );
+  }
+  ```
+</TailoredExperience.CloudContent>
 
-- First, we imported the `CopilotKit` provider from `@copilotkit/react-core`.
-- Then, we wrapped the page with `<CopilotKit>`.
-- **Note:** Make sure to replace `"<your-public-api-key>"` with your Copilot Cloud public API key.
+<TailoredExperience.SelfHostContent>
+  ### Step 1: Set up Copilot Runtime Endpoint
+
+  <SelfHostingCopilotRuntimeCreateEndpoint />
+
+  ### Step 2: Configure the CopilotKit Provider
+
+  ```tsx filename="app/page.tsx" showLineNumbers {5,9,13}
+  "use client";
+
+  import { TasksList } from "@/components/TasksList";
+  import { TasksProvider } from "@/lib/hooks/use-tasks";
+  import { CopilotKit } from "@copilotkit/react-core";
+
+  export default function Home() {
+    return (
+      <CopilotKit runtimeUrl={"<your-runtime-url>"}>
+        <TasksProvider>
+          <TasksList />
+        </TasksProvider>
+      </CopilotKit>
+    );
+  }
+  ```
+
+</TailoredExperience.SelfHostContent>
 
 ### CopilotKit Chat Popup
 
@@ -68,7 +94,7 @@ import "@copilotkit/react-ui/styles.css";
 
 export default function Home() {
   return (
-    <CopilotKit publicApiKey={"<your-public-api-key>"}>
+    <CopilotKit ...>
       <TasksProvider>
         <TasksList />
       </TasksProvider>
@@ -81,7 +107,7 @@ export default function Home() {
 Here's what we did:
 
 - We imported the `<CopilotPopup />` component from `@copilotkit/react-ui`.
-- We wrapped the page with `<CopilotKit>` and provided our Copilot Cloud public API key.
+- We wrapped the page with the `<CopilotKit>` provider.
 - We imported the built-in styles from `@copilotkit/react-ui`. This is optional.
 
 Now, head back to your app and you'll find a chat popup in the bottom right corner of the page. At this point, you can start interacting with your copilot! 🎉

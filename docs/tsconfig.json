@@ -3,7 +3,7 @@
     "lib": [
       "dom",
       "dom.iterable",
-      "esnext"
+      "esnext",
     ],
     "allowJs": true,
     "skipLibCheck": true,
@@ -27,13 +27,16 @@
       "@/components/*": ["./components/*"],
       "@/lib": ["./lib"],
       "@/lib/*": ["./lib/*"],
+      "@/snippets": ["./snippets"],
+      "@/snippets/*": ["./snippets/*"]
     }
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "**/*.mdx"
   ],
   "exclude": [
     "node_modules"
