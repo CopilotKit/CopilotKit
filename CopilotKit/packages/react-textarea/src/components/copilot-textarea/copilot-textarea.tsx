@@ -1,8 +1,20 @@
 /**
- * A context-aware, auto-completing textarea.
+ * <br/>
+ * <img src="/images/CopilotTextarea.gif" width="500" />
  *
- * <RequestExample>
- * ```jsx CopilotTextarea Example
+ * `<CopilotTextarea>` is a React component that acts as a drop-in replacement for the standard `<textarea>`,
+ *  offering enhanced autocomplete features powered by AI. It is context-aware, integrating seamlessly with the
+ * [`useCopilotReadable`](/reference/hooks/useCopilotReadable) hook to provide intelligent suggestions based on the application context.
+ *
+ * In addition, it provides a hovering editor window (available by default via `Cmd + K` on Mac and `Ctrl + K` on Windows) that allows the user to
+ * suggest changes to the text, for example providing a summary or rephrasing the text.
+ *
+ *
+ * ## Example
+ *
+ * ```tsx
+ * import { CopilotTextarea } from '@copilot/react-ui';
+ *
  * <CopilotTextarea
  *   autosuggestionsConfig={{
  *     textareaPurpose:
@@ -11,34 +23,18 @@
  *   }}
  * />
  * ```
- * </RequestExample>
  *
- * `<CopilotTextarea>` is a React component that acts as a drop-in replacement for the standard `<textarea>`,
- *  offering enhanced autocomplete features powered by AI. It is context-aware, integrating seamlessly with the
- * [useCopilotReadable()](./useCopilotReadable) hook to provide intelligent suggestions based on the application context.
+ * ## Usage
  *
- * In addition, it provides a hovering editor window (available by default via `Cmd+k`) that allows the user to
- * suggest changes to the text, for example providing a summary or rephrasing the text.
+ * ### Install Dependencies
  *
- * <img src="/images/CopilotTextarea/CopilotTextarea.gif" width="500" />
+ * This component is part of the [@copilotkit/react-ui](https://npmjs.com/package/@copilotkit/react-ui) package.
  *
- * ## Integrating CopilotTextarea
- *
- * Install the CopilotTextarea frontend packagess:
- *
- * <CodeGroup>
- * ```bash npm
- *   npm i @copilotkit/react-core @copilotkit/react-textarea
+ * ```shell npm2yarn \"@copilotkit/react-ui"\
+ * npm install @copilotkit/react-core @copilotkit/react-ui
  * ```
  *
- * ```bash yarn
- *   yarn add @copilotkit/react-core @copilotkit/react-textarea
- * ```
- *
- * ```bash pnpm
- *   pnpm add @copilotkit/react-core @copilotkit/react-textarea
- * ```
- * </CodeGroup>
+ * ### Usage
  *
  * Use the CopilotTextarea component in your React application similarly to a standard `<textarea />`,
  * with additional configurations for AI-powered features.
@@ -62,10 +58,8 @@
  *         textareaPurpose: "Provide context or purpose of the textarea.",
  *         chatApiConfigs: {
  *           suggestionsApiConfig: {
- *             forwardedParams: {
- *               max_tokens: 20,
- *               stop: [".", "?", "!"],
- *             },
+ *             maxTokens: 20,
+ *             stop: [".", "?", "!"],
  *           },
  *         },
  *       }}
@@ -73,7 +67,7 @@
  *   );
  * }
  * ```
- */
+ * */
 import React from "react";
 import { useMakeStandardAutosuggestionFunction } from "../../hooks/make-autosuggestions-function/use-make-standard-autosuggestions-function";
 import { HTMLCopilotTextAreaElement } from "../../types";
@@ -108,14 +102,13 @@ export interface CopilotTextareaProps
    *      makeSystemPrompt: (textareaPurpose: string, contextString: string) => string;
    *      // custom few shot messages
    *      fewShotMessages: Message[];
-   *      forwardedParams: {
-   *        // max number of tokens to generate
-   *        max_tokens: number,
-   *        // stop generating when these characters are encountered, e.g. [".", "?", "!"]
-   *        stop: string[],
-   *      },
+   *      // max number of tokens to generate
+   *      maxTokens: number,
+   *      // stop generating when these characters are encountered, e.g. [".", "?", "!"]
+   *      stop: string[],
    *    },
-   *    insertionApiConfig: //... the same options as suggestionsApiConfig
+   *  },
+   *    insertionApiConfig: //... the similar options as suggestionsApiConfig
    *  },
    * }
    * ```

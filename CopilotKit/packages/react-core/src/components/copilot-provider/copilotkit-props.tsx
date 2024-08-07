@@ -6,12 +6,12 @@ import { ReactNode } from "react";
 
 export interface CopilotKitProps {
   /**
-   * Your Copilot Cloud API key.
+   *  Your Copilot Cloud API key. Don't have it yet? <LinkToCopilotCloud>Click here to sign up for free</LinkToCopilotCloud>.
    */
   publicApiKey?: string;
 
   /**
-   * Cloud feature: Restrict input to a specific topic.
+   * Restrict input to a specific topic.
    */
   cloudRestrictToTopic?: {
     validTopics?: string[];
@@ -19,7 +19,7 @@ export interface CopilotKitProps {
   };
 
   /**
-   * the endpoint for the Copilot Runtime instance.
+   * The endpoint for the Copilot Runtime instance. [Click here for more information](/concepts/copilot-runtime).
    */
   runtimeUrl?: string;
 
@@ -37,24 +37,13 @@ export interface CopilotKitProps {
    * Additional headers to be sent with the request.
    *
    * For example:
-   * ```js
+   * ```json
    * {
-   *   'Authorization': 'Bearer your_token_here'
+   *   "Authorization": "Bearer X"
    * }
    * ```
    */
   headers?: Record<string, string>;
-
-  /**
-   * Additional body params to be sent with the request
-   * For example:
-   * ```js
-   * {
-   *   'message': 'Hello, world!'
-   * }
-   * ```
-   */
-  body?: Record<string, any>;
 
   /**
    * The children to be rendered within the CopilotKit.

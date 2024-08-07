@@ -123,6 +123,10 @@ export async function extract<const T extends Parameter[]>({
         metadata: {
           requestType: requestType,
         },
+        forwardedParameters: {
+          toolChoice: "function",
+          toolChoiceFunctionName: action.name,
+        },
       },
       properties: context.copilotApiConfig.properties,
       signal: abortSignal,

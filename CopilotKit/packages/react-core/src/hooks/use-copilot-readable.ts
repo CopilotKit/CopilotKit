@@ -1,73 +1,41 @@
 /**
- * A hook for providing app-state & other information to the Copilot.
- *
- * <img referrerPolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be" />
- *
  * `useCopilotReadable` is a React hook that provides app-state and other information
  * to the Copilot. Optionally, the hook can also handle hierarchical state within your
  * application, passing these parent-child relationships to the Copilot.
  *
- * <RequestExample>
- *   ```jsx useCopilotReadable Example
- *   import { useCopilotReadable }
- *     from "@copilotkit/react-core";
+ * ## Usage
  *
- *   const myAppState = ...;
- *   useCopilotReadable({
- *     description: "The current state of the app",
- *     value: myAppState
- *   });
- *   ```
- * </RequestExample>
+ * ### Simple Usage
  *
  * In its most basic usage, useCopilotReadable accepts a single string argument
  * representing any piece of app state, making it available for the Copilot to use
  * as context when responding to user input.
  *
- * For example:
- *
- * ```jsx simple state example
- * import { useCopilotReadable }  from "@copilotkit/react-core";
- *
- * const userName = "Rust Cohle";
- * useCopilotReadable({
- *   description: "The name of the user",
- *   value: userName
- * });
- * ```
- *
- * You can also pass in an object representing your app state,
- * for example:
- *
- * ```jsx using state
- * import { useCopilotReadable }  from "@copilotkit/react-core";
- *
- * const myAppState = {
- *   userName: "Rust Cohle",
- *   userAddress: {
- *     street: "4500 Old Spanish Trail",
- *     city: "New Orleans",
- *     state: "LA",
- *     zip: "70129"
- *   }
- * };
- * useCopilotReadable({
- *   description: "The current state of the app",
- *   value: myAppState
- * });
- * ```
- *
- * Optionally, you can maintain the hierarchical structure of information by passing
- * `parentId`:
- *
- * ```jsx parentId example
+ * ```tsx
  * import { useCopilotReadable } from "@copilotkit/react-core";
  *
+ * export function MyComponent() {
+ *   const [employees, setEmployees] = useState([]);
+ *
+ *   useCopilotReadable({
+ *     description: "The list of employees",
+ *     value: employees,
+ *   });
+ * }
+ * ```
+ *
+ * ### Nested Components
+ *
+ * Optionally, you can maintain the hierarchical structure of information by passing
+ * `parentId`. This allows you to use `useCopilotReadable` in nested components:
+ *
+ * ```tsx /employeeContextId/1 {17,23}
+ * import { useCopilotReadable } from "@copilotkit/react-core";
  *
  * function Employee(props: EmployeeProps) {
  *   const { employeeName, workProfile, metadata } = props;
  *
- *   // propagate any information copilot
+ *   // propagate any information to copilot
  *   const employeeContextId = useCopilotReadable({
  *     description: "Employee name",
  *     value: employeeName
@@ -80,6 +48,7 @@
  *     value: workProfile.description(),
  *     parentId: employeeContextId
  *   });
+ *
  *   useCopilotReadable({
  *     description: "Employee metadata",
  *     value: metadata.description(),
@@ -104,7 +73,7 @@ export interface UseCopilotReadableOptions {
    */
   description: string;
   /**
-   * The value to be added to the Copilot context.
+   * The value to be added to the Copilot context. Object values are automatically stringified.
    */
   value: any;
   /**

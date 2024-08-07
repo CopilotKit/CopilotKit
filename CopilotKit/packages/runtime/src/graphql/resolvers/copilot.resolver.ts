@@ -183,6 +183,7 @@ export class CopilotResolver {
       publicApiKey: undefined,
       outputMessagesPromise,
       graphqlContext: ctx,
+      forwardedParameters: data.forwardedParameters,
     });
 
     logger.debug("Event source created, creating response");

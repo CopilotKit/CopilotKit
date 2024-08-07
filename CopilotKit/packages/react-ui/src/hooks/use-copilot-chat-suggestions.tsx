@@ -1,63 +1,59 @@
 /**
- * A hook for providing suggestions to the user in the Copilot chat.
- *
- * <Warning>
+ * <Callout type="warning">
  *   useCopilotChatSuggestions is experimental. The interface is not final and
- *   can change without further notice.
- * </Warning>
+ *   can change without notice.
+ * </Callout>
  *
- * <img src="/images/useCopilotChatSuggestions/use-copilot-chat-suggestions.gif" width="500" />
+ * `useCopilotReadable` is a React hook that provides app-state and other information
+ * to the Copilot. Optionally, the hook can also handle hierarchical state within your
+ * application, passing these parent-child relationships to the Copilot.
  *
- * <img referrerPolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be" />
+ * <br/>
+ * <img src="/images/use-copilot-chat-suggestions/use-copilot-chat-suggestions.gif" width="500" />
  *
- * `useCopilotChatSuggestions` integrates auto-generated chat suggestions into your application in the context of your
- * app's state. It dynamically manages suggestions based on provided configurations and
- * dependencies.
+ * ## Usage
  *
- * <RequestExample>
- *   ```jsx useCopilotChatSuggestions Example
- *   import { useCopilotChatSuggestions }
- *     from "@copilotkit/react-ui";
+ * ### Install Dependencies
+ *
+ * This component is part of the [@copilotkit/react-ui](https://npmjs.com/package/@copilotkit/react-ui) package.
+ *
+ * ```shell npm2yarn \"@copilotkit/react-ui"\
+ * npm install @copilotkit/react-core @copilotkit/react-ui
+ * ```
+ *
+ * ### Simple Usage
+ *
+ * ```tsx
+ * import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
+ *
+ * export function MyComponent() {
+ *   const [employees, setEmployees] = useState([]);
  *
  *   useCopilotChatSuggestions({
- *     instructions: "Your instructions for suggestions.",
- *   })
- *   ```
- * </RequestExample>
- *
- * ## Basic Setup
- *
- * To incorporate this hook into your React components, start by importing it:
- *
- * ```tsx
- * import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
+ *     instructions: `The following employees are on duty: ${JSON.stringify(employees)}`,
+ *   });
+ * }
  * ```
  *
- * Then, use it in your component to initiate suggestion functionality:
- *
- * ```tsx
- * useCopilotChatSuggestions({
- *   instructions: "Your instructions for suggestions.",
- * });
- * ```
- *
- * ## Dependency Management
+ * ### Dependency Management
  *
  * ```tsx
  * import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
  *
- * useCopilotChatSuggestions(
- *   {
- *     instructions: "Suggest the most relevant next actions.",
- *   },
- *   [appState],
- * );
+ * export function MyComponent() {
+ *   useCopilotChatSuggestions(
+ *     {
+ *       instructions: "Suggest the most relevant next actions.",
+ *     },
+ *     [appState],
+ *   );
+ * }
  * ```
  *
  * In the example above, the suggestions are generated based on the given instructions.
  * The hook monitors `appState`, and updates suggestions accordingly whenever it changes.
  *
- * ## Behavior and Lifecycle
+ * ### Behavior and Lifecycle
  *
  * The hook registers the configuration with the chat context upon component mount and
  * removes it on unmount, ensuring a clean and efficient lifecycle management.
