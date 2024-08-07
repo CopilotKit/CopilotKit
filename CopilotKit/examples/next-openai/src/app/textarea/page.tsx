@@ -5,8 +5,12 @@ import {
   useCopilotReadable,
   useMakeCopilotDocumentReadable,
 } from "@copilotkit/react-core";
-import { CopilotTextarea, HTMLCopilotTextAreaElement } from "@copilotkit/react-textarea";
-import { useRef } from "react";
+import {
+  CopilotTextarea,
+  HTMLCopilotTextAreaElement,
+  useCopilotTextSuggestion,
+} from "@copilotkit/react-textarea";
+import { useRef, useState } from "react";
 import { useStateWithLocalStorage } from "../utils";
 
 export default function CopilotTextareaDemo() {
@@ -30,6 +34,14 @@ const clientTranscriptSummaryDocument: DocumentPointer = {
 function TextAreas() {
   const [detailsText, setDetailsText] = useStateWithLocalStorage("", "cacheKey_detailsText");
   const [copilotText, setCopilotText] = useStateWithLocalStorage("", "cacheKey_copilotText");
+  const [textBeforeCursor, setTextBeforeCursor] = useState("");
+  const [textAfterCursor, setTextAfterCursor] = useState("");
+  const { suggestion, state } = useCopilotTextSuggestion({
+    textBeforeCursor,
+    textAfterCursor,
+    maxTokens: 5,
+    stop: ["\n", ".", ","],
+  });
 
   const [textareaPurpose, setTextareaPurpose] = useStateWithLocalStorage(
     "A COOL & SMOOTH announcement post about CopilotTextarea. No pomp, no fluff, no BS. Just the facts. Be brief, be clear, be concise. Be cool.",
@@ -88,6 +100,47 @@ function TextAreas() {
         placeholder="the normal textarea"
         onChange={(event) => setDetailsText(event.target.value)}
       />
+
+      <textarea
+        className="p-4 w-1/2 h-80 rounded-lg"
+        placeholder="useCopilotTextSuggestion"
+        onChange={(event) => {
+          const target = event.target as HTMLTextAreaElement;
+          const cursorPosition = target.selectionStart;
+          const textBeforeCursor = target.value.substring(0, cursorPosition);
+          const textAfterCursor = target.value.substring(cursorPosition);
+
+          setTextBeforeCursor(textBeforeCursor);
+          setTextAfterCursor(textAfterCursor);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Tab" && suggestion) {
+            event.preventDefault();
+            const target = event.target as HTMLTextAreaElement;
+            const cursorPosition = target.selectionStart;
+            const newValue =
+              target.value.slice(0, cursorPosition) +
+              suggestion +
+              target.value.slice(cursorPosition);
+            target.value = newValue;
+            setTextBeforeCursor(newValue.slice(0, cursorPosition + suggestion.length));
+            setTextAfterCursor(newValue.slice(cursorPosition + suggestion.length));
+            target.setSelectionRange(
+              cursorPosition + suggestion.length,
+              cursorPosition + suggestion.length,
+            );
+          }
+        }}
+      />
+
+      <div className="flex flex-col gap-2 bg-white w-1/2">
+        <span>Text before cursor:</span>
+        <span>{textBeforeCursor}</span>
+        <span>Text after cursor:</span>
+        <span>{textAfterCursor}</span>
+        <span>Suggestion:</span>
+        <span>{suggestion}</span>
+      </div>
 
       <button
         className="p-4 w-1/2 bg-slate-800 text-white rounded-lg"
