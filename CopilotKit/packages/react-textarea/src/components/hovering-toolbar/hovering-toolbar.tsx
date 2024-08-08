@@ -60,29 +60,10 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
       return;
     }
 
-    const minGapFromEdge = 60;
-    const verticalOffsetFromCorner = 35;
-    const horizontalOffsetFromCorner = 15;
-    let top = rect.top + window.scrollY - el.offsetHeight + verticalOffsetFromCorner;
-    // make sure top is in the viewport and not too close to the edge
-    if (top < minGapFromEdge) {
-      top = rect.bottom + window.scrollY + minGapFromEdge;
-    } else if (top + el.offsetHeight > window.innerHeight - minGapFromEdge) {
-      top = rect.top + window.scrollY - el.offsetHeight - minGapFromEdge;
-    }
-
-    let left =
-      rect.left + window.scrollX - el.offsetWidth / 2 + rect.width / 2 + horizontalOffsetFromCorner;
-    // make sure left is in the viewport and not too close to the edge
-    if (left < minGapFromEdge) {
-      left = minGapFromEdge;
-    } else if (left + el.offsetWidth > window.innerWidth - minGapFromEdge) {
-      left = window.innerWidth - el.offsetWidth - minGapFromEdge;
-    }
-
     el.style.opacity = "1";
-    el.style.top = `${top}px`;
-    el.style.left = `${left}px`;
+    el.style.top = "50%";
+    el.style.left = "50%";
+    el.style.transform = "translate(-50%, -50%)";
   });
 
   useEffect(() => {
