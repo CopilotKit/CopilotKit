@@ -243,6 +243,11 @@ async function executeAction(
 
   // handle LangGraph agents
   if ((action as LangGraphAgentAction).initiateLangGraphAgentSession) {
+    eventStream$.sendActionExecutionResult(
+      actionExecutionId,
+      action.name,
+      `${action.name} agent started`,
+    );
     const stream = await (action as LangGraphAgentAction).initiateLangGraphAgentSession(
       action.name,
       args,
