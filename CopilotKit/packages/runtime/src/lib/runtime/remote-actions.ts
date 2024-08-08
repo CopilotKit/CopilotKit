@@ -120,12 +120,6 @@ function constructRemoteActions({
     },
   }));
 
-  // TODO-AGENTS: when executing the agent, we need to:
-  // 1. stream the result
-  // 2. have access to message history
-  // 3. have access to the agent's state
-  // Does it event make sense that we use handlers for agents?
-  // Can we construct the agent's handler with access to stream and message history?
   const agents = json["agents"].map((agent) => ({
     name: agent.name,
     description: agent.description,

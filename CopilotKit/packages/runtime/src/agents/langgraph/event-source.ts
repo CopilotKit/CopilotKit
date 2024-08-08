@@ -183,7 +183,7 @@ export class RemoteLangGraphEventSource {
                 type: RuntimeEventTypes.ActionExecutionStart,
                 actionExecutionId: eventWithState.toolCallId,
                 actionName: eventWithState.toolCallName,
-                scope: "server", // TODO: need an additional type for "transient" tool calls
+                scope: "server",
               });
             }
             // Message started: emit TextMessageStart
