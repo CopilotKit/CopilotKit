@@ -3,6 +3,7 @@ import {
   Message,
   ResultMessage,
   TextMessage,
+  AgentStateMessage,
 } from "../graphql/types/converted";
 import { MessageInput } from "../graphql/inputs/message.input";
 import { plainToInstance } from "class-transformer";
@@ -38,6 +39,19 @@ export function convertGqlInputToMessages(inputMessages: MessageInput[]): Messag
           actionExecutionId: message.resultMessage.actionExecutionId,
           actionName: message.resultMessage.actionName,
           result: message.resultMessage.result,
+        }),
+      );
+    } else if (message.agentStateMessage) {
+      messages.push(
+        plainToInstance(AgentStateMessage, {
+          id: message.id,
+          threadId: message.agentStateMessage.threadId,
+          createdAt: message.createdAt,
+          // agentName: message.agentMessage.agentName,
+          // nodeName: message.agentMessage.nodeName,
+          // role: message.agentMessage.role,
+          state: JSON.parse(message.agentStateMessage.state),
+          running: message.agentStateMessage.running,
         }),
       );
     }

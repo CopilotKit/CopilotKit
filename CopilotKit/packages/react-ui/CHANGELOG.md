@@ -1,5 +1,15 @@
 # ui
 
+## 1.1.1-feat-runtime-remote-actions.0
+
+### Patch Changes
+
+- Remote actions preview
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.1.1-feat-runtime-remote-actions.0
+  - @copilotkit/react-core@1.1.1-feat-runtime-remote-actions.0
+  - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.0
+
 ## 1.1.0
 
 ### Minor Changes

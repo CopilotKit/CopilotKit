@@ -32,7 +32,13 @@ import {
   MessageStreamInterruptedResponse,
   UnknownErrorResponse,
 } from "../../utils";
-import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "../types/converted";
+import {
+  ActionExecutionMessage,
+  AgentStateMessage,
+  Message,
+  ResultMessage,
+  TextMessage,
+} from "../types/converted";
 import telemetry from "../../lib/telemetry-client";
 import { randomId } from "@copilotkit/shared";
 
@@ -49,8 +55,6 @@ const invokeGuardrails = async ({
   onResult: (result: GuardrailsResult) => void;
   onError: (err: Error) => void;
 }) => {
-  console.log("invokeGuardrails.baseUrl", baseUrl);
-
   if (
     data.messages.length &&
     data.messages[data.messages.length - 1].textMessage?.role === MessageRole.user
@@ -116,13 +120,13 @@ export class CopilotResolver {
     let logger = ctx.logger.child({ component: "CopilotResolver.generateCopilotResponse" });
     logger.debug({ data }, "Generating Copilot response");
 
-    const copilotRuntime = ctx._copilotkit.runtime;
-    const serviceAdapter = ctx._copilotkit.serviceAdapter;
-
     if (properties) {
       logger.debug("Properties provided, merging with context properties");
       ctx.properties = { ...ctx.properties, ...properties };
     }
+
+    const copilotRuntime = ctx._copilotkit.runtime;
+    const serviceAdapter = ctx._copilotkit.serviceAdapter;
 
     let copilotCloudPublicApiKey: string | null = null;
     let copilotCloudBaseUrl: string;
@@ -177,8 +181,8 @@ export class CopilotResolver {
       threadId: data.threadId,
       runId: data.runId,
       publicApiKey: undefined,
-      properties: ctx.properties || {},
       outputMessagesPromise,
+      graphqlContext: ctx,
       forwardedParameters: data.forwardedParameters,
     });
 
@@ -429,6 +433,35 @@ export class CopilotResolver {
                     actionExecutionId: event.actionExecutionId,
                     actionName: event.actionName,
                     result: event.result,
+                  }),
+                );
+                break;
+              ////////////////////////////////
+              // AgentStateMessage
+              ////////////////////////////////
+              case RuntimeEventTypes.AgentStateMessage:
+                logger.debug({ event }, "Agent message event received");
+                pushMessage({
+                  id: randomId(),
+                  status: new SuccessMessageStatus(),
+                  threadId: event.threadId,
+                  // agentName: event.agentName,
+                  // nodeName: event.nodeName,
+                  state: JSON.stringify(event.state),
+                  running: event.running,
+                  // role: MessageRole.assistant,
+                  createdAt: new Date(),
+                });
+                outputMessages.push(
+                  plainToInstance(AgentStateMessage, {
+                    id: randomId(),
+                    threadId: event.threadId,
+                    // agentName: event.agentName,
+                    // nodeName: event.nodeName,
+                    state: JSON.stringify(event.state),
+                    running: event.running,
+                    // role: MessageRole.assistant,
+                    createdAt: new Date(),
                   }),
                 );
                 break;

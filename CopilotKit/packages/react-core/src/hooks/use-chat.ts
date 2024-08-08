@@ -222,6 +222,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           for (const message of messages) {
             newMessages.push(message);
 
+            // execute regular action executions
             if (
               message instanceof ActionExecutionMessage &&
               message.status.code !== MessageStatusCode.Pending &&
@@ -259,6 +260,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         }
       }
 
+      const lastMessage = newMessages.at(-1) as any;
+
       if (
         // if we have client side results
         Object.values(results).length ||
@@ -288,6 +291,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     if (isLoading) {
       return;
     }
+
     const newMessages = [...messages, message];
     setMessages(newMessages);
     return runChatCompletionAndHandleFunctionCall(newMessages);

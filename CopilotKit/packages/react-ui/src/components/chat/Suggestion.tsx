@@ -2,6 +2,7 @@ import {
   CopilotContextParams,
   extract,
   CopilotChatSuggestionConfiguration,
+  useCopilotContext,
 } from "@copilotkit/react-core";
 import { SuggestionsProps } from "./props";
 import { SmallSpinnerIcon } from "./Icons";
@@ -50,6 +51,7 @@ export const reloadSuggestions = async (
           ? `Produce up to ${config.maxSuggestions} suggestions. ` +
             `If there are no highly relevant suggestions you can think of, provide an empty array.`
           : `Produce between ${config.minSuggestions} and ${config.maxSuggestions} suggestions.`;
+
       const result = await extract({
         context,
         instructions:

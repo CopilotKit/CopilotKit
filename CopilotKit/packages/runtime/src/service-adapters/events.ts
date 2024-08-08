@@ -1,7 +1,19 @@
 import { Action } from "@copilotkit/shared";
-import { of, concat, map, scan, concatMap, ReplaySubject, Subject, firstValueFrom } from "rxjs";
+import {
+  of,
+  concat,
+  map,
+  scan,
+  concatMap,
+  ReplaySubject,
+  Subject,
+  firstValueFrom,
+  from,
+} from "rxjs";
 import { streamLangChainResponse } from "./langchain/utils";
 import { GuardrailsResult } from "../graphql/types/guardrails-result.type";
+import telemetry from "../lib/telemetry-client";
+import { LangGraphAgentAction } from "../lib/runtime/remote-actions";
 
 export enum RuntimeEventTypes {
   TextMessageStart = "TextMessageStart",
@@ -11,6 +23,7 @@ export enum RuntimeEventTypes {
   ActionExecutionArgs = "ActionExecutionArgs",
   ActionExecutionEnd = "ActionExecutionEnd",
   ActionExecutionResult = "ActionExecutionResult",
+  AgentStateMessage = "AgentStateMessage",
 }
 
 type FunctionCallScope = "client" | "server";
@@ -35,6 +48,14 @@ export type RuntimeEvent =
       actionName: string;
       actionExecutionId: string;
       result: string;
+    }
+  | {
+      type: RuntimeEventTypes.AgentStateMessage;
+      threadId: string;
+      // agentName: string;
+      // nodeName: string;
+      state: string;
+      running: boolean;
     };
 
 interface RuntimeEventWithState {
@@ -98,6 +119,23 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
       actionName,
       actionExecutionId,
       result,
+    });
+  }
+
+  sendAgentStateMessage(
+    threadId: string,
+    // agentName: string,
+    // nodeName: string,
+    state: string,
+    running: boolean,
+  ) {
+    this.next({
+      type: RuntimeEventTypes.AgentStateMessage,
+      threadId,
+      // agentName,
+      // nodeName,
+      state,
+      running,
     });
   }
 }
@@ -170,6 +208,8 @@ export class RuntimeEventSource {
           ).catch((error) => {
             console.error(error);
           });
+
+          telemetry.capture("oss.runtime.server_action_executed", {});
           return concat(of(eventWithState.event!), toolCallEventStream$);
         } else {
           return of(eventWithState.event!);
@@ -201,15 +241,35 @@ async function executeAction(
     args = JSON.parse(actionArguments);
   }
 
-  // call the function
-  const result = await action.handler(args);
+  // handle LangGraph agents
+  if ((action as LangGraphAgentAction).initiateLangGraphAgentSession) {
+    eventStream$.sendActionExecutionResult(
+      actionExecutionId,
+      action.name,
+      `${action.name} agent started`,
+    );
+    const stream = await (action as LangGraphAgentAction).initiateLangGraphAgentSession(
+      action.name,
+      args,
+    );
 
-  await streamLangChainResponse({
-    result,
-    eventStream$,
-    actionExecution: {
-      name: action.name,
-      id: actionExecutionId,
-    },
-  });
+    // forward to eventStream$
+    from(stream).subscribe({
+      next: (event) => eventStream$.next(event),
+      error: (err) => console.error("Error in stream", err),
+      complete: () => eventStream$.complete(),
+    });
+  } else {
+    // call the function
+    const result = await action.handler(args);
+
+    await streamLangChainResponse({
+      result,
+      eventStream$,
+      actionExecution: {
+        name: action.name,
+        id: actionExecutionId,
+      },
+    });
+  }
 }

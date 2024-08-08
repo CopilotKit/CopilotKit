@@ -1,5 +1,5 @@
 "use client";
-import { useCopilotContext, useCopilotReadable } from "@copilotkit/react-core";
+import { useCopilotAction, useCopilotContext, useCopilotReadable } from "@copilotkit/react-core";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { Slide } from "./Slide";
 import { Header } from "./Header";
@@ -70,28 +70,43 @@ export const Presentation = ({ performResearch, setPerformResearch }: Presentati
     slides,
   });
 
+  useCopilotAction({
+    name: "confirmUserName",
+    description: "Confirm the user's name",
+    parameters: [
+      {
+        name: "name",
+        type: "string",
+        description: "The user's name",
+      },
+    ],
+    handler: ({ name }) => {
+      return window.confirm(`Confirm your name: ${name}`);
+    },
+  });
+
   /**
    * Auto Suggestions
    */
-  useCopilotChatSuggestions(
-    {
-      instructions: "Suggest a new slide based on the existing slides.",
-    },
-    [currentSlide],
-  );
+  // useCopilotChatSuggestions(
+  //   {
+  //     instructions: "Suggest a new slide based on the existing slides.",
+  //   },
+  //   [currentSlide],
+  // );
 
-  useCopilotChatSuggestions(
-    {
-      instructions:
-        "Suggest specifically what could be improved about the content of current slide. " +
-        "The specific suggestion should be in the button text. " +
-        "Do not suggest to update the background image.",
-      minSuggestions: 0,
-      maxSuggestions: 1,
-      className: "custom-suggestion",
-    },
-    [currentSlide],
-  );
+  // useCopilotChatSuggestions(
+  //   {
+  //     instructions:
+  //       "Suggest specifically what could be improved about the content of current slide. " +
+  //       "The specific suggestion should be in the button text. " +
+  //       "Do not suggest to update the background image.",
+  //     minSuggestions: 0,
+  //     maxSuggestions: 1,
+  //     className: "custom-suggestion",
+  //   },
+  //   [currentSlide],
+  // );
 
   const updateCurrentSlide = useCallback(
     (partialSlide: Partial<SlideModel>) => {

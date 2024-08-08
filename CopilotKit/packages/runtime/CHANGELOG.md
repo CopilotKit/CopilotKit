@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.1.1-feat-runtime-remote-actions.0
+
+### Patch Changes
+
+- Remote actions preview
+- Updated dependencies
+  - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.0
+
 ## 1.1.0
 
 ### Minor Changes

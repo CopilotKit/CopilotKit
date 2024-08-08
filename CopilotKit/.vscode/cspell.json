@@ -10,6 +10,11 @@
     "ondataavailable",
     "untruncate",
     "serverside",
-    "Tiktoken"
+    "Tiktoken",
+    "langgraph",
+    "GraphQLJSONObject",
+    "copilotcloud",
+    "pino",
+    "langsmith"
   ]
 }

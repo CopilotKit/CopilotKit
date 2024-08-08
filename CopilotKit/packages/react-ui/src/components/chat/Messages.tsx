@@ -10,6 +10,7 @@ import {
   ResultMessage,
   TextMessage,
   Role,
+  AgentStateMessage,
 } from "@copilotkit/runtime-client-gql";
 
 export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
@@ -140,6 +141,16 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
               </div>
             );
           }
+        } else if (
+          (message instanceof AgentStateMessage || message instanceof ResultMessage) &&
+          inProgress &&
+          isCurrentMessage
+        ) {
+          return (
+            <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
+              {context.icons.spinnerIcon}
+            </div>
+          );
         }
       })}
       <footer ref={messagesEndRef}>{children}</footer>
