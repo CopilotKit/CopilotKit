@@ -141,7 +141,11 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
               </div>
             );
           }
-        } else if (message instanceof AgentStateMessage && inProgress && isCurrentMessage) {
+        } else if (
+          (message instanceof AgentStateMessage || message instanceof ResultMessage) &&
+          inProgress &&
+          isCurrentMessage
+        ) {
           return (
             <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
               {context.icons.spinnerIcon}
