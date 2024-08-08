@@ -1,9 +1,19 @@
 import { Action } from "@copilotkit/shared";
-import { of, concat, map, scan, concatMap, ReplaySubject, Subject, firstValueFrom } from "rxjs";
+import {
+  of,
+  concat,
+  map,
+  scan,
+  concatMap,
+  ReplaySubject,
+  Subject,
+  firstValueFrom,
+  from,
+} from "rxjs";
 import { streamLangChainResponse } from "./langchain/utils";
 import { GuardrailsResult } from "../graphql/types/guardrails-result.type";
 import telemetry from "../lib/telemetry-client";
-import { isAgentResult } from "../lib/runtime/remote-actions";
+import { LangGraphAgentAction } from "../lib/runtime/remote-actions";
 
 export enum RuntimeEventTypes {
   TextMessageStart = "TextMessageStart",
@@ -13,7 +23,7 @@ export enum RuntimeEventTypes {
   ActionExecutionArgs = "ActionExecutionArgs",
   ActionExecutionEnd = "ActionExecutionEnd",
   ActionExecutionResult = "ActionExecutionResult",
-  AgentMessage = "AgentMessage",
+  AgentStateMessage = "AgentStateMessage",
 }
 
 type FunctionCallScope = "client" | "server";
@@ -40,10 +50,10 @@ export type RuntimeEvent =
       result: string;
     }
   | {
-      type: RuntimeEventTypes.AgentMessage;
+      type: RuntimeEventTypes.AgentStateMessage;
       threadId: string;
-      agentName: string;
-      nodeName: string;
+      // agentName: string;
+      // nodeName: string;
       state: string;
       running: boolean;
     };
@@ -112,18 +122,18 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
     });
   }
 
-  sendAgentMessage(
+  sendAgentStateMessage(
     threadId: string,
-    agentName: string,
-    nodeName: string,
+    // agentName: string,
+    // nodeName: string,
     state: string,
     running: boolean,
   ) {
     this.next({
-      type: RuntimeEventTypes.AgentMessage,
+      type: RuntimeEventTypes.AgentStateMessage,
       threadId,
-      agentName,
-      nodeName,
+      // agentName,
+      // nodeName,
       state,
       running,
     });
@@ -231,19 +241,23 @@ async function executeAction(
     args = JSON.parse(actionArguments);
   }
 
-  // call the function
-  const result = await action.handler(args);
-
-  if (isAgentResult(result, true)) {
-    eventStream$.sendAgentMessage(
-      result.threadId,
-      result.name,
-      result.nodeName,
-      result.state,
-      result.running,
+  // handle LangGraph agents
+  if ((action as LangGraphAgentAction).initiateLangGraphAgentSession) {
+    const stream = await (action as LangGraphAgentAction).initiateLangGraphAgentSession(
+      action.name,
+      args,
     );
-    eventStream$.complete();
+
+    // forward to eventStream$
+    from(stream).subscribe({
+      next: (event) => eventStream$.next(event),
+      error: (err) => console.error("Error in stream", err),
+      complete: () => eventStream$.complete(),
+    });
   } else {
+    // call the function
+    const result = await action.handler(args);
+
     await streamLangChainResponse({
       result,
       eventStream$,

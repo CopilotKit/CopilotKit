@@ -72,7 +72,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { SystemMessageFunction, useCopilotChat, useCopilotContext } from "@copilotkit/react-core";
 import { reloadSuggestions } from "./Suggestion";
 import { CopilotChatSuggestion } from "../../types/suggestions";
-import { Message, Role, TextMessage, AgentMessage } from "@copilotkit/runtime-client-gql";
+import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { InputProps, MessagesProps, ResponseButtonProps } from "./props";
 import { randomId } from "@copilotkit/shared";
 
@@ -307,35 +307,7 @@ export const useCopilotChatLogic = (
       }
     }
 
-    const [lastMessage] = visibleMessages.slice(-1);
-
-    if (lastMessage instanceof AgentMessage) {
-      const newState = {
-        ...lastMessage.state,
-      };
-
-      newState.coagent ||= {};
-      newState.coagent.execute ||= { name: "ask" };
-      newState.coagent.execute.result = { answer: messageContent };
-
-      const message = new AgentMessage({
-        role: Role.User,
-        agentName: lastMessage.agentName,
-        nodeName: lastMessage.nodeName,
-        state: newState,
-        running: lastMessage.running,
-        threadId: lastMessage.threadId,
-      });
-      appendMessage(message);
-      return message;
-    } else {
-      const message: Message = new TextMessage({
-        content: messageContent,
-        role: Role.User,
-      });
-      appendMessage(message);
-      return message;
-    }
+    return message;
   };
 
   return {

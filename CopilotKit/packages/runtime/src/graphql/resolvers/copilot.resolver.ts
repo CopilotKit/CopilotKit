@@ -34,7 +34,7 @@ import {
 } from "../../utils";
 import {
   ActionExecutionMessage,
-  AgentMessage,
+  AgentStateMessage,
   Message,
   ResultMessage,
   TextMessage,
@@ -437,30 +437,30 @@ export class CopilotResolver {
                 );
                 break;
               ////////////////////////////////
-              // AgentMessage
+              // AgentStateMessage
               ////////////////////////////////
-              case RuntimeEventTypes.AgentMessage:
+              case RuntimeEventTypes.AgentStateMessage:
                 logger.debug({ event }, "Agent message event received");
                 pushMessage({
                   id: randomId(),
                   status: new SuccessMessageStatus(),
                   threadId: event.threadId,
-                  agentName: event.agentName,
-                  nodeName: event.nodeName,
+                  // agentName: event.agentName,
+                  // nodeName: event.nodeName,
                   state: JSON.stringify(event.state),
                   running: event.running,
-                  role: MessageRole.assistant,
+                  // role: MessageRole.assistant,
                   createdAt: new Date(),
                 });
                 outputMessages.push(
-                  plainToInstance(AgentMessage, {
+                  plainToInstance(AgentStateMessage, {
                     id: randomId(),
                     threadId: event.threadId,
-                    agentName: event.agentName,
-                    nodeName: event.nodeName,
+                    // agentName: event.agentName,
+                    // nodeName: event.nodeName,
                     state: JSON.stringify(event.state),
                     running: event.running,
-                    role: MessageRole.assistant,
+                    // role: MessageRole.assistant,
                     createdAt: new Date(),
                   }),
                 );

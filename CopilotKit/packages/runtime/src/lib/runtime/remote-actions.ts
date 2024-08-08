@@ -2,44 +2,20 @@ import { Action } from "@copilotkit/shared";
 import { GraphQLContext } from "../integrations/shared";
 import { Logger } from "pino";
 import telemetry from "../../lib/telemetry-client";
-
-export type AgentResult = {
-  threadId: string;
-  state: string;
-  name: string;
-  nodeName: string;
-  running: boolean;
-  __agentMessage: true;
-};
-
-export function isAgentResult(
-  obj: any,
-  checkAgentMessageFlag: boolean = false,
-): obj is AgentResult {
-  if (checkAgentMessageFlag) {
-    return (
-      typeof obj === "object" &&
-      obj !== null &&
-      "__agentMessage" in obj &&
-      obj.__agentMessage === true
-    );
-  } else {
-    return (
-      typeof obj === "object" &&
-      obj !== null &&
-      "threadId" in obj &&
-      "state" in obj &&
-      "running" in obj &&
-      "name" in obj
-    );
-  }
-}
+import { Message } from "../../graphql/types/converted";
+import { RuntimeEvent, RuntimeEventSubject } from "../../service-adapters/events";
+import { RemoteLangGraphEventSource } from "../../agents/langgraph/event-source";
+import { Observable } from "rxjs";
 
 export type RemoteActionDefinition = {
   url: string;
   onBeforeRequest?: ({ ctx }: { ctx: GraphQLContext }) => {
     headers?: Record<string, string> | undefined;
   };
+};
+
+export type LangGraphAgentAction = Action<any> & {
+  initiateLangGraphAgentSession: (name: string, args: any) => Promise<Observable<RuntimeEvent>>;
 };
 
 function createHeaders(
@@ -93,20 +69,22 @@ async function fetchRemoteInfo({
   return json;
 }
 
-function constructActions({
+function constructRemoteActions({
   json,
   url,
   onBeforeRequest,
   graphqlContext,
   logger,
+  messages,
 }: {
   json: any[];
   url: string;
   onBeforeRequest?: RemoteActionDefinition["onBeforeRequest"];
   graphqlContext: GraphQLContext;
   logger: Logger;
+  messages: Message[];
 }): Action<any>[] {
-  return json["actions"].map((action) => ({
+  const actions = json["actions"].map((action) => ({
     name: action.name,
     description: action.description,
     parameters: action.parameters,
@@ -121,7 +99,7 @@ function constructActions({
         headers,
         body: JSON.stringify({
           name: action.name,
-          parameters: args,
+          arguments: args,
           properties: graphqlContext.properties,
         }),
       });
@@ -136,73 +114,68 @@ function constructActions({
 
       const requestResult = await response.json();
 
-      if (isAgentResult(requestResult)) {
-        logger.debug({ actionName: action.name, result: requestResult }, "Started agent session");
-        // TODO: instead of __agentMessage, we should use __copilotKit: {type: "agentMessage"}
-        return { ...requestResult, __agentMessage: true };
-      } else {
-        const result = requestResult["result"];
-        logger.debug({ actionName: action.name, result }, "Executed remote action");
-        return result;
-      }
+      const result = requestResult["result"];
+      logger.debug({ actionName: action.name, result }, "Executed remote action");
+      return result;
     },
   }));
-}
 
-export async function executeAgent({
-  agentName,
-  nodeName,
-  threadId,
-  state,
-  url,
-  onBeforeRequest,
-  graphqlContext,
-  logger,
-}: {
-  agentName: string;
-  nodeName: string;
-  threadId: string;
-  state: string;
-  url: string;
-  onBeforeRequest?: RemoteActionDefinition["onBeforeRequest"];
-  graphqlContext: GraphQLContext;
-  logger: Logger;
-}): Promise<AgentResult> {
-  logger.debug({ agentName, threadId, state }, "Executing remote action");
+  // TODO-AGENTS: when executing the agent, we need to:
+  // 1. stream the result
+  // 2. have access to message history
+  // 3. have access to the agent's state
+  // Does it event make sense that we use handlers for agents?
+  // Can we construct the agent's handler with access to stream and message history?
+  const agents = json["agents"].map((agent) => ({
+    name: agent.name,
+    description: agent.description,
+    parameters: agent.parameters,
+    handler: async (_args: any) => {},
+    initiateLangGraphAgentSession: async (
+      name: string,
+      args: any,
+    ): Promise<Observable<RuntimeEvent>> => {
+      logger.debug({ actionName: agent.name, args }, "Executing remote agent");
 
-  const headers = createHeaders(onBeforeRequest, graphqlContext);
-  telemetry.capture("oss.runtime.remote_action_executed", {});
+      const headers = createHeaders(onBeforeRequest, graphqlContext);
+      telemetry.capture("oss.runtime.remote_action_executed", {});
 
-  const response = await fetch(`${url}/actions/execute`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      threadId,
-      state,
-      name: agentName,
-      nodeName,
-    }),
-  });
+      const response = await fetch(`${url}/agents/start`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          name,
+          messages,
+          arguments: args,
+          properties: graphqlContext.properties,
+        }),
+      });
 
-  if (!response.ok) {
-    logger.error(
-      { url, status: response.status, body: await response.text() },
-      "Failed to execute remote agent",
-    );
-    throw new Error("Failed to execute remote agent");
-  }
+      if (!response.ok) {
+        logger.error(
+          { url, status: response.status, body: await response.text() },
+          "Failed to execute remote agent",
+        );
+        throw new Error("Failed to execute remote agent");
+      }
 
-  const requestResult = await response.json();
-  logger.debug({ agentName, threadId, state }, "Executed remote agent");
-  return { ...requestResult, __agentMessage: true };
+      const eventSource = new RemoteLangGraphEventSource();
+      eventSource.streamResponse(response);
+      return eventSource.processLangGraphEvents();
+    },
+  }));
+
+  return [...actions, ...agents];
 }
 
 export async function setupRemoteActions({
   remoteActionDefinitions,
   graphqlContext,
+  messages,
 }: {
   remoteActionDefinitions: RemoteActionDefinition[];
   graphqlContext: GraphQLContext;
+  messages: Message[];
 }): Promise<Action[]> {
   const logger = graphqlContext.logger.child({ component: "remote-actions.fetchRemoteActions" });
   logger.debug({ remoteActionDefinitions }, "Fetching remote actions");
@@ -220,8 +193,9 @@ export async function setupRemoteActions({
         graphqlContext,
         logger: logger.child({ component: "remote-actions.fetchActionsFromUrl", actionDefinition }),
       });
-      return constructActions({
+      return constructRemoteActions({
         json,
+        messages,
         url: actionDefinition.url,
         onBeforeRequest: actionDefinition.onBeforeRequest,
         graphqlContext,

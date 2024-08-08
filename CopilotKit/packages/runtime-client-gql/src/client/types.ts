@@ -6,7 +6,7 @@ import {
   ResultMessageInput,
   TextMessageInput,
   BaseMessageOutput,
-  AgentMessageInput,
+  AgentStateMessageInput,
   MessageStatusCode,
 } from "../graphql/@generated/graphql";
 
@@ -88,11 +88,11 @@ export class ResultMessage extends Message implements ResultMessageConstructorOp
   }
 }
 
-export class AgentMessage extends Message implements Omit<AgentMessageInput, "state"> {
-  agentName: AgentMessageInput["agentName"];
+export class AgentStateMessage extends Message implements Omit<AgentStateMessageInput, "state"> {
+  // agentName: AgentStateMessageInput["agentName"];
   state: any;
-  running: AgentMessageInput["running"];
-  threadId: AgentMessageInput["threadId"];
-  role: AgentMessageInput["role"];
-  nodeName: AgentMessageInput["nodeName"];
+  running: AgentStateMessageInput["running"];
+  threadId: AgentStateMessageInput["threadId"];
+  // role: AgentStateMessageInput["role"];
+  // nodeName: AgentStateMessageInput["nodeName"];
 }

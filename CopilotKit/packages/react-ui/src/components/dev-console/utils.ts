@@ -1,7 +1,7 @@
 import { CopilotContextParams, defaultCopilotContextCategories } from "@copilotkit/react-core";
 import { CopilotKitVersion } from "./types";
 import { ActionExecutionMessage, ResultMessage, TextMessage } from "@copilotkit/runtime-client-gql";
-import { AgentMessage } from "@copilotkit/runtime-client-gql";
+import { AgentStateMessage } from "@copilotkit/runtime-client-gql";
 
 export function shouldShowDevConsole(showDevConsole: boolean | "auto"): boolean {
   if (typeof showDevConsole === "boolean") {
@@ -143,12 +143,12 @@ export function logMessages(context: CopilotContextParams) {
         scope: message.actionExecutionId,
         content: message.result,
       };
-    } else if (message instanceof AgentMessage) {
+    } else if (message instanceof AgentStateMessage) {
       return {
         id: message.id,
-        type: `AgentMessage (running: ${message.running})`,
-        role: message.role,
-        name: message.agentName,
+        type: `AgentStateMessage (running: ${message.running})`,
+        role: undefined,
+        name: undefined,
         scope: message.threadId,
         content: message.state,
       };

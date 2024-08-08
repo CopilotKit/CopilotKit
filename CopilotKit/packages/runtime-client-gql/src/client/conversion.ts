@@ -4,7 +4,13 @@ import {
   MessageInput,
   MessageStatusCode,
 } from "../graphql/@generated/graphql";
-import { ActionExecutionMessage, AgentMessage, Message, ResultMessage, TextMessage } from "./types";
+import {
+  ActionExecutionMessage,
+  AgentStateMessage,
+  Message,
+  ResultMessage,
+  TextMessage,
+} from "./types";
 
 import untruncateJson from "untruncate-json";
 
@@ -39,15 +45,15 @@ export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
           actionName: message.actionName,
         },
       };
-    } else if (message instanceof AgentMessage) {
+    } else if (message instanceof AgentStateMessage) {
       return {
         id: message.id,
         createdAt: message.createdAt,
-        agentMessage: {
+        agentStateMessage: {
           threadId: message.threadId,
-          role: message.role,
-          agentName: message.agentName,
-          nodeName: message.nodeName,
+          // role: message.role,
+          // agentName: message.agentName,
+          // nodeName: message.nodeName,
           running: message.running,
           state: JSON.stringify(message.state),
         },
@@ -88,13 +94,13 @@ export function convertGqlOutputToMessages(
         createdAt: new Date(),
         status: message.status || { code: MessageStatusCode.Pending },
       });
-    } else if (message.__typename === "AgentMessageOutput") {
-      return new AgentMessage({
+    } else if (message.__typename === "AgentStateMessageOutput") {
+      return new AgentStateMessage({
         id: message.id,
         threadId: message.threadId,
-        role: message.role,
-        agentName: message.agentName,
-        nodeName: message.nodeName,
+        // role: message.role,
+        // agentName: message.agentName,
+        // nodeName: message.nodeName,
         running: message.running,
         state: JSON.parse(message.state),
         createdAt: new Date(),

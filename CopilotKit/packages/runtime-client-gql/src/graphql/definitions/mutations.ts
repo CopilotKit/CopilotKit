@@ -50,13 +50,10 @@ export const generateCopilotResponseMutation = graphql(/** GraphQL **/ `
           actionExecutionId
           actionName
         }
-        ... on AgentMessageOutput {
+        ... on AgentStateMessageOutput {
           threadId
-          agentName
-          nodeName
           state
           running
-          role
         }
       }
     }

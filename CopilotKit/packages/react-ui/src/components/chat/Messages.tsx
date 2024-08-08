@@ -10,7 +10,7 @@ import {
   ResultMessage,
   TextMessage,
   Role,
-  AgentMessage,
+  AgentStateMessage,
 } from "@copilotkit/runtime-client-gql";
 
 export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
@@ -63,17 +63,6 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
               {message.content}
             </div>
           );
-        } else if (
-          message instanceof AgentMessage &&
-          message.role === "user" &&
-          message.state?.coagent?.execute?.name === "ask" &&
-          message.state?.coagent?.execute?.result?.answer
-        ) {
-          return (
-            <div key={index} className="copilotKitMessage copilotKitUserMessage">
-              {message.state?.coagent?.execute?.result?.answer}
-            </div>
-          );
         } else if (message instanceof TextMessage && message.role == "assistant") {
           return (
             <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
@@ -82,20 +71,6 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
               ) : (
                 <Markdown content={message.content} />
               )}
-            </div>
-          );
-        } else if (
-          message instanceof AgentMessage &&
-          message.role === "assistant" &&
-          ((message.state?.coagent?.execute?.name === "ask" &&
-            message.state?.coagent?.execute?.arguments?.question) ||
-            (message.state?.coagent?.execute?.name === "message" &&
-              message.state?.coagent?.execute?.arguments?.text))
-        ) {
-          return (
-            <div key={index} className="copilotKitMessage copilotKitAssistantMessage">
-              {message.state?.coagent?.execute?.arguments?.question ||
-                message.state?.coagent?.execute?.arguments?.text}
             </div>
           );
         } else if (message instanceof ActionExecutionMessage) {
@@ -166,6 +141,12 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
               </div>
             );
           }
+        } else if (message instanceof AgentStateMessage && inProgress && isCurrentMessage) {
+          return (
+            <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
+              {context.icons.spinnerIcon}
+            </div>
+          );
         }
       })}
       <footer ref={messagesEndRef}>{children}</footer>

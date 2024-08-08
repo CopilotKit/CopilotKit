@@ -2,7 +2,7 @@ import {
   ActionExecutionMessageInput,
   ResultMessageInput,
   TextMessageInput,
-  AgentMessageInput,
+  AgentStateMessageInput,
 } from "../../inputs/message.input";
 import { BaseMessage } from "../base";
 import { ActionExecutionScope, MessageRole } from "../enums";
@@ -29,11 +29,14 @@ export class ResultMessage extends BaseMessage implements ResultMessageInput {
   result: string;
 }
 
-export class AgentMessage extends BaseMessage implements AgentMessageInput {
+export class AgentStateMessage
+  extends BaseMessage
+  implements Omit<AgentStateMessageInput, "state">
+{
   threadId: string;
-  agentName: string;
-  nodeName: string;
-  role: MessageRole;
-  state: string;
+  // agentName: string;
+  // nodeName: string;
+  // role: MessageRole;
+  state: any;
   running: boolean;
 }
