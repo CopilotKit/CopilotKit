@@ -105,28 +105,24 @@ export interface CopilotTextareaProps
    * Configuration settings for the autosuggestions feature.
    * Includes a mandatory `textareaPurpose` to guide the autosuggestions.
    *
-   * Autosuggestions can be configured as follows:
+   * <PropertyReference name="textareaPurpose" type="string"  > 
+   * The purpose of the text area in plain text.
+   * 
+   * Example: *"The body of the email response"*
+   * </PropertyReference>
    *
-   * ```ts
-   * {
-   *   // the purpose of the textarea
-   *   textareaPurpose: string,
-   *   chatApiConfigs: {
-   *     // the config for the suggestions api (optional)
-   *     suggestionsApiConfig: {
-   *       // use this to provide a custom system prompt
-   *       makeSystemPrompt: (textareaPurpose: string, contextString: string) => string;
-   *       // custom few shot messages
-   *       fewShotMessages: Message[];
-   *       // max number of tokens to generate
-   *       maxTokens: number,
-   *       // stop generating when these characters are encountered, e.g. [".", "?", "!"]
-   *       stop: string[],
-   *     },
-   *   },
-   *   insertionApiConfig: //... the similar options as suggestionsApiConfig
-   * }
-   * ```
+   * <PropertyReference name="chatApiConfigs" type="ChatApiConfigs" > 
+   *   The chat API configurations.
+   * 
+   *   <strong>NOTE:</strong> You must provide specify at least one of `suggestionsApiConfig` or `insertionApiConfig`.
+   * 
+   *   <PropertyReference name="suggestionsApiConfig" type="SuggestionsApiConfig">
+   *       For full reference, please [click here](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-textarea/src/types/autosuggestions-config/suggestions-api-config.tsx#L4).
+   *   </PropertyReference>
+   *   <PropertyReference name="insertionApiConfig" type="InsertionApiConfig">
+   *       For full reference, please [click here](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-textarea/src/types/autosuggestions-config/insertions-api-config.tsx#L4).
+   *   </PropertyReference>
+   * </PropertyReference>
    */
   autosuggestionsConfig: AutosuggestionsConfigUserSpecified;
 }
