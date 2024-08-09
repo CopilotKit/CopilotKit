@@ -87,7 +87,7 @@ Example goes here
 <table>
   <thead>
     <tr>
-      <th style="min-width: 250px;">Hook</th>
+      <th>Hook</th>
       <th>Description</th>
     </tr>
   </thead>
@@ -95,7 +95,7 @@ Example goes here
     <tr>
       <td>
         <a href="https://docs.copilotkit.ai/reference/hooks/useCopilotReadable?ref=github_readme">
-          📖 <code>useCopilotReadable</code>
+          <code>useCopilotReadable</code>
         </a>
       </td>
       <td>Provide in-app state and any other information to your Copilot.</td>
@@ -103,7 +103,7 @@ Example goes here
     <tr>
       <td>
         <a href="https://docs.copilotkit.ai/reference/hooks/useCopilotAction?ref=github_readme">
-          📖 <code> useCopilotAction</code>
+          <code> useCopilotAction</code>
         </a>
       </td>
       <td>
@@ -113,7 +113,7 @@ Example goes here
     <tr>
       <td>
         <a href="https://docs.copilotkit.ai/reference/hooks/useCopilotChat?ref=github_readme">
-          📖 <code>useCopilotChat</code>
+          <code>useCopilotChat</code>
         </a>
       </td>
       <td>
@@ -123,7 +123,7 @@ Example goes here
     <tr>
       <td>
         <a href="https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions?ref=github_readme">
-          📖 <code>useCopilotChatSuggestions</code>
+          <code>useCopilotChatSuggestions</code>
         </a>
       </td>
       <td>
@@ -131,7 +131,7 @@ Example goes here
       </td>
     </tr>
     <tr>
-      <td colspan="2" style="text-align:center;">
+      <td colspan="2" align="center">
         <strong>Hooks</strong>
       </td>
     </tr>
