@@ -139,10 +139,10 @@ There are several easy ways to get started with CopilotKit:
 
 ### ⚡️ Hooks
 
-- **CopilotReadable**: Provide in-app state and any other information to your Copilot. [Learn more](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable?ref=github_readme)
-- **CopilotAction**: Enable your Copilot to perform actions and render custom-generated UI in the chat. [Learn more](https://docs.copilotkit.ai/reference/hooks/useCopilotAction?ref=github_readme)
-- **CopilotChat**: Directly interact with the Copilot chat instance to add messages and manipulate the chat history. [Learn more](https://docs.copilotkit.ai/reference/hooks/useCopilotChat?ref=github_readme)
-- **CopilotChatSuggestions**: Integrate AI-powered chat follow-up suggestions that are aware of your app's state and chat history. [Learn more](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions?ref=github_readme)
+- [**`useCopilotReadable`**](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable?ref=github_readme): Provide in-app state and any other information to your Copilot.
+- [**`useCopilotAction`**](https://docs.copilotkit.ai/reference/hooks/useCopilotAction?ref=github_readme): Enable your Copilot to perform actions and render custom-generated UI in the chat.
+- [**`useCopilotChat`**](https://docs.copilotkit.ai/reference/hooks/useCopilotChat?ref=github_readme): Directly interact with the Copilot chat instance to add messages and manipulate the chat history.
+- [**`useCopilotChatSuggestions`**](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions?ref=github_readme): Integrate AI-powered chat follow-up suggestions that are aware of your app's state and chat history.
 
 ## Architecture
 
@@ -163,11 +163,12 @@ Here are a few useful resources to help you get started:
 
 > 💡 **NOTE:** All contributions must be submitted via a pull request and be reviewed by our team. This is to ensure that all contributions are of high quality and align with the project's goals.
 
+## Get In Touch
 
-## Get in touch
+You are welcome to join our [Discord](https://discord.gg/6dffbvGU3D) and chat with our team and other community members.
 
-Get in touch goes here
+Additionally, you can reach out to us at [hello@copilotkit.ai](mailto:hello@copilotkit.ai).
 
 ## License
 
-This repository's source code is available under the [MIT License](./LICENSE).
+This repository's source code is available under the [MIT License].
