@@ -42,7 +42,8 @@
 </p>
 </div>
 
-# Table of Contents
+**Table of Contents**
+
 - [Getting Started](#getting-started)
   - [Quickstart & Tutorials](#quickstart--tutorials)
   - [Examples & Starter Templates](#examples--starter-templates)
@@ -54,9 +55,9 @@
 - [Get in touch](#get-in-touch)
 - [License](#license)
 
-# Getting Started
+## Getting Started
 
-## Quickstart & Tutorials
+### Quickstart & Tutorials
 
 There are several easy ways to get started with CopilotKit:
 
@@ -64,7 +65,7 @@ There are several easy ways to get started with CopilotKit:
 - [**Tutorial: Todo List Copilot:**](https://docs.copilotkit.ai/tutorial-ai-todo-list-copilot/overview?ref=github_readme) For a better deep dive into CopilotKit, take a simple todo list app and supercharge it with an AI chat popup.
 - [**Tutorial: Textarea Autocomplete:**](https://docs.copilotkit.ai/tutorial-textarea/overview?ref=github_readme) For a better deep dive into CopilotKit, we'll take a simple email client app and add an AI-powered textarea to it with autocompeltions and AI insertions/edits.
 
-## Examples & Starter Templates
+### Examples & Starter Templates
 
 <details>
   <summary>
@@ -125,29 +126,29 @@ There are several easy ways to get started with CopilotKit:
   </p>
 </details>
 
-# Building Blocks
+## Building Blocks
 
 > 💡 Want to learn more? Check out the [CopilotKit Documentation](https://docs.copilotkit.ai?ref=github_readme).
 
-## 🧩 Components
+### 🧩 Components
 
 - [**`<CopilotTextarea />`**](https://docs.copilotkit.ai/reference/components/CopilotTextarea?ref=github_readme): An AI-powered textarea with autocompletions and AI-powered insertions/edits.
 - [**`<CopilotPopup />`**](https://docs.copilotkit.ai/reference/components/CopilotPopup?ref=github_readme): AI-powered chat floating chat popup component.
 - [**`<CopilotSidebar />`**](https://docs.copilotkit.ai/reference/components/CopilotSidebar?ref=github_readme): AI-powered chat sidebar component.
 - [**`<CopilotChat />`**](https://docs.copilotkit.ai/reference/components/CopilotChat?ref=github_readme): AI-powered plain chat component.
 
-## ⚡️ Hooks
+### ⚡️ Hooks
 
 - **CopilotReadable**: Provide in-app state and any other information to your Copilot. [Learn more](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable?ref=github_readme)
 - **CopilotAction**: Enable your Copilot to perform actions and render custom-generated UI in the chat. [Learn more](https://docs.copilotkit.ai/reference/hooks/useCopilotAction?ref=github_readme)
 - **CopilotChat**: Directly interact with the Copilot chat instance to add messages and manipulate the chat history. [Learn more](https://docs.copilotkit.ai/reference/hooks/useCopilotChat?ref=github_readme)
 - **CopilotChatSuggestions**: Integrate AI-powered chat follow-up suggestions that are aware of your app's state and chat history. [Learn more](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions?ref=github_readme)
 
-# Architecture
+## Architecture
 
 Architecture goes here
 
-# Contributing
+## Contributing
 
 Thanks for your interest in contributing to CopilotKit! 💜
 
@@ -163,10 +164,10 @@ Here are a few useful resources to help you get started:
 > 💡 **NOTE:** All contributions must be submitted via a pull request and be reviewed by our team. This is to ensure that all contributions are of high quality and align with the project's goals.
 
 
-# Get in touch
+## Get in touch
 
 Get in touch goes here
 
-# License
+## License
 
-License goes here
+This repository's source code is available under the [MIT License](./LICENSE).
