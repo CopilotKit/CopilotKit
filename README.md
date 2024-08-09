@@ -81,8 +81,6 @@ There are several easy ways to get started with CopilotKit:
   </p>
 </details>
 
-<br/>
-
 <details>
   <summary>
     <strong>🕹️ Simple Todo App + Copilot</strong>
@@ -99,7 +97,6 @@ There are several easy ways to get started with CopilotKit:
 
   </p>
 </details>
-<br/>
 
 <details>
   <summary>
@@ -117,7 +114,6 @@ There are several easy ways to get started with CopilotKit:
 
   </p>
 </details>
-<br/>
 
 <details>
   <summary>
