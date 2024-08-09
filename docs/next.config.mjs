@@ -19,7 +19,7 @@ export default withNextra({
       {
         source: "/",
         destination: "/what-is-copilotkit",
-        permanent: true,
+        permanent: false,
       }
     ]
   },
