@@ -31,7 +31,7 @@
 <br />
 
 <div align="center">
-  <img src="./assets/screenshot.png" alt="CopilotKit Screenshot" />
+  <img src="./assets/screenshot.png" alt="CopilotKit Screenshot" style="border-radius: 15px;" />
 </div>
 
 <br />
