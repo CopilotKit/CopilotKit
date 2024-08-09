@@ -84,12 +84,38 @@ Example goes here
 
 ### ⚡️ Hooks
 
-|   Hook                                                                                                    | Description                                                                  |
-|--------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
-| [`useCopilotReadable`](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable?ref=github_readme)   | Provide in-app state and any other information to your Copilot. |
-| [`useCopilotAction`](https://docs.copilotkit.ai/reference/hooks/useCopilotAction?ref=github_readme)         | Enable your Copilot to perform actions and render custom-generated UI in the chat.                               |
-| [`useCopilotChat`](https://docs.copilotkit.ai/reference/hooks/useCopilotChat?ref=github_readme)         | Directly interact with the Copilot chat instance to add messages and manipulate the chat history.                               |
-| [`useCopilotChatSuggestions`](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions?ref=github_readme)         | Integrate AI-powered chat follow-up suggestions that are aware of your app's state and chat history.                               |
+`test`
+
+<table>
+  <thead>
+    <tr>
+      <th style="min-width: 250px;">Hook</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+        <a href="https://docs.copilotkit.ai/reference/hooks/useCopilotReadable?ref=github_readme">
+          useCopilotReadable
+        </a>
+      </td>
+      <td>Provide in-app state and any other information to your Copilot.</td>
+    </tr>
+    <tr>
+      <td><a href="https://docs.copilotkit.ai/reference/hooks/useCopilotAction?ref=github_readme">useCopilotAction</a></td>
+      <td>Enable your Copilot to perform actions and render custom-generated UI in the chat.</td>
+    </tr>
+    <tr>
+      <td><a href="https://docs.copilotkit.ai/reference/hooks/useCopilotChat?ref=github_readme">useCopilotChat</a></td>
+      <td>Directly interact with the Copilot chat instance to add messages and manipulate the chat history.</td>
+    </tr>
+    <tr>
+      <td><a href="https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions?ref=github_readme">useCopilotChatSuggestions</a></td>
+      <td>Integrate AI-powered chat follow-up suggestions that are aware of your app's state and chat history.</td>
+    </tr>
+  </tbody>
+</table>
 
 ## Architecture
 
