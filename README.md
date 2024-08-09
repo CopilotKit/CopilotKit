@@ -72,7 +72,6 @@ There are several easy ways to get started with CopilotKit:
   </summary>
 
   <p align="center">
-  <br/>
   <a href="https://github.com/CopilotKit/demo-presentation" target="_blank">View Source Code on GitHub</a>
   <br/><br/>
   <a href="https://github.com/CopilotKit/demo-presentation">
@@ -86,8 +85,6 @@ There are several easy ways to get started with CopilotKit:
     <strong>🕹️ Simple Todo App + Copilot</strong>
   </summary>
   
-  <br/>
-
   <p align="center">
   <a href="https://github.com/CopilotKit/demo-todo" target="_blank">View Source Code on GitHub</a>
   <br/><br/>
@@ -103,8 +100,6 @@ There are several easy ways to get started with CopilotKit:
     <strong>🕹️ Spreadsheets + Copilot</strong>
   </summary>
   
-  <br/>
-
   <p align="center">
   <a href="https://github.com/CopilotKit/demo-spreadsheet" target="_blank">View Source Code on GitHub</a>
   <br/><br/>
@@ -120,8 +115,6 @@ There are several easy ways to get started with CopilotKit:
     <strong>🕹️ PowerPoint Clone + Copilot + Voice Control</strong>
   </summary>
   
-  <br/>
-
   <p align="center">
   <a href="https://github.com/CopilotKit/demo-presentation-voice" target="_blank">View Source Code on GitHub</a>
   <br/><br/>
