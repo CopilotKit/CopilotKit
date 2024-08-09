@@ -71,26 +71,50 @@ Example goes here
 
 ## Building Blocks
 
-> 💡 Looking for more? Check our the [CopilotKit Documentation](https://docs.copilotkit.ai?ref=github_readme)!
+> 💡 Looking for more? Check out the [CopilotKit Documentation](https://docs.copilotkit.ai?ref=github_readme).
 
 ### 🧩 Components
 
-| Component                                                                                                    | Description                                                                  |
-|--------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
-| [`<CopilotTextarea>`](https://docs.copilotkit.ai/reference/components/CopilotTextarea?ref=github_readme)   | An AI-powered textarea with autocompletions and AI-powered insertions/edits. |
-| [`<CopilotPopup>`](https://docs.copilotkit.ai/reference/components/CopilotPopup?ref=github_readme)         | AI-powered chat floating chat popup component.                               |
-| [`<CopilotSidebar>`<br>](https://docs.copilotkit.ai/reference/components/CopilotSidebar?ref=github_readme) | AI-powered chat sidebar component.                                           |
-| [`<CopilotChat>`](https://docs.copilotkit.ai/reference/components/CopilotChat?ref=github_readme)           | AI-powered plain chat component.                                             |
+<table>
+  <tbody>
+    <tr>
+      <td>
+        <a href="https://docs.copilotkit.ai/reference/components/CopilotTextarea?ref=github_readme">
+          <code>CopilotTextarea</code>
+        </a>
+      </td>
+      <td>An AI-powered textarea with autocompletions and AI-powered insertions/edits.</td>
+    </tr>
+    <tr>
+      <td>
+        <a href="https://docs.copilotkit.ai/reference/components/CopilotPopup?ref=github_readme">
+          <code>CopilotPopup</code>
+        </a>
+      </td>
+      <td>AI-powered chat floating chat popup component.</td>
+    </tr>
+    <tr>
+      <td>
+        <a href="https://docs.copilotkit.ai/reference/components/CopilotSidebar?ref=github_readme">
+          <code>CopilotSidebar</code>
+        </a>
+      </td>
+      <td>AI-powered chat sidebar component.</td>
+    </tr>
+    <tr>
+      <td>
+        <a href="https://docs.copilotkit.ai/reference/components/CopilotChat?ref=github_readme">
+          <code>CopilotChat</code>
+        </a>
+      </td>
+      <td>AI-powered plain chat component.</td>
+    </tr>
+  </tbody>
+</table>
 
 ### ⚡️ Hooks
 
 <table>
-  <thead>
-    <tr>
-      <th>Hook</th>
-      <th>Description</th>
-    </tr>
-  </thead>
   <tbody>
     <tr>
       <td>
@@ -130,11 +154,6 @@ Example goes here
         Integrate AI-powered chat follow-up suggestions that are aware of your app's state and chat history.
       </td>
     </tr>
-    <tr>
-      <td colspan="2" align="center">
-        <strong>Hooks</strong>
-      </td>
-    </tr>
   </tbody>
 </table>
 
@@ -144,7 +163,19 @@ Architecture goes here
 
 ## Contributing
 
-Contributing goes here
+Thanks for your interest in contributing to CopilotKit! 💜
+
+We value all contributions, whether it's through code, documentation, creating demo apps, or just spreading the word.
+
+Here are a few useful resources to help you get started:
+
+- For code contributions, [check out the contribution guide](https://docs.copilotkit.ai/code-contributions/how-to-contribute?ref=github_readme).
+- For documentation-related contributions, [check out the documentation Contributions guide](https://docs.copilotkit.ai/code-contributions/how-to-contribute?ref=github_readme).
+- Want to contribute but not sure how? [Join our Discord](https://discord.gg/6dffbvGU3D) and we'll help you out!
+
+
+> 💡 **NOTE:** All contributions must be submitted via a pull request and be reviewed by our team. This is to ensure that all contributions are of high quality and align with the project's goals.
+
 
 ## Get in touch
 
