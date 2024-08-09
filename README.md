@@ -45,7 +45,7 @@
 ## Table of Contents
 - [Getting Started](#getting-started)
   - [Quickstart & Tutorials](#quickstart--tutorials)
-  - [Examples](#examples)
+  - [Examples & Starter Templates](#examples--starter-templates)
 - [Building Blocks](#building-blocks)
   - [Components](#-components)
   - [Hooks](#-hooks)
@@ -64,10 +64,44 @@ There are several easy ways to get started with CopilotKit:
 - [**Tutorial: Todo List Copilot:**](https://docs.copilotkit.ai/tutorial-ai-todo-list-copilot/overview?ref=github_readme) For a better deep dive into CopilotKit, take a simple todo list app and supercharge it with an AI chat popup.
 - [**Tutorial: Textarea Autocomplete:**](https://docs.copilotkit.ai/tutorial-textarea/overview?ref=github_readme) For a better deep dive into CopilotKit, we'll take a simple email client app and add an AI-powered textarea to it with autocompeltions and AI insertions/edits.
 
-### Examples
-
-Example goes here
-
+### Examples & Starter Templates
+<div align="center">
+<table align="center">
+  <tr>
+    <td align="center" valign="top">
+      PowerPoint + Copilot <br/><br/>
+      <a href="https://github.com/CopilotKit/demo-presentation">
+        <img alt="Presentation" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="200px" style="max-width:100%; border-radius: 10px;"/>
+      </a>
+      <br/>
+      <a href="https://github.com/CopilotKit/demo-presentation" target="_blank">View Source Code</a> 
+    </td>
+    <td align="center" valign="top">
+      "Hello World" (A Todo App) <br/>
+      <a href="https://github.com/CopilotKit/demo-todo">https://github.com/CopilotKit/demo-todo</a> <br/><br>
+      <a href="https://github.com/CopilotKit/demo-todo">
+        <img alt="Todo App" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/63798c02-1892-4d2d-bc9f-2994b7c88694" width="200px" style="max-width:100%; border-radius: 10px;"/>
+      </a>
+    </td>
+    </tr>
+    <tr>
+    <td align="center" valign="top">
+      Spreadsheets + Copilot <br/>
+      <a href="https://github.com/CopilotKit/demo-spreadsheet">https://github.com/CopilotKit/demo-spreadsheet</a> <br/><br>
+      <a href="https://github.com/CopilotKit/demo-spreadsheet">
+        <img alt="Presentation-Demo" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/871e4c9c-0ced-490b-9e3f-8594de7c5c89" width="200px" style="max-width:100%; border-radius: 10px;"/>
+      </a>
+    </td>
+    <td align="center" valign="top">
+      PowerPoint + Copilot + Voice <br/>
+      <a href="https://github.com/CopilotKit/demo-presentation-voice">https://github.com/CopilotKit/demo-presentation-voice</a> <br/><br>
+      <a href="https://github.com/CopilotKit/demo-presentation-voice">
+        <img alt="Presentation-Voice" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="200px" style="max-width:100%; border-radius: 10px;"/>
+      </a>
+    </td>
+  </tr>
+</table>
+</div>
 
 ## Building Blocks
 
@@ -184,48 +218,6 @@ Get in touch goes here
 ## License
 
 License goes here
-
-## "Hello World" Templates
-
-<table align="center">
-  <tr>
-    <td align="center" valign="top">
-      PowerPoint + Copilot <br/>
-      <a href="https://github.com/CopilotKit/demo-presentation">https://github.com/CopilotKit/demo-presentation</a> <br/><br>
-      <a href="https://github.com/CopilotKit/demo-presentation">
-        <img alt="Presentation" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="200px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td>
-    <td align="center" valign="top">
-      "Hello World" (A Todo App) <br/>
-      <a href="https://github.com/CopilotKit/demo-todo">https://github.com/CopilotKit/demo-todo</a> <br/><br>
-      <a href="https://github.com/CopilotKit/demo-todo">
-        <img alt="Todo App" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/63798c02-1892-4d2d-bc9f-2994b7c88694" width="200px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td>    
-    <td align="center" valign="top">
-      Spreadsheets + Copilot <br/>
-      <a href="https://github.com/CopilotKit/demo-spreadsheet">https://github.com/CopilotKit/demo-spreadsheet</a> <br/><br>
-      <a href="https://github.com/CopilotKit/demo-spreadsheet">
-        <img alt="Presentation-Demo" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/871e4c9c-0ced-490b-9e3f-8594de7c5c89" width="200px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td>
-    <td align="center" valign="top">
-      PowerPoint + Copilot + Voice <br/>
-      <a href="https://github.com/CopilotKit/demo-presentation-voice">https://github.com/CopilotKit/demo-presentation-voice</a> <br/><br>
-      <a href="https://github.com/CopilotKit/demo-presentation-voice">
-        <img alt="Presentation-Voice" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="200px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td>
-<!--     <td align="center" valign="top">
-      Enterprise Onboarding <br/>
-      <a href="https://github.com/CopilotKit/campaign-manager-demo">https://github.com/CopilotKit/campaign-manager-demo</a> <br/><br>
-      <a href="https://github.com/CopilotKit/campaign-manager-demo">
-        <img alt="Presentation-Demo" src="https://github.com/CopilotKit/CopilotKit/assets/746397/3cea8976-55bd-4687-aa53-1ce3b3a41643" width="200px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td> -->
-  </tr>
-</table>
 
 ## Components
 
