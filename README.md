@@ -105,91 +105,21 @@ There are several easy ways to get started with CopilotKit:
 
 # Building Blocks
 
-> 💡 Looking for more? Check out the [CopilotKit Documentation](https://docs.copilotkit.ai?ref=github_readme).
+> 💡 Want to learn more? Check out the [CopilotKit Documentation](https://docs.copilotkit.ai?ref=github_readme).
 
 ## 🧩 Components
 
-<table>
-  <tbody>
-    <tr>
-      <td>
-        <a href="https://docs.copilotkit.ai/reference/components/CopilotTextarea?ref=github_readme">
-          <code>CopilotTextarea</code>
-        </a>
-      </td>
-      <td>An AI-powered textarea with autocompletions and AI-powered insertions/edits.</td>
-    </tr>
-    <tr>
-      <td>
-        <a href="https://docs.copilotkit.ai/reference/components/CopilotPopup?ref=github_readme">
-          <code>CopilotPopup</code>
-        </a>
-      </td>
-      <td>AI-powered chat floating chat popup component.</td>
-    </tr>
-    <tr>
-      <td>
-        <a href="https://docs.copilotkit.ai/reference/components/CopilotSidebar?ref=github_readme">
-          <code>CopilotSidebar</code>
-        </a>
-      </td>
-      <td>AI-powered chat sidebar component.</td>
-    </tr>
-    <tr>
-      <td>
-        <a href="https://docs.copilotkit.ai/reference/components/CopilotChat?ref=github_readme">
-          <code>CopilotChat</code>
-        </a>
-      </td>
-      <td>AI-powered plain chat component.</td>
-    </tr>
-  </tbody>
-</table>
+- [**`<CopilotTextarea />`**](https://docs.copilotkit.ai/reference/components/CopilotTextarea?ref=github_readme): An AI-powered textarea with autocompletions and AI-powered insertions/edits.
+- [**`<CopilotPopup />`**](https://docs.copilotkit.ai/reference/components/CopilotPopup?ref=github_readme): AI-powered chat floating chat popup component.
+- [**`<CopilotSidebar />`**](https://docs.copilotkit.ai/reference/components/CopilotSidebar?ref=github_readme): AI-powered chat sidebar component.
+- [**`<CopilotChat />`**](https://docs.copilotkit.ai/reference/components/CopilotChat?ref=github_readme): AI-powered plain chat component.
 
 ## ⚡️ Hooks
 
-<table>
-  <tbody>
-    <tr>
-      <td>
-        <a href="https://docs.copilotkit.ai/reference/hooks/useCopilotReadable?ref=github_readme">
-          <code>useCopilotReadable</code>
-        </a>
-      </td>
-      <td>Provide in-app state and any other information to your Copilot.</td>
-    </tr>
-    <tr>
-      <td>
-        <a href="https://docs.copilotkit.ai/reference/hooks/useCopilotAction?ref=github_readme">
-          <code> useCopilotAction</code>
-        </a>
-      </td>
-      <td>
-        Enable your Copilot to perform actions and render custom-generated UI in the chat.
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <a href="https://docs.copilotkit.ai/reference/hooks/useCopilotChat?ref=github_readme">
-          <code>useCopilotChat</code>
-        </a>
-      </td>
-      <td>
-        Directly interact with the Copilot chat instance to add messages and manipulate the chat history.
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <a href="https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions?ref=github_readme">
-          <code>useCopilotChatSuggestions</code>
-        </a>
-      </td>
-      <td>
-        Integrate AI-powered chat follow-up suggestions that are aware of your app's state and chat history.
-      </td>
-    </tr>
-  </tbody>
-</table>
+- [**`useCopilotReadable`**](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable?ref=github_readme): Provide in-app state and any other information to your Copilot.
+- [**`useCopilotAction`**](https://docs.copilotkit.ai/reference/hooks/useCopilotAction?ref=github_readme): Enable your Copilot to perform actions and render custom-generated UI in the chat.
+- [**`useCopilotChat`**](https://docs.copilotkit.ai/reference/hooks/useCopilotChat?ref=github_readme): Directly interact with the Copilot chat instance to add messages and manipulate the chat history.
+- [**`CopilotChatSuggestions`**](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions?ref=github_readme): Integrate AI-powered chat follow-up suggestions that are aware of your app's state and chat history.
 
 # Architecture
 
