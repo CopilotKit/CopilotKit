@@ -13,7 +13,7 @@
  * ```shell npm2yarn \"@copilotkit/react-ui"\
  * npm install @copilotkit/react-core @copilotkit/react-ui
  * ```
- * 
+ *
  * ## Usage
  *
  * ```tsx
@@ -28,14 +28,14 @@
  *   <YourApp/>
  * </CopilotSidebar>
  * ```
- * 
+ *
  * ### Look & Feel
- * 
+ *
  * By default, CopilotKit components do not have any styles. You can import CopilotKit's stylesheet at the root of your project:
  * ```tsx fileName="YourRootComponent.tsx" {2}
  * ...
  * import "@copilotkit/react-ui/styles.css";
- * 
+ *
  * export function YourRootComponent() {
  *   return (
  *     <CopilotKit>

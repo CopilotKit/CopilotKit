@@ -66,14 +66,14 @@
  *   );
  * }
  * ```
- * 
+ *
  * ### Look & Feel
- * 
+ *
  * By default, CopilotKit components do not have any styles. You can import CopilotKit's stylesheet at the root of your project:
  * ```tsx fileName="YourRootComponent.tsx" {2}
  * ...
  * import "@copilotkit/react-ui/styles.css";
- * 
+ *
  * export function YourRootComponent() {
  *   return (
  *     <CopilotKit>
@@ -105,17 +105,17 @@ export interface CopilotTextareaProps
    * Configuration settings for the autosuggestions feature.
    * Includes a mandatory `textareaPurpose` to guide the autosuggestions.
    *
-   * <PropertyReference name="textareaPurpose" type="string"  > 
+   * <PropertyReference name="textareaPurpose" type="string"  >
    * The purpose of the text area in plain text.
-   * 
+   *
    * Example: *"The body of the email response"*
    * </PropertyReference>
    *
-   * <PropertyReference name="chatApiConfigs" type="ChatApiConfigs" > 
+   * <PropertyReference name="chatApiConfigs" type="ChatApiConfigs" >
    *   The chat API configurations.
-   * 
+   *
    *   <strong>NOTE:</strong> You must provide specify at least one of `suggestionsApiConfig` or `insertionApiConfig`.
-   * 
+   *
    *   <PropertyReference name="suggestionsApiConfig" type="SuggestionsApiConfig">
    *       For full reference, please [click here](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-textarea/src/types/autosuggestions-config/suggestions-api-config.tsx#L4).
    *   </PropertyReference>
