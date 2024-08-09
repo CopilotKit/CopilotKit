@@ -84,8 +84,6 @@ Example goes here
 
 ### ⚡️ Hooks
 
-`test`
-
 <table>
   <thead>
     <tr>
@@ -97,22 +95,45 @@ Example goes here
     <tr>
       <td>
         <a href="https://docs.copilotkit.ai/reference/hooks/useCopilotReadable?ref=github_readme">
-          useCopilotReadable
+          📖 <code>useCopilotReadable</code>
         </a>
       </td>
       <td>Provide in-app state and any other information to your Copilot.</td>
     </tr>
     <tr>
-      <td><a href="https://docs.copilotkit.ai/reference/hooks/useCopilotAction?ref=github_readme">useCopilotAction</a></td>
-      <td>Enable your Copilot to perform actions and render custom-generated UI in the chat.</td>
+      <td>
+        <a href="https://docs.copilotkit.ai/reference/hooks/useCopilotAction?ref=github_readme">
+          📖 <code> useCopilotAction</code>
+        </a>
+      </td>
+      <td>
+        Enable your Copilot to perform actions and render custom-generated UI in the chat.
+      </td>
     </tr>
     <tr>
-      <td><a href="https://docs.copilotkit.ai/reference/hooks/useCopilotChat?ref=github_readme">useCopilotChat</a></td>
-      <td>Directly interact with the Copilot chat instance to add messages and manipulate the chat history.</td>
+      <td>
+        <a href="https://docs.copilotkit.ai/reference/hooks/useCopilotChat?ref=github_readme">
+          📖 <code>useCopilotChat</code>
+        </a>
+      </td>
+      <td>
+        Directly interact with the Copilot chat instance to add messages and manipulate the chat history.
+      </td>
     </tr>
     <tr>
-      <td><a href="https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions?ref=github_readme">useCopilotChatSuggestions</a></td>
-      <td>Integrate AI-powered chat follow-up suggestions that are aware of your app's state and chat history.</td>
+      <td>
+        <a href="https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions?ref=github_readme">
+          📖 <code>useCopilotChatSuggestions</code>
+        </a>
+      </td>
+      <td>
+        Integrate AI-powered chat follow-up suggestions that are aware of your app's state and chat history.
+      </td>
+    </tr>
+    <tr>
+      <td colspan="2" style="text-align:center;">
+        <strong>Hooks</strong>
+      </td>
     </tr>
   </tbody>
 </table>
