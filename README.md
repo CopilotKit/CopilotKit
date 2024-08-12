@@ -88,9 +88,9 @@ There are several easy ways to get started with CopilotKit:
   </summary>
 
   <p align="center">
-  <a href="https://github.com/CopilotKit/demo-presentation" target="_blank">View Source Code on GitHub</a>
+  <a href="https://go.copilotkit.ai/GitHubPresentation" target="_blank">https://github.com/CopilotKit/demo-presentation</a>
   <br/><br/>
-  <a href="https://github.com/CopilotKit/demo-presentation">
+  <a href="https://go.copilotkit.ai/GitHubPresentation">
     <img alt="Presentation" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="500px" style="max-width:100%; border-radius: 10px;"/>
   </a>
   </p>
@@ -102,9 +102,9 @@ There are several easy ways to get started with CopilotKit:
   </summary>
   
   <p align="center">
-  <a href="https://github.com/CopilotKit/demo-todo" target="_blank">View Source Code on GitHub</a>
+  <a href="https://go.copilotkit.ai/GitHubToDo" target="_blank">https://github.com/CopilotKit/demo-todo</a>
   <br/><br/>
-  <a href="https://github.com/CopilotKit/demo-todo">
+  <a href="https://go.copilotkit.ai/GitHubToDo">
     <img alt="Todo App" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/63798c02-1892-4d2d-bc9f-2994b7c88694" width="500px" style="max-width:100%; border-radius: 10px;"/>
   </a>
 
@@ -117,9 +117,9 @@ There are several easy ways to get started with CopilotKit:
   </summary>
   
   <p align="center">
-  <a href="https://github.com/CopilotKit/demo-spreadsheet" target="_blank">View Source Code on GitHub</a>
+  <a href="https://go.copilotkit.ai/GitHubSpreadsheet" target="_blank">https://github.com/CopilotKit/demo-spreadsheet</a>
   <br/><br/>
-  <a href="https://github.com/CopilotKit/demo-spreadsheet">
+  <a href="https://go.copilotkit.ai/GitHubSpreadsheet">
     <img alt="Spreadsheets App" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/871e4c9c-0ced-490b-9e3f-8594de7c5c89" width="500px" style="max-width:100%; border-radius: 10px;"/>
   </a>
 
@@ -132,9 +132,9 @@ There are several easy ways to get started with CopilotKit:
   </summary>
   
   <p align="center">
-  <a href="https://github.com/CopilotKit/demo-presentation-voice" target="_blank">View Source Code on GitHub</a>
+  <a href="https://go.copilotkit.ai/GitHubPresentationVoice" target="_blank">https://github.com/CopilotKit/demo-presentation-voice</a>
   <br/><br/>
-  <a href="https://github.com/CopilotKit/demo-presentation-voice">
+  <a href="https://go.copilotkit.ai/GitHubPresentationVoice">
     <img alt="Presentation-Voice" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="500px" style="max-width:100%; border-radius: 10px;"/>
   </a>
 
