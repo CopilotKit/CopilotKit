@@ -1,0 +1,64 @@
+import { Frame } from "@/components";
+
+# Generative UI
+
+The Generative UI feature allows you to dynamically render React components in the copilot chat window. The components will be updated in real-time as the arguments are streamed.
+
+<div className="flex flex-col md:flex-row gap-0">
+  <Frame>
+    <img
+      src="/images/concepts/generative-ui/render-generative-spreadsheet.gif"
+      className="w-auto"
+    />
+  </Frame>
+  <Frame>
+    <img
+      src="/images/concepts/generative-ui/render-generative-presentation.gif"
+      className="w-auto"
+    />
+  </Frame>
+  </div>
+
+## Rendering a UI Component
+
+Generative UI is achieved through the [useCopilotAction](/reference/hooks/useCopilotAction) hook. The hook accepts a `render` method. Whatever is returned from this method will be rendered in the copilot chat window.
+
+In the example below, we take one of the actions we added in the [Todo List Copilot Tutorial](/tutorial-ai-todo-list-copilot/step-4-copilot-actions) and add a generative UI element to it:
+
+```tsx
+useCopilotAction({
+  ...,
+  render: "Processing..."
+});
+```
+
+<Frame>
+  <img src="/images/concepts/generative-ui/example-delete-task.png" />
+</Frame>
+
+And here is the code for the action:
+
+## Rendering a Waiting Message
+
+Sometimes, you might want to display a simple text message to let the user know that the action is in progress. To do this, simply return a string from the `render` method. For example:
+
+<div className="flex space-x-4 my-4">
+  <div className="flex-1 h-full">
+    ```tsx
+    useCopilotAction({
+      ...,
+      render: "Processing..."
+    });
+    ```
+  </div>
+  <div>
+    <Frame className="my-0">
+      <img src="/images/concepts/generative-ui/render-string.gif" className="w-[300px] p-0" />
+    </Frame>
+  </div>
+</div>
+
+## Reference
+
+For more information on the `useCopilotAction` hook and specifically the `render` method, please refer to the [useCopilotAction reference page](/reference/hooks/useCopilotAction#parameters).
+

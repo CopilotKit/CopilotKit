@@ -1,51 +1,48 @@
 /**
- * A chatbot popup component for CopilotKit.
- *
- * <img src="/images/CopilotPopup/CopilotPopup.gif" width="500" />
- *
- * <img referrerPolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be" />
+ * <br/>
+ * <img src="/images/CopilotPopup.gif" width="500" />
  *
  * A chatbot popup component for the CopilotKit framework. The component allows for a high degree
  * of customization through various props and custom CSS.
  *
- * See [CopilotSidebar](./CopilotSidebar) for a sidebar version of this component.
+ * See [CopilotSidebar](/reference/components/CopilotSidebar) for a sidebar version of this component.
  *
- * <RequestExample>
- *   ```jsx CopilotPopup Example
- *   import { CopilotPopup } from "@copilotkit/react-ui";
+ * ## Install Dependencies
  *
- *   <CopilotPopup
- *     labels={{
- *       title: "Your Assistant",
- *       initial: "Hi! 👋 How can I assist you today?",
- *     }}
- *   />
- *   ```
- * </RequestExample>
+ * This component is part of the [@copilotkit/react-ui](https://npmjs.com/package/@copilotkit/react-ui) package.
  *
- * ## Custom CSS
+ * ```shell npm2yarn \"@copilotkit/react-ui"\
+ * npm install @copilotkit/react-core @copilotkit/react-ui
+ * ```
+ * ## Usage
  *
- * You can customize the colors of the chat window by overriding the CSS variables
- * defined in the [default styles](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-ui/src/css/colors.css).
+ * ```tsx
+ * import { CopilotPopup } from "@copilotkit/react-ui";
  *
- * For example, to set the primary color to purple:
- *
- * ```jsx
- * <div style={{ "--copilot-kit-primary-color": "#7D5BA6" }}>
- *   <CopilotPopup />
- * </div>
+ * <CopilotPopup
+ *   labels={{
+ *     title: "Your Assistant",
+ *     initial: "Hi! 👋 How can I assist you today?",
+ *   }}
+ * />
  * ```
  *
- * To further customize the chat window, you can override the CSS classes defined
- * [here](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-ui/src/css/).
+ * ### Look & Feel
  *
- * For example:
+ * By default, CopilotKit components do not have any styles. You can import CopilotKit's stylesheet at the root of your project:
+ * ```tsx fileName="YourRootComponent.tsx" {2}
+ * ...
+ * import "@copilotkit/react-ui/styles.css";
  *
- * ```css
- * .copilotKitButton {
- *   border-radius: 0;
+ * export function YourRootComponent() {
+ *   return (
+ *     <CopilotKit>
+ *       ...
+ *     </CopilotKit>
+ *   );
  * }
  * ```
+ * For more information about how to customize the styles, check out the [Customize Look & Feel](/concepts/customize-look-and-feel) guide.
  */
 
 import { CopilotModal, CopilotModalProps } from "./Modal";

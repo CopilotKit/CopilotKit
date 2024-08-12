@@ -1,6 +1,9 @@
 import * as ts from "typescript";
+// @ts-ignore
 import * as fs from "fs";
+// @ts-ignore
 import { existsSync } from "fs";
+// @ts-ignore
 import { dirname, resolve } from "path";
 import { Comments } from "./comments";
 
@@ -11,6 +14,7 @@ export interface InterfaceDefinition {
     type: string;
     required: boolean;
     comment: string;
+    defaultValue?: string;
   }[];
 }
 
@@ -175,6 +179,8 @@ export class SourceFile {
         node.members.forEach((member) => {
           if (ts.isPropertySignature(member)) {
             const propertyName = member.name.getText(this.sourceFile);
+            const comment = Comments.getCleanedCommentsForNode(member, this.sourceFile);
+            const defaultValue = Comments.getDefaultValueForNode(member, this.sourceFile);
 
             definition.properties.push({
               name: propertyName,
@@ -182,7 +188,8 @@ export class SourceFile {
                 .replace(/\n/g, "")
                 .replace(/\s+/g, " "),
               required: !member.questionToken,
-              comment: Comments.getCleanedCommentsForNode(member, this.sourceFile),
+              comment,
+              defaultValue,
             });
           }
         });

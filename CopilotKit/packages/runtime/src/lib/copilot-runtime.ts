@@ -1,101 +1,15 @@
 /**
- * Handles requests from frontend, provides function calling and various LLM backends.
+ * <Callout type="info">
+ *   This is the reference for the `CopilotRuntime` class. For more information and example code snippets, please see [Concept: Copilot Runtime](/concepts/copilot-runtime).
+ * </Callout>
  *
- * <img
- *   referrerPolicy="no-referrer-when-downgrade"
- *   src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be"
- * />
+ * ## Usage
  *
- * <RequestExample>
- *   ```jsx CopilotRuntime Example
- *   import {
- *     CopilotRuntime,
- *     OpenAIAdapter
- *   } from "@copilotkit/runtime";
+ * ```tsx
+ * import { CopilotRuntime } from "@copilotkit/runtime";
  *
- *   export async function POST(req: Request) {
- *     const copilotKit = new CopilotRuntime();
- *     return copilotKit.response(req, new OpenAIAdapter());
- *   }
- *
- * ```
- * </RequestExample>
- *
- * This class is the main entry point for the runtime. It handles requests from the frontend, provides function calling and various LLM backends.
- *
- * For example, to use OpenAI as a backend (check the [OpenAI Adapter](./OpenAIAdapter) docs for more info):
- * ```typescript
  * const copilotKit = new CopilotRuntime();
- * return copilotKit.response(req, new OpenAIAdapter());
  * ```
- *
- * Currently we support:
- *
- * - [OpenAI](./OpenAIAdapter)
- * - [LangChain](./LangChainAdapter)
- * - [OpenAI Assistant API](./OpenAIAssistantAdapter)
- * - [Google Gemini](./GoogleGenerativeAIAdapter)
- *
- * ## Server Side Actions
- *
- * CopilotKit supports actions that can be executed on the server side. You can define server side actions by passing the `actions` parameter:
- *
- * ```typescript
- * const copilotKit = new CopilotRuntime({
- *   actions: [
- *     {
- *       name: "sayHello",
- *       description: "Says hello to someone.",
- *       argumentAnnotations: [
- *         {
- *           name: "arg",
- *           type: "string",
- *           description: "The name of the person to say hello to.",
- *           required: true,
- *         },
- *       ],
- *       implementation: async (arg) => {
- *         console.log("Hello from the server", arg, "!");
- *       },
- *     },
- *   ],
- * });
- * ```
- *
- * Server side actions can also return a result which becomes part of the message history.
- *
- * This is useful because it gives the LLM context about what happened on the server side. In addition,
- * it can be used to look up information from a vector or relational database and other sources.
- *
- * In addition to that, server side actions can also come from LangChain, including support for streaming responses.
- *
- * Returned results can be of the following type:
- *
- * - anything serializable to JSON
- * - `string`
- * - LangChain types:
- *   - `IterableReadableStream`
- *   - `BaseMessageChunk`
- *   - `AIMessage`
- *
- * ## LangServe
- *
- * The backend also supports LangServe, enabling you to connect to existing chains, for example python based chains.
- * Use the `langserve` parameter to specify URLs for LangServe.
- *
- * ```typescript
- * const copilotKit = new CopilotRuntime({
- *   langserve: [
- *     {
- *       chainUrl: "http://my-langserve.chain",
- *       name: "performResearch",
- *       description: "Performs research on a given topic.",
- *     },
- *   ],
- * });
- * ```
- *
- * When left out, arguments are automatically inferred from the schema provided by LangServe.
  */
 
 import { Action, actionParametersToJsonSchema, Parameter } from "@copilotkit/shared";
@@ -105,6 +19,7 @@ import { ActionInput } from "../graphql/inputs/action.input";
 import { RuntimeEventSource } from "../service-adapters/events";
 import { convertGqlInputToMessages } from "../service-adapters/conversion";
 import { Message } from "../graphql/types/converted";
+import { ForwardedParametersInput } from "../graphql/inputs/forwarded-parameters.input";
 
 interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
@@ -115,6 +30,7 @@ interface CopilotRuntimeRequest {
   threadId?: string;
   runId?: string;
   publicApiKey?: string;
+  forwardedParameters?: ForwardedParametersInput;
 }
 
 interface CopilotRuntimeResponse {
@@ -222,6 +138,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       runId,
       properties,
       outputMessagesPromise,
+      forwardedParameters,
     } = request;
     const langserveFunctions: Action<any>[] = [];
 
@@ -267,6 +184,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         threadId,
         runId,
         eventSource,
+        forwardedParameters,
       });
 
       outputMessagesPromise

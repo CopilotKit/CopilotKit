@@ -1,35 +1,20 @@
 /**
- * CopilotRuntime Adapter for Groq.
+ * Copilot Runtime adapter for OpenAI.
  *
- * <RequestExample>
- * ```jsx CopilotRuntime Example
- * const copilotKit = new CopilotRuntime();
- * return copilotKit.response(req, new GroqAdapter());
- * ```
- * </RequestExample>
+ * ## Example
  *
- * You can easily set the model to use by passing it to the constructor.
- * ```jsx
- * const copilotKit = new CopilotRuntime();
- * return copilotKit.response(
- *   req,
- *   new GroqAdapter({ model: "gpt-4o" }),
- * );
- * ```
+ * ```ts
+ * import { CopilotRuntime, GroqAdapter } from "@copilotkit/runtime";
+ * import { Groq } from "groq-sdk";
  *
- * To use your custom Groq instance, pass the `groq` property.
- * ```jsx
- * const groq = new Groq({
- *   apiKey: "your-api-key"
- * });
+ * const groq = new Groq({ apiKey: process.env["GROQ_API_KEY"] });
  *
  * const copilotKit = new CopilotRuntime();
- * return copilotKit.response(
- *   req,
- *   new GroqAdapter({ groq }),
- * );
- * ```
  *
+ * const serviceAdapter = new GroqAdapter({ groq, model: "<model-name>" });
+ *
+ * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+ * ```
  */
 import { Groq } from "groq-sdk";
 import {
@@ -76,17 +61,36 @@ export class GroqAdapter implements CopilotServiceAdapter {
   async process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
-    const { threadId, model = this.model, messages, actions, eventSource } = request;
+    const {
+      threadId,
+      model = this.model,
+      messages,
+      actions,
+      eventSource,
+      forwardedParameters,
+    } = request;
     const tools = actions.map(convertActionInputToOpenAITool);
 
     let openaiMessages = messages.map(convertMessageToOpenAIMessage);
     openaiMessages = limitMessagesToTokenCount(openaiMessages, tools, model);
 
+    let toolChoice: any = forwardedParameters?.toolChoice;
+    if (forwardedParameters?.toolChoice === "function") {
+      toolChoice = {
+        type: "function",
+        function: { name: forwardedParameters.toolChoiceFunctionName },
+      };
+    }
     const stream = await this.groq.chat.completions.create({
       model: model,
       stream: true,
       messages: openaiMessages,
       ...(tools.length > 0 && { tools }),
+      ...(forwardedParameters?.maxTokens && {
+        max_tokens: forwardedParameters.maxTokens,
+      }),
+      ...(forwardedParameters?.stop && { stop: forwardedParameters.stop }),
+      ...(toolChoice && { tool_choice: toolChoice }),
     });
 
     eventSource.stream(async (eventStream$) => {

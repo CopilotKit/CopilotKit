@@ -3,8 +3,9 @@
   "version": "1.1.0",
   "private": true,
   "scripts": {
-    "start:dev": "next dev",
-    "start": "next start",
+    "example-dev": "next dev",
+    "example-build": "next build",
+    "example-start": "next start",
     "lint": "next lint",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
   },
