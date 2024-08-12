@@ -15,7 +15,14 @@ export type RemoteActionDefinition = {
 };
 
 export type LangGraphAgentAction = Action<any> & {
-  initiateLangGraphAgentSession: (name: string, args: any) => Promise<Observable<RuntimeEvent>>;
+  startLangGraphAgentSession: (name: string, args: any) => Promise<Observable<RuntimeEvent>>;
+
+  continueLangGraphAgentSession: (
+    name: string,
+    state: any,
+    threadId: string,
+    nodeName: string,
+  ) => Promise<Observable<RuntimeEvent>>;
 };
 
 function createHeaders(
@@ -125,7 +132,8 @@ function constructRemoteActions({
     description: agent.description,
     parameters: agent.parameters,
     handler: async (_args: any) => {},
-    initiateLangGraphAgentSession: async (
+
+    startLangGraphAgentSession: async (
       name: string,
       args: any,
     ): Promise<Observable<RuntimeEvent>> => {
@@ -141,6 +149,42 @@ function constructRemoteActions({
           name,
           messages,
           arguments: args,
+          properties: graphqlContext.properties,
+        }),
+      });
+
+      if (!response.ok) {
+        logger.error(
+          { url, status: response.status, body: await response.text() },
+          "Failed to execute remote agent",
+        );
+        throw new Error("Failed to execute remote agent");
+      }
+
+      const eventSource = new RemoteLangGraphEventSource();
+      eventSource.streamResponse(response);
+      return eventSource.processLangGraphEvents();
+    },
+    continueLangGraphAgentSession: async (
+      name: string,
+      state: any,
+      threadId: string,
+      nodeName: string,
+    ): Promise<Observable<RuntimeEvent>> => {
+      logger.debug({ actionName: agent.name, state }, "Executing remote agent");
+
+      const headers = createHeaders(onBeforeRequest, graphqlContext);
+      telemetry.capture("oss.runtime.remote_action_executed", {});
+
+      const response = await fetch(`${url}/agents/continue`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          name,
+          threadId,
+          nodeName,
+          messages,
+          state,
           properties: graphqlContext.properties,
         }),
       });
@@ -199,41 +243,4 @@ export async function setupRemoteActions({
   );
 
   return result.flat();
-}
-
-export async function fetchRemoteActionLocations({
-  remoteActionDefinitions,
-  graphqlContext,
-}: {
-  remoteActionDefinitions: RemoteActionDefinition[];
-  graphqlContext: GraphQLContext;
-}): Promise<Map<string, string>> {
-  const logger = graphqlContext.logger.child({
-    component: "remote-actions.fetchRemoteActionLocations",
-  });
-  logger.debug({ remoteActionDefinitions }, "Fetching remote action locations");
-
-  // Remove duplicates of remoteActionDefinitions.url
-  const filtered = remoteActionDefinitions.filter(
-    (value, index, self) => index === self.findIndex((t) => t.url === value.url),
-  );
-
-  const result = new Map<string, string>();
-
-  await Promise.all(
-    filtered.map(async (actionDefinition) => {
-      const json = await fetchRemoteInfo({
-        url: actionDefinition.url,
-        onBeforeRequest: actionDefinition.onBeforeRequest,
-        graphqlContext,
-        logger: logger.child({ component: "remote-actions.fetchActionsFromUrl", actionDefinition }),
-      });
-
-      json["actions"].forEach((action) => {
-        result.set(action.name, actionDefinition.url);
-      });
-    }),
-  );
-
-  return result;
 }

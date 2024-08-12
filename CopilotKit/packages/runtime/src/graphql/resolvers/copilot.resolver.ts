@@ -184,6 +184,7 @@ export class CopilotResolver {
       outputMessagesPromise,
       graphqlContext: ctx,
       forwardedParameters: data.forwardedParameters,
+      agentSession: data.agentSession,
     });
 
     logger.debug("Event source created, creating response");
@@ -445,22 +446,22 @@ export class CopilotResolver {
                   id: randomId(),
                   status: new SuccessMessageStatus(),
                   threadId: event.threadId,
-                  // agentName: event.agentName,
-                  // nodeName: event.nodeName,
+                  agentName: event.agentName,
+                  nodeName: event.nodeName,
                   state: JSON.stringify(event.state),
                   running: event.running,
-                  // role: MessageRole.assistant,
+                  role: MessageRole.assistant,
                   createdAt: new Date(),
                 });
                 outputMessages.push(
                   plainToInstance(AgentStateMessage, {
                     id: randomId(),
                     threadId: event.threadId,
-                    // agentName: event.agentName,
-                    // nodeName: event.nodeName,
+                    agentName: event.agentName,
+                    nodeName: event.nodeName,
                     state: JSON.stringify(event.state),
                     running: event.running,
-                    // role: MessageRole.assistant,
+                    role: MessageRole.assistant,
                     createdAt: new Date(),
                   }),
                 );

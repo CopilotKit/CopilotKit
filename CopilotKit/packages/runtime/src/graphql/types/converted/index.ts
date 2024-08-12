@@ -34,9 +34,9 @@ export class AgentStateMessage
   implements Omit<AgentStateMessageInput, "state">
 {
   threadId: string;
-  // agentName: string;
-  // nodeName: string;
-  // role: MessageRole;
+  agentName: string;
+  nodeName: string;
+  role: MessageRole;
   state: any;
   running: boolean;
 }

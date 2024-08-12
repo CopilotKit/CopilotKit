@@ -9,8 +9,6 @@ interface LangGraphEventWithState {
   prevToolCallId: string | null;
   messageId: string | null;
   prevMessageId: string | null;
-  state: any;
-  running: boolean;
 }
 
 export class RemoteLangGraphEventSource {
@@ -66,28 +64,6 @@ export class RemoteLangGraphEventSource {
     eventStream$.complete();
   }
 
-  getStateUpdate(event: LangGraphEvent) {
-    if (event.event === LangGraphEventTypes.OnChainEnd) {
-      let langSmithHidden = false;
-      let isSeq = false;
-      for (const tag of event.tags || []) {
-        if (tag === "langsmith:hidden") {
-          langSmithHidden = true;
-        } else if (tag.startsWith("seq:step:")) {
-          isSeq = true;
-        }
-      }
-      if (event.data?.input && langSmithHidden && isSeq) {
-        return event.data.input;
-      }
-    }
-    return null;
-  }
-
-  isFinished(event: LangGraphEvent) {
-    return event.event === LangGraphEventTypes.OnChainEnd && event.name === "LangGraph";
-  }
-
   processLangGraphEvents() {
     return this.eventStream$.pipe(
       scan(
@@ -110,15 +86,6 @@ export class RemoteLangGraphEventSource {
             acc.toolCallName = null;
           }
 
-          if (this.isFinished(event)) {
-            acc.running = false;
-          }
-
-          const stateUpdate = this.getStateUpdate(event);
-          if (stateUpdate) {
-            acc.state = stateUpdate;
-          }
-
           acc.event = event;
           return acc;
         },
@@ -127,13 +94,13 @@ export class RemoteLangGraphEventSource {
           toolCallId: null,
           prevToolCallId: null,
           messageId: null,
+          toolCallName: null,
           prevMessageId: null,
-          running: true,
-          state: null,
         } as LangGraphEventWithState,
       ),
       mergeMap((eventWithState): RuntimeEvent[] => {
         const events: RuntimeEvent[] = [];
+        console.log("eventWithState", JSON.stringify(eventWithState.event, null, 2));
 
         // Tool call ended: emit ActionExecutionEnd
         if (
@@ -146,19 +113,16 @@ export class RemoteLangGraphEventSource {
         }
 
         switch (eventWithState.event!.event) {
-          case LangGraphEventTypes.OnChainEnd:
-            const isStateUpdate = this.getStateUpdate(eventWithState.event);
-
-            if (isStateUpdate || this.isFinished(eventWithState.event)) {
-              events.push({
-                type: RuntimeEventTypes.AgentStateMessage,
-                threadId: "",
-                // agentName: "",
-                // nodeName: "",
-                state: JSON.stringify(eventWithState.state),
-                running: eventWithState.running,
-              });
-            }
+          case LangGraphEventTypes.OnCopilotKitStateSync:
+            events.push({
+              type: RuntimeEventTypes.AgentStateMessage,
+              threadId: eventWithState.event.thread_id,
+              role: eventWithState.event.role,
+              agentName: eventWithState.event.agent_name,
+              nodeName: eventWithState.event.node_name,
+              state: JSON.stringify(eventWithState.event.state),
+              running: eventWithState.event.running,
+            });
             break;
           case LangGraphEventTypes.OnToolEnd:
             const result = eventWithState.event.data?.output?.kwargs?.content?.[0];

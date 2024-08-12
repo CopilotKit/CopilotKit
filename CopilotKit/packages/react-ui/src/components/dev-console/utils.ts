@@ -147,7 +147,7 @@ export function logMessages(context: CopilotContextParams) {
       return {
         id: message.id,
         type: `AgentStateMessage (running: ${message.running})`,
-        role: undefined,
+        role: message.role,
         name: undefined,
         scope: message.threadId,
         content: message.state,

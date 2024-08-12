@@ -89,10 +89,10 @@ export class ResultMessage extends Message implements ResultMessageConstructorOp
 }
 
 export class AgentStateMessage extends Message implements Omit<AgentStateMessageInput, "state"> {
-  // agentName: AgentStateMessageInput["agentName"];
+  agentName: AgentStateMessageInput["agentName"];
   state: any;
   running: AgentStateMessageInput["running"];
   threadId: AgentStateMessageInput["threadId"];
-  // role: AgentStateMessageInput["role"];
-  // nodeName: AgentStateMessageInput["nodeName"];
+  role: AgentStateMessageInput["role"];
+  nodeName: AgentStateMessageInput["nodeName"];
 }

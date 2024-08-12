@@ -52,8 +52,9 @@ export type RuntimeEvent =
   | {
       type: RuntimeEventTypes.AgentStateMessage;
       threadId: string;
-      // agentName: string;
-      // nodeName: string;
+      agentName: string;
+      nodeName: string;
+      role: string;
       state: string;
       running: boolean;
     };
@@ -124,16 +125,18 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
 
   sendAgentStateMessage(
     threadId: string,
-    // agentName: string,
-    // nodeName: string,
+    agentName: string,
+    nodeName: string,
+    role: string,
     state: string,
     running: boolean,
   ) {
     this.next({
       type: RuntimeEventTypes.AgentStateMessage,
       threadId,
-      // agentName,
-      // nodeName,
+      agentName,
+      nodeName,
+      role,
       state,
       running,
     });
@@ -242,13 +245,13 @@ async function executeAction(
   }
 
   // handle LangGraph agents
-  if ((action as LangGraphAgentAction).initiateLangGraphAgentSession) {
+  if ((action as LangGraphAgentAction).startLangGraphAgentSession) {
     eventStream$.sendActionExecutionResult(
       actionExecutionId,
       action.name,
       `${action.name} agent started`,
     );
-    const stream = await (action as LangGraphAgentAction).initiateLangGraphAgentSession(
+    const stream = await (action as LangGraphAgentAction).startLangGraphAgentSession(
       action.name,
       args,
     );

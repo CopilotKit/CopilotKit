@@ -17,6 +17,7 @@ import {
   MessageRole,
   Role,
   CopilotRequestType,
+  AgentStateMessage,
 } from "@copilotkit/runtime-client-gql";
 
 import { CopilotApiConfig } from "../context";
@@ -86,6 +87,12 @@ export type UseChatHelpers = {
   stop: () => void;
 };
 
+interface AgentSession {
+  threadId: string;
+  agentName: string;
+  nodeName: string;
+}
+
 export function useChat(options: UseChatOptions): UseChatHelpers {
   const {
     messages,
@@ -98,10 +105,14 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     actions,
     onFunctionCall,
   } = options;
+
   const abortControllerRef = useRef<AbortController>();
   const threadIdRef = useRef<string | null>(null);
   const runIdRef = useRef<string | null>(null);
+  const agentSessionRef = useRef<AgentSession | null>(null);
+
   const publicApiKey = copilotConfig.publicApiKey;
+
   const headers = {
     ...(copilotConfig.headers || {}),
     ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
@@ -168,6 +179,15 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           metadata: {
             requestType: CopilotRequestType.Chat,
           },
+          ...(agentSessionRef.current
+            ? {
+                agentSession: {
+                  threadId: agentSessionRef.current.threadId,
+                  agentName: agentSessionRef.current.agentName,
+                  nodeName: agentSessionRef.current.nodeName,
+                },
+              }
+            : {}),
         },
         properties: copilotConfig.properties,
         signal: abortControllerRef.current?.signal,
@@ -222,6 +242,18 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           for (const message of messages) {
             newMessages.push(message);
 
+            if (message instanceof AgentStateMessage) {
+              if (message.running) {
+                agentSessionRef.current = {
+                  threadId: message.threadId,
+                  agentName: message.agentName,
+                  nodeName: message.nodeName,
+                };
+              } else {
+                agentSessionRef.current = null;
+              }
+            }
+
             // execute regular action executions
             if (
               message instanceof ActionExecutionMessage &&
@@ -259,8 +291,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           setMessages([...previousMessages, ...newMessages]);
         }
       }
-
-      const lastMessage = newMessages.at(-1) as any;
 
       if (
         // if we have client side results

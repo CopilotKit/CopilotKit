@@ -15,6 +15,7 @@
     "GraphQLJSONObject",
     "copilotcloud",
     "pino",
-    "langsmith"
+    "langsmith",
+    "readables"
   ]
 }

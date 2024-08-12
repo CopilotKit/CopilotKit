@@ -66,14 +66,14 @@ export class AgentStateMessageOutput {
   @Field(() => String)
   threadId: string;
 
-  // @Field(() => String)
-  // agentName: string;
+  @Field(() => String)
+  agentName: string;
 
-  // @Field(() => String)
-  // nodeName: string;
+  @Field(() => String)
+  nodeName: string;
 
-  // @Field(() => MessageRole)
-  // role: MessageRole;
+  @Field(() => MessageRole)
+  role: MessageRole;
 
   @Field(() => String)
   state: string;
