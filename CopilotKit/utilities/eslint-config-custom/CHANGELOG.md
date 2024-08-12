@@ -1,5 +1,14 @@
 # eslint-config-custom
 
+## 1.1.1
+
+### Patch Changes
+
+- - improved documentation
+  - center textarea popup
+  - show/hide dev console
+  - forward maxTokens, stop and force function calling
+
 ## 1.1.0
 
 ### Minor Changes
