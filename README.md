@@ -66,7 +66,6 @@
 - [Building Blocks](#building-blocks)
   - [Components](#-components)
   - [Hooks](#-hooks)
-- [Architecture](#architecture)
 - [Contributing](#contributing)
 - [Get in touch](#get-in-touch)
 - [License](#license)
@@ -160,10 +159,6 @@ There are several easy ways to get started with CopilotKit:
 - [**`useCopilotChat`**](https://docs.copilotkit.ai/reference/hooks/useCopilotChat?ref=github_readme): Directly interact with the Copilot chat instance to add messages and manipulate the chat history.
 - [**`useCopilotChatSuggestions`**](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions?ref=github_readme): Integrate AI-powered chat follow-up suggestions that are aware of your app's state and chat history.
 
-## Architecture
-
-Architecture goes here
-
 ## Contributing
 
 Thanks for your interest in contributing to CopilotKit! 💜
@@ -179,7 +174,7 @@ Here are a few useful resources to help you get started:
 
 > 💡 **NOTE:** All contributions must be submitted via a pull request and be reviewed by our team. This is to ensure that all contributions are of high quality and align with the project's goals.
 
-## Get In Touch
+## Get in touch
 
 You are welcome to join our [Discord](https://discord.gg/6dffbvGU3D) and chat with our team and other community members.
 
