@@ -9,6 +9,7 @@ export enum MessageRole {
 export enum ActionExecutionScope {
   server = "server",
   client = "client",
+  passThrough = "passThrough",
 }
 
 export enum CopilotRequestType {

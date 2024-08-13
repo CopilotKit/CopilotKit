@@ -100,7 +100,6 @@ export class RemoteLangGraphEventSource {
       ),
       mergeMap((eventWithState): RuntimeEvent[] => {
         const events: RuntimeEvent[] = [];
-        console.log("eventWithState", JSON.stringify(eventWithState.event, null, 2));
 
         // Tool call ended: emit ActionExecutionEnd
         if (
@@ -138,7 +137,6 @@ export class RemoteLangGraphEventSource {
             }
             break;
           case LangGraphEventTypes.OnChatModelStream:
-            // Tool call started: emit ActionExecutionStart
             if (
               eventWithState.toolCallId !== null &&
               eventWithState.prevToolCallId !== eventWithState.toolCallId
@@ -147,7 +145,7 @@ export class RemoteLangGraphEventSource {
                 type: RuntimeEventTypes.ActionExecutionStart,
                 actionExecutionId: eventWithState.toolCallId,
                 actionName: eventWithState.toolCallName,
-                scope: "server",
+                scope: "passThrough",
               });
             }
             // Message started: emit TextMessageStart

@@ -147,7 +147,9 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     const { threadId, agentName, nodeName } = agentSession;
 
     const messages = convertGqlInputToMessages(rawMessages);
-    const agentStateMessages = messages.filter((message) => message instanceof AgentStateMessage);
+    const agentStateMessages = messages.filter(
+      (message) => message instanceof AgentStateMessage,
+    ) as AgentStateMessage[];
 
     if (agentStateMessages.length === 0) {
       throw new Error("No agent state messages found");
@@ -190,7 +192,10 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
       eventSource.stream(async (eventStream$) => {
         from(stream).subscribe({
-          next: (event) => eventStream$.next(event),
+          next: (event) => {
+            // console.log("event", event);
+            eventStream$.next(event);
+          },
           error: (err) => console.error("Error in stream", err),
           complete: () => eventStream$.complete(),
         });

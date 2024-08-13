@@ -176,17 +176,19 @@ function constructRemoteActions({
       const headers = createHeaders(onBeforeRequest, graphqlContext);
       telemetry.capture("oss.runtime.remote_action_executed", {});
 
+      const requestBody = {
+        name,
+        threadId,
+        nodeName,
+        messages,
+        state,
+        properties: graphqlContext.properties,
+      };
+
       const response = await fetch(`${url}/agents/continue`, {
         method: "POST",
         headers,
-        body: JSON.stringify({
-          name,
-          threadId,
-          nodeName,
-          messages,
-          state,
-          properties: graphqlContext.properties,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {

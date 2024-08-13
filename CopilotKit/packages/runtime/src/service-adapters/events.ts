@@ -26,7 +26,7 @@ export enum RuntimeEventTypes {
   AgentStateMessage = "AgentStateMessage",
 }
 
-type FunctionCallScope = "client" | "server";
+type FunctionCallScope = "client" | "server" | "passThrough";
 
 export type RuntimeEvent =
   | { type: RuntimeEventTypes.TextMessageStart; messageId: string }
@@ -165,9 +165,11 @@ export class RuntimeEventSource {
       // mark tools for server side execution
       map((event) => {
         if (event.type === RuntimeEventTypes.ActionExecutionStart) {
-          event.scope = serversideActions.find((action) => action.name === event.actionName)
-            ? "server"
-            : "client";
+          if (event.scope !== "passThrough") {
+            event.scope = serversideActions.find((action) => action.name === event.actionName)
+              ? "server"
+              : "client";
+          }
         }
         return event;
       }),
