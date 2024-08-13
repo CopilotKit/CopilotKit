@@ -123,7 +123,7 @@ export interface CopilotTextareaProps
    *       For full reference, please [click here](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-textarea/src/types/autosuggestions-config/insertions-api-config.tsx#L4).
    *   </PropertyReference>
    * </PropertyReference>
-   * 
+   *
    * <PropertyReference name="disabled" type="boolean" >
    *   Whether the textarea is disabled.
    * </PropertyReference>
