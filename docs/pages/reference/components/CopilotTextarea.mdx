@@ -127,12 +127,12 @@ The shortcut to use to open the editor popover window. Default is `"Cmd-k"`.
 
 <PropertyReference name="autosuggestionsConfig" type="AutosuggestionsConfigUserSpecified" required > 
 Configuration settings for the autosuggestions feature.
-  Includes a mandatory `textareaPurpose` to guide the autosuggestions.
+  For full reference, [check the interface on GitHub](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-textarea/src/types/base/base-copilot-textarea-props.tsx#L8).
  
-  <PropertyReference name="textareaPurpose" type="string"  >
-  The purpose of the text area in plain text.
+  <PropertyReference name="textareaPurpose" type="string" required={true} >
+    The purpose of the text area in plain text.
  
-  Example: "The body of the email response"
+    Example: "The body of the email response"
   </PropertyReference>
  
   <PropertyReference name="chatApiConfigs" type="ChatApiConfigs" >
@@ -146,6 +146,42 @@ Configuration settings for the autosuggestions feature.
     <PropertyReference name="insertionApiConfig" type="InsertionApiConfig">
         For full reference, please [click here](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-textarea/src/types/autosuggestions-config/insertions-api-config.tsx#L4).
     </PropertyReference>
+  </PropertyReference>
+  
+  <PropertyReference name="disabled" type="boolean" >
+    Whether the textarea is disabled.
+  </PropertyReference>
+ 
+  <PropertyReference name="disableBranding" type="boolean" >
+    Whether to disable the CopilotKit branding.
+  </PropertyReference>
+ 
+  <PropertyReference name="placeholderStyle" type="React.CSSProperties" >
+    Specifies the CSS styles to apply to the placeholder text.
+  </PropertyReference>
+ 
+  <PropertyReference name="suggestionsStyle" type="React.CSSProperties" >
+    Specifies the CSS styles to apply to the suggestions list.
+  </PropertyReference>
+ 
+  <PropertyReference name="hoverMenuClassname" type="string" >
+    A class name to apply to the editor popover window.
+  </PropertyReference>
+ 
+  <PropertyReference name="value" type="string" >
+    The initial value of the textarea. Can be controlled via `onValueChange`.
+  </PropertyReference>
+ 
+  <PropertyReference name="onValueChange" type="(value: string) => void" >
+    Callback invoked when the value of the textarea changes.
+  </PropertyReference>
+ 
+  <PropertyReference name="onChange" type="(event: React.ChangeEvent<HTMLTextAreaElement>) => void" >
+    Callback invoked when a `change` event is triggered on the textarea element.
+  </PropertyReference>
+ 
+  <PropertyReference name="shortcut" type="string" >
+    The shortcut to use to open the editor popover window. Default is `"Cmd-k"`.
   </PropertyReference>
 </PropertyReference>
 
