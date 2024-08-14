@@ -14,16 +14,21 @@ export type RemoteActionDefinition = {
   };
 };
 
-export type LangGraphAgentAction = Action<any> & {
-  startLangGraphAgentSession: (name: string, args: any) => Promise<Observable<RuntimeEvent>>;
-
-  continueLangGraphAgentSession: (
-    name: string,
-    state: any,
-    threadId: string,
-    nodeName: string,
-  ) => Promise<Observable<RuntimeEvent>>;
+export type LangGraphAgentHandlerParams = {
+  name: string;
+  state: any;
+  actions: Action<any>[];
+  threadId?: string;
+  nodeName?: string;
 };
+
+export type LangGraphAgentAction = Action<any> & {
+  langGraphAgentHandler: (params: LangGraphAgentHandlerParams) => Promise<Observable<RuntimeEvent>>;
+};
+
+export function isLangGraphAgentAction(action: Action<any>): action is LangGraphAgentAction {
+  return typeof (action as LangGraphAgentAction).langGraphAgentHandler === "function";
+}
 
 function createHeaders(
   onBeforeRequest: RemoteActionDefinition["onBeforeRequest"],
@@ -133,62 +138,29 @@ function constructRemoteActions({
     parameters: agent.parameters,
     handler: async (_args: any) => {},
 
-    startLangGraphAgentSession: async (
-      name: string,
-      args: any,
-    ): Promise<Observable<RuntimeEvent>> => {
-      logger.debug({ actionName: agent.name, args }, "Executing remote agent");
-
-      const headers = createHeaders(onBeforeRequest, graphqlContext);
-      telemetry.capture("oss.runtime.remote_action_executed", {});
-
-      const response = await fetch(`${url}/agents/start`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          name,
-          messages,
-          arguments: args,
-          properties: graphqlContext.properties,
-        }),
-      });
-
-      if (!response.ok) {
-        logger.error(
-          { url, status: response.status, body: await response.text() },
-          "Failed to execute remote agent",
-        );
-        throw new Error("Failed to execute remote agent");
-      }
-
-      const eventSource = new RemoteLangGraphEventSource();
-      eventSource.streamResponse(response);
-      return eventSource.processLangGraphEvents();
-    },
-    continueLangGraphAgentSession: async (
-      name: string,
-      state: any,
-      threadId: string,
-      nodeName: string,
-    ): Promise<Observable<RuntimeEvent>> => {
+    langGraphAgentHandler: async ({
+      name,
+      state,
+      actions,
+      threadId,
+      nodeName,
+    }: LangGraphAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
       logger.debug({ actionName: agent.name, state }, "Executing remote agent");
 
       const headers = createHeaders(onBeforeRequest, graphqlContext);
       telemetry.capture("oss.runtime.remote_action_executed", {});
 
-      const requestBody = {
-        name,
-        threadId,
-        nodeName,
-        messages,
-        state,
-        properties: graphqlContext.properties,
-      };
-
-      const response = await fetch(`${url}/agents/continue`, {
+      const response = await fetch(`${url}/agents/execute`, {
         method: "POST",
         headers,
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          name,
+          threadId,
+          nodeName,
+          messages,
+          state,
+          properties: graphqlContext.properties,
+        }),
       });
 
       if (!response.ok) {

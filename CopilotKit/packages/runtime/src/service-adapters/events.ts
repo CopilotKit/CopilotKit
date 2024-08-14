@@ -13,7 +13,7 @@ import {
 import { streamLangChainResponse } from "./langchain/utils";
 import { GuardrailsResult } from "../graphql/types/guardrails-result.type";
 import telemetry from "../lib/telemetry-client";
-import { LangGraphAgentAction } from "../lib/runtime/remote-actions";
+import { isLangGraphAgentAction } from "../lib/runtime/remote-actions";
 
 export enum RuntimeEventTypes {
   TextMessageStart = "TextMessageStart",
@@ -247,16 +247,17 @@ async function executeAction(
   }
 
   // handle LangGraph agents
-  if ((action as LangGraphAgentAction).startLangGraphAgentSession) {
+  if (isLangGraphAgentAction(action)) {
     eventStream$.sendActionExecutionResult(
       actionExecutionId,
       action.name,
       `${action.name} agent started`,
     );
-    const stream = await (action as LangGraphAgentAction).startLangGraphAgentSession(
-      action.name,
-      args,
-    );
+    const stream = await action.langGraphAgentHandler({
+      name: action.name,
+      state: args,
+      actions: [], // TODO-AGENTS: add actions
+    });
 
     // forward to eventStream$
     from(stream).subscribe({

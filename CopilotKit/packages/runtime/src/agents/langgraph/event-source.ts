@@ -111,6 +111,15 @@ export class RemoteLangGraphEventSource {
           });
         }
 
+        if (
+          eventWithState.prevMessageId !== null &&
+          eventWithState.prevMessageId !== eventWithState.messageId
+        ) {
+          events.push({
+            type: RuntimeEventTypes.TextMessageEnd,
+          });
+        }
+
         switch (eventWithState.event!.event) {
           case LangGraphEventTypes.OnCopilotKitStateSync:
             events.push({
