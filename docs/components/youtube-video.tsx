@@ -1,14 +1,23 @@
 import YouTube from "react-youtube";
 
-export function YouTubeVideo({ videoId }: { videoId: string }) {
+export function YouTubeVideo({
+  videoId,
+  defaultPlaybackRate = 1.0,
+}: {
+  videoId: string;
+  defaultPlaybackRate?: number;
+}) {
   const onPlayerReady: YouTube["props"]["onReady"] = (event) => {
     const player = event.target;
-    player.setPlaybackRate(1.25);
-  }
+
+    if (defaultPlaybackRate) {
+      player.setPlaybackRate(defaultPlaybackRate);
+    }
+  };
 
   const opts: YouTube["props"]["opts"] = {
     playerVars: {},
-  }
+  };
 
   return (
     <YouTube
