@@ -12,7 +12,7 @@
     "check-prettier": "prettier --check \"**/*.{ts,tsx,md}\"",
     "publish-packages": "turbo run build lint && changeset version && changeset publish",
     "freshbuild": "pnpm -w clean && pnpm i && pnpm -w build",
-    "precommit": "pnpm run docs && git add ../docs"
+    "precommit": "pnpm run docs"
   },
   "devDependencies": {
     "@types/node": "^18.11.17",
