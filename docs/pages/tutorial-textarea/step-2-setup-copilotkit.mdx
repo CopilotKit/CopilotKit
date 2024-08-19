@@ -8,7 +8,6 @@ import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/sel
 Now that we have our todo list app running, we're ready to integrate CopilotKit. For this tutorial, we will install the following dependencies:
 
 - `@copilotkit/react-core`: The core library for CopilotKit, which contains the CopilotKit provider and useful hooks.
-- `@copilotkit/react-ui`: The UI library for CopilotKit, which contains the CopilotKit UI components such as the sidebar, chat popup, textare and more.
 - `@copilotkit/react-textarea`: The textarea component for CopilotKit, which enables you to get instant context-aware autocompletions in your app.
 
 ## Install Dependencies
@@ -16,7 +15,7 @@ Now that we have our todo list app running, we're ready to integrate CopilotKit.
 To install the CopilotKit dependencies, run the following:
 
 ```shell npm2yarn
-npm install @copilotkit/react-core @copilotkit/react-ui @copilotkit/react-textarea
+npm install @copilotkit/react-core @copilotkit/react-textarea
 ```
 
 ## Setup CopilotKit
@@ -32,13 +31,13 @@ npm install @copilotkit/react-core @copilotkit/react-ui @copilotkit/react-textar
     <LinkToCopilotCloud>Click here to get your Copilot Cloud API key for free</LinkToCopilotCloud>. Then, replace `<your-public-api-key>` with your actual API key.
   </Callout>
 
-  ```tsx filename="app/page.tsx" showLineNumbers {5,10,14}
+  ```tsx filename="app/page.tsx" showLineNumbers {5-6,10,14}
   "use client";
 
   import { EmailThread } from "@/components/EmailThread";
   import { EmailsProvider } from "@/lib/hooks/use-email";
   import { CopilotKit } from "@copilotkit/react-core";
-  import "@copilotkit/react-ui/styles.css";
+  import "@copilotkit/react-textarea/styles.css";
 
   export default function Home() {
     return (
@@ -85,6 +84,6 @@ Let's break this down:
 
 - First, we imported the `CopilotKit` provider from `@copilotkit/react-core`.
 - Then, we wrapped the page with the `<CopilotKit>` provider.
-- We imported the built-in styles from `@copilotkit/react-ui`. This is optional.
+- We imported the built-in styles from `@copilotkit/react-textarea`. This is optional.
 
 In the next step, we'll implement the AI-powered textarea as a replacement for our existing input component.
