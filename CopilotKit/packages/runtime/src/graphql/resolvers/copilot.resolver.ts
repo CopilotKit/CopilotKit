@@ -173,8 +173,9 @@ export class CopilotResolver {
       eventSource,
       threadId = randomId(),
       runId,
-      actions,
-    } = await copilotRuntime.process({
+      serverSideActions,
+      actionInputsWithoutAgents,
+    } = await copilotRuntime.processRuntimeRequest({
       serviceAdapter,
       messages: data.messages,
       actions: data.frontend.actions,
@@ -251,9 +252,14 @@ export class CopilotResolver {
 
         // run and process the event stream
         const eventStream = eventSource
-          .process({
-            serversideActions: actions,
+          .processRuntimeEvents({
+            serverSideActions,
             guardrailsResult$: data.cloud?.guardrails ? guardrailsResult$ : null,
+            actionInputsWithoutAgents: actionInputsWithoutAgents.filter(
+              // TODO-AGENTS: do not exclude ALL server side actions
+              (action) =>
+                !serverSideActions.find((serverSideAction) => serverSideAction.name == action.name),
+            ),
           })
           .pipe(
             // shareReplay() ensures that later subscribers will see the whole stream instead of

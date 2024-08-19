@@ -6,6 +6,7 @@ import { Message } from "../../graphql/types/converted";
 import { RuntimeEvent, RuntimeEventSubject } from "../../service-adapters/events";
 import { RemoteLangGraphEventSource } from "../../agents/langgraph/event-source";
 import { Observable } from "rxjs";
+import { ActionInput } from "../../graphql/inputs/action.input";
 
 export type RemoteActionDefinition = {
   url: string;
@@ -17,7 +18,7 @@ export type RemoteActionDefinition = {
 export type LangGraphAgentHandlerParams = {
   name: string;
   state: any;
-  actions: Action<any>[];
+  actionInputsWithoutAgents: ActionInput[];
   threadId?: string;
   nodeName?: string;
 };
@@ -27,6 +28,9 @@ export type LangGraphAgentAction = Action<any> & {
 };
 
 export function isLangGraphAgentAction(action: Action<any>): action is LangGraphAgentAction {
+  if (!action) {
+    return false;
+  }
   return typeof (action as LangGraphAgentAction).langGraphAgentHandler === "function";
 }
 
@@ -141,7 +145,7 @@ function constructRemoteActions({
     langGraphAgentHandler: async ({
       name,
       state,
-      actions,
+      actionInputsWithoutAgents,
       threadId,
       nodeName,
     }: LangGraphAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
@@ -160,6 +164,11 @@ function constructRemoteActions({
           messages,
           state,
           properties: graphqlContext.properties,
+          actions: actionInputsWithoutAgents.map((action) => ({
+            name: action.name,
+            description: action.description,
+            parameters: JSON.parse(action.jsonSchema),
+          })),
         }),
       });
 

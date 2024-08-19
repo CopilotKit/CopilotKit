@@ -14,6 +14,7 @@ import { streamLangChainResponse } from "./langchain/utils";
 import { GuardrailsResult } from "../graphql/types/guardrails-result.type";
 import telemetry from "../lib/telemetry-client";
 import { isLangGraphAgentAction } from "../lib/runtime/remote-actions";
+import { ActionInput } from "../graphql/inputs/action.input";
 
 export enum RuntimeEventTypes {
   TextMessageStart = "TextMessageStart",
@@ -151,12 +152,14 @@ export class RuntimeEventSource {
     this.callback = callback;
   }
 
-  process({
-    serversideActions,
+  processRuntimeEvents({
+    serverSideActions,
     guardrailsResult$,
+    actionInputsWithoutAgents,
   }: {
-    serversideActions: Action<any>[];
+    serverSideActions: Action<any>[];
     guardrailsResult$?: Subject<GuardrailsResult>;
+    actionInputsWithoutAgents: ActionInput[];
   }) {
     this.callback(this.eventStream$).catch((error) => {
       console.error("Error in event source callback", error);
@@ -166,7 +169,7 @@ export class RuntimeEventSource {
       map((event) => {
         if (event.type === RuntimeEventTypes.ActionExecutionStart) {
           if (event.scope !== "passThrough") {
-            event.scope = serversideActions.find((action) => action.name === event.actionName)
+            event.scope = serverSideActions.find((action) => action.name === event.actionName)
               ? "server"
               : "client";
           }
@@ -181,7 +184,7 @@ export class RuntimeEventSource {
             acc.args = "";
             acc.actionExecutionId = event.actionExecutionId;
             if (acc.callActionServerSide) {
-              acc.action = serversideActions.find((action) => action.name === event.actionName);
+              acc.action = serverSideActions.find((action) => action.name === event.actionName);
             }
           } else if (event.type === RuntimeEventTypes.ActionExecutionArgs) {
             acc.args += event.args;
@@ -210,6 +213,7 @@ export class RuntimeEventSource {
             eventWithState.action!,
             eventWithState.args,
             eventWithState.actionExecutionId,
+            actionInputsWithoutAgents,
           ).catch((error) => {
             console.error(error);
           });
@@ -230,6 +234,7 @@ async function executeAction(
   action: Action<any>,
   actionArguments: string,
   actionExecutionId: string,
+  actionInputsWithoutAgents: ActionInput[],
 ) {
   if (guardrailsResult$) {
     const { status } = await firstValueFrom(guardrailsResult$);
@@ -256,7 +261,7 @@ async function executeAction(
     const stream = await action.langGraphAgentHandler({
       name: action.name,
       state: args,
-      actions: [], // TODO-AGENTS: add actions
+      actionInputsWithoutAgents,
     });
 
     // forward to eventStream$

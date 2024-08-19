@@ -71,7 +71,7 @@ export class RemoteLangGraphEventSource {
           if (event.event === LangGraphEventTypes.OnChatModelStream) {
             if (event.data?.chunk?.kwargs?.tool_call_chunks) {
               acc.prevToolCallId = acc.toolCallId;
-              acc.toolCallId = event.data.chunk.kwargs.tool_call_chunks[0]?.id;
+              acc.toolCallId = event.data.chunk.kwargs?.id;
               if (event.data.chunk.kwargs.tool_call_chunks[0]?.name) {
                 acc.toolCallName = event.data.chunk.kwargs.tool_call_chunks[0].name;
               }
@@ -101,19 +101,34 @@ export class RemoteLangGraphEventSource {
       mergeMap((eventWithState): RuntimeEvent[] => {
         const events: RuntimeEvent[] = [];
 
+        let shouldEmitMessages = false;
+        let shouldEmitToolCalls = false;
+
+        if (eventWithState.event.event == LangGraphEventTypes.OnChatModelStream) {
+          if (eventWithState.event.tags?.includes("copilotkit:emit-tool-calls")) {
+            shouldEmitToolCalls = true;
+          }
+          if (eventWithState.event.tags?.includes("copilotkit:emit-messages")) {
+            shouldEmitMessages = true;
+          }
+        }
+
         // Tool call ended: emit ActionExecutionEnd
         if (
           eventWithState.prevToolCallId !== null &&
-          eventWithState.prevToolCallId !== eventWithState.toolCallId
+          eventWithState.prevToolCallId !== eventWithState.toolCallId &&
+          shouldEmitToolCalls
         ) {
           events.push({
             type: RuntimeEventTypes.ActionExecutionEnd,
           });
         }
 
+        // Message ended: emit TextMessageEnd
         if (
           eventWithState.prevMessageId !== null &&
-          eventWithState.prevMessageId !== eventWithState.messageId
+          eventWithState.prevMessageId !== eventWithState.messageId &&
+          shouldEmitMessages
         ) {
           events.push({
             type: RuntimeEventTypes.TextMessageEnd,
@@ -133,57 +148,68 @@ export class RemoteLangGraphEventSource {
             });
             break;
           case LangGraphEventTypes.OnToolEnd:
-            const result = eventWithState.event.data?.output?.kwargs?.content?.[0];
-            const toolCallId = eventWithState.event.data?.output?.kwargs?.tool_call_id;
-            const toolCallName = eventWithState.event.data?.output?.kwargs?.name;
-            if (result && toolCallId && toolCallName) {
-              events.push({
-                type: RuntimeEventTypes.ActionExecutionResult,
-                actionExecutionId: toolCallId,
-                actionName: toolCallName,
-                result,
-              });
-            }
+            // TODO-AGENTS: emit ActionExecutionResult when needed
+            // Need a special tool node for that?
+
+            // const result = eventWithState.event.data?.output?.kwargs?.content?.[0];
+            // const toolCallId = eventWithState.event.data?.output?.kwargs?.tool_call_id;
+            // const toolCallName = eventWithState.event.data?.output?.kwargs?.name;
+            // if (result && toolCallId && toolCallName) {
+            //   events.push({
+            //     type: RuntimeEventTypes.ActionExecutionResult,
+            //     actionExecutionId: toolCallId,
+            //     actionName: toolCallName,
+            //     result,
+            //   });
+            // }
             break;
           case LangGraphEventTypes.OnChatModelStream:
             if (
               eventWithState.toolCallId !== null &&
               eventWithState.prevToolCallId !== eventWithState.toolCallId
             ) {
-              events.push({
-                type: RuntimeEventTypes.ActionExecutionStart,
-                actionExecutionId: eventWithState.toolCallId,
-                actionName: eventWithState.toolCallName,
-                scope: "passThrough",
-              });
+              if (shouldEmitToolCalls) {
+                events.push({
+                  type: RuntimeEventTypes.ActionExecutionStart,
+                  actionExecutionId: eventWithState.toolCallId,
+                  actionName: eventWithState.toolCallName,
+                  scope: "client",
+                });
+              }
             }
             // Message started: emit TextMessageStart
             else if (
               eventWithState.messageId !== null &&
               eventWithState.prevMessageId !== eventWithState.messageId
             ) {
-              events.push({
-                type: RuntimeEventTypes.TextMessageStart,
-                messageId: eventWithState.messageId,
-              });
+              if (shouldEmitMessages) {
+                events.push({
+                  type: RuntimeEventTypes.TextMessageStart,
+                  messageId: eventWithState.messageId,
+                });
+              }
             }
 
             const args = eventWithState.event.data?.chunk?.kwargs?.tool_call_chunks?.[0]?.args;
             const content = eventWithState.event.data?.chunk?.kwargs?.content;
 
             // Tool call args: emit ActionExecutionArgs
-            if (eventWithState.toolCallId !== null && args) {
-              events.push({
-                type: RuntimeEventTypes.ActionExecutionArgs,
-                args,
-              });
+            if (args) {
+              if (shouldEmitToolCalls) {
+                events.push({
+                  type: RuntimeEventTypes.ActionExecutionArgs,
+                  args,
+                });
+              }
             }
             // Message content: emit TextMessageContent
             else if (eventWithState.messageId !== null && content) {
-              events.push({
-                type: RuntimeEventTypes.TextMessageContent,
-                content,
-              });
+              if (shouldEmitMessages) {
+                events.push({
+                  type: RuntimeEventTypes.TextMessageContent,
+                  content,
+                });
+              }
             }
             break;
         }

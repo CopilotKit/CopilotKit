@@ -47,7 +47,8 @@ interface CopilotRuntimeResponse {
   threadId: string;
   runId?: string;
   eventSource: RuntimeEventSource;
-  actions: Action<any>[];
+  serverSideActions: Action<any>[];
+  actionInputsWithoutAgents: ActionInput[];
 }
 
 type ActionsConfiguration<T extends Parameter[] | [] = []> =
@@ -147,107 +148,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     this.onAfterRequest = params?.middleware?.onAfterRequest;
   }
 
-  async processAgentRequest(request: CopilotRuntimeRequest): Promise<CopilotRuntimeResponse> {
-    const { messages: rawMessages, outputMessagesPromise, graphqlContext, agentSession } = request;
-    const { threadId, agentName, nodeName } = agentSession;
-    const actions = await this.getActions(request);
-
-    const messages = convertGqlInputToMessages(rawMessages);
-    const agentStateMessages = messages.filter(
-      (message) => message instanceof AgentStateMessage,
-    ) as AgentStateMessage[];
-
-    if (agentStateMessages.length === 0) {
-      throw new Error("No agent state messages found");
-    }
-
-    // get the last agent state
-    const agentStateMessage = agentStateMessages[agentStateMessages.length - 1];
-    const state = JSON.parse(agentStateMessage.state);
-
-    const agent = actions.find(
-      (action) => action.name === agentName && isLangGraphAgentAction(action),
-    ) as LangGraphAgentAction;
-
-    if (!agent) {
-      throw new Error(`Agent ${agentName} not found`);
-    }
-
-    await this.onBeforeRequest?.({
-      threadId,
-      runId: undefined,
-      inputMessages: messages,
-      properties: graphqlContext.properties,
-    });
-    try {
-      const eventSource = new RuntimeEventSource();
-      const stream = await agent.langGraphAgentHandler({
-        name: agentName,
-        state,
-        threadId,
-        nodeName,
-        actions: actions.filter((action) => !isLangGraphAgentAction(action)),
-      });
-
-      eventSource.stream(async (eventStream$) => {
-        from(stream).subscribe({
-          next: (event) => eventStream$.next(event),
-          error: (err) => console.error("Error in stream", err),
-          complete: () => eventStream$.complete(),
-        });
-      });
-
-      outputMessagesPromise
-        .then((outputMessages) => {
-          this.onAfterRequest?.({
-            threadId: request.threadId,
-            runId: undefined,
-            inputMessages: messages,
-            outputMessages,
-            properties: graphqlContext.properties,
-          });
-        })
-        .catch((_error) => {});
-      return {
-        threadId: request.threadId,
-        runId: undefined,
-        eventSource,
-        actions: [],
-      };
-    } catch (error) {
-      console.error("Error getting response:", error);
-      throw error;
-    }
-  }
-
-  private async getActions(request: CopilotRuntimeRequest): Promise<Action<any>[]> {
-    const { messages: rawMessages, graphqlContext } = request;
-    const inputMessages = convertGqlInputToMessages(rawMessages);
-    const langserveFunctions: Action<any>[] = [];
-
-    for (const chainPromise of this.langserve) {
-      try {
-        const chain = await chainPromise;
-        langserveFunctions.push(chain);
-      } catch (error) {
-        console.error("Error loading langserve chain:", error);
-      }
-    }
-    const remoteActions = await setupRemoteActions({
-      remoteActionDefinitions: this.remoteActionDefinitions,
-      graphqlContext,
-      messages: inputMessages,
-    });
-
-    const configuredActions =
-      typeof this.actions === "function"
-        ? this.actions({ properties: graphqlContext.properties })
-        : this.actions;
-
-    return [...configuredActions, ...langserveFunctions, ...remoteActions];
-  }
-
-  async process(request: CopilotRuntimeRequest): Promise<CopilotRuntimeResponse> {
+  async processRuntimeRequest(request: CopilotRuntimeRequest): Promise<CopilotRuntimeResponse> {
     const {
       serviceAdapter,
       messages: rawMessages,
@@ -267,9 +168,9 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     const messages = rawMessages.filter((message) => !message.agentStateMessage);
 
     const inputMessages = convertGqlInputToMessages(messages);
-    const actions = await this.getActions(request);
+    const serverSideActions = await this.getServerSideActions(request);
 
-    const serverSideActionsInput: ActionInput[] = actions.map((action) => ({
+    const serverSideActionsInput: ActionInput[] = serverSideActions.map((action) => ({
       name: action.name,
       description: action.description,
       jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters)),
@@ -315,12 +216,137 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         threadId: result.threadId,
         runId: result.runId,
         eventSource,
-        actions: actions,
+        serverSideActions,
+        actionInputsWithoutAgents: actionInputs.filter(
+          (action) =>
+            // TODO-AGENTS: do not exclude ALL server side actions
+            !serverSideActions.find((serverSideAction) => serverSideAction.name == action.name),
+          // !isLangGraphAgentAction(
+          //   serverSideActions.find((serverSideAction) => serverSideAction.name == action.name),
+          // ),
+        ),
       };
     } catch (error) {
       console.error("Error getting response:", error);
       throw error;
     }
+  }
+
+  private async processAgentRequest(
+    request: CopilotRuntimeRequest,
+  ): Promise<CopilotRuntimeResponse> {
+    const { messages: rawMessages, outputMessagesPromise, graphqlContext, agentSession } = request;
+    const { threadId, agentName, nodeName } = agentSession;
+    const serverSideActions = await this.getServerSideActions(request);
+
+    const messages = convertGqlInputToMessages(rawMessages);
+    const agentStateMessages = messages.filter(
+      (message) => message instanceof AgentStateMessage,
+    ) as AgentStateMessage[];
+
+    if (agentStateMessages.length === 0) {
+      throw new Error("No agent state messages found");
+    }
+
+    // get the last agent state
+    const agentStateMessage = agentStateMessages[agentStateMessages.length - 1];
+    const state = JSON.parse(agentStateMessage.state);
+
+    const agent = serverSideActions.find(
+      (action) => action.name === agentName && isLangGraphAgentAction(action),
+    ) as LangGraphAgentAction;
+
+    if (!agent) {
+      throw new Error(`Agent ${agentName} not found`);
+    }
+
+    const serverSideActionsInput: ActionInput[] = serverSideActions
+      .filter((action) => !isLangGraphAgentAction(action))
+      .map((action) => ({
+        name: action.name,
+        description: action.description,
+        jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters)),
+      }));
+
+    const actionInputsWithoutAgents = flattenToolCallsNoDuplicates([
+      ...serverSideActionsInput,
+      ...request.actions,
+    ]);
+
+    await this.onBeforeRequest?.({
+      threadId,
+      runId: undefined,
+      inputMessages: messages,
+      properties: graphqlContext.properties,
+    });
+    try {
+      const eventSource = new RuntimeEventSource();
+      const stream = await agent.langGraphAgentHandler({
+        name: agentName,
+        state,
+        threadId,
+        nodeName,
+        actionInputsWithoutAgents,
+      });
+
+      eventSource.stream(async (eventStream$) => {
+        from(stream).subscribe({
+          next: (event) => eventStream$.next(event),
+          error: (err) => console.error("Error in stream", err),
+          complete: () => eventStream$.complete(),
+        });
+      });
+
+      outputMessagesPromise
+        .then((outputMessages) => {
+          this.onAfterRequest?.({
+            threadId: request.threadId,
+            runId: undefined,
+            inputMessages: messages,
+            outputMessages,
+            properties: graphqlContext.properties,
+          });
+        })
+        .catch((_error) => {});
+
+      return {
+        threadId: request.threadId,
+        runId: undefined,
+        eventSource,
+        serverSideActions: [],
+        actionInputsWithoutAgents,
+      };
+    } catch (error) {
+      console.error("Error getting response:", error);
+      throw error;
+    }
+  }
+
+  private async getServerSideActions(request: CopilotRuntimeRequest): Promise<Action<any>[]> {
+    const { messages: rawMessages, graphqlContext } = request;
+    const inputMessages = convertGqlInputToMessages(rawMessages);
+    const langserveFunctions: Action<any>[] = [];
+
+    for (const chainPromise of this.langserve) {
+      try {
+        const chain = await chainPromise;
+        langserveFunctions.push(chain);
+      } catch (error) {
+        console.error("Error loading langserve chain:", error);
+      }
+    }
+    const remoteActions = await setupRemoteActions({
+      remoteActionDefinitions: this.remoteActionDefinitions,
+      graphqlContext,
+      messages: inputMessages,
+    });
+
+    const configuredActions =
+      typeof this.actions === "function"
+        ? this.actions({ properties: graphqlContext.properties })
+        : this.actions;
+
+    return [...configuredActions, ...langserveFunctions, ...remoteActions];
   }
 }
 
