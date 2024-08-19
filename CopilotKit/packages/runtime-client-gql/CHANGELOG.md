@@ -1,5 +1,14 @@
 # @copilotkit/runtime-client-gql
 
+## 1.1.1-athena-preview.1
+
+### Patch Changes
+
+- Remote actions preview
+- Updated dependencies
+  - @copilotkit/runtime@1.1.1-athena-preview.1
+  - @copilotkit/shared@1.1.1-athena-preview.1
+
 ## 1.1.1-feat-runtime-remote-actions.0
 
 ### Patch Changes

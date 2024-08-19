@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 1.1.1-athena-preview.1
+
+### Patch Changes
+
+- Remote actions preview
+
 ## 1.1.1-feat-runtime-remote-actions.0
 
 ### Patch Changes
