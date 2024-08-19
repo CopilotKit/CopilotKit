@@ -59,6 +59,7 @@ export function CopilotSidebar(props: CopilotModalProps) {
   );
 
   const onSetOpen = (open: boolean) => {
+    console.log("onSetOpen", open);
     props.onSetOpen?.(open);
     setExpandedClassName(open ? "sidebarExpanded" : "");
   };

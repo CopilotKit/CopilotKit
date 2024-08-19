@@ -81,23 +81,22 @@ export const CopilotModal = ({
   const [openState, setOpenState] = React.useState(defaultOpen);
 
   const setOpen = (open: boolean) => {
+    console.log("setOpen!!", open);
     onSetOpen?.(open);
     setOpenState(open);
   };
 
   return (
-    <ChatContextProvider icons={icons} labels={labels} open={openState} setOpen={setOpenState}>
+    <ChatContextProvider icons={icons} labels={labels} open={openState} setOpen={setOpen}>
       {children}
       <div className={className}>
-        <Button open={openState} setOpen={setOpen}></Button>
+        <Button></Button>
         <Window
-          open={openState}
-          setOpen={setOpen}
           clickOutsideToClose={clickOutsideToClose}
           shortcut={shortcut}
           hitEscapeToClose={hitEscapeToClose}
         >
-          <Header open={openState} setOpen={setOpen} />
+          <Header />
           <CopilotChat
             instructions={instructions}
             onSubmitMessage={onSubmitMessage}
