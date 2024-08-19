@@ -4,13 +4,12 @@ import {
   Generator_InsertionOrEditingSuggestion,
 } from "../../../types/base/autosuggestions-bare-function";
 import { SourceSearchBox } from "../../source-search-box/source-search-box";
-import { DocumentPointer } from "@copilotkit/react-core";
+import { DocumentPointer, useCopilotContext } from "@copilotkit/react-core";
 import { Button } from "../../ui/button";
 import { Label } from "../../ui/label";
-import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { streamPromiseFlatten } from "../../../lib/stream-promise-flatten";
-import { CopilotContext } from "@copilotkit/react-core";
 import { IncludedFilesPreview } from "./included-files-preview";
 import { useHoveringEditorContext } from "../hovering-editor-provider";
 
@@ -31,7 +30,7 @@ export const HoveringInsertionPromptBoxCore = ({
   insertionOrEditingFunction,
   contextCategories,
 }: HoveringInsertionPromptBoxCoreProps) => {
-  const { getDocumentsContext } = useContext(CopilotContext);
+  const { getDocumentsContext } = useCopilotContext();
 
   const [editSuggestion, setEditSuggestion] = useState<string>("");
   const [suggestionIsLoading, setSuggestionIsLoading] = useState<boolean>(false);

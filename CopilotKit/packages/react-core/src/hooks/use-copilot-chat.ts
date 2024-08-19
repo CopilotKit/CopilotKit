@@ -38,13 +38,12 @@
  * } = useCopilotChat();
  * ```
  */
-import { useContext, useRef, useEffect, useCallback } from "react";
-import { CopilotContext } from "../context/copilot-context";
+import { useRef, useEffect, useCallback } from "react";
+import { useCopilotContext } from "../context/copilot-context";
 import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { SystemMessageFunction } from "../types";
 import { useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
-import { MessageStatusCode } from "@copilotkit/runtime-client-gql";
 
 export interface UseCopilotChatOptions {
   /**
@@ -93,7 +92,7 @@ export function useCopilotChat({
     setIsLoading,
     chatInstructions,
     actions,
-  } = useContext(CopilotContext);
+  } = useCopilotContext();
 
   // We need to ensure that makeSystemMessageCallback always uses the latest
   // useCopilotReadable data.

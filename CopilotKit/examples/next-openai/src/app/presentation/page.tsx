@@ -1,5 +1,5 @@
 "use client";
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit, useCopilotReadable } from "@copilotkit/react-core";
 import { CopilotKitCSSProperties, CopilotPopup, CopilotSidebar } from "@copilotkit/react-ui";
 import "./styles.css";
 import { Presentation } from "./components/main/Presentation";
