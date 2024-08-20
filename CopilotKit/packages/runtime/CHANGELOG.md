@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.1.2
+
+### Patch Changes
+
+- Pin headless-ui/react version to v2.1.1
+- Updated dependencies
+  - @copilotkit/shared@1.1.2
+
 ## 1.1.1
 
 ### Patch Changes
