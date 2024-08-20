@@ -1,5 +1,21 @@
 # ui
 
+## 1.1.1-athena-preview.2
+
+### Patch Changes
+
+- 638d51d9: appendMessage fix 1
+- faccbe1d: state-abuse resistance for useCopilotChat
+- b0cf700e: remove unnecessary logging
+- Add useCopilotChat stale actions fix
+- Updated dependencies [638d51d9]
+- Updated dependencies [faccbe1d]
+- Updated dependencies [b0cf700e]
+- Updated dependencies
+  - @copilotkit/react-core@1.1.1-athena-preview.2
+  - @copilotkit/runtime-client-gql@1.1.1-athena-preview.2
+  - @copilotkit/shared@1.1.1-athena-preview.2
+
 ## 1.1.1
 
 ### Patch Changes

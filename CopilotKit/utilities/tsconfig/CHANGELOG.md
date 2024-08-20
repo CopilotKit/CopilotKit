@@ -1,5 +1,14 @@
 # tsconfig
 
+## 1.1.1-athena-preview.2
+
+### Patch Changes
+
+- 638d51d9: appendMessage fix 1
+- faccbe1d: state-abuse resistance for useCopilotChat
+- b0cf700e: remove unnecessary logging
+- Add useCopilotChat stale actions fix
+
 ## 1.1.1
 
 ### Patch Changes

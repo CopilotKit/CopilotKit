@@ -1,6 +1,6 @@
 {
   "name": "tailwind-config",
-  "version": "1.1.1-athena-preview.1",
+  "version": "1.1.1-athena-preview.2",
   "private": true,
   "main": "index.js",
   "devDependencies": {

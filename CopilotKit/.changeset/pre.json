@@ -1,23 +1,27 @@
 {
-  "mode": "exit",
+  "mode": "pre",
   "tag": "athena-preview",
   "initialVersions": {
-    "next-openai": "1.1.1-feat-runtime-remote-actions.0",
-    "next-pages-router": "1.1.1-feat-runtime-remote-actions.0",
-    "node-express": "1.1.1-feat-runtime-remote-actions.0",
-    "node-http": "1.1.1-feat-runtime-remote-actions.0",
-    "@copilotkit/react-core": "1.1.1-feat-runtime-remote-actions.0",
-    "@copilotkit/react-textarea": "1.1.1-feat-runtime-remote-actions.0",
-    "@copilotkit/react-ui": "1.1.1-feat-runtime-remote-actions.0",
-    "@copilotkit/runtime": "1.1.1-feat-runtime-remote-actions.0",
-    "@copilotkit/runtime-client-gql": "1.1.1-feat-runtime-remote-actions.0",
-    "@copilotkit/shared": "1.1.1-feat-runtime-remote-actions.0",
-    "eslint-config-custom": "1.1.1-feat-runtime-remote-actions.0",
-    "tailwind-config": "1.1.1-feat-runtime-remote-actions.0",
-    "tsconfig": "1.1.1-feat-runtime-remote-actions.0"
+    "next-openai": "1.1.1-athena-preview.1",
+    "next-pages-router": "1.1.1-athena-preview.1",
+    "node-express": "1.1.1-athena-preview.1",
+    "node-http": "1.1.1-athena-preview.1",
+    "@copilotkit/react-core": "1.1.1-athena-preview.1",
+    "@copilotkit/react-textarea": "1.1.1-athena-preview.1",
+    "@copilotkit/react-ui": "1.1.1-athena-preview.1",
+    "@copilotkit/runtime": "1.1.1-athena-preview.1",
+    "@copilotkit/runtime-client-gql": "1.1.1-athena-preview.1",
+    "@copilotkit/shared": "1.1.1-athena-preview.1",
+    "eslint-config-custom": "1.1.1-athena-preview.1",
+    "tailwind-config": "1.1.1-athena-preview.1",
+    "tsconfig": "1.1.1-athena-preview.1"
   },
   "changesets": [
+    "cold-dodos-decide",
+    "hot-oranges-heal",
+    "little-cars-camp",
     "mean-items-warn",
-    "purple-wolves-report"
+    "purple-wolves-report",
+    "shy-taxis-switch"
   ]
 }
