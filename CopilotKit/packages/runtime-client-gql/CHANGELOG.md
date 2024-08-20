@@ -1,5 +1,14 @@
 # @copilotkit/runtime-client-gql
 
+## 1.1.2
+
+### Patch Changes
+
+- Pin headless-ui/react version to v2.1.1
+- Updated dependencies
+  - @copilotkit/runtime@1.1.2
+  - @copilotkit/shared@1.1.2
+
 ## 1.1.1
 
 ### Patch Changes
