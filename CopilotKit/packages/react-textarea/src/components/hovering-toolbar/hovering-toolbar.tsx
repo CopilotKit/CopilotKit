@@ -59,7 +59,6 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
     if (rect.top === 0 && rect.left === 0 && rect.width === 0 && rect.height === 0) {
       return;
     }
-
     const minGapFromEdge = 60;
     const verticalOffsetFromCorner = 35;
     const horizontalOffsetFromCorner = 15;
@@ -81,6 +80,8 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
     }
 
     el.style.opacity = "1";
+    el.style.position = "absolute";
+
     el.style.top = `${top}px`;
     el.style.left = `${left}px`;
   });

@@ -1,16 +1,13 @@
 # tailwind-config
 
-## 1.1.1-athena-preview.1
+## 1.1.1
 
 ### Patch Changes
 
-- Remote actions preview
-
-## 1.1.1-feat-runtime-remote-actions.0
-
-### Patch Changes
-
-- Remote actions preview
+- - improved documentation
+  - center textarea popup
+  - show/hide dev console
+  - forward maxTokens, stop and force function calling
 
 ## 1.1.0
 

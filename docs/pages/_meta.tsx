@@ -16,6 +16,9 @@ export default {
   },
   "quickstart-chatbot": {
     title: "Quickstart: Chatbot",
+    theme: {
+      toc: false
+    },
   },
   "tutorial-ai-todo-list-copilot": {
     title: "Tutorial: Todo List Copilot",

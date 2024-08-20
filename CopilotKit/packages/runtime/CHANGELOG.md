@@ -1,20 +1,15 @@
 # @copilotkit/runtime
 
-## 1.1.1-athena-preview.1
+## 1.1.1
 
 ### Patch Changes
 
-- Remote actions preview
+- - improved documentation
+  - center textarea popup
+  - show/hide dev console
+  - forward maxTokens, stop and force function calling
 - Updated dependencies
-  - @copilotkit/shared@1.1.1-athena-preview.1
-
-## 1.1.1-feat-runtime-remote-actions.0
-
-### Patch Changes
-
-- Remote actions preview
-- Updated dependencies
-  - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.0
+  - @copilotkit/shared@1.1.1
 
 ## 1.1.0
 

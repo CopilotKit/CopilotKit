@@ -1,4 +1,5 @@
 import { Steps, Callout } from "nextra/components";
+import { Frame } from "@/components";
 
 # How To Contribute
 
@@ -72,11 +73,11 @@ In a separate terminal, run the following command to start the example:
 ```bash
 cd examples/next-openai
 export OPENAI_API_KEY=<your-openai-api-key>
-pnpm run start:dev
+pnpm run example-dev
 ```
 
 <Callout type="info">
-We use the `pnpm run start:dev` command to run examples, which is different from the `turbo run dev` command we use to work on the individual packages.
+We use the `pnpm run example-dev` command to run examples, which is different from the `turbo run dev` command we use to work on the individual packages.
 </Callout>
 
 Now navigate to http://localhost:3000/presentation and you should see the example running. Any changes you make to the CopilotKit packages will immediately be reflected here.
@@ -96,6 +97,19 @@ turbo run lint
 ## Step 6: Submit a Pull Request
 
 Now that you've made your changes, commit and push them. Then, simply head over to the [Pull Requests page](https://github.com/CopilotKit/CopilotKit/pulls) and create a pull request. Well done!
+
+## Debugging
+
+Every time you run CopilotKit on localhost, you will be able to see the **CopilotKit Dev Console** in the chat window. The Dev Console provides you with useful functionality to debug your copilot (e.g. see what state the copilot is aware of, actions it can perform, etc).
+
+<Frame description="CopilotKit Dev Console">
+  <img
+    src="/images/contributing/copilotkit-dev-console.png"
+    className="w-auto max-w-[420px]"
+  />
+</Frame>
+
+If you'd like to disable the Dev Console locally, simply set `showDevConsole` to `false` in your `<CopilotKit />` provider.
 
 ## (Advanced): Package Linking
 

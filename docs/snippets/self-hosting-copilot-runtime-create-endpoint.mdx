@@ -1,45 +1,6 @@
 import { Tabs } from "nextra/components";
-import { Frame } from "@/components";
 
-# Copilot Runtime
-
-The Copilot Runtime is the back-end component of CopilotKit, handling the communication with LLM, message history, state and more.
-
-<Frame>
-  <div className="w-full pb-4">
-  ```mermaid
-  sequenceDiagram
-    participant core as @copilotkit/react-core
-    participant runtime as Copilot Runtime
-    participant llm as LLM
-
-    core->>runtime: "Hey, my name is Uli."
-    runtime->>llm: Request
-    llm->>runtime: Response
-    runtime->>core: "Hello Uli, how can I help you?"
-  ```
-  </div>
-</Frame>
-
-You may choose to self-host the Copilot Runtime, or use Copilot Cloud (recommended).
-
-## Service Adapters
-
-Service Adapters are responsible for executive the request with the LLM and standardize the request/resopnse format in a way that the Copilot Runtime can understand.
-
-Currently, we support the following service providers/adapters:
-
-- [OpenAIAdapter](/reference/classes/CopilotRuntime/service-adapters/OpenAIAdapter)
-- [OpenAIAssistantAdapter](/reference/classes/CopilotRuntime/service-adapters/OpenAIAssistantAdapter)
-- [LangChainAdapter](/reference/classes/CopilotRuntime/service-adapters/LangChainAdapter)
-- [GroqAdapter](/reference/classes/CopilotRuntime/service-adapters/GroqAdapter)
-- [GoogleGenerativeAIAdapter](/reference/classes/CopilotRuntime/service-adapters/GoogleGenerativeAIAdapter)
-
-## Integration
-
-### Step 1: Create an Endpoint
-
-Copilot Runtime is designed to run as a handler for HTTP endpoints (typically `/copilotkit` or `/api/copilotkit`). We provide plug and play support for many common frameworks.
+Copilot Runtime is designed to run as a handler for HTTP endpoints (typically `/copilotkit` or `/api/copilotkit`). We provide plug and play support for many common frameworks. For more information, check out the [Self Hosting documentation](/concepts/self-hosting).
 
 <Tabs items={[
   "Next.js App Router",
@@ -63,6 +24,8 @@ Copilot Runtime is designed to run as a handler for HTTP endpoints (typically `/
       return copilotKit.response(req, serviceAdapter);
     }
     ```
+
+    Your Copilot Runtime endpoint should be available at `http://localhost:{port}/api/copilotkit`.
   </Tabs.Tab>
   <Tabs.Tab>
     Create a new route to handle the `/api/copilotkit` endpoint:
@@ -91,6 +54,8 @@ Copilot Runtime is designed to run as a handler for HTTP endpoints (typically `/
       return await handleRequest(req, res);
     };
     ```
+
+    Your Copilot Runtime endpoint should be available at `http://localhost:{port}/api/copilotkit`.
   </Tabs.Tab>
   <Tabs.Tab>
     Create a new Express.js app and set up the Copilot Runtime handler:
@@ -119,6 +84,8 @@ Copilot Runtime is designed to run as a handler for HTTP endpoints (typically `/
       console.log("Listening at http://localhost:4000/copilotkit");
     });
     ```
+
+    Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
   </Tabs.Tab>
   <Tabs.Tab>
     Set up a simple Node.js HTTP server and use the Copilot Runtime to handle requests:
@@ -146,6 +113,8 @@ Copilot Runtime is designed to run as a handler for HTTP endpoints (typically `/
       console.log("Listening at http://localhost:4000/copilotkit");
     });
     ```
+
+    Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
   </Tabs.Tab>
   <Tabs.Tab>
   ```ts showLineNumbers filename="copilotkit.controller.ts"
@@ -165,20 +134,8 @@ Copilot Runtime is designed to run as a handler for HTTP endpoints (typically `/
     }
   }
   ```
+
+  Your Copilot Runtime endpoint should be available at `http://localhost:{port}/copilotkit`.
   </Tabs.Tab>
 </Tabs>
 
-### Step 2: Configure the `<CopilotKit>` Provider
-
-Now you can configure the `<CopilotKit>` provider to point to your Copilot Runtime URL. For example, if your runtime endpoint is served at `http://localhost:3000/api/runtime`, you can configure the provider like this:
-
-```tsx
-<CopilotKit runtimeUrl="http://localhost:3000/api/runtime">
-  ...
-</CopilotKit>
-```
-
-## Further Reading
-
-- [`CopilotRuntime` Class Reference](/reference/classes/copilot-runtime/CopilotRuntime)
-- [Service Adapters](/reference/classes/CopilotRuntime/service-adapters/OpenAIAdapter)
