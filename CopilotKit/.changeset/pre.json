@@ -16,8 +16,5 @@
     "tailwind-config": "1.1.1-feat-runtime-remote-actions.0",
     "tsconfig": "1.1.1-feat-runtime-remote-actions.0"
   },
-  "changesets": [
-    "mean-items-warn",
-    "purple-wolves-report"
-  ]
+  "changesets": ["mean-items-warn", "purple-wolves-report"]
 }
