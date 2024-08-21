@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.1.1-feat-runtime-remote-actions.0",
+  "version": "1.1.1-feat-runtime-remote-actions.1",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
