@@ -250,7 +250,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
     // get the last agent state
     const agentStateMessage = agentStateMessages[agentStateMessages.length - 1];
-    const state = JSON.parse(agentStateMessage.state);
+    const state = agentStateMessage.state;
 
     const agent = serverSideActions.find(
       (action) => action.name === agentName && isLangGraphAgentAction(action),

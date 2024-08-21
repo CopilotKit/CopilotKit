@@ -44,7 +44,7 @@ import {
   CopilotCloudConfig,
   FunctionCallHandler,
 } from "@copilotkit/shared";
-import { Message } from "@copilotkit/runtime-client-gql";
+import { AgentStateMessage, Message } from "@copilotkit/runtime-client-gql";
 
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
@@ -206,6 +206,8 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     });
   };
 
+  const [agentState, setAgentState] = useState<AgentStateMessage | null>(null);
+
   return (
     <CopilotContext.Provider
       value={{
@@ -231,6 +233,8 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         chatInstructions,
         setChatInstructions,
         showDevConsole: props.showDevConsole === undefined ? "auto" : props.showDevConsole,
+        agentState,
+        setAgentState,
       }}
     >
       {children}

@@ -1,5 +1,5 @@
 import { CopilotCloudConfig, FunctionCallHandler } from "@copilotkit/shared";
-import { Message } from "@copilotkit/runtime-client-gql";
+import { AgentStateMessage, Message } from "@copilotkit/runtime-client-gql";
 import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
 import React from "react";
 import { TreeNodeId } from "../hooks/use-tree";
@@ -110,6 +110,10 @@ export interface CopilotContextParams {
   copilotApiConfig: CopilotApiConfig;
 
   showDevConsole: boolean | "auto";
+
+  // agent state
+  agentState: AgentStateMessage | null;
+  setAgentState: React.Dispatch<React.SetStateAction<AgentStateMessage | null>>;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -155,6 +159,8 @@ const emptyCopilotContext: CopilotContextParams = {
   addChatSuggestionConfiguration: () => {},
   removeChatSuggestionConfiguration: () => {},
   showDevConsole: "auto",
+  agentState: null,
+  setAgentState: () => {},
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

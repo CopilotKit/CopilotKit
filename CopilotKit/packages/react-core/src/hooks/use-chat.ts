@@ -66,6 +66,11 @@ export type UseChatOptions = {
    * setState-powered method to update the isChatLoading value
    */
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
+
+  /**
+   * setState-powered method to update the agent state
+   */
+  setAgentState: React.Dispatch<React.SetStateAction<AgentStateMessage | null>>;
 };
 
 export type UseChatHelpers = {
@@ -104,6 +109,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     isLoading,
     actions,
     onFunctionCall,
+    setAgentState,
   } = options;
 
   const abortControllerRef = useRef<AbortController>();
@@ -244,12 +250,14 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
             if (message instanceof AgentStateMessage) {
               if (message.running) {
+                setAgentState(message);
                 agentSessionRef.current = {
                   threadId: message.threadId,
                   agentName: message.agentName,
                   nodeName: message.nodeName,
                 };
               } else {
+                setAgentState(null);
                 agentSessionRef.current = null;
               }
             }
