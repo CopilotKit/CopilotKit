@@ -1,5 +1,17 @@
 # next-pages-router
 
+## 1.1.1-feat-runtime-remote-actions.2
+
+### Patch Changes
+
+- useAgentState
+- Updated dependencies
+  - @copilotkit/react-textarea@1.1.1-feat-runtime-remote-actions.2
+  - @copilotkit/react-core@1.1.1-feat-runtime-remote-actions.2
+  - @copilotkit/react-ui@1.1.1-feat-runtime-remote-actions.2
+  - @copilotkit/runtime@1.1.1-feat-runtime-remote-actions.2
+  - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.2
+
 ## 1.1.1-feat-runtime-remote-actions.1
 
 ### Patch Changes

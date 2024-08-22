@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.1.1-feat-runtime-remote-actions.2
+
+### Patch Changes
+
+- useAgentState
+
 ## 1.1.1-feat-runtime-remote-actions.1
 
 ### Patch Changes
