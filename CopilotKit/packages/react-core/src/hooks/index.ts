@@ -6,3 +6,4 @@ export { useCopilotAction } from "./use-copilot-action";
 export { useMakeCopilotDocumentReadable } from "./use-make-copilot-document-readable";
 export { type UseChatHelpers } from "./use-chat";
 export { useCopilotReadable } from "./use-copilot-readable";
+export { useAgentState } from "./use-agent-state";

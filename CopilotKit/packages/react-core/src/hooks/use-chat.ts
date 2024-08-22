@@ -68,9 +68,9 @@ export type UseChatOptions = {
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
 
   /**
-   * setState-powered method to update the agent state
+   * setState-powered method to update the agent states
    */
-  setAgentState: React.Dispatch<React.SetStateAction<AgentStateMessage | null>>;
+  setAgentStates: React.Dispatch<React.SetStateAction<Record<string, AgentStateMessage | null>>>;
 };
 
 export type UseChatHelpers = {
@@ -109,7 +109,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     isLoading,
     actions,
     onFunctionCall,
-    setAgentState,
+    setAgentStates,
   } = options;
 
   const abortControllerRef = useRef<AbortController>();
@@ -250,14 +250,21 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
             if (message instanceof AgentStateMessage) {
               if (message.running) {
-                setAgentState(message);
+                setAgentStates((prevAgentStates) => ({
+                  ...prevAgentStates,
+                  [message.agentName]: message,
+                }));
                 agentSessionRef.current = {
                   threadId: message.threadId,
                   agentName: message.agentName,
                   nodeName: message.nodeName,
                 };
               } else {
-                setAgentState(null);
+                setAgentStates((prevAgentStates) => {
+                  const newAgentStates = { ...prevAgentStates };
+                  delete newAgentStates[message.agentName];
+                  return newAgentStates;
+                });
                 agentSessionRef.current = null;
               }
             }
@@ -296,7 +303,29 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         }
 
         if (newMessages.length > 0) {
-          setMessages([...previousMessages, ...newMessages]);
+          // Construct filteredMessages inline to remove adjacent AgentStateMessage instances
+          // with the same agentName, keeping only the last one.
+          const filteredMessages = [...previousMessages, ...newMessages].reduce(
+            (acc: Message[], message: Message) => {
+              if (
+                message instanceof AgentStateMessage && // Check if the current message is an AgentStateMessage
+                acc.length > 0 && // Ensure there is at least one message in the accumulator
+                acc[acc.length - 1] instanceof AgentStateMessage && // Check if the last message in the accumulator is also an AgentStateMessage
+                (acc[acc.length - 1] as AgentStateMessage).agentName === message.agentName // Check if the agentName is the same
+              ) {
+                // If the conditions are met, replace the last message in the accumulator with the current message
+                acc[acc.length - 1] = message;
+              } else {
+                // Otherwise, add the current message to the accumulator
+                acc.push(message);
+              }
+              return acc; // Return the accumulator for the next iteration
+            },
+            [],
+          );
+
+          // Update the state with the filtered messages
+          setMessages(filteredMessages);
         }
       }
 

@@ -111,9 +111,9 @@ export interface CopilotContextParams {
 
   showDevConsole: boolean | "auto";
 
-  // agent state
-  agentState: AgentStateMessage | null;
-  setAgentState: React.Dispatch<React.SetStateAction<AgentStateMessage | null>>;
+  // agent states
+  agentStates: Record<string, AgentStateMessage | null>;
+  setAgentStates: React.Dispatch<React.SetStateAction<Record<string, AgentStateMessage | null>>>;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -159,8 +159,8 @@ const emptyCopilotContext: CopilotContextParams = {
   addChatSuggestionConfiguration: () => {},
   removeChatSuggestionConfiguration: () => {},
   showDevConsole: "auto",
-  agentState: null,
-  setAgentState: () => {},
+  agentStates: {},
+  setAgentStates: () => {},
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

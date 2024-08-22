@@ -1,5 +1,10 @@
 "use client";
-import { useCopilotAction, useCopilotContext, useCopilotReadable } from "@copilotkit/react-core";
+import {
+  useAgentState,
+  useCopilotAction,
+  useCopilotContext,
+  useCopilotReadable,
+} from "@copilotkit/react-core";
 import { useCallback, useMemo, useState } from "react";
 import { Slide } from "./Slide";
 import { Header } from "./Header";
@@ -12,6 +17,8 @@ interface PresentationProps {
 }
 
 export const Presentation = ({ performResearch, setPerformResearch }: PresentationProps) => {
+  const [story, setStory] = useAgentState("childrensBookAgent");
+  console.log(story);
   // Load messages from local storage
 
   // const { messages, setMessages } = useCopilotContext();

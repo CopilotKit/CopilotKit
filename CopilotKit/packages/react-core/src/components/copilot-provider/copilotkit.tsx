@@ -206,7 +206,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     });
   };
 
-  const [agentState, setAgentState] = useState<AgentStateMessage | null>(null);
+  const [agentStates, setAgentStates] = useState<Record<string, AgentStateMessage | null>>({});
 
   return (
     <CopilotContext.Provider
@@ -233,8 +233,8 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         chatInstructions,
         setChatInstructions,
         showDevConsole: props.showDevConsole === undefined ? "auto" : props.showDevConsole,
-        agentState,
-        setAgentState,
+        agentStates,
+        setAgentStates,
       }}
     >
       {children}
