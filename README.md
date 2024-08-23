@@ -2,7 +2,7 @@
 
 <div align="center">
   <a href="https://copilotkit.ai" target="_blank">
-    <img src="./assets/animated-banner.gif" alt="CopilotKit Logo">
+    <img src="./assets/banner.png" alt="CopilotKit Logo">
   </a>
 
   <br/>
@@ -47,7 +47,7 @@
 <br />
 
 <div align="center">
-  <img src="./assets/screenshot.png" alt="CopilotKit Screenshot" style="border-radius: 15px;" />
+  <img src="./assets/animated-banner.gif" alt="CopilotKit Screenshot" style="border-radius: 15px;" />
 </div>
 
 <br />
