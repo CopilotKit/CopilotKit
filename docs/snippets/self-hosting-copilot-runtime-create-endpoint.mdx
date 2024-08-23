@@ -13,16 +13,27 @@ Copilot Runtime is designed to run as a handler for HTTP endpoints (typically `/
     Create a new route to handle the `/api/copilotkit` endpoint.
 
     ```ts showLineNumbers filename="app/copilotkit/route.ts"
-    import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
+    import {
+      CopilotRuntime,
+      OpenAIAdapter,
+      copilotRuntimeNextJSAppRouterEndpoint,
+    } from "@copilotkit/runtime";
     import OpenAI from "openai";
 
     const openai = new OpenAI();
+    const serviceAdapter = new OpenAIAdapter({ openai });
 
-    export async function POST(req: Request): Promise<Response> {
-      const serviceAdapter = new OpenAIAdapter({ openai });
-      const copilotKit = new CopilotRuntime();
-      return copilotKit.response(req, serviceAdapter);
-    }
+    const runtime = new CopilotRuntime();
+
+    export const POST = async (req: NextRequest) => {
+      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+        runtime,
+        serviceAdapter,
+        endpoint: "/api/copilotkit",
+      });
+
+      return handleRequest(req);
+    };
     ```
 
     Your Copilot Runtime endpoint should be available at `http://localhost:{port}/api/copilotkit`.
