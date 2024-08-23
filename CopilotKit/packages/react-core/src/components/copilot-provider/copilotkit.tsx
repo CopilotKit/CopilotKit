@@ -49,6 +49,7 @@ import { AgentStateMessage, Message } from "@copilotkit/runtime-client-gql";
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { CopilotKitProps } from "./copilotkit-props";
+import { CopilotChatUI } from "../../hooks/use-copilot-chat-ui";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // Compute all the functions and properties that we need to pass
@@ -208,6 +209,8 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
 
   const [agentStates, setAgentStates] = useState<Record<string, AgentStateMessage | null>>({});
 
+  const [chatUI, setChatUI] = useState<CopilotChatUI[]>([]);
+
   return (
     <CopilotContext.Provider
       value={{
@@ -235,6 +238,8 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         showDevConsole: props.showDevConsole === undefined ? "auto" : props.showDevConsole,
         agentStates,
         setAgentStates,
+        chatUI,
+        setChatUI,
       }}
     >
       {children}

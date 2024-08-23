@@ -5,6 +5,7 @@ import React from "react";
 import { TreeNodeId } from "../hooks/use-tree";
 import { DocumentPointer } from "../types";
 import { CopilotChatSuggestionConfiguration } from "../types/chat-suggestion-configuration";
+import { CopilotChatUI } from "../hooks/use-copilot-chat-ui";
 
 /**
  * Interface for the configuration of the Copilot API.
@@ -114,6 +115,10 @@ export interface CopilotContextParams {
   // agent states
   agentStates: Record<string, AgentStateMessage | null>;
   setAgentStates: React.Dispatch<React.SetStateAction<Record<string, AgentStateMessage | null>>>;
+
+  // chat ui
+  chatUI: CopilotChatUI[];
+  setChatUI: React.Dispatch<React.SetStateAction<CopilotChatUI[]>>;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -161,6 +166,8 @@ const emptyCopilotContext: CopilotContextParams = {
   showDevConsole: "auto",
   agentStates: {},
   setAgentStates: () => {},
+  chatUI: [],
+  setChatUI: () => {},
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);
