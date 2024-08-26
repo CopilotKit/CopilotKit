@@ -1,0 +1,130 @@
+---
+runme:
+  id: 01J67DHZKM660SXSNNAMCASJA2
+  version: v3
+---
+
+# This guide will walk you through the process of adding a new service adapter to Copilotkit.
+
+## Prerequisites
+
+- [Node.js](https://nodejs.org/en/) 20.x or later
+- [pnpm](https://pnpm.io/) v9.x installed globally (`npm i -g pnpm@^9`)
+- [Turborepo v2.x](https://turborepo.org/) installed globally (`npm i -g turbo@2`)
+
+### Step 1: Repository Setup
+
+1. Fork the Repository: Navigate to the CopilotKit repository on GitHub and fork it.
+2. Clone Your Fork: Clone your fork to your local machine:
+
+```bash {"id":"01J67DRJPYBN4W7ZPB6ADKTVK2"}
+git clone https://github.com/<your-username>/CopilotKit
+cd CopilotKit/CopilotKit
+```
+
+### Step 2: Install Dependencies
+
+Install all necessary dependencies using pnpm:
+
+```bash {"id":"01J67DRJPY8S2R2ZSVR4ZB7YP8"}
+pnpm install
+```
+
+### Step 3: Build all Packages
+
+Ensure everything is set up correctly by building all packages:
+
+```bash {"id":"01J67DRJPY1QZZ93VJVEQKCFJ5"}
+turbo run build
+```
+
+</Steps>
+
+### Step 4: Development Mode
+
+Start all packages in development mode:
+
+```bash {"id":"01J67DRJPYH769WDDZ2W0GG8YD"}
+# Start all packages in development mode
+turbo run dev
+
+# Start a specific package in development mode
+turbo run dev --filter="@copilotkit/package-name"
+```
+
+Now you can start making changes to the code.
+
+<Callout type="info">
+You can find all `@copilotkit/*` packages under the `packages` folder of the monorepo.
+</Callout>
+
+### Step 5: Create Your Adapter
+
+1. Create a New Adapter Package: Inside the packages folder, create a new folder for your adapter.
+   For example, packages/adapter-ollama.
+2. Implement Your Adapter: Follow the structure of existing adapters. Here’s a basic template to get you started:
+
+```bash {"id":"01J67DRJPYR79E85G0N06D17EX"}
+// packages/adapter-ollama/index.js
+export const OllamaAdapter = {
+    initialize: (config) => {
+        // Initialization logic
+    },
+    sendRequest: async (data) => {
+        // Logic to send request to Ollama service
+    },
+    handleResponse: (response) => {
+        // Logic to handle response from Ollama service
+    }
+};
+
+```
+
+### Step 6: Update Documentation
+
+1. Add Documentation: Document your adapter in the docs folder. Create a new markdown file, e.g., docs/adapter-ollama.md, and describe how to use your adapter.
+2. Link Documentation: Update the main documentation to include a link to your new adapter’s documentation.
+
+### Step 7: Test Your Adapter
+
+1. Run Examples: Use the examples in the examples folder to test your adapter. For instance:
+
+```bash {"id":"01J67DRJPYXGYS9034H07G3T8F"}
+cd examples/next-openai
+export OPENAI_API_KEY=<your-openai-api-key>
+pnpm run example-dev
+```
+
+2. Verify Functionality: Navigate to http://localhost:3000/presentation to see the example running and verify your adapter’s functionality.
+
+### Step 8: Formatting and Linting
+
+1. Format Code: Ensure your code is properly formatted:
+
+```bash {"id":"01J67ESZPGYC10KPFYMAJ0DWX8"}
+turbo run format
+```
+
+2. Lint Code: Check for any linting errors.
+
+```bash {"id":"01J67EXFJ8RF3TC9WX9M66QHCK"}
+turbo run lint
+```
+
+Now that you've made your changes, commit and push them. Then, simply head over to the [Pull Requests page](https://github.com/CopilotKit/CopilotKit/pulls) and create a pull request. Well done!
+
+### Step 9: Submit a Pull Request
+
+1. Commit and Push: Commit your changes and push them to your fork:
+
+```bash {"id":"01J67F11SB89GS5BRFPDKHYEY8"}
+git add .
+git commit -m "Add Ollama adapter"
+git push origin main
+```
+
+2. Create a Pull Request: Go to the Pull Requests page on GitHub and create a pull request. Provide a clear description of your changes and link to any relevant issues.
+
+### Debugging Tips
+
+- CopilotKit Dev Console: Use the Dev Console in the chat window for debugging. Disable it by setting showDevConsole to false in your  provider.
