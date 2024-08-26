@@ -14,7 +14,7 @@ import {
 } from "@copilotkit/runtime-client-gql";
 
 export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
-  const { chatComponentsCache } = useCopilotContext();
+  const { chatComponentsCache, chatUI } = useCopilotContext();
 
   const context = useChatContext();
   const initialMessages = useMemo(
@@ -74,8 +74,11 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
             </div>
           );
         } else if (message instanceof ActionExecutionMessage) {
-          if (chatComponentsCache.current !== null && chatComponentsCache.current[message.name]) {
-            const render = chatComponentsCache.current[message.name];
+          if (
+            chatComponentsCache.current !== null &&
+            chatComponentsCache.current.actions[message.name]
+          ) {
+            const render = chatComponentsCache.current.actions[message.name];
             // render a static string
             if (typeof render === "string") {
               // when render is static, we show it only when in progress
@@ -141,11 +144,70 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
               </div>
             );
           }
-        } else if (
-          (message instanceof AgentStateMessage || message instanceof ResultMessage) &&
-          inProgress &&
-          isCurrentMessage
-        ) {
+        } else if (message instanceof AgentStateMessage) {
+          let currentChatUI = chatUI.find(
+            (ui) => ui.agentName === message.agentName && ui.nodeName === message.nodeName,
+          );
+
+          if (!currentChatUI) {
+            currentChatUI = chatUI.find(
+              (ui) => ui.agentName === message.agentName && ui.nodeName === undefined,
+            );
+          }
+
+          if (!currentChatUI) {
+            if (inProgress && isCurrentMessage) {
+              return (
+                <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
+                  {context.icons.spinnerIcon}
+                </div>
+              );
+            } else {
+              return null;
+            }
+          }
+
+          if (typeof currentChatUI.render === "string") {
+            // when render is static, we show it only when in progress
+            if (isCurrentMessage && inProgress) {
+              return (
+                <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
+                  {context.icons.spinnerIcon}{" "}
+                  <span className="inProgressLabel">{currentChatUI.render}</span>
+                </div>
+              );
+            }
+            // Done - silent by default to avoid a series of "done" messages
+            else {
+              return null;
+            }
+          }
+
+          const toRender = currentChatUI.render({
+            state: message.state,
+            agentName: message.agentName,
+            nodeName: message.nodeName,
+          });
+
+          // No result and complete: stay silent
+          if (!toRender && status === "complete") {
+            return null;
+          }
+
+          if (typeof toRender === "string") {
+            return (
+              <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
+                {isCurrentMessage && inProgress && context.icons.spinnerIcon} {toRender}
+              </div>
+            );
+          } else {
+            return (
+              <div key={index} className="copilotKitCustomAssistantMessage">
+                {toRender}
+              </div>
+            );
+          }
+        } else if (message instanceof ResultMessage && inProgress && isCurrentMessage) {
           return (
             <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
               {context.icons.spinnerIcon}

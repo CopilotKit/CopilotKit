@@ -311,7 +311,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 message instanceof AgentStateMessage && // Check if the current message is an AgentStateMessage
                 acc.length > 0 && // Ensure there is at least one message in the accumulator
                 acc[acc.length - 1] instanceof AgentStateMessage && // Check if the last message in the accumulator is also an AgentStateMessage
-                (acc[acc.length - 1] as AgentStateMessage).agentName === message.agentName // Check if the agentName is the same
+                (acc[acc.length - 1] as AgentStateMessage).agentName === message.agentName && // Check if the agentName is the same
+                (acc[acc.length - 1] as AgentStateMessage).nodeName === message.nodeName // Check if the nodeName is the same
               ) {
                 // If the conditions are met, replace the last message in the accumulator with the current message
                 acc[acc.length - 1] = message;

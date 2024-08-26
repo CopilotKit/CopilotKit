@@ -7,3 +7,4 @@ export { useMakeCopilotDocumentReadable } from "./use-make-copilot-document-read
 export { type UseChatHelpers } from "./use-chat";
 export { useCopilotReadable } from "./use-copilot-readable";
 export { useAgentState } from "./use-agent-state";
+export { useCopilotChatUI } from "./use-copilot-chat-ui";

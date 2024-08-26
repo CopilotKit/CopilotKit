@@ -35,6 +35,7 @@ import {
   CopilotContext,
   CopilotApiConfig,
   InChatRenderFunction,
+  ChatComponentsCache,
 } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
 import { CopilotChatSuggestionConfiguration, DocumentPointer } from "../../types";
@@ -64,7 +65,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const chatApiEndpoint = props.runtimeUrl || COPILOT_CLOUD_CHAT_URL;
 
   const [actions, setActions] = useState<Record<string, FrontendAction<any>>>({});
-  const chatComponentsCache = useRef<Record<string, InChatRenderFunction | string>>({});
+  const chatComponentsCache = useRef<ChatComponentsCache>({ actions: {}, chatUI: {} });
   const { addElement, removeElement, printTree } = useTree();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);

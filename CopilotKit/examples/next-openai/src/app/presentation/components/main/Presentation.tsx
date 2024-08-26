@@ -2,7 +2,7 @@
 import {
   useAgentState,
   useCopilotAction,
-  useCopilotContext,
+  useCopilotChatUI,
   useCopilotReadable,
 } from "@copilotkit/react-core";
 import { useCallback, useMemo, useState } from "react";
@@ -18,7 +18,13 @@ interface PresentationProps {
 
 export const Presentation = ({ performResearch, setPerformResearch }: PresentationProps) => {
   const [story, setStory] = useAgentState("childrensBookAgent");
-  console.log(story);
+
+  useCopilotChatUI({
+    agentName: "childrensBookAgent",
+    nodeName: "outline_node",
+    render: "Writing outline...",
+  });
+
   // Load messages from local storage
 
   // const { messages, setMessages } = useCopilotContext();

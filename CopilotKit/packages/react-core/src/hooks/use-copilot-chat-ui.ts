@@ -1,5 +1,6 @@
+import { randomId } from "@copilotkit/shared";
 import { useCopilotContext } from "../context";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 export interface UseCopilotChatUIRenderProps<S = any> {
   state: S;
@@ -13,14 +14,13 @@ export interface CopilotChatUI<S = any> {
   render: string | ((props: UseCopilotChatUIRenderProps<S>) => string | React.ReactElement);
 }
 
-export function useCopilotChatUI<S = any>(chatUI: CopilotChatUI<S>) {
+export function useCopilotChatUI<S = any>(chatUI: CopilotChatUI<S>, dependencies?: any[]) {
   const { chatUI: chatUIFromContext, setChatUI } = useCopilotContext();
 
   useEffect(() => {
     setChatUI([...chatUIFromContext, chatUI]);
-
     return () => {
       setChatUI(chatUIFromContext.filter((ui) => ui !== chatUI));
     };
-  }, [chatUI, chatUIFromContext, setChatUI]);
+  }, [chatUI.agentName, chatUI.nodeName, setChatUI]);
 }

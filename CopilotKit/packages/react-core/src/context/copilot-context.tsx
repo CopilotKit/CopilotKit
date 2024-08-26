@@ -69,12 +69,17 @@ export interface CopilotApiConfig {
 
 export type InChatRenderFunction = (props: ActionRenderProps<any>) => string | JSX.Element;
 
+export interface ChatComponentsCache {
+  actions: Record<string, InChatRenderFunction | string>;
+  chatUI: Record<string, Function | string>;
+}
+
 export interface CopilotContextParams {
   // function-calling
   actions: Record<string, FrontendAction<any>>;
   setAction: (id: string, action: FrontendAction<any>) => void;
   removeAction: (id: string) => void;
-  chatComponentsCache: React.RefObject<Record<string, InChatRenderFunction | string>>;
+  chatComponentsCache: React.RefObject<ChatComponentsCache>;
 
   getFunctionCallHandler: (
     customEntryPoints?: Record<string, FrontendAction<any>>,
@@ -126,7 +131,7 @@ const emptyCopilotContext: CopilotContextParams = {
   setAction: () => {},
   removeAction: () => {},
 
-  chatComponentsCache: { current: {} },
+  chatComponentsCache: { current: { actions: {}, chatUI: {} } },
   getContextString: (documents: DocumentPointer[], categories: string[]) =>
     returnAndThrowInDebug(""),
   addContext: () => "",

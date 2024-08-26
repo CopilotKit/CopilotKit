@@ -27,7 +27,7 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
       actions[idRef.current].handler = action.handler as any;
       if (typeof action.render === "function") {
         if (chatComponentsCache.current !== null) {
-          chatComponentsCache.current[action.name] = action.render;
+          chatComponentsCache.current.actions[action.name] = action.render;
         }
       }
     }
@@ -36,7 +36,7 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   useEffect(() => {
     setAction(idRef.current, action as any);
     if (chatComponentsCache.current !== null && action.render !== undefined) {
-      chatComponentsCache.current[action.name] = action.render;
+      chatComponentsCache.current.actions[action.name] = action.render;
     }
     return () => {
       // NOTE: For now, we don't remove the chatComponentsCache entry when the action is removed.
