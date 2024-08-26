@@ -34,6 +34,9 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   }
 
   useEffect(() => {
+    if (action.disabled) {
+      return;
+    }
     setAction(idRef.current, action as any);
     if (chatComponentsCache.current !== null && action.render !== undefined) {
       chatComponentsCache.current[action.name] = action.render;
@@ -48,6 +51,7 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
     removeAction,
     action.description,
     action.name,
+    action.disabled,
     // This should be faster than deep equality checking
     // In addition, all major JS engines guarantee the order of object keys
     JSON.stringify(action.parameters),
