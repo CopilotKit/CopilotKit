@@ -145,6 +145,7 @@ export class CopilotTask<T = any> {
               description: action.description || "",
               jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
             })),
+            url: window.location.href,
           },
           messages: convertMessagesToGqlInput(messages),
           metadata: {

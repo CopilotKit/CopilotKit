@@ -79,6 +79,7 @@ export function useMakeStandardAutosuggestionFunction(
             data: {
               frontend: {
                 actions: [],
+                url: window.location.href,
               },
               messages: convertMessagesToGqlInput(messages),
               metadata: {

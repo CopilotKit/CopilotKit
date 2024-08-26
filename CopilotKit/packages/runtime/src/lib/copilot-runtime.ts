@@ -30,6 +30,7 @@ interface CopilotRuntimeRequest {
   threadId?: string;
   runId?: string;
   publicApiKey?: string;
+  url?: string;
   forwardedParameters?: ForwardedParametersInput;
 }
 
@@ -42,13 +43,14 @@ interface CopilotRuntimeResponse {
 
 type ActionsConfiguration<T extends Parameter[] | [] = []> =
   | Action<T>[]
-  | ((ctx: { properties: any }) => Action<T>[]);
+  | ((ctx: { properties: any; url?: string }) => Action<T>[]);
 
 interface OnBeforeRequestOptions {
   threadId?: string;
   runId?: string;
   inputMessages: Message[];
   properties: any;
+  url?: string;
 }
 
 type OnBeforeRequestHandler = (options: OnBeforeRequestOptions) => void | Promise<void>;
@@ -59,6 +61,7 @@ interface OnAfterRequestOptions {
   inputMessages: Message[];
   outputMessages: Message[];
   properties: any;
+  url?: string;
 }
 
 type OnAfterRequestHandler = (options: OnAfterRequestOptions) => void | Promise<void>;
@@ -139,6 +142,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       properties,
       outputMessagesPromise,
       forwardedParameters,
+      url,
     } = request;
     const langserveFunctions: Action<any>[] = [];
 
@@ -152,7 +156,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     }
 
     const configuredActions =
-      typeof this.actions === "function" ? this.actions({ properties }) : this.actions;
+      typeof this.actions === "function" ? this.actions({ properties, url }) : this.actions;
 
     const actions = [...configuredActions, ...langserveFunctions];
 
@@ -173,6 +177,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       runId,
       inputMessages,
       properties,
+      url,
     });
 
     try {
@@ -195,6 +200,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
             inputMessages,
             outputMessages,
             properties,
+            url,
           });
         })
         .catch((_error) => {});
