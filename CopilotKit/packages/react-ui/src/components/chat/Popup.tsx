@@ -18,6 +18,7 @@
  *
  * ```tsx
  * import { CopilotPopup } from "@copilotkit/react-ui";
+ * import "@copilotkit/react-ui/styles.css";
  *
  * <CopilotPopup
  *   labels={{

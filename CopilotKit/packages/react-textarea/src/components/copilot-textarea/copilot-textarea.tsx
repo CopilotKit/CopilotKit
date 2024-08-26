@@ -12,7 +12,8 @@
  * ## Example
  *
  * ```tsx
- * import { CopilotTextarea } from '@copilot/react-ui';
+ * import { CopilotTextarea } from '@copilot/react-textarea';
+ * import "@copilotkit/react-textarea/styles.css";
  *
  * <CopilotTextarea
  *   autosuggestionsConfig={{
@@ -41,8 +42,9 @@
  * For example:
  *
  * ```tsx
- * import { CopilotTextarea } from "@copilotkit/react-textarea";
  * import { useState } from "react";
+ * import { CopilotTextarea } from "@copilotkit/react-textarea";
+ * import "@copilotkit/react-textarea/styles.css";
  *
  * export function ExampleComponent() {
  *   const [text, setText] = useState("");
