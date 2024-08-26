@@ -42,11 +42,11 @@
   font-size: 0.8em;
 }
 
-.copilotKitMarkdown p:not(:last-child) {
-  margin-bottom: 1.25em;
-}
-
-.copilotKitMarkdown pre:not(:last-child) {
+.copilotKitMarkdown p:not(:last-child),
+.copilotKitMarkdown pre:not(:last-child),
+.copilotKitMarkdown ol:not(:last-child),
+.copilotKitMarkdown ul:not(:last-child),
+.copilotKitMarkdown blockquote:not(:last-child) {
   margin-bottom: 1.25em;
 }
 

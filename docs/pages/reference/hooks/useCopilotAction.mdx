@@ -78,15 +78,27 @@ This hooks enables you to dynamically generate UI elements and render them in th
 
       <PropertyReference
         name="type"
-        type="'Primitive' | 'Primitive[]' | 'Record<string, any>' | 'Record<string, any>[]'"
+        type="string"
         required
       >
-        The type of the argument.
+        The type of the argument. One of:
+        - `"string"`
+        - `"number"`
+        - `"boolean"`
+        - `"object"`
+        - `"object[]"`
+        - `"string[]"`
+        - `"number[]"`
+        - `"boolean[]"`
       </PropertyReference>
 
       <PropertyReference name="description" type="string">
         A description of the argument. This is used to instruct the Copilot on what
         this argument is used for.
+      </PropertyReference>
+
+      <PropertyReference name="enum" type="string[]">
+        For string arguments, you can provide an array of possible values.
       </PropertyReference>
 
       <PropertyReference name="required" type="boolean">
