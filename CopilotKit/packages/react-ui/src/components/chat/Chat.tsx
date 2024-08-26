@@ -17,6 +17,7 @@
  *
  * ```tsx
  * import { CopilotChat } from "@copilotkit/react-ui";
+ * import "@copilotkit/react-ui/styles.css";
  *
  * <CopilotChat
  *   labels={{

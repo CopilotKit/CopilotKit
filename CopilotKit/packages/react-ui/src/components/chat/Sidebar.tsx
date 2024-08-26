@@ -18,6 +18,7 @@
  *
  * ```tsx
  * import { CopilotSidebar } from "@copilotkit/react-ui";
+ * import "@copilotkit/react-ui/styles.css";
  *
  * <CopilotSidebar
  *   labels={{
