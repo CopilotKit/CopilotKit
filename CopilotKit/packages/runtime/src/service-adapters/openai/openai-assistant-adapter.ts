@@ -65,6 +65,16 @@ export interface OpenAIAssistantAdapterParams {
    * @default true
    */
   fileSearchEnabled?: boolean;
+
+  /**
+   * Whether to disable parallel tool calls.
+   * You can disable parallel tool calls to force the model to execute tool calls sequentially.
+   * This is useful if you want to execute tool calls in a specific order so that the state changes
+   * introduced by one tool call are visible to the next tool call. (i.e. new actions or readables)
+   *
+   * @default false
+   */
+  disableParallelToolCalls?: boolean;
 }
 
 export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
@@ -72,12 +82,14 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
   private codeInterpreterEnabled: boolean;
   private assistantId: string;
   private fileSearchEnabled: boolean;
+  private disableParallelToolCalls: boolean;
 
   constructor(params: OpenAIAssistantAdapterParams) {
     this.openai = params.openai || new OpenAI({});
     this.codeInterpreterEnabled = params.codeInterpreterEnabled === false || true;
     this.fileSearchEnabled = params.fileSearchEnabled === false || true;
     this.assistantId = params.assistantId;
+    this.disableParallelToolCalls = params?.disableParallelToolCalls || false;
   }
 
   async process(
@@ -154,6 +166,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
 
     const stream = this.openai.beta.threads.runs.submitToolOutputsStream(threadId, runId, {
       tool_outputs: toolOutputs,
+      ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
     });
 
     await this.streamResponse(stream, eventSource);
@@ -206,6 +219,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
       ...(forwardedParameters?.maxTokens && {
         max_completion_tokens: forwardedParameters.maxTokens,
       }),
+      ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
     });
 
     await this.streamResponse(stream, eventSource);
