@@ -27,7 +27,7 @@ Our goal is to make our copilot aware of this state, so that it can provide more
 ```tsx filename="libs/hooks/use-tasks.tsx" {3,8-11}
 // ... the rest of the file
 
-import { useCopilotReadable } from "@copilotkit/react";
+import { useCopilotReadable } from "@copilotkit/react-core";
 
 export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const [tasks, setTasks] = useState<Task[]>(defaultTasks);
