@@ -10,6 +10,7 @@
     "ondataavailable",
     "untruncate",
     "serverside",
-    "Tiktoken"
+    "Tiktoken",
+    "uuidv4"
   ]
 }
