@@ -35,7 +35,13 @@ export function DestinationRow({
       <td className="whitespace-nowrap py-5 pl-4 px-3 text-sm">
         <div className="flex items-center">
           <div className="h-20 w-20 flex-shrink-0">
-            <img className="h-full w-full rounded-full" src={destination.image} alt="" width={80} height={80} />
+            <img
+              className="h-full w-full rounded-full"
+              src={destination.image}
+              alt=""
+              width={80}
+              height={80}
+            />
           </div>
           <div className="ml-4">
             <div className="font-medium text-gray-900">{destination.name}</div>
