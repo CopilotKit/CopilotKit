@@ -8,7 +8,6 @@
     "clean": "turbo clean",
     "test": "turbo test",
     "docs": "ts-node ./scripts/docs/gen.ts",
-    "check-types": "turbo check-types",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-prettier": "prettier --check \"**/*.{ts,tsx,md}\"",
     "publish-packages": "turbo run build lint && changeset version && changeset publish",

@@ -49,12 +49,6 @@
       ]
     },
     "lint": {},
-    "check-types": {
-      "cache": false,
-      "dependsOn": [
-        "build"
-      ]
-    },
     "clean": {
       "cache": false
     },

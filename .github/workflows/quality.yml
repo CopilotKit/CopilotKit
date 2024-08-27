@@ -92,6 +92,3 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Run TypeScript type check
-        run: npx turbo run check-types

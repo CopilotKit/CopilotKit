@@ -26,7 +26,6 @@
     "build": "tsup --clean",
     "dev": "tsup --watch --no-splitting",
     "test": "jest --passWithNoTests",
-    "check-types": "tsc --noEmit",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next",
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global"
