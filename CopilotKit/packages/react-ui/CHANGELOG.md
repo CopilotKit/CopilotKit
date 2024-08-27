@@ -1,5 +1,15 @@
 # ui
 
+## 1.1.1-feat-runtime-remote-actions.3
+
+### Patch Changes
+
+- stream intermediate state
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.1.1-feat-runtime-remote-actions.3
+  - @copilotkit/react-core@1.1.1-feat-runtime-remote-actions.3
+  - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.3
+
 ## 1.1.1-feat-runtime-remote-actions.2
 
 ### Patch Changes

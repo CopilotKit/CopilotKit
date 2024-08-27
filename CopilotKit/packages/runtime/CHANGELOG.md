@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.1.1-feat-runtime-remote-actions.3
+
+### Patch Changes
+
+- stream intermediate state
+- Updated dependencies
+  - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.3
+
 ## 1.1.1-feat-runtime-remote-actions.2
 
 ### Patch Changes
