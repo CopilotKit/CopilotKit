@@ -1,3 +1,4 @@
+import { AgentStateMessage } from "@copilotkit/runtime-client-gql";
 import { useCopilotContext } from "../context";
 import { useCopilotChat } from "./use-copilot-chat";
 
@@ -28,7 +29,18 @@ export function useAgentState<T = any>(agentName: string): UseAgentStateReturnTy
       const updatedState =
         typeof newState === "function" ? (newState as Function)(currentState) : newState;
 
-      const agentStateMessage = { ...currentState, state: updatedState };
+      const lastAgentStateMessage = [...visibleMessages]
+        .reverse()
+        .find((message): message is AgentStateMessage => message instanceof AgentStateMessage)!;
+
+      const agentStateMessage = new AgentStateMessage({
+        agentName,
+        nodeName: lastAgentStateMessage.nodeName,
+        state: updatedState,
+        running: lastAgentStateMessage.running,
+        threadId: lastAgentStateMessage.threadId,
+        role: lastAgentStateMessage.role,
+      });
 
       setMessages([...visibleMessages, agentStateMessage]);
 
