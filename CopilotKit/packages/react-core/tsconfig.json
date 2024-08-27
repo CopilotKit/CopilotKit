@@ -2,6 +2,7 @@
   "extends": "../../utilities/tsconfig/react-library.json",
   "include": ["."],
   "exclude": [
+    "rollup.config.ts",
     "dist",
     "build",
     "node_modules",

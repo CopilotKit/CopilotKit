@@ -52,7 +52,7 @@
     "ts-jest": "^29.1.1",
     "ts-node": "^10.9.2",
     "tsup": "^6.7.0",
-    "typescript": "^5.4.5"
+    "typescript": "^5.2.3"
   },
   "dependencies": {
     "@copilotkit/runtime": "workspace:*",

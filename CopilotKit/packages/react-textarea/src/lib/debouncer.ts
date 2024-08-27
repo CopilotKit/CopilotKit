@@ -15,7 +15,7 @@ export class Debouncer<T extends any[]> {
         this.activeAbortController = new AbortController();
 
         // Pass the signal to the async function, assuming it supports it
-        await func(...args, this.activeAbortController.signal);
+        await func(...args, this.activeAbortController?.signal as any);
 
         this.activeAbortController = undefined;
       } catch (error) {}
