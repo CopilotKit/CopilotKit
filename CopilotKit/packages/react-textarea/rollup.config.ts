@@ -4,7 +4,7 @@ import sourceMaps from "rollup-plugin-sourcemaps";
 import typescript2 from "rollup-plugin-typescript2";
 import postcss from "rollup-plugin-postcss";
 import postcssImport from "postcss-import";
-import json from '@rollup/plugin-json';
+import json from "@rollup/plugin-json";
 import preserveDirectives from "rollup-plugin-preserve-directives";
 
 import type { RollupOptions } from "rollup";
