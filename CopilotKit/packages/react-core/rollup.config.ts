@@ -20,7 +20,7 @@ const config: RollupOptions = {
   watch: {
     include: "src/**",
   },
-  external: ["react/jsx-runtime", "react", "react-dom", "@copilotkit/react-core"],
+  external: ["react/jsx-runtime", "react", "react-dom"],
   plugins: [
     json(),
     typescript2({ tsconfig: "./tsconfig.json" }),
@@ -36,18 +36,6 @@ const config: RollupOptions = {
       modules: false,
       plugins: [postcssImport()],
     }),
-    (() => {
-      return {
-        name: "styles-css-backwards-compatibility",
-        generateBundle() {
-          this.emitFile({
-            type: "asset",
-            fileName: "styles.css",
-            source: "/* This is an empty file for backwards compatibility */",
-          });
-        },
-      };
-    })(),
   ],
   onwarn: (warning, warn) => {
     if (warning.code === "MODULE_LEVEL_DIRECTIVE") {

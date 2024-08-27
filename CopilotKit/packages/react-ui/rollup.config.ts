@@ -42,7 +42,7 @@ const config: RollupOptions = {
         generateBundle() {
           this.emitFile({
             type: "asset",
-            fileName: "styles.css",
+            fileName: "src/styles.css",
             source: "/* This is an empty file for backwards compatibility */",
           });
         },

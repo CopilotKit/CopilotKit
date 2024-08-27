@@ -1,7 +1,13 @@
 {
   "extends": "../../utilities/tsconfig/react-library.json",
   "include": ["."],
+  "compilerOptions": {
+    "paths": {
+      "react": ["./node_modules/@types/react"],
+    }
+  },
   "exclude": [
+    "tsup.config.ts",
     "rollup.config.ts",
     "dist",
     "build",
@@ -9,5 +15,5 @@
     "**/*.test.ts",  // Exclude TypeScript test files
     "**/*.test.tsx", // Exclude TypeScript React test files
     "**/__tests__/*" // Exclude any files inside a __tests__ directory
-  ]
+  ],
 }
