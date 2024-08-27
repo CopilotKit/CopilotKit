@@ -60,7 +60,7 @@
     "tsconfig": "workspace:*",
     "tslib": "^2.7.0",
     "tsup": "^6.7.0",
-    "typescript": "^5.2.3"
+    "typescript": "^5.4.5"
   },
   "dependencies": {
     "@copilotkit/runtime-client-gql": "workspace:*",

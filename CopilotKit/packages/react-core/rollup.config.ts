@@ -6,8 +6,7 @@ import postcss from "rollup-plugin-postcss";
 import postcssImport from "postcss-import";
 import json from "@rollup/plugin-json";
 import preserveDirectives from "rollup-plugin-preserve-directives";
-import nodeExternals from 'rollup-plugin-node-externals'
-
+import nodeExternals from "rollup-plugin-node-externals";
 
 import type { RollupOptions } from "rollup";
 

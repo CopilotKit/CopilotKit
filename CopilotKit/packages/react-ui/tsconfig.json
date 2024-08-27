@@ -2,10 +2,7 @@
   "extends": "../../utilities/tsconfig/react-library.json",
   "include": ["."],
   "compilerOptions": {
-    "preserveSymlinks": true,
-    "paths": {
-      "react": ["./node_modules/@types/react"],
-    }
+    "preserveSymlinks": true
   },
   "exclude": [
     "tsup.config.ts",
