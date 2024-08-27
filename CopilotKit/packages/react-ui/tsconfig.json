@@ -2,13 +2,14 @@
   "extends": "../../utilities/tsconfig/react-library.json",
   "include": ["."],
   "compilerOptions": {
+    "preserveSymlinks": true,
     "paths": {
       "react": ["./node_modules/@types/react"],
     }
   },
   "exclude": [
     "tsup.config.ts",
-    "rollup.config.ts",
+    "rollup.config.mjs",
     "dist",
     "build",
     "node_modules",

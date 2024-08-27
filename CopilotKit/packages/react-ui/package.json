@@ -27,8 +27,8 @@
   "license": "MIT",
   "scripts": {
     "prebuild": "rimraf dist",
-    "build": "rollup -c rollup.config.ts --configPlugin typescript2",
-    "dev": "rollup -c rollup.config.ts --configPlugin typescript2 --watch",
+    "build": "rollup -c rollup.config.mjs",
+    "dev": "rollup -c rollup.config.mjs --watch",
     "test": "jest",
     "check-types": "tsc --noEmit",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next",
@@ -36,7 +36,8 @@
     "unlink:global": "pnpm unlink --global"
   },
   "peerDependencies": {
-    "react": "^18.2.0"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@radix-ui/react-dialog": "^1.0.4",
@@ -63,7 +64,6 @@
     "rollup-plugin-postcss": "^4.0.2",
     "rollup-plugin-preserve-directives": "^0.4.0",
     "rollup-plugin-sourcemaps": "^0.6.3",
-    "rollup-plugin-typescript2": "^0.36.0",
     "tailwind-config": "workspace:*",
     "tailwindcss": "^3.3.0",
     "ts-jest": "^29.1.1",

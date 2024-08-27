@@ -8,7 +8,7 @@
   },
   "exclude": [
     "tsup.config.ts",
-    "rollup.config.ts",
+    "rollup.config.mjs",
     "dist",
     "build",
     "node_modules",

@@ -8,11 +8,8 @@ import json from "@rollup/plugin-json";
 import preserveDirectives from "rollup-plugin-preserve-directives";
 import nodeExternals from 'rollup-plugin-node-externals'
 
-
-import type { RollupOptions } from "rollup";
-
 /** @type {import('rollup').RollupOptions} */
-const config: RollupOptions = {
+const config = {
   input: `src/index.tsx`,
   output: [
     { file: "./dist/index.js", name: "react-core", format: "umd", sourcemap: true },
