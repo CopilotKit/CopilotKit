@@ -16,7 +16,7 @@ export type UseAgentStateReturnType<T = any> = [
 export function useAgentState<T = any>(agentName: string): UseAgentStateReturnType<T> {
   const { agentStates, setAgentStates } = useCopilotContext();
 
-  const { appendMessage } = useCopilotChat();
+  const { visibleMessages, setMessages } = useCopilotChat();
 
   const setSpecificAgentState: SetAgentStateAction<T> = (newState) => {
     setAgentStates((prevAgentStates) => {
@@ -30,7 +30,7 @@ export function useAgentState<T = any>(agentName: string): UseAgentStateReturnTy
 
       const agentStateMessage = { ...currentState, state: updatedState };
 
-      appendMessage(agentStateMessage);
+      setMessages([...visibleMessages, agentStateMessage]);
 
       return {
         ...prevAgentStates,
