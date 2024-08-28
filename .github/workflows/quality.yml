@@ -5,12 +5,12 @@ on:
     branches: [main]
     paths-ignore:
       - 'docs/**'
-      - '**/README.md'
+      - 'README.md'
   pull_request:
     branches: [main]    
     paths-ignore:
       - 'docs/**'
-      - '**/README.md'
+      - 'README.md'
 jobs:
   prettier:
     name: 'Prettier'
