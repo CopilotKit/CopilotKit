@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 1.1.1-feat-runtime-remote-actions.4
+
+### Patch Changes
+
+- Show agent state in the chat window
+
 ## 1.1.1-feat-runtime-remote-actions.3
 
 ### Patch Changes

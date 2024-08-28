@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.1.1-feat-runtime-remote-actions.4
+
+### Patch Changes
+
+- Show agent state in the chat window
+- Updated dependencies
+  - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.4
+
 ## 1.1.1-feat-runtime-remote-actions.3
 
 ### Patch Changes

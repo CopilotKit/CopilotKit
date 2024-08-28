@@ -1,23 +1,24 @@
 {
-  "mode": "exit",
+  "mode": "pre",
   "tag": "feat-runtime-remote-actions",
   "initialVersions": {
-    "next-openai": "1.1.1-feat-runtime-remote-actions.2",
-    "next-pages-router": "1.1.1-feat-runtime-remote-actions.2",
-    "node-express": "1.1.1-feat-runtime-remote-actions.2",
-    "node-http": "1.1.1-feat-runtime-remote-actions.2",
-    "@copilotkit/react-core": "1.1.1-feat-runtime-remote-actions.2",
-    "@copilotkit/react-textarea": "1.1.1-feat-runtime-remote-actions.2",
-    "@copilotkit/react-ui": "1.1.1-feat-runtime-remote-actions.2",
-    "@copilotkit/runtime": "1.1.1-feat-runtime-remote-actions.2",
-    "@copilotkit/runtime-client-gql": "1.1.1-feat-runtime-remote-actions.2",
-    "@copilotkit/shared": "1.1.1-feat-runtime-remote-actions.2",
-    "eslint-config-custom": "1.1.1-feat-runtime-remote-actions.2",
-    "tailwind-config": "1.1.1-feat-runtime-remote-actions.2",
-    "tsconfig": "1.1.1-feat-runtime-remote-actions.2"
+    "next-openai": "1.1.1-feat-runtime-remote-actions.3",
+    "next-pages-router": "1.1.1-feat-runtime-remote-actions.3",
+    "node-express": "1.1.1-feat-runtime-remote-actions.3",
+    "node-http": "1.1.1-feat-runtime-remote-actions.3",
+    "@copilotkit/react-core": "1.1.1-feat-runtime-remote-actions.3",
+    "@copilotkit/react-textarea": "1.1.1-feat-runtime-remote-actions.3",
+    "@copilotkit/react-ui": "1.1.1-feat-runtime-remote-actions.3",
+    "@copilotkit/runtime": "1.1.1-feat-runtime-remote-actions.3",
+    "@copilotkit/runtime-client-gql": "1.1.1-feat-runtime-remote-actions.3",
+    "@copilotkit/shared": "1.1.1-feat-runtime-remote-actions.3",
+    "eslint-config-custom": "1.1.1-feat-runtime-remote-actions.3",
+    "tailwind-config": "1.1.1-feat-runtime-remote-actions.3",
+    "tsconfig": "1.1.1-feat-runtime-remote-actions.3"
   },
   "changesets": [
     "chilly-scissors-shave",
+    "cuddly-eggs-raise",
     "empty-fans-relate",
     "pink-eggs-impress",
     "purple-wolves-report"
