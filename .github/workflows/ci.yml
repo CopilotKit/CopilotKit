@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths-ignore:
       - 'docs/**'
+      - 'readme.md'
   pull_request:
     branches: [main]
     paths-ignore:
       - 'docs/**'
+      - 'readme.md'
 jobs:
   test:
     name: 'Test'
