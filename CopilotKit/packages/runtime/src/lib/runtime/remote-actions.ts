@@ -141,7 +141,7 @@ function constructRemoteActions({
   const agents = json["agents"].map((agent) => ({
     name: agent.name,
     description: agent.description,
-    parameters: agent.parameters,
+    parameters: [],
     handler: async (_args: any) => {},
 
     langGraphAgentHandler: async ({
