@@ -1,5 +1,15 @@
 # ui
 
+## 1.1.1-feat-runtime-remote-actions.5
+
+### Patch Changes
+
+- useCoagent/useCoagentAction
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.1.1-feat-runtime-remote-actions.5
+  - @copilotkit/react-core@1.1.1-feat-runtime-remote-actions.5
+  - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.5
+
 ## 1.1.1-feat-runtime-remote-actions.4
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 1.1.1-feat-runtime-remote-actions.5
+
+### Patch Changes
+
+- useCoagent/useCoagentAction
+
 ## 1.1.1-feat-runtime-remote-actions.4
 
 ### Patch Changes
