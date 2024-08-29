@@ -36,6 +36,7 @@ import {
   CopilotApiConfig,
   InChatRenderFunction,
   ChatComponentsCache,
+  AgentSession,
 } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
 import { CopilotChatSuggestionConfiguration, DocumentPointer } from "../../types";
@@ -231,6 +232,14 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   };
 
   const [coagentStates, setCoagentStates] = useState<Record<string, CoagentState>>({});
+  let initialAgentSession: AgentSession | null = null;
+  if (props.agent) {
+    initialAgentSession = {
+      agentName: props.agent,
+    };
+  }
+
+  const [agentSession, setAgentSession] = useState<AgentSession | null>(initialAgentSession);
 
   return (
     <CopilotContext.Provider
@@ -262,6 +271,8 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         showDevConsole: props.showDevConsole === undefined ? "auto" : props.showDevConsole,
         coagentStates,
         setCoagentStates,
+        agentSession,
+        setAgentSession,
       }}
     >
       {children}

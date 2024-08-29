@@ -97,6 +97,8 @@ export function useCopilotChat({
     coagentStates,
     setCoagentStates,
     coagentActions,
+    agentSession,
+    setAgentSession,
   } = useContext(CopilotContext);
 
   // We need to ensure that makeSystemMessageCallback always uses the latest
@@ -152,6 +154,8 @@ export function useCopilotChat({
     setIsLoading,
     coagentStates,
     setCoagentStates,
+    agentSession,
+    setAgentSession,
   });
 
   return {

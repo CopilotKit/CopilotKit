@@ -23,6 +23,7 @@ import {
 import { CopilotApiConfig } from "../context";
 import { FrontendAction } from "../types/frontend-action";
 import { CoagentState } from "../types/coagent-state";
+import { AgentSession } from "../context/copilot-context";
 
 export type UseChatOptions = {
   /**
@@ -84,6 +85,16 @@ export type UseChatOptions = {
    * setState-powered method to update the agent states
    */
   setCoagentStates: React.Dispatch<React.SetStateAction<Record<string, CoagentState>>>;
+
+  /**
+   * The current agent session.
+   */
+  agentSession: AgentSession | null;
+
+  /**
+   * setState-powered method to update the agent session
+   */
+  setAgentSession: React.Dispatch<React.SetStateAction<AgentSession | null>>;
 };
 
 export type UseChatHelpers = {
@@ -105,12 +116,6 @@ export type UseChatHelpers = {
   stop: () => void;
 };
 
-interface AgentSession {
-  threadId: string;
-  agentName: string;
-  nodeName: string;
-}
-
 export function useChat(options: UseChatOptions): UseChatHelpers {
   const {
     messages,
@@ -125,12 +130,13 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     onCoagentAction,
     setCoagentStates,
     coagentStates,
+    agentSession,
+    setAgentSession,
   } = options;
 
   const abortControllerRef = useRef<AbortController>();
   const threadIdRef = useRef<string | null>(null);
   const runIdRef = useRef<string | null>(null);
-  const agentSessionRef = useRef<AgentSession | null>(null);
 
   const publicApiKey = copilotConfig.publicApiKey;
 
@@ -200,13 +206,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           metadata: {
             requestType: CopilotRequestType.Chat,
           },
-          ...(agentSessionRef.current
+          ...(agentSession
             ? {
-                agentSession: {
-                  threadId: agentSessionRef.current.threadId,
-                  agentName: agentSessionRef.current.agentName,
-                  nodeName: agentSessionRef.current.nodeName,
-                },
+                agentSession,
               }
             : {}),
           agentStates: Object.values(coagentStates).map((state) => ({
@@ -282,13 +284,13 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                     runId: message.runId,
                   },
                 }));
-                agentSessionRef.current = {
+                setAgentSession({
                   threadId: message.threadId,
                   agentName: message.agentName,
                   nodeName: message.nodeName,
-                };
+                });
               } else {
-                agentSessionRef.current = null;
+                setAgentSession(null);
               }
             }
 

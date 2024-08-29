@@ -105,9 +105,29 @@ export function useCoagent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     state,
     setState,
     running: coagentState.running,
-    start: () => {},
-    stop: () => {},
+    start: () => {
+      startAgent(name);
+    },
+    stop: () => {
+      stopAgent(name);
+    },
   };
+}
+
+function startAgent(name: string) {
+  const { setAgentSession } = useCopilotContext();
+  setAgentSession({
+    agentName: name,
+  });
+}
+
+function stopAgent(name: string) {
+  const { agentSession, setAgentSession } = useCopilotContext();
+  if (agentSession && agentSession.agentName === name) {
+    setAgentSession(null);
+  } else {
+    console.warn(`No agent session found for ${name}`);
+  }
 }
 
 // <CopilotKit agent="lockedInAgentName" />

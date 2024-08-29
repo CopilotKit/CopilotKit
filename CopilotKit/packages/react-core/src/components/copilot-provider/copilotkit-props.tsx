@@ -73,4 +73,9 @@ export interface CopilotKitProps {
    * If set to "auto", the dev console will be show on localhost only.
    */
   showDevConsole?: boolean | "auto";
+
+  /**
+   * The name of the agent to use.
+   */
+  agent?: string;
 }

@@ -78,6 +78,12 @@ export interface ChatComponentsCache {
   coagentActions: Record<string, CoagentInChatRenderFunction | string>;
 }
 
+export interface AgentSession {
+  agentName: string;
+  threadId?: string;
+  nodeName?: string;
+}
+
 export interface CopilotContextParams {
   // function-calling
   actions: Record<string, FrontendAction<any>>;
@@ -127,9 +133,11 @@ export interface CopilotContextParams {
 
   showDevConsole: boolean | "auto";
 
-  // agent states
+  // agents
   coagentStates: Record<string, CoagentState>;
   setCoagentStates: React.Dispatch<React.SetStateAction<Record<string, CoagentState>>>;
+  agentSession: AgentSession | null;
+  setAgentSession: React.Dispatch<React.SetStateAction<AgentSession | null>>;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -181,6 +189,9 @@ const emptyCopilotContext: CopilotContextParams = {
   showDevConsole: "auto",
   coagentStates: {},
   setCoagentStates: () => {},
+
+  agentSession: null,
+  setAgentSession: () => {},
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

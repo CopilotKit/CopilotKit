@@ -13,6 +13,7 @@ export default function AIPresentation() {
       runtimeUrl="/api/copilotkit"
       transcribeAudioUrl="/api/transcribe"
       textToSpeechUrl="/api/tts"
+      agent="childrensBookAgent"
     >
       <div
         style={

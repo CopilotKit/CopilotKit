@@ -12,7 +12,7 @@
  * ```
  */
 
-import { Action, actionParametersToJsonSchema, Parameter } from "@copilotkit/shared";
+import { Action, actionParametersToJsonSchema, Parameter, randomId } from "@copilotkit/shared";
 import { RemoteChain, RemoteChainParameters, CopilotServiceAdapter } from "../../service-adapters";
 import { MessageInput } from "../../graphql/inputs/message.input";
 import { ActionInput } from "../../graphql/inputs/action.input";
@@ -238,7 +238,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     request: CopilotRuntimeRequest,
   ): Promise<CopilotRuntimeResponse> {
     const { messages: rawMessages, outputMessagesPromise, graphqlContext, agentSession } = request;
-    const { threadId, agentName, nodeName } = agentSession;
+    const { threadId = randomId(), agentName, nodeName } = agentSession;
     const serverSideActions = await this.getServerSideActions(request);
 
     const messages = convertGqlInputToMessages(rawMessages);
@@ -290,7 +290,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       outputMessagesPromise
         .then((outputMessages) => {
           this.onAfterRequest?.({
-            threadId: request.threadId,
+            threadId,
             runId: undefined,
             inputMessages: messages,
             outputMessages,
@@ -300,7 +300,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         .catch((_error) => {});
 
       return {
-        threadId: request.threadId,
+        threadId,
         runId: undefined,
         eventSource,
         serverSideActions: [],
