@@ -1,11 +1,12 @@
 import { CopilotCloudConfig, FunctionCallHandler } from "@copilotkit/shared";
-import { AgentStateMessage, Message } from "@copilotkit/runtime-client-gql";
+import { Message } from "@copilotkit/runtime-client-gql";
 import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
 import React from "react";
 import { TreeNodeId } from "../hooks/use-tree";
 import { DocumentPointer } from "../types";
 import { CopilotChatSuggestionConfiguration } from "../types/chat-suggestion-configuration";
-import { CopilotChatUI } from "../hooks/use-copilot-chat-ui";
+import { CoagentAction, CoagentActionRenderProps } from "../types/coagent-action";
+import { CoagentState } from "../types/coagent-state";
 
 /**
  * Interface for the configuration of the Copilot API.
@@ -68,10 +69,13 @@ export interface CopilotApiConfig {
 }
 
 export type InChatRenderFunction = (props: ActionRenderProps<any>) => string | JSX.Element;
+export type CoagentInChatRenderFunction = (
+  props: CoagentActionRenderProps<any>,
+) => string | JSX.Element;
 
 export interface ChatComponentsCache {
   actions: Record<string, InChatRenderFunction | string>;
-  chatUI: Record<string, Function | string>;
+  coagentActions: Record<string, CoagentInChatRenderFunction | string>;
 }
 
 export interface CopilotContextParams {
@@ -79,6 +83,12 @@ export interface CopilotContextParams {
   actions: Record<string, FrontendAction<any>>;
   setAction: (id: string, action: FrontendAction<any>) => void;
   removeAction: (id: string) => void;
+
+  // coagent actions
+  coagentActions: Record<string, CoagentAction<any>>;
+  setCoagentAction: (id: string, action: CoagentAction<any>) => void;
+  removeCoagentAction: (id: string) => void;
+
   chatComponentsCache: React.RefObject<ChatComponentsCache>;
 
   getFunctionCallHandler: (
@@ -118,12 +128,8 @@ export interface CopilotContextParams {
   showDevConsole: boolean | "auto";
 
   // agent states
-  agentStates: Record<string, AgentStateMessage | null>;
-  setAgentStates: React.Dispatch<React.SetStateAction<Record<string, AgentStateMessage | null>>>;
-
-  // chat ui
-  chatUI: CopilotChatUI[];
-  setChatUI: React.Dispatch<React.SetStateAction<CopilotChatUI[]>>;
+  coagentStates: Record<string, CoagentState>;
+  setCoagentStates: React.Dispatch<React.SetStateAction<Record<string, CoagentState>>>;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -131,7 +137,11 @@ const emptyCopilotContext: CopilotContextParams = {
   setAction: () => {},
   removeAction: () => {},
 
-  chatComponentsCache: { current: { actions: {}, chatUI: {} } },
+  coagentActions: {},
+  setCoagentAction: () => {},
+  removeCoagentAction: () => {},
+
+  chatComponentsCache: { current: { actions: {}, coagentActions: {} } },
   getContextString: (documents: DocumentPointer[], categories: string[]) =>
     returnAndThrowInDebug(""),
   addContext: () => "",
@@ -169,10 +179,8 @@ const emptyCopilotContext: CopilotContextParams = {
   addChatSuggestionConfiguration: () => {},
   removeChatSuggestionConfiguration: () => {},
   showDevConsole: "auto",
-  agentStates: {},
-  setAgentStates: () => {},
-  chatUI: [],
-  setChatUI: () => {},
+  coagentStates: {},
+  setCoagentStates: () => {},
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

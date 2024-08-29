@@ -56,6 +56,8 @@ export const generateCopilotResponseMutation = graphql(/** GraphQL **/ `
           running
           agentName
           nodeName
+          runId
+          active
           role
         }
       }

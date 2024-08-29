@@ -5,6 +5,7 @@ import { CloudInput } from "./cloud.input";
 import { CopilotRequestType } from "../types/enums";
 import { ForwardedParametersInput } from "./forwarded-parameters.input";
 import { AgentSessionInput } from "./agent-session.input";
+import { AgentStateInput } from "./agent-state.input";
 
 @InputType()
 export class GenerateCopilotResponseMetadataInput {
@@ -37,4 +38,10 @@ export class GenerateCopilotResponseInput {
 
   @Field(() => AgentSessionInput, { nullable: true })
   agentSession?: AgentSessionInput;
+
+  @Field(() => AgentStateInput, { nullable: true })
+  agentState?: AgentStateInput;
+
+  @Field(() => [AgentStateInput], { nullable: true })
+  agentStates?: AgentStateInput[];
 }

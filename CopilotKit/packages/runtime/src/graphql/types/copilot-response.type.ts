@@ -72,6 +72,12 @@ export class AgentStateMessageOutput {
   @Field(() => String)
   nodeName: string;
 
+  @Field(() => String)
+  runId: string;
+
+  @Field(() => Boolean)
+  active: boolean;
+
   @Field(() => MessageRole)
   role: MessageRole;
 

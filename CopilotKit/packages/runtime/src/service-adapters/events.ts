@@ -55,6 +55,8 @@ export type RuntimeEvent =
       threadId: string;
       agentName: string;
       nodeName: string;
+      runId: string;
+      active: boolean;
       role: string;
       state: string;
       running: boolean;
@@ -128,6 +130,8 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
     threadId: string,
     agentName: string,
     nodeName: string,
+    runId: string,
+    active: boolean,
     role: string,
     state: string,
     running: boolean,
@@ -137,6 +141,8 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
       threadId,
       agentName,
       nodeName,
+      runId,
+      active,
       role,
       state,
       running,
@@ -260,7 +266,6 @@ async function executeAction(
     );
     const stream = await action.langGraphAgentHandler({
       name: action.name,
-      state: args,
       actionInputsWithoutAgents,
     });
 
@@ -272,7 +277,7 @@ async function executeAction(
     });
   } else {
     // call the function
-    const result = await action.handler(args);
+    const result = await action.handler?.(args);
 
     await streamLangChainResponse({
       result,

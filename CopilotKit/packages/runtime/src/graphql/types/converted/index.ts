@@ -36,6 +36,8 @@ export class AgentStateMessage
   threadId: string;
   agentName: string;
   nodeName: string;
+  runId: string;
+  active: boolean;
   role: MessageRole;
   state: any;
   running: boolean;

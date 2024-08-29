@@ -143,6 +143,8 @@ export class RemoteLangGraphEventSource {
               role: eventWithState.event.role,
               agentName: eventWithState.event.agent_name,
               nodeName: eventWithState.event.node_name,
+              runId: eventWithState.event.run_id,
+              active: eventWithState.event.active,
               state: JSON.stringify(eventWithState.event.state),
               running: eventWithState.event.running,
             });

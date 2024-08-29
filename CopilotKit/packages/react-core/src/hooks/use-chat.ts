@@ -2,8 +2,8 @@ import { useRef } from "react";
 import {
   FunctionCallHandler,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
-  Action,
   actionParametersToJsonSchema,
+  CoagentActionHandler,
 } from "@copilotkit/shared";
 import {
   Message,
@@ -21,6 +21,8 @@ import {
 } from "@copilotkit/runtime-client-gql";
 
 import { CopilotApiConfig } from "../context";
+import { FrontendAction } from "../types/frontend-action";
+import { CoagentState } from "../types/coagent-state";
 
 export type UseChatOptions = {
   /**
@@ -33,10 +35,16 @@ export type UseChatOptions = {
    * automatically to the API and will be used to update the chat.
    */
   onFunctionCall?: FunctionCallHandler;
+
+  /**
+   * Callback function to be called when a coagent action is received.
+   */
+  onCoagentAction?: CoagentActionHandler;
+
   /**
    * Function definitions to be sent to the API.
    */
-  actions: Action[];
+  actions: FrontendAction<any>[];
 
   /**
    * The CopilotKit API configuration.
@@ -68,9 +76,14 @@ export type UseChatOptions = {
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
 
   /**
+   * The current list of coagent states.
+   */
+  coagentStates: Record<string, CoagentState>;
+
+  /**
    * setState-powered method to update the agent states
    */
-  setAgentStates: React.Dispatch<React.SetStateAction<Record<string, AgentStateMessage | null>>>;
+  setCoagentStates: React.Dispatch<React.SetStateAction<Record<string, CoagentState>>>;
 };
 
 export type UseChatHelpers = {
@@ -109,7 +122,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     isLoading,
     actions,
     onFunctionCall,
-    setAgentStates,
+    onCoagentAction,
+    setCoagentStates,
+    coagentStates,
   } = options;
 
   const abortControllerRef = useRef<AbortController>();
@@ -194,6 +209,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 },
               }
             : {}),
+          agentStates: Object.values(coagentStates).map((state) => ({
+            agentName: state.name,
+            state: JSON.stringify(state.state),
+          })),
         },
         properties: copilotConfig.properties,
         signal: abortControllerRef.current?.signal,
@@ -205,7 +224,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
     const reader = stream.getReader();
 
-    let results: { [id: string]: string } = {};
+    let actionResults: { [id: string]: string } = {};
+    let executedCoagentActions: string[] = [];
 
     try {
       while (true) {
@@ -250,9 +270,17 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
             if (message instanceof AgentStateMessage) {
               if (message.running) {
-                setAgentStates((prevAgentStates) => ({
+                setCoagentStates((prevAgentStates) => ({
                   ...prevAgentStates,
-                  [message.agentName]: message,
+                  [message.agentName]: {
+                    name: message.agentName,
+                    state: message.state,
+                    running: message.running,
+                    active: message.active,
+                    threadId: message.threadId,
+                    nodeName: message.nodeName,
+                    runId: message.runId,
+                  },
                 }));
                 agentSessionRef.current = {
                   threadId: message.threadId,
@@ -260,11 +288,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                   nodeName: message.nodeName,
                 };
               } else {
-                setAgentStates((prevAgentStates) => {
-                  const newAgentStates = { ...prevAgentStates };
-                  delete newAgentStates[message.agentName];
-                  return newAgentStates;
-                });
                 agentSessionRef.current = null;
               }
             }
@@ -276,7 +299,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               message.scope === "client" &&
               onFunctionCall
             ) {
-              if (!(message.id in results)) {
+              if (!(message.id in actionResults)) {
                 // Do not execute a function call if guardrails are enabled but the status is not known
                 if (guardrailsEnabled && value.generateCopilotResponse.status === undefined) {
                   break;
@@ -287,17 +310,37 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                   name: message.name,
                   args: message.arguments,
                 });
-                results[message.id] = result;
+                actionResults[message.id] = result;
               }
 
               // add the result message
               newMessages.push(
                 new ResultMessage({
-                  result: ResultMessage.encodeResult(results[message.id]),
+                  result: ResultMessage.encodeResult(actionResults[message.id]),
                   actionExecutionId: message.id,
                   actionName: message.name,
                 }),
               );
+            }
+
+            // execute coagent actions
+            if (
+              message instanceof AgentStateMessage &&
+              !message.active &&
+              !executedCoagentActions.includes(message.id) &&
+              onCoagentAction
+            ) {
+              // Do not execute a coagent action if guardrails are enabled but the status is not known
+              if (guardrailsEnabled && value.generateCopilotResponse.status === undefined) {
+                break;
+              }
+              // execute coagent action
+              await onCoagentAction({
+                name: message.agentName,
+                nodeName: message.nodeName,
+                state: message.state,
+              });
+              executedCoagentActions.push(message.id);
             }
           }
         }
@@ -308,11 +351,16 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           const filteredMessages = [...previousMessages, ...newMessages].reduce(
             (acc: Message[], message: Message) => {
               if (
-                message instanceof AgentStateMessage && // Check if the current message is an AgentStateMessage
-                acc.length > 0 && // Ensure there is at least one message in the accumulator
-                acc[acc.length - 1] instanceof AgentStateMessage && // Check if the last message in the accumulator is also an AgentStateMessage
-                (acc[acc.length - 1] as AgentStateMessage).agentName === message.agentName && // Check if the agentName is the same
-                (acc[acc.length - 1] as AgentStateMessage).nodeName === message.nodeName // Check if the nodeName is the same
+                // If the current message is an AgentStateMessage
+                message instanceof AgentStateMessage &&
+                // And there is at least one message in the accumulator
+                acc.length > 0 &&
+                // And the last message in the accumulator is also an AgentStateMessage
+                acc[acc.length - 1] instanceof AgentStateMessage &&
+                // And the agentName, nodeName, and runId are the same
+                (acc[acc.length - 1] as AgentStateMessage).agentName === message.agentName &&
+                (acc[acc.length - 1] as AgentStateMessage).nodeName === message.nodeName &&
+                (acc[acc.length - 1] as AgentStateMessage).runId === message.runId
               ) {
                 // If the conditions are met, replace the last message in the accumulator with the current message
                 acc[acc.length - 1] = message;
@@ -320,7 +368,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 // Otherwise, add the current message to the accumulator
                 acc.push(message);
               }
-              return acc; // Return the accumulator for the next iteration
+              return acc;
             },
             [],
           );
@@ -332,7 +380,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
       if (
         // if we have client side results
-        Object.values(results).length ||
+        Object.values(actionResults).length ||
         // or the last message we received is a result
         (newMessages.length && newMessages[newMessages.length - 1] instanceof ResultMessage)
       ) {

@@ -1,39 +1,27 @@
-import { useState } from "react";
+import { useEffect } from "react";
+import { useCopilotContext } from "../context";
+import { CoagentState } from "../types/coagent-state";
 
-export function useCoagent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
-  throw new Error("Not implemented");
-}
-
-const [appState, setAppState] = useState({
-  story: "dasfsdf",
-});
-
-const [story, setStory] = useState({
-  story: "dasfsdf",
-});
-
-const { nodeName } = useCoagent({
-  name: "myAgent",
-});
-
-// what do we need from useCoagent?
-// - nodeName
-// - threadId
-// - running
-// - state
-
-export function useCopilotAction<T = any>(coagentAction: CoagentAction<T>) {
-  throw new Error("Not implemented");
-}
-
-// <CopilotKit agent="lockedInAgentName" />
-
-export interface UseCoagentOptions<T> {
+interface WithInternalStateManagementAndInitial<T> {
   name: string;
-  initialState?: T;
-  state?: T;
-  setState?: (newState: T | ((prevState: T | undefined) => T)) => void;
+  initialState: T;
 }
+
+interface WithInternalStateManagement {
+  name: string;
+  initialState?: any; // Optional initialState with default type any
+}
+
+interface WithExternalStateManagement<T> {
+  name: string;
+  state: T;
+  setState: (newState: T | ((prevState: T | undefined) => T)) => void;
+}
+
+type UseCoagentOptions<T> =
+  | WithInternalStateManagementAndInitial<T>
+  | WithInternalStateManagement
+  | WithExternalStateManagement<T>;
 
 export interface UseCoagentReturnType<T> {
   name: string;
@@ -46,15 +34,80 @@ export interface UseCoagentReturnType<T> {
   stop: () => void;
 }
 
-export interface CoagentActionRenderProps<T> {
-  status: "executing" | "complete" | "in_progress";
-  args: T;
-  result: any;
+export function useCoagent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
+  const isExternalStateManagement = (
+    options: UseCoagentOptions<T>,
+  ): options is WithExternalStateManagement<T> => {
+    return "state" in options && "setState" in options;
+  };
+
+  const { name } = options;
+
+  const isInternalStateManagementWithInitial = (
+    options: UseCoagentOptions<T>,
+  ): options is WithInternalStateManagementAndInitial<T> => {
+    return "initialState" in options;
+  };
+
+  const { coagentStates, setCoagentStates } = useCopilotContext();
+
+  const getCoagentState = (coagentStates: Record<string, CoagentState>, name: string) => {
+    if (coagentStates[name]) {
+      return coagentStates[name];
+    } else {
+      return {
+        name,
+        state: isInternalStateManagementWithInitial(options) ? options.initialState : {},
+        running: false,
+        active: false,
+        threadId: undefined,
+        nodeName: undefined,
+        runId: undefined,
+      };
+    }
+  };
+
+  // if we manage state internally, we need to provide a function to set the state
+  const setState = (newState: T | ((prevState: T | undefined) => T)) => {
+    setCoagentStates((prevAgentStates) => {
+      let coagentState: CoagentState = getCoagentState(prevAgentStates, name);
+
+      const updatedState =
+        typeof newState === "function" ? (newState as Function)(coagentState.state) : newState;
+
+      return {
+        ...prevAgentStates,
+        [name]: {
+          ...coagentState,
+          state: updatedState,
+        },
+      };
+    });
+  };
+
+  const coagentState = getCoagentState(coagentStates, name);
+
+  const state = isExternalStateManagement(options) ? options.state : coagentState.state;
+
+  // Sync internal state with external state if state management is external
+  useEffect(() => {
+    if (isExternalStateManagement(options)) {
+      setState(options.state);
+    } else if (coagentStates[name] === undefined) {
+      setState(options.initialState === undefined ? {} : options.initialState);
+    }
+  }, [isExternalStateManagement(options) ? JSON.stringify(options.state) : undefined]);
+
+  // Return the state and setState function
+  return {
+    name,
+    nodeName: coagentState.nodeName,
+    state,
+    setState,
+    running: coagentState.running,
+    start: () => {},
+    stop: () => {},
+  };
 }
 
-export interface CoagentAction<T> {
-  name: string;
-  nodeName?: string;
-  handler?: (args: T) => any | Promise<any>;
-  render?: (props: CoagentActionRenderProps<T>) => string | React.ReactElement;
-}
+// <CopilotKit agent="lockedInAgentName" />

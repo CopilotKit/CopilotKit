@@ -29,12 +29,14 @@ import {
 import { GraphQLContext } from "../integrations/shared";
 import { AgentSessionInput } from "../../graphql/inputs/agent-session.input";
 import { from } from "rxjs";
+import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
 
 interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
   messages: MessageInput[];
   actions: ActionInput[];
   agentSession?: AgentSessionInput;
+  agentStates?: AgentStateInput[];
   outputMessagesPromise: Promise<Message[]>;
   threadId?: string;
   runId?: string;
@@ -240,17 +242,6 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     const serverSideActions = await this.getServerSideActions(request);
 
     const messages = convertGqlInputToMessages(rawMessages);
-    const agentStateMessages = messages.filter(
-      (message) => message instanceof AgentStateMessage,
-    ) as AgentStateMessage[];
-
-    if (agentStateMessages.length === 0) {
-      throw new Error("No agent state messages found");
-    }
-
-    // get the last agent state
-    const agentStateMessage = agentStateMessages[agentStateMessages.length - 1];
-    const state = agentStateMessage.state;
 
     const agent = serverSideActions.find(
       (action) => action.name === agentName && isLangGraphAgentAction(action),
@@ -283,7 +274,6 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       const eventSource = new RuntimeEventSource();
       const stream = await agent.langGraphAgentHandler({
         name: agentName,
-        state,
         threadId,
         nodeName,
         actionInputsWithoutAgents,
@@ -323,7 +313,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   }
 
   private async getServerSideActions(request: CopilotRuntimeRequest): Promise<Action<any>[]> {
-    const { messages: rawMessages, graphqlContext } = request;
+    const { messages: rawMessages, graphqlContext, agentStates } = request;
     const inputMessages = convertGqlInputToMessages(rawMessages);
     const langserveFunctions: Action<any>[] = [];
 
@@ -339,6 +329,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       remoteActionDefinitions: this.remoteActionDefinitions,
       graphqlContext,
       messages: inputMessages,
+      agentStates,
     });
 
     const configuredActions =

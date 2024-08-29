@@ -71,4 +71,10 @@ export class AgentStateMessageInput {
 
   @Field(() => String)
   nodeName: string;
+
+  @Field(() => String)
+  runId: string;
+
+  @Field(() => Boolean)
+  active: boolean;
 }

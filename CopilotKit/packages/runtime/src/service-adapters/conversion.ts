@@ -49,6 +49,8 @@ export function convertGqlInputToMessages(inputMessages: MessageInput[]): Messag
           createdAt: message.createdAt,
           agentName: message.agentStateMessage.agentName,
           nodeName: message.agentStateMessage.nodeName,
+          runId: message.agentStateMessage.runId,
+          active: message.agentStateMessage.active,
           role: message.agentStateMessage.role,
           state: JSON.parse(message.agentStateMessage.state),
           running: message.agentStateMessage.running,

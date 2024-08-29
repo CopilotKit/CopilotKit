@@ -7,6 +7,7 @@ import { RuntimeEvent, RuntimeEventSubject } from "../../service-adapters/events
 import { RemoteLangGraphEventSource } from "../../agents/langgraph/event-source";
 import { Observable } from "rxjs";
 import { ActionInput } from "../../graphql/inputs/action.input";
+import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
 
 export type RemoteActionDefinition = {
   url: string;
@@ -17,7 +18,6 @@ export type RemoteActionDefinition = {
 
 export type LangGraphAgentHandlerParams = {
   name: string;
-  state: any;
   actionInputsWithoutAgents: ActionInput[];
   threadId?: string;
   nodeName?: string;
@@ -92,6 +92,7 @@ function constructRemoteActions({
   graphqlContext,
   logger,
   messages,
+  agentStates,
 }: {
   json: any[];
   url: string;
@@ -99,6 +100,7 @@ function constructRemoteActions({
   graphqlContext: GraphQLContext;
   logger: Logger;
   messages: Message[];
+  agentStates?: AgentStateInput[];
 }): Action<any>[] {
   const actions = json["actions"].map((action) => ({
     name: action.name,
@@ -144,15 +146,22 @@ function constructRemoteActions({
 
     langGraphAgentHandler: async ({
       name,
-      state,
       actionInputsWithoutAgents,
       threadId,
       nodeName,
     }: LangGraphAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
-      logger.debug({ actionName: agent.name, state }, "Executing remote agent");
+      logger.debug({ actionName: agent.name }, "Executing remote agent");
 
       const headers = createHeaders(onBeforeRequest, graphqlContext);
       telemetry.capture("oss.runtime.remote_action_executed", {});
+
+      let state = {};
+      if (agentStates) {
+        const jsonState = agentStates.find((state) => state.agentName === name)?.state;
+        if (jsonState) {
+          state = JSON.parse(jsonState);
+        }
+      }
 
       const response = await fetch(`${url}/agents/execute`, {
         method: "POST",
@@ -193,10 +202,12 @@ export async function setupRemoteActions({
   remoteActionDefinitions,
   graphqlContext,
   messages,
+  agentStates,
 }: {
   remoteActionDefinitions: RemoteActionDefinition[];
   graphqlContext: GraphQLContext;
   messages: Message[];
+  agentStates?: AgentStateInput[];
 }): Promise<Action[]> {
   const logger = graphqlContext.logger.child({ component: "remote-actions.fetchRemoteActions" });
   logger.debug({ remoteActionDefinitions }, "Fetching remote actions");
@@ -221,6 +232,7 @@ export async function setupRemoteActions({
         onBeforeRequest: actionDefinition.onBeforeRequest,
         graphqlContext,
         logger: logger.child({ component: "remote-actions.constructActions", actionDefinition }),
+        agentStates,
       });
     }),
   );

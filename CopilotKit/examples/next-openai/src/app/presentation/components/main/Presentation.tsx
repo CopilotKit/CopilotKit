@@ -1,10 +1,5 @@
 "use client";
-import {
-  useAgentState,
-  useCopilotAction,
-  useCopilotChatUI,
-  useCopilotReadable,
-} from "@copilotkit/react-core";
+import { useCoagent, useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
 import { useCallback, useMemo, useState } from "react";
 import { Slide } from "./Slide";
 import { Header } from "./Header";
@@ -17,12 +12,11 @@ interface PresentationProps {
 }
 
 export const Presentation = ({ performResearch, setPerformResearch }: PresentationProps) => {
-  const [story, setStory] = useAgentState("childrensBookAgent");
-
-  useCopilotChatUI({
-    agentName: "childrensBookAgent",
-    nodeName: "outline_node",
-    render: "Writing outline...",
+  useCoagent({
+    name: "childrensBookAgent",
+    initialState: {
+      outline: "An elephant goes shopping",
+    },
   });
 
   // Load messages from local storage

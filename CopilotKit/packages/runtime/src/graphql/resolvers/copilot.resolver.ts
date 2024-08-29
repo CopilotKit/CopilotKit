@@ -186,6 +186,7 @@ export class CopilotResolver {
       graphqlContext: ctx,
       forwardedParameters: data.forwardedParameters,
       agentSession: data.agentSession,
+      agentStates: data.agentStates,
     });
 
     logger.debug("Event source created, creating response");
@@ -453,6 +454,8 @@ export class CopilotResolver {
                   threadId: event.threadId,
                   agentName: event.agentName,
                   nodeName: event.nodeName,
+                  runId: event.runId,
+                  active: event.active,
                   state: event.state,
                   running: event.running,
                   role: MessageRole.assistant,
@@ -464,6 +467,8 @@ export class CopilotResolver {
                     threadId: event.threadId,
                     agentName: event.agentName,
                     nodeName: event.nodeName,
+                    runId: event.runId,
+                    active: event.active,
                     state: event.state,
                     running: event.running,
                     role: MessageRole.assistant,

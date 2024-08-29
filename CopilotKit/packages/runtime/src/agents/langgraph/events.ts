@@ -15,6 +15,8 @@ type LangGraphOnCopilotKitStateSyncEvent = {
   thread_id: string;
   agent_name: string;
   node_name: string;
+  run_id: string;
+  active: boolean;
   role: string;
   state: any;
   running: boolean;
