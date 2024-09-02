@@ -1,11 +1,5 @@
 # @copilotkit/shared
 
-## 1.1.3
-
-### Patch Changes
-
-- Improvements and bugfixes
-
 ## 1.1.2
 
 ### Patch Changes
