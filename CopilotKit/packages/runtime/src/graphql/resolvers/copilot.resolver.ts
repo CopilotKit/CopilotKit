@@ -180,6 +180,7 @@ export class CopilotResolver {
       properties: ctx.properties || {},
       outputMessagesPromise,
       forwardedParameters: data.forwardedParameters,
+      url: data.frontend.url,
     });
 
     logger.debug("Event source created, creating response");

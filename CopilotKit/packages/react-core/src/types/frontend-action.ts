@@ -48,6 +48,7 @@ export type ActionRenderPropsNoArgs<T extends Parameter[] | [] = []> =
   | InProgressStateNoArgs<T>;
 
 export type FrontendAction<T extends Parameter[] | [] = []> = Action<T> & {
+  disabled?: boolean;
   render?:
     | string
     | (T extends []

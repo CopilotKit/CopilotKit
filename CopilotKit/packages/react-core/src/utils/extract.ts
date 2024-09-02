@@ -115,6 +115,7 @@ export async function extract<const T extends Parameter[]>({
               jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
             },
           ],
+          url: window.location.href,
         },
 
         messages: convertMessagesToGqlInput(

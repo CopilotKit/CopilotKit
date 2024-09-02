@@ -143,6 +143,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               description: action.description || "",
               jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
             })),
+            url: window.location.href,
           },
           threadId: threadIdRef.current,
           runId: runIdRef.current,
