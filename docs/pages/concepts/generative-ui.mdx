@@ -28,7 +28,12 @@ In the example below, we take one of the actions we added in the [Todo List Copi
 ```tsx
 useCopilotAction({
   ...,
-  render: "Processing..."
+  render: () => (
+    <div className="flex space-x-4">
+      <span>✅</span>
+      <span className="font-bold">Task with ID 3 deleted.</span>
+    </div>
+  )
 });
 ```
 
