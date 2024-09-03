@@ -49,3 +49,10 @@ Whether to enable code interpretation.
 Whether to enable file search.
 </PropertyReference>
 
+<PropertyReference name="disableParallelToolCalls" type="boolean"  default="false"> 
+Whether to disable parallel tool calls.
+  You can disable parallel tool calls to force the model to execute tool calls sequentially.
+  This is useful if you want to execute tool calls in a specific order so that the state changes
+  introduced by one tool call are visible to the next tool call. (i.e. new actions or readables)
+</PropertyReference>
+
