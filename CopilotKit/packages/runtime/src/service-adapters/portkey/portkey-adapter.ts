@@ -1,3 +1,24 @@
+/**
+ * Copilot Runtime adapter for Portkey.
+ *
+ * ## Example
+ *
+ * ```ts
+ * import { CopilotRuntime, PortkeyAIAdapter } from "@copilotkit/runtime";
+ * import { Portkey } from "portkey-ai";
+ *
+ * const copilotKit = new CopilotRuntime();
+ *
+ * const portkey = new Portkey({
+ *   apiKey: "<your-api-key>",
+ *   virtualKey: "<your-virtual-key>",
+ * });  
+ *
+ * const serviceAdapter = new PortkeyAIAdapter({ portkey, model: "claude-3-5-sonnet-20240620" });
+ *
+ * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+ * ```
+ */
 import {Portkey} from "portkey-ai";
 import { CopilotRuntimeChatCompletionRequest, CopilotRuntimeChatCompletionResponse, CopilotServiceAdapter } from "../service-adapter";
 import { randomId } from "@copilotkit/shared";

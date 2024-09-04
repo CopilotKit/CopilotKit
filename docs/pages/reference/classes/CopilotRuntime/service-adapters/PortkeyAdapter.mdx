@@ -1,0 +1,39 @@
+
+import { PropertyReference } from "@/components";
+
+import { Tabs } from "nextra/components";
+
+import { Callout } from "nextra/components";
+
+# PortkeyAIAdapter
+
+Copilot Runtime adapter for Portkey.
+ 
+## Example
+ 
+```ts
+import { CopilotRuntime, PortkeyAIAdapter } from "@copilotkit/runtime";
+import { Portkey } from "portkey-ai";
+ 
+const portkey = new Portkey({
+ *   apiKey: "<your-api-key>",
+ *   virtualKey: "<your-virtual-key>",
+ * });
+ 
+const copilotKit = new CopilotRuntime();
+ 
+const serviceAdapter = new PortkeyAIAdapter({ portkey, model: "claude-3-5-sonnet-20240620" });
+ 
+return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+```
+
+## Constructor Parameters
+
+<PropertyReference name="portkey" type="Portkey"  > 
+An optional Portkey instance to use.
+</PropertyReference>
+
+<PropertyReference name="model" type="string"  > 
+The model to use.
+</PropertyReference>
+
