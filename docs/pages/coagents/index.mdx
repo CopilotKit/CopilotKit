@@ -1,1 +1,71 @@
+import { BiSolidMessage as TextIcon } from "react-icons/bi";
+import { VscJson as JsonIcon } from "react-icons/vsc";
+import { Frame } from "@/components";
+
 # Introduction to CoAgents (Alpha)
+
+As an industry, we are quickly learning (and re-learning) that **AI agents perform best when they work alongside humans**. It's far, far easier to get an agent to excel at specific things, than to perform the given task fully autonomously (see: self-driving cars).
+
+But bridging between humans and AI agents is no small task. Until now.
+
+**CopilotKit’s CoAgents provides infrastructure for connecting LangGraph agents to humans in the loop.**
+
+# Featurs of a CoAgent
+
+## Stream Intermediate Agent State
+
+Stream the agent’s intermediate state to the application as the agent executes, so that the user can see work progressing, rather than stare at a loading spinner.
+
+<Frame>
+  <img src="/images/coagents/intermediate-state.gif" />
+</Frame>
+
+## Shared State Between Agent & Application
+
+Bi-directional syncing between application state and agent state — to allow an agent and a human to collaborate on a task.
+
+```tsx
+const { state, setState } = useCoagent();
+```
+
+## Agent Q&A
+
+Agents can easily and intentionally ask the user questions. With support for:
+
+- **Text Feedback:** Via the chat UI.
+- **Structured (JSON) Feedback:** Via fully custom UI/UX anywhere in your application (chat UI, modals, popups, forms, etc).
+
+<br/>
+
+<div className="flex gap-2 w-full my-2">
+  <div className="flex-1 border bg-white rounded-lg shadow-md p-4">
+    <div className="flex items-center justify-center gap-2 font-semibold">
+      <div className="bg-indigo-500 rounded-md w-7 h-7 text-white flex items-center justify-center">
+        <TextIcon className="w-4 h-4" />
+      </div>
+      <span>
+        Text Feedback
+      </span>
+    </div>
+    <div className="italic py-4">
+      <img src="/images/coagents/text-feedback.png" className="rounded-md border" />
+    </div>
+  </div>
+  <div className="flex-1 border bg-white rounded-lg shadow-md p-4">
+    <div className="flex items-center justify-center gap-2 font-semibold">
+      <div className="bg-indigo-500 rounded-md w-7 h-7 text-white flex items-center justify-center">
+        <JsonIcon className="w-5 h-5" />
+      </div>
+      <span>
+        Structured (JSON) Feedback
+      </span>
+    </div>
+    <div className="italic py-4">
+      <img src="/images/coagents/json-feedback.png" className="rounded-md border" />
+    </div>
+  </div>
+</div>
+
+## Agent Steering (Coming Soon)
+
+If needed, allow end-users to replay agent execution from a previous checkpoint, as well as correct agent mistakes.
