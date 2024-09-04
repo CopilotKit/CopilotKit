@@ -4,7 +4,7 @@
 
 ### Patch Changes
 
-- useCoagent/useCoagentAction
+- useCoAgent/useCoAgentAction
 
 ## 1.1.1-feat-runtime-remote-actions.4
 

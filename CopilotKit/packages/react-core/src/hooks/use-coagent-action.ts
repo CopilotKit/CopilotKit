@@ -3,10 +3,10 @@ import { CopilotContext } from "../context/copilot-context";
 import { randomId } from "@copilotkit/shared";
 import { CoagentAction } from "../types/coagent-action";
 
-// We implement useCoagentAction dependency handling so that
+// We implement useCoAgentAction dependency handling so that
 // the developer has the option to not provide any dependencies.
 // see useCopilotAction for more details about this approach.
-export function useCoagentAction<T = any>(action: CoagentAction<T>, dependencies?: any[]): void {
+export function useCoAgentAction<T = any>(action: CoagentAction<T>, dependencies?: any[]): void {
   const { setCoagentAction, removeCoagentAction, coagentActions, chatComponentsCache } =
     useContext(CopilotContext);
   const idRef = useRef<string>(randomId());

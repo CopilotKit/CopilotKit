@@ -4,7 +4,7 @@
 
 ### Patch Changes
 
-- useCoagent/useCoagentAction
+- useCoAgent/useCoAgentAction
 - Updated dependencies
   - @copilotkit/react-textarea@1.1.1-feat-runtime-remote-actions.5
   - @copilotkit/react-core@1.1.1-feat-runtime-remote-actions.5

@@ -34,7 +34,7 @@ export interface UseCoagentReturnType<T> {
   stop: () => void;
 }
 
-export function useCoagent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
+export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
   const isExternalStateManagement = (
     options: UseCoagentOptions<T>,
   ): options is WithExternalStateManagement<T> => {

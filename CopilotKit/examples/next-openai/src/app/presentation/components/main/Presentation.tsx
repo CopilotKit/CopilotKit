@@ -1,5 +1,5 @@
 "use client";
-import { useCoagent, useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
+import { useCogent, useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
 import { useCallback, useMemo, useState } from "react";
 import { Slide } from "./Slide";
 import { Header } from "./Header";
@@ -12,7 +12,7 @@ interface PresentationProps {
 }
 
 export const Presentation = ({ performResearch, setPerformResearch }: PresentationProps) => {
-  useCoagent({
+  useCoAgent({
     name: "childrensBookAgent",
     initialState: {
       outline: "An elephant goes shopping",

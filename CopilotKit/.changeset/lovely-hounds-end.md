@@ -14,4 +14,4 @@
 "@copilotkit/shared": patch
 ---
 
-useCoagent/useCoagentAction
+useCoAgent/useCoAgentAction

@@ -4,7 +4,7 @@
 
 ### Patch Changes
 
-- useCoagent/useCoagentAction
+- useCoAgent/useCoAgentAction
 - Updated dependencies
   - @copilotkit/runtime@1.1.1-feat-runtime-remote-actions.5
   - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.5
