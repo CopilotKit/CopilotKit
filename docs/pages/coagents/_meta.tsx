@@ -4,7 +4,10 @@ export default {
     "title": "CoAgents (Alpha)"
   },
   "index": {
-    title: "Getting Started With CoAgents",
+    title: "Introduction to CoAgents",
+  },
+  "quickstart": {
+    title: "Quickstart",
   },
   "feature-shared-state": {
     title: "Feature: Shared State",
