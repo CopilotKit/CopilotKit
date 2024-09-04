@@ -14,5 +14,8 @@ export default {
   "GoogleGenerativeAIAdapter": {
     title: "Google Generative AI Adapter",
   },
+  "PortkeyAIAdapter": {
+    title: "Portkey AI Adapter",
+  },
 };
 

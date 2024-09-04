@@ -5,4 +5,5 @@ export * from "../service-adapters/google/google-genai-adapter";
 export * from "../service-adapters/openai/openai-assistant-adapter";
 export * from "../service-adapters/unify/unify-adapter";
 export * from "../service-adapters/groq/groq-adapter";
+export * from "../service-adapters/portkey/portkey-adapter"
 export * from "./integrations";
