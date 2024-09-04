@@ -25,15 +25,30 @@ Generative UI is achieved through the [useCopilotAction](/reference/hooks/useCop
 
 In the example below, we take one of the actions we added in the [Todo List Copilot Tutorial](/tutorial-ai-todo-list-copilot/step-4-copilot-actions) and add a generative UI element to it:
 
-```tsx
+```tsx {15-23}
 useCopilotAction({
-  ...,
-  render: () => (
-    <div className="flex space-x-4">
-      <span>✅</span>
-      <span className="font-bold">Task with ID 3 deleted.</span>
+  name: "deleteTask",
+  description: "Deletes a task from the todo list",
+  parameters: [
+    {
+      name: "id",
+      type: "number",
+      description: "The id of the task",
+      required: true,
+    },
+  ],
+  handler: ({ id }) => {
+    deleteTask(id);
+  },
+  render: ({ status, args }) => (
+    <div className="flex justify-center items-center text-sm">
+      {status !== "complete" && <p>Deleting task with ID {args.id}...</p>}
+      <div className="flex gap-2">
+        <span>✅</span>
+        <span className="font-semibold">Task with ID {args.id} deleted.</span>
+      </div>
     </div>
-  )
+  ),
 });
 ```
 
