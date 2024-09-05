@@ -12,7 +12,6 @@ CopilotKit integrates with LangGraph to build powerful CoAgents that work within
 provide it with any LangGraph agent, for example:
 
 ```python
-
 import uvicorn
 from fastapi import FastAPI
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
@@ -21,24 +20,21 @@ from your_package import research_agent
 
 app = FastAPI()
 sdk = CopilotKitSDK(
-    agents=[
-        LangGraphAgent(
-            name="research_agent",
-
-            # the description helps CopilotKit to pick the agent when
-            # a certain skill is needed, i.e. researching
-            description="Research the web.",
-            agent=research_agent,
-        )
-    ],
+  agents=[
+    LangGraphAgent(
+      name="research_agent",
+      # the description helps CopilotKit to pick the agent when a certain skill is needed, i.e. researching
+      description="Research the web.",
+      agent=research_agent,
+    )
+  ]
 )
 
 add_fastapi_endpoint(app, sdk, "/copilotkit")
 
 def main():
-    """Run the uvicorn server."""
-    uvicorn.run("your_package:app", host="127.0.0.1", port=8000, reload=True)
-
+  """Run the uvicorn server."""
+  uvicorn.run("your_package:app", host="127.0.0.1", port=8000, reload=True)
 ```
 
 ## Streaming state updates
@@ -51,22 +47,19 @@ from your LangGraph agent.
 
 ```python
 config = configure_copilotkit(
-    config,
-
-    # this will stream messages back to the chat window
-    emit_messages=True,
-
-    # this will stream tool calls to CopilotKit (call frontend actions)
-    emit_tool_calls=True,
-
-    # this will stream tool calls *as if* they were state
-    emit_intermediate_state=[
-	    {
-		    "state_key": "outline",
-		    "tool": "set_outline",
-		    "tool_argument": "outline",
-	    }
-    ]
+  config,
+  # this will stream messages back to the chat window
+  emit_messages=True,
+  # this will stream tool calls to CopilotKit (call frontend actions)
+  emit_tool_calls=True,
+  # this will stream tool calls *as if* they were state
+  emit_intermediate_state=[
+    {
+      "state_key": "outline",
+      "tool": "set_outline",
+      "tool_argument": "outline",
+    }
+  ]
 )
 ```
 
@@ -115,10 +108,8 @@ const { state: carRentalState, setState: setCarRentalState } = useCoAgent({
 ```tsx
 useCoAgentAction({
   name: "car_rental_agent",
-
   // this is optional - can also have an action by agent
   nodeName: "confirm_node",
-
   // render can be a function or a string, just like useCopilotAction
   render: "Confirming rental...",
 });

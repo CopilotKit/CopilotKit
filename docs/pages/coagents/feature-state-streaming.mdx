@@ -1,3 +1,5 @@
+import { Steps, Callout } from "nextra/components";
+
 # Feature: State Streaming
 
 CopilotKit keeps the CoAgent state in sync with the UI. Let’s imagine the example LangGraph node
@@ -19,41 +21,38 @@ def example_node(state: AgentState, config: RunnableConfig):
 What if we want to emit LLM messages to the user? We can configure CopilotKit so that these messages are treated as user-facing messages, so that they will appear in the chat window.
 
 ```python
-
 from copilotkit.langchain import configure_copilotkit
 
 async def talk_to_user_node(state: AgentState, config: RunnableConfig):
-    """
-    The messages of this node will appear in the chat window
-    """
+	"""
+	The messages of this node will appear in the chat window
+	"""
 
-		# configure CopilotKit to stream the messages to the chat window
-    config = configure_copilotkit(
-      config,
-      emit_messages=True
-    )
+	# configure CopilotKit to stream the messages to the chat window
+	config = configure_copilotkit(
+		config,
+		emit_messages=True
+	)
 
-    response = await ChatOpenAI(model="gpt-4o").ainvoke(
-      [
-	      *state["messages"],
-	      SystemMessage(content="Say hi to the user")
-      ],
-      config # <-- pass the configuration to LangChain
-    )
+	response = await ChatOpenAI(model="gpt-4o").ainvoke(
+		[
+			*state["messages"],
+			SystemMessage(content="Say hi to the user")
+		],
+		config # <-- pass the configuration to LangChain
+	)
 
-    # return the new messages to make them part of the conversation history
-    # in LangGraph
-    return {
-      "messages": [response]
-    }
+	# return the new messages to make them part of the conversation history
+	# in LangGraph
+	return {
+		"messages": [response]
+	}
 ```
 
-<aside>
-💡
+<Callout type="info">
+	Note: If you want to get an answer from the user, you need to interrupt the agent. You can do this by either going to the `__END__` node in LangGraph or by using LangGraph interrupts.
+</Callout>
 
-Note: If you want to get an answer from the user, you need to interrupt the agent. You can do this by either going to the `__END__` node in LangGraph or by using LangGraph interrupts.
-
-</aside>
 
 ### Streaming state from LLM tool calls
 

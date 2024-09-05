@@ -27,22 +27,22 @@ For example:
 
 ```python
 async def some_node_deep_down_the_graph(state: AgentState, config: RunnableConfig):
-    """
-    Let's pretend this node is part of a larger LangGraph agent and acts as a
-    background task, for example editing an article.
-    """
+  """
+  Let's pretend this node is part of a larger LangGraph agent and acts as a
+  background task, for example editing an article.
+  """
 
-    response = your_model_with_tools.ainvoke(
-      [
-        # by passing the message history along, all of the actions taken by the agent
-        # can potentially take the user's feedback into account
-	      *state["messages"],
-	      SystemMessage(content="Edit this article. Make sure to take the user's feedback into account.")
-      ],
-      config
-    )
+  response = your_model_with_tools.ainvoke(
+    [
+      # by passing the message history along, all of the actions taken by the agent
+      # can potentially take the user's feedback into account
+      *state["messages"],
+      SystemMessage(content="Edit this article. Make sure to take the user's feedback into account.")
+    ],
+    config
+  )
 
-    return {
-      "messages": [response]
-    }
+  return {
+    "messages": [response]
+  }
 ```
