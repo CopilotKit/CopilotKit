@@ -1,16 +1,28 @@
 import { BiSolidMessage as TextIcon } from "react-icons/bi";
 import { VscJson as JsonIcon } from "react-icons/vsc";
 import { Frame, YouTubeVideo } from "@/components";
+import { FaDiscord } from "react-icons/fa";
+import Link from "next/link";
+import { CoAgentsEnterpriseCTA } from "./coagents-enterprise-cta";
 
 # Introduction to CoAgents (Alpha)
 
-<YouTubeVideo videoId="HvzmwwDF4aM" defaultPlaybackRate={1.25} />
+<br/>
+
+<YouTubeVideo videoId="nBephBv4zr0" defaultPlaybackRate={1.25} />
 
 As an industry, we are quickly learning (and re-learning) that **AI agents perform best when they work alongside humans**. It's far, far easier to get an agent to excel at specific things, than to perform the given task fully autonomously (see: self-driving cars).
 
 But bridging between humans and AI agents is no small task. Until now.
 
 **CopilotKit’s CoAgents provides infrastructure for connecting LangGraph agents to humans in the loop.**
+
+<Link href="https://discord.gg/FsK9P2Nv" target="_blank">
+  <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 mt-2 font-medium">
+    <FaDiscord className="w-4 h-4" />
+    <span>Join our dedicated CoAgents channel on Discord</span>
+  </button>
+</Link>
 
 # Features of a CoAgent
 
@@ -73,3 +85,5 @@ Agents can easily and intentionally ask the user questions. With support for:
 ## Agent Steering (Coming Soon)
 
 If needed, allow end-users to replay agent execution from a previous checkpoint, as well as correct agent mistakes.
+
+<CoAgentsEnterpriseCTA />
