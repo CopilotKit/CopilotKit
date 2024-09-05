@@ -1,9 +1,16 @@
 import { LinkToCopilotCloud } from "@/components";
 
 export default {
+  coagents: {
+    title: () => <span className="hidden">CoAgents</span>,
+    type: "page",
+  },
   "copilot-cloud": {
     title: (
-      <LinkToCopilotCloud asLink={false} className="disable-menu bg-indigo-500 py-1 px-4 text-white font-medium rounded-full" />
+      <LinkToCopilotCloud
+        asLink={false}
+        className="disable-menu bg-indigo-500 py-1 px-4 text-white font-medium rounded-full"
+      />
     ),
     type: "menu",
   },
@@ -17,7 +24,7 @@ export default {
   "quickstart-chatbot": {
     title: "Quickstart: Chatbot",
     theme: {
-      toc: false
+      toc: false,
     },
   },
   "tutorial-ai-todo-list-copilot": {
