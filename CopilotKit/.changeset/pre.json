@@ -1,0 +1,24 @@
+{
+  "mode": "exit",
+  "tag": "atai-0724-athena-fix",
+  "initialVersions": {
+    "next-openai": "1.1.1-atai-0724-athena-fix.1",
+    "next-pages-router": "1.1.1-atai-0724-athena-fix.1",
+    "node-express": "1.1.1-atai-0724-athena-fix.1",
+    "node-http": "1.1.1-atai-0724-athena-fix.1",
+    "@copilotkit/react-core": "1.1.1-atai-0724-athena-fix.1",
+    "@copilotkit/react-textarea": "1.1.1-atai-0724-athena-fix.1",
+    "@copilotkit/react-ui": "1.1.1-atai-0724-athena-fix.1",
+    "@copilotkit/runtime": "1.1.1-atai-0724-athena-fix.1",
+    "@copilotkit/runtime-client-gql": "1.1.1-atai-0724-athena-fix.1",
+    "@copilotkit/shared": "1.1.1-atai-0724-athena-fix.1",
+    "eslint-config-custom": "1.1.1-atai-0724-athena-fix.1",
+    "tailwind-config": "1.1.1-atai-0724-athena-fix.1",
+    "tsconfig": "1.1.1-atai-0724-athena-fix.1"
+  },
+  "changesets": [
+    "cold-dodos-decide",
+    "hot-oranges-heal",
+    "little-cars-camp"
+  ]
+}
