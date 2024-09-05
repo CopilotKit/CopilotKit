@@ -5,7 +5,7 @@ export default {
       <div className="flex items-center gap-2">
         <span>CoAgents</span>
         <div className="text-indigo-600 border border-indigo-600 px-1 py-1 rounded-md font-medium" style={{ fontSize: "0.6rem" }}>
-          ALPHA
+          EARLY ACCESS
         </div>
       </div>
     )
