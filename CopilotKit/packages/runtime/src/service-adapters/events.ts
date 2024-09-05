@@ -185,6 +185,11 @@ export class RuntimeEventSource {
       // track state
       scan(
         (acc, event) => {
+          // It seems like this is needed so that rxjs recognizes the object has changed
+          // This fixes an issue where action were executed multiple times
+          // Not investigating further for now (Markus)
+          acc = { ...acc };
+
           if (event.type === RuntimeEventTypes.ActionExecutionStart) {
             acc.callActionServerSide = event.scope === "server";
             acc.args = "";
@@ -197,6 +202,7 @@ export class RuntimeEventSource {
           }
 
           acc.event = event;
+
           return acc;
         },
         {

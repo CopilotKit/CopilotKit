@@ -12,13 +12,6 @@ interface PresentationProps {
 }
 
 export const Presentation = ({ performResearch, setPerformResearch }: PresentationProps) => {
-  useCoAgent({
-    name: "childrensBookAgent",
-    initialState: {
-      outline: "An elephant goes shopping",
-    },
-  });
-
   // Load messages from local storage
 
   // const { messages, setMessages } = useCopilotContext();
@@ -74,21 +67,6 @@ export const Presentation = ({ performResearch, setPerformResearch }: Presentati
     setSlides,
     setCurrentSlideIndex,
     slides,
-  });
-
-  useCopilotAction({
-    name: "confirmUserName",
-    description: "Confirm the user's name",
-    parameters: [
-      {
-        name: "name",
-        type: "string",
-        description: "The user's name",
-      },
-    ],
-    handler: ({ name }) => {
-      return window.confirm(`Confirm your name: ${name}`);
-    },
   });
 
   /**
