@@ -1,4 +1,4 @@
-import { Callout } from "nextra/components"
+import { Callout } from "nextra/components";
 import { TailoredExperience, LinkToCopilotCloud } from "@/components";
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
@@ -19,61 +19,63 @@ npm install @copilotkit/react-core @copilotkit/react-ui
 ```
 
 ## Setup CopilotKit
+
 <TailoredExperience.Toggle />
 
 <TailoredExperience.CloudContent>
 
-  ### Configure the `<CopilotKit />` Provider
+### Configure the `<CopilotKit />` Provider
 
-  The `<CopilotKit>` provider will wrap our app. Let's add it to the `page.tsx` file.
+The `<CopilotKit>` provider will wrap our app. Let's add it to the `page.tsx` file.
 
   <Callout type="info">
     <LinkToCopilotCloud>Click here to get your Copilot Cloud API key for free</LinkToCopilotCloud>. Then, replace `<your-public-api-key>` with your actual API key.
   </Callout>
 
-  ```tsx filename="app/page.tsx" showLineNumbers {5,9,13}
-  "use client";
+```tsx filename="app/page.tsx" showLineNumbers {5,9,13}
+"use client";
 
-  import { TasksList } from "@/components/TasksList";
-  import { TasksProvider } from "@/lib/hooks/use-tasks";
-  import { CopilotKit } from "@copilotkit/react-core";
+import { TasksList } from "@/components/TasksList";
+import { TasksProvider } from "@/lib/hooks/use-tasks";
+import { CopilotKit } from "@copilotkit/react-core";
 
-  export default function Home() {
-    return (
-      <CopilotKit publicApiKey={"<your-public-api-key>"}>
-        <TasksProvider>
-          <TasksList />
-        </TasksProvider>
-      </CopilotKit>
-    );
-  }
-  ```
+export default function Home() {
+  return (
+    <CopilotKit publicApiKey={"<your-public-api-key>"}>
+      <TasksProvider>
+        <TasksList />
+      </TasksProvider>
+    </CopilotKit>
+  );
+}
+```
+
 </TailoredExperience.CloudContent>
 
 <TailoredExperience.SelfHostContent>
   ### Step 1: Set up Copilot Runtime Endpoint
 
-  <SelfHostingCopilotRuntimeCreateEndpoint />
+<SelfHostingCopilotRuntimeCreateEndpoint />
 
-  ### Step 2: Configure the CopilotKit Provider
+### Step 2: Configure the CopilotKit Provider
 
-  ```tsx filename="app/page.tsx" showLineNumbers {5,9,13}
-  "use client";
+```tsx filename="app/page.tsx" showLineNumbers {5,9,13}
+"use client";
 
-  import { TasksList } from "@/components/TasksList";
-  import { TasksProvider } from "@/lib/hooks/use-tasks";
-  import { CopilotKit } from "@copilotkit/react-core";
+import { TasksList } from "@/components/TasksList";
+import { TasksProvider } from "@/lib/hooks/use-tasks";
+import { CopilotKit } from "@copilotkit/react-core";
 
-  export default function Home() {
-    return (
-      <CopilotKit runtimeUrl={"<your-runtime-url>"}>
-        <TasksProvider>
-          <TasksList />
-        </TasksProvider>
-      </CopilotKit>
-    );
-  }
-  ```
+export default function Home() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit">
+      <TasksProvider>
+        <TasksList />
+      </TasksProvider>
+    </CopilotKit>
+  );
+}
+```
 
 </TailoredExperience.SelfHostContent>
 
@@ -94,7 +96,7 @@ import "@copilotkit/react-ui/styles.css";
 
 export default function Home() {
   return (
-    <CopilotKit ...>
+    <CopilotKit runtimeUrl="/api/copilotkit">
       <TasksProvider>
         <TasksList />
       </TasksProvider>
@@ -113,4 +115,3 @@ Here's what we did:
 Now, head back to your app and you'll find a chat popup in the bottom right corner of the page. At this point, you can start interacting with your copilot! 🎉
 
 In the next step, we'll make our assistant smarter by providing it with readable state about our todo list.
-
