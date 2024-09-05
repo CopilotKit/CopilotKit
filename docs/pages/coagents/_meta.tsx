@@ -1,12 +1,12 @@
 export default {
-  "___coagents": {
-    "type": "separator",
-    "title": "CoAgents (Alpha)"
+  ___coagents: {
+    type: "separator",
+    title: "CoAgents (Alpha)",
   },
-  "index": {
+  index: {
     title: "Introduction to CoAgents",
   },
-  "quickstart": {
+  quickstart: {
     title: "Quickstart",
   },
   "feature-shared-state": {
@@ -20,5 +20,8 @@ export default {
   },
   "feature-agent-steering": {
     title: "Feature: Agent Steering (Coming Soon)",
-  }
-}
+  },
+  "coagent-demo": {
+    title: "Demo: Perplexity Clone",
+  },
+};
