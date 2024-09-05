@@ -8,4 +8,7 @@ export class FrontendInput {
 
   @Field(() => [ActionInput])
   actions: ActionInput[];
+
+  @Field(() => String, { nullable: true })
+  url?: string;
 }

@@ -1,19 +1,28 @@
 /**
- * CopilotKit Adapter for the OpenAI Assistant API.
+ * Copilot Runtime adapter for the OpenAI Assistant API.
  *
- * Use this adapter to get responses from the OpenAI Assistant API.
+ * ## Example
  *
- * <RequestExample>
- * ```typescript
+ * ```ts
+ * import { CopilotRuntime, OpenAIAssistantAdapter } from "@copilotkit/runtime";
+ * import OpenAI from "openai";
+ *
  * const copilotKit = new CopilotRuntime();
- * return copilotKit.response(
- *   req,
- *   new OpenAIAssistantAdapter({
- *    assistantId: "your-assistant-id"
- *   })
- * );
+ *
+ * const openai = new OpenAI({
+ *   organization: "<your-organization-id>",
+ *   apiKey: "<your-api-key>",
+ * });
+ *
+ * const serviceAdapter = new OpenAIAssistantAdapter({
+ *   openai,
+ *   assistantId: "<your-assistant-id>",
+ *   codeInterpreterEnabled: true,
+ *   fileSearchEnabled: true,
+ * });
+ *
+ * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
  * ```
- * </RequestExample>
  */
 import OpenAI from "openai";
 import {
@@ -32,6 +41,7 @@ import { AssistantStream } from "openai/lib/AssistantStream";
 import { RuntimeEventSource } from "../events";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { AssistantStreamEvent, AssistantTool } from "openai/resources/beta/assistants";
+import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-parameters.input";
 
 export interface OpenAIAssistantAdapterParams {
   /**
@@ -40,19 +50,31 @@ export interface OpenAIAssistantAdapterParams {
   assistantId: string;
 
   /**
-   * An instance of `OpenAI` to use for the request. If not provided, a new instance will be created.
+   * An optional OpenAI instance to use. If not provided, a new instance will be created.
    */
   openai?: OpenAI;
 
   /**
-   * Whether to enable the code interpreter. Defaults to `true`.
+   * Whether to enable code interpretation.
+   * @default true
    */
   codeInterpreterEnabled?: boolean;
 
   /**
-   * Whether to enable retrieval. Defaults to `true`.
+   * Whether to enable file search.
+   * @default true
    */
   fileSearchEnabled?: boolean;
+
+  /**
+   * Whether to disable parallel tool calls.
+   * You can disable parallel tool calls to force the model to execute tool calls sequentially.
+   * This is useful if you want to execute tool calls in a specific order so that the state changes
+   * introduced by one tool call are visible to the next tool call. (i.e. new actions or readables)
+   *
+   * @default false
+   */
+  disableParallelToolCalls?: boolean;
 }
 
 export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
@@ -60,18 +82,20 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
   private codeInterpreterEnabled: boolean;
   private assistantId: string;
   private fileSearchEnabled: boolean;
+  private disableParallelToolCalls: boolean;
 
   constructor(params: OpenAIAssistantAdapterParams) {
     this.openai = params.openai || new OpenAI({});
     this.codeInterpreterEnabled = params.codeInterpreterEnabled === false || true;
     this.fileSearchEnabled = params.fileSearchEnabled === false || true;
     this.assistantId = params.assistantId;
+    this.disableParallelToolCalls = params?.disableParallelToolCalls || false;
   }
 
   async process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
-    const { messages, actions, eventSource, runId } = request;
+    const { messages, actions, eventSource, runId, forwardedParameters } = request;
     // if we don't have a threadId, create a new thread
     let threadId = request.threadId || (await this.openai.beta.threads.create()).id;
 
@@ -85,7 +109,13 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     }
     // submit user message
     else if (lastMessage instanceof TextMessage) {
-      nextRunId = await this.submitUserMessage(threadId, messages, actions, eventSource);
+      nextRunId = await this.submitUserMessage(
+        threadId,
+        messages,
+        actions,
+        eventSource,
+        forwardedParameters,
+      );
     }
     // unsupported message
     else {
@@ -136,6 +166,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
 
     const stream = this.openai.beta.threads.runs.submitToolOutputsStream(threadId, runId, {
       tool_outputs: toolOutputs,
+      ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
     });
 
     await this.streamResponse(stream, eventSource);
@@ -147,6 +178,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     messages: Message[],
     actions: ActionInput[],
     eventSource: RuntimeEventSource,
+    forwardedParameters: ForwardedParametersInput,
   ) {
     messages = [...messages];
 
@@ -184,6 +216,10 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
       assistant_id: this.assistantId,
       instructions,
       tools: tools,
+      ...(forwardedParameters?.maxTokens && {
+        max_completion_tokens: forwardedParameters.maxTokens,
+      }),
+      ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
     });
 
     await this.streamResponse(stream, eventSource);

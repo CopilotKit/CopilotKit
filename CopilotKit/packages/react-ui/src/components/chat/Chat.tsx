@@ -1,47 +1,48 @@
 /**
- * An embeddable chat panel for CopilotKit.
- *
- * <img src="/images/CopilotChat/CopilotChat.gif" width="500" />
+ * <br/>
+ * <img src="/images/CopilotChat.gif" width="500" />
  *
  * A chatbot panel component for the CopilotKit framework. The component allows for a high degree
  * of customization through various props and custom CSS.
  *
- * <RequestExample>
- *   ```jsx CopilotChat Example
- *   import { CopilotChat } from "@copilotkit/react-ui";
+ * ## Install Dependencies
  *
- *   <CopilotChat
- *     labels={{
- *       title: "Your Assistant",
- *       initial: "Hi! 👋 How can I assist you today?",
- *     }}
- *   />
- *   ```
- * </RequestExample>
+ * This component is part of the [@copilotkit/react-ui](https://npmjs.com/package/@copilotkit/react-ui) package.
  *
- * ## Custom CSS
- *
- * You can customize the colors of the panel by overriding the CSS variables
- * defined in the [default styles](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-ui/src/css/colors.css).
- *
- * For example, to set the primary color to purple:
- *
- * ```jsx
- * <div style={{ "--copilot-kit-primary-color": "#7D5BA6" }}>
- *   <CopilotPopup />
- * </div>
+ * ```shell npm2yarn \"@copilotkit/react-ui"\
+ * npm install @copilotkit/react-core @copilotkit/react-ui
  * ```
  *
- * To further customize the panel, you can override the CSS classes defined
- * [here](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-ui/src/css/).
+ * ## Usage
  *
- * For example:
+ * ```tsx
+ * import { CopilotChat } from "@copilotkit/react-ui";
+ * import "@copilotkit/react-ui/styles.css";
  *
- * ```css
- * .copilotKitButton {
- *   border-radius: 0;
+ * <CopilotChat
+ *   labels={{
+ *     title: "Your Assistant",
+ *     initial: "Hi! 👋 How can I assist you today?",
+ *   }}
+ * />
+ * ```
+ *
+ * ### Look & Feel
+ *
+ * By default, CopilotKit components do not have any styles. You can import CopilotKit's stylesheet at the root of your project:
+ * ```tsx fileName="YourRootComponent.tsx" {2}
+ * ...
+ * import "@copilotkit/react-ui/styles.css";
+ *
+ * export function YourRootComponent() {
+ *   return (
+ *     <CopilotKit>
+ *       ...
+ *     </CopilotKit>
+ *   );
  * }
  * ```
+ * For more information about how to customize the styles, check out the [Customize Look & Feel](/concepts/customize-look-and-feel) guide.
  */
 
 import {
@@ -276,6 +277,15 @@ export const useCopilotChatLogic = (
   const sendMessage = async (messageContent: string) => {
     abortSuggestions();
     setCurrentSuggestions([]);
+
+    const message: Message = new TextMessage({
+      content: messageContent,
+      role: Role.User,
+    });
+
+    // Append the message immediately to make it visible
+    appendMessage(message);
+
     if (onSubmitMessage) {
       try {
         await onSubmitMessage(messageContent);
@@ -283,11 +293,7 @@ export const useCopilotChatLogic = (
         console.error("Error in onSubmitMessage:", error);
       }
     }
-    const message: Message = new TextMessage({
-      content: messageContent,
-      role: Role.User,
-    });
-    appendMessage(message);
+
     return message;
   };
 

@@ -1,36 +1,23 @@
 /**
- * CopilotRuntime Adapter for OpenAI.
+ * Copilot Runtime adapter for OpenAI.
  *
- * <RequestExample>
- * ```jsx CopilotRuntime Example
+ * ## Example
+ *
+ * ```ts
+ * import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
+ * import OpenAI from "openai";
+ *
  * const copilotKit = new CopilotRuntime();
- * return copilotKit.response(req, new OpenAIAdapter());
- * ```
- * </RequestExample>
  *
- * You can easily set the model to use by passing it to the constructor.
- * ```jsx
- * const copilotKit = new CopilotRuntime();
- * return copilotKit.response(
- *   req,
- *   new OpenAIAdapter({ model: "gpt-4o" }),
- * );
- * ```
- *
- * To use your custom OpenAI instance, pass the `openai` property.
- * ```jsx
  * const openai = new OpenAI({
- *   organization: "your-organization-id",
- *   apiKey: "your-api-key"
+ *   organization: "<your-organization-id>", // optional
+ *   apiKey: "<your-api-key>",
  * });
  *
- * const copilotKit = new CopilotRuntime();
- * return copilotKit.response(
- *   req,
- *   new OpenAIAdapter({ openai }),
- * );
- * ```
+ * const serviceAdapter = new OpenAIAdapter({ openai });
  *
+ * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+ * ```
  */
 import OpenAI from "openai";
 import {
@@ -49,7 +36,8 @@ const DEFAULT_MODEL = "gpt-4o";
 
 export interface OpenAIAdapterParams {
   /**
-   * An optional OpenAI instance to use.
+   * An optional OpenAI instance to use.  If not provided, a new instance will be
+   * created.
    */
   openai?: OpenAI;
 
@@ -57,11 +45,22 @@ export interface OpenAIAdapterParams {
    * The model to use.
    */
   model?: string;
+
+  /**
+   * Whether to disable parallel tool calls.
+   * You can disable parallel tool calls to force the model to execute tool calls sequentially.
+   * This is useful if you want to execute tool calls in a specific order so that the state changes
+   * introduced by one tool call are visible to the next tool call. (i.e. new actions or readables)
+   *
+   * @default false
+   */
+  disableParallelToolCalls?: boolean;
 }
 
 export class OpenAIAdapter implements CopilotServiceAdapter {
   private model: string = DEFAULT_MODEL;
 
+  private disableParallelToolCalls: boolean = false;
   private _openai: OpenAI;
   public get openai(): OpenAI {
     return this._openai;
@@ -72,22 +71,42 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     if (params?.model) {
       this.model = params.model;
     }
+    this.disableParallelToolCalls = params?.disableParallelToolCalls || false;
   }
 
   async process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
-    const { threadId, model = this.model, messages, actions, eventSource } = request;
+    const {
+      threadId,
+      model = this.model,
+      messages,
+      actions,
+      eventSource,
+      forwardedParameters,
+    } = request;
     const tools = actions.map(convertActionInputToOpenAITool);
 
     let openaiMessages = messages.map(convertMessageToOpenAIMessage);
     openaiMessages = limitMessagesToTokenCount(openaiMessages, tools, model);
+
+    let toolChoice: any = forwardedParameters?.toolChoice;
+    if (forwardedParameters?.toolChoice === "function") {
+      toolChoice = {
+        type: "function",
+        function: { name: forwardedParameters.toolChoiceFunctionName },
+      };
+    }
 
     const stream = this.openai.beta.chat.completions.stream({
       model: model,
       stream: true,
       messages: openaiMessages,
       ...(tools.length > 0 && { tools }),
+      ...(forwardedParameters?.maxTokens && { max_tokens: forwardedParameters.maxTokens }),
+      ...(forwardedParameters?.stop && { stop: forwardedParameters.stop }),
+      ...(toolChoice && { tool_choice: toolChoice }),
+      ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
     });
 
     eventSource.stream(async (eventStream$) => {

@@ -1,6 +1,6 @@
 import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER } from "@copilotkit/shared";
-import { CopilotContext } from "@copilotkit/react-core";
-import { useCallback, useContext } from "react";
+import { useCopilotContext } from "@copilotkit/react-core";
+import { useCallback } from "react";
 import { AutosuggestionsBareFunction } from "../../types";
 import { retry } from "../../lib/retry";
 import { InsertionEditorState } from "../../types/base/autosuggestions-bare-function";
@@ -33,11 +33,13 @@ export function useMakeStandardAutosuggestionFunction(
   contextCategories: string[],
   apiConfig: SuggestionsApiConfig,
 ): AutosuggestionsBareFunction {
-  const { getContextString, copilotApiConfig } = useContext(CopilotContext);
-  const publicApiKey = copilotApiConfig.publicApiKey;
+  const { getContextString, copilotApiConfig } = useCopilotContext();
+  const { chatApiEndpoint: url, publicApiKey, credentials, properties } = copilotApiConfig;
   const headers = {
+    ...copilotApiConfig.headers,
     ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
   };
+  const { maxTokens, stop } = apiConfig;
 
   return useCallback(
     async (editorState: InsertionEditorState, abortSignal: AbortSignal) => {
@@ -66,10 +68,10 @@ export function useMakeStandardAutosuggestionFunction(
         ];
 
         const runtimeClient = new CopilotRuntimeClient({
-          url: copilotApiConfig.chatApiEndpoint,
-          publicApiKey: copilotApiConfig.publicApiKey,
-          headers: copilotApiConfig.headers,
-          credentials: copilotApiConfig.credentials,
+          url,
+          publicApiKey,
+          headers,
+          credentials,
         });
 
         const response = await runtimeClient
@@ -77,13 +79,18 @@ export function useMakeStandardAutosuggestionFunction(
             data: {
               frontend: {
                 actions: [],
+                url: window.location.href,
               },
               messages: convertMessagesToGqlInput(messages),
               metadata: {
                 requestType: CopilotRequestType.TextareaCompletion,
               },
+              forwardedParameters: {
+                maxTokens,
+                stop,
+              },
             },
-            properties: copilotApiConfig.properties,
+            properties,
             signal: abortSignal,
           })
           .toPromise();

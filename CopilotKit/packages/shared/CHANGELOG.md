@@ -1,22 +1,19 @@
 # @copilotkit/shared
 
-## 1.1.1-atai-0724-athena-fix.2
+## 1.1.2
 
 ### Patch Changes
 
-- remove unnecessary logging
+- Pin headless-ui/react version to v2.1.1
 
-## 1.1.1-atai-0724-athena-fix.1
-
-### Patch Changes
-
-- state-abuse resistance for useCopilotChat
-
-## 1.1.1-atai-0724-athena-fix.0
+## 1.1.1
 
 ### Patch Changes
 
-- appendMessage fix 1
+- - improved documentation
+  - center textarea popup
+  - show/hide dev console
+  - forward maxTokens, stop and force function calling
 
 ## 1.1.0
 

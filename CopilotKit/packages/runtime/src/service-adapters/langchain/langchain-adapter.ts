@@ -1,25 +1,34 @@
 /**
- * CopilotKit Adapter for LangChain
+ * Copilot Runtime adapter for LangChain.
  *
- * Use this adapter to use LangChain as a backend.
+ * ## Example
  *
- * ```typescript
- * return copilotKit.response(
- *   req,
- *   new LangChainAdapter({
- *     chainFn: async ({ messages, tools }) => {
- *       const model = new ChatOpenAI({ modelName: "gpt-4o" });
- *       return model.stream(messages, { tools });
- *     },
- *   })
- * );
+ * ```ts
+ * import { CopilotRuntime, LangChainAdapter } from "@copilotkit/runtime";
+ * import { ChatOpenAI } from "@langchain/openai";
+ *
+ * const copilotKit = new CopilotRuntime();
+ *
+ * const model = new ChatOpenAI({
+ *   model: "gpt-4o",
+ *   apiKey: "<your-api-key>",
+ * });
+ *
+ * const serviceAdapter = new LangChainAdapter({
+ *   chainFn: async ({ messages, tools }) => {
+ *     return model.stream(messages, { tools });
+ *   }
+ * });
+ *
+ * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
  * ```
- * The async handler function can return:
  *
- * - a simple `string` response
- * - a LangChain stream `IterableReadableStream`
- * - a LangChain `BaseMessageChunk` object
- * - a LangChain `AIMessage` object
+ * The asynchronous handler function (`chainFn`) can return any of the following:
+ *
+ * - A simple `string` response
+ * - A LangChain stream (`IterableReadableStream`)
+ * - A LangChain `BaseMessageChunk` object
+ * - A LangChain `AIMessage` object
  */
 
 import { BaseMessage } from "@langchain/core/messages";
@@ -46,6 +55,9 @@ interface ChainFnParameters {
 }
 
 interface LangChainAdapterOptions {
+  /**
+   * A function that uses the LangChain API to generate a response.
+   */
   chainFn: (parameters: ChainFnParameters) => Promise<LangChainReturnType>;
 }
 

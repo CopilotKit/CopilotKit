@@ -1,44 +1,49 @@
 /**
- * A hook for accessing Copilot's chat API.
- *
  * `useCopilotChat` is a React hook that lets you directly interact with the
  * Copilot instance. Use to implement a fully custom UI (headless UI) or to
  * programmatically interact with the Copilot instance managed by the default
  * UI.
  *
- * <RequestExample>
- *   ```jsx useCopilotChat Example
- *   import { useCopilotChat }
- *     from "@copilotkit/react-core";
- *   import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
+ * ## Usage
  *
+ * ### Simple Usage
+ *
+ * ```tsx
+ * import { useCopilotChat } from "@copilotkit/react-core";
+ * import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
+ *
+ * export function YourComponent() {
  *   const { appendMessage } = useCopilotChat();
+ *
  *   appendMessage(
  *     new TextMessage({
  *       content: "Hello World",
  *       role: Role.User,
  *     }),
  *   );
- *   ```
- * </RequestExample>
+ * }
+ * ```
  *
- * useCopilotChat returns an object with the following properties:
- * - `visibleMessages`: An array of messages that are currently visible in the chat.
- * - `appendMessage`: A function to append a message to the chat.
- * - `setMessages`: A function to set the messages in the chat.
- * - `deleteMessage`: A function to delete a message from the chat.
- * - `reloadMessages`: A function to reload the messages from the API.
- * - `stopGeneration`: A function to stop the generation of the next message.
- * - `isLoading`: A boolean indicating if the chat is loading.
+ * `useCopilotChat` returns an object with the following properties:
  *
+ * ```tsx
+ * const {
+ *   visibleMessages, // An array of messages that are currently visible in the chat.
+ *   appendMessage, // A function to append a message to the chat.
+ *   setMessages, // A function to set the messages in the chat.
+ *   deleteMessage, // A function to delete a message from the chat.
+ *   reloadMessages, // A function to reload the messages from the API.
+ *   stopGeneration, // A function to stop the generation of the next message.
+ *   isLoading, // A boolean indicating if the chat is loading.
+ * } = useCopilotChat();
+ * ```
  */
-import { useContext, useRef, useEffect, useCallback } from "react";
-import { CopilotContext } from "../context/copilot-context";
+import { useRef, useEffect, useCallback } from "react";
+import { useCopilotContext } from "../context/copilot-context";
 import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { SystemMessageFunction } from "../types";
 import { useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
-import { MessageStatusCode } from "@copilotkit/runtime-client-gql";
 
 export interface UseCopilotChatOptions {
   /**
@@ -52,20 +57,6 @@ export interface UseCopilotChatOptions {
    * HTTP headers to be sent with the API request.
    */
   headers?: Record<string, string> | Headers;
-
-  /**
-   * Extra body object to be sent with the API request.
-   * @example
-   * Send a `sessionId` to the API along with the messages.
-   * ```js
-   * useChat({
-   *   body: {
-   *     sessionId: '123',
-   *   }
-   * })
-   * ```
-   */
-  body?: object;
   /**
    * System messages of the chat. Defaults to an empty array.
    */
@@ -101,7 +92,7 @@ export function useCopilotChat({
     setIsLoading,
     chatInstructions,
     actions,
-  } = useContext(CopilotContext);
+  } = useCopilotContext();
 
   // We need to ensure that makeSystemMessageCallback always uses the latest
   // useCopilotReadable data.

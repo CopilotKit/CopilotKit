@@ -73,10 +73,8 @@ function TextAreas() {
             suggestionsApiConfig: {
               // makeSystemPrompt: makeSystemPrompt,
               // fewShotMessages: fewShotMessages,
-              forwardedParams: {
-                max_tokens: 5,
-                stop: ["\n", ".", ","],
-              },
+              maxTokens: 5,
+              stop: ["\n", ".", ","],
             },
             insertionApiConfig: {},
           },

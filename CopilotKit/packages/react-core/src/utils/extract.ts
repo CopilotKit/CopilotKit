@@ -115,6 +115,7 @@ export async function extract<const T extends Parameter[]>({
               jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
             },
           ],
+          url: window.location.href,
         },
 
         messages: convertMessagesToGqlInput(
@@ -122,6 +123,10 @@ export async function extract<const T extends Parameter[]>({
         ),
         metadata: {
           requestType: requestType,
+        },
+        forwardedParameters: {
+          toolChoice: "function",
+          toolChoiceFunctionName: action.name,
         },
       },
       properties: context.copilotApiConfig.properties,

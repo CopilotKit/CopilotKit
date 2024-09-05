@@ -1,25 +1,20 @@
 /**
- * Execute one-off tasks using Copilot intelligence.
+ * This class is used to execute one-off tasks, for example on button press. It can use the context available via [useCopilotReadable](/reference/hooks/useCopilotReadable) and the actions provided by [useCopilotAction](/reference/hooks/useCopilotAction), or you can provide your own context and actions.
  *
- * <img referrerPolicy="no-referrer-when-downgrade" src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be" />
+ * ## Example
+ * In the simplest case, use CopilotTask in the context of your app by giving it instructions on what to do.
  *
- * This class is used to execute one-off tasks, for example on button press. It
- * can use the context available via [useCopilotReadable](../useCopilotReadable)
- * and the actions provided by [useCopilotAction](../useCopilotAction), or
- * you can provide your own context and actions.
+ * ```tsx
+ * import { CopilotTask, useCopilotContext } from "@copilotkit/react-core";
  *
- * <RequestExample>
- *   ```jsx CopilotTask Example
- *   import {
- *     CopilotTask,
- *     useCopilotContext
- *   } from "@copilotkit/react-core";
+ * export function MyComponent() {
+ *   const context = useCopilotContext();
  *
  *   const task = new CopilotTask({
  *     instructions: "Set a random message",
  *     actions: [
  *       {
- *       name: "setMessage",
+ *         name: "setMessage",
  *       description: "Set the message.",
  *       argumentAnnotations: [
  *         {
@@ -37,56 +32,22 @@
  *     }
  *     ]
  *   });
- *   const context = useCopilotContext();
- *   await task.run(context);
- *   ```
- * </RequestExample>
  *
- * In the simplest case, use CopilotTask in the context of your app by giving it instructions on what to do.
+ *   const executeTask = async () => {
+ *     await task.run(context, action);
+ *   }
  *
- * ```jsx
- * import {
- *     CopilotTask,
- *     useCopilotContext
- *   } from "@copilotkit/react-core";
- *
- * const randomSlideTask = new CopilotTask({
- *   instructions: "Make a random slide",
- * });
- *
- * const context = useCopilotContext();
- *
- * return (
- *   <button onClick={() => randomSlideTask.run(context)}>
- *     Make a random slide
- *   </button>
- * );
+ *   return (
+ *     <>
+ *       <button onClick={executeTask}>
+ *         Execute task
+ *       </button>
+ *     </>
+ *   )
+ * }
  * ```
  *
- * Have a look at the [Presentation example](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/examples/next-openai/src/app/presentation/page.tsx)
- * for a more complete example.
- *
- * It's also possible to provide your own context and actions. In addition, you can specify to ignore
- * `useCopilotReadable` and `useCopilotAction`.
- *
- * ```jsx
- * import {
- *     CopilotTask,
- *     useCopilotContext
- *   } from "@copilotkit/react-core";
- *
- * const standaloneTask = new CopilotTask({
- *   instructions: "Do something standalone",
- *   data: [...],
- *   actions: [...],
- *   includeCopilotReadable: false, // Don't use current context
- *   includeCopilotActions: false, // Don't use current actions
- * });
- *
- * const context = useCopilotContext();
- *
- * standaloneTask.run(context);
- * ```
+ * Have a look at the [Presentation Example App](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/examples/next-openai/src/app/presentation/page.tsx) for a more complete example.
  */
 
 import {
@@ -184,10 +145,14 @@ export class CopilotTask<T = any> {
               description: action.description || "",
               jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
             })),
+            url: window.location.href,
           },
           messages: convertMessagesToGqlInput(messages),
           metadata: {
             requestType: CopilotRequestType.Task,
+          },
+          forwardedParameters: {
+            toolChoice: "required",
           },
         },
         properties: context.copilotApiConfig.properties,

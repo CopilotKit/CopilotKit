@@ -1,6 +1,6 @@
 import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER } from "@copilotkit/shared";
-import { CopilotContext } from "@copilotkit/react-core";
-import { useCallback, useContext } from "react";
+import { useCopilotContext } from "@copilotkit/react-core";
+import { useCallback } from "react";
 import {
   CopilotRuntimeClient,
   Message,
@@ -18,7 +18,6 @@ import {
 import { InsertionsApiConfig } from "../../types/autosuggestions-config/insertions-api-config";
 import { EditingApiConfig } from "../../types/autosuggestions-config/editing-api-config";
 import { DocumentPointer } from "@copilotkit/react-core";
-import { randomId } from "@copilotkit/shared";
 
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
@@ -39,7 +38,7 @@ export function useMakeStandardInsertionOrEditingFunction(
   insertionApiConfig: InsertionsApiConfig,
   editingApiConfig: EditingApiConfig,
 ): Generator_InsertionOrEditingSuggestion {
-  const { getContextString, copilotApiConfig } = useContext(CopilotContext);
+  const { getContextString, copilotApiConfig } = useCopilotContext();
   const headers = {
     ...(copilotApiConfig.publicApiKey
       ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey }
@@ -125,6 +124,7 @@ export function useMakeStandardInsertionOrEditingFunction(
             data: {
               frontend: {
                 actions: [],
+                url: window.location.href,
               },
               messages: convertMessagesToGqlInput(messages),
               metadata: {
@@ -189,6 +189,7 @@ export function useMakeStandardInsertionOrEditingFunction(
             data: {
               frontend: {
                 actions: [],
+                url: window.location.href,
               },
               messages: convertMessagesToGqlInput(messages),
               metadata: {
