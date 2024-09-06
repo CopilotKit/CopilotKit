@@ -27,7 +27,7 @@ export default defineConfig((options: Options) => {
       const cwd = process.cwd();
       const outputPath = path.resolve(cwd, "dist/index.css");
       const rawCSS = fs.readFileSync(filePath, "utf8");
-      
+
       const resultCSS = await postcss([
         postcssImport(),
         postcssNested(),
@@ -41,15 +41,18 @@ export default defineConfig((options: Options) => {
       }
 
       // Create index.css file for backwards compatibility
-      fs.writeFileSync(path.resolve(cwd, "dist/index.css"), `/* This is here for backwards compatibility */`);
-  
+      fs.writeFileSync(
+        path.resolve(cwd, "dist/index.css"),
+        `/* This is here for backwards compatibility */`,
+      );
+
       return `
         if (globalThis.hasOwnProperty("document")) {
           const style = document?.createElement("style");
           style.innerHTML = '${resultCSS}';
           document?.head.appendChild(style);
         }
-      `
+      `;
     },
     ...options,
   };

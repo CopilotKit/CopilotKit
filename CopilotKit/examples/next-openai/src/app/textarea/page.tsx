@@ -58,7 +58,6 @@ function TextAreas() {
         />
       </div>
       <CopilotTextarea
-
         value={copilotText}
         ref={copilotTextareaRef}
         onChange={(event) => setCopilotText(event.target.value)}
