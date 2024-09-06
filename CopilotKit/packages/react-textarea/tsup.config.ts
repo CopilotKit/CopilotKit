@@ -24,6 +24,13 @@ export default defineConfig((options: Options) => {
       "**/*.test.tsx", // Exclude TypeScript React test files
       "**/__tests__/*", // Exclude any files inside a __tests__ directory
     ],
+    onSuccess: async () => {
+      // Create index.css file for backwards compatibility
+      fs.writeFileSync(
+        path.resolve(process.cwd(), "dist/index.css"),
+        `/* This is here for backwards compatibility */`,
+      );
+    },
     injectStyle: async (_, filePath) => {
       const cwd = process.cwd();
       const outputPath = path.resolve(cwd, "dist/index.css");
@@ -43,12 +50,6 @@ export default defineConfig((options: Options) => {
       if (resultCSS.css === undefined) {
         throw new Error("No CSS output");
       }
-
-      // Create index.css file for backwards compatibility
-      fs.writeFileSync(
-        path.resolve(cwd, "dist/index.css"),
-        `/* This is here for backwards compatibility */`,
-      );
 
       return `
         if (globalThis.hasOwnProperty("document")) {
