@@ -1,5 +1,21 @@
 # ui
 
+## 1.1.3-feat-runtime-remote-actions.0
+
+### Patch Changes
+
+- 638d51d: appendMessage fix 1
+- Rename hooks and bugfixes
+- faccbe1: state-abuse resistance for useCopilotChat
+- b0cf700: remove unnecessary logging
+- Updated dependencies [638d51d]
+- Updated dependencies
+- Updated dependencies [faccbe1]
+- Updated dependencies [b0cf700]
+  - @copilotkit/react-core@1.1.3-feat-runtime-remote-actions.0
+  - @copilotkit/runtime-client-gql@1.1.3-feat-runtime-remote-actions.0
+  - @copilotkit/shared@1.1.3-feat-runtime-remote-actions.0
+
 ## 1.1.2
 
 ### Patch Changes

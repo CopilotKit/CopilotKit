@@ -1,5 +1,14 @@
 # eslint-config-custom
 
+## 1.1.2-feat-runtime-remote-actions.0
+
+### Patch Changes
+
+- 638d51d: appendMessage fix 1
+- Rename hooks and bugfixes
+- faccbe1: state-abuse resistance for useCopilotChat
+- b0cf700: remove unnecessary logging
+
 ## 1.1.1
 
 ### Patch Changes
