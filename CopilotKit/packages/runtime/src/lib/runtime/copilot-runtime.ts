@@ -43,6 +43,7 @@ interface CopilotRuntimeRequest {
   publicApiKey?: string;
   graphqlContext: GraphQLContext;
   forwardedParameters?: ForwardedParametersInput;
+  url?: string;
 }
 
 interface CopilotRuntimeResponse {
@@ -55,13 +56,14 @@ interface CopilotRuntimeResponse {
 
 type ActionsConfiguration<T extends Parameter[] | [] = []> =
   | Action<T>[]
-  | ((ctx: { properties: any }) => Action<T>[]);
+  | ((ctx: { properties: any; url?: string }) => Action<T>[]);
 
 interface OnBeforeRequestOptions {
   threadId?: string;
   runId?: string;
   inputMessages: Message[];
   properties: any;
+  url?: string;
 }
 
 type OnBeforeRequestHandler = (options: OnBeforeRequestOptions) => void | Promise<void>;
@@ -72,6 +74,7 @@ interface OnAfterRequestOptions {
   inputMessages: Message[];
   outputMessages: Message[];
   properties: any;
+  url?: string;
 }
 
 type OnAfterRequestHandler = (options: OnAfterRequestOptions) => void | Promise<void>;
@@ -161,6 +164,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       graphqlContext,
       forwardedParameters,
       agentSession,
+      url,
     } = request;
 
     if (agentSession) {
@@ -188,6 +192,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       runId,
       inputMessages,
       properties: graphqlContext.properties,
+      url,
     });
 
     try {
@@ -210,6 +215,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
             inputMessages,
             outputMessages,
             properties: graphqlContext.properties,
+            url,
           });
         })
         .catch((_error) => {});
@@ -313,7 +319,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   }
 
   private async getServerSideActions(request: CopilotRuntimeRequest): Promise<Action<any>[]> {
-    const { messages: rawMessages, graphqlContext, agentStates } = request;
+    const { messages: rawMessages, graphqlContext, agentStates, url } = request;
     const inputMessages = convertGqlInputToMessages(rawMessages);
     const langserveFunctions: Action<any>[] = [];
 
@@ -334,7 +340,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
     const configuredActions =
       typeof this.actions === "function"
-        ? this.actions({ properties: graphqlContext.properties })
+        ? this.actions({ properties: graphqlContext.properties, url })
         : this.actions;
 
     return [...configuredActions, ...langserveFunctions, ...remoteActions];
