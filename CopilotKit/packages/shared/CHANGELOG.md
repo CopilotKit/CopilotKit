@@ -1,5 +1,17 @@
 # @copilotkit/shared
 
+## 1.2.0
+
+### Minor Changes
+
+- Fix errors related to crypto not being found, and other bug fixes
+
+### Patch Changes
+
+- 638d51d: appendMessage fix 1
+- faccbe1: state-abuse resistance for useCopilotChat
+- b0cf700: remove unnecessary logging
+
 ## 1.1.2
 
 ### Patch Changes
