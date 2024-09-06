@@ -32,7 +32,7 @@ The `<CopilotKit>` provider will wrap our app. Let's add it to the `page.tsx` fi
     <LinkToCopilotCloud>Click here to get your Copilot Cloud API key for free</LinkToCopilotCloud>. Then, replace `<your-public-api-key>` with your actual API key.
   </Callout>
 
-```tsx filename="app/page.tsx" showLineNumbers {5-6,10,14}
+```tsx filename="app/page.tsx" showLineNumbers {5,9,13}
 "use client";
 
 import { EmailThread } from "@/components/EmailThread";
@@ -59,7 +59,7 @@ export default function Home() {
 
 ### Step 2: Configure the CopilotKit Provider
 
-```tsx filename="app/page.tsx" showLineNumbers {5,10,14}
+```tsx filename="app/page.tsx" showLineNumbers {5,9,13}
 "use client";
 
 import { EmailThread } from "@/components/EmailThread";
