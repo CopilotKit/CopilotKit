@@ -187,6 +187,7 @@ export class CopilotResolver {
       forwardedParameters: data.forwardedParameters,
       agentSession: data.agentSession,
       agentStates: data.agentStates,
+      url: data.frontend.url,
     });
 
     logger.debug("Event source created, creating response");

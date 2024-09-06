@@ -1,76 +1,30 @@
 # web
 
-## 1.1.1-feat-runtime-remote-actions.5
+## 1.1.2
 
 ### Patch Changes
 
-- useCoAgent/useCoAgentAction
 - Updated dependencies
-  - @copilotkit/react-textarea@1.1.1-feat-runtime-remote-actions.5
-  - @copilotkit/react-core@1.1.1-feat-runtime-remote-actions.5
-  - @copilotkit/react-ui@1.1.1-feat-runtime-remote-actions.5
-  - @copilotkit/runtime@1.1.1-feat-runtime-remote-actions.5
-  - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.5
+  - @copilotkit/react-core@1.1.2
+  - @copilotkit/react-textarea@1.1.2
+  - @copilotkit/react-ui@1.1.2
+  - @copilotkit/runtime@1.1.2
+  - @copilotkit/shared@1.1.2
 
-## 1.1.1-feat-runtime-remote-actions.4
+## 1.1.1
 
 ### Patch Changes
 
-- Show agent state in the chat window
+- - improved documentation
+  - center textarea popup
+  - show/hide dev console
+  - forward maxTokens, stop and force function calling
 - Updated dependencies
-  - @copilotkit/react-textarea@1.1.1-feat-runtime-remote-actions.4
-  - @copilotkit/react-core@1.1.1-feat-runtime-remote-actions.4
-  - @copilotkit/react-ui@1.1.1-feat-runtime-remote-actions.4
-  - @copilotkit/runtime@1.1.1-feat-runtime-remote-actions.4
-  - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.4
-
-## 1.1.1-feat-runtime-remote-actions.3
-
-### Patch Changes
-
-- stream intermediate state
-- Updated dependencies
-  - @copilotkit/react-textarea@1.1.1-feat-runtime-remote-actions.3
-  - @copilotkit/react-core@1.1.1-feat-runtime-remote-actions.3
-  - @copilotkit/react-ui@1.1.1-feat-runtime-remote-actions.3
-  - @copilotkit/runtime@1.1.1-feat-runtime-remote-actions.3
-  - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.3
-
-## 1.1.1-feat-runtime-remote-actions.2
-
-### Patch Changes
-
-- useAgentState
-- Updated dependencies
-  - @copilotkit/react-textarea@1.1.1-feat-runtime-remote-actions.2
-  - @copilotkit/react-core@1.1.1-feat-runtime-remote-actions.2
-  - @copilotkit/react-ui@1.1.1-feat-runtime-remote-actions.2
-  - @copilotkit/runtime@1.1.1-feat-runtime-remote-actions.2
-  - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.2
-
-## 1.1.1-feat-runtime-remote-actions.1
-
-### Patch Changes
-
-- Include agent state
-- Updated dependencies
-  - @copilotkit/react-textarea@1.1.1-feat-runtime-remote-actions.1
-  - @copilotkit/react-core@1.1.1-feat-runtime-remote-actions.1
-  - @copilotkit/react-ui@1.1.1-feat-runtime-remote-actions.1
-  - @copilotkit/runtime@1.1.1-feat-runtime-remote-actions.1
-  - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.1
-
-## 1.1.1-feat-runtime-remote-actions.0
-
-### Patch Changes
-
-- Remote actions preview
-- Updated dependencies
-  - @copilotkit/react-core@1.1.1-feat-runtime-remote-actions.0
-  - @copilotkit/react-ui@1.1.1-feat-runtime-remote-actions.0
-  - @copilotkit/runtime@1.1.1-feat-runtime-remote-actions.0
-  - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.0
-  - @copilotkit/react-textarea@1.1.1-feat-runtime-remote-actions.0
+  - @copilotkit/react-core@1.1.1
+  - @copilotkit/react-textarea@1.1.1
+  - @copilotkit/react-ui@1.1.1
+  - @copilotkit/runtime@1.1.1
+  - @copilotkit/shared@1.1.1
 
 ## 1.1.0
 

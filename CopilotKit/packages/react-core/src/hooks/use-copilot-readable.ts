@@ -61,8 +61,8 @@
  * }
  * ```
  */
-import { useContext, useEffect, useRef } from "react";
-import { CopilotContext } from "../context/copilot-context";
+import { useEffect, useRef } from "react";
+import { useCopilotContext } from "../context/copilot-context";
 
 /**
  * Options for the useCopilotReadable hook.
@@ -104,7 +104,7 @@ export function useCopilotReadable(
   { description, value, parentId, categories, convert }: UseCopilotReadableOptions,
   dependencies?: any[],
 ): string | undefined {
-  const { addContext, removeContext } = useContext(CopilotContext);
+  const { addContext, removeContext } = useCopilotContext();
   const idRef = useRef<string>();
   convert = convert || convertToJSON;
 

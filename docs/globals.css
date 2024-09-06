@@ -79,3 +79,7 @@ li:has(.icon-container) > div > div > ul ul {
 .nextra-code button[title="Toggle word wrap"] {
   background: var(--nextra-bg);
 }
+
+.nextra-search-results {
+  @apply bg-white/50;
+}

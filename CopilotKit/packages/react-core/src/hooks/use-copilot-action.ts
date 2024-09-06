@@ -1,6 +1,6 @@
-import { useRef, useContext, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import { FrontendAction } from "../types/frontend-action";
-import { CopilotContext } from "../context/copilot-context";
+import { useCopilotContext } from "../context/copilot-context";
 import { Parameter, randomId } from "@copilotkit/shared";
 
 // We implement useCopilotAction dependency handling so that
@@ -16,7 +16,7 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   action: FrontendAction<T>,
   dependencies?: any[],
 ): void {
-  const { setAction, removeAction, actions, chatComponentsCache } = useContext(CopilotContext);
+  const { setAction, removeAction, actions, chatComponentsCache } = useCopilotContext();
   const idRef = useRef<string>(randomId());
 
   // If the developer doesn't provide dependencies, we assume they want to
@@ -34,6 +34,9 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   }
 
   useEffect(() => {
+    if (action.disabled) {
+      return;
+    }
     setAction(idRef.current, action as any);
     if (chatComponentsCache.current !== null && action.render !== undefined) {
       chatComponentsCache.current.actions[action.name] = action.render;
@@ -48,6 +51,7 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
     removeAction,
     action.description,
     action.name,
+    action.disabled,
     // This should be faster than deep equality checking
     // In addition, all major JS engines guarantee the order of object keys
     JSON.stringify(action.parameters),

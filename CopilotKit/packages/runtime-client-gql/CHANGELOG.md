@@ -1,58 +1,25 @@
 # @copilotkit/runtime-client-gql
 
-## 1.1.1-feat-runtime-remote-actions.5
+## 1.1.2
 
 ### Patch Changes
 
-- useCoAgent/useCoAgentAction
+- Pin headless-ui/react version to v2.1.1
 - Updated dependencies
-  - @copilotkit/runtime@1.1.1-feat-runtime-remote-actions.5
-  - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.5
+  - @copilotkit/runtime@1.1.2
+  - @copilotkit/shared@1.1.2
 
-## 1.1.1-feat-runtime-remote-actions.4
+## 1.1.1
 
 ### Patch Changes
 
-- Show agent state in the chat window
+- - improved documentation
+  - center textarea popup
+  - show/hide dev console
+  - forward maxTokens, stop and force function calling
 - Updated dependencies
-  - @copilotkit/runtime@1.1.1-feat-runtime-remote-actions.4
-  - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.4
-
-## 1.1.1-feat-runtime-remote-actions.3
-
-### Patch Changes
-
-- stream intermediate state
-- Updated dependencies
-  - @copilotkit/runtime@1.1.1-feat-runtime-remote-actions.3
-  - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.3
-
-## 1.1.1-feat-runtime-remote-actions.2
-
-### Patch Changes
-
-- useAgentState
-- Updated dependencies
-  - @copilotkit/runtime@1.1.1-feat-runtime-remote-actions.2
-  - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.2
-
-## 1.1.1-feat-runtime-remote-actions.1
-
-### Patch Changes
-
-- Include agent state
-- Updated dependencies
-  - @copilotkit/runtime@1.1.1-feat-runtime-remote-actions.1
-  - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.1
-
-## 1.1.1-feat-runtime-remote-actions.0
-
-### Patch Changes
-
-- Remote actions preview
-- Updated dependencies
-  - @copilotkit/runtime@1.1.1-feat-runtime-remote-actions.0
-  - @copilotkit/shared@1.1.1-feat-runtime-remote-actions.0
+  - @copilotkit/runtime@1.1.1
+  - @copilotkit/shared@1.1.1
 
 ## 1.1.0
 

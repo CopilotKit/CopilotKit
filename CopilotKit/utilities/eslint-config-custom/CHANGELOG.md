@@ -1,40 +1,13 @@
 # eslint-config-custom
 
-## 1.1.1-feat-runtime-remote-actions.5
+## 1.1.1
 
 ### Patch Changes
 
-- useCoAgent/useCoAgentAction
-
-## 1.1.1-feat-runtime-remote-actions.4
-
-### Patch Changes
-
-- Show agent state in the chat window
-
-## 1.1.1-feat-runtime-remote-actions.3
-
-### Patch Changes
-
-- stream intermediate state
-
-## 1.1.1-feat-runtime-remote-actions.2
-
-### Patch Changes
-
-- useAgentState
-
-## 1.1.1-feat-runtime-remote-actions.1
-
-### Patch Changes
-
-- Include agent state
-
-## 1.1.1-feat-runtime-remote-actions.0
-
-### Patch Changes
-
-- Remote actions preview
+- - improved documentation
+  - center textarea popup
+  - show/hide dev console
+  - forward maxTokens, stop and force function calling
 
 ## 1.1.0
 

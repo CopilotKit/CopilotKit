@@ -1,6 +1,6 @@
 import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER } from "@copilotkit/shared";
-import { CopilotContext } from "@copilotkit/react-core";
-import { useCallback, useContext } from "react";
+import { useCopilotContext } from "@copilotkit/react-core";
+import { useCallback } from "react";
 import { AutosuggestionsBareFunction } from "../../types";
 import { retry } from "../../lib/retry";
 import { InsertionEditorState } from "../../types/base/autosuggestions-bare-function";
@@ -33,7 +33,7 @@ export function useMakeStandardAutosuggestionFunction(
   contextCategories: string[],
   apiConfig: SuggestionsApiConfig,
 ): AutosuggestionsBareFunction {
-  const { getContextString, copilotApiConfig } = useContext(CopilotContext);
+  const { getContextString, copilotApiConfig } = useCopilotContext();
   const { chatApiEndpoint: url, publicApiKey, credentials, properties } = copilotApiConfig;
   const headers = {
     ...copilotApiConfig.headers,
@@ -79,6 +79,7 @@ export function useMakeStandardAutosuggestionFunction(
             data: {
               frontend: {
                 actions: [],
+                url: window.location.href,
               },
               messages: convertMessagesToGqlInput(messages),
               metadata: {

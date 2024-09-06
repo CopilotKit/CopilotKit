@@ -45,11 +45,22 @@ export interface OpenAIAdapterParams {
    * The model to use.
    */
   model?: string;
+
+  /**
+   * Whether to disable parallel tool calls.
+   * You can disable parallel tool calls to force the model to execute tool calls sequentially.
+   * This is useful if you want to execute tool calls in a specific order so that the state changes
+   * introduced by one tool call are visible to the next tool call. (i.e. new actions or readables)
+   *
+   * @default false
+   */
+  disableParallelToolCalls?: boolean;
 }
 
 export class OpenAIAdapter implements CopilotServiceAdapter {
   private model: string = DEFAULT_MODEL;
 
+  private disableParallelToolCalls: boolean = false;
   private _openai: OpenAI;
   public get openai(): OpenAI {
     return this._openai;
@@ -60,6 +71,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     if (params?.model) {
       this.model = params.model;
     }
+    this.disableParallelToolCalls = params?.disableParallelToolCalls || false;
   }
 
   async process(
@@ -94,6 +106,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       ...(forwardedParameters?.maxTokens && { max_tokens: forwardedParameters.maxTokens }),
       ...(forwardedParameters?.stop && { stop: forwardedParameters.stop }),
       ...(toolChoice && { tool_choice: toolChoice }),
+      ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
     });
 
     eventSource.stream(async (eventStream$) => {

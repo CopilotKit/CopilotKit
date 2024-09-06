@@ -8,6 +8,9 @@ export default {
   },
   "step-2-setup-copilotkit": {
     title: "Step 2: Setup CopilotKit",
+    theme: {
+      toc: false
+    }
   },
   "step-3-copilot-readable-state": {
     title: "Step 3: Copilot Readable State",

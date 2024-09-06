@@ -1,45 +1,73 @@
 import { Callout } from "nextra/components";
 import { Tabs } from "nextra/components";
-import { LinkToCopilotCloud } from "@/components";
+import { TailoredExperience, LinkToCopilotCloud } from "@/components";
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
+
 
 # Quickstart: Chatbot
 
-<Callout type="info">
-  This is a quickstart guide with a few plug-and-plain code snippets.
-  
-  If you'd like to follow a tutorial instead and learn more about CopilotKit, we recommend starting with the [AI
-  Todo List Copilot tutorial](/tutorial-ai-todo-list-copilot/overview).
-</Callout>
 
-## Setup the frontend
 
-First, you must wrap all components that interact with your copilot with the [`<CopilotKit />`](/reference/components/CopilotKit) provider.
+To set up a chatbot with CopilotKit, we will install the following dependencies:
 
-Additionally, let's use the [`<CopilotSidebar />`](/reference/components/CopilotSidebar) UI component to display the copilot chat sidebar. Some other options you can choose from are [`<CopilotPopup />`](/reference/components/CopilotPopup) and [`<CopilotChat />`](/reference/components/CopilotChat).
+- `@copilotkit/react-core`: The core library for CopilotKit, which contains the CopilotKit provider and useful hooks.
+- `@copilotkit/react-ui`: The UI library for CopilotKit, which contains the CopilotKit UI components such as the sidebar, chat popup, textare and more.
 
-<Callout type="info">
-  Copilot Cloud is the easiest way to get started with CopilotKit.  <LinkToCopilotCloud>Sign up for free and get your public API key</LinkToCopilotCloud>, then replace `<your-public-api-key>` with your actual API key.
+To install the CopilotKit dependencies, run the following:
 
-  If you prefer to self-host, you will need to [set up your Copilot Runtime endpoint](/concepts/copilot-runtime).
-</Callout>
+## Install Dependencies
 
-```tsx filename="layout.tsx" showLineNumbers /<your-public-api-key>/
-"use client";
-
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css";
-
-export default function RootLayout({children}) {
-  return (
-    <CopilotKit publicApiKey="<your-public-api-key>">
-      <CopilotSidebar>
-        {children}
-      </CopilotSidebar>
-    </CopilotKit>
-  );
-}
+```shell npm2yarn
+npm install @copilotkit/react-core @copilotkit/react-ui
 ```
+
+## Setup CopilotKit
+<TailoredExperience.Toggle />
+
+
+
+<TailoredExperience.CloudContent>
+
+  ### Configure the CopilotKit Provider
+
+  First, you must wrap all components that interact with your copilot with the [`<CopilotKit />`](/reference/components/CopilotKit) provider.
+
+  Additionally, let's use the [`<CopilotSidebar />`](/reference/components/CopilotSidebar) UI component to display the copilot chat sidebar. Some other options you can choose from are [`<CopilotPopup />`](/reference/components/CopilotPopup) and [`<CopilotChat />`](/reference/components/CopilotChat).
+  
+  <Callout type="info">
+    <LinkToCopilotCloud>Click here to get your Copilot Cloud API key for free</LinkToCopilotCloud>. Then, replace `<your-public-api-key>` with your actual API key.
+  </Callout>
+
+  ```tsx filename="layout.tsx" showLineNumbers /<your-public-api-key>/
+  "use client";
+
+  import { CopilotKit } from "@copilotkit/react-core";
+  import { CopilotSidebar } from "@copilotkit/react-ui";
+  import "@copilotkit/react-ui/styles.css";
+
+  export default function RootLayout({children}) {
+    return (
+      <CopilotKit publicApiKey="<your-public-api-key>">
+        <CopilotSidebar>
+          {children}
+        </CopilotSidebar>
+      </CopilotKit>
+    );
+  }
+  ```
+</TailoredExperience.CloudContent>
+
+<TailoredExperience.SelfHostContent>
+  ### Step 1: Set up Copilot Runtime Endpoint
+
+  <SelfHostingCopilotRuntimeCreateEndpoint />
+
+  ### Step 2: Configure the CopilotKit Provider
+
+  <SelfHostingCopilotRuntimeConfigureCopilotKitProvider />
+</TailoredExperience.SelfHostContent>
+
 
 ## Copilot Readable State
 

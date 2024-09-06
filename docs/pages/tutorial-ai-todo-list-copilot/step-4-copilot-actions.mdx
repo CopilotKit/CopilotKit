@@ -1,4 +1,3 @@
-
 # Step 4: Copilot Actions
 
 Now it's time to make our copilot even more useful by taking actions.
@@ -13,14 +12,14 @@ Essentially, we want our copilot to be able to call the `addTask`, `setTaskStatu
 
 The [`useCopilotAction`](/reference/hooks/useCopilotAction) hook makes actions available to our copilot. Let's implement it in the [`lib/hooks/use-tasks.tsx`](https://github.com/CopilotKit/example-todos-app/blob/base-start-here/lib/hooks/use-tasks.tsx) file.
 
-```tsx filename="libs/hooks/use-tasks.tsx" showLineNumbers {8-22,24-38,40-61}
+```tsx filename="libs/hooks/use-tasks.tsx" showLineNumbers {3-3,8-22,24-38,40-61}
 // ... the rest of the file
 
-import { useCopilotReadable, useCopilotAction } from "@copilotkit/react";
+import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
 
 export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const [tasks, setTasks] = useState<Task[]>(defaultTasks);
-  
+
   useCopilotAction({
     name: "addTask",
     description: "Adds a task to the todo list",
@@ -34,7 +33,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     ],
     handler: ({ title }) => {
       addTask(title);
-    }
+    },
   });
 
   useCopilotAction({
@@ -50,7 +49,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     ],
     handler: ({ id }) => {
       deleteTask(id);
-    }
+    },
   });
 
   useCopilotAction({
@@ -73,16 +72,14 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     ],
     handler: ({ id, status }) => {
       setTaskStatus(id, status);
-    }
+    },
   });
 
   // ... the rest of the file
-}
+};
 ```
 
 The `useCopilotAction` hook is a powerful hook that allows us to register actions with our copilot. It takes an object with the following properties:
-
-
 
 - `name` is the name of the action.
 - `description` is a description of the action. It's important to choose a good description so that our copilot can choose the right action.
@@ -101,4 +98,3 @@ Now, head back to the app and ask your pilot to do any of the following:
 - etc.
 
 Your copilot is now more helpful than ever 💪
-

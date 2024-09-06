@@ -16,6 +16,7 @@
     "copilotcloud",
     "pino",
     "langsmith",
-    "readables"
+    "readables",
+    "uuidv4"
   ]
 }

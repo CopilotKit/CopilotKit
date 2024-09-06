@@ -13,10 +13,19 @@ A chatbot sidebar component for the CopilotKit framework. Highly customizable th
  
 See [CopilotPopup](/reference/components/CopilotPopup) for a popup version of this component.
  
-## Example
+## Install Dependencies
+ 
+This component is part of the [@copilotkit/react-ui](https://npmjs.com/package/@copilotkit/react-ui) package.
+ 
+```shell npm2yarn \"@copilotkit/react-ui"\
+npm install @copilotkit/react-core @copilotkit/react-ui
+```
+ 
+## Usage
  
 ```tsx
 import { CopilotSidebar } from "@copilotkit/react-ui";
+import "@copilotkit/react-ui/styles.css";
  
 <CopilotSidebar
   labels={{
@@ -28,45 +37,22 @@ import { CopilotSidebar } from "@copilotkit/react-ui";
 </CopilotSidebar>
 ```
  
-## Usage
+### Look & Feel
  
-### Install Dependencies
- 
-This component is part of the [@copilotkit/react-ui](https://npmjs.com/package/@copilotkit/react-ui) package.
- 
-```shell npm2yarn \"@copilotkit/react-ui"\
-npm install @copilotkit/react-core @copilotkit/react-ui
-```
- 
-### Custom Styles
- 
-To opt-in for the built-in styles, make sure to import the following at the root of your application:
- 
-```tsx
+By default, CopilotKit components do not have any styles. You can import CopilotKit's stylesheet at the root of your project:
+```tsx fileName="YourRootComponent.tsx" {2}
+...
 import "@copilotkit/react-ui/styles.css";
-```
  
-You can customize the colors of the chat window by overriding the CSS variables
-defined in the [default styles](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-ui/src/css/colors.css).
- 
-For example, to set the primary color to purple:
- 
-```jsx
-<div style={{ "--copilot-kit-primary-color": "#7D5BA6" }}>
-  <CopilotSidebar />
-</div>
-```
- 
-To further customize the chat window, you can override the CSS classes defined
-[here](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-ui/src/css/).
- 
-For example:
- 
-```css
-.copilotKitButton {
-  border-radius: 0;
+export function YourRootComponent() {
+  return (
+    <CopilotKit>
+      ...
+    </CopilotKit>
+  );
 }
 ```
+For more information about how to customize the styles, check out the [Customize Look & Feel](/concepts/customize-look-and-feel) guide.
 
 ## Properties
 
