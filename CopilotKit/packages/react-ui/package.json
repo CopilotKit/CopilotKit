@@ -40,6 +40,7 @@
   "devDependencies": {
     "@types/clean-css": "^4.2.11",
     "@types/jest": "^29.5.4",
+    "@types/node": "^22.5.4",
     "@types/postcss-import": "^14.0.3",
     "@types/react": "^18.2.5",
     "@types/react-syntax-highlighter": "^15.5.7",
@@ -57,8 +58,8 @@
     "tailwindcss": "3.3.2",
     "ts-jest": "^29.1.1",
     "tsconfig": "workspace:*",
-    "tsup-async-inject-style": "0.0.0-semantic-release",
-    "typescript": "^5.2.3"
+    "tsup-async-inject-style": "0.0.2",
+    "typescript": "^5.5.4"
   },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",

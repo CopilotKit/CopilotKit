@@ -59,7 +59,7 @@
     "tailwindcss": "3.3.2",
     "ts-jest": "^29.1.1",
     "tsconfig": "workspace:*",
-    "tsup-async-inject-style": "0.0.0-semantic-release",
+    "tsup-async-inject-style": "0.0.2",
     "typescript": "^5.2.3"
   },
   "dependencies": {
