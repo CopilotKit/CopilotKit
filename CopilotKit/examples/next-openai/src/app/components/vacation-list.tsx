@@ -2,7 +2,7 @@
 import React from "react";
 import { DestinationTable } from "./destination-table";
 import { VacationNotes } from "./vacation-notes";
-import { useMakeCopilotDocumentReadable, DocumentPointer } from "@copilotkit/react-core";
+import { useMakeCopilotDocumentReadable, DocumentPointer } from "@copilotkit-alt/react-core";
 
 export type Destination = {
   name: string;

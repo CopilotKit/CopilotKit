@@ -4,7 +4,7 @@
  * ## Example
  *
  * ```ts
- * import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
+ * import { CopilotRuntime, OpenAIAdapter } from "@copilotkit-alt/runtime";
  * import OpenAI from "openai";
  *
  * const copilotKit = new CopilotRuntime();
@@ -30,7 +30,7 @@ import {
   convertMessageToOpenAIMessage,
   limitMessagesToTokenCount,
 } from "./utils";
-import { randomId } from "@copilotkit/shared";
+import { randomId } from "@copilotkit-alt/shared";
 
 const DEFAULT_MODEL = "gpt-4o";
 

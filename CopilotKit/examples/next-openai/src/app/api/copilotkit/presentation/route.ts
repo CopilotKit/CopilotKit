@@ -2,9 +2,9 @@ import {
   CopilotRuntime,
   OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+} from "@copilotkit-alt/runtime";
 import { researchWithLangGraph } from "./research";
-import { Action } from "@copilotkit/shared";
+import { Action } from "@copilotkit-alt/shared";
 import { NextRequest } from "next/server";
 
 const researchAction = {

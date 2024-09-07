@@ -9,8 +9,8 @@
  * ### Simple Usage
  *
  * ```tsx
- * import { useCopilotChat } from "@copilotkit/react-core";
- * import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
+ * import { useCopilotChat } from "@copilotkit-alt/react-core";
+ * import { Role, TextMessage } from "@copilotkit-alt/runtime-client-gql";
  *
  * export function YourComponent() {
  *   const { appendMessage } = useCopilotChat();
@@ -40,12 +40,12 @@
  */
 import { useRef, useEffect, useCallback } from "react";
 import { useCopilotContext } from "../context/copilot-context";
-import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
+import { Message, Role, TextMessage } from "@copilotkit-alt/runtime-client-gql";
 import { SystemMessageFunction } from "../types";
 import { useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
-import { MessageStatusCode } from "@copilotkit/runtime-client-gql";
-import { CoagentActionHandlerArguments } from "@copilotkit/shared";
+import { MessageStatusCode } from "@copilotkit-alt/runtime-client-gql";
+import { CoagentActionHandlerArguments } from "@copilotkit-alt/shared";
 
 export interface UseCopilotChatOptions {
   /**

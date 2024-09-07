@@ -3,7 +3,7 @@
 import React from "react";
 import { DestinationRow } from "./destination-row";
 import { Destination } from "./vacation-list";
-import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
+import { useCopilotAction, useCopilotReadable } from "@copilotkit-alt/react-core";
 
 export type DestinationTableProps = {
   destinations: Destination[];

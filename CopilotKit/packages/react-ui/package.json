@@ -1,5 +1,5 @@
 {
-  "name": "@copilotkit/react-ui",
+  "name": "@copilotkit-alt/react-ui",
   "private": false,
   "homepage": "https://github.com/CopilotKit/CopilotKit",
   "repository": {
@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.1.3-feat-runtime-remote-actions.0",
+  "version": "1.1.3-feat-runtime-remote-actions.1",
   "sideEffects": [
     "**/*.css"
   ],
@@ -54,9 +54,9 @@
     "typescript": "^5.2.3"
   },
   "dependencies": {
-    "@copilotkit/react-core": "workspace:*",
-    "@copilotkit/runtime-client-gql": "workspace:*",
-    "@copilotkit/shared": "workspace:*",
+    "@copilotkit-alt/react-core": "workspace:*",
+    "@copilotkit-alt/runtime-client-gql": "workspace:*",
+    "@copilotkit-alt/shared": "workspace:*",
     "@headlessui/react": "^2.1.3",
     "react-markdown": "^8.0.7",
     "react-syntax-highlighter": "^15.5.0",

@@ -2,7 +2,7 @@ import {
   CopilotRuntime,
   GoogleGenerativeAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+} from "@copilotkit-alt/runtime";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextRequest } from "next/server";
 

@@ -3,7 +3,7 @@ import {
   CopilotRuntime,
   OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+} from "@copilotkit-alt/runtime";
 import OpenAI from "openai";
 
 const openai = new OpenAI();

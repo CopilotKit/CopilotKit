@@ -2,7 +2,7 @@ import React, { useEffect, useMemo } from "react";
 import { MessagesProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import { Markdown } from "./Markdown";
-import { RenderFunctionStatus, useCopilotContext } from "@copilotkit/react-core";
+import { RenderFunctionStatus, useCopilotContext } from "@copilotkit-alt/react-core";
 import {
   MessageStatusCode,
   ActionExecutionMessage,
@@ -11,8 +11,8 @@ import {
   TextMessage,
   Role,
   AgentStateMessage,
-} from "@copilotkit/runtime-client-gql";
-import { CoagentInChatRenderFunction } from "@copilotkit/react-core/dist/context/copilot-context";
+} from "@copilotkit-alt/runtime-client-gql";
+import { CoagentInChatRenderFunction } from "@copilotkit-alt/react-core/dist/context/copilot-context";
 
 export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
   const { chatComponentsCache } = useCopilotContext();

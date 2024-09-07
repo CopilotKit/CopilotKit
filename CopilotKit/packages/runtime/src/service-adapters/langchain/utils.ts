@@ -18,7 +18,7 @@ import { z } from "zod";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { LangChainReturnType } from "./types";
 import { RuntimeEventSubject } from "../events";
-import { randomId } from "@copilotkit/shared";
+import { randomId } from "@copilotkit-alt/shared";
 
 export function convertMessageToLangChainMessage(message: Message): BaseMessage {
   if (message instanceof TextMessage) {

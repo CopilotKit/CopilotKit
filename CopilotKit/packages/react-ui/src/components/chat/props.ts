@@ -1,4 +1,4 @@
-import { Message } from "@copilotkit/runtime-client-gql";
+import { Message } from "@copilotkit-alt/runtime-client-gql";
 
 export interface ButtonProps {}
 

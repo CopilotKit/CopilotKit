@@ -9,15 +9,15 @@
  *
  * This component is part of the [@copilotkit/react-ui](https://npmjs.com/package/@copilotkit/react-ui) package.
  *
- * ```shell npm2yarn \"@copilotkit/react-ui"\
+ * ```shell npm2yarn \"@copilotkit-alt/react-ui"\
  * npm install @copilotkit/react-core @copilotkit/react-ui
  * ```
  *
  * ## Usage
  *
  * ```tsx
- * import { CopilotChat } from "@copilotkit/react-ui";
- * import "@copilotkit/react-ui/styles.css";
+ * import { CopilotChat } from "@copilotkit-alt/react-ui";
+ * import "@copilotkit-alt/react-ui/styles.css";
  *
  * <CopilotChat
  *   labels={{
@@ -32,7 +32,7 @@
  * By default, CopilotKit components do not have any styles. You can import CopilotKit's stylesheet at the root of your project:
  * ```tsx fileName="YourRootComponent.tsx" {2}
  * ...
- * import "@copilotkit/react-ui/styles.css";
+ * import "@copilotkit-alt/react-ui/styles.css";
  *
  * export function YourRootComponent() {
  *   return (
@@ -56,12 +56,12 @@ import { Input as DefaultInput } from "./Input";
 import { ResponseButton as DefaultResponseButton } from "./Response";
 import { Suggestion } from "./Suggestion";
 import React, { useEffect, useRef, useState } from "react";
-import { SystemMessageFunction, useCopilotChat, useCopilotContext } from "@copilotkit/react-core";
+import { SystemMessageFunction, useCopilotChat, useCopilotContext } from "@copilotkit-alt/react-core";
 import { reloadSuggestions } from "./Suggestion";
 import { CopilotChatSuggestion } from "../../types/suggestions";
-import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
+import { Message, Role, TextMessage } from "@copilotkit-alt/runtime-client-gql";
 import { InputProps, MessagesProps, ResponseButtonProps } from "./props";
-import { randomId } from "@copilotkit/shared";
+import { randomId } from "@copilotkit-alt/shared";
 
 import { CopilotDevConsole } from "../dev-console";
 

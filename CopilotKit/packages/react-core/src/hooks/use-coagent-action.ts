@@ -1,6 +1,6 @@
 import { useRef, useContext, useEffect } from "react";
 import { CopilotContext } from "../context/copilot-context";
-import { randomId } from "@copilotkit/shared";
+import { randomId } from "@copilotkit-alt/shared";
 import { CoagentAction } from "../types/coagent-action";
 
 // We implement useCoAgentAction dependency handling so that

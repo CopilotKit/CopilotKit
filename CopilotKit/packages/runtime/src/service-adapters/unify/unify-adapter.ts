@@ -24,7 +24,7 @@ import {
   CopilotServiceAdapter,
 } from "../service-adapter";
 import OpenAI from "openai";
-import { randomId } from "@copilotkit/shared";
+import { randomId } from "@copilotkit-alt/shared";
 import { convertActionInputToOpenAITool, convertMessageToOpenAIMessage } from "../openai/utils";
 
 export interface UnifyAdapterParams {

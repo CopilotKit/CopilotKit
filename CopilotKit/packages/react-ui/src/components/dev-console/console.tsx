@@ -1,6 +1,6 @@
 "use client";
 
-import { useCopilotContext } from "@copilotkit/react-core";
+import { useCopilotContext } from "@copilotkit-alt/react-core";
 import {
   getPublishedCopilotKitVersion,
   logActions,
@@ -17,7 +17,7 @@ import {
   ExclamationMarkTriangleIcon,
 } from "./icons";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
-import { COPILOTKIT_VERSION } from "@copilotkit/shared";
+import { COPILOTKIT_VERSION } from "@copilotkit-alt/shared";
 import { SmallSpinnerIcon } from "../chat/Icons";
 
 type VersionStatus = "unknown" | "checking" | "latest" | "update-available" | "outdated";

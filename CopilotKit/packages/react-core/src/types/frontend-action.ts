@@ -1,4 +1,4 @@
-import { Action, Parameter, MappedParameterTypes } from "@copilotkit/shared";
+import { Action, Parameter, MappedParameterTypes } from "@copilotkit-alt/shared";
 import React from "react";
 
 interface InProgressState<T extends Parameter[] | [] = []> {

@@ -2,7 +2,7 @@ import { BaseAutosuggestionsConfig, defaultBaseAutosuggestionsConfig } from "../
 import { SuggestionsApiConfig, defaultSuggestionsApiConfig } from "./suggestions-api-config";
 import { InsertionsApiConfig, defaultInsertionsApiConfig } from "./insertions-api-config";
 import { EditingApiConfig, defaultEditingApiConfig } from "./editing-api-config";
-import { defaultCopilotContextCategories } from "@copilotkit/react-core";
+import { defaultCopilotContextCategories } from "@copilotkit-alt/react-core";
 
 // Like the base autosuggestions config, with 2 additional fields:
 // 1. contextCategories: string[] | undefined;

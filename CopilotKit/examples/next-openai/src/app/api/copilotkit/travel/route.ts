@@ -2,7 +2,7 @@ import {
   CopilotRuntime,
   OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+} from "@copilotkit-alt/runtime";
 import { research } from "./tavily";
 import { NextRequest } from "next/server";
 

@@ -9,7 +9,7 @@
  *     You can get your Copilot Cloud API key for free by <LinkToCopilotCloud>signing up here</LinkToCopilotCloud>.
  *
  *     ```tsx
- *     import { CopilotKit } from "@copilotkit/react-core";
+ *     import { CopilotKit } from "@copilotkit-alt/react-core";
  *
  *     <CopilotKit publicApiKey="<your-public-api-key>">
  *       // ... your app ...
@@ -21,7 +21,7 @@
  *     You can find more information about self-hosting CopilotKit [here](/concepts/copilot-runtime).
  *
  *     ```tsx
- *     import { CopilotKit } from "@copilotkit/react-core";
+ *     import { CopilotKit } from "@copilotkit-alt/react-core";
  *
  *     <CopilotKit runtimeUrl="<your-runtime-url>">
  *       // ... your app ...
@@ -45,8 +45,8 @@ import {
   COPILOT_CLOUD_CHAT_URL,
   CopilotCloudConfig,
   FunctionCallHandler,
-} from "@copilotkit/shared";
-import { AgentStateMessage, Message } from "@copilotkit/runtime-client-gql";
+} from "@copilotkit-alt/shared";
+import { AgentStateMessage, Message } from "@copilotkit-alt/runtime-client-gql";
 
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";

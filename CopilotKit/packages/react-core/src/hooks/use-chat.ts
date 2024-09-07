@@ -4,7 +4,7 @@ import {
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   actionParametersToJsonSchema,
   CoagentActionHandler,
-} from "@copilotkit/shared";
+} from "@copilotkit-alt/shared";
 import {
   Message,
   TextMessage,
@@ -18,7 +18,7 @@ import {
   Role,
   CopilotRequestType,
   AgentStateMessage,
-} from "@copilotkit/runtime-client-gql";
+} from "@copilotkit-alt/runtime-client-gql";
 
 import { CopilotApiConfig } from "../context";
 import { FrontendAction } from "../types/frontend-action";

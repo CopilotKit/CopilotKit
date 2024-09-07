@@ -2,7 +2,7 @@ import {
   CopilotRuntime,
   LangChainAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+} from "@copilotkit-alt/runtime";
 
 import { ChatOpenAI } from "@langchain/openai";
 import { NextRequest } from "next/server";

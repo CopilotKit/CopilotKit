@@ -1,4 +1,4 @@
-import { Action } from "@copilotkit/shared";
+import { Action } from "@copilotkit-alt/shared";
 import {
   of,
   concat,

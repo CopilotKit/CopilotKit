@@ -1,4 +1,4 @@
-import { DocumentPointer } from "@copilotkit/react-core";
+import { DocumentPointer } from "@copilotkit-alt/react-core";
 import { Label } from "../../ui/label";
 import React from "react";
 import Chip from "@mui/material/Chip/Chip.js";

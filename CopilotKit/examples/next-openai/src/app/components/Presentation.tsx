@@ -1,7 +1,7 @@
 "use client";
-import { useCopilotAction, useCopilotContext } from "@copilotkit/react-core";
-import { CopilotTask } from "@copilotkit/react-core";
-import { useCopilotReadable } from "@copilotkit/react-core";
+import { useCopilotAction, useCopilotContext } from "@copilotkit-alt/react-core";
+import { CopilotTask } from "@copilotkit-alt/react-core";
+import { useCopilotReadable } from "@copilotkit-alt/react-core";
 import { useCallback, useMemo, useState } from "react";
 import {
   BackwardIcon,

@@ -15,19 +15,19 @@
         "!.next/cache/**"
       ]
     },
-    "@copilotkit/runtime#generate-graphql-schema": {
+    "@copilotkit-alt/runtime#generate-graphql-schema": {
       "cache": false,
       "persistent": false,
       "dependsOn": [
         "^build"
       ]
     },
-    "@copilotkit/runtime-client-gql#graphql-codegen": {
+    "@copilotkit-alt/runtime-client-gql#graphql-codegen": {
       "cache": false,
       "persistent": false,
       "dependsOn": [
         "^build",
-        "@copilotkit/runtime#generate-graphql-schema"
+        "@copilotkit-alt/runtime#generate-graphql-schema"
       ]
     },
     "dev": {

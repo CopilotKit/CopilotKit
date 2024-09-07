@@ -12,7 +12,7 @@
  * as context when responding to user input.
  *
  * ```tsx
- * import { useCopilotReadable } from "@copilotkit/react-core";
+ * import { useCopilotReadable } from "@copilotkit-alt/react-core";
  *
  * export function MyComponent() {
  *   const [employees, setEmployees] = useState([]);
@@ -30,7 +30,7 @@
  * `parentId`. This allows you to use `useCopilotReadable` in nested components:
  *
  * ```tsx /employeeContextId/1 {17,23}
- * import { useCopilotReadable } from "@copilotkit/react-core";
+ * import { useCopilotReadable } from "@copilotkit-alt/react-core";
  *
  * function Employee(props: EmployeeProps) {
  *   const { employeeName, workProfile, metadata } = props;

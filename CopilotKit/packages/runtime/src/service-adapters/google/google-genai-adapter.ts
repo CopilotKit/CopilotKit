@@ -4,7 +4,7 @@
  * ## Example
  *
  * ```ts
- * import { CopilotRuntime, GoogleGenerativeAIAdapter } from "@copilotkit/runtime";
+ * import { CopilotRuntime, GoogleGenerativeAIAdapter } from "@copilotkit-alt/runtime";
  * const { GoogleGenerativeAI } = require("@google/generative-ai");
  *
  * const genAI = new GoogleGenerativeAI(process.env["GOOGLE_API_KEY"]);
@@ -28,7 +28,7 @@ import {
 import { GenerativeModel, GoogleGenerativeAI } from "@google/generative-ai";
 import { TextMessage } from "../../graphql/types/converted";
 import { convertMessageToGoogleGenAIMessage, transformActionToGoogleGenAITool } from "./utils";
-import { randomId } from "@copilotkit/shared";
+import { randomId } from "@copilotkit-alt/shared";
 
 interface GoogleGenerativeAIAdapterOptions {
   /**

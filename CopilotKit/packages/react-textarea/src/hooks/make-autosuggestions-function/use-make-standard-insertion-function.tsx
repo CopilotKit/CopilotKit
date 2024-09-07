@@ -1,5 +1,5 @@
-import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER } from "@copilotkit/shared";
-import { useCopilotContext } from "@copilotkit/react-core";
+import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER } from "@copilotkit-alt/shared";
+import { useCopilotContext } from "@copilotkit-alt/react-core";
 import { useCallback } from "react";
 import {
   CopilotRuntimeClient,
@@ -9,7 +9,7 @@ import {
   convertGqlOutputToMessages,
   convertMessagesToGqlInput,
   CopilotRequestType,
-} from "@copilotkit/runtime-client-gql";
+} from "@copilotkit-alt/runtime-client-gql";
 import { retry } from "../../lib/retry";
 import {
   EditingEditorState,
@@ -17,7 +17,7 @@ import {
 } from "../../types/base/autosuggestions-bare-function";
 import { InsertionsApiConfig } from "../../types/autosuggestions-config/insertions-api-config";
 import { EditingApiConfig } from "../../types/autosuggestions-config/editing-api-config";
-import { DocumentPointer } from "@copilotkit/react-core";
+import { DocumentPointer } from "@copilotkit-alt/react-core";
 
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.

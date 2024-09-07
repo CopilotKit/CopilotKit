@@ -48,19 +48,19 @@ importers:
 
   examples/next-openai:
     dependencies:
-      '@copilotkit/react-core':
+      '@copilotkit-alt/react-core':
         specifier: workspace:*
         version: link:../../packages/react-core
-      '@copilotkit/react-textarea':
+      '@copilotkit-alt/react-textarea':
         specifier: workspace:*
         version: link:../../packages/react-textarea
-      '@copilotkit/react-ui':
+      '@copilotkit-alt/react-ui':
         specifier: workspace:*
         version: link:../../packages/react-ui
-      '@copilotkit/runtime':
+      '@copilotkit-alt/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
-      '@copilotkit/shared':
+      '@copilotkit-alt/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@google/generative-ai':
@@ -145,19 +145,19 @@ importers:
 
   examples/next-pages-router:
     dependencies:
-      '@copilotkit/react-core':
+      '@copilotkit-alt/react-core':
         specifier: workspace:*
         version: link:../../packages/react-core
-      '@copilotkit/react-textarea':
+      '@copilotkit-alt/react-textarea':
         specifier: workspace:*
         version: link:../../packages/react-textarea
-      '@copilotkit/react-ui':
+      '@copilotkit-alt/react-ui':
         specifier: workspace:*
         version: link:../../packages/react-ui
-      '@copilotkit/runtime':
+      '@copilotkit-alt/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
-      '@copilotkit/shared':
+      '@copilotkit-alt/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@google/generative-ai':
@@ -236,10 +236,10 @@ importers:
 
   examples/node-express:
     dependencies:
-      '@copilotkit/runtime':
+      '@copilotkit-alt/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
-      '@copilotkit/shared':
+      '@copilotkit-alt/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       express:
@@ -273,10 +273,10 @@ importers:
 
   examples/node-http:
     dependencies:
-      '@copilotkit/runtime':
+      '@copilotkit-alt/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
-      '@copilotkit/shared':
+      '@copilotkit-alt/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       openai:
@@ -304,10 +304,10 @@ importers:
 
   packages/react-core:
     dependencies:
-      '@copilotkit/runtime-client-gql':
+      '@copilotkit-alt/runtime-client-gql':
         specifier: workspace:*
         version: link:../runtime-client-gql
-      '@copilotkit/shared':
+      '@copilotkit-alt/shared':
         specifier: workspace:*
         version: link:../shared
       '@scarf/scarf':
@@ -356,13 +356,13 @@ importers:
 
   packages/react-textarea:
     dependencies:
-      '@copilotkit/react-core':
+      '@copilotkit-alt/react-core':
         specifier: workspace:*
         version: link:../react-core
-      '@copilotkit/runtime-client-gql':
+      '@copilotkit-alt/runtime-client-gql':
         specifier: workspace:*
         version: link:../runtime-client-gql
-      '@copilotkit/shared':
+      '@copilotkit-alt/shared':
         specifier: workspace:*
         version: link:../shared
       '@emotion/css':
@@ -477,13 +477,13 @@ importers:
 
   packages/react-ui:
     dependencies:
-      '@copilotkit/react-core':
+      '@copilotkit-alt/react-core':
         specifier: workspace:*
         version: link:../react-core
-      '@copilotkit/runtime-client-gql':
+      '@copilotkit-alt/runtime-client-gql':
         specifier: workspace:*
         version: link:../runtime-client-gql
-      '@copilotkit/shared':
+      '@copilotkit-alt/shared':
         specifier: workspace:*
         version: link:../shared
       '@headlessui/react':
@@ -547,7 +547,7 @@ importers:
 
   packages/runtime:
     dependencies:
-      '@copilotkit/shared':
+      '@copilotkit-alt/shared':
         specifier: workspace:*
         version: link:../shared
       '@google/generative-ai':
@@ -653,10 +653,10 @@ importers:
 
   packages/runtime-client-gql:
     dependencies:
-      '@copilotkit/runtime':
+      '@copilotkit-alt/runtime':
         specifier: workspace:*
         version: link:../runtime
-      '@copilotkit/shared':
+      '@copilotkit-alt/shared':
         specifier: workspace:*
         version: link:../shared
       '@urql/core':

@@ -1,4 +1,4 @@
-import { useCopilotAction } from "@copilotkit/react-core";
+import { useCopilotAction } from "@copilotkit-alt/react-core";
 
 export interface SlideModel {
   title: string;

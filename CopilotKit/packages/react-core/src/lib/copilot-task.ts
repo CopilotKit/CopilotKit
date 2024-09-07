@@ -5,7 +5,7 @@
  * In the simplest case, use CopilotTask in the context of your app by giving it instructions on what to do.
  *
  * ```tsx
- * import { CopilotTask, useCopilotContext } from "@copilotkit/react-core";
+ * import { CopilotTask, useCopilotContext } from "@copilotkit-alt/react-core";
  *
  * export function MyComponent() {
  *   const context = useCopilotContext();
@@ -59,12 +59,12 @@ import {
   convertGqlOutputToMessages,
   convertMessagesToGqlInput,
   CopilotRequestType,
-} from "@copilotkit/runtime-client-gql";
+} from "@copilotkit-alt/runtime-client-gql";
 import { FrontendAction } from "../types/frontend-action";
 import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
-import { MessageStatusCode } from "@copilotkit/runtime-client-gql";
-import { actionParametersToJsonSchema } from "@copilotkit/shared";
+import { MessageStatusCode } from "@copilotkit-alt/runtime-client-gql";
+import { actionParametersToJsonSchema } from "@copilotkit-alt/shared";
 
 export interface CopilotTaskConfig {
   /**

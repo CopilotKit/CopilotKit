@@ -1,7 +1,7 @@
 import { useRef, useEffect } from "react";
 import { FrontendAction } from "../types/frontend-action";
 import { useCopilotContext } from "../context/copilot-context";
-import { Parameter, randomId } from "@copilotkit/shared";
+import { Parameter, randomId } from "@copilotkit-alt/shared";
 
 // We implement useCopilotAction dependency handling so that
 // the developer has the option to not provide any dependencies.

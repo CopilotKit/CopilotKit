@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { SlideModel } from "../../types";
 import { useMemo } from "react";
-import { useCopilotContext } from "@copilotkit/react-core";
+import { useCopilotContext } from "@copilotkit-alt/react-core";
 import { SlideNumberIndicator } from "../misc/SlideNumberIndicator";
 import { GenerateSlideButton } from "../buttons/GenerateSlideButton";
 import { SpeakCurrentSlideButton } from "../buttons/SpeakCurrentSlideButton";

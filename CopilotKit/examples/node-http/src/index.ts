@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
+import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit-alt/runtime";
 import OpenAI from "openai";
 
 const openai = new OpenAI();

@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Destination } from "./vacation-list";
-import { useCopilotReadable } from "@copilotkit/react-core";
+import { useCopilotReadable } from "@copilotkit-alt/react-core";
 import Image from "next/image";
 
 export type DestinationRowProps = {

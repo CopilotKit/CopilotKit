@@ -1,4 +1,4 @@
-import { Action } from "@copilotkit/shared";
+import { Action } from "@copilotkit-alt/shared";
 import { GraphQLContext } from "../integrations/shared";
 import { Logger } from "pino";
 import telemetry from "../../lib/telemetry-client";

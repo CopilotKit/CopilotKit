@@ -4,7 +4,7 @@
  * ## Example
  *
  * ```ts
- * import { CopilotRuntime, GroqAdapter } from "@copilotkit/runtime";
+ * import { CopilotRuntime, GroqAdapter } from "@copilotkit-alt/runtime";
  * import { Groq } from "groq-sdk";
  *
  * const groq = new Groq({ apiKey: process.env["GROQ_API_KEY"] });
@@ -27,7 +27,7 @@ import {
   convertMessageToOpenAIMessage,
   limitMessagesToTokenCount,
 } from "../openai/utils";
-import { randomId } from "@copilotkit/shared";
+import { randomId } from "@copilotkit-alt/shared";
 
 const DEFAULT_MODEL = "llama3-groq-70b-8192-tool-use-preview";
 

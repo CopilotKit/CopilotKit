@@ -1,4 +1,4 @@
-import { DocumentPointer } from "@copilotkit/react-core";
+import { DocumentPointer } from "@copilotkit-alt/react-core";
 
 export interface InsertionEditorState {
   textBeforeCursor: string;

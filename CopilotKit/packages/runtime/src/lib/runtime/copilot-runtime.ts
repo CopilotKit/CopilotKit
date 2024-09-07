@@ -6,13 +6,13 @@
  * ## Usage
  *
  * ```tsx
- * import { CopilotRuntime } from "@copilotkit/runtime";
+ * import { CopilotRuntime } from "@copilotkit-alt/runtime";
  *
  * const copilotKit = new CopilotRuntime();
  * ```
  */
 
-import { Action, actionParametersToJsonSchema, Parameter, randomId } from "@copilotkit/shared";
+import { Action, actionParametersToJsonSchema, Parameter, randomId } from "@copilotkit-alt/shared";
 import { RemoteChain, RemoteChainParameters, CopilotServiceAdapter } from "../../service-adapters";
 import { MessageInput } from "../../graphql/inputs/message.input";
 import { ActionInput } from "../../graphql/inputs/action.input";

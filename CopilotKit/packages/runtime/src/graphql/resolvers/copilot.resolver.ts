@@ -40,7 +40,7 @@ import {
   TextMessage,
 } from "../types/converted";
 import telemetry from "../../lib/telemetry-client";
-import { randomId } from "@copilotkit/shared";
+import { randomId } from "@copilotkit-alt/shared";
 
 const invokeGuardrails = async ({
   baseUrl,

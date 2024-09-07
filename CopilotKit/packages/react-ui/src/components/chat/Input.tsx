@@ -3,7 +3,7 @@ import { InputProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import AutoResizingTextarea from "./Textarea";
 import { usePushToTalk } from "../../hooks/use-push-to-talk";
-import { useCopilotContext } from "@copilotkit/react-core";
+import { useCopilotContext } from "@copilotkit-alt/react-core";
 
 export const Input = ({ inProgress, onSend, isVisible = false }: InputProps) => {
   const context = useChatContext();

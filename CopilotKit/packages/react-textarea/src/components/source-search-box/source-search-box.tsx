@@ -13,7 +13,7 @@ import {
 
 import { Calculator, Calendar, CreditCard, Settings, Smile, User } from "lucide-react";
 
-import { DocumentPointer } from "@copilotkit/react-core";
+import { DocumentPointer } from "@copilotkit-alt/react-core";
 
 export interface SourceSearchBoxProps {
   searchTerm: string;

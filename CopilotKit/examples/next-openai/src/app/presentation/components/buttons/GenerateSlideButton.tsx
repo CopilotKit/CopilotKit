@@ -1,4 +1,4 @@
-import { CopilotContextParams, CopilotTask } from "@copilotkit/react-core";
+import { CopilotContextParams, CopilotTask } from "@copilotkit-alt/react-core";
 import { useState } from "react";
 import { ActionButton } from "./ActionButton";
 import { SparklesIcon } from "@heroicons/react/24/outline";

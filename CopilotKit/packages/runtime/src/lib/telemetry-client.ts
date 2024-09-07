@@ -1,4 +1,4 @@
-import { TelemetryClient } from "@copilotkit/shared";
+import { TelemetryClient } from "@copilotkit-alt/shared";
 const packageJson = require("../../package.json");
 
 const telemetryClient = new TelemetryClient({

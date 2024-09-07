@@ -4,8 +4,8 @@ import {
   DocumentPointer,
   useCopilotReadable,
   useMakeCopilotDocumentReadable,
-} from "@copilotkit/react-core";
-import { CopilotTextarea, HTMLCopilotTextAreaElement } from "@copilotkit/react-textarea";
+} from "@copilotkit-alt/react-core";
+import { CopilotTextarea, HTMLCopilotTextAreaElement } from "@copilotkit-alt/react-textarea";
 import { useRef } from "react";
 import { useStateWithLocalStorage } from "../utils";
 
