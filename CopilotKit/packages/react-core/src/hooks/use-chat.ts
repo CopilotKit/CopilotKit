@@ -12,6 +12,7 @@ import {
   ResultMessage,
   CopilotRuntimeClient,
   convertMessagesToGqlInput,
+  filterAdjacentAgentStateMessages,
   convertGqlOutputToMessages,
   MessageStatusCode,
   MessageRole,
@@ -245,7 +246,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         threadIdRef.current = value.generateCopilotResponse.threadId || null;
         runIdRef.current = value.generateCopilotResponse.runId || null;
 
-        const messages = convertGqlOutputToMessages(value.generateCopilotResponse.messages);
+        const messages = convertGqlOutputToMessages(
+          filterAdjacentAgentStateMessages(value.generateCopilotResponse.messages),
+        );
 
         if (messages.length === 0) {
           continue;
@@ -270,7 +273,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         else {
           for (const message of messages) {
             newMessages.push(message);
-
             if (message instanceof AgentStateMessage) {
               if (message.running) {
                 setCoagentStates((prevAgentStates) => ({
@@ -294,7 +296,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 setAgentSession(null);
               }
             }
-
             // execute regular action executions
             if (
               message instanceof ActionExecutionMessage &&
@@ -315,7 +316,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 });
                 actionResults[message.id] = result;
               }
-
               // add the result message
               newMessages.push(
                 new ResultMessage({
@@ -325,7 +325,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 }),
               );
             }
-
             // execute coagent actions
             if (
               message instanceof AgentStateMessage &&
@@ -349,35 +348,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         }
 
         if (newMessages.length > 0) {
-          // Construct filteredMessages inline to remove adjacent AgentStateMessage instances
-          // with the same agentName, keeping only the last one.
-          const filteredMessages = [...previousMessages, ...newMessages].reduce(
-            (acc: Message[], message: Message) => {
-              if (
-                // If the current message is an AgentStateMessage
-                message instanceof AgentStateMessage &&
-                // And there is at least one message in the accumulator
-                acc.length > 0 &&
-                // And the last message in the accumulator is also an AgentStateMessage
-                acc[acc.length - 1] instanceof AgentStateMessage &&
-                // And the agentName, nodeName, and runId are the same
-                (acc[acc.length - 1] as AgentStateMessage).agentName === message.agentName &&
-                (acc[acc.length - 1] as AgentStateMessage).nodeName === message.nodeName &&
-                (acc[acc.length - 1] as AgentStateMessage).runId === message.runId
-              ) {
-                // If the conditions are met, replace the last message in the accumulator with the current message
-                acc[acc.length - 1] = message;
-              } else {
-                // Otherwise, add the current message to the accumulator
-                acc.push(message);
-              }
-              return acc;
-            },
-            [],
-          );
-
-          // Update the state with the filtered messages
-          setMessages(filteredMessages);
+          // Update message state
+          setMessages([...previousMessages, ...newMessages]);
         }
       }
 

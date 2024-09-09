@@ -66,6 +66,34 @@ export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
   });
 }
 
+export function filterAdjacentAgentStateMessages(
+  messages: GenerateCopilotResponseMutation["generateCopilotResponse"]["messages"],
+): GenerateCopilotResponseMutation["generateCopilotResponse"]["messages"] {
+  const filteredMessages: GenerateCopilotResponseMutation["generateCopilotResponse"]["messages"] =
+    [];
+
+  messages.forEach((message, i) => {
+    // keep all other message types
+    if (message.__typename !== "AgentStateMessageOutput" || i === messages.length - 1) {
+      filteredMessages.push(message);
+    } else {
+      const nextMessage = messages[i + 1];
+      if (
+        !(
+          nextMessage.__typename === "AgentStateMessageOutput" &&
+          nextMessage.agentName === message.agentName &&
+          nextMessage.nodeName === message.nodeName &&
+          nextMessage.runId === message.runId
+        )
+      ) {
+        filteredMessages.push(message);
+      }
+    }
+  });
+
+  return filteredMessages;
+}
+
 export function convertGqlOutputToMessages(
   messages: GenerateCopilotResponseMutation["generateCopilotResponse"]["messages"],
 ): Message[] {
