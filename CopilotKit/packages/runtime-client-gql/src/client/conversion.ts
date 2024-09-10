@@ -14,6 +14,10 @@ import {
 
 import untruncateJson from "untruncate-json";
 
+export function filterAgentStateMessages(messages: Message[]): Message[] {
+  return messages.filter((message) => !(message instanceof AgentStateMessage));
+}
+
 export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
   return messages.map((message) => {
     if (message instanceof TextMessage) {

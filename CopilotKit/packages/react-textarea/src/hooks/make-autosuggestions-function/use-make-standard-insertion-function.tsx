@@ -8,6 +8,7 @@ import {
   TextMessage,
   convertGqlOutputToMessages,
   convertMessagesToGqlInput,
+  filterAgentStateMessages,
   CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
 import { retry } from "../../lib/retry";
@@ -126,7 +127,7 @@ export function useMakeStandardInsertionOrEditingFunction(
                 actions: [],
                 url: window.location.href,
               },
-              messages: convertMessagesToGqlInput(messages),
+              messages: convertMessagesToGqlInput(filterAgentStateMessages(messages)),
               metadata: {
                 requestType: CopilotRequestType.TextareaCompletion,
               },
@@ -191,7 +192,7 @@ export function useMakeStandardInsertionOrEditingFunction(
                 actions: [],
                 url: window.location.href,
               },
-              messages: convertMessagesToGqlInput(messages),
+              messages: convertMessagesToGqlInput(filterAgentStateMessages(messages)),
               metadata: {
                 requestType: CopilotRequestType.TextareaCompletion,
               },

@@ -12,6 +12,7 @@ import {
   TextMessage,
   convertGqlOutputToMessages,
   convertMessagesToGqlInput,
+  filterAgentStateMessages,
   CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
 
@@ -81,7 +82,7 @@ export function useMakeStandardAutosuggestionFunction(
                 actions: [],
                 url: window.location.href,
               },
-              messages: convertMessagesToGqlInput(messages),
+              messages: convertMessagesToGqlInput(filterAgentStateMessages(messages)),
               metadata: {
                 requestType: CopilotRequestType.TextareaCompletion,
               },

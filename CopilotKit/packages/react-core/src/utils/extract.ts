@@ -16,7 +16,10 @@ import {
 import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
 import { CopilotRuntimeClient } from "@copilotkit/runtime-client-gql";
-import { convertMessagesToGqlInput } from "@copilotkit/runtime-client-gql";
+import {
+  convertMessagesToGqlInput,
+  filterAgentStateMessages,
+} from "@copilotkit/runtime-client-gql";
 
 interface InitialState<T extends Parameter[] | [] = []> {
   status: "initial";
@@ -119,7 +122,9 @@ export async function extract<const T extends Parameter[]>({
         },
 
         messages: convertMessagesToGqlInput(
-          includeMessages ? [systemMessage, ...messages] : [systemMessage],
+          includeMessages
+            ? [systemMessage, ...filterAgentStateMessages(messages)]
+            : [systemMessage],
         ),
         metadata: {
           requestType: requestType,

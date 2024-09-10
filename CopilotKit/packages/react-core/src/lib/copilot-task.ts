@@ -58,6 +58,7 @@ import {
   TextMessage,
   convertGqlOutputToMessages,
   convertMessagesToGqlInput,
+  filterAgentStateMessages,
   CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
 import { FrontendAction } from "../types/frontend-action";
@@ -147,7 +148,7 @@ export class CopilotTask<T = any> {
             })),
             url: window.location.href,
           },
-          messages: convertMessagesToGqlInput(messages),
+          messages: convertMessagesToGqlInput(filterAgentStateMessages(messages)),
           metadata: {
             requestType: CopilotRequestType.Task,
           },

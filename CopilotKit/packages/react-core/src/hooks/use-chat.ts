@@ -13,6 +13,7 @@ import {
   CopilotRuntimeClient,
   convertMessagesToGqlInput,
   filterAdjacentAgentStateMessages,
+  filterAgentStateMessages,
   convertGqlOutputToMessages,
   MessageStatusCode,
   MessageRole,
@@ -186,7 +187,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           },
           threadId: threadIdRef.current,
           runId: runIdRef.current,
-          messages: convertMessagesToGqlInput(messagesWithContext),
+          messages: convertMessagesToGqlInput(filterAgentStateMessages(messagesWithContext)),
           ...(copilotConfig.cloud
             ? {
                 cloud: {
