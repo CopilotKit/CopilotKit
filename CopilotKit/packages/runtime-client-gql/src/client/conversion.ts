@@ -1,4 +1,3 @@
-import { threadId } from "node:worker_threads";
 import {
   GenerateCopilotResponseMutation,
   MessageInput,
