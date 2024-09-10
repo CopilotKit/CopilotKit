@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 1.1.2-feat-runtime-remote-actions.1
+
+### Patch Changes
+
+- Reduce request size by skipping intermediate state
+
 ## 1.1.2-feat-runtime-remote-actions.0
 
 ### Patch Changes

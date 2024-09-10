@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.1.3-feat-runtime-remote-actions.1
+
+### Patch Changes
+
+- Reduce request size by skipping intermediate state
+
 ## 1.1.3-feat-runtime-remote-actions.0
 
 ### Patch Changes
