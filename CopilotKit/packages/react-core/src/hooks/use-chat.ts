@@ -274,29 +274,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         else {
           for (const message of messages) {
             newMessages.push(message);
-            if (message instanceof AgentStateMessage) {
-              if (message.running) {
-                setCoagentStates((prevAgentStates) => ({
-                  ...prevAgentStates,
-                  [message.agentName]: {
-                    name: message.agentName,
-                    state: message.state,
-                    running: message.running,
-                    active: message.active,
-                    threadId: message.threadId,
-                    nodeName: message.nodeName,
-                    runId: message.runId,
-                  },
-                }));
-                setAgentSession({
-                  threadId: message.threadId,
-                  agentName: message.agentName,
-                  nodeName: message.nodeName,
-                });
-              } else {
-                setAgentSession(null);
-              }
-            }
             // execute regular action executions
             if (
               message instanceof ActionExecutionMessage &&
@@ -344,6 +321,34 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 state: message.state,
               });
               executedCoagentActions.push(message.id);
+            }
+          }
+
+          const lastAgentStateMessage = [...messages]
+            .reverse()
+            .find((message) => message instanceof AgentStateMessage);
+
+          if (lastAgentStateMessage) {
+            if (lastAgentStateMessage.running) {
+              setCoagentStates((prevAgentStates) => ({
+                ...prevAgentStates,
+                [lastAgentStateMessage.agentName]: {
+                  name: lastAgentStateMessage.agentName,
+                  state: lastAgentStateMessage.state,
+                  running: lastAgentStateMessage.running,
+                  active: lastAgentStateMessage.active,
+                  threadId: lastAgentStateMessage.threadId,
+                  nodeName: lastAgentStateMessage.nodeName,
+                  runId: lastAgentStateMessage.runId,
+                },
+              }));
+              setAgentSession({
+                threadId: lastAgentStateMessage.threadId,
+                agentName: lastAgentStateMessage.agentName,
+                nodeName: lastAgentStateMessage.nodeName,
+              });
+            } else {
+              setAgentSession(null);
             }
           }
         }
