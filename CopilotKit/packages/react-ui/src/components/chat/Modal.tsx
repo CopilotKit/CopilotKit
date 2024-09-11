@@ -81,7 +81,6 @@ export const CopilotModal = ({
   const [openState, setOpenState] = React.useState(defaultOpen);
 
   const setOpen = (open: boolean) => {
-    console.log("setOpen!!", open);
     onSetOpen?.(open);
     setOpenState(open);
   };

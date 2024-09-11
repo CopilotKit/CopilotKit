@@ -105,7 +105,6 @@ export function useMakeStandardAutosuggestionFunction(
           }
           if (message instanceof TextMessage) {
             result += message.content;
-            console.log(message.content);
           }
         }
 
