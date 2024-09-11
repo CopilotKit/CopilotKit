@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.1.3-feat-runtime-remote-actions.2
+
+### Patch Changes
+
+- Better message grouping
+
 ## 1.1.3-feat-runtime-remote-actions.1
 
 ### Patch Changes

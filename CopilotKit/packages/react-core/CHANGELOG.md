@@ -1,5 +1,14 @@
 # ui
 
+## 1.1.3-feat-runtime-remote-actions.2
+
+### Patch Changes
+
+- Better message grouping
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.1.3-feat-runtime-remote-actions.2
+  - @copilotkit/shared@1.1.3-feat-runtime-remote-actions.2
+
 ## 1.1.3-feat-runtime-remote-actions.1
 
 ### Patch Changes
