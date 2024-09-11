@@ -89,24 +89,28 @@ export const CopilotModal = ({
   return (
     <ChatContextProvider icons={icons} labels={labels} open={openState} setOpen={setOpen}>
       {children}
-      <div className={className}>
+      <div className={className} style={{ height: "100%" }}>
         <Button></Button>
         <Window
           clickOutsideToClose={clickOutsideToClose}
           shortcut={shortcut}
           hitEscapeToClose={hitEscapeToClose}
         >
-          <Header />
-          <CopilotChat
-            instructions={instructions}
-            onSubmitMessage={onSubmitMessage}
-            makeSystemMessage={makeSystemMessage}
-            showResponseButton={showResponseButton}
-            onInProgress={onInProgress}
-            Messages={Messages}
-            Input={Input}
-            ResponseButton={ResponseButton}
-          />
+          <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+            <Header />
+            <div style={{ flexGrow: 1, overflowY: "auto" }}>
+              <CopilotChat
+                instructions={instructions}
+                onSubmitMessage={onSubmitMessage}
+                makeSystemMessage={makeSystemMessage}
+                showResponseButton={showResponseButton}
+                onInProgress={onInProgress}
+                Messages={Messages}
+                Input={Input}
+                ResponseButton={ResponseButton}
+              />
+            </div>
+          </div>
         </Window>
       </div>
     </ChatContextProvider>

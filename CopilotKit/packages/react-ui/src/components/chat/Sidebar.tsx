@@ -66,9 +66,12 @@ export function CopilotSidebar(props: CopilotModalProps) {
   };
 
   return (
-    <div className={`copilotKitSidebarContentWrapper ${expandedClassName}`}>
+    <div
+      className={`copilotKitSidebarContentWrapper ${expandedClassName}`}
+      style={{ height: "100%" }}
+    >
       <CopilotModal {...props} {...{ onSetOpen }}>
-        {props.children}
+        <div style={{ height: "100%" }}>{props.children}</div>
       </CopilotModal>
     </div>
   );
