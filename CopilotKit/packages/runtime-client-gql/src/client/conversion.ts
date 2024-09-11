@@ -83,10 +83,13 @@ export function filterAdjacentAgentStateMessages(
       const nextMessage = messages[i + 1];
       if (
         !(
-          nextMessage.__typename === "AgentStateMessageOutput" &&
-          nextMessage.agentName === message.agentName &&
-          nextMessage.nodeName === message.nodeName &&
-          nextMessage.runId === message.runId
+          (
+            nextMessage.__typename === "AgentStateMessageOutput" &&
+            nextMessage.agentName === message.agentName &&
+            nextMessage.nodeName === message.nodeName
+          )
+          // not grouping by runId for now
+          // && nextMessage.runId === message.runId
         )
       ) {
         filteredMessages.push(message);
