@@ -1,5 +1,24 @@
 # ui
 
+## 1.2.1
+
+### Patch Changes
+
+- inject minified css in bundle
+
+  - removes the need to import `styles.css` manually
+  - empty `styles.css` included in the build for backwards compatibility
+  - uses tsup's `injectStyles` with `postcss` to bundle and minify the CSS, then inject it as a style tag
+  - currently uses my fork of `tsup` where I added support for async function in `injectStyles` (must-have for postcss), a PR from my fork to the main library will follow shortly
+  - remove material-ui, and use `react-icons` for icons (same icons as before)
+  - remove unused `IncludedFilesPreview` component
+  - updated docs
+
+- Updated dependencies
+  - @copilotkit/react-core@1.2.1
+  - @copilotkit/runtime-client-gql@1.2.1
+  - @copilotkit/shared@1.2.1
+
 ## 1.2.0
 
 ### Minor Changes
