@@ -30,7 +30,20 @@ But bridging between humans and AI agents is no small task. Until now.
 
 # Features of a CoAgent
 
-## Stream Intermediate Agent State
+The 4 core features of a CoAgent are as follows:
+
+
+1. 💨 **Stream intermediate agent state** 
+2. 🫱🏻‍🫲🏽 **Shared state between the agent and the application***
+3. ❓ **Agent Q&A (wait for input)**
+4. 🚘 **Agent Steering**
+
+
+Let's dig into each of these features!
+
+
+
+## 1. Stream Intermediate Agent State
 
 Stream the agent’s intermediate state to the application as the agent executes, so that the user can see work progressing, rather than stare at a loading spinner.
 
@@ -38,7 +51,7 @@ Stream the agent’s intermediate state to the application as the agent executes
   <img src="/images/coagents/intermediate-state.gif" />
 </Frame>
 
-## Shared State Between Agent & Application
+## 2. Shared State Between Agent & Application
 
 Bi-directional syncing between application state and agent state — to allow an agent and a human to collaborate on a task.
 
@@ -46,7 +59,7 @@ Bi-directional syncing between application state and agent state — to allow an
 const { state, setState } = useCoagent();
 ```
 
-## Agent Q&A
+## 3. Agent Q&A (wait for input)
 
 Agents can easily and intentionally ask the user questions. With support for:
 
@@ -86,7 +99,7 @@ Agents can easily and intentionally ask the user questions. With support for:
   </div>
 </div>
 
-## Agent Steering (Coming Soon)
+## 4. Agent Steering (Coming Soon)
 
 If needed, allow end-users to replay agent execution from a previous checkpoint, as well as correct agent mistakes.
 
