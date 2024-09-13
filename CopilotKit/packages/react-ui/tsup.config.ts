@@ -1,16 +1,60 @@
-import { defineConfig, Options } from "tsup";
+import { defineConfig, Options } from "tsup-async-inject-style";
+import fs from "fs";
+import path from "path";
+import postcss from "postcss";
+import autoprefixer from "autoprefixer";
+import tailwindcss from "tailwindcss";
+import cssnano from "cssnano";
+import postcssImport from "postcss-import";
+import postcssNested from "postcss-nested";
 
-export default defineConfig((options: Options) => ({
-  entry: ["src/**/*.{ts,tsx}"],
-  format: ["esm", "cjs"],
-  dts: true,
-  minify: false,
-  external: ["react"],
-  sourcemap: true,
-  exclude: [
-    "**/*.test.ts", // Exclude TypeScript test files
-    "**/*.test.tsx", // Exclude TypeScript React test files
-    "**/__tests__/*", // Exclude any files inside a __tests__ directory
-  ],
-  ...options,
-}));
+export default defineConfig((options: Options) => {
+  return {
+    entry: ["src/**/*.ts", "src/**/*.tsx"],
+    format: ["esm", "cjs"],
+    dts: true,
+    minify: false,
+    external: ["react"],
+    splitting: false,
+    clean: true,
+    sourcemap: true,
+    exclude: [
+      "**/*.test.ts", // Exclude TypeScript test files
+      "**/*.test.tsx", // Exclude TypeScript React test files
+      "**/__tests__/*", // Exclude any files inside a __tests__ directory
+    ],
+    onSuccess: async () => {
+      // Create index.css file for backwards compatibility
+      fs.writeFileSync(
+        path.resolve(process.cwd(), "dist/index.css"),
+        `/* This is here for backwards compatibility */`,
+      );
+    },
+    injectStyle: async (_, filePath) => {
+      const cwd = process.cwd();
+      const outputPath = path.resolve(cwd, "dist/index.css");
+      const rawCSS = fs.readFileSync(filePath, "utf8");
+
+      const resultCSS = await postcss([
+        postcssImport(),
+        postcssNested(),
+        tailwindcss,
+        autoprefixer,
+        cssnano({ preset: "default" }),
+      ]).process(rawCSS, { from: filePath, to: outputPath });
+
+      if (resultCSS.css === undefined) {
+        throw new Error("No CSS output");
+      }
+
+      return `
+        if (globalThis.hasOwnProperty("document")) {
+          const style = document?.createElement("style");
+          style.innerHTML = '${resultCSS}';
+          document?.head.appendChild(style);
+        }
+      `;
+    },
+    ...options,
+  };
+});
