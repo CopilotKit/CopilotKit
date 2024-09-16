@@ -110,6 +110,9 @@ export interface CopilotContextParams {
   copilotApiConfig: CopilotApiConfig;
 
   showDevConsole: boolean | "auto";
+
+  threadId: string | null;
+  setThreadId: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -155,6 +158,10 @@ const emptyCopilotContext: CopilotContextParams = {
   addChatSuggestionConfiguration: () => {},
   removeChatSuggestionConfiguration: () => {},
   showDevConsole: "auto",
+
+  // Add these new properties
+  threadId: null,
+  setThreadId: () => returnAndThrowInDebug(null),
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

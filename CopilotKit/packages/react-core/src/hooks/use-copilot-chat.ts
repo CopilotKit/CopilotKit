@@ -76,6 +76,7 @@ export interface UseCopilotChatReturn {
   reloadMessages: () => Promise<void>;
   stopGeneration: () => void;
   isLoading: boolean;
+  threadId: string | null;
 }
 
 export function useCopilotChat({
@@ -92,6 +93,7 @@ export function useCopilotChat({
     setIsLoading,
     chatInstructions,
     actions,
+    threadId,
   } = useCopilotContext();
 
   // We need to ensure that makeSystemMessageCallback always uses the latest
@@ -178,6 +180,7 @@ export function useCopilotChat({
     stopGeneration: latestStopFunc,
     deleteMessage: latestDeleteFunc,
     isLoading,
+    threadId,
   };
 }
 

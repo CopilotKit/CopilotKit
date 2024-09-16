@@ -19,7 +19,7 @@ import {
   CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
 
-import { CopilotApiConfig } from "../context";
+import { CopilotApiConfig, useCopilotContext } from "../context";
 
 export type UseChatOptions = {
   /**
@@ -107,6 +107,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
   };
 
+  const { setThreadId } = useCopilotContext();
   const runtimeClient = new CopilotRuntimeClient({
     url: copilotConfig.chatApiEndpoint,
     publicApiKey: copilotConfig.publicApiKey,
@@ -194,6 +195,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           continue;
         }
 
+        setThreadId(value.generateCopilotResponse.threadId);
         threadIdRef.current = value.generateCopilotResponse.threadId || null;
         runIdRef.current = value.generateCopilotResponse.runId || null;
 

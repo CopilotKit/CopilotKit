@@ -206,6 +206,8 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     });
   };
 
+  const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
+
   return (
     <CopilotContext.Provider
       value={{
@@ -231,6 +233,8 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         chatInstructions,
         setChatInstructions,
         showDevConsole: props.showDevConsole === undefined ? "auto" : props.showDevConsole,
+        threadId: currentThreadId,
+        setThreadId: setCurrentThreadId,
       }}
     >
       {children}
