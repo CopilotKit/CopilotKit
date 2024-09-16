@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useCopilotContext } from "../context";
+import { CopilotContextParams, useCopilotContext } from "../context";
 import { CoagentState } from "../types/coagent-state";
 
 interface WithInternalStateManagementAndInitial<T> {
@@ -30,8 +30,8 @@ export interface UseCoagentReturnType<T> {
   running: boolean;
   state: T;
   setState: (newState: T | ((prevState: T | undefined) => T)) => void;
-  start: () => void;
-  stop: () => void;
+  start: (context: CopilotContextParams) => void;
+  stop: (context: CopilotContextParams) => void;
 }
 
 export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
@@ -105,29 +105,27 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     state,
     setState,
     running: coagentState.running,
-    start: () => {
-      startAgent(name);
+    start: (context: CopilotContextParams) => {
+      startAgent(name, context);
     },
-    stop: () => {
-      stopAgent(name);
+    stop: (context: CopilotContextParams) => {
+      stopAgent(name, context);
     },
   };
 }
 
-function startAgent(name: string) {
-  const { setAgentSession } = useCopilotContext();
+function startAgent(name: string, context: CopilotContextParams) {
+  const { setAgentSession } = context;
   setAgentSession({
     agentName: name,
   });
 }
 
-function stopAgent(name: string) {
-  const { agentSession, setAgentSession } = useCopilotContext();
+function stopAgent(name: string, context: CopilotContextParams) {
+  const { agentSession, setAgentSession } = context;
   if (agentSession && agentSession.agentName === name) {
     setAgentSession(null);
   } else {
     console.warn(`No agent session found for ${name}`);
   }
 }
-
-// <CopilotKit agent="lockedInAgentName" />
