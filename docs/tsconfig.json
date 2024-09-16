@@ -23,12 +23,7 @@
     ],
     "strictNullChecks": true,
     "paths": {
-      "@/components": ["./components"],
-      "@/components/*": ["./components/*"],
-      "@/lib": ["./lib"],
-      "@/lib/*": ["./lib/*"],
-      "@/snippets": ["./snippets"],
-      "@/snippets/*": ["./snippets/*"]
+      "@/*": ["./*"],
     }
   },
   "include": [
