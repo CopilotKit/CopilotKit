@@ -43,6 +43,7 @@
     "typescript": "^5.2.3"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.27.3",
     "@copilotkit/shared": "workspace:*",
     "@google/generative-ai": "^0.11.2",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
