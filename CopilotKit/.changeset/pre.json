@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "feat-runtime-remote-actions",
   "initialVersions": {
     "next-openai": "1.2.1",
