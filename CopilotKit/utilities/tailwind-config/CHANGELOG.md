@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 1.2.2-feat-runtime-remote-actions.1
+
+### Patch Changes
+
+- Fix useCoAgent start/stop bug
+
 ## 1.2.2-feat-runtime-remote-actions.0
 
 ### Patch Changes

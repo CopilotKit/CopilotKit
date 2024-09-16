@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.2.2-feat-runtime-remote-actions.1
+
+### Patch Changes
+
+- Fix useCoAgent start/stop bug
+- Updated dependencies
+  - @copilotkit/shared@1.2.2-feat-runtime-remote-actions.1
+
 ## 1.2.2-feat-runtime-remote-actions.0
 
 ### Patch Changes

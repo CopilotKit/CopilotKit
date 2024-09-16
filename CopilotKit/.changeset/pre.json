@@ -1,20 +1,20 @@
 {
-  "mode": "exit",
+  "mode": "pre",
   "tag": "feat-runtime-remote-actions",
   "initialVersions": {
-    "next-openai": "1.2.1",
-    "next-pages-router": "1.2.1",
-    "node-express": "1.2.1",
-    "node-http": "1.2.1",
-    "@copilotkit/react-core": "1.2.1",
-    "@copilotkit/react-textarea": "1.2.1",
-    "@copilotkit/react-ui": "1.2.1",
-    "@copilotkit/runtime": "1.2.1",
-    "@copilotkit/runtime-client-gql": "1.2.1",
-    "@copilotkit/shared": "1.2.1",
-    "eslint-config-custom": "1.2.1",
-    "tailwind-config": "1.2.1",
-    "tsconfig": "1.2.1"
+    "next-openai": "1.2.2-feat-runtime-remote-actions.0",
+    "next-pages-router": "1.2.2-feat-runtime-remote-actions.0",
+    "node-express": "1.2.2-feat-runtime-remote-actions.0",
+    "node-http": "1.2.2-feat-runtime-remote-actions.0",
+    "@copilotkit/react-core": "1.2.2-feat-runtime-remote-actions.0",
+    "@copilotkit/react-textarea": "1.2.2-feat-runtime-remote-actions.0",
+    "@copilotkit/react-ui": "1.2.2-feat-runtime-remote-actions.0",
+    "@copilotkit/runtime": "1.2.2-feat-runtime-remote-actions.0",
+    "@copilotkit/runtime-client-gql": "1.2.2-feat-runtime-remote-actions.0",
+    "@copilotkit/shared": "1.2.2-feat-runtime-remote-actions.0",
+    "eslint-config-custom": "1.2.2-feat-runtime-remote-actions.0",
+    "tailwind-config": "1.2.2-feat-runtime-remote-actions.0",
+    "tsconfig": "1.2.2-feat-runtime-remote-actions.0"
   },
   "changesets": [
     "chilled-cars-double",
@@ -26,6 +26,7 @@
     "lovely-hounds-end",
     "pink-eggs-impress",
     "purple-wolves-report",
-    "stupid-maps-raise"
+    "stupid-maps-raise",
+    "tricky-news-give"
   ]
 }

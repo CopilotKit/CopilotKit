@@ -1,5 +1,17 @@
 # web
 
+## 1.2.2-feat-runtime-remote-actions.1
+
+### Patch Changes
+
+- Fix useCoAgent start/stop bug
+- Updated dependencies
+  - @copilotkit/react-textarea@1.2.2-feat-runtime-remote-actions.1
+  - @copilotkit/react-core@1.2.2-feat-runtime-remote-actions.1
+  - @copilotkit/react-ui@1.2.2-feat-runtime-remote-actions.1
+  - @copilotkit/runtime@1.2.2-feat-runtime-remote-actions.1
+  - @copilotkit/shared@1.2.2-feat-runtime-remote-actions.1
+
 ## 1.2.2-feat-runtime-remote-actions.0
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "tailwind-config",
-  "version": "1.2.2-feat-runtime-remote-actions.0",
+  "version": "1.2.2-feat-runtime-remote-actions.1",
   "private": true,
   "main": "index.js",
   "devDependencies": {
