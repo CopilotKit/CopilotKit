@@ -13,8 +13,6 @@
  *
  * ```tsx
  * import { CopilotTextarea } from '@copilot/react-textarea';
- * import "@copilotkit/react-textarea/styles.css";
- *
  * <CopilotTextarea
  *   autosuggestionsConfig={{
  *     textareaPurpose:
@@ -28,10 +26,10 @@
  *
  * ### Install Dependencies
  *
- * This component is part of the [@copilotkit/react-ui](https://npmjs.com/package/@copilotkit/react-ui) package.
+ * This component is part of the [@copilotkit/react-textarea](https://npmjs.com/package/@copilotkit/react-textarea) package.
  *
- * ```shell npm2yarn \"@copilotkit/react-ui"\
- * npm install @copilotkit/react-core @copilotkit/react-ui
+ * ```shell npm2yarn \"@copilotkit/react-textarea"\
+ * npm install @copilotkit/react-core @copilotkit/react-textarea
  * ```
  *
  * ### Usage
@@ -44,8 +42,6 @@
  * ```tsx
  * import { useState } from "react";
  * import { CopilotTextarea } from "@copilotkit/react-textarea";
- * import "@copilotkit/react-textarea/styles.css";
- *
  * export function ExampleComponent() {
  *   const [text, setText] = useState("");
  *
@@ -72,10 +68,8 @@
  * ### Look & Feel
  *
  * By default, CopilotKit components do not have any styles. You can import CopilotKit's stylesheet at the root of your project:
- * ```tsx fileName="YourRootComponent.tsx" {2}
+ * ```tsx fileName="YourRootComponent.tsx"
  * ...
- * import "@copilotkit/react-ui/styles.css";
- *
  * export function YourRootComponent() {
  *   return (
  *     <CopilotKit>

@@ -1,34 +1,38 @@
 # @copilotkit/runtime
 
-## 1.1.3-feat-runtime-remote-actions.2
+## 1.2.1
 
 ### Patch Changes
 
-- Better message grouping
+- inject minified css in bundle
+
+  - removes the need to import `styles.css` manually
+  - empty `styles.css` included in the build for backwards compatibility
+  - uses tsup's `injectStyles` with `postcss` to bundle and minify the CSS, then inject it as a style tag
+  - currently uses my fork of `tsup` where I added support for async function in `injectStyles` (must-have for postcss), a PR from my fork to the main library will follow shortly
+  - remove material-ui, and use `react-icons` for icons (same icons as before)
+  - remove unused `IncludedFilesPreview` component
+  - updated docs
+
 - Updated dependencies
-  - @copilotkit/shared@1.1.3-feat-runtime-remote-actions.2
+  - @copilotkit/shared@1.2.1
 
-## 1.1.3-feat-runtime-remote-actions.1
+## 1.2.0
 
-### Patch Changes
+### Minor Changes
 
-- Reduce request size by skipping intermediate state
-- Updated dependencies
-  - @copilotkit/shared@1.1.3-feat-runtime-remote-actions.1
-
-## 1.1.3-feat-runtime-remote-actions.0
+- Fix errors related to crypto not being found, and other bug fixes
 
 ### Patch Changes
 
 - 638d51d: appendMessage fix 1
-- Rename hooks and bugfixes
 - faccbe1: state-abuse resistance for useCopilotChat
 - b0cf700: remove unnecessary logging
-- Updated dependencies [638d51d]
 - Updated dependencies
+- Updated dependencies [638d51d]
 - Updated dependencies [faccbe1]
 - Updated dependencies [b0cf700]
-  - @copilotkit/shared@1.1.3-feat-runtime-remote-actions.0
+  - @copilotkit/shared@1.2.0
 
 ## 1.1.2
 

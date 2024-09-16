@@ -1,23 +1,28 @@
 # eslint-config-custom
 
-## 1.1.2-feat-runtime-remote-actions.2
+## 1.2.1
 
 ### Patch Changes
 
-- Better message grouping
+- inject minified css in bundle
 
-## 1.1.2-feat-runtime-remote-actions.1
+  - removes the need to import `styles.css` manually
+  - empty `styles.css` included in the build for backwards compatibility
+  - uses tsup's `injectStyles` with `postcss` to bundle and minify the CSS, then inject it as a style tag
+  - currently uses my fork of `tsup` where I added support for async function in `injectStyles` (must-have for postcss), a PR from my fork to the main library will follow shortly
+  - remove material-ui, and use `react-icons` for icons (same icons as before)
+  - remove unused `IncludedFilesPreview` component
+  - updated docs
 
-### Patch Changes
+## 1.2.0
 
-- Reduce request size by skipping intermediate state
+### Minor Changes
 
-## 1.1.2-feat-runtime-remote-actions.0
+- Fix errors related to crypto not being found, and other bug fixes
 
 ### Patch Changes
 
 - 638d51d: appendMessage fix 1
-- Rename hooks and bugfixes
 - faccbe1: state-abuse resistance for useCopilotChat
 - b0cf700: remove unnecessary logging
 
