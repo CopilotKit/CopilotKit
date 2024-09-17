@@ -1,4 +1,4 @@
-import { LinkToCopilotCloud } from "@/components";
+import { LinkToCopilotCloud } from "@/components/link-to-copilot-cloud";
 
 export default {
   coagents: {
