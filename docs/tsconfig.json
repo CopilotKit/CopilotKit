@@ -1,10 +1,6 @@
 {
   "compilerOptions": {
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext",
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": false,
@@ -23,13 +19,12 @@
     ],
     "strictNullChecks": true,
     "paths": {
-      "@/*": ["./*"],
       "@/components": ["./components"],
       "@/components/*": ["./components/*"],
       "@/lib": ["./lib"],
       "@/lib/*": ["./lib/*"],
       "@/snippets": ["./snippets"],
-      "@/snippets/*": ["./snippets/*"],
+      "@/snippets/*": ["./snippets/*"]
     }
   },
   "include": [
@@ -39,7 +34,5 @@
     ".next/types/**/*.ts",
     "**/*.mdx"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }

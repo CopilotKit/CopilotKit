@@ -1,9 +1,6 @@
 export default {
-  index: {
-    title: "CoAgents Onboarding",
-    theme: {
-      sidebar: false,
-      footer: false,
-    },
-  },
-};
+  "index": {
+    "title": "Onboarding",
+    "type": "page"
+  }
+}

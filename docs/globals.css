@@ -83,9 +83,3 @@ li:has(.icon-container) > div > div > ul ul {
 .nextra-search-results {
   @apply bg-white/50;
 }
-
-@layer base {
-  :root {
-    --radius: 0.5rem;
-  }
-}
