@@ -1,4 +1,4 @@
-import { SideNavTitleWithIcon } from "@/components";
+import { SideNavTitleWithIcon } from "@/components/sidenav/sidenav-title-with-icon";
 import { FaReact } from "react-icons/fa";
 import { PiGraphDuotone } from "react-icons/pi";
 import { LuBrush } from "react-icons/lu";
