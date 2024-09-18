@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { CopilotContextParams, useCopilotContext } from "../context";
 import { CoagentState } from "../types/coagent-state";
+import { useCopilotChat } from "./use-copilot-chat";
+import { AgentStateMessage, Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
 
 interface WithInternalStateManagementAndInitial<T> {
   name: string;
@@ -30,8 +32,9 @@ export interface UseCoagentReturnType<T> {
   running: boolean;
   state: T;
   setState: (newState: T | ((prevState: T | undefined) => T)) => void;
-  start: (context: CopilotContextParams) => void;
-  stop: (context: CopilotContextParams) => void;
+  start: () => void;
+  stop: () => void;
+  run: (hint?: string) => Promise<void>;
 }
 
 export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
@@ -49,7 +52,9 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     return "initialState" in options;
   };
 
-  const { coagentStates, setCoagentStates } = useCopilotContext();
+  const context = useCopilotContext();
+  const { coagentStates, setCoagentStates } = context;
+  const { appendMessage } = useCopilotChat();
 
   const getCoagentState = (coagentStates: Record<string, CoagentState>, name: string) => {
     if (coagentStates[name]) {
@@ -105,11 +110,14 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     state,
     setState,
     running: coagentState.running,
-    start: (context: CopilotContextParams) => {
+    start: () => {
       startAgent(name, context);
     },
-    stop: (context: CopilotContextParams) => {
+    stop: () => {
       stopAgent(name, context);
+    },
+    run: (hint?: string) => {
+      return runAgent(name, context, appendMessage, hint);
     },
   };
 }
@@ -128,4 +136,45 @@ function stopAgent(name: string, context: CopilotContextParams) {
   } else {
     console.warn(`No agent session found for ${name}`);
   }
+}
+
+async function runAgent(
+  name: string,
+  context: CopilotContextParams,
+  appendMessage: (message: Message) => Promise<void>,
+  hint?: string,
+) {
+  const { agentSession, setAgentSession } = context;
+  if (!agentSession || agentSession.agentName !== name) {
+    setAgentSession({
+      agentName: name,
+    });
+  }
+
+  let previousState: any = null;
+  for (let i = context.messages.length - 1; i >= 0; i--) {
+    const message = context.messages[i];
+    if (message instanceof AgentStateMessage && message.agentName === name) {
+      previousState = message.state;
+    }
+  }
+
+  let state = context.coagentStates?.[name]?.state || {};
+
+  let content = "The state of the agent has been updated\n";
+  if (previousState !== null) {
+    content += `The previous state was:\n${JSON.stringify(previousState, null, 2)}\n\n`;
+  }
+  content += `The current state is:\n${JSON.stringify(state, null, 2)}`;
+
+  if (hint) {
+    content += `\n\n${hint}`;
+  }
+
+  return await appendMessage(
+    new TextMessage({
+      role: Role.System,
+      content,
+    }),
+  );
 }
