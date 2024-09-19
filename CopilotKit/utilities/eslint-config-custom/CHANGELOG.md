@@ -1,5 +1,18 @@
 # eslint-config-custom
 
+## 1.2.2
+
+### Patch Changes
+
+- 5b63f55: stream intermediate state
+- b6fd3d8: Better message grouping
+- 89420c6: Rename hooks and bugfixes
+- b6e8824: useCoAgent/useCoAgentAction
+- 91c35b9: useAgentState
+- 00be203: Remote actions preview
+- fb15f72: Reduce request size by skipping intermediate state
+- 8ecc3e4: Fix useCoAgent start/stop bug
+
 ## 1.2.1
 
 ### Patch Changes
