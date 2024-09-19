@@ -10,9 +10,9 @@ If you want to skip all of this, and just grab some code that will get you ready
 
 ```bash
 git clone https://github.com/copilotkit/examples /tmp/copilotkit-examples
-mv /tmp/copilotkit-examples/bootstrap ./copilotkit-bootstrap
+mv /tmp/copilotkit-examples/bootstrap ./coagents-bootstrap
 
-cd ./copilotkit-bootstrap
+cd ./coagents-bootstrap
 
 # Create python virtualenv (optional)
 python -m venv .venv
@@ -33,8 +33,8 @@ npm run dev
 ## Create a new Next.js app
 
 ```bash
-npx create-next-app@latest coagents-starter
-cd coagents-starter
+npx create-next-app@latest ./coagents-bootstrap
+cd ./coagents-bootstrap
 ```
 
 ## Set up `.env` file
