@@ -1,6 +1,6 @@
 {
   "name": "next-pages-router",
-  "version": "1.2.1",
+  "version": "1.2.2-mme-coagents-final.0",
   "private": true,
   "scripts": {
     "example-dev": "next dev",

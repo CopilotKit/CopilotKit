@@ -1,5 +1,33 @@
 # next-pages-router
 
+## 1.2.2-mme-coagents-final.0
+
+### Patch Changes
+
+- 5b63f55: stream intermediate state
+- b6fd3d8: Better message grouping
+- Final pre
+- 89420c6: Rename hooks and bugfixes
+- b6e8824: useCoAgent/useCoAgentAction
+- 91c35b9: useAgentState
+- 00be203: Remote actions preview
+- fb15f72: Reduce request size by skipping intermediate state
+- 8ecc3e4: Fix useCoAgent start/stop bug
+- Updated dependencies [5b63f55]
+- Updated dependencies [b6fd3d8]
+- Updated dependencies
+- Updated dependencies [89420c6]
+- Updated dependencies [b6e8824]
+- Updated dependencies [91c35b9]
+- Updated dependencies [00be203]
+- Updated dependencies [fb15f72]
+- Updated dependencies [8ecc3e4]
+  - @copilotkit/react-textarea@1.2.2-mme-coagents-final.0
+  - @copilotkit/react-core@1.2.2-mme-coagents-final.0
+  - @copilotkit/react-ui@1.2.2-mme-coagents-final.0
+  - @copilotkit/runtime@1.2.2-mme-coagents-final.0
+  - @copilotkit/shared@1.2.2-mme-coagents-final.0
+
 ## 1.2.1
 
 ### Patch Changes
