@@ -24,7 +24,6 @@ const runtime = new CopilotRuntime({
       },
     },
   ],
-  remoteActions: [{ url: "http://localhost:8000/copilotkit" }],
 });
 
 const copilotRuntime = copilotRuntimeNodeHttpEndpoint({
