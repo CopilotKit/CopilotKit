@@ -227,7 +227,7 @@ const SUGGESTIONS_DEBOUNCE_TIMEOUT = 1000;
 export const useCopilotChatLogic = (
   makeSystemMessage?: SystemMessageFunction,
   onInProgress?: (isLoading: boolean) => void,
-  onSubmitMessage?: (messageContent: string) => void,
+  onSubmitMessage?: (messageContent: string) => Promise<void> | void,
 ) => {
   const { visibleMessages, appendMessage, reloadMessages, stopGeneration, isLoading } =
     useCopilotChat({

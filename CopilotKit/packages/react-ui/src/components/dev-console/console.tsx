@@ -4,6 +4,7 @@ import { useCopilotContext } from "@copilotkit/react-core";
 import {
   getPublishedCopilotKitVersion,
   logActions,
+  logMessages,
   logReadables,
   shouldShowDevConsole,
 } from "./utils";
@@ -248,6 +249,11 @@ export default function DebugMenuButton({
           <MenuItem>
             <button className="copilotKitDebugMenuItem" onClick={() => logActions(context)}>
               Log Actions
+            </button>
+          </MenuItem>
+          <MenuItem>
+            <button className="copilotKitDebugMenuItem" onClick={() => logMessages(context)}>
+              Log Messages
             </button>
           </MenuItem>
           <MenuItem>

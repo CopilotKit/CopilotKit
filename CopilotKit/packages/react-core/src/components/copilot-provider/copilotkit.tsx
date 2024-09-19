@@ -35,6 +35,8 @@ import {
   CopilotContext,
   CopilotApiConfig,
   InChatRenderFunction,
+  ChatComponentsCache,
+  AgentSession,
 } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
 import { CopilotChatSuggestionConfiguration, DocumentPointer } from "../../types";
@@ -44,11 +46,13 @@ import {
   CopilotCloudConfig,
   FunctionCallHandler,
 } from "@copilotkit/shared";
-import { Message } from "@copilotkit/runtime-client-gql";
+import { AgentStateMessage, Message } from "@copilotkit/runtime-client-gql";
 
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { CopilotKitProps } from "./copilotkit-props";
+import { CoagentAction } from "../../types/coagent-action";
+import { CoagentState } from "../../types/coagent-state";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // Compute all the functions and properties that we need to pass
@@ -63,7 +67,11 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const chatApiEndpoint = props.runtimeUrl || COPILOT_CLOUD_CHAT_URL;
 
   const [actions, setActions] = useState<Record<string, FrontendAction<any>>>({});
-  const chatComponentsCache = useRef<Record<string, InChatRenderFunction | string>>({});
+  const [coagentActions, setCoagentActions] = useState<Record<string, CoagentAction<any>>>({});
+  const chatComponentsCache = useRef<ChatComponentsCache>({
+    actions: {},
+    coagentActions: {},
+  });
   const { addElement, removeElement, printTree } = useTree();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -86,6 +94,23 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
 
   const removeAction = useCallback((id: string) => {
     setActions((prevPoints) => {
+      const newPoints = { ...prevPoints };
+      delete newPoints[id];
+      return newPoints;
+    });
+  }, []);
+
+  const setCoagentAction = useCallback((id: string, action: CoagentAction<any>) => {
+    setCoagentActions((prevPoints) => {
+      return {
+        ...prevPoints,
+        [id]: action,
+      };
+    });
+  }, []);
+
+  const removeCoagentAction = useCallback((id: string) => {
+    setCoagentActions((prevPoints) => {
       const newPoints = { ...prevPoints };
       delete newPoints[id];
       return newPoints;
@@ -206,6 +231,16 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     });
   };
 
+  const [coagentStates, setCoagentStates] = useState<Record<string, CoagentState>>({});
+  let initialAgentSession: AgentSession | null = null;
+  if (props.agent) {
+    initialAgentSession = {
+      agentName: props.agent,
+    };
+  }
+
+  const [agentSession, setAgentSession] = useState<AgentSession | null>(initialAgentSession);
+
   return (
     <CopilotContext.Provider
       value={{
@@ -214,6 +249,9 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         getFunctionCallHandler,
         setAction,
         removeAction,
+        coagentActions,
+        setCoagentAction,
+        removeCoagentAction,
         getContextString,
         addContext,
         removeContext,
@@ -231,6 +269,10 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         chatInstructions,
         setChatInstructions,
         showDevConsole: props.showDevConsole === undefined ? "auto" : props.showDevConsole,
+        coagentStates,
+        setCoagentStates,
+        agentSession,
+        setAgentSession,
       }}
     >
       {children}
@@ -253,7 +295,7 @@ function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): Funct
       await new Promise<void>((resolve, reject) => {
         flushSync(async () => {
           try {
-            result = await action.handler(args);
+            result = await action.handler?.(args);
             resolve();
           } catch (error) {
             reject(error);

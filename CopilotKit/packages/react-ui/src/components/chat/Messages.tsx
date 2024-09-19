@@ -10,7 +10,9 @@ import {
   ResultMessage,
   TextMessage,
   Role,
+  AgentStateMessage,
 } from "@copilotkit/runtime-client-gql";
+import { CoagentInChatRenderFunction } from "@copilotkit/react-core/dist/context/copilot-context";
 
 export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
   const { chatComponentsCache } = useCopilotContext();
@@ -73,8 +75,11 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
             </div>
           );
         } else if (message instanceof ActionExecutionMessage) {
-          if (chatComponentsCache.current !== null && chatComponentsCache.current[message.name]) {
-            const render = chatComponentsCache.current[message.name];
+          if (
+            chatComponentsCache.current !== null &&
+            chatComponentsCache.current.actions[message.name]
+          ) {
+            const render = chatComponentsCache.current.actions[message.name];
             // render a static string
             if (typeof render === "string") {
               // when render is static, we show it only when in progress
@@ -140,6 +145,82 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
               </div>
             );
           }
+        } else if (message instanceof AgentStateMessage) {
+          let render: string | CoagentInChatRenderFunction | undefined;
+
+          if (chatComponentsCache.current !== null) {
+            render =
+              chatComponentsCache.current.coagentActions[
+                `${message.agentName}-${message.nodeName}`
+              ] || chatComponentsCache.current.coagentActions[`${message.agentName}-global`];
+          }
+
+          if (render) {
+            // render a static string
+            if (typeof render === "string") {
+              // when render is static, we show it only when in progress
+              if (isCurrentMessage && inProgress) {
+                return (
+                  <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
+                    {context.icons.spinnerIcon} <span className="inProgressLabel">{render}</span>
+                  </div>
+                );
+              }
+              // Done - silent by default to avoid a series of "done" messages
+              else {
+                return null;
+              }
+            }
+            // render is a function
+            else {
+              const state = message.state;
+
+              let status = message.active ? "inProgress" : "complete";
+
+              const toRender = render({
+                status: status as any,
+                state,
+                nodeName: message.nodeName,
+              });
+
+              // No result and complete: stay silent
+              if (!toRender && status === "complete") {
+                return null;
+              }
+
+              if (typeof toRender === "string") {
+                return (
+                  <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
+                    {isCurrentMessage && inProgress && context.icons.spinnerIcon} {toRender}
+                  </div>
+                );
+              } else {
+                return (
+                  <div key={index} className="copilotKitCustomAssistantMessage">
+                    {toRender}
+                  </div>
+                );
+              }
+            }
+          }
+          // No render function found- show the default message
+          else if (!inProgress || !isCurrentMessage) {
+            // Done - silent by default to avoid a series of "done" messages
+            return null;
+          } else {
+            // In progress
+            return (
+              <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
+                {context.icons.spinnerIcon}
+              </div>
+            );
+          }
+        } else if (message instanceof ResultMessage && inProgress && isCurrentMessage) {
+          return (
+            <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
+              {context.icons.spinnerIcon}
+            </div>
+          );
         }
       })}
       <footer ref={messagesEndRef}>{children}</footer>

@@ -11,6 +11,12 @@
     "untruncate",
     "serverside",
     "Tiktoken",
+    "langgraph",
+    "GraphQLJSONObject",
+    "copilotcloud",
+    "pino",
+    "langsmith",
+    "readables",
     "uuidv4"
   ]
 }

@@ -44,6 +44,8 @@ import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { SystemMessageFunction } from "../types";
 import { useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
+import { MessageStatusCode } from "@copilotkit/runtime-client-gql";
+import { CoagentActionHandlerArguments } from "@copilotkit/shared";
 
 export interface UseCopilotChatOptions {
   /**
@@ -92,6 +94,12 @@ export function useCopilotChat({
     setIsLoading,
     chatInstructions,
     actions,
+
+    coagentStates,
+    setCoagentStates,
+    coagentActions,
+    agentSession,
+    setAgentSession,
   } = useCopilotContext();
 
   // We need to ensure that makeSystemMessageCallback always uses the latest
@@ -115,17 +123,40 @@ export function useCopilotChat({
     });
   }, [getContextString, makeSystemMessage, chatInstructions]);
 
+  const onCoagentAction = useCallback(
+    async (args: CoagentActionHandlerArguments) => {
+      const { name, nodeName, state } = args;
+      let action = Object.values(coagentActions).find(
+        (action) => action.name === name && action.nodeName === nodeName,
+      );
+      if (!action) {
+        action = Object.values(coagentActions).find(
+          (action) => action.name === name && !action.nodeName,
+        );
+      }
+      if (action) {
+        await action.handler?.({ state, nodeName });
+      }
+    },
+    [coagentActions],
+  );
+
   const { append, reload, stop } = useChat({
     ...options,
     actions: Object.values(actions),
     copilotConfig: copilotApiConfig,
     initialMessages: options.initialMessages || [],
     onFunctionCall: getFunctionCallHandler(),
+    onCoagentAction,
     messages,
     setMessages,
     makeSystemMessageCallback,
     isLoading,
     setIsLoading,
+    coagentStates,
+    setCoagentStates,
+    agentSession,
+    setAgentSession,
   });
 
   // this is a workaround born out of a bug that Athena insessently ran into.

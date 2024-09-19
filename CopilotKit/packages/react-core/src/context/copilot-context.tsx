@@ -5,6 +5,8 @@ import React from "react";
 import { TreeNodeId } from "../hooks/use-tree";
 import { DocumentPointer } from "../types";
 import { CopilotChatSuggestionConfiguration } from "../types/chat-suggestion-configuration";
+import { CoagentAction, CoagentActionRenderProps } from "../types/coagent-action";
+import { CoagentState } from "../types/coagent-state";
 
 /**
  * Interface for the configuration of the Copilot API.
@@ -67,13 +69,33 @@ export interface CopilotApiConfig {
 }
 
 export type InChatRenderFunction = (props: ActionRenderProps<any>) => string | JSX.Element;
+export type CoagentInChatRenderFunction = (
+  props: CoagentActionRenderProps<any>,
+) => string | JSX.Element;
+
+export interface ChatComponentsCache {
+  actions: Record<string, InChatRenderFunction | string>;
+  coagentActions: Record<string, CoagentInChatRenderFunction | string>;
+}
+
+export interface AgentSession {
+  agentName: string;
+  threadId?: string;
+  nodeName?: string;
+}
 
 export interface CopilotContextParams {
   // function-calling
   actions: Record<string, FrontendAction<any>>;
   setAction: (id: string, action: FrontendAction<any>) => void;
   removeAction: (id: string) => void;
-  chatComponentsCache: React.RefObject<Record<string, InChatRenderFunction | string>>;
+
+  // coagent actions
+  coagentActions: Record<string, CoagentAction<any>>;
+  setCoagentAction: (id: string, action: CoagentAction<any>) => void;
+  removeCoagentAction: (id: string) => void;
+
+  chatComponentsCache: React.RefObject<ChatComponentsCache>;
 
   getFunctionCallHandler: (
     customEntryPoints?: Record<string, FrontendAction<any>>,
@@ -110,6 +132,12 @@ export interface CopilotContextParams {
   copilotApiConfig: CopilotApiConfig;
 
   showDevConsole: boolean | "auto";
+
+  // agents
+  coagentStates: Record<string, CoagentState>;
+  setCoagentStates: React.Dispatch<React.SetStateAction<Record<string, CoagentState>>>;
+  agentSession: AgentSession | null;
+  setAgentSession: React.Dispatch<React.SetStateAction<AgentSession | null>>;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -117,7 +145,11 @@ const emptyCopilotContext: CopilotContextParams = {
   setAction: () => {},
   removeAction: () => {},
 
-  chatComponentsCache: { current: {} },
+  coagentActions: {},
+  setCoagentAction: () => {},
+  removeCoagentAction: () => {},
+
+  chatComponentsCache: { current: { actions: {}, coagentActions: {} } },
   getContextString: (documents: DocumentPointer[], categories: string[]) =>
     returnAndThrowInDebug(""),
   addContext: () => "",
@@ -155,6 +187,11 @@ const emptyCopilotContext: CopilotContextParams = {
   addChatSuggestionConfiguration: () => {},
   removeChatSuggestionConfiguration: () => {},
   showDevConsole: "auto",
+  coagentStates: {},
+  setCoagentStates: () => {},
+
+  agentSession: null,
+  setAgentSession: () => {},
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

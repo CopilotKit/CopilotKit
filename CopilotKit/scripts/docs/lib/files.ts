@@ -42,7 +42,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     className: "CopilotTask",
   },
   {
-    sourcePath: "packages/runtime/src/lib/copilot-runtime.ts",
+    sourcePath: "packages/runtime/src/lib/runtime/copilot-runtime.ts",
     destinationPath: "docs/pages/reference/classes/CopilotRuntime/CopilotRuntime.mdx",
     className: "CopilotRuntime",
   },
