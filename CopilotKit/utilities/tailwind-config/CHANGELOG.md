@@ -1,26 +1,5 @@
 # tailwind-config
 
-## 1.2.2-feat-runtime-remote-actions.1
-
-### Patch Changes
-
-- Fix useCoAgent start/stop bug
-
-## 1.2.2-feat-runtime-remote-actions.0
-
-### Patch Changes
-
-- Prerelease
-- 0d54450: Include agent state
-- 8d32e22: Show agent state in the chat window
-- 5b63f55: stream intermediate state
-- b6fd3d8: Better message grouping
-- 89420c6: Rename hooks and bugfixes
-- b6e8824: useCoAgent/useCoAgentAction
-- 91c35b9: useAgentState
-- 00be203: Remote actions preview
-- fb15f72: Reduce request size by skipping intermediate state
-
 ## 1.2.1
 
 ### Patch Changes

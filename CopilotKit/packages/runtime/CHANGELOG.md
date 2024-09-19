@@ -1,39 +1,5 @@
 # @copilotkit/runtime
 
-## 1.2.2-feat-runtime-remote-actions.1
-
-### Patch Changes
-
-- Fix useCoAgent start/stop bug
-- Updated dependencies
-  - @copilotkit/shared@1.2.2-feat-runtime-remote-actions.1
-
-## 1.2.2-feat-runtime-remote-actions.0
-
-### Patch Changes
-
-- Prerelease
-- 0d54450: Include agent state
-- 8d32e22: Show agent state in the chat window
-- 5b63f55: stream intermediate state
-- b6fd3d8: Better message grouping
-- 89420c6: Rename hooks and bugfixes
-- b6e8824: useCoAgent/useCoAgentAction
-- 91c35b9: useAgentState
-- 00be203: Remote actions preview
-- fb15f72: Reduce request size by skipping intermediate state
-- Updated dependencies
-- Updated dependencies [0d54450]
-- Updated dependencies [8d32e22]
-- Updated dependencies [5b63f55]
-- Updated dependencies [b6fd3d8]
-- Updated dependencies [89420c6]
-- Updated dependencies [b6e8824]
-- Updated dependencies [91c35b9]
-- Updated dependencies [00be203]
-- Updated dependencies [fb15f72]
-  - @copilotkit/shared@1.2.2-feat-runtime-remote-actions.0
-
 ## 1.2.1
 
 ### Patch Changes
