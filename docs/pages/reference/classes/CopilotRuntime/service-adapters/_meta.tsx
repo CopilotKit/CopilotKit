@@ -1,18 +1,20 @@
 export default {
-  "OpenAIAdapter": {
+  OpenAIAdapter: {
     title: "OpenAI Adapter",
   },
-  "OpenAIAssistantAdapter": {
+  OpenAIAssistantAdapter: {
     title: "OpenAI Assistant Adapter",
   },
-  "LangChainAdapter": {
+  LangChainAdapter: {
     title: "LangChain Adapter",
   },
-  "GroqAdapter": {
+  GroqAdapter: {
     title: "Groq Adapter",
   },
-  "GoogleGenerativeAIAdapter": {
+  GoogleGenerativeAIAdapter: {
     title: "Google Generative AI Adapter",
   },
+  AnthropicAdapter: {
+    title: "Anthropic Adapter",
+  },
 };
-

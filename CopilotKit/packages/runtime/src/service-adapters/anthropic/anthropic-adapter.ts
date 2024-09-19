@@ -9,11 +9,11 @@
  *
  * const copilotKit = new CopilotRuntime();
  *
- * const client = new Anthropic({
+ * const anthropic = new Anthropic({
  *   apiKey: "<your-api-key>",
  * });
  *
- * const serviceAdapter = new AnthropicAdapter({ client });
+ * const serviceAdapter = new AnthropicAdapter({ anthropic });
  *
  * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
  * ```

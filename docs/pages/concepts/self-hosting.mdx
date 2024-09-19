@@ -19,8 +19,9 @@ The Copilot Runtime is the back-end component of CopilotKit, handling the commun
     runtime->>llm: Request
     llm->>runtime: Response
     runtime->>core: "Hello Uli, how can I help you?"
-  ```
-  </div>
+
+```
+</div>
 </Frame>
 
 You may choose to self-host the Copilot Runtime, or [use Copilot Cloud](https://cloud.copilotkit.ai) (recommended).
@@ -36,6 +37,7 @@ Currently, we support the following service providers/adapters:
 - [LangChainAdapter](/reference/classes/CopilotRuntime/service-adapters/LangChainAdapter)
 - [GroqAdapter](/reference/classes/CopilotRuntime/service-adapters/GroqAdapter)
 - [GoogleGenerativeAIAdapter](/reference/classes/CopilotRuntime/service-adapters/GoogleGenerativeAIAdapter)
+- [AnthropicAdapter](/reference/classes/CopilotRuntime/service-adapters/AnthropicAdapter)
 
 ## Integration
 
@@ -51,3 +53,4 @@ Currently, we support the following service providers/adapters:
 
 - [`CopilotRuntime` Class Reference](/reference/classes/copilot-runtime/CopilotRuntime)
 - [Service Adapters](/reference/classes/CopilotRuntime/service-adapters/OpenAIAdapter)
+
