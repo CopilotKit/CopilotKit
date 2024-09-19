@@ -10,7 +10,7 @@ export default function AIPresentation() {
 
   return (
     <CopilotKit
-      runtimeUrl="/api/copilotkit"
+      runtimeUrl="/api/copilotkit/anthropic"
       transcribeAudioUrl="/api/transcribe"
       textToSpeechUrl="/api/tts"
     >

@@ -31,6 +31,12 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     className: "OpenAIAssistantAdapter",
   },
   {
+    sourcePath: "packages/runtime/src/service-adapters/anthropic/anthropic-adapter.ts",
+    destinationPath:
+      "docs/pages/reference/classes/CopilotRuntime/service-adapters/AnthropicAdapter.mdx",
+    className: "AnthropicAdapter",
+  },
+  {
     sourcePath: "packages/react-core/src/lib/copilot-task.ts",
     destinationPath: "docs/pages/reference/classes/CopilotTask.mdx",
     className: "CopilotTask",
