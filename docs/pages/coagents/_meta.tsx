@@ -5,6 +5,9 @@ export default {
   quickstart: {
     title: "Quickstart",
   },
+  "quickstart-2": {
+    title: "Quickstart2",
+  },
   "feature-shared-state": {
     title: "Feature: Shared State",
   },
