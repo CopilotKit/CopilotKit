@@ -5,9 +5,6 @@ export default {
   quickstart: {
     title: "Quickstart",
   },
-  "quickstart-2": {
-    title: "Quickstart2",
-  },
   "advanced-usage": {
     title: "Advanced Usage",
   },
