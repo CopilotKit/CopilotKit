@@ -11,11 +11,24 @@ import { CoAgentsFeatures } from "@/components";
 
   Generative UI allows you to create dynamic user interfaces with AI-generated components.
 
-  #### Step 1: Set up your environment
-
-  #### Step 2: Implement generative UI components
-
-  #### Step 3: Integrate with your application
+  ```tsx
+  useCoAgentAction({
+    // the name of the agent 
+    name: "car_rental_agent",
+    
+    // this is optional: the node name to render generative UI for. If left empty, renders for every node.
+    nodeName: "confirm_node",
+    
+    // render can be a function or a string, just like useCopilotAction
+    render: ({ state, status }) => {
+      if (status === "inProgress") {
+        return <div> Generating response: {state.response} </div>
+      } else {
+        return <div> Done generating response </div>
+      }
+    }
+  });
+  ```
 
 </CoAgentsFeatures.GenerativeUi>
 
