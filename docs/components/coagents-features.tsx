@@ -27,7 +27,7 @@ const Toggle: React.FC<{ className?: string }> = ({ className }) => {
   const iconCn =
     "w-7 h-7 mb-2 opacity-20 group-[.selected]:text-indigo-500 group-[.selected]:opacity-60 transition-all";
 
-  const features: { id: FeatureMode; title: string; description: string; Icon: React.ComponentType }[] = [
+  const features: { id: FeatureMode; title: string; description: string; Icon: React.FC<React.SVGProps<SVGSVGElement>> }[] = [
     {
       id: "generative-ui",
       title: "Generative UI",
