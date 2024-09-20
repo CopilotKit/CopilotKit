@@ -8,6 +8,9 @@ export default {
   "quickstart-2": {
     title: "Quickstart2",
   },
+  "advanced-usage": {
+    title: "Advanced Usage",
+  },
   "feature-shared-state": {
     title: "Feature: Shared State",
   },
