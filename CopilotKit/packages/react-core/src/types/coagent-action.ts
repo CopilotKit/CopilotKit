@@ -13,5 +13,5 @@ export type CoagentAction<T = any> = {
   name: string;
   nodeName?: string;
   handler?: (props: CoagentActionHandlerArguments<T>) => void | Promise<void>;
-  render?: ((props: CoagentActionRenderProps<T>) => string | React.ReactElement) | string;
+  render?: ((props: CoagentActionRenderProps<T>) => string | React.ReactElement | void) | string;
 };

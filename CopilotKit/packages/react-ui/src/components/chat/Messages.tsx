@@ -184,8 +184,16 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
               });
 
               // No result and complete: stay silent
-              if (!toRender && status === "complete") {
-                return null;
+              if (!toRender) {
+                if (inProgress && isCurrentMessage) {
+                  return (
+                    <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
+                      {context.icons.spinnerIcon}
+                    </div>
+                  );
+                } else {
+                  return null;
+                }
               }
 
               if (typeof toRender === "string") {
