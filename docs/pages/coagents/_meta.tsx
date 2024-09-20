@@ -2,9 +2,6 @@ export default {
   index: {
     title: "Introduction to CoAgents",
   },
-  quickstart: {
-    title: "Quickstart",
-  },
   "advanced-usage": {
     title: "Advanced Usage",
   },
