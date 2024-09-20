@@ -1,3 +1,4 @@
+import { Steps } from 'nextra/components'
 import { CoAgentsFeatures } from "@/components";
 
 
@@ -33,40 +34,88 @@ import { CoAgentsFeatures } from "@/components";
 </CoAgentsFeatures.GenerativeUi>
 
 <CoAgentsFeatures.StreamAgentState>
-  ### Stream Agent State
+  <Steps>
+    ### Frontend
 
-  Stream Agent State provides real-time updates on agent activities and decision-making processes.
+    All you need to do to get the current LangGraph agent state is call `useCoAgent`.
 
-  #### Step 1: Configure agent state streaming
+    ```tsx
+    const { state } = useCoAgent({
+      name: "search_agent", // the name of the agent
+    });
+    ```
 
-  #### Step 2: Set up the streaming endpoint
+    ### LangGraph
+    The LangGraph state only updates when leaving a LangGraph node.
+    If you want to stream state updates to the frontend as they are generated, you can do so by one of the following methods:
 
-  #### Step 3: Handle incoming state updates
+    #### Intercept tool calls
 
+    If you would like to stream **intermediate** state to the frontend, you can do so by treating (streaming) tool call arguments as intermediate state:
+
+    ```python
+    # in python code:
+    config = copilotkit_customize_config(
+        config,
+        emit_intermediate_state=[
+            {
+                "state_key": "steps", # key on the LangGraph state to be updated
+                "tool": "search", # tool call 
+                "tool_argument": "steps" # argument of the tool call interpreted as intermediate state
+            },
+        ]
+    )
+
+    # ...
+
+    response = await ChatOpenAI(model="gpt-4").bind_tools([search_tool], parallel_tool_calls=False, tool_choice="search").ainvoke([
+        *state["messages"],
+        SystemMessage(
+            content=system_message
+        )
+    ], config)
+    ```
+
+    #### Manually Emit State
+
+    You can imperatively emit state by calling `copilotkit_emit_state`:
+
+    ```python
+    # imperative function:
+    copilotkit_emit_state({"key": value}, config)
+    ```
+
+  </Steps>
 </CoAgentsFeatures.StreamAgentState>
 
 <CoAgentsFeatures.ShareAgentState>
+
   ### Share Agent State
 
-  Share Agent State allows collaboration and sharing of agent states across different sessions or users.
+  Sharing agent state allows for collaboration and persistence across different sessions or users. Here's how you can implement this feature:
 
-  #### Step 1: Implement state sharing mechanism
+  ```typescript
+  const { state, setState, start, stop, run } = useCoAgent({
+    name: "search_agent",
+  });
+  
+  // ...
+  setState(newStateEditedByUser)
+  run("the user has updated the state") // optionally provide a hint about why the agent state changed.
+  ```
 
-  #### Step 2: Set up state synchronization
+  Just like before, we use the `state` variable on `useCoAgent` to receive the latest agent state.
+  Now we additionally intercept 4 more of `useCoAgent`'s returned values:
+  - `setState`: A function to update the agent's state manually
+  - `start`: A function to initiate the agent's execution
+  - `stop`: A function to halt the agent's execution
+  - `run`: A function to re-run the agent, after updating the state. Optionally include a hint for why the state changed.
 
-  #### Step 3: Manage shared state across instances
 
 </CoAgentsFeatures.ShareAgentState>
 
 <CoAgentsFeatures.AgentQAndA>
   ### Agent Q&A
 
-  Agent Q&A enables interactive question and answer sessions with AI agents.
-
-  #### Step 1: Prepare your Q&A agent
-
-  #### Step 2: Implement the Q&A interface
-
-  #### Step 3: Handle user interactions and responses
-
+  Coming soon.
 </CoAgentsFeatures.AgentQAndA>
