@@ -1,6 +1,7 @@
 import { Callout } from "nextra/components";
 import { Steps } from 'nextra/components'
 import { Tabs } from "nextra/components";
+import Link from "next/link";
 import { TailoredExperience, LinkToCopilotCloud } from "@/components";
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 import GenerativeUiQuickstart from "@/snippets/generative-ui-quickstart.mdx";
@@ -35,6 +36,7 @@ npm install @copilotkit/react-core @copilotkit/react-ui
 
     <SelfHostingCopilotRuntimeConfigureCopilotKitProvider />
   </Steps>
+
 
 ## Copilot Readable State
 
@@ -98,6 +100,18 @@ export function YourComponent() {
 ## Generative UI
 
 <GenerativeUiQuickstart />
+
+## CoAgents (Early Access)
+
+CopilotKit now offers CoAgents, infrastructure for bringing LangGraph agents deeply into applications.
+
+<div className="mt-4">
+  <Link href="/coagents" className="text-blue-600 hover:text-blue-800 underline">
+    Check out our new CoAgents beta
+  </Link>
+</div>
+
+
 
 ## Next Steps
 
