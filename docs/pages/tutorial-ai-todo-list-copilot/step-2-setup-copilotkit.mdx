@@ -1,4 +1,5 @@
 import { Callout } from "nextra/components";
+import { Steps } from 'nextra/components'
 import { TailoredExperience, LinkToCopilotCloud } from "@/components";
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
@@ -20,90 +21,59 @@ npm install @copilotkit/react-core @copilotkit/react-ui
 
 ## Setup CopilotKit
 
-<TailoredExperience.Toggle />
-
-<TailoredExperience.CloudContent>
-
-### Configure the `<CopilotKit />` Provider
-
-The `<CopilotKit>` provider will wrap our app. Let's add it to the `page.tsx` file.
-
-  <Callout type="info">
-    <LinkToCopilotCloud>Click here to get your Copilot Cloud API key for free</LinkToCopilotCloud>. Then, replace `<your-public-api-key>` with your actual API key.
-  </Callout>
-
-```tsx filename="app/page.tsx" showLineNumbers {5,9,13}
-"use client";
-
-import { TasksList } from "@/components/TasksList";
-import { TasksProvider } from "@/lib/hooks/use-tasks";
-import { CopilotKit } from "@copilotkit/react-core";
-
-export default function Home() {
-  return (
-    <CopilotKit publicApiKey={"<your-public-api-key>"}>
-      <TasksProvider>
-        <TasksList />
-      </TasksProvider>
-    </CopilotKit>
-  );
-}
-```
-
-</TailoredExperience.CloudContent>
-
-<TailoredExperience.SelfHostContent>
+<Steps>
   ### Step 1: Set up Copilot Runtime Endpoint
 
-<SelfHostingCopilotRuntimeCreateEndpoint />
+  <SelfHostingCopilotRuntimeCreateEndpoint />
 
-### Step 2: Configure the CopilotKit Provider
+  ### Step 2: Configure the CopilotKit Provider
 
-```tsx filename="app/page.tsx" showLineNumbers {5,9,13}
-"use client";
+  ```tsx filename="app/page.tsx" showLineNumbers {5,9,13}
+  "use client";
 
-import { TasksList } from "@/components/TasksList";
-import { TasksProvider } from "@/lib/hooks/use-tasks";
-import { CopilotKit } from "@copilotkit/react-core";
+  import { TasksList } from "@/components/TasksList";
+  import { TasksProvider } from "@/lib/hooks/use-tasks";
+  import { CopilotKit } from "@copilotkit/react-core";
 
-export default function Home() {
-  return (
-    <CopilotKit runtimeUrl="/api/copilotkit">
-      <TasksProvider>
-        <TasksList />
-      </TasksProvider>
-    </CopilotKit>
-  );
-}
-```
+  export default function Home() {
+    return (
+      <CopilotKit runtimeUrl="/api/copilotkit">
+        <TasksProvider>
+          <TasksList />
+        </TasksProvider>
+      </CopilotKit>
+    );
+  }
+  ```
 
-</TailoredExperience.SelfHostContent>
 
-### CopilotKit Chat Popup
+  ### CopilotKit Chat Popup
 
-We provide several plug-and-play components for you to interact with your copilot. Some of these are `<CopilotPopup/>`, `<CopilotSidebar/>`, and `<CopilotChat/>`. You can of course use CopilotKit in headless mode and provide your own fully custom UI via [`useCopilotChat`](/reference/hooks/useCopilotChat).
+  We provide several plug-and-play components for you to interact with your copilot. Some of these are `<CopilotPopup/>`, `<CopilotSidebar/>`, and `<CopilotChat/>`. You can of course use CopilotKit in headless mode and provide your own fully custom UI via [`useCopilotChat`](/reference/hooks/useCopilotChat).
 
-In this tutorial, we'll use the `<CopilotPopup/>` component to display the chat popup.
+  In this tutorial, we'll use the `<CopilotPopup/>` component to display the chat popup.
 
-```tsx filename="app/page.tsx" showLineNumbers {6-7,15}
-"use client";
+  ```tsx filename="app/page.tsx" showLineNumbers {6-7,15}
+  "use client";
 
-import { TasksList } from "@/components/TasksList";
-import { TasksProvider } from "@/lib/hooks/use-tasks";
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotPopup } from "@copilotkit/react-ui";
+  import { TasksList } from "@/components/TasksList";
+  import { TasksProvider } from "@/lib/hooks/use-tasks";
+  import { CopilotKit } from "@copilotkit/react-core";
+  import { CopilotPopup } from "@copilotkit/react-ui";
 
-export default function Home() {
-  return (
-    <CopilotKit runtimeUrl="/api/copilotkit">
-      <TasksProvider>
-        <TasksList />
-      </TasksProvider>
-      <CopilotPopup />
-    </CopilotKit>
-  );
-}
-```
+  export default function Home() {
+    return (
+      <CopilotKit runtimeUrl="/api/copilotkit">
+        <TasksProvider>
+          <TasksList />
+        </TasksProvider>
+        <CopilotPopup />
+      </CopilotKit>
+    );
+  }
+  ```
+</Steps>
+
 
 Here's what we did:
 
