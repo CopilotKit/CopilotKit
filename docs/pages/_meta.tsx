@@ -1,10 +1,6 @@
 import { LinkToCopilotCloud } from "@/components/link-to-copilot-cloud";
 
 export default {
-  coagents: {
-    title: () => <span className="hidden">CoAgents</span>,
-    type: "page",
-  },
   "copilot-cloud": {
     title: (
       <LinkToCopilotCloud
@@ -26,6 +22,9 @@ export default {
     theme: {
       toc: false,
     },
+  },
+  "coagents": {
+    title: "CoAgents (Early Access)",
   },
   "tutorial-ai-todo-list-copilot": {
     title: "Tutorial: Todo List Copilot",
