@@ -3,10 +3,13 @@ import { Frame } from "@/components";
 import { Steps } from 'nextra/components'
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
+import LlmServiceAdapters from "@/snippets/llm-service-adapters.mdx";
 
 # Self Hosting (Copilot Runtime)
 
 The Copilot Runtime is the back-end component of CopilotKit, handling the communication with LLM, message history, state and more.
+
+You may choose to self-host the Copilot Runtime, or [use Copilot Cloud](https://cloud.copilotkit.ai) (recommended).
 
 
 ## Integration
@@ -23,20 +26,8 @@ The Copilot Runtime is the back-end component of CopilotKit, handling the commun
 </Steps>
 
 ## LLM Provider Service Adapters 
+<LlmServiceAdapters />
 
-Service Adapters are responsible for executing the request with the LLM and standardizing the request/response format in a way that the Copilot Runtime can understand.
-
-Currently, we support the following service providers/adapters:
-
-- [OpenAIAdapter](/reference/classes/CopilotRuntime/service-adapters/OpenAIAdapter)
-- [OpenAIAssistantAdapter](/reference/classes/CopilotRuntime/service-adapters/OpenAIAssistantAdapter)
-- [LangChainAdapter](/reference/classes/CopilotRuntime/service-adapters/LangChainAdapter)
-- [GroqAdapter](/reference/classes/CopilotRuntime/service-adapters/GroqAdapter)
-- [GoogleGenerativeAIAdapter](/reference/classes/CopilotRuntime/service-adapters/GoogleGenerativeAIAdapter)
-
-The above are the built in native LLM service adapters, but you can also use the **`LangChainAdapter`** to use any LLM provider we don't yet natively support.
-
-You may choose to self-host the Copilot Runtime, or [use Copilot Cloud](https://cloud.copilotkit.ai) (recommended).
 
 ## Further Reading
 
