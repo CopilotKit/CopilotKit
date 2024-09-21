@@ -9,7 +9,10 @@ import { FaQuestionCircle as AgentQAndAIcon } from "react-icons/fa";
 type FeatureMode = "generative-ui" | "stream-agent-state" | "share-agent-state" | "agent-q-and-a";
 
 const Toggle: React.FC<{ className?: string }> = ({ className }) => {
-  const { mode, setMode } = useTailoredContent();
+  const { mode, setMode } = useTailoredContent<FeatureMode>(
+    ["generative-ui", "stream-agent-state", "share-agent-state", "agent-q-and-a"],
+    "generative-ui"
+  );
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -78,7 +81,11 @@ const FeatureContent: React.FC<{
   className?: string;
   mode: FeatureMode;
 }> = ({ children, className, mode }) => {
-  const { mode: currentMode } = useTailoredContent();
+  const { mode: currentMode } = useTailoredContent<FeatureMode>(
+    ["generative-ui", "stream-agent-state", "share-agent-state", "agent-q-and-a"],
+    "generative-ui"
+  );
+  
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {

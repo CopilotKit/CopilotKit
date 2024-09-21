@@ -1,15 +1,25 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 import { useLocalStorage } from "usehooks-ts";
 
-type TailordContextContextType = {
-  mode: "cloud" | "self-host";
-  setMode: (mode: "cloud" | "self-host") => void;
+type TailoredContentOption = string;
+
+type TailoredContentContextType<T extends TailoredContentOption> = {
+  mode: T;
+  setMode: (mode: T) => void;
 };
 
-const TailoredContentContext = createContext<TailordContextContextType | undefined>(undefined);
+const TailoredContentContext = createContext<TailoredContentContextType<TailoredContentOption> | undefined>(undefined);
 
-export const TailoredContentProvider = ({ children }: { children: ReactNode }) => {
-  const [mode, setMode] = useLocalStorage<"cloud" | "self-host">("copilotkit-cloud-or-self-hosting", "cloud");
+export const TailoredContentProvider = <T extends TailoredContentOption>({ 
+  children, 
+  options, 
+  defaultOption 
+}: { 
+  children: ReactNode; 
+  options: T[]; 
+  defaultOption: T;
+}) => {
+  const [mode, setMode] = useLocalStorage<T>("copilotkit-tailored-content", defaultOption);
 
   return (
     <TailoredContentContext.Provider
@@ -20,10 +30,13 @@ export const TailoredContentProvider = ({ children }: { children: ReactNode }) =
   );
 };
 
-export const useTailoredContent = () => {
+export const useTailoredContent = <T extends TailoredContentOption>(
+  options: T[],
+  defaultOption: T
+): TailoredContentContextType<T> => {
   const context = useContext(TailoredContentContext);
   if (context === undefined) {
     throw new Error("useTailoredContent must be used within a TailoredContentProvider");
   }
-  return context;
+  return context as TailoredContentContextType<T>;
 };
