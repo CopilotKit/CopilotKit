@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, ReactNode } from "react";
 import { useLocalStorage } from "usehooks-ts";
 
 type TailoredContentOption = string;
@@ -11,15 +11,11 @@ type TailoredContentContextType<T extends TailoredContentOption> = {
 const TailoredContentContext = createContext<TailoredContentContextType<TailoredContentOption> | undefined>(undefined);
 
 export const TailoredContentProvider = <T extends TailoredContentOption>({ 
-  children, 
-  options, 
-  defaultOption 
+  children
 }: { 
   children: ReactNode; 
-  options: T[]; 
-  defaultOption: T;
 }) => {
-  const [mode, setMode] = useLocalStorage<T>("copilotkit-tailored-content", defaultOption);
+  const [mode, setMode] = useLocalStorage<T>("copilotkit-tailored-content", "empty" as T);
 
   return (
     <TailoredContentContext.Provider
@@ -38,5 +34,12 @@ export const useTailoredContent = <T extends TailoredContentOption>(
   if (context === undefined) {
     throw new Error("useTailoredContent must be used within a TailoredContentProvider");
   }
+
+  useEffect(() => {
+    if (!options.includes(context.mode)) {
+      context.setMode(defaultOption);
+    }
+  }, [context.mode]);
+
   return context as TailoredContentContextType<T>;
 };
