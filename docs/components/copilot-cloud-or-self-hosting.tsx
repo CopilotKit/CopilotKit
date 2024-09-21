@@ -4,8 +4,14 @@ import { useEffect, useState } from "react";
 import { BsFillCloudHaze2Fill as CloudIcon } from "react-icons/bs";
 import { FaServer as SelfHostIcon } from "react-icons/fa6";
 
+type FeatureMode = "cloud" | "self-host";
+
 function Toggle({ className }: { className?: string }) {
-  const { mode, setMode } = useTailoredContent();
+  const { mode, setMode } = useTailoredContent<FeatureMode>(
+    ["cloud", "self-host"],
+    "self-host"
+  );
+
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -64,7 +70,11 @@ function CloudContent({
   children: React.ReactNode;
   className?: string;
 }) {
-  const { mode } = useTailoredContent();
+  const { mode } = useTailoredContent(
+    ["cloud", "self-host"],
+    "self-host"
+  );
+
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -95,7 +105,10 @@ function SelfHostContent({
   children: React.ReactNode;
   className?: string;
 }) {
-  const { mode } = useTailoredContent();
+  const { mode } = useTailoredContent(
+    ["cloud", "self-host"],
+    "self-host"
+  );
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {

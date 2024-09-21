@@ -1,11 +1,38 @@
 import { Tabs } from "nextra/components";
 import { Frame } from "@/components";
+import { Steps } from 'nextra/components'
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
+import LlmServiceAdapters from "@/snippets/llm-service-adapters.mdx";
 
 # Self Hosting (Copilot Runtime)
 
 The Copilot Runtime is the back-end component of CopilotKit, handling the communication with LLM, message history, state and more.
+
+You may choose to self-host the Copilot Runtime, or [use Copilot Cloud](https://cloud.copilotkit.ai) (recommended).
+
+
+## Integration
+
+<Steps>
+  ### Step 1: Create an Endpoint
+
+  <SelfHostingCopilotRuntimeCreateEndpoint />
+
+  ### Step 2: Configure the `<CopilotKit>` Provider
+
+  <SelfHostingCopilotRuntimeConfigureCopilotKitProvider />
+
+</Steps>
+
+## LLM Provider Service Adapters 
+<LlmServiceAdapters />
+
+
+## Further Reading
+
+- [`CopilotRuntime` Class Reference](/reference/classes/copilot-runtime/CopilotRuntime)
+- [Service Adapters](/reference/classes/CopilotRuntime/service-adapters/OpenAIAdapter)
 
 <Frame>
   <div className="w-full pb-4">
@@ -19,38 +46,6 @@ The Copilot Runtime is the back-end component of CopilotKit, handling the commun
     runtime->>llm: Request
     llm->>runtime: Response
     runtime->>core: "Hello Uli, how can I help you?"
-
-```
-</div>
+  ```
+  </div>
 </Frame>
-
-You may choose to self-host the Copilot Runtime, or [use Copilot Cloud](https://cloud.copilotkit.ai) (recommended).
-
-## Service Adapters
-
-Service Adapters are responsible for executing the request with the LLM and standardizing the request/response format in a way that the Copilot Runtime can understand.
-
-Currently, we support the following service providers/adapters:
-
-- [OpenAIAdapter](/reference/classes/CopilotRuntime/service-adapters/OpenAIAdapter)
-- [OpenAIAssistantAdapter](/reference/classes/CopilotRuntime/service-adapters/OpenAIAssistantAdapter)
-- [LangChainAdapter](/reference/classes/CopilotRuntime/service-adapters/LangChainAdapter)
-- [GroqAdapter](/reference/classes/CopilotRuntime/service-adapters/GroqAdapter)
-- [GoogleGenerativeAIAdapter](/reference/classes/CopilotRuntime/service-adapters/GoogleGenerativeAIAdapter)
-- [AnthropicAdapter](/reference/classes/CopilotRuntime/service-adapters/AnthropicAdapter)
-
-## Integration
-
-### Step 1: Create an Endpoint
-
-<SelfHostingCopilotRuntimeCreateEndpoint />
-
-### Step 2: Configure the `<CopilotKit>` Provider
-
-<SelfHostingCopilotRuntimeConfigureCopilotKitProvider />
-
-## Further Reading
-
-- [`CopilotRuntime` Class Reference](/reference/classes/copilot-runtime/CopilotRuntime)
-- [Service Adapters](/reference/classes/CopilotRuntime/service-adapters/OpenAIAdapter)
-

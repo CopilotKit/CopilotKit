@@ -1,8 +1,12 @@
 import { Callout } from "nextra/components";
+import { Steps } from 'nextra/components'
 import { Tabs } from "nextra/components";
+import Link from "next/link";
 import { TailoredExperience, LinkToCopilotCloud } from "@/components";
+import GenerativeUiQuickstart from "@/snippets/generative-ui-quickstart.mdx";
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
+import UseCopilotChatShortSnippet from "@/snippets/use-copilot-chat-short-snippet.mdx";
 
 
 # Quickstart: Chatbot
@@ -23,49 +27,24 @@ npm install @copilotkit/react-core @copilotkit/react-ui
 ```
 
 ## Setup CopilotKit
-<TailoredExperience.Toggle />
 
+  <Steps>
+    ### Step 1: Set up Copilot Runtime Endpoint
 
+    <SelfHostingCopilotRuntimeCreateEndpoint />
 
-<TailoredExperience.CloudContent>
+    ### Step 2: Configure the CopilotKit Provider
 
-  ### Configure the CopilotKit Provider
+    <SelfHostingCopilotRuntimeConfigureCopilotKitProvider />
 
-  First, you must wrap all components that interact with your copilot with the [`<CopilotKit />`](/reference/components/CopilotKit) provider.
+    ### Step 3: Use the customizable built-in Copilot UI component -- or bring your own UI.
 
-  Additionally, let's use the [`<CopilotSidebar />`](/reference/components/CopilotSidebar) UI component to display the copilot chat sidebar. Some other options you can choose from are [`<CopilotPopup />`](/reference/components/CopilotPopup) and [`<CopilotChat />`](/reference/components/CopilotChat).
-  
-  <Callout type="info">
-    <LinkToCopilotCloud>Click here to get your Copilot Cloud API key for free</LinkToCopilotCloud>. Then, replace `<your-public-api-key>` with your actual API key.
-  </Callout>
+    CopilotKit offers [Copilot UI components](/reference/components/all-chat-components) for quick setup, or [Copilot OS with useCopilotChat](/reference/hooks/useCopilotChat) for a customizable headless UI & programmatic control. 
+    <div className="mt-4 flex justify-center items-center">
+      <img src="/images/concepts/generative-ui/render-dynamic.gif" alt="Copilot Components" className="w-full max-w-[30%]" />
+    </div>
 
-  ```tsx filename="layout.tsx" showLineNumbers /<your-public-api-key>/
-  "use client";
-
-  import { CopilotKit } from "@copilotkit/react-core";
-  import { CopilotSidebar } from "@copilotkit/react-ui";
-
-  export default function RootLayout({children}) {
-    return (
-      <CopilotKit publicApiKey="<your-public-api-key>">
-        <CopilotSidebar>
-          {children}
-        </CopilotSidebar>
-      </CopilotKit>
-    );
-  }
-  ```
-</TailoredExperience.CloudContent>
-
-<TailoredExperience.SelfHostContent>
-  ### Step 1: Set up Copilot Runtime Endpoint
-
-  <SelfHostingCopilotRuntimeCreateEndpoint />
-
-  ### Step 2: Configure the CopilotKit Provider
-
-  <SelfHostingCopilotRuntimeConfigureCopilotKitProvider />
-</TailoredExperience.SelfHostContent>
+  </Steps>
 
 
 ## Copilot Readable State
@@ -127,6 +106,22 @@ export function YourComponent() {
 }
 ```
 
+## Generative UI
+
+<GenerativeUiQuickstart />
+
+
+
 ## Next Steps
 
-We highly recommend checkout out our simple [AI Todo List Copilot Tutorial](/tutorial-ai-todo-list-copilot/overview) to learn more about CopilotKit.
+We highly recommend checkout out our simple **[AI Todo List Copilot Tutorial](/tutorial-ai-todo-list-copilot/overview)** to learn more about CopilotKit.
+
+## CoAgents (Early Access)
+
+CopilotKit now offers **CoAgents🪁🤖** infrastructure for deeply integrating LangGraph agents into applications.
+<div className="mt-4">
+  <Link href="/coagents" className="text-blue-600 hover:text-blue-800 underline">
+    Check out our new CoAgents beta
+  </Link>
+</div>
+
