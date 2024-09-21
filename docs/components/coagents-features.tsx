@@ -72,6 +72,7 @@ const Toggle: React.FC<{ className?: string }> = ({ className }) => {
           </div>
         ))}
       </div>
+      <p className="text-xl font-bold text-center mt-4">👆press any of these features for detail👆</p>
     </div>
   );
 };

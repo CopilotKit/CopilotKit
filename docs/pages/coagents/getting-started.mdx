@@ -1,4 +1,6 @@
+import { Steps } from 'nextra/components'
 import { CoAgentsEnterpriseCTA } from "@/components/coagents-enterprise-cta";
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 
 # Getting started with CoAgents
 
@@ -40,22 +42,19 @@ def main():
 
 ### Self-hosting CopilotKit in your app
 
-Additionally, you'll need to self-host a CopilotKit endpoint within your frontend app. (CopilotKit Cloud is not yet available for CoAgents.)
+<Steps>
+#### Step 1: Set up Copilot Runtime Endpoint
 
-```ts
-// app/api/copilotkit/route.ts or pages/api/copilotkit.ts
-import { NextRequest } from "next/server";
-import {
-  CopilotRuntime,
-  OpenAIAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import OpenAI from "openai";
+For now, to use CoAgents, you'll need to self-host the Copilot Runtime.
+Soon CoAgents will be available through Copilot Cloud.
 
-const BASE_URL = process.env.REMOTE_ACTION_URL || "http://127.0.0.1:8000";
-const openai = new OpenAI();
-const serviceAdapter = new OpenAIAdapter({ openai });
+<SelfHostingCopilotRuntimeCreateEndpoint />
 
+#### Step 2: point remote actions at your FastAPI endpoint created via the Copilot Python Backend SDK:
+
+```tsx filename="demo.py" showLineNumbers {4,5,6,7}
+// ...
+// in your CopilotRuntime initialization from above, add a remote action
 const runtime = new CopilotRuntime({
   remoteActions: [
     {
@@ -64,22 +63,22 @@ const runtime = new CopilotRuntime({
   ],
 });
 
-export const POST = async (req: NextRequest) => {
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime,
-    serviceAdapter,
-    endpoint: "/api/copilotkit",
-  });
-
-  return handleRequest(req);
-};
+// ...
 ```
+</Steps>
 
 ### Integrating agents into your CopilotKit frontend app
 
 By default, CoAgents are like skills you provide to the CopilotKit SDK. CopilotKit will take care of starting a specific agent when it detects that this agent is needed — all you need to do is to provide your agents to CopilotKit on the Python side.
 
 Sometimes, you'll want a specific agent to run even before your users take action, ensuring that the user interacts with that agent directly. For these scenarios, you can "lock" a specific agent in your CopilotKit frontend by passing in the `agent` prop:
+
+
+For more information on agent-lock mode, and router mode, see [Router Mode and Agent Lock](/coagents/advanced-usage/router-mode-agent-lock).
+
+
+
+
 
 ```tsx
 <CopilotKit

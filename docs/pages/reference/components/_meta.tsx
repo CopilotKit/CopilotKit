@@ -1,10 +1,10 @@
 
 export default {
-  "CopilotKit": {
-    title: "<CopilotKit />",
+  "all-chat-components": {
+    title: "All Chat Components",
   },
-  "CopilotTextarea": {
-    title: "<CopilotTextarea />",
+  "CopilotChat": {
+    title: "<CopilotChat />",
   },
   "CopilotPopup": {
     title: "<CopilotPopup />",
@@ -12,8 +12,16 @@ export default {
   "CopilotSidebar": {
     title: "<CopilotSidebar />",
   },
-  "CopilotChat": {
-    title: "<CopilotChat />",
+  "___Others": {
+    title: "Others",
+    type: "separator"
   },
+  "CopilotKit": {
+    title: "<CopilotKit />",
+  },
+  "CopilotTextarea": {
+    title: "<CopilotTextarea />",
+  },
+  
 };
 

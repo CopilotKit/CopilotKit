@@ -3,9 +3,10 @@ import { Steps } from 'nextra/components'
 import { Tabs } from "nextra/components";
 import Link from "next/link";
 import { TailoredExperience, LinkToCopilotCloud } from "@/components";
-import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 import GenerativeUiQuickstart from "@/snippets/generative-ui-quickstart.mdx";
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
+import UseCopilotChatShortSnippet from "@/snippets/use-copilot-chat-short-snippet.mdx";
 
 
 # Quickstart: Chatbot
@@ -35,6 +36,14 @@ npm install @copilotkit/react-core @copilotkit/react-ui
     ### Step 2: Configure the CopilotKit Provider
 
     <SelfHostingCopilotRuntimeConfigureCopilotKitProvider />
+
+    ### Step 3: Use the customizable built-in Copilot UI component -- or bring your own UI.
+
+    CopilotKit offers [Copilot UI components](/reference/components/all-chat-components) for quick setup, or [Copilot OS with useCopilotChat](/reference/hooks/useCopilotChat) for a customizable headless UI & programmatic control. 
+    <div className="mt-4 flex justify-center items-center">
+      <img src="/images/concepts/generative-ui/render-dynamic.gif" alt="Copilot Components" className="w-full max-w-[30%]" />
+    </div>
+
   </Steps>
 
 
@@ -102,17 +111,17 @@ export function YourComponent() {
 <GenerativeUiQuickstart />
 
 
+
+## Next Steps
+
+We highly recommend checkout out our simple **[AI Todo List Copilot Tutorial](/tutorial-ai-todo-list-copilot/overview)** to learn more about CopilotKit.
+
 ## CoAgents (Early Access)
 
-CopilotKit now offers CoAgents, infrastructure for deeply integrating LangGraph agents into applications.
+CopilotKit now offers **CoAgents🪁🤖** infrastructure for deeply integrating LangGraph agents into applications.
 <div className="mt-4">
   <Link href="/coagents" className="text-blue-600 hover:text-blue-800 underline">
     Check out our new CoAgents beta
   </Link>
 </div>
 
-
-
-## Next Steps
-
-We highly recommend checkout out our simple [AI Todo List Copilot Tutorial](/tutorial-ai-todo-list-copilot/overview) to learn more about CopilotKit.

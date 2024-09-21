@@ -23,12 +23,14 @@ As an industry, we are quickly learning that **AI agents perform best when they 
 
 <CoAgentsFeatures.Toggle />
 
-**Press one of the buttons above 👆**
-
 <CoAgentsFeatures.GenerativeUi>
   ### Generative UI
 
   Generative UI allows you to create dynamic user interfaces with AI-generated components, inside a chat UI.
+
+  <Frame>
+    <img src="/images/coagents/json-feedback.png" alt="JSON feedback example" />
+  </Frame>
 
   ```tsx
   useCoAgentAction({
@@ -180,8 +182,19 @@ As an industry, we are quickly learning that **AI agents perform best when they 
 </div>
 
 
+We will soon add native & seamless Agent Q&A support in `useCoAgentAction`.
+
+In the meantime, you can achieve agent Q&A in the following way:
+1. Use `useCoAgentAction` to render your "Question" LangGraph node (via the exposed state).
+2. In your LangGraph, go to an `END` node, or use a breakpoint, to wait for user input.
+3. In the `useCoAgentAction` render function, call `setState` provided by `useCoAgent` to provide the "answer" in the graph state.
+4. After the answer is provided via the agent state, navigate to your relevant 'answer' node. For convenience, [you can use the `then` argument on LangGraph's `add_conditional_edges`](https://langchain-ai.github.io/langgraph/reference/graphs/#stategraph)
 
 </CoAgentsFeatures.AgentQAndA>
+
+<CoAgentsFeatures.Toggle />
+
+---
 
 ## Get started building with CoAgents
 
