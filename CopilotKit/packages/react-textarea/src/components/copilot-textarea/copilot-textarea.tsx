@@ -12,7 +12,7 @@
  * ## Example
  *
  * ```tsx
- * import { CopilotTextarea } from '@copilot/react-textarea';
+ * import { CopilotTextarea } from '@copilotkit/react-textarea';
  * <CopilotTextarea
  *   autosuggestionsConfig={{
  *     textareaPurpose:
