@@ -19,6 +19,15 @@ As an industry, we are quickly learning that **AI agents perform best when they 
 
 <p className="mt-6"><Link href="/coagents/coagent-demo" className="_text-primary-600 decoration-from-font underline [text-underline-position:from-font]">Check out a demo of a Perplexity clone, built with CoAgents</Link></p>
 
+
+<Frame>
+  <img
+    src="/images/CoAgents.gif"
+    alt="CoAgents demonstration"
+    className="w-auto"
+  />
+</Frame>
+
 ## The Core Features of a CoAgent
 
 <CoAgentsFeatures.Toggle />
@@ -28,9 +37,6 @@ As an industry, we are quickly learning that **AI agents perform best when they 
 
   Generative UI allows you to create dynamic user interfaces with AI-generated components, inside a chat UI.
 
-  <Frame>
-    <img src="/images/coagents/json-feedback.png" alt="JSON feedback example" />
-  </Frame>
 
   ```tsx
   useCoAgentAction({
@@ -51,14 +57,15 @@ As an industry, we are quickly learning that **AI agents perform best when they 
   });
   ```
 
+  <Frame>
+    <img src="/images/coagents/json-feedback.png" alt="JSON feedback example" />
+  </Frame>
+
+
 </CoAgentsFeatures.GenerativeUi>
 
 <CoAgentsFeatures.StreamAgentState>
   ### Stream agent state
-
-  <Frame>
-    <img src="/images/coagents/intermediate-state.gif" />
-  </Frame>
 
   <Steps>
     ### Frontend
@@ -111,6 +118,11 @@ As an industry, we are quickly learning that **AI agents perform best when they 
     copilotkit_emit_state({"key": value}, config)
     ```
   </Steps>
+
+  <Frame>
+    <img src="/images/coagents/intermediate-state.gif" />
+  </Frame>
+
 
 </CoAgentsFeatures.StreamAgentState>
 
