@@ -12,6 +12,9 @@ export default {
   "self-hosting": {
     title: <SideNavTitleWithIcon title="Self Hosting" icon={HiOutlineServerStack} />,
   },
+  "different-llm-providers": {
+    title: <SideNavTitleWithIcon title="LLM Providers" icon={HiOutlineServerStack} />,
+  },
   "agents": {
     title: <SideNavTitleWithIcon title="Agents (LangChain)" icon={PiGraphDuotone} />,
   },
