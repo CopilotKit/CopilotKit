@@ -49,6 +49,7 @@
     "eslint-config-custom": "workspace:*",
     "jest": "^29.6.4",
     "react": "^18.2.0",
+    "rollup-preserve-directives": "^1.1.1",
     "tailwind-config": "workspace:*",
     "tailwindcss": "3.3.2",
     "ts-jest": "^29.1.1",
