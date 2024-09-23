@@ -10,11 +10,17 @@ export default defineConfig({
   build: {
     outDir: "dist",
     rollupOptions: {
-      external: ["react", "react/jsx-runtime"],
+      external: ["react", "react/jsx-runtime", "@copilotkit/shared", "@copilotkit/react-core"],
+      onLog(level, log, handler) {
+        if (log.cause && (log.cause as any).message === `Can't resolve original location of error.`) {
+          return
+        }
+        handler(level, log)
+      }
     },
     copyPublicDir: false,
     lib: {
-      entry: resolve(__dirname, "src/index.ts"),
+      entry: resolve(__dirname, "src/index.tsx"),
       formats: ["es"],
       fileName: (format, entryName) => `${entryName}.js`,
     },

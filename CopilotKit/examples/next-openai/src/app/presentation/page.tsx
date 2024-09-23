@@ -1,10 +1,9 @@
 "use client";
-import { CopilotKit, useCopilotReadable } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotKitCSSProperties, CopilotPopup, CopilotSidebar } from "@copilotkit/react-ui";
 import "./styles.css";
 import { Presentation } from "./components/main/Presentation";
 import { useState } from "react";
-import { Greet } from "@copilotkit/vite-lib-test";
 
 export default function AIPresentation() {
   const [performResearch, setPerformResearch] = useState(false);
@@ -15,7 +14,6 @@ export default function AIPresentation() {
       transcribeAudioUrl="/api/transcribe"
       textToSpeechUrl="/api/tts"
     >
-      <Greet />
       <div
         style={
           {

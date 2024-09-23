@@ -1,12 +1,11 @@
 {
   "extends": "../../utilities/tsconfig/react-library.json",
-  "include": ["."],
-  "exclude": [
-    "dist",
-    "build",
-    "node_modules",
-    "**/*.test.ts",  // Exclude TypeScript test files
-    "**/*.test.tsx", // Exclude TypeScript React test files
-    "**/__tests__/*" // Exclude any files inside a __tests__ directory
-  ]
+  "include": ["src"],
+  "compilerOptions": {
+    "outDir": "./dist",
+    "paths": {
+      "@copilotkit/react-core": ["../../packages/react-core/src"],
+      "@copilotkit/react-core/*": ["../../packages/react-core/src/*"]
+    }
+  }
 }

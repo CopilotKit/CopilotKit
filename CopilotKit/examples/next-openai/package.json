@@ -10,7 +10,6 @@
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
   },
   "dependencies": {
-    "@copilotkit/vite-lib-test": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/react-textarea": "workspace:*",
     "@copilotkit/react-ui": "workspace:*",
