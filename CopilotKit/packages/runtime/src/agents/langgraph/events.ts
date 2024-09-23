@@ -8,6 +8,7 @@ export enum LangGraphEventTypes {
   OnToolStart = "on_tool_start",
   OnToolEnd = "on_tool_end",
   OnCopilotKitStateSync = "on_copilotkit_state_sync",
+  OnCopilotKitEmitMessage = "on_copilotkit_emit_message",
 }
 
 type LangGraphOnCopilotKitStateSyncEvent = {
@@ -20,6 +21,12 @@ type LangGraphOnCopilotKitStateSyncEvent = {
   role: string;
   state: any;
   running: boolean;
+};
+
+type LangGraphOnCopilotKitManualMessageEvent = {
+  event: LangGraphEventTypes.OnCopilotKitEmitMessage;
+  message: string;
+  message_id: string;
 };
 
 type LangGraphOnChainStartEvent = {
@@ -306,4 +313,5 @@ export type LangGraphEvent =
   | LangGraphOnChatModelEndEvent
   | LangGraphOnToolStartEvent
   | LangGraphOnToolEndEvent
-  | LangGraphOnCopilotKitStateSyncEvent;
+  | LangGraphOnCopilotKitStateSyncEvent
+  | LangGraphOnCopilotKitManualMessageEvent;

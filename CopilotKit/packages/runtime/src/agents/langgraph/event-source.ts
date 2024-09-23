@@ -101,15 +101,15 @@ export class RemoteLangGraphEventSource {
       mergeMap((eventWithState): RuntimeEvent[] => {
         const events: RuntimeEvent[] = [];
 
-        let shouldEmitMessages = false;
+        let shouldEmitMessages = true;
         let shouldEmitToolCalls = false;
 
         if (eventWithState.event.event == LangGraphEventTypes.OnChatModelStream) {
-          if (eventWithState.event.tags?.includes("copilotkit:emit-tool-calls")) {
-            shouldEmitToolCalls = true;
+          if ("copilotkit:emit-tool-calls" in (eventWithState.event.metadata || {})) {
+            shouldEmitToolCalls = eventWithState.event.metadata["copilotkit:emit-tool-calls"];
           }
-          if (eventWithState.event.tags?.includes("copilotkit:emit-messages")) {
-            shouldEmitMessages = true;
+          if ("copilotkit:emit-messages" in (eventWithState.event.metadata || {})) {
+            shouldEmitMessages = eventWithState.event.metadata["copilotkit:emit-messages"];
           }
         }
 
@@ -136,6 +136,19 @@ export class RemoteLangGraphEventSource {
         }
 
         switch (eventWithState.event!.event) {
+          case LangGraphEventTypes.OnCopilotKitEmitMessage:
+            events.push({
+              type: RuntimeEventTypes.TextMessageStart,
+              messageId: eventWithState.event.message_id,
+            });
+            events.push({
+              type: RuntimeEventTypes.TextMessageContent,
+              content: eventWithState.event.message,
+            });
+            events.push({
+              type: RuntimeEventTypes.TextMessageEnd,
+            });
+            break;
           case LangGraphEventTypes.OnCopilotKitStateSync:
             events.push({
               type: RuntimeEventTypes.AgentStateMessage,
