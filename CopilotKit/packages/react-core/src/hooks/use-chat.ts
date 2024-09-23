@@ -287,12 +287,17 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                   break;
                 }
                 // execute action
-                const result = await onFunctionCall({
-                  messages: previousMessages,
-                  name: message.name,
-                  args: message.arguments,
-                });
-                actionResults[message.id] = result;
+                try {
+                  const result = await onFunctionCall({
+                    messages: previousMessages,
+                    name: message.name,
+                    args: message.arguments,
+                  });
+                  actionResults[message.id] = result;
+                } catch (e) {
+                  actionResults[message.id] = `Failed to execute action ${message.name}`;
+                  console.error(`Failed to execute action ${message.name}: ${e}`);
+                }
               }
               // add the result message
               newMessages.push(

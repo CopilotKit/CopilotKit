@@ -107,27 +107,37 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
                 status = "executing";
               }
 
-              const toRender = render({
-                status: status as any,
-                args,
-                result: functionResults[message.id],
-              });
-
-              // No result and complete: stay silent
-              if (!toRender && status === "complete") {
-                return null;
-              }
-
-              if (typeof toRender === "string") {
+              try {
+                const toRender = render({
+                  status: status as any,
+                  args,
+                  result: functionResults[message.id],
+                });
+                // No result and complete: stay silent
+                if (!toRender && status === "complete") {
+                  return null;
+                }
+                if (typeof toRender === "string") {
+                  return (
+                    <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
+                      {isCurrentMessage && inProgress && context.icons.spinnerIcon} {toRender}
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div key={index} className="copilotKitCustomAssistantMessage">
+                      {toRender}
+                    </div>
+                  );
+                }
+              } catch (e) {
+                console.error(`Error executing render function for action ${message.name}: ${e}`);
                 return (
                   <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-                    {isCurrentMessage && inProgress && context.icons.spinnerIcon} {toRender}
-                  </div>
-                );
-              } else {
-                return (
-                  <div key={index} className="copilotKitCustomAssistantMessage">
-                    {toRender}
+                    {isCurrentMessage && inProgress && context.icons.spinnerIcon}
+                    <b>❌ Error executing render: {message.name}</b>
+                    <br />
+                    {e instanceof Error ? e.message : String(e)}
                   </div>
                 );
               }
