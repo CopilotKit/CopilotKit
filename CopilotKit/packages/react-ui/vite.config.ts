@@ -10,13 +10,22 @@ export default defineConfig({
   build: {
     outDir: "dist",
     rollupOptions: {
-      external: ["react", "react/jsx-runtime", "@copilotkit/shared", "@copilotkit/react-core"],
+      external: [
+        "react",
+        "react-dom",
+        "react/jsx-runtime",
+        "@copilotkit/shared",
+        "@copilotkit/react-core",
+      ],
       onLog(level, log, handler) {
-        if (log.cause && (log.cause as any).message === `Can't resolve original location of error.`) {
-          return
+        if (
+          log.cause &&
+          (log.cause as any).message === `Can't resolve original location of error.`
+        ) {
+          return;
         }
-        handler(level, log)
-      }
+        handler(level, log);
+      },
     },
     copyPublicDir: false,
     lib: {
