@@ -15,6 +15,7 @@ import { replaceEditorText } from "../../lib/slatejs-edits/replace-text";
 import { BaseAutosuggestionsConfig, defaultBaseAutosuggestionsConfig } from "../../types/base";
 import { AutosuggestionState } from "../../types/base/autosuggestion-state";
 import { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
+import "./base-copilot-textarea.css";
 import { HoveringToolbar } from "../hovering-toolbar/hovering-toolbar";
 import { makeRenderElementFunction } from "./render-element";
 import { makeRenderPlaceholderFunction } from "./render-placeholder";

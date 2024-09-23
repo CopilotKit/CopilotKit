@@ -36,6 +36,23 @@ export const Button = React.forwardRef(
   ),
 );
 
+export const Icon = React.forwardRef(
+  ({ className, ...props }: PropsWithChildren<BaseProps>, ref: Ref<HTMLSpanElement | null>) => (
+    <span
+      {...props}
+      ref={ref as Ref<HTMLSpanElement>}
+      className={cx(
+        "material-icons",
+        className,
+        css`
+          font-size: 18px;
+          vertical-align: text-bottom;
+        `,
+      )}
+    />
+  ),
+);
+
 export const Menu = React.forwardRef(
   ({ className, ...props }: PropsWithChildren<BaseProps>, ref: Ref<HTMLDivElement | null>) => {
     return (
