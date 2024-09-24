@@ -1,5 +1,5 @@
 /**
- * Copilot Runtime adapter for OpenAI.
+ * Copilot Runtime adapter for Groq.
  *
  * ## Example
  *
