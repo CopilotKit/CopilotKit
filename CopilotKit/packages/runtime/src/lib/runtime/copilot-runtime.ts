@@ -336,6 +336,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       graphqlContext,
       messages: inputMessages,
       agentStates,
+      frontendUrl: url,
     });
 
     const configuredActions =

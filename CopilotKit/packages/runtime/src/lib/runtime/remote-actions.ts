@@ -57,11 +57,13 @@ async function fetchRemoteInfo({
   onBeforeRequest,
   graphqlContext,
   logger,
+  frontendUrl,
 }: {
   url: string;
   onBeforeRequest?: RemoteActionDefinition["onBeforeRequest"];
   graphqlContext: GraphQLContext;
   logger: Logger;
+  frontendUrl?: string;
 }): Promise<any[]> {
   logger.debug({ url }, "Fetching actions from url");
   const headers = createHeaders(onBeforeRequest, graphqlContext);
@@ -69,7 +71,7 @@ async function fetchRemoteInfo({
   const response = await fetch(`${url}/info`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ properties: graphqlContext.properties }),
+    body: JSON.stringify({ properties: graphqlContext.properties, frontendUrl }),
   });
 
   if (!response.ok) {
@@ -203,11 +205,13 @@ export async function setupRemoteActions({
   graphqlContext,
   messages,
   agentStates,
+  frontendUrl,
 }: {
   remoteActionDefinitions: RemoteActionDefinition[];
   graphqlContext: GraphQLContext;
   messages: Message[];
   agentStates?: AgentStateInput[];
+  frontendUrl?: string;
 }): Promise<Action[]> {
   const logger = graphqlContext.logger.child({ component: "remote-actions.fetchRemoteActions" });
   logger.debug({ remoteActionDefinitions }, "Fetching remote actions");
@@ -224,6 +228,7 @@ export async function setupRemoteActions({
         onBeforeRequest: actionDefinition.onBeforeRequest,
         graphqlContext,
         logger: logger.child({ component: "remote-actions.fetchActionsFromUrl", actionDefinition }),
+        frontendUrl,
       });
       return constructRemoteActions({
         json,
