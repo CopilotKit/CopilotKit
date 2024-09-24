@@ -6,13 +6,7 @@ import {
 import { NextRequest } from "next/server";
 
 export const POST = async (req: NextRequest) => {
-  const runtime = new CopilotRuntime({
-    remoteActions: [
-      {
-        url: "http://localhost:8000/copilotkit",
-      },
-    ],
-  });
+  const runtime = new CopilotRuntime({});
 
   const serviceAdapter = new OpenAIAdapter();
 
