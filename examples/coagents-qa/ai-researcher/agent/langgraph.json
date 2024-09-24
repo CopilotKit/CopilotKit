@@ -1,0 +1,9 @@
+{
+  "python_version": "3.12",
+  "dockerfile_lines": [],
+  "dependencies": ["."],
+  "graphs": {
+    "ai_researcher": "./ai_researcher/agent.py:graph"
+  },
+  "env": ".env"
+}
