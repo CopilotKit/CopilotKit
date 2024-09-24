@@ -5,7 +5,7 @@ import { FaDiscord } from "react-icons/fa";
 import Link from "next/link";
 import { CoAgentsEnterpriseCTA } from "@/components/coagents-enterprise-cta";
 import { CoAgentsFeatures } from "@/components";
-import { Steps } from 'nextra/components'
+import { Steps } from "nextra/components";
 
 # Introduction to CoAgents (Early Access)
 
@@ -13,12 +13,21 @@ import { Steps } from 'nextra/components'
   <YouTubeVideo videoId="nBephBv4zr0" defaultPlaybackRate={1.25} />
 </div>
 
-<p className="text-xl/snug mb-0 font-medium">CopilotKit's CoAgents are the missing link that makes it easy to connect LangGraph agents to humans in the loop.</p>
+<p className="text-xl/snug mb-0 font-medium">
+  CopilotKit's CoAgents are the missing link that makes it easy to connect
+  LangGraph agents to humans in the loop.
+</p>
 
 As an industry, we are quickly learning that **AI agents perform best when they work alongside humans**. Working with machines to perform complex tasks with a human in the loop is far easier than teaching AIs to perform those tasks autonomously. But building good workflows to enable human-AI collaboration has been no small task — until now.
 
-<p className="mt-6"><Link href="/coagents/coagent-demo" className="_text-primary-600 decoration-from-font underline [text-underline-position:from-font]">Check out a demo of a Perplexity clone, built with CoAgents</Link></p>
-
+<p className="mt-6">
+  <Link
+    href="/coagents/coagent-demo"
+    className="_text-primary-600 decoration-from-font underline [text-underline-position:from-font]"
+  >
+    Check out a demo of a Perplexity clone, built with CoAgents
+  </Link>
+</p>
 
 <Frame>
   <img
@@ -35,32 +44,30 @@ As an industry, we are quickly learning that **AI agents perform best when they 
 <CoAgentsFeatures.GenerativeUi>
   ### Generative UI
 
-  Generative UI allows you to create dynamic user interfaces with AI-generated components, inside a chat UI.
+Generative UI allows you to create dynamic user interfaces with AI-generated components, inside a chat UI.
 
+```tsx
+useCoAgentAction({
+  // the name of the agent
+  name: "car_rental_agent",
 
-  ```tsx
-  useCoAgentAction({
-    // the name of the agent 
-    name: "car_rental_agent",
-    
-    // this is optional: the node name to render generative UI for. If left empty, renders for every node.
-    nodeName: "confirm_node",
-    
-    // render can be a function or a string, just like useCopilotAction
-    render: ({ state, status }) => {
-      if (status === "inProgress") {
-        return <div> Generating response: {state.response} </div>
-      } else {
-        return <div> Done generating response </div>
-      }
+  // this is optional: the node name to render generative UI for. If left empty, renders for every node.
+  nodeName: "confirm_node",
+
+  // render can be a function or a string, just like useCopilotAction
+  render: ({ state, status }) => {
+    if (status === "inProgress") {
+      return <div> Generating response: {state.response} </div>;
+    } else {
+      return <div> Done generating response </div>;
     }
-  });
-  ```
+  },
+});
+```
 
-  <Frame>
-    <img src="/images/coagents/json-feedback.png" alt="JSON feedback example" />
-  </Frame>
-
+<Frame>
+  <img src="/images/coagents/json-feedback.png" alt="JSON feedback example" />
+</Frame>
 
 </CoAgentsFeatures.GenerativeUi>
 
@@ -93,7 +100,7 @@ As an industry, we are quickly learning that **AI agents perform best when they 
         emit_intermediate_state=[
             {
                 "state_key": "steps", # key on the LangGraph state to be updated
-                "tool": "search", # tool call 
+                "tool": "search", # tool call
                 "tool_argument": "steps" # argument of the tool call interpreted as intermediate state
             },
         ]
@@ -115,47 +122,56 @@ As an industry, we are quickly learning that **AI agents perform best when they 
 
     ```python
     # imperative function:
-    copilotkit_emit_state({"key": value}, config)
+    copilotkit_emit_state(config, {"key": value} )
     ```
+
+    #### Manually Emit Messages
+
+    To manually emit messages to the frontend, call `copilotkit_emit_message`:
+
+    ```python
+    # imperative function:
+    copilotkit_emit_message(config, "Hello, world!")
+    ```
+
   </Steps>
 
-  <Frame>
-    <img src="/images/coagents/intermediate-state.gif" />
-  </Frame>
-
+<Frame>
+  <img src="/images/coagents/intermediate-state.gif" />
+</Frame>
 
 </CoAgentsFeatures.StreamAgentState>
 
 <CoAgentsFeatures.ShareAgentState>
 
-  ### Share Agent State
+### Share Agent State
 
-  Sharing agent state allows for collaboration and persistence across different sessions or users. Here's how you can implement this feature:
+Sharing agent state allows for collaboration and persistence across different sessions or users. Here's how you can implement this feature:
 
-  ```typescript
-  const { state, setState, start, stop, run } = useCoAgent({
-    name: "search_agent",
-  });
-  
-  // ...
-  setState(newStateEditedByUser)
-  run("the user has updated the state") // optionally provide a hint about why the agent state changed.
-  ```
+```typescript
+const { state, setState, start, stop, run } = useCoAgent({
+  name: "search_agent",
+});
 
-  Just like before, we use the `state` variable on `useCoAgent` to receive the latest agent state.
-  Now we additionally intercept 4 more of `useCoAgent`'s returned values:
-  - `setState`: A function to update the agent's state manually
-  - `start`: A function to initiate the agent's execution
-  - `stop`: A function to halt the agent's execution
-  - `run`: A function to re-run the agent, after updating the state. Optionally include a hint for why the state changed.
+// ...
+setState(newStateEditedByUser);
+run("the user has updated the state"); // optionally provide a hint about why the agent state changed.
+```
 
+Just like before, we use the `state` variable on `useCoAgent` to receive the latest agent state.
+Now we additionally intercept 4 more of `useCoAgent`'s returned values:
+
+- `setState`: A function to update the agent's state manually
+- `start`: A function to initiate the agent's execution
+- `stop`: A function to halt the agent's execution
+- `run`: A function to re-run the agent, after updating the state. Optionally include a hint for why the state changed.
 
 </CoAgentsFeatures.ShareAgentState>
 
 <CoAgentsFeatures.AgentQAndA>
   ### Agent Q&A
 
-  Agents can easily and intentionally ask the user questions. With support for:
+Agents can easily and intentionally ask the user questions. With support for:
 
 - **Text Feedback:** Via the chat UI.
 - **Structured (JSON) Feedback:** Via fully custom UI/UX anywhere in your application (chat UI, modals, popups, forms, etc).
@@ -193,10 +209,10 @@ As an industry, we are quickly learning that **AI agents perform best when they 
   </div>
 </div>
 
-
 We will soon add native & seamless Agent Q&A support in `useCoAgentAction`.
 
 In the meantime, you can achieve agent Q&A in the following way:
+
 1. Use `useCoAgentAction` to render your "Question" LangGraph node (via the exposed state).
 2. In your LangGraph, go to an `END` node, or use a breakpoint, to wait for user input.
 3. In the `useCoAgentAction` render function, call `setState` provided by `useCoAgent` to provide the "answer" in the graph state.
