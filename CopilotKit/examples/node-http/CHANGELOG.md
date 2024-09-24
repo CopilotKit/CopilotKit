@@ -1,5 +1,14 @@
 # node
 
+## 1.3.1
+
+### Patch Changes
+
+- Revert CSS injection
+- Updated dependencies
+  - @copilotkit/runtime@1.3.1
+  - @copilotkit/shared@1.3.1
+
 ## 1.3.0
 
 ### Minor Changes

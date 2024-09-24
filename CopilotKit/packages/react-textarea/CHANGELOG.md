@@ -1,5 +1,15 @@
 # ui
 
+## 1.3.1
+
+### Patch Changes
+
+- Revert CSS injection
+- Updated dependencies
+  - @copilotkit/react-core@1.3.1
+  - @copilotkit/runtime-client-gql@1.3.1
+  - @copilotkit/shared@1.3.1
+
 ## 1.3.0
 
 ### Minor Changes
