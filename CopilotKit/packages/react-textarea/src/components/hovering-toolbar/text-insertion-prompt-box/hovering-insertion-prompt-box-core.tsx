@@ -10,8 +10,8 @@ import { Label } from "../../ui/label";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { streamPromiseFlatten } from "../../../lib/stream-promise-flatten";
+import { IncludedFilesPreview } from "./included-files-preview";
 import { useHoveringEditorContext } from "../hovering-editor-provider";
-import { MdArrowForward, MdCheck } from "react-icons/md";
 
 export type SuggestionState = {
   editorState: EditingEditorState;
@@ -190,7 +190,7 @@ export const HoveringInsertionPromptBoxCore = ({
           onClick={beginGeneratingAdjustment}
           className="absolute right-2 bg-blue-500 text-white w-8 h-8 rounded-full flex items-center justify-center"
         >
-          <MdArrowForward className="text-2xl" />
+          <i className="material-icons">arrow_forward</i>
         </button>
       </div>
     </>
@@ -207,7 +207,7 @@ export const HoveringInsertionPromptBoxCore = ({
                 className="inline-block h-4 w-4 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"
                 role="status"
               >
-                <span className="absolute -m-px h-px w-px overflow-hidden whitespace-nowrap border-0 p-0 [clip:rect(0,0,0,0)]">
+                <span className="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">
                   Loading...
                 </span>
               </div>
@@ -234,7 +234,7 @@ export const HoveringInsertionPromptBoxCore = ({
           performInsertion(editSuggestion);
         }}
       >
-        Insert <MdCheck className="text-2xl" />
+        Insert <i className="material-icons">check</i>
       </Button>
     </div>
   );
@@ -249,6 +249,9 @@ export const HoveringInsertionPromptBoxCore = ({
   return (
     <div className="w-full flex flex-col items-start relative gap-2">
       {AdjustmentPromptComponent}
+      {filePointers.length > 0 && (
+        <IncludedFilesPreview includedFiles={filePointers} setIncludedFiles={setFilePointers} />
+      )}
       {sourceSearchWord !== undefined && (
         <SourceSearchBox
           searchTerm={sourceSearchWord}
