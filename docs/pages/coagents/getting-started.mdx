@@ -1,4 +1,4 @@
-import { Steps } from 'nextra/components'
+import { Steps } from "nextra/components";
 import { CoAgentsEnterpriseCTA } from "@/components/coagents-enterprise-cta";
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 
@@ -65,6 +65,7 @@ const runtime = new CopilotRuntime({
 
 // ...
 ```
+
 </Steps>
 
 ### Integrating agents into your CopilotKit frontend app
@@ -73,12 +74,7 @@ By default, CoAgents are like skills you provide to the CopilotKit SDK. CopilotK
 
 Sometimes, you'll want a specific agent to run even before your users take action, ensuring that the user interacts with that agent directly. For these scenarios, you can "lock" a specific agent in your CopilotKit frontend by passing in the `agent` prop:
 
-
 For more information on agent-lock mode, and router mode, see [Router Mode and Agent Lock](/coagents/advanced-usage/router-mode-agent-lock).
-
-
-
-
 
 ```tsx
 <CopilotKit
@@ -102,7 +98,7 @@ CopilotKit will automatically sync state between your LangGraph agent and the fr
 For more detailed user feedback or observability, you can also configure CopilotKit to stream messages, LLM state updates and tool calls from your LangGraph agent by setting some options in our Python SDK.
 
 ```python
-config = configure_copilotkit(
+config = copilotkit_customize_config(
   config,
   # this will stream messages back to the chat window
   emit_messages=True,
@@ -119,8 +115,7 @@ config = configure_copilotkit(
 )
 ```
 
- [Read more about state streaming](/coagents/feature-state-streaming)
-
+[Read more about state streaming](/coagents/feature-state-streaming)
 
 ### Working with agent state from the frontend
 
