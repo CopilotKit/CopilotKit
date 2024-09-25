@@ -140,6 +140,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   const threadIdRef = useRef<string | null>(null);
   const runIdRef = useRef<string | null>(null);
 
+  const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
+
   const publicApiKey = copilotConfig.publicApiKey;
 
   const headers = {
@@ -376,7 +378,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         // - tried using react-dom's flushSync, but it did not work
         await new Promise((resolve) => setTimeout(resolve, 10));
 
-        return await runChatCompletion([...previousMessages, ...newMessages]);
+        return await runChatCompletionRef.current!([...previousMessages, ...newMessages]);
       } else {
         return newMessages.slice();
       }
@@ -385,8 +387,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     }
   };
 
+  runChatCompletionRef.current = runChatCompletion;
+
   const runChatCompletionAndHandleFunctionCall = async (messages: Message[]): Promise<void> => {
-    await runChatCompletion(messages);
+    await runChatCompletionRef.current!(messages);
   };
 
   const append = async (message: Message): Promise<void> => {
