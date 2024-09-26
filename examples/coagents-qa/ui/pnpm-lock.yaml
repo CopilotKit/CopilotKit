@@ -9,17 +9,17 @@ importers:
   .:
     dependencies:
       '@copilotkit/react-core':
-        specifier: 1.3.0
-        version: 1.3.0(ignore@5.3.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 1.3.1
+        version: 1.3.1(ignore@5.3.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@copilotkit/react-ui':
-        specifier: 1.3.0
-        version: 1.3.0(@types/react@18.3.4)(ignore@5.3.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 1.3.1
+        version: 1.3.1(@types/react@18.3.4)(ignore@5.3.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@copilotkit/runtime':
-        specifier: 1.3.0
-        version: 1.3.0(class-validator@0.14.1)(ignore@5.3.2)
+        specifier: 1.3.1
+        version: 1.3.1(class-validator@0.14.1)(ignore@5.3.2)
       '@copilotkit/runtime-client-gql':
-        specifier: 1.3.0
-        version: 1.3.0(ignore@5.3.2)(react@18.3.1)
+        specifier: 1.3.1
+        version: 1.3.1(ignore@5.3.2)(react@18.3.1)
       '@radix-ui/react-accordion':
         specifier: ^1.2.0
         version: 1.2.0(@types/react-dom@18.3.0)(@types/react@18.3.4)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -109,27 +109,27 @@ packages:
     resolution: {integrity: sha512-VBj9MYyDb9tuLq7yzqjgzt6Q+IBQLrGZfdjOekyEirZPHxXWoTSGUTMrpsfi58Up73d13NfYLv8HT9vmznjzhQ==}
     engines: {node: '>=6.9.0'}
 
-  '@copilotkit/react-core@1.3.0':
-    resolution: {integrity: sha512-gjiINkCYYQXML+pms1fOwaC0IQKJYYbZL9ZTYCVJxiqEDJimR/TiZW7FBeI33+yXz6xyPuAp+CDTvv/NJboWbA==}
+  '@copilotkit/react-core@1.3.1':
+    resolution: {integrity: sha512-GuzziiuaAAWw8x7vVM87pxHc4npuxbjplTJeM4Dn7NWAqnOGgBwpxtvj/A0XwORbxtqf9ewqOa2G/vHmThqWzw==}
     peerDependencies:
       react: ^18.2.0
       react-dom: ^18.2.0
 
-  '@copilotkit/react-ui@1.3.0':
-    resolution: {integrity: sha512-munMu0+ZCc7a4krl0vVdzmSR72RiINkQer0UdStz7u+uveqw5UKI9XJgHTjnvSqSo1IKuN4C4HcfVGydV911Fw==}
+  '@copilotkit/react-ui@1.3.1':
+    resolution: {integrity: sha512-Z+TYohUzs1Xk5ZmsFXhLdfXg5bvseb6+aOR5MtQE8BcYeaRF+umq75OlUAzZtuHGEcWAE4J/iCGXn2rcB0FNtA==}
     peerDependencies:
       react: ^18.2.0
 
-  '@copilotkit/runtime-client-gql@1.3.0':
-    resolution: {integrity: sha512-JRR/gkLPtLTqVBAbtocBcvYDdxuIk0Lp+I46BxMggs4ic/tmozBvR64zwONv1B5IS3kVMgUqdmlF2oXkh8QVzA==}
+  '@copilotkit/runtime-client-gql@1.3.1':
+    resolution: {integrity: sha512-Hd9EUWB+FGllHKGpRHS7n8UzgLEErUFofl6rZEpndlz6osWCGUo/DoJL8q9QD8GA3iBwzrbOMyRvEnt04M3/rQ==}
     peerDependencies:
       react: ^18.2.0
 
-  '@copilotkit/runtime@1.3.0':
-    resolution: {integrity: sha512-ciHWDn4P9AP6MtdNto6+Twx7mzzrL2Fc+C18T/0jGaZIY0nN+tCDt2IynJYI+wkd3tzAq+AQHAtyZfMNUND+0Q==}
+  '@copilotkit/runtime@1.3.1':
+    resolution: {integrity: sha512-tNio8dc/SYFZdN9w6eFl4S2jKqjBMmDNBf618rkD9UU4fAFD3EiLpbw0P5i4oeFASVC4/J2xuNimgGIt1sTqjA==}
 
-  '@copilotkit/shared@1.3.0':
-    resolution: {integrity: sha512-U5Fuc+n2euoD/r8zVaDZF9Z5VGRYAHrD40PkFhWIvHP8MYFQd7CxmEqnMCvOVxqsHjTzTiE5Kb27EKUmv4inEg==}
+  '@copilotkit/shared@1.3.1':
+    resolution: {integrity: sha512-0vm4SbbcXkDAZCydHs9rVXGmGtBGgR9Eh+UiHSKArKADb9Y4JvnEYTwRGcs6c+jBV2FNkPUgDevNmaooW9iciQ==}
 
   '@envelop/core@5.0.2':
     resolution: {integrity: sha512-tVL6OrMe6UjqLosiE+EH9uxh2TQC0469GwF4tE014ugRaDDKKVWwFwZe0TBMlcyHKh5MD4ZxktWo/1hqUxIuhw==}
@@ -3637,10 +3637,10 @@ snapshots:
     dependencies:
       regenerator-runtime: 0.14.1
 
-  '@copilotkit/react-core@1.3.0(ignore@5.3.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkit/react-core@1.3.1(ignore@5.3.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@copilotkit/runtime-client-gql': 1.3.0(ignore@5.3.2)(react@18.3.1)
-      '@copilotkit/shared': 1.3.0
+      '@copilotkit/runtime-client-gql': 1.3.1(ignore@5.3.2)(react@18.3.1)
+      '@copilotkit/shared': 1.3.1
       '@scarf/scarf': 1.3.0
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
@@ -3769,11 +3769,11 @@ snapshots:
       - youtube-transcript
       - youtubei.js
 
-  '@copilotkit/react-ui@1.3.0(@types/react@18.3.4)(ignore@5.3.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkit/react-ui@1.3.1(@types/react@18.3.4)(ignore@5.3.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@copilotkit/react-core': 1.3.0(ignore@5.3.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@copilotkit/runtime-client-gql': 1.3.0(ignore@5.3.2)(react@18.3.1)
-      '@copilotkit/shared': 1.3.0
+      '@copilotkit/react-core': 1.3.1(ignore@5.3.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@copilotkit/runtime-client-gql': 1.3.1(ignore@5.3.2)(react@18.3.1)
+      '@copilotkit/shared': 1.3.1
       '@headlessui/react': 2.1.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       react-markdown: 8.0.7(@types/react@18.3.4)(react@18.3.1)
@@ -3906,10 +3906,10 @@ snapshots:
       - youtube-transcript
       - youtubei.js
 
-  '@copilotkit/runtime-client-gql@1.3.0(ignore@5.3.2)(react@18.3.1)':
+  '@copilotkit/runtime-client-gql@1.3.1(ignore@5.3.2)(react@18.3.1)':
     dependencies:
-      '@copilotkit/runtime': 1.3.0(class-validator@0.14.1)(ignore@5.3.2)
-      '@copilotkit/shared': 1.3.0
+      '@copilotkit/runtime': 1.3.1(class-validator@0.14.1)(ignore@5.3.2)
+      '@copilotkit/shared': 1.3.1
       '@urql/core': 5.0.6(graphql@16.9.0)
       class-transformer: 0.5.1
       class-validator: 0.14.1
@@ -4042,10 +4042,10 @@ snapshots:
       - youtube-transcript
       - youtubei.js
 
-  '@copilotkit/runtime@1.3.0(class-validator@0.14.1)(ignore@5.3.2)':
+  '@copilotkit/runtime@1.3.1(class-validator@0.14.1)(ignore@5.3.2)':
     dependencies:
       '@anthropic-ai/sdk': 0.27.3
-      '@copilotkit/shared': 1.3.0
+      '@copilotkit/shared': 1.3.1
       '@google/generative-ai': 0.11.5
       '@graphql-yoga/plugin-defer-stream': 3.7.0(graphql-yoga@5.7.0(graphql@16.9.0))(graphql@16.9.0)
       '@langchain/community': 0.0.53(langchain@0.1.37(ignore@5.3.2)(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8))
@@ -4190,7 +4190,7 @@ snapshots:
       - youtube-transcript
       - youtubei.js
 
-  '@copilotkit/shared@1.3.0':
+  '@copilotkit/shared@1.3.1':
     dependencies:
       '@segment/analytics-node': 2.1.2
       chalk: 4.1.2
