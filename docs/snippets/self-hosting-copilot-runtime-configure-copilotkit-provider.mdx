@@ -1,19 +1,18 @@
 
-Now you can configure the [`<CopilotKit>`](/reference/components/CopilotKit) provider to point to your Copilot Runtime URL. For example, if your runtime endpoint is served at `http://localhost:3000/api/runtime`, you can configure the provider like this:
+The [`<CopilotKit>`](/reference/components/CopilotKit) provider must wrap the Copilot-aware parts of your application.
+For most use-cases, it's appropriate to wrap the `CopilotKit` provider around the entire app, e.g. in your `layout.tsx`
 
-  ```tsx filename="layout.tsx" showLineNumbers {9}
+Point it at the Copilot Runtime URL you configured in the previous step.
+
+  ```tsx filename="layout.tsx" showLineNumbers {7, 9}
   "use client";
 
   import { CopilotKit } from "@copilotkit/react-core";
-  import { CopilotSidebar } from "@copilotkit/react-ui";
-  import "@copilotkit/react-ui/styles.css";
 
   export default function RootLayout({children}) {
     return (
-      <CopilotKit runtimeUrl="<copilot-runtime-url>">
-        <CopilotSidebar>
-          {children}
-        </CopilotSidebar>
+      <CopilotKit runtimeUrl="<copilot-runtime-url-configured-in-the-previous-step>">
+        {children}
       </CopilotKit>
     );
   }

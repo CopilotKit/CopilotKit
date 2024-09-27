@@ -2,8 +2,8 @@ export default {
   "CopilotRuntime": {
     title: "CopilotRuntime",
   },
-  "service-adapters": {
-    title: "Service Adapters",
+  "llm-adapters": {
+    title: "LLM Adapters", 
   },
 };
 

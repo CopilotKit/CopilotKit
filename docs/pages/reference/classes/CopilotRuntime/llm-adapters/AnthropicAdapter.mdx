@@ -20,9 +20,9 @@ const anthropic = new Anthropic({
   apiKey: "<your-api-key>",
 });
  
-const serviceAdapter = new AnthropicAdapter({ anthropic });
+const llmAdapter = new AnthropicAdapter({ anthropic });
  
-return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+return copilotKit.streamHttpServerResponse(req, res, llmAdapter);
 ```
 
 ## Constructor Parameters

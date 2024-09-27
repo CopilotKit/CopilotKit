@@ -10,11 +10,11 @@
 <url><loc>https://docs.copilotkit.ai/documentation-contributions</loc><lastmod>2024-08-06T12:01:35.689Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
 <url><loc>https://docs.copilotkit.ai/quickstart-chatbot</loc><lastmod>2024-08-06T12:01:35.689Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
 <url><loc>https://docs.copilotkit.ai/reference/classes/CopilotRuntime/CopilotRuntime</loc><lastmod>2024-08-06T12:01:35.689Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
-<url><loc>https://docs.copilotkit.ai/reference/classes/CopilotRuntime/service-adapters/GoogleGenerativeAIAdapter</loc><lastmod>2024-08-06T12:01:35.689Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
-<url><loc>https://docs.copilotkit.ai/reference/classes/CopilotRuntime/service-adapters/GroqAdapter</loc><lastmod>2024-08-06T12:01:35.689Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
-<url><loc>https://docs.copilotkit.ai/reference/classes/CopilotRuntime/service-adapters/LangChainAdapter</loc><lastmod>2024-08-06T12:01:35.689Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
-<url><loc>https://docs.copilotkit.ai/reference/classes/CopilotRuntime/service-adapters/OpenAIAdapter</loc><lastmod>2024-08-06T12:01:35.689Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
-<url><loc>https://docs.copilotkit.ai/reference/classes/CopilotRuntime/service-adapters/OpenAIAssistantAdapter</loc><lastmod>2024-08-06T12:01:35.689Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://docs.copilotkit.ai/reference/classes/CopilotRuntime/llm-adapters/GoogleGenerativeAIAdapter</loc><lastmod>2024-08-06T12:01:35.689Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://docs.copilotkit.ai/reference/classes/CopilotRuntime/llm-adapters/GroqAdapter</loc><lastmod>2024-08-06T12:01:35.689Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://docs.copilotkit.ai/reference/classes/CopilotRuntime/llm-adapters/LangChainAdapter</loc><lastmod>2024-08-06T12:01:35.689Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://docs.copilotkit.ai/reference/classes/CopilotRuntime/llm-adapters/OpenAIAdapter</loc><lastmod>2024-08-06T12:01:35.689Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
+<url><loc>https://docs.copilotkit.ai/reference/classes/CopilotRuntime/llm-adapters/OpenAIAssistantAdapter</loc><lastmod>2024-08-06T12:01:35.689Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
 <url><loc>https://docs.copilotkit.ai/reference/classes/CopilotTask</loc><lastmod>2024-08-06T12:01:35.689Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
 <url><loc>https://docs.copilotkit.ai/reference/components/CopilotChat</loc><lastmod>2024-08-06T12:01:35.689Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>
 <url><loc>https://docs.copilotkit.ai/reference/components/CopilotKit</loc><lastmod>2024-08-06T12:01:35.689Z</lastmod><changefreq>daily</changefreq><priority>0.7</priority></url>

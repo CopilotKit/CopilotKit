@@ -22,9 +22,9 @@ const model = genAI.getGenerativeModel({
   model: "gemini-pro"
 });
  
-const serviceAdapter = new GoogleGenerativeAIAdapter({ model });
+const llmAdapter = new GoogleGenerativeAIAdapter({ model });
  
-return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+return copilotKit.streamHttpServerResponse(req, res, llmAdapter);
 ```
 
 ## Constructor Parameters

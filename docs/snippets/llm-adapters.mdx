@@ -1,0 +1,13 @@
+
+LLM Adapters are responsible for executing the request with the LLM and standardizing the request/response format in a way that the Copilot Runtime can understand.
+
+Currently, we support the following LLM Adapters:
+
+- [OpenAIAdapter](/reference/classes/CopilotRuntime/llm-adapters/OpenAIAdapter)
+- [OpenAIAssistantAdapter](/reference/classes/CopilotRuntime/llm-adapters/OpenAIAssistantAdapter)
+- [LangChainAdapter](/reference/classes/CopilotRuntime/llm-adapters/LangChainAdapter)
+- [GroqAdapter](/reference/classes/CopilotRuntime/llm-adapters/GroqAdapter)
+- [GoogleGenerativeAIAdapter](/reference/classes/CopilotRuntime/llm-adapters/GoogleGenerativeAIAdapter)
+- [AnthropicAdapter](/reference/classes/CopilotRuntime/llm-adapters/AnthropicAdapter)
+
+The above are the built-in LLM adapters, but you can also use the **`LangChainAdapter`** to use any LLM provider we don't yet natively support.

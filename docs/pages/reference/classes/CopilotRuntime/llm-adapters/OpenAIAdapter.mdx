@@ -21,9 +21,9 @@ const openai = new OpenAI({
   apiKey: "<your-api-key>",
 });
  
-const serviceAdapter = new OpenAIAdapter({ openai });
+const llmAdapter = new OpenAIAdapter({ openai });
  
-return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+return copilotKit.streamHttpServerResponse(req, res, llmAdapter);
 ```
 
 ## Constructor Parameters

@@ -1,162 +1,184 @@
-import { Tabs } from "nextra/components";
+import { Tabs } from 'nextra/components';
+import { Callout } from 'nextra/components';
 
-Copilot Runtime is designed to run as a handler for HTTP endpoints (typically `/copilotkit` or `/api/copilotkit`). We provide plug and play support for many common frameworks. For more information, check out the [Self Hosting documentation](/concepts/self-hosting).
+<Tabs items={['OpenAI']}>
 
-<Tabs items={[
-  "Next.js App Router",
-  "Next.js Pages Router",
-  "Node.js Express",
-  "Node.js HTTP",
-  "NestJS"
-]}>
+  {/* OpenAI Tab */}
   <Tabs.Tab>
-    Create a new route to handle the `/api/copilotkit` endpoint.
+  
+    Add your OpenAI API key to your `.env` file in the root of your project:
 
-    ```ts showLineNumbers filename="app/api/copilotkit/route.ts"
-    import {
-      CopilotRuntime,
-      OpenAIAdapter,
-      copilotRuntimeNextJSAppRouterEndpoint,
-    } from "@copilotkit/runtime";
-    import OpenAI from "openai";
-    import { NextRequest } from "next/server";
-
-    const openai = new OpenAI();
-    const serviceAdapter = new OpenAIAdapter({ openai });
-
-    const runtime = new CopilotRuntime();
-
-    export const POST = async (req: NextRequest) => {
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        runtime,
-        serviceAdapter,
-        endpoint: "/api/copilotkit",
-      });
-
-      return handleRequest(req);
-    };
+    ```plaintext filename=".env"
+    OPENAI_API_KEY=your_api_key_here
     ```
 
-    Your Copilot Runtime endpoint should be available at `http://localhost:{port}/api/copilotkit`.
+    #### Endpoint Setup
 
+    <Tabs items={['Next.js App Router', 'Next.js Pages Router', 'Node.js Express', 'Node.js HTTP', 'NestJS']}>
+
+      {/* Next.js App Router */}
+      <Tabs.Tab>
+        Create a new route to handle the `/api/copilotkit` endpoint.
+
+        ```ts filename="app/api/copilotkit/route.ts" showLineNumbers
+        import {
+          CopilotRuntime,
+          OpenAIAdapter,
+          copilotRuntimeNextJSAppRouterEndpoint,
+        } from '@copilotkit/runtime';
+        import OpenAI from 'openai';
+        import { NextRequest } from 'next/server';
+
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const llmAdapter = new OpenAIAdapter({ openai });
+
+        const runtime = new CopilotRuntime();
+
+        export const POST = async (req: NextRequest) => {
+          const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+            runtime,
+            llmAdapter,
+            endpoint: '/api/copilotkit',
+          });
+
+          return handleRequest(req);
+        };
+        ```
+
+        Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.
+      </Tabs.Tab>
+
+      {/* Next.js Pages Router */}
+      <Tabs.Tab>
+        Create a new route to handle the `/api/copilotkit` endpoint:
+
+        ```ts filename="pages/api/copilotkit.ts" showLineNumbers
+        import { NextApiRequest, NextApiResponse } from 'next';
+        import {
+          CopilotRuntime,
+          OpenAIAdapter,
+          copilotRuntimeNextJSPagesRouterEndpoint,
+        } from '@copilotkit/runtime';
+        import OpenAI from 'openai';
+
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const llmAdapter = new OpenAIAdapter({ openai });
+
+        const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+          const runtime = new CopilotRuntime();
+
+          const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
+            endpoint: '/api/copilotkit',
+            runtime,
+            llmAdapter,
+          });
+
+          return await handleRequest(req, res);
+        };
+
+        export default handler;
+        ```
+
+        Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.
+      </Tabs.Tab>
+
+      {/* Node.js Express */}
+      <Tabs.Tab>
+        Create a new Express.js app and set up the Copilot Runtime handler:
+
+        ```ts filename="server.ts" showLineNumbers
+        import express from 'express';
+        import {
+          CopilotRuntime,
+          OpenAIAdapter,
+          copilotRuntimeNodeHttpEndpoint,
+        } from '@copilotkit/runtime';
+        import OpenAI from 'openai';
+
+        const app = express();
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const llmAdapter = new OpenAIAdapter({ openai });
+
+        app.use('/copilotkit', (req, res, next) => {
+          const runtime = new CopilotRuntime();
+          const handler = copilotRuntimeNodeHttpEndpoint({
+            endpoint: '/copilotkit',
+            runtime,
+            llmAdapter,
+          });
+
+          return handler(req, res, next);
+        });
+
+        app.listen(4000, () => {
+          console.log('Listening at http://localhost:4000/copilotkit');
+        });
+        ```
+
+        Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
+      </Tabs.Tab>
+
+      {/* Node.js HTTP */}
+      <Tabs.Tab>
+        Set up a simple Node.js HTTP server and use the Copilot Runtime to handle requests:
+
+        ```ts filename="server.ts" showLineNumbers
+        import { createServer } from 'node:http';
+        import {
+          CopilotRuntime,
+          OpenAIAdapter,
+          copilotRuntimeNodeHttpEndpoint,
+        } from '@copilotkit/runtime';
+        import OpenAI from 'openai';
+
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const llmAdapter = new OpenAIAdapter({ openai });
+
+        const server = createServer((req, res) => {
+          const runtime = new CopilotRuntime();
+          const handler = copilotRuntimeNodeHttpEndpoint({
+            endpoint: '/copilotkit',
+            runtime,
+            llmAdapter,
+          });
+
+          return handler(req, res);
+        });
+
+        server.listen(4000, () => {
+          console.log('Listening at http://localhost:4000/copilotkit');
+        });
+        ```
+
+        Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
+      </Tabs.Tab>
+
+      {/* NestJS */}
+      <Tabs.Tab>
+        Set up a controller in NestJS to handle the Copilot Runtime endpoint:
+
+        ```ts filename="copilotkit.controller.ts" showLineNumbers
+        import { All, Controller, Req, Res } from '@nestjs/common';
+        import { CopilotRuntime, OpenAIAdapter } from '@copilotkit/runtime';
+        import OpenAI from 'openai';
+
+        @Controller()
+        export class AppController {
+          @All('/copilotkit')
+          copilotkit(@Req() req: Request, @Res() res: Response) {
+            const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+            const llmAdapter = new OpenAIAdapter({ openai });
+            const runtime = new CopilotRuntime();
+
+            runtime.streamHttpServerResponse(req, res, llmAdapter);
+          }
+        }
+        ```
+
+        Your Copilot Runtime endpoint should be available at `http://localhost:3000/copilotkit`.
+      </Tabs.Tab>
+    </Tabs>
   </Tabs.Tab>
-  <Tabs.Tab>
-    Create a new route to handle the `/api/copilotkit` endpoint:
 
-    ```ts showLineNumbers filename="pages/api/copilotkit.ts"
-    import { NextApiRequest, NextApiResponse } from "next";
-    import {
-      CopilotRuntime,
-      OpenAIAdapter,
-      copilotRuntimeNextJSPagesRouterEndpoint,
-    } from "@copilotkit/runtime";
-    import OpenAI from "openai";
-
-    const openai = new OpenAI();
-
-    const handler = async (req: NextApiRequest, res: NextApiResponse) => {
-      const serviceAdapter = new OpenAIAdapter({ openai });
-      const runtime = new CopilotRuntime();
-
-      const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
-        endpoint: "/api/copilotkit",
-        runtime,
-        serviceAdapter,
-      });
-
-      return await handleRequest(req, res);
-    };
-    ```
-
-    Your Copilot Runtime endpoint should be available at `http://localhost:{port}/api/copilotkit`.
-
-  </Tabs.Tab>
-  <Tabs.Tab>
-    Create a new Express.js app and set up the Copilot Runtime handler:
-
-    ```ts showLineNumbers filename="server.ts"
-    import express from "express";
-    import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
-    import OpenAI from "openai";
-
-    const app = express();
-    const openai = new OpenAI();
-
-    app.use("/copilotkit", (req, res, next) => {
-      const serviceAdapter = new OpenAIAdapter({ openai });
-      const runtime = new CopilotRuntime();
-      const handler = copilotRuntimeNodeHttpEndpoint({
-        endpoint: "/copilotkit",
-        runtime,
-        serviceAdapter,
-      });
-
-      return handler(req, res, next);
-    });
-
-    app.listen(4000, () => {
-      console.log("Listening at http://localhost:4000/copilotkit");
-    });
-    ```
-
-    Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
-
-  </Tabs.Tab>
-  <Tabs.Tab>
-    Set up a simple Node.js HTTP server and use the Copilot Runtime to handle requests:
-
-    ```ts showLineNumbers filename="server.ts"
-    import { createServer } from "node:http";
-    import { CopilotRuntime, OpenAIAdapter, copilotRuntimeNodeHttpEndpoint } from "@copilotkit/runtime";
-    import OpenAI from "openai";
-
-    const openai = new OpenAI();
-
-    const server = createServer((req, res) => {
-      const serviceAdapter = new OpenAIAdapter({ openai });
-      const runtime = new CopilotRuntime();
-      const handler = copilotRuntimeNodeHttpEndpoint({
-        endpoint: "/copilotkit",
-        runtime,
-        serviceAdapter,
-      });
-
-      return handler(req, res);
-    });
-
-    server.listen(4000, () => {
-      console.log("Listening at http://localhost:4000/copilotkit");
-    });
-    ```
-
-    Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
-
-  </Tabs.Tab>
-  <Tabs.Tab>
-  ```ts showLineNumbers filename="copilotkit.controller.ts"
-  import { All, Controller, Req, Res } from "@nestjs/common";
-  import { AppService } from "./app.service";
-  import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/backend";
-
-@Controller()
-export class AppController {
-constructor(private readonly appService: AppService) {}
-
-    @All("/copilotkit")
-    copilotkit(@Req() req: Request, @Res() res: Response) {
-      const copilotKit = new CopilotRuntime();
-      const openaiAdapter = new OpenAIAdapter();
-      copilotKit.streamHttpServerResponse(req, res, openaiAdapter);
-    }
-
-}
-
-```
-
-Your Copilot Runtime endpoint should be available at `http://localhost:{port}/copilotkit`.
-</Tabs.Tab>
 </Tabs>
 
-[To bring your own LLM via the service adapter, see here](/concepts/different-llm-providers).
-
-```
