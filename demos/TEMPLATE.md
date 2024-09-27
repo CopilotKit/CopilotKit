@@ -1,71 +1,42 @@
-## Title of Project
+## Project Title
 
-## Overview:
+## Your Topic
 
-Provide a concise explanation of the app's value and purpose.
+Provide the topic or challenge that your demo addresses.
 
-## Description:
+## Description
 
-**(Sample)** This demo is a smart task management system that uses CopilotKit to allow users to create, update, and delete tasks using natural language input.
+Briefly explain the purpose of your demo and the value it provides.
 
-## Purpose:
+## Technologies Being Used
 
-The goal of this project is to simplify task management by using voice commands, making it more accessible and efficient for users.
+List the technologies and frameworks you are using (e.g., Next.js, Python, Laravel, NestJS). This helps us attract the right people to test your project.
 
-## Features:
+- Technology 1
+- Technology 2
+- Technology 3
 
-Voice command integration for task management
-Task categorization by priority
-Real-time updates using CopilotKit
+## App Link
 
-## Tech Stack:
+If your app is live, include the link here:
+[Live Demo](http://your-app-link.com)
 
-Languages/Frameworks:
-JavaScript, Node.js, CopilotKit
+## Screenshot
 
-## APIs/Libraries:
+Include a screenshot of your demo in action:
+![Screenshot](path/to/screenshot.png)
 
-CopilotKit, Express.js
+## Detailed Description
 
-## Installation and Setup
+Provide a detailed explanation of what you’ve built, including functionality and key features.
 
-### Prerequisites:
+## Who Are You?
 
-Node.js, NPM
+Tell us about yourself! Who are you, and what motivated you to build this project?
 
-#### Steps to Install:
+## Additional Resources/Info
 
-````bash
-git clone https://github.com/example/smart-task-manager.git
-cd smart-task-manager
-npm install
-npm install @copilotkit/react-core @copilotkit/react-ui
+If you have any extra resources or useful information (e.g., documentation, tutorials, videos), include them here:
 
-```bash
-npm run start
-````
-
-## Demo
-
-#### Screenshots:
-
-Add screenshots or GIFs showing the demo in action. This will help reviewers and users visualize the project.
-
-## Live Demo:
-
-If available, include a link to the live demo hosted online (e.g., Netlify, Vercel, Heroku).
-
-## Contributions
-
-Explain how contributors can help improve or extend your demo. Encourage collaboration.
-
-## License
-
-License:
-State the license under which the project is distributed (e.g., MIT License).
-
-## Acknowledgments
-
-#### Credits:
-
-Mention any inspirations, resources, or individuals who helped in the creation of this project.
+- Resource 1
+- Resource 2

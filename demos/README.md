@@ -4,48 +4,71 @@
 
 ## How to Participate
 
-1. #### Create a new folder
-
-   On the repository root, create a new folder named `demos`.
+1. Fork and star the repo
 
 2. #### Choose a Topic
    Check the [Issues section](https://github.com/CopilotKit/CopilotKit/issues) for available topics. You can choose from various of challenges—just ask to be assigned to one, or if it's already assigned, don't worry! CopilotKit will allow multi-assign for issues, so more than one contributor can work on the same topic. First come, first reviewed, first merged!
 3. #### Rankings and Swag
+
    Demos will be ranked from 0 to 100 based on:
 
-- Innovation & Creativity
-- Usefulness & Practicality
-- Quality & Completeness
-- User Experience & Design
+   | Points                                |                                         |
+   | ------------------------------------- | --------------------------------------- |
+   | Innovation & Creativity (0-25) points | Usefulness & Practicality (0-25) points |
+   | Quality & Completeness (0-25) points  | User Experience & Design (0-25) points  |
 
 Demos scoring 55 or above will receive exclusive CopilotKit swag. But remember, the first 20 pull requests will be prioritized for swag, so act fast!
 
+## Hacktoberfest: Contribute Demos and Win CopilotKit Swag!
+
+🤩 Welcome to our Hacktoberfest event! Show off your skills by creating demos for CopilotKit and win some awesome swag! Follow the steps below to participate.
+
+## Getting Started
+
+2. **Choose a Topic**
+   Check the [Issues section](https://github.com/CopilotKit/CopilotKit/issues) for Hacktoberfest Demo topics. Pick a challenge and ask to be assigned. Don't worry if it's already taken—CopilotKit allows multi-assign!
+
+3. **Rankings and Swag**
+   Demos will be ranked from 0 to 100 based on:
+
+   | Criteria                  | Points |
+   | ------------------------- | ------ |
+   | Innovation & Creativity   | 0-25   |
+   | Usefulness & Practicality | 0-25   |
+   | Quality & Completeness    | 0-25   |
+   | User Experience & Design  | 0-25   |
+
+   Demos scoring 55 or higher will receive CopilotKit swag. The first 20 pull requests get priority for swag—so act fast!
+
 ## How to Get Started
 
-1. Set Up Your Project
+1. **Set Up Your Project**
 
-- Create a new project and install CopilotKit (see the [Quick Start Guide](https://docs.copilotkit.ai/quickstart-chatbot)).
-- Build your demo around the topic you selected from the issues.
+   - Create a project and install CopilotKit (see the [Quick Start Guide](https://docs.copilotkit.ai/quickstart-chatbot)).
+   - Build your demo around the chosen GitHub issue topic.
 
-2. Prepare Documentation
+2. **Create a New File in `submissions`**
 
-- Copy the template.md and place it in the root of your demo folder.
-- Ensure you fill in all the fields to provide a complete overview of your project.
+   - Copy the `TEMPLATE.md` file and create a new file in the `submissions` folder. Name it after your project (lowercase).
+   - Fill out all fields to provide a detailed overview of your project.
 
-3. Submit Your Demo
-
-- Clone the CopilotKit repository.
-- Add your demo to the `demos` folder.
-- Submit a pull request to have your work reviewed.
+3. **Submit Your Demo**
+   - Submit a pull request for review.
 
 ## Why You Should Join
 
-- 🥳 Be one of the first 20 contributors to get your hands on exclusive CopilotKit swag.
-- 🎊 Work on exciting topics listed in our Issues section.
-- 🎈 Multi-assign means there is no limit to the number of contributors on a single issue—everyone can collaborate!
-- 🎉 Show off your skills and gain visibility within the CopilotKit community!
+- 🥳 Be one of the first 20 contributors to win exclusive CopilotKit swag.
+- 🎊 Work on fun and exciting topics from our Issues section.
+- 🎈 Collaborate with others through multi-assign on issues.
+- 🎉 Gain visibility and showcase your skills in the CopilotKit community!
 
-- ### ⭐ Super Bonus Points - Write a tutorial, tagging CopilotKit about your app and publish on dev.to ⭐
+## ⭐ 3 Ways to Earn 30 Bonus Points Each
+
+1. ⭐ Write a tutorial about your app, tag CopilotKit, and publish on dev.to—receive up to 30 reactions.
+2. ⭐ Post about your project on Twitter—get 10 reactions.
+3. ⭐ Solve `good first issues` and get them merged.
+
+CopilotKit will amplify your contributions!
 
 ## List of Example Ideas (All apps should utilize CopilotKit)
 
