@@ -27,9 +27,25 @@ export default {
     type: "separator",
     title: "Guides",
   },
+  "quickstart-leftover": {
+    title: "Quickstart Leftover",
+    theme: {
+      toc: false,
+    },
+  },
+  "___other": {
+    type: "separator",
+    title: "Other",
+  },
   "coagents": {
     title: "CoAgents (Early Access)",
   },
+
+  "___tutorials": {
+    type: "separator",
+    title: "Tutorials",
+  },
+
   "tutorial-ai-todo-list-copilot": {
     title: "Tutorial: Todo List Copilot",
   },
