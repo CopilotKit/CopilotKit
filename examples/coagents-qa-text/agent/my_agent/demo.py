@@ -14,8 +14,8 @@ app = FastAPI()
 sdk = CopilotKitSDK(
     agents=[
         LangGraphAgent(
-            name="email_agent",
-            description="This agent sends emails",
+            name="greeting_agent",
+            description="This agent greets the user",
             agent=graph,
         )
     ],

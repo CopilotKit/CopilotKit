@@ -3,9 +3,10 @@
 import { useCopilotAction } from "@copilotkit/react-core";
 import { CopilotPopup } from "@copilotkit/react-ui";
 
-export function Translator() {
+export function Mailer() {
   useCopilotAction({
     name: "write_email",
+    disabled: true,
     parameters: [
       {
         name: "the_email",
@@ -39,9 +40,10 @@ export function Translator() {
 
   return (
     <div className="flex flex-col items-center justify-center h-screen">
-      <div></div>
+      <div className="text-2xl">Email Q&A example</div>
+      <div>e.g. write an email to the CEO of OpenAI asking for a meeting</div>
 
-      <CopilotPopup defaultOpen={true} />
+      <CopilotPopup defaultOpen={true} clickOutsideToClose={false} />
     </div>
   );
 }
