@@ -7,15 +7,15 @@ from fastapi import FastAPI
 import uvicorn
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from copilotkit import CopilotKitSDK, LangGraphAgent
-from my_agent.agent import graph
+from copilotkit.demos.qa.agent import graph
 
 
 app = FastAPI()
 sdk = CopilotKitSDK(
     agents=[
         LangGraphAgent(
-            name="translate_agent",
-            description="Translate agent that translates text.",
+            name="email_agent",
+            description="This agent sends emails",
             agent=graph,
         )
     ],
@@ -25,4 +25,4 @@ add_fastapi_endpoint(app, sdk, "/copilotkit")
 
 def main():
     """Run the uvicorn server."""
-    uvicorn.run("my_agent.demo:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("copilotkit.demos.qa.demo:app", host="127.0.0.1", port=8000, reload=True)

@@ -72,9 +72,6 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   }
 
   useEffect(() => {
-    if (action.disabled) {
-      return;
-    }
     setAction(idRef.current, action as any);
     if (chatComponentsCache.current !== null && action.render !== undefined) {
       chatComponentsCache.current.actions[action.name] = action.render;

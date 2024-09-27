@@ -1,5 +1,5 @@
 "use client";
-import { useCopilotReadable } from "@copilotkit/react-core";
+import { useCoAgent, useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { useCallback, useMemo, useState } from "react";
 import { Slide } from "./Slide";
