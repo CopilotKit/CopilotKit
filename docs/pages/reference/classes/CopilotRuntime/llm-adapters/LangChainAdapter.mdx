@@ -21,13 +21,13 @@ const model = new ChatOpenAI({
   apiKey: "<your-api-key>",
 });
  
-const serviceAdapter = new LangChainAdapter({
+const llmAdapter = new LangChainAdapter({
   chainFn: async ({ messages, tools }) => {
     return model.stream(messages, { tools });
   }
 });
  
-return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+return copilotKit.streamHttpServerResponse(req, res, llmAdapter);
 ```
  
 The asynchronous handler function (`chainFn`) can return any of the following:

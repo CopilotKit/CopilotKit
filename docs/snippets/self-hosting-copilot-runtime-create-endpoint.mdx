@@ -30,14 +30,14 @@ import { Callout } from 'nextra/components';
         import { NextRequest } from 'next/server';
 
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const serviceAdapter = new OpenAIAdapter({ openai });
+        const llmAdapter = new OpenAIAdapter({ openai });
 
         const runtime = new CopilotRuntime();
 
         export const POST = async (req: NextRequest) => {
           const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
             runtime,
-            serviceAdapter,
+            llmAdapter,
             endpoint: '/api/copilotkit',
           });
 
@@ -62,7 +62,7 @@ import { Callout } from 'nextra/components';
         import OpenAI from 'openai';
 
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const serviceAdapter = new OpenAIAdapter({ openai });
+        const llmAdapter = new OpenAIAdapter({ openai });
 
         const handler = async (req: NextApiRequest, res: NextApiResponse) => {
           const runtime = new CopilotRuntime();
@@ -70,7 +70,7 @@ import { Callout } from 'nextra/components';
           const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
             endpoint: '/api/copilotkit',
             runtime,
-            serviceAdapter,
+            llmAdapter,
           });
 
           return await handleRequest(req, res);
@@ -97,14 +97,14 @@ import { Callout } from 'nextra/components';
 
         const app = express();
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const serviceAdapter = new OpenAIAdapter({ openai });
+        const llmAdapter = new OpenAIAdapter({ openai });
 
         app.use('/copilotkit', (req, res, next) => {
           const runtime = new CopilotRuntime();
           const handler = copilotRuntimeNodeHttpEndpoint({
             endpoint: '/copilotkit',
             runtime,
-            serviceAdapter,
+            llmAdapter,
           });
 
           return handler(req, res, next);
@@ -132,14 +132,14 @@ import { Callout } from 'nextra/components';
         import OpenAI from 'openai';
 
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const serviceAdapter = new OpenAIAdapter({ openai });
+        const llmAdapter = new OpenAIAdapter({ openai });
 
         const server = createServer((req, res) => {
           const runtime = new CopilotRuntime();
           const handler = copilotRuntimeNodeHttpEndpoint({
             endpoint: '/copilotkit',
             runtime,
-            serviceAdapter,
+            llmAdapter,
           });
 
           return handler(req, res);
@@ -167,10 +167,10 @@ import { Callout } from 'nextra/components';
           @All('/copilotkit')
           copilotkit(@Req() req: Request, @Res() res: Response) {
             const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-            const serviceAdapter = new OpenAIAdapter({ openai });
+            const llmAdapter = new OpenAIAdapter({ openai });
             const runtime = new CopilotRuntime();
 
-            runtime.streamHttpServerResponse(req, res, serviceAdapter);
+            runtime.streamHttpServerResponse(req, res, llmAdapter);
           }
         }
         ```
