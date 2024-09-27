@@ -70,6 +70,8 @@ Demos scoring 55 or above will receive exclusive CopilotKit swag. But remember, 
 
 CopilotKit will amplify your contributions!
 
+# This list will be deleted after all issues have been added
+
 ## List of Example Ideas (All apps should utilize CopilotKit)
 
 1.  **Weather Forecasting Bot:** Build a chatbot that gives real-time weather updates using CopilotKit's AI interaction capabilities.
