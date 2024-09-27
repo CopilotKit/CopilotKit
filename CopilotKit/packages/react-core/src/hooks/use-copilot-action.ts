@@ -106,46 +106,6 @@ interface RenderAndWait {
   reject: (error: any) => void;
 }
 
-function transformRenderAndWaitAction<T extends Parameter[] | []>(
-  action: FrontendAction<T>,
-): FrontendAction<T> {
-  console.log("transformRenderAndWaitAction", action);
-
-  let resolvePromise: (result: any) => void;
-  const promise = new Promise<any>((resolve, reject) => {
-    resolvePromise = function (result: any) {
-      console.log("resolvePromise", result);
-      resolve(result);
-    };
-  });
-  let handler = async () => {
-    try {
-      console.log("awaiting promise");
-      const result = await promise;
-      console.log("result", result);
-      return result;
-    } catch (error) {
-      console.error("Error in handler:", error);
-      throw error;
-    }
-  };
-  const render = (props: ActionRenderProps<any>): React.ReactElement => {
-    const waitProps: ActionRenderPropsWait<any> = {
-      status: props.status as any,
-      args: props.args,
-      result: props.result,
-      handler: props.status === "executing" ? resolvePromise : undefined,
-    };
-    return action.renderAndWait!(waitProps);
-  };
-  return {
-    ...action,
-    render: render as any,
-    handler: handler as any,
-    renderAndWait: undefined,
-  };
-}
-
 // Usage Example:
 // useCopilotAction({
 //   name: "myAction",
