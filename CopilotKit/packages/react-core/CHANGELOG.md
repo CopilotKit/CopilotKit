@@ -1,5 +1,16 @@
 # ui
 
+## 1.3.2-mme-pre.1
+
+### Patch Changes
+
+- Pre-release
+- 30232c0: Ensure actions can be discovered on state change
+- Updated dependencies
+- Updated dependencies [30232c0]
+  - @copilotkit/runtime-client-gql@1.3.2-mme-pre.1
+  - @copilotkit/shared@1.3.2-mme-pre.1
+
 ## 1.3.2-mme-pre.0
 
 ### Patch Changes

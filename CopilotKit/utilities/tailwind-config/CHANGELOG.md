@@ -1,5 +1,12 @@
 # tailwind-config
 
+## 1.3.2-mme-pre.1
+
+### Patch Changes
+
+- Pre-release
+- 30232c0: Ensure actions can be discovered on state change
+
 ## 1.3.2-mme-pre.0
 
 ### Patch Changes
