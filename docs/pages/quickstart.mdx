@@ -1,0 +1,44 @@
+import { Callout } from "nextra/components";
+import { Steps } from 'nextra/components'
+import { Tabs } from "nextra/components";
+import Link from "next/link";
+import { TailoredExperience, LinkToCopilotCloud } from "@/components";
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
+import UseCopilotChatShortSnippet from "@/snippets/use-copilot-chat-short-snippet.mdx";
+import CopilotUiSnippet from "@/snippets/copilot-ui.mdx";
+
+
+# Quickstart
+
+
+
+To install the CopilotKit dependencies, run the following:
+
+<Steps>
+
+### Install `@copilotkit/react-core` and `@copilotkit/react-ui`
+
+```shell npm2yarn
+npm install @copilotkit/react-core @copilotkit/react-ui
+```
+
+
+### Set up Copilot Runtime (Backend Endpoint)
+<SelfHostingCopilotRuntimeCreateEndpoint />
+
+### Configure the CopilotKit Provider
+
+<SelfHostingCopilotRuntimeConfigureCopilotKitProvider />
+
+
+### Connect Copilot UI
+<CopilotUiSnippet />
+
+</Steps>
+
+
+<Callout type="info" emoji="🎉">
+  Congratulations! You should now have a functioning chatbot integrated into your application.
+  Before proceeding further, give it a try!
+</Callout>

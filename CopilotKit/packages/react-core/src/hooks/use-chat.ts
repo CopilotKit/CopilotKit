@@ -140,7 +140,15 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   const threadIdRef = useRef<string | null>(null);
   const runIdRef = useRef<string | null>(null);
 
+
   const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
+  // We need to keep a ref of coagent states because of renderAndWait - making sure
+  // the latest state is sent to the API
+  // This is a workaround and needs to be addressed in the future
+  const coagentStatesRef = useRef<Record<string, CoagentState>>(coagentStates);
+  coagentStatesRef.current = coagentStates;
+  const agentSessionRef = useRef<AgentSession | null>(agentSession);
+  agentSessionRef.current = agentSession;
 
   const publicApiKey = copilotConfig.publicApiKey;
 
@@ -180,11 +188,13 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       runtimeClient.generateCopilotResponse({
         data: {
           frontend: {
-            actions: actions.map((action) => ({
-              name: action.name,
-              description: action.description || "",
-              jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
-            })),
+            actions: actions
+              .filter((action) => !action.disabled)
+              .map((action) => ({
+                name: action.name,
+                description: action.description || "",
+                jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
+              })),
             url: window.location.href,
           },
           threadId: threadIdRef.current,
@@ -211,12 +221,12 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           metadata: {
             requestType: CopilotRequestType.Chat,
           },
-          ...(agentSession
+          ...(agentSessionRef.current
             ? {
-                agentSession,
+                agentSession: agentSessionRef.current,
               }
             : {}),
-          agentStates: Object.values(coagentStates).map((state) => ({
+          agentStates: Object.values(coagentStatesRef.current).map((state) => ({
             agentName: state.name,
             state: JSON.stringify(state.state),
           })),
@@ -290,6 +300,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 }
                 // execute action
                 try {
+                  // We update the message state before calling the handler so that the render
+                  // function can be called with `executing` state
+                  setMessages([...previousMessages, ...newMessages]);
+
                   const result = await onFunctionCall({
                     messages: previousMessages,
                     name: message.name,
@@ -336,6 +350,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             .find((message) => message instanceof AgentStateMessage);
 
           if (lastAgentStateMessage) {
+            console.log(lastAgentStateMessage);
             if (lastAgentStateMessage.running) {
               setCoagentStates((prevAgentStates) => ({
                 ...prevAgentStates,
