@@ -1,5 +1,15 @@
 # ui
 
+## 1.3.2-mme-pre.0
+
+### Patch Changes
+
+- agent Q&A pre
+- Updated dependencies
+  - @copilotkit/react-core@1.3.2-mme-pre.0
+  - @copilotkit/runtime-client-gql@1.3.2-mme-pre.0
+  - @copilotkit/shared@1.3.2-mme-pre.0
+
 ## 1.3.1
 
 ### Patch Changes

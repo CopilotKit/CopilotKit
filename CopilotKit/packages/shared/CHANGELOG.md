@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.3.2-mme-pre.0
+
+### Patch Changes
+
+- agent Q&A pre
+
 ## 1.3.1
 
 ### Patch Changes

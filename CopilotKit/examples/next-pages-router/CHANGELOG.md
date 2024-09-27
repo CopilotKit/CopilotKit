@@ -1,5 +1,17 @@
 # next-pages-router
 
+## 1.3.2-mme-pre.0
+
+### Patch Changes
+
+- agent Q&A pre
+- Updated dependencies
+  - @copilotkit/react-core@1.3.2-mme-pre.0
+  - @copilotkit/react-textarea@1.3.2-mme-pre.0
+  - @copilotkit/react-ui@1.3.2-mme-pre.0
+  - @copilotkit/runtime@1.3.2-mme-pre.0
+  - @copilotkit/shared@1.3.2-mme-pre.0
+
 ## 1.3.1
 
 ### Patch Changes
