@@ -1,5 +1,5 @@
 import { useRef, useEffect } from "react";
-import { FrontendAction } from "../types/frontend-action";
+import { FrontendAction, ActionRenderProps, ActionRenderPropsWait } from "../types/frontend-action";
 import { useCopilotContext } from "../context/copilot-context";
 import { Parameter, randomId } from "@copilotkit/shared";
 
@@ -18,6 +18,44 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
 ): void {
   const { setAction, removeAction, actions, chatComponentsCache } = useCopilotContext();
   const idRef = useRef<string>(randomId());
+  const renderAndWaitRef = useRef<RenderAndWait | null>(null);
+
+  // clone the action to avoid mutating the original object
+  action = { ...action };
+
+  // If the developer provides a renderAndWait function, we transform the action
+  // to use a promise internally, so that we can treat it like a normal action.
+  if (action.renderAndWait) {
+    const renderAndWait = action.renderAndWait!;
+
+    // remove the renderAndWait function from the action
+    action.renderAndWait = undefined;
+
+    // add a handler that will be called when the action is executed
+    action.handler = (async () => {
+      // we create a new promise when the handler is called
+      let resolve: (result: any) => void;
+      let reject: (error: any) => void;
+      const promise = new Promise<any>((resolvePromise, rejectPromise) => {
+        resolve = resolvePromise;
+        reject = rejectPromise;
+      });
+      renderAndWaitRef.current = { promise, resolve: resolve!, reject: reject! };
+      // then we await the promise (it will be resolved in the original renderAndWait function)
+      return await promise;
+    }) as any;
+
+    // add a render function that will be called when the action is rendered
+    action.render = ((props: ActionRenderProps<any>): React.ReactElement => {
+      const waitProps: ActionRenderPropsWait<any> = {
+        status: props.status as any,
+        args: props.args,
+        result: props.result,
+        handler: props.status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
+      };
+      return renderAndWait(waitProps);
+    }) as any;
+  }
 
   // If the developer doesn't provide dependencies, we assume they want to
   // update handler and render function when the action object changes.
@@ -60,6 +98,12 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
     // dependencies set by the developer
     ...(dependencies || []),
   ]);
+}
+
+interface RenderAndWait {
+  promise: Promise<any>;
+  resolve: (result: any) => void;
+  reject: (error: any) => void;
 }
 
 // Usage Example:

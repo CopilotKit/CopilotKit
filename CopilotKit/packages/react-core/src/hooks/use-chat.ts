@@ -288,6 +288,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 }
                 // execute action
                 try {
+                  // We update the message state before calling the handler so that the render
+                  // function can be called with `executing` state
+                  setMessages([...previousMessages, ...newMessages]);
+
                   const result = await onFunctionCall({
                     messages: previousMessages,
                     name: message.name,
