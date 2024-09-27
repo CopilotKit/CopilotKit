@@ -1,0 +1,22 @@
+{
+  "mode": "pre",
+  "tag": "mme-discover-actions",
+  "initialVersions": {
+    "next-openai": "1.3.1",
+    "next-pages-router": "1.3.1",
+    "node-express": "1.3.1",
+    "node-http": "1.3.1",
+    "@copilotkit/react-core": "1.3.1",
+    "@copilotkit/react-textarea": "1.3.1",
+    "@copilotkit/react-ui": "1.3.1",
+    "@copilotkit/runtime": "1.3.1",
+    "@copilotkit/runtime-client-gql": "1.3.1",
+    "@copilotkit/shared": "1.3.1",
+    "eslint-config-custom": "1.3.1",
+    "tailwind-config": "1.3.1",
+    "tsconfig": "1.3.1"
+  },
+  "changesets": [
+    "neat-guests-care"
+  ]
+}

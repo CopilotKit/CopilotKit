@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.3.2-mme-discover-actions.0
+
+### Patch Changes
+
+- Ensure actions can be discovered on state change
+
 ## 1.3.1
 
 ### Patch Changes

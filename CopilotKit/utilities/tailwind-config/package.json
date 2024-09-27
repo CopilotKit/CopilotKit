@@ -1,6 +1,6 @@
 {
   "name": "tailwind-config",
-  "version": "1.3.1",
+  "version": "1.3.2-mme-discover-actions.0",
   "private": true,
   "main": "index.js",
   "devDependencies": {

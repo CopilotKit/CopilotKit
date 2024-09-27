@@ -1,5 +1,17 @@
 # next-pages-router
 
+## 1.3.2-mme-discover-actions.0
+
+### Patch Changes
+
+- Ensure actions can be discovered on state change
+- Updated dependencies
+  - @copilotkit/react-core@1.3.2-mme-discover-actions.0
+  - @copilotkit/react-textarea@1.3.2-mme-discover-actions.0
+  - @copilotkit/react-ui@1.3.2-mme-discover-actions.0
+  - @copilotkit/runtime@1.3.2-mme-discover-actions.0
+  - @copilotkit/shared@1.3.2-mme-discover-actions.0
+
 ## 1.3.1
 
 ### Patch Changes
