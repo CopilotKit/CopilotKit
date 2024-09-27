@@ -1,0 +1,163 @@
+import { Tabs } from "nextra/components";
+
+
+<Tabs items={["CopilotChat", "CopilotSidebar", "CopilotPopup", "Headless UI"]}>
+  <Tabs.Tab>
+
+    `CopilotChat` is a flexible chat interface component.
+
+    First, import the default styles in your root component:
+
+    ```tsx
+    import "@copilotkit/react-ui/styles.css";
+    ```
+
+    Then, use the component in your application:
+
+    ```tsx
+    import { CopilotChat } from "@copilotkit/react-ui";
+
+    export function YourComponent() {
+      return (
+        <CopilotChat
+          labels={{
+            title: "Your Assistant",
+            initial: "Hi! 👋 How can I assist you today?",
+          }}
+        />
+      );
+    }
+    ```
+
+    Key properties:
+    - `instructions`: Custom instructions for the AI model
+    - `onSubmitMessage`: Callback for new message submissions
+    - `icons`: Custom icons for the chat window
+    - `labels`: Custom labels for the chat window
+
+  </Tabs.Tab>
+  <Tabs.Tab>
+
+    `CopilotSidebar` wraps `CopilotChat` in a collapsible sidebar.
+
+    First, import the default styles in your root component:
+
+    ```tsx
+    import "@copilotkit/react-ui/styles.css";
+    ```
+
+    Then, use the component in your application:
+
+    ```tsx
+    import { CopilotSidebar } from "@copilotkit/react-ui";
+
+    export function YourApp() {
+      return (
+        <CopilotSidebar
+          defaultOpen={true}
+          labels={{
+            title: "Sidebar Assistant",
+            initial: "How can I help you today?",
+          }}
+        >
+          <YourMainContent />
+        </CopilotSidebar>
+      );
+    }
+    ```
+
+    Key properties:
+    - `defaultOpen`: Whether the sidebar is open by default
+    - `clickOutsideToClose`: Close sidebar when clicking outside
+    - `shortcut`: Keyboard shortcut to toggle sidebar
+
+  </Tabs.Tab>
+  <Tabs.Tab>
+    `CopilotPopup` wraps `CopilotChat` in a toggleable popup window.
+
+    First, import the default styles in your root component:
+
+    ```tsx
+    import "@copilotkit/react-ui/styles.css";
+    ```
+
+    Then, use the component in your application:
+
+    ```tsx
+    import { CopilotPopup } from "@copilotkit/react-ui";
+
+    export function YourApp() {
+      return (
+        <>
+          <YourMainContent />
+          <CopilotPopup
+            labels={{
+              title: "Popup Assistant",
+              initial: "Need any help?",
+            }}
+          />
+        </>
+      );
+    }
+    ```
+
+    Key properties:
+    - `defaultOpen`: Whether the popup is open by default
+    - `hitEscapeToClose`: Close popup when pressing Escape key
+    - `shortcut`: Keyboard shortcut to toggle popup
+
+  </Tabs.Tab>
+  <Tabs.Tab>
+
+    For custom UI implementations, use the `useCopilotChat` hook.
+
+    ```tsx
+    import { useCopilotChat } from "@copilotkit/react-core";
+    import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
+
+    export function CustomChatInterface() {
+      const {
+        visibleMessages,
+        appendMessage,
+        setMessages,
+        deleteMessage,
+        reloadMessages,
+        stopGeneration,
+        isLoading,
+      } = useCopilotChat();
+
+      const sendMessage = (content: string) => {
+        appendMessage(
+          new TextMessage({
+            content,
+            role: Role.User,
+          })
+        );
+      };
+
+      return (
+        <div>
+          {/* Implement your custom chat UI here */}
+        </div>
+      );
+    }
+    ```
+
+    Key features:
+    - Full control over UI implementation
+    - Access to chat state and operations
+    - Customizable message handling
+
+  </Tabs.Tab>
+</Tabs>
+
+## Customization
+
+All components support extensive customization through props and CSS. For detailed customization options, refer to the individual component documentation:
+
+- [CopilotChat](/components/CopilotChat)
+- [CopilotSidebar](/components/CopilotSidebar)
+- [CopilotPopup](/components/CopilotPopup)
+- [useCopilotChat](/reference/hooks/useCopilotChat)
+
+For styling customization, check out the [Customize Look & Feel](/concepts/customize-look-and-feel) guide.

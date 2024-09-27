@@ -17,11 +17,15 @@ export default {
   "what-is-copilotkit": {
     title: "What is CopilotKit?",
   },
-  "quickstart-chatbot": {
-    title: "Quickstart: Chatbot",
+  "quickstart": {
+    title: "Quickstart",
     theme: {
       toc: false,
     },
+  },
+  "___guides": {
+    type: "separator",
+    title: "Guides",
   },
   "coagents": {
     title: "CoAgents (Early Access)",
