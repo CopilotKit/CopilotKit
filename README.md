@@ -7,58 +7,53 @@
 
   <br/>
 
-  <strong>
-    CopilotKit is the open-source framework for integrating powerful AI Copilots into any application. Easily implement custom AI Chatbots, AI Agents, AI Textareas, and more.
-  </strong>
-</div>
+  <div align="center" style="background-color: #6963ff; padding: 20px; color: white; border-radius: 10px;">
+    <h3>
+      ✨ CopilotKit is the open-source framework for integrating powerful AI Copilots into any application. Easily implement custom AI Chatbots , AI Agents , AI Textareas , and more.
+    </h3>
+  </div>
 
-<br/>
+  <br/>
 
-<div align="center">
-  <a href="https://www.npmjs.com/package/@copilotkit/react-core" target="_blank">
-    <img src="https://img.shields.io/npm/v/%40copilotkit%2Freact-core?logo=npm&logoColor=%23FFFFFF&label=Version&color=%236963ff" alt="NPM">
-  </a>
-  <img src="https://img.shields.io/github/license/copilotkit/copilotkit?color=%236963ff&label=License" alt="MIT">
-  <a href="https://discord.gg/6dffbvGU3D" target="_blank">
-    <img src="https://img.shields.io/discord/1122926057641742418?logo=discord&logoColor=%23FFFFFF&label=Discord&color=%236963ff" alt="Discord">
-  </a>
-</div>
-<br/>
+  <div align="center">
+    <a href="https://www.producthunt.com/posts/copilotkit" target="_blank">
+      <img src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=428778&theme=light&period=daily" alt="Product Hunt Badge">
+    </a>
+  </div>
 
-<div align="center">
-  <a href="https://discord.gg/6dffbvGU3D?ref=github_readme" target="_blank">
-    <img src="./assets/btn_discord.png" alt="CopilotKit Discord" height="40px">
-  </a>
-  <a href="https://docs.copilotkit.ai?ref=github_readme" target="_blank">
-    <img src="./assets/btn_docs.png" alt="CopilotKit GitHub" height="40px">
-  </a>
-  <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank">
-    <img src="./assets/btn_cloud.png" alt="CopilotKit GitHub" height="40px">
-  </a>
-</div>
+  <br/>
 
-<br/>
-<div align="center">
-  <a href="https://www.producthunt.com/posts/copilotkit" target="_blank">
-    <img src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=428778&theme=light&period=daily">
-  </a>
+  <div align="center">
+    <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank">
+      <img src="./assets/btn_cloud.png" alt="CopilotKit Cloud" height="45px" style="border-radius: 10px; background-color: #4CAF50;">
+    </a>
+    <a href="https://discord.gg/6dffbvGU3D?ref=github_readme" target="_blank">
+      <img src="./assets/btn_discord.png" alt="CopilotKit Discord" height="45px" style="border-radius: 10px; background-color: #7289da;">
+    </a>
+    <a href="https://docs.copilotkit.ai?ref=github_readme" target="_blank">
+      <img src="./assets/btn_docs.png" alt="CopilotKit Docs" height="45px" style="border-radius: 10px; background-color: #ffcc00;">
+    </a>
+  </div>
+
+  <br /> <br />
+
+  <div align="center">
+    <img src="./assets/animated-banner.gif" alt="CopilotKit Screenshot" style="border-radius: 15px;" />
+  </div>
+  <div align="center">
+    <h4>
+      🚀 Current Version: <strong><em>
+      <a href="https://ai88.substack.com/p/copilotkit-v1-launch" target="_blank">
+        v1.3.1
+      </a>
+      </em></strong>
+    </h4>
+  </div>
 </div>
 
 <br />
 
-<div align="center">
-  <img src="./assets/animated-banner.gif" alt="CopilotKit Screenshot" style="border-radius: 15px;" />
-</div>
-
-<br />
-
-<div>
-<p>
-  👉 Check out the docs at <a href="https://docs.copilotkit.ai?ref=github_readme" target="_blank">https://docs.copilotkit.ai</a>
-</p>
-</div>
-
-**Table of Contents**
+# Table of Contents
 
 - [Getting Started](#getting-started)
   - [Quickstart & Tutorials](#quickstart--tutorials)
@@ -70,15 +65,16 @@
 - [Get in touch](#get-in-touch)
 - [License](#license)
 
-## Getting Started
+  <br />
+
+# Getting Started
 
 ### Quickstart & Tutorials
 
-There are several easy ways to get started with CopilotKit:
+- [**Quickstart: Chatbot:**](https://docs.copilotkit.ai/quickstart-chatbot?ref=github_readme): Add an AI Chatbot to your app in just two minutes with the ability to read application state and take actions.
+- [**Tutorial: Todo List Copilot:**](https://docs.copilotkit.ai/tutorial-ai-todo-list-copilot/overview?ref=github_readme): Supercharge a simple todo list app with an AI chat popup.
+- [**Tutorial: Textarea Autocomplete:**](https://docs.copilotkit.ai/tutorial-textarea/overview?ref=github_readme): Add an AI-powered textarea with autocompletions and AI-powered edits to a simple email client app.
 
-- [**Quickstart: Chatbot:**](https://docs.copilotkit.ai/quickstart-chatbot?ref=github_readme) In just two minutes, add an AI Chatbot to your app with the ability to read application state and take actions.
-- [**Tutorial: Todo List Copilot:**](https://docs.copilotkit.ai/tutorial-ai-todo-list-copilot/overview?ref=github_readme) For a better deep dive into CopilotKit, take a simple todo list app and supercharge it with an AI chat popup.
-- [**Tutorial: Textarea Autocomplete:**](https://docs.copilotkit.ai/tutorial-textarea/overview?ref=github_readme) For a better deep dive into CopilotKit, we'll take a simple email client app and add an AI-powered textarea to it with autocompeltions and AI insertions/edits.
 
 ### Examples & Starter Templates
 
@@ -117,45 +113,47 @@ There are several easy ways to get started with CopilotKit:
   </tr>
 </table>
 
-## Building Blocks
+<br />
+
+# Building Blocks
 
 > 💡 Want to learn more? Check out the [CopilotKit Documentation](https://docs.copilotkit.ai?ref=github_readme).
 
 ### 🧩 Components
 
 - [**`<CopilotTextarea />`**](https://docs.copilotkit.ai/reference/components/CopilotTextarea?ref=github_readme): An AI-powered textarea with autocompletions and AI-powered insertions/edits.
-- [**`<CopilotPopup />`**](https://docs.copilotkit.ai/reference/components/CopilotPopup?ref=github_readme): AI-powered chat floating chat popup component.
+- [**`<CopilotPopup />`**](https://docs.copilotkit.ai/reference/components/CopilotPopup?ref=github_readme): AI-powered floating chat popup component.
 - [**`<CopilotSidebar />`**](https://docs.copilotkit.ai/reference/components/CopilotSidebar?ref=github_readme): AI-powered chat sidebar component.
-- [**`<CopilotChat />`**](https://docs.copilotkit.ai/reference/components/CopilotChat?ref=github_readme): AI-powered plain chat component.
+- [**`<CopilotChat />`**](https://docs.copilotkit.ai/reference/components/CopilotChat?ref=github_readme): AI-powered chat component.
 
-### ⚡️ Hooks
+### 🪄 Hooks
 
-- [**`useCopilotReadable`**](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable?ref=github_readme): Provide in-app state and any other information to your Copilot.
-- [**`useCopilotAction`**](https://docs.copilotkit.ai/reference/hooks/useCopilotAction?ref=github_readme): Enable your Copilot to perform actions and render custom-generated UI in the chat.
-- [**`useCopilotChat`**](https://docs.copilotkit.ai/reference/hooks/useCopilotChat?ref=github_readme): Directly interact with the Copilot chat instance to add messages and manipulate the chat history.
-- [**`useCopilotChatSuggestions`**](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions?ref=github_readme): Integrate AI-powered chat follow-up suggestions that are aware of your app's state and chat history.
+- [**`useCopilotReadable`**](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable?ref=github_readme): Provide app state and info to your Copilot.
+- [**`useCopilotAction`**](https://docs.copilotkit.ai/reference/hooks/useCopilotAction?ref=github_readme): Allow your Copilot to perform actions and render custom UI in chat.
+- [**`useCopilotChat`**](https://docs.copilotkit.ai/reference/hooks/useCopilotChat?ref=github_readme): Interact with the Copilot chat to add messages and manage history.
+- [**`useCopilotChatSuggestions`**](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions?ref=github_readme): Add AI-powered chat suggestions based on app state and history.
 
-## Contributing
+<br />
 
-Thanks for your interest in contributing to CopilotKit! 💜
+# Contributing
 
-We value all contributions, whether it's through code, documentation, creating demo apps, or just spreading the word.
+We love contributions! Please read our [Contributing Guide](https://docs.copilotkit.ai/code-contributions/how-to-contribute?ref=github_readme) for more details.
 
-Here are a few useful resources to help you get started:
-
-- For code contributions, [check out the contribution guide](https://docs.copilotkit.ai/code-contributions/how-to-contribute?ref=github_readme).
-- For documentation-related contributions, [check out the documentation Contributions guide](https://docs.copilotkit.ai/code-contributions/how-to-contribute?ref=github_readme).
-- Want to contribute but not sure how? [Join our Discord](https://discord.gg/6dffbvGU3D) and we'll help you out!
-
+Feel free to ask your questions on our [Discord Server](https://discord.gg/6dffbvGU3D).
 
 > 💡 **NOTE:** All contributions must be submitted via a pull request and be reviewed by our team. This is to ensure that all contributions are of high quality and align with the project's goals.
 
-## Get in touch
 
-You are welcome to join our [Discord](https://discord.gg/6dffbvGU3D) and chat with our team and other community members.
+<br />
 
-Additionally, you can reach out to us at [hello@copilotkit.ai](mailto:hello@copilotkit.ai).
+# Get in Touch
 
-## License
+- 💬 Join the conversation on the [Discord Server](https://discord.gg/6dffbvGU3D).
+- 🐦 Follow us on [Twitter](https://twitter.com/CopilotKit).
+- 📧 Reach out to us at [hello@copilotkit.ai](mailto:hello@copilotkit.ai).
 
-This repository's source code is available under the [MIT License].
+<br />
+
+# License
+
+CopilotKit is licensed under the [MIT License](LICENSE).
