@@ -5,15 +5,17 @@ You are almost there!
 Now it's time to setup your Copilot UI.
 
 
-First, import the default styles in your root component:
+First, import the default styles in your root component (typically `layout.tsx`) :
 
-```tsx 
+```tsx filename="layout.tsx"
 import "@copilotkit/react-ui/styles.css";
 ```
 
+**Copilot UI ships with a number of built-in UI patterns, choose whichever one you like.**
+
 <Tabs items={["CopilotPopup", "CopilotSidebar", "CopilotChat", "Headless UI"]}>
   <Tabs.Tab>
-    `CopilotPopup` wraps `CopilotChat` in a toggleable popup window.
+    `CopilotPopup` lives at the same level as your main content in the view hierarchy.
 
     ```tsx
     import { CopilotPopup } from "@copilotkit/react-ui";
@@ -33,12 +35,10 @@ import "@copilotkit/react-ui/styles.css";
     }
     ```
 
-    `CopilotPopup` lives at the same level as your main content in the view hierarchy.
-
 
   </Tabs.Tab>
   <Tabs.Tab>
-    `CopilotSidebar` wraps `CopilotChat` in a collapsible sidebar.
+    `CopilotSidebar` wraps your main content in the view hierarchy -- and provides collapsable/expandable sidebar functionality.
 
     ```tsx
     import { CopilotSidebar } from "@copilotkit/react-ui";
@@ -57,8 +57,6 @@ import "@copilotkit/react-ui/styles.css";
       );
     }
     ```
-
-    `CopilotSidebar` wraps your main content in the view hierarchy -- and provides collapsable/expandable sidebar functionality.
 
 
   </Tabs.Tab>
