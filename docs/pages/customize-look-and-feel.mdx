@@ -1,12 +1,12 @@
-import { Callout } from "nextra/components";
+import { Callout, Steps } from "nextra/components";
 import { Frame, CopilotKitCSS } from "@/components";
+
+# Customize the look & feel of your Copilot
 
 <CopilotKitCSS />
 
-# Customize Look & Feel
-
-**NOTE:**
-Hover over the different UI elements below to see the CSS variable names:
+<Steps>
+### Hover over the different UI elements below to see the CSS variable names:
 
 <br/>
 
@@ -134,6 +134,12 @@ export const handleMouseLeave = (e) => {
   </div>
 </Frame>
 
+### Customize the appearance using any of the methodologies below:
+
+You can override / customize the CSS, customize the icons, customize labels, swap out react components, and use headless UI.
+
+</Steps>
+
 The easiest way to change the colors is to override CopilotKit CSS variables. You can simply wrap CopilotKit in a div and override the CSS variables. CopilotKitCSSProperties will have the variable names as types:
 
 ```tsx
@@ -239,3 +245,8 @@ export function CustomResponseButton({ onClick, inProgress }: ResponseButtonProp
   // ...
 </CopilotSidebar>
 ```
+
+
+## Headless UI (full customizability)
+
+Finally, as a reminder, CopilotKit also supports [headless UI]() for full customizability and programmatic control.

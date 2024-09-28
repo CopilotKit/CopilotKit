@@ -40,16 +40,13 @@ export default {
   "generative-ui": {
     title: "Generative UI (in-chat custom UI)",
   },
+  "copilot-suggestions": {
+    title: "Copilot Suggestions",
+  },
   "customize-look-and-feel": {
     title: "Customize Look & Feel",
   },
 
-  "quickstart-leftover": {
-    title: "Quickstart Leftover",
-    theme: {
-      toc: false,
-    },
-  },
   "___other": {
     type: "separator",
     title: "Other",
