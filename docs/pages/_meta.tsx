@@ -27,6 +27,9 @@ export default {
     type: "separator",
     title: "Guides",
   },
+  "connect-to-your-data": {
+    title: "Connect the Copilot to your data",
+  },
   "quickstart-leftover": {
     title: "Quickstart Leftover",
     theme: {
