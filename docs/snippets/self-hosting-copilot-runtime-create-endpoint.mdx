@@ -1,7 +1,10 @@
 import { Tabs } from 'nextra/components';
 import { Callout } from 'nextra/components';
+import LlmAdapters from "@/snippets/llm-adapters.mdx";
 
-<Tabs items={['OpenAI']}>
+First, choose which LLM model you would like to use under the hood:
+
+<Tabs items={['OpenAI', 'Other LLM Providers']}>
 
   {/* OpenAI Tab */}
   <Tabs.Tab>
@@ -45,7 +48,7 @@ import { Callout } from 'nextra/components';
         };
         ```
 
-        Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.
+        **Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.**
       </Tabs.Tab>
 
       {/* Next.js Pages Router */}
@@ -79,7 +82,7 @@ import { Callout } from 'nextra/components';
         export default handler;
         ```
 
-        Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.
+        **Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.**
       </Tabs.Tab>
 
       {/* Node.js Express */}
@@ -115,7 +118,7 @@ import { Callout } from 'nextra/components';
         });
         ```
 
-        Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
+        **Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.**
       </Tabs.Tab>
 
       {/* Node.js HTTP */}
@@ -150,7 +153,7 @@ import { Callout } from 'nextra/components';
         });
         ```
 
-        Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
+        **Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.**
       </Tabs.Tab>
 
       {/* NestJS */}
@@ -175,10 +178,16 @@ import { Callout } from 'nextra/components';
         }
         ```
 
-        Your Copilot Runtime endpoint should be available at `http://localhost:3000/copilotkit`.
+        **Your Copilot Runtime endpoint should be available at `http://localhost:3000/copilotkit`.**
       </Tabs.Tab>
     </Tabs>
   </Tabs.Tab>
 
-</Tabs>
+  {/* Others Tab */}
+  <Tabs.Tab>
+  To use a different LLM provider, follow the `OpenAI` instructions,  but instead of using the `OpenAIAdapter`, use one of the other available LLM adapters:
 
+    <LlmAdapters />
+  </Tabs.Tab>
+
+</Tabs>
