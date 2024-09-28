@@ -6,11 +6,20 @@ import { Callout } from 'nextra/components'
 
 <Steps>
 
+###  `"use client"` (Next.js App Router)
+```tsx filename="YourComponent.tsx"
+"use client"  // (only necessary if you are using Next.js App Router)
+```
+
+Like other React hooks such as `useState` and `useEffect`, this is a **client-side** hook.
+If you're using Next.js with the App Router, you'll need to add the `"use client"` directive at the top of any file using this hook.
+
+
 ### `useCopilotAction`
 
 In addition to understanding state, you can empower the copilot to take actions. Use the `useCopilotAction` hook to define specific tasks that the copilot can perform based on user input.
 
-```tsx filename="YourComponent.tsx" showLineNumbers {7-20}
+```tsx filename="YourComponent.tsx" showLineNumbers {7-21}
 import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
 
 export function YourComponent() {
@@ -40,21 +49,15 @@ export function YourComponent() {
 }
 ```
 
-### `"use client"` (Next.js App Router)
-```tsx filename="YourComponent.tsx" showLineNumbers {1}
-"use client"  # (only necessary if you are using Next.js App Router)
-```
-
-Like other React hooks, this hook needs to be run on the client side. Ensure to add `"use client"` at the top of any component file using this hook when using Next.js.
-
 ### Test it out!
 After defining the action, ask the copilot to perform the task. For example, you can now ask the copilot to "select an employee" by specifying the `employeeId`.
 
 </Steps>
 
-### Advanced
+### Advanced (Generative UI, and more)
 
-For more advanced use cases, refer to the [`useCopilotAction` reference](/reference/hooks/useCopilotAction).
+- You can **render custom components** in the chat while actions execute. For more detail see [Generative UI](/generative-ui)
+- For more advanced use cases, refer to the [`useCopilotAction` reference](/reference/hooks/useCopilotAction).
 
 ---
 ## Cloud & Backend Actions

@@ -5,6 +5,15 @@ import { Callout } from 'nextra/components'
 
 <Steps>
 
+
+###  `"use client"` (Next.js App Router)
+```tsx filename="YourComponent.tsx"
+"use client"  // (only necessary if you are using Next.js App Router)
+```
+
+Like other React hooks such as `useState` and `useEffect`, this is a **client-side** hook.
+If you're using Next.js with the App Router, you'll need to add the `"use client"` directive at the top of any file using this hook.
+
 ### `useCopilotReadable`
 
 For your copilot to best answer your customers' needs, you will want to provide it with **context-specific**, **user-specific**, and oftentimes **realtime** data.
@@ -28,14 +37,6 @@ export function YourComponent() {
   );
 }
 ```
-
-###  `"use client"` (Next.js App Router)
-```tsx filename="YourComponent.tsx" showLineNumbers {1}
-"use client"  # (only necessary if you are using Next.js App Router)
-```
-
-Like other React hooks such as `useState` and `useEffect`, this is a client-side hook.
-If you're using Next.js with the App Router, you'll need to add the `"use client"` directive at the top of any file using this hook.
 
 ### Test it out!
 The data your provided is now available to the Copilot.
