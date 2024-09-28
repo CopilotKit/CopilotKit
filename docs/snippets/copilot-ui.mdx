@@ -15,7 +15,10 @@ import "@copilotkit/react-ui/styles.css";
 
 <Tabs items={["CopilotPopup", "CopilotSidebar", "CopilotChat", "Headless UI"]}>
   <Tabs.Tab>
-    `CopilotPopup` lives at the same level as your main content in the view hierarchy.
+
+    `CopilotPopup` is a convenience wrapper for `CopilotChat` that lives at the same level as your main content in the view hierarchy. It provides **a floating chat interface** that can be toggled on and off.
+
+    <img src="/images/popup-example.gif" alt="Popup Example" className="w-full rounded-lg my-4" />
 
     ```tsx
     import { CopilotPopup } from "@copilotkit/react-ui";
@@ -35,10 +38,11 @@ import "@copilotkit/react-ui/styles.css";
     }
     ```
 
-
   </Tabs.Tab>
   <Tabs.Tab>
-    `CopilotSidebar` wraps your main content in the view hierarchy -- and provides collapsable/expandable sidebar functionality.
+    `CopilotSidebar` is a convenience wrapper for `CopilotChat` that wraps your main content in the view hierarchy. It provides a **collapsible and expandable sidebar** chat interface.
+
+    <img src="/images/sidebar-example.gif" alt="Popup Example" className="w-full rounded-lg my-4" />
 
     ```tsx
     import { CopilotSidebar } from "@copilotkit/react-ui";
@@ -59,10 +63,13 @@ import "@copilotkit/react-ui/styles.css";
     ```
 
 
+
   </Tabs.Tab>
   <Tabs.Tab>
-    `CopilotChat` is a flexible chat interface component that can be placed anywhere in your app and can be resized as you desire.
-    Both `CopilotSidebar` and `CopilotPopup` use `CopilotChat` under the hood.
+    `CopilotChat` is a flexible chat interface component that **can be placed anywhere in your app** and can be resized as you desire.
+
+
+    <img src="/images/copilotchat-example.gif" alt="Popup Example" className="w-full rounded-lg my-4" />
 
     ```tsx
     import { CopilotChat } from "@copilotkit/react-ui";
@@ -83,7 +90,7 @@ import "@copilotkit/react-ui/styles.css";
   <Tabs.Tab>
     The built-in Copilot UI can be customized in many ways -- both through css and by passing in custom sub-components.
     
-    CopilotKit also offers fully custom headless UI, through the `useCopilotChat` hook.
+    CopilotKit also offers **fully custom headless UI**, through the `useCopilotChat` hook. Everything built with the built-in UI can be implemented with the headless UI, providing deep customizability.
 
     ```tsx
     import { useCopilotChat } from "@copilotkit/react-core";

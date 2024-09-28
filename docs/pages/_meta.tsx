@@ -1,4 +1,5 @@
 import { LinkToCopilotCloud } from "@/components/link-to-copilot-cloud";
+import { t } from "nextra/dist/types-CaqfrBe7";
 
 export default {
   "copilot-cloud": {
@@ -27,12 +28,25 @@ export default {
     type: "separator",
     title: "Guides",
   },
-  "quickstart-leftover": {
-    title: "Quickstart Leftover",
-    theme: {
-      toc: false,
-    },
+  "connect-to-your-data": {
+    title: "Connect your data",
   },
+  "frontend-action": {
+    title: "Frontend actions",
+  },
+  "backend-action": {
+    title: "Backend actions",
+  },
+  "generative-ui": {
+    title: "Generative UI (in-chat custom UI)",
+  },
+  "copilot-suggestions": {
+    title: "Copilot Suggestions",
+  },
+  "customize-look-and-feel": {
+    title: "Customize Look & Feel",
+  },
+
   "___other": {
     type: "separator",
     title: "Other",
