@@ -1,0 +1,58 @@
+
+import { Steps } from 'nextra/components';
+import { Callout } from 'nextra/components'
+
+# Let the Copilot Take Action
+
+<Steps>
+
+### `useCopilotAction`
+
+In addition to understanding state, you can empower the copilot to take actions. Use the `useCopilotAction` hook to define specific tasks that the copilot can perform based on user input.
+
+```tsx filename="YourComponent.tsx" showLineNumbers {7-20}
+import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
+
+export function YourComponent() {
+  const { employees, selectEmployee } = useEmployees();
+
+  // Define Copilot action
+  useCopilotAction({
+    name: "Select an employee",
+    description: "Select an employee from the list",
+    parameters: [
+      {
+        name: "employeeId",
+        type: "string",
+        description: "The ID of the employee to select",
+        required: true,
+      }
+    ],
+    handler: async ({ employeeId }) => {
+      selectEmployee(employeeId);
+    },
+  });
+
+  return (
+    // Your custom UI component
+    <>...</>
+  );
+}
+```
+
+### `"use client"` (Next.js App Router)
+```tsx filename="YourComponent.tsx" showLineNumbers {1}
+"use client"  # (only necessary if you are using Next.js App Router)
+```
+
+Like other React hooks, this hook needs to be run on the client side. Ensure to add `"use client"` at the top of any component file using this hook when using Next.js.
+
+### Test it out!
+After defining the action, ask the copilot to perform the task. For example, you can now ask the copilot to "select an employee" by specifying the `employeeId`.
+
+</Steps>
+
+### Advanced
+
+For more advanced use cases, refer to the [`useCopilotAction` reference](/reference/hooks/useCopilotAction).
+
