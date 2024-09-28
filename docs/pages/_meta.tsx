@@ -35,10 +35,13 @@ export default {
     title: "Frontend actions",
   },
   "backend-action": {
-    title: "Backend actions + Copilot Skills",
+    title: "Backend actions",
   },
   "generative-ui": {
     title: "Generative UI (in-chat custom UI)",
+  },
+  "customize-look-and-feel": {
+    title: "Customize Look & Feel",
   },
 
   "quickstart-leftover": {
