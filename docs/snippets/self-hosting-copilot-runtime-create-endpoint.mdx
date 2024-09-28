@@ -15,6 +15,9 @@ First, choose which LLM model you would like to use under the hood:
     OPENAI_API_KEY=your_api_key_here
     ```
 
+    Please note that the code below uses GPT-4o, which requires a paid OpenAI API key.
+    **If you are using a free OpenAI API key**, change the model to a different option such as "gpt-3.5-turbo".
+
     #### Endpoint Setup
 
     <Tabs items={['Next.js App Router', 'Next.js Pages Router', 'Node.js Express', 'Node.js HTTP', 'NestJS']}>
@@ -33,14 +36,17 @@ First, choose which LLM model you would like to use under the hood:
         import { NextRequest } from 'next/server';
 
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const llmAdapter = new OpenAIAdapter({ openai });
+        const llmAdapter = new OpenAIAdapter({ 
+          openai,
+          model: "gpt-4o"
+        });
 
         const runtime = new CopilotRuntime();
 
         export const POST = async (req: NextRequest) => {
           const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
             runtime,
-            llmAdapter,
+            serviceAdapter: llmAdapter,
             endpoint: '/api/copilotkit',
           });
 
@@ -65,7 +71,10 @@ First, choose which LLM model you would like to use under the hood:
         import OpenAI from 'openai';
 
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const llmAdapter = new OpenAIAdapter({ openai });
+        const llmAdapter = new OpenAIAdapter({ 
+          openai,
+          model: "gpt-4o"
+        });
 
         const handler = async (req: NextApiRequest, res: NextApiResponse) => {
           const runtime = new CopilotRuntime();
@@ -73,7 +82,7 @@ First, choose which LLM model you would like to use under the hood:
           const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
             endpoint: '/api/copilotkit',
             runtime,
-            llmAdapter,
+            serviceAdapter: llmAdapter,
           });
 
           return await handleRequest(req, res);
@@ -100,14 +109,17 @@ First, choose which LLM model you would like to use under the hood:
 
         const app = express();
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const llmAdapter = new OpenAIAdapter({ openai });
+        const llmAdapter = new OpenAIAdapter({ 
+          openai,
+          model: "gpt-4o"
+        });
 
         app.use('/copilotkit', (req, res, next) => {
           const runtime = new CopilotRuntime();
           const handler = copilotRuntimeNodeHttpEndpoint({
             endpoint: '/copilotkit',
             runtime,
-            llmAdapter,
+            serviceAdapter: llmAdapter,
           });
 
           return handler(req, res, next);
@@ -135,14 +147,17 @@ First, choose which LLM model you would like to use under the hood:
         import OpenAI from 'openai';
 
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const llmAdapter = new OpenAIAdapter({ openai });
+        const llmAdapter = new OpenAIAdapter({ 
+          openai,
+          model: "gpt-4o"
+        });
 
         const server = createServer((req, res) => {
           const runtime = new CopilotRuntime();
           const handler = copilotRuntimeNodeHttpEndpoint({
             endpoint: '/copilotkit',
             runtime,
-            llmAdapter,
+            serviceAdapter: llmAdapter,
           });
 
           return handler(req, res);
@@ -170,7 +185,10 @@ First, choose which LLM model you would like to use under the hood:
           @All('/copilotkit')
           copilotkit(@Req() req: Request, @Res() res: Response) {
             const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-            const llmAdapter = new OpenAIAdapter({ openai });
+            const llmAdapter = new OpenAIAdapter({ 
+              openai,
+              model: "gpt-4o"
+            });
             const runtime = new CopilotRuntime();
 
             runtime.streamHttpServerResponse(req, res, llmAdapter);
