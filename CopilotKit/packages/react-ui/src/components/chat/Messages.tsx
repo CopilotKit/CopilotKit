@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { MessagesProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import { Markdown } from "./Markdown";
@@ -53,6 +53,8 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
     scrollToBottom();
   }, [messages]);
 
+  const [typing, setTyping] = useState(false);
+
   return (
     <div className="copilotKitMessages">
       {messages.map((message, index) => {
@@ -62,6 +64,7 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
           return (
             <div key={index} className="copilotKitMessage copilotKitUserMessage">
               {message.content}
+              <div className="timestamp">{new Date().toLocaleTimeString()}</div>
             </div>
           );
         } else if (message instanceof TextMessage && message.role == "assistant") {
@@ -72,6 +75,11 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
               ) : (
                 <Markdown content={message.content} />
               )}
+              <div className="timestamp">{new Date().toLocaleTimeString()}</div>
+              <div className="reactions">
+                <span role="img" aria-label="thumbs up">👍</span>
+                <span role="img" aria-label="thumbs down">👎</span>
+              </div>
             </div>
           );
         } else if (message instanceof ActionExecutionMessage) {
@@ -233,6 +241,7 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
           );
         }
       })}
+      {typing && <div className="typingIndicator">Someone is typing...</div>}
       <footer ref={messagesEndRef}>{children}</footer>
     </div>
   );
