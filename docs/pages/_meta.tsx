@@ -28,6 +28,7 @@ export default {
     type: "separator",
     title: "Guides",
   },
+
   "connect-to-your-data": {
     title: "Connect your data",
   },
@@ -39,6 +40,9 @@ export default {
   },
   "generative-ui": {
     title: "Generative UI (in-chat custom UI)",
+  },
+  "customize-ai-behavior": {
+    title: "Customize AI behavior",
   },
   "copilot-suggestions": {
     title: "Copilot Suggestions",
