@@ -32,14 +32,14 @@ export default {
   "connect-to-your-data": {
     title: "Connect your data",
   },
+  "generative-ui": {
+    title: "Generative UI (in-chat custom UI)",
+  },
   "frontend-action": {
     title: "Frontend actions",
   },
   "backend-action": {
     title: "Backend actions",
-  },
-  "generative-ui": {
-    title: "Generative UI (in-chat custom UI)",
   },
   "copilot-suggestions": {
     title: "Copilot Suggestions",
