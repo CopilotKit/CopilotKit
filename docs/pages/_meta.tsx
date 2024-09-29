@@ -41,14 +41,14 @@ export default {
   "generative-ui": {
     title: "Generative UI (in-chat custom UI)",
   },
-  "customize-ai-behavior": {
-    title: "Customize AI behavior",
-  },
   "copilot-suggestions": {
     title: "Copilot Suggestions",
   },
   "customize-look-and-feel": {
     title: "Customize Look & Feel",
+  },
+  "customize-ai-behavior": {
+    title: "Customize AI assistant behavior",
   },
 
   "___other": {
