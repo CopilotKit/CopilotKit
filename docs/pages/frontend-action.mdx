@@ -20,14 +20,14 @@ If you're using Next.js with the App Router, you'll need to add the `"use client
 In addition to understanding state, you can empower the copilot to take actions. Use the `useCopilotAction` hook to define specific tasks that the copilot can perform based on user input.
 
 ```tsx filename="YourComponent.tsx" showLineNumbers {7-21}
-import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
+import { useCopilotAction } from "@copilotkit/react-core";
 
 export function YourComponent() {
   const { employees, selectEmployee } = useEmployees();
 
   // Define Copilot action
   useCopilotAction({
-    name: "Select an employee",
+    name: "selectAnEmployee", // like a function name, cannot contain spaces, etc.
     description: "Select an employee from the list",
     parameters: [
       {
