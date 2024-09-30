@@ -16,7 +16,7 @@ Thank you for your interest in contributing! Here’s how you can participate du
 
 ### Preparing Your Submission
 
-1. **Copy the Template**: Navigate to the `TEMPLATE.md` file in the repository. Copy its content as the baseline for your submission.
+1. **Copy the Template**: Navigate to the [TEMPLATE.md](./TEMPLATE.md) file in the repository. Copy its content as the baseline for your submission.
 2. **Add Your Info**: Fill out the template with details about your project:
    - **Project Title**:
    - **Your Topic**: The challenge your demo addresses.
