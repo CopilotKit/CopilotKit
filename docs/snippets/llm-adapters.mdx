@@ -2,7 +2,7 @@ import { Callout } from 'nextra/components'
 
 LLM Adapters are responsible for executing the request with the LLM and standardizing the request/response format in a way that the Copilot Runtime can understand.
 
-Currently, we support the following LLM Adapters:
+Currently, we support the following LLM adapters natively:
 
 - [OpenAIAdapter](/reference/classes/CopilotRuntime/llm-adapters/OpenAIAdapter)
 - [OpenAIAssistantAdapter](/reference/classes/CopilotRuntime/llm-adapters/OpenAIAssistantAdapter)
@@ -12,12 +12,10 @@ Currently, we support the following LLM Adapters:
 - [AnthropicAdapter](/reference/classes/CopilotRuntime/llm-adapters/AnthropicAdapter)
 
 
-<Callout type="info">
-  You can also use the **`LangChainAdapter`** to use any LLM provider we don't yet natively support.
+<Callout>
+  You can use the **`LangChainAdapter`** to use any LLM provider we don't yet natively support!
 </Callout>
 
-
-<Callout type="info">
+<Callout>
   It's not too hard to write your own LLM adapter from scratch -- see the existing adapters for inspiration. And of course, we would love a contribution! ⭐️
 </Callout>
-

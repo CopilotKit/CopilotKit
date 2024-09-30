@@ -39,10 +39,13 @@ export default {
     title: "Frontend actions",
   },
   "backend-action": {
-    title: "Backend actions",
+    title: "Backend actions + agents",
   },
   "copilot-suggestions": {
     title: "Copilot Suggestions",
+  },
+  "bring-your-own-llm": {
+    title: "Bring your own LLM",
   },
   "customize-look-and-feel": {
     title: "Customize Look & Feel",
