@@ -12,28 +12,32 @@ Thank you for your interest in contributing! Here’s how you can participate du
 ### Making Changes
 
 1. **Create a Branch**: Create a branch for your changes.
-2. **Develop**: Work on your assigned issue following our detailed template for submissions.
-3. **Follow Guidelines**: Adhere to our code style and guidelines.
+2. **Develop**: Work on your assigned issue. Be sure to sync your branch with the main branch frequently to ensure compatibility.
+
+### Preparing Your Submission
+
+1. **Copy the Template**: Navigate to the `TEMPLATE.md` file in the repository. Copy its content as the baseline for your submission.
+2. **Add Your Info**: Fill out the template with details about your project:
+   - **Project Title**
+   - **Your Topic**: The challenge your demo addresses.
+   - **Description**: Purpose and value of your demo.
+   - **Technologies Being Used**: List technologies and frameworks used.
+   - **App Link**: If live, include the link.
+   - **Screenshot**: Attach a screenshot of your demo.
+   - **Detailed Description**: Explain functionality and features.
+   - **Who Are You?**: Introduce yourself and your motivation.
+   - **Additional Resources/Info**: Link to any extra resources or information.
+3. **Create a Submission File**: Save this filled template as a Markdown file (.md) in the `submissions` folder. Name the file after your project, in lowercase.
 
 ### Submitting Your Contribution
 
-1. **Pull Request**: Submit a PR with your changes linked to the issue.
-   - Ensure your submission follows the `TEMPLATE.md` structure:
-     - **Project Title**
-     - **Your Topic**: The challenge your demo addresses.
-     - **Description**: Purpose and value of your demo.
-     - **Technologies Being Used**: List technologies and frameworks used.
-     - **App Link**: If live, include the link.
-     - **Screenshot**: Attach a screenshot of your demo.
-     - **Detailed Description**: Explain functionality and features.
-     - **Who Are You?**: Introduce yourself and your motivation.
-     - **Additional Resources/Info**: Link to any extra resources or information.
-2. **Code Review**: Wait for feedback and make any required revisions.
-3. **Merge**: After approval, your changes will be merged.
+1. **Pull Request**: Submit a pull request (PR) with your project file in the `submissions` directory. Ensure your PR description links to the issue you addressed.
+2. **Code Review**: Wait for feedback from the project maintainers and make any required revisions.
+3. **Merge**: After approval, your changes will be merged with the `hacktoberfest-accepted` label to ensure you will receive credit from the official Hacktoberfest organization.
 
 ## Additional Steps
 
-- **Add Your Name**: Ensure to add your name to `List.md` in alphabetical order.
+- **Add Your Name**: Remember to add your name to `List.md` in alphabetical order.
 
 ## Rules and Rewards
 
