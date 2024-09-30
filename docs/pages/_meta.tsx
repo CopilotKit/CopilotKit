@@ -53,6 +53,9 @@ export default {
   "customize-ai-behavior": {
     title: "Customize AI assistant behavior",
   },
+  "copilot-textarea-quickstart": {
+    title: "CopilotTextarea (quickstart guide)",
+  },
 
   "___other": {
     type: "separator",
