@@ -54,6 +54,17 @@
 
 <div>
 <p>
+
+![Hacktoberfest banner](https://github.com/user-attachments/assets/6f66a863-e303-4b55-9365-600fb4e84ebe)
+
+<div align="center">
+🚀 Join Us for CopilotKit's Hacktoberfest Event and Swag Giveaway!
+
+Details coming soon!
+</div>
+
+
+
   👉 Check out the docs at <a href="https://docs.copilotkit.ai?ref=github_readme" target="_blank">https://docs.copilotkit.ai</a>
 </p>
 </div>
