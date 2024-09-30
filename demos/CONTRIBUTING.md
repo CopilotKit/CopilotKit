@@ -6,9 +6,8 @@ Thank you for your interest in contributing! Here’s how you can participate du
 
 ### Getting Started
 
-1. **Register for Hacktoberfest**: Sign up at [Hacktoberfest](https://hacktoberfest.digitalocean.com/) to be eligible for rewards.
-2. **Fork and Clone**: Fork and clone the CopilotKit repository to your local machine.
-3. **Pick an Issue**: Choose issues tagged `hacktoberfest` from our issues list and ask to be assigned.
+1. **Fork and Clone**: Fork and clone the CopilotKit repository to your local machine.
+2. **Pick an Issue**: Choose issues tagged `hacktoberfest` from our issues list and ask to be assigned.
 
 ### Making Changes
 
