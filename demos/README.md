@@ -6,7 +6,7 @@
 
 1. **Project Setup and Guidelines**: Refer to the [CONTRIBUTING.md](./CONTRIBUTING.md) file for detailed setup instructions and guidelines.
 2. **Choose a Topic**: Visit our [Issues section](https://github.com/CopilotKit/CopilotKit/issues) tagged with `hacktoberfest`. CopilotKit will allow multi-assign!
-3. **Submit Your Demo**: Create and submit your project as per the instructions in `CONTRIBUTING.md`.
+3. **Submit Your Demo**: Create and submit your project according to the steps listed in the `CONTRIBUTING.md`.
 4. **Add Your Name**: Don't forget to add your name to the `List.md` to be part of our contributors' list!
 
 ## Why Join?

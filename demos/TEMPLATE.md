@@ -12,6 +12,8 @@ Briefly explain the purpose of your demo and the value it provides.
 
 List the technologies and frameworks you are using (e.g., Next.js, Python, Laravel, NestJS). This helps us attract the right people to test your project.
 
+### Note: Please only use the [shadcn component library](https://ui.shadcn.com/) for consistancy.
+
 - Technology 1
 - Technology 2
 - Technology 3
@@ -19,12 +21,12 @@ List the technologies and frameworks you are using (e.g., Next.js, Python, Larav
 ## App Link
 
 If your app is live, include the link here:
-[Live Demo](http://your-app-link.com)
+[Live Demo](http://google.com)
 
 ## Screenshot
 
 Include a screenshot of your demo in action:
-![Screenshot](path/to/screenshot.png)
+![Screenshot]()
 
 ## Detailed Description
 
