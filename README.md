@@ -14,6 +14,9 @@
 
 <br/>
 
+
+
+
 <div align="center">
   <a href="https://www.npmjs.com/package/@copilotkit/react-core" target="_blank">
     <img src="https://img.shields.io/npm/v/%40copilotkit%2Freact-core?logo=npm&logoColor=%23FFFFFF&label=Version&color=%236963ff" alt="NPM">
@@ -37,11 +40,21 @@
   </a>
 </div>
 
+
+
 <br/>
 <div align="center">
   <a href="https://www.producthunt.com/posts/copilotkit" target="_blank">
     <img src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=428778&theme=light&period=daily">
   </a>
+</div>
+
+![Hacktoberfest banner](https://github.com/user-attachments/assets/6f66a863-e303-4b55-9365-600fb4e84ebe)
+
+<div align="center">
+🚀 Join Us for CopilotKit's Hacktoberfest Event and Swag Giveaway!
+
+Details coming soon!
 </div>
 
 <br />
@@ -55,13 +68,6 @@
 <div>
 <p>
 
-![Hacktoberfest banner](https://github.com/user-attachments/assets/6f66a863-e303-4b55-9365-600fb4e84ebe)
-
-<div align="center">
-🚀 Join Us for CopilotKit's Hacktoberfest Event and Swag Giveaway!
-
-Details coming soon!
-</div>
 
 
 
