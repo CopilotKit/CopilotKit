@@ -8,11 +8,18 @@ import { useState } from "react";
 export default function AIPresentation() {
   const [performResearch, setPerformResearch] = useState(false);
 
+  const copilotKitProps = {
+    transcribeAudioUrl: "/api/transcribe",
+    textToSpeechUrl: "/api/tts",
+    runtimeUrl: process.env["NEXT_PUBLIC_COPILOTKIT_RUNTIME_URL"] ?? "/api/copilotkit/openai",
+    publicApiKey: process.env["NEXT_PUBLIC_COPILOTKIT_PUBLIC_API_KEY"] ?? undefined,
+  };
+
+  console.log("copilotKitProps", copilotKitProps);
+
   return (
     <CopilotKit
-      runtimeUrl="/api/copilotkit/openai"
-      transcribeAudioUrl="/api/transcribe"
-      textToSpeechUrl="/api/tts"
+      {...copilotKitProps}
     >
       <div
         style={
