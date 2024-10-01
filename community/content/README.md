@@ -1,5 +1,8 @@
 
-![Hacktoberfest banner](https://github.com/user-attachments/assets/2697aa8c-3a13-4755-ab1f-e9d6cc1524c0)
+![hacktoberfest_banner](https://github.com/user-attachments/assets/813f2f32-999e-4e91-a527-9c1748380154)
+
+
+
 
 ## Hacktoberfest: Contribute to CopilotKit and Win Exclusive Swag!
 
