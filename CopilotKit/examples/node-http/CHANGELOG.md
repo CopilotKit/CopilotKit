@@ -1,5 +1,16 @@
 # node
 
+## 1.3.2
+
+### Patch Changes
+
+- Features and bug fixes
+- 30232c0: Ensure actions can be discovered on state change
+- Updated dependencies
+- Updated dependencies [30232c0]
+  - @copilotkit/runtime@1.3.2
+  - @copilotkit/shared@1.3.2
+
 ## 1.3.2-mme-discover-actions.0
 
 ### Patch Changes
