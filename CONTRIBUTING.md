@@ -34,13 +34,31 @@ Fork the CopilotKit repository to your GitHub organization. This means that you'
 ## Step 2: Clone the repository to your local machine
 
 ```
-git clone https://github.com/{your-GitHub-username}/CopilotKit.git
+git clone https://github.com/{your-GitHub-username}/CopilotKit
 
 ```
 
 ## Step 3: Prepare the development environment
 
-Set up and run the development environment on your local machine
+Set up and run the development environment on your local machine:
+
+### 1)Install Prerequisites
+- Node.js 20.x or later
+- pnpm v9.x installed globally (npm i -g pnpm@^9)
+- Turborepo v2.x installed globally (npm i -g turbo@2)
+
+### 2)Install Dependencies
+Install the dependencies using pnpm:
+
+```jsx
+pnpm install
+```
+### 3)Build Packages
+To make sure everything works, let’s build all packages once:
+
+```jsx
+turbo run build
+```
 
 ## Step 4: Create a branch
 
@@ -59,7 +77,15 @@ git checkout -b branch-name-here
 
 ## Step 5: Make your changes
 
-Update the code with your bug fix or new feature.
+Now that everything is set up and works as expected, you can get start developing or update the code with your bug fix or new feature.
+
+```jsx
+# Start all packages in development mode
+turbo run dev
+ 
+# Start a specific package in development mode
+turbo run dev --filter="@copilotkit/package-name"
+```
 
 ## Step 6: Add the changes that are ready to be committed
 
