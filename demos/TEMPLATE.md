@@ -28,7 +28,8 @@ Link to any bonus activities you did such as solving GitHub Issues or posting to
 ## Screenshot
 
 Include a screenshot of your demo in action:
-![Screenshot]()
+![image](https://github.com/user-attachments/assets/5d2a020c-dc8f-4b27-85db-ba1413bdc8f6)
+
 
 ## Who Are You?
 
