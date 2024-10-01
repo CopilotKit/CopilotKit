@@ -8,7 +8,7 @@
   <br/>
 
   <strong>
-    CopilotKit is the open-source framework for integrating powerful AI Copilots into any application. Easily implement custom AI Chatbots, AI Agents, AI Textareas, and more.
+    CopilotKit is an open-source framework for integrating powerful AI Copilots into any application. Easily implement custom AI Chatbots, AI Agents, AI Textareas and more.
   </strong>
 </div>
 
@@ -84,7 +84,7 @@
 There are several easy ways to get started with CopilotKit:
 
 - [**Quickstart: Chatbot:**](https://docs.copilotkit.ai/quickstart-chatbot?ref=github_readme) In just two minutes, add an AI Chatbot to your app with the ability to read application state and take actions.
-- [**Tutorial: Todo List Copilot:**](https://docs.copilotkit.ai/tutorial-ai-todo-list-copilot/overview?ref=github_readme) For a better deep dive into CopilotKit, take a simple todo list app and supercharge it with an AI chat popup.
+- [**Tutorial: Todo List Copilot:**](https://docs.copilotkit.ai/tutorial-ai-todo-list-copilot/overview?ref=github_readme) For a better deep dive into CopilotKit, take a simple to-do list app and supercharge it with an AI chat popup.
 - [**Tutorial: Textarea Autocomplete:**](https://docs.copilotkit.ai/tutorial-textarea/overview?ref=github_readme) For a better deep dive into CopilotKit, we'll take a simple email client app and add an AI-powered textarea to it with autocompeltions and AI insertions/edits.
 
 ### Examples & Starter Templates
@@ -146,7 +146,7 @@ There are several easy ways to get started with CopilotKit:
 
 Thanks for your interest in contributing to CopilotKit! 💜
 
-We value all contributions, whether it's through code, documentation, creating demo apps, or just spreading the word.
+We value all contributions, whether it's through code, documentation, creating demo apps, or just spreading the word.Keep spreading the love!
 
 Here are a few useful resources to help you get started:
 
