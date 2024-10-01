@@ -27,7 +27,7 @@
       "description": "[Examples] Enable Renovate for CopilotKit packages only",
       "enabled": true,
       "matchPaths": [
-        "examples/**"
+        "examples/**/*"
       ],
       "matchPackageNames": [
         "/^@copilotkit/",
