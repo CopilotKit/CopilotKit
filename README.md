@@ -1,4 +1,4 @@
-> Copilot Cloud v1 has been released! 🎉 [Read more about it here](https://ai88.substack.com/p/copilotkit-v1-launch).
+> Here for Hacktoberfest? 🎉 [Get started here :rocket: :confetti_ball:](https://github.com/CopilotKit/CopilotKit/tree/main/community/content).
 
 <div align="center">
   <a href="https://copilotkit.ai" target="_blank">
