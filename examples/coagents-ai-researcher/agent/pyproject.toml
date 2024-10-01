@@ -34,7 +34,7 @@ langchain = "^0.2.15"
 openai = "^1.43.0"
 langchain-community = "^0.2.14"
 tavily-python = "^0.4.0"
-copilotkit = "0.1.16"
+copilotkit = "0.1.17"
 python-dotenv = "^0.19.1"
 uvicorn = "^0.30.6"
 
