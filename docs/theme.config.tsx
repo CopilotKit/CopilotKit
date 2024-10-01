@@ -60,7 +60,7 @@ const themeConfig: DocsThemeConfig = {
   chat: {
     link: "https://discord.gg/6dffbvGU3D",
   },
-  docsRepositoryBase: "https://github.com/copilotkit/copilotkit",
+  docsRepositoryBase: "https://github.com/copilotkit/copilotkit/tree/main/docs",
   footer: {
     content: "© Tawkit, Inc. All rights reserved.",
   },
