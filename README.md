@@ -1,3 +1,4 @@
+#sudo su 
 > Here for Hacktoberfest? 🎉 [Get started here :rocket: :confetti_ball:](https://github.com/CopilotKit/CopilotKit/tree/main/community/content).
 
 <div align="center">
