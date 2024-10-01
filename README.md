@@ -46,6 +46,13 @@
 
 <br />
 
+<div >
+  
+[![hacktoberfest_banner](https://github.com/user-attachments/assets/90e88d5e-22ec-4401-a95b-7779b10afe13)](https://github.com/CopilotKit/CopilotKit/tree/main/community/content)
+</div>
+
+
+
 <div align="center">
   <img src="./assets/animated-banner.gif" alt="CopilotKit Screenshot" style="border-radius: 15px;" />
 </div>
