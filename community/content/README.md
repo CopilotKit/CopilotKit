@@ -1,8 +1,4 @@
-
 ![hacktoberfest_banner](https://github.com/user-attachments/assets/813f2f32-999e-4e91-a527-9c1748380154)
-
-
-
 
 ## Hacktoberfest: Contribute to CopilotKit and Win Exclusive Swag!
 
@@ -40,7 +36,7 @@ Demos will be ranked from 0 to 100 based on:
 
 ⭐ 4 Ways to Earn 30 bonus points for each:
 
-1. ⭐ Write and share a tutorial about your app on [dev.to](https://dev.) that receives up to 30 or more reactions.
+1. ⭐ Write and share a tutorial about your app on [dev.to](https://dev.to/) that receives up to 30 or more reactions.
 2. ⭐ Post about your project on Twitter and get at least 10 reactions.
 3. ⭐ Solve `good first issue`'s that get merged merged.
 4. ⭐ Create a YouTube video promoting your CopilotKit project that recieves up to 100 views.
