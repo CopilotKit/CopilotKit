@@ -18,9 +18,7 @@ export default function AIPresentation() {
   console.log("copilotKitProps", copilotKitProps);
 
   return (
-    <CopilotKit
-      {...copilotKitProps}
-    >
+    <CopilotKit {...copilotKitProps}>
       <div
         style={
           {

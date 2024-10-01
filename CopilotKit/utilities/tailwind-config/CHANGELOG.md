@@ -1,5 +1,12 @@
 # tailwind-config
 
+## 1.3.2
+
+### Patch Changes
+
+- Features and bug fixes
+- 30232c0: Ensure actions can be discovered on state change
+
 ## 1.3.2-mme-discover-actions.0
 
 ### Patch Changes
