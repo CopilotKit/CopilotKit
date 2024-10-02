@@ -4,7 +4,7 @@ All security bugs in CopilotKit should be reported by email to security@copilotk
 
 This email address is delivered to a small security team. Your email will be acknowledged within 24 hours and please be specific with the issue you have found.
 
-If you have not received a reply to your email within 48 hours, or have not heard from the security team for the past five days, please DM someone from CopilotKit in our community.
+If you have not received a reply to your email within 48 hours, or have not heard from the security team for the past five days, please DM someone from CopilotKit in our [Discord Community](https://discord.com/invite/6dffbvGU3D).
 
 Please note that our community is a public area. When escalating at this venue, please do not discuss your issue. Simply say that you’re trying to get a hold of someone from the security team.
 
