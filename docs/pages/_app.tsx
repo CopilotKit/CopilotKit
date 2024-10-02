@@ -6,6 +6,8 @@ import { ScarfPixel } from "@/lib/ScarfPixel";
 import { PostHogProvider } from "@/lib/providers/PostHogProvider";
 import { ClerkProvider } from "@clerk/nextjs";
 import { TailoredContentProvider } from "@/lib/hooks/useTailoredContent";
+import { ThemeProvider } from "@/lib/context/themeContext";
+import { useEffect } from "react";
 
 const plex = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -15,18 +17,24 @@ const plex = IBM_Plex_Sans({
 export default function App({ Component, pageProps }: AppProps) {
   useRB2B();
 
+  useEffect(() => {
+    // Apply the theme class to the body on initial load
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.body.dataset.theme = savedTheme;
+  }, []);
+
   return (
-    <>
-      <ClerkProvider publishableKey={process.env.CLERK_PUBLISHABLE_KEY}>
-        <PostHogProvider>
+    <ClerkProvider publishableKey={process.env.CLERK_PUBLISHABLE_KEY}>
+      <PostHogProvider>
+        <ThemeProvider>
           <main className={plex.className}>
             <TailoredContentProvider>
               <Component {...pageProps} />
             </TailoredContentProvider>
           </main>
-        </PostHogProvider>
-        <ScarfPixel />
-      </ClerkProvider>
-    </>
+        </ThemeProvider>
+      </PostHogProvider>
+      <ScarfPixel />
+    </ClerkProvider>
   );
 }
