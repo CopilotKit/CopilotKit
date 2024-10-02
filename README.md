@@ -51,7 +51,7 @@
 [![hacktoberfest_banner](https://github.com/user-attachments/assets/90e88d5e-22ec-4401-a95b-7779b10afe13)](https://github.com/CopilotKit/CopilotKit/tree/main/community/content)
 </div>
 
-
+[![Contribute Now](https://img.shields.io/badge/Contribute%20Now-brightgreen?style=flat&logo=github)](https://github.com/CopilotKit/CopilotKit/blob/main/community/content/CONTRIBUTING.md)
 
 <div align="center">
   <img src="./assets/animated-banner.gif" alt="CopilotKit Screenshot" style="border-radius: 15px;" />
@@ -152,7 +152,7 @@ Here are a few useful resources to help you get started:
 
 - For code contributions, [check out the contribution guide](https://docs.copilotkit.ai/code-contributions/how-to-contribute?ref=github_readme).
 - For documentation-related contributions, [check out the documentation Contributions guide](https://docs.copilotkit.ai/code-contributions/how-to-contribute?ref=github_readme).
-- Want to contribute but not sure how? [Join our Discord](https://discord.gg/6dffbvGU3D) and we'll help you out!
+- You want to contribute but not sure how? [Join our Discord](https://discord.gg/6dffbvGU3D) and we'll help you out!
 
 
 > 💡 **NOTE:** All contributions must be submitted via a pull request and be reviewed by our team. This is to ensure that all contributions are of high quality and align with the project's goals.
@@ -165,4 +165,4 @@ Additionally, you can reach out to us at [hello@copilotkit.ai](mailto:hello@copi
 
 ## License
 
-This repository's source code is available under the [MIT License].
+This repository's source code is available under the [MIT License](LICENSE).
