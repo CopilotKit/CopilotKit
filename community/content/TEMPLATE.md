@@ -1,36 +1,80 @@
 ## Project Title
+<!-- Provide the title of your project or feature being worked on -->
 
 ## Name of Issue/Topic
+<!-- State the issue or feature your pull request addresses. If tied to an issue, link the issue number. -->
+Fixes # (issue number)
 
-Provide the topic or challenge that your demo addresses.
+## Type of Contribution
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Enhancement
+- [ ] Refactoring
+- [ ] Documentation update
+- [ ] Performance improvement
+- [ ] Other (Please specify):
 
-## Technologies Being Used
+## Summary of Changes
+<!-- Provide a detailed description of the changes made in this PR. Include the "why" behind the change and its impact. -->
+- Change 1: <!-- Briefly describe change -->
+- Change 2: <!-- Briefly describe change -->
 
-List the technologies and frameworks you are using (e.g., Next.js, Python, Laravel, NestJS). This helps us attract the right people to test your project.
+## Technologies Used
+<!-- List the main technologies and frameworks that are impacted or used in this PR. -->
+- Language/Framework: <!-- e.g., Python, Next.js, etc. -->
+- Libraries: <!-- e.g., Shadcn-UI, CopilotKit, etc. -->
 
-### Note: Please only use the [v0](https://v0.dev/docs) for consistancy.
+## Deployment Strategy
+<!-- Explain the steps to deploy these changes. Does it require a migration, special configuration, or rollback plan? -->
+- No migrations required
+- Config file changes
+- Database migrations needed
+- Other: <!-- Provide any other relevant deployment info -->
 
-- v0 Styling
-- Shadcn-UI Component Styling
-- CopilotKit
+## Contributor Checklist
+- [ ] Code follows project standards (linting, formatting, etc.).
+- [ ] New tests have been written and existing tests pass.
+- [ ] Changes are backwards-compatible.
+- [ ] Documentation has been updated (where necessary).
+- [ ] I have ensured proper error handling and logging.
+- [ ] Code has been reviewed by at least one peer.
+
+## Automation and Testing
+- [ ] Unit tests for new functionality.
+- [ ] Integration tests (if applicable).
+- [ ] CI/CD pipeline successful.
+- [ ] Linting and formatting checks passed.
+- [ ] Manual testing completed.
+
+## Security Considerations
+<!-- Are there any security implications introduced by this PR? If so, how are they mitigated? -->
+- No security issues.
+- Security review required for:
+  - New dependencies
+  - Sensitive data handling
+  - API changes
+
+## Screenshots (if applicable)
+<!-- If applicable, include screenshots or GIFs showing the UI/UX changes. -->
+![Screenshot](link-to-screenshot)
+
+## Performance Considerations
+<!-- If performance is a concern, describe any tests, metrics, or optimization done to ensure efficiency. -->
+- Performance impact: Low/Medium/High
+- Benchmarks run (if applicable)
+
+## Rollback Plan
+<!-- Provide a plan in case the changes need to be rolled back in production. -->
+- Rollback command or steps:
+- Potential impact if rollback is needed:
 
 ## App Link
-
-If your app is live, include the link here:
-[Live Demo](http://google.com)
-
-Deploy your app on [Vercel](https://vercel.com/new)
+<!-- If applicable, provide a live link to the app: -->
+[Live Demo](http://your-app-link.com)
 
 ## Bonus Points
+<!-- List any extra work you did, such as related GitHub issues, community contributions, or media presence. -->
+- Bonus Activity: <!-- e.g., Social media post, additional feature, etc. -->
 
-Link to any bonus activities you did such as solving GitHub Issues or posting to Twitter, Dev.to, Medium, etc.
-
-## Screenshot
-
-Include a screenshot of your demo in action:
-![image](https://github.com/user-attachments/assets/5d2a020c-dc8f-4b27-85db-ba1413bdc8f6)
-
-
-## Who Are You?
-
-Please list your GitHub handle if you feel comfortable doing so.
+## Additional Comments
+<!-- Add any additional comments or context that would be helpful for reviewers. -->
