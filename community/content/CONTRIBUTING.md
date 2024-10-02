@@ -14,7 +14,7 @@ Here’s how you can participate during Hacktoberfest:
 
 ### Preparing Your Submission
 
-1. **Copy the Template**: Navigate to the [TEMPLATE.md](/.TEMPLATE.md) file in the repository. Copy its content as the baseline for your submission.
+1. **Copy the Template**: Navigate to the [TEMPLATE.md](./TEMPLATE.md) file in the repository. Copy its content as the baseline for your submission.
 2. **Add Your Info**: Fill out the template with details about your project:
 
    - **Project Title**:
@@ -26,11 +26,11 @@ Here’s how you can participate during Hacktoberfest:
    - **Who Are You?**: Introduce yourself and your motivation.
    - **Additional Resources/Info**: Link to any extra resources or information.
 
-3. **Create a Demo's File**: Save the pre-filled [template](/.TEMPLATE.md) as a Markdown file (.md) in the `demos` folder. Name the file after your project, in lowercase.
+3. **Create a Demo's File**: Save the pre-filled [template](./TEMPLATE.md) as a Markdown file (.md) in the `demos` folder. Name the file after your project, in lowercase.
 
 ## Submitting Your Contribution
 
-1. **Pull Request**: Submit a pull request (PR) with your project file in the `demos` directory. Ensure your PR description links to the issue you addressed.
+1. **Pull Request**: Submit a pull request (PR) with your project file in the `demos` [directory](../../community/). Ensure your PR description links to the issue you addressed.
 2. **Code Review**: Wait for feedback from the project maintainers and make any required revisions.
 3. **Merge**: After approval, your changes will be merged with the `hacktoberfest-accepted` label to ensure you will receive credit from the official Hacktoberfest organization.
 
@@ -39,4 +39,4 @@ Here’s how you can participate during Hacktoberfest:
 - **Questions**: Use our [Discord support channel](https://discord.com/invite/6dffbvGU3D) for any questions you have.
 - **Resources**: Visit [CopilotKit documentation](https://docs.copilotkit.ai/what-is-copilotkit) for more helpful documentatation info.
 
-⭐ Happy coding, and we look forward to your contributions!
+⭐ Happy coding and we look forward to your contributions!

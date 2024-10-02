@@ -38,7 +38,7 @@ Demos will be ranked from 0 to 100 based on:
 
 ## Bonus Points
 
-⭐ 4 Ways to Earn 30 bonus points for each:
+⭐ 4 Ways to Earn 10 bonus points for each (Swag is only available if you complete a demo) :
 
 1. ⭐ Write and share a tutorial about your app on [dev.to](https://dev.) that receives up to 30 or more reactions.
 2. ⭐ Post about your project on Twitter and get at least 10 reactions.
