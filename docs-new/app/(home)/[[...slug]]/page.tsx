@@ -15,7 +15,7 @@ import { TypeTable } from "fumadocs-ui/components/type-table";
 import { Pre, CodeBlock } from "fumadocs-ui/components/codeblock";
 import { Callout } from "fumadocs-ui/components/callout";
 import { Frame } from "@/components/react/frame";
-import { Mermaid } from '@theguild/remark-mermaid/mermaid';
+import { Mermaid } from "@theguild/remark-mermaid/mermaid";
 import { Cards, Card } from "fumadocs-ui/components/card";
 import { PropertyReference } from "@/components/react/property-reference";
 
@@ -38,7 +38,7 @@ const mdxComponents = {
       <Pre>{props.children}</Pre>
     </CodeBlock>
   ),
-}
+};
 
 export default async function Page({
   params,
@@ -55,10 +55,7 @@ export default async function Page({
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
       <DocsBody>
-        <MDX
-          components={mdxComponents}
-          renderSmth={() => <div>test</div>}
-        />
+        <MDX components={mdxComponents} renderSmth={() => <div>test</div>} />
       </DocsBody>
     </DocsPage>
   );
