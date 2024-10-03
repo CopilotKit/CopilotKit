@@ -1,0 +1,84 @@
+---
+title: "Step 2: Setup CopilotKit"
+---
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+
+Now that we have our todo list app running, we're ready to integrate CopilotKit. For this tutorial, we will install the following dependencies:
+
+- `@copilotkit/react-core`: The core library for CopilotKit, which contains the CopilotKit provider and useful hooks.
+- `@copilotkit/react-ui`: The UI library for CopilotKit, which contains the CopilotKit UI components such as the sidebar, chat popup, textare and more.
+
+## Install Dependencies
+
+To install the CopilotKit dependencies, run the following:
+
+```package-install
+npm install @copilotkit/react-core @copilotkit/react-ui
+```
+
+## Setup CopilotKit
+
+<Steps>
+<Step>
+### Set up Copilot Runtime Endpoint
+<SelfHostingCopilotRuntimeCreateEndpoint components={props.components} />
+</Step>
+<Step>
+
+### Configure the CopilotKit Provider
+```tsx title="app/page.tsx" showLineNumbers
+"use client";
+
+import { TasksList } from "@/components/TasksList";
+import { TasksProvider } from "@/lib/hooks/use-tasks";
+import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+
+export default function Home() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit"> // [!code highlight]
+      <TasksProvider>
+        <TasksList />
+      </TasksProvider>
+    </CopilotKit> // [!code highlight]
+  );
+}
+```
+</Step>
+</Steps>
+
+### CopilotKit Chat Popup
+
+We provide several plug-and-play components for you to interact with your copilot. Some of these are `<CopilotPopup/>`, `<CopilotSidebar/>`, and `<CopilotChat/>`. You can of course use CopilotKit in headless mode and provide your own fully custom UI via [`useCopilotChat`](/reference/hooks/useCopilotChat).
+
+In this tutorial, we'll use the `<CopilotPopup/>` component to display the chat popup.
+
+```tsx title="app/page.tsx" showLineNumbers {6-7,15}
+"use client";
+
+import { TasksList } from "@/components/TasksList";
+import { TasksProvider } from "@/lib/hooks/use-tasks";
+import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotPopup } from "@copilotkit/react-ui"; // [!code highlight]
+import "@copilotkit/react-ui/styles.css"; // [!code highlight]
+
+export default function Home() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit">
+      <TasksProvider>
+        <TasksList />
+      </TasksProvider>
+      <CopilotPopup /> // [!code highlight]
+    </CopilotKit>
+  );
+}
+```
+
+Here's what we did:
+
+- We imported the `<CopilotPopup />` component from `@copilotkit/react-ui`.
+- We wrapped the page with the `<CopilotKit>` provider.
+- We imported the built-in styles from `@copilotkit/react-ui`. This is optional.
+
+Now, head back to your app and you'll find a chat popup in the bottom right corner of the page. At this point, you can start interacting with your copilot! 🎉
+
+In the next step, we'll make our assistant smarter by providing it with readable state about our todo list.

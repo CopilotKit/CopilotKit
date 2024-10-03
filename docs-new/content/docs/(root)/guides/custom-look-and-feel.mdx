@@ -1,0 +1,132 @@
+---
+title: "Custom Look & Feel"
+description: "Learn how to customize the look and feel of CopilotKit in your app."
+---
+import { CopilotKitCSS, InteractiveCSSInspector } from "@/components/react/copilotkit-css";
+
+<CopilotKitCSS />
+
+## CSS Variables
+CopilotKit uses CSS variables to make it easay to customize the look and feel of the components. Hover over the interactive UI elements below to see the available CSS variables.
+
+<InteractiveCSSInspector />
+
+## Customize CopilotKit Appearance
+
+You can override / customize the CSS, customize the icons, customize labels, swap out react components, and use headless UI. See below.
+
+### CSS Variables (Easiest)
+
+The easiest way to change the colors is to override CopilotKit CSS variables. You can simply wrap CopilotKit in a div and override the CSS variables. CopilotKitCSSProperties will have the variable names as types:
+
+```tsx
+<div
+  // [!code highlight:6]
+  style={
+    {
+      "--copilot-kit-primary-color": "#222222",
+    } as CopilotKitCSSProperties
+  }
+>
+  <CopilotSidebar .../>
+</div>
+```
+
+### Custom CSS
+
+In addition to customizing the colors, the CopilotKit CSS is structured to easily allow customization via CSS classes.
+
+<Callout>
+Have a look at the CSS classes defined [here](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-ui/src/css/).
+</Callout>
+
+For example:
+
+```css title="globals.css"
+.copilotKitButton {
+  border-radius: 0;
+}
+```
+
+### Custom Icons
+
+You can customize the icons by passing the `icons` property to the `CopilotSidebar`, `CopilotPopup` or `CopilotChat` component.
+
+Below is a list of customizable icons:
+
+- `openIcon`: The icon to use for the open chat button.
+- `closeIcon`: The icon to use for the close chat button.
+- `headerCloseIcon`: The icon to use for the close chat button in the header.
+- `sendIcon`: The icon to use for the send button.
+- `activityIcon`: The icon to use for the activity indicator.
+- `spinnerIcon`: The icon to use for the spinner.
+- `stopIcon`: The icon to use for the stop button.
+- `regenerateIcon`: The icon to use for the regenerate button.
+- `pushToTalkIcon`: The icon to use for push to talk.
+
+### Custom Labels
+
+To customize labels, pass the `labels` property to the `CopilotSidebar`, `CopilotPopup` or `CopilotChat` component.
+
+Below is a list of customizable labels:
+
+- `initial`: The initial message(s) to display in the chat window.
+- `title`: The title to display in the header.
+- `placeholder`: The placeholder to display in the input.
+- `stopGenerating`: The label to display on the stop button.
+- `regenerateResponse`: The label to display on the regenerate button.
+
+### Swapping Out Components
+
+To completely customize the look and feel of CopilotKit, you can swap out the components of the chat window.
+
+The following components can be customized by passing it as properties to the `CopilotChat` component:
+
+- `Window`: The window component that contains the chat.
+- `Button`: The button for opening/closing the chat window.
+- `Header`: The chat header.
+- `Messages`: The chat messages area.
+- `Input`: The chat input.
+- `ResponseButton`: The button for regenerating a response.
+
+For example, to customize the response button, you can pass a custom component to the `ResponseButton` prop:
+
+<Frame>
+  <img src="/images/concepts/customize-look-and-feel/custom-response-button.png" />
+</Frame>
+
+```tsx
+// [!code word:CustomResponseButton]
+export function CustomResponseButton({ onClick, inProgress }: ResponseButtonProps) {
+  return (
+    <div style={{ 
+        display: "flex", 
+        marginTop: "10px" 
+      }}>
+      <button
+        style={{ 
+          flex: 1, 
+          border: "1px solid #eee", 
+          borderRadius: "4px", 
+          marginRight: "5px" 
+        }}
+      >
+        👍
+      </button>
+      <button style={{ 
+        flex: 1, 
+        border: "1px solid #eee", 
+        borderRadius: "4px" 
+      }}>👎</button>
+    </div>
+  );
+};
+
+<CopilotSidebar ResponseButton={CustomResponseButton}>
+  // ...
+</CopilotSidebar>
+```
+
+## Headless UI (Full Customizability)
+
+Finally, as a reminder, CopilotKit also supports [Headless UI]() for full customizability and programmatic control.

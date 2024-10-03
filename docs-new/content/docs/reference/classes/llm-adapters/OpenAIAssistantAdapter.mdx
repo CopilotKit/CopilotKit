@@ -1,0 +1,55 @@
+---
+title: "OpenAIAssistantAdapter"
+description: "Copilot Runtime adapter for OpenAI Assistant API."
+---
+
+Copilot Runtime adapter for the OpenAI Assistant API.
+ 
+## Example
+ 
+```ts
+import { CopilotRuntime, OpenAIAssistantAdapter } from "@copilotkit/runtime";
+import OpenAI from "openai";
+ 
+const copilotKit = new CopilotRuntime();
+ 
+const openai = new OpenAI({
+  organization: "<your-organization-id>",
+  apiKey: "<your-api-key>",
+});
+ 
+const serviceAdapter = new OpenAIAssistantAdapter({
+  openai,
+  assistantId: "<your-assistant-id>",
+  codeInterpreterEnabled: true,
+  fileSearchEnabled: true,
+});
+ 
+return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+```
+
+## Constructor Parameters
+
+<PropertyReference name="assistantId" type="string" required > 
+The ID of the assistant to use.
+</PropertyReference>
+
+<PropertyReference name="openai" type="OpenAI"  > 
+An optional OpenAI instance to use. If not provided, a new instance will be created.
+</PropertyReference>
+
+<PropertyReference name="codeInterpreterEnabled" type="boolean"  default="true"> 
+Whether to enable code interpretation.
+</PropertyReference>
+
+<PropertyReference name="fileSearchEnabled" type="boolean"  default="true"> 
+Whether to enable file search.
+</PropertyReference>
+
+<PropertyReference name="disableParallelToolCalls" type="boolean"  default="false"> 
+Whether to disable parallel tool calls.
+  You can disable parallel tool calls to force the model to execute tool calls sequentially.
+  This is useful if you want to execute tool calls in a specific order so that the state changes
+  introduced by one tool call are visible to the next tool call. (i.e. new actions or readables)
+</PropertyReference>
+
