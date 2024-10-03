@@ -33,7 +33,9 @@
     "shiki": "^1.20.0",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
-    "usehooks-ts": "^3.1.0"
+    "usehooks-ts": "^3.1.0",
+    "hast-util-to-jsx-runtime": "^2.3.0",
+    "mdast": "^3.0.0"
   },
   "devDependencies": {
     "@types/mdx": "^2.0.13",
@@ -41,8 +43,6 @@
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.20",
-    "hast-util-to-jsx-runtime": "^2.3.0",
-    "mdast": "^3.0.0",
     "postcss": "^8.4.45",
     "tailwindcss": "^3.4.10",
     "typescript": "^5.5.4"
