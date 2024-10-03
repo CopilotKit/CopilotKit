@@ -1,19 +1,49 @@
 """Test Q&A Agent"""
 
+import os
 from typing import cast
 from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from langgraph.graph import StateGraph, END
 from langgraph.graph import MessagesState
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.runnables import RunnableConfig
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage
 from copilotkit.langchain import (
-  copilotkit_customize_config, copilotkit_exit, copilotkit_emit_message
+    copilotkit_exit,
+    copilotkit_emit_message
 )
+from pydantic import BaseModel, Field
+
+def get_model():
+    """
+    Get a model based on the environment variable.
+    """
+    model = os.getenv("MODEL", "openai")
+
+    if model == "openai":
+        return ChatOpenAI(temperature=0, model="gpt-4o")
+    if model == "anthropic":
+        return ChatAnthropic(
+            temperature=0,
+            model_name="claude-3-5-sonnet-20240620",
+            timeout=None,
+            stop=None
+        )
+
+    raise ValueError("Invalid model specified")
+
 
 class GreetAgentState(MessagesState):
     """Greet Agent State"""
     name: str
+
+class ExtractNameTool(BaseModel):
+    """
+    Extract the user's name from the message.
+    Make sure to only set the name if you are 100 percent sure it is the name of the user.
+    """
+    name: str = Field(..., description="The user's name or UNKNOWN if you can't find it")
 
 async def ask_name_node(state: GreetAgentState, config: RunnableConfig):
     """
@@ -35,35 +65,19 @@ async def extract_name_node(state: GreetAgentState, config: RunnableConfig):
     last_message = cast(HumanMessage, state["messages"][-1])
 
 
-    system_message = (
+    instructions = (
         f"Figure out the user's name if possible from this response they gave you: {last_message.content}"
     )
 
-    extract_name_tool = {
-        'name': 'extract_name',
-        'description': """Extract the user's name from the message.""",
-        'parameters': {
-            'type': 'object',
-            'properties': {
-                'name': {
-                    'description': """The user's name or UNKNOWN if you can't find it""",
-                    'type': 'string',                    
-                }
-            },
-            'required': ['name']
-        }
-    }
-
-    model = ChatOpenAI(model="gpt-4o").bind_tools(
-        [extract_name_tool],
-        parallel_tool_calls=False,
-        tool_choice="extract_name"
+    model = get_model().bind_tools(
+        [ExtractNameTool],
+        tool_choice="ExtractNameTool"
     )
 
     response = await model.ainvoke([
         *state["messages"],
-        SystemMessage(
-            content=system_message
+        HumanMessage(
+            content=instructions
         )
     ], config)
 

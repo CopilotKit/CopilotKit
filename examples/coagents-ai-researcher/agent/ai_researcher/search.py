@@ -3,14 +3,11 @@ The search node is responsible for searching the internet for information.
 """
 import json
 from datetime import datetime
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage
-
+from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_community.tools import TavilySearchResults
-
 from ai_researcher.state import AgentState
-
+from ai_researcher.model import get_model
 async def search_node(state: AgentState, config: RunnableConfig):
     """
     The search node is responsible for searching the internet for information.
@@ -31,7 +28,7 @@ async def search_node(state: AgentState, config: RunnableConfig):
     if current_step["type"] != "search":
         raise ValueError("Current step is not a search step")
 
-    system_message = f"""
+    instructions = f"""
 This is a step in a series of steps that are being executed to answer the user's query.
 These are all of the steps: {json.dumps(state["steps"])}
 
@@ -41,16 +38,14 @@ The current date is {datetime.now().strftime("%Y-%m-%d")}.
 
 This is what you need to search for, please come up with a good search query: {current_step["description"]}
 """
-    model = ChatOpenAI(model="gpt-4o").bind_tools(
+    model = get_model().bind_tools(
         [tavily_tool],
-        parallel_tool_calls=False,
         tool_choice=tavily_tool.name
     )
 
     response = await model.ainvoke([
-        *state["messages"],
-        SystemMessage(
-            content=system_message
+        HumanMessage(
+            content=instructions
         )
     ], config)
 

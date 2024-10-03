@@ -2,7 +2,7 @@
 
 import { CopilotPopup } from "@copilotkit/react-ui";
 
-export function Mailer() {
+export function Greeter() {
   return (
     <div className="flex flex-col items-center justify-center h-screen">
       <div className="text-2xl">Text Q&A example</div>

@@ -3,12 +3,10 @@ The extract node is responsible for extracting information from a tavily search.
 """
 import json
 
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage
-
+from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
-
 from ai_researcher.state import AgentState
+from ai_researcher.model import get_model
 
 async def extract_node(state: AgentState, config: RunnableConfig):
     """
@@ -40,9 +38,11 @@ This is a sentence with a reference to a source [source 1][1] and another refere
 [2]: http://example.com/source2 "Title of Source 2"
 """
 
-    response = await ChatOpenAI(model="gpt-4o").ainvoke([
-        *state["messages"],
-        SystemMessage(content=system_message)
+    response = await get_model().ainvoke([
+        state["messages"][0],
+        HumanMessage(
+            content=system_message
+        )
     ], config)
 
     current_step["result"] = response.content
