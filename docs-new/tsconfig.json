@@ -18,7 +18,6 @@
     "allowImportingTsExtensions": true,
     "paths": {
       "@/*": ["./*"],
-      "@copilotkit/react-ui/*": ["../copilotkit/copilotkit/copilotkit/packages/react-ui/*"]
     },
     "plugins": [
       {
@@ -27,8 +26,5 @@
     ]
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"],
-  "references": [
-    { "path": "../copilotkit/copilotkit/copilotkit/packages/react-ui/tsconfig.json/file"}
-  ]
+  "exclude": ["node_modules"]
 }

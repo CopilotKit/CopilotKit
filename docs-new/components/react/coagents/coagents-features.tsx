@@ -1,7 +1,6 @@
-"use client";
+"use client"
 
-import React from "react"
-import { useTailoredContent } from "@/lib/hooks/useTailoredContent";
+import { useTailoredContent } from "@/lib/hooks/use-tailored-content";
 import cn from "classnames";
 import { useEffect, useState } from "react";
 import { AiOutlineRobot as GenerativeUiIcon } from "react-icons/ai";
@@ -11,7 +10,7 @@ import { FaQuestionCircle as AgentQAndAIcon } from "react-icons/fa";
 
 type FeatureMode = "generative-ui" | "stream-agent-state" | "share-agent-state" | "agent-q-and-a";
 
-const Toggle: React.FC<{ className?: string }> = ({ className }) => {
+export const CoAgentsFeatureToggle: React.FC<{ className?: string }> = ({ className }) => {
   const { mode, setMode } = useTailoredContent<FeatureMode>(
     ["generative-ui", "stream-agent-state", "share-agent-state", "agent-q-and-a"],
     "generative-ui"
@@ -75,7 +74,6 @@ const Toggle: React.FC<{ className?: string }> = ({ className }) => {
           </div>
         ))}
       </div>
-      <p className="text-xl font-bold text-center mt-4">👆press any of these features for detail👆</p>
     </div>
   );
 };
@@ -113,26 +111,6 @@ const FeatureContent: React.FC<{
   );
 };
 
-const GenerativeUi: React.FC<{ children: React.ReactNode; className?: string }> = (props) => (
-  <FeatureContent {...props} mode="generative-ui" />
+export const CoAgentsFeatureRender: React.FC<{ children: React.ReactNode; className?: string, feature: "generative-ui" | "stream-agent-state" | "share-agent-state" | "agent-q-and-a" }> = (props) => (
+  <FeatureContent {...props} mode={props.feature} />
 );
-
-const StreamAgentState: React.FC<{ children: React.ReactNode; className?: string }> = (props) => (
-  <FeatureContent {...props} mode="stream-agent-state" />
-);
-
-const ShareAgentState: React.FC<{ children: React.ReactNode; className?: string }> = (props) => (
-  <FeatureContent {...props} mode="share-agent-state" />
-);
-
-const AgentQAndA: React.FC<{ children: React.ReactNode; className?: string }> = (props) => (
-  <FeatureContent {...props} mode="agent-q-and-a" />
-);
-
-export const CoAgentsFeatures = {
-  Toggle,
-  GenerativeUi,
-  StreamAgentState,
-  ShareAgentState,
-  AgentQAndA,
-};
