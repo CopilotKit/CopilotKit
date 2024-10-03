@@ -1,0 +1,11 @@
+{
+  "title": "Tutorial: AI Powered Textarea",
+  "pages": [
+    "overview",
+    "step-1-checkout-repo",
+    "step-2-setup-copilotkit",
+    "step-3-copilot-textarea",
+    "step-4-copilot-readable-state",
+    "next-steps"
+  ]
+}

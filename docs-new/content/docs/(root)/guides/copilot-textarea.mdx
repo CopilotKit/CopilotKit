@@ -1,0 +1,104 @@
+---
+title: "Copilot Textarea"
+description: "Learn how to use the Copilot Textarea for AI-powered autosuggestions."
+---
+
+<Frame>
+  <img src="/images/CopilotTextarea.gif" width="500" />
+</Frame>
+
+`<CopilotTextarea>` is a React component that acts as a drop-in replacement for the standard `<textarea>`,
+ offering enhanced autocomplete features powered by AI. It is context-aware, integrating seamlessly with the
+[`useCopilotReadable`](/reference/hooks/useCopilotReadable) hook to provide intelligent suggestions based on the application context.
+ 
+In addition, it provides a hovering editor window (available by default via `Cmd + K` on Mac and `Ctrl + K` on Windows) that allows the user to
+suggest changes to the text, for example providing a summary or rephrasing the text.
+
+<Callout type="warn">
+  This guide assumes you have completed the [quickstart](/quickstart) and have successfully set up CopilotKit.
+</Callout>
+
+<Steps>
+<Step>
+### Install `@copilotkit/react-textarea`
+    
+```package-install
+npm install @copilotkit/react-textarea
+```
+</Step>
+<Step>
+### Import Styles 
+Import the default styles in your root component (typically `layout.tsx`) :
+
+```tsx title="layout.tsx"
+import "@copilotkit/react-textarea/styles.css";
+```
+</Step>
+<Step>
+### Add `CopilotTextarea` to Your Component 
+Below you can find several examples showing how to use the `CopilotTextarea` component in your application.
+
+<Tabs items={["Example 1", "Example 2"]}>
+  <Tab value="Example 1">
+    ```tsx title="TextAreaComponent.tsx"
+    import { FC, useState } from "react";
+    import { CopilotTextarea } from '@copilotkit/react-textarea';
+
+    const ExampleComponent: FC = () => {
+      const [text, setText] = useState<string>('');
+
+      return (
+        <CopilotTextarea // [!code highlight]
+          className="w-full p-4 border border-gray-300 rounded-md"
+          value={text}
+          onValueChange={setText}
+          // [!code highlight:5]
+          autosuggestionsConfig={{
+            textareaPurpose: "the body of an email message",
+            chatApiConfigs: {},
+          }}
+        />
+      );
+    };
+    ```
+  </Tab>
+  <Tab value="Example 2">
+    ```tsx title="TextAreaComponent.tsx"
+    import { FC, useState } from "react";
+    import { CopilotTextarea } from "@copilotkit/react-textarea";
+
+    const TextAreaComponent: FC = () => {
+      const [text, setText] = useState<string>("");
+
+      return (
+        <CopilotTextarea // [!code highlight]
+          // standard textarea args
+          className="w-full p-4 border border-gray-300 rounded-md"
+          value={text}
+          onValueChange={setText}
+          placeholder="Start typing..."
+
+          // ai-specific configs
+          // [!code highlight:10]
+          autosuggestionsConfig={{
+            textareaPurpose: "Write your message here",
+            chatApiConfigs: {
+              suggestionsApiConfig: {
+                maxTokens: 50,
+                stop: ["\n", ".", "?"],
+              },
+            },
+          }}
+        />
+      );
+    };
+    ```
+  </Tab>
+</Tabs>
+</Step>
+</Steps>
+
+## Next Steps
+
+- We highly recommend that you check out our simple [Copilot Textarea Tutorial](/tutorials/ai-powered-textarea/overview).
+- Check out the full [CopilotTextarea reference](/reference/components/CopilotTextarea)

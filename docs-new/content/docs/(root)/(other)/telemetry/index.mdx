@@ -1,0 +1,28 @@
+---
+title: Anonymous Telemetry
+---
+
+We use anonymous telemetry (metadata-only) to learn how to improve CopilotKit.
+
+* Open-source telemetry is **completely anonymous** 
+* We **do not collect any data** about end-users (the users interacting with your copilot)
+* We **do not collect any application data** flowing through your system, only CopilotKit metadata
+* We do not sell or share any data with third parties
+* We do not use cookies or trackers in open-source telemetry
+* To minimize the frequency of data sent, we apply batching and sampling to telemetry
+
+## How to opt out of anonymous telemetry
+
+You can opt out of open-source telemetry in multiple ways.
+
+In CopilotRuntime, simply set `COPILOTKIT_TELEMETRY_DISABLED=true`. We also respect [Do Not Track (DNT)](https://consoledonottrack.com/).
+
+Alternatively, you can directly set the `telemetryDisabled` flag to `true` when configuring your Copilot Runtime endpoint.
+
+## How to adjust telemetry sample rate
+
+The default sample rate is `0.05` (5%). You can adjust it by setting the `COPILOTKIT_TELEMETRY_SAMPLE_RATE` to any value between 0 and 1.
+
+## Get in touch
+
+If you have any questions or concerns, please reach out at [hello@copilotkit.ai](mailto:hello@copilotkit.ai).

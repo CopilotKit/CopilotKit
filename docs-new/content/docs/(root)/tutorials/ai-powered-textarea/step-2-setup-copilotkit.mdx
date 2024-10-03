@@ -1,0 +1,56 @@
+---
+title: "Step 2: Setup CopilotKit"
+---
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+
+Now that we have our todo list app running, we're ready to integrate CopilotKit. For this tutorial, we will install the following dependencies:
+
+- `@copilotkit/react-core`: The core library for CopilotKit, which contains the CopilotKit provider and useful hooks.
+- `@copilotkit/react-textarea`: The textarea component for CopilotKit, which enables you to get instant context-aware autocompletions in your app.
+
+## Install Dependencies
+
+To install the CopilotKit dependencies, run the following:
+
+```package-install
+npm install @copilotkit/react-core @copilotkit/react-textarea
+```
+
+## Setup CopilotKit
+
+<Steps>
+<Step>
+### Set up Copilot Runtime Endpoint
+<SelfHostingCopilotRuntimeCreateEndpoint components={props.components} />
+</Step>
+<Step>
+### Configure the CopilotKit Provider
+
+```tsx title="app/page.tsx" showLineNumbers {5,10,14}
+"use client";
+
+import { EmailThread } from "@/components/EmailThread";
+import { EmailsProvider } from "@/lib/hooks/use-emails";
+import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+import "@copilotkit/react-textarea/styles.css"; // [!code highlight]
+
+export default function Home() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit"> // [!code highlight]
+      <EmailsProvider>
+        <EmailThread />
+      </EmailsProvider>
+    </CopilotKit> // [!code highlight]
+  );
+}
+```
+</Step>
+</Steps>
+
+Let's break this down:
+
+- First, we imported the `CopilotKit` provider from `@copilotkit/react-core`.
+- Then, we wrapped the page with the `<CopilotKit>` provider.
+- We imported the built-in styles from `@copilotkit/react-textarea`. This is optional.
+
+In the next step, we'll implement the AI-powered textarea as a replacement for our existing input component.

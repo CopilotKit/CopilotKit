@@ -1,0 +1,11 @@
+{
+  "title": "Tutorial: AI Todo App",
+  "pages": [
+    "overview",
+    "step-1-checkout-repo",
+    "step-2-setup-copilotkit",
+    "step-3-copilot-readable-state",
+    "step-4-copilot-actions",
+    "next-steps"
+  ]
+}

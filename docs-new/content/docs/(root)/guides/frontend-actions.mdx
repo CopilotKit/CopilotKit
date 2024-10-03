@@ -1,0 +1,80 @@
+---
+title: "Frontend Actions"
+description: "Learn how to enable your Copilot to take actions in the frontend."
+---
+import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
+
+# Let the Copilot Take Action
+
+<Steps>
+
+<Step>
+  <UseClientCalloutSnippet components={props.components} />
+</Step>
+
+<Step>
+### `useCopilotAction`
+
+In addition to understanding state, you can empower the copilot to take actions. Use the [`useCopilotAction`](/reference/hooks/useCopilotAction) hook to define specific tasks that the copilot can perform based on user input.
+
+```tsx title="YourComponent.tsx"
+import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
+
+export function YourComponent() {
+  const { todos, addTodo } = useTodos();
+
+  // Define Copilot action
+  // [!code highlight:16]
+  useCopilotAction({
+    name: "addTodoItem",
+    description: "Add a new todo item to the list",
+    parameters: [
+      {
+        name: "todoText",
+        type: "string",
+        description: "The text of the todo item to add",
+        required: true,
+      }
+    ],
+    handler: async ({ todoText }) => {
+      addTodo(todoText);
+    },
+  });
+
+  return (
+    // Your custom UI component
+    <>...</>
+  );
+}
+```
+</Step>
+
+<Step>
+### Test it out!
+After defining the action, ask the copilot to perform the task. For example, you can now ask the copilot to "select an employee" by specifying the `employeeId`.
+
+<Frame>
+  <img 
+    src="/images/copilot-action-example.gif" 
+    alt="Example of Copilot action" 
+    className="rounded-lg shadow-md w-full max-w-md mx-auto"
+  />
+</Frame>
+</Step>
+
+</Steps>
+
+### Advanced (Generative UI, and more)
+
+- You can **render custom components** in the chat while actions execute. For more detail see the [Generative UI guide](/guides/generative-ui).
+- For more advanced use cases, refer to the [`useCopilotAction` reference](/reference/hooks/useCopilotAction).
+
+---
+## Cloud & Backend Actions
+
+### Backend Action Hooks
+Enable backend services to trigger actions via copilot backend hooks.
+
+### Enterprise Integrations
+
+For enterprise-grade action support, including CRM or database actions, please [reach out]() for more details.

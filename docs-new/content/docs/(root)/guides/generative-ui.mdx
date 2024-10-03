@@ -1,0 +1,220 @@
+---
+title: "Generative UI"
+description: "Learn how to embed embed custom UI components in the chat window."
+---
+import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
+
+<Steps>
+
+<Step>
+  <UseClientCalloutSnippet components={props.components} />
+</Step>
+
+### Render custom react components in the chat UI
+
+<Step>
+
+<Tabs items={['Render Known Data', 'Fetch Data + Render', 'renderAndWait (HITL)', 'String Rendering']}>
+
+  <Tab value="Render Known Data">
+    [`useCopilotAction`](/reference/hooks/useCopilotAction) can be used with a `render` function and without a `handler` to display information or UI elements within the chat.
+    
+    Here's an example to render a calendar meeting.
+
+    <Frame>
+      <img
+        src="/images/render-only-example.png"
+        alt="Example of render-only Copilot action"
+        className="w-full h-auto max-w-md"
+      />
+    </Frame>
+
+    ```tsx
+    import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
+
+    useCopilotAction({ // [!code highlight]
+      name: "showCalendarMeeting",
+      description: "Displays calendar meeting information",
+      parameters: [
+        {
+          name: "date",
+          type: "string",
+          description: "Meeting date (YYYY-MM-DD)",
+          required: true
+        },
+        {
+          name: "time",
+          type: "string",
+          description: "Meeting time (HH:mm)",
+          required: true
+        },
+        {
+          name: "meetingName",
+          type: "string",
+          description: "Name of the meeting",
+          required: false
+        }
+      ],
+      // [!code highlight:15]  
+      render: ({ status, args }) => {  
+        const { date, time, meetingName } = args;
+
+        if (status === 'inProgress') {
+          return <LoadingView />; // Your own component for loading state
+        } else {
+          const meetingProps: CalendarMeetingCardProps = {
+            date: date,
+            time,
+            meetingName
+          };
+          return <CalendarMeetingCardComponent {...meetingProps} />;
+        }
+      },
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Fetch Data + Render">
+    The [`useCopilotAction`](/reference/hooks/useCopilotAction) hook accepts both `handler` and `render` methods. The `handler` executes the action, while `render` displays UI in the copilot chat window.
+
+    <Frame>
+      <img
+        src="/images/fetch-and-render.gif"
+        alt="Example of fetch data + render in copilot chat"
+        className="w-full h-auto max-w-md"
+      />
+    </Frame>
+
+    ```tsx
+    import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
+
+    useCopilotAction({ // [!code highlight]
+      name: "showLastMeetingOfDay",
+      description: "Displays the last calendar meeting for a given day",
+      parameters: [
+        {
+          name: "date",
+          type: "string",
+          description: "Date to fetch the last meeting for (YYYY-MM-DD)",
+          required: true
+        }
+      ],
+      // [!code highlight:17]
+      handler: async ({ date }) => {
+        // some async operation which can return a result:
+        const lastMeeting = await fetchLastMeeting(new Date(date));
+        return lastMeeting;
+      },
+      render: ({ status, result }) => {
+        if (status === 'executing' || status === 'inProgress') {
+          // show a loading view while the action is executing, i.e. while the meeting is being fetched
+          return <LoadingView />;
+        } else if (status === 'complete') {
+          // show the meeting card once the action is complete
+          return <CalendarMeetingCardComponent {...result} />;
+        } else {
+          return <div className="text-red-500">No meeting found</div>;
+        }
+      },
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="renderAndWait (HITL)">
+    The `renderAndWait` method allows for returning values asynchronously from the render function.
+
+    This is great for Human-in-the-Loop flows, where the AI assistant can prompt the end-user with a choice (rendered inside the chat UI),
+    and the user can make the choice by pressing a button in the chat UI.
+
+    ```tsx
+    import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
+
+    useCopilotAction({ // [!code highlight]
+      name: "handleMeeting",
+      description: "Handle a meeting by booking or canceling",
+      parameters: [
+        {
+          name: "meeting",
+          type: "string",
+          description: "The meeting to handle",
+          required: true,
+        },
+        {
+          name: "date",
+          type: "string",
+          description: "The date of the meeting",
+          required: true,
+        },
+        {
+          name: "title",
+          type: "string",
+          description: "The title of the meeting",
+          required: true,
+        },
+      ],
+      // [!code highlight:12]
+      renderAndWait: ({ meeting, date, title, resolve }) => {
+        return (
+          <MeetingConfirmationDialog
+            meeting={meeting}
+            date={date}
+            title={title}
+            onConfirm={() => resolvePromise(true)}
+            onCancel={() => resolvePromise(false)}
+          />
+        );
+      },
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="String Rendering">
+    For simple messages, you can return a string from the `render` method. This is useful for quick status updates or simple notifications.
+
+    ```tsx
+    import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
+
+    useCopilotAction({ // [!code highlight]
+      name: "simpleAction",
+      description: "A simple action with string rendering",
+      parameters: [
+        {
+          name: "taskName",
+          type: "string",
+          description: "Name of the task",
+          required: true,
+        },
+      ],
+      handler: async ({ taskName }) => {
+        return await longRunningOperation(taskName);
+      },
+      // [!code highlight:4]
+      render: ({ status, result }) => {
+        return status === "complete" ? result : "Processing...";
+      },
+    });
+    ```
+
+    <Frame className="my-0">
+      <img src="/images/concepts/generative-ui/render-string.gif" className="w-[300px] p-0" alt="String rendering example" />
+    </Frame>
+
+  </Tab>
+</Tabs>
+
+</Step>
+<Step>
+
+### Test it out!
+
+After defining the action with a render method, ask the copilot to perform the task. For example, you can now ask the copilot to "show tasks" and see the custom UI component rendered in the chat interface.
+
+<Callout type="info">
+You can read more about the `useCopilotAction` hook [here](/reference/hooks/useCopilotAction).
+</Callout>
+
+</Step>
+</Steps>

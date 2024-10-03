@@ -1,0 +1,15 @@
+{
+  "title": "Guides",
+  "pages": [
+    "connect-your-data",
+    "generative-ui",
+    "frontend-actions",
+    "backend-actions",
+    "copilot-suggestions",
+    "bring-your-own-llm",
+    "custom-look-and-feel",
+    "custom-ai-assistant-behavior",
+    "copilot-textarea",
+    "self-hosting"
+  ]
+}
