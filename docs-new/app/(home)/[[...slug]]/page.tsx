@@ -18,6 +18,7 @@ import { Frame } from "@/components/react/frame";
 import { Mermaid } from "@theguild/remark-mermaid/mermaid";
 import { Cards, Card } from "fumadocs-ui/components/card";
 import { PropertyReference } from "@/components/react/property-reference";
+import { getImageMeta } from 'fumadocs-ui/og';
 
 const mdxComponents = {
   ...defaultMdxComponents,
@@ -68,9 +69,18 @@ export async function generateStaticParams() {
 export function generateMetadata({ params }: { params: { slug?: string[] } }) {
   const page = source.getPage(params.slug);
   if (!page) notFound();
-
+ 
+  const image = getImageMeta('og', page.slugs);
+ 
   return {
     title: page.data.title,
     description: page.data.description,
+    openGraph: {
+      images: image,
+    },
+    twitter: {
+      images: image,
+      card: 'summary_large_image',
+    },
   } satisfies Metadata;
 }
