@@ -6,7 +6,7 @@ type TailoredContentOption = string;
 
 type TailoredContentContextType<T extends TailoredContentOption> = {
   mode: T;
-  setMode: (mode: T) => void;
+  setMode: any;
 };
 
 const TailoredContentContext = createContext<
@@ -42,7 +42,7 @@ export const useTailoredContent = <T extends TailoredContentOption>(
   }
 
   useEffect(() => {
-    if (!options.includes(context.mode)) {
+    if (!options.includes(context.mode as any)) {
       context.setMode(defaultOption);
     }
   }, [context.mode]);
