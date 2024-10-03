@@ -19,7 +19,7 @@ import { Mermaid } from '@theguild/remark-mermaid/mermaid';
 import { Cards, Card } from "fumadocs-ui/components/card";
 import { PropertyReference } from "@/components/react/property-reference";
 
-export const mdxComponents = {
+const mdxComponents = {
   ...defaultMdxComponents,
   Tabs: Tabs,
   Tab: Tab,

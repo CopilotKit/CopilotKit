@@ -7,37 +7,20 @@ This component will typically wrap your entire application (or a sub-tree of you
  
 ## Example
  
-<Tabs items={["Copilot Cloud (Recommended)", "Self-hosted Runtime"]}>
-  <Tabs.Tab>
+You can find more information about self-hosting CopilotKit [here](/guides/self-hosting).
  
-    You can get your Copilot Cloud API key for free by <LinkToCopilotCloud>signing up here</LinkToCopilotCloud>.
+```tsx
+import { CopilotKit } from "@copilotkit/react-core";
  
-    ```tsx
-    import { CopilotKit } from "@copilotkit/react-core";
- 
-    <CopilotKit publicApiKey="<your-public-api-key>">
-      // ... your app ...
-    </CopilotKit>
-    ```
-  </Tabs.Tab>
- 
-  <Tabs.Tab>
-    You can find more information about self-hosting CopilotKit [here](/concepts/copilot-runtime).
- 
-    ```tsx
-    import { CopilotKit } from "@copilotkit/react-core";
- 
-    <CopilotKit runtimeUrl="<your-runtime-url>">
-      // ... your app ...
-    </CopilotKit>
-    ```
-  </Tabs.Tab>
-</Tabs>
+<CopilotKit runtimeUrl="<your-runtime-url>">
+  // ... your app ...
+</CopilotKit>
+```
 
 ## Properties
 
 <PropertyReference name="publicApiKey" type="string"  > 
-Your Copilot Cloud API key. Don't have it yet? <LinkToCopilotCloud>Click here to sign up for free</LinkToCopilotCloud>.
+Your Copilot Cloud API key. Don't have it yet? Go to https://cloud.copilotkit.ai and get one for free.
 </PropertyReference>
 
 <PropertyReference name="cloudRestrictToTopic" type="{ validTopics?: string[]; invalidTopics?: string[]; }"  > 

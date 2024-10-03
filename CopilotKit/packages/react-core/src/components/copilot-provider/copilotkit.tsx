@@ -3,33 +3,17 @@
  *
  * ## Example
  *
- * <Tabs items={["Copilot Cloud (Recommended)", "Self-hosted Runtime"]}>
- *   <Tabs.Tab>
+ * You can find more information about self-hosting CopilotKit [here](/guides/self-hosting).
  *
- *     You can get your Copilot Cloud API key for free by <LinkToCopilotCloud>signing up here</LinkToCopilotCloud>.
+ * ```tsx
+ * import { CopilotKit } from "@copilotkit/react-core";
  *
- *     ```tsx
- *     import { CopilotKit } from "@copilotkit/react-core";
- *
- *     <CopilotKit publicApiKey="<your-public-api-key>">
- *       // ... your app ...
- *     </CopilotKit>
- *     ```
- *   </Tabs.Tab>
- *
- *   <Tabs.Tab>
- *     You can find more information about self-hosting CopilotKit [here](/concepts/copilot-runtime).
- *
- *     ```tsx
- *     import { CopilotKit } from "@copilotkit/react-core";
- *
- *     <CopilotKit runtimeUrl="<your-runtime-url>">
- *       // ... your app ...
- *     </CopilotKit>
- *     ```
- *   </Tabs.Tab>
- * </Tabs>
+ * <CopilotKit runtimeUrl="<your-runtime-url>">
+ *   // ... your app ...
+ * </CopilotKit>
+ * ```
  */
+
 import { useCallback, useRef, useState } from "react";
 import {
   CopilotContext,

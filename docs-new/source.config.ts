@@ -13,7 +13,6 @@ import {
   transformerNotationWordHighlight,
   // ...
 } from "@shikijs/transformers";
-import rehypeMermaid from 'rehype-mermaid'
 import { remarkMermaid } from '@theguild/remark-mermaid'
 
 export const { docs, meta } = defineDocs();
