@@ -15,7 +15,6 @@ import { TypeTable } from "fumadocs-ui/components/type-table";
 import { Pre, CodeBlock } from "fumadocs-ui/components/codeblock";
 import { Callout } from "fumadocs-ui/components/callout";
 import { Frame } from "@/components/react/frame";
-import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
 import { Mermaid } from '@theguild/remark-mermaid/mermaid';
 import { Cards, Card } from "fumadocs-ui/components/card";
 import { PropertyReference } from "@/components/react/property-reference";
@@ -29,7 +28,6 @@ export const mdxComponents = {
   TypeTable: TypeTable,
   Callout: Callout,
   Frame: Frame,
-  img: (props: any) => <ImageZoom {...(props as any)} />,
   Mermaid: Mermaid,
   Cards: Cards,
   Card: Card,
