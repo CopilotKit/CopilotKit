@@ -1,7 +1,65 @@
+/**
+ * <img src="/images/use-copilot-action/useCopilotAction.gif" width="500" />
+ * `useCopilotAction` is a React hook that you can use in your application to provide
+ * custom actions that can be called by the AI. Essentially, it allows the Copilot to
+ * execute these actions contextually during a chat, based on the user's interactions
+ * and needs.
+ *
+ * Here's how it works:
+ *
+ * Use `useCopilotAction` to set up actions that the Copilot can call. To provide
+ * more context to the Copilot, you can provide it with a `description` (for example to explain
+ * what the action does, under which conditions it can be called, etc.).
+ *
+ * Then you define the parameters of the action, which can be simple, e.g. primitives like strings or numbers,
+ * or complex, e.g. objects or arrays.
+ *
+ * Finally, you provide a `handler` function that receives the parameters and returns a result.
+ * CopilotKit takes care of automatically inferring the parameter types, so you get type safety
+ * and autocompletion for free.
+ *
+ * To render a custom UI for the action, you can provide a `render()` function. This function
+ * lets you render a custom component or return a string to display.
+ *
+ * ## Usage
+ *
+ * ### Simple Usage
+ *
+ * ```tsx
+ * useCopilotAction({
+ *   name: "sayHello",
+ *   description: "Say hello to someone.",
+ *   parameters: [
+ *     {
+ *       name: "name",
+ *       type: "string",
+ *       description: "name of the person to say greet",
+ *     },
+ *   ],
+ *   handler: async ({ name }) => {
+ *     alert(`Hello, ${name}!`);
+ *   },
+ * });
+ * ```
+ *
+ * ## Generative UI
+ *
+ * This hooks enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/concepts/generative-ui) page.
+ */
 import { useRef, useEffect } from "react";
 import { FrontendAction, ActionRenderProps, ActionRenderPropsWait } from "../types/frontend-action";
 import { useCopilotContext } from "../context/copilot-context";
 import { Parameter, randomId } from "@copilotkit/shared";
+
+/**
+ * Options for the useCopilotAction hook.
+ */
+export interface UseCopilotActionOptions {
+  /**
+   * Something nce
+   */
+  some: string;
+}
 
 // We implement useCopilotAction dependency handling so that
 // the developer has the option to not provide any dependencies.

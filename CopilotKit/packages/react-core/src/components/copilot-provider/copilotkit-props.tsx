@@ -6,7 +6,7 @@ import { ReactNode } from "react";
 
 export interface CopilotKitProps {
   /**
-   *  Your Copilot Cloud API key. Don't have it yet? <LinkToCopilotCloud>Click here to sign up for free</LinkToCopilotCloud>.
+   *  Your Copilot Cloud API key. Don't have it yet? Go to https://cloud.copilotkit.ai and get one for free.
    */
   publicApiKey?: string;
 

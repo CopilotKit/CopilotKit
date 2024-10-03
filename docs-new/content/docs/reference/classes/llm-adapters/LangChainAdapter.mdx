@@ -1,0 +1,42 @@
+---
+title: "LangChainAdapter"
+description: "Copilot Runtime adapter for LangChain."
+---
+
+Copilot Runtime adapter for LangChain.
+ 
+## Example
+ 
+```ts
+import { CopilotRuntime, LangChainAdapter } from "@copilotkit/runtime";
+import { ChatOpenAI } from "@langchain/openai";
+ 
+const copilotKit = new CopilotRuntime();
+ 
+const model = new ChatOpenAI({
+  model: "gpt-4o",
+  apiKey: "<your-api-key>",
+});
+ 
+const serviceAdapter = new LangChainAdapter({
+  chainFn: async ({ messages, tools }) => {
+    return model.stream(messages, { tools });
+  }
+});
+ 
+return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+```
+ 
+The asynchronous handler function (`chainFn`) can return any of the following:
+ 
+- A simple `string` response
+- A LangChain stream (`IterableReadableStream`)
+- A LangChain `BaseMessageChunk` object
+- A LangChain `AIMessage` object
+
+## Constructor Parameters
+
+<PropertyReference name="chainFn" type="(parameters: ChainFnParameters) => Promise<LangChainReturnType>" required > 
+A function that uses the LangChain API to generate a response.
+</PropertyReference>
+

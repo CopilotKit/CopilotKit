@@ -1,0 +1,68 @@
+---
+title: "Connecting Your Data"
+description: "Learn how to connect your data to CopilotKit."
+---
+import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
+
+<Steps>
+  <Step>
+    <UseClientCalloutSnippet components={props.components} />
+  </Step>
+
+  <Step>
+    ### The `useCopilotReadable` Hook
+
+    For your copilot to best answer your users' needs, you will want to provide it with **context-specific**, **user-specific**, and oftentimes **realtime** data. CopilotKit makes it easy to do so.
+
+    ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
+    import { useCopilotReadable } from "@copilotkit/react-core"; // [!code highlight]
+
+    export function YourComponent() {
+      const { colleagues } = useColleagues();
+
+      // Define Copilot readable state
+      // [!code highlight:5]
+      useCopilotReadable({
+        description: "The current user's colleagues",
+        value: colleagues,
+      });
+
+      return (
+        // Your custom UI component
+        <>...</>
+      );
+    }
+    ```
+  </Step>
+
+  <Step>
+    ### Test it out!
+
+    The data your provided is now available to the Copilot.
+    Test it out by passing some data in the hook and asking the copilot questions about it.
+
+    <div className="mt-2 mb-4">
+      <img 
+        src="/images/connect-your-data-example.gif" 
+        alt="Example of connecting data to Copilot" 
+        className="rounded-lg shadow-md w-full max-w-md mx-auto"
+      />
+    </div>
+  </Step>
+
+</Steps>
+
+### Advanced
+
+For more advanced use-cases, see [`useCopilotReadable` reference](/reference/hooks/useCopilotReadable).
+
+---
+## Cloud & Backend State
+
+### Backend Readable State
+
+You can provide backend state via Copilot backend actions.
+
+### Knowledge Bases (Enterprise)
+
+Additional plug-and-play integrations with knowledge bases are available via our enterprise plan. Please [reach out](mailto:hello@copilotkit.ai) to enable it.
