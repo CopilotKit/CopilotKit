@@ -27,12 +27,6 @@ export async function GET(
   const page = source.getPage(params.slug.slice(0, -1));
   if (!page) notFound();
 
-  // return generateOGImage({
-  //   title: page.data.title,
-  //   description: (page.data as any).description,
-  //   site: 'My App',
-  // });
-
   return new ImageResponse(
     (
       <section
