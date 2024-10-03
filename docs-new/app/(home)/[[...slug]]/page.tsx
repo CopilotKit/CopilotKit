@@ -18,6 +18,7 @@ import { Frame } from "@/components/react/frame";
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
 import { Mermaid } from '@theguild/remark-mermaid/mermaid';
 import { Cards, Card } from "fumadocs-ui/components/card";
+import { PropertyReference } from "@/components/react/property-reference";
 
 export const mdxComponents = {
   ...defaultMdxComponents,
@@ -32,6 +33,7 @@ export const mdxComponents = {
   Mermaid: Mermaid,
   Cards: Cards,
   Card: Card,
+  PropertyReference: PropertyReference,
   // HTML `ref` attribute conflicts with `forwardRef`
   pre: ({ ref: _ref, ...props }: any) => (
     <CodeBlock {...props}>
