@@ -15,8 +15,6 @@ export default function AIPresentation() {
     publicApiKey: process.env["NEXT_PUBLIC_COPILOTKIT_PUBLIC_API_KEY"] ?? undefined,
   };
 
-  console.log("copilotKitProps", copilotKitProps);
-
   return (
     <CopilotKit {...copilotKitProps}>
       <div

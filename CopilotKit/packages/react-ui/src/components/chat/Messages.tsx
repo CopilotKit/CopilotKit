@@ -1,10 +1,7 @@
 import React, { useEffect, useMemo } from "react";
 import { MessagesProps } from "./props";
 import { useChatContext } from "./ChatContext";
-import { Markdown } from "./Markdown";
-import { RenderFunctionStatus, useCopilotContext } from "@copilotkit/react-core";
 import {
-  MessageStatusCode,
   ActionExecutionMessage,
   Message,
   ResultMessage,
@@ -12,11 +9,16 @@ import {
   Role,
   AgentStateMessage,
 } from "@copilotkit/runtime-client-gql";
-import { CoagentInChatRenderFunction } from "@copilotkit/react-core/dist/context/copilot-context";
 
-export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
-  const { chatComponentsCache } = useCopilotContext();
-
+export const Messages = ({
+  messages,
+  inProgress,
+  children,
+  RenderTextMessage,
+  RenderActionExecutionMessage,
+  RenderAgentStateMessage,
+  RenderResultMessage,
+}: MessagesProps) => {
   const context = useChatContext();
   const initialMessages = useMemo(
     () => makeInitialMessages(context.labels.initial),
@@ -24,7 +26,7 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
   );
   messages = [...initialMessages, ...messages];
 
-  const functionResults: Record<string, string> = {};
+  const actionResults: Record<string, string> = {};
 
   for (let i = 0; i < messages.length; i++) {
     if (messages[i] instanceof ActionExecutionMessage) {
@@ -34,7 +36,7 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
       ) as ResultMessage | undefined;
 
       if (resultMessage) {
-        functionResults[id] = ResultMessage.decodeResult(resultMessage.result || "");
+        actionResults[id] = ResultMessage.decodeResult(resultMessage.result || "");
       }
     }
   }
@@ -58,178 +60,46 @@ export const Messages = ({ messages, inProgress, children }: MessagesProps) => {
       {messages.map((message, index) => {
         const isCurrentMessage = index === messages.length - 1;
 
-        if (message instanceof TextMessage && message.role === "user") {
+        if (message instanceof TextMessage) {
           return (
-            <div key={index} className="copilotKitMessage copilotKitUserMessage">
-              {message.content}
-            </div>
-          );
-        } else if (message instanceof TextMessage && message.role == "assistant") {
-          return (
-            <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-              {isCurrentMessage && inProgress && !message.content ? (
-                context.icons.spinnerIcon
-              ) : (
-                <Markdown content={message.content} />
-              )}
-            </div>
+            <RenderTextMessage
+              key={index}
+              message={message}
+              inProgress={inProgress}
+              index={index}
+              isCurrentMessage={isCurrentMessage}
+            />
           );
         } else if (message instanceof ActionExecutionMessage) {
-          if (
-            chatComponentsCache.current !== null &&
-            chatComponentsCache.current.actions[message.name]
-          ) {
-            const render = chatComponentsCache.current.actions[message.name];
-            // render a static string
-            if (typeof render === "string") {
-              // when render is static, we show it only when in progress
-              if (isCurrentMessage && inProgress) {
-                return (
-                  <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-                    {context.icons.spinnerIcon} <span className="inProgressLabel">{render}</span>
-                  </div>
-                );
-              }
-              // Done - silent by default to avoid a series of "done" messages
-              else {
-                return null;
-              }
-            }
-            // render is a function
-            else {
-              const args = message.arguments;
-
-              let status: RenderFunctionStatus = "inProgress";
-
-              if (functionResults[message.id] !== undefined) {
-                status = "complete";
-              } else if (message.status.code !== MessageStatusCode.Pending) {
-                status = "executing";
-              }
-
-              try {
-                const toRender = render({
-                  status: status as any,
-                  args,
-                  result: functionResults[message.id],
-                });
-                // No result and complete: stay silent
-                if (!toRender && status === "complete") {
-                  return null;
-                }
-                if (typeof toRender === "string") {
-                  return (
-                    <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-                      {isCurrentMessage && inProgress && context.icons.spinnerIcon} {toRender}
-                    </div>
-                  );
-                } else {
-                  return (
-                    <div key={index} className="copilotKitCustomAssistantMessage">
-                      {toRender}
-                    </div>
-                  );
-                }
-              } catch (e) {
-                console.error(`Error executing render function for action ${message.name}: ${e}`);
-                return (
-                  <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-                    {isCurrentMessage && inProgress && context.icons.spinnerIcon}
-                    <b>❌ Error executing render: {message.name}</b>
-                    <br />
-                    {e instanceof Error ? e.message : String(e)}
-                  </div>
-                );
-              }
-            }
-          }
-          // No render function found- show the default message
-          else if (!inProgress || !isCurrentMessage) {
-            // Done - silent by default to avoid a series of "done" messages
-            return null;
-          } else {
-            // In progress
-            return (
-              <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-                {context.icons.spinnerIcon}
-              </div>
-            );
-          }
-        } else if (message instanceof AgentStateMessage) {
-          let render: string | CoagentInChatRenderFunction | undefined;
-
-          if (chatComponentsCache.current !== null) {
-            render =
-              chatComponentsCache.current.coagentActions[
-                `${message.agentName}-${message.nodeName}`
-              ] || chatComponentsCache.current.coagentActions[`${message.agentName}-global`];
-          }
-
-          if (render) {
-            // render a static string
-            if (typeof render === "string") {
-              // when render is static, we show it only when in progress
-              if (isCurrentMessage && inProgress) {
-                return (
-                  <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-                    {context.icons.spinnerIcon} <span className="inProgressLabel">{render}</span>
-                  </div>
-                );
-              }
-              // Done - silent by default to avoid a series of "done" messages
-              else {
-                return null;
-              }
-            }
-            // render is a function
-            else {
-              const state = message.state;
-
-              let status = message.active ? "inProgress" : "complete";
-
-              const toRender = render({
-                status: status as any,
-                state,
-                nodeName: message.nodeName,
-              });
-
-              // No result and complete: stay silent
-              if (!toRender && status === "complete") {
-                return null;
-              }
-
-              if (typeof toRender === "string") {
-                return (
-                  <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-                    {isCurrentMessage && inProgress && context.icons.spinnerIcon} {toRender}
-                  </div>
-                );
-              } else {
-                return (
-                  <div key={index} className="copilotKitCustomAssistantMessage">
-                    {toRender}
-                  </div>
-                );
-              }
-            }
-          }
-          // No render function found- show the default message
-          else if (!inProgress || !isCurrentMessage) {
-            // Done - silent by default to avoid a series of "done" messages
-            return null;
-          } else {
-            // In progress
-            return (
-              <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-                {context.icons.spinnerIcon}
-              </div>
-            );
-          }
-        } else if (message instanceof ResultMessage && inProgress && isCurrentMessage) {
           return (
-            <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-              {context.icons.spinnerIcon}
-            </div>
+            <RenderActionExecutionMessage
+              key={index}
+              message={message}
+              inProgress={inProgress}
+              index={index}
+              isCurrentMessage={isCurrentMessage}
+              actionResult={actionResults[message.id]}
+            />
+          );
+        } else if (message instanceof AgentStateMessage) {
+          return (
+            <RenderAgentStateMessage
+              key={index}
+              message={message}
+              inProgress={inProgress}
+              index={index}
+              isCurrentMessage={isCurrentMessage}
+            />
+          );
+        } else if (message instanceof ResultMessage) {
+          return (
+            <RenderResultMessage
+              key={index}
+              message={message}
+              inProgress={inProgress}
+              index={index}
+              isCurrentMessage={isCurrentMessage}
+            />
           );
         }
       })}
