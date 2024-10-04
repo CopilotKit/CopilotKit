@@ -18,7 +18,7 @@ import { Frame } from "@/components/react/frame";
 import { Mermaid } from "@theguild/remark-mermaid/mermaid";
 import { Cards, Card } from "fumadocs-ui/components/card";
 import { PropertyReference } from "@/components/react/property-reference";
-import { getImageMeta } from 'fumadocs-ui/og';
+import { getImageMeta } from "fumadocs-ui/og";
 
 const mdxComponents = {
   ...defaultMdxComponents,
@@ -52,7 +52,16 @@ export default async function Page({
   const MDX = page.data.body;
 
   return (
-    <DocsPage toc={page.data.toc} full={page.data.full}>
+    <DocsPage
+      toc={page.data.toc}
+      full={page.data.full}
+      editOnGithub={{
+        owner: "CopilotKit",
+        repo: "CopilotKit",
+        sha: "main",
+        path: `/docs/content/docs/${page.file.path}`,
+      }}
+    >
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
       <DocsBody>
@@ -69,9 +78,9 @@ export async function generateStaticParams() {
 export function generateMetadata({ params }: { params: { slug?: string[] } }) {
   const page = source.getPage(params.slug);
   if (!page) notFound();
- 
-  const image = getImageMeta('og', page.slugs);
- 
+
+  const image = getImageMeta("og", page.slugs);
+
   return {
     title: page.data.title,
     description: page.data.description,
@@ -80,7 +89,7 @@ export function generateMetadata({ params }: { params: { slug?: string[] } }) {
     },
     twitter: {
       images: image,
-      card: 'summary_large_image',
+      card: "summary_large_image",
     },
   } satisfies Metadata;
 }
