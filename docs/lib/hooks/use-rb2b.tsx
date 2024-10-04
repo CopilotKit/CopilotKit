@@ -16,7 +16,7 @@ export function useRB2B() {
       if (reb2b.invoked) return;
       reb2b.invoked = true;
       reb2b.methods = ["identify", "collect"];
-      reb2b.factory = function (method) {
+      reb2b.factory = function (method: any) {
         return function () {
           var args = Array.prototype.slice.call(arguments);
           args.unshift(method);
@@ -28,7 +28,7 @@ export function useRB2B() {
         var key = reb2b.methods[i];
         reb2b[key] = reb2b.factory(key);
       }
-      reb2b.load = function (key) {
+      reb2b.load = function (key: any) {
         var script = document.createElement("script");
         script.type = "text/javascript";
         script.async = true;
