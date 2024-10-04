@@ -4,15 +4,15 @@ For most use-cases, it's appropriate to wrap the `CopilotKit` provider around th
 
 Point it at the Copilot Runtime URL you configured in the previous step.
 
-  ```tsx filename="layout.tsx" showLineNumbers {5,6,8}
-  import { CopilotKit } from "@copilotkit/react-core";
+  ```tsx title="layout.tsx"
+  import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
 
   export default function RootLayout({children}) {
     return (
       {/* Make sure to use the URL you configured in the previous step */}
-      <CopilotKit runtimeUrl="/api/copilotkit">
+      <CopilotKit runtimeUrl="/api/copilotkit"> // [!code highlight]
         {children}
-      </CopilotKit>
+      </CopilotKit> // [!code highlight]
     );
   }
   ```
