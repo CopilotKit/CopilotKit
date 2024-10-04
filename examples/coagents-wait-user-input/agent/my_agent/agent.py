@@ -7,7 +7,6 @@ from langgraph.graph import MessagesState, START
 # Here we define any ACTUAL tools
 from langchain_core.tools import tool
 from langgraph.prebuilt import ToolNode
-from langchain_core.messages import AIMessage
 from copilotkit.langchain import copilotkit_customize_config
 
 
@@ -69,13 +68,9 @@ def call_model(state, config):
 
     config = copilotkit_customize_config(
         config,
-        emit_tool_calls=True,
+        emit_tool_calls="AskHuman",
     )
     messages = state["messages"]
-    for message in messages:
-        print(message)
-        print(type(message))
-        print("---")
     response = model.invoke(messages, config=config)
     # We return a list, because this will get added to the existing list
     return {"messages": [response]}

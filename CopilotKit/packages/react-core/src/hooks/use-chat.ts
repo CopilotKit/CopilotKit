@@ -349,7 +349,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             .find((message) => message instanceof AgentStateMessage);
 
           if (lastAgentStateMessage) {
-            console.log(lastAgentStateMessage);
             if (lastAgentStateMessage.running) {
               setCoagentStates((prevAgentStates) => ({
                 ...prevAgentStates,

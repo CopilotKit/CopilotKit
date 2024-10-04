@@ -24,7 +24,9 @@
     "test": "jest --passWithNoTests",
     "check-types": "tsc --noEmit",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next && rm -rf __snapshots__",
-    "generate-graphql-schema": "rm -rf __snapshots__ && ts-node ./scripts/generate-gql-schema.ts"
+    "generate-graphql-schema": "rm -rf __snapshots__ && ts-node ./scripts/generate-gql-schema.ts",
+    "link:global": "pnpm link --global",
+    "unlink:global": "pnpm unlink --global"
   },
   "devDependencies": {
     "@swc/core": "1.5.28",
