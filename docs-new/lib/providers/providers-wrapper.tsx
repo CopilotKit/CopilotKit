@@ -13,7 +13,6 @@ export function ProvidersWrapper({ children, clerkPublishableKey }: { children: 
     <>
       <ClerkProvider publishableKey={clerkPublishableKey}>
         <PostHogProvider>{children}</PostHogProvider>
-        {children}
         <ScarfPixel />
       </ClerkProvider>
     </>
