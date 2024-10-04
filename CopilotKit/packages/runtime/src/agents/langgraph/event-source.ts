@@ -71,7 +71,7 @@ export class RemoteLangGraphEventSource {
           if (event.event === LangGraphEventTypes.OnChatModelStream) {
             if (event.data?.chunk?.kwargs?.tool_call_chunks) {
               acc.prevToolCallId = acc.toolCallId;
-              acc.toolCallId = event.data.chunk.kwargs?.id;
+              acc.toolCallId = event.data.chunk.kwargs?.tool_call_chunks?.[0]?.id;
               if (event.data.chunk.kwargs.tool_call_chunks[0]?.name) {
                 acc.toolCallName = event.data.chunk.kwargs.tool_call_chunks[0].name;
               }
