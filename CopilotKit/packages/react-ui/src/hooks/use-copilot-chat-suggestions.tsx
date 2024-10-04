@@ -50,8 +50,8 @@
  * }
  * ```
  *
- * In the example above, the suggestions are generated based on the given instructions.
- * The hook monitors `appState`, and updates suggestions accordingly whenever it changes.
+ * In the example above, the suggestions are generated based on the provided instructions.
+ * The hook monitors `appState`, and updates the suggestions accordingly whenever they change.
  *
  * ### Behavior and Lifecycle
  *

@@ -20,7 +20,7 @@ jobs:
         working-directory: "CopilotKit"
     timeout-minutes: 10
     steps:
-      - name: Checkout Repo
+      - name: Check out Repo
         uses: actions/checkout@v3
 
       - name: Setup pnpm

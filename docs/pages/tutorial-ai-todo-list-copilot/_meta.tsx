@@ -4,7 +4,7 @@ export default {
     title: "Overview",
   },
   "step-1-checkout-repo": {
-    title: "Step 1: Checkout the repo",
+    title: "Step 1: Check out the repo",
   },
   "step-2-setup-copilotkit": {
     title: "Step 2: Setup CopilotKit",
