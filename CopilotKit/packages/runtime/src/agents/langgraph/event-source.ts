@@ -167,6 +167,20 @@ export class RemoteLangGraphEventSource {
               type: RuntimeEventTypes.TextMessageEnd,
             });
             break;
+          case LangGraphEventTypes.OnCopilotKitEmitToolCall:
+            events.push({
+              type: RuntimeEventTypes.ActionExecutionStart,
+              actionExecutionId: eventWithState.event.id,
+              actionName: eventWithState.event.name,
+            });
+            events.push({
+              type: RuntimeEventTypes.ActionExecutionArgs,
+              args: JSON.stringify(eventWithState.event.args),
+            });
+            events.push({
+              type: RuntimeEventTypes.ActionExecutionEnd,
+            });
+            break;
           case LangGraphEventTypes.OnCopilotKitStateSync:
             events.push({
               type: RuntimeEventTypes.AgentStateMessage,
