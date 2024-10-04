@@ -8,11 +8,11 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
-export default function Layout({ children }: { children: ReactNode }) {
+export default async function Layout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={inter.className} suppressHydrationWarning>
       <body>
-        <ProvidersWrapper>
+        <ProvidersWrapper clerkPublishableKey={process.env.CLERK_PUBLISHABLE_KEY as string}>
           <RootProvider theme={{ enabled: true }}>{children}</RootProvider>
         </ProvidersWrapper>
       </body>
