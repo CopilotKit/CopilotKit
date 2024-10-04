@@ -1,0 +1,13 @@
+{
+  "title": "reference",
+  "root": true,
+  "pages": [
+    "index",
+    "---UI Components---",
+    "...components",
+    "---Hooks---",
+    "...hooks",
+    "---Classes---",
+    "...classes"
+  ]
+}

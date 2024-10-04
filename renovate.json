@@ -13,11 +13,11 @@
   "npm": {
     "enabled": true
   },
+  "ignorePaths": ["node_modules"],
   "packageRules": [
     {
       "description": "[All] Ignore all packages initially",
       "enabled": false,
-      "matchPaths": ["**/*"],
       "matchPackageNames": [
         "*"
       ],

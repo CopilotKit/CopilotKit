@@ -1,0 +1,58 @@
+---
+title: "Advanced: Package Linking"
+---
+
+In this guide, we'll teach you how to link the CopilotKit packages to your own project to test your changes. This way, you can run `turbo run dev` in the CopilotKit monorepo, and see changes in your own project immediately.
+
+## Global Package Linking With `pnpm`
+
+We will use pnpm's [global linking feature](https://pnpm.io/cli/link#pnpm-link---global) to link the CopilotKit packages to your own project.
+
+<Steps>
+  <Step>
+  ### In The CopilotKit Monorepo
+  Assuming you followed all steps in the contribution guide guide, you should have everything set up properly and ready to go.
+
+  Navigate to the CopilotKit monorepo and run the following command to link the packages globally:
+
+  ```bash
+  turbo run link:global
+  ```
+  </Step>
+  <Step>
+  ### In Your Project
+  In your project, ensure you have pnpm configured. This will not prevent you from using npm or yarn as well. But for the purpose of global linking, you must use pnpm.
+
+  ```bash
+  cd your-project
+  pnpm i
+  ```
+
+  Next, link the desired package in your project:
+  ```bash
+  # For example, to link the @copilotkit/react-core package:
+  pnpm link --global @copilotkit/react-core
+  ```
+
+  You can run this for all packages, or just the ones you need. Your changes will now be synced.
+  </Step>
+  <Step>
+  ### Unlinking
+  Once you are done, you can undo the global linking by running the following command in the CopilotKit monorepo:
+
+  ```bash
+  turbo run unlink:global
+  ```
+
+  And then in your project:
+  ```bash
+  pnpm install
+  ```
+
+  That's it, everything is now back to normal!
+  </Step>
+</Steps>
+
+## Need help?
+
+If you need help with anything, please don't hesitate to reach out to us on [Discord](https://discord.gg/6dffbvGU3D). We have a dedicated [#contributing](https://discord.com/channels/1122926057641742418/1183863183149117561) channel.

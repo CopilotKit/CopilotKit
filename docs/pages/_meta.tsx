@@ -27,12 +27,35 @@ export default {
     type: "separator",
     title: "Guides",
   },
-  "quickstart-leftover": {
-    title: "Quickstart Leftover",
-    theme: {
-      toc: false,
-    },
+
+  "connect-to-your-data": {
+    title: "Connect your data",
   },
+  "generative-ui": {
+    title: "Generative UI (in-chat custom UI)",
+  },
+  "frontend-action": {
+    title: "Frontend actions",
+  },
+  "backend-action": {
+    title: "Backend actions + agents",
+  },
+  "copilot-suggestions": {
+    title: "Copilot Suggestions",
+  },
+  "bring-your-own-llm": {
+    title: "Bring your own LLM",
+  },
+  "customize-look-and-feel": {
+    title: "Customize Look & Feel",
+  },
+  "customize-ai-behavior": {
+    title: "Customize AI assistant behavior",
+  },
+  "copilot-textarea-quickstart": {
+    title: "CopilotTextarea (quickstart guide)",
+  },
+
   "___other": {
     type: "separator",
     title: "Other",

@@ -1,0 +1,39 @@
+---
+title: "GroqAdapter"
+description: "Copilot Runtime adapter for Groq."
+---
+
+Copilot Runtime adapter for Groq.
+ 
+## Example
+ 
+```ts
+import { CopilotRuntime, GroqAdapter } from "@copilotkit/runtime";
+import { Groq } from "groq-sdk";
+ 
+const groq = new Groq({ apiKey: process.env["GROQ_API_KEY"] });
+ 
+const copilotKit = new CopilotRuntime();
+ 
+const serviceAdapter = new GroqAdapter({ groq, model: "<model-name>" });
+ 
+return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+```
+
+## Constructor Parameters
+
+<PropertyReference name="groq" type="Groq"  > 
+An optional Groq instance to use.
+</PropertyReference>
+
+<PropertyReference name="model" type="string"  > 
+The model to use.
+</PropertyReference>
+
+<PropertyReference name="disableParallelToolCalls" type="boolean"  default="false"> 
+Whether to disable parallel tool calls.
+  You can disable parallel tool calls to force the model to execute tool calls sequentially.
+  This is useful if you want to execute tool calls in a specific order so that the state changes
+  introduced by one tool call are visible to the next tool call. (i.e. new actions or readables)
+</PropertyReference>
+

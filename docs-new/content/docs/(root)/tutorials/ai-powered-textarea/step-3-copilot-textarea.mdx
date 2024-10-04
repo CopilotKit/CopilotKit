@@ -1,0 +1,64 @@
+---
+title: "Step 4: Copilot Textarea"
+---
+
+Currently, our app has a simple textarea for replying to emails. Let's replace this with an AI-powered textarea so that we can benefit from our helpful AI assistant.
+
+## The `<Reply />` Component
+
+Head over to the [`/components/Reply.tsx`](https://github.com/CopilotKit/example-textarea/blob/base-start-here/components/Reply.tsx) file.
+
+At a glance, you can see that this component uses `useState` to hold the current input value and provide it to the textarea. We also use the `onChange` prop of the textarea to update the state.
+
+## Implementing `<CopilotTextarea />`
+
+The `<CopilotTextarea />` component was designed to be a drop-in replacement for the `<textarea />` component. Let's implement it!
+
+```tsx title="components/Reply.tsx"
+// ... the rest of the file
+
+import { CopilotTextarea } from "@copilotkit/react-textarea"; // [!code highlight]
+
+export function Reply() {
+  // ...
+  return (
+    <div className="mt-4 pt-4 space-y-2 bg-background p-4 rounded-md border">
+      <CopilotTextarea // [!code highlight]
+        className="min-h-40 border h-40 p-2 overflow-hidden"
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        placeholder="Write your reply..."
+        // [!code highlight:5]
+        autosuggestionsConfig={{
+          textareaPurpose: `Asisst me in replying to this email thread. Remmeber all important details.`,
+          chatApiConfigs: {}
+        }}
+      />
+      <Button disabled={!input} onClick={handleReply}>
+        Reply
+      </Button>
+    </div>
+  );
+}
+```
+
+We import the `<CopilotTextarea />` component and use it in place of the `<textarea />` component. There are also some optional style changes made here.
+
+We can provide more specific instructions for this particular textarea via the `autoSuggestionsConfig.textareaPurpose` property.
+
+## Try it out!
+
+Now, go back to the app and type anything in the textarea. You will see that the AI assistant provides suggestions as you type. How cool is that?
+
+## The `CMD + K`/`CTRL + K` Shortcut
+
+While focused on the texarea, you can use the `CMD + K` (macOS) or `CTRL + K` (Windows) shortcut to open the action popup. Here, you can give the copilot specific instructions, such as:
+
+- `Rephrase the text to be more formal`
+- `Make the reply shorter`
+- `Tell John that I'm happy to help`
+
+<br />
+<hr />
+
+We have implemented the `<CopilotTextarea />` component, but there an issue - the copilot assistant is not aware of the email thread. In the next step, we'll make CopilotKit aware of our email history.

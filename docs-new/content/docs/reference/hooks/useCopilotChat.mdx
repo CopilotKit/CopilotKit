@@ -1,0 +1,63 @@
+---
+title: "useCopilotChat"
+---
+
+`useCopilotChat` is a React hook that lets you directly interact with the
+Copilot instance. Use to implement a fully custom UI (headless UI) or to
+programmatically interact with the Copilot instance managed by the default
+UI.
+ 
+## Usage
+ 
+### Simple Usage
+ 
+```tsx
+import { useCopilotChat } from "@copilotkit/react-core";
+import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
+ 
+export function YourComponent() {
+  const { appendMessage } = useCopilotChat();
+ 
+  appendMessage(
+    new TextMessage({
+      content: "Hello World",
+      role: Role.User,
+    }),
+  );
+}
+```
+ 
+`useCopilotChat` returns an object with the following properties:
+ 
+```tsx
+const {
+  visibleMessages, // An array of messages that are currently visible in the chat.
+  appendMessage, // A function to append a message to the chat.
+  setMessages, // A function to set the messages in the chat.
+  deleteMessage, // A function to delete a message from the chat.
+  reloadMessages, // A function to reload the messages from the API.
+  stopGeneration, // A function to stop the generation of the next message.
+  isLoading, // A boolean indicating if the chat is loading.
+} = useCopilotChat();
+```
+
+## Parameters
+
+<PropertyReference name="id" type="string"  > 
+A unique identifier for the chat. If not provided, a random one will be
+  generated. When provided, the `useChat` hook with the same `id` will
+  have shared states across components.
+</PropertyReference>
+
+<PropertyReference name="headers" type="Record<string, string> | Headers"  > 
+HTTP headers to be sent with the API request.
+</PropertyReference>
+
+<PropertyReference name="initialMessages" type="Message[]"  > 
+System messages of the chat. Defaults to an empty array.
+</PropertyReference>
+
+<PropertyReference name="makeSystemMessage" type="SystemMessageFunction"  > 
+A function to generate the system message. Defaults to `defaultSystemMessage`.
+</PropertyReference>
+

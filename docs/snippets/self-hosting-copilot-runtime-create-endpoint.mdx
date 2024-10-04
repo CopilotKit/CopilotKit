@@ -1,7 +1,10 @@
 import { Tabs } from 'nextra/components';
 import { Callout } from 'nextra/components';
+import LlmAdapters from "@/snippets/llm-adapters.mdx";
 
-<Tabs items={['OpenAI']}>
+First, choose which LLM model you would like to use under the hood:
+
+<Tabs items={['OpenAI', 'Other LLM Providers']}>
 
   {/* OpenAI Tab */}
   <Tabs.Tab>
@@ -11,6 +14,11 @@ import { Callout } from 'nextra/components';
     ```plaintext filename=".env"
     OPENAI_API_KEY=your_api_key_here
     ```
+
+    <Callout type="warning" title="Do you have a paid API key?">
+      Please note that the code below uses GPT-4o, which requires a paid OpenAI API key.
+      **If you are using a free OpenAI API key**, change the model to a different option such as "gpt-3.5-turbo".
+    </Callout>
 
     #### Endpoint Setup
 
@@ -30,14 +38,17 @@ import { Callout } from 'nextra/components';
         import { NextRequest } from 'next/server';
 
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const llmAdapter = new OpenAIAdapter({ openai });
+        const llmAdapter = new OpenAIAdapter({ 
+          openai,
+          model: "gpt-4o"
+        });
 
         const runtime = new CopilotRuntime();
 
         export const POST = async (req: NextRequest) => {
           const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
             runtime,
-            llmAdapter,
+            serviceAdapter: llmAdapter,
             endpoint: '/api/copilotkit',
           });
 
@@ -45,7 +56,7 @@ import { Callout } from 'nextra/components';
         };
         ```
 
-        Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.
+        **Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.**
       </Tabs.Tab>
 
       {/* Next.js Pages Router */}
@@ -62,7 +73,10 @@ import { Callout } from 'nextra/components';
         import OpenAI from 'openai';
 
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const llmAdapter = new OpenAIAdapter({ openai });
+        const llmAdapter = new OpenAIAdapter({ 
+          openai,
+          model: "gpt-4o"
+        });
 
         const handler = async (req: NextApiRequest, res: NextApiResponse) => {
           const runtime = new CopilotRuntime();
@@ -70,7 +84,7 @@ import { Callout } from 'nextra/components';
           const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
             endpoint: '/api/copilotkit',
             runtime,
-            llmAdapter,
+            serviceAdapter: llmAdapter,
           });
 
           return await handleRequest(req, res);
@@ -79,7 +93,7 @@ import { Callout } from 'nextra/components';
         export default handler;
         ```
 
-        Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.
+        **Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.**
       </Tabs.Tab>
 
       {/* Node.js Express */}
@@ -97,14 +111,17 @@ import { Callout } from 'nextra/components';
 
         const app = express();
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const llmAdapter = new OpenAIAdapter({ openai });
+        const llmAdapter = new OpenAIAdapter({ 
+          openai,
+          model: "gpt-4o"
+        });
 
         app.use('/copilotkit', (req, res, next) => {
           const runtime = new CopilotRuntime();
           const handler = copilotRuntimeNodeHttpEndpoint({
             endpoint: '/copilotkit',
             runtime,
-            llmAdapter,
+            serviceAdapter: llmAdapter,
           });
 
           return handler(req, res, next);
@@ -115,7 +132,7 @@ import { Callout } from 'nextra/components';
         });
         ```
 
-        Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
+        **Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.**
       </Tabs.Tab>
 
       {/* Node.js HTTP */}
@@ -132,14 +149,17 @@ import { Callout } from 'nextra/components';
         import OpenAI from 'openai';
 
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const llmAdapter = new OpenAIAdapter({ openai });
+        const llmAdapter = new OpenAIAdapter({ 
+          openai,
+          model: "gpt-4o"
+        });
 
         const server = createServer((req, res) => {
           const runtime = new CopilotRuntime();
           const handler = copilotRuntimeNodeHttpEndpoint({
             endpoint: '/copilotkit',
             runtime,
-            llmAdapter,
+            serviceAdapter: llmAdapter,
           });
 
           return handler(req, res);
@@ -150,7 +170,7 @@ import { Callout } from 'nextra/components';
         });
         ```
 
-        Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
+        **Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.**
       </Tabs.Tab>
 
       {/* NestJS */}
@@ -167,7 +187,10 @@ import { Callout } from 'nextra/components';
           @All('/copilotkit')
           copilotkit(@Req() req: Request, @Res() res: Response) {
             const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-            const llmAdapter = new OpenAIAdapter({ openai });
+            const llmAdapter = new OpenAIAdapter({ 
+              openai,
+              model: "gpt-4o"
+            });
             const runtime = new CopilotRuntime();
 
             runtime.streamHttpServerResponse(req, res, llmAdapter);
@@ -175,10 +198,16 @@ import { Callout } from 'nextra/components';
         }
         ```
 
-        Your Copilot Runtime endpoint should be available at `http://localhost:3000/copilotkit`.
+        **Your Copilot Runtime endpoint should be available at `http://localhost:3000/copilotkit`.**
       </Tabs.Tab>
     </Tabs>
   </Tabs.Tab>
 
-</Tabs>
+  {/* Others Tab */}
+  <Tabs.Tab>
+  To use a different LLM provider, follow the `OpenAI` instructions,  but instead of using the `OpenAIAdapter`, use one of the other available LLM adapters:
 
+    <LlmAdapters />
+  </Tabs.Tab>
+
+</Tabs>

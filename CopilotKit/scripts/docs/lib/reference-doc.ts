@@ -10,6 +10,7 @@ export interface ReferenceDocConfiguration {
   className?: string;
   component?: string;
   hook?: string;
+  description?: string;
 }
 // docs/pages/reference/classes/CopilotRuntime/service-adapters/GoogleGenerativeAIAdapter.mdx
 export class ReferenceDoc {
@@ -49,18 +50,14 @@ export class ReferenceDoc {
     for (let i = 0; i < slashes - 2; i++) {
       importPathPrefix += "../";
     }
-    result += `import { PropertyReference, LinkToCopilotCloud } from "@/components";\n\n`;
-    result += 'import { Tabs } from "nextra/components";\n\n';
-    result += 'import { Callout } from "nextra/components";\n\n';
 
-    // title
-    if (this.referenceDoc.component) {
-      result += `# \`<${this.referenceDoc.component} />\`\n\n`;
-    } else if (this.referenceDoc.hook) {
-      result += `# ${this.referenceDoc.hook}\n\n`;
-    } else if (this.referenceDoc.className) {
-      result += `# ${this.referenceDoc.className}\n\n`;
+    result += `---\n`;
+    result += `title: "${this.referenceDoc.className || this.referenceDoc.component || this.referenceDoc.hook}"\n`;
+    if (this.referenceDoc.description) {
+      result += `description: "${this.referenceDoc.description}"\n`;
     }
+    result += `---\n\n`;
+
     result += `${comment}\n\n`;
 
     if (this.referenceDoc.hook) {
@@ -70,6 +67,8 @@ export class ReferenceDoc {
     } else if (this.referenceDoc.className) {
       result += `## Constructor Parameters\n\n`;
     }
+
+    console.log("arg0Interface", arg0Interface)
 
     if (arg0Interface) {
       for (const property of arg0Interface.properties) {

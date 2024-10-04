@@ -5,15 +5,20 @@ You are almost there!
 Now it's time to setup your Copilot UI.
 
 
-First, import the default styles in your root component:
+First, import the default styles in your root component (typically `layout.tsx`) :
 
-```tsx 
+```tsx filename="layout.tsx"
 import "@copilotkit/react-ui/styles.css";
 ```
 
+**Copilot UI ships with a number of built-in UI patterns, choose whichever one you like.**
+
 <Tabs items={["CopilotPopup", "CopilotSidebar", "CopilotChat", "Headless UI"]}>
   <Tabs.Tab>
-    `CopilotPopup` wraps `CopilotChat` in a toggleable popup window.
+
+    `CopilotPopup` is a convenience wrapper for `CopilotChat` that lives at the same level as your main content in the view hierarchy. It provides a **floating chat interface** that can be toggled on and off.
+
+    <img src="/images/popup-example.gif" alt="Popup Example" className="w-full rounded-lg my-4" />
 
     ```tsx
     import { CopilotPopup } from "@copilotkit/react-ui";
@@ -23,6 +28,7 @@ import "@copilotkit/react-ui/styles.css";
         <>
           <YourMainContent />
           <CopilotPopup
+            instructions={"You are assisting the user as best as you can. Ansewr in the best way possible given the data you have."}
             labels={{
               title: "Popup Assistant",
               initial: "Need any help?",
@@ -33,12 +39,11 @@ import "@copilotkit/react-ui/styles.css";
     }
     ```
 
-    `CopilotPopup` lives at the same level as your main content in the view hierarchy.
-
-
   </Tabs.Tab>
   <Tabs.Tab>
-    `CopilotSidebar` wraps `CopilotChat` in a collapsible sidebar.
+    `CopilotSidebar` is a convenience wrapper for `CopilotChat` that wraps your main content in the view hierarchy. It provides a **collapsible and expandable sidebar** chat interface.
+
+    <img src="/images/sidebar-example.gif" alt="Popup Example" className="w-full rounded-lg my-4" />
 
     ```tsx
     import { CopilotSidebar } from "@copilotkit/react-ui";
@@ -47,6 +52,7 @@ import "@copilotkit/react-ui/styles.css";
       return (
         <CopilotSidebar
           defaultOpen={true}
+          instructions={"You are assisting the user as best as you can. Ansewr in the best way possible given the data you have."}
           labels={{
             title: "Sidebar Assistant",
             initial: "How can I help you today?",
@@ -58,13 +64,14 @@ import "@copilotkit/react-ui/styles.css";
     }
     ```
 
-    `CopilotSidebar` wraps your main content in the view hierarchy -- and provides collapsable/expandable sidebar functionality.
 
 
   </Tabs.Tab>
   <Tabs.Tab>
-    `CopilotChat` is a flexible chat interface component that can be placed anywhere in your app and can be resized as you desire.
-    Both `CopilotSidebar` and `CopilotPopup` use `CopilotChat` under the hood.
+    `CopilotChat` is a flexible chat interface component that **can be placed anywhere in your app** and can be resized as you desire.
+
+
+    <img src="/images/copilotchat-example.gif" alt="Popup Example" className="w-full rounded-lg my-4" />
 
     ```tsx
     import { CopilotChat } from "@copilotkit/react-ui";
@@ -72,6 +79,7 @@ import "@copilotkit/react-ui/styles.css";
     export function YourComponent() {
       return (
         <CopilotChat
+          instructions={"You are assisting the user as best as you can. Ansewr in the best way possible given the data you have."}
           labels={{
             title: "Your Assistant",
             initial: "Hi! 👋 How can I assist you today?",
@@ -85,7 +93,7 @@ import "@copilotkit/react-ui/styles.css";
   <Tabs.Tab>
     The built-in Copilot UI can be customized in many ways -- both through css and by passing in custom sub-components.
     
-    CopilotKit also offers fully custom headless UI, through the `useCopilotChat` hook.
+    CopilotKit also offers **fully custom headless UI**, through the `useCopilotChat` hook. Everything built with the built-in UI can be implemented with the headless UI, providing deep customizability.
 
     ```tsx
     import { useCopilotChat } from "@copilotkit/react-core";

@@ -1,0 +1,9 @@
+{
+  "title": "hooks",
+  "pages": [
+    "useCopilotReadable",
+    "useCopilotAction",
+    "useCopilotChat",
+    "useCopilotChatSuggestions"
+  ]
+}

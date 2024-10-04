@@ -1,16 +1,16 @@
 # Step 4: Copilot Actions
 
-Now it's time to make our copilot even more useful by taking actions.
+Now it's time to make our Copilot even more useful by taking actions.
 
 ## Available Actions
 
 Once again, let's take a look at our app's state in the [`lib/hooks/use-tasks.tsx`](https://github.com/CopilotKit/example-todos-app/blob/base-start-here/lib/hooks/use-tasks.tsx#L19-L33) file.
 
-Essentially, we want our copilot to be able to call the `addTask`, `setTaskStatus` and `deleteTask` functions.
+Essentially, we want our Copilot to be able to call the `addTask`, `setTaskStatus` and `deleteTask` functions.
 
 ## The `useCopilotAction` hook
 
-The [`useCopilotAction`](/reference/hooks/useCopilotAction) hook makes actions available to our copilot. Let's implement it in the [`lib/hooks/use-tasks.tsx`](https://github.com/CopilotKit/example-todos-app/blob/base-start-here/lib/hooks/use-tasks.tsx) file.
+The [`useCopilotAction`](/reference/hooks/useCopilotAction) hook makes actions available to our Copilot. Let's implement it in the [`lib/hooks/use-tasks.tsx`](https://github.com/CopilotKit/example-todos-app/blob/base-start-here/lib/hooks/use-tasks.tsx) file.
 
 ```tsx filename="lib/hooks/use-tasks.tsx" showLineNumbers {3-3,8-22,24-38,40-61}
 // ... the rest of the file
@@ -90,11 +90,11 @@ You can check out the full reference for the `useCopilotAction` hook [here](http
 
 ## Try it out!
 
-Now, head back to the app and ask your pilot to do any of the following:
+Now, head back to the app and ask your Copilot to do any of the following:
 
 - "Create a task about inviting Daniel to my birthday"
 - "Delete all outstanding tasks"
 - "Mark task with ID 2 as done"
 - etc.
 
-Your copilot is now more helpful than ever 💪
+Your Copilot is now more helpful than ever! 💪

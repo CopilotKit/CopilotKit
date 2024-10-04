@@ -1,0 +1,69 @@
+---
+title: "Quickstart"
+description: "Get started with CopilotKit in under 5 minutes."
+icon: "lucide/Play"
+---
+import { LinkIcon } from "lucide-react";
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
+import ConnectCopilotUI from "@/snippets/copilot-ui.mdx";
+
+<Steps>
+<Step>
+  ### Install dependencies
+
+  First, install the CopilotKit dependencies.
+
+  ```package-install
+  npm install @copilotkit/react-core @copilotkit/react-ui @copilotkit/runtime
+  ```
+
+</Step>
+<Step>
+  ### Set up Copilot Runtime (Backend Endpoint)
+  <SelfHostingCopilotRuntimeCreateEndpoint components={props.components} />
+</Step>
+<Step>
+  ### Configure the CopilotKit Provider
+  <SelfHostingCopilotRuntimeConfigureCopilotKitProvider
+    components={props.components}
+  />
+</Step>
+<Step>
+  ### Connect Copilot UI
+  <ConnectCopilotUI components={props.components} />
+</Step>
+</Steps>
+
+🎉 Congrats! You've successfully integrated a fully functional chatbot in your application! Give it a try now and see it in action.
+
+---
+
+## Next Steps
+
+<Cards>
+  <Card
+    title="Connecting Your Data"
+    description="Learn how to connect CopilotKit to your data, applicaation state and user state."
+    href="/guides/connect-your-data"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Generative UI"
+    description="Learn how to render custom UI components directly in the CopilotKit chat window."
+    href="/guides/generative-ui"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Frontend Actions"
+    description="Learn how to allow your copilot to take applications on frontend."
+    href="/guides/frontend-actions"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="CoAgents (LangGraph)"
+    description="Check out our section about CoAgents, the human-in-the-loop SDK for LangGraph agents."
+    href="/coagents"
+    icon={<LinkIcon />}
+  />
+</Cards>

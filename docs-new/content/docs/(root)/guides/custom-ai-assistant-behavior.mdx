@@ -1,0 +1,109 @@
+---
+title: "Custom AI Assistant Behavior"
+description: "Learn how to customize the behavior of your AI assistant."
+---
+
+
+## `instructions` Parameter (Recommended)
+
+The `instructions` parameter is the recommended way to customize AI assistant behavior. It will remain compatible with performance optimizations to the CopilotKit platform.
+
+It can be customized for **Copilot UI** as well as **programmatically**:
+
+<Tabs items={['Copilot UI', 'Headless UI & Programmatic Control']}>
+  <Tab value="Copilot UI">
+    ### Copilot UI
+
+    Copilot UI components implements `CopilotChatProps`, which accepts an `instructions` property:
+
+    ```tsx title="CustomCopilot.tsx"
+    import { CopilotChat, CopilotChatProps } from "@copilotkit/react-ui";
+
+    const CustomCopilot: React.FC<CopilotChatProps> = () => (
+      <CopilotChat
+        instructions="You are a helpful assistant specializing in tax preparation. Provide concise and accurate answers to tax-related questions." // [!code highlight]
+        labels={{
+          title: "Tax Preparation Assistant",
+          initial: "How can I help you with your tax preparation today?",
+        }}
+      />
+    );
+    ```
+
+  </Tab>
+
+  <Tab value="Headless UI & Programmatic Control">
+    ### Programmatic Control + Headless UI
+
+    The `instructions` parameter can also be set programmatically via `setChatInstructions` method, coming from `useCopilotContext`, allowing for dynamic customization based on the application's state or user interactions.
+
+    ```tsx title="Home.tsx"
+    import { useEffect } from 'react';
+    import { useCopilotContext } from "@copilotkit/react-core";
+
+    const Home: React.FC = () => {
+      // [!code highlight:6]
+      const { setChatInstructions } = useCopilotContext();
+
+      useEffect(() => {
+        setChatInstructions("You are assisting the user as best as you can. Answer in the best way possible given the data you have.");
+      }, [setChatInstructions]);
+
+      return <>{/* Your components */}</>;
+    };
+    ```
+
+  </Tab>
+</Tabs>
+
+## Customize `makeSystemMessage` (Not Recommended)
+
+<Callout type="warn">
+This approach is **not recommended** as it may interfere with more advanced optimizations we are experimenting with, but it is available should you need it.
+</Callout>
+
+For cases requiring complete control over the system message, you can use the `makeSystemMessage` function.
+
+<Tabs items={['Copilot UI', 'Headless UI']}>
+  <Tab value="Copilot UI">
+    ### Copilot UI
+
+    ```tsx filename="CustomCopilot.tsx" showLineNumbers {10}
+    import { CopilotChat } from "@copilotkit/react-ui";
+
+    const CustomCopilot: React.FC = () => (
+      <CopilotChat
+        instructions="You are a knowledgeable tax preparation assistant. Provide accurate and concise answers to tax-related questions, guiding users through the tax filing process."
+        labels={{
+          title: "Tax Preparation Assistant",
+          initial: "How can I assist you with your taxes today?",
+        }}
+        makeSystemMessage={myCustomTaxSystemMessage} // [!code highlight]
+      />
+    );
+    ```
+
+  </Tab>
+  <Tab value="Headless UI">
+    ### Headless UI
+
+    ```tsx filename="CustomCopilotHeadless.tsx" showLineNumbers {4, 6}
+    import { useCopilotChat } from "@copilotkit/react-core";
+
+    const CustomCopilotHeadless: React.FC = () => {
+      // [!code highlight:5]
+      const chat = useCopilotChat({
+        // ...
+        makeSystemMessage: myCustomMakeSystemMessage,
+      });
+
+      return (
+        <div>
+          {/* Render your custom UI using visibleMessages */}
+        </div>
+      );
+    };
+    ```
+  </Tab>
+</Tabs>
+

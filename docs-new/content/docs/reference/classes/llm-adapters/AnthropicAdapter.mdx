@@ -1,0 +1,35 @@
+---
+title: "AnthropicAdapter"
+description: "Copilot Runtime adapter for Anthropic."
+---
+
+Copilot Runtime adapter for Anthropic.
+ 
+## Example
+ 
+```ts
+import { CopilotRuntime, AnthropicAdapter } from "@copilotkit/runtime";
+import Anthropic from "@anthropic-ai/sdk";
+ 
+const copilotKit = new CopilotRuntime();
+ 
+const anthropic = new Anthropic({
+  apiKey: "<your-api-key>",
+});
+ 
+const serviceAdapter = new AnthropicAdapter({ anthropic });
+ 
+return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+```
+
+## Constructor Parameters
+
+<PropertyReference name="anthropic" type="Anthropic"  > 
+An optional Anthropic instance to use.  If not provided, a new instance will be
+  created.
+</PropertyReference>
+
+<PropertyReference name="model" type="string"  > 
+The model to use.
+</PropertyReference>
+

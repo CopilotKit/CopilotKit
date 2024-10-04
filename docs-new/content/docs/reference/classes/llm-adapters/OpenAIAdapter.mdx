@@ -1,0 +1,43 @@
+---
+title: "OpenAIAdapter"
+description: "Copilot Runtime adapter for OpenAI."
+---
+
+Copilot Runtime adapter for OpenAI.
+ 
+## Example
+ 
+```ts
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
+import OpenAI from "openai";
+ 
+const copilotKit = new CopilotRuntime();
+ 
+const openai = new OpenAI({
+  organization: "<your-organization-id>", // optional
+  apiKey: "<your-api-key>",
+});
+ 
+const serviceAdapter = new OpenAIAdapter({ openai });
+ 
+return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+```
+
+## Constructor Parameters
+
+<PropertyReference name="openai" type="OpenAI"  > 
+An optional OpenAI instance to use.  If not provided, a new instance will be
+  created.
+</PropertyReference>
+
+<PropertyReference name="model" type="string"  > 
+The model to use.
+</PropertyReference>
+
+<PropertyReference name="disableParallelToolCalls" type="boolean"  default="false"> 
+Whether to disable parallel tool calls.
+  You can disable parallel tool calls to force the model to execute tool calls sequentially.
+  This is useful if you want to execute tool calls in a specific order so that the state changes
+  introduced by one tool call are visible to the next tool call. (i.e. new actions or readables)
+</PropertyReference>
+
