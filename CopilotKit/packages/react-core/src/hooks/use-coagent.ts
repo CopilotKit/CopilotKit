@@ -34,8 +34,15 @@ export interface UseCoagentReturnType<T> {
   setState: (newState: T | ((prevState: T | undefined) => T)) => void;
   start: () => void;
   stop: () => void;
-  run: (hint?: string) => Promise<void>;
+  run: (hint?: HintFunction) => Promise<void>;
 }
+
+export interface HintFunctionParams {
+  previousState: any;
+  currentState: any;
+}
+
+export type HintFunction = (params: HintFunctionParams) => Message | undefined;
 
 export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
   const isExternalStateManagement = (
@@ -116,7 +123,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     stop: () => {
       stopAgent(name, context);
     },
-    run: (hint?: string) => {
+    run: (hint?: HintFunction) => {
       return runAgent(name, context, appendMessage, hint);
     },
   };
@@ -142,7 +149,7 @@ async function runAgent(
   name: string,
   context: CopilotContextParams,
   appendMessage: (message: Message) => Promise<void>,
-  hint?: string,
+  hint?: HintFunction,
 ) {
   const { agentSession, setAgentSession } = context;
   if (!agentSession || agentSession.agentName !== name) {
@@ -161,20 +168,10 @@ async function runAgent(
 
   let state = context.coagentStates?.[name]?.state || {};
 
-  let content = "The state of the agent has been updated\n";
-  if (previousState !== null) {
-    content += `The previous state was:\n${JSON.stringify(previousState, null, 2)}\n\n`;
-  }
-  content += `The current state is:\n${JSON.stringify(state, null, 2)}`;
-
   if (hint) {
-    content += `\n\n${hint}`;
+    const hintMessage = hint({ previousState, currentState: state });
+    if (hintMessage) {
+      await appendMessage(hintMessage);
+    }
   }
-
-  return await appendMessage(
-    new TextMessage({
-      role: Role.System,
-      content,
-    }),
-  );
 }
