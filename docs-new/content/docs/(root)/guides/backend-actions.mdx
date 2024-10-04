@@ -3,14 +3,12 @@ title: "Backend Actions & Agents"
 description: "Learn how to enable your Copilot to take actions in the backend."
 ---
 
-# Backend Actions & "Copilot Skills"
-
 <Steps>
 <Step>
 ### Find your CopilotRuntime
 
 The starting point for backend actions is the `CopilotRuntime` you setup during quickstart (the CopilotKit backend endpoint).
-For a refresher, see [Self-Hosting](/concepts/self-hosting) (or alternatively, revisit the [quickstart](/quickstart)).
+For a refresher, see [Self-Hosting](/guides/self-hosting) (or alternatively, revisit the [quickstart](/quickstart)).
 
 Backend actions can return (and stream) values -- which will be piped back to the Copilot system and which may result in additional agentic action.
 </Step>
@@ -138,7 +136,7 @@ Choose any of the methods below to integrate backend actions into your Copilot s
     Remote actions allow you to integrate external services or APIs into your CopilotKit application.
     Any service that conforms to the Open-Source CopilotKit backend protocol can be served here.
 
-    We provide a [Python backend SDK]() which includes support for [LangGraph-powered CoAgents!]().
+    We provide a Python backend SDK which includes support for [LangGraph-powered CoAgents!](/coagents).
     For instructions how to set it up, see [here]().
 
     ```tsx title="/api/copilotkit/route.ts"
