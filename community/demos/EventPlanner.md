@@ -1,6 +1,6 @@
 ## Project Planner
 
-[event Planner](https://event-planner-gfex.vercel.app/) - An Event Planner with Copilot and Shadcn-UI.
+[Event Planner](https://event-planner-gfex.vercel.app/) - An Event Planner with Copilot and Shadcn-UI.
 
 The Event Planner web application allows users to manage events with features like creating, editing, and deleting events. It includes a user-friendly interface displaying event details such as title, description, date, time, location, category, and priority. Events are displayed in card format, making it easy to view and interact with. Additionally, the app integrates Copilot Assistant, which aids users by providing suggestions and automating certain tasks.
 
