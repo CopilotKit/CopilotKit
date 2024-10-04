@@ -23,6 +23,18 @@ export interface MessagesProps {
   messages: Message[];
   inProgress: boolean;
   children?: React.ReactNode;
+  RenderTextMessage: React.ComponentType<RenderMessageProps>;
+  RenderActionExecutionMessage: React.ComponentType<RenderMessageProps>;
+  RenderAgentStateMessage: React.ComponentType<RenderMessageProps>;
+  RenderResultMessage: React.ComponentType<RenderMessageProps>;
+}
+
+export interface RenderMessageProps {
+  message: Message;
+  inProgress: boolean;
+  index: number;
+  isCurrentMessage: boolean;
+  actionResult?: string;
 }
 
 export interface InputProps {
