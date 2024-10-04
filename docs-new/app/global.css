@@ -79,10 +79,10 @@
   }
 
   div[data-toc] {
-    @apply mt-10;
+    @apply lg:mt-10;
   }
 
   article {
-    @apply mt-10;
+    @apply lg:mt-10;
   }
 } 
