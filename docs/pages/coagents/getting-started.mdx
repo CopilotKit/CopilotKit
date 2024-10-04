@@ -131,10 +131,10 @@ const { state: carRentalState, setState: setCarRentalState } = useCoAgent({
 });
 ```
 
-2. `useCoAgentAction` to access the state and render it to the chat window.
+2. `useCoagentStateRender` to access the state and render it to the chat window.
 
 ```tsx
-useCoAgentAction({
+useCoagentStateRender({
   name: "car_rental_agent",
   // this is optional - can also have an action by agent
   nodeName: "confirm_node",

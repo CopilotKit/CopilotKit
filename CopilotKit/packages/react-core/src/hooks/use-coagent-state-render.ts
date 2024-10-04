@@ -6,7 +6,10 @@ import { CoagentAction } from "../types/coagent-action";
 // We implement useCoAgentAction dependency handling so that
 // the developer has the option to not provide any dependencies.
 // see useCopilotAction for more details about this approach.
-export function useCoAgentAction<T = any>(action: CoagentAction<T>, dependencies?: any[]): void {
+export function useCoagentStateRender<T = any>(
+  action: CoagentAction<T>,
+  dependencies?: any[],
+): void {
   const { setCoagentAction, removeCoagentAction, coagentActions, chatComponentsCache } =
     useContext(CopilotContext);
   const idRef = useRef<string>(randomId());
