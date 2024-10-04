@@ -30,10 +30,10 @@ That’s all you need for streaming state updates!
 
 CopilotKit maintains a history of state changes so we can display them to the user in the chat window. This way, the user can see how their feedback affected the agent and scroll back to previous iterations of the state.
 
-To render state in the chat window, use the `useCoAgentAction` hook:
+To render state in the chat window, use the `useCoagentStateRender` hook:
 
 ```tsx
-useCoAgentAction({
+useCoagentStateRender({
   name: "car_rental_agent",
 
   // this is optional - can also have an action by agent
