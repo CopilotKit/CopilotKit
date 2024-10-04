@@ -2,84 +2,69 @@
 @tailwind components;
 @tailwind utilities;
 
-h1, h2, h3, h4, h5, h6 {
-  @apply border-b-0 !important;
-}
-
 :root {
   --nextra-bg: #fffbf5;
+  --text-color: #1a202c;
+  --text-color-light: #4a5568;
+  --border-color: #e2e8f0;
+  --code-bg: #f7fafc;
+  --link-color: #4f46e5;
+  --link-hover-color: #4338ca;
+  --nav-bg: #ffffff;
+  --sidebar-bg: #f8fafc;
 }
 
-.nextra-sidebar-container {
-  @apply w-full md:w-72;
-  background: var(--nextra-bg);
-}
-
-.nextra-nav-container {
-  background: var(--nextra-bg);
+.dark {
+  --nextra-bg: #1a202c;
+  --text-color: #f7fafc;
+  --text-color-light: #a0aec0;
+  --border-color: #2d3748;
+  --code-bg: #2d3748;
+  --link-color: #93c5fd;
+  --link-hover-color: #bfdbfe;
+  --nav-bg: #111827;
+  --sidebar-bg: #1f2937;
 }
 
 body {
   background: var(--nextra-bg);
+  color: var(--text-color);
 }
 
+/* ... (rest of your styles) ... */
 
-footer {
+/* Theme switcher styles */
+.theme-switcher {
+  @apply px-3 py-1 rounded-md text-sm font-medium;
   background-color: var(--nextra-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
 }
 
-.nextra-code pre {
-  background: #fffdfa;
+.dark .theme-switcher {
+  @apply bg-gray-800 text-white border-gray-700;
 }
 
-.ck-property-reference:not(:last-child) {
-  @apply border-b border-b-neutral-100;
+/* Additional dark mode adjustments */
+.dark .nextra-sidebar-container,
+.dark .nextra-nav-container {
+  @apply border-gray-800;
 }
 
-.ck-property-reference .ck-property-reference {
-  @apply ml-6;
+.dark .nextra-search input {
+  @apply bg-gray-800 text-white border-gray-700;
 }
 
-button:has(.nested-title) {
-  @apply mt-6 pointer-events-none;
+.dark .nextra-sidebar-container a,
+.dark .nextra-nav-container a {
+  color: var(--text-color-light);
 }
 
-button:has(.nested-title) > svg {
-  @apply hidden;
+.dark .nextra-sidebar-container a:hover,
+.dark .nextra-nav-container a:hover {
+  color: var(--text-color);
 }
 
-button:has(.disable-menu) > svg {
-  @apply hidden;
-}
-
-[id^="headlessui-menu-items-"] {
-  @apply hidden !important;
-}
-
-.nested-title {
-  @apply text-gray-900 font-semibold [&:not(:first-child)]:mt-5 mb-2 pb-1.5;
-}
-
-li:has(.icon-container) > div > div > ul {
-  @apply ml-0 pl-0 before:w-0;
-}
-
-li:has(.icon-container) > div > div > ul ul {
-  @apply ml-2 px-2 before:w-[1px];
-}
-
-.icon-container .icon { 
-  @apply hidden;
-}
-
-.nextra-sidebar-container .icon-container .icon {
-  @apply flex !important;
-}
-
-.nextra-code button[title="Toggle word wrap"] {
-  background: var(--nextra-bg);
-}
-
-.nextra-search-results {
-  @apply bg-white/50;
+.dark code {
+  @apply bg-gray-800 text-gray-200;
 }

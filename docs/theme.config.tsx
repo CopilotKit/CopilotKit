@@ -1,6 +1,8 @@
 import Image from "next/image";
 import { useRouter } from "next/router";
 import { DocsThemeConfig, useConfig } from "nextra-theme-docs";
+import { useTheme } from "next-themes";
+import ThemeSwitcher from "./components/ThemeSwitcher";
 
 const themeConfig: DocsThemeConfig = {
   head: () => {
@@ -43,17 +45,22 @@ const themeConfig: DocsThemeConfig = {
       </>
     );
   },
-  logo: (
-    <div className="flex items-center gap-x-2">
-      <Image
-        src="/images/logo-light.webp"
-        alt="CopilotKit"
-        height={34}
-        width={130}
-      />
-      <span className="font-semibold text-indigo-950">Docs</span>
-    </div>
-  ),
+  logo: () => {
+    const { theme } = useTheme();
+    return (
+      <div className="flex items-center gap-x-2">
+        <Image
+          src={theme === 'dark' ? '/images/logo-light.webp' : '/images/logo-light.webp'}
+          alt="CopilotKit"
+          height={34}
+          width={130}
+        />
+        <span className="font-semibold" style={{ color: theme === 'dark' ? '#fff' : '#333' }}>
+          Docs
+        </span>
+      </div>
+    );
+  },
   project: {
     link: "https://github.com/copilotkit/copilotkit",
   },
@@ -64,21 +71,14 @@ const themeConfig: DocsThemeConfig = {
   footer: {
     content: "© Tawkit, Inc. All rights reserved.",
   },
-  darkMode: false,
+  navbar: {
+    extraContent: <ThemeSwitcher />
+  },
+  darkMode: true,
   nextThemes: {
-    defaultTheme: "light",
-    forcedTheme: "light",
-  },
-  color: {
-    hue: {
-      light: 245,
-      dark: 245,
-    },
-    saturation: {
-      light: 75,
-      dark: 75,
-    },
-  },
+    defaultTheme: 'system',
+    storageKey: 'theme',
+  }
 };
 
 export default themeConfig;
