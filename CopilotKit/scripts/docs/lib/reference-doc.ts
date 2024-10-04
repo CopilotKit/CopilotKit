@@ -68,8 +68,6 @@ export class ReferenceDoc {
       result += `## Constructor Parameters\n\n`;
     }
 
-    console.log("arg0Interface", arg0Interface)
-
     if (arg0Interface) {
       for (const property of arg0Interface.properties) {
         if (property.comment.includes("@deprecated")) {

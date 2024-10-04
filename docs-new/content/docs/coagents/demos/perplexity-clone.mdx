@@ -1,0 +1,18 @@
+---
+title: Perplexity Clone (AI Researcher)
+---
+import { YouTubeVideo } from "@/components/react/youtube-video";
+
+<YouTubeVideo videoId="HvzmwwDF4aM" defaultPlaybackRate={1.25} />
+
+This is a demo of a Perplexity-style search engine using **CopilotKit and LangGraph**.
+Combining these technologies enables **CoAgents**, which allow for the creation of human in the loop AI agents.
+Instead of relying entirely on AI, CoAgents let users step in to guide or adjust the search as needed.
+
+In this demo, the CoAgent will come up with a list of topics to research, and combine the results
+into a comprehensive answer, including references to the sources used.
+
+The agent state is streamed live to the frontend, so that the user can see the work progressing.
+
+Both the LangGraph and the CopilotKit specific code for this demo is [available
+on GitHub](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-ai-researcher).

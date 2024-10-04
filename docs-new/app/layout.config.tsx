@@ -10,7 +10,7 @@ import { Logo } from "./logo";
  */
 export const baseOptions: HomeLayoutProps = {
   nav: {
-    title: <Logo />
+    title: <Logo />,
   },
   links: [],
 };

@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export function CoAgentsEnterpriseCTA() {
   return (
-    <div className="mt-4 mb-4 ring-1 ring-indigo-200 selected bg-gradient-to-r from-indigo-100/80 to-purple-100 shadow-lg rounded-lg p-5 space-y-2 relative overflow-hidden">
+    <div className="mt-4 mb-4 ring-1 ring-indigo-200 selected bg-gradient-to-r from-indigo-100/80 to-purple-100 shadow-lg rounded-lg pt-2 pb-5 space-y-2 relative overflow-hidden">
       <p className="text-lg font-medium">Want to Run CoAgents in Production?</p>
       <p className="text-sm text-neutral-600 z-1">
         We offer tailored solutions for Enterprise customers.

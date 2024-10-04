@@ -77,4 +77,12 @@
   .fd-codeblock pre {
     @apply max-h-none;
   }
+
+  div[data-toc] {
+    @apply lg:mt-10;
+  }
+
+  article {
+    @apply lg:mt-10;
+  }
 } 
