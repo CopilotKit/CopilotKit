@@ -6,17 +6,14 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
 
 <Steps>
 
-<Step>
-  <UseClientCalloutSnippet components={props.components} />
-</Step>
 
+<Step>
 ### Render custom react components in the chat UI
 
-<Step>
 
-<Tabs items={['Render Known Data', 'Fetch Data + Render', 'renderAndWait (HITL)', 'String Rendering']}>
+<Tabs items={['Render a component', 'Fetch data & render', 'renderAndWait (HITL)', 'Render strings']}>
 
-  <Tab value="Render Known Data">
+  <Tab value="Render a component">
     [`useCopilotAction`](/reference/hooks/useCopilotAction) can be used with a `render` function and without a `handler` to display information or UI elements within the chat.
     
     Here's an example to render a calendar meeting.
@@ -30,6 +27,7 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
     </Frame>
 
     ```tsx
+    "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
     import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
 
     useCopilotAction({ // [!code highlight]
@@ -75,7 +73,7 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
 
   </Tab>
 
-  <Tab value="Fetch Data + Render">
+  <Tab value="Fetch data & render">
     The [`useCopilotAction`](/reference/hooks/useCopilotAction) hook accepts both `handler` and `render` methods. The `handler` executes the action, while `render` displays UI in the copilot chat window.
 
     <Frame>
@@ -87,6 +85,7 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
     </Frame>
 
     ```tsx
+    "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
     import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
 
     useCopilotAction({ // [!code highlight]
@@ -129,6 +128,7 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
     and the user can make the choice by pressing a button in the chat UI.
 
     ```tsx
+    "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
     import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
 
     useCopilotAction({ // [!code highlight]
@@ -172,10 +172,11 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
 
   </Tab>
 
-  <Tab value="String Rendering">
+  <Tab value="Render strings">
     For simple messages, you can return a string from the `render` method. This is useful for quick status updates or simple notifications.
 
     ```tsx
+    "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
     import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
 
     useCopilotAction({ // [!code highlight]
@@ -205,8 +206,13 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
 
   </Tab>
 </Tabs>
-
 </Step>
+
+<Step>
+  <UseClientCalloutSnippet components={props.components} />
+</Step>
+
+
 <Step>
 
 ### Test it out!
