@@ -8,7 +8,9 @@
   <br/>
 
   <strong>
-    CopilotKit is the open-source framework for integrating powerful AI Copilots into any application. Easily implement custom AI Chatbots, AI Agents, AI Textareas, and more.
+    CopilotKit is the open-source framework for integrating powerful AI Copilots into any application. CopilotKit enables seamless AI
+    integration into apps, offering interactive components such as AI-powered chat popups, autocompletions, and smart suggestions. It’s 
+    built for ease of use and flexibility in interacting with your app’s state.
   </strong>
 </div>
 
@@ -83,9 +85,9 @@
 
 There are several easy ways to get started with CopilotKit:
 
-- [**Quickstart: Chatbot:**](https://docs.copilotkit.ai/quickstart-chatbot?ref=github_readme) In just two minutes, add an AI Chatbot to your app with the ability to read application state and take actions.
-- [**Tutorial: Todo List Copilot:**](https://docs.copilotkit.ai/tutorial-ai-todo-list-copilot/overview?ref=github_readme) For a better deep dive into CopilotKit, take a simple todo list app and supercharge it with an AI chat popup.
-- [**Tutorial: Textarea Autocomplete:**](https://docs.copilotkit.ai/tutorial-textarea/overview?ref=github_readme) For a better deep dive into CopilotKit, we'll take a simple email client app and add an AI-powered textarea to it with autocompletions and AI insertions/edits.
+- [**Quickstart: Chatbot:**](https://docs.copilotkit.ai/quickstart-chatbot?ref=github_readme) In just two minutes,Add a chatbot that understands your app’s state and takes actions within two minutes.
+- [**Tutorial: Todo List Copilot:**](https://docs.copilotkit.ai/tutorial-ai-todo-list-copilot/overview?ref=github_readme) For a better deep dive into CopilotKit, Supercharge a basic todo list with AI-powered chat functionality.
+- [**Tutorial: Textarea Autocomplete:**](https://docs.copilotkit.ai/tutorial-textarea/overview?ref=github_readme) For a better deep dive into CopilotKit and Implement AI text completions and suggestions in a simple email app.It will take a simple email client app and add an AI-powered textarea to it with autocompletions and AI insertions/edits.
 
 ### Examples & Starter Templates
 
