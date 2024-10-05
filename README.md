@@ -163,4 +163,4 @@ Additionally, you can reach out to us at [hello@copilotkit.ai](mailto:hello@copi
 
 ## License
 
-This repository's source code is available under the [MIT License](https://github.com/CopilotKit/CopilotKit/blob/main/LICENSE).
+This repository's source code is available under the [MIT License](LICENSE).
