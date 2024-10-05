@@ -82,9 +82,9 @@
 
 There are several easy ways to get started with CopilotKit:
 
-- [**Quickstart: Chatbot:**](https://docs.copilotkit.ai/quickstart-chatbot?ref=github_readme) In just two minutes, add an AI Chatbot to your app with the ability to read application state and take actions.
+- [**Quickstart: Chatbot:**](https://docs.copilotkit.ai/quickstart) In just two minutes, add an AI Chatbot to your app with the ability to read application state and take actions.
 - [**Tutorial: Todo List Copilot:**](https://docs.copilotkit.ai/tutorial-ai-todo-list-copilot/overview?ref=github_readme) For a deeper dive into CopilotKit, take a simple todo list app and supercharge it with an AI chat popup.
-- [**Tutorial: Textarea Autocomplete:**](https://docs.copilotkit.ai/tutorial-textarea/overview?ref=github_readme) For a deeper dive into CopilotKit, we'll take a simple email client app and add an AI-powered textarea with autocompletions and AI insertions/edits.
+- [**Tutorial: Textarea Autocomplete:**](https://docs.copilotkit.ai/tutorials/ai-powered-textarea/overview) For a deeper dive into CopilotKit, we'll take a simple email client app and add an AI-powered textarea with autocompletions and AI insertions/edits.
 
 ### Examples & Starter Templates
 
