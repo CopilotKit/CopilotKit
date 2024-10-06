@@ -1,0 +1,135 @@
+---
+title: "Remote Endpoint (Python)"
+description: "Connect your CopilotKit application to a remote backend endpoint, allowing integration with Python-based services or other non-Node.js backends."
+---
+import FindCopilotRuntimeSnippet from "@/snippets/find-your-copilot-runtime.mdx";
+
+
+## Stand up a FastAPI server using the CopilotKit Python SDK
+<Steps>
+
+<Step>
+### Install CopilotKit Python SDK and Dependencies
+
+To integrate a Python backend with your CopilotKit application, you'll need to install the CopilotKit Python SDK along with FastAPI and Uvicorn. You can install them using `pip`:
+
+```bash
+pip install copilotkit fastapi uvicorn --extra-index-url https://copilotkit.gateway.scarf.sh/simple/
+```
+
+**Dependencies:**
+
+- **copilotkit**: The CopilotKit Python SDK.
+- **fastapi**: A modern, fast (high-performance) web framework for building APIs with Python.
+- **uvicorn**: A lightning-fast ASGI server for Python.
+
+</Step>
+
+<Step>
+### Set Up a FastAPI Server
+
+Create a new Python file `server.py` and set up a FastAPI server:
+
+```python filename="server.py" showLineNumbers
+from fastapi import FastAPI
+
+app = FastAPI()
+```
+
+</Step>
+
+<Step>
+### Define Your Backend Actions
+
+Import the CopilotKit SDK and define your backend actions. For example:
+
+```python filename="server.py" showLineNumbers
+from fastapi import FastAPI
+from copilotkit.integrations.fastapi import add_fastapi_endpoint
+from copilotkit import CopilotKitSDK, CopilotAction
+
+app = FastAPI()
+
+# Define your backend action
+async def fetch_name_for_user_id(userId: str):
+    # Replace with your database logic
+    return {"name": "User_" + userId}
+
+action = CopilotAction(
+    name="fetchNameForUserId",
+    description="Fetches user name from the database for a given ID.",
+    parameters=[
+        {
+            "name": "userId",
+            "type": "string",
+            "description": "The ID of the user to fetch data for.",
+            "required": True,
+        }
+    ],
+    handler=fetch_name_for_user_id
+)
+
+# Initialize the CopilotKit SDK
+sdk = CopilotKitSDK(actions=[action])
+
+# Add the CopilotKit endpoint to your FastAPI app
+add_fastapi_endpoint(app, sdk, "/copilotkit_remote")
+
+def main():
+    """Run the uvicorn server."""
+    import uvicorn
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
+```
+
+</Step>
+
+<Step>
+### Run Your FastAPI Server
+
+Since we've added the entry point in `server.py`, you can run your FastAPI server directly by executing the script:
+
+```bash
+python server.py
+```
+
+**Note:** Ensure that you're in the same directory as `server.py` when running this command.
+
+</Step>
+</Steps>
+
+
+## Connect your instance of the CopilotRuntime to the remote endpoint:
+
+Now that you've set up your FastAPI server with the backend actions, integrate it into your CopilotKit application by modifying your `CopilotRuntime` configuration.
+
+
+<Steps>
+<Step>
+<FindCopilotRuntimeSnippet />
+</Step>
+
+<Step>
+
+Then, update your `CopilotRuntime` to include the `remoteActions`:
+
+```tsx
+const runtime = new CopilotRuntime({
+  // ...existing configuration
+  remoteActions: [ // [!code highlight:5]
+    {
+      url: "http://localhost:8000/copilotkit_remote",
+    },
+  ],
+});
+```
+
+</Step>
+
+<Step>
+### Test Your Implementation
+
+After setting up the remote endpoint and modifying your `CopilotRuntime`, you can test your implementation by asking the copilot to perform actions that invoke your Python backend. For example, ask the copilot: "Fetch the name for user ID `123`."
+
+</Step>
+
+</Steps>
