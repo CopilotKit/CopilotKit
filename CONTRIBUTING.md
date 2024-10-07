@@ -111,7 +111,7 @@ git commit -m "<type>(<package>): <subject>"
 Push the changes to the remote repository using:
 
 ```jsx
-git push origin branch-name-here
+git push origin <branch-name-here>
 ```
 
 ## Step 9: Create Pull Request
