@@ -26,9 +26,9 @@ export const CoAgentsFeatureToggle: React.FC<{ className?: string }> = ({ classN
   }
 
   const itemCn =
-    "border p-4 rounded-md flex-1 flex flex-col items-center justify-center cursor-pointer bg-white relative overflow-hidden group transition-all";
+  "border p-4 rounded-md flex-1 flex flex-col items-center justify-center cursor-pointer bg-white dark:bg-gray-800 relative overflow-hidden group transition-all";
   const selectedCn =
-    "ring-1 ring-indigo-400 selected bg-gradient-to-r from-indigo-100/80 to-purple-200 shadow-lg";
+  "ring-1 ring-indigo-400 selected bg-gradient-to-r from-indigo-100/80 to-purple-200 shadow-lg dark:from-indigo-900/80 dark:to-purple-800 dark:ring-indigo-700";
   const iconCn =
     "w-7 h-7 mb-2 opacity-20 group-[.selected]:text-indigo-500 group-[.selected]:opacity-60 transition-all";
 
@@ -69,8 +69,13 @@ export const CoAgentsFeatureToggle: React.FC<{ className?: string }> = ({ classN
             onClick={() => setMode(feature.id)}
           >
             <feature.Icon className={cn(iconCn, mode === feature.id && "text-indigo-500")} />
-            <p className="font-semibold text-sm md:text-base text-center">{feature.title}</p>
-            <p className="text-xs text-center hidden md:block">{feature.description}</p>
+            <p className="font-semibold text-sm md:text-base text-center text-gray-900 dark:text-gray-100">
+              {feature.title}
+            </p>
+            <p className="text-xs text-center hidden md:block text-gray-700 dark:text-gray-200">
+              {feature.description}
+            </p>
+
           </div>
         ))}
       </div>
@@ -87,7 +92,7 @@ const FeatureContent: React.FC<{
     ["generative-ui", "stream-agent-state", "share-agent-state", "agent-q-and-a"],
     "generative-ui"
   );
-  
+
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
