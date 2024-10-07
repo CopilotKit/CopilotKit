@@ -31,6 +31,8 @@ You can use [this view](https://github.com/CopilotKit/CopilotKit/issues?q=is%3Ao
 
 Fork the CopilotKit repository to your GitHub organization. This means that you'll have a copy of the repository under _your-GitHub-username/repository-name_.
 
+![Group 3](https://github.com/user-attachments/assets/7c2b8d15-87cf-4cc7-be86-5fadaebfad0b)
+
 ## Step 2: Clone the repository to your local machine
 
 ```
@@ -38,9 +40,9 @@ git clone https://github.com/{your-GitHub-username}/CopilotKit
 
 ```
 
-## Step 3: Prepare the development environment
+![Group 4](https://github.com/user-attachments/assets/e3e78b2b-eead-463b-858b-8d40e4cb18e9)
 
-Set up and run the development environment on your local machine:
+## Step 3: Prepare the development environment
 
 ### 1)Install Prerequisites
 - Node.js 20.x or later
