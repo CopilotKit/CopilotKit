@@ -83,7 +83,7 @@ git checkout -b <new-branch-name-here>
 Now that everything is set up and works as expected, you can get start developing or update the code with your bug fix or new feature.
 
 ```jsx
-# Start all packages in development mode
+# To start all packages in development mode
 turbo run dev
  
 # Start a specific package in development mode
