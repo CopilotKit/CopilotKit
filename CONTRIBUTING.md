@@ -36,7 +36,7 @@ Fork the CopilotKit repository to your GitHub organization. This means that you'
 ## Step 2: Clone the repository to your local machine
 
 ```
-git clone https://github.com/{your-GitHub-username}/CopilotKit
+git clone https://github.com/<your-GitHub-username>/CopilotKit
 
 ```
 
@@ -70,9 +70,9 @@ In order to keep branch names uniform and easy-to-understand, please use the fol
 Generally speaking, it is a good idea to add a group/type prefix to a branch.
 Here is a list of good examples:
 
-- for docs change : docs/{ISSUE_NUMBER}-{CUSTOM_NAME}
-- for new features : feat/{ISSUE_NUMBER}-{CUSTOM_NAME}
-- for bug fixes : fix/{ISSUE_NUMBER}-{CUSTOM_NAME}
+- for docs change : docs/<ISSUE_NUMBER>-<CUSTOM_NAME>
+- for new features : feat/<ISSUE_NUMBER>-<CUSTOM_NAME>
+- for bug fixes : fix/<ISSUE_NUMBER>-<CUSTOM_NAME>
 
 ```jsx
 git checkout -b branch-name-here
