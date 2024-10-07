@@ -111,7 +111,7 @@ Import the CopilotKit SDK and define your backend actions. For example:
 ```python title="/my_copilotkit_remote_endpoint/server.py"
 from fastapi import FastAPI
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
-from copilotkit import CopilotKitSDK, CopilotAction
+from copilotkit import CopilotKitSDK, Action as CopilotAction
 
 app = FastAPI()
 
@@ -143,7 +143,7 @@ add_fastapi_endpoint(app, sdk, "/copilotkit_remote")
 def main():
     """Run the uvicorn server."""
     import uvicorn
-    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=True)
 ```
 
 </Step>
@@ -181,9 +181,9 @@ Then, update your `CopilotRuntime` to include the `remoteActions`:
 const runtime: CopilotRuntimeConfig = {
     // ...existing configuration
     remoteActions: [ // [!code highlight:5]
-    {
-        url: "http://localhost:8000/copilotkit_remote",
-    },
+        {
+            url: "http://localhost:8000/copilotkit_remote",
+        },
     ],
 };
 ```
