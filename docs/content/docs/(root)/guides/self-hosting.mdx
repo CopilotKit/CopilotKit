@@ -1,0 +1,50 @@
+---
+title: Self Hosting (Copilot Runtime)
+description: Learn how to self-host the Copilot Runtime.
+---
+
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
+import LLMAdapters from "@/snippets/llm-adapters.mdx";
+
+The Copilot Runtime is the back-end component of CopilotKit, handling the communication with LLM, message history, state and more.
+
+You may choose to self-host the Copilot Runtime, or [use Copilot Cloud](https://cloud.copilotkit.ai) (recommended).
+
+<Frame>
+  <div className="w-full pb-4">
+  ```mermaid
+  sequenceDiagram
+    participant core as @copilotkit/react-core
+    participant runtime as Copilot Runtime
+    participant llm as LLM
+
+    core->>runtime: "Hey, my name is Uli."
+    runtime->>llm: Request
+    llm->>runtime: Response
+    runtime->>core: "Hello Uli, how can I help you?"
+  ```
+  </div>
+</Frame>
+
+
+## Integration
+
+<Steps>
+  ### Step 1: Create an Endpoint
+
+  <SelfHostingCopilotRuntimeCreateEndpoint components={props.components} />
+
+  ### Step 2: Configure the `<CopilotKit>` Provider
+
+  <SelfHostingCopilotRuntimeConfigureCopilotKitProvider components={props.components} />
+
+</Steps>
+
+## LLM Adapters 
+<LLMAdapters />
+
+## Next Steps
+
+- [`CopilotRuntime` Reference](/reference/classes/CopilotRuntime)
+- [LLM Adapters](/reference/classes/llm-adapters/OpenAIAdapter)

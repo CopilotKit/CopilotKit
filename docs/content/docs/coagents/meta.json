@@ -1,0 +1,14 @@
+{
+  "title": "coagents",
+  "root": true,
+  "pages": [
+    "index",
+    "getting-started",
+    "---Guides---",
+    "...guides",
+    "---Advanced---",
+    "...advanced",
+    "---Demos---",
+    "...demos"
+  ]
+}

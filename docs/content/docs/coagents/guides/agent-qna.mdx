@@ -1,0 +1,53 @@
+---
+title: "Handling user feedback"
+---
+import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
+
+CoAgents let you easily incorporate user feedback into your system. By halting agent execution and waiting for user input
+using standard LangGraph interrupts or the `__END__` node, your agent can get feedback in several ways.
+
+1. The LLM can ask a question which is then streamed to the chat window. Once the user has provided an answer,
+   the agent can continue execution.
+
+2. The agent can stream a function call to the frontend and wait for the frontend to continue execution with
+   the result of the function call.
+
+3. The state of the agent can be modified by the frontend and then a manual message can be sent via `appendMessage` to
+   resume agent execution.
+
+All that is needed is to configure CopilotKit to emit state changes to the frontend.
+See [Feature: State Streaming](/coagents/feature-state-streaming) for more details.
+
+## Making the message history available to all nodes
+
+By integrating with CopilotKit and carrying the message state through all of the nodes of your CoAgents, you
+can build powerful Q&A agents that let you iteratively refine what the agent is working on.
+
+With the context of the message history, even LLM processes which are not directly exposed to the user can
+take the user's feedback into account and adjust their decisions.
+
+For example:
+
+```python
+async def some_node_deep_down_the_graph(state: AgentState, config: RunnableConfig):
+  """
+  Let's pretend this node is part of a larger LangGraph agent and acts as a
+  background task, for example editing an article.
+  """
+
+  response = your_model_with_tools.ainvoke(
+    [
+      # by passing the message history along, all of the actions taken by the agent
+      # can potentially take the user's feedback into account
+      *state["messages"],
+      SystemMessage(content="Edit this article. Make sure to take the user's feedback into account.")
+    ],
+    config
+  )
+
+  return {
+    "messages": [response]
+  }
+```
+
+<CoAgentsEnterpriseCTA />

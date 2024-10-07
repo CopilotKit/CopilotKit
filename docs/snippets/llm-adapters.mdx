@@ -1,21 +1,20 @@
-import { Callout } from 'nextra/components'
+import { Callout } from 'fumadocs-ui/components/callout';
 
 LLM Adapters are responsible for executing the request with the LLM and standardizing the request/response format in a way that the Copilot Runtime can understand.
 
 Currently, we support the following LLM adapters natively:
 
-- [OpenAIAdapter](/reference/classes/CopilotRuntime/llm-adapters/OpenAIAdapter)
-- [OpenAIAssistantAdapter](/reference/classes/CopilotRuntime/llm-adapters/OpenAIAssistantAdapter)
-- [LangChainAdapter](/reference/classes/CopilotRuntime/llm-adapters/LangChainAdapter)
-- [GroqAdapter](/reference/classes/CopilotRuntime/llm-adapters/GroqAdapter)
-- [GoogleGenerativeAIAdapter](/reference/classes/CopilotRuntime/llm-adapters/GoogleGenerativeAIAdapter)
-- [AnthropicAdapter](/reference/classes/CopilotRuntime/llm-adapters/AnthropicAdapter)
+- [OpenAI Adapter](/reference/classes/llm-adapters/OpenAIAdapter)
+- [OpenAI Assistant Adapter](/reference/classes/llm-adapters/OpenAIAssistantAdapter)
+- [LangChain Adapter](/reference/classes/llm-adapters/LangChainAdapter)
+- [Groq Adapter](/reference/classes/llm-adapters/GroqAdapter)
+- [Google Generative AI Adapter](/reference/classes/llm-adapters/GoogleGenerativeAIAdapter)
+- [Anthropic Adapter](/reference/classes/llm-adapters/AnthropicAdapter)
 
-
-<Callout>
-  You can use the **`LangChainAdapter`** to use any LLM provider we don't yet natively support!
+<Callout type="info">
+  You can use the [LangChain Adapter](/reference/classes/llm-adapters/LangChainAdapter) to use any LLM provider we don't yet natively support!
 </Callout>
 
-<Callout>
+<Callout type="info">
   It's not too hard to write your own LLM adapter from scratch -- see the existing adapters for inspiration. And of course, we would love a contribution! ⭐️
 </Callout>
