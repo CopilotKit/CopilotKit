@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.line.diff.remove {
+  background-color: red;
+}
+
+.line.diff.add {
+  background-color: green;
+}
+
+/* Default Light Mode */
+:root {
+  --background: hsl(var(--background));
+  --foreground: hsl(var(--foreground));
+  --card: hsl(var(--card));
+  --card-foreground: hsl(var(--card-foreground));
+  --popover: hsl(var(--popover));
+  --popover-foreground: hsl(var(--popover-foreground));
+  --primary: hsl(var(--primary));
+  --primary-foreground: hsl(var(--primary-foreground));
+  --secondary: hsl(var(--secondary));
+  --secondary-foreground: hsl(var(--secondary-foreground));
+  --muted: hsl(var(--muted));
+  --muted-foreground: hsl(var(--muted-foreground));
+  --accent: hsl(var(--accent));
+  --accent-foreground: hsl(var(--accent-foreground));
+  --destructive: hsl(var(--destructive));
+  --destructive-foreground: hsl(var(--destructive-foreground));
+  --border: hsl(var(--border));
+  --input: hsl(var(--input));
+  --ring: hsl(var(--ring));
+  --chart-1: hsl(var(--chart-1));
+  --chart-2: hsl(var(--chart-2));
+  --chart-3: hsl(var(--chart-3));
+  --chart-4: hsl(var(--chart-4));
+  --chart-5: hsl(var(--chart-5));
+  --radius: 0.5rem;
+}
+
+/* Dark Mode Styles */
+.dark {
+  --background: 0 0% 3.9%;
+  --foreground: 0 0% 98%;
+  --card: 0 0% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --popover: 0 0% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 0 0% 9%;
+  --secondary: 0 0% 14.9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 0 0% 14.9%;
+  --muted-foreground: 0 0% 63.9%;
+  --accent: 0 0% 14.9%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 14.9%;
+  --input: 0 0% 14.9%;
+  --ring: 0 0% 83.1%;
+  --chart-1: 220 70% 50%;
+  --chart-2: 160 60% 45%;
+  --chart-3: 30 80% 55%;
+  --chart-4: 280 65% 60%;
+  --chart-5: 340 75% 55%;
+}
+
+/* Apply border and color based on mode */
+* {
+  @apply border-border;
+}
+
+body {
+  @apply bg-background text-foreground;
+}
+
+/* Code blocks */
+.fd-codeblock pre {
+  @apply max-h-none;
+}
+
+/* TOC */
+div[data-toc] {
+  @apply lg:mt-10;
+}
+
+article {
+  @apply lg:mt-10;
+}
