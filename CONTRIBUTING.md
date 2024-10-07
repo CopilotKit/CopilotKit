@@ -50,7 +50,8 @@ git clone https://github.com/{your-GitHub-username}/CopilotKit
 - Turborepo v2.x installed globally (npm i -g turbo@2)
 
 ### 2)Install Dependencies
-Install the dependencies using pnpm:
+To install the dependencies using pnpm
+Go inside project folder and run :
 
 ```jsx
 pnpm install
