@@ -75,7 +75,7 @@ Here is a list of good examples:
 - for bug fixes : fix/<ISSUE_NUMBER>-<CUSTOM_NAME>
 
 ```jsx
-git checkout -b branch-name-here
+git checkout -b <new-branch-name-here>
 ```
 
 ## Step 5: Make your changes
