@@ -149,7 +149,7 @@ We value all contributions, whether it's through code, documentation, creating d
 
 Here are a few useful resources to help you get started:
 
-- For code contributions, [check out the contribution guide](https://github.com/CopilotKit/CopilotKit/blob/main/community/content/CONTRIBUTING.md).
+- For code contributions, [check out the contribution guide](https://docs.copilotkit.ai/code-contributions/how-to-contribute?ref=github_readme).
 - For documentation-related contributions, [check out the documentation contributions guide](https://docs.copilotkit.ai/contributing/code-contributions).
 - Want to contribute but not sure how? [Join our Discord](https://discord.gg/6dffbvGU3D) and we'll help you out!
 
