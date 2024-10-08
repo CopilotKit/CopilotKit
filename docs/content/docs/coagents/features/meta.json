@@ -1,9 +1,0 @@
-{
-  "title": "features",
-  "pages": [
-    "shared-state",
-    "state-streaming",
-    "agent-qna",
-    "agent-steering"
-  ]
-}
