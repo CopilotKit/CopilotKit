@@ -1,5 +1,5 @@
 """Demo"""
-
+import os
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -22,6 +22,9 @@ sdk = CopilotKitSDK(
 
 add_fastapi_endpoint(app, sdk, "/copilotkit")
 
+port = int(os.getenv("PORT", "8000"))
+host = "0.0.0.0" if os.getenv("RENDER") else "127.0.0.1"
+
 def main():
     """Run the uvicorn server."""
-    uvicorn.run("ai_researcher.demo:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("backend.demo:app", host=host, port=port, reload=True)
