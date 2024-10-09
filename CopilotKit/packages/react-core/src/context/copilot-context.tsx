@@ -71,7 +71,7 @@ export interface CopilotApiConfig {
 export type InChatRenderFunction = (props: ActionRenderProps<any>) => string | JSX.Element;
 export type CoagentInChatRenderFunction = (
   props: CoagentActionRenderProps<any>,
-) => string | JSX.Element;
+) => string | JSX.Element | undefined | null;
 
 export interface ChatComponentsCache {
   actions: Record<string, InChatRenderFunction | string>;

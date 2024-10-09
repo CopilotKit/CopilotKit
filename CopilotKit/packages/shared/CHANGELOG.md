@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.3.3-pre.0
+
+### Patch Changes
+
+- Pre-release
+
 ## 1.3.2
 
 ### Patch Changes

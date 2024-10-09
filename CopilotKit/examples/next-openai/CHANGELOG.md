@@ -1,5 +1,17 @@
 # web
 
+## 1.3.3-pre.0
+
+### Patch Changes
+
+- Pre-release
+- Updated dependencies
+  - @copilotkit/react-core@1.3.3-pre.0
+  - @copilotkit/react-textarea@1.3.3-pre.0
+  - @copilotkit/react-ui@1.3.3-pre.0
+  - @copilotkit/runtime@1.3.3-pre.0
+  - @copilotkit/shared@1.3.3-pre.0
+
 ## 1.3.2
 
 ### Patch Changes

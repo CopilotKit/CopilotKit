@@ -26,11 +26,11 @@ export const CoAgentsFeatureToggle: React.FC<{ className?: string }> = ({ classN
   }
 
   const itemCn =
-    "border p-4 rounded-md flex-1 flex flex-col items-center justify-center cursor-pointer bg-white relative overflow-hidden group transition-all";
+    "border dark:text-white dark:bg-neutral-800 p-4 rounded-md flex-1 flex flex-col items-center justify-center cursor-pointer bg-white relative overflow-hidden group transition-all";
   const selectedCn =
-    "ring-1 ring-indigo-400 selected bg-gradient-to-r from-indigo-100/80 to-purple-200 shadow-lg";
+    "ring-1 dark:text-black ring-indigo-400 selected bg-gradient-to-r from-indigo-100/80 to-purple-200 dark:from-indigo-500 dark:to-purple-500 shadow-lg";
   const iconCn =
-    "w-7 h-7 mb-2 opacity-20 group-[.selected]:text-indigo-500 group-[.selected]:opacity-60 transition-all";
+    "w-7 h-7 mb-2 opacity-20 group-[.selected]:text-indigo-500 group-[.selected]:opacity-60  dark:group-[.selected]:text-indigo-100 transition-all";
 
   const features: { id: FeatureMode; title: string; description: string; Icon: React.FC<React.SVGProps<SVGSVGElement>> }[] = [
     {
