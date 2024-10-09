@@ -1,5 +1,14 @@
 # node
 
+## 1.3.3
+
+### Patch Changes
+
+- Impvovements to error handling and CoAgent protocol
+- Updated dependencies
+  - @copilotkit/runtime@1.3.3
+  - @copilotkit/shared@1.3.3
+
 ## 1.3.2
 
 ### Patch Changes
