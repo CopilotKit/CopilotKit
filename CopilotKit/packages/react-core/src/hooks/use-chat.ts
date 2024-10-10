@@ -242,6 +242,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
     let actionResults: { [id: string]: string } = {};
     let executedCoagentActions: string[] = [];
+    let followUp: FrontendAction["followUp"] = undefined;
 
     try {
       while (true) {
@@ -302,6 +303,12 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                   // We update the message state before calling the handler so that the render
                   // function can be called with `executing` state
                   setMessages([...previousMessages, ...newMessages]);
+
+                  const action = actions.find((action) => action.name === message.name);
+
+                  if (action) {
+                    followUp = action.followUp;
+                  }
 
                   const result = await onFunctionCall({
                     messages: previousMessages,
@@ -380,10 +387,12 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       }
 
       if (
+        // if followUp is not explicitly false
+        followUp !== false &&
         // if we have client side results
-        Object.values(actionResults).length ||
-        // or the last message we received is a result
-        (newMessages.length && newMessages[newMessages.length - 1] instanceof ResultMessage)
+        (Object.values(actionResults).length ||
+          // or the last message we received is a result
+          (newMessages.length && newMessages[newMessages.length - 1] instanceof ResultMessage))
       ) {
         // run the completion again and return the result
 

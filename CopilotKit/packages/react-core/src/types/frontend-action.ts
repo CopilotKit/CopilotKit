@@ -101,6 +101,7 @@ export type ActionRenderPropsNoArgsWait<T extends Parameter[] | [] = []> =
 
 export type FrontendAction<T extends Parameter[] | [] = []> = Action<T> & {
   disabled?: boolean;
+  followUp?: boolean;
 } & (
     | {
         render?:
