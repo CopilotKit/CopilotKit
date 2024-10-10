@@ -1,3 +1,5 @@
+"use client"
+
 import { HomeView } from "./HomeView";
 import { ResultsView } from "./ResultsView";
 import { AnimatePresence } from "framer-motion";
