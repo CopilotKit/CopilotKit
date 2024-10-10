@@ -1,5 +1,11 @@
 # tsconfig
 
+## 1.3.3
+
+### Patch Changes
+
+- Impvovements to error handling and CoAgent protocol
+
 ## 1.3.2
 
 ### Patch Changes
