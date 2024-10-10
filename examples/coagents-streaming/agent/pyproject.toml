@@ -30,7 +30,7 @@ langchain-openai = "^0.1.23"
 langchain = "^0.2.15"
 openai = "^1.43.0"
 langchain-community = "^0.2.14"
-copilotkit = "0.1.17"
+copilotkit = "0.1.19"
 uvicorn = "^0.30.6"
 python-dotenv = "^1.0.1"
 
