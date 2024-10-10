@@ -1,5 +1,14 @@
 # node
 
+## 1.3.4
+
+### Patch Changes
+
+- Add followUp property to useCopilotAction
+- Updated dependencies
+  - @copilotkit/runtime@1.3.4
+  - @copilotkit/shared@1.3.4
+
 ## 1.3.3
 
 ### Patch Changes
