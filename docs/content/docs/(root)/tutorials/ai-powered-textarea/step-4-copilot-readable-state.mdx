@@ -2,17 +2,17 @@
 title: "Step 3: Copilot Readable State"
 ---
 
-At this point, we have set up our CopilotKit provider and `<CopilotTextarea />`, and we already benefit from a great AI assistant. However, there is one last problem - the copilot assistant is not aware of the email thread. Let's fix that.
+At this point, we have set up our CopilotKit provider and `<CopilotTextarea />`, and we already benefit from a great AI assistant. However, there is one last problem - the Copilot assistant is not aware of the email thread. Let's fix that.
 
 ## Our App's State
 
 Let's quickly review how our app's state works. Open up the [`lib/hooks/use-emails.tsx`](https://github.com/CopilotKit/example-textarea/blob/base-start-here/lib/hooks/use-emails.tsx) file.
 
-At a glance, we can see that the file exposes a provider (`EmailsProvider`) which holds our `emails`. This is the context we need to provide to our copilot to get AI autocompletions. 
+At a glance, we can see that the file exposes a provider (`EmailsProvider`) which holds our `emails`. This is the context we need to provide to our Copilot to get AI autocompletions. 
 
 ## The `useCopilotReadable` hook
 
-Our goal is to make our copilot aware of this state, so that it can provide more accurate and helpful responses. We can easily achieve this by using the [`useCopilotReadable`](/reference/hooks/useCopilotReadable) hook.
+Our goal is to make our Copilot aware of this state, so that it can provide more accurate and helpful responses. We can easily achieve this by using the [`useCopilotReadable`](/reference/hooks/useCopilotReadable) hook.
 
 ```tsx title="libs/hooks/use-emails.tsx"
 // ... the rest of the file
@@ -32,9 +32,9 @@ export const EmailsProvider = ({ children }: { children: ReactNode }) => {
 }
 ```
 
-In this example, we use the `useCopilotReadable` hook to provide the copilot with the state of our email thread.
+In this example, we use the `useCopilotReadable` hook to provide the Copilot with the state of our email thread.
 
-- For the `description` property, we provide a concise description that tells the copilot what this piece of readable data means.
+- For the `description` property, we provide a concise description that tells the Copilot what this piece of readable data means.
 - For the `value` property, we pass the entire state as a JSON string.
 
 In the next step, we'll set up our AI-powered textarea, which will use this readable state to provide accurate and helpful responses.
