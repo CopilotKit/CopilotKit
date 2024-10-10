@@ -1,5 +1,17 @@
 # next-pages-router
 
+## 1.3.4
+
+### Patch Changes
+
+- Add followUp property to useCopilotAction
+- Updated dependencies
+  - @copilotkit/react-core@1.3.4
+  - @copilotkit/react-textarea@1.3.4
+  - @copilotkit/react-ui@1.3.4
+  - @copilotkit/runtime@1.3.4
+  - @copilotkit/shared@1.3.4
+
 ## 1.3.3
 
 ### Patch Changes
