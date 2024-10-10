@@ -348,13 +348,13 @@ files = [
 
 [[package]]
 name = "copilotkit"
-version = "0.1.18"
+version = "0.1.19"
 description = "CopilotKit python SDK"
 optional = false
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "copilotkit-0.1.18-py3-none-any.whl", hash = "sha256:62ce50da9886e20256df7daa13ee6f1e165c25531b99ee2f119aba4b00f32f6b"},
-    {file = "copilotkit-0.1.18.tar.gz", hash = "sha256:9a42e5665aec3177b14d6f6e628141216a926208b9317ed39bff7057f7d36b76"},
+    {file = "copilotkit-0.1.19-py3-none-any.whl", hash = "sha256:55f8be86fec220c7e1a09ef9c2bef34406fb5aa3b615c6fea6bdaaf9eaafe88b"},
+    {file = "copilotkit-0.1.19.tar.gz", hash = "sha256:e1a382d3652e8c06ec14d9f4288210910de44aeae2c937232b9d9d6c31424c8f"},
 ]
 
 [package.dependencies]
@@ -366,6 +366,7 @@ langchain-openai = ">=0.2.1,<0.3.0"
 langgraph = ">=0.2.34,<0.3.0"
 langgraph-sdk = ">=0.1.32,<0.2.0"
 partialjson = ">=0.0.8,<0.0.9"
+toml = ">=0.10.2,<0.11.0"
 
 [[package]]
 name = "dataclasses-json"
@@ -2065,6 +2066,17 @@ docs = ["setuptools-rust", "sphinx", "sphinx-rtd-theme"]
 testing = ["black (==22.3)", "datasets", "numpy", "pytest", "requests", "ruff"]
 
 [[package]]
+name = "toml"
+version = "0.10.2"
+description = "Python Library for Tom's Obvious, Minimal Language"
+optional = false
+python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
+files = [
+    {file = "toml-0.10.2-py2.py3-none-any.whl", hash = "sha256:806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"},
+    {file = "toml-0.10.2.tar.gz", hash = "sha256:b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f"},
+]
+
+[[package]]
 name = "tqdm"
 version = "4.66.5"
 description = "Fast, Extensible Progress Meter"
@@ -2253,4 +2265,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "5d56b29f3e5224dedfb26987c4002dd4ef72123577466ea083665340171dede4"
+content-hash = "a0fc678819b07ef7e8fe58d6faf2fa682044ca858c57b5ce46f853fd1ceebd38"
