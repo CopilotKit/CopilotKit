@@ -1,0 +1,323 @@
+---
+title: Working with agent state
+description: How to connect your local UI to remote data for powerful workflows
+---
+import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+
+One major way CoAgents differ from regular AI interactions is the ability to share and sync state betweeen the agent and your frontend, providing rich, accurate context for what your users are trying to do that can be read and written to improve interactions with your agent.
+
+You can use the `useCoAgent` hook to access agent state anywhere in your application. Like with local state, your application UI can react to changes in the agent state, either all at once or incrementally as state updates are streamed to the frontend from the agent.
+
+## Configuring the LangGraph agent
+
+Here we're building on the agent example from the [Quickstart](/coagents/getting-started) — now, in addition to asking our chatbot about the weather, we'll have it update a state object with details like temperature and wind speed. We'll then be able to react to changes in that state as if it were part of our local React app.
+
+<Accordions>
+<Accordion title="Complete agent source code">
+
+```python title="agent.py"
+from pydantic import BaseModel, Field
+from langchain_openai import ChatOpenAI
+from langchain_core.tools import tool
+from langgraph.graph import END, StateGraph, MessagesState
+from langgraph.prebuilt import ToolNode
+from langgraph.checkpoint.memory import MemorySaver
+from langchain_core.runnables import RunnableConfig
+from langchain_core.messages import SystemMessage, HumanMessage
+
+from copilotkit.langchain import copilotkit_customize_config
+
+class WeatherResponse(BaseModel):
+    """Respond to the user with this"""
+
+    conditions: str = Field(description="Weather conditions in the location")
+    temperature: float = Field(description="The temperature in fahrenheit")
+    wind_direction: str = Field(
+        description="The direction of the wind in abbreviated form"
+    )
+    wind_speed: float = Field(description="The speed of the wind in km/h")
+
+class AgentState(MessagesState):
+    final_response: WeatherResponse
+    input: str
+
+@tool
+def get_weather(city: str):
+    """Use this to get weather information."""
+    if city == "nyc":
+        return "It is cloudy in NYC, with 5 mph winds in the North-East direction and a temperature of 70 degrees"
+    elif city == "sf":
+        return "It is 75 degrees and sunny in SF, with 3 mph winds in the South-East direction"
+    else:
+        return "The weather is boring in {city}, with calm winds and a temperature of 40 degrees"
+
+tools = [get_weather, WeatherResponse]
+
+
+# Define the function that calls the model
+def call_model(state: AgentState, config: RunnableConfig):
+    """Chatbot that gets weather forecasts"""
+
+    model_with_response_tool = ChatOpenAI(model="gpt-4o").bind_tools(
+        tools, 
+        parallel_tool_calls=False,
+        tool_choice=(
+            None if state["messages"] and
+            isinstance(state["messages"][-1], HumanMessage)
+            else "WeatherResponse"
+        )
+    )
+
+    config = copilotkit_customize_config(
+        config,
+        emit_messages=True,
+        emit_intermediate_state=[
+            {
+                "state_key": "final_response",
+                "tool": "WeatherResponse"
+            }
+        ]
+    )
+
+    response = model_with_response_tool.invoke([
+        SystemMessage(
+            content=f"""
+            You are a helpful travel assistant that will gather weather forecast information for a given destination. Don't ask for confirmation, just get the weather forecast.
+            """
+        ),
+        *state["messages"],
+    ], config)
+
+    return {"messages": [response]}
+
+# Define the function that responds to the user
+def respond(state: AgentState):
+    # Construct the final answer from the arguments of the last tool call
+    response = WeatherResponse(**state["messages"][-1].tool_calls[0]["args"])
+    
+    # We return the final answer, dumping the model data in a JSON-able format
+    return {
+        "final_response": response.model_dump(mode='json')
+    }
+
+
+# Define the function that determines whether to continue or not
+def should_continue(state: AgentState):
+    messages = state["messages"]
+    last_message = messages[-1]
+    
+    # If there is only one tool call in the most recent message,
+    # and it is the response tool call, we respond to the user
+    if (
+        len(last_message.tool_calls) == 1
+        and last_message.tool_calls[0]["name"] == "WeatherResponse"
+    ):
+        return "respond"
+    
+    # Otherwise we will use the tool node again
+    else:
+        return "continue"
+
+
+workflow = StateGraph(AgentState)
+workflow.set_entry_point("agent")
+workflow.add_node("agent", call_model)
+workflow.add_node("respond", respond)
+workflow.add_node("tools", ToolNode(tools))
+
+workflow.add_conditional_edges(
+    "agent",
+    should_continue,
+    {
+        "continue": "tools",
+        "respond": "respond",
+    },
+)
+
+workflow.add_edge("tools", 'agent')
+workflow.set_finish_point("respond")
+
+basic_agent_app = workflow.compile(checkpointer=MemorySaver())
+```
+
+</Accordion>
+</Accordions>
+
+Our agent's state is an object shaped like this:
+
+<Tabs items={["Python (Pydantic)", "TypeScript"]}>
+<Tab value="Python (Pydantic)">
+
+```python
+class WeatherResponse(BaseModel):
+    conditions: str = Field(description="Weather conditions in the location")
+    temperature: float = Field(description="The temperature in fahrenheit")
+    wind_direction: str = Field(
+        description="The direction of the wind in abbreviated form"
+    )
+    wind_speed: float = Field(description="The speed of the wind in km/h")
+
+class AgentState(MessagesState):
+    final_response: WeatherResponse
+    input: str
+```
+
+</Tab>
+<Tab value="TypeScript">
+
+```ts
+type WeatherResponse = {
+  conditions: string;
+  temperature: number;
+  wind_direction: string;
+  wind_speed: number;
+}
+
+type AgentState = {
+  final_response: WeatherResponse;
+  input: string;
+}
+```
+
+</Tab>
+</Tabs>
+
+In order to sync state with our frontend, we need calls to our LLM (in this case, OpenAI) from LangGraph's SDK to emit messages both during and at the end of an interaction with the agent.
+
+To do that, use the `copilotkit_customize_config` function to modify the agent's settings, then pass the modified object in when invoking the model.
+
+```python
+from langchain_openai import ChatOpenAI
+from copilotkit.langchain import copilotkit_customize_config
+
+# ...
+
+config = copilotkit_customize_config(
+    config,
+    emit_messages=True,
+    emit_intermediate_state=[
+        {
+            "state_key": "final_response",
+            "tool": "WeatherResponse"
+        }
+    ]
+)
+
+model = ChatOpenAI(model="gpt-4o").bind_tools(tools)
+
+response = model.invoke([*state["messages"]], config)
+```
+
+Having done this, you should be ready to begin working with this state on the client side.
+
+
+## Connecting remote state to CopilotKit components
+
+As a simple example, let's start by hooking this data up to one of our built-in chat components, such as `CopilotChat`.
+
+With the `useCoAgentAction` hook, we'll listen for this agent to return a structured weather forecast, and return it as a multiline string.
+
+<Accordions><Accordion title="View complete React example">
+
+```tsx
+"use client";
+
+import { useCoAgentAction } from "@copilotkit/react-core";
+import { CopilotChat } from "@copilotkit/react-ui";
+
+interface WeatherAgentState {
+  final_response: {
+    temperature: number;
+    wind_direction: string;
+    wind_speed: number;
+    conditions: string;
+  },
+  input: string,
+  messages: any[]
+}
+
+export function SimpleWeatherChat() {
+  useCoAgentAction<WeatherAgentState>({
+    name: "basic_agent",
+    render: ({ status, state, nodeName }) => {
+      return `
+Conditions: ${state.final_response.conditions}, Temperature: ${state.final_response.temperature}ºF
+`
+    }
+  })
+
+  return (
+    <CopilotChat
+      labels={{
+        title: "Weather Assistant",
+        initial: "Where would you like to go?",
+      }}
+    />
+  )
+}
+```
+</Accordion></Accordions>
+
+To render state in the chat window, use the `useCoAgentAction` hook:
+
+```tsx
+useCoAgentAction<WeatherAgentState>({
+  name: "basic_agent", // the agent's name
+
+  // render can be a function or a string, just like useCopilotAction
+  render: render: ({ status, state, nodeName }) => {
+    return `
+Conditions: ${state.final_response.conditions}, Temperature: ${state.final_response.temperature}ºF
+`
+  }
+});
+```
+
+Then, when you tell the chatbot where you'd like to see a weather forecast for, CopilotKit will run the render function and return the right response.
+
+The render function can return any valid React node; if you'd rather display a formatted response, that's easy too:
+
+```tsx
+useCoAgentAction<WeatherAgentState>({
+  name: "basic_agent", // the agent's name
+
+  // render can be a function or a string, just like useCopilotAction
+  render: render: ({ status, state, nodeName }) => {
+    return (
+      <div>
+        <div><b>Conditions:</b> {state.final_response.conditions}</div>
+        <div><b>Temperature:</b> {`${state.final_response.conditions}ºF`}</div>
+      </div>
+    )
+  }
+});
+```
+
+## Even more control over agent state
+
+If you need even greater control over how your agent state is managed, you can use the `useCoAgent` hook, which gives you access to the state and a function to update it similar to how you'd use the `useState` hook in React:
+
+```tsx
+const { state: weatherAgentState, setState: setWeatherAgentState } = useCoAgent<WeatherAgentState>({
+  name: "basic_agent",
+  // optionally provide an initial state
+  initialState: { input: "New York City" }
+});
+```
+
+The `weatherAgentState` object will update with the latest state from your agent even while updates are streaming in from the agent, making it easy to show your users the current state of the agent as it runs.
+
+You can even pass your own state management functions to the agent, for maximum control over how the frontend and backend interact.
+
+```tsx
+useCoAgent<WeatherAgentState>({
+  name: "basic_agent",
+
+  // provide your own state management
+  state: weatherAgentState,
+  setState: setWeatherAgentState,
+});
+```
+
+<CoAgentsEnterpriseCTA />
