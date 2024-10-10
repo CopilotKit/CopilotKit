@@ -1,6 +1,6 @@
 {
   "name": "next-pages-router",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "private": true,
   "scripts": {
     "example-dev": "next dev",
