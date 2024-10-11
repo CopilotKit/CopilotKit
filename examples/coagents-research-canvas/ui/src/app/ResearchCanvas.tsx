@@ -22,6 +22,9 @@ export default function ResearchCanvas() {
             setState({ ...state, logs: [] });
             await new Promise((resolve) => setTimeout(resolve, 30));
           }}
+          labels={{
+            initial: "Hi! How can I assist you with your research today?",
+          }}
         />
       </div>
       <div className="flex-1">
