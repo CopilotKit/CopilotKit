@@ -1,6 +1,11 @@
 import { cn } from "@/lib/utils";
 import { CheckIcon, LoaderCircle } from "lucide-react";
 
+const truncateUrl = (url: string, maxLength: number = 40) => {
+  if (url.length <= maxLength) return url;
+  return url.substring(0, maxLength - 3) + "...";
+};
+
 export function Progress({
   logs,
 }: {
@@ -34,7 +39,10 @@ export function Progress({
             </div>
             <div className="flex-1 flex justify-center py-2 pl-2 pr-4">
               <div className="flex-1 flex items-center text-xs">
-                {log.message}
+                {log.message.replace(
+                  /https?:\/\/[^\s]+/g, // Regex to match URLs
+                  (url) => truncateUrl(url) // Replace with truncated URL
+                )}
               </div>
             </div>
           </div>

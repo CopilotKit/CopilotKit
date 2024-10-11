@@ -13,7 +13,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useCoAgent, useCoagentStateRender } from "@copilotkit/react-core";
+import {
+  useCoAgent,
+  useCoagentStateRender,
+  useCopilotAction,
+} from "@copilotkit/react-core";
 import { CheckIcon, LoaderCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Progress } from "./Progress";
@@ -22,26 +26,26 @@ type Resource = {
   url: string;
 };
 
-const dummyResources: Resource[] = [
-  // {
-  //   id: 1,
-  //   title: "Introduction to Research Methods",
-  //   description: "A comprehensive guide to various research methodologies and their applications.",
-  //   url: "https://example.com/research-methods",
-  // },
-  // {
-  //   id: 2,
-  //   title: "Data Analysis Techniques",
-  //   description: "Overview of statistical and qualitative data analysis methods for research.",
-  //   url: "https://example.com/data-analysis",
-  // },
-  // {
-  //   id: 3,
-  //   title: "Academic Writing Tips",
-  //   description: "Practical advice for improving academic writing skills and structuring research papers.",
-  //   url: "https://example.com/academic-writing",
-  // },
-];
+// const dummyResources: Resource[] = [
+//   {
+//     id: 1,
+//     title: "Introduction to Research Methods",
+//     description: "A comprehensive guide to various research methodologies and their applications.",
+//     url: "https://example.com/research-methods",
+//   },
+//   {
+//     id: 2,
+//     title: "Data Analysis Techniques",
+//     description: "Overview of statistical and qualitative data analysis methods for research.",
+//     url: "https://example.com/data-analysis",
+//   },
+//   {
+//     id: 3,
+//     title: "Academic Writing Tips",
+//     description: "Practical advice for improving academic writing skills and structuring research papers.",
+//     url: "https://example.com/academic-writing",
+//   },
+// ];
 
 const truncateUrl = (url: string, maxLength: number = 40) => {
   if (url.length <= maxLength) return url;
@@ -60,6 +64,47 @@ export function ResearchHelperComponent() {
         return null;
       }
       return <Progress logs={state.logs} />;
+    },
+  });
+
+  useCopilotAction({
+    name: "DeleteResources",
+    disabled: true,
+    parameters: [
+      {
+        name: "urls",
+        type: "string[]",
+      },
+    ],
+    renderAndWait: ({ args, status, handler }) => {
+      return (
+        <div className="p-4 bg-gray-100 rounded-lg">
+          <div className="font-bold text-lg mb-2">Delete these resources?</div>
+          <div className="text-gray-700">
+            {(args.urls || []).map((url) => (
+              <div key={url} className="text-xs">
+                • {truncateUrl(url)}
+              </div>
+            ))}
+          </div>
+          {status === "executing" && (
+            <div className="mt-4 flex justify-end space-x-2">
+              <button
+                onClick={() => handler("NO")}
+                className="px-4 py-2 bg-slate-400 text-white rounded"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handler("YES")}
+                className="px-4 py-2 bg-blue-500 text-white rounded"
+              >
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
+      );
     },
   });
 

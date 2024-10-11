@@ -20,6 +20,10 @@ class WriteResearchQuestion(TypedDict):
     """Write the research question."""
     research_question: str
 
+class DeleteResources(TypedDict):
+    """Delete the URLs from the resources."""
+    urls: List[str]
+
 async def chat_node(state: AgentState, config: RunnableConfig):
     """
     Chat Node
@@ -35,7 +39,8 @@ async def chat_node(state: AgentState, config: RunnableConfig):
             "state_key": "research_question",
             "tool": "WriteResearchQuestion",
             "tool_argument": "research_question",
-        }]
+        }],
+        emit_tool_calls="DeleteResources"
     )
 
     state["resources"] = state.get("resources", [])
@@ -58,6 +63,7 @@ async def chat_node(state: AgentState, config: RunnableConfig):
             Search,
             WriteReport,
             WriteResearchQuestion,
+            DeleteResources,
         ],
         parallel_tool_calls=False,
     ).ainvoke([
