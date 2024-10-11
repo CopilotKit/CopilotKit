@@ -239,7 +239,7 @@ interface WeatherAgentState {
 }
 
 export function SimpleWeatherChat() {
-  useCoAgentAction<WeatherAgentState>({
+  useCoagentStateRender<WeatherAgentState>({
     name: "basic_agent",
     render: ({ status, state, nodeName }) => {
       return `
@@ -280,7 +280,7 @@ Then, when you tell the chatbot where you'd like to see a weather forecast for, 
 The render function can return any valid React node; if you'd rather display a formatted response, that's easy too:
 
 ```tsx
-useCoAgentAction<WeatherAgentState>({
+useCoagentStateRender<WeatherAgentState>({
   name: "basic_agent", // the agent's name
 
   // render can be a function or a string, just like useCopilotAction
