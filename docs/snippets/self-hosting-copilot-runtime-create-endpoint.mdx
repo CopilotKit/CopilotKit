@@ -26,14 +26,13 @@ OPENAI_API_KEY=your_api_key_here
     import { NextRequest } from 'next/server';
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const llmAdapter = new OpenAIAdapter({ openai });
-
+    const serviceAdapter = new OpenAIAdapter({ openai });
     const runtime = new CopilotRuntime();
 
     export const POST = async (req: NextRequest) => {
       const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
         runtime,
-        llmAdapter,
+        serviceAdapter,
         endpoint: '/api/copilotkit',
       });
 
@@ -58,7 +57,7 @@ OPENAI_API_KEY=your_api_key_here
     import OpenAI from 'openai';
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const llmAdapter = new OpenAIAdapter({ openai });
+    const serviceAdapter = new OpenAIAdapter({ openai });
 
     const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       const runtime = new CopilotRuntime();
@@ -66,7 +65,7 @@ OPENAI_API_KEY=your_api_key_here
       const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
         endpoint: '/api/copilotkit',
         runtime,
-        llmAdapter,
+        serviceAdapter,
       });
 
       return await handleRequest(req, res);
@@ -93,14 +92,14 @@ OPENAI_API_KEY=your_api_key_here
 
     const app = express();
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const llmAdapter = new OpenAIAdapter({ openai });
+    const serviceAdapter = new OpenAIAdapter({ openai });
 
     app.use('/copilotkit', (req, res, next) => {
       const runtime = new CopilotRuntime();
       const handler = copilotRuntimeNodeHttpEndpoint({
         endpoint: '/copilotkit',
         runtime,
-        llmAdapter,
+        serviceAdapter,
       });
 
       return handler(req, res, next);
@@ -128,14 +127,14 @@ OPENAI_API_KEY=your_api_key_here
     import OpenAI from 'openai';
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const llmAdapter = new OpenAIAdapter({ openai });
+    const serviceAdapter = new OpenAIAdapter({ openai });
 
     const server = createServer((req, res) => {
       const runtime = new CopilotRuntime();
       const handler = copilotRuntimeNodeHttpEndpoint({
         endpoint: '/copilotkit',
         runtime,
-        llmAdapter,
+        serviceAdapter,
       });
 
       return handler(req, res);
@@ -163,10 +162,10 @@ OPENAI_API_KEY=your_api_key_here
       @All('/copilotkit')
       copilotkit(@Req() req: Request, @Res() res: Response) {
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const llmAdapter = new OpenAIAdapter({ openai });
+        const serviceAdapter = new OpenAIAdapter({ openai });
         const runtime = new CopilotRuntime();
 
-        runtime.streamHttpServerResponse(req, res, llmAdapter);
+        runtime.streamHttpServerResponse(req, res, serviceAdapter);
       }
     }
     ```
