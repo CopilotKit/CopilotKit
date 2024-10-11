@@ -50,6 +50,16 @@ export function RenderAgentStateMessage(props: RenderMessageProps) {
           return null;
         }
 
+        if (!toRender && isCurrentMessage && inProgress) {
+          return (
+            <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
+              {icons.spinnerIcon}
+            </div>
+          );
+        } else if (!toRender) {
+          return null;
+        }
+
         if (typeof toRender === "string") {
           return (
             <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
