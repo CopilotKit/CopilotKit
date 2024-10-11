@@ -20,4 +20,4 @@ Happy contributing!
 ## Checklist
 
 - [ ] I have read read the [Contribution Guide](https://github.com/copilotkit/copilotkit/blob/master/CONTRIBUTING.md)
-- [ ] If the PR changes or adds functionality, I have you updated the relevant documentation
+- [ ] If the PR changes or adds functionality, I have updated the relevant documentation
