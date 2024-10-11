@@ -155,14 +155,15 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
         },
       ],
       // [!code highlight:12]
-      renderAndWait: ({ meeting, date, title, resolve }) => {
+      renderAndWait: ({ args, handler, status }) => {
+        const { meeting, date, title } = args;
         return (
           <MeetingConfirmationDialog
             meeting={meeting}
             date={date}
             title={title}
-            onConfirm={() => resolvePromise(true)}
-            onCancel={() => resolvePromise(false)}
+            onConfirm={() => handler('meeting confirmed')}
+            onCancel={() => handler('meeting canceled')}
           />
         );
       },
