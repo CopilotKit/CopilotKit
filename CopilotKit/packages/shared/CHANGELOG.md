@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.3.5-pre-1-3-4.0
+
+### Patch Changes
+
+- Add research canvas demo and fix rendering of agent state
+
 ## 1.3.4
 
 ### Patch Changes
