@@ -30,7 +30,8 @@ https://github.com/AmalFrancisOlakengil/habit-tracker
 ### 📸 **Screenshot**
 
 Include a screenshot of your demo in action:  
-![image](https://github.com/user-attachments/assets/5d2a020c-dc8f-4b27-85db-ba1413bdc8f6)
+![image](https://raw.githubusercontent.com/AmalFrancisOlakengil/my_attachments/refs/heads/main/Screenshot%202024-10-12%20220538.png)  
+![image](https://raw.githubusercontent.com/AmalFrancisOlakengil/my_attachments/refs/heads/main/Screenshot%202024-10-12%20220758.png)
 
 ---
 
