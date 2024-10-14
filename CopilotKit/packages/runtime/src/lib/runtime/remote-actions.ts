@@ -3,19 +3,43 @@ import { GraphQLContext } from "../integrations/shared";
 import { Logger } from "pino";
 import telemetry from "../../lib/telemetry-client";
 import { Message } from "../../graphql/types/converted";
-import { RuntimeEvent, RuntimeEventSubject } from "../../service-adapters/events";
+import { RuntimeEvent } from "../../service-adapters/events";
 import { RemoteLangGraphEventSource } from "../../agents/langgraph/event-source";
 import { Observable, ReplaySubject } from "rxjs";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
 import { LangGraphEvent } from "../../agents/langgraph/events";
 
-export type RemoteActionDefinition = {
+export type RemoteActionDefinition = RemoteAction | RemoteLangGraphCloudAction;
+
+export enum RemoteActionType {
+  Remote = "remote",
+  LangGraphCloud = "langgraph-cloud",
+}
+
+export interface BaseRemoteActionDefinition<TActionType extends RemoteActionType> {
+  type?: TActionType;
+}
+
+export interface RemoteAction extends BaseRemoteActionDefinition<RemoteActionType.Remote> {
   url: string;
   onBeforeRequest?: ({ ctx }: { ctx: GraphQLContext }) => {
     headers?: Record<string, string> | undefined;
   };
-};
+}
+
+export interface RemoteLangGraphAgent {
+  name: string;
+  description: string;
+  assistantId?: string;
+}
+
+export interface RemoteLangGraphCloudAction
+  extends BaseRemoteActionDefinition<RemoteActionType.LangGraphCloud> {
+  deploymentUrl: string;
+  langsmithApiKey: string;
+  agents: RemoteLangGraphAgent[];
+}
 
 export type RemoteActionInfoResponse = {
   actions: any[];
@@ -41,7 +65,7 @@ export function isLangGraphAgentAction(action: Action<any>): action is LangGraph
 }
 
 function createHeaders(
-  onBeforeRequest: RemoteActionDefinition["onBeforeRequest"],
+  onBeforeRequest: RemoteAction["onBeforeRequest"],
   graphqlContext: GraphQLContext,
 ) {
   const headers = {
@@ -66,7 +90,7 @@ async function fetchRemoteInfo({
   frontendUrl,
 }: {
   url: string;
-  onBeforeRequest?: RemoteActionDefinition["onBeforeRequest"];
+  onBeforeRequest?: RemoteAction["onBeforeRequest"];
   graphqlContext: GraphQLContext;
   logger: Logger;
   frontendUrl?: string;
@@ -112,7 +136,7 @@ function constructRemoteActions({
 }: {
   json: RemoteActionInfoResponse;
   url: string;
-  onBeforeRequest?: RemoteActionDefinition["onBeforeRequest"];
+  onBeforeRequest?: RemoteAction["onBeforeRequest"];
   graphqlContext: GraphQLContext;
   logger: Logger;
   messages: Message[];
@@ -294,12 +318,21 @@ export async function setupRemoteActions({
   logger.debug({ remoteActionDefinitions }, "Fetching remote actions");
 
   // Remove duplicates of remoteActionDefinitions.url
-  const filtered = remoteActionDefinitions.filter(
-    (value, index, self) => index === self.findIndex((t) => t.url === value.url),
-  );
+  const filtered = remoteActionDefinitions.filter((value, index, self) => {
+    if (value.type === RemoteActionType.LangGraphCloud) {
+      return value;
+    }
+    return index === self.findIndex((t: RemoteAction) => t.url === value.url);
+  });
 
   const result = await Promise.all(
     filtered.map(async (actionDefinition) => {
+      // Check for properties that can distinguish LG cloud from other actions
+      if (actionDefinition.type === RemoteActionType.LangGraphCloud) {
+        // TODO: Construct LG Cloud remote action
+        return;
+      }
+
       const json = await fetchRemoteInfo({
         url: actionDefinition.url,
         onBeforeRequest: actionDefinition.onBeforeRequest,
@@ -307,6 +340,7 @@ export async function setupRemoteActions({
         logger: logger.child({ component: "remote-actions.fetchActionsFromUrl", actionDefinition }),
         frontendUrl,
       });
+
       return constructRemoteActions({
         json,
         messages,
