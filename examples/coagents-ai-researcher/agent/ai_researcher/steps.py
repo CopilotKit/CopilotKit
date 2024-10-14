@@ -72,9 +72,12 @@ The current date is {datetime.now().strftime("%Y-%m-%d")}.
         ),
     ], config)
 
-    steps = response.tool_calls[0]["args"]["steps"]
+    if len(response.tool_calls) == 0:
+        steps = []
+    else:
+        steps = response.tool_calls[0]["args"]["steps"]
 
-    if len(steps):
+    if len(steps) != 0:
         steps[0]["updates"] = ["Searching the web..."]
 
     return {
