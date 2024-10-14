@@ -32,9 +32,9 @@ https://github.com/jainanuj94/summarify
 ## 6. Screenshot
 
 Summarify - Content Summary Tool:
-![image](https://github.com/user-attachments/assets/5d2a020c-dc8f-4b27-85db-ba1413bdc8f6)
+![image](https://github.com/user-attachments/assets/44b6adca-bffb-4c60-b056-59760e6fcde1)
 Suggestions:
-![image](https://github.com/user-attachments/assets/5d2a020c-dc8f-4b27-85db-ba1413bdc8f6)
+![image](https://github.com/user-attachments/assets/23c6d02c-5dac-4b43-b46e-186928854ca1)
 
 ## 7. Who Are You?
 
