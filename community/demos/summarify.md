@@ -38,9 +38,9 @@ Suggestions:
 
 ## 7. Who Are You?
 
-**GitHub Username:** jainanuj94 
-**Twitter Handle:** @jainanuj94 
-**LinkedIn Profile:** https://www.linkedin.com/in/anuj-jain-5300448a
+[**GitHub Username:**](https://github.com/jainanuj94) 
+[**Twitter Handle:**](https://x.com/jainanuj94)
+[**LinkedIn Profile:**](https://www.linkedin.com/in/anuj-jain-5300448a)
 
 ## 5 Extra Bonus Points
 
