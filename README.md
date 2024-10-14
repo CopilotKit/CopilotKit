@@ -125,42 +125,42 @@ There are several easy ways to get started with CopilotKit:
 
 ## Building Blocks
 
-> 💡 Want to learn more? Check out the [CopilotKit Documentation](https://docs.copilotkit.ai?ref=github_readme).
+> 💡 Want to learn more? Explore the [CopilotKit Documentation](https://docs.copilotkit.ai?ref=github_readme).
 
 ### 🧩 Components
 
-- [**`<CopilotTextarea />`**](https://docs.copilotkit.ai/reference/components/CopilotTextarea?ref=github_readme): An AI-powered textarea with autocompletions and AI-powered insertions/edits.
-- [**`<CopilotPopup />`**](https://docs.copilotkit.ai/reference/components/chat/CopilotPopup?ref=github_readme): AI-powered floating chat popup component.
-- [**`<CopilotSidebar />`**](https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar?ref=github_readme): AI-powered chat sidebar component.
-- [**`<CopilotChat />`**](https://docs.copilotkit.ai/reference/components/chat/CopilotChat?ref=github_readme): AI-powered plain chat component.
+- **[**`<CopilotTextarea />`**](https://docs.copilotkit.ai/reference/components/CopilotTextarea?ref=github_readme)**: An AI-powered textarea with intelligent autocompletions and insertions.
+- **[**`<CopilotPopup />`**](https://docs.copilotkit.ai/reference/components/chat/CopilotPopup?ref=github_readme)**: A floating chat popup component powered by AI.
+- **[**`<CopilotSidebar />`**](https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar?ref=github_readme)**: A chat sidebar component enhanced with AI capabilities.
+- **[**`<CopilotChat />`**](https://docs.copilotkit.ai/reference/components/chat/CopilotChat?ref=github_readme)**: A straightforward chat component designed for seamless interaction.
 
 ### ⚡️ Hooks
 
-- [**`useCopilotReadable`**](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable?ref=github_readme): Provide in-app state and any other information to your Copilot.
-- [**`useCopilotAction`**](https://docs.copilotkit.ai/reference/hooks/useCopilotAction?ref=github_readme): Enable your Copilot to perform actions and render custom-generated UI in the chat.
-- [**`useCopilotChat`**](https://docs.copilotkit.ai/reference/hooks/useCopilotChat?ref=github_readme): Directly interact with the Copilot chat instance to add messages and manipulate the chat history.
-- [**`useCopilotChatSuggestions`**](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions?ref=github_readme): Integrate AI-powered chat follow-up suggestions that are aware of your app's state and chat history.
+- **[**`useCopilotReadable`**](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable?ref=github_readme)**: Provides in-app state and additional information to your Copilot.
+- **[**`useCopilotAction`**](https://docs.copilotkit.ai/reference/hooks/useCop
+
+ilotAction?ref=github_readme)**: Allows your Copilot to perform actions and render custom UI within the chat.
+- **[**`useCopilotChat`**](https://docs.copilotkit.ai/reference/hooks/useCopilotChat?ref=github_readme)**: Directly interact with the Copilot chat instance to manage messages and chat history.
+- **[**`useCopilotChatSuggestions`**](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions?ref=github_readme)**: Integrates AI-powered chat follow-up suggestions tailored to your app's state and history.
 
 ## Contributing
 
-Thanks for your interest in contributing to CopilotKit! 💜
+Thank you for your interest in contributing to CopilotKit! 💜
 
-We value all contributions, whether it's through code, documentation, creating demo apps, or just spreading the word.
+We appreciate all contributions, whether through code, documentation, or by creating demo apps. Here are some resources to help you get started:
 
-Here are a few useful resources to help you get started:
+- For code contributions, please [check out the contribution guide](https://docs.copilotkit.ai/contributing/code-contributions?ref=github_readme).
+- For documentation contributions, refer to our [documentation contributions guide](https://docs.copilotkit.ai/contributing/docs-contributions?ref=github_readme).
+- If you want to contribute but are unsure how to start, [join our Discord](https://discord.gg/6dffbvGU3D) for support!
 
-- For code contributions, [check out the contribution guide](https://docs.copilotkit.ai/contributing/code-contributions?ref=github_readme).
-- For documentation-related contributions, [check out the documentation contributions guide](https://docs.copilotkit.ai/contributing/docs-contributions?ref=github_readme).
-- Want to contribute but not sure how? [Join our Discord](https://discord.gg/6dffbvGU3D) and we'll help you out!
+> 💡 **NOTE:** All contributions must be submitted via a pull request and will be reviewed by our team to ensure quality and alignment with project goals.
 
-> 💡 **NOTE:** All contributions must be submitted via a pull request and be reviewed by our team. This is to ensure that all contributions are of high quality and align with the project's goals.
+## Get in Touch
 
-## Get in touch
+Join our community on [Discord](https://discord.gg/6dffbvGU3D) to chat with our team and fellow members!
 
-You are welcome to join our [Discord](https://discord.gg/6dffbvGU3D) and chat with our team and other community members.
-
-Additionally, you can reach out to us at [hello@copilotkit.ai](mailto:hello@copilotkit.ai).
+You can also reach us via email at [hello@copilotkit.ai](mailto:hello@copilotkit.ai).
 
 ## License
 
-This repository's source code is available under the [MIT License](https://github.com/CopilotKit/CopilotKit/blob/main/LICENSE).
+This repository is licensed under the [MIT License](https://github.com/CopilotKit/CopilotKit/blob/main/LICENSE).
