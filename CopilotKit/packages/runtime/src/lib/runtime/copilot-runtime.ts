@@ -13,18 +13,21 @@
  */
 
 import { Action, actionParametersToJsonSchema, Parameter, randomId } from "@copilotkit/shared";
-import { RemoteChain, RemoteChainParameters, CopilotServiceAdapter } from "../../service-adapters";
+import { CopilotServiceAdapter, RemoteChain, RemoteChainParameters } from "../../service-adapters";
 import { MessageInput } from "../../graphql/inputs/message.input";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { RuntimeEventSource } from "../../service-adapters/events";
 import { convertGqlInputToMessages } from "../../service-adapters/conversion";
-import { AgentStateMessage, Message } from "../../graphql/types/converted";
+import { Message } from "../../graphql/types/converted";
 import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-parameters.input";
 import {
-  setupRemoteActions,
-  RemoteActionDefinition,
-  LangGraphAgentAction,
   isLangGraphAgentAction,
+  LangGraphAgentAction,
+  RemoteAction,
+  RemoteActionDefinition,
+  RemoteActionType,
+  RemoteLangGraphCloudAction,
+  setupRemoteActions,
 } from "./remote-actions";
 import { GraphQLContext } from "../integrations/shared";
 import { AgentSessionInput } from "../../graphql/inputs/agent-session.input";
@@ -331,8 +334,17 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         console.error("Error loading langserve chain:", error);
       }
     }
+
+    const remoteActionDefinitions = this.remoteActionDefinitions.map(
+      (action) =>
+        ({
+          ...action,
+          type: this.resolveRemoteActionType(action),
+        }) as RemoteActionDefinition,
+    );
+
     const remoteActions = await setupRemoteActions({
-      remoteActionDefinitions: this.remoteActionDefinitions,
+      remoteActionDefinitions,
       graphqlContext,
       messages: inputMessages,
       agentStates,
@@ -346,6 +358,19 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
     return [...configuredActions, ...langserveFunctions, ...remoteActions];
   }
+
+  private resolveRemoteActionType(action: RemoteActionDefinition) {
+    if (
+      !action.type &&
+      "langsmithApiKey" in action &&
+      "deploymentUrl" in action &&
+      "agents" in action
+    ) {
+      return RemoteActionType.LangGraphCloud;
+    }
+
+    return action.type;
+  }
 }
 
 export function flattenToolCallsNoDuplicates(toolsByPriority: ActionInput[]): ActionInput[] {
@@ -358,4 +383,21 @@ export function flattenToolCallsNoDuplicates(toolsByPriority: ActionInput[]): Ac
     }
   }
   return allTools;
+}
+
+// The two functions below are "factory functions", meant to create the action objects that adhere to the expected interfaces
+export function remoteAction(action: Omit<RemoteAction, "type">): RemoteAction {
+  return {
+    ...action,
+    type: RemoteActionType.Remote,
+  };
+}
+
+export function remoteLangGraphCloudAction(
+  action: Omit<RemoteLangGraphCloudAction, "type">,
+): RemoteLangGraphCloudAction {
+  return {
+    ...action,
+    type: RemoteActionType.LangGraphCloud,
+  };
 }
