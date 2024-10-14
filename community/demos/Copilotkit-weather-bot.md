@@ -33,10 +33,9 @@ List the technologies and frameworks you used (e.g., CopilotKit, Next.js)
 ### 5 bonus points
 
 - If your app is live, include the link here:
-A youtube video demo of Copilotkit-weather-bot is available [here](https://youtu.be/F2wiIcNrwOg)
-
-- Deploy your app on [Vercel](https://vercel.com/new)
-
+- [Live app](https://copilotkit-weather-bot.vercel.app/)
+- A youtube video demo of Copilotkit-weather-bot is available [here](https://youtu.be/F2wiIcNrwOg)
+ 
 ## 6. Screenshot
 
 -Copilotchat
