@@ -1,5 +1,14 @@
 # @copilotkit/runtime-client-gql
 
+## 1.3.5
+
+### Patch Changes
+
+- Improve CoAgent state render
+- Updated dependencies
+  - @copilotkit/runtime@1.3.5
+  - @copilotkit/shared@1.3.5
+
 ## 1.3.4
 
 ### Patch Changes
