@@ -130,7 +130,7 @@ export class RemoteLangGraphEventSource {
         const events: RuntimeEvent[] = [];
 
         let shouldEmitMessages = true;
-        let shouldEmitToolCalls: string | string[] | boolean = false;
+        let shouldEmitToolCalls: string | string[] | boolean = true;
 
         if (eventWithState.event.event == LangGraphEventTypes.OnChatModelStream) {
           if ("copilotkit:emit-tool-calls" in (eventWithState.event.metadata || {})) {
