@@ -48,7 +48,6 @@ async def search_node(state: AgentState, config: RunnableConfig):
     # figure out which resources to use
     response = await get_model().bind_tools(
         [ExtractResources],
-        parallel_tool_calls=False,
         tool_choice="ExtractResources"
     ).ainvoke([
         SystemMessage(

@@ -65,7 +65,6 @@ async def chat_node(state: AgentState, config: RunnableConfig):
             WriteResearchQuestion,
             DeleteResources,
         ],
-        parallel_tool_calls=False,
     ).ainvoke([
         SystemMessage(
             content=f"""
