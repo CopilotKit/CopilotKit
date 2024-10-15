@@ -1,6 +1,7 @@
 ---
 title: "Streaming state to the frontend"
 ---
+
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
 
 CopilotKit keeps the CoAgent state in sync with the UI. Let’s imagine the example LangGraph node
@@ -91,7 +92,10 @@ With `emit_intermediate_state` you can specify that a specific key in your state
 
 ### Calling frontend actions
 
-CopilotKit provides a type for your state called `CopilotKitState` that you can use and extend. It contains an array of `actions` that you can pass directly to LangChain as tools. These actions will contain all actions available in your CopilotKit setup, including the actions defined on the frontend.
+CopilotKit provides a type for your state called `CopilotKitState` that you can use and extend.
+It contains a predefined property called `copilotkit`, under which the `actions` array can be found.
+You can pass these actions directly to LangChain as tools.
+These actions will contain all actions available in your CopilotKit setup, including the actions defined on the frontend.
 
 You can make calls to the frontend by 1) configuring CopilotKit to emit tool calls and 2) providing the actions to the LLM. After that, you need to interrupt the execution of the LangGraph agent so that the tool can be executed and the agent can continue with the result from the action.
 
