@@ -162,7 +162,7 @@ const { state, setState, start, stop, run } = useCoAgent({
 
 // ...
 setState(newStateEditedByUser);
-run("the user has updated the state"); // optionally provide a hint about why the agent state changed.
+run(() => new TextMessage({ role: MessageRole.System, content: "the user has updated the state" })); // optionally provide a hint about why the agent state changed.
 ```
 
 Just like before, we use the `state` variable on `useCoAgent` to receive the latest agent state.
