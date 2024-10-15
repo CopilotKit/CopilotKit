@@ -1,5 +1,15 @@
 # ui
 
+## 1.3.5-pre-1-3-5.0
+
+### Patch Changes
+
+- State render improvements
+- Updated dependencies
+  - @copilotkit/react-core@1.3.5-pre-1-3-5.0
+  - @copilotkit/runtime-client-gql@1.3.5-pre-1-3-5.0
+  - @copilotkit/shared@1.3.5-pre-1-3-5.0
+
 ## 1.3.4
 
 ### Patch Changes

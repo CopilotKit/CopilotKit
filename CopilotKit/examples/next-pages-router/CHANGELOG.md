@@ -1,5 +1,17 @@
 # next-pages-router
 
+## 1.3.5-pre-1-3-5.0
+
+### Patch Changes
+
+- State render improvements
+- Updated dependencies
+  - @copilotkit/react-core@1.3.5-pre-1-3-5.0
+  - @copilotkit/react-textarea@1.3.5-pre-1-3-5.0
+  - @copilotkit/react-ui@1.3.5-pre-1-3-5.0
+  - @copilotkit/runtime@1.3.5-pre-1-3-5.0
+  - @copilotkit/shared@1.3.5-pre-1-3-5.0
+
 ## 1.3.4
 
 ### Patch Changes
