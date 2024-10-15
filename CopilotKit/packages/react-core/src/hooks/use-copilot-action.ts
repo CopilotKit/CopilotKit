@@ -51,16 +51,6 @@ import { FrontendAction, ActionRenderProps, ActionRenderPropsWait } from "../typ
 import { useCopilotContext } from "../context/copilot-context";
 import { Parameter, randomId } from "@copilotkit/shared";
 
-/**
- * Options for the useCopilotAction hook.
- */
-export interface UseCopilotActionOptions {
-  /**
-   * Something nce
-   */
-  some: string;
-}
-
 // We implement useCopilotAction dependency handling so that
 // the developer has the option to not provide any dependencies.
 // In this case, we assume they want to update the handler on each rerender.

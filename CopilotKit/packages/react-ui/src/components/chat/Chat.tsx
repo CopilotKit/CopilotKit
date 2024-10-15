@@ -318,9 +318,6 @@ export const useCopilotChatLogic = (
       role: Role.User,
     });
 
-    // Append the message immediately to make it visible
-    appendMessage(message);
-
     if (onSubmitMessage) {
       try {
         await onSubmitMessage(messageContent);
@@ -328,6 +325,10 @@ export const useCopilotChatLogic = (
         console.error("Error in onSubmitMessage:", error);
       }
     }
+    // this needs to happen after onSubmitMessage, because it will trigger submission
+    // of the message to the endpoint. Some users depend on performing some actions
+    // before the message is submitted.
+    appendMessage(message);
 
     return message;
   };

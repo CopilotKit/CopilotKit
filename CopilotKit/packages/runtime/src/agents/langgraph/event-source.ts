@@ -1,6 +1,7 @@
-import { ReplaySubject, scan, mergeMap } from "rxjs";
+import { ReplaySubject, scan, mergeMap, catchError } from "rxjs";
 import { LangGraphEvent, LangGraphEventTypes } from "./events";
 import { RuntimeEvent, RuntimeEventTypes } from "../../service-adapters/events";
+import { randomId } from "@copilotkit/shared";
 
 interface LangGraphEventWithState {
   event: LangGraphEvent | null;
@@ -49,18 +50,24 @@ export class RemoteLangGraphEventSource {
         });
     }
 
-    while (true) {
-      const { done, value } = await reader.read();
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
 
-      if (!done) {
-        buffer.push(decoder.decode(value, { stream: true }));
+        if (!done) {
+          buffer.push(decoder.decode(value, { stream: true }));
+        }
+
+        flushBuffer();
+
+        if (done) {
+          break;
+        }
       }
-
-      flushBuffer();
-
-      if (done) {
-        break;
-      }
+    } catch (error) {
+      console.error("Error in stream", error);
+      eventStream$.error(error);
+      return;
     }
     eventStream$.complete();
   }
@@ -79,6 +86,8 @@ export class RemoteLangGraphEventSource {
   }
 
   processLangGraphEvents() {
+    let lastEventWithState: LangGraphEventWithState | null = null;
+
     return this.eventStream$.pipe(
       scan(
         (acc, event) => {
@@ -104,6 +113,7 @@ export class RemoteLangGraphEventSource {
           }
 
           acc.event = event;
+          lastEventWithState = acc; // Capture the state
           return acc;
         },
         {
@@ -260,6 +270,37 @@ export class RemoteLangGraphEventSource {
             }
             break;
         }
+        return events;
+      }),
+      catchError((error) => {
+        console.error(error);
+        const events: RuntimeEvent[] = [];
+
+        if (lastEventWithState?.messageId) {
+          events.push({
+            type: RuntimeEventTypes.TextMessageEnd,
+          });
+        }
+        if (lastEventWithState?.toolCallMessageId) {
+          events.push({
+            type: RuntimeEventTypes.ActionExecutionEnd,
+          });
+        }
+
+        const messageId = randomId();
+
+        events.push({
+          type: RuntimeEventTypes.TextMessageStart,
+          messageId: messageId,
+        });
+        events.push({
+          type: RuntimeEventTypes.TextMessageContent,
+          content: "❌ An error occurred. Please try again.",
+        });
+        events.push({
+          type: RuntimeEventTypes.TextMessageEnd,
+        });
+
         return events;
       }),
     );

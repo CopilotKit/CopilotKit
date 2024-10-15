@@ -3,13 +3,17 @@ title: Introduction to CoAgents
 description: CopilotKit's CoAgents are the missing link that makes it easy to connect
   LangGraph agents to humans in the loop.
 ---
+
 import { BiSolidMessage as TextIcon } from "react-icons/bi";
 import { VscJson as JsonIcon } from "react-icons/vsc";
 import { FaDiscord } from "react-icons/fa";
 import Link from "next/link";
 import { YouTubeVideo } from "@/components/react/youtube-video";
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
-import { CoAgentsFeatureToggle, CoAgentsFeatureRender } from "@/components/react/coagents/coagents-features.tsx";
+import {
+  CoAgentsFeatureToggle,
+  CoAgentsFeatureRender,
+} from "@/components/react/coagents/coagents-features.tsx";
 import { DynamicContentWrapper } from "@/components/react/dynamic-content-wrapper";
 
 <Frame className="-mt-12">
@@ -212,7 +216,7 @@ Agents can easily and intentionally ask the user questions. With support for:
       <div className="bg-indigo-500 rounded-md w-7 h-7 text-white flex items-center justify-center">
         <TextIcon className="w-4 h-4" />
       </div>
-      <span>Text Feedback</span>
+      <span className="dark:text-black">Text Feedback</span>
     </div>
     <div className="italic py-4">
       <img
@@ -223,10 +227,10 @@ Agents can easily and intentionally ask the user questions. With support for:
   </div>
   <div className="flex-1 border bg-white rounded-lg shadow-md p-4">
     <div className="flex items-center justify-center gap-2 font-semibold">
-      <div className="bg-indigo-500 rounded-md w-7 h-7 text-white flex items-center justify-center">
+      <div className="bg-indigo-500 rounded-md w-7 h-7 text-white  flex items-center justify-center">
         <JsonIcon className="w-5 h-5" />
       </div>
-      <span>Structured (JSON) Feedback</span>
+      <span className="dark:text-black">Structured (JSON) Feedback</span>
     </div>
     <div className="italic py-4">
       <img
@@ -252,5 +256,57 @@ In the meantime, you can achieve agent Q&A in the following way:
 </DynamicContentWrapper>
 
 ---
+
+## Get started building with CoAgents
+
+We've built a simple example with everything you need to get started:
+
+```bash
+git clone https://github.com/CopilotKit/CopilotKit.git
+cd ./CopilotKit/examples/coagents-starter/agent
+
+# Setup Tavily and OpenAI API keys
+# (Get your free Tavily API key here: https://tavily.com)
+cat > .env <<EOF
+TAVILY_API_KEY=<your-tavily-api-key>
+OPENAI_API_KEY=<your-openai-api-key>
+EOF
+
+# Install Python dependencies
+poetry install
+
+# Run the Python agent
+poetry run demo
+```
+
+In a separate terminal, run the frontend:
+
+```bash
+cd ./CopilotKit/examples/coagents-starter/ui
+
+# Setup OpenAI API key
+echo "OPENAI_API_KEY=<your-openai-api-key>" > .env
+
+# Install JS dependencies
+npm install
+
+# Run the dev server!
+npm run dev
+```
+
+Looking for more details, or want to integrate CoAgents into an existing application? <Link href="/coagents/getting-started" className="_text-primary-600 decoration-from-font underline [text-underline-position:from-font]">Check out our getting started guide</Link>.
+
+<div className="flex justify-center mt-6 mb-12">
+  <Link
+    href="https://discord.gg/FsK9P2Nv"
+    className="no-underline"
+    target="_blank"
+  >
+    <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 mt-2 font-medium">
+      <FaDiscord className="w-4 h-4" />
+      <span>Join our CoAgents channel on Discord</span>
+    </button>
+  </Link>
+</div>
 
 <CoAgentsEnterpriseCTA />

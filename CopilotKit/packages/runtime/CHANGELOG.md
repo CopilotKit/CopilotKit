@@ -1,5 +1,29 @@
 # @copilotkit/runtime
 
+## 1.3.5
+
+### Patch Changes
+
+- Improve CoAgent state render
+- Updated dependencies
+  - @copilotkit/shared@1.3.5
+
+## 1.3.4
+
+### Patch Changes
+
+- Add followUp property to useCopilotAction
+- Updated dependencies
+  - @copilotkit/shared@1.3.4
+
+## 1.3.3
+
+### Patch Changes
+
+- Impvovements to error handling and CoAgent protocol
+- Updated dependencies
+  - @copilotkit/shared@1.3.3
+
 ## 1.3.2
 
 ### Patch Changes

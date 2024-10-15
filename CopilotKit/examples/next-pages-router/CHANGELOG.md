@@ -1,5 +1,41 @@
 # next-pages-router
 
+## 1.3.5
+
+### Patch Changes
+
+- Improve CoAgent state render
+- Updated dependencies
+  - @copilotkit/react-core@1.3.5
+  - @copilotkit/react-textarea@1.3.5
+  - @copilotkit/react-ui@1.3.5
+  - @copilotkit/runtime@1.3.5
+  - @copilotkit/shared@1.3.5
+
+## 1.3.4
+
+### Patch Changes
+
+- Add followUp property to useCopilotAction
+- Updated dependencies
+  - @copilotkit/react-core@1.3.4
+  - @copilotkit/react-textarea@1.3.4
+  - @copilotkit/react-ui@1.3.4
+  - @copilotkit/runtime@1.3.4
+  - @copilotkit/shared@1.3.4
+
+## 1.3.3
+
+### Patch Changes
+
+- Impvovements to error handling and CoAgent protocol
+- Updated dependencies
+  - @copilotkit/react-core@1.3.3
+  - @copilotkit/react-textarea@1.3.3
+  - @copilotkit/react-ui@1.3.3
+  - @copilotkit/runtime@1.3.3
+  - @copilotkit/shared@1.3.3
+
 ## 1.3.2
 
 ### Patch Changes

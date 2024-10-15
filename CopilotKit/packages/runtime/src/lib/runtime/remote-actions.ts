@@ -16,6 +16,11 @@ export type RemoteActionDefinition = {
   };
 };
 
+export type RemoteActionInfoResponse = {
+  actions: any[];
+  agents: any[];
+};
+
 export type LangGraphAgentHandlerParams = {
   name: string;
   actionInputsWithoutAgents: ActionInput[];
@@ -64,27 +69,35 @@ async function fetchRemoteInfo({
   graphqlContext: GraphQLContext;
   logger: Logger;
   frontendUrl?: string;
-}): Promise<any[]> {
+}): Promise<RemoteActionInfoResponse> {
   logger.debug({ url }, "Fetching actions from url");
   const headers = createHeaders(onBeforeRequest, graphqlContext);
 
-  const response = await fetch(`${url}/info`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ properties: graphqlContext.properties, frontendUrl }),
-  });
+  try {
+    const response = await fetch(`${url}/info`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ properties: graphqlContext.properties, frontendUrl }),
+    });
 
-  if (!response.ok) {
+    if (!response.ok) {
+      logger.error(
+        { url, status: response.status, body: await response.text() },
+        "Failed to fetch actions from url",
+      );
+      return { actions: [], agents: [] };
+    }
+
+    const json = await response.json();
+    logger.debug({ json }, "Fetched actions from url");
+    return json;
+  } catch (error) {
     logger.error(
-      { url, status: response.status, body: await response.text() },
+      { error: error.message ? error.message : error + "" },
       "Failed to fetch actions from url",
     );
-    return [];
+    return { actions: [], agents: [] };
   }
-
-  const json = await response.json();
-  logger.debug({ json }, "Fetched actions from url");
-  return json;
 }
 
 function constructRemoteActions({
@@ -96,7 +109,7 @@ function constructRemoteActions({
   messages,
   agentStates,
 }: {
-  json: any[];
+  json: RemoteActionInfoResponse;
   url: string;
   onBeforeRequest?: RemoteActionDefinition["onBeforeRequest"];
   graphqlContext: GraphQLContext;
@@ -114,29 +127,37 @@ function constructRemoteActions({
       const headers = createHeaders(onBeforeRequest, graphqlContext);
       telemetry.capture("oss.runtime.remote_action_executed", {});
 
-      const response = await fetch(`${url}/actions/execute`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          name: action.name,
-          arguments: args,
-          properties: graphqlContext.properties,
-        }),
-      });
+      try {
+        const response = await fetch(`${url}/actions/execute`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            name: action.name,
+            arguments: args,
+            properties: graphqlContext.properties,
+          }),
+        });
 
-      if (!response.ok) {
+        if (!response.ok) {
+          logger.error(
+            { url, status: response.status, body: await response.text() },
+            "Failed to execute remote action",
+          );
+          return "Failed to execute remote action";
+        }
+
+        const requestResult = await response.json();
+
+        const result = requestResult["result"];
+        logger.debug({ actionName: action.name, result }, "Executed remote action");
+        return result;
+      } catch (error) {
         logger.error(
-          { url, status: response.status, body: await response.text() },
+          { error: error.message ? error.message : error + "" },
           "Failed to execute remote action",
         );
         return "Failed to execute remote action";
       }
-
-      const requestResult = await response.json();
-
-      const result = requestResult["result"];
-      logger.debug({ actionName: action.name, result }, "Executed remote action");
-      return result;
     },
   }));
 

@@ -229,7 +229,7 @@ export default function DebugMenuButton({
   const context = useCopilotContext();
 
   return (
-    <div className="bg-black fixed top-24 w-52 text-right">
+    <div className="bg-black top-24 w-52 text-right">
       <Menu>
         <MenuButton className={`copilotKitDebugMenuButton ${mode === "compact" ? "compact" : ""}`}>
           {mode == "compact" ? "Debug" : <>Debug {ChevronDownIcon}</>}

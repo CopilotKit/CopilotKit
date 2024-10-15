@@ -27,6 +27,9 @@ Please show your support and give a ⭐ to the CopilotKit repository.
 
 ## Rankings and Swag
 
+![Swag_2](https://github.com/user-attachments/assets/3dd192e9-0a45-4e7d-a1bf-f7c71a1f0651)
+
+
 Demos will be ranked from 0 to 100 based on:
 
 | Criteria                  | Points |
