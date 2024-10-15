@@ -1,5 +1,17 @@
 # web
 
+## 1.3.5
+
+### Patch Changes
+
+- Improve CoAgent state render
+- Updated dependencies
+  - @copilotkit/react-core@1.3.5
+  - @copilotkit/react-textarea@1.3.5
+  - @copilotkit/react-ui@1.3.5
+  - @copilotkit/runtime@1.3.5
+  - @copilotkit/shared@1.3.5
+
 ## 1.3.4
 
 ### Patch Changes
