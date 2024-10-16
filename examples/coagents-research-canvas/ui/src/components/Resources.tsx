@@ -35,7 +35,7 @@ export function Resources({
                 <h3
                   className="font-bold text-lg"
                   style={{
-                    width: "230px",
+                    maxWidth: customWidth ? customWidth - 30 + "px" : "230px",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
