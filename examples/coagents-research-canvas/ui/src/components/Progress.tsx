@@ -1,10 +1,6 @@
 import { cn } from "@/lib/utils";
 import { CheckIcon, LoaderCircle } from "lucide-react";
-
-const truncateUrl = (url: string, maxLength: number = 40) => {
-  if (url.length <= maxLength) return url;
-  return url.substring(0, maxLength - 3) + "...";
-};
+import { truncateUrl } from "@/lib/utils";
 
 export function Progress({
   logs,

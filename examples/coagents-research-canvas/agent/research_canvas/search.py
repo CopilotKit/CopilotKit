@@ -7,7 +7,7 @@ from typing import cast, TypedDict, List
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import AIMessage, ToolMessage, SystemMessage
 from tavily import TavilyClient
-from copilotkit.langchain import copilotkit_emit_state
+from copilotkit.langchain import copilotkit_emit_state, copilotkit_customize_config
 from research_canvas.state import AgentState, Resource
 from research_canvas.model import get_model
 
@@ -44,6 +44,15 @@ async def search_node(state: AgentState, config: RunnableConfig):
         search_results.append(response)
         state["logs"][i]["done"] = True
         await copilotkit_emit_state(config, state)
+
+    config = copilotkit_customize_config(
+        config,
+        emit_intermediate_state=[{
+            "state_key": "resources",
+            "tool": "ExtractResources",
+            "tool_argument": "resources",
+        }],
+    )
 
     # figure out which resources to use
     response = await get_model().bind_tools(

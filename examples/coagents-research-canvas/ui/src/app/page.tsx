@@ -1,7 +1,7 @@
 "use client";
 
 import { CopilotKit } from "@copilotkit/react-core";
-import ResearchCanvas from "./ResearchCanvas";
+import Main from "./Main";
 
 export default function Home() {
   return (
@@ -10,7 +10,7 @@ export default function Home() {
       showDevConsole={false}
       agent="research_agent"
     >
-      <ResearchCanvas />
+      <Main />
     </CopilotKit>
   );
 }
