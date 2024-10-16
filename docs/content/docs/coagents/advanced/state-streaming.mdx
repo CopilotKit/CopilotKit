@@ -21,7 +21,7 @@ Once the agent has called this method, and returned the updated state to the cli
 
 ### Streaming messages to the chat window
 
-One great use case for state streaming is to present LLM messages to the user, giving them visibility into the agent's progress as it works on tasks. You can configure CopilotKit so that some or all of these messages are made visible in the chat window:
+One great use case for state streaming is to present LLM messages to the user, giving them visibility into the agent's progress as it works on tasks. By default, messages from the LLM will be streamed to the user with no additional configuration needed.
 
 ```python
 from copilotkit.langchain import copilotkit_customize_config
@@ -31,20 +31,13 @@ async def talk_to_user_node(state: AgentState, config: RunnableConfig):
 	Messages generated in this node will appear in the chat window
 	"""
 
-	# Configure the agent to stream the messages to the
-	# chat window with emit_messages=True
-	modifiedConfig = copilotkit_customize_config(
-		config,
-		emit_messages=True
-	)
-
 	# Pass the modified configuration to LangChain as an argument
 	response = await ChatOpenAI(model="gpt-4o").ainvoke(
 		[
 			*state["messages"],
 			SystemMessage(content="Say hi to the user")
 		],
-		modifiedConfig
+		config
 	)
 
 	# Then return the new messages, making them part of the
@@ -131,5 +124,32 @@ def frontend_actions_node(state: AgentState, config: RunnableConfig):
 ```
 
 Note that you'll also need to interrupt the execution of the LangGraph agent so that the tool can be executed and the agent can continue with the result from the action.
+
+### Disabling state streaming
+
+- LLM may be doing something the user should not see
+
+```python
+from copilotkit.langchain import copilotkit_customize_config
+
+def frontend_actions_node(state: AgentState, config: RunnableConfig):
+	
+	# 1) Configure CopilotKit to emit tool calls
+	modifiedConfig = copilotkit_customize_config(
+	    config,
+	    emit_messages=False,
+	)
+
+  # 2) Provide the actions to the LLM
+	model = ChatOpenAI(model="gpt-4o").bind(state.copilotkit.actions)
+
+	# 3) Call the model with CopilotKit's modified config
+	response = await model.ainvoke(*state, modifiedConfig)
+
+	return {
+    "messages": [response]
+  }
+```
+
 
 <CoAgentsEnterpriseCTA />

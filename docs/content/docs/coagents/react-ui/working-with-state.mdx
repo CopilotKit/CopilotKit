@@ -1,4 +1,33 @@
 ---
-title: Working with agent state
+title: Accessing agent state in custom UI
 ---
 
+## Even more control over agent state
+
+<Frame>
+  <img src="/images/coagents/intermediate-state.gif" />
+</Frame>
+
+If you need even greater control over how your agent state is managed, you can use the `useCoAgent` hook, which gives you access to the state and a function to update it similar to how you'd use the `useState` hook in React:
+
+```tsx
+const { state: weatherAgentState, setState: setWeatherAgentState } = useCoAgent<WeatherAgentState>({
+  name: "basic_agent",
+  // optionally provide an initial state
+  initialState: { input: "New York City" }
+});
+```
+
+The `weatherAgentState` object will update with the latest state from your agent even while updates are streaming in from the agent, making it easy to show your users the current state of the agent as it runs.
+
+You can even pass your own state management functions to the agent, for maximum control over how the frontend and backend interact.
+
+```tsx
+useCoAgent<WeatherAgentState>({
+  name: "basic_agent",
+
+  // provide your own state management
+  state: weatherAgentState,
+  setState: setWeatherAgentState,
+});
+```

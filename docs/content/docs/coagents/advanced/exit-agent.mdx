@@ -2,9 +2,15 @@
 title: "Exiting the agent loop"
 ---
 
-After your agent has performed a critical task, sometimes you'll want to ensure that its workflow loop finishes and returns to a known state before your user's next request. In these cases, you'll want to explicitly _exit_ the agent loop using the `copilot_exit()` method in your Python code.
+After your agent has finished a workflow, you'll usually want to explicitly end that loop by calling the `copilotkit_exit()` method in your Python code.
 
-In this example from [our email-sending app](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-qa), the `send_email` node explicitly exits — essentially "clearing the queue" of any additional messages the AI may generate — then manually sends a response back to the user as a `ToolMessage`:
+Exiting the agent has different effects depending on mode:
+
+- **Router Mode**: Exiting the agent hands responsibility for handling input back to the router, which can initiate chat, call actions, other agents, etc. The router can return to this agent later (starting a new loop) to satisfy a user request.
+
+- **Agent Lock Mode**: Exiting the agent restarts the workflow loop for the current agent.
+
+In this example from [our email-sending app](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-qa), the `send_email` node explicitly exits, then manually sends a response back to the user as a `ToolMessage`:
 
 ```python
 async def send_email_node(state: EmailAgentState, config: RunnableConfig):
@@ -30,9 +36,3 @@ async def send_email_node(state: EmailAgentState, config: RunnableConfig):
 ```
 
 This will exit the agent session as soon as the current LangGraph run is finished, either by a breakpoint or by reaching the `END` node.
-
-Exiting the agent has different effects depending on mode:
-
-- **Router Mode**: Exiting the agent hands responsibility for handing input back to the router, which can initiate chat, call actions, other agents, etc. The router can return to this agent later (starting a new loop) to satisfy a user request.
-
-- **Agent Lock Mode**: Exiting the agent restarts the workflow loop for the current agent.
