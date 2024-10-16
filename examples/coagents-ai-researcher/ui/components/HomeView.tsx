@@ -7,8 +7,6 @@ import { Button } from "./ui/button";
 import { CornerDownLeftIcon } from "lucide-react";
 import { useResearchContext } from "@/lib/research-provider";
 import { motion } from "framer-motion";
-import { useCopilotChat } from "@copilotkit/react-core";
-import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { useCoAgent } from "@copilotkit/react-core";
 
 const MAX_INPUT_LENGTH = 250;

@@ -17,7 +17,7 @@ export default function ResearchCanvas() {
       <div className="w-[400px] h-full">
         <CopilotChat
           className="h-full border-r border-gray-200"
-          onSubmitMessage={async (message) => {
+          onSubmitMessage={async () => {
             // clear the logs before starting the new research
             setState({ ...state, logs: [] });
             await new Promise((resolve) => setTimeout(resolve, 30));

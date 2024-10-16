@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, X, BookOpen } from "lucide-react";
+import { Plus, Trash2, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,34 +18,11 @@ import {
   useCoagentStateRender,
   useCopilotAction,
 } from "@copilotkit/react-core";
-import { CheckIcon, LoaderCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Progress } from "./Progress";
 
 type Resource = {
   url: string;
 };
-
-// const dummyResources: Resource[] = [
-//   {
-//     id: 1,
-//     title: "Introduction to Research Methods",
-//     description: "A comprehensive guide to various research methodologies and their applications.",
-//     url: "https://example.com/research-methods",
-//   },
-//   {
-//     id: 2,
-//     title: "Data Analysis Techniques",
-//     description: "Overview of statistical and qualitative data analysis methods for research.",
-//     url: "https://example.com/data-analysis",
-//   },
-//   {
-//     id: 3,
-//     title: "Academic Writing Tips",
-//     description: "Practical advice for improving academic writing skills and structuring research papers.",
-//     url: "https://example.com/academic-writing",
-//   },
-// ];
 
 const truncateUrl = (url: string, maxLength: number = 40) => {
   if (url.length <= maxLength) return url;
@@ -59,7 +36,7 @@ export function ResearchHelperComponent() {
 
   useCoagentStateRender({
     name: "research_agent",
-    render: ({ state, nodeName, status }) => {
+    render: ({ state }) => {
       if (!state.logs || state.logs.length === 0) {
         return null;
       }
@@ -171,27 +148,6 @@ export function ResearchHelperComponent() {
                   <DialogTitle>Add New Resource</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                  {/* <Input
-                    placeholder="Resource Title"
-                    value={newResource.title || ""}
-                    onChange={(e) =>
-                      setNewResource({ ...newResource, title: e.target.value })
-                    }
-                    aria-label="New resource title"
-                    className="bg-background"
-                  />
-                  <Input
-                    placeholder="Resource Description"
-                    value={newResource.description || ""}
-                    onChange={(e) =>
-                      setNewResource({
-                        ...newResource,
-                        description: e.target.value,
-                      })
-                    }
-                    aria-label="New resource description"
-                    className="bg-background"
-                  /> */}
                   <Input
                     placeholder="Resource URL"
                     value={newResource.url || ""}
