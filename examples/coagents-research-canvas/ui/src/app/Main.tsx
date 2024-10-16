@@ -27,7 +27,7 @@ export default function Main() {
           <ResearchCanvas />
         </div>
         <div
-          className="w-[400px] h-full flex-shrink-0"
+          className="w-[500px] h-full flex-shrink-0"
           style={
             {
               "--copilot-kit-background-color": "#E0E9FD",
