@@ -2,17 +2,17 @@
 title: "Step 4: Copilot Actions"
 ---
 
-Now it's time to make our copilot even more useful by taking actions.
+Now it's time to make our Copilot even more useful by taking actions.
 
 ## Available Actions
 
 Once again, let's take a look at our app's state in the [`lib/hooks/use-tasks.tsx`](https://github.com/CopilotKit/example-todos-app/blob/base-start-here/lib/hooks/use-tasks.tsx#L19-L33) file.
 
-Essentially, we want our copilot to be able to call the `addTask`, `setTaskStatus` and `deleteTask` functions.
+Essentially, we want our Copilot to be able to call the `addTask`, `setTaskStatus` and `deleteTask` functions.
 
 ## The `useCopilotAction` hook
 
-The [`useCopilotAction`](/reference/hooks/useCopilotAction) hook makes actions available to our copilot. Let's implement it in the [`lib/hooks/use-tasks.tsx`](https://github.com/CopilotKit/example-todos-app/blob/base-start-here/lib/hooks/use-tasks.tsx) file.
+The [`useCopilotAction`](/reference/hooks/useCopilotAction) hook makes actions available to our Copilot. Let's implement it in the [`lib/hooks/use-tasks.tsx`](https://github.com/CopilotKit/example-todos-app/blob/base-start-here/lib/hooks/use-tasks.tsx) file.
 
 ```tsx filename="lib/hooks/use-tasks.tsx" showLineNumbers {3-3,8-22,24-38,40-61}
 // ... the rest of the file
@@ -84,10 +84,10 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
 };
 ```
 
-The `useCopilotAction` hook is a powerful hook that allows us to register actions with our copilot. It takes an object with the following properties:
+The `useCopilotAction` hook is a powerful hook that allows us to register actions with our Copilot. It takes an object with the following properties:
 
 - `name` is the name of the action.
-- `description` is a description of the action. It's important to choose a good description so that our copilot can choose the right action.
+- `description` is a description of the action. It's important to choose a good description so that our Copilot can choose the right action.
 - `parameters` is an array of parameters that the action takes. It follows the [JSON Schema](https://json-schema.org/) format.
 - `handler` is a function that will be called when the action is triggered. It's even type safe!
 
@@ -102,4 +102,4 @@ Now, head back to the app and ask your pilot to do any of the following:
 - "Mark task with ID 2 as done"
 - etc.
 
-Your copilot is now more helpful than ever 💪
+Your Copilot is now more helpful than ever 💪

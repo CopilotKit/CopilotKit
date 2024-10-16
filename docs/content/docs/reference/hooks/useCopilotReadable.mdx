@@ -1,6 +1,6 @@
 ---
 title: "useCopilotReadable"
-description: "The useCopilotReadable hook allows you to provide knowledge to your copilot (e.g. application state)."
+description: "The useCopilotReadable hook allows you to provide knowledge to your Copilot (e.g. application state)."
 ---
 
 `useCopilotReadable` is a React hook that provides app-state and other information
@@ -39,7 +39,7 @@ import { useCopilotReadable } from "@copilotkit/react-core";
 function Employee(props: EmployeeProps) {
   const { employeeName, workProfile, metadata } = props;
  
-  // propagate any information to copilot
+  // propagate any information to Copilot
   const employeeContextId = useCopilotReadable({
     description: "Employee name",
     value: employeeName
