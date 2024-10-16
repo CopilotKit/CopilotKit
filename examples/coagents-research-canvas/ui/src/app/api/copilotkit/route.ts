@@ -12,7 +12,7 @@ const llmAdapter = new OpenAIAdapter({ openai });
 const runtime = new CopilotRuntime({
   remoteActions: [
     {
-      url: "http://localhost:8000/copilotkit",
+      url: process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
     },
   ],
 });
