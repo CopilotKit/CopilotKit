@@ -139,7 +139,7 @@ workflow.add_conditional_edges(
 workflow.add_edge("tools", 'agent')
 workflow.set_finish_point("respond")
 
-basic_agent_app = workflow.compile(checkpointer=MemorySaver())
+basic_agent_graph = workflow.compile(checkpointer=MemorySaver())
 ```
 
 </Accordion>
@@ -217,7 +217,7 @@ Having done this, you should be ready to begin working with this state on the cl
 
 As a simple example, let's start by hooking this data up to one of our built-in chat components, such as `CopilotChat`.
 
-With the `useCoAgentAction` hook, we'll listen for this agent to return a structured weather forecast, and return it as a multiline string.
+With the `useCoAgentRenderState` hook, we'll listen for this agent to return a structured weather forecast, and return it as a multiline string.
 
 <Accordions><Accordion title="View complete React example">
 
@@ -260,10 +260,10 @@ Conditions: ${state.final_response.conditions}, Temperature: ${state.final_respo
 ```
 </Accordion></Accordions>
 
-To render state in the chat window, use the `useCoAgentAction` hook:
+To render state in the chat window, use the `useCoAgentRenderState` hook:
 
 ```tsx
-useCoAgentAction<WeatherAgentState>({
+useCoAgentRenderState<WeatherAgentState>({
   name: "basic_agent", // the agent's name
 
   // render can be a function or a string, just like useCopilotAction
