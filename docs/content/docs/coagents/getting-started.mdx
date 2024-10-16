@@ -136,7 +136,7 @@ Currently, you will need to self-host the CopilotRuntime route in order to use C
     import serviceAdapter from '@/lib/llmAdapter';
 
     const runtime = new CopilotRuntime({
-      remoteActions: [
+      remoteEndpoints: [
         {
           url: `http://localhost:8000/copilotkit_remote`,
         }
@@ -172,7 +172,7 @@ Currently, you will need to self-host the CopilotRuntime route in order to use C
     const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
       const runtime = new CopilotRuntime({
-        remoteActions: [
+        remoteEndpoints: [
           {
             url: `http://localhost:8000/copilotkit_remote`,
           }
@@ -209,7 +209,7 @@ Currently, you will need to self-host the CopilotRuntime route in order to use C
     app.use('/copilotkit', (req, res, next) => {
 
       const runtime = new CopilotRuntime({
-        remoteActions: [
+        remoteEndpoints: [
           {
             url: `http://localhost:8000/copilotkit_remote`,
           }
