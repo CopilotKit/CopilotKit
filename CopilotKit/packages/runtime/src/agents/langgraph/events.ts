@@ -126,7 +126,7 @@ type LangGraphOnChatModelStreamEvent = {
       type: string;
       id: string[];
       kwargs: {
-        content: string;
+        content: string | { text: string; type: string; index: number }[];
         additional_kwargs: {
           tool_calls: {
             index: number;
