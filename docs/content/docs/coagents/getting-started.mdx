@@ -21,7 +21,12 @@ This guide assumes you’re familiar with using LangGraph to build agent workflo
 <Step>
 
 ## Setup a remote endpoint in Python + FastAPI
-CoAgents require you to use a remote endpoint using Python, FastAPI, and the CopilotKit Python SDK; here's a basic example to get you started. To learn more, see our [backend actions docs](/guides/backend-actions/remote-backend-endpoint).
+
+CoAgents require you to use a remote endpoint using Python, FastAPI, and the CopilotKit Python SDK; here's a basic example to get you started.
+
+<Callout>
+If you're starting from scratch or need more information, check out our [remote endpoint docs](/guides/backend-actions/remote-backend-endpoint) for a complete walkthrough.
+</Callout>
 
 In your Python project, install the CopilotKit SDK:
 
@@ -40,14 +45,14 @@ from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from copilotkit import CopilotKitSDK, LangGraphAgent
  
 # Import your LangGraph agent; in this example, it's the variable
-# named `basic_agent_app` in ./agent.py
-from .agent import basic_agent_app
+# named `basic_agent_graph` in ./agent.py
+from .agent import basic_agent_graph
  
 # Initialize the agent for use by CopilotKit; we'll name it "basic_agent"
 basic_agent = LangGraphAgent(
     name="basic_agent",
     description="Agent that asks about the weather",
-    agent=basic_agent_app,
+    agent=basic_agent_graph,
 )
  
 # Next, initialize the SDK, passing in the agent
