@@ -10,7 +10,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const llmAdapter = new OpenAIAdapter({ openai });
 
 const runtime = new CopilotRuntime({
-  remoteActions: [
+  remoteEndpoints: [
     {
       url: "http://localhost:8000/copilotkit",
     },

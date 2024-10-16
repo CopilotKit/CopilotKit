@@ -14,7 +14,7 @@ const BASE_URL = process.env.REMOTE_ACTION_URL || "http://127.0.0.1:8000";
 console.log("BASE_URL", BASE_URL);
 
 const runtime = new CopilotRuntime({
-  remoteActions: [
+  remoteEndpoints: [
     {
       url: `${BASE_URL}/copilotkit`,
     },

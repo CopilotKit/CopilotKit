@@ -10,18 +10,18 @@ import { ActionInput } from "../../graphql/inputs/action.input";
 import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
 import { LangGraphEvent } from "../../agents/langgraph/events";
 
-export type RemoteActionDefinition = RemoteAction | RemoteLangGraphCloudAction;
+export type RemoteEndpointDefinition = RemoteAction | RemoteLangGraphCloudAction;
 
-export enum RemoteActionType {
+export enum RemoteEndpointType {
   Remote = "remote",
   LangGraphCloud = "langgraph-cloud",
 }
 
-export interface BaseRemoteActionDefinition<TActionType extends RemoteActionType> {
+export interface BaseRemoteEndpointDefinition<TActionType extends RemoteEndpointType> {
   type?: TActionType;
 }
 
-export interface RemoteAction extends BaseRemoteActionDefinition<RemoteActionType.Remote> {
+export interface RemoteAction extends BaseRemoteEndpointDefinition<RemoteEndpointType.Remote> {
   url: string;
   onBeforeRequest?: ({ ctx }: { ctx: GraphQLContext }) => {
     headers?: Record<string, string> | undefined;
@@ -35,7 +35,7 @@ export interface RemoteLangGraphAgent {
 }
 
 export interface RemoteLangGraphCloudAction
-  extends BaseRemoteActionDefinition<RemoteActionType.LangGraphCloud> {
+  extends BaseRemoteEndpointDefinition<RemoteEndpointType.LangGraphCloud> {
   deploymentUrl: string;
   langsmithApiKey: string;
   agents: RemoteLangGraphAgent[];
@@ -302,24 +302,24 @@ async function streamResponse(response: Response, eventStream$: ReplaySubject<La
 }
 
 export async function setupRemoteActions({
-  remoteActionDefinitions,
+  remoteEndpointDefinitions,
   graphqlContext,
   messages,
   agentStates,
   frontendUrl,
 }: {
-  remoteActionDefinitions: RemoteActionDefinition[];
+  remoteEndpointDefinitions: RemoteEndpointDefinition[];
   graphqlContext: GraphQLContext;
   messages: Message[];
   agentStates?: AgentStateInput[];
   frontendUrl?: string;
 }): Promise<Action[]> {
   const logger = graphqlContext.logger.child({ component: "remote-actions.fetchRemoteActions" });
-  logger.debug({ remoteActionDefinitions }, "Fetching remote actions");
+  logger.debug({ remoteEndpointDefinitions }, "Fetching from remote endpoints");
 
-  // Remove duplicates of remoteActionDefinitions.url
-  const filtered = remoteActionDefinitions.filter((value, index, self) => {
-    if (value.type === RemoteActionType.LangGraphCloud) {
+  // Remove duplicates of remoteEndpointDefinitions.url
+  const filtered = remoteEndpointDefinitions.filter((value, index, self) => {
+    if (value.type === RemoteEndpointType.LangGraphCloud) {
       return value;
     }
     return index === self.findIndex((t: RemoteAction) => t.url === value.url);
@@ -328,7 +328,7 @@ export async function setupRemoteActions({
   const result = await Promise.all(
     filtered.map(async (actionDefinition) => {
       // Check for properties that can distinguish LG cloud from other actions
-      if (actionDefinition.type === RemoteActionType.LangGraphCloud) {
+      if (actionDefinition.type === RemoteEndpointType.LangGraphCloud) {
         // TODO: Construct LG Cloud remote action
         return;
       }
