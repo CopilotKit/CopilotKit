@@ -285,6 +285,24 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         // add messages to the chat
         else {
           for (const message of messages) {
+            // skip action executions for actions that are not defined in the frontend
+            if (message instanceof ActionExecutionMessage && message.scope === "client") {
+              if (actions.findIndex((action) => action.name === message.name) === -1) {
+                continue;
+              }
+            }
+
+            // skip action results for actions we don't know about
+            if (message instanceof ResultMessage) {
+              const allMessages = [...previousMessages, ...newMessages];
+              if (
+                allMessages.length === 0 ||
+                allMessages[allMessages.length - 1].id !== message.actionExecutionId
+              ) {
+                continue;
+              }
+            }
+
             newMessages.push(message);
             // execute regular action executions
             if (
