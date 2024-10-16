@@ -7,9 +7,8 @@ import { Button } from "./ui/button";
 import { CornerDownLeftIcon } from "lucide-react";
 import { useResearchContext } from "@/lib/research-provider";
 import { motion } from "framer-motion";
-import { useCopilotChat } from "@copilotkit/react-core";
-import { Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { useCoAgent } from "@copilotkit/react-core";
+import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";
 
 const MAX_INPUT_LENGTH = 250;
 
@@ -23,7 +22,12 @@ export function HomeView() {
 
   const handleResearch = (query: string) => {
     setResearchQuery(query);
-    runResearchAgent(query);
+    runResearchAgent(() => {
+      return new TextMessage({
+        role: MessageRole.User,
+        content: query,
+      });
+    });
   };
 
   const suggestions = [
