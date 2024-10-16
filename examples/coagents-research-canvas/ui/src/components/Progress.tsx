@@ -18,7 +18,14 @@ export function Progress({
     <div>
       <div className="border border-slate-200 bg-slate-100/30 shadow-md rounded-lg overflow-hidden text-sm py-2">
         {logs.map((log, index) => (
-          <div key={index} className="flex">
+          <div
+            key={index}
+            className={`flex ${
+              log.done || index === logs.findIndex((log) => !log.done)
+                ? ""
+                : "opacity-50"
+            }`}
+          >
             <div className="w-8">
               <div className="w-4 h-4 bg-slate-700 flex items-center justify-center rounded-full mt-[10px] ml-[12px]">
                 {log.done ? (
