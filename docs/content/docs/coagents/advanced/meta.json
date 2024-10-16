@@ -4,6 +4,7 @@
     "router-mode-agent-lock",
     "exit-agent",
     "state-streaming",
-    "agent-steering"
+    "agent-steering",
+    "manually-emitting-messages"
   ]
 }
