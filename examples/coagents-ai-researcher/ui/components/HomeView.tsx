@@ -25,8 +25,8 @@ export function HomeView() {
     runResearchAgent(() => {
       return new TextMessage({
         role: MessageRole.User,
-        content: query
-      })
+        content: query,
+      });
     });
   };
 
