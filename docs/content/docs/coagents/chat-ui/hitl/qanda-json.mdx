@@ -1,5 +1,5 @@
 ---
-title: HITL with JSON
+title: JSON Responses and Generative UI
 ---
 
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
@@ -10,6 +10,66 @@ Including humans in the loop (HITL) using LangGraph and CoAgentKit is simple, bu
 In this example, we'll build a simple app that can generate and send emails, asking the user to review and confirm each one before sending.
 
 The full source code for this example is available [here on GitHub](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-qa); you can run it locally by following the instructions in the README. The full code includes examples for both OpenAI and Anthropic models; for simplicity, here we'll focus on the OpenAI version.
+
+## Setting up the React frontend
+
+This component uses the `useCopilotAction` hook and its `renderAndWait` argument to give the user an inline, visual UI to confirm or cancel sending an email. This Q&A is rendered inside of a `CopilotPopup` component; most chat interactions are handled out of the box, and we only need to implement visual UI for the specific questions and answers we want to handle.
+
+In the `renderAndWait` function, we use the `handler` argument to send a "CANCEL" or "SEND" message back to the agent when the user clicks the relevant button.
+
+```tsx filename="app/Mailer.tsx"
+"use client";
+
+import { useCopilotAction } from "@copilotkit/react-core";
+import { CopilotPopup } from "@copilotkit/react-ui";
+
+export function Mailer() {
+  useCopilotAction({
+    name: "EmailTool",
+    disabled: true,
+    parameters: [
+      {
+        name: "the_email",
+      },
+    ],
+    renderAndWait: ({ args, status, handler }) => {
+      return (
+        <div className="p-4 bg-gray-100 rounded-lg">
+          <div className="font-bold text-lg mb-2">Send this email?</div>
+          <div className="text-gray-700">{args.the_email}</div>
+          {status === "executing" && (
+            <div className="mt-4 flex justify-end space-x-2">
+              <button
+                onClick={() => handler("CANCEL")}
+                className="px-4 py-2 bg-slate-400 text-white rounded"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handler("SEND")}
+                className="px-4 py-2 bg-blue-500 text-white rounded"
+              >
+                Send
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    },
+  });
+
+  return (
+    <div className="flex flex-col items-center justify-center h-screen">
+      <div className="text-2xl">Email Q&A example</div>
+      <div>e.g. write an email to the CEO of OpenAI asking for a meeting</div>
+
+      <CopilotPopup defaultOpen={true} clickOutsideToClose={false} />
+    </div>
+  );
+}
+```
+
+Having set up the frontend, we can now turn to the Python side to configure the agent.
 
 ## Setting up the Python agent
 
@@ -167,65 +227,6 @@ async def send_email_node(state: EmailAgentState, config: RunnableConfig):
     }
 ```
 
-Having set up the agent, we can now turn to the frontend.
-
-## Our email app's React frontend
-
-This component uses the `useCopilotAction` hook and its `renderAndWait` argument to give the user an inline, visual UI to confirm or cancel sending an email. This Q&A is rendered inside of a `CopilotPopup` component; most chat interactions are handled out of the box, and we only need to implement visual UI for the specific questions and answers we want to handle.
-
-In the `renderAndWait` function, we use the `handler` argument to send a "CANCEL" or "SEND" message back to the agent when the user clicks the relevant button.
-
-```tsx filename="app/Mailer.tsx"
-"use client";
-
-import { useCopilotAction } from "@copilotkit/react-core";
-import { CopilotPopup } from "@copilotkit/react-ui";
-
-export function Mailer() {
-  useCopilotAction({
-    name: "EmailTool",
-    disabled: true,
-    parameters: [
-      {
-        name: "the_email",
-      },
-    ],
-    renderAndWait: ({ args, status, handler }) => {
-      return (
-        <div className="p-4 bg-gray-100 rounded-lg">
-          <div className="font-bold text-lg mb-2">Send this email?</div>
-          <div className="text-gray-700">{args.the_email}</div>
-          {status === "executing" && (
-            <div className="mt-4 flex justify-end space-x-2">
-              <button
-                onClick={() => handler("CANCEL")}
-                className="px-4 py-2 bg-slate-400 text-white rounded"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handler("SEND")}
-                className="px-4 py-2 bg-blue-500 text-white rounded"
-              >
-                Send
-              </button>
-            </div>
-          )}
-        </div>
-      );
-    },
-  });
-
-  return (
-    <div className="flex flex-col items-center justify-center h-screen">
-      <div className="text-2xl">Email Q&A example</div>
-      <div>e.g. write an email to the CEO of OpenAI asking for a meeting</div>
-
-      <CopilotPopup defaultOpen={true} clickOutsideToClose={false} />
-    </div>
-  );
-}
-```
 
 Here's the code in action:
 
