@@ -39,7 +39,7 @@ To integrate a Python backend with your CopilotKit application, set up your proj
     
     <Tab value="pip">
     
-    #### Set Up a Virtual Environment
+    #### Set Up a Virtual Environment (optional)
     
     Create and activate a virtual environment using `venv`:
     
@@ -163,7 +163,7 @@ python server.py
 </Steps>
 
 
-## Connect your instance of the CopilotRuntime to the remote endpoint:
+## Connect your app to the remote endpoint
 
 Now that you've set up your FastAPI server with the backend actions, integrate it into your CopilotKit application by modifying your `CopilotRuntime` configuration.
 
@@ -175,7 +175,7 @@ Now that you've set up your FastAPI server with the backend actions, integrate i
 
 <Step>
 
-Then, update your `CopilotRuntime` to include the `remoteActions`:
+Update the `CopilotRuntime` config to include the `remoteActions` property:
 
 ```tsx
 const runtime: CopilotRuntimeConfig = {
