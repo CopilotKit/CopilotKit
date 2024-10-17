@@ -13,8 +13,9 @@ export function RenderAgentStateMessage(props: RenderMessageProps) {
 
     if (chatComponentsCache.current !== null) {
       render =
-        chatComponentsCache.current.coagentActions[`${message.agentName}-${message.nodeName}`] ||
-        chatComponentsCache.current.coagentActions[`${message.agentName}-global`];
+        chatComponentsCache.current.coAgentStateRenders[
+          `${message.agentName}-${message.nodeName}`
+        ] || chatComponentsCache.current.coAgentStateRenders[`${message.agentName}-global`];
     }
 
     if (render) {
