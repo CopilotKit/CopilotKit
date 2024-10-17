@@ -252,7 +252,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     request: CopilotRuntimeRequest,
   ): Promise<CopilotRuntimeResponse> {
     const { messages: rawMessages, outputMessagesPromise, graphqlContext, agentSession } = request;
-    const { threadId = randomId(), agentName, nodeName } = agentSession;
+    const { threadId, agentName, nodeName } = agentSession;
     const serverSideActions = await this.getServerSideActions(request);
 
     const messages = convertGqlInputToMessages(rawMessages);
