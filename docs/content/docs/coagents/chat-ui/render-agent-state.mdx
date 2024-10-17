@@ -1,7 +1,8 @@
 ---
-title: Working with agent state
+title: Using agent state in chat
 description: How to connect your local UI to remote data for powerful workflows
 ---
+
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
 import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
 
@@ -138,7 +139,7 @@ workflow.add_conditional_edges(
 workflow.add_edge("tools", 'agent')
 workflow.set_finish_point("respond")
 
-basic_agent_app = workflow.compile(checkpointer=MemorySaver())
+basic_agent_graph = workflow.compile(checkpointer=MemorySaver())
 ```
 
 </Accordion>
@@ -216,14 +217,14 @@ Having done this, you should be ready to begin working with this state on the cl
 
 As a simple example, let's start by hooking this data up to one of our built-in chat components, such as `CopilotChat`.
 
-With the `useCoAgentAction` hook, we'll listen for this agent to return a structured weather forecast, and return it as a multiline string.
+With the `useCoagentStateRender` hook, we'll listen for this agent to return a structured weather forecast, and return it as a multiline string.
 
 <Accordions><Accordion title="View complete React example">
 
 ```tsx
 "use client";
 
-import { useCoAgentAction } from "@copilotkit/react-core";
+import { useCoagentStateRender } from "@copilotkit/react-core";
 import { CopilotChat } from "@copilotkit/react-ui";
 
 interface WeatherAgentState {
@@ -238,7 +239,7 @@ interface WeatherAgentState {
 }
 
 export function SimpleWeatherChat() {
-  useCoAgentAction<WeatherAgentState>({
+  useCoagentStateRender<WeatherAgentState>({
     name: "basic_agent",
     render: ({ status, state, nodeName }) => {
       return `
@@ -259,10 +260,10 @@ Conditions: ${state.final_response.conditions}, Temperature: ${state.final_respo
 ```
 </Accordion></Accordions>
 
-To render state in the chat window, use the `useCoAgentAction` hook:
+To render state in the chat window, use the `useCoagentStateRender` hook:
 
 ```tsx
-useCoAgentAction<WeatherAgentState>({
+useCoagentStateRender<WeatherAgentState>({
   name: "basic_agent", // the agent's name
 
   // render can be a function or a string, just like useCopilotAction
@@ -279,7 +280,7 @@ Then, when you tell the chatbot where you'd like to see a weather forecast for, 
 The render function can return any valid React node; if you'd rather display a formatted response, that's easy too:
 
 ```tsx
-useCoAgentAction<WeatherAgentState>({
+useCoagentStateRender<WeatherAgentState>({
   name: "basic_agent", // the agent's name
 
   // render can be a function or a string, just like useCopilotAction
@@ -291,32 +292,6 @@ useCoAgentAction<WeatherAgentState>({
       </div>
     )
   }
-});
-```
-
-## Even more control over agent state
-
-If you need even greater control over how your agent state is managed, you can use the `useCoAgent` hook, which gives you access to the state and a function to update it similar to how you'd use the `useState` hook in React:
-
-```tsx
-const { state: weatherAgentState, setState: setWeatherAgentState } = useCoAgent<WeatherAgentState>({
-  name: "basic_agent",
-  // optionally provide an initial state
-  initialState: { input: "New York City" }
-});
-```
-
-The `weatherAgentState` object will update with the latest state from your agent even while updates are streaming in from the agent, making it easy to show your users the current state of the agent as it runs.
-
-You can even pass your own state management functions to the agent, for maximum control over how the frontend and backend interact.
-
-```tsx
-useCoAgent<WeatherAgentState>({
-  name: "basic_agent",
-
-  // provide your own state management
-  state: weatherAgentState,
-  setState: setWeatherAgentState,
 });
 ```
 

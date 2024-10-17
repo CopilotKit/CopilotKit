@@ -1,0 +1,44 @@
+---
+title: "LangServe actions"
+description: "Connect your CopilotKit application to LangChain chains hosted as separate services using LangServe."
+---
+import FindCopilotRuntimeSnippet from "@/snippets/find-your-copilot-runtime.mdx";
+
+<Steps>
+
+<Step>
+<FindCopilotRuntimeSnippet />
+</Step>
+
+<Step>
+### Modify CopilotRuntime to include LangServe integration
+
+Once you've located your `CopilotRuntime`, you can add LangServe integration by returning an array of LangServe function sources in the `langserve` property.
+
+**Note that the input and output types of the chain will be automatically fetched from LangServe -- no need to specify them manually!**
+
+Here's how to implement LangServe integration:
+
+```tsx title="/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  // ... existing configuration
+  langserve: [ // [!code highlight:7]
+    {
+      chainUrl: "http://my-langserve.chain",
+      name: "performResearch",
+      description: "Performs research on a given topic.",
+    },
+  ],
+});
+
+// ... rest of your route definition
+```
+</Step>
+
+<Step>
+### Test your implementation
+
+After adding the LangServe integration, test it by asking the copilot to perform research on a topic. Observe how it connects to the external LangServe chain and returns the results.
+</Step>
+
+</Steps>
