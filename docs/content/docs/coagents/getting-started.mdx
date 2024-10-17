@@ -5,271 +5,102 @@ description: "Get started with CoAgents in just a few minutes."
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 import LLMAdapters from "@/snippets/llm-adapters.mdx";
+import { CoAgentsDiagram }  from "@/components/react/coagents/coagents-diagram.tsx";
+
 
 ## Before you start
 
-These docs assume you’ve been introduced to CopilotKit’s core concepts and components. If you’re new to CopilotKit, take a minute to go through the quickstart and [learn how to integrate CopilotKit into a React app](/quickstart).
+At the moment CoAgents integrates with LangGraph-powered agents using **LangGraph-Python**. <br/>
+(Support for LangGraph.js and LangGraph Cloud is coming soon!)
 
-Also, at the moment CoAgents integrates with LangGraph-powered agents using their Python SDK. (Support for LangGraph JS and LangGraph Cloud are coming soon!)
 
+**For orientation, here's how CoAgents are wired:**
+
+<CoAgentsDiagram />
+
+
+<Callout type="info">
 This guide assumes you’re familiar with using LangGraph to build agent workflows. If you need a quick introduction, check out [this brief example from the LangGraph docs](https://docs.langgraph.ai/quickstart).
+</Callout>
+
+
+
+
+
+## Getting started
 
 <Steps>
 
+<Step>
+
+First, take a minute to **[go through the CopilotKit quickstart](/quickstart), and integrate CopilotKit into your React app.**
+This should only take a minute.
+
+</Step>
+
+<Step>
+Then, setup a CopilotKit Remote-Endpoint using FastAPI. This endpoint will serve your LangGraph agent.
+Follow the [Remote Endpoint quickstart](/guides/backend-actions/remote-backend-endpoint).
+</Step>
 
 
 <Step>
 
-## Setup a remote endpoint in Python + FastAPI
 
-CoAgents require you to use a remote endpoint using Python, FastAPI, and the CopilotKit Python SDK; here's a basic example to get you started.
+## Connect your FastAPI Remote Endpoint to a LangGraph agent
 
-<Callout>
-If you're starting from scratch or need more information, check out our [remote endpoint docs](/guides/backend-actions/remote-backend-endpoint) for a complete walkthrough.
-</Callout>
 
-In your Python project, install the CopilotKit SDK:
+At this point you should have CopilotKit hooked into your application, connected to a FastAPI Remote Endpoint.
 
-```bash
-pip install copilotkit --extra-index-url https://copilotkit.gateway.scarf.sh/simple/
-```
+The next step is to configure the Remote Endpoint to serve LangGraph agents.
 
-Then set up or update your FastAPI server to initialize our SDK and connect it to your LangGraph agent. In this example, we’re assuming a basic agent workflow is being exported from `agent.py` in the same directory as this server script.
+**Modify your server.py file (setup in step (2)) to serve LangGraph agents:**
 
-```python filename="server.py" showLineNumbers
+```python title="server.py"
 from fastapi import FastAPI
-app = FastAPI()
- 
-# Import CopilotKit SDK and integrations
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from copilotkit import CopilotKitSDK, LangGraphAgent
- 
+
+app = FastAPI()
+
 # Import your LangGraph agent; in this example, it's the variable
 # named `basic_agent_graph` in ./agent.py
 from .agent import basic_agent_graph
- 
+
 # Initialize the agent for use by CopilotKit; we'll name it "basic_agent"
-basic_agent = LangGraphAgent(
+basic_agent = LangGraphAgent( // [!code highlight:4]
     name="basic_agent",
     description="Agent that asks about the weather",
     agent=basic_agent_graph,
 )
- 
-# Next, initialize the SDK, passing in the agent
-sdk = CopilotKitSDK(
-    agents=[
-        basic_agent
-    ],
-)
- 
-# Finally, add the remote actions endpoint to this API
-add_fastapi_endpoint(app, sdk, "/copilotkit_remote")
-```
 
+# Initialize the CopilotKit SDK
+sdk = CopilotKitSDK(agents=[basic_agent]) [!code highlight:1]
+
+# Add the CopilotKit endpoint to your FastAPI app
+add_fastapi_endpoint(app, sdk, "/copilotkit_remote")
+
+def main():
+    """Run the uvicorn server."""
+    import uvicorn
+    uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=True)
+
+```
 Remember the name `basic_agent` as well as our API endpoint URL (`http://localhost:8000/copilotkit_remote`), we'll need them as we move on to integrating this agent into the frontend.
 
 </Step>
 
 
-<Step>
-## Self-host the Copilot Runtime
-
-To use your remote agent service, you’ll also need to self-host the CopilotRuntime service. (Support for CopilotCloud is coming soon.)
-
-### Configure an AI service adapter
-
-First, we’ll create a new module file to initialize a runtime adapter for our LLM of choice, which we’ll put at `src/lib/serviceAdapter.ts`.
-
-
-<Tabs items={['OpenAI', 'Anthropic', 'Other LLM Providers']}>
-
-<Tab value="OpenAI">
-
-Create a `.env` file in the root of your project, if you haven't already, and add your OpenAI API key.
-
-```plaintext filename=".env"
-OPENAI_API_KEY=your_api_key_here
-```
-
-<Callout type="warning" title="Do you have a paid API key?">
-  Please note that the code below uses GPT-4o, which requires a paid OpenAI API key.
-  **If you are using a free OpenAI API key**, change the model to a different option such as "gpt-3.5-turbo".
-</Callout>
-
-Then create a new file called `src/lib/llmAdapter.ts`:
-
-```ts filename="src/lib/llmAdapter.ts"
-import OpenAI from 'openai';
-import { OpenAIAdapter } from '@copilotkit/runtime';
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-const openaiAdapter = new OpenAIAdapter({ 
-  openai,
-  model: "gpt-4o"
-});
-
-export default openaiAdapter
-```
-</Tab>
-
-<Tab value="Anthropic">
-Create a `.env` file in the root of your project, if you haven't already, and add your Anthropic API key.
-
-```plaintext filename=".env"
-ANTHROPIC_API_KEY=your_api_key_here
-```
-
-Then create a new file called `src/lib/llmAdapter.ts`:
-
-```ts filename="src/lib/llmAdapter.ts"
-import Anthropic from '@anthropic-ai/sdk';
-import { AnthropicAdapter } from '@copilotkit/runtime';
-
-const anthropic = new Anthropic({
-  apiKey: 'my_api_key', // defaults to process.env["ANTHROPIC_API_KEY"]
-});
-
-const anthropicAdapter = new AnthropicAdapter({ anthropic });
-
-export default anthropicAdapter
-```
-</Tab>
-
-<Tab value="Other LLM Providers">
-  To use a different LLM provider, you can follow the `OpenAI` instructions, but adapt them to use one of the other available LLM adapters listed below:
-
-  <LLMAdapters />
-</Tab>
-
-</Tabs>
-
-### Add a CopilotRuntime endpoint to your app
-
-Next, you'll use the service adapter you created above to initialize a `CopilotRuntime` instance and add a new route to your app. Here are some examples for the most common Node server frameworks:
-
-<Tabs items={['Next.js App Router', 'Next.js Pages Router', 'Node.js Express']}>
-
-  {/* Next.js App Router */}
-  <Tab value="Next.js App Router">
-    Next, create a new server route which will make the `CopilotRuntime` available at `/api/copilotkit` and ready to work with remote actions provided by our Python app.
-    
-    Create a new file at `src/app/api/copilotkit/route.ts` and add this code:
-
-    ```ts filename="app/api/copilotkit/route.ts" showLineNumbers
-    import {
-      CopilotRuntime,
-      copilotRuntimeNextJSAppRouterEndpoint,
-    } from '@copilotkit/runtime';
-    import { NextRequest } from 'next/server';
-    import serviceAdapter from '@/lib/llmAdapter';
-
-    const runtime = new CopilotRuntime({
-      remoteActions: [
-        {
-          url: `http://localhost:8000/copilotkit_remote`,
-        }
-      ]
-    });
-
-    export const POST = async (req: NextRequest) => {
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        runtime,
-        serviceAdapter,
-        endpoint: '/api/copilotkit',
-      });
-
-      return handleRequest(req);
-    };
-    ```
-  </Tab>
-
-  {/* Next.js Pages Router */}
-  <Tab value="Next.js Pages Router">
-    Next, create a new server route which will make the `CopilotRuntime` available at `/api/copilotkit` and ready to work with remote actions provided by our Python app.
-    
-    Create a new file at `src/pages/api/copilotkit.ts` and add this code:
-
-    ```ts filename="pages/api/copilotkit.ts" showLineNumbers
-    import { NextApiRequest, NextApiResponse } from 'next';
-    import {
-      CopilotRuntime,
-      copilotRuntimeNextJSPagesRouterEndpoint,
-    } from '@copilotkit/runtime';
-    import serviceAdapter from '@/lib/llmAdapter';
-
-    const handler = async (req: NextApiRequest, res: NextApiResponse) => {
-
-      const runtime = new CopilotRuntime({
-        remoteActions: [
-          {
-            url: `http://localhost:8000/copilotkit_remote`,
-          }
-        ]
-      });
-
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        runtime,
-        serviceAdapter,
-        endpoint: '/api/copilotkit',
-      });
-
-      return await handleRequest(req, res);
-    };
-
-    export default handler;
-    ```
-  </Tab>
-
-  {/* Node.js Express */}
-  <Tab value="Node.js Express">
-    Next, create a new route handler which will make the `CopilotRuntime` available at `/copilotkit` and ready to work with remote actions provided by our Python app:
-
-    ```ts filename="server.ts" showLineNumbers
-    import express from 'express';
-    import {
-      CopilotRuntime,
-      copilotRuntimeNodeHttpEndpoint,
-    } from '@copilotkit/runtime';
-    import llmAdapter from '@/lib/llmAdapter';
-
-    const app = express();
-
-    app.use('/copilotkit', (req, res, next) => {
-
-      const runtime = new CopilotRuntime({
-        remoteActions: [
-          {
-            url: `http://localhost:8000/copilotkit_remote`,
-          }
-        ]
-      });
-      
-      const handler = copilotRuntimeNodeHttpEndpoint({
-        endpoint: '/copilotkit',
-        runtime,
-        serviceAdapter: llmAdapter,
-      });
-
-      return handler(req, res, next);
-    });
-
-    app.listen(4000, () => {
-      console.log('Listening at http://localhost:4000/copilotkit');
-    });
-    ```
-  </Tab>
-</Tabs>
-
-
-</Step>
-
 
 <Step>
 
-## Integrate agents into your CopilotKit frontend app
+## Agent-lock your Copilot to the `base_agent` agent.
 
-Once you've set up your agents, registered them with CopilotKit on the Python side, and mounted the CopilotRuntime within your app, all that's left is to hook this up to your frontend using the `<CopilotKit />` component.
+CopilotKit supports router-mode as well as agent-lock mode. For more detail see [router-mode / agent-mode](/coagents/advanced/router-mode-agent-lock).
+
+For simplicity, wel'll use agent-lock mode in these tutorials, but in production use-cases you will likely want to use router-mode.
+
+Lock the Copilot to the `basic_agent` setup earlier. This means every single interaction with the Copilot will be forwarded to the locked agent.
 
 ```tsx filename="src/page.tsx"
 // This UI will now invoke our AI agent, not just the LLM
@@ -283,12 +114,10 @@ Once you've set up your agents, registered them with CopilotKit on the Python si
 </CopilotKit>
 ```
 
-By passing in the `agent` prop, we're telling CopilotKit to go into "agent lock" mode, and only use the `basic_agent` we set up earlier. To customize this behavior, see our docs about [router mode](/coagents/advanced/router-mode-agent-lock).
-
-Any of CopilotKit's pre-built components can be used to interact with CoAgents, and you can also use agent-specific hooks in your custom UI components to enable powerful new workflows.
-
 </Step>
 </Steps>
+
+🎉 Congrats! You've successfully integrated a LangGraph agent chatbot to your application! Give it a try now and see it in action.
 
 
 
