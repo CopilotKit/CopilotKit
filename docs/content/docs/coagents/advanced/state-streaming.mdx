@@ -1,5 +1,5 @@
 ---
-title: "Streaming state to the frontend"
+title: "Managing state streaming"
 ---
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
 
@@ -127,7 +127,9 @@ Note that you'll also need to interrupt the execution of the LangGraph agent so 
 
 ### Disabling state streaming
 
-- LLM may be doing something the user should not see
+Occasionally, you'll want to disable streaming temporarily — for example, the LLM may be doing something the current user should not see, like emitting tool calls or questions pertaining to other employees in an HR system.
+
+You can pass `emit_messages=False` in these cases, which will suppress any messages from being sent to the client from this LLM call.
 
 ```python
 from copilotkit.langchain import copilotkit_customize_config
@@ -150,6 +152,8 @@ def frontend_actions_node(state: AgentState, config: RunnableConfig):
     "messages": [response]
   }
 ```
+
+The current state that the user is allowed to see will be returned at the end of this method call, and subsequent LLM calls can re-enable streaming with `emit_messages=True`.
 
 
 <CoAgentsEnterpriseCTA />
