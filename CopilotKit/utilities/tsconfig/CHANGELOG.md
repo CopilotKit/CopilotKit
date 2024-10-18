@@ -1,5 +1,11 @@
 # tsconfig
 
+## 1.3.6-pre-1-3-6.0
+
+### Patch Changes
+
+- Rename useCoAgentStateRender
+
 ## 1.3.5
 
 ### Patch Changes
