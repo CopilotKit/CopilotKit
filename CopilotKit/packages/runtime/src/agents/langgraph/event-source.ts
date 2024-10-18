@@ -5,6 +5,7 @@ import { randomId } from "@copilotkit/shared";
 
 interface LangGraphEventWithState {
   event: LangGraphEvent | null;
+  content: string | null;
   toolCallName: string | null;
   toolCallId: string | null;
   toolCallMessageId: string | null;
@@ -92,6 +93,17 @@ export class RemoteLangGraphEventSource {
       scan(
         (acc, event) => {
           if (event.event === LangGraphEventTypes.OnChatModelStream) {
+            if (typeof event.data?.chunk?.kwargs?.content === "string") {
+              acc.content = event.data?.chunk?.kwargs?.content;
+            } else if (
+              Array.isArray(event.data?.chunk?.kwargs?.content) &&
+              event.data?.chunk?.kwargs?.content.length > 0
+            ) {
+              acc.content = event.data?.chunk?.kwargs?.content[0].text;
+            } else {
+              acc.content = null;
+            }
+
             if (event.data?.chunk?.kwargs?.tool_call_chunks) {
               acc.prevToolCallMessageId = acc.toolCallMessageId;
               acc.toolCallMessageId = event.data.chunk.kwargs?.id;
@@ -101,9 +113,12 @@ export class RemoteLangGraphEventSource {
               if (event.data.chunk.kwargs.tool_call_chunks[0]?.id) {
                 acc.toolCallId = event.data.chunk.kwargs.tool_call_chunks[0].id;
               }
+              acc.prevMessageId = acc.messageId;
+              acc.messageId = event.data?.chunk?.kwargs?.id;
+            } else if (acc.content && acc.content != "") {
+              acc.prevMessageId = acc.messageId;
+              acc.messageId = event.data?.chunk?.kwargs?.id;
             }
-            acc.prevMessageId = acc.messageId;
-            acc.messageId = event.data?.chunk?.kwargs?.id;
           } else {
             acc.prevToolCallMessageId = acc.toolCallMessageId;
             acc.toolCallMessageId = null;
@@ -124,6 +139,7 @@ export class RemoteLangGraphEventSource {
           messageId: null,
           toolCallName: null,
           prevMessageId: null,
+          content: null,
         } as LangGraphEventWithState,
       ),
       mergeMap((eventWithState): RuntimeEvent[] => {
@@ -248,7 +264,7 @@ export class RemoteLangGraphEventSource {
             }
 
             const args = eventWithState.event.data?.chunk?.kwargs?.tool_call_chunks?.[0]?.args;
-            const content = eventWithState.event.data?.chunk?.kwargs?.content;
+            const content = eventWithState.content;
 
             // Tool call args: emit ActionExecutionArgs
             if (args) {
