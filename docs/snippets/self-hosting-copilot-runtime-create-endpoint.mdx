@@ -111,6 +111,10 @@ OPENAI_API_KEY=your_api_key_here
     ```
 
     Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
+
+    <Callout type="warn">
+    Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
+    </Callout>
     </Tab>
 
   {/* Node.js HTTP */}
@@ -146,6 +150,10 @@ OPENAI_API_KEY=your_api_key_here
     ```
 
     Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
+
+    <Callout type="warn">
+    Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
+    </Callout>
   </Tab>
 
   {/* NestJS */}
@@ -154,23 +162,31 @@ OPENAI_API_KEY=your_api_key_here
 
     ```ts title="copilotkit.controller.ts"
     import { All, Controller, Req, Res } from '@nestjs/common';
-    import { CopilotRuntime, OpenAIAdapter } from '@copilotkit/runtime';
-    import OpenAI from 'openai';
+    import { CopilotRuntime, copilotRuntimeNestEndpoint, OpenAIAdapter } from '@copilotkit/runtime';
+    import { Request, Response } from 'express';
 
     @Controller()
-    export class AppController {
+    export class CopilotkitController {
       @All('/copilotkit')
       copilotkit(@Req() req: Request, @Res() res: Response) {
-        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const serviceAdapter = new OpenAIAdapter({ openai });
+        const serviceAdapter = new OpenAIAdapter();
         const runtime = new CopilotRuntime();
 
-        runtime.streamHttpServerResponse(req, res, serviceAdapter);
+        const handler = copilotRuntimeNestEndpoint({
+          runtime,
+          serviceAdapter,
+          endpoint: '/copilotkit',
+        });
+        return handler(req, res);
       }
     }
     ```
 
     Your Copilot Runtime endpoint should be available at `http://localhost:3000/copilotkit`.
+
+    <Callout type="warn">
+    Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
+    </Callout>
   </Tab>
 </Tabs>
 
