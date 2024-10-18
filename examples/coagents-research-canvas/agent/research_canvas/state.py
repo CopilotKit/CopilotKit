@@ -8,9 +8,11 @@ from langgraph.graph import MessagesState
 
 class Resource(TypedDict):
     """
-    Represents a resource.
+    Represents a resource. Give it a good title and a short description.
     """
     url: str
+    title: str
+    description: str
 
 class Log(TypedDict):
     """

@@ -18,8 +18,6 @@ export function ResultsView() {
     name: "search_agent",
   });
 
-  console.log("AGENT_STATE", agentState);
-
   const steps =
     agentState?.steps?.map((step: any) => {
       return {

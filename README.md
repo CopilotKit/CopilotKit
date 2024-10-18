@@ -124,7 +124,7 @@ There are several easy ways to get started with CopilotKit:
   <tr>
     <td align="center" valign="top">
       🕹️ Banking App + Copilot<br/>
-      <a href="https://github.com/CopilotKit/demo-banking">https://github.com/CopilotKit/demo-presentation-voice</a> <br/><br>
+      <a href="https://github.com/CopilotKit/demo-banking">https://github.com/CopilotKit/demo-banking</a> <br/><br>
       <a href="https://github.com/CopilotKit/demo-banking">
         <img alt="Banking-Demo" src="https://github.com/CopilotKit/demo-banking/blob/main/assets/project-preview.png?raw=true" width="240px" style="max-width:100%; border-radius: 10px;"/>
       </a>

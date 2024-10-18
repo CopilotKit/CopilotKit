@@ -1,8 +1,13 @@
 # CoAgents Research Canvas Example
 
-**These instructions assume you are in the `coagents-research-canvas/` directory**
+Live demo: https://examples-coagents-research-canvas-ui.vercel.app/
+
+---
 
 ## Running the Agent
+
+**These instructions assume you are in the `coagents-research-canvas/` directory**
+
 
 First, install the dependencies:
 
