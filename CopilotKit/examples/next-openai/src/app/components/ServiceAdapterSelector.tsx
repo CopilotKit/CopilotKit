@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useSearchParams } from "next/navigation";
 
@@ -15,7 +15,7 @@ export function ServiceAdapterSelector() {
     const url = new URL(window.location.href);
     url.searchParams.set("serviceAdapter", value);
     window.location.href = url.toString();
-  }
+  };
 
   return (
     <div className="fixed bottom-0 p-4">
@@ -30,5 +30,5 @@ export function ServiceAdapterSelector() {
         </select>
       </div>
     </div>
-  )
+  );
 }
