@@ -1,11 +1,10 @@
 "use client";
 
-import { CopilotKit, useCopilotReadable } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotPopup, CopilotSidebar } from "@copilotkit/react-ui";
+import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
 import "./styles.css";
 import { Presentation } from "./components/main/Presentation";
 import { useState } from "react";
-import { ServiceAdapterSelector } from "../components/ServiceAdapterSelector";
 import { useSearchParams } from "next/navigation";
 
 export default function AIPresentation() {
@@ -13,7 +12,7 @@ export default function AIPresentation() {
   const searchParams = useSearchParams();
   const serviceAdapter = searchParams.get("serviceAdapter") || "openai";
   const runtimeUrl =
-    process.env["NEXT_PUBLIC_COPILOTKIT_RUNTIME_URL"] ?? `/api/copilotkit/${serviceAdapter}`;
+    process.env["NEXT_PUBLIC_COPILOTKIT_RUNTIME_URL"] ?? `/api/copilotkit/presentation?serviceAdapter=${serviceAdapter}`;
 
   const copilotKitProps = {
     transcribeAudioUrl: "/api/transcribe",
@@ -53,7 +52,6 @@ export default function AIPresentation() {
             />
           </div>
         </CopilotSidebar>
-        <ServiceAdapterSelector />
       </div>
     </CopilotKit>
   );

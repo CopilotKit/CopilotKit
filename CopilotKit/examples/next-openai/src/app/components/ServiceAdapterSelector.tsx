@@ -18,7 +18,7 @@ export function ServiceAdapterSelector() {
   };
 
   return (
-    <div className="fixed bottom-0 p-4">
+    <div className="fixed bottom-0 p-4 z-50">
       <div className="bg-white shadow-md border-black/50 border p-2 rounded-md text-black">
         <select value={serviceAdapter} onChange={handleChange}>
           <option value="openai">OpenAI</option>

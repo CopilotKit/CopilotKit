@@ -3,37 +3,15 @@ import {
   OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { researchWithLangGraph } from "./research";
-import { Action } from "@copilotkit/shared";
 import { NextRequest } from "next/server";
-
-const researchAction = {
-  name: "research",
-  description:
-    "Call this function to conduct research on a certain topic. Respect other notes about when to call this function",
-  parameters: [
-    {
-      name: "topic",
-      type: "string",
-      description: "The topic to research. 5 characters or longer.",
-    },
-  ],
-  handler: async ({ topic }) => {
-    console.log("Researching topic: ", topic);
-    return await researchWithLangGraph(topic);
-  },
-};
+import { getServiceAdapter } from "../../../../lib/dynamic-service-adapter";
 
 export const POST = async (req: NextRequest) => {
-  const serviceAdapter = new OpenAIAdapter();
-
-  const env = process.env;
-  const actions: Action<any>[] = [];
-  if (env["TAVILY_API_KEY"]) {
-    actions.push(researchAction);
-  }
-  const runtime = new CopilotRuntime({ actions });
-
+  const { searchParams } = req.nextUrl;
+  const serviceAdapterQueryParam = searchParams.get("serviceAdapter") || "openai";
+  const serviceAdapter = await getServiceAdapter(serviceAdapterQueryParam);
+  
+  const runtime = new CopilotRuntime({});
   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
     runtime,
     serviceAdapter,
