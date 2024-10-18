@@ -12,35 +12,35 @@ import {
   createHeaders,
 } from "./remote-action-constructors";
 
-export type RemoteEndpointDefinition = RemoteAction | RemoteLangGraphCloudAction;
+export type EndpointDefinition = CopilotKitEndpoint | LangGraphCloudEndpoint;
 
-export enum RemoteEndpointType {
-  Remote = "remote",
+export enum EndpointType {
+  CopilotKit = "copilotKit",
   LangGraphCloud = "langgraph-cloud",
 }
 
-export interface BaseRemoteEndpointDefinition<TActionType extends RemoteEndpointType> {
+export interface BaseEndpointDefinition<TActionType extends EndpointType> {
   type?: TActionType;
 }
 
-export interface RemoteAction extends BaseRemoteEndpointDefinition<RemoteEndpointType.Remote> {
+export interface CopilotKitEndpoint extends BaseEndpointDefinition<EndpointType.CopilotKit> {
   url: string;
   onBeforeRequest?: ({ ctx }: { ctx: GraphQLContext }) => {
     headers?: Record<string, string> | undefined;
   };
 }
 
-export interface RemoteLangGraphAgent {
+export interface LangGraphCloudAgent {
   name: string;
   description: string;
   assistantId?: string;
 }
 
-export interface RemoteLangGraphCloudAction
-  extends BaseRemoteEndpointDefinition<RemoteEndpointType.LangGraphCloud> {
+export interface LangGraphCloudEndpoint
+  extends BaseEndpointDefinition<EndpointType.LangGraphCloud> {
   deploymentUrl: string;
   langsmithApiKey: string;
-  agents: RemoteLangGraphAgent[];
+  agents: LangGraphCloudAgent[];
 }
 
 export type RemoteActionInfoResponse = {
@@ -74,7 +74,7 @@ async function fetchRemoteInfo({
   frontendUrl,
 }: {
   url: string;
-  onBeforeRequest?: RemoteAction["onBeforeRequest"];
+  onBeforeRequest?: CopilotKitEndpoint["onBeforeRequest"];
   graphqlContext: GraphQLContext;
   logger: Logger;
   frontendUrl?: string;
@@ -116,7 +116,7 @@ export async function setupRemoteActions({
   agentStates,
   frontendUrl,
 }: {
-  remoteEndpointDefinitions: RemoteEndpointDefinition[];
+  remoteEndpointDefinitions: EndpointDefinition[];
   graphqlContext: GraphQLContext;
   messages: Message[];
   agentStates?: AgentStateInput[];
@@ -127,43 +127,43 @@ export async function setupRemoteActions({
 
   // Remove duplicates of remoteEndpointDefinitions.url
   const filtered = remoteEndpointDefinitions.filter((value, index, self) => {
-    if (value.type === RemoteEndpointType.LangGraphCloud) {
+    if (value.type === EndpointType.LangGraphCloud) {
       return value;
     }
-    return index === self.findIndex((t: RemoteAction) => t.url === value.url);
+    return index === self.findIndex((t: CopilotKitEndpoint) => t.url === value.url);
   });
 
   const result = await Promise.all(
-    filtered.map(async (actionDefinition) => {
+    filtered.map(async (endpoint) => {
       // Check for properties that can distinguish LG cloud from other actions
-      if (actionDefinition.type === RemoteEndpointType.LangGraphCloud) {
+      if (endpoint.type === EndpointType.LangGraphCloud) {
         return constructLGCRemoteAction({
-          action: actionDefinition,
+          endpoint,
           messages,
           graphqlContext,
           logger: logger.child({
             component: "remote-actions.constructLGCRemoteAction",
-            actionDefinition,
+            endpoint,
           }),
           agentStates,
         });
       }
 
       const json = await fetchRemoteInfo({
-        url: actionDefinition.url,
-        onBeforeRequest: actionDefinition.onBeforeRequest,
+        url: endpoint.url,
+        onBeforeRequest: endpoint.onBeforeRequest,
         graphqlContext,
-        logger: logger.child({ component: "remote-actions.fetchActionsFromUrl", actionDefinition }),
+        logger: logger.child({ component: "remote-actions.fetchActionsFromUrl", endpoint }),
         frontendUrl,
       });
 
       return constructRemoteActions({
         json,
         messages,
-        url: actionDefinition.url,
-        onBeforeRequest: actionDefinition.onBeforeRequest,
+        url: endpoint.url,
+        onBeforeRequest: endpoint.onBeforeRequest,
         graphqlContext,
-        logger: logger.child({ component: "remote-actions.constructActions", actionDefinition }),
+        logger: logger.child({ component: "remote-actions.constructActions", endpoint }),
         agentStates,
       });
     }),
