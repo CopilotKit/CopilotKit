@@ -24,7 +24,7 @@ export function ServiceAdapterSelector() {
           <option value="openai">OpenAI</option>
           <option value="anthropic">Anthropic</option>
           <option value="gemini">Gemini</option>
-          <option value="azure">Azure</option>
+          {/* <option value="azure">Azure</option> */}
           <option value="langchain">LangChain</option>
           <option value="groq">Groq</option>
         </select>
