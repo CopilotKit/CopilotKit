@@ -167,14 +167,18 @@ OPENAI_API_KEY=your_api_key_here
 
     @Controller()
     export class CopilotkitController {
-        @All('/copilotkit')
-        copilotkit(@Req() req: Request, @Res() res: Response) {
-          const serviceAdapter = new OpenAIAdapter();
-          const runtime = new CopilotRuntime();
-          
-          const handler = copilotRuntimeNestEndpoint({ runtime, serviceAdapter, endpoint: "/copilotkit" });
-          return handler(req, res );
-        }
+      @All('/copilotkit')
+      copilotkit(@Req() req: Request, @Res() res: Response) {
+        const serviceAdapter = new OpenAIAdapter();
+        const runtime = new CopilotRuntime();
+
+        const handler = copilotRuntimeNestEndpoint({
+          runtime,
+          serviceAdapter,
+          endpoint: '/copilotkit',
+        });
+        return handler(req, res);
+      }
     }
     ```
 
