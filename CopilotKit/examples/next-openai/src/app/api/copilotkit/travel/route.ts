@@ -11,7 +11,7 @@ export const POST = async (req: NextRequest) => {
   const { searchParams } = req.nextUrl;
   const serviceAdapterQueryParam = searchParams.get("serviceAdapter") || "openai";
   const serviceAdapter = await getServiceAdapter(serviceAdapterQueryParam);
-  
+
   const actions: any[] = [];
 
   if ("TAVILY_API_KEY" in process.env) {

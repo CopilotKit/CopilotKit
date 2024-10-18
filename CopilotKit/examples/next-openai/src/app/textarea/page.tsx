@@ -15,7 +15,8 @@ export default function CopilotTextareaDemo() {
   const searchParams = useSearchParams();
   const serviceAdapter = searchParams.get("serviceAdapter") || "openai";
   const runtimeUrl =
-    process.env["NEXT_PUBLIC_COPILOTKIT_RUNTIME_URL"] ?? `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
+    process.env["NEXT_PUBLIC_COPILOTKIT_RUNTIME_URL"] ??
+    `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
 
   const copilotKitProps = {
     runtimeUrl,

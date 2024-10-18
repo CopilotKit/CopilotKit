@@ -10,7 +10,7 @@ export const POST = async (req: NextRequest) => {
   const { searchParams } = req.nextUrl;
   const serviceAdapterQueryParam = searchParams.get("serviceAdapter") || "openai";
   const serviceAdapter = await getServiceAdapter(serviceAdapterQueryParam);
-  
+
   const runtime = new CopilotRuntime({});
   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
     runtime,
