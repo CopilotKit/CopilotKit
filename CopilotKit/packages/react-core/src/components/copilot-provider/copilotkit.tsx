@@ -35,7 +35,7 @@ import { AgentStateMessage, Message } from "@copilotkit/runtime-client-gql";
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { CopilotKitProps } from "./copilotkit-props";
-import { CoagentAction } from "../../types/coagent-action";
+import { CoAgentStateRender } from "../../types/coagent-action";
 import { CoagentState } from "../../types/coagent-state";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
@@ -51,10 +51,12 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const chatApiEndpoint = props.runtimeUrl || COPILOT_CLOUD_CHAT_URL;
 
   const [actions, setActions] = useState<Record<string, FrontendAction<any>>>({});
-  const [coagentActions, setCoagentActions] = useState<Record<string, CoagentAction<any>>>({});
+  const [coAgentStateRenders, setCoAgentStateRenders] = useState<
+    Record<string, CoAgentStateRender<any>>
+  >({});
   const chatComponentsCache = useRef<ChatComponentsCache>({
     actions: {},
-    coagentActions: {},
+    coAgentStateRenders: {},
   });
   const { addElement, removeElement, printTree } = useTree();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -84,17 +86,17 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     });
   }, []);
 
-  const setCoagentAction = useCallback((id: string, action: CoagentAction<any>) => {
-    setCoagentActions((prevPoints) => {
+  const setCoAgentStateRender = useCallback((id: string, stateRender: CoAgentStateRender<any>) => {
+    setCoAgentStateRenders((prevPoints) => {
       return {
         ...prevPoints,
-        [id]: action,
+        [id]: stateRender,
       };
     });
   }, []);
 
-  const removeCoagentAction = useCallback((id: string) => {
-    setCoagentActions((prevPoints) => {
+  const removeCoAgentStateRender = useCallback((id: string) => {
+    setCoAgentStateRenders((prevPoints) => {
       const newPoints = { ...prevPoints };
       delete newPoints[id];
       return newPoints;
@@ -233,9 +235,9 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         getFunctionCallHandler,
         setAction,
         removeAction,
-        coagentActions,
-        setCoagentAction,
-        removeCoagentAction,
+        coAgentStateRenders,
+        setCoAgentStateRender,
+        removeCoAgentStateRender,
         getContextString,
         addContext,
         removeContext,
