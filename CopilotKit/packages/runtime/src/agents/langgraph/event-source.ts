@@ -93,13 +93,13 @@ export class RemoteLangGraphEventSource {
       scan(
         (acc, event) => {
           if (event.event === LangGraphEventTypes.OnChatModelStream) {
-            if (typeof event.data?.chunk?.kwargs?.content === "string") {
-              acc.content = event.data?.chunk?.kwargs?.content;
-            } else if (
-              Array.isArray(event.data?.chunk?.kwargs?.content) &&
-              event.data?.chunk?.kwargs?.content.length > 0
-            ) {
-              acc.content = event.data?.chunk?.kwargs?.content[0].text;
+            // @ts-ignore
+            const content = event.data?.chunk?.kwargs?.content ?? event.data?.chunk?.content;
+
+            if (typeof content === "string") {
+              acc.content = content;
+            } else if (Array.isArray(content) && content.length > 0) {
+              acc.content = content[0].text;
             } else {
               acc.content = null;
             }
