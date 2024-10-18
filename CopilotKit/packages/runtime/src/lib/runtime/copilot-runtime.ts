@@ -12,7 +12,7 @@
  * ```
  */
 
-import { Action, actionParametersToJsonSchema, Parameter, randomId } from "@copilotkit/shared";
+import { Action, actionParametersToJsonSchema, Parameter } from "@copilotkit/shared";
 import { CopilotServiceAdapter, RemoteChain, RemoteChainParameters } from "../../service-adapters";
 import { MessageInput } from "../../graphql/inputs/message.input";
 import { ActionInput } from "../../graphql/inputs/action.input";
@@ -23,11 +23,11 @@ import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-paramet
 import {
   isLangGraphAgentAction,
   LangGraphAgentAction,
-  RemoteAction,
-  RemoteEndpointDefinition,
-  RemoteEndpointType,
-  RemoteLangGraphCloudAction,
+  EndpointType,
   setupRemoteActions,
+  EndpointDefinition,
+  CopilotKitEndpoint,
+  LangGraphCloudEndpoint,
 } from "./remote-actions";
 import { GraphQLContext } from "../integrations/shared";
 import { AgentSessionInput } from "../../graphql/inputs/agent-session.input";
@@ -127,12 +127,12 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
   /*
    * Deprecated: See `remoteEndpoints`.
    */
-  remoteActions?: RemoteEndpointDefinition[];
+  remoteActions?: EndpointDefinition[];
 
   /*
    * A list of remote actions that can be executed.
    */
-  remoteEndpoints?: RemoteEndpointDefinition[];
+  remoteEndpoints?: EndpointDefinition[];
 
   /*
    * An array of LangServer URLs.
@@ -142,7 +142,7 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   public actions: ActionsConfiguration<T>;
-  private remoteEndpointDefinitions: RemoteEndpointDefinition[];
+  private remoteEndpointDefinitions: EndpointDefinition[];
   private langserve: Promise<Action<any>>[] = [];
   private onBeforeRequest?: OnBeforeRequestHandler;
   private onAfterRequest?: OnAfterRequestHandler;
@@ -344,8 +344,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       (endpoint) =>
         ({
           ...endpoint,
-          type: this.resolveRemoteEndpointType(endpoint),
-        }) as RemoteEndpointDefinition,
+          type: this.resolveEndpointType(endpoint),
+        }) as EndpointDefinition,
     );
 
     const remoteActions = await setupRemoteActions({
@@ -364,17 +364,17 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     return [...configuredActions, ...langserveFunctions, ...remoteActions];
   }
 
-  private resolveRemoteEndpointType(action: RemoteEndpointDefinition) {
+  private resolveEndpointType(endpoint: EndpointDefinition) {
     if (
-      !action.type &&
-      "langsmithApiKey" in action &&
-      "deploymentUrl" in action &&
-      "agents" in action
+      !endpoint.type &&
+      "langsmithApiKey" in endpoint &&
+      "deploymentUrl" in endpoint &&
+      "agents" in endpoint
     ) {
-      return RemoteEndpointType.LangGraphCloud;
+      return EndpointType.LangGraphCloud;
     }
 
-    return action.type;
+    return endpoint.type;
   }
 }
 
@@ -391,18 +391,18 @@ export function flattenToolCallsNoDuplicates(toolsByPriority: ActionInput[]): Ac
 }
 
 // The two functions below are "factory functions", meant to create the action objects that adhere to the expected interfaces
-export function remoteAction(action: Omit<RemoteAction, "type">): RemoteAction {
+export function copilotKitEndpoint(config: Omit<CopilotKitEndpoint, "type">): CopilotKitEndpoint {
   return {
-    ...action,
-    type: RemoteEndpointType.Remote,
+    ...config,
+    type: EndpointType.CopilotKit,
   };
 }
 
-export function remoteLangGraphCloudAction(
-  action: Omit<RemoteLangGraphCloudAction, "type">,
-): RemoteLangGraphCloudAction {
+export function langGraphCloudEndpoint(
+  config: Omit<LangGraphCloudEndpoint, "type">,
+): LangGraphCloudEndpoint {
   return {
-    ...action,
-    type: RemoteEndpointType.LangGraphCloud,
+    ...config,
+    type: EndpointType.LangGraphCloud,
   };
 }

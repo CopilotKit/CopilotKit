@@ -2,7 +2,7 @@ import { Client } from "@langchain/langgraph-sdk";
 import { randomUUID } from "node:crypto";
 import { parse as parsePartialJson } from "partial-json";
 import { ActionInput } from "../../graphql/inputs/action.input";
-import { RemoteLangGraphAgent } from "./remote-actions";
+import { LangGraphCloudAgent } from "./remote-actions";
 import { CopilotRequestContextProperties } from "../integrations";
 import { BaseMessage as CopilotKitBaseMessage } from "../../graphql/types/base";
 
@@ -11,7 +11,7 @@ type State = Record<string, any>;
 type ExecutionAction = Pick<ActionInput, "name" | "description"> & { parameters: string };
 
 interface ExecutionArgs {
-  agent: RemoteLangGraphAgent;
+  agent: LangGraphCloudAgent;
   threadId: string;
   nodeName: string;
   messages: CopilotKitBaseMessage[];
