@@ -26,6 +26,7 @@ export function ServiceAdapterSelector() {
           <option value="gemini">Gemini</option>
           <option value="azure">Azure</option>
           <option value="langchain">LangChain</option>
+          <option value="groq">Groq</option>
         </select>
       </div>
     </div>
