@@ -64,7 +64,7 @@ importers:
         specifier: workspace:*
         version: link:../../packages/shared
       '@google/generative-ai':
-        specifier: ^0.11.2
+        specifier: ^0.11.5
         version: 0.11.5
       '@heroicons/react':
         specifier: ^2.0.18
@@ -4240,6 +4240,7 @@ packages:
   eslint@8.57.0:
     resolution: {integrity: sha512-dZ6+mexnaTIbSBZWgou51U6OmzIhYM2VcNdtiTtI7qPNZm35Akpr0f6vtw3w1Kmn5PYo+tZVfh13WrhpS6oLqQ==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
 
   espree@9.6.1:
