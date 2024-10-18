@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   useCoAgent,
-  useCoagentStateRender,
+  useCoAgentStateRender,
   useCopilotAction,
 } from "@copilotkit/react-core";
 import { Progress } from "./Progress";
@@ -20,7 +20,7 @@ export function ResearchCanvas() {
     name: "research_agent",
   });
 
-  useCoagentStateRender({
+  useCoAgentStateRender({
     name: "research_agent",
     render: ({ state, nodeName, status }) => {
       if (!state.logs || state.logs.length === 0) {

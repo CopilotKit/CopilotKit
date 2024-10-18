@@ -4,7 +4,7 @@ description: How to connect your local UI to remote data for powerful workflows
 ---
 
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
-import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+import { Accordion, Accordions } from "fumadocs-ui/components/accordion";
 
 One major way CoAgents differ from regular AI interactions is the ability to share and sync state betweeen the agent and your frontend, providing rich, accurate context for what your users are trying to do that can be read and written to improve interactions with your agent.
 
@@ -61,7 +61,7 @@ def call_model(state: AgentState, config: RunnableConfig):
     """Chatbot that gets weather forecasts"""
 
     model_with_response_tool = ChatOpenAI(model="gpt-4o").bind_tools(
-        tools, 
+        tools,
         parallel_tool_calls=False,
         tool_choice=(
             None if state["messages"] and
@@ -96,7 +96,7 @@ def call_model(state: AgentState, config: RunnableConfig):
 def respond(state: AgentState):
     # Construct the final answer from the arguments of the last tool call
     response = WeatherResponse(**state["messages"][-1].tool_calls[0]["args"])
-    
+
     # We return the final answer, dumping the model data in a JSON-able format
     return {
         "final_response": response.model_dump(mode='json')
@@ -107,7 +107,7 @@ def respond(state: AgentState):
 def should_continue(state: AgentState):
     messages = state["messages"]
     last_message = messages[-1]
-    
+
     # If there is only one tool call in the most recent message,
     # and it is the response tool call, we respond to the user
     if (
@@ -115,7 +115,7 @@ def should_continue(state: AgentState):
         and last_message.tool_calls[0]["name"] == "WeatherResponse"
     ):
         return "respond"
-    
+
     # Otherwise we will use the tool node again
     else:
         return "continue"
@@ -173,12 +173,12 @@ type WeatherResponse = {
   temperature: number;
   wind_direction: string;
   wind_speed: number;
-}
+};
 
 type AgentState = {
   final_response: WeatherResponse;
   input: string;
-}
+};
 ```
 
 </Tab>
@@ -233,20 +233,18 @@ interface WeatherAgentState {
     wind_direction: string;
     wind_speed: number;
     conditions: string;
-  },
-  input: string,
-  messages: any[]
+  };
+  input: string;
+  messages: any[];
 }
 
 export function SimpleWeatherChat() {
   useCoagentStateRender<WeatherAgentState>({
     name: "basic_agent",
     render: ({ status, state, nodeName }) => {
-      return `
-Conditions: ${state.final_response.conditions}, Temperature: ${state.final_response.temperature}ºF
-`
-    }
-  })
+      return `Conditions: ${state.final_response.conditions}, Temperature: ${state.final_response.temperature}ºF`;
+    },
+  });
 
   return (
     <CopilotChat
@@ -255,9 +253,10 @@ Conditions: ${state.final_response.conditions}, Temperature: ${state.final_respo
         initial: "Where would you like to go?",
       }}
     />
-  )
+  );
 }
 ```
+
 </Accordion></Accordions>
 
 To render state in the chat window, use the `useCoagentStateRender` hook:
@@ -292,6 +291,33 @@ useCoagentStateRender<WeatherAgentState>({
       </div>
     )
   }
+});
+```
+
+## Even more control over agent state
+
+If you need even greater control over how your agent state is managed, you can use the `useCoAgent` hook, which gives you access to the state and a function to update it similar to how you'd use the `useState` hook in React:
+
+```tsx
+const { state: weatherAgentState, setState: setWeatherAgentState } =
+  useCoAgent<WeatherAgentState>({
+    name: "basic_agent",
+    // optionally provide an initial state
+    initialState: { input: "New York City" },
+  });
+```
+
+The `weatherAgentState` object will update with the latest state from your agent even while updates are streaming in from the agent, making it easy to show your users the current state of the agent as it runs.
+
+You can even pass your own state management functions to the agent, for maximum control over how the frontend and backend interact.
+
+```tsx
+useCoAgent<WeatherAgentState>({
+  name: "basic_agent",
+
+  // provide your own state management
+  state: weatherAgentState,
+  setState: setWeatherAgentState,
 });
 ```
 
