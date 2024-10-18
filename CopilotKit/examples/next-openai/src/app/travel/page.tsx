@@ -55,7 +55,7 @@ function TravelPlanner() {
             <p className="text-sm">{args.description || ""}</p>
           </div>
           {status == "complete" && (
-            <Image className="rounded-b-lg" src={args.image || ""} alt={args.title || ""} />
+            <img className="rounded-b-lg" src={args.image || ""} alt={args.title || ""} />
           )}
         </div>
       );
