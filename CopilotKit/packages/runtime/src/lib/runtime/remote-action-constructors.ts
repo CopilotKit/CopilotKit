@@ -1,8 +1,8 @@
 import {
+  CopilotKitEndpoint,
   LangGraphAgentHandlerParams,
-  RemoteAction,
   RemoteActionInfoResponse,
-  RemoteLangGraphCloudAction,
+  LangGraphCloudEndpoint,
 } from "./remote-actions";
 import { GraphQLContext } from "../integrations";
 import { Logger } from "pino";
@@ -17,19 +17,19 @@ import { LangGraphEvent } from "../../agents/langgraph/events";
 import { execute } from "./remote-lg-cloud-action";
 
 export function constructLGCRemoteAction({
-  action,
+  endpoint,
   graphqlContext,
   logger,
   messages,
   agentStates,
 }: {
-  action: RemoteLangGraphCloudAction;
+  endpoint: LangGraphCloudEndpoint;
   graphqlContext: GraphQLContext;
   logger: Logger;
   messages: Message[];
   agentStates?: AgentStateInput[];
 }) {
-  const agents = action.agents.map((agent) => ({
+  const agents = endpoint.agents.map((agent) => ({
     name: agent.name,
     description: agent.description,
     parameters: [],
@@ -72,7 +72,7 @@ export function constructLGCRemoteAction({
         return eventSource.processLangGraphEvents();
       } catch (error) {
         logger.error(
-          { url: action.deploymentUrl, status: 500, body: error.message },
+          { url: endpoint.deploymentUrl, status: 500, body: error.message },
           "Failed to execute LangGraph Cloud agent",
         );
         throw new Error("Failed to execute LangGraph Cloud agent");
@@ -94,7 +94,7 @@ export function constructRemoteActions({
 }: {
   json: RemoteActionInfoResponse;
   url: string;
-  onBeforeRequest?: RemoteAction["onBeforeRequest"];
+  onBeforeRequest?: CopilotKitEndpoint["onBeforeRequest"];
   graphqlContext: GraphQLContext;
   logger: Logger;
   messages: Message[];
@@ -263,7 +263,7 @@ async function streamResponse(
 }
 
 export function createHeaders(
-  onBeforeRequest: RemoteAction["onBeforeRequest"],
+  onBeforeRequest: CopilotKitEndpoint["onBeforeRequest"],
   graphqlContext: GraphQLContext,
 ) {
   const headers = {
