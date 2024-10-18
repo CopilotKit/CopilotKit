@@ -1,5 +1,16 @@
 # node
 
+## 1.3.6
+
+### Patch Changes
+
+- 1. Removes the usage of the `crypto` Node pacakge, instaed uses `uuid`. This ensures that non-Next.js React apps can use CopilotKit.
+  2. Fixes Nest.js runtime docs
+
+- Updated dependencies
+  - @copilotkit/runtime@1.3.6
+  - @copilotkit/shared@1.3.6
+
 ## 1.3.5
 
 ### Patch Changes
