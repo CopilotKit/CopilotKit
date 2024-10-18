@@ -108,5 +108,5 @@ export function useCopilotChatSuggestions(
     return () => {
       context.removeChatSuggestionConfiguration(id);
     };
-  }, dependencies);
+  }, [...dependencies, instructions, minSuggestions, maxSuggestions, className]);
 }
