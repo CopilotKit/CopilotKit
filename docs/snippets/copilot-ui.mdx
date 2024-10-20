@@ -1,6 +1,5 @@
 
-You are almost there!
-Now it's time to setup your Copilot UI.
+import HeadlessUI from "@/snippets/headless-ui.mdx";
 
 First, import the default styles in your root component (typically `layout.tsx`) :
 
@@ -93,8 +92,8 @@ import "@copilotkit/react-ui/styles.css";
   </Tab>
   <Tab value="Headless UI">
     The built-in Copilot UI can be customized in many ways -- both through css and by passing in custom sub-components.
-    
-    CopilotKit also offers **fully custom headless UI**, through the `useCopilotChat` hook. Everything built with the built-in UI can be implemented with the headless UI, providing deep customizability.
+
+    CopilotKit also offers **fully custom headless UI**, through the `useCopilotChat` hook. Everything built with the built-in UI (and more) can be implemented with the headless UI, providing deep customizability.
 
     ```tsx
     import { useCopilotChat } from "@copilotkit/react-core";
@@ -122,6 +121,5 @@ import "@copilotkit/react-ui/styles.css";
       );
     }
     ```
-
   </Tab>
 </Tabs>
