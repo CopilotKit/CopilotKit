@@ -4,9 +4,9 @@
   "pages": [
     "index",
     "getting-started",
-    "---Chat-based experiences---",
+    "---In-chat experiences---",
     "...chat-ui",
-    "---App-based experiences---",
+    "---In-app experiences---",
     "...react-ui",
     "---Advanced---",
     "...advanced",
