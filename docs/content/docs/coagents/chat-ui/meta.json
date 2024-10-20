@@ -1,6 +1,7 @@
 {
   "title": "chat-ui",
   "pages": [
+    "chat-with-agent",
     "render-agent-state",
     "hitl"
   ]
