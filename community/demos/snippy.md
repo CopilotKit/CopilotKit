@@ -27,19 +27,20 @@ Code Snippet Generator ( Hacktoberfest Demo )
 Deploy your app on [Vercel](https://vercel.com/new)
 
 ## Bonus Points
-
-Link to any bonus activities you did such as solving GitHub Issues or posting to Twitter, Dev.to, Medium, etc.
+- Youtube video: https://www.youtube.com/watch?v=Vs88ft7mKx8
+- X post: https://x.com/RohittCodes/status/1844960454445236423
 
 ## Screenshots
 
 ### CopilotSidebar to create, update, and delete snippets
-![Screenshot 2024-10-02 193426](https://github.com/user-attachments/assets/3b080c1e-d28e-40b4-8476-dacc4b8a84b8)
+![Screenshot 2024-10-02 193426](https://github.com/user-attachments/assets/690da14e-6131-462d-be46-f21b65f99c15)
 
 ### CopilotTextArea for code autocompletion
-![Screenshot 2024-10-02 194525](https://github.com/user-attachments/assets/2b4cff32-571a-4161-9c2a-4fe5bef57d3b)
+![Screenshot 2024-10-02 194525](https://github.com/user-attachments/assets/d0a12de4-8bbd-4efa-8782-b2c80dfb7172)
 
 ### CopilotChat to understand the snippets
-![Screenshot 2024-10-02 193641](https://github.com/user-attachments/assets/a0604efb-b514-47ca-8cf4-0ebe81c1711b)
+![Screenshot 2024-10-02 193641](https://github.com/user-attachments/assets/4f2f6a73-b0ec-486c-a9cd-a370f72c6aa8)
+
 
 ## Who Are You?
 
