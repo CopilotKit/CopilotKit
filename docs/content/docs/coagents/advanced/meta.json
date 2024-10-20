@@ -2,6 +2,7 @@
   "title": "advanced",
   "pages": [
     "router-mode-agent-lock",
+    "intetmediate-state-streaming",
     "exit-agent",
     "state-streaming",
     "manually-emitting-messages",
