@@ -21,7 +21,7 @@ async def send_email_node(state: EmailAgentState, config: RunnableConfig):
         emit_messages=True,
     )
 
-    await copilotkit_exit(config)
+    await copilotkit_exit(config) # [!code highlight]
 
     # get the last message and cast to ToolMessage
     last_message = cast(ToolMessage, state["messages"][-1])
