@@ -3,13 +3,25 @@ title: Agentic Generative UI
 description: Render the current agent state in your application
 ---
 
-In addition to the standard generative UI using `useCopilotAction` **(based on the tool-calling abstraction)**, CoAgents offers <u>**agentic generative UI**</u> based on the **agent's current state**.
 
-Use `useCoAgentStateRender` to render the agent’s real-time state in your application, allowing users to see what the agent is doing.
+## Background 
 
-Continuously rendering the agent's state is the **gold standard for agentic UX**. It keeps users engaged and builds trust by showing that the agent is on the right track.
+CoAgents offers <u>**agentic generative UI**</u> based on the **agent's current state**, in addition to the standard generative UI using `useCopilotAction` **(based on the tool-calling abstraction)**.
+
+Continuously rendering the agent's state is the **gold standard for agentic UX**. It keeps users **engaged** and **builds trust** by showing that the agent is on the right track.
 
 TODO: add gif.
+
+
+
+<Callout type="info">
+  By default, the LangGraph agent state updates only **betwee** LangGraph node transitions. However, for a more engaging user experience, you'll likely want to render the state as it updates **continuously**.
+
+  To learn how to stream and render intermediate agent states, providing real-time updates to your users, refer to our guide on [Streaming Intermediate State](/coagents/advanced/intermediate-state-streaming).
+</Callout>
+
+
+
 
 ## Rendering Agent State with `useCoAgentStateRender`
 
@@ -36,7 +48,14 @@ useCoagentStateRender({ // [!code highlight:11]
 
 The render function can return any valid React node; you can use your own components to display the agent's state.
 
-### Using Typed State with Generics
+## Stream & render the intermediate agent state
+By default, the LangGraph agent state will only update *between* LangGraph node transitions.
+
+You will likely want to render the state as it updates continuously.<br/>
+**See [Stream intermediate state](/coagents/advanced/intermediate-state-streaming)**
+
+
+## Using Typed State with Generics
 
 To get better type safety and IntelliSense support, you can provide TypeScript types to `useCoAgentStateRender`.
 
