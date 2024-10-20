@@ -11,7 +11,7 @@ import { CoAgentsDiagram }  from "@/components/react/coagents/coagents-diagram.t
 ## Before you start
 
 At the moment CoAgents integrates with LangGraph-powered agents using **LangGraph-Python**. <br/>
-(Support for LangGraph.js and LangGraph Cloud is coming soon!)
+(Support for LangGraph.js and LangGraph Cloud is coming very soon! [Contact us]() for early access).
 
 
 **For orientation, here's how CoAgents are wired:**
@@ -39,8 +39,9 @@ This should only take a minute.
 </Step>
 
 <Step>
-Then, setup a CopilotKit Remote-Endpoint using FastAPI. This endpoint will serve your LangGraph agent.
-Follow the [Remote Endpoint quickstart](/guides/backend-actions/remote-backend-endpoint).
+Then, setup a CopilotKit Remote-Endpoint using FastAPI.
+Follow the [Remote Endpoint quickstart](/guides/backend-actions/remote-backend-endpoint). <br/>
+**This endpoint will serve your (Python) LangGraph agent.**
 </Step>
 
 
@@ -68,14 +69,14 @@ app = FastAPI()
 from .agent import basic_agent_graph
 
 # Initialize the agent for use by CopilotKit; we'll name it "basic_agent"
-basic_agent = LangGraphAgent( // [!code highlight:4]
+basic_agent = LangGraphAgent( // [!code-highlight:4]
     name="basic_agent",
     description="Agent that asks about the weather",
     agent=basic_agent_graph,
 )
 
 # Initialize the CopilotKit SDK
-sdk = CopilotKitSDK(agents=[basic_agent]) [!code highlight:1]
+sdk = CopilotKitSDK(agents=[basic_agent]) [!code-highlight:1]
 
 # Add the CopilotKit endpoint to your FastAPI app
 add_fastapi_endpoint(app, sdk, "/copilotkit_remote")
@@ -86,7 +87,10 @@ def main():
     uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=True)
 
 ```
-Remember the name `basic_agent` as well as our API endpoint URL (`http://localhost:8000/copilotkit_remote`), we'll need them as we move on to integrating this agent into the frontend.
+
+<Callout>
+  Remember the name `basic_agent` as well as our API endpoint URL (`http://localhost:8000/copilotkit_remote`), we'll need them as we move on to integrating this agent into the frontend.
+</Callout>
 
 </Step>
 
@@ -98,7 +102,10 @@ Remember the name `basic_agent` as well as our API endpoint URL (`http://localho
 
 CopilotKit supports router-mode as well as agent-lock mode. For more detail see [router-mode / agent-mode](/coagents/advanced/router-mode-agent-lock).
 
-For simplicity, wel'll use agent-lock mode in these tutorials, but in production use-cases you will likely want to use router-mode.
+In short: agent-lock modes locks your Copilot to a single LangGraph agent.
+Router-mode automatically routes requests to the right agent based on the user's context and query.
+
+**For simplicity, wel'll use agent-lock mode in these tutorials,** but in production use-cases you will likely want to use router-mode.
 
 Lock the Copilot to the `basic_agent` setup earlier. This means every single interaction with the Copilot will be forwarded to the locked agent.
 
@@ -117,8 +124,9 @@ Lock the Copilot to the `basic_agent` setup earlier. This means every single int
 </Step>
 </Steps>
 
-🎉 Congrats! You've successfully integrated a LangGraph agent chatbot to your application! Give it a try now and see it in action.
-
+🎉 Congrats! You've successfully integrated a LangGraph agent chatbot to your application!
+Give it a try by writing text in the chatbot UI and pressing send.
+You are now chatting with a LangGraph agent!
 
 
 <CoAgentsEnterpriseCTA />
