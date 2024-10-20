@@ -1,0 +1,116 @@
+---
+title: JSON & Generative UI
+---
+
+Create an engaging email assistant that composes emails and seeks user approval before sending. This example demonstrates how to seamlessly integrate the agentic frontend and backend.
+
+## Agentic Frontend
+
+Use `useCopilotAction` with `renderAndWait` to present a custom UI for user approval.
+
+```tsx filename="app/Mailer.tsx"
+"use client";
+
+import { useCopilotAction } from "@copilotkit/react-core";
+import { CopilotPopup } from "@copilotkit/react-ui";
+
+export function Mailer() {
+  useCopilotAction({
+    name: "EmailTool", // Tool name matching backend // [!code highlight]
+    disabled: true,
+    parameters: [{ name: "the_email" }],
+    renderAndWait: ({ args, status, handler }) => (
+      <EmailApprovalComponent
+        text={args.the_email}
+        onApprove={() => handler("SEND")}
+        onDeny={() => handler("CANCEL")}
+      />
+    ),
+  });
+
+  return (
+    <div className="flex flex-col items-center justify-center h-screen">
+      <div className="text-2xl">Email Approval Example</div>
+      <CopilotPopup defaultOpen={true} clickOutsideToClose={false} />
+    </div>
+  );
+}
+
+// EmailApprovalComponent is a custom component for approval UI
+```
+
+## Agentic Backend
+
+Define the state and tool:
+
+```python
+class EmailAgentState(MessagesState):
+    """Email Agent State"""
+    email: str
+
+class EmailTool(BaseModel):
+    """Write an email."""
+    the_email: str = Field(description="The email to be written.")
+```
+
+Orchestrate the workflow:
+
+```python
+workflow = StateGraph(EmailAgentState)
+workflow.add_node("write_email_node", write_email_node)
+workflow.add_node("send_email_node", send_email_node)
+workflow.set_entry_point("write_email_node")
+
+workflow.add_edge("write_email_node", "send_email_node")
+workflow.add_edge("send_email_node", END)
+graph = workflow.compile(
+    checkpointer=MemorySaver(),
+    interrupt_after=["write_email_node"]  # Interrupt to wait for user input  # [!code highlight]
+)
+```
+
+Define the agent's nodes and orchestrate the workflow using LangGraph.
+
+```python title="agent/my_agent/agent.py"
+async def write_email_node(state: EmailAgentState, config: RunnableConfig):
+    """
+    Write an email.
+    """
+
+    config = copilotkit_customize_config(
+        config,
+        emit_tool_calls=True,
+    )
+
+    instructions = "Compose a concise, professional email based on user input."
+
+    email_model = ChatOpenAI(temperature=0, model="gpt-4o").bind_tools(
+        [EmailTool],
+        tool_choice="EmailTool"
+    )
+
+    response = await email_model.ainvoke([
+        *state["messages"],
+        HumanMessage(content=instructions)
+    ], config)
+
+    tool_calls = cast(Any, response).tool_calls
+
+    email = tool_calls[0]["args"]["the_email"]
+
+    return {
+        "email": email,
+    }
+
+async def send_email_node(state: EmailAgentState, config: RunnableConfig):
+    # Node that sends the email or handles cancellation
+    # Uses the same tool name "EmailTool" as in frontend  # [!code highlight]
+    last_message = state["messages"][-1]
+    if last_message.content == "CANCEL":
+        # Handle cancellation
+        await copilotkit_emit_message(config, "❌ Cancelled sending email.")
+    else:
+        # Handle sending email
+        await copilotkit_emit_message(config, "✅ Sent email.")
+```
+
