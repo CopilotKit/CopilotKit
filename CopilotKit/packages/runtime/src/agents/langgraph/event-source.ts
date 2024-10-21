@@ -37,7 +37,7 @@ export class RemoteLangGraphEventSource {
       scan(
         (acc, event) => {
           if (event.event === LangGraphEventTypes.OnChatModelStream) {
-            // @ts-ignore
+            // @ts-expect-error -- LangGraph Cloud implementation stores data outside of kwargs
             const content = event.data?.chunk?.kwargs?.content ?? event.data?.chunk?.content;
 
             if (typeof content === "string") {
@@ -48,20 +48,28 @@ export class RemoteLangGraphEventSource {
               acc.content = null;
             }
 
-            if (event.data?.chunk?.kwargs?.tool_call_chunks) {
+            const toolCallChunks =
+              // @ts-expect-error -- LangGraph Cloud implementation stores data outside of kwargs
+              event.data?.chunk?.kwargs?.tool_call_chunks ?? event.data?.chunk?.tool_call_chunks;
+
+            const toolCallMessageId =
+              event.data?.chunk?.kwargs?.id ??
+              (event.data?.chunk?.id as unknown as string | undefined);
+
+            if (toolCallChunks && toolCallChunks.length > 0) {
               acc.prevToolCallMessageId = acc.toolCallMessageId;
-              acc.toolCallMessageId = event.data.chunk.kwargs?.id;
-              if (event.data.chunk.kwargs.tool_call_chunks[0]?.name) {
-                acc.toolCallName = event.data.chunk.kwargs.tool_call_chunks[0].name;
+              acc.toolCallMessageId = toolCallMessageId;
+              if (toolCallChunks[0]?.name) {
+                acc.toolCallName = toolCallChunks[0].name;
               }
-              if (event.data.chunk.kwargs.tool_call_chunks[0]?.id) {
-                acc.toolCallId = event.data.chunk.kwargs.tool_call_chunks[0].id;
+              if (toolCallChunks[0]?.id) {
+                acc.toolCallId = toolCallChunks[0].id;
               }
               acc.prevMessageId = acc.messageId;
-              acc.messageId = event.data?.chunk?.kwargs?.id;
+              acc.messageId = toolCallMessageId;
             } else if (acc.content && acc.content != "") {
               acc.prevMessageId = acc.messageId;
-              acc.messageId = event.data?.chunk?.kwargs?.id;
+              acc.messageId = toolCallMessageId;
             } else {
               acc.prevToolCallMessageId = acc.toolCallMessageId;
               acc.prevMessageId = acc.messageId;
@@ -210,7 +218,10 @@ export class RemoteLangGraphEventSource {
               }
             }
 
-            const args = eventWithState.event.data?.chunk?.kwargs?.tool_call_chunks?.[0]?.args;
+            const args =
+              eventWithState.event.data?.chunk?.kwargs?.tool_call_chunks?.[0]?.args ??
+              // @ts-expect-error -- sdf
+              eventWithState.event.data?.chunk?.tool_call_chunks?.[0]?.args;
             const content = eventWithState.content;
 
             // Tool call args: emit ActionExecutionArgs
