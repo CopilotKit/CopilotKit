@@ -2,31 +2,28 @@
 title: "Getting Started"
 description: "Get started with CoAgents in just a few minutes."
 ---
+
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 import LLMAdapters from "@/snippets/llm-adapters.mdx";
-import { CoAgentsDiagram }  from "@/components/react/coagents/coagents-diagram.tsx";
+import { CoAgentsDiagram } from "@/components/react/coagents/coagents-diagram.tsx";
 import FindCopilotRuntimeSnippet from "@/snippets/find-your-copilot-runtime.mdx";
-
 
 ## Before you start
 
 At the moment CoAgents integrates with LangGraph-powered agents using **LangGraph-Python**. <br/>
 (Support for LangGraph.js and LangGraph Cloud is coming very soon! [Contact us]() for early access).
 
-
 **For orientation, here's how CoAgents are wired:**
 
 <CoAgentsDiagram />
 
-
 <Callout type="info">
-This guide assumes you’re familiar with using LangGraph to build agent workflows. If you need a quick introduction, check out [this brief example from the LangGraph docs](https://docs.langgraph.ai/quickstart).
+  This guide assumes you’re familiar with using LangGraph to build agent
+  workflows. If you need a quick introduction, check out [this brief example
+  from the LangGraph
+  docs](https://langchain-ai.github.io/langgraph/tutorials/introduction/).
 </Callout>
-
-
-
-
 
 ## Getting started
 
@@ -40,17 +37,14 @@ This should only take a minute.
 </Step>
 
 <Step>
-Then, setup a CopilotKit Remote-Endpoint using FastAPI.
-Follow the [Remote Endpoint quickstart](/guides/backend-actions/remote-backend-endpoint). <br/>
-**This endpoint will serve your (Python) LangGraph agent.**
+  Then, setup a CopilotKit Remote-Endpoint using FastAPI. Follow the [Remote
+  Endpoint quickstart](/guides/backend-actions/remote-backend-endpoint). <br />
+  **This endpoint will serve your (Python) LangGraph agent.**
 </Step>
-
 
 <Step>
 
-
 ## Connect your FastAPI Remote Endpoint to a LangGraph agent
-
 
 At this point you should have CopilotKit hooked into your application, connected to a FastAPI Remote Endpoint.
 
@@ -77,7 +71,7 @@ sdk = CopilotKitSDK(
       description="Agent that answers questions about the weather",
       agent=the_langraph_graph,
     )
-  ], 
+  ],
   # ...
 )
 
@@ -91,12 +85,11 @@ add_fastapi_endpoint(app, sdk, "/copilotkit_remote")
 ```
 
 <Callout>
-  Remember the name `basic_agent`, we'll need it as we move on to integrating this agent into the frontend.
+  Remember the name `basic_agent`, we'll need it as we move on to integrating
+  this agent into the frontend.
 </Callout>
 
 </Step>
-
-
 
 <Step>
 
@@ -126,6 +119,5 @@ Lock the Copilot to the `basic_agent` setup earlier. This means every single int
 🎉 Congrats! You've successfully integrated a LangGraph agent chatbot to your application!
 Give it a try by writing text in the chatbot UI and pressing send.
 You are now chatting with a LangGraph agent!
-
 
 <CoAgentsEnterpriseCTA />
