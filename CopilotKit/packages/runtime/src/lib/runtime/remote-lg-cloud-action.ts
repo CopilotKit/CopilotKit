@@ -107,12 +107,13 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     const eventType = event.event;
     const runId = event.metadata.run_id;
     externalRunId = runId;
-    const tags = event.tags;
     const metadata = event.metadata;
 
-    shouldExit = shouldExit != null ? shouldExit : tags.includes("copilotkit:exit");
+    shouldExit = shouldExit != null ? shouldExit : metadata["copilotkit:exit"];
     const emitIntermediateState = metadata["copilotkit:emit-intermediate-state"];
-    const forceEmitIntermediateState = tags.includes("copilotkit:force-emit-intermediate-state");
+    const forceEmitIntermediateState = metadata["copilotkit:force-emit-intermediate-state"];
+    const manuallyEmitMessage = metadata["copilotkit:manually-emit-messages"];
+    const manuallyEmitToolCall = metadata["copilotkit:manually-emit-tool-calls"];
     // we only want to update the node name under certain conditions
     // since we don't need any internal node names to be sent to the frontend
     if (graphInfo["nodes"].some((node) => node.id === currentNodeName)) {
@@ -136,6 +137,36 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
             running: true,
             active: true,
           }),
+        );
+      }
+      continue;
+    }
+
+    if (manuallyEmitMessage) {
+      if (eventType === "on_chain_end") {
+        state = event.data.output;
+        emit(
+          JSON.stringify({
+            event: "on_copilotkit_emit_message",
+            message: event.data.output,
+            messageId: randomUUID(),
+            role: MessageRole.assistant,
+          }) + "\n",
+        );
+      }
+      continue;
+    }
+
+    if (manuallyEmitToolCall) {
+      if (eventType === "on_chain_end") {
+        state = event.data.output;
+        emit(
+          JSON.stringify({
+            event: "on_copilotkit_emit_tool_call",
+            name: event.data.output.name,
+            args: event.data.output.args,
+            id: event.data.output.id,
+          }) + "\n",
         );
       }
       continue;
