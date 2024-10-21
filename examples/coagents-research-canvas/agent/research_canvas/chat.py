@@ -1,6 +1,6 @@
 """Chat Node"""
 
-from typing import TypedDict, List, cast
+from typing import TypedDict, List, cast, Annotated
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import SystemMessage, AIMessage, ToolMessage
 from copilotkit.langchain import copilotkit_customize_config
@@ -14,11 +14,11 @@ class Search(TypedDict):
 
 class WriteReport(TypedDict):
     """Write the research report."""
-    report: str
+    report: Annotated[str, "The research report"]
 
 class WriteResearchQuestion(TypedDict):
     """Write the research question."""
-    research_question: str
+    research_question: Annotated[str, "The research question"]
 
 class DeleteResources(TypedDict):
     """Delete the URLs from the resources."""
@@ -93,10 +93,6 @@ async def chat_node(state: AgentState, config: RunnableConfig):
         ),
         *state["messages"],
     ], config)
-
-    # print("-----------------------------------")
-    # print("AFTER CALLING CHAT")
-    # print("-----------------------------------")
 
     ai_message = cast(AIMessage, response)
 
