@@ -1,0 +1,40 @@
+---
+title: Writing agent state
+description: Getting and setting state from your components
+---
+
+You can easily sync your application state back to the agent state.
+
+<Frame>
+  <img src="/images/coagents/intermediate-state.gif" />
+</Frame>
+
+Simply call the `useCoAgent` hook:
+
+
+```tsx
+// [!code word:setState]
+import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
+
+// Example usage in a pseudo React component
+function WeatherComponent() {
+  const { state, setState } = useCoAgent<WeatherAgentState>({
+    name: "basic_agent",
+    initialState: { input: "New York City" }  // optionally provide an initial state
+  });
+
+  // Use weatherAgentState in your component logic and rendering
+  // ...
+
+  return (
+    // Render your component using weatherAgentState
+  );
+}
+```
+
+## ⚠️ IMPORTANT! Stream & render the intermediate agent state
+By default, the LangGraph agent state will only update *between* LangGraph node transitions --
+which means state updates will be discontinuous and delayed.
+
+You likely want to render the agent state as it updates **continuously.** See **[stream intermediate state](/coagents/advanced/intermediate-state-streaming).**
+
