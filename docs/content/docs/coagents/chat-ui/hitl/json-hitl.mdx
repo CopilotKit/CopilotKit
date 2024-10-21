@@ -1,37 +1,46 @@
 ---
-title: JSON & Generative UI
+title: JSON Approval
+description: Implement approval UI for your agent.
 ---
 
-Create an engaging email assistant that composes emails and seeks user approval before sending. This example demonstrates how to seamlessly integrate the agentic frontend and backend.
+On the LangGraph side, Human-in-the-Loop is implemented by creating a tool call, whose return value is to be provided by the frontend.
+
+On the frontend, you simply create a `useCopilotAction` which takes the same parameters emitted by the LangGraph tool call, with a `renderAndWait` argument.
+When the `handler` block given to `renderAndWait` is called, the result is propagated back to the LangGraph.
 
 ## Agentic Frontend
 
 Use `useCopilotAction` with `renderAndWait` to present a custom UI for user approval.
 
 ```tsx filename="app/Mailer.tsx"
-"use client";
+"use client"; // only necessary if you are using Next.js with the App Router. // [!code highlight]
 
 import { useCopilotAction } from "@copilotkit/react-core";
-import { CopilotPopup } from "@copilotkit/react-ui";
 
 export function Mailer() {
-  useCopilotAction({
-    name: "EmailTool", // Tool name matching backend // [!code highlight]
-    disabled: true,
-    parameters: [{ name: "the_email" }],
+  useCopilotAction({ // [!code highlight:19]
+    name: "EmailTool",
+    parameters: [
+      {
+        name: "email_draft",
+        type: "string",
+        description: "The email content",
+        required: true,
+      },
+    ],
     renderAndWait: ({ args, status, handler }) => (
-      <EmailApprovalComponent
-        text={args.the_email}
-        onApprove={() => handler("SEND")}
-        onDeny={() => handler("CANCEL")}
+      <EmailConfirmation
+        emailContent={args.email_draft || ""}
+        isExecuting={status === "executing"}
+        onCancel={() => handler?.("CANCEL")} // the handler is undefined while status is "executing"
+        onSend={() => handler?.("SEND")} // the handler is undefined while status is "executing"
       />
     ),
   });
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen">
-      <div className="text-2xl">Email Approval Example</div>
-      <CopilotPopup defaultOpen={true} clickOutsideToClose={false} />
+    <div className="text-center p-4">
+      <h1 className="text-xl mb-2">Email Approval Demo</h1>
     </div>
   );
 }
@@ -57,55 +66,49 @@ Orchestrate the workflow:
 
 ```python
 workflow = StateGraph(EmailAgentState)
-workflow.add_node("write_email_node", write_email_node)
+workflow.add_node("draft_email_node", draft_email_node)
 workflow.add_node("send_email_node", send_email_node)
-workflow.set_entry_point("write_email_node")
+workflow.set_entry_point("draft_email_node")
 
-workflow.add_edge("write_email_node", "send_email_node")
+workflow.add_edge("draft_email_node", "send_email_node")
 workflow.add_edge("send_email_node", END)
 graph = workflow.compile(
     checkpointer=MemorySaver(),
-    interrupt_after=["write_email_node"]  # Interrupt to wait for user input  # [!code highlight]
+    interrupt_after=["draft_email_node"]  # Interrupt to wait for user input  # [!code highlight]
 )
 ```
 
 Define the agent's nodes and orchestrate the workflow using LangGraph.
 
 ```python title="agent/my_agent/agent.py"
-async def write_email_node(state: EmailAgentState, config: RunnableConfig):
-    """
-    Write an email.
-    """
+from typing import Any, cast
+from langchain_openai import ChatOpenAI
+from langchain_core.runnables import RunnableConfig
+from langchain_core.messages import HumanMessage, ToolMessage
+from copilotkit.langchain import copilotkit_customize_config, copilotkit_emit_message
+from pydantic import BaseModel, Field
 
+class EmailTool(BaseModel):
+    """Write an email."""
+    email_draft: str = Field(description="The draft of the email to be written.")
+
+async def draft_email_node(state: EmailAgentState, config: RunnableConfig):
+    """Write an email."""
     config = copilotkit_customize_config(
         config,
-        emit_tool_calls=True,
+        emit_tool_calls=True  # make sure to emit tool calls to the frontend # [!code highlight]
     )
 
     instructions = "Compose a concise, professional email based on user input."
-
-    email_model = ChatOpenAI(temperature=0, model="gpt-4o").bind_tools(
-        [EmailTool],
-        tool_choice="EmailTool"
-    )
-
-    response = await email_model.ainvoke([
-        *state["messages"],
-        HumanMessage(content=instructions)
-    ], config)
-
+    email_model = ChatOpenAI(temperature=0, model="gpt-4o").bind_tools([EmailTool], tool_choice="EmailTool")
+    response = await email_model.ainvoke([*state.messages, HumanMessage(content=instructions)], config)
     tool_calls = cast(Any, response).tool_calls
-
-    email = tool_calls[0]["args"]["the_email"]
-
-    return {
-        "email": email,
-    }
+    email = tool_calls[0]["args"]["email_draft"]  # the email content is the argument passed to the email tool
+    return {"email": email}
 
 async def send_email_node(state: EmailAgentState, config: RunnableConfig):
-    # Node that sends the email or handles cancellation
-    # Uses the same tool name "EmailTool" as in frontend  # [!code highlight]
-    last_message = state["messages"][-1]
+    # the next node in the graph sees the result from the frontend as the tool-call return value.
+    last_message = cast(ToolMessage, state["messages"][-1])
     if last_message.content == "CANCEL":
         # Handle cancellation
         await copilotkit_emit_message(config, "❌ Cancelled sending email.")
@@ -113,4 +116,5 @@ async def send_email_node(state: EmailAgentState, config: RunnableConfig):
         # Handle sending email
         await copilotkit_emit_message(config, "✅ Sent email.")
 ```
+
 
