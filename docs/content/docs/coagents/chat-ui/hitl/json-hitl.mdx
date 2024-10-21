@@ -3,10 +3,14 @@ title: JSON Approval
 description: Implement approval UI for your agent.
 ---
 
+You can easily pass questions to the frontend for the user to answer in the AI Chat.
+
 On the LangGraph side, Human-in-the-Loop is implemented by creating a tool call, whose return value is to be provided by the frontend.
 
 On the frontend, you simply create a `useCopilotAction` which takes the same parameters emitted by the LangGraph tool call, with a `renderAndWait` argument.
 When the `handler` block given to `renderAndWait` is called, the result is propagated back to the LangGraph.
+
+TODO: add gif.
 
 ## Agentic Frontend
 
