@@ -5,6 +5,7 @@ import { ActionInput } from "../../graphql/inputs/action.input";
 import { LangGraphCloudAgent } from "./remote-actions";
 import { CopilotRequestContextProperties } from "../integrations";
 import { BaseMessage as CopilotKitBaseMessage } from "../../graphql/types/base";
+import { MessageRole } from "../../graphql/types/enums";
 
 type State = Record<string, any>;
 
@@ -55,7 +56,11 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   const assistants = await client.assistants.search();
   const retrievedAssistant = assistants.find((a) => a.name === name);
   const threadId = initialThreadId ?? randomUUID();
-  await client.threads.create({ threadId: threadId });
+  if (initialThreadId === threadId) {
+    await client.threads.get(threadId);
+  } else {
+    await client.threads.create({ threadId: threadId });
+  }
 
   let agentState = { values: {} };
   if (wasInitiatedWithExistingThread) {
@@ -64,7 +69,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   const agentStateValues = agentState.values as State;
   state.messages = agentStateValues.messages;
   const mode = wasInitiatedWithExistingThread && nodeName != "__end__" ? "continue" : "start";
-  state = langGraphDefaultMergeState(state, messages, actions);
+  state = langGraphDefaultMergeState(state, formatMessages(messages), actions);
 
   if (mode === "continue") {
     await client.threads.updateState(threadId, { values: state, asNode: nodeName });
@@ -368,4 +373,35 @@ function deepMerge(obj1: State, obj2: State) {
     }
   }
   return result;
+}
+
+function formatMessages(messages: CopilotKitBaseMessage[]): CopilotKitBaseMessage[] {
+  return messages.map((message) => {
+    if ("content" in message) {
+      return message;
+    }
+    if ("arguments" in message) {
+      const toolCall = {
+        name: message["name"],
+        args: message["arguments"],
+        id: message["id"],
+      };
+      return {
+        ...message,
+        content: "",
+        tool_calls: [toolCall],
+        role: message["role"] ?? MessageRole.assistant,
+      };
+    }
+    if ("actionExecutionId" in message) {
+      return {
+        ...message,
+        content: message["result"],
+        name: message["actionName"],
+        tool_call_id: message["actionExecutionId"] as string,
+        role: message["role"] ?? MessageRole.user,
+      };
+    }
+    return message;
+  });
 }
