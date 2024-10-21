@@ -36,7 +36,7 @@ def get_model():
 
 class EmailAgentState(MessagesState):
     """Email Agent State"""
-    email: str
+    email_draft: str
 
 class EmailTool(BaseModel):
     """
@@ -71,10 +71,10 @@ async def email_node(state: EmailAgentState, config: RunnableConfig):
 
     tool_calls = cast(Any, response).tool_calls
 
-    email = tool_calls[0]["args"]["the_email"]
+    email_draft = tool_calls[0]["args"]["the_email"]
 
     return {
-        "email": email,
+        "email_draft": email_draft,
     }
 
 async def send_email_node(state: EmailAgentState, config: RunnableConfig):
@@ -86,7 +86,6 @@ async def send_email_node(state: EmailAgentState, config: RunnableConfig):
         config,
         emit_messages=True,
     )
-
 
     await copilotkit_exit(config)
 
