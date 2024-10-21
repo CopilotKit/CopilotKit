@@ -15,7 +15,7 @@ app = FastAPI()
 sdk = CopilotKitSDK(
     agents=[
         LangGraphAgent(
-            name="weather_agent",
+            name="my_agent",
             description="This agent deals with everything weather related",
             agent=graph,
         )

@@ -3,7 +3,7 @@
   "dockerfile_lines": [],
   "dependencies": ["."],
   "graphs": {
-    "weather_agent": "./my_agent/agent.py:graph"
+    "my_agent": "./my_agent/agent.py:graph"
   },
   "env": ".env"
 }
