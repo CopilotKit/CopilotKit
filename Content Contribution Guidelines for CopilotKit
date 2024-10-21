@@ -1,0 +1,87 @@
+Content Contribution Guidelines for CopilotKit
+
+We are excited to see the community share knowledge and experiences about CopilotKit across various platforms like Twitter, YouTube, dev.to, Medium, LinkedIn, TikTok, and more. Your contributions help others learn and engage with CopilotKit, and we'd love to highlight your work.
+
+To ensure a smooth submission process, please follow the steps outlined below to share your content.
+
+Steps to Submit Your Content Contributions
+1. Create and Share Content
+
+First, create content that highlights your use of CopilotKit. This could include:
+
+Tutorials: Walkthroughs on using CopilotKit in different development environments.
+Blog Posts: Articles on dev.to, Medium, or LinkedIn sharing tips, tricks, and best practices.
+Social Media: Posts or threads on platforms like Twitter or LinkedIn discussing your experiences or providing insights.
+Video Content: Demos, explanations, or tutorials on YouTube or TikTok showing how you integrated or used CopilotKit in your projects.
+What You Can Share:
+
+Code samples, setup instructions, and use cases.
+How CopilotKit helped in solving a problem.
+Comparisons with other tools or APIs.
+Collaborative projects or team efforts utilizing CopilotKit.
+2. List Your Contributions
+
+Once your content is live, follow these steps to list your contributions:
+
+GitHub Username: Add your GitHub profile username, which will be used to recognize your contributions.
+Content Links: Provide direct links to your content (e.g., blog post, social media thread, video) and ensure it's accessible to others.
+Example Submission Format:
+
+GitHub Username: @yourusername
+Content:
+Twitter post: How I used CopilotKit
+YouTube video: Integrating CopilotKit with Flask
+Medium article: Boosting Productivity with CopilotKit
+TikTok video: Quick Setup of CopilotKit in VS Code
+3. Submit a Pull Request (PR)
+
+To officially submit your contributions, follow these steps:
+
+Fork the Repository: Start by forking our repository to your GitHub account.
+Clone Your Fork: Clone the forked repository to your local machine:
+bash
+Copy code
+git clone https://github.com/yourusername/copilotkit-contributions.git
+Add Your Contributions: Navigate to the designated file for content contributions and add your details:
+Your GitHub username.
+The links to your content.
+A brief description of what each piece of content covers.
+Example:
+
+markdown
+Copy code
+- **GitHub Username**: @yourusername
+- **Twitter Post**: [How I used CopilotKit to build faster](https://twitter.com/yourtweet)
+- **YouTube Video**: [CopilotKit and Flask Integration Tutorial](https://youtube.com/yourvideo)
+- **Medium Blog**: [How CopilotKit Improved My Workflow](https://medium.com/yourarticle)
+Push Changes to Your Fork: Commit the changes and push them to your fork:
+bash
+Copy code
+git add .
+git commit -m "Added content contribution"
+git push origin main
+Create a Pull Request: Head back to the original repository on GitHub, and you’ll see an option to create a Pull Request (PR). Submit it with the details of your contribution.
+4. Provide Clear Descriptions
+
+When you submit your PR, include clear descriptions of your content. For example, you might specify:
+
+What problem your content addresses.
+The approach you used to explain or demonstrate the feature.
+Any relevant tips or additional insights you offered.
+This ensures that we can verify the content easily and highlight it effectively for others in the community.
+
+Why Contribute?
+By contributing content, you’re not only helping the CopilotKit community, but you’re also building your own portfolio of valuable content across different platforms. Here’s why it matters:
+
+Recognition: Your contributions will be showcased in the official CopilotKit repository, making your work visible to other developers.
+Community Engagement: Sharing your insights helps others learn faster and contributes to the improvement of tools.
+Professional Growth: Creating content strengthens your skills in explaining concepts, building credibility, and establishing your online presence.
+Contribution Platforms
+You can share your content on any of the following platforms:
+
+Twitter: Share quick tips, code snippets, or threads on your experience with CopilotKit.
+YouTube: Create in-depth tutorials or demos on how to use CopilotKit with different technologies.
+dev.to: Write blog posts explaining specific use cases, tips, or challenges solved with CopilotKit.
+Medium: Share insights, guides, or long-form articles on how CopilotKit enhanced your development process.
+LinkedIn: Post professional write-ups or videos explaining how you utilized CopilotKit in your projects.
+TikTok: Short-form, engaging videos explaining tips, tricks, or showing live demos of CopilotKit.
