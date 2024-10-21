@@ -42,7 +42,7 @@ class EmailTool(BaseModel):
     """
     Write an email.
     """
-    the_email: str = Field(description="The email to be written.")
+    email_draft: str = Field(description="The draft of the email to be written.")
 
 
 async def email_node(state: EmailAgentState, config: RunnableConfig):
@@ -71,7 +71,8 @@ async def email_node(state: EmailAgentState, config: RunnableConfig):
 
     tool_calls = cast(Any, response).tool_calls
 
-    email = tool_calls[0]["args"]["the_email"]
+    # the email content is the argument passed to the email tool
+    email = tool_calls[0]["args"]["email_draft"]
 
     return {
         "email": email,
@@ -86,7 +87,6 @@ async def send_email_node(state: EmailAgentState, config: RunnableConfig):
         config,
         emit_messages=True,
     )
-
 
     await copilotkit_exit(config)
 
