@@ -6,6 +6,7 @@
     "exit-agent",
     "state-streaming",
     "manually-emitting-messages",
-    "agent-steering"
+    "agent-steering",
+    "copilotkit-state"
   ]
 }
