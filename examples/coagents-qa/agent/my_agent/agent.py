@@ -1,4 +1,4 @@
-"""Test Q&A Agent"""
+"""Test Human in the Loop Agent"""
 
 import os
 from typing import Any, cast
@@ -8,7 +8,7 @@ from langgraph.graph import StateGraph, END
 from langgraph.graph import MessagesState
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.runnables import RunnableConfig
-from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.messages import HumanMessage, ToolMessage, AIMessage
 from copilotkit.langchain import (
   copilotkit_customize_config, copilotkit_exit, copilotkit_emit_message
 )
@@ -42,10 +42,10 @@ class EmailTool(BaseModel):
     """
     Write an email.
     """
-    the_email: str = Field(description="The email to be written.")
+    email_draft: str = Field(description="The draft of the email to be written.")
 
 
-async def email_node(state: EmailAgentState, config: RunnableConfig):
+async def draft_email_node(state: EmailAgentState, config: RunnableConfig):
     """
     Write an email.
     """
@@ -71,7 +71,8 @@ async def email_node(state: EmailAgentState, config: RunnableConfig):
 
     tool_calls = cast(Any, response).tool_calls
 
-    email = tool_calls[0]["args"]["the_email"]
+    # the email content is the argument passed to the email tool
+    email = tool_calls[0]["args"]["email_draft"]
 
     return {
         "email": email,
@@ -87,28 +88,28 @@ async def send_email_node(state: EmailAgentState, config: RunnableConfig):
         emit_messages=True,
     )
 
-
     await copilotkit_exit(config)
 
     # get the last message and cast to ToolMessage
     last_message = cast(ToolMessage, state["messages"][-1])
+    message_to_add = ""
     if last_message.content == "CANCEL":
-        await copilotkit_emit_message(config, "❌ Cancelled sending email.")
+        message_to_add = "❌ Cancelled sending email."
     else:
-        await copilotkit_emit_message(config, "✅ Sent email.")
+        message_to_add = "✅ Sent email."
 
-
+    await copilotkit_emit_message(config, message_to_add)
     return {
-        "messages": state["messages"],
+        "messages": state["messages"] + [AIMessage(content=message_to_add)],
     }
 
 
 workflow = StateGraph(EmailAgentState)
-workflow.add_node("email_node", email_node)
+workflow.add_node("draft_email_node", draft_email_node)
 workflow.add_node("send_email_node", send_email_node)
-workflow.set_entry_point("email_node")
+workflow.set_entry_point("draft_email_node")
 
-workflow.add_edge("email_node", "send_email_node")
+workflow.add_edge("draft_email_node", "send_email_node")
 workflow.add_edge("send_email_node", END)
 memory = MemorySaver()
-graph = workflow.compile(checkpointer=memory, interrupt_after=["email_node"])
+graph = workflow.compile(checkpointer=memory, interrupt_after=["draft_email_node"])
