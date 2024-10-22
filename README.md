@@ -71,7 +71,7 @@
   - [Examples & Starter Templates](#examples--starter-templates)
 - [Building Blocks](#building-blocks)
   - [Components](#-components)
-  - [Hooks](#-hooks)
+  - [Hooks](#%EF%B8%8F-hooks)
 - [Contributing](#contributing)
 - [Get in touch](#get-in-touch)
 - [License](#license)
@@ -169,6 +169,17 @@ Here are a few useful resources to help you get started:
 You are welcome to join our [Discord](https://discord.gg/6dffbvGU3D) and chat with our team and other community members.
 
 Additionally, you can reach out to us at [hello@copilotkit.ai](mailto:hello@copilotkit.ai).
+
+## Connect with us
+
+[![Discord](https://img.shields.io/badge/Discord-7289DA?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/6dffbvGU3D)
+[![X](https://img.shields.io/badge/X-1DA1F2?style=for-the-badge&logo=Twitter&logoColor=white)](https://x.com/CopilotKit)
+[![Gmail](https://img.shields.io/badge/Gmail-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:hello@copilotkit.ai)
+[![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/CopilotKit/CopilotKit)
+[![Git](https://img.shields.io/badge/Git-F05032?style=for-the-badge&logo=git&logoColor=white)](https://github.com/CopilotKit/CopilotKit)
+[![npm](https://img.shields.io/badge/npm-CB3837?style=for-the-badge&logo=npm&logoColor=white)](https://www.npmjs.com/package/@copilotkit/react-core)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/company/copilotkit/)
+[![Website](https://img.shields.io/badge/Website-4285F4?style=for-the-badge&logo=google-chrome&logoColor=white)](https://www.copilotkit.ai/)
 
 ## License
 
