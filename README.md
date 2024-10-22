@@ -170,6 +170,16 @@ You are welcome to join our [Discord](https://discord.gg/6dffbvGU3D) and chat wi
 
 Additionally, you can reach out to us at [hello@copilotkit.ai](mailto:hello@copilotkit.ai).
 
+And don't forget to check us other social media paltforms too 🥰🥰
+[![Discord](https://img.shields.io/badge/Discord-7289DA?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/invite/6dffbvGU3D)
+[![X](https://img.shields.io/badge/X-1DA1F2?style=for-the-badge&logo=Twitter&logoColor=white)](https://www.copilotkit.ai/)
+[![Gmail](https://img.shields.io/badge/Gmail-D14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:hello@copilotkit.ai)
+[![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/CopilotKit/CopilotKit)
+[![Git](https://img.shields.io/badge/Git-F05032?style=for-the-badge&logo=git&logoColor=white)](https://github.com/CopilotKit/CopilotKit)
+[![npm](https://img.shields.io/badge/npm-CB3837?style=for-the-badge&logo=npm&logoColor=white)](https://www.npmjs.com/package/@copilotkit/react-core)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/company/copilotkit/)
+[![Website](https://img.shields.io/badge/Website-4285F4?style=for-the-badge&logo=google-chrome&logoColor=white)](https://www.copilotkit.ai/)
+
 ## License
 
 This repository's source code is available under the [MIT License](https://github.com/CopilotKit/CopilotKit/blob/main/LICENSE).
