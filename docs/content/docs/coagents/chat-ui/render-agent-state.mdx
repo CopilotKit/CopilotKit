@@ -3,7 +3,6 @@ title: Agentic Generative UI
 description: Render the current agent state in your application
 ---
 
-
 <Frame className="my-6">
   <img
     src="/images/coagents/AgenticGenerativeUI.gif"
@@ -12,25 +11,22 @@ description: Render the current agent state in your application
   />
 </Frame>
 
+## Background
 
-## Background 
-
-<u>**Agentic generative UI**</u> is generative UI that is based on the **agent's current state**.
-I.e. you can render to the user what the agent is currently doing in the chat UI.
-Continuously rendering the agent's state is the gold standard for agentic UX; it keeps users **engaged** and **builds trust** by demonstrating that the agent is on the right track.
+<u>**Agentic generative UI**</u> is generative UI that is based on the **agent's
+current state**. I.e. you can render to the user what the agent is currently doing
+in the chat UI. Continuously rendering the agent's state is the gold standard for
+agentic UX; it keeps users **engaged** and **builds trust** by demonstrating that
+the agent is on the right track.
 
 (See also [`useCopilotAction` for non-agentic generative UI](/guides/generative-ui).)
 
-
-
 <Callout type="info">
-  By default, the LangGraph agent state updates only **betwee** LangGraph node transitions. However, for a more engaging user experience, you'll likely want to render the state as it updates **continuously**.
+  By default, the LangGraph agent state updates only **between** LangGraph node transitions. However, for a more engaging user experience, you'll likely want to render the state as it updates **continuously**.
 
-  To learn how to stream and render intermediate agent states, providing real-time updates to your users, refer to our guide on [Streaming Intermediate State](/coagents/advanced/intermediate-state-streaming).
+To learn how to stream and render intermediate agent states, providing real-time updates to your users, refer to our guide on [Streaming Intermediate State](/coagents/advanced/intermediate-state-streaming).
+
 </Callout>
-
-
-
 
 ## Rendering Agent State with `useCoAgentStateRender`
 
@@ -41,9 +37,10 @@ To render state in your application, use the `useCoAgentStateRender` hook. Here'
 
 import { useCoagentStateRender } from "@copilotkit/react-core";
 
-useCoagentStateRender({ // [!code highlight:11]
-  name: "basic_agent", # the name of the agent
-  nodeName: "optionally_specifiy_a_specifc_node", # Optional! You can specify a specific node you want generative UI for. Omit this argument if you want to render the agent's state for any node.
+useCoagentStateRender({
+  // [!code highlight:11]
+  name: "basic_agent", // the name of the agent
+  nodeName: "optionally_specifiy_a_specifc_node", // Optional! You can specify a specific node you want generative UI for. Omit this argument if you want to render the agent's state for any node.
   render: ({ status, state, nodeName }) => {
     return (
       <WeatherDisplay
@@ -60,7 +57,8 @@ The render function can return any valid React node; you can use your own compon
 ---
 
 ## ⚠️ IMPORTANT! Stream & render the intermediate agent state
-By default, the LangGraph agent state will only update *between* LangGraph node transitions --
+
+By default, the LangGraph agent state will only update _between_ LangGraph node transitions --
 which means state updates will be discontinuous and delayed.
 
 You likely want to render the agent state as it updates **continuously.** See **[stream intermediate state](/coagents/advanced/intermediate-state-streaming).**
@@ -76,20 +74,21 @@ Define your agent's state types:
 <Tabs items={["TypeScript", "Python (Pydantic)"]}>
   <Tab value="TypeScript">
 
-  ```ts
-  type WeatherResponse = {
-    conditions: string;
-    temperature: number;
-    wind_direction: string;
-    wind_speed: number;
-  };
+```ts
+type WeatherResponse = {
+  conditions: string;
+  temperature: number;
+  wind_direction: string;
+  wind_speed: number;
+};
 
-  type AgentState = {
-    final_response: WeatherResponse;
-    input: string;
-    messages: any[];
-  };
-  ```
+type AgentState = {
+  final_response: WeatherResponse;
+  input: string;
+  messages: any[];
+};
+```
+
   </Tab>
 
   <Tab value="Python (Pydantic)">
@@ -102,12 +101,13 @@ Define your agent's state types:
       wind_direction: str = Field(description="The direction of the wind in abbreviated form")
       wind_speed: float = Field(description="The speed of the wind in km/h")
 
-  class AgentState(MessagesState):
-      final_response: WeatherResponse
-      input: str
-  ```
+class AgentState(MessagesState):
+final_response: WeatherResponse
+input: str
 
-  </Tab>
+````
+
+</Tab>
 
 </Tabs>
 
@@ -119,15 +119,16 @@ Now, you can use generics with `useCoAgentStateRender`:
 import { useCoagentStateRender } from "@copilotkit/react-core";
 
 useCoagentStateRender<AgentState>({ // [!code highlight:9]
-  name: "basic_agent", # the name of the agent
-  nodeName: "optionally_specifiy_a_specifc_node", # Optional! You can specify a specific node you want generative UI for. Omit this argument if you want to render the agent's state for any node.
-  render: ({ status, state, nodeName }) => {
-    return (
-      <DetailedWeatherInfo data={state.final_response} />
-    );
-  },
+name: "basic_agent", // the name of the agent
+nodeName: "optionally_specifiy_a_specifc_node", // Optional! You can specify a specific node you want generative UI for. Omit this argument if you want to render the agent's state for any node.
+render: ({ status, state, nodeName }) => {
+  return (
+    <DetailedWeatherInfo data={state.final_response} />
+  );
+},
 });
-```
+````
+
 This way, you'll get type checking and auto-completion for `state` properties.
 
 In this example, `DetailedWeatherInfo` is a component you define to display detailed weather information using the typed state.
