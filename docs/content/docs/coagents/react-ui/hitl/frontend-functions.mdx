@@ -13,7 +13,6 @@ You can easily pass questions to the frontend for the user to answer in the nati
   />
 </Frame>
 
-
 ## Agentic Frontend
 
 <Steps>
@@ -28,7 +27,8 @@ You can easily pass questions to the frontend for the user to answer in the nati
 import { useCopilotAction } from "@copilotkit/react-core";
 
 export function Mailer() {
-  useCopilotAction({ // [!code highlight:15]
+  useCopilotAction({
+    // [!code highlight:15]
     name: "EmailTool",
     parameters: [
       {
@@ -39,10 +39,10 @@ export function Mailer() {
       },
     ],
     handler: async ({ email_draft }) => {
-        // ...
-        return "any value"
-    }
-  })
+      // ...
+      return "any value";
+    },
+  });
 }
 ```
 
@@ -51,8 +51,8 @@ export function Mailer() {
 <Step>
 ### Return any custom value from the `handler` function
 
-
 Whatever argument you return from the `handler` will become available on the agentic backend. This allows you to pass information from the frontend to the agent, enabling seamless communication between the user interface and the backend logic.
+
 >
 
 </Step>
@@ -65,10 +65,7 @@ In this case, the action name is `EmailTool`. It has a single parameter `email_d
 
 </Step>
 
-
-
 </Steps>
-
 
 ## Agentic Backend (LangGraph)
 
@@ -78,7 +75,6 @@ In this case, the action name is `EmailTool`. It has a single parameter `email_d
 ### Define the tool & the state.
 
 The Tool's name and arguments must line up with what you used on the frontend.
-
 
 ```python
 class EmailTool(BaseModel):
@@ -91,19 +87,20 @@ class EmailAgentState(MessagesState):
 ```
 
 <Callout type="warning">
-  The name of the `EmailTool` class and its argument `the_email` MUST match what we set up on the frontend. Ensure that the `name` in `useCopilotAction` is "EmailTool" and the parameter name is "the_email" for consistency between frontend and backend.
+  The name of the `EmailTool` class and its argument `the_email` MUST match what
+  we set up on the frontend. Ensure that the `name` in `useCopilotAction` is
+  "EmailTool" and the parameter name is "the_email" for consistency between
+  frontend and backend.
 </Callout>
 
-
 </Step>
-
 
 <Step>
 ### Orchestrate the workflow:
 
 Add standard edges between the nodes in the graph.
 
-NOTICE that we have a `interrupt_after` for `draft_email_node` (the node that initiates HITL) -- this is necessary to hand off control to the frontend. 
+NOTICE that we have a `interrupt_after` for `draft_email_node` (the node that initiates HITL) -- this is necessary to hand off control to the frontend.
 
 ```python
 workflow = StateGraph(EmailAgentState)
@@ -119,12 +116,9 @@ graph = workflow.compile(
 )
 ```
 
-
 </Step>
 
-
 <Step>
-
 
 ### Define the agent's nodes and orchestrate the workflow using LangGraph.
 
@@ -168,12 +162,13 @@ async def send_email_node(state: EmailAgentState, config: RunnableConfig):
         "messages": state["messages"] + [AIMessage(content=message_to_add)],
     }
 
-    
-```
 
+```
 
 </Step>
 
-
 </Steps>
 
+## Example
+
+See the [this example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-qa-native) for a demonstration of frontend tool calling.

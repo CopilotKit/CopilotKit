@@ -10,11 +10,11 @@ You can easily sync your application state back to the agent state.
 </Frame>
 
 ## Frontend
+
 <Steps>
 
 <Step>
 ### Simply call the `useCoAgent` hook and capture the `setState` variable.
-
 
 ```tsx
 // [!code word:setState]
@@ -35,6 +35,7 @@ function WeatherComponent() {
   );
 }
 ```
+
 </Step>
 
 <Step>
@@ -54,6 +55,7 @@ If you want to re-run it manually, use the `run` argument on the `useCoAgent` ho
 
 The agent will be re-run, and it will get not only the latest updated state, <br/>
 but also a **hint** that can depend on the data delta between the previous and the current state.
+
 ```tsx
 // [!code word:run]
 import { useCoAgent } from "@copilotkit/react-core";
@@ -87,7 +89,6 @@ function WeatherComponent() {
 
 </Step>
 
-
 </Steps>
 
 ## Agentic backend (LangGraph)
@@ -96,10 +97,15 @@ function WeatherComponent() {
 <Step>
 
 ### ⚠️ IMPORTANT! Stream & render the intermediate agent state
-By default, the LangGraph agent state will only update *between* LangGraph node transitions --
+
+By default, the LangGraph agent state will only update _between_ LangGraph node transitions --
 which means state updates will be discontinuous and delayed.
 
 You likely want to render the agent state as it updates **continuously.** See **[stream intermediate state](/coagents/advanced/intermediate-state-streaming).**
 
 </Step>
 </Steps>
+
+## Example
+
+See the [Shared State example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-shared-state) for a simple example demonstrating getting and setting state shared state.

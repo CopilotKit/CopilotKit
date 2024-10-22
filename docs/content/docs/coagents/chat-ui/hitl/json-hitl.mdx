@@ -13,7 +13,6 @@ You can easily pass questions to the frontend for the user to answer in the AI C
   />
 </Frame>
 
-
 ## Agentic Frontend
 
 <Steps>
@@ -28,7 +27,8 @@ You can easily pass questions to the frontend for the user to answer in the AI C
 import { useCopilotAction } from "@copilotkit/react-core";
 
 export function Mailer() {
-  useCopilotAction({ // [!code highlight:19]
+  useCopilotAction({
+    // [!code highlight:19]
     name: "EmailTool",
     parameters: [
       {
@@ -55,6 +55,7 @@ export function Mailer() {
   );
 }
 ```
+
 </Step>
 
 <Step>
@@ -66,13 +67,18 @@ The agent will not continue executing until the `handler` function provided via 
 `args` contains the parameters specified shortly above it; the parameters will be streamed as they come in.
 
 <Callout type="warn">
-  Please note that while `status` is `executing`, `handler` will be `undefined` <br/>
-  You can call it either by checking if it is `undefined`, or by using this format <br/>
+  Please note that while `status` is `executing`, `handler` will be `undefined`{" "}
+  <br />
+  You can call it either by checking if it is `undefined`, or by using this format{" "}
+  <br />
   `handler?.(argumentToPassHandler)`.
 </Callout>
 
 <Callout type="info">
-  Whatever argument you pass to the `handler` will become available on the agentic backend. This allows you to pass information from the frontend to the agent, enabling seamless communication between the user interface and the backend logic.
+  Whatever argument you pass to the `handler` will become available on the
+  agentic backend. This allows you to pass information from the frontend to the
+  agent, enabling seamless communication between the user interface and the
+  backend logic.
 </Callout>
 
 </Step>
@@ -85,11 +91,7 @@ In this case, the action name is `EmailTool`. It has a single parameter `email_d
 
 </Step>
 
-
-
-
 </Steps>
-
 
 ## Agentic Backend (LangGraph)
 
@@ -99,7 +101,6 @@ In this case, the action name is `EmailTool`. It has a single parameter `email_d
 ### Define the tool & the state.
 
 The Tool's name and arguments must line up with what you used on the frontend.
-
 
 ```python
 class EmailTool(BaseModel):
@@ -112,19 +113,20 @@ class EmailAgentState(MessagesState):
 ```
 
 <Callout type="warning">
-  The name of the `EmailTool` class and its argument `the_email` MUST match what we set up on the frontend. Ensure that the `name` in `useCopilotAction` is "EmailTool" and the parameter name is "the_email" for consistency between frontend and backend.
+  The name of the `EmailTool` class and its argument `the_email` MUST match what
+  we set up on the frontend. Ensure that the `name` in `useCopilotAction` is
+  "EmailTool" and the parameter name is "the_email" for consistency between
+  frontend and backend.
 </Callout>
 
-
 </Step>
-
 
 <Step>
 ### Orchestrate the workflow:
 
 Add standard edges between the nodes in the graph.
 
-NOTICE that we have a `interrupt_after` for `draft_email_node` (the node that initiates HITL) -- this is necessary to hand off control to the frontend. 
+NOTICE that we have a `interrupt_after` for `draft_email_node` (the node that initiates HITL) -- this is necessary to hand off control to the frontend.
 
 ```python
 workflow = StateGraph(EmailAgentState)
@@ -140,12 +142,9 @@ graph = workflow.compile(
 )
 ```
 
-
 </Step>
 
-
 <Step>
-
 
 ### Define the agent's nodes and orchestrate the workflow using LangGraph.
 
@@ -189,12 +188,13 @@ async def send_email_node(state: EmailAgentState, config: RunnableConfig):
         "messages": state["messages"] + [AIMessage(content=message_to_add)],
     }
 
-    
-```
 
+```
 
 </Step>
 
-
 </Steps>
 
+## Example
+
+See the [JSON Q&A example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-qa) for a simple example of JSON approval.
