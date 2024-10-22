@@ -91,21 +91,40 @@ In this case, the action name is `EmailTool`. It has a single parameter `email_d
 </Steps>
 
 
-## Agentic Backend
+## Agentic Backend (LangGraph)
 
-Define the state and tool:
+<Steps>
+
+<Step>
+### Define the tool & the state.
+
+The Tool's name and arguments must line up with what you used on the frontend.
+
 
 ```python
-class EmailAgentState(MessagesState):
-    """Email Agent State"""
-    email: str
-
 class EmailTool(BaseModel):
     """Write an email."""
     the_email: str = Field(description="The email to be written.")
+
+class EmailAgentState(MessagesState):
+    """Email Agent State"""
+    email: str
 ```
 
-Orchestrate the workflow:
+<Callout type="warning">
+  The name of the `EmailTool` class and its argument `the_email` MUST match what we set up on the frontend. Ensure that the `name` in `useCopilotAction` is "EmailTool" and the parameter name is "the_email" for consistency between frontend and backend.
+</Callout>
+
+
+</Step>
+
+
+<Step>
+### Orchestrate the workflow:
+
+Add standard edges between the nodes in the graph.
+
+NOTICE that we have a `interrupt_after` for `draft_email_node` (the node that initiates HITL) -- this is necessary to hand off control to the frontend. 
 
 ```python
 workflow = StateGraph(EmailAgentState)
@@ -121,7 +140,17 @@ graph = workflow.compile(
 )
 ```
 
-Define the agent's nodes and orchestrate the workflow using LangGraph.
+
+</Step>
+
+
+<Step>
+
+
+### Define the agent's nodes and orchestrate the workflow using LangGraph.
+
+- Be sure to emit tool calls to the frontend, by using the `copilotkit_customize_config` call with `emit_tool_calls = True`.
+- The frontend's return value will be made available as a tool call result in the subsequent node. Cast the last message to a ToolMessage and look at its `.content`.
 
 ```python title="agent/my_agent/agent.py"
 from typing import Any, cast
@@ -130,10 +159,6 @@ from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import HumanMessage, ToolMessage
 from copilotkit.langchain import copilotkit_customize_config, copilotkit_emit_message
 from pydantic import BaseModel, Field
-
-class EmailTool(BaseModel):
-    """Write an email."""
-    email_draft: str = Field(description="The draft of the email to be written.")
 
 async def draft_email_node(state: EmailAgentState, config: RunnableConfig):
     """Write an email."""
@@ -146,18 +171,30 @@ async def draft_email_node(state: EmailAgentState, config: RunnableConfig):
     email_model = ChatOpenAI(temperature=0, model="gpt-4o").bind_tools([EmailTool], tool_choice="EmailTool")
     response = await email_model.ainvoke([*state.messages, HumanMessage(content=instructions)], config)
     tool_calls = cast(Any, response).tool_calls
-    email = tool_calls[0]["args"]["email_draft"]  # the email content is the argument passed to the email tool
-    return {"email": email}
+    email_draft = tool_calls[0]["args"]["email_draft"]  # the email draft content is the argument passed to the email tool
+    return {"email": email_draft} # we also persist the email draft in the agent state.
+
 
 async def send_email_node(state: EmailAgentState, config: RunnableConfig):
-    # the next node in the graph sees the result from the frontend as the tool-call return value.
-    last_message = cast(ToolMessage, state["messages"][-1])
-    if last_message.content == "CANCEL":
-        # Handle cancellation
-        await copilotkit_emit_message(config, "❌ Cancelled sending email.")
+    # get the last message and cast to ToolMessage
+    last_message = cast(ToolMessage, state["messages"][-1]) # [!code highlight]
+    message_to_add = ""
+    if last_message.content == "CANCEL": # [!code highlight]
+        message_to_add = "❌ Cancelled sending email."
     else:
-        # Handle sending email
-        await copilotkit_emit_message(config, "✅ Sent email.")
+        message_to_add = "✅ Sent email."
+
+    await copilotkit_emit_message(config, message_to_add)
+    return {
+        "messages": state["messages"] + [AIMessage(content=message_to_add)],
+    }
+
+    
 ```
 
+
+</Step>
+
+
+</Steps>
 
