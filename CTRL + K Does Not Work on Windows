@@ -1,0 +1,15 @@
+Describe the bug
+On Mac, cmd + k opens a popover in <CopilotTextarea>, but on Windows, ctrl + k does not trigger the same behavior. This issue may occur in other areas where keyboard shortcuts are used.
+
+To Reproduce
+
+1.Use a Windows machine.
+2.Go to CRM Demo.
+3.Focus on the textarea field.
+4.Press ctrl + k—nothing happens.
+
+Expected Behavior
+Popover should open as it does with cmd + k on Mac.
+
+Potential Solution
+Consider using a cross-platform keyboard shortcut library to handle key mapping differences in React/JS.
