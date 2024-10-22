@@ -15,7 +15,7 @@
     "@copilotkit/react-ui": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
     "@copilotkit/shared": "workspace:*",
-    "@google/generative-ai": "^0.11.2",
+    "@google/generative-ai": "^0.11.5",
     "@heroicons/react": "^2.0.18",
     "@langchain/community": "^0.0.53",
     "@langchain/core": "^0.1.61",
