@@ -120,6 +120,7 @@ async def fetch_name_for_user_id(userId: str):
     # Replace with your database logic
     return {"name": "User_" + userId}
 
+# this is a dummy action for demonstration purposes
 action = CopilotAction(
     name="fetchNameForUserId",
     description="Fetches user name from the database for a given ID.",
@@ -134,16 +135,16 @@ action = CopilotAction(
     handler=fetch_name_for_user_id
 )
 
-# Initialize the CopilotKit SDK
+# Initialize the CopilotKit SDK # [!code highlight:2]
 sdk = CopilotKitSDK(actions=[action])
 
-# Add the CopilotKit endpoint to your FastAPI app
+# Add the CopilotKit endpoint to your FastAPI app # [!code highlight:2]
 add_fastapi_endpoint(app, sdk, "/copilotkit_remote")
 
 def main():
     """Run the uvicorn server."""
     import uvicorn
-    uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
 ```
 
 </Step>
@@ -198,3 +199,12 @@ After setting up the remote endpoint and modifying your `CopilotRuntime`, you ca
 </Step>
 
 </Steps>
+
+---
+
+## Troubleshooting
+
+A few things to try if you are running into trouble:
+
+1. Make sure there is no other local application server running on the 8000 port.
+2. Under `/agent/my_agent/demo.py`, change host from `0.0.0.0` to `127.0.0.1` or to `localhost`

@@ -4,6 +4,15 @@ description: Render the current agent state in your application
 ---
 
 
+<Frame className="my-6">
+  <img
+    src="/images/coagents/AgenticGenerativeUI.gif"
+    alt="CoAgents Chat Hello demonstration"
+    className="w-2/3 mx-auto"
+  />
+</Frame>
+
+
 ## Background 
 
 <u>**Agentic generative UI**</u> is generative UI that is based on the **agent's current state**.
@@ -11,8 +20,6 @@ I.e. you can render to the user what the agent is currently doing in the chat UI
 Continuously rendering the agent's state is the gold standard for agentic UX; it keeps users **engaged** and **builds trust** by demonstrating that the agent is on the right track.
 
 (See also [`useCopilotAction` for non-agentic generative UI](/guides/generative-ui).)
-
-TODO: add gif.
 
 
 
@@ -50,12 +57,15 @@ useCoagentStateRender({ // [!code highlight:11]
 
 The render function can return any valid React node; you can use your own components to display the agent's state.
 
+---
+
 ## ⚠️ IMPORTANT! Stream & render the intermediate agent state
 By default, the LangGraph agent state will only update *between* LangGraph node transitions --
 which means state updates will be discontinuous and delayed.
 
 You likely want to render the agent state as it updates **continuously.** See **[stream intermediate state](/coagents/advanced/intermediate-state-streaming).**
 
+---
 
 ## Developer experience: using typed state with generics
 

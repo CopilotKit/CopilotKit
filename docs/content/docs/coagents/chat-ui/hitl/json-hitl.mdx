@@ -5,16 +5,22 @@ description: Implement approval UI for your agent.
 
 You can easily pass questions to the frontend for the user to answer in the AI Chat.
 
-On the LangGraph side, Human-in-the-Loop is implemented by creating a tool call, whose return value is to be provided by the frontend.
+<Frame className="my-2">
+  <img
+    src="/images/coagents/coagents-hitl-infographic.png"
+    alt="CoAgents Chat Hello demonstration"
+    className="w-3/4 mx-auto"
+  />
+</Frame>
 
-On the frontend, you simply create a `useCopilotAction` which takes the same parameters emitted by the LangGraph tool call, with a `renderAndWait` argument.
-When the `handler` block given to `renderAndWait` is called, the result is propagated back to the LangGraph.
-
-TODO: add gif.
 
 ## Agentic Frontend
 
-Use `useCopilotAction` with `renderAndWait` to present a custom UI for user approval.
+<Steps>
+
+<Step>
+
+### Add `useCopilotAction` with `renderAndWait` to a component loaded into the view hierarchy while the agent is executing.
 
 ```tsx filename="app/Mailer.tsx"
 "use client"; // only necessary if you are using Next.js with the App Router. // [!code highlight]
@@ -48,9 +54,42 @@ export function Mailer() {
     </div>
   );
 }
-
-// EmailApprovalComponent is a custom component for approval UI
 ```
+</Step>
+
+<Step>
+### Return any custom React component from the `renderAndWait` function
+
+You can return any custom React component from the `renderAndWait` function.
+The agent will not continue executing until the `handler` function provided via the `renderAndWait` arguments is called.
+
+`args` contains the parameters specified shortly above it; the parameters will be streamed as they come in.
+
+<Callout type="warn">
+  Please note that while `status` is `executing`, `handler` will be `undefined` <br/>
+  You can call it either by checking if it is `undefined`, or by using this format <br/>
+  `handler?.(argumentToPassHandler)`.
+</Callout>
+
+<Callout type="info">
+  Whatever argument you pass to the `handler` will become available on the agentic backend. This allows you to pass information from the frontend to the agent, enabling seamless communication between the user interface and the backend logic.
+</Callout>
+
+</Step>
+
+<Step>
+### Record the action **name** and **parameters**.
+Record the action name & parameters. They must match the configuration we will soon setup on the agentic backend.
+
+In this case, the action name is `EmailTool`. It has a single parameter `email_draft` of type `string`.
+
+</Step>
+
+
+
+
+</Steps>
+
 
 ## Agentic Backend
 

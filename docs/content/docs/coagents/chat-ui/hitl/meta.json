@@ -1,7 +1,6 @@
 {
   "title": "HITL (Human-in-the-loop)",
   "pages": [
-    "json-hitl",
-    "text-hitl"
+    "json-hitl"
   ]
 }
