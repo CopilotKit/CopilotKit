@@ -1,6 +1,6 @@
 {
-  "title": "HITL (Human-in-the-loop)",
+  "title": "Frontend Actions",
   "pages": [
-    "user-feedback-react"
+    "frontend-functions"
   ]
 }
