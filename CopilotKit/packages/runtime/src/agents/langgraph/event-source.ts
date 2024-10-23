@@ -1,5 +1,5 @@
 import { ReplaySubject, scan, mergeMap, catchError } from "rxjs";
-import { LangGraphEvent, LangGraphEventTypes } from "./events";
+import { CustomEventNames, LangGraphEvent, LangGraphEventTypes } from "./events";
 import { RuntimeEvent, RuntimeEventTypes } from "../../service-adapters/events";
 import { randomId } from "@copilotkit/shared";
 
@@ -135,32 +135,45 @@ export class RemoteLangGraphEventSource {
         }
 
         switch (eventWithState.event!.event) {
-          case LangGraphEventTypes.OnCopilotKitEmitMessage:
-            events.push({
-              type: RuntimeEventTypes.TextMessageStart,
-              messageId: eventWithState.event.message_id,
-            });
-            events.push({
-              type: RuntimeEventTypes.TextMessageContent,
-              content: eventWithState.event.message,
-            });
-            events.push({
-              type: RuntimeEventTypes.TextMessageEnd,
-            });
-            break;
-          case LangGraphEventTypes.OnCopilotKitEmitToolCall:
-            events.push({
-              type: RuntimeEventTypes.ActionExecutionStart,
-              actionExecutionId: eventWithState.event.id,
-              actionName: eventWithState.event.name,
-            });
-            events.push({
-              type: RuntimeEventTypes.ActionExecutionArgs,
-              args: JSON.stringify(eventWithState.event.args),
-            });
-            events.push({
-              type: RuntimeEventTypes.ActionExecutionEnd,
-            });
+          //
+          // Custom events
+          //
+          case LangGraphEventTypes.OnCustomEvent:
+            //
+            // Manually emit a message
+            //
+            if (eventWithState.event.name === CustomEventNames.CopilotKitManuallyEmitMessage) {
+              events.push({
+                type: RuntimeEventTypes.TextMessageStart,
+                messageId: eventWithState.event.data.message_id,
+              });
+              events.push({
+                type: RuntimeEventTypes.TextMessageContent,
+                content: eventWithState.event.data.message,
+              });
+              events.push({
+                type: RuntimeEventTypes.TextMessageEnd,
+              });
+            }
+            //
+            // Manually emit a tool call
+            //
+            else if (
+              eventWithState.event.name === CustomEventNames.CopilotKitManuallyEmitToolCall
+            ) {
+              events.push({
+                type: RuntimeEventTypes.ActionExecutionStart,
+                actionExecutionId: eventWithState.event.data.id,
+                actionName: eventWithState.event.data.name,
+              });
+              events.push({
+                type: RuntimeEventTypes.ActionExecutionArgs,
+                args: JSON.stringify(eventWithState.event.data.args),
+              });
+              events.push({
+                type: RuntimeEventTypes.ActionExecutionEnd,
+              });
+            }
             break;
           case LangGraphEventTypes.OnCopilotKitStateSync:
             events.push({
