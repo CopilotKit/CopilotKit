@@ -1,0 +1,22 @@
+{
+  "mode": "pre",
+  "tag": "fix-chat-interactions-rerenders",
+  "initialVersions": {
+    "next-openai": "1.3.6",
+    "next-pages-router": "1.3.6",
+    "node-express": "1.3.6",
+    "node-http": "1.3.6",
+    "@copilotkit/react-core": "1.3.6",
+    "@copilotkit/react-textarea": "1.3.6",
+    "@copilotkit/react-ui": "1.3.6",
+    "@copilotkit/runtime": "1.3.6",
+    "@copilotkit/runtime-client-gql": "1.3.6",
+    "@copilotkit/shared": "1.3.6",
+    "eslint-config-custom": "1.3.6",
+    "tailwind-config": "1.3.6",
+    "tsconfig": "1.3.6"
+  },
+  "changesets": [
+    "new-teachers-attend"
+  ]
+}

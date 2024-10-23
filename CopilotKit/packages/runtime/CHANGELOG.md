@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.3.7-fix-chat-interactions-rerenders.0
+
+### Patch Changes
+
+- Split messages into their own context
+- Updated dependencies
+  - @copilotkit/shared@1.3.7-fix-chat-interactions-rerenders.0
+
 ## 1.3.6
 
 ### Patch Changes

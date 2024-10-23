@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 1.3.7-fix-chat-interactions-rerenders.0
+
+### Patch Changes
+
+- Split messages into their own context
+
 ## 1.3.6
 
 ### Patch Changes
