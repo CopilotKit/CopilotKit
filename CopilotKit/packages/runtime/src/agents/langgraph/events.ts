@@ -8,8 +8,13 @@ export enum LangGraphEventTypes {
   OnToolStart = "on_tool_start",
   OnToolEnd = "on_tool_end",
   OnCopilotKitStateSync = "on_copilotkit_state_sync",
-  OnCopilotKitEmitMessage = "on_copilotkit_emit_message",
-  OnCopilotKitEmitToolCall = "on_copilotkit_emit_tool_call",
+  OnCustomEvent = "on_custom_event",
+}
+
+export enum CustomEventNames {
+  CopilotKitManuallyEmitMessage = "copilotkit_manually_emit_message",
+  CopilotKitManuallyEmitToolCall = "copilotkit_manually_emit_tool_call",
+  CopilotKitManuallyEmitIntermediateState = "copilotkit_manually_emit_intermediate_state",
 }
 
 type LangGraphOnCopilotKitStateSyncEvent = {
@@ -22,19 +27,6 @@ type LangGraphOnCopilotKitStateSyncEvent = {
   role: string;
   state: any;
   running: boolean;
-};
-
-type LangGraphOnCopilotKitManualMessageEvent = {
-  event: LangGraphEventTypes.OnCopilotKitEmitMessage;
-  message: string;
-  message_id: string;
-};
-
-type LangGraphOnCopilotKitEmitToolCallEvent = {
-  event: LangGraphEventTypes.OnCopilotKitEmitToolCall;
-  name: string;
-  args: any;
-  id: string;
 };
 
 type LangGraphOnChainStartEvent = {
@@ -312,6 +304,24 @@ type LangGraphOnToolEndEvent = {
   parent_ids: string[];
 };
 
+type LangGraphOnCustomEvent = {
+  event: LangGraphEventTypes.OnCustomEvent;
+  run_id: string;
+  name: string;
+  tags: string[];
+  metadata: {
+    thread_id: string;
+    langgraph_step: number;
+    langgraph_node: string;
+    langgraph_triggers: string[];
+    langgraph_path: [string, string];
+    langgraph_checkpoint_ns: string;
+    checkpoint_ns: string;
+  };
+  data: any;
+  parent_ids: string[];
+};
+
 export type LangGraphEvent =
   | LangGraphOnChainStartEvent
   | LangGraphOnChainStreamEvent
@@ -322,5 +332,4 @@ export type LangGraphEvent =
   | LangGraphOnToolStartEvent
   | LangGraphOnToolEndEvent
   | LangGraphOnCopilotKitStateSyncEvent
-  | LangGraphOnCopilotKitManualMessageEvent
-  | LangGraphOnCopilotKitEmitToolCallEvent;
+  | LangGraphOnCustomEvent;
