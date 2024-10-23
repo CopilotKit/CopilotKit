@@ -170,32 +170,42 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     }
   }
 
-  let cloud: CopilotCloudConfig | undefined = undefined;
-  if (props.publicApiKey) {
-    cloud = {
-      guardrails: {
-        input: {
-          restrictToTopic: {
-            enabled: props.cloudRestrictToTopic ? true : false,
-            validTopics: props.cloudRestrictToTopic?.validTopics || [],
-            invalidTopics: props.cloudRestrictToTopic?.invalidTopics || [],
+  // get the appropriate CopilotApiConfig from the props
+  const copilotApiConfig: CopilotApiConfig = useMemo(() => {
+    let cloud: CopilotCloudConfig | undefined = undefined;
+    if (props.publicApiKey) {
+      cloud = {
+        guardrails: {
+          input: {
+            restrictToTopic: {
+              enabled: props.cloudRestrictToTopic ? true : false,
+              validTopics: props.cloudRestrictToTopic?.validTopics || [],
+              invalidTopics: props.cloudRestrictToTopic?.invalidTopics || [],
+            },
           },
         },
-      },
-    };
-  }
+      };
+    }
 
-  // get the appropriate CopilotApiConfig from the props
-  const copilotApiConfig: CopilotApiConfig = {
-    publicApiKey: props.publicApiKey,
-    ...(cloud ? { cloud } : {}),
-    chatApiEndpoint: chatApiEndpoint,
-    headers: props.headers || {},
-    properties: props.properties || {},
-    transcribeAudioUrl: props.transcribeAudioUrl,
-    textToSpeechUrl: props.textToSpeechUrl,
-    credentials: props.credentials,
-  };
+    return {
+      publicApiKey: props.publicApiKey,
+      ...(cloud ? { cloud } : {}),
+      chatApiEndpoint: chatApiEndpoint,
+      headers: props.headers || {},
+      properties: props.properties || {},
+      transcribeAudioUrl: props.transcribeAudioUrl,
+      textToSpeechUrl: props.textToSpeechUrl,
+      credentials: props.credentials,
+    };
+  }, [
+    props.publicApiKey,
+    props.headers,
+    props.properties,
+    props.transcribeAudioUrl,
+    props.textToSpeechUrl,
+    props.credentials,
+    props.cloudRestrictToTopic,
+  ]);
 
   const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
     [key: string]: CopilotChatSuggestionConfiguration;
