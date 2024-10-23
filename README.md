@@ -83,8 +83,8 @@
 There are several easy ways to get started with CopilotKit:
 
 - [**Quickstart: Chatbot:**](https://docs.copilotkit.ai/quickstart?ref=github_readme) In just two minutes, add an AI Chatbot to your app with the ability to read application state and take actions.
-- [**Tutorial: Todo List Copilot:**](https://docs.copilotkit.ai/guides/copilot-textarea?ref=github_readme) For a deeper dive into CopilotKit, take a simple todo list app and supercharge it with an AI chat popup.
-- [**Tutorial: Textarea Autocomplete:**](https://docs.copilotkit.ai/guides/copilot-textarea?ref=github_readme) For a deeper dive into CopilotKit, we'll take a simple email client app and add an AI-powered textarea with autocompletions and AI insertions/edits.
+- [**Tutorial: Todo List Copilot:**](https://docs.copilotkit.ai/tutorials/ai-todo-app/overview?ref=github_readme) For a deeper dive into CopilotKit, take a simple todo list app and supercharge it with an AI chat popup.
+- [**Tutorial: Textarea Autocomplete:**](https://docs.copilotkit.ai/tutorials/ai-powered-textarea/overview?ref=github_readme) For a deeper dive into CopilotKit, we'll take a simple email client app and add an AI-powered textarea with autocompletions and AI insertions/edits.
 
 ### Examples & Starter Templates
 
@@ -118,6 +118,15 @@ There are several easy ways to get started with CopilotKit:
       <a href="https://go.copilotkit.ai/GitHubPresentationVoice">https://github.com/CopilotKit/demo-presentation-voice</a> <br/><br>
       <a href="https://go.copilotkit.ai/GitHubPresentationVoice">
         <img alt="Presentation-Voice" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="240px" style="max-width:100%; border-radius: 10px;"/>
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top">
+      🕹️ Banking App + Copilot<br/>
+      <a href="https://github.com/CopilotKit/demo-banking">https://github.com/CopilotKit/demo-banking</a> <br/><br>
+      <a href="https://github.com/CopilotKit/demo-banking">
+        <img alt="Banking-Demo" src="https://github.com/CopilotKit/demo-banking/blob/main/assets/project-preview.png?raw=true" width="240px" style="max-width:100%; border-radius: 10px;"/>
       </a>
     </td>
   </tr>

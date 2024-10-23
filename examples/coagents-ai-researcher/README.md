@@ -56,3 +56,12 @@ Navigate to [http://localhost:3000](http://localhost:3000).
 Run LangGraph studio, then load the `./agent` folder into it.
 
 Make sure to create teh `.env` mentioned above first!
+
+
+
+# Troubleshooting
+
+A few things to try if you are running into trouble:
+
+1. Make sure there is no other local application server running on the 8000 port.
+2. Under `/agent/my_agent/demo.py`, change `0.0.0.0` to `127.0.0.1` or to `localhost`

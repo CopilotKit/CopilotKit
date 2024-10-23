@@ -5,21 +5,22 @@ export function CoAgentsEnterpriseCTA() {
   return (
     <div className="mt-4 mb-4 ring-1 ring-indigo-200 selected bg-gradient-to-r from-indigo-100/80 to-purple-100 shadow-lg rounded-lg p-5 space-y-2 relative overflow-hidden">
       <p className="text-lg mt-0 font-medium">
-        Want to Run CoAgents in Production?
+        Learn to build Agent-Native Applications / with LangGraph and CoAgents.
       </p>
       <p className="text-sm text-neutral-600 z-1">
-        We offer tailored solutions for Enterprise customers. We'd be happy to
-        support you with custom use cases, deploying and scaling CoAgents in
-        production.
+
+        We're excited to invite you to our Agent-Native Applications webinar on October 28th.
+        
+        We'll learn how to build Agent-Native Applications in a single sitting, using LangGraph and CoAgents.
       </p>
       <p>
         <Link
-          href="https://calendly.com/atai_/copilotkit"
+          href="https://lu.ma/2kxspzl4"
           target="_blank"
           className="block mt-3 no-underline"
         >
           <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 mt-2 font-medium">
-            <span>Let's Talk</span>
+            <span>Join Webinar (October 28)</span>
           </button>
         </Link>
       </p>

@@ -1,13 +1,7 @@
 import { NextRequest } from "next/server";
-import {
-  CopilotRuntime,
-  OpenAIAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import OpenAI from "openai";
+import { CopilotRuntime, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
+import { getServiceAdapter } from "../../../lib/dynamic-service-adapter";
 
-const openai = new OpenAI();
-const serviceAdapter = new OpenAIAdapter({ openai });
 const UNSPLASH_ACCESS_KEY_ENV = "UNSPLASH_ACCESS_KEY";
 const UNSPLASH_ACCESS_KEY = process.env[UNSPLASH_ACCESS_KEY_ENV];
 
@@ -45,6 +39,12 @@ const runtime = new CopilotRuntime({
 });
 
 export const POST = async (req: NextRequest) => {
+  const { searchParams } = req.nextUrl;
+  const serviceAdapterQueryParam = searchParams.get("serviceAdapter") || "openai";
+  const serviceAdapter = await getServiceAdapter(serviceAdapterQueryParam);
+
+  console.group("serviceAdapterQueryParam", serviceAdapterQueryParam);
+
   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
     runtime,
     serviceAdapter,

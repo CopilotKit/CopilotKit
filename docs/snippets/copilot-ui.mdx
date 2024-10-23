@@ -1,6 +1,5 @@
 
-You are almost there!
-Now it's time to setup your Copilot UI.
+import HeadlessUI from "@/snippets/headless-ui.mdx";
 
 First, import the default styles in your root component (typically `layout.tsx`) :
 
@@ -28,7 +27,7 @@ import "@copilotkit/react-ui/styles.css";
         <>
           <YourMainContent />
           <CopilotPopup
-            instructions={"You are assisting the user as best as you can. Ansewr in the best way possible given the data you have."}
+            instructions={"You are assisting the user as best as you can. Answer in the best way possible given the data you have."}
             labels={{
               title: "Popup Assistant",
               initial: "Need any help?",
@@ -53,7 +52,7 @@ import "@copilotkit/react-ui/styles.css";
       return (
         <CopilotSidebar
           defaultOpen={true}
-          instructions={"You are assisting the user as best as you can. Ansewr in the best way possible given the data you have."}
+          instructions={"You are assisting the user as best as you can. Answer in the best way possible given the data you have."}
           labels={{
             title: "Sidebar Assistant",
             initial: "How can I help you today?",
@@ -80,7 +79,7 @@ import "@copilotkit/react-ui/styles.css";
     export function YourComponent() {
       return (
         <CopilotChat
-          instructions={"You are assisting the user as best as you can. Ansewr in the best way possible given the data you have."}
+          instructions={"You are assisting the user as best as you can. Answer in the best way possible given the data you have."}
           labels={{
             title: "Your Assistant",
             initial: "Hi! 👋 How can I assist you today?",
@@ -93,8 +92,8 @@ import "@copilotkit/react-ui/styles.css";
   </Tab>
   <Tab value="Headless UI">
     The built-in Copilot UI can be customized in many ways -- both through css and by passing in custom sub-components.
-    
-    CopilotKit also offers **fully custom headless UI**, through the `useCopilotChat` hook. Everything built with the built-in UI can be implemented with the headless UI, providing deep customizability.
+
+    CopilotKit also offers **fully custom headless UI**, through the `useCopilotChat` hook. Everything built with the built-in UI (and more) can be implemented with the headless UI, providing deep customizability.
 
     ```tsx
     import { useCopilotChat } from "@copilotkit/react-core";
@@ -122,6 +121,5 @@ import "@copilotkit/react-ui/styles.css";
       );
     }
     ```
-
   </Tab>
 </Tabs>

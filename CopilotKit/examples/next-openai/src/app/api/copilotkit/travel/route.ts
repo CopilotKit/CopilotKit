@@ -5,9 +5,12 @@ import {
 } from "@copilotkit/runtime";
 import { research } from "./tavily";
 import { NextRequest } from "next/server";
+import { getServiceAdapter } from "../../../../lib/dynamic-service-adapter";
 
 export const POST = async (req: NextRequest) => {
-  const serviceAdapter = new OpenAIAdapter();
+  const { searchParams } = req.nextUrl;
+  const serviceAdapterQueryParam = searchParams.get("serviceAdapter") || "openai";
+  const serviceAdapter = await getServiceAdapter(serviceAdapterQueryParam);
 
   const actions: any[] = [];
 

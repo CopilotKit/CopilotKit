@@ -29,8 +29,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   },
   {
     sourcePath: "packages/runtime/src/service-adapters/openai/openai-assistant-adapter.ts",
-    destinationPath:
-      "docs/content/docs/reference/classes/llm-adapters/OpenAIAssistantAdapter.mdx",
+    destinationPath: "docs/content/docs/reference/classes/llm-adapters/OpenAIAssistantAdapter.mdx",
     className: "OpenAIAssistantAdapter",
     description: "Copilot Runtime adapter for OpenAI Assistant API.",
   },
