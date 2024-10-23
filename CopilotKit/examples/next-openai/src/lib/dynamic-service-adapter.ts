@@ -1,27 +1,73 @@
 export async function getServiceAdapter(name: string) {
   switch (name) {
     case "openai":
-      const { OpenAIAdapter } = await import("@copilotkit/runtime");
-      return new OpenAIAdapter();
+      return getOpenAIAdapter();
     case "anthropic":
-      const { AnthropicAdapter } = await import("@copilotkit/runtime");
-      return new AnthropicAdapter();
+      return getAnthropicAdapter();
     case "gemini":
-      const { GoogleGenerativeAIAdapter } = await import("@copilotkit/runtime");
-      return new GoogleGenerativeAIAdapter();
-    case "langchain":
-      const { LangChainAdapter } = await import("@copilotkit/runtime");
-      const { ChatOpenAI } = await import("@langchain/openai");
-      return new LangChainAdapter({
-        chainFn: async ({ messages, tools }) => {
-          const model = new ChatOpenAI({ modelName: "gpt-4-1106-preview" });
-          return model.stream(messages, { tools });
-        },
-      });
+      return getGeminiAdapter();
     case "groq":
-      const { GroqAdapter } = await import("@copilotkit/runtime");
-      return new GroqAdapter();
+      return getGroqAdapter();
+    case "langchain_openai":
+      return getLangChainOpenAIAdapter();
+    case "langchain_anthropic":
+      return getLangChainAnthropicAdapter();
+    case "langchain_gemini":
+      return getLangChainGoogleGenAIAdapter();
     default:
       throw new Error(`Service adapter "${name}" not found`);
   }
+}
+
+async function getOpenAIAdapter() {
+  const { OpenAIAdapter } = await import("@copilotkit/runtime");
+  return new OpenAIAdapter();
+}
+
+async function getAnthropicAdapter() {
+  const { AnthropicAdapter } = await import("@copilotkit/runtime");
+  return new AnthropicAdapter();
+}
+
+async function getGeminiAdapter() {
+  const { GoogleGenerativeAIAdapter } = await import("@copilotkit/runtime");
+  return new GoogleGenerativeAIAdapter();
+}
+
+async function getGroqAdapter() {
+  const { GroqAdapter } = await import("@copilotkit/runtime");
+  return new GroqAdapter();
+}
+
+async function getLangChainOpenAIAdapter() {
+  const { LangChainAdapter } = await import("@copilotkit/runtime");
+  const { ChatOpenAI } = await import("@langchain/openai");
+  return new LangChainAdapter({
+    chainFn: async ({ messages, tools }) => {
+      const model = new ChatOpenAI({ modelName: "gpt-4-1106-preview" }) as any;
+      return model.stream(messages, { tools });
+    },
+  });
+}
+
+async function getLangChainAnthropicAdapter() {
+  const { LangChainAdapter } = await import("@copilotkit/runtime");
+  const { ChatAnthropic } = await import("@langchain/anthropic");
+  return new LangChainAdapter({
+    chainFn: async ({ messages, tools }) => {
+      const model = new ChatAnthropic({ modelName: "claude-3-haiku-20240307" }) as any;
+      return model.stream(messages, { tools });
+    },
+  });
+}
+
+async function getLangChainGoogleGenAIAdapter() {
+  const { LangChainAdapter } = await import("@copilotkit/runtime");
+  const { ChatGoogleGenerativeAI } = await import("@langchain/google-genai");
+  return new LangChainAdapter({
+    chainFn: async ({ messages, tools }) => {
+      const model = new ChatGoogleGenerativeAI({ modelName: "gemini-1.5-flash" }) as any;
+      return model.stream(messages, { tools });
+    },
+  });
 }
