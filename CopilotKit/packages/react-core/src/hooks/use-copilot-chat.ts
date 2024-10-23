@@ -46,6 +46,7 @@ import { useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
 import { MessageStatusCode } from "@copilotkit/runtime-client-gql";
 import { CoAgentStateRenderHandlerArguments } from "@copilotkit/shared";
+import { useCopilotMessagesContext } from "../context";
 
 export interface UseCopilotChatOptions {
   /**
@@ -88,8 +89,6 @@ export function useCopilotChat({
     getContextString,
     getFunctionCallHandler,
     copilotApiConfig,
-    messages,
-    setMessages,
     isLoading,
     setIsLoading,
     chatInstructions,
@@ -101,6 +100,7 @@ export function useCopilotChat({
     agentSession,
     setAgentSession,
   } = useCopilotContext();
+  const { messages, setMessages } = useCopilotMessagesContext();
 
   // We need to ensure that makeSystemMessageCallback always uses the latest
   // useCopilotReadable data.

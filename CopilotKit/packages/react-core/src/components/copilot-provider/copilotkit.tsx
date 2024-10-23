@@ -14,11 +14,10 @@
  * ```
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   CopilotContext,
   CopilotApiConfig,
-  InChatRenderFunction,
   ChatComponentsCache,
   AgentSession,
 } from "../../context/copilot-context";
@@ -30,13 +29,13 @@ import {
   CopilotCloudConfig,
   FunctionCallHandler,
 } from "@copilotkit/shared";
-import { AgentStateMessage, Message } from "@copilotkit/runtime-client-gql";
 
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { CopilotKitProps } from "./copilotkit-props";
 import { CoAgentStateRender } from "../../types/coagent-action";
 import { CoagentState } from "../../types/coagent-state";
+import { CopilotMessages } from "./copilot-messages";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // Compute all the functions and properties that we need to pass
@@ -59,7 +58,6 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     coAgentStateRenders: {},
   });
   const { addElement, removeElement, printTree } = useTree();
-  const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [chatInstructions, setChatInstructions] = useState("");
 
@@ -245,8 +243,6 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         addDocumentContext,
         removeDocumentContext,
         copilotApiConfig: copilotApiConfig,
-        messages,
-        setMessages,
         isLoading,
         setIsLoading,
         chatSuggestionConfiguration,
@@ -261,7 +257,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         setAgentSession,
       }}
     >
-      {children}
+      <CopilotMessages>{children}</CopilotMessages>
     </CopilotContext.Provider>
   );
 }
