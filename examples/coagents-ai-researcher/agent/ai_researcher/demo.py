@@ -3,6 +3,8 @@
 import os
 from dotenv import load_dotenv
 load_dotenv()
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_vertexai import ChatVertexAI
 
 from fastapi import FastAPI
 import uvicorn

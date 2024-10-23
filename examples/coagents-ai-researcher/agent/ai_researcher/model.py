@@ -2,20 +2,29 @@
 This module provides a function to get a model based on the configuration.
 """
 import os
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
+from ai_researcher.state import AgentState
 
-
-def get_model():
+def get_model(state: AgentState):
     """
     Get a model based on the environment variable.
     """
-    model = os.getenv("MODEL", "openai")
 
+    state_model = state.get("model")
+    model = os.getenv("MODEL", state_model)
+
+    print(f"Using model: {model}")
 
     if model == "openai":
-        return ChatOpenAI(temperature=0, model_name="gpt-4o")
+        from langchain_openai import ChatOpenAI
+        return ChatOpenAI(temperature=0, model="gpt-4o-mini")
     if model == "anthropic":
-        return ChatAnthropic(temperature=0, model_name="claude-3-5-sonnet-20240620")
+        from langchain_anthropic import ChatAnthropic
+        return ChatAnthropic(temperature=0, model="claude-3-5-sonnet-20240620")
+    if model == "google_genai":
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        return ChatGoogleGenerativeAI(temperature=0, model="gemini-1.5-pro")
+    if model == "google_vertexai":
+        from langchain_google_vertexai import ChatVertexAI
+        return ChatVertexAI(temperature=0, model="gemini-1.5-pro")
 
     raise ValueError("Invalid model specified")
