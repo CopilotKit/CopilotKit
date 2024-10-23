@@ -1,25 +1,28 @@
-# CopilotMate
+# 1. CopilotMate
+CopilotMate: An AI-powered productivity assistant with tools like to-do lists, expense tracking, StudyBuddy with coagent, ai spreadsheet and more.
 
-### Name of Issue/Topic  
-CopilotMate: An AI-powered productivity assistant with tools like to-do lists, expense tracking, StudyBuddy coagent, ai spreadsheet and more.
+### 2. Technologies Being Used  
+<p align="center">
+  <img src="https://img.shields.io/badge/Next.js-black?logo=next.js" alt="Next.js" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?logo=tailwind-css&logoColor=white" alt="Tailwind CSS" />
+  <img src="https://img.shields.io/badge/CopilotKit-🪁-black" alt="CopilotKit" />
+  <img src="https://img.shields.io/badge/Framer%20Motion-0055FF?logo=framer&logoColor=white" alt="Framer Motion" />
+</p>
 
-### Technologies Being Used  
 - **CopilotKit** (for AI functionalities)
 - **Next.js** (for the frontend)
-- **React** (component-based architecture)
 - **Tailwind CSS** (for styling)
 - **Groq SDK** (for language models)
 - **Llama model** (for AI coagents)
 
-### GitHub Project Link  
+### 3. GitHub Project Link  
 GitHub Repo Link:  [Copilotmate Repo](https://github.com/AkashJana18/copilotmate)
 
 
-### 5 bonus points  
-If your app is live, include the link here:  Deploying soon..Stay tuned.
+### 4. Deployment 
+ Deploying soon....Stay tuned. Till then watch [Demo](https://www.youtube.com/watch?v=qPVRPUH8ewU&t=33s)
 
-### Screenshot 
-**Please watch the video to feel the true UI/UX : [Demo](https://www.youtube.com/watch?v=qPVRPUH8ewU&t=33s)**
+### 5. Screenshot 
 ![image](https://github.com/user-attachments/assets/68df962c-9bc2-48ae-9ffd-3c073f13e083)
 ![image](https://github.com/user-attachments/assets/5d78657c-fa78-492c-bbf8-d2dcdf6fa699)
 ![image](https://github.com/user-attachments/assets/1fe3ea5e-4a34-4755-a042-d327adc17c8e)
@@ -30,20 +33,21 @@ If your app is live, include the link here:  Deploying soon..Stay tuned.
 ![image](https://github.com/user-attachments/assets/9919059e-71ce-4bb0-9f50-cc9f351078be)
 ![image](https://github.com/user-attachments/assets/0ccd162a-c4f7-4d79-a969-a124222f5bf6)
 ![image](https://github.com/user-attachments/assets/cb118098-d975-41fe-b1d8-0387d312ca32)
+#### ⭐ Please watch the video to feel the true UI/UX : [Demo](https://www.youtube.com/watch?v=qPVRPUH8ewU&t=33s)
 
-
-### Who Are You?  
+### 6. Who Are You?  
 - **GitHub**: [Akash's GitHub](https://github.com/AkashJana18)  
 - **Twitter**: [Akashj_01](https://x.com/Akashj_01)
 - **LinkedIn**: [Akash Jana](https://linkedin.com/u/akashjana)
 
-We want to promote what you've built and your hard work! 🎉
-
-### 5 Extra Bonus Points  
+### 7. Activities
 Link to any bonus activities:  
 - Solved GitHub issues related to CopilotKit :
-  - Fixed #713
-- Posted about CopilotMate on [Twitter](https://x.com/Akashj_01/status/1843662122917736475)
+  - Fixes #713, #645, #644, #626 (Hacktober related)
+  - Fixed #726 [Link](https://github.com/CopilotKit/CopilotKit/pull/726)
+- Posted about CopilotMate on
+  1. [Twitter](https://x.com/Akashj_01/status/1843662122917736475)
+  2. [Linkedin](https://www.linkedin.com/feed/update/urn:li:activity:7254023926891065346/)
 - Published an article on Dev.to:
-  - https://dev.to/akashjana/future-of-productivity-meet-copilotmate-3k7i
-  - https://dev.to/akashjana/how-i-integrated-copilotkit-ai-into-copilotmate-23gm
+  1. https://dev.to/akashjana/future-of-productivity-meet-copilotmate-3k7i
+  2. https://dev.to/akashjana/how-i-integrated-copilotkit-ai-into-copilotmate-23gm
