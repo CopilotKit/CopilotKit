@@ -23,8 +23,5 @@ def get_model(state: AgentState):
     if model == "google_genai":
         from langchain_google_genai import ChatGoogleGenerativeAI
         return ChatGoogleGenerativeAI(temperature=0, model="gemini-1.5-pro")
-    if model == "google_vertexai":
-        from langchain_google_vertexai import ChatVertexAI
-        return ChatVertexAI(temperature=0, model="gemini-1.5-pro")
 
     raise ValueError("Invalid model specified")
