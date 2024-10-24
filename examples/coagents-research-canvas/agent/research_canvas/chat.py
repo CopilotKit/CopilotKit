@@ -65,7 +65,7 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     #     print("")
     # print("-----------------------------------")
 
-    response = await get_model().bind_tools(
+    response = await get_model(state).bind_tools(
         [
             Search,
             WriteReport,

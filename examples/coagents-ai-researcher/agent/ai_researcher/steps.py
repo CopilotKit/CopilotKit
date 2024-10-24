@@ -62,7 +62,7 @@ These steps are then executed serially. In the end, a final answer is produced i
 The current date is {datetime.now().strftime("%Y-%m-%d")}.
 """
 
-    response = await get_model().bind_tools(
+    response = await get_model(state).bind_tools(
         [SearchTool],
         tool_choice="SearchTool"
     ).ainvoke([

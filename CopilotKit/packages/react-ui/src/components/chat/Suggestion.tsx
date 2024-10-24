@@ -2,7 +2,7 @@ import {
   CopilotContextParams,
   extract,
   CopilotChatSuggestionConfiguration,
-  useCopilotContext,
+  CopilotMessagesContextParams,
 } from "@copilotkit/react-core";
 import { SuggestionsProps } from "./props";
 import { SmallSpinnerIcon } from "./Icons";
@@ -27,7 +27,7 @@ export function Suggestion({ title, message, onClick, partial, className }: Sugg
 }
 
 export const reloadSuggestions = async (
-  context: CopilotContextParams,
+  context: CopilotContextParams & CopilotMessagesContextParams,
   chatSuggestionConfiguration: { [key: string]: CopilotChatSuggestionConfiguration },
   setCurrentSuggestions: (suggestions: { title: string; message: string }[]) => void,
   abortControllerRef: React.MutableRefObject<AbortController | null>,

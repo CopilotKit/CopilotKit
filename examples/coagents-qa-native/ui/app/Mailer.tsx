@@ -1,9 +1,18 @@
 "use client";
 
-import { useCopilotAction } from "@copilotkit/react-core";
+import { useModelSelectorContext } from "@/lib/model-selector-provider";
+import { useCoAgent, useCopilotAction } from "@copilotkit/react-core";
 import { CopilotPopup } from "@copilotkit/react-ui";
 
 export function Mailer() {
+  const { model } = useModelSelectorContext();
+  useCoAgent({
+    name: "email_agent",
+    initialState: {
+      model,
+    },
+  });
+
   useCopilotAction({
     name: "EmailTool",
     disabled: true,

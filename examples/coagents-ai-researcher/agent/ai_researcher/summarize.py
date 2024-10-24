@@ -52,7 +52,7 @@ These are all of the steps: {json.dumps(state["steps"])}
 Please summarize the final result and include all relevant information and reference links.
 """
 
-    response = await get_model().bind_tools(
+    response = await get_model(state).bind_tools(
         [SummarizeTool],
         tool_choice="SummarizeTool"
     ).ainvoke([
