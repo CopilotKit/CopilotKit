@@ -20,7 +20,7 @@ export const ModelSelectorProvider = ({
   children: ReactNode;
 }) => {
   const model =
-    window === undefined
+    globalThis.window === undefined
       ? "openai"
       : new URL(window.location.href).searchParams.get("coAgentsModel") ??
         "openai";
