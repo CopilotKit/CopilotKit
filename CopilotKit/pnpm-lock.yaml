@@ -69,27 +69,36 @@ importers:
       '@heroicons/react':
         specifier: ^2.0.18
         version: 2.1.5(react@18.3.1)
+      '@langchain/anthropic':
+        specifier: ^0.3.5
+        version: 0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13)
       '@langchain/community':
         specifier: ^0.0.53
-        version: 0.0.53(google-auth-library@8.9.0)(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0)
+        version: 0.0.53(encoding@0.1.13)(google-auth-library@8.9.0(encoding@0.1.13))(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)))(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0)
       '@langchain/core':
-        specifier: ^0.1.61
-        version: 0.1.63(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)
+        specifier: ^0.3.13
+        version: 0.3.13(openai@4.53.0(encoding@0.1.13))
+      '@langchain/google-gauth':
+        specifier: ^0.1.0
+        version: 0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13)(zod@3.23.8)
       '@langchain/langgraph':
         specifier: ^0.0.12
-        version: 0.0.12(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)
+        version: 0.0.12(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)))(openai@4.53.0(encoding@0.1.13))
       '@langchain/openai':
-        specifier: ^0.0.28
-        version: 0.0.28(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))
+        specifier: ^0.3.11
+        version: 0.3.11(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13)
       clsx:
         specifier: ^1.2.1
         version: 1.2.1
+      encoding:
+        specifier: ^0.1.13
+        version: 0.1.13
       groq-sdk:
         specifier: ^0.5.0
-        version: 0.5.0
+        version: 0.5.0(encoding@0.1.13)
       langchain:
-        specifier: ^0.1.19
-        version: 0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0)
+        specifier: ^0.3.3
+        version: 0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13))
       next:
         specifier: ^13.4.9
         version: 13.5.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -98,7 +107,7 @@ importers:
         version: 0.2.1(next@13.5.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       openai:
         specifier: ^4.50.0
-        version: 4.53.0
+        version: 4.53.0(encoding@0.1.13)
       react:
         specifier: ^18.2.0
         version: 18.3.1
@@ -168,28 +177,28 @@ importers:
         version: 2.1.5(react@18.3.1)
       '@langchain/community':
         specifier: ^0.0.53
-        version: 0.0.53(google-auth-library@8.9.0)(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0)
+        version: 0.0.53(encoding@0.1.13)(google-auth-library@8.9.0(encoding@0.1.13))(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0)
       '@langchain/core':
         specifier: ^0.1.61
-        version: 0.1.63(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)
+        version: 0.1.63(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))(openai@4.53.0(encoding@0.1.13))
       '@langchain/langgraph':
         specifier: ^0.0.12
-        version: 0.0.12(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)
+        version: 0.0.12(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))(openai@4.53.0(encoding@0.1.13))
       '@langchain/openai':
         specifier: ^0.0.28
-        version: 0.0.28(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))
+        version: 0.0.28(encoding@0.1.13)(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))
       clsx:
         specifier: ^1.2.1
         version: 1.2.1
       langchain:
         specifier: ^0.1.19
-        version: 0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0)
+        version: 0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0)
       next:
         specifier: 14.2.4
         version: 14.2.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       openai:
         specifier: ^4.33.1
-        version: 4.53.0
+        version: 4.53.0(encoding@0.1.13)
       react:
         specifier: ^18
         version: 18.3.1
@@ -247,7 +256,7 @@ importers:
         version: 4.19.2
       openai:
         specifier: ^4.33.1
-        version: 4.53.0
+        version: 4.53.0(encoding@0.1.13)
     devDependencies:
       '@types/express':
         specifier: ^4.17.21
@@ -281,7 +290,7 @@ importers:
         version: link:../../packages/shared
       openai:
         specifier: ^4.33.1
-        version: 4.53.0
+        version: 4.53.0(encoding@0.1.13)
     devDependencies:
       '@types/node':
         specifier: ^18.11.17
@@ -549,7 +558,7 @@ importers:
     dependencies:
       '@anthropic-ai/sdk':
         specifier: ^0.27.3
-        version: 0.27.3
+        version: 0.27.3(encoding@0.1.13)
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared
@@ -561,13 +570,13 @@ importers:
         version: 3.6.1(graphql-yoga@5.6.1(graphql@16.9.0))(graphql@16.9.0)
       '@langchain/community':
         specifier: ^0.0.53
-        version: 0.0.53(google-auth-library@8.9.0)(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0)
+        version: 0.0.53(encoding@0.1.13)(google-auth-library@8.9.0(encoding@0.1.13))(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)))(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0)
       '@langchain/core':
-        specifier: ^0.1.61
-        version: 0.1.63(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)
+        specifier: ^0.3.13
+        version: 0.3.13(openai@4.53.0(encoding@0.1.13))
       '@langchain/openai':
         specifier: ^0.0.28
-        version: 0.0.28(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))
+        version: 0.0.28(encoding@0.1.13)(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)))
       class-transformer:
         specifier: ^0.5.1
         version: 0.5.1
@@ -585,13 +594,13 @@ importers:
         version: 5.6.1(graphql@16.9.0)
       groq-sdk:
         specifier: ^0.5.0
-        version: 0.5.0
+        version: 0.5.0(encoding@0.1.13)
       langchain:
-        specifier: ^0.1.36
-        version: 0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0)
+        specifier: ^0.3.3
+        version: 0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13))
       openai:
         specifier: ^4.50.0
-        version: 4.53.0
+        version: 4.53.0(encoding@0.1.13)
       pino:
         specifier: ^9.2.0
         version: 9.3.1
@@ -689,22 +698,22 @@ importers:
     devDependencies:
       '@graphql-codegen/cli':
         specifier: ^5.0.2
-        version: 5.0.2(@parcel/watcher@2.4.1)(@types/node@20.14.12)(enquirer@2.4.1)(graphql@16.9.0)(typescript@5.5.4)
+        version: 5.0.2(@parcel/watcher@2.4.1)(@types/node@20.14.12)(encoding@0.1.13)(enquirer@2.4.1)(graphql@16.9.0)(typescript@5.5.4)
       '@graphql-codegen/client-preset':
         specifier: ^4.2.6
-        version: 4.3.2(graphql@16.9.0)
+        version: 4.3.2(encoding@0.1.13)(graphql@16.9.0)
       '@graphql-codegen/introspection':
         specifier: ^4.0.3
-        version: 4.0.3(graphql@16.9.0)
+        version: 4.0.3(encoding@0.1.13)(graphql@16.9.0)
       '@graphql-codegen/typescript':
         specifier: ^4.0.7
-        version: 4.0.9(graphql@16.9.0)
+        version: 4.0.9(encoding@0.1.13)(graphql@16.9.0)
       '@graphql-codegen/typescript-operations':
         specifier: ^4.2.1
-        version: 4.2.3(graphql@16.9.0)
+        version: 4.2.3(encoding@0.1.13)(graphql@16.9.0)
       '@graphql-codegen/typescript-urql':
         specifier: ^4.0.0
-        version: 4.0.0(graphql-tag@2.12.6(graphql@16.9.0))(graphql@16.9.0)
+        version: 4.0.0(encoding@0.1.13)(graphql-tag@2.12.6(graphql@16.9.0))(graphql@16.9.0)
       '@graphql-codegen/urql-introspection':
         specifier: ^3.0.0
         version: 3.0.0(graphql@16.9.0)
@@ -740,7 +749,7 @@ importers:
     dependencies:
       '@segment/analytics-node':
         specifier: ^2.1.2
-        version: 2.1.2
+        version: 2.1.2(encoding@0.1.13)
       chalk:
         specifier: 4.1.2
         version: 4.1.2
@@ -1621,6 +1630,10 @@ packages:
     resolution: {integrity: sha512-DviMgrnljEKh6qkDT2pVFW+NEuVhggqBUoEnyy2PNL7l4ewxXRJubk3PctC9yPl1AdRIlhqP7E076QQt+IWuTg==}
     engines: {node: '>=18.0.0'}
 
+  '@google/generative-ai@0.7.1':
+    resolution: {integrity: sha512-WTjMLLYL/xfA5BW6xAycRPiAX7FNHKAxrid/ayqC1QMam0KAK0NbMeS9Lubw80gVg5xFMLE+H7pw4wdNzTOlxw==}
+    engines: {node: '>=18.0.0'}
+
   '@graphql-codegen/add@5.0.3':
     resolution: {integrity: sha512-SxXPmramkth8XtBlAHu4H4jYcYXM/o3p01+psU+0NADQowA8jtYkK6MW5rV6T+CxkEaNZItfSmZRPgIuypcqnA==}
     peerDependencies:
@@ -2032,6 +2045,12 @@ packages:
   '@kamilkisiela/fast-url-parser@1.1.4':
     resolution: {integrity: sha512-gbkePEBupNydxCelHCESvFSFM8XPh1Zs/OAVRW/rKpEqPAl5PbOM90Si8mv9bvnR53uPD2s/FiRxdvSejpRJew==}
 
+  '@langchain/anthropic@0.3.5':
+    resolution: {integrity: sha512-AWlF8mSTcxlDdLD+FD9TYFnVaQSCp4foblCDzUR/Xnhn8IvZSzK+3nbxkdVM4a8LS+7GnxP9ED88ZAUvZSQmQg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@langchain/core': '>=0.2.21 <0.4.0'
+
   '@langchain/community@0.0.53':
     resolution: {integrity: sha512-iFqZPt4MRssGYsQoKSXWJQaYTZCC7WNuilp2JCCs3wKmJK3l6mR0eV+PDrnT+TaDHUVxt/b0rwgM0sOiy0j2jA==}
     engines: {node: '>=18'}
@@ -2318,9 +2337,31 @@ packages:
     resolution: {integrity: sha512-+fjyYi8wy6x1P+Ee1RWfIIEyxd9Ee9jksEwvrggPwwI/p45kIDTdYTblXsM13y4mNWTiACyLSdbwnPaxxdoz+w==}
     engines: {node: '>=18'}
 
-  '@langchain/core@0.2.18':
-    resolution: {integrity: sha512-ru542BwNcsnDfjTeDbIkFIchwa54ctHZR+kVrC8U9NPS9/36iM8p8ruprOV7Zccj/oxtLE5UpEhV+9MZhVcFlA==}
+  '@langchain/core@0.2.36':
+    resolution: {integrity: sha512-qHLvScqERDeH7y2cLuJaSAlMwg3f/3Oc9nayRSXRU2UuaK/SOhI42cxiPLj1FnuHJSmN0rBQFkrLx02gI4mcVg==}
     engines: {node: '>=18'}
+
+  '@langchain/core@0.3.13':
+    resolution: {integrity: sha512-sHDlwyHhgeaYC+wfORrWO7sXxD6/GDtZZ5mqjY48YMwB58cVv8hTs8goR/9EwXapYt8fQi2uXTGUV87bHzvdZQ==}
+    engines: {node: '>=18'}
+
+  '@langchain/google-common@0.1.1':
+    resolution: {integrity: sha512-oT/6lBev/Ufkp1dJbOTJ2S7xD9c+w9CqnqKqFOSxuZJbM4G8hzJtt7PDBOGfamIwtQP8dR7ORKXs1sCl+f5Tig==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@langchain/core': '>=0.2.21 <0.4.0'
+
+  '@langchain/google-gauth@0.1.0':
+    resolution: {integrity: sha512-0kps1NmaNiSl4n3lRw+7xsyhrEfIxNqBjih0kNYWPjLg55f9I9+QAlz7F1Sz/628HF1WQLFLQcBQA4geGzvenQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@langchain/core': '>=0.2.21 <0.4.0'
+
+  '@langchain/google-genai@0.1.0':
+    resolution: {integrity: sha512-6rIba77zJVMj+048tLfkCBrkFbfAMiT+AfLEsu5s+CFoFmXMiI/dbKeDL4vhUWrJVb9uL4ZZyrnl0nKxyEKYgA==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@langchain/core': '>=0.2.21 <0.4.0'
 
   '@langchain/langgraph@0.0.12':
     resolution: {integrity: sha512-f1N5eV3w7Y59P3rSjgNmjYoqghAPuxRUQTKX922OOhwYT0vmPVlmi99aduRHXK1oJDA3tVQCqrUkDV6D154Pnw==}
@@ -2329,6 +2370,12 @@ packages:
   '@langchain/openai@0.0.28':
     resolution: {integrity: sha512-2s1RA3/eAnz4ahdzsMPBna9hfAqpFNlWdHiPxVGZ5yrhXsbLWWoPcF+22LCk9t0HJKtazi2GCIWc0HVXH9Abig==}
     engines: {node: '>=18'}
+
+  '@langchain/openai@0.3.11':
+    resolution: {integrity: sha512-mEFbpJ8w8NPArsquUlCwxvZTKNkXxqwzvTEYzv6Jb7gUoBDOZtwLg6AdcngTJ+w5VFh3wxgPy0g3zb9Aw0Qbpw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@langchain/core': '>=0.2.26 <0.4.0'
 
   '@langchain/textsplitters@0.0.3':
     resolution: {integrity: sha512-cXWgKE3sdWLSqAa8ykbCcUsUF1Kyr5J3HOWYGuobhPEycXW4WI++d5DhzdpL238mzoEXTi90VqfSCra37l5YqA==}
@@ -4081,6 +4128,9 @@ packages:
     resolution: {integrity: sha512-TPJXq8JqFaVYm2CWmPvnP2Iyo4ZSM7/QKcSmuMLDObfpH5fi7RUGmd/rTDf+rut/saiDiQEeVTNgAmJEdAOx0w==}
     engines: {node: '>= 0.8'}
 
+  encoding@0.1.13:
+    resolution: {integrity: sha512-ETBauow1T35Y/WZMkio9jiM0Z5xjHHmJ4XmjZOq1l/dXz3lr2sRn87nJy20RupqSh1F2m3HHPSp8ShIPQJrJ3A==}
+
   end-of-stream@1.4.4:
     resolution: {integrity: sha512-+uw1inIHVPQoaVuHzRyXd21icM+cnt4CzD5rW+NC1wjOUSTOs+Te7FOv7AhN7vS9x/oIyhLP5PR1H+phQAHu5Q==}
 
@@ -4367,6 +4417,10 @@ packages:
 
   fast-url-parser@1.1.3:
     resolution: {integrity: sha512-5jOCVXADYNuRkKFzNJ0dCCewsZiYo0dz8QNYljkOpFC6r2U4OBmKtvm/Tsuh4w1YYdDqDb31a8TVhBJ2OJKdqQ==}
+
+  fast-xml-parser@4.5.0:
+    resolution: {integrity: sha512-/PlTQCI96+fZMAOLMZK4CWG1ItCbfZ/0jx7UIJFChPNrx7tcEgerUgWbeieCM9MfHInUDyK8DWYZ+YrywDJuTg==}
+    hasBin: true
 
   fastq@1.17.1:
     resolution: {integrity: sha512-sRVD3lWVIXWg6By68ZN7vho9a1pQcN/WBFaAAsDDFzlJjvoGx0P8z7V1t72grFJfJhu3YPZBuu25f7Kaw2jN1w==}
@@ -4721,6 +4775,10 @@ packages:
 
   iconv-lite@0.4.24:
     resolution: {integrity: sha512-v3MXnZAcvnywkTUEZomIActle7RXXeedOR31wwl7VlyoXO4Qi9arvSenNQWne1TcRwhCL1HwLI21bEqdpj8/rA==}
+    engines: {node: '>=0.10.0'}
+
+  iconv-lite@0.6.3:
+    resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
     engines: {node: '>=0.10.0'}
 
   ieee754@1.2.1:
@@ -5174,6 +5232,9 @@ packages:
   js-tiktoken@1.0.12:
     resolution: {integrity: sha512-L7wURW1fH9Qaext0VzaUDpFGVQgjkdE3Dgsy9/+yXyGEpBKnylTd0mU0bfbNkKDlXRb6TEsZkwuflu1B8uQbJQ==}
 
+  js-tiktoken@1.0.15:
+    resolution: {integrity: sha512-65ruOWWXDEZHHbAo7EjOcNxOGasQKbL4Fq3jEr2xsCqSsoOo6VVSqzWQb6PRIqypFSDcma4jO90YP0w5X8qVXQ==}
+
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
@@ -5415,6 +5476,52 @@ packages:
       youtubei.js:
         optional: true
 
+  langchain@0.3.3:
+    resolution: {integrity: sha512-xy63PAh1PUuF2VdjLxacP8SeUQKF++ixvAhMhl/+3GkzloEKce41xlbQC3xNGVToYaqzIsDrueps/JU0zYYXHw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@langchain/anthropic': '*'
+      '@langchain/aws': '*'
+      '@langchain/cohere': '*'
+      '@langchain/core': '>=0.2.21 <0.4.0'
+      '@langchain/google-genai': '*'
+      '@langchain/google-vertexai': '*'
+      '@langchain/groq': '*'
+      '@langchain/mistralai': '*'
+      '@langchain/ollama': '*'
+      axios: '*'
+      cheerio: '*'
+      handlebars: ^4.7.8
+      peggy: ^3.0.2
+      typeorm: '*'
+    peerDependenciesMeta:
+      '@langchain/anthropic':
+        optional: true
+      '@langchain/aws':
+        optional: true
+      '@langchain/cohere':
+        optional: true
+      '@langchain/google-genai':
+        optional: true
+      '@langchain/google-vertexai':
+        optional: true
+      '@langchain/groq':
+        optional: true
+      '@langchain/mistralai':
+        optional: true
+      '@langchain/ollama':
+        optional: true
+      axios:
+        optional: true
+      cheerio:
+        optional: true
+      handlebars:
+        optional: true
+      peggy:
+        optional: true
+      typeorm:
+        optional: true
+
   langchainhub@0.0.11:
     resolution: {integrity: sha512-WnKI4g9kU2bHQP136orXr2bcRdgz9iiTBpTN0jWt9IlScUKnJBoD0aa2HOzHURQKeQDnt2JwqVmQ6Depf5uDLQ==}
 
@@ -5429,6 +5536,14 @@ packages:
         optional: true
       langchain:
         optional: true
+      openai:
+        optional: true
+
+  langsmith@0.1.66:
+    resolution: {integrity: sha512-ZhZ9g8t/qjj0oUWpvKLtUe3qxDL/N0wG0m+Ctkxf0keopYJkcMJg4/71jl6ZYyiSU8xlC27aixXOT0uvLhqcFA==}
+    peerDependencies:
+      openai: '*'
+    peerDependenciesMeta:
       openai:
         optional: true
 
@@ -6055,6 +6170,15 @@ packages:
   openai@4.53.0:
     resolution: {integrity: sha512-XoMaJsSLuedW5eoMEMmZbdNoXgML3ujcU5KfwRnC6rnbmZkHE2Q4J/SArwhqCxQRqJwHnQUj1LpiROmKPExZJA==}
     hasBin: true
+
+  openai@4.68.2:
+    resolution: {integrity: sha512-Ys3Jl9vkBUFtrFj4pgrF7rMte4JNekZoMgI6dWkkpOIwNUKGkc4I8jTqv86LB+TcoqkTPzV6DS269dPR9ILWsQ==}
+    hasBin: true
+    peerDependencies:
+      zod: ^3.23.8
+    peerDependenciesMeta:
+      zod:
+        optional: true
 
   openapi-types@12.1.3:
     resolution: {integrity: sha512-N4YtSYJqghVu4iek2ZUvcN/0aqH1kRDuNqzcycDxhOUpg7GdvLa2F3DgS6yBNhInhv2r/6I0Flkn7CqL8+nIcw==}
@@ -6860,6 +6984,9 @@ packages:
     resolution: {integrity: sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig==}
     engines: {node: '>=8'}
 
+  strnum@1.0.5:
+    resolution: {integrity: sha512-J8bbNyKKXl5qYcR36TIO8W3mVGVHrmmxsd5PAItGkmyzwJvybiw2IVq5nqd0i4LSNSkB/sx9VHllbfFdr9k1JA==}
+
   style-to-object@0.4.4:
     resolution: {integrity: sha512-HYNoHZa2GorYNyqiCaBgsxvcJIn7OHq6inEga+E6Ke3m5JkoqpQbnFssk4jwe+K7AhGa2fcha4wSOf1Kn01dMg==}
 
@@ -7458,6 +7585,11 @@ packages:
     peerDependencies:
       zod: ^3.23.3
 
+  zod-to-json-schema@3.23.3:
+    resolution: {integrity: sha512-TYWChTxKQbRJp5ST22o/Irt9KC5nj7CdBKYB/AosCRdj/wxEMvv4NNaj9XVUHDOIp53ZxArGhnw5HMZziPFjog==}
+    peerDependencies:
+      zod: ^3.23.3
+
   zod@3.23.8:
     resolution: {integrity: sha512-XBx9AXhXktjUqnepgTiE5flcKIYWi/rme0Eaj+5Y0lftuGBq+jyRu/md4WnuxqgP1ubdpNCsYEYPxrzVHD8d6g==}
 
@@ -7477,7 +7609,7 @@ snapshots:
       '@jridgewell/gen-mapping': 0.3.5
       '@jridgewell/trace-mapping': 0.3.25
 
-  '@anthropic-ai/sdk@0.27.3':
+  '@anthropic-ai/sdk@0.27.3(encoding@0.1.13)':
     dependencies:
       '@types/node': 18.19.42
       '@types/node-fetch': 2.6.11
@@ -7485,11 +7617,11 @@ snapshots:
       agentkeepalive: 4.5.0
       form-data-encoder: 1.7.2
       formdata-node: 4.4.1
-      node-fetch: 2.7.0
+      node-fetch: 2.7.0(encoding@0.1.13)
     transitivePeerDependencies:
       - encoding
 
-  '@anthropic-ai/sdk@0.9.1':
+  '@anthropic-ai/sdk@0.9.1(encoding@0.1.13)':
     dependencies:
       '@types/node': 18.19.42
       '@types/node-fetch': 2.6.11
@@ -7498,12 +7630,12 @@ snapshots:
       digest-fetch: 1.3.0
       form-data-encoder: 1.7.2
       formdata-node: 4.4.1
-      node-fetch: 2.7.0
+      node-fetch: 2.7.0(encoding@0.1.13)
       web-streams-polyfill: 3.3.3
     transitivePeerDependencies:
       - encoding
 
-  '@ardatan/relay-compiler@12.0.0(graphql@16.9.0)':
+  '@ardatan/relay-compiler@12.0.0(encoding@0.1.13)(graphql@16.9.0)':
     dependencies:
       '@babel/core': 7.24.9
       '@babel/generator': 7.24.10
@@ -7514,22 +7646,22 @@ snapshots:
       babel-preset-fbjs: 3.4.0(@babel/core@7.24.9)
       chalk: 4.1.2
       fb-watchman: 2.0.2
-      fbjs: 3.0.5
+      fbjs: 3.0.5(encoding@0.1.13)
       glob: 7.2.3
       graphql: 16.9.0
       immutable: 3.7.6
       invariant: 2.2.4
       nullthrows: 1.1.1
-      relay-runtime: 12.0.0
+      relay-runtime: 12.0.0(encoding@0.1.13)
       signedsource: 1.0.0
       yargs: 15.4.1
     transitivePeerDependencies:
       - encoding
       - supports-color
 
-  '@ardatan/sync-fetch@0.0.1':
+  '@ardatan/sync-fetch@0.0.1(encoding@0.1.13)':
     dependencies:
-      node-fetch: 2.7.0
+      node-fetch: 2.7.0(encoding@0.1.13)
     transitivePeerDependencies:
       - encoding
 
@@ -8399,29 +8531,32 @@ snapshots:
 
   '@google/generative-ai@0.11.5': {}
 
+  '@google/generative-ai@0.7.1':
+    optional: true
+
   '@graphql-codegen/add@5.0.3(graphql@16.9.0)':
     dependencies:
       '@graphql-codegen/plugin-helpers': 5.0.4(graphql@16.9.0)
       graphql: 16.9.0
       tslib: 2.6.3
 
-  '@graphql-codegen/cli@5.0.2(@parcel/watcher@2.4.1)(@types/node@20.14.12)(enquirer@2.4.1)(graphql@16.9.0)(typescript@5.5.4)':
+  '@graphql-codegen/cli@5.0.2(@parcel/watcher@2.4.1)(@types/node@20.14.12)(encoding@0.1.13)(enquirer@2.4.1)(graphql@16.9.0)(typescript@5.5.4)':
     dependencies:
       '@babel/generator': 7.24.10
       '@babel/template': 7.24.7
       '@babel/types': 7.24.9
-      '@graphql-codegen/client-preset': 4.3.2(graphql@16.9.0)
+      '@graphql-codegen/client-preset': 4.3.2(encoding@0.1.13)(graphql@16.9.0)
       '@graphql-codegen/core': 4.0.2(graphql@16.9.0)
       '@graphql-codegen/plugin-helpers': 5.0.4(graphql@16.9.0)
-      '@graphql-tools/apollo-engine-loader': 8.0.1(graphql@16.9.0)
+      '@graphql-tools/apollo-engine-loader': 8.0.1(encoding@0.1.13)(graphql@16.9.0)
       '@graphql-tools/code-file-loader': 8.1.2(graphql@16.9.0)
       '@graphql-tools/git-loader': 8.0.6(graphql@16.9.0)
-      '@graphql-tools/github-loader': 8.0.1(@types/node@20.14.12)(graphql@16.9.0)
+      '@graphql-tools/github-loader': 8.0.1(@types/node@20.14.12)(encoding@0.1.13)(graphql@16.9.0)
       '@graphql-tools/graphql-file-loader': 8.0.1(graphql@16.9.0)
       '@graphql-tools/json-file-loader': 8.0.1(graphql@16.9.0)
       '@graphql-tools/load': 8.0.2(graphql@16.9.0)
-      '@graphql-tools/prisma-loader': 8.0.4(@types/node@20.14.12)(graphql@16.9.0)
-      '@graphql-tools/url-loader': 8.0.2(@types/node@20.14.12)(graphql@16.9.0)
+      '@graphql-tools/prisma-loader': 8.0.4(@types/node@20.14.12)(encoding@0.1.13)(graphql@16.9.0)
+      '@graphql-tools/url-loader': 8.0.2(@types/node@20.14.12)(encoding@0.1.13)(graphql@16.9.0)
       '@graphql-tools/utils': 10.3.2(graphql@16.9.0)
       '@whatwg-node/fetch': 0.8.8
       chalk: 4.1.2
@@ -8429,7 +8564,7 @@ snapshots:
       debounce: 1.2.1
       detect-indent: 6.1.0
       graphql: 16.9.0
-      graphql-config: 5.0.3(@types/node@20.14.12)(graphql@16.9.0)(typescript@5.5.4)
+      graphql-config: 5.0.3(@types/node@20.14.12)(encoding@0.1.13)(graphql@16.9.0)(typescript@5.5.4)
       inquirer: 8.2.6
       is-glob: 4.0.3
       jiti: 1.21.6
@@ -8455,17 +8590,17 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@graphql-codegen/client-preset@4.3.2(graphql@16.9.0)':
+  '@graphql-codegen/client-preset@4.3.2(encoding@0.1.13)(graphql@16.9.0)':
     dependencies:
       '@babel/helper-plugin-utils': 7.24.8
       '@babel/template': 7.24.7
       '@graphql-codegen/add': 5.0.3(graphql@16.9.0)
-      '@graphql-codegen/gql-tag-operations': 4.0.9(graphql@16.9.0)
+      '@graphql-codegen/gql-tag-operations': 4.0.9(encoding@0.1.13)(graphql@16.9.0)
       '@graphql-codegen/plugin-helpers': 5.0.4(graphql@16.9.0)
-      '@graphql-codegen/typed-document-node': 5.0.9(graphql@16.9.0)
-      '@graphql-codegen/typescript': 4.0.9(graphql@16.9.0)
-      '@graphql-codegen/typescript-operations': 4.2.3(graphql@16.9.0)
-      '@graphql-codegen/visitor-plugin-common': 5.3.1(graphql@16.9.0)
+      '@graphql-codegen/typed-document-node': 5.0.9(encoding@0.1.13)(graphql@16.9.0)
+      '@graphql-codegen/typescript': 4.0.9(encoding@0.1.13)(graphql@16.9.0)
+      '@graphql-codegen/typescript-operations': 4.2.3(encoding@0.1.13)(graphql@16.9.0)
+      '@graphql-codegen/visitor-plugin-common': 5.3.1(encoding@0.1.13)(graphql@16.9.0)
       '@graphql-tools/documents': 1.0.1(graphql@16.9.0)
       '@graphql-tools/utils': 10.3.2(graphql@16.9.0)
       '@graphql-typed-document-node/core': 3.2.0(graphql@16.9.0)
@@ -8483,10 +8618,10 @@ snapshots:
       graphql: 16.9.0
       tslib: 2.6.3
 
-  '@graphql-codegen/gql-tag-operations@4.0.9(graphql@16.9.0)':
+  '@graphql-codegen/gql-tag-operations@4.0.9(encoding@0.1.13)(graphql@16.9.0)':
     dependencies:
       '@graphql-codegen/plugin-helpers': 5.0.4(graphql@16.9.0)
-      '@graphql-codegen/visitor-plugin-common': 5.3.1(graphql@16.9.0)
+      '@graphql-codegen/visitor-plugin-common': 5.3.1(encoding@0.1.13)(graphql@16.9.0)
       '@graphql-tools/utils': 10.3.2(graphql@16.9.0)
       auto-bind: 4.0.0
       graphql: 16.9.0
@@ -8495,10 +8630,10 @@ snapshots:
       - encoding
       - supports-color
 
-  '@graphql-codegen/introspection@4.0.3(graphql@16.9.0)':
+  '@graphql-codegen/introspection@4.0.3(encoding@0.1.13)(graphql@16.9.0)':
     dependencies:
       '@graphql-codegen/plugin-helpers': 5.0.4(graphql@16.9.0)
-      '@graphql-codegen/visitor-plugin-common': 5.3.1(graphql@16.9.0)
+      '@graphql-codegen/visitor-plugin-common': 5.3.1(encoding@0.1.13)(graphql@16.9.0)
       graphql: 16.9.0
       tslib: 2.6.3
     transitivePeerDependencies:
@@ -8542,10 +8677,10 @@ snapshots:
       graphql: 16.9.0
       tslib: 2.6.3
 
-  '@graphql-codegen/typed-document-node@5.0.9(graphql@16.9.0)':
+  '@graphql-codegen/typed-document-node@5.0.9(encoding@0.1.13)(graphql@16.9.0)':
     dependencies:
       '@graphql-codegen/plugin-helpers': 5.0.4(graphql@16.9.0)
-      '@graphql-codegen/visitor-plugin-common': 5.3.1(graphql@16.9.0)
+      '@graphql-codegen/visitor-plugin-common': 5.3.1(encoding@0.1.13)(graphql@16.9.0)
       auto-bind: 4.0.0
       change-case-all: 1.0.15
       graphql: 16.9.0
@@ -8554,11 +8689,11 @@ snapshots:
       - encoding
       - supports-color
 
-  '@graphql-codegen/typescript-operations@4.2.3(graphql@16.9.0)':
+  '@graphql-codegen/typescript-operations@4.2.3(encoding@0.1.13)(graphql@16.9.0)':
     dependencies:
       '@graphql-codegen/plugin-helpers': 5.0.4(graphql@16.9.0)
-      '@graphql-codegen/typescript': 4.0.9(graphql@16.9.0)
-      '@graphql-codegen/visitor-plugin-common': 5.3.1(graphql@16.9.0)
+      '@graphql-codegen/typescript': 4.0.9(encoding@0.1.13)(graphql@16.9.0)
+      '@graphql-codegen/visitor-plugin-common': 5.3.1(encoding@0.1.13)(graphql@16.9.0)
       auto-bind: 4.0.0
       graphql: 16.9.0
       tslib: 2.6.3
@@ -8566,10 +8701,10 @@ snapshots:
       - encoding
       - supports-color
 
-  '@graphql-codegen/typescript-urql@4.0.0(graphql-tag@2.12.6(graphql@16.9.0))(graphql@16.9.0)':
+  '@graphql-codegen/typescript-urql@4.0.0(encoding@0.1.13)(graphql-tag@2.12.6(graphql@16.9.0))(graphql@16.9.0)':
     dependencies:
       '@graphql-codegen/plugin-helpers': 3.1.2(graphql@16.9.0)
-      '@graphql-codegen/visitor-plugin-common': 2.13.1(graphql@16.9.0)
+      '@graphql-codegen/visitor-plugin-common': 2.13.1(encoding@0.1.13)(graphql@16.9.0)
       auto-bind: 4.0.0
       graphql: 16.9.0
       graphql-tag: 2.12.6(graphql@16.9.0)
@@ -8578,11 +8713,11 @@ snapshots:
       - encoding
       - supports-color
 
-  '@graphql-codegen/typescript@4.0.9(graphql@16.9.0)':
+  '@graphql-codegen/typescript@4.0.9(encoding@0.1.13)(graphql@16.9.0)':
     dependencies:
       '@graphql-codegen/plugin-helpers': 5.0.4(graphql@16.9.0)
       '@graphql-codegen/schema-ast': 4.1.0(graphql@16.9.0)
-      '@graphql-codegen/visitor-plugin-common': 5.3.1(graphql@16.9.0)
+      '@graphql-codegen/visitor-plugin-common': 5.3.1(encoding@0.1.13)(graphql@16.9.0)
       auto-bind: 4.0.0
       graphql: 16.9.0
       tslib: 2.6.3
@@ -8597,11 +8732,11 @@ snapshots:
       graphql: 16.9.0
       tslib: 2.6.3
 
-  '@graphql-codegen/visitor-plugin-common@2.13.1(graphql@16.9.0)':
+  '@graphql-codegen/visitor-plugin-common@2.13.1(encoding@0.1.13)(graphql@16.9.0)':
     dependencies:
       '@graphql-codegen/plugin-helpers': 2.7.2(graphql@16.9.0)
       '@graphql-tools/optimize': 1.4.0(graphql@16.9.0)
-      '@graphql-tools/relay-operation-optimizer': 6.5.18(graphql@16.9.0)
+      '@graphql-tools/relay-operation-optimizer': 6.5.18(encoding@0.1.13)(graphql@16.9.0)
       '@graphql-tools/utils': 8.13.1(graphql@16.9.0)
       auto-bind: 4.0.0
       change-case-all: 1.0.14
@@ -8614,11 +8749,11 @@ snapshots:
       - encoding
       - supports-color
 
-  '@graphql-codegen/visitor-plugin-common@5.3.1(graphql@16.9.0)':
+  '@graphql-codegen/visitor-plugin-common@5.3.1(encoding@0.1.13)(graphql@16.9.0)':
     dependencies:
       '@graphql-codegen/plugin-helpers': 5.0.4(graphql@16.9.0)
       '@graphql-tools/optimize': 2.0.0(graphql@16.9.0)
-      '@graphql-tools/relay-operation-optimizer': 7.0.1(graphql@16.9.0)
+      '@graphql-tools/relay-operation-optimizer': 7.0.1(encoding@0.1.13)(graphql@16.9.0)
       '@graphql-tools/utils': 10.3.2(graphql@16.9.0)
       auto-bind: 4.0.0
       change-case-all: 1.0.15
@@ -8631,9 +8766,9 @@ snapshots:
       - encoding
       - supports-color
 
-  '@graphql-tools/apollo-engine-loader@8.0.1(graphql@16.9.0)':
+  '@graphql-tools/apollo-engine-loader@8.0.1(encoding@0.1.13)(graphql@16.9.0)':
     dependencies:
-      '@ardatan/sync-fetch': 0.0.1
+      '@ardatan/sync-fetch': 0.0.1(encoding@0.1.13)
       '@graphql-tools/utils': 10.3.2(graphql@16.9.0)
       '@whatwg-node/fetch': 0.9.18
       graphql: 16.9.0
@@ -8735,9 +8870,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@graphql-tools/github-loader@8.0.1(@types/node@20.14.12)(graphql@16.9.0)':
+  '@graphql-tools/github-loader@8.0.1(@types/node@20.14.12)(encoding@0.1.13)(graphql@16.9.0)':
     dependencies:
-      '@ardatan/sync-fetch': 0.0.1
+      '@ardatan/sync-fetch': 0.0.1(encoding@0.1.13)
       '@graphql-tools/executor-http': 1.1.5(@types/node@20.14.12)(graphql@16.9.0)
       '@graphql-tools/graphql-tag-pluck': 8.3.1(graphql@16.9.0)
       '@graphql-tools/utils': 10.3.2(graphql@16.9.0)
@@ -8811,9 +8946,9 @@ snapshots:
       graphql: 16.9.0
       tslib: 2.6.3
 
-  '@graphql-tools/prisma-loader@8.0.4(@types/node@20.14.12)(graphql@16.9.0)':
+  '@graphql-tools/prisma-loader@8.0.4(@types/node@20.14.12)(encoding@0.1.13)(graphql@16.9.0)':
     dependencies:
-      '@graphql-tools/url-loader': 8.0.2(@types/node@20.14.12)(graphql@16.9.0)
+      '@graphql-tools/url-loader': 8.0.2(@types/node@20.14.12)(encoding@0.1.13)(graphql@16.9.0)
       '@graphql-tools/utils': 10.3.2(graphql@16.9.0)
       '@types/js-yaml': 4.0.9
       '@whatwg-node/fetch': 0.9.18
@@ -8821,7 +8956,7 @@ snapshots:
       debug: 4.3.5(supports-color@5.5.0)
       dotenv: 16.4.5
       graphql: 16.9.0
-      graphql-request: 6.1.0(graphql@16.9.0)
+      graphql-request: 6.1.0(encoding@0.1.13)(graphql@16.9.0)
       http-proxy-agent: 7.0.2
       https-proxy-agent: 7.0.5
       jose: 5.6.3
@@ -8837,9 +8972,9 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@graphql-tools/relay-operation-optimizer@6.5.18(graphql@16.9.0)':
+  '@graphql-tools/relay-operation-optimizer@6.5.18(encoding@0.1.13)(graphql@16.9.0)':
     dependencies:
-      '@ardatan/relay-compiler': 12.0.0(graphql@16.9.0)
+      '@ardatan/relay-compiler': 12.0.0(encoding@0.1.13)(graphql@16.9.0)
       '@graphql-tools/utils': 9.2.1(graphql@16.9.0)
       graphql: 16.9.0
       tslib: 2.6.3
@@ -8847,9 +8982,9 @@ snapshots:
       - encoding
       - supports-color
 
-  '@graphql-tools/relay-operation-optimizer@7.0.1(graphql@16.9.0)':
+  '@graphql-tools/relay-operation-optimizer@7.0.1(encoding@0.1.13)(graphql@16.9.0)':
     dependencies:
-      '@ardatan/relay-compiler': 12.0.0(graphql@16.9.0)
+      '@ardatan/relay-compiler': 12.0.0(encoding@0.1.13)(graphql@16.9.0)
       '@graphql-tools/utils': 10.3.2(graphql@16.9.0)
       graphql: 16.9.0
       tslib: 2.6.3
@@ -8865,9 +9000,9 @@ snapshots:
       tslib: 2.6.3
       value-or-promise: 1.0.12
 
-  '@graphql-tools/url-loader@8.0.2(@types/node@20.14.12)(graphql@16.9.0)':
+  '@graphql-tools/url-loader@8.0.2(@types/node@20.14.12)(encoding@0.1.13)(graphql@16.9.0)':
     dependencies:
-      '@ardatan/sync-fetch': 0.0.1
+      '@ardatan/sync-fetch': 0.0.1(encoding@0.1.13)
       '@graphql-tools/delegate': 10.0.16(graphql@16.9.0)
       '@graphql-tools/executor-graphql-ws': 1.2.0(graphql@16.9.0)
       '@graphql-tools/executor-http': 1.1.5(@types/node@20.14.12)(graphql@16.9.0)
@@ -9208,18 +9343,28 @@ snapshots:
 
   '@kamilkisiela/fast-url-parser@1.1.4': {}
 
-  '@langchain/community@0.0.53(google-auth-library@8.9.0)(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0)':
+  '@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13)':
     dependencies:
-      '@langchain/core': 0.1.63(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)
-      '@langchain/openai': 0.0.28(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))
+      '@anthropic-ai/sdk': 0.27.3(encoding@0.1.13)
+      '@langchain/core': 0.3.13(openai@4.53.0(encoding@0.1.13))
+      fast-xml-parser: 4.5.0
+      zod: 3.23.8
+      zod-to-json-schema: 3.23.1(zod@3.23.8)
+    transitivePeerDependencies:
+      - encoding
+
+  '@langchain/community@0.0.53(encoding@0.1.13)(google-auth-library@8.9.0(encoding@0.1.13))(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0)':
+    dependencies:
+      '@langchain/core': 0.1.63(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))(openai@4.53.0(encoding@0.1.13))
+      '@langchain/openai': 0.0.28(encoding@0.1.13)(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))
       expr-eval: 2.0.2
       flat: 5.0.2
-      langsmith: 0.1.39(@langchain/core@0.1.63(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0))(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)
+      langsmith: 0.1.39(@langchain/core@0.1.63(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))(openai@4.53.0(encoding@0.1.13)))(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))(openai@4.53.0(encoding@0.1.13))
       uuid: 9.0.1
       zod: 3.23.8
       zod-to-json-schema: 3.23.1(zod@3.23.8)
     optionalDependencies:
-      google-auth-library: 8.9.0
+      google-auth-library: 8.9.0(encoding@0.1.13)
       lodash: 4.17.21
       ws: 8.18.0
     transitivePeerDependencies:
@@ -9227,13 +9372,32 @@ snapshots:
       - langchain
       - openai
 
-  '@langchain/core@0.1.63(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)':
+  '@langchain/community@0.0.53(encoding@0.1.13)(google-auth-library@8.9.0(encoding@0.1.13))(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)))(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0)':
+    dependencies:
+      '@langchain/core': 0.1.63(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)))(openai@4.53.0(encoding@0.1.13))
+      '@langchain/openai': 0.0.28(encoding@0.1.13)(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)))
+      expr-eval: 2.0.2
+      flat: 5.0.2
+      langsmith: 0.1.39(@langchain/core@0.1.63(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)))(openai@4.53.0(encoding@0.1.13)))(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)))(openai@4.53.0(encoding@0.1.13))
+      uuid: 9.0.1
+      zod: 3.23.8
+      zod-to-json-schema: 3.23.1(zod@3.23.8)
+    optionalDependencies:
+      google-auth-library: 8.9.0(encoding@0.1.13)
+      lodash: 4.17.21
+      ws: 8.18.0
+    transitivePeerDependencies:
+      - encoding
+      - langchain
+      - openai
+
+  '@langchain/core@0.1.63(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))(openai@4.53.0(encoding@0.1.13))':
     dependencies:
       ansi-styles: 5.2.0
       camelcase: 6.3.0
       decamelize: 1.2.0
       js-tiktoken: 1.0.12
-      langsmith: 0.1.39(@langchain/core@0.1.63(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0))(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)
+      langsmith: 0.1.39(@langchain/core@0.1.63(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))(openai@4.53.0(encoding@0.1.13)))(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))(openai@4.53.0(encoding@0.1.13))
       ml-distance: 4.0.1
       mustache: 4.2.0
       p-queue: 6.6.2
@@ -9245,48 +9409,134 @@ snapshots:
       - langchain
       - openai
 
-  '@langchain/core@0.2.18(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)':
+  '@langchain/core@0.1.63(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)))(openai@4.53.0(encoding@0.1.13))':
     dependencies:
       ansi-styles: 5.2.0
       camelcase: 6.3.0
       decamelize: 1.2.0
       js-tiktoken: 1.0.12
-      langsmith: 0.1.39(@langchain/core@0.2.18(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0))(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)
+      langsmith: 0.1.39(@langchain/core@0.1.63(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)))(openai@4.53.0(encoding@0.1.13)))(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)))(openai@4.53.0(encoding@0.1.13))
       ml-distance: 4.0.1
       mustache: 4.2.0
       p-queue: 6.6.2
       p-retry: 4.6.2
-      uuid: 10.0.0
+      uuid: 9.0.1
       zod: 3.23.8
       zod-to-json-schema: 3.23.1(zod@3.23.8)
     transitivePeerDependencies:
       - langchain
       - openai
 
-  '@langchain/langgraph@0.0.12(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)':
+  '@langchain/core@0.2.36(openai@4.53.0(encoding@0.1.13))':
     dependencies:
-      '@langchain/core': 0.1.63(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)
+      ansi-styles: 5.2.0
+      camelcase: 6.3.0
+      decamelize: 1.2.0
+      js-tiktoken: 1.0.12
+      langsmith: 0.1.66(openai@4.53.0(encoding@0.1.13))
+      mustache: 4.2.0
+      p-queue: 6.6.2
+      p-retry: 4.6.2
+      uuid: 10.0.0
+      zod: 3.23.8
+      zod-to-json-schema: 3.23.3(zod@3.23.8)
+    transitivePeerDependencies:
+      - openai
+
+  '@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13))':
+    dependencies:
+      ansi-styles: 5.2.0
+      camelcase: 6.3.0
+      decamelize: 1.2.0
+      js-tiktoken: 1.0.15
+      langsmith: 0.1.66(openai@4.53.0(encoding@0.1.13))
+      mustache: 4.2.0
+      p-queue: 6.6.2
+      p-retry: 4.6.2
+      uuid: 10.0.0
+      zod: 3.23.8
+      zod-to-json-schema: 3.23.3(zod@3.23.8)
+    transitivePeerDependencies:
+      - openai
+
+  '@langchain/google-common@0.1.1(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8)':
+    dependencies:
+      '@langchain/core': 0.3.13(openai@4.53.0(encoding@0.1.13))
+      uuid: 10.0.0
+      zod-to-json-schema: 3.23.3(zod@3.23.8)
+    transitivePeerDependencies:
+      - zod
+
+  '@langchain/google-gauth@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13)(zod@3.23.8)':
+    dependencies:
+      '@langchain/core': 0.3.13(openai@4.53.0(encoding@0.1.13))
+      '@langchain/google-common': 0.1.1(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8)
+      google-auth-library: 8.9.0(encoding@0.1.13)
+    transitivePeerDependencies:
+      - encoding
+      - supports-color
+      - zod
+
+  '@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8)':
+    dependencies:
+      '@google/generative-ai': 0.7.1
+      '@langchain/core': 0.3.13(openai@4.53.0(encoding@0.1.13))
+      zod-to-json-schema: 3.23.3(zod@3.23.8)
+    transitivePeerDependencies:
+      - zod
+    optional: true
+
+  '@langchain/langgraph@0.0.12(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))(openai@4.53.0(encoding@0.1.13))':
+    dependencies:
+      '@langchain/core': 0.1.63(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))(openai@4.53.0(encoding@0.1.13))
     transitivePeerDependencies:
       - langchain
       - openai
 
-  '@langchain/openai@0.0.28(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))':
+  '@langchain/langgraph@0.0.12(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)))(openai@4.53.0(encoding@0.1.13))':
     dependencies:
-      '@langchain/core': 0.1.63(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)
+      '@langchain/core': 0.1.63(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)))(openai@4.53.0(encoding@0.1.13))
+    transitivePeerDependencies:
+      - langchain
+      - openai
+
+  '@langchain/openai@0.0.28(encoding@0.1.13)(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))':
+    dependencies:
+      '@langchain/core': 0.1.63(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))(openai@4.53.0(encoding@0.1.13))
       js-tiktoken: 1.0.12
-      openai: 4.53.0
+      openai: 4.53.0(encoding@0.1.13)
       zod: 3.23.8
       zod-to-json-schema: 3.23.1(zod@3.23.8)
     transitivePeerDependencies:
       - encoding
       - langchain
 
-  '@langchain/textsplitters@0.0.3(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)':
+  '@langchain/openai@0.0.28(encoding@0.1.13)(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)))':
     dependencies:
-      '@langchain/core': 0.2.18(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)
+      '@langchain/core': 0.1.63(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)))(openai@4.53.0(encoding@0.1.13))
+      js-tiktoken: 1.0.12
+      openai: 4.53.0(encoding@0.1.13)
+      zod: 3.23.8
+      zod-to-json-schema: 3.23.1(zod@3.23.8)
+    transitivePeerDependencies:
+      - encoding
+      - langchain
+
+  '@langchain/openai@0.3.11(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13)':
+    dependencies:
+      '@langchain/core': 0.3.13(openai@4.53.0(encoding@0.1.13))
+      js-tiktoken: 1.0.15
+      openai: 4.68.2(encoding@0.1.13)(zod@3.23.8)
+      zod: 3.23.8
+      zod-to-json-schema: 3.23.3(zod@3.23.8)
+    transitivePeerDependencies:
+      - encoding
+
+  '@langchain/textsplitters@0.0.3(openai@4.53.0(encoding@0.1.13))':
+    dependencies:
+      '@langchain/core': 0.2.36(openai@4.53.0(encoding@0.1.13))
       js-tiktoken: 1.0.12
     transitivePeerDependencies:
-      - langchain
       - openai
 
   '@lukeed/csprng@1.1.0': {}
@@ -9865,14 +10115,14 @@ snapshots:
     dependencies:
       tslib: 2.6.3
 
-  '@segment/analytics-node@2.1.2':
+  '@segment/analytics-node@2.1.2(encoding@0.1.13)':
     dependencies:
       '@lukeed/uuid': 2.0.1
       '@segment/analytics-core': 1.6.0
       '@segment/analytics-generic-utils': 1.2.0
       buffer: 6.0.3
       jose: 5.6.3
-      node-fetch: 2.7.0
+      node-fetch: 2.7.0(encoding@0.1.13)
       tslib: 2.6.3
     transitivePeerDependencies:
       - encoding
@@ -10254,7 +10504,6 @@ snapshots:
       debug: 4.3.5(supports-color@5.5.0)
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   agent-base@7.1.1:
     dependencies:
@@ -10385,8 +10634,7 @@ snapshots:
       is-array-buffer: 3.0.4
       is-shared-array-buffer: 1.0.3
 
-  arrify@2.0.1:
-    optional: true
+  arrify@2.0.1: {}
 
   asap@2.0.6: {}
 
@@ -10533,8 +10781,7 @@ snapshots:
     dependencies:
       is-windows: 1.0.2
 
-  bignumber.js@9.1.2:
-    optional: true
+  bignumber.js@9.1.2: {}
 
   binary-extensions@2.3.0: {}
 
@@ -10591,8 +10838,7 @@ snapshots:
     dependencies:
       node-int64: 0.4.0
 
-  buffer-equal-constant-time@1.0.1:
-    optional: true
+  buffer-equal-constant-time@1.0.1: {}
 
   buffer-from@1.1.2: {}
 
@@ -10898,9 +11144,9 @@ snapshots:
     dependencies:
       cross-spawn: 7.0.3
 
-  cross-fetch@3.1.8:
+  cross-fetch@3.1.8(encoding@0.1.13):
     dependencies:
-      node-fetch: 2.7.0
+      node-fetch: 2.7.0(encoding@0.1.13)
     transitivePeerDependencies:
       - encoding
 
@@ -11085,7 +11331,6 @@ snapshots:
   ecdsa-sig-formatter@1.0.11:
     dependencies:
       safe-buffer: 5.2.1
-    optional: true
 
   ee-first@1.1.1: {}
 
@@ -11102,6 +11347,10 @@ snapshots:
   emoji-regex@9.2.2: {}
 
   encodeurl@1.0.2: {}
+
+  encoding@0.1.13:
+    dependencies:
+      iconv-lite: 0.6.3
 
   end-of-stream@1.4.4:
     dependencies:
@@ -11604,12 +11853,15 @@ snapshots:
 
   fast-safe-stringify@2.1.1: {}
 
-  fast-text-encoding@1.0.6:
-    optional: true
+  fast-text-encoding@1.0.6: {}
 
   fast-url-parser@1.1.3:
     dependencies:
       punycode: 1.4.1
+
+  fast-xml-parser@4.5.0:
+    dependencies:
+      strnum: 1.0.5
 
   fastq@1.17.1:
     dependencies:
@@ -11625,9 +11877,9 @@ snapshots:
 
   fbjs-css-vars@1.0.2: {}
 
-  fbjs@3.0.5:
+  fbjs@3.0.5(encoding@0.1.13):
     dependencies:
-      cross-fetch: 3.1.8
+      cross-fetch: 3.1.8(encoding@0.1.13)
       fbjs-css-vars: 1.0.2
       loose-envify: 1.4.0
       object-assign: 4.1.1
@@ -11750,25 +12002,23 @@ snapshots:
 
   functions-have-names@1.2.3: {}
 
-  gaxios@5.1.3:
+  gaxios@5.1.3(encoding@0.1.13):
     dependencies:
       extend: 3.0.2
       https-proxy-agent: 5.0.1
       is-stream: 2.0.1
-      node-fetch: 2.7.0
+      node-fetch: 2.7.0(encoding@0.1.13)
     transitivePeerDependencies:
       - encoding
       - supports-color
-    optional: true
 
-  gcp-metadata@5.3.0:
+  gcp-metadata@5.3.0(encoding@0.1.13):
     dependencies:
-      gaxios: 5.1.3
+      gaxios: 5.1.3(encoding@0.1.13)
       json-bigint: 1.0.0
     transitivePeerDependencies:
       - encoding
       - supports-color
-    optional: true
 
   gensync@1.0.0-beta.2: {}
 
@@ -11854,26 +12104,24 @@ snapshots:
       merge2: 1.4.1
       slash: 3.0.0
 
-  google-auth-library@8.9.0:
+  google-auth-library@8.9.0(encoding@0.1.13):
     dependencies:
       arrify: 2.0.1
       base64-js: 1.5.1
       ecdsa-sig-formatter: 1.0.11
       fast-text-encoding: 1.0.6
-      gaxios: 5.1.3
-      gcp-metadata: 5.3.0
-      gtoken: 6.1.2
+      gaxios: 5.1.3(encoding@0.1.13)
+      gcp-metadata: 5.3.0(encoding@0.1.13)
+      gtoken: 6.1.2(encoding@0.1.13)
       jws: 4.0.0
       lru-cache: 6.0.0
     transitivePeerDependencies:
       - encoding
       - supports-color
-    optional: true
 
   google-p12-pem@4.0.1:
     dependencies:
       node-forge: 1.3.1
-    optional: true
 
   gopd@1.0.1:
     dependencies:
@@ -11883,13 +12131,13 @@ snapshots:
 
   graphemer@1.4.0: {}
 
-  graphql-config@5.0.3(@types/node@20.14.12)(graphql@16.9.0)(typescript@5.5.4):
+  graphql-config@5.0.3(@types/node@20.14.12)(encoding@0.1.13)(graphql@16.9.0)(typescript@5.5.4):
     dependencies:
       '@graphql-tools/graphql-file-loader': 8.0.1(graphql@16.9.0)
       '@graphql-tools/json-file-loader': 8.0.1(graphql@16.9.0)
       '@graphql-tools/load': 8.0.2(graphql@16.9.0)
       '@graphql-tools/merge': 9.0.4(graphql@16.9.0)
-      '@graphql-tools/url-loader': 8.0.2(@types/node@20.14.12)(graphql@16.9.0)
+      '@graphql-tools/url-loader': 8.0.2(@types/node@20.14.12)(encoding@0.1.13)(graphql@16.9.0)
       '@graphql-tools/utils': 10.3.2(graphql@16.9.0)
       cosmiconfig: 8.3.6(typescript@5.5.4)
       graphql: 16.9.0
@@ -11909,10 +12157,10 @@ snapshots:
       graphql: 16.9.0
       lodash.get: 4.4.2
 
-  graphql-request@6.1.0(graphql@16.9.0):
+  graphql-request@6.1.0(encoding@0.1.13)(graphql@16.9.0):
     dependencies:
       '@graphql-typed-document-node/core': 3.2.0(graphql@16.9.0)
-      cross-fetch: 3.1.8
+      cross-fetch: 3.1.8(encoding@0.1.13)
       graphql: 16.9.0
     transitivePeerDependencies:
       - encoding
@@ -11948,7 +12196,7 @@ snapshots:
 
   graphql@16.9.0: {}
 
-  groq-sdk@0.5.0:
+  groq-sdk@0.5.0(encoding@0.1.13):
     dependencies:
       '@types/node': 18.19.42
       '@types/node-fetch': 2.6.11
@@ -11956,20 +12204,19 @@ snapshots:
       agentkeepalive: 4.5.0
       form-data-encoder: 1.7.2
       formdata-node: 4.4.1
-      node-fetch: 2.7.0
+      node-fetch: 2.7.0(encoding@0.1.13)
       web-streams-polyfill: 3.3.3
     transitivePeerDependencies:
       - encoding
 
-  gtoken@6.1.2:
+  gtoken@6.1.2(encoding@0.1.13):
     dependencies:
-      gaxios: 5.1.3
+      gaxios: 5.1.3(encoding@0.1.13)
       google-p12-pem: 4.0.1
       jws: 4.0.0
     transitivePeerDependencies:
       - encoding
       - supports-color
-    optional: true
 
   has-bigints@1.0.2: {}
 
@@ -12041,7 +12288,6 @@ snapshots:
       debug: 4.3.5(supports-color@5.5.0)
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   https-proxy-agent@7.0.5:
     dependencies:
@@ -12059,6 +12305,10 @@ snapshots:
       ms: 2.1.3
 
   iconv-lite@0.4.24:
+    dependencies:
+      safer-buffer: 2.1.2
+
+  iconv-lite@0.6.3:
     dependencies:
       safer-buffer: 2.1.2
 
@@ -12780,6 +13030,10 @@ snapshots:
     dependencies:
       base64-js: 1.5.1
 
+  js-tiktoken@1.0.15:
+    dependencies:
+      base64-js: 1.5.1
+
   js-tokens@4.0.0: {}
 
   js-yaml@3.14.1:
@@ -12796,7 +13050,6 @@ snapshots:
   json-bigint@1.0.0:
     dependencies:
       bignumber.js: 9.1.2
-    optional: true
 
   json-buffer@3.0.1: {}
 
@@ -12835,13 +13088,11 @@ snapshots:
       buffer-equal-constant-time: 1.0.1
       ecdsa-sig-formatter: 1.0.11
       safe-buffer: 5.2.1
-    optional: true
 
   jws@4.0.0:
     dependencies:
       jwa: 2.0.0
       safe-buffer: 5.2.1
-    optional: true
 
   katex@0.16.11:
     dependencies:
@@ -12855,19 +13106,19 @@ snapshots:
 
   kleur@4.1.5: {}
 
-  langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0):
+  langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0):
     dependencies:
-      '@anthropic-ai/sdk': 0.9.1
-      '@langchain/community': 0.0.53(google-auth-library@8.9.0)(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0)
-      '@langchain/core': 0.1.63(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)
-      '@langchain/openai': 0.0.28(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))
-      '@langchain/textsplitters': 0.0.3(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)
+      '@anthropic-ai/sdk': 0.9.1(encoding@0.1.13)
+      '@langchain/community': 0.0.53(encoding@0.1.13)(google-auth-library@8.9.0(encoding@0.1.13))(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0)
+      '@langchain/core': 0.1.63(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))(openai@4.53.0(encoding@0.1.13))
+      '@langchain/openai': 0.0.28(encoding@0.1.13)(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))
+      '@langchain/textsplitters': 0.0.3(openai@4.53.0(encoding@0.1.13))
       binary-extensions: 2.3.0
       js-tiktoken: 1.0.12
       js-yaml: 4.1.0
       jsonpointer: 5.0.1
       langchainhub: 0.0.11
-      langsmith: 0.1.39(@langchain/core@0.1.63(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0))(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)
+      langsmith: 0.1.39(@langchain/core@0.1.63(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))(openai@4.53.0(encoding@0.1.13)))(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))(openai@4.53.0(encoding@0.1.13))
       ml-distance: 4.0.1
       openapi-types: 12.1.3
       p-retry: 4.6.2
@@ -12876,7 +13127,8 @@ snapshots:
       zod: 3.23.8
       zod-to-json-schema: 3.23.1(zod@3.23.8)
     optionalDependencies:
-      google-auth-library: 8.9.0
+      fast-xml-parser: 4.5.0
+      google-auth-library: 8.9.0(encoding@0.1.13)
       ignore: 5.3.1
       ws: 8.18.0
     transitivePeerDependencies:
@@ -12950,9 +13202,31 @@ snapshots:
       - vectordb
       - voy-search
 
+  langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)):
+    dependencies:
+      '@langchain/core': 0.3.13(openai@4.53.0(encoding@0.1.13))
+      '@langchain/openai': 0.3.11(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13)
+      '@langchain/textsplitters': 0.0.3(openai@4.53.0(encoding@0.1.13))
+      js-tiktoken: 1.0.15
+      js-yaml: 4.1.0
+      jsonpointer: 5.0.1
+      langsmith: 0.1.66(openai@4.53.0(encoding@0.1.13))
+      openapi-types: 12.1.3
+      p-retry: 4.6.2
+      uuid: 10.0.0
+      yaml: 2.5.0
+      zod: 3.23.8
+      zod-to-json-schema: 3.23.3(zod@3.23.8)
+    optionalDependencies:
+      '@langchain/anthropic': 0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13)
+      '@langchain/google-genai': 0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8)
+    transitivePeerDependencies:
+      - encoding
+      - openai
+
   langchainhub@0.0.11: {}
 
-  langsmith@0.1.39(@langchain/core@0.1.63(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0))(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0):
+  langsmith@0.1.39(@langchain/core@0.1.63(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))(openai@4.53.0(encoding@0.1.13)))(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))(openai@4.53.0(encoding@0.1.13)):
     dependencies:
       '@types/uuid': 9.0.8
       commander: 10.0.1
@@ -12960,11 +13234,11 @@ snapshots:
       p-retry: 4.6.2
       uuid: 9.0.1
     optionalDependencies:
-      '@langchain/core': 0.1.63(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)
-      langchain: 0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0)
-      openai: 4.53.0
+      '@langchain/core': 0.1.63(langchain@0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0))(openai@4.53.0(encoding@0.1.13))
+      langchain: 0.1.37(encoding@0.1.13)(fast-xml-parser@4.5.0)(google-auth-library@8.9.0(encoding@0.1.13))(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0)
+      openai: 4.53.0(encoding@0.1.13)
 
-  langsmith@0.1.39(@langchain/core@0.2.18(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0))(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0):
+  langsmith@0.1.39(@langchain/core@0.1.63(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)))(openai@4.53.0(encoding@0.1.13)))(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)))(openai@4.53.0(encoding@0.1.13)):
     dependencies:
       '@types/uuid': 9.0.8
       commander: 10.0.1
@@ -12972,9 +13246,20 @@ snapshots:
       p-retry: 4.6.2
       uuid: 9.0.1
     optionalDependencies:
-      '@langchain/core': 0.2.18(langchain@0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0))(openai@4.53.0)
-      langchain: 0.1.37(google-auth-library@8.9.0)(ignore@5.3.1)(lodash@4.17.21)(openai@4.53.0)(ws@8.18.0)
-      openai: 4.53.0
+      '@langchain/core': 0.1.63(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)))(openai@4.53.0(encoding@0.1.13))
+      langchain: 0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.13(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13))
+      openai: 4.53.0(encoding@0.1.13)
+
+  langsmith@0.1.66(openai@4.53.0(encoding@0.1.13)):
+    dependencies:
+      '@types/uuid': 10.0.0
+      commander: 10.0.1
+      p-queue: 6.6.2
+      p-retry: 4.6.2
+      semver: 7.6.3
+      uuid: 10.0.0
+    optionalDependencies:
+      openai: 4.53.0(encoding@0.1.13)
 
   language-subtag-registry@0.3.23: {}
 
@@ -13084,7 +13369,6 @@ snapshots:
   lru-cache@6.0.0:
     dependencies:
       yallist: 4.0.0
-    optional: true
 
   lucide-react@0.274.0(react@18.3.1):
     dependencies:
@@ -13587,12 +13871,13 @@ snapshots:
 
   node-domexception@1.0.0: {}
 
-  node-fetch@2.7.0:
+  node-fetch@2.7.0(encoding@0.1.13):
     dependencies:
       whatwg-url: 5.0.0
+    optionalDependencies:
+      encoding: 0.1.13
 
-  node-forge@1.3.1:
-    optional: true
+  node-forge@1.3.1: {}
 
   node-int64@0.4.0: {}
 
@@ -13694,7 +13979,7 @@ snapshots:
     dependencies:
       mimic-fn: 2.1.0
 
-  openai@4.53.0:
+  openai@4.53.0(encoding@0.1.13):
     dependencies:
       '@types/node': 18.19.42
       '@types/node-fetch': 2.6.11
@@ -13702,8 +13987,22 @@ snapshots:
       agentkeepalive: 4.5.0
       form-data-encoder: 1.7.2
       formdata-node: 4.4.1
-      node-fetch: 2.7.0
+      node-fetch: 2.7.0(encoding@0.1.13)
       web-streams-polyfill: 3.3.3
+    transitivePeerDependencies:
+      - encoding
+
+  openai@4.68.2(encoding@0.1.13)(zod@3.23.8):
+    dependencies:
+      '@types/node': 18.19.42
+      '@types/node-fetch': 2.6.11
+      abort-controller: 3.0.0
+      agentkeepalive: 4.5.0
+      form-data-encoder: 1.7.2
+      formdata-node: 4.4.1
+      node-fetch: 2.7.0(encoding@0.1.13)
+    optionalDependencies:
+      zod: 3.23.8
     transitivePeerDependencies:
       - encoding
 
@@ -14218,10 +14517,10 @@ snapshots:
       es-errors: 1.3.0
       set-function-name: 2.0.2
 
-  relay-runtime@12.0.0:
+  relay-runtime@12.0.0(encoding@0.1.13):
     dependencies:
       '@babel/runtime': 7.24.8
-      fbjs: 3.0.5
+      fbjs: 3.0.5(encoding@0.1.13)
       invariant: 2.2.4
     transitivePeerDependencies:
       - encoding
@@ -14617,6 +14916,8 @@ snapshots:
   strip-final-newline@2.0.0: {}
 
   strip-json-comments@3.1.1: {}
+
+  strnum@1.0.5: {}
 
   style-to-object@0.4.4:
     dependencies:
@@ -15310,8 +15611,7 @@ snapshots:
 
   yallist@3.1.1: {}
 
-  yallist@4.0.0:
-    optional: true
+  yallist@4.0.0: {}
 
   yaml-ast-parser@0.0.43: {}
 
@@ -15355,6 +15655,10 @@ snapshots:
   yocto-queue@0.1.0: {}
 
   zod-to-json-schema@3.23.1(zod@3.23.8):
+    dependencies:
+      zod: 3.23.8
+
+  zod-to-json-schema@3.23.3(zod@3.23.8):
     dependencies:
       zod: 3.23.8
 
