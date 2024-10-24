@@ -1,11 +1,7 @@
 """Test Q&A Agent"""
 
-import os
 from typing import Any, cast
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
 from langgraph.graph import StateGraph, END
-from langgraph.graph import MessagesState
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import HumanMessage, ToolMessage
@@ -13,37 +9,14 @@ from copilotkit.langchain import (
   copilotkit_customize_config, copilotkit_exit, copilotkit_emit_message
 )
 from pydantic import BaseModel, Field
-
-
-def get_model():
-    """
-    Get a model based on the environment variable.
-    """
-    model = os.getenv("MODEL", "openai")
-
-    if model == "openai":
-        return ChatOpenAI(temperature=0, model="gpt-4o")
-    if model == "anthropic":
-        return ChatAnthropic(
-            temperature=0,
-            model_name="claude-3-5-sonnet-20240620",
-            timeout=None,
-            stop=None
-        )
-
-    raise ValueError("Invalid model specified")
-
-
-class EmailAgentState(MessagesState):
-    """Email Agent State"""
-    email: str
+from my_agent.model import get_model
+from my_agent.state import EmailAgentState
 
 class EmailTool(BaseModel):
     """
     Write an email.
     """
     the_email: str = Field(description="The email to be written.")
-
 
 async def email_node(state: EmailAgentState, config: RunnableConfig):
     """
@@ -57,7 +30,7 @@ async def email_node(state: EmailAgentState, config: RunnableConfig):
 
     instructions = "You write emails."
 
-    email_model = get_model().bind_tools(
+    email_model = get_model(state).bind_tools(
         [EmailTool],
         tool_choice="EmailTool"
     )

@@ -38,7 +38,7 @@ The current date is {datetime.now().strftime("%Y-%m-%d")}.
 
 This is what you need to search for, please come up with a good search query: {current_step["description"]}
 """
-    model = get_model().bind_tools(
+    model = get_model(state).bind_tools(
         [tavily_tool],
         tool_choice=tavily_tool.name
     )
