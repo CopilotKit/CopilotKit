@@ -1,8 +1,7 @@
-"use client"
+"use client";
 
-import { useSearchParams } from "next/navigation";
-import React from "react"
-import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import React from "react";
+import { createContext, useContext, useState, ReactNode } from "react";
 
 type ModelSelectorContextType = {
   model: string;
@@ -11,18 +10,27 @@ type ModelSelectorContextType = {
   setHidden: (hidden: boolean) => void;
 };
 
-const ModelSelectorContext = createContext<ModelSelectorContextType | undefined>(undefined);
+const ModelSelectorContext = createContext<
+  ModelSelectorContextType | undefined
+>(undefined);
 
-export const ModelSelectorProvider = ({ children }: { children: ReactNode }) => {
-  const searchParams = useSearchParams();
-  const model = searchParams.get("coAgentsModel") || "openai";
+export const ModelSelectorProvider = ({
+  children,
+}: {
+  children: ReactNode;
+}) => {
+  const model =
+    window === undefined
+      ? "openai"
+      : new URL(window.location.href).searchParams.get("coAgentsModel") ??
+        "openai";
   const [hidden, setHidden] = useState<boolean>(false);
 
   const setModel = (model: string) => {
     const url = new URL(window.location.href);
     url.searchParams.set("coAgentsModel", model);
     window.location.href = url.toString();
-  }
+  };
 
   return (
     <ModelSelectorContext.Provider
@@ -41,7 +49,9 @@ export const ModelSelectorProvider = ({ children }: { children: ReactNode }) => 
 export const useModelSelectorContext = () => {
   const context = useContext(ModelSelectorContext);
   if (context === undefined) {
-    throw new Error("useModelSelectorContext must be used within a ModelSelectorProvider");
+    throw new Error(
+      "useModelSelectorContext must be used within a ModelSelectorProvider"
+    );
   }
   return context;
 };
