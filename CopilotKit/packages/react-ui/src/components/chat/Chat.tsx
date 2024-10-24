@@ -60,7 +60,12 @@ import { RenderResultMessage as DefaultRenderResultMessage } from "./messages/Re
 import { RenderAgentStateMessage as DefaultRenderAgentStateMessage } from "./messages/RenderAgentStateMessage";
 import { Suggestion } from "./Suggestion";
 import React, { useEffect, useRef, useState } from "react";
-import { SystemMessageFunction, useCopilotChat, useCopilotContext } from "@copilotkit/react-core";
+import {
+  SystemMessageFunction,
+  useCopilotChat,
+  useCopilotContext,
+  useCopilotMessagesContext,
+} from "@copilotkit/react-core";
 import { reloadSuggestions } from "./Suggestion";
 import { CopilotChatSuggestion } from "../../types/suggestions";
 import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
@@ -282,7 +287,9 @@ export const useCopilotChatLogic = (
     suggestionsAbortControllerRef.current = null;
   };
 
-  const context = useCopilotContext();
+  const generalContext = useCopilotContext();
+  const messagesContext = useCopilotMessagesContext();
+  const context = { ...generalContext, ...messagesContext };
 
   useEffect(() => {
     onInProgress?.(isLoading);
