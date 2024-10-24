@@ -33,6 +33,8 @@ GitHub Repo Link:  [Copilotmate Repo](https://github.com/AkashJana18/copilotmate
 ![image](https://github.com/user-attachments/assets/9919059e-71ce-4bb0-9f50-cc9f351078be)
 ![image](https://github.com/user-attachments/assets/0ccd162a-c4f7-4d79-a969-a124222f5bf6)
 ![image](https://github.com/user-attachments/assets/cb118098-d975-41fe-b1d8-0387d312ca32)
+![image](https://github.com/user-attachments/assets/d5ba6011-71e3-4f7b-8566-e27cc83c35ac)
+
 #### ⭐ Please watch the video to feel the true UI/UX : [Demo](https://www.youtube.com/watch?v=qPVRPUH8ewU&t=33s)
 
 ### 6. Who Are You?  
