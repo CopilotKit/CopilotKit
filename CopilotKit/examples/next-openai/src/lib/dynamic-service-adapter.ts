@@ -63,11 +63,14 @@ async function getLangChainAnthropicAdapter() {
 
 async function getLangChainGoogleGenAIAdapter() {
   const { LangChainAdapter } = await import("@copilotkit/runtime");
-  const { ChatGoogleGenerativeAI } = await import("@langchain/google-genai");
+  const { ChatGoogle } = await import("@langchain/google-gauth");
   return new LangChainAdapter({
     chainFn: async ({ messages, tools }) => {
-      const model = new ChatGoogleGenerativeAI({ modelName: "gemini-1.5-flash" }) as any;
-      return model.stream(messages, { tools });
+      const model = new ChatGoogle({
+        modelName: "gemini-1.5-pro",
+        apiVersion: "v1beta",
+      }).bindTools(tools);
+      return model.stream(messages);
     },
   });
 }

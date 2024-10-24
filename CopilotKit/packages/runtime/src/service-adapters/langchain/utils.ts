@@ -69,7 +69,7 @@ export function convertJsonSchemaToZodSchema(jsonSchema: any, required: boolean)
     let schema = z.boolean().describe(jsonSchema.description);
     return !required ? schema.optional() : schema;
   } else if (jsonSchema.type === "array") {
-    let itemSchema = convertJsonSchemaToZodSchema(jsonSchema.items, false);
+    let itemSchema = convertJsonSchemaToZodSchema(jsonSchema.items, true);
     let schema = z.array(itemSchema);
     return !required ? schema.optional() : schema;
   }
