@@ -1,6 +1,6 @@
 "use client";
 
-import { useCopilotContext } from "@copilotkit/react-core";
+import { useCopilotContext, useCopilotMessagesContext } from "@copilotkit/react-core";
 import {
   getPublishedCopilotKitVersion,
   logActions,
@@ -227,6 +227,7 @@ export default function DebugMenuButton({
   mode: "full" | "compact";
 }) {
   const context = useCopilotContext();
+  const messagesContext = useCopilotMessagesContext();
 
   return (
     <div className="bg-black top-24 w-52 text-right">
@@ -252,7 +253,10 @@ export default function DebugMenuButton({
             </button>
           </MenuItem>
           <MenuItem>
-            <button className="copilotKitDebugMenuItem" onClick={() => logMessages(context)}>
+            <button
+              className="copilotKitDebugMenuItem"
+              onClick={() => logMessages(messagesContext)}
+            >
               Log Messages
             </button>
           </MenuItem>

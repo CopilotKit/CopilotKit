@@ -13,7 +13,7 @@ import {
   convertGqlOutputToMessages,
   CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
-import { CopilotContextParams } from "../context";
+import { CopilotContextParams, CopilotMessagesContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
 import { CopilotRuntimeClient } from "@copilotkit/runtime-client-gql";
 import {
@@ -42,7 +42,7 @@ type StreamHandlerArgs<T extends Parameter[] | [] = []> =
   | CompleteState<T>;
 
 interface ExtractOptions<T extends Parameter[]> {
-  context: CopilotContextParams;
+  context: CopilotContextParams & CopilotMessagesContextParams;
   instructions: string;
   parameters: T;
   include?: IncludeOptions;

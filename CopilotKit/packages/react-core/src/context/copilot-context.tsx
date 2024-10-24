@@ -1,5 +1,4 @@
 import { CopilotCloudConfig, FunctionCallHandler } from "@copilotkit/shared";
-import { Message } from "@copilotkit/runtime-client-gql";
 import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
 import React from "react";
 import { TreeNodeId } from "../hooks/use-tree";
@@ -111,10 +110,6 @@ export interface CopilotContextParams {
   removeDocumentContext: (documentId: string) => void;
   getDocumentsContext: (categories: string[]) => DocumentPointer[];
 
-  // chat
-  messages: Message[];
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
-
   isLoading: boolean;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
 
@@ -156,9 +151,6 @@ const emptyCopilotContext: CopilotContextParams = {
   removeContext: () => {},
 
   getFunctionCallHandler: () => returnAndThrowInDebug(async () => {}),
-
-  messages: [],
-  setMessages: () => returnAndThrowInDebug([]),
 
   isLoading: false,
   setIsLoading: () => returnAndThrowInDebug(false),
