@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 export function useRB2B() {
   useEffect(() => {
-    const RB2B_ID = process.env.RB2B_ID;
+    const RB2B_ID = process.env.NEXT_PUBLIC_RB2B_ID;
 
     if (!RB2B_ID) {
       return;
