@@ -5,6 +5,7 @@ The summarize node is responsible for summarizing the information.
 import json
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
+from langchain.tools import tool
 from copilotkit.langchain import copilotkit_customize_config
 from pydantic import BaseModel, Field
 from ai_researcher.state import AgentState
@@ -16,19 +17,21 @@ class Reference(BaseModel):
     title: str = Field(description="The title of the reference.")
     url: str = Field(description="The url of the reference.")
 
-class SummarizeTool(BaseModel):
+class SummarizeInput(BaseModel):
+    """Input for the summarize tool"""
+    markdown: str = Field(description="""
+                          The markdown formatted summary of the final result.
+                          If you add any headings, make sure to start at the top level (#).
+                          """)
+    references: list[Reference] = Field(description="A list of references.")
+
+@tool(args_schema=SummarizeInput)
+def SummarizeTool(summary: str, references: list[Reference]): # pylint: disable=invalid-name,unused-argument
     """
     Summarize the final result. Make sure that the summary is complete and 
     includes all relevant information and reference links.
     """
 
-    markdown: str = Field(
-        description="""
-        The markdown formatted summary of the final result. 
-        If you add any headings, make sure to start at the top level (#).
-        """
-    )
-    references: list[Reference] = Field(description="A list of references.")
 
 async def summarize_node(state: AgentState, config: RunnableConfig):
     """
