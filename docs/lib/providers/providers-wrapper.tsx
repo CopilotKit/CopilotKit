@@ -8,10 +8,10 @@ import { useRB2B } from "@/lib/hooks/use-rb2b";
 import { useGoogleAnalytics } from "../hooks/use-google-analytics";
 
 export function ProvidersWrapper({ children }: { children: React.ReactNode }) {
+  const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
   useRB2B();
   useGoogleAnalytics();
-
-  const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
   const toRender = (
     <Suspense fallback={null}>
@@ -21,9 +21,11 @@ export function ProvidersWrapper({ children }: { children: React.ReactNode }) {
   );
 
   if (clerkPublishableKey) {
-    <ClerkProvider publishableKey={clerkPublishableKey}>
-      {toRender}
-    </ClerkProvider>;
+    return (
+      <ClerkProvider publishableKey={clerkPublishableKey}>
+        {toRender}
+      </ClerkProvider>
+    );
   } else {
     return toRender;
   }
