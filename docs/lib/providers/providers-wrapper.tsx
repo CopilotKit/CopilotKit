@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { Suspense } from "react";
 import { PostHogProvider } from "@/lib/providers/posthog-provider";
 import { ClerkProvider } from "@clerk/clerk-react";
 import { ScarfPixel } from "./scarf-pixel";
@@ -14,10 +14,10 @@ export function ProvidersWrapper({ children }: { children: React.ReactNode }) {
   const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
   const toRender = (
-    <>
+    <Suspense fallback={null}>
       <PostHogProvider>{children}</PostHogProvider>
       <ScarfPixel />
-    </>
+    </Suspense>
   );
 
   if (clerkPublishableKey) {
