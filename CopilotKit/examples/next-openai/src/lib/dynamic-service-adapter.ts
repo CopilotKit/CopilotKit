@@ -62,6 +62,7 @@ async function getLangChainAnthropicAdapter() {
 }
 
 async function getLangChainGoogleGenAIAdapter() {
+  // TODO: This is now the same as `GoogleGenerativeAIAdapter` and should be removed.
   const { LangChainAdapter } = await import("@copilotkit/runtime");
   const { ChatGoogle } = await import("@langchain/google-gauth");
   return new LangChainAdapter({
