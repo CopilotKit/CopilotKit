@@ -167,36 +167,36 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       url,
     } = request;
 
-    if (agentSession) {
-      return this.processAgentRequest(request);
-    }
-
-    const messages = rawMessages.filter((message) => !message.agentStateMessage);
-
-    const inputMessages = convertGqlInputToMessages(messages);
-    const serverSideActions = await this.getServerSideActions(request);
-
-    const serverSideActionsInput: ActionInput[] = serverSideActions.map((action) => ({
-      name: action.name,
-      description: action.description,
-      jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters)),
-    }));
-
-    const actionInputs = flattenToolCallsNoDuplicates([
-      ...serverSideActionsInput,
-      ...clientSideActionsInput,
-    ]);
-
-    await this.onBeforeRequest?.({
-      threadId,
-      runId,
-      inputMessages,
-      properties: graphqlContext.properties,
-      url,
-    });
+    const eventSource = new RuntimeEventSource();
 
     try {
-      const eventSource = new RuntimeEventSource();
+      if (agentSession) {
+        return await this.processAgentRequest(request);
+      }
+
+      const messages = rawMessages.filter((message) => !message.agentStateMessage);
+
+      const inputMessages = convertGqlInputToMessages(messages);
+      const serverSideActions = await this.getServerSideActions(request);
+
+      const serverSideActionsInput: ActionInput[] = serverSideActions.map((action) => ({
+        name: action.name,
+        description: action.description,
+        jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters)),
+      }));
+
+      const actionInputs = flattenToolCallsNoDuplicates([
+        ...serverSideActionsInput,
+        ...clientSideActionsInput,
+      ]);
+
+      await this.onBeforeRequest?.({
+        threadId,
+        runId,
+        inputMessages,
+        properties: graphqlContext.properties,
+        url,
+      });
 
       const result = await serviceAdapter.process({
         messages: inputMessages,
@@ -236,7 +236,14 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       };
     } catch (error) {
       console.error("Error getting response:", error);
-      throw error;
+      eventSource.sendErrorMessageToChat();
+      return {
+        threadId: threadId || randomId(),
+        runId: runId || randomId(),
+        eventSource,
+        serverSideActions: [],
+        actionInputsWithoutAgents: [],
+      };
     }
   }
 
