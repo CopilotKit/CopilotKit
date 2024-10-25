@@ -38,7 +38,7 @@ This is a sentence with a reference to a source [source 1][1] and another refere
 [2]: http://example.com/source2 "Title of Source 2"
 """
 
-    response = await get_model().ainvoke([
+    response = await get_model(state).ainvoke([
         state["messages"][0],
         HumanMessage(
             content=system_message

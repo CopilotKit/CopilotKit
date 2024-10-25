@@ -10,7 +10,6 @@ from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from copilotkit import CopilotKitSDK, LangGraphAgent
 from my_agent.agent import graph
 
-
 app = FastAPI()
 sdk = CopilotKitSDK(
     agents=[

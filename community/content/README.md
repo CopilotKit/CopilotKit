@@ -43,10 +43,10 @@ Demos will be ranked from 0 to 100 based on:
 
 ⭐ 4 Ways to Earn 10 bonus points for each (Swag is only available if you complete a demo) :
 
-1. ⭐ Write and share a tutorial about your app on [dev.to](https://dev.) that receives up to 30 or more reactions.
+1. ⭐ Write and share a tutorial about your app on [dev.to](https://dev.to) that receives 30 or more reactions.
 2. ⭐ Post about your project on Twitter and get at least 10 reactions.
-3. ⭐ Solve `good first issue`'s that get merged merged.
-4. ⭐ Create a YouTube video promoting your CopilotKit project that recieves up to 100 views.
+3. ⭐ Solve `good first issues` that get  merged.
+4. ⭐ Create a YouTube video promoting your CopilotKit project that receives up to 100 views.
 
 ## Need Help?
 

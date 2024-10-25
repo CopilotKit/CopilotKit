@@ -12,7 +12,7 @@ export default async function Layout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={inter.className} suppressHydrationWarning>
       <body>
-        <ProvidersWrapper clerkPublishableKey={process.env.CLERK_PUBLISHABLE_KEY as string}>
+        <ProvidersWrapper>
           <RootProvider theme={{ enabled: true }}>{children}</RootProvider>
         </ProvidersWrapper>
       </body>

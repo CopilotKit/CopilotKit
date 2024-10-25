@@ -15,18 +15,14 @@ const genAI = new GoogleGenerativeAI(process.env["GOOGLE_API_KEY"]);
  
 const copilotKit = new CopilotRuntime();
  
-const model = genAI.getGenerativeModel({
-  model: "gemini-pro"
-});
- 
-const serviceAdapter = new GoogleGenerativeAIAdapter({ model });
+const serviceAdapter = new GoogleGenerativeAIAdapter({ model: "gemini-1.5-pro" });
  
 return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
 ```
 
 ## Constructor Parameters
 
-<PropertyReference name="model" type="GenerativeModel"  > 
+<PropertyReference name="model" type="string"  > 
 A custom Google Generative AI model to use.
 </PropertyReference>
 
