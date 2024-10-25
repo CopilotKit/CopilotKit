@@ -1,1 +1,1 @@
-Please describe your issue in as much deatil as possible
+Please describe your issue in as much detail as possible
