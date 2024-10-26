@@ -25,4 +25,4 @@
 
 ## 7. 👨‍💻 Who Are You?
 
-- [**` ArnavK-09 `**](https://GitHub.com/ArnavK-09)
+- [**` ArnavK-09 `**](https://gitHub.com/ArnavK-09)
