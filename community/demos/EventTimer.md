@@ -30,9 +30,9 @@ List the technologies and frameworks you used (e.g., CopilotKit, Next.js)
 ## 6. Screenshot
 
 
-![image]()
+![Screenshot 2024-10-26 175826](https://github.com/user-attachments/assets/23ceae41-6d87-4894-b5e5-79892da63586)
 
-![image]()
+![Screenshot 2024-10-26 175846](https://github.com/user-attachments/assets/387fd983-041b-44b1-b51b-060ac303b112)
 
 
 ## 7. Who Are You?
@@ -40,12 +40,11 @@ List the technologies and frameworks you used (e.g., CopilotKit, Next.js)
 Please list your **GitHub** and **Twitter** handles if you feel comfortable doing so. 
 
 - [prathamesh424 on github](https://github.com/prathamesh424)
-- [sanket on X](https://x.com/sanketshinde04)
+- [sanket on X](https://x.com/Prathamesh_G24)
 
 ## 5 Extra Bonus Points
 Link to any bonus activities you did such as solving GitHub Issues or posting to Twitter, Dev.to, Medium, etc related to your project and CopilotKit.
 - A dev.to blog link - [Link](https://dev.to/prathamesh_gursal/event-timer-powered-by-copilotkit-chatbot-2c78)
-- Tweet link - [Link](https://x.com/sanketshinde04/status/1845898967038521511)
-
+- Tweet link - [Link](https://x.com/Prathamesh_G24/status/1850161431477731547)
 
 #issue 787
