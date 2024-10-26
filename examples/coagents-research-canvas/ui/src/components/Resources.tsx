@@ -50,7 +50,9 @@ export function Resources({
                     overflowWrap: "break-word",
                   }}
                 >
-                  {resource.description}
+                  {resource.description?.length > 250
+                    ? resource.description.slice(0, 250) + "..."
+                    : resource.description}
                 </p>
                 <a
                   href={resource.url}

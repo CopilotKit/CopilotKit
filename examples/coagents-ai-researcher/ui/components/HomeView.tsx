@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Textarea } from "./ui/textarea";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -9,15 +9,23 @@ import { useResearchContext } from "@/lib/research-provider";
 import { motion } from "framer-motion";
 import { useCoAgent } from "@copilotkit/react-core";
 import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";
+import type { AgentState } from "../lib/types";
+import { useModelSelectorContext } from "@/lib/model-selector-provider";
 
 const MAX_INPUT_LENGTH = 250;
 
 export function HomeView() {
   const { setResearchQuery, researchInput, setResearchInput } =
     useResearchContext();
+  const { model } = useModelSelectorContext();
   const [isInputFocused, setIsInputFocused] = useState(false);
-  const { run: runResearchAgent } = useCoAgent({
+  const {
+    run: runResearchAgent,
+  } = useCoAgent<AgentState>({
     name: "search_agent",
+    initialState: {
+      model,
+    },
   });
 
   const handleResearch = (query: string) => {

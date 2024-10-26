@@ -12,12 +12,16 @@ import { Progress } from "./Progress";
 import { EditResourceDialog } from "./EditResourceDialog";
 import { AddResourceDialog } from "./AddResourceDialog";
 import { Resources } from "./Resources";
-import { truncateUrl } from "@/lib/utils";
-import { Resource } from "@/lib/types";
+import { AgentState, Resource } from "@/lib/types";
+import { useModelSelectorContext } from "@/lib/model-selector-provider";
 
 export function ResearchCanvas() {
-  const { state, setState } = useCoAgent({
+  const { model } = useModelSelectorContext();
+  const { state, setState } = useCoAgent<AgentState>({
     name: "research_agent",
+    initialState: {
+      model
+    }
   });
 
   useCoAgentStateRender({

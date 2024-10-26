@@ -26,6 +26,7 @@ class AgentState(MessagesState):
     This is the state of the agent.
     It is a subclass of the MessagesState class from langgraph.
     """
+    model: str
     research_question: str
     report: str
     resources: List[Resource]

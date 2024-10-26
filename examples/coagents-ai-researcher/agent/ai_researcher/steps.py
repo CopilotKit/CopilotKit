@@ -4,21 +4,15 @@ This node is responsible for creating the steps for the research process.
 
 # pylint: disable=line-too-long
 
+from typing import List
 from datetime import datetime
 from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
+from langchain.tools import tool
 from copilotkit.langchain import copilotkit_customize_config
 from pydantic import BaseModel, Field
 from ai_researcher.state import AgentState
 from ai_researcher.model import get_model
-class WeatherResponse(BaseModel):
-    """Respond to the user with this"""
-
-    temperature: float = Field(description="The temperature in fahrenheit")
-    wind_direction: str = Field(
-        description="The direction of the wind in abbreviated form"
-    )
-    wind_speed: float = Field(description="The speed of the wind in km/h")
 
 
 class SearchStep(BaseModel):
@@ -29,14 +23,15 @@ class SearchStep(BaseModel):
     status: str = Field(description='The status of the step. Always "pending".', enum=['pending'])
     type: str = Field(description='The type of step.', enum=['search'])
 
-class SearchTool(BaseModel):
+
+@tool
+def SearchTool(steps: List[SearchStep]): # pylint: disable=invalid-name,unused-argument
     """
     Break the user's query into smaller steps.
     Use step type "search" to search the web for information.
     Make sure to add all the steps needed to answer the user's query.
     """
 
-    steps: list[SearchStep] = Field(description="The steps to be executed.")
 
 async def steps_node(state: AgentState, config: RunnableConfig):
     """
@@ -62,7 +57,7 @@ These steps are then executed serially. In the end, a final answer is produced i
 The current date is {datetime.now().strftime("%Y-%m-%d")}.
 """
 
-    response = await get_model().bind_tools(
+    response = await get_model(state).bind_tools(
         [SearchTool],
         tool_choice="SearchTool"
     ).ainvoke([

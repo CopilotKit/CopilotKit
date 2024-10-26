@@ -1,5 +1,10 @@
 import { useEffect } from "react";
-import { CopilotContextParams, useCopilotContext } from "../context";
+import {
+  CopilotContextParams,
+  CopilotMessagesContextParams,
+  useCopilotContext,
+  useCopilotMessagesContext,
+} from "../context";
 import { CoagentState } from "../types/coagent-state";
 import { useCopilotChat } from "./use-copilot-chat";
 import { AgentStateMessage, Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
@@ -59,7 +64,9 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     return "initialState" in options;
   };
 
-  const context = useCopilotContext();
+  const generalContext = useCopilotContext();
+  const messagesContext = useCopilotMessagesContext();
+  const context = { ...generalContext, ...messagesContext };
   const { coagentStates, setCoagentStates } = context;
   const { appendMessage } = useCopilotChat();
 
@@ -147,7 +154,7 @@ function stopAgent(name: string, context: CopilotContextParams) {
 
 async function runAgent(
   name: string,
-  context: CopilotContextParams,
+  context: CopilotContextParams & CopilotMessagesContextParams,
   appendMessage: (message: Message) => Promise<void>,
   hint?: HintFunction,
 ) {
