@@ -46,3 +46,4 @@ Please list your **GitHub** and **Twitter** handles if you feel comfortable doin
 
 - A dev.to blog link - [Link](https://dev.to/sanketshinde/building-an-interactive-flashcard-and-quiz-generator-app-be8)
 - Tweet link - [Link](https://x.com/sanketshinde04/status/1850229190047482138)
+- Youtube Video - [Video](https://youtu.be/mDBC9xU1b-E)
