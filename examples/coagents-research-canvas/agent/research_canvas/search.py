@@ -41,7 +41,7 @@ async def search_node(state: AgentState, config: RunnableConfig):
             "done": False
         })
 
-    await copilotkit_emit_state(config, state)
+    # await copilotkit_emit_state(config, state)
 
     search_results = []
 
@@ -49,16 +49,16 @@ async def search_node(state: AgentState, config: RunnableConfig):
         response = tavily_client.search(query)
         search_results.append(response)
         state["logs"][i]["done"] = True
-        await copilotkit_emit_state(config, state)
+        # await copilotkit_emit_state(config, state)
 
-    config = copilotkit_customize_config(
-        config,
-        emit_intermediate_state=[{
-            "state_key": "resources",
-            "tool": "ExtractResources",
-            "tool_argument": "resources",
-        }],
-    )
+    # config = copilotkit_customize_config(
+    #     config,
+    #     emit_intermediate_state=[{
+    #         "state_key": "resources",
+    #         "tool": "ExtractResources",
+    #         "tool_argument": "resources",
+    #     }],
+    # )
 
     # figure out which resources to use
     response = await get_model(state).bind_tools(
@@ -78,7 +78,7 @@ async def search_node(state: AgentState, config: RunnableConfig):
     ], config)
 
     state["logs"] = []
-    await copilotkit_emit_state(config, state)
+    # await copilotkit_emit_state(config, state)
 
     ai_message_response = cast(AIMessage, response)
     resources = ai_message_response.tool_calls[0]["args"]["resources"]

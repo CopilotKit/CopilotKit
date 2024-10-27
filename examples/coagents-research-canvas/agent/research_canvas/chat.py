@@ -31,19 +31,19 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     Chat Node
     """
 
-    config = copilotkit_customize_config(
-        config,
-        emit_intermediate_state=[{
-            "state_key": "report",
-            "tool": "WriteReport",
-            "tool_argument": "report",
-        }, {
-            "state_key": "research_question",
-            "tool": "WriteResearchQuestion",
-            "tool_argument": "research_question",
-        }],
-        emit_tool_calls="DeleteResources"
-    )
+    # config = copilotkit_customize_config(
+    #     config,
+    #     emit_intermediate_state=[{
+    #         "state_key": "report",
+    #         "tool": "WriteReport",
+    #         "tool_argument": "report",
+    #     }, {
+    #         "state_key": "research_question",
+    #         "tool": "WriteResearchQuestion",
+    #         "tool_argument": "research_question",
+    #     }],
+    #     emit_tool_calls="DeleteResources"
+    # )
 
     state["resources"] = state.get("resources", [])
     research_question = state.get("research_question", "")
