@@ -32,7 +32,7 @@ https://github.com/Niharika0104/learn-using-flash-cards
 ### 5 bonus points
 
 - [QuizFlip Live Demo](https://learn-using-flash-cards.vercel.app/)
-
+- [CopilotKit Tutorial](https://dev.to/niharikaa/integrate-ai-effortlessly-a-beginners-guide-to-using-copilotkit-1pgg)
 ## 6. Screenshot
 - Dashboard
 ![image](https://github.com/user-attachments/assets/e8fb024c-76d2-4efa-912b-645b8ee58d91)
