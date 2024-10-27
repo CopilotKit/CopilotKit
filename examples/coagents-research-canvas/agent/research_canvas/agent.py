@@ -47,4 +47,7 @@ workflow.add_conditional_edges("chat_node", route, ["search_node", "chat_node", 
 workflow.add_edge("delete_node", "perform_delete_node")
 workflow.add_edge("perform_delete_node", "chat_node")
 workflow.add_edge("search_node", "download")
-graph = workflow.compile(checkpointer=memory, interrupt_after=["delete_node"])
+graph = workflow.compile(
+    checkpointer=memory,
+    interrupt_after=["delete_node"]
+)
