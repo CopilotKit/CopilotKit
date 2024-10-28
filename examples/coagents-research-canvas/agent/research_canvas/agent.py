@@ -49,5 +49,5 @@ workflow.add_edge("perform_delete_node", "chat_node")
 workflow.add_edge("search_node", "download")
 graph = workflow.compile(
     checkpointer=memory,
-    interrupt_after=["delete_node"]
+    # interrupt_after=["delete_node"]
 )
