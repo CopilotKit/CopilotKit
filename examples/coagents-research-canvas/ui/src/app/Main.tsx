@@ -31,7 +31,7 @@ export default function Main() {
         <div className="flex-1 overflow-hidden">
           <ResearchCanvas />
         </div>
-        <div
+        {/* <div
           className="w-[500px] h-full flex-shrink-0"
           style={
             {
@@ -54,7 +54,7 @@ export default function Main() {
               initial: "Hi! How can I assist you with your research today?",
             }}
           />
-        </div>
+        </div> */}
       </div>
     </>
   );
