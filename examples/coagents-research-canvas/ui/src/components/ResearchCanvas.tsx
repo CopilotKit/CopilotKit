@@ -17,64 +17,73 @@ import { useModelSelectorContext } from "@/lib/model-selector-provider";
 
 export function ResearchCanvas() {
   const { model } = useModelSelectorContext();
-  const { state, setState } = useCoAgent<AgentState>({
-    name: "research_agent",
-    initialState: {
-      model
-    }
-  });
 
-  useCoAgentStateRender({
-    name: "research_agent",
-    render: ({ state, nodeName, status }) => {
-      if (!state.logs || state.logs.length === 0) {
-        return null;
-      }
-      return <Progress logs={state.logs} />;
-    },
+  const [state, setState] = useState<AgentState>({
+    model,
+    research_question: "",
+    report: "",
+    resources: [] as Resource[],
+    logs: [] as string[]
   });
+  
+  // const { state, setState } = useCoAgent<AgentState>({
+  //   name: "research_agent",
+  //   initialState: {
+  //     model
+  //   }
+  // });
 
-  useCopilotAction({
-    name: "DeleteResources",
-    disabled: true,
-    parameters: [
-      {
-        name: "urls",
-        type: "string[]",
-      },
-    ],
-    renderAndWait: ({ args, status, handler }) => {
-      return (
-        <div className="">
-          <div className="font-bold text-base mb-2">
-            Delete these resources?
-          </div>
-          <Resources
-            resources={resources.filter((resource) =>
-              (args.urls || []).includes(resource.url)
-            )}
-            customWidth={200}
-          />
-          {status === "executing" && (
-            <div className="mt-4 flex justify-start space-x-2">
-              <button
-                onClick={() => handler("NO")}
-                className="px-4 py-2 text-[#6766FC] border border-[#6766FC] rounded text-sm font-bold"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handler("YES")}
-                className="px-4 py-2 bg-[#6766FC] text-white rounded text-sm font-bold"
-              >
-                Delete
-              </button>
-            </div>
-          )}
-        </div>
-      );
-    },
-  });
+  // useCoAgentStateRender({
+  //   name: "research_agent",
+  //   render: ({ state, nodeName, status }) => {
+  //     if (!state.logs || state.logs.length === 0) {
+  //       return null;
+  //     }
+  //     return <Progress logs={state.logs} />;
+  //   },
+  // });
+
+  // useCopilotAction({
+  //   name: "DeleteResources",
+  //   disabled: true,
+  //   parameters: [
+  //     {
+  //       name: "urls",
+  //       type: "string[]",
+  //     },
+  //   ],
+  //   renderAndWait: ({ args, status, handler }) => {
+  //     return (
+  //       <div className="">
+  //         <div className="font-bold text-base mb-2">
+  //           Delete these resources?
+  //         </div>
+  //         <Resources
+  //           resources={resources.filter((resource) =>
+  //             (args.urls || []).includes(resource.url)
+  //           )}
+  //           customWidth={200}
+  //         />
+  //         {status === "executing" && (
+  //           <div className="mt-4 flex justify-start space-x-2">
+  //             <button
+  //               onClick={() => handler("NO")}
+  //               className="px-4 py-2 text-[#6766FC] border border-[#6766FC] rounded text-sm font-bold"
+  //             >
+  //               Cancel
+  //             </button>
+  //             <button
+  //               onClick={() => handler("YES")}
+  //               className="px-4 py-2 bg-[#6766FC] text-white rounded text-sm font-bold"
+  //             >
+  //               Delete
+  //             </button>
+  //           </div>
+  //         )}
+  //       </div>
+  //     );
+  //   },
+  // });
 
   const resources: Resource[] = state.resources || [];
   const setResources = (resources: Resource[]) => {
