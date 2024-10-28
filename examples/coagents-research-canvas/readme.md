@@ -71,3 +71,33 @@ A few things to try if you are running into trouble:
 
 1. Make sure there is no other local application server running on the 8000 port.
 2. Under `/agent/my_agent/demo.py`, change `0.0.0.0` to `127.0.0.1` or to `localhost`
+
+
+----
+
+# Uncommenting order
+
+- page.tsx: CopilotKit provider
+
+- Main.tsx: CopilotChat
+    - notice also the easy styling
+    - CSS customization guide: https://docs.copilotkit.ai/guides/custom-look-and-feel/customize-built-in-ui-components
+    - fully headless UI is also available to complement / replace the built in components
+- Ok, now we have 'chat with agent'.
+
+- ResearchCanvas.tsx: useCoAgentState
+- Now we have chat with agent + shared state, but not yet prod-grade (no streaming)
+    - The problem is that the agent state updates discontinuously, between nodes
+
+
+- Now go to agentic backend
+    - chat.py:  copilotkit_customize_config
+        - ask to make it shorter and rerun
+    - Search.py:
+        - copilotkit_customize_config (resources as they are written)
+        - copilotkit_emit_state (build state as you go, emit it manuallly as needed)
+
+
+
+- Human in the loop:
+    - agent.py: interrupt_after
