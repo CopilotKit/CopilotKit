@@ -13,6 +13,8 @@ def get_model(state: AgentState) -> BaseChatModel:
 
     state_model = state.get("model")
     model = os.getenv("MODEL", state_model)
+    if not model:
+        model = "openai"
 
     print(f"Using model: {model}")
 
