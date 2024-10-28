@@ -27,6 +27,7 @@ export default function Main() {
         className="flex flex-1 border"
         style={{ height: "calc(100vh - 60px)" }}
       >
+        {/* <div className="overflow-hidden w-full"> */}
         <div className="flex-1 overflow-hidden">
           <ResearchCanvas />
         </div>
