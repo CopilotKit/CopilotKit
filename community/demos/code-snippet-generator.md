@@ -29,16 +29,23 @@ https://copilotkitcoder.vercel.app/
 ### 🎯 **Bonus Points**
 
 Fixes #678
+Shared on X: ![Post Link](https://x.com/Dev_in_making/status/1851232161103515761)
 ---
 
 ### 📸 **Screenshot**
 
-![Snippet generator in action](cpkit.png)
-![Explanations](image.png)
-![Language Support](image-1.png)
+Autocompletes and gives shareable snippets 
+![Snippet generator in action](https://github.com/user-attachments/assets/f3e91ef0-b8a8-4a07-893a-c71d639cc7a5)
+
+Provides explanation in different tab
+![Explanations](https://github.com/user-attachments/assets/891fe9d7-1ebd-4604-858a-97bf933aaefe)
+
+Language Support:
+![Language Support](https://github.com/user-attachments/assets/cd3c2a0c-f677-4300-8392-2eabf6d7df6d)
 
 ---
 
 ### 🙋‍♂️ **Who Are You?**
 
-Checkout My [Github Profile]https://github.com/StephCurry07 and follow me for more projects!
+![X Post Link](https://x.com/Dev_in_making/status/1851232161103515761)
+Checkout my ![Github Profile](https://github.com/StephCurry07) and follow me for more projects!
