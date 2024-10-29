@@ -81,8 +81,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
 
     // get the instruction message
     const instructionsMessage = messages.shift();
-    const instructions =
-      instructionsMessage instanceof TextMessage ? instructionsMessage.content : "";
+    const instructions = instructionsMessage.isTextMessage() ? instructionsMessage.content : "";
 
     let anthropicMessages = messages.map(convertMessageToAnthropicMessage);
     anthropicMessages = limitMessagesToTokenCount(anthropicMessages, tools, model);

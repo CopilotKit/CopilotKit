@@ -104,11 +104,11 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     let nextRunId: string | undefined = undefined;
 
     // submit function outputs
-    if (lastMessage instanceof ResultMessage && runId) {
+    if (lastMessage.isResultMessage() && runId) {
       nextRunId = await this.submitToolOutputs(threadId, runId, messages, eventSource);
     }
     // submit user message
-    else if (lastMessage instanceof TextMessage) {
+    else if (lastMessage.isTextMessage()) {
       nextRunId = await this.submitUserMessage(
         threadId,
         messages,
@@ -146,8 +146,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
 
     // search for these tool calls
     const resultMessages = messages.filter(
-      (message) =>
-        message instanceof ResultMessage && toolCallsIds.includes(message.actionExecutionId),
+      (message) => message.isResultMessage() && toolCallsIds.includes(message.actionExecutionId),
     ) as ResultMessage[];
 
     if (toolCallsIds.length != resultMessages.length) {
@@ -184,8 +183,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
 
     // get the instruction message
     const instructionsMessage = messages.shift();
-    const instructions =
-      instructionsMessage instanceof TextMessage ? instructionsMessage.content : "";
+    const instructions = instructionsMessage.isTextMessage() ? instructionsMessage.content : "";
 
     // get the latest user message
     const userMessage = messages

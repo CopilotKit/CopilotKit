@@ -168,7 +168,7 @@ async function runAgent(
   let previousState: any = null;
   for (let i = context.messages.length - 1; i >= 0; i--) {
     const message = context.messages[i];
-    if (message instanceof AgentStateMessage && message.agentName === name) {
+    if (message.isAgentStateMessage() && message.agentName === name) {
       previousState = message.state;
     }
   }
