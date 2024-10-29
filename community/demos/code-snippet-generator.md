@@ -29,7 +29,7 @@ https://copilotkitcoder.vercel.app/
 ### 🎯 **Bonus Points**
 
 Fixes #678
-Shared on X: ![Post Link](https://x.com/Dev_in_making/status/1851232161103515761)
+Shared on X: [Post Link](https://x.com/Dev_in_making/status/1851232161103515761)
 ---
 
 ### 📸 **Screenshot**
@@ -47,5 +47,5 @@ Language Support:
 
 ### 🙋‍♂️ **Who Are You?**
 
-![X Post Link](https://x.com/Dev_in_making/status/1851232161103515761)
-Checkout my ![Github Profile](https://github.com/StephCurry07) and follow me for more projects!
+Checkout the post [X Post Link](https://x.com/Dev_in_making/status/1851232161103515761) and
+my [Github Profile](https://github.com/StephCurry07) and follow me for more projects!
