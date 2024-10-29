@@ -1,8 +1,9 @@
-## 🚀 **Project Title**
+## 🚀 **Daily Quote App**
+- The Daily Quote App provides users with a platform to generate, manage, and share motivational quotes. It addresses the challenge of finding daily inspiration and allows for customization by enabling users to add, delete, and explore quotes across various themes like educational , motivational etc.
+  
+### 📝 **Name of Issue/Topic**
 
-### 📝 **Daily Quote App**
-
-Briefly describe the issue or challenge that your demo/project addresses.
+⭐ 07 - Daily Quote App (Hacktoberfest Demo) #608
 
 ---
 
@@ -10,36 +11,35 @@ Briefly describe the issue or challenge that your demo/project addresses.
 
 List all technologies, tools, and frameworks you are utilizing for the project:
 
-- **Frameworks**: (e.g., Next.js, Laravel, NestJS)
-- **Styling**: v0 Styling, Shadcn-UI Component Styling
-- **Developer Tools**: CopilotKit
-
-> **Note**: Ensure consistency by adhering to the [v0 guidelines](https://v0.dev/docs).
+- ReactJs
+- TailwindCss
+- shadcn
+- Shadcn-UI Component Styling
+- CopilotKit
 
 ---
 
 ### 🌐 **App Link**
 
 If your app is live, include the link here:  
-[Live Demo](http://google.com)
+[Live Demo](https://jarvis-quote.vercel.app/)
 
-Deploy your app on [Vercel](https://vercel.com/new)
-
----
-
-### 🎯 **Bonus Points**
-
-Link to any bonus activities, like solving GitHub Issues or posts on Twitter, Dev.to, Medium, etc.
-
----
+### 🌐 **Github Link**
+[Github](https://github.com/nitesh2920/JarvisQuote)
 
 ### 📸 **Screenshot**
 
 Include a screenshot of your demo in action:  
-![image](https://github.com/user-attachments/assets/5d2a020c-dc8f-4b27-85db-ba1413bdc8f6)
+
+![image](https://github.com/user-attachments/assets/ea407670-2ea3-47f5-96fc-8f1feeefffd1)
+![image](https://github.com/user-attachments/assets/1e41ad52-b8e2-4cb1-b196-ce059159dfeb)
+![image](https://github.com/user-attachments/assets/c5b1a3ed-7b42-4861-8e94-4047c83d21b6)
+
 
 ---
 
 ### 🙋‍♂️ **Who Are You?**
+- [LinkedIn](https://www.linkedin.com/in/nitesh-tiwari-oak/)
+- [Github](github.com/nitesh2920)
+- [Dev](https://dev.to/niteshoak)
 
-Please list your GitHub handle if you feel comfortable doing so.
