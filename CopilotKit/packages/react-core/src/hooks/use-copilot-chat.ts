@@ -45,7 +45,8 @@ import { SystemMessageFunction } from "../types";
 import { useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
 import { MessageStatusCode } from "@copilotkit/runtime-client-gql";
-import { CoagentActionHandlerArguments } from "@copilotkit/shared";
+import { CoAgentStateRenderHandlerArguments } from "@copilotkit/shared";
+import { useCopilotMessagesContext } from "../context";
 
 export interface UseCopilotChatOptions {
   /**
@@ -88,8 +89,6 @@ export function useCopilotChat({
     getContextString,
     getFunctionCallHandler,
     copilotApiConfig,
-    messages,
-    setMessages,
     isLoading,
     setIsLoading,
     chatInstructions,
@@ -97,10 +96,11 @@ export function useCopilotChat({
 
     coagentStates,
     setCoagentStates,
-    coagentActions,
+    coAgentStateRenders,
     agentSession,
     setAgentSession,
   } = useCopilotContext();
+  const { messages, setMessages } = useCopilotMessagesContext();
 
   // We need to ensure that makeSystemMessageCallback always uses the latest
   // useCopilotReadable data.
@@ -123,14 +123,14 @@ export function useCopilotChat({
     });
   }, [getContextString, makeSystemMessage, chatInstructions]);
 
-  const onCoagentAction = useCallback(
-    async (args: CoagentActionHandlerArguments) => {
+  const onCoAgentStateRender = useCallback(
+    async (args: CoAgentStateRenderHandlerArguments) => {
       const { name, nodeName, state } = args;
-      let action = Object.values(coagentActions).find(
+      let action = Object.values(coAgentStateRenders).find(
         (action) => action.name === name && action.nodeName === nodeName,
       );
       if (!action) {
-        action = Object.values(coagentActions).find(
+        action = Object.values(coAgentStateRenders).find(
           (action) => action.name === name && !action.nodeName,
         );
       }
@@ -138,7 +138,7 @@ export function useCopilotChat({
         await action.handler?.({ state, nodeName });
       }
     },
-    [coagentActions],
+    [coAgentStateRenders],
   );
 
   const { append, reload, stop } = useChat({
@@ -147,7 +147,7 @@ export function useCopilotChat({
     copilotConfig: copilotApiConfig,
     initialMessages: options.initialMessages || [],
     onFunctionCall: getFunctionCallHandler(),
-    onCoagentAction,
+    onCoAgentStateRender,
     messages,
     setMessages,
     makeSystemMessageCallback,

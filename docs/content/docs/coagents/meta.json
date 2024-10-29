@@ -4,8 +4,10 @@
   "pages": [
     "index",
     "getting-started",
-    "---Guides---",
-    "...guides",
+    "---In-chat experiences---",
+    "...chat-ui",
+    "---In-app experiences---",
+    "...react-ui",
     "---Advanced---",
     "...advanced",
     "---Demos---",

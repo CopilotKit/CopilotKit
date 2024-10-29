@@ -1,11 +1,10 @@
 import { CopilotCloudConfig, FunctionCallHandler } from "@copilotkit/shared";
-import { Message } from "@copilotkit/runtime-client-gql";
 import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
 import React from "react";
 import { TreeNodeId } from "../hooks/use-tree";
 import { DocumentPointer } from "../types";
 import { CopilotChatSuggestionConfiguration } from "../types/chat-suggestion-configuration";
-import { CoagentAction, CoagentActionRenderProps } from "../types/coagent-action";
+import { CoAgentStateRender, CoAgentStateRenderProps } from "../types/coagent-action";
 import { CoagentState } from "../types/coagent-state";
 
 /**
@@ -70,12 +69,12 @@ export interface CopilotApiConfig {
 
 export type InChatRenderFunction = (props: ActionRenderProps<any>) => string | JSX.Element;
 export type CoagentInChatRenderFunction = (
-  props: CoagentActionRenderProps<any>,
-) => string | JSX.Element;
+  props: CoAgentStateRenderProps<any>,
+) => string | JSX.Element | undefined | null;
 
 export interface ChatComponentsCache {
   actions: Record<string, InChatRenderFunction | string>;
-  coagentActions: Record<string, CoagentInChatRenderFunction | string>;
+  coAgentStateRenders: Record<string, CoagentInChatRenderFunction | string>;
 }
 
 export interface AgentSession {
@@ -91,9 +90,9 @@ export interface CopilotContextParams {
   removeAction: (id: string) => void;
 
   // coagent actions
-  coagentActions: Record<string, CoagentAction<any>>;
-  setCoagentAction: (id: string, action: CoagentAction<any>) => void;
-  removeCoagentAction: (id: string) => void;
+  coAgentStateRenders: Record<string, CoAgentStateRender<any>>;
+  setCoAgentStateRender: (id: string, stateRender: CoAgentStateRender<any>) => void;
+  removeCoAgentStateRender: (id: string) => void;
 
   chatComponentsCache: React.RefObject<ChatComponentsCache>;
 
@@ -110,10 +109,6 @@ export interface CopilotContextParams {
   addDocumentContext: (documentPointer: DocumentPointer, categories?: string[]) => TreeNodeId;
   removeDocumentContext: (documentId: string) => void;
   getDocumentsContext: (categories: string[]) => DocumentPointer[];
-
-  // chat
-  messages: Message[];
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
 
   isLoading: boolean;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
@@ -145,20 +140,17 @@ const emptyCopilotContext: CopilotContextParams = {
   setAction: () => {},
   removeAction: () => {},
 
-  coagentActions: {},
-  setCoagentAction: () => {},
-  removeCoagentAction: () => {},
+  coAgentStateRenders: {},
+  setCoAgentStateRender: () => {},
+  removeCoAgentStateRender: () => {},
 
-  chatComponentsCache: { current: { actions: {}, coagentActions: {} } },
+  chatComponentsCache: { current: { actions: {}, coAgentStateRenders: {} } },
   getContextString: (documents: DocumentPointer[], categories: string[]) =>
     returnAndThrowInDebug(""),
   addContext: () => "",
   removeContext: () => {},
 
   getFunctionCallHandler: () => returnAndThrowInDebug(async () => {}),
-
-  messages: [],
-  setMessages: () => returnAndThrowInDebug([]),
 
   isLoading: false,
   setIsLoading: () => returnAndThrowInDebug(false),

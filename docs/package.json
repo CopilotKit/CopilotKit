@@ -6,7 +6,8 @@
     "build": "next build",
     "dev": "next dev",
     "start": "next start",
-    "postinstall": "fumadocs-mdx"
+    "postinstall": "fumadocs-mdx",
+    "prepare": "husky"
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.11.0",
@@ -30,9 +31,10 @@
     "next": "^14.2.8",
     "next-themes": "^0.3.0",
     "npm-to-yarn": "^3.0.0",
-    "posthog-js": "^1.166.1",
+    "posthog-js": "^1.175.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-ga4": "^2.1.0",
     "react-icons": "^5.3.0",
     "react-youtube": "^10.1.0",
     "rehype-highlight-code-lines": "^1.0.4",
@@ -47,6 +49,7 @@
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.20",
+    "husky": "^9.1.6",
     "postcss": "^8.4.45",
     "tailwindcss": "^3.4.10",
     "typescript": "^5.5.4"

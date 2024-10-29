@@ -14,11 +14,10 @@
  * ```
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   CopilotContext,
   CopilotApiConfig,
-  InChatRenderFunction,
   ChatComponentsCache,
   AgentSession,
 } from "../../context/copilot-context";
@@ -30,13 +29,13 @@ import {
   CopilotCloudConfig,
   FunctionCallHandler,
 } from "@copilotkit/shared";
-import { AgentStateMessage, Message } from "@copilotkit/runtime-client-gql";
 
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { CopilotKitProps } from "./copilotkit-props";
-import { CoagentAction } from "../../types/coagent-action";
+import { CoAgentStateRender } from "../../types/coagent-action";
 import { CoagentState } from "../../types/coagent-state";
+import { CopilotMessages } from "./copilot-messages";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // Compute all the functions and properties that we need to pass
@@ -51,13 +50,14 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const chatApiEndpoint = props.runtimeUrl || COPILOT_CLOUD_CHAT_URL;
 
   const [actions, setActions] = useState<Record<string, FrontendAction<any>>>({});
-  const [coagentActions, setCoagentActions] = useState<Record<string, CoagentAction<any>>>({});
+  const [coAgentStateRenders, setCoAgentStateRenders] = useState<
+    Record<string, CoAgentStateRender<any>>
+  >({});
   const chatComponentsCache = useRef<ChatComponentsCache>({
     actions: {},
-    coagentActions: {},
+    coAgentStateRenders: {},
   });
   const { addElement, removeElement, printTree } = useTree();
-  const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [chatInstructions, setChatInstructions] = useState("");
 
@@ -84,17 +84,17 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     });
   }, []);
 
-  const setCoagentAction = useCallback((id: string, action: CoagentAction<any>) => {
-    setCoagentActions((prevPoints) => {
+  const setCoAgentStateRender = useCallback((id: string, stateRender: CoAgentStateRender<any>) => {
+    setCoAgentStateRenders((prevPoints) => {
       return {
         ...prevPoints,
-        [id]: action,
+        [id]: stateRender,
       };
     });
   }, []);
 
-  const removeCoagentAction = useCallback((id: string) => {
-    setCoagentActions((prevPoints) => {
+  const removeCoAgentStateRender = useCallback((id: string) => {
+    setCoAgentStateRenders((prevPoints) => {
       const newPoints = { ...prevPoints };
       delete newPoints[id];
       return newPoints;
@@ -170,32 +170,42 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     }
   }
 
-  let cloud: CopilotCloudConfig | undefined = undefined;
-  if (props.publicApiKey) {
-    cloud = {
-      guardrails: {
-        input: {
-          restrictToTopic: {
-            enabled: props.cloudRestrictToTopic ? true : false,
-            validTopics: props.cloudRestrictToTopic?.validTopics || [],
-            invalidTopics: props.cloudRestrictToTopic?.invalidTopics || [],
+  // get the appropriate CopilotApiConfig from the props
+  const copilotApiConfig: CopilotApiConfig = useMemo(() => {
+    let cloud: CopilotCloudConfig | undefined = undefined;
+    if (props.publicApiKey) {
+      cloud = {
+        guardrails: {
+          input: {
+            restrictToTopic: {
+              enabled: props.cloudRestrictToTopic ? true : false,
+              validTopics: props.cloudRestrictToTopic?.validTopics || [],
+              invalidTopics: props.cloudRestrictToTopic?.invalidTopics || [],
+            },
           },
         },
-      },
-    };
-  }
+      };
+    }
 
-  // get the appropriate CopilotApiConfig from the props
-  const copilotApiConfig: CopilotApiConfig = {
-    publicApiKey: props.publicApiKey,
-    ...(cloud ? { cloud } : {}),
-    chatApiEndpoint: chatApiEndpoint,
-    headers: props.headers || {},
-    properties: props.properties || {},
-    transcribeAudioUrl: props.transcribeAudioUrl,
-    textToSpeechUrl: props.textToSpeechUrl,
-    credentials: props.credentials,
-  };
+    return {
+      publicApiKey: props.publicApiKey,
+      ...(cloud ? { cloud } : {}),
+      chatApiEndpoint: chatApiEndpoint,
+      headers: props.headers || {},
+      properties: props.properties || {},
+      transcribeAudioUrl: props.transcribeAudioUrl,
+      textToSpeechUrl: props.textToSpeechUrl,
+      credentials: props.credentials,
+    };
+  }, [
+    props.publicApiKey,
+    props.headers,
+    props.properties,
+    props.transcribeAudioUrl,
+    props.textToSpeechUrl,
+    props.credentials,
+    props.cloudRestrictToTopic,
+  ]);
 
   const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
     [key: string]: CopilotChatSuggestionConfiguration;
@@ -233,9 +243,9 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         getFunctionCallHandler,
         setAction,
         removeAction,
-        coagentActions,
-        setCoagentAction,
-        removeCoagentAction,
+        coAgentStateRenders,
+        setCoAgentStateRender,
+        removeCoAgentStateRender,
         getContextString,
         addContext,
         removeContext,
@@ -243,8 +253,6 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         addDocumentContext,
         removeDocumentContext,
         copilotApiConfig: copilotApiConfig,
-        messages,
-        setMessages,
         isLoading,
         setIsLoading,
         chatSuggestionConfiguration,
@@ -259,7 +267,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         setAgentSession,
       }}
     >
-      {children}
+      <CopilotMessages>{children}</CopilotMessages>
     </CopilotContext.Provider>
   );
 }

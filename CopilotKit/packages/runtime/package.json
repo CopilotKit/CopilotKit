@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.3.2",
+  "version": "1.3.6",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -47,10 +47,10 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.27.3",
     "@copilotkit/shared": "workspace:*",
-    "@google/generative-ai": "^0.11.2",
+    "@langchain/google-gauth": "^0.1.0",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
     "@langchain/community": "^0.0.53",
-    "@langchain/core": "^0.1.61",
+    "@langchain/core": "^0.3.13",
     "@langchain/openai": "^0.0.28",
     "class-transformer": "^0.5.1",
     "express": "^4.19.2",
@@ -58,7 +58,7 @@
     "graphql-scalars": "^1.23.0",
     "graphql-yoga": "^5.3.1",
     "groq-sdk": "^0.5.0",
-    "langchain": "^0.1.36",
+    "langchain": "^0.3.3",
     "openai": "^4.50.0",
     "pino": "^9.2.0",
     "pino-pretty": "^11.2.1",

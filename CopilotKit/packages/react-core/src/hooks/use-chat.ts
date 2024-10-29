@@ -3,7 +3,7 @@ import {
   FunctionCallHandler,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   actionParametersToJsonSchema,
-  CoagentActionHandler,
+  CoAgentStateRenderHandler,
 } from "@copilotkit/shared";
 import {
   Message,
@@ -42,7 +42,7 @@ export type UseChatOptions = {
   /**
    * Callback function to be called when a coagent action is received.
    */
-  onCoagentAction?: CoagentActionHandler;
+  onCoAgentStateRender?: CoAgentStateRenderHandler;
 
   /**
    * Function definitions to be sent to the API.
@@ -129,7 +129,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     isLoading,
     actions,
     onFunctionCall,
-    onCoagentAction,
+    onCoAgentStateRender,
     setCoagentStates,
     coagentStates,
     agentSession,
@@ -241,7 +241,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     const reader = stream.getReader();
 
     let actionResults: { [id: string]: string } = {};
-    let executedCoagentActions: string[] = [];
+    let executedCoAgentStateRenders: string[] = [];
+    let followUp: FrontendAction["followUp"] = undefined;
 
     try {
       while (true) {
@@ -303,6 +304,12 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                   // function can be called with `executing` state
                   setMessages([...previousMessages, ...newMessages]);
 
+                  const action = actions.find((action) => action.name === message.name);
+
+                  if (action) {
+                    followUp = action.followUp;
+                  }
+
                   const result = await onFunctionCall({
                     messages: previousMessages,
                     name: message.name,
@@ -327,20 +334,20 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             if (
               message instanceof AgentStateMessage &&
               !message.active &&
-              !executedCoagentActions.includes(message.id) &&
-              onCoagentAction
+              !executedCoAgentStateRenders.includes(message.id) &&
+              onCoAgentStateRender
             ) {
               // Do not execute a coagent action if guardrails are enabled but the status is not known
               if (guardrailsEnabled && value.generateCopilotResponse.status === undefined) {
                 break;
               }
               // execute coagent action
-              await onCoagentAction({
+              await onCoAgentStateRender({
                 name: message.agentName,
                 nodeName: message.nodeName,
                 state: message.state,
               });
-              executedCoagentActions.push(message.id);
+              executedCoAgentStateRenders.push(message.id);
             }
           }
 
@@ -380,10 +387,12 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       }
 
       if (
+        // if followUp is not explicitly false
+        followUp !== false &&
         // if we have client side results
-        Object.values(actionResults).length ||
-        // or the last message we received is a result
-        (newMessages.length && newMessages[newMessages.length - 1] instanceof ResultMessage)
+        (Object.values(actionResults).length ||
+          // or the last message we received is a result
+          (newMessages.length && newMessages[newMessages.length - 1] instanceof ResultMessage))
       ) {
         // run the completion again and return the result
 

@@ -1,0 +1,48 @@
+[tool.poetry]
+name = "research_canvas"
+version = "0.1.0"
+description = "Research Canvas"
+authors = ["Markus Ecker <markus.ecker@gmail.com>"]
+license = "MIT"
+
+[project]
+name = "research_canvas"
+version = "0.0.1"
+dependencies = [
+  "langgraph",
+  "langchain_core",
+  "langchain_openai",
+  "langchain",
+  "openai",
+  "langchain-community",
+  "langchain-anthropic",
+  "tavily-python",
+  "copilotkit",
+  "python-dotenv",
+  "uvicorn",
+  "html2text"
+]
+
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+copilotkit = "0.1.22"
+langgraph = "^0.2.39"
+langchain-core = "^0.3.12"
+langchain-openai = "0.2.3"
+langchain-community = "^0.3.1"
+langchain-anthropic = "0.2.3"
+langchain-google-genai = "2.0.0"
+langchain = "0.3.4"
+openai = "^1.52.1"
+tavily-python = "^0.5.0"
+python-dotenv = "^1.0.1"
+uvicorn = "^0.31.0"
+requests = "^2.32.3"
+html2text = "^2024.2.26"
+
+[tool.poetry.scripts]
+demo = "research_canvas.demo:main"

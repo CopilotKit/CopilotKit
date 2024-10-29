@@ -1,17 +1,19 @@
-export type CoagentActionRenderProps<T> = {
+export type CoAgentStateRenderProps<T> = {
   state: T;
   nodeName: string;
   status: "inProgress" | "complete";
 };
 
-export type CoagentActionHandlerArguments<T> = {
+export type CoAgentStateRenderHandlerArguments<T> = {
   nodeName: string;
   state: T;
 };
 
-export type CoagentAction<T = any> = {
+export type CoAgentStateRender<T = any> = {
   name: string;
   nodeName?: string;
-  handler?: (props: CoagentActionHandlerArguments<T>) => void | Promise<void>;
-  render?: ((props: CoagentActionRenderProps<T>) => string | React.ReactElement) | string;
+  handler?: (props: CoAgentStateRenderHandlerArguments<T>) => void | Promise<void>;
+  render?:
+    | ((props: CoAgentStateRenderProps<T>) => string | React.ReactElement | undefined | null)
+    | string;
 };

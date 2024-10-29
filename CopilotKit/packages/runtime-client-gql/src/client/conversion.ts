@@ -77,22 +77,17 @@ export function filterAdjacentAgentStateMessages(
 
   messages.forEach((message, i) => {
     // keep all other message types
-    if (message.__typename !== "AgentStateMessageOutput" || i === messages.length - 1) {
+    if (message.__typename !== "AgentStateMessageOutput") {
       filteredMessages.push(message);
     } else {
-      const nextMessage = messages[i + 1];
-      if (
-        !(
-          (
-            nextMessage.__typename === "AgentStateMessageOutput" &&
-            nextMessage.agentName === message.agentName &&
-            nextMessage.nodeName === message.nodeName
-          )
-          // not grouping by runId for now
-          // && nextMessage.runId === message.runId
-        )
-      ) {
+      const prevAgentStateMessageIndex = filteredMessages.findIndex(
+        // TODO: also check runId
+        (m) => m.__typename === "AgentStateMessageOutput" && m.agentName === message.agentName,
+      );
+      if (prevAgentStateMessageIndex === -1) {
         filteredMessages.push(message);
+      } else {
+        filteredMessages[prevAgentStateMessageIndex] = message;
       }
     }
   });

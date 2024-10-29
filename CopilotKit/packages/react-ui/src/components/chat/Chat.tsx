@@ -60,7 +60,12 @@ import { RenderResultMessage as DefaultRenderResultMessage } from "./messages/Re
 import { RenderAgentStateMessage as DefaultRenderAgentStateMessage } from "./messages/RenderAgentStateMessage";
 import { Suggestion } from "./Suggestion";
 import React, { useEffect, useRef, useState } from "react";
-import { SystemMessageFunction, useCopilotChat, useCopilotContext } from "@copilotkit/react-core";
+import {
+  SystemMessageFunction,
+  useCopilotChat,
+  useCopilotContext,
+  useCopilotMessagesContext,
+} from "@copilotkit/react-core";
 import { reloadSuggestions } from "./Suggestion";
 import { CopilotChatSuggestion } from "../../types/suggestions";
 import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
@@ -282,7 +287,9 @@ export const useCopilotChatLogic = (
     suggestionsAbortControllerRef.current = null;
   };
 
-  const context = useCopilotContext();
+  const generalContext = useCopilotContext();
+  const messagesContext = useCopilotMessagesContext();
+  const context = { ...generalContext, ...messagesContext };
 
   useEffect(() => {
     onInProgress?.(isLoading);
@@ -318,9 +325,6 @@ export const useCopilotChatLogic = (
       role: Role.User,
     });
 
-    // Append the message immediately to make it visible
-    appendMessage(message);
-
     if (onSubmitMessage) {
       try {
         await onSubmitMessage(messageContent);
@@ -328,6 +332,10 @@ export const useCopilotChatLogic = (
         console.error("Error in onSubmitMessage:", error);
       }
     }
+    // this needs to happen after onSubmitMessage, because it will trigger submission
+    // of the message to the endpoint. Some users depend on performing some actions
+    // before the message is submitted.
+    appendMessage(message);
 
     return message;
   };

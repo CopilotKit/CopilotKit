@@ -14,29 +14,8 @@ from copilotkit.langchain import (
     copilotkit_emit_message
 )
 from pydantic import BaseModel, Field
-
-def get_model():
-    """
-    Get a model based on the environment variable.
-    """
-    model = os.getenv("MODEL", "openai")
-
-    if model == "openai":
-        return ChatOpenAI(temperature=0, model="gpt-4o")
-    if model == "anthropic":
-        return ChatAnthropic(
-            temperature=0,
-            model_name="claude-3-5-sonnet-20240620",
-            timeout=None,
-            stop=None
-        )
-
-    raise ValueError("Invalid model specified")
-
-
-class GreetAgentState(MessagesState):
-    """Greet Agent State"""
-    name: str
+from my_agent.state import GreetAgentState
+from my_agent.model import get_model
 
 class ExtractNameTool(BaseModel):
     """
@@ -69,7 +48,7 @@ async def extract_name_node(state: GreetAgentState, config: RunnableConfig):
         f"Figure out the user's name if possible from this response they gave you: {last_message.content}"
     )
 
-    model = get_model().bind_tools(
+    model = get_model(state).bind_tools(
         [ExtractNameTool],
         tool_choice="ExtractNameTool"
     )

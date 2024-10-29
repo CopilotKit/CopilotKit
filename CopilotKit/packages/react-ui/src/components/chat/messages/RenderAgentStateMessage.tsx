@@ -13,8 +13,9 @@ export function RenderAgentStateMessage(props: RenderMessageProps) {
 
     if (chatComponentsCache.current !== null) {
       render =
-        chatComponentsCache.current.coagentActions[`${message.agentName}-${message.nodeName}`] ||
-        chatComponentsCache.current.coagentActions[`${message.agentName}-global`];
+        chatComponentsCache.current.coAgentStateRenders[
+          `${message.agentName}-${message.nodeName}`
+        ] || chatComponentsCache.current.coAgentStateRenders[`${message.agentName}-global`];
     }
 
     if (render) {
@@ -47,6 +48,16 @@ export function RenderAgentStateMessage(props: RenderMessageProps) {
 
         // No result and complete: stay silent
         if (!toRender && status === "complete") {
+          return null;
+        }
+
+        if (!toRender && isCurrentMessage && inProgress) {
+          return (
+            <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
+              {icons.spinnerIcon}
+            </div>
+          );
+        } else if (!toRender) {
           return null;
         }
 

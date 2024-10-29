@@ -1,4 +1,8 @@
-import { CopilotContextParams, defaultCopilotContextCategories } from "@copilotkit/react-core";
+import {
+  CopilotContextParams,
+  CopilotMessagesContextParams,
+  defaultCopilotContextCategories,
+} from "@copilotkit/react-core";
 import { CopilotKitVersion } from "./types";
 import { ActionExecutionMessage, ResultMessage, TextMessage } from "@copilotkit/runtime-client-gql";
 import { AgentStateMessage } from "@copilotkit/runtime-client-gql";
@@ -107,7 +111,7 @@ export function logActions(context: CopilotContextParams) {
   }
 }
 
-export function logMessages(context: CopilotContextParams) {
+export function logMessages(context: CopilotMessagesContextParams) {
   console.log("%cCurrent Messages:", "font-size: 16px; font-weight: bold;");
 
   if (context.messages.length === 0) {
