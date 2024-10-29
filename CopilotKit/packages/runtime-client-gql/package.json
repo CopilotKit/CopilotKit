@@ -34,7 +34,7 @@
     "unlink:global": "pnpm unlink --global"
   },
   "peerDependencies": {
-    "react": "^18.2.0"
+    "react": "^18 || ^19 || ^19.0.0-rc"
   },
   "devDependencies": {
     "@graphql-codegen/cli": "^5.0.2",
