@@ -152,7 +152,7 @@ export const usePushToTalk = ({
       const messagesAfterLast = context.messages
         .slice(lastMessageIndex + 1)
         .filter(
-          (message) => message instanceof TextMessage && message.role === "assistant",
+          (message) => message.isTextMessage() && message.role === "assistant",
         ) as TextMessage[];
 
       const text = messagesAfterLast.map((message) => message.content).join("\n");

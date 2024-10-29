@@ -1,11 +1,11 @@
 import { Field, InputType } from "type-graphql";
 import { MessageRole, ActionExecutionScope } from "../types/enums";
-import { BaseMessage } from "../types/base";
+import { BaseMessageInput } from "../types/base";
 
 // GraphQL does not support union types in inputs, so we need to use
 // optional fields for the different subtypes.
 @InputType()
-export class MessageInput extends BaseMessage {
+export class MessageInput extends BaseMessageInput {
   @Field(() => TextMessageInput, { nullable: true })
   textMessage?: TextMessageInput;
 

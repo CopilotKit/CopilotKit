@@ -21,7 +21,7 @@ import { RuntimeEventSubject } from "../events";
 import { randomId } from "@copilotkit/shared";
 
 export function convertMessageToLangChainMessage(message: Message): BaseMessage {
-  if (message instanceof TextMessage) {
+  if (message.isTextMessage()) {
     if (message.role == "user") {
       return new HumanMessage(message.content);
     } else if (message.role == "assistant") {
@@ -29,7 +29,7 @@ export function convertMessageToLangChainMessage(message: Message): BaseMessage 
     } else if (message.role === "system") {
       return new SystemMessage(message.content);
     }
-  } else if (message instanceof ActionExecutionMessage) {
+  } else if (message.isActionExecutionMessage()) {
     return new AIMessage({
       content: "",
       tool_calls: [
@@ -40,7 +40,7 @@ export function convertMessageToLangChainMessage(message: Message): BaseMessage 
         },
       ],
     });
-  } else if (message instanceof ResultMessage) {
+  } else if (message.isResultMessage()) {
     return new ToolMessage({
       content: message.result,
       tool_call_id: message.actionExecutionId,
