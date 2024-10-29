@@ -53,3 +53,4 @@ Link to any bonus activities:
 - Published an article on Dev.to:
   1. https://dev.to/akashjana/future-of-productivity-meet-copilotmate-3k7i
   2. https://dev.to/akashjana/how-i-integrated-copilotkit-ai-into-copilotmate-23gm
+  3. https://dev.to/akashjana/my-hacktoberfest-experience-a-journey-of-code-challenges-and-community-1b9p
