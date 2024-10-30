@@ -1,5 +1,11 @@
 # tsconfig
 
+## 1.3.7
+
+### Patch Changes
+
+- Fix libraries for React 19 and Next.js 15 support
+
 ## 1.3.6
 
 ### Patch Changes
