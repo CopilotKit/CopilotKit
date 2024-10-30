@@ -14,12 +14,12 @@ import {
 import untruncateJson from "untruncate-json";
 
 export function filterAgentStateMessages(messages: Message[]): Message[] {
-  return messages.filter((message) => !(message instanceof AgentStateMessage));
+  return messages.filter((message) => !message.isAgentStateMessage());
 }
 
 export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
   return messages.map((message) => {
-    if (message instanceof TextMessage) {
+    if (message.isTextMessage()) {
       return {
         id: message.id,
         createdAt: message.createdAt,
@@ -28,7 +28,7 @@ export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
           role: message.role as any,
         },
       };
-    } else if (message instanceof ActionExecutionMessage) {
+    } else if (message.isActionExecutionMessage()) {
       return {
         id: message.id,
         createdAt: message.createdAt,
@@ -38,7 +38,7 @@ export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
           scope: message.scope as any,
         },
       };
-    } else if (message instanceof ResultMessage) {
+    } else if (message.isResultMessage()) {
       return {
         id: message.id,
         createdAt: message.createdAt,
@@ -48,7 +48,7 @@ export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
           actionName: message.actionName,
         },
       };
-    } else if (message instanceof AgentStateMessage) {
+    } else if (message.isAgentStateMessage()) {
       return {
         id: message.id,
         createdAt: message.createdAt,

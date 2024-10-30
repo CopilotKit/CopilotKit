@@ -120,7 +120,7 @@ export function logMessages(context: CopilotMessagesContextParams) {
   }
 
   const tableData = context.messages.map((message) => {
-    if (message instanceof TextMessage) {
+    if (message.isTextMessage()) {
       return {
         id: message.id,
         type: "TextMessage",
@@ -129,7 +129,7 @@ export function logMessages(context: CopilotMessagesContextParams) {
         scope: undefined,
         content: message.content,
       };
-    } else if (message instanceof ActionExecutionMessage) {
+    } else if (message.isActionExecutionMessage()) {
       return {
         id: message.id,
         type: "ActionExecutionMessage",
@@ -138,7 +138,7 @@ export function logMessages(context: CopilotMessagesContextParams) {
         scope: message.scope,
         content: message.arguments,
       };
-    } else if (message instanceof ResultMessage) {
+    } else if (message.isResultMessage()) {
       return {
         id: message.id,
         type: "ResultMessage",
@@ -147,7 +147,7 @@ export function logMessages(context: CopilotMessagesContextParams) {
         scope: message.actionExecutionId,
         content: message.result,
       };
-    } else if (message instanceof AgentStateMessage) {
+    } else if (message.isAgentStateMessage()) {
       return {
         id: message.id,
         type: `AgentStateMessage (running: ${message.running})`,

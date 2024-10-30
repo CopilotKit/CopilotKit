@@ -164,7 +164,7 @@ export async function extract<const T extends Parameter[]>({
 
     actionExecutionMessage = convertGqlOutputToMessages(
       value.generateCopilotResponse.messages,
-    ).find((msg) => msg instanceof ActionExecutionMessage) as ActionExecutionMessage | undefined;
+    ).find((msg) => msg.isActionExecutionMessage()) as ActionExecutionMessage | undefined;
 
     if (!actionExecutionMessage) {
       continue;
