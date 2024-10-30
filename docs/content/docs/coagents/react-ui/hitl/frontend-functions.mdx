@@ -27,8 +27,7 @@ You can easily pass questions to the frontend for the user to answer in the nati
 import { useCopilotAction } from "@copilotkit/react-core";
 
 export function Mailer() {
-  useCopilotAction({
-    // [!code highlight:15]
+  useCopilotAction({ // [!code highlight:15]
     name: "EmailTool",
     parameters: [
       {
