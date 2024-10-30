@@ -1,5 +1,15 @@
 # ui
 
+## 1.3.7
+
+### Patch Changes
+
+- Fix libraries for React 19 and Next.js 15 support
+- Updated dependencies
+  - @copilotkit/react-core@1.3.7
+  - @copilotkit/runtime-client-gql@1.3.7
+  - @copilotkit/shared@1.3.7
+
 ## 1.3.6
 
 ### Patch Changes
