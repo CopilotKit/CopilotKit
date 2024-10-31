@@ -82,6 +82,7 @@ export const Input = ({ inProgress, onSend, isVisible = false }: InputProps) => 
         <button
           disabled={sendDisabled}
           onClick={send}
+          data-copilotkit-in-progress={!!inProgress}
           data-testid={inProgress ? "copilot-chat-request-in-progress" : undefined}
         >
           {sendIcon}
