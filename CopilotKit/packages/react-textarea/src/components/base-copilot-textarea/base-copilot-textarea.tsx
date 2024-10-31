@@ -276,6 +276,7 @@ const BaseCopilotTextareaWithHoveringContext = React.forwardRef(
           onTouchStart={(event) => {
             onTouchStartHandlerForAutocomplete(event); // forward the event for internal use
           }}
+          data-test-id="copilot-textarea-editable"
           className={moddedClassName}
           onBlur={(ev) => {
             // clear autocompletion on blur
