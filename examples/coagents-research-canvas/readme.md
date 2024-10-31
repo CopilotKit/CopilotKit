@@ -60,7 +60,7 @@ Navigate to [http://localhost:3000](http://localhost:3000).
 
 Run LangGraph studio, then load the `./agent` folder into it.
 
-Make sure to create teh `.env` mentioned above first!
+Make sure to create the `.env` mentioned above first!
 
 
 

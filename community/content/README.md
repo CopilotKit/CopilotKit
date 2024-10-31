@@ -51,6 +51,6 @@ Demos will be ranked from 0 to 100 based on:
 ## Need Help?
 
 - **Questions**: Use our [Discord support channel](https://discord.com/invite/6dffbvGU3D) for any questions you have.
-- **Resources**: Visit [CopilotKit documentation](https://docs.copilotkit.ai/what-is-copilotkit) for more helpful documentatation info.
+- **Resources**: Visit [CopilotKit documentation](https://docs.copilotkit.ai/?ref=github_readme) for more helpful documentatation info.
 
 ⭐ Happy coding, and we look forward to your contributions!

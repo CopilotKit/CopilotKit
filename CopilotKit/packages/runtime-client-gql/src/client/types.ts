@@ -10,7 +10,10 @@ import {
   MessageStatusCode,
 } from "../graphql/@generated/graphql";
 
+type MessageType = "TextMessage" | "ActionExecutionMessage" | "ResultMessage" | "AgentStateMessage";
+
 export class Message {
+  type: MessageType;
   id: BaseMessageOutput["id"];
   createdAt: BaseMessageOutput["createdAt"];
   status: MessageStatus;
@@ -20,6 +23,22 @@ export class Message {
     props.status ??= { code: MessageStatusCode.Success };
     props.createdAt ??= new Date();
     Object.assign(this, props);
+  }
+
+  isTextMessage(): this is TextMessage {
+    return this.type === "TextMessage";
+  }
+
+  isActionExecutionMessage(): this is ActionExecutionMessage {
+    return this.type === "ActionExecutionMessage";
+  }
+
+  isResultMessage(): this is ResultMessage {
+    return this.type === "ResultMessage";
+  }
+
+  isAgentStateMessage(): this is AgentStateMessage {
+    return this.type === "AgentStateMessage";
   }
 }
 
@@ -37,6 +56,7 @@ export class TextMessage extends Message implements TextMessageConstructorOption
 
   constructor(props: TextMessageConstructorOptions) {
     super(props);
+    this.type = "TextMessage";
   }
 }
 
@@ -55,6 +75,7 @@ export class ActionExecutionMessage
 
   constructor(props: ActionExecutionMessageConstructorOptions) {
     super(props);
+    this.type = "ActionExecutionMessage";
   }
 }
 
@@ -67,6 +88,7 @@ export class ResultMessage extends Message implements ResultMessageConstructorOp
 
   constructor(props: ResultMessageConstructorOptions) {
     super(props);
+    this.type = "ResultMessage";
   }
 
   static decodeResult(result: string): any {
@@ -97,4 +119,9 @@ export class AgentStateMessage extends Message implements Omit<AgentStateMessage
   nodeName: AgentStateMessageInput["nodeName"];
   runId: AgentStateMessageInput["runId"];
   active: AgentStateMessageInput["active"];
+
+  constructor(props: any) {
+    super(props);
+    this.type = "AgentStateMessage";
+  }
 }

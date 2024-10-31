@@ -8,7 +8,7 @@ export function RenderAgentStateMessage(props: RenderMessageProps) {
   const { chatComponentsCache } = useCopilotContext();
   const { icons } = useChatContext();
 
-  if (message instanceof AgentStateMessage) {
+  if (message.isAgentStateMessage()) {
     let render: string | CoagentInChatRenderFunction | undefined;
 
     if (chatComponentsCache.current !== null) {

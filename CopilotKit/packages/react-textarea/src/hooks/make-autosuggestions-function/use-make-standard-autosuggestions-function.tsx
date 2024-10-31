@@ -103,7 +103,7 @@ export function useMakeStandardAutosuggestionFunction(
           if (abortSignal.aborted) {
             break;
           }
-          if (message instanceof TextMessage) {
+          if (message.isTextMessage()) {
             result += message.content;
           }
         }

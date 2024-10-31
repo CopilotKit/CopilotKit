@@ -118,6 +118,9 @@ export class RemoteLangGraphEventSource {
             } else if (acc.content && acc.content != "") {
               acc.prevMessageId = acc.messageId;
               acc.messageId = event.data?.chunk?.kwargs?.id;
+            } else {
+              acc.prevToolCallMessageId = acc.toolCallMessageId;
+              acc.prevMessageId = acc.messageId;
             }
           } else {
             acc.prevToolCallMessageId = acc.toolCallMessageId;
