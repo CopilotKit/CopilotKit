@@ -56,7 +56,11 @@ export function RenderActionExecutionMessage(props: RenderMessageProps) {
             );
           } else {
             return (
-              <div key={index} data-message-type="action-render" className="copilotKitCustomAssistantMessage">
+              <div
+                key={index}
+                data-message-type="action-render"
+                className="copilotKitCustomAssistantMessage"
+              >
                 {toRender}
               </div>
             );
