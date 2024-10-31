@@ -165,7 +165,7 @@ export const HoveringInsertionPromptBoxCore = ({
       <Label className="">{adjustmentLabel}</Label>
       <div className="relative w-full flex items-center">
         <textarea
-          data-test-id="adjustment-prompt"
+          data-testid="adjustment-prompt"
           disabled={suggestionIsLoading}
           ref={adjustmentTextAreaRef}
           value={adjustmentPrompt}
@@ -190,7 +190,7 @@ export const HoveringInsertionPromptBoxCore = ({
         <button
           onClick={beginGeneratingAdjustment}
           className="absolute right-2 bg-blue-500 text-white w-8 h-8 rounded-full flex items-center justify-center"
-          data-test-id="generate-button"
+          data-testid="generate-button"
         >
           <i className="material-icons">arrow_forward</i>
         </button>
@@ -218,7 +218,7 @@ export const HoveringInsertionPromptBoxCore = ({
         </div>
       </div>
       <textarea
-        data-test-id="suggestion-result"
+        data-testid="suggestion-result"
         ref={suggestionTextAreaRef}
         value={editSuggestion}
         disabled={suggestionIsLoading}
@@ -232,7 +232,7 @@ export const HoveringInsertionPromptBoxCore = ({
   const SubmitComponent = (
     <div className="flex w-full gap-4 justify-start">
       <Button
-        data-test-id="insert-button"
+        data-testid="insert-button"
         className=" bg-green-700 text-white"
         onClick={() => {
           performInsertion(editSuggestion);
