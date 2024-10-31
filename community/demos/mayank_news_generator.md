@@ -7,9 +7,8 @@ News Aggregator uses a large language model with the copilot kit eco-system to g
 
 ### 🛠️ **Technologies Used**
 
-- **Frameworks**:  Node.js and React.js
 - **Styling**: v0 Styling, Shadcn-UI Component Styling, 
-- **Developer Tools**: CopilotKit, groq-sdk
+- **Developer Tools**: CopilotKit, groq
 
 ---
 
