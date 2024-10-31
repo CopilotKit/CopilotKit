@@ -9,8 +9,6 @@ News Aggregator uses a large language model with the copilot kit eco-system to g
 - **Styling**: v0 Styling, Shadcn-UI Component Styling, 
 - **Developer Tools**: CopilotKit, groq-sdk
 
-
-
 ---
 
 ### 🌐 **App Link**
@@ -24,10 +22,6 @@ News Aggregator uses a large language model with the copilot kit eco-system to g
 
 ---
 
-### 📸 **Screenshot**
-
-
-![alt text](image.png)
 
 ---
 
