@@ -55,10 +55,12 @@ export function useMakeStandardAutosuggestionFunction(
             ),
           }),
           ...apiConfig.fewShotMessages,
-          editorState.textAfterCursor != '' ? new TextMessage({
-            role: Role.User,
-            content: editorState.textAfterCursor,
-          }) : null,
+          editorState.textAfterCursor != ""
+            ? new TextMessage({
+                role: Role.User,
+                content: editorState.textAfterCursor,
+              })
+            : null,
           new TextMessage({
             role: Role.User,
             content: `<TextAfterCursor>${editorState.textAfterCursor}</TextAfterCursor>`,
