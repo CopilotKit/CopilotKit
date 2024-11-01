@@ -1,5 +1,17 @@
 # web
 
+## 1.3.8-fix-memoize-chat-ui-context.0
+
+### Patch Changes
+
+- fix memoization and multiple provider usages
+- Updated dependencies
+  - @copilotkit/react-ui@1.3.8-fix-memoize-chat-ui-context.0
+  - @copilotkit/react-core@1.3.8-fix-memoize-chat-ui-context.0
+  - @copilotkit/react-textarea@1.3.8-fix-memoize-chat-ui-context.0
+  - @copilotkit/runtime@1.3.8-fix-memoize-chat-ui-context.0
+  - @copilotkit/shared@1.3.8-fix-memoize-chat-ui-context.0
+
 ## 1.3.7
 
 ### Patch Changes

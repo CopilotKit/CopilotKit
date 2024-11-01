@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 1.3.8-fix-memoize-chat-ui-context.0
+
+### Patch Changes
+
+- fix memoization and multiple provider usages
+
 ## 1.3.7
 
 ### Patch Changes

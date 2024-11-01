@@ -1,0 +1,456 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="53af3805-7905-42b3-a76b-f39bf781d2c8" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/CopilotKit/packages/react-ui/src/components/chat/ChatContext.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/CopilotKit/packages/react-ui/src/components/chat/ChatContext.tsx" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ChangesViewManager" show_ignored="true">
+    <option name="groupingKeys">
+      <option value="directory" />
+    </option>
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="TypeScript File" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="main" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="SET_USER_NAME_GLOBALLY" value="false" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;ranst91&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;git@github.com:CopilotKit/CopilotKit.git&quot;,
+    &quot;accountId&quot;: &quot;00471ae5-eeea-4a6b-bb72-dc7eedc0a5d2&quot;
+  }
+}</component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/CopilotKit/node_modules/.pnpm/@langchain+langgraph-sdk@0.0.16/node_modules/@langchain/langgraph-sdk/dist/types.d.ts" root0="SKIP_INSPECTION" />
+  </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4
+}</component>
+  <component name="ProjectId" id="2miJzPlwOGcbPqAnd5yc6uOM8c1" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "fix/memoize-chat-ui-context",
+    "last_opened_file_path": "/Users/ran/Desktop/CopilotKit/CopilotKit/packages/react-core/src/context",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.standard": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.standard": "",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "pnpm",
+    "prettierjs.PrettierConfiguration.Package": "/Users/ran/Desktop/CopilotKit/CopilotKit/node_modules/prettier",
+    "settings.editor.selected.configurable": "settings.javascript.prettier",
+    "ts.external.directory.path": "/Users/ran/Desktop/CopilotKit/CopilotKit/examples/next-pages-router/node_modules/typescript/lib",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/CopilotKit/packages/react-core/src/context" />
+      <recent name="$PROJECT_DIR$/CopilotKit/packages/react-core/src/components/copilot-provider" />
+      <recent name="$PROJECT_DIR$/CopilotKit/examples/next-openai" />
+      <recent name="$PROJECT_DIR$/examples/coagents-wait-user-input/agent" />
+      <recent name="$PROJECT_DIR$/examples/coagents-wait-user-input/ui" />
+    </key>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-5c90d61e3bab-JavaScript-WS-242.23339.15" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="53af3805-7905-42b3-a76b-f39bf781d2c8" name="Changes" comment="" />
+      <created>1727553725089</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1727553725089</updated>
+      <workItem from="1727553726197" duration="36000" />
+      <workItem from="1727553766626" duration="1496000" />
+      <workItem from="1728465455639" duration="34032000" />
+      <workItem from="1728981879381" duration="171060000" />
+      <workItem from="1729780690546" duration="23879000" />
+    </task>
+    <task id="LOCAL-00001" summary="fix(debug): fix floating debug button overlapping CopilotKit logo">
+      <option name="closed" value="true" />
+      <created>1728640692314</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1728640692314</updated>
+    </task>
+    <task id="LOCAL-00002" summary="fix(docs): add missing followUp property explanation">
+      <option name="closed" value="true" />
+      <created>1728643176570</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1728643176570</updated>
+    </task>
+    <task id="LOCAL-00003" summary="fix(docs): align renderAndWait method with the accepted function signature">
+      <option name="closed" value="true" />
+      <created>1728643247303</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1728643247303</updated>
+    </task>
+    <task id="LOCAL-00004" summary="support langgraph cloud action definition with new types">
+      <option name="closed" value="true" />
+      <created>1728917602819</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1728917602819</updated>
+    </task>
+    <task id="LOCAL-00005" summary="chore(demo): add banking app demo to the readme">
+      <option name="closed" value="true" />
+      <created>1728983624698</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1728983624698</updated>
+    </task>
+    <task id="LOCAL-00006" summary="chore(demo): fix usage of exposed run method for useCoAgent hook">
+      <option name="closed" value="true" />
+      <created>1728997903320</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1728997903320</updated>
+    </task>
+    <task id="LOCAL-00007" summary="fix(docs): fix documentation for the run method of useCoAgent">
+      <option name="closed" value="true" />
+      <created>1729006378790</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1729006378790</updated>
+    </task>
+    <task id="LOCAL-00008" summary="fix(examples): align examples to latest version of copilot kit">
+      <option name="closed" value="true" />
+      <created>1729007414869</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1729007414869</updated>
+    </task>
+    <task id="LOCAL-00009" summary="fix: fix link title for the new banking demo in readme">
+      <option name="closed" value="true" />
+      <created>1729008348823</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1729008348823</updated>
+    </task>
+    <task id="LOCAL-00010" summary="feat(runtime): rename remoteActions argument to remoteEndpoints&#10;&#10;BREAKING CHANGE">
+      <option name="closed" value="true" />
+      <created>1729086539163</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1729086539163</updated>
+    </task>
+    <task id="LOCAL-00011" summary="fix: fix link title for the new banking demo in readme">
+      <option name="closed" value="true" />
+      <created>1729086959469</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1729086959469</updated>
+    </task>
+    <task id="LOCAL-00012" summary="fix: fix link title for the new banking demo in readme">
+      <option name="closed" value="true" />
+      <created>1729086974575</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1729086974575</updated>
+    </task>
+    <task id="LOCAL-00013" summary="attempt fix of memory for agent">
+      <option name="closed" value="true" />
+      <created>1729161846231</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1729161846231</updated>
+    </task>
+    <task id="LOCAL-00014" summary="make remote endpoints backwards compatible">
+      <option name="closed" value="true" />
+      <created>1729185088007</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1729185088007</updated>
+    </task>
+    <task id="LOCAL-00015" summary="make remote endpoints backwards compatible">
+      <option name="closed" value="true" />
+      <created>1729185164898</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1729185164898</updated>
+    </task>
+    <task id="LOCAL-00016" summary="feat(remote-actions): integrate langgraph-cloud as a remote action for CoAgents">
+      <option name="closed" value="true" />
+      <created>1729185421929</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1729185421929</updated>
+    </task>
+    <task id="LOCAL-00017" summary="make remote endpoints backwards compatible">
+      <option name="closed" value="true" />
+      <created>1729188442914</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1729188442914</updated>
+    </task>
+    <task id="LOCAL-00018" summary="fix(example): fix image rendering in demo app">
+      <option name="closed" value="true" />
+      <created>1729243017049</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1729243017049</updated>
+    </task>
+    <task id="LOCAL-00019" summary="rename endpoints api interfaces">
+      <option name="closed" value="true" />
+      <created>1729246946935</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1729246946935</updated>
+    </task>
+    <task id="LOCAL-00020" summary="align naming of agent">
+      <option name="closed" value="true" />
+      <created>1729246961407</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1729246961407</updated>
+    </task>
+    <task id="LOCAL-00021" summary="rename endpoints api interfaces">
+      <option name="closed" value="true" />
+      <created>1729250856422</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1729250856422</updated>
+    </task>
+    <task id="LOCAL-00022" summary="try fix">
+      <option name="closed" value="true" />
+      <created>1729511792180</created>
+      <option name="number" value="00022" />
+      <option name="presentableId" value="LOCAL-00022" />
+      <option name="project" value="LOCAL" />
+      <updated>1729511792180</updated>
+    </task>
+    <task id="LOCAL-00023" summary="fix how messages are read and the creation vs fetching of threads">
+      <option name="closed" value="true" />
+      <created>1729512359759</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1729512359759</updated>
+    </task>
+    <task id="LOCAL-00024" summary="consider different api for event data on langgraph cloud">
+      <option name="closed" value="true" />
+      <created>1729512393016</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1729512393016</updated>
+    </task>
+    <task id="LOCAL-00025" summary="fix metadata fetching">
+      <option name="closed" value="true" />
+      <created>1729519462557</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1729519462557</updated>
+    </task>
+    <task id="LOCAL-00026" summary="demo">
+      <option name="closed" value="true" />
+      <created>1729520683086</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1729520683086</updated>
+    </task>
+    <task id="LOCAL-00027" summary="demo">
+      <option name="closed" value="true" />
+      <created>1729521765508</created>
+      <option name="number" value="00027" />
+      <option name="presentableId" value="LOCAL-00027" />
+      <option name="project" value="LOCAL" />
+      <updated>1729521765509</updated>
+    </task>
+    <task id="LOCAL-00028" summary="demo">
+      <option name="closed" value="true" />
+      <created>1729522365181</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1729522365181</updated>
+    </task>
+    <task id="LOCAL-00029" summary="demo">
+      <option name="closed" value="true" />
+      <created>1729527307870</created>
+      <option name="number" value="00029" />
+      <option name="presentableId" value="LOCAL-00029" />
+      <option name="project" value="LOCAL" />
+      <updated>1729527307870</updated>
+    </task>
+    <task id="LOCAL-00030" summary="chore(docs): add missing main call on python file example">
+      <option name="closed" value="true" />
+      <created>1729602450880</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1729602450880</updated>
+    </task>
+    <task id="LOCAL-00031" summary="chore(docs): fix typos">
+      <option name="closed" value="true" />
+      <created>1729602470558</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1729602470558</updated>
+    </task>
+    <task id="LOCAL-00032" summary="fix(context): split context to avoid excessive re-renders">
+      <option name="closed" value="true" />
+      <created>1729698661024</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1729698661024</updated>
+    </task>
+    <task id="LOCAL-00033" summary="Rerenders issue, break app contexts">
+      <option name="closed" value="true" />
+      <created>1729698718132</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1729698718132</updated>
+    </task>
+    <task id="LOCAL-00034" summary="fix(context): memoize config to avoid unnecessary re-renders">
+      <option name="closed" value="true" />
+      <created>1729698830203</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1729698830203</updated>
+    </task>
+    <task id="LOCAL-00035" summary="chore: fix pre-release script">
+      <option name="closed" value="true" />
+      <created>1729699233499</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1729699233499</updated>
+    </task>
+    <task id="LOCAL-00036" summary="chore: fix pre-release script">
+      <option name="closed" value="true" />
+      <created>1729699373052</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1729699373052</updated>
+    </task>
+    <task id="LOCAL-00037" summary="fix(auto-suggestion): fix anthropic autosuggestion mechanism">
+      <option name="closed" value="true" />
+      <created>1730400179849</created>
+      <option name="number" value="00037" />
+      <option name="presentableId" value="LOCAL-00037" />
+      <option name="project" value="LOCAL" />
+      <updated>1730400179849</updated>
+    </task>
+    <task id="LOCAL-00038" summary="fix(auto-suggestion): fix langchain autosuggestion content reading">
+      <option name="closed" value="true" />
+      <created>1730481059596</created>
+      <option name="number" value="00038" />
+      <option name="presentableId" value="LOCAL-00038" />
+      <option name="project" value="LOCAL" />
+      <updated>1730481059596</updated>
+    </task>
+    <task id="LOCAL-00039" summary="fix: prettier code style fixes">
+      <option name="closed" value="true" />
+      <created>1730481674812</created>
+      <option name="number" value="00039" />
+      <option name="presentableId" value="LOCAL-00039" />
+      <option name="project" value="LOCAL" />
+      <updated>1730481674812</updated>
+    </task>
+    <option name="localTasksCounter" value="40" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="align naming of agent" />
+    <MESSAGE value="example2" />
+    <MESSAGE value="latest-changes-should be commited!!" />
+    <MESSAGE value="rename endpoints api interfaces" />
+    <MESSAGE value="try fix" />
+    <MESSAGE value="fix how messages are read and the creation vs fetching of threads" />
+    <MESSAGE value="consider different api for event data on langgraph cloud" />
+    <MESSAGE value="fix metadata fetching" />
+    <MESSAGE value="examples-lgc" />
+    <MESSAGE value="docsfix" />
+    <MESSAGE value="chore(docs): add missing main call on python file example" />
+    <MESSAGE value="demo" />
+    <MESSAGE value="chore(docs): fix typos" />
+    <MESSAGE value="some-extraction-of-methods-outside-hooks" />
+    <MESSAGE value="fix(context): split context to avoid excessive re-renders" />
+    <MESSAGE value="fix(context): memoize config to avoid unnecessary re-renders" />
+    <MESSAGE value="Rerenders issue, break app contexts" />
+    <MESSAGE value="chore: fix pre-release script" />
+    <MESSAGE value="run-chat-completion-extracter-from-usechat-hook" />
+    <MESSAGE value="anthropic issue research" />
+    <MESSAGE value="extract to JS with class" />
+    <MESSAGE value="fix(auto-suggestion): fix anthropic autosuggestion mechanism" />
+    <MESSAGE value="fix(auto-suggestion): fix langchain autosuggestion content reading" />
+    <MESSAGE value="fix: prettier code style fixes" />
+    <MESSAGE value="gemini google search" />
+    <option name="LAST_COMMIT_MESSAGE" value="gemini google search" />
+  </component>
+</project>
