@@ -292,7 +292,7 @@ export class CopilotResolver {
                 // signal when we are done streaming
                 const streamingTextStatus = new Subject<typeof MessageStatusUnion>();
 
-                const messageId = randomId();
+                const messageId = event.messageId ?? randomId();
                 // push the new message
                 pushMessage({
                   id: messageId,
