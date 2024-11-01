@@ -34,7 +34,7 @@ import {
 import { randomId } from "@copilotkit/shared";
 import { TextMessage } from "../../graphql/types/converted";
 
-const DEFAULT_MODEL = "claude-3-opus-20240229";
+const DEFAULT_MODEL = "claude-3-sonnet-20240229";
 
 export interface AnthropicAdapterParams {
   /**

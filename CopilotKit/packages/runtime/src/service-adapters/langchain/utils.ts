@@ -248,7 +248,9 @@ export async function streamLangChainResponse({
 
         // send the content events
         if (mode === "message" && content) {
-          eventStream$.sendTextMessageContent(content);
+          eventStream$.sendTextMessageContent(
+            Array.isArray(content) ? (content[0]?.text ?? "") : content,
+          );
         } else if (mode === "function" && toolCallArgs) {
           eventStream$.sendActionExecutionArgs(toolCallArgs);
         }
