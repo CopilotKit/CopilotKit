@@ -13,7 +13,9 @@
   "npm": {
     "enabled": true
   },
-  "ignorePaths": ["node_modules"],
+  "ignorePaths": [
+    "node_modules"
+  ],
   "packageRules": [
     {
       "description": "[All] Ignore all packages initially",
@@ -21,19 +23,23 @@
       "matchPackageNames": [
         "*"
       ],
-      "labels": ["dependencies"]
+      "labels": [
+        "dependencies"
+      ]
     },
     {
       "description": "[Examples] Enable Renovate for CopilotKit packages only",
       "enabled": true,
-      "matchPaths": [
+      "matchFileNames": [
         "examples/**"
       ],
       "matchPackageNames": [
         "/^@copilotkit/",
         "/^copilotkit/"
       ],
-      "labels": ["examples"],
+      "labels": [
+        "examples"
+      ],
       "groupName": "CopilotKit Examples"
     }
   ]
