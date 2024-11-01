@@ -363,13 +363,13 @@ files = [
 
 [[package]]
 name = "copilotkit"
-version = "0.1.22"
+version = "0.1.23"
 description = "CopilotKit python SDK"
 optional = false
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "copilotkit-0.1.22-py3-none-any.whl", hash = "sha256:4eab00df7af3a323ad2af58b49956723a0f139182bcdf00ab048b82187783024"},
-    {file = "copilotkit-0.1.22.tar.gz", hash = "sha256:96dbd26d498778f4a383996e56c8d4e639695ba1c35ed7dd206121dad50750f4"},
+    {file = "copilotkit-0.1.23-py3-none-any.whl", hash = "sha256:f2bf39de53020b33e904c6364c3846f03b998b33b0a9e6ac38499193008362a1"},
+    {file = "copilotkit-0.1.23.tar.gz", hash = "sha256:1f8eecdbad89a787c60b007eabab5f911d6d7cee5db2cb4e3f65fbef1412d58d"},
 ]
 
 [package.dependencies]
@@ -985,8 +985,8 @@ jsonpatch = ">=1.33,<2.0"
 langsmith = ">=0.1.125,<0.2.0"
 packaging = ">=23.2,<25"
 pydantic = [
-    {version = ">=2.7.4,<3.0.0", markers = "python_full_version >= \"3.12.4\""},
     {version = ">=2.5.2,<3.0.0", markers = "python_full_version < \"3.12.4\""},
+    {version = ">=2.7.4,<3.0.0", markers = "python_full_version >= \"3.12.4\""},
 ]
 PyYAML = ">=5.3"
 tenacity = ">=8.1.0,<8.4.0 || >8.4.0,<10.0.0"
@@ -1084,8 +1084,8 @@ files = [
 httpx = ">=0.23.0,<1"
 orjson = ">=3.9.14,<4.0.0"
 pydantic = [
-    {version = ">=2.7.4,<3.0.0", markers = "python_full_version >= \"3.12.4\""},
     {version = ">=1,<3", markers = "python_full_version < \"3.12.4\""},
+    {version = ">=2.7.4,<3.0.0", markers = "python_full_version >= \"3.12.4\""},
 ]
 requests = ">=2,<3"
 requests-toolbelt = ">=1.0.0,<2.0.0"
@@ -1574,8 +1574,8 @@ files = [
 annotated-types = ">=0.6.0"
 pydantic-core = "2.23.4"
 typing-extensions = [
-    {version = ">=4.12.2", markers = "python_version >= \"3.13\""},
     {version = ">=4.6.1", markers = "python_version < \"3.13\""},
+    {version = ">=4.12.2", markers = "python_version >= \"3.13\""},
 ]
 
 [package.extras]
@@ -2410,4 +2410,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "56633ddb5f2c801ea05ec2ffb3a1ba31a57d7a068c3c1feb1448e063f0795c6c"
+content-hash = "5676966afad452ad0f2b0431709054e1fa453dcfa0d15ce73a786de08b487c03"
