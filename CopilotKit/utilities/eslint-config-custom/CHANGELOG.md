@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 1.3.9
+
+### Patch Changes
+
+- Fix message id issues
+
 ## 1.3.8
 
 ### Patch Changes

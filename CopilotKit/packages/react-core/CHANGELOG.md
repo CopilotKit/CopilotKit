@@ -1,5 +1,14 @@
 # ui
 
+## 1.3.9
+
+### Patch Changes
+
+- Fix message id issues
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.3.9
+  - @copilotkit/shared@1.3.9
+
 ## 1.3.8
 
 ### Patch Changes
