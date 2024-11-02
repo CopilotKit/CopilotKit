@@ -16,7 +16,6 @@ export default function Main() {
       logs: [],
     },
   });
-  console.log("--------- AGENT & MODEL", agent, model);
 
   return (
     <>
