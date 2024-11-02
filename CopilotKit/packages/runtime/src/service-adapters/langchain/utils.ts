@@ -106,15 +106,15 @@ function getConstructorName(object: any): string {
 }
 
 function isAIMessage(message: any): message is AIMessage {
-  return getConstructorName(message) === "AIMessage";
+  return Object.prototype.toString.call(message) === "[object AIMessage]";
 }
 
 function isAIMessageChunk(message: any): message is AIMessageChunk {
-  return getConstructorName(message) === "AIMessageChunk";
+  return Object.prototype.toString.call(message) === "[object AIMessageChunk]";
 }
 
 function isBaseMessageChunk(message: any): message is BaseMessageChunk {
-  return getConstructorName(message) === "BaseMessageChunk";
+  return Object.prototype.toString.call(message) === "[object BaseMessageChunk]";
 }
 
 function maybeSendActionExecutionResultIsMessage(
