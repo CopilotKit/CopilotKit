@@ -16,16 +16,17 @@ import { AgentState, Resource } from "@/lib/types";
 import { useModelSelectorContext } from "@/lib/model-selector-provider";
 
 export function ResearchCanvas() {
-  const { model } = useModelSelectorContext();
+  const { model, agent } = useModelSelectorContext();
+
   const { state, setState } = useCoAgent<AgentState>({
-    name: "research_agent",
+    name: agent,
     initialState: {
-      model
-    }
+      model,
+    },
   });
 
   useCoAgentStateRender({
-    name: "research_agent",
+    name: agent,
     render: ({ state, nodeName, status }) => {
       if (!state.logs || state.logs.length === 0) {
         return null;
