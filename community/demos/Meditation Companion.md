@@ -1,6 +1,4 @@
-Here's a README template tailored for your "Meditation Companion" project based on the provided format:
 
----
 
 # 1. Meditation Companion
 - **Meditation Prompt Display**: This app offers users calming meditation prompts, providing a peaceful space for mindfulness and introspection. Each prompt updates with an aesthetically pleasing real-time clock and date display.
