@@ -1,5 +1,17 @@
 # next-pages-router
 
+## 1.3.9
+
+### Patch Changes
+
+- Fix message id issues
+- Updated dependencies
+  - @copilotkit/react-core@1.3.9
+  - @copilotkit/react-textarea@1.3.9
+  - @copilotkit/react-ui@1.3.9
+  - @copilotkit/runtime@1.3.9
+  - @copilotkit/shared@1.3.9
+
 ## 1.3.8
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.3.9
+
+### Patch Changes
+
+- Fix message id issues
+- Updated dependencies
+  - @copilotkit/shared@1.3.9
+
 ## 1.3.8
 
 ### Patch Changes
