@@ -17,7 +17,7 @@ export default function ModelSelectorWrapper() {
   );
 }
 
-export function Home() {
+function Home() {
   const { agent } = useModelSelectorContext();
 
   return (
