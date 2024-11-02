@@ -60,10 +60,16 @@ async def search_node(state: AgentState, config: RunnableConfig):
         }],
     )
 
+    model = get_model(state)
+    ainvoke_kwargs = {}
+    if model.__class__.__name__ in ["ChatOpenAI"]:
+        ainvoke_kwargs["parallel_tool_calls"] = False
+
     # figure out which resources to use
-    response = await get_model(state).bind_tools(
+    response = await model.bind_tools(
         [ExtractResources],
-        tool_choice="ExtractResources"
+        tool_choice="ExtractResources",
+        **ainvoke_kwargs
     ).ainvoke([
         SystemMessage(
             content="""
