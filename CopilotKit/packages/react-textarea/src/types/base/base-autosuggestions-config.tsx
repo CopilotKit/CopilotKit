@@ -76,10 +76,20 @@ const defaultShouldToggleHoveringEditorOnKeyPress = (
   event: React.KeyboardEvent<HTMLDivElement>,
   shortcut: string,
 ) => {
-  // if command-k, toggle the hovering editor
-  if (event.key === shortcut && event.metaKey) {
-    return true;
+  const isWindowsOs = navigator.userAgent.includes("Windows");
+
+  if (isWindowsOs) {
+    // if ctrl-k, toggle the hovering editor on windows
+    if (event.key === shortcut && event.ctrlKey) {
+      return true;
+    }
+  } else {
+    // if command-k, toggle the hovering editor on mac
+    if (event.key === shortcut && event.metaKey) {
+      return true;
+    }
   }
+
   return false;
 };
 
