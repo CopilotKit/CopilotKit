@@ -7,20 +7,39 @@ import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-ente
 ## Background
 
 A LangGraph agent’s state updates discontinuosly; only across node transitions in the graph.
-
-But even a _single node_ in the graph often takes many seconds to run and contain sub-steps of interest to the user -- as nodes engage with LLMs and network resources.
+But even a _single node_ in the graph often takes many seconds to run and contain sub-steps of interest to the user.
 
 **Agent-native applications** reflect to the end-user what the agent is doing **<u>as continuously possible.</u>**
 
-<Callout>
-Continuously showing the end-user the agent's actions is the **gold standard for agentic UX**.
-
-It not only keeps the user engaged (avoiding long loading indicators); it also serves to **build trust** with the user that the agent is on the right track (and that its results can be trusted).
-
-Continuous state updates also play a crucial role in [**_agent steering_**](/coagents/advanced/agent-steering) -- allowing the end-user to correct the agent's course if it veers off.
-</Callout>
+A few key benefits:<br/>
+• **<u>Keeps users engaged</u>** by avoiding long loading indicators<br/>
+• **<u>Builds trust</u>** by demonstrating what the agent is working on<br/>
+• Supports [**_agent steering_**](/coagents/advanced/agent-steering) - allowing users to course-correct the agent if needed<br/>
 
 ---
+
+
+## Stream intermediate state manually:
+```python
+from copilotkit.langchain import copilotkit_emit_state
+
+async def some_langgraph_node(state: AgentState, config: RunnableConfig):
+	# ... whatever you want to docs
+
+	# modify the state as you please: # [!code highlight:5]
+	state["logs"].append({
+		"message": f"Downloading {resource['url']}",
+        "done": False
+	})
+
+    await copilotkit_emit_state(config, state) # manually emit the updated state # [!code highlight:1]
+
+	# ... keep running your graph
+
+	# finally, return the state from the node as usual. The returned state is the ultimate source of truth # [!code highlight:2]
+	return state
+```
+
 
 ## Stream intermediate state from LLM tool calls:
 
@@ -59,13 +78,12 @@ async def streaming_state_node(state: AgentState, config: RunnableConfig):
 		modifiedConfig # pass the modified config # [!code highlight]
 	)
 
+	# Make sure to ALSO return the state from the node.
 	return {
 		*state,
 		"outline": outline # <- the actual state object is always the final source of truth when the node ends # [!code highlight]
 	}
 ```
 
-## Stream intermediate state manually:
-TODO.
 
 <CoAgentsEnterpriseCTA />

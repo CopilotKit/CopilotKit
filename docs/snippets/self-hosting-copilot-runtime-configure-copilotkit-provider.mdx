@@ -5,14 +5,18 @@ For most use-cases, it's appropriate to wrap the `CopilotKit` provider around th
 Point it at the Copilot Runtime URL you configured in the previous step.
 
   ```tsx title="layout.tsx"
+  import { ReactNode } from "react";
   import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
 
-  export default function RootLayout({children}) {
+  export default function RootLayout({ children }: { children: ReactNode }) {
     return (
-      {/* Make sure to use the URL you configured in the previous step */}
-      <CopilotKit runtimeUrl="/api/copilotkit"> // [!code highlight]
-        {children}
-      </CopilotKit> // [!code highlight]
+      <html lang="en">
+        <body> 
+          {/* Make sure to use the URL you configured in the previous step  */} // [!code highlight:4]
+          <CopilotKit runtimeUrl="/api/copilotkit"> 
+            {children}
+          </CopilotKit>
+        </body>
+      </html>
     );
   }
-  ```
