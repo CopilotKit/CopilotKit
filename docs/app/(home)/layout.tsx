@@ -45,15 +45,15 @@ export default function Layout({ children }: { children: ReactNode }) {
                     "bg-gradient-to-b from-teal-700 to-teal-400 text-teal-100",
                   selectedBorder: "ring-teal-500/70",
                 },
-                {
-                  title: "Chat with our docs",
-                  description: "Chat with our docs",
-                  url: "https://entelligence.ai/CopilotKit&CopilotKit",
-                  icon: <CircleArrowOutUpRight className="w-4 h-4" />,
-                  bgGradient:
-                    "bg-gradient-to-b from-purple-700 to-purple-400 text-purple-100",
-                  selectedBorder: "ring-teal-500/70",
-                },
+                // {
+                //   title: "Chat with our docs",
+                //   description: "Chat with our docs",
+                //   url: "https://entelligence.ai/CopilotKit&CopilotKit",
+                //   icon: <CircleArrowOutUpRight className="w-4 h-4" />,
+                //   bgGradient:
+                //     "bg-gradient-to-b from-purple-700 to-purple-400 text-purple-100",
+                //   selectedBorder: "ring-teal-500/70",
+                // },
               ]}
             />
           ),
