@@ -64,7 +64,8 @@ jobs:
       - name: Generate table from outputs
         id: generate-table
         working-directory: infra
-        run: node generate-table.js
+        run: |
+          node generate-table
 
       - name: Comment PR
         uses: thollander/actions-comment-pull-request@v3
