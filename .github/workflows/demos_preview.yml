@@ -47,7 +47,7 @@ jobs:
           cdk_args: '--require-approval never --outputs-file=cdk_outputs.json'
           actions_comment: true
         env:
-          OPENAI_API_KEY: "test"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Comment PR
         uses: thollander/actions-comment-pull-request@v3
