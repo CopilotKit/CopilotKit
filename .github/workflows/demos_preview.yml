@@ -64,15 +64,13 @@ jobs:
       - name: Generate table from outputs
         id: generate-table
         working-directory: infra
-        run: |
-          echo "::set-output name=table::$(node generate-table.js)"
+        run: node generate-table.js
 
       - name: Comment PR
         uses: thollander/actions-comment-pull-request@v3
         with:
           comment-tag: preview-status-update
-          message: |
-            ${{ steps.generate-table.outputs.table }}
+          file-path: ./infra/preview-comment.md
 
       # - name: Deploy
       #   uses: chrnorm/deployment-action@v2
