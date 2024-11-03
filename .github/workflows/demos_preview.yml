@@ -31,6 +31,13 @@ jobs:
         run: |
           aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
 
+      - uses: dopplerhq/secrets-fetch-action@v1.2.0
+        id: doppler
+        with:
+          doppler-token: ${{ secrets.DOPPLER_TOKEN }}
+          doppler-project: copilotkit-previews
+          doppler-config: prd
+
       - name: cdk deploy
         uses: youyo/aws-cdk-github-actions@v2
         with:
@@ -39,6 +46,8 @@ jobs:
           # cdk_stack: 'test-pr'
           cdk_args: '--require-approval never --outputs-file=cdk_outputs.json'
           actions_comment: true
+        env:
+          OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
 
       - name: Comment PR
         uses: thollander/actions-comment-pull-request@v3
