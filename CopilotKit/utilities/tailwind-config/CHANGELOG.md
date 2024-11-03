@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 1.3.10
+
+### Patch Changes
+
+- change how message chunk type is resolved (fixed langchain adapters)
+
 ## 1.3.9
 
 ### Patch Changes

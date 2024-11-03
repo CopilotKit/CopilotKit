@@ -1,5 +1,17 @@
 # web
 
+## 1.3.10
+
+### Patch Changes
+
+- change how message chunk type is resolved (fixed langchain adapters)
+- Updated dependencies
+  - @copilotkit/react-core@1.3.10
+  - @copilotkit/react-textarea@1.3.10
+  - @copilotkit/react-ui@1.3.10
+  - @copilotkit/runtime@1.3.10
+  - @copilotkit/shared@1.3.10
+
 ## 1.3.9
 
 ### Patch Changes
