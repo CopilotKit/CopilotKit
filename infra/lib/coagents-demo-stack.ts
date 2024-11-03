@@ -4,6 +4,7 @@ import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as ecr_assets from "aws-cdk-lib/aws-ecr-assets"; // Add this import
 import * as path from "path";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
+import * as logs from 'aws-cdk-lib/aws-logs'; // Add this import
 
 interface CoAgentsDemoStackProps extends cdk.StackProps {
   demoPath: string;
@@ -21,7 +22,21 @@ export class CoAgentsDemoStack extends cdk.Stack {
       "previews/api-keys"
     );
 
+    // Create explicit log groups
+    const agentLogGroup = new logs.LogGroup(this, 'AgentFunctionLogGroup', {
+      logGroupName: `/aws/lambda/${id}-AgentFunction`,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      retention: logs.RetentionDays.ONE_WEEK, // Adjust retention as needed
+    });
+
+    const uiLogGroup = new logs.LogGroup(this, 'UiFunctionLogGroup', {
+      logGroupName: `/aws/lambda/${id}-UiFunction`,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      retention: logs.RetentionDays.ONE_WEEK,
+    });
+
     const agentFunction = new lambda.Function(this, `AgentFunction`, {
+      logGroup: agentLogGroup,
       runtime: lambda.Runtime.FROM_IMAGE,
       architecture: lambda.Architecture.X86_64,
       handler: lambda.Handler.FROM_IMAGE,
@@ -61,6 +76,7 @@ export class CoAgentsDemoStack extends cdk.Stack {
 
     // Next.js
     const uiFunction = new lambda.Function(this, `UiFunction`, {
+      logGroup: uiLogGroup,
       runtime: lambda.Runtime.FROM_IMAGE,
       architecture: lambda.Architecture.X86_64,
       handler: lambda.Handler.FROM_IMAGE,
