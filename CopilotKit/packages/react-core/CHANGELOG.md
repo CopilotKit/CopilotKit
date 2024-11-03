@@ -1,5 +1,14 @@
 # ui
 
+## 1.3.11-mme-fix-duplicate-messages.0
+
+### Patch Changes
+
+- Fix duplicate messages
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.3.11-mme-fix-duplicate-messages.0
+  - @copilotkit/shared@1.3.11-mme-fix-duplicate-messages.0
+
 ## 1.3.10
 
 ### Patch Changes
