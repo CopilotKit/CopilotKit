@@ -19,22 +19,22 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      # - name: Comment PR
-      #   uses: thollander/actions-comment-pull-request@v3
-      #   with:
-      #     comment-tag: preview
-      #     message: |
-      #       Deployment in progress...
-
-      - name: Deploy
-        uses: chrnorm/deployment-action@v2
-        id: deployment
+      - name: Comment PR
+        uses: thollander/actions-comment-pull-request@v3
         with:
-          token: '${{ github.token }}'
-          environment-url: "http://test.com"
-          environment: "preview-branch"
-          # ref: "some-pr"
-          payload: "{\"key\": \"value\"}"
+          comment-tag: preview
+          message: |
+            Deployment in progress...
+
+      # - name: Deploy
+      #   uses: chrnorm/deployment-action@v2
+      #   id: deployment
+      #   with:
+      #     token: '${{ github.token }}'
+      #     environment-url: "http://test.com"
+      #     environment: "preview-branch"
+      #     # ref: "some-pr"
+      #     payload: "{\"key\": \"value\"}"
 
 
       
