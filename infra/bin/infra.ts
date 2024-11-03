@@ -6,7 +6,6 @@ import * as path from "path";
 import { requireEnv } from "../lib/utils";
 
 const app = new cdk.App();
-
 const pullRequestNumber = requireEnv("GITHUB_PR_NUMBER");
 
 new CoAgentsDemoStack(app, `ResearchCanvasDemoStackPr${pullRequestNumber}`, {
