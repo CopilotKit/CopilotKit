@@ -45,7 +45,7 @@ jobs:
           doppler-token: ${{ secrets.DOPPLER_TOKEN }}
           doppler-project: copilotkit-previews
           doppler-config: prd
-          
+
       - name: Infra install dependencies
         working-directory: infra
         run: pnpm i
@@ -70,7 +70,7 @@ jobs:
       - name: Comment PR
         uses: thollander/actions-comment-pull-request@v3
         with:
-          comment-tag: preview-status
+          comment-tag: preview-status-update
           message: |
             $(node infra/generate-table.js)
 
