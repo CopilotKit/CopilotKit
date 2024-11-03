@@ -1,4 +1,4 @@
-name: Demos Preview
+name: Demos Preview (Deploy)
 
 on:
   pull_request:
@@ -68,6 +68,18 @@ jobs:
         working-directory: infra
         run: |
           node generate-table
+
+      - name: Assign label
+        uses: actions/github-script@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['preview']
+            })
 
       - name: Comment PR
         uses: thollander/actions-comment-pull-request@v3
