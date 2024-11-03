@@ -1,6 +1,10 @@
 name: Demos Preview
 
-on: pull_request
+on:
+  pull_request:
+    paths:
+      - 'demos/**'
+      - '.github/workflows/demos_preview.yml'
 
 jobs:
   example_comment_pr:
