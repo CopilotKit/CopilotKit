@@ -36,7 +36,7 @@ jobs:
         with:
           working_dir: './infra'
           cdk_subcommand: 'deploy'
-          cdk_stack: 'test-pr'
+          # cdk_stack: 'test-pr'
           cdk_args: '--require-approval never --outputs-file=cdk_outputs.json'
           actions_comment: true
 
