@@ -60,12 +60,14 @@ jobs:
           actions_comment: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: PR_Name
+        id: pr_name
+        run: echo "The PR number is ${{ github.event.number }}"
 
       - name: Generate table from outputs
         id: generate-table
         working-directory: infra
         run: |
-          ls -la
           node generate-table
 
       - name: Comment PR
