@@ -34,7 +34,7 @@ jobs:
           environment-url: "http://test.com"
           environment: "preview-branch"
           ref: "some-pr"
-          payload: "'{\"key\": \"value\"}'"
+          payload: "{\"key\": \"value\"}"
 
 
       
