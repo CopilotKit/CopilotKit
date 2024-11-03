@@ -5,17 +5,10 @@ import * as ecr_assets from "aws-cdk-lib/aws-ecr-assets"; // Add this import
 import * as path from "path";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Required environment variable ${name} is missing`);
-  }
-  return value;
-}
-
 interface CoAgentsDemoStackProps extends cdk.StackProps {
   demoPath: string;
   projectName: string;
+  pullRequestNumber: string;
 }
 
 export class CoAgentsDemoStack extends cdk.Stack {
@@ -109,5 +102,8 @@ export class CoAgentsDemoStack extends cdk.Stack {
     new cdk.CfnOutput(this, "ProjectName", {
       value: props.projectName,
     });
+
+    // Add tag for PR number to all resources
+    cdk.Tags.of(this).add("pr-number", props.pullRequestNumber);
   }
 }
