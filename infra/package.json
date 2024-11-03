@@ -21,7 +21,6 @@
   },
   "dependencies": {
     "aws-cdk-lib": "2.165.0",
-    "cdk-nextjs-standalone": "^4.1.1",
     "constructs": "^10.0.0",
     "source-map-support": "^0.5.21"
   }

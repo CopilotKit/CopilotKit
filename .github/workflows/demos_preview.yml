@@ -6,6 +6,8 @@ jobs:
   example_comment_pr:
     runs-on: ubuntu-latest
     name: Comment with example preview
+    permissions:
+      deployments: write
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -19,5 +21,19 @@ jobs:
       - name: Comment PR
         uses: thollander/actions-comment-pull-request@v3
         with:
+          comment-tag: preview
           message: |
-            Hello world ! :wave:
+            Deployment in progress...
+
+      - name: Deploy
+        uses: chrnorm/deployment-action@v2
+        id: deployment
+        with:
+          token: '${{ github.token }}'
+          environment-url: "http://test.com"
+          environment: "preview-branch"
+          ref: "some-pr"
+          payload: "'{\"key\": \"value\"}'"
+
+
+      

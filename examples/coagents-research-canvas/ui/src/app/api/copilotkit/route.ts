@@ -13,7 +13,7 @@ const runtime = new CopilotRuntime({
   remoteActions: [
     {
       // url: process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
-      url: "https://jwcdzrl6aylicsvegwe6xkmnka0qdqrr.lambda-url.us-east-1.on.aws/copilotkit"
+      url: "https://sm2vrgnlj5aq57hbcd3xjlg2c40grcwk.lambda-url.us-east-1.on.aws/copilotkit"
     },
   ],
 });

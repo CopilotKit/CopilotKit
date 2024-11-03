@@ -11,9 +11,6 @@ importers:
       aws-cdk-lib:
         specifier: 2.165.0
         version: 2.165.0(constructs@10.4.2)
-      cdk-nextjs-standalone:
-        specifier: ^4.1.1
-        version: 4.1.1(aws-cdk-lib@2.165.0(constructs@10.4.2))(constructs@10.4.2)
       constructs:
         specifier: ^10.0.0
         version: 10.4.2
@@ -512,13 +509,6 @@ packages:
 
   caniuse-lite@1.0.30001677:
     resolution: {integrity: sha512-fmfjsOlJUpMWu+mAAtZZZHz7UEwsUxIIvu1TJfO1HqFQvB/B+ii0xr9B5HpbZY/mC4XZ8SvjHJqtAY6pDPQEog==}
-
-  cdk-nextjs-standalone@4.1.1:
-    resolution: {integrity: sha512-0zM6QBdGHAOiqumTz607xA1lQdHAwyDX409SJ2TdjsxD2ezo0S7Db8x+HRkKj0PqqXS6hNLkyNnXBWK5pE21qA==}
-    engines: {node: '>= 18.0.0'}
-    peerDependencies:
-      aws-cdk-lib: ^2.131.0
-      constructs: ^10.0.5
 
   chalk@4.1.2:
     resolution: {integrity: sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==}
@@ -1912,11 +1902,6 @@ snapshots:
   camelcase@6.3.0: {}
 
   caniuse-lite@1.0.30001677: {}
-
-  cdk-nextjs-standalone@4.1.1(aws-cdk-lib@2.165.0(constructs@10.4.2))(constructs@10.4.2):
-    dependencies:
-      aws-cdk-lib: 2.165.0(constructs@10.4.2)
-      constructs: 10.4.2
 
   chalk@4.1.2:
     dependencies:
