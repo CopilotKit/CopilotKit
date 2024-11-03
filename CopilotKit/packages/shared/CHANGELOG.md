@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.3.11-mme-fix-duplicate-messages.0
+
+### Patch Changes
+
+- Fix duplicate messages
+
 ## 1.3.10
 
 ### Patch Changes
