@@ -5,6 +5,8 @@ on:
     paths:
       - 'demos/**'
       - '.github/workflows/demos_preview.yml'
+    branches:
+      - main
 
 jobs:
   example_comment_pr:
@@ -55,9 +57,8 @@ jobs:
         with:
           working_dir: './infra'
           cdk_subcommand: 'deploy'
-          # cdk_stack: 'test-pr'
           cdk_args: '--require-approval never --outputs-file=cdk_outputs.json'
-          actions_comment: true
+          actions_comment: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_PR_NUMBER: ${{ github.event.number }}
