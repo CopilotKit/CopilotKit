@@ -61,18 +61,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # - name: Generate table from outputs
-      #   id: generate-table
-      #   run: |
-      #     echo "::set-output name=table::<table><tr><th>Demo</th><th>Preview URL</th></tr><tr><td>Example 1</td><td>$(jq -r '.["CopilotKitStack.PreviewUrl"]' cdk_outputs.json)</td></tr></table>"
-
+      - name: Generate table from outputs
+        id: generate-table
+        working-directory: infra
+        run: |
+          echo "::set-output name=table::$(node generate-table.js)"
 
       - name: Comment PR
         uses: thollander/actions-comment-pull-request@v3
         with:
           comment-tag: preview-status-update
           message: |
-            $(node infra/generate-table.js)
+            ${{ steps.generate-table.outputs.table }}
 
       # - name: Deploy
       #   uses: chrnorm/deployment-action@v2
