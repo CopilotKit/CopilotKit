@@ -12,20 +12,20 @@ function generateTable() {
   );
   const json = JSON.parse(file);
 
-  console.log(json)
+  console.log(json);
 
-  for (const key in json) {
-    structure.push({ h2: key });
-    const vars = json[key];
-    structure.push({
-      table: {
-        headers: ["desc", "url"],
-        rows: [{ desc: "Preview URL", url: `[Link](${vars["UiUrl"]})` }]
-      }
-    });
-  }
+  structure.push({
+    table: {
+      headers: ["Name", "URL"],
+      rows: Object.entries(json).map(([key, value]) => ({
+        Name: value.ProjectName,
+        URL: `[Link](${value.UiUrl})`,
+      })),
+    },
+  });
 
   const md = json2md(structure);
+  console.log(md);
   fs.writeFileSync(path.resolve(__dirname, "./preview-comment.md"), md);
 }
 

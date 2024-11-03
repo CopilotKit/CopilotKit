@@ -7,5 +7,6 @@ import * as path from "path";
 const app = new cdk.App();
 
 new CoAgentsDemoStack(app, "ResearchCanvasDemoStack", {
+  projectName: "CoAgents Research Canvas",
   demoPath: path.resolve(__dirname, "../../examples/coagents-research-canvas"),
 });

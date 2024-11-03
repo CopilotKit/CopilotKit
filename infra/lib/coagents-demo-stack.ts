@@ -15,6 +15,7 @@ function requireEnv(name: string): string {
 
 interface CoAgentsDemoStackProps extends cdk.StackProps {
   demoPath: string;
+  projectName: string;
 }
 
 export class CoAgentsDemoStack extends cdk.Stack {
@@ -103,6 +104,10 @@ export class CoAgentsDemoStack extends cdk.Stack {
     // Output the Function URL
     new cdk.CfnOutput(this, "UiUrl", {
       value: uiUrl.url,
+    });
+
+    new cdk.CfnOutput(this, "ProjectName", {
+      value: props.projectName,
     });
   }
 }
