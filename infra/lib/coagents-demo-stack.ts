@@ -41,7 +41,10 @@ export class CoAgentsDemoStack extends cdk.Stack {
         AWS_LWA_INVOKE_MODE: "RESPONSE_STREAM",
         PORT: "8000",
       },
-      code: lambda.Code.fromAssetImage(path.resolve(props.demoPath, "agent")),
+      code: lambda.Code.fromAssetImage(path.resolve(props.demoPath, "agent"), {
+        platform: ecr_assets.Platform.LINUX_AMD64,
+        buildSecrets: {},
+      }),
       timeout: cdk.Duration.seconds(300),
       memorySize: 1024,
     });
@@ -78,6 +81,9 @@ export class CoAgentsDemoStack extends cdk.Stack {
       },
       code: lambda.Code.fromAssetImage(path.resolve(props.demoPath, "ui"), {
         platform: ecr_assets.Platform.LINUX_AMD64,
+        buildSecrets: {
+          OPENAI_API_KEY: "id=OPENAI_API_KEY",
+        },
       }),
       timeout: cdk.Duration.seconds(300),
       memorySize: 1024,

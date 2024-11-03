@@ -11,7 +11,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN pnpm install --frozen-lockfile
 COPY . .
-RUN pnpm run build
+RUN --mount=type=secret,id=OPENAI_API_KEY \
+    OPENAI_API_KEY=/run/secrets/OPENAI_API_KEY \
+    pnpm run build
 
 # Production Stage 
 FROM base AS production
