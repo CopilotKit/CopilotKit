@@ -8,6 +8,9 @@ jobs:
     name: Comment with example preview
     permissions:
       deployments: write
+      pull-requests: write
+      statuses: write
+      actions: write
     steps:
       - name: Checkout
         uses: actions/checkout@v3
