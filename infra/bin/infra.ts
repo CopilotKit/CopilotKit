@@ -9,11 +9,11 @@ const app = new cdk.App();
 
 const pullRequestNumber = requireEnv("GITHUB_PR_NUMBER");
 
-new CoAgentsDemoStack(app, `ResearchCanvasDemoStackPr${pullRequestNumber}`, {
-  pullRequestNumber: `${pullRequestNumber}`,
-  projectName: "CoAgents Research Canvas",
-  demoPath: path.resolve(__dirname, "../../examples/coagents-research-canvas"),
-});
+// new CoAgentsDemoStack(app, `ResearchCanvasDemoStackPr${pullRequestNumber}`, {
+//   pullRequestNumber: `${pullRequestNumber}`,
+//   projectName: "CoAgents Research Canvas",
+//   demoPath: path.resolve(__dirname, "../../examples/coagents-research-canvas"),
+// });
 
 new CoAgentsDemoStack(app, `PerplexityDemoStackPr${pullRequestNumber}`, {
   pullRequestNumber: `${pullRequestNumber}`,
