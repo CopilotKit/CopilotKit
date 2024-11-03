@@ -26,3 +26,9 @@ new CoAgentsDemoStack(app, `CoAgentsQAText${pullRequestNumber}`, {
   projectName: "CoAgents Q&A Text",
   demoPath: path.resolve(__dirname, "../../examples/coagents-qa-text"),
 });
+
+new CoAgentsDemoStack(app, `CoAgentsQANative${pullRequestNumber}`, {
+  pullRequestNumber: `${pullRequestNumber}`,
+  projectName: "CoAgents Q&A Native",
+  demoPath: path.resolve(__dirname, "../../examples/coagents-qa-native"),
+});
