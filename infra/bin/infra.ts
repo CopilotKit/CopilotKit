@@ -20,3 +20,9 @@ new CoAgentsDemoStack(app, `PerplexityDemoStackPr${pullRequestNumber}`, {
   projectName: "CoAgents Perplexity Clone",
   demoPath: path.resolve(__dirname, "../../examples/coagents-ai-researcher"),
 });
+
+new CoAgentsDemoStack(app, `CoAgentsQAText${pullRequestNumber}`, {
+  pullRequestNumber: `${pullRequestNumber}`,
+  projectName: "CoAgents Q&A Text",
+  demoPath: path.resolve(__dirname, "../../examples/coagents-qa-text"),
+});
