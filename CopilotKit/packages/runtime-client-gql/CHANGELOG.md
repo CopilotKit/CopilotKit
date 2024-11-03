@@ -1,5 +1,25 @@
 # @copilotkit/runtime-client-gql
 
+## 1.3.11
+
+### Patch Changes
+
+- 08e8956: Fix duplicate messages
+- Fix duplicate messages
+- Updated dependencies [08e8956]
+- Updated dependencies
+  - @copilotkit/runtime@1.3.11
+  - @copilotkit/shared@1.3.11
+
+## 1.3.11-mme-fix-duplicate-messages.0
+
+### Patch Changes
+
+- Fix duplicate messages
+- Updated dependencies
+  - @copilotkit/runtime@1.3.11-mme-fix-duplicate-messages.0
+  - @copilotkit/shared@1.3.11-mme-fix-duplicate-messages.0
+
 ## 1.3.10
 
 ### Patch Changes

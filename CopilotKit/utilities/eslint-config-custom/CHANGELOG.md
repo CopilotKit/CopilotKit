@@ -1,5 +1,18 @@
 # eslint-config-custom
 
+## 1.3.11
+
+### Patch Changes
+
+- 08e8956: Fix duplicate messages
+- Fix duplicate messages
+
+## 1.3.11-mme-fix-duplicate-messages.0
+
+### Patch Changes
+
+- Fix duplicate messages
+
 ## 1.3.10
 
 ### Patch Changes

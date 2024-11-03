@@ -292,11 +292,7 @@ export class CopilotResolver {
                 // signal when we are done streaming
                 const streamingTextStatus = new Subject<typeof MessageStatusUnion>();
 
-                // TODO: we have a bug where messages and results are not aligned
-                //       this is a temporary fix, the correct behavior is to have
-                //       the messageId be the messageId from the event
-                // const messageId = event.messageId ?? randomId();
-                const messageId = randomId();
+                const messageId = event.messageId;
                 // push the new message
                 pushMessage({
                   id: messageId,
