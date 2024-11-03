@@ -3,7 +3,7 @@ name: Demos Preview (Deploy)
 on:
   pull_request:
     paths:
-      - './examples/**'
+      - './infra/**'
       - '.github/workflows/demos_preview.yml'
       - '.github/workflows/demos_preview_destroy.yml'
     branches:
