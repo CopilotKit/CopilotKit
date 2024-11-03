@@ -26,8 +26,14 @@ jobs:
         run: |
           aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
 
-      # - name: AWS CDK Deploy
-      #   run: npx cdk deploy --require-approval never
+      - name: cdk deploy
+        uses: youyo/aws-cdk-github-actions@v2
+        with:
+          working_dir: './infra'
+          cdk_subcommand: 'deploy'
+          cdk_stack: 'test-pr'
+          cdk_args: '--require-approval never --outputs-file=cdk_outputs.json'
+          actions_comment: true
 
       - name: Comment PR
         uses: thollander/actions-comment-pull-request@v3
