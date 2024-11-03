@@ -45,6 +45,10 @@ jobs:
           doppler-token: ${{ secrets.DOPPLER_TOKEN }}
           doppler-project: copilotkit-previews
           doppler-config: prd
+          
+      - name: Infra install dependencies
+        working-directory: infra
+        run: pnpm i
 
       - name: cdk deploy
         uses: youyo/aws-cdk-github-actions@v2
@@ -62,9 +66,6 @@ jobs:
       #   run: |
       #     echo "::set-output name=table::<table><tr><th>Demo</th><th>Preview URL</th></tr><tr><td>Example 1</td><td>$(jq -r '.["CopilotKitStack.PreviewUrl"]' cdk_outputs.json)</td></tr></table>"
 
-      - name: Infra install dependencies
-        working-directory: infra
-        run: pnpm i
 
       - name: Comment PR
         uses: thollander/actions-comment-pull-request@v3
