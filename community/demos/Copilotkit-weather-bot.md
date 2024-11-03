@@ -28,7 +28,7 @@ List the technologies and frameworks you used (e.g., CopilotKit, Next.js)
 ## 4. GitHub Project Link
 
 ### GitHub Repo Link: 
-[https://github.com/NathanTarbert/my-cool-project](https://github.com/JanumalaAkhilendra/Copilotkit-weather-bot)
+[JanumalaAkhilendra/Copilotkit-weather-bot](https://github.com/JanumalaAkhilendra/Copilotkit-weather-bot)
 
 ### 5 bonus points
 
