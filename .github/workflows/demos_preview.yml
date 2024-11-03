@@ -22,6 +22,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      - name: Auth AWS CDK Public Registry
+        run: |
+          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
+
+      # - name: AWS CDK Deploy
+      #   run: npx cdk deploy --require-approval never
+
       - name: Comment PR
         uses: thollander/actions-comment-pull-request@v3
         with:
