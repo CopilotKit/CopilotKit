@@ -27,7 +27,16 @@ jobs:
         with:
           comment-tag: preview
           message: |
-            Deployment in progress...
+            <table>
+              <tr>
+                <th>Demo</th>
+                <th>Preview URL</th>
+              </tr>
+              <tr>
+                <td>Example 1</td>
+                <td>http://example1.com</td>
+              </tr>
+            </table>
 
       # - name: Deploy
       #   uses: chrnorm/deployment-action@v2
