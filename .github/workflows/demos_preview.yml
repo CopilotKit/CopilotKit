@@ -63,6 +63,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_PR_NUMBER: ${{ github.event.number }}
+          OPENAI_API_KEY: "123"
 
       - name: Generate table from outputs
         id: generate-table
