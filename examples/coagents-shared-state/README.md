@@ -1,5 +1,7 @@
 # CoAgents Shared State Example
 
+This example demonstrates how to share state between the agent and the UI.
+
 **These instructions assume you are in the `coagents-shared-state/` directory**
 
 ## Running the Agent
@@ -12,6 +14,7 @@ poetry install
 ```
 
 Then, create a `.env` file inside `./agent` with the following:
+
 ```
 OPENAI_API_KEY=...
 ```
@@ -35,6 +38,7 @@ pnpm i
 ```
 
 Then, create a `.env` file inside `./ui` with the following:
+
 ```
 OPENAI_API_KEY=...
 ```
@@ -49,13 +53,11 @@ pnpm run dev
 
 Navigate to [http://localhost:3000](http://localhost:3000).
 
-
 # LangGraph Studio
 
 Run LangGraph studio, then load the `./agent` folder into it.
 
 Make sure to create teh `.env` mentioned above first!
-
 
 # Troubleshooting
 
