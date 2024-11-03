@@ -14,3 +14,9 @@ new CoAgentsDemoStack(app, `ResearchCanvasDemoStackPr${pullRequestNumber}`, {
   projectName: "CoAgents Research Canvas",
   demoPath: path.resolve(__dirname, "../../examples/coagents-research-canvas"),
 });
+
+new CoAgentsDemoStack(app, `PerplexityDemoStackPr${pullRequestNumber}`, {
+  pullRequestNumber: `${pullRequestNumber}`,
+  projectName: "CoAgents Perplexity Clone",
+  demoPath: path.resolve(__dirname, "../../examples/coagents-ai-researcher"),
+});
