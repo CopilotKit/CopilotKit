@@ -103,6 +103,10 @@ export class CoAgentsDemoStack extends cdk.Stack {
       value: props.projectName,
     });
 
+    new cdk.CfnOutput(this, "PullRequestNumber", {
+      value: props.pullRequestNumber,
+    });
+
     // Add tag for PR number to all resources
     cdk.Tags.of(this).add("pr-number", props.pullRequestNumber);
   }
