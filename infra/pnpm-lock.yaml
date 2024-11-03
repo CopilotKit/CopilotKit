@@ -30,6 +30,9 @@ importers:
       jest:
         specifier: ^29.7.0
         version: 29.7.0(@types/node@22.7.9)(ts-node@10.9.2(@types/node@22.7.9)(typescript@5.6.3))
+      json2md:
+        specifier: ^2.0.1
+        version: 2.0.1
       ts-jest:
         specifier: ^29.2.5
         version: 29.2.5(@babel/core@7.26.0)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.26.0))(jest@29.7.0(@types/node@22.7.9)(ts-node@10.9.2(@types/node@22.7.9)(typescript@5.6.3)))(typescript@5.6.3)
@@ -724,6 +727,9 @@ packages:
     resolution: {integrity: sha512-JmXMZ6wuvDmLiHEml9ykzqO6lwFbof0GG4IkcGaENdCRDDmMVnny7s5HsIgHCbaq0w2MyPhDqkhTUgS2LU2PHA==}
     engines: {node: '>=0.8.19'}
 
+  indento@1.1.13:
+    resolution: {integrity: sha512-YZWk3mreBEM7sBPddsiQnW9Z8SGg/gNpFfscJq00HCDS7pxcQWWWMSVKJU7YkTRyDu1Zv2s8zaK8gQWKmCXHlg==}
+
   inflight@1.0.6:
     resolution: {integrity: sha512-k92I/b08q4wvFscXCLvqfsHCrjrF7yiXsQuIVvVE7N82W3+aqpzuUdBbfhWcy/FZR3/4IgflMgKLOsvPDrGCJA==}
     deprecated: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
@@ -929,6 +935,9 @@ packages:
 
   json-parse-even-better-errors@2.3.1:
     resolution: {integrity: sha512-xyFwyhro/JEof6Ghe2iz2NcXoj2sloNsWr/XsERDK/oiPCfaNhl5ONfp+jQdAZRQQ0IJWNzH9zIZF7li91kh2w==}
+
+  json2md@2.0.1:
+    resolution: {integrity: sha512-VbwmZ83qmUfKBS2pUOHlzNKEZFPBeJSbzEok3trMYyboZUgdHNn1XZfc1uT8UZs1GHCrmRUBXCfqw4YmmQuOhw==}
 
   json5@2.2.3:
     resolution: {integrity: sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg==}
@@ -2082,6 +2091,8 @@ snapshots:
 
   imurmurhash@0.1.4: {}
 
+  indento@1.1.13: {}
+
   inflight@1.0.6:
     dependencies:
       once: 1.4.0
@@ -2472,6 +2483,10 @@ snapshots:
   jsesc@3.0.2: {}
 
   json-parse-even-better-errors@2.3.1: {}
+
+  json2md@2.0.1:
+    dependencies:
+      indento: 1.1.13
 
   json5@2.2.3: {}
 
