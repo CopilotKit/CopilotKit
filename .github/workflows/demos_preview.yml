@@ -33,7 +33,7 @@ jobs:
           token: '${{ github.token }}'
           environment-url: "http://test.com"
           environment: "preview-branch"
-          ref: "some-pr"
+          # ref: "some-pr"
           payload: "{\"key\": \"value\"}"
 
 
