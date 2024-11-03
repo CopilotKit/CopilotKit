@@ -58,7 +58,7 @@ jobs:
         with:
           working_dir: './infra'
           cdk_subcommand: 'deploy'
-          cdk_args: '--require-approval never --outputs-file=cdk_outputs.json'
+          cdk_args: '--require-approval never --all --outputs-file=cdk_outputs.json'
           actions_comment: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
