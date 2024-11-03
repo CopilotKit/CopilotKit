@@ -64,7 +64,7 @@ jobs:
 
       - name: Infra install dependencies
         working-directory: infra
-        run: pnpm install
+        run: pnpm i
 
       - name: Comment PR
         uses: thollander/actions-comment-pull-request@v3
