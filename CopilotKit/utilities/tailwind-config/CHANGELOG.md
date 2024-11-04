@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 1.3.12-feat-langgraph-cloud-release-alpha.0
+
+### Patch Changes
+
+- alpha release langgraph cloud support
+
 ## 1.3.11
 
 ### Patch Changes

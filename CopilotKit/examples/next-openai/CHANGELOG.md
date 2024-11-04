@@ -1,5 +1,17 @@
 # web
 
+## 1.3.12-feat-langgraph-cloud-release-alpha.0
+
+### Patch Changes
+
+- alpha release langgraph cloud support
+- Updated dependencies
+  - @copilotkit/runtime@1.3.12-feat-langgraph-cloud-release-alpha.0
+  - @copilotkit/react-core@1.3.12-feat-langgraph-cloud-release-alpha.0
+  - @copilotkit/react-textarea@1.3.12-feat-langgraph-cloud-release-alpha.0
+  - @copilotkit/react-ui@1.3.12-feat-langgraph-cloud-release-alpha.0
+  - @copilotkit/shared@1.3.12-feat-langgraph-cloud-release-alpha.0
+
 ## 1.3.11
 
 ### Patch Changes
