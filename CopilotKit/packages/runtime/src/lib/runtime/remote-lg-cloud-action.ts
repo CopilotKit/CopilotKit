@@ -4,7 +4,7 @@ import { parse as parsePartialJson } from "partial-json";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { LangGraphCloudAgent } from "./remote-actions";
 import { CopilotRequestContextProperties } from "../integrations";
-import { BaseMessage as CopilotKitBaseMessage } from "../../graphql/types/base";
+import { BaseMessageInput as CopilotKitBaseMessage } from "../../graphql/types/base";
 import { MessageRole } from "../../graphql/types/enums";
 
 type State = Record<string, any>;
