@@ -54,6 +54,8 @@ export function constructLGCRemoteAction({
 
       try {
         const response = await execute({
+          deploymentUrl: endpoint.deploymentUrl,
+          langsmithApiKey: endpoint.langsmithApiKey,
           agent,
           threadId,
           nodeName,
