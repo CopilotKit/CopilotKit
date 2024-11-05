@@ -2,16 +2,16 @@ import { Client } from "@langchain/langgraph-sdk";
 import { randomUUID } from "node:crypto";
 import { parse as parsePartialJson } from "partial-json";
 import { ActionInput } from "../../graphql/inputs/action.input";
-import { LangGraphCloudAgent } from "./remote-actions";
+import { LangGraphCloudAgent, LangGraphCloudEndpoint } from "./remote-actions";
 import { CopilotRequestContextProperties } from "../integrations";
-import { BaseMessage as CopilotKitBaseMessage } from "../../graphql/types/base";
+import { BaseMessageInput as CopilotKitBaseMessage } from "../../graphql/types/base";
 import { MessageRole } from "../../graphql/types/enums";
 
 type State = Record<string, any>;
 
 type ExecutionAction = Pick<ActionInput, "name" | "description"> & { parameters: string };
 
-interface ExecutionArgs {
+interface ExecutionArgs extends Omit<LangGraphCloudEndpoint, "agents"> {
   agent: LangGraphCloudAgent;
   threadId: string;
   nodeName: string;
@@ -34,6 +34,8 @@ export async function execute(args: ExecutionArgs): Promise<ReadableStream<Uint8
 
 async function streamEvents(controller: ReadableStreamDefaultController, args: ExecutionArgs) {
   const {
+    deploymentUrl,
+    langsmithApiKey,
     threadId: agrsInitialThreadId,
     agent,
     nodeName: initialNodeName,
@@ -46,7 +48,8 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   let state = initialState;
   const { name, assistantId: initialAssistantId } = agent;
 
-  const client = new Client();
+  // TODO: deploymentUrl is not required in local development
+  const client = new Client({ apiUrl: deploymentUrl, apiKey: langsmithApiKey });
   let initialThreadId = agrsInitialThreadId;
   const wasInitiatedWithExistingThread = !!initialThreadId;
   if (initialThreadId && initialThreadId.startsWith("ck-")) {
