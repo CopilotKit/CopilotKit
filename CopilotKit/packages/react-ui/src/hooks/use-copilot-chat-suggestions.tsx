@@ -4,9 +4,7 @@
  *   can change without notice.
  * </Callout>
  *
- * `useCopilotReadable` is a React hook that provides app-state and other information
- * to the Copilot. Optionally, the hook can also handle hierarchical state within your
- * application, passing these parent-child relationships to the Copilot.
+ * `useCopilotChatSuggestions` is a React hook that provides auto-suggestions in the Copilot chat.
  *
  * <br/>
  * <img src="/images/use-copilot-chat-suggestions/use-copilot-chat-suggestions.gif" width="500" />
