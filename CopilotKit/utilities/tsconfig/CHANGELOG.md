@@ -1,5 +1,12 @@
 # tsconfig
 
+## 1.3.12
+
+### Patch Changes
+
+- - enable dynamic parameters in langchain adapter tool call
+  - fix unparsable action arguments causing tool call crashes
+
 ## 1.3.11
 
 ### Patch Changes
