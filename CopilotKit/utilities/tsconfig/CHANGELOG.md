@@ -1,5 +1,11 @@
 # tsconfig
 
+## 1.3.12-lgc-alpha-1.0
+
+### Patch Changes
+
+- alpha release
+
 ## 1.3.11
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.3.12-lgc-alpha-1.0
+
+### Patch Changes
+
+- alpha release
+- Updated dependencies
+  - @copilotkit/shared@1.3.12-lgc-alpha-1.0
+
 ## 1.3.11
 
 ### Patch Changes
