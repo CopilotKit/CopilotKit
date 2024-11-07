@@ -1,5 +1,18 @@
 # web
 
+## 1.3.12-fix-tool-call-dynamic-parameters.0
+
+### Patch Changes
+
+- fix: enable dynamic parameters in langchain adapter tool call
+  fix: catch uparsable arguments on function calling
+- Updated dependencies
+  - @copilotkit/runtime@1.3.12-fix-tool-call-dynamic-parameters.0
+  - @copilotkit/react-core@1.3.12-fix-tool-call-dynamic-parameters.0
+  - @copilotkit/react-textarea@1.3.12-fix-tool-call-dynamic-parameters.0
+  - @copilotkit/react-ui@1.3.12-fix-tool-call-dynamic-parameters.0
+  - @copilotkit/shared@1.3.12-fix-tool-call-dynamic-parameters.0
+
 ## 1.3.11
 
 ### Patch Changes

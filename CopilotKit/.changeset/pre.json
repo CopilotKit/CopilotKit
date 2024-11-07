@@ -1,0 +1,22 @@
+{
+  "mode": "pre",
+  "tag": "fix-tool-call-dynamic-parameters",
+  "initialVersions": {
+    "next-openai": "1.3.11",
+    "next-pages-router": "1.3.11",
+    "node-express": "1.3.11",
+    "node-http": "1.3.11",
+    "@copilotkit/react-core": "1.3.11",
+    "@copilotkit/react-textarea": "1.3.11",
+    "@copilotkit/react-ui": "1.3.11",
+    "@copilotkit/runtime": "1.3.11",
+    "@copilotkit/runtime-client-gql": "1.3.11",
+    "@copilotkit/shared": "1.3.11",
+    "eslint-config-custom": "1.3.11",
+    "tailwind-config": "1.3.11",
+    "tsconfig": "1.3.11"
+  },
+  "changesets": [
+    "yellow-dolphins-push"
+  ]
+}
