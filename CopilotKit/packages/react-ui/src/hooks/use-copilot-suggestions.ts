@@ -79,8 +79,8 @@ export interface UseCopilotSuggestionsConfiguration<T extends Parameter[] = []> 
   debounceTime?: number;
 }
 export type SuggestionsResult<T extends Parameter[]> =
-  | { suggestions: undefined; isAvailable: false }
-  | { suggestions: MappedParameterTypes<T>; isAvailable: true };
+  | { suggestions: undefined; isAvailable: false; isLoading: boolean }
+  | { suggestions: MappedParameterTypes<T>; isAvailable: true; isLoading: boolean };
 
 export function useCopilotSuggestions<const T extends Parameter[]>(
   {
@@ -97,6 +97,7 @@ export function useCopilotSuggestions<const T extends Parameter[]>(
   const [suggestions, setSuggestions] = useState<SuggestionsResult<T>>({
     suggestions: undefined,
     isAvailable: false,
+    isLoading: false,
   });
   const isFirstRunRef = useRef(true);
 
@@ -112,7 +113,7 @@ export function useCopilotSuggestions<const T extends Parameter[]>(
   useEffect(() => {
     abortSuggestions();
     if (!enabled) {
-      setSuggestions({ suggestions: undefined, isAvailable: false });
+      setSuggestions({ suggestions: undefined, isAvailable: false, isLoading: false });
       return;
     }
 
@@ -122,10 +123,11 @@ export function useCopilotSuggestions<const T extends Parameter[]>(
     }
 
     debounceTimerRef.current = setTimeout(
-      () => {
+      async () => {
         isFirstRunRef.current = false;
         suggestionsAbortControllerRef.current = new AbortController();
-        reloadSuggestions(
+        setSuggestions({ ...suggestions, isLoading: true });
+        await reloadSuggestions(
           context,
           instructions,
           parameters,
@@ -180,7 +182,7 @@ async function reloadSuggestions(
     requestType: CopilotRequestType.Task,
     stream({ args, status }) {
       if (status === "complete") {
-        setSuggestions({ suggestions: args, isAvailable: true });
+        setSuggestions({ suggestions: args, isAvailable: true, isLoading: false });
       }
     },
   });
