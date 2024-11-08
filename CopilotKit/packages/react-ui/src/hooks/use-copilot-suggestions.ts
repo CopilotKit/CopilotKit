@@ -78,10 +78,9 @@ export interface UseCopilotSuggestionsConfiguration<T extends Parameter[] = []> 
    */
   debounceTime?: number;
 }
-
-export interface SuggestionsResult<T extends Parameter[]> {
-  suggestions: Partial<MappedParameterTypes<T>>;
-}
+export type SuggestionsResult<T extends Parameter[]> =
+  | { suggestions: undefined; isAvailable: false }
+  | { suggestions: MappedParameterTypes<T>; isAvailable: true };
 
 export function useCopilotSuggestions<const T extends Parameter[]>(
   {
@@ -95,7 +94,10 @@ export function useCopilotSuggestions<const T extends Parameter[]>(
 ): SuggestionsResult<T> {
   const suggestionsAbortControllerRef = useRef<AbortController | null>(null);
   const debounceTimerRef = useRef<any>();
-  const [suggestions, setSuggestions] = useState<SuggestionsResult<T>>({ suggestions: {} });
+  const [suggestions, setSuggestions] = useState<SuggestionsResult<T>>({
+    suggestions: undefined,
+    isAvailable: false,
+  });
   const isFirstRunRef = useRef(true);
 
   const abortSuggestions = useCallback(() => {
@@ -110,7 +112,12 @@ export function useCopilotSuggestions<const T extends Parameter[]>(
   useEffect(() => {
     abortSuggestions();
     if (!enabled) {
-      setSuggestions({ suggestions: {} });
+      setSuggestions({ suggestions: undefined, isAvailable: false });
+      return;
+    }
+
+    // if value is the same as the last suggestions, don't reload
+    if (JSON.stringify(value) === JSON.stringify(suggestions.suggestions)) {
       return;
     }
 
@@ -151,7 +158,7 @@ async function reloadSuggestions(
   parameters: Parameter[],
   value: any,
   abortControllerRef: React.MutableRefObject<AbortController | null>,
-  setSuggestions: (suggestions: SuggestionsResult<Parameter[]>) => void,
+  setSuggestions: (suggestions: any) => void,
 ) {
   const abortController = abortControllerRef.current;
   let fullInstructions = `It's your task to generate suggestions based on the application context.`;
@@ -171,8 +178,10 @@ async function reloadSuggestions(
     parameters,
     abortSignal: abortController?.signal,
     requestType: CopilotRequestType.Task,
-    stream({ args }) {
-      setSuggestions({ suggestions: args });
+    stream({ args, status }) {
+      if (status === "complete") {
+        setSuggestions({ suggestions: args, isAvailable: true });
+      }
     },
   });
 }
