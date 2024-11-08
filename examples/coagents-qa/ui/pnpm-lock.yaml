@@ -9,23 +9,23 @@ importers:
   .:
     dependencies:
       '@copilotkit/react-core':
-        specifier: 1.3.11-mme-fix-duplicate-messages.0
-        version: 1.3.11-mme-fix-duplicate-messages.0(google-auth-library@8.9.0)(lodash@4.17.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 1.3.12
+        version: 1.3.12(google-auth-library@8.9.0)(lodash@4.17.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@copilotkit/react-textarea':
-        specifier: 1.3.11-mme-fix-duplicate-messages.0
-        version: 1.3.11-mme-fix-duplicate-messages.0(@types/react-dom@18.3.0)(@types/react@18.3.4)(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)
+        specifier: 1.3.12
+        version: 1.3.12(@types/react-dom@18.3.0)(@types/react@18.3.4)(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)
       '@copilotkit/react-ui':
-        specifier: 1.3.11-mme-fix-duplicate-messages.0
-        version: 1.3.11-mme-fix-duplicate-messages.0(@types/react@18.3.4)(google-auth-library@8.9.0)(lodash@4.17.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 1.3.12
+        version: 1.3.12(@types/react@18.3.4)(google-auth-library@8.9.0)(lodash@4.17.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@copilotkit/runtime':
-        specifier: 1.3.11-mme-fix-duplicate-messages.0
-        version: 1.3.11-mme-fix-duplicate-messages.0(class-validator@0.14.1)(google-auth-library@8.9.0)(lodash@4.17.21)
+        specifier: 1.3.12
+        version: 1.3.12(class-validator@0.14.1)(google-auth-library@8.9.0)(lodash@4.17.21)
       '@copilotkit/runtime-client-gql':
-        specifier: 1.3.11-mme-fix-duplicate-messages.0
-        version: 1.3.11-mme-fix-duplicate-messages.0(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)
+        specifier: 1.3.12
+        version: 1.3.12(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)
       '@copilotkit/shared':
-        specifier: 1.3.11-mme-fix-duplicate-messages.0
-        version: 1.3.11-mme-fix-duplicate-messages.0
+        specifier: 1.3.12
+        version: 1.3.12
       '@radix-ui/react-accordion':
         specifier: ^1.2.0
         version: 1.2.0(@types/react-dom@18.3.0)(@types/react@18.3.4)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -153,32 +153,32 @@ packages:
     resolution: {integrity: sha512-JWtuCu8VQsMladxVz/P4HzHUGCAwpuqacmowgXFs5XjxIgKuNjnLokQzuVjlTvIzODaDmpjT3oxcC48vyk9EWg==}
     engines: {node: '>=6.9.0'}
 
-  '@copilotkit/react-core@1.3.11-mme-fix-duplicate-messages.0':
-    resolution: {integrity: sha512-yHS/rcxd56EvszutqKZp7wxS6nZWhxVMRjmn1lWoH8VrKLCqlrfz6Vmo6kPlMIFTm5Ub+aRIYZtBQP52BUJ5sQ==}
+  '@copilotkit/react-core@1.3.12':
+    resolution: {integrity: sha512-EgrVWNuy+F8GY0rV0ZAiNrnLZ5KRWK2fB4EsUfW2bPySbx/5BYEc3MIKWPnDW4+BPiL967DpZkZ67jUsOT+2HQ==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
       react-dom: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/react-textarea@1.3.11-mme-fix-duplicate-messages.0':
-    resolution: {integrity: sha512-5ongMRA1ZlVgjILpRDZfMNglMcBULh/PGt8rcq9gXAcon7bLh+6FkfE6JRIk6zxg8lPGzvUmOYdi7FlU5/nGaw==}
+  '@copilotkit/react-textarea@1.3.12':
+    resolution: {integrity: sha512-t0rm2c4Vboq3Q1b/Yu8Vd1AhTOzckj6q7sAAfjX1p2yAvtdNX+/TZfjYGOya1sT/GimcC8lemzvub8zNmiqa1Q==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/react-ui@1.3.11-mme-fix-duplicate-messages.0':
-    resolution: {integrity: sha512-cyi/GFv33QPjm/KERU5IWant065QM/SQrrqBdATY1DHIVRJ3Q+9ASPScThpGNr8jqAj++rDdXwbcvWgT4Iw3wQ==}
+  '@copilotkit/react-ui@1.3.12':
+    resolution: {integrity: sha512-Uui/OheJKTPiQSb9JKRWCYPXKrW3le4VdzRhyYRm3KTpPXQKN2Zv7VUPEM7bosVaktatZrWyp7EdG9U0DEognw==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime-client-gql@1.3.11-mme-fix-duplicate-messages.0':
-    resolution: {integrity: sha512-ahu6CDtyG8qH9N65cHbUwJ9CUThLKCJNRHfv43RcrdauO2JGhjEmAlKvXC15ZSgVwUnOEDaZOaVpqbVpMIZMLw==}
+  '@copilotkit/runtime-client-gql@1.3.12':
+    resolution: {integrity: sha512-bAZX6H5FDDmfn30SMalz//OTDdVCcackR7qoIp2VwVHKKBHcun5dWOaovM9V9LfrcTnQXNYt6ueaHb9ZPQ/Qxg==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime@1.3.11-mme-fix-duplicate-messages.0':
-    resolution: {integrity: sha512-ac5bNn7BVcHtEkDNadT/HX/44VtF7HXXJgUYDP315yrnI0RMJA4+nLf/6wHY7Pq4O9L6fv0jqIvJQeUsmmRMnw==}
+  '@copilotkit/runtime@1.3.12':
+    resolution: {integrity: sha512-RhbV/z8T4X2MMa9VUmPTL7puF/F91aZEjg8pYuAj4evMJ9YEz9aPnklk6J9FPcB+c4NAC6eeBosxgE1Y4Jat3A==}
 
-  '@copilotkit/shared@1.3.11-mme-fix-duplicate-messages.0':
-    resolution: {integrity: sha512-wA2EP7Ix2maazBH3flFfLvMNinftW+lH4drGN8VHhd+5FAgcwLR/EZ4Nkt5uDUUEAxl+A+a9NgJhuiwJKDr2sw==}
+  '@copilotkit/shared@1.3.12':
+    resolution: {integrity: sha512-BOfesxj+NBns+JR7WdGPYV2zTWmfMlMDVJ1K0VUgq8JN4IC2Ll5CUlhF72/JWn/4OkIHMZxaaJw3yMdaLFt3yQ==}
 
   '@emotion/babel-plugin@11.12.0':
     resolution: {integrity: sha512-y2WQb+oP8Jqvvclh8Q55gLUyb7UFvgv7eJfsj7td5TToBrIUtPay2kMrZi4xjq9qw2vD0ZR5fSho0yqoFgX7Rw==}
@@ -4265,10 +4265,10 @@ snapshots:
       '@babel/helper-validator-identifier': 7.25.7
       to-fast-properties: 2.0.0
 
-  '@copilotkit/react-core@1.3.11-mme-fix-duplicate-messages.0(google-auth-library@8.9.0)(lodash@4.17.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkit/react-core@1.3.12(google-auth-library@8.9.0)(lodash@4.17.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@copilotkit/runtime-client-gql': 1.3.11-mme-fix-duplicate-messages.0(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)
-      '@copilotkit/shared': 1.3.11-mme-fix-duplicate-messages.0
+      '@copilotkit/runtime-client-gql': 1.3.12(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)
+      '@copilotkit/shared': 1.3.12
       '@scarf/scarf': 1.3.0
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
@@ -4381,11 +4381,11 @@ snapshots:
       - web-auth-library
       - ws
 
-  '@copilotkit/react-textarea@1.3.11-mme-fix-duplicate-messages.0(@types/react-dom@18.3.0)(@types/react@18.3.4)(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)':
+  '@copilotkit/react-textarea@1.3.12(@types/react-dom@18.3.0)(@types/react@18.3.4)(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)':
     dependencies:
-      '@copilotkit/react-core': 1.3.11-mme-fix-duplicate-messages.0(google-auth-library@8.9.0)(lodash@4.17.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@copilotkit/runtime-client-gql': 1.3.11-mme-fix-duplicate-messages.0(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)
-      '@copilotkit/shared': 1.3.11-mme-fix-duplicate-messages.0
+      '@copilotkit/react-core': 1.3.12(google-auth-library@8.9.0)(lodash@4.17.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@copilotkit/runtime-client-gql': 1.3.12(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)
+      '@copilotkit/shared': 1.3.12
       '@emotion/css': 11.13.4
       '@emotion/react': 11.13.3(@types/react@18.3.4)(react@18.3.1)
       '@emotion/styled': 11.13.0(@emotion/react@11.13.3(@types/react@18.3.4)(react@18.3.1))(@types/react@18.3.4)(react@18.3.1)
@@ -4516,11 +4516,11 @@ snapshots:
       - web-auth-library
       - ws
 
-  '@copilotkit/react-ui@1.3.11-mme-fix-duplicate-messages.0(@types/react@18.3.4)(google-auth-library@8.9.0)(lodash@4.17.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkit/react-ui@1.3.12(@types/react@18.3.4)(google-auth-library@8.9.0)(lodash@4.17.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@copilotkit/react-core': 1.3.11-mme-fix-duplicate-messages.0(google-auth-library@8.9.0)(lodash@4.17.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@copilotkit/runtime-client-gql': 1.3.11-mme-fix-duplicate-messages.0(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)
-      '@copilotkit/shared': 1.3.11-mme-fix-duplicate-messages.0
+      '@copilotkit/react-core': 1.3.12(google-auth-library@8.9.0)(lodash@4.17.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@copilotkit/runtime-client-gql': 1.3.12(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)
+      '@copilotkit/shared': 1.3.12
       '@headlessui/react': 2.1.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       react-markdown: 8.0.7(@types/react@18.3.4)(react@18.3.1)
@@ -4637,10 +4637,10 @@ snapshots:
       - web-auth-library
       - ws
 
-  '@copilotkit/runtime-client-gql@1.3.11-mme-fix-duplicate-messages.0(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)':
+  '@copilotkit/runtime-client-gql@1.3.12(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)':
     dependencies:
-      '@copilotkit/runtime': 1.3.11-mme-fix-duplicate-messages.0(class-validator@0.14.1)(google-auth-library@8.9.0)(lodash@4.17.21)
-      '@copilotkit/shared': 1.3.11-mme-fix-duplicate-messages.0
+      '@copilotkit/runtime': 1.3.12(class-validator@0.14.1)(google-auth-library@8.9.0)(lodash@4.17.21)
+      '@copilotkit/shared': 1.3.12
       '@urql/core': 5.0.6(graphql@16.9.0)
       class-transformer: 0.5.1
       class-validator: 0.14.1
@@ -4757,10 +4757,10 @@ snapshots:
       - web-auth-library
       - ws
 
-  '@copilotkit/runtime@1.3.11-mme-fix-duplicate-messages.0(class-validator@0.14.1)(google-auth-library@8.9.0)(lodash@4.17.21)':
+  '@copilotkit/runtime@1.3.12(class-validator@0.14.1)(google-auth-library@8.9.0)(lodash@4.17.21)':
     dependencies:
       '@anthropic-ai/sdk': 0.27.3
-      '@copilotkit/shared': 1.3.11-mme-fix-duplicate-messages.0
+      '@copilotkit/shared': 1.3.12
       '@graphql-yoga/plugin-defer-stream': 3.7.0(graphql-yoga@5.7.0(graphql@16.9.0))(graphql@16.9.0)
       '@langchain/community': 0.0.53(google-auth-library@8.9.0)(langchain@0.3.5(@langchain/core@0.3.16(openai@4.70.2(zod@3.23.8)))(openai@4.70.2(zod@3.23.8)))(lodash@4.17.21)(openai@4.70.2(zod@3.23.8))
       '@langchain/core': 0.3.16(openai@4.70.2(zod@3.23.8))
@@ -4889,7 +4889,7 @@ snapshots:
       - web-auth-library
       - ws
 
-  '@copilotkit/shared@1.3.11-mme-fix-duplicate-messages.0':
+  '@copilotkit/shared@1.3.12':
     dependencies:
       '@segment/analytics-node': 2.1.2
       chalk: 4.1.2
@@ -6604,7 +6604,7 @@ snapshots:
       eslint: 8.57.0
       eslint-import-resolver-node: 0.3.9
       eslint-import-resolver-typescript: 3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0)
-      eslint-plugin-import: 2.29.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0)
+      eslint-plugin-import: 2.29.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.3)(eslint@8.57.0)
       eslint-plugin-jsx-a11y: 6.9.0(eslint@8.57.0)
       eslint-plugin-react: 7.35.0(eslint@8.57.0)
       eslint-plugin-react-hooks: 4.6.2(eslint@8.57.0)
@@ -6629,20 +6629,20 @@ snapshots:
       debug: 4.3.6
       enhanced-resolve: 5.17.1
       eslint: 8.57.0
-      eslint-module-utils: 2.8.2(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0)
+      eslint-module-utils: 2.8.2(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.3)(eslint@8.57.0)
       fast-glob: 3.3.2
       get-tsconfig: 4.7.6
       is-bun-module: 1.1.0
       is-glob: 4.0.3
     optionalDependencies:
-      eslint-plugin-import: 2.29.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0)
+      eslint-plugin-import: 2.29.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.3)(eslint@8.57.0)
     transitivePeerDependencies:
       - '@typescript-eslint/parser'
       - eslint-import-resolver-node
       - eslint-import-resolver-webpack
       - supports-color
 
-  eslint-module-utils@2.8.2(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0):
+  eslint-module-utils@2.8.2(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.3)(eslint@8.57.0):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
@@ -6653,7 +6653,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0):
+  eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.3)(eslint@8.57.0):
     dependencies:
       array-includes: 3.1.8
       array.prototype.findlastindex: 1.2.5
@@ -6663,7 +6663,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 8.57.0
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.8.2(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0)
+      eslint-module-utils: 2.8.2(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.3)(eslint@8.57.0)
       hasown: 2.0.2
       is-core-module: 2.15.1
       is-glob: 4.0.3
