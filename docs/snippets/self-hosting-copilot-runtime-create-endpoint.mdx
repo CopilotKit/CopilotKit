@@ -8,14 +8,17 @@ OPENAI_API_KEY=your_api_key_here
 ```
 
 <Callout type="warn">
- Please note that the code below uses GPT-4o, which requires a paid OpenAI API key. **If you are using a free OpenAI API key**, change the model to a different option such as `gpt-3.5-turbo`.
+  Please note that the code below uses GPT-4o, which requires a paid OpenAI API
+  key. **If you are using a free OpenAI API key**, change the model to a
+  different option such as `gpt-3.5-turbo`.
 </Callout>
 
 #### Endpoint Setup
 
 <Tabs items={['Next.js App Router', 'Next.js Pages Router', 'Node.js Express', 'Node.js HTTP', 'NestJS']}>
 
-  {/* Next.js App Router */}
+{/* Next.js App Router */}
+
   <Tab value="Next.js App Router">
     Create a new route to handle the `/api/copilotkit` endpoint.
 
@@ -25,7 +28,7 @@ OPENAI_API_KEY=your_api_key_here
       OpenAIAdapter,
       copilotRuntimeNextJSAppRouterEndpoint,
     } from '@copilotkit/runtime';
-    import OpenAI from 'openai';
+    import { OpenAI } from 'openai';
     import { NextRequest } from 'next/server';
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -44,9 +47,11 @@ OPENAI_API_KEY=your_api_key_here
     ```
 
     Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.
+
   </Tab>
 
-  {/* Next.js Pages Router */}
+{/* Next.js Pages Router */}
+
   <Tab value="Next.js Pages Router">
     Create a new route to handle the `/api/copilotkit` endpoint:
 
@@ -78,9 +83,11 @@ OPENAI_API_KEY=your_api_key_here
     ```
 
     Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.
+
   </Tab>
 
-  {/* Node.js Express */}
+{/* Node.js Express */}
+
   <Tab value="Node.js Express">
     Create a new Express.js app and set up the Copilot Runtime handler:
 
@@ -120,7 +127,8 @@ OPENAI_API_KEY=your_api_key_here
     </Callout>
     </Tab>
 
-  {/* Node.js HTTP */}
+{/* Node.js HTTP */}
+
   <Tab value="Node.js HTTP">
     Set up a simple Node.js HTTP server and use the Copilot Runtime to handle requests:
 
@@ -157,9 +165,11 @@ OPENAI_API_KEY=your_api_key_here
     <Callout type="warn">
     Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
     </Callout>
+
   </Tab>
 
-  {/* NestJS */}
+{/* NestJS */}
+
   <Tab value="NestJS">
     Set up a controller in NestJS to handle the Copilot Runtime endpoint:
 
@@ -190,7 +200,6 @@ OPENAI_API_KEY=your_api_key_here
     <Callout type="warn">
     Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
     </Callout>
+
   </Tab>
 </Tabs>
-
-
