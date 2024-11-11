@@ -16,7 +16,7 @@ import {
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 import { ActionInput } from "../../graphql/inputs/action.input";
-import { LangChainReturnType } from "./types";
+import { LangChainAIMessageChunkStream, LangChainReturnType } from "./types";
 import { RuntimeEventSubject } from "../events";
 import { randomId } from "@copilotkit/shared";
 
@@ -201,6 +201,13 @@ export async function streamLangChainResponse({
 
     let mode: "function" | "message" | null = null;
 
+    const toolCallDetails = {
+      name: null,
+      id: null,
+      index: null,
+      prevIndex: null,
+    };
+
     while (true) {
       try {
         const { done, value } = await reader.read();
@@ -208,15 +215,30 @@ export async function streamLangChainResponse({
         let toolCallName: string | undefined = undefined;
         let toolCallId: string | undefined = undefined;
         let toolCallArgs: string | undefined = undefined;
+        let toolCallIndex: number | undefined = undefined;
+        let toolCallPrevIndex: number | undefined = undefined;
         let hasToolCall: boolean = false;
         let content = value?.content as string;
 
         if (isAIMessageChunk(value)) {
           let chunk = value.tool_call_chunks?.[0];
-          toolCallName = chunk?.name;
-          toolCallId = chunk?.id;
           toolCallArgs = chunk?.args;
           hasToolCall = chunk != undefined;
+          if (chunk?.name) toolCallDetails.name = chunk.name;
+          // track different index on the same tool cool
+          if (chunk?.index != null) {
+            toolCallDetails.index = chunk.index; // 1
+            if (toolCallDetails.prevIndex == null) toolCallDetails.prevIndex = chunk.index;
+          }
+          // Differentiate when calling the same tool but with different index
+          if (chunk?.id)
+            toolCallDetails.id = chunk.index != null ? `${chunk.id}-idx-${chunk.index}` : chunk.id;
+
+          // Assign to internal variables that the entire script here knows how to work with
+          toolCallName = toolCallDetails.name;
+          toolCallId = toolCallDetails.id;
+          toolCallIndex = toolCallDetails.index;
+          toolCallPrevIndex = toolCallDetails.prevIndex;
         } else if (isBaseMessageChunk(value)) {
           let chunk = value.additional_kwargs?.tool_calls?.[0];
           toolCallName = chunk?.function?.name;
@@ -242,7 +264,7 @@ export async function streamLangChainResponse({
 
         // If we send a new message type, send the appropriate start event.
         if (mode === null) {
-          if (hasToolCall) {
+          if (hasToolCall && toolCallId && toolCallName) {
             mode = "function";
             eventStream$.sendActionExecutionStart(toolCallId, toolCallName);
           } else if (content) {
@@ -257,6 +279,12 @@ export async function streamLangChainResponse({
             Array.isArray(content) ? (content[0]?.text ?? "") : content,
           );
         } else if (mode === "function" && toolCallArgs) {
+          // For calls of the same tool with different index, we seal last tool call and register a new one
+          if (toolCallIndex !== toolCallPrevIndex) {
+            eventStream$.sendActionExecutionEnd();
+            eventStream$.sendActionExecutionStart(toolCallId, toolCallName);
+            toolCallDetails.prevIndex = toolCallDetails.index;
+          }
           eventStream$.sendActionExecutionArgs(toolCallArgs);
         }
       } catch (error) {
@@ -275,6 +303,82 @@ export async function streamLangChainResponse({
   // unsupported type
   else {
     throw new Error("Invalid return type from LangChain function.");
+  }
+
+  eventStream$.complete();
+}
+
+export async function streamLangChainModelStream({
+  stream,
+  eventStream$,
+}: {
+  stream: LangChainAIMessageChunkStream;
+  eventStream$: RuntimeEventSubject;
+}) {
+  let mode: "function" | "message" | null = null;
+  let toolCallName: string | undefined = undefined;
+  let toolCallId: string | undefined = undefined;
+  let toolCallArgs: string | undefined = undefined;
+  let toolCallIndex: number | undefined = undefined;
+  let toolCallPrevIndex: number | undefined = undefined;
+  let hasToolCall: boolean = false;
+
+  for await (const chunk of stream) {
+    const content = chunk.content;
+    const toolCallChunk = chunk.tool_call_chunks?.[0];
+    toolCallArgs = toolCallChunk?.args;
+    hasToolCall = toolCallChunk != undefined;
+    if (toolCallChunk?.name) toolCallName = toolCallChunk.name;
+    // track different index on the same tool cool
+    if (toolCallChunk?.index != null) {
+      toolCallIndex = toolCallChunk.index; // 1
+      if (toolCallPrevIndex == null) toolCallPrevIndex = toolCallChunk.index;
+    }
+    // Differentiate when calling the same tool but with different index
+    if (toolCallChunk?.id) {
+      toolCallId =
+        toolCallChunk.index != null
+          ? `${toolCallChunk.id}-idx-${toolCallChunk.index}`
+          : toolCallChunk.id;
+    }
+
+    // When switching from message to function or vice versa,
+    // send the respective end event.
+    // If toolCallName is defined, it means a new tool call starts.
+    if (mode === "message" && toolCallId) {
+      mode = null;
+      eventStream$.sendTextMessageEnd();
+    } else if (mode === "function" && !hasToolCall) {
+      mode = null;
+      eventStream$.sendActionExecutionEnd();
+    }
+
+    // If we send a new message type, send the appropriate start event.
+    if (mode === null) {
+      if (hasToolCall && toolCallId && toolCallName) {
+        mode = "function";
+        eventStream$.sendActionExecutionStart(toolCallId, toolCallName);
+      } else if (content) {
+        mode = "message";
+        eventStream$.sendTextMessageStart(randomId());
+      }
+    }
+
+    // send the content events
+    if (mode === "message" && content != null) {
+      eventStream$.sendTextMessageContent(
+        content as string,
+        // Array.isArray(content) ? (content[0]?.text ?? "") : content,
+      );
+    } else if (mode === "function" && toolCallArgs) {
+      // For calls of the same tool with different index, we seal last tool call and register a new one
+      if (toolCallIndex !== toolCallPrevIndex) {
+        eventStream$.sendActionExecutionEnd();
+        eventStream$.sendActionExecutionStart(toolCallId, toolCallName);
+        toolCallPrevIndex = toolCallIndex;
+      }
+      eventStream$.sendActionExecutionArgs(toolCallArgs);
+    }
   }
 
   eventStream$.complete();

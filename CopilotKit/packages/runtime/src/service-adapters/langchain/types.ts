@@ -6,9 +6,7 @@ import {
 
 export type LangChainBaseMessageChunkStream = IterableReadableStream<BaseMessageChunk>;
 export type LangChainAIMessageChunkStream = IterableReadableStreamInterface<AIMessageChunk>;
-export type LangChainReturnType =
+export type LangChainStreamReturnType =
   | LangChainBaseMessageChunkStream
-  | LangChainAIMessageChunkStream
-  | BaseMessageChunk
-  | string
-  | AIMessage;
+  | LangChainAIMessageChunkStream;
+export type LangChainReturnType = LangChainStreamReturnType | BaseMessageChunk | string | AIMessage;

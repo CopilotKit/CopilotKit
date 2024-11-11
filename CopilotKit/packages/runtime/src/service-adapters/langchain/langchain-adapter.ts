@@ -40,10 +40,11 @@ import {
 import {
   convertActionInputToLangChainTool,
   convertMessageToLangChainMessage,
+  streamLangChainModelStream,
   streamLangChainResponse,
 } from "./utils";
 import { DynamicStructuredTool } from "@langchain/core/tools";
-import { LangChainReturnType } from "./types";
+import { LangChainReturnType, LangChainStreamReturnType } from "./types";
 import { randomId } from "@copilotkit/shared";
 
 interface ChainFnParameters {
@@ -54,12 +55,21 @@ interface ChainFnParameters {
   runId?: string;
 }
 
-interface LangChainAdapterOptions {
+interface LangChainAdapterBasicOptions {
   /**
    * A function that uses the LangChain API to generate a response.
    */
   chainFn: (parameters: ChainFnParameters) => Promise<LangChainReturnType>;
 }
+
+interface LangChainAdapterStreamOptions {
+  /**
+   * A function that uses the LangChain API to generate a response. When using model.stream. This function is more suitable
+   */
+  chainStreamFn: (parameters: ChainFnParameters) => Promise<LangChainStreamReturnType>;
+}
+
+type LangChainAdapterOptions = LangChainAdapterBasicOptions | LangChainAdapterStreamOptions;
 
 export class LangChainAdapter implements CopilotServiceAdapter {
   /**
@@ -71,7 +81,10 @@ export class LangChainAdapter implements CopilotServiceAdapter {
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
     const { eventSource, model, actions, messages, threadId, runId } = request;
-    const result = await this.options.chainFn({
+    const chainFn =
+      "chainStreamFn" in this.options ? this.options.chainStreamFn : this.options.chainFn;
+
+    const result = await chainFn({
       messages: messages.map(convertMessageToLangChainMessage),
       tools: actions.map(convertActionInputToLangChainTool),
       model,
@@ -80,10 +93,17 @@ export class LangChainAdapter implements CopilotServiceAdapter {
     });
 
     eventSource.stream(async (eventStream$) => {
-      await streamLangChainResponse({
-        result,
-        eventStream$,
-      });
+      if ("chainStreamFn" in this.options) {
+        await streamLangChainModelStream({
+          stream: result as LangChainStreamReturnType,
+          eventStream$,
+        });
+      } else {
+        await streamLangChainResponse({
+          result,
+          eventStream$,
+        });
+      }
     });
 
     return {
