@@ -74,7 +74,7 @@ async def streaming_state_node(state: AgentState, config: RunnableConfig):
 	)
 
 	# Pass the modified configuration to LangChain as an argument
-	response = await ChatOpenAI(model="gpt-4o").ainvoke(
+	response = await ChatOpenAI(model="gpt-4o").bind_tools([set_outline]).ainvoke(
 		[
 			*state["messages"]
 		],
