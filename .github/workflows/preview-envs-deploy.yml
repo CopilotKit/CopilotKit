@@ -49,6 +49,13 @@ jobs:
         working-directory: infra
         run: pnpm i
 
+      - name: Comment pre-deployment
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: preview-status-update
+          message: |
+            Deploying preview environments for this pull request...
+
       - name: cdk deploy
         uses: youyo/aws-cdk-github-actions@v2
         with:
@@ -79,21 +86,10 @@ jobs:
               labels: ['preview']
             })
 
-      - name: Comment PR
+      - name: Comment post-deployment
         uses: thollander/actions-comment-pull-request@v3
         with:
           comment-tag: preview-status-update
           file-path: ./infra/preview-comment.md
-
-      # - name: Deploy
-      #   uses: chrnorm/deployment-action@v2
-      #   id: deployment
-      #   with:
-      #     token: '${{ github.token }}'
-      #     environment-url: "http://test.com"
-      #     environment: "preview-branch"
-      #     # ref: "some-pr"
-      #     payload: "{\"key\": \"value\"}"
-
 
       
