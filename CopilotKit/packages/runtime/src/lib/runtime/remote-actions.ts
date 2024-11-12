@@ -186,35 +186,44 @@ function constructRemoteActions({
         }
       }
 
-      const response = await fetch(`${url}/agents/execute`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          name,
-          threadId,
-          nodeName,
-          messages,
-          state,
-          properties: graphqlContext.properties,
-          actions: actionInputsWithoutAgents.map((action) => ({
-            name: action.name,
-            description: action.description,
-            parameters: JSON.parse(action.jsonSchema),
-          })),
-        }),
-      });
+      try {
+        const response = await fetch(`${url}/agents/execute`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            name,
+            threadId,
+            nodeName,
+            messages,
+            state,
+            properties: graphqlContext.properties,
+            actions: actionInputsWithoutAgents.map((action) => ({
+              name: action.name,
+              description: action.description,
+              parameters: JSON.parse(action.jsonSchema),
+            })),
+          }),
+        });
 
-      if (!response.ok) {
+        if (!response.ok) {
+          logger.error(
+            { url, status: response.status, body: await response.text() },
+            "Failed to execute remote agent",
+          );
+          throw "Failed to execute remote agent";
+        }
+
+        const eventSource = new RemoteLangGraphEventSource();
+        eventSource.streamResponse(response);
+        return eventSource.processLangGraphEvents();
+      } catch (error) {
         logger.error(
-          { url, status: response.status, body: await response.text() },
+          { error: error.message ? error.message : error + "" },
           "Failed to execute remote agent",
         );
-        throw new Error("Failed to execute remote agent");
-      }
 
-      const eventSource = new RemoteLangGraphEventSource();
-      eventSource.streamResponse(response);
-      return eventSource.processLangGraphEvents();
+        throw "Failed to execute remote agent";
+      }
     },
   }));
 
