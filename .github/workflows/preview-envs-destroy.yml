@@ -49,11 +49,11 @@ jobs:
         working-directory: infra
         run: pnpm i
 
-      - name: cdk deploy
+      - name: cdk destroy
         uses: youyo/aws-cdk-github-actions@v2
         with:
           working_dir: './infra'
-          cdk_subcommand: 'deploy'
+          cdk_subcommand: 'destroy'
           cdk_args: '--require-approval never --outputs-file=cdk_outputs.json'
           actions_comment: false
         env:
