@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.3.13
+
+### Patch Changes
+
+- fix usage of one-at-a-time tool when called multiple times
+- Updated dependencies
+  - @copilotkit/shared@1.3.13
+
 ## 1.3.12
 
 ### Patch Changes

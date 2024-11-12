@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 1.3.13
+
+### Patch Changes
+
+- fix usage of one-at-a-time tool when called multiple times
+
 ## 1.3.12
 
 ### Patch Changes

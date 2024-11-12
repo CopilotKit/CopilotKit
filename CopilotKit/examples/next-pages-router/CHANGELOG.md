@@ -1,5 +1,17 @@
 # next-pages-router
 
+## 1.3.13
+
+### Patch Changes
+
+- fix usage of one-at-a-time tool when called multiple times
+- Updated dependencies
+  - @copilotkit/react-core@1.3.13
+  - @copilotkit/react-textarea@1.3.13
+  - @copilotkit/react-ui@1.3.13
+  - @copilotkit/runtime@1.3.13
+  - @copilotkit/shared@1.3.13
+
 ## 1.3.12
 
 ### Patch Changes
