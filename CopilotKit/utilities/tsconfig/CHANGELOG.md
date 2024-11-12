@@ -1,5 +1,11 @@
 # tsconfig
 
+## 1.3.14-fix-handle-execute-agent-error.0
+
+### Patch Changes
+
+- catch and log agent execution call failures
+
 ## 1.3.13
 
 ### Patch Changes

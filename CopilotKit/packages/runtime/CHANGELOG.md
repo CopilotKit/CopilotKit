@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.3.14-fix-handle-execute-agent-error.0
+
+### Patch Changes
+
+- catch and log agent execution call failures
+- Updated dependencies
+  - @copilotkit/shared@1.3.14-fix-handle-execute-agent-error.0
+
 ## 1.3.13
 
 ### Patch Changes
