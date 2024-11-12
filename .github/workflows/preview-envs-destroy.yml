@@ -64,5 +64,6 @@ jobs:
       - name: Comment PR
         uses: thollander/actions-comment-pull-request@v3
         with:
+          comment-tag: preview-status-update
           message: |
-            Preview environments destroyed.
+            Preview environments destroyed for this pull request.
