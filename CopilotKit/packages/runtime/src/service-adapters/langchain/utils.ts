@@ -51,6 +51,11 @@ export function convertMessageToLangChainMessage(message: Message): BaseMessage 
 export function convertJsonSchemaToZodSchema(jsonSchema: any, required: boolean): z.ZodSchema {
   if (jsonSchema.type === "object") {
     const spec: { [key: string]: z.ZodSchema } = {};
+
+    if (!jsonSchema.properties || !Object.keys(jsonSchema.properties).length) {
+      return !required ? z.object(spec).optional() : z.object(spec);
+    }
+
     for (const [key, value] of Object.entries(jsonSchema.properties)) {
       spec[key] = convertJsonSchemaToZodSchema(
         value,
@@ -58,20 +63,20 @@ export function convertJsonSchemaToZodSchema(jsonSchema: any, required: boolean)
       );
     }
     let schema = z.object(spec);
-    return !required ? schema.optional() : schema;
+    return required ? schema : schema.optional();
   } else if (jsonSchema.type === "string") {
     let schema = z.string().describe(jsonSchema.description);
-    return !required ? schema.optional() : schema;
+    return required ? schema : schema.optional();
   } else if (jsonSchema.type === "number") {
     let schema = z.number().describe(jsonSchema.description);
-    return !required ? schema.optional() : schema;
+    return required ? schema : schema.optional();
   } else if (jsonSchema.type === "boolean") {
     let schema = z.boolean().describe(jsonSchema.description);
-    return !required ? schema.optional() : schema;
+    return required ? schema : schema.optional();
   } else if (jsonSchema.type === "array") {
     let itemSchema = convertJsonSchemaToZodSchema(jsonSchema.items, true);
     let schema = z.array(itemSchema);
-    return !required ? schema.optional() : schema;
+    return required ? schema : schema.optional();
   }
 }
 
