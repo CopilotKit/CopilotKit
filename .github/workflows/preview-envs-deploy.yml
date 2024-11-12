@@ -1,4 +1,4 @@
-name: Demos Preview (Deploy)
+name: Preview Environments (Deploy)
 
 on:
   pull_request:

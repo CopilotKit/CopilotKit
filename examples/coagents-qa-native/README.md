@@ -1,6 +1,10 @@
 # CoAgents Agent Q&A Example
 
-**These instructions assume you are in the `coagents-qa/` directory**
+This example demonstrates sending a question to the user that gets rendered in an alert.
+
+You can find an online demo of this example [here](https://examples-coagents-qa-native-ui.vercel.app).
+
+**These instructions assume you are in the `coagents-qa-native/` directory**
 
 ## Running the Agent
 
@@ -12,6 +16,7 @@ poetry install
 ```
 
 Then, create a `.env` file inside `./agent` with the following:
+
 ```
 OPENAI_API_KEY=...
 ```
@@ -35,6 +40,7 @@ pnpm i
 ```
 
 Then, create a `.env` file inside `./ui` with the following:
+
 ```
 OPENAI_API_KEY=...
 ```
@@ -49,13 +55,11 @@ pnpm run dev
 
 Navigate to [http://localhost:3000](http://localhost:3000).
 
-
 # LangGraph Studio
 
 Run LangGraph studio, then load the `./agent` folder into it.
 
 Make sure to create teh `.env` mentioned above first!
-
 
 # Troubleshooting
 

@@ -1,5 +1,15 @@
 # @copilotkit/runtime-client-gql
 
+## 1.3.12
+
+### Patch Changes
+
+- - enable dynamic parameters in langchain adapter tool call
+  - fix unparsable action arguments causing tool call crashes
+- Updated dependencies
+  - @copilotkit/runtime@1.3.12
+  - @copilotkit/shared@1.3.12
+
 ## 1.3.11
 
 ### Patch Changes
