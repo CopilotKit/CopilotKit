@@ -4,8 +4,8 @@ on:
   pull_request:
     paths:
       - './examples/**'
-      - '.github/workflows/demos_preview.yml'
-      - '.github/workflows/demos_preview_destroy.yml'
+      - '.github/workflows/preview-envs-deploy.yml'
+      - '.github/workflows/preview-envs-destroy.yml'
     branches:
       - main
 
