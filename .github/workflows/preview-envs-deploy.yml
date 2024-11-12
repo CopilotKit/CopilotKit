@@ -2,10 +2,6 @@ name: Preview Environments (Deploy)
 
 on:
   pull_request:
-    paths:
-      - './examples/**'
-      - '.github/workflows/preview-envs-deploy.yml'
-      - '.github/workflows/preview-envs-destroy.yml'
     branches:
       - main
 
