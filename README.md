@@ -1,5 +1,3 @@
-> Here for Hacktoberfest? 🎉 [Get started here :rocket: :confetti_ball:](https://github.com/CopilotKit/CopilotKit/tree/main/community/content).
-
 <div align="center">
   <a href="https://copilotkit.ai" target="_blank">
     <img src="./assets/banner.png" alt="CopilotKit Logo">
