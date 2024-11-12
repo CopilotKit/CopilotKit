@@ -61,7 +61,7 @@ jobs:
           GITHUB_PR_NUMBER: ${{ github.event.number }}
           OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
 
-      - name: Comment PR
+      - name: Comment post-destroy
         uses: thollander/actions-comment-pull-request@v3
         with:
           comment-tag: preview-status-update
