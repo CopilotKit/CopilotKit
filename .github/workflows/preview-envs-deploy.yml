@@ -6,9 +6,9 @@ on:
       - main
 
 jobs:
-  example_comment_pr:
+  preview_envs_deploy:
     runs-on: ubuntu-latest
-    name: Comment with example preview
+    name: Deploy Preview Environments
     permissions:
       deployments: write
       pull-requests: write
