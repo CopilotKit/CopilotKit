@@ -1,5 +1,55 @@
 # @copilotkit/shared
 
+## 1.3.13
+
+### Patch Changes
+
+- fix usage of one-at-a-time tool when called multiple times
+
+## 1.3.12
+
+### Patch Changes
+
+- - enable dynamic parameters in langchain adapter tool call
+  - fix unparsable action arguments causing tool call crashes
+
+## 1.3.11
+
+### Patch Changes
+
+- 08e8956: Fix duplicate messages
+- Fix duplicate messages
+
+## 1.3.11-mme-fix-duplicate-messages.0
+
+### Patch Changes
+
+- Fix duplicate messages
+
+## 1.3.10
+
+### Patch Changes
+
+- change how message chunk type is resolved (fixed langchain adapters)
+
+## 1.3.9
+
+### Patch Changes
+
+- Fix message id issues
+
+## 1.3.8
+
+### Patch Changes
+
+- fix textarea on multiple llm providers and memoize react ui context
+
+## 1.3.7
+
+### Patch Changes
+
+- Fix libraries for React 19 and Next.js 15 support
+
 ## 1.3.6
 
 ### Patch Changes

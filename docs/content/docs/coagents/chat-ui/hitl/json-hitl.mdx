@@ -27,8 +27,7 @@ You can easily pass questions to the frontend for the user to answer in the AI C
 import { useCopilotAction } from "@copilotkit/react-core";
 
 export function Mailer() {
-  useCopilotAction({
-    // [!code highlight:19]
+  useCopilotAction({ // [!code highlight:19]
     name: "EmailTool",
     parameters: [
       {
@@ -66,13 +65,6 @@ The agent will not continue executing until the `handler` function provided via 
 
 `args` contains the parameters specified shortly above it; the parameters will be streamed as they come in.
 
-<Callout type="warn">
-  Please note that while `status` is `executing`, `handler` will be `undefined`{" "}
-  <br />
-  You can call it either by checking if it is `undefined`, or by using this format{" "}
-  <br />
-  `handler?.(argumentToPassHandler)`.
-</Callout>
 
 <Callout type="info">
   Whatever argument you pass to the `handler` will become available on the
@@ -81,11 +73,25 @@ The agent will not continue executing until the `handler` function provided via 
   backend logic.
 </Callout>
 
+
+<Callout type="warn">
+  Please note that in the `renderAndWait` function, while `status` is `"executing"`, `handler` will be `undefined`.
+
+  ```
+  renderAndWait: ({ args, status, handler }) => {
+    return ...
+  }
+  ```
+
+  You can call the handler either by first checking if the handler is `undefined`, or by using typescript's optional chaining format, i.e.
+  ```handler?.(argumentToPassHandler)```.
+</Callout>
+
 </Step>
 
 <Step>
-### Record the action **name** and **parameters**.
-Record the action name & parameters. They must match the configuration we will soon setup on the agentic backend.
+### Remember the action **name** and **parameters**.
+Remember the action name & parameters. They must match the configuration we will soon setup on the agentic backend.
 
 In this case, the action name is `EmailTool`. It has a single parameter `email_draft` of type `string`.
 

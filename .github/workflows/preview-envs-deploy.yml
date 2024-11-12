@@ -1,0 +1,103 @@
+name: Preview Environments (Deploy)
+
+on:
+  pull_request:
+    paths:
+      - './examples/**'
+      - '.github/workflows/preview-envs-deploy.yml'
+      - '.github/workflows/preview-envs-destroy.yml'
+    branches:
+      - main
+
+jobs:
+  example_comment_pr:
+    runs-on: ubuntu-latest
+    name: Comment with example preview
+    permissions:
+      deployments: write
+      pull-requests: write
+      statuses: write
+      actions: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Auth AWS CDK Public Registry
+        run: |
+          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
+
+      - uses: dopplerhq/secrets-fetch-action@v1.2.0
+        id: doppler
+        with:
+          doppler-token: ${{ secrets.DOPPLER_TOKEN }}
+          doppler-project: copilotkit-previews
+          doppler-config: prd
+
+      - name: Infra install dependencies
+        working-directory: infra
+        run: pnpm i
+
+      - name: cdk deploy
+        uses: youyo/aws-cdk-github-actions@v2
+        with:
+          working_dir: './infra'
+          cdk_subcommand: 'deploy'
+          cdk_args: '--require-approval never --outputs-file=cdk_outputs.json'
+          actions_comment: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_PR_NUMBER: ${{ github.event.number }}
+          OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
+
+      - name: Generate table from outputs
+        id: generate-table
+        working-directory: infra
+        run: |
+          node generate-table
+
+      - name: Assign label
+        uses: actions/github-script@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['preview']
+            })
+
+      - name: Comment PR
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: preview-status-update
+          file-path: ./infra/preview-comment.md
+
+      # - name: Deploy
+      #   uses: chrnorm/deployment-action@v2
+      #   id: deployment
+      #   with:
+      #     token: '${{ github.token }}'
+      #     environment-url: "http://test.com"
+      #     environment: "preview-branch"
+      #     # ref: "some-pr"
+      #     payload: "{\"key\": \"value\"}"
+
+
+      

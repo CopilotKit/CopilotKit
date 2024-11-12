@@ -1,28 +1,30 @@
 """Chat Node"""
 
-from typing import TypedDict, List, cast, Annotated
+from typing import List, cast
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import SystemMessage, AIMessage, ToolMessage
+from langchain.tools import tool
 from copilotkit.langchain import copilotkit_customize_config
 from research_canvas.state import AgentState
 from research_canvas.model import get_model
 from research_canvas.download import get_resource
 
-class Search(TypedDict):
+@tool
+def Search(queries: List[str]): # pylint: disable=invalid-name,unused-argument
     """A list of one or more search queries to find good resources to support the research."""
-    queries: List[str]
 
-class WriteReport(TypedDict):
+@tool
+def WriteReport(report: str): # pylint: disable=invalid-name,unused-argument
     """Write the research report."""
-    report: Annotated[str, "The research report"]
 
-class WriteResearchQuestion(TypedDict):
+@tool
+def WriteResearchQuestion(research_question: str): # pylint: disable=invalid-name,unused-argument
     """Write the research question."""
-    research_question: Annotated[str, "The research question"]
 
-class DeleteResources(TypedDict):
+@tool
+def DeleteResources(urls: List[str]): # pylint: disable=invalid-name,unused-argument
     """Delete the URLs from the resources."""
-    urls: List[str]
+
 
 async def chat_node(state: AgentState, config: RunnableConfig):
     """
@@ -58,20 +60,20 @@ async def chat_node(state: AgentState, config: RunnableConfig):
             "content": content
         })
 
-    # print("-----------------------------------")
-    # print("BEFORE CALLING CHAT")
-    # for message in state["messages"]:
-    #     print(message)
-    #     print("")
-    # print("-----------------------------------")
+    model = get_model(state)
+    # Prepare the kwargs for the ainvoke method
+    ainvoke_kwargs = {}
+    if model.__class__.__name__ in ["ChatOpenAI"]:
+        ainvoke_kwargs["parallel_tool_calls"] = False
 
-    response = await get_model().bind_tools(
+    response = await model.bind_tools(
         [
             Search,
             WriteReport,
             WriteResearchQuestion,
             DeleteResources,
         ],
+        **ainvoke_kwargs  # Pass the kwargs conditionally
     ).ainvoke([
         SystemMessage(
             content=f"""
@@ -80,6 +82,7 @@ async def chat_node(state: AgentState, config: RunnableConfig):
             You should use the search tool to get resources before answering the user's question.
             If you finished writing the report, ask the user proactively for next steps, changes etc, make it engaging.
             To write the report, you should use the WriteReport tool. Never EVER respond with the report, only use the tool.
+            If a research question is provided, YOU MUST NOT ASK FOR IT AGAIN.
 
             This is the research question:
             {research_question}
@@ -98,8 +101,9 @@ async def chat_node(state: AgentState, config: RunnableConfig):
 
     if ai_message.tool_calls:
         if ai_message.tool_calls[0]["name"] == "WriteReport":
+            report = ai_message.tool_calls[0]["args"].get("report", "")
             return {
-                "report": ai_message.tool_calls[0]["args"]["report"],
+                "report": report,
                 "messages": [ai_message, ToolMessage(
                     tool_call_id=ai_message.tool_calls[0]["id"],
                     content="Report written."

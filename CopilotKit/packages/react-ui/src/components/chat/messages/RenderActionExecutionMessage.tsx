@@ -8,7 +8,7 @@ export function RenderActionExecutionMessage(props: RenderMessageProps) {
   const { chatComponentsCache } = useCopilotContext();
   const { icons } = useChatContext();
 
-  if (message instanceof ActionExecutionMessage) {
+  if (message.isActionExecutionMessage()) {
     if (chatComponentsCache.current !== null && chatComponentsCache.current.actions[message.name]) {
       const render = chatComponentsCache.current.actions[message.name];
       // render a static string

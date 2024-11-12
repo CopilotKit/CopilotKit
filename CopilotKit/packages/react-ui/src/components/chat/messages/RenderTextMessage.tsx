@@ -6,7 +6,7 @@ import { useChatContext } from "../ChatContext";
 export function RenderTextMessage(props: RenderMessageProps) {
   const { message, inProgress, index, isCurrentMessage } = props;
   const { icons } = useChatContext();
-  if (message instanceof TextMessage) {
+  if (message.isTextMessage()) {
     if (message.role === "user") {
       return (
         <div key={index} className="copilotKitMessage copilotKitUserMessage">

@@ -1,4 +1,8 @@
-import { CopilotContextParams, defaultCopilotContextCategories } from "@copilotkit/react-core";
+import {
+  CopilotContextParams,
+  CopilotMessagesContextParams,
+  defaultCopilotContextCategories,
+} from "@copilotkit/react-core";
 import { CopilotKitVersion } from "./types";
 import { ActionExecutionMessage, ResultMessage, TextMessage } from "@copilotkit/runtime-client-gql";
 import { AgentStateMessage } from "@copilotkit/runtime-client-gql";
@@ -107,7 +111,7 @@ export function logActions(context: CopilotContextParams) {
   }
 }
 
-export function logMessages(context: CopilotContextParams) {
+export function logMessages(context: CopilotMessagesContextParams) {
   console.log("%cCurrent Messages:", "font-size: 16px; font-weight: bold;");
 
   if (context.messages.length === 0) {
@@ -116,7 +120,7 @@ export function logMessages(context: CopilotContextParams) {
   }
 
   const tableData = context.messages.map((message) => {
-    if (message instanceof TextMessage) {
+    if (message.isTextMessage()) {
       return {
         id: message.id,
         type: "TextMessage",
@@ -125,7 +129,7 @@ export function logMessages(context: CopilotContextParams) {
         scope: undefined,
         content: message.content,
       };
-    } else if (message instanceof ActionExecutionMessage) {
+    } else if (message.isActionExecutionMessage()) {
       return {
         id: message.id,
         type: "ActionExecutionMessage",
@@ -134,7 +138,7 @@ export function logMessages(context: CopilotContextParams) {
         scope: message.scope,
         content: message.arguments,
       };
-    } else if (message instanceof ResultMessage) {
+    } else if (message.isResultMessage()) {
       return {
         id: message.id,
         type: "ResultMessage",
@@ -143,7 +147,7 @@ export function logMessages(context: CopilotContextParams) {
         scope: message.actionExecutionId,
         content: message.result,
       };
-    } else if (message instanceof AgentStateMessage) {
+    } else if (message.isAgentStateMessage()) {
       return {
         id: message.id,
         type: `AgentStateMessage (running: ${message.running})`,

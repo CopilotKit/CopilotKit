@@ -1,4 +1,4 @@
-import { useCopilotContext } from "@copilotkit/react-core";
+import { useCopilotContext, useCopilotMessagesContext } from "@copilotkit/react-core";
 import { Message, TextMessage } from "@copilotkit/runtime-client-gql";
 import { MutableRefObject, useEffect, useRef, useState } from "react";
 
@@ -108,7 +108,9 @@ export const usePushToTalk = ({
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunks = useRef<Blob[]>([]);
-  const context = useCopilotContext();
+  const generalContext = useCopilotContext();
+  const messagesContext = useCopilotMessagesContext();
+  const context = { ...generalContext, ...messagesContext };
   const [startReadingFromMessageId, setStartReadingFromMessageId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -150,7 +152,7 @@ export const usePushToTalk = ({
       const messagesAfterLast = context.messages
         .slice(lastMessageIndex + 1)
         .filter(
-          (message) => message instanceof TextMessage && message.role === "assistant",
+          (message) => message.isTextMessage() && message.role === "assistant",
         ) as TextMessage[];
 
       const text = messagesAfterLast.map((message) => message.content).join("\n");

@@ -9,6 +9,7 @@ from fastapi import FastAPI
 import uvicorn
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from copilotkit import CopilotKitSDK, LangGraphAgent
+from copilotkit.langchain import copilotkit_messages_to_langchain
 from research_canvas.agent import graph
 
 app = FastAPI()
@@ -18,7 +19,15 @@ sdk = CopilotKitSDK(
             name="research_agent",
             description="Research agent.",
             agent=graph,
-        )
+        ),
+        LangGraphAgent(
+            name="research_agent_google_genai",
+            description="Research agent.",
+            agent=graph,
+            copilotkit_config={
+                "convert_messages": copilotkit_messages_to_langchain(use_function_call=True)
+            }
+        ),
     ],
 )
 
@@ -34,4 +43,4 @@ def health():
 def main():
     """Run the uvicorn server."""
     port = int(os.getenv("PORT", "8000"))
-    uvicorn.run("research_canvas.demo:app", host="0.0.0.0", port=port, reload=True)
+    uvicorn.run("research_canvas.demo:app", host="0.0.0.0", port=port)

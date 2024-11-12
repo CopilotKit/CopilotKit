@@ -29,10 +29,10 @@ export const Messages = ({
   const actionResults: Record<string, string> = {};
 
   for (let i = 0; i < messages.length; i++) {
-    if (messages[i] instanceof ActionExecutionMessage) {
+    if (messages[i].isActionExecutionMessage()) {
       const id = messages[i].id;
       const resultMessage: ResultMessage | undefined = messages.find(
-        (message) => message instanceof ResultMessage && message.actionExecutionId === id,
+        (message) => message.isResultMessage() && message.actionExecutionId === id,
       ) as ResultMessage | undefined;
 
       if (resultMessage) {
@@ -60,7 +60,7 @@ export const Messages = ({
       {messages.map((message, index) => {
         const isCurrentMessage = index === messages.length - 1;
 
-        if (message instanceof TextMessage) {
+        if (message.isTextMessage()) {
           return (
             <RenderTextMessage
               key={index}
@@ -70,7 +70,7 @@ export const Messages = ({
               isCurrentMessage={isCurrentMessage}
             />
           );
-        } else if (message instanceof ActionExecutionMessage) {
+        } else if (message.isActionExecutionMessage()) {
           return (
             <RenderActionExecutionMessage
               key={index}
@@ -81,7 +81,7 @@ export const Messages = ({
               actionResult={actionResults[message.id]}
             />
           );
-        } else if (message instanceof AgentStateMessage) {
+        } else if (message.isAgentStateMessage()) {
           return (
             <RenderAgentStateMessage
               key={index}
@@ -91,7 +91,7 @@ export const Messages = ({
               isCurrentMessage={isCurrentMessage}
             />
           );
-        } else if (message instanceof ResultMessage) {
+        } else if (message.isResultMessage()) {
           return (
             <RenderResultMessage
               key={index}

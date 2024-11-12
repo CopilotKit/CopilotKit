@@ -1,5 +1,5 @@
 ---
-title: Frontend functions & in-app HITL
+title: Frontend functions & in-app HITL (human-in-the-loop)
 description: Have the LangGraph agent call frontend functions
 ---
 
@@ -27,8 +27,7 @@ You can easily pass questions to the frontend for the user to answer in the nati
 import { useCopilotAction } from "@copilotkit/react-core";
 
 export function Mailer() {
-  useCopilotAction({
-    // [!code highlight:15]
+  useCopilotAction({ // [!code highlight:15]
     name: "EmailTool",
     parameters: [
       {
@@ -46,26 +45,22 @@ export function Mailer() {
 }
 ```
 
-</Step>
-
-<Step>
-### Return any custom value from the `handler` function
-
-Whatever argument you return from the `handler` will become available on the agentic backend. This allows you to pass information from the frontend to the agent, enabling seamless communication between the user interface and the backend logic.
-
->
+<Callout type="info">
+  Whatever argument you return from the `handler` will become available on the agentic backend. This allows you to pass information from the frontend to the agent, enabling seamless communication between the user interface and the backend logic.
+</Callout>
 
 </Step>
 
+
 <Step>
-### Record the action **name** and **parameters**.
-Record the action name & parameters. They must match the configuration we will soon setup on the agentic backend.
+### Remember the action **name** and **parameters**!
+Remember the action name & parameters. They must match the configuration we will soon setup on the agentic backend.
 
 In this case, the action name is `EmailTool`. It has a single parameter `email_draft` of type `string`.
 
 </Step>
-
 </Steps>
+
 
 ## Agentic Backend (LangGraph)
 

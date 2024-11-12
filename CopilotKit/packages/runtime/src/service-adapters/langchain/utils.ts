@@ -21,7 +21,7 @@ import { RuntimeEventSubject } from "../events";
 import { randomId } from "@copilotkit/shared";
 
 export function convertMessageToLangChainMessage(message: Message): BaseMessage {
-  if (message instanceof TextMessage) {
+  if (message.isTextMessage()) {
     if (message.role == "user") {
       return new HumanMessage(message.content);
     } else if (message.role == "assistant") {
@@ -29,7 +29,7 @@ export function convertMessageToLangChainMessage(message: Message): BaseMessage 
     } else if (message.role === "system") {
       return new SystemMessage(message.content);
     }
-  } else if (message instanceof ActionExecutionMessage) {
+  } else if (message.isActionExecutionMessage()) {
     return new AIMessage({
       content: "",
       tool_calls: [
@@ -40,7 +40,7 @@ export function convertMessageToLangChainMessage(message: Message): BaseMessage 
         },
       ],
     });
-  } else if (message instanceof ResultMessage) {
+  } else if (message.isResultMessage()) {
     return new ToolMessage({
       content: message.result,
       tool_call_id: message.actionExecutionId,
@@ -51,6 +51,11 @@ export function convertMessageToLangChainMessage(message: Message): BaseMessage 
 export function convertJsonSchemaToZodSchema(jsonSchema: any, required: boolean): z.ZodSchema {
   if (jsonSchema.type === "object") {
     const spec: { [key: string]: z.ZodSchema } = {};
+
+    if (!jsonSchema.properties || !Object.keys(jsonSchema.properties).length) {
+      return !required ? z.object(spec).optional() : z.object(spec);
+    }
+
     for (const [key, value] of Object.entries(jsonSchema.properties)) {
       spec[key] = convertJsonSchemaToZodSchema(
         value,
@@ -58,20 +63,20 @@ export function convertJsonSchemaToZodSchema(jsonSchema: any, required: boolean)
       );
     }
     let schema = z.object(spec);
-    return !required ? schema.optional() : schema;
+    return required ? schema : schema.optional();
   } else if (jsonSchema.type === "string") {
     let schema = z.string().describe(jsonSchema.description);
-    return !required ? schema.optional() : schema;
+    return required ? schema : schema.optional();
   } else if (jsonSchema.type === "number") {
     let schema = z.number().describe(jsonSchema.description);
-    return !required ? schema.optional() : schema;
+    return required ? schema : schema.optional();
   } else if (jsonSchema.type === "boolean") {
     let schema = z.boolean().describe(jsonSchema.description);
-    return !required ? schema.optional() : schema;
+    return required ? schema : schema.optional();
   } else if (jsonSchema.type === "array") {
-    let itemSchema = convertJsonSchemaToZodSchema(jsonSchema.items, false);
+    let itemSchema = convertJsonSchemaToZodSchema(jsonSchema.items, true);
     let schema = z.array(itemSchema);
-    return !required ? schema.optional() : schema;
+    return required ? schema : schema.optional();
   }
 }
 
@@ -106,15 +111,15 @@ function getConstructorName(object: any): string {
 }
 
 function isAIMessage(message: any): message is AIMessage {
-  return getConstructorName(message) === "AIMessage";
+  return Object.prototype.toString.call(message) === "[object AIMessage]";
 }
 
 function isAIMessageChunk(message: any): message is AIMessageChunk {
-  return getConstructorName(message) === "AIMessageChunk";
+  return Object.prototype.toString.call(message) === "[object AIMessageChunk]";
 }
 
 function isBaseMessageChunk(message: any): message is BaseMessageChunk {
-  return getConstructorName(message) === "BaseMessageChunk";
+  return Object.prototype.toString.call(message) === "[object BaseMessageChunk]";
 }
 
 function maybeSendActionExecutionResultIsMessage(
@@ -196,6 +201,13 @@ export async function streamLangChainResponse({
 
     let mode: "function" | "message" | null = null;
 
+    const toolCallDetails = {
+      name: null,
+      id: null,
+      index: null,
+      prevIndex: null,
+    };
+
     while (true) {
       try {
         const { done, value } = await reader.read();
@@ -203,15 +215,30 @@ export async function streamLangChainResponse({
         let toolCallName: string | undefined = undefined;
         let toolCallId: string | undefined = undefined;
         let toolCallArgs: string | undefined = undefined;
+        let toolCallIndex: number | undefined = undefined;
+        let toolCallPrevIndex: number | undefined = undefined;
         let hasToolCall: boolean = false;
         let content = value?.content as string;
 
         if (isAIMessageChunk(value)) {
           let chunk = value.tool_call_chunks?.[0];
-          toolCallName = chunk?.name;
-          toolCallId = chunk?.id;
           toolCallArgs = chunk?.args;
           hasToolCall = chunk != undefined;
+          if (chunk?.name) toolCallDetails.name = chunk.name;
+          // track different index on the same tool cool
+          if (chunk?.index != null) {
+            toolCallDetails.index = chunk.index; // 1
+            if (toolCallDetails.prevIndex == null) toolCallDetails.prevIndex = chunk.index;
+          }
+          // Differentiate when calling the same tool but with different index
+          if (chunk?.id)
+            toolCallDetails.id = chunk.index != null ? `${chunk.id}-idx-${chunk.index}` : chunk.id;
+
+          // Assign to internal variables that the entire script here knows how to work with
+          toolCallName = toolCallDetails.name;
+          toolCallId = toolCallDetails.id;
+          toolCallIndex = toolCallDetails.index;
+          toolCallPrevIndex = toolCallDetails.prevIndex;
         } else if (isBaseMessageChunk(value)) {
           let chunk = value.additional_kwargs?.tool_calls?.[0];
           toolCallName = chunk?.function?.name;
@@ -237,7 +264,7 @@ export async function streamLangChainResponse({
 
         // If we send a new message type, send the appropriate start event.
         if (mode === null) {
-          if (hasToolCall) {
+          if (hasToolCall && toolCallId && toolCallName) {
             mode = "function";
             eventStream$.sendActionExecutionStart(toolCallId, toolCallName);
           } else if (content) {
@@ -248,8 +275,16 @@ export async function streamLangChainResponse({
 
         // send the content events
         if (mode === "message" && content) {
-          eventStream$.sendTextMessageContent(content);
+          eventStream$.sendTextMessageContent(
+            Array.isArray(content) ? (content[0]?.text ?? "") : content,
+          );
         } else if (mode === "function" && toolCallArgs) {
+          // For calls of the same tool with different index, we seal last tool call and register a new one
+          if (toolCallIndex !== toolCallPrevIndex) {
+            eventStream$.sendActionExecutionEnd();
+            eventStream$.sendActionExecutionStart(toolCallId, toolCallName);
+            toolCallDetails.prevIndex = toolCallDetails.index;
+          }
           eventStream$.sendActionExecutionArgs(toolCallArgs);
         }
       } catch (error) {

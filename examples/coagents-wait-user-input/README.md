@@ -1,5 +1,7 @@
 # CoAgents Agent Q&A Example
 
+This example is taken straight from the LangGraph documentation.
+
 **These instructions assume you are in the `coagents-qa/` directory**
 
 ## Running the Agent
@@ -12,6 +14,7 @@ poetry install
 ```
 
 Then, create a `.env` file inside `./agent` with the following:
+
 ```
 OPENAI_API_KEY=...
 ```
@@ -35,6 +38,7 @@ pnpm i
 ```
 
 Then, create a `.env` file inside `./ui` with the following:
+
 ```
 OPENAI_API_KEY=...
 ```
@@ -49,14 +53,11 @@ pnpm run dev
 
 Navigate to [http://localhost:3000](http://localhost:3000).
 
-
 # LangGraph Studio
 
 Run LangGraph studio, then load the `./agent` folder into it.
 
 Make sure to create teh `.env` mentioned above first!
-
-
 
 # Troubleshooting
 

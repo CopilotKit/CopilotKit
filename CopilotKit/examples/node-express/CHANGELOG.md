@@ -1,5 +1,80 @@
 # node
 
+## 1.3.13
+
+### Patch Changes
+
+- fix usage of one-at-a-time tool when called multiple times
+- Updated dependencies
+  - @copilotkit/runtime@1.3.13
+  - @copilotkit/shared@1.3.13
+
+## 1.3.12
+
+### Patch Changes
+
+- - enable dynamic parameters in langchain adapter tool call
+  - fix unparsable action arguments causing tool call crashes
+- Updated dependencies
+  - @copilotkit/runtime@1.3.12
+  - @copilotkit/shared@1.3.12
+
+## 1.3.11
+
+### Patch Changes
+
+- 08e8956: Fix duplicate messages
+- Fix duplicate messages
+- Updated dependencies [08e8956]
+- Updated dependencies
+  - @copilotkit/runtime@1.3.11
+  - @copilotkit/shared@1.3.11
+
+## 1.3.11-mme-fix-duplicate-messages.0
+
+### Patch Changes
+
+- Fix duplicate messages
+- Updated dependencies
+  - @copilotkit/runtime@1.3.11-mme-fix-duplicate-messages.0
+  - @copilotkit/shared@1.3.11-mme-fix-duplicate-messages.0
+
+## 1.3.10
+
+### Patch Changes
+
+- change how message chunk type is resolved (fixed langchain adapters)
+- Updated dependencies
+  - @copilotkit/runtime@1.3.10
+  - @copilotkit/shared@1.3.10
+
+## 1.3.9
+
+### Patch Changes
+
+- Fix message id issues
+- Updated dependencies
+  - @copilotkit/runtime@1.3.9
+  - @copilotkit/shared@1.3.9
+
+## 1.3.8
+
+### Patch Changes
+
+- fix textarea on multiple llm providers and memoize react ui context
+- Updated dependencies
+  - @copilotkit/runtime@1.3.8
+  - @copilotkit/shared@1.3.8
+
+## 1.3.7
+
+### Patch Changes
+
+- Fix libraries for React 19 and Next.js 15 support
+- Updated dependencies
+  - @copilotkit/runtime@1.3.7
+  - @copilotkit/shared@1.3.7
+
 ## 1.3.6
 
 ### Patch Changes

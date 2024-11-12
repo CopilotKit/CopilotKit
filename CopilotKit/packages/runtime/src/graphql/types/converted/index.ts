@@ -4,35 +4,56 @@ import {
   TextMessageInput,
   AgentStateMessageInput,
 } from "../../inputs/message.input";
-import { BaseMessage } from "../base";
+import { BaseMessageInput } from "../base";
 import { ActionExecutionScope, MessageRole } from "../enums";
 
-export class TextMessage extends BaseMessage implements TextMessageInput {
+type MessageType = "TextMessage" | "ActionExecutionMessage" | "ResultMessage" | "AgentStateMessage";
+
+export class Message extends BaseMessageInput {
+  type: MessageType;
+
+  isTextMessage(): this is TextMessage {
+    return this.type === "TextMessage";
+  }
+
+  isActionExecutionMessage(): this is ActionExecutionMessage {
+    return this.type === "ActionExecutionMessage";
+  }
+
+  isResultMessage(): this is ResultMessage {
+    return this.type === "ResultMessage";
+  }
+
+  isAgentStateMessage(): this is AgentStateMessage {
+    return this.type === "AgentStateMessage";
+  }
+}
+
+export class TextMessage extends Message implements TextMessageInput {
+  type: MessageType = "TextMessage";
   content: string;
   role: MessageRole;
 }
 
-export type Message = BaseMessage;
-
 export class ActionExecutionMessage
-  extends BaseMessage
+  extends Message
   implements Omit<ActionExecutionMessageInput, "arguments">
 {
+  type: MessageType = "ActionExecutionMessage";
   name: string;
   arguments: Record<string, any>;
   scope: ActionExecutionScope;
 }
 
-export class ResultMessage extends BaseMessage implements ResultMessageInput {
+export class ResultMessage extends Message implements ResultMessageInput {
+  type: MessageType = "ResultMessage";
   actionExecutionId: string;
   actionName: string;
   result: string;
 }
 
-export class AgentStateMessage
-  extends BaseMessage
-  implements Omit<AgentStateMessageInput, "state">
-{
+export class AgentStateMessage extends Message implements Omit<AgentStateMessageInput, "state"> {
+  type: MessageType = "AgentStateMessage";
   threadId: string;
   agentName: string;
   nodeName: string;

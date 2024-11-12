@@ -13,7 +13,7 @@ import {
   convertGqlOutputToMessages,
   CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
-import { CopilotContextParams } from "../context";
+import { CopilotContextParams, CopilotMessagesContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
 import { CopilotRuntimeClient } from "@copilotkit/runtime-client-gql";
 import {
@@ -42,7 +42,7 @@ type StreamHandlerArgs<T extends Parameter[] | [] = []> =
   | CompleteState<T>;
 
 interface ExtractOptions<T extends Parameter[]> {
-  context: CopilotContextParams;
+  context: CopilotContextParams & CopilotMessagesContextParams;
   instructions: string;
   parameters: T;
   include?: IncludeOptions;
@@ -71,6 +71,7 @@ export async function extract<const T extends Parameter[]>({
 
   const action: Action<any> = {
     name: "extract",
+    description: instructions,
     parameters,
     handler: (args: any) => {},
   };
@@ -91,6 +92,11 @@ export async function extract<const T extends Parameter[]>({
   const systemMessage: Message = new TextMessage({
     content: makeSystemMessage(contextString, instructions),
     role: Role.System,
+  });
+
+  const instructionsMessage: Message = new TextMessage({
+    content: makeInstructionsMessage(instructions),
+    role: Role.User,
   });
 
   const headers = {
@@ -123,8 +129,8 @@ export async function extract<const T extends Parameter[]>({
 
         messages: convertMessagesToGqlInput(
           includeMessages
-            ? [systemMessage, ...filterAgentStateMessages(messages)]
-            : [systemMessage],
+            ? [systemMessage, instructionsMessage, ...filterAgentStateMessages(messages)]
+            : [systemMessage, instructionsMessage],
         ),
         metadata: {
           requestType: requestType,
@@ -158,7 +164,7 @@ export async function extract<const T extends Parameter[]>({
 
     actionExecutionMessage = convertGqlOutputToMessages(
       value.generateCopilotResponse.messages,
-    ).find((msg) => msg instanceof ActionExecutionMessage) as ActionExecutionMessage | undefined;
+    ).find((msg) => msg.isActionExecutionMessage()) as ActionExecutionMessage | undefined;
 
     if (!actionExecutionMessage) {
       continue;
@@ -184,6 +190,20 @@ export async function extract<const T extends Parameter[]>({
   return actionExecutionMessage.arguments as MappedParameterTypes<T>;
 }
 
+// We need to put this in a user message since some LLMs need
+// at least one user message to function
+function makeInstructionsMessage(instructions: string): string {
+  return `
+The user has given you the following task to complete:
+
+\`\`\`
+${instructions}
+\`\`\`
+
+Any additional messages provided are for providing context only and should not be used to ask questions or engage in conversation.
+`;
+}
+
 function makeSystemMessage(contextString: string, instructions: string): string {
   return `
 Please act as an efficient, competent, conscientious, and industrious professional assistant.
@@ -201,13 +221,5 @@ They have also provided you with a function called extract you MUST call to init
 Please assist them as best you can.
 
 This is not a conversation, so please do not ask questions. Just call the function without saying anything else.
-
-The user has given you the following task to complete:
-
-\`\`\`
-${instructions}
-\`\`\`
-
-Any additional messages provided are for providing context only and should not be used to ask questions or engage in conversation.
 `;
 }

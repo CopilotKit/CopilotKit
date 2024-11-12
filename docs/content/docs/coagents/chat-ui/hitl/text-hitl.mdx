@@ -181,7 +181,7 @@ While this agent code can seem verbose, the workflow is simple:
 - The user will respond, and if their response contains a recognizable name the LLM will save that to shared state
 - The agent will greet the user by name
 
-To make sure the agent asks the user their name, the graph's entry point is set to the `ask_name_node` method, wihch includes an explicit call to `copilotkit_emit_message`:
+To make sure the agent asks the user their name, the graph's entry point is set to the `ask_name_node` method, which includes an explicit call to `copilotkit_emit_message`:
 
 ```python
 async def ask_name_node(state: GreetAgentState, config: RunnableConfig):

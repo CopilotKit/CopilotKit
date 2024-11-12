@@ -1,11 +1,15 @@
 import { ResearchCanvas } from "@/components/ResearchCanvas";
+import { useModelSelectorContext } from "@/lib/model-selector-provider";
+import { AgentState } from "@/lib/types";
 import { useCoAgent } from "@copilotkit/react-core";
 import { CopilotChat } from "@copilotkit/react-ui";
 
 export default function Main() {
-  const { state, setState } = useCoAgent({
-    name: "research_agent",
+  const { model, agent } = useModelSelectorContext();
+  const { state, setState } = useCoAgent<AgentState>({
+    name: agent,
     initialState: {
+      model,
       research_question: "",
       resources: [],
       report: "",
