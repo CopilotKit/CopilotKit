@@ -54,7 +54,7 @@ jobs:
         with:
           working_dir: './infra'
           cdk_subcommand: 'destroy'
-          cdk_args: '--require-approval never --outputs-file=cdk_outputs.json'
+          cdk_args: '--force'
           actions_comment: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -64,6 +64,5 @@ jobs:
       - name: Comment PR
         uses: thollander/actions-comment-pull-request@v3
         with:
-          comment-tag: preview-env-destroyed
           message: |
             Preview environments destroyed.
