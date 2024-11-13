@@ -1,7 +1,6 @@
 """LangGraph agent for CopilotKit"""
 
 import uuid
-import json
 from typing import Optional, List, Callable, Any, cast, Union, TypedDict
 from typing_extensions import NotRequired
 
@@ -321,18 +320,22 @@ class LangGraphAgent(Agent):
         should_exit = False
         thread_id = cast(Any, config)["configurable"]["thread_id"]
 
-        async for event in self.graph.astream_events(initial_state, config, version="v1"):
+        async for event in self.graph.astream_events(initial_state, config, version="v2"):
             current_node_name = event.get("name")
             event_type = event.get("event")
             run_id = event.get("run_id")
             metadata = event.get("metadata", {})
 
-            should_exit = should_exit or metadata.get("copilotkit:exit", False)
+            should_exit = should_exit or (
+                event_type == "on_custom_event" and
+                event["name"] == "copilotkit_exit"
+            )
 
             emit_intermediate_state = metadata.get("copilotkit:emit-intermediate-state")
-            force_emit_intermediate_state = metadata.get("copilotkit:force-emit-intermediate-state", False) # pylint: disable=line-too-long
-            manually_emit_message = metadata.get("copilotkit:manually-emit-message", False)
-            manually_emit_tool_call = metadata.get("copilotkit:manually-emit-tool-call", False)
+            manually_emit_intermediate_state = (
+                event_type == "on_custom_event" and
+                event["name"] == "copilotkit_manually_emit_intermediate_state"
+            )
 
             # we only want to update the node name under certain conditions
             # since we don't need any internal node names to be sent to the frontend
@@ -345,42 +348,17 @@ class LangGraphAgent(Agent):
 
             exiting_node = node_name == current_node_name and event_type == "on_chain_end"
 
-            if force_emit_intermediate_state:
-                if event_type == "on_chain_end":
-                    state = cast(Any, event["data"])["output"]
-                    yield self._emit_state_sync_event(
-                        thread_id=thread_id,
-                        run_id=run_id,
-                        node_name=node_name,
-                        state=state,
-                        running=True,
-                        active=True
-                    ) + "\n"
-                continue
+            if manually_emit_intermediate_state:
+                state = cast(Any, event["data"])
+                yield self._emit_state_sync_event(
+                    thread_id=thread_id,
+                    run_id=run_id,
+                    node_name=node_name,
+                    state=state,
+                    running=True,
+                    active=True
+                ) + "\n"
 
-            if manually_emit_message:
-                if event_type == "on_chain_end":
-                    yield json.dumps(
-                        {
-                            "event": "on_copilotkit_emit_message",
-                            "message": cast(Any, event["data"])["output"],
-                            "message_id": str(uuid.uuid4()),
-                            "role": "assistant"
-                        }
-                    ) + "\n"
-                continue
-
-            if manually_emit_tool_call:
-                if event_type == "on_chain_end":
-                    yield json.dumps(
-                        {
-                            "event": "on_copilotkit_emit_tool_call",
-                            "name": cast(Any, event["data"])["output"]["name"],
-                            "args": cast(Any, event["data"])["output"]["args"],
-                            "id": cast(Any, event["data"])["output"]["id"]
-                        }
-                    ) + "\n"
-                continue
 
             if emit_intermediate_state and emit_intermediate_state_until_end is None:
                 emit_intermediate_state_until_end = node_name
