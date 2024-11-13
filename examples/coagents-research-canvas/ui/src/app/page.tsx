@@ -7,6 +7,8 @@ import {
   useModelSelectorContext,
 } from "@/lib/model-selector-provider";
 import { ModelSelector } from "@/components/ModelSelector";
+import { useRouter, useSearchParams } from "next/navigation";
+import { router } from "next/client";
 
 export default function ModelSelectorWrapper() {
   return (
@@ -19,10 +21,12 @@ export default function ModelSelectorWrapper() {
 
 function Home() {
   const { agent } = useModelSelectorContext();
+  const searchParams = useSearchParams();
+  const useLangGraphCloud = searchParams.get("lgc") || false;
 
   return (
     <CopilotKit
-      runtimeUrl="/api/copilotkit"
+      runtimeUrl={useLangGraphCloud ? "/api/copilotkit-lgc" : "/api/copilotkit"}
       showDevConsole={false}
       agent={agent}
     >
