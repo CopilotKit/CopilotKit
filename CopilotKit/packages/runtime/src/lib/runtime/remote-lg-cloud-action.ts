@@ -72,7 +72,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   const agentStateValues = agentState.values as State;
   state.messages = agentStateValues.messages;
   const mode = wasInitiatedWithExistingThread && nodeName != "__end__" ? "continue" : "start";
-  state = langGraphDefaultMergeState(state, formatMessages(messages), actions);
+  state = langGraphDefaultMergeState(state, formatMessages(messages), actions, name);
 
   if (mode === "continue") {
     await client.threads.updateState(threadId, { values: state, asNode: nodeName });
@@ -369,6 +369,7 @@ function langGraphDefaultMergeState(
   state: State,
   messages: CopilotKitBaseMessage[],
   actions: ExecutionAction[],
+  agentName: string,
 ): State {
   if (messages.length > 0 && "role" in messages[0] && messages[0].role === "system") {
     // remove system message
@@ -378,15 +379,135 @@ function langGraphDefaultMergeState(
   // merge with existing messages
   const mergedMessages = state.messages || [];
   const existingMessageIds = new Set(mergedMessages.map((message) => message.id));
+  const existingToolCallResults = new Set<string>();
 
-  for (const message of messages) {
-    if (!existingMessageIds.has(message.id)) {
-      mergedMessages.push(message);
+  for (const message of mergedMessages) {
+    if ("tool_call_id" in message) {
+      existingToolCallResults.add(message.tool_call_id);
     }
   }
 
+  for (const message of messages) {
+    // filter tool calls to activate the agent itself
+    if (
+      "tool_calls" in message &&
+      message.tool_calls.length > 0 &&
+      message.tool_calls[0].name === agentName
+    ) {
+      continue;
+    }
+
+    // filter results from activating the agent
+    if ("name" in message && message.name === agentName) {
+      continue;
+    }
+
+    if (!existingMessageIds.has(message.id)) {
+      // skip duplicate tool call results
+      if ("tool_call_id" in message && existingToolCallResults.has(message.tool_call_id)) {
+        console.warn("Warning: Duplicate tool call result, skipping:", message.tool_call_id);
+        continue;
+      }
+
+      mergedMessages.push(message);
+    } else {
+      // Replace the message with the existing one
+      for (let i = 0; i < mergedMessages.length; i++) {
+        if (mergedMessages[i].id === message.id) {
+          if ("tool_calls" in message) {
+            if (
+              (mergedMessages[i].tool_calls || mergedMessages[i].additional_kwargs) &&
+              mergedMessages[i].content
+            ) {
+              message.tool_calls = mergedMessages[i].tool_calls;
+              message.additional_kwargs = mergedMessages[i].additional_kwargs;
+            }
+          }
+          mergedMessages[i] = message;
+        }
+      }
+    }
+  }
+
+  // fix wrong tool call ids
+  for (let i = 0; i < mergedMessages.length - 1; i++) {
+    const currentMessage = mergedMessages[i];
+    const nextMessage = mergedMessages[i + 1];
+
+    if (
+      "tool_calls" in currentMessage &&
+      currentMessage.tool_calls.length > 0 &&
+      "tool_call_id" in nextMessage
+    ) {
+      nextMessage.tool_call_id = currentMessage.tool_calls[0].id;
+    }
+  }
+
+  // try to auto-correct and log alignment issues
+  const correctedMessages: CopilotKitBaseMessage[] = [];
+
+  for (let i = 0; i < mergedMessages.length; i++) {
+    const currentMessage = mergedMessages[i];
+    const nextMessage = mergedMessages[i + 1] || null;
+    const prevMessage = mergedMessages[i - 1] || null;
+
+    if ("tool_calls" in currentMessage && currentMessage.tool_calls.length > 0) {
+      if (!nextMessage) {
+        console.warn(
+          "No next message to auto-correct tool call, skipping:",
+          currentMessage.tool_calls[0].id,
+        );
+        continue;
+      }
+
+      if (
+        !("tool_call_id" in nextMessage) ||
+        nextMessage.tool_call_id !== currentMessage.tool_calls[0].id
+      ) {
+        const toolMessage = mergedMessages.find(
+          (m) => "tool_call_id" in m && m.tool_call_id === currentMessage.tool_calls[0].id,
+        );
+
+        if (toolMessage) {
+          console.warn(
+            "Auto-corrected tool call alignment issue:",
+            currentMessage.tool_calls[0].id,
+          );
+          correctedMessages.push(currentMessage, toolMessage);
+          continue;
+        } else {
+          console.warn(
+            "No corresponding tool call result found for tool call, skipping:",
+            currentMessage.tool_calls[0].id,
+          );
+          continue;
+        }
+      }
+
+      correctedMessages.push(currentMessage);
+      continue;
+    }
+
+    if ("tool_call_id" in currentMessage) {
+      if (!prevMessage || !("tool_calls" in prevMessage)) {
+        console.warn("No previous tool call, skipping tool call result:", currentMessage.id);
+        continue;
+      }
+
+      if (prevMessage.tool_calls && prevMessage.tool_calls[0].id !== currentMessage.tool_call_id) {
+        console.warn("Tool call id is incorrect, skipping tool call result:", currentMessage.id);
+        continue;
+      }
+
+      correctedMessages.push(currentMessage);
+      continue;
+    }
+
+    correctedMessages.push(currentMessage);
+  }
+
   return deepMerge(state, {
-    messages: mergedMessages,
+    messages: correctedMessages,
     copilotkit: {
       actions,
     },
