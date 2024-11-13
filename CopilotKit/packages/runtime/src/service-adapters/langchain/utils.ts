@@ -62,7 +62,7 @@ export function convertJsonSchemaToZodSchema(jsonSchema: any, required: boolean)
         jsonSchema.required ? jsonSchema.required.includes(key) : false,
       );
     }
-    let schema = z.object(spec);
+    let schema = z.object(spec).describe(jsonSchema.description);
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "string") {
     let schema = z.string().describe(jsonSchema.description);
@@ -75,7 +75,7 @@ export function convertJsonSchemaToZodSchema(jsonSchema: any, required: boolean)
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "array") {
     let itemSchema = convertJsonSchemaToZodSchema(jsonSchema.items, true);
-    let schema = z.array(itemSchema);
+    let schema = z.array(itemSchema).describe(jsonSchema.description);
     return required ? schema : schema.optional();
   }
 }
