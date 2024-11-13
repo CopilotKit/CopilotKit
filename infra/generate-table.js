@@ -17,7 +17,9 @@ function generateTable() {
   structure.push({
     table: {
       headers: ["Name", "URL"],
-      rows: Object.entries(json).map(([key, value]) => ({
+      rows: Object.entries(json)
+      .filter(([key, value]) => value.IncludeInComment === "true")
+      .map(([key, value]) => ({
         Name: value.ProjectName,
         URL: `[Link](${value.UiUrl})`,
       })),

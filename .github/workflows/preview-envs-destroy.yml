@@ -58,7 +58,7 @@ jobs:
           actions_comment: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_PR_NUMBER: ${{ github.event.number }}
+          UNIQUE_ENV_ID: "PR${{ github.event.number }}"
           OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
 
       - name: Comment post-destroy
