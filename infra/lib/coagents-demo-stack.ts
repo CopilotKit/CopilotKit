@@ -7,7 +7,7 @@ import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as logs from "aws-cdk-lib/aws-logs"; // Add this import
 
 interface CoAgentsDemoStackProps extends cdk.StackProps {
-  demoPath: string;
+  demoName: string;
   projectName: string;
   pullRequestNumber: string;
 }
@@ -50,9 +50,11 @@ export class CoAgentsDemoStack extends cdk.Stack {
         AWS_LWA_INVOKE_MODE: "RESPONSE_STREAM",
         PORT: "8000",
       },
-      code: lambda.Code.fromAssetImage(path.resolve(props.demoPath, "agent"), {
+      code: lambda.Code.fromAssetImage(path.resolve(__dirname, "../../"), {
         platform: ecr_assets.Platform.LINUX_AMD64,
         buildSecrets: {},
+        buildArgs: {},
+        file: `examples/${props.demoName}/agent/Dockerfile`,
       }),
       timeout: cdk.Duration.seconds(300),
       memorySize: 1024,
@@ -89,12 +91,15 @@ export class CoAgentsDemoStack extends cdk.Stack {
         AWS_LWA_INVOKE_MODE: "RESPONSE_STREAM",
         PORT: "3000",
       },
-      code: lambda.Code.fromAssetImage(path.resolve(props.demoPath, "ui"), {
-        platform: ecr_assets.Platform.LINUX_AMD64,
-        buildSecrets: {
-          OPENAI_API_KEY: "id=OPENAI_API_KEY",
-        },
-      }),
+      code: lambda.Code.fromAssetImage(
+        path.resolve(__dirname, `../../examples/${props.demoName}/ui`),
+        {
+          platform: ecr_assets.Platform.LINUX_AMD64,
+          buildSecrets: {
+            OPENAI_API_KEY: "id=OPENAI_API_KEY",
+          },
+        }
+      ),
       timeout: cdk.Duration.seconds(300),
       memorySize: 1024,
     });

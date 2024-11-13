@@ -12,23 +12,23 @@ const pullRequestNumber = requireEnv("GITHUB_PR_NUMBER");
 new CoAgentsDemoStack(app, `ResearchCanvasDemoStackPr${pullRequestNumber}`, {
   pullRequestNumber: `${pullRequestNumber}`,
   projectName: "CoAgents Research Canvas",
-  demoPath: path.resolve(__dirname, "../../examples/coagents-research-canvas"),
+  demoName: "coagents-research-canvas",
 });
 
 new CoAgentsDemoStack(app, `PerplexityDemoStackPr${pullRequestNumber}`, {
   pullRequestNumber: `${pullRequestNumber}`,
   projectName: "CoAgents Perplexity Clone",
-  demoPath: path.resolve(__dirname, "../../examples/coagents-ai-researcher"),
+  demoName: "coagents-ai-researcher",
 });
 
 new CoAgentsDemoStack(app, `CoAgentsQAText${pullRequestNumber}`, {
   pullRequestNumber: `${pullRequestNumber}`,
   projectName: "CoAgents Q&A Text",
-  demoPath: path.resolve(__dirname, "../../examples/coagents-qa-text"),
+  demoName: "coagents-qa-text",
 });
 
 new CoAgentsDemoStack(app, `CoAgentsQANative${pullRequestNumber}`, {
   pullRequestNumber: `${pullRequestNumber}`,
   projectName: "CoAgents Q&A Native",
-  demoPath: path.resolve(__dirname, "../../examples/coagents-qa-native"),
+  demoName: "coagents-qa-native",
 });
