@@ -13,10 +13,6 @@ const uniqueEnvironmentId = requireEnv("UNIQUE_ENV_ID");
  */
 
 const researchCanvasAgent = new PreviewProjectStack(app, `CoAgentsResearchCanvasDemoAgent`, {
-  env: {
-    account: "058264219587",
-    region: "us-east-1"
-  },
   projectName: "CoAgents Research Canvas - Agent",
   demoDir: "examples/coagents-research-canvas/agent",
   overrideDockerWorkdir: "./",
@@ -28,10 +24,6 @@ const researchCanvasAgent = new PreviewProjectStack(app, `CoAgentsResearchCanvas
 });
 
 const researchCanvasUI = new PreviewProjectStack(app, `CoAgentsResearchCanvasDemoUI`, {
-  env: {
-    account: "058264219587",
-    region: "us-east-1"
-  },
   projectName: "CoAgents Research Canvas - UI",
   demoDir: "examples/coagents-research-canvas/ui",
   uniqueEnvironmentId,
