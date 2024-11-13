@@ -67,7 +67,7 @@ const perplexityUI = new PreviewProjectStack(app, `CoAgentsPerplexityDemoUI`, {
  */
 
 const qaTextAgent = new PreviewProjectStack(app, `CoAgentsQATextDemoAgent`, {
-  projectName: "CoAgents Perplexity Clone - Agent",
+  projectName: "CoAgents QA Text - Agent",
   demoDir: "examples/coagents-ai-researcher/agent",
   overrideDockerWorkdir: "./",
   overrideDockerfile: "examples/coagents-ai-researcher/agent/Dockerfile", 
@@ -78,7 +78,7 @@ const qaTextAgent = new PreviewProjectStack(app, `CoAgentsQATextDemoAgent`, {
 });
 
 const qaTextUI = new PreviewProjectStack(app, `CoAgentsQATextDemoUI`, {
-  projectName: "CoAgents Perplexity Clone - UI",
+  projectName: "CoAgents QA Text - UI",
   demoDir: "examples/coagents-qa-text/ui",
   uniqueEnvironmentId,
   environmentFromSecrets: ["OPENAI_API_KEY"],
@@ -94,7 +94,7 @@ const qaTextUI = new PreviewProjectStack(app, `CoAgentsQATextDemoUI`, {
  */
 
 const qaNativeAgent = new PreviewProjectStack(app, `CoAgentsQANativetDemoAgent`, {
-  projectName: "CoAgents Perplexity Clone - Agent",
+  projectName: "CoAgents QA Native - Agent",
   demoDir: "examples/coagents-ai-researcher/agent",
   overrideDockerWorkdir: "./",
   overrideDockerfile: "examples/coagents-ai-researcher/agent/Dockerfile", 
@@ -105,7 +105,7 @@ const qaNativeAgent = new PreviewProjectStack(app, `CoAgentsQANativetDemoAgent`,
 });
 
 const qaNativeAUI = new PreviewProjectStack(app, `CoAgentsQANativeDemoUI`, {
-  projectName: "CoAgents Perplexity Clone - UI",
+  projectName: "CoAgents QA Native - UI",
   demoDir: "examples/coagents-qa-native/ui",
   uniqueEnvironmentId,
   environmentFromSecrets: ["OPENAI_API_KEY"],
