@@ -58,7 +58,7 @@ export const Menu = React.forwardRef(
     return (
       <div
         {...props}
-        data-test-id="menu"
+        data-testid="menu"
         ref={ref as Ref<HTMLDivElement>}
         className={cx(
           className,
