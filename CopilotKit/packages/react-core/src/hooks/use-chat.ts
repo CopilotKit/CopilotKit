@@ -356,19 +356,19 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             .find((message) => message.isAgentStateMessage());
 
           if (lastAgentStateMessage) {
+            setCoagentStates((prevAgentStates) => ({
+              ...prevAgentStates,
+              [lastAgentStateMessage.agentName]: {
+                name: lastAgentStateMessage.agentName,
+                state: lastAgentStateMessage.state,
+                running: lastAgentStateMessage.running,
+                active: lastAgentStateMessage.active,
+                threadId: lastAgentStateMessage.threadId,
+                nodeName: lastAgentStateMessage.nodeName,
+                runId: lastAgentStateMessage.runId,
+              },
+            }));
             if (lastAgentStateMessage.running) {
-              setCoagentStates((prevAgentStates) => ({
-                ...prevAgentStates,
-                [lastAgentStateMessage.agentName]: {
-                  name: lastAgentStateMessage.agentName,
-                  state: lastAgentStateMessage.state,
-                  running: lastAgentStateMessage.running,
-                  active: lastAgentStateMessage.active,
-                  threadId: lastAgentStateMessage.threadId,
-                  nodeName: lastAgentStateMessage.nodeName,
-                  runId: lastAgentStateMessage.runId,
-                },
-              }));
               setAgentSession({
                 threadId: lastAgentStateMessage.threadId,
                 agentName: lastAgentStateMessage.agentName,
