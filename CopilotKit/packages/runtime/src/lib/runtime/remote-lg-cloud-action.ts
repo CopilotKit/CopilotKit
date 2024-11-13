@@ -80,7 +80,16 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     await client.threads.updateState(threadId, { values: state, asNode: nodeName });
   }
 
-  const assistantId = initialAssistantId ?? retrievedAssistant.assistant_id;
+  const assistantId = initialAssistantId ?? retrievedAssistant?.assistant_id;
+  if (!assistantId) {
+    console.error(`
+      No agent found for the agent name specified in CopilotKit provider
+      Please check your available agents or provide an agent ID in the LangGraph Cloud endpoint definition.\n
+      
+      These are the available agents: [${assistants.map((a) => `${a.name} (ID: ${a.assistant_id})`).join(", ")}]
+      `);
+    throw new Error("No agent id found");
+  }
   const graphInfo = await client.assistants.getGraph(assistantId);
   const streamInput = mode === "start" ? state : null;
 
