@@ -28,6 +28,7 @@ const researchCanvasUI = new PreviewProjectStack(app, `CoAgentsResearchCanvasDem
   demoDir: "examples/coagents-research-canvas/ui",
   uniqueEnvironmentId,
   environmentFromSecrets: ["OPENAI_API_KEY"],
+  buildSecrets: ["OPENAI_API_KEY"],
   environment: {
     REMOTE_ACTION_URL: `${researchCanvasAgent.fnUrl}/copilotkit`,
   },
@@ -55,6 +56,7 @@ const perplexityUI = new PreviewProjectStack(app, `CoAgentsPerplexityDemoUI`, {
   demoDir: "examples/coagents-ai-researcher/ui",
   uniqueEnvironmentId,
   environmentFromSecrets: ["OPENAI_API_KEY"],
+  buildSecrets: ["OPENAI_API_KEY"],
   environment: {
     REMOTE_ACTION_URL: `${perplexityAgent.fnUrl}/copilotkit`,
   },
@@ -82,6 +84,7 @@ const qaTextUI = new PreviewProjectStack(app, `CoAgentsQATextDemoUI`, {
   demoDir: "examples/coagents-qa-text/ui",
   uniqueEnvironmentId,
   environmentFromSecrets: ["OPENAI_API_KEY"],
+  buildSecrets: ["OPENAI_API_KEY"],
   environment: {
     REMOTE_ACTION_URL: `${qaTextAgent.fnUrl}/copilotkit`,
   },
@@ -100,6 +103,7 @@ const qaNativeAgent = new PreviewProjectStack(app, `CoAgentsQANativetDemoAgent`,
   overrideDockerfile: "examples/coagents-ai-researcher/agent/Dockerfile", 
   uniqueEnvironmentId,
   environmentFromSecrets: ["OPENAI_API_KEY", "TAVILY_API_KEY"],
+  buildSecrets: ["OPENAI_API_KEY"],
   port: "8000",
   includeInPRComment: false,
 });
@@ -109,6 +113,7 @@ const qaNativeAUI = new PreviewProjectStack(app, `CoAgentsQANativeDemoUI`, {
   demoDir: "examples/coagents-qa-native/ui",
   uniqueEnvironmentId,
   environmentFromSecrets: ["OPENAI_API_KEY"],
+  buildSecrets: ["OPENAI_API_KEY"],
   environment: {
     REMOTE_ACTION_URL: `${qaNativeAgent.fnUrl}/copilotkit`,
   },

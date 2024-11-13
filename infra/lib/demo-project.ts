@@ -25,6 +25,7 @@ interface ProjectStackProps extends cdk.StackProps {
     [key: string]: string;
   };
   environmentFromSecrets?: string[];
+  buildSecrets?: string[];
   port: number | string;
   timeout?: number;
   memorySize?: number;
@@ -63,7 +64,11 @@ export class PreviewProjectStack extends cdk.Stack {
         environment[secret] = secrets
           .secretValueFromJson(secret)
           .unsafeUnwrap();
+      }
+    }
 
+    if(props.buildSecrets) {
+      for (const secret of props.buildSecrets) {
         buildSecrets[secret] = `id=${secret}`;
       }
     }
