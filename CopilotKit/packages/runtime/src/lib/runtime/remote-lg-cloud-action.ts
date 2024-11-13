@@ -379,7 +379,7 @@ function langGraphDefaultMergeState(
   }
 
   // merge with existing messages
-  const mergedMessages = state.messages || [];
+  const mergedMessages: LangGraphMessage[] = state.messages || [];
   const existingMessageIds = new Set(mergedMessages.map((message) => message.id));
   const existingToolCallResults = new Set<string>();
 
@@ -418,10 +418,10 @@ function langGraphDefaultMergeState(
         if (mergedMessages[i].id === message.id) {
           if ("tool_calls" in message) {
             if (
-              (mergedMessages[i].tool_calls || mergedMessages[i].additional_kwargs) &&
+              ("tool_calls" in mergedMessages[i] || "additional_kwargs" in mergedMessages[i]) &&
               mergedMessages[i].content
             ) {
-              message.tool_calls = mergedMessages[i].tool_calls;
+              message.tool_calls = mergedMessages[i]["tool_calls"];
               message.additional_kwargs = mergedMessages[i].additional_kwargs;
             }
           }
@@ -446,8 +446,7 @@ function langGraphDefaultMergeState(
   }
 
   // try to auto-correct and log alignment issues
-  // TODO: Decide on the type of this
-  const correctedMessages: CopilotKitBaseMessage[] = [];
+  const correctedMessages: LangGraphMessage[] = [];
 
   for (let i = 0; i < mergedMessages.length; i++) {
     const currentMessage = mergedMessages[i];
