@@ -62,7 +62,7 @@ export function convertJsonSchemaToZodSchema(jsonSchema: any, required: boolean)
         jsonSchema.required ? jsonSchema.required.includes(key) : false,
       );
     }
-    let schema = z.object(spec);
+    let schema = z.object(spec).describe(jsonSchema.description);
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "string") {
     let schema = z.string().describe(jsonSchema.description);
@@ -75,7 +75,7 @@ export function convertJsonSchemaToZodSchema(jsonSchema: any, required: boolean)
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "array") {
     let itemSchema = convertJsonSchemaToZodSchema(jsonSchema.items, true);
-    let schema = z.array(itemSchema);
+    let schema = z.array(itemSchema).describe(jsonSchema.description);
     return required ? schema : schema.optional();
   }
 }
@@ -215,8 +215,6 @@ export async function streamLangChainResponse({
         let toolCallName: string | undefined = undefined;
         let toolCallId: string | undefined = undefined;
         let toolCallArgs: string | undefined = undefined;
-        let toolCallIndex: number | undefined = undefined;
-        let toolCallPrevIndex: number | undefined = undefined;
         let hasToolCall: boolean = false;
         let content = value?.content as string;
 
@@ -237,8 +235,6 @@ export async function streamLangChainResponse({
           // Assign to internal variables that the entire script here knows how to work with
           toolCallName = toolCallDetails.name;
           toolCallId = toolCallDetails.id;
-          toolCallIndex = toolCallDetails.index;
-          toolCallPrevIndex = toolCallDetails.prevIndex;
         } else if (isBaseMessageChunk(value)) {
           let chunk = value.additional_kwargs?.tool_calls?.[0];
           toolCallName = chunk?.function?.name;
@@ -280,7 +276,7 @@ export async function streamLangChainResponse({
           );
         } else if (mode === "function" && toolCallArgs) {
           // For calls of the same tool with different index, we seal last tool call and register a new one
-          if (toolCallIndex !== toolCallPrevIndex) {
+          if (toolCallDetails.index !== toolCallDetails.prevIndex) {
             eventStream$.sendActionExecutionEnd();
             eventStream$.sendActionExecutionStart(toolCallId, toolCallName);
             toolCallDetails.prevIndex = toolCallDetails.index;
