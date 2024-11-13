@@ -21,7 +21,7 @@ function generateTable() {
       .filter(([key, value]) => value.IncludeInComment === "true")
       .map(([key, value]) => ({
         Name: value.ProjectName,
-        URL: `[Link](${value.UiUrl})`,
+        URL: `[Link](${value.FunctionUrl})`,
       })),
     },
   });
