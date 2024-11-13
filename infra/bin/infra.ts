@@ -5,6 +5,7 @@ import { CoAgentsDemoStack } from "../lib/coagents-demo-stack";
 import * as path from "path";
 import { requireEnv } from "../lib/utils";
 
+// app
 const app = new cdk.App();
 const pullRequestNumber = requireEnv("GITHUB_PR_NUMBER");
 

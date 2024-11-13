@@ -133,6 +133,6 @@ export class CoAgentsDemoStack extends cdk.Stack {
 
     // Add tag for PR number to all resources
     cdk.Tags.of(this).add("pr-number", props.pullRequestNumber);
-    cdk.Tags.of(this).add("demos-preview", "true");
+    cdk.Tags.of(this).add("preview-env", "true");
   }
 }
