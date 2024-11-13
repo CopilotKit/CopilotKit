@@ -1,5 +1,14 @@
 # @copilotkit/runtime-client-gql
 
+## 1.3.14
+
+### Patch Changes
+
+- Add data-test-id to some elements for testing
+- Updated dependencies
+  - @copilotkit/runtime@1.3.14
+  - @copilotkit/shared@1.3.14
+
 ## 1.3.13
 
 ### Patch Changes

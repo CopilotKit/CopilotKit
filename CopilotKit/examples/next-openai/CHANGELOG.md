@@ -1,5 +1,17 @@
 # web
 
+## 1.3.14
+
+### Patch Changes
+
+- Add data-test-id to some elements for testing
+- Updated dependencies
+  - @copilotkit/react-core@1.3.14
+  - @copilotkit/react-textarea@1.3.14
+  - @copilotkit/react-ui@1.3.14
+  - @copilotkit/runtime@1.3.14
+  - @copilotkit/shared@1.3.14
+
 ## 1.3.13
 
 ### Patch Changes
