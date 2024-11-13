@@ -4,10 +4,12 @@ import { parse as parsePartialJson } from "partial-json";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { LangGraphCloudAgent, LangGraphCloudEndpoint } from "./remote-actions";
 import { CopilotRequestContextProperties } from "../integrations";
-import { BaseMessageInput as CopilotKitBaseMessage } from "../../graphql/types/base";
+import { Message } from "../../graphql/types/converted";
 import { MessageRole } from "../../graphql/types/enums";
+import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
 
 type State = Record<string, any>;
+type LangGraphMessage = AIMessage | SystemMessage | HumanMessage | ToolMessage;
 
 type ExecutionAction = Pick<ActionInput, "name" | "description"> & { parameters: string };
 
@@ -15,7 +17,7 @@ interface ExecutionArgs extends Omit<LangGraphCloudEndpoint, "agents"> {
   agent: LangGraphCloudAgent;
   threadId: string;
   nodeName: string;
-  messages: CopilotKitBaseMessage[];
+  messages: Message[];
   state: State;
   properties: CopilotRequestContextProperties;
   actions: ExecutionAction[];
@@ -367,7 +369,7 @@ class StreamingStateExtractor {
 // Start of Selection
 function langGraphDefaultMergeState(
   state: State,
-  messages: CopilotKitBaseMessage[],
+  messages: LangGraphMessage[],
   actions: ExecutionAction[],
   agentName: string,
 ): State {
@@ -444,6 +446,7 @@ function langGraphDefaultMergeState(
   }
 
   // try to auto-correct and log alignment issues
+  // TODO: Decide on the type of this
   const correctedMessages: CopilotKitBaseMessage[] = [];
 
   for (let i = 0; i < mergedMessages.length; i++) {
@@ -530,33 +533,47 @@ function deepMerge(obj1: State, obj2: State) {
   return result;
 }
 
-function formatMessages(messages: CopilotKitBaseMessage[]): CopilotKitBaseMessage[] {
+function formatMessages(messages: Message[]): LangGraphMessage[] {
   return messages.map((message) => {
-    if ("content" in message) {
-      return message;
+    if (message.isTextMessage() && message.role === "assistant") {
+      return new AIMessage({
+        content: message.content,
+        id: message.id,
+      });
     }
-    if ("arguments" in message) {
+    if (message.isTextMessage() && message.role === "system") {
+      return new SystemMessage({
+        content: message.content,
+        id: message.id,
+      });
+    }
+    if (message.isTextMessage() && message.role === "user") {
+      return new HumanMessage({
+        content: message.content,
+        id: message.id,
+      });
+    }
+    if (message.isActionExecutionMessage()) {
       const toolCall = {
         name: message["name"],
         args: message["arguments"],
         id: message["id"],
       };
-      return {
-        ...message,
-        content: "",
+      return new AIMessage({
         tool_calls: [toolCall],
-        role: message["role"] ?? MessageRole.assistant,
-      };
+        content: "",
+        id: message["id"],
+      });
     }
-    if ("actionExecutionId" in message) {
-      return {
-        ...message,
-        content: message["result"],
-        name: message["actionName"],
-        tool_call_id: message["actionExecutionId"] as string,
-        role: message["role"] ?? MessageRole.user,
-      };
+    if (message.isResultMessage()) {
+      return new ToolMessage({
+        content: message.result,
+        id: message["id"],
+        tool_call_id: message.actionExecutionId,
+        name: message.actionName,
+      });
     }
-    return message;
+
+    throw new Error(`Unknown message type ${message.type}`);
   });
 }
