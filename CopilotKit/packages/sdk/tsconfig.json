@@ -1,0 +1,11 @@
+{
+  "extends": "../../utilities/tsconfig/base.json",
+  "compilerOptions": {
+    "lib": ["es2017", "dom"],
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "strict": false
+  },
+  "include": ["./src/**/*.ts"],
+  "exclude": ["dist", "build", "node_modules", "**/*.test.ts", "**/*.test.tsx", "**/__tests__/*"]
+}
