@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.3.14
+
+### Patch Changes
+
+- Add data-test-id to some elements for testing
+
 ## 1.3.13
 
 ### Patch Changes
