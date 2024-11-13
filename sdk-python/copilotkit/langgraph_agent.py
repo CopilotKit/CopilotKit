@@ -104,11 +104,84 @@ def langgraph_default_merge_state( # pylint: disable=unused-argument
         if current_message.tool_calls and current_message.tool_calls[0]["id"]:
             next_message.tool_call_id = current_message.tool_calls[0]["id"]
 
+    # try to auto-correct and log alignment issues
+    corrected_messages = []
+
+    for i, current_message in enumerate(merged_messages):
+        next_message = merged_messages[i + 1] if i < len(merged_messages) - 1 else None
+        prev_message = merged_messages[i - 1] if i > 0 else None
+
+        if isinstance(current_message, AIMessage) and current_message.tool_calls:
+            # ensure the next message is a ToolMessage
+            if not next_message:
+                # no next message, so we can't auto-correct
+                logger.warning(
+                    "No next message to auto-correct tool call, skipping: %s",
+                    current_message.tool_calls[0]["id"]
+                )
+                continue
+
+            if ((not isinstance(next_message, ToolMessage)) or
+                next_message.tool_call_id != current_message.tool_calls[0]["id"]):
+                # next message is not a tool message or the tool call id is incorrect
+
+                # try to find the corresponding tool call result
+                tool_message = next((m for m in merged_messages
+                                     if isinstance(m, ToolMessage) and 
+                                     m.tool_call_id == current_message.tool_calls[0]["id"]), 
+                                     None)
+                if tool_message:
+                    # we found the corresponding tool call result
+                    # append the current message and the tool call result
+                    logger.warning(
+                        "Auto-corrected tool call alignment issue: %s",
+                        current_message.tool_calls[0]["id"]
+                    )
+                    corrected_messages.append(current_message)
+                    corrected_messages.append(tool_message)
+                    continue
+                else:
+                    # no corresponding tool call result found for tool call
+                    logger.warning(
+                        "No corresponding tool call result found for tool call, skipping: %s",
+                        current_message.tool_calls[0]["id"]
+                    )
+                    continue
+
+            # all good, append the current message
+            corrected_messages.append(current_message)
+            continue
+
+        if isinstance(current_message, ToolMessage):
+            # ensure the previous message is an AIMessage
+            if not prev_message or not isinstance(prev_message, AIMessage):
+                # no previous message, so we can't auto-correct
+                logger.warning(
+                    "No previous tool call, skipping tool call result: %s",
+                    current_message.id
+                )
+                continue
+
+            if (prev_message.tool_calls and
+                prev_message.tool_calls[0]["id"] != current_message.tool_call_id):
+                # the tool call id is incorrect
+                logger.warning(
+                    "Tool call id is incorrect, skipping tool call result: %s",
+                    current_message.id
+                )
+                continue
+
+            # all good, append the current message
+            corrected_messages.append(current_message)
+            continue
+
+        # append all other messages
+        corrected_messages.append(current_message)
 
 
     return {
         **state,
-        "messages": merged_messages,
+        "messages": corrected_messages,
         "copilotkit": {
             "actions": actions
         }
