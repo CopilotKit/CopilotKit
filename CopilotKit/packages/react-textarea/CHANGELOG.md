@@ -1,5 +1,15 @@
 # ui
 
+## 1.3.16-mme-improve-langsmith.0
+
+### Patch Changes
+
+- Improve LangSmith support
+- Updated dependencies
+  - @copilotkit/react-core@1.3.16-mme-improve-langsmith.0
+  - @copilotkit/runtime-client-gql@1.3.16-mme-improve-langsmith.0
+  - @copilotkit/shared@1.3.16-mme-improve-langsmith.0
+
 ## 1.3.15
 
 ### Patch Changes

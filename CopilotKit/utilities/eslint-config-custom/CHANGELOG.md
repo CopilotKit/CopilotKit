@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 1.3.16-mme-improve-langsmith.0
+
+### Patch Changes
+
+- Improve LangSmith support
+
 ## 1.3.15
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.3.16-mme-improve-langsmith.0
+
+### Patch Changes
+
+- Improve LangSmith support
+- Updated dependencies
+  - @copilotkit/shared@1.3.16-mme-improve-langsmith.0
+
 ## 1.3.15
 
 ### Patch Changes

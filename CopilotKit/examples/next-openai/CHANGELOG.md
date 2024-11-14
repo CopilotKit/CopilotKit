@@ -1,5 +1,17 @@
 # web
 
+## 1.3.16-mme-improve-langsmith.0
+
+### Patch Changes
+
+- Improve LangSmith support
+- Updated dependencies
+  - @copilotkit/runtime@1.3.16-mme-improve-langsmith.0
+  - @copilotkit/react-core@1.3.16-mme-improve-langsmith.0
+  - @copilotkit/react-textarea@1.3.16-mme-improve-langsmith.0
+  - @copilotkit/react-ui@1.3.16-mme-improve-langsmith.0
+  - @copilotkit/shared@1.3.16-mme-improve-langsmith.0
+
 ## 1.3.15
 
 ### Patch Changes
