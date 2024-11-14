@@ -5,7 +5,7 @@ on:
     types: [ closed ]
 
 concurrency:
-  group: preview-${{ github.event.pull_request.number }}
+  group: preview-${{ github.event.pull_request.number }}-destroy
   cancel-in-progress: false
 
 jobs:
@@ -64,7 +64,7 @@ jobs:
 
       - name: cdk destroy
         working-directory: ./infra
-        run: cdk destroy --profile default --force
+        run: cdk destroy --profile default --all --force
         env:
           UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
           OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
