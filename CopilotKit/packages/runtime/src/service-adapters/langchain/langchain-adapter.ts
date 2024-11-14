@@ -44,7 +44,7 @@ import {
 } from "./utils";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { LangChainReturnType } from "./types";
-import { randomId } from "@copilotkit/shared";
+import { logUserErrorAndThrow, randomId } from "@copilotkit/shared";
 
 interface ChainFnParameters {
   model: string;
@@ -71,13 +71,22 @@ export class LangChainAdapter implements CopilotServiceAdapter {
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
     const { eventSource, model, actions, messages, threadId, runId } = request;
-    const result = await this.options.chainFn({
-      messages: messages.map(convertMessageToLangChainMessage),
-      tools: actions.map(convertActionInputToLangChainTool),
-      model,
-      threadId,
-      runId,
-    });
+    let result: LangChainReturnType;
+    try {
+      result = await this.options.chainFn({
+        messages: messages.map(convertMessageToLangChainMessage),
+        tools: actions.map(convertActionInputToLangChainTool),
+        model,
+        threadId,
+        runId,
+      });
+    } catch (error) {
+      logUserErrorAndThrow({
+        error,
+        message: "An error occurred while executing chainFn:",
+        suggestion: "Please check your implementation of chainFn in LangChainAdapter.",
+      });
+    }
 
     eventSource.stream(async (eventStream$) => {
       await streamLangChainResponse({

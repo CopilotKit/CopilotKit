@@ -2,6 +2,7 @@ import { ActionExecutionMessage, MessageStatusCode } from "@copilotkit/runtime-c
 import { RenderMessageProps } from "../props";
 import { useChatContext } from "../ChatContext";
 import { RenderFunctionStatus, useCopilotContext } from "@copilotkit/react-core";
+import { logUserError } from "@copilotkit/shared";
 
 export function RenderActionExecutionMessage(props: RenderMessageProps) {
   const { message, inProgress, index, isCurrentMessage, actionResult } = props;
@@ -66,7 +67,12 @@ export function RenderActionExecutionMessage(props: RenderMessageProps) {
             );
           }
         } catch (e) {
-          console.error(`Error executing render function for action ${message.name}: ${e}`);
+          logUserError({
+            error: e,
+            message: `An error occurred while executing render function for action "${message.name}":`,
+            suggestion: "Please check your implementation of the render function.",
+          });
+
           return (
             <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
               {isCurrentMessage && inProgress && icons.spinnerIcon}

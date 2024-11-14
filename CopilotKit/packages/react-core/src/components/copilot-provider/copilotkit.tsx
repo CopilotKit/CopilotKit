@@ -28,6 +28,7 @@ import {
   COPILOT_CLOUD_CHAT_URL,
   CopilotCloudConfig,
   FunctionCallHandler,
+  logUserError,
 } from "@copilotkit/shared";
 
 import { FrontendAction } from "../../types/frontend-action";
@@ -290,6 +291,11 @@ function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): Funct
             result = await action.handler?.(args);
             resolve();
           } catch (error) {
+            logUserError({
+              error,
+              message: `An error occurred while executing the action handler "${name}":`,
+              suggestion: "Please check your implementation of the action handler.",
+            });
             reject(error);
           }
         });
