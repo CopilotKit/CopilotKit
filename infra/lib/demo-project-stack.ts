@@ -5,6 +5,8 @@ import * as ecr_assets from "aws-cdk-lib/aws-ecr-assets"; // Add this import
 import * as path from "path";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as logs from "aws-cdk-lib/aws-logs"; // Add this import
+import * as events from "aws-cdk-lib/aws-events";
+import * as targets from "aws-cdk-lib/aws-events-targets";
 
 interface ProjectStackProps extends cdk.StackProps {
   /**
@@ -87,7 +89,7 @@ export class PreviewProjectStack extends cdk.Stack {
     path.resolve(__dirname, "../../", props.overrideDockerWorkdir) :
       path.resolve(__dirname, "../../", props.demoDir)
 
-    const agentFunction = new lambda.Function(this, `Function`, {
+    const fn = new lambda.Function(this, `Function`, {
       logGroup: logGroup,
       runtime: lambda.Runtime.FROM_IMAGE,
       architecture: lambda.Architecture.X86_64,
@@ -107,8 +109,14 @@ export class PreviewProjectStack extends cdk.Stack {
       memorySize: props.memorySize ?? 1024,
     });
 
+    const eventRule = new events.Rule(this, 'LambdaWarmUpSchedule', {
+      schedule: events.Schedule.rate(cdk.Duration.minutes(1)),
+    });
+
+    eventRule.addTarget(new targets.LambdaFunction(fn));
+
     // Add Function URL with streaming support
-    const fnUrl = agentFunction.addFunctionUrl({
+    const fnUrl = fn.addFunctionUrl({
       authType: lambda.FunctionUrlAuthType.NONE,
       cors: {
         allowedOrigins: ["*"],
