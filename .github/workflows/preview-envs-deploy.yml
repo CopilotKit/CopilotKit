@@ -63,6 +63,10 @@ jobs:
         run: cdk bootstrap aws://058264219587/us-east-1
         env:
           UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: 'us-east-1'
+          AWS_ACCOUNT_ID: '058264219587'
 
       - name: cdk deploy
         uses: youyo/aws-cdk-github-actions@v2
@@ -72,6 +76,10 @@ jobs:
           cdk_args: '--require-approval never --outputs-file=cdk_outputs.json --concurrency 5'
           actions_comment: false
         env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: 'us-east-1'
+          AWS_ACCOUNT_ID: '058264219587'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
           OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
