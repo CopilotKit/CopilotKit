@@ -67,6 +67,10 @@ jobs:
           message: |
             Deploying preview environments for this pull request...
 
+      - name: add profile
+        run: |
+          echo "[default]\nregion=us-east-1" > ~/.aws/config
+
       - name: cdk deploy
         working-directory: ./infra
         run: cdk deploy --require-approval never --outputs-file=cdk_outputs.json --concurrency 5
