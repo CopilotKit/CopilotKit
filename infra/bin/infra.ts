@@ -42,87 +42,105 @@ const researchCanvasUI = new PreviewProjectStack(app, `CoAgentsResearchCanvasDem
   includeInPRComment: true,
 });
 
-// /**
-//  * CoAgents Perplexity Demo
-//  */
+/**
+ * CoAgents Perplexity Demo
+ */
 
-// const perplexityAgent = new PreviewProjectStack(app, `CoAgentsPerplexityDemoAgent`, {
-//   projectName: "CoAgents Perplexity Clone - Agent",
-//   demoDir: "examples/coagents-ai-researcher/agent",
-//   overrideDockerWorkdir: "./",
-//   overrideDockerfile: "examples/coagents-ai-researcher/agent/Dockerfile", 
-//   uniqueEnvironmentId,
-//   environmentVariablesFromSecrets: ["OPENAI_API_KEY", "TAVILY_API_KEY"],
-//   port: "8000",
-//   includeInPRComment: false,
-// });
+const perplexityAgent = new PreviewProjectStack(app, `CoAgentsPerplexityDemoAgent`, {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+  },
+  projectName: "CoAgents Perplexity Clone - Agent",
+  demoDir: "examples/coagents-ai-researcher/agent",
+  overrideDockerWorkdir: "./",
+  overrideDockerfile: "examples/coagents-ai-researcher/agent/Dockerfile", 
+  uniqueEnvironmentId,
+  environmentVariablesFromSecrets: ["OPENAI_API_KEY", "TAVILY_API_KEY"],
+  port: "8000",
+  includeInPRComment: false,
+});
 
-// const perplexityUI = new PreviewProjectStack(app, `CoAgentsPerplexityDemoUI`, {
-//   projectName: "CoAgents Perplexity Clone - UI",
-//   demoDir: "examples/coagents-ai-researcher/ui",
-//   uniqueEnvironmentId,
-//   environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
-//   buildSecrets: ["OPENAI_API_KEY"],
-//   environmentVariables: {
-//     REMOTE_ACTION_URL: `${perplexityAgent.fnUrl}/copilotkit`,
-//   },
-//   port: "3000",
-//   includeInPRComment: true,
-// });
+const perplexityUI = new PreviewProjectStack(app, `CoAgentsPerplexityDemoUI`, {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+  },
+  projectName: "CoAgents Perplexity Clone - UI",
+  demoDir: "examples/coagents-ai-researcher/ui",
+  uniqueEnvironmentId,
+  environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
+  buildSecrets: ["OPENAI_API_KEY"],
+  environmentVariables: {
+    REMOTE_ACTION_URL: `${perplexityAgent.fnUrl}/copilotkit`,
+  },
+  port: "3000",
+  includeInPRComment: true,
+});
 
-// /**
-//  * CoAgents QA Text Demo
-//  */
+/**
+ * CoAgents QA Text Demo
+ */
 
-// const qaTextAgent = new PreviewProjectStack(app, `CoAgentsQATextDemoAgent`, {
-//   projectName: "CoAgents QA Text - Agent",
-//   demoDir: "examples/coagents-ai-researcher/agent",
-//   overrideDockerWorkdir: "./",
-//   overrideDockerfile: "examples/coagents-ai-researcher/agent/Dockerfile", 
-//   uniqueEnvironmentId,
-//   environmentVariablesFromSecrets: ["OPENAI_API_KEY", "TAVILY_API_KEY"],
-//   port: "8000",
-//   includeInPRComment: false,
-// });
+const qaTextAgent = new PreviewProjectStack(app, `CoAgentsQATextDemoAgent`, {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+  },
+  projectName: "CoAgents QA Text - Agent",
+  demoDir: "examples/coagents-ai-researcher/agent",
+  overrideDockerWorkdir: "./",
+  overrideDockerfile: "examples/coagents-ai-researcher/agent/Dockerfile", 
+  uniqueEnvironmentId,
+  environmentVariablesFromSecrets: ["OPENAI_API_KEY", "TAVILY_API_KEY"],
+  port: "8000",
+  includeInPRComment: false,
+});
 
-// const qaTextUI = new PreviewProjectStack(app, `CoAgentsQATextDemoUI`, {
-//   projectName: "CoAgents QA Text - UI",
-//   demoDir: "examples/coagents-qa-text/ui",
-//   uniqueEnvironmentId,
-//   environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
-//   buildSecrets: ["OPENAI_API_KEY"],
-//   environmentVariables: {
-//     REMOTE_ACTION_URL: `${qaTextAgent.fnUrl}/copilotkit`,
-//   },
-//   port: "3000",
-//   includeInPRComment: true,
-// });
+const qaTextUI = new PreviewProjectStack(app, `CoAgentsQATextDemoUI`, {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+  },
+  projectName: "CoAgents QA Text - UI",
+  demoDir: "examples/coagents-qa-text/ui",
+  uniqueEnvironmentId,
+  environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
+  buildSecrets: ["OPENAI_API_KEY"],
+  environmentVariables: {
+    REMOTE_ACTION_URL: `${qaTextAgent.fnUrl}/copilotkit`,
+  },
+  port: "3000",
+  includeInPRComment: true,
+});
 
-// /**
-//  * CoAgents QA Native Demo
-//  */
+/**
+ * CoAgents QA Native Demo
+ */
 
-// const qaNativeAgent = new PreviewProjectStack(app, `CoAgentsQANativetDemoAgent`, {
-//   projectName: "CoAgents QA Native - Agent",
-//   demoDir: "examples/coagents-ai-researcher/agent",
-//   overrideDockerWorkdir: "./",
-//   overrideDockerfile: "examples/coagents-ai-researcher/agent/Dockerfile", 
-//   uniqueEnvironmentId,
-//   environmentVariablesFromSecrets: ["OPENAI_API_KEY", "TAVILY_API_KEY"],
-//   buildSecrets: ["OPENAI_API_KEY"],
-//   port: "8000",
-//   includeInPRComment: false,
-// });
+const qaNativeAgent = new PreviewProjectStack(app, `CoAgentsQANativetDemoAgent`, {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+  },
+  projectName: "CoAgents QA Native - Agent",
+  demoDir: "examples/coagents-ai-researcher/agent",
+  overrideDockerWorkdir: "./",
+  overrideDockerfile: "examples/coagents-ai-researcher/agent/Dockerfile", 
+  uniqueEnvironmentId,
+  environmentVariablesFromSecrets: ["OPENAI_API_KEY", "TAVILY_API_KEY"],
+  buildSecrets: ["OPENAI_API_KEY"],
+  port: "8000",
+  includeInPRComment: false,
+});
 
-// const qaNativeAUI = new PreviewProjectStack(app, `CoAgentsQANativeDemoUI`, {
-//   projectName: "CoAgents QA Native - UI",
-//   demoDir: "examples/coagents-qa-native/ui",
-//   uniqueEnvironmentId,
-//   environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
-//   buildSecrets: ["OPENAI_API_KEY"],
-//   environmentVariables: {
-//     REMOTE_ACTION_URL: `${qaNativeAgent.fnUrl}/copilotkit`,
-//   },
-//   port: "3000",
-//   includeInPRComment: true,
-// });
+const qaNativeAUI = new PreviewProjectStack(app, `CoAgentsQANativeDemoUI`, {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+  },
+  projectName: "CoAgents QA Native - UI",
+  demoDir: "examples/coagents-qa-native/ui",
+  uniqueEnvironmentId,
+  environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
+  buildSecrets: ["OPENAI_API_KEY"],
+  environmentVariables: {
+    REMOTE_ACTION_URL: `${qaNativeAgent.fnUrl}/copilotkit`,
+  },
+  port: "3000",
+  includeInPRComment: true,
+});
