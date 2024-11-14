@@ -98,6 +98,13 @@ jobs:
           retention-days: 1
           include-hidden-files: true
 
+      - name: Trigger E2E Tests
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: trigger-e2e
+          client-payload: '{"pr_number": "${{ github.event.pull_request.number }}", "sha": "${{ github.event.pull_request.head.sha }}"}'
+
       # - name: Assign label
       #   uses: actions/github-script@v4
       #   with:

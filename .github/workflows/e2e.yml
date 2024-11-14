@@ -1,32 +1,66 @@
 name: End to End Tests
 
 on:
-  workflow_run:
-    workflows: ["Preview Environments (Deploy)"]
-    types:
-      - completed
-
-concurrency:
-  group: preview-${{ github.event.pull_request.number }}-e2e
-  cancel-in-progress: false
+  repository_dispatch:
+    types: [trigger-e2e]
 
 jobs:
   e2e_tests:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: read
+      pull-requests: write
+      statuses: write
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.client_payload.sha }}
 
       - name: Download artifact
-        uses: action/download-artifact@v4
+        uses: actions/download-artifact@v4
         with:
           name: tests-env-file
           path: tests/
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Read environment variables from workflow
-        working-directory: infra
+      - name: Create Status Check
+        uses: actions/github-script@v6
+        with:
+          script: |
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'E2E Tests',
+              head_sha: '${{ github.event.client_payload.sha }}',
+              status: 'in_progress',
+              started_at: new Date().toISOString()
+            })
+
+      - name: Run Tests
+        id: run_tests
         run: |
-          cat .env.test
-          echo hi
+          cat tests/.env.test
+          echo "Running E2E tests..."
+          # Your actual test commands here
+          
+      # - name: Update Status Check
+      #   if: always()
+      #   uses: actions/github-script@v6
+      #   with:
+      #     script: |
+      #       const conclusion = '${{ steps.run_tests.outcome }}' === 'success' ? 'success' : 'failure';
+      #       await github.rest.checks.create({
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #         name: 'E2E Tests',
+      #         head_sha: '${{ github.event.client_payload.sha }}',
+      #         status: 'completed',
+      #         conclusion: conclusion,
+      #         completed_at: new Date().toISOString(),
+      #         output: {
+      #           title: conclusion === 'success' ? 'E2E Tests Passed' : 'E2E Tests Failed',
+      #           summary: conclusion === 'success' ? 'All tests passed successfully' : 'Some tests failed'
+      #         }
+      #       });
