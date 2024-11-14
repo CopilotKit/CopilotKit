@@ -46,7 +46,7 @@ export function ResearchCanvas() {
     ],
     renderAndWait: ({ args, status, handler }) => {
       return (
-        <div className="">
+        <div className="" data-test-id="delete-resource-generative-ui-container">
           <div className="font-bold text-base mb-2">
             Delete these resources?
           </div>
@@ -65,6 +65,7 @@ export function ResearchCanvas() {
                 Cancel
               </button>
               <button
+                data-test-id="button-delete"
                 onClick={() => handler("YES")}
                 className="px-4 py-2 bg-[#6766FC] text-white rounded text-sm font-bold"
               >
@@ -183,6 +184,7 @@ export function ResearchCanvas() {
             Research Draft
           </h2>
           <Textarea
+            data-test-id="research-draft"
             placeholder="Write your research draft here"
             value={state.report || ""}
             onChange={(e) => setState({ ...state, report: e.target.value })}
