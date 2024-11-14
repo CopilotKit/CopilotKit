@@ -24,8 +24,9 @@ jobs:
           workflow: preview-envs-deploy.yml
           workflow_conclusion: success
           name: env-file
-          path: .
+          path: infra/
 
       - name: Read environment variables from workflow
+        working-directory: infra
         run: |
           cat .env.test
