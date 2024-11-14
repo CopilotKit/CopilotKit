@@ -10,25 +10,28 @@ const app = new cdk.App();
 const pullRequestNumber = requireEnv("GITHUB_PR_NUMBER");
 
 new CoAgentsDemoStack(app, `ResearchCanvasDemoStackPr${pullRequestNumber}`, {
+  env: {
+    account: '058264219587'
+  },
   pullRequestNumber: `${pullRequestNumber}`,
   projectName: "CoAgents Research Canvas",
   demoName: "coagents-research-canvas",
 });
 
-new CoAgentsDemoStack(app, `PerplexityDemoStackPr${pullRequestNumber}`, {
-  pullRequestNumber: `${pullRequestNumber}`,
-  projectName: "CoAgents Perplexity Clone",
-  demoName: "coagents-ai-researcher",
-});
+// new CoAgentsDemoStack(app, `PerplexityDemoStackPr${pullRequestNumber}`, {
+//   pullRequestNumber: `${pullRequestNumber}`,
+//   projectName: "CoAgents Perplexity Clone",
+//   demoName: "coagents-ai-researcher",
+// });
 
-new CoAgentsDemoStack(app, `CoAgentsQAText${pullRequestNumber}`, {
-  pullRequestNumber: `${pullRequestNumber}`,
-  projectName: "CoAgents Q&A Text",
-  demoName: "coagents-qa-text",
-});
+// new CoAgentsDemoStack(app, `CoAgentsQAText${pullRequestNumber}`, {
+//   pullRequestNumber: `${pullRequestNumber}`,
+//   projectName: "CoAgents Q&A Text",
+//   demoName: "coagents-qa-text",
+// });
 
-new CoAgentsDemoStack(app, `CoAgentsQANative${pullRequestNumber}`, {
-  pullRequestNumber: `${pullRequestNumber}`,
-  projectName: "CoAgents Q&A Native",
-  demoName: "coagents-qa-native",
-});
+// new CoAgentsDemoStack(app, `CoAgentsQANative${pullRequestNumber}`, {
+//   pullRequestNumber: `${pullRequestNumber}`,
+//   projectName: "CoAgents Q&A Native",
+//   demoName: "coagents-qa-native",
+// });
