@@ -21,7 +21,7 @@ jobs:
       - name: Download artifact
         uses: action/download-artifact@v4
         with:
-          name: test-env-file
+          name: tests-env-file
           path: tests/
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
