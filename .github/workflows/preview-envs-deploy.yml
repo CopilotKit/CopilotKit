@@ -18,10 +18,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - name: Install AWS CDK
         run: npm install -g aws-cdk
 
@@ -31,6 +27,10 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Configure AWS Profile
         run: |
@@ -66,21 +66,16 @@ jobs:
             Deploying preview environments for this pull request...
 
       - name: cdk deploy
-        uses: youyo/aws-cdk-github-actions@v2
-        with:
-          working_dir: './infra'
-          cdk_subcommand: 'deploy'
-          cdk_args: '--profile default --require-approval never --outputs-file=cdk_outputs.json --concurrency 5'
-          actions_comment: false
+        working-directory: ./infra
+        run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 5
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: 'us-east-1'
-          AWS_ACCOUNT_ID: '058264219587'
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
           OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
-          CDK_DEFAULT_ACCOUNT_ID: '058264219587'
+          AWS_ACCOUNT_ID: '058264219587'
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          CDK_DEFAULT_ACCOUNT: '058264219587'
+          AWS_REGION: 'us-east-1'
 
       - name: Generate table from outputs
         id: generate-table
