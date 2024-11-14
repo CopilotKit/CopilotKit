@@ -7,6 +7,7 @@ type ModelSelectorContextType = {
   model: string;
   setModel: (model: string) => void;
   agent: string;
+  useLgc: boolean;
   hidden: boolean;
   setHidden: (hidden: boolean) => void;
 };
@@ -33,6 +34,10 @@ export const ModelSelectorProvider = ({
     window.location.href = url.toString();
   };
 
+  const useLgc = globalThis.window === undefined
+      ? false
+      : !!(new URL(window.location.href).searchParams.get("lgc"))
+
   const agent =
     model === "google_genai" ? "research_agent_google_genai" : "research_agent";
 
@@ -41,6 +46,7 @@ export const ModelSelectorProvider = ({
       value={{
         model,
         agent,
+        useLgc,
         hidden,
         setModel,
         setHidden,

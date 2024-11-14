@@ -20,13 +20,11 @@ export default function ModelSelectorWrapper() {
 }
 
 function Home() {
-  const { agent } = useModelSelectorContext();
-  const searchParams = useSearchParams();
-  const useLangGraphCloud = searchParams.get("lgc") || false;
+  const { agent, useLgc } = useModelSelectorContext();
 
   return (
     <CopilotKit
-      runtimeUrl={useLangGraphCloud ? "/api/copilotkit-lgc" : "/api/copilotkit"}
+      runtimeUrl={useLgc ? "/api/copilotkit-lgc" : "/api/copilotkit"}
       showDevConsole={false}
       agent={agent}
     >
