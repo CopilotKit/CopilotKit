@@ -7,4 +7,6 @@ node_modules
 .cdk.staging
 cdk.out
 preview-comment.md
-cdk_output.json
+cdk_outputs.json
+cdk_outputs_processed.json
+.env.test

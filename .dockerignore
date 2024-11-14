@@ -1,3 +1,10 @@
+.github
+.husky
+.turbo
+community
+assets
+.vscode
+Dockerfile
 **/.venv
 **/node_modules
 **/langgraph.json
@@ -7,3 +14,4 @@ infra
 docs
 **/.turbo
 **/.husky
+**/.next

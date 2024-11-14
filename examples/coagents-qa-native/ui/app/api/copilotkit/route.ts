@@ -7,7 +7,7 @@ import {
 import OpenAI from "openai";
 
 const openai = new OpenAI();
-const serviceAdapter = new OpenAIAdapter({ openai });
+const serviceAdapter = new OpenAIAdapter({ openai } as any);
 
 const runtime = new CopilotRuntime({
   remoteActions: [
