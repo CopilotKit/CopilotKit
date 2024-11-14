@@ -29,3 +29,4 @@ jobs:
         working-directory: infra
         run: |
           cat .env.test
+          echo hi
