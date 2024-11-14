@@ -22,9 +22,6 @@ jobs:
         with:
           version: 9
 
-      - name: Install AWS CDK
-        run: npm i -g aws-cdk
-
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -64,11 +61,11 @@ jobs:
         with:
           working_dir: './infra'
           cdk_subcommand: 'deploy'
-          cdk_args: '--require-approval never --outputs-file=cdk_outputs.json --concurrency 10'
+          cdk_args: '--require-approval never --outputs-file=cdk_outputs.json --concurrency 5'
           actions_comment: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          UNIQUE_ENV_ID: "PR${{ github.event.number }}"
+          UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
           OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
 
       - name: Generate table from outputs
