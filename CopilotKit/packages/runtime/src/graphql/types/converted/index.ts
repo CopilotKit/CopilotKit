@@ -7,7 +7,11 @@ import {
 import { BaseMessageInput } from "../base";
 import { ActionExecutionScope, MessageRole } from "../enums";
 
-type MessageType = "TextMessage" | "ActionExecutionMessage" | "ResultMessage" | "AgentStateMessage";
+export type MessageType =
+  | "TextMessage"
+  | "ActionExecutionMessage"
+  | "ResultMessage"
+  | "AgentStateMessage";
 
 export class Message extends BaseMessageInput {
   type: MessageType;
