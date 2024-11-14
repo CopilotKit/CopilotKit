@@ -1,5 +1,15 @@
 # ui
 
+## 1.3.14-feat-langgraph-cloud.0
+
+### Patch Changes
+
+- add langgraph support
+- Updated dependencies
+  - @copilotkit/react-core@1.3.14-feat-langgraph-cloud.0
+  - @copilotkit/runtime-client-gql@1.3.14-feat-langgraph-cloud.0
+  - @copilotkit/shared@1.3.14-feat-langgraph-cloud.0
+
 ## 1.3.13
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.3.14-feat-langgraph-cloud.0
+
+### Patch Changes
+
+- add langgraph support
+- Updated dependencies
+  - @copilotkit/shared@1.3.14-feat-langgraph-cloud.0
+
 ## 1.3.13
 
 ### Patch Changes
