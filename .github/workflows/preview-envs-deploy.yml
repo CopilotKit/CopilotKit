@@ -83,16 +83,20 @@ jobs:
       #     node generate-table
 
       - name: Mock env file
+        working-directory: infra
         run: |
-          echo "TEST_ENV_VARIABLE=mocked" > infra/.env.test
-          ls -la infra
-          cat infra/.env.test
+          echo "TEST_ENV_VARIABLE=mocked" > .env.test
+          ls -la
+          cat .env.test
 
       - name: Upload env file
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: env-file
+          name: tests-env-file
           path: infra/.env.test
+          if-no-files-found: error
+          retention-days: 1
+          include-hidden-files: true
 
       # - name: Assign label
       #   uses: actions/github-script@v4
