@@ -80,6 +80,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
           OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
+          CDK_DEFAULT_ACCOUNT_ID: '058264219587'
 
       - name: Generate table from outputs
         id: generate-table
