@@ -24,6 +24,7 @@ const runtime = new CopilotRuntime({
       }, {
         name: 'research_agent_google_genai',
         description: 'Research agent',
+        assistantId: '9dc0ca3b-1aa6-547d-93f0-e21597d2011c'
       }],
     }),
   ],
