@@ -4,6 +4,10 @@ on:
   pull_request:
     types: [ closed ]
 
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 jobs:
   preview_envs_destroy:
     if: contains(github.event.pull_request.labels.*.name, 'preview')
