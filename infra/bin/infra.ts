@@ -2,7 +2,7 @@
 import "source-map-support/register";
 import * as cdk from "aws-cdk-lib";
 import { requireEnv } from "../lib/utils";
-import { PreviewProjectStack } from "../lib/demo-project";
+import { PreviewProjectStack } from "../lib/demo-project-stack";
 
 // app
 const app = new cdk.App();
