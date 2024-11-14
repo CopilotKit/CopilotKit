@@ -18,12 +18,12 @@ jobs:
         with:
           ref: ${{ github.event.client_payload.sha }}
 
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: tests-env-file
-          path: tests/
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Download artifact
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: tests-env-file
+      #     path: tests/
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Status Check
         uses: actions/github-script@v6
@@ -38,12 +38,15 @@ jobs:
               started_at: new Date().toISOString()
             })
 
-      - name: Run Tests
-        id: run_tests
-        run: |
-          cat tests/.env.test
-          echo "Running E2E tests..."
-          # Your actual test commands here
+      # - name: Run Tests
+      #   id: run_tests
+      #   run: |
+      #     cat tests/.env.test
+      #     echo "Running E2E tests..."
+      #     # Your actual test commands here
+
+      - name: Wait 1 minute
+        run: sleep 60
           
       # - name: Update Status Check
       #   if: always()
@@ -64,3 +67,4 @@ jobs:
       #           summary: conclusion === 'success' ? 'All tests passed successfully' : 'Some tests failed'
       #         }
       #       });
+      #
