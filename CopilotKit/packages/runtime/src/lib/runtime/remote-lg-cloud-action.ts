@@ -5,12 +5,10 @@ import { Logger } from "pino";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { LangGraphCloudAgent, LangGraphCloudEndpoint } from "./remote-actions";
 import { CopilotRequestContextProperties } from "../integrations";
-import { Message } from "../../graphql/types/converted";
+import { Message, MessageType } from "../../graphql/types/converted";
 import { MessageRole } from "../../graphql/types/enums";
-import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
 
 type State = Record<string, any>;
-type LangGraphMessage = AIMessage | SystemMessage | HumanMessage | ToolMessage;
 
 type ExecutionAction = Pick<ActionInput, "name" | "description"> & { parameters: string };
 
@@ -22,7 +20,44 @@ interface ExecutionArgs extends Omit<LangGraphCloudEndpoint, "agents"> {
   state: State;
   properties: CopilotRequestContextProperties;
   actions: ExecutionAction[];
+  logger: Logger;
 }
+
+// The following types are our own definition to the messages accepted by LangGraph cloud, enhanced with some of our extra data.
+interface ToolCall {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+}
+
+type BaseLangGraphCloudMessage = Omit<
+  Message,
+  | "isResultMessage"
+  | "isTextMessage"
+  | "isActionExecutionMessage"
+  | "isAgentStateMessage"
+  | "type"
+  | "createdAt"
+> & {
+  content: string;
+  role: MessageRole;
+  additional_kwargs?: Record<string, unknown>;
+  type: MessageType;
+};
+
+interface LangGraphCloudResultMessage extends BaseLangGraphCloudMessage {
+  tool_call_id: string;
+  name: string;
+}
+
+interface LangGraphCloudActionExecutionMessage extends BaseLangGraphCloudMessage {
+  tool_calls: ToolCall[];
+}
+
+type LangGraphCloudMessage =
+  | LangGraphCloudActionExecutionMessage
+  | LangGraphCloudResultMessage
+  | BaseLangGraphCloudMessage;
 
 export async function execute(args: ExecutionArgs): Promise<ReadableStream<Uint8Array>> {
   return new ReadableStream({
@@ -385,7 +420,7 @@ class StreamingStateExtractor {
 // Start of Selection
 function langGraphDefaultMergeState(
   state: State,
-  messages: LangGraphMessage[],
+  messages: LangGraphCloudMessage[],
   actions: ExecutionAction[],
   agentName: string,
 ): State {
@@ -395,7 +430,7 @@ function langGraphDefaultMergeState(
   }
 
   // merge with existing messages
-  const mergedMessages: LangGraphMessage[] = state.messages || [];
+  const mergedMessages: LangGraphCloudMessage[] = state.messages || [];
   const existingMessageIds = new Set(mergedMessages.map((message) => message.id));
   const existingToolCallResults = new Set<string>();
 
@@ -462,7 +497,7 @@ function langGraphDefaultMergeState(
   }
 
   // try to auto-correct and log alignment issues
-  const correctedMessages: LangGraphMessage[] = [];
+  const correctedMessages: LangGraphCloudMessage[] = [];
 
   for (let i = 0; i < mergedMessages.length; i++) {
     const currentMessage = mergedMessages[i];
@@ -548,45 +583,40 @@ function deepMerge(obj1: State, obj2: State) {
   return result;
 }
 
-function formatMessages(messages: Message[]): LangGraphMessage[] {
+function formatMessages(messages: Message[]): LangGraphCloudMessage[] {
   return messages.map((message) => {
     if (message.isTextMessage() && message.role === "assistant") {
-      return new AIMessage({
-        content: message.content,
-        id: message.id,
-      });
+      return message;
     }
     if (message.isTextMessage() && message.role === "system") {
-      return new SystemMessage({
-        content: message.content,
-        id: message.id,
-      });
+      return message;
     }
     if (message.isTextMessage() && message.role === "user") {
-      return new HumanMessage({
-        content: message.content,
-        id: message.id,
-      });
+      return message;
     }
     if (message.isActionExecutionMessage()) {
-      const toolCall = {
-        name: message["name"],
-        args: message["arguments"],
-        id: message["id"],
+      const toolCall: ToolCall = {
+        name: message.name,
+        args: message.arguments,
+        id: message.id,
       };
-      return new AIMessage({
-        tool_calls: [toolCall],
+      return {
+        type: message.type,
         content: "",
-        id: message["id"],
-      });
+        tool_calls: [toolCall],
+        role: MessageRole.assistant,
+        id: message.id,
+      } satisfies LangGraphCloudActionExecutionMessage;
     }
     if (message.isResultMessage()) {
-      return new ToolMessage({
+      return {
+        type: message.type,
         content: message.result,
-        id: message["id"],
+        id: message.id,
         tool_call_id: message.actionExecutionId,
         name: message.actionName,
-      });
+        role: MessageRole.assistant,
+      } satisfies LangGraphCloudResultMessage;
     }
 
     throw new Error(`Unknown message type ${message.type}`);
