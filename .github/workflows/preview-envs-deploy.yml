@@ -65,6 +65,7 @@ jobs:
         env:
           UNIQUE_ENV_ID: "PR${{ github.event.number }}"
           OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
+          AWS_ACCOUNT_ID: "058264219587"
 
       # - name: cdk deploy
       #   uses: youyo/aws-cdk-github-actions@v2
