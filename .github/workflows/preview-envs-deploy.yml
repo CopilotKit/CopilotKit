@@ -29,9 +29,9 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Print AWS Config
+      - name: STS Get Caller Identity
         run: |
-          echo cat ~/.aws/config
+          aws sts get-caller-identity
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
