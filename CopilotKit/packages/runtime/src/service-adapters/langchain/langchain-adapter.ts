@@ -70,7 +70,8 @@ export class LangChainAdapter implements CopilotServiceAdapter {
   async process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
-    const { eventSource, model, actions, messages, threadId, runId } = request;
+    const { eventSource, model, actions, messages, runId } = request;
+    const threadId = request.threadId ?? randomId();
     const result = await this.options.chainFn({
       messages: messages.map(convertMessageToLangChainMessage),
       tools: actions.map(convertActionInputToLangChainTool),
@@ -87,7 +88,7 @@ export class LangChainAdapter implements CopilotServiceAdapter {
     });
 
     return {
-      threadId: threadId || randomId(),
+      threadId,
     };
   }
 }
