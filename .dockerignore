@@ -1,3 +1,9 @@
+.github
+.husky
+.turbo
+community
+assets
+.vscode
 Dockerfile
 **/.venv
 **/node_modules

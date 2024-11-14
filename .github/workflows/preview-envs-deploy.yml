@@ -78,6 +78,12 @@ jobs:
         run: |
           node generate-table
 
+      - name: Upload env file
+        uses: actions/upload-artifact@v3
+        with:
+          name: env-file
+          path: infra/.env.test
+
       - name: Assign label
         uses: actions/github-script@v4
         with:
@@ -95,5 +101,3 @@ jobs:
         with:
           comment-tag: preview-status-update
           file-path: ./infra/preview-comment.md
-
-      
