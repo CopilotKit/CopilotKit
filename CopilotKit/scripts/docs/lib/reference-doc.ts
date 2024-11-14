@@ -58,6 +58,14 @@ export class ReferenceDoc {
     }
     result += `---\n\n`;
 
+    result += `{\n`
+    result += ` /*\n`
+    result += `  * ATTENTION! DO NOT MODIFY THIS FILE!\n`
+    result += `  * This page is auto-generated. If you want to make any changes to this page, changes must be made at:\n`
+    result += `  * CopilotKit/${this.referenceDoc.sourcePath}\n`
+    result += `  */\n`
+    result += `}\n`
+
     result += `${comment}\n\n`;
 
     if (this.referenceDoc.hook) {
