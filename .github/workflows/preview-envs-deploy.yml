@@ -69,18 +69,24 @@ jobs:
           message: |
             Deploying preview environments for this pull request...
 
-      - name: cdk deploy
-        working-directory: ./infra
-        run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 10
-        env:
-          UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
-          OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
+      # - name: cdk deploy
+      #   working-directory: ./infra
+      #   run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 10
+      #   env:
+      #     UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
+      #     OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
 
-      - name: Generate table from outputs
-        id: generate-table
-        working-directory: infra
+      # - name: Generate table from outputs
+      #   id: generate-table
+      #   working-directory: infra
+      #   run: |
+      #     node generate-table
+
+      - name: Mock env file
         run: |
-          node generate-table
+          echo "TEST_ENV_VARIABLE=mocked" > infra/.env.test
+          ls -la infra
+          cat infra/.env.test
 
       - name: Upload env file
         uses: actions/upload-artifact@v3
@@ -88,20 +94,20 @@ jobs:
           name: env-file
           path: infra/.env.test
 
-      - name: Assign label
-        uses: actions/github-script@v4
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.issues.addLabels({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: ['preview']
-            })
+      # - name: Assign label
+      #   uses: actions/github-script@v4
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     script: |
+      #       github.issues.addLabels({
+      #         issue_number: context.issue.number,
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #         labels: ['preview']
+      #       })
 
-      - name: Comment post-deployment
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          comment-tag: preview-status-update
-          file-path: ./infra/preview-comment.md
+      # - name: Comment post-deployment
+      #   uses: thollander/actions-comment-pull-request@v3
+      #   with:
+      #     comment-tag: preview-status-update
+      #     file-path: ./infra/preview-comment.md
