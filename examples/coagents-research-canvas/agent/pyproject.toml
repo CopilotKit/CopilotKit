@@ -11,6 +11,7 @@ version = "0.0.1"
 dependencies = [
   "langgraph",
   "langchain_core",
+  "langchain-google-genai",
   "langchain_openai",
   "langchain",
   "openai",
