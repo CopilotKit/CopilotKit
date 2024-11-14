@@ -26,6 +26,7 @@ interface ProjectStackProps extends cdk.StackProps {
   };
   environmentVariablesFromSecrets?: string[];
   buildSecrets?: string[];
+  buildArgs?: Record<string, string>;
   port: number | string;
   timeout?: number;
   memorySize?: number;
@@ -74,10 +75,17 @@ export class PreviewProjectStack extends cdk.Stack {
       }
     }
 
+    const buildArgs: Record<string, string> = {
+      APP_DIR: props.demoDir,
+    };
+
+    if (props.buildArgs) {
+      Object.assign(buildArgs, props.buildArgs);
+    }
+
     const dockerWorkdir = props.overrideDockerWorkdir ?
     path.resolve(__dirname, "../../", props.overrideDockerWorkdir) :
       path.resolve(__dirname, "../../", props.demoDir)
-
 
     const agentFunction = new lambda.Function(this, `Function`, {
       logGroup: logGroup,
@@ -92,6 +100,7 @@ export class PreviewProjectStack extends cdk.Stack {
       code: lambda.Code.fromAssetImage(dockerWorkdir, {
         platform: ecr_assets.Platform.LINUX_AMD64,
         buildSecrets,
+        buildArgs,
         file: props.overrideDockerfile ? props.overrideDockerfile : "Dockerfile",
       }),
       timeout: cdk.Duration.seconds(props.timeout ?? 300),
