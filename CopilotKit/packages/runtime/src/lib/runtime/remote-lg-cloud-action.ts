@@ -1,6 +1,7 @@
 import { Client } from "@langchain/langgraph-sdk";
 import { randomUUID } from "node:crypto";
 import { parse as parsePartialJson } from "partial-json";
+import { Logger } from "pino";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { LangGraphCloudAgent, LangGraphCloudEndpoint } from "./remote-actions";
 import { CopilotRequestContextProperties } from "../integrations";
@@ -44,6 +45,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     state: initialState,
     messages,
     actions,
+    logger,
   } = args;
 
   let nodeName = initialNodeName;
@@ -109,7 +111,12 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   let latestStateValues = {};
 
   for await (const chunk of streamResponse) {
-    if (!["events", "values"].includes(chunk.event)) continue;
+    if (!["events", "values", "error"].includes(chunk.event)) continue;
+
+    if (chunk.event === "error") {
+      logger.error(chunk, `Error event thrown: ${chunk.data.message}`);
+      throw new Error(`Error event thrown: ${chunk.data.message}`);
+    }
 
     if (chunk.event === "values") {
       latestStateValues = chunk.data;
