@@ -18,9 +18,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
+      - name: Install AWS CDK
+        run: npm install -g aws-cdk
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -28,6 +27,16 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
+
+      - name: Configure AWS Profile
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
+          aws configure set region us-east-1
+      
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -50,19 +59,11 @@ jobs:
         run: pnpm i
 
       - name: cdk destroy
-        uses: youyo/aws-cdk-github-actions@v2
-        with:
-          working_dir: './infra'
-          cdk_subcommand: 'destroy'
-          cdk_args: '--force'
-          actions_comment: false
+        working-directory: ./infra
+        run: cdk destroy --profile default --force
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          UNIQUE_ENV_ID: "PR${{ github.event.number }}"
+          UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
           OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: 'us-east-1'
 
       - name: Comment post-destroy
         uses: thollander/actions-comment-pull-request@v3
