@@ -52,16 +52,16 @@ export class PreviewProjectStack extends cdk.Stack {
       retention: logs.RetentionDays.ONE_WEEK, // Adjust retention as needed
     });
 
-    let environment: Record<string, string> = {};
+    let environmentVariables: Record<string, string> = {};
     let buildSecrets: Record<string, string> = {};
 
-    if (props.environment) {
-      environment = { ...environment, ...props.environment };
+    if (props.environmentVariables) {
+      environmentVariables = {  ...props.environmentVariables };
     }
 
-    if (props.environmentFromSecrets) {
-      for (const secret of props.environmentFromSecrets) {
-        environment[secret] = secrets
+    if (props.environmentVariablesFromSecrets) {
+      for (const secret of props.environmentVariablesFromSecrets) {
+        environmentVariables[secret] = secrets
           .secretValueFromJson(secret)
           .unsafeUnwrap();
       }
@@ -84,7 +84,7 @@ export class PreviewProjectStack extends cdk.Stack {
       architecture: lambda.Architecture.X86_64,
       handler: lambda.Handler.FROM_IMAGE,
       environment: {
-        ...environment,
+        ...environmentVariables,
         PORT: props.port.toString(),
         AWS_LWA_INVOKE_MODE: "RESPONSE_STREAM",
       },
