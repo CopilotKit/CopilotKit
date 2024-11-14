@@ -67,6 +67,11 @@ jobs:
           message: |
             Deploying preview environments for this pull request...
 
+      - name: add profile
+        run: |
+          touch ~/.aws/config
+          touch ~/.aws/credentials
+
       - name: cdk deploy
         working-directory: ./infra
         run: cdk deploy --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 5
@@ -78,6 +83,8 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           CDK_DEFAULT_ACCOUNT: '058264219587'
           AWS_REGION: 'us-east-1'
+          AWS_CONFIG_FILE: '~/.aws/config'
+          AWS_CREDENTIALS_FILE: '~/.aws/credentials'
 
       # - name: cdk deploy
       #   uses: youyo/aws-cdk-github-actions@v2
