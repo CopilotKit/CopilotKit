@@ -21,10 +21,10 @@ interface ProjectStackProps extends cdk.StackProps {
    * Path to the Dockerfile to use, relative to the root of the repository. By default, this will be `${demoDir}/Dockerfile`.
    */
   overrideDockerfile?: string;
-  environment?: {
+  environmentVariables?: {
     [key: string]: string;
   };
-  environmentFromSecrets?: string[];
+  environmentVariablesFromSecrets?: string[];
   buildSecrets?: string[];
   port: number | string;
   timeout?: number;

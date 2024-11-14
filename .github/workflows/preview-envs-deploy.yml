@@ -59,25 +59,17 @@ jobs:
           message: |
             Deploying preview environments for this pull request...
 
-      - name: CDK Deploy
-        working-directory: infra
-        run: cdk deploy --all --outputs-file cdk_outputs.json --require-approval never --concurrency 10
+      - name: cdk deploy
+        uses: youyo/aws-cdk-github-actions@v2
+        with:
+          working_dir: './infra'
+          cdk_subcommand: 'deploy'
+          cdk_args: '--require-approval never --outputs-file=cdk_outputs.json --concurrency 10'
+          actions_comment: false
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UNIQUE_ENV_ID: "PR${{ github.event.number }}"
           OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
-          AWS_ACCOUNT_ID: "058264219587"
-
-      # - name: cdk deploy
-      #   uses: youyo/aws-cdk-github-actions@v2
-      #   with:
-      #     working_dir: './infra'
-      #     cdk_subcommand: 'deploy'
-      #     cdk_args: '--require-approval never --outputs-file=cdk_outputs.json --concurrency 10'
-      #     actions_comment: false
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #     UNIQUE_ENV_ID: "PR${{ github.event.number }}"
-      #     OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
 
       - name: Generate table from outputs
         id: generate-table
