@@ -22,6 +22,9 @@ jobs:
         with:
           version: 9
 
+      - name: Install AWS CDK
+        run: npm install -g aws-cdk
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -55,6 +58,11 @@ jobs:
           comment-tag: preview-status-update
           message: |
             Deploying preview environments for this pull request...
+
+      - name: cdk bootstrap
+        run: cdk bootstrap aws://058264219587/us-east-1
+        env:
+          UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
 
       - name: cdk deploy
         uses: youyo/aws-cdk-github-actions@v2
