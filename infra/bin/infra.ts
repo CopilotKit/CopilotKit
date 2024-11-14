@@ -24,6 +24,7 @@ const researchCanvasAgent = new PreviewProjectStack(app, `CoAgentsResearchCanvas
   environmentVariablesFromSecrets: ["OPENAI_API_KEY", "TAVILY_API_KEY"],
   port: "8000",
   includeInPRComment: false,
+  outputEnvVariable: "COAGENTS_RESEARCH_CANVAS_AGENT_ENDPOINT_URL",
 });
 
 const researchCanvasUI = new PreviewProjectStack(app, `CoAgentsResearchCanvasDemoUI`, {
@@ -40,6 +41,7 @@ const researchCanvasUI = new PreviewProjectStack(app, `CoAgentsResearchCanvasDem
   },
   port: "3000",
   includeInPRComment: true,
+  outputEnvVariable: "COAGENTS_RESEARCH_CANVAS_UI_ENDPOINT_URL"
 });
 
 /**
@@ -58,6 +60,7 @@ const perplexityAgent = new PreviewProjectStack(app, `CoAgentsPerplexityDemoAgen
   environmentVariablesFromSecrets: ["OPENAI_API_KEY", "TAVILY_API_KEY"],
   port: "8000",
   includeInPRComment: false,
+  outputEnvVariable: "COAGENTS_PERPLEXITY_AGENT_ENDPOINT_URL",
 });
 
 const perplexityUI = new PreviewProjectStack(app, `CoAgentsPerplexityDemoUI`, {
@@ -74,6 +77,7 @@ const perplexityUI = new PreviewProjectStack(app, `CoAgentsPerplexityDemoUI`, {
   },
   port: "3000",
   includeInPRComment: true,
+  outputEnvVariable: "COAGENTS_PERPLEXITY_UI_ENDPOINT_URL",
 });
 
 /**
@@ -92,6 +96,7 @@ const qaTextAgent = new PreviewProjectStack(app, `CoAgentsQATextDemoAgent`, {
   environmentVariablesFromSecrets: ["OPENAI_API_KEY", "TAVILY_API_KEY"],
   port: "8000",
   includeInPRComment: false,
+  outputEnvVariable: "COAGENTS_QA_TEXT_AGENT_ENDPOINT_URL",
 });
 
 const qaTextUI = new PreviewProjectStack(app, `CoAgentsQATextDemoUI`, {
@@ -108,6 +113,7 @@ const qaTextUI = new PreviewProjectStack(app, `CoAgentsQATextDemoUI`, {
   },
   port: "3000",
   includeInPRComment: true,
+  outputEnvVariable: "COAGENTS_QA_TEXT_UI_ENDPOINT_URL",
 });
 
 /**
@@ -127,6 +133,7 @@ const qaNativeAgent = new PreviewProjectStack(app, `CoAgentsQANativetDemoAgent`,
   buildSecrets: ["OPENAI_API_KEY"],
   port: "8000",
   includeInPRComment: false,
+  outputEnvVariable: "COAGENTS_QA_NATIVE_AGENT_ENDPOINT_URL",
 });
 
 const qaNativeAUI = new PreviewProjectStack(app, `CoAgentsQANativeDemoUI`, {
@@ -143,4 +150,5 @@ const qaNativeAUI = new PreviewProjectStack(app, `CoAgentsQANativeDemoUI`, {
   },
   port: "3000",
   includeInPRComment: true,
+  outputEnvVariable: "COAGENTS_QA_NATIVE_UI_ENDPOINT_URL",
 });

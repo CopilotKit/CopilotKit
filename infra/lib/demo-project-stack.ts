@@ -30,6 +30,7 @@ interface ProjectStackProps extends cdk.StackProps {
   timeout?: number;
   memorySize?: number;
   includeInPRComment?: boolean;
+  outputEnvVariable?: string;
 }
 
 export class PreviewProjectStack extends cdk.Stack {
@@ -135,6 +136,12 @@ export class PreviewProjectStack extends cdk.Stack {
     new cdk.CfnOutput(this, "UniqueEnvironmentId", {
       value: `${props.uniqueEnvironmentId}`,
     });
+
+    if (props.outputEnvVariable) {
+      new cdk.CfnOutput(this, "OutputEnvVariable", {
+        value: props.outputEnvVariable,
+      });
+    }
 
     // Add tag for PR number to all resources
     cdk.Tags.of(this).add("env-id", props.uniqueEnvironmentId);
