@@ -17,7 +17,7 @@ jobs:
       matrix:
         app:
           - { name: 'coagents-research-canvas-ui', path: 'examples/coagents-research-canvas/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
-          - { name: 'coagents-research-canvas-agent', path: 'examples/coagents-research-canvas/agent', dockerfile: 'Dockerfile.agent', type: 'node' }
+          - { name: 'coagents-research-canvas-agent', path: 'examples/coagents-research-canvas/agent', dockerfile: 'Dockerfile.agent', type: 'poetry' }
           # - { name: 'coagents-ai-researcher-ui', path: 'examples/coagents-ai-researcher/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
           # - { name: 'coagents-qa-native-ui', path: 'examples/coagents-qa-native/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
           # - { name: 'coagents-qa-text-ui', path: 'examples/coagents-qa-text/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
@@ -55,7 +55,8 @@ jobs:
           doppler-project: copilotkit-previews
           doppler-config: prd
 
-      - name: Build app
+      - name: (Node) Build app
+        if: matrix.app.type == 'node'
         working-directory: ${{ matrix.app.path }}
         run: pnpm run build
         env:
