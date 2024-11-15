@@ -28,32 +28,36 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "9.5"
-
-      - name: Use Node.js 21
-        uses: actions/setup-node@v2
-        with:
-          node-version: 21.x
-          cache: 'pnpm'
-          cache-dependency-path: '**/pnpm-lock.yaml'
-
-      - name: Install dependencies
-        working-directory: ./CopilotKit
-        run: pnpm install --frozen-lockfile
-
-      - name: Install app
-        working-directory: ${{ matrix.app.path }}
-        run: pnpm install --frozen-lockfile
-
       - uses: dopplerhq/secrets-fetch-action@v1.2.0
         id: doppler
         with:
           doppler-token: ${{ secrets.DOPPLER_TOKEN }}
           doppler-project: copilotkit-previews
           doppler-config: prd
+
+      - name: (Node) Setup pnpm
+        if: matrix.app.type == 'node'
+        uses: pnpm/action-setup@v4
+        with:
+          version: "9.5"
+
+      - name: (Node) Use Node.js 21
+        if: matrix.app.type == 'node'
+        uses: actions/setup-node@v2
+        with:
+          node-version: 21.x
+          cache: 'pnpm'
+          cache-dependency-path: '**/pnpm-lock.yaml'
+
+      - name: (Node) Install dependencies
+        if: matrix.app.type == 'node'
+        working-directory: ./CopilotKit
+        run: pnpm install --frozen-lockfile
+
+      - name: (Node) Install app
+        if: matrix.app.type == 'node'
+        working-directory: ${{ matrix.app.path }}
+        run: pnpm install --frozen-lockfile
 
       - name: (Node) Build app
         if: matrix.app.type == 'node'
@@ -82,7 +86,7 @@ jobs:
         run: |
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 058264219587.dkr.ecr.us-east-1.amazonaws.com
         
-      - name: Build image
+      - name: Build Image
         run: |
           docker buildx build -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.name }}-${{ github.run_id }} --build-arg APP_DIR=${{ matrix.app.path }} --secret id=OPENAI_API_KEY . -f ./examples/${{ matrix.app.dockerfile }} --platform=linux/amd64 --provenance=false --push
         env:
