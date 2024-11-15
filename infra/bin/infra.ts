@@ -33,7 +33,7 @@ const researchCanvasUI = new PreviewProjectStack(app, `CoAgentsResearchCanvasDem
   },
   projectName: "CoAgents Research Canvas - UI",
   demoDir: "examples/coagents-research-canvas/ui",
-  ecrImageTag: `coagents-research-canvas-ui-${process.env.GITHUB_SHA}`,
+  ecrImageTag: `coagents-research-canvas-ui-${process.env.GITHUB_RUN_ID ?? "latest"}`,
   overrideDockerWorkdir: "./",
   overrideDockerfile: "examples/Dockerfile.ui", 
   uniqueEnvironmentId,

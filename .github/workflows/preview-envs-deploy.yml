@@ -127,7 +127,7 @@ jobs:
         env:
           UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
           OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
-          GITHUB_SHA: "${{ github.sha | slice(0, 7) }}"
+          GITHUB_RUN_ID: "${{ github.run_id }}"
 
 
   # build_images:
