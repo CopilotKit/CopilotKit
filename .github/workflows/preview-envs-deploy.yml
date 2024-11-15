@@ -81,16 +81,19 @@ jobs:
         working-directory: ./examples/${{ matrix.app.name }}/ui
         run: pnpm install --frozen-lockfile
 
+      - uses: dopplerhq/secrets-fetch-action@v1.2.0
+        id: doppler
+        with:
+          doppler-token: ${{ secrets.DOPPLER_TOKEN }}
+          doppler-project: copilotkit-previews
+          doppler-config: prd
+
       - name: Build app
         working-directory: ./examples/${{ matrix.app.name }}/ui
         run: pnpm run build
+        env:
+          OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
 
-      # - uses: dopplerhq/secrets-fetch-action@v1.2.0
-      #   id: doppler
-      #   with:
-      #     doppler-token: ${{ secrets.DOPPLER_TOKEN }}
-      #     doppler-project: copilotkit-previews
-      #     doppler-config: prd
 
       # - name: Build UI image
       #   if: ${{ matrix.app.ui }}
