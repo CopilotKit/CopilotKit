@@ -17,6 +17,9 @@ jobs:
       matrix:
         app:
           - { name: 'coagents-research-canvas' }
+          - { name: 'coagents-ai-researcher' }
+          - { name: 'coagents-qa-native' }
+          - { name: 'coagents-qa-text' }
     steps:
       - name: Checkout
         uses: actions/checkout@v3

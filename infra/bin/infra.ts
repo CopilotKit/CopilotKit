@@ -7,6 +7,7 @@ import { PreviewProjectStack } from "../lib/demo-project-stack";
 // app
 const app = new cdk.App();
 const uniqueEnvironmentId = requireEnv("UNIQUE_ENV_ID");
+const githubRunId = requireEnv("GITHUB_RUN_ID")
 
 /**
  * CoAgents Research Canvas Demo
@@ -33,7 +34,7 @@ const researchCanvasUI = new PreviewProjectStack(app, `CoAgentsResearchCanvasDem
   },
   projectName: "CoAgents Research Canvas - UI",
   demoDir: "examples/coagents-research-canvas/ui",
-  ecrImageTag: `coagents-research-canvas-ui-${process.env.GITHUB_RUN_ID ?? "latest"}`,
+  ecrImageTag: `coagents-research-canvas-ui-${githubRunId}`,
   overrideDockerWorkdir: "./",
   overrideDockerfile: "examples/Dockerfile.ui", 
   uniqueEnvironmentId,
@@ -66,24 +67,25 @@ const researchCanvasUI = new PreviewProjectStack(app, `CoAgentsResearchCanvasDem
 //   outputEnvVariable: "COAGENTS_PERPLEXITY_AGENT_ENDPOINT_URL",
 // });
 
-// const perplexityUI = new PreviewProjectStack(app, `CoAgentsPerplexityDemoUI`, {
-//   env: {
-//     account: process.env.CDK_DEFAULT_ACCOUNT,
-//   },
-//   projectName: "CoAgents Perplexity Clone - UI",
-//   demoDir: "examples/coagents-ai-researcher/ui",
-//   overrideDockerWorkdir: "./",
-//   overrideDockerfile: "examples/Dockerfile.ui", 
-//   uniqueEnvironmentId,
-//   environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
-//   buildSecrets: ["OPENAI_API_KEY"],
-//   environmentVariables: {
-//     REMOTE_ACTION_URL: `${perplexityAgent.fnUrl}/copilotkit`,
-//   },
-//   port: "3000",
-//   includeInPRComment: true,
-//   outputEnvVariable: "COAGENTS_PERPLEXITY_UI_ENDPOINT_URL",
-// });
+const perplexityUI = new PreviewProjectStack(app, `CoAgentsPerplexityDemoUI`, {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+  },
+  projectName: "CoAgents Perplexity Clone - UI",
+  demoDir: "examples/coagents-ai-researcher/ui",
+  ecrImageTag: `coagents-ai-researcher-ui-${githubRunId}`,
+  overrideDockerWorkdir: "./",
+  overrideDockerfile: "examples/Dockerfile.ui", 
+  uniqueEnvironmentId,
+  environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
+  buildSecrets: ["OPENAI_API_KEY"],
+  environmentVariables: {
+    // REMOTE_ACTION_URL: `${perplexityAgent.fnUrl}/copilotkit`,
+  },
+  port: "3000",
+  includeInPRComment: true,
+  outputEnvVariable: "COAGENTS_PERPLEXITY_UI_ENDPOINT_URL",
+});
 
 // /**
 //  * CoAgents QA Text Demo
@@ -104,24 +106,25 @@ const researchCanvasUI = new PreviewProjectStack(app, `CoAgentsResearchCanvasDem
 //   outputEnvVariable: "COAGENTS_QA_TEXT_AGENT_ENDPOINT_URL",
 // });
 
-// const qaTextUI = new PreviewProjectStack(app, `CoAgentsQATextDemoUI`, {
-//   env: {
-//     account: process.env.CDK_DEFAULT_ACCOUNT,
-//   },
-//   projectName: "CoAgents QA Text - UI",
-//   demoDir: "examples/coagents-qa-text/ui",
-//   overrideDockerWorkdir: "./",
-//   overrideDockerfile: "examples/Dockerfile.ui", 
-//   uniqueEnvironmentId,
-//   environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
-//   buildSecrets: ["OPENAI_API_KEY"],
-//   environmentVariables: {
-//     REMOTE_ACTION_URL: `${qaTextAgent.fnUrl}/copilotkit`,
-//   },
-//   port: "3000",
-//   includeInPRComment: true,
-//   outputEnvVariable: "COAGENTS_QA_TEXT_UI_ENDPOINT_URL",
-// });
+const qaTextUI = new PreviewProjectStack(app, `CoAgentsQATextDemoUI`, {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+  },
+  projectName: "CoAgents QA Text - UI",
+  demoDir: "examples/coagents-qa-text/ui",
+  ecrImageTag: `coagents-qa-text-${githubRunId}`,
+  overrideDockerWorkdir: "./",
+  overrideDockerfile: "examples/Dockerfile.ui", 
+  uniqueEnvironmentId,
+  environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
+  buildSecrets: ["OPENAI_API_KEY"],
+  environmentVariables: {
+    // REMOTE_ACTION_URL: `${qaTextAgent.fnUrl}/copilotkit`,
+  },
+  port: "3000",
+  includeInPRComment: true,
+  outputEnvVariable: "COAGENTS_QA_TEXT_UI_ENDPOINT_URL",
+});
 
 // /**
 //  * CoAgents QA Native Demo
@@ -143,21 +146,22 @@ const researchCanvasUI = new PreviewProjectStack(app, `CoAgentsResearchCanvasDem
 //   outputEnvVariable: "COAGENTS_QA_NATIVE_AGENT_ENDPOINT_URL",
 // });
 
-// const qaNativeAUI = new PreviewProjectStack(app, `CoAgentsQANativeDemoUI`, {
-//   env: {
-//     account: process.env.CDK_DEFAULT_ACCOUNT,
-//   },
-//   projectName: "CoAgents QA Native - UI",
-//   demoDir: "examples/coagents-qa-native/ui",
-//   overrideDockerWorkdir: "./",
-//   overrideDockerfile: "examples/Dockerfile.ui", 
-//   uniqueEnvironmentId,
-//   environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
-//   buildSecrets: ["OPENAI_API_KEY"],
-//   environmentVariables: {
-//     REMOTE_ACTION_URL: `${qaNativeAgent.fnUrl}/copilotkit`,
-//   },
-//   port: "3000",
-//   includeInPRComment: true,
-//   outputEnvVariable: "COAGENTS_QA_NATIVE_UI_ENDPOINT_URL",
-// });
+const qaNativeAUI = new PreviewProjectStack(app, `CoAgentsQANativeDemoUI`, {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+  },
+  projectName: "CoAgents QA Native - UI",
+  demoDir: "examples/coagents-qa-native/ui",
+  ecrImageTag: `coagents-qa-native-${githubRunId}`,
+  overrideDockerWorkdir: "./",
+  overrideDockerfile: "examples/Dockerfile.ui", 
+  uniqueEnvironmentId,
+  environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
+  buildSecrets: ["OPENAI_API_KEY"],
+  environmentVariables: {
+    // REMOTE_ACTION_URL: `${qaNativeAgent.fnUrl}/copilotkit`,
+  },
+  port: "3000",
+  includeInPRComment: true,
+  outputEnvVariable: "COAGENTS_QA_NATIVE_UI_ENDPOINT_URL",
+});
