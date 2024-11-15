@@ -77,14 +77,13 @@ jobs:
         working-directory: ./CopilotKit
         run: pnpm install --frozen-lockfile
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Install app
+        working-directory: ./examples/${{ matrix.app.name }}/ui
+        run: pnpm install --frozen-lockfile
 
-      - name: Turbo Build
-        working-directory: ./CopilotKit
-        run: pnpx turbo run build
+      - name: Build app
+        working-directory: ./examples/${{ matrix.app.name }}/ui
+        run: pnpm run build
 
       # - uses: dopplerhq/secrets-fetch-action@v1.2.0
       #   id: doppler
@@ -100,6 +99,17 @@ jobs:
       #   env:
       #     DOCKER_BUILDKIT: 1
       #     OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
+
+      # - name: Turbo Build
+      #   working-directory: ./CopilotKit
+      #   run: pnpx turbo run build
+
+      # - name: Set up QEMU
+      #   uses: docker/setup-qemu-action@v3
+      # - name: Set up Docker Buildx
+      #   uses: docker/setup-buildx-action@v3
+
+
   # build_images:
   #   needs: setup
   #   runs-on: ubuntu-latest
