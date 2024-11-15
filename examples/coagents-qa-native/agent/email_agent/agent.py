@@ -9,8 +9,8 @@ from copilotkit.langchain import (
   copilotkit_customize_config, copilotkit_exit, copilotkit_emit_message
 )
 from pydantic import BaseModel, Field
-from my_agent.model import get_model
-from my_agent.state import EmailAgentState
+from email_agent.model import get_model
+from email_agent.state import EmailAgentState
 
 class EmailTool(BaseModel):
     """

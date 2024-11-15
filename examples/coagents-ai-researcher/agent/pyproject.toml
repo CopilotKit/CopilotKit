@@ -12,6 +12,7 @@ dependencies = [
   "langgraph",
   "langchain_core",
   "langchain_openai",
+  "langchain-google-genai",
   "langchain",
   "openai",
   "langchain-community",
