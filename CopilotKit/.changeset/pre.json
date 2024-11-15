@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "mme-improve-langsmith",
   "initialVersions": {
     "next-openai": "1.3.15",
