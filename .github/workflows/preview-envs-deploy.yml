@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         app:
-          - { name: 'coagents-research-canvas-ui', path: 'examples/coagents-research-canvas/ui', dockerfile: 'Dockerfile.ui' }
+          - { name: 'coagents-research-canvas-ui', path: 'examples/coagents-research-canvas/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
           # - { name: 'coagents-ai-researcher-ui', type: 'ui' }
           # - { name: 'coagents-qa-native-ui', type: 'ui' }
           # - { name: 'coagents-qa-text-ui', type: 'ui' }
@@ -41,7 +41,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install app
-        working-directory: ./examples/${{ matrix.app.name }}/ui
+        working-directory: ${{ matrix.app.path }
         run: pnpm install --frozen-lockfile
 
       - uses: dopplerhq/secrets-fetch-action@v1.2.0
