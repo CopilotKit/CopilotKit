@@ -6,55 +6,18 @@ ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 RUN pnpm i -g turbo
 
-# Builder Stage
-FROM base AS builder
-ARG APP_DIR
-ENV NODE_OPTIONS=--max-old-space-size=16384
-ENV GENERATE_SOURCEMAP=false
-
-WORKDIR /app
-
-COPY --parents CopilotKit/**/package.json /app/
-COPY --parents CopilotKit/**/pnpm-lock.yaml /app/
-COPY CopilotKit/package.json CopilotKit/pnpm-lock.yaml CopilotKit/pnpm-workspace.yaml CopilotKit/turbo.json /app/CopilotKit/ 
-
-WORKDIR /app/CopilotKit
-RUN pnpm i --frozen-lockfile
-
-COPY --parents CopilotKit/packages/**/* /app/
-COPY --parents CopilotKit/utilities/**/* /app/
-
-RUN turbo run build
-
-COPY --parents ${APP_DIR}/package.json ${APP_DIR}/pnpm-lock.yaml /app/
-
-WORKDIR /app/${APP_DIR}
-
-ARG PACKAGES_DIR=/app/CopilotKit/packages
-RUN pnpm add ${PACKAGES_DIR}/react-core \
-           ${PACKAGES_DIR}/react-ui \
-           ${PACKAGES_DIR}/react-textarea \
-           ${PACKAGES_DIR}/shared \
-           ${PACKAGES_DIR}/runtime \
-           ${PACKAGES_DIR}/runtime-client-gql
-
-RUN cat package.json
-
-COPY ${APP_DIR}/ ./
-
-RUN --mount=type=secret,id=OPENAI_API_KEY \
-    OPENAI_API_KEY=/run/secrets/OPENAI_API_KEY \
-    pnpm run build
-
 # Production Stage 
 FROM base AS production
 ARG APP_DIR
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/lambda-adapter
-WORKDIR /app/${APP_DIR}
+WORKDIR /app
 
 # Copy the built artifacts from the builder stage
-COPY --from=builder /app/${APP_DIR}/.next/standalone ./
-COPY --from=builder /app/${APP_DIR}/.next/static ./.next/static
+# COPY --from=builder-monorepo /app/${APP_DIR}/.next/standalone ./
+# COPY --from=builder-monorepo /app/${APP_DIR}/.next/static ./.next/static
+
+COPY ${APP_DIR}/.next/standalone ./
+COPY ${APP_DIR}/.next/static ./.next/static
 
 # Set the environment variables (if needed)
 ENV NODE_ENV=production
