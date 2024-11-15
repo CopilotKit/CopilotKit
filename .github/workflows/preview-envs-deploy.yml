@@ -56,7 +56,7 @@ jobs:
     strategy:
       matrix:
         app:
-          - { name: 'coagents-research-canvas', ui: true, agent: true }
+          - { name: 'coagents-research-canvas' }
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -107,8 +107,6 @@ jobs:
           aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
           aws configure set region us-east-1
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -117,7 +115,6 @@ jobs:
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 058264219587.dkr.ecr.us-east-1.amazonaws.com
         
       - name: Build UI image
-        if: ${{ matrix.app.ui }}
         run: |
           docker buildx build -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.name }}-ui-${{ github.sha }} --build-arg APP_DIR=examples/${{ matrix.app.name }}/ui --secret id=OPENAI_API_KEY . -f ./examples/Dockerfile.ui --push
         env:
