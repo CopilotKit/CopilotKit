@@ -33,6 +33,10 @@ jobs:
         working-directory: ./CopilotKit
         run: pnpm install --frozen-lockfile
 
+      - name: Turbo Build
+        working-directory: ./CopilotKit
+        run: pnpx turbo run build
+
   # build_images:
   #   runs-on: ubuntu-latest
   #   name: Build Demo App Images
