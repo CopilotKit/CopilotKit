@@ -35,6 +35,7 @@ interface ProjectStackProps extends cdk.StackProps {
   memorySize?: number;
   includeInPRComment?: boolean;
   outputEnvVariable?: string;
+  ecrImageTag: string;
 }
 
 export class PreviewProjectStack extends cdk.Stack {
@@ -127,7 +128,7 @@ export class PreviewProjectStack extends cdk.Stack {
         AWS_LWA_INVOKE_MODE: "RESPONSE_STREAM",
       },
       code: lambda.Code.fromEcrImage(ecrRepo, {
-        tagOrDigest: process.env.CDK_IMAGE_TAG ?? "latest"
+        tagOrDigest: props.ecrImageTag
       }),
       timeout: cdk.Duration.seconds(props.timeout ?? 300),
       memorySize: props.memorySize ?? 1024,
