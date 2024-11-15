@@ -10,46 +10,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # setup:
-  #   runs-on: ubuntu-latest
-  #   name: Setup
-  #   steps:
-      # - name: Checkout
-      #   uses: actions/checkout@v3
-
-      # - name: Setup pnpm
-      #   uses: pnpm/action-setup@v4
-      #   with:
-      #     version: "9.5"
-
-      # - name: Use Node.js 21
-      #   uses: actions/setup-node@v2
-      #   with:
-      #     node-version: 21.x
-      #     cache: 'pnpm'
-      #     cache-dependency-path: '**/pnpm-lock.yaml'
-
-      # - name: Install dependencies
-      #   working-directory: ./CopilotKit
-      #   run: pnpm install --frozen-lockfile
-
-      # - name: Turbo Build
-      #   working-directory: ./CopilotKit
-      #   run: pnpx turbo run build
-
-      # - name: Upload dists
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: dists
-      #     path: |
-      #       ./CopilotKit/packages/**/dist/**/*
-      #       ./CopilotKit/**/package.json
-      #       ./CopilotKit/**/pnpm-lock.yaml
-      #       ./CopilotKit/**/pnpm-workspace.yaml
-      #     if-no-files-found: error
-      #     retention-days: 1
-      #     include-hidden-files: true
-
   build_images:
     runs-on: ubuntu-latest
     name: Build Preview App Images

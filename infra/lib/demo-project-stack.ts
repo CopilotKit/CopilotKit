@@ -7,6 +7,7 @@ import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as logs from "aws-cdk-lib/aws-logs"; // Add this import
 import * as events from "aws-cdk-lib/aws-events";
 import * as targets from "aws-cdk-lib/aws-events-targets";
+import * as ecr from "aws-cdk-lib/aws-ecr";
 
 interface ProjectStackProps extends cdk.StackProps {
   /**
@@ -89,6 +90,32 @@ export class PreviewProjectStack extends cdk.Stack {
     path.resolve(__dirname, "../../", props.overrideDockerWorkdir) :
       path.resolve(__dirname, "../../", props.demoDir)
 
+    // const fn = new lambda.Function(this, `Function`, {
+    //   logGroup: logGroup,
+    //   runtime: lambda.Runtime.FROM_IMAGE,
+    //   architecture: lambda.Architecture.X86_64,
+    //   handler: lambda.Handler.FROM_IMAGE,
+    //   environment: {
+    //     ...environmentVariables,
+    //     PORT: props.port.toString(),
+    //     AWS_LWA_INVOKE_MODE: "RESPONSE_STREAM",
+    //   },
+    //   code: lambda.Code.fromAssetImage(dockerWorkdir, {
+    //     platform: ecr_assets.Platform.LINUX_AMD64,
+    //     buildSecrets,
+    //     buildArgs,
+    //     file: props.overrideDockerfile ? props.overrideDockerfile : "Dockerfile",
+    //   }),
+    //   timeout: cdk.Duration.seconds(props.timeout ?? 300),
+    //   memorySize: props.memorySize ?? 1024,
+    // });
+
+    const ecrRepo = ecr.Repository.fromRepositoryName(
+      this,
+      "ExamplesRepo",
+      "coagents"
+    );
+
     const fn = new lambda.Function(this, `Function`, {
       logGroup: logGroup,
       runtime: lambda.Runtime.FROM_IMAGE,
@@ -99,18 +126,16 @@ export class PreviewProjectStack extends cdk.Stack {
         PORT: props.port.toString(),
         AWS_LWA_INVOKE_MODE: "RESPONSE_STREAM",
       },
-      code: lambda.Code.fromAssetImage(dockerWorkdir, {
-        platform: ecr_assets.Platform.LINUX_AMD64,
-        buildSecrets,
-        buildArgs,
-        file: props.overrideDockerfile ? props.overrideDockerfile : "Dockerfile",
+      code: lambda.Code.fromEcrImage(ecrRepo, {
+        tagOrDigest: process.env.CDK_IMAGE_TAG ?? "latest"
       }),
       timeout: cdk.Duration.seconds(props.timeout ?? 300),
       memorySize: props.memorySize ?? 1024,
     });
 
+
     const eventRule = new events.Rule(this, 'LambdaWarmUpSchedule', {
-      schedule: events.Schedule.rate(cdk.Duration.minutes(1)),
+      schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
     });
 
     eventRule.addTarget(new targets.LambdaFunction(fn));
