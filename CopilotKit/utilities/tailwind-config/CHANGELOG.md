@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 1.3.16-mme-improve-langsmith.1
+
+### Patch Changes
+
+- Ensure the last message is sent to LangSmith
+
 ## 1.3.16-mme-improve-langsmith.0
 
 ### Patch Changes

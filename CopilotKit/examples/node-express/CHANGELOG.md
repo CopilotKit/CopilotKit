@@ -1,5 +1,14 @@
 # node
 
+## 1.3.16-mme-improve-langsmith.1
+
+### Patch Changes
+
+- Ensure the last message is sent to LangSmith
+- Updated dependencies
+  - @copilotkit/runtime@1.3.16-mme-improve-langsmith.1
+  - @copilotkit/shared@1.3.16-mme-improve-langsmith.1
+
 ## 1.3.16-mme-improve-langsmith.0
 
 ### Patch Changes
