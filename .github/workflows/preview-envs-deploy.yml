@@ -17,6 +17,9 @@ jobs:
       matrix:
         app:
           - { name: 'coagents-research-canvas-ui', path: 'examples/coagents-research-canvas/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
+          - { name: 'coagents-ai-researcher-ui', path: 'examples/coagents-ai-researcher/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
+          - { name: 'coagents-qa-native-ui', path: 'examples/coagents-qa-native/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
+          - { name: 'coagents-qa-text-ui', path: 'examples/coagents-qa-text/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
           # - { name: 'coagents-ai-researcher-ui', type: 'ui' }
           # - { name: 'coagents-qa-native-ui', type: 'ui' }
           # - { name: 'coagents-qa-text-ui', type: 'ui' }
