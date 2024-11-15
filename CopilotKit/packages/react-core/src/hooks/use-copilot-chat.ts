@@ -39,7 +39,7 @@
  * ```
  */
 import { useRef, useEffect, useCallback } from "react";
-import { useCopilotContext } from "../context/copilot-context";
+import { AgentSession, useCopilotContext } from "../context/copilot-context";
 import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { SystemMessageFunction } from "../types";
 import { useChat } from "./use-chat";
@@ -78,7 +78,9 @@ export interface UseCopilotChatReturn {
   deleteMessage: (messageId: string) => void;
   reloadMessages: () => Promise<void>;
   stopGeneration: () => void;
+  reset: () => void;
   isLoading: boolean;
+  threadId: string | null;
 }
 
 export function useCopilotChat({
@@ -99,6 +101,7 @@ export function useCopilotChat({
     coAgentStateRenders,
     agentSession,
     setAgentSession,
+    agentLock,
   } = useCopilotContext();
   const { messages, setMessages } = useCopilotMessagesContext();
 
@@ -141,7 +144,7 @@ export function useCopilotChat({
     [coAgentStateRenders],
   );
 
-  const { append, reload, stop } = useChat({
+  const { append, reload, stop, setThreadId, threadId } = useChat({
     ...options,
     actions: Object.values(actions),
     copilotConfig: copilotApiConfig,
@@ -200,6 +203,24 @@ export function useCopilotChat({
     },
     [latestSetMessages],
   );
+  const reset = useCallback(() => {
+    latestStopFunc();
+    setMessages([]);
+    setThreadId(null);
+    setCoagentStates({});
+    let initialAgentSession: AgentSession | null = null;
+    if (agentLock) {
+      initialAgentSession = {
+        agentName: agentLock,
+      };
+    }
+    setAgentSession(initialAgentSession);
+  }, [latestStopFunc, setMessages, setThreadId, setCoagentStates, setAgentSession, agentLock]);
+
+  const latestReset = useUpdatedRef(reset);
+  const latestResetFunc = useCallback(() => {
+    return latestReset.current();
+  }, [latestReset]);
 
   return {
     visibleMessages: messages,
@@ -208,7 +229,9 @@ export function useCopilotChat({
     reloadMessages: latestReloadFunc,
     stopGeneration: latestStopFunc,
     deleteMessage: latestDeleteFunc,
+    reset: latestResetFunc,
     isLoading,
+    threadId,
   };
 }
 

@@ -132,6 +132,8 @@ export interface CopilotContextParams {
   coagentStates: Record<string, CoagentState>;
   setCoagentStates: React.Dispatch<React.SetStateAction<Record<string, CoagentState>>>;
   agentSession: AgentSession | null;
+
+  agentLock: string | null;
   setAgentSession: React.Dispatch<React.SetStateAction<AgentSession | null>>;
 }
 
@@ -184,6 +186,7 @@ const emptyCopilotContext: CopilotContextParams = {
 
   agentSession: null,
   setAgentSession: () => {},
+  agentLock: null,
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

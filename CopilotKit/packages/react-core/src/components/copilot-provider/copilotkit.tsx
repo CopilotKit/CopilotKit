@@ -265,6 +265,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         setCoagentStates,
         agentSession,
         setAgentSession,
+        agentLock: props.agent || null,
       }}
     >
       <CopilotMessages>{children}</CopilotMessages>

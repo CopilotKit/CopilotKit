@@ -116,6 +116,16 @@ export type UseChatHelpers = {
    * Abort the current request immediately, keep the generated tokens if any.
    */
   stop: () => void;
+
+  /**
+   * The current thread ID.
+   */
+  threadId: string | null;
+
+  /**
+   * set the current thread ID
+   */
+  setThreadId: (threadId: string | null) => void;
 };
 
 export function useChat(options: UseChatOptions): UseChatHelpers {
@@ -139,6 +149,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   const abortControllerRef = useRef<AbortController>();
   const threadIdRef = useRef<string | null>(null);
   const runIdRef = useRef<string | null>(null);
+
+  const setThreadId = (threadId: string | null) => {
+    threadIdRef.current = threadId;
+  };
 
   const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
   // We need to keep a ref of coagent states because of renderAndWait - making sure
@@ -449,5 +463,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     append,
     reload,
     stop,
+    setThreadId,
+    threadId: threadIdRef.current,
   };
 }
