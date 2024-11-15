@@ -1,5 +1,11 @@
 # tsconfig
 
+## 1.3.16-mme-copilot-suggestions.0
+
+### Patch Changes
+
+- Headless suggestions
+
 ## 1.3.15
 
 ### Patch Changes
