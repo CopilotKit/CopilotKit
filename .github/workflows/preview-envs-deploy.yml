@@ -82,6 +82,10 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Turbo Build
+        working-directory: ./CopilotKit
+        run: pnpx turbo run build
+
       # - uses: dopplerhq/secrets-fetch-action@v1.2.0
       #   id: doppler
       #   with:
