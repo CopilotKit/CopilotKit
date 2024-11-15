@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.3.16-mme-copilot-suggestions.1
+
+### Patch Changes
+
+- Send full instructions as system message
+- Updated dependencies
+  - @copilotkit/shared@1.3.16-mme-copilot-suggestions.1
+
 ## 1.3.16-mme-copilot-suggestions.0
 
 ### Patch Changes
