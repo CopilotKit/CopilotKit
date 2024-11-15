@@ -18,12 +18,12 @@ jobs:
         app:
           - { name: 'coagents-research-canvas-ui', path: 'examples/coagents-research-canvas/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
           - { name: 'coagents-research-canvas-agent', path: 'examples/coagents-research-canvas/agent', dockerfile: 'Dockerfile.agent', type: 'poetry' }
-          # - { name: 'coagents-ai-researcher-ui', path: 'examples/coagents-ai-researcher/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
-          # - { name: 'coagents-qa-native-ui', path: 'examples/coagents-qa-native/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
-          # - { name: 'coagents-qa-text-ui', path: 'examples/coagents-qa-text/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
-          # - { name: 'coagents-ai-researcher-ui', type: 'ui' }
-          # - { name: 'coagents-qa-native-ui', type: 'ui' }
-          # - { name: 'coagents-qa-text-ui', type: 'ui' }
+          - { name: 'coagents-ai-researcher-ui', path: 'examples/coagents-ai-researcher/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
+          - { name: 'coagents-ai-researcher-agent', path: 'examples/coagents-ai-researcher/agent', dockerfile: 'Dockerfile.agent', type: 'poetry' }
+          - { name: 'coagents-qa-native-ui', path: 'examples/coagents-qa-native/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
+          - { name: 'coagents-qa-native-agent', path: 'examples/coagents-qa-native/agent', dockerfile: 'Dockerfile.agent', type: 'poetry' }
+          - { name: 'coagents-qa-text-ui', path: 'examples/coagents-qa-text/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
+          - { name: 'coagents-qa-text-agent', path: 'examples/coagents-qa-text/agent', dockerfile: 'Dockerfile.agent', type: 'poetry' }
     steps:
       - name: Checkout
         uses: actions/checkout@v3
