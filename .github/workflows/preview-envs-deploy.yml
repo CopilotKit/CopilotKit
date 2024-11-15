@@ -94,14 +94,35 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
 
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
-      # - name: Build UI image
-      #   if: ${{ matrix.app.ui }}
-      #   run: |
-      #     docker buildx build -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.name }}-ui-${{ github.sha }} --build-arg APP_DIR=examples/${{ matrix.app.name }}/ui --secret id=OPENAI_API_KEY . -f ./examples/Dockerfile.ui --push
-      #   env:
-      #     DOCKER_BUILDKIT: 1
-      #     OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
+      - name: Configure AWS Profile
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
+          aws configure set region us-east-1
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: AWS ECR Login
+        run: |
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 058264219587.dkr.ecr.us-east-1.amazonaws.com
+        
+      - name: Build UI image
+        if: ${{ matrix.app.ui }}
+        run: |
+          docker buildx build -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.name }}-ui-${{ github.sha }} --build-arg APP_DIR=examples/${{ matrix.app.name }}/ui --secret id=OPENAI_API_KEY . -f ./examples/Dockerfile.ui --push
+        env:
+          DOCKER_BUILDKIT: 1
+          OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
 
       # - name: Turbo Build
       #   working-directory: ./CopilotKit
