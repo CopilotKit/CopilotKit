@@ -1,5 +1,11 @@
 # tsconfig
 
+## 1.4.0-pre-1-4-0.0
+
+### Minor Changes
+
+- Add LangGraph Cloud support
+
 ## 1.3.15
 
 ### Patch Changes
