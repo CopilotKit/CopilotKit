@@ -30,6 +30,7 @@ jobs:
           cache-dependency-path: '**/pnpm-lock.yaml'
 
       - name: Install dependencies
+        working-directory: ./CopilotKit
         run: pnpm install --frozen-lockfile
 
   # build_images:
