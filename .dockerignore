@@ -6,7 +6,6 @@ assets
 .vscode
 Dockerfile
 **/.venv
-**/node_modules
 **/langgraph.json
 **/.env
 **/.vscode
@@ -14,4 +13,9 @@ infra
 docs
 **/.turbo
 **/.husky
+
+**/node_modules
 **/.next
+
+!examples/**/node_modules
+!examples/**/.next
