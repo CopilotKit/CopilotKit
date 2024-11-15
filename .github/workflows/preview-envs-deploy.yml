@@ -52,7 +52,7 @@ jobs:
           doppler-config: prd
 
       - name: Build app
-        working-directory: ./examples/${{ matrix.app.name }}/ui
+        working-directory: ${{ matrix.app.path }}
         run: pnpm run build
         env:
           OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
