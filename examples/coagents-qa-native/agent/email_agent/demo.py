@@ -8,7 +8,7 @@ from fastapi import FastAPI
 import uvicorn
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from copilotkit import CopilotKitSDK, LangGraphAgent
-from my_agent.agent import graph
+from email_agent.agent import graph
 
 app = FastAPI()
 sdk = CopilotKitSDK(
@@ -26,4 +26,4 @@ add_fastapi_endpoint(app, sdk, "/copilotkit")
 def main():
     """Run the uvicorn server."""
     port = int(os.getenv("PORT", "8000"))
-    uvicorn.run("my_agent.demo:app", host="0.0.0.0", port=port, reload=True)
+    uvicorn.run("email_agent.demo:app", host="0.0.0.0", port=port, reload=True)

@@ -3,7 +3,7 @@ This module provides a function to get a model based on the configuration.
 """
 import os
 from langchain_core.language_models.chat_models import BaseChatModel
-from my_agent.state import EmailAgentState
+from email_agent.state import EmailAgentState
 
 
 def get_model(state: EmailAgentState) -> BaseChatModel:
