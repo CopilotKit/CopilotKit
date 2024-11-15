@@ -41,7 +41,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dists
-          path: ./CopilotKit/**/dist/**/*
+          path: |
+            ./CopilotKit/packages/**/dist/**/*
           if-no-files-found: error
           retention-days: 1
           include-hidden-files: true
