@@ -37,6 +37,15 @@ jobs:
         working-directory: ./CopilotKit
         run: pnpx turbo run build
 
+      - name: Upload dists
+        uses: actions/upload-artifact@v4
+        with:
+          name: dists
+          path: ./CopilotKit/**/dist/**/*
+          if-no-files-found: error
+          retention-days: 1
+          include-hidden-files: true
+
   # build_images:
   #   runs-on: ubuntu-latest
   #   name: Build Demo App Images
