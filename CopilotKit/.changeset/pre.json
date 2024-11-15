@@ -1,23 +1,24 @@
 {
   "mode": "pre",
-  "tag": "mme-improve-langsmith",
+  "tag": "mme-reset-chat",
   "initialVersions": {
-    "next-openai": "1.3.16-mme-improve-langsmith.0",
-    "next-pages-router": "1.3.16-mme-improve-langsmith.0",
-    "node-express": "1.3.16-mme-improve-langsmith.0",
-    "node-http": "1.3.16-mme-improve-langsmith.0",
-    "@copilotkit/react-core": "1.3.16-mme-improve-langsmith.0",
-    "@copilotkit/react-textarea": "1.3.16-mme-improve-langsmith.0",
-    "@copilotkit/react-ui": "1.3.16-mme-improve-langsmith.0",
-    "@copilotkit/runtime": "1.3.16-mme-improve-langsmith.0",
-    "@copilotkit/runtime-client-gql": "1.3.16-mme-improve-langsmith.0",
-    "@copilotkit/shared": "1.3.16-mme-improve-langsmith.0",
-    "eslint-config-custom": "1.3.16-mme-improve-langsmith.0",
-    "tailwind-config": "1.3.16-mme-improve-langsmith.0",
-    "tsconfig": "1.3.16-mme-improve-langsmith.0"
+    "next-openai": "1.3.16-mme-improve-langsmith.1",
+    "next-pages-router": "1.3.16-mme-improve-langsmith.1",
+    "node-express": "1.3.16-mme-improve-langsmith.1",
+    "node-http": "1.3.16-mme-improve-langsmith.1",
+    "@copilotkit/react-core": "1.3.16-mme-improve-langsmith.1",
+    "@copilotkit/react-textarea": "1.3.16-mme-improve-langsmith.1",
+    "@copilotkit/react-ui": "1.3.16-mme-improve-langsmith.1",
+    "@copilotkit/runtime": "1.3.16-mme-improve-langsmith.1",
+    "@copilotkit/runtime-client-gql": "1.3.16-mme-improve-langsmith.1",
+    "@copilotkit/shared": "1.3.16-mme-improve-langsmith.1",
+    "eslint-config-custom": "1.3.16-mme-improve-langsmith.1",
+    "tailwind-config": "1.3.16-mme-improve-langsmith.1",
+    "tsconfig": "1.3.16-mme-improve-langsmith.1"
   },
   "changesets": [
     "fluffy-apricots-move",
+    "gentle-schools-raise",
     "little-falcons-melt"
   ]
 }

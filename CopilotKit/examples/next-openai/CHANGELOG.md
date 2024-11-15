@@ -1,5 +1,17 @@
 # web
 
+## 1.3.16-mme-reset-chat.2
+
+### Patch Changes
+
+- Add reset and threadId to useCopilotChat
+- Updated dependencies
+  - @copilotkit/react-textarea@1.3.16-mme-reset-chat.2
+  - @copilotkit/react-core@1.3.16-mme-reset-chat.2
+  - @copilotkit/react-ui@1.3.16-mme-reset-chat.2
+  - @copilotkit/runtime@1.3.16-mme-reset-chat.2
+  - @copilotkit/shared@1.3.16-mme-reset-chat.2
+
 ## 1.3.16-mme-improve-langsmith.1
 
 ### Patch Changes

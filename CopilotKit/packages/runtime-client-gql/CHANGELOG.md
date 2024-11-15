@@ -1,5 +1,14 @@
 # @copilotkit/runtime-client-gql
 
+## 1.3.16-mme-reset-chat.2
+
+### Patch Changes
+
+- Add reset and threadId to useCopilotChat
+- Updated dependencies
+  - @copilotkit/runtime@1.3.16-mme-reset-chat.2
+  - @copilotkit/shared@1.3.16-mme-reset-chat.2
+
 ## 1.3.16-mme-improve-langsmith.1
 
 ### Patch Changes
