@@ -76,7 +76,7 @@ jobs:
         
       - name: Build UI image
         run: |
-          docker buildx build -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.name }}-ui-${{ github.run_id }} --build-arg APP_DIR=examples/${{ matrix.app.name }}/ui --secret id=OPENAI_API_KEY . -f ./examples/Dockerfile.ui --push
+          docker buildx build -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.name }}-ui-${{ github.run_id }} --build-arg APP_DIR=examples/${{ matrix.app.name }}/ui --secret id=OPENAI_API_KEY . -f ./examples/Dockerfile.ui --platform=linux/amd64 --provenance=false --push
         env:
           DOCKER_BUILDKIT: 1
           OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
