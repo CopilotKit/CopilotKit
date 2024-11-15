@@ -1,54 +1,44 @@
 ---
 title: What is CopilotKit?
-description: "CopilotKit is the simplest way to integrate production-ready Copilots into any product."
+description: "CopilotKit is the human-centric agent framework for fullstack developers."
 icon: "lucide/Lightbulb"
 ---
-import { LinkIcon } from "lucide-react";
 
-<img src="/images/animated-banner.gif" className="rounded-2xl" />
+## Why build with CopilotKit?
+Building a great user experience with Large Language Models (LLMs) is not straight forward. CopilotKit abstracts away just enough complexity to make it easy to get started while remaining flexible enough for advanced users. 
 
-CopilotKit is the simplest way to integrate production-ready Copilots into any product.
 
-<br/>
-
-## Key Features
-
-- [**In-App AI Chatbot**:](/reference/components/chat/CopilotPopup) Plug and play AI chatbot components, including support for headless UI.
-- [**Copilot Readable State**:](/reference/hooks/useCopilotReadable) Enables Copilots to read and understand the application state.
-- [**Copilot Actions**:](/reference/hooks/useCopilotAction) Copilots can perform actions in the application.
-- [**Generative UI**:](/guides/generative-ui) Render any component in the copilot chat interface.
-- [**Copilot Textarea**:](/reference/components/CopilotTextarea) Powerful AI autocompletion as a drop-in replacement for any textarea.
-- [**AI Autosuggestions**:](/reference/hooks/useCopilotChatSuggestions) AI-powered autosuggestions in your AI chat interface.
-- [**Copilot Tasks**:](/reference/classes/CopilotTask) Let your copilots take actions proactively based on application state.
-- ... and much more!
-
-Get started by [following our simple tutorial](/tutorials/ai-todo-app/overview).
-
-## Next Steps
+## Tutorials
 
 <Cards>
+  <Card
+    title="CoPilot Tutorial"
+    description="Follow a step-by-step tutorial to build an AI Copilot powered todo app."
+    href="/tutorials/ai-todo-app/overview"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="CoAgents Tutorial (LangGraph)"
+    description="Learn how to build a Perplexity clone with CoAgents, the human-in-the-loop SDK for LangGraph agents."
+    href="/coagents/demos/perplexity-clone"
+    icon={<LinkIcon />}
+  />
   <Card
     title="Quickstart"
     description="Get up and running with CopilotKit in a few minutes."
     href="/quickstart"
     icon={<LinkIcon />}
   />
-  <Card
-    title="API Reference"
-    description="Check out the full API reference for CopilotKit."
-    href="/reference"
-    icon={<LinkIcon />}
-  />
-  <Card
-    title="Tutorial: AI Todo App"
-    description="Follow a step-by-step tutorial to build an AI-powered todo app."
-    href="/tutorials/ai-todo-app/overview"
-    icon={<LinkIcon />}
-  />
-  <Card
-    title="CoAgents (LangGraph)"
-    description="Check out our section about CoAgents, the human-in-the-loop SDK for LangGraph agents."
-    href="/coagents"
-    icon={<LinkIcon />}
-  />
 </Cards>
+
+<br/>
+
+## Key Concepts
+
+- [**Generative UI**:](/guides/generative-ui) Render any component in the copilot chat interface.
+- [**Copilot Readable State**:](/reference/hooks/useCopilotReadable) Give the Copliot the ability to read your apps state.
+- [**Copilot Actions**:](/reference/hooks/useCopilotAction) Easily define actions the Copliot can take within your app.
+### Advanced
+- [**CoAgents**:](/coagents) Build complex agent-native workflows powered by LangGraph.
+
+
