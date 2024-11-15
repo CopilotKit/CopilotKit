@@ -10,67 +10,110 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  preview_envs_deploy:
+  setup:
     runs-on: ubuntu-latest
-    name: Deploy Preview Environments
-    permissions:
-      contents: write
-      pull-requests: write
-      deployments: write
-      statuses: write
-      actions: write
-      checks: write
-      issues: write
+    name: Setup
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Install AWS CDK
-        run: npm install -g aws-cdk
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          version: "9.5"
 
-      - name: Configure AWS Profile
-        run: |
-          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
-          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
-          aws configure set region us-east-1
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+          cache-dependency-path: '**/pnpm-lock.yaml'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+  # build_images:
+  #   runs-on: ubuntu-latest
+  #   name: Build Demo App Images
+  #   strategy:
+  #     matrix:
+  #       app:
+  #         - { name: coagents-research-canvas }
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v3
+
+  #     - name: Set up QEMU
+  #       uses: docker/setup-qemu-action@v3
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v3
+
+      # - name: Build UI image
+      #   run: |
+      #     docker buildx build -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app }}-${{ github.sha }} . -f ./examples/Dockerkfile.ui
+      #   env:
+      #     DOCKER_BUILDKIT: 1
+  # preview_envs_deploy:
+  #   runs-on: ubuntu-latest
+  #   name: Deploy Preview Environments
+  #   permissions:
+  #     contents: write
+  #     pull-requests: write
+  #     deployments: write
+  #     statuses: write
+  #     actions: write
+  #     checks: write
+  #     issues: write
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v3
+
+  #     - name: Install AWS CDK
+  #       run: npm install -g aws-cdk
+
+  #     - name: Configure AWS Credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: us-east-1
+
+  #     - name: Configure AWS Profile
+  #       run: |
+  #         aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
+  #         aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
+  #         aws configure set region us-east-1
       
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
+  #     - uses: pnpm/action-setup@v4
+  #       with:
+  #         version: 9
           
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+  #     - name: Set up QEMU
+  #       uses: docker/setup-qemu-action@v3
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v3
 
-      - name: Auth AWS CDK Public Registry
-        run: |
-          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
+  #     - name: Auth AWS CDK Public Registry
+  #       run: |
+  #         aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
 
-      - uses: dopplerhq/secrets-fetch-action@v1.2.0
-        id: doppler
-        with:
-          doppler-token: ${{ secrets.DOPPLER_TOKEN }}
-          doppler-project: copilotkit-previews
-          doppler-config: prd
+  #     - uses: dopplerhq/secrets-fetch-action@v1.2.0
+  #       id: doppler
+  #       with:
+  #         doppler-token: ${{ secrets.DOPPLER_TOKEN }}
+  #         doppler-project: copilotkit-previews
+  #         doppler-config: prd
 
-      - name: Infra install dependencies
-        working-directory: infra
-        run: pnpm i
+  #     - name: Infra install dependencies
+  #       working-directory: infra
+  #       run: pnpm i
 
-      - name: Comment pre-deployment
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          comment-tag: preview-status-update
-          message: |
-            Deploying preview environments for this pull request...
+  #     - name: Comment pre-deployment
+  #       uses: thollander/actions-comment-pull-request@v3
+  #       with:
+  #         comment-tag: preview-status-update
+  #         message: |
+  #           Deploying preview environments for this pull request...
 
       # - name: cdk deploy
       #   working-directory: ./infra
@@ -85,28 +128,28 @@ jobs:
       #   run: |
       #     node generate-table
 
-      - name: Mock env file
-        working-directory: infra
-        run: |
-          echo "TEST_ENV_VARIABLE=mocked" > .env.test
-          ls -la
-          cat .env.test
+      # - name: Mock env file
+      #   working-directory: infra
+      #   run: |
+      #     echo "TEST_ENV_VARIABLE=mocked" > .env.test
+      #     ls -la
+      #     cat .env.test
 
-      - name: Upload env file
-        uses: actions/upload-artifact@v4
-        with:
-          name: tests-env-file
-          path: infra/.env.test
-          if-no-files-found: error
-          retention-days: 1
-          include-hidden-files: true
+      # - name: Upload env file
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: tests-env-file
+      #     path: infra/.env.test
+      #     if-no-files-found: error
+      #     retention-days: 1
+      #     include-hidden-files: true
 
-      - name: Trigger E2E Tests
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          event-type: trigger-e2e
-          client-payload: '{"pr_number": "${{ github.event.pull_request.number }}", "sha": "${{ github.event.pull_request.head.sha }}"}'
+      # - name: Trigger E2E Tests
+      #   uses: peter-evans/repository-dispatch@v3
+      #   with:
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     event-type: trigger-e2e
+      #     client-payload: '{"pr_number": "${{ github.event.pull_request.number }}", "sha": "${{ github.event.pull_request.head.sha }}"}'
 
       # - name: Assign label
       #   uses: actions/github-script@v4
