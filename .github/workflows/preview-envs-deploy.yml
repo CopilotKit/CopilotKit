@@ -43,6 +43,10 @@ jobs:
           name: dists
           path: |
             ./CopilotKit/packages/**/dist/**/*
+            ./CopilotKit/**/package.json
+            ./CopilotKit/**/pnpm-lock.yaml
+            ./CopilotKit/**/pnpm-workspace.yaml
+
           if-no-files-found: error
           retention-days: 1
           include-hidden-files: true
@@ -63,17 +67,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: dists
-          path: ./
+          path: ./CopilotKit/
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: debug
-        run: ls -la
-
-      - name: debug2
-        run: ls -la CopilotKit
-    
-      - name: debug3
-        run: ls -la CopilotKit/packages
+        run: echo "hellow ${{ matrix.app.name }}"
 
       # - name: Set up QEMU
       #   uses: docker/setup-qemu-action@v3
