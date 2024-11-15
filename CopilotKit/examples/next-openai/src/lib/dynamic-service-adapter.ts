@@ -44,8 +44,10 @@ async function getLangChainOpenAIAdapter() {
   const { ChatOpenAI } = await import("@langchain/openai");
   return new LangChainAdapter({
     chainFn: async ({ messages, tools }) => {
-      const model = new ChatOpenAI({ modelName: "gpt-4-1106-preview" }) as any;
-      return model.stream(messages, { tools });
+      const model = new ChatOpenAI({ modelName: "gpt-4-1106-preview" }).bindTools(tools, {
+        strict: true,
+      });
+      return model.stream(messages);
     },
   });
 }

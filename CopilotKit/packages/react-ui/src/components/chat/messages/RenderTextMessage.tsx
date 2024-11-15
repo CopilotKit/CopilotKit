@@ -9,13 +9,21 @@ export function RenderTextMessage(props: RenderMessageProps) {
   if (message.isTextMessage()) {
     if (message.role === "user") {
       return (
-        <div key={index} className="copilotKitMessage copilotKitUserMessage">
+        <div
+          key={index}
+          data-message-role="user"
+          className="copilotKitMessage copilotKitUserMessage"
+        >
           {message.content}
         </div>
       );
     } else if (message.role == "assistant") {
       return (
-        <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
+        <div
+          key={index}
+          data-message-role="assistant"
+          className={`copilotKitMessage copilotKitAssistantMessage`}
+        >
           {isCurrentMessage && inProgress && !message.content ? (
             icons.spinnerIcon
           ) : (

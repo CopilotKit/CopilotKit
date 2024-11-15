@@ -16,7 +16,9 @@
  *
  * const serviceAdapter = new LangChainAdapter({
  *   chainFn: async ({ messages, tools }) => {
- *     return model.stream(messages, { tools });
+ *     return model.bindTools(tools).stream(messages);
+ *     // or optionally enable strict mode
+ *     // return model.bindTools(tools, { strict: true }).stream(messages);
  *   }
  * });
  *

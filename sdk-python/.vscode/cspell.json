@@ -1,0 +1,23 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "words": [
+    "coagent",
+    "langgraph",
+    "copilotkit",
+    "checkpointer",
+    "fastapi",
+    "uvicorn",
+    "serializeable",
+    "astream",
+    "langchain",
+    "openai",
+    "ainvoke",
+    "readables",
+    "autotale",
+    "pydantic",
+    "childrens",
+    "partialjson",
+    "dotenv"
+  ]
+}

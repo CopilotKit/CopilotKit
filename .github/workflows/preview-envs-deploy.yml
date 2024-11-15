@@ -1,18 +1,14 @@
-name: Demos Preview (Deploy)
+name: Preview Environments (Deploy)
 
 on:
   pull_request:
-    paths:
-      - './examples/**'
-      - '.github/workflows/demos_preview.yml'
-      - '.github/workflows/demos_preview_destroy.yml'
     branches:
       - main
 
 jobs:
-  example_comment_pr:
+  preview_envs_deploy:
     runs-on: ubuntu-latest
-    name: Comment with example preview
+    name: Deploy Preview Environments
     permissions:
       deployments: write
       pull-requests: write
@@ -53,12 +49,19 @@ jobs:
         working-directory: infra
         run: pnpm i
 
+      - name: Comment pre-deployment
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: preview-status-update
+          message: |
+            Deploying preview environments for this pull request...
+
       - name: cdk deploy
         uses: youyo/aws-cdk-github-actions@v2
         with:
           working_dir: './infra'
           cdk_subcommand: 'deploy'
-          cdk_args: '--require-approval never --outputs-file=cdk_outputs.json'
+          cdk_args: '--require-approval never --outputs-file=cdk_outputs.json --concurrency 5'
           actions_comment: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -83,21 +86,10 @@ jobs:
               labels: ['preview']
             })
 
-      - name: Comment PR
+      - name: Comment post-deployment
         uses: thollander/actions-comment-pull-request@v3
         with:
           comment-tag: preview-status-update
           file-path: ./infra/preview-comment.md
-
-      # - name: Deploy
-      #   uses: chrnorm/deployment-action@v2
-      #   id: deployment
-      #   with:
-      #     token: '${{ github.token }}'
-      #     environment-url: "http://test.com"
-      #     environment: "preview-branch"
-      #     # ref: "some-pr"
-      #     payload: "{\"key\": \"value\"}"
-
 
       

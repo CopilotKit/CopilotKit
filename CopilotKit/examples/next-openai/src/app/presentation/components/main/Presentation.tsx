@@ -1,5 +1,5 @@
 "use client";
-import { useCoAgent, useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
+import { useCopilotReadable } from "@copilotkit/react-core";
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { useCallback, useMemo, useState } from "react";
 import { Slide } from "./Slide";
@@ -15,7 +15,7 @@ interface PresentationProps {
 export const Presentation = ({ performResearch, setPerformResearch }: PresentationProps) => {
   // Load messages from local storage
 
-  // const { messages, setMessages } = useCopilotContext();
+  // const { messages, setMessages } = useCopilotMessagesContext();
 
   // // save to local storage when messages change
   // useEffect(() => {

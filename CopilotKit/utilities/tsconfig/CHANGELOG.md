@@ -1,5 +1,30 @@
 # tsconfig
 
+## 1.3.15
+
+### Patch Changes
+
+- pass description for array and object action parameters in langchain adapter
+
+## 1.3.14
+
+### Patch Changes
+
+- Add data-test-id to some elements for testing
+
+## 1.3.13
+
+### Patch Changes
+
+- fix usage of one-at-a-time tool when called multiple times
+
+## 1.3.12
+
+### Patch Changes
+
+- - enable dynamic parameters in langchain adapter tool call
+  - fix unparsable action arguments causing tool call crashes
+
 ## 1.3.11
 
 ### Patch Changes
