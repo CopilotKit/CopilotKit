@@ -12,20 +12,20 @@ const uniqueEnvironmentId = requireEnv("UNIQUE_ENV_ID");
  * CoAgents Research Canvas Demo
  */
 
-const researchCanvasAgent = new PreviewProjectStack(app, `CoAgentsResearchCanvasDemoAgent`, {
-  env: {
-    account: process.env.CDK_DEFAULT_ACCOUNT,
-  },
-  projectName: "CoAgents Research Canvas - Agent",
-  demoDir: "examples/coagents-research-canvas/agent",
-  overrideDockerWorkdir: "./",
-  overrideDockerfile: "examples/Dockerfile.agent",
-  uniqueEnvironmentId,
-  environmentVariablesFromSecrets: ["OPENAI_API_KEY", "TAVILY_API_KEY"],
-  port: "8000",
-  includeInPRComment: false,
-  outputEnvVariable: "COAGENTS_RESEARCH_CANVAS_AGENT_ENDPOINT_URL",
-});
+// const researchCanvasAgent = new PreviewProjectStack(app, `CoAgentsResearchCanvasDemoAgent`, {
+//   env: {
+//     account: process.env.CDK_DEFAULT_ACCOUNT,
+//   },
+//   projectName: "CoAgents Research Canvas - Agent",
+//   demoDir: "examples/coagents-research-canvas/agent",
+//   overrideDockerWorkdir: "./",
+//   overrideDockerfile: "examples/Dockerfile.agent",
+//   uniqueEnvironmentId,
+//   environmentVariablesFromSecrets: ["OPENAI_API_KEY", "TAVILY_API_KEY"],
+//   port: "8000",
+//   includeInPRComment: false,
+//   outputEnvVariable: "COAGENTS_RESEARCH_CANVAS_AGENT_ENDPOINT_URL",
+// });
 
 const researchCanvasUI = new PreviewProjectStack(app, `CoAgentsResearchCanvasDemoUI`, {
   env: {
@@ -39,7 +39,7 @@ const researchCanvasUI = new PreviewProjectStack(app, `CoAgentsResearchCanvasDem
   environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
   buildSecrets: ["OPENAI_API_KEY"],
   environmentVariables: {
-    REMOTE_ACTION_URL: `${researchCanvasAgent.fnUrl}/copilotkit`,
+    // REMOTE_ACTION_URL: `${researchCanvasAgent.fnUrl}/copilotkit`,
   },
   port: "3000",
   includeInPRComment: true,

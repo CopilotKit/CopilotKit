@@ -121,14 +121,37 @@ jobs:
           DOCKER_BUILDKIT: 1
           OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
 
-      # - name: Turbo Build
-      #   working-directory: ./CopilotKit
-      #   run: pnpx turbo run build
+  cdk_deploy:
+    runs-on: ubuntu-latest
+    name: CDK Deploy
+    needs: build_images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
 
-      # - name: Set up QEMU
-      #   uses: docker/setup-qemu-action@v3
-      # - name: Set up Docker Buildx
-      #   uses: docker/setup-buildx-action@v3
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "9.5"
+
+      - name: Use Node.js 21
+        uses: actions/setup-node@v2
+        with:
+          node-version: 21.x
+          cache: 'pnpm'
+          cache-dependency-path: '**/pnpm-lock.yaml'
+
+      - name: Infra install dependencies
+        working-directory: infra
+        run: pnpm i
+
+      - name: cdk deploy
+        working-directory: ./infra
+        run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 10
+        env:
+          UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
+          OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
+          CDK_IMAGE_TAG: "coagents-research-canvas-ui-${{ github.sha }}"
 
 
   # build_images:
