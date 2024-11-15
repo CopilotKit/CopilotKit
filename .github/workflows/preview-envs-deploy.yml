@@ -41,7 +41,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install app
-        working-directory: ${{ matrix.app.path }
+        working-directory: ${{ matrix.app.path }}
         run: pnpm install --frozen-lockfile
 
       - uses: dopplerhq/secrets-fetch-action@v1.2.0
