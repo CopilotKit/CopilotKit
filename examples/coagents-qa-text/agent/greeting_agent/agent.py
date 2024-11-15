@@ -14,8 +14,8 @@ from copilotkit.langchain import (
     copilotkit_emit_message
 )
 from pydantic import BaseModel, Field
-from my_agent.state import GreetAgentState
-from my_agent.model import get_model
+from greeting_agent.state import GreetAgentState
+from greeting_agent.model import get_model
 
 class ExtractNameTool(BaseModel):
     """
