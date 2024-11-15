@@ -176,7 +176,8 @@ async function reloadSuggestions(
 
   await extract({
     context,
-    instructions: fullInstructions,
+    instructions: instructions || "",
+    data: fullInstructions,
     parameters,
     abortSignal: abortController?.signal,
     requestType: CopilotRequestType.Task,
