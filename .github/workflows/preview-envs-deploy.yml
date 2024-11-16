@@ -10,17 +10,112 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  preview_envs_deploy:
+  build_images:
+    runs-on: ubuntu-latest
+    name: Dockerize
+    strategy:
+      matrix:
+        app:
+          - { name: 'coagents-research-canvas-ui', path: 'examples/coagents-research-canvas/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
+          - { name: 'coagents-research-canvas-agent', path: 'examples/coagents-research-canvas/agent', dockerfile: 'Dockerfile.agent', type: 'poetry' }
+          - { name: 'coagents-ai-researcher-ui', path: 'examples/coagents-ai-researcher/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
+          - { name: 'coagents-ai-researcher-agent', path: 'examples/coagents-ai-researcher/agent', dockerfile: 'Dockerfile.agent', type: 'poetry' }
+          - { name: 'coagents-qa-native-ui', path: 'examples/coagents-qa-native/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
+          - { name: 'coagents-qa-native-agent', path: 'examples/coagents-qa-native/agent', dockerfile: 'Dockerfile.agent', type: 'poetry' }
+          - { name: 'coagents-qa-text-ui', path: 'examples/coagents-qa-text/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
+          - { name: 'coagents-qa-text-agent', path: 'examples/coagents-qa-text/agent', dockerfile: 'Dockerfile.agent', type: 'poetry' }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: dopplerhq/secrets-fetch-action@v1.2.0
+        id: doppler
+        with:
+          doppler-token: ${{ secrets.DOPPLER_TOKEN }}
+          doppler-project: copilotkit-previews
+          doppler-config: prd
+
+      - name: (Node) Setup pnpm
+        if: matrix.app.type == 'node'
+        uses: pnpm/action-setup@v4
+        with:
+          version: "9.5"
+
+      - name: (Node) Use Node.js 21
+        if: matrix.app.type == 'node'
+        uses: actions/setup-node@v2
+        with:
+          node-version: 21.x
+          cache: 'pnpm'
+          cache-dependency-path: '**/pnpm-lock.yaml'
+
+      - name: (Node) Install dependencies
+        if: matrix.app.type == 'node'
+        working-directory: ./CopilotKit
+        run: pnpm install --frozen-lockfile
+
+      - name: (Node) Install app
+        if: matrix.app.type == 'node'
+        working-directory: ${{ matrix.app.path }}
+        run: pnpm install --frozen-lockfile
+
+      - name: (Node) Build app
+        if: matrix.app.type == 'node'
+        working-directory: ${{ matrix.app.path }}
+        run: pnpm run build
+        env:
+          OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Configure AWS Profile
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
+          aws configure set region us-east-1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: AWS ECR Login
+        run: |
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 058264219587.dkr.ecr.us-east-1.amazonaws.com
+        
+      - name: Build Image
+        run: |
+          docker buildx build -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.name }}-${{ github.run_id }} --build-arg APP_DIR=${{ matrix.app.path }} --secret id=OPENAI_API_KEY . -f ./examples/${{ matrix.app.dockerfile }} --platform=linux/amd64 --provenance=false --push
+        env:
+          DOCKER_BUILDKIT: 1
+          OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
+
+  cdk_deploy:
     runs-on: ubuntu-latest
     name: Deploy Preview Environments
-    permissions:
-      deployments: write
-      pull-requests: write
-      statuses: write
-      actions: write
+    needs: build_images
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "9.5"
+
+      - name: Use Node.js 21
+        uses: actions/setup-node@v2
+        with:
+          node-version: 21.x
+          cache: 'pnpm'
+          cache-dependency-path: '**/pnpm-lock.yaml'
+
+      - name: Infra install dependencies
+        working-directory: infra
+        run: pnpm i
 
       - name: Install AWS CDK
         run: npm install -g aws-cdk
@@ -37,37 +132,6 @@ jobs:
           aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
           aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
           aws configure set region us-east-1
-      
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-          
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Auth AWS CDK Public Registry
-        run: |
-          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
-
-      - uses: dopplerhq/secrets-fetch-action@v1.2.0
-        id: doppler
-        with:
-          doppler-token: ${{ secrets.DOPPLER_TOKEN }}
-          doppler-project: copilotkit-previews
-          doppler-config: prd
-
-      - name: Infra install dependencies
-        working-directory: infra
-        run: pnpm i
-
-      - name: Comment pre-deployment
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          comment-tag: preview-status-update
-          message: |
-            Deploying preview environments for this pull request...
 
       - name: cdk deploy
         working-directory: ./infra
@@ -75,18 +139,13 @@ jobs:
         env:
           UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
           OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
-
+          GITHUB_RUN_ID: "${{ github.run_id }}"
+          
       - name: Generate table from outputs
         id: generate-table
         working-directory: infra
         run: |
           node generate-table
-
-      - name: Upload env file
-        uses: actions/upload-artifact@v3
-        with:
-          name: env-file
-          path: infra/.env.test
 
       - name: Assign label
         uses: actions/github-script@v4
