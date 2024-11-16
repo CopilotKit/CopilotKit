@@ -93,21 +93,6 @@ jobs:
           DOCKER_BUILDKIT: 1
           OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
 
-      - name: Infra install dependencies
-        working-directory: infra
-        run: pnpm i
-
-      - name: Install AWS CDK
-        run: npm install -g aws-cdk
-
-      - name: cdk deploy
-        working-directory: ./infra
-        run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 10
-        env:
-          UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
-          OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
-          GITHUB_RUN_ID: "${{ github.run_id }}"
-
   cdk_deploy:
     runs-on: ubuntu-latest
     name: Deploy Preview Environments
