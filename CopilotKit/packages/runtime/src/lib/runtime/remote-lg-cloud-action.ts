@@ -593,7 +593,7 @@ function formatMessages(messages: Message[]): LangGraphCloudMessage[] {
         id: message.id,
         tool_call_id: message.actionExecutionId,
         name: message.actionName,
-        role: MessageRole.assistant,
+        role: MessageRole.tool,
       } satisfies LangGraphCloudResultMessage;
     }
 
