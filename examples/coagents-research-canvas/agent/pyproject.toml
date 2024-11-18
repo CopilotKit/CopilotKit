@@ -18,7 +18,7 @@ dependencies = [
   "langchain-community",
   "langchain-anthropic",
   "tavily-python",
-  "copilotkit",
+  "copilotkit==0.1.28a3",
   "python-dotenv",
   "uvicorn",
   "html2text"
