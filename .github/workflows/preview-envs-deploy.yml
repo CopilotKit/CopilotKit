@@ -16,14 +16,14 @@ jobs:
     strategy:
       matrix:
         app:
-          - { name: 'coagents-research-canvas-ui', path: 'examples/coagents-research-canvas/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
-          - { name: 'coagents-research-canvas-agent', path: 'examples/coagents-research-canvas/agent', dockerfile: 'Dockerfile.agent', type: 'poetry' }
-          - { name: 'coagents-ai-researcher-ui', path: 'examples/coagents-ai-researcher/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
-          - { name: 'coagents-ai-researcher-agent', path: 'examples/coagents-ai-researcher/agent', dockerfile: 'Dockerfile.agent', type: 'poetry' }
-          - { name: 'coagents-qa-native-ui', path: 'examples/coagents-qa-native/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
-          - { name: 'coagents-qa-native-agent', path: 'examples/coagents-qa-native/agent', dockerfile: 'Dockerfile.agent', type: 'poetry' }
-          - { name: 'coagents-qa-text-ui', path: 'examples/coagents-qa-text/ui', dockerfile: 'Dockerfile.ui', type: 'node' }
-          - { name: 'coagents-qa-text-agent', path: 'examples/coagents-qa-text/agent', dockerfile: 'Dockerfile.agent', type: 'poetry' }
+          - { name: 'coagents-research-canvas-ui', path: 'examples/coagents-research-canvas/ui', dockerfile: 'Dockerfile.ui', variant: 'versioned-deps', type: 'node' }
+          - { name: 'coagents-research-canvas-agent', path: 'examples/coagents-research-canvas/agent', dockerfile: 'Dockerfile.agent-versioned-deps', variant: 'versioned-deps', type: 'poetry' }
+          - { name: 'coagents-ai-researcher-ui', path: 'examples/coagents-ai-researcher/ui', dockerfile: 'Dockerfile.ui', variant: 'versioned-deps', type: 'node' }
+          - { name: 'coagents-ai-researcher-agent', path: 'examples/coagents-ai-researcher/agent', dockerfile: 'Dockerfile.agent-versioned-deps', variant: 'versioned-deps', type: 'poetry' }
+          - { name: 'coagents-qa-native-ui', path: 'examples/coagents-qa-native/ui', dockerfile: 'Dockerfile.ui', variant: 'versioned-deps', type: 'node' }
+          - { name: 'coagents-qa-native-agent', path: 'examples/coagents-qa-native/agent', dockerfile: 'Dockerfile.agent-versioned-deps', variant: 'versioned-deps', type: 'poetry' }
+          - { name: 'coagents-qa-text-ui', path: 'examples/coagents-qa-text/ui', dockerfile: 'Dockerfile.ui', variant: 'versioned-deps', type: 'node' }
+          - { name: 'coagents-qa-text-agent', path: 'examples/coagents-qa-text/agent', dockerfile: 'Dockerfile.agent-versioned-deps', variant: 'versioned-deps', type: 'poetry' }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
