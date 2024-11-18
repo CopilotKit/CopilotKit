@@ -7,6 +7,7 @@ import { LangGraphCloudAgent, LangGraphCloudEndpoint } from "./remote-actions";
 import { CopilotRequestContextProperties } from "../integrations";
 import { Message, MessageType } from "../../graphql/types/converted";
 import { MessageRole } from "../../graphql/types/enums";
+import { CustomEventNames, LangGraphEventTypes } from "../../agents/langgraph/events";
 
 type State = Record<string, any>;
 
@@ -165,11 +166,17 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     externalRunId = runId;
     const metadata = event.metadata;
 
-    shouldExit = shouldExit != null ? shouldExit : metadata["copilotkit:exit"];
+    shouldExit =
+      shouldExit != null
+        ? shouldExit
+        : eventType === LangGraphEventTypes.OnCustomEvent &&
+          event.name === CustomEventNames.CopilotKitExit;
+
     const emitIntermediateState = metadata["copilotkit:emit-intermediate-state"];
-    const forceEmitIntermediateState = metadata["copilotkit:force-emit-intermediate-state"];
-    const manuallyEmitMessage = metadata["copilotkit:manually-emit-messages"];
-    const manuallyEmitToolCall = metadata["copilotkit:manually-emit-tool-calls"];
+    const manuallyEmitIntermediateState =
+      eventType === LangGraphEventTypes.OnCustomEvent &&
+      event.name === CustomEventNames.CopilotKitManuallyEmitIntermediateState;
+
     // we only want to update the node name under certain conditions
     // since we don't need any internal node names to be sent to the frontend
     if (graphInfo["nodes"].some((node) => node.id === currentNodeName)) {
@@ -180,8 +187,8 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       continue;
     }
 
-    if (forceEmitIntermediateState) {
-      if (eventType === "on_chain_end") {
+    if (manuallyEmitIntermediateState) {
+      if (eventType === LangGraphEventTypes.OnChainEnd) {
         state = event.data.output;
         emit(
           getStateSyncEvent({
@@ -198,48 +205,18 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       continue;
     }
 
-    if (manuallyEmitMessage) {
-      if (eventType === "on_chain_end") {
-        state = event.data.output;
-        emit(
-          JSON.stringify({
-            event: "on_copilotkit_emit_message",
-            message: event.data.output,
-            messageId: randomUUID(),
-            role: MessageRole.assistant,
-          }) + "\n",
-        );
-      }
-      continue;
-    }
-
-    if (manuallyEmitToolCall) {
-      if (eventType === "on_chain_end") {
-        state = event.data.output;
-        emit(
-          JSON.stringify({
-            event: "on_copilotkit_emit_tool_call",
-            name: event.data.output.name,
-            args: event.data.output.args,
-            id: event.data.output.id,
-          }) + "\n",
-        );
-      }
-      continue;
-    }
-
     if (emitIntermediateState && emitIntermediateStateUntilEnd == null) {
       emitIntermediateStateUntilEnd = nodeName;
     }
 
-    if (emitIntermediateState && eventType === "on_chat_model_start") {
+    if (emitIntermediateState && eventType === LangGraphEventTypes.OnChatModelStart) {
       // reset the streaming state extractor
       streamingStateExtractor = new StreamingStateExtractor(emitIntermediateState);
     }
 
     let updatedState = latestStateValues;
 
-    if (emitIntermediateState && eventType === "on_chat_model_stream") {
+    if (emitIntermediateState && eventType === LangGraphEventTypes.OnChatModelStream) {
       streamingStateExtractor.bufferToolCalls(event);
     }
 
@@ -253,13 +230,14 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     if (
       !emitIntermediateState &&
       currentNodeName === emitIntermediateStateUntilEnd &&
-      eventType === "on_chain_end"
+      eventType === LangGraphEventTypes.OnChainEnd
     ) {
       // stop emitting function call state
       emitIntermediateStateUntilEnd = null;
     }
 
-    const exitingNode = nodeName === currentNodeName && eventType === "on_chain_end";
+    const exitingNode =
+      nodeName === currentNodeName && eventType === LangGraphEventTypes.OnChainEnd;
 
     if (
       JSON.stringify(updatedState) !== JSON.stringify(state) ||
@@ -329,7 +307,7 @@ function getStateSyncEvent({
 
   return (
     JSON.stringify({
-      event: "on_copilotkit_state_sync",
+      event: LangGraphEventTypes.OnCopilotKitStateSync,
       thread_id: threadId,
       run_id: runId,
       agent_name: agentName,
