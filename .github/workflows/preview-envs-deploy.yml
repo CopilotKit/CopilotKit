@@ -16,14 +16,14 @@ jobs:
     strategy:
       matrix:
         app:
-          - { name: 'coagents-research-canvas-ui', path: 'examples/coagents-research-canvas/ui', dockerfile: 'Dockerfile.ui', variant: 'versioned-deps', type: 'node' }
-          - { name: 'coagents-research-canvas-agent', path: 'examples/coagents-research-canvas/agent', dockerfile: 'Dockerfile.agent-versioned-deps', variant: 'versioned-deps', type: 'poetry' }
-          - { name: 'coagents-ai-researcher-ui', path: 'examples/coagents-ai-researcher/ui', dockerfile: 'Dockerfile.ui', variant: 'versioned-deps', type: 'node' }
-          - { name: 'coagents-ai-researcher-agent', path: 'examples/coagents-ai-researcher/agent', dockerfile: 'Dockerfile.agent-versioned-deps', variant: 'versioned-deps', type: 'poetry' }
-          - { name: 'coagents-qa-native-ui', path: 'examples/coagents-qa-native/ui', dockerfile: 'Dockerfile.ui', variant: 'versioned-deps', type: 'node' }
-          - { name: 'coagents-qa-native-agent', path: 'examples/coagents-qa-native/agent', dockerfile: 'Dockerfile.agent-versioned-deps', variant: 'versioned-deps', type: 'poetry' }
-          - { name: 'coagents-qa-text-ui', path: 'examples/coagents-qa-text/ui', dockerfile: 'Dockerfile.ui', variant: 'versioned-deps', type: 'node' }
-          - { name: 'coagents-qa-text-agent', path: 'examples/coagents-qa-text/agent', dockerfile: 'Dockerfile.agent-versioned-deps', variant: 'versioned-deps', type: 'poetry' }
+          - { PROJECT_NAME: 'coagents-research-canvas-agent-versioned-deps', PROJECT_DESCRIPTION: 'CoAgents Research Canvas (Agent) - Versioned Dependencies', PROJECT_TYPE: 'agent', DEMO_DIR: 'examples/coagents-research-canvas/agent', DOCKERFILE: 'Dockerfile.agent-versioned-deps', RUNTIME: 'node', WITH_LOCAL_DEPS: 'false' }
+          # - { name: 'coagents-research-canvas-agent', path: 'examples/coagents-research-canvas/agent', dockerfile: 'Dockerfile.agent-versioned-deps', variant: 'versioned-deps', type: 'poetry' }
+          # - { name: 'coagents-ai-researcher-ui', path: 'examples/coagents-ai-researcher/ui', dockerfile: 'Dockerfile.ui', variant: 'versioned-deps', type: 'node' }
+          # - { name: 'coagents-ai-researcher-agent', path: 'examples/coagents-ai-researcher/agent', dockerfile: 'Dockerfile.agent-versioned-deps', variant: 'versioned-deps', type: 'poetry' }
+          # - { name: 'coagents-qa-native-ui', path: 'examples/coagents-qa-native/ui', dockerfile: 'Dockerfile.ui', variant: 'versioned-deps', type: 'node' }
+          # - { name: 'coagents-qa-native-agent', path: 'examples/coagents-qa-native/agent', dockerfile: 'Dockerfile.agent-versioned-deps', variant: 'versioned-deps', type: 'poetry' }
+          # - { name: 'coagents-qa-text-ui', path: 'examples/coagents-qa-text/ui', dockerfile: 'Dockerfile.ui', variant: 'versioned-deps', type: 'node' }
+          # - { name: 'coagents-qa-text-agent', path: 'examples/coagents-qa-text/agent', dockerfile: 'Dockerfile.agent-versioned-deps', variant: 'versioned-deps', type: 'poetry' }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,13 +36,13 @@ jobs:
           doppler-config: prd
 
       - name: (Node) Setup pnpm
-        if: matrix.app.type == 'node'
+        if: matrix.app.RUNTIME == 'node'
         uses: pnpm/action-setup@v4
         with:
           version: "9.5"
 
       - name: (Node) Use Node.js 21
-        if: matrix.app.type == 'node'
+        if: matrix.app.RUNTIME == 'node'
         uses: actions/setup-node@v2
         with:
           node-version: 21.x
@@ -50,17 +50,17 @@ jobs:
           cache-dependency-path: '**/pnpm-lock.yaml'
 
       - name: (Node) Install dependencies
-        if: matrix.app.type == 'node'
+        if: matrix.app.RUNTIME == 'node'
         working-directory: ./CopilotKit
         run: pnpm install --frozen-lockfile
 
       - name: (Node) Install app
-        if: matrix.app.type == 'node'
+        if: matrix.app.RUNTIME == 'node'
         working-directory: ${{ matrix.app.path }}
         run: pnpm install --frozen-lockfile
 
       - name: (Node) Build app
-        if: matrix.app.type == 'node'
+        if: matrix.app.RUNTIME == 'node'
         working-directory: ${{ matrix.app.path }}
         run: pnpm run build
         env:
@@ -88,7 +88,7 @@ jobs:
         
       - name: Build Image
         run: |
-          docker buildx build -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.name }}-${{ github.run_id }} --build-arg APP_DIR=${{ matrix.app.path }} --secret id=OPENAI_API_KEY . -f ./examples/${{ matrix.app.dockerfile }} --platform=linux/amd64 --provenance=false --push
+          docker buildx build -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.PROJECT_NAME }}-${{ github.run_id }} --build-arg APP_DIR=${{ matrix.app.DEMO_DIR }} --secret id=OPENAI_API_KEY . -f ./examples/${{ matrix.app.DOCKERFILE }} --platform=linux/amd64 --provenance=false --push
         env:
           DOCKER_BUILDKIT: 1
           OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
@@ -141,26 +141,26 @@ jobs:
           OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
           GITHUB_RUN_ID: "${{ github.run_id }}"
           
-      - name: Generate table from outputs
-        id: generate-table
-        working-directory: infra
-        run: |
-          node generate-table
+      # - name: Generate table from outputs
+      #   id: generate-table
+      #   working-directory: infra
+      #   run: |
+      #     node generate-table
 
-      - name: Assign label
-        uses: actions/github-script@v4
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.issues.addLabels({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: ['preview']
-            })
+      # - name: Assign label
+      #   uses: actions/github-script@v4
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     script: |
+      #       github.issues.addLabels({
+      #         issue_number: context.issue.number,
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #         labels: ['preview']
+      #       })
 
-      - name: Comment post-deployment
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          comment-tag: preview-status-update
-          file-path: ./infra/preview-comment.md
+      # - name: Comment post-deployment
+      #   uses: thollander/actions-comment-pull-request@v3
+      #   with:
+      #     comment-tag: preview-status-update
+      #     file-path: ./infra/preview-comment.md

@@ -14,6 +14,7 @@ interface ProjectStackProps extends cdk.StackProps {
    * Path to the directory of the demo to deploy, relative to the root of the repository.
    */
   projectName: string;
+  projectDescription: string;
   demoDir: string;
   uniqueEnvironmentId: string;
   /**
@@ -174,6 +175,10 @@ export class PreviewProjectStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, "ProjectName", {
       value: props.projectName,
+    });
+
+    new cdk.CfnOutput(this, "ProjectDescription", {
+      value: props.projectDescription,
     });
 
     new cdk.CfnOutput(this, "UniqueEnvironmentId", {
