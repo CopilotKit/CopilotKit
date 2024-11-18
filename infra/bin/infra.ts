@@ -24,7 +24,6 @@ function toCdkStackName(input: string) {
 /**
  * CoAgents Research Canvas Demo
  */
-
 if (projectType === "agent") {
   const project = new PreviewProjectStack(app, toCdkStackName(projectName), {
     env: {
