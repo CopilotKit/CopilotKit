@@ -1,5 +1,15 @@
 # ui
 
+## 1.3.16-mme-reset-chat.3
+
+### Patch Changes
+
+- Move threadId to context
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.3.16-mme-reset-chat.3
+  - @copilotkit/react-core@1.3.16-mme-reset-chat.3
+  - @copilotkit/shared@1.3.16-mme-reset-chat.3
+
 ## 1.3.16-mme-reset-chat.2
 
 ### Patch Changes

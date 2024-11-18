@@ -1,6 +1,6 @@
 {
   "name": "next-pages-router",
-  "version": "1.3.16-mme-reset-chat.2",
+  "version": "1.3.16-mme-reset-chat.3",
   "private": true,
   "scripts": {
     "example-dev": "next dev",

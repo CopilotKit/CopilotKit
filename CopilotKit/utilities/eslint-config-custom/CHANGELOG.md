@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 1.3.16-mme-reset-chat.3
+
+### Patch Changes
+
+- Move threadId to context
+
 ## 1.3.16-mme-reset-chat.2
 
 ### Patch Changes
