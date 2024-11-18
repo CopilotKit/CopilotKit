@@ -80,7 +80,6 @@ export interface UseCopilotChatReturn {
   stopGeneration: () => void;
   reset: () => void;
   isLoading: boolean;
-  threadId: string | null;
 }
 
 export function useCopilotChat({
@@ -102,6 +101,10 @@ export function useCopilotChat({
     agentSession,
     setAgentSession,
     agentLock,
+    threadId,
+    setThreadId,
+    runId,
+    setRunId,
   } = useCopilotContext();
   const { messages, setMessages } = useCopilotMessagesContext();
 
@@ -144,7 +147,7 @@ export function useCopilotChat({
     [coAgentStateRenders],
   );
 
-  const { append, reload, stop, setThreadId, threadId } = useChat({
+  const { append, reload, stop } = useChat({
     ...options,
     actions: Object.values(actions),
     copilotConfig: copilotApiConfig,
@@ -160,11 +163,15 @@ export function useCopilotChat({
     setCoagentStates,
     agentSession,
     setAgentSession,
+    threadId,
+    setThreadId,
+    runId,
+    setRunId,
   });
 
-  // this is a workaround born out of a bug that Athena insessently ran into.
+  // this is a workaround born out of a bug that Athena incessantly ran into.
   // We could not find the origin of the bug, however, it was clear that an outdated version of the append function was being used somehow --
-  // it referecned the old state of the messages array, and not the latest one.
+  // it referenced the old state of the messages array, and not the latest one.
   //
   // We want to make copilotkit as abuse-proof as possible, so we are adding this workaround to ensure that the latest version of the append function is always used.
   //
@@ -231,7 +238,6 @@ export function useCopilotChat({
     deleteMessage: latestDeleteFunc,
     reset: latestResetFunc,
     isLoading,
-    threadId,
   };
 }
 

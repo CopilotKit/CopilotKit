@@ -234,6 +234,8 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   }
 
   const [agentSession, setAgentSession] = useState<AgentSession | null>(initialAgentSession);
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const [runId, setRunId] = useState<string | null>(null);
 
   return (
     <CopilotContext.Provider
@@ -266,6 +268,10 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         agentSession,
         setAgentSession,
         agentLock: props.agent || null,
+        threadId,
+        setThreadId,
+        runId,
+        setRunId,
       }}
     >
       <CopilotMessages>{children}</CopilotMessages>

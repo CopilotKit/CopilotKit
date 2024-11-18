@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { SlideModel } from "../../types";
 import { useMemo } from "react";
-import { useCopilotContext } from "@copilotkit/react-core";
+import { useCopilotChat, useCopilotContext } from "@copilotkit/react-core";
 import { SlideNumberIndicator } from "../misc/SlideNumberIndicator";
 import { GenerateSlideButton } from "../buttons/GenerateSlideButton";
 import { SpeakCurrentSlideButton } from "../buttons/SpeakCurrentSlideButton";
@@ -34,10 +34,12 @@ export function Header({
    * We need to get the context here to run a Copilot task for generating a slide
    **/
   const context = useCopilotContext();
+  const { reset } = useCopilotChat();
 
   return (
     <header className={clsx("text-white items-center flex p-4")}>
       <div className="flex-0 flex space-x-1">
+        <button onClick={() => reset()}>RESET</button>
         {/* Back */}
         <NavButton
           disabled={currentSlideIndex == 0}

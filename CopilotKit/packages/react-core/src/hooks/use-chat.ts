@@ -97,6 +97,26 @@ export type UseChatOptions = {
    * setState-powered method to update the agent session
    */
   setAgentSession: React.Dispatch<React.SetStateAction<AgentSession | null>>;
+
+  /**
+   * The current thread ID.
+   */
+  threadId: string | null;
+
+  /**
+   * set the current thread ID
+   */
+  setThreadId: (threadId: string | null) => void;
+
+  /**
+   * The current run ID.
+   */
+  runId: string | null;
+
+  /**
+   * set the current run ID
+   */
+  setRunId: (runId: string | null) => void;
 };
 
 export type UseChatHelpers = {
@@ -116,16 +136,6 @@ export type UseChatHelpers = {
    * Abort the current request immediately, keep the generated tokens if any.
    */
   stop: () => void;
-
-  /**
-   * The current thread ID.
-   */
-  threadId: string | null;
-
-  /**
-   * set the current thread ID
-   */
-  setThreadId: (threadId: string | null) => void;
 };
 
 export function useChat(options: UseChatOptions): UseChatHelpers {
@@ -144,15 +154,13 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     coagentStates,
     agentSession,
     setAgentSession,
+    threadId,
+    setThreadId,
+    runId,
+    setRunId,
   } = options;
 
   const abortControllerRef = useRef<AbortController>();
-  const threadIdRef = useRef<string | null>(null);
-  const runIdRef = useRef<string | null>(null);
-
-  const setThreadId = (threadId: string | null) => {
-    threadIdRef.current = threadId;
-  };
 
   const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
   // We need to keep a ref of coagent states because of renderAndWait - making sure
@@ -162,6 +170,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   coagentStatesRef.current = coagentStates;
   const agentSessionRef = useRef<AgentSession | null>(agentSession);
   agentSessionRef.current = agentSession;
+  const threadIdRef = useRef<string | null>(threadId);
+  threadIdRef.current = threadId;
+  const runIdRef = useRef<string | null>(runId);
+  runIdRef.current = runId;
 
   const publicApiKey = copilotConfig.publicApiKey;
 
@@ -272,6 +284,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
         threadIdRef.current = value.generateCopilotResponse.threadId || null;
         runIdRef.current = value.generateCopilotResponse.runId || null;
+
+        setThreadId(threadIdRef.current);
+        setRunId(runIdRef.current);
 
         const messages = convertGqlOutputToMessages(
           filterAdjacentAgentStateMessages(value.generateCopilotResponse.messages),
@@ -463,7 +478,5 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     append,
     reload,
     stop,
-    setThreadId,
-    threadId: threadIdRef.current,
   };
 }
