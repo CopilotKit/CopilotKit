@@ -18,12 +18,12 @@ sdk = CopilotKitSDK(
         LangGraphAgent(
             name="research_agent",
             description="Research agent.",
-            agent=graph,
+            graph=graph,
         ),
         LangGraphAgent(
             name="research_agent_google_genai",
             description="Research agent.",
-            agent=graph,
+            graph=graph,
             copilotkit_config={
                 "convert_messages": copilotkit_messages_to_langchain(use_function_call=True)
             }

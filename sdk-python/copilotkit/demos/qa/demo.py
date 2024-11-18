@@ -16,7 +16,7 @@ sdk = CopilotKitSDK(
         LangGraphAgent(
             name="email_agent",
             description="This agent sends emails",
-            agent=graph,
+            graph=graph,
         )
     ],
 )

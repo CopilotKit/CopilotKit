@@ -17,7 +17,7 @@ sdk = CopilotKitSDK(
         LangGraphAgent(
             name="translate_agent",
             description="Translate agent that translates text.",
-            agent=graph,
+            graph=graph,
         )
     ],
 )

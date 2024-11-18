@@ -25,8 +25,7 @@ At the moment CoAgents integrates with LangGraph-powered agents using **LangGrap
 <Callout type="info">
   This guide assumes you’re familiar with using LangGraph to build agent
   workflows. If you need a quick introduction, check out [this brief example
-  from the LangGraph
-  docs](https://langchain-ai.github.io/langgraph/).
+  from the LangGraph docs](https://langchain-ai.github.io/langgraph/).
 </Callout>
 
 ## Getting started
@@ -76,7 +75,7 @@ sdk = CopilotKitSDK(
       description="Agent that answers questions about the weather",
       graph=the_langraph_graph,
       # copilotkit_config={ # if you use Google Gemini, uncomment  this code (and import `copilotkit_messages_to_langchain`, see above)
-      #  "convert_messages": copilotkit_messages_to_langchain(use_function_call=True) 
+      #  "convert_messages": copilotkit_messages_to_langchain(use_function_call=True)
       # }
     )
   ],
@@ -101,7 +100,6 @@ add_fastapi_endpoint(app, sdk, "/copilotkit_remote")
 
 Until there is full parity between Gemini and other models in the LangChain ecosystem, you'll need to uncomment the `copilotkit_config` section shown above when using Gemini models in your LangGraph agent.
 
-
 </Step>
 
 <Step>
@@ -120,7 +118,7 @@ Lock the Copilot to the `basic_agent` setup earlier. This means every single int
 // The Copilot will now invoke the LangGraph agent directly, not the Copilot router.
 <CopilotKit
   runtimeUrl="/api/copilotkit"
-  agent="basic_agent" // agent-lock the Copilot, see 'agent-lock vs router-mode' // [!code highlight]
+  graph="basic_agent" // agent-lock the Copilot, see 'agent-lock vs router-mode' // [!code highlight]
 >
   {...}
 </CopilotKit>
@@ -133,7 +131,6 @@ Lock the Copilot to the `basic_agent` setup earlier. This means every single int
 Give it a try by writing text in the chatbot UI and pressing send.
 You are now chatting with a LangGraph agent!
 
-
 <Frame className="my-6">
   <img
     src="/images/coagents/CoAgents-ChatHello.gif"
@@ -141,6 +138,5 @@ You are now chatting with a LangGraph agent!
     className="w-2/3 mx-auto"
   />
 </Frame>
-
 
 <CoAgentsEnterpriseCTA />
