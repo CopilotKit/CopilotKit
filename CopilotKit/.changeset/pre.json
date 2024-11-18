@@ -1,5 +1,5 @@
 {
-  "mode": "pre",
+  "mode": "exit",
   "tag": "mme-reset-chat",
   "initialVersions": {
     "next-openai": "1.3.16-mme-improve-langsmith.1",
