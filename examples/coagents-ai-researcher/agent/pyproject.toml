@@ -17,7 +17,7 @@ dependencies = [
   "openai",
   "langchain-community",
   "tavily-python",
-  "copilotkit",
+  "copilotkit==0.1.28a3",
   "python-dotenv",
   "uvicorn",
 ]
