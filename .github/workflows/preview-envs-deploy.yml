@@ -35,8 +35,7 @@ jobs:
           doppler-project: copilotkit-previews
           doppler-config: prd
 
-      - name: (Node) Setup pnpm
-        if: matrix.app.RUNTIME == 'node'
+      - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: "9.5"
