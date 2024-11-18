@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         app:
-          - { PROJECT_NAME: 'coagents-research-canvas-agent-versioned-deps', PROJECT_DESCRIPTION: 'CoAgents Research Canvas (Agent) - Versioned Dependencies', PROJECT_TYPE: 'agent', DEMO_DIR: 'examples/coagents-research-canvas/agent', DOCKERFILE: 'Dockerfile.agent-versioned-deps', RUNTIME: 'node', WITH_LOCAL_DEPS: 'false' }
+          - { PROJECT_NAME: 'coagents-research-canvas-agent-versioned-deps', PROJECT_DESCRIPTION: 'CoAgents Research Canvas (Agent) - Versioned Dependencies', PROJECT_TYPE: 'agent', DEMO_DIR: 'examples/coagents-research-canvas/agent', DOCKERFILE: 'Dockerfile.agent-versioned-deps', RUNTIME: 'poetry', WITH_LOCAL_DEPS: 'false' }
           # - { name: 'coagents-research-canvas-agent', path: 'examples/coagents-research-canvas/agent', dockerfile: 'Dockerfile.agent-versioned-deps', variant: 'versioned-deps', type: 'poetry' }
           # - { name: 'coagents-ai-researcher-ui', path: 'examples/coagents-ai-researcher/ui', dockerfile: 'Dockerfile.ui', variant: 'versioned-deps', type: 'node' }
           # - { name: 'coagents-ai-researcher-agent', path: 'examples/coagents-ai-researcher/agent', dockerfile: 'Dockerfile.agent-versioned-deps', variant: 'versioned-deps', type: 'poetry' }
