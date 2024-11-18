@@ -15,8 +15,8 @@ COPY ${APP_DIR}/pyproject.toml ${APP_DIR}/poetry.lock ./
 # Copy SDK and install dependencies in a single layer
 COPY sdk-python/ /opt/sdk-python
 WORKDIR /asset
-RUN poetry install --no-interaction --no-ansi
-RUN if [[ -z "$WITH_LOCAL_DEPS" ]] ; then echo "Will use versioned dependencies" ; else poetry add /opt/sdk-python ; fi
+RUN poetry install --no-interaction --no-ansi && \
+    poetry add /opt/sdk-python
 
 # Copy application code last
 COPY ${APP_DIR}/ ./

@@ -17,7 +17,7 @@ sdk = CopilotKitSDK(
         LangGraphAgent(
             name="greeting_agent",
             description="This agent greets the user",
-            agent=graph,
+            graph=graph,
         )
     ],
 )
