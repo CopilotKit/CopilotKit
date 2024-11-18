@@ -146,139 +146,144 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
 
   let latestStateValues = {};
 
-  for await (const chunk of streamResponse) {
-    if (!["events", "values", "error"].includes(chunk.event)) continue;
+  try {
+    for await (const chunk of streamResponse) {
+      if (!["events", "values", "error"].includes(chunk.event)) continue;
 
-    if (chunk.event === "error") {
-      logger.error(chunk, `Error event thrown: ${chunk.data.message}`);
-      throw new Error(`Error event thrown: ${chunk.data.message}`);
-    }
+      if (chunk.event === "error") {
+        logger.error(chunk, `Error event thrown: ${chunk.data.message}`);
+        throw new Error(`Error event thrown: ${chunk.data.message}`);
+      }
 
-    if (chunk.event === "values") {
-      latestStateValues = chunk.data;
-      continue;
-    }
+      if (chunk.event === "values") {
+        latestStateValues = chunk.data;
+        continue;
+      }
 
-    const event = chunk.data;
-    const currentNodeName = event.name;
-    const eventType = event.event;
-    const runId = event.metadata.run_id;
-    externalRunId = runId;
-    const metadata = event.metadata;
+      const event = chunk.data;
+      const currentNodeName = event.name;
+      const eventType = event.event;
+      const runId = event.metadata.run_id;
+      externalRunId = runId;
+      const metadata = event.metadata;
 
-    shouldExit =
-      shouldExit != null
-        ? shouldExit
-        : eventType === LangGraphEventTypes.OnCustomEvent &&
-          event.name === CustomEventNames.CopilotKitExit;
+      shouldExit =
+        shouldExit != null
+          ? shouldExit
+          : eventType === LangGraphEventTypes.OnCustomEvent &&
+            event.name === CustomEventNames.CopilotKitExit;
 
-    const emitIntermediateState = metadata["copilotkit:emit-intermediate-state"];
-    const manuallyEmitIntermediateState =
-      eventType === LangGraphEventTypes.OnCustomEvent &&
-      event.name === CustomEventNames.CopilotKitManuallyEmitIntermediateState;
+      const emitIntermediateState = metadata["copilotkit:emit-intermediate-state"];
+      const manuallyEmitIntermediateState =
+        eventType === LangGraphEventTypes.OnCustomEvent &&
+        event.name === CustomEventNames.CopilotKitManuallyEmitIntermediateState;
 
-    // we only want to update the node name under certain conditions
-    // since we don't need any internal node names to be sent to the frontend
-    if (graphInfo["nodes"].some((node) => node.id === currentNodeName)) {
-      nodeName = currentNodeName;
-    }
+      // we only want to update the node name under certain conditions
+      // since we don't need any internal node names to be sent to the frontend
+      if (graphInfo["nodes"].some((node) => node.id === currentNodeName)) {
+        nodeName = currentNodeName;
+      }
 
-    if (!nodeName) {
-      continue;
-    }
+      if (!nodeName) {
+        continue;
+      }
 
-    if (manuallyEmitIntermediateState) {
-      if (eventType === LangGraphEventTypes.OnChainEnd) {
-        state = event.data.output;
+      if (manuallyEmitIntermediateState) {
+        if (eventType === LangGraphEventTypes.OnChainEnd) {
+          state = event.data.output;
+          emit(
+            getStateSyncEvent({
+              threadId,
+              runId,
+              agentName: agent.name,
+              nodeName,
+              state: event.data.output,
+              running: true,
+              active: true,
+            }),
+          );
+        }
+        continue;
+      }
+
+      if (emitIntermediateState && emitIntermediateStateUntilEnd == null) {
+        emitIntermediateStateUntilEnd = nodeName;
+      }
+
+      if (emitIntermediateState && eventType === LangGraphEventTypes.OnChatModelStart) {
+        // reset the streaming state extractor
+        streamingStateExtractor = new StreamingStateExtractor(emitIntermediateState);
+      }
+
+      let updatedState = latestStateValues;
+
+      if (emitIntermediateState && eventType === LangGraphEventTypes.OnChatModelStream) {
+        streamingStateExtractor.bufferToolCalls(event);
+      }
+
+      if (emitIntermediateStateUntilEnd !== null) {
+        updatedState = {
+          ...updatedState,
+          ...streamingStateExtractor.extractState(),
+        };
+      }
+
+      if (
+        !emitIntermediateState &&
+        currentNodeName === emitIntermediateStateUntilEnd &&
+        eventType === LangGraphEventTypes.OnChainEnd
+      ) {
+        // stop emitting function call state
+        emitIntermediateStateUntilEnd = null;
+      }
+
+      const exitingNode =
+        nodeName === currentNodeName && eventType === LangGraphEventTypes.OnChainEnd;
+
+      if (
+        JSON.stringify(updatedState) !== JSON.stringify(state) ||
+        prevNodeName != nodeName ||
+        exitingNode
+      ) {
+        state = updatedState;
+        prevNodeName = nodeName;
         emit(
           getStateSyncEvent({
             threadId,
             runId,
             agentName: agent.name,
             nodeName,
-            state: event.data.output,
+            state,
             running: true,
-            active: true,
+            active: !exitingNode,
           }),
         );
       }
-      continue;
+
+      emit(JSON.stringify(event) + "\n");
     }
 
-    if (emitIntermediateState && emitIntermediateStateUntilEnd == null) {
-      emitIntermediateStateUntilEnd = nodeName;
-    }
+    state = await client.threads.getState(threadId);
+    const isEndNode = state.next.length === 0;
+    nodeName = Object.keys(state.metadata.writes)[0];
 
-    if (emitIntermediateState && eventType === LangGraphEventTypes.OnChatModelStart) {
-      // reset the streaming state extractor
-      streamingStateExtractor = new StreamingStateExtractor(emitIntermediateState);
-    }
+    emit(
+      getStateSyncEvent({
+        threadId,
+        runId: externalRunId,
+        agentName: agent.name,
+        nodeName: isEndNode ? "__end__" : nodeName,
+        state: state.values,
+        running: !shouldExit,
+        active: false,
+      }),
+    );
 
-    let updatedState = latestStateValues;
-
-    if (emitIntermediateState && eventType === LangGraphEventTypes.OnChatModelStream) {
-      streamingStateExtractor.bufferToolCalls(event);
-    }
-
-    if (emitIntermediateStateUntilEnd !== null) {
-      updatedState = {
-        ...updatedState,
-        ...streamingStateExtractor.extractState(),
-      };
-    }
-
-    if (
-      !emitIntermediateState &&
-      currentNodeName === emitIntermediateStateUntilEnd &&
-      eventType === LangGraphEventTypes.OnChainEnd
-    ) {
-      // stop emitting function call state
-      emitIntermediateStateUntilEnd = null;
-    }
-
-    const exitingNode =
-      nodeName === currentNodeName && eventType === LangGraphEventTypes.OnChainEnd;
-
-    if (
-      JSON.stringify(updatedState) !== JSON.stringify(state) ||
-      prevNodeName != nodeName ||
-      exitingNode
-    ) {
-      state = updatedState;
-      prevNodeName = nodeName;
-      emit(
-        getStateSyncEvent({
-          threadId,
-          runId,
-          agentName: agent.name,
-          nodeName,
-          state,
-          running: true,
-          active: !exitingNode,
-        }),
-      );
-    }
-
-    emit(JSON.stringify(event) + "\n");
+    return Promise.resolve();
+  } catch (e) {
+    // TODO: handle error state here.
+    return Promise.resolve();
   }
-
-  state = await client.threads.getState(threadId);
-  const isEndNode = state.next.length === 0;
-  nodeName = Object.keys(state.metadata.writes)[0];
-
-  emit(
-    getStateSyncEvent({
-      threadId,
-      runId: externalRunId,
-      agentName: agent.name,
-      nodeName: isEndNode ? "__end__" : nodeName,
-      state: state.values,
-      running: !shouldExit,
-      active: false,
-    }),
-  );
-
-  return Promise.resolve();
 }
 
 function getStateSyncEvent({
