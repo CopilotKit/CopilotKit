@@ -10,197 +10,197 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build_images:
-    runs-on: ubuntu-latest
-    name: Build Images
-    strategy:
-      matrix:
-        app:
-          - { project: "coagents-research-canvas", type: "agent", deps: "remote-deps" }
-          - { project: "coagents-research-canvas", type: "agent", deps: "local-deps" }
-          - { project: "coagents-research-canvas", type: "ui" }
-          # - { project: "coagents-ai-researcher", type: "agent", deps: "remote-deps" }
-          # - { project: "coagents-ai-researcher", type: "agent", deps: "local-deps" }
-          # - { project: "coagents-ai-researcher", type: "ui" }
-          # - { project: "coagents-qa-text", type: "agent", deps: "remote-deps" }
-          # - { project: "coagents-qa-text", type: "agent", deps: "local-deps" }
-          # - { project: "coagents-qa-text", type: "ui" }
-          # - { project: "coagents-qa-native", type: "agent", deps: "remote-deps" }
-          # - { project: "coagents-qa-native", type: "agent", deps: "local-deps" }
-          # - { project: "coagents-qa-native", type: "ui" }
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+  # build_images:
+  #   runs-on: ubuntu-latest
+  #   name: Build Images
+  #   strategy:
+  #     matrix:
+  #       app:
+  #         - { project: "coagents-research-canvas", type: "agent", deps: "remote-deps" }
+  #         - { project: "coagents-research-canvas", type: "agent", deps: "local-deps" }
+  #         - { project: "coagents-research-canvas", type: "ui" }
+  #         # - { project: "coagents-ai-researcher", type: "agent", deps: "remote-deps" }
+  #         # - { project: "coagents-ai-researcher", type: "agent", deps: "local-deps" }
+  #         # - { project: "coagents-ai-researcher", type: "ui" }
+  #         # - { project: "coagents-qa-text", type: "agent", deps: "remote-deps" }
+  #         # - { project: "coagents-qa-text", type: "agent", deps: "local-deps" }
+  #         # - { project: "coagents-qa-text", type: "ui" }
+  #         # - { project: "coagents-qa-native", type: "agent", deps: "remote-deps" }
+  #         # - { project: "coagents-qa-native", type: "agent", deps: "local-deps" }
+  #         # - { project: "coagents-qa-native", type: "ui" }
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+  #     - name: Configure AWS Credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: us-east-1
 
-      - name: Configure AWS Profile
-        run: |
-          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
-          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
-          aws configure set region us-east-1
+  #     - name: Configure AWS Profile
+  #       run: |
+  #         aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
+  #         aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
+  #         aws configure set region us-east-1
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v3
 
-      - name: AWS ECR Login
-        run: |
-          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 058264219587.dkr.ecr.us-east-1.amazonaws.com
+  #     - name: AWS ECR Login
+  #       run: |
+  #         aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 058264219587.dkr.ecr.us-east-1.amazonaws.com
         
-      - name: (UI) Setup pnpm
-        if: matrix.app.type == 'ui'
-        uses: pnpm/action-setup@v4
-        with:
-          version: "9.5"
+  #     - name: (UI) Setup pnpm
+  #       if: matrix.app.type == 'ui'
+  #       uses: pnpm/action-setup@v4
+  #       with:
+  #         version: "9.5"
 
-      - name: (UI) Use Node.js 21
-        if: matrix.app.type == 'ui'
-        uses: actions/setup-node@v2
-        with:
-          node-version: 21.x
-          cache: 'pnpm'
-          cache-dependency-path: '**/pnpm-lock.yaml'
+  #     - name: (UI) Use Node.js 21
+  #       if: matrix.app.type == 'ui'
+  #       uses: actions/setup-node@v2
+  #       with:
+  #         node-version: 21.x
+  #         cache: 'pnpm'
+  #         cache-dependency-path: '**/pnpm-lock.yaml'
 
-      - name: (UI) Install dependencies
-        if: matrix.app.type == 'ui'
-        working-directory: ./CopilotKit
-        run: pnpm install --frozen-lockfile
+  #     - name: (UI) Install dependencies
+  #       if: matrix.app.type == 'ui'
+  #       working-directory: ./CopilotKit
+  #       run: pnpm install --frozen-lockfile
 
-      - name: (UI) Install app dependencies
-        if: matrix.app.type == 'ui'
-        working-directory: examples/${{ matrix.app.project }}/${{ matrix.app.type }}
-        run: pnpm install --frozen-lockfile
+  #     - name: (UI) Install app dependencies
+  #       if: matrix.app.type == 'ui'
+  #       working-directory: examples/${{ matrix.app.project }}/${{ matrix.app.type }}
+  #       run: pnpm install --frozen-lockfile
 
-      - name: (UI, Local Deps) Install monorepo
-        if: matrix.app.type == 'ui'
-        working-directory: ./CopilotKit
-        run: pnpm install --frozen-lockfile
+  #     - name: (UI, Local Deps) Install monorepo
+  #       if: matrix.app.type == 'ui'
+  #       working-directory: ./CopilotKit
+  #       run: pnpm install --frozen-lockfile
 
-      - name: (UI, Local Deps) Build @copilotkit packages
-        if: matrix.app.type == 'ui'
-        working-directory: ./CopilotKit
-        run: pnpx turbo run build
+  #     - name: (UI, Local Deps) Build @copilotkit packages
+  #       if: matrix.app.type == 'ui'
+  #       working-directory: ./CopilotKit
+  #       run: pnpx turbo run build
 
-      - name: (UI, Local Deps) Link @copilotkit packages
-        if: matrix.app.type == 'ui'
-        working-directory: ./examples/${{ matrix.app.project }}/${{ matrix.app.type }}
-        run: |
-          for package in $(ls -d ../../../CopilotKit/packages/*); do
-            pnpm link $package
-          done
+  #     - name: (UI, Local Deps) Link @copilotkit packages
+  #       if: matrix.app.type == 'ui'
+  #       working-directory: ./examples/${{ matrix.app.project }}/${{ matrix.app.type }}
+  #       run: |
+  #         for package in $(ls -d ../../../CopilotKit/packages/*); do
+  #           pnpm link $package
+  #         done
 
-      - name: (UI) Build app
-        if: matrix.app.type == 'ui'
-        working-directory: examples/${{ matrix.app.project }}/${{ matrix.app.type }}
-        run: pnpm run build
-        env:
-          OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
+  #     - name: (UI) Build app
+  #       if: matrix.app.type == 'ui'
+  #       working-directory: examples/${{ matrix.app.project }}/${{ matrix.app.type }}
+  #       run: pnpm run build
+  #       env:
+  #         OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
 
-      - name: (UI) Build Image
-        if: matrix.app.type == 'ui'
-        run: |
-          docker buildx build \
-            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-ui-${{ github.run_id }} \
-            --build-arg APP_DIR=examples/${{ matrix.app.project }}/${{ matrix.app.type }} \
-            -f ./examples/Dockerfile.${{ matrix.app.type }} \
-            --platform=linux/amd64 \
-            --provenance=false \
-            --push \
-            .
-        env:
-          DOCKER_BUILDKIT: 1
+  #     - name: (UI) Build Image
+  #       if: matrix.app.type == 'ui'
+  #       run: |
+  #         docker buildx build \
+  #           -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-ui-${{ github.run_id }} \
+  #           --build-arg APP_DIR=examples/${{ matrix.app.project }}/${{ matrix.app.type }} \
+  #           -f ./examples/Dockerfile.${{ matrix.app.type }} \
+  #           --platform=linux/amd64 \
+  #           --provenance=false \
+  #           --push \
+  #           .
+  #       env:
+  #         DOCKER_BUILDKIT: 1
 
-      - name: (Agent) Build Image
-        if: matrix.app.type == 'agent'
-        run: |
-          docker buildx build \
-            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-agent-${{ matrix.app.deps }}-${{ github.run_id }} \
-            --build-arg APP_DIR=examples/${{ matrix.app.project }}/${{ matrix.app.type }} \
-            -f ./examples/Dockerfile.${{ matrix.app.type }} \
-            --build-arg WITH_LOCAL_DEPS=${{ matrix.app.deps == 'local-deps' }} \
-            --platform=linux/amd64 \
-            --provenance=false \
-            --push \
-            .
-        env:
-          DOCKER_BUILDKIT: 1
+  #     - name: (Agent) Build Image
+  #       if: matrix.app.type == 'agent'
+  #       run: |
+  #         docker buildx build \
+  #           -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-agent-${{ matrix.app.deps }}-${{ github.run_id }} \
+  #           --build-arg APP_DIR=examples/${{ matrix.app.project }}/${{ matrix.app.type }} \
+  #           -f ./examples/Dockerfile.${{ matrix.app.type }} \
+  #           --build-arg WITH_LOCAL_DEPS=${{ matrix.app.deps == 'local-deps' }} \
+  #           --platform=linux/amd64 \
+  #           --provenance=false \
+  #           --push \
+  #           .
+  #       env:
+  #         DOCKER_BUILDKIT: 1
 
   cdk_deploy:
     runs-on: ubuntu-latest
     name: Deploy Preview Environments
     needs: build_images
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      # - name: Checkout
+      #   uses: actions/checkout@v3
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "9.5"
+      # - name: Setup pnpm
+      #   uses: pnpm/action-setup@v4
+      #   with:
+      #     version: "9.5"
 
-      - name: Use Node.js 21
-        uses: actions/setup-node@v2
-        with:
-          node-version: 21.x
-          cache: 'pnpm'
-          cache-dependency-path: '**/pnpm-lock.yaml'
+      # - name: Use Node.js 21
+      #   uses: actions/setup-node@v2
+      #   with:
+      #     node-version: 21.x
+      #     cache: 'pnpm'
+      #     cache-dependency-path: '**/pnpm-lock.yaml'
 
-      - name: Infra install dependencies
-        working-directory: infra
-        run: pnpm i
+      # - name: Infra install dependencies
+      #   working-directory: infra
+      #   run: pnpm i
 
-      - name: Install AWS CDK
-        run: npm install -g aws-cdk
+      # - name: Install AWS CDK
+      #   run: npm install -g aws-cdk
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+      # - name: Configure AWS Credentials
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     aws-region: us-east-1
 
-      - name: Configure AWS Profile
-        run: |
-          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
-          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
-          aws configure set region us-east-1
+      # - name: Configure AWS Profile
+      #   run: |
+      #     aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
+      #     aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
+      #     aws configure set region us-east-1
 
-      - name: cdk deploy
-        working-directory: ./infra
-        run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 10
-        env:
-          UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
-          GITHUB_ACTIONS_RUN_ID: "${{ github.run_id }}"
-          GITHUB_PR_NUMBER: "${{ github.event.number }}"
+      # - name: cdk deploy
+      #   working-directory: ./infra
+      #   run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 10
+      #   env:
+      #     UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
+      #     GITHUB_ACTIONS_RUN_ID: "${{ github.run_id }}"
+      #     GITHUB_PR_NUMBER: "${{ github.event.number }}"
           
-      - name: Generate table from outputs
-        id: generate-table
-        working-directory: infra
-        run: |
-          node generate-table
+      # - name: Generate table from outputs
+      #   id: generate-table
+      #   working-directory: infra
+      #   run: |
+      #     node generate-table
 
-      - name: Assign label
-        uses: actions/github-script@v4
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.issues.addLabels({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: ['preview']
-            })
+      # - name: Assign label
+      #   uses: actions/github-script@v4
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     script: |
+      #       github.issues.addLabels({
+      #         issue_number: context.issue.number,
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #         labels: ['preview']
+      #       })
 
-      - name: Comment post-deployment
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          comment-tag: preview-status-update
-          file-path: ./infra/preview-comment.md
+      # - name: Comment post-deployment
+      #   uses: thollander/actions-comment-pull-request@v3
+      #   with:
+      #     comment-tag: preview-status-update
+      #     file-path: ./infra/preview-comment.md
 
       - name: Trigger E2E Tests
         uses: peter-evans/repository-dispatch@v3

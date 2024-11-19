@@ -6,6 +6,7 @@ on:
 
 jobs:
   e2e_tests:
+    name: E2E Tests
     runs-on: ubuntu-latest
     permissions:
       checks: write
