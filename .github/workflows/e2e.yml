@@ -12,7 +12,9 @@ on:
       urls:
         description: "urls"
         required: true
-
+      pr_number:
+        description: "Pull Request number"
+        required: true
 jobs:
   e2e_tests:
     name: E2E Tests
@@ -102,6 +104,8 @@ jobs:
 
       - name: Comment post-deployment
         uses: thollander/actions-comment-pull-request@v3
+        env:
+          GITHUB_PR_NUMBER: ${{ inputs.pr_number }}
         with:
           comment-tag: test-run-status-update
           file-path: ./examples/e2e/test-run-comment.md

@@ -16,8 +16,16 @@ jobs:
     strategy:
       matrix:
         app:
-          - { project: "coagents-research-canvas", type: "agent", deps: "remote-deps" }
-          - { project: "coagents-research-canvas", type: "agent", deps: "local-deps" }
+          - {
+              project: "coagents-research-canvas",
+              type: "agent",
+              deps: "remote-deps",
+            }
+          - {
+              project: "coagents-research-canvas",
+              type: "agent",
+              deps: "local-deps",
+            }
           - { project: "coagents-research-canvas", type: "ui" }
           - { project: "coagents-routing", type: "agent", deps: "remote-deps" }
           - { project: "coagents-routing", type: "agent", deps: "local-deps" }
@@ -25,7 +33,11 @@ jobs:
           - { project: "coagents-qa-text", type: "agent", deps: "remote-deps" }
           - { project: "coagents-qa-text", type: "agent", deps: "local-deps" }
           - { project: "coagents-qa-text", type: "ui" }
-          - { project: "coagents-qa-native", type: "agent", deps: "remote-deps" }
+          - {
+              project: "coagents-qa-native",
+              type: "agent",
+              deps: "remote-deps",
+            }
           - { project: "coagents-qa-native", type: "agent", deps: "local-deps" }
           - { project: "coagents-qa-native", type: "ui" }
     steps:
@@ -51,7 +63,7 @@ jobs:
       - name: AWS ECR Login
         run: |
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 058264219587.dkr.ecr.us-east-1.amazonaws.com
-        
+
       - name: (UI) Setup pnpm
         if: matrix.app.type == 'ui'
         uses: pnpm/action-setup@v4
@@ -63,8 +75,8 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: 21.x
-          cache: 'pnpm'
-          cache-dependency-path: '**/pnpm-lock.yaml'
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
 
       - name: (UI) Install dependencies
         if: matrix.app.type == 'ui'
@@ -147,8 +159,8 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: 21.x
-          cache: 'pnpm'
-          cache-dependency-path: '**/pnpm-lock.yaml'
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
 
       - name: Infra install dependencies
         working-directory: infra
@@ -174,10 +186,10 @@ jobs:
         working-directory: ./infra
         run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 10
         env:
-          UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
+          UNIQUE_ENV_ID: "PR${{ github.event.number }}"
           GITHUB_ACTIONS_RUN_ID: "${{ github.run_id }}"
           GITHUB_PR_NUMBER: "${{ github.event.number }}"
-          
+
       - name: Generate table from outputs
         id: generate-table
         working-directory: infra
@@ -207,11 +219,11 @@ jobs:
         working-directory: infra
         run: |
           echo "e2e-urls=$(node get-e2e-tests-urls.js | base64 -w 0)" >> "$GITHUB_OUTPUT"
-      
+
       - name: Trigger E2E Tests
         uses: benc-uk/workflow-dispatch@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           workflow: "e2e.yml"
           ref: "${{ github.event.pull_request.head.ref }}"
-          inputs: '{"ref": "${{ github.event.pull_request.head.ref }}", "sha": "${{ github.event.pull_request.head.sha }}", "urls": "${{ steps.export-e2e-urls.outputs.e2e-urls }}"}'
+          inputs: '{"ref": "${{ github.event.pull_request.head.ref }}", "sha": "${{ github.event.pull_request.head.sha }}", "urls": "${{ steps.export-e2e-urls.outputs.e2e-urls }}", "pr_number": "${{ github.event.pull_request.number }}"}'
