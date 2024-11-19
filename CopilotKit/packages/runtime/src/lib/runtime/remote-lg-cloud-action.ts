@@ -112,7 +112,13 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   const agentStateValues = agentState.values as State;
   state.messages = agentStateValues.messages;
   const mode = wasInitiatedWithExistingThread && nodeName != "__end__" ? "continue" : "start";
-  state = langGraphDefaultMergeState(state, formatMessages(messages), actions, name);
+  let formattedMessages = [];
+  try {
+    formattedMessages = formatMessages(messages);
+  } catch (e) {
+    logger.error(e, `Error event thrown: ${e.message}`);
+  }
+  state = langGraphDefaultMergeState(state, formattedMessages, actions, name);
 
   if (mode === "continue") {
     await client.threads.updateState(threadId, { values: state, asNode: nodeName });
