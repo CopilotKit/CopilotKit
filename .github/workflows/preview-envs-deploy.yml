@@ -17,9 +17,8 @@ jobs:
       matrix:
         app:
           - { project: "coagents-research-canvas", type: "agent", deps: "remote-deps" }
-          - { project: "coagents-research-canvas", type: "ui", deps: "remote-deps" }
           - { project: "coagents-research-canvas", type: "agent", deps: "local-deps" }
-          - { project: "coagents-research-canvas", type: "ui", deps: "local-deps" }
+          - { project: "coagents-research-canvas", type: "ui" }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -69,17 +68,17 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: (UI, Local Deps) Install monorepo
-        if: matrix.app.type == 'ui' && matrix.app.deps == 'local-deps'
+        if: matrix.app.type == 'ui'
         working-directory: ./CopilotKit
         run: pnpm install --frozen-lockfile
 
       - name: (UI, Local Deps) Build @copilotkit packages
-        if: matrix.app.type == 'ui' && matrix.app.deps == 'local-deps'
+        if: matrix.app.type == 'ui'
         working-directory: ./CopilotKit
         run: pnpx turbo run build
 
       - name: (UI, Local Deps) Link @copilotkit packages
-        if: matrix.app.type == 'ui' && matrix.app.deps == 'local-deps'
+        if: matrix.app.type == 'ui'
         working-directory: ./examples/${{ matrix.app.project }}/${{ matrix.app.type }}
         run: |
           for package in $(ls -d ../../../CopilotKit/packages/*); do
@@ -97,7 +96,7 @@ jobs:
         if: matrix.app.type == 'ui'
         run: |
           docker buildx build \
-            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-${{ matrix.app.type }}-${{ matrix.app.deps }}-${{ github.run_id }} \
+            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-ui-${{ github.run_id }} \
             --build-arg APP_DIR=examples/${{ matrix.app.project }}/${{ matrix.app.type }} \
             -f ./examples/Dockerfile.${{ matrix.app.type }} \
             --platform=linux/amd64 \
@@ -111,7 +110,7 @@ jobs:
         if: matrix.app.type == 'agent'
         run: |
           docker buildx build \
-            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-${{ matrix.app.type }}-${{ matrix.app.deps }}-${{ github.run_id }} \
+            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-agent-${{ matrix.app.deps }}-${{ github.run_id }} \
             --build-arg APP_DIR=examples/${{ matrix.app.project }}/${{ matrix.app.type }} \
             -f ./examples/Dockerfile.${{ matrix.app.type }} \
             --build-arg WITH_LOCAL_DEPS=${{ matrix.app.deps == 'local-deps' }} \

@@ -104,9 +104,7 @@ export function createUIProjectStack({
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
     },
-    imageTag: `${project}-ui-${
-      dependencies === "Remote" ? "remote-deps" : "local-deps"
-    }-${GITHUB_ACTIONS_RUN_ID}`,
+    imageTag: `${project}-ui-${GITHUB_ACTIONS_RUN_ID}`,
     outputs,
   });
 }
