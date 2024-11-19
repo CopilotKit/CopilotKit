@@ -12,9 +12,6 @@ on:
       urls:
         description: "urls"
         required: true
-      source-workflow-run-id:
-        description: "source-workflow-run-id"
-        required: true
 
 jobs:
   e2e_tests:
@@ -31,12 +28,10 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
 
-      # - name: Download artifact
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: tests-env-file
-      #     path: tests/
-      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Print & Save E2E URLs
+        working-directory: examples/e2e
+        run: |
+          echo "${{ inputs.urls }}" | base64 -d > urls.json
 
       - name: Create Status Check
         uses: actions/github-script@v6
@@ -51,27 +46,12 @@ jobs:
               started_at: new Date().toISOString()
             })
 
-      - name: Print Inputs
-        run: |
-          echo "Inputs: ${{ toJson(inputs) }}"
-
-      - name: Download Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: e2e-urls
-          run-id: ${{ inputs.source-workflow-run-id }}
-
-      - name: Print dummy.txt
-        run: |
-          cat ./dummy.txt
 
       # - name: Print URLs (default)
       #   run: |
       #     echo "URLs: ${{ inputs.urls }}"
 
-      # - name: Print URLs (base64 decoded)
-      #   run: |
-      #     echo "echo ${{ inputs.urls }} | base64 -d"
+
 
       # - name: Run Tests
       #   id: run_tests

@@ -208,17 +208,12 @@ jobs:
       #     token: ${{ secrets.GITHUB_TOKEN }}
       #     event-type: trigger-e2e
       #     client-payload: '{"pr_number": "${{ github.event.pull_request.number }}", "sha": "${{ github.event.pull_request.head.sha }}", "ref": "${{ github.event.pull_request.head.ref }}"}'
-      - name: make dummy file
-        run: |
-          echo "hello from workflow ${{ github.run_id }}" > dummy.txt
       
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-urls
-          path: dummy.txt
-          if-no-files-found: error
-          retention-days: 1
+      - name: Export Variable - E2E URLs
+        id: export-e2e-urls
+        run: |
+          export E2E_URLS=$(node "get-e2e-tests-urls.js")
+          echo "::set-output name=e2e-urls::$E2E_URLS"
       
       - name: Trigger E2E Tests
         uses: benc-uk/workflow-dispatch@v1
@@ -226,4 +221,4 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           workflow: "e2e.yml"
           ref: "${{ github.event.pull_request.head.ref }}"
-          inputs: '{"ref": "${{ github.event.pull_request.head.ref }}", "sha": "${{ github.event.pull_request.head.sha }}", "urls": "eyJjb2FnZW50cy1yZXNlYXJjaC1jYW52YXMtdWktZGVwcy1yZW1vdGUiOiJodHRwczovL3NrdndmdGp1Z3R5ampqa3lwajZxNXl2ejc0MGp1amp0LmxhbWJkYS11cmwudXMtZWFzdC0xLm9uLmF3cy8ifQo=", "source-workflow-run-id": "${{ github.run_id }}"}'
+          inputs: '{"ref": "${{ github.event.pull_request.head.ref }}", "sha": "${{ github.event.pull_request.head.sha }}", "urls": "${{ steps.export-e2e-urls.outputs.e2e-urls }}"}'
