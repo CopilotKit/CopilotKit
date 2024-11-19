@@ -37,10 +37,12 @@ jobs:
         uses: pnpm/action-setup@v2
         with:
           version: 8
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: "22"
+
       - name: Install Dependencies
         working-directory: ./examples/e2e
         run: |
@@ -60,12 +62,24 @@ jobs:
               started_at: new Date().toISOString()
             })
 
-      - name: Run Tests
+      - name: Run Tests and Generate Report
         working-directory: ./examples/e2e
         id: run_tests
         run: |
           pnpm test --reporter=list
           PLAYWRIGHT_DEBUG=1 pnpm test
+
+          echo "## E2E Test Results" > test-run-comment.md
+          echo "\`\`\`" >> test-run-comment.md
+          npx playwright show-report --reporter=list >> test-run-comment.md
+          echo "\`\`\`" >> test-run-comment.md
+
+      - name: Comment post-deployment
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: test-run-status-update
+          file-path: ./examples/e2e/test-run-comment.md
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update Status Check
         if: always()
