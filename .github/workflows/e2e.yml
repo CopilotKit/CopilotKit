@@ -33,10 +33,19 @@ jobs:
         run: |
           echo "${{ inputs.urls }}" | base64 -d > urls.json
 
-      - name: Print E2E URLs
-        working-directory: examples/e2e
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "22"
+      - name: Install Dependencies
+        working-directory: ./examples/e2e
         run: |
-          cat urls.json
+          pnpm install
+          pnpm exec playwright install --with-deps
 
       - name: Create Status Check
         uses: actions/github-script@v6
@@ -51,33 +60,27 @@ jobs:
               started_at: new Date().toISOString()
             })
 
-      # - name: Run Tests
-      #   id: run_tests
-      #   run: |
-      #     cat tests/.env.test
-      #     echo "Running E2E tests..."
-      #     # Your actual test commands here
+      - name: Run Tests
+        working-directory: ./examples/e2e
+        id: run_tests
+        run: pnpm test
 
-      - name: Wait 1 minute
-        run: sleep 60
-          
-      # - name: Update Status Check
-      #   if: always()
-      #   uses: actions/github-script@v6
-      #   with:
-      #     script: |
-      #       const conclusion = '${{ steps.run_tests.outcome }}' === 'success' ? 'success' : 'failure';
-      #       await github.rest.checks.create({
-      #         owner: context.repo.owner,
-      #         repo: context.repo.repo,
-      #         name: 'E2E Tests',
-      #         head_sha: '${{ github.event.client_payload.sha }}',
-      #         status: 'completed',
-      #         conclusion: conclusion,
-      #         completed_at: new Date().toISOString(),
-      #         output: {
-      #           title: conclusion === 'success' ? 'E2E Tests Passed' : 'E2E Tests Failed',
-      #           summary: conclusion === 'success' ? 'All tests passed successfully' : 'Some tests failed'
-      #         }
-      #       });
-      
+      - name: Update Status Check
+        if: always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const conclusion = '${{ steps.run_tests.outcome }}' === 'success' ? 'success' : 'failure';
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'E2E Tests',
+              head_sha: '${{ inputs.sha }}',
+              status: 'completed',
+              conclusion: conclusion,
+              completed_at: new Date().toISOString(),
+              output: {
+                title: conclusion === 'success' ? 'E2E Tests Passed' : 'E2E Tests Failed',
+                summary: conclusion === 'success' ? 'All tests passed successfully' : 'Some tests failed'
+              }
+            });
