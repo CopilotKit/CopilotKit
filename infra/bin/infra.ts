@@ -11,71 +11,71 @@ const app = new cdk.App();
  */
 
 // Remote Dependencies
-const agentWithRemoteDeps = createAgentProjectStack({
+const coAgentsResearchCanvasAgentRemoteDeps = createAgentProjectStack({
   app,
   project: "coagents-research-canvas",
   description: "CoAgents Research Canvas (Agent) - Remote Depenencies",
   dependencies: "Remote"
 });
 
-const uiWithRemoteDeps = createUIProjectStack({
+const coAgentsResearchCanvasUIWithRemoteDeps = createUIProjectStack({
   app,
   project: "coagents-research-canvas",
   description: "CoAgents Research Canvas (UI) - Remote Depenencies",
   dependencies: "Remote",
-  agentProject: agentWithRemoteDeps,
+  agentProject: coAgentsResearchCanvasAgentRemoteDeps
 });
 
 // Local Dependencies
-const agentWithLocalDeps = createAgentProjectStack({
+const coAgentsResearchCanvasAgentLocalDeps = createAgentProjectStack({
   app,
   project: "coagents-research-canvas",
   description: "CoAgents Research Canvas (Agent) - Local Depenencies",
   dependencies: "Local"
 });
 
-const uiWithLocalDeps = createUIProjectStack({
+const coAgentsResearchCanvasUIWithLocalDeps = createUIProjectStack({
   app,
   project: "coagents-research-canvas",
   description: "CoAgents Research Canvas (UI) - Local Depenencies",
   dependencies: "Local",
-  agentProject: agentWithLocalDeps
+  agentProject: coAgentsResearchCanvasAgentLocalDeps
 });
 
 /*
- * CoAgents Perplexity Demo
+ * CoAgents Routing Demo
  */
 
 // Remote Dependencies
-const perplexityAgentWithRemoteDeps = createAgentProjectStack({
+const coAgentsRoutingWithRemoteDeps = createAgentProjectStack({
   app,
-  project: "coagents-ai-researcher",
-  description: "CoAgents Perplexity Clone (Agent) - Remote Dependencies",
+  project: "coagents-routing",
+  description: "CoAgents Routing (Agent) - Remote Dependencies",
   dependencies: "Remote"
 });
 
-const perplexityUIWithRemoteDeps = createUIProjectStack({
+const coAgentsRoutingUIWithRemoteDeps = createUIProjectStack({
   app,
-  project: "coagents-ai-researcher", 
-  description: "CoAgents Perplexity Clone (UI) - Remote Dependencies",
+  project: "coagents-routing", 
+  description: "CoAgents Routing (UI) - Remote Dependencies",
   dependencies: "Remote",
-  agentProject: perplexityAgentWithRemoteDeps
+  agentProject: coAgentsRoutingWithRemoteDeps
 });
 
 // Local Dependencies
-const perplexityAgentWithLocalDeps = createAgentProjectStack({
+const coAgentsRoutingWithLocalDeps = createAgentProjectStack({
   app,
-  project: "coagents-ai-researcher",
-  description: "CoAgents Perplexity Clone (Agent) - Local Dependencies",
+  project: "coagents-routing",
+  description: "CoAgents Routing (Agent) - Local Dependencies",
   dependencies: "Local"
 });
 
-const perplexityUIWithLocalDeps = createUIProjectStack({
+const coAgentsRoutingUIWithLocalDeps = createUIProjectStack({
   app,
-  project: "coagents-ai-researcher",
-  description: "CoAgents Perplexity Clone (UI) - Local Dependencies",
+  project: "coagents-routing",
+  description: "CoAgents Routing (UI) - Local Dependencies",
   dependencies: "Local",
-  agentProject: perplexityAgentWithLocalDeps
+  agentProject: coAgentsRoutingWithLocalDeps
 });
 
 /*
