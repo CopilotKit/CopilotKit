@@ -226,4 +226,4 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           workflow: "e2e.yml"
           ref: "${{ github.event.pull_request.head.ref }}"
-          inputs: '{"ref": "${{ github.event.pull_request.head.ref }}", "sha": "${{ github.event.pull_request.head.sha }}", "urls": "eyJjb2FnZW50cy1yZXNlYXJjaC1jYW52YXMtdWktZGVwcy1yZW1vdGUiOiJodHRwczovL3NrdndmdGp1Z3R5ampqa3lwajZxNXl2ejc0MGp1amp0LmxhbWJkYS11cmwudXMtZWFzdC0xLm9uLmF3cy8ifQo=", "source-workflow-run-id": "${{ github.run_id }}"}"}'
+          inputs: '{"ref": "${{ github.event.pull_request.head.ref }}", "sha": "${{ github.event.pull_request.head.sha }}", "urls": "eyJjb2FnZW50cy1yZXNlYXJjaC1jYW52YXMtdWktZGVwcy1yZW1vdGUiOiJodHRwczovL3NrdndmdGp1Z3R5ampqa3lwajZxNXl2ejc0MGp1amp0LmxhbWJkYS11cmwudXMtZWFzdC0xLm9uLmF3cy8ifQo=", "source-workflow-run-id": "${{ github.run_id }}"}'
