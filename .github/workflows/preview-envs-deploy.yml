@@ -73,10 +73,18 @@ jobs:
         working-directory: ./CopilotKit
         run: pnpm install --frozen-lockfile
 
-      - name: (UI, Local Deps) Build Dependencies
+      - name: (UI, Local Deps) Build @copilotkit packages
         if: matrix.app.type == 'ui' && matrix.app.deps == 'local-deps'
         working-directory: ./CopilotKit
         run: pnpx turbo run build
+
+      - name: (UI, Local Deps) Link @copilotkit packages
+        if: matrix.app.type == 'ui' && matrix.app.deps == 'local-deps'
+        working-directory: ./examples/${{ matrix.app.project }}/${{ matrix.app.type }}
+        run: |
+          for package in $(ls -d ../../../CopilotKit/packages/*); do
+            pnpm link $package
+          done
 
       - name: (UI) Build app
         if: matrix.app.type == 'ui'

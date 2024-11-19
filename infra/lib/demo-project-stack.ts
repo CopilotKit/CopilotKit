@@ -109,7 +109,7 @@ export class PreviewProjectStack extends cdk.Stack {
 
 
     const eventRule = new events.Rule(this, 'LambdaWarmUpSchedule', {
-      schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
+      schedule: events.Schedule.rate(cdk.Duration.minutes(1)),
     });
 
     eventRule.addTarget(new targets.LambdaFunction(fn));
