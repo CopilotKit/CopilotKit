@@ -44,6 +44,37 @@ jobs:
         run: |
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 058264219587.dkr.ecr.us-east-1.amazonaws.com
         
+      - name: (Node) Setup pnpm
+        if: matrix.app.type == 'ui'
+        uses: pnpm/action-setup@v4
+        with:
+          version: "9.5"
+
+      - name: (Node) Use Node.js 21
+        if: matrix.app.type == 'ui'
+        uses: actions/setup-node@v2
+        with:
+          node-version: 21.x
+          cache: 'pnpm'
+          cache-dependency-path: '**/pnpm-lock.yaml'
+
+      - name: (Node) Install dependencies
+        if: matrix.app.type == 'ui'
+        working-directory: ./CopilotKit
+        run: pnpm install --frozen-lockfile
+
+      - name: (Node) Install app dependencies
+        if: matrix.app.type == 'ui'
+        working-directory: examples/${{ matrix.app.project }}/${{ matrix.app.type }}
+        run: pnpm install --frozen-lockfile
+
+      - name: (Node) Build app
+        if: matrix.app.type == 'ui'
+        working-directory: examples/${{ matrix.app.project }}/${{ matrix.app.type }}
+        run: pnpm run build
+        env:
+          OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
+
       - name: Build Image
         run: |
           docker buildx build \
