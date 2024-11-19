@@ -3,7 +3,6 @@ import "source-map-support/register";
 import * as cdk from "aws-cdk-lib";
 import { requireEnv, toCdkStackName } from "../lib/utils";
 import { PreviewProjectStack } from "../lib/demo-project-stack";
-import { ECRImageStack } from "../lib/ecr-image";
 
 const GITHUB_ACTIONS_RUN_ID = requireEnv("GITHUB_ACTIONS_RUN_ID");
 
