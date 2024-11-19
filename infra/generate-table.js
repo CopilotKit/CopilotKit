@@ -27,7 +27,7 @@ function generateTable() {
   const projectGroups = Object.values(json).reduce((acc, entry) => {
     if (!acc[entry.ProjectName]) {
       acc[entry.ProjectName] = {
-        name: entry.ProjectDescription,
+        name: entry.ProjectName,
         remote: '',
         local: ''
       };
@@ -49,7 +49,6 @@ function generateTable() {
     "Preview (Local Dependencies)": project.local,
     "Preview (Remote Dependencies)": project.remote
   }));
-
 
   structure.push({
     table: {

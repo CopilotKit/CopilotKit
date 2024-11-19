@@ -133,12 +133,6 @@ jobs:
   cdk_deploy:
     runs-on: ubuntu-latest
     name: Deploy Preview Environments
-    # strategy:
-    #   matrix:
-    #     app:
-    #       - { project: "coagents-research-canvas", type: "agent", deps: "remote-deps" }
-    #       - { project: "coagents-research-canvas", type: "agent", deps: "local-deps" }
-    #       - { project: "coagents-research-canvas", type: "ui" }
     needs: build_images
     steps:
       - name: Checkout
