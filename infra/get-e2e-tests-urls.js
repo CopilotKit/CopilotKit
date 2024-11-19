@@ -16,6 +16,7 @@ function generateTable() {
       e2eUrls[value.EndToEndProjectKey] = {
         url: value.FunctionUrl,
         description: value.ProjectDescription,
+        projectName: value.ProjectName
       };
     }
   }, {});
