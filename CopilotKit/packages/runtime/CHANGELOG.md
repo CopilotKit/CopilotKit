@@ -1,5 +1,16 @@
 # @copilotkit/runtime
 
+## 1.4.0-feat-langgraph-cloud.0
+
+### Minor Changes
+
+- LGC alpha release
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.4.0-feat-langgraph-cloud.0
+
 ## 1.3.15
 
 ### Patch Changes

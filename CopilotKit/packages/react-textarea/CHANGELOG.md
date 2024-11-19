@@ -1,5 +1,18 @@
 # ui
 
+## 1.4.0-feat-langgraph-cloud.0
+
+### Minor Changes
+
+- LGC alpha release
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@1.4.0-feat-langgraph-cloud.0
+  - @copilotkit/runtime-client-gql@1.4.0-feat-langgraph-cloud.0
+  - @copilotkit/shared@1.4.0-feat-langgraph-cloud.0
+
 ## 1.3.15
 
 ### Patch Changes

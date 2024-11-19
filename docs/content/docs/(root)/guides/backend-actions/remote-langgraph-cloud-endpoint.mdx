@@ -1,0 +1,218 @@
+---
+title: "Remote Endpoint (LangGraph Platform)"
+description: "Connect your CopilotKit application to an agent deployed on LangGraph Platform."
+---
+import FindCopilotRuntimeSnippet from "@/snippets/find-your-copilot-runtime.mdx";
+
+
+## Deploy a Graph to LangGraph Platform
+<Steps>
+
+<Step>
+### Install CopilotKit Python SDK and Dependencies
+
+To integrate a Python backend with your CopilotKit application, set up your project and install the necessary dependencies by choosing your dependency management solution below.
+
+
+<Tabs items={['Poetry', 'pip', 'conda']} default="Poetry">
+    <Tab value="Poetry">
+    
+    #### Initialize a New Poetry Project
+    
+    Run the following command to create and initialize a new Poetry project:
+    
+    ```bash
+    poetry new My-CopilotKit-Remote-Endpoint
+    ```
+    
+    Follow the prompts to set up your `pyproject.toml`.
+    
+    #### Install Dependencies
+    
+    After initializing the project, install the dependencies:
+    
+    ```bash
+    poetry add copilotkit fastapi uvicorn
+    ```
+    
+    </Tab>
+    
+    <Tab value="pip">
+    
+    #### Set Up a Virtual Environment (optional)
+    
+    Create and activate a virtual environment using `venv`:
+    
+    ```bash
+    python3 -m venv venv
+    source venv/bin/activate
+    ```
+    
+    #### Install Dependencies
+    
+    With the virtual environment activated, install the dependencies:
+    
+    ```bash
+    pip install copilotkit fastapi uvicorn --extra-index-url https://copilotkit.gateway.scarf.sh/simple/
+    ```
+    
+    </Tab>
+    
+    <Tab value="conda">
+    
+    #### Create a New Conda Environment
+    
+    Create and activate a new Conda environment:
+    
+    ```bash
+    conda create -n your_env_name python=3.8
+    conda activate your_env_name
+    ```
+    
+    #### Install Dependencies
+    
+    With the Conda environment activated, install the dependencies:
+    
+    ```bash
+    conda install copilotkit fastapi uvicorn -c copilotkit-channel
+    ```
+    
+    </Tab>
+    
+</Tabs>
+
+
+**Dependencies:**
+
+- **copilotkit**: The CopilotKit Python SDK.
+- **fastapi**: A modern, fast (high-performance) web framework for building APIs with Python.
+- **uvicorn**: A lightning-fast ASGI server for Python.
+</Step>
+
+
+<Step>
+### Set Up a FastAPI Server
+
+Create a new Python file `/my_copilotkit_remote_endpoint/server.py` and set up a FastAPI server:
+
+```python title="/my_copilotkit_remote_endpoint/server.py"
+from fastapi import FastAPI
+
+app = FastAPI()
+```
+
+</Step>
+
+<Step>
+### Define Your Backend Actions
+
+Import the CopilotKit SDK and define your backend actions. For example:
+
+```python title="/my_copilotkit_remote_endpoint/server.py"
+from fastapi import FastAPI
+from copilotkit.integrations.fastapi import add_fastapi_endpoint
+from copilotkit import CopilotKitSDK, Action as CopilotAction
+
+app = FastAPI()
+
+# Define your backend action
+async def fetch_name_for_user_id(userId: str):
+    # Replace with your database logic
+    return {"name": "User_" + userId}
+
+# this is a dummy action for demonstration purposes
+action = CopilotAction(
+    name="fetchNameForUserId",
+    description="Fetches user name from the database for a given ID.",
+    parameters=[
+        {
+            "name": "userId",
+            "type": "string",
+            "description": "The ID of the user to fetch data for.",
+            "required": True,
+        }
+    ],
+    handler=fetch_name_for_user_id
+)
+
+# Initialize the CopilotKit SDK # [!code highlight:2]
+sdk = CopilotKitSDK(actions=[action])
+
+# Add the CopilotKit endpoint to your FastAPI app # [!code highlight:2]
+add_fastapi_endpoint(app, sdk, "/copilotkit_remote")
+
+def main():
+    """Run the uvicorn server."""
+    import uvicorn
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
+
+if __name__ == "__main__":
+    main()
+```
+
+</Step>
+
+<Step>
+### Run Your FastAPI Server
+
+Since we've added the entry point in `server.py`, you can run your FastAPI server directly by executing the script:
+
+```bash
+python server.py
+```
+
+**Note:** Ensure that you're in the same directory as `server.py` when running this command.
+
+</Step>
+</Steps>
+
+
+## Connect your app to the remote endpoint
+
+Now that you've set up your FastAPI server with the backend actions, integrate it into your CopilotKit application by modifying your `CopilotRuntime` configuration.
+
+
+<Steps>
+<Step>
+<FindCopilotRuntimeSnippet />
+</Step>
+
+<Step>
+
+Update the `CopilotRuntime` config to include the `remoteEndpoints` property:
+
+```tsx
+const runtime: CopilotRuntimeConfig = {
+    // ...existing configuration
+    remoteEndpoints: [ // [!code highlight:5]
+        langGraphCloudEndpoint({
+            deploymentUrl: "http://localhost:8000/copilotkit_remote",
+            langsmithApiKey: "http://localhost:8000/copilotkit_remote",
+            // List here all agents which are available under "graphs" list in your langgraph.json file.
+            // The agent name must strictly match one of the keys in that list
+            agents: [{ name: 'my_agent', description: 'A helpful LLM agent' }]
+        }),
+    ],
+};
+```
+Tip: Use the langGraphCloudEndpoint type constructor function
+
+</Step>
+
+<Step>
+### Test Your Implementation
+
+After setting up the remote endpoint and modifying your `CopilotRuntime`, you can test your implementation by asking the copilot to perform actions that invoke your LangGraph agent.
+
+</Step>
+
+</Steps>
+
+---
+
+## Troubleshooting
+
+A few things to try if you are running into trouble:
+
+1. Make sure there is no other local application server running on the 8000 port.
+2. Under `/agent/my_agent/demo.py`, change host from `0.0.0.0` to `127.0.0.1` or to `localhost`
