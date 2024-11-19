@@ -202,9 +202,16 @@ jobs:
       #     comment-tag: preview-status-update
       #     file-path: ./infra/preview-comment.md
 
+      # - name: Trigger E2E Tests
+      #   uses: peter-evans/repository-dispatch@v3
+      #   with:
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     event-type: trigger-e2e
+      #     client-payload: '{"pr_number": "${{ github.event.pull_request.number }}", "sha": "${{ github.event.pull_request.head.sha }}", "ref": "${{ github.event.pull_request.head.ref }}"}'
       - name: Trigger E2E Tests
-        uses: peter-evans/repository-dispatch@v3
+        uses: benc-uk/workflow-dispatch@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          event-type: trigger-e2e
-          client-payload: '{"pr_number": "${{ github.event.pull_request.number }}", "sha": "${{ github.event.pull_request.head.sha }}", "ref": "${{ github.event.pull_request.head.ref }}"}'
+          workflow: "e2e.yml"
+          ref: "${{ github.event.pull_request.head.ref }}"
+          inputs: '{"ref": "${{ github.event.pull_request.head.ref }}", "sha": "${{ github.event.pull_request.head.sha }}"}'
