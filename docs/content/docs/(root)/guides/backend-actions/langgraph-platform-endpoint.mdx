@@ -1,0 +1,72 @@
+---
+title: "Remote Endpoint (LangGraph Platform)"
+description: "Connect your CopilotKit application to an agent deployed on LangGraph Platform."
+---
+import FindCopilotRuntimeSnippet from "@/snippets/find-your-copilot-runtime.mdx";
+
+<Callout type="info">
+    This guide assumes you've created a LangGraph agent with Python, and have a `langgraph.json` file set up. If you need a quick introduction, check out [this brief example
+    from the LangGraph docs](https://langchain-ai.github.io/langgraph/) or follow one of our demos.
+</Callout>
+## Deploy a Graph to LangGraph Platform
+
+<Steps>
+
+    <Step>
+    ### Deploy your agent to LangGraph Platform
+
+    To integrate an agent CopilotKit application, it needs to be deployed to the LangGraph Platform.<br/>
+    Please follow [the official LangGraph Cloud deployment guide](https://langchain-ai.github.io/langgraph/cloud/deployment/cloud/).<br /><br />
+    A successful deployment would yield a an API URL (often referred here as "deployment URL") in the following format: `https://{project-identifiers}.langgraph.app`. You'll need this later.
+
+    </Step>
+
+    <Step>
+        ### Connect the app to the remote endpoint
+        Now that you've deployed your agent to LangGraph Platform, integrate it into your CopilotKit application by modifying your CopilotRuntime configuration.<br />
+
+        First, find your CopilotRuntime instance in your code.
+    </Step>
+
+    <Step>
+
+        Update the `CopilotRuntime` config to include the `remoteEndpoints` property:
+
+        ```tsx
+        const runtime: CopilotRuntimeConfig = {
+            // ...existing configuration
+            remoteEndpoints: [ // [!code highlight:9]
+                langGraphCloudEndpoint({
+                    deploymentUrl: "your-api-url",
+                    langsmithApiKey: "your-langsmith-api-key",
+                    // List of all agents which are available under "graphs" list in your langgraph.json file.
+                    agents: [{ name: 'my_agent', description: 'A helpful LLM agent' }]
+                }),
+            ],
+        };
+        ```
+
+        <Callout type="info">
+            Tip: Use the `langGraphCloudEndpoint` type constructor function
+        </Callout>
+
+    </Step>
+
+    <Step>
+        ### Test Your Implementation
+
+        After setting up the remote endpoint and modifying your `CopilotRuntime`, you can test your implementation by asking the copilot to perform actions that invoke your agent.<br/>
+        The graph and interactions can viewed in [LangGraph Studio](smith.langchain.com/studio) and any logs should be available on [LangSmith](smith.langchain.com)
+
+    </Step>
+</Steps>
+
+---
+
+## Troubleshooting
+
+A few things to try if you are running into trouble:
+
+1. Make sure that you listed your agents according to the graphs mentioned in the `langgraph.json` file
+2. Make sure the agent names are the same between the agent Python implementation, the `langgraph.json` file and the remote endpoint declaration
+3. Make sure the LangGraph Cloud deployment has all environment variables listed as you need them to be, according to your agent implementation
