@@ -91,7 +91,7 @@ jobs:
           docker buildx build \
             -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-${{ matrix.app.type }}-${{ matrix.app.deps }}-${{ github.run_id }} \
             --build-arg APP_DIR=examples/${{ matrix.app.project }}/${{ matrix.app.type }} \
-            -f ./examples/Dockerfile.${{ matrix.app.type }}-${{ matrix.app.deps }} \
+            -f ./examples/Dockerfile.${{ matrix.app.type }} \
             --platform=linux/amd64 \
             --provenance=false \
             --push \
