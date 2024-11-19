@@ -44,13 +44,13 @@ jobs:
         run: |
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 058264219587.dkr.ecr.us-east-1.amazonaws.com
         
-      - name: (Node) Setup pnpm
+      - name: (UI) Setup pnpm
         if: matrix.app.type == 'ui'
         uses: pnpm/action-setup@v4
         with:
           version: "9.5"
 
-      - name: (Node) Use Node.js 21
+      - name: (UI) Use Node.js 21
         if: matrix.app.type == 'ui'
         uses: actions/setup-node@v2
         with:
@@ -58,29 +58,45 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: '**/pnpm-lock.yaml'
 
-      - name: (Node) Install dependencies
+      - name: (UI) Install dependencies
         if: matrix.app.type == 'ui'
         working-directory: ./CopilotKit
         run: pnpm install --frozen-lockfile
 
-      - name: (Node) Install app dependencies
+      - name: (UI) Install app dependencies
         if: matrix.app.type == 'ui'
         working-directory: examples/${{ matrix.app.project }}/${{ matrix.app.type }}
         run: pnpm install --frozen-lockfile
 
-      - name: (Node) Build app
+      - name: (UI) Build app
         if: matrix.app.type == 'ui'
         working-directory: examples/${{ matrix.app.project }}/${{ matrix.app.type }}
         run: pnpm run build
         env:
           OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
 
-      - name: Build Image
+      - name: (UI) Build Image
+        if: matrix.app.type == 'ui'
         run: |
           docker buildx build \
             -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-${{ matrix.app.type }}-${{ matrix.app.deps }}-${{ github.run_id }} \
             --build-arg APP_DIR=examples/${{ matrix.app.project }}/${{ matrix.app.type }} \
             -f ./examples/Dockerfile.${{ matrix.app.type }}-${{ matrix.app.deps }} \
+            --platform=linux/amd64 \
+            --provenance=false \
+            --push \
+            .
+        env:
+          DOCKER_BUILDKIT: 1
+
+      - name: (Agent) Build Image
+        if: matrix.app.type == 'agent'
+        run: |
+          docker buildx build \
+            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-${{ matrix.app.type }}-${{ matrix.app.deps }}-${{ github.run_id }} \
+            --build-arg APP_DIR=examples/${{ matrix.app.project }}/${{ matrix.app.type }} \
+            -f ./examples/Dockerfile.${{ matrix.app.type }} \
+            --build-arg WITH_LOCAL_DEPS=${{ matrix.app.deps == 'local-deps' }} \
             --platform=linux/amd64 \
             --provenance=false \
             --push \
