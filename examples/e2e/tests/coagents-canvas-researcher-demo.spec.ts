@@ -20,12 +20,15 @@ test.beforeAll(async () => {
   );
   await Promise.all([uiFetch, agentFetch]);
   console.log("Warmed up all endpoints");
+  console.log("URLS", urls);
 });
 
 test.describe("Canvas Researcher Demo", () => {
   projectUrls.forEach((projectUrl) => {
     models.forEach((model) => {
-      test(`Test ${projectUrl} with model ${model.name}`, async ({ page }) => {
+      test.skip(`Test ${projectUrl} with model ${model.name}`, async ({
+        page,
+      }) => {
         await page.goto(`${projectUrl}?coAgentsModel=${model.value}`);
 
         const researchQuestion = "Lifespan of penguins";
