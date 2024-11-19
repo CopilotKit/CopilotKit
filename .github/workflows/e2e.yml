@@ -51,13 +51,6 @@ jobs:
               started_at: new Date().toISOString()
             })
 
-
-      # - name: Print URLs (default)
-      #   run: |
-      #     echo "URLs: ${{ inputs.urls }}"
-
-
-
       # - name: Run Tests
       #   id: run_tests
       #   run: |

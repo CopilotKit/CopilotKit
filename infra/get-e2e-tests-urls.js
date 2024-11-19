@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 const file = fs.readFileSync(
-  path.resolve(__dirname, "./cdk_outputs_temp.json"),
+  path.resolve(__dirname, "./cdk_outputs.json"),
   "utf8"
 );
 
