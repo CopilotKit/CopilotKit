@@ -9,9 +9,9 @@ on:
         description: 'Pull Request Number'
         required: true
 
-concurrency:
-  group: preview-${{ github.event.pull_request.number }}-destroy
-  cancel-in-progress: false
+# concurrency:
+#   group: preview-${{ github.event.pull_request.number }}-destroy
+#   cancel-in-progress: false
 
 jobs:
   preview_envs_destroy:
