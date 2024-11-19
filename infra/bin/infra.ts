@@ -43,7 +43,7 @@ const coAgentsResearchCanvasUIWithLocalDeps = createUIProjectStack({
 });
 
 /*
- * CoAgents Perplexity Demo
+ * CoAgents Routing Demo
  */
 
 // Remote Dependencies
