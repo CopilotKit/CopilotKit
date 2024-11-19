@@ -34,6 +34,7 @@ export interface ProjectStackProps extends cdk.StackProps {
   outputEnvVariable?: string;
   overrideBuildProps?: Partial<cdk.aws_ecr_assets.DockerImageAssetProps>;
   imageTag: string;
+  outputs?: Record<string, string>;
 }
 
 export class PreviewProjectStack extends cdk.Stack {
@@ -160,6 +161,13 @@ export class PreviewProjectStack extends cdk.Stack {
       new cdk.CfnOutput(this, "OutputEnvVariable", {
         value: props.outputEnvVariable,
       });
+    }
+
+    if (props.outputs) {
+      for (const [key, value] of Object.entries(props.outputs)) {
+        new cdk.CfnOutput(this, key, {
+          value: value,
+        });
     }
 
     // Add tag for PR number to all resources

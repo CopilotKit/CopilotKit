@@ -20,16 +20,20 @@ export function createAgentProjectStack({
   app,
   project,
   description,
-  dependencies
+  dependencies,
 }: {
   app: App;
   project: string;
   description: string;
   dependencies: "Remote" | "Local";
 }) {
-  const cdkStackName = toCdkStackName(project) + "Agent" + dependencies + "Deps";
-  const dockerfile = dependencies === "Remote" ? `examples/Dockerfile.agent-remote-deps` : `examples/Dockerfile.agent-local-deps`;
-  const GITHUB_ACTIONS_RUN_ID = requireEnv("GITHUB_ACTIONS_RUN_ID")
+  const cdkStackName =
+    toCdkStackName(project) + "Agent" + dependencies + "Deps";
+  const dockerfile =
+    dependencies === "Remote"
+      ? `examples/Dockerfile.agent-remote-deps`
+      : `examples/Dockerfile.agent-local-deps`;
+  const GITHUB_ACTIONS_RUN_ID = requireEnv("GITHUB_ACTIONS_RUN_ID");
 
   return new PreviewProjectStack(app, cdkStackName, {
     projectName: project,
@@ -42,7 +46,12 @@ export function createAgentProjectStack({
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
     },
-    imageTag: `${project}-agent-${dependencies === "Remote" ? "remote-deps" : "local-deps"}-${GITHUB_ACTIONS_RUN_ID}`
+    imageTag: `${project}-agent-${
+      dependencies === "Remote" ? "remote-deps" : "local-deps"
+    }-${GITHUB_ACTIONS_RUN_ID}`,
+    outputs: {
+      Dependencies: dependencies,
+    },
   });
 }
 
@@ -51,7 +60,7 @@ export function createUIProjectStack({
   project,
   description,
   dependencies,
-  agentProject
+  agentProject,
 }: {
   app: App;
   project: string;
@@ -60,8 +69,11 @@ export function createUIProjectStack({
   agentProject: PreviewProjectStack;
 }) {
   const cdkStackName = toCdkStackName(project) + "UI" + dependencies + "Deps";
-  const dockerfile = dependencies === "Remote" ? `examples/Dockerfile.ui-remote-deps` : `examples/Dockerfile.ui-local-deps`;
-  const GITHUB_ACTIONS_RUN_ID = requireEnv("GITHUB_ACTIONS_RUN_ID")
+  const dockerfile =
+    dependencies === "Remote"
+      ? `examples/Dockerfile.ui-remote-deps`
+      : `examples/Dockerfile.ui-local-deps`;
+  const GITHUB_ACTIONS_RUN_ID = requireEnv("GITHUB_ACTIONS_RUN_ID");
 
   return new PreviewProjectStack(app, cdkStackName, {
     projectName: project,
@@ -78,6 +90,11 @@ export function createUIProjectStack({
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
     },
-    imageTag: `${project}-ui-${dependencies === "Remote" ? "remote-deps" : "local-deps"}-${GITHUB_ACTIONS_RUN_ID}`
+    imageTag: `${project}-ui-${
+      dependencies === "Remote" ? "remote-deps" : "local-deps"
+    }-${GITHUB_ACTIONS_RUN_ID}`,
+    outputs: {
+      Dependencies: dependencies,
+    },
   });
 }
