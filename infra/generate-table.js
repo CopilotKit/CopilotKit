@@ -15,15 +15,45 @@ function generateTable() {
 
   console.log(json);
 
+
+
+  // const rows = [{
+  //   "Name": "test",
+  //   "Preview (Local Dependencies)": "url"
+  //   "Preview (Remote Dependencies)": "url",
+  // }]
+
+  // Group entries by ProjectName
+  const projectGroups = Object.values(json).reduce((acc, entry) => {
+    if (!acc[entry.ProjectName]) {
+      acc[entry.ProjectName] = {
+        name: entry.ProjectName,
+        remote: '',
+        local: ''
+      };
+    }
+    
+    // Add URLs based on dependency type
+    if (entry.Dependencies === 'Remote') {
+      acc[entry.ProjectName].remote = `[Preview](${entry.FunctionUrl})`;
+    } else if (entry.Dependencies === 'Local') {
+      acc[entry.ProjectName].local = `[Preview](${entry.FunctionUrl})`;
+    }
+    
+    return acc;
+  }, {});
+
+  // Convert grouped data to rows array
+  const rows = Object.values(projectGroups).map(project => ({
+    "Name": project.name,
+    "Preview (Local Dependencies)": project.local,
+    "Preview (Remote Dependencies)": project.remote
+  }));
+
   structure.push({
     table: {
-      headers: ["Name", "URL"],
-      rows: Object.entries(json)
-        .filter(([key, value]) => value.IncludeInComment === "true")
-        .map(([key, value]) => ({
-          Name: value.ProjectName,
-          URL: `[Link](${value.FunctionUrl})`,
-        })),
+      headers: ["Name", "Preview (Local Dependencies)", "Preview (Remote Dependencies)"],
+      rows,
     },
   });
 
@@ -32,19 +62,19 @@ function generateTable() {
   fs.writeFileSync(path.resolve(__dirname, "./preview-comment.md"), md);
 }
 
-function generateProcessedOutputForTests() {
-  let output = "";
-  const json = JSON.parse(file);
+// function generateProcessedOutputForTests() {
+//   let output = "";
+//   const json = JSON.parse(file);
 
-  Object.entries(json)
-    .filter(([key, value]) => !!value.OutputEnvVariable)
-    .forEach(([key, value]) => {
-      const envVariableName = value.OutputEnvVariable;
-      output += `${envVariableName}="${value.FunctionUrl.replace(/\/$/, '')}"\n`;
-    });
+//   Object.entries(json)
+//     .filter(([key, value]) => !!value.OutputEnvVariable)
+//     .forEach(([key, value]) => {
+//       const envVariableName = value.OutputEnvVariable;
+//       output += `${envVariableName}="${value.FunctionUrl.replace(/\/$/, '')}"\n`;
+//     });
 
-  fs.writeFileSync(path.resolve(__dirname, "./.env.test"), output);
-}
+//   fs.writeFileSync(path.resolve(__dirname, "./.env.test"), output);
+// }
 
 generateTable();
-generateProcessedOutputForTests();
+// generateProcessedOutputForTests();
