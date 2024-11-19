@@ -167,29 +167,29 @@ jobs:
         run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 10
         env:
           UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
-          GITHUB_RUN_ID: "${{ github.run_id }}"
+          GITHUB_ACTIONS_RUN_ID: "${{ github.run_id }}"
           GITHUB_PR_NUMBER: "${{ github.event.number }}"
           
-      # - name: Generate table from outputs
-      #   id: generate-table
-      #   working-directory: infra
-      #   run: |
-      #     node generate-table
+      - name: Generate table from outputs
+        id: generate-table
+        working-directory: infra
+        run: |
+          node generate-table
 
-      # - name: Assign label
-      #   uses: actions/github-script@v4
-      #   with:
-      #     github-token: ${{ secrets.GITHUB_TOKEN }}
-      #     script: |
-      #       github.issues.addLabels({
-      #         issue_number: context.issue.number,
-      #         owner: context.repo.owner,
-      #         repo: context.repo.repo,
-      #         labels: ['preview']
-      #       })
+      - name: Assign label
+        uses: actions/github-script@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['preview']
+            })
 
-      # - name: Comment post-deployment
-      #   uses: thollander/actions-comment-pull-request@v3
-      #   with:
-      #     comment-tag: preview-status-update
-      #     file-path: ./infra/preview-comment.md
+      - name: Comment post-deployment
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: preview-status-update
+          file-path: ./infra/preview-comment.md
