@@ -9,7 +9,6 @@ import * as events from "aws-cdk-lib/aws-events";
 import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as ecr from "aws-cdk-lib/aws-ecr";
 import { requireEnv } from "./utils";
-import { ECRImageStack } from "./ecr-image";
 
 export interface ProjectStackProps extends cdk.StackProps {
   /**

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import "source-map-support/register";
 import * as cdk from "aws-cdk-lib";
-import { requireEnv, toCdkStackName } from "../lib/utils";
+import { requireEnv, toCdkStackName, createAgentProjectStack, createUIProjectStack } from "../lib/utils";
 import { PreviewProjectStack } from "../lib/demo-project-stack";
 
 const GITHUB_ACTIONS_RUN_ID = requireEnv("GITHUB_ACTIONS_RUN_ID");
@@ -40,66 +40,6 @@ const uiWithLocalDeps = createUIProjectStack({
   dependencies: "Local",
   agentProject: agentWithLocalDeps
 });
-
-function createAgentProjectStack({
-  project,
-  description,
-  dependencies
-}: {
-  project: string;
-  description: string;
-  dependencies: "Remote" | "Local";
-}) {
-  const cdkStackName = toCdkStackName(project) + "Agent" + dependencies + "Deps";
-  const dockerfile = dependencies === "Remote" ? `examples/Dockerfile.agent-remote-deps` : `examples/Dockerfile.agent-local-deps`;
-
-  return new PreviewProjectStack(app, cdkStackName, {
-    projectName: project,
-    projectDescription: description,
-    demoDir: `examples/${project}/agent`,
-    overrideDockerfile: dockerfile,
-    environmentVariablesFromSecrets: ["OPENAI_API_KEY", "TAVILY_API_KEY"],
-    port: "8000",
-    includeInPRComment: false,
-    env: {
-      account: process.env.CDK_DEFAULT_ACCOUNT,
-    },
-    imageTag: `${project}-agent-${dependencies === "Remote" ? "remote-deps" : "local-deps"}-${GITHUB_ACTIONS_RUN_ID}`
-  });
-}
-
-function createUIProjectStack({
-  project,
-  description,
-  dependencies,
-  agentProject
-}: {
-  project: string;
-  description: string;
-  dependencies: "Remote" | "Local";
-  agentProject: PreviewProjectStack;
-}) {
-  const cdkStackName = toCdkStackName(project) + "UI" + dependencies + "Deps";
-  const dockerfile = dependencies === "Remote" ? `examples/Dockerfile.ui-remote-deps` : `examples/Dockerfile.ui-local-deps`;
-
-  return new PreviewProjectStack(app, cdkStackName, {
-    projectName: project,
-    projectDescription: `${description} (Dependencies: ${dependencies})`,
-    demoDir: `examples/${project}/ui`,
-    overrideDockerfile: dockerfile,
-    environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
-    environmentVariables: {
-      REMOTE_ACTION_URL: `${agentProject.fnUrl}/copilotkit`,
-    },
-    buildSecrets: ["OPENAI_API_KEY"],
-    port: "3000",
-    includeInPRComment: true,
-    env: {
-      account: process.env.CDK_DEFAULT_ACCOUNT,
-    },
-    imageTag: `${project}-ui-${dependencies === "Remote" ? "remote-deps" : "local-deps"}-${GITHUB_ACTIONS_RUN_ID}`
-  });
-}
 
 // const researchCanvasUIVersionedDeps = new PreviewProjectStack(app, `CoAgentsResearchCanvasDemoUIVersionedDeps`, {
 //   env: {
