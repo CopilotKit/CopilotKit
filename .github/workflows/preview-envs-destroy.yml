@@ -42,26 +42,6 @@ jobs:
         with:
           version: 9
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Auth AWS CDK Public Registry
-        run: |
-          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
-
-      - uses: dopplerhq/secrets-fetch-action@v1.2.0
-        id: doppler
-        with:
-          doppler-token: ${{ secrets.DOPPLER_TOKEN }}
-          doppler-project: copilotkit-previews
-          doppler-config: prd
-
-      - name: Infra install dependencies
-        working-directory: infra
-        run: pnpm i
-
       - name: cdk destroy
         working-directory: ./infra
         run: cdk destroy --profile default --all --force
