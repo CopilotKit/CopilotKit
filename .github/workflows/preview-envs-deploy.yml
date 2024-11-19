@@ -13,43 +13,16 @@ jobs:
   build_images:
     runs-on: ubuntu-latest
     name: Dockerize
+    strategy:
+      matrix:
+        app:
+          - { project: "coagents-research-canvas", type: "agent", deps: "remote-deps" }
+          - { project: "coagents-research-canvas", type: "agent", deps: "local-deps" }
+          - { project: "coagents-research-canvas", type: "ui", deps: "remote-deps" }
+          - { project: "coagents-research-canvas", type: "ui", deps: "local-deps" }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      # - uses: dopplerhq/secrets-fetch-action@v1.2.0
-      #   id: doppler
-      #   with:
-      #     doppler-token: ${{ secrets.DOPPLER_TOKEN }}
-      #     doppler-project: copilotkit-previews
-      #     doppler-config: prd
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "9.5"
-
-      - name: Use Node.js 21
-        uses: actions/setup-node@v2
-        with:
-          node-version: 21.x
-          cache: 'pnpm'
-          cache-dependency-path: '**/pnpm-lock.yaml'
-
-      # - name: Install dependencies
-      #   working-directory: ./CopilotKit
-      #   run: pnpm install --frozen-lockfile
-
-      # - name: Install app
-      #   working-directory: ${{ matrix.app.path }}
-      #   run: pnpm install --frozen-lockfile
-
-      # - name: Build app
-      #   if: matrix.app.RUNTIME == 'node'
-      #   working-directory: ${{ matrix.app.path }}
-      #   run: pnpm run build
-      #   env:
-      #     OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -71,26 +44,51 @@ jobs:
         run: |
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 058264219587.dkr.ecr.us-east-1.amazonaws.com
         
-      # - name: Build Image
-      #   run: |
-      #     docker buildx build -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.PROJECT_NAME }}-${{ github.run_id }} --build-arg APP_DIR=${{ matrix.app.DEMO_DIR }} --secret id=OPENAI_API_KEY . -f ./examples/${{ matrix.app.DOCKERFILE }} --platform=linux/amd64 --provenance=false --push
-      #   env:
-      #     DOCKER_BUILDKIT: 1
-      #     OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
-
-      - name: Infra install dependencies
-        working-directory: infra
-        run: pnpm i
-
-      - name: Install AWS CDK
-        run: npm install -g aws-cdk
-
-      - name: cdk deploy
-        working-directory: ./infra
-        run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 10
+      - name: Build Image
+        run: |
+          docker buildx build \
+            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-${{ matrix.app.type }}-${{ matrix.app.deps }}-${{ github.run_id }} \
+            --build-arg APP_DIR=examples/${{ matrix.app.project }}/${{ matrix.app.type }} \
+            -f ./examples/Dockerfile.${{ matrix.app.type }}-${{ matrix.app.deps }} \
+            --platform=linux/amd64 \
+            --provenance=false \
+            --push \
+            .
         env:
-          PROJECT: "coagents-research-canvas-remote-deps"
-          UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
+          DOCKER_BUILDKIT: 1
+
+      # - name: Infra install dependencies
+      #   working-directory: infra
+      #   run: pnpm i
+
+      # - name: Install AWS CDK
+      #   run: npm install -g aws-cdk
+
+      # - name: Configure AWS Credentials
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     aws-region: us-east-1
+
+      # - name: Configure AWS Profile
+      #   run: |
+      #     aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
+      #     aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
+      #     aws configure set region us-east-1
+
+      # - name: cdk deploy
+      #   working-directory: ./infra
+      #   run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 10
+      #   env:
+      #     UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
+      #     PROJECT_TYPE: ${{ matrix.app.PROJECT_TYPE }}
+      #     PROJECT_NAME: ${{ matrix.app.PROJECT_NAME }}
+      #     PROJECT_DESCRIPTION: ${{ matrix.app.PROJECT_DESCRIPTION }}
+      #     DEMO_DIR: ${{ matrix.app.DEMO_DIR }}
+      #     IMAGE_TAG: '${{ github.run_id }}-${{ github.run_id}}'
+      #     OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
+      #     GITHUB_RUN_ID: "${{ github.run_id }}"
 
   # cdk_deploy:
   #   runs-on: ubuntu-latest
