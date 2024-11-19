@@ -17,9 +17,9 @@ jobs:
       matrix:
         app:
           - { project: "coagents-research-canvas", type: "agent", deps: "remote-deps" }
-          - { project: "coagents-research-canvas", type: "agent", deps: "local-deps" }
           - { project: "coagents-research-canvas", type: "ui", deps: "remote-deps" }
-          - { project: "coagents-research-canvas", type: "ui", deps: "local-deps" }
+          # - { project: "coagents-research-canvas", type: "agent", deps: "local-deps" }
+          # - { project: "coagents-research-canvas", type: "ui", deps: "local-deps" }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
