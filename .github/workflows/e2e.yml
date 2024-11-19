@@ -61,23 +61,53 @@ jobs:
               status: 'in_progress',
               started_at: new Date().toISOString()
             })
+            - name: Run Tests and Generate Report
+            working-directory: ./examples/e2e
+            id: run_tests
+            run: |
+              PLAYWRIGHT_DEBUG=1 pnpm exec playwright test
 
-      - name: Run Tests and Generate Report
-        working-directory: ./examples/e2e
+      - name: Process Test Results
+        if: always()
         id: run_tests
+        working-directory: ./examples/e2e
         run: |
-          pnpm exec playwright test
-          npx playwright show-report > test-run-comment.md
+          echo "## E2E Test Results" > test-run-comment.md
+          echo "\`\`\`" >> test-run-comment.md
+          cat playwright-report/test-results.json | jq -r '
+            "Test Summary:\n" +
+            "Total Tests: \(.stats.total)\n" +
+            "Passed: \(.stats.passed)\n" +
+            "Failed: \(.stats.failed)\n" +
+            "Flaky: \(.stats.flaky)\n" +
+            "Skipped: \(.stats.skipped)\n" +
+            "Duration: \(.stats.duration)ms\n\n" +
+            if .stats.failed > 0 then
+              "Failed Tests:\n" + 
+              (.suites[] | select(.specs[].tests[].results[].status == "failed") |
+                "Suite: \(.title)\n" +
+                (.specs[] | select(.tests[].results[].status == "failed") |
+                  "  Test: \(.title)\n" +
+                  (.tests[] | select(.results[].status == "failed") |
+                    "    Error: \(.results[].error.message)\n"
+                  )
+                )
+              )
+            else
+              "All tests passed successfully!\n"
+            end
+          ' >> test-run-comment.md
+          echo "\`\`\`" >> test-run-comment.md
 
-      - name: Comment post-deployment
-        uses: thollander/actions-comment-pull-request@v3
+      - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          comment-tag: test-run-status-update
-          message: |
-            ## E2E Test Results
-            ```
-            $(cat test-run-comment.md)
-            ```
+          name: playwright-report
+          path: |
+            examples/e2e/playwright-report/
+            examples/e2e/test-results/
+          retention-days: 30
+
       - name: Update Status Check
         if: always()
         uses: actions/github-script@v6
