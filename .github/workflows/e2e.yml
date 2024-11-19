@@ -51,6 +51,10 @@ jobs:
               started_at: new Date().toISOString()
             })
 
+      - name: Print Inputs
+        run: |
+          echo "Inputs: ${{ toJson(inputs) }}"
+
       - name: Download Artifact
         uses: actions/download-artifact@v4
         with:
