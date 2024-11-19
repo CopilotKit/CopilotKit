@@ -211,6 +211,7 @@ jobs:
       
       - name: Export Variable - E2E URLs
         id: export-e2e-urls
+        working-directory: infra
         run: |
           export E2E_URLS=$(node "get-e2e-tests-urls.js")
           echo "::set-output name=e2e-urls::$E2E_URLS"
