@@ -28,10 +28,15 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
 
-      - name: Print & Save E2E URLs
+      - name: Save E2E URLs
         working-directory: examples/e2e
         run: |
           echo "${{ inputs.urls }}" | base64 -d > urls.json
+
+      - name: Print E2E URLs
+        working-directory: examples/e2e
+        run: |
+          cat urls.json
 
       - name: Create Status Check
         uses: actions/github-script@v6
