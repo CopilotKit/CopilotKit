@@ -104,9 +104,8 @@ jobs:
 
       - name: Comment post-deployment
         uses: thollander/actions-comment-pull-request@v3
-        env:
-          GITHUB_PR_NUMBER: ${{ inputs.pr_number }}
         with:
+          pull-request-number: ${{ inputs.pr_number }}
           comment-tag: test-run-status-update
           file-path: ./examples/e2e/test-run-comment.md
 
