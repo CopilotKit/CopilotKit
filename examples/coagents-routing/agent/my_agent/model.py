@@ -2,6 +2,7 @@
 This module provides a function to get a model based on the configuration.
 """
 from typing import Any
+import os
 
 def get_model(state: Any) -> Any:
     """

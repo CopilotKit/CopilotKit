@@ -19,9 +19,9 @@ jobs:
           - { project: "coagents-research-canvas", type: "agent", deps: "remote-deps" }
           - { project: "coagents-research-canvas", type: "agent", deps: "local-deps" }
           - { project: "coagents-research-canvas", type: "ui" }
-          - { project: "coagents-ai-researcher", type: "agent", deps: "remote-deps" }
-          - { project: "coagents-ai-researcher", type: "agent", deps: "local-deps" }
-          - { project: "coagents-ai-researcher", type: "ui" }
+          - { project: "coagents-routing", type: "agent", deps: "remote-deps" }
+          - { project: "coagents-routing", type: "agent", deps: "local-deps" }
+          - { project: "coagents-routing", type: "ui" }
           - { project: "coagents-qa-text", type: "agent", deps: "remote-deps" }
           - { project: "coagents-qa-text", type: "agent", deps: "local-deps" }
           - { project: "coagents-qa-text", type: "ui" }
