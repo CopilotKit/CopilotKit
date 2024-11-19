@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 import "source-map-support/register";
 import * as cdk from "aws-cdk-lib";
-import { requireEnv, toCdkStackName, createAgentProjectStack, createUIProjectStack } from "../lib/utils";
-import { PreviewProjectStack } from "../lib/demo-project-stack";
-
-const GITHUB_ACTIONS_RUN_ID = requireEnv("GITHUB_ACTIONS_RUN_ID");
+import { createAgentProjectStack, createUIProjectStack } from "../lib/utils";
 
 // app
 const app = new cdk.App();
@@ -15,12 +12,14 @@ const app = new cdk.App();
 
 // Remote Dependencies
 const agentWithRemoteDeps = createAgentProjectStack({
+  app,
   project: "coagents-research-canvas",
   description: "CoAgents Research Canvas (Agent) - Remote Depenencies",
   dependencies: "Remote"
 });
 
 const uiWithRemoteDeps = createUIProjectStack({
+  app,
   project: "coagents-research-canvas",
   description: "CoAgents Research Canvas (UI) - Remote Depenencies",
   dependencies: "Remote",
@@ -29,12 +28,14 @@ const uiWithRemoteDeps = createUIProjectStack({
 
 // Local Dependencies
 const agentWithLocalDeps = createAgentProjectStack({
+  app,
   project: "coagents-research-canvas",
   description: "CoAgents Research Canvas (Agent) - Local Depenencies",
   dependencies: "Local"
 });
 
 const uiWithLocalDeps = createUIProjectStack({
+  app,
   project: "coagents-research-canvas",
   description: "CoAgents Research Canvas (UI) - Local Depenencies",
   dependencies: "Local",

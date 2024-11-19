@@ -1,3 +1,4 @@
+import { App } from "aws-cdk-lib";
 import { PreviewProjectStack } from "./demo-project-stack";
 
 export function requireEnv(name: string): string {
@@ -16,16 +17,19 @@ export function toCdkStackName(input: string) {
 }
 
 export function createAgentProjectStack({
+  app,
   project,
   description,
   dependencies
 }: {
+  app: App;
   project: string;
   description: string;
   dependencies: "Remote" | "Local";
 }) {
   const cdkStackName = toCdkStackName(project) + "Agent" + dependencies + "Deps";
   const dockerfile = dependencies === "Remote" ? `examples/Dockerfile.agent-remote-deps` : `examples/Dockerfile.agent-local-deps`;
+  const GITHUB_ACTIONS_RUN_ID = requireEnv("GITHUB_ACTIONS_RUN_ID")
 
   return new PreviewProjectStack(app, cdkStackName, {
     projectName: project,
@@ -43,11 +47,13 @@ export function createAgentProjectStack({
 }
 
 export function createUIProjectStack({
+  app,
   project,
   description,
   dependencies,
   agentProject
 }: {
+  app: App;
   project: string;
   description: string;
   dependencies: "Remote" | "Local";
@@ -55,6 +61,7 @@ export function createUIProjectStack({
 }) {
   const cdkStackName = toCdkStackName(project) + "UI" + dependencies + "Deps";
   const dockerfile = dependencies === "Remote" ? `examples/Dockerfile.ui-remote-deps` : `examples/Dockerfile.ui-local-deps`;
+  const GITHUB_ACTIONS_RUN_ID = requireEnv("GITHUB_ACTIONS_RUN_ID")
 
   return new PreviewProjectStack(app, cdkStackName, {
     projectName: project,
