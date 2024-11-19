@@ -35,6 +35,14 @@ export function createAgentProjectStack({
       : `examples/Dockerfile.agent-local-deps`;
   const GITHUB_ACTIONS_RUN_ID = requireEnv("GITHUB_ACTIONS_RUN_ID");
 
+  const outputs: Record<string,string> = {
+    Dependencies: dependencies,
+  };
+
+  if (process.env.GITHUB_PR_NUMBER) {
+    outputs["PRNumber"] = process.env.GITHUB_PR_NUMBER;
+  }
+
   return new PreviewProjectStack(app, cdkStackName, {
     projectName: project,
     projectDescription: description,
@@ -49,9 +57,7 @@ export function createAgentProjectStack({
     imageTag: `${project}-agent-${
       dependencies === "Remote" ? "remote-deps" : "local-deps"
     }-${GITHUB_ACTIONS_RUN_ID}`,
-    outputs: {
-      Dependencies: dependencies,
-    },
+    outputs
   });
 }
 
@@ -75,6 +81,14 @@ export function createUIProjectStack({
       : `examples/Dockerfile.ui-local-deps`;
   const GITHUB_ACTIONS_RUN_ID = requireEnv("GITHUB_ACTIONS_RUN_ID");
 
+  const outputs: Record<string,string> = {
+    Dependencies: dependencies,
+  };
+
+  if (process.env.GITHUB_PR_NUMBER) {
+    outputs["PRNumber"] = process.env.GITHUB_PR_NUMBER;
+  }
+
   return new PreviewProjectStack(app, cdkStackName, {
     projectName: project,
     projectDescription: `${description} (Dependencies: ${dependencies})`,
@@ -93,8 +107,6 @@ export function createUIProjectStack({
     imageTag: `${project}-ui-${
       dependencies === "Remote" ? "remote-deps" : "local-deps"
     }-${GITHUB_ACTIONS_RUN_ID}`,
-    outputs: {
-      Dependencies: dependencies,
-    },
+    outputs,
   });
 }

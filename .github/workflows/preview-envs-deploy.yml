@@ -168,6 +168,7 @@ jobs:
         env:
           UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
           GITHUB_RUN_ID: "${{ github.run_id }}"
+          GITHUB_PR_NUMBER: "${{ github.event.number }}"
           
       # - name: Generate table from outputs
       #   id: generate-table

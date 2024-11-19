@@ -157,17 +157,12 @@ export class PreviewProjectStack extends cdk.Stack {
       value: `${uniqueEnvironmentId}`,
     });
 
-    if (props.outputEnvVariable) {
-      new cdk.CfnOutput(this, "OutputEnvVariable", {
-        value: props.outputEnvVariable,
-      });
-    }
-
     if (props.outputs) {
       for (const [key, value] of Object.entries(props.outputs)) {
         new cdk.CfnOutput(this, key, {
           value: value,
         });
+      }
     }
 
     // Add tag for PR number to all resources
