@@ -213,8 +213,7 @@ jobs:
         id: export-e2e-urls
         working-directory: infra
         run: |
-          export E2E_URLS=$(node "get-e2e-tests-urls.js")
-          echo "::set-output name=e2e-urls::$E2E_URLS"
+          echo "e2e-urls=$(node get-e2e-tests-urls.js | base64 -w 0)" >> "$GITHUB_OUTPUT"
       
       - name: Trigger E2E Tests
         uses: benc-uk/workflow-dispatch@v1
