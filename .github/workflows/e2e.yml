@@ -105,7 +105,7 @@ jobs:
       - name: Comment post-deployment
         uses: thollander/actions-comment-pull-request@v3
         with:
-          pull-request-number: ${{ inputs.pr_number }}
+          pr-number: ${{ inputs.pr_number }}
           comment-tag: test-run-status-update
           file-path: ./examples/e2e/test-run-comment.md
 
