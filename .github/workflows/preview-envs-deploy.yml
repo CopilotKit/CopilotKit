@@ -68,6 +68,16 @@ jobs:
         working-directory: examples/${{ matrix.app.project }}/${{ matrix.app.type }}
         run: pnpm install --frozen-lockfile
 
+      - name: (UI, Local Deps) Install monorepo
+        if: matrix.app.type == 'ui' && matrix.app.deps == 'local-deps'
+        working-directory: ./CopilotKit
+        run: pnpm install --frozen-lockfile
+
+      - name: (UI, Local Deps) Build Dependencies
+        if: matrix.app.type == 'ui' && matrix.app.deps == 'local-deps'
+        working-directory: ./CopilotKit
+        run: pnpx turbo run build
+
       - name: (UI) Build app
         if: matrix.app.type == 'ui'
         working-directory: examples/${{ matrix.app.project }}/${{ matrix.app.type }}
