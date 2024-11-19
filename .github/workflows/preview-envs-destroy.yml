@@ -53,7 +53,8 @@ jobs:
 
       - name: Set variable UNIQUE_ENV_ID
         id: set_unique_env_id
-        run: echo "UNIQUE_ENV_ID=${{ github.event.number && format('PR{0}', github.event.number) || format('PR{0}', inputs.pr_number) }}" >> $GITHUB_ENV
+        run: |
+          echo "UNIQUE_ENV_ID=${{ github.event.number && format('PR{0}', github.event.number) || format('PR{0}', inputs.pr_number) }}" >> "$GITHUB_OUTPUT"
 
       - name: cdk destroy
         working-directory: ./infra
