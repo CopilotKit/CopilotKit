@@ -12,6 +12,9 @@ on:
       urls:
         description: "urls"
         required: true
+      source-workflow-run-id:
+        description: "source-workflow-run-id"
+        required: true
 
 jobs:
   e2e_tests:
@@ -48,13 +51,23 @@ jobs:
               started_at: new Date().toISOString()
             })
 
-      - name: Print URLs (default)
-        run: |
-          echo "URLs: ${{ inputs.urls }}"
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: e2e-urls
+          run-id: ${{ inputs.source-workflow-run-id }}
 
-      - name: Print URLs (base64 decoded)
+      - name: Print dummy.txt
         run: |
-          echo "echo ${{ inputs.urls }} | base64 -d"
+          cat ./dummy.txt
+
+      # - name: Print URLs (default)
+      #   run: |
+      #     echo "URLs: ${{ inputs.urls }}"
+
+      # - name: Print URLs (base64 decoded)
+      #   run: |
+      #     echo "echo ${{ inputs.urls }} | base64 -d"
 
       # - name: Run Tests
       #   id: run_tests
