@@ -19,15 +19,15 @@ jobs:
           - { project: "coagents-research-canvas", type: "agent", deps: "remote-deps" }
           - { project: "coagents-research-canvas", type: "agent", deps: "local-deps" }
           - { project: "coagents-research-canvas", type: "ui" }
-          - { project: "coagents-ai-researcher", type: "agent", deps: "remote-deps" }
-          - { project: "coagents-ai-researcher", type: "agent", deps: "local-deps" }
-          - { project: "coagents-ai-researcher", type: "ui" }
-          - { project: "coagents-qa-text", type: "agent", deps: "remote-deps" }
-          - { project: "coagents-qa-text", type: "agent", deps: "local-deps" }
-          - { project: "coagents-qa-text", type: "ui" }
-          - { project: "coagents-qa-native", type: "agent", deps: "remote-deps" }
-          - { project: "coagents-qa-native", type: "agent", deps: "local-deps" }
-          - { project: "coagents-qa-native", type: "ui" }
+          # - { project: "coagents-ai-researcher", type: "agent", deps: "remote-deps" }
+          # - { project: "coagents-ai-researcher", type: "agent", deps: "local-deps" }
+          # - { project: "coagents-ai-researcher", type: "ui" }
+          # - { project: "coagents-qa-text", type: "agent", deps: "remote-deps" }
+          # - { project: "coagents-qa-text", type: "agent", deps: "local-deps" }
+          # - { project: "coagents-qa-text", type: "ui" }
+          # - { project: "coagents-qa-native", type: "agent", deps: "remote-deps" }
+          # - { project: "coagents-qa-native", type: "agent", deps: "local-deps" }
+          # - { project: "coagents-qa-native", type: "ui" }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -201,3 +201,10 @@ jobs:
         with:
           comment-tag: preview-status-update
           file-path: ./infra/preview-comment.md
+
+      - name: Trigger E2E Tests
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: trigger-e2e
+          client-payload: '{"pr_number": "${{ github.event.pull_request.number }}", "sha": "${{ github.event.pull_request.head.sha }}", "ref": "${{ github.event.pull_request.head.ref }}"}'
