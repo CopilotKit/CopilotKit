@@ -13,57 +13,43 @@ jobs:
   build_images:
     runs-on: ubuntu-latest
     name: Dockerize
-    strategy:
-      matrix:
-        app:
-          - { PROJECT_NAME: 'coagents-research-canvas-agent-versioned-deps', PROJECT_DESCRIPTION: 'CoAgents Research Canvas (Agent) - Versioned Dependencies', PROJECT_TYPE: 'agent', DEMO_DIR: 'examples/coagents-research-canvas/agent', DOCKERFILE: 'Dockerfile.agent-versioned-deps', RUNTIME: 'poetry', WITH_LOCAL_DEPS: 'false' }
-          # - { name: 'coagents-research-canvas-agent', path: 'examples/coagents-research-canvas/agent', dockerfile: 'Dockerfile.agent-versioned-deps', variant: 'versioned-deps', type: 'poetry' }
-          # - { name: 'coagents-ai-researcher-ui', path: 'examples/coagents-ai-researcher/ui', dockerfile: 'Dockerfile.ui', variant: 'versioned-deps', type: 'node' }
-          # - { name: 'coagents-ai-researcher-agent', path: 'examples/coagents-ai-researcher/agent', dockerfile: 'Dockerfile.agent-versioned-deps', variant: 'versioned-deps', type: 'poetry' }
-          # - { name: 'coagents-qa-native-ui', path: 'examples/coagents-qa-native/ui', dockerfile: 'Dockerfile.ui', variant: 'versioned-deps', type: 'node' }
-          # - { name: 'coagents-qa-native-agent', path: 'examples/coagents-qa-native/agent', dockerfile: 'Dockerfile.agent-versioned-deps', variant: 'versioned-deps', type: 'poetry' }
-          # - { name: 'coagents-qa-text-ui', path: 'examples/coagents-qa-text/ui', dockerfile: 'Dockerfile.ui', variant: 'versioned-deps', type: 'node' }
-          # - { name: 'coagents-qa-text-agent', path: 'examples/coagents-qa-text/agent', dockerfile: 'Dockerfile.agent-versioned-deps', variant: 'versioned-deps', type: 'poetry' }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - uses: dopplerhq/secrets-fetch-action@v1.2.0
-        id: doppler
-        with:
-          doppler-token: ${{ secrets.DOPPLER_TOKEN }}
-          doppler-project: copilotkit-previews
-          doppler-config: prd
+      # - uses: dopplerhq/secrets-fetch-action@v1.2.0
+      #   id: doppler
+      #   with:
+      #     doppler-token: ${{ secrets.DOPPLER_TOKEN }}
+      #     doppler-project: copilotkit-previews
+      #     doppler-config: prd
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "9.5"
+      # - name: Setup pnpm
+      #   uses: pnpm/action-setup@v4
+      #   with:
+      #     version: "9.5"
 
-      - name: (Node) Use Node.js 21
-        if: matrix.app.RUNTIME == 'node'
-        uses: actions/setup-node@v2
-        with:
-          node-version: 21.x
-          cache: 'pnpm'
-          cache-dependency-path: '**/pnpm-lock.yaml'
+      # - name: Use Node.js 21
+      #   uses: actions/setup-node@v2
+      #   with:
+      #     node-version: 21.x
+      #     cache: 'pnpm'
+      #     cache-dependency-path: '**/pnpm-lock.yaml'
 
-      - name: (Node) Install dependencies
-        if: matrix.app.RUNTIME == 'node'
-        working-directory: ./CopilotKit
-        run: pnpm install --frozen-lockfile
+      # - name: Install dependencies
+      #   working-directory: ./CopilotKit
+      #   run: pnpm install --frozen-lockfile
 
-      - name: (Node) Install app
-        if: matrix.app.RUNTIME == 'node'
-        working-directory: ${{ matrix.app.path }}
-        run: pnpm install --frozen-lockfile
+      # - name: Install app
+      #   working-directory: ${{ matrix.app.path }}
+      #   run: pnpm install --frozen-lockfile
 
-      - name: (Node) Build app
-        if: matrix.app.RUNTIME == 'node'
-        working-directory: ${{ matrix.app.path }}
-        run: pnpm run build
-        env:
-          OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
+      # - name: Build app
+      #   if: matrix.app.RUNTIME == 'node'
+      #   working-directory: ${{ matrix.app.path }}
+      #   run: pnpm run build
+      #   env:
+      #     OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -85,12 +71,12 @@ jobs:
         run: |
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 058264219587.dkr.ecr.us-east-1.amazonaws.com
         
-      - name: Build Image
-        run: |
-          docker buildx build -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.PROJECT_NAME }}-${{ github.run_id }} --build-arg APP_DIR=${{ matrix.app.DEMO_DIR }} --secret id=OPENAI_API_KEY . -f ./examples/${{ matrix.app.DOCKERFILE }} --platform=linux/amd64 --provenance=false --push
-        env:
-          DOCKER_BUILDKIT: 1
-          OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
+      # - name: Build Image
+      #   run: |
+      #     docker buildx build -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.PROJECT_NAME }}-${{ github.run_id }} --build-arg APP_DIR=${{ matrix.app.DEMO_DIR }} --secret id=OPENAI_API_KEY . -f ./examples/${{ matrix.app.DOCKERFILE }} --platform=linux/amd64 --provenance=false --push
+      #   env:
+      #     DOCKER_BUILDKIT: 1
+      #     OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
 
       - name: Infra install dependencies
         working-directory: infra
@@ -99,31 +85,11 @@ jobs:
       - name: Install AWS CDK
         run: npm install -g aws-cdk
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Configure AWS Profile
-        run: |
-          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
-          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
-          aws configure set region us-east-1
-
       - name: cdk deploy
         working-directory: ./infra
         run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 10
         env:
-          UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
-          PROJECT_TYPE: ${{ matrix.app.PROJECT_TYPE }}
-          PROJECT_NAME: ${{ matrix.app.PROJECT_NAME }}
-          PROJECT_DESCRIPTION: ${{ matrix.app.PROJECT_DESCRIPTION }}
-          DEMO_DIR: ${{ matrix.app.DEMO_DIR }}
-          IMAGE_TAG: '${{ github.run_id }}-${{ github.run_id}}'
-          OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
-          GITHUB_RUN_ID: "${{ github.run_id }}"
+          PROJECT: "coagents-research-canvas-remote-deps"
 
   # cdk_deploy:
   #   runs-on: ubuntu-latest

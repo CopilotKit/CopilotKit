@@ -5,3 +5,10 @@ export function requireEnv(name: string): string {
   }
   return value;
 }
+
+export function toCdkStackName(input: string) {
+  return input
+    .split("-") // Split the string by hyphens
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1)) // Capitalize each word
+    .join(""); // Join the words back together
+}

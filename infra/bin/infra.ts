@@ -1,47 +1,115 @@
 #!/usr/bin/env node
 import "source-map-support/register";
 import * as cdk from "aws-cdk-lib";
-import { requireEnv } from "../lib/utils";
+import { requireEnv, toCdkStackName } from "../lib/utils";
 import { PreviewProjectStack } from "../lib/demo-project-stack";
+import { ECRImageStack } from "../lib/ecr-image";
+
+const PROJECT = requireEnv("PROJECT");
 
 // app
 const app = new cdk.App();
-const projectType = requireEnv("PROJECT_TYPE");
-const withLocalDependencies = requireEnv("WITH_LOCAL_DEPS") === "true";
-const uniqueEnvironmentId = requireEnv("UNIQUE_ENV_ID");
-const projectName = requireEnv("PROJECT_NAME")
-const projectDescription = requireEnv("PROJECT_DESCRIPTION")
-const demoDir = requireEnv("DEMO_DIR")
-const ecrImageTag = requireEnv("IMAGE_TAG")
 
-function toCdkStackName(input: string) {
-  return input
-      .split('-') // Split the string by hyphens
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1)) // Capitalize each word
-      .join(''); // Join the words back together
-}
+if (PROJECT === "coagents-research-canvas-remote-deps") {
+  const agentWithRemoteDeps = createAgentProjectStack({
+    project: "coagents-research-canvas",
+    description: "CoAgents Research Canvas (Agent) - Remote Depenencies",
+    dependencies: "Remote"
+  });
 
-/**
- * CoAgents Research Canvas Demo
- */
-if (projectType === "agent") {
-  const project = new PreviewProjectStack(app, toCdkStackName(projectName), {
-    env: {
-      account: process.env.CDK_DEFAULT_ACCOUNT,
-    },
-    projectName,
-    projectDescription,
-    demoDir,
-    ecrImageTag,
-    overrideDockerWorkdir: "./",
-    overrideDockerfile: `examples/Dockerfile.agent-${withLocalDependencies ? "local-deps" : "versioned-deps"}`,
-    uniqueEnvironmentId,
-    environmentVariablesFromSecrets: ["OPENAI_API_KEY", "TAVILY_API_KEY"],
-    port: "8000",
-    includeInPRComment: false,
+  const uiWithRemoteDeps = createUIProjectStack({
+    project: "coagents-research-canvas",
+    description: "CoAgents Research Canvas (UI) - Remote Depenencies",
+    dependencies: "Remote",
+    agentProject: agentWithRemoteDeps
   });
 }
 
+if (PROJECT === "coagents-research-canvas-local-deps") {
+  // Local Deps
+  const agentWithLocalDeps = createAgentProjectStack({
+    project: "coagents-research-canvas",
+    description: "CoAgents Research Canvas (Agent) - Local Depenencies",
+    dependencies: "Local"
+  });
+
+  const uiWithLocalDeps = createUIProjectStack({
+    project: "coagents-research-canvas",
+    description: "CoAgents Research Canvas (UI) - Local Depenencies",
+    dependencies: "Local",
+    agentProject: agentWithLocalDeps
+  });
+}
+
+function createAgentProjectStack({
+  project,
+  description,
+  dependencies
+}: {
+  project: string;
+  description: string;
+  dependencies: "Remote" | "Local";
+}) {
+  const cdkStackName = toCdkStackName(project) + "Agent" + dependencies + "Deps";
+  const dockerfile = dependencies === "Remote" ? `examples/Dockerfile.agent-remote-deps` : `examples/Dockerfile.agent-local-deps`;
+
+  const image = new ECRImageStack(app, cdkStackName, {
+    demoDir: `examples/${project}/agent`,
+    overrideDockerfile: dockerfile,
+  });
+
+  return new PreviewProjectStack(app, cdkStackName, {
+    projectName: project,
+    projectDescription: description,
+    demoDir: `examples/${project}/agent`,
+    overrideDockerfile: dockerfile,
+    environmentVariablesFromSecrets: ["OPENAI_API_KEY", "TAVILY_API_KEY"],
+    port: "8000",
+    includeInPRComment: false,
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+    },
+    imageStack: image,
+  });
+}
+
+function createUIProjectStack({
+  project,
+  description,
+  dependencies,
+  agentProject
+}: {
+  project: string;
+  description: string;
+  dependencies: "Remote" | "Local";
+  agentProject: PreviewProjectStack;
+}) {
+  const cdkStackName = toCdkStackName(project) + "UI" + dependencies + "Deps";
+  const dockerfile = dependencies === "Remote" ? `examples/Dockerfile.ui-remote-deps` : `examples/Dockerfile.ui-local-deps`;
+  
+  const image = new ECRImageStack(app, cdkStackName, {
+    demoDir: `examples/${project}/ui`,
+    overrideDockerfile: dockerfile,
+  });
+
+  return new PreviewProjectStack(app, cdkStackName, {
+    projectName: project,
+    projectDescription: `${description} (Dependencies: ${dependencies})`,
+    demoDir: `examples/${project}/ui`,
+    overrideDockerfile: dockerfile,
+    environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
+    environmentVariables: {
+      REMOTE_ACTION_URL: `${agentProject.fnUrl}/copilotkit`,
+    },
+    buildSecrets: ["OPENAI_API_KEY"],
+    port: "3000",
+    includeInPRComment: true,
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+    },
+    imageStack: image,
+  });
+}
 
 // const researchCanvasUIVersionedDeps = new PreviewProjectStack(app, `CoAgentsResearchCanvasDemoUIVersionedDeps`, {
 //   env: {
@@ -51,7 +119,7 @@ if (projectType === "agent") {
 //   demoDir: "examples/coagents-research-canvas/ui",
 //   ecrImageTag: `coagents-research-canvas-ui-${githubRunId}`,
 //   overrideDockerWorkdir: "./",
-//   overrideDockerfile: "examples/Dockerfile.ui", 
+//   overrideDockerfile: "examples/Dockerfile.ui",
 //   uniqueEnvironmentId,
 //   environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
 //   buildSecrets: ["OPENAI_API_KEY"],
@@ -87,7 +155,7 @@ if (projectType === "agent") {
 //   demoDir: "examples/coagents-research-canvas/ui",
 //   ecrImageTag: `coagents-research-canvas-ui-${githubRunId}`,
 //   overrideDockerWorkdir: "./",
-//   overrideDockerfile: "examples/Dockerfile.ui", 
+//   overrideDockerfile: "examples/Dockerfile.ui",
 //   uniqueEnvironmentId,
 //   environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
 //   buildSecrets: ["OPENAI_API_KEY"],
@@ -111,7 +179,7 @@ if (projectType === "agent") {
 //   demoDir: "examples/coagents-ai-researcher/agent",
 //   ecrImageTag: `coagents-research-canvas-agent-${githubRunId}`,
 //   overrideDockerWorkdir: "./",
-//   overrideDockerfile: "examples/Dockerfile.agent", 
+//   overrideDockerfile: "examples/Dockerfile.agent",
 //   uniqueEnvironmentId,
 //   environmentVariablesFromSecrets: ["OPENAI_API_KEY", "TAVILY_API_KEY"],
 //   port: "8000",
@@ -127,7 +195,7 @@ if (projectType === "agent") {
 //   demoDir: "examples/coagents-ai-researcher/ui",
 //   ecrImageTag: `coagents-ai-researcher-ui-${githubRunId}`,
 //   overrideDockerWorkdir: "./",
-//   overrideDockerfile: "examples/Dockerfile.ui", 
+//   overrideDockerfile: "examples/Dockerfile.ui",
 //   uniqueEnvironmentId,
 //   environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
 //   buildSecrets: ["OPENAI_API_KEY"],
@@ -151,7 +219,7 @@ if (projectType === "agent") {
 //   demoDir: "examples/coagents-ai-researcher/agent",
 //   ecrImageTag: `coagents-ai-researcher-agent-${githubRunId}`,
 //   overrideDockerWorkdir: "./",
-//   overrideDockerfile: "examples/Dockerfile.agent", 
+//   overrideDockerfile: "examples/Dockerfile.agent",
 //   uniqueEnvironmentId,
 //   environmentVariablesFromSecrets: ["OPENAI_API_KEY", "TAVILY_API_KEY"],
 //   port: "8000",
@@ -167,7 +235,7 @@ if (projectType === "agent") {
 //   demoDir: "examples/coagents-qa-text/ui",
 //   ecrImageTag: `coagents-qa-text-ui-${githubRunId}`,
 //   overrideDockerWorkdir: "./",
-//   overrideDockerfile: "examples/Dockerfile.ui", 
+//   overrideDockerfile: "examples/Dockerfile.ui",
 //   uniqueEnvironmentId,
 //   environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
 //   buildSecrets: ["OPENAI_API_KEY"],
@@ -191,7 +259,7 @@ if (projectType === "agent") {
 //   demoDir: "examples/coagents-ai-researcher/agent",
 //   ecrImageTag: `coagents-qa-native-agent-${githubRunId}`,
 //   overrideDockerWorkdir: "./",
-//   overrideDockerfile: "examples/Dockerfile.agent", 
+//   overrideDockerfile: "examples/Dockerfile.agent",
 //   uniqueEnvironmentId,
 //   environmentVariablesFromSecrets: ["OPENAI_API_KEY", "TAVILY_API_KEY"],
 //   buildSecrets: ["OPENAI_API_KEY"],
@@ -208,7 +276,7 @@ if (projectType === "agent") {
 //   demoDir: "examples/coagents-qa-native/ui",
 //   ecrImageTag: `coagents-qa-native-ui-${githubRunId}`,
 //   overrideDockerWorkdir: "./",
-//   overrideDockerfile: "examples/Dockerfile.ui", 
+//   overrideDockerfile: "examples/Dockerfile.ui",
 //   uniqueEnvironmentId,
 //   environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
 //   buildSecrets: ["OPENAI_API_KEY"],
