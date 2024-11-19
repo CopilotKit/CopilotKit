@@ -208,6 +208,18 @@ jobs:
       #     token: ${{ secrets.GITHUB_TOKEN }}
       #     event-type: trigger-e2e
       #     client-payload: '{"pr_number": "${{ github.event.pull_request.number }}", "sha": "${{ github.event.pull_request.head.sha }}", "ref": "${{ github.event.pull_request.head.ref }}"}'
+      - name: make dummy file
+        run: |
+          echo "hello from workflow ${{ github.run_id }}" > dummy.txt
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-urls
+          path: dummy.txt
+          if-no-files-found: error
+          retention-days: 1
+      
       - name: Trigger E2E Tests
         uses: benc-uk/workflow-dispatch@v1
         with:
