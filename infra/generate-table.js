@@ -13,16 +13,6 @@ function generateTable() {
 
   const json = JSON.parse(file);
 
-  console.log(json);
-
-
-
-  // const rows = [{
-  //   "Name": "test",
-  //   "Preview (Local Dependencies)": "url"
-  //   "Preview (Remote Dependencies)": "url",
-  // }]
-
   // Group entries by ProjectName
   const projectGroups = Object.values(json).reduce((acc, entry) => {
     if (!acc[entry.ProjectName]) {
@@ -62,19 +52,4 @@ function generateTable() {
   fs.writeFileSync(path.resolve(__dirname, "./preview-comment.md"), md);
 }
 
-// function generateProcessedOutputForTests() {
-//   let output = "";
-//   const json = JSON.parse(file);
-
-//   Object.entries(json)
-//     .filter(([key, value]) => !!value.OutputEnvVariable)
-//     .forEach(([key, value]) => {
-//       const envVariableName = value.OutputEnvVariable;
-//       output += `${envVariableName}="${value.FunctionUrl.replace(/\/$/, '')}"\n`;
-//     });
-
-//   fs.writeFileSync(path.resolve(__dirname, "./.env.test"), output);
-// }
-
 generateTable();
-// generateProcessedOutputForTests();
