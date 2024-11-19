@@ -1,13 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { waitForSteps, waitForResponse, sendChatMessage } from "../lib/helpers";
-import urls from "../urls.json";
-/*
-  Only add urls that test needs
- */
-const projectUrls = [
-  urls["coagents-research-canvas-ui-deps-local"],
-  urls["coagents-research-canvas-ui-deps-remote"],
-];
+import { getProjectConfigs, PROJECT_NAMES } from "../lib/config-helper";
 
 const models = [{ name: "OpenAI", value: "openai" }];
 
@@ -20,50 +13,58 @@ test.beforeAll(async () => {
   );
   await Promise.all([uiFetch, agentFetch]);
   console.log("Warmed up all endpoints");
-  console.log("URLS", urls);
 });
 
-test.describe("Canvas Researcher Demo", () => {
-  projectUrls.forEach((projectUrl) => {
-    models.forEach((model) => {
-      test.skip(`Test ${projectUrl} with model ${model.name}`, async ({
-        page,
-      }) => {
-        await page.goto(`${projectUrl}?coAgentsModel=${model.value}`);
+// Get configurations for Research Canvas project
+const researchCanvasConfigs = getProjectConfigs(PROJECT_NAMES.RESEARCH_CANVAS);
 
-        const researchQuestion = "Lifespan of penguins";
-        await page
-          .getByPlaceholder("Enter your research question")
-          .fill(researchQuestion);
+Object.entries(researchCanvasConfigs).forEach(([projectName, descriptions]) => {
+  test.describe(`${projectName}`, () => {
+    Object.entries(descriptions).forEach(([description, configs]) => {
+      test.describe(`${description}`, () => {
+        configs.forEach((config) => {
+          models.forEach((model) => {
+            test.skip(`Test ${config.key} with model ${model.name}`, async ({
+              page,
+            }) => {
+              await page.goto(`${config.url}?coAgentsModel=${model.value}`);
 
-        await sendChatMessage(
-          page,
-          "Conduct research based on my research question, please"
-        );
+              const researchQuestion = "Lifespan of penguins";
+              await page
+                .getByPlaceholder("Enter your research question")
+                .fill(researchQuestion);
 
-        await waitForSteps(page);
-        await waitForResponse(page);
+              await sendChatMessage(
+                page,
+                "Conduct research based on my research question, please"
+              );
 
-        const resourceCount = await page
-          .locator('[data-test-id="resource"]')
-          .count();
+              await waitForSteps(page);
+              await waitForResponse(page);
 
-        await sendChatMessage(page, `Delete the first resource, please`);
+              const resourceCount = await page
+                .locator('[data-test-id="resource"]')
+                .count();
 
-        const deleteContainer = await page.locator(
-          '[data-test-id="delete-resource-generative-ui-container"]'
-        );
-        expect(deleteContainer).toBeTruthy();
+              await sendChatMessage(page, `Delete the first resource, please`);
 
-        await page.locator('button:has-text("Delete")').click();
-        await waitForResponse(page);
+              const deleteContainer = await page.locator(
+                '[data-test-id="delete-resource-generative-ui-container"]'
+              );
+              expect(deleteContainer).toBeTruthy();
 
-        const newResourceCount = await page
-          .locator('[data-test-id="resource"]')
-          .count();
-        expect(newResourceCount).toBe(resourceCount - 1);
+              await page.locator('button:has-text("Delete")').click();
+              await waitForResponse(page);
 
-        await page.keyboard.press("Enter");
+              const newResourceCount = await page
+                .locator('[data-test-id="resource"]')
+                .count();
+              expect(newResourceCount).toBe(resourceCount - 1);
+
+              await page.keyboard.press("Enter");
+            });
+          });
+        });
       });
     });
   });

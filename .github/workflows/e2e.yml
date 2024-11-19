@@ -63,10 +63,10 @@ jobs:
               status: 'in_progress',
               started_at: new Date().toISOString()
             })
-      - name: Print E2E URLs
+      - name: Print app configs
         working-directory: examples/e2e
         run: |
-          cat urls.json
+          cat app-configs.json
 
       # - name: Run Tests
       #   id: run_tests
