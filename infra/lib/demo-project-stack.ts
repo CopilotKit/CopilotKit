@@ -34,7 +34,7 @@ export interface ProjectStackProps extends cdk.StackProps {
   includeInPRComment?: boolean;
   outputEnvVariable?: string;
   overrideBuildProps?: Partial<cdk.aws_ecr_assets.DockerImageAssetProps>;
-  imageStack: ECRImageStack;
+  imageTag: string;
 }
 
 export class PreviewProjectStack extends cdk.Stack {
@@ -88,7 +88,7 @@ export class PreviewProjectStack extends cdk.Stack {
       Object.assign(buildArgs, props.buildArgs);
     }
 
-    const image = props.imageStack.image;
+    const ecrRepository = ecr.Repository.fromRepositoryName(this, "ECRRepo", "coagents");
 
     const fn = new lambda.Function(this, `Function`, {
       logGroup: logGroup,
@@ -100,8 +100,8 @@ export class PreviewProjectStack extends cdk.Stack {
         PORT: props.port.toString(),
         AWS_LWA_INVOKE_MODE: "RESPONSE_STREAM",
       },
-      code: lambda.Code.fromEcrImage(image.repository, {
-        tagOrDigest: image.imageTag,
+      code: lambda.Code.fromEcrImage(ecrRepository, {
+        tagOrDigest: props.imageTag
       }),
       timeout: cdk.Duration.seconds(props.timeout ?? 300),
       memorySize: props.memorySize ?? 1024,

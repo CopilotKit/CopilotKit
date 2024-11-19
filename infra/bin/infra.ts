@@ -5,41 +5,42 @@ import { requireEnv, toCdkStackName } from "../lib/utils";
 import { PreviewProjectStack } from "../lib/demo-project-stack";
 import { ECRImageStack } from "../lib/ecr-image";
 
-const PROJECT = requireEnv("PROJECT");
+const GITHUB_ACTIONS_RUN_ID = requireEnv("GITHUB_ACTIONS_RUN_ID");
 
 // app
 const app = new cdk.App();
 
-if (PROJECT === "coagents-research-canvas-remote-deps") {
-  const agentWithRemoteDeps = createAgentProjectStack({
-    project: "coagents-research-canvas",
-    description: "CoAgents Research Canvas (Agent) - Remote Depenencies",
-    dependencies: "Remote"
-  });
+/*
+ * Research Canvas
+ */
 
-  const uiWithRemoteDeps = createUIProjectStack({
-    project: "coagents-research-canvas",
-    description: "CoAgents Research Canvas (UI) - Remote Depenencies",
-    dependencies: "Remote",
-    agentProject: agentWithRemoteDeps
-  });
-}
+// Remote Dependencies
+const agentWithRemoteDeps = createAgentProjectStack({
+  project: "coagents-research-canvas",
+  description: "CoAgents Research Canvas (Agent) - Remote Depenencies",
+  dependencies: "Remote"
+});
 
-if (PROJECT === "coagents-research-canvas-local-deps") {
-  // Local Deps
-  const agentWithLocalDeps = createAgentProjectStack({
-    project: "coagents-research-canvas",
-    description: "CoAgents Research Canvas (Agent) - Local Depenencies",
-    dependencies: "Local"
-  });
+const uiWithRemoteDeps = createUIProjectStack({
+  project: "coagents-research-canvas",
+  description: "CoAgents Research Canvas (UI) - Remote Depenencies",
+  dependencies: "Remote",
+  agentProject: agentWithRemoteDeps
+});
 
-  const uiWithLocalDeps = createUIProjectStack({
-    project: "coagents-research-canvas",
-    description: "CoAgents Research Canvas (UI) - Local Depenencies",
-    dependencies: "Local",
-    agentProject: agentWithLocalDeps
-  });
-}
+// Local Dependencies
+const agentWithLocalDeps = createAgentProjectStack({
+  project: "coagents-research-canvas",
+  description: "CoAgents Research Canvas (Agent) - Local Depenencies",
+  dependencies: "Local"
+});
+
+const uiWithLocalDeps = createUIProjectStack({
+  project: "coagents-research-canvas",
+  description: "CoAgents Research Canvas (UI) - Local Depenencies",
+  dependencies: "Local",
+  agentProject: agentWithLocalDeps
+});
 
 function createAgentProjectStack({
   project,
@@ -53,11 +54,6 @@ function createAgentProjectStack({
   const cdkStackName = toCdkStackName(project) + "Agent" + dependencies + "Deps";
   const dockerfile = dependencies === "Remote" ? `examples/Dockerfile.agent-remote-deps` : `examples/Dockerfile.agent-local-deps`;
 
-  const image = new ECRImageStack(app, cdkStackName, {
-    demoDir: `examples/${project}/agent`,
-    overrideDockerfile: dockerfile,
-  });
-
   return new PreviewProjectStack(app, cdkStackName, {
     projectName: project,
     projectDescription: description,
@@ -69,7 +65,7 @@ function createAgentProjectStack({
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
     },
-    imageStack: image,
+    imageTag: `${project}-agent-${dependencies === "Remote" ? "remote-deps" : "local-deps"}-${GITHUB_ACTIONS_RUN_ID}`
   });
 }
 
@@ -86,11 +82,6 @@ function createUIProjectStack({
 }) {
   const cdkStackName = toCdkStackName(project) + "UI" + dependencies + "Deps";
   const dockerfile = dependencies === "Remote" ? `examples/Dockerfile.ui-remote-deps` : `examples/Dockerfile.ui-local-deps`;
-  
-  const image = new ECRImageStack(app, cdkStackName, {
-    demoDir: `examples/${project}/ui`,
-    overrideDockerfile: dockerfile,
-  });
 
   return new PreviewProjectStack(app, cdkStackName, {
     projectName: project,
@@ -107,7 +98,7 @@ function createUIProjectStack({
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
     },
-    imageStack: image,
+    imageTag: `${project}-ui-${dependencies === "Remote" ? "remote-deps" : "local-deps"}-${GITHUB_ACTIONS_RUN_ID}`
   });
 }
 
