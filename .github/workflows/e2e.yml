@@ -63,7 +63,9 @@ jobs:
       - name: Run Tests
         working-directory: ./examples/e2e
         id: run_tests
-        run: pnpm test
+        run: |
+          pnpm test --reporter=list
+          PLAYWRIGHT_DEBUG=1 pnpm test
 
       - name: Update Status Check
         if: always()
