@@ -68,40 +68,11 @@ jobs:
         id: run_tests
         working-directory: ./examples/e2e
         run: |
-          PLAYWRIGHT_DEBUG=1 pnpm exec playwright test
-
-      - name: Process Test Results
-        if: always()
-        working-directory: ./examples/e2e
-        run: |
           echo "## E2E Test Results" > test-run-comment.md
           echo "\`\`\`" >> test-run-comment.md
-          cat playwright-report/test-results.json | jq -r '
-            "Test Summary:\n" +
-            "Total Tests: \(.stats.total)\n" +
-            "Passed: \(.stats.passed)\n" +
-            "Failed: \(.stats.failed)\n" +
-            "Flaky: \(.stats.flaky)\n" +
-            "Skipped: \(.stats.skipped)\n" +
-            "Duration: \(.stats.duration)ms\n\n" +
-            if .stats.failed > 0 then
-              "Failed Tests:\n" + 
-              (.suites[] | select(.specs[].tests[].results[].status == "failed") |
-                "Suite: \(.title)\n" +
-                (.specs[] | select(.tests[].results[].status == "failed") |
-                  "  Test: \(.title)\n" +
-                  (.tests[] | select(.results[].status == "failed") |
-                    "    Error: \(.results[].error.message)\n"
-                  )
-                )
-              )
-            else
-              "All tests passed successfully!\n"
-            end
-          ' >> test-run-comment.md
+          PLAYWRIGHT_DEBUG=1 npx playwright test --reporter=list >> test-run-comment.md 2>&1 || true
           echo "\`\`\`" >> test-run-comment.md
           echo -e "\n[📊 Full Test Report](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})" >> test-run-comment.md
-
       - name: Comment post-deployment
         uses: thollander/actions-comment-pull-request@v3
         with:
