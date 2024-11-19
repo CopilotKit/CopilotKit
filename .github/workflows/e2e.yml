@@ -9,6 +9,9 @@ on:
       ref:
         description: "ref"
         required: true
+      urls:
+        description: "urls"
+        required: true
 
 jobs:
   e2e_tests:
@@ -44,6 +47,14 @@ jobs:
               status: 'in_progress',
               started_at: new Date().toISOString()
             })
+
+      - name: Print URLs (default)
+        run: |
+          echo "URLs: ${{ inputs.urls }}"
+
+      - name: Print URLs (base64 decoded)
+        run: |
+          echo "echo ${{ inputs.urls }} | base64 -d"
 
       # - name: Run Tests
       #   id: run_tests

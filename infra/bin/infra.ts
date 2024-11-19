@@ -23,7 +23,7 @@ const uiWithRemoteDeps = createUIProjectStack({
   project: "coagents-research-canvas",
   description: "CoAgents Research Canvas (UI) - Remote Depenencies",
   dependencies: "Remote",
-  agentProject: agentWithRemoteDeps
+  agentProject: agentWithRemoteDeps,
 });
 
 // // Local Dependencies
