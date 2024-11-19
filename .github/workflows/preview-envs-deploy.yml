@@ -150,12 +150,12 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: '**/pnpm-lock.yaml'
 
-      # - name: Infra install dependencies
-      #   working-directory: infra
-      #   run: pnpm i
+      - name: Infra install dependencies
+        working-directory: infra
+        run: pnpm i
 
-      # - name: Install AWS CDK
-      #   run: npm install -g aws-cdk
+      - name: Install AWS CDK
+        run: npm install -g aws-cdk
 
       # - name: Configure AWS Credentials
       #   uses: aws-actions/configure-aws-credentials@v4

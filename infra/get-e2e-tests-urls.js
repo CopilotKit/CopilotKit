@@ -1,6 +1,5 @@
 const fs = require("fs");
 const path = require("path");
-const json2md = require("json2md");
 
 const file = fs.readFileSync(
   path.resolve(__dirname, "./cdk_outputs_temp.json"),
