@@ -90,6 +90,7 @@ jobs:
         run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 10
         env:
           PROJECT: "coagents-research-canvas-remote-deps"
+          UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
 
   # cdk_deploy:
   #   runs-on: ubuntu-latest
