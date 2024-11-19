@@ -9,6 +9,9 @@ on:
       ref:
         description: "ref"
         required: true
+      urls:
+        description: "urls"
+        required: true
 
 jobs:
   e2e_tests:
@@ -25,12 +28,15 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
 
-      # - name: Download artifact
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: tests-env-file
-      #     path: tests/
-      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Save E2E URLs
+        working-directory: examples/e2e
+        run: |
+          echo "${{ inputs.urls }}" | base64 -d > urls.json
+
+      - name: Print E2E URLs
+        working-directory: examples/e2e
+        run: |
+          cat urls.json
 
       - name: Create Status Check
         uses: actions/github-script@v6

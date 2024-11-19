@@ -83,6 +83,7 @@ export function createUIProjectStack({
 
   const outputs: Record<string,string> = {
     Dependencies: dependencies,
+    EndToEndProjectKey: `${project}-ui-deps-${dependencies.toLocaleLowerCase()}` 
   };
 
   if (process.env.GITHUB_PR_NUMBER) {
