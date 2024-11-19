@@ -1,11 +1,18 @@
 name: End to End Tests
 
 on:
-  repository_dispatch:
-    types: [trigger-e2e]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "sha"
+        required: true
+      ref:
+        description: "ref"
+        required: true
 
 jobs:
   e2e_tests:
+    name: E2E Tests
     runs-on: ubuntu-latest
     permissions:
       checks: write
@@ -14,9 +21,9 @@ jobs:
       statuses: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.client_payload.sha }}
+          ref: ${{ inputs.ref }}
 
       # - name: Download artifact
       #   uses: actions/download-artifact@v4
@@ -33,7 +40,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               name: 'E2E Tests',
-              head_sha: '${{ github.event.client_payload.sha }}',
+              head_sha: '${{ inputs.sha }}',
               status: 'in_progress',
               started_at: new Date().toISOString()
             })
