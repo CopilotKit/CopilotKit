@@ -1,5 +1,14 @@
 # @copilotkit/runtime-client-gql
 
+## 1.3.16-mme-sdk-js.0
+
+### Patch Changes
+
+- Export LangGraph functions
+- Updated dependencies
+  - @copilotkit/runtime@1.3.16-mme-sdk-js.0
+  - @copilotkit/shared@1.3.16-mme-sdk-js.0
+
 ## 1.3.15
 
 ### Patch Changes
