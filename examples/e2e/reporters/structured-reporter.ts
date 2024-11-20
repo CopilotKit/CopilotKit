@@ -10,15 +10,20 @@ import fs from "fs";
 import path from "path";
 import { ConfigMap, getConfigs } from "../lib/config-helper";
 
+export const extractVariant = (description: string) =>
+  description.split("variant ").at(1) as string;
+
 export default class StructuredReporter implements Reporter {
   private groupedResults: {
     [projectName: string]: {
       [description: string]: {
-        [browser: string]: {
-          total: number;
-          passed: number;
-          failed: number;
-          skipped: number;
+        [variant: string]: {
+          [browser: string]: {
+            total: number;
+            passed: number;
+            failed: number;
+            skipped: number;
+          };
         };
       };
     };
@@ -37,11 +42,14 @@ export default class StructuredReporter implements Reporter {
     const projectName = testPath[3];
     const description = testPath[4];
     const browser = testPath[1];
+    const title = testPath[5];
+    const variant = extractVariant(title);
 
     return {
-      projectName,
-      description,
       browser,
+      description,
+      projectName,
+      variant,
     };
   }
 
@@ -50,7 +58,7 @@ export default class StructuredReporter implements Reporter {
       const testInfo = this.getTestInfo(test.title, test.titlePath());
       if (!testInfo) return;
 
-      const { projectName, description, browser } = testInfo;
+      const { projectName, description, browser, variant } = testInfo;
 
       if (!this.groupedResults[projectName]) {
         this.groupedResults[projectName] = {};
@@ -58,8 +66,11 @@ export default class StructuredReporter implements Reporter {
       if (!this.groupedResults[projectName][description]) {
         this.groupedResults[projectName][description] = {};
       }
-      if (!this.groupedResults[projectName][description][browser]) {
-        this.groupedResults[projectName][description][browser] = {
+      if (!this.groupedResults[projectName][description][variant]) {
+        this.groupedResults[projectName][description][variant] = {};
+      }
+      if (!this.groupedResults[projectName][description][variant][browser]) {
+        this.groupedResults[projectName][description][variant][browser] = {
           total: 0,
           passed: 0,
           failed: 0,
@@ -73,8 +84,9 @@ export default class StructuredReporter implements Reporter {
     const testInfo = this.getTestInfo(test.title, test.titlePath());
     if (!testInfo) return;
 
-    const { projectName, description, browser } = testInfo;
-    const stats = this.groupedResults[projectName]?.[description]?.[browser];
+    const { projectName, description, browser, variant } = testInfo;
+    const stats =
+      this.groupedResults[projectName]?.[description]?.[variant]?.[browser];
     if (!stats) return;
 
     stats.total++;
@@ -106,19 +118,24 @@ export default class StructuredReporter implements Reporter {
     for (const [projectName, descriptions] of sortedProjects) {
       parts.push(`## ${projectName}\n`);
 
-      for (const [description, browsers] of Object.entries(descriptions)) {
+      for (const [description, variants] of Object.entries(descriptions)) {
         parts.push(`### ${description}\n`);
 
-        for (const [browser, stats] of Object.entries(browsers)) {
-          const resultParts: string[] = [];
-          resultParts.push(`${stats.passed}/${stats.total} ✅ passed`);
-          if (stats.failed > 0) resultParts.push(`${stats.failed} ❌ failed`);
-          if (stats.skipped > 0)
-            resultParts.push(`${stats.skipped} ⏭️ skipped`);
+        for (const [variant, browsers] of Object.entries(variants)) {
+          // Add variant as a subheading
+          parts.push(`#### ${variant}\n`);
 
-          parts.push(`${browser} → ${resultParts.join(" • ")}\n\n`);
+          for (const [browser, stats] of Object.entries(browsers)) {
+            const resultParts: string[] = [];
+            resultParts.push(`${stats.passed}/${stats.total} ✅ passed`);
+            if (stats.failed > 0) resultParts.push(`${stats.failed} ❌ failed`);
+            if (stats.skipped > 0)
+              resultParts.push(`${stats.skipped} ⏭️ skipped`);
+
+            parts.push(`${browser} → ${resultParts.join(" • ")}\n`);
+          }
+          parts.push("\n");
         }
-        parts.push("\n");
       }
     }
 

@@ -6,12 +6,7 @@ import {
   groupConfigsByDescription,
   PROJECT_NAMES,
 } from "../lib/config-helper";
-
-const models = [
-  { name: "OpenAI", value: "openai" },
-  // { name: "Anthropic", value: "anthropic" },
-  // { name: "Google Generative AI", value: "google_genai" },
-];
+import { variants } from "../lib/variants";
 
 // Get configurations for Research Canvas project
 const allConfigs = getConfigs();
@@ -26,11 +21,11 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
     Object.entries(descriptions).forEach(([description, configs]) => {
       test.describe(`${description}`, () => {
         configs.forEach((config) => {
-          models.forEach((model) => {
-            test(`Test ${config.description} with model ${model.name}`, async ({
+          variants.forEach((model) => {
+            test(`Test ${config.description} with variant ${model.name}`, async ({
               page,
             }) => {
-              await page.goto(`${config.url}?coAgentsModel=${model.value}`);
+              await page.goto(`${config.url}${model.queryParams}`);
 
               const researchQuestion = "Lifespan of penguins";
               await page
