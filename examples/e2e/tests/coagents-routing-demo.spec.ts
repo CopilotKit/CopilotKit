@@ -6,7 +6,12 @@ import {
   groupConfigsByDescription,
   PROJECT_NAMES,
 } from "../lib/config-helper";
-import { variants } from "../lib/variants";
+
+const variants = [
+  { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
+  { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
+  // { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" }, // ? maybe broken
+];
 
 // Get configurations
 const allConfigs = getConfigs();
@@ -21,11 +26,11 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
     Object.entries(descriptions).forEach(([description, configs]) => {
       test.describe(`${description}`, () => {
         configs.forEach((config) => {
-          variants.forEach((model) => {
-            test(`Test ${config.description} with variant ${model.name}`, async ({
+          variants.forEach((variant) => {
+            test(`Test ${config.description} with variant ${variant.name}`, async ({
               page,
             }) => {
-              await page.goto(`${config.url}${model.queryParams}`);
+              await page.goto(`${config.url}${variant.queryParams}`);
 
               // Helpers
               const getJokeContainer = ({ empty }: { empty: boolean }) => page.locator(`[data-test-id="container-joke-${empty ? "empty" : "nonempty"}"]`);
@@ -57,7 +62,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               expect(email).not.toBe("");
 
               // Pirate agent
-              await sendChatMessage(page, "Pirate mode ON");
+              await sendChatMessage(page, "Turn on pirate mode!");
               await waitForResponse(page);
               const pirateModeContainerOn = getPirateModeContainer({ mode: "on" });
               await expect(pirateModeContainerOn).toBeVisible();
