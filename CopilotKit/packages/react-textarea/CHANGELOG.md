@@ -1,5 +1,18 @@
 # ui
 
+## 1.4.0-lgc-alpha3.0
+
+### Minor Changes
+
+- lgc alpha 3
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-core@1.4.0-lgc-alpha3.0
+  - @copilotkit/runtime-client-gql@1.4.0-lgc-alpha3.0
+  - @copilotkit/shared@1.4.0-lgc-alpha3.0
+
 ## 1.3.15
 
 ### Patch Changes

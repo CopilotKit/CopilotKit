@@ -1,5 +1,11 @@
 # tsconfig
 
+## 1.4.0-lgc-alpha3.0
+
+### Minor Changes
+
+- lgc alpha 3
+
 ## 1.3.15
 
 ### Patch Changes
