@@ -6,13 +6,18 @@ import {
   groupConfigsByDescription,
   PROJECT_NAMES,
 } from "../lib/config-helper";
-import { variants } from "../lib/variants";
 
-// Get configurations for Research Canvas project
+const variants = [
+  { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
+  { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
+  // { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" }, // seems broken
+];
+
+// Get configurations
 const allConfigs = getConfigs();
 const researchCanvasConfigs = filterConfigsByProject(
   allConfigs,
-  PROJECT_NAMES.RESEARCH_CANVAS
+  PROJECT_NAMES.COAGENTS_RESEARCH_CANVAS
 );
 const groupedConfigs = groupConfigsByDescription(researchCanvasConfigs);
 
@@ -21,11 +26,11 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
     Object.entries(descriptions).forEach(([description, configs]) => {
       test.describe(`${description}`, () => {
         configs.forEach((config) => {
-          variants.forEach((model) => {
-            test(`Test ${config.description} with variant ${model.name}`, async ({
+          variants.forEach((variant) => {
+            test(`Test ${config.description} with variant ${variant.name}`, async ({
               page,
             }) => {
-              await page.goto(`${config.url}${model.queryParams}`);
+              await page.goto(`${config.url}${variant.queryParams}`);
 
               const researchQuestion = "Lifespan of penguins";
               await page
