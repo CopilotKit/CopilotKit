@@ -161,17 +161,17 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
         throw new Error(`Error event thrown: ${chunk.data.message}`);
       }
 
-    if (chunk.event === "values") {
-      latestStateValues = chunk.data;
-      continue;
-    }
+      if (chunk.event === "values") {
+        latestStateValues = chunk.data;
+        continue;
+      }
 
-    const event = chunk.data;
-    const currentNodeName = event.name;
-    const eventType = event.event;
-    const runId = event.metadata.run_id;
-    externalRunId = runId;
-    const metadata = event.metadata;
+      const event = chunk.data;
+      const currentNodeName = event.name;
+      const eventType = event.event;
+      const runId = event.metadata.run_id;
+      externalRunId = runId;
+      const metadata = event.metadata;
 
       shouldExit =
         shouldExit != null
@@ -190,9 +190,9 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
         nodeName = currentNodeName;
       }
 
-    if (!nodeName) {
-      continue;
-    }
+      if (!nodeName) {
+        continue;
+      }
 
       if (manuallyEmitIntermediateState) {
         if (eventType === LangGraphEventTypes.OnChainEnd) {
@@ -212,27 +212,27 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
         continue;
       }
 
-    if (emitIntermediateState && emitIntermediateStateUntilEnd == null) {
-      emitIntermediateStateUntilEnd = nodeName;
-    }
+      if (emitIntermediateState && emitIntermediateStateUntilEnd == null) {
+        emitIntermediateStateUntilEnd = nodeName;
+      }
 
       if (emitIntermediateState && eventType === LangGraphEventTypes.OnChatModelStart) {
         // reset the streaming state extractor
         streamingStateExtractor = new StreamingStateExtractor(emitIntermediateState);
       }
 
-    let updatedState = latestStateValues;
+      let updatedState = latestStateValues;
 
       if (emitIntermediateState && eventType === LangGraphEventTypes.OnChatModelStream) {
         streamingStateExtractor.bufferToolCalls(event);
       }
 
-    if (emitIntermediateStateUntilEnd !== null) {
-      updatedState = {
-        ...updatedState,
-        ...streamingStateExtractor.extractState(),
-      };
-    }
+      if (emitIntermediateStateUntilEnd !== null) {
+        updatedState = {
+          ...updatedState,
+          ...streamingStateExtractor.extractState(),
+        };
+      }
 
       if (
         !emitIntermediateState &&
@@ -246,44 +246,44 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       const exitingNode =
         nodeName === currentNodeName && eventType === LangGraphEventTypes.OnChainEnd;
 
-    if (
-      JSON.stringify(updatedState) !== JSON.stringify(state) ||
-      prevNodeName != nodeName ||
-      exitingNode
-    ) {
-      state = updatedState;
-      prevNodeName = nodeName;
-      emit(
-        getStateSyncEvent({
-          threadId,
-          runId,
-          agentName: agent.name,
-          nodeName,
-          state,
-          running: true,
-          active: !exitingNode,
-        }),
-      );
+      if (
+        JSON.stringify(updatedState) !== JSON.stringify(state) ||
+        prevNodeName != nodeName ||
+        exitingNode
+      ) {
+        state = updatedState;
+        prevNodeName = nodeName;
+        emit(
+          getStateSyncEvent({
+            threadId,
+            runId,
+            agentName: agent.name,
+            nodeName,
+            state,
+            running: true,
+            active: !exitingNode,
+          }),
+        );
+      }
+
+      emit(JSON.stringify(event) + "\n");
     }
 
-    emit(JSON.stringify(event) + "\n");
-  }
+    state = await client.threads.getState(threadId);
+    const isEndNode = state.next.length === 0;
+    nodeName = Object.keys(state.metadata.writes)[0];
 
-  state = await client.threads.getState(threadId);
-  const isEndNode = state.next.length === 0;
-  nodeName = Object.keys(state.metadata.writes)[0];
-
-  emit(
-    getStateSyncEvent({
-      threadId,
-      runId: externalRunId,
-      agentName: agent.name,
-      nodeName: isEndNode ? "__end__" : nodeName,
-      state: state.values,
-      running: !shouldExit,
-      active: false,
-    }),
-  );
+    emit(
+      getStateSyncEvent({
+        threadId,
+        runId: externalRunId,
+        agentName: agent.name,
+        nodeName: isEndNode ? "__end__" : nodeName,
+        state: state.values,
+        running: !shouldExit,
+        active: false,
+      }),
+    );
 
     return Promise.resolve();
   } catch (e) {
