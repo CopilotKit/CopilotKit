@@ -111,9 +111,10 @@ export default class StructuredReporter implements Reporter {
 
         for (const [browser, stats] of Object.entries(browsers)) {
           const resultParts: string[] = [];
-          resultParts.push(`${stats.passed}/${stats.total} passed`);
-          if (stats.failed > 0) resultParts.push(`${stats.failed} failed`);
-          if (stats.skipped > 0) resultParts.push(`${stats.skipped} skipped`);
+          resultParts.push(`${stats.passed}/${stats.total} ✅ passed`);
+          if (stats.failed > 0) resultParts.push(`${stats.failed} ❌ failed`);
+          if (stats.skipped > 0)
+            resultParts.push(`${stats.skipped} ⏭️ skipped`);
 
           parts.push(`${browser} → ${resultParts.join(" • ")}\n\n`);
         }
