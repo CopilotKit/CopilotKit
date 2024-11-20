@@ -3,9 +3,14 @@
 import { useModelSelectorContext } from "@/lib/model-selector-provider";
 import { useCoAgent, useCopilotAction } from "@copilotkit/react-core";
 import { CopilotPopup } from "@copilotkit/react-ui";
+import { useState } from "react";
 
 export function Mailer() {
   const { model } = useModelSelectorContext();
+  const [messageState, setMessageState] = useState<"SEND" | "CANCEL" | null>(
+    null
+  );
+
   useCoAgent({
     name: "email_agent",
     initialState: {
@@ -24,11 +29,9 @@ export function Mailer() {
 
     handler: async ({ the_email }) => {
       const result = window.confirm(the_email);
-      if (result) {
-        return "SEND";
-      } else {
-        return "CANCEL";
-      }
+      const action = result ? "SEND" : "CANCEL";
+      setMessageState(action);
+      return action;
     },
   });
 
@@ -50,11 +53,16 @@ export function Mailer() {
         data-test-id="mailer-popup"
       />
 
-      {/* These will be dynamically added by the handler */}
-      <div data-test-id="email-success-message" className="hidden">
+      <div
+        data-test-id="email-success-message"
+        className={messageState === "SEND" ? "" : "hidden"}
+      >
         ✅ Sent email.
       </div>
-      <div data-test-id="email-cancel-message" className="hidden">
+      <div
+        data-test-id="email-cancel-message"
+        className={messageState === "CANCEL" ? "" : "hidden"}
+      >
         ❌ Cancelled sending email.
       </div>
     </div>

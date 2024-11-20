@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { waitForSteps, waitForResponse, sendChatMessage } from "../lib/helpers";
+import { sendChatMessage } from "../lib/helpers";
 import {
   getConfigs,
   filterConfigsByProject,
@@ -21,50 +21,40 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
             test(`Test ${config.description} with variant ${model.name}`, async ({
               page,
             }) => {
-              test.setTimeout(30000);
-
-              await page.goto(`${config.url}${model.queryParams}`);
-
-              // Handle dialogs upfront
-              page.on("dialog", async (dialog) => {
-                if (!(await page.locator("text=Cancelled").isVisible())) {
-                  await dialog.dismiss();
+              // Handle dialogs
+              let isFirstDialog = true;
+              page.on("dialog", (dialog) => {
+                if (isFirstDialog) {
+                  isFirstDialog = false;
+                  dialog.dismiss();
                 } else {
-                  await dialog.accept();
+                  dialog.accept();
                 }
               });
 
-              // Look for any visible text that confirms we're on the right page
-              await expect(page.locator("text=Email Q&A example")).toBeVisible({
-                timeout: 10000,
-              });
+              // Navigate to page
+              await page.goto(`${config.url}${model.queryParams}`);
 
-              // Initial email request
+              // First attempt - Cancel
               await sendChatMessage(
                 page,
                 "write an email to the CEO of OpenAI asking for a meeting"
               );
 
-              // Wait for response
-              await waitForSteps(page);
-              await waitForResponse(page);
+              const cancelMessage = page.locator(
+                '[data-test-id="email-cancel-message"]'
+              );
+              await expect(cancelMessage).toHaveText(
+                "❌ Cancelled sending email."
+              );
 
-              // Wait for and verify cancel message (using text instead of test-id)
-              await expect(page.locator("text=Cancelled")).toBeVisible({
-                timeout: 10000,
-              });
-
-              // Redo request
+              // Second attempt - Send
               await sendChatMessage(page, "redo");
 
-              // Wait for response
-              await waitForSteps(page);
-              await waitForResponse(page);
-
-              // Wait for and verify success message (using text instead of test-id)
-              await expect(page.locator("text=Sent")).toBeVisible({
-                timeout: 10000,
-              });
+              const successMessage = page.locator(
+                '[data-test-id="email-success-message"]'
+              );
+              await expect(successMessage).toHaveText("✅ Sent email.");
             });
           });
         });
