@@ -33,11 +33,30 @@ export function Mailer() {
   });
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen">
-      <div className="text-2xl">Email Q&A example</div>
-      <div>e.g. write an email to the CEO of OpenAI asking for a meeting</div>
+    <div
+      className="flex flex-col items-center justify-center h-screen"
+      data-test-id="mailer-container"
+    >
+      <div className="text-2xl" data-test-id="mailer-title">
+        Email Q&A example
+      </div>
+      <div data-test-id="mailer-example">
+        e.g. write an email to the CEO of OpenAI asking for a meeting
+      </div>
 
-      <CopilotPopup defaultOpen={true} clickOutsideToClose={false} />
+      <CopilotPopup
+        defaultOpen={true}
+        clickOutsideToClose={false}
+        data-test-id="mailer-popup"
+      />
+
+      {/* These will be dynamically added by the handler */}
+      <div data-test-id="email-success-message" className="hidden">
+        ✅ Sent email.
+      </div>
+      <div data-test-id="email-cancel-message" className="hidden">
+        ❌ Cancelled sending email.
+      </div>
     </div>
   );
 }
