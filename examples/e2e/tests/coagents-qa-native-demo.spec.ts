@@ -9,7 +9,7 @@ import {
 export const variants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
   { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
-  // { name: "Google Generative AI", value: "?coAgentsModel=google_genai" },
+  // { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" },
   // { name: "LangGraph Cloud", quaeryParams: "?lgc=true" },
 ];
 
@@ -22,8 +22,8 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
     Object.entries(descriptions).forEach(([description, configs]) => {
       test.describe(`${description}`, () => {
         configs.forEach((config) => {
-          variants.forEach((model) => {
-            test(`Test ${config.description} with variant ${model.name}`, async ({
+          variants.forEach((variant) => {
+            test(`Test ${config.description} with variant ${variant.name}`, async ({
               page,
             }) => {
               // Handle dialogs
@@ -38,7 +38,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               });
 
               // Navigate to page
-              await page.goto(`${config.url}${model.queryParams}`);
+              await page.goto(`${config.url}${variant.queryParams}`);
 
               // First attempt - Cancel
               await sendChatMessage(
