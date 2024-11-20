@@ -1,4 +1,3 @@
-// reporters/structured-reporter.ts
 import type {
   FullConfig,
   FullResult,
@@ -7,39 +6,23 @@ import type {
   TestCase,
   TestResult,
 } from "@playwright/test/reporter";
-import json2md from "json2md";
-import { getConfigs, ConfigMap, ConfigItem } from "../lib/config-helper";
 import fs from "fs";
 import path from "path";
-
-interface StatsWithUrls {
-  total: number;
-  passed: number;
-  failed: number;
-  skipped: number;
-  urls: string[];
-}
-
-interface ProjectConfigs {
-  configs: {
-    [description: string]: StatsWithUrls;
-  };
-}
-
-interface GroupedResults {
-  [projectName: string]: ProjectConfigs;
-}
-
-type MarkdownElement = {
-  h1?: string;
-  h2?: string;
-  h3?: string;
-  p?: string;
-  ul?: { content: string; url: string }[];
-};
+import { ConfigMap, getConfigs } from "../lib/config-helper";
 
 export default class StructuredReporter implements Reporter {
-  private groupedResults: GroupedResults = {};
+  private groupedResults: {
+    [projectName: string]: {
+      [description: string]: {
+        [browser: string]: {
+          total: number;
+          passed: number;
+          failed: number;
+          skipped: number;
+        };
+      };
+    };
+  } = {};
   private outputFile: string;
   private configs: ConfigMap;
 
@@ -48,58 +31,39 @@ export default class StructuredReporter implements Reporter {
     this.configs = getConfigs();
   }
 
-  // We know our test structure is:
-  // test.describe(projectName) ->
-  //   test.describe(description) ->
-  //     test(`Test ${config.key} with model ${model.name}`)
-  private getTestInfo(
-    testTitle: string,
-    testPath: string[]
-  ): { configKey: string; projectName: string; description: string } | null {
-    // testPath gives us the describe blocks: [projectName, description]
-    // testTitle gives us the config key from the test title
-    if (testPath.length < 2) return null;
+  private getTestInfo(testTitle: string, testPath: string[]) {
+    if (testPath.length < 6) return null;
 
-    const [projectName, description] = testPath;
-    const titleMatch = testTitle.match(/Test ([\w-]+) with model/);
-    if (!titleMatch) return null;
+    const projectName = testPath[3];
+    const description = testPath[4];
+    const browser = testPath[1];
 
     return {
-      configKey: titleMatch[1],
       projectName,
       description,
+      browser,
     };
   }
 
   onBegin(config: FullConfig, suite: Suite) {
     suite.allTests().forEach((test) => {
       const testInfo = this.getTestInfo(test.title, test.titlePath());
+      if (!testInfo) return;
 
-      if (!testInfo) {
-        return;
-      }
-
-      const { projectName, description } = testInfo;
+      const { projectName, description, browser } = testInfo;
 
       if (!this.groupedResults[projectName]) {
-        this.groupedResults[projectName] = {
-          configs: {},
-        };
+        this.groupedResults[projectName] = {};
       }
-
-      if (!this.groupedResults[projectName].configs[description]) {
-        const testConfig = this.configs[testInfo.configKey];
-        if (!testConfig) {
-          console.warn(`No config found for key: ${testInfo.configKey}`);
-          return;
-        }
-
-        this.groupedResults[projectName].configs[description] = {
+      if (!this.groupedResults[projectName][description]) {
+        this.groupedResults[projectName][description] = {};
+      }
+      if (!this.groupedResults[projectName][description][browser]) {
+        this.groupedResults[projectName][description][browser] = {
           total: 0,
           passed: 0,
           failed: 0,
           skipped: 0,
-          urls: [testConfig.url],
         };
       }
     });
@@ -109,53 +73,59 @@ export default class StructuredReporter implements Reporter {
     const testInfo = this.getTestInfo(test.title, test.titlePath());
     if (!testInfo) return;
 
-    const { projectName, description } = testInfo;
-    const projectStats = this.groupedResults[projectName]?.configs[description];
-    if (!projectStats) return;
+    const { projectName, description, browser } = testInfo;
+    const stats = this.groupedResults[projectName]?.[description]?.[browser];
+    if (!stats) return;
 
-    projectStats.total++;
+    stats.total++;
     switch (result.status) {
       case "passed":
-        projectStats.passed++;
+        stats.passed++;
         break;
       case "skipped":
-        projectStats.skipped++;
+        stats.skipped++;
         break;
       case "failed":
       case "timedOut":
-        projectStats.failed++;
+        stats.failed++;
         break;
     }
   }
 
   onEnd(result: FullResult) {
-    const mdStructure: MarkdownElement[] = [];
-    mdStructure.push({ h1: "Test Results" });
+    const parts = ["# Test Results\n"];
 
-    Object.entries(this.groupedResults).forEach(([projectName, data]) => {
-      mdStructure.push({ h2: projectName });
+    // Add overall status
+    parts.push(`\nStatus: ${result.status}\n`);
+    parts.push(`\nDuration: ${(result.duration / 1000).toFixed(1)}s\n\n`);
 
-      Object.entries(data.configs).forEach(([description, stats]) => {
-        mdStructure.push({ h3: description });
+    const sortedProjects = Object.entries(this.groupedResults).sort(
+      ([nameA], [nameB]) => nameA.localeCompare(nameB)
+    );
 
-        let results = `${stats.passed}/${stats.total} passed`;
-        if (stats.failed > 0) results += ` • ${stats.failed} failed`;
-        if (stats.skipped > 0) results += ` • ${stats.skipped} skipped`;
-        mdStructure.push({ p: results });
+    for (const [projectName, descriptions] of sortedProjects) {
+      parts.push(`## ${projectName}\n`);
 
-        if (stats.urls.length > 0) {
-          mdStructure.push({
-            ul: stats.urls.map((url) => ({ content: url, url })),
-          });
+      for (const [description, browsers] of Object.entries(descriptions)) {
+        parts.push(`### ${description}\n`);
+
+        for (const [browser, stats] of Object.entries(browsers)) {
+          const resultParts: string[] = [];
+          resultParts.push(`${stats.passed}/${stats.total} passed`);
+          if (stats.failed > 0) resultParts.push(`${stats.failed} failed`);
+          if (stats.skipped > 0) resultParts.push(`${stats.skipped} skipped`);
+
+          parts.push(`${browser} → ${resultParts.join(" • ")}\n\n`);
         }
-      });
-    });
+        parts.push("\n");
+      }
+    }
 
     const outputDir = path.dirname(this.outputFile);
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    fs.writeFileSync(this.outputFile, json2md(mdStructure));
+    fs.writeFileSync(this.outputFile, parts.join(""), "utf8");
   }
 }

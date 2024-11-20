@@ -25,6 +25,12 @@ export default defineConfig({
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
     [
+      "json",
+      {
+        outputFile: "test-results/report.json",
+      },
+    ],
+    [
       "./reporters/structured-reporter.ts",
       {
         outputFile: "test-results/test-run-comment.md",
