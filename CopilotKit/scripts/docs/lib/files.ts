@@ -108,4 +108,17 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     description:
       "The useCopilotReadable hook allows you to provide knowledge to your copilot (e.g. application state).",
   },
+  {
+    sourcePath: "packages/react-core/src/hooks/use-coagent-state-render.ts",
+    destinationPath: "docs/content/docs/reference/hooks/useCoAgentStateRender.mdx",
+    hook: "useCoAgentStateRender",
+    description: "The useCoAgentStateRender hook allows you to render the state of a coagent.",
+  },
+  {
+    sourcePath: "packages/react-core/src/hooks/use-coagent.ts",
+    destinationPath: "docs/content/docs/reference/hooks/useCoAgent.mdx",
+    hook: "useCoAgent",
+    description:
+      "The useCoAgent hook allows you to share state bidirectionally between your application and the agent.",
+  },
 ];
