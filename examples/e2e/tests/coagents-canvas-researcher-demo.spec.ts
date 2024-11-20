@@ -9,8 +9,8 @@ import {
 
 const models = [
   { name: "OpenAI", value: "openai" },
-  { name: "Anthropic", value: "anthropic" },
-  { name: "Google Generative AI", value: "google_genai" },
+  // { name: "Anthropic", value: "anthropic" },
+  // { name: "Google Generative AI", value: "google_genai" },
 ];
 
 // Get configurations for Research Canvas project
