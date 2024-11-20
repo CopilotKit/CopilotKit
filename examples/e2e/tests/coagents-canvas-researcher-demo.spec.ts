@@ -13,17 +13,6 @@ const models = [
   { name: "Google Generative AI", value: "google_genai" },
 ];
 
-test.beforeAll(async () => {
-  const uiFetch = fetch(
-    "https://zvmhdot5bsszoxog7hm3jt37ju0vaoah.lambda-url.us-east-1.on.aws/"
-  );
-  const agentFetch = fetch(
-    "https://tc553nczoocujifiqugfqj4ukm0msijo.lambda-url.us-east-1.on.aws/copilotkit/info"
-  );
-  await Promise.all([uiFetch, agentFetch]);
-  console.log("Warmed up all endpoints");
-});
-
 // Get configurations for Research Canvas project
 const allConfigs = getConfigs();
 const researchCanvasConfigs = filterConfigsByProject(
