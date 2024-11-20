@@ -74,7 +74,7 @@ jobs:
         working-directory: ./examples/e2e
         continue-on-error: true
         run: |
-          PLAYWRIGHT_DEBUG=1 pnpm playwright test
+          pnpm playwright test
 
       - name: Comment post-deployment
         uses: thollander/actions-comment-pull-request@v3
