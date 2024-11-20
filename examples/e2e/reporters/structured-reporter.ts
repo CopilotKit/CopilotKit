@@ -104,39 +104,98 @@ export default class StructuredReporter implements Reporter {
     }
   }
 
-  onEnd(result: FullResult) {
-    const parts = ["# Test Results\n"];
+  private calculateSummaryStats() {
+    let totalTests = 0;
+    let totalFailed = 0;
+    let affectedAreas = new Set<string>();
+    let failingModels = new Map<string, number>();
 
-    // Add overall status
-    parts.push(`\nStatus: ${result.status}\n`);
-    parts.push(`\nDuration: ${(result.duration / 1000).toFixed(1)}s\n\n`);
-
-    const sortedProjects = Object.entries(this.groupedResults).sort(
-      ([nameA], [nameB]) => nameA.localeCompare(nameB)
-    );
-
-    for (const [projectName, descriptions] of sortedProjects) {
-      parts.push(`## ${projectName}\n`);
-
+    for (const [, descriptions] of Object.entries(this.groupedResults)) {
       for (const [description, variants] of Object.entries(descriptions)) {
-        parts.push(`### ${description}\n`);
-
         for (const [variant, browsers] of Object.entries(variants)) {
-          // Add variant as a subheading
-          parts.push(`#### ${variant}\n`);
-
-          for (const [browser, stats] of Object.entries(browsers)) {
-            const resultParts: string[] = [];
-            resultParts.push(`${stats.passed}/${stats.total} ✅ passed`);
-            if (stats.failed > 0) resultParts.push(`${stats.failed} ❌ failed`);
-            if (stats.skipped > 0)
-              resultParts.push(`${stats.skipped} ⏭️ skipped`);
-
-            parts.push(`${browser} → ${resultParts.join(" • ")}\n`);
+          for (const [, stats] of Object.entries(browsers)) {
+            totalTests += stats.total;
+            totalFailed += stats.failed;
+            if (stats.failed > 0) {
+              affectedAreas.add(description);
+              failingModels.set(variant, (failingModels.get(variant) || 0) + 1);
+            }
           }
-          parts.push("\n");
         }
       }
+    }
+
+    return {
+      totalTests,
+      totalFailed,
+      affectedAreas: Array.from(affectedAreas),
+      failingModels: Object.fromEntries(failingModels),
+    };
+  }
+
+  onEnd(result: FullResult) {
+    const stats = this.calculateSummaryStats();
+    const passRate = (
+      ((stats.totalTests - stats.totalFailed) / stats.totalTests) *
+      100
+    ).toFixed(1);
+
+    const parts = [
+      "# Test Results\n\n",
+      `**Status**: ${result.status === "passed" ? "✅ Passed" : "❌ Failed"}\n`,
+      `**Duration**: ${(result.duration / 1000).toFixed(1)}s\n`,
+      `**Total Tests**: ${stats.totalTests}\n`,
+      `**Pass Rate**: ${passRate}%\n\n`,
+
+      "## 📊 Summary\n",
+      `- Total Failures: ${stats.totalFailed}\n`,
+      `- Affected Areas: ${stats.affectedAreas.join(", ")}\n`,
+      `- Failing Models: ${Object.entries(stats.failingModels)
+        .map(([model, count]) => `${model} (${count} tests)`)
+        .join(", ")}\n\n`,
+
+      "## 🔍 Detailed Results\n",
+    ];
+
+    // Add detailed results
+    for (const [projectName, descriptions] of Object.entries(
+      this.groupedResults
+    )) {
+      parts.push(`### ${projectName}\n\n`);
+
+      for (const [description, variants] of Object.entries(descriptions)) {
+        parts.push(`#### ${description.replace(" Dependencies", "")}\n`);
+        parts.push("| Model | Browser | Status | Details |\n");
+        parts.push("|-------|---------|---------|---------|\n");
+
+        for (const [variant, browsers] of Object.entries(variants)) {
+          for (const [browser, stats] of Object.entries(browsers)) {
+            const status = stats.failed > 0 ? "❌ FAILED" : "✅ PASSED";
+            parts.push(
+              `| ${variant} | ${browser} | ${status} | ${stats.passed}/${stats.total} passed |\n`
+            );
+          }
+        }
+        parts.push("\n");
+      }
+    }
+
+    // Add analysis if there are failures
+    if (stats.totalFailed > 0) {
+      parts.push("## 💡 Quick Analysis\n");
+      if (stats.totalFailed === stats.totalTests) {
+        parts.push("- All tests failing\n");
+      }
+      if (stats.affectedAreas.length > 1) {
+        parts.push(
+          `- Multiple areas affected: ${stats.affectedAreas.join(", ")}\n`
+        );
+      }
+
+      parts.push("\n## 🏃 Next Steps\n");
+      parts.push("1. Check model connectivity\n");
+      parts.push("2. Review recent changes\n");
+      parts.push("3. Verify test configurations\n");
     }
 
     const outputDir = path.dirname(this.outputFile);
