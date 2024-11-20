@@ -1,3 +1,4 @@
+// lib/config-helper.ts
 import configs from "../app-configs.json";
 
 // Project name constants with type safety
@@ -8,62 +9,59 @@ export const PROJECT_NAMES = {
   RESEARCH_CANVAS: "coagents-research-canvas",
 } as const;
 
-// Create type from project name constants
 export type ProjectName = (typeof PROJECT_NAMES)[keyof typeof PROJECT_NAMES];
 
-interface ConfigItem {
+export interface ConfigItem {
   url: string;
   description: string;
   projectName: ProjectName;
 }
 
-interface ConfigMap {
+export interface ConfigMap {
   [key: string]: ConfigItem;
 }
 
-interface GroupedConfigItem extends ConfigItem {
-  key: string;
-}
-
-interface GroupedConfigs {
-  [projectName: string]: {
-    [description: string]: GroupedConfigItem[];
-  };
-}
+/**
+ * Returns raw config map
+ */
+export const getConfigs = (): ConfigMap => {
+  return configs as ConfigMap;
+};
 
 /**
  * Groups configuration items by project name and description
- * @param targetProjectName - Optional project name to filter configurations
- * @returns Grouped configuration object for the specified project, or all projects if no project name provided
  */
-export const getProjectConfigs = (
-  targetProjectName?: ProjectName
-): GroupedConfigs => {
-  return Object.entries(configs as ConfigMap).reduce((acc, [key, value]) => {
-    // Skip if targetProjectName is provided and doesn't match
-    if (targetProjectName && value.projectName !== targetProjectName) {
-      return acc;
+export const groupConfigsByDescription = (
+  configs: ConfigMap
+): Record<ProjectName, Record<string, ConfigItem[]>> => {
+  return Object.entries(configs).reduce((acc, [key, value]) => {
+    const { projectName, description } = value;
+
+    if (!acc[projectName]) {
+      acc[projectName] = {};
     }
 
-    // Create project group if it doesn't exist
-    if (!acc[value.projectName]) {
-      acc[value.projectName] = {};
+    if (!acc[projectName][description]) {
+      acc[projectName][description] = [];
     }
 
-    // Group by description (removing the project name for cleaner grouping)
-    const baseDescription = value.description.replace(
-      `${value.projectName} - `,
-      ""
-    );
-    if (!acc[value.projectName][baseDescription]) {
-      acc[value.projectName][baseDescription] = [];
-    }
-
-    acc[value.projectName][baseDescription].push({
-      key,
-      ...value,
-    });
+    acc[projectName][description].push({ ...value, key });
 
     return acc;
-  }, {} as GroupedConfigs);
+  }, {} as Record<ProjectName, Record<string, ConfigItem[]>>);
+};
+
+/**
+ * Filter configs by project name
+ */
+export const filterConfigsByProject = (
+  configs: ConfigMap,
+  projectName: ProjectName
+): ConfigMap => {
+  return Object.entries(configs).reduce((acc, [key, value]) => {
+    if (value.projectName === projectName) {
+      acc[key] = value;
+    }
+    return acc;
+  }, {} as ConfigMap);
 };

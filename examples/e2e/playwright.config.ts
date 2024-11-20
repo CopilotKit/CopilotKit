@@ -24,9 +24,13 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
-    ["json", { outputFile: "playwright-report/test-results.json" }],
-    ...(process.env.CI ? [["blob"]] : []),
-  ] as ReporterDescription[],
+    [
+      "./reporters/structured-reporter.ts",
+      {
+        outputFile: "test-results/test-run-comment.md",
+      },
+    ],
+  ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */

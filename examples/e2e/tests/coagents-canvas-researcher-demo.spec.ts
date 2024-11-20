@@ -1,6 +1,11 @@
 import { test, expect } from "@playwright/test";
 import { waitForSteps, waitForResponse, sendChatMessage } from "../lib/helpers";
-import { getProjectConfigs, PROJECT_NAMES } from "../lib/config-helper";
+import {
+  getConfigs,
+  filterConfigsByProject,
+  groupConfigsByDescription,
+  PROJECT_NAMES,
+} from "../lib/config-helper";
 
 const models = [{ name: "OpenAI", value: "openai" }];
 
@@ -16,15 +21,20 @@ test.beforeAll(async () => {
 });
 
 // Get configurations for Research Canvas project
-const researchCanvasConfigs = getProjectConfigs(PROJECT_NAMES.RESEARCH_CANVAS);
+const allConfigs = getConfigs();
+const researchCanvasConfigs = filterConfigsByProject(
+  allConfigs,
+  PROJECT_NAMES.RESEARCH_CANVAS
+);
+const groupedConfigs = groupConfigsByDescription(researchCanvasConfigs);
 
-Object.entries(researchCanvasConfigs).forEach(([projectName, descriptions]) => {
+Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
   test.describe(`${projectName}`, () => {
     Object.entries(descriptions).forEach(([description, configs]) => {
       test.describe(`${description}`, () => {
         configs.forEach((config) => {
           models.forEach((model) => {
-            test.skip(`Test ${config.key} with model ${model.name}`, async ({
+            test(`Test ${config.description} with model ${model.name}`, async ({
               page,
             }) => {
               await page.goto(`${config.url}?coAgentsModel=${model.value}`);
