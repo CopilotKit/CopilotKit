@@ -8,7 +8,50 @@ import type {
 } from "@playwright/test/reporter";
 import fs from "fs";
 import path from "path";
+import json2md from "json2md";
 import { ConfigMap, getConfigs } from "../lib/config-helper";
+
+// Define custom types
+type MarkdownContent = {
+  h1?: string;
+  h2?: string;
+  h3?: string;
+  h4?: string;
+  p?: string | string[];
+  ul?: string[];
+  ol?: string[];
+  table?: {
+    headers: string[];
+    rows: string[][];
+  };
+  tableWithAlignment?: {
+    headers: string[];
+    rows: string[][];
+  };
+};
+
+type TableInput = {
+  headers: string[];
+  rows: string[][];
+};
+
+// Add custom converter
+(json2md as any).converters.tableWithAlignment = function (input: TableInput) {
+  if (!input.headers || !input.rows) return "";
+
+  const header = `| ${input.headers
+    .map((h: string) => h.padEnd(8))
+    .join(" | ")} |\n`;
+  const separator = `| ${input.headers.map(() => "--------").join(" | ")} |\n`;
+  const rows = input.rows
+    .map(
+      (row: string[]) =>
+        `| ${row.map((cell: string) => cell.padEnd(8)).join(" | ")} |`
+    )
+    .join("\n");
+
+  return `${header}${separator}${rows}\n`;
+};
 
 export const extractVariant = (description: string) =>
   description.split("variant ").at(1) as string;
@@ -140,69 +183,94 @@ export default class StructuredReporter implements Reporter {
       100
     ).toFixed(1);
 
-    const parts = [
-      "# Test Results\n\n",
-      `**Status**: ${result.status === "passed" ? "✅ Passed" : "❌ Failed"}\n`,
-      `**Duration**: ${(result.duration / 1000).toFixed(1)}s\n`,
-      `**Total Tests**: ${stats.totalTests}\n`,
-      `**Pass Rate**: ${passRate}%\n\n`,
-
-      "## 📊 Summary\n",
-      `- Total Failures: ${stats.totalFailed}\n`,
-      `- Affected Areas: ${stats.affectedAreas.join(", ")}\n`,
-      `- Failing Models: ${Object.entries(stats.failingModels)
-        .map(([model, count]) => `${model} (${count} tests)`)
-        .join(", ")}\n\n`,
-
-      "## 🔍 Detailed Results\n",
+    const mdContent: MarkdownContent[] = [
+      { h1: "Test Results" },
+      {
+        p: `**Status**: ${
+          result.status === "passed" ? "✅ Passed" : "❌ Failed"
+        }`,
+      },
+      { p: `**Duration**: ${(result.duration / 1000).toFixed(1)}s` },
+      { p: `**Total Tests**: ${stats.totalTests}` },
+      { p: `**Pass Rate**: ${passRate}%` },
+      { h2: "📊 Summary" },
+      {
+        ul: [
+          `Total Failures: ${stats.totalFailed}`,
+          `Affected Areas: ${stats.affectedAreas.join(", ")}`,
+          `Failing Models: ${Object.entries(stats.failingModels)
+            .map(([model, count]) => `${model} (${count} tests)`)
+            .join(", ")}`,
+        ],
+      },
+      { h2: "🔍 Detailed Results" },
     ];
 
-    // Add detailed results
-    for (const [projectName, descriptions] of Object.entries(
-      this.groupedResults
-    )) {
-      parts.push(`### ${projectName}\n\n`);
+    // Generate detailed results
+    Object.entries(this.groupedResults).forEach(
+      ([projectName, descriptions]) => {
+        mdContent.push({ h3: projectName });
 
-      for (const [description, variants] of Object.entries(descriptions)) {
-        parts.push(`#### ${description.replace(" Dependencies", "")}\n`);
-        parts.push("| Model | Browser | Status | Details |\n");
-        parts.push("|-------|---------|---------|---------|\n");
-
-        for (const [variant, browsers] of Object.entries(variants)) {
-          for (const [browser, stats] of Object.entries(browsers)) {
-            const status = stats.failed > 0 ? "❌ FAILED" : "✅ PASSED";
-            parts.push(
-              `| ${variant} | ${browser} | ${status} | ${stats.passed}/${stats.total} passed |\n`
-            );
-          }
-        }
-        parts.push("\n");
+        Object.entries(descriptions).forEach(([description, variants]) => {
+          mdContent.push(
+            { h4: description.replace(" Dependencies", "") },
+            {
+              tableWithAlignment: {
+                headers: ["Model", "Browser", "Status", "Details"],
+                rows: Object.entries(variants).flatMap(([variant, browsers]) =>
+                  Object.entries(browsers).map(([browser, stats]) => [
+                    variant,
+                    browser,
+                    stats.failed > 0 ? "❌ FAILED" : "✅ PASSED",
+                    `${stats.passed}/${stats.total} passed`,
+                  ])
+                ),
+              },
+            }
+          );
+        });
       }
-    }
+    );
 
-    // Add analysis if there are failures
+    // Add analysis if needed
     if (stats.totalFailed > 0) {
-      parts.push("## 💡 Quick Analysis\n");
-      if (stats.totalFailed === stats.totalTests) {
-        parts.push("- All tests failing\n");
-      }
-      if (stats.affectedAreas.length > 1) {
-        parts.push(
-          `- Multiple areas affected: ${stats.affectedAreas.join(", ")}\n`
-        );
-      }
-
-      parts.push("\n## 🏃 Next Steps\n");
-      parts.push("1. Check model connectivity\n");
-      parts.push("2. Review recent changes\n");
-      parts.push("3. Verify test configurations\n");
+      mdContent.push(
+        { h2: "💡 Quick Analysis" },
+        {
+          ul: [
+            ...(stats.totalFailed === stats.totalTests
+              ? ["All tests failing"]
+              : []),
+            ...(stats.affectedAreas.length > 1
+              ? [`Multiple areas affected: ${stats.affectedAreas.join(", ")}`]
+              : []),
+          ],
+        },
+        { h2: "🏃 Next Steps" },
+        {
+          ol: [
+            "Check model connectivity",
+            "Review recent changes",
+            "Verify test configurations",
+          ],
+        }
+      );
     }
+
+    // Convert to markdown and clean up extra newlines
+    let markdown = json2md(mdContent as any);
+
+    // Clean up extra newlines while preserving formatting
+    markdown = markdown
+      .replace(/\n{3,}/g, "\n\n") // Replace 3+ newlines with 2
+      .replace(/(\|.*\|\n)\n+(?=\|)/g, "$1") // Remove extra newlines in tables
+      .replace(/(\n\n)(#+\s)/g, "$1$2"); // Preserve spacing before headers
 
     const outputDir = path.dirname(this.outputFile);
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    fs.writeFileSync(this.outputFile, parts.join(""), "utf8");
+    fs.writeFileSync(this.outputFile, markdown, "utf8");
   }
 }
