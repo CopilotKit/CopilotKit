@@ -92,7 +92,7 @@ export function createUIProjectStack({
 
   return new PreviewProjectStack(app, cdkStackName, {
     projectName: project,
-    projectDescription: `${description} (Dependencies: ${dependencies})`,
+    projectDescription: `${description}`,
     demoDir: `examples/${project}/ui`,
     overrideDockerfile: dockerfile,
     environmentVariablesFromSecrets: ["OPENAI_API_KEY"],

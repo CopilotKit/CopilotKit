@@ -13,7 +13,11 @@ function generateTable() {
   // Group entries by ProjectName
   Object.values(json).forEach((value) => {
     if (value.EndToEndProjectKey) {
-      e2eUrls[value.EndToEndProjectKey] = value.FunctionUrl;
+      e2eUrls[value.EndToEndProjectKey] = {
+        url: value.FunctionUrl,
+        description: value.ProjectDescription,
+        projectName: value.ProjectName
+      };
     }
   }, {});
 
