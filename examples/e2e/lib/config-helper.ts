@@ -3,10 +3,10 @@ import configs from "../app-configs.json";
 
 // Project name constants with type safety
 export const PROJECT_NAMES = {
-  AI_RESEARCHER: "coagents-ai-researcher",
-  QA_NATIVE: "coagents-qa-native",
-  QA_TEXT: "coagents-qa-text",
-  RESEARCH_CANVAS: "coagents-research-canvas",
+  COAGENTS_RESEARCH_CANVAS: "coagents-research-canvas",
+  COAGENTS_QA_NATIVE: "coagents-qa-native",
+  COAGENTS_QA_TEXT: "coagents-qa-text",
+  COAGENTS_ROUTING: "coagents-routing",
 } as const;
 
 export type ProjectName = (typeof PROJECT_NAMES)[keyof typeof PROJECT_NAMES];

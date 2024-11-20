@@ -12,7 +12,7 @@ import { variants } from "../lib/variants";
 const allConfigs = getConfigs();
 const researchCanvasConfigs = filterConfigsByProject(
   allConfigs,
-  PROJECT_NAMES.RESEARCH_CANVAS
+  PROJECT_NAMES.COAGENTS_RESEARCH_CANVAS
 );
 const groupedConfigs = groupConfigsByDescription(researchCanvasConfigs);
 
