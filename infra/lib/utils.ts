@@ -48,7 +48,7 @@ export function createAgentProjectStack({
     projectDescription: description,
     demoDir: `examples/${project}/agent`,
     overrideDockerfile: dockerfile,
-    environmentVariablesFromSecrets: ["OPENAI_API_KEY", "TAVILY_API_KEY"],
+    environmentVariablesFromSecrets: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "TAVILY_API_KEY"],
     port: "8000",
     includeInPRComment: false,
     env: {
