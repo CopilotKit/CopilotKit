@@ -95,9 +95,10 @@ export function createUIProjectStack({
     projectDescription: `${description} (Dependencies: ${dependencies})`,
     demoDir: `examples/${project}/ui`,
     overrideDockerfile: dockerfile,
-    environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
+    environmentVariablesFromSecrets: ["OPENAI_API_KEY", "LANGSMITH_API_KEY"],
     environmentVariables: {
       REMOTE_ACTION_URL: `${agentProject.fnUrl}/copilotkit`,
+      LGC_DEPLOYMENT_URL: `https://coagents-research-canvas-br-cda7ddd686245735b2653e48370427b9.default.us.langgraph.app`,
     },
     buildSecrets: ["OPENAI_API_KEY"],
     port: "3000",
