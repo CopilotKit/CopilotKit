@@ -195,20 +195,18 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       }
 
       if (manuallyEmitIntermediateState) {
-        if (eventType === LangGraphEventTypes.OnChainEnd) {
-          state = event.data.output;
-          emit(
-            getStateSyncEvent({
-              threadId,
-              runId,
-              agentName: agent.name,
-              nodeName,
-              state: event.data.output,
-              running: true,
-              active: true,
-            }),
-          );
-        }
+        state = event.data;
+        emit(
+          getStateSyncEvent({
+            threadId,
+            runId,
+            agentName: agent.name,
+            nodeName,
+            state,
+            running: true,
+            active: true,
+          }),
+        );
         continue;
       }
 

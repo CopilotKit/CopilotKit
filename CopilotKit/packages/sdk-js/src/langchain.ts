@@ -16,7 +16,7 @@ interface OptionsConfig {
 }
 
 export function copilotKitCustomizeConfig(
-  baseConfig?: RunnableConfig,
+  baseConfig: RunnableConfig,
   options?: OptionsConfig,
 ): RunnableConfig {
   const metadata = baseConfig?.metadata || {};
