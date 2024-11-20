@@ -67,12 +67,16 @@ export function createUIProjectStack({
   description,
   dependencies,
   agentProject,
+  environmentVariables,
+  environmentVariablesFromSecrets,
 }: {
   app: App;
   project: string;
   description: string;
   dependencies: "Remote" | "Local";
   agentProject: PreviewProjectStack;
+  environmentVariables?: Record<string, string>;
+  environmentVariablesFromSecrets?: string[];
 }) {
   const cdkStackName = toCdkStackName(project) + "UI" + dependencies + "Deps";
   const dockerfile =
@@ -95,10 +99,10 @@ export function createUIProjectStack({
     projectDescription: `${description} (Dependencies: ${dependencies})`,
     demoDir: `examples/${project}/ui`,
     overrideDockerfile: dockerfile,
-    environmentVariablesFromSecrets: ["OPENAI_API_KEY", "LANGSMITH_API_KEY"],
+    environmentVariablesFromSecrets: ["OPENAI_API_KEY", "LANGSMITH_API_KEY", ...environmentVariablesFromSecrets ?? []],
     environmentVariables: {
       REMOTE_ACTION_URL: `${agentProject.fnUrl}/copilotkit`,
-      LGC_DEPLOYMENT_URL: `https://coagents-research-canvas-br-cda7ddd686245735b2653e48370427b9.default.us.langgraph.app`,
+      ...environmentVariables,
     },
     buildSecrets: ["OPENAI_API_KEY"],
     port: "3000",
