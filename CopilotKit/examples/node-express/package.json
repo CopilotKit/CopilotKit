@@ -1,6 +1,6 @@
 {
   "name": "node-express",
-  "version": "1.3.16-mme-sdk-js.0",
+  "version": "1.3.16-mme-sdk-js.1",
   "private": true,
   "scripts": {
     "example-start": "node dist/index.js",

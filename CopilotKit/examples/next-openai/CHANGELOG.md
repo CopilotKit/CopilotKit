@@ -1,5 +1,17 @@
 # web
 
+## 1.3.16-mme-sdk-js.1
+
+### Patch Changes
+
+- Update lockfile
+- Updated dependencies
+  - @copilotkit/react-textarea@1.3.16-mme-sdk-js.1
+  - @copilotkit/react-core@1.3.16-mme-sdk-js.1
+  - @copilotkit/react-ui@1.3.16-mme-sdk-js.1
+  - @copilotkit/runtime@1.3.16-mme-sdk-js.1
+  - @copilotkit/shared@1.3.16-mme-sdk-js.1
+
 ## 1.3.16-mme-sdk-js.0
 
 ### Patch Changes

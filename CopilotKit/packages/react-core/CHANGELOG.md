@@ -1,5 +1,14 @@
 # ui
 
+## 1.3.16-mme-sdk-js.1
+
+### Patch Changes
+
+- Update lockfile
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.3.16-mme-sdk-js.1
+  - @copilotkit/shared@1.3.16-mme-sdk-js.1
+
 ## 1.3.16-mme-sdk-js.0
 
 ### Patch Changes
