@@ -6,7 +6,12 @@ import {
   groupConfigsByDescription,
   PROJECT_NAMES,
 } from "../lib/config-helper";
-import { variants } from "../lib/variants";
+export const variants = [
+  { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
+  { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
+  // { name: "Google Generative AI", value: "?coAgentsModel=google_genai" },
+  // { name: "LangGraph Cloud", quaeryParams: "?lgc=true" },
+];
 
 const allConfigs = getConfigs();
 const qaConfigs = filterConfigsByProject(allConfigs, PROJECT_NAMES.QA_NATIVE);
