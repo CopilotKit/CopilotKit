@@ -38,16 +38,22 @@ export const graph = workflow.compile({
 
 function route(state: AgentState) {
   const messages = state.messages || [];
+
   if (
     messages.length > 0 &&
-    messages[messages.length - 1].constructor.name === "AIMessage"
+    messages[messages.length - 1].constructor.name === "AIMessageChunk"
   ) {
     const aiMessage = messages[messages.length - 1] as AIMessage;
 
-    if (aiMessage.tool_calls && aiMessage.tool_calls[0].name === "Search") {
+    if (
+      aiMessage.tool_calls &&
+      aiMessage.tool_calls.length > 0 &&
+      aiMessage.tool_calls[0].name === "Search"
+    ) {
       return "search_node";
     } else if (
       aiMessage.tool_calls &&
+      aiMessage.tool_calls.length > 0 &&
       aiMessage.tool_calls[0].name === "DeleteResources"
     ) {
       return "delete_node";

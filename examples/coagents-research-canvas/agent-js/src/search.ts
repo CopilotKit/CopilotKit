@@ -17,6 +17,10 @@ import {
   ToolMessage,
 } from "@langchain/core/messages";
 import { getModel } from "./model";
+import {
+  copilotKitCustomizeConfig,
+  copilotKitEmitState,
+} from "@copilotkit/sdk-js";
 
 const ResourceInput = z.object({
   url: z.string().describe("The URL of the resource"),
@@ -50,8 +54,7 @@ export async function search_node(state: AgentState, config: RunnableConfig) {
     });
   }
 
-  // TODO
-  //     await copilotkit_emit_state(config, state)
+  await copilotKitEmitState(config, state);
 
   const search_results = [];
 
@@ -60,20 +63,18 @@ export async function search_node(state: AgentState, config: RunnableConfig) {
     const response = await tavilyClient.search(query, {});
     search_results.push(response);
     state["logs"][i]["done"] = true;
-
-    // TODO
-    // await copilotkit_emit_state(config, state);
+    await copilotKitEmitState(config, state);
   }
 
-  // TODO
-  // config = copilotkit_customize_config(
-  //   config,
-  //   emit_intermediate_state=[{
-  //       "state_key": "resources",
-  //       "tool": "ExtractResources",
-  //       "tool_argument": "resources",
-  //   }],
-  // )
+  const customConfig = copilotKitCustomizeConfig(config, {
+    emitIntermediateState: [
+      {
+        stateKey: "resources",
+        tool: "ExtractResources",
+        toolArgument: "resources",
+      },
+    ],
+  });
 
   const model = getModel(state);
   const invokeArgs: Record<string, any> = {};
@@ -93,15 +94,15 @@ export async function search_node(state: AgentState, config: RunnableConfig) {
       new ToolMessage({
         tool_call_id: aiMessage.tool_calls![0]["id"]!,
         content: `Performed search: ${search_results}`,
+        name: "ExtractResources",
       }),
     ],
-    config
+    customConfig
   );
 
   state["logs"] = [];
 
-  // TODO
-  // await copilotkit_emit_state(config, state);
+  await copilotKitEmitState(config, state);
 
   const aiMessageResponse = response as AIMessage;
   const resources = aiMessageResponse.tool_calls![0]["args"]["resources"];
@@ -112,6 +113,7 @@ export async function search_node(state: AgentState, config: RunnableConfig) {
     new ToolMessage({
       tool_call_id: aiMessage.tool_calls![0]["id"]!,
       content: `Added the following resources: ${resources}`,
+      name: "ExtractResources",
     })
   );
 

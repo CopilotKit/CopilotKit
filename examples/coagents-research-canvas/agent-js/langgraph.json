@@ -1,9 +1,9 @@
 {
-  "python_version": "3.12",
+  "node_version": "20",
   "dockerfile_lines": [],
   "dependencies": ["."],
   "graphs": {
-    "research_canvas": "./research_canvas/agent.py:graph"
+    "research_canvas": "./src/agent.ts:graph"
   },
   "env": ".env"
 }

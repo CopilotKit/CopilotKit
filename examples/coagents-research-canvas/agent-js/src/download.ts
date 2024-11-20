@@ -7,6 +7,7 @@
 import { RunnableConfig } from "@langchain/core/runnables";
 import { AgentState } from "./state";
 import { htmlToText } from "html-to-text";
+import { copilotKitEmitState } from "@copilotkit/sdk-js";
 
 const RESOURCE_CACHE: Record<string, string> = {};
 
@@ -55,17 +56,14 @@ export async function download_node(state: AgentState, config: RunnableConfig) {
   }
 
   // Emit the state to let the UI update
-  // TODO
-  // await copilotkit_emit_state(config, state);
+  await copilotKitEmitState(config, state);
 
   // Download the resources
   for (let i = 0; i < resourcesToDownload.length; i++) {
     const resource = resourcesToDownload[i];
     await downloadResource(resource.url);
     state["logs"][logsOffset + i]["done"] = true;
-
-    // TODO
-    // await copilotkit_emit_state(config, state);
+    await copilotKitEmitState(config, state);
   }
   return state;
 }
