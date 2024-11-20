@@ -7,7 +7,11 @@ import {
   PROJECT_NAMES,
 } from "../lib/config-helper";
 
-const models = [{ name: "OpenAI", value: "openai" }];
+const models = [
+  { name: "OpenAI", value: "openai" },
+  { name: "Anthropic", value: "anthropic" },
+  { name: "Google Generative AI", value: "google_genai" },
+];
 
 test.beforeAll(async () => {
   const uiFetch = fetch(
