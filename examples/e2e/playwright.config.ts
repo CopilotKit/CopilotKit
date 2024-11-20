@@ -1,4 +1,4 @@
-import { defineConfig, devices, ReporterDescription } from "@playwright/test";
+import { defineConfig, devices } from "@playwright/test";
 
 /**
  * Read environment variables from file.
@@ -24,12 +24,6 @@ export default defineConfig({
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
     [
-      "json",
-      {
-        outputFile: "test-results/report.json",
-      },
-    ],
-    [
       "./reporters/structured-reporter.ts",
       {
         outputFile: "test-results/test-run-comment.md",
@@ -50,16 +44,6 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-    },
-
-    {
-      name: "firefox",
-      use: { ...devices["Desktop Firefox"] },
-    },
-
-    {
-      name: "webkit",
-      use: { ...devices["Desktop Safari"] },
     },
   ],
 
