@@ -1,5 +1,17 @@
 # next-pages-router
 
+## 1.3.16-mme-sdk-js.2
+
+### Patch Changes
+
+- Ensure intermediate state config is sent as snake case
+- Updated dependencies
+  - @copilotkit/react-textarea@1.3.16-mme-sdk-js.2
+  - @copilotkit/react-core@1.3.16-mme-sdk-js.2
+  - @copilotkit/react-ui@1.3.16-mme-sdk-js.2
+  - @copilotkit/runtime@1.3.16-mme-sdk-js.2
+  - @copilotkit/shared@1.3.16-mme-sdk-js.2
+
 ## 1.3.16-mme-sdk-js.1
 
 ### Patch Changes
