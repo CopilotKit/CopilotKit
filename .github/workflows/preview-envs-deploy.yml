@@ -40,6 +40,17 @@ jobs:
             }
           - { project: "coagents-qa-native", type: "agent", deps: "local-deps" }
           - { project: "coagents-qa-native", type: "ui" }
+          - {
+              project: "coagents-recipe-canvas",
+              type: "agent",
+              deps: "remote-deps",
+            }
+          - {
+              project: "coagents-recipe-canvas",
+              type: "agent",
+              deps: "local-deps",
+            }
+          - { project: "coagents-recipe-canvas", type: "ui" }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
