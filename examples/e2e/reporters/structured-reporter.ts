@@ -8,7 +8,50 @@ import type {
 } from "@playwright/test/reporter";
 import fs from "fs";
 import path from "path";
+import json2md from "json2md";
 import { ConfigMap, getConfigs } from "../lib/config-helper";
+
+// Define custom types
+type MarkdownContent = {
+  h1?: string;
+  h2?: string;
+  h3?: string;
+  h4?: string;
+  p?: string | string[];
+  ul?: string[];
+  ol?: string[];
+  table?: {
+    headers: string[];
+    rows: string[][];
+  };
+  tableWithAlignment?: {
+    headers: string[];
+    rows: string[][];
+  };
+};
+
+type TableInput = {
+  headers: string[];
+  rows: string[][];
+};
+
+// Add custom converter
+(json2md as any).converters.tableWithAlignment = function (input: TableInput) {
+  if (!input.headers || !input.rows) return "";
+
+  const header = `| ${input.headers
+    .map((h: string) => h.padEnd(8))
+    .join(" | ")} |\n`;
+  const separator = `| ${input.headers.map(() => "--------").join(" | ")} |\n`;
+  const rows = input.rows
+    .map(
+      (row: string[]) =>
+        `| ${row.map((cell: string) => cell.padEnd(8)).join(" | ")} |`
+    )
+    .join("\n");
+
+  return `${header}${separator}${rows}\n`;
+};
 
 export const extractVariant = (description: string) =>
   description.split("variant ").at(1) as string;
@@ -104,46 +147,144 @@ export default class StructuredReporter implements Reporter {
     }
   }
 
-  onEnd(result: FullResult) {
-    const parts = ["# Test Results\n"];
+  private calculateSummaryStats() {
+    let totalTests = 0;
+    let totalFailed = 0;
+    let affectedAreas = new Set<string>();
+    let failingModels = new Map<string, number>();
 
-    // Add overall status
-    parts.push(`\nStatus: ${result.status}\n`);
-    parts.push(`\nDuration: ${(result.duration / 1000).toFixed(1)}s\n\n`);
-
-    const sortedProjects = Object.entries(this.groupedResults).sort(
-      ([nameA], [nameB]) => nameA.localeCompare(nameB)
-    );
-
-    for (const [projectName, descriptions] of sortedProjects) {
-      parts.push(`## ${projectName}\n`);
-
+    for (const [, descriptions] of Object.entries(this.groupedResults)) {
       for (const [description, variants] of Object.entries(descriptions)) {
-        parts.push(`### ${description}\n`);
-
         for (const [variant, browsers] of Object.entries(variants)) {
-          // Add variant as a subheading
-          parts.push(`#### ${variant}\n`);
-
-          for (const [browser, stats] of Object.entries(browsers)) {
-            const resultParts: string[] = [];
-            resultParts.push(`${stats.passed}/${stats.total} ✅ passed`);
-            if (stats.failed > 0) resultParts.push(`${stats.failed} ❌ failed`);
-            if (stats.skipped > 0)
-              resultParts.push(`${stats.skipped} ⏭️ skipped`);
-
-            parts.push(`${browser} → ${resultParts.join(" • ")}\n`);
+          for (const [, stats] of Object.entries(browsers)) {
+            totalTests += stats.total;
+            totalFailed += stats.failed;
+            if (stats.failed > 0) {
+              affectedAreas.add(description);
+              failingModels.set(variant, (failingModels.get(variant) || 0) + 1);
+            }
           }
-          parts.push("\n");
         }
       }
     }
+
+    return {
+      totalTests,
+      totalFailed,
+      affectedAreas: Array.from(affectedAreas),
+      failingModels: Object.fromEntries(failingModels),
+    };
+  }
+
+  onEnd(result: FullResult) {
+    const stats = this.calculateSummaryStats();
+    const passRate = (
+      ((stats.totalTests - stats.totalFailed) / stats.totalTests) *
+      100
+    ).toFixed(1);
+
+    const commitSha = process.env.GITHUB_SHA || "unknown";
+    const shortSha = commitSha.substring(0, 7);
+    const commitLink = `[${shortSha}](https://github.com/CopilotKit/CopilotKit/commit/${commitSha})`;
+
+    const mdContent: MarkdownContent[] = [
+      { h1: "Test Results" },
+      {
+        p: [
+          `**Status**: ${
+            result.status === "passed" ? "✅ Passed" : "❌ Failed"
+          }`,
+          `**Commit**: ${commitLink}`,
+          `**Duration**: ${(result.duration / 1000).toFixed(1)}s`,
+          `**Total Tests**: ${stats.totalTests}`,
+          `**Pass Rate**: ${passRate}%`,
+        ],
+      },
+    ];
+
+    // Only add summary section if there are failures
+    if (stats.totalFailed > 0) {
+      mdContent.push(
+        { h2: "📊 Summary" },
+        {
+          ul: [
+            `Total Failures: ${stats.totalFailed}`,
+            `Affected Areas: ${stats.affectedAreas.join(", ")}`,
+            `Failing Models: ${Object.entries(stats.failingModels)
+              .map(([model, count]) => `${model} (${count} tests)`)
+              .join(", ")}`,
+          ],
+        }
+      );
+    }
+
+    mdContent.push({ h2: "🔍 Detailed Results" });
+
+    // Generate detailed results
+    Object.entries(this.groupedResults).forEach(
+      ([projectName, descriptions]) => {
+        mdContent.push({ h3: projectName });
+
+        Object.entries(descriptions).forEach(([description, variants]) => {
+          mdContent.push(
+            { h4: description.replace(" Dependencies", "") },
+            {
+              tableWithAlignment: {
+                headers: ["Model", "Browser", "Status", "Details"],
+                rows: Object.entries(variants).flatMap(([variant, browsers]) =>
+                  Object.entries(browsers).map(([browser, stats]) => [
+                    variant,
+                    browser,
+                    stats.failed > 0 ? "❌ FAILED" : "✅ PASSED",
+                    `${stats.passed}/${stats.total} passed`,
+                  ])
+                ),
+              },
+            }
+          );
+        });
+      }
+    );
+
+    // Add analysis and next steps only if there are failures
+    if (stats.totalFailed > 0) {
+      mdContent.push(
+        { h2: "💡 Quick Analysis" },
+        {
+          ul: [
+            ...(stats.totalFailed === stats.totalTests
+              ? ["All tests failing"]
+              : []),
+            ...(stats.affectedAreas.length > 1
+              ? [`Multiple areas affected: ${stats.affectedAreas.join(", ")}`]
+              : []),
+          ],
+        },
+        { h2: "🏃 Next Steps" },
+        {
+          ol: [
+            "Check model connectivity",
+            "Review recent changes",
+            "Verify test configurations",
+          ],
+        }
+      );
+    }
+
+    // Convert to markdown and clean up extra newlines
+    let markdown = json2md(mdContent as any);
+
+    // Clean up extra newlines while preserving formatting
+    markdown = markdown
+      .replace(/\n{3,}/g, "\n\n") // Replace 3+ newlines with 2
+      .replace(/(\|.*\|\n)\n+(?=\|)/g, "$1") // Remove extra newlines in tables
+      .replace(/(\n\n)(#+\s)/g, "$1$2"); // Preserve spacing before headers
 
     const outputDir = path.dirname(this.outputFile);
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    fs.writeFileSync(this.outputFile, parts.join(""), "utf8");
+    fs.writeFileSync(this.outputFile, markdown, "utf8");
   }
 }

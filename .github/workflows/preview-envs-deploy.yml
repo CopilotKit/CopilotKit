@@ -195,6 +195,8 @@ jobs:
         working-directory: infra
         run: |
           node generate-table
+        env:
+          GITHUB_SHA: ${{ github.sha }}
 
       - name: Assign label
         uses: actions/github-script@v4
@@ -207,6 +209,12 @@ jobs:
               repo: context.repo.repo,
               labels: ['preview']
             })
+
+      - name: Delete a comment
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: preview-status-update
+          mode: delete
 
       - name: Comment post-deployment
         uses: thollander/actions-comment-pull-request@v3
