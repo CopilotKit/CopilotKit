@@ -193,18 +193,25 @@ export default class StructuredReporter implements Reporter {
       { p: `**Duration**: ${(result.duration / 1000).toFixed(1)}s` },
       { p: `**Total Tests**: ${stats.totalTests}` },
       { p: `**Pass Rate**: ${passRate}%` },
-      { h2: "📊 Summary" },
-      {
-        ul: [
-          `Total Failures: ${stats.totalFailed}`,
-          `Affected Areas: ${stats.affectedAreas.join(", ")}`,
-          `Failing Models: ${Object.entries(stats.failingModels)
-            .map(([model, count]) => `${model} (${count} tests)`)
-            .join(", ")}`,
-        ],
-      },
-      { h2: "🔍 Detailed Results" },
     ];
+
+    // Only add summary section if there are failures
+    if (stats.totalFailed > 0) {
+      mdContent.push(
+        { h2: "📊 Summary" },
+        {
+          ul: [
+            `Total Failures: ${stats.totalFailed}`,
+            `Affected Areas: ${stats.affectedAreas.join(", ")}`,
+            `Failing Models: ${Object.entries(stats.failingModels)
+              .map(([model, count]) => `${model} (${count} tests)`)
+              .join(", ")}`,
+          ],
+        }
+      );
+    }
+
+    mdContent.push({ h2: "🔍 Detailed Results" });
 
     // Generate detailed results
     Object.entries(this.groupedResults).forEach(
@@ -232,7 +239,7 @@ export default class StructuredReporter implements Reporter {
       }
     );
 
-    // Add analysis if needed
+    // Add analysis and next steps only if there are failures
     if (stats.totalFailed > 0) {
       mdContent.push(
         { h2: "💡 Quick Analysis" },
