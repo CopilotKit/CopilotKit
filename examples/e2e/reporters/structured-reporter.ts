@@ -183,16 +183,22 @@ export default class StructuredReporter implements Reporter {
       100
     ).toFixed(1);
 
+    const commitSha = process.env.GITHUB_SHA || "unknown";
+    const shortSha = commitSha.substring(0, 7); // Get first 7 characters of SHA
+
     const mdContent: MarkdownContent[] = [
       { h1: "Test Results" },
       {
-        p: `**Status**: ${
-          result.status === "passed" ? "✅ Passed" : "❌ Failed"
-        }`,
+        p: [
+          `**Status**: ${
+            result.status === "passed" ? "✅ Passed" : "❌ Failed"
+          }`,
+          `**Commit**: \`${shortSha}\``,
+          `**Duration**: ${(result.duration / 1000).toFixed(1)}s`,
+          `**Total Tests**: ${stats.totalTests}`,
+          `**Pass Rate**: ${passRate}%`,
+        ],
       },
-      { p: `**Duration**: ${(result.duration / 1000).toFixed(1)}s` },
-      { p: `**Total Tests**: ${stats.totalTests}` },
-      { p: `**Pass Rate**: ${passRate}%` },
     ];
 
     // Only add summary section if there are failures
