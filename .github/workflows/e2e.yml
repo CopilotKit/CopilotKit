@@ -75,6 +75,9 @@ jobs:
         continue-on-error: true
         run: |
           pnpm playwright test
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+
       - name: Delete a comment
         uses: thollander/actions-comment-pull-request@v3
         with:
@@ -88,8 +91,6 @@ jobs:
           pr-number: ${{ inputs.pr_number }}
           comment-tag: test-run-status-update
           file-path: ./examples/e2e/test-results/test-run-comment.md
-        env:
-          GITHUB_SHA: ${{ github.sha }}
 
       - uses: actions/upload-artifact@v4
         if: always()
