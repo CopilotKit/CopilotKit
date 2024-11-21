@@ -12,6 +12,8 @@ dependencies = [
   "langgraph",
   "langchain_core",
   "langchain_openai",
+  "langchain-google-genai",
+  "langchain-anthropic",
   "langchain",
   "openai",
   "langchain-community",
@@ -28,7 +30,7 @@ langgraph = "^0.2.39"
 langchain-core = "^0.3.12"
 langchain-openai = "0.2.3"
 langchain-anthropic = "0.2.3"
-langchain-google-genai = "2.0.0"
+langchain-google-genai = "2.0.5"
 langchain = "0.3.4"
 openai = "^1.52.1"
 langchain-community = "^0.3.1"

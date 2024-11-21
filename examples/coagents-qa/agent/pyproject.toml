@@ -12,6 +12,8 @@ dependencies = [
   "langgraph",
   "langchain_core",
   "langchain_openai",
+  "langchain-google-genai",
+  "langchain-anthropic",
   "langchain",
   "openai",
   "langchain-community",
@@ -25,9 +27,10 @@ build-backend = "setuptools.build_meta"
 [tool.poetry.dependencies]
 python = "^3.12"
 langgraph = "^0.2.34"
-langchain-core = "^0.3.8"
+langchain-core = "^0.3.12"
 langchain-openai = "^0.2.1"
 langchain-anthropic = "^0.2.1"
+langchain-google-genai = "2.0.5"
 langchain = "^0.3.1"
 openai = "^1.51.0"
 langchain-community = "^0.3.1"
