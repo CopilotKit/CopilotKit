@@ -184,7 +184,8 @@ export default class StructuredReporter implements Reporter {
     ).toFixed(1);
 
     const commitSha = process.env.GITHUB_SHA || "unknown";
-    const shortSha = commitSha.substring(0, 7); // Get first 7 characters of SHA
+    const shortSha = commitSha.substring(0, 7);
+    const commitLink = `[${shortSha}](https://github.com/CopilotKit/CopilotKit/commit/${commitSha})`;
 
     const mdContent: MarkdownContent[] = [
       { h1: "Test Results" },
@@ -193,7 +194,7 @@ export default class StructuredReporter implements Reporter {
           `**Status**: ${
             result.status === "passed" ? "✅ Passed" : "❌ Failed"
           }`,
-          `**Commit**: \`${shortSha}\``,
+          `**Commit**: ${commitLink}`,
           `**Duration**: ${(result.duration / 1000).toFixed(1)}s`,
           `**Total Tests**: ${stats.totalTests}`,
           `**Pass Rate**: ${passRate}%`,
