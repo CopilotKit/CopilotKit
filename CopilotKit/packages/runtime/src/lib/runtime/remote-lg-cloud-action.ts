@@ -452,19 +452,17 @@ function langGraphDefaultMergeState(
       }
 
       mergedMessages.push(message);
-      // TODO: should the below "else" block stay?
     } else {
       // Replace the message with the existing one
       for (let i = 0; i < mergedMessages.length; i++) {
-        if (mergedMessages[i].id === message.id) {
-          if ("tool_calls" in message) {
-            if (
-              ("tool_calls" in mergedMessages[i] || "additional_kwargs" in mergedMessages[i]) &&
-              mergedMessages[i].content
-            ) {
-              message.tool_calls = mergedMessages[i]["tool_calls"];
-              message.additional_kwargs = mergedMessages[i].additional_kwargs;
-            }
+        if (mergedMessages[i].id === message.id && message.role === "assistant") {
+          if (
+            ("tool_calls" in mergedMessages[i] || "additional_kwargs" in mergedMessages[i]) &&
+            mergedMessages[i].content
+          ) {
+            // @ts-expect-error -- message did not have a tool call, now it will
+            message.tool_calls = mergedMessages[i]["tool_calls"];
+            message.additional_kwargs = mergedMessages[i].additional_kwargs;
           }
           mergedMessages[i] = message;
         }
@@ -557,7 +555,7 @@ function langGraphDefaultMergeState(
   });
 }
 
-function deepMerge(obj1: State, obj2: State) {
+function deepMerge<TObj = State>(obj1: TObj, obj2: TObj) {
   let result = { ...obj1 };
   for (let key in obj2) {
     if (typeof obj2[key] === "object" && !Array.isArray(obj2[key])) {
