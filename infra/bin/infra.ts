@@ -67,7 +67,7 @@ const coAgentsRoutingUIWithRemoteDeps = createUIProjectStack({
   dependencies: "Remote",
   agentProject: coAgentsRoutingWithRemoteDeps,
   environmentVariables: {
-    LGC_DEPLOYMENT_URL: `https://...`,
+    LGC_DEPLOYMENT_URL: 'https://coagents-routing-lgc-b-378e0fb14e6e5209a83d53e5770ff5e4.default.us.langgraph.app',
   }
 });
 
@@ -86,7 +86,7 @@ const coAgentsRoutingUIWithLocalDeps = createUIProjectStack({
   dependencies: "Local",
   agentProject: coAgentsRoutingWithLocalDeps,
   environmentVariables: {
-    LGC_DEPLOYMENT_URL: `https://...`,
+    LGC_DEPLOYMENT_URL: 'https://coagents-routing-lgc-b-378e0fb14e6e5209a83d53e5770ff5e4.default.us.langgraph.app',
   }
 });
 
