@@ -16,7 +16,7 @@ export const variants = [
 const allConfigs = getConfigs();
 const qaConfigs = filterConfigsByProject(
   allConfigs,
-  PROJECT_NAMES.COAGENTS_QA_NATIVE
+  PROJECT_NAMES.COAGENTS_QA_TEXT
 );
 const groupedConfigs = groupConfigsByDescription(qaConfigs);
 
@@ -29,40 +29,23 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
             test(`Test ${config.description} with variant ${variant.name}`, async ({
               page,
             }) => {
-              // Handle dialogs
-              let isFirstDialog = true;
-              page.on("dialog", (dialog) => {
-                if (isFirstDialog) {
-                  isFirstDialog = false;
-                  dialog.dismiss();
-                } else {
-                  dialog.accept();
-                }
-              });
-
-              // Navigate to page
               await page.goto(`${config.url}${variant.queryParams}`);
+              const prompts = [
+                "How are you doing",
+                "Greet Me!",
+                "I'm not sure I want to tell you…",
+                "My name is Copilot Kit",
+              ];
 
-              // First attempt - Cancel
-              await sendChatMessage(
-                page,
-                "write an email to the CEO of OpenAI asking for a meeting"
-              );
-
-              const cancelMessage = page.locator(
-                '[data-test-id="email-cancel-message"]'
-              );
-              await expect(cancelMessage).toHaveText(
-                "❌ Cancelled sending email."
-              );
-
-              // Second attempt - Send
-              await sendChatMessage(page, "redo");
-
-              const successMessage = page.locator(
-                '[data-test-id="email-success-message"]'
-              );
-              await expect(successMessage).toHaveText("✅ Sent email.");
+              for (const prompt of prompts) {
+                await sendChatMessage(page, prompt);
+                const assistantMessage = page.locator(
+                  '[data-message-role="assistant"]'
+                );
+                await expect(assistantMessage).toBeVisible();
+                const text = await assistantMessage.textContent();
+                expect(text).toBeTruthy();
+              }
             });
           });
         });
