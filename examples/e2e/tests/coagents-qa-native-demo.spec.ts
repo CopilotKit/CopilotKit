@@ -14,7 +14,10 @@ export const variants = [
 ];
 
 const allConfigs = getConfigs();
-const qaConfigs = filterConfigsByProject(allConfigs, PROJECT_NAMES.QA_NATIVE);
+const qaConfigs = filterConfigsByProject(
+  allConfigs,
+  PROJECT_NAMES.COAGENTS_QA_NATIVE
+);
 const groupedConfigs = groupConfigsByDescription(qaConfigs);
 
 Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
