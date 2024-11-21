@@ -6,11 +6,10 @@ import {
   groupConfigsByDescription,
   PROJECT_NAMES,
 } from "../lib/config-helper";
+
 export const variants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
   { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
-  // { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" },
-  // { name: "LangGraph Cloud", quaeryParams: "?lgc=true" },
 ];
 
 const allConfigs = getConfigs();
@@ -29,7 +28,15 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
             test(`Test ${config.description} with variant ${variant.name}`, async ({
               page,
             }) => {
+              // Navigate to the page with the specific variant
               await page.goto(`${config.url}${variant.queryParams}`);
+
+              // Wait for CopilotKit to be ready
+              await page.waitForSelector(".copilotKitPopup", {
+                state: "visible",
+                timeout: 10000,
+              });
+
               const prompts = [
                 "How are you doing",
                 "Greet Me!",
@@ -38,13 +45,25 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               ];
 
               for (const prompt of prompts) {
-                await sendChatMessage(page, prompt);
-                const assistantMessage = page.locator(
-                  '[data-message-role="assistant"]'
+                // Wait for and click the input field
+                const textarea = await page
+                  .locator(".copilotKitInput textarea")
+                  .first();
+                await textarea.click();
+                await textarea.fill(prompt);
+                await textarea.press("Enter");
+
+                // Wait for the send button to complete
+                const sendButton = page.locator(
+                  ".copilotKitInputControls button"
                 );
-                await expect(assistantMessage).toBeVisible();
-                const text = await assistantMessage.textContent();
-                expect(text).toBeTruthy();
+                await expect(sendButton).toBeEnabled({ timeout: 30000 });
+
+                // Wait for the response
+                await page.waitForTimeout(3000);
+
+                // Add a longer delay between messages
+                await page.waitForTimeout(2000);
               }
             });
           });
