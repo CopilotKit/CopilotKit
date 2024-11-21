@@ -15,7 +15,7 @@ const coAgentsResearchCanvasAgentRemoteDeps = createAgentProjectStack({
   app,
   project: "coagents-research-canvas",
   description: "CoAgents Research Canvas (Agent) - Remote Depenencies",
-  dependencies: "Remote"
+  dependencies: "Remote",
 });
 
 const coAgentsResearchCanvasUIWithRemoteDeps = createUIProjectStack({
@@ -23,7 +23,7 @@ const coAgentsResearchCanvasUIWithRemoteDeps = createUIProjectStack({
   project: "coagents-research-canvas",
   description: "CoAgents Research Canvas (UI) - Remote Depenencies",
   dependencies: "Remote",
-  agentProject: coAgentsResearchCanvasAgentRemoteDeps
+  agentProject: coAgentsResearchCanvasAgentRemoteDeps,
 });
 
 // Local Dependencies
@@ -31,7 +31,7 @@ const coAgentsResearchCanvasAgentLocalDeps = createAgentProjectStack({
   app,
   project: "coagents-research-canvas",
   description: "CoAgents Research Canvas (Agent) - Local Depenencies",
-  dependencies: "Local"
+  dependencies: "Local",
 });
 
 const coAgentsResearchCanvasUIWithLocalDeps = createUIProjectStack({
@@ -39,7 +39,7 @@ const coAgentsResearchCanvasUIWithLocalDeps = createUIProjectStack({
   project: "coagents-research-canvas",
   description: "CoAgents Research Canvas (UI) - Local Depenencies",
   dependencies: "Local",
-  agentProject: coAgentsResearchCanvasAgentLocalDeps
+  agentProject: coAgentsResearchCanvasAgentLocalDeps,
 });
 
 /*
@@ -51,15 +51,15 @@ const coAgentsRoutingWithRemoteDeps = createAgentProjectStack({
   app,
   project: "coagents-routing",
   description: "CoAgents Routing (Agent) - Remote Dependencies",
-  dependencies: "Remote"
+  dependencies: "Remote",
 });
 
 const coAgentsRoutingUIWithRemoteDeps = createUIProjectStack({
   app,
-  project: "coagents-routing", 
+  project: "coagents-routing",
   description: "CoAgents Routing (UI) - Remote Dependencies",
   dependencies: "Remote",
-  agentProject: coAgentsRoutingWithRemoteDeps
+  agentProject: coAgentsRoutingWithRemoteDeps,
 });
 
 // Local Dependencies
@@ -67,7 +67,7 @@ const coAgentsRoutingWithLocalDeps = createAgentProjectStack({
   app,
   project: "coagents-routing",
   description: "CoAgents Routing (Agent) - Local Dependencies",
-  dependencies: "Local"
+  dependencies: "Local",
 });
 
 const coAgentsRoutingUIWithLocalDeps = createUIProjectStack({
@@ -75,7 +75,7 @@ const coAgentsRoutingUIWithLocalDeps = createUIProjectStack({
   project: "coagents-routing",
   description: "CoAgents Routing (UI) - Local Dependencies",
   dependencies: "Local",
-  agentProject: coAgentsRoutingWithLocalDeps
+  agentProject: coAgentsRoutingWithLocalDeps,
 });
 
 /*
@@ -87,7 +87,7 @@ const qaTextAgentWithRemoteDeps = createAgentProjectStack({
   app,
   project: "coagents-qa-text",
   description: "CoAgents QA Text (Agent) - Remote Dependencies",
-  dependencies: "Remote"
+  dependencies: "Remote",
 });
 
 const qaTextUIWithRemoteDeps = createUIProjectStack({
@@ -95,7 +95,7 @@ const qaTextUIWithRemoteDeps = createUIProjectStack({
   project: "coagents-qa-text",
   description: "CoAgents QA Text (UI) - Remote Dependencies",
   dependencies: "Remote",
-  agentProject: qaTextAgentWithRemoteDeps
+  agentProject: qaTextAgentWithRemoteDeps,
 });
 
 // Local Dependencies
@@ -103,7 +103,7 @@ const qaTextAgentWithLocalDeps = createAgentProjectStack({
   app,
   project: "coagents-qa-text",
   description: "CoAgents QA Text (Agent) - Local Dependencies",
-  dependencies: "Local"
+  dependencies: "Local",
 });
 
 const qaTextUIWithLocalDeps = createUIProjectStack({
@@ -111,7 +111,7 @@ const qaTextUIWithLocalDeps = createUIProjectStack({
   project: "coagents-qa-text",
   description: "CoAgents QA Text (UI) - Local Dependencies",
   dependencies: "Local",
-  agentProject: qaTextAgentWithLocalDeps
+  agentProject: qaTextAgentWithLocalDeps,
 });
 
 /*
@@ -123,7 +123,7 @@ const qaNativeAgentWithRemoteDeps = createAgentProjectStack({
   app,
   project: "coagents-qa-native",
   description: "CoAgents QA Native (Agent) - Remote Dependencies",
-  dependencies: "Remote"
+  dependencies: "Remote",
 });
 
 const qaNativeUIWithRemoteDeps = createUIProjectStack({
@@ -131,7 +131,7 @@ const qaNativeUIWithRemoteDeps = createUIProjectStack({
   project: "coagents-qa-native",
   description: "CoAgents QA Native (UI) - Remote Dependencies",
   dependencies: "Remote",
-  agentProject: qaNativeAgentWithRemoteDeps
+  agentProject: qaNativeAgentWithRemoteDeps,
 });
 
 // Local Dependencies
@@ -139,7 +139,7 @@ const qaNativeAgentWithLocalDeps = createAgentProjectStack({
   app,
   project: "coagents-qa-native",
   description: "CoAgents QA Native (Agent) - Local Dependencies",
-  dependencies: "Local"
+  dependencies: "Local",
 });
 
 const qaNativeUIWithLocalDeps = createUIProjectStack({
@@ -147,5 +147,41 @@ const qaNativeUIWithLocalDeps = createUIProjectStack({
   project: "coagents-qa-native",
   description: "CoAgents QA Native (UI) - Local Dependencies",
   dependencies: "Local",
-  agentProject: qaNativeAgentWithLocalDeps
+  agentProject: qaNativeAgentWithLocalDeps,
+});
+
+/*
+ * CoAgents Recipe Canvas
+ */
+
+// Remote Dependencies
+const recipeCanvasAgentWithRemoteDeps = createAgentProjectStack({
+  app,
+  project: "coagents-recipe-canvas",
+  description: "CoAgents Recipe Canvas (Agent) - Remote Dependencies",
+  dependencies: "Remote",
+});
+
+const recipeCanvasUIWithRemoteDeps = createUIProjectStack({
+  app,
+  project: "coagents-recipe-canvas",
+  description: "CoAgents Recipe Canvas (UI) - Remote Dependencies",
+  dependencies: "Remote",
+  agentProject: recipeCanvasAgentWithRemoteDeps,
+});
+
+// Local Dependencies
+const recipeCanvasAgentWithLocalDeps = createAgentProjectStack({
+  app,
+  project: "coagents-recipe-canvas",
+  description: "CoAgents Recipe Canvas (Agent) - Local Dependencies",
+  dependencies: "Local",
+});
+
+const recipeCanvasUIWithLocalDeps = createUIProjectStack({
+  app,
+  project: "coagents-recipe-canvas",
+  description: "CoAgents Recipe Canvas (UI) - Local Dependencies",
+  dependencies: "Local",
+  agentProject: recipeCanvasAgentWithLocalDeps,
 });
