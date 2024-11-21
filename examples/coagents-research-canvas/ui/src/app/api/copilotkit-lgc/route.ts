@@ -10,22 +10,25 @@ import { langGraphCloudEndpoint } from "@copilotkit/runtime";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const serviceAdapter = new OpenAIAdapter({ openai } as any);
 
-const deploymentUrl = process.env.LGC_DEPLOYMENT_URL as string
-const langsmithApiKey = process.env.LANGSMITH_API_KEY as string
+const deploymentUrl = process.env.LGC_DEPLOYMENT_URL as string;
+const langsmithApiKey = process.env.LANGSMITH_API_KEY as string;
 
 const runtime = new CopilotRuntime({
   remoteEndpoints: [
     langGraphCloudEndpoint({
       deploymentUrl,
       langsmithApiKey,
-      agents: [{
-        name: 'research_agent',
-        description: 'Research agent',
-      }, {
-        name: 'research_agent_google_genai',
-        description: 'Research agent',
-        assistantId: '9dc0ca3b-1aa6-547d-93f0-e21597d2011c'
-      }],
+      agents: [
+        {
+          name: "research_agent",
+          description: "Research agent",
+        },
+        {
+          name: "research_agent_google_genai",
+          description: "Research agent",
+          assistantId: "9dc0ca3b-1aa6-547d-93f0-e21597d2011c",
+        },
+      ],
     }),
   ],
 });

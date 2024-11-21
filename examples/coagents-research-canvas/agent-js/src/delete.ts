@@ -19,7 +19,7 @@ export async function delete_node(
 export async function perform_delete_node(
   state: AgentState,
   config: RunnableConfig
-): Promise<AgentState> {
+) {
   /**
    * Perform Delete Node
    */
@@ -29,6 +29,8 @@ export async function perform_delete_node(
   const toolMessage = state["messages"][
     state["messages"].length - 1
   ] as ToolMessage;
+
+  let resources = state["resources"];
 
   if (toolMessage.content === "YES") {
     let urls: string[];
@@ -42,10 +44,10 @@ export async function perform_delete_node(
       urls = parsedToolCall.urls;
     }
 
-    state["resources"] = state["resources"].filter(
-      (resource) => !urls.includes(resource.url)
-    );
+    resources = resources.filter((resource) => !urls.includes(resource.url));
   }
 
-  return state;
+  return {
+    resources,
+  };
 }

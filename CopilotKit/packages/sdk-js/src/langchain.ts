@@ -16,7 +16,7 @@ interface OptionsConfig {
 }
 
 export function copilotKitCustomizeConfig(
-  baseConfig?: RunnableConfig,
+  baseConfig: RunnableConfig,
   options?: OptionsConfig,
 ): RunnableConfig {
   const metadata = baseConfig?.metadata || {};
@@ -34,7 +34,13 @@ export function copilotKitCustomizeConfig(
   }
 
   if (options?.emitIntermediateState) {
-    metadata["copilotkit:emit-intermediate-state"] = options.emitIntermediateState;
+    const snakeCaseIntermediateState = options.emitIntermediateState.map((state) => ({
+      tool: state.tool,
+      tool_argument: state.toolArgument,
+      state_key: state.stateKey,
+    }));
+
+    metadata["copilotkit:emit-intermediate-state"] = snakeCaseIntermediateState;
   }
 
   baseConfig = baseConfig || {};

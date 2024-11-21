@@ -17,6 +17,10 @@ import {
   ToolMessage,
 } from "@langchain/core/messages";
 import { getModel } from "./model";
+import {
+  copilotKitCustomizeConfig,
+  copilotKitEmitState,
+} from "@copilotkit/sdk-js";
 
 const ResourceInput = z.object({
   url: z.string().describe("The URL of the resource"),
@@ -39,19 +43,19 @@ export async function search_node(state: AgentState, config: RunnableConfig) {
     state["messages"].length - 1
   ] as AIMessage;
 
-  state["resources"] = state.resources || [];
-  state["logs"] = state.logs || [];
+  let resources = state["resources"] || [];
+  let logs = state["logs"] || [];
+
   const queries = aiMessage.tool_calls![0]["args"]["queries"];
 
   for (const query of queries) {
-    state["logs"].push({
+    logs.push({
       message: `Search for ${query}`,
       done: false,
     });
   }
 
-  // TODO
-  //     await copilotkit_emit_state(config, state)
+  await copilotKitEmitState(config, state);
 
   const search_results = [];
 
@@ -59,21 +63,31 @@ export async function search_node(state: AgentState, config: RunnableConfig) {
     const query = queries[i];
     const response = await tavilyClient.search(query, {});
     search_results.push(response);
-    state["logs"][i]["done"] = true;
-
-    // TODO
-    // await copilotkit_emit_state(config, state);
+    logs[i]["done"] = true;
+    await copilotKitEmitState(config, state);
   }
 
-  // TODO
-  // config = copilotkit_customize_config(
-  //   config,
-  //   emit_intermediate_state=[{
-  //       "state_key": "resources",
-  //       "tool": "ExtractResources",
-  //       "tool_argument": "resources",
-  //   }],
-  // )
+  const searchResultsToolMessageFull = new ToolMessage({
+    tool_call_id: aiMessage.tool_calls![0]["id"]!,
+    content: `Performed search: ${JSON.stringify(search_results)}`,
+    name: "Search",
+  });
+
+  const searchResultsToolMessage = new ToolMessage({
+    tool_call_id: aiMessage.tool_calls![0]["id"]!,
+    content: `Performed search.`,
+    name: "Search",
+  });
+
+  const customConfig = copilotKitCustomizeConfig(config, {
+    emitIntermediateState: [
+      {
+        stateKey: "resources",
+        tool: "ExtractResources",
+        toolArgument: "resources",
+      },
+    ],
+  });
 
   const model = getModel(state);
   const invokeArgs: Record<string, any> = {};
@@ -90,30 +104,36 @@ export async function search_node(state: AgentState, config: RunnableConfig) {
         content: `You need to extract the 3-5 most relevant resources from the following search results.`,
       }),
       ...state["messages"],
-      new ToolMessage({
-        tool_call_id: aiMessage.tool_calls![0]["id"]!,
-        content: `Performed search: ${search_results}`,
-      }),
+      searchResultsToolMessageFull,
     ],
-    config
+    customConfig
   );
 
-  state["logs"] = [];
+  logs = [];
 
-  // TODO
-  // await copilotkit_emit_state(config, state);
+  const { messages, ...restOfState } = state;
+  await copilotKitEmitState(config, {
+    ...restOfState,
+    resources,
+    logs,
+  });
 
   const aiMessageResponse = response as AIMessage;
-  const resources = aiMessageResponse.tool_calls![0]["args"]["resources"];
+  const newResources = aiMessageResponse.tool_calls![0]["args"]["resources"];
 
-  state["resources"].push(...resources);
+  resources.push(...newResources);
 
-  state["messages"].push(
-    new ToolMessage({
-      tool_call_id: aiMessage.tool_calls![0]["id"]!,
-      content: `Added the following resources: ${resources}`,
-    })
-  );
-
-  return state;
+  return {
+    messages: [
+      searchResultsToolMessage,
+      aiMessageResponse,
+      new ToolMessage({
+        tool_call_id: aiMessageResponse.tool_calls![0]["id"]!,
+        content: `Resources added.`,
+        name: "ExtractResources",
+      }),
+    ],
+    resources,
+    logs,
+  };
 }

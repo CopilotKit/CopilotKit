@@ -1,5 +1,23 @@
 # @copilotkit/shared
 
+## 1.3.16-mme-sdk-js.2
+
+### Patch Changes
+
+- Ensure intermediate state config is sent as snake case
+
+## 1.3.16-mme-sdk-js.1
+
+### Patch Changes
+
+- Update lockfile
+
+## 1.3.16-mme-sdk-js.0
+
+### Patch Changes
+
+- Export LangGraph functions
+
 ## 1.3.15
 
 ### Patch Changes

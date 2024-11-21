@@ -13,6 +13,7 @@ import {
 } from "@langchain/core/messages";
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
+import { copilotKitCustomizeConfig } from "@copilotkit/sdk-js";
 
 const Search = tool(() => {}, {
   name: "Search",
@@ -40,20 +41,21 @@ const DeleteResources = tool(() => {}, {
 });
 
 export async function chat_node(state: AgentState, config: RunnableConfig) {
-  // TODO
-  // const config = copilotkit_customize_config(
-  //   config,
-  //   emit_intermediate_state=[{
-  //     state_key: "report",
-  //     tool: "WriteReport",
-  //     tool_argument: "report",
-  //   }, {
-  //     state_key: "research_question",
-  //     tool: "WriteResearchQuestion",
-  //     tool_argument: "research_question",
-  //   }],
-  //   emit_tool_calls: "DeleteResources",
-  // });
+  const customConfig = copilotKitCustomizeConfig(config, {
+    emitIntermediateState: [
+      {
+        stateKey: "report",
+        tool: "WriteReport",
+        toolArgument: "report",
+      },
+      {
+        stateKey: "research_question",
+        tool: "WriteResearchQuestion",
+        toolArgument: "research_question",
+      },
+    ],
+    emitToolCalls: "DeleteResources",
+  });
 
   state["resources"] = state.resources || [];
   const researchQuestion = state.research_question || "";
@@ -99,20 +101,25 @@ export async function chat_node(state: AgentState, config: RunnableConfig) {
         ${JSON.stringify(resources)}
         `
       ),
+      ...state.messages,
     ],
-    config
+    customConfig
   );
 
   const aiMessage = response as AIMessage;
 
-  if (aiMessage.tool_calls) {
+  if (aiMessage.tool_calls && aiMessage.tool_calls.length > 0) {
     if (aiMessage.tool_calls[0].name === "WriteReport") {
       const report = aiMessage.tool_calls[0].args.report;
       return {
         report,
         messages: [
           aiMessage,
-          new ToolMessage(aiMessage.tool_calls[0].id!, "Report written."),
+          new ToolMessage({
+            tool_call_id: aiMessage.tool_calls![0]["id"]!,
+            content: "Report written.",
+            name: "WriteReport",
+          }),
         ],
       };
     } else if (aiMessage.tool_calls[0].name === "WriteResearchQuestion") {
@@ -121,10 +128,11 @@ export async function chat_node(state: AgentState, config: RunnableConfig) {
         research_question: researchQuestion,
         messages: [
           aiMessage,
-          new ToolMessage(
-            aiMessage.tool_calls[0].id!,
-            "Research question written."
-          ),
+          new ToolMessage({
+            tool_call_id: aiMessage.tool_calls![0]["id"]!,
+            content: "Research question written.",
+            name: "WriteResearchQuestion",
+          }),
         ],
       };
     }

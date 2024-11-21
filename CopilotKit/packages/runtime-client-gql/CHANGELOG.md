@@ -1,5 +1,32 @@
 # @copilotkit/runtime-client-gql
 
+## 1.3.16-mme-sdk-js.2
+
+### Patch Changes
+
+- Ensure intermediate state config is sent as snake case
+- Updated dependencies
+  - @copilotkit/runtime@1.3.16-mme-sdk-js.2
+  - @copilotkit/shared@1.3.16-mme-sdk-js.2
+
+## 1.3.16-mme-sdk-js.1
+
+### Patch Changes
+
+- Update lockfile
+- Updated dependencies
+  - @copilotkit/runtime@1.3.16-mme-sdk-js.1
+  - @copilotkit/shared@1.3.16-mme-sdk-js.1
+
+## 1.3.16-mme-sdk-js.0
+
+### Patch Changes
+
+- Export LangGraph functions
+- Updated dependencies
+  - @copilotkit/runtime@1.3.16-mme-sdk-js.0
+  - @copilotkit/shared@1.3.16-mme-sdk-js.0
+
 ## 1.3.15
 
 ### Patch Changes

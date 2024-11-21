@@ -1,5 +1,5 @@
-import { BaseMessage } from "@langchain/core/messages";
 import { Annotation } from "@langchain/langgraph";
+import { MessagesAnnotation } from "@langchain/langgraph";
 
 // Define a Resource annotation with properties for URL, title, and description
 const ResourceAnnotation = Annotation.Root({
@@ -22,10 +22,7 @@ export const AgentStateAnnotation = Annotation.Root({
   report: Annotation<string>,
   resources: Annotation<(typeof ResourceAnnotation.State)[]>,
   logs: Annotation<(typeof LogAnnotation.State)[]>,
-  messages: Annotation<BaseMessage[]>({
-    reducer: (currentState, updateValue) => currentState.concat(updateValue),
-    default: () => [],
-  }),
+  ...MessagesAnnotation.spec,
 });
 
 export type AgentState = typeof AgentStateAnnotation.State;

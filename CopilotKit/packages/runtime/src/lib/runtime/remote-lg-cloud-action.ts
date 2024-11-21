@@ -195,20 +195,18 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       }
 
       if (manuallyEmitIntermediateState) {
-        if (eventType === LangGraphEventTypes.OnChainEnd) {
-          state = event.data.output;
-          emit(
-            getStateSyncEvent({
-              threadId,
-              runId,
-              agentName: agent.name,
-              nodeName,
-              state: event.data.output,
-              running: true,
-              active: true,
-            }),
-          );
-        }
+        state = event.data;
+        emit(
+          getStateSyncEvent({
+            threadId,
+            runId,
+            agentName: agent.name,
+            nodeName,
+            state,
+            running: true,
+            active: true,
+          }),
+        );
         continue;
       }
 
@@ -350,10 +348,10 @@ class StreamingStateExtractor {
     if (event.data.chunk.tool_call_chunks.length > 0) {
       const chunk = event.data.chunk.tool_call_chunks[0];
 
-      if (chunk.name !== null) {
+      if (chunk.name !== null && chunk.name !== undefined) {
         this.currentToolCall = chunk.name;
         this.toolCallBuffer[this.currentToolCall] = chunk.args;
-      } else if (this.currentToolCall !== null) {
+      } else if (this.currentToolCall !== null && this.currentToolCall !== undefined) {
         this.toolCallBuffer[this.currentToolCall] += chunk.args;
       }
     }
@@ -547,28 +545,13 @@ function langGraphDefaultMergeState(
     correctedMessages.push(currentMessage);
   }
 
-  return deepMerge(state, {
+  return {
+    ...state,
     messages: correctedMessages,
     copilotkit: {
       actions,
     },
-  });
-}
-
-function deepMerge<TObj = State>(obj1: TObj, obj2: TObj) {
-  let result = { ...obj1 };
-  for (let key in obj2) {
-    if (typeof obj2[key] === "object" && !Array.isArray(obj2[key])) {
-      if (obj1[key]) {
-        result[key] = deepMerge(obj1[key], obj2[key]);
-      } else {
-        result[key] = { ...obj2[key] };
-      }
-    } else {
-      result[key] = obj2[key];
-    }
-  }
-  return result;
+  };
 }
 
 function formatMessages(messages: Message[]): LangGraphCloudMessage[] {
