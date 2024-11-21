@@ -75,13 +75,8 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: "**/pnpm-lock.yaml"
 
-      - name: (UI) Install dependencies
-        if: matrix.app.type == 'ui' || matrix.app.type == 'next-openai'
-        working-directory: ./CopilotKit
-        run: pnpm install --frozen-lockfile
-
       - name: (UI) Install app dependencies
-        if: matrix.app.type == 'ui' || matrix.app.type == 'next-openai'
+        if: matrix.app.type == 'ui'
         working-directory: examples/${{ matrix.app.project }}/${{ matrix.app.type }}
         run: pnpm install --frozen-lockfile
 
