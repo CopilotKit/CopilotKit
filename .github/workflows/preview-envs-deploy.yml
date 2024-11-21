@@ -127,11 +127,11 @@ jobs:
           DOCKER_BUILDKIT: 1
 
       - name: (next-openai) Build Image
-        if: matrix.app.type == 'ui'
+        if: matrix.app.type == 'next-openai'
         run: |
           docker buildx build \
             -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:next-openai-${{ github.run_id }} \
-            -f ./CopilotKit/examples/next-openaiDockerfile \
+            -f ./CopilotKit/examples/next-openai/Dockerfile \
             --platform=linux/amd64 \
             --provenance=false \
             --push \
