@@ -55,7 +55,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 '[data-test-id="delete-resource-generative-ui-container"]'
               );
               expect(deleteContainer).toBeTruthy();
-              await page.waitForTimeout(2000)
+              await page.waitForTimeout(60005)
               await page.locator('button:has-text("Delete")').click();
               await waitForResponse(page);
 
