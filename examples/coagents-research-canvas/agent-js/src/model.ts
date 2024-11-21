@@ -17,7 +17,7 @@ function getModel(state: AgentState): BaseChatModel {
   console.log(`Using model: ${model}`);
 
   if (model === "openai") {
-    return new ChatOpenAI({ temperature: 0, model: "gpt-4o-mini" });
+    return new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
   }
   if (model === "anthropic") {
     return new ChatAnthropic({

@@ -547,28 +547,13 @@ function langGraphDefaultMergeState(
     correctedMessages.push(currentMessage);
   }
 
-  return deepMerge(state, {
+  return {
+    ...state,
     messages: correctedMessages,
     copilotkit: {
       actions,
     },
-  });
-}
-
-function deepMerge(obj1: State, obj2: State) {
-  let result = { ...obj1 };
-  for (let key in obj2) {
-    if (typeof obj2[key] === "object" && !Array.isArray(obj2[key])) {
-      if (obj1[key]) {
-        result[key] = deepMerge(obj1[key], obj2[key]);
-      } else {
-        result[key] = { ...obj2[key] };
-      }
-    } else {
-      result[key] = obj2[key];
-    }
-  }
-  return result;
+  };
 }
 
 function formatMessages(messages: Message[]): LangGraphCloudMessage[] {
