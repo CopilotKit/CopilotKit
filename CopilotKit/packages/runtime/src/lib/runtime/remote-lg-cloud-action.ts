@@ -348,10 +348,10 @@ class StreamingStateExtractor {
     if (event.data.chunk.tool_call_chunks.length > 0) {
       const chunk = event.data.chunk.tool_call_chunks[0];
 
-      if (chunk.name !== null) {
+      if (chunk.name !== null && chunk.name !== undefined) {
         this.currentToolCall = chunk.name;
         this.toolCallBuffer[this.currentToolCall] = chunk.args;
-      } else if (this.currentToolCall !== null) {
+      } else if (this.currentToolCall !== null && this.currentToolCall !== undefined) {
         this.toolCallBuffer[this.currentToolCall] += chunk.args;
       }
     }
