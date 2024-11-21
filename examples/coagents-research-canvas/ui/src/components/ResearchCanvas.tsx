@@ -37,6 +37,7 @@ export function ResearchCanvas() {
 
   useCopilotAction({
     name: "DeleteResources",
+    description: 'Prompt the user for resource delete confirmation, and then perform resource deletion',
     disabled: true,
     parameters: [
       {
