@@ -9,7 +9,9 @@ import {
 
 const variants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
+  { name: "OpenAI (LGC)", queryParams: `?coAgentsModel=openai&lgcDeploymentUrl=${process.env.LGC_DEPLOYMENT_URL}` },
   { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
+  { name: "Anthropic (LGC)", queryParams: `?coAgentsModel=anthropic&lgcDeploymentUrl=${process.env.LGC_DEPLOYMENT_URL}` },
   // { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" }, // seems broken
 ];
 

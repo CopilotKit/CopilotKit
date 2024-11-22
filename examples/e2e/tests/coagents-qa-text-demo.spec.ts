@@ -8,7 +8,9 @@ import {
 
 export const variants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
-  // { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
+  { name: "OpenAI (LGC)", queryParams: `?coAgentsModel=openai&lgcDeploymentUrl=${process.env.LGC_DEPLOYMENT_URL}` },
+  { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
+  { name: "Anthropic (LGC)", queryParams: `?coAgentsModel=anthropic&lgcDeploymentUrl=${process.env.LGC_DEPLOYMENT_URL}` },
 ];
 
 const allConfigs = getConfigs();
