@@ -47,7 +47,7 @@ export function DestinationRow({
         <div className="w-full flex items-stretch">
           <div className="flex items-center justify-center w-full">
             <input
-              data-test-id={`checkbox-${destination.name.toLowerCase().replace(/\s+/g, '-')}-${isChecked ? 'checked' : 'unchecked'}`}
+              data-test-id={`checkbox-${destination.name.toLowerCase().replace(/\s+/g, "-")}-${isChecked ? "checked" : "unchecked"}`}
               type="checkbox"
               checked={isChecked}
               onChange={(event) => onCheckChange(event.target.checked)}
