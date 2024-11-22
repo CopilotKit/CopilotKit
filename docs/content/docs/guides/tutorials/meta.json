@@ -2,6 +2,7 @@
   "title": "tutorials",
   "pages": [
     "ai-todo-app",
-    "ai-powered-textarea"
+    "ai-powered-textarea",
+    "coagents"
   ]
 }

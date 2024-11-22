@@ -1,93 +1,142 @@
 ---
-title: Intro to CoAgents (Public Beta)
-description: Everything you need to build Agent-Native applications powered by CopilotKit & LangGraph. The building blocks for the next generation of AI-native apps.
-
+title: "Quickstart (Public Beta)"
+description: "Get started with CoAgents in just a few minutes."
 ---
 
-import { BiSolidMessage as TextIcon } from "react-icons/bi";
-import { VscJson as JsonIcon } from "react-icons/vsc";
-import { FaDiscord } from "react-icons/fa";
-import Link from "next/link";
-import { YouTubeVideo } from "@/components/react/youtube-video";
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
-import {
-  CoAgentsFeatureToggle,
-  CoAgentsFeatureRender,
-} from "@/components/react/coagents/coagents-features.tsx";
-import { DynamicContentWrapper } from "@/components/react/dynamic-content-wrapper";
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+import LLMAdapters from "@/snippets/llm-adapters.mdx";
+import { CoAgentsDiagram } from "@/components/react/coagents/coagents-diagram.tsx";
+import FindCopilotRuntimeSnippet from "@/snippets/find-your-copilot-runtime.mdx";
 
-<Frame className="-mt-12">
+## Before you start
+
+At the moment CoAgents integrates with LangGraph-powered agents using **LangGraph-Python**. <br/>
+(Support for LangGraph.js and LangGraph Cloud is coming very soon! [Contact us]() for early access).
+
+**For orientation, here's how CoAgents are wired:**
+
+<CoAgentsDiagram />
+
+- In this tutorial, we'll hook up the 2 middle components:
+  - **CopilotKit Runtime**
+  - **Remote Endpoint (FastAPI + CopilotKit Python SDK)**
+
+<Callout type="info">
+  This guide assumes you’re familiar with using LangGraph to build agent
+  workflows. If you need a quick introduction, check out [this brief example
+  from the LangGraph docs](https://langchain-ai.github.io/langgraph/).
+</Callout>
+
+## Getting started
+
+<Steps>
+
+<Step>
+
+First, take a minute to **[go through the CopilotKit quickstart](/quickstart), and integrate CopilotKit into your React app.**
+This should only take a minute.
+
+</Step>
+
+<Step>
+  Then, setup a CopilotKit Remote-Endpoint using FastAPI. Follow the [Remote
+  Endpoint quickstart](/guides/backend-actions/remote-backend-endpoint). <br />
+  **This endpoint will serve your (Python) LangGraph agent.**
+</Step>
+
+<Step>
+
+## Connect your FastAPI Remote Endpoint to a LangGraph agent
+
+At this point you should have CopilotKit hooked into your application, connected to a FastAPI Remote Endpoint.
+
+The next step is to configure the Remote Endpoint to serve LangGraph agents.
+
+First, find your `CopilotKitSDK` instance in your Python Remote Endpoint (typically `server.py`). <br/>
+**Then modify your `CopilotKitSDK` instance (setup in the previous step) to serve LangGraph agents:**
+
+```python title="server.py"
+from copilotkit import CopilotKitSDK, LangGraphAgent # [!code highlight]
+from .agent import the_langraph_graph # Import your LangGraph agent; in this example, it's the variable named `the_langraph_graph` in ./agent.py # [!code highlight]
+from copilotkit.integrations.fastapi import add_fastapi_endpoint
+from copilotkit.langchain import copilotkit_messages_to_langchain # you only need this if you use Google Gemini in your LangGraph agent.
+# ... other imports
+
+app = FastAPI()
+
+# ...
+
+# Initialize the CopilotKit SDK
+sdk = CopilotKitSDK(
+  agents=[ # [!code highlight:10]
+    LangGraphAgent(
+      name="basic_agent",
+      description="Agent that answers questions about the weather",
+      graph=the_langraph_graph,
+      # copilotkit_config={ # if you use Google Gemini, uncomment  this code (and import `copilotkit_messages_to_langchain`, see above)
+      #  "convert_messages": copilotkit_messages_to_langchain(use_function_call=True)
+      # }
+    )
+  ],
+  # ...
+)
+
+# ...
+
+# Add the CopilotKit endpoint to your FastAPI app
+add_fastapi_endpoint(app, sdk, "/copilotkit_remote")
+
+# ...
+
+```
+
+<Callout>
+  Remember the name `basic_agent`, we'll need it as we move on to integrating
+  this agent into the frontend.
+</Callout>
+
+### Are you using Google Gemini models?
+
+Until there is full parity between Gemini and other models in the LangChain ecosystem, you'll need to uncomment the `copilotkit_config` section shown above when using Gemini models in your LangGraph agent.
+
+</Step>
+
+<Step>
+
+## Agent-lock your Copilot to the `basic_agent` agent.
+
+CopilotKit supports router-mode as well as agent-lock mode. For more detail see [router-mode / agent-mode](/coagents/advanced/router-mode-agent-lock).
+In short: agent-lock modes locks your Copilot to a single LangGraph agent;
+router-mode automatically routes requests to the right agent based on the user's context and query.
+
+**For simplicity, we'll use agent-lock mode in these tutorials,** but we encourage you to explore router-mode in your production use-cases to support more complex agent workflows.
+
+Lock the Copilot to the `basic_agent` setup earlier. This means every single interaction with the Copilot will be forwarded to the locked agent.
+
+```tsx filename="src/page.tsx"
+// The Copilot will now invoke the LangGraph agent directly, not the Copilot router.
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  graph="basic_agent" // agent-lock the Copilot, see 'agent-lock vs router-mode' // [!code highlight]
+>
+  {...}
+</CopilotKit>
+```
+
+</Step>
+</Steps>
+
+🎉 Congrats! You've successfully integrated a LangGraph agent chatbot to your application!
+Give it a try by writing text in the chatbot UI and pressing send.
+You are now chatting with a LangGraph agent!
+
+<Frame className="my-6">
   <img
-    src="/images/CoAgents.gif"
-    alt="CoAgents demonstration"
-    className="w-auto"
+    src="/images/coagents/CoAgents-ChatHello.gif"
+    alt="CoAgents Chat Hello demonstration"
+    className="w-2/3 mx-auto"
   />
 </Frame>
 
----
-
-
-## Build Agent-Native Applications with CoAgents
-
-
-
- A powerful new wave of Agent-Native Applications has emerged based on verticalized AI agents & agent-native UX (Replit Agent, v0, OpenAI’s Canvas, etc). **CoAgents provides everything you need to deeply integrate LangGraph agents into react applications-
-and build such Agent-Native applications.**
-
-
-
-
-**See an introduction below:**
-
-<div className="flex justify-center my-12">
-  <YouTubeVideo videoId="tVjVYJE-Nic" defaultPlaybackRate={1.0} />
-</div>
-
-**We build this example step-by-step in this tutorial:**
-<div className="flex justify-center my-12">
-  <YouTubeVideo videoId="0b6BVqPwqA0" defaultPlaybackRate={1.0} />
-</div>
-
-
-  <Link
-    href="https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md"
-    className="text-primary-600 decoration-from-font underline [text-underline-position:from-font]"
-  >
-    Check out Research Canvas demo, built with CoAgents
-  </Link>
-  
-  <Link
-    href="https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md"
-    className="text-primary-600 decoration-from-font underline [text-underline-position:from-font]"
-  >
-    <Frame className="-mt-12">
-      <img
-        src="/images/coagents/SharedStateCoAgents.gif"
-        alt="CoAgents demonstration"
-        className="w-auto"
-      />
-    </Frame>
-  </Link>
-
-
-
-
-
-
-
-### Key Features
-
-- **__Shared State:__** Seamlessly synchronize state between agents and your application, enabling real-time interactions and updates. With a single line of code, your application can see everything the agent is doing, and the agent can see everything that happens inside the application.
-
-- **__Agentic Generative UI:__** Create dynamic, AI-generated user interfaces that adapt to user needs and agent outputs. Unlike traditional generative UI, agentic generative UI is based on the agent's state, providing users with visibility into what the agent is doing and building trust.
-
-- **__Stream Intermediate Agent State:__** Visualize agent thought processes in real-time, providing transparency and engaging user experiences. This is crucial for agent performance and for UX which matches user expectations.
-
-- **__Human-in-the-Loop:__** Seamlessly integrate human oversight and intervention into your AI workflows for enhanced accuracy and control. Specify breakpoints in the agent process where human input or approval is required, allowing for greater safety and better agent performance.
-
-- **__Realtime Frontend Actions:__** Provide your agent with frontend & backend actions available based on user context and current application state. These tool calls are automatically propagated as needed, with support for generative UI.
-
-With CoAgents, you can harness the power of AI to create intelligent, responsive, and user-centric applications that push the boundaries of what's possible in software development.
-
-
-
+<CoAgentsEnterpriseCTA />

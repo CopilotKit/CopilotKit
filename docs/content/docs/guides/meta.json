@@ -1,0 +1,14 @@
+{
+  "title": "copilotkit",
+  "root": true,
+  "pages": [
+    "index",
+    "---Fundamentals---",
+    "...guides",
+    "---Demos & Tutorials---",
+    "...tutorials",
+    "---Other---",
+    "(other)/contributing",
+    "(other)/telemetry"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "title": "coagents",
+  "pages": [
+    "index",
+    "chat-ui",
+    "react-ui",
+    "advanced"
+  ]
+}

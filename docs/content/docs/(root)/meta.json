@@ -1,15 +1,11 @@
 {
-  "title": "copilotkit",
-  "root": true,
-  "pages": [
-    "index",
-    "quickstart",
-    "---Guides---",
-    "...guides",
-    "---Tutorials---",
-    "...tutorials",
-    "---Other---",
-    "(other)/contributing",
-    "(other)/telemetry"
-  ]
-}
+    "title": "reference",
+    "root": true,
+    "pages": [
+      "index",
+      "---Fundamentals---",
+      "...fundamentals",
+      "---CoAgents---",
+      "...coagents"
+    ]
+  }

@@ -1,0 +1,13 @@
+{
+  "title": "Advanced",
+  "pages": [
+    "router-mode-agent-lock",
+    "intermediate-state-streaming",
+    "exit-agent",
+    "state-streaming",
+    "manually-emitting-messages",
+    "agent-steering",
+    "copilotkit-state",
+    "using-google-gemini"
+  ]
+}
