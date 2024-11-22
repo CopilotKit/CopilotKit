@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import "source-map-support/register";
 import * as cdk from "aws-cdk-lib";
-import { createAgentProjectStack, createUIProjectStack } from "../lib/utils";
+import { createAgentProjectStack, createNextOpenAIProjectStack, createUIProjectStack } from "../lib/utils";
 
 // app
 const app = new cdk.App();
@@ -148,4 +148,13 @@ const qaNativeUIWithLocalDeps = createUIProjectStack({
   description: "CoAgents QA Native (UI) - Local Dependencies",
   dependencies: "Local",
   agentProject: qaNativeAgentWithLocalDeps
+});
+
+/**
+ * Next OpenAI Demo
+ */
+createNextOpenAIProjectStack({
+  app,
+  description: "Next OpenAI - Self Hosted",
+  variant: "self-hosted",
 });
