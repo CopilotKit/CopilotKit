@@ -11,9 +11,15 @@ importers:
       '@playwright/test':
         specifier: ^1.48.2
         version: 1.48.2
+      '@types/json2md':
+        specifier: ^1.5.4
+        version: 1.5.4
       '@types/node':
         specifier: ^22.8.4
         version: 22.8.4
+      json2md:
+        specifier: ^2.0.1
+        version: 2.0.1
 
 packages:
 
@@ -22,6 +28,9 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
+  '@types/json2md@1.5.4':
+    resolution: {integrity: sha512-OFTAYD7Nnyu7FZPGnDwYbGOTKqzDfX71uFSgTbGhcr0aHCi17QkSOY3wO5H4yv5h23Ly+7suvf2lzHcdeDIH2Q==}
+
   '@types/node@22.8.4':
     resolution: {integrity: sha512-SpNNxkftTJOPk0oN+y2bIqurEXHTA2AOZ3EJDDKeJ5VzkvvORSvmQXGQarcOzWV1ac7DCaPBEdMDxBsM+d8jWw==}
 
@@ -29,6 +38,12 @@ packages:
     resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
+
+  indento@1.1.13:
+    resolution: {integrity: sha512-YZWk3mreBEM7sBPddsiQnW9Z8SGg/gNpFfscJq00HCDS7pxcQWWWMSVKJU7YkTRyDu1Zv2s8zaK8gQWKmCXHlg==}
+
+  json2md@2.0.1:
+    resolution: {integrity: sha512-VbwmZ83qmUfKBS2pUOHlzNKEZFPBeJSbzEok3trMYyboZUgdHNn1XZfc1uT8UZs1GHCrmRUBXCfqw4YmmQuOhw==}
 
   playwright-core@1.48.2:
     resolution: {integrity: sha512-sjjw+qrLFlriJo64du+EK0kJgZzoQPsabGF4lBvsid+3CNIZIYLgnMj9V6JY5VhM2Peh20DJWIVpVljLLnlawA==}
@@ -49,12 +64,20 @@ snapshots:
     dependencies:
       playwright: 1.48.2
 
+  '@types/json2md@1.5.4': {}
+
   '@types/node@22.8.4':
     dependencies:
       undici-types: 6.19.8
 
   fsevents@2.3.2:
     optional: true
+
+  indento@1.1.13: {}
+
+  json2md@2.0.1:
+    dependencies:
+      indento: 1.1.13
 
   playwright-core@1.48.2: {}
 

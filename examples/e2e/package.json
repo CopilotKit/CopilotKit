@@ -17,6 +17,8 @@
   "license": "ISC",
   "devDependencies": {
     "@playwright/test": "^1.48.2",
-    "@types/node": "^22.8.4"
+    "@types/json2md": "^1.5.4",
+    "@types/node": "^22.8.4",
+    "json2md": "^2.0.1"
   }
 }
