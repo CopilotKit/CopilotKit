@@ -6,6 +6,10 @@ import {
   groupConfigsByDescription,
   PROJECT_NAMES,
 } from "../lib/config-helper";
+import dotenv from "dotenv";
+import path from "path";
+
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const variants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
@@ -16,6 +20,20 @@ const variants = [
   { name: "LangChain (Gemini)", queryParams: "?coAgentsModel=langchain_gemini" },
   { name: "Groq", queryParams: "?coAgentsModel=groq" },
 ];
+
+if (process.env.COPILOT_CLOUD_PROD_RUNTIME_URL && process.env.COPILOT_CLOUD_PROD_PUBLIC_API_KEY) {
+  const runtimeUrl = process.env.COPILOT_CLOUD_PROD_RUNTIME_URL;
+  const publicApiKey = process.env.COPILOT_CLOUD_PROD_PUBLIC_API_KEY;
+  variants.push({ name: "Copilot Cloud (Production)", queryParams: `?runtimeUrl=${runtimeUrl}&publicApiKey=${publicApiKey}` });
+  console.log("[next-openai] Added Copilot Cloud Production variant because runtime URL and public API key are set");
+}
+
+if (process.env.COPILOT_CLOUD_STAGING_RUNTIME_URL && process.env.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY) {
+  const runtimeUrl = process.env.COPILOT_CLOUD_STAGING_RUNTIME_URL;
+  const publicApiKey = process.env.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY;
+  variants.push({ name: "Copilot Cloud (Staging)", queryParams: `?runtimeUrl=${runtimeUrl}&publicApiKey=${publicApiKey}` });
+  console.log("[next-openai] Added Copilot Cloud Sroduction variant because runtime URL and public API key are set");
+}
 
 // Get configurations
 const allConfigs = getConfigs();
