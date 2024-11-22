@@ -33,13 +33,10 @@ jobs:
           - { project: "coagents-qa-text", type: "agent", deps: "remote-deps" }
           - { project: "coagents-qa-text", type: "agent", deps: "local-deps" }
           - { project: "coagents-qa-text", type: "ui" }
-          - {
-              project: "coagents-qa-native",
-              type: "agent",
-              deps: "remote-deps",
-            }
+          - { project: "coagents-qa-native", type: "agent", deps: "remote-deps" }
           - { project: "coagents-qa-native", type: "agent", deps: "local-deps" }
           - { project: "coagents-qa-native", type: "ui" }
+          - { project: "next-openai", type: "next-openai" }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -65,23 +62,18 @@ jobs:
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 058264219587.dkr.ecr.us-east-1.amazonaws.com
 
       - name: (UI) Setup pnpm
-        if: matrix.app.type == 'ui'
+        if: matrix.app.type == 'ui' || matrix.app.type == 'next-openai'
         uses: pnpm/action-setup@v4
         with:
           version: "9.5"
 
       - name: (UI) Use Node.js 21
-        if: matrix.app.type == 'ui'
+        if: matrix.app.type == 'ui' || matrix.app.type == 'next-openai'
         uses: actions/setup-node@v2
         with:
           node-version: 21.x
           cache: "pnpm"
           cache-dependency-path: "**/pnpm-lock.yaml"
-
-      - name: (UI) Install dependencies
-        if: matrix.app.type == 'ui'
-        working-directory: ./CopilotKit
-        run: pnpm install --frozen-lockfile
 
       - name: (UI) Install app dependencies
         if: matrix.app.type == 'ui'
@@ -89,12 +81,12 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: (UI, Local Deps) Install monorepo
-        if: matrix.app.type == 'ui'
+        if: matrix.app.type == 'ui' || matrix.app.type == 'next-openai'
         working-directory: ./CopilotKit
         run: pnpm install --frozen-lockfile
 
       - name: (UI, Local Deps) Build @copilotkit packages
-        if: matrix.app.type == 'ui'
+        if: matrix.app.type == 'ui' || matrix.app.type == 'next-openai'
         working-directory: ./CopilotKit
         run: pnpx turbo run build
 
@@ -111,7 +103,14 @@ jobs:
         working-directory: examples/${{ matrix.app.project }}/${{ matrix.app.type }}
         run: pnpm run build
         env:
-          OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
+          OPENAI_API_KEY: placeholder
+
+      - name: (next-openai) Build app
+        if: matrix.app.type == 'next-openai'
+        working-directory: CopilotKit/examples/next-openai
+        run: pnpm run example-build
+        env:
+          OPENAI_API_KEY: placeholder
 
       - name: (UI) Build Image
         if: matrix.app.type == 'ui'
@@ -120,6 +119,19 @@ jobs:
             -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-ui-${{ github.run_id }} \
             --build-arg APP_DIR=examples/${{ matrix.app.project }}/${{ matrix.app.type }} \
             -f ./examples/Dockerfile.${{ matrix.app.type }} \
+            --platform=linux/amd64 \
+            --provenance=false \
+            --push \
+            .
+        env:
+          DOCKER_BUILDKIT: 1
+
+      - name: (next-openai) Build Image
+        if: matrix.app.type == 'next-openai'
+        run: |
+          docker buildx build \
+            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:next-openai-${{ github.run_id }} \
+            -f ./CopilotKit/examples/next-openai/Dockerfile \
             --platform=linux/amd64 \
             --provenance=false \
             --push \

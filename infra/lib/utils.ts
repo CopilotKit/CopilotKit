@@ -35,7 +35,7 @@ export function createAgentProjectStack({
       : `examples/Dockerfile.agent-local-deps`;
   const GITHUB_ACTIONS_RUN_ID = requireEnv("GITHUB_ACTIONS_RUN_ID");
 
-  const outputs: Record<string,string> = {
+  const outputs: Record<string, string> = {
     Dependencies: dependencies,
   };
 
@@ -48,7 +48,12 @@ export function createAgentProjectStack({
     projectDescription: description,
     demoDir: `examples/${project}/agent`,
     overrideDockerfile: dockerfile,
-    environmentVariablesFromSecrets: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "TAVILY_API_KEY"],
+    environmentVariablesFromSecrets: [
+      "OPENAI_API_KEY",
+      "ANTHROPIC_API_KEY",
+      "GOOGLE_API_KEY",
+      "TAVILY_API_KEY",
+    ],
     port: "8000",
     includeInPRComment: false,
     env: {
@@ -57,7 +62,7 @@ export function createAgentProjectStack({
     imageTag: `${project}-agent-${
       dependencies === "Remote" ? "remote-deps" : "local-deps"
     }-${GITHUB_ACTIONS_RUN_ID}`,
-    outputs
+    outputs,
   });
 }
 
@@ -81,9 +86,9 @@ export function createUIProjectStack({
       : `examples/Dockerfile.ui-local-deps`;
   const GITHUB_ACTIONS_RUN_ID = requireEnv("GITHUB_ACTIONS_RUN_ID");
 
-  const outputs: Record<string,string> = {
+  const outputs: Record<string, string> = {
     Dependencies: dependencies,
-    EndToEndProjectKey: `${project}-ui-deps-${dependencies.toLocaleLowerCase()}` 
+    EndToEndProjectKey: `${project}-ui-deps-${dependencies.toLocaleLowerCase()}`,
   };
 
   if (process.env.GITHUB_PR_NUMBER) {
@@ -106,6 +111,58 @@ export function createUIProjectStack({
       account: process.env.CDK_DEFAULT_ACCOUNT,
     },
     imageTag: `${project}-ui-${GITHUB_ACTIONS_RUN_ID}`,
+    outputs,
+  });
+}
+
+export function createNextOpenAIProjectStack({
+  app,
+  description,
+  variant,
+  environmentVariables,
+  environmentVariablesFromSecrets,
+}: {
+  app: App;
+  description: string;
+  variant: "self-hosted" | "against-cloud-prod" | "against-cloud-staging";
+  environmentVariables?: Record<string, string>;
+  environmentVariablesFromSecrets?: string[];
+}) {
+  const cdkStackName = toCdkStackName(`next-openai-${variant}`);
+  const dockerfile = `CopilotKit/examples/next-openai/Dockerfile`;
+  const GITHUB_ACTIONS_RUN_ID = requireEnv("GITHUB_ACTIONS_RUN_ID");
+
+  const outputs: Record<string, string> = {
+    Variant: variant,
+    Dependencies: "Local",
+    EndToEndProjectKey: `next-openai-${variant}`,
+  };
+
+  if (process.env.GITHUB_PR_NUMBER) {
+    outputs["PRNumber"] = process.env.GITHUB_PR_NUMBER;
+  }
+
+  return new PreviewProjectStack(app, cdkStackName, {
+    projectName: `next-openai`,
+    projectDescription: `${description}`,
+    demoDir: `CopilotKit/examples/next-openai`,
+    overrideDockerfile: dockerfile,
+    environmentVariablesFromSecrets: [
+      "OPENAI_API_KEY",
+      "ANTHROPIC_API_KEY",
+      "GOOGLE_API_KEY",
+      "GROQ_API_KEY",
+      ...environmentVariablesFromSecrets ?? []
+    ],
+    environmentVariables: {
+      ...environmentVariables ?? {},
+    },
+    port: "3000",
+    includeInPRComment: true,
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+    },
+    imageTag: `next-openai-${GITHUB_ACTIONS_RUN_ID}`,
     outputs,
   });
 }
