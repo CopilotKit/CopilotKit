@@ -1,3 +1,5 @@
+import { CopilotKit } from "@copilotkit/react-core";
+import "@copilotkit/react-ui/styles.css";
 import type { Metadata } from "next";
 import "./globals.css";
 
@@ -19,7 +21,11 @@ export default function RootLayout({
       <head>
         <meta name="robots" content="index, follow" />
       </head>
-      <body>{children}</body>
+      <body>
+        <CopilotKit runtimeUrl="/api/copilotkit" agent="recipe_agent">
+          {children}
+        </CopilotKit>
+      </body>
     </html>
   );
 }
