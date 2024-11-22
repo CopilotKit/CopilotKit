@@ -151,6 +151,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   const emit = (message: string) => controller.enqueue(new TextEncoder().encode(message));
 
   let latestStateValues = {};
+  let updatedState = state;
 
   try {
     for await (const chunk of streamResponse) {
@@ -188,6 +189,14 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       // since we don't need any internal node names to be sent to the frontend
       if (graphInfo["nodes"].some((node) => node.id === currentNodeName)) {
         nodeName = currentNodeName;
+
+        // only update state from values when entering or exiting a known node
+        if (
+          eventType === LangGraphEventTypes.OnChainStart ||
+          eventType === LangGraphEventTypes.OnChainEnd
+        ) {
+          updatedState = latestStateValues;
+        }
       }
 
       if (!nodeName) {
@@ -195,14 +204,14 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       }
 
       if (manuallyEmitIntermediateState) {
-        state = event.data;
+        updatedState = event.data;
         emit(
           getStateSyncEvent({
             threadId,
             runId,
             agentName: agent.name,
             nodeName,
-            state,
+            state: updatedState,
             running: true,
             active: true,
           }),
@@ -218,8 +227,6 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
         // reset the streaming state extractor
         streamingStateExtractor = new StreamingStateExtractor(emitIntermediateState);
       }
-
-      let updatedState = latestStateValues;
 
       if (emitIntermediateState && eventType === LangGraphEventTypes.OnChatModelStream) {
         streamingStateExtractor.bufferToolCalls(event);

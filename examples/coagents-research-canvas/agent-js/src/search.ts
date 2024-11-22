@@ -103,6 +103,14 @@ export async function search_node(state: AgentState, config: RunnableConfig) {
     invokeArgs["parallel_tool_calls"] = false;
   }
 
+  logs = [];
+
+  await copilotKitEmitState(config, {
+    ...restOfState,
+    resources,
+    logs,
+  });
+
   const response = await model.bindTools!([ExtractResources], {
     ...invokeArgs,
     tool_choice: "ExtractResources",
@@ -116,14 +124,6 @@ export async function search_node(state: AgentState, config: RunnableConfig) {
     ],
     customConfig
   );
-
-  logs = [];
-
-  await copilotKitEmitState(config, {
-    ...restOfState,
-    resources,
-    logs,
-  });
 
   const aiMessageResponse = response as AIMessage;
   const newResources = aiMessageResponse.tool_calls![0]["args"]["resources"];
