@@ -54,8 +54,12 @@ export async function search_node(state: AgentState, config: RunnableConfig) {
       done: false,
     });
   }
-
-  await copilotKitEmitState(config, state);
+  const { messages, ...restOfState } = state;
+  await copilotKitEmitState(config, {
+    ...restOfState,
+    logs,
+    resources,
+  });
 
   const search_results = [];
 
@@ -64,7 +68,11 @@ export async function search_node(state: AgentState, config: RunnableConfig) {
     const response = await tavilyClient.search(query, {});
     search_results.push(response);
     logs[i]["done"] = true;
-    await copilotKitEmitState(config, state);
+    await copilotKitEmitState(config, {
+      ...restOfState,
+      logs,
+      resources,
+    });
   }
 
   const searchResultsToolMessageFull = new ToolMessage({
@@ -111,7 +119,6 @@ export async function search_node(state: AgentState, config: RunnableConfig) {
 
   logs = [];
 
-  const { messages, ...restOfState } = state;
   await copilotKitEmitState(config, {
     ...restOfState,
     resources,
