@@ -124,12 +124,13 @@ export function createNextOpenAIProjectStack({
   description: string;
   variant: "self-hosted";
 }) {
-  const cdkStackName = "next-openai" + toCdkStackName(variant);
+  const cdkStackName = toCdkStackName(`next-openai-${variant}`);
   const dockerfile = `CopilotKit/examples/next-openai/Dockerfile`;
   const GITHUB_ACTIONS_RUN_ID = requireEnv("GITHUB_ACTIONS_RUN_ID");
 
   const outputs: Record<string, string> = {
     Variant: variant,
+    Dependencies: "Local",
     EndToEndProjectKey: `next-openai-${variant}`,
   };
 
