@@ -11,15 +11,15 @@ export default function AIPresentation() {
   const [performResearch, setPerformResearch] = useState(false);
   const searchParams = useSearchParams();
   const serviceAdapter = searchParams.get("serviceAdapter") || "openai";
-  const runtimeUrl =
-    process.env["NEXT_PUBLIC_COPILOTKIT_RUNTIME_URL"] ??
-    `/api/copilotkit/presentation?serviceAdapter=${serviceAdapter}`;
 
-  const copilotKitProps = {
+  const runtimeUrl = searchParams.get("runtimeUrl") || `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
+  const publicApiKey = searchParams.get("publicApiKey");
+
+  const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
     transcribeAudioUrl: "/api/transcribe",
     textToSpeechUrl: "/api/tts",
     runtimeUrl,
-    publicApiKey: process.env["NEXT_PUBLIC_COPILOTKIT_PUBLIC_API_KEY"] ?? undefined,
+    publicApiKey: publicApiKey || undefined,
   };
 
   return (

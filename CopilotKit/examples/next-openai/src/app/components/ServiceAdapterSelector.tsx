@@ -6,7 +6,7 @@ export function ServiceAdapterSelector() {
   const searchParams = useSearchParams();
   const serviceAdapter = searchParams.get("serviceAdapter") || "openai";
 
-  if (process.env["NEXT_PUBLIC_COPILOTKIT_RUNTIME_URL"] !== undefined) {
+  if (searchParams.has("publicApiKey")) {
     return null;
   }
 
