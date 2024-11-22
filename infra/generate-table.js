@@ -11,6 +11,10 @@ function generateTable() {
   const structure = [];
   structure.push({ h1: "Previews" });
 
+  structure.push({
+    p: `**Commit SHA:** ${process.env.GITHUB_SHA?.substring(0, 7)}`
+  });
+
   const json = JSON.parse(file);
 
   // Group entries by ProjectName
