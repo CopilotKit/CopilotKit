@@ -89,6 +89,44 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               await expect(getDestinationCheckbox({ destination: "new-york-city", isChecked: false })).toBeVisible();
               await expect(getDestinationCheckbox({ destination: "tokyo", isChecked: true })).toBeVisible();
             });
+
+            test(`Test ${config.description} Textarea Demo ("/textarea" route) with variant ${variant.name}`, async ({
+              page,
+            }) => {
+              await page.goto(`${config.url}/textarea${variant.queryParams}`);
+
+              await page.getByTestId("copilot-textarea-editable").click();
+              await page.keyboard.type("Hello, CopilotKit!", { delay: 25 });
+              
+              expect(page.getByTestId("suggestion")).not.toBeVisible();
+              await page.waitForSelector("[data-testid='suggestion']", { state: "visible" });
+              const suggestion = await page.getByTestId("suggestion").textContent();
+            
+              await page.keyboard.press("Tab");
+
+              const contentPostCompletion = await page.getByTestId("copilot-textarea-editable").textContent();
+              expect(contentPostCompletion?.trim().endsWith(suggestion!.trim())).toBe(true);
+              
+              await page.keyboard.press("ControlOrMeta+A");
+              await page.waitForTimeout(250);
+
+              await page.keyboard.down("ControlOrMeta");
+              await page.keyboard.down("KeyK");
+              await page.waitForSelector("[data-testid='menu']", { state: "visible" });
+              await page.keyboard.up("KeyK");
+              await page.keyboard.up("ControlOrMeta");
+
+              await page.keyboard.type("Make it shorter", { delay: 25 });
+              await page.keyboard.press("Enter");
+
+              await page.waitForSelector("[data-testid='suggestion-result']", { state: "visible" });
+              await page.waitForSelector("[data-testid='insert-button']", { state: "visible" });
+              await page.waitForTimeout(250);
+              await page.getByTestId("insert-button").click();
+
+              const contentPostReplace = await page.getByTestId("copilot-textarea-editable").textContent();
+              expect(contentPostReplace?.trim()).not.toBe(contentPostCompletion?.trim());
+            });
           });
         });
       });
