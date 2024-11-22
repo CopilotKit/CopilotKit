@@ -9,7 +9,7 @@ import { CoAgentsDiagram } from "@/components/react/coagents/coagents-diagram.ts
 
 ## Before you start
 
-At the moment agentic copilots integrates with LangGraph-powered agents using **LangGraph-Python**, either self hosted or deployed to LangGraph Platform.
+At the moment agentic copilots integrate with LangGraph-powered agents (for both Python and TypeScript), either self hosted (Python only) or deployed to LangGraph Platform.
 
 **For orientation, here's how agentic copilots are wired:**
 
@@ -17,7 +17,7 @@ At the moment agentic copilots integrates with LangGraph-powered agents using **
 
 - In this tutorial, we'll hook up the 2 middle components:
   - **CopilotKit Runtime**
-  - **Remote Endpoint (FastAPI/LangGraph Platform + CopilotKit Python SDK)**
+  - **Remote Endpoint (FastAPI/LangGraph Platform + CopilotKit Python/TypeScript SDK)**
 
 <Callout type="info">
   This guide assumes you’re familiar with using LangGraph to build agent
@@ -37,9 +37,8 @@ This should only take a minute.
 </Step>
 
 <Step>
-  Then, setup a CopilotKit Remote-Endpoint using FastAPI:<br />
-  If you're using LangGraph Platform, follow the [LangGraph Platform Endpoint quickstart](/guides/backend-actions/langgraph-platform-endpoint),
-  otherwise, follow the [Remote Endpoint quickstart](/guides/backend-actions/remote-backend-endpoint).<br />
+  If you want to use LangGraph Platform, follow the [LangGraph Platform guide](/guides/backend-actions/langgraph-platform-endpoint) and stop at this step.<br/>
+  Otherwise, follow the [Remote Endpoint quickstart](/guides/backend-actions/remote-backend-endpoint) to setup a FastAPI Remote-Endpoint.<br/>
   **This endpoint will serve your (Python) LangGraph agent.**
 </Step>
 

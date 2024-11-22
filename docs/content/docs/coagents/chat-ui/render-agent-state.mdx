@@ -138,13 +138,13 @@ Now, you can use generics with `useCoAgentStateRender`:
 import { useCoagentStateRender } from "@copilotkit/react-core";
 
 useCoagentStateRender<AgentState>({ // [!code highlight:9]
-name: "basic_agent", // the name of the agent
-nodeName: "optionally_specify_a_specific_node", // Optional! You can specify a specific node you want generative UI for. Omit this argument if you want to render the agent's state for any node.
-render: ({ status, state, nodeName }) => {
-  return (
-    <DetailedWeatherInfo data={state.final_response} />
-  );
-},
+    name: "basic_agent", // the name of the agent
+    nodeName: "optionally_specify_a_specific_node", // Optional! You can specify a specific node you want generative UI for. Omit this argument if you want to render the agent's state for any node.
+    render: ({ status, state, nodeName }) => {
+      return (
+        <DetailedWeatherInfo data={state.final_response} />
+      );
+    },
 });
 ```
 
