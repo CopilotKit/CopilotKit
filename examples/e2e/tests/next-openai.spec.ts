@@ -10,7 +10,11 @@ import {
 const variants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
   { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
-  { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" }, // ? maybe broken
+  { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" },
+  { name: "LangChain (OpenAI)", queryParams: "?coAgentsModel=langchain_openai" },
+  { name: "LangChain (Anthropic)", queryParams: "?coAgentsModel=langchain_anthropic" },
+  { name: "LangChain (Gemini)", queryParams: "?coAgentsModel=langchain_gemini" },
+  { name: "Groq", queryParams: "?coAgentsModel=groq" },
 ];
 
 // Get configurations
@@ -27,7 +31,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
       test.describe(`${description}`, () => {
         configs.forEach((config) => {
           variants.forEach((variant) => {
-            test(`Test ${config.description} (/ route) with variant ${variant.name}`, async ({
+            test(`Test ${config.description} Travel Demo ("/" route) with variant ${variant.name}`, async ({
               page,
             }) => {
               await page.goto(`${config.url}${variant.queryParams}`);

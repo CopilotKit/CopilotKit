@@ -119,10 +119,14 @@ export function createNextOpenAIProjectStack({
   app,
   description,
   variant,
+  environmentVariables,
+  environmentVariablesFromSecrets,
 }: {
   app: App;
   description: string;
-  variant: "self-hosted";
+  variant: "self-hosted" | "against-cloud-prod" | "against-cloud-staging";
+  environmentVariables?: Record<string, string>;
+  environmentVariablesFromSecrets?: string[];
 }) {
   const cdkStackName = toCdkStackName(`next-openai-${variant}`);
   const dockerfile = `CopilotKit/examples/next-openai/Dockerfile`;
@@ -148,8 +152,11 @@ export function createNextOpenAIProjectStack({
       "ANTHROPIC_API_KEY",
       "GOOGLE_API_KEY",
       "GROQ_API_KEY",
+      ...environmentVariablesFromSecrets ?? []
     ],
-    environmentVariables: {},
+    environmentVariables: {
+      ...environmentVariables ?? {},
+    },
     port: "3000",
     includeInPRComment: true,
     env: {
