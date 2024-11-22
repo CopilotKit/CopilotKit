@@ -7,6 +7,7 @@ export const PROJECT_NAMES = {
   COAGENTS_QA_NATIVE: "coagents-qa-native",
   COAGENTS_QA_TEXT: "coagents-qa-text",
   COAGENTS_ROUTING: "coagents-routing",
+  COPILOTKIT_NEXT_OPENAI: "next-openai",
 } as const;
 
 export type ProjectName = (typeof PROJECT_NAMES)[keyof typeof PROJECT_NAMES];
