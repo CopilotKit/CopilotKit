@@ -1,4 +1,4 @@
-import { Field, InputType } from "type-graphql";
+import { Field, InputType, createUnionType } from "type-graphql";
 import { MessageRole, ActionExecutionScope } from "../types/enums";
 import { BaseMessage } from "../types/base";
 
@@ -17,12 +17,49 @@ export class MessageInput extends BaseMessage {
 
   @Field(() => AgentStateMessageInput, { nullable: true })
   agentStateMessage?: AgentStateMessageInput;
+
+  @Field(() => ContentMessageInput, { nullable: true })
+  contentMessage?: ContentMessageInput;
 }
+
+@InputType()
+export class MessageContentInput {
+  @Field(() => StringContentInput, { nullable: true })
+  stringContent?: StringContentInput;
+
+  @Field(() => ImageURLContentBlockInput, { nullable: true })
+  imageURLContent?: ImageURLContentBlockInput;
+}
+
+@InputType()
+class StringContentInput {
+  @Field(() => String)
+  content: string;
+}
+
+@InputType()
+class ImageURLContentBlockInput {
+  @Field(() => String)
+  url: string;
+
+  @Field(() => String, { nullable: true, defaultValue: "auto" })
+  detail?: "auto" | "low" | "high";
+}
+
 
 @InputType()
 export class TextMessageInput {
   @Field(() => String)
   content: string;
+
+  @Field(() => MessageRole)
+  role: MessageRole;
+}
+
+@InputType()
+export class ContentMessageInput {
+  @Field(() => [MessageContentInput])
+  content: MessageContentInput[];
 
   @Field(() => MessageRole)
   role: MessageRole;
