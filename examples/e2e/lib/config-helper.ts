@@ -46,6 +46,7 @@ export const groupConfigsByDescription = (
       acc[projectName][description] = [];
     }
 
+    value.url = value.url.replace(/\/$/, ""); // Remove trailing slash
     acc[projectName][description].push({ ...value, key });
 
     return acc;

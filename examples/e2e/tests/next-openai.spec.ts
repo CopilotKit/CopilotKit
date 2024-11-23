@@ -67,151 +67,145 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
     Object.entries(descriptions).forEach(([description, configs]) => {
       test.describe(`${description}`, () => {
         configs.forEach((config) => {
-          variants.forEach((variant) => {
-            test(`Test ${config.description} Travel Demo ("/" route) with variant ${variant.name}`, async ({
-              page,
-            }) => {
-              await page.goto(`${config.url}${variant.queryParams}`);
+          test.describe(`WaterBnB Demo ("/" route)`, () => {
+            variants.forEach((variant) => {
+              test(`Test ${config.description} with variant ${variant.name}`, async ({
+                page,
+              }) => {
+                await page.goto(`${config.url}${variant.queryParams}`);
 
-              const getDestinationCheckbox = ({
-                destination,
-                isChecked,
-              }: {
-                destination: string;
-                isChecked: boolean;
-              }) =>
-                page.locator(
-                  `[data-test-id="checkbox-${destination}-${
-                    isChecked ? "checked" : "unchecked"
-                  }"]`
+                const getDestinationCheckbox = ({
+                  destination,
+                  isChecked,
+                }: {
+                  destination: string;
+                  isChecked: boolean;
+                }) =>
+                  page.locator(
+                    `[data-test-id="checkbox-${destination}-${
+                      isChecked ? "checked" : "unchecked"
+                    }"]`
+                  );
+
+                // Open Copilot Sidebar
+                await page.click('[aria-label="Open Chat"]');
+                await page.waitForTimeout(500);
+
+                // First, we expect the destinations to be unchecked
+                await expect(
+                  getDestinationCheckbox({
+                    destination: "new-york-city",
+                    isChecked: false,
+                  })
+                ).toBeVisible();
+                await expect(
+                  getDestinationCheckbox({
+                    destination: "tokyo",
+                    isChecked: false,
+                  })
+                ).toBeVisible();
+
+                // Next, we ask AI to select the destinations
+                await sendChatMessage(
+                  page,
+                  "Select New York City and Tokyo as destinations."
                 );
+                await waitForResponse(page);
 
-              // Open Copilot Sidebar
-              await page.click('[aria-label="Open Chat"]');
-              await page.waitForTimeout(500);
+                // Finally, we expect the destinations to be checked
+                await expect(
+                  getDestinationCheckbox({
+                    destination: "new-york-city",
+                    isChecked: true,
+                  })
+                ).toBeVisible();
+                await expect(
+                  getDestinationCheckbox({
+                    destination: "tokyo",
+                    isChecked: true,
+                  })
+                ).toBeVisible();
 
-              // First, we expect the destinations to be unchecked
-              await expect(
-                getDestinationCheckbox({
-                  destination: "new-york-city",
-                  isChecked: false,
-                })
-              ).toBeVisible();
-              await expect(
-                getDestinationCheckbox({
-                  destination: "tokyo",
-                  isChecked: false,
-                })
-              ).toBeVisible();
+                // Ask to deselect Tokyo
+                await sendChatMessage(
+                  page,
+                  "Actually, please deselect New York City."
+                );
+                await waitForResponse(page);
 
-              // Next, we ask AI to select the destinations
-              await sendChatMessage(
-                page,
-                "Select New York City and Tokyo as destinations."
-              );
-              await waitForResponse(page);
-
-              // Finally, we expect the destinations to be checked
-              await expect(
-                getDestinationCheckbox({
-                  destination: "new-york-city",
-                  isChecked: true,
-                })
-              ).toBeVisible();
-              await expect(
-                getDestinationCheckbox({
-                  destination: "tokyo",
-                  isChecked: true,
-                })
-              ).toBeVisible();
-
-              // Ask to deselect Tokyo
-              await sendChatMessage(
-                page,
-                "Actually, please deselect New York City."
-              );
-              await waitForResponse(page);
-
-              // Validate
-              await expect(
-                getDestinationCheckbox({
-                  destination: "new-york-city",
-                  isChecked: false,
-                })
-              ).toBeVisible();
-              await expect(
-                getDestinationCheckbox({
-                  destination: "tokyo",
-                  isChecked: true,
-                })
-              ).toBeVisible();
+                // Validate
+                await expect(
+                  getDestinationCheckbox({
+                    destination: "new-york-city",
+                    isChecked: false,
+                  })
+                ).toBeVisible();
+                await expect(
+                  getDestinationCheckbox({
+                    destination: "tokyo",
+                    isChecked: true,
+                  })
+                ).toBeVisible();
+              });
             });
+          });
 
-            test(`Test ${config.description} Textarea Demo ("/textarea" route) with variant ${variant.name}`, async ({
-              page,
-            }) => {
-              console.log("1 - Starting test");
-              await page.goto(`${config.url}/textarea${variant.queryParams}`);
-
-              console.log("2 - Clicking textarea and typing initial text");
-              await page.getByTestId("copilot-textarea-editable").click();
-              await page.keyboard.type("Hello, CopilotKit!", { delay: 25 });
-
-              console.log("3 - Waiting for suggestion to appear");
-              expect(page.getByTestId("suggestion")).not.toBeVisible();
-              await page.waitForSelector("[data-testid='suggestion']", {
-                state: "visible",
+          test.describe(`Textarea Demo ("/textarea" route)`, () => {
+            variants.forEach((variant) => {
+              test(`Test ${config.description} with variant ${variant.name}`, async ({
+                page,
+              }) => {
+                await page.goto(`${config.url}/textarea${variant.queryParams}`);
+              
+                await page.getByTestId("copilot-textarea-editable").click();
+                await page.keyboard.type("Hello, CopilotKit!", { delay: 25 });
+                expect(page.getByTestId("suggestion")).not.toBeVisible();
+                await page.waitForSelector("[data-testid='suggestion']", {
+                  state: "visible",
+                });
+                const suggestion = await page
+                  .getByTestId("suggestion")
+                  .textContent();
+              
+                await page.keyboard.press("Tab");
+              
+                const contentPostCompletion = await page
+                  .getByTestId("copilot-textarea-editable")
+                  .textContent();
+                expect(
+                  contentPostCompletion?.trim().endsWith(suggestion!.trim())
+                ).toBe(true);
+              
+                await page.keyboard.press("ControlOrMeta+A");
+                await page.waitForTimeout(500);
+              
+                await page.keyboard.down("ControlOrMeta");
+                await page.keyboard.down("KeyK");
+                await page.waitForSelector("[data-testid='menu']", {
+                  state: "visible",
+                });
+                await page.keyboard.up("KeyK");
+                await page.keyboard.up("ControlOrMeta");
+              
+                await page.keyboard.type("Make it shorter", { delay: 25 });
+                await page.keyboard.press("Enter");
+              
+                await page.waitForSelector("[data-testid='suggestion-result']", {
+                  state: "visible",
+                });
+                await page.waitForSelector("[data-testid='insert-button']", {
+                  state: "visible",
+                });
+                await page.waitForTimeout(500);
+                await page.getByTestId("insert-button").click();
+              
+                const contentPostReplace = await page
+                  .getByTestId("copilot-textarea-editable")
+                  .textContent();
+                expect(contentPostReplace?.trim()).not.toBe(
+                  contentPostCompletion?.trim()
+                );
               });
-              const suggestion = await page
-                .getByTestId("suggestion")
-                .textContent();
-
-              console.log("4 - Accepting suggestion with Tab");
-              await page.keyboard.press("Tab");
-
-              console.log("5 - Validating suggestion was inserted");
-              const contentPostCompletion = await page
-                .getByTestId("copilot-textarea-editable")
-                .textContent();
-              expect(
-                contentPostCompletion?.trim().endsWith(suggestion!.trim())
-              ).toBe(true);
-
-              console.log("6 - Selecting all text");
-              await page.keyboard.press("ControlOrMeta+A");
-              await page.waitForTimeout(500);
-
-              console.log("7 - Opening command menu");
-              await page.keyboard.down("ControlOrMeta");
-              await page.keyboard.down("KeyK");
-              await page.waitForSelector("[data-testid='menu']", {
-                state: "visible",
-              });
-              await page.keyboard.up("KeyK");
-              await page.keyboard.up("ControlOrMeta");
-
-              console.log("8 - Entering command to make text shorter");
-              await page.keyboard.type("Make it shorter", { delay: 25 });
-              await page.keyboard.press("Enter");
-
-              console.log("9 - Waiting for suggestion result and insert button");
-              await page.waitForSelector("[data-testid='suggestion-result']", {
-                state: "visible",
-              });
-              await page.waitForSelector("[data-testid='insert-button']", {
-                state: "visible",
-              });
-              await page.waitForTimeout(500);
-              await page.getByTestId("insert-button").click();
-
-              console.log("10 - Validating text was changed");
-              const contentPostReplace = await page
-                .getByTestId("copilot-textarea-editable")
-                .textContent();
-              expect(contentPostReplace?.trim()).not.toBe(
-                contentPostCompletion?.trim()
-              );
-              console.log("11 - Test completed successfully");
             });
           });
         });
