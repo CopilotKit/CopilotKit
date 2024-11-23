@@ -150,11 +150,14 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
             test(`Test ${config.description} Textarea Demo ("/textarea" route) with variant ${variant.name}`, async ({
               page,
             }) => {
+              console.log("1 - Starting test");
               await page.goto(`${config.url}/textarea${variant.queryParams}`);
 
+              console.log("2 - Clicking textarea and typing initial text");
               await page.getByTestId("copilot-textarea-editable").click();
               await page.keyboard.type("Hello, CopilotKit!", { delay: 25 });
 
+              console.log("3 - Waiting for suggestion to appear");
               expect(page.getByTestId("suggestion")).not.toBeVisible();
               await page.waitForSelector("[data-testid='suggestion']", {
                 state: "visible",
@@ -163,8 +166,10 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 .getByTestId("suggestion")
                 .textContent();
 
+              console.log("4 - Accepting suggestion with Tab");
               await page.keyboard.press("Tab");
 
+              console.log("5 - Validating suggestion was inserted");
               const contentPostCompletion = await page
                 .getByTestId("copilot-textarea-editable")
                 .textContent();
@@ -172,9 +177,11 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 contentPostCompletion?.trim().endsWith(suggestion!.trim())
               ).toBe(true);
 
+              console.log("6 - Selecting all text");
               await page.keyboard.press("ControlOrMeta+A");
-              await page.waitForTimeout(250);
+              await page.waitForTimeout(500);
 
+              console.log("7 - Opening command menu");
               await page.keyboard.down("ControlOrMeta");
               await page.keyboard.down("KeyK");
               await page.waitForSelector("[data-testid='menu']", {
@@ -183,24 +190,28 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               await page.keyboard.up("KeyK");
               await page.keyboard.up("ControlOrMeta");
 
+              console.log("8 - Entering command to make text shorter");
               await page.keyboard.type("Make it shorter", { delay: 25 });
               await page.keyboard.press("Enter");
 
+              console.log("9 - Waiting for suggestion result and insert button");
               await page.waitForSelector("[data-testid='suggestion-result']", {
                 state: "visible",
               });
               await page.waitForSelector("[data-testid='insert-button']", {
                 state: "visible",
               });
-              await page.waitForTimeout(250);
+              await page.waitForTimeout(500);
               await page.getByTestId("insert-button").click();
 
+              console.log("10 - Validating text was changed");
               const contentPostReplace = await page
                 .getByTestId("copilot-textarea-editable")
                 .textContent();
               expect(contentPostReplace?.trim()).not.toBe(
                 contentPostCompletion?.trim()
               );
+              console.log("11 - Test completed successfully");
             });
           });
         });
