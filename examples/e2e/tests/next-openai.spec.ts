@@ -155,53 +155,88 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               test(`Test ${config.description} with variant ${variant.name}`, async ({
                 page,
               }) => {
+                console.log("1. Going to textarea page");
                 await page.goto(`${config.url}/textarea${variant.queryParams}`);
-              
+                
+                console.log("2. Clicking textarea");
                 await page.getByTestId("copilot-textarea-editable").click();
+                
+                console.log("3. Typing initial text");
                 await page.keyboard.type("Hello, CopilotKit!", { delay: 25 });
+                
+                console.log("4. Checking suggestion not visible");
                 expect(page.getByTestId("suggestion")).not.toBeVisible();
+                
+                console.log("5. Waiting for suggestion to appear");
                 await page.waitForSelector("[data-testid='suggestion']", {
                   state: "visible",
                 });
+                
+                console.log("6. Getting suggestion text");
                 const suggestion = await page
                   .getByTestId("suggestion")
                   .textContent();
               
+                console.log("7. Pressing Tab to accept suggestion");
                 await page.keyboard.press("Tab");
               
+                console.log("8. Getting post-completion content");
                 const contentPostCompletion = await page
                   .getByTestId("copilot-textarea-editable")
                   .textContent();
+                
+                console.log("9. Validating completion");
                 expect(
                   contentPostCompletion?.trim().endsWith(suggestion!.trim())
                 ).toBe(true);
               
+                console.log("10. Selecting all text");
                 await page.keyboard.press("ControlOrMeta+A");
+                
+                console.log("11. Waiting after selection");
                 await page.waitForTimeout(500);
               
+                console.log("12. Opening command menu");
                 await page.keyboard.down("ControlOrMeta");
                 await page.keyboard.down("KeyK");
+                
+                console.log("13. Waiting for menu");
                 await page.waitForSelector("[data-testid='menu']", {
                   state: "visible",
                 });
+                
+                console.log("14. Releasing command keys");
                 await page.keyboard.up("KeyK");
                 await page.keyboard.up("ControlOrMeta");
               
+                console.log("15. Typing command");
                 await page.keyboard.type("Make it shorter", { delay: 25 });
+                
+                console.log("16. Pressing Enter");
                 await page.keyboard.press("Enter");
               
+                console.log("17. Waiting for suggestion result");
                 await page.waitForSelector("[data-testid='suggestion-result']", {
                   state: "visible",
                 });
+                
+                console.log("18. Waiting for insert button");
                 await page.waitForSelector("[data-testid='insert-button']", {
                   state: "visible",
                 });
+                
+                console.log("19. Waiting before clicking insert");
                 await page.waitForTimeout(500);
+                
+                console.log("20. Clicking insert button");
                 await page.getByTestId("insert-button").click();
               
+                console.log("21. Getting final content");
                 const contentPostReplace = await page
                   .getByTestId("copilot-textarea-editable")
                   .textContent();
+                
+                console.log("22. Validating content changed");
                 expect(contentPostReplace?.trim()).not.toBe(
                   contentPostCompletion?.trim()
                 );
