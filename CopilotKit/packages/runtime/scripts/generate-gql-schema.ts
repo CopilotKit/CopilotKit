@@ -1,5 +1,6 @@
 import "reflect-metadata";
-import { buildSchema } from "../lib/integrations/shared";
+import { buildSchema } from "../src/lib/integrations/shared";
+// @ts-ignore
 import path from "node:path";
 
 console.log("Generating schema...");

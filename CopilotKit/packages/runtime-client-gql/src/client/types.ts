@@ -5,6 +5,7 @@ import {
   MessageStatus,
   ResultMessageInput,
   TextMessageInput,
+  ContentMessageInput,
   BaseMessageOutput,
   AgentStateMessageInput,
   MessageStatusCode,
@@ -30,6 +31,7 @@ export const Role = MessageRole;
 type MessageConstructorOptions = Partial<Message>;
 
 type TextMessageConstructorOptions = MessageConstructorOptions & TextMessageInput;
+type ContentMessageConstructorOptions = MessageConstructorOptions & ContentMessageInput;
 
 export class TextMessage extends Message implements TextMessageConstructorOptions {
   role: TextMessageInput["role"];
@@ -37,6 +39,17 @@ export class TextMessage extends Message implements TextMessageConstructorOption
 
   constructor(props: TextMessageConstructorOptions) {
     super(props);
+  }
+}
+
+export class ContentMessage extends Message implements ContentMessageConstructorOptions {
+  role: ContentMessageInput["role"];
+  content: ContentMessageInput['content'];
+
+  constructor(props: ContentMessageConstructorOptions) {
+    super(props);
+    this.content = props.content ?? []; // Default to an empty array
+    this.role = props.role;
   }
 }
 

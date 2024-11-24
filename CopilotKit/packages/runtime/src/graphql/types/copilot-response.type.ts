@@ -5,7 +5,15 @@ import { ResponseStatusUnion } from "./response-status.type";
 
 @InterfaceType({
   resolveType(value) {
-    if (value.hasOwnProperty("content")) {
+    if (value.hasOwnProperty("content") && Array.isArray(value.content)) {
+      const firstContentItem = value.content[0];
+      if (firstContentItem?.type === "text") {
+        return ContentMessageOutput; // A ContentMessage with text blocks
+      } else if (firstContentItem?.type === "image_url") {
+        return ContentMessageOutput; // A ContentMessage with image blocks
+      }
+    }
+    if (value.hasOwnProperty("content") && typeof value.content === "string") {
       return TextMessageOutput;
     } else if (value.hasOwnProperty("name")) {
       return ActionExecutionMessageOutput;
@@ -30,6 +38,15 @@ abstract class BaseMessageOutput {
 
 @ObjectType({ implements: BaseMessageOutput })
 export class TextMessageOutput {
+  @Field(() => MessageRole)
+  role: MessageRole;
+
+  @Field(() => [String])
+  content: string[];
+}
+
+@ObjectType({ implements: BaseMessageOutput })
+export class ContentMessageOutput {
   @Field(() => MessageRole)
   role: MessageRole;
 
