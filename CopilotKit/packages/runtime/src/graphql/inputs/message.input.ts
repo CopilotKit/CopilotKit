@@ -1,9 +1,7 @@
-import { Field, InputType, createUnionType } from "type-graphql";
+import { Field, InputType } from "type-graphql";
 import { MessageRole, ActionExecutionScope } from "../types/enums";
 import { BaseMessage } from "../types/base";
 
-// GraphQL does not support union types in inputs, so we need to use
-// optional fields for the different subtypes.
 @InputType()
 export class MessageInput extends BaseMessage {
   @Field(() => TextMessageInput, { nullable: true })
@@ -24,42 +22,29 @@ export class MessageInput extends BaseMessage {
 
 @InputType()
 export class MessageContentInput {
-  @Field(() => StringContentInput, { nullable: true })
-  stringContent?: StringContentInput;
+  @Field(() => String)
+  type: "text" | "image_url";
+
+  @Field(() => TextContentBlockInput, { nullable: true })
+  textContent?: TextContentBlockInput;
 
   @Field(() => ImageURLContentBlockInput, { nullable: true })
   imageURLContent?: ImageURLContentBlockInput;
 }
 
 @InputType()
-class StringContentInput {
-  @Field(() => String)
-  content: string;
-}
-
-@InputType()
-class ImageURLContentBlockInput {
-  @Field(() => String)
-  url: string;
-
-  @Field(() => String, { nullable: true, defaultValue: "auto" })
-  detail?: "auto" | "low" | "high";
-}
-
-
-@InputType()
-export class TextMessageInput {
-  @Field(() => String)
-  content: string;
+export class ContentMessageInput {
+  @Field(() => [MessageContentInput])
+  content: MessageContentInput[];
 
   @Field(() => MessageRole)
   role: MessageRole;
 }
 
 @InputType()
-export class ContentMessageInput {
-  @Field(() => [MessageContentInput])
-  content: MessageContentInput[];
+export class TextMessageInput {
+  @Field(() => String)
+  content: string;
 
   @Field(() => MessageRole)
   role: MessageRole;
@@ -114,4 +99,31 @@ export class AgentStateMessageInput {
 
   @Field(() => Boolean)
   active: boolean;
+}
+
+@InputType()
+export class ImageURLContentBlockInput {
+  @Field(() => String)
+  type: "image_url";
+
+  @Field(() => ImageURLInput)
+  image_url: ImageURLInput;
+}
+
+@InputType()
+export class ImageURLInput {
+  @Field(() => String)
+  url: string;
+
+  @Field(() => String, { nullable: true, defaultValue: "auto" })
+  detail?: "auto" | "low" | "high";
+}
+
+@InputType()
+export class TextContentBlockInput {
+  @Field(() => String)
+  type: "text";
+
+  @Field(() => String)
+  text: string;
 }
