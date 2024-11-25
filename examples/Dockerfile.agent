@@ -23,4 +23,6 @@ RUN if [ "$WITH_LOCAL_DEPS" = "true" ]; then poetry add /opt/sdk-python; fi
 # Copy application code last
 COPY ${APP_DIR}/ ./
 
+RUN mkdir .langgraph_api
+
 CMD ["poetry", "run", "demo"]

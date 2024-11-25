@@ -92,6 +92,8 @@ export function createAgentProjectStack({
     imageTag: `${project}-agent-${
       dependencies === "Remote" ? "remote-deps" : "local-deps"
     }-${GITHUB_ACTIONS_RUN_ID}`,
+    entrypoint: ["/bin/sh", "-c"],
+    cmd: ["langgraph dev --no-browser --port=8000 --config=langgraph.json --host=0.0.0.0"],
     outputs: {
       ...outputs,
       LangGraphCloud: "true",
