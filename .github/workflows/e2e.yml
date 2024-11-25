@@ -72,7 +72,6 @@ jobs:
       - name: Run Tests
         id: run_tests
         working-directory: ./examples/e2e
-        continue-on-error: true
         run: |
           pnpm playwright test
         env:
