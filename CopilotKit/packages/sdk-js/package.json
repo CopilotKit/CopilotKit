@@ -19,8 +19,8 @@
       "import": "./dist/index.mjs"
     },
     "./langchain": {
-      "require": "./dist/langchain/index.js",
-      "import": "./dist/langchain/index.mjs"
+      "require": "./dist/langchain.js",
+      "import": "./dist/langchain.mjs"
     }
   },
   "types": "./dist/index.d.ts",
