@@ -19,24 +19,16 @@ jobs:
           - {
               project: "coagents-research-canvas",
               type: "agent",
-              deps: "remote-deps",
-            }
-          - {
-              project: "coagents-research-canvas",
-              type: "agent",
               deps: "local-deps",
             }
           - { project: "coagents-research-canvas", type: "ui" }
-          - { project: "coagents-routing", type: "agent", deps: "remote-deps" }
-          - { project: "coagents-routing", type: "agent", deps: "local-deps" }
-          - { project: "coagents-routing", type: "ui" }
-          - { project: "coagents-qa-text", type: "agent", deps: "remote-deps" }
-          - { project: "coagents-qa-text", type: "agent", deps: "local-deps" }
-          - { project: "coagents-qa-text", type: "ui" }
-          - { project: "coagents-qa-native", type: "agent", deps: "remote-deps" }
-          - { project: "coagents-qa-native", type: "agent", deps: "local-deps" }
-          - { project: "coagents-qa-native", type: "ui" }
-          - { project: "next-openai", type: "next-openai" }
+          # - { project: "coagents-routing", type: "agent", deps: "local-deps" }
+          # - { project: "coagents-routing", type: "ui" }
+          # - { project: "coagents-qa-text", type: "agent", deps: "local-deps" }
+          # - { project: "coagents-qa-text", type: "ui" }
+          # - { project: "coagents-qa-native", type: "agent", deps: "local-deps" }
+          # - { project: "coagents-qa-native", type: "ui" }
+          # - { project: "next-openai", type: "next-openai" }
     steps:
       - name: Checkout
         uses: actions/checkout@v4

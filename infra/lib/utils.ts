@@ -26,7 +26,10 @@ export function createAgentProjectStack({
   project: string;
   description: string;
   dependencies: "Remote" | "Local";
-}) {
+}): {
+  selfHostedAgent: PreviewProjectStack;
+  lgcAgent: PreviewProjectStack;
+} {
   const cdkStackName =
     toCdkStackName(project) + "Agent" + dependencies + "Deps";
   const dockerfile =
@@ -43,7 +46,7 @@ export function createAgentProjectStack({
     outputs["PRNumber"] = process.env.GITHUB_PR_NUMBER;
   }
 
-  return new PreviewProjectStack(app, cdkStackName, {
+  const selfHostedAgent = new PreviewProjectStack(app, cdkStackName, {
     projectName: project,
     projectDescription: description,
     demoDir: `examples/${project}/agent`,
@@ -64,6 +67,31 @@ export function createAgentProjectStack({
     }-${GITHUB_ACTIONS_RUN_ID}`,
     outputs,
   });
+
+  const lgcAgent = new PreviewProjectStack(app, cdkStackName, {
+    projectName: project,
+    projectDescription: description,
+    demoDir: `examples/${project}/agent`,
+    overrideDockerfile: dockerfile,
+    environmentVariablesFromSecrets: [
+      "OPENAI_API_KEY",
+      "ANTHROPIC_API_KEY",
+      "GOOGLE_API_KEY",
+      "TAVILY_API_KEY",
+      "LANGSMITH_API_KEY",
+    ],
+    port: "8000",
+    includeInPRComment: false,
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+    },
+    imageTag: `${project}-agent-${
+      dependencies === "Remote" ? "remote-deps" : "local-deps"
+    }-lgc-${GITHUB_ACTIONS_RUN_ID}`,
+    outputs,
+  });
+
+  return { selfHostedAgent, lgcAgent };
 }
 
 export function createUIProjectStack({
@@ -71,7 +99,8 @@ export function createUIProjectStack({
   project,
   description,
   dependencies,
-  agentProject,
+  selfHostedAgentProject,
+  lgcAgentProject,
   environmentVariables,
   environmentVariablesFromSecrets,
 }: {
@@ -79,7 +108,8 @@ export function createUIProjectStack({
   project: string;
   description: string;
   dependencies: "Remote" | "Local";
-  agentProject: PreviewProjectStack;
+  selfHostedAgentProject: PreviewProjectStack;
+  lgcAgentProject: PreviewProjectStack;
   environmentVariables?: Record<string, string>;
   environmentVariablesFromSecrets?: string[];
 }) {
@@ -93,6 +123,7 @@ export function createUIProjectStack({
   const outputs: Record<string, string> = {
     Dependencies: dependencies,
     EndToEndProjectKey: `${project}-ui-deps-${dependencies.toLocaleLowerCase()}`,
+    LgcDeploymentUrl: `${lgcAgentProject.fnUrl}`
   };
 
   if (process.env.GITHUB_PR_NUMBER) {
@@ -104,9 +135,13 @@ export function createUIProjectStack({
     projectDescription: `${description}`,
     demoDir: `examples/${project}/ui`,
     overrideDockerfile: dockerfile,
-    environmentVariablesFromSecrets: ["OPENAI_API_KEY", "LANGSMITH_API_KEY", ...environmentVariablesFromSecrets ?? []],
+    environmentVariablesFromSecrets: [
+      "OPENAI_API_KEY",
+      "LANGSMITH_API_KEY",
+      ...(environmentVariablesFromSecrets ?? []),
+    ],
     environmentVariables: {
-      REMOTE_ACTION_URL: `${agentProject.fnUrl}/copilotkit`,
+      REMOTE_ACTION_URL: `${selfHostedAgentProject.fnUrl}/copilotkit`,
       ...environmentVariables,
     },
     buildSecrets: ["OPENAI_API_KEY"],
@@ -157,10 +192,10 @@ export function createNextOpenAIProjectStack({
       "ANTHROPIC_API_KEY",
       "GOOGLE_API_KEY",
       "GROQ_API_KEY",
-      ...environmentVariablesFromSecrets ?? []
+      ...(environmentVariablesFromSecrets ?? []),
     ],
     environmentVariables: {
-      ...environmentVariables ?? {},
+      ...(environmentVariables ?? {}),
     },
     port: "3000",
     includeInPRComment: true,
