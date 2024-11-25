@@ -112,14 +112,14 @@ jobs:
           script: |
             const fs = require('fs');
             let summary = 'Test run completed.';
-
+            let failedTests = 0;
             try {
               const results = JSON.parse(
                 fs.readFileSync('./examples/e2e/test-results/test-results.json', 'utf8')
               );
               
               const stats = results.stats;
-              const failedTests = stats.unexpected;
+              failedTests = stats.unexpected;
               
               // Find failed test details
               const failedSpecs = results.suites
@@ -154,7 +154,7 @@ jobs:
             } catch (error) {
               summary = 'Failed to read test results.';
               console.error('Error reading test results:', error);
-              throw error; // This will make the check fail
+              failedTests = 1;
             }
 
             return github.rest.checks.create({
