@@ -1,0 +1,20 @@
+---
+title: Message Management
+---
+
+Message management in CoAgents operates with CopilotKit as the "ground truth" for the full chat session. 
+When a co-agent session begins, it receives the existing CopilotKit chat history to maintain conversational
+continuity across different agents.
+
+Messages flow between CopilotKit and LangGraph in a specific way:
+
+- User-facing (streamed) messages from LangGraph are forwarded to CopilotKit
+- Internal agent messages remain within LangGraph
+- All CopilotKit messages are preserved to maintain consistency
+
+When a co-agent completes its execution, its relevant messages become part of CopilotKit's persistent chat
+history. This means subsequent agents will have access to these messages as context for their own execution.
+To modify this history, developers must update CopilotKit's ground truth messages using the `useCopilotChat`
+hook's `setMessages` method.
+
+Want some help managing messages in your CoAgent application? Check out our guide on [emitting messages](/coagents/advanced/manually-emitting-messages).
