@@ -140,7 +140,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   let streamingStateExtractor = new StreamingStateExtractor([]);
   let prevNodeName = null;
   let emitIntermediateStateUntilEnd = null;
-  let shouldExit = null;
+  let shouldExit = false;
   let externalRunId = null;
 
   const streamResponse = client.runs.stream(threadId, assistantId, {
@@ -175,10 +175,9 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       const metadata = event.metadata;
 
       shouldExit =
-        shouldExit != null
-          ? shouldExit
-          : eventType === LangGraphEventTypes.OnCustomEvent &&
-            event.name === CustomEventNames.CopilotKitExit;
+        shouldExit ||
+        (eventType === LangGraphEventTypes.OnCustomEvent &&
+          event.name === CustomEventNames.CopilotKitExit);
 
       const emitIntermediateState = metadata["copilotkit:emit-intermediate-state"];
       const manuallyEmitIntermediateState =
