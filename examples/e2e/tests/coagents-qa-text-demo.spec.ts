@@ -6,11 +6,12 @@ import {
   PROJECT_NAMES,
 } from "../lib/config-helper";
 
+const lgcDeploymentUrl = 'https://coagents-qa-text-lgc-b-bd46db04c2355d76834a998b20686272.default.us.langgraph.app'
 export const variants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
-  { name: "OpenAI (LGC)", queryParams: `?coAgentsModel=openai&lgcDeploymentUrl=${process.env.LGC_DEPLOYMENT_URL}` },
+  { name: "OpenAI (LGC)", queryParams: `?coAgentsModel=openai&lgcDeploymentUrl=${lgcDeploymentUrl}` },
   { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
-  { name: "Anthropic (LGC)", queryParams: `?coAgentsModel=anthropic&lgcDeploymentUrl=${process.env.LGC_DEPLOYMENT_URL}` },
+  { name: "Anthropic (LGC)", queryParams: `?coAgentsModel=anthropic&lgcDeploymentUrl=${lgcDeploymentUrl}` },
 ];
 
 const allConfigs = getConfigs();

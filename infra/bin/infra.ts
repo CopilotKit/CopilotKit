@@ -24,9 +24,7 @@ const coAgentsResearchCanvasUIWithRemoteDeps = createUIProjectStack({
   description: "CoAgents Research Canvas (UI) - Remote Depenencies",
   dependencies: "Remote",
   agentProject: coAgentsResearchCanvasAgentRemoteDeps,
-  environmentVariables: {
-    LGC_DEPLOYMENT_URL: `https://coagents-research-canvas-br-cda7ddd686245735b2653e48370427b9.default.us.langgraph.app`,
-  }
+  environmentVariables: {}
 });
 
 // Local Dependencies
@@ -43,9 +41,7 @@ const coAgentsResearchCanvasUIWithLocalDeps = createUIProjectStack({
   description: "CoAgents Research Canvas (UI) - Local Depenencies",
   dependencies: "Local",
   agentProject: coAgentsResearchCanvasAgentLocalDeps,
-  environmentVariables: {
-    LGC_DEPLOYMENT_URL: `https://coagents-research-canvas-br-cda7ddd686245735b2653e48370427b9.default.us.langgraph.app`,
-  }
+  environmentVariables: {}
 });
 
 /*
@@ -66,9 +62,7 @@ const coAgentsRoutingUIWithRemoteDeps = createUIProjectStack({
   description: "CoAgents Routing (UI) - Remote Dependencies",
   dependencies: "Remote",
   agentProject: coAgentsRoutingWithRemoteDeps,
-  environmentVariables: {
-    LGC_DEPLOYMENT_URL: 'https://coagents-routing-lgc-b-378e0fb14e6e5209a83d53e5770ff5e4.default.us.langgraph.app',
-  }
+  environmentVariables: {}
 });
 
 // Local Dependencies
@@ -85,9 +79,7 @@ const coAgentsRoutingUIWithLocalDeps = createUIProjectStack({
   description: "CoAgents Routing (UI) - Local Dependencies",
   dependencies: "Local",
   agentProject: coAgentsRoutingWithLocalDeps,
-  environmentVariables: {
-    LGC_DEPLOYMENT_URL: 'https://coagents-routing-lgc-b-378e0fb14e6e5209a83d53e5770ff5e4.default.us.langgraph.app',
-  }
+  environmentVariables: {}
 });
 
 /*
@@ -108,9 +100,7 @@ const qaTextUIWithRemoteDeps = createUIProjectStack({
   description: "CoAgents QA Text (UI) - Remote Dependencies",
   dependencies: "Remote",
   agentProject: qaTextAgentWithRemoteDeps,
-  environmentVariables: {
-    LGC_DEPLOYMENT_URL: `https://coagents-qa-text-lgc-b-bd46db04c2355d76834a998b20686272.default.us.langgraph.app`,
-  }
+  environmentVariables: {}
 });
 
 // Local Dependencies
@@ -127,9 +117,7 @@ const qaTextUIWithLocalDeps = createUIProjectStack({
   description: "CoAgents QA Text (UI) - Local Dependencies",
   dependencies: "Local",
   agentProject: qaTextAgentWithLocalDeps,
-  environmentVariables: {
-    LGC_DEPLOYMENT_URL: `https://coagents-qa-text-lgc-b-bd46db04c2355d76834a998b20686272.default.us.langgraph.app`,
-  }
+  environmentVariables: {}
 });
 
 /*
@@ -150,9 +138,7 @@ const qaNativeUIWithRemoteDeps = createUIProjectStack({
   description: "CoAgents QA Native (UI) - Remote Dependencies",
   dependencies: "Remote",
   agentProject: qaNativeAgentWithRemoteDeps,
-  environmentVariables: {
-    LGC_DEPLOYMENT_URL: `https://coagents-qa-native-lgc-b-60a07709d8f651c584bbe3cc8e74ae3c.default.us.langgraph.app`,
-  }
+  environmentVariables: {}
 });
 
 // Local Dependencies
@@ -169,9 +155,7 @@ const qaNativeUIWithLocalDeps = createUIProjectStack({
   description: "CoAgents QA Native (UI) - Local Dependencies",
   dependencies: "Local",
   agentProject: qaNativeAgentWithLocalDeps,
-  environmentVariables: {
-    LGC_DEPLOYMENT_URL: `https://coagents-qa-native-lgc-b-60a07709d8f651c584bbe3cc8e74ae3c.default.us.langgraph.app`,
-  }
+  environmentVariables: {}
 });
 
 /**

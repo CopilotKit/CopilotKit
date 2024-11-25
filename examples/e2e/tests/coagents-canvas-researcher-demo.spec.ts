@@ -7,11 +7,12 @@ import {
   PROJECT_NAMES,
 } from "../lib/config-helper";
 
+const lgcDeploymentUrl = 'https://coagents-research-canvas-br-cda7ddd686245735b2653e48370427b9.default.us.langgraph.app'
 const variants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
-  { name: "OpenAI (LGC)", queryParams: `?coAgentsModel=openai&lgcDeploymentUrl=${process.env.LGC_DEPLOYMENT_URL}` },
+  { name: "OpenAI (LGC)", queryParams: `?coAgentsModel=openai&lgcDeploymentUrl=${lgcDeploymentUrl}` },
   { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
-  { name: "Anthropic (LGC)", queryParams: `?coAgentsModel=anthropic&lgcDeploymentUrl=${process.env.LGC_DEPLOYMENT_URL}` },
+  { name: "Anthropic (LGC)", queryParams: `?coAgentsModel=anthropic&lgcDeploymentUrl=${lgcDeploymentUrl}` },
   // { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" }, // seems broken
 ];
 
