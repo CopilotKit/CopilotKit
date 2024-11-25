@@ -65,7 +65,11 @@ export function createAgentProjectStack({
     imageTag: `${project}-agent-${
       dependencies === "Remote" ? "remote-deps" : "local-deps"
     }-${GITHUB_ACTIONS_RUN_ID}`,
-    outputs,
+    outputs: {
+      ...outputs,
+      LangGraphCloud: "false",
+      SelfHosted: "true"
+    },
   });
 
   const lgcAgent = new PreviewProjectStack(app, `${cdkStackName}LGC`, {
@@ -88,7 +92,11 @@ export function createAgentProjectStack({
     imageTag: `${project}-agent-${
       dependencies === "Remote" ? "remote-deps" : "local-deps"
     }-${GITHUB_ACTIONS_RUN_ID}`,
-    outputs,
+    outputs: {
+      ...outputs,
+      LangGraphCloud: "true",
+      SelfHosted: "false"
+    },
   });
 
   return { selfHostedAgent, lgcAgent };
