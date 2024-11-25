@@ -1,5 +1,14 @@
 # ui
 
+## 1.3.16-mme-lgc-langgraph-package.6
+
+### Patch Changes
+
+- Update exports
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.3.16-mme-lgc-langgraph-package.6
+  - @copilotkit/shared@1.3.16-mme-lgc-langgraph-package.6
+
 ## 1.3.16-mme-lgc-langgraph-package.5
 
 ### Patch Changes

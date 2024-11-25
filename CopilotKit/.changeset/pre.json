@@ -1,27 +1,28 @@
 {
-  "mode": "exit",
+  "mode": "pre",
   "tag": "mme-lgc-langgraph-package",
   "initialVersions": {
-    "next-openai": "1.3.16-mme-lgc-langgraph-package.4",
-    "next-pages-router": "1.3.16-mme-lgc-langgraph-package.4",
-    "node-express": "1.3.16-mme-lgc-langgraph-package.4",
-    "node-http": "1.3.16-mme-lgc-langgraph-package.4",
-    "@copilotkit/react-core": "1.3.16-mme-lgc-langgraph-package.4",
-    "@copilotkit/react-textarea": "1.3.16-mme-lgc-langgraph-package.4",
-    "@copilotkit/react-ui": "1.3.16-mme-lgc-langgraph-package.4",
-    "@copilotkit/runtime": "1.3.16-mme-lgc-langgraph-package.4",
-    "@copilotkit/runtime-client-gql": "1.3.16-mme-lgc-langgraph-package.4",
-    "@copilotkit/sdk-js": "1.3.16-mme-lgc-langgraph-package.4",
-    "@copilotkit/shared": "1.3.16-mme-lgc-langgraph-package.4",
-    "eslint-config-custom": "1.3.16-mme-lgc-langgraph-package.4",
-    "tailwind-config": "1.3.16-mme-lgc-langgraph-package.4",
-    "tsconfig": "1.3.16-mme-lgc-langgraph-package.4"
+    "next-openai": "1.3.16-mme-lgc-langgraph-package.5",
+    "next-pages-router": "1.3.16-mme-lgc-langgraph-package.5",
+    "node-express": "1.3.16-mme-lgc-langgraph-package.5",
+    "node-http": "1.3.16-mme-lgc-langgraph-package.5",
+    "@copilotkit/react-core": "1.3.16-mme-lgc-langgraph-package.5",
+    "@copilotkit/react-textarea": "1.3.16-mme-lgc-langgraph-package.5",
+    "@copilotkit/react-ui": "1.3.16-mme-lgc-langgraph-package.5",
+    "@copilotkit/runtime": "1.3.16-mme-lgc-langgraph-package.5",
+    "@copilotkit/runtime-client-gql": "1.3.16-mme-lgc-langgraph-package.5",
+    "@copilotkit/sdk-js": "1.3.16-mme-lgc-langgraph-package.5",
+    "@copilotkit/shared": "1.3.16-mme-lgc-langgraph-package.5",
+    "eslint-config-custom": "1.3.16-mme-lgc-langgraph-package.5",
+    "tailwind-config": "1.3.16-mme-lgc-langgraph-package.5",
+    "tsconfig": "1.3.16-mme-lgc-langgraph-package.5"
   },
   "changesets": [
     "clean-hairs-own",
     "five-flowers-bake",
     "giant-jars-do",
     "nice-wolves-judge",
+    "plenty-nails-hang",
     "soft-keys-fry",
     "thin-carpets-greet"
   ]
