@@ -70,7 +70,7 @@ export function createAgentProjectStack({
 
   const lgcAgent = new PreviewProjectStack(app, `${cdkStackName}LGC`, {
     projectName: project,
-    projectDescription: description,
+    projectDescription: `${description} - LangGraph Cloud`,
     demoDir: `examples/${project}/agent`,
     overrideDockerfile: dockerfile,
     environmentVariablesFromSecrets: [

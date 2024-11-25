@@ -162,8 +162,8 @@ const coAgentsResearchCanvasUIWithLocalDeps = createUIProjectStack({
 /**
  * Next OpenAI Demo
  */
-createNextOpenAIProjectStack({
-  app,
-  description: "Next OpenAI - Self Hosted",
-  variant: "self-hosted",
-});
+// createNextOpenAIProjectStack({
+//   app,
+//   description: "Next OpenAI - Self Hosted",
+//   variant: "self-hosted",
+// });
