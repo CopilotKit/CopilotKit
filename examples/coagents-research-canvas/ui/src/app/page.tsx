@@ -20,11 +20,11 @@ export default function ModelSelectorWrapper() {
 }
 
 function Home() {
-  const { agent, useLgc } = useModelSelectorContext();
+  const { agent, lgcDeploymentUrl } = useModelSelectorContext();
 
   return (
     <CopilotKit
-      runtimeUrl={useLgc ? "/api/copilotkit-lgc" : "/api/copilotkit"}
+      runtimeUrl={`/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl}`}
       showDevConsole={false}
       agent={agent}
     >

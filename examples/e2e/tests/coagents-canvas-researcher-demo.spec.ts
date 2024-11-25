@@ -9,7 +9,9 @@ import {
 
 const variants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
+  { name: "OpenAI (LGC)", queryParams: `?coAgentsModel=openai&lgcDeploymentUrl=${process.env.LGC_DEPLOYMENT_URL}` },
   { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
+  { name: "Anthropic (LGC)", queryParams: `?coAgentsModel=anthropic&lgcDeploymentUrl=${process.env.LGC_DEPLOYMENT_URL}` },
   // { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" }, // seems broken
 ];
 
@@ -39,11 +41,18 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
 
               await sendChatMessage(
                 page,
-                "Conduct research based on my research question, please"
+                "Conduct research based on my research question, please. DO NOT FORGET TO PRODUCE THE DRAFT AT THE END!"
               );
 
               await waitForSteps(page);
               await waitForResponse(page);
+
+              // Ensure research draft
+              const researchDraft = await page.locator(
+                '[data-test-id="research-draft"]'
+              );
+              const draftContent = await researchDraft.textContent();
+              expect(draftContent).not.toBe("");
 
               const resourceCount = await page
                 .locator('[data-test-id="resource"]')
@@ -63,8 +72,6 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 .locator('[data-test-id="resource"]')
                 .count();
               expect(newResourceCount).toBe(resourceCount - 1);
-
-              await page.keyboard.press("Enter");
             });
           });
         });

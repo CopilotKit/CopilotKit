@@ -17,6 +17,9 @@ importers:
       '@types/node':
         specifier: ^22.8.4
         version: 22.8.4
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.4.5
       json2md:
         specifier: ^2.0.1
         version: 2.0.1
@@ -33,6 +36,10 @@ packages:
 
   '@types/node@22.8.4':
     resolution: {integrity: sha512-SpNNxkftTJOPk0oN+y2bIqurEXHTA2AOZ3EJDDKeJ5VzkvvORSvmQXGQarcOzWV1ac7DCaPBEdMDxBsM+d8jWw==}
+
+  dotenv@16.4.5:
+    resolution: {integrity: sha512-ZmdL2rui+eB2YwhsWzjInR8LldtZHGDoQ1ugH85ppHKwpUHL7j7rN0Ti9NCnGiQbhaZ11FpR+7ao1dNsmduNUg==}
+    engines: {node: '>=12'}
 
   fsevents@2.3.2:
     resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
@@ -69,6 +76,8 @@ snapshots:
   '@types/node@22.8.4':
     dependencies:
       undici-types: 6.19.8
+
+  dotenv@16.4.5: {}
 
   fsevents@2.3.2:
     optional: true
