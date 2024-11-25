@@ -68,7 +68,7 @@ export function createAgentProjectStack({
     outputs,
   });
 
-  const lgcAgent = new PreviewProjectStack(app, cdkStackName, {
+  const lgcAgent = new PreviewProjectStack(app, `${cdkStackName}LGC`, {
     projectName: project,
     projectDescription: description,
     demoDir: `examples/${project}/agent`,
