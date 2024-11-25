@@ -7,12 +7,15 @@ import {
   PROJECT_NAMES,
 } from "../lib/config-helper";
 
-const lgcDeploymentUrl = 'https://coagents-research-canvas-br-cda7ddd686245735b2653e48370427b9.default.us.langgraph.app'
-const variants = [
+const lgcDeploymentUrlPython = 'https://coagents-research-canvas-br-cda7ddd686245735b2653e48370427b9.default.us.langgraph.app'
+const lgcDeploymentUrlJS = 'https://coagents-research-canvas-js-d5ff2a34fa9c5771bb9c71003f38661c.default.us.langgraph.app'
+export const variants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
-  { name: "OpenAI (LGC)", queryParams: `?coAgentsModel=openai&lgcDeploymentUrl=${lgcDeploymentUrl}` },
+  { name: "OpenAI (LGC Python)", queryParams: `?coAgentsModel=openai&lgcDeploymentUrl=${lgcDeploymentUrlPython}` },
+  { name: "OpenAI (LGC JS)", queryParams: `?coAgentsModel=openai&lgcDeploymentUrl=${lgcDeploymentUrlJS}` },
   { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
-  { name: "Anthropic (LGC)", queryParams: `?coAgentsModel=anthropic&lgcDeploymentUrl=${lgcDeploymentUrl}` },
+  { name: "Anthropic (LGC Python)", queryParams: `?coAgentsModel=anthropic&lgcDeploymentUrl=${lgcDeploymentUrlPython}` },
+  { name: "Anthropic (LGC JS)", queryParams: `?coAgentsModel=anthropic&lgcDeploymentUrl=${lgcDeploymentUrlJS}` },
   // { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" }, // seems broken
 ];
 
