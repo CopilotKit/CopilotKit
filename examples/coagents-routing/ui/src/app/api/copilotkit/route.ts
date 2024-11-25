@@ -16,8 +16,6 @@ export const POST = async (req: NextRequest) => {
   const searchParams = req.nextUrl.searchParams;
   const deploymentUrl = searchParams.get("lgcDeploymentUrl");
 
-  console.log("deploymentUrl", deploymentUrl);
-
   const remoteEndpoint = deploymentUrl
     ? langGraphCloudEndpoint({
         deploymentUrl,
