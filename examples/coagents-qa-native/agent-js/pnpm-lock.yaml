@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@copilotkit/sdk-js':
-        specifier: 1.3.16-mme-lgc-langgraph-package.3
-        version: 1.3.16-mme-lgc-langgraph-package.3(@langchain/anthropic@0.3.8(@langchain/core@0.3.18(openai@4.73.0(zod@3.23.8))))(@langchain/google-genai@0.1.4(@langchain/core@0.3.18(openai@4.73.0(zod@3.23.8)))(zod@3.23.8))(openai@4.73.0(zod@3.23.8))
+        specifier: 1.3.16-mme-lgc-langgraph-package.4
+        version: 1.3.16-mme-lgc-langgraph-package.4(@langchain/anthropic@0.3.8(@langchain/core@0.3.18(openai@4.73.0(zod@3.23.8))))(@langchain/google-genai@0.1.4(@langchain/core@0.3.18(openai@4.73.0(zod@3.23.8)))(zod@3.23.8))(openai@4.73.0(zod@3.23.8))
       '@langchain/anthropic':
         specifier: ^0.3.8
         version: 0.3.8(@langchain/core@0.3.18(openai@4.73.0(zod@3.23.8)))
@@ -45,11 +45,11 @@ packages:
   '@anthropic-ai/sdk@0.27.3':
     resolution: {integrity: sha512-IjLt0gd3L4jlOfilxVXTifn42FnVffMgDC04RJK1KDZpmkBWLv0XC92MVVmkxrFZNS/7l3xWgP/I3nqtX1sQHw==}
 
-  '@copilotkit/sdk-js@1.3.16-mme-lgc-langgraph-package.3':
-    resolution: {integrity: sha512-+b5QjrGy+b9BQJacHIx8uyX2h8qbsstAHwnFN6pngPKgSUvJ/EbFcAs5OpdUilrU20mb2VlEkT6HlxHnrlyW7A==}
+  '@copilotkit/sdk-js@1.3.16-mme-lgc-langgraph-package.4':
+    resolution: {integrity: sha512-/aHN6AM+i7gr6fBbPe3uDsKviZNg9OYcCpRXGfW2dsYM4ffu3a03hqyO9JZiYMsvyHElhYypzjqSlcSYw8bpDA==}
 
-  '@copilotkit/shared@1.3.16-mme-lgc-langgraph-package.3':
-    resolution: {integrity: sha512-NYTNhDAYWcT2mXt8vJ81ka6+9wGB/es/2xuTC9KQz5ni1NdzNl58j2kqmrjUiM6Cfm1k4Gi6ckvo1BT2M6GX0w==}
+  '@copilotkit/shared@1.3.16-mme-lgc-langgraph-package.4':
+    resolution: {integrity: sha512-jD3F51LEjLLUfxizF7q1yDd81aBlDcV9ksMf6jz2C+W/HGShYnOBllAHTPgDww2Bo+krdBwACb/GR8Ul7TPzCQ==}
 
   '@google/generative-ai@0.21.0':
     resolution: {integrity: sha512-7XhUbtnlkSEZK15kN3t+tzIMxsbKm/dSkKBFalj+20NvPKe1kBY7mR2P7vuijEn+f06z5+A8bVGKO0v39cr6Wg==}
@@ -767,9 +767,9 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  '@copilotkit/sdk-js@1.3.16-mme-lgc-langgraph-package.3(@langchain/anthropic@0.3.8(@langchain/core@0.3.18(openai@4.73.0(zod@3.23.8))))(@langchain/google-genai@0.1.4(@langchain/core@0.3.18(openai@4.73.0(zod@3.23.8)))(zod@3.23.8))(openai@4.73.0(zod@3.23.8))':
+  '@copilotkit/sdk-js@1.3.16-mme-lgc-langgraph-package.4(@langchain/anthropic@0.3.8(@langchain/core@0.3.18(openai@4.73.0(zod@3.23.8))))(@langchain/google-genai@0.1.4(@langchain/core@0.3.18(openai@4.73.0(zod@3.23.8)))(zod@3.23.8))(openai@4.73.0(zod@3.23.8))':
     dependencies:
-      '@copilotkit/shared': 1.3.16-mme-lgc-langgraph-package.3
+      '@copilotkit/shared': 1.3.16-mme-lgc-langgraph-package.4
       '@langchain/community': 0.0.53(openai@4.73.0(zod@3.23.8))
       '@langchain/core': 0.3.18(openai@4.73.0(zod@3.23.8))
       '@langchain/langgraph-sdk': 0.0.16
@@ -883,7 +883,7 @@ snapshots:
       - web-auth-library
       - ws
 
-  '@copilotkit/shared@1.3.16-mme-lgc-langgraph-package.3':
+  '@copilotkit/shared@1.3.16-mme-lgc-langgraph-package.4':
     dependencies:
       '@segment/analytics-node': 2.2.0
       chalk: 4.1.2
