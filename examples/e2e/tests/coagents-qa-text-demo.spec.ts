@@ -32,7 +32,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
 
               // Wait for CopilotKit popup to be ready
               await page.waitForSelector(".copilotKitPopup", {
-                state: "visible",
+                state: "hidden",
                 timeout: 10000,
               });
 

@@ -66,6 +66,7 @@ export default class StructuredReporter implements Reporter {
             passed: number;
             failed: number;
             skipped: number;
+            testCases: Set<string>; // Track unique test cases
           };
         };
       };
@@ -93,6 +94,7 @@ export default class StructuredReporter implements Reporter {
       description,
       projectName,
       variant,
+      testId: `${projectName}:${description}:${variant}:${title}`, // Unique test identifier
     };
   }
 
@@ -118,6 +120,7 @@ export default class StructuredReporter implements Reporter {
           passed: 0,
           failed: 0,
           skipped: 0,
+          testCases: new Set(), // Initialize Set for tracking unique test cases
         };
       }
     });
@@ -127,23 +130,28 @@ export default class StructuredReporter implements Reporter {
     const testInfo = this.getTestInfo(test.title, test.titlePath());
     if (!testInfo) return;
 
-    const { projectName, description, browser, variant } = testInfo;
+    const { projectName, description, browser, variant, testId } = testInfo;
     const stats =
       this.groupedResults[projectName]?.[description]?.[variant]?.[browser];
     if (!stats) return;
 
-    stats.total++;
-    switch (result.status) {
-      case "passed":
-        stats.passed++;
-        break;
-      case "skipped":
-        stats.skipped++;
-        break;
-      case "failed":
-      case "timedOut":
-        stats.failed++;
-        break;
+    // Only count if we haven't seen this test case before
+    if (!stats.testCases.has(testId)) {
+      stats.testCases.add(testId);
+      stats.total++;
+
+      switch (result.status) {
+        case "passed":
+          stats.passed++;
+          break;
+        case "skipped":
+          stats.skipped++;
+          break;
+        case "failed":
+        case "timedOut":
+          stats.failed++;
+          break;
+      }
     }
   }
 
@@ -157,7 +165,7 @@ export default class StructuredReporter implements Reporter {
       for (const [description, variants] of Object.entries(descriptions)) {
         for (const [variant, browsers] of Object.entries(variants)) {
           for (const [, stats] of Object.entries(browsers)) {
-            totalTests += stats.total;
+            totalTests += stats.testCases.size; // Use the size of unique test cases
             totalFailed += stats.failed;
             if (stats.failed > 0) {
               affectedAreas.add(description);
@@ -175,6 +183,8 @@ export default class StructuredReporter implements Reporter {
       failingModels: Object.fromEntries(failingModels),
     };
   }
+
+  // Rest of the class implementation remains the same...
 
   onEnd(result: FullResult) {
     const stats = this.calculateSummaryStats();
