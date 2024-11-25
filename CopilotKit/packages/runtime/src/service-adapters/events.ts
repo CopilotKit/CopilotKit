@@ -20,6 +20,9 @@ export enum RuntimeEventTypes {
   TextMessageStart = "TextMessageStart",
   TextMessageContent = "TextMessageContent",
   TextMessageEnd = "TextMessageEnd",
+  ContentMessageStart = "ContentMessageStart",
+  ContentMessageContent = "ContentMessageContent",
+  ContentMessageEnd = "ContentMessageEnd",
   ActionExecutionStart = "ActionExecutionStart",
   ActionExecutionArgs = "ActionExecutionArgs",
   ActionExecutionEnd = "ActionExecutionEnd",
@@ -36,6 +39,13 @@ export type RuntimeEvent =
       content: string;
     }
   | { type: RuntimeEventTypes.TextMessageEnd }
+  | { type: RuntimeEventTypes.ContentMessageStart; messageId: string }
+  | {
+      type: RuntimeEventTypes.ContentMessageContent;
+      content: string;
+    }
+    | { type: RuntimeEventTypes.ContentMessageEnd }
+
   | {
       type: RuntimeEventTypes.ActionExecutionStart;
       actionExecutionId: string;
@@ -93,6 +103,24 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
     this.sendTextMessageStart(messageId);
     this.sendTextMessageContent(content);
     this.sendTextMessageEnd();
+  }
+
+  sendContentMessageStart(messageId: string) {
+    this.next({ type: RuntimeEventTypes.ContentMessageStart, messageId });
+  }
+
+  sendContentMessageContent(content: string) {
+    this.next({ type: RuntimeEventTypes.ContentMessageContent, content });
+  }
+
+  sendContentMessageEnd() {
+    this.next({ type: RuntimeEventTypes.ContentMessageEnd });
+  }
+
+  sendContentMessage(messageId: string, content: string) {
+    this.sendContentMessageStart(messageId);
+    this.sendContentMessageContent(content);
+    this.sendContentMessageEnd();
   }
 
   sendActionExecutionStart(actionExecutionId: string, actionName: string) {
@@ -199,6 +227,12 @@ export class RuntimeEventSource {
             }
           } else if (event.type === RuntimeEventTypes.ActionExecutionArgs) {
             acc.args += event.args;
+          } else if (event.type === RuntimeEventTypes.ContentMessageStart) {
+            console.log(`ContentMessage started with ID: ${event.messageId}`);
+          } else if (event.type === RuntimeEventTypes.ContentMessageContent) {
+            console.log(`ContentMessage content received: ${event.content}`);
+          } else if (event.type === RuntimeEventTypes.ContentMessageEnd) {
+            console.log("ContentMessage ended.");
           }
 
           acc.event = event;

@@ -5,7 +5,7 @@ import {
 } from "../graphql/@generated/graphql";
 import {
   ActionExecutionMessage,
-  AgentStateMessage,
+  AgentStateMessage, ContentMessage,
   Message,
   ResultMessage,
   TextMessage,
@@ -63,7 +63,18 @@ export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
           state: JSON.stringify(message.state),
         },
       };
-    } else {
+    }
+    else if (message instanceof ContentMessage) {
+      return {
+        id: message.id,
+        createdAt: message.createdAt,
+        contentMessage: {
+          content: message.content,
+          role: message.role as any,
+        },
+      };
+    }
+    else {
       throw new Error("Unknown message type");
     }
   });

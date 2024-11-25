@@ -3,14 +3,15 @@ import { RenderMessageProps } from "../props";
 import { Markdown } from "../Markdown";
 import { useChatContext } from "../ChatContext";
 
-export function RenderTextMessage(props: RenderMessageProps) {
+export function RenderContentMessage(props: RenderMessageProps) {
   const { message, inProgress, index, isCurrentMessage } = props;
   const { icons } = useChatContext();
-  if (message instanceof TextMessage) {
+  if (message instanceof ContentMessage) {
+    const content = message.content?.[0]?.textContent?.text || "No content available.";
     if (message.role === "user") {
       return (
         <div key={index} className="copilotKitMessage copilotKitUserMessage">
-          {message.content}
+          {content}
         </div>
       );
     } else if (message.role == "assistant") {
@@ -19,7 +20,7 @@ export function RenderTextMessage(props: RenderMessageProps) {
           {isCurrentMessage && inProgress && !message.content ? (
             icons.spinnerIcon
           ) : (
-            <Markdown content={message.content} />
+            <Markdown content={content} />
           )}
         </div>
       );

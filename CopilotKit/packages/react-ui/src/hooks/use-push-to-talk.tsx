@@ -1,5 +1,5 @@
 import { useCopilotContext } from "@copilotkit/react-core";
-import { Message, TextMessage } from "@copilotkit/runtime-client-gql";
+import { Message, TextMessage, ContentMessage } from "@copilotkit/runtime-client-gql";
 import { MutableRefObject, useEffect, useRef, useState } from "react";
 
 export const checkMicrophonePermission = async () => {
@@ -74,7 +74,7 @@ const transcribeAudio = async (recordedChunks: Blob[], transcribeAudioUrl: strin
   return transcription.text;
 };
 
-const playAudioResponse = (text: string, textToSpeechUrl: string, audioContext: AudioContext) => {
+const playAudioResponse = (text: string, textToSpeechUrl: string, audioContext: AudioContext, contentMessages: ContentMessage[]) => {
   const encodedText = encodeURIComponent(text);
   const url = `${textToSpeechUrl}?text=${encodedText}`;
 
@@ -86,6 +86,12 @@ const playAudioResponse = (text: string, textToSpeechUrl: string, audioContext: 
       source.buffer = audioBuffer;
       source.connect(audioContext.destination);
       source.start(0);
+
+      contentMessages.forEach((contentMessage) => {
+        console.log("Handling content message:", contentMessage.content[0].textContent);
+        // Implement logic to handle content data playback if required.
+      });
+
     })
     .catch((error) => {
       console.error("Error with decoding audio data", error);
@@ -147,14 +153,16 @@ export const usePushToTalk = ({
         (message) => message.id === startReadingFromMessageId,
       );
 
-      const messagesAfterLast = context.messages
-        .slice(lastMessageIndex + 1)
-        .filter(
+      const messagesAfterLast = context.messages.slice(lastMessageIndex + 1);
+      const textMessages = messagesAfterLast.filter(
           (message) => message instanceof TextMessage && message.role === "assistant",
-        ) as TextMessage[];
+      ) as TextMessage[];
+      const contentMessages = messagesAfterLast.filter(
+          (message) => message instanceof ContentMessage,
+      ) as ContentMessage[];
 
-      const text = messagesAfterLast.map((message) => message.content).join("\n");
-      playAudioResponse(text, context.copilotApiConfig.textToSpeechUrl!, audioContextRef.current!);
+      const text = textMessages.map((message) => message.content).join("\n");
+      playAudioResponse(text, context.copilotApiConfig.textToSpeechUrl!, audioContextRef.current!, contentMessages);
 
       setStartReadingFromMessageId(null);
     }

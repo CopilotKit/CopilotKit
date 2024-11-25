@@ -55,6 +55,7 @@ import { Messages as DefaultMessages } from "./Messages";
 import { Input as DefaultInput } from "./Input";
 import { ResponseButton as DefaultResponseButton } from "./Response";
 import { RenderTextMessage as DefaultRenderTextMessage } from "./messages/RenderTextMessage";
+import { RenderContentMessage as DefaultRenderContentMessage } from "./messages/RenderContentMessage";
 import { RenderActionExecutionMessage as DefaultRenderActionExecutionMessage } from "./messages/RenderActionExecutionMessage";
 import { RenderResultMessage as DefaultRenderResultMessage } from "./messages/RenderResultMessage";
 import { RenderAgentStateMessage as DefaultRenderAgentStateMessage } from "./messages/RenderAgentStateMessage";
@@ -63,7 +64,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { SystemMessageFunction, useCopilotChat, useCopilotContext } from "@copilotkit/react-core";
 import { reloadSuggestions } from "./Suggestion";
 import { CopilotChatSuggestion } from "../../types/suggestions";
-import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
+import { Message, Role, TextMessage, ContentMessage } from "@copilotkit/runtime-client-gql";
 import { InputProps, MessagesProps, RenderMessageProps, ResponseButtonProps } from "./props";
 import { randomId } from "@copilotkit/shared";
 
@@ -126,6 +127,7 @@ export interface CopilotChatProps {
    * A custom RenderTextMessage component to use instead of the default.
    */
   RenderTextMessage?: React.ComponentType<RenderMessageProps>;
+  RenderContentMessage?: React.ComponentType<RenderMessageProps>;
 
   /**
    * A custom RenderActionExecutionMessage component to use instead of the default.
@@ -171,6 +173,7 @@ export function CopilotChat({
   onInProgress,
   Messages = DefaultMessages,
   RenderTextMessage = DefaultRenderTextMessage,
+  RenderContentMessage = DefaultRenderContentMessage,
   RenderActionExecutionMessage = DefaultRenderActionExecutionMessage,
   RenderAgentStateMessage = DefaultRenderAgentStateMessage,
   RenderResultMessage = DefaultRenderResultMessage,
@@ -202,13 +205,13 @@ export function CopilotChat({
     <WrappedCopilotChat icons={icons} labels={labels} className={className}>
       <CopilotDevConsole />
       <Messages
-        RenderTextMessage={RenderTextMessage}
-        RenderActionExecutionMessage={RenderActionExecutionMessage}
-        RenderAgentStateMessage={RenderAgentStateMessage}
-        RenderResultMessage={RenderResultMessage}
-        messages={visibleMessages}
-        inProgress={isLoading}
-      >
+          RenderTextMessage={RenderTextMessage}
+          RenderActionExecutionMessage={RenderActionExecutionMessage}
+          RenderAgentStateMessage={RenderAgentStateMessage}
+          RenderResultMessage={RenderResultMessage}
+          messages={visibleMessages}
+          inProgress={isLoading}
+          RenderContentMessage={RenderContentMessage}      >
         {currentSuggestions.length > 0 && (
           <div>
             <h6>Suggested:</h6>
