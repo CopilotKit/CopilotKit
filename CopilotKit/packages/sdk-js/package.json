@@ -9,14 +9,31 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.3.16-mme-sdk-js.2",
+  "version": "1.3.16-mme-lgc-langgraph-package.9",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "exports": {
-    ".": "./dist/index.js"
+    ".": {
+      "require": "./dist/index.js",
+      "import": "./dist/index.mjs"
+    },
+    "./langchain": {
+      "require": "./dist/langchain/index.js",
+      "import": "./dist/langchain/index.mjs"
+    }
   },
   "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "langchain": [
+        "dist/langchain.d.ts"
+      ],
+      "*": [
+        "dist/*"
+      ]
+    }
+  },
   "license": "MIT",
   "scripts": {
     "build": "tsup --clean",

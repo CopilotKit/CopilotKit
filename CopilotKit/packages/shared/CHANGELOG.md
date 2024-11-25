@@ -1,5 +1,47 @@
 # @copilotkit/shared
 
+## 1.3.16-mme-lgc-langgraph-package.9
+
+### Patch Changes
+
+- update entry
+
+## 1.3.16-mme-lgc-langgraph-package.8
+
+### Patch Changes
+
+- update entry
+
+## 1.3.16-mme-lgc-langgraph-package.7
+
+### Patch Changes
+
+- update entry in tsup config
+
+## 1.3.16-mme-lgc-langgraph-package.6
+
+### Patch Changes
+
+- Update exports
+
+## 1.3.16-mme-lgc-langgraph-package.5
+
+### Patch Changes
+
+- update tsup config
+
+## 1.3.16-mme-lgc-langgraph-package.4
+
+### Patch Changes
+
+- Update exports
+
+## 1.3.16-mme-lgc-langgraph-package.3
+
+### Patch Changes
+
+- export langchain module
+
 ## 1.3.16-mme-sdk-js.2
 
 ### Patch Changes

@@ -5,7 +5,10 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { RunnableConfig } from "@langchain/core/runnables";
-import { copilotKitCustomizeConfig, copilotKitExit } from "@copilotkit/sdk-js";
+import {
+  copilotKitCustomizeConfig,
+  copilotKitExit,
+} from "@copilotkit/sdk-js/langchain";
 import { SystemMessage, ToolMessage } from "@langchain/core/messages";
 import { getModel } from "./model";
 import {

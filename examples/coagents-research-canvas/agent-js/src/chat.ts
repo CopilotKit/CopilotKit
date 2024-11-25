@@ -13,7 +13,7 @@ import {
 } from "@langchain/core/messages";
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { copilotKitCustomizeConfig } from "@copilotkit/sdk-js";
+import { copilotKitCustomizeConfig } from "@copilotkit/sdk-js/langchain";
 
 const Search = tool(() => {}, {
   name: "Search",
