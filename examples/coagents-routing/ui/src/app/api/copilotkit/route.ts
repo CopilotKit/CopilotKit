@@ -36,7 +36,7 @@ export const POST = async (req: NextRequest) => {
   })
 
   const runtime = new CopilotRuntime({
-    remoteActions: [remoteEndpoint],
+    remoteEndpoints: [remoteEndpoint],
     actions: [
       {
         name: "sayGoodbye",
