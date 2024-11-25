@@ -14,7 +14,8 @@
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "exports": {
-    "langchain": "./dist/langchain.js"
+    ".": "./dist/index.js",
+    "./langchain": "./dist/langchain.js"
   },
   "types": "./dist/index.d.ts",
   "license": "MIT",
