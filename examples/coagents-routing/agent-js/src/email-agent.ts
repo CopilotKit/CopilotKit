@@ -84,6 +84,6 @@ const workflow = new StateGraph(EmailAgentStateAnnotation)
 
 const memory = new MemorySaver();
 
-export const email_graph = workflow.compile({
+export const emailGraph = workflow.compile({
   checkpointer: memory,
 });

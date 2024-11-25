@@ -58,6 +58,6 @@ const workflow = new StateGraph(PirateAgentStateAnnotation)
 
 const memory = new MemorySaver();
 
-export const pirate_graph = workflow.compile({
+export const pirateGraph = workflow.compile({
   checkpointer: memory,
 });

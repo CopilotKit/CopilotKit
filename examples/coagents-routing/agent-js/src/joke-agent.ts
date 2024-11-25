@@ -86,6 +86,6 @@ const workflow = new StateGraph(JokeAgentStateAnnotation)
 
 const memory = new MemorySaver();
 
-export const joke_graph = workflow.compile({
+export const jokeGraph = workflow.compile({
   checkpointer: memory,
 });
