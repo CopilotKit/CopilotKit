@@ -4,6 +4,8 @@
   "pages": [
     "index",
     "getting-started",
+    "---Concepts---",
+    "...concepts",
     "---In-chat experiences---",
     "...chat-ui",
     "---In-app experiences---",
