@@ -14,8 +14,26 @@
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "exports": {
-    ".": "./dist/index.js",
-    "./langchain": "./dist/langchain.js"
+    ".": {
+      "require": {
+        "default": "./dist/index.js",
+        "types": "./dist/index.d.ts"
+      },
+      "import": {
+        "default": "./dist/index.mjs",
+        "types": "./dist/index.d.ts"
+      }
+    },
+    "./langchain": {
+      "require": {
+        "default": "./dist/langchain.js",
+        "types": "./dist/langchain.d.ts"
+      },
+      "import": {
+        "default": "./dist/langchain.mjs",
+        "types": "./dist/langchain.d.ts"
+      }
+    }
   },
   "types": "./dist/index.d.ts",
   "license": "MIT",
