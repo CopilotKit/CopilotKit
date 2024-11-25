@@ -87,7 +87,7 @@ export function createAgentProjectStack({
     },
     imageTag: `${project}-agent-${
       dependencies === "Remote" ? "remote-deps" : "local-deps"
-    }-lgc-${GITHUB_ACTIONS_RUN_ID}`,
+    }-${GITHUB_ACTIONS_RUN_ID}`,
     outputs,
   });
 
