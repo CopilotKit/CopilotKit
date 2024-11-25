@@ -15,12 +15,12 @@ export default function CopilotTextareaDemo() {
   const searchParams = useSearchParams();
   const serviceAdapter = searchParams.get("serviceAdapter") || "openai";
   const runtimeUrl =
-    process.env["NEXT_PUBLIC_COPILOTKIT_RUNTIME_URL"] ??
-    `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
+    searchParams.get("runtimeUrl") || `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
+  const publicApiKey = searchParams.get("publicApiKey");
 
-  const copilotKitProps = {
+  const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
     runtimeUrl,
-    publicApiKey: process.env["NEXT_PUBLIC_COPILOTKIT_PUBLIC_API_KEY"] ?? undefined,
+    publicApiKey: publicApiKey || undefined,
   };
 
   return (

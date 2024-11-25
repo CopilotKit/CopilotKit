@@ -77,6 +77,10 @@ jobs:
           pnpm playwright test
         env:
           GITHUB_SHA: ${{ github.sha }}
+          COPILOT_CLOUD_PROD_RUNTIME_URL: "https://api.cloud.copilotkit.ai/copilotkit/v1"
+          COPILOT_CLOUD_PROD_PUBLIC_API_KEY: ${{ secrets.COPILOT_CLOUD_PROD_PUBLIC_API_KEY }}
+          COPILOT_CLOUD_STAGING_RUNTIME_URL: "https://api.cloud.stagingcopilotkit.ai/copilotkit/v1"
+          COPILOT_CLOUD_STAGING_PUBLIC_API_KEY: ${{ secrets.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY }}
 
       - name: Delete a comment
         uses: thollander/actions-comment-pull-request@v3

@@ -68,15 +68,16 @@ export class ReferenceDoc {
 
     result += `${comment}\n\n`;
 
-    if (this.referenceDoc.hook) {
-      result += `## Parameters\n\n`;
-    } else if (this.referenceDoc.component) {
-      result += `## Properties\n\n`;
-    } else if (this.referenceDoc.className) {
-      result += `## Constructor Parameters\n\n`;
-    }
-
     if (arg0Interface) {
+      const hasProperties = arg0Interface.properties.length > 0;
+      if (this.referenceDoc.hook && hasProperties) {
+        result += `## Parameters\n\n`;
+      } else if (this.referenceDoc.component && hasProperties) {
+        result += `## Properties\n\n`;
+      } else if (this.referenceDoc.className && hasProperties) {
+        result += `## Constructor Parameters\n\n`;
+      }
+
       for (const property of arg0Interface.properties) {
         if (property.comment.includes("@deprecated")) {
           continue;

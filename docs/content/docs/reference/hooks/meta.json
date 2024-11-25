@@ -4,6 +4,8 @@
     "useCopilotReadable",
     "useCopilotAction",
     "useCopilotChat",
-    "useCopilotChatSuggestions"
+    "useCopilotChatSuggestions",
+    "useCoAgent",
+    "useCoAgentStateRender"
   ]
 }

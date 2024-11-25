@@ -49,7 +49,33 @@ export default {
     			},
     			destructive: {
     				DEFAULT: 'hsl(var(--destructive))',
-    				foreground: 'hsl(var(--destructive-foreground))'
+    				foreground: 'hsl(var(--destructive-foreground))',
+    				muted: 'hsl(var(--destructive-muted))',
+    				'muted-foreground': 'hsl(var(--destructive-muted-foreground))'
+    			},
+    			success: {
+    				DEFAULT: 'hsl(var(--success))',
+    				foreground: 'hsl(var(--success-foreground))',
+    				muted: 'hsl(var(--success-muted))',
+    				'muted-foreground': 'hsl(var(--success-muted-foreground))'
+    			},
+    			warning: {
+    				DEFAULT: 'hsl(var(--warning))',
+    				foreground: 'hsl(var(--warning-foreground))',
+    				muted: 'hsl(var(--warning-muted))',
+    				'muted-foreground': 'hsl(var(--warning-muted-foreground))'
+    			},
+    			error: {
+    				DEFAULT: 'hsl(var(--error))',
+    				foreground: 'hsl(var(--error-foreground))',
+    				muted: 'hsl(var(--error-muted))',
+    				'muted-foreground': 'hsl(var(--error-muted-foreground))'
+    			},
+    			info: {
+    				DEFAULT: 'hsl(var(--info))',
+    				foreground: 'hsl(var(--info-foreground))',
+    				muted: 'hsl(var(--info-muted))',
+    				'muted-foreground': 'hsl(var(--info-muted-foreground))'
     			},
     			border: 'hsl(var(--border))',
     			input: 'hsl(var(--input))',
