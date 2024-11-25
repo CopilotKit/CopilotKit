@@ -1,5 +1,14 @@
 # @copilotkit/runtime-client-gql
 
+## 1.3.16-mme-lgc-langgraph-package.4
+
+### Patch Changes
+
+- Update exports
+- Updated dependencies
+  - @copilotkit/runtime@1.3.16-mme-lgc-langgraph-package.4
+  - @copilotkit/shared@1.3.16-mme-lgc-langgraph-package.4
+
 ## 1.3.16-mme-lgc-langgraph-package.3
 
 ### Patch Changes

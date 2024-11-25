@@ -1,25 +1,26 @@
 {
-  "mode": "exit",
+  "mode": "pre",
   "tag": "mme-lgc-langgraph-package",
   "initialVersions": {
-    "next-openai": "1.3.16-mme-sdk-js.2",
-    "next-pages-router": "1.3.16-mme-sdk-js.2",
-    "node-express": "1.3.16-mme-sdk-js.2",
-    "node-http": "1.3.16-mme-sdk-js.2",
-    "@copilotkit/react-core": "1.3.16-mme-sdk-js.2",
-    "@copilotkit/react-textarea": "1.3.16-mme-sdk-js.2",
-    "@copilotkit/react-ui": "1.3.16-mme-sdk-js.2",
-    "@copilotkit/runtime": "1.3.16-mme-sdk-js.2",
-    "@copilotkit/runtime-client-gql": "1.3.16-mme-sdk-js.2",
-    "@copilotkit/sdk-js": "1.3.16-mme-sdk-js.2",
-    "@copilotkit/shared": "1.3.16-mme-sdk-js.2",
-    "eslint-config-custom": "1.3.16-mme-sdk-js.2",
-    "tailwind-config": "1.3.16-mme-sdk-js.2",
-    "tsconfig": "1.3.16-mme-sdk-js.2"
+    "next-openai": "1.3.16-mme-lgc-langgraph-package.3",
+    "next-pages-router": "1.3.16-mme-lgc-langgraph-package.3",
+    "node-express": "1.3.16-mme-lgc-langgraph-package.3",
+    "node-http": "1.3.16-mme-lgc-langgraph-package.3",
+    "@copilotkit/react-core": "1.3.16-mme-lgc-langgraph-package.3",
+    "@copilotkit/react-textarea": "1.3.16-mme-lgc-langgraph-package.3",
+    "@copilotkit/react-ui": "1.3.16-mme-lgc-langgraph-package.3",
+    "@copilotkit/runtime": "1.3.16-mme-lgc-langgraph-package.3",
+    "@copilotkit/runtime-client-gql": "1.3.16-mme-lgc-langgraph-package.3",
+    "@copilotkit/sdk-js": "1.3.16-mme-lgc-langgraph-package.3",
+    "@copilotkit/shared": "1.3.16-mme-lgc-langgraph-package.3",
+    "eslint-config-custom": "1.3.16-mme-lgc-langgraph-package.3",
+    "tailwind-config": "1.3.16-mme-lgc-langgraph-package.3",
+    "tsconfig": "1.3.16-mme-lgc-langgraph-package.3"
   },
   "changesets": [
     "five-flowers-bake",
     "giant-jars-do",
+    "nice-wolves-judge",
     "soft-keys-fry",
     "thin-carpets-greet"
   ]

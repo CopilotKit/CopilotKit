@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 1.3.16-mme-lgc-langgraph-package.4
+
+### Patch Changes
+
+- Update exports
+
 ## 1.3.16-mme-lgc-langgraph-package.3
 
 ### Patch Changes

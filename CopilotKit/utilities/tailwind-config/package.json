@@ -1,6 +1,6 @@
 {
   "name": "tailwind-config",
-  "version": "1.3.16-mme-lgc-langgraph-package.3",
+  "version": "1.3.16-mme-lgc-langgraph-package.4",
   "private": true,
   "main": "index.js",
   "devDependencies": {
