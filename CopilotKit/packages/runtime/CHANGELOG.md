@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.3.16-mme-lgc-langgraph-package.8
+
+### Patch Changes
+
+- update entry
+- Updated dependencies
+  - @copilotkit/shared@1.3.16-mme-lgc-langgraph-package.8
+
 ## 1.3.16-mme-lgc-langgraph-package.7
 
 ### Patch Changes
