@@ -7,7 +7,9 @@ export default defineConfig((options: Options) => ({
     langchain: "src/langchain.ts",
   },
   format: ["esm", "cjs"],
-  dts: true,
+  dts: {
+    entry: ["src/index.ts", "src/langchain.ts"],
+  },
   minify: false,
   external: [],
   sourcemap: true,
