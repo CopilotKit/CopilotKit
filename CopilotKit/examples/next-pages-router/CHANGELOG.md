@@ -1,5 +1,17 @@
 # next-pages-router
 
+## 1.3.16-mme-lgc-langgraph-package.5
+
+### Patch Changes
+
+- update tsup config
+- Updated dependencies
+  - @copilotkit/react-textarea@1.3.16-mme-lgc-langgraph-package.5
+  - @copilotkit/react-core@1.3.16-mme-lgc-langgraph-package.5
+  - @copilotkit/react-ui@1.3.16-mme-lgc-langgraph-package.5
+  - @copilotkit/runtime@1.3.16-mme-lgc-langgraph-package.5
+  - @copilotkit/shared@1.3.16-mme-lgc-langgraph-package.5
+
 ## 1.3.16-mme-lgc-langgraph-package.4
 
 ### Patch Changes

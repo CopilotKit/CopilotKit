@@ -1,5 +1,14 @@
 # ui
 
+## 1.3.16-mme-lgc-langgraph-package.5
+
+### Patch Changes
+
+- update tsup config
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.3.16-mme-lgc-langgraph-package.5
+  - @copilotkit/shared@1.3.16-mme-lgc-langgraph-package.5
+
 ## 1.3.16-mme-lgc-langgraph-package.4
 
 ### Patch Changes

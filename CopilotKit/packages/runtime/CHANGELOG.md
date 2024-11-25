@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.3.16-mme-lgc-langgraph-package.5
+
+### Patch Changes
+
+- update tsup config
+- Updated dependencies
+  - @copilotkit/shared@1.3.16-mme-lgc-langgraph-package.5
+
 ## 1.3.16-mme-lgc-langgraph-package.4
 
 ### Patch Changes
