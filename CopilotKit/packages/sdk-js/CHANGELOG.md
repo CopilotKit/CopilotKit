@@ -1,5 +1,13 @@
 # @copilotkit/sdk-js
 
+## 1.3.16-mme-lgc-langgraph-package.3
+
+### Patch Changes
+
+- export langchain module
+- Updated dependencies
+  - @copilotkit/shared@1.3.16-mme-lgc-langgraph-package.3
+
 ## 1.3.16-mme-sdk-js.2
 
 ### Patch Changes

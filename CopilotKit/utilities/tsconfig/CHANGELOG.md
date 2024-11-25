@@ -1,5 +1,11 @@
 # tsconfig
 
+## 1.3.16-mme-lgc-langgraph-package.3
+
+### Patch Changes
+
+- export langchain module
+
 ## 1.3.16-mme-sdk-js.2
 
 ### Patch Changes

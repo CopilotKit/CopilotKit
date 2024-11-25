@@ -1,5 +1,17 @@
 # next-pages-router
 
+## 1.3.16-mme-lgc-langgraph-package.3
+
+### Patch Changes
+
+- export langchain module
+- Updated dependencies
+  - @copilotkit/react-textarea@1.3.16-mme-lgc-langgraph-package.3
+  - @copilotkit/react-core@1.3.16-mme-lgc-langgraph-package.3
+  - @copilotkit/react-ui@1.3.16-mme-lgc-langgraph-package.3
+  - @copilotkit/runtime@1.3.16-mme-lgc-langgraph-package.3
+  - @copilotkit/shared@1.3.16-mme-lgc-langgraph-package.3
+
 ## 1.3.16-mme-sdk-js.2
 
 ### Patch Changes
