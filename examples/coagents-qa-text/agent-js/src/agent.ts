@@ -6,7 +6,10 @@ import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { AgentState, AgentStateAnnotation } from "./state";
 import { RunnableConfig } from "@langchain/core/runnables";
-import { copilotKitEmitMessage, copilotKitExit } from "@copilotkit/sdk-js";
+import {
+  copilotKitEmitMessage,
+  copilotKitExit,
+} from "@copilotkit/sdk-js/langchain";
 import { HumanMessage } from "@langchain/core/messages";
 import { getModel } from "./model";
 import { END, MemorySaver, StateGraph } from "@langchain/langgraph";

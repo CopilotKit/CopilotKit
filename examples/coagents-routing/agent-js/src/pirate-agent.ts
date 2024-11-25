@@ -4,7 +4,7 @@
 
 import { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage } from "@langchain/core/messages";
-import { copilotKitExit } from "@copilotkit/sdk-js";
+import { copilotKitExit } from "@copilotkit/sdk-js/langchain";
 import { getModel } from "./model";
 import {
   END,
