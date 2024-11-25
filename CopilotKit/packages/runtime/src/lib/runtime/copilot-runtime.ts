@@ -125,7 +125,7 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
   actions?: ActionsConfiguration<T>;
 
   /*
-   * @Deprecated: Use `remoteEndpoints`.
+   * Deprecated: Use `remoteEndpoints`.
    */
   remoteActions?: CopilotKitEndpoint[];
 
