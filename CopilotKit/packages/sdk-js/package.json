@@ -15,27 +15,25 @@
   "module": "./dist/index.mjs",
   "exports": {
     ".": {
-      "require": {
-        "default": "./dist/index.js",
-        "types": "./dist/index.d.ts"
-      },
-      "import": {
-        "default": "./dist/index.mjs",
-        "types": "./dist/index.d.ts"
-      }
+      "require": "./dist/index.js",
+      "import": "./dist/index.mjs"
     },
     "./langchain": {
-      "require": {
-        "default": "./dist/langchain.js",
-        "types": "./dist/langchain.d.ts"
-      },
-      "import": {
-        "default": "./dist/langchain.mjs",
-        "types": "./dist/langchain.d.ts"
-      }
+      "require": "./dist/langchain/index.js",
+      "import": "./dist/langchain/index.mjs"
     }
   },
   "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "langchain": [
+        "dist/langchain.d.ts"
+      ],
+      "*": [
+        "dist/*"
+      ]
+    }
+  },
   "license": "MIT",
   "scripts": {
     "build": "tsup --clean",
