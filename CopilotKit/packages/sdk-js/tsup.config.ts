@@ -2,12 +2,16 @@ import { defineConfig, Options } from "tsup";
 
 export default defineConfig((options: Options) => ({
   ...options,
-  entry: ["src/**/index.ts"],
+  entry: {
+    index: "src/index.ts",
+    langchain: "src/langchain.ts",
+  },
   format: ["esm", "cjs"],
   dts: true,
   minify: false,
   external: [],
   sourcemap: true,
+  entryNames: "[name]",
   exclude: [
     "**/*.test.ts", // Exclude TypeScript test files
     "**/*.test.tsx", // Exclude TypeScript React test files
