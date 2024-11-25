@@ -1,5 +1,11 @@
 # tsconfig
 
+## 1.3.16-mme-lgc-langgraph-package.7
+
+### Patch Changes
+
+- update entry in tsup config
+
 ## 1.3.16-mme-lgc-langgraph-package.6
 
 ### Patch Changes

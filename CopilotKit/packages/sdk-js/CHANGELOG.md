@@ -1,5 +1,13 @@
 # @copilotkit/sdk-js
 
+## 1.3.16-mme-lgc-langgraph-package.7
+
+### Patch Changes
+
+- update entry in tsup config
+- Updated dependencies
+  - @copilotkit/shared@1.3.16-mme-lgc-langgraph-package.7
+
 ## 1.3.16-mme-lgc-langgraph-package.6
 
 ### Patch Changes

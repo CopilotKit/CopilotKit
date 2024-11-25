@@ -1,5 +1,17 @@
 # web
 
+## 1.3.16-mme-lgc-langgraph-package.7
+
+### Patch Changes
+
+- update entry in tsup config
+- Updated dependencies
+  - @copilotkit/react-textarea@1.3.16-mme-lgc-langgraph-package.7
+  - @copilotkit/react-core@1.3.16-mme-lgc-langgraph-package.7
+  - @copilotkit/react-ui@1.3.16-mme-lgc-langgraph-package.7
+  - @copilotkit/runtime@1.3.16-mme-lgc-langgraph-package.7
+  - @copilotkit/shared@1.3.16-mme-lgc-langgraph-package.7
+
 ## 1.3.16-mme-lgc-langgraph-package.6
 
 ### Patch Changes
