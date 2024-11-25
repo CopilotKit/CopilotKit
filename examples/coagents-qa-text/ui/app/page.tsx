@@ -21,7 +21,7 @@ function Home() {
     const { lgcDeploymentUrl } = useModelSelectorContext();
 
     return (
-        <CopilotKit runtimeUrl={`/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl}`}>
+        <CopilotKit runtimeUrl={`/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl ?? ''}`}>
             <Greeter/>
         </CopilotKit>
     );

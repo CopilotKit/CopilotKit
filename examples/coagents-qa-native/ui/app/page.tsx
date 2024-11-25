@@ -21,7 +21,7 @@ function Home() {
   const { lgcDeploymentUrl } = useModelSelectorContext();
 
   return (
-      <CopilotKit runtimeUrl={`/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl}`} agent="email_agent">
+      <CopilotKit runtimeUrl={`/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl ?? ''}`} agent="email_agent">
           <Mailer />
       </CopilotKit>
   );

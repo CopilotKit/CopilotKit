@@ -28,7 +28,7 @@ function Home() {
   const { lgcDeploymentUrl } = useModelSelectorContext();
 
   return (
-      <CopilotKit runtimeUrl={`/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl}`}>
+      <CopilotKit runtimeUrl={`/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl ?? ''}`}>
         <div className="min-h-screen bg-gray-100 p-4">
           <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6">
             <Joke />
