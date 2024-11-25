@@ -22,13 +22,6 @@ const ExtractNameTool = tool(() => {}, {
       .describe("The user's name or UNKNOWN if you can't find it"),
   }),
 });
-export async function chat_node(state: AgentState, config: RunnableConfig) {
-  await copilotKitEmitMessage(config, "Hey, what is your name? 🙂");
-
-  return {
-    messages: state.messages,
-  };
-}
 
 export async function ask_name_node(state: AgentState, config: RunnableConfig) {
   /**
@@ -90,7 +83,7 @@ function route(state: AgentState) {
   if (state.name) {
     return "greet_node";
   }
-  return "chat_node";
+  return "ask_name_node";
 }
 
 const workflow = new StateGraph(AgentStateAnnotation)
@@ -99,7 +92,10 @@ const workflow = new StateGraph(AgentStateAnnotation)
   .addNode("extract_name_node", extract_name_node)
   .setEntryPoint("ask_name_node")
   .addEdge("ask_name_node", "extract_name_node")
-  .addConditionalEdges("extract_name_node", route)
+  .addConditionalEdges("extract_name_node", route, [
+    "greet_node",
+    "ask_name_node",
+  ])
   .addEdge("greet_node", END);
 
 const memory = new MemorySaver();

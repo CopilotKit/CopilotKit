@@ -2,28 +2,35 @@ import { NextRequest } from "next/server";
 import {
   CopilotRuntime,
   OpenAIAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint, langGraphCloudEndpoint, copilotKitEndpoint,
+  copilotRuntimeNextJSAppRouterEndpoint,
+  langGraphCloudEndpoint,
+  copilotKitEndpoint,
 } from "@copilotkit/runtime";
 import OpenAI from "openai";
 
 const openai = new OpenAI();
 const llmAdapter = new OpenAIAdapter({ openai } as any);
-const langsmithApiKey = process.env.LANGSMITH_API_KEY as string
+const langsmithApiKey = process.env.LANGSMITH_API_KEY as string;
 
 export const POST = async (req: NextRequest) => {
-  const searchParams = req.nextUrl.searchParams
-  const deploymentUrl = searchParams.get('lgcDeploymentUrl')
+  const searchParams = req.nextUrl.searchParams;
+  const deploymentUrl = searchParams.get("lgcDeploymentUrl");
 
-  const remoteEndpoint = deploymentUrl ? langGraphCloudEndpoint({
-    deploymentUrl,
-    langsmithApiKey,
-    agents: [{
-      name: 'email_agent',
-      description: 'This agent sends emails',
-    }],
-  }) : copilotKitEndpoint({
-    url: process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
-  })
+  const remoteEndpoint = deploymentUrl
+    ? langGraphCloudEndpoint({
+        deploymentUrl,
+        langsmithApiKey,
+        agents: [
+          {
+            name: "email_agent",
+            description: "This agent sends emails",
+          },
+        ],
+      })
+    : copilotKitEndpoint({
+        url:
+          process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
+      });
 
   const runtime = new CopilotRuntime({
     remoteEndpoints: [remoteEndpoint],
