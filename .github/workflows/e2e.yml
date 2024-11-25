@@ -112,47 +112,59 @@ jobs:
           script: |
             const fs = require('fs');
             let summary = 'Test run completed.';
-            let conclusion = 'success';
 
             try {
-            const results = JSON.parse(
-              fs.readFileSync('./examples/e2e/test-results/test-results.json', 'utf8')
-            );
-
-            const stats = results.stats;
-            if (stats.failures > 0) {
-              conclusion = 'failure';
-              const failedTests = results.suites
-                .flatMap(suite => suite.specs)
-                .filter(spec => spec.tests.some(test => test.status === 'failed'));
+              const results = JSON.parse(
+                fs.readFileSync('./examples/e2e/test-results/test-results.json', 'utf8')
+              );
               
-              summary = [
-                `Tests: ${stats.total}, Failed: ${stats.failures}, Duration: ${Math.round(stats.duration / 1000)}s`,
-                '',
-                'Failed Tests:',
-                ...failedTests.map(test => `- ${test.title}`),
-                '',
-                'See PR comment for full details.'
-              ].join('\n');
-            } else {
-              summary = `All ${stats.total} tests passed in ${Math.round(stats.duration / 1000)}s`;
-            }
+              const stats = results.stats;
+              const failedTests = stats.unexpected;
+              
+              // Find failed test details
+              const failedSpecs = results.suites
+                .flatMap(s => s.suites || [])
+                .flatMap(s => s.suites || [])
+                .flatMap(s => s.specs || [])
+                .filter(spec => !spec.ok);
+              
+              const failureDetails = failedSpecs.map(spec => {
+                const test = spec.tests[0];
+                const error = test.results[0].error;
+                return {
+                  title: spec.title,
+                  error: error.message.split('\n')[0] // First line of error
+                };
+              });
+              
+              if (failedTests > 0) {
+                summary = [
+                  `❌ Tests failed: ${failedTests} of ${stats.expected + stats.unexpected} tests failed`,
+                  '',
+                  'Failed Tests:',
+                  ...failureDetails.map(f => `- ${f.title}\n  Error: ${f.error}`),
+                  '',
+                  `Duration: ${Math.round(stats.duration / 1000)}s`,
+                  '',
+                  'See PR comment for full details.'
+                ].join('\n');
+              } else {
+                summary = `✅ All ${stats.expected} tests passed in ${Math.round(stats.duration / 1000)}s`;
+              }
             } catch (error) {
-              conclusion = 'failure';
               summary = 'Failed to read test results.';
               console.error('Error reading test results:', error);
+              throw error; // This will make the check fail
             }
 
-            await github.rest.checks.create({
+            return github.rest.checks.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               name: 'E2E Tests',
               head_sha: '${{ inputs.sha }}',
-              status: 'completed',
-              conclusion: conclusion,
-              completed_at: new Date().toISOString(),
-            output: {
-              title: conclusion === 'success' ? 'E2E Tests Passed' : 'E2E Tests Failed',
+              conclusion: failedTests > 0 ? 'failure' : 'success',
+              output: {
+                title: failedTests > 0 ? '❌ E2E Tests Failed' : '✅ E2E Tests Passed',
                 summary: summary
               }
-            });
+            })
