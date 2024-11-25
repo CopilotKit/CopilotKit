@@ -72,6 +72,7 @@ jobs:
       - name: Run Tests
         id: run_tests
         working-directory: ./examples/e2e
+        continue-on-error: true
         run: |
           pnpm playwright test
         env:
@@ -109,7 +110,39 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const conclusion = '${{ steps.run_tests.outcome }}' === 'success' ? 'success' : 'failure';
+            const fs = require('fs');
+            let summary = 'Test run completed.';
+            let conclusion = 'success';
+
+            try {
+            const results = JSON.parse(
+              fs.readFileSync('./examples/e2e/test-results/test-results.json', 'utf8')
+            );
+
+            const stats = results.stats;
+            if (stats.failures > 0) {
+              conclusion = 'failure';
+              const failedTests = results.suites
+                .flatMap(suite => suite.specs)
+                .filter(spec => spec.tests.some(test => test.status === 'failed'));
+              
+              summary = [
+                `Tests: ${stats.total}, Failed: ${stats.failures}, Duration: ${Math.round(stats.duration / 1000)}s`,
+                '',
+                'Failed Tests:',
+                ...failedTests.map(test => `- ${test.title}`),
+                '',
+                'See PR comment for full details.'
+              ].join('\n');
+            } else {
+              summary = `All ${stats.total} tests passed in ${Math.round(stats.duration / 1000)}s`;
+            }
+            } catch (error) {
+              conclusion = 'failure';
+              summary = 'Failed to read test results.';
+              console.error('Error reading test results:', error);
+            }
+
             await github.rest.checks.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -118,8 +151,8 @@ jobs:
               status: 'completed',
               conclusion: conclusion,
               completed_at: new Date().toISOString(),
-              output: {
-                title: conclusion === 'success' ? 'E2E Tests Passed' : 'E2E Tests Failed',
-                summary: conclusion === 'success' ? 'All tests passed successfully' : 'Some tests failed'
+            output: {
+              title: conclusion === 'success' ? 'E2E Tests Passed' : 'E2E Tests Failed',
+                summary: summary
               }
             });
