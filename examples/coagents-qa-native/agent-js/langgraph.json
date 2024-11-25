@@ -1,9 +1,9 @@
 {
-  "python_version": "3.12",
+  "node_version": "20",
   "dockerfile_lines": [],
   "dependencies": ["."],
   "graphs": {
-    "greeting_agent": "./greeting_agent/agent.py:graph"
+    "email_agent": "./src/agent.ts:graph"
   },
   "env": ".env"
 }

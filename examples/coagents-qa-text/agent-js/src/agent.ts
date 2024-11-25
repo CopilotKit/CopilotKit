@@ -64,10 +64,16 @@ export async function extract_name_node(
     name = toolCalls[0].args.name;
   }
 
-  return {
-    messages: state.messages,
-    name,
-  };
+  if (!name) {
+    return {
+      messages: state.messages,
+    };
+  } else {
+    return {
+      messages: state.messages,
+      name,
+    };
+  }
 }
 
 export async function greet_node(state: AgentState, config: RunnableConfig) {
