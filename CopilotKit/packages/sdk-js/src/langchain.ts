@@ -1,6 +1,7 @@
 import { RunnableConfig } from "@langchain/core/runnables";
 import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
 import { randomId } from "@copilotkit/shared";
+import { Annotation, MessagesAnnotation } from "@langchain/langgraph";
 
 interface IntermediateStateConfig {
   stateKey: string;
@@ -14,6 +15,18 @@ interface OptionsConfig {
   emitAll?: boolean;
   emitIntermediateState?: IntermediateStateConfig[];
 }
+
+export const CopilotKitPropertiesAnnotation = Annotation.Root({
+  actions: Annotation<any[]>,
+});
+
+export const CopilotKitStateAnnotation = Annotation.Root({
+  copilotKit: Annotation<(typeof CopilotKitPropertiesAnnotation.State)[]>,
+  ...MessagesAnnotation.spec,
+});
+
+export type CopilotKitState = typeof CopilotKitStateAnnotation.State;
+export type CopilotKitProperties = typeof CopilotKitPropertiesAnnotation.State;
 
 export function copilotKitCustomizeConfig(
   baseConfig: RunnableConfig,
