@@ -3,9 +3,6 @@ from langchain_core.messages import ToolMessage, AIMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from travel.state import AgentState, Trip, Place
-from copilotkit.langchain import copilotkit_emit_message
-
-
 
 async def trips_node(state: AgentState, config: RunnableConfig): # pylint: disable=unused-argument
     """
@@ -15,15 +12,7 @@ async def trips_node(state: AgentState, config: RunnableConfig): # pylint: disab
 
 async def perform_trips_node(state: AgentState, config: RunnableConfig):
     """Execute trip operations"""
-    ai_message = cast(AIMessage, state["messages"][-2])
-    tool_message = cast(ToolMessage, state["messages"][-1])
-    
-    if tool_message.content == "CANCEL":
-        await copilotkit_emit_message(config, "Cancelled operation of trip.")
-        return state
-    
-    if not isinstance(ai_message, AIMessage) or not ai_message.tool_calls:
-        return state
+    ai_message = cast(AIMessage, state["messages"][-1])
 
     action_handlers = {
         "add_trips": lambda args: handle_add_trips(state, args),
@@ -41,7 +30,7 @@ async def perform_trips_node(state: AgentState, config: RunnableConfig):
         
         if action in action_handlers:
             message = action_handlers[action](args)
-            await copilotkit_emit_message(config, message)
+            state["messages"].append(ToolMessage(content=message, tool_call_id=tool_call["id"]))
 
     return state
 

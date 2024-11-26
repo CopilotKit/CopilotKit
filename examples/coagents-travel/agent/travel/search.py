@@ -9,9 +9,7 @@ from typing import cast
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain.tools import tool
-from copilotkit.langchain import copilotkit_emit_state, copilotkit_customize_config
 from travel.state import AgentState
-from copilotkit.langchain import copilotkit_emit_message
 
 @tool
 def search_for_places(queries: list[str]) -> list[dict]:
@@ -25,15 +23,6 @@ async def search_node(state: AgentState, config: RunnableConfig):
     """
     ai_message = cast(AIMessage, state["messages"][-1])
 
-    config = copilotkit_customize_config(
-        config,
-        emit_intermediate_state=[{
-            "state_key": "search_progress",
-            "tool": "search_for_places",
-            "tool_argument": "search_progress",
-        }],
-    )
-
     state["search_progress"] = state.get("search_progress", [])
     queries = ai_message.tool_calls[0]["args"]["queries"]
 
@@ -43,8 +32,6 @@ async def search_node(state: AgentState, config: RunnableConfig):
             "results": [],
             "done": False
         })
-
-    await copilotkit_emit_state(config, state)
 
     places = []
     for i, query in enumerate(queries):
@@ -60,10 +47,8 @@ async def search_node(state: AgentState, config: RunnableConfig):
             }
             places.append(place)
         state["search_progress"][i]["done"] = True
-        await copilotkit_emit_state(config, state)
 
     state["search_progress"] = []
-    await copilotkit_emit_state(config, state)
 
     state["messages"].append(ToolMessage(
         tool_call_id=ai_message.tool_calls[0]["id"],
