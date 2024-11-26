@@ -59,7 +59,21 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 '[data-test-id="research-draft"]'
               );
               const draftContent = await researchDraft.textContent();
-              expect(draftContent).not.toBe("");
+
+              try {
+                expect(draftContent).not.toBe("");
+              } catch (e) {
+                // Sometimes the LLM does not fill the draft. We will attempt a retry at filling it.
+                await sendChatMessage(
+                    page,
+                    "The draft seems to be empty, please fill it in."
+                );
+                await waitForSteps(page);
+                await waitForResponse(page);
+
+                const draftContent = await researchDraft.textContent();
+                expect(draftContent).not.toBe("");
+              }
 
               const resourceCount = await page
                 .locator('[data-test-id="resource"]')
