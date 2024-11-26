@@ -1,5 +1,20 @@
 # web
 
+## 1.4.0-pre-1-4-0.11
+
+### Minor Changes
+
+- LangGraph Platform and LangGraph JS support
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/react-textarea@1.4.0-pre-1-4-0.11
+  - @copilotkit/react-core@1.4.0-pre-1-4-0.11
+  - @copilotkit/react-ui@1.4.0-pre-1-4-0.11
+  - @copilotkit/runtime@1.4.0-pre-1-4-0.11
+  - @copilotkit/shared@1.4.0-pre-1-4-0.11
+
 ## 1.4.0-pre-1-4-0.10
 
 ### Minor Changes

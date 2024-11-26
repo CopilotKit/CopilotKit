@@ -1,6 +1,6 @@
 {
   "name": "next-openai",
-  "version": "1.4.0-pre-1-4-0.10",
+  "version": "1.4.0-pre-1-4-0.11",
   "private": true,
   "scripts": {
     "example-dev": "next dev",
