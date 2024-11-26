@@ -144,6 +144,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
 
     eventSource.stream(async (eventStream$) => {
       let mode: "function" | "message" | null = null;
+
       for await (const chunk of stream) {
         if (chunk.choices.length === 0) {
           continue;
