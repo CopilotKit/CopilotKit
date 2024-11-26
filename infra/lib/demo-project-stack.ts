@@ -108,7 +108,7 @@ export class PreviewProjectStack extends cdk.Stack {
         cmd: props.cmd,
       }),
       timeout: cdk.Duration.seconds(props.timeout ?? 300),
-      memorySize: props.memorySize ?? 1024,
+      memorySize: props.memorySize ?? 2048,
     });
 
     const eventRule = new events.Rule(this, 'LambdaWarmUpSchedule', {
