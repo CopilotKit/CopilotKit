@@ -47,10 +47,8 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               }
 
               const prompts = [
-                "How are you doing",
                 "Greet Me!",
-                "I'm not sure I want to tell you…",
-                "My name is Copilot Kit",
+                "My name is Bob",
               ];
 
               for (const prompt of prompts) {
@@ -92,7 +90,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 }
 
                 // Add delay between messages
-                await page.waitForTimeout(2000);
+                await page.waitForTimeout(5000);
               }
             });
           });
