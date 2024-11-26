@@ -6,18 +6,14 @@ import { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage } from "@langchain/core/messages";
 import { copilotKitExit } from "@copilotkit/sdk-js/langchain";
 import { getModel } from "./model";
-import {
-  END,
-  MemorySaver,
-  StateGraph,
-  Annotation,
-  MessagesAnnotation,
-} from "@langchain/langgraph";
+import { END, MemorySaver, StateGraph, Annotation } from "@langchain/langgraph";
+
+import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langchain";
 
 // Define the PirateAgentState annotation, extending MessagesState
 export const PirateAgentStateAnnotation = Annotation.Root({
   model: Annotation<string>(),
-  ...MessagesAnnotation.spec,
+  ...CopilotKitStateAnnotation.spec,
 });
 
 export type PirateAgentState = typeof PirateAgentStateAnnotation.State;

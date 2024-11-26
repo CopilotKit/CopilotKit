@@ -12,13 +12,14 @@ import {
 import { SystemMessage, ToolMessage } from "@langchain/core/messages";
 import { getModel } from "./model";
 import { END, MemorySaver, StateGraph } from "@langchain/langgraph";
-import { Annotation, MessagesAnnotation } from "@langchain/langgraph";
+import { Annotation } from "@langchain/langgraph";
+import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langchain";
 
 // Define the EmailAgentState annotation, extending MessagesState
 export const EmailAgentStateAnnotation = Annotation.Root({
   model: Annotation<string>(),
   email: Annotation<string>(),
-  ...MessagesAnnotation.spec,
+  ...CopilotKitStateAnnotation.spec,
 });
 
 export type EmailAgentState = typeof EmailAgentStateAnnotation.State;

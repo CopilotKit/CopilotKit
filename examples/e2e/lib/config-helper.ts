@@ -89,19 +89,19 @@ export const appendLGCVariants = (config: ConfigItem, variants: any[]) => {
       };
     });
 
-    appendedVariants = [...variants, ...newVariants];
+    appendedVariants = [...appendedVariants, ...newVariants];
   }
 
   if (config.lgcJSDeploymentUrl) {
     const newVariants = variants.map((variant) => {
       return {
         ...variant,
-        name: `${variant.name} (LGC JS)`,
+        name: `${variant.name} (LGC JS \`main\`)`,
         queryParams: `${variant.queryParams}&lgcDeploymentUrl=${config.lgcJSDeploymentUrl}`,
       };
     });
 
-    appendedVariants = [...variants, ...newVariants];
+    appendedVariants = [...appendedVariants, ...newVariants];
   }
 
   return appendedVariants;

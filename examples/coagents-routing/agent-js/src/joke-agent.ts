@@ -11,19 +11,15 @@ import {
 } from "@copilotkit/sdk-js/langchain";
 import { SystemMessage, ToolMessage } from "@langchain/core/messages";
 import { getModel } from "./model";
-import {
-  END,
-  MemorySaver,
-  StateGraph,
-  Annotation,
-  MessagesAnnotation,
-} from "@langchain/langgraph";
+import { END, MemorySaver, StateGraph, Annotation } from "@langchain/langgraph";
+
+import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langchain";
 
 // Define the JokeAgentState annotation, extending MessagesState
 export const JokeAgentStateAnnotation = Annotation.Root({
   model: Annotation<string>(),
   joke: Annotation<string>(),
-  ...MessagesAnnotation.spec,
+  ...CopilotKitStateAnnotation.spec,
 });
 
 export type JokeAgentState = typeof JokeAgentStateAnnotation.State;
