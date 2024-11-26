@@ -27,7 +27,14 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
     Object.entries(descriptions).forEach(([description, configs]) => {
       test.describe(`${description}`, () => {
         configs.forEach((config) => {
-          appendLGCVariants(config, variants).forEach((variant) => {
+          appendLGCVariants(
+            {
+              ...config,
+              lgcJSDeploymentUrl:
+                "https://coagents-qa-native-js-lgc-b-937eba63d4a0538e819aeea8cb472a7b.default.us.langgraph.app",
+            },
+            variants
+          ).forEach((variant) => {
             test(`Test ${config.description} with variant ${variant.name}`, async ({
               page,
             }) => {

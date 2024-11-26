@@ -26,7 +26,14 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
     Object.entries(descriptions).forEach(([description, configs]) => {
       test.describe(`${description}`, () => {
         configs.forEach((config) => {
-          appendLGCVariants(config, variants).forEach((variant) => {
+          appendLGCVariants(
+            {
+              ...config,
+              lgcJSDeploymentUrl:
+                "https://coagents-qa-text-js-lgc-b-ef9a12d13f5e5f24917eb6bec8994af3.default.us.langgraph.app",
+            },
+            variants
+          ).forEach((variant) => {
             test(`Test ${config.description} with variant ${variant.name}`, async ({
               page,
             }) => {
@@ -46,10 +53,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 await chatWindow.waitFor({ state: "visible" });
               }
 
-              const prompts = [
-                "Greet Me!",
-                "My name is Bob",
-              ];
+              const prompts = ["Greet Me!", "My name is Bob"];
 
               for (const prompt of prompts) {
                 // Wait for and fill the textarea
