@@ -16,18 +16,19 @@ jobs:
     strategy:
       matrix:
         app:
-          - { project: "coagents-research-canvas", type: "agent", deps: "remote-deps" }
-          - { project: "coagents-research-canvas", type: "agent", deps: "local-deps" }
+          - {
+              project: "coagents-research-canvas",
+              type: "agent",
+              deps: "local-deps",
+            }
           - { project: "coagents-research-canvas", type: "ui" }
-          - { project: "coagents-ai-researcher", type: "agent", deps: "remote-deps" }
-          - { project: "coagents-ai-researcher", type: "agent", deps: "local-deps" }
-          - { project: "coagents-ai-researcher", type: "ui" }
-          - { project: "coagents-qa-text", type: "agent", deps: "remote-deps" }
+          - { project: "coagents-routing", type: "agent", deps: "local-deps" }
+          - { project: "coagents-routing", type: "ui" }
           - { project: "coagents-qa-text", type: "agent", deps: "local-deps" }
           - { project: "coagents-qa-text", type: "ui" }
-          - { project: "coagents-qa-native", type: "agent", deps: "remote-deps" }
           - { project: "coagents-qa-native", type: "agent", deps: "local-deps" }
           - { project: "coagents-qa-native", type: "ui" }
+          - { project: "next-openai", type: "next-openai" }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,25 +52,20 @@ jobs:
       - name: AWS ECR Login
         run: |
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 058264219587.dkr.ecr.us-east-1.amazonaws.com
-        
+
       - name: (UI) Setup pnpm
-        if: matrix.app.type == 'ui'
+        if: matrix.app.type == 'ui' || matrix.app.type == 'next-openai'
         uses: pnpm/action-setup@v4
         with:
           version: "9.5"
 
       - name: (UI) Use Node.js 21
-        if: matrix.app.type == 'ui'
+        if: matrix.app.type == 'ui' || matrix.app.type == 'next-openai'
         uses: actions/setup-node@v2
         with:
           node-version: 21.x
-          cache: 'pnpm'
-          cache-dependency-path: '**/pnpm-lock.yaml'
-
-      - name: (UI) Install dependencies
-        if: matrix.app.type == 'ui'
-        working-directory: ./CopilotKit
-        run: pnpm install --frozen-lockfile
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
 
       - name: (UI) Install app dependencies
         if: matrix.app.type == 'ui'
@@ -77,12 +73,12 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: (UI, Local Deps) Install monorepo
-        if: matrix.app.type == 'ui'
+        if: matrix.app.type == 'ui' || matrix.app.type == 'next-openai'
         working-directory: ./CopilotKit
         run: pnpm install --frozen-lockfile
 
       - name: (UI, Local Deps) Build @copilotkit packages
-        if: matrix.app.type == 'ui'
+        if: matrix.app.type == 'ui' || matrix.app.type == 'next-openai'
         working-directory: ./CopilotKit
         run: pnpx turbo run build
 
@@ -99,7 +95,14 @@ jobs:
         working-directory: examples/${{ matrix.app.project }}/${{ matrix.app.type }}
         run: pnpm run build
         env:
-          OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
+          OPENAI_API_KEY: placeholder
+
+      - name: (next-openai) Build app
+        if: matrix.app.type == 'next-openai'
+        working-directory: CopilotKit/examples/next-openai
+        run: pnpm run example-build
+        env:
+          OPENAI_API_KEY: placeholder
 
       - name: (UI) Build Image
         if: matrix.app.type == 'ui'
@@ -108,6 +111,19 @@ jobs:
             -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-ui-${{ github.run_id }} \
             --build-arg APP_DIR=examples/${{ matrix.app.project }}/${{ matrix.app.type }} \
             -f ./examples/Dockerfile.${{ matrix.app.type }} \
+            --platform=linux/amd64 \
+            --provenance=false \
+            --push \
+            .
+        env:
+          DOCKER_BUILDKIT: 1
+
+      - name: (next-openai) Build Image
+        if: matrix.app.type == 'next-openai'
+        run: |
+          docker buildx build \
+            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:next-openai-${{ github.run_id }} \
+            -f ./CopilotKit/examples/next-openai/Dockerfile \
             --platform=linux/amd64 \
             --provenance=false \
             --push \
@@ -147,8 +163,8 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: 21.x
-          cache: 'pnpm'
-          cache-dependency-path: '**/pnpm-lock.yaml'
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
 
       - name: Infra install dependencies
         working-directory: infra
@@ -174,15 +190,17 @@ jobs:
         working-directory: ./infra
         run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 10
         env:
-          UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
+          UNIQUE_ENV_ID: "PR${{ github.event.number }}"
           GITHUB_ACTIONS_RUN_ID: "${{ github.run_id }}"
           GITHUB_PR_NUMBER: "${{ github.event.number }}"
-          
+
       - name: Generate table from outputs
         id: generate-table
         working-directory: infra
         run: |
           node generate-table
+        env:
+          GITHUB_SHA: ${{ github.sha }}
 
       - name: Assign label
         uses: actions/github-script@v4
@@ -196,8 +214,28 @@ jobs:
               labels: ['preview']
             })
 
+      - name: Delete a comment
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: preview-status-update
+          mode: delete
+
       - name: Comment post-deployment
         uses: thollander/actions-comment-pull-request@v3
         with:
           comment-tag: preview-status-update
           file-path: ./infra/preview-comment.md
+
+      - name: Export Variable - E2E URLs
+        id: export-e2e-urls
+        working-directory: infra
+        run: |
+          echo "e2e-urls=$(node get-e2e-tests-urls.js | base64 -w 0)" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger E2E Tests
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: "e2e.yml"
+          ref: "${{ github.event.pull_request.head.ref }}"
+          inputs: '{"ref": "${{ github.event.pull_request.head.ref }}", "sha": "${{ github.event.pull_request.head.sha }}", "urls": "${{ steps.export-e2e-urls.outputs.e2e-urls }}", "pr_number": "${{ github.event.pull_request.number }}"}'

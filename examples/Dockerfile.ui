@@ -19,7 +19,6 @@ RUN pnpm i --frozen-lockfile
 COPY ${APP_DIR}/.next/standalone ./
 COPY ${APP_DIR}/.next/static ./.next/static
 
-
 # Set the environment variables (if needed)
 ENV NODE_ENV=production
 EXPOSE 3000

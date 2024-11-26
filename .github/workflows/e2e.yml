@@ -9,7 +9,12 @@ on:
       ref:
         description: "ref"
         required: true
-
+      urls:
+        description: "urls"
+        required: true
+      pr_number:
+        description: "Pull Request number"
+        required: true
 jobs:
   e2e_tests:
     name: E2E Tests
@@ -20,18 +25,6 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.ref }}
-
-      # - name: Download artifact
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: tests-env-file
-      #     path: tests/
-      #     github-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Create Status Check
         uses: actions/github-script@v6
         with:
@@ -45,33 +38,133 @@ jobs:
               started_at: new Date().toISOString()
             })
 
-      # - name: Run Tests
-      #   id: run_tests
-      #   run: |
-      #     cat tests/.env.test
-      #     echo "Running E2E tests..."
-      #     # Your actual test commands here
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
-      - name: Wait 1 minute
-        run: sleep 60
-          
-      # - name: Update Status Check
-      #   if: always()
-      #   uses: actions/github-script@v6
-      #   with:
-      #     script: |
-      #       const conclusion = '${{ steps.run_tests.outcome }}' === 'success' ? 'success' : 'failure';
-      #       await github.rest.checks.create({
-      #         owner: context.repo.owner,
-      #         repo: context.repo.repo,
-      #         name: 'E2E Tests',
-      #         head_sha: '${{ github.event.client_payload.sha }}',
-      #         status: 'completed',
-      #         conclusion: conclusion,
-      #         completed_at: new Date().toISOString(),
-      #         output: {
-      #           title: conclusion === 'success' ? 'E2E Tests Passed' : 'E2E Tests Failed',
-      #           summary: conclusion === 'success' ? 'All tests passed successfully' : 'Some tests failed'
-      #         }
-      #       });
-      
+      - name: Save E2E URLs
+        working-directory: examples/e2e
+        run: |
+          echo "${{ inputs.urls }}" | base64 -d > app-configs.json
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "22"
+
+      - name: Install Dependencies
+        working-directory: ./examples/e2e
+        run: |
+          pnpm install
+          pnpm exec playwright install --with-deps
+
+      - name: Print app configs
+        working-directory: examples/e2e
+        run: |
+          cat app-configs.json
+
+      - name: Run Tests
+        id: run_tests
+        working-directory: ./examples/e2e
+        continue-on-error: true
+        run: |
+          pnpm playwright test
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+          COPILOT_CLOUD_PROD_RUNTIME_URL: "https://api.cloud.copilotkit.ai/copilotkit/v1"
+          COPILOT_CLOUD_PROD_PUBLIC_API_KEY: ${{ secrets.COPILOT_CLOUD_PROD_PUBLIC_API_KEY }}
+          COPILOT_CLOUD_STAGING_RUNTIME_URL: "https://api.cloud.stagingcopilotkit.ai/copilotkit/v1"
+          COPILOT_CLOUD_STAGING_PUBLIC_API_KEY: ${{ secrets.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY }}
+
+      - name: Delete a comment
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          pr-number: ${{ inputs.pr_number }}
+          comment-tag: test-run-status-update
+          mode: delete
+
+      - name: Comment post-deployment
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          pr-number: ${{ inputs.pr_number }}
+          comment-tag: test-run-status-update
+          file-path: ./examples/e2e/test-results/test-run-comment.md
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: |
+            examples/e2e/playwright-report/
+            examples/e2e/test-results/
+          retention-days: 30
+
+      - name: Update Status Check
+        if: always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            let summary = 'Test run completed.';
+            let failedTests = 0;
+            try {
+              const results = JSON.parse(
+                fs.readFileSync('./examples/e2e/test-results/test-results.json', 'utf8')
+              );
+              
+              const stats = results.stats;
+              failedTests = stats.unexpected;
+              
+              // Find failed test details
+              const failedSpecs = results.suites
+                .flatMap(s => s.suites || [])
+                .flatMap(s => s.suites || [])
+                .flatMap(s => s.specs || [])
+                .filter(spec => !spec.ok);
+              
+              const failureDetails = failedSpecs.map(spec => {
+                const test = spec.tests[0];
+                const error = test.results[0].error;
+                return {
+                  title: spec.title,
+                  error: error.message.split('\n')[0] // First line of error
+                };
+              });
+              
+              if (failedTests > 0) {
+                summary = [
+                  `❌ Tests failed: ${failedTests} of ${stats.expected + stats.unexpected} tests failed`,
+                  '',
+                  'Failed Tests:',
+                  ...failureDetails.map(f => `- ${f.title}\n  Error: ${f.error}`),
+                  '',
+                  `Duration: ${Math.round(stats.duration / 1000)}s`,
+                  '',
+                  'See PR comment for full details.'
+                ].join('\n');
+              } else {
+                summary = `✅ All ${stats.expected} tests passed in ${Math.round(stats.duration / 1000)}s`;
+              }
+            } catch (error) {
+              summary = 'Failed to read test results.';
+              console.error('Error reading test results:', error);
+              failedTests = 1;
+            }
+
+            return github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'E2E Tests',
+              head_sha: '${{ inputs.sha }}',
+              conclusion: failedTests > 0 ? 'failure' : 'success',
+              output: {
+                title: failedTests > 0 ? '❌ E2E Tests Failed' : '✅ E2E Tests Passed',
+                summary: summary
+              }
+            })

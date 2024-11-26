@@ -1,4 +1,4 @@
-"""Test Joker Agent"""
+"""Email Agent"""
 
 from typing import Any, cast
 from langgraph.graph import StateGraph, END

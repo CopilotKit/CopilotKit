@@ -12,6 +12,7 @@
 
 @layer base {
   :root {
+    
     --background: 0 0% 100%;
     --foreground: 0 0% 3.9%;
     --card: 0 0% 100%;
@@ -37,6 +38,22 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
+    --success: 142 72% 29%;
+    --success-foreground: 0 0% 98%;
+    --success-muted: 142 76% 90%;
+    --success-muted-foreground: 142 72% 29%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 98%;
+    --warning-muted: 38 92% 90%;
+    --warning-muted-foreground: 38 92% 30%;
+    --error: 0 84.2% 60.2%;
+    --error-foreground: 0 0% 98%;
+    --error-muted: 0 84.2% 90%;
+    --error-muted-foreground: 0 84.2% 40%;
+    --info: 214 95% 48%;
+    --info-foreground: 0 0% 98%;
+    --info-muted: 214 95% 90%;
+    --info-muted-foreground: 214 95% 30%;
   }
   .dark {
     --background: 0 0% 3.9%;
@@ -63,6 +80,22 @@
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+    --success: 142 72% 46%;
+    --success-foreground: 0 0% 98%;
+    --success-muted: 142 76% 20%;
+    --success-muted-foreground: 142 72% 80%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 98%;
+    --warning-muted: 38 92% 20%;
+    --warning-muted-foreground: 38 92% 80%;
+    --error: 0 62.8% 30.6%;
+    --error-foreground: 0 0% 98%;
+    --error-muted: 0 62.8% 20%;
+    --error-muted-foreground: 0 62.8% 80%;
+    --info: 214 95% 60%;
+    --info-foreground: 0 0% 98%;
+    --info-muted: 214 95% 20%;
+    --info-muted-foreground: 214 95% 80%;
   }
 }
 

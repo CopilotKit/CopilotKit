@@ -379,7 +379,7 @@ class LangGraphAgent(Agent):
                 }
 
             if (not emit_intermediate_state and
-                current_node_name == emit_intermediate_state_until_end and 
+                current_node_name == emit_intermediate_state_until_end and
                 event_type == "on_chain_end"):
                 # stop emitting function call state
                 emit_intermediate_state_until_end = None

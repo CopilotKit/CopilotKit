@@ -140,7 +140,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   let streamingStateExtractor = new StreamingStateExtractor([]);
   let prevNodeName = null;
   let emitIntermediateStateUntilEnd = null;
-  let shouldExit = null;
+  let shouldExit = false;
   let externalRunId = null;
 
   const streamResponse = client.runs.stream(threadId, assistantId, {
@@ -151,6 +151,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   const emit = (message: string) => controller.enqueue(new TextEncoder().encode(message));
 
   let latestStateValues = {};
+  let updatedState = state;
 
   try {
     for await (const chunk of streamResponse) {
@@ -174,10 +175,9 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       const metadata = event.metadata;
 
       shouldExit =
-        shouldExit != null
-          ? shouldExit
-          : eventType === LangGraphEventTypes.OnCustomEvent &&
-            event.name === CustomEventNames.CopilotKitExit;
+        shouldExit ||
+        (eventType === LangGraphEventTypes.OnCustomEvent &&
+          event.name === CustomEventNames.CopilotKitExit);
 
       const emitIntermediateState = metadata["copilotkit:emit-intermediate-state"];
       const manuallyEmitIntermediateState =
@@ -188,6 +188,14 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       // since we don't need any internal node names to be sent to the frontend
       if (graphInfo["nodes"].some((node) => node.id === currentNodeName)) {
         nodeName = currentNodeName;
+
+        // only update state from values when entering or exiting a known node
+        if (
+          eventType === LangGraphEventTypes.OnChainStart ||
+          eventType === LangGraphEventTypes.OnChainEnd
+        ) {
+          updatedState = latestStateValues;
+        }
       }
 
       if (!nodeName) {
@@ -195,20 +203,18 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       }
 
       if (manuallyEmitIntermediateState) {
-        if (eventType === LangGraphEventTypes.OnChainEnd) {
-          state = event.data.output;
-          emit(
-            getStateSyncEvent({
-              threadId,
-              runId,
-              agentName: agent.name,
-              nodeName,
-              state: event.data.output,
-              running: true,
-              active: true,
-            }),
-          );
-        }
+        updatedState = event.data;
+        emit(
+          getStateSyncEvent({
+            threadId,
+            runId,
+            agentName: agent.name,
+            nodeName,
+            state: updatedState,
+            running: true,
+            active: true,
+          }),
+        );
         continue;
       }
 
@@ -220,8 +226,6 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
         // reset the streaming state extractor
         streamingStateExtractor = new StreamingStateExtractor(emitIntermediateState);
       }
-
-      let updatedState = latestStateValues;
 
       if (emitIntermediateState && eventType === LangGraphEventTypes.OnChatModelStream) {
         streamingStateExtractor.bufferToolCalls(event);
@@ -350,10 +354,10 @@ class StreamingStateExtractor {
     if (event.data.chunk.tool_call_chunks.length > 0) {
       const chunk = event.data.chunk.tool_call_chunks[0];
 
-      if (chunk.name !== null) {
+      if (chunk.name !== null && chunk.name !== undefined) {
         this.currentToolCall = chunk.name;
         this.toolCallBuffer[this.currentToolCall] = chunk.args;
-      } else if (this.currentToolCall !== null) {
+      } else if (this.currentToolCall !== null && this.currentToolCall !== undefined) {
         this.toolCallBuffer[this.currentToolCall] += chunk.args;
       }
     }
@@ -455,15 +459,14 @@ function langGraphDefaultMergeState(
     } else {
       // Replace the message with the existing one
       for (let i = 0; i < mergedMessages.length; i++) {
-        if (mergedMessages[i].id === message.id) {
-          if ("tool_calls" in message) {
-            if (
-              ("tool_calls" in mergedMessages[i] || "additional_kwargs" in mergedMessages[i]) &&
-              mergedMessages[i].content
-            ) {
-              message.tool_calls = mergedMessages[i]["tool_calls"];
-              message.additional_kwargs = mergedMessages[i].additional_kwargs;
-            }
+        if (mergedMessages[i].id === message.id && message.role === "assistant") {
+          if (
+            ("tool_calls" in mergedMessages[i] || "additional_kwargs" in mergedMessages[i]) &&
+            mergedMessages[i].content
+          ) {
+            // @ts-expect-error -- message did not have a tool call, now it will
+            message.tool_calls = mergedMessages[i]["tool_calls"];
+            message.additional_kwargs = mergedMessages[i].additional_kwargs;
           }
           mergedMessages[i] = message;
         }
@@ -548,28 +551,13 @@ function langGraphDefaultMergeState(
     correctedMessages.push(currentMessage);
   }
 
-  return deepMerge(state, {
+  return {
+    ...state,
     messages: correctedMessages,
     copilotkit: {
       actions,
     },
-  });
-}
-
-function deepMerge(obj1: State, obj2: State) {
-  let result = { ...obj1 };
-  for (let key in obj2) {
-    if (typeof obj2[key] === "object" && !Array.isArray(obj2[key])) {
-      if (obj1[key]) {
-        result[key] = deepMerge(obj1[key], obj2[key]);
-      } else {
-        result[key] = { ...obj2[key] };
-      }
-    } else {
-      result[key] = obj2[key];
-    }
-  }
-  return result;
+  };
 }
 
 function formatMessages(messages: Message[]): LangGraphCloudMessage[] {

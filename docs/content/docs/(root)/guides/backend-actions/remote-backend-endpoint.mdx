@@ -157,9 +157,23 @@ if __name__ == "__main__":
 
 Since we've added the entry point in `server.py`, you can run your FastAPI server directly by executing the script:
 
-```bash
-python server.py
-```
+<Tabs items={['Poetry', 'pip', 'conda']} default="Poetry">
+    <Tab value="Poetry">
+        ```bash
+        poetry run python3 server.py
+        ```
+    </Tab>
+    <Tab value="pip">
+        ```bash
+        python3 server.py
+        ```
+    </Tab>
+    <Tab value="conda">
+        ```bash
+        python3 server.py
+        ```
+    </Tab>
+</Tabs>
 
 **Note:** Ensure that you're in the same directory as `server.py` when running this command.
 

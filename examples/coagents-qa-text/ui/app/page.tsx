@@ -18,10 +18,10 @@ export default function ModelSelectorWrapper() {
 }
 
 function Home() {
-    const { useLgc } = useModelSelectorContext();
+    const { lgcDeploymentUrl } = useModelSelectorContext();
 
     return (
-        <CopilotKit runtimeUrl={useLgc ? "/api/copilotkit-lgc" : "/api/copilotkit"}>
+        <CopilotKit runtimeUrl={`/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl ?? ''}`}>
             <Greeter/>
         </CopilotKit>
     );
