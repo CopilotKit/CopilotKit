@@ -22,9 +22,10 @@ export type SearchProgress = {
   done: boolean;
 };
 
-export type PlanningProgress = {
-  trip: Trip;
-  done: boolean;
+export type AgentState = {
+  trips: Trip[];
+  selected_trip_id: string | null;
+  search_progress?: SearchProgress[];
 };
 
 export const defaultTrips: Trip[] = [

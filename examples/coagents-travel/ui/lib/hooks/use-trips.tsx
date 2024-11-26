@@ -1,9 +1,5 @@
-import { SearchProgress } from "@/components/SearchProgress";
-import { useCoAgent, useCoAgentStateRender, useCopilotAction } from "@copilotkit/react-core";
-import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
-import { createContext, useContext, ReactNode, useMemo } from "react";
-import { AddTrips, EditTrips, DeleteTrips } from "@/components/humanInTheLoop";
-import { Trip, Place, defaultTrips} from "@/lib/types";
+import { createContext, useContext, ReactNode, useMemo, useState } from "react";
+import { Trip, Place, defaultTrips, AgentState} from "@/lib/types";
 
 type TripsContextType = {
   trips: Trip[];
@@ -21,71 +17,9 @@ type TripsContextType = {
 const TripsContext = createContext<TripsContextType | undefined>(undefined);
 
 export const TripsProvider = ({ children }: { children: ReactNode }) => {
-  const { state, setState } = useCoAgent<{ trips: Trip[], selected_trip_id: string | null, messages: any }>({
-    name: "travel",
-    initialState: {
-      trips: defaultTrips,
-      selected_trip_id: defaultTrips[0].id,
-      hovered_place: null,
-    },
-  });
-
-  useCoAgentStateRender({
-    name: "travel",
-    render: ({ state, nodeName, status }) => {
-      if (state.search_progress) {
-        return <SearchProgress progress={state.search_progress} />
-      }
-      return null;
-    },
-  });
-
-  useCopilotChatSuggestions({
-    instructions: `Offer the user actionable suggestions on their last message, current trips and selected trip.\n ${state.selected_trip_id} \n ${JSON.stringify(state.trips)}`,
-    minSuggestions: 1,
-    maxSuggestions: 2,
-  }, [state.trips]);
-
-  useCopilotAction({ 
-    name: "add_trips",
-    description: "Add some trips",
-    parameters: [
-      {
-        name: "trips",
-        type: "object[]",
-        description: "The trips to add",
-        required: true,
-      },
-    ],
-    renderAndWait: AddTrips,
-  });
-
-  useCopilotAction({
-    name: "update_trips",
-    description: "Update some trips",
-    parameters: [
-      {
-        name: "trips",
-        type: "object[]",
-        description: "The trips to update",
-        required: true,
-      },
-    ],
-    renderAndWait: EditTrips,
-  });
-
-  useCopilotAction({
-    name: "delete_trips",
-    description: "Delete some trips",
-    parameters: [
-      {
-        name: "trip_ids",
-        type: "string[]",
-        description: "The ids of the trips to delete",
-        required: true,
-      },
-    ],
-    renderAndWait: (props) => DeleteTrips({ ...props, trips: state.trips }),
+  const [state, setState] = useState<AgentState>({ 
+    trips: defaultTrips, 
+    selected_trip_id: defaultTrips && defaultTrips[0] ? defaultTrips[0].id : null 
   });
 
   const selectedTrip = useMemo(() => {
