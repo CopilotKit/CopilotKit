@@ -1,5 +1,22 @@
 # next-pages-router
 
+## 1.4.0-pre-1-4-0.10
+
+### Minor Changes
+
+- LangGraph Cloud and LangGraphJS alpha release
+- b318b18: Add LangGraph Cloud support
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies [b318b18]
+  - @copilotkit/react-textarea@1.4.0-pre-1-4-0.10
+  - @copilotkit/react-core@1.4.0-pre-1-4-0.10
+  - @copilotkit/react-ui@1.4.0-pre-1-4-0.10
+  - @copilotkit/runtime@1.4.0-pre-1-4-0.10
+  - @copilotkit/shared@1.4.0-pre-1-4-0.10
+
 ## 1.3.16-mme-lgc-langgraph-package.9
 
 ### Patch Changes
