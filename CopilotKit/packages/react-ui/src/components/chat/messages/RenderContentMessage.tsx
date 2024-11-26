@@ -1,4 +1,4 @@
-import {ContentMessage, TextMessage} from "@copilotkit/runtime-client-gql";
+import {ContentMessage} from "@copilotkit/runtime-client-gql";
 import { RenderMessageProps } from "../props";
 import { Markdown } from "../Markdown";
 import { useChatContext } from "../ChatContext";
