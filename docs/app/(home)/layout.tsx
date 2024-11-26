@@ -19,8 +19,8 @@ export default function Layout({ children }: { children: ReactNode }) {
             <SubdocsMenu
               options={[
                 {
-                  title: "Quickstart & Guides",
-                  description: "Quickstart & Guides",
+                  title: "Copilots",
+                  description: "Documentation for building Copilots",
                   url: "/",
                   icon: <RocketIcon className="w-4 h-4" />,
                   bgGradient:
