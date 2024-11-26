@@ -1,5 +1,11 @@
 # tsconfig
 
+## 1.3.16-mme-lgc-langgraph-package.10
+
+### Patch Changes
+
+- Fix langchain path
+
 ## 1.3.16-mme-lgc-langgraph-package.9
 
 ### Patch Changes
