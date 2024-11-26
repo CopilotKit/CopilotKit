@@ -31,6 +31,7 @@ export default defineConfig({
         outputFile: "test-results/test-run-comment.md",
       },
     ],
+    ["json", { outputFile: "test-results/test-results.json" }],
   ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
