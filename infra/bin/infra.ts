@@ -10,25 +10,7 @@ const app = new cdk.App();
  * Research Canvas
  */
 
-// Remote Dependencies
-// const coAgentsResearchCanvasAgentRemoteDeps = createAgentProjectStack({
-//   app,
-//   project: "coagents-research-canvas",
-//   description: "CoAgents Research Canvas (Agent) - Remote Depenencies",
-//   dependencies: "Remote"
-// });
-
-// const coAgentsResearchCanvasUIWithRemoteDeps = createUIProjectStack({
-//   app,
-//   project: "coagents-research-canvas",
-//   description: "CoAgents Research Canvas (UI) - Remote Depenencies",
-//   dependencies: "Remote",
-//   agentProject: coAgentsResearchCanvasAgentRemoteDeps,
-//   environmentVariables: {}
-// });
-
-// Local Dependencies
-const coAgentsResearchCanvasAgentLocalDeps = createAgentProjectStack({
+const coAgentsResearchCanvasAgentWithLocalDeps = createAgentProjectStack({
   app,
   project: "coagents-research-canvas",
   description: "CoAgents Research Canvas (Agent) - Local Depenencies",
@@ -40,34 +22,16 @@ const coAgentsResearchCanvasUIWithLocalDeps = createUIProjectStack({
   project: "coagents-research-canvas",
   description: "CoAgents Research Canvas (UI) - Local Depenencies",
   dependencies: "Local",
-  selfHostedAgentProject: coAgentsResearchCanvasAgentLocalDeps.selfHostedAgent,
-  lgcAgentProject: coAgentsResearchCanvasAgentLocalDeps.lgcAgent,
+  selfHostedAgentProject: coAgentsResearchCanvasAgentWithLocalDeps.selfHostedAgent,
+  lgcAgentProjectPython: coAgentsResearchCanvasAgentWithLocalDeps.lgcAgentPython,
   environmentVariables: {}
 });
 
-/*
- * CoAgents Routing Demo
- */
+// /*
+//  * CoAgents Routing Demo
+//  */
 
-// Remote Dependencies
-// const coAgentsRoutingWithRemoteDeps = createAgentProjectStack({
-//   app,
-//   project: "coagents-routing",
-//   description: "CoAgents Routing (Agent) - Remote Dependencies",
-//   dependencies: "Remote"
-// });
-
-// const coAgentsRoutingUIWithRemoteDeps = createUIProjectStack({
-//   app,
-//   project: "coagents-routing", 
-//   description: "CoAgents Routing (UI) - Remote Dependencies",
-//   dependencies: "Remote",
-//   agentProject: coAgentsRoutingWithRemoteDeps,
-//   environmentVariables: {}
-// });
-
-// Local Dependencies
-// const coAgentsRoutingWithLocalDeps = createAgentProjectStack({
+// const coAgentsRoutingAgentWithLocalDeps = createAgentProjectStack({
 //   app,
 //   project: "coagents-routing",
 //   description: "CoAgents Routing (Agent) - Local Dependencies",
@@ -79,32 +43,15 @@ const coAgentsResearchCanvasUIWithLocalDeps = createUIProjectStack({
 //   project: "coagents-routing",
 //   description: "CoAgents Routing (UI) - Local Dependencies",
 //   dependencies: "Local",
-//   agentProject: coAgentsRoutingWithLocalDeps,
+//   selfHostedAgentProject: coAgentsRoutingAgentWithLocalDeps.selfHostedAgent,
+//   lgcAgentProjectPython: coAgentsRoutingAgentWithLocalDeps.lgcAgentPython,
 //   environmentVariables: {}
 // });
 
-/*
- * CoAgents QA Text Demo
- */
+// /*
+//  * CoAgents QA Text Demo
+//  */
 
-// Remote Dependencies
-// const qaTextAgentWithRemoteDeps = createAgentProjectStack({
-//   app,
-//   project: "coagents-qa-text",
-//   description: "CoAgents QA Text (Agent) - Remote Dependencies",
-//   dependencies: "Remote"
-// });
-
-// const qaTextUIWithRemoteDeps = createUIProjectStack({
-//   app,
-//   project: "coagents-qa-text",
-//   description: "CoAgents QA Text (UI) - Remote Dependencies",
-//   dependencies: "Remote",
-//   agentProject: qaTextAgentWithRemoteDeps,
-//   environmentVariables: {}
-// });
-
-// Local Dependencies
 // const qaTextAgentWithLocalDeps = createAgentProjectStack({
 //   app,
 //   project: "coagents-qa-text",
@@ -117,32 +64,15 @@ const coAgentsResearchCanvasUIWithLocalDeps = createUIProjectStack({
 //   project: "coagents-qa-text",
 //   description: "CoAgents QA Text (UI) - Local Dependencies",
 //   dependencies: "Local",
-//   agentProject: qaTextAgentWithLocalDeps,
+//   selfHostedAgentProject: qaTextAgentWithLocalDeps.selfHostedAgent,
+//   lgcAgentProjectPython: qaTextAgentWithLocalDeps.lgcAgentPython,
 //   environmentVariables: {}
 // });
 
-/*
- * CoAgents QA Native Demo
- */
+// /*
+//  * CoAgents QA Native Demo
+//  */
 
-// Remote Dependencies
-// const qaNativeAgentWithRemoteDeps = createAgentProjectStack({
-//   app,
-//   project: "coagents-qa-native",
-//   description: "CoAgents QA Native (Agent) - Remote Dependencies",
-//   dependencies: "Remote"
-// });
-
-// const qaNativeUIWithRemoteDeps = createUIProjectStack({
-//   app,
-//   project: "coagents-qa-native",
-//   description: "CoAgents QA Native (UI) - Remote Dependencies",
-//   dependencies: "Remote",
-//   agentProject: qaNativeAgentWithRemoteDeps,
-//   environmentVariables: {}
-// });
-
-// Local Dependencies
 // const qaNativeAgentWithLocalDeps = createAgentProjectStack({
 //   app,
 //   project: "coagents-qa-native",
@@ -155,13 +85,14 @@ const coAgentsResearchCanvasUIWithLocalDeps = createUIProjectStack({
 //   project: "coagents-qa-native",
 //   description: "CoAgents QA Native (UI) - Local Dependencies",
 //   dependencies: "Local",
-//   agentProject: qaNativeAgentWithLocalDeps,
+//   selfHostedAgentProject: qaNativeAgentWithLocalDeps.selfHostedAgent,
+//   lgcAgentProjectPython: qaNativeAgentWithLocalDeps.lgcAgentPython,
 //   environmentVariables: {}
 // });
 
-/**
- * Next OpenAI Demo
- */
+// /**
+//  * Next OpenAI Demo
+//  */
 // createNextOpenAIProjectStack({
 //   app,
 //   description: "Next OpenAI - Self Hosted",

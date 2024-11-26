@@ -28,7 +28,7 @@ export function createAgentProjectStack({
   dependencies: "Remote" | "Local";
 }): {
   selfHostedAgent: PreviewProjectStack;
-  lgcAgent: PreviewProjectStack;
+  lgcAgentPython: PreviewProjectStack;
 } {
   const cdkStackName =
     toCdkStackName(project) + "Agent" + dependencies + "Deps";
@@ -72,9 +72,9 @@ export function createAgentProjectStack({
     },
   });
 
-  const lgcAgent = new PreviewProjectStack(app, `${cdkStackName}LGC`, {
+  const lgcAgentPython = new PreviewProjectStack(app, `${cdkStackName}LGCPython`, {
     projectName: project,
-    projectDescription: `${description} - LangGraph Cloud`,
+    projectDescription: `${description} - LangGraph Cloud Python`,
     demoDir: `examples/${project}/agent`,
     overrideDockerfile: dockerfile,
     environmentVariablesFromSecrets: [
@@ -101,7 +101,7 @@ export function createAgentProjectStack({
     },
   });
 
-  return { selfHostedAgent, lgcAgent };
+  return { selfHostedAgent, lgcAgentPython };
 }
 
 export function createUIProjectStack({
@@ -110,7 +110,7 @@ export function createUIProjectStack({
   description,
   dependencies,
   selfHostedAgentProject,
-  lgcAgentProject,
+  lgcAgentProjectPython,
   environmentVariables,
   environmentVariablesFromSecrets,
 }: {
@@ -119,7 +119,7 @@ export function createUIProjectStack({
   description: string;
   dependencies: "Remote" | "Local";
   selfHostedAgentProject: PreviewProjectStack;
-  lgcAgentProject: PreviewProjectStack;
+  lgcAgentProjectPython: PreviewProjectStack;
   environmentVariables?: Record<string, string>;
   environmentVariablesFromSecrets?: string[];
 }) {
@@ -133,7 +133,7 @@ export function createUIProjectStack({
   const outputs: Record<string, string> = {
     Dependencies: dependencies,
     EndToEndProjectKey: `${project}-ui-deps-${dependencies.toLocaleLowerCase()}`,
-    LgcDeploymentUrl: `${lgcAgentProject.fnUrl}`
+    LgcPythonDeploymentUrl: `${lgcAgentProjectPython.fnUrl}`
   };
 
   if (process.env.GITHUB_PR_NUMBER) {

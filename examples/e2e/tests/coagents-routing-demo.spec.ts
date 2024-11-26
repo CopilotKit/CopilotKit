@@ -5,17 +5,13 @@ import {
   filterConfigsByProject,
   groupConfigsByDescription,
   PROJECT_NAMES,
+  TestVariants,
+  appendLGCVariants,
 } from "../lib/config-helper";
 
-const lgcDeploymentUrlPython = 'https://coagents-routing-lgc-b-378e0fb14e6e5209a83d53e5770ff5e4.default.us.langgraph.app'
-const lgcDeploymentUrlJS = 'https://coagents-routing-js-lgc-b-e5c57ec4bf66544cafa7739cc0dc0261.default.us.langgraph.app'
-export const variants = [
+const variants: TestVariants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
-  { name: "OpenAI (LGC Python)", queryParams: `?coAgentsModel=openai&lgcDeploymentUrl=${lgcDeploymentUrlPython}` },
-  { name: "OpenAI (LGC JS)", queryParams: `?coAgentsModel=openai&lgcDeploymentUrl=${lgcDeploymentUrlJS}` },
   { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
-  { name: "Anthropic (LGC Python)", queryParams: `?coAgentsModel=anthropic&lgcDeploymentUrl=${lgcDeploymentUrlPython}` },
-  { name: "Anthropic (LGC JS)", queryParams: `?coAgentsModel=anthropic&lgcDeploymentUrl=${lgcDeploymentUrlJS}` },
   // { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" }, // seems broken
 ];
 
@@ -32,7 +28,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
     Object.entries(descriptions).forEach(([description, configs]) => {
       test.describe(`${description}`, () => {
         configs.forEach((config) => {
-          variants.forEach((variant) => {
+          appendLGCVariants(config, variants).forEach((variant) => {
             test(`Test ${config.description} with variant ${variant.name}`, async ({
               page,
             }) => {

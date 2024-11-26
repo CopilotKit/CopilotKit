@@ -24,20 +24,21 @@ function generateTable() {
         name: entry.ProjectName,
         remote: "",
         local: "",
-        lgcDeploymentUrl: undefined,
+        lgcPythonDeploymentUrl: undefined,
+        lgcJSDeploymentUrl: undefined,
       };
     }
 
     // Add URLs based on dependency type
     if (entry.Dependencies === "Remote") {
-      acc[entry.ProjectName].remote = `[Preview](${entry.FunctionUrl})`;
+      acc[entry.ProjectName].remote = entry.FunctionUrl;
     } else if (entry.Dependencies === "Local") {
-      acc[entry.ProjectName].local = `[Preview](${entry.FunctionUrl})`;
+      acc[entry.ProjectName].local = entry.FunctionUrl;
     }
 
     // Add LGC Deployment URL if it exists
-    if (entry.LgcDeploymentUrl) {
-      acc[entry.ProjectName].lgcDeploymentUrl = entry.LgcDeploymentUrl;
+    if (entry.LgcPythonDeploymentUrl) {
+      acc[entry.ProjectName].lgcPythonDeploymentUrl = entry.LgcPythonDeploymentUrl;
     }
 
     return acc;
@@ -47,8 +48,12 @@ function generateTable() {
   const rows = Object.values(projectGroups).map((project) => {
     let previewMdxString = `[Preview](${project.local})`;
 
-    if (project.lgcDeploymentUrl) {
-      previewMdxString += ` | [Preview with LGC Deployment](${project.lgcDeploymentUrl})`;
+    if (project.lgcPythonDeploymentUrl) {
+      previewMdxString += ` | [Preview with LGC Python](${project.local}?lgcDeploymentUrl=${project.lgcPythonDeploymentUrl})`;
+    }
+
+    if (project.lgcJSDeploymentUrl) {
+      previewMdxString += ` | [Preview with LGC JS](${project.local}?lgcDeploymentUrl=${project.lgcJSDeploymentUrl})`;
     }
 
     const row = {
