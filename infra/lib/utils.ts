@@ -120,7 +120,7 @@ export function createAgentProjectStack({
       account: process.env.CDK_DEFAULT_ACCOUNT,
     },
     imageTag: `${project}-agent-${
-      dependencies === "Remote" ? "remote-deps" : "local-deps"
+        dependencies === "Remote" ? "remote-deps" : "local-deps"
     }-${GITHUB_ACTIONS_RUN_ID}`,
     entrypoint: ["/bin/sh", "-c"],
     cmd: ["langgraph dev --no-browser --port=8000 --config=langgraph.json --host=0.0.0.0"],
