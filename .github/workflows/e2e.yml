@@ -110,17 +110,61 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const conclusion = '${{ steps.run_tests.outcome }}' === 'success' ? 'success' : 'failure';
-            await github.rest.checks.create({
+            const fs = require('fs');
+            let summary = 'Test run completed.';
+            let failedTests = 0;
+            try {
+              const results = JSON.parse(
+                fs.readFileSync('./examples/e2e/test-results/test-results.json', 'utf8')
+              );
+              
+              const stats = results.stats;
+              failedTests = stats.unexpected;
+              
+              // Find failed test details
+              const failedSpecs = results.suites
+                .flatMap(s => s.suites || [])
+                .flatMap(s => s.suites || [])
+                .flatMap(s => s.specs || [])
+                .filter(spec => !spec.ok);
+              
+              const failureDetails = failedSpecs.map(spec => {
+                const test = spec.tests[0];
+                const error = test.results[0].error;
+                return {
+                  title: spec.title,
+                  error: error.message.split('\n')[0] // First line of error
+                };
+              });
+              
+              if (failedTests > 0) {
+                summary = [
+                  `❌ Tests failed: ${failedTests} of ${stats.expected + stats.unexpected} tests failed`,
+                  '',
+                  'Failed Tests:',
+                  ...failureDetails.map(f => `- ${f.title}\n  Error: ${f.error}`),
+                  '',
+                  `Duration: ${Math.round(stats.duration / 1000)}s`,
+                  '',
+                  'See PR comment for full details.'
+                ].join('\n');
+              } else {
+                summary = `✅ All ${stats.expected} tests passed in ${Math.round(stats.duration / 1000)}s`;
+              }
+            } catch (error) {
+              summary = 'Failed to read test results.';
+              console.error('Error reading test results:', error);
+              failedTests = 1;
+            }
+
+            return github.rest.checks.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               name: 'E2E Tests',
               head_sha: '${{ inputs.sha }}',
-              status: 'completed',
-              conclusion: conclusion,
-              completed_at: new Date().toISOString(),
+              conclusion: failedTests > 0 ? 'failure' : 'success',
               output: {
-                title: conclusion === 'success' ? 'E2E Tests Passed' : 'E2E Tests Failed',
-                summary: conclusion === 'success' ? 'All tests passed successfully' : 'Some tests failed'
+                title: failedTests > 0 ? '❌ E2E Tests Failed' : '✅ E2E Tests Passed',
+                summary: summary
               }
-            });
+            })
