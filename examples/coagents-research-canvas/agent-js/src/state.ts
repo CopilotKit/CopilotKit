@@ -1,5 +1,5 @@
 import { Annotation } from "@langchain/langgraph";
-import { MessagesAnnotation } from "@langchain/langgraph";
+import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langchain";
 
 // Define a Resource annotation with properties for URL, title, and description
 const ResourceAnnotation = Annotation.Root({
@@ -22,7 +22,7 @@ export const AgentStateAnnotation = Annotation.Root({
   report: Annotation<string>,
   resources: Annotation<(typeof ResourceAnnotation.State)[]>,
   logs: Annotation<(typeof LogAnnotation.State)[]>,
-  ...MessagesAnnotation.spec,
+  ...CopilotKitStateAnnotation.spec,
 });
 
 export type AgentState = typeof AgentStateAnnotation.State;
