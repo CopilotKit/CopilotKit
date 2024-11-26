@@ -1,0 +1,12 @@
+{
+    "title": "Concepts",
+    "root": true,
+    "pages": [
+      "why-coagents",
+      "terminology",
+      "state",
+      "human-in-the-loop",
+      "message-management",
+      "copilotkit-config"
+    ]
+  }
