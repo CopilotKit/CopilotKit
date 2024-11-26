@@ -36,14 +36,9 @@ function generateTable() {
       acc[entry.ProjectName].local = entry.FunctionUrl;
     }
 
-    // Add LGC Python Deployment URL if it exists
+    // Add LGC Deployment URL if it exists
     if (entry.LgcPythonDeploymentUrl) {
       acc[entry.ProjectName].lgcPythonDeploymentUrl = entry.LgcPythonDeploymentUrl;
-    }
-
-    // Add LGC JS Deployment URL if it exists
-    if (entry.LgcJSDeploymentUrl) {
-      acc[entry.ProjectName].LgcJSDeploymentUrl = entry.LgcJSDeploymentUrl;
     }
 
     return acc;

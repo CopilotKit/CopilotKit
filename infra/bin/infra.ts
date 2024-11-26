@@ -24,7 +24,6 @@ const coAgentsResearchCanvasUIWithLocalDeps = createUIProjectStack({
   dependencies: "Local",
   selfHostedAgentProject: coAgentsResearchCanvasAgentWithLocalDeps.selfHostedAgent,
   lgcAgentProjectPython: coAgentsResearchCanvasAgentWithLocalDeps.lgcAgentPython,
-  lgcAgentProjectJS: coAgentsResearchCanvasAgentWithLocalDeps.lgcAgentJS,
   environmentVariables: {}
 });
 
@@ -46,7 +45,6 @@ const coAgentsRoutingUIWithLocalDeps = createUIProjectStack({
   dependencies: "Local",
   selfHostedAgentProject: coAgentsRoutingAgentWithLocalDeps.selfHostedAgent,
   lgcAgentProjectPython: coAgentsRoutingAgentWithLocalDeps.lgcAgentPython,
-  lgcAgentProjectJS: coAgentsResearchCanvasAgentWithLocalDeps.lgcAgentJS,
   environmentVariables: {}
 });
 
@@ -68,7 +66,6 @@ const qaTextUIWithLocalDeps = createUIProjectStack({
   dependencies: "Local",
   selfHostedAgentProject: qaTextAgentWithLocalDeps.selfHostedAgent,
   lgcAgentProjectPython: qaTextAgentWithLocalDeps.lgcAgentPython,
-  lgcAgentProjectJS: coAgentsResearchCanvasAgentWithLocalDeps.lgcAgentJS,
   environmentVariables: {}
 });
 
@@ -90,7 +87,6 @@ const qaNativeUIWithLocalDeps = createUIProjectStack({
   dependencies: "Local",
   selfHostedAgentProject: qaNativeAgentWithLocalDeps.selfHostedAgent,
   lgcAgentProjectPython: qaNativeAgentWithLocalDeps.lgcAgentPython,
-  lgcAgentProjectJS: coAgentsResearchCanvasAgentWithLocalDeps.lgcAgentJS,
   environmentVariables: {}
 });
 
