@@ -1,5 +1,15 @@
 # ui
 
+## 1.3.16-mme-lgc-langgraph-package.11
+
+### Patch Changes
+
+- Add CopilotKitState
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.3.16-mme-lgc-langgraph-package.11
+  - @copilotkit/react-core@1.3.16-mme-lgc-langgraph-package.11
+  - @copilotkit/shared@1.3.16-mme-lgc-langgraph-package.11
+
 ## 1.3.16-mme-lgc-langgraph-package.10
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @copilotkit/sdk-js
 
+## 1.3.16-mme-lgc-langgraph-package.11
+
+### Patch Changes
+
+- Add CopilotKitState
+- Updated dependencies
+  - @copilotkit/shared@1.3.16-mme-lgc-langgraph-package.11
+
 ## 1.3.16-mme-lgc-langgraph-package.10
 
 ### Patch Changes

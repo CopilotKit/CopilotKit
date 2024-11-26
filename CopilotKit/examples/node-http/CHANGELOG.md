@@ -1,5 +1,14 @@
 # node
 
+## 1.3.16-mme-lgc-langgraph-package.11
+
+### Patch Changes
+
+- Add CopilotKitState
+- Updated dependencies
+  - @copilotkit/runtime@1.3.16-mme-lgc-langgraph-package.11
+  - @copilotkit/shared@1.3.16-mme-lgc-langgraph-package.11
+
 ## 1.3.16-mme-lgc-langgraph-package.10
 
 ### Patch Changes
