@@ -29,6 +29,7 @@ export function createAgentProjectStack({
 }): {
   selfHostedAgent: PreviewProjectStack;
   lgcAgentPython: PreviewProjectStack;
+  lgcAgentJS: PreviewProjectStack;
 } {
   const cdkStackName =
     toCdkStackName(project) + "Agent" + dependencies + "Deps";
@@ -101,7 +102,36 @@ export function createAgentProjectStack({
     },
   });
 
-  return { selfHostedAgent, lgcAgentPython };
+  const lgcAgentJS = new PreviewProjectStack(app, `${cdkStackName}LGCJS`, {
+    projectName: project,
+    projectDescription: `${description} - LangGraph Cloud JS`,
+    demoDir: `examples/${project}/agent-js`,
+    overrideDockerfile: dockerfile,
+    environmentVariablesFromSecrets: [
+      "OPENAI_API_KEY",
+      "ANTHROPIC_API_KEY",
+      "GOOGLE_API_KEY",
+      "TAVILY_API_KEY",
+      "LANGSMITH_API_KEY",
+    ],
+    port: "8000",
+    includeInPRComment: false,
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+    },
+    imageTag: `${project}-agent-${
+        dependencies === "Remote" ? "remote-deps" : "local-deps"
+    }-${GITHUB_ACTIONS_RUN_ID}`,
+    entrypoint: ["/bin/sh", "-c"],
+    cmd: ["langgraph dev --no-browser --port=8000 --config=langgraph.json --host=0.0.0.0"],
+    outputs: {
+      ...outputs,
+      LangGraphCloud: "true",
+      SelfHosted: "false"
+    },
+  });
+
+  return { selfHostedAgent, lgcAgentPython, lgcAgentJS };
 }
 
 export function createUIProjectStack({
@@ -111,6 +141,7 @@ export function createUIProjectStack({
   dependencies,
   selfHostedAgentProject,
   lgcAgentProjectPython,
+  lgcAgentProjectJS,
   environmentVariables,
   environmentVariablesFromSecrets,
 }: {
@@ -120,6 +151,7 @@ export function createUIProjectStack({
   dependencies: "Remote" | "Local";
   selfHostedAgentProject: PreviewProjectStack;
   lgcAgentProjectPython: PreviewProjectStack;
+  lgcAgentProjectJS: PreviewProjectStack;
   environmentVariables?: Record<string, string>;
   environmentVariablesFromSecrets?: string[];
 }) {
@@ -133,7 +165,8 @@ export function createUIProjectStack({
   const outputs: Record<string, string> = {
     Dependencies: dependencies,
     EndToEndProjectKey: `${project}-ui-deps-${dependencies.toLocaleLowerCase()}`,
-    LgcPythonDeploymentUrl: `${lgcAgentProjectPython.fnUrl}`
+    LgcPythonDeploymentUrl: `${lgcAgentProjectPython.fnUrl}`,
+    LgcJSDeploymentUrl: `${lgcAgentProjectJS.fnUrl}`
   };
 
   if (process.env.GITHUB_PR_NUMBER) {
