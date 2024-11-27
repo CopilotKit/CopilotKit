@@ -57,11 +57,11 @@ async function getLangChainOpenAIAdapter() {
   const { LangChainAdapter } = await import("@copilotkit/runtime");
   const { ChatOpenAI } = await import("@langchain/openai");
   return new LangChainAdapter({
-    chainFn: async ({ messages, tools }) => {
+    chainFn: async ({ messages, tools, threadId }) => {
       const model = new ChatOpenAI({ modelName: "gpt-4-1106-preview" }).bindTools(tools, {
         strict: true,
       });
-      return model.stream(messages);
+      return model.stream(messages, { tools, metadata: { conversation_id: threadId } });
     },
   });
 }
@@ -70,9 +70,9 @@ async function getLangChainAnthropicAdapter() {
   const { LangChainAdapter } = await import("@copilotkit/runtime");
   const { ChatAnthropic } = await import("@langchain/anthropic");
   return new LangChainAdapter({
-    chainFn: async ({ messages, tools }) => {
+    chainFn: async ({ messages, tools, threadId }) => {
       const model = new ChatAnthropic({ modelName: "claude-3-haiku-20240307" }) as any;
-      return model.stream(messages, { tools });
+      return model.stream(messages, { tools, metadata: { conversation_id: threadId } });
     },
   });
 }
@@ -82,12 +82,12 @@ async function getLangChainGoogleGenAIAdapter() {
   const { LangChainAdapter } = await import("@copilotkit/runtime");
   const { ChatGoogle } = await import("@langchain/google-gauth");
   return new LangChainAdapter({
-    chainFn: async ({ messages, tools }) => {
+    chainFn: async ({ messages, tools, threadId }) => {
       const model = new ChatGoogle({
         modelName: "gemini-1.5-pro",
         apiVersion: "v1beta",
       }).bindTools(tools);
-      return model.stream(messages);
+      return model.stream(messages, { metadata: { conversation_id: threadId } });
     },
   });
 }
