@@ -142,7 +142,7 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   public actions: ActionsConfiguration<T>;
-  private remoteEndpointDefinitions: EndpointDefinition[];
+  public remoteEndpointDefinitions: EndpointDefinition[];
   private langserve: Promise<Action<any>>[] = [];
   private onBeforeRequest?: OnBeforeRequestHandler;
   private onAfterRequest?: OnAfterRequestHandler;
@@ -364,14 +364,13 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     return [...configuredActions, ...langserveFunctions, ...remoteActions];
   }
 
-  private resolveEndpointType(endpoint: EndpointDefinition) {
-    if (
-      !endpoint.type &&
-      "langsmithApiKey" in endpoint &&
-      "deploymentUrl" in endpoint &&
-      "agents" in endpoint
-    ) {
-      return EndpointType.LangGraphCloud;
+  public resolveEndpointType(endpoint: EndpointDefinition) {
+    if (!endpoint.type) {
+      if ("langsmithApiKey" in endpoint && "deploymentUrl" in endpoint && "agents" in endpoint) {
+        return EndpointType.LangGraphCloud;
+      } else {
+        return EndpointType.CopilotKit;
+      }
     }
 
     return endpoint.type;

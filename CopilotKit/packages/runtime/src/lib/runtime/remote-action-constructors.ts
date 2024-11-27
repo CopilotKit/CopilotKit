@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   CopilotKitEndpoint,
   LangGraphAgentHandlerParams,
@@ -42,7 +43,12 @@ export function constructLGCRemoteAction({
     }: LangGraphAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
       logger.debug({ actionName: agent.name }, "Executing LangGraph Cloud agent");
 
-      telemetry.capture("oss.runtime.remote_action_executed", {});
+      telemetry.capture("oss.runtime.remote_action_executed", {
+        agentExecution: true,
+        type: "langgraph-cloud",
+        agentsAmount: endpoint.agents.length,
+        hashedLgcKey: createHash("sha256").update(endpoint.langsmithApiKey).digest("hex"),
+      });
 
       let state = {};
       if (agentStates) {
@@ -111,7 +117,11 @@ export function constructRemoteActions({
       logger.debug({ actionName: action.name, args }, "Executing remote action");
 
       const headers = createHeaders(onBeforeRequest, graphqlContext);
-      telemetry.capture("oss.runtime.remote_action_executed", {});
+      telemetry.capture("oss.runtime.remote_action_executed", {
+        agentExecution: false,
+        type: "self-hosted",
+        agentsAmount: json["agents"].length,
+      });
 
       try {
         const response = await fetch(`${url}/actions/execute`, {
@@ -162,7 +172,11 @@ export function constructRemoteActions({
       logger.debug({ actionName: agent.name }, "Executing remote agent");
 
       const headers = createHeaders(onBeforeRequest, graphqlContext);
-      telemetry.capture("oss.runtime.remote_action_executed", {});
+      telemetry.capture("oss.runtime.remote_action_executed", {
+        agentExecution: true,
+        type: "self-hosted",
+        agentsAmount: json["agents"].length,
+      });
 
       let state = {};
       if (agentStates) {
