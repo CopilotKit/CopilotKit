@@ -55,9 +55,11 @@ export function TailoredContent({ children, className, defaultOptionIndex = 0 }:
               onClick={() => setSelectedIndex(index)}
               style={{ position: "relative" }}
             >
-              {React.cloneElement(option.props.icon as React.ReactElement, {
-                className: cn(iconCn, selectedIndex === index),
-              })}
+              <div className="my-0">
+                {React.cloneElement(option.props.icon as React.ReactElement, {
+                  className: cn(iconCn, selectedIndex === index, "my-0"),
+                })}
+              </div>
               <div>
                 <p className="font-semibold text-lg">{option.props.title}</p>
                 <p className="text-xs md:text-sm">{option.props.description}</p>
