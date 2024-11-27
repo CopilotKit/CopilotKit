@@ -344,7 +344,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       (endpoint) =>
         ({
           ...endpoint,
-          type: this.resolveEndpointType(endpoint),
+          type: resolveEndpointType(endpoint),
         }) as EndpointDefinition,
     );
 
@@ -362,18 +362,6 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         : this.actions;
 
     return [...configuredActions, ...langserveFunctions, ...remoteActions];
-  }
-
-  public resolveEndpointType(endpoint: EndpointDefinition) {
-    if (!endpoint.type) {
-      if ("langsmithApiKey" in endpoint && "deploymentUrl" in endpoint && "agents" in endpoint) {
-        return EndpointType.LangGraphCloud;
-      } else {
-        return EndpointType.CopilotKit;
-      }
-    }
-
-    return endpoint.type;
   }
 }
 
@@ -404,4 +392,16 @@ export function langGraphCloudEndpoint(
     ...config,
     type: EndpointType.LangGraphCloud,
   };
+}
+
+export function resolveEndpointType(endpoint: EndpointDefinition) {
+  if (!endpoint.type) {
+    if ("langsmithApiKey" in endpoint && "deploymentUrl" in endpoint && "agents" in endpoint) {
+      return EndpointType.LangGraphCloud;
+    } else {
+      return EndpointType.CopilotKit;
+    }
+  }
+
+  return endpoint.type;
 }

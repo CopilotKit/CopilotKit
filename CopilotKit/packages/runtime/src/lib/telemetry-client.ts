@@ -1,7 +1,7 @@
 import { TelemetryClient } from "@copilotkit/shared";
 import { EndpointType, LangGraphCloudEndpoint } from "./runtime/remote-actions";
 import { createHash } from "node:crypto";
-import { CopilotRuntime } from "./runtime/copilot-runtime";
+import { CopilotRuntime, resolveEndpointType } from "./runtime/copilot-runtime";
 import { RuntimeInstanceCreatedInfo } from "@copilotkit/shared/src/telemetry/events";
 const packageJson = require("../../package.json");
 
@@ -17,7 +17,7 @@ export function getRuntimeInstanceTelemetryInfo(
     (acc, endpoint) => {
       let info = { ...acc };
 
-      const endpointType = runtime.resolveEndpointType(endpoint);
+      const endpointType = resolveEndpointType(endpoint);
       if (!info.endpointTypes.includes(endpointType)) {
         info = {
           ...info,
