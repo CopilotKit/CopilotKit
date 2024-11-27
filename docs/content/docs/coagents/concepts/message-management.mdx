@@ -2,14 +2,14 @@
 title: Message Management
 ---
 
-Message management in CoAgents operates with CopilotKit as the "ground truth" for the full chat session. 
-When a co-agent session begins, it receives the existing CopilotKit chat history to maintain conversational
+Message management in Agentic Copilots operates with CopilotKit as the "ground truth" for the full chat session. 
+When an Agentic Copilot session begins, it receives the existing CopilotKit chat history to maintain conversational
 continuity across different agents.
 
 <Callout>
 While all of this information is great to know, in most cases you won't need to worry about these details to
 build rich agentic applications. Use the information here as a reference when getting really deep into 
-the CoAgent internals.
+the Agentic Copilot internals.
 </Callout>
 
 ## Types of LLM Messages
@@ -39,7 +39,7 @@ async def ask_name_node(state: GreetAgentState, config: RunnableConfig):
     }
 ```
 
-Want some more help managing messages in your CoAgent application? Check out our guide on [emitting messages](/coagents/advanced/manually-emitting-messages).
+Want some more help managing messages in your Agentic Copilot application? Check out our guide on [emitting messages](/coagents/advanced/manually-emitting-messages).
 
 ## Message Flow
 Messages flow between CopilotKit and LangGraph in a specific way:
@@ -49,12 +49,12 @@ Messages flow between CopilotKit and LangGraph in a specific way:
 - All CopilotKit messages are preserved to maintain consistency 
 - On the next agent invocation, the full CopilotKit chat history is provided to the LangGraph agent
 
-When a co-agent completes its execution, its relevant messages become part of CopilotKit's persistent chat
+When an Agentic Copilot completes its execution, its relevant messages become part of CopilotKit's persistent chat
 history. 
 
-### That's a bit unintuitive, why do CoAgents act this way?
+### That's a bit unintuitive, why do Agentic Copilots act this way?
 
-CoAgents are designed to operate as a single conversation, however, it also allows for multi-agent interactions. By adding
+Agentic Copilots are designed to operate as a single conversation, however, it also allows for multi-agent interactions. By adding
 messages from LangGraph to CopilotKit's chat history, we ensure that the entire conversation is captured and can be
 accessed by the next agent in the sequence.
 
