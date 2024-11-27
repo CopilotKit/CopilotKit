@@ -10,6 +10,7 @@
     "...tutorials",
     "---Other---",
     "(other)/contributing",
-    "(other)/telemetry"
+    "(other)/telemetry",
+    "(other)/observability"
   ]
 }

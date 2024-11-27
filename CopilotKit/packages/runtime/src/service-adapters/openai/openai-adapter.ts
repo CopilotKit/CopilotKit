@@ -144,7 +144,12 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
 
     eventSource.stream(async (eventStream$) => {
       let mode: "function" | "message" | null = null;
+
       for await (const chunk of stream) {
+        if (chunk.choices.length === 0) {
+          continue;
+        }
+
         const toolCall = chunk.choices[0].delta.tool_calls?.[0];
         const content = chunk.choices[0].delta.content;
 
