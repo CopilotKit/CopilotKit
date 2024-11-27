@@ -30,9 +30,10 @@
   <a href="https://docs.copilotkit.ai?ref=github_readme" target="_blank">
     <img src="./assets/btn_docs.png" alt="CopilotKit GitHub" height="40px">
   </a>
-<!--   <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank">
+  <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank">
     <img src="./assets/btn_cloud.png" alt="CopilotKit GitHub" height="40px">
-  </a> -->
+  </a>
+  
 </div>
 
 <br/>
@@ -44,112 +45,56 @@
 
 <br />
 
-<div align="center">
-  <img src="./assets/animated-banner.gif" alt="CopilotKit Screenshot" style="border-radius: 15px;" />
-</div>
+<details open>
+  <summary>Spreadsheet App</summary>
+  
+  ![image](https://github.com/user-attachments/assets/9c6ebced-1439-49bb-811b-1f74fe749ab5)
 
-<br />
+  Check out the repo [here](https://github.com/CopilotKit/demo-presentation)
+</details>
 
-<div>
-<p>
-  👉 Check out the docs at <a href="https://docs.copilotkit.ai?ref=github_readme" target="_blank">https://docs.copilotkit.ai</a>
-</p>
-</div>
+<details>
+  <summary>Banking App</summary>
+  
+  ![image](https://github.com/user-attachments/assets/ecddcf4c-cfe3-45ba-848d-03f94902475f)
 
-**Table of Contents**
+  Check out the repo [here](https://github.com/CopilotKit/demo-banking)
+</details>
 
-- [Getting Started](#getting-started)
-  - [Quickstart & Tutorials](#quickstart--tutorials)
-  - [Examples & Starter Templates](#examples--starter-templates)
-- [Building Blocks](#building-blocks)
-  - [Components](#-components)
-  - [Hooks](#-hooks)
-- [Contributing](#contributing)
-- [Get in touch](#get-in-touch)
-- [License](#license)
+<details>
+  <summary>Travel App</summary>
+
+  ![image](https://github.com/user-attachments/assets/09dc873b-b263-40a3-8577-1414d0837510)
+
+  Check out the repo [here](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-travel)
+</details>
+
+<details>
+  <summary>ToDo App</summary>
+  
+  ![image](https://github.com/user-attachments/assets/7cafb021-98e0-44b5-b3b7-232b0c3ae35b)
+  
+  Check out the repo [here](https://github.com/CopilotKit/example-todos-app)
+</details>
+
+Get started in minutes, not hours!
+
+```ts
+useCopilotReadable(.
+useCopilotSuggestion(...)
+```
+
+```ts
+const { state, setState} = useAgent(...)
+
+useAgentStateRender(...)
+```
 
 ## Getting Started
+Check out our [documentation](https://docs.copilotkit.ai/)
 
-### Quickstart & Tutorials
-
-There are several easy ways to get started with CopilotKit:
-
-- [**Quickstart: Chatbot:**](https://docs.copilotkit.ai/quickstart?ref=github_readme) In just two minutes, add an AI Chatbot to your app with the ability to read application state and take actions.
-- [**Tutorial: Todo List Copilot:**](https://docs.copilotkit.ai/tutorials/ai-todo-app/overview?ref=github_readme) For a deeper dive into CopilotKit, take a simple todo list app and supercharge it with an AI chat popup.
-- [**Tutorial: Textarea Autocomplete:**](https://docs.copilotkit.ai/tutorials/ai-powered-textarea/overview?ref=github_readme) For a deeper dive into CopilotKit, we'll take a simple email client app and add an AI-powered textarea with autocompletions and AI insertions/edits.
-
-### Examples & Starter Templates
-
-<table align="center">
-  <tr>
-    <td align="center" valign="top">
-      🕹️ PowerPoint Clone + Copilot<br/>
-      <a href="https://go.copilotkit.ai/GitHubPresentation">https://github.com/CopilotKit/demo-presentation</a> <br/><br>
-      <a href="https://go.copilotkit.ai/GitHubPresentation">
-        <img alt="Presentation" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="240px" style="max-width:100%; border-radius: 10px;"/>
-        <br/>
-        <a href="https://go.copilotkit.ai/GitHubPresentationVoice">See example with voice control</a>
-      </a>
-    </td>
-    <td align="center" valign="top">
-      🕹️ Simple Todo App + Copilot <br/>
-      <a href="https://go.copilotkit.ai/GitHubToDo">https://github.com/CopilotKit/demo-todo</a> <br/><br>
-      <a href="https://go.copilotkit.ai/GitHubToDo">
-        <img alt="Todo App" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/63798c02-1892-4d2d-bc9f-2994b7c88694" width="240px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top">
-      🕹️ Spreadsheets + Copilot <br/>
-      <a href="https://go.copilotkit.ai/GitHubSpreadsheet">https://github.com/CopilotKit/demo-spreadsheet</a> <br/><br>
-      <a href="https://go.copilotkit.ai/GitHubSpreadsheet">
-        <img alt="Presentation-Demo" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/871e4c9c-0ced-490b-9e3f-8594de7c5c89" width="240px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td>
-    <td align="center" valign="top">
-      🕹️ Banking App + Copilot<br/>
-      <a href="https://github.com/CopilotKit/demo-banking">https://github.com/CopilotKit/demo-banking</a> <br/><br>
-      <a href="https://github.com/CopilotKit/demo-banking">
-        <img alt="Banking-Demo" src="https://github.com/CopilotKit/demo-banking/blob/main/assets/project-preview.png?raw=true" width="240px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top">
-      🕹️ CoAgents (LangGraph) Perplexity Clone<br/>
-      <a href="https://go.copilotkit.ai/coagents-perplexity-clone">https://github.com/CopilotKit/CopilotKit/examples/coagents-ai-researcher</a> <br/><br>
-      <a href="https://go.copilotkit.ai/coagents-perplexity-clone">
-        <img alt="Banking-Demo" src="./assets/proejct-perplexity-clone.png" width="200px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td>
-    <td align="center" valign="top">
-      🕹️ CoAgents (LangGraph) Research Canvas Demo<br/>
-      <a href="https://go.copilotkit.ai/coagents-research-canvas">https://github.com/CopilotKit/CopilotKit/examples/coagents-research-canvas</a> <br/><br>
-      <a href="https://go.copilotkit.ai/coagents-research-canvas">
-        <img alt="Banking-Demo" src="./assets/project-canvas-demo.png" width="200px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td>
-  </tr>
-</table>
-
-## Building Blocks
-
-> 💡 Want to learn more? Check out the [CopilotKit Documentation](https://docs.copilotkit.ai?ref=github_readme).
-
-### 🧩 Components
-
-- [**`<CopilotTextarea />`**](https://docs.copilotkit.ai/reference/components/CopilotTextarea?ref=github_readme): An AI-powered textarea with autocompletions and AI-powered insertions/edits.
-- [**`<CopilotPopup />`**](https://docs.copilotkit.ai/reference/components/chat/CopilotPopup?ref=github_readme): AI-powered floating chat popup component.
-- [**`<CopilotSidebar />`**](https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar?ref=github_readme): AI-powered chat sidebar component.
-- [**`<CopilotChat />`**](https://docs.copilotkit.ai/reference/components/chat/CopilotChat?ref=github_readme): AI-powered plain chat component.
-
-### ⚡️ Hooks
-
-- [**`useCopilotReadable`**](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable?ref=github_readme): Provide in-app state and any other information to your Copilot.
-- [**`useCopilotAction`**](https://docs.copilotkit.ai/reference/hooks/useCopilotAction?ref=github_readme): Enable your Copilot to perform actions and render custom-generated UI in the chat.
-- [**`useCopilotChat`**](https://docs.copilotkit.ai/reference/hooks/useCopilotChat?ref=github_readme): Directly interact with the Copilot chat instance to add messages and manipulate the chat history.
-- [**`useCopilotChatSuggestions`**](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions?ref=github_readme): Integrate AI-powered chat follow-up suggestions that are aware of your app's state and chat history.
+## Concepts
+Check out our [concepts](https://docs.copilotkit.ai/coagents/concepts/why-agentic-copilots)
 
 ## Contributing
 
@@ -161,15 +106,12 @@ Here are a few useful resources to help you get started:
 
 - For code contributions, [CONTRIBUTING.md](./CONTRIBUTING.md).
 - For documentation-related contributions, [check out the documentation contributions guide](https://docs.copilotkit.ai/contributing/docs-contributions?ref=github_readme).
-- Want to contribute but not sure how? [Join our Discord](https://discord.gg/6dffbvGU3D) and we'll help you out!
 
 > 💡 **NOTE:** All contributions must be submitted via a pull request and be reviewed by our team. This ensures all contributions are of high quality and align with the project's goals.
 
 ## Get in touch
 
-You are welcome to join our [Discord](https://discord.gg/6dffbvGU3D) and chat with our team and other community members.
-
-Additionally, you can reach out to us at [hello@copilotkit.ai](mailto:hello@copilotkit.ai).
+You are invited to join our community on [Discord](https://discord.gg/6dffbvGU3D) and chat with our team and other community members.
 
 ## License
 
