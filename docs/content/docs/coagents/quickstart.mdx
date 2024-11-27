@@ -1,0 +1,233 @@
+---
+title: "Quickstart"
+description: "Get started with Agentic Copilots in just a few minutes."
+icon: "lucide/Play"
+---
+
+import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content.tsx";
+import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
+import { CoAgentsDiagram } from "@/components/react/coagents/coagents-diagram.tsx";
+import { FaPython, FaJs, FaCloud } from "react-icons/fa";
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+
+
+## Before you start
+
+Agentic copilots integrate with LangGraph-powered agents which are either self hosted or deployed to LangGraph Platform. Self-hosting
+is currently only offered for Python agents through our FastAPI integration. However, we support both Python and JavaScript agents when
+deployed to LangGraph Platform.
+
+**For orientation, here's how agentic copilots are wired:**
+
+<CoAgentsDiagram />
+
+In this tutorial, we'll hook up the 2 middle components: **CopilotKit Runtime** and a **Remote Endpoint**
+
+**This guide assumes you’re familiar with using LangGraph to build agent workflows.** If you need a quick introduction, 
+check out [this brief example from the LangGraph docs](https://langchain-ai.github.io/langgraph/).
+
+## Getting started
+
+In order for CopilotKit to integrate with your LangGraph agent, it has to be deployed either by yourself or on LangGraph Platform.
+
+<Callout type="info">
+  Self-hosting your LangGraph written in JavaScript is not currently supported.
+</Callout>
+
+<TailoredContent>
+  <TailoredContentOption 
+    title="Self-hosted"
+    description="I want to write my LangGraph agent in Python and self-host it."
+    icon={<FaPython />}
+  >
+    <Steps>
+      <Step>
+        First, take a minute to **[go through the CopilotKit quickstart](/quickstart), and integrate CopilotKit into your React app.**
+        This should only take a minute.
+      </Step>
+
+      <Step>
+        Next, follow the [Remote Endpoint quickstart](/guides/backend-actions/remote-backend-endpoint) to setup a FastAPI Remote-Endpoint.<br/>
+        **This endpoint will serve your (Python) LangGraph agent.**
+      </Step>
+
+      <Step>
+        ## Connect your FastAPI Remote Endpoint to a LangGraph agent
+
+        At this point you should have CopilotKit hooked into your application, connected to a FastAPI Remote Endpoint.
+
+        The next step is to configure the Remote Endpoint to serve LangGraph agents.
+
+        First, find your `CopilotKitSDK` instance in your Python Remote Endpoint (typically `server.py`). <br/>
+        **Then modify your `CopilotKitSDK` instance (setup in the previous step) to serve LangGraph agents:**
+
+        ```python title="server.py"
+        from copilotkit import CopilotKitSDK, LangGraphAgent # [!code highlight]
+        from .agent import the_langraph_graph # Import your LangGraph agent; in this example, it's the variable named `the_langraph_graph` in ./agent.py # [!code highlight]
+        from copilotkit.integrations.fastapi import add_fastapi_endpoint
+        from copilotkit.langchain import copilotkit_messages_to_langchain # you only need this if you use Google Gemini in your LangGraph agent.
+        # ... other imports
+
+        app = FastAPI()
+
+        # ...
+
+        # Initialize the CopilotKit SDK
+        sdk = CopilotKitSDK(
+          agents=[ # [!code highlight:10]
+            LangGraphAgent(
+              name="basic_agent",
+              description="Agent that answers questions about the weather",
+              graph=the_langraph_graph,
+              # copilotkit_config={ # if you use Google Gemini, uncomment  this code (and import `copilotkit_messages_to_langchain`, see above)
+              #  "convert_messages": copilotkit_messages_to_langchain(use_function_call=True)
+              # }
+            )
+          ],
+          # ...
+        )
+
+        # ...
+
+        # Add the CopilotKit endpoint to your FastAPI app
+        add_fastapi_endpoint(app, sdk, "/copilotkit_remote")
+
+        # ...
+
+        ```
+
+        <Callout>
+          Remember the name `basic_agent`, we'll need it as we move on to integrating
+          this agent into the frontend.
+        </Callout>
+
+        ### Are you using Google Gemini models?
+
+        Until there is full parity between Gemini and other models in the LangChain ecosystem, you'll need to uncomment the `copilotkit_config` section shown above when using Gemini models in your LangGraph agent.
+      </Step>
+
+      <Step>
+        ## Agent-lock your Copilot to the `basic_agent` agent.
+
+        CopilotKit supports router-mode as well as agent-lock mode. For more detail see [router-mode / agent-mode](/coagents/advanced/router-mode-agent-lock).
+        In short: agent-lock modes locks your Copilot to a single LangGraph agent;
+        router-mode automatically routes requests to the right agent based on the user's context and query.
+
+        **For simplicity, we'll use agent-lock mode in these tutorials,** but we encourage you to explore router-mode in your production use-cases to support more complex agent workflows.
+
+        Lock the Copilot to the `basic_agent` setup earlier. This means every single interaction with the Copilot will be forwarded to the locked agent.
+
+        ```tsx filename="src/page.tsx"
+        // The Copilot will now invoke the LangGraph agent directly, not the Copilot router.
+        <CopilotKit
+          runtimeUrl="/api/copilotkit"
+          agent="basic_agent" // agent-lock the Copilot, see 'agent-lock vs router-mode' // [!code highlight]
+        >
+          {...}
+        </CopilotKit>
+        ```
+      </Step>
+    </Steps>
+  </TailoredContentOption>
+
+  <TailoredContentOption
+    title="LangGraph Platform"
+    description="I want to write my LangGraph agent in Python or JavaScript and deploy it through LangGraph Platform."
+    icon={<FaCloud />}
+  >
+    <Steps>
+      <Step>
+        First, take a minute to **[go through the CopilotKit quickstart](/quickstart), and integrate CopilotKit into your React app.**
+        This should only take a minute.
+
+        **If you have already deployed your LangGraph agent, skip to step 4.**
+      </Step>
+
+      <Step>
+        ## Deploy your LangGraph agent to LangGraph Platform
+
+        Follow the official [LangGraph Cloud deployment guide](https://langchain-ai.github.io/langgraph/cloud/deployment/cloud/).
+
+        A successful deployment will yield an API URL (often referred to here as "deployment URL") in the following format: 
+
+        ```
+        https://{project-identifiers}.langgraph.app
+        ```
+
+        Come back with that URL and a LangSmith API key before proceeding.
+      </Step>
+
+      <Step>
+        ## Find your CopilotRuntime instance
+
+        Now that you've deployed your agent to LangGraph Platform, you will need to integrate it into your CopilotKit application.
+
+        First, find your CopilotRuntime instance in your code. If you followed the quickstart, it'll be where you set up the
+        `/api/copilotkit` endpoint.
+      </Step>
+
+      <Step>
+        ## Connect the app to the remote endpoint
+
+        Once you've found your runtime instance, you can connect your app to the remote endpoint by modifying your CopilotRuntime configuration.
+
+        ```tsx
+          const runtime: CopilotRuntimeConfig = {
+            // ...existing configuration
+            remoteEndpoints: [ 
+              langGraphCloudEndpoint({
+                deploymentUrl: "your-api-url",
+                langsmithApiKey: process.env.LANGSMITH_API_KEY,
+                // List of all agents which are available under "graphs" list in your langgraph.json file.
+                agents: [{ name: 'my_agent', description: 'A helpful LLM agent' }]
+              }),
+            ],
+          };
+        ```
+
+        <Callout>
+          Remember to replace `your-api-url` with your actual LangGraph Platform deployment URL and
+          set your LangSmith API key as an environment variable.
+        </Callout>
+      </Step>
+
+      <Step>
+        ## (optional) Agent-lock your Copilot to the `basic_agent` agent.
+
+        CopilotKit supports router-mode as well as agent-lock mode. For more detail see our concept documentation on [multi-agent flows](/coagents/concepts/multi-agent-flows).
+
+        In short:
+        - Agent-lock mode locks your Copilot to a single LangGraph agent;
+        - Router mode automatically routes requests to the right agent based on the user's context and query.
+
+        **For simplicity, we'll use agent-lock mode in these tutorials,** but we encourage you to explore router-mode in your production use-cases to support more complex agent workflows.
+
+        Lock the Copilot to the `my_agent` which you setup in the previous step. Doing this will ensure every single interaction with the Copilot will be forwarded to the locked agent.
+
+        ```tsx filename="src/page.tsx"
+          // The Copilot will now invoke the LangGraph agent directly, not the Copilot router.
+          <CopilotKit
+            runtimeUrl="/api/copilotkit"
+            agent="my_agent" // agent-lock the Copilot, see 'agent-lock vs router-mode' // [!code highlight]
+          >
+            {...}
+          </CopilotKit>
+        ```
+      </Step>
+    </Steps>
+  </TailoredContentOption>
+</TailoredContent>
+
+🎉 Congrats! You've successfully integrated a LangGraph agent chatbot to your application!
+Give it a try by writing text in the chatbot UI and pressing send.
+You are now chatting with a LangGraph agent!
+
+<Frame className="my-6">
+  <img
+    src="/images/coagents/CoAgents-ChatHello.gif"
+    alt="Agentic copilots Chat Hello demonstration"
+    className="w-2/3 mx-auto"
+  />
+</Frame>
+
+<CoAgentsEnterpriseCTA />

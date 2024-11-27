@@ -8,6 +8,7 @@
       "human-in-the-loop",
       "message-management",
       "copilotkit-config",
-      "multi-agent-flows"
+      "multi-agent-flows",
+      "langgraph"
     ]
   }

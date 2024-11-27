@@ -3,7 +3,7 @@
   "root": true,
   "pages": [
     "index",
-    "getting-started",
+    "quickstart",
     "---Concepts---",
     "...concepts",
     "---In-chat experiences---",
