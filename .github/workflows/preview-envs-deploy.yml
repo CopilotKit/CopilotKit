@@ -16,18 +16,18 @@ jobs:
     strategy:
       matrix:
         app:
-          - {
-              project: "coagents-research-canvas",
-              type: "agent",
-              deps: "local-deps",
-            }
-          - { project: "coagents-research-canvas", type: "ui" }
-          - { project: "coagents-routing", type: "agent", deps: "local-deps" }
-          - { project: "coagents-routing", type: "ui" }
-          - { project: "coagents-qa-text", type: "agent", deps: "local-deps" }
-          - { project: "coagents-qa-text", type: "ui" }
-          - { project: "coagents-qa-native", type: "agent", deps: "local-deps" }
-          - { project: "coagents-qa-native", type: "ui" }
+          # - {
+          #     project: "coagents-research-canvas",
+          #     type: "agent",
+          #     deps: "local-deps",
+          #   }
+          # - { project: "coagents-research-canvas", type: "ui" }
+          # - { project: "coagents-routing", type: "agent", deps: "local-deps" }
+          # - { project: "coagents-routing", type: "ui" }
+          # - { project: "coagents-qa-text", type: "agent", deps: "local-deps" }
+          # - { project: "coagents-qa-text", type: "ui" }
+          # - { project: "coagents-qa-native", type: "agent", deps: "local-deps" }
+          # - { project: "coagents-qa-native", type: "ui" }
           - { project: "next-openai", type: "next-openai" }
     steps:
       - name: Checkout
