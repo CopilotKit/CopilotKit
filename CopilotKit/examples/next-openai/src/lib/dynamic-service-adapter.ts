@@ -2,6 +2,8 @@ export async function getServiceAdapter(name: string) {
   switch (name) {
     case "openai":
       return getOpenAIAdapter();
+    case "azure_openai":
+      return getAzureOpenAIAdapter();
     case "anthropic":
       return getAnthropicAdapter();
     case "gemini":
@@ -22,6 +24,18 @@ export async function getServiceAdapter(name: string) {
 async function getOpenAIAdapter() {
   const { OpenAIAdapter } = await import("@copilotkit/runtime");
   return new OpenAIAdapter();
+}
+
+async function getAzureOpenAIAdapter() {
+  const { OpenAIAdapter } = await import("@copilotkit/runtime");
+  const { OpenAI } = await import("openai");
+  const openai = new OpenAI({
+    apiKey: process.env["AZURE_OPENAI_API_KEY"],
+    baseURL: `https://${process.env["AZURE_OPENAI_INSTANCE"]}.openai.azure.com/openai/deployments/${process.env["AZURE_OPENAI_MODEL"]}`,
+    defaultQuery: { "api-version": "2024-04-01-preview" },
+    defaultHeaders: { "api-key": process.env["AZURE_OPENAI_API_KEY"] },
+  });
+  return new OpenAIAdapter({ openai });
 }
 
 async function getAnthropicAdapter() {
