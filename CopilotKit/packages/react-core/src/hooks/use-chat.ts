@@ -288,7 +288,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             newMessages.push(message);
             // execute regular action executions
             if (
-              message instanceof ActionExecutionMessage &&
+              message.isActionExecutionMessage() &&
               message.status.code !== MessageStatusCode.Pending &&
               message.scope === "client" &&
               onFunctionCall
@@ -332,7 +332,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             }
             // execute coagent actions
             if (
-              message instanceof AgentStateMessage &&
+              message.isAgentStateMessage() &&
               !message.active &&
               !executedCoAgentStateRenders.includes(message.id) &&
               onCoAgentStateRender
@@ -353,22 +353,22 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
           const lastAgentStateMessage = [...messages]
             .reverse()
-            .find((message) => message instanceof AgentStateMessage);
+            .find((message) => message.isAgentStateMessage());
 
           if (lastAgentStateMessage) {
+            setCoagentStates((prevAgentStates) => ({
+              ...prevAgentStates,
+              [lastAgentStateMessage.agentName]: {
+                name: lastAgentStateMessage.agentName,
+                state: lastAgentStateMessage.state,
+                running: lastAgentStateMessage.running,
+                active: lastAgentStateMessage.active,
+                threadId: lastAgentStateMessage.threadId,
+                nodeName: lastAgentStateMessage.nodeName,
+                runId: lastAgentStateMessage.runId,
+              },
+            }));
             if (lastAgentStateMessage.running) {
-              setCoagentStates((prevAgentStates) => ({
-                ...prevAgentStates,
-                [lastAgentStateMessage.agentName]: {
-                  name: lastAgentStateMessage.agentName,
-                  state: lastAgentStateMessage.state,
-                  running: lastAgentStateMessage.running,
-                  active: lastAgentStateMessage.active,
-                  threadId: lastAgentStateMessage.threadId,
-                  nodeName: lastAgentStateMessage.nodeName,
-                  runId: lastAgentStateMessage.runId,
-                },
-              }));
               setAgentSession({
                 threadId: lastAgentStateMessage.threadId,
                 agentName: lastAgentStateMessage.agentName,
@@ -392,7 +392,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         // if we have client side results
         (Object.values(actionResults).length ||
           // or the last message we received is a result
-          (newMessages.length && newMessages[newMessages.length - 1] instanceof ResultMessage))
+          (newMessages.length && newMessages[newMessages.length - 1].isResultMessage()))
       ) {
         // run the completion again and return the result
 
@@ -432,7 +432,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     let newMessages = [...messages];
     const lastMessage = messages[messages.length - 1];
 
-    if (lastMessage instanceof TextMessage && lastMessage.role === "assistant") {
+    if (lastMessage.isTextMessage() && lastMessage.role === "assistant") {
       newMessages = newMessages.slice(0, -1);
     }
 

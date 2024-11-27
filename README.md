@@ -1,5 +1,3 @@
-> Here for Hacktoberfest? 🎉 [Get started here :rocket: :confetti_ball:](https://github.com/CopilotKit/CopilotKit/tree/main/community/content).
-
 <div align="center">
   <a href="https://copilotkit.ai" target="_blank">
     <img src="./assets/banner.png" alt="CopilotKit Logo">
@@ -32,9 +30,9 @@
   <a href="https://docs.copilotkit.ai?ref=github_readme" target="_blank">
     <img src="./assets/btn_docs.png" alt="CopilotKit GitHub" height="40px">
   </a>
-  <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank">
+<!--   <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank">
     <img src="./assets/btn_cloud.png" alt="CopilotKit GitHub" height="40px">
-  </a>
+  </a> -->
 </div>
 
 <br/>
@@ -45,12 +43,6 @@
 </div>
 
 <br />
-
-<div>
-
-  [![hacktoberfest_banner](https://github.com/user-attachments/assets/90e88d5e-22ec-4401-a95b-7779b10afe13)](https://github.com/CopilotKit/CopilotKit/tree/main/community/content)
-
-</div>
 
 <div align="center">
   <img src="./assets/animated-banner.gif" alt="CopilotKit Screenshot" style="border-radius: 15px;" />
@@ -91,10 +83,12 @@ There are several easy ways to get started with CopilotKit:
 <table align="center">
   <tr>
     <td align="center" valign="top">
-      🕹️ PowerPoint Clone + Copilot <br/>
+      🕹️ PowerPoint Clone + Copilot<br/>
       <a href="https://go.copilotkit.ai/GitHubPresentation">https://github.com/CopilotKit/demo-presentation</a> <br/><br>
       <a href="https://go.copilotkit.ai/GitHubPresentation">
         <img alt="Presentation" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="240px" style="max-width:100%; border-radius: 10px;"/>
+        <br/>
+        <a href="https://go.copilotkit.ai/GitHubPresentationVoice">See example with voice control</a>
       </a>
     </td>
     <td align="center" valign="top">
@@ -114,19 +108,26 @@ There are several easy ways to get started with CopilotKit:
       </a>
     </td>
     <td align="center" valign="top">
-      🕹️ PowerPoint Clone + Copilot + Voice Control <br/>
-      <a href="https://go.copilotkit.ai/GitHubPresentationVoice">https://github.com/CopilotKit/demo-presentation-voice</a> <br/><br>
-      <a href="https://go.copilotkit.ai/GitHubPresentationVoice">
-        <img alt="Presentation-Voice" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="240px" style="max-width:100%; border-radius: 10px;"/>
+      🕹️ Banking App + Copilot<br/>
+      <a href="https://github.com/CopilotKit/demo-banking">https://github.com/CopilotKit/demo-banking</a> <br/><br>
+      <a href="https://github.com/CopilotKit/demo-banking">
+        <img alt="Banking-Demo" src="https://github.com/CopilotKit/demo-banking/blob/main/assets/project-preview.png?raw=true" width="240px" style="max-width:100%; border-radius: 10px;"/>
       </a>
     </td>
   </tr>
   <tr>
     <td align="center" valign="top">
-      🕹️ Banking App + Copilot<br/>
-      <a href="https://github.com/CopilotKit/demo-banking">https://github.com/CopilotKit/demo-banking</a> <br/><br>
-      <a href="https://github.com/CopilotKit/demo-banking">
-        <img alt="Banking-Demo" src="https://github.com/CopilotKit/demo-banking/blob/main/assets/project-preview.png?raw=true" width="240px" style="max-width:100%; border-radius: 10px;"/>
+      🕹️ CoAgents (LangGraph) Perplexity Clone<br/>
+      <a href="https://go.copilotkit.ai/coagents-perplexity-clone">https://github.com/CopilotKit/CopilotKit/examples/coagents-ai-researcher</a> <br/><br>
+      <a href="https://go.copilotkit.ai/coagents-perplexity-clone">
+        <img alt="Banking-Demo" src="./assets/proejct-perplexity-clone.png" width="200px" style="max-width:100%; border-radius: 10px;"/>
+      </a>
+    </td>
+    <td align="center" valign="top">
+      🕹️ CoAgents (LangGraph) Research Canvas Demo<br/>
+      <a href="https://go.copilotkit.ai/coagents-research-canvas">https://github.com/CopilotKit/CopilotKit/examples/coagents-research-canvas</a> <br/><br>
+      <a href="https://go.copilotkit.ai/coagents-research-canvas">
+        <img alt="Banking-Demo" src="./assets/project-canvas-demo.png" width="200px" style="max-width:100%; border-radius: 10px;"/>
       </a>
     </td>
   </tr>
@@ -158,11 +159,11 @@ We value all contributions, whether it's through code, documentation, creating d
 
 Here are a few useful resources to help you get started:
 
-- For code contributions, [check out the contribution guide](https://docs.copilotkit.ai/contributing/code-contributions?ref=github_readme).
+- For code contributions, [CONTRIBUTING.md](./CONTRIBUTING.md).
 - For documentation-related contributions, [check out the documentation contributions guide](https://docs.copilotkit.ai/contributing/docs-contributions?ref=github_readme).
 - Want to contribute but not sure how? [Join our Discord](https://discord.gg/6dffbvGU3D) and we'll help you out!
 
-> 💡 **NOTE:** All contributions must be submitted via a pull request and be reviewed by our team. This is to ensure that all contributions are of high quality and align with the project's goals.
+> 💡 **NOTE:** All contributions must be submitted via a pull request and be reviewed by our team. This ensures all contributions are of high quality and align with the project's goals.
 
 ## Get in touch
 

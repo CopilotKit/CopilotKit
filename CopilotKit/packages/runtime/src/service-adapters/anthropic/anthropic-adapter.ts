@@ -34,7 +34,7 @@ import {
 import { randomId } from "@copilotkit/shared";
 import { TextMessage } from "../../graphql/types/converted";
 
-const DEFAULT_MODEL = "claude-3-opus-20240229";
+const DEFAULT_MODEL = "claude-3-sonnet-20240229";
 
 export interface AnthropicAdapterParams {
   /**
@@ -81,8 +81,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
 
     // get the instruction message
     const instructionsMessage = messages.shift();
-    const instructions =
-      instructionsMessage instanceof TextMessage ? instructionsMessage.content : "";
+    const instructions = instructionsMessage.isTextMessage() ? instructionsMessage.content : "";
 
     let anthropicMessages = messages.map(convertMessageToAnthropicMessage);
     anthropicMessages = limitMessagesToTokenCount(anthropicMessages, tools, model);

@@ -74,7 +74,7 @@ export function useMakeStandardInsertionOrEditingFunction(
           let newContent = "";
 
           for (const message of messages) {
-            if (message instanceof TextMessage) {
+            if (message.isTextMessage()) {
               newContent += message.content;
             }
           }

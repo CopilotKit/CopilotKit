@@ -84,7 +84,7 @@ export function convertActionInputToAnthropicTool(action: ActionInput): Anthropi
 export function convertMessageToAnthropicMessage(
   message: Message,
 ): Anthropic.Messages.MessageParam {
-  if (message instanceof TextMessage) {
+  if (message.isTextMessage()) {
     if (message.role === "system") {
       return {
         role: "assistant",
@@ -98,7 +98,7 @@ export function convertMessageToAnthropicMessage(
         content: [{ type: "text", text: message.content }],
       };
     }
-  } else if (message instanceof ActionExecutionMessage) {
+  } else if (message.isActionExecutionMessage()) {
     return {
       role: "assistant",
       content: [
@@ -110,7 +110,7 @@ export function convertMessageToAnthropicMessage(
         },
       ],
     };
-  } else if (message instanceof ResultMessage) {
+  } else if (message.isResultMessage()) {
     return {
       role: "user",
       content: [

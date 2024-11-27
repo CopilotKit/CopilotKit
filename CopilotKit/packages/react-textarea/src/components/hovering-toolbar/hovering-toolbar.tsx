@@ -112,6 +112,7 @@ export const HoveringToolbar = (props: HoveringToolbarProps) => {
           (props.hoverMenuClassname ||
             "p-2 absolute z-10 top-[-10000px] left-[-10000px] mt-[-6px] opacity-0 transition-opacity duration-700")
         }
+        data-testid="hovering-toolbar"
       >
         {isDisplayed && selection && (
           <HoveringInsertionPromptBox

@@ -16,16 +16,17 @@ import { AgentState, Resource } from "@/lib/types";
 import { useModelSelectorContext } from "@/lib/model-selector-provider";
 
 export function ResearchCanvas() {
-  const { model } = useModelSelectorContext();
+  const { model, agent } = useModelSelectorContext();
+
   const { state, setState } = useCoAgent<AgentState>({
-    name: "research_agent",
+    name: agent,
     initialState: {
-      model
-    }
+      model,
+    },
   });
 
   useCoAgentStateRender({
-    name: "research_agent",
+    name: agent,
     render: ({ state, nodeName, status }) => {
       if (!state.logs || state.logs.length === 0) {
         return null;
@@ -45,7 +46,7 @@ export function ResearchCanvas() {
     ],
     renderAndWait: ({ args, status, handler }) => {
       return (
-        <div className="">
+        <div className="" data-test-id="delete-resource-generative-ui-container">
           <div className="font-bold text-base mb-2">
             Delete these resources?
           </div>
@@ -64,6 +65,7 @@ export function ResearchCanvas() {
                 Cancel
               </button>
               <button
+                data-test-id="button-delete"
                 onClick={() => handler("YES")}
                 className="px-4 py-2 bg-[#6766FC] text-white rounded text-sm font-bold"
               >
@@ -127,7 +129,7 @@ export function ResearchCanvas() {
   };
 
   return (
-    <div className="container w-full h-full p-10 bg-[#F5F8FF]">
+    <div className="w-full h-full p-10 bg-[#F5F8FF]">
       <div className="space-y-8">
         <div>
           <h2 className="text-lg font-medium mb-3 text-primary">
@@ -182,6 +184,7 @@ export function ResearchCanvas() {
             Research Draft
           </h2>
           <Textarea
+            data-test-id="research-draft"
             placeholder="Write your research draft here"
             value={state.report || ""}
             onChange={(e) => setState({ ...state, report: e.target.value })}

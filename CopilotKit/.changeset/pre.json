@@ -1,0 +1,20 @@
+{
+  "mode": "pre",
+  "tag": "mme-azure-openai",
+  "initialVersions": {
+    "next-openai": "1.3.15",
+    "next-pages-router": "1.3.15",
+    "node-express": "1.3.15",
+    "node-http": "1.3.15",
+    "@copilotkit/react-core": "1.3.15",
+    "@copilotkit/react-textarea": "1.3.15",
+    "@copilotkit/react-ui": "1.3.15",
+    "@copilotkit/runtime": "1.3.15",
+    "@copilotkit/runtime-client-gql": "1.3.15",
+    "@copilotkit/shared": "1.3.15",
+    "eslint-config-custom": "1.3.15",
+    "tailwind-config": "1.3.15",
+    "tsconfig": "1.3.15"
+  },
+  "changesets": ["selfish-fireants-join"]
+}

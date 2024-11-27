@@ -27,9 +27,8 @@ You can easily pass questions to the frontend for the user to answer in the AI C
 import { useCopilotAction } from "@copilotkit/react-core";
 
 export function Mailer() {
-  useCopilotAction({
-    // [!code highlight:19]
-    name: "EmailTool",
+  useCopilotAction({ // [!code highlight:19]
+    name: "email_tool",
     parameters: [
       {
         name: "email_draft",
@@ -66,13 +65,6 @@ The agent will not continue executing until the `handler` function provided via 
 
 `args` contains the parameters specified shortly above it; the parameters will be streamed as they come in.
 
-<Callout type="warn">
-  Please note that while `status` is `executing`, `handler` will be `undefined`{" "}
-  <br />
-  You can call it either by checking if it is `undefined`, or by using this format{" "}
-  <br />
-  `handler?.(argumentToPassHandler)`.
-</Callout>
 
 <Callout type="info">
   Whatever argument you pass to the `handler` will become available on the
@@ -81,13 +73,27 @@ The agent will not continue executing until the `handler` function provided via 
   backend logic.
 </Callout>
 
+
+<Callout type="warn">
+  Please note that in the `renderAndWait` function, while `status` is `"executing"`, `handler` will be `undefined`.
+
+  ```
+  renderAndWait: ({ args, status, handler }) => {
+    return ...
+  }
+  ```
+
+  You can call the handler either by first checking if the handler is `undefined`, or by using typescript's optional chaining format, i.e.
+  ```handler?.(argumentToPassHandler)```.
+</Callout>
+
 </Step>
 
 <Step>
-### Record the action **name** and **parameters**.
-Record the action name & parameters. They must match the configuration we will soon setup on the agentic backend.
+### Remember the action **name** and **parameters**.
+Remember the action name & parameters. They must match the configuration we will soon setup on the agentic backend.
 
-In this case, the action name is `EmailTool`. It has a single parameter `email_draft` of type `string`.
+In this case, the action name is `email_tool`. It has a single parameter `email_draft` of type `string`.
 
 </Step>
 
@@ -103,9 +109,12 @@ In this case, the action name is `EmailTool`. It has a single parameter `email_d
 The Tool's name and arguments must line up with what you used on the frontend.
 
 ```python
-class EmailTool(BaseModel):
-    """Write an email."""
-    the_email: str = Field(description="The email to be written.")
+
+@tool
+def email_tool(email_draft: str):
+    """
+    Write an email.
+    """
 
 class EmailAgentState(MessagesState):
     """Email Agent State"""
@@ -113,9 +122,9 @@ class EmailAgentState(MessagesState):
 ```
 
 <Callout type="warning">
-  The name of the `EmailTool` class and its argument `the_email` MUST match what
+  The name of the `email_tool` class and its argument `email_draft` MUST match what
   we set up on the frontend. Ensure that the `name` in `useCopilotAction` is
-  "EmailTool" and the parameter name is "the_email" for consistency between
+  "email_tool" and the parameter name is "email_draft" for consistency between
   frontend and backend.
 </Callout>
 
@@ -167,7 +176,7 @@ async def draft_email_node(state: EmailAgentState, config: RunnableConfig):
     )
 
     instructions = "Compose a concise, professional email based on user input."
-    email_model = ChatOpenAI(temperature=0, model="gpt-4o").bind_tools([EmailTool], tool_choice="EmailTool")
+    email_model = ChatOpenAI(temperature=0, model="gpt-4o").bind_tools([email_tool], tool_choice="email_tool")
     response = await email_model.ainvoke([*state.messages, HumanMessage(content=instructions)], config)
     tool_calls = cast(Any, response).tool_calls
     email_draft = tool_calls[0]["args"]["email_draft"]  # the email draft content is the argument passed to the email tool

@@ -5,9 +5,9 @@ import { useCoAgent } from "@copilotkit/react-core";
 import { CopilotChat } from "@copilotkit/react-ui";
 
 export default function Main() {
-  const { model } = useModelSelectorContext();
+  const { model, agent } = useModelSelectorContext();
   const { state, setState } = useCoAgent<AgentState>({
-    name: "research_agent",
+    name: agent,
     initialState: {
       model,
       research_question: "",

@@ -18,6 +18,39 @@
  *
  * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
  * ```
+ *
+ * ## Example with Azure OpenAI
+ *
+ * ```ts
+ * import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
+ * import OpenAI from "openai";
+ *
+ * // The name of your Azure OpenAI Instance.
+ * // https://learn.microsoft.com/en-us/azure/cognitive-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource
+ * const instance = "<your instance name>";
+ *
+ * // Corresponds to your Model deployment within your OpenAI resource, e.g. my-gpt35-16k-deployment
+ * // Navigate to the Azure OpenAI Studio to deploy a model.
+ * const model = "<your model>";
+ *
+ * const apiKey = process.env["AZURE_OPENAI_API_KEY"];
+ * if (!apiKey) {
+ *   throw new Error("The AZURE_OPENAI_API_KEY environment variable is missing or empty.");
+ * }
+ *
+ * const copilotKit = new CopilotRuntime();
+ *
+ * const openai = new OpenAI({
+ *   apiKey,
+ *   baseURL: `https://${instance}.openai.azure.com/openai/deployments/${model}`,
+ *   defaultQuery: { "api-version": "2024-04-01-preview" },
+ *   defaultHeaders: { "api-key": apiKey },
+ * });
+ *
+ * const serviceAdapter = new OpenAIAdapter({ openai });
+ *
+ * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+ * ```
  */
 import OpenAI from "openai";
 import {
@@ -111,7 +144,12 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
 
     eventSource.stream(async (eventStream$) => {
       let mode: "function" | "message" | null = null;
+
       for await (const chunk of stream) {
+        if (chunk.choices.length === 0) {
+          continue;
+        }
+
         const toolCall = chunk.choices[0].delta.tool_calls?.[0];
         const content = chunk.choices[0].delta.content;
 

@@ -272,7 +272,11 @@ async function executeAction(
   // Prepare arguments for function calling
   let args: Record<string, any>[] = [];
   if (actionArguments) {
-    args = JSON.parse(actionArguments);
+    try {
+      args = JSON.parse(actionArguments);
+    } catch (e) {
+      console.warn("Action argument unparsable", { actionArguments });
+    }
   }
 
   // handle LangGraph agents

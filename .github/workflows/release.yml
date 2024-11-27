@@ -8,6 +8,7 @@ on:
     paths-ignore:
       - 'docs/**'
       - 'examples/**'
+      - '.github/workflows/demos_preview.yml'
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 

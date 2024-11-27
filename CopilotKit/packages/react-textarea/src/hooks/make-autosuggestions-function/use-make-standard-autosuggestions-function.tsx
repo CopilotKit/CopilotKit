@@ -45,6 +45,7 @@ export function useMakeStandardAutosuggestionFunction(
   return useCallback(
     async (editorState: InsertionEditorState, abortSignal: AbortSignal) => {
       const res = await retry(async () => {
+        // @ts-expect-error -- Passing null is forbidden, but we're filtering it later
         const messages: Message[] = [
           new TextMessage({
             role: Role.System,
@@ -54,10 +55,12 @@ export function useMakeStandardAutosuggestionFunction(
             ),
           }),
           ...apiConfig.fewShotMessages,
-          new TextMessage({
-            role: Role.User,
-            content: editorState.textAfterCursor,
-          }),
+          editorState.textAfterCursor != ""
+            ? new TextMessage({
+                role: Role.User,
+                content: editorState.textAfterCursor,
+              })
+            : null,
           new TextMessage({
             role: Role.User,
             content: `<TextAfterCursor>${editorState.textAfterCursor}</TextAfterCursor>`,
@@ -66,7 +69,7 @@ export function useMakeStandardAutosuggestionFunction(
             role: Role.User,
             content: `<TextBeforeCursor>${editorState.textBeforeCursor}</TextBeforeCursor>`,
           }),
-        ];
+        ].filter(Boolean);
 
         const runtimeClient = new CopilotRuntimeClient({
           url,
@@ -103,7 +106,7 @@ export function useMakeStandardAutosuggestionFunction(
           if (abortSignal.aborted) {
             break;
           }
-          if (message instanceof TextMessage) {
+          if (message.isTextMessage()) {
             result += message.content;
           }
         }

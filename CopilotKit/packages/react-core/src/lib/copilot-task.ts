@@ -163,7 +163,7 @@ export class CopilotTask<T = any> {
     const functionCallHandler = context.getFunctionCallHandler(actions);
     const functionCalls = convertGqlOutputToMessages(
       response.data?.generateCopilotResponse?.messages || [],
-    ).filter((m): m is ActionExecutionMessage => m instanceof ActionExecutionMessage);
+    ).filter((m): m is ActionExecutionMessage => m.isActionExecutionMessage());
 
     for (const functionCall of functionCalls) {
       await functionCallHandler({

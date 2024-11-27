@@ -60,14 +60,20 @@ async def chat_node(state: AgentState, config: RunnableConfig):
             "content": content
         })
 
-    response = await get_model(state).bind_tools(
+    model = get_model(state)
+    # Prepare the kwargs for the ainvoke method
+    ainvoke_kwargs = {}
+    if model.__class__.__name__ in ["ChatOpenAI"]:
+        ainvoke_kwargs["parallel_tool_calls"] = False
+
+    response = await model.bind_tools(
         [
-            Search,
             Search,
             WriteReport,
             WriteResearchQuestion,
             DeleteResources,
         ],
+        **ainvoke_kwargs  # Pass the kwargs conditionally
     ).ainvoke([
         SystemMessage(
             content=f"""
@@ -76,6 +82,7 @@ async def chat_node(state: AgentState, config: RunnableConfig):
             You should use the search tool to get resources before answering the user's question.
             If you finished writing the report, ask the user proactively for next steps, changes etc, make it engaging.
             To write the report, you should use the WriteReport tool. Never EVER respond with the report, only use the tool.
+            If a research question is provided, YOU MUST NOT ASK FOR IT AGAIN.
 
             This is the research question:
             {research_question}
@@ -94,8 +101,9 @@ async def chat_node(state: AgentState, config: RunnableConfig):
 
     if ai_message.tool_calls:
         if ai_message.tool_calls[0]["name"] == "WriteReport":
+            report = ai_message.tool_calls[0]["args"].get("report", "")
             return {
-                "report": ai_message.tool_calls[0]["args"]["report"],
+                "report": report,
                 "messages": [ai_message, ToolMessage(
                     tool_call_id=ai_message.tool_calls[0]["id"],
                     content="Report written."

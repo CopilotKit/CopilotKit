@@ -16,7 +16,9 @@
  *
  * const serviceAdapter = new LangChainAdapter({
  *   chainFn: async ({ messages, tools }) => {
- *     return model.stream(messages, { tools });
+ *     return model.bindTools(tools).stream(messages);
+ *     // or optionally enable strict mode
+ *     // return model.bindTools(tools, { strict: true }).stream(messages);
  *   }
  * });
  *
@@ -45,6 +47,7 @@ import {
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { LangChainReturnType } from "./types";
 import { randomId } from "@copilotkit/shared";
+import { awaitAllCallbacks } from "@langchain/core/callbacks/promises";
 
 interface ChainFnParameters {
   model: string;
@@ -70,24 +73,29 @@ export class LangChainAdapter implements CopilotServiceAdapter {
   async process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
-    const { eventSource, model, actions, messages, threadId, runId } = request;
-    const result = await this.options.chainFn({
-      messages: messages.map(convertMessageToLangChainMessage),
-      tools: actions.map(convertActionInputToLangChainTool),
-      model,
-      threadId,
-      runId,
-    });
-
-    eventSource.stream(async (eventStream$) => {
-      await streamLangChainResponse({
-        result,
-        eventStream$,
+    try {
+      const { eventSource, model, actions, messages, runId } = request;
+      const threadId = request.threadId ?? randomId();
+      const result = await this.options.chainFn({
+        messages: messages.map(convertMessageToLangChainMessage),
+        tools: actions.map(convertActionInputToLangChainTool),
+        model,
+        threadId,
+        runId,
       });
-    });
 
-    return {
-      threadId: threadId || randomId(),
-    };
+      eventSource.stream(async (eventStream$) => {
+        await streamLangChainResponse({
+          result,
+          eventStream$,
+        });
+      });
+
+      return {
+        threadId,
+      };
+    } finally {
+      await awaitAllCallbacks();
+    }
   }
 }

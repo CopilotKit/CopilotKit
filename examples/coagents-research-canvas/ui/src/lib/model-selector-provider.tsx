@@ -6,6 +6,7 @@ import { createContext, useContext, useState, ReactNode } from "react";
 type ModelSelectorContextType = {
   model: string;
   setModel: (model: string) => void;
+  agent: string;
   hidden: boolean;
   setHidden: (hidden: boolean) => void;
 };
@@ -32,10 +33,14 @@ export const ModelSelectorProvider = ({
     window.location.href = url.toString();
   };
 
+  const agent =
+    model === "google_genai" ? "research_agent_google_genai" : "research_agent";
+
   return (
     <ModelSelectorContext.Provider
       value={{
         model,
+        agent,
         hidden,
         setModel,
         setHidden,
