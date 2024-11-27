@@ -45,7 +45,7 @@
  *   );
  * }
  * ```
- * For more information about how to customize the styles, check out the [Customize Look & Feel](/concepts/customize-look-and-feel) guide.
+ * For more information about how to customize the styles, check out the [Customize Look & Feel](/guides/custom-look-and-feel/customize-built-in-ui-components) guide.
  */
 import React, { useState } from "react";
 import { CopilotModal, CopilotModalProps } from "./Modal";

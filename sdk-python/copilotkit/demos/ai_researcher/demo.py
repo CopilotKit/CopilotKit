@@ -12,7 +12,7 @@ sdk = CopilotKitSDK(
         LangGraphAgent(
             name="search_agent",
             description="Search agent.",
-            agent=graph,
+            graph=graph,
         )
     ],
 )

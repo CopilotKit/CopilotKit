@@ -53,11 +53,26 @@ function PirateMode() {
       model,
     },
   });
-  return (
-    <div style={{ fontSize: "0.875rem", textAlign: "center" }}>
-      {running ? "Pirate mode is on" : "Pirate mode is off"}
-    </div>
-  );
+
+  if (running) {
+    return (
+      <div
+        data-test-id="container-pirate-mode-on"
+        style={{ fontSize: "0.875rem", textAlign: "center" }}
+      >
+        Pirate mode is on
+      </div>
+    );
+  } else {
+    return (
+      <div
+        data-test-id="container-pirate-mode-off"
+        style={{ fontSize: "0.875rem", textAlign: "center" }}
+      >
+        Pirate mode is off
+      </div>
+    );
+  }
 }
 
 function Joke() {
@@ -83,13 +98,16 @@ function Joke() {
 
   if (!state.joke) {
     return (
-      <div style={{ fontSize: "0.875rem", textAlign: "center" }}>
+      <div
+        data-test-id="container-joke-empty"
+        style={{ fontSize: "0.875rem", textAlign: "center" }}
+      >
         No joke generated yet
       </div>
     );
+  } else {
+    return <div data-test-id="container-joke-nonempty">Joke: {state.joke}</div>;
   }
-
-  return <div> Joke:{state.joke}</div>;
 }
 
 function Email() {
@@ -115,11 +133,16 @@ function Email() {
 
   if (!state.email) {
     return (
-      <div style={{ fontSize: "0.875rem", textAlign: "center" }}>
+      <div
+        data-test-id="container-email-empty"
+        style={{ fontSize: "0.875rem", textAlign: "center" }}
+      >
         No email generated yet
       </div>
     );
+  } else {
+    return (
+      <div data-test-id="container-email-nonempty">Email: {state.email}</div>
+    );
   }
-
-  return <div>Email: {state.email}</div>;
 }

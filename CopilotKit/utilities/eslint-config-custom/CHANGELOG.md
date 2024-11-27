@@ -1,16 +1,10 @@
 # eslint-config-custom
 
-## 1.3.16-mme-improve-langsmith.1
+## 1.3.16-mme-azure-openai.0
 
 ### Patch Changes
 
-- Ensure the last message is sent to LangSmith
-
-## 1.3.16-mme-improve-langsmith.0
-
-### Patch Changes
-
-- Improve LangSmith support
+- Add support for Azure OpenAI
 
 ## 1.3.15
 

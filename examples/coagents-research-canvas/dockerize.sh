@@ -1,0 +1,1 @@
+docker build -t ${IMAGE_TAG} . --platform=linux/amd64 -f ./examples/Dockerfile.ui --build-arg APP_DIR=${APP_DIR} --push

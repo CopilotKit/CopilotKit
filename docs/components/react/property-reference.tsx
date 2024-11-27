@@ -44,16 +44,16 @@ export function PropertyReference({
   const renderChips = () => {
     return (
       <>
-        <span className="font-mono text-neutral-600 py-1 px-2 rounded-md bg-neutral-100 text-xs font-semibold">
+        <span className="font-mono text-info-muted-foreground bg-info-muted py-1 px-2 rounded-md text-xs font-semibold">
           {type}
         </span>
         {required && (
-          <span className="font-mono text-neutral-600 py-1 px-2 rounded-md bg-red-200 text-xs font-semibold">
+          <span className="font-mono text-error-muted-foreground bg-error-muted py-1 px-2 rounded-md text-xs font-semibold">
             required
           </span>
         )}
         {deprecated && (
-          <span className="font-mono text-neutral-600 py-1 px-2 rounded-md bg-yellow-200 text-xs font-semibold">
+          <span className="font-mono text-warning-muted-foreground bg-warning-muted py-1 px-2 rounded-md text-xs font-semibold">
             deprecated
           </span>
         )}

@@ -1,34 +1,160 @@
 #!/usr/bin/env node
 import "source-map-support/register";
 import * as cdk from "aws-cdk-lib";
-import { CoAgentsDemoStack } from "../lib/coagents-demo-stack";
-import * as path from "path";
-import { requireEnv } from "../lib/utils";
+import { createAgentProjectStack, createNextOpenAIProjectStack, createUIProjectStack } from "../lib/utils";
 
 // app
 const app = new cdk.App();
-const pullRequestNumber = requireEnv("GITHUB_PR_NUMBER");
 
-new CoAgentsDemoStack(app, `ResearchCanvasDemoStackPr${pullRequestNumber}`, {
-  pullRequestNumber: `${pullRequestNumber}`,
-  projectName: "CoAgents Research Canvas",
-  demoName: "coagents-research-canvas",
+/*
+ * Research Canvas
+ */
+
+// Remote Dependencies
+const coAgentsResearchCanvasAgentRemoteDeps = createAgentProjectStack({
+  app,
+  project: "coagents-research-canvas",
+  description: "CoAgents Research Canvas (Agent) - Remote Depenencies",
+  dependencies: "Remote"
 });
 
-new CoAgentsDemoStack(app, `PerplexityDemoStackPr${pullRequestNumber}`, {
-  pullRequestNumber: `${pullRequestNumber}`,
-  projectName: "CoAgents Perplexity Clone",
-  demoName: "coagents-ai-researcher",
+const coAgentsResearchCanvasUIWithRemoteDeps = createUIProjectStack({
+  app,
+  project: "coagents-research-canvas",
+  description: "CoAgents Research Canvas (UI) - Remote Depenencies",
+  dependencies: "Remote",
+  agentProject: coAgentsResearchCanvasAgentRemoteDeps
 });
 
-new CoAgentsDemoStack(app, `CoAgentsQAText${pullRequestNumber}`, {
-  pullRequestNumber: `${pullRequestNumber}`,
-  projectName: "CoAgents Q&A Text",
-  demoName: "coagents-qa-text",
+// Local Dependencies
+const coAgentsResearchCanvasAgentLocalDeps = createAgentProjectStack({
+  app,
+  project: "coagents-research-canvas",
+  description: "CoAgents Research Canvas (Agent) - Local Depenencies",
+  dependencies: "Local"
 });
 
-new CoAgentsDemoStack(app, `CoAgentsQANative${pullRequestNumber}`, {
-  pullRequestNumber: `${pullRequestNumber}`,
-  projectName: "CoAgents Q&A Native",
-  demoName: "coagents-qa-native",
+const coAgentsResearchCanvasUIWithLocalDeps = createUIProjectStack({
+  app,
+  project: "coagents-research-canvas",
+  description: "CoAgents Research Canvas (UI) - Local Depenencies",
+  dependencies: "Local",
+  agentProject: coAgentsResearchCanvasAgentLocalDeps
+});
+
+/*
+ * CoAgents Routing Demo
+ */
+
+// Remote Dependencies
+const coAgentsRoutingWithRemoteDeps = createAgentProjectStack({
+  app,
+  project: "coagents-routing",
+  description: "CoAgents Routing (Agent) - Remote Dependencies",
+  dependencies: "Remote"
+});
+
+const coAgentsRoutingUIWithRemoteDeps = createUIProjectStack({
+  app,
+  project: "coagents-routing", 
+  description: "CoAgents Routing (UI) - Remote Dependencies",
+  dependencies: "Remote",
+  agentProject: coAgentsRoutingWithRemoteDeps
+});
+
+// Local Dependencies
+const coAgentsRoutingWithLocalDeps = createAgentProjectStack({
+  app,
+  project: "coagents-routing",
+  description: "CoAgents Routing (Agent) - Local Dependencies",
+  dependencies: "Local"
+});
+
+const coAgentsRoutingUIWithLocalDeps = createUIProjectStack({
+  app,
+  project: "coagents-routing",
+  description: "CoAgents Routing (UI) - Local Dependencies",
+  dependencies: "Local",
+  agentProject: coAgentsRoutingWithLocalDeps
+});
+
+/*
+ * CoAgents QA Text Demo
+ */
+
+// Remote Dependencies
+const qaTextAgentWithRemoteDeps = createAgentProjectStack({
+  app,
+  project: "coagents-qa-text",
+  description: "CoAgents QA Text (Agent) - Remote Dependencies",
+  dependencies: "Remote"
+});
+
+const qaTextUIWithRemoteDeps = createUIProjectStack({
+  app,
+  project: "coagents-qa-text",
+  description: "CoAgents QA Text (UI) - Remote Dependencies",
+  dependencies: "Remote",
+  agentProject: qaTextAgentWithRemoteDeps
+});
+
+// Local Dependencies
+const qaTextAgentWithLocalDeps = createAgentProjectStack({
+  app,
+  project: "coagents-qa-text",
+  description: "CoAgents QA Text (Agent) - Local Dependencies",
+  dependencies: "Local"
+});
+
+const qaTextUIWithLocalDeps = createUIProjectStack({
+  app,
+  project: "coagents-qa-text",
+  description: "CoAgents QA Text (UI) - Local Dependencies",
+  dependencies: "Local",
+  agentProject: qaTextAgentWithLocalDeps
+});
+
+/*
+ * CoAgents QA Native Demo
+ */
+
+// Remote Dependencies
+const qaNativeAgentWithRemoteDeps = createAgentProjectStack({
+  app,
+  project: "coagents-qa-native",
+  description: "CoAgents QA Native (Agent) - Remote Dependencies",
+  dependencies: "Remote"
+});
+
+const qaNativeUIWithRemoteDeps = createUIProjectStack({
+  app,
+  project: "coagents-qa-native",
+  description: "CoAgents QA Native (UI) - Remote Dependencies",
+  dependencies: "Remote",
+  agentProject: qaNativeAgentWithRemoteDeps
+});
+
+// Local Dependencies
+const qaNativeAgentWithLocalDeps = createAgentProjectStack({
+  app,
+  project: "coagents-qa-native",
+  description: "CoAgents QA Native (Agent) - Local Dependencies",
+  dependencies: "Local"
+});
+
+const qaNativeUIWithLocalDeps = createUIProjectStack({
+  app,
+  project: "coagents-qa-native",
+  description: "CoAgents QA Native (UI) - Local Dependencies",
+  dependencies: "Local",
+  agentProject: qaNativeAgentWithLocalDeps
+});
+
+/**
+ * Next OpenAI Demo
+ */
+createNextOpenAIProjectStack({
+  app,
+  description: "Next OpenAI - Self Hosted",
+  variant: "self-hosted",
 });

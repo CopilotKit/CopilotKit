@@ -1,22 +1,13 @@
 # ui
 
-## 1.3.16-mme-improve-langsmith.1
+## 1.3.16-mme-azure-openai.0
 
 ### Patch Changes
 
-- Ensure the last message is sent to LangSmith
+- Add support for Azure OpenAI
 - Updated dependencies
-  - @copilotkit/runtime-client-gql@1.3.16-mme-improve-langsmith.1
-  - @copilotkit/shared@1.3.16-mme-improve-langsmith.1
-
-## 1.3.16-mme-improve-langsmith.0
-
-### Patch Changes
-
-- Improve LangSmith support
-- Updated dependencies
-  - @copilotkit/runtime-client-gql@1.3.16-mme-improve-langsmith.0
-  - @copilotkit/shared@1.3.16-mme-improve-langsmith.0
+  - @copilotkit/runtime-client-gql@1.3.16-mme-azure-openai.0
+  - @copilotkit/shared@1.3.16-mme-azure-openai.0
 
 ## 1.3.15
 
