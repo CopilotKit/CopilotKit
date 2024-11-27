@@ -2,6 +2,10 @@
 This is a demo of the CopilotKit SDK.
 """
 
+import os
+from dotenv import load_dotenv 
+load_dotenv()
+
 from fastapi import FastAPI
 import uvicorn
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
@@ -35,29 +39,31 @@ sdk = CopilotKitSDK(
         LangGraphAgent(
             name="joke_agent",
             description="Make a joke.",
-            agent=joke_graph,
+            graph=joke_graph,
         ),
         LangGraphAgent(
             name="email_agent",
             description="Write an email.",
-            agent=email_graph,
+            graph=email_graph,
         ),
         LangGraphAgent(
             name="pirate_agent",
             description="Speak like a pirate.",
-            agent=pirate_graph,
+            graph=pirate_graph,
         )
     ],
 )
 
 add_fastapi_endpoint(app, sdk, "/copilotkit")
 
+# add new route for health check
+@app.get("/health")
+def health():
+    """Health check."""
+    return {"status": "ok"}
+
 
 def main():
     """Run the uvicorn server."""
-    uvicorn.run(
-        "my_agent.demo:app",
-        host="127.0.0.1",
-        port=8000,
-        reload=True
-    )
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run("my_agent.demo:app", host="0.0.0.0", port=port)

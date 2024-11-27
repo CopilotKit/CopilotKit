@@ -1,6 +1,6 @@
 import { CreateCopilotRuntimeServerOptions } from "../shared";
 import { copilotRuntimeNodeHttpEndpoint } from "../node-http";
-import telemetry from "../../telemetry-client";
+import telemetry, { getRuntimeInstanceTelemetryInfo } from "../../telemetry-client";
 
 export function copilotRuntimeNestEndpoint(options: CreateCopilotRuntimeServerOptions) {
   telemetry.setGlobalProperties({
@@ -9,6 +9,9 @@ export function copilotRuntimeNestEndpoint(options: CreateCopilotRuntimeServerOp
     },
   });
 
-  telemetry.capture("oss.runtime.instance_created", {});
+  telemetry.capture(
+    "oss.runtime.instance_created",
+    getRuntimeInstanceTelemetryInfo(options.runtime),
+  );
   return copilotRuntimeNodeHttpEndpoint(options);
 }

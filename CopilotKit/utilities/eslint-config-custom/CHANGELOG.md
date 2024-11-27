@@ -1,5 +1,17 @@
 # eslint-config-custom
 
+## 1.3.15
+
+### Patch Changes
+
+- pass description for array and object action parameters in langchain adapter
+
+## 1.3.14
+
+### Patch Changes
+
+- Add data-test-id to some elements for testing
+
 ## 1.3.13
 
 ### Patch Changes

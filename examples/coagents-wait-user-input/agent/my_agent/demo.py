@@ -17,7 +17,7 @@ sdk = CopilotKitSDK(
         LangGraphAgent(
             name="weather_agent",
             description="This agent deals with everything weather related",
-            agent=graph,
+            graph=graph,
         )
     ],
 )

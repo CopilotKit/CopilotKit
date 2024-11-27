@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 .env
 .vercel
+.langgraph_api

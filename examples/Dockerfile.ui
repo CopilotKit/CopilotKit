@@ -1,0 +1,25 @@
+# syntax=docker/dockerfile:1-labs
+
+FROM node:21-slim AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+RUN pnpm i -g turbo
+
+# Production Stage 
+FROM base AS production
+ARG APP_DIR
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/lambda-adapter
+WORKDIR /app
+
+COPY ${APP_DIR}/package.json ${APP_DIR}/pnpm-lock.yaml ./
+RUN pnpm i --frozen-lockfile
+
+# Copy the built artifacts from the builder stage
+COPY ${APP_DIR}/.next/standalone ./
+COPY ${APP_DIR}/.next/static ./.next/static
+
+# Set the environment variables (if needed)
+ENV NODE_ENV=production
+EXPOSE 3000
+CMD ["node", "server.js"]

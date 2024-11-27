@@ -37,6 +37,7 @@ export function ResearchCanvas() {
 
   useCopilotAction({
     name: "DeleteResources",
+    description: 'Prompt the user for resource delete confirmation, and then perform resource deletion',
     disabled: true,
     parameters: [
       {
@@ -46,7 +47,7 @@ export function ResearchCanvas() {
     ],
     renderAndWait: ({ args, status, handler }) => {
       return (
-        <div className="">
+        <div className="" data-test-id="delete-resource-generative-ui-container">
           <div className="font-bold text-base mb-2">
             Delete these resources?
           </div>
@@ -65,6 +66,7 @@ export function ResearchCanvas() {
                 Cancel
               </button>
               <button
+                data-test-id="button-delete"
                 onClick={() => handler("YES")}
                 className="px-4 py-2 bg-[#6766FC] text-white rounded text-sm font-bold"
               >
@@ -128,7 +130,7 @@ export function ResearchCanvas() {
   };
 
   return (
-    <div className="container w-full h-full p-10 bg-[#F5F8FF]">
+    <div className="w-full h-full p-10 bg-[#F5F8FF]">
       <div className="space-y-8">
         <div>
           <h2 className="text-lg font-medium mb-3 text-primary">
@@ -183,6 +185,7 @@ export function ResearchCanvas() {
             Research Draft
           </h2>
           <Textarea
+            data-test-id="research-draft"
             placeholder="Write your research draft here"
             value={state.report || ""}
             onChange={(e) => setState({ ...state, report: e.target.value })}

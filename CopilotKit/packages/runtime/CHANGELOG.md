@@ -1,5 +1,21 @@
 # @copilotkit/runtime
 
+## 1.3.15
+
+### Patch Changes
+
+- pass description for array and object action parameters in langchain adapter
+- Updated dependencies
+  - @copilotkit/shared@1.3.15
+
+## 1.3.14
+
+### Patch Changes
+
+- Add data-test-id to some elements for testing
+- Updated dependencies
+  - @copilotkit/shared@1.3.14
+
 ## 1.3.13
 
 ### Patch Changes

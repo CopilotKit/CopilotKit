@@ -16,7 +16,7 @@ sdk = CopilotKitSDK(
         LangGraphAgent(
             name="translate_agent",
             description="Translate agent that translates text.",
-            agent=graph,
+            graph=graph,
             config=copilotkit_customize_config(
                 base_config={
                     "recursion_limit": 10,

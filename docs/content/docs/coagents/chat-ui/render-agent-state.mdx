@@ -120,11 +120,11 @@ type AgentState = {
       wind_direction: str = Field(description="The direction of the wind in abbreviated form")
       wind_speed: float = Field(description="The speed of the wind in km/h")
 
-class AgentState(MessagesState):
-final_response: WeatherResponse
-input: str
+  class AgentState(MessagesState):
+    final_response: WeatherResponse
+    input: str
 
-````
+```
 
 </Tab>
 
@@ -139,14 +139,14 @@ import { useCoagentStateRender } from "@copilotkit/react-core";
 
 useCoagentStateRender<AgentState>({ // [!code highlight:9]
 name: "basic_agent", // the name of the agent
-nodeName: "optionally_specifiy_a_specifc_node", // Optional! You can specify a specific node you want generative UI for. Omit this argument if you want to render the agent's state for any node.
+nodeName: "optionally_specify_a_specific_node", // Optional! You can specify a specific node you want generative UI for. Omit this argument if you want to render the agent's state for any node.
 render: ({ status, state, nodeName }) => {
   return (
     <DetailedWeatherInfo data={state.final_response} />
   );
 },
 });
-````
+```
 
 This way, you'll get type checking and auto-completion for `state` properties.
 
