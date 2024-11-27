@@ -18,9 +18,10 @@ export function Resources({
   customWidth,
 }: ResourcesProps) {
   return (
-    <div className="flex space-x-3 overflow-x-auto">
-      {resources.map((resource) => (
+    <div data-test-id="resources" className="flex space-x-3 overflow-x-auto">
+      {resources.map((resource, idx) => (
         <Card
+          data-test-id={`resource`}
           key={resource.url} // Use url as the key
           className={
             "bg-background border-0 shadow-none rounded-xl text-md font-extralight focus-visible:ring-0 flex-none" +
@@ -79,6 +80,7 @@ export function Resources({
               {removeResource && (
                 <div className="flex items-start absolute top-4 right-4">
                   <Button
+                    data-test-id="remove-resource"
                     variant="ghost"
                     size="icon"
                     onClick={(e) => {

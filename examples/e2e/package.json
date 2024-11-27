@@ -1,0 +1,25 @@
+{
+  "name": "playwright-test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "setup": "playwright install",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "show-report": "playwright show-report",
+    "codegen": "playwright codegen"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.48.2",
+    "@types/json2md": "^1.5.4",
+    "@types/node": "^22.8.4",
+    "dotenv": "^16.4.5",
+    "json2md": "^2.0.1"
+  }
+}

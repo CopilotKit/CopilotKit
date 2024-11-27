@@ -18,6 +18,7 @@
     "pydantic",
     "childrens",
     "partialjson",
-    "dotenv"
+    "dotenv",
+    "adispatch"
   ]
 }

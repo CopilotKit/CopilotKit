@@ -8,6 +8,7 @@ type ModelSelectorContextType = {
   setModel: (model: string) => void;
   hidden: boolean;
   setHidden: (hidden: boolean) => void;
+  lgcDeploymentUrl?: string | null;
 };
 
 const ModelSelectorContext = createContext<
@@ -32,11 +33,16 @@ export const ModelSelectorProvider = ({
     window.location.href = url.toString();
   };
 
+  const lgcDeploymentUrl = globalThis.window === undefined
+      ? null
+      : new URL(window.location.href).searchParams.get("lgcDeploymentUrl")
+
   return (
     <ModelSelectorContext.Provider
       value={{
         model,
         hidden,
+        lgcDeploymentUrl,
         setModel,
         setHidden,
       }}

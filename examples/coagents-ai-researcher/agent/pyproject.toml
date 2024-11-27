@@ -12,11 +12,12 @@ dependencies = [
   "langgraph",
   "langchain_core",
   "langchain_openai",
+  "langchain-google-genai",
   "langchain",
   "openai",
   "langchain-community",
   "tavily-python",
-  "copilotkit",
+  "copilotkit==0.1.28a3",
   "python-dotenv",
   "uvicorn",
 ]

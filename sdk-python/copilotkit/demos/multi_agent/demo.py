@@ -35,17 +35,17 @@ sdk = CopilotKitSDK(
         LangGraphAgent(
             name="joke_agent",
             description="Make a joke.",
-            agent=joke_graph,
+            graph=joke_graph,
         ),
         LangGraphAgent(
             name="email_agent",
             description="Write an email.",
-            agent=email_graph,
+            graph=email_graph,
         ),
         LangGraphAgent(
             name="pirate_agent",
             description="Speak like a pirate.",
-            agent=pirate_graph,
+            graph=pirate_graph,
         )
     ],
 )

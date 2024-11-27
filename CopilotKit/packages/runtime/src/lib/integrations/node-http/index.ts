@@ -1,6 +1,6 @@
 import { createYoga } from "graphql-yoga";
 import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
-import telemetry from "../../telemetry-client";
+import telemetry, { getRuntimeInstanceTelemetryInfo } from "../../telemetry-client";
 
 export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServerOptions) {
   const commonConfig = getCommonConfig(options);
@@ -17,7 +17,10 @@ export function copilotRuntimeNodeHttpEndpoint(options: CreateCopilotRuntimeServ
     });
   }
 
-  telemetry.capture("oss.runtime.instance_created", {});
+  telemetry.capture(
+    "oss.runtime.instance_created",
+    getRuntimeInstanceTelemetryInfo(options.runtime),
+  );
 
   const logger = commonConfig.logging;
   logger.debug("Creating Node HTTP endpoint");
