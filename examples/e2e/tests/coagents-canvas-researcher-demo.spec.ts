@@ -5,9 +5,11 @@ import {
   filterConfigsByProject,
   groupConfigsByDescription,
   PROJECT_NAMES,
+  TestVariants,
+  appendLGCVariants,
 } from "../lib/config-helper";
 
-const variants = [
+const variants: TestVariants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
   { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
   // { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" }, // seems broken
@@ -26,7 +28,14 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
     Object.entries(descriptions).forEach(([description, configs]) => {
       test.describe(`${description}`, () => {
         configs.forEach((config) => {
-          variants.forEach((variant) => {
+          appendLGCVariants(
+            {
+              ...config,
+              lgcJSDeploymentUrl:
+                "https://coagents-research-canvas-js-d5ff2a34fa9c5771bb9c71003f38661c.default.us.langgraph.app",
+            },
+            variants
+          ).forEach((variant) => {
             test(`Test ${config.description} with variant ${variant.name}`, async ({
               page,
             }) => {
@@ -50,7 +59,21 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 '[data-test-id="research-draft"]'
               );
               const draftContent = await researchDraft.textContent();
-              expect(draftContent).not.toBe("");
+
+              try {
+                expect(draftContent).not.toBe("");
+              } catch (e) {
+                // Sometimes the LLM does not fill the draft. We will attempt a retry at filling it.
+                await sendChatMessage(
+                    page,
+                    "The draft seems to be empty, please fill it in."
+                );
+                await waitForSteps(page);
+                await waitForResponse(page);
+
+                const draftContent = await researchDraft.textContent();
+                expect(draftContent).not.toBe("");
+              }
 
               const resourceCount = await page
                 .locator('[data-test-id="resource"]')

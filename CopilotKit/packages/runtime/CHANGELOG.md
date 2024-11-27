@@ -1,13 +1,5 @@
 # @copilotkit/runtime
 
-## 1.3.16-mme-azure-openai.0
-
-### Patch Changes
-
-- Add support for Azure OpenAI
-- Updated dependencies
-  - @copilotkit/shared@1.3.16-mme-azure-openai.0
-
 ## 1.3.15
 
 ### Patch Changes

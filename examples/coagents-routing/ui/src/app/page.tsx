@@ -15,10 +15,20 @@ import {
 } from "./lib/model-selector-provider";
 import { ModelSelector } from "./components/ModelSelector";
 
-export default function Home() {
+export default function ModelSelectorWrapper() {
   return (
-    <ModelSelectorProvider>
-      <CopilotKit runtimeUrl="/api/copilotkit">
+      <ModelSelectorProvider>
+        <Home />
+        <ModelSelector />
+      </ModelSelectorProvider>
+  );
+}
+
+function Home() {
+  const { lgcDeploymentUrl } = useModelSelectorContext();
+
+  return (
+      <CopilotKit runtimeUrl={`/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl ?? ''}`}>
         <div className="min-h-screen bg-gray-100 p-4">
           <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6">
             <Joke />
@@ -30,14 +40,12 @@ export default function Home() {
             <PirateMode />
           </div>
           <CopilotSidebar
-            defaultOpen={true}
-            clickOutsideToClose={false}
-            className="mt-4"
+              defaultOpen={true}
+              clickOutsideToClose={false}
+              className="mt-4"
           />
         </div>
       </CopilotKit>
-      <ModelSelector />
-    </ModelSelectorProvider>
   );
 }
 

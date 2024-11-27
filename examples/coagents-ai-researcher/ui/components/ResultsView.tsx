@@ -14,7 +14,7 @@ export function ResultsView() {
   const { researchQuery } = useResearchContext();
   const { model } = useModelSelectorContext();
   const { state: agentState } = useCoAgent<AgentState>({
-    name: "search_agent",
+    name: "ai_researcher",
     initialState: {
       model,
     },

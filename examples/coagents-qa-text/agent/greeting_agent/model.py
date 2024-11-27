@@ -2,7 +2,7 @@
 This module provides a function to get a model based on the configuration.
 """
 import os
-from my_agent.state import GreetAgentState
+from greeting_agent.state import GreetAgentState
 
 def get_model(state: GreetAgentState):
     """
