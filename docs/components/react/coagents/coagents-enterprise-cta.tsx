@@ -5,12 +5,12 @@ export function CoAgentsEnterpriseCTA() {
   return (
     <div className="mt-4 mb-4 ring-1 ring-indigo-200 selected bg-gradient-to-r from-indigo-100/80 to-purple-100 shadow-lg rounded-lg p-5 space-y-2 relative overflow-hidden">
       <p className="text-lg mt-0 font-medium">
-        Learn to build Agent-Native Applications / with LangGraph and CoAgents.
+        Learn to build Agent-Native Applications / with LangGraph and Agentic Copilots.
       </p>
       {/* <p className="text-sm text-neutral-600 z-1">
         We're excited to invite you to our Agent-Native Applications webinar on
         October 28th. We'll learn how to build Agent-Native Applications in a
-        single sitting, using LangGraph and CoAgents.
+        single sitting, using LangGraph and Agentic Copilots.
       </p> */}
       <p>
         <Link
