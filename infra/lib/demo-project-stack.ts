@@ -111,11 +111,11 @@ export class PreviewProjectStack extends cdk.Stack {
       memorySize: props.memorySize ?? 2048,
     });
 
-    const eventRule = new events.Rule(this, 'LambdaWarmUpSchedule', {
-      schedule: events.Schedule.rate(cdk.Duration.minutes(1)),
-    });
+    // const eventRule = new events.Rule(this, 'LambdaWarmUpSchedule', {
+    //   schedule: events.Schedule.rate(cdk.Duration.minutes(1)),
+    // });
 
-    eventRule.addTarget(new targets.LambdaFunction(fn));
+    // eventRule.addTarget(new targets.LambdaFunction(fn));
 
     // Add Function URL with streaming support
     const fnUrl = fn.addFunctionUrl({
