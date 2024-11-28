@@ -3,6 +3,7 @@ import {
   CopilotKit,
   useCoAgent,
   useCoAgentStateRender,
+  useCopilotChat,
 } from "@copilotkit/react-core";
 import {
   CopilotSidebar,
@@ -17,10 +18,10 @@ import { ModelSelector } from "./components/ModelSelector";
 
 export default function ModelSelectorWrapper() {
   return (
-      <ModelSelectorProvider>
-        <Home />
-        <ModelSelector />
-      </ModelSelectorProvider>
+    <ModelSelectorProvider>
+      <Home />
+      <ModelSelector />
+    </ModelSelectorProvider>
   );
 }
 
@@ -28,24 +29,45 @@ function Home() {
   const { lgcDeploymentUrl } = useModelSelectorContext();
 
   return (
-      <CopilotKit runtimeUrl={`/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl ?? ''}`}>
-        <div className="min-h-screen bg-gray-100 p-4">
-          <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6">
-            <Joke />
-          </div>
-          <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4">
-            <Email />
-          </div>
-          <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4">
-            <PirateMode />
-          </div>
-          <CopilotSidebar
-              defaultOpen={true}
-              clickOutsideToClose={false}
-              className="mt-4"
-          />
+    <CopilotKit
+      runtimeUrl={`/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl ?? ""}`}
+    >
+      <div className="min-h-screen bg-gray-100 p-4">
+        <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4">
+          <ResetButton />
         </div>
-      </CopilotKit>
+        <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4">
+          <Joke />
+        </div>
+        <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4">
+          <Email />
+        </div>
+        <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4">
+          <PirateMode />
+        </div>
+
+        <CopilotSidebar
+          defaultOpen={true}
+          clickOutsideToClose={false}
+          className="mt-4"
+        />
+      </div>
+    </CopilotKit>
+  );
+}
+
+function ResetButton() {
+  const { reset } = useCopilotChat();
+  return (
+    <button
+      className="px-4 py-2 border-2 border-gray-400 bg-gray-200 rounded-sm shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] hover:bg-gray-300"
+      style={{
+        fontFamily: "'MS Sans Serif', sans-serif",
+      }}
+      onClick={() => reset()}
+    >
+      Reset
+    </button>
   );
 }
 

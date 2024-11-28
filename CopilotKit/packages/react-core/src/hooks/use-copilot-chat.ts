@@ -215,9 +215,8 @@ export function useCopilotChat({
     latestStopFunc();
     setMessages([]);
     setThreadId(null);
+    setRunId(null);
     setCoagentStates({});
-    // TODO reset runId
-    // TODO reset suggestions
     let initialAgentSession: AgentSession | null = null;
     if (agentLock) {
       initialAgentSession = {

@@ -237,7 +237,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const [threadId, setThreadId] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
 
-  const chatAbortControllerRef = useRef<AbortController>(null);
+  const chatAbortControllerRef = useRef<AbortController | null>(null);
 
   return (
     <CopilotContext.Provider

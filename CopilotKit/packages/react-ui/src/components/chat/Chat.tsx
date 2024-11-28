@@ -314,7 +314,13 @@ export const useCopilotChatLogic = (
     return () => {
       clearTimeout(debounceTimerRef.current);
     };
-  }, [isLoading, context.chatSuggestionConfiguration]);
+  }, [
+    isLoading,
+    context.chatSuggestionConfiguration,
+    // hackish way to trigger suggestions reload on reset, but better than moving suggestions to the
+    // global context
+    visibleMessages.length == 0,
+  ]);
 
   const sendMessage = async (messageContent: string) => {
     abortSuggestions();
