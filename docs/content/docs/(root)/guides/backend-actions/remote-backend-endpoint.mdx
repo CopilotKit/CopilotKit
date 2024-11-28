@@ -196,16 +196,15 @@ Now that you've set up your FastAPI server with the backend actions, integrate i
 Update the `CopilotRuntime` config to include the `remoteEndpoints` property:
 
 ```tsx
-const runtime: CopilotRuntimeConfig = {
+const runtime = new CopilotRuntime({
     // ...existing configuration
     remoteEndpoints: [ // [!code highlight:5]
         {
             url: "http://localhost:8000/copilotkit_remote",
         },
     ],
-};
+});
 ```
-
 </Step>
 
 <Step>
