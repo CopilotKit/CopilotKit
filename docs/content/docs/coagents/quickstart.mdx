@@ -49,21 +49,39 @@ In order for CopilotKit to integrate with your LangGraph agent, it has to be dep
       </Step>
 
       <Step>
-        ## Deploy your LangGraph agent to LangGraph Platform
+        ## Deploy your LangGraph agent
 
-        For production, you can deploy to LangGraph Cloud by following the official [LangGraph Cloud deployment guide](https://langchain-ai.github.io/langgraph/cloud/deployment/cloud/).
+        <Tabs items={['LangGraph Studio', 'LangGraph Cloud']}>
 
-        For local deployment during development, you can [use LangGraph Studio](https://langchain-ai.github.io/langgraph/cloud/how-tos/test_local_deployment/)
+          <Tab value="LangGraph Studio">
+            For local deployment during development, you can [use LangGraph Studio](https://langchain-ai.github.io/langgraph/cloud/how-tos/test_local_deployment/).
+            <Callout type="info">
+              To ensure a successful deployment, follow these steps from the LangGraph Studio documentation:
+              1. Make sure your agent folder contains a `langgraph.json` file.
+              2. In the `langgraph.json` file, reference the path to a `.env` file.
+              3. In the `.env` file, include your `LANGSMITH_API_KEY`.
+            </Callout>
 
-        A successful deployment will yield an API URL (often referred to here as "deployment URL"). 
+            A successful deployment will yield an API URL (often referred to here as "deployment URL"). 
+            It will generally look like this: `http://localhost:63899`.
 
-        On LangGraph Cloud, it will look like this: `https://{project-identifiers}.langgraph.app`.
-        On LangGraph studio, it will generally look like this: `http://localhost:63899`
+            Come back with that URL and a LangSmith API key before proceeding.
 
-        Come back with that URL and a LangSmith API key before proceeding.
+            <img src="/images/langgraph-studio-local-url.png" alt="LangGraph Studio Local URL" className="my-4" />
+          </Tab>
 
-      <img src="/images/langgraph-studio-local-url.png" alt="LangGraph Studio Local URL" className="my-4" />
+          <Tab value="LangGraph Cloud">
+            For production, you can deploy to LangGraph Cloud by following the official [LangGraph Cloud deployment guide](https://langchain-ai.github.io/langgraph/cloud/deployment/cloud/).
+
+            A successful deployment will yield an API URL (often referred to here as "deployment URL"). 
+            It will look like this: `https://{project-identifiers}.langgraph.app`.
+
+            Come back with that URL and a LangSmith API key before proceeding.
+          </Tab>
+
+        </Tabs>
       </Step>
+
 
       <Step>
         ## Find your CopilotRuntime instance
@@ -80,17 +98,21 @@ In order for CopilotKit to integrate with your LangGraph agent, it has to be dep
         Once you've found your runtime instance, you can connect your app to the remote endpoint by modifying your CopilotRuntime configuration.
 
         ```tsx
-          const runtime: CopilotRuntimeConfig = {
+          const runtime = new CopilotRuntime({
             // ...existing configuration
             remoteEndpoints: [ 
               langGraphCloudEndpoint({
-                deploymentUrl: "your-api-url",
-                langsmithApiKey: process.env.LANGSMITH_API_KEY,
-                // List of all agents which are available under "graphs" list in your langgraph.json file.
-                agents: [{ name: 'my_agent', description: 'A helpful LLM agent' }]
+                deploymentUrl: "your-api-url", // make sure to replace with your real deployment url // [!code highlight]
+                langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Cloud deoployments
+                agents: [ // List any agents available under "graphs" list in your langgraph.json file; give each a description explaining when it should be called.
+                  {
+                    name: 'my_agent', // this name must match one of your graphs defined under the `langgraph.json` file  // [!code highlight]
+                    description: 'A helpful LLM agent that should be used whenever the user needs assistance with general queries or tasks.' // [!code highlight]
+                  }
+                ]
               }),
             ],
-          };
+          });
         ```
 
         <Callout>
