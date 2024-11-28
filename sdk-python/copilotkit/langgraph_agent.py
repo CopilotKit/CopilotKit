@@ -358,6 +358,7 @@ class LangGraphAgent(Agent):
                     running=True,
                     active=True
                 ) + "\n"
+                continue
 
 
             if emit_intermediate_state and emit_intermediate_state_until_end is None:
