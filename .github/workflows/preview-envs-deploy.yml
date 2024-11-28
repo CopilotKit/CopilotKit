@@ -1,26 +1,37 @@
-name: Preview Environments (Deploy)
+name: Preview Environments
 
 on:
   pull_request:
     branches:
       - main
 
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}-deploy
+  cancel-in-progress: false
+
 jobs:
-  preview_envs_deploy:
+  build_images:
     runs-on: ubuntu-latest
-    name: Deploy Preview Environments
-    permissions:
-      deployments: write
-      pull-requests: write
-      statuses: write
-      actions: write
+    name: Build Images
+    strategy:
+      matrix:
+        app:
+          - {
+              project: "coagents-research-canvas",
+              type: "agent",
+              deps: "local-deps",
+            }
+          - { project: "coagents-research-canvas", type: "ui" }
+          - { project: "coagents-routing", type: "agent", deps: "local-deps" }
+          - { project: "coagents-routing", type: "ui" }
+          - { project: "coagents-qa-text", type: "agent", deps: "local-deps" }
+          - { project: "coagents-qa-text", type: "ui" }
+          - { project: "coagents-qa-native", type: "agent", deps: "local-deps" }
+          - { project: "coagents-qa-native", type: "ui" }
+          - { project: "next-openai", type: "next-openai" }
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
+        uses: actions/checkout@v4
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -29,50 +40,167 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Configure AWS Profile
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
+          aws configure set region us-east-1
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Auth AWS CDK Public Registry
+      - name: AWS ECR Login
         run: |
-          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 058264219587.dkr.ecr.us-east-1.amazonaws.com
 
-      - uses: dopplerhq/secrets-fetch-action@v1.2.0
-        id: doppler
+      - name: (UI) Setup pnpm
+        if: matrix.app.type == 'ui' || matrix.app.type == 'next-openai'
+        uses: pnpm/action-setup@v4
         with:
-          doppler-token: ${{ secrets.DOPPLER_TOKEN }}
-          doppler-project: copilotkit-previews
-          doppler-config: prd
+          version: "9.5"
+
+      - name: (UI) Use Node.js 21
+        if: matrix.app.type == 'ui' || matrix.app.type == 'next-openai'
+        uses: actions/setup-node@v2
+        with:
+          node-version: 21.x
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
+
+      - name: (UI) Install app dependencies
+        if: matrix.app.type == 'ui'
+        working-directory: examples/${{ matrix.app.project }}/${{ matrix.app.type }}
+        run: pnpm install --frozen-lockfile
+
+      - name: (UI, Local Deps) Install monorepo
+        if: matrix.app.type == 'ui' || matrix.app.type == 'next-openai'
+        working-directory: ./CopilotKit
+        run: pnpm install --frozen-lockfile
+
+      - name: (UI, Local Deps) Build @copilotkit packages
+        if: matrix.app.type == 'ui' || matrix.app.type == 'next-openai'
+        working-directory: ./CopilotKit
+        run: pnpx turbo run build
+
+      - name: (UI, Local Deps) Link @copilotkit packages
+        if: matrix.app.type == 'ui'
+        working-directory: ./examples/${{ matrix.app.project }}/${{ matrix.app.type }}
+        run: |
+          for package in $(ls -d ../../../CopilotKit/packages/*); do
+            pnpm link $package
+          done
+
+      - name: (UI) Build app
+        if: matrix.app.type == 'ui'
+        working-directory: examples/${{ matrix.app.project }}/${{ matrix.app.type }}
+        run: pnpm run build
+        env:
+          OPENAI_API_KEY: placeholder
+
+      - name: (next-openai) Build app
+        if: matrix.app.type == 'next-openai'
+        working-directory: CopilotKit/examples/next-openai
+        run: pnpm run example-build
+        env:
+          OPENAI_API_KEY: placeholder
+
+      - name: (UI) Build Image
+        if: matrix.app.type == 'ui'
+        run: |
+          docker buildx build \
+            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-ui-${{ github.run_id }} \
+            --build-arg APP_DIR=examples/${{ matrix.app.project }}/${{ matrix.app.type }} \
+            -f ./examples/Dockerfile.${{ matrix.app.type }} \
+            --platform=linux/amd64 \
+            --provenance=false \
+            --push \
+            .
+        env:
+          DOCKER_BUILDKIT: 1
+
+      - name: (next-openai) Build Image
+        if: matrix.app.type == 'next-openai'
+        run: |
+          docker buildx build \
+            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:next-openai-${{ github.run_id }} \
+            -f ./CopilotKit/examples/next-openai/Dockerfile \
+            --platform=linux/amd64 \
+            --provenance=false \
+            --push \
+            .
+        env:
+          DOCKER_BUILDKIT: 1
+
+      - name: (Agent) Build Image
+        if: matrix.app.type == 'agent'
+        run: |
+          docker buildx build \
+            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-agent-${{ matrix.app.deps }}-${{ github.run_id }} \
+            --build-arg APP_DIR=examples/${{ matrix.app.project }}/${{ matrix.app.type }} \
+            -f ./examples/Dockerfile.${{ matrix.app.type }} \
+            --build-arg WITH_LOCAL_DEPS=${{ matrix.app.deps == 'local-deps' }} \
+            --platform=linux/amd64 \
+            --provenance=false \
+            --push \
+            .
+        env:
+          DOCKER_BUILDKIT: 1
+
+  cdk_deploy:
+    runs-on: ubuntu-latest
+    name: Deploy Preview Environments
+    needs: build_images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "9.5"
+
+      - name: Use Node.js 21
+        uses: actions/setup-node@v2
+        with:
+          node-version: 21.x
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
 
       - name: Infra install dependencies
         working-directory: infra
         run: pnpm i
 
-      - name: Comment pre-deployment
-        uses: thollander/actions-comment-pull-request@v3
+      - name: Install AWS CDK
+        run: npm install -g aws-cdk
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          comment-tag: preview-status-update
-          message: |
-            Deploying preview environments for this pull request...
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Configure AWS Profile
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
+          aws configure set region us-east-1
 
       - name: cdk deploy
-        uses: youyo/aws-cdk-github-actions@v2
-        with:
-          working_dir: './infra'
-          cdk_subcommand: 'deploy'
-          cdk_args: '--require-approval never --outputs-file=cdk_outputs.json --concurrency 5'
-          actions_comment: false
+        working-directory: ./infra
+        run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 10
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_PR_NUMBER: ${{ github.event.number }}
-          OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
+          UNIQUE_ENV_ID: "PR${{ github.event.number }}"
+          GITHUB_ACTIONS_RUN_ID: "${{ github.run_id }}"
+          GITHUB_PR_NUMBER: "${{ github.event.number }}"
 
       - name: Generate table from outputs
         id: generate-table
         working-directory: infra
         run: |
           node generate-table
+        env:
+          GITHUB_SHA: ${{ github.sha }}
 
       - name: Assign label
         uses: actions/github-script@v4
@@ -86,10 +214,28 @@ jobs:
               labels: ['preview']
             })
 
+      - name: Delete a comment
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: preview-status-update
+          mode: delete
+
       - name: Comment post-deployment
         uses: thollander/actions-comment-pull-request@v3
         with:
           comment-tag: preview-status-update
           file-path: ./infra/preview-comment.md
 
-      
+      - name: Export Variable - E2E URLs
+        id: export-e2e-urls
+        working-directory: infra
+        run: |
+          echo "e2e-urls=$(node get-e2e-tests-urls.js | base64 -w 0)" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger E2E Tests
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: "e2e.yml"
+          ref: "${{ github.event.pull_request.head.ref }}"
+          inputs: '{"ref": "${{ github.event.pull_request.head.ref }}", "sha": "${{ github.event.pull_request.head.sha }}", "urls": "${{ steps.export-e2e-urls.outputs.e2e-urls }}", "pr_number": "${{ github.event.pull_request.number }}"}'

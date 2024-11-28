@@ -1,34 +1,100 @@
 #!/usr/bin/env node
 import "source-map-support/register";
 import * as cdk from "aws-cdk-lib";
-import { CoAgentsDemoStack } from "../lib/coagents-demo-stack";
-import * as path from "path";
-import { requireEnv } from "../lib/utils";
+import { createAgentProjectStack, createNextOpenAIProjectStack, createUIProjectStack } from "../lib/utils";
 
 // app
 const app = new cdk.App();
-const pullRequestNumber = requireEnv("GITHUB_PR_NUMBER");
 
-new CoAgentsDemoStack(app, `ResearchCanvasDemoStackPr${pullRequestNumber}`, {
-  pullRequestNumber: `${pullRequestNumber}`,
-  projectName: "CoAgents Research Canvas",
-  demoName: "coagents-research-canvas",
+/*
+ * Research Canvas
+ */
+
+const coAgentsResearchCanvasAgentWithLocalDeps = createAgentProjectStack({
+  app,
+  project: "coagents-research-canvas",
+  description: "CoAgents Research Canvas (Agent) - Local Depenencies",
+  dependencies: "Local"
 });
 
-new CoAgentsDemoStack(app, `PerplexityDemoStackPr${pullRequestNumber}`, {
-  pullRequestNumber: `${pullRequestNumber}`,
-  projectName: "CoAgents Perplexity Clone",
-  demoName: "coagents-ai-researcher",
+const coAgentsResearchCanvasUIWithLocalDeps = createUIProjectStack({
+  app,
+  project: "coagents-research-canvas",
+  description: "CoAgents Research Canvas (UI) - Local Depenencies",
+  dependencies: "Local",
+  selfHostedAgentProject: coAgentsResearchCanvasAgentWithLocalDeps.selfHostedAgent,
+  lgcAgentProjectPython: coAgentsResearchCanvasAgentWithLocalDeps.lgcAgentPython,
+  environmentVariables: {}
 });
 
-new CoAgentsDemoStack(app, `CoAgentsQAText${pullRequestNumber}`, {
-  pullRequestNumber: `${pullRequestNumber}`,
-  projectName: "CoAgents Q&A Text",
-  demoName: "coagents-qa-text",
+/*
+ * CoAgents Routing Demo
+ */
+
+const coAgentsRoutingAgentWithLocalDeps = createAgentProjectStack({
+  app,
+  project: "coagents-routing",
+  description: "CoAgents Routing (Agent) - Local Dependencies",
+  dependencies: "Local"
 });
 
-new CoAgentsDemoStack(app, `CoAgentsQANative${pullRequestNumber}`, {
-  pullRequestNumber: `${pullRequestNumber}`,
-  projectName: "CoAgents Q&A Native",
-  demoName: "coagents-qa-native",
+const coAgentsRoutingUIWithLocalDeps = createUIProjectStack({
+  app,
+  project: "coagents-routing",
+  description: "CoAgents Routing (UI) - Local Dependencies",
+  dependencies: "Local",
+  selfHostedAgentProject: coAgentsRoutingAgentWithLocalDeps.selfHostedAgent,
+  lgcAgentProjectPython: coAgentsRoutingAgentWithLocalDeps.lgcAgentPython,
+  environmentVariables: {}
+});
+
+/*
+ * CoAgents QA Text Demo
+ */
+
+const qaTextAgentWithLocalDeps = createAgentProjectStack({
+  app,
+  project: "coagents-qa-text",
+  description: "CoAgents QA Text (Agent) - Local Dependencies",
+  dependencies: "Local"
+});
+
+const qaTextUIWithLocalDeps = createUIProjectStack({
+  app,
+  project: "coagents-qa-text",
+  description: "CoAgents QA Text (UI) - Local Dependencies",
+  dependencies: "Local",
+  selfHostedAgentProject: qaTextAgentWithLocalDeps.selfHostedAgent,
+  lgcAgentProjectPython: qaTextAgentWithLocalDeps.lgcAgentPython,
+  environmentVariables: {}
+});
+
+/*
+ * CoAgents QA Native Demo
+ */
+
+const qaNativeAgentWithLocalDeps = createAgentProjectStack({
+  app,
+  project: "coagents-qa-native",
+  description: "CoAgents QA Native (Agent) - Local Dependencies",
+  dependencies: "Local"
+});
+
+const qaNativeUIWithLocalDeps = createUIProjectStack({
+  app,
+  project: "coagents-qa-native",
+  description: "CoAgents QA Native (UI) - Local Dependencies",
+  dependencies: "Local",
+  selfHostedAgentProject: qaNativeAgentWithLocalDeps.selfHostedAgent,
+  lgcAgentProjectPython: qaNativeAgentWithLocalDeps.lgcAgentPython,
+  environmentVariables: {}
+});
+
+/**
+ * Next OpenAI Demo
+ */
+createNextOpenAIProjectStack({
+  app,
+  description: "Next OpenAI - Self Hosted",
+  variant: "self-hosted",
 });

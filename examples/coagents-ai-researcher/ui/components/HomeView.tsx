@@ -22,7 +22,7 @@ export function HomeView() {
   const {
     run: runResearchAgent,
   } = useCoAgent<AgentState>({
-    name: "search_agent",
+    name: "ai_researcher",
     initialState: {
       model,
     },

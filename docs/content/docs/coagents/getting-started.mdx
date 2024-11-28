@@ -1,6 +1,7 @@
 ---
 title: "Getting Started"
-description: "Get started with CoAgents in just a few minutes."
+description: "Get started with Agentic Copilots in just a few minutes."
+icon: "lucide/Play"
 ---
 
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
@@ -11,10 +12,10 @@ import FindCopilotRuntimeSnippet from "@/snippets/find-your-copilot-runtime.mdx"
 
 ## Before you start
 
-At the moment CoAgents integrates with LangGraph-powered agents using **LangGraph-Python**. <br/>
+At the moment agentic copilots integrate with LangGraph-powered agents using **LangGraph-Python**. <br/>
 (Support for LangGraph.js and LangGraph Cloud is coming very soon! [Contact us]() for early access).
 
-**For orientation, here's how CoAgents are wired:**
+**For orientation, here's how agentic copilots are wired:**
 
 <CoAgentsDiagram />
 
@@ -25,8 +26,7 @@ At the moment CoAgents integrates with LangGraph-powered agents using **LangGrap
 <Callout type="info">
   This guide assumes you’re familiar with using LangGraph to build agent
   workflows. If you need a quick introduction, check out [this brief example
-  from the LangGraph
-  docs](https://langchain-ai.github.io/langgraph/).
+  from the LangGraph docs](https://langchain-ai.github.io/langgraph/).
 </Callout>
 
 ## Getting started
@@ -76,7 +76,7 @@ sdk = CopilotKitSDK(
       description="Agent that answers questions about the weather",
       graph=the_langraph_graph,
       # copilotkit_config={ # if you use Google Gemini, uncomment  this code (and import `copilotkit_messages_to_langchain`, see above)
-      #  "convert_messages": copilotkit_messages_to_langchain(use_function_call=True) 
+      #  "convert_messages": copilotkit_messages_to_langchain(use_function_call=True)
       # }
     )
   ],
@@ -100,7 +100,6 @@ add_fastapi_endpoint(app, sdk, "/copilotkit_remote")
 ### Are you using Google Gemini models?
 
 Until there is full parity between Gemini and other models in the LangChain ecosystem, you'll need to uncomment the `copilotkit_config` section shown above when using Gemini models in your LangGraph agent.
-
 
 </Step>
 
@@ -133,14 +132,12 @@ Lock the Copilot to the `basic_agent` setup earlier. This means every single int
 Give it a try by writing text in the chatbot UI and pressing send.
 You are now chatting with a LangGraph agent!
 
-
 <Frame className="my-6">
   <img
     src="/images/coagents/CoAgents-ChatHello.gif"
-    alt="CoAgents Chat Hello demonstration"
+    alt="Agentic copilots Chat Hello demonstration"
     className="w-2/3 mx-auto"
   />
 </Frame>
-
 
 <CoAgentsEnterpriseCTA />

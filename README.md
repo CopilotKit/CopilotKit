@@ -159,11 +159,11 @@ We value all contributions, whether it's through code, documentation, creating d
 
 Here are a few useful resources to help you get started:
 
-- For code contributions, [check out the contribution guide](https://docs.copilotkit.ai/contributing/code-contributions?ref=github_readme).
+- For code contributions, [CONTRIBUTING.md](./CONTRIBUTING.md).
 - For documentation-related contributions, [check out the documentation contributions guide](https://docs.copilotkit.ai/contributing/docs-contributions?ref=github_readme).
 - Want to contribute but not sure how? [Join our Discord](https://discord.gg/6dffbvGU3D) and we'll help you out!
 
-> 💡 **NOTE:** All contributions must be submitted via a pull request and be reviewed by our team. This is to ensure that all contributions are of high quality and align with the project's goals.
+> 💡 **NOTE:** All contributions must be submitted via a pull request and be reviewed by our team. This ensures all contributions are of high quality and align with the project's goals.
 
 ## Get in touch
 

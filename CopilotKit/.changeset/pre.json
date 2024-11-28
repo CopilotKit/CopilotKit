@@ -1,25 +1,4 @@
 {
   "mode": "pre",
-  "tag": "mme-reset-chat",
-  "initialVersions": {
-    "next-openai": "1.3.16-mme-reset-chat.2",
-    "next-pages-router": "1.3.16-mme-reset-chat.2",
-    "node-express": "1.3.16-mme-reset-chat.2",
-    "node-http": "1.3.16-mme-reset-chat.2",
-    "@copilotkit/react-core": "1.3.16-mme-reset-chat.2",
-    "@copilotkit/react-textarea": "1.3.16-mme-reset-chat.2",
-    "@copilotkit/react-ui": "1.3.16-mme-reset-chat.2",
-    "@copilotkit/runtime": "1.3.16-mme-reset-chat.2",
-    "@copilotkit/runtime-client-gql": "1.3.16-mme-reset-chat.2",
-    "@copilotkit/shared": "1.3.16-mme-reset-chat.2",
-    "eslint-config-custom": "1.3.16-mme-reset-chat.2",
-    "tailwind-config": "1.3.16-mme-reset-chat.2",
-    "tsconfig": "1.3.16-mme-reset-chat.2"
-  },
-  "changesets": [
-    "fluffy-apricots-move",
-    "gentle-schools-raise",
-    "little-falcons-melt",
-    "mighty-seals-jam"
-  ]
+  "initialVersions": {}
 }

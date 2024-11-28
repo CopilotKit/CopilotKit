@@ -17,7 +17,7 @@ export function Frame({
         {React.Children.map(children, (child) =>
           React.isValidElement(child)
             ? React.cloneElement(child as React.ReactElement<any>, {
-                className: `border border-neutral-200 rounded-md shadow-lg bg-white ${
+                className: `border border-foreground-muted rounded-md shadow-lg ${
                   child.props.className || ""
                 }`,
               })
