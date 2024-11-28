@@ -33,7 +33,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               ...config,
               lgcJSDeploymentUrl:
               config.lgcJSDeploymentUrl ??
-                "https://coagents-research-canvas-js-d5ff2a34fa9c5771bb9c71003f38661c.default.us.langgraph.app",
+                "https://coagents-research-canvas-st-08476feebc3a58e5925116da0d3ad635.default.us.langgraph.app",
             },
             variants
           ).forEach((variant) => {

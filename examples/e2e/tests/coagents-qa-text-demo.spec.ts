@@ -31,7 +31,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               ...config,
               lgcJSDeploymentUrl:
                   config.lgcJSDeploymentUrl ??
-                "https://coagents-qa-text-js-lgc-b-ef9a12d13f5e5f24917eb6bec8994af3.default.us.langgraph.app",
+                "https://coagents-qa-text-stg-js-4d74616e480750d0a5d10d0c3c5d44a4.default.us.langgraph.app",
             },
             variants
           ).forEach((variant) => {
