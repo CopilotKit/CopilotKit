@@ -1,6 +1,6 @@
 import { CopilotCloudConfig, FunctionCallHandler } from "@copilotkit/shared";
 import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
-import React from "react";
+import React, { useRef } from "react";
 import { TreeNodeId } from "../hooks/use-tree";
 import { DocumentPointer } from "../types";
 import { CopilotChatSuggestionConfiguration } from "../types/chat-suggestion-configuration";
@@ -141,6 +141,10 @@ export interface CopilotContextParams {
 
   runId: string | null;
   setRunId: React.Dispatch<React.SetStateAction<string | null>>;
+
+  // The chat abort controller can be used to stop generation globally,
+  // i.e. when using `stop()` from `useChat`
+  chatAbortControllerRef: React.MutableRefObject<AbortController | null>;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -199,6 +203,8 @@ const emptyCopilotContext: CopilotContextParams = {
 
   runId: null,
   setRunId: () => {},
+
+  chatAbortControllerRef: useRef<AbortController>(null),
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

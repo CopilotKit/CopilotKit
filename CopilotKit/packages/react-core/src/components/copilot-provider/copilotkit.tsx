@@ -237,6 +237,8 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const [threadId, setThreadId] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
 
+  const chatAbortControllerRef = useRef<AbortController>(null);
+
   return (
     <CopilotContext.Provider
       value={{
@@ -272,6 +274,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         setThreadId,
         runId,
         setRunId,
+        chatAbortControllerRef,
       }}
     >
       <CopilotMessages>{children}</CopilotMessages>

@@ -117,6 +117,11 @@ export type UseChatOptions = {
    * set the current run ID
    */
   setRunId: (runId: string | null) => void;
+
+  /**
+   * The global chat abort controller.
+   */
+  chatAbortControllerRef: React.MutableRefObject<AbortController | null>;
 };
 
 export type UseChatHelpers = {
@@ -158,9 +163,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     setThreadId,
     runId,
     setRunId,
+    chatAbortControllerRef,
   } = options;
-
-  const abortControllerRef = useRef<AbortController>();
 
   const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
   // We need to keep a ref of coagent states because of renderAndWait - making sure
@@ -201,7 +205,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       }),
     ];
     const abortController = new AbortController();
-    abortControllerRef.current = abortController;
+    chatAbortControllerRef.current = abortController;
 
     setMessages([...previousMessages, ...newMessages]);
 
@@ -257,7 +261,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           })),
         },
         properties: copilotConfig.properties,
-        signal: abortControllerRef.current?.signal,
+        signal: chatAbortControllerRef.current?.signal,
       }),
     );
 
@@ -471,7 +475,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   };
 
   const stop = (): void => {
-    abortControllerRef.current?.abort();
+    chatAbortControllerRef.current?.abort();
   };
 
   return {

@@ -44,7 +44,6 @@ import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { SystemMessageFunction } from "../types";
 import { useChat } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
-import { MessageStatusCode } from "@copilotkit/runtime-client-gql";
 import { CoAgentStateRenderHandlerArguments } from "@copilotkit/shared";
 import { useCopilotMessagesContext } from "../context";
 
@@ -105,6 +104,7 @@ export function useCopilotChat({
     setThreadId,
     runId,
     setRunId,
+    chatAbortControllerRef,
   } = useCopilotContext();
   const { messages, setMessages } = useCopilotMessagesContext();
 
@@ -167,6 +167,7 @@ export function useCopilotChat({
     setThreadId,
     runId,
     setRunId,
+    chatAbortControllerRef,
   });
 
   // this is a workaround born out of a bug that Athena incessantly ran into.
@@ -215,6 +216,8 @@ export function useCopilotChat({
     setMessages([]);
     setThreadId(null);
     setCoagentStates({});
+    // TODO reset runId
+    // TODO reset suggestions
     let initialAgentSession: AgentSession | null = null;
     if (agentLock) {
       initialAgentSession = {
