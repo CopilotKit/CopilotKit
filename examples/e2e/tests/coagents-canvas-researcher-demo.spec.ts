@@ -32,6 +32,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
             {
               ...config,
               lgcJSDeploymentUrl:
+              config.lgcJSDeploymentUrl ??
                 "https://coagents-research-canvas-js-d5ff2a34fa9c5771bb9c71003f38661c.default.us.langgraph.app",
             },
             variants
