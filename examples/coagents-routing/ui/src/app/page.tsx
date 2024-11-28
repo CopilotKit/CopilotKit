@@ -4,6 +4,8 @@ import {
   useCoAgent,
   useCoAgentStateRender,
   useCopilotChat,
+  useCopilotContext,
+  useCopilotMessagesContext,
 } from "@copilotkit/react-core";
 import {
   CopilotSidebar,
@@ -15,6 +17,7 @@ import {
   useModelSelectorContext,
 } from "./lib/model-selector-provider";
 import { ModelSelector } from "./components/ModelSelector";
+import { MessageRole } from "@copilotkit/runtime-client-gql";
 
 export default function ModelSelectorWrapper() {
   return (
@@ -33,8 +36,11 @@ function Home() {
       runtimeUrl={`/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl ?? ""}`}
     >
       <div className="min-h-screen bg-gray-100 p-4">
-        <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4">
+        <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4 flex justify-center">
           <ResetButton />
+        </div>
+        <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4">
+          <CurrentAgentSession />
         </div>
         <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4">
           <Joke />
@@ -60,14 +66,50 @@ function ResetButton() {
   const { reset } = useCopilotChat();
   return (
     <button
-      className="px-4 py-2 border-2 border-gray-400 bg-gray-200 rounded-sm shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] hover:bg-gray-300"
-      style={{
-        fontFamily: "'MS Sans Serif', sans-serif",
-      }}
+      className="px-6 py-3 border-2 border-gray-300 bg-white text-gray-800 rounded-lg shadow-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition duration-300 ease-in-out"
       onClick={() => reset()}
     >
-      Reset
+      Reset Everything
     </button>
+  );
+}
+
+function CurrentAgentSession() {
+  const { agentSession } = useCopilotContext();
+  const { stop, setState } = useCoAgent({
+    name: agentSession?.agentName ?? "pirate_agent",
+  });
+  const { stopGeneration } = useCopilotChat();
+  const { messages, setMessages } = useCopilotMessagesContext();
+  const { model } = useModelSelectorContext();
+
+  function stopAgent() {
+    stopGeneration();
+    stop();
+    setState({ model });
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i];
+      if (message.isTextMessage() && message.role !== MessageRole.User) {
+        messages.pop();
+      } else {
+        break;
+      }
+    }
+    setMessages(messages);
+  }
+
+  return (
+    <div style={{ fontSize: "0.875rem", textAlign: "center" }}>
+      Current agent session: {agentSession?.agentName ?? "None"}
+      {agentSession?.agentName && (
+        <button
+          onClick={stopAgent}
+          className="ml-4 px-6 py-3 border-2 border-gray-300 bg-white text-gray-800 rounded-lg shadow-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition duration-300 ease-in-out"
+        >
+          Stop current agent
+        </button>
+      )}
+    </div>
   );
 }
 

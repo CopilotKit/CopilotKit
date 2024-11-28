@@ -266,7 +266,11 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     } else if (coagentStates[name] === undefined) {
       setState(options.initialState === undefined ? {} : options.initialState);
     }
-  }, [isExternalStateManagement(options) ? JSON.stringify(options.state) : undefined]);
+  }, [
+    isExternalStateManagement(options) ? JSON.stringify(options.state) : undefined,
+    // reset initial state on reset
+    coagentStates[name] === undefined,
+  ]);
 
   // Return the state and setState function
   return {
