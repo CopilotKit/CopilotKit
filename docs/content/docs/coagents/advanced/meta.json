@@ -3,9 +3,9 @@
   "pages": [
     "router-mode-agent-lock",
     "intermediate-state-streaming",
-    "exit-agent",
-    "state-streaming",
     "manually-emitting-messages",
+    "state-streaming",
+    "exit-agent",
     "agent-steering",
     "copilotkit-state",
     "using-google-gemini"
