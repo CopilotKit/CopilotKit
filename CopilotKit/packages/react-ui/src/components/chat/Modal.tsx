@@ -63,6 +63,7 @@ export const CopilotModal = ({
   hitEscapeToClose = true,
   onSetOpen,
   onSubmitMessage,
+  onStopGeneration,
   shortcut = "/",
   icons,
   labels,
@@ -99,6 +100,7 @@ export const CopilotModal = ({
           <CopilotChat
             instructions={instructions}
             onSubmitMessage={onSubmitMessage}
+            onStopGeneration={onStopGeneration}
             makeSystemMessage={makeSystemMessage}
             showResponseButton={showResponseButton}
             onInProgress={onInProgress}

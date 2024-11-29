@@ -7,4 +7,4 @@ export { useCoAgentStateRender } from "./use-coagent-state-render";
 export { useMakeCopilotDocumentReadable } from "./use-make-copilot-document-readable";
 export { type UseChatHelpers } from "./use-chat";
 export { useCopilotReadable } from "./use-copilot-readable";
-export { useCoAgent } from "./use-coagent";
+export { useCoAgent, type HintFunction, runAgent, startAgent, stopAgent } from "./use-coagent";

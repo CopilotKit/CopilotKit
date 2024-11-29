@@ -39,9 +39,7 @@ function Home() {
         <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4 flex justify-center">
           <ResetButton />
         </div>
-        <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4">
-          <CurrentAgentSession />
-        </div>
+
         <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4">
           <Joke />
         </div>
@@ -56,6 +54,29 @@ function Home() {
           defaultOpen={true}
           clickOutsideToClose={false}
           className="mt-4"
+          onStopGeneration={({
+            currentAgentName,
+            stopCurrentAgent,
+            stopGeneration,
+            messages,
+            setMessages,
+          }) => {
+            stopGeneration();
+            console.log("currentAgentName", currentAgentName);
+            if (currentAgentName) {
+              stopCurrentAgent();
+
+              if (messages.length > 0) {
+                const lastMessage = messages[messages.length - 1];
+                if (
+                  lastMessage.isTextMessage() &&
+                  lastMessage.role === MessageRole.Assistant
+                ) {
+                  setMessages(messages.slice(0, -1));
+                }
+              }
+            }
+          }}
         />
       </div>
     </CopilotKit>
@@ -71,45 +92,6 @@ function ResetButton() {
     >
       Reset Everything
     </button>
-  );
-}
-
-function CurrentAgentSession() {
-  const { agentSession } = useCopilotContext();
-  const { stop, setState } = useCoAgent({
-    name: agentSession?.agentName ?? "pirate_agent",
-  });
-  const { stopGeneration } = useCopilotChat();
-  const { messages, setMessages } = useCopilotMessagesContext();
-  const { model } = useModelSelectorContext();
-
-  function stopAgent() {
-    stopGeneration();
-    stop();
-    setState({ model });
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const message = messages[i];
-      if (message.isTextMessage() && message.role !== MessageRole.User) {
-        messages.pop();
-      } else {
-        break;
-      }
-    }
-    setMessages(messages);
-  }
-
-  return (
-    <div style={{ fontSize: "0.875rem", textAlign: "center" }}>
-      Current agent session: {agentSession?.agentName ?? "None"}
-      {agentSession?.agentName && (
-        <button
-          onClick={stopAgent}
-          className="ml-4 px-6 py-3 border-2 border-gray-300 bg-white text-gray-800 rounded-lg shadow-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition duration-300 ease-in-out"
-        >
-          Stop current agent
-        </button>
-      )}
-    </div>
   );
 }
 
