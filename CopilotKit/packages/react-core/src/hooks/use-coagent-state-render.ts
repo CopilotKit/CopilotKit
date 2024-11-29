@@ -4,8 +4,8 @@
  *   on that see the CoAgents <span className="text-blue-500">[Agentic Generative UI documentation](/coagents/chat-ui/render-agent-state)</span>.
  * </Callout>
  *
- * The useCoAgentStateRender hook allows you to render UI components or text based on a CoAgent's state.
- * This is particularly useful for showing intermediate state or progress during CoAgent operations.
+ * The useCoAgentStateRender hook allows you to render UI components or text based on a Agentic Copilot's state.
+ * This is particularly useful for showing intermediate state or progress during Agentic Copilot operations.
  *
  * ## Usage
  *
@@ -53,7 +53,7 @@ import { CoAgentStateRender } from "../types/coagent-action";
 
 /**
  * This hook is used to render agent state with custom UI components or text. This is particularly
- * useful for showing intermediate state or progress during CoAgent operations.
+ * useful for showing intermediate state or progress during Agentic Copilot operations.
  * To get started using rendering intermediate state through this hook, checkout the documentation.
  *
  * https://docs.copilotkit.ai/coagents/chat-ui/render-agent-state.

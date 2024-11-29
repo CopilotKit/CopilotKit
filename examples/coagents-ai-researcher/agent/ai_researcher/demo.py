@@ -14,7 +14,7 @@ app = FastAPI()
 sdk = CopilotKitSDK(
     agents=[
         LangGraphAgent(
-            name="search_agent",
+            name="ai_researcher",
             description="Search agent.",
             graph=graph,
         )

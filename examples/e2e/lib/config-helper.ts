@@ -16,11 +16,20 @@ export interface ConfigItem {
   url: string;
   description: string;
   projectName: ProjectName;
+  lgcPythonDeploymentUrl?: string;
+  lgcJSDeploymentUrl?: string;
 }
 
 export interface ConfigMap {
   [key: string]: ConfigItem;
 }
+
+export interface TestVariant {
+  name: string;
+  queryParams: string;
+}
+
+export type TestVariants = TestVariant[];
 
 /**
  * Returns raw config map
@@ -65,4 +74,35 @@ export const filterConfigsByProject = (
     }
     return acc;
   }, {} as ConfigMap);
+};
+
+
+export const appendLGCVariants = (config: ConfigItem, variants: any[]) => {
+  let appendedVariants = [...variants];
+
+  if (config.lgcPythonDeploymentUrl) {
+    const newVariants = variants.map((variant) => {
+      return {
+        ...variant,
+        name: `${variant.name} (LGC Python)`,
+        queryParams: `${variant.queryParams}&lgcDeploymentUrl=${config.lgcPythonDeploymentUrl}`,
+      };
+    });
+
+    appendedVariants = [...appendedVariants, ...newVariants];
+  }
+
+  if (config.lgcJSDeploymentUrl) {
+    const newVariants = variants.map((variant) => {
+      return {
+        ...variant,
+        name: `${variant.name} (LGC JS \`main\`)`,
+        queryParams: `${variant.queryParams}&lgcDeploymentUrl=${config.lgcJSDeploymentUrl}`,
+      };
+    });
+
+    appendedVariants = [...appendedVariants, ...newVariants];
+  }
+
+  return appendedVariants;
 };

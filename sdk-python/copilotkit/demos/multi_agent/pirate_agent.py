@@ -17,7 +17,7 @@ async def pirate_node(state: PirateAgentState, config: RunnableConfig): # pylint
     Speaks like a pirate
     """
 
-    await copilotkit_emit_message("Arr!!!", config)
+    await copilotkit_emit_message(config, "Arr!!!")
 
     # system_message = "You speak like a pirate. Your name is Captain Copilot"
 

@@ -12,19 +12,22 @@
  * ```
  */
 
-import { Action, actionParametersToJsonSchema, Parameter, randomId } from "@copilotkit/shared";
-import { RemoteChain, RemoteChainParameters, CopilotServiceAdapter } from "../../service-adapters";
+import { Action, actionParametersToJsonSchema, Parameter } from "@copilotkit/shared";
+import { CopilotServiceAdapter, RemoteChain, RemoteChainParameters } from "../../service-adapters";
 import { MessageInput } from "../../graphql/inputs/message.input";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { RuntimeEventSource } from "../../service-adapters/events";
 import { convertGqlInputToMessages } from "../../service-adapters/conversion";
-import { AgentStateMessage, Message } from "../../graphql/types/converted";
+import { Message } from "../../graphql/types/converted";
 import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-parameters.input";
 import {
-  setupRemoteActions,
-  RemoteActionDefinition,
-  LangGraphAgentAction,
   isLangGraphAgentAction,
+  LangGraphAgentAction,
+  EndpointType,
+  setupRemoteActions,
+  EndpointDefinition,
+  CopilotKitEndpoint,
+  LangGraphCloudEndpoint,
 } from "./remote-actions";
 import { GraphQLContext } from "../integrations/shared";
 import { AgentSessionInput } from "../../graphql/inputs/agent-session.input";
@@ -122,9 +125,14 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
   actions?: ActionsConfiguration<T>;
 
   /*
+   * Deprecated: Use `remoteEndpoints`.
+   */
+  remoteActions?: CopilotKitEndpoint[];
+
+  /*
    * A list of remote actions that can be executed.
    */
-  remoteActions?: RemoteActionDefinition[];
+  remoteEndpoints?: EndpointDefinition[];
 
   /*
    * An array of LangServer URLs.
@@ -134,7 +142,7 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   public actions: ActionsConfiguration<T>;
-  private remoteActionDefinitions: RemoteActionDefinition[];
+  public remoteEndpointDefinitions: EndpointDefinition[];
   private langserve: Promise<Action<any>>[] = [];
   private onBeforeRequest?: OnBeforeRequestHandler;
   private onAfterRequest?: OnAfterRequestHandler;
@@ -147,7 +155,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       this.langserve.push(remoteChain.toAction());
     }
 
-    this.remoteActionDefinitions = params?.remoteActions || [];
+    this.remoteEndpointDefinitions = params?.remoteEndpoints ?? params?.remoteActions ?? [];
 
     this.onBeforeRequest = params?.middleware?.onBeforeRequest;
     this.onAfterRequest = params?.middleware?.onAfterRequest;
@@ -251,7 +259,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     request: CopilotRuntimeRequest,
   ): Promise<CopilotRuntimeResponse> {
     const { messages: rawMessages, outputMessagesPromise, graphqlContext, agentSession } = request;
-    const { threadId = randomId(), agentName, nodeName } = agentSession;
+    const { threadId, agentName, nodeName } = agentSession;
     const serverSideActions = await this.getServerSideActions(request);
 
     const messages = convertGqlInputToMessages(rawMessages);
@@ -338,8 +346,17 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         console.error("Error loading langserve chain:", error);
       }
     }
+
+    const remoteEndpointDefinitions = this.remoteEndpointDefinitions.map(
+      (endpoint) =>
+        ({
+          ...endpoint,
+          type: resolveEndpointType(endpoint),
+        }) as EndpointDefinition,
+    );
+
     const remoteActions = await setupRemoteActions({
-      remoteActionDefinitions: this.remoteActionDefinitions,
+      remoteEndpointDefinitions,
       graphqlContext,
       messages: inputMessages,
       agentStates,
@@ -365,4 +382,33 @@ export function flattenToolCallsNoDuplicates(toolsByPriority: ActionInput[]): Ac
     }
   }
   return allTools;
+}
+
+// The two functions below are "factory functions", meant to create the action objects that adhere to the expected interfaces
+export function copilotKitEndpoint(config: Omit<CopilotKitEndpoint, "type">): CopilotKitEndpoint {
+  return {
+    ...config,
+    type: EndpointType.CopilotKit,
+  };
+}
+
+export function langGraphCloudEndpoint(
+  config: Omit<LangGraphCloudEndpoint, "type">,
+): LangGraphCloudEndpoint {
+  return {
+    ...config,
+    type: EndpointType.LangGraphCloud,
+  };
+}
+
+export function resolveEndpointType(endpoint: EndpointDefinition) {
+  if (!endpoint.type) {
+    if ("langsmithApiKey" in endpoint && "deploymentUrl" in endpoint && "agents" in endpoint) {
+      return EndpointType.LangGraphCloud;
+    } else {
+      return EndpointType.CopilotKit;
+    }
+  }
+
+  return endpoint.type;
 }

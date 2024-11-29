@@ -18,6 +18,14 @@ function generateTable() {
         description: value.ProjectDescription,
         projectName: value.ProjectName
       };
+
+      if (value.LgcPythonDeploymentUrl) {
+        e2eUrls[value.EndToEndProjectKey].lgcPythonDeploymentUrl = value.LgcPythonDeploymentUrl;
+      }
+
+      if (value.LgcJSDeploymentUrl) {
+        e2eUrls[value.EndToEndProjectKey].lgcJSDeploymentUrl = value.LgcJSDeploymentUrl;
+      }
     }
   }, {});
 
