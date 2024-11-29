@@ -12,7 +12,7 @@
  * ```
  */
 
-import { Action, actionParametersToJsonSchema, Parameter } from "@copilotkit/shared";
+import { Action, actionParametersToJsonSchema, Parameter, randomId } from "@copilotkit/shared";
 import { CopilotServiceAdapter, RemoteChain, RemoteChainParameters } from "../../service-adapters";
 import { MessageInput } from "../../graphql/inputs/message.input";
 import { ActionInput } from "../../graphql/inputs/action.input";
