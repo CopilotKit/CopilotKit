@@ -151,12 +151,12 @@ export class RemoteLangGraphEventSource {
               });
               events.push({
                 type: RuntimeEventTypes.TextMessageContent,
-                messageId: eventWithState.event.message_id,
+                messageId: eventWithState.event.data.message_id,
                 content: eventWithState.event.data.message,
               });
               events.push({
                 type: RuntimeEventTypes.TextMessageEnd,
-                messageId: eventWithState.event.message_id,
+                messageId: eventWithState.event.data.message_id,
               });
             }
             //
@@ -172,12 +172,12 @@ export class RemoteLangGraphEventSource {
               });
               events.push({
                 type: RuntimeEventTypes.ActionExecutionArgs,
-                actionExecutionId: eventWithState.event.id,
+                actionExecutionId: eventWithState.event.data.id,
                 args: JSON.stringify(eventWithState.event.data.args),
               });
               events.push({
                 type: RuntimeEventTypes.ActionExecutionEnd,
-                actionExecutionId: eventWithState.event.id,
+                actionExecutionId: eventWithState.event.data.id,
               });
             }
             break;
