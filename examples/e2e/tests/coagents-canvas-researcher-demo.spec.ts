@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { waitForSteps, waitForResponse, sendChatMessage } from "../lib/helpers";
+import { waitForStepsAndEnsureStreaming, waitForResponse, sendChatMessage } from "../lib/helpers";
 import {
   getConfigs,
   filterConfigsByProject,
@@ -52,7 +52,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 "Conduct research based on my research question, please. DO NOT FORGET TO PRODUCE THE DRAFT AT THE END!"
               );
 
-              await waitForSteps(page);
+              await waitForStepsAndEnsureStreaming(page);
               await waitForResponse(page);
 
               // Ensure research draft
@@ -69,7 +69,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                     page,
                     "The draft seems to be empty, please fill it in."
                 );
-                await waitForSteps(page);
+                await waitForStepsAndEnsureStreaming(page);
                 await waitForResponse(page);
 
                 const draftContent = await researchDraft.textContent();
