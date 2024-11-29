@@ -5,7 +5,6 @@ const file2 = 'CopilotKit/packages/runtime/src/lib/runtime/remote-lg-cloud-actio
 
 // Get the list of modified files in the PR
 const changedFiles = danger.git.modified_files;
-
 const lgPyExecutorName = 'LangGraph python executor (langgraph_agent.py)'
 const lgcExecutor = 'LangGraph Cloud executor (remote-lg-cloud-action.ts)'
 
