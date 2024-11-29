@@ -62,7 +62,6 @@ function Home() {
             setMessages,
           }) => {
             stopGeneration();
-            console.log("currentAgentName", currentAgentName);
             if (currentAgentName) {
               stopCurrentAgent();
 

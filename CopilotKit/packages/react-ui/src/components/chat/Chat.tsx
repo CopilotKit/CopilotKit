@@ -105,6 +105,11 @@ export interface CopilotChatProps {
   onStopGeneration?: OnStopGeneration;
 
   /**
+   * A custom reload messages function.
+   */
+  onReloadMessages?: OnReloadMessages;
+
+  /**
    * Icons can be used to set custom icons for the chat window.
    */
   icons?: CopilotChatIcons;
@@ -216,7 +221,11 @@ interface OnStopGenerationArguments {
   setCurrentAgentState: (state: any) => void;
 }
 
+export type OnReloadMessagesArguments = OnStopGenerationArguments;
+
 export type OnStopGeneration = (args: OnStopGenerationArguments) => void;
+
+export type OnReloadMessages = (args: OnReloadMessagesArguments) => void;
 
 export function CopilotChat({
   instructions,
@@ -225,6 +234,7 @@ export function CopilotChat({
   showResponseButton = true,
   onInProgress,
   onStopGeneration,
+  onReloadMessages,
   Messages = DefaultMessages,
   RenderTextMessage = DefaultRenderTextMessage,
   RenderActionExecutionMessage = DefaultRenderActionExecutionMessage,
@@ -249,7 +259,13 @@ export function CopilotChat({
     sendMessage,
     stopGeneration,
     reloadMessages,
-  } = useCopilotChatLogic(makeSystemMessage, onInProgress, onSubmitMessage, onStopGeneration);
+  } = useCopilotChatLogic(
+    makeSystemMessage,
+    onInProgress,
+    onSubmitMessage,
+    onStopGeneration,
+    onReloadMessages,
+  );
 
   const chatContext = React.useContext(ChatContext);
   const isVisible = chatContext ? chatContext.open : true;
@@ -323,11 +339,12 @@ export const useCopilotChatLogic = (
   onInProgress?: (isLoading: boolean) => void,
   onSubmitMessage?: (messageContent: string) => Promise<void> | void,
   onStopGeneration?: OnStopGeneration,
+  onReloadMessages?: OnReloadMessages,
 ) => {
   const {
     visibleMessages,
     appendMessage,
-    reloadMessages,
+    reloadMessages: defaultReloadMessages,
     stopGeneration: defaultStopGeneration,
     isLoading,
   } = useCopilotChat({
@@ -403,58 +420,82 @@ export const useCopilotChatLogic = (
     return message;
   };
 
+  const messages = visibleMessages;
+  const { setMessages } = messagesContext;
+  const currentAgentName = generalContext.agentSession?.agentName;
+  const restartCurrentAgent = async (hint?: HintFunction) => {
+    if (generalContext.agentSession) {
+      generalContext.setAgentSession({
+        ...generalContext.agentSession,
+        nodeName: undefined,
+        threadId: undefined,
+      });
+      generalContext.setCoagentStates((prevAgentStates) => {
+        return {
+          ...prevAgentStates,
+          [generalContext.agentSession!.agentName]: {
+            ...prevAgentStates[generalContext.agentSession!.agentName],
+            threadId: undefined,
+            nodeName: undefined,
+            runId: undefined,
+          },
+        };
+      });
+    }
+  };
+  const runCurrentAgent = async (hint?: HintFunction) => {
+    if (generalContext.agentSession) {
+      await runAgent(generalContext.agentSession.agentName, context, appendMessage, hint);
+    }
+  };
+  const stopCurrentAgent = () => {
+    if (generalContext.agentSession) {
+      stopAgent(generalContext.agentSession.agentName, context);
+    }
+  };
+  const setCurrentAgentState = (state: any) => {
+    if (generalContext.agentSession) {
+      generalContext.setCoagentStates((prevAgentStates) => {
+        return {
+          ...prevAgentStates,
+          [generalContext.agentSession!.agentName]: {
+            state,
+          },
+        } as any;
+      });
+    }
+  };
+
   function stopGeneration() {
     if (onStopGeneration) {
       onStopGeneration({
-        messages: visibleMessages,
-        setMessages: messagesContext.setMessages,
+        messages,
+        setMessages,
         stopGeneration: defaultStopGeneration,
-        currentAgentName: generalContext.agentSession?.agentName,
-        restartCurrentAgent: async (hint?: HintFunction) => {
-          if (generalContext.agentSession) {
-            generalContext.setAgentSession({
-              ...generalContext.agentSession,
-              nodeName: undefined,
-              threadId: undefined,
-            });
-            generalContext.setCoagentStates((prevAgentStates) => {
-              return {
-                ...prevAgentStates,
-                [generalContext.agentSession!.agentName]: {
-                  ...prevAgentStates[generalContext.agentSession!.agentName],
-                  threadId: undefined,
-                  nodeName: undefined,
-                  runId: undefined,
-                },
-              };
-            });
-          }
-        },
-        runCurrentAgent: async (hint) => {
-          if (generalContext.agentSession) {
-            await runAgent(generalContext.agentSession.agentName, context, appendMessage, hint);
-          }
-        },
-        stopCurrentAgent: () => {
-          if (generalContext.agentSession) {
-            stopAgent(generalContext.agentSession.agentName, context);
-          }
-        },
-        setCurrentAgentState: (state: any) => {
-          if (generalContext.agentSession) {
-            generalContext.setCoagentStates((prevAgentStates) => {
-              return {
-                ...prevAgentStates,
-                [generalContext.agentSession!.agentName]: {
-                  state,
-                },
-              } as any;
-            });
-          }
-        },
+        currentAgentName,
+        restartCurrentAgent,
+        stopCurrentAgent,
+        runCurrentAgent,
+        setCurrentAgentState,
       });
     } else {
       defaultStopGeneration();
+    }
+  }
+  function reloadMessages() {
+    if (onReloadMessages) {
+      onReloadMessages({
+        messages,
+        setMessages,
+        stopGeneration: defaultStopGeneration,
+        currentAgentName,
+        restartCurrentAgent,
+        stopCurrentAgent,
+        runCurrentAgent,
+        setCurrentAgentState,
+      });
+    } else {
+      defaultReloadMessages();
     }
   }
 

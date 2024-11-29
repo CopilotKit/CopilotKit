@@ -64,6 +64,7 @@ export const CopilotModal = ({
   onSetOpen,
   onSubmitMessage,
   onStopGeneration,
+  onReloadMessages,
   shortcut = "/",
   icons,
   labels,
@@ -101,6 +102,7 @@ export const CopilotModal = ({
             instructions={instructions}
             onSubmitMessage={onSubmitMessage}
             onStopGeneration={onStopGeneration}
+            onReloadMessages={onReloadMessages}
             makeSystemMessage={makeSystemMessage}
             showResponseButton={showResponseButton}
             onInProgress={onInProgress}
