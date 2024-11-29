@@ -13,15 +13,11 @@ import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-cop
 
 ## Before you start
 
-Agentic copilots integrate with LangGraph-powered agents which are either self hosted or deployed to LangGraph Platform. Self-hosting
-is currently only offered for Python agents through our FastAPI integration. However, we support both Python and JavaScript agents when
-deployed to LangGraph Platform.
+Agentic copilots integrate with LangGraph-powered agents which are either deployed to the LangGraph Platform or self-hosted with a FastAPI endpoing.
 
-**For orientation, here's how agentic copilots are wired:**
+The LangGraph Platform deployment is recommended and supports both LangGraph.js and LangGraph python.
+Raw self-hosting is currently only offered via CopilotKit's FastAPI-powered remote-endpoint.
 
-<CoAgentsDiagram />
-
-In this tutorial, we'll hook up the 2 middle components: **CopilotKit Runtime** and a **Remote Endpoint**
 
 **This guide assumes you’re familiar with using LangGraph to build agent workflows.** If you need a quick introduction, 
 check out [this brief example from the LangGraph docs](https://langchain-ai.github.io/langgraph/).
@@ -30,9 +26,6 @@ check out [this brief example from the LangGraph docs](https://langchain-ai.gith
 
 In order for CopilotKit to integrate with your LangGraph agent, it has to be deployed either by yourself or on LangGraph Platform.
 
-<Callout type="info">
-  Self-hosting your LangGraph written in JavaScript is not currently supported.
-</Callout>
 
 <TailoredContent>
   <TailoredContentOption
@@ -45,15 +38,21 @@ In order for CopilotKit to integrate with your LangGraph agent, it has to be dep
         First, take a minute to **[go through the CopilotKit quickstart](/quickstart), and integrate CopilotKit into your React app.**
         This should only take a minute.
 
-        **If you have already deployed your LangGraph agent, skip to step 4.**
       </Step>
 
       <Step>
         ## Deploy your LangGraph agent
 
-        <Tabs items={['LangGraph Studio', 'LangGraph Cloud']}>
+        <Callout type="info">
+          **If you have already deployed your LangGraph agent, skip to step 4.**
+        </Callout>
 
-          <Tab value="LangGraph Studio">
+
+
+
+        <Tabs items={['LangGraph Studio (local development)', 'LangGraph Cloud']}>
+
+          <Tab value="LangGraph Studio (local development)">
             For local deployment during development, you can [use LangGraph Studio](https://langchain-ai.github.io/langgraph/cloud/how-tos/test_local_deployment/).
             <Callout type="info">
               To ensure a successful deployment, follow these steps from the LangGraph Studio documentation:
@@ -147,11 +146,14 @@ In order for CopilotKit to integrate with your LangGraph agent, it has to be dep
     </Steps>
   </TailoredContentOption>
 
-    <TailoredContentOption 
+  <TailoredContentOption 
     title="Self-hosted (FastAPI/Python)"
     description="I want to write my LangGraph agent in Python and self-host it with a FastAPI endpoint."
     icon={<FaPython />}
   >
+    **For orientation, here's how agentic copilots are wired:**
+    <CoAgentsDiagram />
+
     <Steps>
       <Step>
         First, take a minute to **[go through the CopilotKit quickstart](/quickstart), and integrate CopilotKit into your React app.**
