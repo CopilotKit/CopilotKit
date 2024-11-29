@@ -1,4 +1,4 @@
-import { Action } from "@copilotkit/shared";
+import { Action, randomId } from "@copilotkit/shared";
 import {
   of,
   concat,
@@ -196,6 +196,17 @@ export class RuntimeEventSource {
     this.callback = callback;
   }
 
+  sendErrorMessageToChat() {
+    const errorMessage = "❌ An error occurred. Please try again.";
+    if (!this.callback) {
+      this.stream(async (eventStream$) => {
+        eventStream$.sendTextMessage(randomId(), errorMessage);
+      });
+    } else {
+      this.eventStream$.sendTextMessage(randomId(), errorMessage);
+    }
+  }
+
   processRuntimeEvents({
     serverSideActions,
     guardrailsResult$,
@@ -207,6 +218,7 @@ export class RuntimeEventSource {
   }) {
     this.callback(this.eventStream$).catch((error) => {
       console.error("Error in event source callback", error);
+      this.sendErrorMessageToChat();
     });
     return this.eventStream$.pipe(
       // mark tools for server side execution

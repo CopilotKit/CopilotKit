@@ -8,18 +8,15 @@ import * as logs from "aws-cdk-lib/aws-logs"; // Add this import
 import * as events from "aws-cdk-lib/aws-events";
 import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as ecr from "aws-cdk-lib/aws-ecr";
+import { requireEnv } from "./utils";
 
-interface ProjectStackProps extends cdk.StackProps {
+export interface ProjectStackProps extends cdk.StackProps {
   /**
    * Path to the directory of the demo to deploy, relative to the root of the repository.
    */
   projectName: string;
+  projectDescription: string;
   demoDir: string;
-  uniqueEnvironmentId: string;
-  /**
-   * Path to the workdir, relative to the root of the repository. By default, this will be the `demoDir`.
-   */
-  overrideDockerWorkdir?: string;
   /**
    * Path to the Dockerfile to use, relative to the root of the repository. By default, this will be `${demoDir}/Dockerfile`.
    */
@@ -30,19 +27,25 @@ interface ProjectStackProps extends cdk.StackProps {
   environmentVariablesFromSecrets?: string[];
   buildSecrets?: string[];
   buildArgs?: Record<string, string>;
-  port: number | string;
+  port: string;
   timeout?: number;
   memorySize?: number;
   includeInPRComment?: boolean;
   outputEnvVariable?: string;
-  ecrImageTag: string;
+  overrideBuildProps?: Partial<cdk.aws_ecr_assets.DockerImageAssetProps>;
+  imageTag: string;
+  outputs?: Record<string, string>;
+  entrypoint?: string[];
+  cmd?: string[];
 }
 
 export class PreviewProjectStack extends cdk.Stack {
   fnUrl: string;
 
   constructor(scope: Construct, id: string, props: ProjectStackProps) {
-    const processedId = `${id}${props.uniqueEnvironmentId}`;
+    const uniqueEnvironmentId = requireEnv("UNIQUE_ENV_ID");
+    const processedId = `${id}${uniqueEnvironmentId}`;
+
     super(scope, processedId, props);
 
     const secrets = secretsmanager.Secret.fromSecretNameV2(
@@ -87,35 +90,7 @@ export class PreviewProjectStack extends cdk.Stack {
       Object.assign(buildArgs, props.buildArgs);
     }
 
-    const dockerWorkdir = props.overrideDockerWorkdir ?
-    path.resolve(__dirname, "../../", props.overrideDockerWorkdir) :
-      path.resolve(__dirname, "../../", props.demoDir)
-
-    // const fn = new lambda.Function(this, `Function`, {
-    //   logGroup: logGroup,
-    //   runtime: lambda.Runtime.FROM_IMAGE,
-    //   architecture: lambda.Architecture.X86_64,
-    //   handler: lambda.Handler.FROM_IMAGE,
-    //   environment: {
-    //     ...environmentVariables,
-    //     PORT: props.port.toString(),
-    //     AWS_LWA_INVOKE_MODE: "RESPONSE_STREAM",
-    //   },
-    //   code: lambda.Code.fromAssetImage(dockerWorkdir, {
-    //     platform: ecr_assets.Platform.LINUX_AMD64,
-    //     buildSecrets,
-    //     buildArgs,
-    //     file: props.overrideDockerfile ? props.overrideDockerfile : "Dockerfile",
-    //   }),
-    //   timeout: cdk.Duration.seconds(props.timeout ?? 300),
-    //   memorySize: props.memorySize ?? 1024,
-    // });
-
-    const ecrRepo = ecr.Repository.fromRepositoryName(
-      this,
-      "ExamplesRepo",
-      "coagents"
-    );
+    const ecrRepository = ecr.Repository.fromRepositoryName(this, "ECRRepo", "coagents");
 
     const fn = new lambda.Function(this, `Function`, {
       logGroup: logGroup,
@@ -127,19 +102,20 @@ export class PreviewProjectStack extends cdk.Stack {
         PORT: props.port.toString(),
         AWS_LWA_INVOKE_MODE: "RESPONSE_STREAM",
       },
-      code: lambda.Code.fromEcrImage(ecrRepo, {
-        tagOrDigest: props.ecrImageTag
+      code: lambda.Code.fromEcrImage(ecrRepository, {
+        tagOrDigest: props.imageTag,
+        entrypoint: props.entrypoint,
+        cmd: props.cmd,
       }),
       timeout: cdk.Duration.seconds(props.timeout ?? 300),
-      memorySize: props.memorySize ?? 1024,
+      memorySize: props.memorySize ?? 2048,
     });
 
+    // const eventRule = new events.Rule(this, 'LambdaWarmUpSchedule', {
+    //   schedule: events.Schedule.rate(cdk.Duration.minutes(1)),
+    // });
 
-    const eventRule = new events.Rule(this, 'LambdaWarmUpSchedule', {
-      schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
-    });
-
-    eventRule.addTarget(new targets.LambdaFunction(fn));
+    // eventRule.addTarget(new targets.LambdaFunction(fn));
 
     // Add Function URL with streaming support
     const fnUrl = fn.addFunctionUrl({
@@ -176,18 +152,24 @@ export class PreviewProjectStack extends cdk.Stack {
       value: props.projectName,
     });
 
-    new cdk.CfnOutput(this, "UniqueEnvironmentId", {
-      value: `${props.uniqueEnvironmentId}`,
+    new cdk.CfnOutput(this, "ProjectDescription", {
+      value: props.projectDescription,
     });
 
-    if (props.outputEnvVariable) {
-      new cdk.CfnOutput(this, "OutputEnvVariable", {
-        value: props.outputEnvVariable,
-      });
+    new cdk.CfnOutput(this, "UniqueEnvironmentId", {
+      value: `${uniqueEnvironmentId}`,
+    });
+
+    if (props.outputs) {
+      for (const [key, value] of Object.entries(props.outputs)) {
+        new cdk.CfnOutput(this, key, {
+          value: value,
+        });
+      }
     }
 
     // Add tag for PR number to all resources
-    cdk.Tags.of(this).add("env-id", props.uniqueEnvironmentId);
+    cdk.Tags.of(this).add("env-id", uniqueEnvironmentId);
     cdk.Tags.of(this).add("preview-env", "true");
   }
 }

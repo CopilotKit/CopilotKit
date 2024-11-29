@@ -37,6 +37,7 @@ export function ResearchCanvas() {
 
   useCopilotAction({
     name: "DeleteResources",
+    description: 'Prompt the user for resource delete confirmation, and then perform resource deletion',
     disabled: true,
     parameters: [
       {
@@ -129,7 +130,7 @@ export function ResearchCanvas() {
   };
 
   return (
-    <div className="container w-full h-full p-10 bg-[#F5F8FF]">
+    <div className="w-full h-full p-10 bg-[#F5F8FF]">
       <div className="space-y-8">
         <div>
           <h2 className="text-lg font-medium mb-3 text-primary">

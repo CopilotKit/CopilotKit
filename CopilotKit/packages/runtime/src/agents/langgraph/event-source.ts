@@ -1,5 +1,5 @@
 import { ReplaySubject, scan, mergeMap, catchError } from "rxjs";
-import { LangGraphEvent, LangGraphEventTypes } from "./events";
+import { CustomEventNames, LangGraphEvent, LangGraphEventTypes } from "./events";
 import { RuntimeEvent, RuntimeEventTypes } from "../../service-adapters/events";
 import { randomId } from "@copilotkit/shared";
 
@@ -15,63 +15,7 @@ interface LangGraphEventWithState {
 }
 
 export class RemoteLangGraphEventSource {
-  private eventStream$ = new ReplaySubject<LangGraphEvent>();
-
-  async streamResponse(response: Response) {
-    const reader = response.body!.getReader();
-    const decoder = new TextDecoder();
-    let buffer = [];
-    const eventStream$ = this.eventStream$;
-
-    function flushBuffer() {
-      const currentBuffer = buffer.join("");
-      if (currentBuffer.trim().length === 0) {
-        return;
-      }
-      const parts = currentBuffer.split("\n");
-      if (parts.length === 0) {
-        return;
-      }
-
-      const lastPartIsComplete = currentBuffer.endsWith("\n");
-
-      // truncate buffer
-      buffer = [];
-
-      if (!lastPartIsComplete) {
-        // put back the last part
-        buffer.push(parts.pop());
-      }
-
-      parts
-        .map((part) => part.trim())
-        .filter((part) => part != "")
-        .forEach((part) => {
-          eventStream$.next(JSON.parse(part));
-        });
-    }
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-
-        if (!done) {
-          buffer.push(decoder.decode(value, { stream: true }));
-        }
-
-        flushBuffer();
-
-        if (done) {
-          break;
-        }
-      }
-    } catch (error) {
-      console.error("Error in stream", error);
-      eventStream$.error(error);
-      return;
-    }
-    eventStream$.complete();
-  }
+  public eventStream$ = new ReplaySubject<LangGraphEvent>();
 
   private shouldEmitToolCall(
     shouldEmitToolCalls: string | string[] | boolean,
@@ -93,7 +37,7 @@ export class RemoteLangGraphEventSource {
       scan(
         (acc, event) => {
           if (event.event === LangGraphEventTypes.OnChatModelStream) {
-            // @ts-ignore
+            // @ts-expect-error -- LangGraph Cloud implementation stores data outside of kwargs
             const content = event.data?.chunk?.kwargs?.content ?? event.data?.chunk?.content;
 
             if (typeof content === "string") {
@@ -104,20 +48,28 @@ export class RemoteLangGraphEventSource {
               acc.content = null;
             }
 
-            if (event.data?.chunk?.kwargs?.tool_call_chunks) {
+            const toolCallChunks =
+              // @ts-expect-error -- LangGraph Cloud implementation stores data outside of kwargs
+              event.data?.chunk?.kwargs?.tool_call_chunks ?? event.data?.chunk?.tool_call_chunks;
+
+            const toolCallMessageId =
+              event.data?.chunk?.kwargs?.id ??
+              (event.data?.chunk?.id as unknown as string | undefined);
+
+            if (toolCallChunks && toolCallChunks.length > 0) {
               acc.prevToolCallMessageId = acc.toolCallMessageId;
-              acc.toolCallMessageId = event.data.chunk.kwargs?.id;
-              if (event.data.chunk.kwargs.tool_call_chunks[0]?.name) {
-                acc.toolCallName = event.data.chunk.kwargs.tool_call_chunks[0].name;
+              acc.toolCallMessageId = toolCallMessageId;
+              if (toolCallChunks[0]?.name) {
+                acc.toolCallName = toolCallChunks[0].name;
               }
-              if (event.data.chunk.kwargs.tool_call_chunks[0]?.id) {
-                acc.toolCallId = event.data.chunk.kwargs.tool_call_chunks[0].id;
+              if (toolCallChunks[0]?.id) {
+                acc.toolCallId = toolCallChunks[0].id;
               }
               acc.prevMessageId = acc.messageId;
-              acc.messageId = event.data?.chunk?.kwargs?.id;
+              acc.messageId = toolCallMessageId;
             } else if (acc.content && acc.content != "") {
               acc.prevMessageId = acc.messageId;
-              acc.messageId = event.data?.chunk?.kwargs?.id;
+              acc.messageId = toolCallMessageId;
             } else {
               acc.prevToolCallMessageId = acc.toolCallMessageId;
               acc.prevMessageId = acc.messageId;
@@ -185,36 +137,49 @@ export class RemoteLangGraphEventSource {
         }
 
         switch (eventWithState.event!.event) {
-          case LangGraphEventTypes.OnCopilotKitEmitMessage:
-            events.push({
-              type: RuntimeEventTypes.TextMessageStart,
-              messageId: eventWithState.event.message_id,
-            });
-            events.push({
-              type: RuntimeEventTypes.TextMessageContent,
-              messageId: eventWithState.event.message_id,
-              content: eventWithState.event.message,
-            });
-            events.push({
-              type: RuntimeEventTypes.TextMessageEnd,
-              messageId: eventWithState.event.message_id,
-            });
-            break;
-          case LangGraphEventTypes.OnCopilotKitEmitToolCall:
-            events.push({
-              type: RuntimeEventTypes.ActionExecutionStart,
-              actionExecutionId: eventWithState.event.id,
-              actionName: eventWithState.event.name,
-            });
-            events.push({
-              type: RuntimeEventTypes.ActionExecutionArgs,
-              actionExecutionId: eventWithState.event.id,
-              args: JSON.stringify(eventWithState.event.args),
-            });
-            events.push({
-              type: RuntimeEventTypes.ActionExecutionEnd,
-              actionExecutionId: eventWithState.event.id,
-            });
+          //
+          // Custom events
+          //
+          case LangGraphEventTypes.OnCustomEvent:
+            //
+            // Manually emit a message
+            //
+            if (eventWithState.event.name === CustomEventNames.CopilotKitManuallyEmitMessage) {
+              events.push({
+                type: RuntimeEventTypes.TextMessageStart,
+                messageId: eventWithState.event.data.message_id,
+              });
+              events.push({
+                type: RuntimeEventTypes.TextMessageContent,
+                messageId: eventWithState.event.message_id,
+                content: eventWithState.event.data.message,
+              });
+              events.push({
+                type: RuntimeEventTypes.TextMessageEnd,
+                messageId: eventWithState.event.message_id,
+              });
+            }
+            //
+            // Manually emit a tool call
+            //
+            else if (
+              eventWithState.event.name === CustomEventNames.CopilotKitManuallyEmitToolCall
+            ) {
+              events.push({
+                type: RuntimeEventTypes.ActionExecutionStart,
+                actionExecutionId: eventWithState.event.data.id,
+                actionName: eventWithState.event.data.name,
+              });
+              events.push({
+                type: RuntimeEventTypes.ActionExecutionArgs,
+                actionExecutionId: eventWithState.event.id,
+                args: JSON.stringify(eventWithState.event.data.args),
+              });
+              events.push({
+                type: RuntimeEventTypes.ActionExecutionEnd,
+                actionExecutionId: eventWithState.event.id,
+              });
+            }
             break;
           case LangGraphEventTypes.OnCopilotKitStateSync:
             events.push({
@@ -272,7 +237,10 @@ export class RemoteLangGraphEventSource {
               }
             }
 
-            const args = eventWithState.event.data?.chunk?.kwargs?.tool_call_chunks?.[0]?.args;
+            const args =
+              eventWithState.event.data?.chunk?.kwargs?.tool_call_chunks?.[0]?.args ??
+              // @ts-expect-error -- sdf
+              eventWithState.event.data?.chunk?.tool_call_chunks?.[0]?.args;
             const content = eventWithState.content;
 
             // Tool call args: emit ActionExecutionArgs

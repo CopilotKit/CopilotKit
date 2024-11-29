@@ -19,8 +19,8 @@ export default function Layout({ children }: { children: ReactNode }) {
             <SubdocsMenu
               options={[
                 {
-                  title: "Quickstart & Guides",
-                  description: "Quickstart & Guides",
+                  title: "Copilots",
+                  description: "Documentation for building Copilots",
                   url: "/",
                   icon: <RocketIcon className="w-4 h-4" />,
                   bgGradient:
@@ -28,8 +28,8 @@ export default function Layout({ children }: { children: ReactNode }) {
                   selectedBorder: "ring-indigo-500/70",
                 },
                 {
-                  title: "CoAgents (LangGraph)",
-                  description: "CoAgents (LangGraph)",
+                  title: "Agentic Copilots (LangGraph)",
+                  description: "Documentation for building agentic copilots with LangGraph",
                   url: "/coagents",
                   icon: <ZapIcon className="w-4 h-4" />,
                   bgGradient:

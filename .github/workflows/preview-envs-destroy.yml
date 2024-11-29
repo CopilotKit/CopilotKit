@@ -1,8 +1,13 @@
-name: Preview Environments (Destroy)
+name: Destroy Preview Environments
 
 on:
   pull_request:
     types: [ closed ]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Pull Request Number'
+        required: true
 
 concurrency:
   group: preview-${{ github.event.pull_request.number }}-destroy
@@ -10,7 +15,7 @@ concurrency:
 
 jobs:
   preview_envs_destroy:
-    if: contains(github.event.pull_request.labels.*.name, 'preview')
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'preview') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     name: Destroy Preview Environments
     permissions:
@@ -42,32 +47,22 @@ jobs:
         with:
           version: 9
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Auth AWS CDK Public Registry
-        run: |
-          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
-
-      - uses: dopplerhq/secrets-fetch-action@v1.2.0
-        id: doppler
-        with:
-          doppler-token: ${{ secrets.DOPPLER_TOKEN }}
-          doppler-project: copilotkit-previews
-          doppler-config: prd
-
       - name: Infra install dependencies
         working-directory: infra
         run: pnpm i
+
+      - name: Set variable UNIQUE_ENV_ID
+        id: set_unique_env_id
+        run: |
+          echo "UNIQUE_ENV_ID=${{ github.event.number && format('PR{0}', github.event.number) || format('PR{0}', inputs.pr_number) }}" >> "$GITHUB_OUTPUT"
 
       - name: cdk destroy
         working-directory: ./infra
         run: cdk destroy --profile default --all --force
         env:
-          UNIQUE_ENV_ID: 'PR${{ github.event.number }}'
-          OPENAI_API_KEY: ${{ steps.doppler.outputs.OPENAI_API_KEY }}
+          UNIQUE_ENV_ID: ${{ steps.set_unique_env_id.outputs.UNIQUE_ENV_ID }}
+          GITHUB_ACTIONS_RUN_ID: "${{ github.run_id }}"
+          GITHUB_PR_NUMBER: "${{ github.event.number }}"
 
       - name: Comment post-destroy
         uses: thollander/actions-comment-pull-request@v3

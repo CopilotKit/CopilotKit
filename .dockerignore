@@ -6,7 +6,6 @@ assets
 .vscode
 Dockerfile
 **/.venv
-**/langgraph.json
 **/.env
 **/.vscode
 infra
@@ -15,7 +14,4 @@ docs
 **/.husky
 
 **/node_modules
-**/.next
-
-!examples/**/node_modules
-!examples/**/.next
+**/.langgraph_api

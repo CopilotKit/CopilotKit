@@ -12,10 +12,10 @@ ARG APP_DIR
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/lambda-adapter
 WORKDIR /app
 
-# Copy the built artifacts from the builder stage
-# COPY --from=builder-monorepo /app/${APP_DIR}/.next/standalone ./
-# COPY --from=builder-monorepo /app/${APP_DIR}/.next/static ./.next/static
+COPY ${APP_DIR}/package.json ${APP_DIR}/pnpm-lock.yaml ./
+RUN pnpm i --frozen-lockfile
 
+# Copy the built artifacts from the builder stage
 COPY ${APP_DIR}/.next/standalone ./
 COPY ${APP_DIR}/.next/static ./.next/static
 
