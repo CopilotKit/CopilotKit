@@ -1,5 +1,47 @@
 # next-pages-router
 
+## 1.3.16-mme-reset-chat.4
+
+### Patch Changes
+
+- f6fab28: update tsup config
+- f6fab28: update entry
+- f6fab28: export langchain module
+- c4b9f95: Improve LangSmith support
+- 164ce73: Add reset and threadId to useCopilotChat
+- f6fab28: Ensure intermediate state config is sent as snake case
+- f6fab28: update entry in tsup config
+- Add custom stop/reload
+- af119bf: Ensure the last message is sent to LangSmith
+- c7df09a: Move threadId to context
+- f6fab28: update entry
+- f6fab28: Update exports
+- f6fab28: Update exports
+- 332d744: Add support for Azure OpenAI
+- f6fab28: Export LangGraph functions
+- f6fab28: Update lockfile
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+- Updated dependencies [c4b9f95]
+- Updated dependencies [164ce73]
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+- Updated dependencies
+- Updated dependencies [af119bf]
+- Updated dependencies [c7df09a]
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+- Updated dependencies [332d744]
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+  - @copilotkit/react-textarea@1.3.16-mme-reset-chat.10
+  - @copilotkit/react-core@1.3.16-mme-reset-chat.10
+  - @copilotkit/react-ui@1.3.16-mme-reset-chat.10
+  - @copilotkit/runtime@1.3.16-mme-reset-chat.10
+  - @copilotkit/shared@1.3.16-mme-reset-chat.10
+
 ## 1.3.16-mme-reset-chat.3
 
 ### Patch Changes
