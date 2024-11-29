@@ -120,6 +120,7 @@ export class RemoteLangGraphEventSource {
         ) {
           events.push({
             type: RuntimeEventTypes.ActionExecutionEnd,
+            actionExecutionId: eventWithState.prevToolCallMessageId,
           });
         }
 
@@ -131,6 +132,7 @@ export class RemoteLangGraphEventSource {
         ) {
           events.push({
             type: RuntimeEventTypes.TextMessageEnd,
+            messageId: eventWithState.prevMessageId,
           });
         }
 
@@ -149,10 +151,12 @@ export class RemoteLangGraphEventSource {
               });
               events.push({
                 type: RuntimeEventTypes.TextMessageContent,
+                messageId: eventWithState.event.data.message_id,
                 content: eventWithState.event.data.message,
               });
               events.push({
                 type: RuntimeEventTypes.TextMessageEnd,
+                messageId: eventWithState.event.data.message_id,
               });
             }
             //
@@ -168,10 +172,12 @@ export class RemoteLangGraphEventSource {
               });
               events.push({
                 type: RuntimeEventTypes.ActionExecutionArgs,
+                actionExecutionId: eventWithState.event.data.id,
                 args: JSON.stringify(eventWithState.event.data.args),
               });
               events.push({
                 type: RuntimeEventTypes.ActionExecutionEnd,
+                actionExecutionId: eventWithState.event.data.id,
               });
             }
             break;
@@ -242,6 +248,7 @@ export class RemoteLangGraphEventSource {
               if (this.shouldEmitToolCall(shouldEmitToolCalls, eventWithState.toolCallName)) {
                 events.push({
                   type: RuntimeEventTypes.ActionExecutionArgs,
+                  actionExecutionId: eventWithState.toolCallMessageId,
                   args,
                 });
               }
@@ -251,6 +258,7 @@ export class RemoteLangGraphEventSource {
               if (shouldEmitMessages) {
                 events.push({
                   type: RuntimeEventTypes.TextMessageContent,
+                  messageId: eventWithState.messageId,
                   content,
                 });
               }
@@ -266,11 +274,13 @@ export class RemoteLangGraphEventSource {
         if (lastEventWithState?.messageId) {
           events.push({
             type: RuntimeEventTypes.TextMessageEnd,
+            messageId: lastEventWithState.messageId,
           });
         }
         if (lastEventWithState?.toolCallMessageId) {
           events.push({
             type: RuntimeEventTypes.ActionExecutionEnd,
+            actionExecutionId: lastEventWithState.toolCallMessageId,
           });
         }
 
@@ -282,10 +292,12 @@ export class RemoteLangGraphEventSource {
         });
         events.push({
           type: RuntimeEventTypes.TextMessageContent,
+          messageId: messageId,
           content: "❌ An error occurred. Please try again.",
         });
         events.push({
           type: RuntimeEventTypes.TextMessageEnd,
+          messageId: messageId,
         });
 
         return events;
