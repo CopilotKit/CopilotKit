@@ -155,7 +155,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       this.langserve.push(remoteChain.toAction());
     }
 
-    this.remoteEndpointDefinitions = params?.remoteEndpoints || [];
+    this.remoteEndpointDefinitions = params?.remoteEndpoints ?? params?.remoteActions ?? [];
 
     this.onBeforeRequest = params?.middleware?.onBeforeRequest;
     this.onAfterRequest = params?.middleware?.onAfterRequest;
