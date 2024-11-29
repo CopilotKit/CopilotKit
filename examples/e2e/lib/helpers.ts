@@ -7,7 +7,7 @@ export async function sendChatMessage(page: Page, message: string) {
   await page.keyboard.press("Enter");
 }
 
-export async function waitForAndTestSteps(page: Page) {
+export async function waitForStepsAndEnsureStreaming(page: Page) {
   await page.waitForSelector('[data-test-id="progress-steps"]');
   // expect at least one item is loading
   const loadingItems = await page.$$('[data-test-id="progress-step-item_loading"]');
