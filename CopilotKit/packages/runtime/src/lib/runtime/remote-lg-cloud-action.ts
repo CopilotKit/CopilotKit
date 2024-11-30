@@ -152,6 +152,9 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
 
   let latestStateValues = {};
   let updatedState = state;
+  // If a manual emittance happens, it is the ultimate source of truth of state, unless a node has exited.
+  // Therefore, this value should either hold null, or the only edition of state that should be used.
+  let manuallyEmittedState = null;
   let streamInfo: {
     provider?: string;
     langGraphHost?: string;
@@ -205,33 +208,36 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
         eventType === LangGraphEventTypes.OnCustomEvent &&
         event.name === CustomEventNames.CopilotKitManuallyEmitIntermediateState;
 
+      const exitingNode =
+        nodeName === currentNodeName && eventType === LangGraphEventTypes.OnChainEnd;
+
+      // See manuallyEmittedState for explanation
+      if (exitingNode) {
+        manuallyEmittedState = null;
+      }
+
       // we only want to update the node name under certain conditions
       // since we don't need any internal node names to be sent to the frontend
       if (graphInfo["nodes"].some((node) => node.id === currentNodeName)) {
         nodeName = currentNodeName;
-
-        // only update state from values when entering or exiting a known node
-        if (
-          eventType === LangGraphEventTypes.OnChainStart ||
-          eventType === LangGraphEventTypes.OnChainEnd
-        ) {
-          updatedState = latestStateValues;
-        }
       }
+
+      updatedState = manuallyEmittedState ?? latestStateValues;
 
       if (!nodeName) {
         continue;
       }
 
       if (manuallyEmitIntermediateState) {
-        updatedState = event.data;
+        // See manuallyEmittedState for explanation
+        manuallyEmittedState = event.data;
         emit(
           getStateSyncEvent({
             threadId,
             runId,
             agentName: agent.name,
             nodeName,
-            state: updatedState,
+            state: manuallyEmittedState,
             running: true,
             active: true,
           }),
@@ -267,9 +273,6 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
         // stop emitting function call state
         emitIntermediateStateUntilEnd = null;
       }
-
-      const exitingNode =
-        nodeName === currentNodeName && eventType === LangGraphEventTypes.OnChainEnd;
 
       if (
         JSON.stringify(updatedState) !== JSON.stringify(state) ||

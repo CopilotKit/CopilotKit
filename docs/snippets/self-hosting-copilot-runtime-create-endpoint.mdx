@@ -1,5 +1,21 @@
-**NOTE**: CopilotKit supports any LLM provider.<br/>
-The instructions below assume you are using OpenAI, but you can adopt them to [any LLM provider](/guides/bring-your-own-llm).
+<Callout type="info">
+  **NOTE 1**: CopilotKit supports any LLM provider.<br/>
+  The instructions below assume you are using OpenAI, but you can adopt them to [any LLM provider](/guides/bring-your-own-llm).
+</Callout>
+
+<Callout type="info">
+  **NOTE 2**: If you are planning to use a single LangGraph agent in [agent-lock mode](/coagents/advanced/router-mode-agent-lock#agent-lock-mode) as your agentic backend, your LLM adapter will only be used for peripherals such as suggestions, etc.
+  
+  If you are not sure yet, simply ignore this note.
+</Callout>
+
+
+Install OpenAI:
+
+```package-install
+npm install openai
+```
+
 
 Add your OpenAI API key to your `.env` file in the root of your project:
 
@@ -10,6 +26,8 @@ OPENAI_API_KEY=your_api_key_here
 <Callout type="warn">
  Please note that the code below uses GPT-4o, which requires a paid OpenAI API key. **If you are using a free OpenAI API key**, change the model to a different option such as `gpt-3.5-turbo`.
 </Callout>
+
+
 
 #### Endpoint Setup
 
@@ -29,13 +47,13 @@ OPENAI_API_KEY=your_api_key_here
     import { NextRequest } from 'next/server';
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const serviceAdapter = new OpenAIAdapter({ openai });
+    const llmAdapter = new OpenAIAdapter({ openai });
     const runtime = new CopilotRuntime();
 
     export const POST = async (req: NextRequest) => {
       const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
         runtime,
-        serviceAdapter,
+        llmAdapter,
         endpoint: '/api/copilotkit',
       });
 
@@ -60,7 +78,7 @@ OPENAI_API_KEY=your_api_key_here
     import OpenAI from 'openai';
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const serviceAdapter = new OpenAIAdapter({ openai });
+    const llmAdapter = new OpenAIAdapter({ openai });
 
     const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       const runtime = new CopilotRuntime();
@@ -68,7 +86,7 @@ OPENAI_API_KEY=your_api_key_here
       const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
         endpoint: '/api/copilotkit',
         runtime,
-        serviceAdapter,
+        llmAdapter,
       });
 
       return await handleRequest(req, res);
@@ -95,14 +113,14 @@ OPENAI_API_KEY=your_api_key_here
 
     const app = express();
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const serviceAdapter = new OpenAIAdapter({ openai });
+    const llmAdapter = new OpenAIAdapter({ openai });
 
     app.use('/copilotkit', (req, res, next) => {
       const runtime = new CopilotRuntime();
       const handler = copilotRuntimeNodeHttpEndpoint({
         endpoint: '/copilotkit',
         runtime,
-        serviceAdapter,
+        llmAdapter,
       });
 
       return handler(req, res, next);
@@ -134,14 +152,14 @@ OPENAI_API_KEY=your_api_key_here
     import OpenAI from 'openai';
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const serviceAdapter = new OpenAIAdapter({ openai });
+    const llmAdapter = new OpenAIAdapter({ openai });
 
     const server = createServer((req, res) => {
       const runtime = new CopilotRuntime();
       const handler = copilotRuntimeNodeHttpEndpoint({
         endpoint: '/copilotkit',
         runtime,
-        serviceAdapter,
+        llmAdapter,
       });
 
       return handler(req, res);
@@ -172,12 +190,12 @@ OPENAI_API_KEY=your_api_key_here
     export class CopilotkitController {
       @All('/copilotkit')
       copilotkit(@Req() req: Request, @Res() res: Response) {
-        const serviceAdapter = new OpenAIAdapter();
+        const llmAdapter = new OpenAIAdapter();
         const runtime = new CopilotRuntime();
 
         const handler = copilotRuntimeNestEndpoint({
           runtime,
-          serviceAdapter,
+          llmAdapter,
           endpoint: '/copilotkit',
         });
         return handler(req, res);
