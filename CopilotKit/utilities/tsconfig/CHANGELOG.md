@@ -1,5 +1,31 @@
 # tsconfig
 
+## 1.4.0-pre-1-4-0.12
+
+### Minor Changes
+
+- c6b489d: LangGraph Platform and LangGraph JS support
+- 7cc6cc8: LangGraph Cloud and LangGraphJS alpha release
+- prerelease lgc and lgjs
+- Add LangGraph Platform and LangGraph JS support
+- b318b18: Add LangGraph Cloud support
+
+### Patch Changes
+
+- 9ea9db1: update tsup config
+- d52c1f9: update entry
+- e71d469: export langchain module
+- 8a77944: Improve LangSmith support
+- 3caa5d5: Ensure intermediate state config is sent as snake case
+- cf3a787: update entry in tsup config
+- 8a77944: Ensure the last message is sent to LangSmith
+- 264a693: update entry
+- dd99f00: Update exports
+- a28fb90: Update exports
+- 332d744: Add support for Azure OpenAI
+- 1f8032e: Export LangGraph functions
+- c3576f6: Update lockfile
+
 ## 1.4.0-pre-1-4-0.11
 
 ### Minor Changes

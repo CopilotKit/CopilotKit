@@ -1,5 +1,54 @@
 # web
 
+## 1.4.0-pre-1-4-0.12
+
+### Minor Changes
+
+- c6b489d: LangGraph Platform and LangGraph JS support
+- 7cc6cc8: LangGraph Cloud and LangGraphJS alpha release
+- prerelease lgc and lgjs
+- Add LangGraph Platform and LangGraph JS support
+- b318b18: Add LangGraph Cloud support
+
+### Patch Changes
+
+- 9ea9db1: update tsup config
+- d52c1f9: update entry
+- e71d469: export langchain module
+- 8a77944: Improve LangSmith support
+- 3caa5d5: Ensure intermediate state config is sent as snake case
+- cf3a787: update entry in tsup config
+- 8a77944: Ensure the last message is sent to LangSmith
+- 264a693: update entry
+- dd99f00: Update exports
+- a28fb90: Update exports
+- 332d744: Add support for Azure OpenAI
+- 1f8032e: Export LangGraph functions
+- c3576f6: Update lockfile
+- Updated dependencies [9ea9db1]
+- Updated dependencies [d52c1f9]
+- Updated dependencies [c6b489d]
+- Updated dependencies [7cc6cc8]
+- Updated dependencies [e71d469]
+- Updated dependencies [8a77944]
+- Updated dependencies [3caa5d5]
+- Updated dependencies [cf3a787]
+- Updated dependencies
+- Updated dependencies
+- Updated dependencies [8a77944]
+- Updated dependencies [264a693]
+- Updated dependencies [dd99f00]
+- Updated dependencies [a28fb90]
+- Updated dependencies [332d744]
+- Updated dependencies [b318b18]
+- Updated dependencies [1f8032e]
+- Updated dependencies [c3576f6]
+  - @copilotkit/react-textarea@1.4.0-pre-1-4-0.12
+  - @copilotkit/react-core@1.4.0-pre-1-4-0.12
+  - @copilotkit/react-ui@1.4.0-pre-1-4-0.12
+  - @copilotkit/runtime@1.4.0-pre-1-4-0.12
+  - @copilotkit/shared@1.4.0-pre-1-4-0.12
+
 ## 1.4.0-pre-1-4-0.11
 
 ### Minor Changes
