@@ -176,6 +176,8 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
         throw new Error(`Error event thrown: ${chunk.data.message}`);
       }
 
+      // dummy change
+
       if (chunk.event === "values") {
         latestStateValues = chunk.data;
         continue;
