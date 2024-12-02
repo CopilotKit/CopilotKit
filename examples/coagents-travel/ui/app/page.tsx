@@ -10,8 +10,9 @@ import "@copilotkit/react-ui/styles.css";
 export default function Home() {
   return (
     <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      agent="travel_agent"
+      agent="travel"
+      runtimeUrl="https://api.cloud.stagingcopilotkit.ai/copilotkit/v1/"
+      publicApiKey={process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY}
     >
       <CopilotSidebar
         defaultOpen
