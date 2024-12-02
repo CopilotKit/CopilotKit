@@ -9,7 +9,7 @@ license = "MIT"
 name = "greeter"
 version = "0.0.1"
 dependencies = [
-  "langgraph",
+  "langgraph==0.2.52",
   "langchain_core",
   "langchain_openai",
   "langchain-google-genai",
@@ -25,7 +25,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-langgraph = "^0.2.34"
+langgraph = "0.2.52"
 langchain-core = "^0.3.8"
 langchain-openai = "^0.2.1"
 langchain-anthropic = "^0.2.1"

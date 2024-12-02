@@ -9,7 +9,7 @@ license = "MIT"
 name = "research_canvas"
 version = "0.0.1"
 dependencies = [
-  "langgraph",
+  "langgraph==0.2.52",
   "langchain_core",
   "langchain-google-genai",
   "langchain_openai",
