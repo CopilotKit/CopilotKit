@@ -1,28 +1,5 @@
 # @copilotkit/sdk-js
 
-## 1.4.0-pre-1-4-0.11
-
-### Minor Changes
-
-- LangGraph Platform and LangGraph JS support
-
-### Patch Changes
-
-- Updated dependencies
-  - @copilotkit/shared@1.4.0-pre-1-4-0.11
-
-## 1.4.0-pre-1-4-0.10
-
-### Minor Changes
-
-- LangGraph Cloud and LangGraphJS alpha release
-
-### Patch Changes
-
-- Updated dependencies
-- Updated dependencies [b318b18]
-  - @copilotkit/shared@1.4.0-pre-1-4-0.10
-
 ## 1.3.16-mme-lgc-langgraph-package.9
 
 ### Patch Changes

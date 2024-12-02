@@ -12,7 +12,7 @@
  * ```
  */
 
-import { Action, actionParametersToJsonSchema, Parameter } from "@copilotkit/shared";
+import { Action, actionParametersToJsonSchema, Parameter, randomId } from "@copilotkit/shared";
 import { CopilotServiceAdapter, RemoteChain, RemoteChainParameters } from "../../service-adapters";
 import { MessageInput } from "../../graphql/inputs/message.input";
 import { ActionInput } from "../../graphql/inputs/action.input";
@@ -142,7 +142,7 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   public actions: ActionsConfiguration<T>;
-  private remoteEndpointDefinitions: EndpointDefinition[];
+  public remoteEndpointDefinitions: EndpointDefinition[];
   private langserve: Promise<Action<any>>[] = [];
   private onBeforeRequest?: OnBeforeRequestHandler;
   private onAfterRequest?: OnAfterRequestHandler;
@@ -155,7 +155,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       this.langserve.push(remoteChain.toAction());
     }
 
-    this.remoteEndpointDefinitions = params?.remoteEndpoints || [];
+    this.remoteEndpointDefinitions = params?.remoteEndpoints ?? params?.remoteActions ?? [];
 
     this.onBeforeRequest = params?.middleware?.onBeforeRequest;
     this.onAfterRequest = params?.middleware?.onAfterRequest;
@@ -175,36 +175,36 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       url,
     } = request;
 
-    if (agentSession) {
-      return this.processAgentRequest(request);
-    }
-
-    const messages = rawMessages.filter((message) => !message.agentStateMessage);
-
-    const inputMessages = convertGqlInputToMessages(messages);
-    const serverSideActions = await this.getServerSideActions(request);
-
-    const serverSideActionsInput: ActionInput[] = serverSideActions.map((action) => ({
-      name: action.name,
-      description: action.description,
-      jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters)),
-    }));
-
-    const actionInputs = flattenToolCallsNoDuplicates([
-      ...serverSideActionsInput,
-      ...clientSideActionsInput,
-    ]);
-
-    await this.onBeforeRequest?.({
-      threadId,
-      runId,
-      inputMessages,
-      properties: graphqlContext.properties,
-      url,
-    });
+    const eventSource = new RuntimeEventSource();
 
     try {
-      const eventSource = new RuntimeEventSource();
+      if (agentSession) {
+        return await this.processAgentRequest(request);
+      }
+
+      const messages = rawMessages.filter((message) => !message.agentStateMessage);
+
+      const inputMessages = convertGqlInputToMessages(messages);
+      const serverSideActions = await this.getServerSideActions(request);
+
+      const serverSideActionsInput: ActionInput[] = serverSideActions.map((action) => ({
+        name: action.name,
+        description: action.description,
+        jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters)),
+      }));
+
+      const actionInputs = flattenToolCallsNoDuplicates([
+        ...serverSideActionsInput,
+        ...clientSideActionsInput,
+      ]);
+
+      await this.onBeforeRequest?.({
+        threadId,
+        runId,
+        inputMessages,
+        properties: graphqlContext.properties,
+        url,
+      });
 
       const result = await serviceAdapter.process({
         messages: inputMessages,
@@ -244,7 +244,14 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       };
     } catch (error) {
       console.error("Error getting response:", error);
-      throw error;
+      eventSource.sendErrorMessageToChat();
+      return {
+        threadId: threadId || randomId(),
+        runId: runId || randomId(),
+        eventSource,
+        serverSideActions: [],
+        actionInputsWithoutAgents: [],
+      };
     }
   }
 
@@ -344,7 +351,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       (endpoint) =>
         ({
           ...endpoint,
-          type: this.resolveEndpointType(endpoint),
+          type: resolveEndpointType(endpoint),
         }) as EndpointDefinition,
     );
 
@@ -362,19 +369,6 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         : this.actions;
 
     return [...configuredActions, ...langserveFunctions, ...remoteActions];
-  }
-
-  private resolveEndpointType(endpoint: EndpointDefinition) {
-    if (
-      !endpoint.type &&
-      "langsmithApiKey" in endpoint &&
-      "deploymentUrl" in endpoint &&
-      "agents" in endpoint
-    ) {
-      return EndpointType.LangGraphCloud;
-    }
-
-    return endpoint.type;
   }
 }
 
@@ -405,4 +399,16 @@ export function langGraphCloudEndpoint(
     ...config,
     type: EndpointType.LangGraphCloud,
   };
+}
+
+export function resolveEndpointType(endpoint: EndpointDefinition) {
+  if (!endpoint.type) {
+    if ("langsmithApiKey" in endpoint && "deploymentUrl" in endpoint && "agents" in endpoint) {
+      return EndpointType.LangGraphCloud;
+    } else {
+      return EndpointType.CopilotKit;
+    }
+  }
+
+  return endpoint.type;
 }

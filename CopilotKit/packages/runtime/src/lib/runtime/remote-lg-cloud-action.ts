@@ -1,5 +1,5 @@
 import { Client } from "@langchain/langgraph-sdk";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { parse as parsePartialJson } from "partial-json";
 import { Logger } from "pino";
 import { ActionInput } from "../../graphql/inputs/action.input";
@@ -8,6 +8,7 @@ import { CopilotRequestContextProperties } from "../integrations";
 import { Message, MessageType } from "../../graphql/types/converted";
 import { MessageRole } from "../../graphql/types/enums";
 import { CustomEventNames, LangGraphEventTypes } from "../../agents/langgraph/events";
+import telemetry from "../telemetry-client";
 
 type State = Record<string, any>;
 
@@ -88,7 +89,6 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   let state = initialState;
   const { name, assistantId: initialAssistantId } = agent;
 
-  // TODO: deploymentUrl is not required in local development
   const client = new Client({ apiUrl: deploymentUrl, apiKey: langsmithApiKey });
   let initialThreadId = agrsInitialThreadId;
   const wasInitiatedWithExistingThread = !!initialThreadId;
@@ -152,8 +152,22 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
 
   let latestStateValues = {};
   let updatedState = state;
+  // If a manual emittance happens, it is the ultimate source of truth of state, unless a node has exited.
+  // Therefore, this value should either hold null, or the only edition of state that should be used.
+  let manuallyEmittedState = null;
+  let streamInfo: {
+    provider?: string;
+    langGraphHost?: string;
+    langGraphVersion?: string;
+    hashedLgcKey: string;
+  } = {
+    hashedLgcKey: createHash("sha256").update(langsmithApiKey).digest("hex"),
+  };
 
   try {
+    telemetry.capture("oss.runtime.agent_execution_stream_started", {
+      hashedLgcKey: streamInfo.hashedLgcKey,
+    });
     for await (const chunk of streamResponse) {
       if (!["events", "values", "error"].includes(chunk.event)) continue;
 
@@ -174,6 +188,16 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       externalRunId = runId;
       const metadata = event.metadata;
 
+      if (event.data?.output?.model != null && event.data?.output?.model != "") {
+        streamInfo.provider = event.data?.output?.model;
+      }
+      if (metadata.langgraph_host != null && metadata.langgraph_host != "") {
+        streamInfo.langGraphHost = metadata.langgraph_host;
+      }
+      if (metadata.langgraph_version != null && metadata.langgraph_version != "") {
+        streamInfo.langGraphVersion = metadata.langgraph_version;
+      }
+
       shouldExit =
         shouldExit ||
         (eventType === LangGraphEventTypes.OnCustomEvent &&
@@ -184,33 +208,36 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
         eventType === LangGraphEventTypes.OnCustomEvent &&
         event.name === CustomEventNames.CopilotKitManuallyEmitIntermediateState;
 
+      const exitingNode =
+        nodeName === currentNodeName && eventType === LangGraphEventTypes.OnChainEnd;
+
+      // See manuallyEmittedState for explanation
+      if (exitingNode) {
+        manuallyEmittedState = null;
+      }
+
       // we only want to update the node name under certain conditions
       // since we don't need any internal node names to be sent to the frontend
       if (graphInfo["nodes"].some((node) => node.id === currentNodeName)) {
         nodeName = currentNodeName;
-
-        // only update state from values when entering or exiting a known node
-        if (
-          eventType === LangGraphEventTypes.OnChainStart ||
-          eventType === LangGraphEventTypes.OnChainEnd
-        ) {
-          updatedState = latestStateValues;
-        }
       }
+
+      updatedState = manuallyEmittedState ?? latestStateValues;
 
       if (!nodeName) {
         continue;
       }
 
       if (manuallyEmitIntermediateState) {
-        updatedState = event.data;
+        // See manuallyEmittedState for explanation
+        manuallyEmittedState = event.data;
         emit(
           getStateSyncEvent({
             threadId,
             runId,
             agentName: agent.name,
             nodeName,
-            state: updatedState,
+            state: manuallyEmittedState,
             running: true,
             active: true,
           }),
@@ -247,9 +274,6 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
         emitIntermediateStateUntilEnd = null;
       }
 
-      const exitingNode =
-        nodeName === currentNodeName && eventType === LangGraphEventTypes.OnChainEnd;
-
       if (
         JSON.stringify(updatedState) !== JSON.stringify(state) ||
         prevNodeName != nodeName ||
@@ -276,6 +300,8 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     state = await client.threads.getState(threadId);
     const isEndNode = state.next.length === 0;
     nodeName = Object.keys(state.metadata.writes)[0];
+
+    telemetry.capture("oss.runtime.agent_execution_stream_ended", streamInfo);
 
     emit(
       getStateSyncEvent({

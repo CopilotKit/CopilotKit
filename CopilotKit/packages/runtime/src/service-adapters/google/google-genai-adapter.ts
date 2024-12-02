@@ -29,12 +29,12 @@ interface GoogleGenerativeAIAdapterOptions {
 export class GoogleGenerativeAIAdapter extends LangChainAdapter {
   constructor(options?: GoogleGenerativeAIAdapterOptions) {
     super({
-      chainFn: async ({ messages, tools }) => {
+      chainFn: async ({ messages, tools, threadId }) => {
         const model = new ChatGoogle({
           modelName: options?.model ?? "gemini-1.5-pro",
           apiVersion: "v1beta",
         }).bindTools(tools);
-        return model.stream(messages);
+        return model.stream(messages, { metadata: { conversation_id: threadId } });
       },
     });
   }

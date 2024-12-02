@@ -8,6 +8,8 @@ export enum LangGraphEventTypes {
   OnToolStart = "on_tool_start",
   OnToolEnd = "on_tool_end",
   OnCopilotKitStateSync = "on_copilotkit_state_sync",
+  OnCopilotKitEmitMessage = "on_copilotkit_emit_message",
+  OnCopilotKitEmitToolCall = "on_copilotkit_emit_tool_call",
   OnCustomEvent = "on_custom_event",
 }
 

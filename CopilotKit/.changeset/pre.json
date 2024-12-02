@@ -1,35 +1,5 @@
 {
   "mode": "pre",
-  "tag": "pre-1-4-0",
   "initialVersions": {
-    "next-openai": "1.4.0-pre-1-4-0.10",
-    "next-pages-router": "1.4.0-pre-1-4-0.10",
-    "node-express": "1.4.0-pre-1-4-0.10",
-    "node-http": "1.4.0-pre-1-4-0.10",
-    "@copilotkit/react-core": "1.4.0-pre-1-4-0.10",
-    "@copilotkit/react-textarea": "1.4.0-pre-1-4-0.10",
-    "@copilotkit/react-ui": "1.4.0-pre-1-4-0.10",
-    "@copilotkit/runtime": "1.4.0-pre-1-4-0.10",
-    "@copilotkit/runtime-client-gql": "1.4.0-pre-1-4-0.10",
-    "@copilotkit/sdk-js": "1.4.0-pre-1-4-0.10",
-    "@copilotkit/shared": "1.4.0-pre-1-4-0.10",
-    "eslint-config-custom": "1.4.0-pre-1-4-0.10",
-    "tailwind-config": "1.4.0-pre-1-4-0.10",
-    "tsconfig": "1.4.0-pre-1-4-0.10"
-  },
-  "changesets": [
-    "clean-hairs-own",
-    "eight-cooks-share",
-    "eleven-islands-itch",
-    "famous-eggs-try",
-    "five-flowers-bake",
-    "giant-jars-do",
-    "grumpy-yaks-rule",
-    "nice-humans-cheat",
-    "nice-wolves-judge",
-    "plenty-nails-hang",
-    "smooth-pans-try",
-    "soft-keys-fry",
-    "thin-carpets-greet"
-  ]
+  }
 }

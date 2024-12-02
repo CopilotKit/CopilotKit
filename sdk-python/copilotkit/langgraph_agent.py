@@ -318,6 +318,7 @@ class LangGraphAgent(Agent):
         prev_node_name = None
         emit_intermediate_state_until_end = None
         should_exit = False
+        manually_emitted_state = None
         thread_id = cast(Any, config)["configurable"]["thread_id"]
 
         async for event in self.graph.astream_events(initial_state, config, version="v2"):
@@ -348,16 +349,20 @@ class LangGraphAgent(Agent):
 
             exiting_node = node_name == current_node_name and event_type == "on_chain_end"
 
+            if exiting_node:
+                manually_emitted_state = None
+
             if manually_emit_intermediate_state:
-                state = cast(Any, event["data"])
+                manually_emitted_state = cast(Any, event["data"])
                 yield self._emit_state_sync_event(
                     thread_id=thread_id,
                     run_id=run_id,
                     node_name=node_name,
-                    state=state,
+                    state=manually_emitted_state,
                     running=True,
                     active=True
                 ) + "\n"
+                continue
 
 
             if emit_intermediate_state and emit_intermediate_state_until_end is None:
@@ -367,7 +372,7 @@ class LangGraphAgent(Agent):
                 # reset the streaming state extractor
                 streaming_state_extractor = _StreamingStateExtractor(emit_intermediate_state)
 
-            updated_state = self.graph.get_state(config).values
+            updated_state = manually_emitted_state or self.graph.get_state(config).values
 
             if emit_intermediate_state and event_type == "on_chat_model_stream":
                 streaming_state_extractor.buffer_tool_calls(event)

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { waitForSteps, waitForResponse, sendChatMessage } from "../lib/helpers";
+import { waitForStepsAndEnsureStreaming, waitForResponse, sendChatMessage } from "../lib/helpers";
 import {
   getConfigs,
   filterConfigsByProject,
@@ -32,7 +32,8 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
             {
               ...config,
               lgcJSDeploymentUrl:
-                "https://coagents-research-canvas-js-d5ff2a34fa9c5771bb9c71003f38661c.default.us.langgraph.app",
+              config.lgcJSDeploymentUrl ??
+                "https://coagents-research-canvas-st-08476feebc3a58e5925116da0d3ad635.default.us.langgraph.app",
             },
             variants
           ).forEach((variant) => {
@@ -51,7 +52,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 "Conduct research based on my research question, please. DO NOT FORGET TO PRODUCE THE DRAFT AT THE END!"
               );
 
-              await waitForSteps(page);
+              await waitForStepsAndEnsureStreaming(page);
               await waitForResponse(page);
 
               // Ensure research draft
@@ -59,7 +60,21 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 '[data-test-id="research-draft"]'
               );
               const draftContent = await researchDraft.textContent();
-              expect(draftContent).not.toBe("");
+
+              try {
+                expect(draftContent).not.toBe("");
+              } catch (e) {
+                // Sometimes the LLM does not fill the draft. We will attempt a retry at filling it.
+                await sendChatMessage(
+                    page,
+                    "The draft seems to be empty, please fill it in."
+                );
+                await waitForStepsAndEnsureStreaming(page);
+                await waitForResponse(page);
+
+                const draftContent = await researchDraft.textContent();
+                expect(draftContent).not.toBe("");
+              }
 
               const resourceCount = await page
                 .locator('[data-test-id="resource"]')
