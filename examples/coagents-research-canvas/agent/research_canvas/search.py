@@ -13,6 +13,8 @@ from copilotkit.langchain import copilotkit_emit_state, copilotkit_customize_con
 from research_canvas.state import AgentState
 from research_canvas.model import get_model
 
+# A small change to commit
+
 class ResourceInput(BaseModel):
     """A resource with a short description"""
     url: str = Field(description="The URL of the resource")
