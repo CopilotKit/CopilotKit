@@ -11,7 +11,7 @@ keywords = ["copilot", "copilotkit", "langgraph", "langchain", "ai", "langsmith"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
-langgraph = "^0.2.35"
+langgraph = "0.2.52"
 httpx = "^0.27.2"
 fastapi = "^0.115.0"
 langchain = "^0.3.3"
