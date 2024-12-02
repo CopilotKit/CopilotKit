@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import {
   CopilotRuntime,
   OpenAIAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint, langGraphCloudEndpoint, copilotKitEndpoint,
+  copilotRuntimeNextJSAppRouterEndpoint, langGraphPlatformEndpoint, copilotKitEndpoint,
 } from "@copilotkit/runtime";
 import OpenAI from "openai";
 
@@ -14,7 +14,7 @@ export const POST = async (req: NextRequest) => {
   const searchParams = req.nextUrl.searchParams
   const deploymentUrl = searchParams.get('lgcDeploymentUrl')
 
-  const remoteEndpoint = deploymentUrl ? langGraphCloudEndpoint({
+  const remoteEndpoint = deploymentUrl ? langGraphPlatformEndpoint({
     deploymentUrl,
     langsmithApiKey,
     agents: [{

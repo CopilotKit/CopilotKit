@@ -3,7 +3,7 @@ import {
   CopilotRuntime,
   OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
-  langGraphCloudEndpoint,
+  langGraphPlatformEndpoint,
   copilotKitEndpoint,
 } from "@copilotkit/runtime";
 import OpenAI from "openai";
@@ -17,7 +17,7 @@ export const POST = async (req: NextRequest) => {
   const deploymentUrl = searchParams.get("lgcDeploymentUrl");
 
   const remoteEndpoint = deploymentUrl
-    ? langGraphCloudEndpoint({
+    ? langGraphPlatformEndpoint({
         deploymentUrl,
         langsmithApiKey,
         agents: [
