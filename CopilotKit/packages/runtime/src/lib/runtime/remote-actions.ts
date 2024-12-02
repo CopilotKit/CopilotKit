@@ -12,11 +12,11 @@ import {
   createHeaders,
 } from "./remote-action-constructors";
 
-export type EndpointDefinition = CopilotKitEndpoint | LangGraphCloudEndpoint;
+export type EndpointDefinition = CopilotKitEndpoint | LangGraphPlatformEndpoint;
 
 export enum EndpointType {
   CopilotKit = "copilotKit",
-  LangGraphCloud = "langgraph-cloud",
+  LangGraphPlatform = "langgraph-platform",
 }
 
 export interface BaseEndpointDefinition<TActionType extends EndpointType> {
@@ -30,17 +30,17 @@ export interface CopilotKitEndpoint extends BaseEndpointDefinition<EndpointType.
   };
 }
 
-export interface LangGraphCloudAgent {
+export interface LangGraphPlatformAgent {
   name: string;
   description: string;
   assistantId?: string;
 }
 
-export interface LangGraphCloudEndpoint
-  extends BaseEndpointDefinition<EndpointType.LangGraphCloud> {
+export interface LangGraphPlatformEndpoint
+  extends BaseEndpointDefinition<EndpointType.LangGraphPlatform> {
   deploymentUrl: string;
   langsmithApiKey: string;
-  agents: LangGraphCloudAgent[];
+  agents: LangGraphPlatformAgent[];
 }
 
 export type RemoteActionInfoResponse = {
@@ -127,7 +127,7 @@ export async function setupRemoteActions({
 
   // Remove duplicates of remoteEndpointDefinitions.url
   const filtered = remoteEndpointDefinitions.filter((value, index, self) => {
-    if (value.type === EndpointType.LangGraphCloud) {
+    if (value.type === EndpointType.LangGraphPlatform) {
       return value;
     }
     return index === self.findIndex((t: CopilotKitEndpoint) => t.url === value.url);
@@ -135,8 +135,8 @@ export async function setupRemoteActions({
 
   const result = await Promise.all(
     filtered.map(async (endpoint) => {
-      // Check for properties that can distinguish LG cloud from other actions
-      if (endpoint.type === EndpointType.LangGraphCloud) {
+      // Check for properties that can distinguish LG platform from other actions
+      if (endpoint.type === EndpointType.LangGraphPlatform) {
         return constructLGCRemoteAction({
           endpoint,
           messages,

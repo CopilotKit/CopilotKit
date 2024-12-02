@@ -3,7 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { parse as parsePartialJson } from "partial-json";
 import { Logger } from "pino";
 import { ActionInput } from "../../graphql/inputs/action.input";
-import { LangGraphCloudAgent, LangGraphCloudEndpoint } from "./remote-actions";
+import { LangGraphPlatformAgent, LangGraphPlatformEndpoint } from "./remote-actions";
 import { CopilotRequestContextProperties } from "../integrations";
 import { Message, MessageType } from "../../graphql/types/converted";
 import { MessageRole } from "../../graphql/types/enums";
@@ -14,8 +14,8 @@ type State = Record<string, any>;
 
 type ExecutionAction = Pick<ActionInput, "name" | "description"> & { parameters: string };
 
-interface ExecutionArgs extends Omit<LangGraphCloudEndpoint, "agents"> {
-  agent: LangGraphCloudAgent;
+interface ExecutionArgs extends Omit<LangGraphPlatformEndpoint, "agents"> {
+  agent: LangGraphPlatformAgent;
   threadId: string;
   nodeName: string;
   messages: Message[];
@@ -25,14 +25,14 @@ interface ExecutionArgs extends Omit<LangGraphCloudEndpoint, "agents"> {
   logger: Logger;
 }
 
-// The following types are our own definition to the messages accepted by LangGraph cloud, enhanced with some of our extra data.
+// The following types are our own definition to the messages accepted by LangGraph Platform, enhanced with some of our extra data.
 interface ToolCall {
   id: string;
   name: string;
   args: Record<string, unknown>;
 }
 
-type BaseLangGraphCloudMessage = Omit<
+type BaseLangGraphPlatformMessage = Omit<
   Message,
   | "isResultMessage"
   | "isTextMessage"
@@ -47,19 +47,19 @@ type BaseLangGraphCloudMessage = Omit<
   type: MessageType;
 };
 
-interface LangGraphCloudResultMessage extends BaseLangGraphCloudMessage {
+interface LangGraphPlatformResultMessage extends BaseLangGraphPlatformMessage {
   tool_call_id: string;
   name: string;
 }
 
-interface LangGraphCloudActionExecutionMessage extends BaseLangGraphCloudMessage {
+interface LangGraphPlatformActionExecutionMessage extends BaseLangGraphPlatformMessage {
   tool_calls: ToolCall[];
 }
 
-type LangGraphCloudMessage =
-  | LangGraphCloudActionExecutionMessage
-  | LangGraphCloudResultMessage
-  | BaseLangGraphCloudMessage;
+type LangGraphPlatformMessage =
+  | LangGraphPlatformActionExecutionMessage
+  | LangGraphPlatformResultMessage
+  | BaseLangGraphPlatformMessage;
 
 export async function execute(args: ExecutionArgs): Promise<ReadableStream<Uint8Array>> {
   return new ReadableStream({
@@ -128,7 +128,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   if (!assistantId) {
     console.error(`
       No agent found for the agent name specified in CopilotKit provider
-      Please check your available agents or provide an agent ID in the LangGraph Cloud endpoint definition.\n
+      Please check your available agents or provide an agent ID in the LangGraph Platform endpoint definition.\n
       
       These are the available agents: [${assistants.map((a) => `${a.name} (ID: ${a.assistant_id})`).join(", ")}]
       `);
@@ -439,7 +439,7 @@ class StreamingStateExtractor {
 // Start of Selection
 function langGraphDefaultMergeState(
   state: State,
-  messages: LangGraphCloudMessage[],
+  messages: LangGraphPlatformMessage[],
   actions: ExecutionAction[],
   agentName: string,
 ): State {
@@ -449,7 +449,7 @@ function langGraphDefaultMergeState(
   }
 
   // merge with existing messages
-  const mergedMessages: LangGraphCloudMessage[] = state.messages || [];
+  const mergedMessages: LangGraphPlatformMessage[] = state.messages || [];
   const existingMessageIds = new Set(mergedMessages.map((message) => message.id));
   const existingToolCallResults = new Set<string>();
 
@@ -515,7 +515,7 @@ function langGraphDefaultMergeState(
   }
 
   // try to auto-correct and log alignment issues
-  const correctedMessages: LangGraphCloudMessage[] = [];
+  const correctedMessages: LangGraphPlatformMessage[] = [];
 
   for (let i = 0; i < mergedMessages.length; i++) {
     const currentMessage = mergedMessages[i];
@@ -586,7 +586,7 @@ function langGraphDefaultMergeState(
   };
 }
 
-function formatMessages(messages: Message[]): LangGraphCloudMessage[] {
+function formatMessages(messages: Message[]): LangGraphPlatformMessage[] {
   return messages.map((message) => {
     if (message.isTextMessage() && message.role === "assistant") {
       return message;
@@ -609,7 +609,7 @@ function formatMessages(messages: Message[]): LangGraphCloudMessage[] {
         tool_calls: [toolCall],
         role: MessageRole.assistant,
         id: message.id,
-      } satisfies LangGraphCloudActionExecutionMessage;
+      } satisfies LangGraphPlatformActionExecutionMessage;
     }
     if (message.isResultMessage()) {
       return {
@@ -619,7 +619,7 @@ function formatMessages(messages: Message[]): LangGraphCloudMessage[] {
         tool_call_id: message.actionExecutionId,
         name: message.actionName,
         role: MessageRole.tool,
-      } satisfies LangGraphCloudResultMessage;
+      } satisfies LangGraphPlatformResultMessage;
     }
 
     throw new Error(`Unknown message type ${message.type}`);
