@@ -19,13 +19,15 @@ At some point, a workflow node changes the state to `{"status": "done"}` after p
         ```
     </Tab>
     <Tab value="TypeScript">
-        ```typescript
-        function exampleNode(state: AgentState, config: RunnableConfig): AgentState {
-            // work happens here ...
-            state.status = "done";
-            return state;
-        }
-        ```
+        <InsecurePasswordProtected>
+            ```typescript
+            function exampleNode(state: AgentState, config: RunnableConfig): AgentState {
+                // work happens here ...
+                state.status = "done";
+                return state;
+            }
+            ```
+        </InsecurePasswordProtected>
     </Tab>
 </Tabs>
 
@@ -63,30 +65,32 @@ One great use case for state streaming is to present LLM messages to the user, g
         ```
     </Tab>
     <Tab value="TypeScript">
-        ```typescript
-        import { copilotKitCustomizeConfig } from '@copilotkit/sdk-js/langchain';
+        <InsecurePasswordProtected>
+            ```typescript
+            import { copilotKitCustomizeConfig } from '@copilotkit/sdk-js/langchain';
 
-        async function talkToUserNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
-            /**
-             * Messages generated in this node will appear in the chat window
-             */
+            async function talkToUserNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
+                /**
+                 * Messages generated in this node will appear in the chat window
+                 */
 
-            // Pass the modified configuration to LangChain as an argument
-            const response = await ChatOpenAI({ model: 'gpt-4o' }).invoke(
-                [
-                    SystemMessage("Say hi to the user"),
-                    ...state.messages
-                ],
-                config
-            );
+                // Pass the modified configuration to LangChain as an argument
+                const response = await ChatOpenAI({ model: 'gpt-4o' }).invoke(
+                    [
+                        SystemMessage("Say hi to the user"),
+                        ...state.messages
+                    ],
+                    config
+                );
 
-            // Then return the new messages, making them part of the
-            // conversation history in LangGraph and your chat window
-            return {
-                messages: [response]
-            };
-        }
-        ```
+                // Then return the new messages, making them part of the
+                // conversation history in LangGraph and your chat window
+                return {
+                    messages: [response]
+                };
+            }
+            ```
+        </InsecurePasswordProtected>
     </Tab>
 </Tabs>
 
@@ -133,35 +137,37 @@ With `emit_intermediate_state`, you can have CopilotKit set a key in your state 
         ```
     </Tab>
     <Tab value="TypeScript">
-        ```typescript
-        import { copilotKitCustomizeConfig } from '@copilotkit/sdk-js/langchain';
+        <InsecurePasswordProtected>
+            ```typescript
+            import { copilotKitCustomizeConfig } from '@copilotkit/sdk-js/langchain';
 
-        async function streamingStateNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
-            const modifiedConfig = copilotKitCustomizeConfig(
-                config,
+            async function streamingStateNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
+                const modifiedConfig = copilotKitCustomizeConfig(
+                    config,
 
-                // this will stream tool calls *as if* they were state
-                {
-                    emitIntermediateState: [{
-                        stateKey: "outline",
-                        tool: "setOutline",
-                        toolArgument: "outline",
-                    }]
-                }
-            );
+                    // this will stream tool calls *as if* they were state
+                    {
+                        emitIntermediateState: [{
+                            stateKey: "outline",
+                            tool: "setOutline",
+                            toolArgument: "outline",
+                        }]
+                    }
+                );
 
-            // Pass the modified configuration to LangChain as an argument
-            const response = await ChatOpenAI({ model: 'gpt-4o' }).bindTools([setOutline]).invoke(
-                [...state.messages],
-                modifiedConfig
-            );
+                // Pass the modified configuration to LangChain as an argument
+                const response = await ChatOpenAI({ model: 'gpt-4o' }).bindTools([setOutline]).invoke(
+                    [...state.messages],
+                    modifiedConfig
+                );
 
-            return {
-                ...state,
-                outline // <- you still need to return your final state
-            };
-        }
-        ```
+                return {
+                    ...state,
+                    outline // <- you still need to return your final state
+                };
+            }
+            ```
+        </InsecurePasswordProtected>
     </Tab>
 </Tabs>
 
@@ -261,27 +267,29 @@ You can pass `emit_messages=False` in these cases, which will suppress any messa
         ```
     </Tab>
     <Tab value="TypeScript">
-        ```typescript
-        import { copilotKitCustomizeConfig } from '@copilotkit/sdk-js/langchain';
+        <InsecurePasswordProtected>
+            ```typescript
+            import { copilotKitCustomizeConfig } from '@copilotkit/sdk-js/langchain';
 
-        async function frontendActionsNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
-            // 1) Configure CopilotKit to emit tool calls
-            const modifiedConfig = copilotKitCustomizeConfig(
-                config,
-                { emitMessages: false }
-            );
+            async function frontendActionsNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
+                // 1) Configure CopilotKit to emit tool calls
+                const modifiedConfig = copilotKitCustomizeConfig(
+                    config,
+                    { emitMessages: false }
+                );
 
-            // 2) Provide the actions to the LLM
-            const model = ChatOpenAI({ model: 'gpt-4o' }).bind(state.copilotkit.actions);
+                // 2) Provide the actions to the LLM
+                const model = ChatOpenAI({ model: 'gpt-4o' }).bind(state.copilotkit.actions);
 
-            // 3) Call the model with CopilotKit's modified config
-            const response = await model.invoke(...state, modifiedConfig);
+                // 3) Call the model with CopilotKit's modified config
+                const response = await model.invoke(...state, modifiedConfig);
 
-            return {
-                messages: [response]
-            };
-        }
-        ```
+                return {
+                    messages: [response]
+                };
+            }
+            ```
+        </InsecurePasswordProtected>
     </Tab>
 </Tabs>
 

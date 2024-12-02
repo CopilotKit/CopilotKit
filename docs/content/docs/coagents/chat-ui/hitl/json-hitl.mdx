@@ -123,6 +123,7 @@ The Tool's name and arguments must line up with what you used on the frontend
         ```
     </Tab>
     <Tab value="TypeScript">
+      <InsecurePasswordProtected>
         ```typescript
         import { Annotation } from "@langchain/langgraph";
         import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langchain";
@@ -140,6 +141,7 @@ The Tool's name and arguments must line up with what you used on the frontend
             ...CopilotKitStateAnnotation.spec,
         });
         ```
+      </InsecurePasswordProtected>
     </Tab>
 </Tabs>
 
@@ -176,6 +178,7 @@ NOTICE that we have a `interrupt_after` for `draft_email_node` (the node that in
         ```
     </Tab>
     <Tab value="TypeScript">
+      <InsecurePasswordProtected>
         ```typescript
         const workflow = new StateGraph(EmailAgentStateAnnotation)
             .addNode("email_node", draftEmailNode)
@@ -191,6 +194,7 @@ NOTICE that we have a `interrupt_after` for `draft_email_node` (the node that in
             interruptAfter: ["email_node"],
         });
         ```
+      </InsecurePasswordProtected>
     </Tab>
 </Tabs>
 
@@ -244,6 +248,7 @@ NOTICE that we have a `interrupt_after` for `draft_email_node` (the node that in
         ```
     </Tab>
     <Tab value="TypeScript">
+      <InsecurePasswordProtected>
         ```typescript title="agent/my_agent/agent.ts"
         import { RunnableConfig } from 'langchain/schema/runnable';
         import { ChatOpenAI } from 'langchain/chat_models/openai';
@@ -280,6 +285,7 @@ NOTICE that we have a `interrupt_after` for `draft_email_node` (the node that in
             };
         }
         ```
+      </InsecurePasswordProtected>
     </Tab>
 </Tabs>
 

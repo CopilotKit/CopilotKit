@@ -92,22 +92,22 @@ Define your agent's state types:
 
 <Tabs items={["TypeScript", "Python (Pydantic)"]}>
   <Tab value="TypeScript">
+    <InsecurePasswordProtected>
+      ```ts
+      type WeatherResponse = {
+        conditions: string;
+        temperature: number;
+        wind_direction: string;
+        wind_speed: number;
+      };
 
-```ts
-type WeatherResponse = {
-  conditions: string;
-  temperature: number;
-  wind_direction: string;
-  wind_speed: number;
-};
-
-type AgentState = {
-  final_response: WeatherResponse;
-  input: string;
-  messages: any[];
-};
-```
-
+      type AgentState = {
+        final_response: WeatherResponse;
+        input: string;
+        messages: any[];
+      };
+      ```
+    </InsecurePasswordProtected>
   </Tab>
 
   <Tab value="Python (Pydantic)">

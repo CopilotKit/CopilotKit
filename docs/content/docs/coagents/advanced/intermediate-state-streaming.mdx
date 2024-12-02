@@ -44,26 +44,28 @@ A few key benefits:<br/>
         ```
     </Tab>
     <Tab value="TypeScript">
-        ```typescript
-        import { copilotKitEmitState } from '@copilotkit/sdk-js/langchain';
+        <InsecurePasswordProtected>
+            ```typescript
+            import { copilotKitEmitState } from '@copilotkit/sdk-js/langchain';
 
-        async function someLanggraphNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
-            // ... whatever you want to docs
+            async function someLanggraphNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
+                // ... whatever you want to docs
 
-            // modify the state as you please: // [!code highlight:5]
-            state.logs.push({
-                message: `Downloading ${resource.url}`,
-                done: false
-            });
+                // modify the state as you please: // [!code highlight:5]
+                state.logs.push({
+                    message: `Downloading ${resource.url}`,
+                    done: false
+                });
 
-            await copilotKitEmitState(config, state); // manually emit the updated state // [!code highlight:1]
+                await copilotKitEmitState(config, state); // manually emit the updated state // [!code highlight:1]
 
-            // ... keep running your graph
+                // ... keep running your graph
 
-            // finally, return the state from the node as usual. The returned state is the ultimate source of truth // [!code highlight:2]
-            return state;
-        }
-        ```
+                // finally, return the state from the node as usual. The returned state is the ultimate source of truth // [!code highlight:2]
+                return state;
+            }
+            ```
+        </InsecurePasswordProtected>
     </Tab>
 </Tabs>
 
@@ -115,39 +117,41 @@ In this example, we're asking for the `outline` state-key to be streamed as it c
         ```
     </Tab>
     <Tab value="TypeScript">
-        ```typescript
-        import { copilotKitCustomizeConfig } from '@copilotkit/sdk-js/langchain';
+        <InsecurePasswordProtected>
+            ```typescript
+            import { copilotKitCustomizeConfig } from '@copilotkit/sdk-js/langchain';
 
-        async function streamingStateNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
-            const modifiedConfig = copilotKitCustomizeConfig( // [!code highlight:15]
-                config,
+            async function streamingStateNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
+                const modifiedConfig = copilotKitCustomizeConfig( // [!code highlight:15]
+                    config,
 
-                // this will stream the `set_outline` tool-call's `outline` argument, *as if* it was the `outline` state parameter.
-                // i.e.:
-                // the tool call: set_outline(outline: string)
-                // the state: { ..., outline: "..." }
-                {
-                    emitIntermediateState: [{
-                        stateKey: "outline", // the name of the key on the agent state we want to interact with
-                        tool: "set_outline", // the name of the tool call
-                        toolArgument: "outline", // the name of the argument on the tool call to treat as intermediate state.
-                    }]
-                }
-            );
+                    // this will stream the `set_outline` tool-call's `outline` argument, *as if* it was the `outline` state parameter.
+                    // i.e.:
+                    // the tool call: set_outline(outline: string)
+                    // the state: { ..., outline: "..." }
+                    {
+                        emitIntermediateState: [{
+                            stateKey: "outline", // the name of the key on the agent state we want to interact with
+                            tool: "set_outline", // the name of the tool call
+                            toolArgument: "outline", // the name of the argument on the tool call to treat as intermediate state.
+                        }]
+                    }
+                );
 
-            // Pass the modified configuration to LangChain as an argument
-            const response = await ChatOpenAI({ model: 'gpt-4o' }).invoke(
-                [...state.messages],
-                modifiedConfig // pass the modified config // [!code highlight]
-            );
+                // Pass the modified configuration to LangChain as an argument
+                const response = await ChatOpenAI({ model: 'gpt-4o' }).invoke(
+                    [...state.messages],
+                    modifiedConfig // pass the modified config // [!code highlight]
+                );
 
-            // Make sure to ALSO return the state from the node.
-            return {
-                ...state,
-                outline: outline // <- the actual state object is always the final source of truth when the node ends // [!code highlight]
-            };
-        }
-        ```
+                // Make sure to ALSO return the state from the node.
+                return {
+                    ...state,
+                    outline: outline // <- the actual state object is always the final source of truth when the node ends // [!code highlight]
+                };
+            }
+            ```
+        </InsecurePasswordProtected>
     </Tab>
 </Tabs>
 

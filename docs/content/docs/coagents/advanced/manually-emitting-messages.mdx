@@ -24,19 +24,21 @@ In your agent's workflow, you'll want to ask the user specific questions or prom
         ```
     </Tab>
     <Tab value="TypeScript">
-        ```typescript
-        async function askNameNode(state: GreetAgentState, config: RunnableConfig): Promise<AgentState> {
-            /**
-             * Ask the user for their name.
-             */
+        <InsecurePasswordProtected>
+            ```typescript
+            async function askNameNode(state: GreetAgentState, config: RunnableConfig): Promise<AgentState> {
+                /**
+                 * Ask the user for their name.
+                 */
 
-            await copilotKitEmitMessage(config, "Hey, what is your name? 🙂");
+                await copilotKitEmitMessage(config, "Hey, what is your name? 🙂");
 
-            return {
-                messages: state.messages,
-            };
-        }
-        ```
+                return {
+                    messages: state.messages,
+                };
+            }
+            ```
+        </InsecurePasswordProtected>
     </Tab>
 </Tabs>
 
@@ -52,13 +54,15 @@ In your agent's workflow, you'll want to ask the user specific questions or prom
         ```
     </Tab>
     <Tab value="TypeScript">
-        ```typescript
-        if (lastMessage.content === "CANCEL") {
-            await copilotKitEmitMessage(config, "❌ Cancelled sending email.");
-        } else {
-            await copilotKitEmitMessage(config, "✅ Sent email.");
-        }
-        ```
+        <InsecurePasswordProtected>
+            ```typescript
+            if (lastMessage.content === "CANCEL") {
+                await copilotKitEmitMessage(config, "❌ Cancelled sending email.");
+            } else {
+                await copilotKitEmitMessage(config, "✅ Sent email.");
+            }
+            ```
+        </InsecurePasswordProtected>
     </Tab>
 </Tabs>
 
@@ -104,43 +108,45 @@ While LangGraph will emit the current agent state after each node in the workflo
         ```
     </Tab>
     <Tab value="TypeScript">
-        ```typescript
-        async function downloadNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
-            /**
-             * Download resources from the internet.
-             */
-            state.resources = state.resources || [];
-            state.logs = state.logs || [];
-            const resourcesToDownload = [];
+        <InsecurePasswordProtected>
+            ```typescript
+            async function downloadNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
+                /**
+                 * Download resources from the internet.
+                 */
+                state.resources = state.resources || [];
+                state.logs = state.logs || [];
+                const resourcesToDownload = [];
 
-            const logsOffset = state.logs.length;
+                const logsOffset = state.logs.length;
 
-            // Find resources that are not downloaded
-            for (const resource of state.resources) {
-                if (!getResource(resource.url)) {
-                    resourcesToDownload.push(resource);
-                    state.logs.push({
-                        message: `Downloading ${resource.url}`,
-                        done: false
-                    });
+                // Find resources that are not downloaded
+                for (const resource of state.resources) {
+                    if (!getResource(resource.url)) {
+                        resourcesToDownload.push(resource);
+                        state.logs.push({
+                            message: `Downloading ${resource.url}`,
+                            done: false
+                        });
+                    }
                 }
-            }
 
-            // Emit the state to let the UI update
-            await copilotKitEmitState(config, state);
-
-            // Download the resources
-            for (let i = 0; i < resourcesToDownload.length; i++) {
-                const resource = resourcesToDownload[i];
-                await _downloadResource(resource.url);
-                state.logs[logsOffset + i].done = true;
-
-                // update UI
+                // Emit the state to let the UI update
                 await copilotKitEmitState(config, state);
-            }
 
-            return state;
-        }
-        ```
+                // Download the resources
+                for (let i = 0; i < resourcesToDownload.length; i++) {
+                    const resource = resourcesToDownload[i];
+                    await _downloadResource(resource.url);
+                    state.logs[logsOffset + i].done = true;
+
+                    // update UI
+                    await copilotKitEmitState(config, state);
+                }
+
+                return state;
+            }
+            ```
+        </InsecurePasswordProtected>
     </Tab>
 </Tabs>

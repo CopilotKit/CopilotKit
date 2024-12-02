@@ -27,16 +27,18 @@ To access the frontend actions provided by CopilotKit, you can inherit from Copi
         ```
     </Tab>
     <Tab value="TypeScript">
-        ```typescript
-        import { Annotation } from "@langchain/langgraph";
-        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langchain";
+        <InsecurePasswordProtected>
+            ```typescript
+            import { Annotation } from "@langchain/langgraph";
+            import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langchain";
 
-        export const YourAgentStateAnnotation = Annotation.Root({
-            yourAdditionalProperty: Annotation<string>,
-            ...CopilotKitStateAnnotation.spec,
-        });
-        export type YourAgentState = typeof YourAgentStateAnnotation.State;
-        ```
+            export const YourAgentStateAnnotation = Annotation.Root({
+                yourAdditionalProperty: Annotation<string>,
+                ...CopilotKitStateAnnotation.spec,
+            });
+            export type YourAgentState = typeof YourAgentStateAnnotation.State;
+            ```
+        </InsecurePasswordProtected>
     </Tab>
 </Tabs>
 
@@ -61,16 +63,18 @@ Here's how you can call a frontend action from your agent:
         ```
     </Tab>
     <Tab value="TypeScript">
-        ```typescript
-        async function agentNode(state: YourAgentState, config: RunnableConfig): Promise<YourAgentState> {
-            // Access the actions from the copilotkit property
+        <InsecurePasswordProtected>
+            ```typescript
+            async function agentNode(state: YourAgentState, config: RunnableConfig): Promise<YourAgentState> {
+                // Access the actions from the copilotkit property
 
-            const actions = state.copilotKit.actions;
-            const model = ChatOpenAI({ model: 'gpt-4o' }).bindTools(actions);
+                const actions = state.copilotKit.actions;
+                const model = ChatOpenAI({ model: 'gpt-4o' }).bindTools(actions);
 
-            // ...
-        }
-        ```
+                // ...
+            }
+            ```
+        </InsecurePasswordProtected>
     </Tab>
 </Tabs>
 
