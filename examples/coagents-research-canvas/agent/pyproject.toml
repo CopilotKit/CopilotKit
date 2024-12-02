@@ -18,7 +18,7 @@ dependencies = [
   "langchain-community",
   "langchain-anthropic",
   "tavily-python",
-  "copilotkit==0.1.28a5",
+  "copilotkit==0.1.28a6",
   "python-dotenv",
   "uvicorn",
   "html2text"
@@ -30,7 +30,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-copilotkit = "0.1.28a5"
+copilotkit = "0.1.28a6"
 langgraph = "0.2.52"
 langchain-core = "^0.3.12"
 langchain-openai = "0.2.3"
