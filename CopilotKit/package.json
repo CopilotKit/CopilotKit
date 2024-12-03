@@ -15,7 +15,6 @@
     "precommit": "pnpm run docs"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.27.7",
     "@types/node": "^18.11.17",
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",
@@ -29,6 +28,9 @@
     "typescript": "^5.2.3"
   },
   "packageManager": "pnpm@9.5.0",
+  "dependencies": {
+    "@changesets/cli": "^2.26.2"
+  },
   "keywords": [
     "copilotkit",
     "copilot",
