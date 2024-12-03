@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { MessagesProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import {
@@ -41,22 +41,10 @@ export const Messages = ({
     }
   }
 
-  const messagesEndRef = React.useRef<HTMLDivElement>(null);
-
-  const scrollToBottom = () => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({
-        behavior: "auto",
-      });
-    }
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  const { messagesEndRef, messagesContainerRef } = useScrollToBottom(messages);
 
   return (
-    <div className="copilotKitMessages">
+    <div className="copilotKitMessages" ref={messagesContainerRef}>
       {messages.map((message, index) => {
         const isCurrentMessage = index === messages.length - 1;
 
@@ -125,4 +113,73 @@ function makeInitialMessages(initial?: string | string[]): Message[] {
         content: message,
       }),
   );
+}
+export function useScrollToBottom(messages: any[]) {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const isProgrammaticScrollRef = useRef(false);
+  const isUserScrollUpRef = useRef(false);
+
+  const scrollToBottom = () => {
+    if (messagesEndRef.current) {
+      isProgrammaticScrollRef.current = true;
+      messagesEndRef.current.scrollIntoView({
+        behavior: "auto",
+      });
+    }
+  };
+
+  const handleScroll = () => {
+    if (isProgrammaticScrollRef.current) {
+      isProgrammaticScrollRef.current = false;
+      return;
+    }
+
+    if (messagesContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+      isUserScrollUpRef.current = scrollTop + clientHeight < scrollHeight;
+    }
+  };
+
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.addEventListener("scroll", handleScroll);
+    }
+    return () => {
+      if (container) {
+        container.removeEventListener("scroll", handleScroll);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const mutationObserver = new MutationObserver(() => {
+      if (!isUserScrollUpRef.current) {
+        scrollToBottom();
+      }
+    });
+
+    mutationObserver.observe(container, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+
+    return () => {
+      mutationObserver.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    isUserScrollUpRef.current = false;
+    scrollToBottom();
+  }, [messages.filter((m) => m.isTextMessage() && m.role === Role.User).length]);
+
+  return { messagesEndRef, messagesContainerRef };
 }

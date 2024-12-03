@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import AIMessage, ToolMessage, SystemMessage
 from langchain.tools import tool
-from tavily import TavilyClient
+from tavily import AsyncTavilyClient
 from copilotkit.langchain import copilotkit_emit_state, copilotkit_customize_config
 from research_canvas.state import AgentState
 from research_canvas.model import get_model
@@ -23,7 +23,7 @@ class ResourceInput(BaseModel):
 def ExtractResources(resources: List[ResourceInput]): # pylint: disable=invalid-name,unused-argument
     """Extract the 3-5 most relevant resources from a search result."""
 
-tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+tavily_client = AsyncTavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 
 async def search_node(state: AgentState, config: RunnableConfig):
     """
@@ -46,7 +46,7 @@ async def search_node(state: AgentState, config: RunnableConfig):
     search_results = []
 
     for i, query in enumerate(queries):
-        response = tavily_client.search(query)
+        response = await tavily_client.search(query)
         search_results.append(response)
         state["logs"][i]["done"] = True
         await copilotkit_emit_state(config, state)

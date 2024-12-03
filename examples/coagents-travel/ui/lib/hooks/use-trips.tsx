@@ -22,7 +22,7 @@ const TripsContext = createContext<TripsContextType | undefined>(undefined);
 
 export const TripsProvider = ({ children }: { children: ReactNode }) => {
   const { state, setState } = useCoAgent<{ trips: Trip[], selected_trip_id: string | null, messages: any }>({
-    name: "travel_agent",
+    name: "travel",
     initialState: {
       trips: defaultTrips,
       selected_trip_id: defaultTrips[0].id,
@@ -31,7 +31,7 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
   });
 
   useCoAgentStateRender({
-    name: "travel_agent",
+    name: "travel",
     render: ({ state, nodeName, status }) => {
       if (state.search_progress) {
         return <SearchProgress progress={state.search_progress} />

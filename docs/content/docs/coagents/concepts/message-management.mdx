@@ -6,6 +6,13 @@ Message management in Agentic Copilots operates with CopilotKit as the "ground t
 When an Agentic Copilot session begins, it receives the existing CopilotKit chat history to maintain conversational
 continuity across different agents.
 
+### Can I modify the message history?
+
+You can modify the message history by updating CopilotKit's messages using the `useCopilotChat` hook's
+`setMessages` method. If you'd like more understanding on how to use this hook, checkout out 
+[reference documentation](/reference/hooks/useCopilotChat).
+
+
 <Callout>
 While all of this information is great to know, in most cases you won't need to worry about these details to
 build rich agentic applications. Use the information here as a reference when getting really deep into 
@@ -19,9 +26,10 @@ Modern LLM interactions produce two distinct types of messages:
 1. **Communication Messages**: Direct responses and interactions with users
 2. **Internal Messages**: Agent "thoughts" and reasoning processes
 
-For example, while OpenAI's o1 model has sophisticated reasoning capabilities and thoughts, its internal
-thought processes are typically hidden to maintain clean communication. LangGraph's default operates similarly
-and its behavior is to omit these internal messages from user-facing chat history.
+A well known example of this pattern is OpenAI's o1 model, which has sophisticated reasoning capabilities and thoughts. Its internal
+thought processes are presented distictly from 'communication messages' which are clearly visible to the end-user.
+
+LangGraph agents can operate similarly. An LLM call's output can be considered either a communication message, or an internal message.
 
 However, Copilotkit allows you to configure manually emit messages from LangGraph to be added into CopilotKit's
 chat history.
@@ -44,22 +52,11 @@ Want some more help managing messages in your Agentic Copilot application? Check
 ## Message Flow
 Messages flow between CopilotKit and LangGraph in a specific way:
 
-- User-facing (streamed) messages from LangGraph are forwarded to CopilotKit
+- User-facing (emitted) messages from LangGraph are forwarded to CopilotKit
 - Internal agent messages remain within LangGraph (omitted from the user-facing chat history)
-- All CopilotKit messages are preserved to maintain consistency 
-- On the next agent invocation, the full CopilotKit chat history is provided to the LangGraph agent
+- On a fresh agent invocation, the full CopilotKit chat history is provided to the LangGraph agent as its pre-existing chat history.
 
 When an Agentic Copilot completes its execution, its relevant messages become part of CopilotKit's persistent chat
 history. 
 
-### That's a bit unintuitive, why do Agentic Copilots act this way?
 
-Agentic Copilots are designed to operate as a single conversation, however, it also allows for multi-agent interactions. By adding
-messages from LangGraph to CopilotKit's chat history, we ensure that the entire conversation is captured and can be
-accessed by the next agent in the sequence.
-
-### Can I modify the message history?
-
-You can modify the message history by updating CopilotKit's ground truth messages using the `useCopilotChat` hook's
-`setMessages` method. If you'd like more understanding on how to use this hook, checkout out 
-[reference documentation](/reference/hooks/useCopilotChat).

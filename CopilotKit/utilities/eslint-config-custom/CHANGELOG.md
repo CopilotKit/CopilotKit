@@ -1,49 +1,23 @@
 # eslint-config-custom
 
-## 1.3.16-mme-reset-chat.4
+## 1.3.16-mme-revert-rxjs-changes.0
 
 ### Patch Changes
 
 - f6fab28: update tsup config
 - f6fab28: update entry
 - f6fab28: export langchain module
-- c4b9f95: Improve LangSmith support
-- 164ce73: Add reset and threadId to useCopilotChat
+- 8a77944: Improve LangSmith support
 - f6fab28: Ensure intermediate state config is sent as snake case
 - f6fab28: update entry in tsup config
-- Add custom stop/reload
-- af119bf: Ensure the last message is sent to LangSmith
-- c7df09a: Move threadId to context
+- 8a77944: Ensure the last message is sent to LangSmith
+- Revert rxjs changes
 - f6fab28: update entry
 - f6fab28: Update exports
 - f6fab28: Update exports
 - 332d744: Add support for Azure OpenAI
 - f6fab28: Export LangGraph functions
 - f6fab28: Update lockfile
-
-## 1.3.16-mme-reset-chat.3
-
-### Patch Changes
-
-- Move threadId to context
-
-## 1.3.16-mme-reset-chat.2
-
-### Patch Changes
-
-- Add reset and threadId to useCopilotChat
-
-## 1.3.16-mme-improve-langsmith.1
-
-### Patch Changes
-
-- Ensure the last message is sent to LangSmith
-
-## 1.3.16-mme-improve-langsmith.0
-
-### Patch Changes
-
-- Improve LangSmith support
 
 ## 1.3.15
 

@@ -1,19 +1,17 @@
 # ui
 
-## 1.3.16-mme-reset-chat.10
+## 1.3.16-mme-revert-rxjs-changes.10
 
 ### Patch Changes
 
 - f6fab28: update tsup config
 - f6fab28: update entry
 - f6fab28: export langchain module
-- c4b9f95: Improve LangSmith support
-- 164ce73: Add reset and threadId to useCopilotChat
+- 8a77944: Improve LangSmith support
 - f6fab28: Ensure intermediate state config is sent as snake case
 - f6fab28: update entry in tsup config
-- Add custom stop/reload
-- af119bf: Ensure the last message is sent to LangSmith
-- c7df09a: Move threadId to context
+- 8a77944: Ensure the last message is sent to LangSmith
+- Revert rxjs changes
 - f6fab28: update entry
 - f6fab28: Update exports
 - f6fab28: Update exports
@@ -23,62 +21,20 @@
 - Updated dependencies [f6fab28]
 - Updated dependencies [f6fab28]
 - Updated dependencies [f6fab28]
-- Updated dependencies [c4b9f95]
-- Updated dependencies [164ce73]
+- Updated dependencies [8a77944]
 - Updated dependencies [f6fab28]
 - Updated dependencies [f6fab28]
+- Updated dependencies [8a77944]
 - Updated dependencies
-- Updated dependencies [af119bf]
-- Updated dependencies [c7df09a]
 - Updated dependencies [f6fab28]
 - Updated dependencies [f6fab28]
 - Updated dependencies [f6fab28]
 - Updated dependencies [332d744]
 - Updated dependencies [f6fab28]
 - Updated dependencies [f6fab28]
-  - @copilotkit/runtime-client-gql@1.3.16-mme-reset-chat.10
-  - @copilotkit/react-core@1.3.16-mme-reset-chat.10
-  - @copilotkit/shared@1.3.16-mme-reset-chat.10
-
-## 1.3.16-mme-reset-chat.3
-
-### Patch Changes
-
-- Move threadId to context
-- Updated dependencies
-  - @copilotkit/runtime-client-gql@1.3.16-mme-reset-chat.3
-  - @copilotkit/react-core@1.3.16-mme-reset-chat.3
-  - @copilotkit/shared@1.3.16-mme-reset-chat.3
-
-## 1.3.16-mme-reset-chat.2
-
-### Patch Changes
-
-- Add reset and threadId to useCopilotChat
-- Updated dependencies
-  - @copilotkit/runtime-client-gql@1.3.16-mme-reset-chat.2
-  - @copilotkit/react-core@1.3.16-mme-reset-chat.2
-  - @copilotkit/shared@1.3.16-mme-reset-chat.2
-
-## 1.3.16-mme-improve-langsmith.1
-
-### Patch Changes
-
-- Ensure the last message is sent to LangSmith
-- Updated dependencies
-  - @copilotkit/runtime-client-gql@1.3.16-mme-improve-langsmith.1
-  - @copilotkit/react-core@1.3.16-mme-improve-langsmith.1
-  - @copilotkit/shared@1.3.16-mme-improve-langsmith.1
-
-## 1.3.16-mme-improve-langsmith.0
-
-### Patch Changes
-
-- Improve LangSmith support
-- Updated dependencies
-  - @copilotkit/react-core@1.3.16-mme-improve-langsmith.0
-  - @copilotkit/runtime-client-gql@1.3.16-mme-improve-langsmith.0
-  - @copilotkit/shared@1.3.16-mme-improve-langsmith.0
+  - @copilotkit/runtime-client-gql@1.3.16-mme-revert-rxjs-changes.10
+  - @copilotkit/react-core@1.3.16-mme-revert-rxjs-changes.10
+  - @copilotkit/shared@1.3.16-mme-revert-rxjs-changes.10
 
 ## 1.3.15
 

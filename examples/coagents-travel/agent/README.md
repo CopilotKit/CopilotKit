@@ -17,7 +17,7 @@ GOOGLE_MAPS_API_KEY=...
 From there you can install the dependencies and start the server:
 ```sh
 poetry install
-poetry run server
+poetry run demo
 ```
 
 The server is configured to run on port 8000. If you have any trouble, make sure you're using the same version of Python as specified in the `pyproject.toml` file.
