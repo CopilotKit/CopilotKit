@@ -5,7 +5,6 @@ import {
   useMakeCopilotDocumentReadable,
 } from "@copilotkit/react-core";
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
-import Image from "next/image";
 import { useState } from "react";
 import { DestinationTable } from "./destination-table";
 import { VacationNotes } from "./vacation-notes";
@@ -75,49 +74,38 @@ export function VacationList() {
     handler: async ({ name, country, image, description, activities }) => {
       setNewDestinations((prev) => [...prev, { name, country, image, description, activities }]);
     },
-    render: ({ args, status }) => {
-      const destination = {
-        name: args.name,
-        country: args.country,
-        image: args.image,
-        description: args.description,
-        activities: args.activities,
-      } as Destination;
+  });
 
-      if (status === "inProgress" || status === "executing") {
-        return <>Loading...</>;
-      }
-
-      if (!destination) {
-        return (
-          <div className="max-w-sm rounded overflow-hidden shadow-lg bg-white p-4">
-            <p className="text-gray-500 text-center">No destination information available.</p>
-          </div>
-        );
-      }
-
-      return (
-        <div className="max-w-sm rounded overflow-hidden shadow-lg bg-white">
-          {destination.image && (
-            <Image
-              src={destination.image}
-              alt={`${destination.name}, ${destination.country}`}
-              width={400}
-              height={300}
-              className="w-full h-48 object-cover"
-            />
-          )}
-          <div className="px-6 py-4">
-            <h2 className="font-bold text-xl mb-2">{destination.name}</h2>
-            <p className="text-gray-600 text-sm mb-2">{destination.country}</p>
-            <p className="text-gray-700 text-base mb-4">{destination.description}</p>
-            <div>
-              <h3 className="font-semibold text-lg mb-2">Activities:</h3>
-              <p className="text-gray-700 text-base">{destination.activities}</p>
-            </div>
-          </div>
-        </div>
-      );
+  useCopilotAction({
+    name: "AddVisitedDestination",
+    description: "Add a new visited destination to the list",
+    parameters: [
+      {
+        name: "name",
+        type: "string",
+      },
+      {
+        name: "country",
+        type: "string",
+      },
+      {
+        name: "image",
+        type: "string",
+      },
+      {
+        name: "description",
+        type: "string",
+      },
+      {
+        name: "activities",
+        type: "string",
+      },
+    ],
+    handler: async ({ name, country, image, description, activities }) => {
+      setVisitedDestinations((prev) => [
+        ...prev,
+        { name, country, image, description, activities },
+      ]);
     },
   });
 
