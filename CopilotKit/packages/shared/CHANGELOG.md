@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.4.0-pre-1-4-0.13
+
+### Minor Changes
+
+- lgc & lgjs alpha
+
 ## 1.4.0-pre-1-4-0.12
 
 ### Minor Changes

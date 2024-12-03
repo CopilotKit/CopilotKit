@@ -1,5 +1,17 @@
 # ui
 
+## 1.4.0-pre-1-4-0.13
+
+### Minor Changes
+
+- lgc & lgjs alpha
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.4.0-pre-1-4-0.13
+  - @copilotkit/shared@1.4.0-pre-1-4-0.13
+
 ## 1.4.0-pre-1-4-0.12
 
 ### Minor Changes
