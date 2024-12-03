@@ -108,9 +108,6 @@ export class GroqAdapter implements CopilotServiceAdapter {
 
     eventSource.stream(async (eventStream$) => {
       let mode: "function" | "message" | null = null;
-      let currentMessageId: string;
-      let currentToolCallId: string;
-
       for await (const chunk of stream) {
         const toolCall = chunk.choices[0].delta.tool_calls?.[0];
         const content = chunk.choices[0].delta.content;
@@ -120,47 +117,36 @@ export class GroqAdapter implements CopilotServiceAdapter {
         // If toolCall?.id is defined, it means a new tool call starts.
         if (mode === "message" && toolCall?.id) {
           mode = null;
-          eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
+          eventStream$.sendTextMessageEnd();
         } else if (mode === "function" && (toolCall === undefined || toolCall?.id)) {
           mode = null;
-          eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
+          eventStream$.sendActionExecutionEnd();
         }
 
         // If we send a new message type, send the appropriate start event.
         if (mode === null) {
           if (toolCall?.id) {
             mode = "function";
-            currentToolCallId = toolCall!.id;
-            eventStream$.sendActionExecutionStart({
-              actionExecutionId: currentToolCallId,
-              actionName: toolCall!.function!.name,
-            });
+            eventStream$.sendActionExecutionStart(toolCall!.id, toolCall!.function!.name);
           } else if (content) {
             mode = "message";
-            currentMessageId = chunk.id;
-            eventStream$.sendTextMessageStart({ messageId: currentMessageId });
+            eventStream$.sendTextMessageStart(chunk.id);
           }
         }
 
         // send the content events
         if (mode === "message" && content) {
-          eventStream$.sendTextMessageContent({
-            messageId: currentMessageId,
-            content,
-          });
+          eventStream$.sendTextMessageContent(content);
         } else if (mode === "function" && toolCall?.function?.arguments) {
-          eventStream$.sendActionExecutionArgs({
-            actionExecutionId: currentToolCallId,
-            args: toolCall.function.arguments,
-          });
+          eventStream$.sendActionExecutionArgs(toolCall.function.arguments);
         }
       }
 
       // send the end events
       if (mode === "message") {
-        eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
+        eventStream$.sendTextMessageEnd();
       } else if (mode === "function") {
-        eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
+        eventStream$.sendActionExecutionEnd();
       }
 
       eventStream$.complete();
