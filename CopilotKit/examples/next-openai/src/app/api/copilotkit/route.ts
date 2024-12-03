@@ -32,7 +32,6 @@ const runtime = new CopilotRuntime({
             return data.results[randomIndex].urls.regular;
           }
         }
-        console.log('url("https://loremflickr.com/800/600/' + encodeURIComponent(topic) + '")');
         return 'url("https://loremflickr.com/800/600/' + encodeURIComponent(topic) + '")';
       },
     },
