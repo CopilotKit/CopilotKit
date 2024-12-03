@@ -1,7 +1,7 @@
 {
   "name": "eslint-config-custom",
   "private": true,
-  "version": "1.4.0-pre-1-4-0.13",
+  "version": "1.4.0-pre-1-4-0.14",
   "main": "index.js",
   "license": "MIT",
   "dependencies": {

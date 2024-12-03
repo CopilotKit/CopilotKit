@@ -1,5 +1,22 @@
 # next-pages-router
 
+## 1.4.0-pre-1-4-0.14
+
+### Minor Changes
+
+- lgc & lgjs alpha release
+
+### Patch Changes
+
+- a5efccd: Revert rxjs changes
+- Updated dependencies [a5efccd]
+- Updated dependencies
+  - @copilotkit/runtime@1.4.0-pre-1-4-0.14
+  - @copilotkit/react-core@1.4.0-pre-1-4-0.14
+  - @copilotkit/react-textarea@1.4.0-pre-1-4-0.14
+  - @copilotkit/react-ui@1.4.0-pre-1-4-0.14
+  - @copilotkit/shared@1.4.0-pre-1-4-0.14
+
 ## 1.4.0-pre-1-4-0.13
 
 ### Minor Changes

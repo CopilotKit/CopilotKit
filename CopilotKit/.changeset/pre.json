@@ -2,20 +2,20 @@
   "mode": "pre",
   "tag": "pre-1-4-0",
   "initialVersions": {
-    "next-openai": "1.4.0-pre-1-4-0.12",
-    "next-pages-router": "1.4.0-pre-1-4-0.12",
-    "node-express": "1.4.0-pre-1-4-0.12",
-    "node-http": "1.4.0-pre-1-4-0.12",
-    "@copilotkit/react-core": "1.4.0-pre-1-4-0.12",
-    "@copilotkit/react-textarea": "1.4.0-pre-1-4-0.12",
-    "@copilotkit/react-ui": "1.4.0-pre-1-4-0.12",
-    "@copilotkit/runtime": "1.4.0-pre-1-4-0.12",
-    "@copilotkit/runtime-client-gql": "1.4.0-pre-1-4-0.12",
-    "@copilotkit/sdk-js": "1.4.0-pre-1-4-0.12",
-    "@copilotkit/shared": "1.4.0-pre-1-4-0.12",
-    "eslint-config-custom": "1.4.0-pre-1-4-0.12",
-    "tailwind-config": "1.4.0-pre-1-4-0.12",
-    "tsconfig": "1.4.0-pre-1-4-0.12"
+    "next-openai": "1.4.0-pre-1-4-0.13",
+    "next-pages-router": "1.4.0-pre-1-4-0.13",
+    "node-express": "1.4.0-pre-1-4-0.13",
+    "node-http": "1.4.0-pre-1-4-0.13",
+    "@copilotkit/react-core": "1.4.0-pre-1-4-0.13",
+    "@copilotkit/react-textarea": "1.4.0-pre-1-4-0.13",
+    "@copilotkit/react-ui": "1.4.0-pre-1-4-0.13",
+    "@copilotkit/runtime": "1.4.0-pre-1-4-0.13",
+    "@copilotkit/runtime-client-gql": "1.4.0-pre-1-4-0.13",
+    "@copilotkit/sdk-js": "1.4.0-pre-1-4-0.13",
+    "@copilotkit/shared": "1.4.0-pre-1-4-0.13",
+    "eslint-config-custom": "1.4.0-pre-1-4-0.13",
+    "tailwind-config": "1.4.0-pre-1-4-0.13",
+    "tsconfig": "1.4.0-pre-1-4-0.13"
   },
   "changesets": [
     "clean-hairs-own",
@@ -29,6 +29,7 @@
     "khaki-clouds-speak",
     "late-geese-tap",
     "little-falcons-melt",
+    "nice-apricots-marry",
     "nice-humans-cheat",
     "nice-wolves-judge",
     "plenty-nails-hang",
@@ -36,6 +37,7 @@
     "seven-spoons-guess",
     "smooth-pans-try",
     "soft-keys-fry",
+    "thick-feet-carry",
     "thin-carpets-greet"
   ]
 }
