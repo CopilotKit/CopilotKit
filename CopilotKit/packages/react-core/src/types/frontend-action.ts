@@ -99,8 +99,14 @@ export type ActionRenderPropsNoArgsWait<T extends Parameter[] | [] = []> =
   | ExecutingStateNoArgsWait<T>
   | InProgressStateNoArgsWait<T>;
 
+export type FrontendActionAvailability = "disabled" | "enabled" | "remote";
+
 export type FrontendAction<T extends Parameter[] | [] = []> = Action<T> & {
+  /**
+   * @deprecated Use `available` instead.
+   */
   disabled?: boolean;
+  available?: FrontendActionAvailability;
   followUp?: boolean;
 } & (
     | {
