@@ -1,5 +1,17 @@
 # @copilotkit/sdk-js
 
+## 1.3.16-mme-reset-chat.11
+
+### Patch Changes
+
+- f3ce10a: Add custom stop/reload
+- Merge main
+- Updated dependencies [164ce73]
+- Updated dependencies [f3ce10a]
+- Updated dependencies
+- Updated dependencies [c7df09a]
+  - @copilotkit/shared@1.3.16-mme-reset-chat.11
+
 ## 1.3.16-mme-revert-rxjs-changes.10
 
 ### Patch Changes
