@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.3.16-mme-lgc-langgraph-package.9",
+  "version": "1.3.16-undefined.10",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

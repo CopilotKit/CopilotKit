@@ -1,5 +1,38 @@
 # node
 
+## 1.3.16-undefined.0
+
+### Patch Changes
+
+- f6fab28: update tsup config
+- f6fab28: update entry
+- f6fab28: export langchain module
+- 8a77944: Improve LangSmith support
+- f6fab28: Ensure intermediate state config is sent as snake case
+- f6fab28: update entry in tsup config
+- 8a77944: Ensure the last message is sent to LangSmith
+- f6fab28: update entry
+- f6fab28: Update exports
+- f6fab28: Update exports
+- 332d744: Add support for Azure OpenAI
+- f6fab28: Export LangGraph functions
+- f6fab28: Update lockfile
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+- Updated dependencies [8a77944]
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+- Updated dependencies [8a77944]
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+- Updated dependencies [332d744]
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+  - @copilotkit/runtime@1.3.16-undefined.10
+  - @copilotkit/shared@1.3.16-undefined.10
+
 ## 1.3.15
 
 ### Patch Changes
