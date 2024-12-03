@@ -3,7 +3,7 @@ import {
   CopilotKitEndpoint,
   LangGraphAgentHandlerParams,
   RemoteActionInfoResponse,
-  LangGraphCloudEndpoint,
+  LangGraphPlatformEndpoint,
 } from "./remote-actions";
 import { GraphQLContext } from "../integrations";
 import { Logger } from "pino";
@@ -15,7 +15,7 @@ import telemetry from "../telemetry-client";
 import { RemoteLangGraphEventSource } from "../../agents/langgraph/event-source";
 import { Action } from "@copilotkit/shared";
 import { LangGraphEvent } from "../../agents/langgraph/events";
-import { execute } from "./remote-lg-cloud-action";
+import { execute } from "./remote-lg-action";
 
 export function constructLGCRemoteAction({
   endpoint,
@@ -24,7 +24,7 @@ export function constructLGCRemoteAction({
   messages,
   agentStates,
 }: {
-  endpoint: LangGraphCloudEndpoint;
+  endpoint: LangGraphPlatformEndpoint;
   graphqlContext: GraphQLContext;
   logger: Logger;
   messages: Message[];
@@ -41,11 +41,11 @@ export function constructLGCRemoteAction({
       threadId,
       nodeName,
     }: LangGraphAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
-      logger.debug({ actionName: agent.name }, "Executing LangGraph Cloud agent");
+      logger.debug({ actionName: agent.name }, "Executing LangGraph Platform agent");
 
       telemetry.capture("oss.runtime.remote_action_executed", {
         agentExecution: true,
-        type: "langgraph-cloud",
+        type: "langgraph-platform",
         agentsAmount: endpoint.agents.length,
         hashedLgcKey: createHash("sha256").update(endpoint.langsmithApiKey).digest("hex"),
       });
@@ -82,9 +82,9 @@ export function constructLGCRemoteAction({
       } catch (error) {
         logger.error(
           { url: endpoint.deploymentUrl, status: 500, body: error.message },
-          "Failed to execute LangGraph Cloud agent",
+          "Failed to execute LangGraph Platform agent",
         );
-        throw new Error("Failed to execute LangGraph Cloud agent");
+        throw new Error("Failed to execute LangGraph Platform agent");
       }
     },
   }));

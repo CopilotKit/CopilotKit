@@ -20,7 +20,7 @@ export interface RuntimeInstanceCreatedInfo {
 
 export interface RemoteActionExecutionInfo {
   agentExecution: boolean;
-  type: "self-hosted" | "langgraph-cloud";
+  type: "self-hosted" | "langgraph-platform";
   agentsAmount?: number | null;
   hashedLgcKey?: string;
 }

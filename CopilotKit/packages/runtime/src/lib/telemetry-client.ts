@@ -1,5 +1,5 @@
 import { TelemetryClient } from "@copilotkit/shared";
-import { EndpointType, LangGraphCloudEndpoint } from "./runtime/remote-actions";
+import { EndpointType, LangGraphPlatformEndpoint } from "./runtime/remote-actions";
 import { createHash } from "node:crypto";
 import { CopilotRuntime, resolveEndpointType } from "./runtime/copilot-runtime";
 import { RuntimeInstanceCreatedInfo } from "@copilotkit/shared/src/telemetry/events";
@@ -25,9 +25,9 @@ export function getRuntimeInstanceTelemetryInfo(
         };
       }
 
-      if (endpointType === EndpointType.LangGraphCloud) {
+      if (endpointType === EndpointType.LangGraphPlatform) {
         // When type is resolved, recreating a const with casting of type
-        const ep = endpoint as LangGraphCloudEndpoint;
+        const ep = endpoint as LangGraphPlatformEndpoint;
         info = {
           ...info,
           agentsAmount: ep.agents.length,

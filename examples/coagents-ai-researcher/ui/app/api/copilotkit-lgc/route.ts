@@ -5,7 +5,7 @@ import {
 } from "@copilotkit/runtime";
 import OpenAI from "openai";
 import { NextRequest } from "next/server";
-import { langGraphCloudEndpoint } from "@copilotkit/runtime";
+import { langGraphPlatformEndpoint } from "@copilotkit/runtime";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const serviceAdapter = new OpenAIAdapter({ openai } as any);
@@ -15,7 +15,7 @@ const langsmithApiKey = process.env.LANGSMITH_API_KEY as string
 
 const runtime = new CopilotRuntime({
   remoteEndpoints: [
-    langGraphCloudEndpoint({
+    langGraphPlatformEndpoint({
       deploymentUrl,
       langsmithApiKey,
       agents: [{
