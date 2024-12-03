@@ -17,18 +17,25 @@ if [ "$current_branch" = "main" ]; then
   exit 1
 fi
 
-# replace underscores in current_branch with hyphens
-package=$(echo $current_branch | sed 's/_/-/g')
+# check if branch starts with "pre/"
+if [[ $current_branch == pre/* ]]; then
+  suggested_tag="pre"
+  echo "You you are in a branch starting with 'pre/'. Therefore, the suggested tag is 'pre'. You can override this."
+  read -p "Enter tag (suggested: \"pre\" - press Enter to confirm): " tag
+  tag=${tag:-pre}
+else
+  read -p "Enter tag (e.g. some-feature): " user_input
+  tag=${user_input}
+fi
 
-# replace all non-alphanumeric characters except hyphens
-package=$(echo $package | sed 's/[^a-zA-Z0-9-]/-/g')
-
-# chop leading and trailing hyphens
-package=$(echo $package | sed 's/^-//;s/-$//')
+if [ -z "$tag" ]; then
+  printf "\e[41m\e[97m!!\e[0m Error: Tag cannot be empty\n"
+  exit 1
+fi
 
 echo ""
 echo "Branch: $current_branch" 
-echo "Package: $package"
+echo "Tag: $tag"
 echo ""
 echo "==============================="
 echo "!! Releasing new pre release !!"
@@ -42,8 +49,11 @@ if [ "$response" != "y" ]; then
   exit 1
 fi
 
+
+
+
 # enter pre mode
-pnpm changeset pre enter $package
+pnpm changeset pre enter pre
 
 # select the packages to push an update for
 pnpm changeset
