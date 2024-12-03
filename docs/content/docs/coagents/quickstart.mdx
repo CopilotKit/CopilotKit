@@ -158,7 +158,7 @@ In order for CopilotKit to integrate with your LangGraph agent, it has to be dep
 
 
 
-          <Tabs items={['LangGraph Studio (local development)', 'LangGraph Cloud']}>
+          <Tabs items={['LangGraph Studio (local development)', 'LangGraph Platform (cloud)']}>
 
             <Tab value="LangGraph Studio (local development)">
               For local deployment during development, you can [use LangGraph Studio](https://langchain-ai.github.io/langgraph/cloud/how-tos/test_local_deployment/).
@@ -177,8 +177,8 @@ In order for CopilotKit to integrate with your LangGraph agent, it has to be dep
               <img src="/images/langgraph-studio-local-url.png" alt="LangGraph Studio Local URL" className="my-4" />
             </Tab>
 
-            <Tab value="LangGraph Cloud">
-              For production, you can deploy to LangGraph Cloud by following the official [LangGraph Cloud deployment guide](https://langchain-ai.github.io/langgraph/cloud/deployment/cloud/).
+            <Tab value="LangGraph Platform (cloud)">
+              For production, you can deploy to LangGraph Platform by following the official [LangGraph Platform deployment guide](https://langchain-ai.github.io/langgraph/cloud/deployment/cloud/).
 
               A successful deployment will yield an API URL (often referred to here as "deployment URL"). 
               It will look like this: `https://{project-identifiers}.langgraph.app`.
@@ -208,7 +208,7 @@ In order for CopilotKit to integrate with your LangGraph agent, it has to be dep
             const runtime = new CopilotRuntime({
               // ...existing configuration
               remoteEndpoints: [ 
-                langGraphCloudEndpoint({
+                langGraphPlatformEndpoint({
                   deploymentUrl: "your-api-url", // make sure to replace with your real deployment url // [!code highlight]
                   langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Cloud deoployments
                   agents: [ // List any agents available under "graphs" list in your langgraph.json file; give each a description explaining when it should be called.
