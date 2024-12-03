@@ -36,7 +36,7 @@ import FindCopilotRuntimeSnippet from "@/snippets/find-your-copilot-runtime.mdx"
         const runtime = new CopilotRuntime({
             // ...existing configuration
             remoteEndpoints: [ // [!code highlight:9]
-                langGraphCloudEndpoint({
+                langGraphPlatformEndpoint({
                     deploymentUrl: "your-api-url",
                     langsmithApiKey: "your-langsmith-api-key",
                     // List of all agents which are available under "graphs" list in your langgraph.json file.
@@ -47,7 +47,7 @@ import FindCopilotRuntimeSnippet from "@/snippets/find-your-copilot-runtime.mdx"
         ```
 
         <Callout type="info">
-            Tip: Use the `langGraphCloudEndpoint` type constructor function
+            Tip: Use the `langGraphPlatformEndpoint` type constructor function
         </Callout>
 
     </Step>
