@@ -15,10 +15,11 @@ import { Place } from "@/lib/types";
 
 export type PlaceProps = {
   place: Place;
+  number: number;
   map?: Map;
 }
 
-export function PlaceForMap({ place, map }: PlaceProps) {
+export function PlaceForMap({ place, number, map }: PlaceProps) {
   const { selectedTrip, deletePlace } = useTrips();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -54,6 +55,7 @@ export function PlaceForMap({ place, map }: PlaceProps) {
   return (
     <PlaceCard 
       place={place}
+      number={number}
       actions={actions}
       onMouseEnter={() => {
         if (map) {
