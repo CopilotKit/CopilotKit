@@ -14,14 +14,12 @@
  *   apiKey: "<your-api-key>",
  * });
  *
- * const serviceAdapter = new OpenAIAssistantAdapter({
+ * return new OpenAIAssistantAdapter({
  *   openai,
  *   assistantId: "<your-assistant-id>",
  *   codeInterpreterEnabled: true,
  *   fileSearchEnabled: true,
  * });
- *
- * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
  * ```
  */
 import OpenAI from "openai";
