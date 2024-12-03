@@ -27,7 +27,7 @@ import {
   setupRemoteActions,
   EndpointDefinition,
   CopilotKitEndpoint,
-  LangGraphCloudEndpoint,
+  LangGraphPlatformEndpoint,
 } from "./remote-actions";
 import { GraphQLContext } from "../integrations/shared";
 import { AgentSessionInput } from "../../graphql/inputs/agent-session.input";
@@ -392,19 +392,19 @@ export function copilotKitEndpoint(config: Omit<CopilotKitEndpoint, "type">): Co
   };
 }
 
-export function langGraphCloudEndpoint(
-  config: Omit<LangGraphCloudEndpoint, "type">,
-): LangGraphCloudEndpoint {
+export function langGraphPlatformEndpoint(
+  config: Omit<LangGraphPlatformEndpoint, "type">,
+): LangGraphPlatformEndpoint {
   return {
     ...config,
-    type: EndpointType.LangGraphCloud,
+    type: EndpointType.LangGraphPlatform,
   };
 }
 
 export function resolveEndpointType(endpoint: EndpointDefinition) {
   if (!endpoint.type) {
     if ("langsmithApiKey" in endpoint && "deploymentUrl" in endpoint && "agents" in endpoint) {
-      return EndpointType.LangGraphCloud;
+      return EndpointType.LangGraphPlatform;
     } else {
       return EndpointType.CopilotKit;
     }

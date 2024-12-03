@@ -1,7 +1,7 @@
 /**
  * <Callout type="info">
  *   Usage of this hook assumes some additional setup in your application, for more information
- *   on that see the Agentic Copilots <span className="text-blue-500">[getting started guide](/coagents/getting-started)</span>.
+ *   on that see the Agentic Copilots <span className="text-blue-500">[getting started guide](/coagents/quickstart)</span>.
  * </Callout>
  * <Frame className="my-12">
  *   <img
@@ -198,7 +198,7 @@ export type HintFunction = (params: HintFunctionParams) => Message | undefined;
  * This hook is used to integrate an agent into your application. With its use, you can
  * render and update the state of the agent, allowing for a dynamic and interactive experience.
  * We call these shared state experiences "Agentic Copilots". To get started using Agentic Copilots through this
- * hook, checkout the documentation at https://docs.copilotkit.ai/coagents/getting-started.
+ * hook, checkout the documentation at https://docs.copilotkit.ai/coagents/quickstart.
  */
 export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
   const isExternalStateManagement = (

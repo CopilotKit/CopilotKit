@@ -37,7 +37,7 @@ export class RemoteLangGraphEventSource {
       scan(
         (acc, event) => {
           if (event.event === LangGraphEventTypes.OnChatModelStream) {
-            // @ts-expect-error -- LangGraph Cloud implementation stores data outside of kwargs
+            // @ts-expect-error -- LangGraph Platform implementation stores data outside of kwargs
             const content = event.data?.chunk?.kwargs?.content ?? event.data?.chunk?.content;
 
             if (typeof content === "string") {
@@ -49,7 +49,7 @@ export class RemoteLangGraphEventSource {
             }
 
             const toolCallChunks =
-              // @ts-expect-error -- LangGraph Cloud implementation stores data outside of kwargs
+              // @ts-expect-error -- LangGraph Platform implementation stores data outside of kwargs
               event.data?.chunk?.kwargs?.tool_call_chunks ?? event.data?.chunk?.tool_call_chunks;
 
             const toolCallMessageId =
