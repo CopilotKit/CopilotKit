@@ -14,5 +14,5 @@
     "danger": "^12.3.3",
     "husky": "^9.1.4"
   },
-  "packageManager": "pnpm@9.14.4"
+  "packageManager": "pnpm@9.5.0"
 }
