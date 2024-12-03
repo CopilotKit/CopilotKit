@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.4.0-pre-1-4-0.14",
+  "version": "1.4.0-pre.15",
   "sideEffects": [
     "**/*.css"
   ],

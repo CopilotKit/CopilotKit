@@ -1,6 +1,6 @@
 {
   "name": "node-http",
-  "version": "1.4.0-pre-1-4-0.14",
+  "version": "1.4.0-pre.15",
   "private": true,
   "scripts": {
     "example-start": "node dist/index.js",

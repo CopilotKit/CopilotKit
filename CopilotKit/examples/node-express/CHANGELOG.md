@@ -1,5 +1,14 @@
 # node
 
+## 1.4.0-pre.15
+
+### Patch Changes
+
+- No changes
+- Updated dependencies
+  - @copilotkit/runtime@1.4.0-pre.15
+  - @copilotkit/shared@1.4.0-pre.15
+
 ## 1.4.0-pre-1-4-0.14
 
 ### Minor Changes

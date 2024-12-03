@@ -1,5 +1,11 @@
 # eslint-config-custom
 
+## 1.4.0-pre.15
+
+### Patch Changes
+
+- No changes
+
 ## 1.4.0-pre-1-4-0.14
 
 ### Minor Changes
