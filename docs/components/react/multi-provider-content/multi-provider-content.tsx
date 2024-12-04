@@ -37,7 +37,7 @@ export function MultiProviderContent({ children, defaultProvider = 'openai', pro
             <Select defaultValue={selectedProvider as string} onValueChange={handleSelectChange}>
                 <div className="flex items-center w-full flex-col sm:flex-row">
                     <h5 className="mb-2 sm:mb-0 sm:mr-2">Choose your provider:</h5>
-                    <SelectTrigger className="w-full sm:w-[220px]">
+                    <SelectTrigger className="w-full sm:w-[280px]">
                         <SelectValue placeholder="Theme" />
                     </SelectTrigger>
                 </div>
