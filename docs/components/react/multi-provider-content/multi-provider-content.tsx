@@ -47,7 +47,7 @@ export function MultiProviderContent({ children, defaultProvider = 'openai', pro
                             <SelectItem key={provider.id} value={provider.id}>
                                 <div className="flex items-center justify-center">
                                     <img
-                                        className="mr-2 rounded-sm"
+                                        className="my-0 mr-2 rounded-sm"
                                         src={provider.icon}
                                         alt={`${provider.title} logo`}
                                         width={20}
