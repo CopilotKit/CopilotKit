@@ -1,4 +1,79 @@
 /**
+ * Example usage of useCopilotAction with complex parameters:
+ *
+ * @example
+ * useCopilotAction({
+ *   name: "myAction",
+ *   parameters: [
+ *     { name: "arg1", type: "string", enum: ["option1", "option2", "option3"], required: false },
+ *     { name: "arg2", type: "number" },
+ *     {
+ *       name: "arg3",
+ *       type: "object",
+ *       attributes: [
+ *         { name: "nestedArg1", type: "boolean" },
+ *         { name: "xyz", required: false },
+ *       ],
+ *     },
+ *     { name: "arg4", type: "number[]" },
+ *   ],
+ *   handler: ({ arg1, arg2, arg3, arg4 }) => {
+ *     const x = arg3.nestedArg1;
+ *     const z = arg3.xyz;
+ *     console.log(arg1, arg2, arg3);
+ *   },
+ * });
+ *
+ * @example
+ * // Simple action without parameters
+ * useCopilotAction({
+ *   name: "myAction",
+ *   handler: () => {
+ *     console.log("No parameters provided.");
+ *   },
+ * });
+ *
+ * @example
+ * // Interactive action with UI rendering and response handling
+ * useCopilotAction({
+ *   name: "handleMeeting",
+ *   description: "Handle a meeting by booking or canceling",
+ *   parameters: [
+ *     {
+ *       name: "meeting",
+ *       type: "string",
+ *       description: "The meeting to handle",
+ *       required: true,
+ *     },
+ *     {
+ *       name: "date",
+ *       type: "string",
+ *       description: "The date of the meeting",
+ *       required: true,
+ *     },
+ *     {
+ *       name: "title",
+ *       type: "string",
+ *       description: "The title of the meeting",
+ *       required: true,
+ *     },
+ *   ],
+ *   renderAndRespond: ({ args, respond, status }) => {
+ *     const { meeting, date, title } = args;
+ *     return (
+ *       <MeetingConfirmationDialog
+ *         meeting={meeting}
+ *         date={date}
+ *         title={title}
+ *         onConfirm={() => respond('meeting confirmed')}
+ *         onCancel={() => respond('meeting canceled')}
+ *       />
+ *     );
+ *   },
+ * });
+ */
+
+/**
  * <img src="/images/use-copilot-action/useCopilotAction.gif" width="500" />
  * `useCopilotAction` is a React hook that you can use in your application to provide
  * custom actions that can be called by the AI. Essentially, it allows the Copilot to
@@ -66,19 +141,18 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
 ): void {
   const { setAction, removeAction, actions, chatComponentsCache } = useCopilotContext();
   const idRef = useRef<string>(randomId());
-  const renderAndWaitRef = useRef<RenderAndWait | null>(null);
+  const renderAndWaitRef = useRef<RenderAndRespond | null>(null);
 
   // clone the action to avoid mutating the original object
   action = { ...action };
 
   // If the developer provides a renderAndWait function, we transform the action
   // to use a promise internally, so that we can treat it like a normal action.
-  if (action.renderAndWait) {
-    const renderAndWait = action.renderAndWait!;
-
+  if (action.renderAndWait || action.renderAndRespond) {
+    const renderAndWait = action.renderAndWait || action.renderAndRespond;
     // remove the renderAndWait function from the action
     action.renderAndWait = undefined;
-
+    action.renderAndRespond = undefined;
     // add a handler that will be called when the action is executed
     action.handler = (async () => {
       // we create a new promise when the handler is called
@@ -95,13 +169,19 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
 
     // add a render function that will be called when the action is rendered
     action.render = ((props: ActionRenderProps<any>): React.ReactElement => {
-      const waitProps: ActionRenderPropsWait<any> = {
+      const waitProps = {
         status: props.status as any,
-        args: props.args,
+        args: props.args as Record<string, any>,
         result: props.result,
-        handler: props.status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
+        handler: (props.status === "executing" ? renderAndWaitRef.current!.resolve : undefined) as (
+          result: any,
+        ) => void | undefined,
+        respond: (props.status === "executing" ? renderAndWaitRef.current!.resolve : undefined) as (
+          result: any,
+        ) => void | undefined,
       };
-      return renderAndWait(waitProps);
+
+      return renderAndWait!(waitProps) as any;
     }) as any;
   }
 
@@ -145,38 +225,8 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   ]);
 }
 
-interface RenderAndWait {
+interface RenderAndRespond {
   promise: Promise<any>;
   resolve: (result: any) => void;
   reject: (error: any) => void;
 }
-
-// Usage Example:
-// useCopilotAction({
-//   name: "myAction",
-//   parameters: [
-//     { name: "arg1", type: "string", enum: ["option1", "option2", "option3"], required: false },
-//     { name: "arg2", type: "number" },
-//     {
-//       name: "arg3",
-//       type: "object",
-//       attributes: [
-//         { name: "nestedArg1", type: "boolean" },
-//         { name: "xyz", required: false },
-//       ],
-//     },
-//     { name: "arg4", type: "number[]" },
-//   ],
-//   handler: ({ arg1, arg2, arg3, arg4 }) => {
-//     const x = arg3.nestedArg1;
-//     const z = arg3.xyz;
-//     console.log(arg1, arg2, arg3);
-//   },
-// });
-
-// useCopilotAction({
-//   name: "myAction",
-//   handler: () => {
-//     console.log("No parameters provided.");
-//   },
-// });
