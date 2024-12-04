@@ -1,12 +1,13 @@
 import { MapContainer, TileLayer, Marker, Tooltip } from "react-leaflet";
 import { useTrips } from "@/lib/hooks/use-trips";
-import { useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Map, divIcon } from "leaflet";
 import { cn } from "@/lib/utils";
 import { TripCard } from "@/components/TripCard";
 import { PlaceCard } from "@/components/PlaceCard";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { MobileTripCard } from "./MobileTripCard";
+import { useChatContext } from "@copilotkit/react-ui";
 
 export type MapCanvasProps = {
   className?: string;
@@ -15,7 +16,16 @@ export type MapCanvasProps = {
 export function MapCanvas({ className }: MapCanvasProps) {
 	const [map, setMap] = useState<Map | null>(null);
 	const { selectedTrip } = useTrips();
-  const isDesktop = useMediaQuery("(min-width: 770px)");
+  const { setOpen } = useChatContext();
+  const isDesktop = useMediaQuery("(min-width: 900px)");
+  const prevIsDesktop = useRef(isDesktop);
+
+  useEffect(() => {
+    if (prevIsDesktop.current !== isDesktop) {
+      setOpen(isDesktop);
+    }
+    prevIsDesktop.current = isDesktop;
+  }, [isDesktop, setOpen]);
 
   return (
 		<div className="">

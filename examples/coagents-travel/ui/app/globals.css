@@ -71,7 +71,7 @@
 }
 
 .copilotKitWindow {
-  @apply  md:w-[300px] lg:w-[400px] xl:w-[500px] 2xl:w-[700px] !important;
+  @apply  md:w-[300px] lg:w-[400px] xl:w-[450px] 2xl:w-[500px] !important;
 }
 
 .copilotKitDevConsole {
