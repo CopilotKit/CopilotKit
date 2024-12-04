@@ -121,28 +121,53 @@ jobs:
               const stats = results.stats;
               failedTests = stats.unexpected;
               
-              // Find failed test details
-              const failedSpecs = results.suites
+              // Find flaky and failed test details
+              const allSpecs = results.suites
                 .flatMap(s => s.suites || [])
                 .flatMap(s => s.suites || [])
-                .flatMap(s => s.specs || [])
-                .filter(spec => !spec.ok);
+                .flatMap(s => s.specs || []);
               
-              const failureDetails = failedSpecs.map(spec => {
-                const test = spec.tests[0];
-                const error = test.results[0].error;
-                return {
-                  title: spec.title,
-                  error: error.message.split('\n')[0] // First line of error
-                };
-              });
+              const flakySpecs = allSpecs
+                .filter(spec => spec.tests[0].status === 'flaky')
+                .map(spec => {
+                  const test = spec.tests[0];
+                  const firstFailure = test.results.find(r => r.status === 'failed');
+                  return {
+                    title: spec.title,
+                    error: firstFailure?.error?.message?.split('\n')[0] || 'Test was flaky',
+                    retries: test.results.length - 1
+                  };
+                });
               
+              const failedSpecs = allSpecs
+                .filter(spec => !spec.ok)
+                .map(spec => {
+                  const test = spec.tests[0];
+                  const error = test.results[0].error;
+                  return {
+                    title: spec.title,
+                    error: error.message.split('\n')[0]
+                  };
+                });
+              
+              // Determine status and create summary
               if (failedTests > 0) {
                 summary = [
                   `❌ Tests failed: ${failedTests} of ${stats.expected + stats.unexpected} tests failed`,
                   '',
                   'Failed Tests:',
-                  ...failureDetails.map(f => `- ${f.title}\n  Error: ${f.error}`),
+                  ...failedSpecs.map(f => `- ${f.title}\n  Error: ${f.error}`),
+                  '',
+                  `Duration: ${Math.round(stats.duration / 1000)}s`,
+                  '',
+                  'See PR comment for full details.'
+                ].join('\n');
+              } else if (stats.flaky > 0) {
+                summary = [
+                  `⚠️ Tests completed with flaky behavior: ${stats.flaky} of ${stats.expected} tests required retries`,
+                  '',
+                  'Flaky Tests:',
+                  ...flakySpecs.map(f => `- ${f.title}\n  Required ${f.retries} retries to pass\n  First error: ${f.error}`),
                   '',
                   `Duration: ${Math.round(stats.duration / 1000)}s`,
                   '',
@@ -157,14 +182,25 @@ jobs:
               failedTests = 1;
             }
 
+            let conclusion = 'success';
+            let title = '✅ E2E Tests Passed';
+
+            if (failedTests > 0) {
+              conclusion = 'failure';
+              title = '❌ E2E Tests Failed';
+            } else if (stats?.flaky > 0) {
+              conclusion = 'neutral';
+              title = '⚠️ E2E Tests Passed with Flaky Tests';
+            }
+
             return github.rest.checks.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               name: 'E2E Tests',
               head_sha: '${{ inputs.sha }}',
-              conclusion: failedTests > 0 ? 'failure' : 'success',
+              conclusion: conclusion,
               output: {
-                title: failedTests > 0 ? '❌ E2E Tests Failed' : '✅ E2E Tests Passed',
+                title: title,
                 summary: summary
               }
             })
