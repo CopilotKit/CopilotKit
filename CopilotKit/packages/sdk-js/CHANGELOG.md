@@ -1,5 +1,16 @@
 # @copilotkit/sdk-js
 
+## 1.4.0-pre.16
+
+### Minor Changes
+
+- lgc and lgjs alpha
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/shared@1.4.0-pre.16
+
 ## 1.4.0-pre.15
 
 ### Patch Changes

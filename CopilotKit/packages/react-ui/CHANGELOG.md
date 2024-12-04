@@ -1,5 +1,18 @@
 # ui
 
+## 1.4.0-pre.16
+
+### Minor Changes
+
+- lgc and lgjs alpha
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.4.0-pre.16
+  - @copilotkit/react-core@1.4.0-pre.16
+  - @copilotkit/shared@1.4.0-pre.16
+
 ## 1.4.0-pre.15
 
 ### Patch Changes
