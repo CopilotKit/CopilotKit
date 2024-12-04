@@ -14,15 +14,13 @@
  *   apiKey: "<your-api-key>",
  * });
  *
- * const serviceAdapter = new LangChainAdapter({
+ * return new LangChainAdapter({
  *   chainFn: async ({ messages, tools }) => {
  *     return model.bindTools(tools).stream(messages);
  *     // or optionally enable strict mode
  *     // return model.bindTools(tools, { strict: true }).stream(messages);
  *   }
  * });
- *
- * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
  * ```
  *
  * The asynchronous handler function (`chainFn`) can return any of the following:

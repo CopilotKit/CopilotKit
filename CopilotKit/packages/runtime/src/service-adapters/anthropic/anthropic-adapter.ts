@@ -13,9 +13,7 @@
  *   apiKey: "<your-api-key>",
  * });
  *
- * const serviceAdapter = new AnthropicAdapter({ anthropic });
- *
- * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+ * return new AnthropicAdapter({ anthropic });
  * ```
  */
 import Anthropic from "@anthropic-ai/sdk";
