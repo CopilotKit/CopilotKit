@@ -4,44 +4,42 @@ title: "Step 1: Checkout the repo"
 
 <Steps>
 <Step>
-### Checkout the repository
-We'll begin by checking out the base code of the travel app. The starting code is hosted in the `CopilotKit` repo, under the `examples/coagents-travel` directory.
+### Checkout the starting branch
+We'll be working with the CopilotKit repository, specifically using a branch called `coagents-travel-tutorial-start`. This branch contains the starting code for our travel app tutorial.
 
 ```shell
 git clone -b coagents-travel-tutorial-start https://github.com/CopilotKit/CopilotKit.git
-cd CopilotKit/examples/coagents-travel
+cd CopilotKit
 ```
 
+The tutorial code is located in the `examples/coagents-travel` directory, which contains:
+- `ui/`: A NextJS application where we'll integrate our LangGraph agent
+- `agent/`: A Python-based LangGraph agent that we'll be enhancing
+
+Go ahead and navigate to the example directory:
+
+```shell
+cd examples/coagents-travel
+```
 </Step>
 <Step>
 ### Install dependencies
-
-There are two main folders in this repo:
-- `ui`: This is the NextJS app that we'll be integrating the agentic copilot into.
-- `agent`: This is the agent itself, written in Python. We'll talk more about this later, but for now just know it is a LangGraph agent that we'll be building on top of.
-
-First, navigate into the `ui` folder:
+First, let's set up the NextJS application. Navigate to the `ui` directory and install the dependencies:
 
 ```shell
 cd ui
-```
-
-Once there, install the dependencies by running:
-
-```shell
 pnpm install
 ```
 </Step>
 <Step>
 ### Start the project
-
-Now, you are ready to start the project by running:
+Launch the development server:
 
 ```shell
 pnpm run dev
 ```
 
-You should be able to go to [http://localhost:3000](http://localhost:3000) and see the travel app. Feel free to play around with the app to get a feel for it.
+Visit [http://localhost:3000](http://localhost:3000) to see the travel app in action. Take some time to explore the interface and familiarize yourself with its features.
 </Step>
 </Steps>
 
