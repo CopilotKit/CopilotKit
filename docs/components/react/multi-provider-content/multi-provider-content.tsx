@@ -13,8 +13,20 @@ type Props = {
 // @ts-expect-error -- initiating this with null is fine
 const ProviderContext = React.createContext<{ provider: ProviderDefinition; providerName: string }>(null)
 
-export function MultiProviderContent({ children, defaultProvider, providersConfig }: Props) {
-    const [selectedProvider, setSelectedProvider] = useState<string>(defaultProvider ?? "openai");
+const LOCALSTORAGE_KEY = 'preferredProvider'
+
+export function MultiProviderContent({ children, defaultProvider = 'openai', providersConfig }: Props) {
+    const [selectedProvider, internalSetSelectedProvider] = useState(() => {
+        // Initialize state from localStorage if available
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem(LOCALSTORAGE_KEY) || defaultProvider;
+        }
+        return defaultProvider;
+    });
+    const setSelectedProvider = (selection: string) => {
+        internalSetSelectedProvider(selection)
+        localStorage.setItem(LOCALSTORAGE_KEY, selection);
+    }
 
     const handleSelectChange = (value: string) => {
         setSelectedProvider(value);
@@ -106,14 +118,24 @@ export function Interpolate({ children }: { children: React.ReactNode; }) {
     }, [children, providerName])
 }
 
-export function If({ condition, children }: { children: React.ReactNode; condition: [keyof ProviderDefinition, unknown] }) {
+interface Condition { key: keyof ProviderDefinition, value: unknown }
+export function If({ conditions, children }: { children: React.ReactNode; conditions: Condition[] }) {
     const { provider } = useContext(ProviderContext)
-    const [conditionKey, conditionValue] = condition;
 
-    switch(typeof conditionValue) {
-        case "boolean":
-            return Boolean(provider[conditionKey]) === conditionValue ? <>{children}</> : null;
-        default:
-            return provider[conditionKey] === conditionValue ? <>{children}</> : null;
+    const runCondition = ({ key, value }: Condition) => {
+        switch(typeof value) {
+            case "boolean":
+                return Boolean(provider[key]) === value;
+            default:
+                return provider[key] === value;
+        }
     }
+
+    const passed = useMemo(() => conditions.some(runCondition), [conditions, provider])
+
+    if (!passed) {
+        return null
+    }
+
+    return children
 }

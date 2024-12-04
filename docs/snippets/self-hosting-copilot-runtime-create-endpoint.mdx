@@ -3,17 +3,18 @@ import { quickStartProviders } from "@/components/react/multi-provider-content/u
 
 <Callout type="info">
   If you are planning to use a single LangGraph agent in [agent-lock mode](/coagents/advanced/router-mode-agent-lock#agent-lock-mode) as your agentic backend, your LLM adapter will only be used for peripherals such as suggestions, etc.
-  
+
   If you are not sure yet, simply ignore this note.
 </Callout>
 
-<Callout type="info">
-    Are you planning to use the LangChain provider adapter?
-    It is demonstrated here using OpenAI, but can be used with any LLM!
-</Callout>
-
 <MultiProviderContent providersConfig={quickStartProviders}>
-    <If condition={['packageName', true]}>
+    <If conditions={[{ key: 'id', value: 'langchain' }]}>
+        <Callout type="info">
+            The LangChain adapter shown here is using OpenAI, but can be used with any LLM!
+        </Callout>
+    </If>
+
+    <If conditions={[{ key: 'packageName', value: true }]}>
         Install provider package:
 
         ```package-install
@@ -28,9 +29,11 @@ import { quickStartProviders } from "@/components/react/multi-provider-content/u
     {{endVarName}}=your_api_key_here
     ```
 
-    <Callout type="warn">
-        Please note that the code below uses GPT-4o, which requires a paid OpenAI API key. **If you are using a free OpenAI API key**, change the model to a different option such as `gpt-3.5-turbo`.
-    </Callout>
+    <If conditions={[{ key: 'id', value: 'openai' }, { key: 'id', value: 'openai-assistants' }]}>
+        <Callout type="warn">
+            Please note that the code below uses GPT-4o, which requires a paid OpenAI API key. **If you are using a free OpenAI API key**, change the model to a different option such as `gpt-3.5-turbo`.
+        </Callout>
+    </If>
 
 
     #### Endpoint Setup
