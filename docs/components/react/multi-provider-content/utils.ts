@@ -11,14 +11,9 @@ export const quickStartProviders: ProvidersConfig = {
         id: "openai",
         title: "OpenAI",
         icon: '/icons/openai.png',
-        packageName: "openai",
         endVarName: "OPENAI_API_KEY",
         adapterImport: "OpenAIAdapter",
-        extraImports: [
-            'import OpenAI from \'openai\';'
-        ],
-        clientSetup: 'const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });',
-        adapterSetup: 'const serviceAdapter = new OpenAIAdapter({ openai });'
+        adapterSetup: 'const serviceAdapter = new OpenAIAdapter();'
     },
     "azure": {
         id: "azure",
@@ -42,27 +37,17 @@ export const quickStartProviders: ProvidersConfig = {
         id: "anthropic",
         title: "Anthropic (Claude)",
         icon: '/icons/anthropic.png',
-        packageName: "@anthropic-ai/sdk",
         endVarName: "ANTHROPIC_API_KEY",
         adapterImport: "AnthropicAdapter",
-        extraImports: `
-            import Anthropic from "@anthropic-ai/sdk";
-        `,
-        clientSetup: 'const anthropic = new Anthropic({apiKey: "<your-api-key>"});',
-        adapterSetup: 'const serviceAdapter = new AnthropicAdapter({ anthropic });'
+        adapterSetup: 'const serviceAdapter = new AnthropicAdapter();'
     },
     "groq": {
         id: "groq",
         title: "Groq",
         icon: '/icons/groq.png',
-        packageName: "groq-sdk",
         endVarName: "GROQ_API_KEY",
         adapterImport: "GroqAdapter",
-        extraImports: [
-            'import { Groq } from \'groq-sdk\';'
-        ],
-        clientSetup: 'const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });',
-        adapterSetup: 'const serviceAdapter = new GroqAdapter({ groq, model: "<model-name>" });'
+        adapterSetup: 'const serviceAdapter = new GroqAdapter({ model: "<model-name>" });'
     },
     "google": {
         id: "google",
