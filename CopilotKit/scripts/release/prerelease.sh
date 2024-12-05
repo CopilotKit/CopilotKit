@@ -54,7 +54,7 @@ fi
 
 
 # enter pre mode
-pnpm changeset pre enter pre
+pnpm changeset pre enter alpha
 
 # select the packages to push an update for
 pnpm changeset

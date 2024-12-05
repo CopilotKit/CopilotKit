@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.4.0-alpha.18
+
+### Patch Changes
+
+- test prerelase
+- Updated dependencies
+  - @copilotkit/shared@1.4.0-alpha.18
+
 ## 1.4.0-pre.17
 
 ### Patch Changes
