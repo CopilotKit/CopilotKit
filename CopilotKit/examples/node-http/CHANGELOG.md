@@ -1,5 +1,14 @@
 # node
 
+## 1.3.16-pre.1
+
+### Patch Changes
+
+- Test prerelease
+- Updated dependencies
+  - @copilotkit/runtime@1.3.16-pre.11
+  - @copilotkit/shared@1.3.16-pre.11
+
 ## 1.3.16-mme-revert-rxjs-changes.0
 
 ### Patch Changes

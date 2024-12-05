@@ -1,5 +1,13 @@
 # @copilotkit/sdk-js
 
+## 1.3.16-pre.11
+
+### Patch Changes
+
+- Test prerelease
+- Updated dependencies
+  - @copilotkit/shared@1.3.16-pre.11
+
 ## 1.3.16-mme-revert-rxjs-changes.10
 
 ### Patch Changes

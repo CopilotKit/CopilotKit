@@ -1,5 +1,17 @@
 # next-pages-router
 
+## 1.3.16-pre.1
+
+### Patch Changes
+
+- Test prerelease
+- Updated dependencies
+  - @copilotkit/react-core@1.3.16-pre.11
+  - @copilotkit/react-textarea@1.3.16-pre.11
+  - @copilotkit/react-ui@1.3.16-pre.11
+  - @copilotkit/runtime@1.3.16-pre.11
+  - @copilotkit/shared@1.3.16-pre.11
+
 ## 1.3.16-mme-revert-rxjs-changes.0
 
 ### Patch Changes
