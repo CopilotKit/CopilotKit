@@ -8,7 +8,6 @@
     "exit-agent",
     "agent-steering",
     "copilotkit-state",
-    "using-google-gemini",
-    "messages-localstorage"
+    "using-google-gemini"
   ]
 }
