@@ -9,11 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "openai": "^4.73.0",
-    "@copilotkit/runtime": "1.4.0-pre-1-4-0.12",
-    "@copilotkit/react-core": "1.4.0-pre-1-4-0.12",
-    "@copilotkit/react-ui": "1.4.0-pre-1-4-0.12",
-    "@copilotkit/runtime-client-gql": "1.4.0-pre-1-4-0.12",
+    "@copilotkit/react-core": "1.4.0-pre.16",
+    "@copilotkit/react-ui": "1.4.0-pre.16",
+    "@copilotkit/runtime": "1.4.0-pre.16",
+    "@copilotkit/runtime-client-gql": "1.4.0-pre.16",
     "@radix-ui/react-accordion": "^1.2.1",
     "@radix-ui/react-checkbox": "^1.1.1",
     "@radix-ui/react-dialog": "^1.1.2",
@@ -32,11 +31,13 @@
     "leaflet": "^1.9.4",
     "lucide-react": "^0.414.0",
     "next": "14.2.5",
+    "openai": "^4.73.0",
     "react": "^18",
     "react-dom": "^18",
     "react-leaflet": "^4.2.1",
     "tailwind-merge": "^2.4.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "vaul": "^1.1.1"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.14",

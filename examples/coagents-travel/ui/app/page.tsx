@@ -11,7 +11,8 @@ import "@copilotkit/react-ui/styles.css";
 // is because Leaflet is not compatible with server-side rendering
 //
 // https://github.com/PaulLeCam/react-leaflet/issues/45
-const MapCanvas = dynamic(() => import('@/components/MapCanvas').then((module: any) => module.MapCanvas), {
+let MapCanvas: any;
+MapCanvas = dynamic(() => import('@/components/MapCanvas').then((module: any) => module.MapCanvas), {
   ssr: false,
 });
 
@@ -23,7 +24,7 @@ export default function Home() {
       publicApiKey={process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY}
     >
       <CopilotSidebar
-        defaultOpen
+        defaultOpen={false}
         clickOutsideToClose={false}
         labels={{
           title: "Travel Planner",

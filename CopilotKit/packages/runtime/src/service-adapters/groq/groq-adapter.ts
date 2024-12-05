@@ -11,9 +11,7 @@
  *
  * const copilotKit = new CopilotRuntime();
  *
- * const serviceAdapter = new GroqAdapter({ groq, model: "<model-name>" });
- *
- * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+ * return new GroqAdapter({ groq, model: "<model-name>" });
  * ```
  */
 import { Groq } from "groq-sdk";

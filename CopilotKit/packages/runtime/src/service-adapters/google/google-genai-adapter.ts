@@ -11,9 +11,7 @@
  *
  * const copilotKit = new CopilotRuntime();
  *
- * const serviceAdapter = new GoogleGenerativeAIAdapter({ model: "gemini-1.5-pro" });
- *
- * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+ * return new GoogleGenerativeAIAdapter({ model: "gemini-1.5-pro" });
  * ```
  */
 import { ChatGoogle } from "@langchain/google-gauth";
