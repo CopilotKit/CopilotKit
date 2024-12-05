@@ -4,12 +4,17 @@ import { useModelSelectorContext } from "@/lib/model-selector-provider";
 import { useCoAgent, useCopilotAction } from "@copilotkit/react-core";
 import { CopilotPopup } from "@copilotkit/react-ui";
 import { useState } from "react";
+import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
 
 export function Mailer() {
   const { model } = useModelSelectorContext();
   const [messageState, setMessageState] = useState<"SEND" | "CANCEL" | null>(
     null
   );
+
+  useCopilotChatSuggestions({
+    instructions: "Write an email to the CEO of OpenAI asking for a meeting",
+  });
 
   useCoAgent({
     name: "email_agent",

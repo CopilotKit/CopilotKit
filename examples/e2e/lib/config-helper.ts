@@ -18,6 +18,7 @@ export interface ConfigItem {
   projectName: ProjectName;
   lgcPythonDeploymentUrl?: string;
   lgcJSDeploymentUrl?: string;
+  key?: string;
 }
 
 export interface ConfigMap {
@@ -75,7 +76,6 @@ export const filterConfigsByProject = (
     return acc;
   }, {} as ConfigMap);
 };
-
 
 export const appendLGCVariants = (config: ConfigItem, variants: any[]) => {
   let appendedVariants = [...variants];

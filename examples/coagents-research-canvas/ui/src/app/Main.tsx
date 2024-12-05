@@ -3,6 +3,7 @@ import { useModelSelectorContext } from "@/lib/model-selector-provider";
 import { AgentState } from "@/lib/types";
 import { useCoAgent } from "@copilotkit/react-core";
 import { CopilotChat } from "@copilotkit/react-ui";
+import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
 
 export default function Main() {
   const { model, agent } = useModelSelectorContext();
@@ -15,6 +16,10 @@ export default function Main() {
       report: "",
       logs: [],
     },
+  });
+
+  useCopilotChatSuggestions({
+    instructions: "Lifespan of penguins",
   });
 
   return (
