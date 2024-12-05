@@ -7,42 +7,79 @@ import { LinkIcon } from "lucide-react";
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
 import ConnectCopilotUI from "@/snippets/copilot-ui.mdx";
+import CopilotCloudConfigureCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
+import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content.tsx";
+import { FaCloud, FaServer } from "react-icons/fa";
 
+## Install Dependencies
+
+First, install the CopilotKit dependencies.
+
+```package-install
+npm install @copilotkit/react-core @copilotkit/react-textarea
+```
+
+## Setup CopilotKit
+
+<TailoredContent>
+<TailoredContentOption
+  title="Copilot Cloud (Recommended)"
+  description="Use our hosted backend endpoint to get started quickly (OpenAI only)."
+  icon={<FaCloud />}
+>
+<InsecurePasswordProtected>
+In order to use CopilotKit, we'll need to configure the `CopilotKit` provider.
+</InsecurePasswordProtected>
+
+<CopilotCloudConfigureCopilotKitProvider components={props.components} />
+</TailoredContentOption>
+<TailoredContentOption
+  title="Self-hosting"
+  description="Learn to host CopilotKit's runtime yourself with your own backend."
+  icon={<FaServer />}
+>
 <Steps>
 <Step>
-  ### Install dependencies
-
-  First, install the CopilotKit dependencies.
-
-  ```package-install
-  npm install @copilotkit/react-core @copilotkit/react-ui @copilotkit/runtime
-  ```
-
+### Set up Copilot Runtime Endpoint
+<SelfHostingCopilotRuntimeCreateEndpoint components={props.components} />
 </Step>
 <Step>
-  ### Set up Copilot Runtime (Backend Endpoint)
-  <SelfHostingCopilotRuntimeCreateEndpoint components={props.components} />
-</Step>
-<Step>
-  ### Configure the CopilotKit Provider
-  <SelfHostingCopilotRuntimeConfigureCopilotKitProvider
-    components={props.components}
-  />
-</Step>
-<Step>
-  ### Connect Copilot UI
-  You are almost there!
-  Now it's time to setup your Copilot UI.
+### Configure the CopilotKit Provider
 
-  <ConnectCopilotUI components={props.components} />
+```tsx title="app/page.tsx" showLineNumbers {5,10,14}
+"use client";
+
+import { EmailThread } from "@/components/EmailThread";
+import { EmailsProvider } from "@/lib/hooks/use-emails";
+import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+import "@copilotkit/react-textarea/styles.css"; // [!code highlight]
+
+export default function Home() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit"> // [!code highlight]
+      <EmailsProvider>
+        <EmailThread />
+      </EmailsProvider>
+    </CopilotKit> // [!code highlight]
+  );
+}
+```
 </Step>
 </Steps>
+</TailoredContentOption>
+</TailoredContent>
 
-🎉 Congrats! You've successfully integrated a fully functional chatbot in your application! Give it a try now and see it in action.
+### Connect Copilot UI
+You are almost there!
+Now it's time to setup your Copilot UI.
+
+<ConnectCopilotUI components={props.components} />
 
 ---
 
 ## Next Steps
+🎉 Congrats! You've successfully integrated a fully functional chatbot in your application! Give it a try now and see it in action. Want to
+take it further? Learn more about what CopilotKit has to offer!
 
 <Cards>
   <Card
