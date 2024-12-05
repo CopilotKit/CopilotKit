@@ -27,8 +27,9 @@ You can easily pass questions to the frontend for the user to answer in the AI C
 import { useCopilotAction } from "@copilotkit/react-core";
 
 export function Mailer() {
-  useCopilotAction({ // [!code highlight:19]
+  useCopilotAction({ // [!code highlight:20]
     name: "email_tool",
+    available: "remote", // only allow the agent to call this action
     parameters: [
       {
         name: "email_draft",
