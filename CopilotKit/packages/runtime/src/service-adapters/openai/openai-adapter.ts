@@ -14,9 +14,7 @@
  *   apiKey: "<your-api-key>",
  * });
  *
- * const serviceAdapter = new OpenAIAdapter({ openai });
- *
- * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+ * return new OpenAIAdapter({ openai });
  * ```
  *
  * ## Example with Azure OpenAI
@@ -47,9 +45,7 @@
  *   defaultHeaders: { "api-key": apiKey },
  * });
  *
- * const serviceAdapter = new OpenAIAdapter({ openai });
- *
- * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+ * return new OpenAIAdapter({ openai });
  * ```
  */
 import OpenAI from "openai";
