@@ -16,9 +16,11 @@ COPY ${APP_DIR}/pyproject.toml ${APP_DIR}/poetry.lock ./
 
 # Copy SDK and install dependencies in a single layer
 COPY sdk-python/ /opt/sdk-python
-WORKDIR /asset
+WORKDIR /opt/sdk-python
 RUN poetry install --no-interaction --no-ansi
-RUN if [ "$WITH_LOCAL_DEPS" = "true" ]; then poetry add /opt/sdk-python; fi
+WORKDIR /asset
+RUN poetry init --name=my-agent --dependency "pydantic>=2.7.4" -n && \
+    poetry add /opt/sdk-python --no-interaction
 
 # Copy application code last
 COPY ${APP_DIR}/ ./
