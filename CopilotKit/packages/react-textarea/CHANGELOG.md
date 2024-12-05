@@ -1,5 +1,15 @@
 # ui
 
+## 1.3.16-pre.12
+
+### Patch Changes
+
+- Add latest change from main
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.3.16-pre.12
+  - @copilotkit/react-core@1.3.16-pre.12
+  - @copilotkit/shared@1.3.16-pre.12
+
 ## 1.3.16-mme-reset-chat.11
 
 ### Patch Changes

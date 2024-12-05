@@ -1,6 +1,6 @@
 {
   "name": "tailwind-config",
-  "version": "1.3.16-mme-reset-chat.1",
+  "version": "1.3.16-pre.2",
   "private": true,
   "main": "index.js",
   "devDependencies": {

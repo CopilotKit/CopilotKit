@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 1.3.16-pre.2
+
+### Patch Changes
+
+- Add latest change from main
+
 ## 1.3.16-mme-reset-chat.1
 
 ### Patch Changes
