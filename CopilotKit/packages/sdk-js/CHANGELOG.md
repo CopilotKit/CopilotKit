@@ -1,5 +1,13 @@
 # @copilotkit/sdk-js
 
+## 1.4.0-pre.17
+
+### Patch Changes
+
+- Fix versioning prereleases
+- Updated dependencies
+  - @copilotkit/shared@1.4.0-pre.17
+
 ## 1.4.0-pre.16
 
 ### Minor Changes

@@ -19,10 +19,11 @@ fi
 
 # check if branch starts with "pre/"
 if [[ $current_branch == pre/* ]]; then
-  suggested_tag="pre"
-  echo "You are in a branch starting with 'pre/'. Therefore, the suggested tag is 'pre'. You can override this."
-  read -p "Enter tag (suggested: \"pre\" - press Enter to confirm): " tag
-  tag=${tag:-pre}
+  suggested_tag="alpha"
+  echo "You are in a branch starting with 'alpha/'. Therefore, the suggested tag is 'alpha'. You can override this."
+  read -p "Enter tag (suggested: \"alpha\" - press Enter to confirm): " tag
+  # ${tag:-pre} means use $tag if set, otherwise use "pre" as the default value
+  tag=${tag:-"alpha"}
 else
   read -p "Enter tag (e.g. some-feature): " user_input
   tag=${user_input}

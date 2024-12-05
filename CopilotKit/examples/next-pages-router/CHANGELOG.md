@@ -1,5 +1,17 @@
 # next-pages-router
 
+## 1.4.0-pre.17
+
+### Patch Changes
+
+- Fix versioning prereleases
+- Updated dependencies
+  - @copilotkit/react-textarea@1.4.0-pre.17
+  - @copilotkit/react-core@1.4.0-pre.17
+  - @copilotkit/react-ui@1.4.0-pre.17
+  - @copilotkit/runtime@1.4.0-pre.17
+  - @copilotkit/shared@1.4.0-pre.17
+
 ## 1.4.0-pre.16
 
 ### Minor Changes

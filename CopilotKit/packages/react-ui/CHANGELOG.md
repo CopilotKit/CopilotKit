@@ -1,5 +1,15 @@
 # ui
 
+## 1.4.0-pre.17
+
+### Patch Changes
+
+- Fix versioning prereleases
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.4.0-pre.17
+  - @copilotkit/react-core@1.4.0-pre.17
+  - @copilotkit/shared@1.4.0-pre.17
+
 ## 1.4.0-pre.16
 
 ### Minor Changes
