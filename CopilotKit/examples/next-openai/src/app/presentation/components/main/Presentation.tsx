@@ -1,11 +1,12 @@
 "use client";
-import { useCopilotReadable } from "@copilotkit/react-core";
+import { useCopilotMessagesContext, useCopilotReadable } from "@copilotkit/react-core";
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Slide } from "./Slide";
 import { Header } from "./Header";
 import useAppendSlide from "../../actions/useAppendSlide";
 import { SlideModel } from "../../types";
+import { ActionExecutionMessage, ResultMessage, TextMessage } from "@copilotkit/runtime-client-gql";
 
 interface PresentationProps {
   performResearch: boolean;
@@ -13,7 +14,7 @@ interface PresentationProps {
 }
 
 export const Presentation = ({ performResearch, setPerformResearch }: PresentationProps) => {
-  // Load messages from local storage
+  // // Load messages from local storage
 
   // const { messages, setMessages } = useCopilotMessagesContext();
 
@@ -28,8 +29,35 @@ export const Presentation = ({ performResearch, setPerformResearch }: Presentati
   // useEffect(() => {
   //   const messages = localStorage.getItem("copilotkit-messages");
   //   if (messages) {
-  //     console.log("got messages from local storage", messages);
-  //     setMessages(JSON.parse(messages));
+  //     const parsedMessages = JSON.parse(messages).map((message: any) => {
+  //       if (message.type === "TextMessage") {
+  //         return new TextMessage({
+  //           id: message.id,
+  //           role: message.role,
+  //           content: message.content,
+  //           createdAt: message.createdAt,
+  //         });
+  //       } else if (message.type === "ActionExecutionMessage") {
+  //         return new ActionExecutionMessage({
+  //           id: message.id,
+  //           name: message.name,
+  //           scope: message.scope,
+  //           arguments: message.arguments,
+  //           createdAt: message.createdAt,
+  //         });
+  //       } else if (message.type === "ResultMessage") {
+  //         return new ResultMessage({
+  //           id: message.id,
+  //           actionExecutionId: message.actionExecutionId,
+  //           actionName: message.actionName,
+  //           result: message.result,
+  //           createdAt: message.createdAt,
+  //         });
+  //       } else {
+  //         throw new Error(`Unknown message type: ${message.type}`);
+  //       }
+  //     });
+  //     setMessages(parsedMessages);
   //   }
   // }, []);
 
