@@ -6,7 +6,7 @@ ARG WITH_LOCAL_DEPS
 ENV POETRY_VIRTUALENVS_CREATE=false
 
 # Install poetry and configure it in a single layer
-RUN pip install poetry && \
+RUN pip install poetry==1.7.1 && \
     poetry config virtualenvs.create false
 
 RUN pip install -U "langgraph-cli[inmem]"
