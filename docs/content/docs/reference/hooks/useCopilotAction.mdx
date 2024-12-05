@@ -162,6 +162,10 @@ This hooks enables you to dynamically generate UI elements and render them in th
       </div>
     </PropertyReference>
 
+    <PropertyReference name="renderAndWaitForResponse" type="(props: ActionRenderProps<T>) => void">
+      This is the same as `render`, but instead of returning a string or a component, it will wait for a response from the user.
+    </PropertyReference>
+
 </PropertyReference>
 
 <PropertyReference name="dependencies" type="any[]">

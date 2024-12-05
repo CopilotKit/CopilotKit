@@ -58,7 +58,7 @@
  *       required: true,
  *     },
  *   ],
- *   renderAndRespond: ({ args, respond, status }) => {
+ *   renderAndWaitForResponse: ({ args, respond, status }) => {
  *     const { meeting, date, title } = args;
  *     return (
  *       <MeetingConfirmationDialog
@@ -121,10 +121,15 @@
  *
  * This hooks enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/concepts/generative-ui) page.
  */
-import { useRef, useEffect } from "react";
-import { FrontendAction, ActionRenderProps, ActionRenderPropsWait } from "../types/frontend-action";
-import { useCopilotContext } from "../context/copilot-context";
 import { Parameter, randomId } from "@copilotkit/shared";
+import { createElement, Fragment, useEffect, useRef } from "react";
+import { useCopilotContext } from "../context/copilot-context";
+import {
+  ActionRenderProps,
+  ActionRenderPropsNoArgsWait,
+  ActionRenderPropsWait,
+  FrontendAction,
+} from "../types/frontend-action";
 
 // We implement useCopilotAction dependency handling so that
 // the developer has the option to not provide any dependencies.
@@ -141,18 +146,18 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
 ): void {
   const { setAction, removeAction, actions, chatComponentsCache } = useCopilotContext();
   const idRef = useRef<string>(randomId());
-  const renderAndWaitRef = useRef<RenderAndRespond | null>(null);
+  const renderAndWaitRef = useRef<RenderAndWaitForResponse | null>(null);
 
   // clone the action to avoid mutating the original object
   action = { ...action };
 
   // If the developer provides a renderAndWait function, we transform the action
   // to use a promise internally, so that we can treat it like a normal action.
-  if (action.renderAndWait || action.renderAndRespond) {
-    const renderAndWait = action.renderAndWait || action.renderAndRespond;
+  if (action.renderAndWait || action.renderAndWaitForResponse) {
+    const renderAndWait = action.renderAndWait || action.renderAndWaitForResponse;
     // remove the renderAndWait function from the action
     action.renderAndWait = undefined;
-    action.renderAndRespond = undefined;
+    action.renderAndWaitForResponse = undefined;
     // add a handler that will be called when the action is executed
     action.handler = (async () => {
       // we create a new promise when the handler is called
@@ -168,20 +173,36 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
     }) as any;
 
     // add a render function that will be called when the action is rendered
-    action.render = ((props: ActionRenderProps<any>): React.ReactElement => {
+    action.render = ((props: ActionRenderProps<T>): React.ReactElement => {
+      // Create type safe waitProps based on whether T extends empty array or not
       const waitProps = {
-        status: props.status as any,
-        args: props.args as Record<string, any>,
+        status: props.status,
+        args: props.args,
         result: props.result,
-        handler: (props.status === "executing" ? renderAndWaitRef.current!.resolve : undefined) as (
-          result: any,
-        ) => void | undefined,
-        respond: (props.status === "executing" ? renderAndWaitRef.current!.resolve : undefined) as (
-          result: any,
-        ) => void | undefined,
+        handler: props.status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
+        respond: props.status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
+      } as T extends [] ? ActionRenderPropsNoArgsWait<T> : ActionRenderPropsWait<T>;
+
+      // Type guard to check if renderAndWait is for no args case
+      const isNoArgsRenderWait = (
+        _fn:
+          | ((props: ActionRenderPropsNoArgsWait<T>) => React.ReactElement)
+          | ((props: ActionRenderPropsWait<T>) => React.ReactElement),
+      ): _fn is (props: ActionRenderPropsNoArgsWait<T>) => React.ReactElement => {
+        return action.parameters?.length === 0;
       };
 
-      return renderAndWait!(waitProps) as any;
+      // Safely call renderAndWait with correct props type
+      if (renderAndWait) {
+        if (isNoArgsRenderWait(renderAndWait)) {
+          return renderAndWait(waitProps as ActionRenderPropsNoArgsWait<T>);
+        } else {
+          return renderAndWait(waitProps as ActionRenderPropsWait<T>);
+        }
+      }
+
+      // Return empty Fragment instead of null
+      return createElement(Fragment);
     }) as any;
   }
 
@@ -225,7 +246,7 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   ]);
 }
 
-interface RenderAndRespond {
+interface RenderAndWaitForResponse {
   promise: Promise<any>;
   resolve: (result: any) => void;
   reject: (error: any) => void;
