@@ -19,7 +19,10 @@ You can easily pass questions to the frontend for the user to answer in the AI C
 
 <Step>
 
-### Add `useCopilotAction` with `renderAndWait` to a component loaded into the view hierarchy while the agent is executing.
+### Add `useCopilotAction` with `renderAndWaitForResponse` to a component loaded into the view hierarchy while the agent is executing.
+
+`respond` is the function that will be called when the user clicks the "Send" or "Cancel" button. This function connects to the agentic backend and will trigger the agent to continue execution.
+`CANCEL` and `SEND` are the arguments that will be passed to the agentic backend so make sure you have proper ways to handle the response from frontend in the agentic backend.
 
 ```tsx filename="app/Mailer.tsx"
 "use client"; // only necessary if you are using Next.js with the App Router. // [!code highlight]
@@ -27,7 +30,8 @@ You can easily pass questions to the frontend for the user to answer in the AI C
 import { useCopilotAction } from "@copilotkit/react-core";
 
 export function Mailer() {
-  useCopilotAction({ // [!code highlight:19]
+  useCopilotAction({
+    // [!code highlight:19]
     name: "email_tool",
     parameters: [
       {
@@ -37,12 +41,12 @@ export function Mailer() {
         required: true,
       },
     ],
-    renderAndWait: ({ args, status, handler }) => (
+    renderAndWaitForResponse: ({ args, status, respond }) => (
       <EmailConfirmation
         emailContent={args.email_draft || ""}
         isExecuting={status === "executing"}
-        onCancel={() => handler?.("CANCEL")} // the handler is undefined while status is "executing"
-        onSend={() => handler?.("SEND")} // the handler is undefined while status is "executing"
+        onCancel={() => respond?.("CANCEL")} // the respond is undefined while status is "executing"
+        onSend={() => respond?.("SEND")} // the respond is undefined while status is "executing"
       />
     ),
   });
@@ -58,33 +62,32 @@ export function Mailer() {
 </Step>
 
 <Step>
-### Return any custom React component from the `renderAndWait` function
+### Return any custom React component from the `renderAndWaitForResponse` function
 
-You can return any custom React component from the `renderAndWait` function.
-The agent will not continue executing until the `handler` function provided via the `renderAndWait` arguments is called.
+You can return any custom React component from the `renderAndWaitForResponse` function.
+The agent will not continue executing until the `respond` function provided via the `renderAndWaitForResponse` arguments is called.
 
 `args` contains the parameters specified shortly above it; the parameters will be streamed as they come in.
 
-
 <Callout type="info">
-  Whatever argument you pass to the `handler` will become available on the
+  Whatever argument you pass to the `respond` will become available on the
   agentic backend. This allows you to pass information from the frontend to the
   agent, enabling seamless communication between the user interface and the
   backend logic.
 </Callout>
 
-
 <Callout type="warn">
-  Please note that in the `renderAndWait` function, while `status` is `"executing"`, `handler` will be `undefined`.
+  Please note that in the `renderAndWaitForResponse` function, while `status` is `"executing"`, `respond` will be `undefined`.
 
-  ```
-  renderAndWait: ({ args, status, handler }) => {
-    return ...
-  }
-  ```
+```
+renderAndWaitForResponse: ({ args, status, respond }) => {
+  return ...
+}
+```
 
-  You can call the handler either by first checking if the handler is `undefined`, or by using typescript's optional chaining format, i.e.
-  ```handler?.(argumentToPassHandler)```.
+You can call the `respond` either by first checking if the respond is `undefined`, or by using typescript's optional chaining format, i.e.
+`respond?.(argumentToPassRespond)`.
+
 </Callout>
 
 </Step>
@@ -143,13 +146,14 @@ The Tool's name and arguments must line up with what you used on the frontend
         ```
       </InsecurePasswordProtected>
     </Tab>
+
 </Tabs>
 
 <Callout type="warning">
-  The name of the `email_tool` class and its argument `email_draft` MUST match what
-  we set up on the frontend. Ensure that the `name` in `useCopilotAction` is
-  "email_tool" and the parameter name is "email_draft" for consistency between
-  frontend and backend.
+  The name of the `email_tool` class and its argument `email_draft` MUST match
+  what we set up on the frontend. Ensure that the `name` in `useCopilotAction`
+  is "email_tool" and the parameter name is "email_draft" for consistency
+  between frontend and backend.
 </Callout>
 
 </Step>
@@ -196,6 +200,7 @@ NOTICE that we have a `interrupt_after` for `draft_email_node` (the node that in
         ```
       </InsecurePasswordProtected>
     </Tab>
+
 </Tabs>
 
 </Step>
@@ -272,7 +277,7 @@ NOTICE that we have a `interrupt_after` for `draft_email_node` (the node that in
         async function sendEmailNode(state: EmailAgentState, config: RunnableConfig) {
             const lastMessage = state.messages[state.messages.length - 1] as ToolMessage;
             let messageToAdd = "";
-            
+
             if (lastMessage.content === "CANCEL") {
                 messageToAdd = "❌ Cancelled sending email.";
             } else {
@@ -287,6 +292,7 @@ NOTICE that we have a `interrupt_after` for `draft_email_node` (the node that in
         ```
       </InsecurePasswordProtected>
     </Tab>
+
 </Tabs>
 
 </Step>
