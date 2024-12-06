@@ -9,17 +9,17 @@ importers:
   .:
     dependencies:
       '@copilotkit/react-core':
-        specifier: 1.4.0-pre-1-4-0.14
-        version: 1.4.0-pre-1-4-0.14(google-auth-library@8.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 1.4.0
+        version: 1.4.0(google-auth-library@8.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@copilotkit/react-ui':
-        specifier: 1.4.0-pre-1-4-0.14
-        version: 1.4.0-pre-1-4-0.14(@types/react@18.3.4)(google-auth-library@8.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 1.4.0
+        version: 1.4.0(@types/react@18.3.4)(google-auth-library@8.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@copilotkit/runtime':
-        specifier: 1.4.0-pre-1-4-0.14
-        version: 1.4.0-pre-1-4-0.14(class-validator@0.14.1)(google-auth-library@8.9.0)
+        specifier: 1.4.0
+        version: 1.4.0(class-validator@0.14.1)(google-auth-library@8.9.0)
       '@copilotkit/runtime-client-gql':
-        specifier: 1.4.0-pre-1-4-0.14
-        version: 1.4.0-pre-1-4-0.14(google-auth-library@8.9.0)(react@18.3.1)
+        specifier: 1.4.0
+        version: 1.4.0(google-auth-library@8.9.0)(react@18.3.1)
       '@radix-ui/react-accordion':
         specifier: ^1.2.0
         version: 1.2.0(@types/react-dom@18.3.0)(@types/react@18.3.4)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -115,27 +115,27 @@ packages:
     resolution: {integrity: sha512-VBj9MYyDb9tuLq7yzqjgzt6Q+IBQLrGZfdjOekyEirZPHxXWoTSGUTMrpsfi58Up73d13NfYLv8HT9vmznjzhQ==}
     engines: {node: '>=6.9.0'}
 
-  '@copilotkit/react-core@1.4.0-pre-1-4-0.14':
-    resolution: {integrity: sha512-y3tGXDfxMnhd/6JgV/GlbpQFhyriMvtKwXk81qu3vQ2HTQIWmey0m+ZRMJ3nNzOMb+BpIsoAR+RhP9CdelFNJQ==}
+  '@copilotkit/react-core@1.4.0':
+    resolution: {integrity: sha512-lpSI4T12FzwqnfP1s/MDHrqMd1XN4W5JEp/pNDXXAWANgsVh2QyNPwbWy0vUcMzCtVoEKeRNqXuXSOAWNu+ucA==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
       react-dom: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/react-ui@1.4.0-pre-1-4-0.14':
-    resolution: {integrity: sha512-QeMIojyXJbSahcQS7neECiItkm3iUzJC3s3rxegmnnV3ZPa8t38j3pssgpOtrvRDVNEyft6IIf6Re6Gb0SaPYg==}
+  '@copilotkit/react-ui@1.4.0':
+    resolution: {integrity: sha512-vMIUyZNWJOlTEjq2Q5FyyLj2k7Mcdw/qgQq7nlHaHFFfyift/fwMwUDHoIcE9PWLkpEyq+LPLMTNisJUsU8A/Q==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime-client-gql@1.4.0-pre-1-4-0.14':
-    resolution: {integrity: sha512-2jR5ZWZQpwAnJUlMdmYkDFpLzwoZ9mvOGhm1WKsDBVomEJYbL0FOZ9YOhVNmkGgyN/iSIXAqzLhY1Fd17labcg==}
+  '@copilotkit/runtime-client-gql@1.4.0':
+    resolution: {integrity: sha512-RSRopQOafCL1pQsYjgQ6Yxkzyh7ftib2EAmWiWObfbXfkM7F1mKc+eO5CbLb2BEKZL75NMAHqsH3Ob+vqyFPEA==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime@1.4.0-pre-1-4-0.14':
-    resolution: {integrity: sha512-ck1nNdacoRU1Qbq1TvR5MMbiVQR9qRagETjZ1b0M6EBB9+I93d4+vpGaXyuwSdipqAouLDXsDf138kmI6tLuDA==}
+  '@copilotkit/runtime@1.4.0':
+    resolution: {integrity: sha512-+e2JaWvFIu+pziT/av6+rxSCUkdaaxJ5SZPeaP0lU1g2xJkLNaKEak4zjmmoztutDBaNlmh8QCP/jdfME92Rfw==}
 
-  '@copilotkit/shared@1.4.0-pre-1-4-0.14':
-    resolution: {integrity: sha512-F9QMIsPALqil8msZzHexKouQHc+xkaXJuYhQC4A31HSl9ftGZlLue/5n3RA7cpMGwb1VYC4WjPlEMWY1uZ6pdg==}
+  '@copilotkit/shared@1.4.0':
+    resolution: {integrity: sha512-5SaRdfiQ9Hdwdtq/ycNfMK0rCpEHlPUUTZP48f1Ezsq5pwX34FX6/6J2Cs2sdXLoDLFj0oWjiZ4Ygz3hIeXSDw==}
 
   '@envelop/core@5.0.2':
     resolution: {integrity: sha512-tVL6OrMe6UjqLosiE+EH9uxh2TQC0469GwF4tE014ugRaDDKKVWwFwZe0TBMlcyHKh5MD4ZxktWo/1hqUxIuhw==}
@@ -3818,10 +3818,10 @@ snapshots:
     dependencies:
       regenerator-runtime: 0.14.1
 
-  '@copilotkit/react-core@1.4.0-pre-1-4-0.14(google-auth-library@8.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkit/react-core@1.4.0(google-auth-library@8.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@copilotkit/runtime-client-gql': 1.4.0-pre-1-4-0.14(google-auth-library@8.9.0)(react@18.3.1)
-      '@copilotkit/shared': 1.4.0-pre-1-4-0.14
+      '@copilotkit/runtime-client-gql': 1.4.0(google-auth-library@8.9.0)(react@18.3.1)
+      '@copilotkit/shared': 1.4.0
       '@scarf/scarf': 1.3.0
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
@@ -3934,11 +3934,11 @@ snapshots:
       - web-auth-library
       - ws
 
-  '@copilotkit/react-ui@1.4.0-pre-1-4-0.14(@types/react@18.3.4)(google-auth-library@8.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkit/react-ui@1.4.0(@types/react@18.3.4)(google-auth-library@8.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@copilotkit/react-core': 1.4.0-pre-1-4-0.14(google-auth-library@8.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@copilotkit/runtime-client-gql': 1.4.0-pre-1-4-0.14(google-auth-library@8.9.0)(react@18.3.1)
-      '@copilotkit/shared': 1.4.0-pre-1-4-0.14
+      '@copilotkit/react-core': 1.4.0(google-auth-library@8.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@copilotkit/runtime-client-gql': 1.4.0(google-auth-library@8.9.0)(react@18.3.1)
+      '@copilotkit/shared': 1.4.0
       '@headlessui/react': 2.1.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       react-markdown: 8.0.7(@types/react@18.3.4)(react@18.3.1)
@@ -4055,10 +4055,10 @@ snapshots:
       - web-auth-library
       - ws
 
-  '@copilotkit/runtime-client-gql@1.4.0-pre-1-4-0.14(google-auth-library@8.9.0)(react@18.3.1)':
+  '@copilotkit/runtime-client-gql@1.4.0(google-auth-library@8.9.0)(react@18.3.1)':
     dependencies:
-      '@copilotkit/runtime': 1.4.0-pre-1-4-0.14(class-validator@0.14.1)(google-auth-library@8.9.0)
-      '@copilotkit/shared': 1.4.0-pre-1-4-0.14
+      '@copilotkit/runtime': 1.4.0(class-validator@0.14.1)(google-auth-library@8.9.0)
+      '@copilotkit/shared': 1.4.0
       '@urql/core': 5.0.6(graphql@16.9.0)
       class-transformer: 0.5.1
       class-validator: 0.14.1
@@ -4175,10 +4175,10 @@ snapshots:
       - web-auth-library
       - ws
 
-  '@copilotkit/runtime@1.4.0-pre-1-4-0.14(class-validator@0.14.1)(google-auth-library@8.9.0)':
+  '@copilotkit/runtime@1.4.0(class-validator@0.14.1)(google-auth-library@8.9.0)':
     dependencies:
       '@anthropic-ai/sdk': 0.27.3
-      '@copilotkit/shared': 1.4.0-pre-1-4-0.14
+      '@copilotkit/shared': 1.4.0
       '@graphql-yoga/plugin-defer-stream': 3.7.0(graphql-yoga@5.7.0(graphql@16.9.0))(graphql@16.9.0)
       '@langchain/community': 0.0.53(google-auth-library@8.9.0)(langchain@0.3.5(@langchain/core@0.3.16(openai@4.70.2(zod@3.23.8)))(openai@4.70.2(zod@3.23.8)))(openai@4.70.2(zod@3.23.8))
       '@langchain/core': 0.3.16(openai@4.70.2(zod@3.23.8))
@@ -4309,7 +4309,7 @@ snapshots:
       - web-auth-library
       - ws
 
-  '@copilotkit/shared@1.4.0-pre-1-4-0.14':
+  '@copilotkit/shared@1.4.0':
     dependencies:
       '@segment/analytics-node': 2.1.2
       chalk: 4.1.2
@@ -5711,7 +5711,7 @@ snapshots:
       eslint: 8.57.0
       eslint-import-resolver-node: 0.3.9
       eslint-import-resolver-typescript: 3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0)
-      eslint-plugin-import: 2.29.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0)
+      eslint-plugin-import: 2.29.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.3)(eslint@8.57.0)
       eslint-plugin-jsx-a11y: 6.9.0(eslint@8.57.0)
       eslint-plugin-react: 7.35.0(eslint@8.57.0)
       eslint-plugin-react-hooks: 4.6.2(eslint@8.57.0)
@@ -5736,20 +5736,20 @@ snapshots:
       debug: 4.3.6
       enhanced-resolve: 5.17.1
       eslint: 8.57.0
-      eslint-module-utils: 2.8.2(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0)
+      eslint-module-utils: 2.8.2(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.3)(eslint@8.57.0)
       fast-glob: 3.3.2
       get-tsconfig: 4.7.6
       is-bun-module: 1.1.0
       is-glob: 4.0.3
     optionalDependencies:
-      eslint-plugin-import: 2.29.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0)
+      eslint-plugin-import: 2.29.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.3)(eslint@8.57.0)
     transitivePeerDependencies:
       - '@typescript-eslint/parser'
       - eslint-import-resolver-node
       - eslint-import-resolver-webpack
       - supports-color
 
-  eslint-module-utils@2.8.2(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0):
+  eslint-module-utils@2.8.2(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.3)(eslint@8.57.0):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
@@ -5760,7 +5760,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0):
+  eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-typescript@3.6.3)(eslint@8.57.0):
     dependencies:
       array-includes: 3.1.8
       array.prototype.findlastindex: 1.2.5
@@ -5770,7 +5770,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 8.57.0
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.8.2(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.3(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(eslint@8.57.0))(eslint@8.57.0))(eslint@8.57.0)
+      eslint-module-utils: 2.8.2(@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.3)(eslint@8.57.0)
       hasown: 2.0.2
       is-core-module: 2.15.1
       is-glob: 4.0.3
