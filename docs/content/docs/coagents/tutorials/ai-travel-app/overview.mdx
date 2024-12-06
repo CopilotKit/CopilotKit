@@ -3,6 +3,8 @@ title: Overview
 ---
 import { YouTubeVideo } from "@/components/react/youtube-video";
 import { FaGithub } from "react-icons/fa";
+import { PiMonitor } from "react-icons/pi";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 # AI Travel Agentic Copilot Tutorial
@@ -28,21 +30,21 @@ In this tutorial, you will take a simple travel application and supercharge it w
 You can try out an interactive example of the end result below:
 
 <div className="flex flex-row gap-2">
-  <Link href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-travel?ref=travel-tutorial" className="no-underline" target="_blank">
-    <button className="bg-neutral-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 mt-2 font-medium">
-      <FaGithub className="w-4 h-4" />
-      <span>View source code on GitHub</span>
-    </button>
-  </Link>
+  <Button size="lg" asChild className="flex gap-2 items-center">
+    <Link href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-travel?ref=travel-tutorial" className="no-underline" target="_blank">
+      <FaGithub className="w-6 h-6 mr-2" />
+      <span>View on GitHub</span>
+    </Link>
+  </Button>
 
-  <Link href="https://examples-coagents-ai-travel-app.vercel.app/" className="no-underline" target="_blank">
-    <button className="bg-neutral-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 mt-2 font-medium">
-      <FaGithub className="w-4 h-4" />
+  <Button size="lg" asChild className="flex gap-2 items-center">
+    <Link href="https://examples-coagents-ai-travel-app.vercel.app/" className="no-underline" target="_blank">
+      <PiMonitor className="w-6 h-6 mr-2" />
       <span>View live app</span>
-    </button>
-  </Link>
+    </Link>
+  </Button>
 </div>
 
-<iframe src="https://examples-coagents-ai-travel-app.vercel.app/" className="w-full h-[800px] mt-4 rounded-lg" />
+<iframe src="https://examples-coagents-ai-travel-app.vercel.app/" className="w-full h-[800px] mt-4 rounded-lg border shadow-xl" />
 
 In the next step, we'll checkout the repo, install dependencies, and start the project locally.

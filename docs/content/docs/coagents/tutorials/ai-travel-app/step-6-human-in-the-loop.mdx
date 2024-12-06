@@ -137,8 +137,8 @@ we'll be adding `useCopilotAction` hooks for each tool call with the `renderAndW
 ```typescript title="ui/lib/hooks/use-trips.tsx"
 // ...
 import { AddTrips, EditTrips, DeleteTrips } from "@/components/humanInTheLoop"; // [!code ++]
-// [!code word:useCopilotAction:1]
-import { useCoAgent, useCoAgentStateRender, useCopilotAction } from "@copilotkit/react-core";
+import { useCoAgent, useCoAgentStateRender } from "@copilotkit/react-core"; // [!code --]
+import { useCoAgent, useCoAgentStateRender, useCopilotAction } from "@copilotkit/react-core"; // [!code ++]
 // ...
 
 export const TripsProvider = ({ children }: { children: ReactNode }) => {
