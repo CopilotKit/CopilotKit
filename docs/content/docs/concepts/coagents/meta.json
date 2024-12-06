@@ -1,8 +1,8 @@
 {
-    "title": "Concepts",
+    "title": "CoAgents Concepts",
     "root": true,
     "pages": [
-      "agentic-copilots",
+      "coagents",
       "terminology",
       "state",
       "human-in-the-loop",

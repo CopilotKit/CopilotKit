@@ -1,0 +1,12 @@
+{
+    "title": "Concepts",
+    "root": true,
+    "pages": [
+      "index",
+      "---Core Concepts---",
+      "runtime",
+      "copilotcloud",
+      "---CoAgent Concepts---",
+      "...coagents"
+    ]
+  }
