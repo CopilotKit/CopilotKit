@@ -3,9 +3,14 @@
 import { useModelSelectorContext } from "@/lib/model-selector-provider";
 import { useCoAgent } from "@copilotkit/react-core";
 import { CopilotPopup } from "@copilotkit/react-ui";
-
+import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
 export function Greeter() {
   const { model } = useModelSelectorContext();
+
+  useCopilotChatSuggestions({
+    instructions: "Greet me!",
+  });
+
   useCoAgent({
     name: "greeting_agent",
     initialState: {

@@ -25,12 +25,31 @@ Make sure you have the LangGraph Studio endpoint from the previous step!
 
 <Tabs items={['CopilotKit Cloud', 'Self-Hosted']}>
 <Tab value="CopilotKit Cloud">
-We're going to use the CopilotKit CLI to setup a tunnel between our locally running LangGraph agent and CopilotKit Cloud.
+We're going to use the CopilotKit CLI to setup a tunnel between our locally running LangGraph agent and CopilotKit Cloud. You'll 
+need the port number of the LangGraph Studio endpoint we setup earlier.
+
+<Callout title="Looking for the port number?">
+It'll be on the bottom left of the LangGraph Studio interface like this.
+
+<Frame>
+  <img src="/images/coagents/tutorials/ai-travel-app/lgs-endpoint.png" alt="LangGraph Studio Endpoint" />
+</Frame>
+
+</Callout>
 
 First, run the following command to setup the tunnel.
 
 ```bash
-npx @copilotkit/cli tunnel <port_number> # where <port_number> is the port number of the LangGraph Studio endpoint
+# replace <port_number> with the port number of the LangGraph Studio endpoint
+npx @copilotkit/cli tunnel <port_number> 
+
+✔ Tunnel created successfully!
+
+Tunnel Information:
+Local: localhost:54209
+Public URL: https://light-pandas-argue.loca.lt # copy this url! # [!code highlight]
+
+Press Ctrl+C to stop the tunnel
 ```
 
 Make sure to copy the public URL that is output by the command.
@@ -42,11 +61,13 @@ to get one. When asked, you're looking for a `Personal Access Token`.
 </Callout>
 
 
-Now, head back over to [cloud.copilotkit.ai](https://cloud.copilotkit.ai) and follow these steps:
-1. Navigate to the `Remote Endpoints` section by scrolling down.
-2. Click on the `+ Add New` button.
+Now we're going to add our tunnel endpoint to Copilot Cloud. 
+
+1. Head back over to [cloud.copilotkit.ai](https://cloud.copilotkit.ai)
+2. Navigate to the `Remote Endpoints` section by scrolling down.
+3. Click on the `+ Add New` button.
 3. Select `LangGraph Platform` from the options.
-4. Add your public URL and LangSmith API key to the form.
+4. Add your public URL (should look like `https://light-pandas-argue.loca.lt`) and LangSmith API key to the form.
 5. Click create.
 
 Now, you should see the remote endpoint in the list.
@@ -59,25 +80,23 @@ In our previously setup `/api/copilotkit` route, we're going to add the followin
 ```tsx title="ui/app/api/copilotkit/route.ts"
 // ...
 
-import { langGraphCloudEndpoint } from '@copilotkit/runtime/endpoints'; // [!code ++]
+import { langGraphPlatformEndpoint } from '@copilotkit/runtime/endpoints'; // [!code ++]
 
 // ...
 
 const runtime = new CopilotRuntime();// [!code --]
-// [!code ++:15]
-const runtime = new CopilotRuntime({
-  remoteEndpoints: [ 
-    langGraphCloudEndpoint({
-      deploymentUrl: "http://localhost:<port>", // the URL from LangGraph Studio
-      agents: [
-        {
-          // the name of the graph defined in the `agent/langgraph.json` file
-          name: 'travel',
-          description: 'A travel assistant that can help with planning trips.'
-        }
-      ]
-    }),
-  ],
+// [!code ++:13]
+ const runtime = new CopilotRuntime({
+    remoteEndpoints: [
+      langGraphPlatformEndpoint({
+        deploymentUrl: "http://localhost:<port_number>",
+        langsmithApiKey: "your-langsmith-api-key",
+        agents: [{ 
+          name: 'travel', 
+          description: 'A travel assistant that can help with planning trips.' 
+        }]
+      }),
+    ],
 });
 
 // ...
@@ -115,9 +134,8 @@ Want to learn more about multi-agent routing? Checkout out the [multi-agent conc
 </CopilotKit>
 ```
 
-This will ensure that every request is sent to the `travel` agent. Its worth noting that agent should be 
-the same name as defined in `agent/langgraph.json` and in step 1.
-
+This will ensure that every request is sent to the `travel` agent. The `travel` name is defined in the [agents/langgraph.json](https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-travel/agent/langgraph.json)
+file. When we deploy our agent to Copilot Cloud this is automatically handled for us. When self-hosting, we need to specify the name of the agent in the `langGraphPlatformEndpoint` constructor.
 </Step>
 <Step>
 

@@ -163,6 +163,31 @@ This hooks enables you to dynamically generate UI elements and render them in th
       </div>
     </PropertyReference>
 
+    <PropertyReference name="renderAndWaitForResponse" type="(props: ActionRenderPropsWait<T>) => React.ReactElement">
+      This is similar to `render`, but provides a `respond` function in the props that you must call with the user's response. The component will remain rendered until `respond` is called. The response will be passed as the result to the action handler.
+      <div className="ml-8">
+        <PropertyReference name="status" type="'inProgress' | 'executing' | 'complete'">
+          - `"inProgress"`: arguments are dynamically streamed to the function, allowing you to adjust your UI in real-time.
+          - `"executing"`: The action handler is executing.
+          - `"complete"`: The action handler has completed execution.
+        </PropertyReference>
+
+        <PropertyReference name="args" type="T">
+          The arguments passed to the action in real time. When the status is `"inProgress"`, they are
+          possibly incomplete.
+        </PropertyReference>
+
+        <PropertyReference name="respond" type="(result: any) => void">
+          A function that must be called with the user's response. The response will be passed as the result to the action handler.
+          Only available when status is `"executing"`.
+        </PropertyReference>
+
+        <PropertyReference name="result" type="any">
+          The result returned by the action. It is only available when the status is `"complete"`.
+        </PropertyReference>
+      </div>
+    </PropertyReference>
+
 </PropertyReference>
 
 <PropertyReference name="dependencies" type="any[]">
