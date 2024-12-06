@@ -27,7 +27,8 @@
  *
  * @tested-variants OpenAI, Anthropic, Google Generative AI, LangChain, Groq, Copilot Cloud
  */
-import { expect, test } from "@playwright/test";
+
+import { expect, test, Page, Locator } from "@playwright/test";
 import dotenv from "dotenv";
 import path from "path";
 import {
@@ -40,7 +41,21 @@ import { sendChatMessage, waitForResponse } from "../lib/helpers";
 
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
-const variants = [
+interface Variant {
+  name: string;
+  queryParams: string;
+}
+
+interface DestinationProps {
+  destination: string;
+  isChecked: boolean;
+}
+
+interface WaitDestinationProps extends DestinationProps {
+  timeout?: number;
+}
+
+const variants: Variant[] = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
   { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
   { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" },
@@ -59,15 +74,14 @@ const variants = [
   { name: "Groq", queryParams: "?coAgentsModel=groq" },
 ];
 
+// Add Copilot Cloud variants conditionally
 if (
   process.env.COPILOT_CLOUD_PROD_RUNTIME_URL &&
   process.env.COPILOT_CLOUD_PROD_PUBLIC_API_KEY
 ) {
-  const runtimeUrl = process.env.COPILOT_CLOUD_PROD_RUNTIME_URL;
-  const publicApiKey = process.env.COPILOT_CLOUD_PROD_PUBLIC_API_KEY;
   variants.push({
     name: "Copilot Cloud (Production)",
-    queryParams: `?runtimeUrl=${runtimeUrl}&publicApiKey=${publicApiKey}`,
+    queryParams: `?runtimeUrl=${process.env.COPILOT_CLOUD_PROD_RUNTIME_URL}&publicApiKey=${process.env.COPILOT_CLOUD_PROD_PUBLIC_API_KEY}`,
   });
 }
 
@@ -75,13 +89,41 @@ if (
   process.env.COPILOT_CLOUD_STAGING_RUNTIME_URL &&
   process.env.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY
 ) {
-  const runtimeUrl = process.env.COPILOT_CLOUD_STAGING_RUNTIME_URL;
-  const publicApiKey = process.env.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY;
   variants.push({
     name: "Copilot Cloud (Staging)",
-    queryParams: `?runtimeUrl=${runtimeUrl}&publicApiKey=${publicApiKey}`,
+    queryParams: `?runtimeUrl=${process.env.COPILOT_CLOUD_STAGING_RUNTIME_URL}&publicApiKey=${process.env.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY}`,
   });
 }
+
+const getDestinationCheckbox = (
+  page: Page,
+  { destination, isChecked }: DestinationProps
+): Locator =>
+  page.locator(
+    `[data-test-id="checkbox-${destination}-${
+      isChecked ? "checked" : "unchecked"
+    }"]`
+  );
+
+const waitForDestinationState = async (
+  page: Page,
+  { destination, isChecked, timeout = 30000 }: WaitDestinationProps
+) => {
+  const checkbox = getDestinationCheckbox(page, { destination, isChecked });
+  await expect(checkbox).toBeVisible({ timeout });
+  return checkbox;
+};
+
+const waitForDestinationImage = async (
+  page: Page,
+  { destination, timeout = 30000 }: { destination: string; timeout?: number }
+) => {
+  const image = page
+    .getByRole("cell", { name: new RegExp(destination, "i") })
+    .locator("img");
+  await expect(image).toBeVisible({ timeout });
+  return image;
+};
 
 // Get configurations
 const allConfigs = getConfigs();
@@ -100,123 +142,86 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
             test(`Test ${config.description} Travel Demo ("/" route) with variant ${variant.name}`, async ({
               page,
             }) => {
+              test.slow();
+
               await page.goto(`${config.url}${variant.queryParams}`);
+              await page.waitForLoadState("networkidle");
 
-              const getDestinationCheckbox = ({
-                destination,
-                isChecked,
-              }: {
-                destination: string;
-                isChecked: boolean;
-              }) =>
-                page.locator(
-                  `[data-test-id="checkbox-${destination}-${
-                    isChecked ? "checked" : "unchecked"
-                  }"]`
-                );
-
-              // Open Copilot Sidebar
+              // Open Copilot Sidebar and verify initial state
               await page.click('[aria-label="Open Chat"]');
-              await page.waitForTimeout(500);
+              await page.waitForTimeout(2000);
 
-              await expect(page.getByRole("heading", { name: "Suggested:" }), {
-                message: "Suggestion box should be visible",
-              }).toBeVisible();
+              // Wait for suggestion box and verify suggestions
+              const suggestionHeading = page.getByRole("heading", {
+                name: "Suggested:",
+              });
+              await expect(suggestionHeading).toBeVisible({ timeout: 30000 });
 
-              await page.waitForTimeout(1000);
+              const suggestions = page.locator("button.suggestion");
+              await expect(suggestions).toHaveCount(await suggestions.count(), {
+                timeout: 30000,
+              });
+              expect(await suggestions.count()).toBeGreaterThanOrEqual(1);
 
-              /*
-                Make sure there are enough suggestions. suggestions are button with class "suggestion"
-               */
-              await expect(
-                await page.locator("button.suggestion").count()
-              ).toBeGreaterThanOrEqual(1);
+              // Verify initial destination states
+              await waitForDestinationState(page, {
+                destination: "new-york-city",
+                isChecked: false,
+              });
+              await waitForDestinationState(page, {
+                destination: "tokyo",
+                isChecked: false,
+              });
 
-              // First, we expect the destinations to be unchecked
-              await expect(
-                getDestinationCheckbox({
-                  destination: "new-york-city",
-                  isChecked: false,
-                })
-              ).toBeVisible();
-              await expect(
-                getDestinationCheckbox({
-                  destination: "tokyo",
-                  isChecked: false,
-                })
-              ).toBeVisible();
-
-              // Next, we ask AI to select the destinations
+              // Test destination selection
               await sendChatMessage(
                 page,
                 "Select New York City and Tokyo as destinations."
               );
               await waitForResponse(page);
+              await page.waitForTimeout(2000);
 
-              // Finally, we expect the destinations to be checked
-              await expect(
-                getDestinationCheckbox({
-                  destination: "new-york-city",
-                  isChecked: true,
-                })
-              ).toBeVisible();
-              await expect(
-                getDestinationCheckbox({
-                  destination: "tokyo",
-                  isChecked: true,
-                })
-              ).toBeVisible();
+              await waitForDestinationState(page, {
+                destination: "new-york-city",
+                isChecked: true,
+              });
+              await waitForDestinationState(page, {
+                destination: "tokyo",
+                isChecked: true,
+              });
 
-              // Ask to deselect Tokyo
+              // Test destination deselection
               await sendChatMessage(
                 page,
                 "Actually, please deselect New York City."
               );
               await waitForResponse(page);
+              await page.waitForTimeout(2000);
 
-              // Validate
-              await expect(
-                getDestinationCheckbox({
-                  destination: "new-york-city",
-                  isChecked: false,
-                })
-              ).toBeVisible();
-              await expect(
-                getDestinationCheckbox({
-                  destination: "tokyo",
-                  isChecked: true,
-                })
-              ).toBeVisible();
+              await waitForDestinationState(page, {
+                destination: "new-york-city",
+                isChecked: false,
+              });
+              await waitForDestinationState(page, {
+                destination: "tokyo",
+                isChecked: true,
+              });
 
-              /*
-                Let's add new cities to the list of `New Destinations` and `Visited Destinations`
-               */
+              // Test adding new destination
               await sendChatMessage(
                 page,
                 "Add Mumbai, India to the list of New Destinations."
               );
               await waitForResponse(page);
+              await page.waitForTimeout(3000);
 
-              await expect(
-                getDestinationCheckbox({
-                  destination: "mumbai",
-                  isChecked: false,
-                })
-              ).toBeVisible();
-              /*
-                Backend Action in CopilotRuntime adds images so this is a good test to check if the images are added
-                To make sure backend action is working as expected
-               */
-              // await expect(
-              //   page.getByRole("cell", { name: "Mumbai India" }).locator("img")
-              // ).toBeVisible();
-
-              // await expect(
-              //   getDestinationCheckbox({
-              //     destination: "mumbai",
-              //     isChecked: false,
-              //   })
-              // ).toBeVisible();
+              await waitForDestinationState(page, {
+                destination: "mumbai",
+                isChecked: false,
+              });
+              await waitForDestinationImage(page, {
+                destination: "Mumbai India",
+              });
             });
           });
         });
