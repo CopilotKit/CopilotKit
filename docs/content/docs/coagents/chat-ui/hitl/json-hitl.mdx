@@ -33,6 +33,7 @@ export function Mailer() {
   useCopilotAction({
     // [!code highlight:19]
     name: "email_tool",
+    available: "remote", // only allow the agent to call this action
     parameters: [
       {
         name: "email_draft",

@@ -33,6 +33,7 @@ import { GraphQLContext } from "../integrations/shared";
 import { AgentSessionInput } from "../../graphql/inputs/agent-session.input";
 import { from } from "rxjs";
 import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
+import { ActionInputAvailability } from "../../graphql/types/enums";
 
 interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
@@ -195,7 +196,10 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
       const actionInputs = flattenToolCallsNoDuplicates([
         ...serverSideActionsInput,
-        ...clientSideActionsInput,
+        ...clientSideActionsInput.filter(
+          // Filter remote actions from CopilotKit core loop
+          (action) => action.available !== ActionInputAvailability.remote,
+        ),
       ]);
 
       await this.onBeforeRequest?.({

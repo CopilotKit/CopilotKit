@@ -7,7 +7,7 @@ import { CopilotPopup } from "@copilotkit/react-ui";
 export function Mailer() {
   useCopilotAction({
     name: "EmailTool",
-    disabled: true,
+    available: "remote",
     parameters: [
       {
         name: "email_draft",
