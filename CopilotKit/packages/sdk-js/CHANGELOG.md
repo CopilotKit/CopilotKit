@@ -21,6 +21,7 @@ CoAgents:
 - Enhanced state management and message handling
 
 CopilotKid Back-end SDK:
+
 - Released a whole-new `@copilotkit/sdk-js` for building agents with LangGraph JS Support
 
 ### Patch Changes
