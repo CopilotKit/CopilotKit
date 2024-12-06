@@ -1,5 +1,6 @@
 {
-  "title": "chat-ui",
+  "title": "In-chat experiences",
+  "defaultOpen": true,
   "pages": [
     "chat-with-agent",
     "render-agent-state",
