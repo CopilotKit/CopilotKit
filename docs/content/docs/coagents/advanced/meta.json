@@ -6,8 +6,8 @@
     "manually-emitting-messages",
     "state-streaming",
     "exit-agent",
-    "agent-steering",
     "copilotkit-state",
-    "using-google-gemini"
+    "using-google-gemini",
+    "agent-steering"
   ]
 }

@@ -4,16 +4,16 @@
   "pages": [
     "index",
     "quickstart",
-    "---Concepts---",
-    "...concepts",
-    "---Build: in-chat experiences---",
+    "---Chat Guides---",
     "...chat-ui",
-    "---Build: in-app experiences---",
+    "---App Guides---",
     "...react-ui",
-    "---Advanced---",
+    "---Advanced Guides---",
     "...advanced",
-    "---Demos & Tutorials---",
-    "...demos",
-    "...tutorials"
+    "---Tutorials & Videos---",
+    "...tutorials",
+    "...videos",
+    "---Concepts---",
+    "...concepts"
   ]
 }
