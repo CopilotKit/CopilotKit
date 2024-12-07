@@ -40,7 +40,9 @@ interface CompleteStateNoArgs<T extends Parameter[] | [] = []> {
 interface InProgressStateWait<T extends Parameter[] | [] = []> {
   status: "inProgress";
   args: Partial<MappedParameterTypes<T>>;
+  /** @deprecated use respond instead */
   handler: undefined;
+  respond: undefined;
   result: undefined;
 }
 
