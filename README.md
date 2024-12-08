@@ -45,40 +45,91 @@
 
 <br />
 
-# Demos
+# Demos (Open-Source)
 
+<table>
+<tr>
+<td width="200" valign="top">
+  <img src="https://github.com/user-attachments/assets/9c6ebced-1439-49bb-811b-1f74fe749ab5" width="200"/>
+</td>
+<td>
 <details open>
-  <summary>Spreadsheet App</summary>
-  
-  ![image](https://github.com/user-attachments/assets/9c6ebced-1439-49bb-811b-1f74fe749ab5)
+<summary>
+  <h2 style="display: inline-block; margin: 0;">📊 Spreadsheet Copilot</h2>
+</summary>
 
-  Check out the repo [here](https://github.com/CopilotKit/demo-presentation)
+![Spreadsheet Demo](https://github.com/user-attachments/assets/9c6ebced-1439-49bb-811b-1f74fe749ab5)
+
+[View Demo Repository →](https://github.com/CopilotKit/demo-presentation)
 </details>
 
+A powerful spreadsheet assistant that helps users analyze data, create formulas, and generate insights through natural language interaction.
+</td>
+</tr>
+
+<tr>
+<td width="200" valign="top">
+  <img src="https://github.com/user-attachments/assets/ecddcf4c-cfe3-45ba-848d-03f94902475f" width="200"/>
+</td>
+<td>
 <details>
-  <summary>Banking App</summary>
-  
-  ![image](https://github.com/user-attachments/assets/ecddcf4c-cfe3-45ba-848d-03f94902475f)
+<summary>
+  <h2 style="display: inline-block; margin: 0;">🏦 Banking Assistant</h2>
+</summary>
 
-  Check out the repo [here](https://github.com/CopilotKit/demo-banking)
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/ecddcf4c-cfe3-45ba-848d-03f94902475f" width="800"/>
+</div>
+
+[View Demo Repository →](https://github.com/CopilotKit/demo-banking)
 </details>
 
+An AI-powered banking interface that helps users manage transactions, analyze spending patterns, and get personalized financial advice.
+</td>
+</tr>
+
+<tr>
+<td width="200" valign="top">
+  <img src="https://github.com/user-attachments/assets/09dc873b-b263-40a3-8577-1414d0837510" width="200"/>
+</td>
+<td>
 <details>
-  <summary>Travel App</summary>
+<summary>
+  <h2 style="display: inline-block; margin: 0;">✈️ Travel Planner</h2>
+</summary>
 
-  ![image](https://github.com/user-attachments/assets/09dc873b-b263-40a3-8577-1414d0837510)
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/09dc873b-b263-40a3-8577-1414d0837510" width="800"/>
+</div>
 
-  Check out the repo [here](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-travel)
+[View Demo Repository →](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-travel)
 </details>
 
+Interactive travel planning assistant that helps users discover destinations, create itineraries, and manage trip details with natural language.
+</td>
+</tr>
+
+<tr>
+<td width="200" valign="top">
+  <img src="https://github.com/user-attachments/assets/7cafb021-98e0-44b5-b3b7-232b0c3ae35b" width="200"/>
+</td>
+<td>
 <details>
-  <summary>ToDo App</summary>
-  
-  ![image](https://github.com/user-attachments/assets/7cafb021-98e0-44b5-b3b7-232b0c3ae35b)
-  
-  Check out the repo [here](https://github.com/CopilotKit/example-todos-app)
+<summary>
+  <h2 style="display: inline-block; margin: 0;">📝 ToDo Manager</h2>
+</summary>
+
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/7cafb021-98e0-44b5-b3b7-232b0c3ae35b" width="800"/>
+</div>
+
+[View Demo Repository →](https://github.com/CopilotKit/example-todos-app)
 </details>
 
+Smart task management system that helps users organize, prioritize, and track their todos through conversational AI interactions.
+</td>
+</tr>
+</table>
 
 # Getting Started
 Get started in minutes - check out the [quickstart documentation](https://docs.copilotkit.ai/quickstart).
