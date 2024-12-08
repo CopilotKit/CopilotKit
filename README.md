@@ -79,21 +79,9 @@
   Check out the repo [here](https://github.com/CopilotKit/example-todos-app)
 </details>
 
-Get started in minutes, not hours!
-
-```ts
-useCopilotReadable(.
-useCopilotSuggestion(...)
-```
-
-```ts
-const { state, setState} = useAgent(...)
-
-useAgentStateRender(...)
-```
 
 # Getting Started
-Check out our [quickstart documentation](https://docs.copilotkit.ai/quickstart)
+Get started in minutes - check out the [quickstart documentation](https://docs.copilotkit.ai/quickstart).
 
 # Code Samples
 ```ts
