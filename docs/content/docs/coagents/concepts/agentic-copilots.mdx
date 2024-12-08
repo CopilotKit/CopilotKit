@@ -1,6 +1,6 @@
 ---
 title: Agentic Copilots
-description: Agentic Copilots provide you with advanced control and orchestration over your agents.
+description: Agentic copilots provide you with advanced control and orchestration over your agents.
 ---
 
 import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content";
@@ -10,20 +10,16 @@ import { SiLangchain } from "react-icons/si";
 import { LinkIcon } from "lucide-react";
 import { RocketIcon, GraduationCapIcon, CodeIcon, VideoIcon } from "lucide-react";
 
-Before we dive into what agentic copilots are, help us help you by telling us 
-your level of experience with LangGraph. We'll explain things in a way that best suits your experience level.
-
-
+Before we dive into what agentic copilots are, help us help you by telling us your level of experience with LangGraph. We'll explain things in a way that best suits your experience level.
 
 <TailoredContent defaultOptionIndex={0}>
     <TailoredContentOption 
         title="I'm new to LangGraph" 
-        description="Help me understand what Agentic Copilots are, where LangGraph fits in, and how to get started." 
+        description="Help me understand what agentic copilots are, where LangGraph fits in, and how to get started." 
         icon={<img src="/images/copilotkit-logo.svg" width={7} height={7} />}
     >
-
         <Frame>
-            <img src="/images/coagents/SharedStateCoAgents.gif" alt="Agentic Copilots Shared State" className="mt-0 mb-12"/>
+            <img src="/images/coagents/SharedStateCoAgents.gif" alt="CoAgents Shared State" className="mt-0 mb-12"/>
         </Frame>
 
         ### What are Agents?
@@ -40,23 +36,28 @@ your level of experience with LangGraph. We'll explain things in a way that best
         The key advantage of LangGraph is its tight control over the agent's decision making process. Since all of this is defined in code by you, the behavior is much more
         deterministic and predictable.
 
-        ### What are 'Agentic Copilots'?
-        Agentic Copilots are how CopilotKit brings LangGraph agents into your application. If you're familiar with CopilotKit, you know that copilots are AI assistants that 
+        ### What are Agentic Copilots?
+        Agentic copilots are how CopilotKit brings LangGraph agents into your application. If you're familiar with CopilotKit, you know that copilots are AI assistants that 
         understand your app's context and can take actions within it. While CopilotKit's standard copilots use a simplified [ReAct pattern](https://www.perplexity.ai/search/what-s-a-react-agent-5hu7ZOaKSAuY7YdFjQLCNQ) 
-        for quick implementation, Agentic Copilots give you LangGraph's full orchestration capabilities when you need more control over your agent's behavior.
+        for quick implementation, Agentic copilots give you LangGraph's full orchestration capabilities when you need more control over your agent's behavior.
 
-        ### When should I use CopilotKit's Agentic Copilots?
-        You should use Agentic Copilots when you require tight control over the Agentic runloop, as facilitated by an Agentic Orchestration framework like [LangGraph](https://langchain-ai.github.io/langgraph/).
-        With Agentic Copilots, you can carry all of your existing CopilotKit-enabled Copilot capabilities into a customized agentic runloop.
+        ### What are CoAgents?
+        CoAgents are what we call CopilotKit's approach to building agentic experiences! They're interchangeable with agentic copilots being a more descriptive term for the overall concept.
 
-        We suggest beginning with a basic Copilot and gradually transitioning specific components to Agentic Copilots.
+        ### When should I use CopilotKit's CoAgents?
+        You should use CoAgents when you require tight control over the Agentic runloop, as facilitated by an Agentic Orchestration framework like [LangGraph](https://langchain-ai.github.io/langgraph/).
+        With CoAgents, you can carry all of your existing CopilotKit-enabled Copilot capabilities into a customized agentic runloop.
+
+        We suggest beginning with a basic Copilot and gradually transitioning specific components to CoAgents.
         
-        The need for Agentic Copilots spans a broad spectrum across different applications. At one end, their advanced capabilities might not be required at all, or only for a minimal 10% of the application's functionality. Progressing further, there are scenarios where they become increasingly vital, managing 60-70% of operations. Ultimately, in some cases, Agentic Copilots are indispensable, orchestrating up to 100% of the Copilot's tasks (see [agent-lock mode](/coagents/advanced/router-mode-agent-lock#agent-lock-mode) for the 100% case).
+        The need for CoAgents spans a broad spectrum across different applications. At one end, their advanced capabilities might not be required at all, or only for a minimal 10% of the application's 
+        functionality. Progressing further, there are scenarios where they become increasingly vital, managing 60-70% of operations. Ultimately, in some cases, CoAgents are indispensable, orchestrating
+        up to 100% of the Copilot's tasks (see [agent-lock mode](/coagents/advanced/router-mode-agent-lock#agent-lock-mode) for the 100% case).
 
         ### Examples
-        An excellent example of the type of experiences you can accomplish with Agentic Copilot applications can be found in our [Research Canvas](/examples/coagents-research-canvas).
+        An excellent example of the type of experiences you can accomplish with CoAgents applications can be found in our [Research Canvas](/examples/coagents-research-canvas).
         
-        More specifically, it demonstrates how Agentic Copilots allow for AI driven experiences with:
+        More specifically, it demonstrates how CoAgents allow for AI driven experiences with:
         - Precise state management across agent interactions
         - Sophisticated multi-step reasoning capabilities
         - Seamless orchestration of multiple AI tools
@@ -69,14 +70,14 @@ your level of experience with LangGraph. We'll explain things in a way that best
 
         <Cards>
             <Card
-                title="Build your first Agentic Copilot"
-                description="Follow a step-by-step tutorial to build a travel app supercharged with agentic copilots."
+                title="Build your first CoAgent"
+                description="Follow a step-by-step tutorial to build a travel app supercharged with CoAgents."
                 href="/coagents/quickstart"
                 icon={<RocketIcon />}
             />
             <Card
-                title="Learn more agentic copilot concepts"
-                description="Learn more about the concepts used to talk about agentic copilots and how to use them."
+                title="Learn more CoAgent concepts"
+                description="Learn more about the concepts used to talk about CoAgents and how to use them."
                 href="/coagents/concepts/terminology"
                 icon={<GraduationCapIcon />}
             />
@@ -87,8 +88,8 @@ your level of experience with LangGraph. We'll explain things in a way that best
                 icon={<CodeIcon />}
             />
             <Card
-                title="See examples of agentic copilots in action"
-                description="Checkout our video examples of agentic copilots in action."
+                title="See examples of CoAgents in action"
+                description="Checkout our video examples of CoAgents in action."
                 href="/coagents/demos/research-canvas"
                 icon={<VideoIcon />}
             />
@@ -96,7 +97,7 @@ your level of experience with LangGraph. We'll explain things in a way that best
     </TailoredContentOption>
     <TailoredContentOption 
         title="I'm already using LangGraph" 
-        description="Help me understand what Agentic Copilots are, what Copilotkit does to integrate with LangGraph, and how to get started." 
+        description="Help me understand what agentic copilots are, what Copilotkit does to integrate with LangGraph, and how to get started." 
         icon={<SiLangchain />}
     >
 
@@ -118,13 +119,14 @@ your level of experience with LangGraph. We'll explain things in a way that best
         - Intermediate result and state progress streaming
         - Human-in-the-loop collaboration
         - Agentic generative UI
+        - And more!
 
-        And more.
+        All of these features are essential to delight instead of frustrate your users with AI features.
 
-        All of these features are essential to delight instead of frustrate your users with AI features. Ready to get started?
+        ### What are CoAgents?
+        CoAgents are what we call CopilotKit's approach to building agentic experiences! They're interchangeable with agentic copilots being a more descriptive term for the overall concept.
 
         ## Next Steps
-
         Want to get started? You have some options!
 
         <Cards>
@@ -136,19 +138,19 @@ your level of experience with LangGraph. We'll explain things in a way that best
             />
             <Card
                 title="Tutorial: AI Travel App"
-                description="Follow a step-by-step tutorial to build a travel app supercharged with agentic copilots."
+                description="Follow a step-by-step tutorial to build a travel app supercharged with CoAgents."
                 href="/coagents/tutorials/ai-travel-app/overview"
                 icon={<GraduationCapIcon />}
             />
             <Card
                 title="Reference"
-                description="Learn more about the terms used to talk about agentic copilots and how to use them."
+                description="Learn more about the terms used to talk about CoAgents and how to use them."
                 href="/reference"
                 icon={<CodeIcon />}
             />
             <Card
                 title="Examples"
-                description="Checkout our video examples of agentic copilots in action."
+                description="Checkout our video examples of CoAgents in action."
                 href="/coagents/demos/research-canvas"
                 icon={<VideoIcon />}
             />

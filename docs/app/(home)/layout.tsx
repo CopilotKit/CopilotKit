@@ -30,7 +30,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 },
                 {
                   title: "CoAgents (LangGraph)",
-                  description: "Documentation for agentic copilots with LangGraph",
+                  description: "Documentation for CoAgents with LangGraph",
                   url: "/coagents",
                   icon: <PiGraph className="w-4 h-4 text-bold" />,
                   bgGradient:

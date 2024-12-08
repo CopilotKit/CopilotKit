@@ -1,6 +1,6 @@
 ---
 title: "Quickstart"
-description: "Get started with Agentic Copilots in just a few minutes."
+description: "Get started with CoAgents in just a few minutes."
 icon: "lucide/Play"
 ---
 
@@ -18,11 +18,10 @@ import { InsecurePasswordProtected } from "@/components/react/insecure-password-
 
 ## Before you start
 
-Agentic copilots integrate with LangGraph-powered agents which are either deployed to the LangGraph Platform or self-hosted with a FastAPI endpoing.
+CoAgents integrate with LangGraph-powered agents which are either deployed to the LangGraph Platform or self-hosted with a FastAPI endpoint.
 
 The LangGraph Platform deployment is recommended and supports both LangGraph.js and LangGraph python.
 Raw self-hosting is currently only offered via CopilotKit's FastAPI-powered remote-endpoint.
-
 
 **This guide assumes you’re familiar with using LangGraph to build agent workflows.** If you need a quick introduction, 
 check out [this brief example from the LangGraph docs](https://langchain-ai.github.io/langgraph/).
@@ -38,7 +37,7 @@ In order for CopilotKit to integrate with your LangGraph agent, it has to be dep
     description="I want to write my LangGraph agent in Python and self-host it with a FastAPI endpoint."
     icon={<FaPython />}
   >
-    **For orientation, here's how agentic copilots are wired:**
+    **For orientation, here's how CoAgents are wired:**
     <CoAgentsDiagram />
 
     <Steps>
@@ -185,7 +184,7 @@ In order for CopilotKit to integrate with your LangGraph agent, it has to be dep
                   remoteEndpoints: [ 
                     langGraphPlatformEndpoint({
                       deploymentUrl: "your-api-url", // make sure to replace with your real deployment url // [!code highlight]
-                      langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Cloud deoployments
+                      langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deoployments
                       agents: [ // List any agents available under "graphs" list in your langgraph.json file; give each a description explaining when it should be called.
                         {
                           name: 'my_agent', // this name must match one of your graphs defined under the `langgraph.json` file  // [!code highlight]
@@ -231,7 +230,7 @@ You are now chatting with a LangGraph agent!
 <Frame className="my-6">
   <img
     src="/images/coagents/CoAgents-ChatHello.gif"
-    alt="Agentic copilots Chat Hello demonstration"
+    alt="CoAgents Chat Hello demonstration"
     className="w-2/3 mx-auto"
   />
 </Frame>
