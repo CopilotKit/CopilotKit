@@ -96,8 +96,6 @@ useAgentStateRender(...)
 Check out our [quickstart documentation](https://docs.copilotkit.ai/quickstart)
 
 # Code Samples
-
-### Chat UI
 ```ts
 // Headless UI with full control
 const { visibleMessages, appendMessage, setMessages, ... } = useCopilotChat();
@@ -108,11 +106,8 @@ const { visibleMessages, appendMessage, setMessages, ... } = useCopilotChat();
   labels={{ title: "Popup Assistant", initial: "Need any help?" }} 
 />
 
-// ...
-```
+// ---
 
-### RAG (Retrieval-Augmented Generation)
-```ts
 // Frontend RAG
 useCopilotReadable({
   description: "The current user's colleagues",
@@ -121,10 +116,9 @@ useCopilotReadable({
 
 // knowledge-base integration
 useCopilotKnowledgebase(myCustomKnowledgeBase)
-```
 
-### Actions
-```ts
+// ---
+
 // Frontend actions + generative UI
 useCopilotAction({
   name: "appendToSpreadsheet",
@@ -136,15 +130,12 @@ useCopilotAction({
   handler: ({ rows }) => setSpreadsheet({ ...spreadsheet, rows: [...spreadsheet.rows, ...canonicalSpreadsheetData(rows)] }),
 });
 
-// Note: Backend actions supported via python, typescript (extensible protocol)
-```
+// ---
 
-### Intelligent Suggestions
-```ts
-// Suggest next steps based on context
-const { suggestions } = useCopilotSuggestions(
+// autocomplete for antyhing
+const { suggestions } = useCopilotStructuredAutocompletion(
   {
-    instructions: `Autocomplete or modify spreadsheet rows. Selected cell: ${JSON.stringify(activeCell)} (${activeCellData})`,
+    instructions: `Autocomplete or modify spreadsheet rows based on the inferred user intent.`,
     value: { rows: spreadsheet.rows.map((row) => ({ cells: row })) },
     enabled: !!activeCell && !spreadsheetIsEmpty,
   },
@@ -182,14 +173,9 @@ useCopilotAction({
     ),
   });
 
-// and more!
-```
+// ---
 
-### Emit Intermediate Agent State
-
-LangGraph.js
-```ts
-// Stream tool-call arguments as agent state
+// intermediate agent state streamin (LangGraph.js + LangGraph python)
 const modifiedConfig = copilotKitCustomizeConfig(config, {
   emitIntermediateState: [{ 
     stateKey: "outline", 
@@ -198,19 +184,6 @@ const modifiedConfig = copilotKitCustomizeConfig(config, {
   }],
 });
 const response = await ChatOpenAI({ model: "gpt-4o" }).invoke(messages, modifiedConfig);
-```
-
-LangGraph Python
-```python
-# Python equivalent:
-modifiedConfig = copilotkit_customize_config(
-    config,
-    emit_intermediate_state=[{
-        "state_key": "outline", 
-        "tool": "set_outline", 
-        "tool_argument": "outline"
-    }]
-)
 ```
 
 
