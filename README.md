@@ -33,6 +33,7 @@
   <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank">
     <img src="./assets/btn_cloud.png" alt="CopilotKit GitHub" height="40px">
   </a>
+  
 </div>
 
 <br/>
@@ -44,112 +45,174 @@
 
 <br />
 
-<div align="center">
-  <img src="./assets/animated-banner.gif" alt="CopilotKit Screenshot" style="border-radius: 15px;" />
-</div>
+# Demos
 
-<br />
+<details open>
+  <summary>Spreadsheet App</summary>
+  
+  ![image](https://github.com/user-attachments/assets/9c6ebced-1439-49bb-811b-1f74fe749ab5)
 
-<div>
-<p>
-  👉 Check out the docs at <a href="https://docs.copilotkit.ai?ref=github_readme" target="_blank">https://docs.copilotkit.ai</a>
-</p>
-</div>
+  Check out the repo [here](https://github.com/CopilotKit/demo-presentation)
+</details>
 
-**Table of Contents**
+<details>
+  <summary>Banking App</summary>
+  
+  ![image](https://github.com/user-attachments/assets/ecddcf4c-cfe3-45ba-848d-03f94902475f)
 
-- [Getting Started](#getting-started)
-  - [Quickstart & Tutorials](#quickstart--tutorials)
-  - [Examples & Starter Templates](#examples--starter-templates)
-- [Building Blocks](#building-blocks)
-  - [Components](#-components)
-  - [Hooks](#-hooks)
-- [Contributing](#contributing)
-- [Get in touch](#get-in-touch)
-- [License](#license)
+  Check out the repo [here](https://github.com/CopilotKit/demo-banking)
+</details>
 
-## Getting Started
+<details>
+  <summary>Travel App</summary>
 
-### Quickstart & Tutorials
+  ![image](https://github.com/user-attachments/assets/09dc873b-b263-40a3-8577-1414d0837510)
 
-There are several easy ways to get started with CopilotKit:
+  Check out the repo [here](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-travel)
+</details>
 
-- [**Quickstart: Chatbot:**](https://docs.copilotkit.ai/quickstart?ref=github_readme) In just two minutes, add an AI Chatbot to your app with the ability to read application state and take actions.
-- [**Tutorial: Todo List Copilot:**](https://docs.copilotkit.ai/tutorials/ai-todo-app/overview?ref=github_readme) For a deeper dive into CopilotKit, take a simple todo list app and supercharge it with an AI chat popup.
-- [**Tutorial: Textarea Autocomplete:**](https://docs.copilotkit.ai/tutorials/ai-powered-textarea/overview?ref=github_readme) For a deeper dive into CopilotKit, we'll take a simple email client app and add an AI-powered textarea with autocompletions and AI insertions/edits.
+<details>
+  <summary>ToDo App</summary>
+  
+  ![image](https://github.com/user-attachments/assets/7cafb021-98e0-44b5-b3b7-232b0c3ae35b)
+  
+  Check out the repo [here](https://github.com/CopilotKit/example-todos-app)
+</details>
 
-### Examples & Starter Templates
+Get started in minutes, not hours!
 
-<table align="center">
-  <tr>
-    <td align="center" valign="top">
-      🕹️ PowerPoint Clone + Copilot<br/>
-      <a href="https://go.copilotkit.ai/GitHubPresentation">https://github.com/CopilotKit/demo-presentation</a> <br/><br>
-      <a href="https://go.copilotkit.ai/GitHubPresentation">
-        <img alt="Presentation" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="240px" style="max-width:100%; border-radius: 10px;"/>
-        <br/>
-        <a href="https://go.copilotkit.ai/GitHubPresentationVoice">See example with voice control</a>
-      </a>
-    </td>
-    <td align="center" valign="top">
-      🕹️ Simple Todo App + Copilot <br/>
-      <a href="https://go.copilotkit.ai/GitHubToDo">https://github.com/CopilotKit/demo-todo</a> <br/><br>
-      <a href="https://go.copilotkit.ai/GitHubToDo">
-        <img alt="Todo App" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/63798c02-1892-4d2d-bc9f-2994b7c88694" width="240px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top">
-      🕹️ Spreadsheets + Copilot <br/>
-      <a href="https://go.copilotkit.ai/GitHubSpreadsheet">https://github.com/CopilotKit/demo-spreadsheet</a> <br/><br>
-      <a href="https://go.copilotkit.ai/GitHubSpreadsheet">
-        <img alt="Presentation-Demo" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/871e4c9c-0ced-490b-9e3f-8594de7c5c89" width="240px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td>
-    <td align="center" valign="top">
-      🕹️ Banking App + Copilot<br/>
-      <a href="https://github.com/CopilotKit/demo-banking">https://github.com/CopilotKit/demo-banking</a> <br/><br>
-      <a href="https://github.com/CopilotKit/demo-banking">
-        <img alt="Banking-Demo" src="https://github.com/CopilotKit/demo-banking/blob/main/assets/project-preview.png?raw=true" width="240px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top">
-      🕹️ CoAgents (LangGraph) Perplexity Clone<br/>
-      <a href="https://go.copilotkit.ai/coagents-perplexity-clone">https://github.com/CopilotKit/CopilotKit/examples/coagents-ai-researcher</a> <br/><br>
-      <a href="https://go.copilotkit.ai/coagents-perplexity-clone">
-        <img alt="Banking-Demo" src="./assets/proejct-perplexity-clone.png" width="200px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td>
-    <td align="center" valign="top">
-      🕹️ CoAgents (LangGraph) Research Canvas Demo<br/>
-      <a href="https://go.copilotkit.ai/coagents-research-canvas">https://github.com/CopilotKit/CopilotKit/examples/coagents-research-canvas</a> <br/><br>
-      <a href="https://go.copilotkit.ai/coagents-research-canvas">
-        <img alt="Banking-Demo" src="./assets/project-canvas-demo.png" width="200px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td>
-  </tr>
-</table>
+```ts
+useCopilotReadable(.
+useCopilotSuggestion(...)
+```
 
-## Building Blocks
+```ts
+const { state, setState} = useAgent(...)
 
-> 💡 Want to learn more? Check out the [CopilotKit Documentation](https://docs.copilotkit.ai?ref=github_readme).
+useAgentStateRender(...)
+```
 
-### 🧩 Components
+# Getting Started
+Check out our [quickstart documentation](https://docs.copilotkit.ai/quickstart)
 
-- [**`<CopilotTextarea />`**](https://docs.copilotkit.ai/reference/components/CopilotTextarea?ref=github_readme): An AI-powered textarea with autocompletions and AI-powered insertions/edits.
-- [**`<CopilotPopup />`**](https://docs.copilotkit.ai/reference/components/chat/CopilotPopup?ref=github_readme): AI-powered floating chat popup component.
-- [**`<CopilotSidebar />`**](https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar?ref=github_readme): AI-powered chat sidebar component.
-- [**`<CopilotChat />`**](https://docs.copilotkit.ai/reference/components/chat/CopilotChat?ref=github_readme): AI-powered plain chat component.
+# Code Samples
 
-### ⚡️ Hooks
+### Chat UI
+```ts
+// Headless UI with full control
+const { visibleMessages, appendMessage, setMessages, ... } = useCopilotChat();
 
-- [**`useCopilotReadable`**](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable?ref=github_readme): Provide in-app state and any other information to your Copilot.
-- [**`useCopilotAction`**](https://docs.copilotkit.ai/reference/hooks/useCopilotAction?ref=github_readme): Enable your Copilot to perform actions and render custom-generated UI in the chat.
-- [**`useCopilotChat`**](https://docs.copilotkit.ai/reference/hooks/useCopilotChat?ref=github_readme): Directly interact with the Copilot chat instance to add messages and manipulate the chat history.
-- [**`useCopilotChatSuggestions`**](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions?ref=github_readme): Integrate AI-powered chat follow-up suggestions that are aware of your app's state and chat history.
+// Pre-built components with deep customization options
+<CopilotPopup 
+  instructions={"You are assisting the user as best as you can. Answer in the best way possible given the data you have."} 
+  labels={{ title: "Popup Assistant", initial: "Need any help?" }} 
+/>
+
+// ...
+```
+
+### RAG (Retrieval-Augmented Generation)
+```ts
+// Frontend RAG
+useCopilotReadable({
+  description: "The current user's colleagues",
+  value: colleagues,
+});
+
+// knowledge-base integration
+useCopilotKnowledgebase(myCustomKnowledgeBase)
+```
+
+### Actions
+```ts
+// Frontend actions + generative UI
+useCopilotAction({
+  name: "appendToSpreadsheet",
+  description: "Append rows to the current spreadsheet",
+  parameters: [
+    { name: "rows", type: "object[]", attributes: [{ name: "cells", type: "object[]", attributes: [{ name: "value", type: "string" }] }] }
+  ],
+  render: ({ status, args }) => <Spreadsheet data={canonicalSpreadsheetData(args.rows)} />,
+  handler: ({ rows }) => setSpreadsheet({ ...spreadsheet, rows: [...spreadsheet.rows, ...canonicalSpreadsheetData(rows)] }),
+});
+
+// Note: Backend actions supported via python, typescript (extensible protocol)
+```
+
+### Intelligent Suggestions
+```ts
+// Suggest next steps based on context
+const { suggestions } = useCopilotSuggestions(
+  {
+    instructions: `Autocomplete or modify spreadsheet rows. Selected cell: ${JSON.stringify(activeCell)} (${activeCellData})`,
+    value: { rows: spreadsheet.rows.map((row) => ({ cells: row })) },
+    enabled: !!activeCell && !spreadsheetIsEmpty,
+  },
+  [activeCell, spreadsheet]
+);
+```
+
+# Code Samples (CoAgents)
+
+### State Sharing and Generative UI
+```ts
+// Share state between app and agent
+const { agentState } = useCoAgent({ 
+  name: "basic_agent", 
+  initialState: { input: "NYC" } 
+});
+
+// agentic generative UI
+useCoagentStateRender({
+  name: "basic_agent",
+  render: ({ state }) => <WeatherDisplay {...state.final_response} />,
+});
+
+// Human in the Loop (Approval)
+useCopilotAction({
+    name: "email_tool",
+    parameters: [{ name: "email_draft", type: "string", description: "The email content", required: true }],
+    renderAndWaitForResponse: ({ args, status, respond }) => (
+      <EmailConfirmation
+        emailContent={args.email_draft || ""}
+        isExecuting={status === "executing"}
+        onCancel={() => respond?.({ approved: false })}
+        onSend={() => respond?.({ approved: true, metadata: { sentAt: new Date().toISOString() } })}
+      />
+    ),
+  });
+
+// and more!
+```
+
+### Emit Intermediate Agent State
+
+LangGraph.js
+```ts
+// Stream tool-call arguments as agent state
+const modifiedConfig = copilotKitCustomizeConfig(config, {
+  emitIntermediateState: [{ 
+    stateKey: "outline", 
+    tool: "set_outline", 
+    toolArgument: "outline" 
+  }],
+});
+const response = await ChatOpenAI({ model: "gpt-4o" }).invoke(messages, modifiedConfig);
+```
+
+LangGraph Python
+```python
+# Python equivalent:
+modifiedConfig = copilotkit_customize_config(
+    config,
+    emit_intermediate_state=[{
+        "state_key": "outline", 
+        "tool": "set_outline", 
+        "tool_argument": "outline"
+    }]
+)
+```
+
 
 ## Contributing
 
@@ -161,15 +224,12 @@ Here are a few useful resources to help you get started:
 
 - For code contributions, [CONTRIBUTING.md](./CONTRIBUTING.md).
 - For documentation-related contributions, [check out the documentation contributions guide](https://docs.copilotkit.ai/contributing/docs-contributions?ref=github_readme).
-- Want to contribute but not sure how? [Join our Discord](https://discord.gg/6dffbvGU3D) and we'll help you out!
 
 > 💡 **NOTE:** All contributions must be submitted via a pull request and be reviewed by our team. This ensures all contributions are of high quality and align with the project's goals.
 
 ## Get in touch
 
-You are welcome to join our [Discord](https://discord.gg/6dffbvGU3D) and chat with our team and other community members.
-
-Additionally, you can reach out to us at [hello@copilotkit.ai](mailto:hello@copilotkit.ai).
+You are invited to join our community on [Discord](https://discord.gg/6dffbvGU3D) and chat with our team and other community members.
 
 ## License
 
