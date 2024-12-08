@@ -45,6 +45,8 @@
 
 <br />
 
+# Demos
+
 <details open>
   <summary>Spreadsheet App</summary>
   
@@ -90,11 +92,127 @@ const { state, setState} = useAgent(...)
 useAgentStateRender(...)
 ```
 
-## Getting Started
-Check out our [documentation](https://docs.copilotkit.ai/)
+# Getting Started
+Check out our [quickstart documentation](https://docs.copilotkit.ai/quickstart)
 
-## Concepts
-Check out our [concepts](https://docs.copilotkit.ai/coagents/concepts/why-agentic-copilots)
+# Code Samples
+
+### Chat UI
+```ts
+// Headless UI with full control
+const { visibleMessages, appendMessage, setMessages, ... } = useCopilotChat();
+
+// Pre-built components with deep customization options
+<CopilotPopup 
+  instructions={"You are assisting the user as best as you can. Answer in the best way possible given the data you have."} 
+  labels={{ title: "Popup Assistant", initial: "Need any help?" }} 
+/>
+
+// ...
+```
+
+### RAG (Retrieval-Augmented Generation)
+```ts
+// Frontend RAG
+useCopilotReadable({
+  description: "The current user's colleagues",
+  value: colleagues,
+});
+
+// knowledge-base integration
+useCopilotKnowledgebase(myCustomKnowledgeBase)
+```
+
+### Actions
+```ts
+// Frontend actions + generative UI
+useCopilotAction({
+  name: "appendToSpreadsheet",
+  description: "Append rows to the current spreadsheet",
+  parameters: [
+    { name: "rows", type: "object[]", attributes: [{ name: "cells", type: "object[]", attributes: [{ name: "value", type: "string" }] }] }
+  ],
+  render: ({ status, args }) => <Spreadsheet data={canonicalSpreadsheetData(args.rows)} />,
+  handler: ({ rows }) => setSpreadsheet({ ...spreadsheet, rows: [...spreadsheet.rows, ...canonicalSpreadsheetData(rows)] }),
+});
+
+// Note: Backend actions supported via python, typescript (extensible protocol)
+```
+
+### Intelligent Suggestions
+```ts
+// Suggest next steps based on context
+const { suggestions } = useCopilotSuggestions(
+  {
+    instructions: `Autocomplete or modify spreadsheet rows. Selected cell: ${JSON.stringify(activeCell)} (${activeCellData})`,
+    value: { rows: spreadsheet.rows.map((row) => ({ cells: row })) },
+    enabled: !!activeCell && !spreadsheetIsEmpty,
+  },
+  [activeCell, spreadsheet]
+);
+```
+
+# Code Samples (CoAgents)
+
+### State Sharing and Generative UI
+```ts
+// Share state between app and agent
+const { agentState } = useCoAgent({ 
+  name: "basic_agent", 
+  initialState: { input: "NYC" } 
+});
+
+// agentic generative UI
+useCoagentStateRender({
+  name: "basic_agent",
+  render: ({ state }) => <WeatherDisplay {...state.final_response} />,
+});
+
+// Human in the Loop (Approval)
+useCopilotAction({
+    name: "email_tool",
+    parameters: [{ name: "email_draft", type: "string", description: "The email content", required: true }],
+    renderAndWaitForResponse: ({ args, status, respond }) => (
+      <EmailConfirmation
+        emailContent={args.email_draft || ""}
+        isExecuting={status === "executing"}
+        onCancel={() => respond?.({ approved: false })}
+        onSend={() => respond?.({ approved: true, metadata: { sentAt: new Date().toISOString() } })}
+      />
+    ),
+  });
+
+// and more!
+```
+
+### Emit Intermediate Agent State
+
+LangGraph.js
+```ts
+// Stream tool-call arguments as agent state
+const modifiedConfig = copilotKitCustomizeConfig(config, {
+  emitIntermediateState: [{ 
+    stateKey: "outline", 
+    tool: "set_outline", 
+    toolArgument: "outline" 
+  }],
+});
+const response = await ChatOpenAI({ model: "gpt-4o" }).invoke(messages, modifiedConfig);
+```
+
+LangGraph Python
+```python
+# Python equivalent:
+modifiedConfig = copilotkit_customize_config(
+    config,
+    emit_intermediate_state=[{
+        "state_key": "outline", 
+        "tool": "set_outline", 
+        "tool_argument": "outline"
+    }]
+)
+```
+
 
 ## Contributing
 
