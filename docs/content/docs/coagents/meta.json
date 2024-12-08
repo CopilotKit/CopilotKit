@@ -1,5 +1,5 @@
 {
-  "title": "Agentic Copilots",
+  "title": "CoAgents",
   "root": true,
   "pages": [
     "index",
@@ -14,6 +14,8 @@
     "...tutorials",
     "...videos",
     "---Concepts---",
-    "...concepts"
+    "...concepts",
+    "---Troubleshooting---",
+    "...troubleshooting"
   ]
 }

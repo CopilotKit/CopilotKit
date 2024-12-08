@@ -2,8 +2,8 @@
 title: Message Management
 ---
 
-Message management in Agentic Copilots operates with CopilotKit as the "ground truth" for the full chat session. 
-When an Agentic Copilot session begins, it receives the existing CopilotKit chat history to maintain conversational
+Message management in CoAgents operates with CopilotKit as the "ground truth" for the full chat session. 
+When an CoAgent session begins, it receives the existing CopilotKit chat history to maintain conversational
 continuity across different agents.
 
 ### Can I modify the message history?
@@ -18,7 +18,7 @@ If you'd like to learn more about how to save and restore message history, check
 <Callout>
 While all of this information is great to know, in most cases you won't need to worry about these details to
 build rich agentic applications. Use the information here as a reference when getting really deep into 
-the Agentic Copilot internals.
+the CoAgent internals.
 </Callout>
 
 ## Types of LLM Messages
@@ -49,7 +49,7 @@ async def ask_name_node(state: GreetAgentState, config: RunnableConfig):
     }
 ```
 
-Want some more help managing messages in your Agentic Copilot application? Check out our guide on [emitting messages](/coagents/advanced/manually-emitting-messages).
+Want some more help managing messages in your CoAgent application? Check out our guide on [emitting messages](/coagents/advanced/manually-emitting-messages).
 
 ## Message Flow
 Messages flow between CopilotKit and LangGraph in a specific way:
@@ -58,7 +58,7 @@ Messages flow between CopilotKit and LangGraph in a specific way:
 - Internal agent messages remain within LangGraph (omitted from the user-facing chat history)
 - On a fresh agent invocation, the full CopilotKit chat history is provided to the LangGraph agent as its pre-existing chat history.
 
-When an Agentic Copilot completes its execution, its relevant messages become part of CopilotKit's persistent chat
+When an CoAgent completes its execution, its relevant messages become part of CopilotKit's persistent chat
 history. 
 
 
