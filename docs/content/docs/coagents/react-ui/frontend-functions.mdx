@@ -188,7 +188,7 @@ NOTICE that we have a `interrupt_after` for `draft_email_node` (the node that in
             )
 
             instructions = "Compose a concise, professional email based on user input."
-            email_model = ChatOpenAI(temperature=0, model="gpt-4o").bind_tools([email_tool], tool_choice="email_tool")
+            email_model = ChatOpenAI(temperature=0, model="gpt-4o").bind_tools([email_tool], tool_choice="email_tool") # [!code highlight:1]
             response = await email_model.ainvoke([*state.messages, HumanMessage(content=instructions)], config)
             tool_calls = cast(Any, response).tool_calls
             email_draft = tool_calls[0]["args"]["email_draft"]  # the email draft content is the argument passed to the email tool
@@ -221,11 +221,11 @@ NOTICE that we have a `interrupt_after` for `draft_email_node` (the node that in
             async function draftEmailNode(state: EmailAgentState, config: RunnableConfig) {
                 const modifiedConfig = copilotKitCustomizeConfig(
                     config,
-                    { emitToolCalls: true }
+                    { emitToolCalls: true } // [!code highlight]
                 );
 
                 const instructions = "Compose a concise, professional email based on user input.";
-                const emailModel = new ChatOpenAI({ temperature: 0, modelName: "gpt-4" }).bindTools([emailTool], { tool_choice: "EmailTool" });
+                const emailModel = new ChatOpenAI({ temperature: 0, modelName: "gpt-4" }).bindTools([emailTool], { tool_choice: "EmailTool" });  [!code highlight:1]
                 const response = await emailModel.invoke([...state.messages, new HumanMessage({ content: instructions })], modifiedConfig);
                 const toolCalls = response.toolCalls;
                 const emailDraft = toolCalls?.[0]?.args.email_draft;
