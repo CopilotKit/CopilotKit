@@ -3,6 +3,11 @@ title: "Remote Endpoint (Python)"
 description: "Connect your CopilotKit application to a remote backend endpoint, allowing integration with Python-based services or other non-Node.js backends."
 ---
 import FindCopilotRuntimeSnippet from "@/snippets/find-your-copilot-runtime.mdx";
+import CopilotCloudConfigureRemoteEndpointSnippet from "@/snippets/copilot-cloud-configure-remote-endpoint.mdx";
+import CopilotCloudConfigureCopilotkitProviderSnippet from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
+import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content";
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import { FaCloud, FaServer } from "react-icons/fa";
 
 
 ## Stand up a FastAPI server using the CopilotKit Python SDK
@@ -185,42 +190,51 @@ Since we've added the entry point in `server.py`, you can run your FastAPI serve
 
 Now that you've set up your FastAPI server with the backend actions, integrate it into your CopilotKit application by modifying your `CopilotRuntime` configuration.
 
+<TailoredContent>
+    <TailoredContentOption
+        title="Copilot Cloud (Recommended)"
+        description="I want to use Copilot Cloud to serve my remote endpoint."
+        icon={<FaCloud />}
+    >
+        <InsecurePasswordProtected>
+        <CopilotCloudConfigureRemoteEndpointSnippet components={props.components} />
+        </InsecurePasswordProtected>
+    </TailoredContentOption>
+    <TailoredContentOption
+        title="Self-Hosted"
+        description="I want to use a self-hosted Copilot Runtime to serve my remote endpoint."
+        icon={<FaServer />}
+    >
+        <Steps>
+            <Step>
+                <FindCopilotRuntimeSnippet components={props.components} />
+            </Step>
+            <Step>
+                Update the `CopilotRuntime` to include your new `remote endpoint`.
 
-<Steps>
-<Step>
-<FindCopilotRuntimeSnippet />
-</Step>
+                ```tsx
+                const runtime = new CopilotRuntime({
+                    // ...existing configuration
+                    remoteEndpoints: [ // [!code highlight:5]
+                        { url: "http://localhost:8000/copilotkit_remote" },
+                    ],
+                });
+                ```
+            </Step>
+        </Steps>
 
-<Step>
+        ## Troubleshooting
 
-Update the `CopilotRuntime` config to include the `remoteEndpoints` property:
+        A few things to try if you are running into trouble:
 
-```tsx
-const runtime = new CopilotRuntime({
-    // ...existing configuration
-    remoteEndpoints: [ // [!code highlight:5]
-        {
-            url: "http://localhost:8000/copilotkit_remote",
-        },
-    ],
-});
-```
-</Step>
+        1. Make sure there is no other local application server running on the 8000 port.
+        2. Under `/agent/my_agent/demo.py`, change host from `0.0.0.0` to `127.0.0.1` or to `localhost`
 
-<Step>
+    </TailoredContentOption>
+</TailoredContent>
+
 ### Test Your Implementation
 
 After setting up the remote endpoint and modifying your `CopilotRuntime`, you can test your implementation by asking the copilot to perform actions that invoke your Python backend. For example, ask the copilot: "Fetch the name for user ID `123`."
 
-</Step>
-
-</Steps>
-
 ---
-
-## Troubleshooting
-
-A few things to try if you are running into trouble:
-
-1. Make sure there is no other local application server running on the 8000 port.
-2. Under `/agent/my_agent/demo.py`, change host from `0.0.0.0` to `127.0.0.1` or to `localhost`
