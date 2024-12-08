@@ -20,7 +20,7 @@ export default function Home() {
   return (
     <CopilotKit
       agent="travel"
-      runtimeUrl="https://api.cloud.stagingcopilotkit.ai/copilotkit/v1/"
+      runtimeUrl="https://api.cloud.copilotkit.ai/copilotkit/v1"
       publicApiKey={process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY}
     >
       <CopilotSidebar
