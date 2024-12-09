@@ -326,10 +326,14 @@ export default class StructuredReporter implements Reporter {
   onEnd(result: FullResult) {
     const stats = this.calculateSummaryStats();
     const actionRunUrl = this.getGitHubActionRunUrl();
-    const passRate = (
-      ((stats.totalTests - stats.totalFailed) / stats.totalTests) *
-      100
-    ).toFixed(1);
+
+    const passRate =
+      stats.totalTests === 0
+        ? "0.0"
+        : (
+            ((stats.totalTests - stats.totalFailed) / stats.totalTests) *
+            100
+          ).toFixed(1);
 
     const commitSha = process.env.GITHUB_SHA || "unknown";
     const shortSha = commitSha.substring(0, 7);
