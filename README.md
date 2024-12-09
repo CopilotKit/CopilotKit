@@ -5,9 +5,11 @@
 
   <br/>
 
-  <strong>
-    CopilotKit is the open-source framework for integrating powerful AI Copilots into any application. Easily implement custom AI Chatbots, AI Agents, AI Textareas, and more.
-  </strong>
+  <h3>
+    Build deeply-integrated AI assistants & agents<br/>
+    that work <em>alongside</em> users inside applications.
+  </h3>
+  
 </div>
 
 <br/>
@@ -45,7 +47,7 @@
 
 <br />
 
-# Demos (Open-Source)
+# Demos (click to clone / run)
 
 <table>
 <tr>
