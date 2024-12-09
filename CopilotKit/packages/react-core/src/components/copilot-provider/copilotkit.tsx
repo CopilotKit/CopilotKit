@@ -36,6 +36,7 @@ import { CopilotKitProps } from "./copilotkit-props";
 import { CoAgentStateRender } from "../../types/coagent-action";
 import { CoagentState } from "../../types/coagent-state";
 import { CopilotMessages } from "./copilot-messages";
+import { ToastProvider } from "../toast/toast-provider";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   // Compute all the functions and properties that we need to pass
@@ -267,7 +268,9 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         setAgentSession,
       }}
     >
-      <CopilotMessages>{children}</CopilotMessages>
+      <ToastProvider>
+        <CopilotMessages>{children}</CopilotMessages>
+      </ToastProvider>
     </CopilotContext.Provider>
   );
 }

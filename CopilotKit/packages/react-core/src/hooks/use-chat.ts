@@ -8,7 +8,6 @@ import {
 import {
   Message,
   TextMessage,
-  ActionExecutionMessage,
   ResultMessage,
   CopilotRuntimeClient,
   convertMessagesToGqlInput,
@@ -19,13 +18,14 @@ import {
   MessageRole,
   Role,
   CopilotRequestType,
-  AgentStateMessage,
 } from "@copilotkit/runtime-client-gql";
+import type { GraphQLError } from "@copilotkit/runtime-client-gql";
 
 import { CopilotApiConfig } from "../context";
 import { FrontendAction } from "../types/frontend-action";
 import { CoagentState } from "../types/coagent-state";
 import { AgentSession } from "../context/copilot-context";
+import { useToast } from "../components/toast/toast-provider";
 
 export type UseChatOptions = {
   /**
@@ -139,6 +139,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   const abortControllerRef = useRef<AbortController>();
   const threadIdRef = useRef<string | null>(null);
   const runIdRef = useRef<string | null>(null);
+  const { addGraphQLErrorsToast } = useToast();
 
   const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
   // We need to keep a ref of coagent states because of renderAndWait - making sure
@@ -246,7 +247,19 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
     try {
       while (true) {
-        const { done, value } = await reader.read();
+        let done, value;
+
+        try {
+          const readResult = await reader.read();
+          done = readResult.done;
+          value = readResult.value;
+        } catch (readError) {
+          if ((readError as any).graphQLErrors.length) {
+            const gqlError = (readError as any).graphQLErrors;
+            addGraphQLErrorsToast(gqlError as GraphQLError[]);
+          }
+          break;
+        }
 
         if (done) {
           break;

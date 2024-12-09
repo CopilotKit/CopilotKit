@@ -66,10 +66,14 @@ export class CopilotRuntimeClient {
   static asStream<S, T>(source: OperationResultSource<OperationResult<S, { data: T }>>) {
     return new ReadableStream<S>({
       start(controller) {
-        source.subscribe(({ data, hasNext }) => {
-          controller.enqueue(data);
-          if (!hasNext) {
-            controller.close();
+        source.subscribe(({ data, hasNext, error }) => {
+          if (error) {
+            controller.error(error);
+          } else {
+            controller.enqueue(data);
+            if (!hasNext) {
+              controller.close();
+            }
           }
         });
       },
