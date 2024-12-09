@@ -1,5 +1,66 @@
 # next-pages-router
 
+## 1.4.0
+
+### Minor Changes
+
+CopilotKit Core:
+
+- Improved error messages and overall logs
+- `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+- Improved scrolling behavior. It is now possible to scroll up during LLM response generation
+- Added Azure OpenAI integration
+- Updated interfaces for better developer ergonomics
+
+CoAgents:
+
+- Renamed `remoteActions` to `remoteEndpoints` (backwards compatible, will be deprecated in the future)
+- Support for LangGraph Platform in Remote Endpoints
+- LangGraph JS Support for CoAgents (locally via `langgraph dev`, `langgraph up` or deployed to LangGraph Platform)
+- Improved LangSmith integration - requests made through CoAgents will now surface in LangSmith
+- Enhanced state management and message handling
+
+CopilotKid Back-end SDK:
+
+- Released a whole-new `@copilotkit/sdk-js` for building agents with LangGraph JS Support
+
+### Patch Changes
+
+- f6fab28: update tsup config
+- f6fab28: update entry
+- f6fab28: export langchain module
+- 8a77944: Improve LangSmith support
+- f6fab28: Ensure intermediate state config is sent as snake case
+- f6fab28: update entry in tsup config
+- 8a77944: Ensure the last message is sent to LangSmith
+- a5efccd: Revert rxjs changes
+- f6fab28: update entry
+- f6fab28: Update exports
+- f6fab28: Update exports
+- 332d744: Add support for Azure OpenAI
+- f6fab28: Export LangGraph functions
+- f6fab28: Update lockfile
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+- Updated dependencies
+- Updated dependencies [f6fab28]
+- Updated dependencies [8a77944]
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+- Updated dependencies [8a77944]
+- Updated dependencies [a5efccd]
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+- Updated dependencies [332d744]
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+  - @copilotkit/react-textarea@1.4.0
+  - @copilotkit/react-core@1.4.0
+  - @copilotkit/react-ui@1.4.0
+  - @copilotkit/runtime@1.4.0
+  - @copilotkit/shared@1.4.0
+
 ## 1.3.16-mme-revert-rxjs-changes.0
 
 ### Patch Changes

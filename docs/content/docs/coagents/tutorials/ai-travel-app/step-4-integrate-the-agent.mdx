@@ -23,9 +23,9 @@ To integrate the agent into this state, we're going to need to setup a remote en
 
 Make sure you have the LangGraph Studio endpoint from the previous step!
 
-<Tabs items={['CopilotKit Cloud', 'Self-Hosted']}>
-<Tab value="CopilotKit Cloud">
-We're going to use the CopilotKit CLI to setup a tunnel between our locally running LangGraph agent and CopilotKit Cloud. You'll 
+<Tabs items={['Copilot Cloud', 'Self-Hosted']}>
+<Tab value="Copilot Cloud">
+We're going to use the CopilotKit CLI to setup a tunnel between our locally running LangGraph agent and Copilot Cloud. You'll 
 need the port number of the LangGraph Studio endpoint we setup earlier.
 
 <Callout title="Looking for the port number?">
@@ -103,7 +103,7 @@ const runtime = new CopilotRuntime();// [!code --]
 ```
 
 <Callout>
-The `deploymentUrl` is the URL from LangGraph Studio but it can also be a graph hosted in LangGraph Cloud!
+The `deploymentUrl` is the URL from LangGraph Studio but it can also be a graph hosted in LangGraph Platform!
 </Callout>
 </Tab>
 </Tabs>

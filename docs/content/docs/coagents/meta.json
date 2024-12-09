@@ -1,19 +1,21 @@
 {
-  "title": "Agentic Copilots",
+  "title": "CoAgents",
   "root": true,
   "pages": [
     "index",
     "quickstart",
+    "---Chat Guides---",
+    "...chat-ui",
+    "---App Guides---",
+    "...react-ui",
+    "---Advanced Guides---",
+    "...advanced",
+    "---Tutorials & Videos---",
+    "...tutorials",
+    "...videos",
     "---Concepts---",
     "...concepts",
-    "---Build: in-chat experiences---",
-    "...chat-ui",
-    "---Build: in-app experiences---",
-    "...react-ui",
-    "---Advanced---",
-    "...advanced",
-    "---Demos & Tutorials---",
-    "...demos",
-    "...tutorials"
+    "---Troubleshooting---",
+    "...troubleshooting"
   ]
 }

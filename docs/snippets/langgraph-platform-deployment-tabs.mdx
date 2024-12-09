@@ -1,0 +1,29 @@
+<Tabs items={['LangGraph Studio (local development)', 'LangGraph Platform (cloud)']}>
+
+    <Tab value="LangGraph Studio (local development)">
+        For local deployment during development, you can [use LangGraph Studio](https://langchain-ai.github.io/langgraph/cloud/how-tos/test_local_deployment/).
+        <Callout type="info">
+        To ensure a successful deployment, follow these steps from the LangGraph Studio documentation:
+        1. Make sure your agent folder contains a `langgraph.json` file.
+        2. In the `langgraph.json` file, reference the path to a `.env` file.
+        3. In the `.env` file, include your `LANGSMITH_API_KEY`.
+        </Callout>
+
+        A successful deployment will yield an API URL (often referred to here as "deployment URL"). 
+        It will generally look like this: `http://localhost:63899`.
+
+        Come back with that URL and a LangSmith API key before proceeding.
+
+        <img src="/images/langgraph-studio-local-url.png" alt="LangGraph Studio Local URL" className="my-4" />
+    </Tab>
+
+    <Tab value="LangGraph Platform (cloud)">
+        For production, you can deploy to LangGraph Platform by following the official [LangGraph Platform deployment guide](https://langchain-ai.github.io/langgraph/cloud/deployment/cloud/).
+
+        A successful deployment will yield an API URL (often referred to here as "deployment URL"). 
+        It will look like this: `https://{project-identifiers}.langgraph.app`.
+
+        Come back with that URL and a LangSmith API key before proceeding.
+    </Tab>
+
+</Tabs>
