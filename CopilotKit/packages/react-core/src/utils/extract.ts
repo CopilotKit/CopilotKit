@@ -50,6 +50,7 @@ interface ExtractOptions<T extends Parameter[]> {
   abortSignal?: AbortSignal;
   stream?: (args: StreamHandlerArgs<T>) => void;
   requestType?: CopilotRequestType;
+  runtimeClient: CopilotRuntimeClient;
 }
 
 interface IncludeOptions {
@@ -66,6 +67,7 @@ export async function extract<const T extends Parameter[]>({
   abortSignal,
   stream,
   requestType = CopilotRequestType.Task,
+  runtimeClient,
 }: ExtractOptions<T>): Promise<MappedParameterTypes<T>> {
   const { messages } = context;
 
@@ -99,21 +101,7 @@ export async function extract<const T extends Parameter[]>({
     role: Role.User,
   });
 
-  const headers = {
-    ...(context.copilotApiConfig.headers || {}),
-    ...(context.copilotApiConfig.publicApiKey
-      ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: context.copilotApiConfig.publicApiKey }
-      : {}),
-  };
-
-  const runtimeClient = new CopilotRuntimeClient({
-    url: context.copilotApiConfig.chatApiEndpoint,
-    publicApiKey: context.copilotApiConfig.publicApiKey,
-    headers,
-    credentials: context.copilotApiConfig.credentials,
-  });
-
-  const response = CopilotRuntimeClient.asStream(
+  const response = runtimeClient.asStream(
     runtimeClient.generateCopilotResponse({
       data: {
         frontend: {

@@ -8,18 +8,22 @@ import {
 import { generateCopilotResponseMutation } from "../graphql/definitions/mutations";
 import { OperationResultSource, OperationResult } from "urql";
 
-interface CopilotRuntimeClientOptions {
+export interface CopilotRuntimeClientOptions {
   url: string;
   publicApiKey?: string;
   headers?: Record<string, string>;
   credentials?: RequestCredentials;
+  handleGQLErrors?: (error: Error) => void;
 }
 
 export class CopilotRuntimeClient {
   client: Client;
+  public handleGQLErrors?: (error: Error) => void;
 
   constructor(options: CopilotRuntimeClientOptions) {
     const headers: Record<string, string> = {};
+
+    this.handleGQLErrors = options.handleGQLErrors;
 
     if (options.headers) {
       Object.assign(headers, options.headers);
@@ -63,12 +67,16 @@ export class CopilotRuntimeClient {
     return result;
   }
 
-  static asStream<S, T>(source: OperationResultSource<OperationResult<S, { data: T }>>) {
+  public asStream<S, T>(source: OperationResultSource<OperationResult<S, { data: T }>>) {
+    const handleGQLErrors = this.handleGQLErrors;
     return new ReadableStream<S>({
       start(controller) {
         source.subscribe(({ data, hasNext, error }) => {
           if (error) {
             controller.error(error);
+            if (handleGQLErrors) {
+              handleGQLErrors(error);
+            }
           } else {
             controller.enqueue(data);
             if (!hasNext) {
