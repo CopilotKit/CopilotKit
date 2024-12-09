@@ -16,7 +16,8 @@ import { FaCloud, FaServer } from "react-icons/fa";
 First, install the CopilotKit dependencies.
 
 ```package-install
-npm install @copilotkit/react-core @copilotkit/react-textarea
+npm install @copilotkit/react-ui @copilotkit/runtime
+# Note: The runtime package is not required if you are using Copilot Cloud.
 ```
 
 ## Setup CopilotKit
@@ -52,7 +53,6 @@ In order to use CopilotKit, we'll need to configure the `CopilotKit` provider.
 import { EmailThread } from "@/components/EmailThread";
 import { EmailsProvider } from "@/lib/hooks/use-emails";
 import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
-import "@copilotkit/react-textarea/styles.css"; // [!code highlight]
 
 export default function Home() {
   return (
