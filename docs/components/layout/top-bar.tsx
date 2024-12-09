@@ -1,8 +1,9 @@
 "use client";
 import { SearchIcon } from "lucide-react";
-import { FaDiscord } from "react-icons/fa";
+import { FaEdit } from "react-icons/fa";
 import { Socials } from "@/components/react/socials";
-import { LinkToCopilotCloud } from "../react/link-to-copilot-cloud";
+// import { LinkToCopilotCloud } from "../react/link-to-copilot-cloud";
+import { Button } from "@/components/ui/button";
 
 export function TopBar() {
   return (
