@@ -7,8 +7,6 @@ import {
   useModelSelectorContext,
 } from "@/lib/model-selector-provider";
 import { ModelSelector } from "@/components/ModelSelector";
-import { useRouter, useSearchParams } from "next/navigation";
-import { router } from "next/client";
 
 export default function ModelSelectorWrapper() {
   return (
