@@ -58,7 +58,7 @@
   <h2 style="display: inline-block; margin: 0;">📊 Spreadsheet Copilot</h2>
 </summary>
 
-![Spreadsheet Demo](https://github.com/user-attachments/assets/9c6ebced-1439-49bb-811b-1f74fe749ab5)
+![Spreadsheet Demo](https://github.com/user-attachments/assets/0935da06-668e-41b1-806e-19a1a1574be2)
 
 [View Demo Repository →](https://github.com/CopilotKit/demo-presentation)
 </details>
