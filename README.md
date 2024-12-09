@@ -7,7 +7,7 @@
 
   <h3>
     Build deeply-integrated AI assistants & agents<br/>
-    that work <em>alongside</em> your users inside your applications.
+    that work <em>alongside</em> your users inside your applications.
   </h3>
   
 </div>
@@ -57,7 +57,7 @@
 <td>
 <details open>
 <summary>
-  <h2 style="display: inline-block; margin: 0;">📊 Spreadsheet Copilot</h2>
+  <h2 style="display: inline-block; margin: 0;">📊 Spreadsheets + Copilot</h2>
 </summary>
 
 ![Spreadsheet Demo](https://github.com/user-attachments/assets/0935da06-668e-41b1-806e-19a1a1574be2)
@@ -76,7 +76,7 @@ A powerful spreadsheet assistant that helps users analyze data, create formulas,
 <td>
 <details>
 <summary>
-  <h2 style="display: inline-block; margin: 0;">🏦 Banking Assistant</h2>
+  <h2 style="display: inline-block; margin: 0;">🏦 Banking Assistant (SaaS Copilot) </h2>
 </summary>
 
 <div align="center">
@@ -97,7 +97,7 @@ An AI-powered banking interface that helps users manage transactions, analyze sp
 <td>
 <details>
 <summary>
-  <h2 style="display: inline-block; margin: 0;">✈️ Travel Planner</h2>
+  <h2 style="display: inline-block; margin: 0;">✈️ Agent-Native Travel Planner (ANA) </h2>
 </summary>
 
 <div align="center">
@@ -113,22 +113,22 @@ Interactive travel planning assistant that helps users discover destinations, cr
 
 <tr>
 <td width="200" valign="top">
-  <img src="https://github.com/user-attachments/assets/7cafb021-98e0-44b5-b3b7-232b0c3ae35b" width="200"/>
+  <img src="https://github.com/user-attachments/assets/research-assistant-demo.png" width="200"/>
 </td>
 <td>
 <details>
 <summary>
-  <h2 style="display: inline-block; margin: 0;">📝 ToDo Manager</h2>
+  <h2 style="display: inline-block; margin: 0;">🔍 Agent-Native Research Assistant (ANA)</h2>
 </summary>
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/7cafb021-98e0-44b5-b3b7-232b0c3ae35b" width="800"/>
+  <img src="https://github.com/user-attachments/assets/research-assistant-demo.png" width="800"/>
 </div>
 
-[View Demo Repository →](https://github.com/CopilotKit/example-todos-app)
+[View Demo Repository →](https://github.com/CopilotKit/demo-research-assistant)
 </details>
 
-Smart task management system that helps users organize, prioritize, and track their todos through conversational AI interactions.
+An intelligent research assistant that helps users analyze academic papers, synthesize information across multiple sources, and generate comprehensive research summaries through natural language interaction.
 </td>
 </tr>
 </table>
