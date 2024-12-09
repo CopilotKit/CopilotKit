@@ -278,12 +278,12 @@ export default class StructuredReporter implements Reporter {
   }
 
   private formatTestLocation(file: string, line: number): string {
-    const repoRoot = process.env.GITHUB_WORKSPACE || "";
-    const relativeFile = file.replace(repoRoot, "").replace(/^\//, "");
+    // Remove local path parts and ensure correct GitHub URL structure
+    const relativePath = file.split("/examples/")[1] || file;
     const repository = process.env.GITHUB_REPOSITORY || "";
     const branch = process.env.GITHUB_REF_NAME || "main";
 
-    return `https://github.com/${repository}/blob/${branch}/${relativeFile}#L${line}`;
+    return `https://github.com/${repository}/blob/${branch}/examples/${relativePath}#L${line}`;
   }
 
   private generateFailedTestsSection() {
@@ -351,7 +351,12 @@ export default class StructuredReporter implements Reporter {
     for (let i = results.length - 1; i >= 0; i--) {
       const error = results[i].error;
       if (results[i].status === "failed" && error?.message) {
-        return error.message.split("\n")[0]; // First line of error
+        if (error.message.includes("Timed out")) {
+          const timeoutMs = error.message.match(/Timed out (\d+)ms/)?.[1];
+          const seconds = timeoutMs ? Number(timeoutMs) / 1000 : null;
+          return `Timed out after ${seconds}s waiting for element to have text`;
+        }
+        return this.cleanErrorMessage(error.message);
       }
     }
     return "No error message available";
@@ -442,5 +447,17 @@ export default class StructuredReporter implements Reporter {
     }
 
     fs.writeFileSync(this.outputFile, json2md(mdContent as any), "utf8");
+  }
+
+  private cleanErrorMessage(error: string): string {
+    // Remove ANSI color and formatting codes
+    return error
+      .replace(/\u001b\[\d+m/g, "")
+      .replace(/\[\d+m/g, "")
+      .replace(/\[2m/g, "")
+      .replace(/\[22m/g, "")
+      .replace(/Error:\s+/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 }
