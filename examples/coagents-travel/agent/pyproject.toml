@@ -20,6 +20,7 @@ python-dotenv = "^1.0.1"
 tavily-python = "^0.5.0"
 html2text = "^2024.2.26"
 googlemaps = "^4.10.0"
+langgraph-cli = {version = "^0.1.55", extras = ["inmem"]}
 
 
 [build-system]
