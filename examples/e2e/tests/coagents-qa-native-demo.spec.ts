@@ -30,9 +30,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
           appendLGCVariants(
             {
               ...config,
-              lgcJSDeploymentUrl:
-                  config.lgcJSDeploymentUrl ??
-                "https://coagents-qa-native-stg-js-036615e530e8593286ccf93d3003ffe2.default.us.langgraph.app",
+              lgcJSDeploymentUrl: config.lgcJSDeploymentUrl,
             },
             variants
           ).forEach((variant) => {
