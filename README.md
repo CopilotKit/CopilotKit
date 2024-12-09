@@ -184,7 +184,7 @@ const { suggestions } = useCopilotStructuredAutocompletion(
 );
 ```
 
-# Code Samples (CoAgents)
+# Code Samples (CoAgents: in-app LangGraph Agents)
 
 ### State Sharing and Generative UI
 ```ts
