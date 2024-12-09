@@ -42,7 +42,7 @@ function generateTable() {
     }
 
     // Add LGC JS Deployment URL if it exists
-    if (entry.LgcPythonDeploymentUrl) {
+    if (entry.LgcJSDeploymentUrl) {
       acc[entry.ProjectName].lgcJSDeploymentUrl = entry.LgcJSDeploymentUrl;
     }
 
