@@ -418,21 +418,14 @@ export default class StructuredReporter implements Reporter {
             { h4: description.replace(" Dependencies", "") },
             {
               tableWithAlignment: {
-                headers: ["Model", "Browser", "Status", "Details"],
+                headers: ["Model", "Browser", "Status"], // Removed Details column
                 rows: Object.entries(variants).flatMap(([variant, browsers]) =>
                   Object.entries(browsers).map(([browser, stats]) => {
                     let status = "✅ PASSED";
                     if (stats.failed > 0) status = "❌ FAILED";
                     else if (stats.flaky > 0) status = "⚠️ FLAKY";
 
-                    return [
-                      variant,
-                      browser,
-                      status,
-                      `${stats.passed}/${stats.total} passed${
-                        stats.flaky > 0 ? ` (${stats.flaky} flaky)` : ""
-                      }`,
-                    ];
+                    return [variant, browser, status];
                   })
                 ),
               },
