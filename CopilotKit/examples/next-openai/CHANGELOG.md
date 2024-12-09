@@ -1,5 +1,18 @@
 # web
 
+## 1.4.1-pre.0
+
+### Patch Changes
+
+- New prerelease
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.4.1-pre.0
+  - @copilotkit/react-core@1.4.1-pre.0
+  - @copilotkit/runtime@1.4.1-pre.0
+  - @copilotkit/shared@1.4.1-pre.0
+  - @copilotkit/react-textarea@1.4.1-pre.0
+  - @copilotkit/react-ui@1.4.1-pre.0
+
 ## 1.4.0
 
 ### Minor Changes

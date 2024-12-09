@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.4.1-pre.0
+
+### Patch Changes
+
+- New prerelease
+
 ## 1.4.0
 
 ### Minor Changes
