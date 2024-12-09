@@ -30,9 +30,9 @@
   <a href="https://docs.copilotkit.ai?ref=github_readme" target="_blank">
     <img src="./assets/btn_docs.png" alt="CopilotKit GitHub" height="40px">
   </a>
-<!--   <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank">
+  <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank">
     <img src="./assets/btn_cloud.png" alt="CopilotKit GitHub" height="40px">
-  </a> -->
+  </a>
 </div>
 
 <br/>
