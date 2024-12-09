@@ -113,6 +113,7 @@ export function createUIProjectStack({
   lgcAgentProjectPython,
   environmentVariables,
   environmentVariablesFromSecrets,
+  customOutputs,
 }: {
   app: App;
   project: string;
@@ -122,6 +123,7 @@ export function createUIProjectStack({
   lgcAgentProjectPython: PreviewProjectStack;
   environmentVariables?: Record<string, string>;
   environmentVariablesFromSecrets?: string[];
+  customOutputs?: Record<string, string>;
 }) {
   const cdkStackName = toCdkStackName(project) + "UI" + dependencies + "Deps";
   const dockerfile =
@@ -135,6 +137,10 @@ export function createUIProjectStack({
     EndToEndProjectKey: `${project}-ui-deps-${dependencies.toLocaleLowerCase()}`,
     LgcPythonDeploymentUrl: `${lgcAgentProjectPython.fnUrl}`
   };
+
+  if (customOutputs) {
+    Object.assign(outputs, customOutputs);
+  }
 
   if (process.env.GITHUB_PR_NUMBER) {
     outputs["PRNumber"] = process.env.GITHUB_PR_NUMBER;

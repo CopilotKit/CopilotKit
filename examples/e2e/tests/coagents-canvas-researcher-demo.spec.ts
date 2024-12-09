@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test";
-import { waitForStepsAndEnsureStreaming, waitForResponse, sendChatMessage } from "../lib/helpers";
+import {
+  waitForStepsAndEnsureStreaming,
+  waitForResponse,
+  sendChatMessage,
+} from "../lib/helpers";
 import {
   getConfigs,
   filterConfigsByProject,
@@ -31,9 +35,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
           appendLGCVariants(
             {
               ...config,
-              lgcJSDeploymentUrl:
-              config.lgcJSDeploymentUrl ??
-                "https://coagents-research-canvas-st-08476feebc3a58e5925116da0d3ad635.default.us.langgraph.app",
+              lgcJSDeploymentUrl: config.lgcJSDeploymentUrl,
             },
             variants
           ).forEach((variant) => {
@@ -66,8 +68,8 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               } catch (e) {
                 // Sometimes the LLM does not fill the draft. We will attempt a retry at filling it.
                 await sendChatMessage(
-                    page,
-                    "The draft seems to be empty, please fill it in."
+                  page,
+                  "The draft seems to be empty, please fill it in."
                 );
                 await waitForStepsAndEnsureStreaming(page);
                 await waitForResponse(page);
