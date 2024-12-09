@@ -35,7 +35,7 @@ type TableInput = {
   rows: string[][];
 };
 
-// Add custom converter
+// Add custom converter for aligned tables
 (json2md as any).converters.tableWithAlignment = function (input: TableInput) {
   if (!input.headers || !input.rows) return "";
 
@@ -65,8 +65,17 @@ export default class StructuredReporter implements Reporter {
             total: number;
             passed: number;
             failed: number;
+            flaky: number;
             skipped: number;
-            testCases: Set<string>; // Track unique test cases
+            testCases: Map<
+              string,
+              {
+                results: TestResult[];
+                title: string;
+                file: string;
+                line: number;
+              }
+            >;
           };
         };
       };
@@ -94,7 +103,7 @@ export default class StructuredReporter implements Reporter {
       description,
       projectName,
       variant,
-      testId: `${projectName}:${description}:${variant}:${title}`, // Unique test identifier
+      testId: `${projectName}:${description}:${variant}:${title}`,
     };
   }
 
@@ -119,8 +128,9 @@ export default class StructuredReporter implements Reporter {
           total: 0,
           passed: 0,
           failed: 0,
+          flaky: 0,
           skipped: 0,
-          testCases: new Set(), // Initialize Set for tracking unique test cases
+          testCases: new Map(),
         };
       }
     });
@@ -135,29 +145,68 @@ export default class StructuredReporter implements Reporter {
       this.groupedResults[projectName]?.[description]?.[variant]?.[browser];
     if (!stats) return;
 
-    // Only count if we haven't seen this test case before
-    if (!stats.testCases.has(testId)) {
-      stats.testCases.add(testId);
+    // Get or initialize the test case data
+    let testCase = stats.testCases.get(testId) || {
+      results: [],
+      title: test.title,
+      file: test.location.file,
+      line: test.location.line,
+    };
+    testCase.results.push(result);
+    stats.testCases.set(testId, testCase);
+
+    // Update counters when we have all results
+    if (testCase.results.length === test.retries + 1) {
       stats.total++;
 
-      switch (result.status) {
+      const finalResult = this.determineTestStatus(testCase.results);
+      switch (finalResult) {
         case "passed":
           stats.passed++;
+          break;
+        case "flaky":
+          stats.flaky++;
+          stats.passed++; // Count flaky as ultimately passed
           break;
         case "skipped":
           stats.skipped++;
           break;
         case "failed":
-        case "timedOut":
           stats.failed++;
           break;
       }
     }
   }
 
+  private determineTestStatus(
+    results: TestResult[]
+  ): "passed" | "failed" | "flaky" | "skipped" {
+    if (results.length === 0) return "skipped";
+
+    const lastResult = results[results.length - 1];
+    if (lastResult.status === "skipped") return "skipped";
+
+    // If the last run passed but there were failures before, it's flaky
+    if (
+      lastResult.status === "passed" &&
+      results.some((r) => r.status === "failed")
+    ) {
+      return "flaky";
+    }
+
+    // If the last run failed, it's a failure
+    if (lastResult.status === "failed" || lastResult.status === "timedOut") {
+      return "failed";
+    }
+
+    // If we got here, all runs passed
+    return "passed";
+  }
+
   private calculateSummaryStats() {
     let totalTests = 0;
     let totalFailed = 0;
+    let totalFlaky = 0;
     let affectedAreas = new Set<string>();
     let failingModels = new Map<string, number>();
 
@@ -165,8 +214,9 @@ export default class StructuredReporter implements Reporter {
       for (const [description, variants] of Object.entries(descriptions)) {
         for (const [variant, browsers] of Object.entries(variants)) {
           for (const [, stats] of Object.entries(browsers)) {
-            totalTests += stats.testCases.size; // Use the size of unique test cases
+            totalTests += stats.total;
             totalFailed += stats.failed;
+            totalFlaky += stats.flaky;
             if (stats.failed > 0) {
               affectedAreas.add(description);
               failingModels.set(variant, (failingModels.get(variant) || 0) + 1);
@@ -179,15 +229,103 @@ export default class StructuredReporter implements Reporter {
     return {
       totalTests,
       totalFailed,
+      totalFlaky,
       affectedAreas: Array.from(affectedAreas),
       failingModels: Object.fromEntries(failingModels),
     };
   }
 
-  // Rest of the class implementation remains the same...
+  private getGitHubActionRunUrl(): string {
+    const serverUrl = process.env.GITHUB_SERVER_URL || "https://github.com";
+    const repository = process.env.GITHUB_REPOSITORY || "";
+    const runId = process.env.GITHUB_RUN_ID || "";
+
+    return `${serverUrl}/${repository}/actions/runs/${runId}`;
+  }
+
+  private formatTestLocation(file: string, line: number): string {
+    const repoRoot = process.env.GITHUB_WORKSPACE || "";
+    const relativeFile = file.replace(repoRoot, "").replace(/^\//, "");
+    const repository = process.env.GITHUB_REPOSITORY || "";
+    const branch = process.env.GITHUB_REF_NAME || "main";
+
+    return `https://github.com/${repository}/blob/${branch}/${relativeFile}#L${line}`;
+  }
+
+  private generateFailedTestsSection() {
+    const failedTests: string[] = [];
+
+    Object.entries(this.groupedResults).forEach(([, descriptions]) => {
+      Object.entries(descriptions).forEach(([description, variants]) => {
+        Object.entries(variants).forEach(([variant, browsers]) => {
+          Object.entries(browsers).forEach(([browser, stats]) => {
+            stats.testCases.forEach((testCase, testId) => {
+              if (this.determineTestStatus(testCase.results) === "failed") {
+                const location = this.formatTestLocation(
+                  testCase.file,
+                  testCase.line
+                );
+                failedTests.push(
+                  `- [${
+                    testCase.title
+                  }](${location})\n  - Variant: ${variant}\n  - Browser: ${browser}\n  - Error: ${this.getLastError(
+                    testCase.results
+                  )}`
+                );
+              }
+            });
+          });
+        });
+      });
+    });
+
+    return { ul: failedTests };
+  }
+
+  private generateFlakyTestsSection() {
+    const flakyTests: string[] = [];
+
+    Object.entries(this.groupedResults).forEach(([, descriptions]) => {
+      Object.entries(descriptions).forEach(([description, variants]) => {
+        Object.entries(variants).forEach(([variant, browsers]) => {
+          Object.entries(browsers).forEach(([browser, stats]) => {
+            stats.testCases.forEach((testCase, testId) => {
+              if (this.determineTestStatus(testCase.results) === "flaky") {
+                const location = this.formatTestLocation(
+                  testCase.file,
+                  testCase.line
+                );
+                const retryCount = testCase.results.length - 1;
+                flakyTests.push(
+                  `- [${
+                    testCase.title
+                  }](${location})\n  - Variant: ${variant}\n  - Browser: ${browser}\n  - Passed after ${retryCount} ${
+                    retryCount === 1 ? "retry" : "retries"
+                  }`
+                );
+              }
+            });
+          });
+        });
+      });
+    });
+
+    return { ul: flakyTests };
+  }
+
+  private getLastError(results: TestResult[]): string {
+    for (let i = results.length - 1; i >= 0; i--) {
+      const error = results[i].error;
+      if (results[i].status === "failed" && error?.message) {
+        return error.message.split("\n")[0]; // First line of error
+      }
+    }
+    return "No error message available";
+  }
 
   onEnd(result: FullResult) {
     const stats = this.calculateSummaryStats();
+    const actionRunUrl = this.getGitHubActionRunUrl();
     const passRate = (
       ((stats.totalTests - stats.totalFailed) / stats.totalTests) *
       100
@@ -202,29 +340,31 @@ export default class StructuredReporter implements Reporter {
       {
         p: [
           `**Status**: ${
-            result.status === "passed" ? "✅ Passed" : "❌ Failed"
-          }`,
+            stats.totalFailed === 0 ? "✅ Passed" : "❌ Failed"
+          } ([View Run](${actionRunUrl}))`,
           `**Commit**: ${commitLink}`,
           `**Duration**: ${(result.duration / 1000).toFixed(1)}s`,
           `**Total Tests**: ${stats.totalTests}`,
           `**Pass Rate**: ${passRate}%`,
+          `**Failed Tests**: ${stats.totalFailed}`,
+          `**Flaky Tests**: ${stats.totalFlaky}`,
         ],
       },
     ];
 
-    // Only add summary section if there are failures
+    // Add failures section if there are any
     if (stats.totalFailed > 0) {
       mdContent.push(
-        { h2: "📊 Summary" },
-        {
-          ul: [
-            `Total Failures: ${stats.totalFailed}`,
-            `Affected Areas: ${stats.affectedAreas.join(", ")}`,
-            `Failing Models: ${Object.entries(stats.failingModels)
-              .map(([model, count]) => `${model} (${count} tests)`)
-              .join(", ")}`,
-          ],
-        }
+        { h2: "❌ Failed Tests" },
+        this.generateFailedTestsSection()
+      );
+    }
+
+    // Add flaky tests section if there are any
+    if (stats.totalFlaky > 0) {
+      mdContent.push(
+        { h2: "⚠️ Flaky Tests" },
+        this.generateFlakyTestsSection()
       );
     }
 
@@ -242,12 +382,20 @@ export default class StructuredReporter implements Reporter {
               tableWithAlignment: {
                 headers: ["Model", "Browser", "Status", "Details"],
                 rows: Object.entries(variants).flatMap(([variant, browsers]) =>
-                  Object.entries(browsers).map(([browser, stats]) => [
-                    variant,
-                    browser,
-                    stats.failed > 0 ? "❌ FAILED" : "✅ PASSED",
-                    `${stats.passed}/${stats.total} passed`,
-                  ])
+                  Object.entries(browsers).map(([browser, stats]) => {
+                    let status = "✅ PASSED";
+                    if (stats.failed > 0) status = "❌ FAILED";
+                    else if (stats.flaky > 0) status = "⚠️ FLAKY";
+
+                    return [
+                      variant,
+                      browser,
+                      status,
+                      `${stats.passed}/${stats.total} passed${
+                        stats.flaky > 0 ? ` (${stats.flaky} flaky)` : ""
+                      }`,
+                    ];
+                  })
                 ),
               },
             }
@@ -256,45 +404,12 @@ export default class StructuredReporter implements Reporter {
       }
     );
 
-    // Add analysis and next steps only if there are failures
-    if (stats.totalFailed > 0) {
-      mdContent.push(
-        { h2: "💡 Quick Analysis" },
-        {
-          ul: [
-            ...(stats.totalFailed === stats.totalTests
-              ? ["All tests failing"]
-              : []),
-            ...(stats.affectedAreas.length > 1
-              ? [`Multiple areas affected: ${stats.affectedAreas.join(", ")}`]
-              : []),
-          ],
-        },
-        { h2: "🏃 Next Steps" },
-        {
-          ol: [
-            "Check model connectivity",
-            "Review recent changes",
-            "Verify test configurations",
-          ],
-        }
-      );
-    }
-
-    // Convert to markdown and clean up extra newlines
-    let markdown = json2md(mdContent as any);
-
-    // Clean up extra newlines while preserving formatting
-    markdown = markdown
-      .replace(/\n{3,}/g, "\n\n") // Replace 3+ newlines with 2
-      .replace(/(\|.*\|\n)\n+(?=\|)/g, "$1") // Remove extra newlines in tables
-      .replace(/(\n\n)(#+\s)/g, "$1$2"); // Preserve spacing before headers
-
+    // Write the report
     const outputDir = path.dirname(this.outputFile);
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    fs.writeFileSync(this.outputFile, markdown, "utf8");
+    fs.writeFileSync(this.outputFile, json2md(mdContent as any), "utf8");
   }
 }
