@@ -11,6 +11,9 @@ importers:
       '@copilotkit/sdk-js':
         specifier: 1.4.1-pre.0
         version: 1.4.1-pre.0(@langchain/anthropic@0.3.8(@langchain/core@0.3.18(openai@4.73.0(zod@3.23.8))))(@langchain/google-genai@0.1.4(@langchain/core@0.3.18(openai@4.73.0(zod@3.23.8)))(zod@3.23.8))(openai@4.73.0(zod@3.23.8))
+      '@copilotkit/shared':
+        specifier: ^1.4.0
+        version: 1.4.0
       '@langchain/anthropic':
         specifier: ^0.3.8
         version: 0.3.8(@langchain/core@0.3.18(openai@4.73.0(zod@3.23.8)))
@@ -47,6 +50,9 @@ packages:
 
   '@copilotkit/sdk-js@1.4.1-pre.0':
     resolution: {integrity: sha512-BQQIEFW5b5OeJiT2gJ21In2ApBJ6wPqTPXGzpAvA4mlJsapEe0vcURgSBhvWTrZD6KxgPsO2K+uH4Ep8AeXTzQ==}
+
+  '@copilotkit/shared@1.4.0':
+    resolution: {integrity: sha512-5SaRdfiQ9Hdwdtq/ycNfMK0rCpEHlPUUTZP48f1Ezsq5pwX34FX6/6J2Cs2sdXLoDLFj0oWjiZ4Ygz3hIeXSDw==}
 
   '@copilotkit/shared@1.4.1-pre.0':
     resolution: {integrity: sha512-Y8YG2AA0jmCe2lbJhvoTIrrIIa/GI6zRjjW+hus+EjFh+7Z6LnVLS7B3UyJKSRt6RoUGWnpU2ww+ngcdmqBtRg==}
@@ -883,6 +889,14 @@ snapshots:
       - weaviate-ts-client
       - web-auth-library
       - ws
+
+  '@copilotkit/shared@1.4.0':
+    dependencies:
+      '@segment/analytics-node': 2.2.0
+      chalk: 4.1.2
+      uuid: 10.0.0
+    transitivePeerDependencies:
+      - encoding
 
   '@copilotkit/shared@1.4.1-pre.0':
     dependencies:
