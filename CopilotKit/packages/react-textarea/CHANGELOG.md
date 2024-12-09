@@ -1,5 +1,15 @@
 # ui
 
+## 1.4.1-pre.0
+
+### Patch Changes
+
+- lower case copilotkit property
+- Updated dependencies
+  - @copilotkit/react-core@1.4.1-pre.0
+  - @copilotkit/runtime-client-gql@1.4.1-pre.0
+  - @copilotkit/shared@1.4.1-pre.0
+
 ## 1.4.0
 
 ### Minor Changes

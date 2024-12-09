@@ -68,7 +68,7 @@ Here's how you can call a frontend action from your agent:
             async function agentNode(state: YourAgentState, config: RunnableConfig): Promise<YourAgentState> {
                 // Access the actions from the copilotkit property
 
-                const actions = state.copilotKit.actions;
+                const actions = state.copilotkit.actions;
                 const model = ChatOpenAI({ model: 'gpt-4o' }).bindTools(actions);
 
                 // ...

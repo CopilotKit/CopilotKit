@@ -25,7 +25,6 @@ export function Mailer() {
 
   useCopilotAction({
     name: "EmailTool",
-    disabled: true,
     parameters: [
       {
         name: "the_email",

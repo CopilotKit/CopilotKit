@@ -21,7 +21,7 @@ export const CopilotKitPropertiesAnnotation = Annotation.Root({
 });
 
 export const CopilotKitStateAnnotation = Annotation.Root({
-  copilotKit: Annotation<typeof CopilotKitPropertiesAnnotation.State>,
+  copilotkit: Annotation<typeof CopilotKitPropertiesAnnotation.State>,
   ...MessagesAnnotation.spec,
 });
 
