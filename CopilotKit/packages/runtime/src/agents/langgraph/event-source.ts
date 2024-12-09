@@ -284,6 +284,7 @@ export class RemoteLangGraphEventSource {
           type: RuntimeEventTypes.TextMessageContent,
           content: "❌ An error occurred. Please try again.",
         });
+
         events.push({
           type: RuntimeEventTypes.TextMessageEnd,
         });
