@@ -34,7 +34,7 @@ export function useMakeStandardAutosuggestionFunction(
   contextCategories: string[],
   apiConfig: SuggestionsApiConfig,
 ): AutosuggestionsBareFunction {
-  const { getContextString, copilotApiConfig } = useCopilotContext();
+  const { getContextString, copilotApiConfig, runtimeClient } = useCopilotContext();
   const { chatApiEndpoint: url, publicApiKey, credentials, properties } = copilotApiConfig;
   const headers = {
     ...copilotApiConfig.headers,
@@ -70,13 +70,6 @@ export function useMakeStandardAutosuggestionFunction(
             content: `<TextBeforeCursor>${editorState.textBeforeCursor}</TextBeforeCursor>`,
           }),
         ].filter(Boolean);
-
-        const runtimeClient = new CopilotRuntimeClient({
-          url,
-          publicApiKey,
-          headers,
-          credentials,
-        });
 
         const response = await runtimeClient
           .generateCopilotResponse({
