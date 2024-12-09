@@ -44,10 +44,10 @@
     <img src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=428778&theme=light&period=daily">
   </a>
 </div>
-
 <br />
 
-![diagram-export-12-8-2024-11_28_14-PM](https://github.com/user-attachments/assets/449f8015-b4e0-45d0-9595-44ce987212da)
+![Frame 1948760568 (1)](https://github.com/user-attachments/assets/0835847a-5952-4047-a117-bc532eaee7f6)
+
 
 
 # Demos (click to clone / run)
