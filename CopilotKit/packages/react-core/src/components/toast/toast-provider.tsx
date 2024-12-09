@@ -15,6 +15,7 @@ interface ToastContextValue {
   addToast: (toast: Omit<Toast, "id">) => void;
   addGraphQLErrorsToast: (errors: GraphQLError[]) => void;
   removeToast: (id: string) => void;
+  enabled: boolean;
 }
 
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
@@ -27,10 +28,14 @@ export function useToast() {
   return context;
 }
 
-export function ToastProvider({ children }: { children: React.ReactNode }) {
+export function ToastProvider({
+  enabled,
+  children,
+}: {
+  enabled: boolean;
+  children: React.ReactNode;
+}) {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const { showDevConsole } = useCopilotContext();
-
   const addToast = useCallback((toast: Omit<Toast, "id">) => {
     const id = Math.random().toString(36).substring(2, 9);
 
@@ -45,9 +50,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const addGraphQLErrorsToast = useCallback((errors: GraphQLError[]) => {
     // We do not display these errors unless we are in dev mode.
-    if (!showDevConsole) {
-      return;
-    }
+    // if (!showDevConsole) {
+    //   return;
+    // }
 
     const errorsToRender = errors.map((error, idx) => {
       const message = error.message;
@@ -106,6 +111,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     addToast,
     addGraphQLErrorsToast,
     removeToast,
+    enabled,
   };
 
   return (
@@ -122,6 +128,23 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           gap: "0.5rem",
         }}
       >
+        {toasts.length > 1 && (
+          <div style={{ textAlign: "right" }}>
+            <button
+              onClick={() => setToasts([])}
+              style={{
+                padding: "4px 8px",
+                fontSize: "12px",
+                cursor: "pointer",
+                background: "white",
+                border: "1px solid rgba(0,0,0,0.2)",
+                borderRadius: "4px",
+              }}
+            >
+              Close All
+            </button>
+          </div>
+        )}
         {toasts.map((toast) => (
           <Toast
             key={toast.id}

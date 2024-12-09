@@ -50,7 +50,6 @@ interface ExtractOptions<T extends Parameter[]> {
   abortSignal?: AbortSignal;
   stream?: (args: StreamHandlerArgs<T>) => void;
   requestType?: CopilotRequestType;
-  runtimeClient: CopilotRuntimeClient;
 }
 
 interface IncludeOptions {
@@ -67,7 +66,6 @@ export async function extract<const T extends Parameter[]>({
   abortSignal,
   stream,
   requestType = CopilotRequestType.Task,
-  runtimeClient,
 }: ExtractOptions<T>): Promise<MappedParameterTypes<T>> {
   const { messages } = context;
 
@@ -101,8 +99,8 @@ export async function extract<const T extends Parameter[]>({
     role: Role.User,
   });
 
-  const response = runtimeClient.asStream(
-    runtimeClient.generateCopilotResponse({
+  const response = context.runtimeClient.asStream(
+    context.runtimeClient.generateCopilotResponse({
       data: {
         frontend: {
           actions: [
