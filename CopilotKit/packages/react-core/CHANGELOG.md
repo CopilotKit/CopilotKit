@@ -1,5 +1,14 @@
 # ui
 
+## 1.4.1-pre.1
+
+### Patch Changes
+
+- add zod conversion
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.4.1-pre.1
+  - @copilotkit/shared@1.4.1-pre.1
+
 ## 1.4.1-pre.0
 
 ### Patch Changes

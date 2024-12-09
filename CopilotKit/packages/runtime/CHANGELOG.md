@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.4.1-pre.1
+
+### Patch Changes
+
+- add zod conversion
+- Updated dependencies
+  - @copilotkit/shared@1.4.1-pre.1
+
 ## 1.4.1-pre.0
 
 ### Patch Changes

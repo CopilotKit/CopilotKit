@@ -1,5 +1,11 @@
 # tailwind-config
 
+## 1.4.1-pre.1
+
+### Patch Changes
+
+- add zod conversion
+
 ## 1.4.1-pre.0
 
 ### Patch Changes

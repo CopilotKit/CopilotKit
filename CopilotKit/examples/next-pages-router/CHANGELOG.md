@@ -1,5 +1,17 @@
 # next-pages-router
 
+## 1.4.1-pre.1
+
+### Patch Changes
+
+- add zod conversion
+- Updated dependencies
+  - @copilotkit/react-textarea@1.4.1-pre.1
+  - @copilotkit/react-core@1.4.1-pre.1
+  - @copilotkit/react-ui@1.4.1-pre.1
+  - @copilotkit/runtime@1.4.1-pre.1
+  - @copilotkit/shared@1.4.1-pre.1
+
 ## 1.4.1-pre.0
 
 ### Patch Changes
