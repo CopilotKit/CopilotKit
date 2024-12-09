@@ -33,9 +33,11 @@ export const ModelSelectorProvider = ({
     window.location.href = url.toString();
   };
 
-  const useLgc = globalThis.window === undefined
+  const useLgc =
+    globalThis.window === undefined
       ? false
-      : !!(new URL(window.location.href).searchParams.get("lgc"))
+      : !!new URL(window.location.href).searchParams.get("lgc") ||
+        process.env.NEXT_PUBLIC_FORCE_LGC === "true";
 
   return (
     <ModelSelectorContext.Provider

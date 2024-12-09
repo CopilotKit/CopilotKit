@@ -24,7 +24,10 @@ const coAgentsResearchCanvasUIWithLocalDeps = createUIProjectStack({
   dependencies: "Local",
   selfHostedAgentProject: coAgentsResearchCanvasAgentWithLocalDeps.selfHostedAgent,
   lgcAgentProjectPython: coAgentsResearchCanvasAgentWithLocalDeps.lgcAgentPython,
-  environmentVariables: {}
+  environmentVariables: {},
+  customOutputs: {
+    "LgcJSDeploymentUrl": `https://coagents-research-canvas-st-08476feebc3a58e5925116da0d3ad635.default.us.langgraph.app`
+  }
 });
 
 /*
@@ -45,7 +48,10 @@ const coAgentsRoutingUIWithLocalDeps = createUIProjectStack({
   dependencies: "Local",
   selfHostedAgentProject: coAgentsRoutingAgentWithLocalDeps.selfHostedAgent,
   lgcAgentProjectPython: coAgentsRoutingAgentWithLocalDeps.lgcAgentPython,
-  environmentVariables: {}
+  environmentVariables: {},
+  customOutputs: {
+    "LgcJSDeploymentUrl": `https://coagents-routing-stg-js-4df4be4cab70578ca535df7e1c0b05cf.default.us.langgraph.app`
+  }
 });
 
 /*
@@ -66,7 +72,10 @@ const qaTextUIWithLocalDeps = createUIProjectStack({
   dependencies: "Local",
   selfHostedAgentProject: qaTextAgentWithLocalDeps.selfHostedAgent,
   lgcAgentProjectPython: qaTextAgentWithLocalDeps.lgcAgentPython,
-  environmentVariables: {}
+  environmentVariables: {},
+  customOutputs: {
+    "LgcJSDeploymentUrl": `https://coagents-qa-text-stg-js-4d74616e480750d0a5d10d0c3c5d44a4.default.us.langgraph.app`
+  }
 });
 
 /*
@@ -87,7 +96,10 @@ const qaNativeUIWithLocalDeps = createUIProjectStack({
   dependencies: "Local",
   selfHostedAgentProject: qaNativeAgentWithLocalDeps.selfHostedAgent,
   lgcAgentProjectPython: qaNativeAgentWithLocalDeps.lgcAgentPython,
-  environmentVariables: {}
+  environmentVariables: {},
+  customOutputs: {
+    "LgcJSDeploymentUrl": `https://coagents-qa-native-stg-js-036615e530e8593286ccf93d3003ffe2.default.us.langgraph.app`
+  }
 });
 
 /**

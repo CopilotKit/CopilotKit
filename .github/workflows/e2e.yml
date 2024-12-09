@@ -69,6 +69,13 @@ jobs:
         run: |
           cat app-configs.json
 
+      - name: Delete a comment
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          pr-number: ${{ inputs.pr_number }}
+          comment-tag: test-run-status-update
+          mode: delete
+
       - name: Run Tests
         id: run_tests
         working-directory: ./examples/e2e
@@ -81,13 +88,6 @@ jobs:
           COPILOT_CLOUD_PROD_PUBLIC_API_KEY: ${{ secrets.COPILOT_CLOUD_PROD_PUBLIC_API_KEY }}
           COPILOT_CLOUD_STAGING_RUNTIME_URL: "https://api.cloud.stagingcopilotkit.ai/copilotkit/v1"
           COPILOT_CLOUD_STAGING_PUBLIC_API_KEY: ${{ secrets.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY }}
-
-      - name: Delete a comment
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          pr-number: ${{ inputs.pr_number }}
-          comment-tag: test-run-status-update
-          mode: delete
 
       - name: Comment post-deployment
         uses: thollander/actions-comment-pull-request@v3
@@ -131,40 +131,55 @@ jobs:
               const failureDetails = failedSpecs.map(spec => {
                 const test = spec.tests[0];
                 const error = test.results[0].error;
+                const testFile = spec.file || '';
+                const line = error.location?.line || 1;
                 return {
                   title: spec.title,
-                  error: error.message.split('\n')[0] // First line of error
+                  error: error.message.split('\n')[0], // First line of error
+                  location: `${testFile}:${line}`
                 };
               });
               
               if (failedTests > 0) {
+                // Using GitHub Flavored Markdown for red text and code links
                 summary = [
-                  `❌ Tests failed: ${failedTests} of ${stats.expected + stats.unexpected} tests failed`,
+                  `🚨 **${failedTests} of ${stats.expected + stats.unexpected} tests failed**`,
                   '',
                   'Failed Tests:',
-                  ...failureDetails.map(f => `- ${f.title}\n  Error: ${f.error}`),
+                  ...failureDetails.map(f => 
+                    `- 🔴 [\`${f.title}\`](${f.location})\n  \`\`\`diff\n- ${f.error}\n\`\`\``
+                  ),
                   '',
                   `Duration: ${Math.round(stats.duration / 1000)}s`,
                   '',
-                  'See PR comment for full details.'
+                  '[View detailed test report](../actions/runs/${{ github.run_id }})'
                 ].join('\n');
               } else {
                 summary = `✅ All ${stats.expected} tests passed in ${Math.round(stats.duration / 1000)}s`;
               }
             } catch (error) {
-              summary = 'Failed to read test results.';
+              summary = '⚠️ Failed to read test results.';
               console.error('Error reading test results:', error);
               failedTests = 1;
             }
 
-            return github.rest.checks.create({
+            // Set status check with annotations
+            const check = await github.rest.checks.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               name: 'E2E Tests',
               head_sha: '${{ inputs.sha }}',
+              status: 'completed',
               conclusion: failedTests > 0 ? 'failure' : 'success',
               output: {
                 title: failedTests > 0 ? '❌ E2E Tests Failed' : '✅ E2E Tests Passed',
-                summary: summary
+                summary: summary,
+                annotations: failedTests > 0 ? [{
+                  path: 'examples/e2e',
+                  annotation_level: 'failure',
+                  title: 'E2E Test Failures',
+                  message: `${failedTests} test(s) failed. Click "Details" to view the full report.`,
+                  raw_details: summary
+                }] : []
               }
-            })
+            });

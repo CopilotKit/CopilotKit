@@ -195,6 +195,11 @@ jobs:
           GITHUB_ACTIONS_RUN_ID: "${{ github.run_id }}"
           GITHUB_PR_NUMBER: "${{ github.event.number }}"
 
+      - name: Print CDK Outputs
+        working-directory: infra
+        run: |
+          cat cdk_outputs.json
+
       - name: Generate table from outputs
         id: generate-table
         working-directory: infra
