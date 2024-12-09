@@ -49,7 +49,7 @@ export function useMakeStandardInsertionOrEditingFunction(
   async function runtimeClientResponseToStringStream(
     responsePromise: ReturnType<typeof runtimeClient.generateCopilotResponse>,
   ) {
-    const messagesStream = .asStream(responsePromise);
+    const messagesStream = runtimeClient.asStream(responsePromise);
 
     return new ReadableStream({
       async start(controller) {
