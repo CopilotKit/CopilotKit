@@ -124,13 +124,13 @@ export type FrontendAction<T extends Parameter[] | [] = []> = Action<T> & {
           | (T extends []
               ? (props: ActionRenderPropsNoArgs<T>) => string | React.ReactElement
               : (props: ActionRenderProps<T>) => string | React.ReactElement);
-        /** @deprecated use renderAndRespond instead */
+        /** @deprecated use renderAndRespond instead. */
         renderAndWait?: never;
         renderAndWaitForResponse?: never;
       }
     | {
         render?: never;
-        /** @deprecated use renderAndRespond instead */
+        /** @deprecated use renderAndRespond instead. */
         renderAndWait?: T extends []
           ? (props: ActionRenderPropsNoArgsWait<T>) => React.ReactElement
           : (props: ActionRenderPropsWait<T>) => React.ReactElement;
