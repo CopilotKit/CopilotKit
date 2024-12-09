@@ -9,13 +9,12 @@ import {
   copilotKitCustomizeConfig,
   copilotKitEmitMessage,
   copilotKitExit,
+  convertActionsToDynamicStructuredTools,
 } from "@copilotkit/sdk-js/langchain";
 import { HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { getModel } from "./model";
 import { END, MemorySaver, StateGraph } from "@langchain/langgraph";
 import { AgentState, AgentStateAnnotation } from "./state";
-import { convertJsonSchemaToZodSchema } from "@copilotkit/shared";
-import { DynamicStructuredTool } from "@langchain/core/tools";
 
 export async function email_node(state: AgentState, config: RunnableConfig) {
   /**
@@ -31,19 +30,7 @@ export async function email_node(state: AgentState, config: RunnableConfig) {
   console.log("state", JSON.stringify(state, null, 2));
 
   const email_model = getModel(state).bindTools!(
-    state.copilotkit.actions.map((actionInput) => {
-      return new DynamicStructuredTool({
-        name: actionInput.name,
-        description: actionInput.description,
-        schema: convertJsonSchemaToZodSchema(
-          JSON.parse(actionInput.jsonSchema),
-          true
-        ) as z.ZodObject<any>,
-        func: async () => {
-          return "";
-        },
-      });
-    }),
+    convertActionsToDynamicStructuredTools(state.copilotkit.actions),
     {
       tool_choice: "EmailTool",
     }

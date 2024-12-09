@@ -1,7 +1,8 @@
 import { RunnableConfig } from "@langchain/core/runnables";
 import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
-import { randomId } from "@copilotkit/shared";
+import { convertJsonSchemaToZodSchema, randomId } from "@copilotkit/shared";
 import { Annotation, MessagesAnnotation } from "@langchain/langgraph";
+import { DynamicStructuredTool } from "@langchain/core/tools";
 
 interface IntermediateStateConfig {
   stateKey: string;
@@ -86,4 +87,19 @@ export async function copilotKitEmitToolCall(config: RunnableConfig, name: strin
     { name, args, id: randomId() },
     config,
   );
+}
+
+export function convertActionToDynamicStructuredTool(actionInput: any) {
+  return new DynamicStructuredTool({
+    name: actionInput.name,
+    description: actionInput.description,
+    schema: convertJsonSchemaToZodSchema(actionInput.parameters, true),
+    func: async () => {
+      return "";
+    },
+  });
+}
+
+export function convertActionsToDynamicStructuredTools(actions: any[]) {
+  return actions.map((action) => convertActionToDynamicStructuredTool(action));
 }
