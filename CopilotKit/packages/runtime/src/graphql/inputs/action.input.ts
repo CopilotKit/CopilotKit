@@ -1,5 +1,5 @@
 import { Field, InputType } from "type-graphql";
-
+import { ActionInputAvailability } from "../types/enums";
 @InputType()
 export class ActionInput {
   @Field(() => String)
@@ -10,4 +10,7 @@ export class ActionInput {
 
   @Field(() => String)
   jsonSchema: string;
+
+  @Field(() => ActionInputAvailability, { nullable: true })
+  available?: ActionInputAvailability;
 }
