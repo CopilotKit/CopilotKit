@@ -236,6 +236,7 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
     action.description,
     action.name,
     action.disabled,
+    action.available,
     // This should be faster than deep equality checking
     // In addition, all major JS engines guarantee the order of object keys
     JSON.stringify(action.parameters),

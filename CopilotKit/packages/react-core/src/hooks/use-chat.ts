@@ -17,6 +17,7 @@ import {
   MessageRole,
   Role,
   CopilotRequestType,
+  ActionInputAvailability,
 } from "@copilotkit/runtime-client-gql";
 
 import { CopilotApiConfig } from "../context";
@@ -188,12 +189,27 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         data: {
           frontend: {
             actions: actions
-              .filter((action) => !action.disabled)
-              .map((action) => ({
-                name: action.name,
-                description: action.description || "",
-                jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
-              })),
+              .filter(
+                (action) =>
+                  action.available !== ActionInputAvailability.Disabled || !action.disabled,
+              )
+              .map((action) => {
+                let available: ActionInputAvailability | undefined =
+                  ActionInputAvailability.Enabled;
+                if (action.disabled) {
+                  available = ActionInputAvailability.Disabled;
+                } else if (action.available === "disabled") {
+                  available = ActionInputAvailability.Disabled;
+                } else if (action.available === "remote") {
+                  available = ActionInputAvailability.Remote;
+                }
+                return {
+                  name: action.name,
+                  description: action.description || "",
+                  jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
+                  available,
+                };
+              }),
             url: window.location.href,
           },
           threadId: threadIdRef.current,
