@@ -89,13 +89,25 @@ export default class StructuredReporter implements Reporter {
     this.configs = getConfigs();
   }
 
-  private getTestInfo(testTitle: string, testPath: string[]) {
+  private initializeTestStats() {
+    return {
+      total: 0,
+      passed: 0,
+      failed: 0,
+      flaky: 0,
+      skipped: 0,
+      testCases: new Map(),
+    };
+  }
+
+  private getTestInfo(test: TestCase) {
+    const testPath = test.titlePath();
     if (testPath.length < 6) return null;
 
     const projectName = testPath[3];
     const description = testPath[4];
     const browser = testPath[1];
-    const title = testPath[5];
+    const title = test.title;
     const variant = extractVariant(title);
 
     return {
@@ -108,12 +120,20 @@ export default class StructuredReporter implements Reporter {
   }
 
   onBegin(config: FullConfig, suite: Suite) {
-    suite.allTests().forEach((test) => {
-      const testInfo = this.getTestInfo(test.title, test.titlePath());
+    const allTests = suite.allTests();
+
+    // Pre-process tests to count them by their groupings
+    const testCounts = new Map<string, number>();
+
+    allTests.forEach((test) => {
+      const testInfo = this.getTestInfo(test);
       if (!testInfo) return;
 
       const { projectName, description, browser, variant } = testInfo;
+      const key = `${projectName}:${description}:${variant}:${browser}`;
+      testCounts.set(key, (testCounts.get(key) || 0) + 1);
 
+      // Initialize the structure if needed
       if (!this.groupedResults[projectName]) {
         this.groupedResults[projectName] = {};
       }
@@ -124,20 +144,19 @@ export default class StructuredReporter implements Reporter {
         this.groupedResults[projectName][description][variant] = {};
       }
       if (!this.groupedResults[projectName][description][variant][browser]) {
-        this.groupedResults[projectName][description][variant][browser] = {
-          total: 0,
-          passed: 0,
-          failed: 0,
-          flaky: 0,
-          skipped: 0,
-          testCases: new Map(),
-        };
+        this.groupedResults[projectName][description][variant][browser] =
+          this.initializeTestStats();
       }
+
+      // Set the expected total
+      const stats =
+        this.groupedResults[projectName][description][variant][browser];
+      stats.total = testCounts.get(key) || 0;
     });
   }
 
   onTestEnd(test: TestCase, result: TestResult) {
-    const testInfo = this.getTestInfo(test.title, test.titlePath());
+    const testInfo = this.getTestInfo(test);
     if (!testInfo) return;
 
     const { projectName, description, browser, variant, testId } = testInfo;
@@ -152,28 +171,30 @@ export default class StructuredReporter implements Reporter {
       file: test.location.file,
       line: test.location.line,
     };
+
+    // Add this result
     testCase.results.push(result);
     stats.testCases.set(testId, testCase);
 
-    // Update counters when we have all results
-    if (testCase.results.length === test.retries + 1) {
-      stats.total++;
+    // Only update pass/fail counts when we have all results for this test
+    if (testCase.results.length === (test.retries ?? 0) + 1) {
+      const lastResult = testCase.results[testCase.results.length - 1];
+      const hadFailures = testCase.results.some(
+        (r) => r.status === "failed" || r.status === "timedOut"
+      );
 
-      const finalResult = this.determineTestStatus(testCase.results);
-      switch (finalResult) {
-        case "passed":
-          stats.passed++;
-          break;
-        case "flaky":
-          stats.flaky++;
-          stats.passed++; // Count flaky as ultimately passed
-          break;
-        case "skipped":
-          stats.skipped++;
-          break;
-        case "failed":
-          stats.failed++;
-          break;
+      if (lastResult.status === "skipped") {
+        stats.skipped++;
+      } else if (
+        lastResult.status === "failed" ||
+        lastResult.status === "timedOut"
+      ) {
+        stats.failed++;
+      } else if (hadFailures) {
+        stats.flaky++;
+        stats.passed++; // Count as passed since it eventually succeeded
+      } else {
+        stats.passed++;
       }
     }
   }
@@ -204,34 +225,47 @@ export default class StructuredReporter implements Reporter {
   }
 
   private calculateSummaryStats() {
-    let totalTests = 0;
-    let totalFailed = 0;
-    let totalFlaky = 0;
-    let affectedAreas = new Set<string>();
-    let failingModels = new Map<string, number>();
+    let totals = {
+      totalTests: 0,
+      totalPassed: 0,
+      totalFailed: 0,
+      totalFlaky: 0,
+      totalSkipped: 0,
+      affectedAreas: new Set<string>(),
+      failingModels: new Map<string, number>(),
+    };
 
-    for (const [, descriptions] of Object.entries(this.groupedResults)) {
-      for (const [description, variants] of Object.entries(descriptions)) {
-        for (const [variant, browsers] of Object.entries(variants)) {
-          for (const [, stats] of Object.entries(browsers)) {
-            totalTests += stats.total;
-            totalFailed += stats.failed;
-            totalFlaky += stats.flaky;
+    Object.entries(this.groupedResults).forEach(([, descriptions]) => {
+      Object.entries(descriptions).forEach(([description, variants]) => {
+        Object.entries(variants).forEach(([variant, browsers]) => {
+          Object.entries(browsers).forEach(([, stats]) => {
+            // Use the pre-set total from onBegin
+            totals.totalTests += stats.total;
+            totals.totalPassed += stats.passed;
+            totals.totalFailed += stats.failed;
+            totals.totalFlaky += stats.flaky;
+            totals.totalSkipped += stats.skipped;
+
             if (stats.failed > 0) {
-              affectedAreas.add(description);
-              failingModels.set(variant, (failingModels.get(variant) || 0) + 1);
+              totals.affectedAreas.add(description);
+              totals.failingModels.set(
+                variant,
+                (totals.failingModels.get(variant) || 0) + 1
+              );
             }
-          }
-        }
-      }
-    }
+          });
+        });
+      });
+    });
 
     return {
-      totalTests,
-      totalFailed,
-      totalFlaky,
-      affectedAreas: Array.from(affectedAreas),
-      failingModels: Object.fromEntries(failingModels),
+      totalTests: totals.totalTests,
+      totalPassed: totals.totalPassed,
+      totalFailed: totals.totalFailed,
+      totalFlaky: totals.totalFlaky,
+      totalSkipped: totals.totalSkipped,
+      affectedAreas: Array.from(totals.affectedAreas),
+      failingModels: Object.fromEntries(totals.failingModels),
     };
   }
 
