@@ -1,24 +1,25 @@
 {
-  "mode": "exit",
+  "mode": "pre",
   "tag": "pre",
   "initialVersions": {
-    "next-openai": "1.4.1-pre.0",
-    "next-pages-router": "1.4.1-pre.0",
-    "node-express": "1.4.1-pre.0",
-    "node-http": "1.4.1-pre.0",
-    "@copilotkit/react-core": "1.4.1-pre.0",
-    "@copilotkit/react-textarea": "1.4.1-pre.0",
-    "@copilotkit/react-ui": "1.4.1-pre.0",
-    "@copilotkit/runtime": "1.4.1-pre.0",
-    "@copilotkit/runtime-client-gql": "1.4.1-pre.0",
-    "@copilotkit/sdk-js": "1.4.1-pre.0",
-    "@copilotkit/shared": "1.4.1-pre.0",
-    "eslint-config-custom": "1.4.1-pre.0",
-    "tailwind-config": "1.4.1-pre.0",
-    "tsconfig": "1.4.1-pre.0"
+    "next-openai": "1.4.1-pre.1",
+    "next-pages-router": "1.4.1-pre.1",
+    "node-express": "1.4.1-pre.1",
+    "node-http": "1.4.1-pre.1",
+    "@copilotkit/react-core": "1.4.1-pre.1",
+    "@copilotkit/react-textarea": "1.4.1-pre.1",
+    "@copilotkit/react-ui": "1.4.1-pre.1",
+    "@copilotkit/runtime": "1.4.1-pre.1",
+    "@copilotkit/runtime-client-gql": "1.4.1-pre.1",
+    "@copilotkit/sdk-js": "1.4.1-pre.1",
+    "@copilotkit/shared": "1.4.1-pre.1",
+    "eslint-config-custom": "1.4.1-pre.1",
+    "tailwind-config": "1.4.1-pre.1",
+    "tsconfig": "1.4.1-pre.1"
   },
   "changesets": [
     "afraid-teachers-attend",
-    "big-mails-prove"
+    "big-mails-prove",
+    "nine-brooms-sit"
   ]
 }

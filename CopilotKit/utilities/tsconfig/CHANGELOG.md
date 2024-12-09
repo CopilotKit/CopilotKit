@@ -1,5 +1,11 @@
 # tsconfig
 
+## 1.4.1-pre.2
+
+### Patch Changes
+
+- Add convertActionsToDynamicStructuredTools to sdk-js
+
 ## 1.4.1-pre.1
 
 ### Patch Changes

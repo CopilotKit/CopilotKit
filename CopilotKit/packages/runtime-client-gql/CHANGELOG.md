@@ -1,5 +1,14 @@
 # @copilotkit/runtime-client-gql
 
+## 1.4.1-pre.2
+
+### Patch Changes
+
+- Add convertActionsToDynamicStructuredTools to sdk-js
+- Updated dependencies
+  - @copilotkit/runtime@1.4.1-pre.2
+  - @copilotkit/shared@1.4.1-pre.2
+
 ## 1.4.1-pre.1
 
 ### Patch Changes
