@@ -119,7 +119,7 @@
  *
  * ## Generative UI
  *
- * This hooks enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/concepts/generative-ui) page.
+ * This hooks enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/guides/generative-ui) page.
  */
 import { Parameter, randomId } from "@copilotkit/shared";
 import { createElement, Fragment, useEffect, useRef } from "react";

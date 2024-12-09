@@ -25,11 +25,7 @@
  *           required: true,
  *         },
  *       ],
- *
- *       implementation: async (message) => {
- *         // ...
- *       },
- *     }
+ *      }
  *     ]
  *   });
  *

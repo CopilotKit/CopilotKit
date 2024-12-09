@@ -4,7 +4,7 @@
  *
  * A chatbot sidebar component for the CopilotKit framework. Highly customizable through various props and custom CSS.
  *
- * See [CopilotPopup](/reference/components/CopilotPopup) for a popup version of this component.
+ * See [CopilotPopup](/reference/components/chat/CopilotPopup) for a popup version of this component.
  *
  * ## Install Dependencies
  *
