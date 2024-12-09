@@ -7,7 +7,7 @@
 
   <h3>
     Build deeply-integrated AI assistants & agents<br/>
-    that work <em>alongside</em> users inside applications.
+    that work <em>alongside</em> your users inside your applications.
   </h3>
   
 </div>
