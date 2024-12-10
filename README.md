@@ -100,14 +100,14 @@ An AI-powered banking interface that helps users manage transactions, analyze sp
 <td>
 <details>
 <summary>
-  <h2 style="display: inline-block; margin: 0;">✈️ Agent-Native Travel Planner (ANA) </h2>
+  <h2 style="display: inline-block; margin: 0;">✈️ [Tutorial] Agent-Native Travel Planner (ANA) </h2>
 </summary>
 
 <div align="center">
   <img src="./assets/travel-planner-gif.gif" width="800"/>
 </div>
 
-[View Demo Repository →](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-travel)
+[View Tutorial →](https://docs.copilotkit.ai/coagents/tutorials/ai-travel-app/overview)
 </details>
 
 Interactive travel planning assistant that helps users discover destinations, create itineraries, and manage trip details with natural language.
@@ -116,19 +116,20 @@ Interactive travel planning assistant that helps users discover destinations, cr
 
 <tr>
 <td width="200" valign="top">
-  <img src="https://github.com/user-attachments/assets/research-assistant-demo.png" width="200"/>
+  <img src="https://github.com/user-attachments/assets/0fb40d90-be21-416e-a8e5-9215ffee1f71" width="200"/>
 </td>
 <td>
 <details>
 <summary>
-  <h2 style="display: inline-block; margin: 0;">🔍 Agent-Native Research Assistant (ANA)</h2>
+  <h2 style="display: inline-block; margin: 0;">🔍 [Tutorial] Agent-Native Research Canvas (ANA)</h2>
 </summary>
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/research-assistant-demo.png" width="800"/>
+  <img src="https://github.com/user-attachments/assets/64bbfe6a-c0e9-4dfc-91f2-e17b190a0fc0" width="800"/>
 </div>
 
-[View Demo Repository →](https://github.com/CopilotKit/demo-research-assistant)
+
+[View Demo Repository →](https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md)
 </details>
 
 An intelligent research assistant that helps users analyze academic papers, synthesize information across multiple sources, and generate comprehensive research summaries through natural language interaction.
