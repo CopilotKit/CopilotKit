@@ -5,6 +5,7 @@ LangChain specific utilities for CopilotKit
 import uuid
 import json
 from typing import List, Optional, Any, Union, Dict, Callable
+import asyncio
 
 from langchain_core.messages import (
     HumanMessage,
@@ -114,6 +115,7 @@ async def copilotkit_exit(config: RunnableConfig):
         {},
         config=config,
     )
+    await asyncio.sleep(0.01)
 
     return True
 
@@ -127,6 +129,7 @@ async def copilotkit_emit_state(config: RunnableConfig, state: Any):
         state,
         config=config,
     )
+    await asyncio.sleep(0.01)
 
     return True
 
@@ -143,6 +146,7 @@ async def copilotkit_emit_message(config: RunnableConfig, message: str):
         },
         config=config,
     )
+    await asyncio.sleep(0.01)
 
     return True
 
@@ -161,5 +165,6 @@ async def copilotkit_emit_tool_call(config: RunnableConfig, *, name: str, args: 
         },
         config=config,
     )
+    await asyncio.sleep(0.01)
 
     return True
