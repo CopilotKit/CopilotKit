@@ -1,5 +1,15 @@
 # ui
 
+## 1.3.16-pre.13
+
+### Patch Changes
+
+- Fixing an issue with stop generation not working during FE actions
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.3.16-pre.13
+  - @copilotkit/react-core@1.3.16-pre.13
+  - @copilotkit/shared@1.3.16-pre.13
+
 ## 1.3.16-pre.12
 
 ### Patch Changes

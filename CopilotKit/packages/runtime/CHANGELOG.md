@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.3.16-pre.13
+
+### Patch Changes
+
+- Fixing an issue with stop generation not working during FE actions
+- Updated dependencies
+  - @copilotkit/shared@1.3.16-pre.13
+
 ## 1.3.16-pre.12
 
 ### Patch Changes

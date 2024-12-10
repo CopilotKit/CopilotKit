@@ -1,5 +1,13 @@
 # node
 
+## 1.3.16-pre.3
+
+### Patch Changes
+
+- Updated dependencies
+  - @copilotkit/runtime@1.3.16-pre.13
+  - @copilotkit/shared@1.3.16-pre.13
+
 ## 1.3.16-pre.2
 
 ### Patch Changes
