@@ -3,6 +3,7 @@ title: "Step 2: Setup CopilotKit"
 ---
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 import CopilotCloudConfigureCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
+import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
 import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content";
 import { FaCloud, FaServer } from "react-icons/fa";
 
@@ -47,23 +48,8 @@ In order to use CopilotKit, we'll need to configure the `CopilotKit` provider.
 <Step>
 
 ### Configure the CopilotKit Provider
-```tsx title="app/page.tsx" showLineNumbers
-"use client";
+<SelfHostingCopilotRuntimeConfigureCopilotKitProvider components={props.components} />
 
-import { TasksList } from "@/components/TasksList";
-import { TasksProvider } from "@/lib/hooks/use-tasks";
-import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
-
-export default function Home() {
-  return (
-    <CopilotKit runtimeUrl="/api/copilotkit"> // [!code highlight]
-      <TasksProvider>
-        <TasksList />
-      </TasksProvider>
-    </CopilotKit> // [!code highlight]
-  );
-}
-```
 </Step>
 </Steps>
 </TailoredContentOption>
@@ -86,12 +72,12 @@ import "@copilotkit/react-ui/styles.css"; // [!code highlight]
 
 export default function Home() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit">
+    <>
       <TasksProvider>
         <TasksList />
       </TasksProvider>
       <CopilotPopup /> // [!code highlight]
-    </CopilotKit>
+    </>
   );
 }
 ```
@@ -100,7 +86,7 @@ Here's what we did:
 
 - We imported the `<CopilotPopup />` component from `@copilotkit/react-ui`.
 - We wrapped the page with the `<CopilotKit>` provider.
-- We imported the built-in styles from `@copilotkit/react-ui`. This is optional.
+- We imported the built-in styles from `@copilotkit/react-ui`.
 
 Now, head back to your app and you'll find a chat popup in the bottom right corner of the page. At this point, you can start interacting with your copilot! 🎉
 
