@@ -104,7 +104,7 @@ An AI-powered banking interface that helps users manage transactions, analyze sp
 </summary>
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/09dc873b-b263-40a3-8577-1414d0837510" width="800"/>
+  <img src="./assets/travel-planner-gif.gif" width="800"/>
 </div>
 
 [View Demo Repository →](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-travel)
