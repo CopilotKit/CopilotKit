@@ -1,5 +1,13 @@
 # @copilotkit/sdk-js
 
+## 1.4.2-tyler-reset-chat.0
+
+### Patch Changes
+
+- Add Markus' reset chat changes along with everything in 1.4.1 + a fix for resetting the agent during front-end action calls
+- Updated dependencies
+  - @copilotkit/shared@1.4.2-tyler-reset-chat.0
+
 ## 1.4.1
 
 ### Patch Changes
