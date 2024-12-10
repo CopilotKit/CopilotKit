@@ -1,5 +1,23 @@
 # tailwind-config
 
+## 1.4.1-pre.2
+
+### Patch Changes
+
+- Add convertActionsToDynamicStructuredTools to sdk-js
+
+## 1.4.1-pre.1
+
+### Patch Changes
+
+- add zod conversion
+
+## 1.4.1-pre.0
+
+### Patch Changes
+
+- lower case copilotkit property
+
 ## 1.4.0
 
 ### Minor Changes

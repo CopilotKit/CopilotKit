@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { convertJsonSchemaToZodSchema } from "./utils";
+import { convertJsonSchemaToZodSchema } from "../utils/json-schema";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 describe("convertJsonSchemaToZodSchema", () => {

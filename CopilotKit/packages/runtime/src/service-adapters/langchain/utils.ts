@@ -18,7 +18,7 @@ import { z } from "zod";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { LangChainReturnType } from "./types";
 import { RuntimeEventSubject } from "../events";
-import { randomId } from "@copilotkit/shared";
+import { randomId, convertJsonSchemaToZodSchema } from "@copilotkit/shared";
 
 export function convertMessageToLangChainMessage(message: Message): BaseMessage {
   if (message.isTextMessage()) {
@@ -45,38 +45,6 @@ export function convertMessageToLangChainMessage(message: Message): BaseMessage 
       content: message.result,
       tool_call_id: message.actionExecutionId,
     });
-  }
-}
-
-export function convertJsonSchemaToZodSchema(jsonSchema: any, required: boolean): z.ZodSchema {
-  if (jsonSchema.type === "object") {
-    const spec: { [key: string]: z.ZodSchema } = {};
-
-    if (!jsonSchema.properties || !Object.keys(jsonSchema.properties).length) {
-      return !required ? z.object(spec).optional() : z.object(spec);
-    }
-
-    for (const [key, value] of Object.entries(jsonSchema.properties)) {
-      spec[key] = convertJsonSchemaToZodSchema(
-        value,
-        jsonSchema.required ? jsonSchema.required.includes(key) : false,
-      );
-    }
-    let schema = z.object(spec).describe(jsonSchema.description);
-    return required ? schema : schema.optional();
-  } else if (jsonSchema.type === "string") {
-    let schema = z.string().describe(jsonSchema.description);
-    return required ? schema : schema.optional();
-  } else if (jsonSchema.type === "number") {
-    let schema = z.number().describe(jsonSchema.description);
-    return required ? schema : schema.optional();
-  } else if (jsonSchema.type === "boolean") {
-    let schema = z.boolean().describe(jsonSchema.description);
-    return required ? schema : schema.optional();
-  } else if (jsonSchema.type === "array") {
-    let itemSchema = convertJsonSchemaToZodSchema(jsonSchema.items, true);
-    let schema = z.array(itemSchema).describe(jsonSchema.description);
-    return required ? schema : schema.optional();
   }
 }
 

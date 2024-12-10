@@ -8,15 +8,9 @@ from langchain_core.messages import HumanMessage, ToolMessage
 from copilotkit.langchain import (
   copilotkit_customize_config, copilotkit_exit, copilotkit_emit_message
 )
-from pydantic import BaseModel, Field
 from email_agent.model import get_model
 from email_agent.state import EmailAgentState
 
-class EmailTool(BaseModel):
-    """
-    Write an email.
-    """
-    the_email: str = Field(description="The email to be written.")
 
 async def email_node(state: EmailAgentState, config: RunnableConfig):
     """
@@ -31,7 +25,7 @@ async def email_node(state: EmailAgentState, config: RunnableConfig):
     instructions = "You write emails."
 
     email_model = get_model(state).bind_tools(
-        [EmailTool],
+        state["copilotkit"]["actions"],
         tool_choice="EmailTool"
     )
 
@@ -80,7 +74,6 @@ workflow = StateGraph(EmailAgentState)
 workflow.add_node("email_node", email_node)
 workflow.add_node("send_email_node", send_email_node)
 workflow.set_entry_point("email_node")
-
 workflow.add_edge("email_node", "send_email_node")
 workflow.add_edge("send_email_node", END)
 memory = MemorySaver()
