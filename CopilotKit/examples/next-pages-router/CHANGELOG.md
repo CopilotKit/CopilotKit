@@ -1,5 +1,23 @@
 # next-pages-router
 
+## 1.4.1-pre.6
+
+### Patch Changes
+
+- 1721cbd: lower case copilotkit property
+- 1721cbd: add zod conversion
+- 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
+- fix assistant message CSS and propagate actions to LG JS
+- Updated dependencies [1721cbd]
+- Updated dependencies [1721cbd]
+- Updated dependencies [1721cbd]
+- Updated dependencies
+  - @copilotkit/react-core@1.4.1-pre.6
+  - @copilotkit/react-textarea@1.4.1-pre.6
+  - @copilotkit/react-ui@1.4.1-pre.6
+  - @copilotkit/runtime@1.4.1-pre.6
+  - @copilotkit/shared@1.4.1-pre.6
+
 ## 1.4.1-pre.5
 
 ### Patch Changes
