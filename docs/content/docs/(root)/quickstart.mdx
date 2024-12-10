@@ -5,22 +5,11 @@ icon: "lucide/Play"
 ---
 import { LinkIcon } from "lucide-react";
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
-import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
 import ConnectCopilotUI from "@/snippets/copilot-ui.mdx";
 import CopilotCloudConfigureCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
 import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content.tsx";
 import { FaCloud, FaServer } from "react-icons/fa";
 
-## Install Dependencies
-
-First, install the CopilotKit dependencies.
-
-```package-install
-npm install @copilotkit/react-ui @copilotkit/runtime
-# Note: The runtime package is not required if you are using Copilot Cloud.
-```
-
-## Setup CopilotKit
 
 <TailoredContent>
 <TailoredContentOption
@@ -29,8 +18,19 @@ npm install @copilotkit/react-ui @copilotkit/runtime
   icon={<FaCloud />}
 >
 <InsecurePasswordProtected>
+
+## Install Dependencies
+
+First, install the CopilotKit dependencies.
+
+```package-install
+npm install @copilotkit/react-ui @copilotkit/react-core
+```
+
 In order to use CopilotKit, we'll need to configure the `CopilotKit` provider.
 </InsecurePasswordProtected>
+
+## Setup CopilotKit
 
 <CopilotCloudConfigureCopilotKitProvider components={props.components} />
 </TailoredContentOption>
@@ -39,6 +39,18 @@ In order to use CopilotKit, we'll need to configure the `CopilotKit` provider.
   description="Learn to host CopilotKit's runtime yourself with your own backend."
   icon={<FaServer />}
 >
+
+## Install Dependencies
+
+First, install the CopilotKit dependencies.
+
+```package-install
+npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
+```
+
+## Setup CopilotKit
+
+
 <Steps>
 <Step>
 ### Set up Copilot Runtime Endpoint
@@ -47,23 +59,37 @@ In order to use CopilotKit, we'll need to configure the `CopilotKit` provider.
 <Step>
 ### Configure the CopilotKit Provider
 
-```tsx title="app/page.tsx" showLineNumbers {5,10,14}
-"use client";
+{/* What we would like to do here, is simply import SelfHostingCopilotRuntimeConfigureCopilotKitProvider. But code snippets inside imported snippets look funky so alas we cannot.  */}
 
-import { EmailThread } from "@/components/EmailThread";
-import { EmailsProvider } from "@/lib/hooks/use-emails";
-import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
 
-export default function Home() {
-  return (
-    <CopilotKit runtimeUrl="/api/copilotkit"> // [!code highlight]
-      <EmailsProvider>
-        <EmailThread />
-      </EmailsProvider>
-    </CopilotKit> // [!code highlight]
-  );
-}
-```
+The [`<CopilotKit>`](/reference/components/CopilotKit) provider must wrap the Copilot-aware parts of your application.
+For most use-cases, it's appropriate to wrap the `CopilotKit` provider around the entire app, e.g. in your `layout.tsx`.
+
+<Callout type="info">
+  Note that you can add the `<CopilotKit>` provider anywhere in your application. In fact, you can have multiple `<CopilotKit>` providers per app if you want independent copilots.
+</Callout>
+
+Point the `<CopilotKit>` provider at the Copilot Runtime URL you configured in the previous step.
+
+  ```tsx title="layout.tsx"
+  import { ReactNode } from "react";
+  import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+
+  export default function RootLayout({ children }: { children: ReactNode }) {
+    return (
+      <html lang="en">
+        <body> 
+          {/* Make sure to use the URL you configured in the previous step  */} // [!code highlight:4]
+          <CopilotKit runtimeUrl="/api/copilotkit"> 
+            {children}
+          </CopilotKit>
+        </body>
+      </html>
+    );
+  }
+  ```
+
+
 </Step>
 </Steps>
 </TailoredContentOption>
