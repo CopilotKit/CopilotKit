@@ -25,8 +25,6 @@ export async function email_node(state: AgentState, config: RunnableConfig) {
 
   const instructions = "You write emails.";
 
-  console.log("state", JSON.stringify(state, null, 2));
-
   const email_model = getModel(state).bindTools!(
     convertActionsToDynamicStructuredTools(state.copilotkit.actions),
     {
