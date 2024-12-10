@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.5.0-tyler-reset-chat.0
+
+### Minor Changes
+
+- Merging Markus' reset fixes with main + a new change for stopping an agent during execution of FE actions
+
 ## 1.4.1
 
 ### Patch Changes

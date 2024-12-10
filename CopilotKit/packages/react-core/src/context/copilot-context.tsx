@@ -135,6 +135,18 @@ export interface CopilotContextParams {
   agentSession: AgentSession | null;
   setAgentSession: React.Dispatch<React.SetStateAction<AgentSession | null>>;
 
+  agentLock: string | null;
+
+  threadId: string | null;
+  setThreadId: React.Dispatch<React.SetStateAction<string | null>>;
+
+  runId: string | null;
+  setRunId: React.Dispatch<React.SetStateAction<string | null>>;
+
+  // The chat abort controller can be used to stop generation globally,
+  // i.e. when using `stop()` from `useChat`
+  chatAbortControllerRef: React.MutableRefObject<AbortController | null>;
+
   // runtime
   runtimeClient: CopilotRuntimeClient;
 }
@@ -189,6 +201,16 @@ const emptyCopilotContext: CopilotContextParams = {
 
   agentSession: null,
   setAgentSession: () => {},
+
+  agentLock: null,
+
+  threadId: null,
+  setThreadId: () => {},
+
+  runId: null,
+  setRunId: () => {},
+
+  chatAbortControllerRef: { current: null },
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

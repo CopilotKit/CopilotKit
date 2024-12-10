@@ -262,6 +262,10 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
   }
 
   const [agentSession, setAgentSession] = useState<AgentSession | null>(initialAgentSession);
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const [runId, setRunId] = useState<string | null>(null);
+
+  const chatAbortControllerRef = useRef<AbortController | null>(null);
 
   const showDevConsole = props.showDevConsole === undefined ? "auto" : props.showDevConsole;
 
@@ -296,6 +300,12 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
         agentSession,
         setAgentSession,
         runtimeClient,
+        agentLock: props.agent || null,
+        threadId,
+        setThreadId,
+        runId,
+        setRunId,
+        chatAbortControllerRef,
       }}
     >
       <CopilotMessages>{children}</CopilotMessages>
