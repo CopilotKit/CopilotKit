@@ -9,20 +9,20 @@ importers:
   .:
     dependencies:
       '@copilotkit/react-core':
-        specifier: 1.4.0
-        version: 1.4.0(google-auth-library@8.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 1.4.1
+        version: 1.4.1(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@copilotkit/react-ui':
-        specifier: 1.4.0
-        version: 1.4.0(@types/react@18.3.4)(google-auth-library@8.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 1.4.1
+        version: 1.4.1(@types/react@18.3.4)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@copilotkit/runtime':
-        specifier: 1.4.0
-        version: 1.4.0(class-validator@0.14.1)(google-auth-library@8.9.0)
+        specifier: 1.4.1
+        version: 1.4.1(class-validator@0.14.1)(google-auth-library@8.9.0)
       '@copilotkit/runtime-client-gql':
-        specifier: 1.4.0
-        version: 1.4.0(google-auth-library@8.9.0)(react@18.3.1)
+        specifier: 1.4.1
+        version: 1.4.1(graphql@16.9.0)(react@18.3.1)
       '@copilotkit/shared':
-        specifier: 1.4.0
-        version: 1.4.0
+        specifier: 1.4.1
+        version: 1.4.1
       '@radix-ui/react-accordion':
         specifier: ^1.2.0
         version: 1.2.0(@types/react-dom@18.3.0)(@types/react@18.3.4)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -112,27 +112,27 @@ packages:
     resolution: {integrity: sha512-VBj9MYyDb9tuLq7yzqjgzt6Q+IBQLrGZfdjOekyEirZPHxXWoTSGUTMrpsfi58Up73d13NfYLv8HT9vmznjzhQ==}
     engines: {node: '>=6.9.0'}
 
-  '@copilotkit/react-core@1.4.0':
-    resolution: {integrity: sha512-lpSI4T12FzwqnfP1s/MDHrqMd1XN4W5JEp/pNDXXAWANgsVh2QyNPwbWy0vUcMzCtVoEKeRNqXuXSOAWNu+ucA==}
+  '@copilotkit/react-core@1.4.1':
+    resolution: {integrity: sha512-RQAkpB0a+cjBI17oERVR3liOVcYqeE6lPSQuArZOmRfyhZOhv2NYpwaN1xEbqXdmorT8Qd8P9NsoDEosiyzAUQ==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
       react-dom: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/react-ui@1.4.0':
-    resolution: {integrity: sha512-vMIUyZNWJOlTEjq2Q5FyyLj2k7Mcdw/qgQq7nlHaHFFfyift/fwMwUDHoIcE9PWLkpEyq+LPLMTNisJUsU8A/Q==}
+  '@copilotkit/react-ui@1.4.1':
+    resolution: {integrity: sha512-NmyxMcQNbH05L08pYRSUFL3zA1u+1COkqWJiLMoIjeR9WeT0DAXiFHzxWHvBIPC6Zilusj3yfMkmBlvWT4DO9w==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime-client-gql@1.4.0':
-    resolution: {integrity: sha512-RSRopQOafCL1pQsYjgQ6Yxkzyh7ftib2EAmWiWObfbXfkM7F1mKc+eO5CbLb2BEKZL75NMAHqsH3Ob+vqyFPEA==}
+  '@copilotkit/runtime-client-gql@1.4.1':
+    resolution: {integrity: sha512-RHGu7uCpY6yHlXmWYHM+oOCcF+q6C3Lvat4aiNyu8fL8abVGTSw2dZM8OUzcseZaB7Jj6XvcAnhNe129Sr4dxA==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime@1.4.0':
-    resolution: {integrity: sha512-+e2JaWvFIu+pziT/av6+rxSCUkdaaxJ5SZPeaP0lU1g2xJkLNaKEak4zjmmoztutDBaNlmh8QCP/jdfME92Rfw==}
+  '@copilotkit/runtime@1.4.1':
+    resolution: {integrity: sha512-8IlKM3qEB+Vc+kePQo4CFH+mqNO1QsUrzKF3SRkHWfv2M3FpjDWK0bEhvC7vqDAlXXdZXJlJJ5++78PTyZAueQ==}
 
-  '@copilotkit/shared@1.4.0':
-    resolution: {integrity: sha512-5SaRdfiQ9Hdwdtq/ycNfMK0rCpEHlPUUTZP48f1Ezsq5pwX34FX6/6J2Cs2sdXLoDLFj0oWjiZ4Ygz3hIeXSDw==}
+  '@copilotkit/shared@1.4.1':
+    resolution: {integrity: sha512-x4HDEYyd3mm/dsuvz2aeC5CL6LDbAqo4siFgYyNYW6nOmqyPAhMlY4TgQnuaOmOVXCsTaNZ0nF831PuJdeOIwQ==}
 
   '@envelop/core@5.0.2':
     resolution: {integrity: sha512-tVL6OrMe6UjqLosiE+EH9uxh2TQC0469GwF4tE014ugRaDDKKVWwFwZe0TBMlcyHKh5MD4ZxktWo/1hqUxIuhw==}
@@ -3770,6 +3770,11 @@ packages:
     peerDependencies:
       zod: ^3.23.3
 
+  zod-to-json-schema@3.23.5:
+    resolution: {integrity: sha512-5wlSS0bXfF/BrL4jPAbz9da5hDlDptdEppYfe+x4eIJ7jioqKG9uUxOwPzqof09u/XeVdrgFu29lZi+8XNDJtA==}
+    peerDependencies:
+      zod: ^3.23.3
+
   zod@3.23.8:
     resolution: {integrity: sha512-XBx9AXhXktjUqnepgTiE5flcKIYWi/rme0Eaj+5Y0lftuGBq+jyRu/md4WnuxqgP1ubdpNCsYEYPxrzVHD8d6g==}
 
@@ -3800,127 +3805,23 @@ snapshots:
     dependencies:
       regenerator-runtime: 0.14.1
 
-  '@copilotkit/react-core@1.4.0(google-auth-library@8.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkit/react-core@1.4.1(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@copilotkit/runtime-client-gql': 1.4.0(google-auth-library@8.9.0)(react@18.3.1)
-      '@copilotkit/shared': 1.4.0
+      '@copilotkit/runtime-client-gql': 1.4.1(graphql@16.9.0)(react@18.3.1)
+      '@copilotkit/shared': 1.4.1
       '@scarf/scarf': 1.3.0
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       untruncate-json: 0.0.1
     transitivePeerDependencies:
-      - '@aws-crypto/sha256-js'
-      - '@aws-sdk/client-bedrock-agent-runtime'
-      - '@aws-sdk/client-bedrock-runtime'
-      - '@aws-sdk/client-dynamodb'
-      - '@aws-sdk/client-kendra'
-      - '@aws-sdk/client-lambda'
-      - '@aws-sdk/client-sagemaker-runtime'
-      - '@aws-sdk/client-sfn'
-      - '@aws-sdk/credential-provider-node'
-      - '@azure/search-documents'
-      - '@clickhouse/client'
-      - '@cloudflare/ai'
-      - '@datastax/astra-db-ts'
-      - '@elastic/elasticsearch'
-      - '@getmetal/metal-sdk'
-      - '@getzep/zep-js'
-      - '@gomomento/sdk'
-      - '@gomomento/sdk-core'
-      - '@google-ai/generativelanguage'
-      - '@gradientai/nodejs-sdk'
-      - '@huggingface/inference'
-      - '@langchain/anthropic'
-      - '@langchain/aws'
-      - '@langchain/cohere'
-      - '@langchain/google-genai'
-      - '@langchain/google-vertexai'
-      - '@langchain/groq'
-      - '@langchain/mistralai'
-      - '@langchain/ollama'
-      - '@mozilla/readability'
-      - '@neondatabase/serverless'
-      - '@opensearch-project/opensearch'
-      - '@pinecone-database/pinecone'
-      - '@planetscale/database'
-      - '@premai/prem-sdk'
-      - '@qdrant/js-client-rest'
-      - '@raycast/api'
-      - '@rockset/client'
-      - '@smithy/eventstream-codec'
-      - '@smithy/protocol-http'
-      - '@smithy/signature-v4'
-      - '@smithy/util-utf8'
-      - '@supabase/postgrest-js'
-      - '@supabase/supabase-js'
-      - '@tensorflow-models/universal-sentence-encoder'
-      - '@tensorflow/tfjs-converter'
-      - '@tensorflow/tfjs-core'
-      - '@upstash/redis'
-      - '@upstash/vector'
-      - '@vercel/kv'
-      - '@vercel/postgres'
-      - '@writerai/writer-sdk'
-      - '@xata.io/client'
-      - '@xenova/transformers'
-      - '@zilliz/milvus2-sdk-node'
-      - axios
-      - better-sqlite3
-      - cassandra-driver
-      - cborg
-      - cheerio
-      - chromadb
-      - closevector-common
-      - closevector-node
-      - closevector-web
-      - cohere-ai
-      - convex
-      - couchbase
-      - discord.js
-      - dria
-      - duck-duck-scrape
       - encoding
-      - faiss-node
-      - firebase-admin
-      - google-auth-library
-      - googleapis
-      - handlebars
-      - hnswlib-node
-      - html-to-text
-      - interface-datastore
-      - ioredis
-      - it-all
-      - jsdom
-      - jsonwebtoken
-      - llmonitor
-      - lodash
-      - lunary
-      - mongodb
-      - mysql2
-      - neo4j-driver
-      - node-llama-cpp
-      - peggy
-      - pg
-      - pg-copy-streams
-      - pickleparser
-      - portkey-ai
-      - redis
-      - replicate
-      - supports-color
-      - typeorm
-      - typesense
-      - usearch
-      - vectordb
-      - voy-search
-      - weaviate-ts-client
-      - web-auth-library
-      - ws
+      - graphql
 
-  '@copilotkit/react-ui@1.4.0(@types/react@18.3.4)(google-auth-library@8.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkit/react-ui@1.4.1(@types/react@18.3.4)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@copilotkit/react-core': 1.4.0(google-auth-library@8.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@copilotkit/runtime-client-gql': 1.4.0(google-auth-library@8.9.0)(react@18.3.1)
-      '@copilotkit/shared': 1.4.0
+      '@copilotkit/react-core': 1.4.1(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@copilotkit/runtime-client-gql': 1.4.1(graphql@16.9.0)(react@18.3.1)
+      '@copilotkit/shared': 1.4.1
       '@headlessui/react': 2.1.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       react-markdown: 8.0.7(@types/react@18.3.4)(react@18.3.1)
@@ -3928,239 +3829,27 @@ snapshots:
       remark-gfm: 3.0.1
       remark-math: 5.1.1
     transitivePeerDependencies:
-      - '@aws-crypto/sha256-js'
-      - '@aws-sdk/client-bedrock-agent-runtime'
-      - '@aws-sdk/client-bedrock-runtime'
-      - '@aws-sdk/client-dynamodb'
-      - '@aws-sdk/client-kendra'
-      - '@aws-sdk/client-lambda'
-      - '@aws-sdk/client-sagemaker-runtime'
-      - '@aws-sdk/client-sfn'
-      - '@aws-sdk/credential-provider-node'
-      - '@azure/search-documents'
-      - '@clickhouse/client'
-      - '@cloudflare/ai'
-      - '@datastax/astra-db-ts'
-      - '@elastic/elasticsearch'
-      - '@getmetal/metal-sdk'
-      - '@getzep/zep-js'
-      - '@gomomento/sdk'
-      - '@gomomento/sdk-core'
-      - '@google-ai/generativelanguage'
-      - '@gradientai/nodejs-sdk'
-      - '@huggingface/inference'
-      - '@langchain/anthropic'
-      - '@langchain/aws'
-      - '@langchain/cohere'
-      - '@langchain/google-genai'
-      - '@langchain/google-vertexai'
-      - '@langchain/groq'
-      - '@langchain/mistralai'
-      - '@langchain/ollama'
-      - '@mozilla/readability'
-      - '@neondatabase/serverless'
-      - '@opensearch-project/opensearch'
-      - '@pinecone-database/pinecone'
-      - '@planetscale/database'
-      - '@premai/prem-sdk'
-      - '@qdrant/js-client-rest'
-      - '@raycast/api'
-      - '@rockset/client'
-      - '@smithy/eventstream-codec'
-      - '@smithy/protocol-http'
-      - '@smithy/signature-v4'
-      - '@smithy/util-utf8'
-      - '@supabase/postgrest-js'
-      - '@supabase/supabase-js'
-      - '@tensorflow-models/universal-sentence-encoder'
-      - '@tensorflow/tfjs-converter'
-      - '@tensorflow/tfjs-core'
       - '@types/react'
-      - '@upstash/redis'
-      - '@upstash/vector'
-      - '@vercel/kv'
-      - '@vercel/postgres'
-      - '@writerai/writer-sdk'
-      - '@xata.io/client'
-      - '@xenova/transformers'
-      - '@zilliz/milvus2-sdk-node'
-      - axios
-      - better-sqlite3
-      - cassandra-driver
-      - cborg
-      - cheerio
-      - chromadb
-      - closevector-common
-      - closevector-node
-      - closevector-web
-      - cohere-ai
-      - convex
-      - couchbase
-      - discord.js
-      - dria
-      - duck-duck-scrape
       - encoding
-      - faiss-node
-      - firebase-admin
-      - google-auth-library
-      - googleapis
-      - handlebars
-      - hnswlib-node
-      - html-to-text
-      - interface-datastore
-      - ioredis
-      - it-all
-      - jsdom
-      - jsonwebtoken
-      - llmonitor
-      - lodash
-      - lunary
-      - mongodb
-      - mysql2
-      - neo4j-driver
-      - node-llama-cpp
-      - peggy
-      - pg
-      - pg-copy-streams
-      - pickleparser
-      - portkey-ai
+      - graphql
       - react-dom
-      - redis
-      - replicate
       - supports-color
-      - typeorm
-      - typesense
-      - usearch
-      - vectordb
-      - voy-search
-      - weaviate-ts-client
-      - web-auth-library
-      - ws
 
-  '@copilotkit/runtime-client-gql@1.4.0(google-auth-library@8.9.0)(react@18.3.1)':
+  '@copilotkit/runtime-client-gql@1.4.1(graphql@16.9.0)(react@18.3.1)':
     dependencies:
-      '@copilotkit/runtime': 1.4.0(class-validator@0.14.1)(google-auth-library@8.9.0)
-      '@copilotkit/shared': 1.4.0
+      '@copilotkit/shared': 1.4.1
       '@urql/core': 5.0.6(graphql@16.9.0)
-      class-transformer: 0.5.1
-      class-validator: 0.14.1
-      graphql: 16.9.0
       react: 18.3.1
       untruncate-json: 0.0.1
       urql: 4.1.0(@urql/core@5.0.6(graphql@16.9.0))(react@18.3.1)
-      wonka: 6.3.4
     transitivePeerDependencies:
-      - '@aws-crypto/sha256-js'
-      - '@aws-sdk/client-bedrock-agent-runtime'
-      - '@aws-sdk/client-bedrock-runtime'
-      - '@aws-sdk/client-dynamodb'
-      - '@aws-sdk/client-kendra'
-      - '@aws-sdk/client-lambda'
-      - '@aws-sdk/client-sagemaker-runtime'
-      - '@aws-sdk/client-sfn'
-      - '@aws-sdk/credential-provider-node'
-      - '@azure/search-documents'
-      - '@clickhouse/client'
-      - '@cloudflare/ai'
-      - '@datastax/astra-db-ts'
-      - '@elastic/elasticsearch'
-      - '@getmetal/metal-sdk'
-      - '@getzep/zep-js'
-      - '@gomomento/sdk'
-      - '@gomomento/sdk-core'
-      - '@google-ai/generativelanguage'
-      - '@gradientai/nodejs-sdk'
-      - '@huggingface/inference'
-      - '@langchain/anthropic'
-      - '@langchain/aws'
-      - '@langchain/cohere'
-      - '@langchain/google-genai'
-      - '@langchain/google-vertexai'
-      - '@langchain/groq'
-      - '@langchain/mistralai'
-      - '@langchain/ollama'
-      - '@mozilla/readability'
-      - '@neondatabase/serverless'
-      - '@opensearch-project/opensearch'
-      - '@pinecone-database/pinecone'
-      - '@planetscale/database'
-      - '@premai/prem-sdk'
-      - '@qdrant/js-client-rest'
-      - '@raycast/api'
-      - '@rockset/client'
-      - '@smithy/eventstream-codec'
-      - '@smithy/protocol-http'
-      - '@smithy/signature-v4'
-      - '@smithy/util-utf8'
-      - '@supabase/postgrest-js'
-      - '@supabase/supabase-js'
-      - '@tensorflow-models/universal-sentence-encoder'
-      - '@tensorflow/tfjs-converter'
-      - '@tensorflow/tfjs-core'
-      - '@upstash/redis'
-      - '@upstash/vector'
-      - '@vercel/kv'
-      - '@vercel/postgres'
-      - '@writerai/writer-sdk'
-      - '@xata.io/client'
-      - '@xenova/transformers'
-      - '@zilliz/milvus2-sdk-node'
-      - axios
-      - better-sqlite3
-      - cassandra-driver
-      - cborg
-      - cheerio
-      - chromadb
-      - closevector-common
-      - closevector-node
-      - closevector-web
-      - cohere-ai
-      - convex
-      - couchbase
-      - discord.js
-      - dria
-      - duck-duck-scrape
       - encoding
-      - faiss-node
-      - firebase-admin
-      - google-auth-library
-      - googleapis
-      - handlebars
-      - hnswlib-node
-      - html-to-text
-      - interface-datastore
-      - ioredis
-      - it-all
-      - jsdom
-      - jsonwebtoken
-      - llmonitor
-      - lodash
-      - lunary
-      - mongodb
-      - mysql2
-      - neo4j-driver
-      - node-llama-cpp
-      - peggy
-      - pg
-      - pg-copy-streams
-      - pickleparser
-      - portkey-ai
-      - redis
-      - replicate
-      - supports-color
-      - typeorm
-      - typesense
-      - usearch
-      - vectordb
-      - voy-search
-      - weaviate-ts-client
-      - web-auth-library
-      - ws
+      - graphql
 
-  '@copilotkit/runtime@1.4.0(class-validator@0.14.1)(google-auth-library@8.9.0)':
+  '@copilotkit/runtime@1.4.1(class-validator@0.14.1)(google-auth-library@8.9.0)':
     dependencies:
       '@anthropic-ai/sdk': 0.27.3
-      '@copilotkit/shared': 1.4.0
+      '@copilotkit/shared': 1.4.1
       '@graphql-yoga/plugin-defer-stream': 3.7.0(graphql-yoga@5.7.0(graphql@16.9.0))(graphql@16.9.0)
       '@langchain/community': 0.0.53(google-auth-library@8.9.0)(langchain@0.3.5(@langchain/core@0.3.16(openai@4.70.2(zod@3.23.8)))(openai@4.70.2(zod@3.23.8)))(openai@4.70.2(zod@3.23.8))
       '@langchain/core': 0.3.16(openai@4.70.2(zod@3.23.8))
@@ -4291,11 +3980,13 @@ snapshots:
       - web-auth-library
       - ws
 
-  '@copilotkit/shared@1.4.0':
+  '@copilotkit/shared@1.4.1':
     dependencies:
       '@segment/analytics-node': 2.1.2
       chalk: 4.1.2
       uuid: 10.0.0
+      zod: 3.23.8
+      zod-to-json-schema: 3.23.5(zod@3.23.8)
     transitivePeerDependencies:
       - encoding
 
@@ -5051,7 +4742,8 @@ snapshots:
 
   '@types/uuid@10.0.0': {}
 
-  '@types/validator@13.12.1': {}
+  '@types/validator@13.12.1':
+    optional: true
 
   '@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4)':
     dependencies:
@@ -5384,6 +5076,7 @@ snapshots:
       '@types/validator': 13.12.1
       libphonenumber-js: 1.11.7
       validator: 13.12.0
+    optional: true
 
   class-variance-authority@0.7.0:
     dependencies:
@@ -6628,7 +6321,8 @@ snapshots:
       prelude-ls: 1.2.1
       type-check: 0.4.0
 
-  libphonenumber-js@1.11.7: {}
+  libphonenumber-js@1.11.7:
+    optional: true
 
   lilconfig@2.1.0: {}
 
@@ -8307,7 +8001,8 @@ snapshots:
       kleur: 4.1.5
       sade: 1.8.1
 
-  validator@13.12.0: {}
+  validator@13.12.0:
+    optional: true
 
   value-or-promise@1.0.12: {}
 
@@ -8415,6 +8110,10 @@ snapshots:
   yocto-queue@0.1.0: {}
 
   zod-to-json-schema@3.23.2(zod@3.23.8):
+    dependencies:
+      zod: 3.23.8
+
+  zod-to-json-schema@3.23.5(zod@3.23.8):
     dependencies:
       zod: 3.23.8
 

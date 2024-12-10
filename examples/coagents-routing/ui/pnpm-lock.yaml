@@ -9,23 +9,23 @@ importers:
   .:
     dependencies:
       '@copilotkit/react-core':
-        specifier: 1.4.0
-        version: 1.4.0(google-auth-library@8.9.0)(lodash@4.17.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 1.4.1
+        version: 1.4.1(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@copilotkit/react-textarea':
-        specifier: 1.4.0
-        version: 1.4.0(@types/react-dom@18.3.0)(@types/react@18.3.5)(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)
+        specifier: 1.4.1
+        version: 1.4.1(@types/react-dom@18.3.0)(@types/react@18.3.5)(graphql@16.9.0)(react@18.3.1)
       '@copilotkit/react-ui':
-        specifier: 1.4.0
-        version: 1.4.0(@types/react@18.3.5)(google-auth-library@8.9.0)(lodash@4.17.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 1.4.1
+        version: 1.4.1(@types/react@18.3.5)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@copilotkit/runtime':
-        specifier: 1.4.0
-        version: 1.4.0(class-validator@0.14.1)(google-auth-library@8.9.0)(lodash@4.17.21)
+        specifier: 1.4.1
+        version: 1.4.1(class-validator@0.14.1)(google-auth-library@8.9.0)(lodash@4.17.21)
       '@copilotkit/runtime-client-gql':
-        specifier: 1.4.0
-        version: 1.4.0(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)
+        specifier: 1.4.1
+        version: 1.4.1(graphql@16.9.0)(react@18.3.1)
       '@copilotkit/shared':
-        specifier: 1.4.0
-        version: 1.4.0
+        specifier: 1.4.1
+        version: 1.4.1
       '@radix-ui/react-accordion':
         specifier: ^1.2.0
         version: 1.2.1(@types/react-dom@18.3.0)(@types/react@18.3.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -156,32 +156,32 @@ packages:
     resolution: {integrity: sha512-/l42B1qxpG6RdfYf343Uw1vmDjeNhneUXtzhojE7pDgfpEypmRhI6j1kr17XCVv4Cgl9HdAiQY2x0GwKm7rWCw==}
     engines: {node: '>=6.9.0'}
 
-  '@copilotkit/react-core@1.4.0':
-    resolution: {integrity: sha512-lpSI4T12FzwqnfP1s/MDHrqMd1XN4W5JEp/pNDXXAWANgsVh2QyNPwbWy0vUcMzCtVoEKeRNqXuXSOAWNu+ucA==}
+  '@copilotkit/react-core@1.4.1':
+    resolution: {integrity: sha512-RQAkpB0a+cjBI17oERVR3liOVcYqeE6lPSQuArZOmRfyhZOhv2NYpwaN1xEbqXdmorT8Qd8P9NsoDEosiyzAUQ==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
       react-dom: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/react-textarea@1.4.0':
-    resolution: {integrity: sha512-4xXTgAhVYAcKoNCSGdZ9sFmbxVmzTP4BEjohZm1EW4KxpWKtGA0Ne+t9AglEMyvAVMCG9JF7eSRNUfo1B898rA==}
+  '@copilotkit/react-textarea@1.4.1':
+    resolution: {integrity: sha512-JJl2WClpmC/S2Cb+QOAd10gsBYzbhU6jBBkVLMotVhbRvMV9XSOPLSLwl5DzA9c/Zx1EOhWUlJkj6k8NoHmmWg==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/react-ui@1.4.0':
-    resolution: {integrity: sha512-vMIUyZNWJOlTEjq2Q5FyyLj2k7Mcdw/qgQq7nlHaHFFfyift/fwMwUDHoIcE9PWLkpEyq+LPLMTNisJUsU8A/Q==}
+  '@copilotkit/react-ui@1.4.1':
+    resolution: {integrity: sha512-NmyxMcQNbH05L08pYRSUFL3zA1u+1COkqWJiLMoIjeR9WeT0DAXiFHzxWHvBIPC6Zilusj3yfMkmBlvWT4DO9w==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime-client-gql@1.4.0':
-    resolution: {integrity: sha512-RSRopQOafCL1pQsYjgQ6Yxkzyh7ftib2EAmWiWObfbXfkM7F1mKc+eO5CbLb2BEKZL75NMAHqsH3Ob+vqyFPEA==}
+  '@copilotkit/runtime-client-gql@1.4.1':
+    resolution: {integrity: sha512-RHGu7uCpY6yHlXmWYHM+oOCcF+q6C3Lvat4aiNyu8fL8abVGTSw2dZM8OUzcseZaB7Jj6XvcAnhNe129Sr4dxA==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime@1.4.0':
-    resolution: {integrity: sha512-+e2JaWvFIu+pziT/av6+rxSCUkdaaxJ5SZPeaP0lU1g2xJkLNaKEak4zjmmoztutDBaNlmh8QCP/jdfME92Rfw==}
+  '@copilotkit/runtime@1.4.1':
+    resolution: {integrity: sha512-8IlKM3qEB+Vc+kePQo4CFH+mqNO1QsUrzKF3SRkHWfv2M3FpjDWK0bEhvC7vqDAlXXdZXJlJJ5++78PTyZAueQ==}
 
-  '@copilotkit/shared@1.4.0':
-    resolution: {integrity: sha512-5SaRdfiQ9Hdwdtq/ycNfMK0rCpEHlPUUTZP48f1Ezsq5pwX34FX6/6J2Cs2sdXLoDLFj0oWjiZ4Ygz3hIeXSDw==}
+  '@copilotkit/shared@1.4.1':
+    resolution: {integrity: sha512-x4HDEYyd3mm/dsuvz2aeC5CL6LDbAqo4siFgYyNYW6nOmqyPAhMlY4TgQnuaOmOVXCsTaNZ0nF831PuJdeOIwQ==}
 
   '@emotion/babel-plugin@11.12.0':
     resolution: {integrity: sha512-y2WQb+oP8Jqvvclh8Q55gLUyb7UFvgv7eJfsj7td5TToBrIUtPay2kMrZi4xjq9qw2vD0ZR5fSho0yqoFgX7Rw==}
@@ -4341,6 +4341,11 @@ packages:
     peerDependencies:
       zod: ^3.23.3
 
+  zod-to-json-schema@3.23.5:
+    resolution: {integrity: sha512-5wlSS0bXfF/BrL4jPAbz9da5hDlDptdEppYfe+x4eIJ7jioqKG9uUxOwPzqof09u/XeVdrgFu29lZi+8XNDJtA==}
+    peerDependencies:
+      zod: ^3.23.3
+
   zod@3.23.8:
     resolution: {integrity: sha512-XBx9AXhXktjUqnepgTiE5flcKIYWi/rme0Eaj+5Y0lftuGBq+jyRu/md4WnuxqgP1ubdpNCsYEYPxrzVHD8d6g==}
 
@@ -4429,127 +4434,23 @@ snapshots:
       '@babel/helper-validator-identifier': 7.24.7
       to-fast-properties: 2.0.0
 
-  '@copilotkit/react-core@1.4.0(google-auth-library@8.9.0)(lodash@4.17.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkit/react-core@1.4.1(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@copilotkit/runtime-client-gql': 1.4.0(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)
-      '@copilotkit/shared': 1.4.0
+      '@copilotkit/runtime-client-gql': 1.4.1(graphql@16.9.0)(react@18.3.1)
+      '@copilotkit/shared': 1.4.1
       '@scarf/scarf': 1.3.0
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       untruncate-json: 0.0.1
     transitivePeerDependencies:
-      - '@aws-crypto/sha256-js'
-      - '@aws-sdk/client-bedrock-agent-runtime'
-      - '@aws-sdk/client-bedrock-runtime'
-      - '@aws-sdk/client-dynamodb'
-      - '@aws-sdk/client-kendra'
-      - '@aws-sdk/client-lambda'
-      - '@aws-sdk/client-sagemaker-runtime'
-      - '@aws-sdk/client-sfn'
-      - '@aws-sdk/credential-provider-node'
-      - '@azure/search-documents'
-      - '@clickhouse/client'
-      - '@cloudflare/ai'
-      - '@datastax/astra-db-ts'
-      - '@elastic/elasticsearch'
-      - '@getmetal/metal-sdk'
-      - '@getzep/zep-js'
-      - '@gomomento/sdk'
-      - '@gomomento/sdk-core'
-      - '@google-ai/generativelanguage'
-      - '@gradientai/nodejs-sdk'
-      - '@huggingface/inference'
-      - '@langchain/anthropic'
-      - '@langchain/aws'
-      - '@langchain/cohere'
-      - '@langchain/google-genai'
-      - '@langchain/google-vertexai'
-      - '@langchain/groq'
-      - '@langchain/mistralai'
-      - '@langchain/ollama'
-      - '@mozilla/readability'
-      - '@neondatabase/serverless'
-      - '@opensearch-project/opensearch'
-      - '@pinecone-database/pinecone'
-      - '@planetscale/database'
-      - '@premai/prem-sdk'
-      - '@qdrant/js-client-rest'
-      - '@raycast/api'
-      - '@rockset/client'
-      - '@smithy/eventstream-codec'
-      - '@smithy/protocol-http'
-      - '@smithy/signature-v4'
-      - '@smithy/util-utf8'
-      - '@supabase/postgrest-js'
-      - '@supabase/supabase-js'
-      - '@tensorflow-models/universal-sentence-encoder'
-      - '@tensorflow/tfjs-converter'
-      - '@tensorflow/tfjs-core'
-      - '@upstash/redis'
-      - '@upstash/vector'
-      - '@vercel/kv'
-      - '@vercel/postgres'
-      - '@writerai/writer-sdk'
-      - '@xata.io/client'
-      - '@xenova/transformers'
-      - '@zilliz/milvus2-sdk-node'
-      - axios
-      - better-sqlite3
-      - cassandra-driver
-      - cborg
-      - cheerio
-      - chromadb
-      - closevector-common
-      - closevector-node
-      - closevector-web
-      - cohere-ai
-      - convex
-      - couchbase
-      - discord.js
-      - dria
-      - duck-duck-scrape
       - encoding
-      - faiss-node
-      - firebase-admin
-      - google-auth-library
-      - googleapis
-      - handlebars
-      - hnswlib-node
-      - html-to-text
-      - interface-datastore
-      - ioredis
-      - it-all
-      - jsdom
-      - jsonwebtoken
-      - llmonitor
-      - lodash
-      - lunary
-      - mongodb
-      - mysql2
-      - neo4j-driver
-      - node-llama-cpp
-      - peggy
-      - pg
-      - pg-copy-streams
-      - pickleparser
-      - portkey-ai
-      - redis
-      - replicate
-      - supports-color
-      - typeorm
-      - typesense
-      - usearch
-      - vectordb
-      - voy-search
-      - weaviate-ts-client
-      - web-auth-library
-      - ws
+      - graphql
 
-  '@copilotkit/react-textarea@1.4.0(@types/react-dom@18.3.0)(@types/react@18.3.5)(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)':
+  '@copilotkit/react-textarea@1.4.1(@types/react-dom@18.3.0)(@types/react@18.3.5)(graphql@16.9.0)(react@18.3.1)':
     dependencies:
-      '@copilotkit/react-core': 1.4.0(google-auth-library@8.9.0)(lodash@4.17.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@copilotkit/runtime-client-gql': 1.4.0(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)
-      '@copilotkit/shared': 1.4.0
+      '@copilotkit/react-core': 1.4.1(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@copilotkit/runtime-client-gql': 1.4.1(graphql@16.9.0)(react@18.3.1)
+      '@copilotkit/shared': 1.4.1
       '@emotion/css': 11.13.0
       '@emotion/react': 11.13.3(@types/react@18.3.5)(react@18.3.1)
       '@emotion/styled': 11.13.0(@emotion/react@11.13.3(@types/react@18.3.5)(react@18.3.1))(@types/react@18.3.5)(react@18.3.1)
@@ -4571,120 +4472,17 @@ snapshots:
       slate-react: 0.98.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(slate@0.94.1)
       tailwind-merge: 1.14.0
     transitivePeerDependencies:
-      - '@aws-crypto/sha256-js'
-      - '@aws-sdk/client-bedrock-agent-runtime'
-      - '@aws-sdk/client-bedrock-runtime'
-      - '@aws-sdk/client-dynamodb'
-      - '@aws-sdk/client-kendra'
-      - '@aws-sdk/client-lambda'
-      - '@aws-sdk/client-sagemaker-runtime'
-      - '@aws-sdk/client-sfn'
-      - '@aws-sdk/credential-provider-node'
-      - '@azure/search-documents'
-      - '@clickhouse/client'
-      - '@cloudflare/ai'
-      - '@datastax/astra-db-ts'
-      - '@elastic/elasticsearch'
-      - '@getmetal/metal-sdk'
-      - '@getzep/zep-js'
-      - '@gomomento/sdk'
-      - '@gomomento/sdk-core'
-      - '@google-ai/generativelanguage'
-      - '@gradientai/nodejs-sdk'
-      - '@huggingface/inference'
-      - '@langchain/anthropic'
-      - '@langchain/aws'
-      - '@langchain/cohere'
-      - '@langchain/google-genai'
-      - '@langchain/google-vertexai'
-      - '@langchain/groq'
-      - '@langchain/mistralai'
-      - '@langchain/ollama'
-      - '@mozilla/readability'
-      - '@neondatabase/serverless'
-      - '@opensearch-project/opensearch'
-      - '@pinecone-database/pinecone'
-      - '@planetscale/database'
-      - '@premai/prem-sdk'
-      - '@qdrant/js-client-rest'
-      - '@raycast/api'
-      - '@rockset/client'
-      - '@smithy/eventstream-codec'
-      - '@smithy/protocol-http'
-      - '@smithy/signature-v4'
-      - '@smithy/util-utf8'
-      - '@supabase/postgrest-js'
-      - '@supabase/supabase-js'
-      - '@tensorflow-models/universal-sentence-encoder'
-      - '@tensorflow/tfjs-converter'
-      - '@tensorflow/tfjs-core'
       - '@types/react'
       - '@types/react-dom'
-      - '@upstash/redis'
-      - '@upstash/vector'
-      - '@vercel/kv'
-      - '@vercel/postgres'
-      - '@writerai/writer-sdk'
-      - '@xata.io/client'
-      - '@xenova/transformers'
-      - '@zilliz/milvus2-sdk-node'
-      - axios
-      - better-sqlite3
-      - cassandra-driver
-      - cborg
-      - cheerio
-      - chromadb
-      - closevector-common
-      - closevector-node
-      - closevector-web
-      - cohere-ai
-      - convex
-      - couchbase
-      - discord.js
-      - dria
-      - duck-duck-scrape
       - encoding
-      - faiss-node
-      - firebase-admin
-      - google-auth-library
-      - googleapis
-      - handlebars
-      - hnswlib-node
-      - html-to-text
-      - interface-datastore
-      - ioredis
-      - it-all
-      - jsdom
-      - jsonwebtoken
-      - llmonitor
-      - lodash
-      - lunary
-      - mongodb
-      - mysql2
-      - neo4j-driver
-      - node-llama-cpp
-      - peggy
-      - pg
-      - pg-copy-streams
-      - pickleparser
-      - portkey-ai
-      - redis
-      - replicate
+      - graphql
       - supports-color
-      - typeorm
-      - typesense
-      - usearch
-      - vectordb
-      - voy-search
-      - weaviate-ts-client
-      - web-auth-library
-      - ws
 
-  '@copilotkit/react-ui@1.4.0(@types/react@18.3.5)(google-auth-library@8.9.0)(lodash@4.17.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkit/react-ui@1.4.1(@types/react@18.3.5)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@copilotkit/react-core': 1.4.0(google-auth-library@8.9.0)(lodash@4.17.21)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@copilotkit/runtime-client-gql': 1.4.0(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)
-      '@copilotkit/shared': 1.4.0
+      '@copilotkit/react-core': 1.4.1(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@copilotkit/runtime-client-gql': 1.4.1(graphql@16.9.0)(react@18.3.1)
+      '@copilotkit/shared': 1.4.1
       '@headlessui/react': 2.1.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       react-markdown: 8.0.7(@types/react@18.3.5)(react@18.3.1)
@@ -4692,252 +4490,40 @@ snapshots:
       remark-gfm: 3.0.1
       remark-math: 5.1.1
     transitivePeerDependencies:
-      - '@aws-crypto/sha256-js'
-      - '@aws-sdk/client-bedrock-agent-runtime'
-      - '@aws-sdk/client-bedrock-runtime'
-      - '@aws-sdk/client-dynamodb'
-      - '@aws-sdk/client-kendra'
-      - '@aws-sdk/client-lambda'
-      - '@aws-sdk/client-sagemaker-runtime'
-      - '@aws-sdk/client-sfn'
-      - '@aws-sdk/credential-provider-node'
-      - '@azure/search-documents'
-      - '@clickhouse/client'
-      - '@cloudflare/ai'
-      - '@datastax/astra-db-ts'
-      - '@elastic/elasticsearch'
-      - '@getmetal/metal-sdk'
-      - '@getzep/zep-js'
-      - '@gomomento/sdk'
-      - '@gomomento/sdk-core'
-      - '@google-ai/generativelanguage'
-      - '@gradientai/nodejs-sdk'
-      - '@huggingface/inference'
-      - '@langchain/anthropic'
-      - '@langchain/aws'
-      - '@langchain/cohere'
-      - '@langchain/google-genai'
-      - '@langchain/google-vertexai'
-      - '@langchain/groq'
-      - '@langchain/mistralai'
-      - '@langchain/ollama'
-      - '@mozilla/readability'
-      - '@neondatabase/serverless'
-      - '@opensearch-project/opensearch'
-      - '@pinecone-database/pinecone'
-      - '@planetscale/database'
-      - '@premai/prem-sdk'
-      - '@qdrant/js-client-rest'
-      - '@raycast/api'
-      - '@rockset/client'
-      - '@smithy/eventstream-codec'
-      - '@smithy/protocol-http'
-      - '@smithy/signature-v4'
-      - '@smithy/util-utf8'
-      - '@supabase/postgrest-js'
-      - '@supabase/supabase-js'
-      - '@tensorflow-models/universal-sentence-encoder'
-      - '@tensorflow/tfjs-converter'
-      - '@tensorflow/tfjs-core'
       - '@types/react'
-      - '@upstash/redis'
-      - '@upstash/vector'
-      - '@vercel/kv'
-      - '@vercel/postgres'
-      - '@writerai/writer-sdk'
-      - '@xata.io/client'
-      - '@xenova/transformers'
-      - '@zilliz/milvus2-sdk-node'
-      - axios
-      - better-sqlite3
-      - cassandra-driver
-      - cborg
-      - cheerio
-      - chromadb
-      - closevector-common
-      - closevector-node
-      - closevector-web
-      - cohere-ai
-      - convex
-      - couchbase
-      - discord.js
-      - dria
-      - duck-duck-scrape
       - encoding
-      - faiss-node
-      - firebase-admin
-      - google-auth-library
-      - googleapis
-      - handlebars
-      - hnswlib-node
-      - html-to-text
-      - interface-datastore
-      - ioredis
-      - it-all
-      - jsdom
-      - jsonwebtoken
-      - llmonitor
-      - lodash
-      - lunary
-      - mongodb
-      - mysql2
-      - neo4j-driver
-      - node-llama-cpp
-      - peggy
-      - pg
-      - pg-copy-streams
-      - pickleparser
-      - portkey-ai
+      - graphql
       - react-dom
-      - redis
-      - replicate
       - supports-color
-      - typeorm
-      - typesense
-      - usearch
-      - vectordb
-      - voy-search
-      - weaviate-ts-client
-      - web-auth-library
-      - ws
 
-  '@copilotkit/runtime-client-gql@1.4.0(google-auth-library@8.9.0)(lodash@4.17.21)(react@18.3.1)':
+  '@copilotkit/runtime-client-gql@1.4.1(graphql@16.9.0)(react@18.3.1)':
     dependencies:
-      '@copilotkit/runtime': 1.4.0(class-validator@0.14.1)(google-auth-library@8.9.0)(lodash@4.17.21)
-      '@copilotkit/shared': 1.4.0
+      '@copilotkit/shared': 1.4.1
       '@urql/core': 5.0.6(graphql@16.9.0)
-      class-transformer: 0.5.1
-      class-validator: 0.14.1
-      graphql: 16.9.0
       react: 18.3.1
       untruncate-json: 0.0.1
       urql: 4.1.0(@urql/core@5.0.6(graphql@16.9.0))(react@18.3.1)
-      wonka: 6.3.4
     transitivePeerDependencies:
-      - '@aws-crypto/sha256-js'
-      - '@aws-sdk/client-bedrock-agent-runtime'
-      - '@aws-sdk/client-bedrock-runtime'
-      - '@aws-sdk/client-dynamodb'
-      - '@aws-sdk/client-kendra'
-      - '@aws-sdk/client-lambda'
-      - '@aws-sdk/client-sagemaker-runtime'
-      - '@aws-sdk/client-sfn'
-      - '@aws-sdk/credential-provider-node'
-      - '@azure/search-documents'
-      - '@clickhouse/client'
-      - '@cloudflare/ai'
-      - '@datastax/astra-db-ts'
-      - '@elastic/elasticsearch'
-      - '@getmetal/metal-sdk'
-      - '@getzep/zep-js'
-      - '@gomomento/sdk'
-      - '@gomomento/sdk-core'
-      - '@google-ai/generativelanguage'
-      - '@gradientai/nodejs-sdk'
-      - '@huggingface/inference'
-      - '@langchain/anthropic'
-      - '@langchain/aws'
-      - '@langchain/cohere'
-      - '@langchain/google-genai'
-      - '@langchain/google-vertexai'
-      - '@langchain/groq'
-      - '@langchain/mistralai'
-      - '@langchain/ollama'
-      - '@mozilla/readability'
-      - '@neondatabase/serverless'
-      - '@opensearch-project/opensearch'
-      - '@pinecone-database/pinecone'
-      - '@planetscale/database'
-      - '@premai/prem-sdk'
-      - '@qdrant/js-client-rest'
-      - '@raycast/api'
-      - '@rockset/client'
-      - '@smithy/eventstream-codec'
-      - '@smithy/protocol-http'
-      - '@smithy/signature-v4'
-      - '@smithy/util-utf8'
-      - '@supabase/postgrest-js'
-      - '@supabase/supabase-js'
-      - '@tensorflow-models/universal-sentence-encoder'
-      - '@tensorflow/tfjs-converter'
-      - '@tensorflow/tfjs-core'
-      - '@upstash/redis'
-      - '@upstash/vector'
-      - '@vercel/kv'
-      - '@vercel/postgres'
-      - '@writerai/writer-sdk'
-      - '@xata.io/client'
-      - '@xenova/transformers'
-      - '@zilliz/milvus2-sdk-node'
-      - axios
-      - better-sqlite3
-      - cassandra-driver
-      - cborg
-      - cheerio
-      - chromadb
-      - closevector-common
-      - closevector-node
-      - closevector-web
-      - cohere-ai
-      - convex
-      - couchbase
-      - discord.js
-      - dria
-      - duck-duck-scrape
       - encoding
-      - faiss-node
-      - firebase-admin
-      - google-auth-library
-      - googleapis
-      - handlebars
-      - hnswlib-node
-      - html-to-text
-      - interface-datastore
-      - ioredis
-      - it-all
-      - jsdom
-      - jsonwebtoken
-      - llmonitor
-      - lodash
-      - lunary
-      - mongodb
-      - mysql2
-      - neo4j-driver
-      - node-llama-cpp
-      - peggy
-      - pg
-      - pg-copy-streams
-      - pickleparser
-      - portkey-ai
-      - redis
-      - replicate
-      - supports-color
-      - typeorm
-      - typesense
-      - usearch
-      - vectordb
-      - voy-search
-      - weaviate-ts-client
-      - web-auth-library
-      - ws
+      - graphql
 
-  '@copilotkit/runtime@1.4.0(class-validator@0.14.1)(google-auth-library@8.9.0)(lodash@4.17.21)':
+  '@copilotkit/runtime@1.4.1(class-validator@0.14.1)(google-auth-library@8.9.0)(lodash@4.17.21)':
     dependencies:
       '@anthropic-ai/sdk': 0.27.3
-      '@copilotkit/shared': 1.4.0
+      '@copilotkit/shared': 1.4.1
       '@graphql-yoga/plugin-defer-stream': 3.7.0(graphql-yoga@5.7.0(graphql@16.9.0))(graphql@16.9.0)
-      '@langchain/community': 0.0.53(google-auth-library@8.9.0)(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(lodash@4.17.21)(openai@4.71.0(zod@3.23.8))
-      '@langchain/core': 0.3.17(openai@4.71.0(zod@3.23.8))
-      '@langchain/google-gauth': 0.1.0(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(zod@3.23.8)
+      '@langchain/community': 0.0.53(google-auth-library@8.9.0)(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(lodash@4.17.21)(openai@4.71.0(zod@3.23.8))
+      '@langchain/core': 0.3.17(openai@4.57.0(zod@3.23.8))
+      '@langchain/google-gauth': 0.1.0(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(zod@3.23.8)
       '@langchain/langgraph-sdk': 0.0.16
-      '@langchain/openai': 0.0.28(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))
+      '@langchain/openai': 0.0.28(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))
       class-transformer: 0.5.1
       express: 4.19.2
       graphql: 16.9.0
       graphql-scalars: 1.23.0(graphql@16.9.0)
       graphql-yoga: 5.7.0(graphql@16.9.0)
       groq-sdk: 0.5.0
-      langchain: 0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8))
+      langchain: 0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8))
       openai: 4.71.0(zod@3.23.8)
       partial-json: 0.1.7
       pino: 9.4.0
@@ -5055,11 +4641,13 @@ snapshots:
       - web-auth-library
       - ws
 
-  '@copilotkit/shared@1.4.0':
+  '@copilotkit/shared@1.4.1':
     dependencies:
       '@segment/analytics-node': 2.1.2
       chalk: 4.1.2
       uuid: 10.0.0
+      zod: 3.23.8
+      zod-to-json-schema: 3.23.5(zod@3.23.8)
     transitivePeerDependencies:
       - encoding
 
@@ -5321,13 +4909,13 @@ snapshots:
 
   '@kamilkisiela/fast-url-parser@1.1.4': {}
 
-  '@langchain/community@0.0.53(google-auth-library@8.9.0)(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(lodash@4.17.21)(openai@4.71.0(zod@3.23.8))':
+  '@langchain/community@0.0.53(google-auth-library@8.9.0)(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(lodash@4.17.21)(openai@4.71.0(zod@3.23.8))':
     dependencies:
-      '@langchain/core': 0.1.63(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8))
-      '@langchain/openai': 0.0.28(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))
+      '@langchain/core': 0.1.63(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8))
+      '@langchain/openai': 0.0.28(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))
       expr-eval: 2.0.2
       flat: 5.0.2
-      langsmith: 0.1.49(@langchain/core@0.1.63(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8))
+      langsmith: 0.1.49(@langchain/core@0.1.63(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8))
       uuid: 9.0.1
       zod: 3.23.8
       zod-to-json-schema: 3.23.2(zod@3.23.8)
@@ -5339,13 +4927,13 @@ snapshots:
       - langchain
       - openai
 
-  '@langchain/core@0.1.63(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8))':
+  '@langchain/core@0.1.63(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8))':
     dependencies:
       ansi-styles: 5.2.0
       camelcase: 6.3.0
       decamelize: 1.2.0
       js-tiktoken: 1.0.14
-      langsmith: 0.1.49(@langchain/core@0.1.63(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8))
+      langsmith: 0.1.49(@langchain/core@0.1.63(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8))
       ml-distance: 4.0.1
       mustache: 4.2.0
       p-queue: 6.6.2
@@ -5357,31 +4945,13 @@ snapshots:
       - langchain
       - openai
 
-  '@langchain/core@0.2.31(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8))':
+  '@langchain/core@0.2.31(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8))':
     dependencies:
       ansi-styles: 5.2.0
       camelcase: 6.3.0
       decamelize: 1.2.0
       js-tiktoken: 1.0.14
-      langsmith: 0.1.49(@langchain/core@0.2.31(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8))
-      mustache: 4.2.0
-      p-queue: 6.6.2
-      p-retry: 4.6.2
-      uuid: 10.0.0
-      zod: 3.23.8
-      zod-to-json-schema: 3.23.2(zod@3.23.8)
-    transitivePeerDependencies:
-      - langchain
-      - openai
-    optional: true
-
-  '@langchain/core@0.2.31(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8))':
-    dependencies:
-      ansi-styles: 5.2.0
-      camelcase: 6.3.0
-      decamelize: 1.2.0
-      js-tiktoken: 1.0.14
-      langsmith: 0.1.49(@langchain/core@0.2.31(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8))
+      langsmith: 0.1.49(@langchain/core@0.2.31(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8))
       mustache: 4.2.0
       p-queue: 6.6.2
       p-retry: 4.6.2
@@ -5408,23 +4978,7 @@ snapshots:
     transitivePeerDependencies:
       - openai
 
-  '@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8))':
-    dependencies:
-      ansi-styles: 5.2.0
-      camelcase: 6.3.0
-      decamelize: 1.2.0
-      js-tiktoken: 1.0.14
-      langsmith: 0.2.4(openai@4.71.0(zod@3.23.8))
-      mustache: 4.2.0
-      p-queue: 6.6.2
-      p-retry: 4.6.2
-      uuid: 10.0.0
-      zod: 3.23.8
-      zod-to-json-schema: 3.23.2(zod@3.23.8)
-    transitivePeerDependencies:
-      - openai
-
-  '@langchain/google-common@0.1.1(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(zod@3.23.8)':
+  '@langchain/google-common@0.1.1(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(zod@3.23.8)':
     dependencies:
       '@langchain/core': 0.3.17(openai@4.57.0(zod@3.23.8))
       uuid: 10.0.0
@@ -5432,10 +4986,10 @@ snapshots:
     transitivePeerDependencies:
       - zod
 
-  '@langchain/google-gauth@0.1.0(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(zod@3.23.8)':
+  '@langchain/google-gauth@0.1.0(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(zod@3.23.8)':
     dependencies:
       '@langchain/core': 0.3.17(openai@4.57.0(zod@3.23.8))
-      '@langchain/google-common': 0.1.1(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(zod@3.23.8)
+      '@langchain/google-common': 0.1.1(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(zod@3.23.8)
       google-auth-library: 8.9.0
     transitivePeerDependencies:
       - encoding
@@ -5449,9 +5003,9 @@ snapshots:
       p-retry: 4.6.2
       uuid: 9.0.1
 
-  '@langchain/openai@0.0.28(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))':
+  '@langchain/openai@0.0.28(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))':
     dependencies:
-      '@langchain/core': 0.1.63(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8))
+      '@langchain/core': 0.1.63(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8))
       js-tiktoken: 1.0.14
       openai: 4.71.0(zod@3.23.8)
       zod: 3.23.8
@@ -5460,7 +5014,7 @@ snapshots:
       - encoding
       - langchain
 
-  '@langchain/openai@0.3.12(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))':
+  '@langchain/openai@0.3.12(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))':
     dependencies:
       '@langchain/core': 0.3.17(openai@4.57.0(zod@3.23.8))
       js-tiktoken: 1.0.14
@@ -5470,18 +5024,9 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  '@langchain/textsplitters@0.0.3(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8))':
+  '@langchain/textsplitters@0.0.3(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8))':
     dependencies:
-      '@langchain/core': 0.2.31(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8))
-      js-tiktoken: 1.0.14
-    transitivePeerDependencies:
-      - langchain
-      - openai
-    optional: true
-
-  '@langchain/textsplitters@0.0.3(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8))':
-    dependencies:
-      '@langchain/core': 0.2.31(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8))
+      '@langchain/core': 0.2.31(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8))
       js-tiktoken: 1.0.14
     transitivePeerDependencies:
       - langchain
@@ -6245,7 +5790,8 @@ snapshots:
 
   '@types/uuid@10.0.0': {}
 
-  '@types/validator@13.12.1': {}
+  '@types/validator@13.12.1':
+    optional: true
 
   '@typescript-eslint/parser@7.2.0(eslint@8.57.0)(typescript@5.5.4)':
     dependencies:
@@ -6594,6 +6140,7 @@ snapshots:
       '@types/validator': 13.12.1
       libphonenumber-js: 1.11.7
       validator: 13.12.0
+    optional: true
 
   class-variance-authority@0.6.1:
     dependencies:
@@ -7840,11 +7387,11 @@ snapshots:
 
   kleur@4.1.5: {}
 
-  langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)):
+  langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)):
     dependencies:
       '@langchain/core': 0.3.17(openai@4.57.0(zod@3.23.8))
-      '@langchain/openai': 0.3.12(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))
-      '@langchain/textsplitters': 0.0.3(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8))
+      '@langchain/openai': 0.3.12(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))
+      '@langchain/textsplitters': 0.0.3(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8))
       js-tiktoken: 1.0.14
       js-yaml: 4.1.0
       jsonpointer: 5.0.1
@@ -7858,28 +7405,8 @@ snapshots:
     transitivePeerDependencies:
       - encoding
       - openai
-    optional: true
 
-  langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)):
-    dependencies:
-      '@langchain/core': 0.3.17(openai@4.57.0(zod@3.23.8))
-      '@langchain/openai': 0.3.12(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))
-      '@langchain/textsplitters': 0.0.3(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8))
-      js-tiktoken: 1.0.14
-      js-yaml: 4.1.0
-      jsonpointer: 5.0.1
-      langsmith: 0.2.4(openai@4.71.0(zod@3.23.8))
-      openapi-types: 12.1.3
-      p-retry: 4.6.2
-      uuid: 10.0.0
-      yaml: 2.5.0
-      zod: 3.23.8
-      zod-to-json-schema: 3.23.2(zod@3.23.8)
-    transitivePeerDependencies:
-      - encoding
-      - openai
-
-  langsmith@0.1.49(@langchain/core@0.1.63(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)):
+  langsmith@0.1.49(@langchain/core@0.1.63(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)):
     dependencies:
       '@types/uuid': 10.0.0
       commander: 10.0.1
@@ -7888,11 +7415,11 @@ snapshots:
       semver: 7.6.3
       uuid: 10.0.0
     optionalDependencies:
-      '@langchain/core': 0.1.63(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8))
-      langchain: 0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8))
+      '@langchain/core': 0.1.63(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8))
+      langchain: 0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8))
       openai: 4.71.0(zod@3.23.8)
 
-  langsmith@0.1.49(@langchain/core@0.2.31(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)):
+  langsmith@0.1.49(@langchain/core@0.2.31(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)):
     dependencies:
       '@types/uuid': 10.0.0
       commander: 10.0.1
@@ -7901,23 +7428,9 @@ snapshots:
       semver: 7.6.3
       uuid: 10.0.0
     optionalDependencies:
-      '@langchain/core': 0.2.31(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8))
-      langchain: 0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8))
+      '@langchain/core': 0.2.31(langchain@0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8))
+      langchain: 0.3.5(@langchain/core@0.3.17(openai@4.71.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8))
       openai: 4.57.0(zod@3.23.8)
-    optional: true
-
-  langsmith@0.1.49(@langchain/core@0.2.31(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)))(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8)):
-    dependencies:
-      '@types/uuid': 10.0.0
-      commander: 10.0.1
-      p-queue: 6.6.2
-      p-retry: 4.6.2
-      semver: 7.6.3
-      uuid: 10.0.0
-    optionalDependencies:
-      '@langchain/core': 0.2.31(langchain@0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8)))(openai@4.71.0(zod@3.23.8))
-      langchain: 0.3.5(@langchain/core@0.3.17(openai@4.57.0(zod@3.23.8)))(openai@4.57.0(zod@3.23.8))
-      openai: 4.71.0(zod@3.23.8)
 
   langsmith@0.2.4(openai@4.57.0(zod@3.23.8)):
     dependencies:
@@ -7930,17 +7443,6 @@ snapshots:
     optionalDependencies:
       openai: 4.57.0(zod@3.23.8)
 
-  langsmith@0.2.4(openai@4.71.0(zod@3.23.8)):
-    dependencies:
-      '@types/uuid': 10.0.0
-      commander: 10.0.1
-      p-queue: 6.6.2
-      p-retry: 4.6.2
-      semver: 7.6.3
-      uuid: 10.0.0
-    optionalDependencies:
-      openai: 4.71.0(zod@3.23.8)
-
   language-subtag-registry@0.3.23: {}
 
   language-tags@1.0.9:
@@ -7952,7 +7454,8 @@ snapshots:
       prelude-ls: 1.2.1
       type-check: 0.4.0
 
-  libphonenumber-js@1.11.7: {}
+  libphonenumber-js@1.11.7:
+    optional: true
 
   lilconfig@2.1.0: {}
 
@@ -9744,7 +9247,8 @@ snapshots:
       kleur: 4.1.5
       sade: 1.8.1
 
-  validator@13.12.0: {}
+  validator@13.12.0:
+    optional: true
 
   value-or-promise@1.0.12: {}
 
@@ -9854,6 +9358,10 @@ snapshots:
   yocto-queue@0.1.0: {}
 
   zod-to-json-schema@3.23.2(zod@3.23.8):
+    dependencies:
+      zod: 3.23.8
+
+  zod-to-json-schema@3.23.5(zod@3.23.8):
     dependencies:
       zod: 3.23.8
 
