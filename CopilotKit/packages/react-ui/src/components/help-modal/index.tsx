@@ -1,1 +1,1 @@
-export { CopilotKitHelpModal } from './modal'
+export { CopilotKitHelpModal } from "./modal";
