@@ -4,6 +4,12 @@ This example demonstrates a research canvas UI.
 
 Live demo: https://examples-coagents-research-canvas-ui.vercel.app/
 
+Tutorial Video:
+
+[![IMAGE ALT TEXT](http://img.youtube.com/vi/0b6BVqPwqA0/0.jpg)](http://www.youtube.com/watch?v=0b6BVqPwqA0 "Build Agent-Native Apps with LangGraph & CoAgents (tutorial)")
+
+
+
 ---
 
 ## Running the Agent

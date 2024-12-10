@@ -1,1 +1,1 @@
-# CopilotKit python SDK (alpha)
+# CopilotKit python SDK

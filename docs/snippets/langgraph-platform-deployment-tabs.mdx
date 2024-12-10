@@ -1,4 +1,4 @@
-<Tabs items={['LangGraph Studio (local development)', 'LangGraph Platform (cloud)']}>
+<Tabs items={['LangGraph Studio (local development)', 'LangGraph CLI (local development)', 'LangGraph Platform (cloud)']}>
 
     <Tab value="LangGraph Studio (local development)">
         For local deployment during development, you can [use LangGraph Studio](https://langchain-ai.github.io/langgraph/cloud/how-tos/test_local_deployment/).
@@ -9,7 +9,7 @@
         3. In the `.env` file, include your `LANGSMITH_API_KEY`.
         </Callout>
 
-        A successful deployment will yield an API URL (often referred to here as "deployment URL"). 
+        A successful deployment will yield an API URL (often referred to here as "deployment URL").
         It will generally look like this: `http://localhost:63899`.
 
         Come back with that URL and a LangSmith API key before proceeding.
@@ -17,10 +17,23 @@
         <img src="/images/langgraph-studio-local-url.png" alt="LangGraph Studio Local URL" className="my-4" />
     </Tab>
 
+    <Tab value="LangGraph CLI (local development)">
+        For local development, you can use the LangGraph CLI to deploy your LangGraph agent.
+        To ensure a successful deployment, follow these steps from the LangGraph CLI documentation:
+            1. Make sure your agent folder contains a `langgraph.json` file.
+            2. In the `langgraph.json` file, reference the path to a `.env` file.
+            3. In the `.env` file, include your `LANGSMITH_API_KEY`.
+            4. Install the LangGraph CLI: `pip install "langgraph-cli[inmem]>=0.1.55"`
+            5. Run agent locally: `langgraph up --port <port> --host 0.0.0.0 --no-browser`
+        <Callout type="warn">
+            If you are using LangGraph.js, at the moment, you can only run the agent locally using `langgraph up`. LangGraph.js does not support running the agent using development server (`langgraph dev`).
+        </Callout>
+    </Tab>
+
     <Tab value="LangGraph Platform (cloud)">
         For production, you can deploy to LangGraph Platform by following the official [LangGraph Platform deployment guide](https://langchain-ai.github.io/langgraph/cloud/deployment/cloud/).
 
-        A successful deployment will yield an API URL (often referred to here as "deployment URL"). 
+        A successful deployment will yield an API URL (often referred to here as "deployment URL").
         It will look like this: `https://{project-identifiers}.langgraph.app`.
 
         Come back with that URL and a LangSmith API key before proceeding.

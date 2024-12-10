@@ -24,9 +24,20 @@ if [[ $current_branch == pre/* ]]; then
   read -p "Enter tag (suggested: \"pre\" - press Enter to confirm): " tag
   tag=${tag:-pre}
 else
-  read -p "Enter tag (e.g. some-feature): " user_input
-  tag=${user_input}
+  # replace underscores in current_branch with hyphens
+  suggested_tag=$(echo $current_branch | sed 's/_/-/g')
+
+  # replace all non-alphanumeric characters except hyphens
+  suggested_tag=$(echo $suggested_tag | sed 's/[^a-zA-Z0-9-]/-/g')
+
+  # chop leading and trailing hyphens
+  suggested_tag=$(echo $suggested_tag | sed 's/^-//;s/-$//')
+  
+  read -p "Enter tag (suggested: \"$suggested_tag\" - press Enter to confirm): " tag
+  tag=${tag:-$suggested_tag}
 fi
+
+echo "TAG IS $tag"
 
 if [ -z "$tag" ]; then
   printf "\e[41m\e[97m!!\e[0m Error: Tag cannot be empty\n"
@@ -49,11 +60,8 @@ if [ "$response" != "y" ]; then
   exit 1
 fi
 
-
-
-
 # enter pre mode
-pnpm changeset pre enter pre
+pnpm changeset pre enter $tag
 
 # select the packages to push an update for
 pnpm changeset
