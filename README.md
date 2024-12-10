@@ -46,8 +46,8 @@
 </div>
 <br />
 
-![Frame 1948760568 (1)](https://github.com/user-attachments/assets/0835847a-5952-4047-a117-bc532eaee7f6)
 
+<img width="1685" alt="214 (1)" src="https://github.com/user-attachments/assets/145600ce-c49b-4e25-883e-feee149d6332">
 
 
 # Demos (click to clone / run)
