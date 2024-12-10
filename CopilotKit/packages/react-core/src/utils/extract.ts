@@ -99,22 +99,8 @@ export async function extract<const T extends Parameter[]>({
     role: Role.User,
   });
 
-  const headers = {
-    ...(context.copilotApiConfig.headers || {}),
-    ...(context.copilotApiConfig.publicApiKey
-      ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: context.copilotApiConfig.publicApiKey }
-      : {}),
-  };
-
-  const runtimeClient = new CopilotRuntimeClient({
-    url: context.copilotApiConfig.chatApiEndpoint,
-    publicApiKey: context.copilotApiConfig.publicApiKey,
-    headers,
-    credentials: context.copilotApiConfig.credentials,
-  });
-
-  const response = CopilotRuntimeClient.asStream(
-    runtimeClient.generateCopilotResponse({
+  const response = context.runtimeClient.asStream(
+    context.runtimeClient.generateCopilotResponse({
       data: {
         frontend: {
           actions: [
