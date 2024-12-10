@@ -204,8 +204,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         role: Role.Assistant,
       }),
     ];
-    const abortController = new AbortController();
-    chatAbortControllerRef.current = abortController;
+
+    chatAbortControllerRef.current = new AbortController();
 
     setMessages([...previousMessages, ...newMessages]);
 
@@ -279,6 +279,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         const { done, value } = await reader.read();
 
         if (done) {
+          if (chatAbortControllerRef.current.signal.aborted) {
+            return newMessages.slice();
+          }
           break;
         }
 
@@ -343,12 +346,19 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                     followUp = action.followUp;
                   }
 
-                  const result = await onFunctionCall({
-                    messages: previousMessages,
-                    name: message.name,
-                    args: message.arguments,
-                  });
-                  actionResults[message.id] = result;
+                  const result = await Promise.race([
+                    onFunctionCall({
+                      messages: previousMessages,
+                      name: message.name,
+                      args: message.arguments,
+                    }),
+                    new Promise((_, reject) => chatAbortControllerRef.current?.signal.addEventListener('abort', () => reject(new Error('Operation was aborted'))))
+                  ])
+                  if (chatAbortControllerRef.current.signal.aborted){
+                    actionResults[message.id] = "";
+                  } else {
+                    actionResults[message.id] = result;
+                  }
                 } catch (e) {
                   actionResults[message.id] = `Failed to execute action ${message.name}`;
                   console.error(`Failed to execute action ${message.name}: ${e}`);
@@ -475,7 +485,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   };
 
   const stop = (): void => {
-    chatAbortControllerRef.current?.abort();
+    chatAbortControllerRef.current?.abort("Stop was called");
   };
 
   return {
