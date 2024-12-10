@@ -2,26 +2,17 @@
  * Test Q&A Agent
  */
 
-import { tool } from "@langchain/core/tools";
-import { z } from "zod";
 import { RunnableConfig } from "@langchain/core/runnables";
 import {
   copilotKitCustomizeConfig,
   copilotKitEmitMessage,
   copilotKitExit,
+  convertActionsToDynamicStructuredTools,
 } from "@copilotkit/sdk-js/langchain";
 import { HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { getModel } from "./model";
 import { END, MemorySaver, StateGraph } from "@langchain/langgraph";
 import { AgentState, AgentStateAnnotation } from "./state";
-
-const EmailTool = tool(() => {}, {
-  name: "EmailTool",
-  description: "Write an email.",
-  schema: z.object({
-    the_email: z.string().describe("The email to be written."),
-  }),
-});
 
 export async function email_node(state: AgentState, config: RunnableConfig) {
   /**
@@ -34,9 +25,12 @@ export async function email_node(state: AgentState, config: RunnableConfig) {
 
   const instructions = "You write emails.";
 
-  const email_model = getModel(state).bindTools!([EmailTool], {
-    tool_choice: "EmailTool",
-  });
+  const email_model = getModel(state).bindTools!(
+    convertActionsToDynamicStructuredTools(state.copilotkit.actions),
+    {
+      tool_choice: "EmailTool",
+    }
+  );
 
   const response = await email_model.invoke(
     [...state.messages, new HumanMessage({ content: instructions })],
