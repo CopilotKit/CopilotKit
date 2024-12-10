@@ -1,5 +1,29 @@
 # @copilotkit/runtime-client-gql
 
+## 1.4.1
+
+### Patch Changes
+
+- 1721cbd: lower case copilotkit property
+- 1721cbd: add zod conversion
+- 8d0144f: bump
+- 8d0144f: bump
+- 8d0144f: bump
+- e16d95e: New prerelease
+- 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
+- 8d0144f: bump
+- 8d0144f: bump
+- Updated dependencies [1721cbd]
+- Updated dependencies [1721cbd]
+- Updated dependencies [8d0144f]
+- Updated dependencies [8d0144f]
+- Updated dependencies [8d0144f]
+- Updated dependencies [e16d95e]
+- Updated dependencies [1721cbd]
+- Updated dependencies [8d0144f]
+- Updated dependencies [8d0144f]
+  - @copilotkit/shared@1.4.1
+
 ## 1.4.1-pre.5
 
 ### Patch Changes
