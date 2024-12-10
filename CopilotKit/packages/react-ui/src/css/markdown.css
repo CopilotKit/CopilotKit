@@ -42,6 +42,11 @@
   font-size: 0.8em;
 }
 
+.copilotKitMarkdown p {
+  padding: 0px;
+  margin: 0px;
+}
+
 .copilotKitMarkdown p:not(:last-child),
 .copilotKitMarkdown pre:not(:last-child),
 .copilotKitMarkdown ol:not(:last-child),
