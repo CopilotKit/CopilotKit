@@ -141,6 +141,8 @@ In order for CopilotKit to integrate with your LangGraph agent, it has to be dep
       <LangGraphPlatformDeploymentTabs components={props.components} />
 
       ## Integrate your LangGraph agent with CopilotKit
+      Now that you've deployed your agent to LangGraph Platform, you will need to integrate it into your CopilotKit application.
+
       <TailoredContent>
         <TailoredContentOption
           title="Copilot Cloud (Recommended)"
@@ -164,15 +166,10 @@ In order for CopilotKit to integrate with your LangGraph agent, it has to be dep
           icon={<FaPython />}
         >
           <Steps>
+
             <Step>
               ## Find your CopilotRuntime instance
               <FindYourCopilotRuntime components={props.components} />
-              <SelfHostingCopilotRuntimeCreateEndpoint components={props.components} />
-
-              Now that you've deployed your agent to LangGraph Platform, you will need to integrate it into your CopilotKit application.
-
-              First, find your CopilotRuntime instance in your code. If you followed the quickstart, it'll be where you set up the
-              `/api/copilotkit` endpoint.
             </Step>
             <Step>
               ## Connect the app to the remote endpoint
