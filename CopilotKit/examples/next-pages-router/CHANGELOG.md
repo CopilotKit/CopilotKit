@@ -1,5 +1,65 @@
 # next-pages-router
 
+## 1.4.1-pre.5
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/react-textarea@1.4.1-pre.5
+  - @copilotkit/react-core@1.4.1-pre.5
+  - @copilotkit/react-ui@1.4.1-pre.5
+  - @copilotkit/runtime@1.4.1-pre.5
+  - @copilotkit/shared@1.4.1-pre.5
+
+## 1.4.1-pre.4
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/react-textarea@1.4.1-pre.4
+  - @copilotkit/react-core@1.4.1-pre.4
+  - @copilotkit/react-ui@1.4.1-pre.4
+  - @copilotkit/runtime@1.4.1-pre.4
+  - @copilotkit/shared@1.4.1-pre.4
+
+## 1.4.1-pre.3
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/react-textarea@1.4.1-pre.3
+  - @copilotkit/react-core@1.4.1-pre.3
+  - @copilotkit/react-ui@1.4.1-pre.3
+  - @copilotkit/runtime@1.4.1-pre.3
+  - @copilotkit/shared@1.4.1-pre.3
+
+## 1.4.1-pre.2
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/react-textarea@1.4.1-pre.2
+  - @copilotkit/react-core@1.4.1-pre.2
+  - @copilotkit/react-ui@1.4.1-pre.2
+  - @copilotkit/runtime@1.4.1-pre.2
+  - @copilotkit/shared@1.4.1-pre.2
+
+## 1.4.1-pre.1
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/react-textarea@1.4.1-pre.1
+  - @copilotkit/react-core@1.4.1-pre.1
+  - @copilotkit/react-ui@1.4.1-pre.1
+  - @copilotkit/runtime@1.4.1-pre.1
+  - @copilotkit/shared@1.4.1-pre.1
+
 ## 1.4.1-pre.0
 
 ### Patch Changes

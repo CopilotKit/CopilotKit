@@ -1,5 +1,45 @@
 # @copilotkit/sdk-js
 
+## 1.4.1-pre.5
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/shared@1.4.1-pre.5
+
+## 1.4.1-pre.4
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/shared@1.4.1-pre.4
+
+## 1.4.1-pre.3
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/shared@1.4.1-pre.3
+
+## 1.4.1-pre.2
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/shared@1.4.1-pre.2
+
+## 1.4.1-pre.1
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/shared@1.4.1-pre.1
+
 ## 1.4.1-pre.0
 
 ### Patch Changes
