@@ -2,6 +2,7 @@
 title: JSON Approval
 description: Implement approval UI for your agent.
 ---
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 
 You can easily pass questions to the frontend for the user to answer in the AI Chat.
 
@@ -205,7 +206,11 @@ NOTICE that we have a `interrupt_after` for `draft_email_node` (the node that in
 </Tabs>
 
 </Step>
-
+<Step>
+### Install the CopilotKit SDK
+<InstallSDKSnippet components={props.components}/>
+In this guide its required that we install the SDK!
+</Step>
 <Step>
 
 ### Define the agent's nodes and orchestrate the workflow using LangGraph.
