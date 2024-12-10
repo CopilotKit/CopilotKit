@@ -145,7 +145,7 @@ Get started in minutes - check out the [quickstart documentation](https://docs.c
 // Headless UI with full control
 const { visibleMessages, appendMessage, setMessages, ... } = useCopilotChat();
 
-// Pre-built components with deep customization options
+// Pre-built components with deep customization options (CSS + pass custom sub-components)
 <CopilotPopup 
   instructions={"You are assisting the user as best as you can. Answer in the best way possible given the data you have."} 
   labels={{ title: "Popup Assistant", initial: "Need any help?" }} 
@@ -164,7 +164,7 @@ useCopilotKnowledgebase(myCustomKnowledgeBase)
 
 // ---
 
-// Frontend actions + generative UI
+// Frontend actions + generative UI, with full streaming support
 useCopilotAction({
   name: "appendToSpreadsheet",
   description: "Append rows to the current spreadsheet",
@@ -177,7 +177,7 @@ useCopilotAction({
 
 // ---
 
-// autocomplete for antyhing
+// structured autocomplete for anything
 const { suggestions } = useCopilotStructuredAutocompletion(
   {
     instructions: `Autocomplete or modify spreadsheet rows based on the inferred user intent.`,
@@ -190,7 +190,6 @@ const { suggestions } = useCopilotStructuredAutocompletion(
 
 # Code Samples (CoAgents: in-app LangGraph Agents)
 
-### State Sharing and Generative UI
 ```ts
 // Share state between app and agent
 const { agentState } = useCoAgent({ 
@@ -220,7 +219,7 @@ useCopilotAction({
 
 // ---
 
-// intermediate agent state streamin (LangGraph.js + LangGraph python)
+// intermediate agent state streaming (supports both LangGraph.js + LangGraph python)
 const modifiedConfig = copilotKitCustomizeConfig(config, {
   emitIntermediateState: [{ 
     stateKey: "outline", 
