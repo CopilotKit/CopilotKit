@@ -29,45 +29,51 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
     "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
     import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
 
-    useCopilotAction({ // [!code highlight]
-      name: "showCalendarMeeting",
-      description: "Displays calendar meeting information",
-      parameters: [
-        {
-          name: "date",
-          type: "string",
-          description: "Meeting date (YYYY-MM-DD)",
-          required: true
-        },
-        {
-          name: "time",
-          type: "string",
-          description: "Meeting time (HH:mm)",
-          required: true
-        },
-        {
-          name: "meetingName",
-          type: "string",
-          description: "Name of the meeting",
-          required: false
-        }
-      ],
-      // [!code highlight:15]
-      render: ({ status, args }) => {
-        const { date, time, meetingName } = args;
+    export function YourComponent() {
+      useCopilotAction({ // [!code highlight]
+        name: "showCalendarMeeting",
+        description: "Displays calendar meeting information",
+        parameters: [
+          {
+            name: "date",
+            type: "string",
+            description: "Meeting date (YYYY-MM-DD)",
+            required: true
+          },
+          {
+            name: "time",
+            type: "string",
+            description: "Meeting time (HH:mm)",
+            required: true
+          },
+          {
+            name: "meetingName",
+            type: "string",
+            description: "Name of the meeting",
+            required: false
+          }
+        ],
+        // [!code highlight:15]
+        render: ({ status, args }) => {
+          const { date, time, meetingName } = args;
 
-        if (status === 'inProgress') {
-          return <LoadingView />; // Your own component for loading state
-        } else {
-          const meetingProps: CalendarMeetingCardProps = {
-            date: date,
-            time,
-            meetingName
-          };
-          return <CalendarMeetingCardComponent {...meetingProps} />;
-        }
-      },
-    });
+          if (status === 'inProgress') {
+            return <LoadingView />; // Your own component for loading state
+          } else {
+            const meetingProps: CalendarMeetingCardProps = {
+              date: date,
+              time,
+              meetingName
+            };
+            return <CalendarMeetingCardComponent {...meetingProps} />;
+          }
+        },
+      });
+
+      return (
+        <>...</>
+      );
+    }
     ```
 
   </Tab>
