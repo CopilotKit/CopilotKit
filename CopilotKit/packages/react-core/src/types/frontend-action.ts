@@ -40,7 +40,9 @@ interface CompleteStateNoArgs<T extends Parameter[] | [] = []> {
 interface InProgressStateWait<T extends Parameter[] | [] = []> {
   status: "inProgress";
   args: Partial<MappedParameterTypes<T>>;
+  /** @deprecated use respond instead */
   handler: undefined;
+  respond: undefined;
   result: undefined;
 }
 
@@ -108,8 +110,14 @@ export type ActionRenderPropsNoArgsWait<T extends Parameter[] | [] = []> =
   | ExecutingStateNoArgsWait<T>
   | InProgressStateNoArgsWait<T>;
 
+export type FrontendActionAvailability = "disabled" | "enabled" | "remote";
+
 export type FrontendAction<T extends Parameter[] | [] = []> = Action<T> & {
+  /**
+   * @deprecated Use `available` instead.
+   */
   disabled?: boolean;
+  available?: FrontendActionAvailability;
   followUp?: boolean;
 } & (
     | {

@@ -8,3 +8,4 @@ export { useMakeCopilotDocumentReadable } from "./use-make-copilot-document-read
 export { type UseChatHelpers } from "./use-chat";
 export { useCopilotReadable } from "./use-copilot-readable";
 export { useCoAgent } from "./use-coagent";
+export { useCopilotRuntimeClient } from "./use-copilot-runtime-client";

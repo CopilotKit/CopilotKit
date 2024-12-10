@@ -13,7 +13,7 @@ import {
 } from "rxjs";
 import { GenerateCopilotResponseInput } from "../inputs/generate-copilot-response.input";
 import { CopilotResponse } from "../types/copilot-response.type";
-import { MessageRole } from "../types/enums";
+import { ActionInputAvailability, MessageRole } from "../types/enums";
 import { Repeater } from "graphql-yoga";
 import type { CopilotRequestContextProperties, GraphQLContext } from "../../lib/integrations";
 import { RuntimeEvent, RuntimeEventTypes } from "../../service-adapters/events";
@@ -178,7 +178,9 @@ export class CopilotResolver {
     } = await copilotRuntime.processRuntimeRequest({
       serviceAdapter,
       messages: data.messages,
-      actions: data.frontend.actions,
+      actions: data.frontend.actions.filter(
+        (action) => action.available !== ActionInputAvailability.disabled,
+      ),
       threadId: data.threadId,
       runId: data.runId,
       publicApiKey: undefined,

@@ -70,8 +70,9 @@ This hooks enables you to dynamically generate UI elements and render them in th
       use the action.
     </PropertyReference>
 
-    <PropertyReference name="disabled" type="boolean">
-      Pass `true` to disable the action.
+    <PropertyReference name="available" type="'enabled' | 'disabled' | 'remote'">
+      Use this property to control when the action is available to the Copilot. When set to `"remote"`, the action is 
+      available only for remote agents.
     </PropertyReference>
 
     <PropertyReference name="followUp" type="boolean" default="true">

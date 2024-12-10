@@ -6,7 +6,7 @@ import { CopilotPopup } from "@copilotkit/react-ui";
 export function WaitForUserInput() {
   useCopilotAction({
     name: "AskHuman",
-    disabled: true,
+    available: "remote",
     parameters: [
       {
         name: "question",
