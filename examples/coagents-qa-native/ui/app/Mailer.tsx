@@ -25,7 +25,7 @@ export function Mailer() {
 
   useCopilotAction({
     name: "EmailTool",
-    disabled: true,
+    available: "remote",
     parameters: [
       {
         name: "the_email",

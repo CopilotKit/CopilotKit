@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.4.0",
+  "version": "1.4.1",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -45,7 +45,9 @@
   "dependencies": {
     "@segment/analytics-node": "^2.1.2",
     "chalk": "4.1.2",
-    "uuid": "^10.0.0"
+    "uuid": "^10.0.0",
+    "zod": "^3.23.3",
+    "zod-to-json-schema": "^3.23.5"
   },
   "keywords": [
     "copilotkit",

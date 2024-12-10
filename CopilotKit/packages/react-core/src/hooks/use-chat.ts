@@ -8,9 +8,7 @@ import {
 import {
   Message,
   TextMessage,
-  ActionExecutionMessage,
   ResultMessage,
-  CopilotRuntimeClient,
   convertMessagesToGqlInput,
   filterAdjacentAgentStateMessages,
   filterAgentStateMessages,
@@ -19,13 +17,15 @@ import {
   MessageRole,
   Role,
   CopilotRequestType,
-  AgentStateMessage,
+  ActionInputAvailability,
 } from "@copilotkit/runtime-client-gql";
 
 import { CopilotApiConfig } from "../context";
 import { FrontendAction } from "../types/frontend-action";
 import { CoagentState } from "../types/coagent-state";
 import { AgentSession } from "../context/copilot-context";
+import { useToast } from "../components/toast/toast-provider";
+import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
 
 export type UseChatOptions = {
   /**
@@ -139,6 +139,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   const abortControllerRef = useRef<AbortController>();
   const threadIdRef = useRef<string | null>(null);
   const runIdRef = useRef<string | null>(null);
+  const { addGraphQLErrorsToast } = useToast();
 
   const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
   // We need to keep a ref of coagent states because of renderAndWait - making sure
@@ -156,7 +157,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
   };
 
-  const runtimeClient = new CopilotRuntimeClient({
+  const runtimeClient = useCopilotRuntimeClient({
     url: copilotConfig.chatApiEndpoint,
     publicApiKey: copilotConfig.publicApiKey,
     headers,
@@ -183,17 +184,32 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
     const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
 
-    const stream = CopilotRuntimeClient.asStream(
+    const stream = runtimeClient.asStream(
       runtimeClient.generateCopilotResponse({
         data: {
           frontend: {
             actions: actions
-              .filter((action) => !action.disabled)
-              .map((action) => ({
-                name: action.name,
-                description: action.description || "",
-                jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
-              })),
+              .filter(
+                (action) =>
+                  action.available !== ActionInputAvailability.Disabled || !action.disabled,
+              )
+              .map((action) => {
+                let available: ActionInputAvailability | undefined =
+                  ActionInputAvailability.Enabled;
+                if (action.disabled) {
+                  available = ActionInputAvailability.Disabled;
+                } else if (action.available === "disabled") {
+                  available = ActionInputAvailability.Disabled;
+                } else if (action.available === "remote") {
+                  available = ActionInputAvailability.Remote;
+                }
+                return {
+                  name: action.name,
+                  description: action.description || "",
+                  jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
+                  available,
+                };
+              }),
             url: window.location.href,
           },
           threadId: threadIdRef.current,
@@ -246,7 +262,15 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
     try {
       while (true) {
-        const { done, value } = await reader.read();
+        let done, value;
+
+        try {
+          const readResult = await reader.read();
+          done = readResult.done;
+          value = readResult.value;
+        } catch (readError) {
+          break;
+        }
 
         if (done) {
           break;

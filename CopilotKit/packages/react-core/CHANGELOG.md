@@ -1,5 +1,122 @@
 # ui
 
+## 1.4.1
+
+### Patch Changes
+
+- 1721cbd: lower case copilotkit property
+- 1721cbd: add zod conversion
+- 8d0144f: bump
+- 8d0144f: bump
+- 8d0144f: bump
+- e16d95e: New prerelease
+- 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
+- CopilotKit Core:
+
+  - Improved error messages and overall logs
+  - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+  - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
+  - Added Azure OpenAI integration
+  - Updated interfaces for better developer ergonomics
+
+  CoAgents:
+
+  - Renamed `remoteActions` to `remoteEndpoints` (backwards compatible, will be deprecated in the future)
+  - Support for LangGraph Platform in Remote Endpoints
+  - LangGraph JS Support for CoAgents (locally via `langgraph dev`, `langgraph up` or deployed to LangGraph Platform)
+  - Improved LangSmith integration - requests made through CoAgents will now surface in LangSmith
+  - Enhanced state management and message handling
+
+  CopilotKid Back-end SDK:
+
+  - Released a whole-new `@copilotkit/sdk-js` for building agents with LangGraph JS Support
+
+- 8d0144f: bump
+- 8d0144f: bump
+- fef1b74: fix assistant message CSS and propagate actions to LG JS
+- Updated dependencies [1721cbd]
+- Updated dependencies [1721cbd]
+- Updated dependencies [8d0144f]
+- Updated dependencies [8d0144f]
+- Updated dependencies [8d0144f]
+- Updated dependencies [e16d95e]
+- Updated dependencies [1721cbd]
+- Updated dependencies
+- Updated dependencies [8d0144f]
+- Updated dependencies [8d0144f]
+- Updated dependencies [fef1b74]
+  - @copilotkit/runtime-client-gql@1.4.1
+  - @copilotkit/shared@1.4.1
+
+## 1.4.1-pre.6
+
+### Patch Changes
+
+- 1721cbd: lower case copilotkit property
+- 1721cbd: add zod conversion
+- 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
+- fix assistant message CSS and propagate actions to LG JS
+- Updated dependencies [1721cbd]
+- Updated dependencies [1721cbd]
+- Updated dependencies [1721cbd]
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.4.1-pre.6
+  - @copilotkit/shared@1.4.1-pre.6
+
+## 1.4.1-pre.5
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.4.1-pre.5
+  - @copilotkit/shared@1.4.1-pre.5
+
+## 1.4.1-pre.4
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.4.1-pre.4
+  - @copilotkit/shared@1.4.1-pre.4
+
+## 1.4.1-pre.3
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.4.1-pre.3
+  - @copilotkit/shared@1.4.1-pre.3
+
+## 1.4.1-pre.2
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.4.1-pre.2
+  - @copilotkit/shared@1.4.1-pre.2
+
+## 1.4.1-pre.1
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.4.1-pre.1
+  - @copilotkit/shared@1.4.1-pre.1
+
+## 1.4.1-pre.0
+
+### Patch Changes
+
+- New prerelease
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.4.1-pre.0
+  - @copilotkit/shared@1.4.1-pre.0
+
 ## 1.4.0
 
 ### Minor Changes
