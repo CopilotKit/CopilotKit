@@ -11,16 +11,6 @@ import CopilotCloudConfigureCopilotKitProvider from "@/snippets/copilot-cloud-co
 import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content.tsx";
 import { FaCloud, FaServer } from "react-icons/fa";
 
-## Install Dependencies
-
-First, install the CopilotKit dependencies.
-
-```package-install
-npm install @copilotkit/react-ui @copilotkit/runtime
-# Note: The runtime package is not required if you are using Copilot Cloud.
-```
-
-## Setup CopilotKit
 
 <TailoredContent>
 <TailoredContentOption
@@ -29,8 +19,19 @@ npm install @copilotkit/react-ui @copilotkit/runtime
   icon={<FaCloud />}
 >
 <InsecurePasswordProtected>
+
+## Install Dependencies
+
+First, install the CopilotKit dependencies.
+
+```package-install
+npm install @copilotkit/react-ui @copilotkit/react-core
+```
+
 In order to use CopilotKit, we'll need to configure the `CopilotKit` provider.
 </InsecurePasswordProtected>
+
+## Setup CopilotKit
 
 <CopilotCloudConfigureCopilotKitProvider components={props.components} />
 </TailoredContentOption>
@@ -39,6 +40,18 @@ In order to use CopilotKit, we'll need to configure the `CopilotKit` provider.
   description="Learn to host CopilotKit's runtime yourself with your own backend."
   icon={<FaServer />}
 >
+
+## Install Dependencies
+
+First, install the CopilotKit dependencies.
+
+```package-install
+npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
+```
+
+## Setup CopilotKit
+
+
 <Steps>
 <Step>
 ### Set up Copilot Runtime Endpoint
