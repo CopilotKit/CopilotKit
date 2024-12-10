@@ -6,6 +6,7 @@ import { DocumentPointer } from "../types";
 import { CopilotChatSuggestionConfiguration } from "../types/chat-suggestion-configuration";
 import { CoAgentStateRender, CoAgentStateRenderProps } from "../types/coagent-action";
 import { CoagentState } from "../types/coagent-state";
+import { CopilotRuntimeClient } from "@copilotkit/runtime-client-gql";
 
 /**
  * Interface for the configuration of the Copilot API.
@@ -133,6 +134,9 @@ export interface CopilotContextParams {
   setCoagentStates: React.Dispatch<React.SetStateAction<Record<string, CoagentState>>>;
   agentSession: AgentSession | null;
   setAgentSession: React.Dispatch<React.SetStateAction<AgentSession | null>>;
+
+  // runtime
+  runtimeClient: CopilotRuntimeClient;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -161,6 +165,7 @@ const emptyCopilotContext: CopilotContextParams = {
   getDocumentsContext: (categories: string[]) => returnAndThrowInDebug([]),
   addDocumentContext: () => returnAndThrowInDebug(""),
   removeDocumentContext: () => {},
+  runtimeClient: {} as any,
 
   copilotApiConfig: new (class implements CopilotApiConfig {
     get chatApiEndpoint(): string {

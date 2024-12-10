@@ -48,7 +48,7 @@ graph = graph_builder.compile(
 This will force the agent to pause execution at the `trips_node` and wait for the human to approve the action before continuing.
 </Step>
 <Step>
-## Update the trips node to properly handle the user's decision
+## Update the perform_trips_node node to properly handle the user's decision
 
 Prior to this step, entrance to the `perform_trips_node` was standard. We would recieve the requested tool call, call the appropriate
 tool, edit the message state to reflect the tool call results, and then move on to the next node.
@@ -63,8 +63,9 @@ First, let's grab the tool call message and the tool call being requested.
 ```python title="agent/travel/trips.py"
 # ...
 
-async def trips_node(state: AgentState, config: RunnableConfig):
+async def perform_trips_node(state: AgentState, config: RunnableConfig):
     """Execute trip operations"""
+    ai_message = state["messages"][-1] # [!code --]
     ai_message = cast(AIMessage, state["messages"][-2]) # [!code ++]
     tool_message = cast(ToolMessage, state["messages"][-1]) # [!code ++]
 
@@ -77,7 +78,8 @@ Now, let's add a conditional that will check the user's decision and act accordi
 # ...
 from copilotkit.langchain import copilotkit_emit_message # [!code ++]
 
-async def trips_node(state: AgentState, config: RunnableConfig):
+# ...
+async def perform_trips_node(state: AgentState, config: RunnableConfig):
     """Execute trip operations"""
     ai_message = cast(AIMessage, state["messages"][-2])
     tool_message = cast(ToolMessage, state["messages"][-1])

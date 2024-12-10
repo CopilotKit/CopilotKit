@@ -119,7 +119,7 @@
  *
  * ## Generative UI
  *
- * This hooks enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/concepts/generative-ui) page.
+ * This hooks enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/guides/generative-ui) page.
  */
 import { Parameter, randomId } from "@copilotkit/shared";
 import { createElement, Fragment, useEffect, useRef } from "react";
@@ -236,6 +236,7 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
     action.description,
     action.name,
     action.disabled,
+    action.available,
     // This should be faster than deep equality checking
     // In addition, all major JS engines guarantee the order of object keys
     JSON.stringify(action.parameters),

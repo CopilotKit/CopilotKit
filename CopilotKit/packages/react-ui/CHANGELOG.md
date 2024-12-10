@@ -1,10 +1,40 @@
 # ui
 
+## 1.4.1-pre.5
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.4.1-pre.5
+  - @copilotkit/react-core@1.4.1-pre.5
+  - @copilotkit/shared@1.4.1-pre.5
+
+## 1.4.1-pre.4
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.4.1-pre.4
+  - @copilotkit/react-core@1.4.1-pre.4
+  - @copilotkit/shared@1.4.1-pre.4
+
+## 1.4.1-pre.3
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.4.1-pre.3
+  - @copilotkit/react-core@1.4.1-pre.3
+  - @copilotkit/shared@1.4.1-pre.3
+
 ## 1.4.1-pre.2
 
 ### Patch Changes
 
-- Add convertActionsToDynamicStructuredTools to sdk-js
+- bump
 - Updated dependencies
   - @copilotkit/runtime-client-gql@1.4.1-pre.2
   - @copilotkit/react-core@1.4.1-pre.2
@@ -14,7 +44,7 @@
 
 ### Patch Changes
 
-- add zod conversion
+- bump
 - Updated dependencies
   - @copilotkit/runtime-client-gql@1.4.1-pre.1
   - @copilotkit/react-core@1.4.1-pre.1
@@ -24,10 +54,10 @@
 
 ### Patch Changes
 
-- lower case copilotkit property
+- New prerelease
 - Updated dependencies
-  - @copilotkit/react-core@1.4.1-pre.0
   - @copilotkit/runtime-client-gql@1.4.1-pre.0
+  - @copilotkit/react-core@1.4.1-pre.0
   - @copilotkit/shared@1.4.1-pre.0
 
 ## 1.4.0

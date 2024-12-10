@@ -36,9 +36,14 @@ function generateTable() {
       acc[entry.ProjectName].local = entry.FunctionUrl;
     }
 
-    // Add LGC Deployment URL if it exists
+    // Add LGC Python Deployment URL if it exists
     if (entry.LgcPythonDeploymentUrl) {
       acc[entry.ProjectName].lgcPythonDeploymentUrl = entry.LgcPythonDeploymentUrl;
+    }
+
+    // Add LGC JS Deployment URL if it exists
+    if (entry.LgcJSDeploymentUrl) {
+      acc[entry.ProjectName].lgcJSDeploymentUrl = entry.LgcJSDeploymentUrl;
     }
 
     return acc;
@@ -49,11 +54,11 @@ function generateTable() {
     let previewMdxString = `[Preview](${project.local})`;
 
     if (project.lgcPythonDeploymentUrl) {
-      previewMdxString += ` | [Preview with LGC Python](${project.local}?lgcDeploymentUrl=${project.lgcPythonDeploymentUrl})`;
+      previewMdxString += ` • [Preview with LGC Python](${project.local}?lgcDeploymentUrl=${project.lgcPythonDeploymentUrl})`;
     }
 
     if (project.lgcJSDeploymentUrl) {
-      previewMdxString += ` | [Preview with LGC JS](${project.local}?lgcDeploymentUrl=${project.lgcJSDeploymentUrl})`;
+      previewMdxString += ` • [Preview with LGC JS](${project.local}?lgcDeploymentUrl=${project.lgcJSDeploymentUrl})`;
     }
 
     const row = {

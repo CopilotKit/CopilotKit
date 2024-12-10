@@ -36,8 +36,9 @@ export function Socials({ className }: SocialProps) {
                     Feedback
                 </Link>
             </Button>
-            {socials.map((social) => (
+            {socials.map((social, index) => (
                 <Button 
+                    key={index} // Add a unique key here
                     variant="ghost" 
                     size="icon" 
                     asChild 
