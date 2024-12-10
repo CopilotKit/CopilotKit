@@ -97,6 +97,27 @@ export type UseChatOptions = {
    * setState-powered method to update the agent session
    */
   setAgentSession: React.Dispatch<React.SetStateAction<AgentSession | null>>;
+
+  /**
+   * The current thread ID.
+   */
+  threadId: string | null;
+  /**
+   * set the current thread ID
+   */
+  setThreadId: (threadId: string | null) => void;
+  /**
+   * The current run ID.
+   */
+  runId: string | null;
+  /**
+   * set the current run ID
+   */
+  setRunId: (runId: string | null) => void;
+  /**
+   * The global chat abort controller.
+   */
+  chatAbortControllerRef: React.MutableRefObject<AbortController | null>;
 };
 
 export type UseChatHelpers = {
@@ -139,19 +160,23 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     coagentStatesRef,
     agentSession,
     setAgentSession,
+    threadId,
+    setThreadId,
+    runId,
+    setRunId,
+    chatAbortControllerRef,
   } = options;
-
-  const abortControllerRef = useRef<AbortController>();
-  const threadIdRef = useRef<string | null>(null);
-  const runIdRef = useRef<string | null>(null);
   const { addGraphQLErrorsToast } = useToast();
-
   const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
   // We need to keep a ref of coagent states and session because of renderAndWait - making sure
   // the latest state is sent to the API
   // This is a workaround and needs to be addressed in the future
   const agentSessionRef = useRef<AgentSession | null>(agentSession);
   agentSessionRef.current = agentSession;
+  const threadIdRef = useRef<string | null>(threadId);
+  threadIdRef.current = threadId;
+  const runIdRef = useRef<string | null>(runId);
+  runIdRef.current = runId;
 
   const publicApiKey = copilotConfig.publicApiKey;
 
@@ -178,8 +203,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         role: Role.Assistant,
       }),
     ];
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
+
+    chatAbortControllerRef.current = new AbortController();
 
     setMessages([...previousMessages, ...newMessages]);
 
@@ -250,7 +275,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           })),
         },
         properties: copilotConfig.properties,
-        signal: abortControllerRef.current?.signal,
+        signal: chatAbortControllerRef.current?.signal,
       }),
     );
 
@@ -276,6 +301,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         }
 
         if (done) {
+          if (chatAbortControllerRef.current.signal.aborted) {
+            return []
+          }
           break;
         }
 
@@ -285,6 +313,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
         threadIdRef.current = value.generateCopilotResponse.threadId || null;
         runIdRef.current = value.generateCopilotResponse.runId || null;
+
+        setThreadId(threadIdRef.current);
+        setRunId(runIdRef.current);
 
         const messages = convertGqlOutputToMessages(
           filterAdjacentAgentStateMessages(value.generateCopilotResponse.messages),
@@ -337,12 +368,19 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                     followUp = action.followUp;
                   }
 
-                  const result = await onFunctionCall({
-                    messages: previousMessages,
-                    name: message.name,
-                    args: message.arguments,
-                  });
-                  actionResults[message.id] = result;
+                  const result = await Promise.race([
+                    onFunctionCall({
+                      messages: previousMessages,
+                      name: message.name,
+                      args: message.arguments,
+                    }),
+                    new Promise((_, reject) => chatAbortControllerRef.current?.signal.addEventListener('abort', () => reject(new Error('Operation was aborted'))))
+                  ])
+                  if (chatAbortControllerRef.current.signal.aborted){
+                    actionResults[message.id] = "";
+                  } else {
+                    actionResults[message.id] = result;
+                  }
                 } catch (e) {
                   actionResults[message.id] = `Failed to execute action ${message.name}`;
                   console.error(`Failed to execute action ${message.name}: ${e}`);
@@ -469,7 +507,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   };
 
   const stop = (): void => {
-    abortControllerRef.current?.abort();
+    chatAbortControllerRef.current?.abort("Stop was called");
   };
 
   return {
