@@ -103,7 +103,10 @@ In order for CopilotKit to integrate with your LangGraph agent, it has to be dep
                   ],
                 });
               ```
-
+              <Callout>
+                The key names under `graphs` in the `langgraph.json` are the agent(s) name(s)<br />
+                Make sure these names are used whenever you have to use an agent name throughout the integration with CopilotKit
+              </Callout>
               <Callout>
                 Remember to replace `your-api-url` with your actual LangGraph Platform deployment URL and
                 set your LangSmith API key as an environment variable.
