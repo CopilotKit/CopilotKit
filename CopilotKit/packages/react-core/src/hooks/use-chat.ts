@@ -116,6 +116,11 @@ export type UseChatHelpers = {
    * Abort the current request immediately, keep the generated tokens if any.
    */
   stop: () => void;
+
+  /**
+   * Run the chat completion.
+   */
+  runChatCompletion: () => Promise<Message[]>;
 };
 
 export function useChat(options: UseChatOptions): UseChatHelpers {
@@ -473,5 +478,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     append,
     reload,
     stop,
+    runChatCompletion: () => runChatCompletionRef.current!(messages),
   };
 }

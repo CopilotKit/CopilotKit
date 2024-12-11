@@ -219,7 +219,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
   const messagesContext = useCopilotMessagesContext();
   const context = { ...generalContext, ...messagesContext };
   const { coagentStates, setCoagentStates } = context;
-  const { appendMessage } = useCopilotChat();
+  const { appendMessage, runChatCompletion } = useCopilotChat();
 
   const getCoagentState = (coagentStates: Record<string, CoagentState>, name: string) => {
     if (coagentStates[name]) {
@@ -282,7 +282,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
       stopAgent(name, context);
     },
     run: (hint?: HintFunction) => {
-      return runAgent(name, context, appendMessage, hint);
+      return runAgent(name, context, appendMessage, runChatCompletion, hint);
     },
   };
 }
@@ -307,6 +307,7 @@ async function runAgent(
   name: string,
   context: CopilotContextParams & CopilotMessagesContextParams,
   appendMessage: (message: Message) => Promise<void>,
+  runChatCompletion: () => Promise<Message[]>,
   hint?: HintFunction,
 ) {
   const { agentSession, setAgentSession } = context;
@@ -330,6 +331,10 @@ async function runAgent(
     const hintMessage = hint({ previousState, currentState: state });
     if (hintMessage) {
       await appendMessage(hintMessage);
+    } else {
+      await runChatCompletion();
     }
+  } else {
+    await runChatCompletion();
   }
 }

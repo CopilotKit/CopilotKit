@@ -79,6 +79,7 @@ export interface UseCopilotChatReturn {
   reloadMessages: () => Promise<void>;
   stopGeneration: () => void;
   isLoading: boolean;
+  runChatCompletion: () => Promise<Message[]>;
 }
 
 export function useCopilotChat({
@@ -93,7 +94,6 @@ export function useCopilotChat({
     setIsLoading,
     chatInstructions,
     actions,
-
     coagentStates,
     setCoagentStates,
     coAgentStateRenders,
@@ -141,7 +141,7 @@ export function useCopilotChat({
     [coAgentStateRenders],
   );
 
-  const { append, reload, stop } = useChat({
+  const { append, reload, stop, runChatCompletion } = useChat({
     ...options,
     actions: Object.values(actions),
     copilotConfig: copilotApiConfig,
@@ -201,6 +201,11 @@ export function useCopilotChat({
     [latestSetMessages],
   );
 
+  const latestRunChatCompletion = useUpdatedRef(runChatCompletion);
+  const latestRunChatCompletionFunc = useCallback(() => {
+    return latestRunChatCompletion.current!();
+  }, [latestRunChatCompletion]);
+
   return {
     visibleMessages: messages,
     appendMessage: latestAppendFunc,
@@ -208,6 +213,7 @@ export function useCopilotChat({
     reloadMessages: latestReloadFunc,
     stopGeneration: latestStopFunc,
     deleteMessage: latestDeleteFunc,
+    runChatCompletion: latestRunChatCompletionFunc,
     isLoading,
   };
 }
