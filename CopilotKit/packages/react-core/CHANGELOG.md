@@ -1,5 +1,15 @@
 # ui
 
+## 1.4.2
+
+### Patch Changes
+
+- - Make sure agent state is set immediately (#1077)
+  - Support running an agent without messages (#1075)
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.4.2
+  - @copilotkit/shared@1.4.2
+
 ## 1.4.1
 
 ### Patch Changes
