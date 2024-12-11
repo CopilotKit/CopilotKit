@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.4.2-tyler-reset-chat.1
+
+### Patch Changes
+
+- Fixing a small issue where the abort controller reference was being clobbered
+
 ## 1.4.2-tyler-reset-chat.0
 
 ### Patch Changes

@@ -1,5 +1,15 @@
 # ui
 
+## 1.4.2-tyler-reset-chat.1
+
+### Patch Changes
+
+- Fixing a small issue where the abort controller reference was being clobbered
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.4.2-tyler-reset-chat.1
+  - @copilotkit/react-core@1.4.2-tyler-reset-chat.1
+  - @copilotkit/shared@1.4.2-tyler-reset-chat.1
+
 ## 1.4.2-tyler-reset-chat.0
 
 ### Patch Changes
