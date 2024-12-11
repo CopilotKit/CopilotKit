@@ -2,6 +2,7 @@
 title: "Managing state streaming"
 ---
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 
 By integrating with LangGraph agents on both the backend and frontend, CopilotKit is able to keep your Agentic Copilot's state in sync with your UI in real time, making it as easy to work with as local state while providing immediate updates as the agent works on requests.
 
@@ -33,6 +34,8 @@ At some point, a workflow node changes the state to `{"status": "done"}` after p
 
 Once the agent has called this method, and returned the updated state to the client, this change will immediately be reflected in your UI, keeping them in sync.
 
+### Install the CopilotKit SDK
+<InstallSDKSnippet components={props.components}/>
 
 ### Streaming messages to the chat window
 
