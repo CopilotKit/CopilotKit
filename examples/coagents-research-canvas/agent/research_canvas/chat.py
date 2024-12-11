@@ -1,13 +1,15 @@
 """Chat Node"""
 
-from typing import List, cast
+from typing import List, cast, Literal
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import SystemMessage, AIMessage, ToolMessage
 from langchain.tools import tool
+from langgraph.types import Command
 from copilotkit.langchain import copilotkit_customize_config
 from research_canvas.state import AgentState
 from research_canvas.model import get_model
 from research_canvas.download import get_resource
+
 
 @tool
 def Search(queries: List[str]): # pylint: disable=invalid-name,unused-argument
@@ -26,7 +28,8 @@ def DeleteResources(urls: List[str]): # pylint: disable=invalid-name,unused-argu
     """Delete the URLs from the resources."""
 
 
-async def chat_node(state: AgentState, config: RunnableConfig):
+async def chat_node(state: AgentState, config: RunnableConfig) -> \
+    Command[Literal["search_node", "chat_node", "delete_node", "__end__"]]:
     """
     Chat Node
     """
@@ -102,22 +105,38 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     if ai_message.tool_calls:
         if ai_message.tool_calls[0]["name"] == "WriteReport":
             report = ai_message.tool_calls[0]["args"].get("report", "")
-            return {
-                "report": report,
-                "messages": [ai_message, ToolMessage(
+            return Command(
+                goto="chat_node",
+                update={
+                    "report": report,
+                    "messages": [ai_message, ToolMessage(
                     tool_call_id=ai_message.tool_calls[0]["id"],
                     content="Report written."
-                )]
-            }
+                    )]
+                }
+            )
         if ai_message.tool_calls[0]["name"] == "WriteResearchQuestion":
-            return {
-                "research_question": ai_message.tool_calls[0]["args"]["research_question"],
-                "messages": [ai_message, ToolMessage(
-                    tool_call_id=ai_message.tool_calls[0]["id"],
-                    content="Research question written."
-                )]
-            }
+            return Command(
+                goto="chat_node",
+                update={
+                    "research_question": ai_message.tool_calls[0]["args"]["research_question"],
+                    "messages": [ai_message, ToolMessage(
+                        tool_call_id=ai_message.tool_calls[0]["id"],
+                        content="Research question written."
+                    )]
+                }
+            )
+       
+    goto = "__end__"
+    if ai_message.tool_calls and ai_message.tool_calls[0]["name"] == "Search":
+        goto = "search_node"
+    elif ai_message.tool_calls and ai_message.tool_calls[0]["name"] == "DeleteResources":
+        goto = "delete_node"
 
-    return {
-        "messages": response
-    }
+
+    return Command(
+        goto=goto,
+        update={
+            "messages": response
+        }
+    )
