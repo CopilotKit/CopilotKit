@@ -46,8 +46,9 @@ export function Mailer() {
       <EmailConfirmation
         emailContent={args.email_draft || ""}
         isExecuting={status === "executing"}
-        onCancel={() => respond?.("CANCEL")} // the respond is undefined while status is "executing"
-        onSend={() => respond?.("SEND")} // the respond is undefined while status is "executing"
+        // respond is undefined while status is "executing", so we need to use optional chaining
+        onCancel={() => respond?.({ decision: "CANCEL", reason: "Cancelled by user"})} // [!code highlight]
+        onSend={() => respond?.({ decision: "SEND", reason: "User approved email"})} // [!code highlight]
       />
     ),
   });
@@ -221,7 +222,6 @@ NOTICE that we have a `interrupt_after` for `draft_email_node` (the node that in
         from langchain_core.runnables import RunnableConfig
         from langchain_core.messages import HumanMessage, ToolMessage
         from copilotkit.langchain import copilotkit_customize_config, copilotkit_emit_message
-        from pydantic import BaseModel, Field
 
         async def draft_email_node(state: EmailAgentState, config: RunnableConfig):
             """Write an email."""
@@ -237,15 +237,16 @@ NOTICE that we have a `interrupt_after` for `draft_email_node` (the node that in
             email_draft = tool_calls[0]["args"]["email_draft"]  # the email draft content is the argument passed to the email tool
             return {"email": email_draft} # we also persist the email draft in the agent state.
 
-
         async def send_email_node(state: EmailAgentState, config: RunnableConfig):
             # get the last message and cast to ToolMessage
             last_message = cast(ToolMessage, state["messages"][-1]) # [!code highlight]
+            response = json.loads(last_message.content) # [!code highlight]
+            
             message_to_add = ""
-            if last_message.content == "CANCEL": # [!code highlight]
-                message_to_add = "❌ Cancelled sending email."
+            if response["decision"] == "CANCEL": # [!code highlight]
+                message_to_add = f"❌ Cancelled sending email: {response['reason']}" # [!code highlight]
             else:
-                message_to_add = "✅ Sent email."
+                message_to_add = f"✅ Sent email: {response['reason']}" # [!code highlight]
 
             await copilotkit_emit_message(config, message_to_add)
             return {
@@ -275,14 +276,20 @@ NOTICE that we have a `interrupt_after` for `draft_email_node` (the node that in
             return { email: emailDraft };
         }
 
+        type Response = {
+          decision: "CANCEL" | "SEND";
+          reason: string;
+        }
+
         async function sendEmailNode(state: EmailAgentState, config: RunnableConfig) {
             const lastMessage = state.messages[state.messages.length - 1] as ToolMessage;
+            const response = JSON.parse(lastMessage.content) as Response;
             let messageToAdd = "";
 
-            if (lastMessage.content === "CANCEL") {
-                messageToAdd = "❌ Cancelled sending email.";
+            if (response.decision === "CANCEL") {
+                messageToAdd = `❌ Cancelled sending email: ${response.reason}`;
             } else {
-                messageToAdd = "✅ Sent email.";
+                messageToAdd = `✅ Sent email: ${response.reason}`;
             }
 
             await copilotKitEmitMessage(config, messageToAdd);
