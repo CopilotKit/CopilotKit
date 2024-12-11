@@ -269,7 +269,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
   }, [
     isExternalStateManagement(options) ? JSON.stringify(options.state) : undefined,
     // reset initialstate on reset
-    coagentStates === undefined,
+    coagentStates[name] === undefined,
   ]);
 
   // Return the state and setState function
