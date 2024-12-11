@@ -1,8 +1,12 @@
 ---
 title: "Emit messages"
 ---
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 
 Most Agentic Copilot interactions will be controlled by the LLM, guided by messages the user and your agent code add to its stack via shared state. While state is synced with the frontend regularly as the agent traverses nodes on its workflow graph, occasionally you will want to imperatively send text or JSON-based messages from within an agent method as a way to give the user more immediate feedback.
+
+## Install the CopilotKit SDK
+<InstallSDKSnippet components={props.components}/>
 
 ## Manually emitting messages
 
@@ -11,6 +15,10 @@ In your agent's workflow, you'll want to ask the user specific questions or prom
 <Tabs items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python
+        from copilotkit.langchain import copilotkit_emit_message
+
+        # ...
+
         async def ask_name_node(state: GreetAgentState, config: RunnableConfig):
             """
             Ask the user for their name.
@@ -26,6 +34,10 @@ In your agent's workflow, you'll want to ask the user specific questions or prom
     <Tab value="TypeScript">
         <InsecurePasswordProtected>
             ```typescript
+            import { copilotKitEmitMessage } from "@copilotkit/sdk-js/langchain";
+
+            // ...
+
             async function askNameNode(state: GreetAgentState, config: RunnableConfig): Promise<AgentState> {
                 /**
                  * Ask the user for their name.
@@ -47,6 +59,10 @@ In your agent's workflow, you'll want to ask the user specific questions or prom
 <Tabs items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python
+        from copilotkit.langchain import copilotkit_emit_message
+
+        # ...
+
         if last_message.content == "CANCEL":
             await copilotkit_emit_message(config, "❌ Cancelled sending email.")
         else:
@@ -56,6 +72,10 @@ In your agent's workflow, you'll want to ask the user specific questions or prom
     <Tab value="TypeScript">
         <InsecurePasswordProtected>
             ```typescript
+            import { copilotKitEmitMessage } from "@copilotkit/sdk-js/langchain";
+
+            // ...
+
             if (lastMessage.content === "CANCEL") {
                 await copilotKitEmitMessage(config, "❌ Cancelled sending email.");
             } else {
@@ -74,6 +94,10 @@ While LangGraph will emit the current agent state after each node in the workflo
 <Tabs items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python
+        from copilotkit.langchain import copilotkit_emit_message, copiotkit_emit_state
+
+        # ...
+
         async def download_node(state: AgentState, config: RunnableConfig):
             """
             Download resources from the internet.
@@ -94,7 +118,7 @@ While LangGraph will emit the current agent state after each node in the workflo
                     })
 
             # Emit the state to let the UI update
-            await copilotkit_emit_state(config, state)
+            await copilotkit_emit_state(config, state) # [!code highlight]
 
             # Download the resources
             for i, resource in enumerate(resources_to_download):
@@ -102,7 +126,7 @@ While LangGraph will emit the current agent state after each node in the workflo
                 state["logs"][logs_offset + i]["done"] = True
 
                 # update UI
-                await copilotkit_emit_state(config, state)
+                await copilotkit_emit_state(config, state) # [!code highlight]
 
             return state
         ```
@@ -110,6 +134,10 @@ While LangGraph will emit the current agent state after each node in the workflo
     <Tab value="TypeScript">
         <InsecurePasswordProtected>
             ```typescript
+            import { copilotKitEmitMessage, copilotKitEmitState } from "@copilotkit/sdk-js/langchain";
+
+            // ...
+
             async function downloadNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
                 /**
                  * Download resources from the internet.
@@ -132,7 +160,7 @@ While LangGraph will emit the current agent state after each node in the workflo
                 }
 
                 // Emit the state to let the UI update
-                await copilotKitEmitState(config, state);
+                await copilotKitEmitState(config, state); // [!code highlight]
 
                 // Download the resources
                 for (let i = 0; i < resourcesToDownload.length; i++) {
@@ -141,7 +169,7 @@ While LangGraph will emit the current agent state after each node in the workflo
                     state.logs[logsOffset + i].done = true;
 
                     // update UI
-                    await copilotKitEmitState(config, state);
+                    await copilotKitEmitState(config, state); // [!code highlight]
                 }
 
                 return state;

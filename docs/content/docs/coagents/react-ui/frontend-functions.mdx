@@ -2,6 +2,7 @@
 title: Frontend functions & in-app HITL (human-in-the-loop)
 description: Have the LangGraph agent call frontend functions
 ---
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 
 You can easily pass questions to the frontend for the user to answer in the native app itself.
 
@@ -116,7 +117,11 @@ The Tool's name and arguments must line up with what you used on the frontend.
 </Callout>
 
 </Step>
-
+<Step>
+### Install the CopilotKit SDK
+<InstallSDKSnippet components={props.components}/>
+In this guide its required that we install the SDK!
+</Step>
 <Step>
 ### Orchestrate the workflow:
 
