@@ -97,7 +97,8 @@ import {
 } from "../context";
 import { CoagentState } from "../types/coagent-state";
 import { useCopilotChat } from "./use-copilot-chat";
-import { AgentStateMessage, Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
+import { Message } from "@copilotkit/runtime-client-gql";
+import { flushSync } from "react-dom";
 
 interface WithInternalStateManagementAndInitial<T> {
   /**
@@ -239,19 +240,21 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
 
   // if we manage state internally, we need to provide a function to set the state
   const setState = (newState: T | ((prevState: T | undefined) => T)) => {
-    setCoagentStates((prevAgentStates) => {
-      let coagentState: CoagentState = getCoagentState(prevAgentStates, name);
+    flushSync(() => {
+      setCoagentStates((prevAgentStates) => {
+        let coagentState: CoagentState = getCoagentState(prevAgentStates, name);
 
-      const updatedState =
-        typeof newState === "function" ? (newState as Function)(coagentState.state) : newState;
+        const updatedState =
+          typeof newState === "function" ? (newState as Function)(coagentState.state) : newState;
 
-      return {
-        ...prevAgentStates,
-        [name]: {
-          ...coagentState,
-          state: updatedState,
-        },
-      };
+        return {
+          ...prevAgentStates,
+          [name]: {
+            ...coagentState,
+            state: updatedState,
+          },
+        };
+      });
     });
   };
 
