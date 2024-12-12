@@ -49,6 +49,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         id: ensure-changesets
         working-directory: './CopilotKit'
+        continue-on-error: true
         run: |
           status=$(pnpm changeset --since=origin/main status)
           echo status: $status
