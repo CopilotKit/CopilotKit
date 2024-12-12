@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.4.2-tyler-reset-chat.2
+
+### Patch Changes
+
+- Don't send an empty message when an abort occurs"
+
 ## 1.4.2-tyler-reset-chat.1
 
 ### Patch Changes

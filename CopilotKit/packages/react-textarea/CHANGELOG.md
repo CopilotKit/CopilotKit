@@ -1,5 +1,15 @@
 # ui
 
+## 1.4.2-tyler-reset-chat.2
+
+### Patch Changes
+
+- Don't send an empty message when an abort occurs"
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.4.2-tyler-reset-chat.2
+  - @copilotkit/react-core@1.4.2-tyler-reset-chat.2
+  - @copilotkit/shared@1.4.2-tyler-reset-chat.2
+
 ## 1.4.2-tyler-reset-chat.1
 
 ### Patch Changes
