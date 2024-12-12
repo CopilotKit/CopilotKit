@@ -35,7 +35,6 @@ export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
         actionExecutionMessage: {
           name: message.name,
           arguments: JSON.stringify(message.arguments),
-          scope: message.scope as any,
         },
       };
     } else if (message.isResultMessage()) {
@@ -112,7 +111,6 @@ export function convertGqlOutputToMessages(
         id: message.id,
         name: message.name,
         arguments: getPartialArguments(message.arguments),
-        scope: message.scope,
         createdAt: new Date(),
         status: message.status || { code: MessageStatusCode.Pending },
       });

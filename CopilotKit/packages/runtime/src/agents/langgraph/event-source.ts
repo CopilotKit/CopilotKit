@@ -214,7 +214,6 @@ export class RemoteLangGraphEventSource {
                   type: RuntimeEventTypes.ActionExecutionStart,
                   actionExecutionId: eventWithState.toolCallMessageId,
                   actionName: eventWithState.toolCallName,
-                  scope: "client",
                 });
               }
             }

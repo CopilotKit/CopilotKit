@@ -27,8 +27,6 @@ export enum RuntimeEventTypes {
   AgentStateMessage = "AgentStateMessage",
 }
 
-type FunctionCallScope = "client" | "server" | "passThrough";
-
 export type RuntimeEvent =
   | { type: RuntimeEventTypes.TextMessageStart; messageId: string }
   | {
@@ -40,7 +38,6 @@ export type RuntimeEvent =
       type: RuntimeEventTypes.ActionExecutionStart;
       actionExecutionId: string;
       actionName: string;
-      scope?: FunctionCallScope;
     }
   | { type: RuntimeEventTypes.ActionExecutionArgs; args: string }
   | { type: RuntimeEventTypes.ActionExecutionEnd }
@@ -183,17 +180,6 @@ export class RuntimeEventSource {
       this.sendErrorMessageToChat();
     });
     return this.eventStream$.pipe(
-      // mark tools for server side execution
-      map((event) => {
-        if (event.type === RuntimeEventTypes.ActionExecutionStart) {
-          if (event.scope !== "passThrough") {
-            event.scope = serverSideActions.find((action) => action.name === event.actionName)
-              ? "server"
-              : "client";
-          }
-        }
-        return event;
-      }),
       // track state
       scan(
         (acc, event) => {
@@ -203,7 +189,8 @@ export class RuntimeEventSource {
           acc = { ...acc };
 
           if (event.type === RuntimeEventTypes.ActionExecutionStart) {
-            acc.callActionServerSide = event.scope === "server";
+            acc.callActionServerSide =
+              serverSideActions.find((action) => action.name === event.actionName) !== undefined;
             acc.args = "";
             acc.actionExecutionId = event.actionExecutionId;
             if (acc.callActionServerSide) {

@@ -377,7 +377,6 @@ export class CopilotResolver {
                   status: firstValueFrom(streamingArgumentsStatus),
                   createdAt: new Date(),
                   name: event.actionName,
-                  scope: event.scope!,
                   arguments: new Repeater(async (pushArgumentsChunk, stopStreamingArguments) => {
                     logger.debug("Action execution argument stream created");
 
@@ -413,7 +412,6 @@ export class CopilotResolver {
                             id: event.actionExecutionId,
                             createdAt: new Date(),
                             name: event.actionName,
-                            scope: event.scope!,
                             arguments: argumentChunks.join(""),
                           }),
                         );

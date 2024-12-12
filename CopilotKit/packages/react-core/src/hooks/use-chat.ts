@@ -189,32 +189,30 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
     const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
 
+    const filteredActions = actions
+      .filter((action) => action.available !== ActionInputAvailability.Disabled || !action.disabled)
+      .map((action) => {
+        let available: ActionInputAvailability | undefined = ActionInputAvailability.Enabled;
+        if (action.disabled) {
+          available = ActionInputAvailability.Disabled;
+        } else if (action.available === "disabled") {
+          available = ActionInputAvailability.Disabled;
+        } else if (action.available === "remote") {
+          available = ActionInputAvailability.Remote;
+        }
+        return {
+          name: action.name,
+          description: action.description || "",
+          jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
+          available,
+        };
+      });
+
     const stream = runtimeClient.asStream(
       runtimeClient.generateCopilotResponse({
         data: {
           frontend: {
-            actions: actions
-              .filter(
-                (action) =>
-                  action.available !== ActionInputAvailability.Disabled || !action.disabled,
-              )
-              .map((action) => {
-                let available: ActionInputAvailability | undefined =
-                  ActionInputAvailability.Enabled;
-                if (action.disabled) {
-                  available = ActionInputAvailability.Disabled;
-                } else if (action.available === "disabled") {
-                  available = ActionInputAvailability.Disabled;
-                } else if (action.available === "remote") {
-                  available = ActionInputAvailability.Remote;
-                }
-                return {
-                  name: action.name,
-                  description: action.description || "",
-                  jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
-                  available,
-                };
-              }),
+            actions: filteredActions,
             url: window.location.href,
           },
           threadId: threadIdRef.current,
@@ -277,10 +275,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           break;
         }
 
-        if (done) {
-          break;
-        }
-
         if (!value?.generateCopilotResponse) {
           continue;
         }
@@ -298,7 +292,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
         newMessages = [];
 
-        // request failed, display error message
+        // request failed, display error message and quit
         if (
           value.generateCopilotResponse.status?.__typename === "FailedResponseStatus" &&
           value.generateCopilotResponse.status.reason === "GUARDRAILS_VALIDATION_FAILED"
@@ -309,57 +303,16 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               content: value.generateCopilotResponse.status.details?.guardrailsReason || "",
             }),
           ];
+          setMessages([...previousMessages, ...newMessages]);
+          break;
         }
 
         // add messages to the chat
         else {
+          newMessages = [...messages];
+
           for (const message of messages) {
-            newMessages.push(message);
-            // execute regular action executions
-            if (
-              message.isActionExecutionMessage() &&
-              message.status.code !== MessageStatusCode.Pending &&
-              message.scope === "client" &&
-              onFunctionCall
-            ) {
-              if (!(message.id in actionResults)) {
-                // Do not execute a function call if guardrails are enabled but the status is not known
-                if (guardrailsEnabled && value.generateCopilotResponse.status === undefined) {
-                  break;
-                }
-                // execute action
-                try {
-                  // We update the message state before calling the handler so that the render
-                  // function can be called with `executing` state
-                  setMessages([...previousMessages, ...newMessages]);
-
-                  const action = actions.find((action) => action.name === message.name);
-
-                  if (action) {
-                    followUp = action.followUp;
-                  }
-
-                  const result = await onFunctionCall({
-                    messages: previousMessages,
-                    name: message.name,
-                    args: message.arguments,
-                  });
-                  actionResults[message.id] = result;
-                } catch (e) {
-                  actionResults[message.id] = `Failed to execute action ${message.name}`;
-                  console.error(`Failed to execute action ${message.name}: ${e}`);
-                }
-              }
-              // add the result message
-              newMessages.push(
-                new ResultMessage({
-                  result: ResultMessage.encodeResult(actionResults[message.id]),
-                  actionExecutionId: message.id,
-                  actionName: message.name,
-                }),
-              );
-            }
-            // execute coagent actions
+            // execute onCoAgentStateRender handler
             if (
               message.isAgentStateMessage() &&
               !message.active &&
@@ -377,6 +330,47 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 state: message.state,
               });
               executedCoAgentStateRenders.push(message.id);
+            }
+          }
+
+          // execute regular action executions that are specific to the frontend (last actions)
+          if (done && onFunctionCall) {
+            // Find consecutive action execution messages at the end
+            const lastMessages = [];
+            for (let i = messages.length - 1; i >= 0; i--) {
+              const message = messages[i];
+              if (
+                message.isActionExecutionMessage() &&
+                message.status.code !== MessageStatusCode.Pending
+              ) {
+                lastMessages.unshift(message);
+              } else {
+                break;
+              }
+            }
+
+            for (const message of lastMessages) {
+              // We update the message state before calling the handler so that the render
+              // function can be called with `executing` state
+              setMessages([...previousMessages, ...newMessages]);
+
+              const action = actions.find((action) => action.name === message.name);
+
+              if (action) {
+                followUp = action.followUp;
+                const result = await onFunctionCall({
+                  messages: previousMessages,
+                  name: message.name,
+                  args: message.arguments,
+                });
+                newMessages.push(
+                  new ResultMessage({
+                    result: ResultMessage.encodeResult(result),
+                    actionExecutionId: message.id,
+                    actionName: message.name,
+                  }),
+                );
+              }
             }
           }
 
@@ -412,6 +406,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         if (newMessages.length > 0) {
           // Update message state
           setMessages([...previousMessages, ...newMessages]);
+        }
+
+        if (done) {
+          break;
         }
       }
 

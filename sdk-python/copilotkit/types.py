@@ -24,7 +24,7 @@ class ActionExecutionMessage(Message):
     """Action execution message"""
     name: str
     arguments: dict
-    scope: str
+
 
 class ResultMessage(Message):
     """Result message"""

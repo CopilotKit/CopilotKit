@@ -67,11 +67,10 @@ type ActionExecutionMessageConstructorOptions = MessageConstructorOptions &
 
 export class ActionExecutionMessage
   extends Message
-  implements Omit<ActionExecutionMessageInput, "arguments">
+  implements Omit<ActionExecutionMessageInput, "arguments" | "scope">
 {
   name: ActionExecutionMessageInput["name"];
   arguments: Record<string, any>;
-  scope: ActionExecutionMessageInput["scope"];
 
   constructor(props: ActionExecutionMessageConstructorOptions) {
     super(props);

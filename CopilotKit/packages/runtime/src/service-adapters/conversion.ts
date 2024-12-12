@@ -28,7 +28,6 @@ export function convertGqlInputToMessages(inputMessages: MessageInput[]): Messag
           createdAt: message.createdAt,
           name: message.actionExecutionMessage.name,
           arguments: JSON.parse(message.actionExecutionMessage.arguments),
-          scope: message.actionExecutionMessage.scope,
         }),
       );
     } else if (message.resultMessage) {

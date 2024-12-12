@@ -1,5 +1,5 @@
 import { Field, InputType } from "type-graphql";
-import { MessageRole, ActionExecutionScope } from "../types/enums";
+import { MessageRole } from "../types/enums";
 import { BaseMessageInput } from "../types/base";
 
 // GraphQL does not support union types in inputs, so we need to use
@@ -36,8 +36,11 @@ export class ActionExecutionMessageInput {
   @Field(() => String)
   arguments: string;
 
-  @Field(() => ActionExecutionScope)
-  scope: ActionExecutionScope;
+  @Field(() => String, {
+    nullable: true,
+    deprecationReason: "This field will be removed in a future version",
+  })
+  scope?: String;
 }
 
 @InputType()
