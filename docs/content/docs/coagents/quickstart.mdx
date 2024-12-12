@@ -10,7 +10,7 @@ import {
 } from "@/components/react/tailored-content.tsx";
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
 import { CoAgentsDiagram } from "@/components/react/coagents/coagents-diagram.tsx";
-import { FaPython, FaJs, FaCloud } from "react-icons/fa";
+import { FaPython, FaJs, FaCloud, DiServer } from "react-icons/fa";
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 import CopilotCloudConfigureRemoteEndpointLangGraph from "@/snippets/copilot-cloud-configure-remote-endpoint-langgraph.mdx";
 import CopilotKitCloudCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
@@ -36,7 +36,7 @@ In order for CopilotKit to integrate with your LangGraph agent, it has to be dep
 <TailoredContent>
 <TailoredContentOption
     title="LangGraph Platform (recommended)"
-    description="I want to write my LangGraph agent in Python or JavaScript and deploy it through LangGraph Platform."
+    description="I want to self host a LangGraph Platform endpoint or use LangGraph Cloud” (Python, JavaScript)"
     icon={<FaCloud />}
   >
     <InsecurePasswordProtected>
@@ -67,8 +67,8 @@ In order for CopilotKit to integrate with your LangGraph agent, it has to be dep
 
         </TailoredContentOption>
         <TailoredContentOption
-          title="Self-hosting"
-          description="I want to write my LangGraph agent in Python."
+          title="Self-Hosted Copilot Runtime"
+          description="I want to self host my agent on a FastAPI Copilot Remote Endpoint (Python only)."
           icon={<FaPython />}
         >
           <Steps>
@@ -136,8 +136,8 @@ In order for CopilotKit to integrate with your LangGraph agent, it has to be dep
 
   </TailoredContentOption>
   <TailoredContentOption 
-    title="Remote Endpoint (FastAPI / Python)"
-    description="I want to write my LangGraph agent in Python."
+    title="Self-Hosted Copilot Runtime"
+    description="I want to self host my agent on a FastAPI Copilot Remote Endpoint (Python only)"
     icon={<FaPython />}
   >
     **For orientation, here's how CoAgents are wired:**
