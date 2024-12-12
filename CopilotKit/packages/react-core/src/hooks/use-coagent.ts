@@ -243,6 +243,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     let coagentState: CoagentState = getCoagentState(coagentStatesRef.current || {}, name);
     const updatedState =
       typeof newState === "function" ? (newState as Function)(coagentState.state) : newState;
+
     setCoagentStatesWithRef({
       ...coagentStatesRef.current,
       [name]: {
@@ -322,7 +323,7 @@ async function runAgent(
     }
   }
 
-  let state = context.coagentStates?.[name]?.state || {};
+  let state = context.coagentStatesRef.current?.[name]?.state || {};
 
   if (hint) {
     const hintMessage = hint({ previousState, currentState: state });
