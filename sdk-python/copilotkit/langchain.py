@@ -115,7 +115,7 @@ async def copilotkit_exit(config: RunnableConfig):
         {},
         config=config,
     )
-    await asyncio.sleep(0.01)
+    await asyncio.sleep(0.02)
 
     return True
 
@@ -129,7 +129,7 @@ async def copilotkit_emit_state(config: RunnableConfig, state: Any):
         state,
         config=config,
     )
-    await asyncio.sleep(0.01)
+    await asyncio.sleep(0.02)
 
     return True
 
@@ -146,7 +146,7 @@ async def copilotkit_emit_message(config: RunnableConfig, message: str):
         },
         config=config,
     )
-    await asyncio.sleep(0.01)
+    await asyncio.sleep(0.02)
 
     return True
 
@@ -165,6 +165,6 @@ async def copilotkit_emit_tool_call(config: RunnableConfig, *, name: str, args: 
         },
         config=config,
     )
-    await asyncio.sleep(0.01)
+    await asyncio.sleep(0.02)
 
     return True
