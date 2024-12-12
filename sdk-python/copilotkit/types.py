@@ -25,7 +25,6 @@ class ActionExecutionMessage(Message):
     name: str
     arguments: dict
 
-
 class ResultMessage(Message):
     """Result message"""
     actionExecutionId: str
