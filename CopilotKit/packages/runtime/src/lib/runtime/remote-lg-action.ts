@@ -96,8 +96,6 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     initialThreadId = initialThreadId.substring(3);
   }
 
-  const assistants = await client.assistants.search();
-  const retrievedAssistant = assistants.find((a) => a.name === name);
   const threadId = initialThreadId ?? randomUUID();
   if (initialThreadId === threadId) {
     await client.threads.get(threadId);
@@ -124,8 +122,24 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     await client.threads.updateState(threadId, { values: state, asNode: nodeName });
   }
 
-  const assistantId = initialAssistantId ?? retrievedAssistant?.assistant_id;
-  if (!assistantId) {
+  let streamInfo: {
+    provider?: string;
+    langGraphHost?: string;
+    langGraphVersion?: string;
+    hashedLgcKey: string;
+  } = {
+    hashedLgcKey: createHash("sha256").update(langsmithApiKey).digest("hex"),
+  };
+
+  const assistants = await client.assistants.search();
+  const retrievedAssistant = assistants.find(
+    (a) => a.name === name || a.assistant_id === initialAssistantId,
+  );
+  if (!retrievedAssistant) {
+    telemetry.capture("oss.runtime.agent_execution_stream_errored", {
+      ...streamInfo,
+      error: `Found no assistants for given information, while ${assistants.length} assistants exists`,
+    });
     console.error(`
       No agent found for the agent name specified in CopilotKit provider
       Please check your available agents or provide an agent ID in the LangGraph Platform endpoint definition.\n
@@ -134,6 +148,8 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       `);
     throw new Error("No agent id found");
   }
+  const assistantId = retrievedAssistant.assistant_id;
+
   const graphInfo = await client.assistants.getGraph(assistantId);
   const streamInput = mode === "start" ? state : null;
 
@@ -155,14 +171,6 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   // If a manual emittance happens, it is the ultimate source of truth of state, unless a node has exited.
   // Therefore, this value should either hold null, or the only edition of state that should be used.
   let manuallyEmittedState = null;
-  let streamInfo: {
-    provider?: string;
-    langGraphHost?: string;
-    langGraphVersion?: string;
-    hashedLgcKey: string;
-  } = {
-    hashedLgcKey: createHash("sha256").update(langsmithApiKey).digest("hex"),
-  };
 
   try {
     telemetry.capture("oss.runtime.agent_execution_stream_started", {
@@ -172,7 +180,6 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       if (!["events", "values", "error"].includes(chunk.event)) continue;
 
       if (chunk.event === "error") {
-        logger.error(chunk, `Error event thrown: ${chunk.data.message}`);
         throw new Error(`Error event thrown: ${chunk.data.message}`);
       }
 
@@ -317,7 +324,11 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
 
     return Promise.resolve();
   } catch (e) {
-    // TODO: handle error state here.
+    logger.error(e);
+    telemetry.capture("oss.runtime.agent_execution_stream_errored", {
+      ...streamInfo,
+      error: e.message,
+    });
     return Promise.resolve();
   }
 }
