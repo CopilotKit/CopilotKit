@@ -299,7 +299,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
         if (done) {
           if (chatAbortControllerRef.current.signal.aborted) {
-            return newMessages.slice();
+            return []
           }
           break;
         }
