@@ -9,14 +9,14 @@ importers:
   .:
     dependencies:
       '@copilotkit/react-core':
-        specifier: 1.4.1
-        version: 1.4.1(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 1.4.3
+        version: 1.4.3(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@copilotkit/react-ui':
-        specifier: 1.4.1
-        version: 1.4.1(@types/react@18.3.11)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 1.4.3
+        version: 1.4.3(@types/react@18.3.11)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@copilotkit/runtime':
-        specifier: 1.4.1
-        version: 1.4.1(class-validator@0.14.1)(google-auth-library@8.9.0)
+        specifier: 1.4.3
+        version: 1.4.3(class-validator@0.14.1)(google-auth-library@8.9.0)
       '@radix-ui/react-dialog':
         specifier: ^1.1.2
         version: 1.1.2(@types/react-dom@18.3.0)(@types/react@18.3.11)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -103,27 +103,27 @@ packages:
     resolution: {integrity: sha512-FjoyLe754PMiYsFaN5C94ttGiOmBNYTf6pLr4xXHAT5uctHb092PBszndLDR5XA/jghQvn4n7JMHl7dmTgbm9w==}
     engines: {node: '>=6.9.0'}
 
-  '@copilotkit/react-core@1.4.1':
-    resolution: {integrity: sha512-RQAkpB0a+cjBI17oERVR3liOVcYqeE6lPSQuArZOmRfyhZOhv2NYpwaN1xEbqXdmorT8Qd8P9NsoDEosiyzAUQ==}
+  '@copilotkit/react-core@1.4.3':
+    resolution: {integrity: sha512-CuKBwVvu6snTVr0hQfF6LBHWDEkvbqCBLezHJxzQEitOCTL9mdJ/0RQplOQR4siVLZyldJ+kqUmTXawzZPjNsQ==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
       react-dom: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/react-ui@1.4.1':
-    resolution: {integrity: sha512-NmyxMcQNbH05L08pYRSUFL3zA1u+1COkqWJiLMoIjeR9WeT0DAXiFHzxWHvBIPC6Zilusj3yfMkmBlvWT4DO9w==}
+  '@copilotkit/react-ui@1.4.3':
+    resolution: {integrity: sha512-b45oZxlsE8pXc48Iw9+bIV9C7nyDFKSxtVgWNOZVIU463fzOZTaxn+ATEI8B26XeLqCSSoUcYKNXJ5c8DI3IGQ==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime-client-gql@1.4.1':
-    resolution: {integrity: sha512-RHGu7uCpY6yHlXmWYHM+oOCcF+q6C3Lvat4aiNyu8fL8abVGTSw2dZM8OUzcseZaB7Jj6XvcAnhNe129Sr4dxA==}
+  '@copilotkit/runtime-client-gql@1.4.3':
+    resolution: {integrity: sha512-0QZtL5Ing49RLMfIW1htNOMCh1WSAFXQKcXM40NxrPsRA3VZa4m+bw5wOQB7eGlZEdo71BYwKxgvky/e/MXncg==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime@1.4.1':
-    resolution: {integrity: sha512-8IlKM3qEB+Vc+kePQo4CFH+mqNO1QsUrzKF3SRkHWfv2M3FpjDWK0bEhvC7vqDAlXXdZXJlJJ5++78PTyZAueQ==}
+  '@copilotkit/runtime@1.4.3':
+    resolution: {integrity: sha512-JlP7Sk6jf374stMCFTjzHC/0aiuRWk7EpR/qRhqnagf4v2+f2BoKmproWKa6Urm6pVN1TDy7uS9T/9Kyw36uog==}
 
-  '@copilotkit/shared@1.4.1':
-    resolution: {integrity: sha512-x4HDEYyd3mm/dsuvz2aeC5CL6LDbAqo4siFgYyNYW6nOmqyPAhMlY4TgQnuaOmOVXCsTaNZ0nF831PuJdeOIwQ==}
+  '@copilotkit/shared@1.4.3':
+    resolution: {integrity: sha512-EAs5IMvW9LcWT1r7S9bfe2FwBvaJAgUDywEQh1ypVfo3gbsqLZ8kL1Nq9ATp52eAwQhpcbYecpx4QSzjAVn9iQ==}
 
   '@envelop/core@5.0.2':
     resolution: {integrity: sha512-tVL6OrMe6UjqLosiE+EH9uxh2TQC0469GwF4tE014ugRaDDKKVWwFwZe0TBMlcyHKh5MD4ZxktWo/1hqUxIuhw==}
@@ -3553,11 +3553,6 @@ packages:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
 
-  zod-to-json-schema@3.23.3:
-    resolution: {integrity: sha512-TYWChTxKQbRJp5ST22o/Irt9KC5nj7CdBKYB/AosCRdj/wxEMvv4NNaj9XVUHDOIp53ZxArGhnw5HMZziPFjog==}
-    peerDependencies:
-      zod: ^3.23.3
-
   zod-to-json-schema@3.23.5:
     resolution: {integrity: sha512-5wlSS0bXfF/BrL4jPAbz9da5hDlDptdEppYfe+x4eIJ7jioqKG9uUxOwPzqof09u/XeVdrgFu29lZi+8XNDJtA==}
     peerDependencies:
@@ -3593,10 +3588,10 @@ snapshots:
     dependencies:
       regenerator-runtime: 0.14.1
 
-  '@copilotkit/react-core@1.4.1(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkit/react-core@1.4.3(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@copilotkit/runtime-client-gql': 1.4.1(graphql@16.9.0)(react@18.3.1)
-      '@copilotkit/shared': 1.4.1
+      '@copilotkit/runtime-client-gql': 1.4.3(graphql@16.9.0)(react@18.3.1)
+      '@copilotkit/shared': 1.4.3
       '@scarf/scarf': 1.3.0
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
@@ -3605,11 +3600,11 @@ snapshots:
       - encoding
       - graphql
 
-  '@copilotkit/react-ui@1.4.1(@types/react@18.3.11)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkit/react-ui@1.4.3(@types/react@18.3.11)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@copilotkit/react-core': 1.4.1(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@copilotkit/runtime-client-gql': 1.4.1(graphql@16.9.0)(react@18.3.1)
-      '@copilotkit/shared': 1.4.1
+      '@copilotkit/react-core': 1.4.3(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@copilotkit/runtime-client-gql': 1.4.3(graphql@16.9.0)(react@18.3.1)
+      '@copilotkit/shared': 1.4.3
       '@headlessui/react': 2.1.9(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       react-markdown: 8.0.7(@types/react@18.3.11)(react@18.3.1)
@@ -3623,9 +3618,9 @@ snapshots:
       - react-dom
       - supports-color
 
-  '@copilotkit/runtime-client-gql@1.4.1(graphql@16.9.0)(react@18.3.1)':
+  '@copilotkit/runtime-client-gql@1.4.3(graphql@16.9.0)(react@18.3.1)':
     dependencies:
-      '@copilotkit/shared': 1.4.1
+      '@copilotkit/shared': 1.4.3
       '@urql/core': 5.0.6(graphql@16.9.0)
       react: 18.3.1
       untruncate-json: 0.0.1
@@ -3634,10 +3629,10 @@ snapshots:
       - encoding
       - graphql
 
-  '@copilotkit/runtime@1.4.1(class-validator@0.14.1)(google-auth-library@8.9.0)':
+  '@copilotkit/runtime@1.4.3(class-validator@0.14.1)(google-auth-library@8.9.0)':
     dependencies:
       '@anthropic-ai/sdk': 0.27.3
-      '@copilotkit/shared': 1.4.1
+      '@copilotkit/shared': 1.4.3
       '@graphql-yoga/plugin-defer-stream': 3.7.0(graphql-yoga@5.7.0(graphql@16.9.0))(graphql@16.9.0)
       '@langchain/community': 0.0.53(google-auth-library@8.9.0)(openai@4.70.2(zod@3.23.8))
       '@langchain/core': 0.3.16(openai@4.70.2(zod@3.23.8))
@@ -3768,7 +3763,7 @@ snapshots:
       - web-auth-library
       - ws
 
-  '@copilotkit/shared@1.4.1':
+  '@copilotkit/shared@1.4.3':
     dependencies:
       '@segment/analytics-node': 2.2.0
       chalk: 4.1.2
@@ -3950,7 +3945,7 @@ snapshots:
       langsmith: 0.1.63(openai@4.70.2(zod@3.23.8))
       uuid: 9.0.1
       zod: 3.23.8
-      zod-to-json-schema: 3.23.3(zod@3.23.8)
+      zod-to-json-schema: 3.23.5(zod@3.23.8)
     optionalDependencies:
       google-auth-library: 8.9.0
     transitivePeerDependencies:
@@ -3970,7 +3965,7 @@ snapshots:
       p-retry: 4.6.2
       uuid: 9.0.1
       zod: 3.23.8
-      zod-to-json-schema: 3.23.3(zod@3.23.8)
+      zod-to-json-schema: 3.23.5(zod@3.23.8)
     transitivePeerDependencies:
       - openai
 
@@ -3986,7 +3981,7 @@ snapshots:
       p-retry: 4.6.2
       uuid: 10.0.0
       zod: 3.23.8
-      zod-to-json-schema: 3.23.3(zod@3.23.8)
+      zod-to-json-schema: 3.23.5(zod@3.23.8)
     transitivePeerDependencies:
       - openai
 
@@ -4002,7 +3997,7 @@ snapshots:
       p-retry: 4.6.2
       uuid: 10.0.0
       zod: 3.23.8
-      zod-to-json-schema: 3.23.3(zod@3.23.8)
+      zod-to-json-schema: 3.23.5(zod@3.23.8)
     transitivePeerDependencies:
       - openai
 
@@ -4010,7 +4005,7 @@ snapshots:
     dependencies:
       '@langchain/core': 0.3.16(openai@4.70.2(zod@3.23.8))
       uuid: 10.0.0
-      zod-to-json-schema: 3.23.3(zod@3.23.8)
+      zod-to-json-schema: 3.23.5(zod@3.23.8)
     transitivePeerDependencies:
       - zod
 
@@ -4037,7 +4032,7 @@ snapshots:
       js-tiktoken: 1.0.15
       openai: 4.70.2(zod@3.23.8)
       zod: 3.23.8
-      zod-to-json-schema: 3.23.3(zod@3.23.8)
+      zod-to-json-schema: 3.23.5(zod@3.23.8)
     transitivePeerDependencies:
       - encoding
 
@@ -4047,7 +4042,7 @@ snapshots:
       js-tiktoken: 1.0.15
       openai: 4.70.2(zod@3.23.8)
       zod: 3.23.8
-      zod-to-json-schema: 3.23.3(zod@3.23.8)
+      zod-to-json-schema: 3.23.5(zod@3.23.8)
     transitivePeerDependencies:
       - encoding
 
@@ -6005,7 +6000,7 @@ snapshots:
       uuid: 10.0.0
       yaml: 2.5.1
       zod: 3.23.8
-      zod-to-json-schema: 3.23.3(zod@3.23.8)
+      zod-to-json-schema: 3.23.5(zod@3.23.8)
     transitivePeerDependencies:
       - encoding
       - openai
@@ -7502,10 +7497,6 @@ snapshots:
   yaml@2.5.1: {}
 
   yocto-queue@0.1.0: {}
-
-  zod-to-json-schema@3.23.3(zod@3.23.8):
-    dependencies:
-      zod: 3.23.8
 
   zod-to-json-schema@3.23.5(zod@3.23.8):
     dependencies:
