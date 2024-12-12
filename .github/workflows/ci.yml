@@ -50,7 +50,7 @@ jobs:
         id: ensure-changesets
         working-directory: './CopilotKit'
         run: |
-          status=$(pnpm changeset --since=origin/main)
+          status=$(pnpm changeset --since=origin/main status)
           echo status: $status
           echo "code=$?" >> $GITHUB_OUTPUT
 
