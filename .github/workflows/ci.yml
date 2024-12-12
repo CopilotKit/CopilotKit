@@ -51,9 +51,7 @@ jobs:
         working-directory: './CopilotKit'
         continue-on-error: true
         run: |
-          status=$(pnpm changeset --since=origin/main status)
-          echo status: $status
-          echo "code=$?" >> $GITHUB_OUTPUT
+          pnpm changeset --since=origin/main status
 
       - name: Delete a comment
         if: ${{ github.event_name == 'pull_request' }}
@@ -63,7 +61,7 @@ jobs:
           mode: delete
 
       - name: Comment post-deployment (Changesets found)
-        if: ${{ github.event_name == 'pull_request' && steps.ensure-changesets.outputs.code == 0 }}
+        if: ${{ github.event_name == 'pull_request' && steps.ensure-changesets.outcome == 'success' }}
         uses: thollander/actions-comment-pull-request@v3
         with:
           comment-tag: changeset-status
@@ -71,7 +69,7 @@ jobs:
             Changesets found
 
       - name: Comment post-deployment (Changesets not found)
-        if: ${{ github.event_name == 'pull_request' && steps.ensure-changesets.outputs.code == 1 }}
+        if: ${{ github.event_name == 'pull_request' && steps.ensure-changesets.outcome == 'failure' }}
         uses: thollander/actions-comment-pull-request@v3
         with:
           comment-tag: changeset-status
