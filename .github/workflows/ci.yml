@@ -66,7 +66,13 @@ jobs:
         with:
           comment-tag: changeset-status
           message: |
-            Changesets found
+            ### ✅ Changeset status OK
+
+            Latest commit: ${{ github.sha }}
+
+            You have either not made any changes to the `@copilotkit/*` packages, or you did and you've added a changeset.
+
+            Merging this PR will cause a version bump.
 
       - name: Comment post-deployment (Changesets not found)
         if: ${{ github.event_name == 'pull_request' && steps.ensure-changesets.outcome == 'failure' }}
@@ -74,7 +80,17 @@ jobs:
         with:
           comment-tag: changeset-status
           message: |
-            Changesets NOT found
+            ###  ⚠️  No Changeset found
+
+            Latest commit: ${{ github.sha }}
+
+            Merging this PR will not cause a version bump for any packages. If these changes should not result in a new version, you're good to go. **If these changes should result in a version bump, you need to add a changeset.**
+
+            **To add a changeset:**
+
+            1. `cd CopilotKit`
+            2. `pnpm changeset`
+            3. Commit the changeset file(s) and push to the branch.
 
       - name: Build
         run: npx turbo run build
