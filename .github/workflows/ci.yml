@@ -44,9 +44,8 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         id: ensure-changesets
         run: |
-          NUM_CHANGESETS=$(pnpm changeset status --output changeset-status-output.json && cat changeset-status-output.json | jq '.changesets | length')
-          echo Number of changesets: $NUM_CHANGESETS
-          echo "num_changesets=$(NUM_CHANGESETS)" >> $GITHUB_OUTPUT
+          pnpm changeset status --output changeset-status-output.json
+          cat changeset-status-output.json
 
       - name: ✅ Changesets Found
         if: ${{ github.event_name == 'pull_request' && steps.ensure-changesets.outputs.num_changesets > 0 }}
