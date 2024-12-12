@@ -55,15 +55,28 @@ jobs:
           echo status: $status
           echo "code=$?" >> $GITHUB_OUTPUT
 
-      - name: ✅ Changesets Found
-        if: ${{ github.event_name == 'pull_request' && steps.ensure-changesets.outputs.code == 0 }}
-        run: |
-          echo "Changesets found"
+      - name: Delete a comment
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: changeset-status
+          mode: delete
 
-      - name: ❌ Changesets Not Found
-        if: ${{ github.event_name == 'pull_request' && steps.ensure-changesets.outputs.code == 1 }}
-        run: |
-          echo "Changesets not found"
+      - name: Comment post-deployment (Changesets found)
+        if: ${{ github.event_name == 'pull_request' && && steps.ensure-changesets.outputs.code == 0 }}
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: changeset-status
+          message: |
+            Changesets found
+
+      - name: Comment post-deployment (Changesets not found)
+        if: ${{ github.event_name == 'pull_request' && && steps.ensure-changesets.outputs.code == 1 }}
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: changeset-status
+          message: |
+            Changesets NOT found
 
       - name: Build
         run: npx turbo run build
