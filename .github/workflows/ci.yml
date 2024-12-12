@@ -27,6 +27,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -42,13 +44,15 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-        
+
       - name: Ensure Changesets
         if: ${{ github.event_name == 'pull_request' }}
         id: ensure-changesets
         run: |
           pnpm changeset status --output changeset-status-output.json
           cat changeset-status-output.json
+          echo Number of changesets: $NUM_CHANGESETS
+          echo "num_changesets=$(NUM_CHANGESETS)" >> $GITHUB_OUTPUT
 
       - name: ✅ Changesets Found
         if: ${{ github.event_name == 'pull_request' && steps.ensure-changesets.outputs.num_changesets > 0 }}
