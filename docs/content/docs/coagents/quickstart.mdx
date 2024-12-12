@@ -17,7 +17,6 @@ import CopilotKitCloudCopilotKitProvider from "@/snippets/copilot-cloud-configur
 import LangGraphPlatformDeploymentTabs from "@/snippets/langgraph-platform-deployment-tabs.mdx";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import FindYourCopilotRuntime from "@/snippets/find-your-copilot-runtime.mdx";
-import { InsecurePasswordProtected } from "@/components/react/insecure-password-protected.tsx";
 
 ## Before you start
 
@@ -40,82 +39,79 @@ In order for CopilotKit to integrate with your LangGraph agent, the agent has to
     description="I want to self-host a LangGraph Platform Endpoint or use LangGraph Cloud (Python, JavaScript)"
     icon={<FaCloud />}
   >
-    <InsecurePasswordProtected>
-      ## Deploy your LangGraph agent
+    ## Deploy your LangGraph agent
 
-      <Callout type="info">
-        **If you have already deployed your LangGraph agent, skip to step 3.**
-      </Callout>
+    <Callout type="info">
+      **If you have already deployed your LangGraph agent, skip to step 3.**
+    </Callout>
 
-      <LangGraphPlatformDeploymentTabs components={props.components} />
+    <LangGraphPlatformDeploymentTabs components={props.components} />
 
-      ## Integrate your LangGraph agent with CopilotKit
+    ## Integrate your LangGraph agent with CopilotKit
 
-      ### How are you hosting your Copilot?
-      <TailoredContent>
-        <TailoredContentOption
-          title="Copilot Cloud (Recommended)"
-          description="I want to host my Copilot on Copilot Cloud"
-          icon={<FaCloud />}
-        >
-          <Accordions>
-            <Accordion title="Not already using Copilot Cloud?">
-              <CopilotKitCloudCopilotKitProvider components={props.components} />
-            </Accordion>
-          </Accordions>
+    ### How are you hosting your Copilot?
+    <TailoredContent>
+      <TailoredContentOption
+        title="Copilot Cloud (Recommended)"
+        description="I want to host my Copilot on Copilot Cloud"
+        icon={<FaCloud />}
+      >
+        <Accordions>
+          <Accordion title="Not already using Copilot Cloud?">
+            <CopilotKitCloudCopilotKitProvider components={props.components} />
+          </Accordion>
+        </Accordions>
 
-          With your LangGraph deployment URL, all that is left is to register our LangGraph agent to the Copilot Cloud runtime.
+        With your LangGraph deployment URL, all that is left is to register our LangGraph agent to the Copilot Cloud runtime.
 
-          <CopilotCloudConfigureRemoteEndpointLangGraph components={props.components} />
+        <CopilotCloudConfigureRemoteEndpointLangGraph components={props.components} />
 
-        </TailoredContentOption>
-        <TailoredContentOption
-          title="Self-Hosted Copilot Runtime"
-          description="I want to self-host the Copilot Runtime"
-          icon={<FaPython />}
-        >
-          <Steps>
-            <Step>
-              ## Find your CopilotRuntime instance
-              <FindYourCopilotRuntime components={props.components} />
-            </Step>
-            <Step>
-              ## Connect the app to the remote endpoint
-              Once you've found your runtime instance, you can connect your app to the remote endpoint by modifying your CopilotRuntime configuration.
+      </TailoredContentOption>
+      <TailoredContentOption
+        title="Self-Hosted Copilot Runtime"
+        description="I want to self-host the Copilot Runtime"
+        icon={<FaPython />}
+      >
+        <Steps>
+          <Step>
+            ## Find your CopilotRuntime instance
+            <FindYourCopilotRuntime components={props.components} />
+          </Step>
+          <Step>
+            ## Connect the app to the remote endpoint
+            Once you've found your runtime instance, you can connect your app to the remote endpoint by modifying your CopilotRuntime configuration.
 
-              ```tsx
-                const runtime = new CopilotRuntime({
-                  // ...existing configuration
-                  remoteEndpoints: [
-                    langGraphPlatformEndpoint({
-                      deploymentUrl: "your-api-url", // make sure to replace with your real deployment url // [!code highlight]
-                      langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deoployments
-                      agents: [ // List any agents available under "graphs" list in your langgraph.json file; give each a description explaining when it should be called.
-                        {
-                          name: 'my_agent', // [!code highlight]
-                          description: 'A helpful LLM agent.' // [!code highlight]
-                          assistantId: 'your-assistant-ID' // optional, but recommended! // [!code highlight]
-                        }
-                      ]
-                    }),
-                  ],
-                });
-              ```
-              <Callout>
-                The key names under `graphs` in the `langgraph.json` are the agent(s) name(s) unless you specified otherwise when creating your agents<br />
-                Make sure these names are used whenever you have to use an agent name throughout the integration with CopilotKit<br/><br/>
-                Additionally, you can specify assistant IDs, which is an optional, yet more accurate way to specify an agent
-              </Callout>
-              <Callout>
-                Remember to replace `your-api-url` with your actual LangGraph Platform deployment URL and
-                set your LangSmith API key as an environment variable.
-              </Callout>
-            </Step>
-          </Steps>
-        </TailoredContentOption>
-      </TailoredContent>
-    </InsecurePasswordProtected>
-
+            ```tsx
+              const runtime = new CopilotRuntime({
+                // ...existing configuration
+                remoteEndpoints: [
+                  langGraphPlatformEndpoint({
+                    deploymentUrl: "your-api-url", // make sure to replace with your real deployment url // [!code highlight]
+                    langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deoployments
+                    agents: [ // List any agents available under "graphs" list in your langgraph.json file; give each a description explaining when it should be called.
+                      {
+                        name: 'my_agent', // [!code highlight]
+                        description: 'A helpful LLM agent.' // [!code highlight]
+                        assistantId: 'your-assistant-ID' // optional, but recommended! // [!code highlight]
+                      }
+                    ]
+                  }),
+                ],
+              });
+            ```
+            <Callout>
+              The key names under `graphs` in the `langgraph.json` are the agent(s) name(s) unless you specified otherwise when creating your agents<br />
+              Make sure these names are used whenever you have to use an agent name throughout the integration with CopilotKit<br/><br/>
+              Additionally, you can specify assistant IDs, which is an optional, yet more accurate way to specify an agent
+            </Callout>
+            <Callout>
+              Remember to replace `your-api-url` with your actual LangGraph Platform deployment URL and
+              set your LangSmith API key as an environment variable.
+            </Callout>
+          </Step>
+        </Steps>
+      </TailoredContentOption>
+    </TailoredContent>
   </TailoredContentOption>
   <TailoredContentOption 
     title="Copilot Remote Endpoint"

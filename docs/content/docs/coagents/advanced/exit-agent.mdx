@@ -51,36 +51,34 @@ In this example from [our email-sending app](https://github.com/copilotkit/copil
                 ```
             </Tab>
             <Tab value="TypeScript">
-                <InsecurePasswordProtected>
-                    ```typescript
-                    import { copilotKitEmitMessage } from "@copilotkit/sdk-js/langchain";
+                ```typescript
+                import { copilotKitEmitMessage } from "@copilotkit/sdk-js/langchain";
 
-                    // ...
+                // ...
 
-                    async function sendEmailNode(state: EmailAgentState, config: RunnableConfig): Promise<{ messages: any[] }> {
-                        // Send an email.
+                async function sendEmailNode(state: EmailAgentState, config: RunnableConfig): Promise<{ messages: any[] }> {
+                    // Send an email.
 
-                        config = copilotKitCustomizeConfig(
-                            config,
-                            { emitMessages: true },
-                        );
+                    config = copilotKitCustomizeConfig(
+                        config,
+                        { emitMessages: true },
+                    );
 
-                        await copilotKitExit(config); // [!code highlight]
+                    await copilotKitExit(config); // [!code highlight]
 
-                        // get the last message and cast to ToolMessage
-                        const lastMessage = state.messages[state.messages.length - 1] as ToolMessage;
-                        if (lastMessage.content === "CANCEL") {
-                            await copilotKitEmitMessage(config, "❌ Cancelled sending email.");
-                        } else {
-                            await copilotKitEmitMessage(config, "✅ Sent email.");
-                        }
-
-                        return {
-                            messages: state["messages"],
-                        };
+                    // get the last message and cast to ToolMessage
+                    const lastMessage = state.messages[state.messages.length - 1] as ToolMessage;
+                    if (lastMessage.content === "CANCEL") {
+                        await copilotKitEmitMessage(config, "❌ Cancelled sending email.");
+                    } else {
+                        await copilotKitEmitMessage(config, "✅ Sent email.");
                     }
-                    ```
-                </InsecurePasswordProtected>
+
+                    return {
+                        messages: state["messages"],
+                    };
+                }
+                ```
             </Tab>
         </Tabs>
     </Step>
