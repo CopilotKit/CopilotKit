@@ -40,6 +40,9 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: '**/pnpm-lock.yaml'
 
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        
       - name: Ensure Changesets
         if: ${{ github.event_name == 'pull_request' }}
         id: ensure-changesets
@@ -56,9 +59,6 @@ jobs:
         if: ${{ github.event_name == 'pull_request' && steps.ensure-changesets.outputs.num_changesets == 0 }}
         run: |
           echo "Changesets not found"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
 
       - name: Build
         run: npx turbo run build
