@@ -41,7 +41,7 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          publish: changeset version && changeset publish
+          publish: pnpm publish-packages
           cwd: CopilotKit
           createGithubReleases: false
         env:
