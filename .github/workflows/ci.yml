@@ -48,8 +48,9 @@ jobs:
       - name: Ensure Changesets
         if: ${{ github.event_name == 'pull_request' }}
         id: ensure-changesets
+        working-directory: './CopilotKit'
         run: |
-          pnpm changeset status --output changeset-status-output.json
+          pnpm changeset status --since=origin/main --output changeset-status-output.json
           cat changeset-status-output.json
           echo Number of changesets: $NUM_CHANGESETS
           echo "num_changesets=$(NUM_CHANGESETS)" >> $GITHUB_OUTPUT
