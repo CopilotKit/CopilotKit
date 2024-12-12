@@ -1,13 +1,13 @@
 ---
-title: JSON Approval
-description: Implement approval UI for your agent.
+title: Chat based Human-in-the-loop (HITL)
+description: Implement approval UI for your agent in the chat.
 ---
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 
 [Human-in-the-loop](/coagents/concepts/human-in-the-loop), allows the user and agent to iteratively build towards an agreed upon outcome. CopilotKit gives you all
 of the tools necessary to accomplish this with your LangGraph agents through CoAgents. 
 
-What we'll be implementing in this guide will look along these lines.
+This guide will show you how to implement a simple HITL workflow *in the chat*.
 
 <Frame className="my-2">
   <img
@@ -39,8 +39,8 @@ while the LangGraph agent is executing.
 import { useCopilotAction } from "@copilotkit/react-core";
 
 export function Mailer() {
+  // [!code highlight:21]
   useCopilotAction({
-    // [!code highlight:19]
     name: "email_tool",
     available: "remote", // only allow the agent to call this action
     parameters: [
