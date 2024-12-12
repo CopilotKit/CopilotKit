@@ -184,9 +184,6 @@ In order for CopilotKit to integrate with your LangGraph agent, it has to be dep
               name="basic_agent",
               description="Agent that answers questions about the weather",
               graph=the_langraph_graph,
-              # copilotkit_config={ # if you use Google Gemini, uncomment  this code (and import `copilotkit_messages_to_langchain`, see above)
-              #  "convert_messages": copilotkit_messages_to_langchain(use_function_call=True)
-              # }
             )
           ],
           # ...
