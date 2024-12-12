@@ -1,0 +1,23 @@
+{
+  "mode": "pre",
+  "tag": "pre",
+  "initialVersions": {
+    "next-openai": "1.4.2",
+    "next-pages-router": "1.4.2",
+    "node-express": "1.4.2",
+    "node-http": "1.4.2",
+    "@copilotkit/react-core": "1.4.2",
+    "@copilotkit/react-textarea": "1.4.2",
+    "@copilotkit/react-ui": "1.4.2",
+    "@copilotkit/runtime": "1.4.2",
+    "@copilotkit/runtime-client-gql": "1.4.2",
+    "@copilotkit/sdk-js": "1.4.2",
+    "@copilotkit/shared": "1.4.2",
+    "eslint-config-custom": "1.4.2",
+    "tailwind-config": "1.4.2",
+    "tsconfig": "1.4.2"
+  },
+  "changesets": [
+    "light-kangaroos-brush"
+  ]
+}
