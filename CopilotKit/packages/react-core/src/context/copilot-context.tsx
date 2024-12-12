@@ -132,6 +132,13 @@ export interface CopilotContextParams {
   // agents
   coagentStates: Record<string, CoagentState>;
   setCoagentStates: React.Dispatch<React.SetStateAction<Record<string, CoagentState>>>;
+  coagentStatesRef: React.RefObject<Record<string, CoagentState>>;
+  setCoagentStatesWithRef: (
+    value:
+      | Record<string, CoagentState>
+      | ((prev: Record<string, CoagentState>) => Record<string, CoagentState>),
+  ) => void;
+
   agentSession: AgentSession | null;
   setAgentSession: React.Dispatch<React.SetStateAction<AgentSession | null>>;
 
@@ -186,6 +193,8 @@ const emptyCopilotContext: CopilotContextParams = {
   showDevConsole: "auto",
   coagentStates: {},
   setCoagentStates: () => {},
+  coagentStatesRef: { current: {} },
+  setCoagentStatesWithRef: () => {},
 
   agentSession: null,
   setAgentSession: () => {},

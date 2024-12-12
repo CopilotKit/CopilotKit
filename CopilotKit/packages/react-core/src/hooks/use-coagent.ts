@@ -219,7 +219,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
   const generalContext = useCopilotContext();
   const messagesContext = useCopilotMessagesContext();
   const context = { ...generalContext, ...messagesContext };
-  const { coagentStates, setCoagentStates } = context;
+  const { coagentStates, coagentStatesRef, setCoagentStatesWithRef } = context;
   const { appendMessage, runChatCompletion } = useCopilotChat();
 
   const getCoagentState = (coagentStates: Record<string, CoagentState>, name: string) => {
@@ -240,21 +240,16 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
 
   // if we manage state internally, we need to provide a function to set the state
   const setState = (newState: T | ((prevState: T | undefined) => T)) => {
-    flushSync(() => {
-      setCoagentStates((prevAgentStates) => {
-        let coagentState: CoagentState = getCoagentState(prevAgentStates, name);
+    let coagentState: CoagentState = getCoagentState(coagentStatesRef.current || {}, name);
+    const updatedState =
+      typeof newState === "function" ? (newState as Function)(coagentState.state) : newState;
 
-        const updatedState =
-          typeof newState === "function" ? (newState as Function)(coagentState.state) : newState;
-
-        return {
-          ...prevAgentStates,
-          [name]: {
-            ...coagentState,
-            state: updatedState,
-          },
-        };
-      });
+    setCoagentStatesWithRef({
+      ...coagentStatesRef.current,
+      [name]: {
+        ...coagentState,
+        state: updatedState,
+      },
     });
   };
 
@@ -328,7 +323,7 @@ async function runAgent(
     }
   }
 
-  let state = context.coagentStates?.[name]?.state || {};
+  let state = context.coagentStatesRef.current?.[name]?.state || {};
 
   if (hint) {
     const hintMessage = hint({ previousState, currentState: state });
