@@ -40,6 +40,22 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: '**/pnpm-lock.yaml'
 
+      - name: Ensure Changesets
+        if: ${{ github.event_name == 'pull_request' }}
+        id: ensure-changesets
+        run: |
+          echo "num_changesets=$(pnpm changeset status --output changeset-status-output.json && cat changeset-status-output.json | jq '.changesets | length')\n" >> $GITHUB_OUTPUT
+
+      - name: ✅ Changesets Found
+        if: ${{ github.event_name == 'pull_request' && steps.ensure-changesets.outputs.num_changesets > 0 }}
+        run: |
+          echo "Changesets found"
+
+      - name: ❌ Changesets Not Found
+        if: ${{ github.event_name == 'pull_request' && steps.ensure-changesets.outputs.num_changesets == 0 }}
+        run: |
+          echo "Changesets not found"
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
