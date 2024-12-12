@@ -12,6 +12,16 @@ const config = {
     SCARF_PIXEL_ID: process.env.SCARF_PIXEL_ID,
     CLERK_PUBLISHABLE_KEY: process.env.CLERK_PUBLISHABLE_KEY || "pk_live_Y2xlcmsuY29waWxvdGtpdC5haSQ",
   },
+
+  async redirects() {
+    return [
+      {
+        source: '/coagents/tutorials/ai-travel-app/overview',
+        destination: '/coagents/tutorials/ai-travel-app',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default withMDX(config);
