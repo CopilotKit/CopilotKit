@@ -254,6 +254,22 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
   };
 
   const [coagentStates, setCoagentStates] = useState<Record<string, CoagentState>>({});
+  const coagentStatesRef = useRef<Record<string, CoagentState>>({});
+  const setCoagentStatesWithRef = useCallback(
+    (
+      value:
+        | Record<string, CoagentState>
+        | ((prev: Record<string, CoagentState>) => Record<string, CoagentState>),
+    ) => {
+      const newValue = typeof value === "function" ? value(coagentStatesRef.current) : value;
+      coagentStatesRef.current = newValue;
+      setCoagentStates((prev) => {
+        return newValue;
+      });
+    },
+    [],
+  );
+
   let initialAgentSession: AgentSession | null = null;
   if (props.agent) {
     initialAgentSession = {
@@ -293,6 +309,8 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
         showDevConsole,
         coagentStates,
         setCoagentStates,
+        coagentStatesRef,
+        setCoagentStatesWithRef,
         agentSession,
         setAgentSession,
         runtimeClient,
