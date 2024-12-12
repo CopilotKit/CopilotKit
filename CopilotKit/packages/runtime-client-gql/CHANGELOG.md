@@ -1,5 +1,14 @@
 # @copilotkit/runtime-client-gql
 
+## 1.4.3
+
+### Patch Changes
+
+- ad35aca: - Better error surfacing when using LangGraph Platform streaming
+  - Ensure state is immediately set without using flushSync
+- Updated dependencies [ad35aca]
+  - @copilotkit/shared@1.4.3
+
 ## 1.4.3-pre.0
 
 ### Patch Changes

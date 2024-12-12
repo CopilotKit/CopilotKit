@@ -1,5 +1,12 @@
 # eslint-config-custom
 
+## 1.4.3
+
+### Patch Changes
+
+- ad35aca: - Better error surfacing when using LangGraph Platform streaming
+  - Ensure state is immediately set without using flushSync
+
 ## 1.4.3-pre.0
 
 ### Patch Changes

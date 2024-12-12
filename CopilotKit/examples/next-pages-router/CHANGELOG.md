@@ -1,5 +1,18 @@
 # next-pages-router
 
+## 1.4.3
+
+### Patch Changes
+
+- ad35aca: - Better error surfacing when using LangGraph Platform streaming
+  - Ensure state is immediately set without using flushSync
+- Updated dependencies [ad35aca]
+  - @copilotkit/react-core@1.4.3
+  - @copilotkit/react-textarea@1.4.3
+  - @copilotkit/react-ui@1.4.3
+  - @copilotkit/runtime@1.4.3
+  - @copilotkit/shared@1.4.3
+
 ## 1.4.3-pre.0
 
 ### Patch Changes
