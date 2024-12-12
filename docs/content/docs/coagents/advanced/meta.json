@@ -7,7 +7,6 @@
     "state-streaming",
     "exit-agent",
     "copilotkit-state",
-    "using-google-gemini",
     "agent-steering"
   ]
 }
