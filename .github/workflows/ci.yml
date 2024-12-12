@@ -50,18 +50,17 @@ jobs:
         id: ensure-changesets
         working-directory: './CopilotKit'
         run: |
-          pnpm changeset status --since=origin/main --output changeset-status-output.json
-          cat changeset-status-output.json
-          echo Number of changesets: $NUM_CHANGESETS
-          echo "num_changesets=$(NUM_CHANGESETS)" >> $GITHUB_OUTPUT
+          status=$(pnpm changeset --since=origin/main)
+          echo status: $status
+          echo "code=$?" >> $GITHUB_OUTPUT
 
       - name: ✅ Changesets Found
-        if: ${{ github.event_name == 'pull_request' && steps.ensure-changesets.outputs.num_changesets > 0 }}
+        if: ${{ github.event_name == 'pull_request' && steps.ensure-changesets.outputs.code == 0 }}
         run: |
           echo "Changesets found"
 
       - name: ❌ Changesets Not Found
-        if: ${{ github.event_name == 'pull_request' && steps.ensure-changesets.outputs.num_changesets == 0 }}
+        if: ${{ github.event_name == 'pull_request' && steps.ensure-changesets.outputs.code == 1 }}
         run: |
           echo "Changesets not found"
 
