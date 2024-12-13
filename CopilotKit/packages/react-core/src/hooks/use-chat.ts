@@ -263,6 +263,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     let executedCoAgentStateRenders: string[] = [];
     let followUp: FrontendAction["followUp"] = undefined;
 
+    let messages: Message[] = [];
+
     try {
       while (true) {
         let done, value;
@@ -274,6 +276,55 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         } catch (readError) {
           break;
         }
+        if (done) {
+          // execute regular action executions that are specific to the frontend (last actions)
+          if (onFunctionCall) {
+            newMessages = [...messages];
+            // Find consecutive action execution messages at the end
+            const lastMessages = [];
+            for (let i = messages.length - 1; i >= 0; i--) {
+              const message = messages[i];
+              if (
+                message.isActionExecutionMessage() &&
+                message.status.code !== MessageStatusCode.Pending
+              ) {
+                lastMessages.unshift(message);
+              } else {
+                break;
+              }
+            }
+
+            for (const message of lastMessages) {
+              // We update the message state before calling the handler so that the render
+              // function can be called with `executing` state
+              setMessages([...previousMessages, ...newMessages]);
+
+              const action = actions.find((action) => action.name === message.name);
+
+              if (action) {
+                followUp = action.followUp;
+                const result = await onFunctionCall({
+                  messages: previousMessages,
+                  name: message.name,
+                  args: message.arguments,
+                });
+                const messageIndex = newMessages.findIndex((msg) => msg.id === message.id);
+                newMessages.splice(
+                  messageIndex + 1,
+                  0,
+                  new ResultMessage({
+                    result: ResultMessage.encodeResult(result),
+                    actionExecutionId: message.id,
+                    actionName: message.name,
+                  }),
+                );
+              }
+            }
+
+            setMessages([...previousMessages, ...newMessages]);
+          }
+          break;
+        }
 
         if (!value?.generateCopilotResponse) {
           continue;
@@ -282,7 +333,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         threadIdRef.current = value.generateCopilotResponse.threadId || null;
         runIdRef.current = value.generateCopilotResponse.runId || null;
 
-        const messages = convertGqlOutputToMessages(
+        messages = convertGqlOutputToMessages(
           filterAdjacentAgentStateMessages(value.generateCopilotResponse.messages),
         );
 
@@ -333,47 +384,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             }
           }
 
-          // execute regular action executions that are specific to the frontend (last actions)
-          if (done && onFunctionCall) {
-            // Find consecutive action execution messages at the end
-            const lastMessages = [];
-            for (let i = messages.length - 1; i >= 0; i--) {
-              const message = messages[i];
-              if (
-                message.isActionExecutionMessage() &&
-                message.status.code !== MessageStatusCode.Pending
-              ) {
-                lastMessages.unshift(message);
-              } else {
-                break;
-              }
-            }
-
-            for (const message of lastMessages) {
-              // We update the message state before calling the handler so that the render
-              // function can be called with `executing` state
-              setMessages([...previousMessages, ...newMessages]);
-
-              const action = actions.find((action) => action.name === message.name);
-
-              if (action) {
-                followUp = action.followUp;
-                const result = await onFunctionCall({
-                  messages: previousMessages,
-                  name: message.name,
-                  args: message.arguments,
-                });
-                newMessages.push(
-                  new ResultMessage({
-                    result: ResultMessage.encodeResult(result),
-                    actionExecutionId: message.id,
-                    actionName: message.name,
-                  }),
-                );
-              }
-            }
-          }
-
           const lastAgentStateMessage = [...messages]
             .reverse()
             .find((message) => message.isAgentStateMessage());
@@ -406,10 +416,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         if (newMessages.length > 0) {
           // Update message state
           setMessages([...previousMessages, ...newMessages]);
-        }
-
-        if (done) {
-          break;
         }
       }
 
