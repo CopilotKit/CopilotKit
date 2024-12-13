@@ -43,7 +43,7 @@ jobs:
         with:
           publish: pnpm publish-packages
           cwd: CopilotKit
-          createGithubReleases: false
+          createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN_ELEVATED }}
