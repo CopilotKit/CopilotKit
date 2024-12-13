@@ -17,5 +17,7 @@
     "tailwind-config": "1.4.3",
     "tsconfig": "1.4.3"
   },
-  "changesets": []
+  "changesets": [
+    "few-spoons-pay"
+  ]
 }
