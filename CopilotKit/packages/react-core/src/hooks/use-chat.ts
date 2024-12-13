@@ -81,12 +81,12 @@ export type UseChatOptions = {
   /**
    * The current list of coagent states.
    */
-  coagentStates: Record<string, CoagentState>;
+  coagentStatesRef: React.RefObject<Record<string, CoagentState>>;
 
   /**
    * setState-powered method to update the agent states
    */
-  setCoagentStates: React.Dispatch<React.SetStateAction<Record<string, CoagentState>>>;
+  setCoagentStatesWithRef: React.Dispatch<React.SetStateAction<Record<string, CoagentState>>>;
 
   /**
    * The current agent session.
@@ -135,8 +135,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     actions,
     onFunctionCall,
     onCoAgentStateRender,
-    setCoagentStates,
-    coagentStates,
+    setCoagentStatesWithRef,
+    coagentStatesRef,
     agentSession,
     setAgentSession,
   } = options;
@@ -147,11 +147,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   const { addGraphQLErrorsToast } = useToast();
 
   const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
-  // We need to keep a ref of coagent states because of renderAndWait - making sure
+  // We need to keep a ref of coagent states and session because of renderAndWait - making sure
   // the latest state is sent to the API
   // This is a workaround and needs to be addressed in the future
-  const coagentStatesRef = useRef<Record<string, CoagentState>>(coagentStates);
-  coagentStatesRef.current = coagentStates;
   const agentSessionRef = useRef<AgentSession | null>(agentSession);
   agentSessionRef.current = agentSession;
 
@@ -244,7 +242,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 agentSession: agentSessionRef.current,
               }
             : {}),
-          agentStates: Object.values(coagentStatesRef.current).map((state) => ({
+          agentStates: Object.values(coagentStatesRef.current!).map((state) => ({
             agentName: state.name,
             state: JSON.stringify(state.state),
           })),
@@ -389,7 +387,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             .find((message) => message.isAgentStateMessage());
 
           if (lastAgentStateMessage) {
-            setCoagentStates((prevAgentStates) => ({
+            setCoagentStatesWithRef((prevAgentStates) => ({
               ...prevAgentStates,
               [lastAgentStateMessage.agentName]: {
                 name: lastAgentStateMessage.agentName,

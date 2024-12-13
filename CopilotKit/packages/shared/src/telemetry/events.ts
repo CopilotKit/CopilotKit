@@ -8,6 +8,7 @@ export type AnalyticsEvents = {
   "oss.runtime.remote_action_executed": RemoteActionExecutionInfo;
   "oss.runtime.agent_execution_stream_started": { hashedLgcKey?: string };
   "oss.runtime.agent_execution_stream_ended": AgentExecutionResponseInfo;
+  "oss.runtime.agent_execution_stream_errored": { hashedLgcKey?: string; error?: string };
 };
 
 export interface RuntimeInstanceCreatedInfo {
