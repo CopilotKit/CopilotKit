@@ -1,5 +1,15 @@
 # @copilotkit/runtime
 
+## 1.4.4
+
+### Patch Changes
+
+- 665deab: test prerelease
+- 57a6012: test next prerelease automation
+- 7cfc2e7: test prerelease stuff
+- af36f1a: - feat(runtime): readme update
+  - @copilotkit/shared@1.4.4
+
 ## 1.4.4-next.4
 
 ### Patch Changes
