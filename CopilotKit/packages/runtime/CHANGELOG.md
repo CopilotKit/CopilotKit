@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.4.4-next.2
+
+### Patch Changes
+
+- 665deab: test prerelease
+  - @copilotkit/shared@1.4.4-next.2
+
 ## 1.4.4-next.1
 
 ### Patch Changes
