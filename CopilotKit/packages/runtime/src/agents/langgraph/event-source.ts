@@ -169,6 +169,7 @@ export class RemoteLangGraphEventSource {
                 type: RuntimeEventTypes.ActionExecutionStart,
                 actionExecutionId: eventWithState.event.data.id,
                 actionName: eventWithState.event.data.name,
+                parentMessageId: eventWithState.event.data.id,
               });
               events.push({
                 type: RuntimeEventTypes.ActionExecutionArgs,
@@ -220,6 +221,7 @@ export class RemoteLangGraphEventSource {
                   type: RuntimeEventTypes.ActionExecutionStart,
                   actionExecutionId: eventWithState.toolCallMessageId,
                   actionName: eventWithState.toolCallName,
+                  parentMessageId: eventWithState.messageId,
                 });
               }
             }

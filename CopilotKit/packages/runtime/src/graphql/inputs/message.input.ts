@@ -24,6 +24,9 @@ export class TextMessageInput {
   @Field(() => String)
   content: string;
 
+  @Field(() => String, { nullable: true })
+  parentMessageId?: string;
+
   @Field(() => MessageRole)
   role: MessageRole;
 }
@@ -50,6 +53,9 @@ export class ResultMessageInput {
 
   @Field(() => String)
   actionName: string;
+
+  @Field(() => String, { nullable: true })
+  parentMessageId?: string;
 
   @Field(() => String)
   result: string;

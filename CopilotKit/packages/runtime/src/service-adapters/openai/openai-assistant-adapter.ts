@@ -270,6 +270,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
               currentToolCallId = toolCallId;
               eventStream$.sendActionExecutionStart({
                 actionExecutionId: currentToolCallId,
+                parentMessageId: chunk.data.id,
                 actionName: toolCallName,
               });
             } else if (toolCallArgs) {

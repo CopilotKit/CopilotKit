@@ -238,6 +238,7 @@ export async function streamLangChainResponse({
             eventStream$.sendActionExecutionStart({
               actionExecutionId: toolCallId,
               actionName: toolCallName,
+              parentMessageId: value.lc_kwargs?.id,
             });
           } else if (content) {
             mode = "message";
@@ -259,6 +260,7 @@ export async function streamLangChainResponse({
             eventStream$.sendActionExecutionStart({
               actionExecutionId: toolCallId,
               actionName: toolCallName,
+              parentMessageId: value.lc_kwargs?.id,
             });
             toolCallDetails.prevIndex = toolCallDetails.index;
           }

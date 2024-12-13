@@ -123,6 +123,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
             eventStream$.sendActionExecutionStart({
               actionExecutionId: currentToolCallId,
               actionName: chunk.content_block.name,
+              parentMessageId: currentMessageId,
             });
             mode = "function";
           }

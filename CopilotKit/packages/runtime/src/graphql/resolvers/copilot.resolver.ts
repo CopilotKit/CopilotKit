@@ -311,6 +311,7 @@ export class CopilotResolver {
                 // push the new message
                 pushMessage({
                   id: messageId,
+                  parentMessageId: event.parentMessageId,
                   status: firstValueFrom(streamingTextStatus),
                   createdAt: new Date(),
                   role: MessageRole.assistant,
@@ -400,6 +401,7 @@ export class CopilotResolver {
                 const streamingArgumentsStatus = new Subject<typeof MessageStatusUnion>();
                 pushMessage({
                   id: event.actionExecutionId,
+                  parentMessageId: event.parentMessageId,
                   status: firstValueFrom(streamingArgumentsStatus),
                   createdAt: new Date(),
                   name: event.actionName,

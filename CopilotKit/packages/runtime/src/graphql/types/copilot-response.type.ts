@@ -35,6 +35,9 @@ export class TextMessageOutput {
 
   @Field(() => [String])
   content: string[];
+
+  @Field(() => String, { nullable: true })
+  parentMessageId?: string;
 }
 
 @ObjectType({ implements: BaseMessageOutput })
@@ -50,6 +53,9 @@ export class ActionExecutionMessageOutput {
 
   @Field(() => [String])
   arguments: string[];
+
+  @Field(() => String, { nullable: true })
+  parentMessageId?: string;
 }
 
 @ObjectType({ implements: BaseMessageOutput })

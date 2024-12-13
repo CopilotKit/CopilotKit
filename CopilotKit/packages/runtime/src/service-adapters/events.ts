@@ -28,7 +28,7 @@ export enum RuntimeEventTypes {
 }
 
 export type RuntimeEvent =
-  | { type: RuntimeEventTypes.TextMessageStart; messageId: string }
+  | { type: RuntimeEventTypes.TextMessageStart; messageId: string; parentMessageId?: string }
   | {
       type: RuntimeEventTypes.TextMessageContent;
       messageId: string;
@@ -39,6 +39,7 @@ export type RuntimeEvent =
       type: RuntimeEventTypes.ActionExecutionStart;
       actionExecutionId: string;
       actionName: string;
+      parentMessageId?: string;
     }
   | { type: RuntimeEventTypes.ActionExecutionArgs; actionExecutionId: string; args: string }
   | { type: RuntimeEventTypes.ActionExecutionEnd; actionExecutionId: string }
@@ -75,8 +76,14 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
     super();
   }
 
-  sendTextMessageStart({ messageId }: { messageId: string }) {
-    this.next({ type: RuntimeEventTypes.TextMessageStart, messageId });
+  sendTextMessageStart({
+    messageId,
+    parentMessageId,
+  }: {
+    messageId: string;
+    parentMessageId?: string;
+  }) {
+    this.next({ type: RuntimeEventTypes.TextMessageStart, messageId, parentMessageId });
   }
 
   sendTextMessageContent({ messageId, content }: { messageId: string; content: string }) {
@@ -96,14 +103,17 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
   sendActionExecutionStart({
     actionExecutionId,
     actionName,
+    parentMessageId,
   }: {
     actionExecutionId: string;
     actionName: string;
+    parentMessageId?: string;
   }) {
     this.next({
       type: RuntimeEventTypes.ActionExecutionStart,
       actionExecutionId,
       actionName,
+      parentMessageId,
     });
   }
 
@@ -125,12 +135,14 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
     actionExecutionId,
     actionName,
     args,
+    parentMessageId,
   }: {
     actionExecutionId: string;
     actionName: string;
     args: string;
+    parentMessageId?: string;
   }) {
-    this.sendActionExecutionStart({ actionExecutionId, actionName });
+    this.sendActionExecutionStart({ actionExecutionId, actionName, parentMessageId });
     this.sendActionExecutionArgs({ actionExecutionId, args });
     this.sendActionExecutionEnd({ actionExecutionId });
   }
