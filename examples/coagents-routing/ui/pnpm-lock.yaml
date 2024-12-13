@@ -14,19 +14,19 @@ importers:
     dependencies:
       '@copilotkit/react-core':
         specifier: 1.4.3
-        version: 1.4.3(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.4.3(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@copilotkit/react-textarea':
         specifier: 1.4.3
-        version: 1.4.3(@types/react-dom@18.3.0)(@types/react@18.3.5)(graphql@16.9.0)(react@18.3.1)
+        version: 1.4.3(@types/react-dom@19.0.2(@types/react@19.0.1))(@types/react@19.0.1)(graphql@16.9.0)(react@19.0.0)
       '@copilotkit/react-ui':
         specifier: 1.4.3
-        version: 1.4.3(@types/react@18.3.5)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.4.3(@types/react@19.0.1)(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@copilotkit/runtime':
         specifier: 1.4.3
         version: 1.4.3(class-validator@0.14.1)(google-auth-library@8.9.0)(lodash@4.17.21)
       '@copilotkit/runtime-client-gql':
         specifier: 1.4.3
-        version: 1.4.3(graphql@16.9.0)(react@18.3.1)
+        version: 1.4.3(graphql@16.9.0)(react@19.0.0)
       '@copilotkit/shared':
         specifier: 1.4.3
         version: 1.4.3
@@ -1505,9 +1505,6 @@ packages:
 
   '@swc/counter@0.1.3':
     resolution: {integrity: sha512-e2BR4lsJkkRlKZ/qCHPw9ZaSxc0MVUd7gtbtaB7aMvHeJVYe8sOB8DBZkP2DtISHGSku9sCK6T6cnY0CtXrOCQ==}
-
-  '@swc/helpers@0.5.13':
-    resolution: {integrity: sha512-UoKGxQ3r5kYI9dALKJapMmuK+1zWM/H17Z1+iwnNmzcJRnfFuevZs375TA5rW31pu4BS4NoSy1fRsexDXfWn5w==}
 
   '@swc/helpers@0.5.15':
     resolution: {integrity: sha512-JQ5TuMi45Owi4/BIMAJBoSQoOJu12oOk/gADqlcUL9JEdHB8vyjUSsxqeNXnmXHjYKMi2WcYtezGEEhqUI/E2g==}
@@ -4714,9 +4711,9 @@ snapshots:
       '@babel/helper-validator-identifier': 7.24.7
       to-fast-properties: 2.0.0
 
-  '@copilotkit/react-core@1.4.3(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkit/react-core@1.4.3(graphql@16.9.0)(react-dom@18.3.1(react@19.0.0))(react@19.0.0)':
     dependencies:
-      '@copilotkit/runtime-client-gql': 1.4.3(graphql@16.9.0)(react@18.3.1)
+      '@copilotkit/runtime-client-gql': 1.4.3(graphql@16.9.0)(react@19.0.0)
       '@copilotkit/shared': 1.4.3
       '@scarf/scarf': 1.3.0
       react: 19.0.0
@@ -4726,10 +4723,22 @@ snapshots:
       - encoding
       - graphql
 
-  '@copilotkit/react-textarea@1.4.3(@types/react-dom@18.3.0)(@types/react@18.3.5)(graphql@16.9.0)(react@18.3.1)':
+  '@copilotkit/react-core@1.4.3(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
-      '@copilotkit/react-core': 1.4.3(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@copilotkit/runtime-client-gql': 1.4.3(graphql@16.9.0)(react@18.3.1)
+      '@copilotkit/runtime-client-gql': 1.4.3(graphql@16.9.0)(react@19.0.0)
+      '@copilotkit/shared': 1.4.3
+      '@scarf/scarf': 1.3.0
+      react: 19.0.0
+      react-dom: 19.0.0(react@19.0.0)
+      untruncate-json: 0.0.1
+    transitivePeerDependencies:
+      - encoding
+      - graphql
+
+  '@copilotkit/react-textarea@1.4.3(@types/react-dom@19.0.2(@types/react@19.0.1))(@types/react@19.0.1)(graphql@16.9.0)(react@19.0.0)':
+    dependencies:
+      '@copilotkit/react-core': 1.4.3(graphql@16.9.0)(react-dom@18.3.1(react@19.0.0))(react@19.0.0)
+      '@copilotkit/runtime-client-gql': 1.4.3(graphql@16.9.0)(react@19.0.0)
       '@copilotkit/shared': 1.4.3
       '@emotion/css': 11.13.0
       '@emotion/react': 11.13.3(@types/react@19.0.1)(react@19.0.0)
@@ -4758,15 +4767,15 @@ snapshots:
       - graphql
       - supports-color
 
-  '@copilotkit/react-ui@1.4.3(@types/react@18.3.5)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkit/react-ui@1.4.3(@types/react@19.0.1)(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
-      '@copilotkit/react-core': 1.4.3(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@copilotkit/runtime-client-gql': 1.4.3(graphql@16.9.0)(react@18.3.1)
+      '@copilotkit/react-core': 1.4.3(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@copilotkit/runtime-client-gql': 1.4.3(graphql@16.9.0)(react@19.0.0)
       '@copilotkit/shared': 1.4.3
-      '@headlessui/react': 2.1.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      react: 18.3.1
-      react-markdown: 8.0.7(@types/react@18.3.5)(react@18.3.1)
-      react-syntax-highlighter: 15.5.0(react@18.3.1)
+      '@headlessui/react': 2.1.3(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      react: 19.0.0
+      react-markdown: 8.0.7(@types/react@19.0.1)(react@19.0.0)
+      react-syntax-highlighter: 15.5.0(react@19.0.0)
       remark-gfm: 3.0.1
       remark-math: 5.1.1
     transitivePeerDependencies:
@@ -4776,7 +4785,7 @@ snapshots:
       - react-dom
       - supports-color
 
-  '@copilotkit/runtime-client-gql@1.4.3(graphql@16.9.0)(react@18.3.1)':
+  '@copilotkit/runtime-client-gql@1.4.3(graphql@16.9.0)(react@19.0.0)':
     dependencies:
       '@copilotkit/shared': 1.4.3
       '@urql/core': 5.0.6(graphql@16.9.0)
@@ -6006,7 +6015,7 @@ snapshots:
       '@react-aria/interactions': 3.22.2(react@19.0.0)
       '@react-aria/utils': 3.25.2(react@19.0.0)
       '@react-types/shared': 3.24.1(react@19.0.0)
-      '@swc/helpers': 0.5.13
+      '@swc/helpers': 0.5.15
       clsx: 2.1.1
       react: 19.0.0
 
@@ -6015,12 +6024,12 @@ snapshots:
       '@react-aria/ssr': 3.9.5(react@19.0.0)
       '@react-aria/utils': 3.25.2(react@19.0.0)
       '@react-types/shared': 3.24.1(react@19.0.0)
-      '@swc/helpers': 0.5.13
+      '@swc/helpers': 0.5.15
       react: 19.0.0
 
   '@react-aria/ssr@3.9.5(react@19.0.0)':
     dependencies:
-      '@swc/helpers': 0.5.13
+      '@swc/helpers': 0.5.15
       react: 19.0.0
 
   '@react-aria/utils@3.25.2(react@19.0.0)':
@@ -6028,13 +6037,13 @@ snapshots:
       '@react-aria/ssr': 3.9.5(react@19.0.0)
       '@react-stately/utils': 3.10.3(react@19.0.0)
       '@react-types/shared': 3.24.1(react@19.0.0)
-      '@swc/helpers': 0.5.13
+      '@swc/helpers': 0.5.15
       clsx: 2.1.1
       react: 19.0.0
 
   '@react-stately/utils@3.10.3(react@19.0.0)':
     dependencies:
-      '@swc/helpers': 0.5.13
+      '@swc/helpers': 0.5.15
       react: 19.0.0
 
   '@react-types/shared@3.24.1(react@19.0.0)':
@@ -6073,10 +6082,6 @@ snapshots:
       - encoding
 
   '@swc/counter@0.1.3': {}
-
-  '@swc/helpers@0.5.13':
-    dependencies:
-      tslib: 2.7.0
 
   '@swc/helpers@0.5.15':
     dependencies:

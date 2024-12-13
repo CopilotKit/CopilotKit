@@ -14,16 +14,16 @@ importers:
     dependencies:
       '@copilotkit/react-core':
         specifier: 1.4.3
-        version: 1.4.3(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.4.3(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@copilotkit/react-ui':
         specifier: 1.4.3
-        version: 1.4.3(@types/react@18.3.5)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.4.3(@types/react@19.0.1)(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@copilotkit/runtime':
         specifier: 1.4.3
         version: 1.4.3(class-validator@0.14.1)(google-auth-library@8.9.0)
       '@copilotkit/runtime-client-gql':
         specifier: 1.4.3
-        version: 1.4.3(graphql@16.9.0)(react@18.3.1)
+        version: 1.4.3(graphql@16.9.0)(react@19.0.0)
       '@radix-ui/react-accordion':
         specifier: ^1.2.1
         version: 1.2.1(@types/react-dom@19.0.2(@types/react@19.0.1))(@types/react@19.0.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -4185,9 +4185,9 @@ snapshots:
     dependencies:
       regenerator-runtime: 0.14.1
 
-  '@copilotkit/react-core@1.4.3(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkit/react-core@1.4.3(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
-      '@copilotkit/runtime-client-gql': 1.4.3(graphql@16.9.0)(react@18.3.1)
+      '@copilotkit/runtime-client-gql': 1.4.3(graphql@16.9.0)(react@19.0.0)
       '@copilotkit/shared': 1.4.3
       '@scarf/scarf': 1.4.0
       react: 19.0.0
@@ -4197,15 +4197,15 @@ snapshots:
       - encoding
       - graphql
 
-  '@copilotkit/react-ui@1.4.3(@types/react@18.3.5)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkit/react-ui@1.4.3(@types/react@19.0.1)(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
-      '@copilotkit/react-core': 1.4.3(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@copilotkit/runtime-client-gql': 1.4.3(graphql@16.9.0)(react@18.3.1)
+      '@copilotkit/react-core': 1.4.3(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@copilotkit/runtime-client-gql': 1.4.3(graphql@16.9.0)(react@19.0.0)
       '@copilotkit/shared': 1.4.3
-      '@headlessui/react': 2.2.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      react: 18.3.1
-      react-markdown: 8.0.7(@types/react@18.3.5)(react@18.3.1)
-      react-syntax-highlighter: 15.6.1(react@18.3.1)
+      '@headlessui/react': 2.2.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      react: 19.0.0
+      react-markdown: 8.0.7(@types/react@19.0.1)(react@19.0.0)
+      react-syntax-highlighter: 15.6.1(react@19.0.0)
       remark-gfm: 3.0.1
       remark-math: 5.1.1
     transitivePeerDependencies:
@@ -4215,7 +4215,7 @@ snapshots:
       - react-dom
       - supports-color
 
-  '@copilotkit/runtime-client-gql@1.4.3(graphql@16.9.0)(react@18.3.1)':
+  '@copilotkit/runtime-client-gql@1.4.3(graphql@16.9.0)(react@19.0.0)':
     dependencies:
       '@copilotkit/shared': 1.4.3
       '@urql/core': 5.0.8(graphql@16.9.0)
