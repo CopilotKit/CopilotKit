@@ -1,0 +1,7 @@
+{
+  "name": "simple-project-pkg-a",
+  "version": "1.0.0",
+  "dependencies": {
+    "simple-project-pkg-b": "1.0.0"
+  }
+}

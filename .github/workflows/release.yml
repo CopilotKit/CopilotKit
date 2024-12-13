@@ -39,7 +39,7 @@ jobs:
 
       - name: Create Release Pull Request or Publish to npm
         id: changesets
-        uses: changesets/action@v1
+        uses: ./.github/actions/changesets-action
         with:
           publish: pnpm publish-packages
           cwd: CopilotKit
