@@ -1,5 +1,17 @@
 # @copilotkit/shared
 
+## 1.4.5
+
+### Patch Changes
+
+- testing release workflow
+
+## 1.4.5-next.0
+
+### Patch Changes
+
+- testing release workflow
+
 ## 1.4.4
 
 ## 1.4.4-next.4

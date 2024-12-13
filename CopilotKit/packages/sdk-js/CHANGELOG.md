@@ -1,5 +1,21 @@
 # @copilotkit/sdk-js
 
+## 1.4.5
+
+### Patch Changes
+
+- testing release workflow
+- Updated dependencies
+  - @copilotkit/shared@1.4.5
+
+## 1.4.5-next.0
+
+### Patch Changes
+
+- testing release workflow
+- Updated dependencies
+  - @copilotkit/shared@1.4.5-next.0
+
 ## 1.4.4
 
 ### Patch Changes

@@ -1,5 +1,25 @@
 # ui
 
+## 1.4.5
+
+### Patch Changes
+
+- testing release workflow
+- Updated dependencies
+  - @copilotkit/react-core@1.4.5
+  - @copilotkit/runtime-client-gql@1.4.5
+  - @copilotkit/shared@1.4.5
+
+## 1.4.5-next.0
+
+### Patch Changes
+
+- testing release workflow
+- Updated dependencies
+  - @copilotkit/react-core@1.4.5-next.0
+  - @copilotkit/runtime-client-gql@1.4.5-next.0
+  - @copilotkit/shared@1.4.5-next.0
+
 ## 1.4.4
 
 ### Patch Changes
