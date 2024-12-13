@@ -1,0 +1,436 @@
+---
+title: Chat based Human-in-the-loop (HITL)
+description: Implement approval UI for your agent in the chat.
+---
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+
+[Human-in-the-loop](/coagents/concepts/human-in-the-loop), allows the user and agent to iteratively build towards an agreed upon outcome. CopilotKit gives you all
+of the tools necessary to accomplish this with your LangGraph agents through CoAgents. 
+
+This guide will show you how to implement a simple HITL workflow *in the chat*.
+
+<Frame className="my-2">
+  <img
+    src="/images/coagents/coagents-hitl-infographic.png"
+    alt="CoAgents Chat Hello demonstration"
+    className="w-3/4 mx-auto"
+  />
+</Frame>
+
+## Agentic Frontend
+
+First, we need to setup our UI to support rendering the LangGraph agent's request for approval. We'll be doing this through the use of `useCopilotAction` and it's `renderAndWaitForResponse`. This
+will allow the us to render a React component to the user to get their decision. 
+
+Let's look at this from the context of a LangGraph agent designed to write emails.
+
+<Steps>
+
+<Step>
+
+### Add `useCopilotAction` with `renderAndWaitForResponse`
+
+First, we need to call the `useCopilotAction` hook with the `renderAndWaitForResponse` property. When we do this we need to do this in a component that is loaded into the view hierarchy
+while the LangGraph agent is executing.
+
+```tsx title="app/Mailer.tsx"
+"use client"; // only necessary if you are using Next.js with the App Router. // [!code highlight]
+
+import { useCopilotAction } from "@copilotkit/react-core";
+
+export function Mailer() {
+  // [!code highlight:21]
+  useCopilotAction({
+    name: "email_tool",
+    available: "remote", // only allow the agent to call this action
+    parameters: [
+      {
+        name: "email_draft",
+        type: "string",
+        description: "The email content",
+        required: true,
+      },
+    ],
+    renderAndWaitForResponse: ({ args, status, respond }) => (
+      <EmailConfirmation
+        emailContent={args.email_draft || ""}
+        isExecuting={status === "executing"}
+        // respond is undefined while status is "executing", so we need to use optional chaining
+        onCancel={() => respond?.({ decision: "CANCEL", reason: "Cancelled by user"})} // [!code highlight]
+        onSend={() => respond?.({ decision: "SEND", reason: "User approved email"})} // [!code highlight]
+      />
+    ),
+  });
+
+  return (
+    <div className="text-center p-4">
+      <h1 className="text-xl mb-2">Email Approval Demo</h1>
+    </div>
+  );
+}
+```
+
+`respond` is the function that will be called when the user clicks the "Send" or "Cancel" button. This function connects to the our agentic backend (the LangGraph) and will trigger the 
+agent to continue execution.
+
+`CANCEL` and `SEND` are the arguments that will be passed to the agentic backend so make sure you have proper ways to handle the response from the frontend in the agentic backend.
+
+Whatever argument you pass to the `respond` will become available on the agentic backend. This allows you to pass information from the frontend to the agent, enabling seamless communication between 
+the user interface and the backend logic.
+</Step>
+
+<Step>
+### Understanding the `renderAndWaitForResponse` function
+
+In the above example we passed an unwritten `EmailConfirmation` component to `renderAndWaitForResponse`, but you can pass any custom React component you'd like.
+The agent will not continue executing until the `respond` function provided via the `renderAndWaitForResponse` arguments is called.
+
+Here's a brief overview of what each of the arguements from `renderAndWaitForResponse` contain.
+- `args`: Contains the parameters that will be streamed as the agent fills them out. In this case `email_draft`
+- `status`: This is ultimately a tool call, status communicates the status of that tool call.
+- `respond`: Sends a message back to the agent as a response for this tool call.
+
+<Callout type="warn">
+  Please note that in the `renderAndWaitForResponse` function, while `status` is `"executing"`, `respond` will be `undefined`.
+
+```
+renderAndWaitForResponse: ({ args, status, respond }) => {
+  return ...
+}
+```
+
+You can call the `respond` either by first checking if the respond is `undefined`, or by using typescript's optional chaining format, i.e.
+`respond?.(argumentToPassRespond)`.
+
+</Callout>
+
+</Step>
+
+<Step>
+### Remember the action **name** and **parameters**.
+Remember the action name & parameters. They must match the configuration we will soon setup on the agentic backend.
+
+In this case, the action name is `email_tool`. It has a single parameter `email_draft` of type `string`.
+
+</Step>
+
+</Steps>
+
+## Agentic Backend (LangGraph)
+Now, let's move over to the backend and wire up a LangGraph agent that will be able to handle the HITL workflow.
+
+<Steps>
+<Step>
+### Install the CopilotKit SDK
+<InstallSDKSnippet components={props.components}/>
+In this guide its required that we install the SDK!
+</Step>
+<Step>
+### Define the state
+
+First, we need to define the state of our agent which will be used to store the email draft. In addition, we need to extend the `CopilotKitState` class
+which will bring with it `messages` and our `email_tool` into the state
+
+<Callout>
+We're going to be building our agent inside of a single file, `agent.py` or `agent.ts` depending on the language you're using. However, feel free to split up
+your code into multiple files if you'd like.
+</Callout>
+
+<Tabs items={['Python', 'TypeScript']} default="Python">
+    <Tab value="Python">
+        ```python title="agent/my_agent/agent.py"
+        from copilotkit import CopilotKitState # extends MessagesState
+
+        class EmailAgentState(CopilotKitState):
+            """Email Agent State"""
+            email: str
+        ```
+    </Tab>
+    <Tab value="TypeScript">
+      <InsecurePasswordProtected>
+        ```typescript title="agent/my_agent/agent.ts"
+        import { Annotation } from "@langchain/langgraph";
+        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langchain";
+
+        export const EmailAgentStateAnnotation = Annotation.Root({
+            email: Annotation<string>,
+            ...CopilotKitStateAnnotation.spec,
+        });
+        ```
+      </InsecurePasswordProtected>
+    </Tab>
+
+</Tabs>
+</Step>
+<Step>
+### Build the email node
+Now we need to define our two nodes, `email_node` and `send_email_node`. These will be responsible for drafting the email and sending it respectively.
+
+First, let's build the `email_node`.
+
+<Tabs items={['Python', 'TypeScript']} default="Python">
+    <Tab value="Python">
+        ```python title="agent/my_agent/agent.py"
+        # ...
+
+        from typing import Any, cast
+        from langgraph.graph import StateGraph, END
+        from langgraph.checkpoint.memory import MemorySaver
+        from langchain_core.runnables import RunnableConfig
+        from langchain_core.messages import HumanMessage, ToolMessage
+        from langchain_openai import ChatOpenAI # we use openai here, but you can use any model # [!code highlight]
+        from copilotkit.langchain import (
+            copilotkit_customize_config, copilotkit_exit, copilotkit_emit_message # [!code highlight]
+        )
+        
+        # ...
+
+        async def email_node(state: EmailAgentState, config: RunnableConfig):
+            """
+            Write an email.
+            """
+            config = copilotkit_customize_config(
+                config,
+                emit_tool_calls=True, # make sure to emit tool calls to the frontend # [!code highlight]
+            )
+
+            instructions = "You write emails."
+
+            email_model = ChatOpenAI(temperature=0, model="gpt-4o").bind_tools(
+                state["copilotkit"]["actions"], # bind the copilotkit actions to the model as tools # [!code highlight]
+                tool_choice="EmailTool"
+            )
+            response = await email_model.ainvoke([
+                *state["messages"],
+                HumanMessage(
+                    content=instructions
+                )
+            ], config)
+
+            tool_calls = cast(Any, response).tool_calls # cast the response to Any to access the tool calls # [!code highlight]
+
+            email = tool_calls[0]["args"]["the_email"]
+
+            return {
+                "email": email,
+            }
+        ```
+    </Tab>
+    <Tab value="TypeScript">
+      <InsecurePasswordProtected>
+        ```typescript title="agent/my_agent/agent.ts"
+        // ...
+
+        import { RunnableConfig } from "@langchain/core/runnables";
+        import { HumanMessage, ToolMessage } from "@langchain/core/messages";
+        import { END, MemorySaver, StateGraph } from "@langchain/langgraph";
+        import { ChatOpenAI } from "@langchain/openai";
+        // [!code highlight:7]
+        import {
+          copilotKitCustomizeConfig,
+          copilotKitEmitMessage,
+          copilotKitExit,
+          convertActionsToDynamicStructuredTools,
+        } from "@copilotkit/sdk-js/langchain";
+
+        // ...
+
+        export async function email_node(state: AgentState, config: RunnableConfig) {
+          /**
+           * Write an email.
+           */
+
+          const modifiedConfig = copilotKitCustomizeConfig(config, {
+            emitToolCalls: true,
+          });
+
+          const instructions = "You write emails.";
+
+          const email_model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" }).bindTools!(
+            // convert and bind the copilotkit actions to the model as tools
+            convertActionsToDynamicStructuredTools(state.copilotkit.actions), // [!code highlight]
+            {
+              tool_choice: "EmailTool",
+            }
+          );
+
+          const response = await email_model.invoke(
+            [...state.messages, new HumanMessage({ content: instructions })],
+            modifiedConfig
+          );
+
+          const tool_calls = response.tool_calls;
+          const email = tool_calls?.[0]?.args.the_email;
+
+          return {
+            email: email,
+          };
+        }
+        ```
+      </InsecurePasswordProtected>
+    </Tab>
+</Tabs>
+Some quick notes about the `email_node`.
+- Be sure to emit tool calls to the frontend. This is done by using the `copilotkit_customize_config` call with `emit_tool_calls = True`.
+- The frontend's return value will be made available as a tool call result in the subsequent node. Cast the last message to a ToolMessage and look at its `.content`.
+
+</Step>
+<Step>
+### Build the send email node
+
+This node will be responsible for actually sending the email once the user has approved it. 
+
+<Callout>
+  We're not actually sending the emailing here, but you can see the comment marking where you would add the code to send the email.
+</Callout>
+
+<Tabs items={['Python', 'TypeScript']} default="Python">
+    <Tab value="Python">
+        ```python title="agent/my_agent/agent.py"
+        # ...
+
+        # [!code highlight:4]
+        from copilotkit.langchain import (
+            copilotkit_customize_config, copilotkit_exit, copilotkit_emit_message
+        )
+
+        # ...
+
+        async def send_email_node(state: EmailAgentState, config: RunnableConfig):
+            """
+            Send an email.
+            """
+            config = copilotkit_customize_config(
+                config,
+                emit_messages=True, # make sure to enable emitting messages to the frontend # [!code highlight]
+            )
+
+            await copilotkit_exit(config) # exit copilotkit
+
+            last_message = cast(ToolMessage, state["messages"][-1])
+            response = json.loads(last_message.content)
+
+            if response["decision"] == "CANCEL": # [!code highlight]
+                await copilotkit_emit_message(config, "❌ Cancelled sending email.")
+            else:
+                # ... send the email ...
+                await copilotkit_emit_message(config, "✅ Sent email.")
+
+            return {
+                "messages": state["messages"],
+            }
+        ```
+    </Tab>
+    <Tab value="TypeScript">
+      <InsecurePasswordProtected>
+        ```typescript title="agent/my_agent/agent.ts"
+        // ...
+
+        // [!code highlight:7]
+        import {
+          copilotKitCustomizeConfig,
+          copilotKitEmitMessage,
+          copilotKitExit,
+          convertActionsToDynamicStructuredTools,
+        } from "@copilotkit/sdk-js/langchain";
+
+        // ...
+
+        type Response = {
+          decision: "CANCEL" | "SEND";
+          reason: string;
+        };
+
+        export async function send_email_node(
+          state: AgentState,
+          config: RunnableConfig
+        ) {
+          /**
+           * Send an email.
+           */
+
+          const modifiedConfig = copilotKitCustomizeConfig(config, {
+            emitMessages: true, // make sure to enable emitting messages to the frontend # [!code highlight]
+          });
+
+          await copilotKitExit(modifiedConfig); // exit the agent # [!code highlight]
+
+          const lastMessage = state.messages[state.messages.length - 1] as ToolMessage;
+          const response = JSON.parse(lastMessage.content) as Response;
+
+          if (response.decision === "CANCEL") { // [!code highlight]
+            await copilotKitEmitMessage(config, `❌ Cancelled sending email: ${response.reason}`);
+          } else {
+            // ... send the email ...
+            await copilotKitEmitMessage(config, `✅ Sent email: ${response.reason}`);
+          }
+
+          return {
+            messages: state.messages,
+          };
+        }
+        ```
+      </InsecurePasswordProtected>
+    </Tab>
+</Tabs>
+
+</Step>
+<Step>
+### Construct the graph
+Now we just need to wire up the nodes and edges of our graph!
+
+We have a `interrupt_after` for `draft_email_node` (the node that initiates HITL) -- this is necessary to hand off control to the frontend.
+
+<Tabs items={['Python', 'TypeScript']} default="Python">
+    <Tab title="agent/my_agent/agent.py" value="Python">
+        ```python
+        # ...
+
+        workflow = StateGraph(EmailAgentState)
+        workflow.add_node("email_node", email_node)
+        workflow.add_node("send_email_node", send_email_node)
+        workflow.set_entry_point("email_node")
+
+        workflow.add_edge("email_node", "send_email_node")
+        workflow.add_edge("send_email_node", END)
+        graph = workflow.compile(
+            checkpointer=MemorySaver(),
+            interrupt_after=["email_node"]  # Interrupt to wait for user input  # [!code highlight]
+        )
+        ```
+    </Tab>
+    <Tab title="agent/my_agent/agent.ts" value="TypeScript">
+      <InsecurePasswordProtected>
+        ```typescript
+        // ...
+
+        const workflow = new StateGraph(AgentStateAnnotation)
+          .addNode("email_node", email_node)
+          .addNode("send_email_node", send_email_node)
+          .setEntryPoint("email_node")
+          .addEdge("email_node", "send_email_node")
+          .addEdge("send_email_node", END);
+
+        const memory = new MemorySaver();
+
+        export const graph = workflow.compile({
+          checkpointer: memory,
+          interruptAfter: ["email_node"], // interrupt to wait for user input # [!code highlight]
+        });
+        ```
+      </InsecurePasswordProtected>
+    </Tab>
+
+</Tabs>
+
+</Step>
+<Step>
+### All done!
+You've now created a simple HITL workflow that allows the user to approve or cancel an email draft.
+
+</Step>
+</Steps>
+
+## Example
+
+See the [JSON Q&A example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-qa) for a simple example of JSON approval.
