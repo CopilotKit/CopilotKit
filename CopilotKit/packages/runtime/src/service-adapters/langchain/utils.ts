@@ -172,6 +172,7 @@ export async function streamLangChainResponse({
     let reader = result.getReader();
 
     let mode: "function" | "message" | null = null;
+    let currentMessageId: string;
 
     const toolCallDetails = {
       name: null,
@@ -186,7 +187,6 @@ export async function streamLangChainResponse({
 
         let toolCallName: string | undefined = undefined;
         let toolCallId: string | undefined = undefined;
-        let currentMessageId: string;
         let toolCallArgs: string | undefined = undefined;
         let hasToolCall: boolean = false;
         let content = value?.content as string;
@@ -241,7 +241,7 @@ export async function streamLangChainResponse({
             });
           } else if (content) {
             mode = "message";
-            currentMessageId = randomId();
+            currentMessageId = value.lc_kwargs?.id || randomId();
             eventStream$.sendTextMessageStart({ messageId: currentMessageId });
           }
         }
