@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   build_images:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'automated-version-pr') }}
     runs-on: ubuntu-latest
     name: Build Images
     strategy:

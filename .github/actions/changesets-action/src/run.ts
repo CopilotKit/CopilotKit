@@ -395,9 +395,32 @@ export async function runVersion({
   });
 
   if (isNext) {
-    await gitUtils.push(branch, { force: true });
+    core.info("creating pull request for next release");
+    const { data: newPullRequest } = await octokit.rest.pulls.create({
+      base: branch,
+      head: versionBranch,
+      title: finalPrTitle,
+      body: prBody,
+      ...github.context.repo,
+    });
+
+    // Add a special label
+    await octokit.rest.issues.addLabels({
+      ...github.context.repo,
+      issue_number: newPullRequest.number,
+      labels: ['automated-version-pr']
+    });
+
+    // Immediately merge it
+    await octokit.rest.pulls.merge({
+      ...github.context.repo,
+      pull_number: newPullRequest.number,
+      merge_method: 'squash',
+      commit_title: finalPrTitle
+    });
+
     return {
-      pullRequestNumber: -1,
+      pullRequestNumber: newPullRequest.number
     };
   } else {
     if (existingPullRequests.data.length === 0) {
