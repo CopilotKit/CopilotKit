@@ -1,5 +1,15 @@
 # @copilotkit/runtime
 
+## 2.0.0-next.3
+
+### Major Changes
+
+- 135501d: test prerelease stuff
+
+### Patch Changes
+
+- @copilotkit/shared@2.0.0-next.3
+
 ## 1.4.4-next.2
 
 ### Patch Changes
