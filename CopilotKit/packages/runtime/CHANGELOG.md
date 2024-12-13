@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.4.4-next.3
+
+### Patch Changes
+
+- 7cfc2e7: test prerelease stuff
+  - @copilotkit/shared@1.4.4-next.3
+
 ## 1.4.4-next.2
 
 ### Patch Changes

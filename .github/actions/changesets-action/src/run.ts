@@ -411,6 +411,13 @@ export async function runVersion({
       labels: ['automated-version-pr']
     });
 
+    // Run Release workflow
+    await octokit.rest.actions.createWorkflowDispatch({
+      ...github.context.repo,
+      workflow_id: "release.yml",
+      ref: versionBranch
+    });
+
     // Immediately merge it
     await octokit.rest.pulls.merge({
       ...github.context.repo,
