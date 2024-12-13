@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.4.4-next.4
+
+### Patch Changes
+
+- 57a6012: test next prerelease automation
+  - @copilotkit/shared@1.4.4-next.4
+
 ## 1.4.4-next.3
 
 ### Patch Changes
