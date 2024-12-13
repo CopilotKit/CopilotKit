@@ -1,5 +1,5 @@
 ---
-"@copilotkit/runtime": major
+"@copilotkit/runtime": patch
 ---
 
 test prerelease stuff
