@@ -18,6 +18,7 @@
     "tsconfig": "1.4.3"
   },
   "changesets": [
+    "eighty-peaches-beam",
     "few-spoons-pay",
     "odd-moons-wash"
   ]
