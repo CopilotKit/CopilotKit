@@ -316,37 +316,6 @@ export default class StructuredReporter implements Reporter {
     return { ul: failedTests };
   }
 
-  private generateFlakyTestsSection() {
-    const flakyTests: string[] = [];
-
-    Object.entries(this.groupedResults).forEach(([, descriptions]) => {
-      Object.entries(descriptions).forEach(([description, variants]) => {
-        Object.entries(variants).forEach(([variant, browsers]) => {
-          Object.entries(browsers).forEach(([browser, stats]) => {
-            stats.testCases.forEach((testCase, testId) => {
-              if (this.determineTestStatus(testCase.results) === "flaky") {
-                const location = this.formatTestLocation(
-                  testCase.file,
-                  testCase.line
-                );
-                const retryCount = testCase.results.length - 1;
-                flakyTests.push(
-                  `- [${
-                    testCase.title
-                  }](${location})\n  - Variant: ${variant}\n  - Browser: ${browser}\n  - Passed after ${retryCount} ${
-                    retryCount === 1 ? "retry" : "retries"
-                  }`
-                );
-              }
-            });
-          });
-        });
-      });
-    });
-
-    return { ul: flakyTests };
-  }
-
   private getLastError(results: TestResult[]): string {
     for (let i = results.length - 1; i >= 0; i--) {
       const error = results[i].error;
@@ -390,7 +359,6 @@ export default class StructuredReporter implements Reporter {
           `**Total Tests**: ${stats.totalTests}`,
           `**Pass Rate**: ${passRate}%`,
           `**Failed Tests**: ${stats.totalFailed}`,
-          `**Flaky Tests**: ${stats.totalFlaky}`,
         ],
       },
     ];
@@ -400,14 +368,6 @@ export default class StructuredReporter implements Reporter {
       mdContent.push(
         { h2: "❌ Failed Tests" },
         this.generateFailedTestsSection()
-      );
-    }
-
-    // Add flaky tests section if there are any
-    if (stats.totalFlaky > 0) {
-      mdContent.push(
-        { h2: "⚠️ Flaky Tests" },
-        this.generateFlakyTestsSection()
       );
     }
 
