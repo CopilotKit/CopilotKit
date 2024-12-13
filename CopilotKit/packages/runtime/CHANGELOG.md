@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.4.4-next.1
+
+### Patch Changes
+
+- af36f1a: - feat(runtime): readme update
+  - @copilotkit/shared@1.4.4-next.1
+
 ## 1.4.4-next.0
 
 ### Patch Changes

@@ -18,6 +18,7 @@
     "tsconfig": "1.4.3"
   },
   "changesets": [
-    "few-spoons-pay"
+    "few-spoons-pay",
+    "odd-moons-wash"
   ]
 }
