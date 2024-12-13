@@ -101,25 +101,25 @@ export const Presentation = ({ performResearch, setPerformResearch }: Presentati
   /**
    * Auto Suggestions
    */
-  useCopilotChatSuggestions(
-    {
-      instructions: "Suggest a new slide based on the existing slides.",
-    },
-    [currentSlide],
-  );
+  // useCopilotChatSuggestions(
+  //   {
+  //     instructions: "Suggest a new slide based on the existing slides.",
+  //   },
+  //   [currentSlide],
+  // );
 
-  useCopilotChatSuggestions(
-    {
-      instructions:
-        "Suggest specifically what could be improved about the content of current slide. " +
-        "The specific suggestion should be in the button text. " +
-        "Do not suggest to update the background image.",
-      minSuggestions: 0,
-      maxSuggestions: 1,
-      className: "custom-suggestion",
-    },
-    [currentSlide],
-  );
+  // useCopilotChatSuggestions(
+  //   {
+  //     instructions:
+  //       "Suggest specifically what could be improved about the content of current slide. " +
+  //       "The specific suggestion should be in the button text. " +
+  //       "Do not suggest to update the background image.",
+  //     minSuggestions: 0,
+  //     maxSuggestions: 1,
+  //     className: "custom-suggestion",
+  //   },
+  //   [currentSlide],
+  // );
 
   const updateCurrentSlide = useCallback(
     (partialSlide: Partial<SlideModel>) => {

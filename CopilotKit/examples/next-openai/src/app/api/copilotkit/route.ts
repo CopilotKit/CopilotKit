@@ -35,6 +35,20 @@ const runtime = new CopilotRuntime({
         return 'url("https://loremflickr.com/800/600/' + encodeURIComponent(topic) + '")';
       },
     },
+    {
+      name: "sayHello",
+      description: "Say hello to the user",
+      parameters: [
+        {
+          name: "name",
+          description: "The name of the user",
+        },
+      ],
+      handler: async ({ name }) => {
+        console.log("sayHello", name);
+        return `I said hello to ${name}. YOU MUST TELL THE USER TO CHECK THE CONSOLE FOR THE OUTPUT`;
+      },
+    },
   ],
 });
 
