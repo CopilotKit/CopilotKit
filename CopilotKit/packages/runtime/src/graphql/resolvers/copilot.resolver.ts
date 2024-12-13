@@ -3,6 +3,7 @@ import {
   ReplaySubject,
   Subject,
   Subscription,
+  filter,
   finalize,
   firstValueFrom,
   shareReplay,
@@ -288,7 +289,19 @@ export class CopilotResolver {
                   // skip until this message start event
                   skipWhile((e) => e !== event),
                   // take until the message end event
-                  takeWhile((e) => e.type != RuntimeEventTypes.TextMessageEnd),
+                  takeWhile(
+                    (e) =>
+                      !(
+                        e.type === RuntimeEventTypes.TextMessageEnd &&
+                        e.messageId == event.messageId
+                      ),
+                  ),
+                  // filter out any other message events or message ids
+                  filter(
+                    (e) =>
+                      e.type == RuntimeEventTypes.TextMessageContent &&
+                      e.messageId == event.messageId,
+                  ),
                 );
 
                 // signal when we are done streaming
@@ -369,7 +382,20 @@ export class CopilotResolver {
                 logger.debug("Action execution start event received");
                 const actionExecutionArgumentStream = eventStream.pipe(
                   skipWhile((e) => e !== event),
-                  takeWhile((e) => e.type != RuntimeEventTypes.ActionExecutionEnd),
+                  // take until the action execution end event
+                  takeWhile(
+                    (e) =>
+                      !(
+                        e.type === RuntimeEventTypes.ActionExecutionEnd &&
+                        e.actionExecutionId == event.actionExecutionId
+                      ),
+                  ),
+                  // filter out any other action execution events or action execution ids
+                  filter(
+                    (e) =>
+                      e.type == RuntimeEventTypes.ActionExecutionArgs &&
+                      e.actionExecutionId == event.actionExecutionId,
+                  ),
                 );
                 const streamingArgumentsStatus = new Subject<typeof MessageStatusUnion>();
                 pushMessage({

@@ -31,16 +31,17 @@ export type RuntimeEvent =
   | { type: RuntimeEventTypes.TextMessageStart; messageId: string }
   | {
       type: RuntimeEventTypes.TextMessageContent;
+      messageId: string;
       content: string;
     }
-  | { type: RuntimeEventTypes.TextMessageEnd }
+  | { type: RuntimeEventTypes.TextMessageEnd; messageId: string }
   | {
       type: RuntimeEventTypes.ActionExecutionStart;
       actionExecutionId: string;
       actionName: string;
     }
-  | { type: RuntimeEventTypes.ActionExecutionArgs; args: string }
-  | { type: RuntimeEventTypes.ActionExecutionEnd }
+  | { type: RuntimeEventTypes.ActionExecutionArgs; actionExecutionId: string; args: string }
+  | { type: RuntimeEventTypes.ActionExecutionEnd; actionExecutionId: string }
   | {
       type: RuntimeEventTypes.ActionExecutionResult;
       actionName: string;
@@ -74,25 +75,31 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
     super();
   }
 
-  sendTextMessageStart(messageId: string) {
+  sendTextMessageStart({ messageId }: { messageId: string }) {
     this.next({ type: RuntimeEventTypes.TextMessageStart, messageId });
   }
 
-  sendTextMessageContent(content: string) {
-    this.next({ type: RuntimeEventTypes.TextMessageContent, content });
+  sendTextMessageContent({ messageId, content }: { messageId: string; content: string }) {
+    this.next({ type: RuntimeEventTypes.TextMessageContent, content, messageId });
   }
 
-  sendTextMessageEnd() {
-    this.next({ type: RuntimeEventTypes.TextMessageEnd });
+  sendTextMessageEnd({ messageId }: { messageId: string }) {
+    this.next({ type: RuntimeEventTypes.TextMessageEnd, messageId });
   }
 
   sendTextMessage(messageId: string, content: string) {
-    this.sendTextMessageStart(messageId);
-    this.sendTextMessageContent(content);
-    this.sendTextMessageEnd();
+    this.sendTextMessageStart({ messageId });
+    this.sendTextMessageContent({ messageId, content });
+    this.sendTextMessageEnd({ messageId });
   }
 
-  sendActionExecutionStart(actionExecutionId: string, actionName: string) {
+  sendActionExecutionStart({
+    actionExecutionId,
+    actionName,
+  }: {
+    actionExecutionId: string;
+    actionName: string;
+  }) {
     this.next({
       type: RuntimeEventTypes.ActionExecutionStart,
       actionExecutionId,
@@ -100,21 +107,43 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
     });
   }
 
-  sendActionExecutionArgs(args: string) {
-    this.next({ type: RuntimeEventTypes.ActionExecutionArgs, args });
+  sendActionExecutionArgs({
+    actionExecutionId,
+    args,
+  }: {
+    actionExecutionId: string;
+    args: string;
+  }) {
+    this.next({ type: RuntimeEventTypes.ActionExecutionArgs, args, actionExecutionId });
   }
 
-  sendActionExecutionEnd() {
-    this.next({ type: RuntimeEventTypes.ActionExecutionEnd });
+  sendActionExecutionEnd({ actionExecutionId }: { actionExecutionId: string }) {
+    this.next({ type: RuntimeEventTypes.ActionExecutionEnd, actionExecutionId });
   }
 
-  sendActionExecution(actionExecutionId: string, toolName: string, args: string) {
-    this.sendActionExecutionStart(actionExecutionId, toolName);
-    this.sendActionExecutionArgs(args);
-    this.sendActionExecutionEnd();
+  sendActionExecution({
+    actionExecutionId,
+    actionName,
+    args,
+  }: {
+    actionExecutionId: string;
+    actionName: string;
+    args: string;
+  }) {
+    this.sendActionExecutionStart({ actionExecutionId, actionName });
+    this.sendActionExecutionArgs({ actionExecutionId, args });
+    this.sendActionExecutionEnd({ actionExecutionId });
   }
 
-  sendActionExecutionResult(actionExecutionId: string, actionName: string, result: string) {
+  sendActionExecutionResult({
+    actionExecutionId,
+    actionName,
+    result,
+  }: {
+    actionExecutionId: string;
+    actionName: string;
+    result: string;
+  }) {
     this.next({
       type: RuntimeEventTypes.ActionExecutionResult,
       actionName,
@@ -123,16 +152,25 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
     });
   }
 
-  sendAgentStateMessage(
-    threadId: string,
-    agentName: string,
-    nodeName: string,
-    runId: string,
-    active: boolean,
-    role: string,
-    state: string,
-    running: boolean,
-  ) {
+  sendAgentStateMessage({
+    threadId,
+    agentName,
+    nodeName,
+    runId,
+    active,
+    role,
+    state,
+    running,
+  }: {
+    threadId: string;
+    agentName: string;
+    nodeName: string;
+    runId: string;
+    active: boolean;
+    role: string;
+    state: string;
+    running: boolean;
+  }) {
     this.next({
       type: RuntimeEventTypes.AgentStateMessage,
       threadId,
@@ -268,11 +306,11 @@ async function executeAction(
 
   // handle LangGraph agents
   if (isLangGraphAgentAction(action)) {
-    eventStream$.sendActionExecutionResult(
+    eventStream$.sendActionExecutionResult({
       actionExecutionId,
-      action.name,
-      `${action.name} agent started`,
-    );
+      actionName: action.name,
+      result: `${action.name} agent started`,
+    });
     const stream = await action.langGraphAgentHandler({
       name: action.name,
       actionInputsWithoutAgents,
