@@ -1,5 +1,17 @@
 # ui
 
+## 1.4.4
+
+### Patch Changes
+
+- e35e6ad: - test
+  - update config.json
+  - Merge remote-tracking branch 'origin/main' into feat/test-changeset-bot-1
+  - test
+  - test
+  - @copilotkit/runtime-client-gql@1.4.4
+  - @copilotkit/shared@1.4.4
+
 ## 1.4.4-next.4
 
 ### Patch Changes
