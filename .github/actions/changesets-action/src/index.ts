@@ -112,7 +112,11 @@ const getOptionalInput = (name: string) => core.getInput(name) || undefined;
         branch: getOptionalInput("branch"),
       });
 
-      core.setOutput("pullRequestNumber", String(pullRequestNumber));
+      if (pullRequestNumber !== -1) {
+        core.setOutput("pullRequestNumber", String(pullRequestNumber));
+      } else {
+        core.setOutput("isNextAutomerge", String(true))
+      }
 
       return;
   }

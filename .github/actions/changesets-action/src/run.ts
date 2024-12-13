@@ -367,6 +367,7 @@ export async function runVersion({
   );
 
   const finalPrTitle = `${prTitle}${!!preState ? ` (${preState.tag})` : ""}`;
+  const isNext = preState?.tag === "next";
 
   // project with `commit: true` setting could have already committed files
   if (!(await gitUtils.checkIfClean())) {
@@ -393,33 +394,40 @@ export async function runVersion({
     prBodyMaxCharacters,
   });
 
-  if (existingPullRequests.data.length === 0) {
-    core.info("creating pull request");
-    const { data: newPullRequest } = await octokit.rest.pulls.create({
-      base: branch,
-      head: versionBranch,
-      title: finalPrTitle,
-      body: prBody,
-      ...github.context.repo,
-    });
-
+  if (isNext) {
+    await gitUtils.push(branch, { force: true });
     return {
-      pullRequestNumber: newPullRequest.number,
+      pullRequestNumber: -1,
     };
   } else {
-    const [pullRequest] = existingPullRequests.data;
+    if (existingPullRequests.data.length === 0) {
+      core.info("creating pull request");
+      const { data: newPullRequest } = await octokit.rest.pulls.create({
+        base: branch,
+        head: versionBranch,
+        title: finalPrTitle,
+        body: prBody,
+        ...github.context.repo,
+      });
 
-    core.info(`updating found pull request #${pullRequest.number}`);
-    await octokit.rest.pulls.update({
-      pull_number: pullRequest.number,
-      title: finalPrTitle,
-      body: prBody,
-      ...github.context.repo,
-      state: "open",
-    });
+      return {
+        pullRequestNumber: newPullRequest.number,
+      };
+    } else {
+      const [pullRequest] = existingPullRequests.data;
 
-    return {
-      pullRequestNumber: pullRequest.number,
-    };
+      core.info(`updating found pull request #${pullRequest.number}`);
+      await octokit.rest.pulls.update({
+        pull_number: pullRequest.number,
+        title: finalPrTitle,
+        body: prBody,
+        ...github.context.repo,
+        state: "open",
+      });
+
+      return {
+        pullRequestNumber: pullRequest.number,
+      };
+    }
   }
 }
