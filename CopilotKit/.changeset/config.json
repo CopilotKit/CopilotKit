@@ -5,7 +5,7 @@
   "access": "public",
   "baseBranch": "origin/main",
   "fixed": [["@copilotkit/*"]],
-  "ignore": ["!@copilotkit/*"],
+  "ignore": ["*"],
   "linked": [],
   "updateInternalDependencies": "patch"
 }
