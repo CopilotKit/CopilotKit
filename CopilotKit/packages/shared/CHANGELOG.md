@@ -1,5 +1,7 @@
 # @copilotkit/shared
 
+## 1.4.4-next.0
+
 ## 1.4.3
 
 ### Patch Changes
