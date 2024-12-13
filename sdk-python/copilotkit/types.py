@@ -17,11 +17,13 @@ class Message(TypedDict):
 
 class TextMessage(Message):
     """Text message"""
+    parentMessageId: NotRequired[str]
     role: MessageRole
     content: str
 
 class ActionExecutionMessage(Message):
     """Action execution message"""
+    parentMessageId: NotRequired[str]
     name: str
     arguments: dict
 

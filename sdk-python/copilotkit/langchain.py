@@ -27,6 +27,7 @@ def copilotkit_messages_to_langchain(
     """
     def _copilotkit_messages_to_langchain(messages: List[Message]) -> List[BaseMessage]:
         result = []
+        processed_action_executions = set()
         for message in messages:
             if "content" in message:
                 if message["role"] == "user":
@@ -36,30 +37,45 @@ def copilotkit_messages_to_langchain(
                 elif message["role"] == "assistant":
                     result.append(AIMessage(content=message["content"], id=message["id"]))
             elif "arguments" in message:
-                tool_call = {
-                    "name": message["name"],
-                    "args": message["arguments"],
-                    "id": message["id"],
-                }
-                additional_kwargs = {
-                    'function_call':{
-                        'name': message["name"],
-                        'arguments': json.dumps(message["arguments"]),
-                    }
-                }
-                if not use_function_call:
-                    ai_message = AIMessage(
+                if use_function_call:
+                    result.append(AIMessage(
                         id=message["id"],
                         content="",
-                        tool_calls=[tool_call]
-                    )
+                        additional_kwargs={
+                            'function_call':{
+                                'name': message["name"],
+                                'arguments': json.dumps(message["arguments"]),
+                            }
+                        } 
+                    ))
                 else:
-                    ai_message = AIMessage(
-                        id=message["id"],
-                        content="",
-                        additional_kwargs=additional_kwargs 
+                    # convert multiple tool calls to a single message
+                    message_id = message["parentMessageId"] or message["id"]
+                    if message_id in processed_action_executions:
+                        continue
+
+                    processed_action_executions.add(message_id)
+
+                    all_tool_calls = []
+
+                    # Find all tool calls for this message
+                    for message in messages:
+                        if message["parentMessageId"] == message_id or message["id"] == message_id:
+                            all_tool_calls.append(message)
+
+                    tool_calls = [{
+                        "name": t["name"],
+                        "args": t["arguments"],
+                        "id": t["id"],
+                    } for t in all_tool_calls]
+
+                    result.append(
+                        AIMessage(
+                            id=message["id"],
+                            content="",
+                            tool_calls=tool_calls
+                        )
                     )
-                result.append(ai_message)
 
             elif "actionExecutionId" in message:
                 result.append(ToolMessage(
