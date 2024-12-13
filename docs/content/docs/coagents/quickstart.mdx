@@ -31,12 +31,13 @@ check out [this brief example from the LangGraph docs](https://langchain-ai.gith
 
 ## Getting started
 
-In order for CopilotKit to integrate with your LangGraph agent, it has to be deployed either by yourself or on LangGraph Platform.
+### How are you deploying your agent?
+In order for CopilotKit to integrate with your LangGraph agent, the agent has to be deployed: either via a LangGraph Platform Endpoint, or via a Copilot Remote Endpoint.
 
 <TailoredContent>
 <TailoredContentOption
     title="LangGraph Platform (recommended)"
-    description="I want to self host a LangGraph Platform endpoint or use LangGraph Cloud (Python, JavaScript)"
+    description="I want to self-host a LangGraph Platform Endpoint or use LangGraph Cloud (Python, JavaScript)"
     icon={<FaCloud />}
   >
     <InsecurePasswordProtected>
@@ -49,10 +50,12 @@ In order for CopilotKit to integrate with your LangGraph agent, it has to be dep
       <LangGraphPlatformDeploymentTabs components={props.components} />
 
       ## Integrate your LangGraph agent with CopilotKit
+
+      ### How are you hosting your Copilot?
       <TailoredContent>
         <TailoredContentOption
           title="Copilot Cloud (Recommended)"
-          description="I want to write my LangGraph agent in Python or JavaScript."
+          description="I want to host my Copilot on Copilot Cloud"
           icon={<FaCloud />}
         >
           <Accordions>
@@ -68,7 +71,7 @@ In order for CopilotKit to integrate with your LangGraph agent, it has to be dep
         </TailoredContentOption>
         <TailoredContentOption
           title="Self-Hosted Copilot Runtime"
-          description="I want to self host my agent on a FastAPI Copilot Remote Endpoint (Python only)."
+          description="I want to self-host the Copilot Runtime"
           icon={<FaPython />}
         >
           <Steps>
@@ -136,8 +139,8 @@ In order for CopilotKit to integrate with your LangGraph agent, it has to be dep
 
   </TailoredContentOption>
   <TailoredContentOption 
-    title="Self-Hosted Copilot Runtime"
-    description="I want to self host my agent on a FastAPI Copilot Remote Endpoint (Python only)"
+    title="Copilot Remote Endpoint"
+    description="I want to self-host my agent on a FastAPI Copilot Remote Endpoint (Python only)"
     icon={<FaPython />}
   >
     **For orientation, here's how CoAgents are wired:**
