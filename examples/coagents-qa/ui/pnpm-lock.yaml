@@ -13,23 +13,23 @@ importers:
   .:
     dependencies:
       '@copilotkit/react-core':
-        specifier: 1.4.3
-        version: 1.4.3(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+        specifier: 1.4.7
+        version: 1.4.7(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@copilotkit/react-textarea':
-        specifier: 1.4.3
-        version: 1.4.3(@types/react-dom@19.0.2(@types/react@19.0.1))(@types/react@19.0.1)(graphql@16.9.0)(react@19.0.0)
+        specifier: 1.4.7
+        version: 1.4.7(@types/react-dom@19.0.2(@types/react@19.0.1))(@types/react@19.0.1)(graphql@16.9.0)(react@19.0.0)
       '@copilotkit/react-ui':
-        specifier: 1.4.3
-        version: 1.4.3(@types/react@19.0.1)(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+        specifier: 1.4.7
+        version: 1.4.7(@types/react@19.0.1)(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@copilotkit/runtime':
-        specifier: 1.4.3
-        version: 1.4.3(class-validator@0.14.1)(google-auth-library@8.9.0)(lodash@4.17.21)
+        specifier: 1.4.7
+        version: 1.4.7(class-validator@0.14.1)(google-auth-library@8.9.0)(lodash@4.17.21)
       '@copilotkit/runtime-client-gql':
-        specifier: 1.4.3
-        version: 1.4.3(graphql@16.9.0)(react@19.0.0)
+        specifier: 1.4.7
+        version: 1.4.7(graphql@16.9.0)(react@19.0.0)
       '@copilotkit/shared':
-        specifier: 1.4.3
-        version: 1.4.3
+        specifier: 1.4.7
+        version: 1.4.7
       '@radix-ui/react-accordion':
         specifier: ^1.2.0
         version: 1.2.0(@types/react-dom@19.0.2(@types/react@19.0.1))(@types/react@19.0.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -160,32 +160,32 @@ packages:
     resolution: {integrity: sha512-JWtuCu8VQsMladxVz/P4HzHUGCAwpuqacmowgXFs5XjxIgKuNjnLokQzuVjlTvIzODaDmpjT3oxcC48vyk9EWg==}
     engines: {node: '>=6.9.0'}
 
-  '@copilotkit/react-core@1.4.3':
-    resolution: {integrity: sha512-CuKBwVvu6snTVr0hQfF6LBHWDEkvbqCBLezHJxzQEitOCTL9mdJ/0RQplOQR4siVLZyldJ+kqUmTXawzZPjNsQ==}
+  '@copilotkit/react-core@1.4.7':
+    resolution: {integrity: sha512-6NxmqxlJzZDxC7L9jilA+tpCe9a2NimcttP/frrLr1ly+8mW2mpCRlz7GtvwMgbC2DX/52QL+siEk49+MQJ3vg==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
       react-dom: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/react-textarea@1.4.3':
-    resolution: {integrity: sha512-20e9MFbqmQeEHXomYQ0mtBJMeDwUHXKstMFKgfiQjVtcZNwYYD9BiPF+2giOkvF+dLiJH+QwgDj7xlJLAV6n6g==}
+  '@copilotkit/react-textarea@1.4.7':
+    resolution: {integrity: sha512-Le6XJu/AuTdk5JCKRcwuVdxEmBJ3fupvNL4CA6kgFqhhfhBhJrELUfinzdYlJJZu7xEKFAM0ywJPYCjtR/Blqg==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/react-ui@1.4.3':
-    resolution: {integrity: sha512-b45oZxlsE8pXc48Iw9+bIV9C7nyDFKSxtVgWNOZVIU463fzOZTaxn+ATEI8B26XeLqCSSoUcYKNXJ5c8DI3IGQ==}
+  '@copilotkit/react-ui@1.4.7':
+    resolution: {integrity: sha512-qtzY/eJ1tY865JPr53M5FI/n6sfIYGYXH2URRjfJ5tfQfiii/qLkrDZ5erh5QT9zJJJSr+XNnUuSGtOZPpehJQ==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime-client-gql@1.4.3':
-    resolution: {integrity: sha512-0QZtL5Ing49RLMfIW1htNOMCh1WSAFXQKcXM40NxrPsRA3VZa4m+bw5wOQB7eGlZEdo71BYwKxgvky/e/MXncg==}
+  '@copilotkit/runtime-client-gql@1.4.7':
+    resolution: {integrity: sha512-gZml12gXHd5FsTH296KiQ/0cW8GaONxOUfgHvlcFp6HfxzjKaEjdyYcfnzEw7auZwXQimme7cup++95RS8xETw==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime@1.4.3':
-    resolution: {integrity: sha512-JlP7Sk6jf374stMCFTjzHC/0aiuRWk7EpR/qRhqnagf4v2+f2BoKmproWKa6Urm6pVN1TDy7uS9T/9Kyw36uog==}
+  '@copilotkit/runtime@1.4.7':
+    resolution: {integrity: sha512-/JyCHknaXHsaRjIiDds7fTvJaHUE6opRO0yZmJr9pi0SSuWOV9cBKY8NcAzm3r0Y0bzrjWShTxKs2+wrMa8Y5g==}
 
-  '@copilotkit/shared@1.4.3':
-    resolution: {integrity: sha512-EAs5IMvW9LcWT1r7S9bfe2FwBvaJAgUDywEQh1ypVfo3gbsqLZ8kL1Nq9ATp52eAwQhpcbYecpx4QSzjAVn9iQ==}
+  '@copilotkit/shared@1.4.7':
+    resolution: {integrity: sha512-WYLQ2lfBlqzMDDguky2uibnN/QZA1rL8T8J4KNSkugw4obJTSG1ESf2KraBkbQZvw7UIutOVrxY/iDTv2OFcMw==}
 
   '@emnapi/runtime@1.3.1':
     resolution: {integrity: sha512-kEBmG8KyqtxJZv+ygbEim+KCGtIq1fC22Ms3S4ziXmYKm8uyoLX0MHONVKwp+9opg390VaKRNt4a7A9NwmpNhw==}
@@ -4565,10 +4565,10 @@ snapshots:
       '@babel/helper-validator-identifier': 7.25.7
       to-fast-properties: 2.0.0
 
-  '@copilotkit/react-core@1.4.3(graphql@16.9.0)(react-dom@18.3.1(react@19.0.0))(react@19.0.0)':
+  '@copilotkit/react-core@1.4.7(graphql@16.9.0)(react-dom@18.3.1(react@19.0.0))(react@19.0.0)':
     dependencies:
-      '@copilotkit/runtime-client-gql': 1.4.3(graphql@16.9.0)(react@19.0.0)
-      '@copilotkit/shared': 1.4.3
+      '@copilotkit/runtime-client-gql': 1.4.7(graphql@16.9.0)(react@19.0.0)
+      '@copilotkit/shared': 1.4.7
       '@scarf/scarf': 1.3.0
       react: 19.0.0
       react-dom: 18.3.1(react@19.0.0)
@@ -4577,10 +4577,10 @@ snapshots:
       - encoding
       - graphql
 
-  '@copilotkit/react-core@1.4.3(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+  '@copilotkit/react-core@1.4.7(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
-      '@copilotkit/runtime-client-gql': 1.4.3(graphql@16.9.0)(react@19.0.0)
-      '@copilotkit/shared': 1.4.3
+      '@copilotkit/runtime-client-gql': 1.4.7(graphql@16.9.0)(react@19.0.0)
+      '@copilotkit/shared': 1.4.7
       '@scarf/scarf': 1.3.0
       react: 19.0.0
       react-dom: 19.0.0(react@19.0.0)
@@ -4589,11 +4589,11 @@ snapshots:
       - encoding
       - graphql
 
-  '@copilotkit/react-textarea@1.4.3(@types/react-dom@19.0.2(@types/react@19.0.1))(@types/react@19.0.1)(graphql@16.9.0)(react@19.0.0)':
+  '@copilotkit/react-textarea@1.4.7(@types/react-dom@19.0.2(@types/react@19.0.1))(@types/react@19.0.1)(graphql@16.9.0)(react@19.0.0)':
     dependencies:
-      '@copilotkit/react-core': 1.4.3(graphql@16.9.0)(react-dom@18.3.1(react@19.0.0))(react@19.0.0)
-      '@copilotkit/runtime-client-gql': 1.4.3(graphql@16.9.0)(react@19.0.0)
-      '@copilotkit/shared': 1.4.3
+      '@copilotkit/react-core': 1.4.7(graphql@16.9.0)(react-dom@18.3.1(react@19.0.0))(react@19.0.0)
+      '@copilotkit/runtime-client-gql': 1.4.7(graphql@16.9.0)(react@19.0.0)
+      '@copilotkit/shared': 1.4.7
       '@emotion/css': 11.13.4
       '@emotion/react': 11.13.3(@types/react@19.0.1)(react@19.0.0)
       '@emotion/styled': 11.13.0(@emotion/react@11.13.3(@types/react@19.0.1)(react@19.0.0))(@types/react@19.0.1)(react@19.0.0)
@@ -4621,11 +4621,11 @@ snapshots:
       - graphql
       - supports-color
 
-  '@copilotkit/react-ui@1.4.3(@types/react@19.0.1)(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+  '@copilotkit/react-ui@1.4.7(@types/react@19.0.1)(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
-      '@copilotkit/react-core': 1.4.3(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
-      '@copilotkit/runtime-client-gql': 1.4.3(graphql@16.9.0)(react@19.0.0)
-      '@copilotkit/shared': 1.4.3
+      '@copilotkit/react-core': 1.4.7(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@copilotkit/runtime-client-gql': 1.4.7(graphql@16.9.0)(react@19.0.0)
+      '@copilotkit/shared': 1.4.7
       '@headlessui/react': 2.1.3(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       react: 19.0.0
       react-markdown: 8.0.7(@types/react@19.0.1)(react@19.0.0)
@@ -4639,9 +4639,9 @@ snapshots:
       - react-dom
       - supports-color
 
-  '@copilotkit/runtime-client-gql@1.4.3(graphql@16.9.0)(react@19.0.0)':
+  '@copilotkit/runtime-client-gql@1.4.7(graphql@16.9.0)(react@19.0.0)':
     dependencies:
-      '@copilotkit/shared': 1.4.3
+      '@copilotkit/shared': 1.4.7
       '@urql/core': 5.0.6(graphql@16.9.0)
       react: 19.0.0
       untruncate-json: 0.0.1
@@ -4650,10 +4650,10 @@ snapshots:
       - encoding
       - graphql
 
-  '@copilotkit/runtime@1.4.3(class-validator@0.14.1)(google-auth-library@8.9.0)(lodash@4.17.21)':
+  '@copilotkit/runtime@1.4.7(class-validator@0.14.1)(google-auth-library@8.9.0)(lodash@4.17.21)':
     dependencies:
       '@anthropic-ai/sdk': 0.27.3
-      '@copilotkit/shared': 1.4.3
+      '@copilotkit/shared': 1.4.7
       '@graphql-yoga/plugin-defer-stream': 3.7.0(graphql-yoga@5.7.0(graphql@16.9.0))(graphql@16.9.0)
       '@langchain/community': 0.0.53(google-auth-library@8.9.0)(langchain@0.3.5(@langchain/core@0.3.16(openai@4.70.2(zod@3.23.8)))(openai@4.70.2(zod@3.23.8)))(lodash@4.17.21)(openai@4.70.2(zod@3.23.8))
       '@langchain/core': 0.3.16(openai@4.70.2(zod@3.23.8))
@@ -4784,7 +4784,7 @@ snapshots:
       - web-auth-library
       - ws
 
-  '@copilotkit/shared@1.4.3':
+  '@copilotkit/shared@1.4.7':
     dependencies:
       '@segment/analytics-node': 2.1.2
       chalk: 4.1.2
@@ -4796,7 +4796,7 @@ snapshots:
 
   '@emnapi/runtime@1.3.1':
     dependencies:
-      tslib: 2.7.0
+      tslib: 2.8.1
     optional: true
 
   '@emotion/babel-plugin@11.12.0':
@@ -4895,11 +4895,11 @@ snapshots:
   '@envelop/core@5.0.2':
     dependencies:
       '@envelop/types': 5.0.0
-      tslib: 2.7.0
+      tslib: 2.8.1
 
   '@envelop/types@5.0.0':
     dependencies:
-      tslib: 2.7.0
+      tslib: 2.8.1
 
   '@eslint-community/eslint-utils@4.4.0(eslint@9.16.0(jiti@1.21.6))':
     dependencies:
@@ -4975,21 +4975,21 @@ snapshots:
       '@graphql-typed-document-node/core': 3.2.0(graphql@16.9.0)
       '@repeaterjs/repeater': 3.0.6
       graphql: 16.9.0
-      tslib: 2.7.0
+      tslib: 2.8.1
       value-or-promise: 1.0.12
 
   '@graphql-tools/merge@9.0.7(graphql@16.9.0)':
     dependencies:
       '@graphql-tools/utils': 10.5.4(graphql@16.9.0)
       graphql: 16.9.0
-      tslib: 2.7.0
+      tslib: 2.8.1
 
   '@graphql-tools/schema@10.0.6(graphql@16.9.0)':
     dependencies:
       '@graphql-tools/merge': 9.0.7(graphql@16.9.0)
       '@graphql-tools/utils': 10.5.4(graphql@16.9.0)
       graphql: 16.9.0
-      tslib: 2.7.0
+      tslib: 2.8.1
       value-or-promise: 1.0.12
 
   '@graphql-tools/utils@10.5.4(graphql@16.9.0)':
@@ -4998,7 +4998,7 @@ snapshots:
       cross-inspect: 1.0.1
       dset: 3.1.3
       graphql: 16.9.0
-      tslib: 2.7.0
+      tslib: 2.8.1
 
   '@graphql-typed-document-node/core@3.2.0(graphql@16.9.0)':
     dependencies:
@@ -5006,7 +5006,7 @@ snapshots:
 
   '@graphql-yoga/logger@2.0.0':
     dependencies:
-      tslib: 2.7.0
+      tslib: 2.8.1
 
   '@graphql-yoga/plugin-defer-stream@3.7.0(graphql-yoga@5.7.0(graphql@16.9.0))(graphql@16.9.0)':
     dependencies:
@@ -5019,12 +5019,12 @@ snapshots:
       '@graphql-yoga/typed-event-target': 3.0.0
       '@repeaterjs/repeater': 3.0.6
       '@whatwg-node/events': 0.1.2
-      tslib: 2.7.0
+      tslib: 2.8.1
 
   '@graphql-yoga/typed-event-target@3.0.0':
     dependencies:
       '@repeaterjs/repeater': 3.0.6
-      tslib: 2.7.0
+      tslib: 2.8.1
 
   '@headlessui/react@2.1.3(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
@@ -5809,11 +5809,11 @@ snapshots:
       '@lukeed/uuid': 2.0.1
       '@segment/analytics-generic-utils': 1.2.0
       dset: 3.1.3
-      tslib: 2.7.0
+      tslib: 2.8.1
 
   '@segment/analytics-generic-utils@1.2.0':
     dependencies:
-      tslib: 2.7.0
+      tslib: 2.8.1
 
   '@segment/analytics-node@2.1.2':
     dependencies:
@@ -5823,7 +5823,7 @@ snapshots:
       buffer: 6.0.3
       jose: 5.8.0
       node-fetch: 2.7.0
-      tslib: 2.7.0
+      tslib: 2.8.1
     transitivePeerDependencies:
       - encoding
 
@@ -5877,7 +5877,7 @@ snapshots:
 
   '@types/mdast@4.0.4':
     dependencies:
-      '@types/unist': 2.0.11
+      '@types/unist': 3.0.3
 
   '@types/ms@0.7.34': {}
 
@@ -6039,7 +6039,7 @@ snapshots:
 
   '@whatwg-node/events@0.1.2':
     dependencies:
-      tslib: 2.7.0
+      tslib: 2.8.1
 
   '@whatwg-node/fetch@0.9.21':
     dependencies:
@@ -6051,12 +6051,12 @@ snapshots:
       '@kamilkisiela/fast-url-parser': 1.1.4
       busboy: 1.6.0
       fast-querystring: 1.1.2
-      tslib: 2.7.0
+      tslib: 2.8.1
 
   '@whatwg-node/server@0.9.49':
     dependencies:
       '@whatwg-node/fetch': 0.9.21
-      tslib: 2.7.0
+      tslib: 2.8.1
 
   abort-controller@3.0.0:
     dependencies:
@@ -6119,7 +6119,7 @@ snapshots:
 
   aria-hidden@1.2.4:
     dependencies:
-      tslib: 2.7.0
+      tslib: 2.8.1
 
   aria-query@5.3.2: {}
 
@@ -6440,7 +6440,7 @@ snapshots:
 
   cross-inspect@1.0.1:
     dependencies:
-      tslib: 2.7.0
+      tslib: 2.8.1
 
   cross-spawn@7.0.3:
     dependencies:
@@ -7251,7 +7251,7 @@ snapshots:
   graphql-scalars@1.23.0(graphql@16.9.0):
     dependencies:
       graphql: 16.9.0
-      tslib: 2.7.0
+      tslib: 2.8.1
 
   graphql-yoga@5.7.0(graphql@16.9.0):
     dependencies:
@@ -7266,7 +7266,7 @@ snapshots:
       dset: 3.1.3
       graphql: 16.9.0
       lru-cache: 10.4.3
-      tslib: 2.7.0
+      tslib: 2.8.1
 
   graphql@16.9.0: {}
 
@@ -8795,7 +8795,7 @@ snapshots:
     dependencies:
       react: 19.0.0
       react-style-singleton: 2.2.1(@types/react@19.0.1)(react@19.0.0)
-      tslib: 2.7.0
+      tslib: 2.8.1
     optionalDependencies:
       '@types/react': 19.0.1
 
@@ -8804,7 +8804,7 @@ snapshots:
       react: 19.0.0
       react-remove-scroll-bar: 2.3.6(@types/react@19.0.1)(react@19.0.0)
       react-style-singleton: 2.2.1(@types/react@19.0.1)(react@19.0.0)
-      tslib: 2.7.0
+      tslib: 2.8.1
       use-callback-ref: 1.3.2(@types/react@19.0.1)(react@19.0.0)
       use-sidecar: 1.1.2(@types/react@19.0.1)(react@19.0.0)
     optionalDependencies:
@@ -8815,7 +8815,7 @@ snapshots:
       react: 19.0.0
       react-remove-scroll-bar: 2.3.6(@types/react@19.0.1)(react@19.0.0)
       react-style-singleton: 2.2.1(@types/react@19.0.1)(react@19.0.0)
-      tslib: 2.7.0
+      tslib: 2.8.1
       use-callback-ref: 1.3.2(@types/react@19.0.1)(react@19.0.0)
       use-sidecar: 1.1.2(@types/react@19.0.1)(react@19.0.0)
     optionalDependencies:
@@ -8826,7 +8826,7 @@ snapshots:
       get-nonce: 1.0.1
       invariant: 2.2.4
       react: 19.0.0
-      tslib: 2.7.0
+      tslib: 2.8.1
     optionalDependencies:
       '@types/react': 19.0.1
 
@@ -8977,7 +8977,7 @@ snapshots:
 
   rxjs@7.8.1:
     dependencies:
-      tslib: 2.7.0
+      tslib: 2.8.1
 
   sade@1.8.1:
     dependencies:
@@ -9374,7 +9374,7 @@ snapshots:
       graphql-query-complexity: 0.12.0(graphql@16.9.0)
       graphql-scalars: 1.23.0(graphql@16.9.0)
       semver: 7.6.3
-      tslib: 2.7.0
+      tslib: 2.8.1
     optionalDependencies:
       class-validator: 0.14.1
 
@@ -9515,7 +9515,7 @@ snapshots:
   use-callback-ref@1.3.2(@types/react@19.0.1)(react@19.0.0):
     dependencies:
       react: 19.0.0
-      tslib: 2.7.0
+      tslib: 2.8.1
     optionalDependencies:
       '@types/react': 19.0.1
 
@@ -9523,7 +9523,7 @@ snapshots:
     dependencies:
       detect-node-es: 1.1.0
       react: 19.0.0
-      tslib: 2.7.0
+      tslib: 2.8.1
     optionalDependencies:
       '@types/react': 19.0.1
 
