@@ -10,7 +10,7 @@
     "check-types": "turbo check-types",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-prettier": "prettier --check \"**/*.{ts,tsx,md}\"",
-    "publish-packages": "changeset version && changeset publish",
+    "publish-packages": "turbo run build lint && changeset version && changeset publish",
     "freshbuild": "pnpm -w clean && pnpm i && pnpm -w build",
     "precommit": "pnpm run docs"
   },
