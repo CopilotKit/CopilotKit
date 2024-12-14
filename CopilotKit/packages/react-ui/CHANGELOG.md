@@ -1,5 +1,15 @@
 # ui
 
+## 1.4.7
+
+### Patch Changes
+
+- Fix broken build script before release
+- Updated dependencies
+  - @copilotkit/react-core@1.4.7
+  - @copilotkit/runtime-client-gql@1.4.7
+  - @copilotkit/shared@1.4.7
+
 ## 1.4.6
 
 ### Patch Changes
