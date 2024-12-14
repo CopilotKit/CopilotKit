@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.4.7
+
+### Patch Changes
+
+- Fix broken build script before release
+
 ## 1.4.6
 
 ### Patch Changes

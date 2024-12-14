@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.4.7
+
+### Patch Changes
+
+- Fix broken build script before release
+- Updated dependencies
+  - @copilotkit/shared@1.4.7
+
 ## 1.4.6
 
 ### Patch Changes
