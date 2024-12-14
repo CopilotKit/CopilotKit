@@ -1,5 +1,23 @@
 # @copilotkit/shared
 
+## 1.4.6
+
+### Patch Changes
+
+- .
+
+## 1.4.5
+
+### Patch Changes
+
+- .
+
+## 1.4.4
+
+### Patch Changes
+
+- .
+
 ## 1.4.3
 
 ### Patch Changes
