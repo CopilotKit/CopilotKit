@@ -19,6 +19,71 @@ from langchain_core.callbacks.manager import adispatch_custom_event
 
 from .types import Message, IntermediateStateConfig
 
+def langchain_messages_to_copilotkit(
+        messages: List[BaseMessage]
+    ) -> List[Message]:
+    """
+    Convert LangChain messages to CopilotKit messages
+    """
+    result = []
+    for message in messages:
+        if isinstance(message, HumanMessage):
+            result.append({
+                "role": "user",
+                "content": message["content"],
+                "id": message["id"],
+            })
+        elif isinstance(message, SystemMessage):
+            result.append({
+                "role": "system",
+                "content": message["content"],
+                "id": message["id"],
+            })
+        elif isinstance(message, AIMessage):
+            if message.tool_calls:
+                for tool_call in message.tool_calls:
+                    result.append({
+                        "id": tool_call["id"],
+                        "name": tool_call["name"],
+                        "arguments": tool_call["args"],
+                        "parentMessageId": message["id"],
+                    })
+            else:
+                result.append({
+                    "role": "assistant",
+                    "content": message["content"],
+                    "id": message["id"],
+                    "parentMessageId": message["id"],
+                })
+        elif isinstance(message, ToolMessage):
+            result.append({
+                "actionExecutionId": message["tool_call_id"],
+                "actionName": message["name"],
+                "result": message["content"],
+                "id": message["id"],
+            })
+
+    # Create a dictionary to map message ids to their corresponding messages
+    message_dict = {msg["id"]: msg for msg in result}
+
+    # Create a list to hold the reordered messages
+    reordered_result = []
+
+    # Iterate over the original result list
+    for msg in result:
+        # Add the message to the reordered list
+        reordered_result.append(msg)
+
+        # If the message has an actionExecutionId, find the corresponding message
+        if "actionExecutionId" in msg:
+            parent_id = msg["actionExecutionId"]
+            if parent_id in message_dict:
+                # Add the parent message after the current message
+                reordered_result.append(message_dict[parent_id])
+
+    return reordered_result
+
+
 def copilotkit_messages_to_langchain(
         use_function_call: bool = False
     ) -> Callable[[List[Message]], List[BaseMessage]]:

@@ -387,6 +387,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             .find((message) => message.isAgentStateMessage());
 
           if (lastAgentStateMessage) {
+            if (lastAgentStateMessage.state.messages) {
+              // TODO-MESSAGES: set the messages of CopilotKit!!!
+            }
             setCoagentStatesWithRef((prevAgentStates) => ({
               ...prevAgentStates,
               [lastAgentStateMessage.agentName]: {

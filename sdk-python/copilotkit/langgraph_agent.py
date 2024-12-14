@@ -213,7 +213,7 @@ class LangGraphAgent(Agent):
 
         if merge_state is None:
             logger.warning("Warning: merge_state is deprecated, use copilotkit_config instead")
-        
+
         if graph is None and agent is None:
             raise ValueError("graph must be provided")
 
@@ -249,11 +249,14 @@ class LangGraphAgent(Agent):
             node_name: str,
             state: dict,
             running: bool,
-            active: bool
+            active: bool,
+            include_messages: bool = False
         ):
-        state_without_messages = {
-            k: v for k, v in state.items() if k != "messages"
-        }
+        if not include_messages:
+            state = {
+                k: v for k, v in state.items() if k != "messages"
+            }
+
         return langchain_dumps({
             "event": "on_copilotkit_state_sync",
             "thread_id": thread_id,
@@ -261,7 +264,7 @@ class LangGraphAgent(Agent):
             "agent_name": self.name,
             "node_name": node_name,
             "active": active,
-            "state": state_without_messages,
+            "state": state,
             "running": running,
             "role": "assistant"
         })
@@ -353,7 +356,6 @@ class LangGraphAgent(Agent):
                 manually_emitted_state = None
 
             if manually_emit_intermediate_state:
-                manually_emitted_state = cast(Any, event["data"])
                 yield self._emit_state_sync_event(
                     thread_id=thread_id,
                     run_id=run_id,
@@ -402,7 +404,8 @@ class LangGraphAgent(Agent):
                     node_name=node_name,
                     state=state,
                     running=True,
-                    active=not exiting_node
+                    active=not exiting_node,
+                    include_messages=False
                 ) + "\n"
 
             yield langchain_dumps(event) + "\n"
@@ -419,7 +422,8 @@ class LangGraphAgent(Agent):
             state=state.values,
             running=not should_exit,
             # at this point, the node is ending so we set active to false
-            active=False
+            active=False,
+            include_messages=True
         ) + "\n"
 
 
