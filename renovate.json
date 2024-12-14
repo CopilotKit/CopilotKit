@@ -34,7 +34,8 @@
         "examples/**"
       ],
       "matchPackageNames": [
-        "*"
+        "/^@copilotkit/",
+        "/^copilotkit/"
       ],
       "labels": [
         "examples"
