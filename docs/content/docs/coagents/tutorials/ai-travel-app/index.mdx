@@ -14,9 +14,9 @@ import Link from "next/link";
   <div>**Difficulty:** Medium</div>
 </div>
 
-<YouTubeVideo videoId="9v3kXiOY3vg" defaultPlaybackRate={1.25} />
-
 <br />
+
+<YouTubeVideo videoId="9v3kXiOY3vg" defaultPlaybackRate={1.25} />
 
 ## What you'll learn
 
@@ -27,9 +27,13 @@ In this tutorial, you will take a simple travel application and supercharge it w
 - 💡 How to use `useCoAgentStateRender` to implement human-in-the-loop workflows
 - 💡 How to render intermediate states of your agent's execution
 
-## Try it out!
-
-You can try out an interactive example of the end result below:
+<Frame>
+  <video controls autoPlay muted loop 
+    src="/images/coagents/tutorials/ai-travel-app/demo.mp4"
+    alt="Travel app demo" 
+    className="w-full h-full [h-800px] shadow-xl">
+  </video>
+</Frame>
 
 <div className="flex flex-row gap-2">
   <Button size="lg" asChild className="flex gap-2 items-center">
@@ -47,6 +51,5 @@ You can try out an interactive example of the end result below:
   </Button>
 </div>
 
-<iframe src="https://examples-coagents-ai-travel-app.vercel.app/" className="w-full h-[800px] mt-4 rounded-lg border shadow-xl" />
 
 In the next step, we'll checkout the repo, install dependencies, and start the project locally.
