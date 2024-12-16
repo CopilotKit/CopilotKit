@@ -19,6 +19,7 @@ jobs:
   e2e_tests:
     name: E2E Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       checks: write
       contents: read
@@ -179,7 +180,11 @@ jobs:
                   annotation_level: 'failure',
                   title: 'E2E Test Failures',
                   message: `${failedTests} test(s) failed. Click "Details" to view the full report.`,
-                  raw_details: summary
+                  raw_details: summary,
+                  start_line: 1,
+                  end_line: 1,
+                  start_column: 1,
+                  end_column: 1
                 }] : []
               }
             });
