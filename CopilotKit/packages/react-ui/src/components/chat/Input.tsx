@@ -62,11 +62,13 @@ export const Input = ({ inProgress, onSend, isVisible = false }: InputProps) => 
         value={text}
         onChange={(event) => setText(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.shiftKey) {
-            event.preventDefault();
+           if (event.key === "Enter" && !event.shiftKey) {
+             event.preventDefault();
+           if (text.trim() !== "") { // Check if input is not empty
             send();
-          }
-        }}
+            }
+           }
+         }}
       />
       <div className="copilotKitInputControls">
         {showPushToTalk && (
