@@ -1,5 +1,17 @@
 # next-pages-router
 
+## 1.4.2-tyler-reset-chat.3
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+  - @copilotkit/react-textarea@1.4.2-tyler-reset-chat.3
+  - @copilotkit/react-core@1.4.2-tyler-reset-chat.3
+  - @copilotkit/react-ui@1.4.2-tyler-reset-chat.3
+  - @copilotkit/runtime@1.4.2-tyler-reset-chat.3
+  - @copilotkit/shared@1.4.2-tyler-reset-chat.3
+
 ## 1.4.2-tyler-reset-chat.2
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # node
 
+## 1.4.2-tyler-reset-chat.3
+
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+  - @copilotkit/runtime@1.4.2-tyler-reset-chat.3
+  - @copilotkit/shared@1.4.2-tyler-reset-chat.3
+
 ## 1.4.2-tyler-reset-chat.2
 
 ### Patch Changes

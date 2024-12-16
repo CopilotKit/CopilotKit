@@ -1,5 +1,12 @@
 # @copilotkit/shared
 
+## 1.4.2-tyler-reset-chat.3
+
+### Patch Changes
+
+- Fix issue with langchain anthropic adapter
+- Fix issue with anthropic langchain adapter
+
 ## 1.4.2-tyler-reset-chat.2
 
 ### Patch Changes

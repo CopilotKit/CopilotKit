@@ -1,5 +1,16 @@
 # ui
 
+## 1.4.2-tyler-reset-chat.3
+
+### Patch Changes
+
+- Fix issue with langchain anthropic adapter
+- Fix issue with anthropic langchain adapter
+- Updated dependencies
+- Updated dependencies
+  - @copilotkit/runtime-client-gql@1.4.2-tyler-reset-chat.3
+  - @copilotkit/shared@1.4.2-tyler-reset-chat.3
+
 ## 1.4.2-tyler-reset-chat.2
 
 ### Patch Changes

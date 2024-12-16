@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.4.2-tyler-reset-chat.2",
+  "version": "1.4.2-tyler-reset-chat.3",
   "sideEffects": [
     "**/*.css"
   ],
