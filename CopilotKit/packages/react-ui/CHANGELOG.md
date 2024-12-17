@@ -1,5 +1,26 @@
 # ui
 
+## 1.4.8-next.0
+
+### Patch Changes
+
+- ea0c5d5: - fix: prevent sending empty messages via Enter key
+
+  When the input field was empty, pressing Enter would still trigger the
+  send() function despite the send button being correctly disabled. Added
+  the sendDisabled check to the onKeyDown handler to ensure consistent
+  validation between button and keyboard triggers.
+
+  - Added validation check to Enter key handler
+  - Ensures empty messages can't be sent via keyboard shortcut
+  - Makes behavior consistent with disabled send button state
+
+  Resolves #1129
+
+  - @copilotkit/react-core@1.4.8-next.0
+  - @copilotkit/runtime-client-gql@1.4.8-next.0
+  - @copilotkit/shared@1.4.8-next.0
+
 ## 1.4.7
 
 ### Patch Changes
