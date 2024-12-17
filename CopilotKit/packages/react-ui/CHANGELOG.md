@@ -1,5 +1,13 @@
 # ui
 
+## 1.4.8-no-pino-redact.1
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.4.8-no-pino-redact.1
+- @copilotkit/react-core@1.4.8-no-pino-redact.1
+- @copilotkit/shared@1.4.8-no-pino-redact.1
+
 ## 1.4.8-next.0
 
 ### Patch Changes
