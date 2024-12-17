@@ -12,10 +12,6 @@ export function createLogger(options?: { level?: LogLevel; component?: string })
   const logger = createPinoLogger(
     {
       level: process.env.LOG_LEVEL || level || "error",
-      redact: {
-        paths: ["pid", "hostname"],
-        remove: true,
-      },
     },
     stream,
   );
