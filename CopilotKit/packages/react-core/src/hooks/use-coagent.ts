@@ -98,7 +98,6 @@ import {
 import { CoagentState } from "../types/coagent-state";
 import { useCopilotChat } from "./use-copilot-chat";
 import { Message } from "@copilotkit/runtime-client-gql";
-import { flushSync } from "react-dom";
 
 interface WithInternalStateManagementAndInitial<T> {
   /**

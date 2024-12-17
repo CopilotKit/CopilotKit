@@ -39,6 +39,9 @@ export class ActionExecutionMessageInput {
   @Field(() => String)
   arguments: string;
 
+  @Field(() => String, { nullable: true })
+  parentMessageId?: string;
+
   @Field(() => String, {
     nullable: true,
     deprecationReason: "This field will be removed in a future version",

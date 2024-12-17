@@ -18,6 +18,7 @@ import {
   Role,
   CopilotRequestType,
   ActionInputAvailability,
+  loadMessagesFromJsonRepresentation,
 } from "@copilotkit/runtime-client-gql";
 
 import { CopilotApiConfig } from "../context";
@@ -257,7 +258,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
     const reader = stream.getReader();
 
-    let actionResults: { [id: string]: string } = {};
     let executedCoAgentStateRenders: string[] = [];
     let followUp: FrontendAction["followUp"] = undefined;
 
@@ -340,6 +340,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         }
 
         newMessages = [];
+        let didSyncMessages = false;
+
+        // messages that are synced from the agent state
+        // let syncedMessages: Message[] | undefined = undefined;
 
         // request failed, display error message and quit
         if (
@@ -387,8 +391,14 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             .find((message) => message.isAgentStateMessage());
 
           if (lastAgentStateMessage) {
-            if (lastAgentStateMessage.state.messages) {
-              // TODO-MESSAGES: set the messages of CopilotKit!!!
+            if (
+              lastAgentStateMessage.state.messages &&
+              lastAgentStateMessage.state.messages.length > 0
+            ) {
+              didSyncMessages = true;
+              previousMessages = loadMessagesFromJsonRepresentation(
+                lastAgentStateMessage.state.messages,
+              );
             }
             setCoagentStatesWithRef((prevAgentStates) => ({
               ...prevAgentStates,
@@ -414,7 +424,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           }
         }
 
-        if (newMessages.length > 0) {
+        if (didSyncMessages) {
+          // synced messages override any messages
+          setMessages([...previousMessages]);
+        } else if (newMessages.length > 0) {
           // Update message state
           setMessages([...previousMessages, ...newMessages]);
         }
@@ -423,10 +436,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       if (
         // if followUp is not explicitly false
         followUp !== false &&
-        // if we have client side results
-        (Object.values(actionResults).length ||
-          // or the last message we received is a result
-          (newMessages.length && newMessages[newMessages.length - 1].isResultMessage()))
+        // and the last message we have is a result
+        newMessages.length &&
+        newMessages[newMessages.length - 1].isResultMessage()
       ) {
         // run the completion again and return the result
 

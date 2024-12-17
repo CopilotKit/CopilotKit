@@ -341,6 +341,7 @@ function getStateSyncEvent({
   state,
   running,
   active,
+  includeMessages = false,
 }: {
   threadId: string;
   runId: string;
@@ -349,13 +350,16 @@ function getStateSyncEvent({
   state: State;
   running: boolean;
   active: boolean;
+  includeMessages?: boolean;
 }): string {
-  const stateWithoutMessages = Object.keys(state).reduce((acc, key) => {
-    if (key !== "messages") {
-      acc[key] = state[key];
-    }
-    return acc;
-  }, {} as State);
+  if (!includeMessages) {
+    state = Object.keys(state).reduce((acc, key) => {
+      if (key !== "messages") {
+        acc[key] = state[key];
+      }
+      return acc;
+    }, {} as State);
+  }
 
   return (
     JSON.stringify({
@@ -365,7 +369,7 @@ function getStateSyncEvent({
       agent_name: agentName,
       node_name: nodeName,
       active: active,
-      state: stateWithoutMessages,
+      state: state,
       running: running,
       role: "assistant",
     }) + "\n"

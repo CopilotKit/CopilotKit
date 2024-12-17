@@ -13,7 +13,7 @@ from langchain_core.messages import AIMessage, ToolMessage
 from partialjson.json_parser import JSONParser
 
 from .types import Message
-from .langchain import copilotkit_messages_to_langchain
+from .langchain import copilotkit_messages_to_langchain, langchain_messages_to_copilotkit
 from .action import ActionDict
 from .agent import Agent
 from .logging import get_logger
@@ -256,6 +256,11 @@ class LangGraphAgent(Agent):
             state = {
                 k: v for k, v in state.items() if k != "messages"
             }
+        else:
+            state = {
+                **state,
+                "messages": langchain_messages_to_copilotkit(state.get("messages", []))
+            }
 
         return langchain_dumps({
             "event": "on_copilotkit_state_sync",
@@ -278,6 +283,7 @@ class LangGraphAgent(Agent):
         node_name: Optional[str] = None,
         actions: Optional[List[ActionDict]] = None,
     ):
+
         config = ensure_config(cast(Any, self.langgraph_config.copy()) if self.langgraph_config else {}) # pylint: disable=line-too-long
         config["configurable"] = config.get("configurable", {})
         config["configurable"]["thread_id"] = thread_id
@@ -341,6 +347,7 @@ class LangGraphAgent(Agent):
                 event["name"] == "copilotkit_manually_emit_intermediate_state"
             )
 
+
             # we only want to update the node name under certain conditions
             # since we don't need any internal node names to be sent to the frontend
             if current_node_name in self.graph.nodes.keys():
@@ -356,6 +363,7 @@ class LangGraphAgent(Agent):
                 manually_emitted_state = None
 
             if manually_emit_intermediate_state:
+                manually_emitted_state = cast(Any, event["data"])
                 yield self._emit_state_sync_event(
                     thread_id=thread_id,
                     run_id=run_id,
@@ -405,7 +413,8 @@ class LangGraphAgent(Agent):
                     state=state,
                     running=True,
                     active=not exiting_node,
-                    include_messages=False
+                    # sync messages when the node is changing
+                    include_messages=prev_node_name != node_name
                 ) + "\n"
 
             yield langchain_dumps(event) + "\n"
@@ -423,6 +432,7 @@ class LangGraphAgent(Agent):
             running=not should_exit,
             # at this point, the node is ending so we set active to false
             active=False,
+            # sync messages at the end of the run
             include_messages=True
         ) + "\n"
 

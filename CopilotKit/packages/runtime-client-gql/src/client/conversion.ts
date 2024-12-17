@@ -26,6 +26,7 @@ export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
         textMessage: {
           content: message.content,
           role: message.role as any,
+          parentMessageId: message.parentMessageId,
         },
       };
     } else if (message.isActionExecutionMessage()) {
@@ -35,6 +36,7 @@ export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
         actionExecutionMessage: {
           name: message.name,
           arguments: JSON.stringify(message.arguments),
+          parentMessageId: message.parentMessageId,
         },
       };
     } else if (message.isResultMessage()) {
@@ -103,6 +105,7 @@ export function convertGqlOutputToMessages(
         id: message.id,
         role: message.role,
         content: message.content.join(""),
+        parentMessageId: message.parentMessageId,
         createdAt: new Date(),
         status: message.status || { code: MessageStatusCode.Pending },
       });
@@ -111,6 +114,7 @@ export function convertGqlOutputToMessages(
         id: message.id,
         name: message.name,
         arguments: getPartialArguments(message.arguments),
+        parentMessageId: message.parentMessageId,
         createdAt: new Date(),
         status: message.status || { code: MessageStatusCode.Pending },
       });
@@ -140,6 +144,62 @@ export function convertGqlOutputToMessages(
 
     throw new Error("Unknown message type");
   });
+}
+
+export function loadMessagesFromJsonRepresentation(json: any[]): Message[] {
+  const result: Message[] = [];
+  for (const item of json) {
+    if ("content" in item) {
+      result.push(
+        new TextMessage({
+          id: item.id,
+          role: item.role,
+          content: item.content,
+          parentMessageId: item.parentMessageId,
+          createdAt: item.createdAt || new Date(),
+          status: item.status || { code: MessageStatusCode.Success },
+        }),
+      );
+    } else if ("arguments" in item) {
+      result.push(
+        new ActionExecutionMessage({
+          id: item.id,
+          name: item.name,
+          arguments: item.arguments,
+          parentMessageId: item.parentMessageId,
+          createdAt: item.createdAt || new Date(),
+          status: item.status || { code: MessageStatusCode.Success },
+        }),
+      );
+    } else if ("result" in item) {
+      result.push(
+        new ResultMessage({
+          id: item.id,
+          result: item.result,
+          actionExecutionId: item.actionExecutionId,
+          actionName: item.actionName,
+          createdAt: item.createdAt || new Date(),
+          status: item.status || { code: MessageStatusCode.Success },
+        }),
+      );
+    } else if ("state" in item) {
+      result.push(
+        new AgentStateMessage({
+          id: item.id,
+          threadId: item.threadId,
+          role: item.role,
+          agentName: item.agentName,
+          nodeName: item.nodeName,
+          runId: item.runId,
+          active: item.active,
+          running: item.running,
+          state: item.state,
+          createdAt: item.createdAt || new Date(),
+        }),
+      );
+    }
+  }
+  return result;
 }
 
 function getPartialArguments(args: string[]) {

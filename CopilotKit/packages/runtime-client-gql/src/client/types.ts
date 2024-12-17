@@ -53,6 +53,7 @@ type TextMessageConstructorOptions = MessageConstructorOptions & TextMessageInpu
 export class TextMessage extends Message implements TextMessageConstructorOptions {
   role: TextMessageInput["role"];
   content: TextMessageInput["content"];
+  parentMessageId: TextMessageInput["parentMessageId"];
 
   constructor(props: TextMessageConstructorOptions) {
     super(props);
@@ -71,7 +72,7 @@ export class ActionExecutionMessage
 {
   name: ActionExecutionMessageInput["name"];
   arguments: Record<string, any>;
-
+  parentMessageId: ActionExecutionMessageInput["parentMessageId"];
   constructor(props: ActionExecutionMessageConstructorOptions) {
     super(props);
     this.type = "ActionExecutionMessage";
