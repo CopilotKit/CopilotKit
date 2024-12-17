@@ -119,7 +119,7 @@ type LangGraphOnChatModelStreamEvent = {
     chunk: {
       lc: number;
       type: string;
-      id: string[];
+      id: string;
       kwargs: {
         content: string | { text: string; type: string; index: number }[];
         additional_kwargs: {

@@ -5,8 +5,16 @@ set -e # Exit immediately if a command exits with a non-zero status
 # Save the current directory
 root_dir=$(pwd)
 
-# Ensure the script returns to the initial directory on exit or failure
-trap 'cd "$root_dir"' EXIT ERR
+on_exit() {
+  echo "------------------------------------------------------"
+  echo "Reverting changes to pyproject.toml and poetry.lock..."
+  echo "------------------------------------------------------"
+  cd "$root_dir/../examples/coagents-research-canvas/agent"
+  git checkout -- pyproject.toml poetry.lock || true
+  cd "$root_dir"
+}
+
+trap on_exit EXIT ERR
 
 echo "Linking packages globally..."
 turbo link:global

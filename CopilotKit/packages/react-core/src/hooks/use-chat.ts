@@ -262,6 +262,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     let followUp: FrontendAction["followUp"] = undefined;
 
     let messages: Message[] = [];
+    let syncedMessages: Message[] = [];
 
     try {
       while (true) {
@@ -275,52 +276,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           break;
         }
         if (done) {
-          // execute regular action executions that are specific to the frontend (last actions)
-          if (onFunctionCall) {
-            newMessages = [...messages];
-            // Find consecutive action execution messages at the end
-            const lastMessages = [];
-            for (let i = messages.length - 1; i >= 0; i--) {
-              const message = messages[i];
-              if (
-                message.isActionExecutionMessage() &&
-                message.status.code !== MessageStatusCode.Pending
-              ) {
-                lastMessages.unshift(message);
-              } else {
-                break;
-              }
-            }
-
-            for (const message of lastMessages) {
-              // We update the message state before calling the handler so that the render
-              // function can be called with `executing` state
-              setMessages([...previousMessages, ...newMessages]);
-
-              const action = actions.find((action) => action.name === message.name);
-
-              if (action) {
-                followUp = action.followUp;
-                const result = await onFunctionCall({
-                  messages: previousMessages,
-                  name: message.name,
-                  args: message.arguments,
-                });
-                const messageIndex = newMessages.findIndex((msg) => msg.id === message.id);
-                newMessages.splice(
-                  messageIndex + 1,
-                  0,
-                  new ResultMessage({
-                    result: ResultMessage.encodeResult(result),
-                    actionExecutionId: message.id,
-                    actionName: message.name,
-                  }),
-                );
-              }
-            }
-
-            setMessages([...previousMessages, ...newMessages]);
-          }
           break;
         }
 
@@ -340,10 +295,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         }
 
         newMessages = [];
-        let didSyncMessages = false;
-
-        // messages that are synced from the agent state
-        // let syncedMessages: Message[] | undefined = undefined;
 
         // request failed, display error message and quit
         if (
@@ -395,8 +346,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               lastAgentStateMessage.state.messages &&
               lastAgentStateMessage.state.messages.length > 0
             ) {
-              didSyncMessages = true;
-              previousMessages = loadMessagesFromJsonRepresentation(
+              syncedMessages = loadMessagesFromJsonRepresentation(
                 lastAgentStateMessage.state.messages,
               );
             }
@@ -424,21 +374,66 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           }
         }
 
-        if (didSyncMessages) {
-          // synced messages override any messages
-          setMessages([...previousMessages]);
-        } else if (newMessages.length > 0) {
+        if (newMessages.length > 0) {
           // Update message state
           setMessages([...previousMessages, ...newMessages]);
         }
+      }
+      const finalMessages =
+        syncedMessages.length > 0 ? [...syncedMessages] : [...previousMessages, ...messages];
+
+      // execute regular action executions that are specific to the frontend (last actions)
+      if (onFunctionCall) {
+        // Find consecutive action execution messages at the end
+        const lastMessages = [];
+        for (let i = finalMessages.length - 1; i >= 0; i--) {
+          const message = finalMessages[i];
+          if (
+            message.isActionExecutionMessage() &&
+            message.status.code !== MessageStatusCode.Pending
+          ) {
+            lastMessages.unshift(message);
+          } else {
+            break;
+          }
+        }
+
+        for (const message of lastMessages) {
+          // We update the message state before calling the handler so that the render
+          // function can be called with `executing` state
+          setMessages(finalMessages);
+
+          const action = actions.find((action) => action.name === message.name);
+
+          if (action) {
+            followUp = action.followUp;
+            const result = await onFunctionCall({
+              messages: finalMessages,
+              name: message.name,
+              args: message.arguments,
+            });
+            const messageIndex = finalMessages.findIndex((msg) => msg.id === message.id);
+            finalMessages.splice(
+              messageIndex + 1,
+              0,
+              new ResultMessage({
+                result: ResultMessage.encodeResult(result),
+                actionExecutionId: message.id,
+                actionName: message.name,
+              }),
+            );
+          }
+        }
+
+        setMessages(finalMessages);
       }
 
       if (
         // if followUp is not explicitly false
         followUp !== false &&
         // and the last message we have is a result
-        newMessages.length &&
-        newMessages[newMessages.length - 1].isResultMessage()
+        finalMessages.length &&
+        finalMessages[finalMessages.length - 1].isResultMessage()
       ) {
         // run the completion again and return the result
 
@@ -446,7 +441,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         // - tried using react-dom's flushSync, but it did not work
         await new Promise((resolve) => setTimeout(resolve, 10));
 
-        return await runChatCompletionRef.current!([...previousMessages, ...newMessages]);
+        return await runChatCompletionRef.current!(finalMessages);
       } else {
         return newMessages.slice();
       }
