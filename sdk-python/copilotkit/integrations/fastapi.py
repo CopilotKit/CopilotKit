@@ -1,6 +1,8 @@
 """FastAPI integration"""
 
 import logging
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 from typing import List, Any, cast
 from fastapi import FastAPI, Request, HTTPException
@@ -18,10 +20,20 @@ from ..action import ActionDict
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
+executor = ThreadPoolExecutor(max_workers=10)
+
 def add_fastapi_endpoint(fastapi_app: FastAPI, sdk: CopilotKitSDK, prefix: str):
     """Add FastAPI endpoint"""
+    def run_handler_in_thread(request: Request, sdk: CopilotKitSDK):
+        # Run the handler coroutine in the event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        return loop.run_until_complete(handler(request, sdk))
+
     async def make_handler(request: Request):
-        return await handler(request, sdk)
+        loop = asyncio.get_event_loop()
+        future = loop.run_in_executor(executor, run_handler_in_thread, request, sdk)
+        return await future
 
     # Ensure the prefix starts with a slash and remove trailing slashes
     normalized_prefix = '/' + prefix.strip('/')
