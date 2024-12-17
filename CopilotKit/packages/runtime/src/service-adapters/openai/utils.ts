@@ -1,11 +1,12 @@
-import {
-  ActionExecutionMessage,
-  Message,
-  ResultMessage,
-  TextMessage,
-} from "../../graphql/types/converted";
+import { Message } from "../../graphql/types/converted";
 import { ActionInput } from "../../graphql/inputs/action.input";
-import { ChatCompletionMessageParam, ChatCompletionTool } from "openai/resources";
+import {
+  ChatCompletionMessageParam,
+  ChatCompletionTool,
+  ChatCompletionUserMessageParam,
+  ChatCompletionAssistantMessageParam,
+  ChatCompletionSystemMessageParam,
+} from "openai/resources";
 
 export function limitMessagesToTokenCount(
   messages: any[],
@@ -120,9 +121,12 @@ export function convertActionInputToOpenAITool(action: ActionInput): ChatComplet
 export function convertMessageToOpenAIMessage(message: Message): ChatCompletionMessageParam {
   if (message.isTextMessage()) {
     return {
-      role: message.role,
+      role: message.role as ChatCompletionUserMessageParam["role"],
       content: message.content,
-    };
+    } satisfies
+      | ChatCompletionUserMessageParam
+      | ChatCompletionAssistantMessageParam
+      | ChatCompletionSystemMessageParam;
   } else if (message.isActionExecutionMessage()) {
     return {
       role: "assistant",

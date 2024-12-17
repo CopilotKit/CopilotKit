@@ -1,0 +1,131 @@
+Here are various ways to deploy your `LangGraph` agent.
+
+<Tabs items={['Studio (local development)', 'CLI (local development)', 'CLI (self hosted)', 'Platform (cloud)']}>
+  <Tab value="Studio (local development)">
+    For local deployment during development, you can [use LangGraph Studio](https://langchain-ai.github.io/langgraph/cloud/how-tos/test_local_deployment/).
+    <Callout type="info">
+      To ensure a successful deployment, follow these steps from the LangGraph Studio documentation:
+      1. Make sure your agent folder contains a `langgraph.json` file.
+      2. In the `langgraph.json` file, reference the path to a `.env` file.
+      3. In the `.env` file, include your `LANGSMITH_API_KEY`.
+    </Callout>
+
+    A successful deployment will yield an API URL (often referred to here as "deployment URL").
+    It will generally look like this: `http://localhost:63899`.
+
+    Come back with that URL and a LangSmith API key before proceeding.
+
+    <img src="/images/langgraph-studio-local-url.png" alt="LangGraph Studio Local URL" className="my-4" />
+
+  </Tab>
+
+  <Tab value="CLI (local development)">
+    For local development, you can use the LangGraph CLI to deploy your LangGraph agent.
+    To ensure a successful deployment, follow these steps from the LangGraph CLI documentation:
+      1. Make sure your agent folder contains a `langgraph.json` file.
+      2. In the `langgraph.json` file, reference the path to a `.env` file.
+      3. In the `.env` file, include your `LANGSMITH_API_KEY`.
+      4. Install the LangGraph CLI: `pip install "langgraph-cli[inmem]>=0.1.55"`
+      5. Run agent locally: `langgraph up --port <port> --host 0.0.0.0 --no-browser`
+    <Callout type="warn">
+      If you are using LangGraph.js, at the moment, you can only run the agent locally using `langgraph up`. LangGraph.js does not support running the agent using development server (`langgraph dev`).
+    </Callout>
+  </Tab>
+
+  <Tab value="CLI (self hosted)">
+    For self-hosting a LangGraph.js agent, follow these steps:
+
+    1. Set up your project structure:
+    ```bash
+    mkdir my-langgraph-app
+    cd my-langgraph-app
+    npm init -y
+    ```
+
+    2. Install dependencies:
+    ```bash
+    npm install @langchain/langgraph
+    ```
+
+    3. Create the necessary project files and directories:
+    ```bash
+    mkdir -p src/utils
+    touch src/utils/tools.ts src/utils/nodes.ts src/utils/state.ts src/agent.ts
+    touch .env langgraph.json
+    ```
+
+    4. Configure your `langgraph.json`:
+    ```json
+    {
+      "node_version": "20",
+      "dockerfile_lines": [],
+      "dependencies": ["."],
+      "graphs": {
+        "agent": "./src/agent.ts:graph"
+      },
+      "env": ".env"
+    }
+    ```
+
+    5. Create a basic agent implementation in `src/agent.ts`:
+    ```typescript
+    import { StateGraph, START, END } from '@langchain/langgraph';
+
+    interface MyGraphState {
+      // Add your state properties here
+    }
+
+    function myNode(state: MyGraphState) {
+      return {};
+    }
+
+    const graphBuilder = new StateGraph({ channels: {} })
+      .addNode('myNode', myNode)
+      .addEdge(START, 'myNode')
+      .addEdge('myNode', END);
+
+    export const graph = graphBuilder.compile();
+    ```
+
+    6. Create a Dockerfile:
+    ```dockerfile
+    FROM node:20
+
+    WORKDIR /app
+
+    COPY package*.json ./
+    RUN npm install
+
+    COPY . .
+
+    CMD ["node", "dist/agent.js"]
+    ```
+
+    7. Build and run:
+    ```bash
+    # Compile TypeScript
+    npx tsc
+
+    # Build Docker image
+    docker build -t my-langgraph-app .
+
+    # Run the container
+    docker run -p 3000:3000 my-langgraph-app
+    ```
+
+    <Callout type="info">
+      Make sure you have Node.js, npm, TypeScript, and Docker installed on your machine before starting the deployment process.
+    </Callout>
+
+  </Tab>
+
+  <Tab value="Platform (cloud)">
+    For production, you can deploy to LangGraph Platform by following the official [LangGraph Platform deployment guide](https://langchain-ai.github.io/langgraph/cloud/deployment/cloud/).
+
+    A successful deployment will yield an API URL (often referred to here as "deployment URL").
+    It will look like this: `https://{project-identifiers}.langgraph.app`.
+
+    Come back with that URL and a LangSmith API key before proceeding.
+
+  </Tab>
+</Tabs>

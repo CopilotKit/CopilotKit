@@ -4,11 +4,14 @@ import {
   filterConfigsByProject,
   groupConfigsByDescription,
   PROJECT_NAMES,
+  TestVariants,
+  appendLGCVariants,
 } from "../lib/config-helper";
 
-export const variants = [
+const variants: TestVariants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
-  // { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
+  { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
+  // { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" }, // seems broken
 ];
 
 const allConfigs = getConfigs();
@@ -23,7 +26,13 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
     Object.entries(descriptions).forEach(([description, configs]) => {
       test.describe(`${description}`, () => {
         configs.forEach((config) => {
-          variants.forEach((variant) => {
+          appendLGCVariants(
+            {
+              ...config,
+              lgcJSDeploymentUrl: config.lgcJSDeploymentUrl,
+            },
+            variants
+          ).forEach((variant) => {
             test(`Test ${config.description} with variant ${variant.name}`, async ({
               page,
             }) => {
@@ -43,12 +52,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 await chatWindow.waitFor({ state: "visible" });
               }
 
-              const prompts = [
-                "How are you doing",
-                "Greet Me!",
-                "I'm not sure I want to tell you…",
-                "My name is Copilot Kit",
-              ];
+              const prompts = ["Greet Me!", "My name is Bob"];
 
               for (const prompt of prompts) {
                 // Wait for and fill the textarea
@@ -89,7 +93,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 }
 
                 // Add delay between messages
-                await page.waitForTimeout(2000);
+                await page.waitForTimeout(5000);
               }
             });
           });

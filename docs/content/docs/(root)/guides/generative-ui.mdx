@@ -1,17 +1,16 @@
 ---
 title: "Generative UI"
-description: "Learn how to embed embed custom UI components in the chat window."
+description: "Learn how to embed custom UI components in the chat window."
 ---
+
 import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
 
 <Steps>
 
-
 <Step>
 ### Render custom react components in the chat UI
 
-
-<Tabs items={['Render a component', 'Fetch data & render', 'renderAndWait (HITL)', 'Render strings']}>
+<Tabs items={['Render a component', 'Fetch data & render', 'renderAndWaitForResponse (HITL)', 'Render strings']}>
 
   <Tab value="Render a component">
     [`useCopilotAction`](/reference/hooks/useCopilotAction) can be used with a `render` function and without a `handler` to display information or UI elements within the chat.
@@ -30,45 +29,51 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
     "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
     import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
 
-    useCopilotAction({ // [!code highlight]
-      name: "showCalendarMeeting",
-      description: "Displays calendar meeting information",
-      parameters: [
-        {
-          name: "date",
-          type: "string",
-          description: "Meeting date (YYYY-MM-DD)",
-          required: true
-        },
-        {
-          name: "time",
-          type: "string",
-          description: "Meeting time (HH:mm)",
-          required: true
-        },
-        {
-          name: "meetingName",
-          type: "string",
-          description: "Name of the meeting",
-          required: false
-        }
-      ],
-      // [!code highlight:15]  
-      render: ({ status, args }) => {  
-        const { date, time, meetingName } = args;
+    export function YourComponent() {
+      useCopilotAction({ // [!code highlight]
+        name: "showCalendarMeeting",
+        description: "Displays calendar meeting information",
+        parameters: [
+          {
+            name: "date",
+            type: "string",
+            description: "Meeting date (YYYY-MM-DD)",
+            required: true
+          },
+          {
+            name: "time",
+            type: "string",
+            description: "Meeting time (HH:mm)",
+            required: true
+          },
+          {
+            name: "meetingName",
+            type: "string",
+            description: "Name of the meeting",
+            required: false
+          }
+        ],
+        // [!code highlight:15]
+        render: ({ status, args }) => {
+          const { date, time, meetingName } = args;
 
-        if (status === 'inProgress') {
-          return <LoadingView />; // Your own component for loading state
-        } else {
-          const meetingProps: CalendarMeetingCardProps = {
-            date: date,
-            time,
-            meetingName
-          };
-          return <CalendarMeetingCardComponent {...meetingProps} />;
-        }
-      },
-    });
+          if (status === 'inProgress') {
+            return <LoadingView />; // Your own component for loading state
+          } else {
+            const meetingProps: CalendarMeetingCardProps = {
+              date: date,
+              time,
+              meetingName
+            };
+            return <CalendarMeetingCardComponent {...meetingProps} />;
+          }
+        },
+      });
+
+      return (
+        <>...</>
+      );
+    }
     ```
 
   </Tab>
@@ -121,8 +126,8 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
 
   </Tab>
 
-  <Tab value="renderAndWait (HITL)">
-    The `renderAndWait` method allows for returning values asynchronously from the render function.
+  <Tab value="renderAndWaitForResponse (HITL)">
+    The `renderAndWaitForResponse` method allows for returning values asynchronously from the render function.
 
     This is great for Human-in-the-Loop flows, where the AI assistant can prompt the end-user with a choice (rendered inside the chat UI),
     and the user can make the choice by pressing a button in the chat UI.
@@ -155,15 +160,15 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
         },
       ],
       // [!code highlight:12]
-      renderAndWait: ({ args, handler, status }) => {
+      renderAndWaitForResponse: ({ args, respond, status }) => {
         const { meeting, date, title } = args;
         return (
           <MeetingConfirmationDialog
             meeting={meeting}
             date={date}
             title={title}
-            onConfirm={() => handler('meeting confirmed')}
-            onCancel={() => handler('meeting canceled')}
+            onConfirm={() => respond?.('meeting confirmed')}
+            onCancel={() => respond?.('meeting canceled')}
           />
         );
       },
@@ -212,7 +217,6 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
   <UseClientCalloutSnippet components={props.components} />
 </Step>
 
-
 <Step>
 
 ### Test it out!
@@ -220,7 +224,8 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
 After defining the action with a render method, ask the copilot to perform the task. For example, you can now ask the copilot to "show tasks" and see the custom UI component rendered in the chat interface.
 
 <Callout type="info">
-You can read more about the `useCopilotAction` hook [here](/reference/hooks/useCopilotAction).
+  You can read more about the `useCopilotAction` hook
+  [here](/reference/hooks/useCopilotAction).
 </Callout>
 
 </Step>

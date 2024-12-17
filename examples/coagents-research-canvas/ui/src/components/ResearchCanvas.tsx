@@ -37,7 +37,9 @@ export function ResearchCanvas() {
 
   useCopilotAction({
     name: "DeleteResources",
-    disabled: true,
+    description:
+      "Prompt the user for resource delete confirmation, and then perform resource deletion",
+    available: "remote",
     parameters: [
       {
         name: "urls",
@@ -46,7 +48,10 @@ export function ResearchCanvas() {
     ],
     renderAndWait: ({ args, status, handler }) => {
       return (
-        <div className="" data-test-id="delete-resource-generative-ui-container">
+        <div
+          className=""
+          data-test-id="delete-resource-generative-ui-container"
+        >
           <div className="font-bold text-base mb-2">
             Delete these resources?
           </div>

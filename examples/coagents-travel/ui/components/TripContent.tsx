@@ -19,7 +19,7 @@ export function TripContent({ map, trip }: TripContentProps) {
         </div>
       )}
       {trip.places && trip.places.map((place, i) => (
-        <PlaceForMap key={i} place={place} map={map} />
+        <PlaceForMap key={i} place={place} map={map} number={i + 1} />
       ))}
     </div>
   );

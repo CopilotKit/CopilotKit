@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - pre/*
 
 concurrency:
   group: preview-${{ github.event.pull_request.number }}-deploy
@@ -11,6 +12,7 @@ concurrency:
 
 jobs:
   build_images:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'automated-version-pr') }}
     runs-on: ubuntu-latest
     name: Build Images
     strategy:
@@ -19,21 +21,13 @@ jobs:
           - {
               project: "coagents-research-canvas",
               type: "agent",
-              deps: "remote-deps",
-            }
-          - {
-              project: "coagents-research-canvas",
-              type: "agent",
               deps: "local-deps",
             }
           - { project: "coagents-research-canvas", type: "ui" }
-          - { project: "coagents-routing", type: "agent", deps: "remote-deps" }
           - { project: "coagents-routing", type: "agent", deps: "local-deps" }
           - { project: "coagents-routing", type: "ui" }
-          - { project: "coagents-qa-text", type: "agent", deps: "remote-deps" }
           - { project: "coagents-qa-text", type: "agent", deps: "local-deps" }
           - { project: "coagents-qa-text", type: "ui" }
-          - { project: "coagents-qa-native", type: "agent", deps: "remote-deps" }
           - { project: "coagents-qa-native", type: "agent", deps: "local-deps" }
           - { project: "coagents-qa-native", type: "ui" }
           - { project: "next-openai", type: "next-openai" }
@@ -201,6 +195,11 @@ jobs:
           UNIQUE_ENV_ID: "PR${{ github.event.number }}"
           GITHUB_ACTIONS_RUN_ID: "${{ github.run_id }}"
           GITHUB_PR_NUMBER: "${{ github.event.number }}"
+
+      - name: Print CDK Outputs
+        working-directory: infra
+        run: |
+          cat cdk_outputs.json
 
       - name: Generate table from outputs
         id: generate-table

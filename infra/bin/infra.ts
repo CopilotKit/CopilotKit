@@ -10,24 +10,7 @@ const app = new cdk.App();
  * Research Canvas
  */
 
-// Remote Dependencies
-const coAgentsResearchCanvasAgentRemoteDeps = createAgentProjectStack({
-  app,
-  project: "coagents-research-canvas",
-  description: "CoAgents Research Canvas (Agent) - Remote Depenencies",
-  dependencies: "Remote"
-});
-
-const coAgentsResearchCanvasUIWithRemoteDeps = createUIProjectStack({
-  app,
-  project: "coagents-research-canvas",
-  description: "CoAgents Research Canvas (UI) - Remote Depenencies",
-  dependencies: "Remote",
-  agentProject: coAgentsResearchCanvasAgentRemoteDeps
-});
-
-// Local Dependencies
-const coAgentsResearchCanvasAgentLocalDeps = createAgentProjectStack({
+const coAgentsResearchCanvasAgentWithLocalDeps = createAgentProjectStack({
   app,
   project: "coagents-research-canvas",
   description: "CoAgents Research Canvas (Agent) - Local Depenencies",
@@ -39,31 +22,19 @@ const coAgentsResearchCanvasUIWithLocalDeps = createUIProjectStack({
   project: "coagents-research-canvas",
   description: "CoAgents Research Canvas (UI) - Local Depenencies",
   dependencies: "Local",
-  agentProject: coAgentsResearchCanvasAgentLocalDeps
+  selfHostedAgentProject: coAgentsResearchCanvasAgentWithLocalDeps.selfHostedAgent,
+  lgcAgentProjectPython: coAgentsResearchCanvasAgentWithLocalDeps.lgcAgentPython,
+  environmentVariables: {},
+  customOutputs: {
+    "LgcJSDeploymentUrl": `https://coagents-research-canvas-st-08476feebc3a58e5925116da0d3ad635.default.us.langgraph.app`
+  }
 });
 
 /*
  * CoAgents Routing Demo
  */
 
-// Remote Dependencies
-const coAgentsRoutingWithRemoteDeps = createAgentProjectStack({
-  app,
-  project: "coagents-routing",
-  description: "CoAgents Routing (Agent) - Remote Dependencies",
-  dependencies: "Remote"
-});
-
-const coAgentsRoutingUIWithRemoteDeps = createUIProjectStack({
-  app,
-  project: "coagents-routing", 
-  description: "CoAgents Routing (UI) - Remote Dependencies",
-  dependencies: "Remote",
-  agentProject: coAgentsRoutingWithRemoteDeps
-});
-
-// Local Dependencies
-const coAgentsRoutingWithLocalDeps = createAgentProjectStack({
+const coAgentsRoutingAgentWithLocalDeps = createAgentProjectStack({
   app,
   project: "coagents-routing",
   description: "CoAgents Routing (Agent) - Local Dependencies",
@@ -75,30 +46,18 @@ const coAgentsRoutingUIWithLocalDeps = createUIProjectStack({
   project: "coagents-routing",
   description: "CoAgents Routing (UI) - Local Dependencies",
   dependencies: "Local",
-  agentProject: coAgentsRoutingWithLocalDeps
+  selfHostedAgentProject: coAgentsRoutingAgentWithLocalDeps.selfHostedAgent,
+  lgcAgentProjectPython: coAgentsRoutingAgentWithLocalDeps.lgcAgentPython,
+  environmentVariables: {},
+  customOutputs: {
+    "LgcJSDeploymentUrl": `https://coagents-routing-stg-js-4df4be4cab70578ca535df7e1c0b05cf.default.us.langgraph.app`
+  }
 });
 
 /*
  * CoAgents QA Text Demo
  */
 
-// Remote Dependencies
-const qaTextAgentWithRemoteDeps = createAgentProjectStack({
-  app,
-  project: "coagents-qa-text",
-  description: "CoAgents QA Text (Agent) - Remote Dependencies",
-  dependencies: "Remote"
-});
-
-const qaTextUIWithRemoteDeps = createUIProjectStack({
-  app,
-  project: "coagents-qa-text",
-  description: "CoAgents QA Text (UI) - Remote Dependencies",
-  dependencies: "Remote",
-  agentProject: qaTextAgentWithRemoteDeps
-});
-
-// Local Dependencies
 const qaTextAgentWithLocalDeps = createAgentProjectStack({
   app,
   project: "coagents-qa-text",
@@ -111,30 +70,18 @@ const qaTextUIWithLocalDeps = createUIProjectStack({
   project: "coagents-qa-text",
   description: "CoAgents QA Text (UI) - Local Dependencies",
   dependencies: "Local",
-  agentProject: qaTextAgentWithLocalDeps
+  selfHostedAgentProject: qaTextAgentWithLocalDeps.selfHostedAgent,
+  lgcAgentProjectPython: qaTextAgentWithLocalDeps.lgcAgentPython,
+  environmentVariables: {},
+  customOutputs: {
+    "LgcJSDeploymentUrl": `https://coagents-qa-text-stg-js-4d74616e480750d0a5d10d0c3c5d44a4.default.us.langgraph.app`
+  }
 });
 
 /*
  * CoAgents QA Native Demo
  */
 
-// Remote Dependencies
-const qaNativeAgentWithRemoteDeps = createAgentProjectStack({
-  app,
-  project: "coagents-qa-native",
-  description: "CoAgents QA Native (Agent) - Remote Dependencies",
-  dependencies: "Remote"
-});
-
-const qaNativeUIWithRemoteDeps = createUIProjectStack({
-  app,
-  project: "coagents-qa-native",
-  description: "CoAgents QA Native (UI) - Remote Dependencies",
-  dependencies: "Remote",
-  agentProject: qaNativeAgentWithRemoteDeps
-});
-
-// Local Dependencies
 const qaNativeAgentWithLocalDeps = createAgentProjectStack({
   app,
   project: "coagents-qa-native",
@@ -147,7 +94,12 @@ const qaNativeUIWithLocalDeps = createUIProjectStack({
   project: "coagents-qa-native",
   description: "CoAgents QA Native (UI) - Local Dependencies",
   dependencies: "Local",
-  agentProject: qaNativeAgentWithLocalDeps
+  selfHostedAgentProject: qaNativeAgentWithLocalDeps.selfHostedAgent,
+  lgcAgentProjectPython: qaNativeAgentWithLocalDeps.lgcAgentPython,
+  environmentVariables: {},
+  customOutputs: {
+    "LgcJSDeploymentUrl": `https://coagents-qa-native-stg-js-036615e530e8593286ccf93d3003ffe2.default.us.langgraph.app`
+  }
 });
 
 /**

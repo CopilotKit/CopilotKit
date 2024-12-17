@@ -19,9 +19,13 @@ import { Mermaid } from "@theguild/remark-mermaid/mermaid";
 import { Cards, Card } from "fumadocs-ui/components/card";
 import { PropertyReference } from "@/components/react/property-reference";
 import { getImageMeta } from "fumadocs-ui/og";
+import { InsecurePasswordProtected } from "@/components/react/insecure-password-protected";
+import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
 
 const mdxComponents = {
   ...defaultMdxComponents,
+  InsecurePasswordProtected: InsecurePasswordProtected,
+  LinkToCopilotCloud: LinkToCopilotCloud,
   Tabs: Tabs,
   Tab: Tab,
   Steps: Steps,

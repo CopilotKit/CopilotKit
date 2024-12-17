@@ -26,7 +26,10 @@ export function createAgentProjectStack({
   project: string;
   description: string;
   dependencies: "Remote" | "Local";
-}) {
+}): {
+  selfHostedAgent: PreviewProjectStack;
+  lgcAgentPython: PreviewProjectStack;
+} {
   const cdkStackName =
     toCdkStackName(project) + "Agent" + dependencies + "Deps";
   const dockerfile =
@@ -43,7 +46,7 @@ export function createAgentProjectStack({
     outputs["PRNumber"] = process.env.GITHUB_PR_NUMBER;
   }
 
-  return new PreviewProjectStack(app, cdkStackName, {
+  const selfHostedAgent = new PreviewProjectStack(app, cdkStackName, {
     projectName: project,
     projectDescription: description,
     demoDir: `examples/${project}/agent`,
@@ -62,8 +65,43 @@ export function createAgentProjectStack({
     imageTag: `${project}-agent-${
       dependencies === "Remote" ? "remote-deps" : "local-deps"
     }-${GITHUB_ACTIONS_RUN_ID}`,
-    outputs,
+    outputs: {
+      ...outputs,
+      LangGraphCloud: "false",
+      SelfHosted: "true"
+    },
   });
+
+  const lgcAgentPython = new PreviewProjectStack(app, `${cdkStackName}LGCPython`, {
+    projectName: project,
+    projectDescription: `${description} - LangGraph Cloud Python`,
+    demoDir: `examples/${project}/agent`,
+    overrideDockerfile: dockerfile,
+    environmentVariablesFromSecrets: [
+      "OPENAI_API_KEY",
+      "ANTHROPIC_API_KEY",
+      "GOOGLE_API_KEY",
+      "TAVILY_API_KEY",
+      "LANGSMITH_API_KEY",
+    ],
+    port: "8000",
+    includeInPRComment: false,
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+    },
+    imageTag: `${project}-agent-${
+      dependencies === "Remote" ? "remote-deps" : "local-deps"
+    }-${GITHUB_ACTIONS_RUN_ID}`,
+    entrypoint: ["/bin/sh", "-c"],
+    cmd: ["langgraph dev --no-browser --port=8000 --config=langgraph.json --host=0.0.0.0"],
+    outputs: {
+      ...outputs,
+      LangGraphCloud: "true",
+      SelfHosted: "false"
+    },
+  });
+
+  return { selfHostedAgent, lgcAgentPython };
 }
 
 export function createUIProjectStack({
@@ -71,13 +109,21 @@ export function createUIProjectStack({
   project,
   description,
   dependencies,
-  agentProject,
+  selfHostedAgentProject,
+  lgcAgentProjectPython,
+  environmentVariables,
+  environmentVariablesFromSecrets,
+  customOutputs,
 }: {
   app: App;
   project: string;
   description: string;
   dependencies: "Remote" | "Local";
-  agentProject: PreviewProjectStack;
+  selfHostedAgentProject: PreviewProjectStack;
+  lgcAgentProjectPython: PreviewProjectStack;
+  environmentVariables?: Record<string, string>;
+  environmentVariablesFromSecrets?: string[];
+  customOutputs?: Record<string, string>;
 }) {
   const cdkStackName = toCdkStackName(project) + "UI" + dependencies + "Deps";
   const dockerfile =
@@ -89,7 +135,12 @@ export function createUIProjectStack({
   const outputs: Record<string, string> = {
     Dependencies: dependencies,
     EndToEndProjectKey: `${project}-ui-deps-${dependencies.toLocaleLowerCase()}`,
+    LgcPythonDeploymentUrl: `${lgcAgentProjectPython.fnUrl}`
   };
+
+  if (customOutputs) {
+    Object.assign(outputs, customOutputs);
+  }
 
   if (process.env.GITHUB_PR_NUMBER) {
     outputs["PRNumber"] = process.env.GITHUB_PR_NUMBER;
@@ -100,9 +151,14 @@ export function createUIProjectStack({
     projectDescription: `${description}`,
     demoDir: `examples/${project}/ui`,
     overrideDockerfile: dockerfile,
-    environmentVariablesFromSecrets: ["OPENAI_API_KEY"],
+    environmentVariablesFromSecrets: [
+      "OPENAI_API_KEY",
+      "LANGSMITH_API_KEY",
+      ...(environmentVariablesFromSecrets ?? []),
+    ],
     environmentVariables: {
-      REMOTE_ACTION_URL: `${agentProject.fnUrl}/copilotkit`,
+      REMOTE_ACTION_URL: `${selfHostedAgentProject.fnUrl}/copilotkit`,
+      ...environmentVariables,
     },
     buildSecrets: ["OPENAI_API_KEY"],
     port: "3000",
@@ -152,10 +208,10 @@ export function createNextOpenAIProjectStack({
       "ANTHROPIC_API_KEY",
       "GOOGLE_API_KEY",
       "GROQ_API_KEY",
-      ...environmentVariablesFromSecrets ?? []
+      ...(environmentVariablesFromSecrets ?? []),
     ],
     environmentVariables: {
-      ...environmentVariables ?? {},
+      ...(environmentVariables ?? {}),
     },
     port: "3000",
     includeInPRComment: true,

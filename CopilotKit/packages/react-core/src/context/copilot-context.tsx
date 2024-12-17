@@ -6,6 +6,7 @@ import { DocumentPointer } from "../types";
 import { CopilotChatSuggestionConfiguration } from "../types/chat-suggestion-configuration";
 import { CoAgentStateRender, CoAgentStateRenderProps } from "../types/coagent-action";
 import { CoagentState } from "../types/coagent-state";
+import { CopilotRuntimeClient } from "@copilotkit/runtime-client-gql";
 
 /**
  * Interface for the configuration of the Copilot API.
@@ -131,8 +132,18 @@ export interface CopilotContextParams {
   // agents
   coagentStates: Record<string, CoagentState>;
   setCoagentStates: React.Dispatch<React.SetStateAction<Record<string, CoagentState>>>;
+  coagentStatesRef: React.RefObject<Record<string, CoagentState>>;
+  setCoagentStatesWithRef: (
+    value:
+      | Record<string, CoagentState>
+      | ((prev: Record<string, CoagentState>) => Record<string, CoagentState>),
+  ) => void;
+
   agentSession: AgentSession | null;
   setAgentSession: React.Dispatch<React.SetStateAction<AgentSession | null>>;
+
+  // runtime
+  runtimeClient: CopilotRuntimeClient;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -161,6 +172,7 @@ const emptyCopilotContext: CopilotContextParams = {
   getDocumentsContext: (categories: string[]) => returnAndThrowInDebug([]),
   addDocumentContext: () => returnAndThrowInDebug(""),
   removeDocumentContext: () => {},
+  runtimeClient: {} as any,
 
   copilotApiConfig: new (class implements CopilotApiConfig {
     get chatApiEndpoint(): string {
@@ -181,6 +193,8 @@ const emptyCopilotContext: CopilotContextParams = {
   showDevConsole: "auto",
   coagentStates: {},
   setCoagentStates: () => {},
+  coagentStatesRef: { current: {} },
+  setCoagentStatesWithRef: () => {},
 
   agentSession: null,
   setAgentSession: () => {},

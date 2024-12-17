@@ -35,6 +35,8 @@ export interface ProjectStackProps extends cdk.StackProps {
   overrideBuildProps?: Partial<cdk.aws_ecr_assets.DockerImageAssetProps>;
   imageTag: string;
   outputs?: Record<string, string>;
+  entrypoint?: string[];
+  cmd?: string[];
 }
 
 export class PreviewProjectStack extends cdk.Stack {
@@ -101,18 +103,19 @@ export class PreviewProjectStack extends cdk.Stack {
         AWS_LWA_INVOKE_MODE: "RESPONSE_STREAM",
       },
       code: lambda.Code.fromEcrImage(ecrRepository, {
-        tagOrDigest: props.imageTag
+        tagOrDigest: props.imageTag,
+        entrypoint: props.entrypoint,
+        cmd: props.cmd,
       }),
       timeout: cdk.Duration.seconds(props.timeout ?? 300),
-      memorySize: props.memorySize ?? 1024,
+      memorySize: props.memorySize ?? 2048,
     });
 
+    // const eventRule = new events.Rule(this, 'LambdaWarmUpSchedule', {
+    //   schedule: events.Schedule.rate(cdk.Duration.minutes(1)),
+    // });
 
-    const eventRule = new events.Rule(this, 'LambdaWarmUpSchedule', {
-      schedule: events.Schedule.rate(cdk.Duration.minutes(1)),
-    });
-
-    eventRule.addTarget(new targets.LambdaFunction(fn));
+    // eventRule.addTarget(new targets.LambdaFunction(fn));
 
     // Add Function URL with streaming support
     const fnUrl = fn.addFunctionUrl({

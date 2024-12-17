@@ -28,6 +28,7 @@ import {
   COPILOT_CLOUD_CHAT_URL,
   CopilotCloudConfig,
   FunctionCallHandler,
+  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
 } from "@copilotkit/shared";
 
 import { FrontendAction } from "../../types/frontend-action";
@@ -36,8 +37,21 @@ import { CopilotKitProps } from "./copilotkit-props";
 import { CoAgentStateRender } from "../../types/coagent-action";
 import { CoagentState } from "../../types/coagent-state";
 import { CopilotMessages } from "./copilot-messages";
+import { ToastProvider } from "../toast/toast-provider";
+import { useCopilotRuntimeClient } from "../../hooks/use-copilot-runtime-client";
+import { shouldShowDevConsole } from "../../utils";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
+  const showDevConsole = props.showDevConsole === undefined ? "auto" : props.showDevConsole;
+  const enabled = shouldShowDevConsole(showDevConsole);
+  return (
+    <ToastProvider enabled={enabled}>
+      <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
+    </ToastProvider>
+  );
+}
+
+export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
   // Compute all the functions and properties that we need to pass
   // to the CopilotContext.
 
@@ -207,6 +221,20 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     props.cloudRestrictToTopic,
   ]);
 
+  const headers = {
+    ...(copilotApiConfig.headers || {}),
+    ...(copilotApiConfig.publicApiKey
+      ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey }
+      : {}),
+  };
+
+  const runtimeClient = useCopilotRuntimeClient({
+    url: copilotApiConfig.chatApiEndpoint,
+    publicApiKey: copilotApiConfig.publicApiKey,
+    headers,
+    credentials: copilotApiConfig.credentials,
+  });
+
   const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
     [key: string]: CopilotChatSuggestionConfiguration;
   }>({});
@@ -226,6 +254,22 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   };
 
   const [coagentStates, setCoagentStates] = useState<Record<string, CoagentState>>({});
+  const coagentStatesRef = useRef<Record<string, CoagentState>>({});
+  const setCoagentStatesWithRef = useCallback(
+    (
+      value:
+        | Record<string, CoagentState>
+        | ((prev: Record<string, CoagentState>) => Record<string, CoagentState>),
+    ) => {
+      const newValue = typeof value === "function" ? value(coagentStatesRef.current) : value;
+      coagentStatesRef.current = newValue;
+      setCoagentStates((prev) => {
+        return newValue;
+      });
+    },
+    [],
+  );
+
   let initialAgentSession: AgentSession | null = null;
   if (props.agent) {
     initialAgentSession = {
@@ -234,6 +278,8 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   }
 
   const [agentSession, setAgentSession] = useState<AgentSession | null>(initialAgentSession);
+
+  const showDevConsole = props.showDevConsole === undefined ? "auto" : props.showDevConsole;
 
   return (
     <CopilotContext.Provider
@@ -260,11 +306,14 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         removeChatSuggestionConfiguration,
         chatInstructions,
         setChatInstructions,
-        showDevConsole: props.showDevConsole === undefined ? "auto" : props.showDevConsole,
+        showDevConsole,
         coagentStates,
         setCoagentStates,
+        coagentStatesRef,
+        setCoagentStatesWithRef,
         agentSession,
         setAgentSession,
+        runtimeClient,
       }}
     >
       <CopilotMessages>{children}</CopilotMessages>

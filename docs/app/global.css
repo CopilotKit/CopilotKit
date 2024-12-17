@@ -3,11 +3,15 @@
 @tailwind utilities;
 
 .line.diff.remove {
-  background-color: red;
+  @apply px-0 mx-0;
+  background-color: rgb(255, 220, 220);
+  @apply dark:bg-red-950/70;
 }
 
 .line.diff.add {
-  background-color: green;
+  @apply px-0 mx-0;
+  background-color: rgb(220, 255, 220);
+  @apply dark:bg-green-950/70;
 }
 
 @layer base {

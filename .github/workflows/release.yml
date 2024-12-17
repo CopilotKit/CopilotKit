@@ -39,15 +39,27 @@ jobs:
 
       - name: Create Release Pull Request or Publish to npm
         id: changesets
-        uses: changesets/action@v1
+        uses: ./.github/actions/changesets-action
         with:
-          # This expects you to have a script called release which does a build for your packages and calls changeset publish
           publish: pnpm publish-packages
           cwd: CopilotKit
+          createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN_ELEVATED }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Put `main` back in prerelease mode
+        if: ${{ github.ref == 'refs/heads/main' && steps.changesets.outputs.published }}
+        run: |
+            if [ ! -f "./CopilotKit/.changeset/pre.json" ]; then
+              pnpm changeset pre enter next
+              git config --global user.email "github-actions[bot]@users.noreply.github.com"
+              git config --global user.name "github-actions[bot]"
+              git add .
+              git commit -m "chore: entering prerelease mode (next)"
+              git push origin main --force
+            fi
 
       # - name: Get package versions
       #   id: package-versions

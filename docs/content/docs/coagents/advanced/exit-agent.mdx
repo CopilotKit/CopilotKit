@@ -1,6 +1,7 @@
 ---
 title: "Exiting the agent loop"
 ---
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 
 After your agent has finished a workflow, you'll usually want to explicitly end that loop by calling the `copilotkit_exit()` method in your Python code.
 
@@ -12,27 +13,75 @@ Exiting the agent has different effects depending on mode:
 
 In this example from [our email-sending app](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-qa), the `send_email` node explicitly exits, then manually sends a response back to the user as a `ToolMessage`:
 
-```python
-async def send_email_node(state: EmailAgentState, config: RunnableConfig):
-    """Send an email."""
+<Steps>
+    <Step>
+        ### Install the CopilotKit SDK
+        <InstallSDKSnippet components={props.components}/>
+    </Step>
 
-    config = copilotkit_customize_config(
-        config,
-        emit_messages=True,
-    )
+    <Step>
+        ### Exit the agent loop
+        This will exit the agent session as soon as the current LangGraph run is finished, either by a breakpoint or by reaching the `END` node.
 
-    await copilotkit_exit(config) # [!code highlight]
+        <Tabs items={['Python', 'TypeScript']} default="Python">
+            <Tab value="Python">
+                ```python
+                from copilotkit.langchain import (copilotkit_exit)
+                # ...
+                async def send_email_node(state: EmailAgentState, config: RunnableConfig):
+                    """Send an email."""
 
-    # get the last message and cast to ToolMessage
-    last_message = cast(ToolMessage, state["messages"][-1])
-    if last_message.content == "CANCEL":
-        await copilotkit_emit_message(config, "❌ Cancelled sending email.")
-    else:
-        await copilotkit_emit_message(config, "✅ Sent email.")
+                    config = copilotkit_customize_config(
+                        config,
+                        emit_messages=True,
+                    )
 
-    return {
-        "messages": state["messages"],
-    }
-```
+                    await copilotkit_exit(config) # [!code highlight]
 
-This will exit the agent session as soon as the current LangGraph run is finished, either by a breakpoint or by reaching the `END` node.
+                    # get the last message and cast to ToolMessage
+                    last_message = cast(ToolMessage, state["messages"][-1])
+                    if last_message.content == "CANCEL":
+                        await copilotkit_emit_message(config, "❌ Cancelled sending email.")
+                    else:
+                        await copilotkit_emit_message(config, "✅ Sent email.")
+
+                    return {
+                        "messages": state["messages"],
+                    }
+                ```
+            </Tab>
+            <Tab value="TypeScript">
+                <InsecurePasswordProtected>
+                    ```typescript
+                    import { copilotKitEmitMessage } from "@copilotkit/sdk-js/langchain";
+
+                    // ...
+
+                    async function sendEmailNode(state: EmailAgentState, config: RunnableConfig): Promise<{ messages: any[] }> {
+                        // Send an email.
+
+                        config = copilotKitCustomizeConfig(
+                            config,
+                            { emitMessages: true },
+                        );
+
+                        await copilotKitExit(config); // [!code highlight]
+
+                        // get the last message and cast to ToolMessage
+                        const lastMessage = state.messages[state.messages.length - 1] as ToolMessage;
+                        if (lastMessage.content === "CANCEL") {
+                            await copilotKitEmitMessage(config, "❌ Cancelled sending email.");
+                        } else {
+                            await copilotKitEmitMessage(config, "✅ Sent email.");
+                        }
+
+                        return {
+                            messages: state["messages"],
+                        };
+                    }
+                    ```
+                </InsecurePasswordProtected>
+            </Tab>
+        </Tabs>
+    </Step>
+</Steps>

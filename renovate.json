@@ -41,6 +41,20 @@
         "examples"
       ],
       "groupName": "CopilotKit Examples"
+    },
+    {
+      "description": "[@copilotkit/*] Dependencies",
+      "enabled": true,
+      "matchFileNames": [
+        "CopilotKit/packages/**"
+      ],
+      "matchPackageNames": [
+        "*"
+      ],
+      "labels": [
+        "dependencies-core"
+      ],
+      "groupName": "Core Dependencies"
     }
   ]
 }

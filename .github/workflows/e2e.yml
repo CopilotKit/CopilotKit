@@ -19,6 +19,7 @@ jobs:
   e2e_tests:
     name: E2E Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       checks: write
       contents: read
@@ -69,6 +70,13 @@ jobs:
         run: |
           cat app-configs.json
 
+      - name: Delete a comment
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          pr-number: ${{ inputs.pr_number }}
+          comment-tag: test-run-status-update
+          mode: delete
+
       - name: Run Tests
         id: run_tests
         working-directory: ./examples/e2e
@@ -81,13 +89,6 @@ jobs:
           COPILOT_CLOUD_PROD_PUBLIC_API_KEY: ${{ secrets.COPILOT_CLOUD_PROD_PUBLIC_API_KEY }}
           COPILOT_CLOUD_STAGING_RUNTIME_URL: "https://api.cloud.stagingcopilotkit.ai/copilotkit/v1"
           COPILOT_CLOUD_STAGING_PUBLIC_API_KEY: ${{ secrets.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY }}
-
-      - name: Delete a comment
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          pr-number: ${{ inputs.pr_number }}
-          comment-tag: test-run-status-update
-          mode: delete
 
       - name: Comment post-deployment
         uses: thollander/actions-comment-pull-request@v3
@@ -114,57 +115,127 @@ jobs:
             let summary = 'Test run completed.';
             let failedTests = 0;
             try {
-              const results = JSON.parse(
-                fs.readFileSync('./examples/e2e/test-results/test-results.json', 'utf8')
-              );
-              
+              const resultsPath = './examples/e2e/test-results/test-results.json';
+              if (!fs.existsSync(resultsPath)) {
+                throw new Error('Test results file not found');
+              }
+
+              const results = JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
+
               const stats = results.stats;
               failedTests = stats.unexpected;
-              
+
               // Find failed test details
               const failedSpecs = results.suites
                 .flatMap(s => s.suites || [])
                 .flatMap(s => s.suites || [])
                 .flatMap(s => s.specs || [])
                 .filter(spec => !spec.ok);
-              
+
               const failureDetails = failedSpecs.map(spec => {
                 const test = spec.tests[0];
                 const error = test.results[0].error;
+                // Extract relative path from the full file path
+                const testFile = spec.file ? spec.file.replace(/^.*?examples\/e2e\//, '') : 'unknown-file.ts';
+                const line = error.location?.line || 1;
                 return {
                   title: spec.title,
-                  error: error.message.split('\n')[0] // First line of error
+                  error: error.message.split('\n')[0],
+                  file: testFile,
+                  line: line
                 };
               });
-              
+
               if (failedTests > 0) {
                 summary = [
-                  `❌ Tests failed: ${failedTests} of ${stats.expected + stats.unexpected} tests failed`,
+                  `🚨 **${failedTests} of ${stats.expected + stats.unexpected} tests failed**`,
                   '',
                   'Failed Tests:',
-                  ...failureDetails.map(f => `- ${f.title}\n  Error: ${f.error}`),
+                  ...failureDetails.map(f => 
+                    `- 🔴 [\`${f.title}\`](${f.file}:${f.line})\n  \`\`\`diff\n- ${f.error}\n\`\`\``
+                  ),
                   '',
                   `Duration: ${Math.round(stats.duration / 1000)}s`,
                   '',
-                  'See PR comment for full details.'
+                  '[View detailed test report](../actions/runs/${{ github.run_id }})'
                 ].join('\n');
+
+                // Create individual annotations for each failure
+                const annotations = failureDetails.map(failure => ({
+                  path: `examples/e2e/${failure.file}`,
+                  start_line: failure.line,
+                  end_line: failure.line,
+                  annotation_level: 'failure',
+                  title: 'Test Failure',
+                  message: failure.title,
+                  raw_details: failure.error
+                }));
+
+                // Add summary annotation
+                annotations.push({
+                  path: 'examples/e2e/playwright.config.ts',
+                  start_line: 1,
+                  end_line: 1,
+                  annotation_level: 'failure',
+                  title: 'Test Suite Summary',
+                  message: `${failedTests} test(s) failed. See detailed report for more information.`,
+                  raw_details: `Failed ${failedTests} of ${stats.expected + stats.unexpected} tests`
+                });
+
+                // Create the check with all annotations
+                await github.rest.checks.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: 'E2E Tests',
+                  head_sha: '${{ inputs.sha }}',
+                  status: 'completed',
+                  conclusion: 'failure',
+                  completed_at: new Date().toISOString(),
+                  output: {
+                    title: '❌ E2E Tests Failed',
+                    summary: summary,
+                    annotations: annotations
+                  }
+                });
               } else {
-                summary = `✅ All ${stats.expected} tests passed in ${Math.round(stats.duration / 1000)}s`;
+                // Success case
+                await github.rest.checks.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: 'E2E Tests',
+                  head_sha: '${{ inputs.sha }}',
+                  status: 'completed',
+                  conclusion: 'success',
+                  completed_at: new Date().toISOString(),
+                  output: {
+                    title: '✅ E2E Tests Passed',
+                    summary: `✅ All ${stats.expected} tests passed in ${Math.round(stats.duration / 1000)}s`
+                  }
+                });
               }
             } catch (error) {
-              summary = 'Failed to read test results.';
-              console.error('Error reading test results:', error);
-              failedTests = 1;
+              // Error case
+              console.error('Error processing test results:', error);
+              await github.rest.checks.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'E2E Tests',
+                head_sha: '${{ inputs.sha }}',
+                status: 'completed',
+                conclusion: 'failure',
+                completed_at: new Date().toISOString(),
+                output: {
+                  title: '⚠️ Error Processing Test Results',
+                  summary: `Failed to process test results: ${error.message}`,
+                  annotations: [{
+                    path: 'examples/e2e/playwright.config.ts',
+                    start_line: 1,
+                    end_line: 1,
+                    annotation_level: 'failure',
+                    title: 'Error Processing Results',
+                    message: 'Failed to process test results',
+                    raw_details: error.stack
+                  }]
+                }
+              });
             }
-
-            return github.rest.checks.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              name: 'E2E Tests',
-              head_sha: '${{ inputs.sha }}',
-              conclusion: failedTests > 0 ? 'failure' : 'success',
-              output: {
-                title: failedTests > 0 ? '❌ E2E Tests Failed' : '✅ E2E Tests Passed',
-                summary: summary
-              }
-            })

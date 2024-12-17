@@ -13,23 +13,27 @@
  */
 
 import { Action, actionParametersToJsonSchema, Parameter, randomId } from "@copilotkit/shared";
-import { RemoteChain, RemoteChainParameters, CopilotServiceAdapter } from "../../service-adapters";
+import { CopilotServiceAdapter, RemoteChain, RemoteChainParameters } from "../../service-adapters";
 import { MessageInput } from "../../graphql/inputs/message.input";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { RuntimeEventSource } from "../../service-adapters/events";
 import { convertGqlInputToMessages } from "../../service-adapters/conversion";
-import { AgentStateMessage, Message } from "../../graphql/types/converted";
+import { Message } from "../../graphql/types/converted";
 import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-parameters.input";
 import {
-  setupRemoteActions,
-  RemoteActionDefinition,
-  LangGraphAgentAction,
   isLangGraphAgentAction,
+  LangGraphAgentAction,
+  EndpointType,
+  setupRemoteActions,
+  EndpointDefinition,
+  CopilotKitEndpoint,
+  LangGraphPlatformEndpoint,
 } from "./remote-actions";
 import { GraphQLContext } from "../integrations/shared";
 import { AgentSessionInput } from "../../graphql/inputs/agent-session.input";
 import { from } from "rxjs";
 import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
+import { ActionInputAvailability } from "../../graphql/types/enums";
 
 interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
@@ -122,9 +126,14 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
   actions?: ActionsConfiguration<T>;
 
   /*
+   * Deprecated: Use `remoteEndpoints`.
+   */
+  remoteActions?: CopilotKitEndpoint[];
+
+  /*
    * A list of remote actions that can be executed.
    */
-  remoteActions?: RemoteActionDefinition[];
+  remoteEndpoints?: EndpointDefinition[];
 
   /*
    * An array of LangServer URLs.
@@ -134,7 +143,7 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   public actions: ActionsConfiguration<T>;
-  private remoteActionDefinitions: RemoteActionDefinition[];
+  public remoteEndpointDefinitions: EndpointDefinition[];
   private langserve: Promise<Action<any>>[] = [];
   private onBeforeRequest?: OnBeforeRequestHandler;
   private onAfterRequest?: OnAfterRequestHandler;
@@ -147,7 +156,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       this.langserve.push(remoteChain.toAction());
     }
 
-    this.remoteActionDefinitions = params?.remoteActions || [];
+    this.remoteEndpointDefinitions = params?.remoteEndpoints ?? params?.remoteActions ?? [];
 
     this.onBeforeRequest = params?.middleware?.onBeforeRequest;
     this.onAfterRequest = params?.middleware?.onAfterRequest;
@@ -167,36 +176,39 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       url,
     } = request;
 
-    if (agentSession) {
-      return this.processAgentRequest(request);
-    }
-
-    const messages = rawMessages.filter((message) => !message.agentStateMessage);
-
-    const inputMessages = convertGqlInputToMessages(messages);
-    const serverSideActions = await this.getServerSideActions(request);
-
-    const serverSideActionsInput: ActionInput[] = serverSideActions.map((action) => ({
-      name: action.name,
-      description: action.description,
-      jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters)),
-    }));
-
-    const actionInputs = flattenToolCallsNoDuplicates([
-      ...serverSideActionsInput,
-      ...clientSideActionsInput,
-    ]);
-
-    await this.onBeforeRequest?.({
-      threadId,
-      runId,
-      inputMessages,
-      properties: graphqlContext.properties,
-      url,
-    });
+    const eventSource = new RuntimeEventSource();
 
     try {
-      const eventSource = new RuntimeEventSource();
+      if (agentSession) {
+        return await this.processAgentRequest(request);
+      }
+
+      const messages = rawMessages.filter((message) => !message.agentStateMessage);
+
+      const inputMessages = convertGqlInputToMessages(messages);
+      const serverSideActions = await this.getServerSideActions(request);
+
+      const serverSideActionsInput: ActionInput[] = serverSideActions.map((action) => ({
+        name: action.name,
+        description: action.description,
+        jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters)),
+      }));
+
+      const actionInputs = flattenToolCallsNoDuplicates([
+        ...serverSideActionsInput,
+        ...clientSideActionsInput.filter(
+          // Filter remote actions from CopilotKit core loop
+          (action) => action.available !== ActionInputAvailability.remote,
+        ),
+      ]);
+
+      await this.onBeforeRequest?.({
+        threadId,
+        runId,
+        inputMessages,
+        properties: graphqlContext.properties,
+        url,
+      });
 
       const result = await serviceAdapter.process({
         messages: inputMessages,
@@ -236,7 +248,14 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       };
     } catch (error) {
       console.error("Error getting response:", error);
-      throw error;
+      eventSource.sendErrorMessageToChat();
+      return {
+        threadId: threadId || randomId(),
+        runId: runId || randomId(),
+        eventSource,
+        serverSideActions: [],
+        actionInputsWithoutAgents: [],
+      };
     }
   }
 
@@ -244,7 +263,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     request: CopilotRuntimeRequest,
   ): Promise<CopilotRuntimeResponse> {
     const { messages: rawMessages, outputMessagesPromise, graphqlContext, agentSession } = request;
-    const { threadId = randomId(), agentName, nodeName } = agentSession;
+    const { threadId, agentName, nodeName } = agentSession;
     const serverSideActions = await this.getServerSideActions(request);
 
     const messages = convertGqlInputToMessages(rawMessages);
@@ -331,8 +350,17 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         console.error("Error loading langserve chain:", error);
       }
     }
+
+    const remoteEndpointDefinitions = this.remoteEndpointDefinitions.map(
+      (endpoint) =>
+        ({
+          ...endpoint,
+          type: resolveEndpointType(endpoint),
+        }) as EndpointDefinition,
+    );
+
     const remoteActions = await setupRemoteActions({
-      remoteActionDefinitions: this.remoteActionDefinitions,
+      remoteEndpointDefinitions,
       graphqlContext,
       messages: inputMessages,
       agentStates,
@@ -358,4 +386,33 @@ export function flattenToolCallsNoDuplicates(toolsByPriority: ActionInput[]): Ac
     }
   }
   return allTools;
+}
+
+// The two functions below are "factory functions", meant to create the action objects that adhere to the expected interfaces
+export function copilotKitEndpoint(config: Omit<CopilotKitEndpoint, "type">): CopilotKitEndpoint {
+  return {
+    ...config,
+    type: EndpointType.CopilotKit,
+  };
+}
+
+export function langGraphPlatformEndpoint(
+  config: Omit<LangGraphPlatformEndpoint, "type">,
+): LangGraphPlatformEndpoint {
+  return {
+    ...config,
+    type: EndpointType.LangGraphPlatform,
+  };
+}
+
+export function resolveEndpointType(endpoint: EndpointDefinition) {
+  if (!endpoint.type) {
+    if ("langsmithApiKey" in endpoint && "deploymentUrl" in endpoint && "agents" in endpoint) {
+      return EndpointType.LangGraphPlatform;
+    } else {
+      return EndpointType.CopilotKit;
+    }
+  }
+
+  return endpoint.type;
 }

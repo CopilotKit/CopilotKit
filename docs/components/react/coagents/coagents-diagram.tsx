@@ -8,7 +8,7 @@ export const CoAgentsDiagram: React.FC = (): JSX.Element => {
         <DiagramArrow />
         <DiagramNode title="Copilot Runtime" variant="colored" />
         <DiagramArrow />
-        <DiagramNode title="Remote Endpoint (FastAPI + CopilotKit Python SDK)" variant="colored" />
+        <DiagramNode title="Remote Endpoint" variant="colored" />
         <DiagramArrow />
         <DiagramNode title="LangGraph Agent" />
       </div>

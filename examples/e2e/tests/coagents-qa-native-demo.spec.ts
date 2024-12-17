@@ -5,12 +5,14 @@ import {
   filterConfigsByProject,
   groupConfigsByDescription,
   PROJECT_NAMES,
+  TestVariants,
+  appendLGCVariants,
 } from "../lib/config-helper";
-export const variants = [
+
+const variants: TestVariants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
   { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
-  // { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" },
-  // { name: "LangGraph Cloud", quaeryParams: "?lgc=true" },
+  // { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" }, // seems broken
 ];
 
 const allConfigs = getConfigs();
@@ -25,7 +27,13 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
     Object.entries(descriptions).forEach(([description, configs]) => {
       test.describe(`${description}`, () => {
         configs.forEach((config) => {
-          variants.forEach((variant) => {
+          appendLGCVariants(
+            {
+              ...config,
+              lgcJSDeploymentUrl: config.lgcJSDeploymentUrl,
+            },
+            variants
+          ).forEach((variant) => {
             test(`Test ${config.description} with variant ${variant.name}`, async ({
               page,
             }) => {

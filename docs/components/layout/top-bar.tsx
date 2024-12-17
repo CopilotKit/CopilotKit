@@ -1,12 +1,21 @@
 "use client";
 import { SearchIcon } from "lucide-react";
+import { FaEdit } from "react-icons/fa";
+import { Socials } from "@/components/react/socials";
+// import { LinkToCopilotCloud } from "../react/link-to-copilot-cloud";
+import { Button } from "@/components/ui/button";
 
 export function TopBar() {
   return (
     <>
-      <div className="p-2 h-[60px] hidden lg:block justify-center absolute w-[calc(100vw-var(--fd-sidebar-width)-20px)] ml-[var(--fd-sidebar-width)]">
-        <div className="flex justify-center">
-          <SearchToggle />
+      <div className="p-2 h-[60px] hidden lg:block absolute w-[calc(100vw-var(--fd-sidebar-width)-20px)] ml-[var(--fd-sidebar-width)]">
+        <div className="flex justify-between items-center gap-2">
+          <Socials />
+          <div className="flex justify-end items-center gap-2">
+            {/* <LinkToCopilotCloud />
+            <div className="h-8 border-l border-secondary-foreground/20 border-1.5" /> */}
+            <SearchToggle />
+          </div>
         </div>
       </div>
     </>
@@ -15,7 +24,7 @@ export function TopBar() {
 
 export function SearchToggle() {
   return (
-    <div onClick={toggleSearch} className="cursor-pointer h-10 absolute w-[400px] inline-flex items-center gap-2 border bg-fd-secondary/50 p-1.5 text-sm text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground rounded-lg max-md:hidden">
+    <div onClick={toggleSearch} className="cursor-pointer h-10 w-[240px] inline-flex items-center gap-2 border bg-fd-secondary/50 p-1.5 text-sm text-fd-muted-foreground transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground rounded-lg max-md:hidden">
       <SearchIcon className="w-4 h-4" />
       Search
       <div className="ms-auto inline-flex gap-0.5">

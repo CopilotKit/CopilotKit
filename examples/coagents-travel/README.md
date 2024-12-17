@@ -6,7 +6,8 @@ This example contains a Travel Planner application with search capabilities usin
 
 ## Running the Agent
 
-First, install the dependencies:
+This agent is already hosted in LangGraph Platform. However, if you'd like to run it
+yourself first, install the dependencies:
 
 ```sh
 cd agent
@@ -42,7 +43,10 @@ Then, create a `.env` file inside `./ui` with the following:
 
 ```
 OPENAI_API_KEY=...
+NEXT_PUBLIC_CPK_PUBLIC_API_KEY=...
 ```
+
+If you need a CopilotKit API key, you can get one [here](https://cloud.copilotkit.ai)
 
 Then, run the Next.js project:
 

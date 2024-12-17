@@ -11,9 +11,7 @@
  *
  * const copilotKit = new CopilotRuntime();
  *
- * const serviceAdapter = new GoogleGenerativeAIAdapter({ model: "gemini-1.5-pro" });
- *
- * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+ * return new GoogleGenerativeAIAdapter({ model: "gemini-1.5-pro" });
  * ```
  */
 import { ChatGoogle } from "@langchain/google-gauth";
@@ -29,12 +27,12 @@ interface GoogleGenerativeAIAdapterOptions {
 export class GoogleGenerativeAIAdapter extends LangChainAdapter {
   constructor(options?: GoogleGenerativeAIAdapterOptions) {
     super({
-      chainFn: async ({ messages, tools }) => {
+      chainFn: async ({ messages, tools, threadId }) => {
         const model = new ChatGoogle({
           modelName: options?.model ?? "gemini-1.5-pro",
           apiVersion: "v1beta",
         }).bindTools(tools);
-        return model.stream(messages);
+        return model.stream(messages, { metadata: { conversation_id: threadId } });
       },
     });
   }

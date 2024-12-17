@@ -5,6 +5,7 @@ LangChain specific utilities for CopilotKit
 import uuid
 import json
 from typing import List, Optional, Any, Union, Dict, Callable
+import asyncio
 
 from langchain_core.messages import (
     HumanMessage,
@@ -13,7 +14,8 @@ from langchain_core.messages import (
     AIMessage,
     ToolMessage
 )
-from langchain_core.runnables import RunnableConfig, RunnableGenerator
+from langchain_core.runnables import RunnableConfig
+from langchain_core.callbacks.manager import adispatch_custom_event
 
 from .types import Message, IntermediateStateConfig
 
@@ -102,96 +104,67 @@ def copilotkit_customize_config(
         "metadata": metadata
     }
 
-async def _exit_copilotkit_generator(state): # pylint: disable=unused-argument
-    yield "Exit"
-
 
 async def copilotkit_exit(config: RunnableConfig):
     """
     Exit CopilotKit
     """
-    # For some reason, we need to use this workaround to get custom events to work
-    # dispatch_custom_event and friends don't seem to do anything
-    gen = RunnableGenerator(_exit_copilotkit_generator).with_config(
-        metadata={
-            "copilotkit:exit": True
-        },
-        callbacks=config.get(
-            "callbacks", []
-        ),
+
+    await adispatch_custom_event(
+        "copilotkit_exit",
+        {},
+        config=config,
     )
-    async for _message in gen.astream({}):
-        pass
+    await asyncio.sleep(0.02)
 
     return True
-
-def _emit_copilotkit_state_generator(state):
-    async def emit_state(_state: Any): # pylint: disable=unused-argument
-        yield state
-    return emit_state
-
 
 async def copilotkit_emit_state(config: RunnableConfig, state: Any):
     """
     Emit CopilotKit state
     """
-    gen = RunnableGenerator(_emit_copilotkit_state_generator(state)).with_config(
-        metadata={
-            "copilotkit:force-emit-intermediate-state": True
-        },
-        callbacks=config.get(
-            "callbacks", []
-        ),
+
+    await adispatch_custom_event(
+        "copilotkit_manually_emit_intermediate_state",
+        state,
+        config=config,
     )
-    async for _message in gen.astream({}):
-        pass
+    await asyncio.sleep(0.02)
 
     return True
-
-def _emit_copilotkit_message_generator(message: str):
-    async def emit_message(_message: Any): # pylint: disable=unused-argument
-        yield message
-    return emit_message
 
 async def copilotkit_emit_message(config: RunnableConfig, message: str):
     """
     Emit CopilotKit message
     """
-    gen = RunnableGenerator(_emit_copilotkit_message_generator(message)).with_config(
-        metadata={
-            "copilotkit:manually-emit-message": True
+    await adispatch_custom_event(
+        "copilotkit_manually_emit_message",
+        {
+            "message": message,
+            "message_id": str(uuid.uuid4()),
+            "role": "assistant"
         },
-        callbacks=config.get(
-            "callbacks", []
-        ),
+        config=config,
     )
-    async for _message in gen.astream({}):
-        pass
+    await asyncio.sleep(0.02)
 
     return True
 
-def _emit_copilotkit_tool_call_generator(name: str, args: Dict[str, Any]):
-    async def emit_tool_call(_tool_call: Any): # pylint: disable=unused-argument
-        yield {
-            "name": name,
-            "args": args,
-            "id": str(uuid.uuid4())
-        }
-    return emit_tool_call
 
 async def copilotkit_emit_tool_call(config: RunnableConfig, *, name: str, args: Dict[str, Any]):
     """
     Emit CopilotKit tool call
     """
-    gen = RunnableGenerator(_emit_copilotkit_tool_call_generator(name, args)).with_config(
-        metadata={
-            "copilotkit:manually-emit-tool-call": True
+
+    await adispatch_custom_event(
+        "copilotkit_manually_emit_tool_call",
+        {
+            "name": name,
+            "args": args,
+            "id": str(uuid.uuid4())
         },
-        callbacks=config.get(
-            "callbacks", []
-        ),
+        config=config,
     )
-    async for _message in gen.astream({}):
-        pass
+    await asyncio.sleep(0.02)
 
     return True

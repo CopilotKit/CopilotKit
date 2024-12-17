@@ -1,8 +1,9 @@
 {
-  "title": "react-ui",
+  "title": "In-app experiences",
+  "defaultOpen": true,
   "pages": [
     "in-app-agent-read",
     "in-app-agent-write",
-    "frontend-functions"
+    "hitl"
   ]
 }

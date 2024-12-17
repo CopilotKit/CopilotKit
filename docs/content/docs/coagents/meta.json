@@ -1,16 +1,21 @@
 {
-  "title": "coagents",
+  "title": "CoAgents",
   "root": true,
   "pages": [
     "index",
-    "getting-started",
-    "---In-chat experiences---",
+    "quickstart",
+    "---Tutorials & Videos---",
+    "...tutorials",
+    "...videos",
+    "---Chat Guides---",
     "...chat-ui",
-    "---In-app experiences---",
+    "---App Guides---",
     "...react-ui",
-    "---Advanced---",
+    "---Advanced Guides---",
     "...advanced",
-    "---Demos & Tutorials---",
-    "...demos"
+    "---Concepts---",
+    "...concepts",
+    "---Troubleshooting---",
+    "...troubleshooting"
   ]
 }
