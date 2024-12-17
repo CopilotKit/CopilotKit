@@ -31,8 +31,6 @@ build-backend = "setuptools.build_meta"
 [tool.poetry.dependencies]
 python = "^3.12"
 copilotkit = "0.1.30"
-langgraph = "^0.2.58"
-langchain-core = "^0.3.12"
 langchain-openai = "0.2.3"
 langchain-community = "^0.3.1"
 langchain-anthropic = "0.2.3"
@@ -44,6 +42,8 @@ python-dotenv = "^1.0.1"
 uvicorn = "^0.31.0"
 requests = "^2.32.3"
 html2text = "^2024.2.26"
+langchain-core = "^0.3.25"
+langgraph-cli = {extras = ["inmem"], version = "^0.1.64"}
 
 [tool.poetry.scripts]
 demo = "research_canvas.demo:main"
