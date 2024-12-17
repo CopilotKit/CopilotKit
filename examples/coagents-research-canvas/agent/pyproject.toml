@@ -8,21 +8,6 @@ license = "MIT"
 [project]
 name = "research_canvas"
 version = "0.0.1"
-dependencies = [
-  "langgraph",
-  "langchain_core",
-  "langchain-google-genai",
-  "langchain_openai",
-  "langchain",
-  "openai",
-  "langchain-community",
-  "langchain-anthropic",
-  "tavily-python",
-  "python-dotenv",
-  "uvicorn",
-  "html2text",
-  "copilotkit"
-]
 
 [build-system]
 requires = ["setuptools >= 61.0"]
