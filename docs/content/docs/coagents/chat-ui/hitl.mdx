@@ -3,6 +3,7 @@ title: Chat based Human-in-the-loop (HITL)
 description: Implement approval UI for your agent in the chat.
 ---
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 
 [Human-in-the-loop](/coagents/concepts/human-in-the-loop), allows the user and agent to iteratively build towards an agreed upon outcome. CopilotKit gives you all
 of the tools necessary to accomplish this with your LangGraph agents through CoAgents. 
@@ -20,7 +21,7 @@ This guide will show you how to implement a simple HITL workflow *in the chat*.
 ## Agentic Frontend
 
 First, we need to setup our UI to support rendering the LangGraph agent's request for approval. We'll be doing this through the use of `useCopilotAction` and it's `renderAndWaitForResponse`. This
-will allow the us to render a React component to the user to get their decision. 
+will allow us to render a React component to the user to get their decision. 
 
 Let's look at this from the context of a LangGraph agent designed to write emails.
 
@@ -30,8 +31,12 @@ Let's look at this from the context of a LangGraph agent designed to write email
 
 ### Add `useCopilotAction` with `renderAndWaitForResponse`
 
-First, we need to call the `useCopilotAction` hook with the `renderAndWaitForResponse` property. When we do this we need to do this in a component that is loaded into the view hierarchy
+First, we need to call the `useCopilotAction` hook with the `renderAndWaitForResponse` property. 
+
+<Callout>
+We need to do this in a component that is loaded into the view hierarchy
 while the LangGraph agent is executing.
+</Callout>
 
 ```tsx title="app/Mailer.tsx"
 "use client"; // only necessary if you are using Next.js with the App Router. // [!code highlight]
@@ -41,11 +46,11 @@ import { useCopilotAction } from "@copilotkit/react-core";
 export function Mailer() {
   // [!code highlight:21]
   useCopilotAction({
-    name: "email_tool",
+    name: "EmailTool",
     available: "remote", // only allow the agent to call this action
     parameters: [
       {
-        name: "email_draft",
+        name: "the_email",
         type: "string",
         description: "The email content",
         required: true,
@@ -53,7 +58,7 @@ export function Mailer() {
     ],
     renderAndWaitForResponse: ({ args, status, respond }) => (
       <EmailConfirmation
-        emailContent={args.email_draft || ""}
+        emailContent={args.the_email || ""}
         isExecuting={status === "executing"}
         // respond is undefined while status is "executing", so we need to use optional chaining
         onCancel={() => respond?.({ decision: "CANCEL", reason: "Cancelled by user"})} // [!code highlight]
@@ -70,23 +75,13 @@ export function Mailer() {
 }
 ```
 
-`respond` is the function that will be called when the user clicks the "Send" or "Cancel" button. This function connects to the our agentic backend (the LangGraph) and will trigger the 
-agent to continue execution.
-
-`CANCEL` and `SEND` are the arguments that will be passed to the agentic backend so make sure you have proper ways to handle the response from the frontend in the agentic backend.
-
-Whatever argument you pass to the `respond` will become available on the agentic backend. This allows you to pass information from the frontend to the agent, enabling seamless communication between 
-the user interface and the backend logic.
-</Step>
-
-<Step>
-### Understanding the `renderAndWaitForResponse` function
-
+<Accordions>
+<Accordion title="Understanding the renderAndWaitForResponse">
 In the above example we passed an unwritten `EmailConfirmation` component to `renderAndWaitForResponse`, but you can pass any custom React component you'd like.
 The agent will not continue executing until the `respond` function provided via the `renderAndWaitForResponse` arguments is called.
 
 Here's a brief overview of what each of the arguements from `renderAndWaitForResponse` contain.
-- `args`: Contains the parameters that will be streamed as the agent fills them out. In this case `email_draft`
+- `args`: Contains the parameters that will be streamed as the agent fills them out. In this case `the_email`
 - `status`: This is ultimately a tool call, status communicates the status of that tool call.
 - `respond`: Sends a message back to the agent as a response for this tool call.
 
@@ -101,19 +96,25 @@ renderAndWaitForResponse: ({ args, status, respond }) => {
 
 You can call the `respond` either by first checking if the respond is `undefined`, or by using typescript's optional chaining format, i.e.
 `respond?.(argumentToPassRespond)`.
-
 </Callout>
+</Accordion>
+<Accordion title="Understanding respond">
+`respond` is the function that will be called when the user clicks the "Send" or "Cancel" button. This function connects to the our agentic backend (the LangGraph) and will trigger the 
+agent to continue execution.
 
+`CANCEL` and `SEND` are the arguments that will be passed to the agentic backend so make sure you have proper ways to handle the response from the frontend in the agentic backend.
+
+Whatever argument you pass to the `respond` will become available on the agentic backend. This allows you to pass information from the frontend to the agent, enabling seamless communication between 
+the user interface and the backend logic.
+</Accordion>
+</Accordions>
 </Step>
-
 <Step>
 ### Remember the action **name** and **parameters**.
 Remember the action name & parameters. They must match the configuration we will soon setup on the agentic backend.
 
-In this case, the action name is `email_tool`. It has a single parameter `email_draft` of type `string`.
-
+In this case, the action name is `EmailTool`. It has a single parameter `the_email` of type `string`.
 </Step>
-
 </Steps>
 
 ## Agentic Backend (LangGraph)
@@ -129,7 +130,7 @@ In this guide its required that we install the SDK!
 ### Define the state
 
 First, we need to define the state of our agent which will be used to store the email draft. In addition, we need to extend the `CopilotKitState` class
-which will bring with it `messages` and our `email_tool` into the state
+which will bring with it `messages` and our `EmailTool` into the state
 
 <Callout>
 We're going to be building our agent inside of a single file, `agent.py` or `agent.ts` depending on the language you're using. However, feel free to split up
@@ -147,17 +148,15 @@ your code into multiple files if you'd like.
         ```
     </Tab>
     <Tab value="TypeScript">
-      <InsecurePasswordProtected>
-        ```typescript title="agent/my_agent/agent.ts"
-        import { Annotation } from "@langchain/langgraph";
-        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langchain";
+      ```typescript title="agent/my_agent/agent.ts"
+      import { Annotation } from "@langchain/langgraph";
+      import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langchain";
 
-        export const EmailAgentStateAnnotation = Annotation.Root({
-            email: Annotation<string>,
-            ...CopilotKitStateAnnotation.spec,
-        });
-        ```
-      </InsecurePasswordProtected>
+      export const EmailAgentStateAnnotation = Annotation.Root({
+          email: Annotation<string>,
+          ...CopilotKitStateAnnotation.spec,
+      });
+      ```
     </Tab>
 
 </Tabs>
@@ -217,7 +216,6 @@ First, let's build the `email_node`.
         ```
     </Tab>
     <Tab value="TypeScript">
-      <InsecurePasswordProtected>
         ```typescript title="agent/my_agent/agent.ts"
         // ...
 
@@ -267,7 +265,6 @@ First, let's build the `email_node`.
           };
         }
         ```
-      </InsecurePasswordProtected>
     </Tab>
 </Tabs>
 Some quick notes about the `email_node`.
@@ -322,7 +319,6 @@ This node will be responsible for actually sending the email once the user has a
         ```
     </Tab>
     <Tab value="TypeScript">
-      <InsecurePasswordProtected>
         ```typescript title="agent/my_agent/agent.ts"
         // ...
 
@@ -370,7 +366,6 @@ This node will be responsible for actually sending the email once the user has a
           };
         }
         ```
-      </InsecurePasswordProtected>
     </Tab>
 </Tabs>
 
@@ -400,7 +395,6 @@ We have a `interrupt_after` for `draft_email_node` (the node that initiates HITL
         ```
     </Tab>
     <Tab title="agent/my_agent/agent.ts" value="TypeScript">
-      <InsecurePasswordProtected>
         ```typescript
         // ...
 
@@ -418,7 +412,6 @@ We have a `interrupt_after` for `draft_email_node` (the node that initiates HITL
           interruptAfter: ["email_node"], // interrupt to wait for user input # [!code highlight]
         });
         ```
-      </InsecurePasswordProtected>
     </Tab>
 
 </Tabs>
