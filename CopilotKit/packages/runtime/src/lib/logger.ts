@@ -13,7 +13,7 @@ export function createLogger(options?: { level?: LogLevel; component?: string })
     {
       level: process.env.LOG_LEVEL || level || "error",
       redact: {
-        paths: ["*.pid", "*.hostname"],
+        paths: ["pid", "hostname"],
         remove: true,
       },
     },
