@@ -5,10 +5,8 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - 'docs/**'
-      - 'examples/**'
-      - '.github/workflows/demos_preview.yml'
+    paths:
+      - "./CopilotKit/packages/**/*"
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
