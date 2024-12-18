@@ -18,6 +18,10 @@ This guide will show you how to implement a simple HITL workflow *in the chat*.
   />
 </Frame>
 
+<Callout type="info" title="Have you already read the app wide human-in-the-loop guide?">
+  If so, you can feel free to just read step one and you should get the gist of it. Everything else is the same.
+</Callout>
+
 ## Agentic Frontend
 
 First, we need to setup our UI to support rendering the LangGraph agent's request for approval. We'll be doing this through the use of `useCopilotAction` and it's `renderAndWaitForResponse`. This
@@ -44,7 +48,7 @@ while the LangGraph agent is executing.
 import { useCopilotAction } from "@copilotkit/react-core";
 
 export function Mailer() {
-  // [!code highlight:21]
+  // [!code highlight:22]
   useCopilotAction({
     name: "EmailTool",
     available: "remote", // only allow the agent to call this action
@@ -107,7 +111,28 @@ agent to continue execution.
 Whatever argument you pass to the `respond` will become available on the agentic backend. This allows you to pass information from the frontend to the agent, enabling seamless communication between 
 the user interface and the backend logic.
 </Accordion>
+<Accordion title="Responding with a string">
+
+If you don't want to pass a JSON object back to the agent, you can pass a string. This allows for a more minimal handoff between the frontend and backend.
+
+```tsx title="app/Mailer.tsx"
+// ...
+  renderAndWaitForResponse: ({ args, status, respond }) => (
+      <EmailConfirmation
+        emailContent={args.the_email || ""}
+        isExecuting={status === "executing"}
+        // respond is undefined while status is "executing", so we need to use optional chaining
+        onCancel={() => respond?.("CANCEL")} // [!code highlight]
+        onSend={() => respond?.("SEND")} // [!code highlight]
+      />
+    ),
+// ...
+```
+</Accordion>
 </Accordions>
+
+This guide will not proceed with this approach, but it's important to highlight that its possible should you need/want to.
+
 </Step>
 <Step>
 ### Remember the action **name** and **parameters**.

@@ -3,6 +3,7 @@ title: App wide Human-in-the-loop (HITL)
 description: Have the LangGraph agent call frontend functions
 ---
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 
 Sometimes you want to have the agent interact with the user at an application level, outside of the chat. CopilotKit allows you to do this with 
 `useCopilotAction` and some additional setup in LangGraph.
@@ -57,19 +58,30 @@ export function Mailer() {
       },
     ],
     handler: async ({ the_email }) => {
-        const result = window.confirm(the_email);
-        return {
-          decision: result ? "SEND" : "CANCEL",
-          reason: "User confirmed",
-        };
+      const result = window.confirm(the_email);
+      return {
+        decision: result ? "SEND" : "CANCEL",
+        reason: "User confirmed",
+      };
     },
   });
 }
 ```
 
-<Callout>
-  The `handler` function can return a string or an object. In either case, the you'll need to appropriately handle the response in the agent.
-</Callout>
+<Accordions>
+<Accordion title="Returning a string">
+If you don't want to pass a JSON object back to the agent, you can return a string. This allows for a more minimal handoff between the frontend and backend.
+
+```tsx title="app/Mailer.tsx"
+// ...
+  handler: async ({ the_email }) => {
+    const result = window.confirm(the_email);
+    return result ? "SEND" : "CANCEL",
+  },
+// ...
+```
+</Accordion>
+</Accordions>
 
 </Step>
 
