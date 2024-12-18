@@ -35,7 +35,6 @@ import { FaCloud, FaServer } from "react-icons/fa";
             description="I'm already using or want to use Copilot Cloud."
             icon={<FaCloud />}
         >
-            <InsecurePasswordProtected>
             If you followed the [Copilot Cloud Quickstart](/docs/quickstart) and opted to use CopilotCloud,
             you only need to add your LangGraph Platform deployment URL and LangSmith API key to your CopilotCloud.
 
@@ -46,7 +45,6 @@ import { FaCloud, FaServer } from "react-icons/fa";
                 </Accordion>
             </Accordions>
             <CopilotCloudConfigureRemoteEndpointLangGraphSnippet components={props.components} />
-            </InsecurePasswordProtected>
         </TailoredContentOption>
         <TailoredContentOption
             title="Self-Hosted"
