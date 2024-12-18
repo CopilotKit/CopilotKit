@@ -77,7 +77,6 @@ export class RemoteLangGraphEventSource {
     return this.eventStream$.pipe(
       scan(
         (acc, event) => {
-          console.log("event", JSON.stringify(event));
           if (event.event === LangGraphEventTypes.OnChatModelStream) {
             const prevMessageId = acc.lastMessageId;
             acc.currentContent = this.getCurrentContent(event);

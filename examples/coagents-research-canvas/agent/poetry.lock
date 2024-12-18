@@ -135,13 +135,13 @@ files = [
 
 [[package]]
 name = "anthropic"
-version = "0.40.0"
+version = "0.42.0"
 description = "The official Python library for the anthropic API"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "anthropic-0.40.0-py3-none-any.whl", hash = "sha256:442028ae8790ff9e3b6f8912043918755af1230d193904ae2ef78cc22995280c"},
-    {file = "anthropic-0.40.0.tar.gz", hash = "sha256:3efeca6d9e97813f93ed34322c6c7ea2279bf0824cd0aa71b59ce222665e2b87"},
+    {file = "anthropic-0.42.0-py3-none-any.whl", hash = "sha256:46775f65b723c078a2ac9e9de44a46db5c6a4fabeacfd165e5ea78e6817f4eff"},
+    {file = "anthropic-0.42.0.tar.gz", hash = "sha256:bf8b0ed8c8cb2c2118038f29c58099d2f99f7847296cafdaa853910bfff4edf4"},
 ]
 
 [package.dependencies]
@@ -151,7 +151,7 @@ httpx = ">=0.23.0,<1"
 jiter = ">=0.4.0,<1"
 pydantic = ">=1.9.0,<3"
 sniffio = "*"
-typing-extensions = ">=4.7,<5"
+typing-extensions = ">=4.10,<5"
 
 [package.extras]
 bedrock = ["boto3 (>=1.28.57)", "botocore (>=1.31.57)"]
@@ -363,24 +363,22 @@ name = "copilotkit"
 version = "0.1.30"
 description = "CopilotKit python SDK"
 optional = false
-python-versions = ">=3.9,<4.0"
-files = []
-develop = true
+python-versions = "<4.0,>=3.9"
+files = [
+    {file = "copilotkit-0.1.30-py3-none-any.whl", hash = "sha256:bcb1248c3853113a450101caaccbe862c4ee9cd2a47f482e358f5df22deb821f"},
+    {file = "copilotkit-0.1.30.tar.gz", hash = "sha256:e955ff41a442eda1961799145eef117f3e8a06f03158d8701ab4ae61e33b8700"},
+]
 
 [package.dependencies]
-fastapi = "^0.115.0"
-httpx = "^0.27.2"
-langchain = "^0.3.3"
-langchain-anthropic = "^0.2.3"
-langchain-openai = "^0.2.2"
+fastapi = ">=0.115.0,<0.116.0"
+httpx = ">=0.27.2,<0.28.0"
+langchain = ">=0.3.3,<0.4.0"
+langchain-anthropic = ">=0.2.3,<0.3.0"
+langchain-openai = ">=0.2.2,<0.3.0"
 langgraph = ">=0.2.50"
-langgraph-sdk = "^0.1.32"
-partialjson = "^0.0.8"
-toml = "^0.10.2"
-
-[package.source]
-type = "directory"
-url = "../../../sdk-python"
+langgraph-sdk = ">=0.1.32,<0.2.0"
+partialjson = ">=0.0.8,<0.0.9"
+toml = ">=0.10.2,<0.11.0"
 
 [[package]]
 name = "dataclasses-json"
@@ -1192,13 +1190,13 @@ langchain-core = ">=0.3.25,<0.4.0"
 
 [[package]]
 name = "langgraph"
-version = "0.2.59"
+version = "0.2.60"
 description = "Building stateful, multi-actor applications with LLMs"
 optional = false
 python-versions = "<4.0,>=3.9.0"
 files = [
-    {file = "langgraph-0.2.59-py3-none-any.whl", hash = "sha256:9b2d1331bbdcea96cfffde8e88700776118f4583d15f6a3423fc4482fe84ae56"},
-    {file = "langgraph-0.2.59.tar.gz", hash = "sha256:61cb5dd409878641fe8a12e9d7928a7524caa3e54ab12bc883feeaba4a5ba618"},
+    {file = "langgraph-0.2.60-py3-none-any.whl", hash = "sha256:0c454a04f358e8eb0d75cf05d129ae7d10fce1bda1b53d328ec346c718d57e56"},
+    {file = "langgraph-0.2.60.tar.gz", hash = "sha256:24d1779e0506de5f8de57ffc7422f176a5f42caa342b8f8492a9a1763f8f9f48"},
 ]
 
 [package.dependencies]
@@ -1223,13 +1221,13 @@ msgpack = ">=1.1.0,<2.0.0"
 
 [[package]]
 name = "langgraph-sdk"
-version = "0.1.45"
+version = "0.1.47"
 description = "SDK for interacting with LangGraph API"
 optional = false
 python-versions = "<4.0.0,>=3.9.0"
 files = [
-    {file = "langgraph_sdk-0.1.45-py3-none-any.whl", hash = "sha256:bbb1d4777025336acaf3a5a871b27a5da5600a072b80c1a2707484c6e661bbae"},
-    {file = "langgraph_sdk-0.1.45.tar.gz", hash = "sha256:d48f7af3e0d1690771dddb861aca92e8f4955724836693026433a4d9097fe456"},
+    {file = "langgraph_sdk-0.1.47-py3-none-any.whl", hash = "sha256:9020b5ced1e7ea40b88d9bac04b67069bd4b1e6443a455601d0a56c22b72a51c"},
+    {file = "langgraph_sdk-0.1.47.tar.gz", hash = "sha256:a2498e03b280deee727a8668f4b24338f6f8d83359943da4febffd57d345cf9a"},
 ]
 
 [package.dependencies]
@@ -1511,13 +1509,13 @@ files = [
 
 [[package]]
 name = "openai"
-version = "1.57.4"
+version = "1.58.1"
 description = "The official Python library for the openai API"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "openai-1.57.4-py3-none-any.whl", hash = "sha256:7def1ab2d52f196357ce31b9cfcf4181529ce00838286426bb35be81c035dafb"},
-    {file = "openai-1.57.4.tar.gz", hash = "sha256:a8f071a3e9198e2818f63aade68e759417b9f62c0971bdb83de82504b70b77f7"},
+    {file = "openai-1.58.1-py3-none-any.whl", hash = "sha256:e2910b1170a6b7f88ef491ac3a42c387f08bd3db533411f7ee391d166571d63c"},
+    {file = "openai-1.58.1.tar.gz", hash = "sha256:f5a035fd01e141fc743f4b0e02c41ca49be8fab0866d3b67f5f29b4f4d3c0973"},
 ]
 
 [package.dependencies]
@@ -1532,6 +1530,7 @@ typing-extensions = ">=4.11,<5"
 
 [package.extras]
 datalib = ["numpy (>=1)", "pandas (>=1.2.3)", "pandas-stubs (>=1.1.0.11)"]
+realtime = ["websockets (>=13,<15)"]
 
 [[package]]
 name = "orjson"
@@ -2590,4 +2589,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "770db7bfaa3c37cf666ed03ec71345cd42f8ee7d32c180f2c96a4317ed73ee92"
+content-hash = "8c0b634d2ffc28accaf78ee1a7d1c7d8cfb43240f1529d213b7366cf7bf935db"

@@ -37,6 +37,7 @@ export class TextMessage extends Message implements TextMessageInput {
   type: MessageType = "TextMessage";
   content: string;
   role: MessageRole;
+  parentMessageId?: string;
 }
 
 export class ActionExecutionMessage
@@ -46,6 +47,7 @@ export class ActionExecutionMessage
   type: MessageType = "ActionExecutionMessage";
   name: string;
   arguments: Record<string, any>;
+  parentMessageId?: string;
 }
 
 export class ResultMessage extends Message implements ResultMessageInput {

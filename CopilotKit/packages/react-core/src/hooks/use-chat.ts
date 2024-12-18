@@ -379,8 +379,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           setMessages([...previousMessages, ...newMessages]);
         }
       }
-      const finalMessages =
-        syncedMessages.length > 0 ? [...syncedMessages] : [...previousMessages, ...messages];
+      const finalMessages = constructFinalMessages(syncedMessages, previousMessages, newMessages);
 
       // execute regular action executions that are specific to the frontend (last actions)
       if (onFunctionCall) {
@@ -492,4 +491,32 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     stop,
     runChatCompletion: () => runChatCompletionRef.current!(messages),
   };
+}
+
+function constructFinalMessages(
+  syncedMessages: Message[],
+  previousMessages: Message[],
+  newMessages: Message[],
+): Message[] {
+  const finalMessages =
+    syncedMessages.length > 0 ? [...syncedMessages] : [...previousMessages, ...newMessages];
+
+  if (syncedMessages.length > 0) {
+    const messagesWithAgentState = [...previousMessages, ...newMessages];
+
+    let previousMessageId: string | undefined = undefined;
+    for (const message of messagesWithAgentState) {
+      if (message.isAgentStateMessage()) {
+        // insert this message into finalMessages after the position of previousMessageId
+        const index = finalMessages.findIndex((msg) => msg.id === previousMessageId);
+        if (index !== -1) {
+          finalMessages.splice(index + 1, 0, message);
+        }
+      }
+
+      previousMessageId = message.id;
+    }
+  }
+
+  return finalMessages;
 }
