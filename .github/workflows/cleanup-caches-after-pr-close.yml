@@ -1,4 +1,4 @@
-name: cleanup caches after pr close
+name: Cleanup caches after PR close
 on:
   pull_request:
     types:
