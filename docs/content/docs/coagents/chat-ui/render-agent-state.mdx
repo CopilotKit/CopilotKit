@@ -1,38 +1,37 @@
 ---
 title: Agentic Generative UI
-description: Render the current agent state in your application
+description: Utilize agentic generative UI to render the current agent state in your application
 ---
 
-<Frame className="my-6">
+One of the benefits of LangGraph is that the agent is stateful. This enables interesting and complex agentic experiences. With CopilotKit, you can utilize what we refer to as 
+<u>**Agentic Generative UI**</u> to render that state. 
+
+More specifically, the `useCoAgentStateRender` hook allows you to render UI components or text based on a CoAgent's state.
+
+<Callout>
+Also see [`useCopilotAction` for non-agentic generative UI](/guides/generative-ui).
+</Callout>
+
+<Frame>
   <img
     src="/images/coagents/AgenticGenerativeUI.gif"
     alt="CoAgents Chat Hello demonstration"
-    className="w-2/3 mx-auto"
   />
 </Frame>
 
-## Background
+Before getting started, you'll want to make sure you've gone through the [quickstart guide](/coagents/quickstart). This will make sure you have setup everything on your side to connect your LangGraph
+agent to CopilotKit.
 
-<u>**Agentic generative UI**</u> is generative UI that is based on the **agent's
-current state**.
+## Utilizing `useCoAgentStateRender`
 
-(Also see [`useCopilotAction` for non-agentic generative UI](/guides/generative-ui).)
-
-## Frontend
-
-<Steps>
-
-<Step>
-### Rendering Agent State with `useCoAgentStateRender`
-
-To render state in your application, use the `useCoAgentStateRender` hook. Here's a simple example using untyped objects:
+To render state in your application, use the `useCoAgentStateRender` hook. As previously mentioned, it will allow you to render UI components or text based on a CoAgent's state. Here's a simple example using untyped objects:
 
 ```tsx
 "use client"; // only necessary if you are using Next.js with the App Router. // [!code highlight]
 
-import { useCoagentStateRender } from "@copilotkit/react-core";
+import { useCoAgentStateRender } from "@copilotkit/react-core";
 
-useCoagentStateRender<YourAgentState>({ // The generic parameter (`YourAgentState`) can be omitted as well // [!code highlight:12]
+useCoAgentStateRender<YourAgentState>({ // The generic parameter (`YourAgentState`) can be omitted as well // [!code highlight:12]
   name: "basic_agent", // the name of the agent
   nodeName: "optionally_specify_a_specific_node", // Optional! You can specify a specific node you want generative UI for. Omit this argument if you want to render the agent's state for any node.
   render: ({ status, state, nodeName }) => {
@@ -48,51 +47,23 @@ useCoagentStateRender<YourAgentState>({ // The generic parameter (`YourAgentStat
 
 The render function can return any valid React node; you can use your own components to display the agent's state.
 
-</Step>
-
-<Step>
-The `render` function can return any custom React component.
-
-It takes as input parameters the status, nodeName, and **current state** of the agent.
-As the input state changes, it will stream into the render function and automatically re-render.
-
-</Step>
-</Steps>
-
----
-
-## Agentic backend (LangGraph)
-
-<Steps>
-<Step>
-
-### ⚠️ IMPORTANT! Stream & render the intermediate agent state
-
-By default, the LangGraph agent state will only update _between_ LangGraph node transitions --
-which means state updates will be discontinuous and delayed.
-
-You likely want to render the agent state as it updates **continuously.**<br/>
-See **[emit intermediate state](/coagents/advanced/intermediate-state-streaming).**
-
-</Step>
-</Steps>
-
-
-## Example
-
-See the [Research Canvas example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-research-canvas) for a real-world of `useCoagentStateRender`.
-
----
+It provides the `status`, `nodeName`, and current `state` parameters to the render function which are representative of the agent's state. As the input state changes, it will stream 
+into the render function and renders will trigger automatically.
 
 ## Developer experience: using typed state with generics
 
 To get better type safety and IntelliSense support, you can provide TypeScript types to `useCoAgentStateRender`.
 
-Define your agent's state types:
+<Steps>
+<Step>
+### Define your agent's state types
+This is likely already defined in your LangGraph codebase, but for the sake of this guide, we'll define it here.
+
+In the LangGraph codebase, define the state types like so:
 
 <Tabs items={["TypeScript", "Python (Pydantic)"]}>
   <Tab value="TypeScript">
-      ```ts
+      ```ts title="state.ts"
       type WeatherResponse = {
         conditions: string;
         temperature: number;
@@ -109,9 +80,7 @@ Define your agent's state types:
   </Tab>
 
   <Tab value="Python (Pydantic)">
-  In your LangGraph Python code:
-  
-  ```python
+  ```python title="state.py"
   class WeatherResponse(BaseModel):
       conditions: str = Field(description="Weather conditions in the location")
       temperature: float = Field(description="The temperature in fahrenheit")
@@ -127,15 +96,44 @@ Define your agent's state types:
 </Tab>
 
 </Tabs>
+</Step>
+<Step>
+### Add your agent's state as a type in the UI
+Our type is defined in the agent, but we will need to add it to the UI as well. **It is highly encouraged that these types match, otherwise you may run hard-to-catch issues.**
 
-Now, you can use generics with `useCoAgentStateRender`:
+```tsx title="types.ts"
+type WeatherResponse = {
+  conditions: string;
+  temperature: number;
+  wind_direction: string;
+  wind_speed: number;
+};
 
-```tsx
+type AgentState = {
+  final_response: WeatherResponse;
+  input: string;
+  messages: any[];
+};
+```
+
+</Step>
+
+<Step>
+### Use generics with `useCoAgentStateRender`:
+
+Now we're ready to use the `useCoAgentStateRender` hook with our typed state.
+
+<Callout>
+In this example, `DetailedWeatherInfo` is an undefined component that would display detailed weather information using the typed state.
+</Callout>
+
+```tsx title="App.tsx"
 "use client"; // only necessary if you are using Next.js with the App Router. // [!code highlight]
 
-import { useCoagentStateRender } from "@copilotkit/react-core";
+import { useCoAgentStateRender } from "@copilotkit/react-core";
+import { AgentState } from "./types";
 
-useCoagentStateRender<AgentState>({ // [!code highlight:9]
+useCoAgentStateRender<AgentState>({ // [!code highlight:9]
     name: "basic_agent", // the name of the agent
     nodeName: "optionally_specify_a_specific_node", // Optional! You can specify a specific node you want generative UI for. Omit this argument if you want to render the agent's state for any node.
     render: ({ status, state, nodeName }) => {
@@ -146,7 +144,17 @@ useCoagentStateRender<AgentState>({ // [!code highlight:9]
 });
 ```
 
-This way, you'll get type checking and auto-completion for `state` properties.
+</Step>
+</Steps>
 
-In this example, `DetailedWeatherInfo` is a component you define to display detailed weather information using the typed state.
+With this complete, you'll get type checking and auto-completion for `state` properties. 
 
+## Streaming intermediate agent state
+
+By default, the LangGraph agent state will only update _between_ LangGraph node transitions -- which means state updates will be discontinuous and delayed. It is very likely you'll want to render the agent state as it updates **continuously.**
+
+See our **[emit intermediate state](/coagents/advanced/intermediate-state-streaming)** guide for how to do this.
+
+## Example
+
+See the [Research Canvas example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-research-canvas) for a real-world of `useCoAgentStateRender`.

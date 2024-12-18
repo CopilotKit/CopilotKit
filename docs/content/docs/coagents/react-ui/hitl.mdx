@@ -168,7 +168,7 @@ First, let's build the `email_node`.
             response = await email_model.ainvoke([
                 *state["messages"],
                 HumanMessage(
-                  content=instructions
+                    content=instructions
                 )
             ], config)
 
