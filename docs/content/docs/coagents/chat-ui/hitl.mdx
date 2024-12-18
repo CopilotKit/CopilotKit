@@ -329,7 +329,7 @@ This node will be responsible for actually sending the email once the user has a
 
             await copilotkit_exit(config) # exit copilotkit
 
-            last_message = cast(ToolMessage, state["messages"][-1])
+            last_message = cast(ToolMessage, state["messages"][-1]) # The last message in the chat is now a tool call response. Get the result from it # [!code highlight:2]
             response = json.loads(last_message.content)
 
             if response["decision"] == "CANCEL": # [!code highlight]
