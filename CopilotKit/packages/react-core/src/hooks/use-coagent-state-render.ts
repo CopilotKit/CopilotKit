@@ -12,13 +12,13 @@
  * ### Simple Usage
  *
  * ```tsx
- * import { useCoagentStateRender } from "@copilotkit/react-core";
+ * import { useCoAgentStateRender } from "@copilotkit/react-core";
  *
  * type YourAgentState = {
  *   agent_state_property: string;
  * }
  *
- * useCoagentStateRender<YourAgentState>({
+ * useCoAgentStateRender<YourAgentState>({
  *   name: "basic_agent",
  *   nodeName: "optionally_specify_a_specific_node",
  *   render: ({ status, state, nodeName }) => {

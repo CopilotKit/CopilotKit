@@ -198,7 +198,7 @@ const { agentState } = useCoAgent({
 });
 
 // agentic generative UI
-useCoagentStateRender({
+useCoAgentStateRender({
   name: "basic_agent",
   render: ({ state }) => <WeatherDisplay {...state.final_response} />,
 });

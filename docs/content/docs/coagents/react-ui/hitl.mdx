@@ -24,7 +24,7 @@ In this guide, we'll show you how to implement a simple HITL workflow across you
 ## Agentic Frontend
 
 First, we need to setup our UI to support rendering the LangGraph agent's request for approval. We'll be doing this through the use of `useCopilotAction` and it's `renderAndWaitForResponse`. This
-will allow the us to render a React component to the user to get their decision. 
+will allow us to render a React component to the user to get their decision. 
 
 Let's look at this from the context of a LangGraph agent designed to write emails.
 
@@ -37,8 +37,7 @@ Let's look at this from the context of a LangGraph agent designed to write email
 First, we need to call the `useCopilotAction` hook with a `handler` property. This handler will be used to send the user's response to the agent. 
 
 <Callout>
-When we do this we need to do this in a component that is loaded into the view hierarchy
-while the LangGraph agent is executing.
+We need to do this in a component that is loaded into the view hierarchy while the LangGraph agent is executing.
 </Callout>
 
 ```tsx filename="app/Mailer.tsx"
@@ -48,17 +47,17 @@ import { useCopilotAction } from "@copilotkit/react-core";
 
 export function Mailer() {
   useCopilotAction({ // [!code highlight:18]
-    name: "email_tool",
+    name: "EmailTool",
     parameters: [
       {
-        name: "email_draft",
+        name: "the_email",
         type: "string",
         description: "The email content",
         required: true,
       },
     ],
-    handler: async ({ email_draft }) => {
-        const result = window.confirm(email_draft);
+    handler: async ({ the_email }) => {
+        const result = window.confirm(the_email);
         return {
           decision: result ? "SEND" : "CANCEL",
           reason: "User confirmed",
@@ -78,7 +77,7 @@ export function Mailer() {
 ### Remember the action **name** and **parameters**.
 Remember the action name & parameters. They must match the configuration we will soon setup on the agentic backend.
 
-In this case, the action name is `email_tool`. It has a single parameter `email_draft` of type `string`.
+In this case, the action name is `EmailTool`. It has a single parameter `the_email` of type `string`.
 
 </Step>
 
@@ -97,7 +96,7 @@ In this guide its required that we install the SDK!
 ### Define the state
 
 First, we need to define the state of our agent which will be used to store the email draft. In addition, we need to extend the `CopilotKitState` class
-which will bring with it `messages` and our `email_tool` into the state
+which will bring with it `messages` and our `EmailTool` into the state
 
 <Callout>
 We're going to be building our agent inside of a single file, `agent.py` or `agent.ts` depending on the language you're using. However, feel free to split up
@@ -115,7 +114,6 @@ your code into multiple files if you'd like.
         ```
     </Tab>
     <Tab value="TypeScript">
-      <InsecurePasswordProtected>
         ```typescript title="agent/my_agent/agent.ts"
         import { Annotation } from "@langchain/langgraph";
         import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langchain";
@@ -125,7 +123,6 @@ your code into multiple files if you'd like.
             ...CopilotKitStateAnnotation.spec,
         });
         ```
-      </InsecurePasswordProtected>
     </Tab>
 
 </Tabs>
@@ -185,7 +182,6 @@ First, let's build the `email_node`.
         ```
     </Tab>
     <Tab value="TypeScript">
-      <InsecurePasswordProtected>
         ```typescript title="agent/my_agent/agent.ts"
         // ...
 
@@ -235,7 +231,6 @@ First, let's build the `email_node`.
           };
         }
         ```
-      </InsecurePasswordProtected>
     </Tab>
 </Tabs>
 Some quick notes about the `email_node`.
@@ -290,7 +285,6 @@ This node will be responsible for actually sending the email once the user has a
         ```
     </Tab>
     <Tab value="TypeScript">
-      <InsecurePasswordProtected>
         ```typescript title="agent/my_agent/agent.ts"
         // ...
 
@@ -338,7 +332,6 @@ This node will be responsible for actually sending the email once the user has a
           };
         }
         ```
-      </InsecurePasswordProtected>
     </Tab>
 </Tabs>
 
@@ -368,7 +361,6 @@ We have a `interrupt_after` for `draft_email_node` (the node that initiates HITL
         ```
     </Tab>
     <Tab title="agent/my_agent/agent.ts" value="TypeScript">
-      <InsecurePasswordProtected>
         ```typescript
         // ...
 
@@ -386,7 +378,6 @@ We have a `interrupt_after` for `draft_email_node` (the node that initiates HITL
           interruptAfter: ["email_node"], // interrupt to wait for user input # [!code highlight]
         });
         ```
-      </InsecurePasswordProtected>
     </Tab>
 
 </Tabs>
