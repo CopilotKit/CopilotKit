@@ -5,13 +5,17 @@ import { randomId } from "@copilotkit/shared";
 
 interface LangGraphEventWithState {
   event: LangGraphEvent | null;
-  content: string | null;
-  toolCallName: string | null;
-  toolCallId: string | null;
-  toolCallMessageId: string | null;
-  prevToolCallMessageId: string | null;
-  messageId: string | null;
-  prevMessageId: string | null;
+
+  isMessageStart: boolean;
+  isMessageEnd: boolean;
+  isToolCallStart: boolean;
+  isToolCallEnd: boolean;
+  isToolCall: boolean;
+
+  lastMessageId: string | null;
+  lastToolCallId: string | null;
+  lastToolCallName: string | null;
+  currentContent: string | null;
 }
 
 export class RemoteLangGraphEventSource {
@@ -30,6 +34,43 @@ export class RemoteLangGraphEventSource {
     return shouldEmitToolCalls === toolCallName;
   }
 
+  private getCurrentContent(event: LangGraphEvent) {
+    // @ts-expect-error -- LangGraph Platform implementation stores data outside of kwargs
+    const content = event.data?.chunk?.kwargs?.content ?? event.data?.chunk?.content;
+
+    if (!content) {
+      const toolCallChunks = this.getCurrentToolCallChunks(event) ?? [];
+      for (const chunk of toolCallChunks) {
+        if (chunk.args) {
+          return chunk.args;
+        }
+      }
+    }
+
+    if (typeof content === "string") {
+      return content;
+    } else if (Array.isArray(content) && content.length > 0) {
+      return content[0].text;
+    }
+
+    return null;
+  }
+
+  private getCurrentMessageId(event: LangGraphEvent) {
+    // @ts-expect-error -- LangGraph Platform implementation stores data outside of kwargs
+    return event.data?.chunk?.kwargs?.id ?? event.data?.chunk?.id;
+  }
+
+  private getCurrentToolCallChunks(event: LangGraphEvent) {
+    // @ts-expect-error -- LangGraph Platform implementation stores data outside of kwargs
+    return event.data?.chunk?.kwargs?.tool_call_chunks ?? event.data?.chunk?.tool_call_chunks;
+  }
+
+  private getResponseMetadata(event: LangGraphEvent) {
+    // @ts-expect-error -- LangGraph Platform implementation stores data outside of kwargs
+    return event.data?.chunk?.kwargs?.response_metadata ?? event.data?.chunk?.response_metadata;
+  }
+
   processLangGraphEvents() {
     let lastEventWithState: LangGraphEventWithState | null = null;
 
@@ -37,104 +78,75 @@ export class RemoteLangGraphEventSource {
       scan(
         (acc, event) => {
           if (event.event === LangGraphEventTypes.OnChatModelStream) {
-            // @ts-expect-error -- LangGraph Platform implementation stores data outside of kwargs
-            const content = event.data?.chunk?.kwargs?.content ?? event.data?.chunk?.content;
+            const prevMessageId = acc.lastMessageId;
+            acc.currentContent = this.getCurrentContent(event);
+            acc.lastMessageId = this.getCurrentMessageId(event) ?? acc.lastMessageId;
+            const toolCallChunks = this.getCurrentToolCallChunks(event) ?? [];
+            const responseMetadata = this.getResponseMetadata(event);
 
-            if (typeof content === "string") {
-              acc.content = content;
-            } else if (Array.isArray(content) && content.length > 0) {
-              acc.content = content[0].text;
-            } else {
-              acc.content = null;
-            }
-
-            const toolCallChunks =
-              // @ts-expect-error -- LangGraph Platform implementation stores data outside of kwargs
-              event.data?.chunk?.kwargs?.tool_call_chunks ?? event.data?.chunk?.tool_call_chunks;
-
-            const toolCallMessageId =
-              event.data?.chunk?.kwargs?.id ??
-              (event.data?.chunk?.id as unknown as string | undefined);
-
-            if (toolCallChunks && toolCallChunks.length > 0) {
-              acc.prevToolCallMessageId = acc.toolCallMessageId;
-              acc.toolCallMessageId = toolCallMessageId;
-              if (toolCallChunks[0]?.name) {
-                acc.toolCallName = toolCallChunks[0].name;
-              }
-              if (toolCallChunks[0]?.id) {
-                acc.toolCallId = toolCallChunks[0].id;
-              }
-              acc.prevMessageId = acc.messageId;
-              acc.messageId = toolCallMessageId;
-            } else if (acc.content && acc.content != "") {
-              acc.prevMessageId = acc.messageId;
-              acc.messageId = toolCallMessageId;
-            } else {
-              acc.prevToolCallMessageId = acc.toolCallMessageId;
-              acc.prevMessageId = acc.messageId;
-            }
-          } else {
-            acc.prevToolCallMessageId = acc.toolCallMessageId;
-            acc.toolCallMessageId = null;
-            acc.prevMessageId = acc.messageId;
-            acc.messageId = null;
-            acc.toolCallName = null;
+            acc.isToolCallStart = toolCallChunks.some((chunk: any) => chunk.name && chunk.id);
+            acc.isMessageStart = prevMessageId !== acc.lastMessageId && !acc.isToolCallStart;
+            acc.isToolCall = toolCallChunks && toolCallChunks.length > 0;
+            acc.isToolCallEnd = responseMetadata?.finish_reason === "tool_calls";
+            acc.isMessageEnd = responseMetadata?.finish_reason === "stop";
+            ({ name: acc.lastToolCallName, id: acc.lastToolCallId } = toolCallChunks.find(
+              (chunk: any) => chunk.name && chunk.id,
+            ) ?? { name: acc.lastToolCallName, id: acc.lastToolCallId });
           }
-
           acc.event = event;
           lastEventWithState = acc; // Capture the state
           return acc;
         },
         {
           event: null,
-          toolCallId: null,
-          toolCallMessageId: null,
-          prevToolCallMessageId: null,
-          messageId: null,
-          toolCallName: null,
-          prevMessageId: null,
-          content: null,
+          isMessageStart: false,
+          isMessageEnd: false,
+          isToolCallStart: false,
+          isToolCallEnd: false,
+          isToolCall: false,
+          lastMessageId: null,
+          lastToolCallId: null,
+          lastToolCallName: null,
+          currentContent: null,
         } as LangGraphEventWithState,
       ),
-      mergeMap((eventWithState): RuntimeEvent[] => {
+      mergeMap((acc): RuntimeEvent[] => {
         const events: RuntimeEvent[] = [];
 
         let shouldEmitMessages = true;
-        let shouldEmitToolCalls: string | string[] | boolean = false;
+        let shouldEmitToolCalls: string | string[] | boolean = true;
 
-        if (eventWithState.event.event == LangGraphEventTypes.OnChatModelStream) {
-          if ("copilotkit:emit-tool-calls" in (eventWithState.event.metadata || {})) {
-            shouldEmitToolCalls = eventWithState.event.metadata["copilotkit:emit-tool-calls"];
+        if (acc.event.event == LangGraphEventTypes.OnChatModelStream) {
+          if ("copilotkit:emit-tool-calls" in (acc.event.metadata || {})) {
+            shouldEmitToolCalls = acc.event.metadata["copilotkit:emit-tool-calls"];
           }
-          if ("copilotkit:emit-messages" in (eventWithState.event.metadata || {})) {
-            shouldEmitMessages = eventWithState.event.metadata["copilotkit:emit-messages"];
+          if ("copilotkit:emit-messages" in (acc.event.metadata || {})) {
+            shouldEmitMessages = acc.event.metadata["copilotkit:emit-messages"];
           }
         }
 
+        const responseMetadata = this.getResponseMetadata(acc.event);
+
         // Tool call ended: emit ActionExecutionEnd
         if (
-          eventWithState.prevToolCallMessageId !== null &&
-          eventWithState.prevToolCallMessageId !== eventWithState.toolCallMessageId &&
-          this.shouldEmitToolCall(shouldEmitToolCalls, eventWithState.toolCallName)
+          responseMetadata?.finish_reason === "tool_calls" &&
+          this.shouldEmitToolCall(shouldEmitToolCalls, acc.lastToolCallName)
         ) {
           events.push({
             type: RuntimeEventTypes.ActionExecutionEnd,
+            actionExecutionId: acc.lastToolCallId,
           });
         }
 
         // Message ended: emit TextMessageEnd
-        if (
-          eventWithState.prevMessageId !== null &&
-          eventWithState.prevMessageId !== eventWithState.messageId &&
-          shouldEmitMessages
-        ) {
+        if (responseMetadata?.finish_reason === "stop" && shouldEmitMessages) {
           events.push({
             type: RuntimeEventTypes.TextMessageEnd,
+            messageId: acc.lastMessageId,
           });
         }
 
-        switch (eventWithState.event!.event) {
+        switch (acc.event!.event) {
           //
           // Custom events
           //
@@ -142,118 +154,94 @@ export class RemoteLangGraphEventSource {
             //
             // Manually emit a message
             //
-            if (eventWithState.event.name === CustomEventNames.CopilotKitManuallyEmitMessage) {
+            if (acc.event.name === CustomEventNames.CopilotKitManuallyEmitMessage) {
               events.push({
                 type: RuntimeEventTypes.TextMessageStart,
-                messageId: eventWithState.event.data.message_id,
+                messageId: acc.event.data.message_id,
               });
               events.push({
                 type: RuntimeEventTypes.TextMessageContent,
-                content: eventWithState.event.data.message,
+                messageId: acc.event.data.message_id,
+                content: acc.event.data.message,
               });
               events.push({
                 type: RuntimeEventTypes.TextMessageEnd,
+                messageId: acc.event.data.message_id,
               });
             }
             //
             // Manually emit a tool call
             //
-            else if (
-              eventWithState.event.name === CustomEventNames.CopilotKitManuallyEmitToolCall
-            ) {
+            else if (acc.event.name === CustomEventNames.CopilotKitManuallyEmitToolCall) {
               events.push({
                 type: RuntimeEventTypes.ActionExecutionStart,
-                actionExecutionId: eventWithState.event.data.id,
-                actionName: eventWithState.event.data.name,
+                actionExecutionId: acc.event.data.id,
+                actionName: acc.event.data.name,
+                parentMessageId: acc.event.data.id,
               });
               events.push({
                 type: RuntimeEventTypes.ActionExecutionArgs,
-                args: JSON.stringify(eventWithState.event.data.args),
+                actionExecutionId: acc.event.data.id,
+                args: JSON.stringify(acc.event.data.args),
               });
               events.push({
                 type: RuntimeEventTypes.ActionExecutionEnd,
+                actionExecutionId: acc.event.data.id,
               });
             }
             break;
           case LangGraphEventTypes.OnCopilotKitStateSync:
             events.push({
               type: RuntimeEventTypes.AgentStateMessage,
-              threadId: eventWithState.event.thread_id,
-              role: eventWithState.event.role,
-              agentName: eventWithState.event.agent_name,
-              nodeName: eventWithState.event.node_name,
-              runId: eventWithState.event.run_id,
-              active: eventWithState.event.active,
-              state: JSON.stringify(eventWithState.event.state),
-              running: eventWithState.event.running,
+              threadId: acc.event.thread_id,
+              role: acc.event.role,
+              agentName: acc.event.agent_name,
+              nodeName: acc.event.node_name,
+              runId: acc.event.run_id,
+              active: acc.event.active,
+              state: JSON.stringify(acc.event.state),
+              running: acc.event.running,
             });
-            break;
-          case LangGraphEventTypes.OnToolEnd:
-            // TODO-AGENTS: emit ActionExecutionResult when needed
-            // Need a special tool node for that?
-
-            // const result = eventWithState.event.data?.output?.kwargs?.content?.[0];
-            // const toolCallId = eventWithState.event.data?.output?.kwargs?.tool_call_id;
-            // const toolCallName = eventWithState.event.data?.output?.kwargs?.name;
-            // if (result && toolCallId && toolCallName) {
-            //   events.push({
-            //     type: RuntimeEventTypes.ActionExecutionResult,
-            //     actionExecutionId: toolCallId,
-            //     actionName: toolCallName,
-            //     result,
-            //   });
-            // }
             break;
           case LangGraphEventTypes.OnChatModelStream:
             if (
-              eventWithState.toolCallMessageId !== null &&
-              eventWithState.prevToolCallMessageId !== eventWithState.toolCallMessageId
+              acc.isToolCallStart &&
+              this.shouldEmitToolCall(shouldEmitToolCalls, acc.lastToolCallName)
             ) {
-              if (this.shouldEmitToolCall(shouldEmitToolCalls, eventWithState.toolCallName)) {
-                events.push({
-                  type: RuntimeEventTypes.ActionExecutionStart,
-                  actionExecutionId: eventWithState.toolCallMessageId,
-                  actionName: eventWithState.toolCallName,
-                  scope: "client",
-                });
-              }
+              events.push({
+                type: RuntimeEventTypes.ActionExecutionStart,
+                actionExecutionId: acc.lastToolCallId,
+                actionName: acc.lastToolCallName,
+                parentMessageId: acc.lastMessageId,
+              });
             }
             // Message started: emit TextMessageStart
-            else if (
-              eventWithState.messageId !== null &&
-              eventWithState.prevMessageId !== eventWithState.messageId
-            ) {
-              if (shouldEmitMessages) {
-                events.push({
-                  type: RuntimeEventTypes.TextMessageStart,
-                  messageId: eventWithState.messageId,
-                });
-              }
+            else if (acc.isMessageStart && shouldEmitMessages) {
+              events.push({
+                type: RuntimeEventTypes.TextMessageStart,
+                messageId: acc.lastMessageId,
+              });
             }
-
-            const args =
-              eventWithState.event.data?.chunk?.kwargs?.tool_call_chunks?.[0]?.args ??
-              // @ts-expect-error -- sdf
-              eventWithState.event.data?.chunk?.tool_call_chunks?.[0]?.args;
-            const content = eventWithState.content;
 
             // Tool call args: emit ActionExecutionArgs
-            if (args) {
-              if (this.shouldEmitToolCall(shouldEmitToolCalls, eventWithState.toolCallName)) {
-                events.push({
-                  type: RuntimeEventTypes.ActionExecutionArgs,
-                  args,
-                });
-              }
+            if (
+              acc.isToolCall &&
+              acc.currentContent &&
+              this.shouldEmitToolCall(shouldEmitToolCalls, acc.lastToolCallName)
+            ) {
+              events.push({
+                type: RuntimeEventTypes.ActionExecutionArgs,
+                actionExecutionId: acc.lastToolCallId,
+                args: acc.currentContent,
+              });
             }
             // Message content: emit TextMessageContent
-            else if (eventWithState.messageId !== null && content) {
-              if (shouldEmitMessages) {
-                events.push({
-                  type: RuntimeEventTypes.TextMessageContent,
-                  content,
-                });
-              }
+            else if (!acc.isToolCall && acc.currentContent && shouldEmitMessages) {
+              events.push({
+                type: RuntimeEventTypes.TextMessageContent,
+                messageId: acc.lastMessageId,
+                content: acc.currentContent,
+              });
             }
             break;
         }
@@ -263,14 +251,16 @@ export class RemoteLangGraphEventSource {
         console.error(error);
         const events: RuntimeEvent[] = [];
 
-        if (lastEventWithState?.messageId) {
+        if (lastEventWithState?.lastMessageId && !lastEventWithState.isToolCall) {
           events.push({
             type: RuntimeEventTypes.TextMessageEnd,
+            messageId: lastEventWithState.lastMessageId,
           });
         }
-        if (lastEventWithState?.toolCallMessageId) {
+        if (lastEventWithState?.lastToolCallId) {
           events.push({
             type: RuntimeEventTypes.ActionExecutionEnd,
+            actionExecutionId: lastEventWithState.lastToolCallId,
           });
         }
 
@@ -282,10 +272,12 @@ export class RemoteLangGraphEventSource {
         });
         events.push({
           type: RuntimeEventTypes.TextMessageContent,
+          messageId: messageId,
           content: "❌ An error occurred. Please try again.",
         });
         events.push({
           type: RuntimeEventTypes.TextMessageEnd,
+          messageId: messageId,
         });
 
         return events;
