@@ -2,10 +2,8 @@ name: Preview Environments
 
 on:
   pull_request:
-    paths:
-      - "./CopilotKit/**/*"
-      - "./examples/**/*"
-      - "./sdk-python/**/*"
+    paths-ignore:
+      - docs/**/*
     branches:
       - main
       - pre/*
