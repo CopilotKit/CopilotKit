@@ -15,6 +15,8 @@ import { GuardrailsResult } from "../graphql/types/guardrails-result.type";
 import telemetry from "../lib/telemetry-client";
 import { isLangGraphAgentAction } from "../lib/runtime/remote-actions";
 import { ActionInput } from "../graphql/inputs/action.input";
+import { ActionExecutionMessage, ResultMessage } from "../graphql/types/converted";
+import { plainToInstance } from "class-transformer";
 
 export enum RuntimeEventTypes {
   TextMessageStart = "TextMessageStart",
@@ -318,14 +320,34 @@ async function executeAction(
 
   // handle LangGraph agents
   if (isLangGraphAgentAction(action)) {
+    const result = `${action.name} agent started`;
+
+    const agentExecution = plainToInstance(ActionExecutionMessage, {
+      id: actionExecutionId,
+      createdAt: new Date(),
+      name: action.name,
+      arguments: JSON.parse(actionArguments),
+      parentMessageId: actionExecutionId,
+    });
+
+    const agentExecutionResult = plainToInstance(ResultMessage, {
+      id: "result-" + actionExecutionId,
+      createdAt: new Date(),
+      actionExecutionId,
+      actionName: action.name,
+      result,
+    });
+
     eventStream$.sendActionExecutionResult({
       actionExecutionId,
       actionName: action.name,
-      result: `${action.name} agent started`,
+      result,
     });
+
     const stream = await action.langGraphAgentHandler({
       name: action.name,
       actionInputsWithoutAgents,
+      additionalMessages: [agentExecution, agentExecutionResult],
     });
 
     // forward to eventStream$

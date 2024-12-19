@@ -2,14 +2,35 @@
 
 set -e  # Exit immediately if a command exits with a non-zero status
 
+# Save the current directory
+root_dir=$(pwd)
+
+# If the first argument is --help, list all possible examples
+if [ "$1" == "--help" ]; then
+  echo "Usage: $0 [example_directory] [backend]"
+  echo "  - example_directory: The name of the example directory (default: coagents-research-canvas)"
+  echo "  - backend: The backend to use (fastapi or langgraph-platform, default: fastapi)"
+  echo ""
+  echo "NOTE: Make sure to have GNU parallel and langgraph CLI installed."
+  echo ""
+  echo "Available example directories:"
+  for dir in $(ls -d "$root_dir/../examples/"*/); do
+    # Skip the 'e2e' directory
+    if [ "$(basename "$dir")" == "e2e" ]; then
+      continue
+    fi
+    echo "  - $(basename "$dir")"
+  done
+  exit 0
+fi
+
+
 # Check if GNU parallel is installed
 if ! command -v parallel &> /dev/null; then
   echo "Error:GNU parallel is not installed. Please install to proceed. (brew install parallel)"
   exit 1
 fi
 
-# Save the current directory
-root_dir=$(pwd)
 
 # The first argument is the example directory name, defaulting to "coagents-research-canvas" if not provided
 example_dir="${1:-coagents-research-canvas}"

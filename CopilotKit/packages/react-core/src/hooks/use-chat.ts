@@ -207,6 +207,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         };
       });
 
+    const isAgentRun = agentSessionRef.current !== null;
+
     const stream = runtimeClient.asStream(
       runtimeClient.generateCopilotResponse({
         data: {
@@ -381,6 +383,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       }
       const finalMessages = constructFinalMessages(syncedMessages, previousMessages, newMessages);
 
+      let didExecuteAction = false;
+
       // execute regular action executions that are specific to the frontend (last actions)
       if (onFunctionCall) {
         // Find consecutive action execution messages at the end
@@ -411,11 +415,13 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               name: message.name,
               args: message.arguments,
             });
+            didExecuteAction = true;
             const messageIndex = finalMessages.findIndex((msg) => msg.id === message.id);
             finalMessages.splice(
               messageIndex + 1,
               0,
               new ResultMessage({
+                id: "result-" + message.id,
                 result: ResultMessage.encodeResult(result),
                 actionExecutionId: message.id,
                 actionName: message.name,
@@ -430,9 +436,12 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
       if (
         // if followUp is not explicitly false
         followUp !== false &&
-        // and the last message we have is a result
-        finalMessages.length &&
-        finalMessages[finalMessages.length - 1].isResultMessage()
+        // and we executed an action
+        (didExecuteAction ||
+          // the last message is a server side result
+          (!isAgentRun &&
+            finalMessages.length &&
+            finalMessages[finalMessages.length - 1].isResultMessage()))
       ) {
         // run the completion again and return the result
 
@@ -505,6 +514,7 @@ function constructFinalMessages(
     const messagesWithAgentState = [...previousMessages, ...newMessages];
 
     let previousMessageId: string | undefined = undefined;
+
     for (const message of messagesWithAgentState) {
       if (message.isAgentStateMessage()) {
         // insert this message into finalMessages after the position of previousMessageId

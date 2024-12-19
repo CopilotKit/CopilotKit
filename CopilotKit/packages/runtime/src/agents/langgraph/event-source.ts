@@ -41,8 +41,8 @@ export class RemoteLangGraphEventSource {
     if (!content) {
       const toolCallChunks = this.getCurrentToolCallChunks(event) ?? [];
       for (const chunk of toolCallChunks) {
-        if (chunk.function?.arguments) {
-          return chunk.function.arguments;
+        if (chunk.args) {
+          return chunk.args;
         }
       }
     }

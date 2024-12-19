@@ -454,7 +454,7 @@ export class CopilotResolver {
               case RuntimeEventTypes.ActionExecutionResult:
                 logger.debug({ result: event.result }, "Action execution result event received");
                 pushMessage({
-                  id: randomId(),
+                  id: "result-" + event.actionExecutionId,
                   status: new SuccessMessageStatus(),
                   createdAt: new Date(),
                   actionExecutionId: event.actionExecutionId,
@@ -464,7 +464,7 @@ export class CopilotResolver {
 
                 outputMessages.push(
                   plainToInstance(ResultMessage, {
-                    id: randomId(),
+                    id: "result-" + event.actionExecutionId,
                     createdAt: new Date(),
                     actionExecutionId: event.actionExecutionId,
                     actionName: event.actionName,
