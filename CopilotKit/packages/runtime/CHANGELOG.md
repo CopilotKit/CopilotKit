@@ -1,5 +1,85 @@
 # @copilotkit/runtime
 
+## 1.4.8-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.4.8-next.0
+
+## 1.4.7
+
+### Patch Changes
+
+- Fix broken build script before release
+- Updated dependencies
+  - @copilotkit/shared@1.4.7
+
+## 1.4.6
+
+### Patch Changes
+
+- .
+
+## 1.4.5
+
+### Patch Changes
+
+- testing release workflow
+- Updated dependencies
+  - @copilotkit/shared@1.4.5
+
+## 1.4.5-next.0
+
+### Patch Changes
+
+- testing release workflow
+- Updated dependencies
+  - @copilotkit/shared@1.4.5-next.0
+
+## 1.4.4
+
+### Patch Changes
+
+- 665deab: test prerelease
+- 57a6012: test next prerelease automation
+- 7cfc2e7: test prerelease stuff
+- af36f1a: - feat(runtime): readme update
+  - @copilotkit/shared@1.4.4
+
+## 1.4.4-next.4
+
+### Patch Changes
+
+- 57a6012: test next prerelease automation
+  - @copilotkit/shared@1.4.4-next.4
+
+## 1.4.4-next.3
+
+### Patch Changes
+
+- 7cfc2e7: test prerelease stuff
+  - @copilotkit/shared@1.4.4-next.3
+
+## 1.4.4-next.2
+
+### Patch Changes
+
+- 665deab: test prerelease
+  - @copilotkit/shared@1.4.4-next.2
+
+## 1.4.4-next.1
+
+### Patch Changes
+
+- af36f1a: - feat(runtime): readme update
+  - @copilotkit/shared@1.4.4-next.1
+
+## 1.4.4-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.4.4-next.0
+
 ## 1.4.3
 
 ### Patch Changes

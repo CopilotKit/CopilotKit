@@ -32,25 +32,23 @@ In your agent's workflow, you'll want to ask the user specific questions or prom
         ```
     </Tab>
     <Tab value="TypeScript">
-        <InsecurePasswordProtected>
-            ```typescript
-            import { copilotKitEmitMessage } from "@copilotkit/sdk-js/langchain";
+        ```typescript
+        import { copilotKitEmitMessage } from "@copilotkit/sdk-js/langchain";
 
-            // ...
+        // ...
 
-            async function askNameNode(state: GreetAgentState, config: RunnableConfig): Promise<AgentState> {
-                /**
-                 * Ask the user for their name.
-                 */
+        async function askNameNode(state: GreetAgentState, config: RunnableConfig): Promise<AgentState> {
+            /**
+             * Ask the user for their name.
+             */
 
-                await copilotKitEmitMessage(config, "Hey, what is your name? 🙂");
+            await copilotKitEmitMessage(config, "Hey, what is your name? 🙂");
 
-                return {
-                    messages: state.messages,
-                };
-            }
-            ```
-        </InsecurePasswordProtected>
+            return {
+                messages: state.messages,
+            };
+        }
+        ```
     </Tab>
 </Tabs>
 
@@ -70,19 +68,17 @@ In your agent's workflow, you'll want to ask the user specific questions or prom
         ```
     </Tab>
     <Tab value="TypeScript">
-        <InsecurePasswordProtected>
-            ```typescript
-            import { copilotKitEmitMessage } from "@copilotkit/sdk-js/langchain";
+        ```typescript
+        import { copilotKitEmitMessage } from "@copilotkit/sdk-js/langchain";
 
-            // ...
+        // ...
 
-            if (lastMessage.content === "CANCEL") {
-                await copilotKitEmitMessage(config, "❌ Cancelled sending email.");
-            } else {
-                await copilotKitEmitMessage(config, "✅ Sent email.");
-            }
-            ```
-        </InsecurePasswordProtected>
+        if (lastMessage.content === "CANCEL") {
+            await copilotKitEmitMessage(config, "❌ Cancelled sending email.");
+        } else {
+            await copilotKitEmitMessage(config, "✅ Sent email.");
+        }
+        ```
     </Tab>
 </Tabs>
 
@@ -132,49 +128,47 @@ While LangGraph will emit the current agent state after each node in the workflo
         ```
     </Tab>
     <Tab value="TypeScript">
-        <InsecurePasswordProtected>
-            ```typescript
-            import { copilotKitEmitMessage, copilotKitEmitState } from "@copilotkit/sdk-js/langchain";
+        ```typescript
+        import { copilotKitEmitMessage, copilotKitEmitState } from "@copilotkit/sdk-js/langchain";
 
-            // ...
+        // ...
 
-            async function downloadNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
-                /**
-                 * Download resources from the internet.
-                 */
-                state.resources = state.resources || [];
-                state.logs = state.logs || [];
-                const resourcesToDownload = [];
+        async function downloadNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
+            /**
+             * Download resources from the internet.
+             */
+            state.resources = state.resources || [];
+            state.logs = state.logs || [];
+            const resourcesToDownload = [];
 
-                const logsOffset = state.logs.length;
+            const logsOffset = state.logs.length;
 
-                // Find resources that are not downloaded
-                for (const resource of state.resources) {
-                    if (!getResource(resource.url)) {
-                        resourcesToDownload.push(resource);
-                        state.logs.push({
-                            message: `Downloading ${resource.url}`,
-                            done: false
-                        });
-                    }
+            // Find resources that are not downloaded
+            for (const resource of state.resources) {
+                if (!getResource(resource.url)) {
+                    resourcesToDownload.push(resource);
+                    state.logs.push({
+                        message: `Downloading ${resource.url}`,
+                        done: false
+                    });
                 }
-
-                // Emit the state to let the UI update
-                await copilotKitEmitState(config, state); // [!code highlight]
-
-                // Download the resources
-                for (let i = 0; i < resourcesToDownload.length; i++) {
-                    const resource = resourcesToDownload[i];
-                    await _downloadResource(resource.url);
-                    state.logs[logsOffset + i].done = true;
-
-                    // update UI
-                    await copilotKitEmitState(config, state); // [!code highlight]
-                }
-
-                return state;
             }
-            ```
-        </InsecurePasswordProtected>
+
+            // Emit the state to let the UI update
+            await copilotKitEmitState(config, state); // [!code highlight]
+
+            // Download the resources
+            for (let i = 0; i < resourcesToDownload.length; i++) {
+                const resource = resourcesToDownload[i];
+                await _downloadResource(resource.url);
+                state.logs[logsOffset + i].done = true;
+
+                // update UI
+                await copilotKitEmitState(config, state); // [!code highlight]
+            }
+
+            return state;
+        }
+        ```
     </Tab>
 </Tabs>

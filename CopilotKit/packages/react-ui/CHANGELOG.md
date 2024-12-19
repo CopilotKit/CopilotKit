@@ -1,5 +1,112 @@
 # ui
 
+## 1.4.8-next.0
+
+### Patch Changes
+
+- ea0c5d5: - fix: prevent sending empty messages via Enter key
+
+  When the input field was empty, pressing Enter would still trigger the
+  send() function despite the send button being correctly disabled. Added
+  the sendDisabled check to the onKeyDown handler to ensure consistent
+  validation between button and keyboard triggers.
+
+  - Added validation check to Enter key handler
+  - Ensures empty messages can't be sent via keyboard shortcut
+  - Makes behavior consistent with disabled send button state
+
+  Resolves #1129
+
+  - @copilotkit/react-core@1.4.8-next.0
+  - @copilotkit/runtime-client-gql@1.4.8-next.0
+  - @copilotkit/shared@1.4.8-next.0
+
+## 1.4.7
+
+### Patch Changes
+
+- Fix broken build script before release
+- Updated dependencies
+  - @copilotkit/react-core@1.4.7
+  - @copilotkit/runtime-client-gql@1.4.7
+  - @copilotkit/shared@1.4.7
+
+## 1.4.6
+
+### Patch Changes
+
+- .
+
+## 1.4.5
+
+### Patch Changes
+
+- testing release workflow
+- Updated dependencies
+  - @copilotkit/react-core@1.4.5
+  - @copilotkit/runtime-client-gql@1.4.5
+  - @copilotkit/shared@1.4.5
+
+## 1.4.5-next.0
+
+### Patch Changes
+
+- testing release workflow
+- Updated dependencies
+  - @copilotkit/react-core@1.4.5-next.0
+  - @copilotkit/runtime-client-gql@1.4.5-next.0
+  - @copilotkit/shared@1.4.5-next.0
+
+## 1.4.4
+
+### Patch Changes
+
+- Updated dependencies [e35e6ad]
+  - @copilotkit/react-core@1.4.4
+  - @copilotkit/runtime-client-gql@1.4.4
+  - @copilotkit/shared@1.4.4
+
+## 1.4.4-next.4
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.4.4-next.4
+- @copilotkit/react-core@1.4.4-next.4
+- @copilotkit/shared@1.4.4-next.4
+
+## 1.4.4-next.3
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.4.4-next.3
+- @copilotkit/react-core@1.4.4-next.3
+- @copilotkit/shared@1.4.4-next.3
+
+## 1.4.4-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.4.4-next.2
+- @copilotkit/react-core@1.4.4-next.2
+- @copilotkit/shared@1.4.4-next.2
+
+## 1.4.4-next.1
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.4.4-next.1
+- @copilotkit/react-core@1.4.4-next.1
+- @copilotkit/shared@1.4.4-next.1
+
+## 1.4.4-next.0
+
+### Patch Changes
+
+- Updated dependencies [e35e6ad]
+  - @copilotkit/react-core@1.4.4-next.0
+  - @copilotkit/runtime-client-gql@1.4.4-next.0
+  - @copilotkit/shared@1.4.4-next.0
+
 ## 1.4.3
 
 ### Patch Changes

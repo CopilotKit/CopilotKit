@@ -8,16 +8,7 @@ license = "MIT"
 [project]
 name = "greeter"
 version = "0.0.1"
-dependencies = [
-  "langgraph==0.2.52",
-  "langchain_core",
-  "langchain_openai",
-  "langchain-google-genai",
-  "langchain",
-  "openai",
-  "langchain-community",
-  "",
-]
+
 
 [build-system]
 requires = ["setuptools >= 61.0"]
@@ -25,8 +16,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-langgraph = "0.2.52"
-langchain-core = "^0.3.8"
 langchain-openai = "^0.2.1"
 langchain-anthropic = "^0.2.1"
 langchain = "^0.3.1"
@@ -36,6 +25,8 @@ copilotkit = "0.1.30"
 uvicorn = "^0.31.0"
 python-dotenv = "^1.0.1"
 langchain-google-genai = "^2.0.4"
+langchain-core = "^0.3.25"
+langgraph-cli = {extras = ["inmem"], version = "^0.1.64"}
 
 [tool.poetry.scripts]
 demo = "my_agent.demo:main"

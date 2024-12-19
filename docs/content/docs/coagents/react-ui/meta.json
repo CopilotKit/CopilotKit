@@ -4,6 +4,6 @@
   "pages": [
     "in-app-agent-read",
     "in-app-agent-write",
-    "frontend-functions"
+    "hitl"
   ]
 }

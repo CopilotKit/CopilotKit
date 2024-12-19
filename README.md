@@ -65,7 +65,7 @@
 
 ![Spreadsheet Demo](https://github.com/user-attachments/assets/0935da06-668e-41b1-806e-19a1a1574be2)
 
-[View Demo Repository →](https://github.com/CopilotKit/demo-presentation)
+[View Demo Repository →](https://github.com/CopilotKit/demo-spreadsheet)
 </details>
 
 A powerful spreadsheet assistant that helps users analyze data, create formulas, and generate insights through natural language interaction.
@@ -198,7 +198,7 @@ const { agentState } = useCoAgent({
 });
 
 // agentic generative UI
-useCoagentStateRender({
+useCoAgentStateRender({
   name: "basic_agent",
   render: ({ state }) => <WeatherDisplay {...state.final_response} />,
 });

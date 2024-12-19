@@ -20,6 +20,16 @@ const config = {
         destination: '/coagents/tutorials/ai-travel-app',
         permanent: true,
       },
+      {
+        source: '/coagents/chat-ui/hitl/json-hitl',
+        destination: '/coagents/chat-ui/hitl',
+        permanent: true,
+      },
+      {
+        source: '/coagents/react-ui/frontend-functions',
+        destination: '/coagents/react-ui/hitl',
+        permanent: true,
+      }
     ];
   },
 };

@@ -2,6 +2,10 @@ name: Preview Environments
 
 on:
   pull_request:
+    paths:
+      - "./CopilotKit/**/*"
+      - "./examples/**/*"
+      - "./sdk-python/**/*"
     branches:
       - main
       - pre/*
@@ -12,6 +16,7 @@ concurrency:
 
 jobs:
   build_images:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'automated-version-pr') }}
     runs-on: ubuntu-latest
     name: Build Images
     strategy:
