@@ -82,12 +82,15 @@ In order for CopilotKit to integrate with your LangGraph agent, the agent has to
             Once you've found your runtime instance, you can connect your app to the remote endpoint by modifying your CopilotRuntime configuration.
 
             ```tsx
+              // ...
+              import { langGraphPlatformEndpoint } from '@copilotkit/runtime'; // [!code highlight]
+
               const runtime = new CopilotRuntime({
                 // ...existing configuration
                 remoteEndpoints: [
                   langGraphPlatformEndpoint({
                     deploymentUrl: "your-api-url", // make sure to replace with your real deployment url // [!code highlight]
-                    langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deoployments
+                    langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deployments
                     agents: [ // List any agents available under "graphs" list in your langgraph.json file; give each a description explaining when it should be called.
                       {
                         name: 'my_agent', // [!code highlight]
