@@ -135,7 +135,7 @@ export function logMessages(context: CopilotMessagesContextParams) {
         type: "ActionExecutionMessage",
         role: undefined,
         name: message.name,
-        scope: message.scope,
+        scope: message.parentMessageId,
         content: message.arguments,
       };
     } else if (message.isResultMessage()) {

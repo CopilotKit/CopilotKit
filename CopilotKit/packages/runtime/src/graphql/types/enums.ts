@@ -7,12 +7,6 @@ export enum MessageRole {
   tool = "tool",
 }
 
-export enum ActionExecutionScope {
-  server = "server",
-  client = "client",
-  passThrough = "passThrough",
-}
-
 export enum CopilotRequestType {
   Chat = "Chat",
   Task = "Task",
@@ -30,11 +24,6 @@ export enum ActionInputAvailability {
 registerEnumType(MessageRole, {
   name: "MessageRole",
   description: "The role of the message",
-});
-
-registerEnumType(ActionExecutionScope, {
-  name: "ActionExecutionScope",
-  description: "The scope of the action",
 });
 
 registerEnumType(CopilotRequestType, {
