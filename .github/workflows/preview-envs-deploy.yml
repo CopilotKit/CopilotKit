@@ -2,8 +2,6 @@ name: Preview Environments
 
 on:
   pull_request:
-    paths-ignore:
-      - docs/**/*
     branches:
       - main
       - pre/*
