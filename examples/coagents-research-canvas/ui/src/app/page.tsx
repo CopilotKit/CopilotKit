@@ -22,7 +22,7 @@ function Home() {
 
   return (
     <CopilotKit
-      runtimeUrl={`/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl ?? ''}`}
+      runtimeUrl={`/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl ?? ""}`}
       showDevConsole={false}
       agent={agent}
     >
