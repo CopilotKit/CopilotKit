@@ -1,5 +1,5 @@
 import { Field, InterfaceType, ObjectType } from "type-graphql";
-import { MessageRole, ActionExecutionScope } from "./enums";
+import { MessageRole } from "./enums";
 import { MessageStatusUnion } from "./message-status.type";
 import { ResponseStatusUnion } from "./response-status.type";
 
@@ -35,6 +35,9 @@ export class TextMessageOutput {
 
   @Field(() => [String])
   content: string[];
+
+  @Field(() => String, { nullable: true })
+  parentMessageId?: string;
 }
 
 @ObjectType({ implements: BaseMessageOutput })
@@ -42,11 +45,17 @@ export class ActionExecutionMessageOutput {
   @Field(() => String)
   name: string;
 
-  @Field(() => ActionExecutionScope)
-  scope: ActionExecutionScope;
+  @Field(() => String, {
+    nullable: true,
+    deprecationReason: "This field will be removed in a future version",
+  })
+  scope?: string;
 
   @Field(() => [String])
   arguments: string[];
+
+  @Field(() => String, { nullable: true })
+  parentMessageId?: string;
 }
 
 @ObjectType({ implements: BaseMessageOutput })
