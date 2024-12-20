@@ -2,90 +2,90 @@
 This is the main entry point for the AI.
 It defines the workflow graph and the entry point for the agent.
 """
-# pylint: disable=line-too-long, unused-import
 
-import json
-from typing import cast, TypedDict
+from typing_extensions import Literal
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage, ToolMessage, AIMessage, HumanMessage
+from langchain_core.messages import SystemMessage, AIMessage
 from langchain_core.runnables import RunnableConfig
+from langchain.tools import tool
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import MessagesState
-from copilotkit.langchain import copilotkit_customize_config
+from langgraph.types import Command
+from langgraph.prebuilt import ToolNode
+from copilotkit import CopilotKitState
 
-class Translations(TypedDict):
-    """Contains the translations in four different languages."""
-    translation_es: str
-    translation_fr: str
-    translation_de: str
-
-class AgentState(MessagesState):
+class AgentState(CopilotKitState):
     """Contains the state of the agent."""
-    translations: Translations
-    input: str
+    # your custom agent state here
 
-async def translate_node(state: AgentState, config: RunnableConfig):
-    """Chatbot that translates text"""
+@tool
+def greet_user(name: str):
+    """Say hello to the user."""
+    print(f"Hello, {name}!")
+    return "The user was greeted. YOU MUST TELL THE USER TO CHECK THE CONSOLE FOR THE RESULT."
 
-    config = copilotkit_customize_config(
-        config,
-        emit_messages=True,
-        emit_intermediate_state=[
-            {
-                "state_key": "translations",
-                "tool": "translate"
-            }
-        ]
-    )
+# This tool node is responsible for executing tools defined in LangGraph
+tool_node = ToolNode(tools=[greet_user])
+
+async def frontend_tool_node(state: AgentState, config: RunnableConfig): # pylint: disable=unused-argument
+    """Frontend tool node."""
+    # To execute frontend actions in CopilotKit, we interrupt execution of the graph
+    # (see interrupt_after below) and let CopilotKit handle the rest.
+
+async def react_node(state: AgentState, config: RunnableConfig) \
+    -> Command[Literal["frontend_tool_node", "tool_node", "__end__"]]:
+    """CopilotKit ReAct Agent"""
 
     model = ChatOpenAI(model="gpt-4o").bind_tools(
-        [Translations],
-        parallel_tool_calls=False,
-        tool_choice=(
-            None if state["messages"] and
-            isinstance(state["messages"][-1], HumanMessage)
-            else "Translations"
-        )
+        [*state["copilotkit"]["actions"], greet_user]
     )
 
     response = await model.ainvoke([
         SystemMessage(
-            content=f"""
-            You are a helpful assistant that translates text to different languages 
-            (Spanish, French and German).
-            Don't ask for confirmation before translating.
-            {
-                'The user is currently working on translating this text: "' + 
-                state["input"] + '"' if state.get("input") else ""
-            }
-            """
+            content="You are a helpful assistant."
         ),
         *state["messages"],
     ], config)
 
-    if hasattr(response, "tool_calls") and len(getattr(response, "tool_calls")) > 0:
-        ai_message = cast(AIMessage, response)
-        return {
-            "messages": [
-                response,
-                ToolMessage(
-                    content="Translated!",
-                    tool_call_id=ai_message.tool_calls[0]["id"]
-                )
-            ],
-            "translations": cast(AIMessage, response).tool_calls[0]["args"],
-        }
+    if isinstance(response, AIMessage) and response.tool_calls:
+        actions = state["copilotkit"]["actions"]
 
-    return {
-        "messages": [           
-            response,
-        ],
-    }
+        for tool_call in response.tool_calls:
+            # if there is any frontend action, go to the frontend tool node
+            if any(action.get("name") == tool_call.get("name") for action in actions):
+                return Command(
+                    goto="frontend_tool_node",
+                    update={
+                        "messages": response
+                    }
+                )
+
+        # run the LangGraph tool node
+        return Command(
+            goto="tool_node",
+            update={
+                "messages": response
+            }
+        )
+
+    # if there are no tool calls, end the graph
+    return Command(
+        goto=END,
+        update={
+            "messages": response
+        }
+    )
 
 workflow = StateGraph(AgentState)
-workflow.add_node("translate_node", translate_node)
-workflow.set_entry_point("translate_node")
-workflow.add_edge("translate_node", END)
+workflow.add_node("react_node", react_node)
+workflow.add_node("frontend_tool_node", frontend_tool_node)
+workflow.add_node("tool_node", tool_node)
+workflow.add_edge("tool_node", "react_node")
+workflow.add_edge("frontend_tool_node", "react_node")
+workflow.set_entry_point("react_node")
+
 memory = MemorySaver()
-graph = workflow.compile(checkpointer=memory)
+graph = workflow.compile(
+    checkpointer=memory,
+    interrupt_after=["frontend_tool_node"]
+)
