@@ -344,6 +344,7 @@ export const useCopilotChatLogic = (
   const {
     visibleMessages,
     appendMessage,
+    runChatCompletion,
     reloadMessages: defaultReloadMessages,
     stopGeneration: defaultStopGeneration,
     isLoading,
@@ -387,7 +388,7 @@ export const useCopilotChatLogic = (
 
     return () => {
       clearTimeout(debounceTimerRef.current);
-    }
+    };
   }, [
     isLoading,
     context.chatSuggestionConfiguration,
@@ -445,7 +446,13 @@ export const useCopilotChatLogic = (
   };
   const runCurrentAgent = async (hint?: HintFunction) => {
     if (generalContext.agentSession) {
-      await runAgent(generalContext.agentSession.agentName, context, appendMessage, hint);
+      await runAgent(
+        generalContext.agentSession.agentName,
+        context,
+        appendMessage,
+        runChatCompletion,
+        hint,
+      );
     }
   };
   const stopCurrentAgent = () => {

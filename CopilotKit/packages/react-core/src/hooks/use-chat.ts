@@ -18,6 +18,7 @@ import {
   Role,
   CopilotRequestType,
   ActionInputAvailability,
+  loadMessagesFromJsonRepresentation,
 } from "@copilotkit/runtime-client-gql";
 
 import { CopilotApiConfig } from "../context";
@@ -212,32 +213,32 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
     const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
 
+    const filteredActions = actions
+      .filter((action) => action.available !== ActionInputAvailability.Disabled || !action.disabled)
+      .map((action) => {
+        let available: ActionInputAvailability | undefined = ActionInputAvailability.Enabled;
+        if (action.disabled) {
+          available = ActionInputAvailability.Disabled;
+        } else if (action.available === "disabled") {
+          available = ActionInputAvailability.Disabled;
+        } else if (action.available === "remote") {
+          available = ActionInputAvailability.Remote;
+        }
+        return {
+          name: action.name,
+          description: action.description || "",
+          jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
+          available,
+        };
+      });
+
+    const isAgentRun = agentSessionRef.current !== null;
+
     const stream = runtimeClient.asStream(
       runtimeClient.generateCopilotResponse({
         data: {
           frontend: {
-            actions: actions
-              .filter(
-                (action) =>
-                  action.available !== ActionInputAvailability.Disabled || !action.disabled,
-              )
-              .map((action) => {
-                let available: ActionInputAvailability | undefined =
-                  ActionInputAvailability.Enabled;
-                if (action.disabled) {
-                  available = ActionInputAvailability.Disabled;
-                } else if (action.available === "disabled") {
-                  available = ActionInputAvailability.Disabled;
-                } else if (action.available === "remote") {
-                  available = ActionInputAvailability.Remote;
-                }
-                return {
-                  name: action.name,
-                  description: action.description || "",
-                  jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
-                  available,
-                };
-              }),
+            actions: filteredActions,
             url: window.location.href,
           },
           threadId: threadIdRef.current,
@@ -284,9 +285,11 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
     const reader = stream.getReader();
 
-    let actionResults: { [id: string]: string } = {};
     let executedCoAgentStateRenders: string[] = [];
     let followUp: FrontendAction["followUp"] = undefined;
+
+    let messages: Message[] = [];
+    let syncedMessages: Message[] = [];
 
     try {
       while (true) {
@@ -299,10 +302,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         } catch (readError) {
           break;
         }
-
         if (done) {
           if (chatAbortControllerRef.current.signal.aborted) {
-            return []
+            return [];
           }
           break;
         }
@@ -317,7 +319,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         setThreadId(threadIdRef.current);
         setRunId(runIdRef.current);
 
-        const messages = convertGqlOutputToMessages(
+        messages = convertGqlOutputToMessages(
           filterAdjacentAgentStateMessages(value.generateCopilotResponse.messages),
         );
 
@@ -327,7 +329,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
         newMessages = [];
 
-        // request failed, display error message
+        // request failed, display error message and quit
         if (
           value.generateCopilotResponse.status?.__typename === "FailedResponseStatus" &&
           value.generateCopilotResponse.status.reason === "GUARDRAILS_VALIDATION_FAILED"
@@ -338,64 +340,16 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               content: value.generateCopilotResponse.status.details?.guardrailsReason || "",
             }),
           ];
+          setMessages([...previousMessages, ...newMessages]);
+          break;
         }
 
         // add messages to the chat
         else {
+          newMessages = [...messages];
+
           for (const message of messages) {
-            newMessages.push(message);
-            // execute regular action executions
-            if (
-              message.isActionExecutionMessage() &&
-              message.status.code !== MessageStatusCode.Pending &&
-              message.scope === "client" &&
-              onFunctionCall
-            ) {
-              if (!(message.id in actionResults)) {
-                // Do not execute a function call if guardrails are enabled but the status is not known
-                if (guardrailsEnabled && value.generateCopilotResponse.status === undefined) {
-                  break;
-                }
-                // execute action
-                try {
-                  // We update the message state before calling the handler so that the render
-                  // function can be called with `executing` state
-                  setMessages([...previousMessages, ...newMessages]);
-
-                  const action = actions.find((action) => action.name === message.name);
-
-                  if (action) {
-                    followUp = action.followUp;
-                  }
-
-                  const result = await Promise.race([
-                    onFunctionCall({
-                      messages: previousMessages,
-                      name: message.name,
-                      args: message.arguments,
-                    }),
-                    new Promise((_, reject) => chatAbortControllerRef.current?.signal.addEventListener('abort', () => reject(new Error('Operation was aborted'))))
-                  ])
-                  if (chatAbortControllerRef.current.signal.aborted){
-                    actionResults[message.id] = "";
-                  } else {
-                    actionResults[message.id] = result;
-                  }
-                } catch (e) {
-                  actionResults[message.id] = `Failed to execute action ${message.name}`;
-                  console.error(`Failed to execute action ${message.name}: ${e}`);
-                }
-              }
-              // add the result message
-              newMessages.push(
-                new ResultMessage({
-                  result: ResultMessage.encodeResult(actionResults[message.id]),
-                  actionExecutionId: message.id,
-                  actionName: message.name,
-                }),
-              );
-            }
-            // execute coagent actions
+            // execute onCoAgentStateRender handler
             if (
               message.isAgentStateMessage() &&
               !message.active &&
@@ -421,6 +375,14 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             .find((message) => message.isAgentStateMessage());
 
           if (lastAgentStateMessage) {
+            if (
+              lastAgentStateMessage.state.messages &&
+              lastAgentStateMessage.state.messages.length > 0
+            ) {
+              syncedMessages = loadMessagesFromJsonRepresentation(
+                lastAgentStateMessage.state.messages,
+              );
+            }
             setCoagentStatesWithRef((prevAgentStates) => ({
               ...prevAgentStates,
               [lastAgentStateMessage.agentName]: {
@@ -450,14 +412,92 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           setMessages([...previousMessages, ...newMessages]);
         }
       }
+      const finalMessages = constructFinalMessages(syncedMessages, previousMessages, newMessages);
+
+      let didExecuteAction = false;
+
+      // execute regular action executions that are specific to the frontend (last actions)
+      if (onFunctionCall) {
+        // Find consecutive action execution messages at the end
+        const lastMessages = [];
+        for (let i = finalMessages.length - 1; i >= 0; i--) {
+          const message = finalMessages[i];
+          if (
+            message.isActionExecutionMessage() &&
+            message.status.code !== MessageStatusCode.Pending
+          ) {
+            lastMessages.unshift(message);
+          } else {
+            break;
+          }
+        }
+
+        for (const message of lastMessages) {
+          // We update the message state before calling the handler so that the render
+          // function can be called with `executing` state
+          setMessages(finalMessages);
+
+          const action = actions.find((action) => action.name === message.name);
+
+          if (action) {
+            try {
+              followUp = action.followUp;
+              didExecuteAction = true;
+              const result = await Promise.race([
+                onFunctionCall({
+                  messages: previousMessages,
+                  name: message.name,
+                  args: message.arguments,
+                }),
+                new Promise((_, reject) =>
+                  chatAbortControllerRef.current?.signal.addEventListener("abort", () =>
+                    reject(new Error("Operation was aborted")),
+                  ),
+                ),
+              ]);
+
+              const messageIndex = finalMessages.findIndex((msg) => msg.id === message.id);
+              finalMessages.splice(
+                messageIndex + 1,
+                0,
+                new ResultMessage({
+                  id: "result-" + message.id,
+                  result: ResultMessage.encodeResult(
+                    chatAbortControllerRef.current.signal.aborted ? "" : result,
+                  ),
+                  actionExecutionId: message.id,
+                  actionName: message.name,
+                }),
+              );
+            } catch (error) {
+              console.error(`Failed to execute action ${message.name}: ${error}`);
+              const messageIndex = finalMessages.findIndex((msg) => msg.id === message.id);
+              finalMessages.splice(
+                messageIndex + 1,
+                0,
+                new ResultMessage({
+                  id: "result-" + message.id,
+                  result: ResultMessage.encodeResult(`Failed to execute action ${message.name}`),
+                  actionExecutionId: message.id,
+                  actionName: message.name,
+                }),
+              );
+            }
+          }
+        }
+
+        setMessages(finalMessages);
+      }
 
       if (
         // if followUp is not explicitly false
         followUp !== false &&
-        // if we have client side results
-        (Object.values(actionResults).length ||
-          // or the last message we received is a result
-          (newMessages.length && newMessages[newMessages.length - 1].isResultMessage()))
+        // and we executed an action
+        (didExecuteAction ||
+          // the last message is a server side result
+          (!isAgentRun &&
+            finalMessages.length &&
+            finalMessages[finalMessages.length - 1].isResultMessage()))
       ) {
         // run the completion again and return the result
 
@@ -465,7 +505,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         // - tried using react-dom's flushSync, but it did not work
         await new Promise((resolve) => setTimeout(resolve, 10));
 
-        return await runChatCompletionRef.current!([...previousMessages, ...newMessages]);
+        return await runChatCompletionRef.current!(finalMessages);
       } else {
         return newMessages.slice();
       }
@@ -516,4 +556,33 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     stop,
     runChatCompletion: () => runChatCompletionRef.current!(messages),
   };
+}
+
+function constructFinalMessages(
+  syncedMessages: Message[],
+  previousMessages: Message[],
+  newMessages: Message[],
+): Message[] {
+  const finalMessages =
+    syncedMessages.length > 0 ? [...syncedMessages] : [...previousMessages, ...newMessages];
+
+  if (syncedMessages.length > 0) {
+    const messagesWithAgentState = [...previousMessages, ...newMessages];
+
+    let previousMessageId: string | undefined = undefined;
+
+    for (const message of messagesWithAgentState) {
+      if (message.isAgentStateMessage()) {
+        // insert this message into finalMessages after the position of previousMessageId
+        const index = finalMessages.findIndex((msg) => msg.id === previousMessageId);
+        if (index !== -1) {
+          finalMessages.splice(index + 1, 0, message);
+        }
+      }
+
+      previousMessageId = message.id;
+    }
+  }
+
+  return finalMessages;
 }
