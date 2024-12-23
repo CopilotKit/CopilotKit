@@ -497,16 +497,24 @@ function langchainMessagesToCopilotKit(messages: any[]): any[] {
   }
 
   for (const message of messages) {
+    let content: any = message.content;
+    if (content instanceof Array) {
+      content = content[0];
+    }
+    if (content instanceof Object) {
+      content = content.text;
+    }
+
     if (message.type === "human") {
       result.push({
         role: "user",
-        content: message.content,
+        content: content,
         id: message.id,
       });
     } else if (message.type === "system") {
       result.push({
         role: "system",
-        content: message.content,
+        content: content,
         id: message.id,
       });
     } else if (message.type === "ai") {
@@ -522,7 +530,7 @@ function langchainMessagesToCopilotKit(messages: any[]): any[] {
       } else {
         result.push({
           role: "assistant",
-          content: message.content,
+          content: content,
           id: message.id,
           parentMessageId: message.id,
         });
@@ -532,7 +540,7 @@ function langchainMessagesToCopilotKit(messages: any[]): any[] {
       result.push({
         actionExecutionId: message.tool_call_id,
         actionName: actionName,
-        result: message.content,
+        result: content,
         id: message.id,
       });
     }
