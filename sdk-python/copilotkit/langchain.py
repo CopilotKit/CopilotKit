@@ -37,16 +37,29 @@ def langchain_messages_to_copilotkit(
                 tool_call_names[tool_call["id"]] = tool_call["name"]
 
     for message in messages:
+        content = None
+
+        if hasattr(message, "content"):
+            content = message.content
+
+            # Check if content is a list and use the first element
+            if isinstance(content, list):
+                content = content[0]
+
+            # Anthropic models return a dict with a "text" key
+            if isinstance(content, dict):
+                content = content.get("text", "")
+
         if isinstance(message, HumanMessage):
             result.append({
                 "role": "user",
-                "content": message.content,
+                "content": content,
                 "id": message.id,
             })
         elif isinstance(message, SystemMessage):
             result.append({
                 "role": "system",
-                "content": message.content,
+                "content": content,
                 "id": message.id,
             })
         elif isinstance(message, AIMessage):
@@ -61,7 +74,7 @@ def langchain_messages_to_copilotkit(
             else:
                 result.append({
                     "role": "assistant",
-                    "content": message.content,
+                    "content": content,
                     "id": message.id,
                     "parentMessageId": message.id,
                 })
@@ -69,7 +82,7 @@ def langchain_messages_to_copilotkit(
             result.append({
                 "actionExecutionId": message.tool_call_id,
                 "actionName": tool_call_names.get(message.tool_call_id, message.name or ""),
-                "result": message.content,
+                "result": content,
                 "id": message.id,
             })
 
