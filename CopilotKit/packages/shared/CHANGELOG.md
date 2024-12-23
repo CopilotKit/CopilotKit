@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.4.8-coagents-v0-3.1
+
+### Patch Changes
+
+- CoAgents v0.3 prerelease
+
 ## 1.4.8-next.0
 
 ## 1.4.7
