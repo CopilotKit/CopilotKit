@@ -84,6 +84,15 @@ export interface AgentSession {
   nodeName?: string;
 }
 
+export interface AuthState {
+  status: "authenticated" | "unauthenticated";
+  authHeaders: Record<string, string>;
+  userId?: string;
+  metadata?: Record<string, any>;
+}
+
+export type ActionName = string;
+
 export interface CopilotContextParams {
   // function-calling
   actions: Record<string, FrontendAction<any>>;
@@ -144,6 +153,16 @@ export interface CopilotContextParams {
 
   // runtime
   runtimeClient: CopilotRuntimeClient;
+
+  // auth
+  authStates?: Record<ActionName, AuthState>;
+  setAuthStates?: React.Dispatch<React.SetStateAction<Record<string, AuthState>>>;
+
+  authConfig?: {
+    SignInComponent: React.ComponentType<{
+      onSignInComplete: (authState: AuthState) => void;
+    }>;
+  };
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -210,7 +229,6 @@ export function useCopilotContext(): CopilotContextParams {
   return context;
 }
 
-function returnAndThrowInDebug<T>(value: T): T {
+function returnAndThrowInDebug<T>(_value: T): T {
   throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
-  return value;
 }

@@ -20,6 +20,7 @@ import {
   CopilotApiConfig,
   ChatComponentsCache,
   AgentSession,
+  AuthState,
 } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
 import { CopilotChatSuggestionConfiguration, DocumentPointer } from "../../types";
@@ -278,6 +279,7 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
   }
 
   const [agentSession, setAgentSession] = useState<AgentSession | null>(initialAgentSession);
+  const [authStates, setAuthStates] = useState<Record<string, AuthState>>({});
 
   const showDevConsole = props.showDevConsole === undefined ? "auto" : props.showDevConsole;
 
@@ -314,6 +316,9 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
         agentSession,
         setAgentSession,
         runtimeClient,
+        authConfig: props.authConfig,
+        authStates,
+        setAuthStates,
       }}
     >
       <CopilotMessages>{children}</CopilotMessages>

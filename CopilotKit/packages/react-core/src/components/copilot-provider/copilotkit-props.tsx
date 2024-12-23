@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { AuthState } from "../../context/copilot-context";
 
 /**
  * Props for CopilotKit.
@@ -78,4 +79,13 @@ export interface CopilotKitProps {
    * The name of the agent to use.
    */
   agent?: string;
+
+  /**
+   * AuthConfig
+   */
+  authConfig?: {
+    SignInComponent: React.ComponentType<{
+      onSignInComplete: (authState: AuthState) => void;
+    }>;
+  };
 }
