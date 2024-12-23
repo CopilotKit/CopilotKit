@@ -60,7 +60,7 @@ interface CopilotRuntimeResponse {
 
 type ActionsConfiguration<T extends Parameter[] | [] = []> =
   | Action<T>[]
-  | ((ctx: { properties: any; url?: string }) => Action<T>[]);
+  | ((ctx: { properties: any; url?: string }) => Promise<Action<T>[]>);
 
 interface OnBeforeRequestOptions {
   threadId?: string;
@@ -369,7 +369,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
     const configuredActions =
       typeof this.actions === "function"
-        ? this.actions({ properties: graphqlContext.properties, url })
+        ? await this.actions({ properties: graphqlContext.properties, url })
         : this.actions;
 
     return [...configuredActions, ...langserveFunctions, ...remoteActions];
