@@ -15,8 +15,8 @@ app = FastAPI()
 sdk = CopilotKitSDK(
     agents=[
         LangGraphAgent(
-            name="translate_agent",
-            description="Translate agent that translates text.",
+            name="react_agent",
+            description="ReAct agent.",
             graph=graph,
         )
     ],
