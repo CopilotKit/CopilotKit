@@ -7,10 +7,10 @@ import { z } from "zod";
 import { AgentState, AgentStateAnnotation } from "./state";
 import { RunnableConfig } from "@langchain/core/runnables";
 import {
-  copilotKitEmitMessage,
+  copilotKitCustomizeConfig,
   copilotKitExit,
 } from "@copilotkit/sdk-js/langchain";
-import { HumanMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import { getModel } from "./model";
 import { END, MemorySaver, StateGraph } from "@langchain/langgraph";
 
@@ -31,10 +31,8 @@ export async function ask_name_node(state: AgentState, config: RunnableConfig) {
    * Ask the user for their name.
    */
 
-  await copilotKitEmitMessage(config, "Hey, what is your name? 🙂");
-
   return {
-    messages: state.messages,
+    messages: new AIMessage({ content: "Hey, what is your name? 🙂" }),
   };
 }
 
@@ -50,7 +48,7 @@ export async function extract_name_node(
 
   const response = await model.invoke(
     [...state.messages, new HumanMessage({ content: instructions })],
-    config
+    copilotKitCustomizeConfig(config, { emitToolCalls: false })
   );
 
   const toolCalls = response.tool_calls;
@@ -73,12 +71,10 @@ export async function extract_name_node(
 }
 
 export async function greet_node(state: AgentState, config: RunnableConfig) {
-  await copilotKitEmitMessage(config, `Hello, ${state.name} 😎`);
-
   await copilotKitExit(config);
 
   return {
-    messages: state.messages,
+    messages: new AIMessage({ content: `Hello, ${state.name} 😎` }),
   };
 }
 
