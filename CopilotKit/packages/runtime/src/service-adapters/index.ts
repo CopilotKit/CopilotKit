@@ -1,7 +1,7 @@
 export type {
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
-  CopilotServiceAdapter
+  CopilotServiceAdapter,
 } from "./service-adapter";
 export type { RemoteChainParameters } from "./langchain/langserve";
 export { RemoteChain } from "./langchain/langserve";
