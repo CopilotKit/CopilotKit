@@ -53,6 +53,7 @@ type TextMessageConstructorOptions = MessageConstructorOptions & TextMessageInpu
 export class TextMessage extends Message implements TextMessageConstructorOptions {
   role: TextMessageInput["role"];
   content: TextMessageInput["content"];
+  parentMessageId: TextMessageInput["parentMessageId"];
 
   constructor(props: TextMessageConstructorOptions) {
     super(props);
@@ -67,12 +68,11 @@ type ActionExecutionMessageConstructorOptions = MessageConstructorOptions &
 
 export class ActionExecutionMessage
   extends Message
-  implements Omit<ActionExecutionMessageInput, "arguments">
+  implements Omit<ActionExecutionMessageInput, "arguments" | "scope">
 {
   name: ActionExecutionMessageInput["name"];
   arguments: Record<string, any>;
-  scope: ActionExecutionMessageInput["scope"];
-
+  parentMessageId: ActionExecutionMessageInput["parentMessageId"];
   constructor(props: ActionExecutionMessageConstructorOptions) {
     super(props);
     this.type = "ActionExecutionMessage";

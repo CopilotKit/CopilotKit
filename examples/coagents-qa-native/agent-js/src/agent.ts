@@ -4,12 +4,10 @@
 
 import { RunnableConfig } from "@langchain/core/runnables";
 import {
-  copilotKitCustomizeConfig,
-  copilotKitEmitMessage,
   copilotKitExit,
   convertActionsToDynamicStructuredTools,
 } from "@copilotkit/sdk-js/langchain";
-import { HumanMessage, ToolMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { getModel } from "./model";
 import { END, MemorySaver, StateGraph } from "@langchain/langgraph";
 import { AgentState, AgentStateAnnotation } from "./state";
@@ -18,10 +16,6 @@ export async function email_node(state: AgentState, config: RunnableConfig) {
   /**
    * Write an email.
    */
-
-  const modifiedConfig = copilotKitCustomizeConfig(config, {
-    emitToolCalls: true,
-  });
 
   const instructions = "You write emails.";
 
@@ -34,7 +28,7 @@ export async function email_node(state: AgentState, config: RunnableConfig) {
 
   const response = await email_model.invoke(
     [...state.messages, new HumanMessage({ content: instructions })],
-    modifiedConfig
+    config
   );
 
   const tool_calls = response.tool_calls;
@@ -42,6 +36,7 @@ export async function email_node(state: AgentState, config: RunnableConfig) {
   const email = tool_calls?.[0]?.args.the_email;
 
   return {
+    messages: response,
     email: email,
   };
 }
@@ -57,14 +52,13 @@ export async function send_email_node(
   await copilotKitExit(config);
 
   const lastMessage = state.messages[state.messages.length - 1] as ToolMessage;
-  if (lastMessage.content === "CANCEL") {
-    await copilotKitEmitMessage(config, "❌ Cancelled sending email.");
-  } else {
-    await copilotKitEmitMessage(config, "✅ Sent email.");
-  }
+  const content =
+    lastMessage.content === "CANCEL"
+      ? "❌ Cancelled sending email."
+      : "✅ Sent email.";
 
   return {
-    messages: state.messages,
+    messages: new AIMessage({ content }),
   };
 }
 

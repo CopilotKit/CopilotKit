@@ -12,15 +12,27 @@ import "@copilotkit/react-ui/styles.css";
 //
 // https://github.com/PaulLeCam/react-leaflet/issues/45
 let MapCanvas: any;
-MapCanvas = dynamic(() => import('@/components/MapCanvas').then((module: any) => module.MapCanvas), {
-  ssr: false,
-});
+MapCanvas = dynamic(
+  () =>
+    import("@/components/MapCanvas").then((module: any) => module.MapCanvas),
+  {
+    ssr: false,
+  }
+);
 
 export default function Home() {
+  const lgcDeploymentUrl =
+    globalThis.window === undefined
+      ? null
+      : new URL(window.location.href).searchParams.get("lgcDeploymentUrl");
   return (
     <CopilotKit
       agent="travel"
-      runtimeUrl="https://api.cloud.copilotkit.ai/copilotkit/v1"
+      runtimeUrl={
+        process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY == undefined
+          ? `/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl ?? ""}`
+          : "https://api.cloud.copilotkit.ai/copilotkit/v1"
+      }
       publicApiKey={process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY}
     >
       <CopilotSidebar
@@ -28,7 +40,8 @@ export default function Home() {
         clickOutsideToClose={false}
         labels={{
           title: "Travel Planner",
-          initial: "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
+          initial:
+            "Hi! 👋 I'm here to plan your trips. I can help you manage your trips, add places to them, or just generally work with you to plan a new one.",
         }}
       >
         <TooltipProvider>
