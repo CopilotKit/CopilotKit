@@ -46,10 +46,11 @@ export function CopilotKitHelpModal() {
   const HelpButton = () => (
     <button
       onClick={() => setShowHelpModal(true)}
-      className="p-2 bg-transparent rounded-full shadow-lg hover:shadow-xl transition-shadow duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      style={{ width: "50px", height: "30px", marginRight: "0.25rem" }}
+      className="text-sm p-0 bg-transparent rounded border border-blue-500"
       aria-label="Open Help"
     >
-      <LifeBuoyIcon />
+      Help
     </button>
   );
 
@@ -79,6 +80,15 @@ export function CopilotKitHelpModal() {
               <h2 className="text-2xl font-bold">Help Options</h2>
             </div>
             <div className="space-y-4 mb-4">
+              <div className="block w-full text-center py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-150 text-sm">
+                <a
+                  href="https://docs.copilotkit.ai/coagents/troubleshooting/common-issues"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Visit the Troubleshooting and FAQ section in the docs
+                </a>
+              </div>
               <div className="block w-full text-center py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600 transition duration-150 text-sm">
                 <a
                   href="https://go.copilotkit.ai/dev-console-support-discord"
