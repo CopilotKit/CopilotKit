@@ -1,9 +1,9 @@
 /**
  * CopilotKit Empty Adapter
  *
- * This adapter does nothing
- * Ideal if you want to be sure your front-end doesn't connect to any 3rd party LLM,
- * except your GraphLang chain.
+ * This adapter is meant to preserve adherence to runtime requirements, while doing nothing
+ * Ideal if you don't want to connect an LLM the to the runtime, and only use your LangGraph agent.
+ * Be aware that Copilot Suggestions will not work if you use this adapter
  */
 import {
   CopilotServiceAdapter,
