@@ -25,10 +25,13 @@ class InfoDict(TypedDict):
     actions: List[ActionDict]
     agents: List[AgentDict]
 
-class CopilotKitSDKContext(TypedDict):
-    """CopilotKit SDK Context"""
+class CopilotKitContext(TypedDict):
+    """CopilotKit Context"""
     properties: Any
     frontend_url: Optional[str]
+
+# Alias for backwards compatibility
+CopilotKitSDKContext = CopilotKitContext
 
 class CopilotKitRemoteEndpoint:
     """CopilotKit Remote Endpoint"""
@@ -39,13 +42,13 @@ class CopilotKitRemoteEndpoint:
         actions: Optional[
             Union[
                 List[Action],
-                Callable[[CopilotKitSDKContext], List[Action]]
+                Callable[[CopilotKitContext], List[Action]]
             ]
         ] = None,
         agents: Optional[
             Union[
                 List[Agent],
-                Callable[[CopilotKitSDKContext], List[Agent]]
+                Callable[[CopilotKitContext], List[Agent]]
             ]
         ] = None,
     ):
@@ -55,7 +58,7 @@ class CopilotKitRemoteEndpoint:
     def info(
         self,
         *,
-        context: CopilotKitSDKContext
+        context: CopilotKitContext
     ) -> InfoDict:
         """Returns information about available actions and agents"""
 
@@ -84,7 +87,7 @@ class CopilotKitRemoteEndpoint:
     def _get_action(
         self,
         *,
-        context: CopilotKitSDKContext,
+        context: CopilotKitContext,
         name: str,
     ) -> Action:
         """Get an action by name"""
@@ -97,7 +100,7 @@ class CopilotKitRemoteEndpoint:
     def execute_action(
             self,
             *,
-            context: CopilotKitSDKContext,
+            context: CopilotKitContext,
             name: str,
             arguments: dict,
     ) -> Coroutine[Any, Any, ActionResultDict]:
@@ -124,7 +127,7 @@ class CopilotKitRemoteEndpoint:
     def execute_agent( # pylint: disable=too-many-arguments
         self,
         *,
-        context: CopilotKitSDKContext,
+        context: CopilotKitContext,
         name: str,
         thread_id: str,
         node_name: str,
