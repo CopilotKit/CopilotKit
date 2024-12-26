@@ -2,6 +2,7 @@
 
 from pprint import pformat
 from typing import List, Callable, Union, Optional, TypedDict, Any, Coroutine
+import warnings
 from .agent import Agent, AgentDict
 from .action import Action, ActionDict, ActionResultDict
 from .types import Message
@@ -29,8 +30,8 @@ class CopilotKitSDKContext(TypedDict):
     properties: Any
     frontend_url: Optional[str]
 
-class CopilotKitSDK:
-    """CopilotKit SDK"""
+class CopilotKitRemoteEndpoint:
+    """CopilotKit Remote Endpoint"""
 
     def __init__(
         self,
@@ -165,3 +166,16 @@ class CopilotKitSDK:
             )
         except Exception as error:
             raise AgentExecutionException(name, error) from error
+
+# Alias for backwards compatibility
+class CopilotKitSDK(CopilotKitRemoteEndpoint):
+    """Deprecated: Use CopilotKitRemoteEndpoint instead. This class will be removed in a future version."""
+    
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "CopilotKitSDK is deprecated since version 0.1.31. "
+            "Use CopilotKitRemoteEndpoint instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
