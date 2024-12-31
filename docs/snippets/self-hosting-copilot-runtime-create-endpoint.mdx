@@ -1,5 +1,8 @@
 import { MultiProviderContent, If } from "@/components/react/multi-provider-content/multi-provider-content";
 import { quickStartProviders } from "@/components/react/multi-provider-content/utils";
+import { IoLogoVercel, IoLogoNodejs } from "react-icons/io5";
+import { SiNestjs } from "react-icons/si";
+import { RiNextjsLine } from "react-icons/ri";
 
 <Callout type="info">
   If you are planning to use a single LangGraph agent in [agent-lock mode](/coagents/advanced/router-mode-agent-lock#agent-lock-mode) as your agentic backend, your LLM adapter will only be used for peripherals such as suggestions, etc.
@@ -38,7 +41,13 @@ import { quickStartProviders } from "@/components/react/multi-provider-content/u
 
     #### Endpoint Setup
 
-    <Tabs items={['Next.js App Router', 'Next.js Pages Router', 'Node.js Express', 'Node.js HTTP', 'NestJS']}>
+    <Tabs items={[
+        { value: 'Next.js App Router', icon: <RiNextjsLine className="text-xl" /> },
+        { value: 'Next.js Pages Router', icon: <RiNextjsLine className="text-xl" /> },
+        { value: 'Node.js Express', icon: <IoLogoNodejs className="text-xl" /> },
+        { value: 'Node.js HTTP', icon: <IoLogoNodejs className="text-xl" /> },
+        { value: 'NestJS', icon: <SiNestjs className="text-xl" /> }
+    ]}>
 
         {/* Next.js App Router */}
         <Tab value="Next.js App Router">
