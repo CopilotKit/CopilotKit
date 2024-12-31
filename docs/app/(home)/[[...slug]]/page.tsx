@@ -9,7 +9,7 @@ import {
 import { notFound } from "next/navigation";
 import defaultMdxComponents from "fumadocs-ui/mdx";
 
-import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import { Tabs, Tab } from "@/components/react/tabs";
 import { Steps, Step } from "fumadocs-ui/components/steps";
 import { TypeTable } from "fumadocs-ui/components/type-table";
 import { Pre, CodeBlock } from "fumadocs-ui/components/codeblock";
