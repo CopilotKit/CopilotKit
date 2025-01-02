@@ -160,7 +160,7 @@ export function constructRemoteActions({
   }));
 
   const agents = totalAgents
-    ? json["agents"]?.map((agent) => ({
+    ? json["agents"].map((agent) => ({
         name: agent.name,
         description: agent.description,
         parameters: [],
