@@ -2,6 +2,7 @@ import { useCopilotContext } from "../../context";
 import { GraphQLError } from "@copilotkit/runtime-client-gql";
 import React, { createContext, useContext, useState, useCallback } from "react";
 import { ExclamationMarkIcon } from "./exclamation-mark-icon";
+import { ErrorToast } from "../error-boundary/error-utils";
 
 interface Toast {
   id: string;
@@ -54,50 +55,10 @@ export function ToastProvider({
     //   return;
     // }
 
-    const errorsToRender = errors.map((error, idx) => {
-      const message = (error.extensions?.originalError as undefined | { message?: string })?.message ?? error.message;
-      const code = error.extensions?.code as string;
-
-      return (
-        <div
-          key={idx}
-          style={{
-            marginTop: idx === 0 ? 0 : 10,
-            marginBottom: 14,
-          }}
-        >
-          <ExclamationMarkIcon style={{ marginBottom: 4 }} />
-
-          {code && (
-            <div
-              style={{
-                fontWeight: "600",
-                marginBottom: 4,
-              }}
-            >
-              Copilot Cloud Error:{" "}
-              <span style={{ fontFamily: "monospace", fontWeight: "normal" }}>{code}</span>
-            </div>
-          )}
-          <div>{message}</div>
-        </div>
-      );
-    });
-
     addToast({
       type: "error",
       message: (
-        <div
-          style={{
-            fontSize: "13px",
-            maxWidth: "600px",
-          }}
-        >
-          {errorsToRender}
-          <div style={{ fontSize: "11px", opacity: 0.75 }}>
-            NOTE: This error only displays during local development.
-          </div>
-        </div>
+        <ErrorToast errors={errors} />
       ),
     });
   }, []);
