@@ -372,7 +372,7 @@ class LangGraphAgent(Agent):
                 # reset the streaming state extractor
                 streaming_state_extractor = _StreamingStateExtractor(emit_intermediate_state)
 
-            updated_state = manually_emitted_state or await self.graph.get_state(config).values
+            updated_state = manually_emitted_state or (await self.graph.get_state(config).values)
 
             if emit_intermediate_state and event_type == "on_chat_model_stream":
                 streaming_state_extractor.buffer_tool_calls(event)
