@@ -55,13 +55,25 @@ export class CopilotRuntimeClient {
     properties?: GenerateCopilotResponseMutationVariables["properties"];
     signal?: AbortSignal;
   }) {
+    const fetchFn = async (...args: Parameters<typeof fetch>) => {
+      const result = await fetch(args[0], { ...(args[1] ?? {}), signal })
+      if (result.status !== 200) {
+        switch (result.status) {
+          case 404:
+            throw new Error("Runtime URL seems to be invalid - got 404 response. Please check the runtimeUrl passed to CopilotKit");
+          default:
+            throw new Error("Could not fetch copilot response");
+        }
+      }
+      return result
+    }
     const result = this.client.mutation<
       GenerateCopilotResponseMutation,
       GenerateCopilotResponseMutationVariables
     >(
       generateCopilotResponseMutation,
       { data, properties },
-      { fetch: (url, opts) => fetch(url, { ...opts, signal }) },
+      { fetch: fetchFn },
     );
 
     return result;
