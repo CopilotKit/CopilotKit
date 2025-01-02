@@ -6,7 +6,7 @@ import { DocumentPointer } from "../types";
 import { CopilotChatSuggestionConfiguration } from "../types/chat-suggestion-configuration";
 import { CoAgentStateRender, CoAgentStateRenderProps } from "../types/coagent-action";
 import { CoagentState } from "../types/coagent-state";
-import { CopilotRuntimeClient } from "@copilotkit/runtime-client-gql";
+import { CopilotRuntimeClient, ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
 
 /**
  * Interface for the configuration of the Copilot API.
@@ -144,6 +144,11 @@ export interface CopilotContextParams {
 
   // runtime
   runtimeClient: CopilotRuntimeClient;
+
+  /**
+   * The forwarded parameters to use for the task.
+   */
+  forwardedParameters?: ForwardedParametersInput;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -198,6 +203,8 @@ const emptyCopilotContext: CopilotContextParams = {
 
   agentSession: null,
   setAgentSession: () => {},
+
+  forwardedParameters: {},
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);
