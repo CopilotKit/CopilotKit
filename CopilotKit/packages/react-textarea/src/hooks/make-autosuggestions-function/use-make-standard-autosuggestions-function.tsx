@@ -39,7 +39,7 @@ export function useMakeStandardAutosuggestionFunction(
     ...copilotApiConfig.headers,
     ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
   };
-  const { maxTokens, stop, temperature = 0.2 } = apiConfig;
+  const { maxTokens, stop, temperature = 0 } = apiConfig;
 
   return useCallback(
     async (editorState: InsertionEditorState, abortSignal: AbortSignal) => {
