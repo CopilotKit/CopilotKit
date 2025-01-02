@@ -120,7 +120,7 @@ class CopilotKitSDK:
         except Exception as error:
             raise ActionExecutionException(name, error) from error
 
-    def execute_agent( # pylint: disable=too-many-arguments
+    async def execute_agent( # pylint: disable=too-many-arguments
         self,
         *,
         context: CopilotKitSDKContext,
@@ -156,7 +156,7 @@ class CopilotKitSDK:
         logger.info("--------------------------")
 
         try:
-            return agent.execute(
+            return await agent.execute(
                 thread_id=thread_id,
                 node_name=node_name,
                 state=state,

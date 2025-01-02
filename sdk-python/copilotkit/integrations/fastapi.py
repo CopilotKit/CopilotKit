@@ -81,7 +81,7 @@ async def handler(request: Request, sdk: CopilotKitSDK):
         messages = body_get_or_raise(body, "messages")
         actions = cast(List[ActionDict], body.get("actions", []))
 
-        return handle_execute_agent(
+        return await handle_execute_agent(
             sdk=sdk,
             context=context,
             thread_id=thread_id,
@@ -126,7 +126,7 @@ async def handle_execute_action(
         logger.error("Action execution error: %s", exc)
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
-def handle_execute_agent( # pylint: disable=too-many-arguments
+async def handle_execute_agent( # pylint: disable=too-many-arguments
         *,
         sdk: CopilotKitSDK,
         context: CopilotKitSDKContext,
@@ -139,7 +139,7 @@ def handle_execute_agent( # pylint: disable=too-many-arguments
     ):
     """Handle continue agent execution request with FastAPI"""
     try:
-        events = sdk.execute_agent(
+        events = await sdk.execute_agent(
             context=context,
             thread_id=thread_id,
             name=name,
