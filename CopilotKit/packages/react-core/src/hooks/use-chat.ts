@@ -26,6 +26,7 @@ import { CoagentState } from "../types/coagent-state";
 import { AgentSession } from "../context/copilot-context";
 import { useToast } from "../components/toast/toast-provider";
 import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
+import { useAsyncCallback } from "../components/error-boundary/error-utils";
 
 export type UseChatOptions = {
   /**
@@ -167,7 +168,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     credentials: copilotConfig.credentials,
   });
 
-  const runChatCompletion = async (previousMessages: Message[]): Promise<Message[]> => {
+  const runChatCompletion = useAsyncCallback(async (previousMessages: Message[]): Promise<Message[]> => {
     setIsLoading(true);
 
     // this message is just a placeholder. It will disappear once the first real message
@@ -434,15 +435,15 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [messages, setMessages, makeSystemMessageCallback, copilotConfig, setIsLoading, initialMessages, isLoading, actions, onFunctionCall, onCoAgentStateRender, setCoagentStatesWithRef, coagentStatesRef, agentSession, setAgentSession]);
 
   runChatCompletionRef.current = runChatCompletion;
 
-  const runChatCompletionAndHandleFunctionCall = async (messages: Message[]): Promise<void> => {
+  const runChatCompletionAndHandleFunctionCall = useAsyncCallback(async (messages: Message[]): Promise<void> => {
     await runChatCompletionRef.current!(messages);
-  };
+  }, [messages]);
 
-  const append = async (message: Message): Promise<void> => {
+  const append = useAsyncCallback(async (message: Message): Promise<void> => {
     if (isLoading) {
       return;
     }
@@ -450,9 +451,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     const newMessages = [...messages, message];
     setMessages(newMessages);
     return runChatCompletionAndHandleFunctionCall(newMessages);
-  };
+  }, [isLoading, messages, setMessages, runChatCompletionAndHandleFunctionCall]);
 
-  const reload = async (): Promise<void> => {
+  const reload = useAsyncCallback(async (): Promise<void> => {
     if (isLoading || messages.length === 0) {
       return;
     }
@@ -466,7 +467,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     setMessages(newMessages);
 
     return runChatCompletionAndHandleFunctionCall(newMessages);
-  };
+  }, [isLoading, messages, setMessages, runChatCompletionAndHandleFunctionCall]);
 
   const stop = (): void => {
     abortControllerRef.current?.abort();

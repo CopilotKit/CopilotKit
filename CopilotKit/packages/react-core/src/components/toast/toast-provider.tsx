@@ -1,7 +1,5 @@
-import { useCopilotContext } from "../../context";
 import { GraphQLError } from "@copilotkit/runtime-client-gql";
 import React, { createContext, useContext, useState, useCallback } from "react";
-import { ExclamationMarkIcon } from "./exclamation-mark-icon";
 import { ErrorToast } from "../error-boundary/error-utils";
 
 interface Toast {

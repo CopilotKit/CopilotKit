@@ -99,6 +99,7 @@ import { CoagentState } from "../types/coagent-state";
 import { useCopilotChat } from "./use-copilot-chat";
 import { Message } from "@copilotkit/runtime-client-gql";
 import { flushSync } from "react-dom";
+import { useAsyncCallback } from "../components/error-boundary/error-utils";
 
 interface WithInternalStateManagementAndInitial<T> {
   /**
@@ -266,22 +267,21 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     }
   }, [isExternalStateManagement(options) ? JSON.stringify(options.state) : undefined]);
 
+  const runAgentCallback = useAsyncCallback(async (hint?: HintFunction) => {
+    await runAgent(name, context, appendMessage, runChatCompletion, hint);
+  }, [name, context, appendMessage, runChatCompletion]);
+
   // Return the state and setState function
   return {
     name,
     nodeName: coagentState.nodeName,
-    state,
-    setState,
+    threadId: coagentState.threadId,
     running: coagentState.running,
-    start: () => {
-      startAgent(name, context);
-    },
-    stop: () => {
-      stopAgent(name, context);
-    },
-    run: (hint?: HintFunction) => {
-      return runAgent(name, context, appendMessage, runChatCompletion, hint);
-    },
+    state: coagentState.state,
+    setState: isExternalStateManagement(options) ? options.setState : setState,
+    start: () => startAgent(name, context),
+    stop: () => stopAgent(name, context),
+    run: runAgentCallback,
   };
 }
 
