@@ -55,7 +55,7 @@ export function ToastProvider({
     // }
 
     const errorsToRender = errors.map((error, idx) => {
-      const message = error.message;
+      const message = (error.extensions?.originalError as undefined | { message?: string })?.message ?? error.message;
       const code = error.extensions?.code as string;
 
       return (
@@ -95,7 +95,7 @@ export function ToastProvider({
         >
           {errorsToRender}
           <div style={{ fontSize: "11px", opacity: 0.75 }}>
-            NOTE: This is a Copilot Cloud error, and it only displays during local development.
+            NOTE: This error only displays during local development.
           </div>
         </div>
       ),

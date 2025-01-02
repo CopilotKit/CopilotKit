@@ -249,13 +249,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     } catch (error) {
       console.error("Error getting response:", error);
       eventSource.sendErrorMessageToChat();
-      return {
-        threadId: threadId || randomId(),
-        runId: runId || randomId(),
-        eventSource,
-        serverSideActions: [],
-        actionInputsWithoutAgents: [],
-      };
+      throw error;
     }
   }
 
