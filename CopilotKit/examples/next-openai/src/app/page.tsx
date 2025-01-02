@@ -16,9 +16,6 @@ export default function WaterBnb() {
     runtimeUrl,
     publicApiKey: publicApiKey || undefined,
     showDevConsole: true,
-    forwardedParameters: {
-      temperature: 0,
-    },
   };
 
   return (
