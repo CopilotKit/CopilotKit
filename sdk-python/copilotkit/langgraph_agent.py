@@ -266,7 +266,7 @@ class LangGraphAgent(Agent):
             "role": "assistant"
         })
 
-    def execute( # pylint: disable=too-many-arguments            
+    async def execute( # pylint: disable=too-many-arguments
         self,
         *,
         state: dict,
@@ -279,7 +279,7 @@ class LangGraphAgent(Agent):
         config["configurable"] = config.get("configurable", {})
         config["configurable"]["thread_id"] = thread_id
 
-        agent_state = self.graph.get_state(config)
+        agent_state = await self.graph.get_state(config)
         state["messages"] = agent_state.values.get("messages", [])
 
         langchain_messages = self.convert_messages(messages)
@@ -295,7 +295,7 @@ class LangGraphAgent(Agent):
         config["configurable"]["thread_id"] = thread_id
 
         if mode == "continue":
-            self.graph.update_state(config, state, as_node=node_name)
+            await self.graph.update_state(config, state, as_node=node_name)
 
         return self._stream_events(
             mode=mode,
@@ -372,7 +372,7 @@ class LangGraphAgent(Agent):
                 # reset the streaming state extractor
                 streaming_state_extractor = _StreamingStateExtractor(emit_intermediate_state)
 
-            updated_state = manually_emitted_state or self.graph.get_state(config).values
+            updated_state = manually_emitted_state or await self.graph.get_state(config).values
 
             if emit_intermediate_state and event_type == "on_chat_model_stream":
                 streaming_state_extractor.buffer_tool_calls(event)
@@ -407,7 +407,7 @@ class LangGraphAgent(Agent):
 
             yield langchain_dumps(event) + "\n"
 
-        state = self.graph.get_state(config)
+        state = await self.graph.get_state(config)
         is_end_node = state.next == ()
 
         node_name = list(state.metadata["writes"].keys())[0]
