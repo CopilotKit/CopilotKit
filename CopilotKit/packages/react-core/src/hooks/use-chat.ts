@@ -18,6 +18,7 @@ import {
   Role,
   CopilotRequestType,
   ActionInputAvailability,
+  ForwardedParametersInput,
 } from "@copilotkit/runtime-client-gql";
 
 import { CopilotApiConfig } from "../context";
@@ -97,6 +98,11 @@ export type UseChatOptions = {
    * setState-powered method to update the agent session
    */
   setAgentSession: React.Dispatch<React.SetStateAction<AgentSession | null>>;
+
+  /*
+   * This is forwarded to LLM as a parameter.
+   */
+  forwardedParameters?: ForwardedParametersInput;
 };
 
 export type UseChatHelpers = {
@@ -248,6 +254,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             agentName: state.name,
             state: JSON.stringify(state.state),
           })),
+          forwardedParameters: options.forwardedParameters || {},
         },
         properties: copilotConfig.properties,
         signal: abortControllerRef.current?.signal,
