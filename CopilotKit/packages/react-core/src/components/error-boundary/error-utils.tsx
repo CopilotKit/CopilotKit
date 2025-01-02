@@ -4,35 +4,38 @@ import { useToast } from "../toast/toast-provider";
 import { ExclamationMarkIcon } from "../toast/exclamation-mark-icon";
 
 export function ErrorToast({ errors }: { errors: (Error | GraphQLError)[] }) {
-    const errorsToRender = errors.map((error, idx) => {
-        const message = 'extensions' in error ? (error.extensions?.originalError as undefined | { message?: string })?.message : error.message;
-        const code = 'extensions' in error ? error.extensions?.code as string : null;
+  const errorsToRender = errors.map((error, idx) => {
+    const message =
+      "extensions" in error
+        ? (error.extensions?.originalError as undefined | { message?: string })?.message
+        : error.message;
+    const code = "extensions" in error ? (error.extensions?.code as string) : null;
 
-        return (
-            <div
-                key={idx}
-                style={{
-                    marginTop: idx === 0 ? 0 : 10,
-                    marginBottom: 14,
-                }}
-            >
-                <ExclamationMarkIcon style={{ marginBottom: 4 }} />
+    return (
+      <div
+        key={idx}
+        style={{
+          marginTop: idx === 0 ? 0 : 10,
+          marginBottom: 14,
+        }}
+      >
+        <ExclamationMarkIcon style={{ marginBottom: 4 }} />
 
-                {code && (
-                    <div
-                        style={{
-                            fontWeight: "600",
-                            marginBottom: 4,
-                        }}
-                    >
-                        Copilot Cloud Error:{" "}
-                        <span style={{ fontFamily: "monospace", fontWeight: "normal" }}>{code}</span>
-                    </div>
-                )}
-                <div>{message}</div>
-            </div>
-        );
-    });
+        {code && (
+          <div
+            style={{
+              fontWeight: "600",
+              marginBottom: 4,
+            }}
+          >
+            Copilot Cloud Error:{" "}
+            <span style={{ fontFamily: "monospace", fontWeight: "normal" }}>{code}</span>
+          </div>
+        )}
+        <div>{message}</div>
+      </div>
+    );
+  });
   return (
     <div
       style={{
@@ -55,9 +58,7 @@ export function useErrorToast() {
     (error: (Error | GraphQLError)[]) => {
       addToast({
         type: "error",
-        message: (
-          <ErrorToast errors={error} />
-        ),
+        message: <ErrorToast errors={error} />,
       });
     },
     [addToast],
@@ -65,18 +66,18 @@ export function useErrorToast() {
 }
 
 export function useAsyncCallback<T extends (...args: any[]) => Promise<any>>(
-    callback: T,
-    deps: Parameters<typeof useCallback>[1]
+  callback: T,
+  deps: Parameters<typeof useCallback>[1],
 ) {
-    const addErrorToast = useErrorToast();
-    return useCallback(async (...args: Parameters<T>) => {
-        try {
-            return await callback(...args);
-        } catch (error) {
-            console.error('Error in async callback:', error);
-            // @ts-ignore
-            addErrorToast([error])
-            throw error;
-        }
-    }, deps);
+  const addErrorToast = useErrorToast();
+  return useCallback(async (...args: Parameters<T>) => {
+    try {
+      return await callback(...args);
+    } catch (error) {
+      console.error("Error in async callback:", error);
+      // @ts-ignore
+      addErrorToast([error]);
+      throw error;
+    }
+  }, deps);
 }

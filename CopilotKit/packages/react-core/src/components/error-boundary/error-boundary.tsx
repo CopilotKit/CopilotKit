@@ -34,7 +34,7 @@ export function ErrorToast({ error, children }: { error?: Error; children: React
 
   useEffect(() => {
     if (error) {
-      addErrorToast([error])
+      addErrorToast([error]);
     }
   }, [error, addErrorToast]);
 

@@ -55,9 +55,7 @@ export function ToastProvider({
 
     addToast({
       type: "error",
-      message: (
-        <ErrorToast errors={errors} />
-      ),
+      message: <ErrorToast errors={errors} />,
     });
   }, []);
 

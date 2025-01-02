@@ -124,20 +124,23 @@ export function useCopilotChat({
     });
   }, [getContextString, makeSystemMessage, chatInstructions]);
 
-  const onCoAgentStateRender = useAsyncCallback(async (args: CoAgentStateRenderHandlerArguments) => {
-    const { name, nodeName, state } = args;
-    let action = Object.values(coAgentStateRenders).find(
-      (action) => action.name === name && action.nodeName === nodeName,
-    );
-    if (!action) {
-      action = Object.values(coAgentStateRenders).find(
-        (action) => action.name === name && !action.nodeName,
+  const onCoAgentStateRender = useAsyncCallback(
+    async (args: CoAgentStateRenderHandlerArguments) => {
+      const { name, nodeName, state } = args;
+      let action = Object.values(coAgentStateRenders).find(
+        (action) => action.name === name && action.nodeName === nodeName,
       );
-    }
-    if (action) {
-      await action.handler?.({ state, nodeName });
-    }
-  }, [coAgentStateRenders]);
+      if (!action) {
+        action = Object.values(coAgentStateRenders).find(
+          (action) => action.name === name && !action.nodeName,
+        );
+      }
+      if (action) {
+        await action.handler?.({ state, nodeName });
+      }
+    },
+    [coAgentStateRenders],
+  );
 
   const { append, reload, stop, runChatCompletion } = useChat({
     ...options,
@@ -166,9 +169,12 @@ export function useCopilotChat({
   // How does this work?
   // we store the relevant function in a ref that is always up-to-date, and then we use that ref in the callback.
   const latestAppend = useUpdatedRef(append);
-  const latestAppendFunc = useAsyncCallback(async (message: Message) => {
-    return await latestAppend.current(message);
-  }, [latestAppend]);
+  const latestAppendFunc = useAsyncCallback(
+    async (message: Message) => {
+      return await latestAppend.current(message);
+    },
+    [latestAppend],
+  );
 
   const latestReload = useUpdatedRef(reload);
   const latestReloadFunc = useAsyncCallback(async () => {

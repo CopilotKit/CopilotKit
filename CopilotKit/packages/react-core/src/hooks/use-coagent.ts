@@ -267,9 +267,12 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     }
   }, [isExternalStateManagement(options) ? JSON.stringify(options.state) : undefined]);
 
-  const runAgentCallback = useAsyncCallback(async (hint?: HintFunction) => {
-    await runAgent(name, context, appendMessage, runChatCompletion, hint);
-  }, [name, context, appendMessage, runChatCompletion]);
+  const runAgentCallback = useAsyncCallback(
+    async (hint?: HintFunction) => {
+      await runAgent(name, context, appendMessage, runChatCompletion, hint);
+    },
+    [name, context, appendMessage, runChatCompletion],
+  );
 
   // Return the state and setState function
   return {
