@@ -125,7 +125,7 @@ export async function extract<const T extends Parameter[]>({
           requestType: requestType,
         },
         forwardedParameters: {
-          ...(forwardedParameters || {}),
+          ...(forwardedParameters ?? {}),
           toolChoice: "function",
           toolChoiceFunctionName: action.name,
         },
