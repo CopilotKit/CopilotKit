@@ -83,5 +83,5 @@ export interface CopilotKitProps {
   /**
    * The forwarded parameters to use for the task.
    */
-  forwardedParameters?: ForwardedParametersInput;
+  forwardedParameters?: Pick<ForwardedParametersInput, "temperature">;
 }

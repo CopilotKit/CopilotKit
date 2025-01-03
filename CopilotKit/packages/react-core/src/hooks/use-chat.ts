@@ -102,7 +102,7 @@ export type UseChatOptions = {
   /*
    * This is forwarded to LLM as a parameter.
    */
-  forwardedParameters?: ForwardedParametersInput;
+  forwardedParameters?: Pick<ForwardedParametersInput, "temperature">;
 };
 
 export type UseChatHelpers = {
