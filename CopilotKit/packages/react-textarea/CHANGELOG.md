@@ -1,5 +1,15 @@
 # ui
 
+## 1.4.8-next.2
+
+### Patch Changes
+
+- e3cce8e: - feat: add temperature parameter support for LLM completions
+- Updated dependencies [e3cce8e]
+  - @copilotkit/react-core@1.4.8-next.2
+  - @copilotkit/runtime-client-gql@1.4.8-next.2
+  - @copilotkit/shared@1.4.8-next.2
+
 ## 1.4.8-next.1
 
 ### Patch Changes
