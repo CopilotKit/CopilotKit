@@ -1,5 +1,13 @@
 # ui
 
+## 1.4.8-next.1
+
+### Patch Changes
+
+- 1f21f28: - feat: add temperature parameter support for LLM completions
+  - @copilotkit/runtime-client-gql@1.4.8-next.1
+  - @copilotkit/shared@1.4.8-next.1
+
 ## 1.4.8-next.0
 
 ### Patch Changes
