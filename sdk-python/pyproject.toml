@@ -26,4 +26,4 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-demo = "copilotkit.demos.research_canvas.demo:main"
+demo = "copilotkit.demos.multi_agent.demo:main"
