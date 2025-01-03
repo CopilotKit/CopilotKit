@@ -27,7 +27,7 @@ interface ExamplesCarouselProps {
   examples?: CarouselExample[];
 }
 
-const badgeStyles = cn(badgeVariants({ variant: "outline" }), "bg-indigo-500 hover:bg-indigo-600 text-white  no-underline");
+const badgeStyles = cn(badgeVariants({ variant: "outline" }), "bg-indigo-500 hover:bg-indigo-600 text-white no-underline focus:ring-1 focus:ring-indigo-500");
 
 export function ExamplesCarousel({ examples = DefaultExamples }: ExamplesCarouselProps) {
   return (
@@ -86,7 +86,13 @@ export function ExamplesCarousel({ examples = DefaultExamples }: ExamplesCarouse
                 </CardDescription>
                 <div className="w-full">
                   {example.media.type === 'video' ? (
-                    <video autoPlay loop muted controls src={example.media.src}
+                    <video 
+                      autoPlay 
+                      loop 
+                      muted 
+                      controls 
+                      playsInline
+                      src={example.media.src}
                       className="rounded-2xl shadow-xl border w-full h-auto"
                     />
                   ) : (
