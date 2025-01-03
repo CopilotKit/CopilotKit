@@ -6,6 +6,7 @@ export interface SuggestionsApiConfig {
   fewShotMessages: Message[];
   maxTokens?: number;
   stop?: string[];
+  temperature?: number;
 }
 
 export const defaultSuggestionsMakeSystemPrompt: MakeSystemPrompt = (

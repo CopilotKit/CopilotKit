@@ -136,6 +136,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       ...(forwardedParameters?.stop && { stop: forwardedParameters.stop }),
       ...(toolChoice && { tool_choice: toolChoice }),
       ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
+      ...(forwardedParameters?.temperature && { temperature: forwardedParameters.temperature }),
     });
 
     eventSource.stream(async (eventStream$) => {

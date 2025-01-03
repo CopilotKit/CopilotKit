@@ -98,6 +98,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
       model: this.model,
       messages: anthropicMessages,
       max_tokens: forwardedParameters?.maxTokens || 1024,
+      ...(forwardedParameters?.temperature ? { temperature: forwardedParameters.temperature } : {}),
       ...(tools.length > 0 && { tools }),
       ...(toolChoice && { tool_choice: toolChoice }),
       stream: true,

@@ -1,5 +1,13 @@
 # @copilotkit/shared
 
+## 1.4.8-next.2
+
+### Patch Changes
+
+- e3cce8e: - feat: add temperature parameter support for LLM completions
+
+## 1.4.8-next.1
+
 ## 1.4.8-next.0
 
 ## 1.4.7

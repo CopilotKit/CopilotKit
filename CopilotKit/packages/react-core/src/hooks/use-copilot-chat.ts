@@ -99,6 +99,7 @@ export function useCopilotChat({
     coAgentStateRenders,
     agentSession,
     setAgentSession,
+    forwardedParameters,
   } = useCopilotContext();
   const { messages, setMessages } = useCopilotMessagesContext();
 
@@ -157,6 +158,7 @@ export function useCopilotChat({
     setCoagentStatesWithRef,
     agentSession,
     setAgentSession,
+    forwardedParameters,
   });
 
   // this is a workaround born out of a bug that Athena insessently ran into.
