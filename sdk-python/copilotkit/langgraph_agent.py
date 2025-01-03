@@ -244,7 +244,7 @@ class LangGraphAgent(Agent):
                 # reset the streaming state extractor
                 streaming_state_extractor = _StreamingStateExtractor(emit_intermediate_state)
 
-            updated_state = manually_emitted_state or self.graph.get_state(config).values
+            updated_state = manually_emitted_state or (await self.graph.aget_state(config)).values
 
             if emit_intermediate_state and event_type == "on_chat_model_stream":
                 streaming_state_extractor.buffer_tool_calls(event)
@@ -279,7 +279,7 @@ class LangGraphAgent(Agent):
 
             yield langchain_dumps(event) + "\n"
 
-        state = self.graph.get_state(config)
+        state = await self.graph.aget_state(config)
         is_end_node = state.next == ()
 
         node_name = list(state.metadata["writes"].keys())[0]
