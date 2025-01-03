@@ -9,5 +9,3 @@
 ---
 
 - feat: add temperature parameter support for LLM completions
-
-
