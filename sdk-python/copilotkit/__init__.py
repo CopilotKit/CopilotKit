@@ -1,15 +1,17 @@
 """CopilotKit SDK"""
-from .sdk import CopilotKitSDK
+from .sdk import CopilotKitSDK, CopilotKitSDKContext
 from .action import Action
 from .langgraph_agent import LangGraphAgent
-# from .langgraph_cloud_agent import LangGraphCloudAgent
 from .state import CopilotKitState
 from .parameter import Parameter
+from .agent import Agent
+
 __all__ = [
     'CopilotKitSDK', 
     'Action', 
     'LangGraphAgent', 
-    # 'LangGraphCloudAgent', 
     'CopilotKitState', 
-    'Parameter'
+    'Parameter',
+    'Agent',
+    'CopilotKitSDKContext'
 ]
