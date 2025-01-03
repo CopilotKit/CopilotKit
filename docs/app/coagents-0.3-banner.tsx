@@ -9,7 +9,7 @@ export function CoagentsV0_3Banner() {
 
   if (isCoagentsPath) {
     return (
-      <div className="bg-gradient-to-r from-indigo-900 via-blue-800 to-indigo-900 text-primary-foreground px-4 py-3 text-center relative">
+      <div className="bg-gradient-to-r from-indigo-900 via-blue-800 to-indigo-900 text-white px-4 py-3 text-center relative absolute">
         <p className="font-medium">
           <span className="mr-2 font-bold">CoAgents v0.3</span>
           Big quality of life improvements coming soon!

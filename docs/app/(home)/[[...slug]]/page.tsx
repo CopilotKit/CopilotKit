@@ -21,11 +21,14 @@ import { PropertyReference } from "@/components/react/property-reference";
 import { getImageMeta } from "fumadocs-ui/og";
 import { InsecurePasswordProtected } from "@/components/react/insecure-password-protected";
 import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
+import { Accordions, Accordion} from "fumadocs-ui/components/accordion";
 
 const mdxComponents = {
   ...defaultMdxComponents,
   InsecurePasswordProtected: InsecurePasswordProtected,
   LinkToCopilotCloud: LinkToCopilotCloud,
+  Accordions: Accordions,
+  Accordion: Accordion,
   Tabs: Tabs,
   Tab: Tab,
   Steps: Steps,

@@ -6,7 +6,7 @@ export function Frame({
   description,
 }: {
   children: React.ReactNode;
-  className: string;
+  className?: string;
   description?: string;
 }) {
   return (
