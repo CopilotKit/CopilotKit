@@ -56,13 +56,16 @@ export function useErrorToast() {
 
   return useCallback(
     (error: (Error | GraphQLError)[]) => {
-      const errorId = error.map(err => {
-        const message = 'extensions' in err 
-          ? (err.extensions?.originalError as any)?.message || err.message
-          : err.message;
-        const stack = err.stack || '';
-        return btoa(message + stack).slice(0, 32); // Create hash from message + stack
-      }).join('|');
+      const errorId = error
+        .map((err) => {
+          const message =
+            "extensions" in err
+              ? (err.extensions?.originalError as any)?.message || err.message
+              : err.message;
+          const stack = err.stack || "";
+          return btoa(message + stack).slice(0, 32); // Create hash from message + stack
+        })
+        .join("|");
 
       addToast({
         type: "error",

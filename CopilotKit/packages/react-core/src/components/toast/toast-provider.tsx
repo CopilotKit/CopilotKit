@@ -40,8 +40,8 @@ export function ToastProvider({
     const id = toast.id ?? Math.random().toString(36).substring(2, 9);
 
     setToasts((currentToasts) => {
-        if (currentToasts.find((toast) => toast.id === id)) return currentToasts
-        return [...currentToasts, { ...toast, id }]
+      if (currentToasts.find((toast) => toast.id === id)) return currentToasts;
+      return [...currentToasts, { ...toast, id }];
     });
 
     if (toast.duration) {
