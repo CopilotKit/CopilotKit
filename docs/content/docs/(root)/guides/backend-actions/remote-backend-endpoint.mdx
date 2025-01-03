@@ -235,4 +235,12 @@ Now that you've set up your FastAPI server with the backend actions, integrate i
 
 After setting up the remote endpoint and modifying your `CopilotRuntime`, you can test your implementation by asking the copilot to perform actions that invoke your Python backend. For example, ask the copilot: "Fetch the name for user ID `123`."
 
+### Advanced
+
+The request to the remote endpoint is made in a thread pool executor. You can configure the size of the thread pool executor by passing the `max_workers` parameter to the `add_fastapi_endpoint` function.
+
+```python
+add_fastapi_endpoint(app, sdk, "/copilotkit_remote", max_workers=10) # default is 10
+```
+
 ---

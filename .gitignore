@@ -15,3 +15,7 @@ test-run-comment.md
 .installed.cfg
 *.egg
 **/.langgraph_api
+
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
