@@ -1,6 +1,7 @@
 import { GraphQLError } from "@copilotkit/runtime-client-gql";
 import React, { createContext, useContext, useState, useCallback } from "react";
 import { ErrorToast } from "../error-boundary/error-utils";
+import { PartialBy } from "@copilotkit/shared";
 
 interface Toast {
   id: string;
@@ -11,7 +12,7 @@ interface Toast {
 
 interface ToastContextValue {
   toasts: Toast[];
-  addToast: (toast: Omit<Toast, "id">) => void;
+  addToast: (toast: PartialBy<Toast, "id">) => void;
   addGraphQLErrorsToast: (errors: GraphQLError[]) => void;
   removeToast: (id: string) => void;
   enabled: boolean;
@@ -35,10 +36,13 @@ export function ToastProvider({
   children: React.ReactNode;
 }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const addToast = useCallback((toast: Omit<Toast, "id">) => {
-    const id = Math.random().toString(36).substring(2, 9);
+  const addToast = useCallback((toast: PartialBy<Toast, "id">) => {
+    const id = toast.id ?? Math.random().toString(36).substring(2, 9);
 
-    setToasts((currentToasts) => [...currentToasts, { ...toast, id }]);
+    setToasts((currentToasts) => {
+        if (currentToasts.find((toast) => toast.id === id)) return currentToasts
+        return [...currentToasts, { ...toast, id }]
+    });
 
     if (toast.duration) {
       setTimeout(() => {
