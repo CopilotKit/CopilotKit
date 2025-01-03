@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.4.8-next.2
+
+### Patch Changes
+
+- e3cce8e: - feat: add temperature parameter support for LLM completions
+- Updated dependencies [e3cce8e]
+  - @copilotkit/shared@1.4.8-next.2
+
 ## 1.4.8-next.1
 
 ### Patch Changes

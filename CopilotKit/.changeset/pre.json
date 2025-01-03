@@ -18,6 +18,7 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
+    "calm-stingrays-type",
     "few-needles-suffer",
     "good-eggs-rescue",
     "young-knives-hide"
