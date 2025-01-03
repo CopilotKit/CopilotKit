@@ -1,5 +1,14 @@
 # @copilotkit/runtime
 
+## 1.4.8-next.1
+
+### Patch Changes
+
+- 1f21f28: - feat: add temperature parameter support for LLM completions
+- 989f159: - fix: allow CopilotKit Remote Endpoint without agents
+  - Apply suggestions from code review
+  - @copilotkit/shared@1.4.8-next.1
+
 ## 1.4.8-next.0
 
 ### Patch Changes
