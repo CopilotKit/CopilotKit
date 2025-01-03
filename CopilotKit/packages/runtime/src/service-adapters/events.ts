@@ -158,8 +158,8 @@ export class RuntimeEventSource {
     this.callback = callback;
   }
 
-  sendErrorMessageToChat() {
-    const errorMessage = "❌ An error occurred. Please try again.";
+  sendErrorMessageToChat(message = "An error occurred. Please try again.") {
+    const errorMessage = `❌ ${message}`;
     if (!this.callback) {
       this.stream(async (eventStream$) => {
         eventStream$.sendTextMessage(randomId(), errorMessage);

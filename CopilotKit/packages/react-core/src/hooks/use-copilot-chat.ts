@@ -47,6 +47,7 @@ import { defaultCopilotContextCategories } from "../components";
 import { MessageStatusCode } from "@copilotkit/runtime-client-gql";
 import { CoAgentStateRenderHandlerArguments } from "@copilotkit/shared";
 import { useCopilotMessagesContext } from "../context";
+import { useAsyncCallback } from "../components/error-boundary/error-utils";
 
 export interface UseCopilotChatOptions {
   /**
@@ -123,7 +124,7 @@ export function useCopilotChat({
     });
   }, [getContextString, makeSystemMessage, chatInstructions]);
 
-  const onCoAgentStateRender = useCallback(
+  const onCoAgentStateRender = useAsyncCallback(
     async (args: CoAgentStateRenderHandlerArguments) => {
       const { name, nodeName, state } = args;
       let action = Object.values(coAgentStateRenders).find(
@@ -168,16 +169,16 @@ export function useCopilotChat({
   // How does this work?
   // we store the relevant function in a ref that is always up-to-date, and then we use that ref in the callback.
   const latestAppend = useUpdatedRef(append);
-  const latestAppendFunc = useCallback(
-    (message: Message) => {
-      return latestAppend.current(message);
+  const latestAppendFunc = useAsyncCallback(
+    async (message: Message) => {
+      return await latestAppend.current(message);
     },
     [latestAppend],
   );
 
   const latestReload = useUpdatedRef(reload);
-  const latestReloadFunc = useCallback(() => {
-    return latestReload.current();
+  const latestReloadFunc = useAsyncCallback(async () => {
+    return await latestReload.current();
   }, [latestReload]);
 
   const latestStop = useUpdatedRef(stop);
@@ -202,8 +203,8 @@ export function useCopilotChat({
   );
 
   const latestRunChatCompletion = useUpdatedRef(runChatCompletion);
-  const latestRunChatCompletionFunc = useCallback(() => {
-    return latestRunChatCompletion.current!();
+  const latestRunChatCompletionFunc = useAsyncCallback(async () => {
+    return await latestRunChatCompletion.current!();
   }, [latestRunChatCompletion]);
 
   return {
