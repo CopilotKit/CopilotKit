@@ -2,6 +2,7 @@
 
 from pprint import pformat
 from typing import List, Callable, Union, Optional, TypedDict, Any, Coroutine
+import warnings
 from .agent import Agent, AgentDict
 from .action import Action, ActionDict, ActionResultDict
 from .types import Message
@@ -24,13 +25,16 @@ class InfoDict(TypedDict):
     actions: List[ActionDict]
     agents: List[AgentDict]
 
-class CopilotKitSDKContext(TypedDict):
-    """CopilotKit SDK Context"""
+class CopilotKitContext(TypedDict):
+    """CopilotKit Context"""
     properties: Any
     frontend_url: Optional[str]
 
-class CopilotKitSDK:
-    """CopilotKit SDK"""
+# Alias for backwards compatibility
+CopilotKitSDKContext = CopilotKitContext
+
+class CopilotKitRemoteEndpoint:
+    """CopilotKit Remote Endpoint"""
 
     def __init__(
         self,
@@ -38,13 +42,13 @@ class CopilotKitSDK:
         actions: Optional[
             Union[
                 List[Action],
-                Callable[[CopilotKitSDKContext], List[Action]]
+                Callable[[CopilotKitContext], List[Action]]
             ]
         ] = None,
         agents: Optional[
             Union[
                 List[Agent],
-                Callable[[CopilotKitSDKContext], List[Agent]]
+                Callable[[CopilotKitContext], List[Agent]]
             ]
         ] = None,
     ):
@@ -54,7 +58,7 @@ class CopilotKitSDK:
     def info(
         self,
         *,
-        context: CopilotKitSDKContext
+        context: CopilotKitContext
     ) -> InfoDict:
         """Returns information about available actions and agents"""
 
@@ -83,7 +87,7 @@ class CopilotKitSDK:
     def _get_action(
         self,
         *,
-        context: CopilotKitSDKContext,
+        context: CopilotKitContext,
         name: str,
     ) -> Action:
         """Get an action by name"""
@@ -96,7 +100,7 @@ class CopilotKitSDK:
     def execute_action(
             self,
             *,
-            context: CopilotKitSDKContext,
+            context: CopilotKitContext,
             name: str,
             arguments: dict,
     ) -> Coroutine[Any, Any, ActionResultDict]:
@@ -123,7 +127,7 @@ class CopilotKitSDK:
     def execute_agent( # pylint: disable=too-many-arguments
         self,
         *,
-        context: CopilotKitSDKContext,
+        context: CopilotKitContext,
         name: str,
         thread_id: str,
         node_name: str,
@@ -165,3 +169,16 @@ class CopilotKitSDK:
             )
         except Exception as error:
             raise AgentExecutionException(name, error) from error
+
+# Alias for backwards compatibility
+class CopilotKitSDK(CopilotKitRemoteEndpoint):
+    """Deprecated: Use CopilotKitRemoteEndpoint instead. This class will be removed in a future version."""
+    
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "CopilotKitSDK is deprecated since version 0.1.31. "
+            "Use CopilotKitRemoteEndpoint instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)

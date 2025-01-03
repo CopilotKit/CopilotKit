@@ -5,7 +5,7 @@ import logging
 from typing import List, Any, cast
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
-from ..sdk import CopilotKitSDK, CopilotKitSDKContext
+from ..sdk import CopilotKitRemoteEndpoint, CopilotKitContext
 from ..types import Message
 from ..exc import (
     ActionNotFoundException,
@@ -18,7 +18,7 @@ from ..action import ActionDict
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
-def add_fastapi_endpoint(fastapi_app: FastAPI, sdk: CopilotKitSDK, prefix: str):
+def add_fastapi_endpoint(fastapi_app: FastAPI, sdk: CopilotKitRemoteEndpoint, prefix: str):
     """Add FastAPI endpoint"""
     async def make_handler(request: Request):
         return await handler(request, sdk)
@@ -40,7 +40,7 @@ def body_get_or_raise(body: Any, key: str):
     return value
 
 
-async def handler(request: Request, sdk: CopilotKitSDK):
+async def handler(request: Request, sdk: CopilotKitRemoteEndpoint):
     """Handle FastAPI request"""
 
     try:
@@ -51,7 +51,7 @@ async def handler(request: Request, sdk: CopilotKitSDK):
     path = request.path_params.get('path')
     method = request.method
     context = cast(
-        CopilotKitSDKContext, 
+        CopilotKitContext, 
         {
             "properties": body.get("properties", {}),
             "frontend_url": body.get("frontendUrl", None)
@@ -96,15 +96,15 @@ async def handler(request: Request, sdk: CopilotKitSDK):
     raise HTTPException(status_code=404, detail="Not found")
 
 
-async def handle_info(*, sdk: CopilotKitSDK, context: CopilotKitSDKContext):
+async def handle_info(*, sdk: CopilotKitRemoteEndpoint, context: CopilotKitContext):
     """Handle info request with FastAPI"""
     result = sdk.info(context=context)
     return JSONResponse(content=result)
 
 async def handle_execute_action(
         *,
-        sdk: CopilotKitSDK,
-        context: CopilotKitSDKContext,
+        sdk: CopilotKitRemoteEndpoint,
+        context: CopilotKitContext,
         name: str,
         arguments: dict,
     ):
@@ -128,8 +128,8 @@ async def handle_execute_action(
 
 def handle_execute_agent( # pylint: disable=too-many-arguments
         *,
-        sdk: CopilotKitSDK,
-        context: CopilotKitSDKContext,
+        sdk: CopilotKitRemoteEndpoint,
+        context: CopilotKitContext,
         thread_id: str,
         node_name: str,
         name: str,
