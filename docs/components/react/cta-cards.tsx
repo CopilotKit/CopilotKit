@@ -12,6 +12,7 @@ interface CTACardProps {
 
 interface CTACardsProps {
   cards: CTACardProps[];
+  columns?: 1 | 2 | 3 | 4;
 }
 
 export function CTACard({ icon: Icon, title, description, href, iconBgColor = "bg-indigo-500" }: CTACardProps) {
@@ -32,11 +33,18 @@ export function CTACard({ icon: Icon, title, description, href, iconBgColor = "b
   );
 }
 
-export function CTACards({ cards }: CTACardsProps) {
+export function CTACards({ cards, columns = 3 }: CTACardsProps) {
+  const lastItemClass = cards.length % columns !== 0 ? `xl:col-span-${columns - (cards.length % columns) + 1}` : '';
+
   return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-3 py-6">
+    <div className={`grid grid-cols-1 gap-y-8 gap-x-4 xl:grid-cols-${columns} py-6`}>
       {cards.map((card, index) => (
-        <CTACard key={index} {...card} />
+        <div
+          key={index}
+          className={index === cards.length - 1 ? lastItemClass : ''}
+        >
+          <CTACard {...card} />
+        </div>
       ))}
     </div>
   );

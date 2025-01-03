@@ -76,7 +76,7 @@ export function Tabs({ items, children, defaultValue, groupId, persist, ...props
   return (
     <TabsPrimitive.Root className="border rounded-md" value={value} onValueChange={handleValueChange} {...props}>
       <ScrollArea className="w-full rounded-md rounded-b-none relative bg-secondary dark:bg-secondary/40 border-b">
-        <TabsPrimitive.List className="px-4 py-2.5 flex">
+        <TabsPrimitive.List className="px-4 py-3 flex">
           {normalizedItems.map((item) => (
             <TabsPrimitive.Trigger
               key={item.value}

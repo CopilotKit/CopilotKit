@@ -11,6 +11,15 @@ export default {
     './mdx-components.{ts,tsx}',
     './node_modules/fumadocs-ui/dist/**/*.js',
   ],
+  safelist: [
+    'xl:grid-cols-1',
+    'xl:grid-cols-2',
+    'xl:grid-cols-3',
+    'xl:grid-cols-4',
+    'xl:col-span-2',
+    'xl:col-span-3',
+    'xl:col-span-4',
+  ],
   presets: [createPreset()],
     plugins: [require("tailwindcss-animate")],
     theme: {
