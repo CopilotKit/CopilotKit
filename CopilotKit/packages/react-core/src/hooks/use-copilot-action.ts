@@ -124,6 +124,7 @@
 import { Parameter, randomId } from "@copilotkit/shared";
 import { createElement, Fragment, useEffect, useRef } from "react";
 import { useCopilotContext } from "../context/copilot-context";
+import { useAsyncCallback } from "../components/error-boundary/error-utils";
 import {
   ActionRenderProps,
   ActionRenderPropsNoArgsWait,
@@ -159,7 +160,7 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
     action.renderAndWait = undefined;
     action.renderAndWaitForResponse = undefined;
     // add a handler that will be called when the action is executed
-    action.handler = (async () => {
+    action.handler = useAsyncCallback(async () => {
       // we create a new promise when the handler is called
       let resolve: (result: any) => void;
       let reject: (error: any) => void;
@@ -170,7 +171,7 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
       renderAndWaitRef.current = { promise, resolve: resolve!, reject: reject! };
       // then we await the promise (it will be resolved in the original renderAndWait function)
       return await promise;
-    }) as any;
+    }, []) as any;
 
     // add a render function that will be called when the action is rendered
     action.render = ((props: ActionRenderProps<T>): React.ReactElement => {

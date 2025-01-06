@@ -40,13 +40,16 @@ import { CopilotMessages } from "./copilot-messages";
 import { ToastProvider } from "../toast/toast-provider";
 import { useCopilotRuntimeClient } from "../../hooks/use-copilot-runtime-client";
 import { shouldShowDevConsole } from "../../utils";
+import { CopilotErrorBoundary } from "../error-boundary/error-boundary";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const showDevConsole = props.showDevConsole === undefined ? "auto" : props.showDevConsole;
   const enabled = shouldShowDevConsole(showDevConsole);
   return (
     <ToastProvider enabled={enabled}>
-      <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
+      <CopilotErrorBoundary>
+        <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
+      </CopilotErrorBoundary>
     </ToastProvider>
   );
 }
