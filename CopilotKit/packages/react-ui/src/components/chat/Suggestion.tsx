@@ -31,6 +31,7 @@ export const reloadSuggestions = async (
   chatSuggestionConfiguration: { [key: string]: CopilotChatSuggestionConfiguration },
   setCurrentSuggestions: (suggestions: { title: string; message: string }[]) => void,
   abortControllerRef: React.MutableRefObject<AbortController | null>,
+  onError?: (e: Error) => void,
 ) => {
   const abortController = abortControllerRef.current;
 
@@ -115,7 +116,7 @@ export const reloadSuggestions = async (
       });
       allSuggestions.push(...result.suggestions);
     } catch (error) {
-      console.error("Error loading suggestions", error);
+      onError?.(error as Error);
     }
   }
 

@@ -73,6 +73,7 @@ import { InputProps, MessagesProps, RenderMessageProps, ResponseButtonProps } fr
 import { randomId } from "@copilotkit/shared";
 
 import { CopilotDevConsole } from "../dev-console";
+import { useErrorToast } from "@copilotkit/react-core";
 
 /**
  * Props for CopilotChat component.
@@ -272,6 +273,7 @@ export const useCopilotChatLogic = (
   onInProgress?: (isLoading: boolean) => void,
   onSubmitMessage?: (messageContent: string) => Promise<void> | void,
 ) => {
+  const addErrorToast = useErrorToast();
   const { visibleMessages, appendMessage, reloadMessages, stopGeneration, isLoading } =
     useCopilotChat({
       id: randomId(),
@@ -305,6 +307,7 @@ export const useCopilotChatLogic = (
             context.chatSuggestionConfiguration,
             setCurrentSuggestions,
             suggestionsAbortControllerRef,
+            error => addErrorToast([error])
           );
         }
       },
