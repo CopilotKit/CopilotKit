@@ -448,11 +448,24 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               followUp = action.followUp;
               let result: any;
               try {
-                result = await onFunctionCall({
-                  messages: finalMessages,
-                  name: message.name,
-                  args: message.arguments,
-                });
+                result = await Promise.race([
+                  onFunctionCall({
+                    messages: previousMessages,
+                    name: message.name,
+                    args: message.arguments,
+                  }),
+                  new Promise((resolve) =>
+                    chatAbortControllerRef.current?.signal.addEventListener("abort", () =>
+                      resolve("Operation was aborted by the user"),
+                    ),
+                  ),
+                  // if the user stopped generation, we also abort consecutive actions
+                  new Promise((resolve) => {
+                    if (chatAbortControllerRef.current?.signal.aborted) {
+                      resolve("Operation was aborted by the user");
+                    }
+                  }),
+                ]);
               } catch (e) {
                 result = `Failed to execute action ${message.name}`;
                 console.error(`Failed to execute action ${message.name}: ${e}`);
@@ -483,7 +496,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             // the last message is a server side result
             (!isAgentRun &&
               finalMessages.length &&
-              finalMessages[finalMessages.length - 1].isResultMessage()))
+              finalMessages[finalMessages.length - 1].isResultMessage())) &&
+          // the user did not stop generation
+          !chatAbortControllerRef.current?.signal.aborted
         ) {
           // run the completion again and return the result
 
