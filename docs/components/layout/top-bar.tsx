@@ -2,7 +2,7 @@
 import { SearchIcon } from "lucide-react";
 import { FaEdit } from "react-icons/fa";
 import { Socials } from "@/components/react/socials";
-// import { LinkToCopilotCloud } from "../react/link-to-copilot-cloud";
+import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
 import { Button } from "@/components/ui/button";
 
 export function TopBar() {
@@ -12,8 +12,8 @@ export function TopBar() {
         <div className="flex justify-between items-center gap-2">
           <Socials />
           <div className="flex justify-end items-center gap-2">
-            {/* <LinkToCopilotCloud />
-            <div className="h-8 border-l border-secondary-foreground/20 border-1.5" /> */}
+            <LinkToCopilotCloud />
+            <div className="h-8 border-l border-secondary-foreground/20 border-1.5" />
             <SearchToggle />
           </div>
         </div>

@@ -110,6 +110,8 @@ export function constructRemoteActions({
   messages: Message[];
   agentStates?: AgentStateInput[];
 }): Action<any>[] {
+  const totalAgents = Array.isArray(json["agents"]) ? json["agents"].length : 0;
+
   const actions = json["actions"].map((action) => ({
     name: action.name,
     description: action.description,
@@ -121,7 +123,7 @@ export function constructRemoteActions({
       telemetry.capture("oss.runtime.remote_action_executed", {
         agentExecution: false,
         type: "self-hosted",
-        agentsAmount: json["agents"].length,
+        agentsAmount: totalAgents,
       });
 
       try {
@@ -158,67 +160,69 @@ export function constructRemoteActions({
     },
   }));
 
-  const agents = json["agents"].map((agent) => ({
-    name: agent.name,
-    description: agent.description,
-    parameters: [],
-    handler: async (_args: any) => {},
+  const agents = totalAgents
+    ? json["agents"].map((agent) => ({
+        name: agent.name,
+        description: agent.description,
+        parameters: [],
+        handler: async (_args: any) => {},
 
-    langGraphAgentHandler: async ({
-      name,
-      actionInputsWithoutAgents,
-      threadId,
-      nodeName,
-      additionalMessages = [],
-    }: LangGraphAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
-      logger.debug({ actionName: agent.name }, "Executing remote agent");
-
-      const headers = createHeaders(onBeforeRequest, graphqlContext);
-      telemetry.capture("oss.runtime.remote_action_executed", {
-        agentExecution: true,
-        type: "self-hosted",
-        agentsAmount: json["agents"].length,
-      });
-
-      let state = {};
-      if (agentStates) {
-        const jsonState = agentStates.find((state) => state.agentName === name)?.state;
-        if (jsonState) {
-          state = JSON.parse(jsonState);
-        }
-      }
-
-      const response = await fetch(`${url}/agents/execute`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
+        langGraphAgentHandler: async ({
           name,
+          actionInputsWithoutAgents,
           threadId,
           nodeName,
-          messages: [...messages, ...additionalMessages],
-          state,
-          properties: graphqlContext.properties,
-          actions: actionInputsWithoutAgents.map((action) => ({
-            name: action.name,
-            description: action.description,
-            parameters: JSON.parse(action.jsonSchema),
-          })),
-        }),
-      });
+          additionalMessages = [],
+        }: LangGraphAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
+          logger.debug({ actionName: agent.name }, "Executing remote agent");
 
-      if (!response.ok) {
-        logger.error(
-          { url, status: response.status, body: await response.text() },
-          "Failed to execute remote agent",
-        );
-        throw new Error("Failed to execute remote agent");
-      }
+          const headers = createHeaders(onBeforeRequest, graphqlContext);
+          telemetry.capture("oss.runtime.remote_action_executed", {
+            agentExecution: true,
+            type: "self-hosted",
+            agentsAmount: json["agents"].length,
+          });
 
-      const eventSource = new RemoteLangGraphEventSource();
-      streamResponse(response.body!, eventSource.eventStream$);
-      return eventSource.processLangGraphEvents();
-    },
-  }));
+          let state = {};
+          if (agentStates) {
+            const jsonState = agentStates.find((state) => state.agentName === name)?.state;
+            if (jsonState) {
+              state = JSON.parse(jsonState);
+            }
+          }
+
+          const response = await fetch(`${url}/agents/execute`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              name,
+              threadId,
+              nodeName,
+              messages: [...messages, ...additionalMessages],
+              state,
+              properties: graphqlContext.properties,
+              actions: actionInputsWithoutAgents.map((action) => ({
+                name: action.name,
+                description: action.description,
+                parameters: JSON.parse(action.jsonSchema),
+              })),
+            }),
+          });
+
+          if (!response.ok) {
+            logger.error(
+              { url, status: response.status, body: await response.text() },
+              "Failed to execute remote agent",
+            );
+            throw new Error("Failed to execute remote agent");
+          }
+
+          const eventSource = new RemoteLangGraphEventSource();
+          streamResponse(response.body!, eventSource.eventStream$);
+          return eventSource.processLangGraphEvents();
+        },
+      }))
+    : [];
 
   return [...actions, ...agents];
 }
