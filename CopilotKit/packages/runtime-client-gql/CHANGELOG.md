@@ -1,12 +1,15 @@
 # @copilotkit/runtime-client-gql
 
-## 1.4.8-coagents-v0-3.1
+## 1.4.8
 
 ### Patch Changes
 
-- CoAgents v0.3 prerelease
+- - Better error handling
+  - Introduce new "EmptyLLMAdapter" for when using CoAgents
+  - Improve dev console help options
+  - Allow CopilotKit remote endpoint without agents
 - Updated dependencies
-  - @copilotkit/shared@1.4.8-coagents-v0-3.1
+  - @copilotkit/shared@1.4.8
 
 ## 1.4.8-next.0
 

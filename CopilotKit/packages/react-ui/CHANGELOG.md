@@ -1,14 +1,30 @@
 # ui
 
-## 1.4.8-coagents-v0-3.1
+## 1.4.8
 
 ### Patch Changes
 
-- CoAgents v0.3 prerelease
+- ea0c5d5: - fix: prevent sending empty messages via Enter key
+
+  When the input field was empty, pressing Enter would still trigger the
+  send() function despite the send button being correctly disabled. Added
+  the sendDisabled check to the onKeyDown handler to ensure consistent
+  validation between button and keyboard triggers.
+
+  - Added validation check to Enter key handler
+  - Ensures empty messages can't be sent via keyboard shortcut
+  - Makes behavior consistent with disabled send button state
+
+  Resolves #1129
+
+- - Better error handling
+  - Introduce new "EmptyLLMAdapter" for when using CoAgents
+  - Improve dev console help options
+  - Allow CopilotKit remote endpoint without agents
 - Updated dependencies
-  - @copilotkit/runtime-client-gql@1.4.8-coagents-v0-3.1
-  - @copilotkit/react-core@1.4.8-coagents-v0-3.1
-  - @copilotkit/shared@1.4.8-coagents-v0-3.1
+  - @copilotkit/react-core@1.4.8
+  - @copilotkit/runtime-client-gql@1.4.8
+  - @copilotkit/shared@1.4.8
 
 ## 1.4.8-next.0
 
