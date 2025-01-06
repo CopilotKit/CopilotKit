@@ -55,18 +55,20 @@ export function useErrorToast() {
   const { addToast } = useToast();
 
   const isAbortError = (error: Error | GraphQLError): boolean => {
-      if ('networkError' in error && error.name === 'CombinedError') {
-          return Boolean(error.networkError && (error.networkError as { name: string }).name === 'AbortError')
-      }
+    if ("networkError" in error && error.name === "CombinedError") {
+      return Boolean(
+        error.networkError && (error.networkError as { name: string }).name === "AbortError",
+      );
+    }
 
-    return error instanceof DOMException && error.name === 'AbortError';
+    return error instanceof DOMException && error.name === "AbortError";
   };
 
   return useCallback(
     (errors: (Error | GraphQLError)[]) => {
       // Filter out abort errors
-      const nonAbortErrors = errors.filter(err => !isAbortError(err));
-      
+      const nonAbortErrors = errors.filter((err) => !isAbortError(err));
+
       if (nonAbortErrors.length === 0) return;
 
       const errorId = nonAbortErrors

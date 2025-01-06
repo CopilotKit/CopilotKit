@@ -307,7 +307,7 @@ export const useCopilotChatLogic = (
             context.chatSuggestionConfiguration,
             setCurrentSuggestions,
             suggestionsAbortControllerRef,
-            error => addErrorToast([error])
+            (error) => addErrorToast([error]),
           );
         }
       },
