@@ -507,6 +507,31 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           await new Promise((resolve) => setTimeout(resolve, 10));
 
           return await runChatCompletionRef.current!(finalMessages);
+        } else if (chatAbortControllerRef.current?.signal.aborted) {
+          // filter out all the action execution messages that do not have a consecutive matching result message
+          const repairedMessages = finalMessages.filter((message, actionExecutionIndex) => {
+            if (message.isActionExecutionMessage()) {
+              return finalMessages.find(
+                (msg, resultIndex) =>
+                  msg.isResultMessage() &&
+                  msg.actionExecutionId === message.id &&
+                  resultIndex === actionExecutionIndex + 1,
+              );
+            }
+            return true;
+          });
+          const repairedMessageIds = repairedMessages.map((message) => message.id);
+          setMessages(repairedMessages);
+
+          if (agentSessionRef.current?.nodeName) {
+            setAgentSession({
+              threadId: agentSessionRef.current.threadId,
+              agentName: agentSessionRef.current.agentName,
+              nodeName: "__end__",
+            });
+          }
+          // only return new messages that were not filtered out
+          return newMessages.filter((message) => repairedMessageIds.includes(message.id));
         } else {
           return newMessages.slice();
         }

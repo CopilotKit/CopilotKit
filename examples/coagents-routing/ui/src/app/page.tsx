@@ -53,28 +53,6 @@ function Home() {
           defaultOpen={true}
           clickOutsideToClose={false}
           className="mt-4"
-          onStopGeneration={({
-            currentAgentName,
-            stopCurrentAgent,
-            stopGeneration,
-            messages,
-            setMessages,
-          }) => {
-            stopGeneration();
-            if (currentAgentName) {
-              stopCurrentAgent();
-
-              if (messages.length > 0) {
-                const lastMessage = messages[messages.length - 1];
-                if (
-                  lastMessage.isTextMessage() &&
-                  lastMessage.role === MessageRole.Assistant
-                ) {
-                  setMessages(messages.slice(0, -1));
-                }
-              }
-            }
-          }}
         />
       </div>
     </CopilotKit>
@@ -104,10 +82,10 @@ function usePirateAgent() {
 }
 
 function PirateMode() {
-  useCopilotChatSuggestions({
-    instructions: "Suggest to talk to a pirate about piratey things",
-    maxSuggestions: 1,
-  });
+  // useCopilotChatSuggestions({
+  //   instructions: "Suggest to talk to a pirate about piratey things",
+  //   maxSuggestions: 1,
+  // });
   const { running } = usePirateAgent();
 
   if (running) {
@@ -153,10 +131,10 @@ function RunPirateMode() {
 
 function Joke() {
   const { model } = useModelSelectorContext();
-  useCopilotChatSuggestions({
-    instructions: "Suggest to make a joke about a specific subject",
-    maxSuggestions: 1,
-  });
+  // useCopilotChatSuggestions({
+  //   instructions: "Suggest to make a joke about a specific subject",
+  //   maxSuggestions: 1,
+  // });
   const { state } = useCoAgent({
     name: "joke_agent",
     initialState: {
@@ -188,10 +166,10 @@ function Joke() {
 
 function Email() {
   const { model } = useModelSelectorContext();
-  useCopilotChatSuggestions({
-    instructions: "Suggest to write an email to a famous person",
-    maxSuggestions: 1,
-  });
+  // useCopilotChatSuggestions({
+  //   instructions: "Suggest to write an email to a famous person",
+  //   maxSuggestions: 1,
+  // });
   const { state } = useCoAgent({
     name: "email_agent",
     initialState: {

@@ -69,6 +69,7 @@ interface RuntimeEventWithState {
   action: Action<any> | null;
   actionExecutionId: string | null;
   args: string;
+  actionExecutionParentMessageId: string | null;
 }
 
 type EventSourceCallback = (eventStream$: RuntimeEventSubject) => Promise<void>;
@@ -248,6 +249,7 @@ export class RuntimeEventSource {
             if (acc.callActionServerSide) {
               acc.action = serverSideActions.find((action) => action.name === event.actionName);
             }
+            acc.actionExecutionParentMessageId = event.parentMessageId;
           } else if (event.type === RuntimeEventTypes.ActionExecutionArgs) {
             acc.args += event.args;
           }
@@ -262,6 +264,7 @@ export class RuntimeEventSource {
           args: "",
           actionExecutionId: null,
           action: null,
+          actionExecutionParentMessageId: null,
         } as RuntimeEventWithState,
       ),
       concatMap((eventWithState) => {
@@ -275,6 +278,7 @@ export class RuntimeEventSource {
             guardrailsResult$ ? guardrailsResult$ : null,
             eventWithState.action!,
             eventWithState.args,
+            eventWithState.actionExecutionParentMessageId,
             eventWithState.actionExecutionId,
             actionInputsWithoutAgents,
           ).catch((error) => {
@@ -296,6 +300,7 @@ async function executeAction(
   guardrailsResult$: Subject<GuardrailsResult> | null,
   action: Action<any>,
   actionArguments: string,
+  actionExecutionParentMessageId: string | null,
   actionExecutionId: string,
   actionInputsWithoutAgents: ActionInput[],
 ) {
@@ -327,7 +332,7 @@ async function executeAction(
       createdAt: new Date(),
       name: action.name,
       arguments: JSON.parse(actionArguments),
-      parentMessageId: actionExecutionId,
+      parentMessageId: actionExecutionParentMessageId ?? actionExecutionId,
     });
 
     const agentExecutionResult = plainToInstance(ResultMessage, {
