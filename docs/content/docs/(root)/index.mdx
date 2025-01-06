@@ -1,57 +1,110 @@
 ---
-title: What is CopilotKit?
-description: "Build production-ready Copilots into your product in days, not months. Customize effortlessly."
+title: CopilotKit
+description: "Build production-ready Copilots and Agents effortlessly."
 icon: "lucide/Lightbulb"
 ---
-import { LinkIcon } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+import { ExamplesCarousel } from "@/components/react/examples-carousel";
+import { CTACards } from "@/components/react/cta-cards";
+import { YouTubeVideo } from "@/components/react/youtube-video";
 
-Build deeply-integrated AI assistants & agents which are designed to work alongside your users inside applications.
-End-to-end systems integrations with deep customizability and support for the leading LLM ecosystem solutions.
+import { MdMessage } from "react-icons/md";
+import { TbSparkles } from "react-icons/tb";
+import { SiLangchain } from "react-icons/si";
 
-<img src="/images/animated-banner.gif" className="rounded-2xl" />
+# Build AI-Powered Experiences in Minutes
 
-<br/>
+CopilotKit is your secret weapon for shipping production-ready AI assistants. Whether you need a simple chatbot or a complex multi-agent system, we've got you covered with battle-tested components and powerful integrations.
 
-## Key Features
+## Choose Your Path
 
-<img src="/images/architecture-diagram.png" className="rounded-2xl" />
+Jump right in with one of our core experiences.
 
-- [**In-App AI Chatbot**:](/reference/components/chat/CopilotPopup) Plug and play AI chatbot components, including support for headless UI.
-- [**Copilot Readable State**:](/reference/hooks/useCopilotReadable) Enables Copilots to read and understand the application state.
-- [**Copilot Actions**:](/reference/hooks/useCopilotAction) Copilots can perform actions in the application.
-- [**Generative UI**:](/guides/generative-ui) Render any component in the copilot chat interface.
-- [**Copilot Textarea**:](/reference/components/CopilotTextarea) Powerful AI autocompletion as a drop-in replacement for any textarea.
-- [**AI Autosuggestions**:](/reference/hooks/useCopilotChatSuggestions) AI-powered autosuggestions in your AI chat interface.
-- [**Copilot Tasks**:](/reference/classes/CopilotTask) Let your copilots take actions proactively based on application state.
-- ... and much more!
+<CTACards
+  cards={[
+    {
+      icon: MdMessage,
+      title: "AI Chats",
+      description: "Build a simple and powerful AI chat interface into your product.",
+      href: "/quickstart"
+    },
+    {
+      icon: TbSparkles,
+      title: "End-to-End Copilots",
+      description: "Allow AI Copilots to take action across your entire application, from end to end.",
+      href: "/tutorials/ai-todo-app/overview"
+    },
+    {
+      icon: SiLangchain,
+      title: "CoAgents",
+      description: "Build rich agentic LangGraph experiences into your product for when the default runloop is not enough.",
+      href: "/coagents"
+    }
+  ]}
+/>
 
-Get started by [following our simple tutorial](/tutorials/ai-todo-app/overview).
+## Build Fast, Customize Endlessly
+Build in minutes with production-ready components, then make them yours. From drop-in UI to fully 
+custom implementations, CopilotKit scales from prototype to production without compromising control.
 
-## Next Steps
+<img src="/images/animated-banner.gif" className="rounded-3xl"/>
 
-<Cards>
-  <Card
-    title="Quickstart"
-    description="Get up and running with CopilotKit in a few minutes."
-    href="/quickstart"
-    icon={<LinkIcon />}
-  />
-  <Card
-    title="API Reference"
-    description="Check out the full API reference for CopilotKit."
-    href="/reference"
-    icon={<LinkIcon />}
-  />
-  <Card
-    title="Tutorial: AI Todo App"
-    description="Follow a step-by-step tutorial to build an AI-powered todo app."
-    href="/tutorials/ai-todo-app/overview"
-    icon={<LinkIcon />}
-  />
-  <Card
-    title="CoAgents (LangGraph)"
-    description="Check out our section about CoAgents, our approach to building agentic copilots and experiences."
-    href="/coagents"
-    icon={<LinkIcon />}
-  />
-</Cards>
+## See It In Action
+Check out some things that we've built with CopilotKit!
+
+<div className="pb-6"/>
+<ExamplesCarousel />
+
+## Common Questions
+We've got answers to some common questions!
+
+<Accordions>
+  <Accordion title="What are the main features of CopilotKit?">
+    ### Batteries included chat components
+    Beautiful, powerful and customizable chat components just an import away.
+    | | |
+    |---------|-------------|
+    | [**Chat**](/reference/components/chat/CopilotChat) | Simple and powerful chat interface |
+    | [**Pop-up**](/reference/components/chat/CopilotPopup) | The Chat component in a pop-up format |
+    | [**Sidebar**](/reference/components/chat/CopilotSidebar) | The Chat component in a sidebar format |
+    | [**Copilot Textarea**](/reference/components/CopilotTextarea) | Powerful AI autocompletion as a drop-in replacement for any textarea |
+    | [**Headless**](/guides/custom-look-and-feel/customize-built-in-ui-components) | Full customization of the chat interfaces |
+
+    ### Deeply integrated Copilots
+    Give Copilots the ability to take actions directly in your application.
+    |  |  |
+    |---------|-------------|
+    | [**Copilot Readable State**](/reference/hooks/useCopilotReadable) | Enables Copilots to read and understand the application state |
+    | [**Copilot Actions**](/reference/hooks/useCopilotAction) | Copilots can perform actions in the application |
+    | [**Generative UI**](/guides/generative-ui) | Render any component in the copilot chat interface |
+    | [**AI Autosuggestions**](/reference/hooks/useCopilotChatSuggestions) | AI-powered autosuggestions in your AI chat interface |
+    | [**Copilot Tasks**](/reference/classes/CopilotTask) | Let your copilots take actions proactively based on application state |
+
+    ### Rich agentic experiences
+    Integrate your LangGraph agents into your product with ease.
+    | |  |
+    |---------|-------------|
+    | [**Deep support for LangGraph**](/coagents/quickstart) | Bring your LangGraph agents directly into your product |
+    | [**Human-in-the-loop**](/coagents/react-ui/hitl) | Allow your users to work with your agents to solve complex problems |
+    | [**Shared state**](/coagents/react-ui/in-app-agent-read) | Render the state of your LangGraph agents with less than 10 lines of code |
+    | [**Multi-agent**](/coagents/concepts/multi-agent-flows) | Build multi-agent experiences with ease |
+  </Accordion>
+  <Accordion title="How does it all work?">
+    Great question! CopilotKit has three main components:
+    1. **CopilotKit UI**: The UI components that you use to build your Copilots and Agents.
+    2. **CopilotKit Runtime**: The runtime that you use to build your Copilots and Agents. This serves as the backend for your Copilots and Agents.
+    3. **CopilotKit SDK**: In more complex applications, you'll use the SDK to deeply integrate CopilotKit into your agents.
+
+
+    ### Architecture
+    Looking for even more detail? Checkout this diagram below or start learning with our [concept guides](/coagents/concepts/agentic-copilots).
+    <ImageZoom src="/images/architecture-diagram.png" className="rounded-2xl" width={1000} height={1000}/>
+  </Accordion>
+  <Accordion title="Can I use any LLM with CopilotKit?">
+    Yes! CopilotKit supports most LLMs, including OpenAI, Anthropic, Google, and more. In addition, you can use any LLM that is supported by LangGraph or
+    LangChain.
+
+    For more information, checkout our documentation on [bringing your own LLM](/guides/bring-your-own-llm).
+  </Accordion>
+</Accordions>
