@@ -54,9 +54,22 @@ export function ErrorToast({ errors }: { errors: (Error | GraphQLError)[] }) {
 export function useErrorToast() {
   const { addToast } = useToast();
 
+  const isAbortError = (error: Error | GraphQLError): boolean => {
+      if ('networkError' in error && error.name === 'CombinedError') {
+          return Boolean(error.networkError && (error.networkError as { name: string }).name === 'AbortError')
+      }
+
+    return error instanceof DOMException && error.name === 'AbortError';
+  };
+
   return useCallback(
-    (error: (Error | GraphQLError)[]) => {
-      const errorId = error
+    (errors: (Error | GraphQLError)[]) => {
+      // Filter out abort errors
+      const nonAbortErrors = errors.filter(err => !isAbortError(err));
+      
+      if (nonAbortErrors.length === 0) return;
+
+      const errorId = nonAbortErrors
         .map((err) => {
           const message =
             "extensions" in err
@@ -69,8 +82,8 @@ export function useErrorToast() {
 
       addToast({
         type: "error",
-        id: errorId, // Toast libraries typically dedupe by id
-        message: <ErrorToast errors={error} />,
+        id: errorId,
+        message: <ErrorToast errors={nonAbortErrors} />,
       });
     },
     [addToast],
