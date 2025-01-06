@@ -1,5 +1,14 @@
 # @copilotkit/shared
 
+## 1.4.8
+
+### Patch Changes
+
+- - Better error handling
+  - Introduce new "EmptyLLMAdapter" for when using CoAgents
+  - Improve dev console help options
+  - Allow CopilotKit remote endpoint without agents
+
 ## 1.4.8-next.0
 
 ## 1.4.7

@@ -1,5 +1,18 @@
 # ui
 
+## 1.4.8
+
+### Patch Changes
+
+- - Better error handling
+  - Introduce new "EmptyLLMAdapter" for when using CoAgents
+  - Improve dev console help options
+  - Allow CopilotKit remote endpoint without agents
+- Updated dependencies
+  - @copilotkit/react-core@1.4.8
+  - @copilotkit/runtime-client-gql@1.4.8
+  - @copilotkit/shared@1.4.8
+
 ## 1.4.8-next.0
 
 ### Patch Changes
