@@ -189,7 +189,12 @@ export async function streamLangChainResponse({
         let toolCallId: string | undefined = undefined;
         let toolCallArgs: string | undefined = undefined;
         let hasToolCall: boolean = false;
-        let content = value?.content as string;
+        let content = "";
+        if (value && value.content) {
+          content = Array.isArray(value.content)
+            ? (((value.content[0] as any)?.text ?? "") as string)
+            : value.content;
+        }
 
         if (isAIMessageChunk(value)) {
           let chunk = value.tool_call_chunks?.[0];
@@ -251,7 +256,7 @@ export async function streamLangChainResponse({
         if (mode === "message" && content) {
           eventStream$.sendTextMessageContent({
             messageId: currentMessageId,
-            content: Array.isArray(content) ? (content[0]?.text ?? "") : content,
+            content,
           });
         } else if (mode === "function" && toolCallArgs) {
           // For calls of the same tool with different index, we seal last tool call and register a new one

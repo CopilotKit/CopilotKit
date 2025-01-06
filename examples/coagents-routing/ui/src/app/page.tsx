@@ -3,6 +3,9 @@ import {
   CopilotKit,
   useCoAgent,
   useCoAgentStateRender,
+  useCopilotChat,
+  useCopilotContext,
+  useCopilotMessagesContext,
 } from "@copilotkit/react-core";
 import {
   CopilotSidebar,
@@ -33,7 +36,11 @@ function Home() {
       runtimeUrl={`/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl ?? ""}`}
     >
       <div className="min-h-screen bg-gray-100 p-4">
-        <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6">
+        <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4 flex justify-center">
+          <ResetButton />
+        </div>
+
+        <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4">
           <Joke />
         </div>
         <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4">
@@ -42,16 +49,47 @@ function Home() {
         <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4">
           <PirateMode />
         </div>
-        <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4 flex justify-center items-center">
-          <RunPirateMode />
-        </div>
         <CopilotSidebar
           defaultOpen={true}
           clickOutsideToClose={false}
           className="mt-4"
+          onStopGeneration={({
+            currentAgentName,
+            stopCurrentAgent,
+            stopGeneration,
+            messages,
+            setMessages,
+          }) => {
+            stopGeneration();
+            if (currentAgentName) {
+              stopCurrentAgent();
+
+              if (messages.length > 0) {
+                const lastMessage = messages[messages.length - 1];
+                if (
+                  lastMessage.isTextMessage() &&
+                  lastMessage.role === MessageRole.Assistant
+                ) {
+                  setMessages(messages.slice(0, -1));
+                }
+              }
+            }
+          }}
         />
       </div>
     </CopilotKit>
+  );
+}
+
+function ResetButton() {
+  const { reset } = useCopilotChat();
+  return (
+    <button
+      className="px-6 py-3 border-2 border-gray-300 bg-white text-gray-800 rounded-lg shadow-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition duration-300 ease-in-out"
+      onClick={() => reset()}
+    >
+      Reset Everything
+    </button>
   );
 }
 
