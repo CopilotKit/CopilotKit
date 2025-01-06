@@ -414,11 +414,17 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
             if (action) {
               followUp = action.followUp;
-              const result = await onFunctionCall({
-                messages: finalMessages,
-                name: message.name,
-                args: message.arguments,
-              });
+              let result: any;
+              try {
+                result = await onFunctionCall({
+                  messages: finalMessages,
+                  name: message.name,
+                  args: message.arguments,
+                });
+              } catch (e) {
+                result = `Failed to execute action ${message.name}`;
+                console.error(`Failed to execute action ${message.name}: ${e}`);
+              }
               didExecuteAction = true;
               const messageIndex = finalMessages.findIndex((msg) => msg.id === message.id);
               finalMessages.splice(
