@@ -6,7 +6,6 @@ import { retry } from "../../lib/retry";
 import { InsertionEditorState } from "../../types/base/autosuggestions-bare-function";
 import { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggestions-api-config";
 import {
-  CopilotRuntimeClient,
   Message,
   Role,
   TextMessage,
@@ -40,7 +39,7 @@ export function useMakeStandardAutosuggestionFunction(
     ...copilotApiConfig.headers,
     ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
   };
-  const { maxTokens, stop } = apiConfig;
+  const { maxTokens, stop, temperature = 0 } = apiConfig;
 
   return useCallback(
     async (editorState: InsertionEditorState, abortSignal: AbortSignal) => {
@@ -85,6 +84,7 @@ export function useMakeStandardAutosuggestionFunction(
               forwardedParameters: {
                 maxTokens,
                 stop,
+                temperature,
               },
             },
             properties,

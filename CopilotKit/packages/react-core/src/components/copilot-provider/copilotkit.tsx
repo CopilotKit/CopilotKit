@@ -317,6 +317,7 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
         agentSession,
         setAgentSession,
         runtimeClient,
+        forwardedParameters: props.forwardedParameters || {},
       }}
     >
       <CopilotMessages>{children}</CopilotMessages>
