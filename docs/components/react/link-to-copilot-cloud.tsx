@@ -27,7 +27,7 @@ export function LinkToCopilotCloud({
   if (!isClient) {
     return null;
   }
-  const url = new URL(`https://cloud.copilotkit.ai`);
+  const url = new URL(`https://go.copilotkit.ai/copilot-cloud-button-docs`);
   url.searchParams.set("ref", "docs");
 
   const sessionId = posthog.get_session_id();
