@@ -175,13 +175,19 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
 
     // add a render function that will be called when the action is rendered
     action.render = ((props: ActionRenderProps<T>): React.ReactElement => {
+      // Specifically for renderAndWaitForResponse the executing state is set too early, causing a race condition
+      // To fit it: we will wait for the handler to be ready
+      let status = props.status;
+      if (props.status === "executing" && !renderAndWaitRef.current) {
+        status = "inProgress";
+      }
       // Create type safe waitProps based on whether T extends empty array or not
       const waitProps = {
-        status: props.status,
+        status,
         args: props.args,
         result: props.result,
-        handler: props.status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
-        respond: props.status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
+        handler: status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
+        respond: status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
       } as T extends [] ? ActionRenderPropsNoArgsWait<T> : ActionRenderPropsWait<T>;
 
       // Type guard to check if renderAndWait is for no args case
