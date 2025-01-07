@@ -27,7 +27,7 @@ export function LinkToCopilotCloud({
   if (!isClient) {
     return null;
   }
-  const url = new URL(`https://cloud.copilotkit.ai`);
+  const url = new URL(`https://go.copilotkit.ai/copilot-cloud-button-docs`);
   url.searchParams.set("ref", "docs");
 
   const sessionId = posthog.get_session_id();
@@ -43,8 +43,8 @@ export function LinkToCopilotCloud({
   let cn = `${className}`;
 
   if (asButton) {
-    cn = "text-indigo-800 dark:text-indigo-300 ring-1 ring-indigo-200 dark:ring-indigo-900 text-sm items-center bg-gradient-to-r from-indigo-200/50 to-purple-200/80 dark:from-indigo-900/40 dark:to-purple-900/50 flex p-2 px-4 rounded-md ";
-    cn += "transition-all duration-100 hover:ring-2 hover:ring-indigo-400 hover:dark:text-indigo-200";
+    cn = "text-indigo-800 dark:text-indigo-300 ring-1 ring-indigo-200 dark:ring-indigo-900 text-sm items-center bg-gradient-to-r from-indigo-200/50 to-purple-200/80 dark:from-indigo-900/40 dark:to-purple-900/50 flex p-2 px-4";
+    cn += "transition-all duration-100 hover:ring-2 hover:ring-indigo-400 hover:dark:text-indigo-200 shadow-2xl rounded-lg";
   } else {
     cn = "_text-primary-600 decoration-from-font underline [text-underline-position:from-font]";
   }

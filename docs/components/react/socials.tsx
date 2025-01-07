@@ -29,7 +29,7 @@ export function Socials({ className }: SocialProps) {
             <Button
                 variant="outline"
                 asChild
-                className="h-10 text-muted-foreground hover:bg-indigo-500 hover:text-white"
+                className="h-10 text-muted-foreground hover:bg-indigo-500 hover:text-white rounded-md shadow"
             >
                 <Link href="https://github.com/CopilotKit/CopilotKit/issues/new/choose" target="_blank" rel="noopener noreferrer">
                     <FaEdit className="w-4 h-4 mr-2" />
