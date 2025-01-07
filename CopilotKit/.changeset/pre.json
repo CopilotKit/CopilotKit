@@ -1,6 +1,6 @@
 {
   "mode": "pre",
-  "tag": "next",
+  "tag": "coagents-v0-3",
   "initialVersions": {
     "next-openai": "1.4.6",
     "next-pages-router": "1.4.6",
@@ -17,5 +17,8 @@
     "tailwind-config": "1.4.6",
     "tsconfig": "1.4.6"
   },
-  "changesets": []
+  "changesets": [
+    "calm-beans-pay",
+    "mighty-pigs-appear"
+  ]
 }
