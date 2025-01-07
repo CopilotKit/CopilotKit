@@ -4,8 +4,6 @@ import {
   useCoAgent,
   useCoAgentStateRender,
   useCopilotChat,
-  useCopilotContext,
-  useCopilotMessagesContext,
 } from "@copilotkit/react-core";
 import {
   CopilotSidebar,
@@ -82,10 +80,10 @@ function usePirateAgent() {
 }
 
 function PirateMode() {
-  // useCopilotChatSuggestions({
-  //   instructions: "Suggest to talk to a pirate about piratey things",
-  //   maxSuggestions: 1,
-  // });
+  useCopilotChatSuggestions({
+    instructions: "Suggest to talk to a pirate about piratey things",
+    maxSuggestions: 1,
+  });
   const { running } = usePirateAgent();
 
   if (running) {
@@ -131,10 +129,10 @@ function RunPirateMode() {
 
 function Joke() {
   const { model } = useModelSelectorContext();
-  // useCopilotChatSuggestions({
-  //   instructions: "Suggest to make a joke about a specific subject",
-  //   maxSuggestions: 1,
-  // });
+  useCopilotChatSuggestions({
+    instructions: "Suggest to make a joke about a specific subject",
+    maxSuggestions: 1,
+  });
   const { state } = useCoAgent({
     name: "joke_agent",
     initialState: {
@@ -166,10 +164,10 @@ function Joke() {
 
 function Email() {
   const { model } = useModelSelectorContext();
-  // useCopilotChatSuggestions({
-  //   instructions: "Suggest to write an email to a famous person",
-  //   maxSuggestions: 1,
-  // });
+  useCopilotChatSuggestions({
+    instructions: "Suggest to write an email to a famous person",
+    maxSuggestions: 1,
+  });
   const { state } = useCoAgent({
     name: "email_agent",
     initialState: {
