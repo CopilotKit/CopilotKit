@@ -218,7 +218,7 @@ export function useCopilotChat({
   const latestRunChatCompletionFunc = useAsyncCallback(async () => {
     return await latestRunChatCompletion.current!();
   }, [latestRunChatCompletion]);
-  
+
   const reset = useCallback(() => {
     latestStopFunc();
     setMessages([]);
@@ -232,7 +232,14 @@ export function useCopilotChat({
       };
     }
     setAgentSession(initialAgentSession);
-  }, [latestStopFunc, setMessages, setThreadId, setCoagentStatesWithRef, setAgentSession, agentLock]);
+  }, [
+    latestStopFunc,
+    setMessages,
+    setThreadId,
+    setCoagentStatesWithRef,
+    setAgentSession,
+    agentLock,
+  ]);
 
   const latestReset = useUpdatedRef(reset);
   const latestResetFunc = useCallback(() => {
