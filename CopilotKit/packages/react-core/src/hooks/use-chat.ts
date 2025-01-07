@@ -22,7 +22,7 @@ import {
 } from "@copilotkit/runtime-client-gql";
 
 import { CopilotApiConfig } from "../context";
-import { FrontendAction } from "../types/frontend-action";
+import { FrontendAction, processActionsForRuntimeRequest } from "../types/frontend-action";
 import { CoagentState } from "../types/coagent-state";
 import { AgentSession } from "../context/copilot-context";
 import { useToast } from "../components/toast/toast-provider";
@@ -215,34 +215,13 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
       const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
 
-      const filteredActions = actions
-        .filter(
-          (action) => action.available !== ActionInputAvailability.Disabled || !action.disabled,
-        )
-        .map((action) => {
-          let available: ActionInputAvailability | undefined = ActionInputAvailability.Enabled;
-          if (action.disabled) {
-            available = ActionInputAvailability.Disabled;
-          } else if (action.available === "disabled") {
-            available = ActionInputAvailability.Disabled;
-          } else if (action.available === "remote") {
-            available = ActionInputAvailability.Remote;
-          }
-          return {
-            name: action.name,
-            description: action.description || "",
-            jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
-            available,
-          };
-        });
-
       const isAgentRun = agentSessionRef.current !== null;
 
       const stream = runtimeClient.asStream(
         runtimeClient.generateCopilotResponse({
           data: {
             frontend: {
-              actions: filteredActions,
+              actions: processActionsForRuntimeRequest(actions),
               url: window.location.href,
             },
             threadId: threadIdRef.current,
