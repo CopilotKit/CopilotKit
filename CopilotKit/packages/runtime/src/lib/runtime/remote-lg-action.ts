@@ -566,8 +566,6 @@ function langchainMessagesToCopilotKit(messages: any[]): any[] {
       const msgId = msg.id;
       if (msgId in resultsDict) {
         reorderedResult.push(resultsDict[msgId]);
-      } else {
-        console.warn("Tool call result message not found for id:", msgId);
       }
     }
   }
