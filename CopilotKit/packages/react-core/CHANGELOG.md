@@ -1,5 +1,15 @@
 # ui
 
+## 1.5.1-next.0
+
+### Patch Changes
+
+- 27e42d7: testing a prerelease
+- 6dfa0d2: - feat: add temperature parameter support for LLM completions
+- Updated dependencies [27e42d7]
+  - @copilotkit/runtime-client-gql@1.5.1-next.0
+  - @copilotkit/shared@1.5.1-next.0
+
 ## 1.5.0
 
 ### Minor Changes

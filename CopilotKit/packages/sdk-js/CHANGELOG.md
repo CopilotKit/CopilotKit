@@ -1,5 +1,13 @@
 # @copilotkit/sdk-js
 
+## 1.5.1-next.0
+
+### Patch Changes
+
+- 27e42d7: testing a prerelease
+- Updated dependencies [27e42d7]
+  - @copilotkit/shared@1.5.1-next.0
+
 ## 1.5.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.5.1-next.0
+
+### Patch Changes
+
+- 27e42d7: testing a prerelease
+
 ## 1.5.0
 
 ### Minor Changes
