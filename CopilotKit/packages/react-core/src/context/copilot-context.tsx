@@ -11,6 +11,7 @@ import { CopilotChatSuggestionConfiguration } from "../types/chat-suggestion-con
 import { CoAgentStateRender, CoAgentStateRenderProps } from "../types/coagent-action";
 import { CoagentState } from "../types/coagent-state";
 import { CopilotRuntimeClient, ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
+import { Agent } from "@copilotkit/runtime-client-gql";
 
 /**
  * Interface for the configuration of the Copilot API.
@@ -176,6 +177,7 @@ export interface CopilotContextParams {
    * The forwarded parameters to use for the task.
    */
   forwardedParameters?: Pick<ForwardedParametersInput, "temperature">;
+  availableAgents: Agent[];
 
   /**
    * The auth states for the CopilotKit.
@@ -251,6 +253,7 @@ const emptyCopilotContext: CopilotContextParams = {
   runId: null,
   setRunId: () => {},
   chatAbortControllerRef: { current: null },
+  availableAgents: [],
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

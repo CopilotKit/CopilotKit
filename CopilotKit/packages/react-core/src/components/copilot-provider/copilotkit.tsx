@@ -14,7 +14,7 @@
  * ```
  */
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CopilotContext,
   CopilotApiConfig,
@@ -42,6 +42,7 @@ import { ToastProvider } from "../toast/toast-provider";
 import { useCopilotRuntimeClient } from "../../hooks/use-copilot-runtime-client";
 import { shouldShowDevConsole } from "../../utils";
 import { CopilotErrorBoundary } from "../error-boundary/error-boundary";
+import { Agent } from "@copilotkit/runtime-client-gql";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const showDevConsole = props.showDevConsole === undefined ? "auto" : props.showDevConsole;
@@ -277,6 +278,7 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
     });
   };
 
+  const [availableAgents, setAvailableAgents] = useState<Agent[]>([]);
   const [coagentStates, setCoagentStates] = useState<Record<string, CoagentState>>({});
   const coagentStatesRef = useRef<Record<string, CoagentState>>({});
   const setCoagentStatesWithRef = useCallback(
@@ -293,6 +295,16 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
     },
     [],
   );
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const result = await runtimeClient.availableAgents();
+      if (result.data?.availableAgents) {
+        setAvailableAgents(result.data.availableAgents.agents);
+      }
+    };
+    void fetchData();
+  }, []);
 
   let initialAgentSession: AgentSession | null = null;
   if (props.agent) {
@@ -349,6 +361,7 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
         runId,
         setRunId,
         chatAbortControllerRef,
+        availableAgents,
         authConfig: props.authConfig,
         authStates,
         setAuthStates,
