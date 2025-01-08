@@ -53,6 +53,7 @@ export type LangGraphAgentHandlerParams = {
   actionInputsWithoutAgents: ActionInput[];
   threadId?: string;
   nodeName?: string;
+  additionalMessages?: Message[];
 };
 
 export type LangGraphAgentAction = Action<any> & {

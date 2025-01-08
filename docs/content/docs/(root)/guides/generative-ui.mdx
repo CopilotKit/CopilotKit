@@ -210,6 +210,20 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
     </Frame>
 
   </Tab>
+
+  <Tab value="Catch all renders">
+    If you want to render actions that are not explicitly referenced in any `useCopilotAction` call, you can pass `"*"` as the action name.
+    In this case, the render method will receive an additional `name` parameter.
+
+    ```tsx
+    useCopilotAction({
+      name: "*",
+      render: ({ name, args, status, result }) => {
+        return <div>Rendering action: {name}</div>;
+      },
+    });
+    ```
+    </Tab>
 </Tabs>
 </Step>
 

@@ -265,7 +265,11 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     } else if (coagentStates[name] === undefined) {
       setState(options.initialState === undefined ? {} : options.initialState);
     }
-  }, [isExternalStateManagement(options) ? JSON.stringify(options.state) : undefined]);
+  }, [
+    isExternalStateManagement(options) ? JSON.stringify(options.state) : undefined,
+    // reset initialstate on reset
+    coagentStates[name] === undefined,
+  ]);
 
   const runAgentCallback = useAsyncCallback(
     async (hint?: HintFunction) => {
@@ -288,23 +292,36 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
   };
 }
 
-function startAgent(name: string, context: CopilotContextParams) {
+export function startAgent(name: string, context: CopilotContextParams) {
   const { setAgentSession } = context;
   setAgentSession({
     agentName: name,
   });
 }
 
-function stopAgent(name: string, context: CopilotContextParams) {
+export function stopAgent(name: string, context: CopilotContextParams) {
   const { agentSession, setAgentSession } = context;
   if (agentSession && agentSession.agentName === name) {
     setAgentSession(null);
+    context.setCoagentStates((prevAgentStates) => {
+      return {
+        ...prevAgentStates,
+        [name]: {
+          ...prevAgentStates[name],
+          running: false,
+          active: false,
+          threadId: undefined,
+          nodeName: undefined,
+          runId: undefined,
+        },
+      };
+    });
   } else {
     console.warn(`No agent session found for ${name}`);
   }
 }
 
-async function runAgent(
+export async function runAgent(
   name: string,
   context: CopilotContextParams & CopilotMessagesContextParams,
   appendMessage: (message: Message) => Promise<void>,

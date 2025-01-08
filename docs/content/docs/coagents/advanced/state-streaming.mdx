@@ -130,7 +130,7 @@ With `emit_intermediate_state`, you can have CopilotKit set a key in your state 
             )
 
             return {
-                *state,
+                "messages": [response],
                 "outline": outline # <- you still need to return your final state
             }
         ```
@@ -174,32 +174,28 @@ In addition to syncing state data between the agent and your frontend, CopilotKi
 
 This information is provided via the `CopilotKitState` type on the Python side, accessible via the `state.copilotkit` property in your agent code.
 
-To enable calling frontend actions: 
+To enable calling frontend actions, bind the available actions to the model using `.bind(state.copilotkit.actions`)
 
-1. Set `emit_tool_calls=True` in `copilotkit_customize_config`
-2. Bind the available actions to the model using `.bind(state.copilotkit.actions`)
-3. Pass in the modified config when calling the model
 
 Here's a complete example:
 
 <Tabs items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python
-        from copilotkit.langchain import copilotkit_customize_config
+
+        from copilotkit import CopilotKitState
+
+        class AgentState(CopilotKitState):
+            # add any additional properties here
+            your_additional_properties: str
 
         def frontend_actions_node(state: AgentState, config: RunnableConfig):
-            
-            # 1) Configure CopilotKit to emit tool calls
-            modified_config = copilotkit_customize_config(
-                config,
-                emit_tool_calls=True,
-            )
 
-            # 2) Provide the actions to the LLM
+            # 1) Provide the actions to the LLM
             model = ChatOpenAI(model="gpt-4o").bind(state.copilotkit.actions)
 
-            # 3) Call the model with CopilotKit's modified config
-            response = await model.ainvoke(*state, modified_config)
+            # 2) Call the model
+            response = await model.ainvoke(*state, config)
 
             return {
                 "messages": [response]
@@ -208,20 +204,25 @@ Here's a complete example:
     </Tab>
     <Tab value="TypeScript">
         ```typescript
-        import { copilotKitCustomizeConfig } from '@copilotkit/sdk-js/langchain';
+
+        import { Annotation } from "@langchain/langgraph";
+        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langchain";
+
+        export const AgentStateAnnotation = Annotation.Root({
+            // add any additional properties here
+            yourAdditionalProperty: Annotation<string>,
+            ...CopilotKitStateAnnotation.spec,
+        });
+
+        export type AgentState = typeof AgentStateAnnotation.State;
 
         async function frontendActionsNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
-            // 1) Configure CopilotKit to emit tool calls
-            const modifiedConfig = copilotKitCustomizeConfig(
-                config,
-                { emitToolCalls: true }
-            );
 
-            // 2) Provide the actions to the LLM
+            // 1) Provide the actions to the LLM
             const model = ChatOpenAI({ model: 'gpt-4o' }).bind(state.copilotkit.actions);
 
-            // 3) Call the model with CopilotKit's modified config
-            const response = await model.invoke(...state, modifiedConfig);
+            // 2) Call the model
+            const response = await model.invoke(...state, config);
 
             return {
                 messages: [response]
@@ -246,7 +247,7 @@ You can pass `emit_messages=False` in these cases, which will suppress any messa
 
         def frontend_actions_node(state: AgentState, config: RunnableConfig):
             
-            # 1) Configure CopilotKit to emit tool calls
+            # 1) Configure CopilotKit not to emit messages
             modifiedConfig = copilotkit_customize_config(
                 config,
                 emit_messages=False,
@@ -258,9 +259,8 @@ You can pass `emit_messages=False` in these cases, which will suppress any messa
             # 3) Call the model with CopilotKit's modified config
             response = await model.ainvoke(*state, modifiedConfig)
 
-            return {
-                "messages": [response]
-            }
+            # don't return the new response to hide it from the user
+            return state
         ```
     </Tab>
     <Tab value="TypeScript">
@@ -268,7 +268,7 @@ You can pass `emit_messages=False` in these cases, which will suppress any messa
         import { copilotKitCustomizeConfig } from '@copilotkit/sdk-js/langchain';
 
         async function frontendActionsNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
-            // 1) Configure CopilotKit to emit tool calls
+            // 1) Configure CopilotKit not to emit messages
             const modifiedConfig = copilotKitCustomizeConfig(
                 config,
                 { emitMessages: false }
@@ -280,9 +280,8 @@ You can pass `emit_messages=False` in these cases, which will suppress any messa
             // 3) Call the model with CopilotKit's modified config
             const response = await model.invoke(...state, modifiedConfig);
 
-            return {
-                messages: [response]
-            };
+            // don't return the new response to hide it from the user
+            return state
         }
         ```
     </Tab>

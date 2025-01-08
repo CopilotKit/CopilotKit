@@ -39,11 +39,12 @@ export const generateCopilotResponseMutation = graphql(/** GraphQL **/ `
         ... on TextMessageOutput {
           content @stream
           role
+          parentMessageId
         }
         ... on ActionExecutionMessageOutput {
           name
-          scope
           arguments @stream
+          parentMessageId
         }
         ... on ResultMessageOutput {
           result

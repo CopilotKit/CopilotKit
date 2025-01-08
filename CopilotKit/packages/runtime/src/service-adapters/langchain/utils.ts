@@ -97,11 +97,11 @@ function maybeSendActionExecutionResultIsMessage(
   // language models need a result after the function call
   // we simply let them know that we are sending a message
   if (actionExecution) {
-    eventStream$.sendActionExecutionResult(
-      actionExecution.id,
-      actionExecution.name,
-      "Sending a message",
-    );
+    eventStream$.sendActionExecutionResult({
+      actionExecutionId: actionExecution.id,
+      actionName: actionExecution.name,
+      result: "Sending a message",
+    });
   }
 }
 
@@ -120,7 +120,11 @@ export async function streamLangChainResponse({
       eventStream$.sendTextMessage(randomId(), result);
     } else {
       // Send as a result
-      eventStream$.sendActionExecutionResult(actionExecution.id, actionExecution.name, result);
+      eventStream$.sendActionExecutionResult({
+        actionExecutionId: actionExecution.id,
+        actionName: actionExecution.name,
+        result: result,
+      });
     }
   }
 
@@ -133,11 +137,11 @@ export async function streamLangChainResponse({
       eventStream$.sendTextMessage(randomId(), result.content as string);
     }
     for (const toolCall of result.tool_calls) {
-      eventStream$.sendActionExecution(
-        toolCall.id || randomId(),
-        toolCall.name,
-        JSON.stringify(toolCall.args),
-      );
+      eventStream$.sendActionExecution({
+        actionExecutionId: toolCall.id || randomId(),
+        actionName: toolCall.name,
+        args: JSON.stringify(toolCall.args),
+      });
     }
   }
 
@@ -151,11 +155,11 @@ export async function streamLangChainResponse({
     }
     if (result.lc_kwargs?.tool_calls) {
       for (const toolCall of result.lc_kwargs?.tool_calls) {
-        eventStream$.sendActionExecution(
-          toolCall.id || randomId(),
-          toolCall.name,
-          JSON.stringify(toolCall.args),
-        );
+        eventStream$.sendActionExecution({
+          actionExecutionId: toolCall.id || randomId(),
+          actionName: toolCall.name,
+          args: JSON.stringify(toolCall.args),
+        });
       }
     }
   }
@@ -168,6 +172,7 @@ export async function streamLangChainResponse({
     let reader = result.getReader();
 
     let mode: "function" | "message" | null = null;
+    let currentMessageId: string;
 
     const toolCallDetails = {
       name: null,
@@ -184,7 +189,12 @@ export async function streamLangChainResponse({
         let toolCallId: string | undefined = undefined;
         let toolCallArgs: string | undefined = undefined;
         let hasToolCall: boolean = false;
-        let content = value?.content as string;
+        let content = "";
+        if (value && value.content) {
+          content = Array.isArray(value.content)
+            ? (((value.content[0] as any)?.text ?? "") as string)
+            : value.content;
+        }
 
         if (isAIMessageChunk(value)) {
           let chunk = value.tool_call_chunks?.[0];
@@ -216,10 +226,10 @@ export async function streamLangChainResponse({
         // If toolCallName is defined, it means a new tool call starts.
         if (mode === "message" && (toolCallId || done)) {
           mode = null;
-          eventStream$.sendTextMessageEnd();
+          eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
         } else if (mode === "function" && (!hasToolCall || done)) {
           mode = null;
-          eventStream$.sendActionExecutionEnd();
+          eventStream$.sendActionExecutionEnd({ actionExecutionId: toolCallId });
         }
 
         if (done) {
@@ -230,26 +240,39 @@ export async function streamLangChainResponse({
         if (mode === null) {
           if (hasToolCall && toolCallId && toolCallName) {
             mode = "function";
-            eventStream$.sendActionExecutionStart(toolCallId, toolCallName);
+            eventStream$.sendActionExecutionStart({
+              actionExecutionId: toolCallId,
+              actionName: toolCallName,
+              parentMessageId: value.lc_kwargs?.id,
+            });
           } else if (content) {
             mode = "message";
-            eventStream$.sendTextMessageStart(randomId());
+            currentMessageId = value.lc_kwargs?.id || randomId();
+            eventStream$.sendTextMessageStart({ messageId: currentMessageId });
           }
         }
 
         // send the content events
         if (mode === "message" && content) {
-          eventStream$.sendTextMessageContent(
-            Array.isArray(content) ? (content[0]?.text ?? "") : content,
-          );
+          eventStream$.sendTextMessageContent({
+            messageId: currentMessageId,
+            content,
+          });
         } else if (mode === "function" && toolCallArgs) {
           // For calls of the same tool with different index, we seal last tool call and register a new one
           if (toolCallDetails.index !== toolCallDetails.prevIndex) {
-            eventStream$.sendActionExecutionEnd();
-            eventStream$.sendActionExecutionStart(toolCallId, toolCallName);
+            eventStream$.sendActionExecutionEnd({ actionExecutionId: toolCallId });
+            eventStream$.sendActionExecutionStart({
+              actionExecutionId: toolCallId,
+              actionName: toolCallName,
+              parentMessageId: value.lc_kwargs?.id,
+            });
             toolCallDetails.prevIndex = toolCallDetails.index;
           }
-          eventStream$.sendActionExecutionArgs(toolCallArgs);
+          eventStream$.sendActionExecutionArgs({
+            actionExecutionId: toolCallId,
+            args: toolCallArgs,
+          });
         }
       } catch (error) {
         console.error("Error reading from stream", error);
@@ -257,11 +280,11 @@ export async function streamLangChainResponse({
       }
     }
   } else if (actionExecution) {
-    eventStream$.sendActionExecutionResult(
-      actionExecution.id,
-      actionExecution.name,
-      encodeResult(result),
-    );
+    eventStream$.sendActionExecutionResult({
+      actionExecutionId: actionExecution.id,
+      actionName: actionExecution.name,
+      result: encodeResult(result),
+    });
   }
 
   // unsupported type

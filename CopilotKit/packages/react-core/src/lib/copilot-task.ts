@@ -58,10 +58,9 @@ import {
   CopilotRequestType,
   ForwardedParametersInput,
 } from "@copilotkit/runtime-client-gql";
-import { FrontendAction } from "../types/frontend-action";
+import { FrontendAction, processActionsForRuntimeRequest } from "../types/frontend-action";
 import { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
-import { actionParametersToJsonSchema } from "@copilotkit/shared";
 
 export interface CopilotTaskConfig {
   /**
@@ -143,11 +142,7 @@ export class CopilotTask<T = any> {
       .generateCopilotResponse({
         data: {
           frontend: {
-            actions: Object.values(actions).map((action) => ({
-              name: action.name,
-              description: action.description || "",
-              jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
-            })),
+            actions: processActionsForRuntimeRequest(Object.values(actions)),
             url: window.location.href,
           },
           messages: convertMessagesToGqlInput(filterAgentStateMessages(messages)),
