@@ -17,5 +17,9 @@
     "tailwind-config": "1.4.6",
     "tsconfig": "1.4.6"
   },
-  "changesets": []
+  "changesets": [
+    "neat-stingrays-appear",
+    "thick-dots-battle",
+    "wicked-pianos-sin"
+  ]
 }
