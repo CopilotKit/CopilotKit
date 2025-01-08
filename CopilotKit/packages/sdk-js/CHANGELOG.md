@@ -1,5 +1,18 @@
 # @copilotkit/sdk-js
 
+## 1.5.0
+
+### Minor Changes
+
+- 1b47092: Synchronize LangGraph messages with CopilotKit
+
+### Patch Changes
+
+- 1b47092: CoAgents v0.3 prerelease
+- Updated dependencies [1b47092]
+- Updated dependencies [1b47092]
+  - @copilotkit/shared@1.5.0
+
 ## 1.5.0-coagents-v0-3.0
 
 ### Minor Changes
