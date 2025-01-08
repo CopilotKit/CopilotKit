@@ -14,7 +14,7 @@ from .exc import (
 from .logging import get_logger, bold
 
 
-COPILOTKIT_SDK_VERSION = "0.1.31"
+COPILOTKIT_SDK_VERSION = "0.1.32"
 
 logger = get_logger(__name__)
 
