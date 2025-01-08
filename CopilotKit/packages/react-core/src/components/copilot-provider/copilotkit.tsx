@@ -20,6 +20,7 @@ import {
   CopilotApiConfig,
   ChatComponentsCache,
   AgentSession,
+  AuthState,
 } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
 import { CopilotChatSuggestionConfiguration, DocumentPointer } from "../../types";
@@ -77,6 +78,7 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
   const { addElement, removeElement, printTree } = useTree();
   const [isLoading, setIsLoading] = useState(false);
   const [chatInstructions, setChatInstructions] = useState("");
+  const [authStates, setAuthStates] = useState<Record<string, AuthState>>({});
 
   const {
     addElement: addDocument,
@@ -224,12 +226,31 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
     props.cloudRestrictToTopic,
   ]);
 
-  const headers = {
-    ...(copilotApiConfig.headers || {}),
-    ...(copilotApiConfig.publicApiKey
-      ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey }
-      : {}),
-  };
+  const headers = useMemo(() => {
+    const authHeaders = Object.values(authStates || {}).reduce((acc, state) => {
+      if (state.status === "authenticated" && state.authHeaders) {
+        return {
+          ...acc,
+          ...Object.entries(state.authHeaders).reduce(
+            (headers, [key, value]) => ({
+              ...headers,
+              [key.startsWith("X-Custom-") ? key : `X-Custom-${key}`]: value,
+            }),
+            {},
+          ),
+        };
+      }
+      return acc;
+    }, {});
+
+    return {
+      ...(copilotApiConfig.headers || {}),
+      ...(copilotApiConfig.publicApiKey
+        ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey }
+        : {}),
+      ...authHeaders,
+    };
+  }, [copilotApiConfig.headers, copilotApiConfig.publicApiKey, authStates]);
 
   const runtimeClient = useCopilotRuntimeClient({
     url: copilotApiConfig.chatApiEndpoint,
@@ -328,6 +349,9 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
         runId,
         setRunId,
         chatAbortControllerRef,
+        authConfig: props.authConfig,
+        authStates,
+        setAuthStates,
       }}
     >
       <CopilotMessages>{children}</CopilotMessages>
