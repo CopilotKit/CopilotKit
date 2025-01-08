@@ -11,7 +11,7 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
     For your copilot to best answer your users' needs, you will want to provide it with **context-specific**, **user-specific**, and oftentimes **realtime** data. CopilotKit makes it easy to do so.
 
     ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
-    "use client"
+    "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
     import { useCopilotReadable } from "@copilotkit/react-core";
     import { useState } from 'react';
     
