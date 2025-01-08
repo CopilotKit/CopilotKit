@@ -30,9 +30,6 @@ jobs:
       - name: Install Dependencies
         run: pnpm i
 
-      - name: Run custom prerelease script
-        run: ./scripts/release/custom-prerelease.sh
-
       - name: Prepare prerelease
         run: |
           ./scripts/prepare-custom-prerelease.sh
