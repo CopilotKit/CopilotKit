@@ -35,7 +35,7 @@ jobs:
 
       - name: Prepare prerelease
         run: |
-          ./scripts/release/prepare-custom-prerelease.sh
+          ./scripts/prepare-custom-prerelease.sh
 
       - name: Create Release Pull Request or Publish to npm
         id: changesets
