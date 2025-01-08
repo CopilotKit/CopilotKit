@@ -105,7 +105,7 @@ export type UseChatOptions = {
    * The forwarded parameters.
    */
   forwardedParameters?: Pick<ForwardedParametersInput, "temperature">;
-  
+
   /**
    * The current thread ID.
    */
