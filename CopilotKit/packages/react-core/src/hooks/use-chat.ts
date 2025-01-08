@@ -502,6 +502,12 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           const repairedMessageIds = repairedMessages.map((message) => message.id);
           setMessages(repairedMessages);
 
+          // LangGraph needs two pieces of information to continue execution:
+          // 1. The threadId
+          // 2. The nodeName it came from
+          // When stopping the agent, we don't know the nodeName the agent would have ended with
+          // Therefore, we set the nodeName to the most reasonable thing we can guess, which
+          // is "__end__"
           if (agentSessionRef.current?.nodeName) {
             setAgentSession({
               threadId: agentSessionRef.current.threadId,
