@@ -321,6 +321,7 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
         agentSession,
         setAgentSession,
         runtimeClient,
+        forwardedParameters: props.forwardedParameters || {},
         agentLock: props.agent || null,
         threadId,
         setThreadId,

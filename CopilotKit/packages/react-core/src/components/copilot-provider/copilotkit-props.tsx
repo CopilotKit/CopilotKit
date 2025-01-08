@@ -1,3 +1,4 @@
+import { ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
 import { ReactNode } from "react";
 
 /**
@@ -78,4 +79,9 @@ export interface CopilotKitProps {
    * The name of the agent to use.
    */
   agent?: string;
+
+  /**
+   * The forwarded parameters to use for the task.
+   */
+  forwardedParameters?: Pick<ForwardedParametersInput, "temperature">;
 }
