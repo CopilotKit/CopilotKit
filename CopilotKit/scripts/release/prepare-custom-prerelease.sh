@@ -16,8 +16,5 @@ if [ -f ".changeset/pre.json" ]; then
   pnpm changeset pre exit
 fi
 
-# enter pre mode
-pnpm changeset pre enter $suggested_tag
-
 # bump the version
-pnpm changeset version
+pnpm changeset version --snapshot $suggested_tag
