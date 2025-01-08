@@ -1,6 +1,6 @@
 {
   "mode": "pre",
-  "tag": "next",
+  "tag": "custom-tag-pre",
   "initialVersions": {
     "next-openai": "1.4.6",
     "next-pages-router": "1.4.6",
@@ -17,5 +17,8 @@
     "tailwind-config": "1.4.6",
     "tsconfig": "1.4.6"
   },
-  "changesets": []
+  "changesets": [
+    "neat-stingrays-appear",
+    "wicked-pianos-sin"
+  ]
 }

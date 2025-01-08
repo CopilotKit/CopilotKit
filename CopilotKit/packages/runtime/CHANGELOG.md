@@ -1,5 +1,14 @@
 # @copilotkit/runtime
 
+## 1.5.1-custom-tag-pre.0
+
+### Patch Changes
+
+- 896c825: testing a prerelease
+- 6dfa0d2: - feat: add temperature parameter support for LLM completions
+- Updated dependencies [896c825]
+  - @copilotkit/shared@1.5.1-custom-tag-pre.0
+
 ## 1.5.0
 
 ### Minor Changes

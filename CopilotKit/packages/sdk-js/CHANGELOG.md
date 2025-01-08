@@ -1,5 +1,13 @@
 # @copilotkit/sdk-js
 
+## 1.5.1-custom-tag-pre.0
+
+### Patch Changes
+
+- 896c825: testing a prerelease
+- Updated dependencies [896c825]
+  - @copilotkit/shared@1.5.1-custom-tag-pre.0
+
 ## 1.5.0
 
 ### Minor Changes
