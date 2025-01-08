@@ -1,5 +1,19 @@
 # ui
 
+## 1.5.0-coagents-v0-3.0
+
+### Minor Changes
+
+- Synchronize LangGraph messages with CopilotKit
+
+### Patch Changes
+
+- e66bce4: CoAgents v0.3 prerelease
+- Updated dependencies
+- Updated dependencies [e66bce4]
+  - @copilotkit/runtime-client-gql@1.5.0-coagents-v0-3.0
+  - @copilotkit/shared@1.5.0-coagents-v0-3.0
+
 ## 1.4.8
 
 ### Patch Changes

@@ -226,22 +226,28 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
   private async streamResponse(stream: AssistantStream, eventSource: RuntimeEventSource) {
     eventSource.stream(async (eventStream$) => {
       let inFunctionCall = false;
+      let currentMessageId: string;
+      let currentToolCallId: string;
 
       for await (const chunk of stream) {
         switch (chunk.event) {
           case "thread.message.created":
             if (inFunctionCall) {
-              eventStream$.sendActionExecutionEnd();
+              eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
             }
-            eventStream$.sendTextMessageStart(chunk.data.id);
+            currentMessageId = chunk.data.id;
+            eventStream$.sendTextMessageStart({ messageId: currentMessageId });
             break;
           case "thread.message.delta":
             if (chunk.data.delta.content?.[0].type === "text") {
-              eventStream$.sendTextMessageContent(chunk.data.delta.content?.[0].text.value);
+              eventStream$.sendTextMessageContent({
+                messageId: currentMessageId,
+                content: chunk.data.delta.content?.[0].text.value,
+              });
             }
             break;
           case "thread.message.completed":
-            eventStream$.sendTextMessageEnd();
+            eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
             break;
           case "thread.run.step.delta":
             let toolCallId: string | undefined;
@@ -258,18 +264,26 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
 
             if (toolCallName && toolCallId) {
               if (inFunctionCall) {
-                eventStream$.sendActionExecutionEnd();
+                eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
               }
               inFunctionCall = true;
-              eventStream$.sendActionExecutionStart(toolCallId, toolCallName);
+              currentToolCallId = toolCallId;
+              eventStream$.sendActionExecutionStart({
+                actionExecutionId: currentToolCallId,
+                parentMessageId: chunk.data.id,
+                actionName: toolCallName,
+              });
             } else if (toolCallArgs) {
-              eventStream$.sendActionExecutionArgs(toolCallArgs);
+              eventStream$.sendActionExecutionArgs({
+                actionExecutionId: currentToolCallId,
+                args: toolCallArgs,
+              });
             }
             break;
         }
       }
       if (inFunctionCall) {
-        eventStream$.sendActionExecutionEnd();
+        eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
       }
       eventStream$.complete();
     });

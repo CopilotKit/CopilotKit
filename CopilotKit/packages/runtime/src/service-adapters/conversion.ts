@@ -19,6 +19,7 @@ export function convertGqlInputToMessages(inputMessages: MessageInput[]): Messag
           createdAt: message.createdAt,
           role: message.textMessage.role,
           content: message.textMessage.content,
+          parentMessageId: message.textMessage.parentMessageId,
         }),
       );
     } else if (message.actionExecutionMessage) {
@@ -28,7 +29,7 @@ export function convertGqlInputToMessages(inputMessages: MessageInput[]): Messag
           createdAt: message.createdAt,
           name: message.actionExecutionMessage.name,
           arguments: JSON.parse(message.actionExecutionMessage.arguments),
-          scope: message.actionExecutionMessage.scope,
+          parentMessageId: message.actionExecutionMessage.parentMessageId,
         }),
       );
     } else if (message.resultMessage) {

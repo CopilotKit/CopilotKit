@@ -1,5 +1,9 @@
 import { CopilotCloudConfig, FunctionCallHandler } from "@copilotkit/shared";
-import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
+import {
+  ActionRenderProps,
+  CatchAllActionRenderProps,
+  FrontendAction,
+} from "../types/frontend-action";
 import React from "react";
 import { TreeNodeId } from "../hooks/use-tree";
 import { DocumentPointer } from "../types";
@@ -68,7 +72,9 @@ export interface CopilotApiConfig {
   credentials?: RequestCredentials;
 }
 
-export type InChatRenderFunction = (props: ActionRenderProps<any>) => string | JSX.Element;
+export type InChatRenderFunction = (
+  props: ActionRenderProps<any> | CatchAllActionRenderProps<any>,
+) => string | JSX.Element;
 export type CoagentInChatRenderFunction = (
   props: CoAgentStateRenderProps<any>,
 ) => string | JSX.Element | undefined | null;
@@ -142,6 +148,18 @@ export interface CopilotContextParams {
   agentSession: AgentSession | null;
   setAgentSession: React.Dispatch<React.SetStateAction<AgentSession | null>>;
 
+  agentLock: string | null;
+
+  threadId: string | null;
+  setThreadId: React.Dispatch<React.SetStateAction<string | null>>;
+
+  runId: string | null;
+  setRunId: React.Dispatch<React.SetStateAction<string | null>>;
+
+  // The chat abort controller can be used to stop generation globally,
+  // i.e. when using `stop()` from `useChat`
+  chatAbortControllerRef: React.MutableRefObject<AbortController | null>;
+
   // runtime
   runtimeClient: CopilotRuntimeClient;
 }
@@ -198,6 +216,16 @@ const emptyCopilotContext: CopilotContextParams = {
 
   agentSession: null,
   setAgentSession: () => {},
+
+  agentLock: null,
+
+  threadId: null,
+  setThreadId: () => {},
+
+  runId: null,
+  setRunId: () => {},
+
+  chatAbortControllerRef: { current: null },
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

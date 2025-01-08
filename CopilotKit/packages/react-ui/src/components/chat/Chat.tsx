@@ -73,6 +73,7 @@ import { InputProps, MessagesProps, RenderMessageProps, ResponseButtonProps } fr
 import { randomId } from "@copilotkit/shared";
 
 import { CopilotDevConsole } from "../dev-console";
+import { HintFunction, runAgent, stopAgent } from "@copilotkit/react-core";
 
 /**
  * Props for CopilotChat component.
@@ -97,6 +98,16 @@ export interface CopilotChatProps {
    * A callback that gets called when a new message it submitted.
    */
   onSubmitMessage?: (message: string) => void | Promise<void>;
+
+  /**
+   * A custom stop generation function.
+   */
+  onStopGeneration?: OnStopGeneration;
+
+  /**
+   * A custom reload messages function.
+   */
+  onReloadMessages?: OnReloadMessages;
 
   /**
    * Icons can be used to set custom icons for the chat window.
@@ -168,12 +179,62 @@ export interface CopilotChatProps {
   children?: React.ReactNode;
 }
 
+interface OnStopGenerationArguments {
+  /**
+   * The name of the currently executing agent.
+   */
+  currentAgentName: string | undefined;
+
+  /**
+   * The messages in the chat.
+   */
+  messages: Message[];
+
+  /**
+   * Set the messages in the chat.
+   */
+  setMessages: (messages: Message[]) => void;
+
+  /**
+   * Stop chat generation.
+   */
+  stopGeneration: () => void;
+
+  /**
+   * Restart the currently executing agent.
+   */
+  restartCurrentAgent: () => void;
+
+  /**
+   * Stop the currently executing agent.
+   */
+  stopCurrentAgent: () => void;
+
+  /**
+   * Run the currently executing agent.
+   */
+  runCurrentAgent: (hint?: HintFunction) => Promise<void>;
+
+  /**
+   * Set the state of the currently executing agent.
+   */
+  setCurrentAgentState: (state: any) => void;
+}
+
+export type OnReloadMessagesArguments = OnStopGenerationArguments;
+
+export type OnStopGeneration = (args: OnStopGenerationArguments) => void;
+
+export type OnReloadMessages = (args: OnReloadMessagesArguments) => void;
+
 export function CopilotChat({
   instructions,
   onSubmitMessage,
   makeSystemMessage,
   showResponseButton = true,
   onInProgress,
+  onStopGeneration,
+  onReloadMessages,
   Messages = DefaultMessages,
   RenderTextMessage = DefaultRenderTextMessage,
   RenderActionExecutionMessage = DefaultRenderActionExecutionMessage,
@@ -198,7 +259,13 @@ export function CopilotChat({
     sendMessage,
     stopGeneration,
     reloadMessages,
-  } = useCopilotChatLogic(makeSystemMessage, onInProgress, onSubmitMessage);
+  } = useCopilotChatLogic(
+    makeSystemMessage,
+    onInProgress,
+    onSubmitMessage,
+    onStopGeneration,
+    onReloadMessages,
+  );
 
   const chatContext = React.useContext(ChatContext);
   const isVisible = chatContext ? chatContext.open : true;
@@ -271,12 +338,20 @@ export const useCopilotChatLogic = (
   makeSystemMessage?: SystemMessageFunction,
   onInProgress?: (isLoading: boolean) => void,
   onSubmitMessage?: (messageContent: string) => Promise<void> | void,
+  onStopGeneration?: OnStopGeneration,
+  onReloadMessages?: OnReloadMessages,
 ) => {
-  const { visibleMessages, appendMessage, reloadMessages, stopGeneration, isLoading } =
-    useCopilotChat({
-      id: randomId(),
-      makeSystemMessage,
-    });
+  const {
+    visibleMessages,
+    appendMessage,
+    reloadMessages: defaultReloadMessages,
+    stopGeneration: defaultStopGeneration,
+    runChatCompletion,
+    isLoading,
+  } = useCopilotChat({
+    id: randomId(),
+    makeSystemMessage,
+  });
 
   const [currentSuggestions, setCurrentSuggestions] = useState<CopilotChatSuggestion[]>([]);
   const suggestionsAbortControllerRef = useRef<AbortController | null>(null);
@@ -314,7 +389,13 @@ export const useCopilotChatLogic = (
     return () => {
       clearTimeout(debounceTimerRef.current);
     };
-  }, [isLoading, context.chatSuggestionConfiguration]);
+  }, [
+    isLoading,
+    context.chatSuggestionConfiguration,
+    // hackish way to trigger suggestions reload on reset, but better than moving suggestions to the
+    // global context
+    visibleMessages.length == 0,
+  ]);
 
   const sendMessage = async (messageContent: string) => {
     abortSuggestions();
@@ -339,6 +420,91 @@ export const useCopilotChatLogic = (
 
     return message;
   };
+
+  const messages = visibleMessages;
+  const { setMessages } = messagesContext;
+  const currentAgentName = generalContext.agentSession?.agentName;
+  const restartCurrentAgent = async (hint?: HintFunction) => {
+    if (generalContext.agentSession) {
+      generalContext.setAgentSession({
+        ...generalContext.agentSession,
+        nodeName: undefined,
+        threadId: undefined,
+      });
+      generalContext.setCoagentStates((prevAgentStates) => {
+        return {
+          ...prevAgentStates,
+          [generalContext.agentSession!.agentName]: {
+            ...prevAgentStates[generalContext.agentSession!.agentName],
+            threadId: undefined,
+            nodeName: undefined,
+            runId: undefined,
+          },
+        };
+      });
+    }
+  };
+  const runCurrentAgent = async (hint?: HintFunction) => {
+    if (generalContext.agentSession) {
+      await runAgent(
+        generalContext.agentSession.agentName,
+        context,
+        appendMessage,
+        runChatCompletion,
+        hint,
+      );
+    }
+  };
+  const stopCurrentAgent = () => {
+    if (generalContext.agentSession) {
+      stopAgent(generalContext.agentSession.agentName, context);
+    }
+  };
+  const setCurrentAgentState = (state: any) => {
+    if (generalContext.agentSession) {
+      generalContext.setCoagentStates((prevAgentStates) => {
+        return {
+          ...prevAgentStates,
+          [generalContext.agentSession!.agentName]: {
+            state,
+          },
+        } as any;
+      });
+    }
+  };
+
+  function stopGeneration() {
+    if (onStopGeneration) {
+      onStopGeneration({
+        messages,
+        setMessages,
+        stopGeneration: defaultStopGeneration,
+        currentAgentName,
+        restartCurrentAgent,
+        stopCurrentAgent,
+        runCurrentAgent,
+        setCurrentAgentState,
+      });
+    } else {
+      defaultStopGeneration();
+    }
+  }
+  function reloadMessages() {
+    if (onReloadMessages) {
+      onReloadMessages({
+        messages,
+        setMessages,
+        stopGeneration: defaultStopGeneration,
+        currentAgentName,
+        restartCurrentAgent,
+        stopCurrentAgent,
+        runCurrentAgent,
+        setCurrentAgentState,
+      });
+    } else {
+      defaultReloadMessages();
+    }
+  }
 
   return {
     visibleMessages,

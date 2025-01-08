@@ -8,12 +8,11 @@ from langgraph.graph.graph import CompiledGraph
 from langchain.load.dump import dumps as langchain_dumps
 from langchain.schema import BaseMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig, ensure_config
-from langchain_core.messages import AIMessage, ToolMessage
 
 from partialjson.json_parser import JSONParser
 
 from .types import Message
-from .langchain import copilotkit_messages_to_langchain
+from .langchain import copilotkit_messages_to_langchain, langchain_messages_to_copilotkit
 from .action import ActionDict
 from .agent import Agent
 from .logging import get_logger
@@ -37,150 +36,13 @@ def langgraph_default_merge_state( # pylint: disable=unused-argument
         # remove system message
         messages = messages[1:]
 
-
-    # merge with existing messages
-    merged_messages = state.get("messages", [])
-    existing_message_ids = {message.id for message in merged_messages}
-    existing_tool_call_results = set()
-
-    for message in merged_messages:
-        if isinstance(message, ToolMessage):
-            existing_tool_call_results.add(message.tool_call_id)
-
-    for message in messages:
-        # filter tool calls to activate the agent itself
-        if (
-            isinstance(message, AIMessage) and
-            message.tool_calls and
-            message.tool_calls[0]["name"] == agent_name
-        ):
-            continue
-
-        # filter results from activating the agent
-        if (
-            isinstance(message, ToolMessage) and
-            message.name == agent_name
-        ):
-            continue
-
-        if message.id not in existing_message_ids:
-
-            # skip duplicate tool call results
-            if (isinstance(message, ToolMessage) and
-                message.tool_call_id in existing_tool_call_results):
-                logger.warning(
-                    "Warning: Duplicate tool call result, skipping: %s",
-                    message.tool_call_id
-                )
-                continue
-
-            merged_messages.append(message)
-        else:
-            # Replace the message with the existing one
-            for i, existing_message in enumerate(merged_messages):
-                if existing_message.id == message.id:
-                    # if the message is an AIMessage, we need to merge
-                    # the tool calls and additional kwargs
-                    if isinstance(message, AIMessage):
-                        if (
-                            (merged_messages[i].tool_calls or
-                             merged_messages[i].additional_kwargs) and
-                            merged_messages[i].content
-                        ):
-                            message.tool_calls = merged_messages[i].tool_calls
-                            message.additional_kwargs = merged_messages[i].additional_kwargs
-                    merged_messages[i] = message
-
-    # fix wrong tool call ids
-    for i, current_message in enumerate(merged_messages):
-        if i == len(merged_messages) - 1:
-            break
-        next_message = merged_messages[i + 1]
-        if (not isinstance(current_message, AIMessage) or
-            not isinstance(next_message, ToolMessage)):
-            continue
-
-        if current_message.tool_calls and current_message.tool_calls[0]["id"]:
-            next_message.tool_call_id = current_message.tool_calls[0]["id"]
-
-    # try to auto-correct and log alignment issues
-    corrected_messages = []
-
-    for i, current_message in enumerate(merged_messages):
-        next_message = merged_messages[i + 1] if i < len(merged_messages) - 1 else None
-        prev_message = merged_messages[i - 1] if i > 0 else None
-
-        if isinstance(current_message, AIMessage) and current_message.tool_calls:
-            # ensure the next message is a ToolMessage
-            if not next_message:
-                # no next message, so we can't auto-correct
-                logger.warning(
-                    "No next message to auto-correct tool call, skipping: %s",
-                    current_message.tool_calls[0]["id"]
-                )
-                continue
-
-            if ((not isinstance(next_message, ToolMessage)) or
-                next_message.tool_call_id != current_message.tool_calls[0]["id"]):
-                # next message is not a tool message or the tool call id is incorrect
-
-                # try to find the corresponding tool call result
-                tool_message = next((m for m in merged_messages
-                                     if isinstance(m, ToolMessage) and 
-                                     m.tool_call_id == current_message.tool_calls[0]["id"]), 
-                                     None)
-                if tool_message:
-                    # we found the corresponding tool call result
-                    # append the current message and the tool call result
-                    logger.warning(
-                        "Auto-corrected tool call alignment issue: %s",
-                        current_message.tool_calls[0]["id"]
-                    )
-                    corrected_messages.append(current_message)
-                    corrected_messages.append(tool_message)
-                    continue
-                else:
-                    # no corresponding tool call result found for tool call
-                    logger.warning(
-                        "No corresponding tool call result found for tool call, skipping: %s",
-                        current_message.tool_calls[0]["id"]
-                    )
-                    continue
-
-            # all good, append the current message
-            corrected_messages.append(current_message)
-            continue
-
-        if isinstance(current_message, ToolMessage):
-            # ensure the previous message is an AIMessage
-            if not prev_message or not isinstance(prev_message, AIMessage):
-                # no previous message, so we can't auto-correct
-                logger.warning(
-                    "No previous tool call, skipping tool call result: %s",
-                    current_message.id
-                )
-                continue
-
-            if (prev_message.tool_calls and
-                prev_message.tool_calls[0]["id"] != current_message.tool_call_id):
-                # the tool call id is incorrect
-                logger.warning(
-                    "Tool call id is incorrect, skipping tool call result: %s",
-                    current_message.id
-                )
-                continue
-
-            # all good, append the current message
-            corrected_messages.append(current_message)
-            continue
-
-        # append all other messages
-        corrected_messages.append(current_message)
-
+    existing_messages = state.get("messages", [])
+    existing_message_ids = {message.id for message in existing_messages}
+    new_messages = [message for message in messages if message.id not in existing_message_ids]
 
     return {
         **state,
-        "messages": corrected_messages,
+        "messages": new_messages,
         "copilotkit": {
             "actions": actions
         }
@@ -213,7 +75,7 @@ class LangGraphAgent(Agent):
 
         if merge_state is None:
             logger.warning("Warning: merge_state is deprecated, use copilotkit_config instead")
-        
+
         if graph is None and agent is None:
             raise ValueError("graph must be provided")
 
@@ -249,11 +111,19 @@ class LangGraphAgent(Agent):
             node_name: str,
             state: dict,
             running: bool,
-            active: bool
+            active: bool,
+            include_messages: bool = False
         ):
-        state_without_messages = {
-            k: v for k, v in state.items() if k != "messages"
-        }
+        if not include_messages:
+            state = {
+                k: v for k, v in state.items() if k != "messages"
+            }
+        else:
+            state = {
+                **state,
+                "messages": langchain_messages_to_copilotkit(state.get("messages", []))
+            }
+
         return langchain_dumps({
             "event": "on_copilotkit_state_sync",
             "thread_id": thread_id,
@@ -261,7 +131,7 @@ class LangGraphAgent(Agent):
             "agent_name": self.name,
             "node_name": node_name,
             "active": active,
-            "state": state_without_messages,
+            "state": state,
             "running": running,
             "role": "assistant"
         })
@@ -275,6 +145,7 @@ class LangGraphAgent(Agent):
         node_name: Optional[str] = None,
         actions: Optional[List[ActionDict]] = None,
     ):
+
         config = ensure_config(cast(Any, self.langgraph_config.copy()) if self.langgraph_config else {}) # pylint: disable=line-too-long
         config["configurable"] = config.get("configurable", {})
         config["configurable"]["thread_id"] = thread_id
@@ -338,6 +209,7 @@ class LangGraphAgent(Agent):
                 event["name"] == "copilotkit_manually_emit_intermediate_state"
             )
 
+
             # we only want to update the node name under certain conditions
             # since we don't need any internal node names to be sent to the frontend
             if current_node_name in self.graph.nodes.keys():
@@ -372,7 +244,7 @@ class LangGraphAgent(Agent):
                 # reset the streaming state extractor
                 streaming_state_extractor = _StreamingStateExtractor(emit_intermediate_state)
 
-            updated_state = manually_emitted_state or self.graph.get_state(config).values
+            updated_state = manually_emitted_state or (await self.graph.aget_state(config)).values
 
             if emit_intermediate_state and event_type == "on_chat_model_stream":
                 streaming_state_extractor.buffer_tool_calls(event)
@@ -407,7 +279,7 @@ class LangGraphAgent(Agent):
 
             yield langchain_dumps(event) + "\n"
 
-        state = self.graph.get_state(config)
+        state = await self.graph.aget_state(config)
         is_end_node = state.next == ()
 
         node_name = list(state.metadata["writes"].keys())[0]
@@ -419,7 +291,9 @@ class LangGraphAgent(Agent):
             state=state.values,
             running=not should_exit,
             # at this point, the node is ending so we set active to false
-            active=False
+            active=False,
+            # sync messages at the end of the run
+            include_messages=True
         ) + "\n"
 
 

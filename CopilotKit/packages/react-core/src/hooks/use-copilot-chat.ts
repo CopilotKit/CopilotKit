@@ -39,7 +39,7 @@
  * ```
  */
 import { useRef, useEffect, useCallback } from "react";
-import { useCopilotContext } from "../context/copilot-context";
+import { AgentSession, useCopilotContext } from "../context/copilot-context";
 import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { SystemMessageFunction } from "../types";
 import { useChat } from "./use-chat";
@@ -79,6 +79,7 @@ export interface UseCopilotChatReturn {
   deleteMessage: (messageId: string) => void;
   reloadMessages: () => Promise<void>;
   stopGeneration: () => void;
+  reset: () => void;
   isLoading: boolean;
   runChatCompletion: () => Promise<Message[]>;
 }
@@ -100,6 +101,12 @@ export function useCopilotChat({
     coAgentStateRenders,
     agentSession,
     setAgentSession,
+    agentLock,
+    threadId,
+    setThreadId,
+    runId,
+    setRunId,
+    chatAbortControllerRef,
   } = useCopilotContext();
   const { messages, setMessages } = useCopilotMessagesContext();
 
@@ -158,11 +165,16 @@ export function useCopilotChat({
     setCoagentStatesWithRef,
     agentSession,
     setAgentSession,
+    threadId,
+    setThreadId,
+    runId,
+    setRunId,
+    chatAbortControllerRef,
   });
 
-  // this is a workaround born out of a bug that Athena insessently ran into.
+  // this is a workaround born out of a bug that Athena incessantly ran into.
   // We could not find the origin of the bug, however, it was clear that an outdated version of the append function was being used somehow --
-  // it referecned the old state of the messages array, and not the latest one.
+  // it referenced the old state of the messages array, and not the latest one.
   //
   // We want to make copilotkit as abuse-proof as possible, so we are adding this workaround to ensure that the latest version of the append function is always used.
   //
@@ -207,12 +219,40 @@ export function useCopilotChat({
     return await latestRunChatCompletion.current!();
   }, [latestRunChatCompletion]);
 
+  const reset = useCallback(() => {
+    latestStopFunc();
+    setMessages([]);
+    setThreadId(null);
+    setRunId(null);
+    setCoagentStatesWithRef({});
+    let initialAgentSession: AgentSession | null = null;
+    if (agentLock) {
+      initialAgentSession = {
+        agentName: agentLock,
+      };
+    }
+    setAgentSession(initialAgentSession);
+  }, [
+    latestStopFunc,
+    setMessages,
+    setThreadId,
+    setCoagentStatesWithRef,
+    setAgentSession,
+    agentLock,
+  ]);
+
+  const latestReset = useUpdatedRef(reset);
+  const latestResetFunc = useCallback(() => {
+    return latestReset.current();
+  }, [latestReset]);
+
   return {
     visibleMessages: messages,
     appendMessage: latestAppendFunc,
     setMessages: latestSetMessagesFunc,
     reloadMessages: latestReloadFunc,
     stopGeneration: latestStopFunc,
+    reset: latestResetFunc,
     deleteMessage: latestDeleteFunc,
     runChatCompletion: latestRunChatCompletionFunc,
     isLoading,

@@ -156,9 +156,6 @@ First, let's build the `email_node`.
         from langchain_core.runnables import RunnableConfig
         from langchain_core.messages import HumanMessage, ToolMessage
         from langchain_openai import ChatOpenAI # we use openai here, but you can use any model # [!code highlight]
-        from copilotkit.langchain import (
-            copilotkit_customize_config, copilotkit_exit, copilotkit_emit_message # [!code highlight]
-        )
         
         # ...
 
@@ -166,10 +163,6 @@ First, let's build the `email_node`.
             """
             Write an email.
             """
-            config = copilotkit_customize_config(
-                config,
-                emit_tool_calls=True, # make sure to emit tool calls to the frontend # [!code highlight]
-            )
 
             instructions = "You write emails."
 
@@ -189,6 +182,7 @@ First, let's build the `email_node`.
             email = tool_calls[0]["args"]["the_email"]
 
             return {
+                "messages": [response],
                 "email": email,
             }
         ```
@@ -203,9 +197,6 @@ First, let's build the `email_node`.
         import { ChatOpenAI } from "@langchain/openai";
         // [!code highlight:7]
         import {
-          copilotKitCustomizeConfig,
-          copilotKitEmitMessage,
-          copilotKitExit,
           convertActionsToDynamicStructuredTools,
         } from "@copilotkit/sdk-js/langchain";
 
@@ -216,9 +207,6 @@ First, let's build the `email_node`.
            * Write an email.
            */
 
-          const modifiedConfig = copilotKitCustomizeConfig(config, {
-            emitToolCalls: true,
-          });
 
           const instructions = "You write emails.";
 
@@ -232,13 +220,14 @@ First, let's build the `email_node`.
 
           const response = await email_model.invoke(
             [...state.messages, new HumanMessage({ content: instructions })],
-            modifiedConfig
+            config
           );
 
           const tool_calls = response.tool_calls;
           const email = tool_calls?.[0]?.args.the_email;
 
           return {
+            messages: [response],
             email: email,
           };
         }
@@ -246,7 +235,7 @@ First, let's build the `email_node`.
     </Tab>
 </Tabs>
 Some quick notes about the `email_node`.
-- Be sure to emit tool calls to the frontend. This is done by using the `copilotkit_customize_config` call with `emit_tool_calls = True`.
+- Tool calls are emitted by default (you can turn or granularly control which tool calls are emitted by using the `emit_tool_calls` of `copilotkit_customize_config`).
 - The frontend's return value will be made available as a tool call result in the subsequent node. Cast the last message to a ToolMessage and look at its `.content`.
 
 </Step>
@@ -264,36 +253,23 @@ This node will be responsible for actually sending the email once the user has a
         ```python title="agent/my_agent/agent.py"
         # ...
 
-        # [!code highlight:4]
-        from copilotkit.langchain import (
-            copilotkit_customize_config, copilotkit_exit, copilotkit_emit_message
-        )
-
-        # ...
-
         async def send_email_node(state: EmailAgentState, config: RunnableConfig):
             """
             Send an email.
             """
-            config = copilotkit_customize_config(
-                config,
-                emit_messages=True, # make sure to enable emitting messages to the frontend # [!code highlight]
-            )
-
-            await copilotkit_exit(config) # exit copilotkit
 
             last_message = cast(ToolMessage, state["messages"][-1])
             response = json.loads(last_message.content)
 
             if response["decision"] == "CANCEL": # [!code highlight]
-                await copilotkit_emit_message(config, "❌ Cancelled sending email.")
+                return {
+                    "messages": [AIMessage(content="❌ Cancelled sending email.")],
+                }
             else:
                 # ... send the email ...
-                await copilotkit_emit_message(config, "✅ Sent email.")
-
-            return {
-                "messages": state["messages"],
-            }
+                return {
+                    "messages": [AIMessage(content="✅ Sent email.")],
+                }
         ```
     </Tab>
     <Tab value="TypeScript">
@@ -302,9 +278,6 @@ This node will be responsible for actually sending the email once the user has a
 
         // [!code highlight:7]
         import {
-          copilotKitCustomizeConfig,
-          copilotKitEmitMessage,
-          copilotKitExit,
           convertActionsToDynamicStructuredTools,
         } from "@copilotkit/sdk-js/langchain";
 
@@ -323,25 +296,19 @@ This node will be responsible for actually sending the email once the user has a
            * Send an email.
            */
 
-          const modifiedConfig = copilotKitCustomizeConfig(config, {
-            emitMessages: true, // make sure to enable emitting messages to the frontend # [!code highlight]
-          });
-
-          await copilotKitExit(modifiedConfig); // exit the agent # [!code highlight]
-
           const lastMessage = state.messages[state.messages.length - 1] as ToolMessage;
           const response = JSON.parse(lastMessage.content) as Response;
 
           if (response.decision === "CANCEL") { // [!code highlight]
-            await copilotKitEmitMessage(config, `❌ Cancelled sending email: ${response.reason}`);
+            return {
+                "messages": [AIMessage(content="❌ Cancelled sending email.")],
+            }
           } else {
             // ... send the email ...
-            await copilotKitEmitMessage(config, `✅ Sent email: ${response.reason}`);
+            return {
+                "messages": [AIMessage(content="✅ Sent email.")],
+            }
           }
-
-          return {
-            messages: state.messages,
-          };
         }
         ```
     </Tab>

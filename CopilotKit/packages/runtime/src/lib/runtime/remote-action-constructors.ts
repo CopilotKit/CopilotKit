@@ -40,6 +40,7 @@ export function constructLGCRemoteAction({
       actionInputsWithoutAgents,
       threadId,
       nodeName,
+      additionalMessages = [],
     }: LangGraphAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
       logger.debug({ actionName: agent.name }, "Executing LangGraph Platform agent");
 
@@ -66,7 +67,7 @@ export function constructLGCRemoteAction({
           agent,
           threadId,
           nodeName,
-          messages,
+          messages: [...messages, ...additionalMessages],
           state,
           properties: graphqlContext.properties,
           actions: actionInputsWithoutAgents.map((action) => ({
@@ -171,6 +172,7 @@ export function constructRemoteActions({
           actionInputsWithoutAgents,
           threadId,
           nodeName,
+          additionalMessages = [],
         }: LangGraphAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
           logger.debug({ actionName: agent.name }, "Executing remote agent");
 
@@ -196,7 +198,7 @@ export function constructRemoteActions({
               name,
               threadId,
               nodeName,
-              messages,
+              messages: [...messages, ...additionalMessages],
               state,
               properties: graphqlContext.properties,
               actions: actionInputsWithoutAgents.map((action) => ({
