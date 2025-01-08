@@ -193,18 +193,18 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               // Test destination deselection
               await sendChatMessage(
                 page,
-                "Actually, please deselect New York City."
+                "Actually, please deselect Tokyo."
               );
               await waitForResponse(page);
               await page.waitForTimeout(2000);
 
               await waitForDestinationState(page, {
                 destination: "new-york-city",
-                isChecked: false,
+                isChecked: true,
               });
               await waitForDestinationState(page, {
                 destination: "tokyo",
-                isChecked: true,
+                isChecked: false,
               });
 
               // Test adding new destination
@@ -221,6 +221,24 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               });
               await waitForDestinationImage(page, {
                 destination: "Mumbai India",
+              });
+
+              // Verify new destination is available in state
+              await sendChatMessage(
+                  page,
+                  "Select all destinations in Asia."
+              );
+              await waitForResponse(page);
+              await page.waitForTimeout(3000);
+
+              await waitForDestinationState(page, {
+                destination: "mumbai",
+                isChecked: true,
+              });
+
+              await waitForDestinationState(page, {
+                destination: "tokyo",
+                isChecked: true,
               });
             });
           });
