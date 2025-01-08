@@ -2,8 +2,8 @@ import { useRef } from "react";
 import {
   FunctionCallHandler,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
-  actionParametersToJsonSchema,
   CoAgentStateRenderHandler,
+  randomId,
 } from "@copilotkit/shared";
 import {
   Message,
@@ -17,7 +17,6 @@ import {
   MessageRole,
   Role,
   CopilotRequestType,
-  ActionInputAvailability,
   loadMessagesFromJsonRepresentation,
 } from "@copilotkit/runtime-client-gql";
 
@@ -25,7 +24,6 @@ import { CopilotApiConfig } from "../context";
 import { FrontendAction, processActionsForRuntimeRequest } from "../types/frontend-action";
 import { CoagentState } from "../types/coagent-state";
 import { AgentSession } from "../context/copilot-context";
-import { useToast } from "../components/toast/toast-provider";
 import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
 
@@ -120,6 +118,10 @@ export type UseChatOptions = {
    * The global chat abort controller.
    */
   chatAbortControllerRef: React.MutableRefObject<AbortController | null>;
+  /**
+   * The agent lock.
+   */
+  agentLock: string | null;
 };
 
 export type UseChatHelpers = {
@@ -167,8 +169,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     runId,
     setRunId,
     chatAbortControllerRef,
+    agentLock,
   } = options;
-  const { addGraphQLErrorsToast } = useToast();
   const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
   // We need to keep a ref of coagent states and session because of renderAndWait - making sure
   // the latest state is sent to the API
@@ -386,7 +388,15 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                   nodeName: lastAgentStateMessage.nodeName,
                 });
               } else {
-                setAgentSession(null);
+                if (agentLock) {
+                  setAgentSession({
+                    threadId: randomId(),
+                    agentName: agentLock,
+                    nodeName: undefined,
+                  });
+                } else {
+                  setAgentSession(null);
+                }
               }
             }
           }
