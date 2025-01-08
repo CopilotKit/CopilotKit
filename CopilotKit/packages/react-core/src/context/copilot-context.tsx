@@ -90,6 +90,15 @@ export interface AgentSession {
   nodeName?: string;
 }
 
+export interface AuthState {
+  status: "authenticated" | "unauthenticated";
+  authHeaders: Record<string, string>;
+  userId?: string;
+  metadata?: Record<string, any>;
+}
+
+export type ActionName = string;
+
 export interface CopilotContextParams {
   // function-calling
   actions: Record<string, FrontendAction<any>>;
@@ -167,6 +176,21 @@ export interface CopilotContextParams {
    * The forwarded parameters to use for the task.
    */
   forwardedParameters?: Pick<ForwardedParametersInput, "temperature">;
+
+  /**
+   * The auth states for the CopilotKit.
+   */
+  authStates?: Record<ActionName, AuthState>;
+  setAuthStates?: React.Dispatch<React.SetStateAction<Record<ActionName, AuthState>>>;
+
+  /**
+   * The auth config for the CopilotKit.
+   */
+  authConfig?: {
+    SignInComponent: React.ComponentType<{
+      onSignInComplete: (authState: AuthState) => void;
+    }>;
+  };
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -239,7 +263,6 @@ export function useCopilotContext(): CopilotContextParams {
   return context;
 }
 
-function returnAndThrowInDebug<T>(value: T): T {
+function returnAndThrowInDebug<T>(_value: T): T {
   throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
-  return value;
 }
