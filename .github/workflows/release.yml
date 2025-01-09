@@ -47,6 +47,11 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN_ELEVATED }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
+      - name: Print outputs
+        run: |
+          echo "published: ${{ steps.changesets.outputs.published }}"
+          echo "publishedPackages: ${{ steps.changesets.outputs.publishedPackages }}"
+
       - name: Put `main` back in prerelease mode
         if: ${{ github.ref == 'refs/heads/main' && steps.changesets.outputs.published }}
         run: |
@@ -59,32 +64,3 @@ jobs:
               git push origin main --force
             fi
 
-      # - name: Get package versions
-      #   id: package-versions
-      #   run: |
-      #     echo "::set-output name=react_core_version::$(node -p "require('./packages/react-core/package.json').version")"
-      #     echo "::set-output name=react_textarea_version::$(node -p "require('./packages/react-textarea/package.json').version")"
-      #     echo "::set-output name=react_ui_version::$(node -p "require('./packages/react-ui/package.json').version")"
-
-      # - name: Create composite version
-      #   id: composite-version
-      #   run: |
-      #     echo "::set-output name=composite-version::react-core-${{ steps.package-versions.outputs.react_core_version }}_react-textarea-${{ steps.package-versions.outputs.react_textarea_version }}_react-ui-${{ steps.package-versions.outputs.react_ui_version }}"
-
-      # - name: Create Composite Git tag
-      #   run: |
-      #     git tag -f ${{ steps.composite-version.outputs.version }}
-
-      # - name: Push Composite Git tag
-      #   run: |
-      #     git push origin ${{ steps.composite-version.outputs.version }}
-
-      # - name: Create GitHub Release
-      #   uses: actions/create-release@v1
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     tag_name: ${{ steps.composite-version.outputs.version }}
-      #     release_name: Release ${{ steps.composite-version.outputs.version }}
-      #     draft: false
-      #     prerelease: false
