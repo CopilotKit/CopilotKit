@@ -21,6 +21,9 @@
  *       role: Role.User,
  *     }),
  *   );
+ *
+ *   // optionally, you can append a message without running chat completion
+ *   appendMessage(yourMessage, { followUp: false });
  * }
  * ```
  *
