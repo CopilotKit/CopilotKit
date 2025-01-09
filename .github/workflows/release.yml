@@ -84,7 +84,7 @@ jobs:
           echo "Is in prerelease mode: ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode }}"
 
       - name: Update changeset state post-release
-        if: ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'true' && steps.check-if-published.outputs.published == 'true' }}
+        if: ${{ steps.check-if-published.outputs.published == 'true' }}
         run: |
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
