@@ -1,5 +1,13 @@
 # ui
 
+## 1.5.5-next.5
+
+### Patch Changes
+
+- db3d539: test release notes
+  - @copilotkit/runtime-client-gql@1.5.5-next.5
+  - @copilotkit/shared@1.5.5-next.5
+
 ## 1.5.5-next.3
 
 ### Patch Changes

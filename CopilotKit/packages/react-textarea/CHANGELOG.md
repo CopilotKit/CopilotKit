@@ -1,5 +1,16 @@
 # ui
 
+## 1.5.5-next.5
+
+### Patch Changes
+
+- 1fc7fa5: test changelog
+- db3d539: test release notes
+- Updated dependencies [db3d539]
+  - @copilotkit/react-core@1.5.5-next.5
+  - @copilotkit/runtime-client-gql@1.5.5-next.5
+  - @copilotkit/shared@1.5.5-next.5
+
 ## 1.5.5-next.3
 
 ### Patch Changes
