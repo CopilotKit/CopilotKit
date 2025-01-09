@@ -1,5 +1,18 @@
 # ui
 
+## 1.5.9
+
+### Patch Changes
+
+- db3d539: test release notes
+- e5d588d: test changelog
+- 4211318: test changelog
+- d431537: Test release notes
+- Updated dependencies [72f9e58]
+- Updated dependencies [9b3bdc2]
+  - @copilotkit/runtime-client-gql@1.5.9
+  - @copilotkit/shared@1.5.9
+
 ## 1.5.8
 
 ### Patch Changes

@@ -1,5 +1,15 @@
 # @copilotkit/runtime
 
+## 1.5.9
+
+### Patch Changes
+
+- 72f9e58: test release notes
+- 716bd5c: test changelog
+- a35d447: test changelog
+- 8166ac6: Test release notes
+  - @copilotkit/shared@1.5.9
+
 ## 1.5.8
 
 ### Patch Changes

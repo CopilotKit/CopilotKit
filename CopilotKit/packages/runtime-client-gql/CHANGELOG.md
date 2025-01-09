@@ -1,5 +1,13 @@
 # @copilotkit/runtime-client-gql
 
+## 1.5.9
+
+### Patch Changes
+
+- 72f9e58: test release notes
+- 9b3bdc2: test release notes
+  - @copilotkit/shared@1.5.9
+
 ## 1.5.8
 
 ### Patch Changes
