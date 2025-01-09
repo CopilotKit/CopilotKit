@@ -2,13 +2,14 @@ import { Action, randomId } from "@copilotkit/shared";
 import {
   of,
   concat,
-  map,
   scan,
   concatMap,
   ReplaySubject,
   Subject,
   firstValueFrom,
   from,
+  catchError,
+  EMPTY,
 } from "rxjs";
 import { streamLangChainResponse } from "./langchain/utils";
 import { GuardrailsResult } from "../graphql/types/guardrails-result.type";
@@ -231,6 +232,7 @@ export class RuntimeEventSource {
     this.callback(this.eventStream$).catch((error) => {
       console.error("Error in event source callback", error);
       this.sendErrorMessageToChat();
+      this.eventStream$.complete();
     });
     return this.eventStream$.pipe(
       // track state
@@ -286,7 +288,13 @@ export class RuntimeEventSource {
           });
 
           telemetry.capture("oss.runtime.server_action_executed", {});
-          return concat(of(eventWithState.event!), toolCallEventStream$);
+          return concat(of(eventWithState.event!), toolCallEventStream$).pipe(
+            catchError((error) => {
+              console.error("Error in tool call stream", error);
+              this.sendErrorMessageToChat();
+              return EMPTY;
+            })
+          );
         } else {
           return of(eventWithState.event!);
         }
