@@ -17,5 +17,19 @@
     "tailwind-config": "1.4.6",
     "tsconfig": "1.4.6"
   },
-  "changesets": []
+  "changesets": [
+    "bright-dryers-behave",
+    "dull-carrots-leave",
+    "eleven-schools-invite",
+    "fresh-cougars-obey",
+    "hip-moons-cheat",
+    "lazy-pumpkins-whisper",
+    "loud-actors-run",
+    "loud-islands-shop",
+    "slow-pets-brake",
+    "spicy-seahorses-press",
+    "tender-parents-matter",
+    "twelve-feet-behave",
+    "young-suits-raise"
+  ]
 }

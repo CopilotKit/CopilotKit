@@ -1,5 +1,28 @@
 # ui
 
+## 1.5.10-next.0
+
+### Patch Changes
+
+- 1fc7fa5: test changelog
+- c4a6aa5: test release notes
+- 716bd5c: test changelog
+- a35d447: test changelog
+- 4ae197e: Test release notes
+- 4211318: test changelog
+- 8166ac6: Test release notes
+- d431537: Test release notes
+- Updated dependencies [72f9e58]
+- Updated dependencies [db3d539]
+- Updated dependencies [aecb6f4]
+- Updated dependencies [e5d588d]
+- Updated dependencies [4211318]
+- Updated dependencies [9b3bdc2]
+- Updated dependencies [d431537]
+  - @copilotkit/runtime-client-gql@1.5.10-next.0
+  - @copilotkit/react-core@1.5.10-next.0
+  - @copilotkit/shared@1.5.10-next.0
+
 ## 1.5.9
 
 ### Patch Changes
