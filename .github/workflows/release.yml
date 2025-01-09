@@ -60,7 +60,7 @@ jobs:
           echo "publishedPackages: ${{ steps.changesets.outputs.publishedPackages }}"
 
       - name: Tag "next" post publish
-        if: ${{ steps.changesets.outputs.published }} && ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'true' }}
+        if: ${{ steps.changesets.outputs.published == 'true' }} && ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'true' }}
         run: |
           echo "Will tag next"
 
