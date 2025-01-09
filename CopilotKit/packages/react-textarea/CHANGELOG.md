@@ -1,5 +1,25 @@
 # ui
 
+## 1.5.8
+
+### Patch Changes
+
+- 1fc7fa5: test changelog
+- db3d539: test release notes
+- c4a6aa5: test release notes
+- e5d588d: test changelog
+- 4ae197e: Test release notes
+- 9b3bdc2: test release notes
+- Updated dependencies [72f9e58]
+- Updated dependencies [db3d539]
+- Updated dependencies [e5d588d]
+- Updated dependencies [4211318]
+- Updated dependencies [9b3bdc2]
+- Updated dependencies [d431537]
+  - @copilotkit/runtime-client-gql@1.5.8
+  - @copilotkit/react-core@1.5.8
+  - @copilotkit/shared@1.5.8
+
 ## 1.5.6-next.0
 
 ### Patch Changes
