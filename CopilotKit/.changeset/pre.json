@@ -17,5 +17,10 @@
     "tailwind-config": "1.4.6",
     "tsconfig": "1.4.6"
   },
-  "changesets": []
+  "changesets": [
+    "bright-dryers-behave",
+    "slow-pets-brake",
+    "tender-parents-matter",
+    "twelve-feet-behave"
+  ]
 }
