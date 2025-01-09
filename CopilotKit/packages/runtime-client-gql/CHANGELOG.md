@@ -1,5 +1,14 @@
 # @copilotkit/runtime-client-gql
 
+## 1.5.10
+
+### Patch Changes
+
+- 72f9e58: test release notes
+- aecb6f4: Fix build script
+- 9b3bdc2: test release notes
+  - @copilotkit/shared@1.5.10
+
 ## 1.5.10-next.0
 
 ### Patch Changes
