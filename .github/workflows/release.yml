@@ -52,8 +52,6 @@ jobs:
           
       - name: npm whoami
         run: npm whoami
-        # env:
-          # NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: NPM Publish
         id: publish
@@ -62,7 +60,6 @@ jobs:
           pnpm changeset publish --no-git-tag
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
       - name: Get new version
@@ -79,13 +76,8 @@ jobs:
             echo "::set-output name=published::false"
           fi
 
-      - name: Tag "next" post publish
-        if: ${{ steps.check-if-published.outputs.published == 'true' }} && ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'true' }}
-        run: |
-          echo "Will tag next"
-
       - name: Put `main` back in prerelease mode
-        if: ${{ github.ref == 'refs/heads/main' && steps.check-if-published.outputs.published == 'true' }}
+        if: ${{ github.ref == 'refs/heads/main' }}
         run: |
           if [ ! -f ".changeset/pre.json" ]; then
             pnpm changeset pre enter next
