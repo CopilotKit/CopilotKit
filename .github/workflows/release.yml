@@ -75,7 +75,7 @@ jobs:
           sleep 3
           PUBLISHED=$(node -p "const fs = require('fs'); fs.readFileSync('./publish-output.txt', 'utf-8').includes('packages published successfully:')")
           echo "published=$PUBLISHED" >> "$GITHUB_OUTPUT"
-          
+
       - name: Print variables
         run: |
           echo "New version: ${{ steps.new-version.outputs.version }}"
@@ -105,7 +105,7 @@ jobs:
           prerelease: false
 
       - name: Update changeset state post-release
-        if: ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'true' && steps.check-if-published.outputs.published == 'false' }}
+        if: ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'true' && steps.check-if-published.outputs.published == 'true' }}
         run: |
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
