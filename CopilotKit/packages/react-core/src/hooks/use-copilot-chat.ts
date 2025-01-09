@@ -172,6 +172,7 @@ export function useCopilotChat({
     runId,
     setRunId,
     chatAbortControllerRef,
+    agentLock,
   });
 
   // this is a workaround born out of a bug that Athena incessantly ran into.
