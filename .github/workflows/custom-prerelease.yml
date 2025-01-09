@@ -1,0 +1,47 @@
+name: Custom Tag Pre-Release
+
+on:
+  workflow_dispatch:
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  release:
+    name: Pre-release
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: "CopilotKit"
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "9.5"
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v2
+        with:
+          node-version: 20.x
+
+      - name: Install Dependencies
+        run: pnpm i
+
+      - name: Prepare prerelease
+        run: |
+          ./scripts/release/prepare-custom-prerelease.sh
+
+      - name: Create Release Pull Request or Publish to npm
+        id: changesets
+        uses: ./.github/actions/changesets-action
+        with:
+          publish: pnpm changeset publish --no-git-tag --snapshot --tag pr
+          cwd: CopilotKit
+          createGithubReleases: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN_ELEVATED }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

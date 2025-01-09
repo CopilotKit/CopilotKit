@@ -34,6 +34,8 @@ import { AgentSessionInput } from "../../graphql/inputs/agent-session.input";
 import { from } from "rxjs";
 import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
 import { ActionInputAvailability } from "../../graphql/types/enums";
+import { createHeaders } from "./remote-action-constructors";
+import { Agent } from "../../graphql/types/agents-response.type";
 
 interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
@@ -251,6 +253,54 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       eventSource.sendErrorMessageToChat();
       throw error;
     }
+  }
+
+  async discoverAgentsFromEndpoints(graphqlContext: GraphQLContext): Promise<Agent[]> {
+    const headers = createHeaders(null, graphqlContext);
+    const agents = this.remoteEndpointDefinitions.reduce(
+      async (acc: Promise<Agent[]>, endpoint) => {
+        const agents = await acc;
+        if (endpoint.type === EndpointType.LangGraphPlatform) {
+          const response = await fetch(
+            `${(endpoint as LangGraphPlatformEndpoint).deploymentUrl}/assistants/search`,
+            {
+              method: "POST",
+              headers,
+            },
+          );
+
+          const data: Array<{ assistant_id: string; graph_id: string }> = await response.json();
+          const endpointAgents = (data ?? []).map((entry) => ({
+            name: entry.graph_id,
+            id: entry.assistant_id,
+          }));
+          return [...agents, ...endpointAgents];
+        }
+
+        interface InfoResponse {
+          agents?: Array<{
+            name: string;
+            description: string;
+          }>;
+        }
+
+        const response = await fetch(`${(endpoint as CopilotKitEndpoint).url}/info`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ properties: graphqlContext.properties }),
+        });
+        const data: InfoResponse = await response.json();
+        const endpointAgents = (data?.agents ?? []).map((agent) => ({
+          name: agent.name,
+          description: agent.description,
+          id: randomId(), // Required by Agent type
+        }));
+        return [...agents, ...endpointAgents];
+      },
+      Promise.resolve([]),
+    );
+
+    return agents;
   }
 
   private async processAgentRequest(

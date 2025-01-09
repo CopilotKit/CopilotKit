@@ -10,7 +10,8 @@ import { DocumentPointer } from "../types";
 import { CopilotChatSuggestionConfiguration } from "../types/chat-suggestion-configuration";
 import { CoAgentStateRender, CoAgentStateRenderProps } from "../types/coagent-action";
 import { CoagentState } from "../types/coagent-state";
-import { CopilotRuntimeClient } from "@copilotkit/runtime-client-gql";
+import { CopilotRuntimeClient, ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
+import { Agent } from "@copilotkit/runtime-client-gql";
 
 /**
  * Interface for the configuration of the Copilot API.
@@ -90,6 +91,15 @@ export interface AgentSession {
   nodeName?: string;
 }
 
+export interface AuthState {
+  status: "authenticated" | "unauthenticated";
+  authHeaders: Record<string, string>;
+  userId?: string;
+  metadata?: Record<string, any>;
+}
+
+export type ActionName = string;
+
 export interface CopilotContextParams {
   // function-calling
   actions: Record<string, FrontendAction<any>>;
@@ -162,6 +172,27 @@ export interface CopilotContextParams {
 
   // runtime
   runtimeClient: CopilotRuntimeClient;
+
+  /**
+   * The forwarded parameters to use for the task.
+   */
+  forwardedParameters?: Pick<ForwardedParametersInput, "temperature">;
+  availableAgents: Agent[];
+
+  /**
+   * The auth states for the CopilotKit.
+   */
+  authStates?: Record<ActionName, AuthState>;
+  setAuthStates?: React.Dispatch<React.SetStateAction<Record<ActionName, AuthState>>>;
+
+  /**
+   * The auth config for the CopilotKit.
+   */
+  authConfig?: {
+    SignInComponent: React.ComponentType<{
+      onSignInComplete: (authState: AuthState) => void;
+    }>;
+  };
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -213,19 +244,16 @@ const emptyCopilotContext: CopilotContextParams = {
   setCoagentStates: () => {},
   coagentStatesRef: { current: {} },
   setCoagentStatesWithRef: () => {},
-
   agentSession: null,
   setAgentSession: () => {},
-
+  forwardedParameters: {},
   agentLock: null,
-
   threadId: null,
   setThreadId: () => {},
-
   runId: null,
   setRunId: () => {},
-
   chatAbortControllerRef: { current: null },
+  availableAgents: [],
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);
@@ -238,7 +266,6 @@ export function useCopilotContext(): CopilotContextParams {
   return context;
 }
 
-function returnAndThrowInDebug<T>(value: T): T {
+function returnAndThrowInDebug<T>(_value: T): T {
   throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
-  return value;
 }

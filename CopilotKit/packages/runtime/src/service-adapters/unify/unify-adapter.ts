@@ -55,6 +55,7 @@ export class UnifyAdapter implements CopilotServiceAdapter {
       apiKey: this.apiKey,
       baseURL: "https://api.unify.ai/v0/",
     });
+    const forwardedParameters = request.forwardedParameters;
 
     const messages = request.messages.map(convertMessageToOpenAIMessage);
 
@@ -63,6 +64,7 @@ export class UnifyAdapter implements CopilotServiceAdapter {
       messages: messages,
       stream: true,
       ...(tools.length > 0 && { tools }),
+      ...(forwardedParameters?.temperature && { temperature: forwardedParameters.temperature }),
     });
 
     let model = null;

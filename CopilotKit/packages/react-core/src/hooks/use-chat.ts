@@ -17,6 +17,7 @@ import {
   MessageRole,
   Role,
   CopilotRequestType,
+  ForwardedParametersInput,
   loadMessagesFromJsonRepresentation,
 } from "@copilotkit/runtime-client-gql";
 
@@ -97,6 +98,11 @@ export type UseChatOptions = {
    * setState-powered method to update the agent session
    */
   setAgentSession: React.Dispatch<React.SetStateAction<AgentSession | null>>;
+
+  /**
+   * The forwarded parameters.
+   */
+  forwardedParameters?: Pick<ForwardedParametersInput, "temperature">;
 
   /**
    * The current thread ID.
@@ -259,6 +265,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               agentName: state.name,
               state: JSON.stringify(state.state),
             })),
+            forwardedParameters: options.forwardedParameters || {},
           },
           properties: copilotConfig.properties,
           signal: chatAbortControllerRef.current?.signal,

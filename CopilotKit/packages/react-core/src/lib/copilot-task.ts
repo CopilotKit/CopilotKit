@@ -56,6 +56,7 @@ import {
   convertMessagesToGqlInput,
   filterAgentStateMessages,
   CopilotRequestType,
+  ForwardedParametersInput,
 } from "@copilotkit/runtime-client-gql";
 import { FrontendAction, processActionsForRuntimeRequest } from "../types/frontend-action";
 import { CopilotContextParams } from "../context";
@@ -79,6 +80,11 @@ export interface CopilotTaskConfig {
    * Whether to include actions defined via useCopilotAction in the task.
    */
   includeCopilotActions?: boolean;
+
+  /**
+   * The forwarded parameters to use for the task.
+   */
+  forwardedParameters?: ForwardedParametersInput;
 }
 
 export class CopilotTask<T = any> {
@@ -86,12 +92,13 @@ export class CopilotTask<T = any> {
   private actions: FrontendAction<any>[];
   private includeCopilotReadable: boolean;
   private includeCopilotActions: boolean;
-
+  private forwardedParameters?: ForwardedParametersInput;
   constructor(config: CopilotTaskConfig) {
     this.instructions = config.instructions;
     this.actions = config.actions || [];
     this.includeCopilotReadable = config.includeCopilotReadable !== false;
     this.includeCopilotActions = config.includeCopilotActions !== false;
+    this.forwardedParameters = config.forwardedParameters;
   }
 
   /**
@@ -143,6 +150,8 @@ export class CopilotTask<T = any> {
             requestType: CopilotRequestType.Task,
           },
           forwardedParameters: {
+            // if forwardedParameters is provided, use it
+            ...(this.forwardedParameters ?? {}),
             toolChoice: "required",
           },
         },

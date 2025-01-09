@@ -101,6 +101,26 @@ turbo run lint
 
 Now that you've made your changes, commit and push them. Then, simply head over to the [Pull Requests page](https://github.com/CopilotKit/CopilotKit/pulls) and create a pull request. Well done!
 
+## Starting a dev environment with hot reload
+
+CopilotKit contains a ready made script for starting a development environment based on one of the CoAgent examples. It lets you work on CopilotKit internals in the core Typescript and Python code while seeing your changes applied to the chosen example.
+
+As a prerequisite, make sure you have GNU parallel and langgraph CLI installed.
+
+Next, go to the `CopilotKit/` directory and run the `example.sh` script for the example you want to work on:
+
+```bash
+./scripts/develop/example.sh coagents-starter
+```
+
+This will start a development environment with hot reload.
+
+You can optionally run the same example on LangGraph platform by running:
+
+```bash
+./scripts/develop/example.sh coagents-starter langgraph-platform
+```
+
 ## Debugging
 
 Every time you run CopilotKit on localhost, you will be able to see the **CopilotKit Dev Console** in the chat window. The Dev Console provides you with useful functionality to debug your copilot (e.g. see what state the copilot is aware of, actions it can perform, etc).

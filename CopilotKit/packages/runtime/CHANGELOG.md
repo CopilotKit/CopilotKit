@@ -1,5 +1,22 @@
 # @copilotkit/runtime
 
+## 1.5.1-next.1
+
+### Patch Changes
+
+- 03f3d6f: Test next prerelease
+- Updated dependencies [03f3d6f]
+  - @copilotkit/shared@1.5.1-next.1
+
+## 1.5.1-next.0
+
+### Patch Changes
+
+- 27e42d7: testing a prerelease
+- 6dfa0d2: - feat: add temperature parameter support for LLM completions
+- Updated dependencies [27e42d7]
+  - @copilotkit/shared@1.5.1-next.0
+
 ## 1.5.0
 
 ### Minor Changes
