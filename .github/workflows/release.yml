@@ -83,27 +83,6 @@ jobs:
           echo "Published: ${{ steps.check-if-published.outputs.published }}"
           echo "Is in prerelease mode: ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode }}"
 
-      - name: Git Tag
-        if: ${{ steps.check-if-published.outputs.published == 'true' && steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'false' }}
-        run: |
-          node -p "require('./scripts/release/generate-changelog')('${{ steps.new-version.outputs.version }}')" > changelog.txt
-          git tag -a v${{ steps.new-version.outputs.version }} -m "Release ${steps.new-version.outputs.version}"
-          git push origin v${{ steps.new-version.outputs.version }}
-          git push origin main --force          
-
-      - name: Create Release
-        if: ${{ steps.check-if-published.outputs.published == 'true' && steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'false' }}
-        id: create_release
-        uses: comnoco/create-release-action@v2.0.5
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
-        with:
-          tag_name: v${{ steps.new-version.outputs.version }}
-          release_name: v${{ steps.new-version.outputs.version }}
-          body_path: changelog.txt
-          draft: false
-          prerelease: false
-
       - name: Update changeset state post-release
         if: ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'true' && steps.check-if-published.outputs.published == 'true' }}
         run: |
@@ -120,3 +99,24 @@ jobs:
           git add ./.changeset/pre.json
           git commit -m "chore(post-release): update version to ${{ steps.new-version.outputs.version }}"
           git push origin main --force
+
+      - name: Git Tag
+        if: ${{ steps.check-if-published.outputs.published == 'true' && steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'false' }}
+        run: |
+          node -p "require('./scripts/release/generate-changelog')('${{ steps.new-version.outputs.version }}')" > changelog.txt
+          git tag -a v${{ steps.new-version.outputs.version }} -m "Release ${{ steps.new-version.outputs.version }}"
+          git push origin v${{ steps.new-version.outputs.version }}
+          git push origin main --force          
+
+      - name: Create Release
+        if: ${{ steps.check-if-published.outputs.published == 'true' && steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'false' }}
+        id: create_release
+        uses: comnoco/create-release-action@v2.0.5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: v${{ steps.new-version.outputs.version }}
+          release_name: v${{ steps.new-version.outputs.version }}
+          body_path: changelog.txt
+          draft: false
+          prerelease: false
