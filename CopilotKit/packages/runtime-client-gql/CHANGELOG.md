@@ -1,5 +1,12 @@
 # @copilotkit/runtime-client-gql
 
+## 1.5.2
+
+### Patch Changes
+
+- b0192c1: This is a test release
+  - @copilotkit/shared@1.5.2
+
 ## 1.5.1
 
 ### Patch Changes
