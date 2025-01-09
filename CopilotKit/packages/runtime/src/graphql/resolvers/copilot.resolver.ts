@@ -42,6 +42,8 @@ import {
 } from "../types/converted";
 import telemetry from "../../lib/telemetry-client";
 import { randomId } from "@copilotkit/shared";
+import { EndpointType, LangGraphPlatformAgent } from "../../lib/runtime/remote-actions";
+import { AgentsResponse } from "../types/agents-response.type";
 
 const invokeGuardrails = async ({
   baseUrl,
@@ -104,6 +106,20 @@ export class CopilotResolver {
   @Query(() => String)
   async hello() {
     return "Hello World";
+  }
+
+  @Query(() => AgentsResponse)
+  async availableAgents(@Ctx() ctx: GraphQLContext) {
+    let logger = ctx.logger.child({ component: "CopilotResolver.availableAgents" });
+
+    logger.debug("Processing");
+    const agents = await ctx._copilotkit.runtime.discoverAgentsFromEndpoints(ctx);
+
+    logger.debug("Event source created, creating response");
+
+    return {
+      agents,
+    };
   }
 
   @Mutation(() => CopilotResponse)

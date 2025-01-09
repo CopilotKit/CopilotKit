@@ -141,7 +141,7 @@ function Toast({
       style={{
         backgroundColor: bgColors[type],
         color: "white",
-        padding: "0.5rem 1rem",
+        padding: "0.5rem 1.5rem",
         borderRadius: "0.25rem",
         boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
         position: "relative",
