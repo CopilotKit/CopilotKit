@@ -8,6 +8,7 @@ on:
       - 'README.md'
       - 'examples/**'
       - '.github/workflows/demos_preview.yml'
+      - '.github/workflows/release.yml'
   pull_request:
     branches: [main]
     paths-ignore:
