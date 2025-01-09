@@ -1,5 +1,15 @@
 # ui
 
+## 1.5.1-next.3
+
+### Patch Changes
+
+- 33218fe: test prerelease #3
+- Updated dependencies [33218fe]
+  - @copilotkit/react-core@1.5.1-next.3
+  - @copilotkit/runtime-client-gql@1.5.1-next.3
+  - @copilotkit/shared@1.5.1-next.3
+
 ## 1.5.1-next.2
 
 ### Patch Changes
