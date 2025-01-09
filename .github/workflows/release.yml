@@ -118,5 +118,5 @@ jobs:
           fi
 
           git add ./.changeset/pre.json
-          git commit -m "chore(post-release): update version to ${steps.new-version.outputs.version}"
+          git commit -m "chore(post-release): update version to ${{ steps.new-version.outputs.version }}"
           git push origin main --force
