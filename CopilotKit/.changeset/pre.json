@@ -1,5 +1,5 @@
 {
-  "mode": "exit",
+  "mode": "pre",
   "tag": "next",
   "initialVersions": {
     "next-openai": "1.4.6",
@@ -11,7 +11,7 @@
     "@copilotkit/react-ui": "1.5.5",
     "@copilotkit/runtime": "1.5.5",
     "@copilotkit/runtime-client-gql": "1.5.5",
-    "@copilotkit/sdk-js": "1.5.5",
+    "@copilotkit/sdk-js": "1.5.5-next.5",
     "@copilotkit/shared": "1.5.5",
     "eslint-config-custom": "1.4.6",
     "tailwind-config": "1.4.6",
@@ -22,6 +22,7 @@
     "dull-carrots-leave",
     "eleven-schools-invite",
     "fresh-cougars-obey",
+    "loud-actors-run",
     "slow-pets-brake",
     "tender-parents-matter",
     "twelve-feet-behave"
