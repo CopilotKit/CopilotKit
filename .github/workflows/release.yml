@@ -73,13 +73,17 @@ jobs:
         id: check-if-published
         run: |
           sleep 3
-          grep -q "success packages published successfully" ./publish-output.txt && echo "::set-output name=published::true" || echo "::set-output name=published::false"
+          cat ./publish-output.txt
+          if grep -q "success packages published successfully" ./publish-output.txt; then
+            echo "::set-output name=published::true"
+          else
+            echo "::set-output name=published::false"
+          fi
       
       - name: Print variables
         run: |
           echo "New version: ${{ steps.new-version.outputs.version }}"
           echo "Current version: ${{ steps.current-version.outputs.version }}"
-          echo ""
           echo "Published: ${{ steps.check-if-published.outputs.published }}"
           echo "Is in prerelease mode: ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode }}"
 
