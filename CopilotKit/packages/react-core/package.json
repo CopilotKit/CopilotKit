@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.5.5-next.5",
+  "version": "1.5.6-next.0",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
