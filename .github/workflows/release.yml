@@ -72,12 +72,11 @@ jobs:
       - name: Check if published
         id: check-if-published
         run: |
+          sleep 3
           grep -q "success packages published successfully" ./publish-output.txt && echo "::set-output name=published::true" || echo "::set-output name=published::false"
       
       - name: Print variables
         run: |
-          sleep 3
-          cat publish-output.txt
           echo "New version: ${{ steps.new-version.outputs.version }}"
           echo "Current version: ${{ steps.current-version.outputs.version }}"
           echo ""
@@ -104,6 +103,13 @@ jobs:
           body_path: changelog.txt
           draft: false
           prerelease: false
+
+      - name: Stage Release Changes
+        if: ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'true' && steps.check-if-published.outputs.published == 'false' }}
+        run: |
+          git add .
+          git commit -m "chore: updating package.json to v${{ steps.new-version.outputs.version }}"
+          git push origin main --force
 
       - name: Put `main` back in prerelease mode
         if: ${{ github.ref == 'refs/heads/main' }}
