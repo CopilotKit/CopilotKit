@@ -59,7 +59,7 @@ jobs:
         id: publish
         run: |
           pnpm changeset version
-          pnpm changeset publish --no-git-tag | tee publish-output.txt
+          pnpm changeset publish --no-git-tag 2>&1 | tee publish-output.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -112,7 +112,7 @@ jobs:
             pnpm changeset pre enter next
             git config --global user.email "github-actions[bot]@users.noreply.github.com"
             git config --global user.name "github-actions[bot]"
-            git add .changeset/pre.json
+            git add .
             git commit -m "chore: entering prerelease mode (next)"
             git push origin main --force
           fi
