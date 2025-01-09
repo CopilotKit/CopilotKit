@@ -1,5 +1,17 @@
 # ui
 
+## 1.5.1-next.2
+
+### Patch Changes
+
+- ed39d40: - [CPK-1034] adds `useCopilotAuthenticatedAction`
+- da280ed: Test prerelease script
+- 649ebcc: - fix: add warning when using agents that are not available on agent related hooks
+- Updated dependencies [da280ed]
+- Updated dependencies [649ebcc]
+  - @copilotkit/runtime-client-gql@1.5.1-next.2
+  - @copilotkit/shared@1.5.1-next.2
+
 ## 1.5.1-next.1
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @copilotkit/sdk-js
 
+## 1.5.1-next.2
+
+### Patch Changes
+
+- da280ed: Test prerelease script
+- Updated dependencies [da280ed]
+  - @copilotkit/shared@1.5.1-next.2
+
 ## 1.5.1-next.1
 
 ### Patch Changes
