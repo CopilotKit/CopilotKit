@@ -76,6 +76,8 @@ jobs:
       
       - name: Print variables
         run: |
+          sleep 3
+          cat publish-output.txt
           echo "New version: ${{ steps.new-version.outputs.version }}"
           echo "Current version: ${{ steps.current-version.outputs.version }}"
           echo ""
