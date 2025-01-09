@@ -42,36 +42,49 @@ jobs:
             echo "::set-output name=is_in_prerelease_mode::false"
           fi
 
-      - name: Create Release Pull Request or Publish to npm
-        id: changesets
-        uses: ./.github/actions/changesets-action
-        with:
-          publish: pnpm changeset publish --no-git-tag
-          cwd: CopilotKit
-          createGithubReleases: true
+      - name: Get current version
+        id: current-version
+        run: |
+          echo "version=$(node -p "require('./packages/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Make prerelease
+        if: ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'true' }}
+        id: prerelease
+        run: |
+          pnpm changeset version
+          pnpm changeset publish --no-git-tag --tag next
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN_ELEVATED }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
-      - name: Print outputs
+      - name: Get new version
+        id: new-version
         run: |
-          echo "published: ${{ steps.changesets.outputs.published }}"
-          echo "publishedPackages: ${{ steps.changesets.outputs.publishedPackages }}"
+          echo "version=$(node -p "require('./packages/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Check if published
+        id: check-if-published
+        run: |
+          if [ "${{ steps.new-version.outputs.version }}" != "${{ steps.current-version.outputs.version }}" ]; then
+            echo "::set-output name=published::true"
+          else
+            echo "::set-output name=published::false"
+          fi
 
       - name: Tag "next" post publish
-        if: ${{ steps.changesets.outputs.published == 'true' }} && ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'true' }}
+        if: ${{ steps.check-if-published.outputs.published == 'true' }} && ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'true' }}
         run: |
           echo "Will tag next"
 
       - name: Put `main` back in prerelease mode
-        if: ${{ github.ref == 'refs/heads/main' && steps.changesets.outputs.published }}
+        if: ${{ github.ref == 'refs/heads/main' && steps.check-if-published.outputs.published == 'true' }}
         run: |
-            if [ ! -f ".changeset/pre.json" ]; then
-              pnpm changeset pre enter next
-              git config --global user.email "github-actions[bot]@users.noreply.github.com"
-              git config --global user.name "github-actions[bot]"
-              git add .
+          if [ ! -f ".changeset/pre.json" ]; then
+            pnpm changeset pre enter next
+            git config --global user.email "github-actions[bot]@users.noreply.github.com"
+            git config --global user.name "github-actions[bot]"
+            git add .
               git commit -m "chore: entering prerelease mode (next)"
               git push origin main --force
             fi
