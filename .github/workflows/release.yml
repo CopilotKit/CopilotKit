@@ -6,6 +6,7 @@ on:
     branches:
       - main
     paths:
+      - "./CopilotKit/.changeset/**/*"
       - "./CopilotKit/packages/**/*"
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
