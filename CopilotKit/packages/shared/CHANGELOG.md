@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.5.1-next.2
+
+### Patch Changes
+
+- da280ed: Test prerelease script
+
 ## 1.5.1-next.1
 
 ### Patch Changes

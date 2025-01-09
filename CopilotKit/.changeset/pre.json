@@ -18,8 +18,11 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
+    "fuzzy-crabs-sell",
+    "honest-dragons-fry",
     "neat-stingrays-appear",
     "thick-dots-battle",
+    "twenty-dogs-trade",
     "wicked-pianos-sin"
   ]
 }

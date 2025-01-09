@@ -1,5 +1,17 @@
 # ui
 
+## 1.5.1-next.2
+
+### Patch Changes
+
+- da280ed: Test prerelease script
+- Updated dependencies [ed39d40]
+- Updated dependencies [da280ed]
+- Updated dependencies [649ebcc]
+  - @copilotkit/react-core@1.5.1-next.2
+  - @copilotkit/runtime-client-gql@1.5.1-next.2
+  - @copilotkit/shared@1.5.1-next.2
+
 ## 1.5.1-next.1
 
 ### Patch Changes
