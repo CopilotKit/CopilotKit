@@ -1,5 +1,16 @@
 # @copilotkit/shared
 
+## 1.5.1
+
+### Patch Changes
+
+- 5c01e9e: test prerelease #4
+- da280ed: Test prerelease script
+- 27e42d7: testing a prerelease
+- 05240a9: test pre #2
+- 33218fe: test prerelease #3
+- 03f3d6f: Test next prerelease
+
 ## 1.5.1-next.3
 
 ### Patch Changes

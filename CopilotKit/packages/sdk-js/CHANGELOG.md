@@ -1,5 +1,23 @@
 # @copilotkit/sdk-js
 
+## 1.5.1
+
+### Patch Changes
+
+- 5c01e9e: test prerelease #4
+- da280ed: Test prerelease script
+- 27e42d7: testing a prerelease
+- 05240a9: test pre #2
+- 33218fe: test prerelease #3
+- 03f3d6f: Test next prerelease
+- Updated dependencies [5c01e9e]
+- Updated dependencies [da280ed]
+- Updated dependencies [27e42d7]
+- Updated dependencies [05240a9]
+- Updated dependencies [33218fe]
+- Updated dependencies [03f3d6f]
+  - @copilotkit/shared@1.5.1
+
 ## 1.5.1-next.3
 
 ### Patch Changes

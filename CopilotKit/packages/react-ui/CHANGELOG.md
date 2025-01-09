@@ -1,5 +1,28 @@
 # ui
 
+## 1.5.1
+
+### Patch Changes
+
+- 5c01e9e: test prerelease #4
+- da280ed: Test prerelease script
+- 27e42d7: testing a prerelease
+- 05240a9: test pre #2
+- 33218fe: test prerelease #3
+- 03f3d6f: Test next prerelease
+- Updated dependencies [5c01e9e]
+- Updated dependencies [ed39d40]
+- Updated dependencies [da280ed]
+- Updated dependencies [27e42d7]
+- Updated dependencies [05240a9]
+- Updated dependencies [33218fe]
+- Updated dependencies [03f3d6f]
+- Updated dependencies [649ebcc]
+- Updated dependencies [6dfa0d2]
+  - @copilotkit/react-core@1.5.1
+  - @copilotkit/runtime-client-gql@1.5.1
+  - @copilotkit/shared@1.5.1
+
 ## 1.5.1-next.3
 
 ### Patch Changes
