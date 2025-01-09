@@ -36,11 +36,20 @@ jobs:
       - name: Install Dependencies
         run: pnpm i
 
+      - name: Is in prerelease mode
+        id: is-in-prerelease-mode
+        run: |
+          if [ -f ".changeset/pre.json" ]; then
+            echo "::set-output name=is_in_prerelease_mode::true"
+          else
+            echo "::set-output name=is_in_prerelease_mode::false"
+          fi
+
       - name: Create Release Pull Request or Publish to npm
         id: changesets
         uses: ./.github/actions/changesets-action
         with:
-          publish: pnpm publish-packages
+          publish: pnpm changeset publish --no-git-tag
           cwd: CopilotKit
           createGithubReleases: true
         env:
@@ -52,6 +61,11 @@ jobs:
         run: |
           echo "published: ${{ steps.changesets.outputs.published }}"
           echo "publishedPackages: ${{ steps.changesets.outputs.publishedPackages }}"
+
+      - name: Tag "next" post publish
+        if: ${{ steps.changesets.outputs.published }} && ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'true' }}
+        run: |
+          echo "Will tag next"
 
       - name: Put `main` back in prerelease mode
         if: ${{ github.ref == 'refs/heads/main' && steps.changesets.outputs.published }}
