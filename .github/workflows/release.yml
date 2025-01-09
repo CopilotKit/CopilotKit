@@ -73,13 +73,9 @@ jobs:
         id: check-if-published
         run: |
           sleep 3
-          cat ./publish-output.txt
-          if grep -q "success packages published successfully" ./publish-output.txt; then
-            echo "::set-output name=published::true"
-          else
-            echo "::set-output name=published::false"
-          fi
-      
+          PUBLISHED=$(node -p "const fs = require('fs'); fs.readFileSync('./publish-output.txt', 'utf-8').includes('packages published successfully:')")
+          echo "published=$PUBLISHED" >> "$GITHUB_OUTPUT"
+          
       - name: Print variables
         run: |
           echo "New version: ${{ steps.new-version.outputs.version }}"
