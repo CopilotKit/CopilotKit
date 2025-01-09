@@ -40,7 +40,12 @@ jobs:
         id: is-in-prerelease-mode
         run: |
           if [ -f ".changeset/pre.json" ]; then
-            echo "::set-output name=is_in_prerelease_mode::true"
+            MODE=$(node -p "require('./.changeset/pre.json').mode")
+            if [ "$MODE" = "exit" ]; then
+              echo "::set-output name=is_in_prerelease_mode::false"
+            elif [ "$MODE" = "pre" ]; then
+              echo "::set-output name=is_in_prerelease_mode::true"
+            fi
           else
             echo "::set-output name=is_in_prerelease_mode::false"
           fi
@@ -54,7 +59,7 @@ jobs:
         id: publish
         run: |
           pnpm changeset version
-          pnpm changeset publish --no-git-tag
+          pnpm changeset publish --no-git-tag | tee publish-output.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -67,15 +72,9 @@ jobs:
       - name: Check if published
         id: check-if-published
         run: |
-          if [ "${{ steps.new-version.outputs.version }}" != "${{ steps.current-version.outputs.version }}" ]; then
-            echo "New version published"
-            echo "::set-output name=published::true"
-          else
-            echo "No new version published"
-            echo "::set-output name=published::false"
-          fi
+          grep -q "success packages published successfully" ./publish-output.txt && echo "::set-output name=published::true" || echo "::set-output name=published::false"
       
-      - name: Test condition
+      - name: Print variables
         run: |
           echo "New version: ${{ steps.new-version.outputs.version }}"
           echo "Current version: ${{ steps.current-version.outputs.version }}"
@@ -111,8 +110,8 @@ jobs:
             pnpm changeset pre enter next
             git config --global user.email "github-actions[bot]@users.noreply.github.com"
             git config --global user.name "github-actions[bot]"
-            git add .
-              git commit -m "chore: entering prerelease mode (next)"
-              git push origin main --force
-            fi
+            git add .changeset/pre.json
+            git commit -m "chore: entering prerelease mode (next)"
+            git push origin main --force
+          fi
 
