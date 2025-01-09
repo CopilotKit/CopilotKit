@@ -155,16 +155,18 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
     actionExecutionId,
     actionName,
     result,
+    error,
   }: {
     actionExecutionId: string;
     actionName: string;
-    result: string;
+    result?: string;
+    error?: { code: string; message: string };
   }) {
     this.next({
       type: RuntimeEventTypes.ActionExecutionResult,
       actionName,
       actionExecutionId,
-      result,
+      result: ResultMessage.encodeResult(result, error),
     });
   }
 
@@ -327,7 +329,16 @@ async function executeAction(
     try {
       args = JSON.parse(actionArguments);
     } catch (e) {
-      console.warn("Action argument unparsable", { actionArguments });
+      console.error("Action argument unparsable", { actionArguments });
+      eventStream$.sendActionExecutionResult({
+        actionExecutionId,
+        actionName: action.name,
+        error: {
+          code: "INVALID_ARGUMENTS",
+          message: "Failed to parse action arguments"
+        }
+      });
+      return;
     }
   }
 
@@ -366,20 +377,43 @@ async function executeAction(
     // forward to eventStream$
     from(stream).subscribe({
       next: (event) => eventStream$.next(event),
-      error: (err) => console.error("Error in stream", err),
+      error: (err) => {
+        console.error("Error in stream", err);
+        eventStream$.sendActionExecutionResult({
+          actionExecutionId,
+          actionName: action.name,
+          error: {
+            code: "STREAM_ERROR",
+            message: err.message
+          }
+        });
+        eventStream$.complete();
+      },
       complete: () => eventStream$.complete(),
     });
   } else {
     // call the function
-    const result = await action.handler?.(args);
-
-    await streamLangChainResponse({
-      result,
-      eventStream$,
-      actionExecution: {
-        name: action.name,
-        id: actionExecutionId,
-      },
-    });
+    try {
+      const result = await action.handler?.(args);
+      await streamLangChainResponse({
+        result,
+        eventStream$,
+        actionExecution: {
+          name: action.name,
+          id: actionExecutionId,
+        },
+      });
+    } catch (e) {
+      console.error("Error in action handler", e);
+      eventStream$.sendActionExecutionResult({
+        actionExecutionId,
+        actionName: action.name,
+        error: {
+          code: "HANDLER_ERROR",
+          message: e.message
+        }
+      });
+      eventStream$.complete();
+    }
   }
 }
