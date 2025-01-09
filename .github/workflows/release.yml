@@ -59,6 +59,7 @@ jobs:
         id: publish
         run: |
           pnpm changeset version
+          pnpm run build
           pnpm changeset publish --no-git-tag 2>&1 | tee publish-output.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
