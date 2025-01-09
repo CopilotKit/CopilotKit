@@ -24,6 +24,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20.x
+          registry-url: https://registry.npmjs.org
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -49,8 +52,8 @@ jobs:
           
       - name: npm whoami
         run: npm whoami
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # env:
+          # NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: NPM Publish
         id: publish
