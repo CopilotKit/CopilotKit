@@ -47,12 +47,12 @@ jobs:
         run: |
           echo "version=$(node -p "require('./packages/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
 
-      - name: Make prerelease
+      - name: NPM Publish
         if: ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'true' }}
-        id: prerelease
+        id: publish
         run: |
           pnpm changeset version
-          pnpm changeset publish --no-git-tag --tag next
+          pnpm changeset publish --no-git-tag
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN_ELEVATED }}
