@@ -48,8 +48,16 @@ jobs:
         run: |
           echo "version=$(node -p "require('./packages/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
 
+      - name: Append NPM token to .npmrc
+        run: |
+          cat << EOF > "$HOME/.npmrc"
+            provenance=true
+            //registry.npmjs.org/:_authToken=$NPM_TOKEN
+          EOF
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: NPM Publish
-        if: ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'true' }}
         id: publish
         run: |
           pnpm changeset version
