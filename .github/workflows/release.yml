@@ -77,11 +77,11 @@ jobs:
       
       - name: Test condition
         run: |
-          echo "New version: ${steps.new-version.outputs.version}"
-          echo "Current version: ${steps.current-version.outputs.version}"
+          echo "New version: ${{ steps.new-version.outputs.version }}"
+          echo "Current version: ${{ steps.current-version.outputs.version }}"
           echo ""
-          echo "Published: ${steps.check-if-published.outputs.published}"
-          echo "Is in prerelease mode: ${steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode}"
+          echo "Published: ${{ steps.check-if-published.outputs.published }}"
+          echo "Is in prerelease mode: ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode }}"
 
       - name: Git Tag
         if: ${{ steps.check-if-published.outputs.published == 'true' && steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'false' }}
