@@ -1,13 +1,17 @@
 """LangGraph agent for CopilotKit"""
 
 import uuid
+import json
 from typing import Optional, List, Callable, Any, cast, Union, TypedDict
+from collections.abc import Mapping
 from typing_extensions import NotRequired
 
 from langgraph.graph.graph import CompiledGraph
+from langgraph.types import Interrupt, Command
 from langchain.load.dump import dumps as langchain_dumps
 from langchain.schema import BaseMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig, ensure_config
+from langchain_core.messages import HumanMessage, ToolMessage, AIMessage
 
 from partialjson.json_parser import JSONParser
 
@@ -112,8 +116,49 @@ class LangGraphAgent(Agent):
             state: dict,
             running: bool,
             active: bool,
-            include_messages: bool = False
+            include_messages: bool = False,
+            last_interrupt: Optional[Interrupt] = None,
         ):
+        additional_messages = []
+        if last_interrupt is not None:
+            if isinstance(last_interrupt.value, str):
+                additional_messages.append(
+                    AIMessage(
+                        id=str(uuid.uuid4()),
+                        content=last_interrupt.value
+                    )
+                )
+            else:
+                if isinstance(last_interrupt.value, Mapping):
+                    if ("copilotkit" in last_interrupt.value and
+                        isinstance(last_interrupt["copilotkit"], Mapping) and
+                        "action" in last_interrupt.value["copilotkit"] and
+                        isinstance(last_interrupt["copilotkit"]["action"], Mapping) and
+                        "name" in last_interrupt.value["copilotkit"]["action"]):
+                        additional_messages.append(
+                            AIMessage(
+                                id=str(uuid.uuid4()),
+                                content="",
+                                tool_calls=[{
+                                    "name": last_interrupt.value["copilotkit"]["action"]["name"], # pylint: disable=line-too-long
+                                    "args": last_interrupt.value["copilotkit"]["action"].get("arguments", {}), # pylint: disable=line-too-long
+                                    "id": str(uuid.uuid4()),
+                                }]
+                            )
+                        )
+                else:
+                    additional_messages.append(
+                        AIMessage(
+                            id=str(uuid.uuid4()),
+                        content="",
+                        tool_calls=[{
+                            "name": "interrupt",
+                            "args": last_interrupt.value,
+                                "id": str(uuid.uuid4()),
+                            }]
+                        )
+                    )
+
         if not include_messages:
             state = {
                 k: v for k, v in state.items() if k != "messages"
@@ -121,7 +166,9 @@ class LangGraphAgent(Agent):
         else:
             state = {
                 **state,
-                "messages": langchain_messages_to_copilotkit(state.get("messages", []))
+                "messages": langchain_messages_to_copilotkit(
+                    state.get("messages", []) + additional_messages
+                )
             }
 
         return langchain_dumps({
@@ -150,6 +197,7 @@ class LangGraphAgent(Agent):
         config["configurable"] = config.get("configurable", {})
         config["configurable"]["thread_id"] = thread_id
 
+        print(f"graph.get_state({config})", flush=True)
         agent_state = self.graph.get_state(config)
         state["messages"] = agent_state.values.get("messages", [])
 
@@ -164,24 +212,35 @@ class LangGraphAgent(Agent):
         mode = "continue" if thread_id and node_name != "__end__" else "start"
         thread_id = thread_id or str(uuid.uuid4())
         config["configurable"]["thread_id"] = thread_id
+        previous_interrupt = None
 
         if mode == "continue":
+            print(f"graph.get_state({config})", flush=True)
+            tasks = self.graph.get_state(config).tasks
+            if len(tasks) > 0:
+                first_task = tasks[0]
+                if len(first_task.interrupts) > 0:
+                    previous_interrupt = first_task.interrupts[0]
+
+            print(f"graph.update_state({config}, {state}, as_node={node_name})", flush=True)
             self.graph.update_state(config, state, as_node=node_name)
 
         return self._stream_events(
             mode=mode,
             config=config,
             state=state,
-            node_name=node_name
+            node_name=node_name,
+            previous_interrupt=previous_interrupt
         )
 
-    async def _stream_events( # pylint: disable=too-many-locals
+    async def _stream_events( # pylint: disable=too-many-locals,too-many-statements,too-many-branches
             self,
             *,
             mode: str,
             config: RunnableConfig,
             state: Any,
-            node_name: Optional[str] = None
+            node_name: Optional[str] = None,
+            previous_interrupt: Optional[Interrupt] = None
         ):
 
         streaming_state_extractor = _StreamingStateExtractor([])
@@ -191,8 +250,27 @@ class LangGraphAgent(Agent):
         should_exit = False
         manually_emitted_state = None
         thread_id = cast(Any, config)["configurable"]["thread_id"]
+        last_interrupt: Optional[Interrupt] = None
 
+        if previous_interrupt is not None and len(state["messages"]) > 0:
+            last_message = state["messages"][-1]
+            if isinstance(last_message, HumanMessage):
+                initial_state = Command(
+                    resume=last_message.content
+                )
+            elif isinstance(last_message, ToolMessage):
+                content = last_message.content
+                try:
+                    content = json.loads(content)
+                except Exception: # pylint: disable=broad-except
+                    pass
+                initial_state = Command(
+                    resume=content,
+                    update=state
+                )
+        print(f"graph.astream_events({initial_state}, {config}, version='v2')", flush=True)
         async for event in self.graph.astream_events(initial_state, config, version="v2"):
+
             current_node_name = event.get("name")
             event_type = event.get("event")
             run_id = event.get("run_id")
@@ -203,15 +281,20 @@ class LangGraphAgent(Agent):
                 event["name"] == "copilotkit_exit"
             )
 
+            if event_type == "on_chain_stream" and isinstance(event["data"]["chunk"], Mapping):
+                if ("__interrupt__" in event["data"]["chunk"] and 
+                    len(event["data"]["chunk"]["__interrupt__"]) > 0):
+                    last_interrupt = event["data"]["chunk"]["__interrupt__"][0]
+
             emit_intermediate_state = metadata.get("copilotkit:emit-intermediate-state")
             manually_emit_intermediate_state = (
                 event_type == "on_custom_event" and
                 event["name"] == "copilotkit_manually_emit_intermediate_state"
             )
 
-
             # we only want to update the node name under certain conditions
             # since we don't need any internal node names to be sent to the frontend
+            # print(f"graph.nodes.keys()", flush=True)
             if current_node_name in self.graph.nodes.keys():
                 node_name = current_node_name
 
@@ -244,6 +327,7 @@ class LangGraphAgent(Agent):
                 # reset the streaming state extractor
                 streaming_state_extractor = _StreamingStateExtractor(emit_intermediate_state)
 
+            # print(f"graph.aget_state({config})", flush=True)
             updated_state = manually_emitted_state or (await self.graph.aget_state(config)).values
 
             if emit_intermediate_state and event_type == "on_chat_model_stream":
@@ -279,10 +363,16 @@ class LangGraphAgent(Agent):
 
             yield langchain_dumps(event) + "\n"
 
+        print(f"graph.aget_state({config})", flush=True)
         state = await self.graph.aget_state(config)
-        is_end_node = state.next == ()
 
-        node_name = list(state.metadata["writes"].keys())[0]
+        if last_interrupt is not None:
+            is_end_node = False
+            # if we got an interrupt event, we keep the current node name
+        else:
+            is_end_node = state.next == ()
+            # get the next node name from metadata
+            node_name = list(state.metadata["writes"].keys())[0]
 
         yield self._emit_state_sync_event(
             thread_id=thread_id,
@@ -293,7 +383,8 @@ class LangGraphAgent(Agent):
             # at this point, the node is ending so we set active to false
             active=False,
             # sync messages at the end of the run
-            include_messages=True
+            include_messages=True,
+            last_interrupt=last_interrupt
         ) + "\n"
 
 

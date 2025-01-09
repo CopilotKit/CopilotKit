@@ -5,12 +5,12 @@ It defines the workflow graph and the entry point for the agent.
 
 from typing_extensions import Literal
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage, AIMessage
+from langchain_core.messages import SystemMessage, AIMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langchain.tools import tool
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.types import Command
+from langgraph.types import Command, interrupt
 from langgraph.prebuilt import ToolNode
 from copilotkit import CopilotKitState
 
@@ -24,8 +24,12 @@ def greet_user(name: str):
     print(f"Hello, {name}!")
     return "The user was greeted. YOU MUST TELL THE USER TO CHECK THE CONSOLE FOR THE RESULT."
 
+@tool
+def simulate_interrupt():
+    """Simulate an interrupt."""
+
 # This tool node is responsible for executing tools defined in LangGraph
-tool_node = ToolNode(tools=[greet_user])
+tool_node = ToolNode(tools=[greet_user, simulate_interrupt])
 
 async def frontend_tool_node(state: AgentState, config: RunnableConfig): # pylint: disable=unused-argument
     """Frontend tool node."""
@@ -37,7 +41,7 @@ async def react_node(state: AgentState, config: RunnableConfig) \
     """CopilotKit ReAct Agent"""
 
     model = ChatOpenAI(model="gpt-4o").bind_tools(
-        [*state["copilotkit"]["actions"], greet_user]
+        [*state["copilotkit"]["actions"], greet_user, simulate_interrupt]
     )
 
     response = await model.ainvoke([
@@ -48,6 +52,22 @@ async def react_node(state: AgentState, config: RunnableConfig) \
     ], config)
 
     if isinstance(response, AIMessage) and response.tool_calls:
+
+        if response.tool_calls[0].get("name") == "simulate_interrupt":
+            return Command(
+                goto="simulate_interrupt_node",
+                update={
+                    "messages": [
+                        response,
+                         ToolMessage(
+                            name=response.tool_calls[0]["name"],
+                            content="SIMULATED INTERRUPTION",
+                            tool_call_id=response.tool_calls[0]["id"]
+                        )
+                    ]
+                }
+            )
+
         actions = state["copilotkit"]["actions"]
 
         for tool_call in response.tool_calls:
@@ -76,9 +96,27 @@ async def react_node(state: AgentState, config: RunnableConfig) \
         }
     )
 
+async def simulate_interrupt_node(state) -> Command[Literal["react_node"]]:
+    """Simulate an interrupt."""
+    print("--------------------------------", flush=True)
+    print("INTERRUPTING", flush=True)
+    print("--------------------------------", flush=True)
+    value = interrupt("Hey what's up?")
+    print("", flush=True)
+    print(value, flush=True)
+    print("", flush=True)
+    print("--------------------------------", flush=True)
+    print("RESUMING", flush=True)
+    print("--------------------------------", flush=True)
+    return Command(
+        goto="react_node",
+    )
+
+
 workflow = StateGraph(AgentState)
 workflow.add_node("react_node", react_node)
 workflow.add_node("frontend_tool_node", frontend_tool_node)
+workflow.add_node("simulate_interrupt_node", simulate_interrupt_node)
 workflow.add_node("tool_node", tool_node)
 workflow.add_edge("tool_node", "react_node")
 workflow.add_edge("frontend_tool_node", "react_node")

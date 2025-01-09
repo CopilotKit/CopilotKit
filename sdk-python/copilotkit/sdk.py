@@ -1,5 +1,6 @@
 """CopilotKit SDK"""
 
+from importlib.metadata import version
 from pprint import pformat
 from typing import List, Callable, Union, Optional, TypedDict, Any, Coroutine
 from .agent import Agent, AgentDict
@@ -13,8 +14,7 @@ from .exc import (
 )
 from .logging import get_logger, bold
 
-
-COPILOTKIT_SDK_VERSION = "0.1.32"
+COPILOTKIT_SDK_VERSION = version("copilotkit")
 
 logger = get_logger(__name__)
 
