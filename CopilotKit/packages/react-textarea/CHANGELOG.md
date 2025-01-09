@@ -1,5 +1,14 @@
 # ui
 
+## 1.5.5-next.3
+
+### Patch Changes
+
+- c4a6aa5: test release notes
+  - @copilotkit/react-core@1.5.5-next.3
+  - @copilotkit/runtime-client-gql@1.5.5-next.3
+  - @copilotkit/shared@1.5.5-next.3
+
 ## 1.5.5-next.2
 
 ### Patch Changes
