@@ -20,15 +20,16 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v3
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          registry-url: https://registry.npmjs.org
+          node-version: 20.x
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: "9.5"
-
-      - name: Setup Node.js 20.x
-        uses: actions/setup-node@v2
-        with:
-          node-version: 20.x
 
       - name: Install Dependencies
         run: pnpm i
