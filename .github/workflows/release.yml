@@ -104,22 +104,19 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Stage Release Changes
+      - name: Update changeset state post-release
         if: ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'true' && steps.check-if-published.outputs.published == 'false' }}
         run: |
-          git add .
-          git commit -m "chore: updating package.json to v${{ steps.new-version.outputs.version }}"
-          git push origin main --force
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
 
-      - name: Put `main` back in prerelease mode
-        if: ${{ github.ref == 'refs/heads/main' }}
-        run: |
+          git add ./packages/**/package.json
+          git add ./packages/**/CHANGELOG.md
+
           if [ ! -f ".changeset/pre.json" ]; then
             pnpm changeset pre enter next
-            git config --global user.email "github-actions[bot]@users.noreply.github.com"
-            git config --global user.name "github-actions[bot]"
-            git add .
-            git commit -m "chore: entering prerelease mode (next)"
-            git push origin main --force
           fi
 
+          git add ./.changeset/pre.json
+          git commit -m "chore(post-release): update version to ${steps.new-version.outputs.version}"
+          git push origin main --force
