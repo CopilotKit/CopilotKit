@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.5.3
+
+### Patch Changes
+
+- 4511149: Test release notes
+  - @copilotkit/shared@1.5.3
+
 ## 1.5.2
 
 ### Patch Changes

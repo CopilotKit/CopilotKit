@@ -1,5 +1,15 @@
 # ui
 
+## 1.5.3
+
+### Patch Changes
+
+- 4511149: Test release notes
+- 8e57b01: Test release workflow
+  - @copilotkit/runtime-client-gql@1.5.3
+  - @copilotkit/react-core@1.5.3
+  - @copilotkit/shared@1.5.3
+
 ## 1.5.2
 
 ### Patch Changes
