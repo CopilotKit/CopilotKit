@@ -1,5 +1,14 @@
 # ui
 
+## 1.5.4
+
+### Patch Changes
+
+- Test changelog
+  - @copilotkit/runtime-client-gql@1.5.4
+  - @copilotkit/react-core@1.5.4
+  - @copilotkit/shared@1.5.4
+
 ## 1.5.3
 
 ### Patch Changes
