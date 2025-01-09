@@ -12,7 +12,7 @@ from langchain_core.runnables import RunnableConfig, ensure_config
 from partialjson.json_parser import JSONParser
 
 from .types import Message
-from .langchain import copilotkit_messages_to_langchain, langchain_messages_to_copilotkit
+from .langgraph import copilotkit_messages_to_langchain, langchain_messages_to_copilotkit
 from .action import ActionDict
 from .agent import Agent
 from .logging import get_logger
