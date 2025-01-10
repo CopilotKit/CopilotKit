@@ -191,11 +191,6 @@ In order for CopilotKit to integrate with your LangGraph agent, the agent has to
   </TailoredContentOption>
 </TailoredContent>
 
-<Callout type="warning">
-  Next.js 15 with `--turbopack` option (i.e. `"dev": "next dev --turbopack"`) is
-  currently not supported with CopilotKit.
-</Callout>
-
 ## Optionally: agent-lock your Copilot to the `basic_agent` agent.
 
 CopilotKit supports multi-agent workflows through an [intelligent router](/coagents/advanced/router-mode-agent-lock) that is enabled by default.
@@ -211,6 +206,11 @@ to the name of the agent you want to lock to.
   {...}
 </CopilotKit>
 ```
+
+<Callout type="warn">
+  Next.js 15 with `--turbopack` option (i.e. `"dev": "next dev --turbopack"`) is
+  currently not supported with CopilotKit.
+</Callout>
 
 🎉 Congrats! You've successfully integrated a LangGraph agent chatbot to your application!
 Give it a try by writing text in the chatbot UI and pressing send.
