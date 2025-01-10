@@ -3,14 +3,17 @@ title: "Quickstart"
 description: "Get started with CopilotKit in under 5 minutes."
 icon: "lucide/Play"
 ---
+
 import { LinkIcon } from "lucide-react";
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
 import ConnectCopilotUI from "@/snippets/copilot-ui.mdx";
 import CopilotCloudConfigureCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
-import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content.tsx";
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
 import { FaCloud, FaServer } from "react-icons/fa";
-
 
 <TailoredContent>
 <TailoredContentOption
@@ -20,6 +23,11 @@ import { FaCloud, FaServer } from "react-icons/fa";
 >
 
 ## Install Dependencies
+
+<Callout type="warn">
+  Next.js 15 with `--turbopack` option (i.e. `"dev": "next dev --turbopack"`) is
+  currently not supported with CopilotKit.
+</Callout>
 
 First, install the latest pre-release CopilotKit dependencies.
 
@@ -41,6 +49,11 @@ In order to use CopilotKit, we'll need to configure the `CopilotKit` provider.
 
 ## Install Dependencies
 
+<Callout type="warn">
+  Next.js 15 with `--turbopack` option (i.e. `"dev": "next dev --turbopack"`) is
+  currently not supported with CopilotKit.
+</Callout>
+
 First, install the latest pre-release CopilotKit dependencies.
 
 ```package-install
@@ -48,7 +61,6 @@ npm install @copilotkit/react-ui@1.4.8-coagents-v0-3.1 @copilotkit/react-core@1.
 ```
 
 ## Setup CopilotKit
-
 
 <Steps>
 <Step>
@@ -58,7 +70,9 @@ npm install @copilotkit/react-ui@1.4.8-coagents-v0-3.1 @copilotkit/react-core@1.
 <Step>
 ### Configure the CopilotKit Provider
 
-<SelfHostingCopilotRuntimeConfigureCopilotKitProvider components={props.components} />
+<SelfHostingCopilotRuntimeConfigureCopilotKitProvider
+  components={props.components}
+/>
 
 </Step>
 </Steps>
@@ -66,6 +80,7 @@ npm install @copilotkit/react-ui@1.4.8-coagents-v0-3.1 @copilotkit/react-core@1.
 </TailoredContent>
 
 ### Connect Copilot UI
+
 You are almost there!
 Now it's time to setup your Copilot UI.
 
@@ -74,6 +89,7 @@ Now it's time to setup your Copilot UI.
 ---
 
 ## Next Steps
+
 🎉 Congrats! You've successfully integrated a fully functional chatbot in your application! Give it a try now and see it in action. Want to
 take it further? Learn more about what CopilotKit has to offer!
 
