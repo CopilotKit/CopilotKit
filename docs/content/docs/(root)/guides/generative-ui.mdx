@@ -5,12 +5,12 @@ description: "Learn how to embed custom UI components in the chat window."
 
 import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
 
-<Steps>
+# Render custom components in the chat UI
 
-<Step>
-### Render custom react components in the chat UI
+When a user interacts with your Copilot, you may want to render a custom UI component. [`useCopilotAction`](/reference/hooks/useCopilotAction) allows to give the LLM the 
+option to render your custom component through the `render` property.
 
-<Tabs items={['Render a component', 'Fetch data & render', 'renderAndWaitForResponse (HITL)', 'Render strings']}>
+<Tabs items={['Render a component', 'Fetch data & render', 'renderAndWaitForResponse (HITL)', 'Render strings', 'Catch all renders']}>
 
   <Tab value="Render a component">
     [`useCopilotAction`](/reference/hooks/useCopilotAction) can be used with a `render` function and without a `handler` to display information or UI elements within the chat.
@@ -180,6 +180,10 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
   <Tab value="Render strings">
     For simple messages, you can return a string from the `render` method. This is useful for quick status updates or simple notifications.
 
+    <Frame className="my-0">
+      <img src="/images/concepts/generative-ui/render-string.gif" className="w-[300px] p-0" alt="String rendering example" />
+    </Frame>
+
     ```tsx
     "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
     import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
@@ -204,11 +208,6 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
       },
     });
     ```
-
-    <Frame className="my-0">
-      <img src="/images/concepts/generative-ui/render-string.gif" className="w-[300px] p-0" alt="String rendering example" />
-    </Frame>
-
   </Tab>
 
   <Tab value="Catch all renders">
@@ -225,15 +224,19 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
     ```
     </Tab>
 </Tabs>
-</Step>
+<Accordions className="mt-4">
+  <Accordion title="What do the different status states mean?">
+    - `inProgress`: Arguments are dynamically streamed to the function, allowing you to adjust your UI in real-time.
+    - `executing`: The action handler is executing.
+    - `complete`: The action handler has completed execution.
+  </Accordion>
+  <Accordion title='Why do I need "use client" in Next.js with the App Router?'>
+    <UseClientCalloutSnippet components={props.components} />
+  </Accordion>
+</Accordions>
 
-<Step>
-  <UseClientCalloutSnippet components={props.components} />
-</Step>
 
-<Step>
-
-### Test it out!
+## Test it out!
 
 After defining the action with a render method, ask the copilot to perform the task. For example, you can now ask the copilot to "show tasks" and see the custom UI component rendered in the chat interface.
 
@@ -241,6 +244,3 @@ After defining the action with a render method, ask the copilot to perform the t
   You can read more about the `useCopilotAction` hook
   [here](/reference/hooks/useCopilotAction).
 </Callout>
-
-</Step>
-</Steps>
