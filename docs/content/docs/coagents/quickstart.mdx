@@ -31,6 +31,7 @@ check out [this brief example from the LangGraph docs](https://langchain-ai.gith
 ## Getting started
 
 ### How are you deploying your agent?
+
 In order for CopilotKit to integrate with your LangGraph agent, the agent has to be deployed: either via a LangGraph Platform Endpoint, or via a Copilot Remote Endpoint.
 
 <TailoredContent>
@@ -115,6 +116,7 @@ In order for CopilotKit to integrate with your LangGraph agent, the agent has to
         </Steps>
       </TailoredContentOption>
     </TailoredContent>
+
   </TailoredContentOption>
   <TailoredContentOption 
     title="Copilot Remote Endpoint"
@@ -189,7 +191,12 @@ In order for CopilotKit to integrate with your LangGraph agent, the agent has to
   </TailoredContentOption>
 </TailoredContent>
 
-##  Optionally: agent-lock your Copilot to the `basic_agent` agent.
+<Callout type="warning">
+  Next.js 15 with `--turbopack` option (i.e. `"dev": "next dev --turbopack"`) is
+  currently not supported with CopilotKit.
+</Callout>
+
+## Optionally: agent-lock your Copilot to the `basic_agent` agent.
 
 CopilotKit supports multi-agent workflows through an [intelligent router](/coagents/advanced/router-mode-agent-lock) that is enabled by default.
 If you would like to disable this intelligent routing and lock your Copilot to a single LangGraph agent, you can do so by setting the `agent` prop
@@ -204,7 +211,6 @@ to the name of the agent you want to lock to.
   {...}
 </CopilotKit>
 ```
-
 
 🎉 Congrats! You've successfully integrated a LangGraph agent chatbot to your application!
 Give it a try by writing text in the chatbot UI and pressing send.
