@@ -21,6 +21,9 @@
  *       role: Role.User,
  *     }),
  *   );
+ *
+ *   // optionally, you can append a message without running chat completion
+ *   appendMessage(yourMessage, { followUp: false });
  * }
  * ```
  *
@@ -42,9 +45,8 @@ import { useRef, useEffect, useCallback } from "react";
 import { AgentSession, useCopilotContext } from "../context/copilot-context";
 import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { SystemMessageFunction } from "../types";
-import { useChat } from "./use-chat";
+import { useChat, AppendMessageOptions } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
-import { MessageStatusCode } from "@copilotkit/runtime-client-gql";
 import { CoAgentStateRenderHandlerArguments } from "@copilotkit/shared";
 import { useCopilotMessagesContext } from "../context";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
@@ -74,7 +76,7 @@ export interface UseCopilotChatOptions {
 
 export interface UseCopilotChatReturn {
   visibleMessages: Message[];
-  appendMessage: (message: Message) => Promise<void>;
+  appendMessage: (message: Message, options?: AppendMessageOptions) => Promise<void>;
   setMessages: (messages: Message[]) => void;
   deleteMessage: (messageId: string) => void;
   reloadMessages: () => Promise<void>;
@@ -185,8 +187,8 @@ export function useCopilotChat({
   // we store the relevant function in a ref that is always up-to-date, and then we use that ref in the callback.
   const latestAppend = useUpdatedRef(append);
   const latestAppendFunc = useAsyncCallback(
-    async (message: Message) => {
-      return await latestAppend.current(message);
+    async (message: Message, options?: AppendMessageOptions) => {
+      return await latestAppend.current(message, options);
     },
     [latestAppend],
   );
