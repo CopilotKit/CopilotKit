@@ -56,19 +56,22 @@ export class ResultMessage extends Message implements ResultMessageInput {
   actionName: string;
   result: string;
 
-  static encodeResult(result: any, error?: { code: string; message: string } | string | Error): string {
-    const errorObj = error 
-      ? typeof error === 'string' 
-        ? { code: 'ERROR', message: error }
-        : error instanceof Error 
-          ? { code: 'ERROR', message: error.message }
+  static encodeResult(
+    result: any,
+    error?: { code: string; message: string } | string | Error,
+  ): string {
+    const errorObj = error
+      ? typeof error === "string"
+        ? { code: "ERROR", message: error }
+        : error instanceof Error
+          ? { code: "ERROR", message: error.message }
           : error
       : undefined;
 
     if (errorObj) {
       return JSON.stringify({
         error: errorObj,
-        result: result || ""
+        result: result || "",
       });
     }
     if (result === undefined) {
@@ -77,17 +80,20 @@ export class ResultMessage extends Message implements ResultMessageInput {
     return typeof result === "string" ? result : JSON.stringify(result);
   }
 
-  static decodeResult(result: string): { error?: { code: string; message: string }; result: string } {
+  static decodeResult(result: string): {
+    error?: { code: string; message: string };
+    result: string;
+  } {
     if (!result) {
       return { result: "" };
     }
     try {
       const parsed = JSON.parse(result);
-      if (parsed && typeof parsed === 'object') {
-        if ('error' in parsed) {
+      if (parsed && typeof parsed === "object") {
+        if ("error" in parsed) {
           return {
             error: parsed.error,
-            result: parsed.result || ""
+            result: parsed.result || "",
           };
         }
         return { result: JSON.stringify(parsed) };

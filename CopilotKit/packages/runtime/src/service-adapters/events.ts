@@ -295,7 +295,7 @@ export class RuntimeEventSource {
               console.error("Error in tool call stream", error);
               this.sendErrorMessageToChat();
               return EMPTY;
-            })
+            }),
           );
         } else {
           return of(eventWithState.event!);
@@ -335,8 +335,8 @@ async function executeAction(
         actionName: action.name,
         error: {
           code: "INVALID_ARGUMENTS",
-          message: "Failed to parse action arguments"
-        }
+          message: "Failed to parse action arguments",
+        },
       });
       return;
     }
@@ -384,8 +384,8 @@ async function executeAction(
           actionName: action.name,
           error: {
             code: "STREAM_ERROR",
-            message: err.message
-          }
+            message: err.message,
+          },
         });
         eventStream$.complete();
       },
@@ -410,8 +410,8 @@ async function executeAction(
         actionName: action.name,
         error: {
           code: "HANDLER_ERROR",
-          message: e.message
-        }
+          message: e.message,
+        },
       });
       eventStream$.complete();
     }
