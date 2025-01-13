@@ -21,6 +21,7 @@ import {
   randomId,
   CopilotKitError,
   CopilotKitLowLevelError,
+  CopilotKitAgentDiscoveryError,
 } from "@copilotkit/shared";
 import {
   CopilotServiceAdapter,
@@ -304,8 +305,9 @@ please use an LLM adapter instead.`);
           }>;
         }
 
+        const fetchUrl = `${(endpoint as CopilotKitEndpoint).url}/info`;
         try {
-          const response = await fetch(`${(endpoint as CopilotKitEndpoint).url}/info`, {
+          const response = await fetch(fetchUrl, {
             method: "POST",
             headers,
             body: JSON.stringify({ properties: graphqlContext.properties }),
@@ -328,7 +330,7 @@ please use an LLM adapter instead.`);
           if (error instanceof CopilotKitError) {
             throw error;
           }
-          throw new CopilotKitLowLevelError(error as Error);
+          throw new CopilotKitLowLevelError({ error: error as Error, url: fetchUrl });
         }
       },
       Promise.resolve([]),
@@ -351,7 +353,7 @@ please use an LLM adapter instead.`);
     ) as LangGraphAgentAction;
 
     if (!agent) {
-      throw new Error(`Agent ${agentName} not found`);
+      throw new CopilotKitAgentDiscoveryError({ agentName });
     }
 
     const serverSideActionsInput: ActionInput[] = serverSideActions
