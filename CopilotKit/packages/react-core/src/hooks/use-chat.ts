@@ -2,8 +2,8 @@ import { useRef } from "react";
 import {
   FunctionCallHandler,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
-  actionParametersToJsonSchema,
   CoAgentStateRenderHandler,
+  randomId,
 } from "@copilotkit/shared";
 import {
   Message,
@@ -17,14 +17,14 @@ import {
   MessageRole,
   Role,
   CopilotRequestType,
-  ActionInputAvailability,
+  ForwardedParametersInput,
+  loadMessagesFromJsonRepresentation,
 } from "@copilotkit/runtime-client-gql";
 
 import { CopilotApiConfig } from "../context";
-import { FrontendAction } from "../types/frontend-action";
+import { FrontendAction, processActionsForRuntimeRequest } from "../types/frontend-action";
 import { CoagentState } from "../types/coagent-state";
 import { AgentSession } from "../context/copilot-context";
-import { useToast } from "../components/toast/toast-provider";
 import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
 
@@ -98,6 +98,36 @@ export type UseChatOptions = {
    * setState-powered method to update the agent session
    */
   setAgentSession: React.Dispatch<React.SetStateAction<AgentSession | null>>;
+
+  /**
+   * The forwarded parameters.
+   */
+  forwardedParameters?: Pick<ForwardedParametersInput, "temperature">;
+
+  /**
+   * The current thread ID.
+   */
+  threadId: string | null;
+  /**
+   * set the current thread ID
+   */
+  setThreadId: (threadId: string | null) => void;
+  /**
+   * The current run ID.
+   */
+  runId: string | null;
+  /**
+   * set the current run ID
+   */
+  setRunId: (runId: string | null) => void;
+  /**
+   * The global chat abort controller.
+   */
+  chatAbortControllerRef: React.MutableRefObject<AbortController | null>;
+  /**
+   * The agent lock.
+   */
+  agentLock: string | null;
 };
 
 export type UseChatHelpers = {
@@ -106,7 +136,7 @@ export type UseChatHelpers = {
    * the assistant's response.
    * @param message The message to append
    */
-  append: (message: Message) => Promise<void>;
+  append: (message: Message, options?: AppendMessageOptions) => Promise<void>;
   /**
    * Reload the last AI chat response for the given chat history. If the last
    * message isn't from the assistant, it will request the API to generate a
@@ -124,6 +154,13 @@ export type UseChatHelpers = {
   runChatCompletion: () => Promise<Message[]>;
 };
 
+export interface AppendMessageOptions {
+  /**
+   * Whether to run the chat completion after appending the message. Defaults to `true`.
+   */
+  followUp?: boolean;
+}
+
 export function useChat(options: UseChatOptions): UseChatHelpers {
   const {
     messages,
@@ -140,19 +177,23 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     coagentStatesRef,
     agentSession,
     setAgentSession,
+    threadId,
+    setThreadId,
+    runId,
+    setRunId,
+    chatAbortControllerRef,
+    agentLock,
   } = options;
-
-  const abortControllerRef = useRef<AbortController>();
-  const threadIdRef = useRef<string | null>(null);
-  const runIdRef = useRef<string | null>(null);
-  const { addGraphQLErrorsToast } = useToast();
-
   const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
   // We need to keep a ref of coagent states and session because of renderAndWait - making sure
   // the latest state is sent to the API
   // This is a workaround and needs to be addressed in the future
   const agentSessionRef = useRef<AgentSession | null>(agentSession);
   agentSessionRef.current = agentSession;
+  const threadIdRef = useRef<string | null>(threadId);
+  threadIdRef.current = threadId;
+  const runIdRef = useRef<string | null>(runId);
+  runIdRef.current = runId;
 
   const publicApiKey = copilotConfig.publicApiKey;
 
@@ -180,8 +221,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           role: Role.Assistant,
         }),
       ];
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
+
+      chatAbortControllerRef.current = new AbortController();
 
       setMessages([...previousMessages, ...newMessages]);
 
@@ -189,34 +230,13 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
       const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
 
+      const isAgentRun = agentSessionRef.current !== null;
+
       const stream = runtimeClient.asStream(
         runtimeClient.generateCopilotResponse({
           data: {
             frontend: {
-              actions: actions
-                .filter(
-                  (action) =>
-                    action.available !== ActionInputAvailability.Disabled || !action.disabled,
-                )
-                .map((action) => {
-                  let available: ActionInputAvailability | undefined =
-                    ActionInputAvailability.Enabled;
-                  if (action.disabled) {
-                    available = ActionInputAvailability.Disabled;
-                  } else if (action.available === "disabled") {
-                    available = ActionInputAvailability.Disabled;
-                  } else if (action.available === "remote") {
-                    available = ActionInputAvailability.Remote;
-                  }
-                  return {
-                    name: action.name,
-                    description: action.description || "",
-                    jsonSchema: JSON.stringify(
-                      actionParametersToJsonSchema(action.parameters || []),
-                    ),
-                    available,
-                  };
-                }),
+              actions: processActionsForRuntimeRequest(actions),
               url: window.location.href,
             },
             threadId: threadIdRef.current,
@@ -252,9 +272,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               agentName: state.name,
               state: JSON.stringify(state.state),
             })),
+            forwardedParameters: options.forwardedParameters || {},
           },
           properties: copilotConfig.properties,
-          signal: abortControllerRef.current?.signal,
+          signal: chatAbortControllerRef.current?.signal,
         }),
       );
 
@@ -263,9 +284,11 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
       const reader = stream.getReader();
 
-      let actionResults: { [id: string]: string } = {};
       let executedCoAgentStateRenders: string[] = [];
       let followUp: FrontendAction["followUp"] = undefined;
+
+      let messages: Message[] = [];
+      let syncedMessages: Message[] = [];
 
       try {
         while (true) {
@@ -280,6 +303,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           }
 
           if (done) {
+            if (chatAbortControllerRef.current.signal.aborted) {
+              return [];
+            }
             break;
           }
 
@@ -290,7 +316,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           threadIdRef.current = value.generateCopilotResponse.threadId || null;
           runIdRef.current = value.generateCopilotResponse.runId || null;
 
-          const messages = convertGqlOutputToMessages(
+          setThreadId(threadIdRef.current);
+          setRunId(runIdRef.current);
+
+          messages = convertGqlOutputToMessages(
             filterAdjacentAgentStateMessages(value.generateCopilotResponse.messages),
           );
 
@@ -300,7 +329,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
           newMessages = [];
 
-          // request failed, display error message
+          // request failed, display error message and quit
           if (
             value.generateCopilotResponse.status?.__typename === "FailedResponseStatus" &&
             value.generateCopilotResponse.status.reason === "GUARDRAILS_VALIDATION_FAILED"
@@ -311,57 +340,16 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 content: value.generateCopilotResponse.status.details?.guardrailsReason || "",
               }),
             ];
+            setMessages([...previousMessages, ...newMessages]);
+            break;
           }
 
           // add messages to the chat
           else {
+            newMessages = [...messages];
+
             for (const message of messages) {
-              newMessages.push(message);
-              // execute regular action executions
-              if (
-                message.isActionExecutionMessage() &&
-                message.status.code !== MessageStatusCode.Pending &&
-                message.scope === "client" &&
-                onFunctionCall
-              ) {
-                if (!(message.id in actionResults)) {
-                  // Do not execute a function call if guardrails are enabled but the status is not known
-                  if (guardrailsEnabled && value.generateCopilotResponse.status === undefined) {
-                    break;
-                  }
-                  // execute action
-                  try {
-                    // We update the message state before calling the handler so that the render
-                    // function can be called with `executing` state
-                    setMessages([...previousMessages, ...newMessages]);
-
-                    const action = actions.find((action) => action.name === message.name);
-
-                    if (action) {
-                      followUp = action.followUp;
-                    }
-
-                    const result = await onFunctionCall({
-                      messages: previousMessages,
-                      name: message.name,
-                      args: message.arguments,
-                    });
-                    actionResults[message.id] = result;
-                  } catch (e) {
-                    actionResults[message.id] = `Failed to execute action ${message.name}`;
-                    console.error(`Failed to execute action ${message.name}: ${e}`);
-                  }
-                }
-                // add the result message
-                newMessages.push(
-                  new ResultMessage({
-                    result: ResultMessage.encodeResult(actionResults[message.id]),
-                    actionExecutionId: message.id,
-                    actionName: message.name,
-                  }),
-                );
-              }
-              // execute coagent actions
+              // execute onCoAgentStateRender handler
               if (
                 message.isAgentStateMessage() &&
                 !message.active &&
@@ -387,6 +375,14 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               .find((message) => message.isAgentStateMessage());
 
             if (lastAgentStateMessage) {
+              if (
+                lastAgentStateMessage.state.messages &&
+                lastAgentStateMessage.state.messages.length > 0
+              ) {
+                syncedMessages = loadMessagesFromJsonRepresentation(
+                  lastAgentStateMessage.state.messages,
+                );
+              }
               setCoagentStatesWithRef((prevAgentStates) => ({
                 ...prevAgentStates,
                 [lastAgentStateMessage.agentName]: {
@@ -406,7 +402,15 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                   nodeName: lastAgentStateMessage.nodeName,
                 });
               } else {
-                setAgentSession(null);
+                if (agentLock) {
+                  setAgentSession({
+                    threadId: randomId(),
+                    agentName: agentLock,
+                    nodeName: undefined,
+                  });
+                } else {
+                  setAgentSession(null);
+                }
               }
             }
           }
@@ -416,14 +420,88 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             setMessages([...previousMessages, ...newMessages]);
           }
         }
+        const finalMessages = constructFinalMessages(syncedMessages, previousMessages, newMessages);
+
+        let didExecuteAction = false;
+
+        // execute regular action executions that are specific to the frontend (last actions)
+        if (onFunctionCall) {
+          // Find consecutive action execution messages at the end
+          const lastMessages = [];
+          for (let i = finalMessages.length - 1; i >= 0; i--) {
+            const message = finalMessages[i];
+            if (
+              message.isActionExecutionMessage() &&
+              message.status.code !== MessageStatusCode.Pending
+            ) {
+              lastMessages.unshift(message);
+            } else {
+              break;
+            }
+          }
+
+          for (const message of lastMessages) {
+            // We update the message state before calling the handler so that the render
+            // function can be called with `executing` state
+            setMessages(finalMessages);
+
+            const action = actions.find((action) => action.name === message.name);
+
+            if (action) {
+              followUp = action.followUp;
+              let result: any;
+              try {
+                result = await Promise.race([
+                  onFunctionCall({
+                    messages: previousMessages,
+                    name: message.name,
+                    args: message.arguments,
+                  }),
+                  new Promise((resolve) =>
+                    chatAbortControllerRef.current?.signal.addEventListener("abort", () =>
+                      resolve("Operation was aborted by the user"),
+                    ),
+                  ),
+                  // if the user stopped generation, we also abort consecutive actions
+                  new Promise((resolve) => {
+                    if (chatAbortControllerRef.current?.signal.aborted) {
+                      resolve("Operation was aborted by the user");
+                    }
+                  }),
+                ]);
+              } catch (e) {
+                result = `Failed to execute action ${message.name}`;
+                console.error(`Failed to execute action ${message.name}: ${e}`);
+              }
+              didExecuteAction = true;
+              const messageIndex = finalMessages.findIndex((msg) => msg.id === message.id);
+              finalMessages.splice(
+                messageIndex + 1,
+                0,
+                new ResultMessage({
+                  id: "result-" + message.id,
+                  result: ResultMessage.encodeResult(result),
+                  actionExecutionId: message.id,
+                  actionName: message.name,
+                }),
+              );
+            }
+          }
+
+          setMessages(finalMessages);
+        }
 
         if (
           // if followUp is not explicitly false
           followUp !== false &&
-          // if we have client side results
-          (Object.values(actionResults).length ||
-            // or the last message we received is a result
-            (newMessages.length && newMessages[newMessages.length - 1].isResultMessage()))
+          // and we executed an action
+          (didExecuteAction ||
+            // the last message is a server side result
+            (!isAgentRun &&
+              finalMessages.length &&
+              finalMessages[finalMessages.length - 1].isResultMessage())) &&
+          // the user did not stop generation
+          !chatAbortControllerRef.current?.signal.aborted
         ) {
           // run the completion again and return the result
 
@@ -431,7 +509,38 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           // - tried using react-dom's flushSync, but it did not work
           await new Promise((resolve) => setTimeout(resolve, 10));
 
-          return await runChatCompletionRef.current!([...previousMessages, ...newMessages]);
+          return await runChatCompletionRef.current!(finalMessages);
+        } else if (chatAbortControllerRef.current?.signal.aborted) {
+          // filter out all the action execution messages that do not have a consecutive matching result message
+          const repairedMessages = finalMessages.filter((message, actionExecutionIndex) => {
+            if (message.isActionExecutionMessage()) {
+              return finalMessages.find(
+                (msg, resultIndex) =>
+                  msg.isResultMessage() &&
+                  msg.actionExecutionId === message.id &&
+                  resultIndex === actionExecutionIndex + 1,
+              );
+            }
+            return true;
+          });
+          const repairedMessageIds = repairedMessages.map((message) => message.id);
+          setMessages(repairedMessages);
+
+          // LangGraph needs two pieces of information to continue execution:
+          // 1. The threadId
+          // 2. The nodeName it came from
+          // When stopping the agent, we don't know the nodeName the agent would have ended with
+          // Therefore, we set the nodeName to the most reasonable thing we can guess, which
+          // is "__end__"
+          if (agentSessionRef.current?.nodeName) {
+            setAgentSession({
+              threadId: agentSessionRef.current.threadId,
+              agentName: agentSessionRef.current.agentName,
+              nodeName: "__end__",
+            });
+          }
+          // only return new messages that were not filtered out
+          return newMessages.filter((message) => repairedMessageIds.includes(message.id));
         } else {
           return newMessages.slice();
         }
@@ -467,14 +576,17 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   );
 
   const append = useAsyncCallback(
-    async (message: Message): Promise<void> => {
+    async (message: Message, options?: AppendMessageOptions): Promise<void> => {
       if (isLoading) {
         return;
       }
 
       const newMessages = [...messages, message];
       setMessages(newMessages);
-      return runChatCompletionAndHandleFunctionCall(newMessages);
+      const followUp = options?.followUp ?? true;
+      if (followUp) {
+        return runChatCompletionAndHandleFunctionCall(newMessages);
+      }
     },
     [isLoading, messages, setMessages, runChatCompletionAndHandleFunctionCall],
   );
@@ -496,7 +608,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   }, [isLoading, messages, setMessages, runChatCompletionAndHandleFunctionCall]);
 
   const stop = (): void => {
-    abortControllerRef.current?.abort();
+    chatAbortControllerRef.current?.abort("Stop was called");
   };
 
   return {
@@ -505,4 +617,33 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     stop,
     runChatCompletion: () => runChatCompletionRef.current!(messages),
   };
+}
+
+function constructFinalMessages(
+  syncedMessages: Message[],
+  previousMessages: Message[],
+  newMessages: Message[],
+): Message[] {
+  const finalMessages =
+    syncedMessages.length > 0 ? [...syncedMessages] : [...previousMessages, ...newMessages];
+
+  if (syncedMessages.length > 0) {
+    const messagesWithAgentState = [...previousMessages, ...newMessages];
+
+    let previousMessageId: string | undefined = undefined;
+
+    for (const message of messagesWithAgentState) {
+      if (message.isAgentStateMessage()) {
+        // insert this message into finalMessages after the position of previousMessageId
+        const index = finalMessages.findIndex((msg) => msg.id === previousMessageId);
+        if (index !== -1) {
+          finalMessages.splice(index + 1, 0, message);
+        }
+      }
+
+      previousMessageId = message.id;
+    }
+  }
+
+  return finalMessages;
 }

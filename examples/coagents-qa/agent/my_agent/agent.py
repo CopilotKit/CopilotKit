@@ -10,7 +10,8 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import HumanMessage, ToolMessage, AIMessage
 from copilotkit.langchain import (
-  copilotkit_customize_config, copilotkit_exit, copilotkit_emit_message
+    copilotkit_exit,
+    copilotkit_emit_message
 )
 from pydantic import BaseModel, Field
 
@@ -50,11 +51,6 @@ async def draft_email_node(state: EmailAgentState, config: RunnableConfig):
     Write an email.
     """
 
-    config = copilotkit_customize_config(
-        config,
-        emit_tool_calls=True,
-    )
-
     instructions = "You write emails."
 
     email_model = get_model().bind_tools(
@@ -75,6 +71,7 @@ async def draft_email_node(state: EmailAgentState, config: RunnableConfig):
     email = tool_calls[0]["args"]["email_draft"]
 
     return {
+        "messages": response,
         "email": email,
     }
 
@@ -82,11 +79,6 @@ async def send_email_node(state: EmailAgentState, config: RunnableConfig):
     """
     Send an email.
     """
-
-    config = copilotkit_customize_config(
-        config,
-        emit_messages=True,
-    )
 
     await copilotkit_exit(config)
 

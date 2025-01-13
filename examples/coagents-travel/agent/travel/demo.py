@@ -15,7 +15,7 @@ app = FastAPI()
 sdk = CopilotKitSDK(
     agents=[
         LangGraphAgent(
-            name="travel_agent",
+            name="travel",
             description="Manages a user's trips.",
             agent=graph,
         )
@@ -27,4 +27,16 @@ add_fastapi_endpoint(app, sdk, "/copilotkit")
 def main():
     """Run the uvicorn server."""
     port = int(os.getenv("PORT", "8000"))
-    uvicorn.run("travel.demo:app", host="localhost", port=port, reload=True)
+    uvicorn.run(
+        "travel.demo:app",
+        host="localhost",
+        port=port,
+        reload=True,
+        reload_dirs=(
+            ["."] +
+            (["../../../sdk-python/copilotkit"]
+             if os.path.exists("../../../sdk-python/copilotkit")
+             else []
+             )
+        )
+    )

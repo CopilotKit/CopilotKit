@@ -1,4 +1,4 @@
-import { ActionExecutionMessage, MessageStatusCode } from "@copilotkit/runtime-client-gql";
+import { MessageStatusCode } from "@copilotkit/runtime-client-gql";
 import { RenderMessageProps } from "../props";
 import { useChatContext } from "../ChatContext";
 import { RenderFunctionStatus, useCopilotContext } from "@copilotkit/react-core";
@@ -9,8 +9,14 @@ export function RenderActionExecutionMessage(props: RenderMessageProps) {
   const { icons } = useChatContext();
 
   if (message.isActionExecutionMessage()) {
-    if (chatComponentsCache.current !== null && chatComponentsCache.current.actions[message.name]) {
-      const render = chatComponentsCache.current.actions[message.name];
+    if (
+      chatComponentsCache.current !== null &&
+      (chatComponentsCache.current.actions[message.name] ||
+        chatComponentsCache.current.actions["*"])
+    ) {
+      const render =
+        chatComponentsCache.current.actions[message.name] ||
+        chatComponentsCache.current.actions["*"];
       // render a static string
       if (typeof render === "string") {
         // when render is static, we show it only when in progress
@@ -43,6 +49,7 @@ export function RenderActionExecutionMessage(props: RenderMessageProps) {
             status: status as any,
             args,
             result: actionResult,
+            name: message.name,
           });
           // No result and complete: stay silent
           if (!toRender && status === "complete") {

@@ -1,5 +1,234 @@
 # ui
 
+## 1.5.11
+
+### Patch Changes
+
+- db3d539: test release notes
+- e5d588d: test changelog
+- 4211318: test changelog
+- d431537: Test release notes
+- Updated dependencies [72f9e58]
+- Updated dependencies [aecb6f4]
+- Updated dependencies [0a2e07e]
+- Updated dependencies [9b3bdc2]
+  - @copilotkit/runtime-client-gql@1.5.11
+  - @copilotkit/shared@1.5.11
+
+## 1.5.11-next.0
+
+### Patch Changes
+
+- db3d539: test release notes
+- e5d588d: test changelog
+- 4211318: test changelog
+- d431537: Test release notes
+- Updated dependencies [72f9e58]
+- Updated dependencies [aecb6f4]
+- Updated dependencies [0a2e07e]
+- Updated dependencies [9b3bdc2]
+  - @copilotkit/runtime-client-gql@1.5.11-next.0
+  - @copilotkit/shared@1.5.11-next.0
+
+## 1.5.10
+
+### Patch Changes
+
+- db3d539: test release notes
+- e5d588d: test changelog
+- 4211318: test changelog
+- d431537: Test release notes
+- Updated dependencies [72f9e58]
+- Updated dependencies [aecb6f4]
+- Updated dependencies [9b3bdc2]
+  - @copilotkit/runtime-client-gql@1.5.10
+  - @copilotkit/shared@1.5.10
+
+## 1.5.10-next.0
+
+### Patch Changes
+
+- db3d539: test release notes
+- e5d588d: test changelog
+- 4211318: test changelog
+- d431537: Test release notes
+- Updated dependencies [72f9e58]
+- Updated dependencies [aecb6f4]
+- Updated dependencies [9b3bdc2]
+  - @copilotkit/runtime-client-gql@1.5.10-next.0
+  - @copilotkit/shared@1.5.10-next.0
+
+## 1.5.9
+
+### Patch Changes
+
+- db3d539: test release notes
+- e5d588d: test changelog
+- 4211318: test changelog
+- d431537: Test release notes
+- Updated dependencies [72f9e58]
+- Updated dependencies [9b3bdc2]
+  - @copilotkit/runtime-client-gql@1.5.9
+  - @copilotkit/shared@1.5.9
+
+## 1.5.8
+
+### Patch Changes
+
+- db3d539: test release notes
+- e5d588d: test changelog
+- 4211318: test changelog
+- d431537: Test release notes
+- Updated dependencies [72f9e58]
+- Updated dependencies [9b3bdc2]
+  - @copilotkit/runtime-client-gql@1.5.8
+  - @copilotkit/shared@1.5.8
+
+## 1.5.6-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.5.6-next.0
+- @copilotkit/shared@1.5.6-next.0
+
+## 1.5.5-next.5
+
+### Patch Changes
+
+- db3d539: test release notes
+  - @copilotkit/runtime-client-gql@1.5.5-next.5
+  - @copilotkit/shared@1.5.5-next.5
+
+## 1.5.5-next.3
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.5.5-next.3
+- @copilotkit/shared@1.5.5-next.3
+
+## 1.5.5-next.2
+
+### Patch Changes
+
+- Updated dependencies [72f9e58]
+- Updated dependencies [9b3bdc2]
+  - @copilotkit/runtime-client-gql@1.5.5-next.2
+  - @copilotkit/shared@1.5.5-next.2
+
+## 1.5.4
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.5.4
+- @copilotkit/shared@1.5.4
+
+## 1.5.3
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.5.3
+- @copilotkit/shared@1.5.3
+
+## 1.5.2
+
+### Patch Changes
+
+- Updated dependencies [b0192c1]
+  - @copilotkit/runtime-client-gql@1.5.2
+  - @copilotkit/shared@1.5.2
+
+## 1.5.1
+
+### Patch Changes
+
+- 5c01e9e: test prerelease #4
+- ed39d40: - [CPK-1034] adds `useCopilotAuthenticatedAction`
+- da280ed: Test prerelease script
+- 27e42d7: testing a prerelease
+- 05240a9: test pre #2
+- 33218fe: test prerelease #3
+- 03f3d6f: Test next prerelease
+- 649ebcc: - fix: add warning when using agents that are not available on agent related hooks
+- 6dfa0d2: - feat: add temperature parameter support for LLM completions
+- Updated dependencies [5c01e9e]
+- Updated dependencies [da280ed]
+- Updated dependencies [27e42d7]
+- Updated dependencies [05240a9]
+- Updated dependencies [33218fe]
+- Updated dependencies [03f3d6f]
+- Updated dependencies [649ebcc]
+  - @copilotkit/runtime-client-gql@1.5.1
+  - @copilotkit/shared@1.5.1
+
+## 1.5.1-next.3
+
+### Patch Changes
+
+- 33218fe: test prerelease #3
+- Updated dependencies [33218fe]
+  - @copilotkit/runtime-client-gql@1.5.1-next.3
+  - @copilotkit/shared@1.5.1-next.3
+
+## 1.5.1-next.2
+
+### Patch Changes
+
+- ed39d40: - [CPK-1034] adds `useCopilotAuthenticatedAction`
+- da280ed: Test prerelease script
+- 649ebcc: - fix: add warning when using agents that are not available on agent related hooks
+- Updated dependencies [da280ed]
+- Updated dependencies [649ebcc]
+  - @copilotkit/runtime-client-gql@1.5.1-next.2
+  - @copilotkit/shared@1.5.1-next.2
+
+## 1.5.1-next.1
+
+### Patch Changes
+
+- 03f3d6f: Test next prerelease
+- Updated dependencies [03f3d6f]
+  - @copilotkit/runtime-client-gql@1.5.1-next.1
+  - @copilotkit/shared@1.5.1-next.1
+
+## 1.5.1-next.0
+
+### Patch Changes
+
+- 27e42d7: testing a prerelease
+- 6dfa0d2: - feat: add temperature parameter support for LLM completions
+- Updated dependencies [27e42d7]
+  - @copilotkit/runtime-client-gql@1.5.1-next.0
+  - @copilotkit/shared@1.5.1-next.0
+
+## 1.5.0
+
+### Minor Changes
+
+- 1b47092: Synchronize LangGraph messages with CopilotKit
+
+### Patch Changes
+
+- 00e9488: - fix: wait for renderAndWaitForResponse handler to be ready before rendering
+- 1b47092: CoAgents v0.3 prerelease
+- Updated dependencies [1b47092]
+- Updated dependencies [1b47092]
+  - @copilotkit/runtime-client-gql@1.5.0
+  - @copilotkit/shared@1.5.0
+
+## 1.5.0-coagents-v0-3.0
+
+### Minor Changes
+
+- Synchronize LangGraph messages with CopilotKit
+
+### Patch Changes
+
+- e66bce4: CoAgents v0.3 prerelease
+- Updated dependencies
+- Updated dependencies [e66bce4]
+  - @copilotkit/runtime-client-gql@1.5.0-coagents-v0-3.0
+  - @copilotkit/shared@1.5.0-coagents-v0-3.0
+
 ## 1.4.8
 
 ### Patch Changes

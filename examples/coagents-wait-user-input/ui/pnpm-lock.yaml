@@ -13,20 +13,20 @@ importers:
   .:
     dependencies:
       '@copilotkit/react-core':
-        specifier: 1.4.7
-        version: 1.4.7(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+        specifier: 1.5.0
+        version: 1.5.0(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@copilotkit/react-ui':
-        specifier: 1.4.7
-        version: 1.4.7(@types/react@19.0.1)(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+        specifier: 1.5.0
+        version: 1.5.0(@types/react@19.0.1)(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@copilotkit/runtime':
-        specifier: 1.4.7
-        version: 1.4.7(class-validator@0.14.1)(google-auth-library@8.9.0)
+        specifier: 1.5.0
+        version: 1.5.0(class-validator@0.14.1)(google-auth-library@8.9.0)
       '@copilotkit/runtime-client-gql':
-        specifier: 1.4.7
-        version: 1.4.7(graphql@16.9.0)(react@19.0.0)
+        specifier: 1.5.0
+        version: 1.5.0(graphql@16.9.0)(react@19.0.0)
       '@copilotkit/shared':
-        specifier: 1.4.7
-        version: 1.4.7
+        specifier: 1.5.0
+        version: 1.5.0
       '@radix-ui/react-accordion':
         specifier: ^1.2.0
         version: 1.2.0(@types/react-dom@19.0.2(@types/react@19.0.1))(@types/react@19.0.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -116,27 +116,27 @@ packages:
     resolution: {integrity: sha512-VBj9MYyDb9tuLq7yzqjgzt6Q+IBQLrGZfdjOekyEirZPHxXWoTSGUTMrpsfi58Up73d13NfYLv8HT9vmznjzhQ==}
     engines: {node: '>=6.9.0'}
 
-  '@copilotkit/react-core@1.4.7':
-    resolution: {integrity: sha512-6NxmqxlJzZDxC7L9jilA+tpCe9a2NimcttP/frrLr1ly+8mW2mpCRlz7GtvwMgbC2DX/52QL+siEk49+MQJ3vg==}
+  '@copilotkit/react-core@1.5.0':
+    resolution: {integrity: sha512-N8fmNsZfEQJpRAR4C35FEfMNkfZdPdXbxdWfShtiV1QZNIUCVFog//IjLlCvPuzzRdQrRkSmDKSwDdEYYzR4gw==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
       react-dom: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/react-ui@1.4.7':
-    resolution: {integrity: sha512-qtzY/eJ1tY865JPr53M5FI/n6sfIYGYXH2URRjfJ5tfQfiii/qLkrDZ5erh5QT9zJJJSr+XNnUuSGtOZPpehJQ==}
+  '@copilotkit/react-ui@1.5.0':
+    resolution: {integrity: sha512-xYtGN5kA21YxbHYI2E6lk8mNB389jkc6lZxKZkOCDZ+g6fNWV0r0NVkMWkaGD6SkeikvFdTIwszJ+6KpnTRRWw==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime-client-gql@1.4.7':
-    resolution: {integrity: sha512-gZml12gXHd5FsTH296KiQ/0cW8GaONxOUfgHvlcFp6HfxzjKaEjdyYcfnzEw7auZwXQimme7cup++95RS8xETw==}
+  '@copilotkit/runtime-client-gql@1.5.0':
+    resolution: {integrity: sha512-hNYdDLDEqVHi8EFOLQr3gdtjgZ2iMKbXLKpbqWTRsVyVa6FIlPb1Gvs2P1THlMSs6xGqs/NO5VSQJqNBsbDb3Q==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime@1.4.7':
-    resolution: {integrity: sha512-/JyCHknaXHsaRjIiDds7fTvJaHUE6opRO0yZmJr9pi0SSuWOV9cBKY8NcAzm3r0Y0bzrjWShTxKs2+wrMa8Y5g==}
+  '@copilotkit/runtime@1.5.0':
+    resolution: {integrity: sha512-zjMs0OsmxsuPQwWgC2gVB5UFAzOOKCKt0hwTvnmBzNWBYvTS/DPGLcv5r0h06TMCw2TaLELZqnNmT8gulVcIiA==}
 
-  '@copilotkit/shared@1.4.7':
-    resolution: {integrity: sha512-WYLQ2lfBlqzMDDguky2uibnN/QZA1rL8T8J4KNSkugw4obJTSG1ESf2KraBkbQZvw7UIutOVrxY/iDTv2OFcMw==}
+  '@copilotkit/shared@1.5.0':
+    resolution: {integrity: sha512-MkoEFAln8Cpdn9rCjeD61hBm8kN87dnXcYlfdPSczHCkVPMozloSWAwnoNVBpjDNDAJSJTAFQpLWMUarCGkyZA==}
 
   '@emnapi/runtime@1.3.1':
     resolution: {integrity: sha512-kEBmG8KyqtxJZv+ygbEim+KCGtIq1fC22Ms3S4ziXmYKm8uyoLX0MHONVKwp+9opg390VaKRNt4a7A9NwmpNhw==}
@@ -3865,10 +3865,10 @@ snapshots:
     dependencies:
       regenerator-runtime: 0.14.1
 
-  '@copilotkit/react-core@1.4.7(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+  '@copilotkit/react-core@1.5.0(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
-      '@copilotkit/runtime-client-gql': 1.4.7(graphql@16.9.0)(react@19.0.0)
-      '@copilotkit/shared': 1.4.7
+      '@copilotkit/runtime-client-gql': 1.5.0(graphql@16.9.0)(react@19.0.0)
+      '@copilotkit/shared': 1.5.0
       '@scarf/scarf': 1.3.0
       react: 19.0.0
       react-dom: 19.0.0(react@19.0.0)
@@ -3877,11 +3877,11 @@ snapshots:
       - encoding
       - graphql
 
-  '@copilotkit/react-ui@1.4.7(@types/react@19.0.1)(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+  '@copilotkit/react-ui@1.5.0(@types/react@19.0.1)(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
-      '@copilotkit/react-core': 1.4.7(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
-      '@copilotkit/runtime-client-gql': 1.4.7(graphql@16.9.0)(react@19.0.0)
-      '@copilotkit/shared': 1.4.7
+      '@copilotkit/react-core': 1.5.0(graphql@16.9.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@copilotkit/runtime-client-gql': 1.5.0(graphql@16.9.0)(react@19.0.0)
+      '@copilotkit/shared': 1.5.0
       '@headlessui/react': 2.1.3(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       react: 19.0.0
       react-markdown: 8.0.7(@types/react@19.0.1)(react@19.0.0)
@@ -3895,9 +3895,9 @@ snapshots:
       - react-dom
       - supports-color
 
-  '@copilotkit/runtime-client-gql@1.4.7(graphql@16.9.0)(react@19.0.0)':
+  '@copilotkit/runtime-client-gql@1.5.0(graphql@16.9.0)(react@19.0.0)':
     dependencies:
-      '@copilotkit/shared': 1.4.7
+      '@copilotkit/shared': 1.5.0
       '@urql/core': 5.0.6(graphql@16.9.0)
       react: 19.0.0
       untruncate-json: 0.0.1
@@ -3906,10 +3906,10 @@ snapshots:
       - encoding
       - graphql
 
-  '@copilotkit/runtime@1.4.7(class-validator@0.14.1)(google-auth-library@8.9.0)':
+  '@copilotkit/runtime@1.5.0(class-validator@0.14.1)(google-auth-library@8.9.0)':
     dependencies:
       '@anthropic-ai/sdk': 0.27.3
-      '@copilotkit/shared': 1.4.7
+      '@copilotkit/shared': 1.5.0
       '@graphql-yoga/plugin-defer-stream': 3.7.0(graphql-yoga@5.7.0(graphql@16.9.0))(graphql@16.9.0)
       '@langchain/community': 0.0.53(google-auth-library@8.9.0)(langchain@0.3.5(@langchain/core@0.3.16(openai@4.70.2(zod@3.23.8)))(openai@4.70.2(zod@3.23.8)))(openai@4.70.2(zod@3.23.8))
       '@langchain/core': 0.3.16(openai@4.70.2(zod@3.23.8))
@@ -4040,7 +4040,7 @@ snapshots:
       - web-auth-library
       - ws
 
-  '@copilotkit/shared@1.4.7':
+  '@copilotkit/shared@1.5.0':
     dependencies:
       '@segment/analytics-node': 2.1.2
       chalk: 4.1.2
@@ -4961,7 +4961,7 @@ snapshots:
 
   array-buffer-byte-length@1.0.1:
     dependencies:
-      call-bind: 1.0.7
+      call-bind: 1.0.8
       is-array-buffer: 3.0.4
 
   array-flatten@1.1.1: {}
@@ -5020,11 +5020,11 @@ snapshots:
   arraybuffer.prototype.slice@1.0.3:
     dependencies:
       array-buffer-byte-length: 1.0.1
-      call-bind: 1.0.7
+      call-bind: 1.0.8
       define-properties: 1.2.1
       es-abstract: 1.23.3
       es-errors: 1.3.0
-      get-intrinsic: 1.2.4
+      get-intrinsic: 1.2.6
       is-array-buffer: 3.0.4
       is-shared-array-buffer: 1.0.3
 
@@ -5115,7 +5115,7 @@ snapshots:
   call-bind@1.0.8:
     dependencies:
       call-bind-apply-helpers: 1.0.1
-      es-define-property: 1.0.0
+      es-define-property: 1.0.1
       get-intrinsic: 1.2.6
       set-function-length: 1.2.2
 
@@ -5254,19 +5254,19 @@ snapshots:
 
   data-view-buffer@1.0.1:
     dependencies:
-      call-bind: 1.0.7
+      call-bind: 1.0.8
       es-errors: 1.3.0
       is-data-view: 1.0.1
 
   data-view-byte-length@1.0.1:
     dependencies:
-      call-bind: 1.0.7
+      call-bind: 1.0.8
       es-errors: 1.3.0
       is-data-view: 1.0.1
 
   data-view-byte-offset@1.0.0:
     dependencies:
-      call-bind: 1.0.7
+      call-bind: 1.0.8
       es-errors: 1.3.0
       is-data-view: 1.0.1
 
@@ -5422,7 +5422,7 @@ snapshots:
       data-view-buffer: 1.0.1
       data-view-byte-length: 1.0.1
       data-view-byte-offset: 1.0.0
-      es-define-property: 1.0.0
+      es-define-property: 1.0.1
       es-errors: 1.3.0
       es-object-atoms: 1.0.0
       es-set-tostringtag: 2.0.3
@@ -5464,7 +5464,7 @@ snapshots:
 
   es-define-property@1.0.0:
     dependencies:
-      get-intrinsic: 1.2.4
+      get-intrinsic: 1.2.6
 
   es-define-property@1.0.1: {}
 
@@ -5895,7 +5895,7 @@ snapshots:
 
   function.prototype.name@1.1.6:
     dependencies:
-      call-bind: 1.0.7
+      call-bind: 1.0.8
       define-properties: 1.2.1
       es-abstract: 1.23.3
       functions-have-names: 1.2.3
@@ -5943,9 +5943,9 @@ snapshots:
 
   get-symbol-description@1.0.2:
     dependencies:
-      call-bind: 1.0.7
+      call-bind: 1.0.8
       es-errors: 1.3.0
-      get-intrinsic: 1.2.4
+      get-intrinsic: 1.2.6
 
   get-tsconfig@4.7.6:
     dependencies:
@@ -6192,8 +6192,8 @@ snapshots:
 
   is-array-buffer@3.0.4:
     dependencies:
-      call-bind: 1.0.7
-      get-intrinsic: 1.2.4
+      call-bind: 1.0.8
+      get-intrinsic: 1.2.6
 
   is-arrayish@0.3.2:
     optional: true
@@ -6216,7 +6216,7 @@ snapshots:
 
   is-boolean-object@1.1.2:
     dependencies:
-      call-bind: 1.0.7
+      call-bind: 1.0.8
       has-tostringtag: 1.0.2
 
   is-boolean-object@1.2.1:
@@ -6306,7 +6306,7 @@ snapshots:
 
   is-shared-array-buffer@1.0.3:
     dependencies:
-      call-bind: 1.0.7
+      call-bind: 1.0.8
 
   is-stream@2.0.1: {}
 
@@ -6321,7 +6321,7 @@ snapshots:
 
   is-symbol@1.0.4:
     dependencies:
-      has-symbols: 1.0.3
+      has-symbols: 1.1.0
 
   is-symbol@1.1.1:
     dependencies:
@@ -6337,7 +6337,7 @@ snapshots:
 
   is-weakref@1.0.2:
     dependencies:
-      call-bind: 1.0.7
+      call-bind: 1.0.8
 
   is-weakset@2.0.3:
     dependencies:
@@ -7727,7 +7727,7 @@ snapshots:
       define-data-property: 1.1.4
       es-errors: 1.3.0
       function-bind: 1.1.2
-      get-intrinsic: 1.2.4
+      get-intrinsic: 1.2.6
       gopd: 1.0.1
       has-property-descriptors: 1.0.2
 
@@ -7775,10 +7775,10 @@ snapshots:
 
   side-channel@1.0.6:
     dependencies:
-      call-bind: 1.0.7
+      call-bind: 1.0.8
       es-errors: 1.3.0
-      get-intrinsic: 1.2.4
-      object-inspect: 1.13.2
+      get-intrinsic: 1.2.6
+      object-inspect: 1.13.3
 
   signal-exit@4.1.0: {}
 
@@ -7845,7 +7845,7 @@ snapshots:
 
   string.prototype.trim@1.2.9:
     dependencies:
-      call-bind: 1.0.7
+      call-bind: 1.0.8
       define-properties: 1.2.1
       es-abstract: 1.23.3
       es-object-atoms: 1.0.0
@@ -7858,7 +7858,7 @@ snapshots:
 
   string.prototype.trimstart@1.0.8:
     dependencies:
-      call-bind: 1.0.7
+      call-bind: 1.0.8
       define-properties: 1.2.1
       es-object-atoms: 1.0.0
 
@@ -8014,13 +8014,13 @@ snapshots:
 
   typed-array-buffer@1.0.2:
     dependencies:
-      call-bind: 1.0.7
+      call-bind: 1.0.8
       es-errors: 1.3.0
       is-typed-array: 1.1.13
 
   typed-array-byte-length@1.0.1:
     dependencies:
-      call-bind: 1.0.7
+      call-bind: 1.0.8
       for-each: 0.3.3
       gopd: 1.0.1
       has-proto: 1.0.3
@@ -8029,7 +8029,7 @@ snapshots:
   typed-array-byte-offset@1.0.2:
     dependencies:
       available-typed-arrays: 1.0.7
-      call-bind: 1.0.7
+      call-bind: 1.0.8
       for-each: 0.3.3
       gopd: 1.0.1
       has-proto: 1.0.3
@@ -8037,7 +8037,7 @@ snapshots:
 
   typed-array-length@1.0.6:
     dependencies:
-      call-bind: 1.0.7
+      call-bind: 1.0.8
       for-each: 0.3.3
       gopd: 1.0.1
       has-proto: 1.0.3
@@ -8048,7 +8048,7 @@ snapshots:
 
   unbox-primitive@1.0.2:
     dependencies:
-      call-bind: 1.0.7
+      call-bind: 1.0.8
       has-bigints: 1.0.2
       has-symbols: 1.0.3
       which-boxed-primitive: 1.0.2
@@ -8238,7 +8238,7 @@ snapshots:
   which-typed-array@1.1.15:
     dependencies:
       available-typed-arrays: 1.0.7
-      call-bind: 1.0.7
+      call-bind: 1.0.8
       for-each: 0.3.3
       gopd: 1.0.1
       has-tostringtag: 1.0.2

@@ -98,6 +98,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
       model: this.model,
       messages: anthropicMessages,
       max_tokens: forwardedParameters?.maxTokens || 1024,
+      ...(forwardedParameters?.temperature ? { temperature: forwardedParameters.temperature } : {}),
       ...(tools.length > 0 && { tools }),
       ...(toolChoice && { tool_choice: toolChoice }),
       stream: true,
@@ -120,7 +121,11 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
             mode = "message";
           } else if (chunk.content_block.type === "tool_use") {
             currentToolCallId = chunk.content_block.id;
-            eventStream$.sendActionExecutionStart(currentToolCallId, chunk.content_block.name);
+            eventStream$.sendActionExecutionStart({
+              actionExecutionId: currentToolCallId,
+              actionName: chunk.content_block.name,
+              parentMessageId: currentMessageId,
+            });
             mode = "function";
           }
         } else if (chunk.type === "content_block_delta") {
@@ -128,21 +133,27 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
             const text = filterThinkingTextBuffer.onTextChunk(chunk.delta.text);
             if (text.length > 0) {
               if (!didOutputText) {
-                eventStream$.sendTextMessageStart(currentMessageId);
+                eventStream$.sendTextMessageStart({ messageId: currentMessageId });
                 didOutputText = true;
               }
-              eventStream$.sendTextMessageContent(text);
+              eventStream$.sendTextMessageContent({
+                messageId: currentMessageId,
+                content: text,
+              });
             }
           } else if (chunk.delta.type === "input_json_delta") {
-            eventStream$.sendActionExecutionArgs(chunk.delta.partial_json);
+            eventStream$.sendActionExecutionArgs({
+              actionExecutionId: currentToolCallId,
+              args: chunk.delta.partial_json,
+            });
           }
         } else if (chunk.type === "content_block_stop") {
           if (mode === "message") {
             if (didOutputText) {
-              eventStream$.sendTextMessageEnd();
+              eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
             }
           } else if (mode === "function") {
-            eventStream$.sendActionExecutionEnd();
+            eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
           }
         }
       }

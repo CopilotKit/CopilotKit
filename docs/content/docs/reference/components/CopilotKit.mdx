@@ -86,3 +86,11 @@ Whether to show the dev console.
 The name of the agent to use.
 </PropertyReference>
 
+<PropertyReference name="forwardedParameters" type="Pick<ForwardedParametersInput, 'temperature'>"  > 
+The forwarded parameters to use for the task.
+</PropertyReference>
+
+<PropertyReference name="authConfig" type="{ SignInComponent: React.ComponentType<{ onSignInComplete: (authState: AuthState) => void; }>; }"  > 
+The auth config to use for the CopilotKit.
+</PropertyReference>
+

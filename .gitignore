@@ -10,3 +10,12 @@ node_modules
 cdk_outputs.json
 .turbo
 test-run-comment.md
+
+*.egg-info/
+.installed.cfg
+*.egg
+**/.langgraph_api
+
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

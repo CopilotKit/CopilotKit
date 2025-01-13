@@ -3,6 +3,7 @@ import {
   ReplaySubject,
   Subject,
   Subscription,
+  filter,
   finalize,
   firstValueFrom,
   shareReplay,
@@ -41,6 +42,8 @@ import {
 } from "../types/converted";
 import telemetry from "../../lib/telemetry-client";
 import { randomId } from "@copilotkit/shared";
+import { EndpointType, LangGraphPlatformAgent } from "../../lib/runtime/remote-actions";
+import { AgentsResponse } from "../types/agents-response.type";
 
 const invokeGuardrails = async ({
   baseUrl,
@@ -103,6 +106,20 @@ export class CopilotResolver {
   @Query(() => String)
   async hello() {
     return "Hello World";
+  }
+
+  @Query(() => AgentsResponse)
+  async availableAgents(@Ctx() ctx: GraphQLContext) {
+    let logger = ctx.logger.child({ component: "CopilotResolver.availableAgents" });
+
+    logger.debug("Processing");
+    const agents = await ctx._copilotkit.runtime.discoverAgentsFromEndpoints(ctx);
+
+    logger.debug("Event source created, creating response");
+
+    return {
+      agents,
+    };
   }
 
   @Mutation(() => CopilotResponse)
@@ -288,7 +305,19 @@ export class CopilotResolver {
                   // skip until this message start event
                   skipWhile((e) => e !== event),
                   // take until the message end event
-                  takeWhile((e) => e.type != RuntimeEventTypes.TextMessageEnd),
+                  takeWhile(
+                    (e) =>
+                      !(
+                        e.type === RuntimeEventTypes.TextMessageEnd &&
+                        e.messageId == event.messageId
+                      ),
+                  ),
+                  // filter out any other message events or message ids
+                  filter(
+                    (e) =>
+                      e.type == RuntimeEventTypes.TextMessageContent &&
+                      e.messageId == event.messageId,
+                  ),
                 );
 
                 // signal when we are done streaming
@@ -298,6 +327,7 @@ export class CopilotResolver {
                 // push the new message
                 pushMessage({
                   id: messageId,
+                  parentMessageId: event.parentMessageId,
                   status: firstValueFrom(streamingTextStatus),
                   createdAt: new Date(),
                   role: MessageRole.assistant,
@@ -369,15 +399,28 @@ export class CopilotResolver {
                 logger.debug("Action execution start event received");
                 const actionExecutionArgumentStream = eventStream.pipe(
                   skipWhile((e) => e !== event),
-                  takeWhile((e) => e.type != RuntimeEventTypes.ActionExecutionEnd),
+                  // take until the action execution end event
+                  takeWhile(
+                    (e) =>
+                      !(
+                        e.type === RuntimeEventTypes.ActionExecutionEnd &&
+                        e.actionExecutionId == event.actionExecutionId
+                      ),
+                  ),
+                  // filter out any other action execution events or action execution ids
+                  filter(
+                    (e) =>
+                      e.type == RuntimeEventTypes.ActionExecutionArgs &&
+                      e.actionExecutionId == event.actionExecutionId,
+                  ),
                 );
                 const streamingArgumentsStatus = new Subject<typeof MessageStatusUnion>();
                 pushMessage({
                   id: event.actionExecutionId,
+                  parentMessageId: event.parentMessageId,
                   status: firstValueFrom(streamingArgumentsStatus),
                   createdAt: new Date(),
                   name: event.actionName,
-                  scope: event.scope!,
                   arguments: new Repeater(async (pushArgumentsChunk, stopStreamingArguments) => {
                     logger.debug("Action execution argument stream created");
 
@@ -413,7 +456,6 @@ export class CopilotResolver {
                             id: event.actionExecutionId,
                             createdAt: new Date(),
                             name: event.actionName,
-                            scope: event.scope!,
                             arguments: argumentChunks.join(""),
                           }),
                         );
@@ -428,7 +470,7 @@ export class CopilotResolver {
               case RuntimeEventTypes.ActionExecutionResult:
                 logger.debug({ result: event.result }, "Action execution result event received");
                 pushMessage({
-                  id: randomId(),
+                  id: "result-" + event.actionExecutionId,
                   status: new SuccessMessageStatus(),
                   createdAt: new Date(),
                   actionExecutionId: event.actionExecutionId,
@@ -438,7 +480,7 @@ export class CopilotResolver {
 
                 outputMessages.push(
                   plainToInstance(ResultMessage, {
-                    id: randomId(),
+                    id: "result-" + event.actionExecutionId,
                     createdAt: new Date(),
                     actionExecutionId: event.actionExecutionId,
                     actionName: event.actionName,

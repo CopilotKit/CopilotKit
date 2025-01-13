@@ -66,4 +66,16 @@ def health():
 def main():
     """Run the uvicorn server."""
     port = int(os.getenv("PORT", "8000"))
-    uvicorn.run("my_agent.demo:app", host="0.0.0.0", port=port)
+    uvicorn.run(
+        "my_agent.demo:app",
+        host="0.0.0.0",
+        port=port,
+        reload=True,
+        reload_dirs=(
+            ["."] +
+            (["../../../sdk-python/copilotkit"]
+             if os.path.exists("../../../sdk-python/copilotkit")
+             else []
+             )
+        )
+    )

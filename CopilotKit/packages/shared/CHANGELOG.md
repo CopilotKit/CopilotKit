@@ -1,5 +1,86 @@
 # @copilotkit/shared
 
+## 1.5.11
+
+## 1.5.11-next.0
+
+## 1.5.10
+
+## 1.5.10-next.0
+
+## 1.5.9
+
+## 1.5.8
+
+## 1.5.6-next.0
+
+## 1.5.5-next.5
+
+## 1.5.5-next.3
+
+## 1.5.5-next.2
+
+## 1.5.4
+
+## 1.5.3
+
+## 1.5.2
+
+## 1.5.1
+
+### Patch Changes
+
+- 5c01e9e: test prerelease #4
+- da280ed: Test prerelease script
+- 27e42d7: testing a prerelease
+- 05240a9: test pre #2
+- 33218fe: test prerelease #3
+- 03f3d6f: Test next prerelease
+
+## 1.5.1-next.3
+
+### Patch Changes
+
+- 33218fe: test prerelease #3
+
+## 1.5.1-next.2
+
+### Patch Changes
+
+- da280ed: Test prerelease script
+
+## 1.5.1-next.1
+
+### Patch Changes
+
+- 03f3d6f: Test next prerelease
+
+## 1.5.1-next.0
+
+### Patch Changes
+
+- 27e42d7: testing a prerelease
+
+## 1.5.0
+
+### Minor Changes
+
+- 1b47092: Synchronize LangGraph messages with CopilotKit
+
+### Patch Changes
+
+- 1b47092: CoAgents v0.3 prerelease
+
+## 1.5.0-coagents-v0-3.0
+
+### Minor Changes
+
+- Synchronize LangGraph messages with CopilotKit
+
+### Patch Changes
+
+- e66bce4: CoAgents v0.3 prerelease
+
 ## 1.4.8
 
 ### Patch Changes

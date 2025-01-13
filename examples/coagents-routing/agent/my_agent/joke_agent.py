@@ -32,7 +32,6 @@ async def joke_node(state: JokeAgentState, config: RunnableConfig):
 
     config = copilotkit_customize_config(
         config,
-        emit_messages=True,
         emit_intermediate_state=[
             {
                 "state_key": "joke",

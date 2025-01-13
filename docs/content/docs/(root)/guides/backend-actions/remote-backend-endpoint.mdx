@@ -37,7 +37,7 @@ To integrate a Python backend with your CopilotKit application, set up your proj
     After initializing the project, install the dependencies:
     
     ```bash
-    poetry add copilotkit fastapi uvicorn
+    poetry add copilotkit==0.1.31a4 fastapi uvicorn
     ```
     
     </Tab>
@@ -234,5 +234,49 @@ Now that you've set up your FastAPI server with the backend actions, integrate i
 ### Test Your Implementation
 
 After setting up the remote endpoint and modifying your `CopilotRuntime`, you can test your implementation by asking the copilot to perform actions that invoke your Python backend. For example, ask the copilot: "Fetch the name for user ID `123`."
+
+### Advanced
+
+#### Configuring the Thread Pool Executor
+
+The request to the remote endpoint is made in a thread pool executor. You can configure the size of the thread pool executor by passing the `max_workers` parameter to the `add_fastapi_endpoint` function.
+
+```python
+add_fastapi_endpoint(app, sdk, "/copilotkit_remote", max_workers=10) # default is 10
+```
+
+#### Dynamically returning actions and agents
+
+Both the `actions` and `agents` parameters can optionally be functions that return a list of actions or agents. This allows you to dynamically return actions and agents based on the user's request.
+
+For example, to dynamically configure an agent based on properties from the frontend, set the properties on the frontend first:
+
+```tsx
+<CopilotKit properties={{someProperty: "xyz"}}>
+   <YourApp />
+</CopilotKit>
+```
+
+Then, in your backend, use a function to return dynamically configured agents:
+
+```python
+def build_agents(context):
+    return [
+        LangGraphAgent(
+            name="some_agent",
+            description="This agent does something",
+            graph=graph,
+            langgraph_config={
+                "some_property": context["properties"]["someProperty"]
+            }
+        )
+    ]
+
+
+app = FastAPI()
+sdk = CopilotKitSDK(
+    agents=build_agents,
+)
+```
 
 ---

@@ -1,4 +1,10 @@
-import { Action, Parameter, MappedParameterTypes } from "@copilotkit/shared";
+import { ActionInputAvailability } from "@copilotkit/runtime-client-gql";
+import {
+  Action,
+  Parameter,
+  MappedParameterTypes,
+  actionParametersToJsonSchema,
+} from "@copilotkit/shared";
 import React from "react";
 
 interface InProgressState<T extends Parameter[] | [] = []> {
@@ -110,9 +116,24 @@ export type ActionRenderPropsNoArgsWait<T extends Parameter[] | [] = []> =
   | ExecutingStateNoArgsWait<T>
   | InProgressStateNoArgsWait<T>;
 
+export type CatchAllActionRenderProps<T extends Parameter[] | [] = []> =
+  | (CompleteState<T> & {
+      name: string;
+    })
+  | (ExecutingState<T> & {
+      name: string;
+    })
+  | (InProgressState<T> & {
+      name: string;
+    });
+
 export type FrontendActionAvailability = "disabled" | "enabled" | "remote";
 
-export type FrontendAction<T extends Parameter[] | [] = []> = Action<T> & {
+export type FrontendAction<
+  T extends Parameter[] | [] = [],
+  N extends string = string,
+> = Action<T> & {
+  name: Exclude<N, "*">;
   /**
    * @deprecated Use `available` instead.
    */
@@ -143,4 +164,36 @@ export type FrontendAction<T extends Parameter[] | [] = []> = Action<T> & {
       }
   );
 
+export type CatchAllFrontendAction = {
+  name: "*";
+  render: (props: CatchAllActionRenderProps<any>) => React.ReactElement;
+};
+
 export type RenderFunctionStatus = ActionRenderProps<any>["status"];
+
+export function processActionsForRuntimeRequest(actions: FrontendAction<any>[]) {
+  const filteredActions = actions
+    .filter(
+      (action) =>
+        action.available !== ActionInputAvailability.Disabled &&
+        action.disabled !== true &&
+        action.name !== "*",
+    )
+    .map((action) => {
+      let available: ActionInputAvailability | undefined = ActionInputAvailability.Enabled;
+      if (action.disabled) {
+        available = ActionInputAvailability.Disabled;
+      } else if (action.available === "disabled") {
+        available = ActionInputAvailability.Disabled;
+      } else if (action.available === "remote") {
+        available = ActionInputAvailability.Remote;
+      }
+      return {
+        name: action.name,
+        description: action.description || "",
+        jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
+        available,
+      };
+    });
+  return filteredActions;
+}

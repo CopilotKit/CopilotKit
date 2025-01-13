@@ -58,11 +58,15 @@ export class ExperimentalOllamaAdapter implements CopilotServiceAdapter {
     const _stream = await ollama.stream(contents); // [TODO] role info is dropped...
 
     eventSource.stream(async (eventStream$) => {
-      eventStream$.sendTextMessageStart(randomId());
+      const currentMessageId = randomId();
+      eventStream$.sendTextMessageStart({ messageId: currentMessageId });
       for await (const chunkText of _stream) {
-        eventStream$.sendTextMessageContent(chunkText);
+        eventStream$.sendTextMessageContent({
+          messageId: currentMessageId,
+          content: chunkText,
+        });
       }
-      eventStream$.sendTextMessageEnd();
+      eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
       // we may need to add this later.. [nc]
       // let calls = (await result.response).functionCalls();
 

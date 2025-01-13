@@ -100,6 +100,7 @@ import { useCopilotChat } from "./use-copilot-chat";
 import { Message } from "@copilotkit/runtime-client-gql";
 import { flushSync } from "react-dom";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
+import { useToast } from "../components/toast/toast-provider";
 
 interface WithInternalStateManagementAndInitial<T> {
   /**
@@ -203,6 +204,9 @@ export type HintFunction = (params: HintFunctionParams) => Message | undefined;
  * we refer to as CoAgents, checkout the documentation at https://docs.copilotkit.ai/coagents/quickstart.
  */
 export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
+  const generalContext = useCopilotContext();
+  const { availableAgents } = generalContext;
+  const { addToast } = useToast();
   const isExternalStateManagement = (
     options: UseCoagentOptions<T>,
   ): options is WithExternalStateManagement<T> => {
@@ -210,6 +214,13 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
   };
 
   const { name } = options;
+  useEffect(() => {
+    if (availableAgents?.length && !availableAgents.some((a) => a.name === name)) {
+      const message = `(useCoAgent): Agent "${name}" not found. Make sure the agent exists and is properly configured.`;
+      console.warn(message);
+      addToast({ type: "warning", message });
+    }
+  }, [availableAgents]);
 
   const isInternalStateManagementWithInitial = (
     options: UseCoagentOptions<T>,
@@ -217,7 +228,6 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     return "initialState" in options;
   };
 
-  const generalContext = useCopilotContext();
   const messagesContext = useCopilotMessagesContext();
   const context = { ...generalContext, ...messagesContext };
   const { coagentStates, coagentStatesRef, setCoagentStatesWithRef } = context;
@@ -265,7 +275,11 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     } else if (coagentStates[name] === undefined) {
       setState(options.initialState === undefined ? {} : options.initialState);
     }
-  }, [isExternalStateManagement(options) ? JSON.stringify(options.state) : undefined]);
+  }, [
+    isExternalStateManagement(options) ? JSON.stringify(options.state) : undefined,
+    // reset initialstate on reset
+    coagentStates[name] === undefined,
+  ]);
 
   const runAgentCallback = useAsyncCallback(
     async (hint?: HintFunction) => {
@@ -288,23 +302,36 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
   };
 }
 
-function startAgent(name: string, context: CopilotContextParams) {
+export function startAgent(name: string, context: CopilotContextParams) {
   const { setAgentSession } = context;
   setAgentSession({
     agentName: name,
   });
 }
 
-function stopAgent(name: string, context: CopilotContextParams) {
+export function stopAgent(name: string, context: CopilotContextParams) {
   const { agentSession, setAgentSession } = context;
   if (agentSession && agentSession.agentName === name) {
     setAgentSession(null);
+    context.setCoagentStates((prevAgentStates) => {
+      return {
+        ...prevAgentStates,
+        [name]: {
+          ...prevAgentStates[name],
+          running: false,
+          active: false,
+          threadId: undefined,
+          nodeName: undefined,
+          runId: undefined,
+        },
+      };
+    });
   } else {
     console.warn(`No agent session found for ${name}`);
   }
 }
 
-async function runAgent(
+export async function runAgent(
   name: string,
   context: CopilotContextParams & CopilotMessagesContextParams,
   appendMessage: (message: Message) => Promise<void>,

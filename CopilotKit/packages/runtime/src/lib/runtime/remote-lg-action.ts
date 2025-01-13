@@ -5,7 +5,7 @@ import { Logger } from "pino";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { LangGraphPlatformAgent, LangGraphPlatformEndpoint } from "./remote-actions";
 import { CopilotRequestContextProperties } from "../integrations";
-import { Message, MessageType } from "../../graphql/types/converted";
+import { ActionExecutionMessage, Message, MessageType } from "../../graphql/types/converted";
 import { MessageRole } from "../../graphql/types/enums";
 import { CustomEventNames, LangGraphEventTypes } from "../../agents/langgraph/events";
 import telemetry from "../telemetry-client";
@@ -112,7 +112,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   const mode = wasInitiatedWithExistingThread && nodeName != "__end__" ? "continue" : "start";
   let formattedMessages = [];
   try {
-    formattedMessages = formatMessages(messages);
+    formattedMessages = copilotkitMessagesToLangChain(messages);
   } catch (e) {
     logger.error(e, `Error event thrown: ${e.message}`);
   }
@@ -319,6 +319,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
         state: state.values,
         running: !shouldExit,
         active: false,
+        includeMessages: true,
       }),
     );
 
@@ -341,6 +342,7 @@ function getStateSyncEvent({
   state,
   running,
   active,
+  includeMessages = false,
 }: {
   threadId: string;
   runId: string;
@@ -349,13 +351,21 @@ function getStateSyncEvent({
   state: State;
   running: boolean;
   active: boolean;
+  includeMessages?: boolean;
 }): string {
-  const stateWithoutMessages = Object.keys(state).reduce((acc, key) => {
-    if (key !== "messages") {
-      acc[key] = state[key];
-    }
-    return acc;
-  }, {} as State);
+  if (!includeMessages) {
+    state = Object.keys(state).reduce((acc, key) => {
+      if (key !== "messages") {
+        acc[key] = state[key];
+      }
+      return acc;
+    }, {} as State);
+  } else {
+    state = {
+      ...state,
+      messages: langchainMessagesToCopilotKit(state.messages || []),
+    };
+  }
 
   return (
     JSON.stringify({
@@ -365,7 +375,7 @@ function getStateSyncEvent({
       agent_name: agentName,
       node_name: nodeName,
       active: active,
-      state: stateWithoutMessages,
+      state: state,
       running: running,
       role: "assistant",
     }) + "\n"
@@ -460,179 +470,188 @@ function langGraphDefaultMergeState(
   }
 
   // merge with existing messages
-  const mergedMessages: LangGraphPlatformMessage[] = state.messages || [];
-  const existingMessageIds = new Set(mergedMessages.map((message) => message.id));
-  const existingToolCallResults = new Set<string>();
-
-  for (const message of mergedMessages) {
-    if ("tool_call_id" in message) {
-      existingToolCallResults.add(message.tool_call_id);
-    }
-  }
-
-  for (const message of messages) {
-    // filter tool calls to activate the agent itself
-    if (
-      "tool_calls" in message &&
-      message.tool_calls.length > 0 &&
-      message.tool_calls[0].name === agentName
-    ) {
-      continue;
-    }
-
-    // filter results from activating the agent
-    if ("name" in message && message.name === agentName) {
-      continue;
-    }
-
-    if (!existingMessageIds.has(message.id)) {
-      // skip duplicate tool call results
-      if ("tool_call_id" in message && existingToolCallResults.has(message.tool_call_id)) {
-        console.warn("Warning: Duplicate tool call result, skipping:", message.tool_call_id);
-        continue;
-      }
-
-      mergedMessages.push(message);
-    } else {
-      // Replace the message with the existing one
-      for (let i = 0; i < mergedMessages.length; i++) {
-        if (mergedMessages[i].id === message.id && message.role === "assistant") {
-          if (
-            ("tool_calls" in mergedMessages[i] || "additional_kwargs" in mergedMessages[i]) &&
-            mergedMessages[i].content
-          ) {
-            // @ts-expect-error -- message did not have a tool call, now it will
-            message.tool_calls = mergedMessages[i]["tool_calls"];
-            message.additional_kwargs = mergedMessages[i].additional_kwargs;
-          }
-          mergedMessages[i] = message;
-        }
-      }
-    }
-  }
-
-  // fix wrong tool call ids
-  for (let i = 0; i < mergedMessages.length - 1; i++) {
-    const currentMessage = mergedMessages[i];
-    const nextMessage = mergedMessages[i + 1];
-
-    if (
-      "tool_calls" in currentMessage &&
-      currentMessage.tool_calls.length > 0 &&
-      "tool_call_id" in nextMessage
-    ) {
-      nextMessage.tool_call_id = currentMessage.tool_calls[0].id;
-    }
-  }
-
-  // try to auto-correct and log alignment issues
-  const correctedMessages: LangGraphPlatformMessage[] = [];
-
-  for (let i = 0; i < mergedMessages.length; i++) {
-    const currentMessage = mergedMessages[i];
-    const nextMessage = mergedMessages[i + 1] || null;
-    const prevMessage = mergedMessages[i - 1] || null;
-
-    if ("tool_calls" in currentMessage && currentMessage.tool_calls.length > 0) {
-      if (!nextMessage) {
-        console.warn(
-          "No next message to auto-correct tool call, skipping:",
-          currentMessage.tool_calls[0].id,
-        );
-        continue;
-      }
-
-      if (
-        !("tool_call_id" in nextMessage) ||
-        nextMessage.tool_call_id !== currentMessage.tool_calls[0].id
-      ) {
-        const toolMessage = mergedMessages.find(
-          (m) => "tool_call_id" in m && m.tool_call_id === currentMessage.tool_calls[0].id,
-        );
-
-        if (toolMessage) {
-          console.warn(
-            "Auto-corrected tool call alignment issue:",
-            currentMessage.tool_calls[0].id,
-          );
-          correctedMessages.push(currentMessage, toolMessage);
-          continue;
-        } else {
-          console.warn(
-            "No corresponding tool call result found for tool call, skipping:",
-            currentMessage.tool_calls[0].id,
-          );
-          continue;
-        }
-      }
-
-      correctedMessages.push(currentMessage);
-      continue;
-    }
-
-    if ("tool_call_id" in currentMessage) {
-      if (!prevMessage || !("tool_calls" in prevMessage)) {
-        console.warn("No previous tool call, skipping tool call result:", currentMessage.id);
-        continue;
-      }
-
-      if (prevMessage.tool_calls && prevMessage.tool_calls[0].id !== currentMessage.tool_call_id) {
-        console.warn("Tool call id is incorrect, skipping tool call result:", currentMessage.id);
-        continue;
-      }
-
-      correctedMessages.push(currentMessage);
-      continue;
-    }
-
-    correctedMessages.push(currentMessage);
-  }
+  const existingMessages: LangGraphPlatformMessage[] = state.messages || [];
+  const existingMessageIds = new Set(existingMessages.map((message) => message.id));
+  const newMessages = messages.filter((message) => !existingMessageIds.has(message.id));
 
   return {
     ...state,
-    messages: correctedMessages,
+    messages: newMessages,
     copilotkit: {
       actions,
     },
   };
 }
 
-function formatMessages(messages: Message[]): LangGraphPlatformMessage[] {
-  return messages.map((message) => {
-    if (message.isTextMessage() && message.role === "assistant") {
-      return message;
+function langchainMessagesToCopilotKit(messages: any[]): any[] {
+  const result: any[] = [];
+  const tool_call_names: Record<string, string> = {};
+
+  // First pass: gather all tool call names from AI messages
+  for (const message of messages) {
+    if (message.type === "ai") {
+      for (const tool_call of message.tool_calls) {
+        tool_call_names[tool_call.id] = tool_call.name;
+      }
     }
-    if (message.isTextMessage() && message.role === "system") {
-      return message;
+  }
+
+  for (const message of messages) {
+    let content: any = message.content;
+    if (content instanceof Array) {
+      content = content[0];
     }
-    if (message.isTextMessage() && message.role === "user") {
-      return message;
+    if (content instanceof Object) {
+      content = content.text;
     }
+
+    if (message.type === "human") {
+      result.push({
+        role: "user",
+        content: content,
+        id: message.id,
+      });
+    } else if (message.type === "system") {
+      result.push({
+        role: "system",
+        content: content,
+        id: message.id,
+      });
+    } else if (message.type === "ai") {
+      if (message.tool_calls && message.tool_calls.length > 0) {
+        for (const tool_call of message.tool_calls) {
+          result.push({
+            id: tool_call.id,
+            name: tool_call.name,
+            arguments: tool_call.args,
+            parentMessageId: message.id,
+          });
+        }
+      } else {
+        result.push({
+          role: "assistant",
+          content: content,
+          id: message.id,
+          parentMessageId: message.id,
+        });
+      }
+    } else if (message.type === "tool") {
+      const actionName = tool_call_names[message.tool_call_id] || message.name || "";
+      result.push({
+        actionExecutionId: message.tool_call_id,
+        actionName: actionName,
+        result: content,
+        id: message.id,
+      });
+    }
+  }
+  const resultsDict: Record<string, any> = {};
+  for (const msg of result) {
+    if (msg.actionExecutionId) {
+      resultsDict[msg.actionExecutionId] = msg;
+    }
+  }
+
+  const reorderedResult: Message[] = [];
+
+  for (const msg of result) {
+    // If it's not a tool result, just append it
+    if (!("actionExecutionId" in msg)) {
+      reorderedResult.push(msg);
+    }
+
+    // If the message has arguments (i.e., is a tool call invocation),
+    // append the corresponding result right after it
+    if ("arguments" in msg) {
+      const msgId = msg.id;
+      if (msgId in resultsDict) {
+        reorderedResult.push(resultsDict[msgId]);
+      }
+    }
+  }
+
+  return reorderedResult;
+}
+
+function copilotkitMessagesToLangChain(messages: Message[]): LangGraphPlatformMessage[] {
+  const result: LangGraphPlatformMessage[] = [];
+  const processedActionExecutions = new Set<string>();
+
+  for (const message of messages) {
+    // Handle TextMessage
+    if (message.isTextMessage()) {
+      if (message.role === "user") {
+        // Human message
+        result.push({
+          ...message,
+          role: MessageRole.user,
+        });
+      } else if (message.role === "system") {
+        // System message
+        result.push({
+          ...message,
+          role: MessageRole.system,
+        });
+      } else if (message.role === "assistant") {
+        // Assistant message
+        result.push({
+          ...message,
+          role: MessageRole.assistant,
+        });
+      }
+      continue;
+    }
+
+    // Handle ActionExecutionMessage (multiple tool calls per parentMessageId)
     if (message.isActionExecutionMessage()) {
-      const toolCall: ToolCall = {
-        name: message.name,
-        args: message.arguments,
-        id: message.id,
-      };
-      return {
-        type: message.type,
+      const messageId = message.parentMessageId ?? message.id;
+
+      // If we've already processed this action execution group, skip
+      if (processedActionExecutions.has(messageId)) {
+        continue;
+      }
+
+      processedActionExecutions.add(messageId);
+
+      // Gather all tool calls related to this messageId
+      const relatedActionExecutions = messages.filter(
+        (m) =>
+          m.isActionExecutionMessage() &&
+          ((m.parentMessageId && m.parentMessageId === messageId) || m.id === messageId),
+      ) as ActionExecutionMessage[];
+
+      const tool_calls: ToolCall[] = relatedActionExecutions.map((m) => ({
+        name: m.name,
+        args: m.arguments,
+        id: m.id,
+      }));
+
+      result.push({
+        id: messageId,
+        type: "ActionExecutionMessage",
         content: "",
-        tool_calls: [toolCall],
+        tool_calls: tool_calls,
         role: MessageRole.assistant,
-        id: message.id,
-      } satisfies LangGraphPlatformActionExecutionMessage;
+      } satisfies LangGraphPlatformActionExecutionMessage);
+
+      continue;
     }
+
+    // Handle ResultMessage
     if (message.isResultMessage()) {
-      return {
+      result.push({
         type: message.type,
         content: message.result,
         id: message.id,
         tool_call_id: message.actionExecutionId,
         name: message.actionName,
         role: MessageRole.tool,
-      } satisfies LangGraphPlatformResultMessage;
+      } satisfies LangGraphPlatformResultMessage);
+      continue;
     }
 
     throw new Error(`Unknown message type ${message.type}`);
-  });
+  }
+
+  return result;
 }

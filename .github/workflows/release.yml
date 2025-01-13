@@ -5,8 +5,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "./CopilotKit/packages/**/*"
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -22,69 +20,103 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v3
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          registry-url: https://registry.npmjs.org
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: "9.5"
 
-      - name: Setup Node.js 20.x
-        uses: actions/setup-node@v2
-        with:
-          node-version: 20.x
-
       - name: Install Dependencies
         run: pnpm i
 
-      - name: Create Release Pull Request or Publish to npm
-        id: changesets
-        uses: ./.github/actions/changesets-action
-        with:
-          publish: pnpm publish-packages
-          cwd: CopilotKit
-          createGithubReleases: true
+      - name: Is in prerelease mode
+        id: is-in-prerelease-mode
+        run: |
+          if [ -f ".changeset/pre.json" ]; then
+            MODE=$(node -p "require('./.changeset/pre.json').mode")
+            if [ "$MODE" = "exit" ]; then
+              echo "::set-output name=is_in_prerelease_mode::false"
+            elif [ "$MODE" = "pre" ]; then
+              echo "::set-output name=is_in_prerelease_mode::true"
+            fi
+          else
+            echo "::set-output name=is_in_prerelease_mode::false"
+          fi
+
+      - name: Get current version
+        id: current-version
+        run: |
+          echo "version=$(node -p "require('./packages/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: NPM Publish
+        id: publish
+        run: |
+          pnpm changeset version
+          pnpm run build
+          pnpm changeset publish --no-git-tag 2>&1 | tee publish-output.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN_ELEVATED }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
-      - name: Put `main` back in prerelease mode
-        if: ${{ github.ref == 'refs/heads/main' && steps.changesets.outputs.published }}
+      - name: Get new version
+        id: new-version
         run: |
-            if [ ! -f ".changeset/pre.json" ]; then
-              pnpm changeset pre enter next
-              git config --global user.email "github-actions[bot]@users.noreply.github.com"
-              git config --global user.name "github-actions[bot]"
-              git add .
-              git commit -m "chore: entering prerelease mode (next)"
-              git push origin main --force
-            fi
+          echo "version=$(node -p "require('./packages/react-core/package.json').version")" >> "$GITHUB_OUTPUT"
 
-      # - name: Get package versions
-      #   id: package-versions
-      #   run: |
-      #     echo "::set-output name=react_core_version::$(node -p "require('./packages/react-core/package.json').version")"
-      #     echo "::set-output name=react_textarea_version::$(node -p "require('./packages/react-textarea/package.json').version")"
-      #     echo "::set-output name=react_ui_version::$(node -p "require('./packages/react-ui/package.json').version")"
+      - name: Check if published
+        id: check-if-published
+        run: |
+          sleep 3
+          PUBLISHED=$(node -p "const fs = require('fs'); fs.readFileSync('./publish-output.txt', 'utf-8').includes('packages published successfully:')")
+          echo "published=$PUBLISHED" >> "$GITHUB_OUTPUT"
 
-      # - name: Create composite version
-      #   id: composite-version
-      #   run: |
-      #     echo "::set-output name=composite-version::react-core-${{ steps.package-versions.outputs.react_core_version }}_react-textarea-${{ steps.package-versions.outputs.react_textarea_version }}_react-ui-${{ steps.package-versions.outputs.react_ui_version }}"
+      - name: Print variables
+        run: |
+          echo "New version: ${{ steps.new-version.outputs.version }}"
+          echo "Current version: ${{ steps.current-version.outputs.version }}"
+          echo "Published: ${{ steps.check-if-published.outputs.published }}"
+          echo "Is in prerelease mode: ${{ steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode }}"
 
-      # - name: Create Composite Git tag
-      #   run: |
-      #     git tag -f ${{ steps.composite-version.outputs.version }}
+      - name: Update changeset state post-release
+        if: ${{ steps.check-if-published.outputs.published == 'true' }}
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
 
-      # - name: Push Composite Git tag
-      #   run: |
-      #     git push origin ${{ steps.composite-version.outputs.version }}
+          git add .
 
-      # - name: Create GitHub Release
-      #   uses: actions/create-release@v1
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #   with:
-      #     tag_name: ${{ steps.composite-version.outputs.version }}
-      #     release_name: Release ${{ steps.composite-version.outputs.version }}
-      #     draft: false
-      #     prerelease: false
+          if [ ! -f ".changeset/pre.json" ]; then
+            pnpm changeset pre enter next
+          fi
+
+          git add ./.changeset/pre.json
+          git commit -m "chore(post-release): update version to ${{ steps.new-version.outputs.version }}"
+          git push origin main --force
+
+      - name: Git Tag
+        if: ${{ steps.check-if-published.outputs.published == 'true' && steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'false' }}
+        run: |
+          node -p "require('./scripts/release/generate-changelog')('${{ steps.new-version.outputs.version }}')" > changelog.txt
+          git tag -a v${{ steps.new-version.outputs.version }} -m "Release ${{ steps.new-version.outputs.version }}"
+          git push origin v${{ steps.new-version.outputs.version }}
+          git push origin main --force          
+
+      - name: Create Release
+        if: ${{ steps.check-if-published.outputs.published == 'true' && steps.is-in-prerelease-mode.outputs.is_in_prerelease_mode == 'false' }}
+        id: create_release
+        uses: comnoco/create-release-action@v2.0.5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: v${{ steps.new-version.outputs.version }}
+          release_name: v${{ steps.new-version.outputs.version }}
+          body_path: ./CopilotKit/changelog.txt
+          draft: false
+          prerelease: false

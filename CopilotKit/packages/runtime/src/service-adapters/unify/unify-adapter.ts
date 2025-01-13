@@ -55,6 +55,7 @@ export class UnifyAdapter implements CopilotServiceAdapter {
       apiKey: this.apiKey,
       baseURL: "https://api.unify.ai/v0/",
     });
+    const forwardedParameters = request.forwardedParameters;
 
     const messages = request.messages.map(convertMessageToOpenAIMessage);
 
@@ -63,17 +64,24 @@ export class UnifyAdapter implements CopilotServiceAdapter {
       messages: messages,
       stream: true,
       ...(tools.length > 0 && { tools }),
+      ...(forwardedParameters?.temperature && { temperature: forwardedParameters.temperature }),
     });
 
     let model = null;
+    let currentMessageId: string;
+    let currentToolCallId: string;
     request.eventSource.stream(async (eventStream$) => {
       let mode: "function" | "message" | null = null;
       for await (const chunk of stream) {
         if (this.start) {
           model = chunk.model;
-          eventStream$.sendTextMessageStart(randomId());
-          eventStream$.sendTextMessageContent(`Model used: ${model}\n`);
-          eventStream$.sendTextMessageEnd();
+          currentMessageId = randomId();
+          eventStream$.sendTextMessageStart({ messageId: currentMessageId });
+          eventStream$.sendTextMessageContent({
+            messageId: currentMessageId,
+            content: `Model used: ${model}\n`,
+          });
+          eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
           this.start = false;
         }
         const toolCall = chunk.choices[0].delta.tool_calls?.[0];
@@ -84,36 +92,47 @@ export class UnifyAdapter implements CopilotServiceAdapter {
         // If toolCall?.id is defined, it means a new tool call starts.
         if (mode === "message" && toolCall?.id) {
           mode = null;
-          eventStream$.sendTextMessageEnd();
+          eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
         } else if (mode === "function" && (toolCall === undefined || toolCall?.id)) {
           mode = null;
-          eventStream$.sendActionExecutionEnd();
+          eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
         }
 
         // If we send a new message type, send the appropriate start event.
         if (mode === null) {
           if (toolCall?.id) {
             mode = "function";
-            eventStream$.sendActionExecutionStart(toolCall!.id, toolCall!.function!.name);
+            currentToolCallId = toolCall!.id;
+            eventStream$.sendActionExecutionStart({
+              actionExecutionId: currentToolCallId,
+              actionName: toolCall!.function!.name,
+            });
           } else if (content) {
             mode = "message";
-            eventStream$.sendTextMessageStart(chunk.id);
+            currentMessageId = chunk.id;
+            eventStream$.sendTextMessageStart({ messageId: currentMessageId });
           }
         }
 
         // send the content events
         if (mode === "message" && content) {
-          eventStream$.sendTextMessageContent(content);
+          eventStream$.sendTextMessageContent({
+            messageId: currentMessageId,
+            content: content,
+          });
         } else if (mode === "function" && toolCall?.function?.arguments) {
-          eventStream$.sendActionExecutionArgs(toolCall.function.arguments);
+          eventStream$.sendActionExecutionArgs({
+            actionExecutionId: currentToolCallId,
+            args: toolCall.function.arguments,
+          });
         }
       }
 
       // send the end events
       if (mode === "message") {
-        eventStream$.sendTextMessageEnd();
+        eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
       } else if (mode === "function") {
-        eventStream$.sendActionExecutionEnd();
+        eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
       }
 
       eventStream$.complete();

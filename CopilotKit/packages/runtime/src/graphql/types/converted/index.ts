@@ -5,7 +5,7 @@ import {
   AgentStateMessageInput,
 } from "../../inputs/message.input";
 import { BaseMessageInput } from "../base";
-import { ActionExecutionScope, MessageRole } from "../enums";
+import { MessageRole } from "../enums";
 
 export type MessageType =
   | "TextMessage"
@@ -37,16 +37,17 @@ export class TextMessage extends Message implements TextMessageInput {
   type: MessageType = "TextMessage";
   content: string;
   role: MessageRole;
+  parentMessageId?: string;
 }
 
 export class ActionExecutionMessage
   extends Message
-  implements Omit<ActionExecutionMessageInput, "arguments">
+  implements Omit<ActionExecutionMessageInput, "arguments" | "scope">
 {
   type: MessageType = "ActionExecutionMessage";
   name: string;
   arguments: Record<string, any>;
-  scope: ActionExecutionScope;
+  parentMessageId?: string;
 }
 
 export class ResultMessage extends Message implements ResultMessageInput {

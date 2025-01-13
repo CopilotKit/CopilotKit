@@ -19,7 +19,6 @@ async def perform_trips_node(state: AgentState, config: RunnableConfig):
     tool_message = cast(ToolMessage, state["messages"][-1])
     
     if tool_message.content == "CANCEL":
-        await copilotkit_emit_message(config, "Cancelled operation of trip.")
         return state
     
     if not isinstance(ai_message, AIMessage) or not ai_message.tool_calls:
@@ -35,15 +34,20 @@ async def perform_trips_node(state: AgentState, config: RunnableConfig):
     if not state.get("trips"):
         state["trips"] = []
 
+    new_messages = []
+
     for tool_call in ai_message.tool_calls:
         action = tool_call["name"]
         args = tool_call.get("args", {})
         
         if action in action_handlers:
             message = action_handlers[action](args)
+            new_messages.append(message)
             await copilotkit_emit_message(config, message)
 
-    return state
+    return {
+        "messages": [AIMessage(content=msg) for msg in new_messages],
+    }
 
 @tool
 def add_trips(trips: List[Trip]):
@@ -57,7 +61,7 @@ def handle_add_trips(state: AgentState, args: dict) -> str:
 
 @tool
 def delete_trips(trip_ids: List[str]):
-    """Delete one or many trips"""
+    """Delete one or many trips. YOU MUST NOT CALL this tool multiple times in a row!"""
 
 def handle_delete_trips(state: AgentState, args: dict) -> str:
     trip_ids = args.get("trip_ids", [])

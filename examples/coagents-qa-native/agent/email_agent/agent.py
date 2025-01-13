@@ -4,7 +4,7 @@ from typing import Any, cast
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.runnables import RunnableConfig
-from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.messages import HumanMessage, ToolMessage, AIMessage
 from copilotkit.langchain import (
   copilotkit_customize_config, copilotkit_exit, copilotkit_emit_message
 )
@@ -16,6 +16,7 @@ async def email_node(state: EmailAgentState, config: RunnableConfig):
     """
     Write an email.
     """
+
 
     config = copilotkit_customize_config(
         config,
@@ -41,6 +42,7 @@ async def email_node(state: EmailAgentState, config: RunnableConfig):
     email = tool_calls[0]["args"]["the_email"]
 
     return {
+        "messages": response,
         "email": email,
     }
 
@@ -59,14 +61,17 @@ async def send_email_node(state: EmailAgentState, config: RunnableConfig):
 
     # get the last message and cast to ToolMessage
     last_message = cast(ToolMessage, state["messages"][-1])
+
     if last_message.content == "CANCEL":
-        await copilotkit_emit_message(config, "❌ Cancelled sending email.")
+        text_message = "❌ Cancelled sending email."
     else:
-        await copilotkit_emit_message(config, "✅ Sent email.")
+        text_message = "✅ Sent email."
+    
+    await copilotkit_emit_message(config, text_message)
 
 
     return {
-        "messages": state["messages"],
+        "messages": AIMessage(content=text_message),
     }
 
 

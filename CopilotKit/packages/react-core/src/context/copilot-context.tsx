@@ -1,12 +1,17 @@
 import { CopilotCloudConfig, FunctionCallHandler } from "@copilotkit/shared";
-import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
+import {
+  ActionRenderProps,
+  CatchAllActionRenderProps,
+  FrontendAction,
+} from "../types/frontend-action";
 import React from "react";
 import { TreeNodeId } from "../hooks/use-tree";
 import { DocumentPointer } from "../types";
 import { CopilotChatSuggestionConfiguration } from "../types/chat-suggestion-configuration";
 import { CoAgentStateRender, CoAgentStateRenderProps } from "../types/coagent-action";
 import { CoagentState } from "../types/coagent-state";
-import { CopilotRuntimeClient } from "@copilotkit/runtime-client-gql";
+import { CopilotRuntimeClient, ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
+import { Agent } from "@copilotkit/runtime-client-gql";
 
 /**
  * Interface for the configuration of the Copilot API.
@@ -68,7 +73,9 @@ export interface CopilotApiConfig {
   credentials?: RequestCredentials;
 }
 
-export type InChatRenderFunction = (props: ActionRenderProps<any>) => string | JSX.Element;
+export type InChatRenderFunction = (
+  props: ActionRenderProps<any> | CatchAllActionRenderProps<any>,
+) => string | JSX.Element;
 export type CoagentInChatRenderFunction = (
   props: CoAgentStateRenderProps<any>,
 ) => string | JSX.Element | undefined | null;
@@ -83,6 +90,15 @@ export interface AgentSession {
   threadId?: string;
   nodeName?: string;
 }
+
+export interface AuthState {
+  status: "authenticated" | "unauthenticated";
+  authHeaders: Record<string, string>;
+  userId?: string;
+  metadata?: Record<string, any>;
+}
+
+export type ActionName = string;
 
 export interface CopilotContextParams {
   // function-calling
@@ -142,8 +158,41 @@ export interface CopilotContextParams {
   agentSession: AgentSession | null;
   setAgentSession: React.Dispatch<React.SetStateAction<AgentSession | null>>;
 
+  agentLock: string | null;
+
+  threadId: string | null;
+  setThreadId: React.Dispatch<React.SetStateAction<string | null>>;
+
+  runId: string | null;
+  setRunId: React.Dispatch<React.SetStateAction<string | null>>;
+
+  // The chat abort controller can be used to stop generation globally,
+  // i.e. when using `stop()` from `useChat`
+  chatAbortControllerRef: React.MutableRefObject<AbortController | null>;
+
   // runtime
   runtimeClient: CopilotRuntimeClient;
+
+  /**
+   * The forwarded parameters to use for the task.
+   */
+  forwardedParameters?: Pick<ForwardedParametersInput, "temperature">;
+  availableAgents: Agent[];
+
+  /**
+   * The auth states for the CopilotKit.
+   */
+  authStates?: Record<ActionName, AuthState>;
+  setAuthStates?: React.Dispatch<React.SetStateAction<Record<ActionName, AuthState>>>;
+
+  /**
+   * The auth config for the CopilotKit.
+   */
+  authConfig?: {
+    SignInComponent: React.ComponentType<{
+      onSignInComplete: (authState: AuthState) => void;
+    }>;
+  };
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -195,9 +244,16 @@ const emptyCopilotContext: CopilotContextParams = {
   setCoagentStates: () => {},
   coagentStatesRef: { current: {} },
   setCoagentStatesWithRef: () => {},
-
   agentSession: null,
   setAgentSession: () => {},
+  forwardedParameters: {},
+  agentLock: null,
+  threadId: null,
+  setThreadId: () => {},
+  runId: null,
+  setRunId: () => {},
+  chatAbortControllerRef: { current: null },
+  availableAgents: [],
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);
@@ -210,7 +266,6 @@ export function useCopilotContext(): CopilotContextParams {
   return context;
 }
 
-function returnAndThrowInDebug<T>(value: T): T {
+function returnAndThrowInDebug<T>(_value: T): T {
   throw new Error("Remember to wrap your app in a `<CopilotKit> {...} </CopilotKit>` !!!");
-  return value;
 }

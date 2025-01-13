@@ -1,14 +1,7 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { MessagesProps } from "./props";
 import { useChatContext } from "./ChatContext";
-import {
-  ActionExecutionMessage,
-  Message,
-  ResultMessage,
-  TextMessage,
-  Role,
-  AgentStateMessage,
-} from "@copilotkit/runtime-client-gql";
+import { Message, ResultMessage, TextMessage, Role } from "@copilotkit/runtime-client-gql";
 
 export const Messages = ({
   messages,
