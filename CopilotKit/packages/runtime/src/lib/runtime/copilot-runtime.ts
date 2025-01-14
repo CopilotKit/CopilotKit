@@ -351,7 +351,11 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       eventSource.stream(async (eventStream$) => {
         from(stream).subscribe({
           next: (event) => eventStream$.next(event),
-          error: (err) => console.error("Error in stream", err),
+          error: (err) => {
+            console.error("Error in stream", err);
+            eventStream$.error(err);
+            eventStream$.complete();
+          },
           complete: () => eventStream$.complete(),
         });
       });
