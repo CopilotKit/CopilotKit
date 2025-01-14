@@ -149,7 +149,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     title: "Remote Endpoints",
     description:
       "CopilotKit Remote Endpoints allow you to connect actions and agents written in Python to your CopilotKit application.",
-    pythonSymbols: ["CopilotKitSDK", "CopilotKitSDKContext"],
+    pythonSymbols: ["CopilotKitRemoteEndpoint", "CopilotKitContext"],
   },
   {
     sourcePath: "packages/sdk-js/src/langgraph.ts",

@@ -10,9 +10,9 @@ description: "CopilotKit Remote Endpoints allow you to connect actions and agent
   * CopilotKit/../sdk-python/copilotkit/sdk.py
   */
 }
-## CopilotKitSDK
+## CopilotKitRemoteEndpoint
 
-CopilotKitSDK lets you connect actions and agents written in Python to your 
+CopilotKitRemoteEndpoint lets you connect actions and agents written in Python to your 
     CopilotKit application.
 
     To the CopilotKit SDK, run:
@@ -25,9 +25,9 @@ CopilotKitSDK lets you connect actions and agents written in Python to your
 
     For example, to provide a simple action to the Copilot:
     ```python
-    from copilotkit import CopilotKitSDK, Action
+    from copilotkit import CopilotKitRemoteEndpoint, Action
 
-    sdk = CopilotKitSDK(
+    sdk = CopilotKitRemoteEndpoint(
         actions=[
             Action(
                 name="greet_user",
@@ -49,9 +49,9 @@ CopilotKitSDK lets you connect actions and agents written in Python to your
     In this example, we use `"name"` from the `properties` object to parameterize the action handler.
 
     ```python
-    from copilotkit import CopilotKitSDK, Action
+    from copilotkit import CopilotKitRemoteEndpoint, Action
 
-    sdk = CopilotKitSDK(
+    sdk = CopilotKitRemoteEndpoint(
         actions=lambda context: [
             Action(
                 name="greet_user",
@@ -65,9 +65,9 @@ CopilotKitSDK lets you connect actions and agents written in Python to your
     Using the same approach, you can restrict the actions available to the Copilot:
 
     ```python
-    from copilotkit import CopilotKitSDK, Action
+    from copilotkit import CopilotKitRemoteEndpoint, Action
 
-    sdk = CopilotKitSDK(
+    sdk = CopilotKitRemoteEndpoint(
         actions=lambda context: (
             [action_a, action_b] if is_admin(context["properties"]["token"]) else [action_a]
         )
@@ -77,10 +77,10 @@ CopilotKitSDK lets you connect actions and agents written in Python to your
     Similarly, you can give a list of static or dynamic agents to the Copilot:
 
     ```python
-    from copilotkit import CopilotKitSDK, LangGraphAgent
+    from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
     from my_agent.agent import graph
 
-    sdk = CopilotKitSDK(
+    sdk = CopilotKitRemoteEndpoint(
         agents=[
         LangGraphAgent(
                 name="email_agent",
@@ -98,7 +98,7 @@ CopilotKitSDK lets you connect actions and agents written in Python to your
     from fastapi import FastAPI
 
     app = FastAPI()
-    sdk = CopilotKitSDK(...)
+    sdk = CopilotKitRemoteEndpoint(...)
     add_fastapi_endpoint(app, sdk, "/copilotkit")
 
     def main():
@@ -113,15 +113,15 @@ CopilotKitSDK lets you connect actions and agents written in Python to your
 
 ### Parameters
 
-<PropertyReference name="actions" type="Optional[Union[List[Action], Callable[[CopilotKitSDKContext], List[Action]]]]" > 
+<PropertyReference name="actions" type="Optional[Union[List[Action], Callable[[CopilotKitRemoteEndpointContext], List[Action]]]]" > 
 The actions to make available to the Copilot.
 </PropertyReference>
 
-<PropertyReference name="agents" type="Optional[Union[List[Agent], Callable[[CopilotKitSDKContext], List[Agent]]]]" > 
+<PropertyReference name="agents" type="Optional[Union[List[Agent], Callable[[CopilotKitRemoteEndpointContext], List[Agent]]]]" > 
 The agents to make available to the Copilot.
 </PropertyReference>
 
-## CopilotKitSDKContext
+## CopilotKitRemoteEndpointContext
 
 CopilotKit SDK Context
 

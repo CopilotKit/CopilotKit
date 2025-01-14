@@ -1,5 +1,6 @@
 """CopilotKit SDK"""
 
+import warnings
 from pprint import pformat
 from typing import List, Callable, Union, Optional, TypedDict, Any, Coroutine
 from .agent import Agent, AgentDict
@@ -26,9 +27,9 @@ class InfoDict(TypedDict):
     actions: List[ActionDict]
     agents: List[AgentDict]
 
-class CopilotKitSDKContext(TypedDict):
+class CopilotKitContext(TypedDict):
     """
-    CopilotKit SDK Context
+    CopilotKit Context
     
     Parameters
     ----------
@@ -40,12 +41,16 @@ class CopilotKitSDKContext(TypedDict):
     properties: Any
     frontend_url: Optional[str]
 
-class CopilotKitSDK:
+# Alias for backwards compatibility
+CopilotKitSDKContext = CopilotKitContext
+
+
+class CopilotKitRemoteEndpoint:
     """
-    CopilotKitSDK lets you connect actions and agents written in Python to your 
+    CopilotKitRemoteEndpoint lets you connect actions and agents written in Python to your 
     CopilotKit application.
 
-    To the CopilotKit SDK, run:
+    To install CopilotKit for Python, run:
 
     ```bash
     pip install copilotkit
@@ -55,9 +60,9 @@ class CopilotKitSDK:
 
     For example, to provide a simple action to the Copilot:
     ```python
-    from copilotkit import CopilotKitSDK, Action
+    from copilotkit import CopilotKitRemoteEndpoint, Action
 
-    sdk = CopilotKitSDK(
+    sdk = CopilotKitRemoteEndpoint(
         actions=[
             Action(
                 name="greet_user",
@@ -79,9 +84,9 @@ class CopilotKitSDK:
     In this example, we use `"name"` from the `properties` object to parameterize the action handler.
 
     ```python
-    from copilotkit import CopilotKitSDK, Action
+    from copilotkit import CopilotKitRemoteEndpoint, Action
 
-    sdk = CopilotKitSDK(
+    sdk = CopilotKitRemoteEndpoint(
         actions=lambda context: [
             Action(
                 name="greet_user",
@@ -95,9 +100,9 @@ class CopilotKitSDK:
     Using the same approach, you can restrict the actions available to the Copilot:
 
     ```python
-    from copilotkit import CopilotKitSDK, Action
+    from copilotkit import CopilotKitRemoteEndpoint, Action
 
-    sdk = CopilotKitSDK(
+    sdk = CopilotKitRemoteEndpoint(
         actions=lambda context: (
             [action_a, action_b] if is_admin(context["properties"]["token"]) else [action_a]
         )
@@ -107,10 +112,10 @@ class CopilotKitSDK:
     Similarly, you can give a list of static or dynamic agents to the Copilot:
 
     ```python
-    from copilotkit import CopilotKitSDK, LangGraphAgent
+    from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
     from my_agent.agent import graph
 
-    sdk = CopilotKitSDK(
+    sdk = CopilotKitRemoteEndpoint(
         agents=[
         LangGraphAgent(
                 name="email_agent",
@@ -128,7 +133,7 @@ class CopilotKitSDK:
     from fastapi import FastAPI
 
     app = FastAPI()
-    sdk = CopilotKitSDK(...)
+    sdk = CopilotKitRemoteEndpoint(...)
     add_fastapi_endpoint(app, sdk, "/copilotkit")
 
     def main():
@@ -143,9 +148,9 @@ class CopilotKitSDK:
 
     Parameters
     ----------
-    actions : Optional[Union[List[Action], Callable[[CopilotKitSDKContext], List[Action]]]]
+    actions : Optional[Union[List[Action], Callable[[CopilotKitContext], List[Action]]]]
         The actions to make available to the Copilot.
-    agents : Optional[Union[List[Agent], Callable[[CopilotKitSDKContext], List[Agent]]]]
+    agents : Optional[Union[List[Agent], Callable[[CopilotKitContext], List[Agent]]]]
         The agents to make available to the Copilot.
     """
 
@@ -155,13 +160,13 @@ class CopilotKitSDK:
         actions: Optional[
             Union[
                 List[Action],
-                Callable[[CopilotKitSDKContext], List[Action]]
+                Callable[[CopilotKitContext], List[Action]]
             ]
         ] = None,
         agents: Optional[
             Union[
                 List[Agent],
-                Callable[[CopilotKitSDKContext], List[Agent]]
+                Callable[[CopilotKitContext], List[Agent]]
             ]
         ] = None,
     ):
@@ -171,7 +176,7 @@ class CopilotKitSDK:
     def info(
         self,
         *,
-        context: CopilotKitSDKContext
+        context: CopilotKitContext
     ) -> InfoDict:
         """
         Returns information about available actions and agents
@@ -202,7 +207,7 @@ class CopilotKitSDK:
     def _get_action(
         self,
         *,
-        context: CopilotKitSDKContext,
+        context: CopilotKitContext,
         name: str,
     ) -> Action:
         """
@@ -217,7 +222,7 @@ class CopilotKitSDK:
     def execute_action(
             self,
             *,
-            context: CopilotKitSDKContext,
+            context: CopilotKitContext,
             name: str,
             arguments: dict,
     ) -> Coroutine[Any, Any, ActionResultDict]:
@@ -246,7 +251,7 @@ class CopilotKitSDK:
     def execute_agent( # pylint: disable=too-many-arguments
         self,
         *,
-        context: CopilotKitSDKContext,
+        context: CopilotKitContext,
         name: str,
         thread_id: str,
         node_name: str,
@@ -290,3 +295,16 @@ class CopilotKitSDK:
             )
         except Exception as error:
             raise AgentExecutionException(name, error) from error
+
+# Alias for backwards compatibility
+class CopilotKitSDK(CopilotKitRemoteEndpoint):
+    """Deprecated: Use CopilotKitRemoteEndpoint instead. This class will be removed in a future version."""
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "CopilotKitSDK is deprecated since version 0.1.31. "
+            "Use CopilotKitRemoteEndpoint instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        super().__init__(*args, **kwargs)
