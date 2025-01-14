@@ -1,4 +1,4 @@
-import { Client, cacheExchange, fetchExchange } from "@urql/core";
+import { Client, cacheExchange, fetchExchange, mapExchange, CombinedError, Operation } from "@urql/core";
 import * as packageJson from "../../package.json";
 
 import {
@@ -89,6 +89,11 @@ export class CopilotRuntimeClient {
       start(controller) {
         source.subscribe(({ data, hasNext, error }) => {
           if (error) {
+            if (error.message.includes('BodyStreamBuffer was aborted') || error.message.includes('signal is aborted without reason')) {
+              // Suppress this specific error
+              console.warn('Abort error suppressed');
+              return;
+            }
             controller.error(error);
             if (handleGQLErrors) {
               handleGQLErrors(error);
