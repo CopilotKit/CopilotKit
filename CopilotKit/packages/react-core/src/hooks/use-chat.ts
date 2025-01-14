@@ -26,7 +26,7 @@ import { FrontendAction, processActionsForRuntimeRequest } from "../types/fronte
 import { CoagentState } from "../types/coagent-state";
 import { AgentSession } from "../context/copilot-context";
 import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
-import { useAsyncCallback } from "../components/error-boundary/error-utils";
+import { useAsyncCallback, useErrorToast } from "../components/error-boundary/error-utils";
 
 export type UseChatOptions = {
   /**
@@ -185,6 +185,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     agentLock,
   } = options;
   const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
+  const addErrorToast = useErrorToast();
   // We need to keep a ref of coagent states and session because of renderAndWait - making sure
   // the latest state is sent to the API
   // This is a workaround and needs to be addressed in the future
@@ -450,6 +451,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             if (action) {
               followUp = action.followUp;
               let result: any;
+              let error: Error | null = null;
               try {
                 result = await Promise.race([
                   onFunctionCall({
@@ -470,8 +472,13 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                   }),
                 ]);
               } catch (e) {
-                result = `Failed to execute action ${message.name}`;
-                console.error(`Failed to execute action ${message.name}: ${e}`);
+                error = e as Error;
+                addErrorToast([error]);
+                result = `Failed to execute action ${message.name}. ${error.message}.
+                If the error was caused due to wrong function call or wrong arguments, you may retry with correction of the call or arguments,
+                If you cannot figure out where the error originated from or if it is not a wrong call or faulty arguments, do not attempt any retries.
+                `;
+                console.error(`Failed to execute action ${message.name}: ${error}`);
               }
               didExecuteAction = true;
               const messageIndex = finalMessages.findIndex((msg) => msg.id === message.id);
@@ -480,7 +487,12 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 0,
                 new ResultMessage({
                   id: "result-" + message.id,
-                  result: ResultMessage.encodeResult(result),
+                  result: ResultMessage.encodeResult({
+                    content: result,
+                    error: error
+                      ? JSON.parse(JSON.stringify(error, Object.getOwnPropertyNames(error)))
+                      : null,
+                  }),
                   actionExecutionId: message.id,
                   actionName: message.name,
                 }),
