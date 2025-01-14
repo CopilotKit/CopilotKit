@@ -136,7 +136,7 @@ export type UseChatHelpers = {
    * the assistant's response.
    * @param message The message to append
    */
-  append: (message: Message) => Promise<void>;
+  append: (message: Message, options?: AppendMessageOptions) => Promise<void>;
   /**
    * Reload the last AI chat response for the given chat history. If the last
    * message isn't from the assistant, it will request the API to generate a
@@ -153,6 +153,13 @@ export type UseChatHelpers = {
    */
   runChatCompletion: () => Promise<Message[]>;
 };
+
+export interface AppendMessageOptions {
+  /**
+   * Whether to run the chat completion after appending the message. Defaults to `true`.
+   */
+  followUp?: boolean;
+}
 
 export function useChat(options: UseChatOptions): UseChatHelpers {
   const {
@@ -569,14 +576,17 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   );
 
   const append = useAsyncCallback(
-    async (message: Message): Promise<void> => {
+    async (message: Message, options?: AppendMessageOptions): Promise<void> => {
       if (isLoading) {
         return;
       }
 
       const newMessages = [...messages, message];
       setMessages(newMessages);
-      return runChatCompletionAndHandleFunctionCall(newMessages);
+      const followUp = options?.followUp ?? true;
+      if (followUp) {
+        return runChatCompletionAndHandleFunctionCall(newMessages);
+      }
     },
     [isLoading, messages, setMessages, runChatCompletionAndHandleFunctionCall],
   );

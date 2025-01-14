@@ -58,6 +58,9 @@ import { RenderTextMessage as DefaultRenderTextMessage } from "./messages/Render
 import { RenderActionExecutionMessage as DefaultRenderActionExecutionMessage } from "./messages/RenderActionExecutionMessage";
 import { RenderResultMessage as DefaultRenderResultMessage } from "./messages/RenderResultMessage";
 import { RenderAgentStateMessage as DefaultRenderAgentStateMessage } from "./messages/RenderAgentStateMessage";
+import { AssistantMessage as DefaultAssistantMessage } from "./messages/AssistantMessage";
+import { UserMessage as DefaultUserMessage } from "./messages/UserMessage";
+import { Markdown as DefaultRenderer } from "./Markdown";
 import { Suggestion } from "./Suggestion";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -69,8 +72,15 @@ import {
 import { reloadSuggestions } from "./Suggestion";
 import { CopilotChatSuggestion } from "../../types/suggestions";
 import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
-import { InputProps, MessagesProps, RenderMessageProps, ResponseButtonProps } from "./props";
 import { randomId } from "@copilotkit/shared";
+import {
+  AssistantMessageProps,
+  InputProps,
+  MessagesProps,
+  RenderMessageProps,
+  ResponseButtonProps,
+  UserMessageProps,
+} from "./props";
 
 import { CopilotDevConsole } from "../dev-console";
 import { HintFunction, runAgent, stopAgent } from "@copilotkit/react-core";
@@ -132,6 +142,16 @@ export interface CopilotChatProps {
    * @default true
    */
   showResponseButton?: boolean;
+
+  /**
+   * A custom assistant message component to use instead of the default.
+   */
+  AssistantMessage?: React.ComponentType<AssistantMessageProps>;
+
+  /**
+   * A custom user message component to use instead of the default.
+   */
+  UserMessage?: React.ComponentType<UserMessageProps>;
 
   /**
    * A custom Messages component to use instead of the default.
@@ -245,6 +265,8 @@ export function CopilotChat({
   className,
   icons,
   labels,
+  AssistantMessage = DefaultAssistantMessage,
+  UserMessage = DefaultUserMessage,
 }: CopilotChatProps) {
   const context = useCopilotContext();
 
@@ -274,6 +296,8 @@ export function CopilotChat({
     <WrappedCopilotChat icons={icons} labels={labels} className={className}>
       <CopilotDevConsole />
       <Messages
+        AssistantMessage={AssistantMessage}
+        UserMessage={UserMessage}
         RenderTextMessage={RenderTextMessage}
         RenderActionExecutionMessage={RenderActionExecutionMessage}
         RenderAgentStateMessage={RenderAgentStateMessage}

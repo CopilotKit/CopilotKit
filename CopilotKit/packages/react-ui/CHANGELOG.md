@@ -1,5 +1,267 @@
 # ui
 
+## 1.5.12-next.0
+
+### Patch Changes
+
+- 86fae3a: - feat(react-ui): add interfaces for full message customization
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - @copilotkit/react-core@1.5.12-next.0
+  - @copilotkit/runtime-client-gql@1.5.12-next.0
+  - @copilotkit/shared@1.5.12-next.0
+
+## 1.5.11
+
+### Patch Changes
+
+- 1fc7fa5: test changelog
+- c4a6aa5: test release notes
+- 716bd5c: test changelog
+- a35d447: test changelog
+- 4ae197e: Test release notes
+- 4211318: test changelog
+- 8166ac6: Test release notes
+- d431537: Test release notes
+- Updated dependencies [72f9e58]
+- Updated dependencies [db3d539]
+- Updated dependencies [aecb6f4]
+- Updated dependencies [e5d588d]
+- Updated dependencies [0a2e07e]
+- Updated dependencies [4211318]
+- Updated dependencies [9b3bdc2]
+- Updated dependencies [d431537]
+  - @copilotkit/runtime-client-gql@1.5.11
+  - @copilotkit/react-core@1.5.11
+  - @copilotkit/shared@1.5.11
+
+## 1.5.11-next.0
+
+### Patch Changes
+
+- 1fc7fa5: test changelog
+- c4a6aa5: test release notes
+- 716bd5c: test changelog
+- a35d447: test changelog
+- 4ae197e: Test release notes
+- 4211318: test changelog
+- 8166ac6: Test release notes
+- d431537: Test release notes
+- Updated dependencies [72f9e58]
+- Updated dependencies [db3d539]
+- Updated dependencies [aecb6f4]
+- Updated dependencies [e5d588d]
+- Updated dependencies [0a2e07e]
+- Updated dependencies [4211318]
+- Updated dependencies [9b3bdc2]
+- Updated dependencies [d431537]
+  - @copilotkit/runtime-client-gql@1.5.11-next.0
+  - @copilotkit/react-core@1.5.11-next.0
+  - @copilotkit/shared@1.5.11-next.0
+
+## 1.5.10
+
+### Patch Changes
+
+- 1fc7fa5: test changelog
+- c4a6aa5: test release notes
+- 716bd5c: test changelog
+- a35d447: test changelog
+- 4ae197e: Test release notes
+- 4211318: test changelog
+- 8166ac6: Test release notes
+- d431537: Test release notes
+- Updated dependencies [72f9e58]
+- Updated dependencies [db3d539]
+- Updated dependencies [aecb6f4]
+- Updated dependencies [e5d588d]
+- Updated dependencies [4211318]
+- Updated dependencies [9b3bdc2]
+- Updated dependencies [d431537]
+  - @copilotkit/runtime-client-gql@1.5.10
+  - @copilotkit/react-core@1.5.10
+  - @copilotkit/shared@1.5.10
+
+## 1.5.10-next.0
+
+### Patch Changes
+
+- 1fc7fa5: test changelog
+- c4a6aa5: test release notes
+- 716bd5c: test changelog
+- a35d447: test changelog
+- 4ae197e: Test release notes
+- 4211318: test changelog
+- 8166ac6: Test release notes
+- d431537: Test release notes
+- Updated dependencies [72f9e58]
+- Updated dependencies [db3d539]
+- Updated dependencies [aecb6f4]
+- Updated dependencies [e5d588d]
+- Updated dependencies [4211318]
+- Updated dependencies [9b3bdc2]
+- Updated dependencies [d431537]
+  - @copilotkit/runtime-client-gql@1.5.10-next.0
+  - @copilotkit/react-core@1.5.10-next.0
+  - @copilotkit/shared@1.5.10-next.0
+
+## 1.5.9
+
+### Patch Changes
+
+- 1fc7fa5: test changelog
+- c4a6aa5: test release notes
+- 716bd5c: test changelog
+- a35d447: test changelog
+- 4ae197e: Test release notes
+- 4211318: test changelog
+- 8166ac6: Test release notes
+- d431537: Test release notes
+- Updated dependencies [72f9e58]
+- Updated dependencies [db3d539]
+- Updated dependencies [e5d588d]
+- Updated dependencies [4211318]
+- Updated dependencies [9b3bdc2]
+- Updated dependencies [d431537]
+  - @copilotkit/runtime-client-gql@1.5.9
+  - @copilotkit/react-core@1.5.9
+  - @copilotkit/shared@1.5.9
+
+## 1.5.8
+
+### Patch Changes
+
+- 1fc7fa5: test changelog
+- c4a6aa5: test release notes
+- a35d447: test changelog
+- 4ae197e: Test release notes
+- 4211318: test changelog
+- 8166ac6: Test release notes
+- d431537: Test release notes
+- Updated dependencies [72f9e58]
+- Updated dependencies [db3d539]
+- Updated dependencies [e5d588d]
+- Updated dependencies [4211318]
+- Updated dependencies [9b3bdc2]
+- Updated dependencies [d431537]
+  - @copilotkit/runtime-client-gql@1.5.8
+  - @copilotkit/react-core@1.5.8
+  - @copilotkit/shared@1.5.8
+
+## 1.5.6-next.0
+
+### Patch Changes
+
+- a35d447: test changelog
+  - @copilotkit/runtime-client-gql@1.5.6-next.0
+  - @copilotkit/react-core@1.5.6-next.0
+  - @copilotkit/shared@1.5.6-next.0
+
+## 1.5.5-next.5
+
+### Patch Changes
+
+- 1fc7fa5: test changelog
+- Updated dependencies [db3d539]
+  - @copilotkit/react-core@1.5.5-next.5
+  - @copilotkit/runtime-client-gql@1.5.5-next.5
+  - @copilotkit/shared@1.5.5-next.5
+
+## 1.5.5-next.3
+
+### Patch Changes
+
+- c4a6aa5: test release notes
+  - @copilotkit/react-core@1.5.5-next.3
+  - @copilotkit/runtime-client-gql@1.5.5-next.3
+  - @copilotkit/shared@1.5.5-next.3
+
+## 1.5.5-next.2
+
+### Patch Changes
+
+- 4ae197e: Test release notes
+- 8166ac6: Test release notes
+- Updated dependencies [72f9e58]
+- Updated dependencies [9b3bdc2]
+  - @copilotkit/runtime-client-gql@1.5.5-next.2
+  - @copilotkit/react-core@1.5.5-next.2
+  - @copilotkit/shared@1.5.5-next.2
+
+## 1.5.4
+
+### Patch Changes
+
+- Test changelog
+  - @copilotkit/runtime-client-gql@1.5.4
+  - @copilotkit/react-core@1.5.4
+  - @copilotkit/shared@1.5.4
+
+## 1.5.3
+
+### Patch Changes
+
+- 4511149: Test release notes
+- 8e57b01: Test release workflow
+  - @copilotkit/runtime-client-gql@1.5.3
+  - @copilotkit/react-core@1.5.3
+  - @copilotkit/shared@1.5.3
+
+## 1.5.2
+
+### Patch Changes
+
+- Updated dependencies [b0192c1]
+  - @copilotkit/runtime-client-gql@1.5.2
+  - @copilotkit/react-core@1.5.2
+  - @copilotkit/shared@1.5.2
+
+## 1.5.1
+
+### Patch Changes
+
+- 5c01e9e: test prerelease #4
+- da280ed: Test prerelease script
+- 27e42d7: testing a prerelease
+- 05240a9: test pre #2
+- 33218fe: test prerelease #3
+- 03f3d6f: Test next prerelease
+- Updated dependencies [5c01e9e]
+- Updated dependencies [ed39d40]
+- Updated dependencies [da280ed]
+- Updated dependencies [27e42d7]
+- Updated dependencies [05240a9]
+- Updated dependencies [33218fe]
+- Updated dependencies [03f3d6f]
+- Updated dependencies [649ebcc]
+- Updated dependencies [6dfa0d2]
+  - @copilotkit/react-core@1.5.1
+  - @copilotkit/runtime-client-gql@1.5.1
+  - @copilotkit/shared@1.5.1
+
+## 1.5.1-next.3
+
+### Patch Changes
+
+- 33218fe: test prerelease #3
+- Updated dependencies [33218fe]
+  - @copilotkit/react-core@1.5.1-next.3
+  - @copilotkit/runtime-client-gql@1.5.1-next.3
+  - @copilotkit/shared@1.5.1-next.3
+
+## 1.5.1-next.2
+
+### Patch Changes
+
+- da280ed: Test prerelease script
+- Updated dependencies [ed39d40]
+- Updated dependencies [da280ed]
+- Updated dependencies [649ebcc]
+  - @copilotkit/react-core@1.5.1-next.2
+  - @copilotkit/runtime-client-gql@1.5.1-next.2
+  - @copilotkit/shared@1.5.1-next.2
+
 ## 1.5.1-next.1
 
 ### Patch Changes

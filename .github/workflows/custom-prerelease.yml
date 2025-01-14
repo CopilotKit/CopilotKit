@@ -38,10 +38,10 @@ jobs:
         id: changesets
         uses: ./.github/actions/changesets-action
         with:
-          publish: pnpm changeset publish --no-git-tag --snapshot --tag pr
+          publish: pnpm run build &&pnpm changeset publish --no-git-tag --snapshot --tag pr
           cwd: CopilotKit
           createGithubReleases: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN_ELEVATED }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

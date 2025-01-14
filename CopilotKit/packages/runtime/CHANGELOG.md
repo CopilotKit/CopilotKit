@@ -1,5 +1,161 @@
 # @copilotkit/runtime
 
+## 1.5.12-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.12-next.0
+
+## 1.5.11
+
+### Patch Changes
+
+- 72f9e58: test release notes
+- 716bd5c: test changelog
+- aecb6f4: Fix build script
+- a35d447: test changelog
+- 0a2e07e: Test changelog
+- 8166ac6: Test release notes
+  - @copilotkit/shared@1.5.11
+
+## 1.5.11-next.0
+
+### Patch Changes
+
+- 72f9e58: test release notes
+- 716bd5c: test changelog
+- aecb6f4: Fix build script
+- a35d447: test changelog
+- 0a2e07e: Test changelog
+- 8166ac6: Test release notes
+  - @copilotkit/shared@1.5.11-next.0
+
+## 1.5.10
+
+### Patch Changes
+
+- 72f9e58: test release notes
+- 716bd5c: test changelog
+- aecb6f4: Fix build script
+- a35d447: test changelog
+- 8166ac6: Test release notes
+  - @copilotkit/shared@1.5.10
+
+## 1.5.10-next.0
+
+### Patch Changes
+
+- 72f9e58: test release notes
+- 716bd5c: test changelog
+- aecb6f4: Fix build script
+- a35d447: test changelog
+- 8166ac6: Test release notes
+  - @copilotkit/shared@1.5.10-next.0
+
+## 1.5.9
+
+### Patch Changes
+
+- 72f9e58: test release notes
+- 716bd5c: test changelog
+- a35d447: test changelog
+- 8166ac6: Test release notes
+  - @copilotkit/shared@1.5.9
+
+## 1.5.8
+
+### Patch Changes
+
+- 72f9e58: test release notes
+- a35d447: test changelog
+- 8166ac6: Test release notes
+  - @copilotkit/shared@1.5.8
+
+## 1.5.6-next.0
+
+### Patch Changes
+
+- a35d447: test changelog
+  - @copilotkit/shared@1.5.6-next.0
+
+## 1.5.5-next.5
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.5-next.5
+
+## 1.5.5-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.5-next.3
+
+## 1.5.5-next.2
+
+### Patch Changes
+
+- 72f9e58: test release notes
+- 8166ac6: Test release notes
+  - @copilotkit/shared@1.5.5-next.2
+
+## 1.5.4
+
+### Patch Changes
+
+- Test changelog
+  - @copilotkit/shared@1.5.4
+
+## 1.5.3
+
+### Patch Changes
+
+- 4511149: Test release notes
+  - @copilotkit/shared@1.5.3
+
+## 1.5.2
+
+### Patch Changes
+
+- b0192c1: This is a test release
+  - @copilotkit/shared@1.5.2
+
+## 1.5.1
+
+### Patch Changes
+
+- 5c01e9e: test prerelease #4
+- da280ed: Test prerelease script
+- 27e42d7: testing a prerelease
+- 05240a9: test pre #2
+- 33218fe: test prerelease #3
+- 03f3d6f: Test next prerelease
+- 649ebcc: - fix: add warning when using agents that are not available on agent related hooks
+- 6dfa0d2: - feat: add temperature parameter support for LLM completions
+- Updated dependencies [5c01e9e]
+- Updated dependencies [da280ed]
+- Updated dependencies [27e42d7]
+- Updated dependencies [05240a9]
+- Updated dependencies [33218fe]
+- Updated dependencies [03f3d6f]
+  - @copilotkit/shared@1.5.1
+
+## 1.5.1-next.3
+
+### Patch Changes
+
+- 33218fe: test prerelease #3
+- Updated dependencies [33218fe]
+  - @copilotkit/shared@1.5.1-next.3
+
+## 1.5.1-next.2
+
+### Patch Changes
+
+- da280ed: Test prerelease script
+- 649ebcc: - fix: add warning when using agents that are not available on agent related hooks
+- Updated dependencies [da280ed]
+  - @copilotkit/shared@1.5.1-next.2
+
 ## 1.5.1-next.1
 
 ### Patch Changes

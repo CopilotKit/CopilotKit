@@ -1,12 +1,9 @@
-import { AgentStateMessage } from "@copilotkit/runtime-client-gql";
 import { RenderMessageProps } from "../props";
-import { useChatContext } from "../ChatContext";
 import { CoagentInChatRenderFunction, useCopilotContext } from "@copilotkit/react-core";
 
 export function RenderAgentStateMessage(props: RenderMessageProps) {
-  const { message, inProgress, index, isCurrentMessage } = props;
   const { chatComponentsCache } = useCopilotContext();
-  const { icons } = useChatContext();
+  const { message, inProgress, index, isCurrentMessage, AssistantMessage } = props;
 
   if (message.isAgentStateMessage()) {
     let render: string | CoagentInChatRenderFunction | undefined;
@@ -24,9 +21,14 @@ export function RenderAgentStateMessage(props: RenderMessageProps) {
         // when render is static, we show it only when in progress
         if (isCurrentMessage && inProgress) {
           return (
-            <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-              {icons.spinnerIcon} <span className="inProgressLabel">{render}</span>
-            </div>
+            <AssistantMessage
+              rawData={message}
+              message={render}
+              data-message-role="assistant"
+              key={index}
+              isLoading={true}
+              isGenerating={true}
+            />
           );
         }
         // Done - silent by default to avoid a series of "done" messages
@@ -53,9 +55,13 @@ export function RenderAgentStateMessage(props: RenderMessageProps) {
 
         if (!toRender && isCurrentMessage && inProgress) {
           return (
-            <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-              {icons.spinnerIcon}
-            </div>
+            <AssistantMessage
+              data-message-role="assistant"
+              key={index}
+              rawData={message}
+              isLoading={true}
+              isGenerating={true}
+            />
           );
         } else if (!toRender) {
           return null;
@@ -63,15 +69,25 @@ export function RenderAgentStateMessage(props: RenderMessageProps) {
 
         if (typeof toRender === "string") {
           return (
-            <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-              {isCurrentMessage && inProgress && icons.spinnerIcon} {toRender}
-            </div>
+            <AssistantMessage
+              rawData={message}
+              message={toRender}
+              isLoading={true}
+              isGenerating={true}
+              data-message-role="assistant"
+              key={index}
+            />
           );
         } else {
           return (
-            <div key={index} className="copilotKitCustomAssistantMessage">
-              {toRender}
-            </div>
+            <AssistantMessage
+              rawData={message}
+              data-message-role="agent-state-render"
+              key={index}
+              isLoading={false}
+              isGenerating={false}
+              subComponent={toRender}
+            />
           );
         }
       }
@@ -83,9 +99,13 @@ export function RenderAgentStateMessage(props: RenderMessageProps) {
     } else {
       // In progress
       return (
-        <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-          {icons.spinnerIcon}
-        </div>
+        <AssistantMessage
+          rawData={message}
+          isLoading={true}
+          isGenerating={true}
+          data-message-role="assistant"
+          key={index}
+        />
       );
     }
   }
