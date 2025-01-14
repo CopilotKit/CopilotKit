@@ -14,8 +14,16 @@ from .exc import (
 )
 from .logging import get_logger, bold
 
+from importlib import metadata
 
-COPILOTKIT_SDK_VERSION = "0.1.32"
+try:
+    __version__ = metadata.version(__package__)
+except metadata.PackageNotFoundError:
+    # Case where package metadata is not available.
+    __version__ = ""
+del metadata  # optional, avoids polluting the results of dir(__package__)
+
+COPILOTKIT_SDK_VERSION = __version__
 
 logger = get_logger(__name__)
 
