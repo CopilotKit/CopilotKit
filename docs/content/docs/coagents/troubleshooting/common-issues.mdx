@@ -13,9 +13,6 @@ Welcome to the CoAgents Troubleshooting Guide! If you're having trouble getting 
     We also highly encourage any open source contributors that want to add their own troubleshooting issues to [Github as a pull request](https://github.com/CopilotKit/CopilotKit/blob/main/CONTRIBUTING.md).
 </Callout>
 
-## My messages are out of order
-
-Struggling with syncing messages and tool calls? **Check out [CoAgents v0.3 pre-release](https://docs-git-coagents-v03-copilot-kit.vercel.app/coagents?_vercel_share=ytbAsEuomfS4oWtqM9ZCkptn7gVuO6az) with a simplified interaction model.**
 
 ## My tool calls are not being streamed
 
@@ -33,7 +30,7 @@ If you have already done that, you can check the following:
         only streamed messages are emitted. You can fix this by adding the following to the node making the tool call.
 
         ```python
-        from copilotkit.langchain import copilotkit_customize_config, copilotkit_emit_message
+        from copilotkit.langgraph import copilotkit_customize_config, copilotkit_emit_message
         from langgraph_core.runnables import RunnableConfig
         from langchain.tools import tool
 

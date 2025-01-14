@@ -1,5 +1,18 @@
 # @copilotkit/runtime
 
+## 1.5.12-next.1
+
+### Patch Changes
+
+- a2129f4: - fix(streaming): end streaming on error to enable continuity of chat after failed tool call
+  - @copilotkit/shared@1.5.12-next.1
+
+## 1.5.12-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.12-next.0
+
 ## 1.5.11
 
 ### Patch Changes

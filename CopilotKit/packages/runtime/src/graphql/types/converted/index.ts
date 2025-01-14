@@ -55,6 +55,72 @@ export class ResultMessage extends Message implements ResultMessageInput {
   actionExecutionId: string;
   actionName: string;
   result: string;
+
+  static encodeResult(
+    result: any,
+    error?: { code: string; message: string } | string | Error,
+  ): string {
+    const errorObj = error
+      ? typeof error === "string"
+        ? { code: "ERROR", message: error }
+        : error instanceof Error
+          ? { code: "ERROR", message: error.message }
+          : error
+      : undefined;
+
+    if (errorObj) {
+      return JSON.stringify({
+        error: errorObj,
+        result: result || "",
+      });
+    }
+    if (result === undefined) {
+      return "";
+    }
+    return typeof result === "string" ? result : JSON.stringify(result);
+  }
+
+  static decodeResult(result: string): {
+    error?: { code: string; message: string };
+    result: string;
+  } {
+    if (!result) {
+      return { result: "" };
+    }
+    try {
+      const parsed = JSON.parse(result);
+      if (parsed && typeof parsed === "object") {
+        if ("error" in parsed) {
+          return {
+            error: parsed.error,
+            result: parsed.result || "",
+          };
+        }
+        return { result: JSON.stringify(parsed) };
+      }
+      return { result };
+    } catch (e) {
+      return { result };
+    }
+  }
+
+  hasError(): boolean {
+    try {
+      const { error } = ResultMessage.decodeResult(this.result);
+      return !!error;
+    } catch {
+      return false;
+    }
+  }
+
+  getError(): { code: string; message: string } | undefined {
+    try {
+      const { error } = ResultMessage.decodeResult(this.result);
+      return error;
+    } catch {
+      return undefined;
+    }
+  }
 }
 
 export class AgentStateMessage extends Message implements Omit<AgentStateMessageInput, "state"> {

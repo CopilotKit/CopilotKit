@@ -11,6 +11,8 @@ export const Messages = ({
   RenderActionExecutionMessage,
   RenderAgentStateMessage,
   RenderResultMessage,
+  AssistantMessage,
+  UserMessage,
 }: MessagesProps) => {
   const context = useChatContext();
   const initialMessages = useMemo(
@@ -49,6 +51,8 @@ export const Messages = ({
               inProgress={inProgress}
               index={index}
               isCurrentMessage={isCurrentMessage}
+              AssistantMessage={AssistantMessage}
+              UserMessage={UserMessage}
             />
           );
         } else if (message.isActionExecutionMessage()) {
@@ -60,6 +64,8 @@ export const Messages = ({
               index={index}
               isCurrentMessage={isCurrentMessage}
               actionResult={actionResults[message.id]}
+              AssistantMessage={AssistantMessage}
+              UserMessage={UserMessage}
             />
           );
         } else if (message.isAgentStateMessage()) {
@@ -70,6 +76,8 @@ export const Messages = ({
               inProgress={inProgress}
               index={index}
               isCurrentMessage={isCurrentMessage}
+              AssistantMessage={AssistantMessage}
+              UserMessage={UserMessage}
             />
           );
         } else if (message.isResultMessage()) {
@@ -80,6 +88,8 @@ export const Messages = ({
               inProgress={inProgress}
               index={index}
               isCurrentMessage={isCurrentMessage}
+              AssistantMessage={AssistantMessage}
+              UserMessage={UserMessage}
             />
           );
         }
