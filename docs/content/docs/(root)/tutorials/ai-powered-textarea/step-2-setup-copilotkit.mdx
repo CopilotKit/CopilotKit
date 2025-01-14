@@ -1,13 +1,9 @@
 ---
 title: "Step 2: Setup CopilotKit"
 ---
-
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 import CopilotCloudConfigureCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
-import {
-  TailoredContent,
-  TailoredContentOption,
-} from "@/components/react/tailored-content";
+import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content";
 import { FaCloud, FaServer } from "react-icons/fa";
 
 Now that we have our todo list app running, we're ready to integrate CopilotKit. For this tutorial, we will install the following dependencies:
@@ -20,7 +16,7 @@ Now that we have our todo list app running, we're ready to integrate CopilotKit.
 To install the CopilotKit dependencies, run the following:
 
 ```package-install
-npm install @copilotkit/react-core@latest @copilotkit/react-textarea@latest
+npm install @copilotkit/react-core@1.4.8-coagents-v0-3.1 @copilotkit/react-textarea@1.4.8-coagents-v0-3.1
 ```
 
 ## Setup CopilotKit
@@ -58,9 +54,7 @@ import "@copilotkit/react-textarea/styles.css"; // [!code highlight]
 
 export default function Home() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit">
-      {" "}
-      // [!code highlight]
+    <CopilotKit runtimeUrl="/api/copilotkit"> // [!code highlight]
       <EmailsProvider>
         <EmailThread />
       </EmailsProvider>
@@ -68,7 +62,6 @@ export default function Home() {
   );
 }
 ```
-
 </Step>
 </Steps>
 </TailoredContentOption>

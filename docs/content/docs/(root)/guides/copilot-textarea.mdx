@@ -8,15 +8,14 @@ description: "Learn how to use the Copilot Textarea for AI-powered autosuggestio
 </Frame>
 
 `<CopilotTextarea>` is a React component that acts as a drop-in replacement for the standard `<textarea>`,
-offering enhanced autocomplete features powered by AI. It is context-aware, integrating seamlessly with the
+ offering enhanced autocomplete features powered by AI. It is context-aware, integrating seamlessly with the
 [`useCopilotReadable`](/reference/hooks/useCopilotReadable) hook to provide intelligent suggestions based on the application context.
-
+ 
 In addition, it provides a hovering editor window (available by default via `Cmd + K` on Mac and `Ctrl + K` on Windows) that allows the user to
 suggest changes to the text, for example providing a summary or rephrasing the text.
 
 <Callout type="warn">
-  This guide assumes you have completed the [quickstart](/quickstart) and have
-  successfully set up CopilotKit.
+  This guide assumes you have completed the [quickstart](/quickstart) and have successfully set up CopilotKit.
 </Callout>
 
 <Steps>
@@ -24,7 +23,7 @@ suggest changes to the text, for example providing a summary or rephrasing the t
 ### Install `@copilotkit/react-textarea`
     
 ```package-install
-npm install @copilotkit/react-textarea@latest
+npm install @copilotkit/react-textarea@1.4.8-coagents-v0-3.1
 ```
 </Step>
 <Step>
@@ -34,7 +33,6 @@ Import the default styles in your root component (typically `layout.tsx`) :
 ```tsx title="layout.tsx"
 import "@copilotkit/react-textarea/styles.css";
 ```
-
 </Step>
 <Step>
 ### Add `CopilotTextarea` to Your Component 
@@ -63,7 +61,6 @@ Below you can find several examples showing how to use the `CopilotTextarea` com
       );
     };
     ```
-
   </Tab>
   <Tab value="Example 2">
     ```tsx title="TextAreaComponent.tsx"
@@ -96,7 +93,6 @@ Below you can find several examples showing how to use the `CopilotTextarea` com
       );
     };
     ```
-
   </Tab>
 </Tabs>
 </Step>
