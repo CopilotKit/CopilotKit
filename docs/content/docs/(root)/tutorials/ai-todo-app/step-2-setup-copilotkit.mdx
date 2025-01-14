@@ -1,10 +1,14 @@
 ---
 title: "Step 2: Setup CopilotKit"
 ---
+
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 import CopilotCloudConfigureCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
 import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
-import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content";
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content";
 import { FaCloud, FaServer } from "react-icons/fa";
 
 Now that we have our todo list app running, we're ready to integrate CopilotKit. For this tutorial, we will install the following dependencies:
@@ -17,7 +21,7 @@ Now that we have our todo list app running, we're ready to integrate CopilotKit.
 To install the CopilotKit dependencies, run the following:
 
 ```package-install
-npm install @copilotkit/react-core@1.4.8-coagents-v0-3.1 @copilotkit/react-ui@1.4.8-coagents-v0-3.1
+npm install @copilotkit/react-core@latest @copilotkit/react-ui@latest
 ```
 
 ## Setup CopilotKit
@@ -47,7 +51,9 @@ In order to use CopilotKit, we'll need to configure the `CopilotKit` provider.
 
 ### Configure the CopilotKit Provider
 
-<SelfHostingCopilotRuntimeConfigureCopilotKitProvider components={props.components} />
+<SelfHostingCopilotRuntimeConfigureCopilotKitProvider
+  components={props.components}
+/>
 
 </Step>
 </Steps>
