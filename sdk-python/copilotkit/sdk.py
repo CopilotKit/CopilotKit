@@ -1,6 +1,8 @@
 """CopilotKit SDK"""
 
 import warnings
+from importlib import metadata
+
 from pprint import pformat
 from typing import List, Callable, Union, Optional, TypedDict, Any, Coroutine
 from .agent import Agent, AgentDict
@@ -14,7 +16,6 @@ from .exc import (
 )
 from .logging import get_logger, bold
 
-from importlib import metadata
 
 try:
     __version__ = metadata.version(__package__)
