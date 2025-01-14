@@ -15,7 +15,7 @@ description: "CopilotKit Remote Endpoints allow you to connect actions and agent
 CopilotKitRemoteEndpoint lets you connect actions and agents written in Python to your 
     CopilotKit application.
 
-    To the CopilotKit SDK, run:
+    To install CopilotKit for Python, run:
 
     ```bash
     pip install copilotkit
@@ -113,17 +113,17 @@ CopilotKitRemoteEndpoint lets you connect actions and agents written in Python t
 
 ### Parameters
 
-<PropertyReference name="actions" type="Optional[Union[List[Action], Callable[[CopilotKitRemoteEndpointContext], List[Action]]]]" > 
+<PropertyReference name="actions" type="Optional[Union[List[Action], Callable[[CopilotKitContext], List[Action]]]]" > 
 The actions to make available to the Copilot.
 </PropertyReference>
 
-<PropertyReference name="agents" type="Optional[Union[List[Agent], Callable[[CopilotKitRemoteEndpointContext], List[Agent]]]]" > 
+<PropertyReference name="agents" type="Optional[Union[List[Agent], Callable[[CopilotKitContext], List[Agent]]]]" > 
 The agents to make available to the Copilot.
 </PropertyReference>
 
-## CopilotKitRemoteEndpointContext
+## CopilotKitContext
 
-CopilotKit SDK Context
+CopilotKit Context
 
 ### Parameters
 
