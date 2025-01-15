@@ -179,6 +179,14 @@ import { SearchProgress } from "@/components/SearchProgress"; // [!code ++]
 
 export const TripsProvider = ({ children }: { children: ReactNode }) => {
   // ...
+  
+  const { state, setState } = useCoAgent<AgentState>({
+    name: "travel",
+    initialState: {
+      trips: defaultTrips,
+      selected_trip_id: defaultTrips[0].id,
+    },
+  });
 
   // [!code ++:10]
   useCoAgentStateRender<AgentState>({
