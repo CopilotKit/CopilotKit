@@ -82,11 +82,10 @@ async def perform_trips_node(state: AgentState, config: RunnableConfig):
     ai_message = cast(AIMessage, state["messages"][-2])
     tool_message = cast(ToolMessage, state["messages"][-1])
 
-    # [!code ++:9]
+    # [!code ++:8]
     if tool_message.content == "CANCEL":
-      return {
-        "messages": AIMessage(content="Cancelled operation of trip."),
-      }
+      await copilotkit_emit_message(config, "Cancelled operation of trip.")
+      return state
     
     # handle the edge case where the AI message is not an AIMessage or does not have tool calls, should never happen.
     if not isinstance(ai_message, AIMessage) or not ai_message.tool_calls:
@@ -95,7 +94,31 @@ async def perform_trips_node(state: AgentState, config: RunnableConfig):
     # ...
 ```
 
-In this case, we are checking if the user decided to cancel the operation. If so, we return the state with a new message that communicates the user's decision. Any other decision returned will result in the requested actions being performed.
+In this case, we are checking if the user decided to cancel the operation. If so, we emit a message to the UI and return the state. Any
+other decision returned will result in the requested actions being performed.
+
+</Step>
+<Step>
+## Emitting the tool calls
+In order for the front-end to recieve the breakpoint and take the user's decision, we'll need to emit the tool calls that the agent is requesting.
+To do this, we'll be editing the `chat_node` in the `chat.py` file.
+```python title="agent/travel/chat.py"
+# ...
+from copilotkit.langchain import copilotkit_customize_config # [!code ++]
+async def chat_node(state: AgentState, config: RunnableConfig):
+    """Handle chat operations"""
+    # [!code ++:5]
+    config = copilotkit_customize_config(
+        config,
+        emit_tool_calls=["add_trips", "update_trips", "delete_trips"],
+    )
+    # ...
+```
+<Callout>
+We don't want to just set True here because doing so will emit all tool calls. By specifying these, we hand are handing off tool
+handling to CopilotKit. If, for example, `search_for_places` was called here then it would break the state of tool calls.
+</Callout>
+With that, our work on the agent is complete and we are ready to update the front-end to properly take and communicate the user's decision.
 
 </Step>
 <Step>
