@@ -5,11 +5,9 @@ from langchain_openai import ChatOpenAI
 from travel.search import search_for_places
 from travel.trips import add_trips, update_trips, delete_trips
 from langchain_core.runnables import RunnableConfig
-from copilotkit.langchain import copilotkit_customize_config
 from langchain_core.messages import AIMessage, ToolMessage
 from typing import cast
 from langchain_core.tools import tool
-from copilotkit.langchain import copilotkit_emit_message
 
 @tool
 def select_trip(trip_id: str):
@@ -48,15 +46,11 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     When you create or update a trip, you should set it as the selected trip.
     If you delete a trip, try to select another trip.
 
+    If an operation is cancelled by the user, DO NOT try to perform the operation again. Just ask what the user would like to do now
+    instead.
+
     Current trips: {json.dumps(state.get('trips', []))}
     """
-
-    print("STATE MESSAGES", flush=True)
-    for message in state["messages"]:
-        print("message", message, flush=True)
-        print("---", flush=True)
-    print("DONE WITH MESSAGES", flush=True)
-    
 
     # calling ainvoke instead of invoke is essential to get streaming to work properly on tool calls.
     response = await llm_with_tools.ainvoke(
@@ -65,7 +59,6 @@ async def chat_node(state: AgentState, config: RunnableConfig):
             *state["messages"]
         ],
         config=config,
-        
     )
 
     ai_message = cast(AIMessage, response)
