@@ -19,13 +19,16 @@ tools = [search_for_places, select_trip]
 
 async def chat_node(state: AgentState, config: RunnableConfig):
     """Handle chat operations"""
-    llm_with_tools = llm.bind_tools([
-        *tools,
-        add_trips,
-        update_trips,
-        delete_trips,
-        select_trip,
-    ])
+    llm_with_tools = llm.bind_tools(
+        [
+            *tools,
+            add_trips,
+            update_trips,
+            delete_trips,
+            select_trip,
+        ],
+        parallel_tool_calls=False
+    )
 
     system_message = f"""
     You are an agent that plans trips and helps the user with planning and managing their trips.
@@ -42,6 +45,9 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     
     When you create or update a trip, you should set it as the selected trip.
     If you delete a trip, try to select another trip.
+
+    If an operation is cancelled by the user, DO NOT try to perform the operation again. Just ask what the user would like to do now
+    instead.
 
     Current trips: {json.dumps(state.get('trips', []))}
     """
