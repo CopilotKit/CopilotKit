@@ -1,5 +1,5 @@
 from typing import cast, List
-from langchain_core.messages import ToolMessage, AIMessage
+from langchain_core.messages import AIMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from travel.state import AgentState, Trip, Place
@@ -30,7 +30,7 @@ async def perform_trips_node(state: AgentState, config: RunnableConfig):
         
         if action in action_handlers:
             message = action_handlers[action](args)
-            state["messages"].append(ToolMessage(content=message, tool_call_id=tool_call["id"]))
+            state["messages"].append(SystemMessage(content=message))
 
     return state
 
@@ -46,7 +46,7 @@ def handle_add_trips(state: AgentState, args: dict) -> str:
 
 @tool
 def delete_trips(trip_ids: List[str]):
-    """Delete one or many trips"""
+    """Delete one or many trips. YOU MUST NOT CALL this tool multiple times in a row!"""
 
 def handle_delete_trips(state: AgentState, args: dict) -> str:
     trip_ids = args.get("trip_ids", [])
