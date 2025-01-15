@@ -95,6 +95,17 @@ if (
   });
 }
 
+if (
+  process.env.COPILOT_CLOUD_CUSTOM_ENV_RUNTIME_URL &&
+  process.env.COPILOT_CLOUD_CUSTOM_ENV_NAME &&
+  process.env.COPILOT_CLOUD_CUSTOM_ENV_PUBLIC_API_KEY
+) {
+  variants.push({
+    name: `Copilot Cloud (${process.env.COPILOT_CLOUD_CUSTOM_ENV_NAME})`,
+    queryParams: `?runtimeUrl=${process.env.COPILOT_CLOUD_CUSTOM_ENV_URL}&publicApiKey=${process.env.COPILOT_CLOUD_CUSTOM_ENV_PUBLIC_API_KEY}`,
+  });
+}
+
 const getDestinationCheckbox = (
   page: Page,
   { destination, isChecked }: DestinationProps

@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'examples/e2e/**/*'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'examples/e2e/**/*'
+  workflow_dispatch:
+jobs:
+  test:
+    name: 'Test'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 'CopilotKit'
+    strategy:
+      matrix:
+        node-version: [20.x, 18.x]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Configure AWS Profile
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
+          aws configure set region us-east-1
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: |
+            058264219587.dkr.ecr.us-east-1.amazonaws.com/copilotkit/qa-runner
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=${{ github.run_id }},prefix=gh-
+            type=sha,format=short
+
+      - name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          context: examples/e2e
+          file: examples/e2e/Dockerfile
+          tags: ${{ steps.meta.outputs.tags }}
+          platforms: linux/amd64
+          push: true

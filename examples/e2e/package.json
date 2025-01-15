@@ -1,5 +1,6 @@
 {
   "name": "playwright-test",
+  "type": "module",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -16,10 +17,13 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@octokit/auth-app": "^7.1.4",
     "@playwright/test": "^1.48.2",
     "@types/json2md": "^1.5.4",
     "@types/node": "^22.8.4",
     "dotenv": "^16.4.5",
-    "json2md": "^2.0.1"
+    "json2md": "^2.0.1",
+    "octokit": "^4.1.0",
+    "ts-node": "^10.9.2"
   }
 }
