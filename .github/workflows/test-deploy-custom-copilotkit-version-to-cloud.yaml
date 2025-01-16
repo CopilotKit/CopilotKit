@@ -9,7 +9,7 @@ on:
 
 jobs:
   deploy-custom-copilotkit-version-to-cloud:
-    uses: copilotkit/copilotcloud/.github/workflows/test-deploy-custom-copilotkit-version-to-cloud.yml@main
+    uses: copilotkit/copilotcloud/.github/workflows/test-deploy-custom-copilotkit-version.yaml@main
     with:
       version: ${{ inputs.version }}
     secrets:
