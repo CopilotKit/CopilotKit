@@ -8,6 +8,13 @@ on:
         required: true
 
 jobs:
+  deploy-custom-copilotkit-version-to-cloud:
+    uses: copilotkit/copilotcloud/.github/workflows/test-deploy-custom-copilotkit-version-to-cloud.yml@main
+    with:
+      version: ${{ inputs.version }}
+    secrets:
+      aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   run:
     runs-on: ubuntu-latest
     steps:
@@ -21,41 +28,6 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ steps.get_installation_token.outputs.token }}
-
-      - uses: actions/checkout@v3
-        with:
-          repository: copilotkit/copilotcloud
-          ref: main
-          sparse-checkout: |
-            .github/actions
-          sparse-checkout-cone-mode: false
-          path: .github/cloud-actions
-          token: ${{ steps.get_installation_token.outputs.token }}
-
-      - name: Debug Directory Structure
-        run: |
-          echo "Content of .github/cloud-actions:"
-          ls -la .github/cloud-actions
-          echo "\nContent of .github/cloud-actions/.github (if exists):"
-          ls -la .github/cloud-actions/.github || echo "Directory doesn't exist"
-          echo "\nFull tree of .github/cloud-actions:"
-          tree .github/cloud-actions || true
-
-      - name: Copy Actions
-        run: |
-          mkdir -p .github/cloud-actions
-          cp -rv .github/cloud-actions/.github/actions/* .github/cloud-actions/ || echo "Copy failed"
-          rm -rf .github/cloud-actions/.github
-
-      - name: Final Directory Check
-        run: |
-          echo "Final content of .github/cloud-actions:"
-          ls -la .github/cloud-actions
-
-      - name: LS LA
-        run: |
-          ls -la .github
-          ls -la .github/cloud-actions
 
       # - name: Test Composite Action
       #   uses: copilotkit/copilotcloud/.github/workflows/test-deploy-custom-copilotkit-version-to-cloud.yml@main
