@@ -13,6 +13,79 @@ Welcome to the CopilotKit Troubleshooting Guide! Here, you can find answers to c
     We also highly encourage any open source contributors that want to add their own troubleshooting issues to [Github as a pull request](https://github.com/CopilotKit/CopilotKit/blob/main/CONTRIBUTING.md).
 </Callout>
 
-## I am getting a network errors / API not found
+## I am getting network errors / API not found error
 
-[//]: # (Provide some solution to common issues: Making sure that we route to the right runtimeUrl, that "endpoint" in runtime route is right. Some issues regarding using "localhost" instead of 127.0.01 etc)
+If you're encountering network or API errors, here's how to troubleshoot:
+
+<Accordions>
+    <Accordion title="Check your endpoint configuration">
+        Verify your endpoint configuration in your CopilotKit setup:
+
+        ```tsx
+        <CopilotKit
+          runtimeUrl="/api/copilotkit"
+        >
+          {/* Your app */}
+        </CopilotKit>
+        ```
+
+        or, if using CopilotCloud
+        ```tsx
+        <CopilotKit
+            publicApiKey="<your-copilot-cloud-public-api-key>"
+        >
+            {/* Your app */}
+        </CopilotKit>
+        ```
+
+        Common issues:
+        - Missing leading slash in endpoint path
+        - Incorrect path relative to your app's base URL, or, if using absolute paths, incorrect full URL
+        - Typos in the endpoint path
+        - If using CopilotCloud, make sure to omit the `runtimeUrl` property and provide a valid API key
+    </Accordion>
+    <Accordion title="localhost vs 127.0.0.1">
+        If you're running locally and getting connection errors, try using `127.0.0.1` instead of `localhost`:
+
+        ```bash
+        # If this doesn't work:
+        http://localhost:3000/api/copilotkit
+
+        # Try this instead:
+        http://127.0.0.1:3000/api/copilotkit
+        ```
+
+        This is often due to local DNS resolution issues in `/etc/hosts` or network configuration.
+    </Accordion>
+    <Accordion title="Verify your backend is running">
+        Make sure your backend server is:
+        - Running on the expected port
+        - Accessible from your frontend
+        - Not blocked by CORS or firewalls
+        
+        Try accessing the endpoint directly in your browser or with curl:
+        ```bash
+        curl http://127.0.0.1:3000/api/copilotkit
+        ```
+    </Accordion>
+</Accordions>
+
+## I am getting "CopilotKit's Remote Endpoint" not found error
+
+If you're getting a "CopilotKit's Remote Endpoint not found" error, it usually means the server serving `/info` endpoint isn't accessible. Here's how to fix it:
+
+<Accordions>
+    <Accordion title="Check your FastAPI setup (if using pytho's FastAPI)">
+        Make sure your FastAPI app has the CopilotKitSDK properly set up.<br/>
+        Refer to [Remote Python Endpoint](/guides/backend-actions/remote-backend-endpoint) to see how to set it up
+    </Accordion>
+    <Accordion title="Test your endpoint">
+        The `/info` endpoint should return agent or action information. Test it directly:
+
+        ```bash
+        curl -v -X POST -d '{}' http://localhost:8000/copilotkit/info
+        ```
+
+        You should see a JSON response with your registered agents and actions. If not, check your FastAPI logs for errors.
+    </Accordion>
+</Accordions>

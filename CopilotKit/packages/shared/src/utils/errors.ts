@@ -3,6 +3,7 @@ import { GraphQLError } from "graphql";
 export const ERROR_NAMES = {
   COPILOT_ERROR: "CopilotError",
   COPILOT_API_DISCOVERY_ERROR: "CopilotApiDiscoveryError",
+  COPILOT_REMOTE_ENDPOINT_DISCOVERY_ERROR: "CopilotKitRemoteEndpointDiscoveryError",
   COPILOT_KIT_AGENT_DISCOVERY_ERROR: "CopilotKitAgentDiscoveryError",
   COPILOT_KIT_LOW_LEVEL_ERROR: "CopilotKitLowLevelError",
   RESOLVED_COPILOT_KIT_ERROR: "ResolvedCopilotKitError",
@@ -13,29 +14,34 @@ export enum CopilotKitErrorCode {
   NOT_FOUND = "NOT_FOUND",
   AGENT_NOT_FOUND = "AGENT_NOT_FOUND",
   API_NOT_FOUND = "API_NOT_FOUND",
+  REMOTE_ENDPOINT_NOT_FOUND = "REMOTE_ENDPOINT_NOT_FOUND",
   UNKNOWN = "UNKNOWN",
 }
 
-const BASE_URL = "https://docs.copilotkit.ai/coagents/troubleshooting/common-issues";
+const BASE_URL = "https://docs.copilotkit.ai";
 
 const getSeeMoreMarkdown = (link: string) => `See more: [${link}](${link})`;
 
 export const ERROR_CONFIG = {
   [CopilotKitErrorCode.NETWORK_ERROR]: {
     statusCode: 503,
-    troubleshootingUrl: `${BASE_URL}#my-messages-are-out-of-order`,
+    troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-a-network-errors--api-not-found`,
   },
   [CopilotKitErrorCode.NOT_FOUND]: {
     statusCode: 404,
-    troubleshootingUrl: `${BASE_URL}#my-messages-are-out-of-order`,
+    troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-a-network-errors--api-not-found`,
   },
   [CopilotKitErrorCode.AGENT_NOT_FOUND]: {
     statusCode: 500,
-    troubleshootingUrl: `${BASE_URL}#my-messages-are-out-of-order`,
+    troubleshootingUrl: `${BASE_URL}/coagents/troubleshooting/common-issues#i-am-getting-agent-not-found-error`,
   },
   [CopilotKitErrorCode.API_NOT_FOUND]: {
     statusCode: 404,
-    troubleshootingUrl: `${BASE_URL}#my-messages-are-out-of-order`,
+    troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-a-network-errors--api-not-found`,
+  },
+  [CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND]: {
+    statusCode: 404,
+    troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-copilotkits-remote-endpoint-not-found-error`,
   },
   [CopilotKitErrorCode.UNKNOWN]: {
     statusCode: 500,
@@ -78,11 +84,34 @@ export class CopilotKitError extends GraphQLError {
  * @extends CopilotKitError
  */
 export class CopilotKitApiDiscoveryError extends CopilotKitError {
-  constructor({ message = "Failed to find CopilotKit API endpoint" }: { message?: string } = {}) {
-    const code = CopilotKitErrorCode.API_NOT_FOUND;
+  constructor({
+    message = "Failed to find CopilotKit API endpoint",
+    code = CopilotKitErrorCode.API_NOT_FOUND,
+  }: {
+    message?: string;
+    code?: CopilotKitErrorCode.API_NOT_FOUND | CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND;
+  } = {}) {
     const errorMessage = `${message}.\n\n${getSeeMoreMarkdown(ERROR_CONFIG[code].troubleshootingUrl)}`;
     super({ message: errorMessage, code });
     this.name = ERROR_NAMES.COPILOT_API_DISCOVERY_ERROR;
+  }
+}
+
+/**
+ * This error is used for endpoints specified in runtime's remote endpoints. If they cannot be contacted
+ * This typically occurs when:
+ * - The API endpoint URL is invalid or misconfigured
+ * - The API service is not running at the expected location
+ *
+ * @extends CopilotKitApiDiscoveryError
+ */
+export class CopilotKitRemoteEndpointDiscoveryError extends CopilotKitApiDiscoveryError {
+  constructor({
+    message = "Failed to find or contact remote endpoint",
+  }: { message?: string } = {}) {
+    const code = CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND;
+    super({ message, code });
+    this.name = ERROR_NAMES.COPILOT_REMOTE_ENDPOINT_DISCOVERY_ERROR;
   }
 }
 
@@ -175,10 +204,12 @@ export class ResolvedCopilotKitError extends CopilotKitError {
     status,
     message,
     code,
+    isRemoteEndpoint,
   }: {
     status: number;
     message?: string;
     code?: CopilotKitErrorCode;
+    isRemoteEndpoint?: boolean;
   }) {
     let resolvedCode = code;
     if (!resolvedCode) {
@@ -186,7 +217,9 @@ export class ResolvedCopilotKitError extends CopilotKitError {
         case 400:
           throw new CopilotKitApiDiscoveryError({ message });
         case 404:
-          throw new CopilotKitApiDiscoveryError({ message });
+          throw isRemoteEndpoint
+            ? new CopilotKitRemoteEndpointDiscoveryError({ message })
+            : new CopilotKitApiDiscoveryError({ message });
         default:
           resolvedCode = CopilotKitErrorCode.UNKNOWN;
           super({ message, code: resolvedCode });

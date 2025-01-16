@@ -316,7 +316,7 @@ please use an LLM adapter instead.`);
             if (response.status === 404) {
               throw new CopilotKitApiDiscoveryError();
             }
-            throw new ResolvedCopilotKitError({ status: response.status });
+            throw new ResolvedCopilotKitError({ status: response.status, isRemoteEndpoint: true });
           }
 
           const data: InfoResponse = await response.json();
