@@ -62,11 +62,8 @@ If you're encountering network or API errors, here's how to troubleshoot:
         - Running on the expected port
         - Accessible from your frontend
         - Not blocked by CORS or firewalls
-        
-        Try accessing the endpoint directly in your browser or with curl:
-        ```bash
-        curl http://127.0.0.1:3000/api/copilotkit
-        ```
+
+        Check the [quickstart](/quickstart) to see how to set it up
     </Accordion>
 </Accordions>
 
@@ -83,7 +80,33 @@ If you're getting a "CopilotKit's Remote Endpoint not found" error, it usually m
         The `/info` endpoint should return agent or action information. Test it directly:
 
         ```bash
-        curl -v -X POST -d '{}' http://localhost:8000/copilotkit/info
+        curl -v -d '{}' http://localhost:8000/copilotkit/info
+        ```
+        The response looks something like this:
+        ```bash
+        * Host localhost:8000 was resolved.
+        * IPv6: ::1
+        * IPv4: 127.0.0.1
+        *   Trying [::1]:8000...
+        * connect to ::1 port 8000 from ::1 port 55049 failed: Connection refused
+        *   Trying 127.0.0.1:8000...
+        * Connected to localhost (127.0.0.1) port 8000
+        > POST /copilotkit/info HTTP/1.1
+        > Host: localhost:8000
+        > User-Agent: curl/8.7.1
+        > Accept: */*
+        > Content-Length: 2
+        > Content-Type: application/x-www-form-urlencoded
+        >
+        * upload completely sent off: 2 bytes
+        < HTTP/1.1 200 OK
+        < date: Thu, 16 Jan 2025 17:45:05 GMT
+        < server: uvicorn
+        < content-length: 214
+        < content-type: application/json
+        <
+        * Connection #0 to host localhost left intact
+        {"actions":[],"agents":[{"name":"my_agent","description":"A helpful agent.","type":"langgraph"},],"sdkVersion":"0.1.32"}%
         ```
 
         You should see a JSON response with your registered agents and actions. If not, check your FastAPI logs for errors.
