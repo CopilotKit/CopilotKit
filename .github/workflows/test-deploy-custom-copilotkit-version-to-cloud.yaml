@@ -29,38 +29,17 @@ jobs:
           sparse-checkout: |
             .github/actions/**/*
           sparse-checkout-cone-mode: false
-          path: .github/cloud-actions
+          path: ./tmp/cloud-actions
           token: ${{ steps.get_installation_token.outputs.token }}
 
-      - name: Debug Directory Structure
+      - name: ls la
         run: |
-          echo "Content of .github/cloud-actions:"
-          ls -la .github/cloud-actions
-          echo "\nContent of .github/cloud-actions/.github (if exists):"
-          ls -la .github/cloud-actions/.github || echo "Directory doesn't exist"
-          echo "\nFull tree of .github/cloud-actions:"
-          tree .github/cloud-actions || true
+          ls -la ./tmp/cloud-actions
+          ls -la ./tmp/cloud-actions/actions
 
-      - name: Copy Actions
-        run: |
-          mkdir -p .github/cloud-actions
-          cp -rv .github/cloud-actions/.github/actions/* .github/cloud-actions/ || echo "Copy failed"
-          rm -rf .github/cloud-actions/.github
-
-      - name: Final Directory Check
-        run: |
-          echo "Final content of .github/cloud-actions:"
-          ls -la .github/cloud-actions
-
-      - name: LS LA
-        run: |
-          ls -la .github
-          ls -la .github/cloud-actions
-
-      # - name: Test Composite Action
-      #   uses: copilotkit/copilotcloud/.github/workflows/test-deploy-custom-copilotkit-version-to-cloud.yml@main
-      #   with:
-      #     version: ${{ inputs.version }}
-      #   secrets:
-      #     aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      #     aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Test Composite Action
+        uses: ./tmp/cloud-actions/actions/deploy-custom-copilotkit-version
+        with:
+          version: ${{ inputs.version }}
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
