@@ -484,12 +484,16 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 0,
                 new ResultMessage({
                   id: "result-" + message.id,
-                  result: ResultMessage.encodeResult({
-                    content: result,
-                    error: error
-                      ? JSON.parse(JSON.stringify(error, Object.getOwnPropertyNames(error)))
-                      : null,
-                  }),
+                  result: ResultMessage.encodeResult(
+                    error
+                      ? {
+                          content: result,
+                          error: JSON.parse(
+                            JSON.stringify(error, Object.getOwnPropertyNames(error)),
+                          ),
+                        }
+                      : result,
+                  ),
                   actionExecutionId: message.id,
                   actionName: message.name,
                 }),
