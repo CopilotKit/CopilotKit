@@ -9,7 +9,8 @@ on:
 
 jobs:
   deploy-custom-copilotkit-version-to-cloud:
-    uses: CopilotKit/CopilotCloud/.github/workflows/test-deploy-custom-copilotkit-version.yaml@main
+    name: "Deploy via Reusable Workflow"
+    uses: CopilotKit/CopilotCloud/.github/workflows/deploy-custom-copilotkit-version.yaml@main
     with:
       version: ${{ inputs.version }}
     secrets:
