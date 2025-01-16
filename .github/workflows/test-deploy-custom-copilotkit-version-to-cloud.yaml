@@ -27,7 +27,7 @@ jobs:
           repository: copilotkit/copilotcloud
           ref: main
           sparse-checkout: |
-            .github/actions/**/*
+            .github/actions
           sparse-checkout-cone-mode: false
           path: ./tmp/cloud-actions
           token: ${{ steps.get_installation_token.outputs.token }}
