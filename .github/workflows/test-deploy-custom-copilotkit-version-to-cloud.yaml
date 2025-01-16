@@ -11,9 +11,16 @@ jobs:
   run:
     runs-on: ubuntu-latest
     steps:
+      - uses: tibdex/github-app-token@v1
+        id: get_installation_token
+        with: 
+          app_id: 1108748
+          private_key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
+
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
+          token: ${{ steps.get_installation_token.outputs.token }}
 
       - uses: actions/checkout@v3
         with:
@@ -22,6 +29,7 @@ jobs:
           sparse-checkout: '.github/actions'
           sparse-checkout-cone-mode: false
           path: .github/cloud-actions
+          token: ${{ steps.get_installation_token.outputs.token }}
 
       - name: LS LA
         run: |
