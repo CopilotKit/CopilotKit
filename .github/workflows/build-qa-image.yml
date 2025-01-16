@@ -1,4 +1,4 @@
-name: CI
+name: Build QA Image
 
 on:
   push:
@@ -11,8 +11,8 @@ on:
       - 'examples/e2e/**/*'
   workflow_dispatch:
 jobs:
-  test:
-    name: 'Test'
+  build-qa-image:
+    name: 'Build QA Image'
     runs-on: ubuntu-latest
     defaults:
       run:
