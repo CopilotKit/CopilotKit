@@ -474,10 +474,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               } catch (e) {
                 error = e as Error;
                 addErrorToast([error]);
-                result = `Failed to execute action ${message.name}. ${error.message}.
-                If the error was caused due to wrong function call or wrong arguments, you may retry with correction of the call or arguments,
-                If you cannot figure out where the error originated from or if it is not a wrong call or faulty arguments, do not attempt any retries.
-                `;
+                result = `Failed to execute action ${message.name}. ${error.message}`;
                 console.error(`Failed to execute action ${message.name}: ${error}`);
               }
               didExecuteAction = true;
