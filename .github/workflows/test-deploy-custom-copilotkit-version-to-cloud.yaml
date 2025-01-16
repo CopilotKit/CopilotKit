@@ -22,24 +22,11 @@ jobs:
           fetch-depth: 0
           token: ${{ steps.get_installation_token.outputs.token }}
 
-      - uses: actions/checkout@v3
+      - name: Trigger E2E Tests
+        uses: benc-uk/workflow-dispatch@v1
         with:
-          repository: copilotkit/copilotcloud
-          ref: main
-          sparse-checkout: |
-            .github/actions
-          sparse-checkout-cone-mode: false
-          path: ./tmp/cloud-actions
           token: ${{ steps.get_installation_token.outputs.token }}
-
-      - name: ls la
-        run: |
-          ls -la ./tmp/cloud-actions
-          ls -la ./tmp/cloud-actions/actions
-
-      - name: Test Composite Action
-        uses: ./tmp/cloud-actions/actions/deploy-custom-copilotkit-version
-        with:
-          version: ${{ inputs.version }}
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          repo: copilotkit/copilotcloud
+          ref: main
+          workflow: "deploy-custom-copilotkit-version.yml"
+          inputs: '{"version": "${{ inputs.version }}"}'
