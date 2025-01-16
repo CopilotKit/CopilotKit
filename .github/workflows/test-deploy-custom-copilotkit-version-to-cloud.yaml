@@ -27,7 +27,7 @@ jobs:
         id: create-preview-env-status-check
         with:
           token: ${{ steps.get_installation_token.outputs.token }}
-          name: Deploy Custom CopilotKit Version to Cloud ({{ inputs.version }})
+          name: Deploy Custom CopilotKit Version to Cloud (${{ inputs.version }})
           status: queued
 
       - name: Trigger E2E Tests
