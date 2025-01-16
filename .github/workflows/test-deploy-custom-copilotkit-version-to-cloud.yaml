@@ -15,7 +15,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Test Composite Action
-        uses: copilotkit/copilotcloud/.github/actions/deploy-custom-copilotkit-version@main
+      - uses: actions/checkout@v3
         with:
-          version: ${{ inputs.version }}
+          repository: copilotkit/copilotcloud
+          sparse-checkout: '.github/actions'
+          sparse-checkout-cone-mode: false
+          path: .github/cloud-actions
+
+      - name: LS LA
+        run: |
+          ls -la .github
+          ls -la .github/cloud-actions
+
+      # - name: Test Composite Action
+      #   uses: copilotkit/copilotcloud/.github/workflows/test-deploy-custom-copilotkit-version-to-cloud.yml@main
+      #   with:
+      #     version: ${{ inputs.version }}
+      #   secrets:
+      #     aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
