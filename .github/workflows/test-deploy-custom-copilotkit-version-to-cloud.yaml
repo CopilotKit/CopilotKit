@@ -28,5 +28,5 @@ jobs:
           token: ${{ steps.get_installation_token.outputs.token }}
           repo: copilotkit/copilotcloud
           ref: main
-          workflow: "deploy-custom-copilotkit-version.yml"
+          workflow: "deploy-custom-copilotkit-version.yaml"
           inputs: '{"version": "${{ inputs.version }}"}'
