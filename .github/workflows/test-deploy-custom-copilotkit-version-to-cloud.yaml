@@ -1,0 +1,21 @@
+name: Test Deploy Custom CopilotKit Version to Cloud
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to deploy (e.g. `1.5.12-next.0`)"
+        required: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Test Composite Action
+        uses: copilotkit/copilotcloud/.github/actions/deploy-custom-copilotkit-version@main
+        with:
+          version: ${{ inputs.version }}
