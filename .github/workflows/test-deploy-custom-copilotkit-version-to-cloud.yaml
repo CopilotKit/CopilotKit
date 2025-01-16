@@ -26,13 +26,31 @@ jobs:
         with:
           repository: copilotkit/copilotcloud
           ref: main
+          sparse-checkout: |
+            .github/actions
+          sparse-checkout-cone-mode: false
           path: .github/cloud-actions
           token: ${{ steps.get_installation_token.outputs.token }}
 
+      - name: Debug Directory Structure
+        run: |
+          echo "Content of .github/cloud-actions:"
+          ls -la .github/cloud-actions
+          echo "\nContent of .github/cloud-actions/.github (if exists):"
+          ls -la .github/cloud-actions/.github || echo "Directory doesn't exist"
+          echo "\nFull tree of .github/cloud-actions:"
+          tree .github/cloud-actions || true
+
       - name: Copy Actions
         run: |
-          cp -r .github/cloud-actions/.github/actions/* .github/cloud-actions/
+          mkdir -p .github/cloud-actions
+          cp -rv .github/cloud-actions/.github/actions/* .github/cloud-actions/ || echo "Copy failed"
           rm -rf .github/cloud-actions/.github
+
+      - name: Final Directory Check
+        run: |
+          echo "Final content of .github/cloud-actions:"
+          ls -la .github/cloud-actions
 
       - name: LS LA
         run: |
