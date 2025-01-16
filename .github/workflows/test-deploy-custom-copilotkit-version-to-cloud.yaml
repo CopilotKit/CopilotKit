@@ -26,10 +26,13 @@ jobs:
         with:
           repository: copilotkit/copilotcloud
           ref: main
-          sparse-checkout: '.github/actions'
-          sparse-checkout-cone-mode: false
           path: .github/cloud-actions
           token: ${{ steps.get_installation_token.outputs.token }}
+
+      - name: Copy Actions
+        run: |
+          cp -r .github/cloud-actions/.github/actions/* .github/cloud-actions/
+          rm -rf .github/cloud-actions/.github
 
       - name: LS LA
         run: |
