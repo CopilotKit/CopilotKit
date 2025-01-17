@@ -37,40 +37,30 @@ It'll be on the bottom left of the LangGraph Studio interface like this.
 
 </Callout>
 
-First, run the following command to setup the tunnel.
+To open a tunnel, run the following command.
 
 ```bash
 # replace <port_number> with the port number of the LangGraph Studio endpoint
-npx @copilotkit/cli tunnel <port_number> 
-
-✔ Tunnel created successfully!
-
-Tunnel Information:
-Local: localhost:54209
-Public URL: https://light-pandas-argue.loca.lt # copy this url! # [!code highlight]
-
-Press Ctrl+C to stop the tunnel
+npx copilotkit@latest dev --port <port_number>
 ```
 
-Make sure to copy the public URL that is output by the command.
+It will guide you through the process of selecting a project and creating a tunnel. You should see output similar to the following.
 
-<Callout>
-This step requires a LangSmith API key. If you don't know how to get one, follow the instructions 
-[here](https://docs.smith.langchain.com/administration/how_to_guides/organization_management/create_account_api_key#api-keys)
-to get one. When asked, you're looking for a `Personal Access Token`.
-</Callout>
+```bash
+✔ Select a project Local (ID: <project_id>)
+✅ LangGraph Platform endpoint detected
+⠹ Creating tunnel...
 
+Tunnel Information:
 
-Now we're going to add our tunnel endpoint to Copilot Cloud. 
+• Tunnel URL:            https://<tunnel_id>.tunnels.devcopilotkit.com
+• Endpoint Type:         LangGraph Platform
+• Project:               projects/<project_id>
 
-1. Head back over to [cloud.copilotkit.ai](https://cloud.copilotkit.ai)
-2. Navigate to the `Remote Endpoints` section by scrolling down.
-3. Click on the `+ Add New` button.
-3. Select `LangGraph Platform` from the options.
-4. Add your public URL (should look like `https://light-pandas-argue.loca.lt`) and LangSmith API key to the form.
-5. Click create.
+Press Ctrl+C to stop the tunnel
 
-Now, you should see the remote endpoint in the list.
+✔ 🚀 Local tunnel is live and linked to Copilot Cloud!
+```
 
 </Tab>
 <Tab value="Self-Hosted">

@@ -46,15 +46,11 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     When you create or update a trip, you should set it as the selected trip.
     If you delete a trip, try to select another trip.
 
+    If an operation is cancelled by the user, DO NOT try to perform the operation again. Just ask what the user would like to do now
+    instead.
+
     Current trips: {json.dumps(state.get('trips', []))}
     """
-
-    print("STATE MESSAGES", flush=True)
-    for message in state["messages"]:
-        print("message", message, flush=True)
-        print("---", flush=True)
-    print("DONE WITH MESSAGES", flush=True)
-    
 
     # calling ainvoke instead of invoke is essential to get streaming to work properly on tool calls.
     response = await llm_with_tools.ainvoke(
@@ -63,7 +59,6 @@ async def chat_node(state: AgentState, config: RunnableConfig):
             *state["messages"]
         ],
         config=config,
-        
     )
 
     ai_message = cast(AIMessage, response)

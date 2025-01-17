@@ -1,5 +1,18 @@
 # @copilotkit/runtime-client-gql
 
+## 1.5.12-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.12-next.3
+
+## 1.5.12-next.2
+
+### Patch Changes
+
+- fb87bcf: - fix: silence abort controller cancellation throwing an error
+  - @copilotkit/shared@1.5.12-next.2
+
 ## 1.5.12-next.1
 
 ### Patch Changes

@@ -302,6 +302,9 @@ Please assist them as best you can.
 You can ask them for clarifying questions if needed, but don't be annoying about it. If you can reasonably 'fill in the blanks' yourself, do so.
 
 If you would like to call a function, call it without saying anything else.
+In case of a function error:
+- If this error stems from incorrect function parameters or syntax, you may retry with corrected arguments.
+- If the error's source is unclear or seems unrelated to your input, do not attempt further retries.
 ` + (additionalInstructions ? `\n\n${additionalInstructions}` : "")
   );
 }
