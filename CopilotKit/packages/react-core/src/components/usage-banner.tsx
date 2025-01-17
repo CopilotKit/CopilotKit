@@ -1,0 +1,237 @@
+import { CPKError, ErrorType, Severity } from "../lib/errors";
+
+interface UsageBannerProps {
+  severity?: Severity;
+  message?: string;
+  icon?: React.ReactNode;
+  actions?: {
+    primary?: {
+      label: string;
+      onClick: () => void;
+    };
+    secondary?: {
+      label: string;
+      onClick: () => void;
+    };
+  };
+}
+
+export function UsageBanner({
+  severity = Severity.Info,
+  message = "",
+  icon,
+  actions,
+}: UsageBannerProps) {
+  if (!message || !severity) {
+    return null;
+  }
+
+  const Icon = icon || defaultIcons[severity];
+
+  const bgColor = {
+    info: "#dbeafe",
+    warning: "#fef3c7",
+    error: "#fee2e2",
+  }[severity];
+
+  const textColor = {
+    info: "#1e40af",
+    warning: "#854d0e",
+    error: "#991b1b",
+  }[severity];
+
+  const iconColor = {
+    info: "#3b82f6",
+    warning: "#eab308",
+    error: "#ef4444",
+  }[severity];
+
+  const primaryButtonColor = {
+    info: "#3b82f6",
+    warning: "#eab308",
+    error: "#ef4444",
+  }[severity];
+
+  const primaryButtonHoverColor = {
+    info: "#2563eb",
+    warning: "#ca8a04",
+    error: "#dc2626",
+  }[severity];
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        bottom: "16px",
+        left: "50%",
+        transform: "translateX(-50%)",
+        maxWidth: "90%",
+        zIndex: 9999,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: "12px",
+          borderRadius: "9999px",
+          border: "1px solid #e5e7eb",
+          backgroundColor: bgColor,
+          padding: "8px 16px",
+          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+        }}
+      >
+        <div style={{ color: iconColor }}>{Icon}</div>
+        <span
+          style={{
+            flex: 1,
+            fontSize: "14px",
+            fontWeight: 500,
+            color: textColor,
+            whiteSpace: "normal",
+            wordBreak: "break-word",
+          }}
+        >
+          {message}
+        </span>
+        <div
+          style={{
+            display: "flex",
+            gap: "8px",
+            flexWrap: "wrap",
+          }}
+        >
+          {actions?.secondary && (
+            <button
+              onClick={actions.secondary.onClick}
+              style={{
+                borderRadius: "9999px",
+                padding: "4px 12px",
+                fontSize: "14px",
+                fontWeight: 500,
+                color: textColor,
+                backgroundColor: "transparent",
+                border: "none",
+                cursor: "pointer",
+                transition: "background-color 0.2s",
+              }}
+              onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.5)")}
+              onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+            >
+              {actions.secondary.label}
+            </button>
+          )}
+          {actions?.primary && (
+            <button
+              onClick={actions.primary.onClick}
+              style={{
+                borderRadius: "9999px",
+                padding: "4px 12px",
+                fontSize: "14px",
+                fontWeight: 500,
+                color: "#fff",
+                backgroundColor: primaryButtonColor,
+                border: "none",
+                cursor: "pointer",
+                transition: "background-color 0.2s",
+              }}
+              onMouseOver={(e) => (e.currentTarget.style.backgroundColor = primaryButtonHoverColor)}
+              onMouseOut={(e) => (e.currentTarget.style.backgroundColor = primaryButtonColor)}
+            >
+              {actions.primary.label}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function renderCopilotKitUsageBanner(error: CPKError) {
+  switch (error.name) {
+    case ErrorType.ConfigurationError:
+      return <UsageBanner severity={error.severity} message={error.message} />;
+    case ErrorType.MissingPublicApiKeyError:
+      return (
+        <UsageBanner
+          severity={error.severity}
+          message={error.message}
+          actions={{
+            primary: {
+              label: "Sign In",
+              onClick: () => {
+                window.location.href = "https://cloud.copilotkit.ai";
+              },
+            },
+          }}
+        />
+      );
+    case ErrorType.UpgradeRequiredError:
+      return (
+        <UsageBanner
+          severity={error.severity}
+          message={error.message}
+          actions={{
+            primary: {
+              label: "Upgrade",
+              onClick: () => {
+                window.location.href = "https://copilotkit.ai/";
+              },
+            },
+          }}
+        />
+      );
+  }
+}
+
+const defaultIcons: Record<Severity, JSX.Element> = {
+  [Severity.Info]: (
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      stroke="currentColor"
+      strokeWidth="2"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
+    </svg>
+  ),
+  [Severity.Warning]: (
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      stroke="currentColor"
+      strokeWidth="2"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  ),
+  [Severity.Error]: (
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      stroke="currentColor"
+      strokeWidth="2"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="15" y1="9" x2="9" y2="15" />
+      <line x1="9" y1="9" x2="15" y2="15" />
+    </svg>
+  ),
+};

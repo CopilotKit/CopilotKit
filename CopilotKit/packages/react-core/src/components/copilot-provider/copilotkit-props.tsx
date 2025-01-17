@@ -14,8 +14,20 @@ export interface CopilotKitProps {
 
   /**
    * Restrict input to a specific topic.
+   * @deprecated Use `guardrails_c` instead to control input restrictions
    */
   cloudRestrictToTopic?: {
+    validTopics?: string[];
+    invalidTopics?: string[];
+  };
+
+  /**
+   * Restrict input to specific topics using guardrails.
+   * @remarks
+   *
+   * This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://cloud.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
+   */
+  guardrails_c?: {
     validTopics?: string[];
     invalidTopics?: string[];
   };
@@ -88,8 +100,11 @@ export interface CopilotKitProps {
 
   /**
    * The auth config to use for the CopilotKit.
+   * @remarks
+   *
+   * This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://cloud.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
    */
-  authConfig?: {
+  authConfig_c?: {
     SignInComponent: React.ComponentType<{
       onSignInComplete: (authState: AuthState) => void;
     }>;

@@ -48,28 +48,28 @@ import {
   ExtensionsInput,
   loadMessagesFromJsonRepresentation,
 } from "@copilotkit/runtime-client-gql";
+import * as CPKErrors from "../../lib/errors";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const showDevConsole = props.showDevConsole === undefined ? "auto" : props.showDevConsole;
   const enabled = shouldShowDevConsole(showDevConsole);
+
   return (
     <ToastProvider enabled={enabled}>
-      <CopilotErrorBoundary>
+      <CopilotErrorBoundary publicApiKey={props.publicApiKey} showUsageBanner={enabled}>
         <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
       </CopilotErrorBoundary>
     </ToastProvider>
   );
 }
 
-export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
-  // Compute all the functions and properties that we need to pass
-  // to the CopilotContext.
+export function CopilotKitInternal(cpkProps: CopilotKitProps) {
+  const { children, ...props } = cpkProps;
 
-  if (!props.runtimeUrl && !props.publicApiKey) {
-    throw new Error(
-      "Please provide either a runtimeUrl or a publicApiKey to the CopilotKit component.",
-    );
-  }
+  /**
+   * This will throw an error if the props are invalid.
+   */
+  validateProps(cpkProps);
 
   const chatApiEndpoint = props.runtimeUrl || COPILOT_CLOUD_CHAT_URL;
 
@@ -77,10 +77,12 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
   const [coAgentStateRenders, setCoAgentStateRenders] = useState<
     Record<string, CoAgentStateRender<any>>
   >({});
+
   const chatComponentsCache = useRef<ChatComponentsCache>({
     actions: {},
     coAgentStateRenders: {},
   });
+
   const { addElement, removeElement, printTree } = useTree();
   const [isLoading, setIsLoading] = useState(false);
   const [chatInstructions, setChatInstructions] = useState("");
@@ -92,6 +94,8 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
     removeElement: removeDocument,
     allElements: allDocuments,
   } = useFlatCategoryStore<DocumentPointer>();
+
+  // Compute all the functions and properties that we need to pass
 
   const setAction = useCallback((id: string, action: FrontendAction<any>) => {
     setActions((prevPoints) => {
@@ -187,14 +191,6 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
     },
     [removeDocument],
   );
-
-  if (!props.publicApiKey) {
-    if (props.cloudRestrictToTopic) {
-      throw new Error(
-        "To use the cloudRestrictToTopic feature, please sign up at https://copilotkit.ai and provide a publicApiKey.",
-      );
-    }
-  }
 
   // get the appropriate CopilotApiConfig from the props
   const copilotApiConfig: CopilotApiConfig = useMemo(() => {
@@ -386,9 +382,9 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
         setRunId,
         chatAbortControllerRef,
         availableAgents,
-        authConfig: props.authConfig,
-        authStates,
-        setAuthStates,
+        authConfig_c: props.authConfig_c,
+        authStates_c: authStates,
+        setAuthStates_c: setAuthStates,
         extensions,
         setExtensions,
       }}
@@ -401,7 +397,7 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
 export const defaultCopilotContextCategories = ["global"];
 
 function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): FunctionCallHandler {
-  return async ({ messages, name, args }) => {
+  return async ({ name, args }) => {
     let actionsByFunctionName: Record<string, FrontendAction<any>> = {};
     for (let action of actions) {
       actionsByFunctionName[action.name] = action;
@@ -424,4 +420,28 @@ function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): Funct
     }
     return result;
   };
+}
+
+function formatFeatureName(featureName: string): string {
+  return featureName
+    .replace(/_c$/, "")
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function validateProps(props: CopilotKitProps): never | void {
+  const cloudFeatures = Object.keys(props).filter((key) => key.endsWith("_c"));
+
+  if (!props.runtimeUrl && !props.publicApiKey) {
+    throw new CPKErrors.ConfigurationError("Missing required prop: 'runtimeUrl' or 'publicApiKey'");
+  }
+
+  if (cloudFeatures.length > 0 && !props.publicApiKey) {
+    throw new CPKErrors.MissingPublicApiKeyError(
+      `Missing required prop: 'publicApiKey' to use cloud features: ${cloudFeatures
+        .map(formatFeatureName)
+        .join(", ")}`,
+    );
+  }
 }

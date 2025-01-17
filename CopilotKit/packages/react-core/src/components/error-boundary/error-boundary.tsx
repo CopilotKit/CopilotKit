@@ -1,23 +1,53 @@
 import React, { useEffect } from "react";
+import { CPKError, Severity } from "../../lib/errors";
+import { StatusChecker } from "../../lib/status-checker";
+import { renderCopilotKitUsageBanner as renderCopilotKitUsage, UsageBanner } from "../usage-banner";
 import { useErrorToast } from "./error-utils";
+
+const statusChecker = new StatusChecker();
 
 interface Props {
   children: React.ReactNode;
+  publicApiKey?: string;
+  showUsageBanner?: boolean;
 }
 
 interface State {
   hasError: boolean;
-  error?: Error;
+  error?: CPKError;
+  status?: {
+    severity: Severity;
+    message: string;
+  };
 }
 
 export class CopilotErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = {
+      hasError: false,
+    };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: CPKError): State {
     return { hasError: true, error };
+  }
+
+  componentDidMount() {
+    if (this.props.publicApiKey) {
+      statusChecker.start(this.props.publicApiKey, (newStatus) => {
+        this.setState((prevState) => {
+          if (newStatus?.severity !== prevState.status?.severity) {
+            return { status: newStatus ?? undefined };
+          }
+          return null;
+        });
+      });
+    }
+  }
+
+  componentWillUnmount() {
+    statusChecker.stop();
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
@@ -25,7 +55,24 @@ export class CopilotErrorBoundary extends React.Component<Props, State> {
   }
 
   render() {
-    return <ErrorToast error={this.state.error}>{this.props.children}</ErrorToast>;
+    if (this.state.hasError) {
+      if (this.state.error instanceof CPKError) {
+        return renderCopilotKitUsage(this.state.error);
+      }
+      return <ErrorToast error={this.state.error}>{this.props.children}</ErrorToast>;
+    }
+
+    return (
+      <>
+        {this.props.children}
+        {this.props.showUsageBanner ? (
+          <UsageBanner
+            severity={this.state.status?.severity}
+            message={this.state.status?.message}
+          />
+        ) : null}
+      </>
+    );
   }
 }
 
