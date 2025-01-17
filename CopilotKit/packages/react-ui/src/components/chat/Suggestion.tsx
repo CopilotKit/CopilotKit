@@ -19,6 +19,7 @@ export function Suggestion({ title, message, onClick, partial, className }: Sugg
         onClick(message);
       }}
       className={className || "suggestion"}
+      data-test-id="suggestion"
     >
       {partial && SmallSpinnerIcon}
       <span>{title}</span>

@@ -3,6 +3,7 @@ import {
   waitForStepsAndEnsureStreaming,
   waitForResponse,
   sendChatMessage,
+  waitForSuggestions,
 } from "../lib/helpers";
 import {
   getConfigs,
@@ -43,7 +44,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               page,
             }) => {
               await page.goto(`${config.url}${variant.queryParams}`);
-
+              await waitForSuggestions(page, 3)
               const researchQuestion = "Lifespan of penguins";
               await page
                 .getByPlaceholder("Enter your research question")
