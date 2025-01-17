@@ -25,7 +25,6 @@ function Home() {
       runtimeUrl={`/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl ?? ""}`}
       showDevConsole={false}
       agent={agent}
-      threadId="4a182b8d-693b-4012-af65-f5a51bbc8fdc"
     >
       <Main />
     </CopilotKit>
