@@ -277,28 +277,30 @@ please use an LLM adapter instead.`);
     }
   }
 
-  async discoverAgentsFromEndpoints(graphqlContext: GraphQLContext): Promise<(Agent & { endpoint: EndpointDefinition })[]> {
+  async discoverAgentsFromEndpoints(
+    graphqlContext: GraphQLContext,
+  ): Promise<(Agent & { endpoint: EndpointDefinition })[]> {
     const headers = createHeaders(null, graphqlContext);
     const agents = this.remoteEndpointDefinitions.reduce(
-        async (acc: Promise<Agent[]>, endpoint) => {
-          const agents = await acc;
-          if (endpoint.type === EndpointType.LangGraphPlatform) {
-            const client = new LangGraphClient({
-              apiUrl: endpoint.deploymentUrl,
-              apiKey: endpoint.langsmithApiKey,
-            });
+      async (acc: Promise<Agent[]>, endpoint) => {
+        const agents = await acc;
+        if (endpoint.type === EndpointType.LangGraphPlatform) {
+          const client = new LangGraphClient({
+            apiUrl: endpoint.deploymentUrl,
+            apiKey: endpoint.langsmithApiKey,
+          });
 
-            const data: Array<{ assistant_id: string; graph_id: string }> =
-                await client.assistants.search();
+          const data: Array<{ assistant_id: string; graph_id: string }> =
+            await client.assistants.search();
 
-            const endpointAgents = (data ?? []).map((entry) => ({
-              name: entry.graph_id,
-              id: entry.assistant_id,
-              description: "",
-              endpoint,
-            }));
-            return [...agents, ...endpointAgents];
-          }
+          const endpointAgents = (data ?? []).map((entry) => ({
+            name: entry.graph_id,
+            id: entry.assistant_id,
+            description: "",
+            endpoint,
+          }));
+          return [...agents, ...endpointAgents];
+        }
 
         interface InfoResponse {
           agents?: Array<{
