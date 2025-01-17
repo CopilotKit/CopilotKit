@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.5.12-next.5
+
+### Patch Changes
+
+- 59de133: - fix: rename ExperimentalEmptyAdapter to EmptyAdapter
+  - @copilotkit/shared@1.5.12-next.5
+
 ## 1.5.12-next.4
 
 ### Patch Changes
