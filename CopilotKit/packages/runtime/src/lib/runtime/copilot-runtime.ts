@@ -22,6 +22,7 @@ import {
   CopilotKitError,
   CopilotKitLowLevelError,
   CopilotKitAgentDiscoveryError,
+  CopilotKitMisuseError,
 } from "@copilotkit/shared";
 import { Client as LangGraphClient } from "@langchain/langgraph-sdk";
 import {
@@ -201,10 +202,11 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         return await this.processAgentRequest(request);
       }
       if (serviceAdapter instanceof EmptyAdapter) {
-        // TODO: use CPK error here
-        throw new Error(`Invalid adapter configuration: EmptyAdapter is only meant to be used with agent lock mode. 
+        throw new CopilotKitMisuseError({
+          message: `Invalid adapter configuration: EmptyAdapter is only meant to be used with agent lock mode. 
 For non-agent components like useCopilotChatSuggestions, CopilotTextarea, or CopilotTask, 
-please use an LLM adapter instead.`);
+please use an LLM adapter instead.`,
+        });
       }
 
       const messages = rawMessages.filter((message) => !message.agentStateMessage);
@@ -271,6 +273,9 @@ please use an LLM adapter instead.`);
         ),
       };
     } catch (error) {
+      if (error instanceof CopilotKitError) {
+        throw error;
+      }
       console.error("Error getting response:", error);
       eventSource.sendErrorMessageToChat();
       throw error;

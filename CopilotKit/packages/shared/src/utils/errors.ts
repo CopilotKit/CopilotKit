@@ -15,6 +15,7 @@ export enum CopilotKitErrorCode {
   AGENT_NOT_FOUND = "AGENT_NOT_FOUND",
   API_NOT_FOUND = "API_NOT_FOUND",
   REMOTE_ENDPOINT_NOT_FOUND = "REMOTE_ENDPOINT_NOT_FOUND",
+  MISUSE = "MISUSE",
   UNKNOWN = "UNKNOWN",
 }
 
@@ -42,6 +43,10 @@ export const ERROR_CONFIG = {
   [CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND]: {
     statusCode: 404,
     troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-copilotkits-remote-endpoint-not-found-error`,
+  },
+  [CopilotKitErrorCode.MISUSE]: {
+    statusCode: 400,
+    troubleshootingUrl: null,
   },
   [CopilotKitErrorCode.UNKNOWN]: {
     statusCode: 500,
@@ -75,6 +80,30 @@ export class CopilotKitError extends GraphQLError {
 }
 
 /**
+ * Error thrown when we can identify wrong usage of our components.
+ * This helps us notify the developer before real errors can happen
+ *
+ * @extends CopilotKitError
+ */
+export class CopilotKitMisuseError extends CopilotKitError {
+  constructor({
+    message,
+    code = CopilotKitErrorCode.MISUSE,
+  }: {
+    message: string;
+    code?: CopilotKitErrorCode;
+  }) {
+    const docsLink =
+      "troubleshootingUrl" in ERROR_CONFIG[code]
+        ? getSeeMoreMarkdown(ERROR_CONFIG[code].troubleshootingUrl as string)
+        : null;
+    const finalMessage = docsLink ? `${message}.\n\n${docsLink}` : message;
+    super({ message: finalMessage, code });
+    this.name = ERROR_NAMES.COPILOT_API_DISCOVERY_ERROR;
+  }
+}
+
+/**
  * Error thrown when the CopilotKit API endpoint cannot be discovered or accessed.
  * This typically occurs when:
  * - The API endpoint URL is invalid or misconfigured
@@ -84,13 +113,14 @@ export class CopilotKitError extends GraphQLError {
  * @extends CopilotKitError
  */
 export class CopilotKitApiDiscoveryError extends CopilotKitError {
-  constructor({
-    message = "Failed to find CopilotKit API endpoint",
-    code = CopilotKitErrorCode.API_NOT_FOUND,
-  }: {
-    message?: string;
-    code?: CopilotKitErrorCode.API_NOT_FOUND | CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND;
-  } = {}) {
+  constructor(
+    params: {
+      message?: string;
+      code?: CopilotKitErrorCode.API_NOT_FOUND | CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND;
+    } = {},
+  ) {
+    const message = params.message ?? "Failed to find CopilotKit API endpoint";
+    const code = params.code ?? CopilotKitErrorCode.API_NOT_FOUND;
     const errorMessage = `${message}.\n\n${getSeeMoreMarkdown(ERROR_CONFIG[code].troubleshootingUrl)}`;
     super({ message: errorMessage, code });
     this.name = ERROR_NAMES.COPILOT_API_DISCOVERY_ERROR;
@@ -106,9 +136,8 @@ export class CopilotKitApiDiscoveryError extends CopilotKitError {
  * @extends CopilotKitApiDiscoveryError
  */
 export class CopilotKitRemoteEndpointDiscoveryError extends CopilotKitApiDiscoveryError {
-  constructor({
-    message = "Failed to find or contact remote endpoint",
-  }: { message?: string } = {}) {
+  constructor(params?: { message?: string }) {
+    const message = params?.message ?? "Failed to find or contact remote endpoint";
     const code = CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND;
     super({ message, code });
     this.name = ERROR_NAMES.COPILOT_REMOTE_ENDPOINT_DISCOVERY_ERROR;
@@ -125,12 +154,12 @@ export class CopilotKitRemoteEndpointDiscoveryError extends CopilotKitApiDiscove
  * @extends CopilotKitError
  */
 export class CopilotKitAgentDiscoveryError extends CopilotKitError {
-  constructor({ agentName }: { agentName?: string } = {}) {
+  constructor(params?: { agentName?: string }) {
     const code = CopilotKitErrorCode.AGENT_NOT_FOUND;
     const baseMessage = "Failed to find agent";
     const configMessage = "Please verify the agent name exists and is properly configured.";
-    const finalMessage = agentName
-      ? `${baseMessage} '${agentName}'. ${configMessage}\n\n${getSeeMoreMarkdown(ERROR_CONFIG[code].troubleshootingUrl)}`
+    const finalMessage = params?.agentName
+      ? `${baseMessage} '${params.agentName}'. ${configMessage}\n\n${getSeeMoreMarkdown(ERROR_CONFIG[code].troubleshootingUrl)}`
       : `${baseMessage}. ${configMessage}\n\n${getSeeMoreMarkdown(ERROR_CONFIG[code].troubleshootingUrl)}`;
     super({ message: finalMessage || finalMessage, code });
     this.name = ERROR_NAMES.COPILOT_KIT_AGENT_DISCOVERY_ERROR;
