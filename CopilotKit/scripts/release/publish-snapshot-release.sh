@@ -12,9 +12,10 @@ suggested_tag=$(echo $suggested_tag | sed 's/[^a-zA-Z0-9-]/-/g')
 suggested_tag=$(echo $suggested_tag | sed 's/^-//;s/-$//')
 
 # exit pre mode if already in pre mode
-if [ -f ".changeset/pre.json" ]; then
-  pnpm changeset pre exit
-fi
+pnpm changeset pre exit
 
-# bump the version
-pnpm changeset version --snapshot $suggested_tag
+# version
+pnpm changeset version --snapshot $suggested_tag --tag pr --no-git-tag
+
+# publish
+pnpm changeset publish --no-git-tag --snapshot $suggested_tag --tag pr --no-git-tag

@@ -30,18 +30,10 @@ jobs:
       - name: Install Dependencies
         run: pnpm i
 
-      - name: Prepare prerelease
-        run: |
-          ./scripts/release/prepare-custom-prerelease.sh
+      - name: Build
+        run: pnpm run build
 
-      - name: Create Release Pull Request or Publish to npm
-        id: changesets
-        uses: ./.github/actions/changesets-action
-        with:
-          publish: pnpm run build &&pnpm changeset publish --no-git-tag --snapshot --tag pr
-          cwd: CopilotKit
-          createGithubReleases: false
+      - name: Publish snapshot
+        run: ./scripts/release/publish-snapshot-release.sh
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
