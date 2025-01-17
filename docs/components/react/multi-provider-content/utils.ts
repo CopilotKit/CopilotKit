@@ -104,9 +104,9 @@ export const quickStartProviders: ProvidersConfig = {
     },
     "empty": {
         id: "empty",
-        title: "Experimental Empty Adapter",
+        title: "Empty Adapter (CoAgents Only)",
         icon: '/icons/empty.svg',
-        adapterImport: "ExperimentalEmptyAdapter",
-        adapterSetup: 'const serviceAdapter = new ExperimentalEmptyAdapter();'
+        adapterImport: "EmptyAdapter",
+        adapterSetup: 'const serviceAdapter = new EmptyAdapter();'
     },
 };
