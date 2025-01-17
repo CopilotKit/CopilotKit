@@ -13,7 +13,12 @@
  */
 
 import { Action, actionParametersToJsonSchema, Parameter, randomId } from "@copilotkit/shared";
-import { CopilotServiceAdapter, RemoteChain, RemoteChainParameters } from "../../service-adapters";
+import {
+  CopilotServiceAdapter,
+  ExperimentalEmptyAdapter,
+  RemoteChain,
+  RemoteChainParameters,
+} from "../../service-adapters";
 import { MessageInput } from "../../graphql/inputs/message.input";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { RuntimeEventSource } from "../../service-adapters/events";
@@ -183,6 +188,12 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     try {
       if (agentSession) {
         return await this.processAgentRequest(request);
+      }
+      if (serviceAdapter instanceof ExperimentalEmptyAdapter) {
+        // TODO: use CPK error here
+        throw new Error(`Invalid adapter configuration: ExperimentalEmptyAdapter is only meant to be used with agent lock mode. 
+For non-agent components like useCopilotChatSuggestions, CopilotTextarea, or CopilotTask, 
+please use an LLM adapter instead.`);
       }
 
       const messages = rawMessages.filter((message) => !message.agentStateMessage);

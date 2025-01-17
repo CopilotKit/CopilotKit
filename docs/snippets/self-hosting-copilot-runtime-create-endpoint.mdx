@@ -17,6 +17,14 @@ import { RiNextjsLine } from "react-icons/ri";
         </Callout>
     </If>
 
+    <If conditions={[{ key: 'id', value: 'empty' }]}>
+        <Callout type="error">
+            Be aware that the empty adapter only works in combination with CoAgents in agent lock mode!
+
+            In addition, bare in mind that `useCopilotChatSuggestions`, `CopilotTextarea` and `CopilotTask` will not work, as these require an LLM.
+        </Callout>
+    </If>
+
     <If conditions={[{ key: 'packageName', value: true }]}>
         Install provider package:
 
@@ -25,12 +33,13 @@ import { RiNextjsLine } from "react-icons/ri";
         ```
     </If>
 
+    <If conditions={[{ key: 'envVarName', value: true }]}>
+        Add your API key to your `.env` file in the root of your project (unless you provide it directly to the client):
 
-    Add your API key to your `.env` file in the root of your project (unless you provide it directly to the client):
-
-    ```plaintext title=".env"
-    {{endVarName}}=your_api_key_here
-    ```
+        ```plaintext title=".env"
+        {{envVarName}}=your_api_key_here
+        ```
+    </If>
 
     <If conditions={[{ key: 'id', value: 'openai' }, { key: 'id', value: 'openai-assistants' }]}>
         <Callout type="warn">
