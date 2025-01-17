@@ -38,7 +38,7 @@ jobs:
         id: changesets
         uses: ./.github/actions/changesets-action
         with:
-          publish: pnpm run build &&pnpm changeset publish --no-git-tag --snapshot --tag pr
+          publish: pnpm run build && pnpm changeset publish --snapshot --tag pr
           cwd: CopilotKit
           createGithubReleases: false
         env:
