@@ -23,6 +23,7 @@ import {
   CopilotKitLowLevelError,
   CopilotKitAgentDiscoveryError,
 } from "@copilotkit/shared";
+import { Client as LangGraphClient } from "@langchain/langgraph-sdk";
 import {
   CopilotServiceAdapter,
   EmptyAdapter,
@@ -276,27 +277,28 @@ please use an LLM adapter instead.`);
     }
   }
 
-  async discoverAgentsFromEndpoints(graphqlContext: GraphQLContext): Promise<Agent[]> {
+  async discoverAgentsFromEndpoints(graphqlContext: GraphQLContext): Promise<(Agent & { endpoint: EndpointDefinition })[]> {
     const headers = createHeaders(null, graphqlContext);
     const agents = this.remoteEndpointDefinitions.reduce(
-      async (acc: Promise<Agent[]>, endpoint) => {
-        const agents = await acc;
-        if (endpoint.type === EndpointType.LangGraphPlatform) {
-          const response = await fetch(
-            `${(endpoint as LangGraphPlatformEndpoint).deploymentUrl}/assistants/search`,
-            {
-              method: "POST",
-              headers,
-            },
-          );
+        async (acc: Promise<Agent[]>, endpoint) => {
+          const agents = await acc;
+          if (endpoint.type === EndpointType.LangGraphPlatform) {
+            const client = new LangGraphClient({
+              apiUrl: endpoint.deploymentUrl,
+              apiKey: endpoint.langsmithApiKey,
+            });
 
-          const data: Array<{ assistant_id: string; graph_id: string }> = await response.json();
-          const endpointAgents = (data ?? []).map((entry) => ({
-            name: entry.graph_id,
-            id: entry.assistant_id,
-          }));
-          return [...agents, ...endpointAgents];
-        }
+            const data: Array<{ assistant_id: string; graph_id: string }> =
+                await client.assistants.search();
+
+            const endpointAgents = (data ?? []).map((entry) => ({
+              name: entry.graph_id,
+              id: entry.assistant_id,
+              description: "",
+              endpoint,
+            }));
+            return [...agents, ...endpointAgents];
+          }
 
         interface InfoResponse {
           agents?: Array<{
@@ -322,7 +324,7 @@ please use an LLM adapter instead.`);
           const data: InfoResponse = await response.json();
           const endpointAgents = (data?.agents ?? []).map((agent) => ({
             name: agent.name,
-            description: agent.description,
+            description: agent.description ?? "",
             id: randomId(), // Required by Agent type
           }));
           return [...agents, ...endpointAgents];
