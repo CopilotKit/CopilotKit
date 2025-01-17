@@ -4,7 +4,8 @@ import warnings
 from importlib import metadata
 
 from pprint import pformat
-from typing import List, Callable, Union, Optional, TypedDict, Any, Coroutine
+from typing import List, Callable, Union, Optional, Any, Coroutine
+from typing_extensions import TypedDict, Tuple
 from .agent import Agent, AgentDict
 from .action import Action, ActionDict, ActionResultDict
 from .types import Message
@@ -197,15 +198,14 @@ class CopilotKitRemoteEndpoint:
         actions_list = [action.dict_repr() for action in actions]
         agents_list = [agent.dict_repr() for agent in agents]
 
-        logger.debug(bold("Handling info request:"))
-        logger.debug("--------------------------")
-        logger.debug(bold("Context:"))
-        logger.debug(pformat(context))
-        logger.debug(bold("Actions:"))
-        logger.debug(pformat(actions_list))
-        logger.debug(bold("Agents:"))
-        logger.debug(pformat(agents_list))
-        logger.debug("--------------------------")
+        self._log_request_info(
+            title="Handling info request:",
+            data=[
+                ("Context", context),
+                ("Actions", actions_list),
+                ("Agents", agents_list),
+            ]
+        )
 
         return {
             "actions": actions_list,
@@ -241,15 +241,14 @@ class CopilotKitRemoteEndpoint:
 
         action = self._get_action(context=context, name=name)
 
-        logger.info(bold("Handling execute action request:"))
-        logger.info("--------------------------")
-        logger.info(bold("Context:"))
-        logger.info(pformat(context))
-        logger.info(bold("Action:"))
-        logger.info(pformat(action.dict_repr()))
-        logger.info(bold("Arguments:"))
-        logger.info(pformat(arguments))
-        logger.info("--------------------------")
+        self._log_request_info(
+            title="Handling execute action request:",
+            data=[
+                ("Context", context),
+                ("Action", action.dict_repr()),
+                ("Arguments", arguments),
+            ]
+        )
 
         try:
             result = action.execute(arguments=arguments)
@@ -276,23 +275,18 @@ class CopilotKitRemoteEndpoint:
         if agent is None:
             raise AgentNotFoundException(name)
 
-        logger.info(bold("Handling execute agent request:"))
-        logger.info("--------------------------")
-        logger.info(bold("Context:"))
-        logger.info(pformat(context))
-        logger.info(bold("Agent:"))
-        logger.info(pformat(agent.dict_repr()))
-        logger.info(bold("Thread ID:"))
-        logger.info(thread_id)
-        logger.info(bold("Node Name:"))
-        logger.info(node_name)
-        logger.info(bold("State:"))
-        logger.info(pformat(state))
-        logger.info(bold("Messages:"))
-        logger.info(pformat(messages))
-        logger.info(bold("Actions:"))
-        logger.info(pformat(actions))
-        logger.info("--------------------------")
+        self._log_request_info(
+            title="Handling execute agent request:",
+            data=[
+                ("Context", context),
+                ("Agent", agent.dict_repr()),
+                ("Thread ID", thread_id),
+                ("Node Name", node_name),
+                ("State", state),
+                ("Messages", messages),
+                ("Actions", actions),
+            ]
+        )
 
         try:
             return agent.execute(
@@ -304,6 +298,45 @@ class CopilotKitRemoteEndpoint:
             )
         except Exception as error:
             raise AgentExecutionException(name, error) from error
+
+    def get_agent_state(
+        self,
+        *,
+        context: CopilotKitContext,
+        thread_id: str,
+        name: str,
+    ):
+        """
+        Get agent state
+        """
+        agents = self.agents(context) if callable(self.agents) else self.agents
+        agent = next((agent for agent in agents if agent.name == name), None)
+        if agent is None:
+            raise AgentNotFoundException(name)
+
+        self._log_request_info(
+            title="Handling get agent state request:",
+            data=[
+                ("Context", context),
+                ("Agent", agent.dict_repr()),
+                ("Thread ID", thread_id),
+            ]
+        )
+        try:
+            return agent.get_state(thread_id=thread_id)
+        except Exception as error:
+            raise AgentExecutionException(name, error) from error
+
+    def _log_request_info(self, title: str, data: List[Tuple[str, Any]]):
+        """
+        Log request info
+        """
+        logger.info(bold(title))
+        logger.info("--------------------------")
+        for key, value in data:
+            logger.info(bold(key+":"))
+            logger.info(pformat(value))
+        logger.info("--------------------------")
 
 # Alias for backwards compatibility
 class CopilotKitSDK(CopilotKitRemoteEndpoint):

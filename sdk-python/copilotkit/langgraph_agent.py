@@ -209,7 +209,7 @@ class LangGraphAgent(Agent):
             "running": running,
             "role": "assistant"
         })
-
+    
     def execute( # pylint: disable=too-many-arguments            
         self,
         *,
@@ -235,7 +235,8 @@ class LangGraphAgent(Agent):
             agent_name=self.name
         )
 
-        mode = "continue" if thread_id and node_name != "__end__" else "start"
+
+        mode = "continue" if thread_id and node_name != "__end__" and node_name is not None else "start"
         thread_id = thread_id or str(uuid.uuid4())
         config["configurable"]["thread_id"] = thread_id
 
@@ -370,7 +371,33 @@ class LangGraphAgent(Agent):
             include_messages=True
         ) + "\n"
 
+    def get_state(
+        self,
+        *,
+        thread_id: str,
+    ):
+        config = ensure_config(cast(Any, self.langgraph_config.copy()) if self.langgraph_config else {}) # pylint: disable=line-too-long
+        config["configurable"] = config.get("configurable", {})
+        config["configurable"]["thread_id"] = thread_id
 
+        state = {**self.graph.get_state(config).values}
+        if state == {}:
+            return {
+                "threadId": thread_id,
+                "threadExists": False,
+                "state": {},
+                "messages": []
+            }
+
+        messages = langchain_messages_to_copilotkit(state.get("messages", []))
+        del state["messages"]
+
+        return {
+            "threadId": thread_id,
+            "threadExists": True,
+            "state": state,
+            "messages": messages
+        }
 
     def dict_repr(self):
         super_repr = super().dict_repr()

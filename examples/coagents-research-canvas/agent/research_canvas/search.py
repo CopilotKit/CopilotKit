@@ -29,6 +29,7 @@ async def search_node(state: AgentState, config: RunnableConfig):
     """
     The search node is responsible for searching the internet for resources.
     """
+
     ai_message = cast(AIMessage, state["messages"][-1])
 
     state["resources"] = state.get("resources", [])

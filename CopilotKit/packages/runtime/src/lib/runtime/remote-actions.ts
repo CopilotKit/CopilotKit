@@ -51,7 +51,7 @@ export type RemoteActionInfoResponse = {
 export type LangGraphAgentHandlerParams = {
   name: string;
   actionInputsWithoutAgents: ActionInput[];
-  threadId?: string;
+  threadId: string;
   nodeName?: string;
   additionalMessages?: Message[];
 };

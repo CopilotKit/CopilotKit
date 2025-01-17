@@ -161,9 +161,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
       eventStream$.complete();
     });
 
-    return {
-      threadId: threadId || randomId(),
-    };
+    return {};
   }
 }
 

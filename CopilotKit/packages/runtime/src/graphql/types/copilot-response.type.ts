@@ -18,7 +18,7 @@ import { ExtensionsResponse } from "./extensions-response.type";
     return undefined;
   },
 })
-abstract class BaseMessageOutput {
+export abstract class BaseMessageOutput {
   @Field(() => String)
   id: string;
 

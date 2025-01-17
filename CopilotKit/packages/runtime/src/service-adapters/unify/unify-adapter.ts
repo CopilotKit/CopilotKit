@@ -138,8 +138,6 @@ export class UnifyAdapter implements CopilotServiceAdapter {
       eventStream$.complete();
     });
 
-    return {
-      threadId: request.threadId || randomId(),
-    };
+    return {};
   }
 }

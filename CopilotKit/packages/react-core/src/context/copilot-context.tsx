@@ -164,8 +164,8 @@ export interface CopilotContextParams {
 
   agentLock: string | null;
 
-  threadId: string | null;
-  setThreadId: React.Dispatch<React.SetStateAction<string | null>>;
+  threadId: string;
+  setThreadId: React.Dispatch<React.SetStateAction<string>>;
 
   runId: string | null;
   setRunId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -255,7 +255,7 @@ const emptyCopilotContext: CopilotContextParams = {
   setAgentSession: () => {},
   forwardedParameters: {},
   agentLock: null,
-  threadId: null,
+  threadId: "",
   setThreadId: () => {},
   runId: null,
   setRunId: () => {},

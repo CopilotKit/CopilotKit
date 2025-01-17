@@ -166,8 +166,6 @@ export class GroqAdapter implements CopilotServiceAdapter {
       eventStream$.complete();
     });
 
-    return {
-      threadId: threadId || randomId(),
-    };
+    return {};
   }
 }

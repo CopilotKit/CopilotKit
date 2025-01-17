@@ -35,7 +35,7 @@ def add_fastapi_endpoint(
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         return loop.run_until_complete(handler(request, sdk))
-    
+
     async def make_handler(request: Request):
         loop = asyncio.get_event_loop()
         future = loop.run_in_executor(executor, run_handler_in_thread, request, sdk)
@@ -110,6 +110,16 @@ async def handler(request: Request, sdk: CopilotKitRemoteEndpoint):
             actions=actions,
         )
 
+    if method == 'POST' and path == 'agents/state':
+        thread_id = body_get_or_raise(body, "threadId")
+        name = body_get_or_raise(body, "name")
+
+        return handle_get_agent_state(
+            sdk=sdk,
+            context=context,
+            thread_id=thread_id,
+            name=name,
+        )
 
     raise HTTPException(status_code=404, detail="Not found")
 
@@ -175,4 +185,26 @@ def handle_execute_agent( # pylint: disable=too-many-arguments
         return JSONResponse(content={"error": str(exc)}, status_code=500)
     except Exception as exc: # pylint: disable=broad-except
         logger.error("Agent execution error: %s", exc, exc_info=True)
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+def handle_get_agent_state(
+        *,
+        sdk: CopilotKitRemoteEndpoint,
+        context: CopilotKitContext,
+        thread_id: str,
+        name: str,
+    ):
+    """Handle get agent state request with FastAPI"""
+    try:
+        result = sdk.get_agent_state(
+            context=context,
+            thread_id=thread_id,
+            name=name,
+        )
+        return JSONResponse(content=result)
+    except AgentNotFoundException as exc:
+        logger.error("Agent not found: %s", exc, exc_info=True)
+        return JSONResponse(content={"error": str(exc)}, status_code=404)
+    except Exception as exc: # pylint: disable=broad-except
+        logger.error("Agent get state error: %s", exc, exc_info=True)
         return JSONResponse(content={"error": str(exc)}, status_code=500)

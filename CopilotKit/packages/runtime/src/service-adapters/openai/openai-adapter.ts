@@ -203,8 +203,6 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       eventStream$.complete();
     });
 
-    return {
-      threadId: threadId || randomId(),
-    };
+    return {};
   }
 }

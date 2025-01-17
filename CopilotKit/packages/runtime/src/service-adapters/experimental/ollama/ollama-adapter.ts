@@ -72,8 +72,6 @@ export class ExperimentalOllamaAdapter implements CopilotServiceAdapter {
 
       eventStream$.complete();
     });
-    return {
-      threadId: request.threadId || randomId(),
-    };
+    return {};
   }
 }

@@ -72,8 +72,7 @@ export class LangChainAdapter implements CopilotServiceAdapter {
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
     try {
-      const { eventSource, model, actions, messages, runId } = request;
-      const threadId = request.threadId ?? randomId();
+      const { eventSource, model, actions, messages, runId, threadId } = request;
       const result = await this.options.chainFn({
         messages: messages.map(convertMessageToLangChainMessage),
         tools: actions.map(convertActionInputToLangChainTool),
@@ -89,9 +88,7 @@ export class LangChainAdapter implements CopilotServiceAdapter {
         });
       });
 
-      return {
-        threadId,
-      };
+      return {};
     } finally {
       await awaitAllCallbacks();
     }

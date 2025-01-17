@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 
-import { ReactNode } from "react";
 import { CopilotKit } from "@copilotkit/react-core";
 
 import "@copilotkit/react-ui/styles.css";
@@ -11,7 +10,7 @@ export const metadata: Metadata = {
   description: "CoAgents Starter",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({ children }: { children: any }) {
   return (
     <html lang="en">
       <body>

@@ -1,5 +1,6 @@
 import { Client } from "@langchain/langgraph-sdk";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
+import { randomUUID, isValidUUID } from "@copilotkit/shared";
 import { parse as parsePartialJson } from "partial-json";
 import { Logger } from "pino";
 import { ActionInput } from "../../graphql/inputs/action.input";
@@ -76,7 +77,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   const {
     deploymentUrl,
     langsmithApiKey,
-    threadId: agrsInitialThreadId,
+    threadId: argsInitialThreadId,
     agent,
     nodeName: initialNodeName,
     state: initialState,
@@ -90,26 +91,37 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   const { name, assistantId: initialAssistantId } = agent;
 
   const client = new Client({ apiUrl: deploymentUrl, apiKey: langsmithApiKey });
-  let initialThreadId = agrsInitialThreadId;
-  const wasInitiatedWithExistingThread = !!initialThreadId;
-  if (initialThreadId && initialThreadId.startsWith("ck-")) {
-    initialThreadId = initialThreadId.substring(3);
+
+  let threadId = argsInitialThreadId ?? randomUUID();
+  if (argsInitialThreadId && argsInitialThreadId.startsWith("ck-")) {
+    threadId = argsInitialThreadId.substring(3);
   }
 
-  const threadId = initialThreadId ?? randomUUID();
-  if (initialThreadId === threadId) {
+  if (!isValidUUID(threadId)) {
+    console.warn(
+      `Cannot use the threadId ${threadId} with LangGraph Platform. Must be a valid UUID.`,
+    );
+  }
+
+  let wasInitiatedWithExistingThread = true;
+  try {
     await client.threads.get(threadId);
-  } else {
-    await client.threads.create({ threadId: threadId });
+  } catch (error) {
+    wasInitiatedWithExistingThread = false;
+    await client.threads.create({ threadId });
   }
 
   let agentState = { values: {} };
   if (wasInitiatedWithExistingThread) {
     agentState = await client.threads.getState(threadId);
   }
+
   const agentStateValues = agentState.values as State;
   state.messages = agentStateValues.messages;
-  const mode = wasInitiatedWithExistingThread && nodeName != "__end__" ? "continue" : "start";
+  const mode =
+    threadId && nodeName != "__end__" && nodeName != undefined && nodeName != null
+      ? "continue"
+      : "start";
   let formattedMessages = [];
   try {
     formattedMessages = copilotkitMessagesToLangChain(messages);
@@ -483,7 +495,7 @@ function langGraphDefaultMergeState(
   };
 }
 
-function langchainMessagesToCopilotKit(messages: any[]): any[] {
+export function langchainMessagesToCopilotKit(messages: any[]): any[] {
   const result: any[] = [];
   const tool_call_names: Record<string, string> = {};
 

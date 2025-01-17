@@ -18,9 +18,9 @@ export default function Main() {
     },
   });
 
-  useCopilotChatSuggestions({
-    instructions: "Lifespan of penguins",
-  });
+  // useCopilotChatSuggestions({
+  //   instructions: "Lifespan of penguins",
+  // });
 
   return (
     <>

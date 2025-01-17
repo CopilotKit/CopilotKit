@@ -94,6 +94,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
     const { messages, actions, eventSource, runId, forwardedParameters } = request;
+
     // if we don't have a threadId, create a new thread
     let threadId = request.extensions?.openaiAssistantAPI?.threadId;
 
@@ -125,7 +126,6 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     }
 
     return {
-      threadId,
       runId: nextRunId,
       extensions: {
         ...request.extensions,

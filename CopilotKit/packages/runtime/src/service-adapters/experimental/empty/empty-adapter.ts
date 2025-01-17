@@ -26,8 +26,6 @@ export class ExperimentalEmptyAdapter implements CopilotServiceAdapter {
   async process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
-    return {
-      threadId: request.threadId || randomId(),
-    };
+    return {};
   }
 }

@@ -5,9 +5,10 @@ import {
   AvailableAgentsQuery,
   GenerateCopilotResponseMutation,
   GenerateCopilotResponseMutationVariables,
+  LoadAgentStateQuery,
 } from "../graphql/@generated/graphql";
 import { generateCopilotResponseMutation } from "../graphql/definitions/mutations";
-import { getAvailableAgentsQuery } from "../graphql/definitions/queries";
+import { getAvailableAgentsQuery, loadAgentStateQuery } from "../graphql/definitions/queries";
 import { OperationResultSource, OperationResult } from "urql";
 
 const createFetchFn =
@@ -107,6 +108,15 @@ export class CopilotRuntimeClient {
   availableAgents() {
     const fetchFn = createFetchFn();
     return this.client.query<AvailableAgentsQuery>(getAvailableAgentsQuery, {}, { fetch: fetchFn });
+  }
+
+  loadAgentState(data: { threadId: string; agentName: string }) {
+    const fetchFn = createFetchFn();
+    return this.client.query<LoadAgentStateQuery>(
+      loadAgentStateQuery,
+      { data },
+      { fetch: fetchFn },
+    );
   }
 
   static removeGraphQLTypename(data: any) {

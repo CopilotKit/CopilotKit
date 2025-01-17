@@ -97,10 +97,11 @@ import {
 } from "../context";
 import { CoagentState } from "../types/coagent-state";
 import { useCopilotChat } from "./use-copilot-chat";
-import { Message } from "@copilotkit/runtime-client-gql";
+import { loadMessagesFromJsonRepresentation, Message } from "@copilotkit/runtime-client-gql";
 import { flushSync } from "react-dom";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
 import { useToast } from "../components/toast/toast-provider";
+import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
 
 interface WithInternalStateManagementAndInitial<T> {
   /**
@@ -230,7 +231,8 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
 
   const messagesContext = useCopilotMessagesContext();
   const context = { ...generalContext, ...messagesContext };
-  const { coagentStates, coagentStatesRef, setCoagentStatesWithRef } = context;
+  const { coagentStates, coagentStatesRef, setCoagentStatesWithRef, threadId, copilotApiConfig } =
+    context;
   const { appendMessage, runChatCompletion } = useCopilotChat();
 
   const getCoagentState = (coagentStates: Record<string, CoagentState>, name: string) => {
@@ -249,6 +251,12 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     }
   };
 
+  const runtimeClient = useCopilotRuntimeClient({
+    url: copilotApiConfig.chatApiEndpoint,
+    publicApiKey: copilotApiConfig.publicApiKey,
+    credentials: copilotApiConfig.credentials,
+  });
+
   // if we manage state internally, we need to provide a function to set the state
   const setState = (newState: T | ((prevState: T | undefined) => T)) => {
     let coagentState: CoagentState = getCoagentState(coagentStatesRef.current || {}, name);
@@ -264,9 +272,27 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     });
   };
 
-  const coagentState = getCoagentState(coagentStates, name);
+  useEffect(() => {
+    const fetchAgentState = async () => {
+      const result = await runtimeClient.loadAgentState({
+        threadId: threadId,
+        agentName: name,
+      });
+      if (
+        result.data?.loadAgentState?.threadExists &&
+        result.data?.loadAgentState?.state &&
+        result.data?.loadAgentState?.state != "{}"
+      ) {
+        const fetchedState = JSON.parse(result.data?.loadAgentState?.state);
+        isExternalStateManagement(options)
+          ? options.setState(fetchedState)
+          : setState(fetchedState);
+      }
+    };
+    void fetchAgentState();
+  }, [threadId]);
 
-  const state = isExternalStateManagement(options) ? options.state : coagentState.state;
+  const coagentState = getCoagentState(coagentStates, name);
 
   // Sync internal state with external state if state management is external
   useEffect(() => {

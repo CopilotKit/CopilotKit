@@ -109,11 +109,11 @@ export type UseChatOptions = {
   /**
    * The current thread ID.
    */
-  threadId: string | null;
+  threadId: string;
   /**
    * set the current thread ID
    */
-  setThreadId: (threadId: string | null) => void;
+  setThreadId: (threadId: string) => void;
   /**
    * The current run ID.
    */
@@ -202,8 +202,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   // This is a workaround and needs to be addressed in the future
   const agentSessionRef = useRef<AgentSession | null>(agentSession);
   agentSessionRef.current = agentSession;
-  const threadIdRef = useRef<string | null>(threadId);
-  threadIdRef.current = threadId;
+
   const runIdRef = useRef<string | null>(runId);
   runIdRef.current = runId;
   const extensionsRef = useRef<ExtensionsInput>(extensions);
@@ -253,7 +252,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               actions: processActionsForRuntimeRequest(actions),
               url: window.location.href,
             },
-            threadId: threadIdRef.current,
+            threadId: threadId,
             runId: runIdRef.current,
             extensions: extensionsRef.current,
             messages: convertMessagesToGqlInput(filterAgentStateMessages(messagesWithContext)),
@@ -328,7 +327,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             continue;
           }
 
-          threadIdRef.current = value.generateCopilotResponse.threadId || null;
           runIdRef.current = value.generateCopilotResponse.runId || null;
 
           // in the output, graphql inserts __typename, which leads to an error when sending it along
@@ -337,7 +335,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             value.generateCopilotResponse.extensions || {},
           );
 
-          setThreadId(threadIdRef.current);
+          // setThreadId(threadIdRef.current);
           setRunId(runIdRef.current);
           setExtensions(extensionsRef.current);
 
