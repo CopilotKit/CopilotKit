@@ -59,7 +59,7 @@ import {
   convertMessageToOpenAIMessage,
   limitMessagesToTokenCount,
 } from "./utils";
-import { randomId } from "@copilotkit/shared";
+import { randomUUID } from "@copilotkit/shared";
 
 const DEFAULT_MODEL = "gpt-4o";
 
@@ -107,7 +107,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
     const {
-      threadId,
+      threadId: threadIdFromRequest,
       model = this.model,
       messages,
       actions,
@@ -115,6 +115,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       forwardedParameters,
     } = request;
     const tools = actions.map(convertActionInputToOpenAITool);
+    const threadId = threadIdFromRequest ?? randomUUID();
 
     let openaiMessages = messages.map(convertMessageToOpenAIMessage);
     openaiMessages = limitMessagesToTokenCount(openaiMessages, tools, model);
@@ -203,6 +204,8 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       eventStream$.complete();
     });
 
-    return {};
+    return {
+      threadId,
+    };
   }
 }

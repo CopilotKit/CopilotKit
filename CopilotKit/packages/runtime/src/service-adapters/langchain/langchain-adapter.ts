@@ -44,7 +44,7 @@ import {
 } from "./utils";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { LangChainReturnType } from "./types";
-import { randomId } from "@copilotkit/shared";
+import { randomUUID } from "@copilotkit/shared";
 import { awaitAllCallbacks } from "@langchain/core/callbacks/promises";
 
 interface ChainFnParameters {
@@ -72,7 +72,15 @@ export class LangChainAdapter implements CopilotServiceAdapter {
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
     try {
-      const { eventSource, model, actions, messages, runId, threadId } = request;
+      const {
+        eventSource,
+        model,
+        actions,
+        messages,
+        runId,
+        threadId: threadIdFromRequest,
+      } = request;
+      const threadId = threadIdFromRequest ?? randomUUID();
       const result = await this.options.chainFn({
         messages: messages.map(convertMessageToLangChainMessage),
         tools: actions.map(convertActionInputToLangChainTool),
@@ -88,7 +96,9 @@ export class LangChainAdapter implements CopilotServiceAdapter {
         });
       });
 
-      return {};
+      return {
+        threadId,
+      };
     } finally {
       await awaitAllCallbacks();
     }

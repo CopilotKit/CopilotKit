@@ -20,12 +20,14 @@ import {
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
 } from "../../service-adapter";
-import { randomId } from "@copilotkit/shared";
+import { randomUUID } from "@copilotkit/shared";
 
 export class ExperimentalEmptyAdapter implements CopilotServiceAdapter {
   async process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
-    return {};
+    return {
+      threadId: request.threadId || randomUUID(),
+    };
   }
 }

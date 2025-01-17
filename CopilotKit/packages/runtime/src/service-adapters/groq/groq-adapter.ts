@@ -25,7 +25,7 @@ import {
   convertMessageToOpenAIMessage,
   limitMessagesToTokenCount,
 } from "../openai/utils";
-import { randomId } from "@copilotkit/shared";
+import { randomUUID } from "@copilotkit/shared";
 
 const DEFAULT_MODEL = "llama3-groq-70b-8192-tool-use-preview";
 
@@ -166,6 +166,8 @@ export class GroqAdapter implements CopilotServiceAdapter {
       eventStream$.complete();
     });
 
-    return {};
+    return {
+      threadId: request.threadId || randomUUID(),
+    };
   }
 }

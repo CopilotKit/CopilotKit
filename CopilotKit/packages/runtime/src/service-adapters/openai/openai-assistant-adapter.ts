@@ -127,6 +127,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
 
     return {
       runId: nextRunId,
+      threadId,
       extensions: {
         ...request.extensions,
         openaiAssistantAPI: {

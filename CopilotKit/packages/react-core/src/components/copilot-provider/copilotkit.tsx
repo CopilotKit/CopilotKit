@@ -319,17 +319,6 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
     };
   }
 
-  // const fetchState = async () => {
-  //   // const response = await runtimeClient.getAgentState(props.threadId);
-  //   // console.log(response);
-  // };
-
-  // useEffect(() => {
-  //   if (props.threadId) {
-  //     void fetchState();
-  //   }
-  // }, [props.threadId]);
-
   const [agentSession, setAgentSession] = useState<AgentSession | null>(initialAgentSession);
 
   const [internalThreadId, setInternalThreadId] = useState<string>(props.threadId || randomUUID());

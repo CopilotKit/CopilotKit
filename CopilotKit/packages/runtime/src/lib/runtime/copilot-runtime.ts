@@ -49,7 +49,7 @@ interface CopilotRuntimeRequest {
   agentSession?: AgentSessionInput;
   agentStates?: AgentStateInput[];
   outputMessagesPromise: Promise<Message[]>;
-  threadId: string;
+  threadId?: string;
   runId?: string;
   publicApiKey?: string;
   graphqlContext: GraphQLContext;
@@ -232,10 +232,14 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         extensions,
       });
 
+      // for backwards compatibility, we deal with the case that no threadId is provided
+      // by the frontend, by using the threadId from the response
+      const nonEmptyThreadId = threadId ?? result.threadId;
+
       outputMessagesPromise
         .then((outputMessages) => {
           this.onAfterRequest?.({
-            threadId: threadId,
+            threadId: nonEmptyThreadId,
             runId: result.runId,
             inputMessages,
             outputMessages,
@@ -246,7 +250,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         .catch((_error) => {});
 
       return {
-        threadId: threadId,
+        threadId: nonEmptyThreadId,
         runId: result.runId,
         eventSource,
         serverSideActions,
@@ -391,9 +395,13 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       outputMessagesPromise,
       graphqlContext,
       agentSession,
-      threadId,
+      threadId: threadIdFromRequest,
     } = request;
     const { agentName, nodeName } = agentSession;
+
+    // for backwards compatibility, deal with the case when no threadId is provided
+    const threadId = threadIdFromRequest ?? agentSession.threadId;
+
     const serverSideActions = await this.getServerSideActions(request);
 
     const messages = convertGqlInputToMessages(rawMessages);

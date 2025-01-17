@@ -22,6 +22,7 @@ export interface CopilotRuntimeChatCompletionRequest {
 }
 
 export interface CopilotRuntimeChatCompletionResponse {
+  threadId: string;
   runId?: string;
   extensions?: ExtensionsResponse;
 }

@@ -17,14 +17,13 @@
  * );
  * ```
  */
-import { TextMessage } from "../../graphql/types/converted";
 import {
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
   CopilotServiceAdapter,
 } from "../service-adapter";
 import OpenAI from "openai";
-import { randomId } from "@copilotkit/shared";
+import { randomId, randomUUID } from "@copilotkit/shared";
 import { convertActionInputToOpenAITool, convertMessageToOpenAIMessage } from "../openai/utils";
 
 export interface UnifyAdapterParams {
@@ -138,6 +137,8 @@ export class UnifyAdapter implements CopilotServiceAdapter {
       eventStream$.complete();
     });
 
-    return {};
+    return {
+      threadId: request.threadId || randomUUID(),
+    };
   }
 }
