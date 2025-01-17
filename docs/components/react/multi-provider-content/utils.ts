@@ -11,7 +11,7 @@ export const quickStartProviders: ProvidersConfig = {
         id: "openai",
         title: "OpenAI",
         icon: '/icons/openai.png',
-        endVarName: "OPENAI_API_KEY",
+        envVarName: "OPENAI_API_KEY",
         adapterImport: "OpenAIAdapter",
         adapterSetup: 'const serviceAdapter = new OpenAIAdapter();'
     },
@@ -20,7 +20,7 @@ export const quickStartProviders: ProvidersConfig = {
         title: "Azure OpenAI",
         icon: '/icons/azure.png',
         packageName: "openai",
-        endVarName: "AZURE_OPENAI_API_KEY",
+        envVarName: "AZURE_OPENAI_API_KEY",
         adapterImport: "OpenAIAdapter",
         extraImports: `
             import OpenAI from 'openai';
@@ -37,7 +37,7 @@ export const quickStartProviders: ProvidersConfig = {
         id: "anthropic",
         title: "Anthropic (Claude)",
         icon: '/icons/anthropic.png',
-        endVarName: "ANTHROPIC_API_KEY",
+        envVarName: "ANTHROPIC_API_KEY",
         adapterImport: "AnthropicAdapter",
         adapterSetup: 'const serviceAdapter = new AnthropicAdapter();'
     },
@@ -45,7 +45,7 @@ export const quickStartProviders: ProvidersConfig = {
         id: "groq",
         title: "Groq",
         icon: '/icons/groq.png',
-        endVarName: "GROQ_API_KEY",
+        envVarName: "GROQ_API_KEY",
         adapterImport: "GroqAdapter",
         adapterSetup: 'const serviceAdapter = new GroqAdapter({ model: "<model-name>" });'
     },
@@ -53,7 +53,7 @@ export const quickStartProviders: ProvidersConfig = {
         id: "google",
         title: "Google Generative AI (Gemini)",
         icon: '/icons/google.png',
-        endVarName: "GOOGLE_API_KEY",
+        envVarName: "GOOGLE_API_KEY",
         adapterImport: "GoogleGenerativeAIAdapter",
         adapterSetup: 'const serviceAdapter = new GoogleGenerativeAIAdapter({ model: <optional model choice> });'
     },
@@ -62,7 +62,7 @@ export const quickStartProviders: ProvidersConfig = {
         title: 'LangChain (any model)',
         icon: '/icons/langchain.png',
         packageName: "@langchain/openai",
-        endVarName: "OPENAI_API_KEY",
+        envVarName: "OPENAI_API_KEY",
         adapterImport: "LangChainAdapter",
         extraImports: `
             import { ChatOpenAI } from "@langchain/openai";
@@ -82,7 +82,7 @@ export const quickStartProviders: ProvidersConfig = {
         title: "OpenAI Assistants API",
         icon: '/icons/openai.png',
         packageName: "openai",
-        endVarName: "OPENAI_API_KEY",
+        envVarName: "OPENAI_API_KEY",
         adapterImport: "OpenAIAssistantAdapter",
         extraImports: [
             'import OpenAI from \'openai\';'
@@ -101,5 +101,12 @@ export const quickStartProviders: ProvidersConfig = {
   fileSearchEnabled: true,
 });
         `
+    },
+    "empty": {
+        id: "empty",
+        title: "Experimental Empty Adapter",
+        icon: '/icons/empty.svg',
+        adapterImport: "ExperimentalEmptyAdapter",
+        adapterSetup: 'const serviceAdapter = new ExperimentalEmptyAdapter();'
     },
 };
