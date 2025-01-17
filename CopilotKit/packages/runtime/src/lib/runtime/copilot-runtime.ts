@@ -15,7 +15,7 @@
 import { Action, actionParametersToJsonSchema, Parameter, randomId } from "@copilotkit/shared";
 import {
   CopilotServiceAdapter,
-  ExperimentalEmptyAdapter,
+  EmptyAdapter,
   RemoteChain,
   RemoteChainParameters,
 } from "../../service-adapters";
@@ -189,9 +189,9 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       if (agentSession) {
         return await this.processAgentRequest(request);
       }
-      if (serviceAdapter instanceof ExperimentalEmptyAdapter) {
+      if (serviceAdapter instanceof EmptyAdapter) {
         // TODO: use CPK error here
-        throw new Error(`Invalid adapter configuration: ExperimentalEmptyAdapter is only meant to be used with agent lock mode. 
+        throw new Error(`Invalid adapter configuration: EmptyAdapter is only meant to be used with agent lock mode. 
 For non-agent components like useCopilotChatSuggestions, CopilotTextarea, or CopilotTask, 
 please use an LLM adapter instead.`);
       }

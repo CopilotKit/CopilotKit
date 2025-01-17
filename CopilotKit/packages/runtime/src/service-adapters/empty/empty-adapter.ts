@@ -8,21 +8,21 @@
  * ## Example
  *
  * ```ts
- * import { CopilotRuntime, ExperimentalEmptyAdapter } from "@copilotkit/runtime";
+ * import { CopilotRuntime, EmptyAdapter } from "@copilotkit/runtime";
  *
  * const copilotKit = new CopilotRuntime();
  *
- * return new ExperimentalEmptyAdapter();
+ * return new EmptyAdapter();
  * ```
  */
 import {
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
-} from "../../service-adapter";
+} from "../service-adapter";
 import { randomId } from "@copilotkit/shared";
 
-export class ExperimentalEmptyAdapter implements CopilotServiceAdapter {
+export class EmptyAdapter implements CopilotServiceAdapter {
   async process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
@@ -31,3 +31,5 @@ export class ExperimentalEmptyAdapter implements CopilotServiceAdapter {
     };
   }
 }
+
+export const ExperimentalEmptyAdapter = EmptyAdapter;
