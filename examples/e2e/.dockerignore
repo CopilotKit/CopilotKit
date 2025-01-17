@@ -1,0 +1,4 @@
+node_modules
+.env
+app-configs.json
+test-results
