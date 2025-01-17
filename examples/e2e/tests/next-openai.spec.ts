@@ -55,7 +55,7 @@ interface WaitDestinationProps extends DestinationProps {
   timeout?: number;
 }
 
-const variants: Variant[] = [
+let variants: Variant[] = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
   { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
   { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" },
@@ -100,9 +100,11 @@ if (
   process.env.COPILOT_CLOUD_CUSTOM_ENV_NAME &&
   process.env.COPILOT_CLOUD_CUSTOM_ENV_PUBLIC_API_KEY
 ) {
+  variants = [];
+  
   variants.push({
     name: `Copilot Cloud (${process.env.COPILOT_CLOUD_CUSTOM_ENV_NAME})`,
-    queryParams: `?runtimeUrl=${process.env.COPILOT_CLOUD_CUSTOM_ENV_URL}&publicApiKey=${process.env.COPILOT_CLOUD_CUSTOM_ENV_PUBLIC_API_KEY}`,
+    queryParams: `?runtimeUrl=${process.env.COPILOT_CLOUD_CUSTOM_ENV_RUNTIME_URL}&publicApiKey=${process.env.COPILOT_CLOUD_CUSTOM_ENV_PUBLIC_API_KEY}`,
   });
 }
 
