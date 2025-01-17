@@ -91,10 +91,9 @@ export function RenderActionExecutionMessage(props: RenderMessageProps) {
               isLoading={false}
               isGenerating={false}
               subComponent={
-                <div>
-                  <b>❌ Error executing render: {message.name}</b>
-                  <br />
-                  {e instanceof Error ? e.message : String(e)}
+                <div className="copilotKitMessage copilotKitAssistantMessage">
+                  <b>❌ Error executing render function for action {message.name}:</b>
+                  <pre>{e instanceof Error ? e.message : String(e)}</pre>
                 </div>
               }
             />

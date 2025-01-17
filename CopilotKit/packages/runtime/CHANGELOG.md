@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.5.12-next.4
+
+### Patch Changes
+
+- 768b3a5: - chore: add documentation for empty llm adapter
+  - fix: throw error when empty adapter is misused
+  - @copilotkit/shared@1.5.12-next.4
+
 ## 1.5.12-next.3
 
 ### Patch Changes
