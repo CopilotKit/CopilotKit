@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "my_agent"
+name = "greeter"
 version = "0.1.0"
 description = "Starter"
 authors = ["Ariel Weinberger <weinberger.ariel@gmail.com>"]
@@ -27,4 +27,4 @@ langchain-core = "^0.3.25"
 langgraph-cli = {extras = ["inmem"], version = "^0.1.64"}
 
 [tool.poetry.scripts]
-demo = "my_agent.demo:main"
+demo = "greeter.demo:main"
