@@ -1,5 +1,16 @@
 # ui
 
+## 1.5.12-next.6
+
+### Patch Changes
+
+- 6136a57: - fix(errors): add custom error classes to better describe library errors
+  - fix(errors): use new errors in error handling
+  - chore: add documentation and links to respective errors
+- Updated dependencies [6136a57]
+  - @copilotkit/runtime-client-gql@1.5.12-next.6
+  - @copilotkit/shared@1.5.12-next.6
+
 ## 1.5.12-next.5
 
 ### Patch Changes
