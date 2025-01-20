@@ -71,3 +71,109 @@ issue will be resolved.
 from langchain_openai import AzureOpenAI # [!code --]
 from langchain_openai import AzureChatOpenAI # [!code ++]
 ```
+
+## I am getting "agent not found" error
+
+If you're seeing this error, it means CopilotKit couldn't find the LangGraph agent you're trying to use. Here's how to fix it:
+
+<Accordions>
+    <Accordion title="Verify your agent lock mode configuration">
+        If you're using [agent lock mode](/coagents/advanced/router-mode-agent-lock#agent-lock-mode),
+        check that the agent defined in `langgraph.json` matches what's defined in the CopilotKit provider:
+
+        ```json title="langgraph.json"
+        {
+            "python_version": "3.12",
+            "dockerfile_lines": [],
+            "dependencies": ["."],
+            "graphs": {
+                "my_agent": "./src/agent.py:graph"// In this case, "my_agent" is the agent you're using // [!code highlight]
+            },
+            "env": ".env"
+        }
+        ```
+
+        ```tsx title="layout.tsx"
+        <CopilotKit agent="my_agent"> // [!code highlight]
+            {/* Your application components */}
+        </CopilotKit>
+        ```
+
+        Common issues:
+        - Typos in agent names
+        - Case sensitivity mismatches
+        - Missing entries in `langgraph.json`
+    </Accordion>
+    <Accordion title="Check your agent registration on a LangGraph Platform endpoint">
+        When using LangGraph Platform endpoint, make sure your agents are properly specified and are following the definition in your `langgraph.json`:
+
+        ```json title="langgraph.json"
+        {
+            "python_version": "3.12",
+            "dockerfile_lines": [],
+            "dependencies": ["."],
+            "graphs": {
+                "my_agent": "./src/agent.py:graph"// In this case, "my_agent" is the agent you're using // [!code highlight]
+            },
+            "env": ".env"
+        }
+        ```
+
+        ```typescript title="/copilotkit/api/route.ts"
+        langGraphPlatformEndpoint({
+            deploymentUrl,
+            langsmithApiKey,
+            agents: [
+                {
+                    name: "my_agent",
+                    description: "A helpful agent",
+                },
+            ],
+        })
+        ```
+    </Accordion>
+    <Accordion title="Check your agent name in useCoAgent">
+        Make sure the that the agent defined in `langgraph.json` matches what you use n `useCoAgent` hook:
+
+        ```json title="langgraph.json"
+        {
+            "python_version": "3.12",
+            "dockerfile_lines": [],
+            "dependencies": ["."],
+            "graphs": {
+                "my_agent": "./src/agent.py:graph"// In this case, "my_agent" is the agent you're using // [!code highlight]
+            },
+            "env": ".env"
+        }
+        ```
+
+        ```tsx title="MyComponent.tsx"
+        // Your React component
+        useCoAgent({
+            name: "my_agent", // [!code focus] This must match exactly
+        });
+        ```
+    </Accordion>
+    <Accordion title="Check your agent name in useCoAgentStateRender">
+        Make sure the that the agent defined in `langgraph.json` matches what you use n `useCoAgent` hook:
+
+        ```json title="langgraph.json"
+        {
+            "python_version": "3.12",
+            "dockerfile_lines": [],
+            "dependencies": ["."],
+            "graphs": {
+                "my_agent": "./src/agent.py:graph"// In this case, "my_agent" is the agent you're using // [!code highlight]
+            },
+            "env": ".env"
+        }
+        ```
+
+        ```tsx title="MyComponent.tsx"
+        // Your React component
+        useCoAgentStateRender({
+            name: "my_agent", // [!code focus] This must match exactly
+        });
+        ```
+    </Accordion>
+</Accordions>

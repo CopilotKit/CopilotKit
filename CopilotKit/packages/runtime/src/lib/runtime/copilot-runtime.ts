@@ -12,7 +12,19 @@
  * ```
  */
 
-import { Action, actionParametersToJsonSchema, Parameter, randomId } from "@copilotkit/shared";
+import {
+  Action,
+  actionParametersToJsonSchema,
+  Parameter,
+  ResolvedCopilotKitError,
+  CopilotKitApiDiscoveryError,
+  randomId,
+  CopilotKitError,
+  CopilotKitLowLevelError,
+  CopilotKitAgentDiscoveryError,
+  CopilotKitMisuseError,
+} from "@copilotkit/shared";
+import { Client as LangGraphClient } from "@langchain/langgraph-sdk";
 import {
   CopilotServiceAdapter,
   EmptyAdapter,
@@ -190,10 +202,11 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         return await this.processAgentRequest(request);
       }
       if (serviceAdapter instanceof EmptyAdapter) {
-        // TODO: use CPK error here
-        throw new Error(`Invalid adapter configuration: EmptyAdapter is only meant to be used with agent lock mode. 
+        throw new CopilotKitMisuseError({
+          message: `Invalid adapter configuration: EmptyAdapter is only meant to be used with agent lock mode. 
 For non-agent components like useCopilotChatSuggestions, CopilotTextarea, or CopilotTask, 
-please use an LLM adapter instead.`);
+please use an LLM adapter instead.`,
+        });
       }
 
       const messages = rawMessages.filter((message) => !message.agentStateMessage);
@@ -260,30 +273,36 @@ please use an LLM adapter instead.`);
         ),
       };
     } catch (error) {
+      if (error instanceof CopilotKitError) {
+        throw error;
+      }
       console.error("Error getting response:", error);
       eventSource.sendErrorMessageToChat();
       throw error;
     }
   }
 
-  async discoverAgentsFromEndpoints(graphqlContext: GraphQLContext): Promise<Agent[]> {
+  async discoverAgentsFromEndpoints(
+    graphqlContext: GraphQLContext,
+  ): Promise<(Agent & { endpoint: EndpointDefinition })[]> {
     const headers = createHeaders(null, graphqlContext);
     const agents = this.remoteEndpointDefinitions.reduce(
       async (acc: Promise<Agent[]>, endpoint) => {
         const agents = await acc;
         if (endpoint.type === EndpointType.LangGraphPlatform) {
-          const response = await fetch(
-            `${(endpoint as LangGraphPlatformEndpoint).deploymentUrl}/assistants/search`,
-            {
-              method: "POST",
-              headers,
-            },
-          );
+          const client = new LangGraphClient({
+            apiUrl: endpoint.deploymentUrl,
+            apiKey: endpoint.langsmithApiKey,
+          });
 
-          const data: Array<{ assistant_id: string; graph_id: string }> = await response.json();
+          const data: Array<{ assistant_id: string; graph_id: string }> =
+            await client.assistants.search();
+
           const endpointAgents = (data ?? []).map((entry) => ({
             name: entry.graph_id,
             id: entry.assistant_id,
+            description: "",
+            endpoint,
           }));
           return [...agents, ...endpointAgents];
         }
@@ -295,18 +314,33 @@ please use an LLM adapter instead.`);
           }>;
         }
 
-        const response = await fetch(`${(endpoint as CopilotKitEndpoint).url}/info`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ properties: graphqlContext.properties }),
-        });
-        const data: InfoResponse = await response.json();
-        const endpointAgents = (data?.agents ?? []).map((agent) => ({
-          name: agent.name,
-          description: agent.description,
-          id: randomId(), // Required by Agent type
-        }));
-        return [...agents, ...endpointAgents];
+        const fetchUrl = `${(endpoint as CopilotKitEndpoint).url}/info`;
+        try {
+          const response = await fetch(fetchUrl, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ properties: graphqlContext.properties }),
+          });
+          if (!response.ok) {
+            if (response.status === 404) {
+              throw new CopilotKitApiDiscoveryError();
+            }
+            throw new ResolvedCopilotKitError({ status: response.status, isRemoteEndpoint: true });
+          }
+
+          const data: InfoResponse = await response.json();
+          const endpointAgents = (data?.agents ?? []).map((agent) => ({
+            name: agent.name,
+            description: agent.description ?? "",
+            id: randomId(), // Required by Agent type
+          }));
+          return [...agents, ...endpointAgents];
+        } catch (error) {
+          if (error instanceof CopilotKitError) {
+            throw error;
+          }
+          throw new CopilotKitLowLevelError({ error: error as Error, url: fetchUrl });
+        }
       },
       Promise.resolve([]),
     );
@@ -328,7 +362,7 @@ please use an LLM adapter instead.`);
     ) as LangGraphAgentAction;
 
     if (!agent) {
-      throw new Error(`Agent ${agentName} not found`);
+      throw new CopilotKitAgentDiscoveryError({ agentName });
     }
 
     const serverSideActionsInput: ActionInput[] = serverSideActions
