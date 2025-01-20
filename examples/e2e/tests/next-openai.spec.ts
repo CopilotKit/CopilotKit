@@ -223,7 +223,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               // Test adding new destination
               await sendChatMessage(
                 page,
-                "Add Mumbai, India to the list of New Destinations."
+                "Add Mumbai, India to the list of New Destinations. Do not ask any questions, just add them."
               );
               await waitForResponse(page);
               await page.waitForTimeout(3000);
