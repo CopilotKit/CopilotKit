@@ -1,12 +1,12 @@
 [tool.poetry]
-name = "my_agent"
+name = "translate_agent"
 version = "0.1.0"
 description = "Starter"
 authors = ["Ariel Weinberger <weinberger.ariel@gmail.com>"]
 license = "MIT"
 
 [project]
-name = "greeter"
+name = "translate_agent"
 version = "0.0.1"
 
 
@@ -29,4 +29,4 @@ langgraph-cli = {extras = ["inmem"], version = "^0.1.64"}
 
 
 [tool.poetry.scripts]
-demo = "my_agent.demo:main"
+demo = "translate_agent.demo:main"
