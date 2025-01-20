@@ -415,20 +415,20 @@ files = [
 
 [[package]]
 name = "copilotkit"
-version = "0.1.30"
+version = "0.1.34"
 description = "CopilotKit python SDK"
 optional = false
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "copilotkit-0.1.30-py3-none-any.whl", hash = "sha256:bcb1248c3853113a450101caaccbe862c4ee9cd2a47f482e358f5df22deb821f"},
-    {file = "copilotkit-0.1.30.tar.gz", hash = "sha256:e955ff41a442eda1961799145eef117f3e8a06f03158d8701ab4ae61e33b8700"},
+    {file = "copilotkit-0.1.34-py3-none-any.whl", hash = "sha256:94bd8059a5b8fa46e3b07017dd076e37c2bc1b8d6aac9548adb333f0aedcd03a"},
+    {file = "copilotkit-0.1.34.tar.gz", hash = "sha256:7c693806bd8a3a236ec0c650a0421a88e07b911028432dd06fac084ec00b5723"},
 ]
 
 [package.dependencies]
 fastapi = ">=0.115.0,<0.116.0"
 httpx = ">=0.27.2,<0.28.0"
 langchain = ">=0.3.3,<0.4.0"
-langchain-anthropic = ">=0.2.3,<0.3.0"
+langchain-anthropic = ">=0.2.3,<0.4.0"
 langchain-openai = ">=0.2.2,<0.3.0"
 langgraph = ">=0.2.50"
 langgraph-sdk = ">=0.1.32,<0.2.0"
@@ -2597,4 +2597,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "41fc902e6ec9c6ea31f7ed2bd17a0f7d8da6ea2f6b64de07cc3e121265a6fcb0"
+content-hash = "ce55e010755dd476528063f1907a5c65c1e68bde6f3aba98fbefb7b26d0e247c"
