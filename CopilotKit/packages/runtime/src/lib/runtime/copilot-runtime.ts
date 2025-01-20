@@ -24,7 +24,6 @@ import {
   CopilotKitAgentDiscoveryError,
   CopilotKitMisuseError,
 } from "@copilotkit/shared";
-import { Client as LangGraphClient } from "@langchain/langgraph-sdk";
 import {
   CopilotServiceAdapter,
   EmptyAdapter,
@@ -308,13 +307,6 @@ please use an LLM adapter instead.`,
             apiUrl: endpoint.deploymentUrl,
             apiKey: endpoint.langsmithApiKey,
           });
-          const client = new LangGraphClient({
-            apiUrl: endpoint.deploymentUrl,
-            apiKey: endpoint.langsmithApiKey,
-          });
-
-          const data: Array<{ assistant_id: string; graph_id: string }> =
-            await client.assistants.search();
 
           const data: Array<{ assistant_id: string; graph_id: string }> =
             await client.assistants.search();
@@ -322,8 +314,6 @@ please use an LLM adapter instead.`,
           const endpointAgents = (data ?? []).map((entry) => ({
             name: entry.graph_id,
             id: entry.assistant_id,
-            description: "",
-            endpoint,
             description: "",
             endpoint,
           }));
