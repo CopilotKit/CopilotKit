@@ -330,6 +330,9 @@ importers:
       react-dom:
         specifier: ^18 || ^19 || ^19.0.0-rc
         version: 18.3.1(react@18.3.1)
+      react-markdown:
+        specifier: ^8.0.7
+        version: 8.0.7(@types/react@18.3.3)(react@18.3.1)
       untruncate-json:
         specifier: ^0.0.1
         version: 0.0.1
@@ -828,6 +831,9 @@ importers:
       chalk:
         specifier: 4.1.2
         version: 4.1.2
+      graphql:
+        specifier: ^16.8.1
+        version: 16.9.0
       uuid:
         specifier: ^10.0.0
         version: 10.0.0
