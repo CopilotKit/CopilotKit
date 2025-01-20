@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.5.12-next.7
+
+### Patch Changes
+
+- 926499b: - Load the previous state of an agent if `threadId` is provided to CopilotKit, including all messages
+  - @copilotkit/shared@1.5.12-next.7
+
 ## 1.5.12-next.6
 
 ### Patch Changes

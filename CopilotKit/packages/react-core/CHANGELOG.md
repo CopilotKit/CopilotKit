@@ -1,5 +1,14 @@
 # ui
 
+## 1.5.12-next.7
+
+### Patch Changes
+
+- 926499b: - Load the previous state of an agent if `threadId` is provided to CopilotKit, including all messages
+- Updated dependencies [926499b]
+  - @copilotkit/runtime-client-gql@1.5.12-next.7
+  - @copilotkit/shared@1.5.12-next.7
+
 ## 1.5.12-next.6
 
 ### Patch Changes
