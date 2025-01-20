@@ -6,7 +6,7 @@ authors = ["Ariel Weinberger <weinberger.ariel@gmail.com>"]
 license = "MIT"
 
 [project]
-name = "greeter"
+name = "email_agent"
 version = "0.0.1"
 dependencies = [
   "langgraph==0.2.52",
