@@ -10,7 +10,11 @@ import { DocumentPointer } from "../types";
 import { CopilotChatSuggestionConfiguration } from "../types/chat-suggestion-configuration";
 import { CoAgentStateRender, CoAgentStateRenderProps } from "../types/coagent-action";
 import { CoagentState } from "../types/coagent-state";
-import { CopilotRuntimeClient, ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
+import {
+  CopilotRuntimeClient,
+  ExtensionsInput,
+  ForwardedParametersInput,
+} from "@copilotkit/runtime-client-gql";
 import { Agent } from "@copilotkit/runtime-client-gql";
 
 /**
@@ -160,8 +164,8 @@ export interface CopilotContextParams {
 
   agentLock: string | null;
 
-  threadId: string | null;
-  setThreadId: React.Dispatch<React.SetStateAction<string | null>>;
+  threadId: string;
+  setThreadId: React.Dispatch<React.SetStateAction<string>>;
 
   runId: string | null;
   setRunId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -193,6 +197,9 @@ export interface CopilotContextParams {
       onSignInComplete: (authState: AuthState) => void;
     }>;
   };
+
+  extensions: ExtensionsInput;
+  setExtensions: React.Dispatch<React.SetStateAction<ExtensionsInput>>;
 }
 
 const emptyCopilotContext: CopilotContextParams = {
@@ -248,12 +255,14 @@ const emptyCopilotContext: CopilotContextParams = {
   setAgentSession: () => {},
   forwardedParameters: {},
   agentLock: null,
-  threadId: null,
+  threadId: "",
   setThreadId: () => {},
   runId: null,
   setRunId: () => {},
   chatAbortControllerRef: { current: null },
   availableAgents: [],
+  extensions: {},
+  setExtensions: () => {},
 };
 
 export const CopilotContext = React.createContext<CopilotContextParams>(emptyCopilotContext);

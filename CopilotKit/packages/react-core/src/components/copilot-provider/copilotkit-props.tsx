@@ -94,4 +94,9 @@ export interface CopilotKitProps {
       onSignInComplete: (authState: AuthState) => void;
     }>;
   };
+
+  /**
+   * The thread id to use for the CopilotKit.
+   */
+  threadId?: string;
 }

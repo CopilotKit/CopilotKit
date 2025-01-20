@@ -29,8 +29,7 @@ import {
   limitMessagesToTokenCount,
 } from "./utils";
 
-import { randomId } from "@copilotkit/shared";
-import { TextMessage } from "../../graphql/types/converted";
+import { randomId, randomUUID } from "@copilotkit/shared";
 
 const DEFAULT_MODEL = "claude-3-sonnet-20240229";
 
@@ -162,7 +161,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
     });
 
     return {
-      threadId: threadId || randomId(),
+      threadId: threadId || randomUUID(),
     };
   }
 }

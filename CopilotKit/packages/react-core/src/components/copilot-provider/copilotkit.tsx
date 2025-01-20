@@ -14,7 +14,7 @@
  * ```
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, SetStateAction } from "react";
 import {
   CopilotContext,
   CopilotApiConfig,
@@ -30,6 +30,7 @@ import {
   CopilotCloudConfig,
   FunctionCallHandler,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
+  randomUUID,
 } from "@copilotkit/shared";
 
 import { FrontendAction } from "../../types/frontend-action";
@@ -42,7 +43,11 @@ import { ToastProvider } from "../toast/toast-provider";
 import { useCopilotRuntimeClient } from "../../hooks/use-copilot-runtime-client";
 import { shouldShowDevConsole } from "../../utils";
 import { CopilotErrorBoundary } from "../error-boundary/error-boundary";
-import { Agent } from "@copilotkit/runtime-client-gql";
+import {
+  Agent,
+  ExtensionsInput,
+  loadMessagesFromJsonRepresentation,
+} from "@copilotkit/runtime-client-gql";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const showDevConsole = props.showDevConsole === undefined ? "auto" : props.showDevConsole;
@@ -80,6 +85,7 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [chatInstructions, setChatInstructions] = useState("");
   const [authStates, setAuthStates] = useState<Record<string, AuthState>>({});
+  const [extensions, setExtensions] = useState<ExtensionsInput>({});
 
   const {
     addElement: addDocument,
@@ -314,7 +320,25 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
   }
 
   const [agentSession, setAgentSession] = useState<AgentSession | null>(initialAgentSession);
-  const [threadId, setThreadId] = useState<string | null>(null);
+
+  const [internalThreadId, setInternalThreadId] = useState<string>(props.threadId || randomUUID());
+  const setThreadId = useCallback(
+    (value: SetStateAction<string>) => {
+      if (props.threadId) {
+        throw new Error("Cannot call setThreadId() when threadId is provided via props.");
+      }
+      setInternalThreadId(value);
+    },
+    [props.threadId],
+  );
+
+  // update the internal threadId if the props.threadId changes
+  useEffect(() => {
+    if (props.threadId !== undefined) {
+      setInternalThreadId(props.threadId);
+    }
+  }, [props.threadId]);
+
   const [runId, setRunId] = useState<string | null>(null);
 
   const chatAbortControllerRef = useRef<AbortController | null>(null);
@@ -356,7 +380,7 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
         runtimeClient,
         forwardedParameters: props.forwardedParameters || {},
         agentLock: props.agent || null,
-        threadId,
+        threadId: internalThreadId,
         setThreadId,
         runId,
         setRunId,
@@ -365,6 +389,8 @@ export function CopilotKitInternal({ children, ...props }: CopilotKitProps) {
         authConfig: props.authConfig,
         authStates,
         setAuthStates,
+        extensions,
+        setExtensions,
       }}
     >
       <CopilotMessages>{children}</CopilotMessages>

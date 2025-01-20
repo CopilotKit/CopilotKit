@@ -24,7 +24,7 @@ import {
   CopilotRuntimeChatCompletionResponse,
 } from "../../service-adapter";
 import { Ollama } from "@langchain/community/llms/ollama";
-import { randomId } from "@copilotkit/shared";
+import { randomId, randomUUID } from "@copilotkit/shared";
 
 const DEFAULT_MODEL = "llama3:latest";
 
@@ -73,7 +73,7 @@ export class ExperimentalOllamaAdapter implements CopilotServiceAdapter {
       eventStream$.complete();
     });
     return {
-      threadId: request.threadId || randomId(),
+      threadId: request.threadId || randomUUID(),
     };
   }
 }

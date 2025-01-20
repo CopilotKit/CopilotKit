@@ -24,7 +24,6 @@ import {
   CopilotKitAgentDiscoveryError,
   CopilotKitMisuseError,
 } from "@copilotkit/shared";
-import { Client as LangGraphClient } from "@langchain/langgraph-sdk";
 import {
   CopilotServiceAdapter,
   EmptyAdapter,
@@ -53,6 +52,11 @@ import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
 import { ActionInputAvailability } from "../../graphql/types/enums";
 import { createHeaders } from "./remote-action-constructors";
 import { Agent } from "../../graphql/types/agents-response.type";
+import { ExtensionsInput } from "../../graphql/inputs/extensions.input";
+import { ExtensionsResponse } from "../../graphql/types/extensions-response.type";
+import { LoadAgentStateResponse } from "../../graphql/types/load-agent-state-response.type";
+import { Client as LangGraphClient } from "@langchain/langgraph-sdk";
+import { langchainMessagesToCopilotKit } from "./remote-lg-action";
 
 interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
@@ -67,6 +71,7 @@ interface CopilotRuntimeRequest {
   graphqlContext: GraphQLContext;
   forwardedParameters?: ForwardedParametersInput;
   url?: string;
+  extensions?: ExtensionsInput;
 }
 
 interface CopilotRuntimeResponse {
@@ -75,6 +80,7 @@ interface CopilotRuntimeResponse {
   eventSource: RuntimeEventSource;
   serverSideActions: Action<any>[];
   actionInputsWithoutAgents: ActionInput[];
+  extensions?: ExtensionsResponse;
 }
 
 type ActionsConfiguration<T extends Parameter[] | [] = []> =
@@ -113,6 +119,8 @@ interface Middleware {
    */
   onAfterRequest?: OnAfterRequestHandler;
 }
+
+type AgentWithEndpoint = Agent & { endpoint: EndpointDefinition };
 
 export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> {
   /**
@@ -193,6 +201,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       forwardedParameters,
       agentSession,
       url,
+      extensions,
     } = request;
 
     const eventSource = new RuntimeEventSource();
@@ -243,12 +252,17 @@ please use an LLM adapter instead.`,
         runId,
         eventSource,
         forwardedParameters,
+        extensions,
       });
+
+      // for backwards compatibility, we deal with the case that no threadId is provided
+      // by the frontend, by using the threadId from the response
+      const nonEmptyThreadId = threadId ?? result.threadId;
 
       outputMessagesPromise
         .then((outputMessages) => {
           this.onAfterRequest?.({
-            threadId: result.threadId,
+            threadId: nonEmptyThreadId,
             runId: result.runId,
             inputMessages,
             outputMessages,
@@ -259,7 +273,7 @@ please use an LLM adapter instead.`,
         .catch((_error) => {});
 
       return {
-        threadId: result.threadId,
+        threadId: nonEmptyThreadId,
         runId: result.runId,
         eventSource,
         serverSideActions,
@@ -271,6 +285,7 @@ please use an LLM adapter instead.`,
           //   serverSideActions.find((serverSideAction) => serverSideAction.name == action.name),
           // ),
         ),
+        extensions: result.extensions,
       };
     } catch (error) {
       if (error instanceof CopilotKitError) {
@@ -282,9 +297,7 @@ please use an LLM adapter instead.`,
     }
   }
 
-  async discoverAgentsFromEndpoints(
-    graphqlContext: GraphQLContext,
-  ): Promise<(Agent & { endpoint: EndpointDefinition })[]> {
+  async discoverAgentsFromEndpoints(graphqlContext: GraphQLContext): Promise<AgentWithEndpoint[]> {
     const headers = createHeaders(null, graphqlContext);
     const agents = this.remoteEndpointDefinitions.reduce(
       async (acc: Promise<Agent[]>, endpoint) => {
@@ -331,8 +344,9 @@ please use an LLM adapter instead.`,
           const data: InfoResponse = await response.json();
           const endpointAgents = (data?.agents ?? []).map((agent) => ({
             name: agent.name,
-            description: agent.description ?? "",
+            description: agent.description ?? "" ?? "",
             id: randomId(), // Required by Agent type
+            endpoint,
           }));
           return [...agents, ...endpointAgents];
         } catch (error) {
@@ -348,11 +362,87 @@ please use an LLM adapter instead.`,
     return agents;
   }
 
+  async loadAgentState(
+    graphqlContext: GraphQLContext,
+    threadId: string,
+    agentName: string,
+  ): Promise<LoadAgentStateResponse> {
+    const agentsWithEndpoints = await this.discoverAgentsFromEndpoints(graphqlContext);
+
+    const agentWithEndpoint = agentsWithEndpoints.find((agent) => agent.name === agentName);
+    if (!agentWithEndpoint) {
+      throw new Error("Agent not found");
+    }
+    const headers = createHeaders(null, graphqlContext);
+
+    if (agentWithEndpoint.endpoint.type === EndpointType.LangGraphPlatform) {
+      const client = new LangGraphClient({
+        apiUrl: agentWithEndpoint.endpoint.deploymentUrl,
+        apiKey: agentWithEndpoint.endpoint.langsmithApiKey,
+      });
+      const state = (await client.threads.getState(threadId)).values as any;
+
+      if (Object.keys(state).length === 0) {
+        return {
+          threadId,
+          threadExists: false,
+          state: JSON.stringify({}),
+          messages: JSON.stringify([]),
+        };
+      } else {
+        console.log(state);
+        const { messages, ...stateWithoutMessages } = state;
+        const copilotkitMessages = langchainMessagesToCopilotKit(messages);
+        return {
+          threadId,
+          threadExists: true,
+          state: JSON.stringify(stateWithoutMessages),
+          messages: JSON.stringify(copilotkitMessages),
+        };
+      }
+    } else if (
+      agentWithEndpoint.endpoint.type === EndpointType.CopilotKit ||
+      !("type" in agentWithEndpoint.endpoint)
+    ) {
+      const response = await fetch(
+        `${(agentWithEndpoint.endpoint as CopilotKitEndpoint).url}/agents/state`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            properties: graphqlContext.properties,
+            threadId,
+            name: agentName,
+          }),
+        },
+      );
+      const data: LoadAgentStateResponse = await response.json();
+
+      return {
+        ...data,
+        state: JSON.stringify(data.state),
+        messages: JSON.stringify(data.messages),
+      };
+    } else {
+      throw new Error(`Unknown endpoint type: ${(agentWithEndpoint.endpoint as any).type}`);
+    }
+  }
+
   private async processAgentRequest(
     request: CopilotRuntimeRequest,
   ): Promise<CopilotRuntimeResponse> {
-    const { messages: rawMessages, outputMessagesPromise, graphqlContext, agentSession } = request;
-    const { threadId, agentName, nodeName } = agentSession;
+    const {
+      messages: rawMessages,
+      outputMessagesPromise,
+      graphqlContext,
+      agentSession,
+      threadId: threadIdFromRequest,
+    } = request;
+    const { agentName, nodeName } = agentSession;
+
+    // for backwards compatibility, deal with the case when no threadId is provided
+    const threadId = threadIdFromRequest ?? agentSession.threadId;
+
     const serverSideActions = await this.getServerSideActions(request);
 
     const messages = convertGqlInputToMessages(rawMessages);

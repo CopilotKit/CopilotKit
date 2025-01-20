@@ -19,6 +19,8 @@ import {
   CopilotRequestType,
   ForwardedParametersInput,
   loadMessagesFromJsonRepresentation,
+  ExtensionsInput,
+  CopilotRuntimeClient,
 } from "@copilotkit/runtime-client-gql";
 
 import { CopilotApiConfig } from "../context";
@@ -107,11 +109,11 @@ export type UseChatOptions = {
   /**
    * The current thread ID.
    */
-  threadId: string | null;
+  threadId: string;
   /**
    * set the current thread ID
    */
-  setThreadId: (threadId: string | null) => void;
+  setThreadId: (threadId: string) => void;
   /**
    * The current run ID.
    */
@@ -128,6 +130,14 @@ export type UseChatOptions = {
    * The agent lock.
    */
   agentLock: string | null;
+  /**
+   * The extensions.
+   */
+  extensions: ExtensionsInput;
+  /**
+   * The setState-powered method to update the extensions.
+   */
+  setExtensions: React.Dispatch<React.SetStateAction<ExtensionsInput>>;
 };
 
 export type UseChatHelpers = {
@@ -183,6 +193,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     setRunId,
     chatAbortControllerRef,
     agentLock,
+    extensions,
+    setExtensions,
   } = options;
   const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
   const addErrorToast = useErrorToast();
@@ -191,10 +203,11 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   // This is a workaround and needs to be addressed in the future
   const agentSessionRef = useRef<AgentSession | null>(agentSession);
   agentSessionRef.current = agentSession;
-  const threadIdRef = useRef<string | null>(threadId);
-  threadIdRef.current = threadId;
+
   const runIdRef = useRef<string | null>(runId);
   runIdRef.current = runId;
+  const extensionsRef = useRef<ExtensionsInput>(extensions);
+  extensionsRef.current = extensions;
 
   const publicApiKey = copilotConfig.publicApiKey;
 
@@ -240,8 +253,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               actions: processActionsForRuntimeRequest(actions),
               url: window.location.href,
             },
-            threadId: threadIdRef.current,
+            threadId: threadId,
             runId: runIdRef.current,
+            extensions: extensionsRef.current,
             messages: convertMessagesToGqlInput(filterAgentStateMessages(messagesWithContext)),
             ...(copilotConfig.cloud
               ? {
@@ -314,11 +328,17 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             continue;
           }
 
-          threadIdRef.current = value.generateCopilotResponse.threadId || null;
           runIdRef.current = value.generateCopilotResponse.runId || null;
 
-          setThreadId(threadIdRef.current);
+          // in the output, graphql inserts __typename, which leads to an error when sending it along
+          // as input to the next request.
+          extensionsRef.current = CopilotRuntimeClient.removeGraphQLTypename(
+            value.generateCopilotResponse.extensions || {},
+          );
+
+          // setThreadId(threadIdRef.current);
           setRunId(runIdRef.current);
+          setExtensions(extensionsRef.current);
 
           messages = convertGqlOutputToMessages(
             filterAdjacentAgentStateMessages(value.generateCopilotResponse.messages),

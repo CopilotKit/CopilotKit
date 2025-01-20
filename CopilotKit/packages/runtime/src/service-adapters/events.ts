@@ -226,10 +226,12 @@ export class RuntimeEventSource {
     serverSideActions,
     guardrailsResult$,
     actionInputsWithoutAgents,
+    threadId,
   }: {
     serverSideActions: Action<any>[];
     guardrailsResult$?: Subject<GuardrailsResult>;
     actionInputsWithoutAgents: ActionInput[];
+    threadId: string;
   }) {
     this.callback(this.eventStream$).catch((error) => {
       console.error("Error in event source callback", error);
@@ -285,6 +287,7 @@ export class RuntimeEventSource {
             eventWithState.actionExecutionParentMessageId,
             eventWithState.actionExecutionId,
             actionInputsWithoutAgents,
+            threadId,
           ).catch((error) => {
             console.error(error);
           });
@@ -313,6 +316,7 @@ async function executeAction(
   actionExecutionParentMessageId: string | null,
   actionExecutionId: string,
   actionInputsWithoutAgents: ActionInput[],
+  threadId: string,
 ) {
   if (guardrailsResult$) {
     const { status } = await firstValueFrom(guardrailsResult$);
@@ -370,6 +374,7 @@ async function executeAction(
 
     const stream = await action.langGraphAgentHandler({
       name: action.name,
+      threadId,
       actionInputsWithoutAgents,
       additionalMessages: [agentExecution, agentExecutionResult],
     });

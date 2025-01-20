@@ -42,7 +42,6 @@ import {
 } from "../types/converted";
 import telemetry from "../../lib/telemetry-client";
 import { randomId } from "@copilotkit/shared";
-import { EndpointType, LangGraphPlatformAgent } from "../../lib/runtime/remote-actions";
 import { AgentsResponse } from "../types/agents-response.type";
 
 const invokeGuardrails = async ({
@@ -113,12 +112,14 @@ export class CopilotResolver {
     let logger = ctx.logger.child({ component: "CopilotResolver.availableAgents" });
 
     logger.debug("Processing");
-    const agents = await ctx._copilotkit.runtime.discoverAgentsFromEndpoints(ctx);
+    const agentsWithEndpoints = await ctx._copilotkit.runtime.discoverAgentsFromEndpoints(ctx);
 
     logger.debug("Event source created, creating response");
 
     return {
-      agents,
+      agents: agentsWithEndpoints.map(
+        ({ endpoint, ...agentWithoutEndpoint }) => agentWithoutEndpoint,
+      ),
     };
   }
 
@@ -192,6 +193,7 @@ export class CopilotResolver {
       runId,
       serverSideActions,
       actionInputsWithoutAgents,
+      extensions,
     } = await copilotRuntime.processRuntimeRequest({
       serviceAdapter,
       messages: data.messages,
@@ -207,6 +209,7 @@ export class CopilotResolver {
       agentSession: data.agentSession,
       agentStates: data.agentStates,
       url: data.frontend.url,
+      extensions: data.extensions,
     });
 
     logger.debug("Event source created, creating response");
@@ -215,6 +218,7 @@ export class CopilotResolver {
       threadId,
       runId,
       status: firstValueFrom(responseStatus$),
+      extensions,
       messages: new Repeater(async (pushMessage, stopStreamingMessages) => {
         logger.debug("Messages repeater created");
 
@@ -281,6 +285,7 @@ export class CopilotResolver {
               (action) =>
                 !serverSideActions.find((serverSideAction) => serverSideAction.name == action.name),
             ),
+            threadId,
           })
           .pipe(
             // shareReplay() ensures that later subscribers will see the whole stream instead of

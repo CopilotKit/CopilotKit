@@ -94,8 +94,13 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
     const { messages, actions, eventSource, runId, forwardedParameters } = request;
+
     // if we don't have a threadId, create a new thread
-    let threadId = request.threadId || (await this.openai.beta.threads.create()).id;
+    let threadId = request.extensions?.openaiAssistantAPI?.threadId;
+
+    if (!threadId) {
+      threadId = (await this.openai.beta.threads.create()).id;
+    }
 
     const lastMessage = messages.at(-1);
 
@@ -121,8 +126,15 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     }
 
     return {
-      threadId,
       runId: nextRunId,
+      threadId,
+      extensions: {
+        ...request.extensions,
+        openaiAssistantAPI: {
+          threadId: threadId,
+          runId: nextRunId,
+        },
+      },
     };
   }
 
@@ -133,6 +145,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     eventSource: RuntimeEventSource,
   ) {
     let run = await this.openai.beta.threads.runs.retrieve(threadId, runId);
+
     if (!run.required_action) {
       throw new Error("No tool outputs required");
     }
@@ -193,7 +206,6 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
       throw new Error("No user message found");
     }
 
-    // create a new message on the thread
     await this.openai.beta.threads.messages.create(threadId, {
       role: "user",
       content: userMessage.content,
@@ -207,7 +219,6 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
       ...(this.fileSearchEnabled ? [{ type: "file_search" } as AssistantTool] : []),
     ];
 
-    // run the thread
     let stream = this.openai.beta.threads.runs.stream(threadId, {
       assistant_id: this.assistantId,
       instructions,

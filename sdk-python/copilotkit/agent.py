@@ -33,6 +33,15 @@ class Agent(ABC):
     ):
         """Execute the agent"""
 
+    @abstractmethod
+    def get_state(
+        self,
+        *,
+        thread_id: str,
+    ):
+        """Get agent state"""
+
+
     def dict_repr(self) -> AgentDict:
         """Dict representation of the action"""
         return {
