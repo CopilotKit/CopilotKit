@@ -7,71 +7,96 @@ You can swap out any of the sub-components of a CopilotKit component to build up
 
 | | |
 | --- | --- |
-| [TextMessage](#textmessage) | Message component for text messages |
+| [UserMessage](#usermessage) | Message component for user messages |
+| [AssistantMessage](#assistantmessage) | Message component for assistant messages |
 | [Window](#window) | Contains the chat |
 | [Button](#button) | Button that opens/closes the chat |
 | [Header](#header) | The header of the chat |
 | [Messages](#messages) | The chat messages area |
 | [Input](#input) | The chat input |
 | [ResponseButton](#responsebutton) | The button for regenerating a response |
-| [Action Execution](#action-execution) | Customize how actions are displayed |
+| [Actions](#actions) | Customize how actions (tools) are displayed |
 | [Agent State](#agent-state) | Customize how agent state messages are displayed |
 
-## TextMessage
-The TextMessage component displays text messages in the chat. This example shows how to add an avatar and customize the assistant's background color.
+## UserMessage
+The user message is what displays when the user sends a message to the chat. In this example, we change the color and add an avatar. 
 
-<ImageAndCode preview="/images/custom-text-message.png">
+
+<ImageAndCode preview="/images/custom-user-message.png">
+The main thing to be aware of here is the `message` prop, which is the message text from the user.
 
 ```tsx
-import { RenderMessageProps, useChatContext, CopilotSidebar } from "@copilotkit/react-ui";
-import { UserIcon } from "@heroicons/react/24/solid";
-import { SparklesIcon } from "@heroicons/react/24/outline";
-import ReactMarkdown from "react-markdown";
+import { UserMessageProps } from "@copilotkit/react-ui";
+import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotSidebar } from "@copilotkit/react-ui";
+import "@copilotkit/react-ui/styles.css";
 
-function CustomTextMessage(props: RenderMessageProps) {
-  const { message, inProgress, index, isCurrentMessage } = props;
-  const { icons } = useChatContext();
-  if (message.isTextMessage()) {
-    if (message.role === "user") {
-      return (
-        <div className="flex flex-row items-top gap-2">
-          <div
-            key={index}
-            data-message-role="user"
-            className="copilotKitMessage copilotKitUserMessage"
-          >
-            {message.content}
-          </div>
-          <div className="rounded-full bg-blue-500 w-10 h-10 flex items-center justify-center">
-            <UserIcon className="text-white w-6 h-6" />
-          </div>
-        </div>
-      );
-    } else if (message.role == "assistant") {
-      return (
-        <div className="flex flex-row items-top gap-2">
-          <div className="rounded-full bg-indigo-500 w-10 h-10 flex items-center justify-center">
-            <SparklesIcon className="text-white w-6 h-6" />
-          </div>
-          <div
-            key={index}
-            data-message-role="assistant"
-            className={`copilotKitMessage copilotKitAssistantMessage !bg-indigo-500 !text-white `}
-          >
-            {isCurrentMessage && inProgress && !message.content ? (
-              icons.spinnerIcon
-            ) : (
-              <ReactMarkdown>{message.content}</ReactMarkdown>
-            )}
-          </div>
-        </div>
-      );
-    }
-  }
-}
+const CustomUserMessage = (props: UserMessageProps) => {
+  const wrapperStyles = "flex items-center gap-2 justify-end mb-4";
+  const messageStyles = "bg-blue-500 text-white py-2 px-4 rounded-xl break-words flex-shrink-0 max-w-[80%]";
+  const avatarStyles = "bg-blue-500 shadow-sm min-h-10 min-w-10 rounded-full text-white flex items-center justify-center";
 
-<CopilotSidebar TextMessage={CustomTextMessage} />
+  return (
+    <div className={wrapperStyles}>
+      <div className={messageStyles}>{props.message}</div>
+      <div className={avatarStyles}>TS</div>
+    </div>
+  );
+};
+
+<CopilotKit>
+  <CopilotSidebar UserMessage={CustomUserMessage} />
+</CopilotKit>
 ```
+</ImageAndCode>
+
+## AssistantMessage
+The assistant message is what displays when the LLM responds to a user message. In this example, we remove the background color and add an avatar. 
+
+<ImageAndCode preview="/images/custom-assistant-message.png">
+```tsx
+import { AssistantMessageProps } from "@copilotkit/react-ui";
+import { useChatContext } from "@copilotkit/react-ui";
+import { Markdown } from "@copilotkit/react-ui";
+import { SparklesIcon } from "@heroicons/react/24/outline";
+
+import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotSidebar } from "@copilotkit/react-ui";
+import "@copilotkit/react-ui/styles.css";
+
+const CustomAssistantMessage = (props: AssistantMessageProps) => {
+  const { icons } = useChatContext();
+  const { message, isLoading, subComponent } = props;
+
+  const avatarStyles = "bg-zinc-400 border-zinc-500 shadow-lg min-h-10 min-w-10 rounded-full text-white flex items-center justify-center";
+  const messageStyles = "px-4 rounded-xl pt-2";
+
+  const avatar = <div className={avatarStyles}><SparklesIcon className="h-6 w-6" /></div>
+
+  // [!code highlight:13]
+  return (
+    <div className="py-2">
+      <div className="flex items-start">
+        {!subComponent && avatar}
+        <div className={messageStyles}>
+          {message && <Markdown content={message || ""} /> }
+          {isLoading && icons.spinnerIcon}
+        </div>
+      </div>
+      <div className="my-2">{subComponent}</div>
+    </div>
+  );
+};
+
+<CopilotKit>
+  <CopilotSidebar AssistantMessage={CustomAssistantMessage} />
+</CopilotKit>
+```
+**Key concepts**
+- `subComponent` - This is where any generative UI will be rendered.
+- `message` - This is the message text from the LLM, typically in markdown format.
+- `isLoading` - This is a boolean that indicates if the message is still loading.
+
 </ImageAndCode>
 
 ## Window
@@ -81,12 +106,14 @@ The window is the main container for the chat. In this example, we turn it into 
 
 ```tsx
 import { WindowProps, useChatContext, CopilotSidebar } from "@copilotkit/react-ui";
-
+import { CopilotKit } from "@copilotkit/react-core";
+import "@copilotkit/react-ui/styles.css";
 function Window({ children }: WindowProps) {
   const { open, setOpen } = useChatContext();
 
   if (!open) return null;
 
+  // [!code highlight:16]
   return (
     <div 
       className="fixed inset-0 bg-black/50 flex items-center justify-center p-4"
@@ -104,7 +131,9 @@ function Window({ children }: WindowProps) {
   );
 };
 
-<CopilotSidebar Window={Window} />
+<CopilotKit>
+  <CopilotSidebar Window={Window} />
+</CopilotKit>
 ```
 </ImageAndCode>
 
@@ -115,12 +144,14 @@ The `CopilotSidebar` and `CopilotPopup` components allow you to customize their 
 
 ```tsx
 import { ButtonProps, useChatContext, CopilotSidebar } from "@copilotkit/react-ui";
-
+import { CopilotKit } from "@copilotkit/react-core";
+import "@copilotkit/react-ui/styles.css";
 function Button({}: ButtonProps) {
   const { open, setOpen } = useChatContext();
 
   const wrapperStyles = "w-24 bg-blue-500 text-white p-4 rounded-lg text-center cursor-pointer";
 
+  // [!code highlight:11]
   return (
     <div onClick={() => setOpen(!open)} className={wrapperStyles}>
       <button
@@ -133,7 +164,9 @@ function Button({}: ButtonProps) {
   );
 };
 
-<CopilotSidebar Button={Button} />
+<CopilotKit>
+  <CopilotSidebar Button={Button} />
+</CopilotKit>
 ```
 </ImageAndCode>
 
@@ -146,10 +179,12 @@ with a custom icon.
 ```tsx
 import { HeaderProps, useChatContext, CopilotSidebar } from "@copilotkit/react-ui";
 import { BookOpenIcon } from "@heroicons/react/24/outline";
-
+import { CopilotKit } from "@copilotkit/react-core";
+import "@copilotkit/react-ui/styles.css";
 function Header({}: HeaderProps) {
   const { setOpen, icons, labels } = useChatContext();
 
+  // [!code highlight:16]
   return (
     <div className="flex justify-between items-center p-4 bg-blue-500 text-white">
       <div className="w-24">
@@ -167,7 +202,9 @@ function Header({}: HeaderProps) {
   );
 };
 
-<CopilotSidebar Header={Header} />
+<CopilotKit>
+  <CopilotSidebar Header={Header} />
+</CopilotKit>
 ```
 </ImageAndCode>
 
@@ -179,7 +216,8 @@ The Messages component handles the display and organization of different message
 ```tsx
 import { MessagesProps, CopilotSidebar } from "@copilotkit/react-ui";
 import { useCopilotChat } from "@copilotkit/react-core";
-
+import { CopilotKit } from "@copilotkit/react-core";
+import "@copilotkit/react-ui/styles.css";
 function CustomMessages({
   messages,
   inProgress,
@@ -197,6 +235,7 @@ function CustomMessages({
     - ResultMessage: Results from actions
     - AgentStateMessage: Status updates from CoAgents
   */
+  // [!code highlight:40]
   return (
     <div className={wrapperStyles}>
       {messages.map((message, index) => {
@@ -238,7 +277,9 @@ function CustomMessages({
   );
 }
 
-<CopilotSidebar Messages={CustomMessages} />
+<CopilotKit>
+  <CopilotSidebar Messages={CustomMessages} />
+</CopilotKit>
 ```
 </ImageAndCode>
 
@@ -250,46 +291,50 @@ to have a custom "Ask" button and placeholder text.
 
 ```tsx
 import { InputProps, CopilotSidebar } from "@copilotkit/react-ui";
-
+import { CopilotKit } from "@copilotkit/react-core";
+import "@copilotkit/react-ui/styles.css";
 function CustomInput({ inProgress, onSend, isVisible }: InputProps) {
-    const handleSubmit = (value: string) => {
-        if (value.trim()) onSend(value);
-    };
+  const handleSubmit = (value: string) => {
+    if (value.trim()) onSend(value);
+  };
 
-    const wrapperStyle = "flex gap-2 p-4 border-t";
-    const inputStyle = "flex-1 p-2 rounded-md border border-gray-300 focus:outline-none focus:border-blue-500 disabled:bg-gray-100";
-    const buttonStyle = "px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed";
+  const wrapperStyle = "flex gap-2 p-4 border-t";
+  const inputStyle = "flex-1 p-2 rounded-md border border-gray-300 focus:outline-none focus:border-blue-500 disabled:bg-gray-100";
+  const buttonStyle = "px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed";
 
-    return (
-        <div className={wrapperStyle}>
-            <input 
-                disabled={inProgress}
-                type="text" 
-                placeholder="Ask your question here..." 
-                className={inputStyle}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                        handleSubmit(e.currentTarget.value);
-                        e.currentTarget.value = '';
-                    }
-                }}
-            />
-            <button 
-                disabled={inProgress}
-                className={buttonStyle}
-                onClick={(e) => {
-                    const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                    handleSubmit(input.value);
-                    input.value = '';
-                }}
-            >
-                Ask
-            </button>
-        </div>
-    );
+  // [!code highlight:28]
+  return (
+    <div className={wrapperStyle}>
+      <input 
+        disabled={inProgress}
+        type="text" 
+        placeholder="Ask your question here..." 
+        className={inputStyle}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            handleSubmit(e.currentTarget.value);
+            e.currentTarget.value = '';
+          }
+        }}
+      />
+      <button 
+        disabled={inProgress}
+        className={buttonStyle}
+        onClick={(e) => {
+          const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+          handleSubmit(input.value);
+          input.value = '';
+        }}
+      >
+        Ask
+      </button>
+    </div>
+  );
 }
 
-<CopilotSidebar Input={CustomInput} />
+<CopilotKit>
+  <CopilotSidebar Input={CustomInput} />
+</CopilotKit>
 ```
 </ImageAndCode>
 
@@ -305,13 +350,16 @@ This removes the default regeneration functionality - you'll need to implement i
 
 ```tsx
 import { ResponseButtonProps, CopilotSidebar } from "@copilotkit/react-ui";
+import { CopilotKit } from "@copilotkit/react-core";
+import "@copilotkit/react-ui/styles.css";
 
 function CustomResponseButton({ onClick, inProgress }: ResponseButtonProps) {
+  // [!code highlight:29]
   return (
     <div style={{ 
-        display: "flex", 
-        marginTop: "10px" 
-      }}>
+      display: "flex", 
+      marginTop: "10px" 
+    }}>
       <button
         style={{ 
           flex: 1, 
@@ -337,11 +385,13 @@ function CustomResponseButton({ onClick, inProgress }: ResponseButtonProps) {
   );
 };
 
-<CopilotSidebar ResponseButton={CustomResponseButton} />
+<CopilotKit>
+  <CopilotSidebar ResponseButton={CustomResponseButton} />
+</CopilotKit>
 ```
 </ImageAndCode>
 
-## Action Execution
+## Actions
 Actions allow the LLM to interact with your application's functionality. When an action is called by the LLM, you can provide custom components to visualize its execution and results. This example demonstrates a calendar meeting card implementation.
 
 <ImageAndCode preview="/images/render-only-example.png">
