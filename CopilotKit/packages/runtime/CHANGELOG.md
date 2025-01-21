@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.5.13
+
+### Patch Changes
+
+- 8271438: silence langgraph platform error
+  - @copilotkit/shared@1.5.13
+
 ## 1.5.13-next.0
 
 ### Patch Changes
