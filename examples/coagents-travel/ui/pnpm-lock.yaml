@@ -13,17 +13,17 @@ importers:
   .:
     dependencies:
       '@copilotkit/react-core':
-        specifier: 1.5.12
-        version: 1.5.12(@types/react@19.0.1)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 1.5.13
+        version: 1.5.13(@types/react@19.0.1)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@copilotkit/react-ui':
-        specifier: 1.5.12
-        version: 1.5.12(@types/react@19.0.1)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 1.5.13
+        version: 1.5.13(@types/react@19.0.1)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@copilotkit/runtime':
-        specifier: 1.5.12
-        version: 1.5.12(class-validator@0.14.1)(google-auth-library@8.9.0)
+        specifier: 1.5.13
+        version: 1.5.13(class-validator@0.14.1)(google-auth-library@8.9.0)
       '@copilotkit/runtime-client-gql':
-        specifier: 1.5.12
-        version: 1.5.12(graphql@16.9.0)(react@18.3.1)
+        specifier: 1.5.13
+        version: 1.5.13(graphql@16.9.0)(react@18.3.1)
       '@radix-ui/react-accordion':
         specifier: ^1.2.1
         version: 1.2.1(@types/react-dom@19.0.2(@types/react@19.0.1))(@types/react@19.0.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -152,27 +152,27 @@ packages:
     resolution: {integrity: sha512-FDSOghenHTiToteC/QRlv2q3DhPZ/oOXTBoirfWNx1Cx3TMVcGWQtMMmQcSvb/JjpNeGzx8Pq/b4fKEJuWm1sw==}
     engines: {node: '>=6.9.0'}
 
-  '@copilotkit/react-core@1.5.12':
-    resolution: {integrity: sha512-JChTCA9TEQKJd03/IRPuGobYqS62yL8uBWpAbfyWK8AWNunGgjLoS43nSvw2Pqs/Etg6sxv1UBb60540MvwDBw==}
+  '@copilotkit/react-core@1.5.13':
+    resolution: {integrity: sha512-pUgUWwg4LUCSvxGGsF8XgcUPGgkdFCRhAG7H1lmMZ5t6ZZu6c3Ja2GEd/YWGjo+WuDbAo3wUzcM3oKHc4IoS9w==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
       react-dom: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/react-ui@1.5.12':
-    resolution: {integrity: sha512-WPt7CycJ4TsFURbHZ/1ctBkuDW8QSRpVWyuPQEb+/V6AHHyGKenC/tMVWAUUIzFgmSO7LT43/goi75j6r8ba/g==}
+  '@copilotkit/react-ui@1.5.13':
+    resolution: {integrity: sha512-AyjHx/BWjthz2fGAoST6d1HSB+IYct0hilC+Q9QeuqUbxvemtHkuiPiCVlqOvPs2DAs7ZgSOOthNk2n4qElCBQ==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime-client-gql@1.5.12':
-    resolution: {integrity: sha512-P/SRnFQpaIi1kigZUwbHu0mRPzkdW2zPZ4OEfMMOsOFw/Gs8kOb9DJaGiZ0tJ3JZM4mtXdDWPOOX95nnuRaeEw==}
+  '@copilotkit/runtime-client-gql@1.5.13':
+    resolution: {integrity: sha512-maHYxWQpbghuCkyKsubzddpA1Qa5NGWVONEExdWb7BYHUUn2vI5JPpSm8cYiNKersrYeqrNPhVNP8AFnEPxLWg==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime@1.5.12':
-    resolution: {integrity: sha512-+IW5c97zmyGwiNlC8/shlNQwCji5NumgmhA29BiRVesFUijdNIIK5Wp6Wd+QyXGqeu63WSRlfTeEQ5KGoFwNtQ==}
+  '@copilotkit/runtime@1.5.13':
+    resolution: {integrity: sha512-lOo3cWrfPs/2+iRwlLu/TPqbCG8lFBfpDACM1fmo21L6zJnv3z7r1oOvT2atYmCWzIaqTgblDhLZGeSpOl8Sxw==}
 
-  '@copilotkit/shared@1.5.12':
-    resolution: {integrity: sha512-naBU/2Ysp+s5b4UIVkTKe4XzyL04Y46hXszcocGLHSOJVCE/7ITgP8lu47tG4EQmvR+REbKi5WUw1D47+ou85g==}
+  '@copilotkit/shared@1.5.13':
+    resolution: {integrity: sha512-xXunq4qa+h1J8l/g9IscZkSY2qm/05052WZ476kuVM7+YPvB3JBSwtdDzhn8G7xlDCCCRNQsAl6f95d51t7jWA==}
 
   '@envelop/core@5.0.2':
     resolution: {integrity: sha512-tVL6OrMe6UjqLosiE+EH9uxh2TQC0469GwF4tE014ugRaDDKKVWwFwZe0TBMlcyHKh5MD4ZxktWo/1hqUxIuhw==}
@@ -4044,10 +4044,10 @@ snapshots:
     dependencies:
       regenerator-runtime: 0.14.1
 
-  '@copilotkit/react-core@1.5.12(@types/react@19.0.1)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkit/react-core@1.5.13(@types/react@19.0.1)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@copilotkit/runtime-client-gql': 1.5.12(graphql@16.9.0)(react@18.3.1)
-      '@copilotkit/shared': 1.5.12
+      '@copilotkit/runtime-client-gql': 1.5.13(graphql@16.9.0)(react@18.3.1)
+      '@copilotkit/shared': 1.5.13
       '@scarf/scarf': 1.4.0
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
@@ -4059,11 +4059,11 @@ snapshots:
       - graphql
       - supports-color
 
-  '@copilotkit/react-ui@1.5.12(@types/react@19.0.1)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkit/react-ui@1.5.13(@types/react@19.0.1)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@copilotkit/react-core': 1.5.12(@types/react@19.0.1)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@copilotkit/runtime-client-gql': 1.5.12(graphql@16.9.0)(react@18.3.1)
-      '@copilotkit/shared': 1.5.12
+      '@copilotkit/react-core': 1.5.13(@types/react@19.0.1)(graphql@16.9.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@copilotkit/runtime-client-gql': 1.5.13(graphql@16.9.0)(react@18.3.1)
+      '@copilotkit/shared': 1.5.13
       '@headlessui/react': 2.2.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       react-markdown: 8.0.7(@types/react@19.0.1)(react@18.3.1)
@@ -4077,9 +4077,9 @@ snapshots:
       - react-dom
       - supports-color
 
-  '@copilotkit/runtime-client-gql@1.5.12(graphql@16.9.0)(react@18.3.1)':
+  '@copilotkit/runtime-client-gql@1.5.13(graphql@16.9.0)(react@18.3.1)':
     dependencies:
-      '@copilotkit/shared': 1.5.12
+      '@copilotkit/shared': 1.5.13
       '@urql/core': 5.0.8(graphql@16.9.0)
       react: 18.3.1
       untruncate-json: 0.0.1
@@ -4088,10 +4088,10 @@ snapshots:
       - encoding
       - graphql
 
-  '@copilotkit/runtime@1.5.12(class-validator@0.14.1)(google-auth-library@8.9.0)':
+  '@copilotkit/runtime@1.5.13(class-validator@0.14.1)(google-auth-library@8.9.0)':
     dependencies:
       '@anthropic-ai/sdk': 0.27.3
-      '@copilotkit/shared': 1.5.12
+      '@copilotkit/shared': 1.5.13
       '@graphql-yoga/plugin-defer-stream': 3.10.3(graphql-yoga@5.10.3(graphql@16.9.0))(graphql@16.9.0)
       '@langchain/community': 0.0.53(google-auth-library@8.9.0)(openai@4.73.0(zod@3.23.8))
       '@langchain/core': 0.3.18(openai@4.73.0(zod@3.23.8))
@@ -4222,7 +4222,7 @@ snapshots:
       - web-auth-library
       - ws
 
-  '@copilotkit/shared@1.5.12':
+  '@copilotkit/shared@1.5.13':
     dependencies:
       '@segment/analytics-node': 2.2.0
       chalk: 4.1.2
