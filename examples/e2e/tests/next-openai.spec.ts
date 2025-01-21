@@ -151,10 +151,24 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               await page.click('[aria-label="Open Chat"]');
               await page.waitForTimeout(2000);
 
+              // Verify initial welcome message added using appendMessage in useEffect
+              // with followUp: false
+              const welcomeMessage = page.locator(
+                ".copilotKitMessage.copilotKitAssistantMessage"
+              );
+              await expect(welcomeMessage).toBeVisible();
+              const messageText = await welcomeMessage
+                .locator(".copilotKitMarkdown p")
+                .innerText();
+              expect(messageText).toBe(
+                "Hi you! 👋 Let's book your next vacation. Ask me anything."
+              );
+
               // Wait for suggestion box and verify suggestions
               const suggestionHeading = page.getByRole("heading", {
                 name: "Suggested:",
               });
+
               await expect(suggestionHeading).toBeVisible({ timeout: 30000 });
 
               const suggestions = page.locator("button.suggestion");
@@ -191,10 +205,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               });
 
               // Test destination deselection
-              await sendChatMessage(
-                page,
-                "Actually, please deselect Tokyo."
-              );
+              await sendChatMessage(page, "Actually, please deselect Tokyo.");
               await waitForResponse(page);
               await page.waitForTimeout(2000);
 
@@ -224,10 +235,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               });
 
               // Verify new destination is available in state
-              await sendChatMessage(
-                  page,
-                  "Select all destinations in Asia."
-              );
+              await sendChatMessage(page, "Select all destinations in Asia.");
               await waitForResponse(page);
               await page.waitForTimeout(3000);
 
