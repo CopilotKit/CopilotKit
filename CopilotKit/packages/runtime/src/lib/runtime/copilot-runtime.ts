@@ -383,7 +383,10 @@ please use an LLM adapter instead.`,
         apiUrl: agentWithEndpoint.endpoint.deploymentUrl,
         apiKey: agentWithEndpoint.endpoint.langsmithApiKey,
       });
-      const state = (await client.threads.getState(threadId)).values as any;
+      let state: any = {};
+      try {
+        state = (await client.threads.getState(threadId)).values as any;
+      } catch (error) {}
 
       if (Object.keys(state).length === 0) {
         return {
@@ -393,7 +396,6 @@ please use an LLM adapter instead.`,
           messages: JSON.stringify([]),
         };
       } else {
-        console.log(state);
         const { messages, ...stateWithoutMessages } = state;
         const copilotkitMessages = langchainMessagesToCopilotKit(messages);
         return {
