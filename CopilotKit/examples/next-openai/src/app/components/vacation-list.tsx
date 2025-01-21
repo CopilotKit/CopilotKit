@@ -2,12 +2,15 @@
 import {
   DocumentPointer,
   useCopilotAction,
+  useCopilotChat,
   useMakeCopilotDocumentReadable,
 } from "@copilotkit/react-core";
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DestinationTable } from "./destination-table";
 import { VacationNotes } from "./vacation-notes";
+import { Role } from "@copilotkit/runtime-client-gql";
+import { TextMessage } from "@copilotkit/runtime-client-gql";
 
 export type Destination = {
   name: string;
@@ -43,6 +46,8 @@ export function VacationList() {
   const [visitedDestinations, setVisitedDestinations] = useState<Destination[]>(
     data.visitedDestinations,
   );
+
+  const { appendMessage } = useCopilotChat();
 
   useMakeCopilotDocumentReadable(document);
 
@@ -114,6 +119,37 @@ export function VacationList() {
       "Exclude already visited destinations, and New Destinations and suggest new destinations",
     maxSuggestions: 5,
   });
+
+  /**
+   * Initializes the chat interface with a welcome message when the component mounts.
+   *
+   * This effect:
+   * - Runs once on component mount (empty dependency array)
+   * - Creates a new TextMessage with the Assistant role
+   * - Appends the welcome message to the chat history
+   *
+   * @param followUp: false - This is critical because:
+   *   - When false, this message is treated as a standalone greeting
+   *   - No LLM request is triggered for this message
+   *   - The chat will wait for the user's first interaction before making any API calls
+   *   - This helps optimize performance by avoiding unnecessary API calls for static welcome messages
+   *
+   * Example flow:
+   * 1. Component mounts -> Welcome message appears
+   * 2. No LLM call is made (followUp: false)
+   * 3. User sends first message -> This will trigger the first actual LLM request
+   */
+  useEffect(() => {
+    appendMessage(
+      new TextMessage({
+        role: Role.Assistant,
+        content: "Hi you! 👋 Let's book your next vacation. Ask me anything.",
+      }),
+      {
+        followUp: false,
+      },
+    );
+  }, []);
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 bg-slate-50 py-4">
