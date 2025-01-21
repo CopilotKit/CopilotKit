@@ -8,6 +8,7 @@
     "exit-agent",
     "copilotkit-state",
     "agent-steering",
-    "message-persistence"
+    "message-persistence",
+    "loading-agent-state"
   ]
 }

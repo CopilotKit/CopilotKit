@@ -1,0 +1,45 @@
+---
+title: Loading Message History
+description: Learn how to load chat messages and threads within the CopilotKit framework.
+---
+
+### Loading Previous Messages
+
+To load previous messages in CopilotKit, you can simply set the `threadId` property on `<CopilotKit>` like this:
+
+```tsx
+<CopilotKit threadId="123">
+  <YourApp />
+</CopilotKit>
+```
+
+### Dynamically Switching Threads
+
+You can also make the `threadId` dynamic. Once it is set, CopilotKit will load the previous messages for that thread.
+
+```tsx
+const [threadId, setThreadId] = useState("1");
+
+<CopilotKit threadId={threadId}>
+  <YourApp setThreadId={setThreadId} />
+</CopilotKit>
+
+// i.e. in YourApp:
+
+setThreadId("2");
+```
+
+### Using setThreadId
+
+In addition, CopilotKit will return the current threadId as well as a `setThreadId` function from the `useCopilotContext` hook. You can use `setThreadId` to change the threadId.
+
+```tsx
+const { threadId, setThreadId } = useCopilotContext();
+
+// for example, to change the threadId on a button click:
+
+<Button onClick={() => setThreadId("123")}>
+  Change Thread
+</Button>
+```
+

@@ -4,6 +4,7 @@
   "pages": [
     "chat-with-agent",
     "render-agent-state",
-    "hitl"
+    "hitl",
+    "loading-message-history"
   ]
 }
