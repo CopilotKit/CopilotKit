@@ -1,5 +1,17 @@
 # @copilotkit/runtime-client-gql
 
+## 1.5.12
+
+### Patch Changes
+
+- fb87bcf: - fix: silence abort controller cancellation throwing an error
+- 926499b: - Load the previous state of an agent if `threadId` is provided to CopilotKit, including all messages
+- 6136a57: - fix(errors): add custom error classes to better describe library errors
+  - fix(errors): use new errors in error handling
+  - chore: add documentation and links to respective errors
+- Updated dependencies [6136a57]
+  - @copilotkit/shared@1.5.12
+
 ## 1.5.12-next.7
 
 ### Patch Changes
