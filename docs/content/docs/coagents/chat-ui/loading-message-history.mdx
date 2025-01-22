@@ -7,8 +7,12 @@ description: Learn how to load chat messages and threads within the CopilotKit f
 
 To load previous messages in CopilotKit, you can simply set the `threadId` property on `<CopilotKit>` like this:
 
+<Callout>
+  When using LangGraph platform, the `threadId` must be a UUID.
+</Callout>
+
 ```tsx
-<CopilotKit threadId="123">
+<CopilotKit threadId="37aa68d0-d15b-45ae-afc1-0ba6c3e11353">
   <YourApp />
 </CopilotKit>
 ```
@@ -18,7 +22,7 @@ To load previous messages in CopilotKit, you can simply set the `threadId` prope
 You can also make the `threadId` dynamic. Once it is set, CopilotKit will load the previous messages for that thread.
 
 ```tsx
-const [threadId, setThreadId] = useState("1");
+const [threadId, setThreadId] = useState("af2fa5a4-36bd-4e02-9b55-2580ab584f89");
 
 <CopilotKit threadId={threadId}>
   <YourApp setThreadId={setThreadId} />
@@ -26,7 +30,7 @@ const [threadId, setThreadId] = useState("1");
 
 // i.e. in YourApp:
 
-setThreadId("2");
+setThreadId("679e8da5-ee9b-41b1-941b-80e0cc73a008");
 ```
 
 ### Using setThreadId
@@ -38,7 +42,7 @@ const { threadId, setThreadId } = useCopilotContext();
 
 // for example, to change the threadId on a button click:
 
-<Button onClick={() => setThreadId("123")}>
+<Button onClick={() => setThreadId("d73c22f3-1f8e-4a93-99db-5c986068d64f")}>
   Change Thread
 </Button>
 ```
