@@ -1,13 +1,3 @@
-shared:
-  ingress:
-    host: "demos.devcopilotkit.com"
-    acmCertificateArn: "arn:aws:acm:us-east-1:058264219587:certificate/aac8e4f8-7c56-41f3-b9ca-8eae61944717"
-
-demos:
-  coagents-research-canvas:
-    ui:
-      imageRepository: "058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:coagents-research-canvas-ui"
-      secrets: ref+awssecrets://demos/coagents-research-canvas/ui/secrets?region=us-east-1
-    agent:
-      imageRepository: "058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:coagents-research-canvas-agent-local-deps"
-      secrets: ref+awssecrets://demos/coagents-research-canvas/agent/secrets?region=us-east-1
+ingressGroup:
+  host: "demos.devcopilotkit.com"
+  acmCertificateArn: "arn:aws:acm:us-east-1:058264219587:certificate/aac8e4f8-7c56-41f3-b9ca-8eae61944717"

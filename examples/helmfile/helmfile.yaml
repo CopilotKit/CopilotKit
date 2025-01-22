@@ -2,21 +2,18 @@ environments:
   default:
     values:
     - ./environments/default.yaml
-  test:
-    values:
-    - ./environments/default.yaml
-    - ./environments/test.yaml
 ---
 helmDefaults:
   wait: true
 ---
 releases:
-  # - name: 'examples-shared'
-  #   chart: ./charts/examples-shared
-  #   namespace: '{{ .Values.environment }}'
-  #   values:
-  #     - ./charts/examples-shared/values.yaml.gotmpl
+  - name: examples-shared
+    chart: ./charts/examples-shared
+    namespace: {{ .Values.environment }}
+    values: [./charts/examples-shared/values.yaml.gotmpl]
+
   - name: 'coagents-research-canvas'
     chart: ./charts/example-app
-    namespace: '{{ .Values.environment }}'
+    namespace: {{ .Values.environment }}
     values: [./values/coagents-research-canvas.yaml.gotmpl]
+    needs: [examples-shared]

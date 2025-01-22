@@ -1,39 +1,34 @@
 environment: "{{ .Values.environment }}"
 
-# apps:
-#   - name: coagents-research-canvas
-#     type: coagents-research-canvas
-#     components:
-#       - name: ui
-#         image: coagents-research-canvas-ui
-#         tag: "{{ .Values.globalImageTag }}"
-#       - name: agent
-#         image: coagents-research-canvas-agent
-#         tag: "{{ .Values.globalImageTag }}"
-#   - name: coagents-research-canvas-ui
-#     image:
-#       repository: "{{ index .Values.demos "coagents-research-canvas" "ui" "imageRepository" }}"
-#       tag: "{{ .Values.globalImageTag }}"
-#       envFromJson: {{ fetchSecretValue (index .Values.demos "coagents-research-canvas" "ui" "secrets") }}
-#       env:
-#         - name: REMOTE_ACTION_URL
-#           value: "http://coagents-research-canvas-agent:8000/copilotkit"
+app:
+  name: coagents-research-canvas
 
-ui:
-  enabled: true
-  image:
-    repository: "{{ index .Values.demos "coagents-research-canvas" "ui" "imageRepository" }}"
-    tag: "{{ .Values.globalImageTag }}"
-  envFromJson: {{ fetchSecretValue (index .Values.demos "coagents-research-canvas" "ui" "secrets") }}
-  env:
-    - name: REMOTE_ACTION_URL
-      value: "http://coagents-research-canvas-agent:8000/copilotkit"
-
-agent:
-  enabled: true
-  image:
-    repository: "{{ index .Values.demos "coagents-research-canvas" "agent" "imageRepository" }}"
-    tag: "{{ .Values.globalImageTag }}"
-  envFromJson: {{ fetchSecretValue (index .Values.demos "coagents-research-canvas" "agent" "secrets") }}
-
-
+deployments:
+  - name: ui
+    image:
+      repository: "058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:coagents-research-canvas-ui"
+      tag: "{{ .Values.globalImageTag }}"
+    port: 3000
+    command: ["npm", "start", "--", "-H", "0.0.0.0", "--port", "3000"]
+    healthcheck:
+      path: /
+    config:
+      secretsJson: {{ fetchSecretValue "ref+awssecrets://demos/coagents-research-canvas/ui/secrets" }}
+      env:
+        - name: REMOTE_ACTION_URL
+          value: "http://coagents-research-canvas-agent-local-deps:8000/copilotkit"
+  
+  - name: agent-local-deps
+    image:
+      repository: "058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:coagents-research-canvas-agent-local-deps"
+      tag: "{{ .Values.globalImageTag }}"
+    port: 8000
+    healthcheck:
+      path: /health
+    config:
+      secretsJson: {{ fetchSecretValue "ref+awssecrets://demos/coagents-research-canvas/agent/secrets" }}
+      env:
+        - name: HOST
+          value: "0.0.0.0"
+        - name: PORT
+          value: "8000"

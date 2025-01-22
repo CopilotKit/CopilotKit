@@ -1,8 +1,8 @@
 environment: {{ .Values.environment }}
 
 ingress:
-  host: {{ .Values.shared.ingress.host }}
-  acmCertificateArn: {{ .Values.shared.ingress.acmCertificateArn }}
+  host: {{ .Values.ingressGroup.host }}
+  acmCertificateArn: {{ .Values.ingressGroup.acmCertificateArn }}
 
 nameOverride: ""
 fullnameOverride: ""
