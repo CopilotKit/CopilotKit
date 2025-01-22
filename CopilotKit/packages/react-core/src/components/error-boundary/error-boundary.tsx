@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
-import { CPKError, Severity } from "../../lib/errors";
+import { Severity, CopilotKitError } from "@copilotkit/shared";
 import { StatusChecker } from "../../lib/status-checker";
-import { renderCopilotKitUsageBanner as renderCopilotKitUsage, UsageBanner } from "../usage-banner";
+import { renderCopilotKitUsage, UsageBanner } from "../usage-banner";
 import { useErrorToast } from "./error-utils";
 
 const statusChecker = new StatusChecker();
@@ -14,7 +14,7 @@ interface Props {
 
 interface State {
   hasError: boolean;
-  error?: CPKError;
+  error?: CopilotKitError;
   status?: {
     severity: Severity;
     message: string;
@@ -29,7 +29,7 @@ export class CopilotErrorBoundary extends React.Component<Props, State> {
     };
   }
 
-  static getDerivedStateFromError(error: CPKError): State {
+  static getDerivedStateFromError(error: CopilotKitError): State {
     return { hasError: true, error };
   }
 
@@ -56,7 +56,7 @@ export class CopilotErrorBoundary extends React.Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
-      if (this.state.error instanceof CPKError) {
+      if (this.state.error instanceof CopilotKitError) {
         return renderCopilotKitUsage(this.state.error);
       }
       return <ErrorToast error={this.state.error}>{this.props.children}</ErrorToast>;

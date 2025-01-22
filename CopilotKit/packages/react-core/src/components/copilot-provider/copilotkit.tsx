@@ -31,8 +31,9 @@ import {
   FunctionCallHandler,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   randomUUID,
+  ConfigurationError,
+  MissingPublicApiKeyError,
 } from "@copilotkit/shared";
-
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { CopilotKitProps } from "./copilotkit-props";
@@ -43,12 +44,7 @@ import { ToastProvider } from "../toast/toast-provider";
 import { useCopilotRuntimeClient } from "../../hooks/use-copilot-runtime-client";
 import { shouldShowDevConsole } from "../../utils";
 import { CopilotErrorBoundary } from "../error-boundary/error-boundary";
-import {
-  Agent,
-  ExtensionsInput,
-  loadMessagesFromJsonRepresentation,
-} from "@copilotkit/runtime-client-gql";
-import * as CPKErrors from "../../lib/errors";
+import { Agent, ExtensionsInput } from "@copilotkit/runtime-client-gql";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const showDevConsole = props.showDevConsole === undefined ? "auto" : props.showDevConsole;
@@ -434,11 +430,11 @@ function validateProps(props: CopilotKitProps): never | void {
   const cloudFeatures = Object.keys(props).filter((key) => key.endsWith("_c"));
 
   if (!props.runtimeUrl && !props.publicApiKey) {
-    throw new CPKErrors.ConfigurationError("Missing required prop: 'runtimeUrl' or 'publicApiKey'");
+    throw new ConfigurationError("Missing required prop: 'runtimeUrl' or 'publicApiKey'");
   }
 
   if (cloudFeatures.length > 0 && !props.publicApiKey) {
-    throw new CPKErrors.MissingPublicApiKeyError(
+    throw new MissingPublicApiKeyError(
       `Missing required prop: 'publicApiKey' to use cloud features: ${cloudFeatures
         .map(formatFeatureName)
         .join(", ")}`,
