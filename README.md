@@ -14,22 +14,10 @@
 
 <!-- -->
 
-<div align="center"> 
 
-</div>
 
-<div align="center">
-  <a href="https://www.linkedin.com/company/100723818/admin/feed/posts/" target="_blank">
-    <img src="https://github.com/user-attachments/assets/e33e7ebb-f5fc-4775-81b0-d5dd6865271a" alt="LI">
-  </a>
-  <a href="https://x.com/CopilotKit" target="_blank">
-    <img src="https://github.com/user-attachments/assets/14e57c97-70ac-4f9a-88f5-67028107794f" alt="Discord">
-  </a>
-</div>
 
-<h3 align="center"> 
-Stay up to date with our latest releases!
-</h3>
+
 
 <br/>
 
@@ -55,6 +43,20 @@ Stay up to date with our latest releases!
     <img src="./assets/btn_cloud.png" alt="CopilotKit GitHub" height="40px">
   </a>
   
+</div>
+
+
+<h3 align="center"> 
+Stay up to date with our latest releases!
+</h3>
+
+<div align="center">
+  <a href="https://www.linkedin.com/company/100723818/admin/feed/posts/" target="_blank">
+    <img src="https://github.com/user-attachments/assets/e33e7ebb-f5fc-4775-81b0-d5dd6865271a" alt="LI">
+  </a>
+  <a href="https://x.com/CopilotKit" target="_blank">
+    <img src="https://github.com/user-attachments/assets/14e57c97-70ac-4f9a-88f5-67028107794f" alt="Discord">
+  </a>
 </div>
 
 <br/>
