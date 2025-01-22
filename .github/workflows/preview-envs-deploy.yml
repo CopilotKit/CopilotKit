@@ -148,101 +148,101 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
 
-  cdk_deploy:
-    runs-on: ubuntu-latest
-    name: Deploy Preview Environments
-    needs: build_images
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+  # cdk_deploy:
+  #   runs-on: ubuntu-latest
+  #   name: Deploy Preview Environments
+  #   needs: build_images
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v3
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "9.5"
+  #     - name: Setup pnpm
+  #       uses: pnpm/action-setup@v4
+  #       with:
+  #         version: "9.5"
 
-      - name: Use Node.js 21
-        uses: actions/setup-node@v2
-        with:
-          node-version: 21.x
-          cache: "pnpm"
-          cache-dependency-path: "**/pnpm-lock.yaml"
+  #     - name: Use Node.js 21
+  #       uses: actions/setup-node@v2
+  #       with:
+  #         node-version: 21.x
+  #         cache: "pnpm"
+  #         cache-dependency-path: "**/pnpm-lock.yaml"
 
-      - name: Infra install dependencies
-        working-directory: infra
-        run: pnpm i
+  #     - name: Infra install dependencies
+  #       working-directory: infra
+  #       run: pnpm i
 
-      - name: Install AWS CDK
-        run: npm install -g aws-cdk
+  #     - name: Install AWS CDK
+  #       run: npm install -g aws-cdk
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+  #     - name: Configure AWS Credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: us-east-1
 
-      - name: Configure AWS Profile
-        run: |
-          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
-          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
-          aws configure set region us-east-1
+  #     - name: Configure AWS Profile
+  #       run: |
+  #         aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
+  #         aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
+  #         aws configure set region us-east-1
 
-      - name: cdk deploy
-        working-directory: ./infra
-        run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 10
-        env:
-          UNIQUE_ENV_ID: "PR${{ github.event.number }}"
-          GITHUB_ACTIONS_RUN_ID: "${{ github.run_id }}"
-          GITHUB_PR_NUMBER: "${{ github.event.number }}"
+  #     - name: cdk deploy
+  #       working-directory: ./infra
+  #       run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 10
+  #       env:
+  #         UNIQUE_ENV_ID: "PR${{ github.event.number }}"
+  #         GITHUB_ACTIONS_RUN_ID: "${{ github.run_id }}"
+  #         GITHUB_PR_NUMBER: "${{ github.event.number }}"
 
-      - name: Print CDK Outputs
-        working-directory: infra
-        run: |
-          cat cdk_outputs.json
+  #     - name: Print CDK Outputs
+  #       working-directory: infra
+  #       run: |
+  #         cat cdk_outputs.json
 
-      - name: Generate table from outputs
-        id: generate-table
-        working-directory: infra
-        run: |
-          node generate-table
-        env:
-          GITHUB_SHA: ${{ github.sha }}
+  #     - name: Generate table from outputs
+  #       id: generate-table
+  #       working-directory: infra
+  #       run: |
+  #         node generate-table
+  #       env:
+  #         GITHUB_SHA: ${{ github.sha }}
 
-      - name: Assign label
-        uses: actions/github-script@v4
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.issues.addLabels({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: ['preview']
-            })
+  #     - name: Assign label
+  #       uses: actions/github-script@v4
+  #       with:
+  #         github-token: ${{ secrets.GITHUB_TOKEN }}
+  #         script: |
+  #           github.issues.addLabels({
+  #             issue_number: context.issue.number,
+  #             owner: context.repo.owner,
+  #             repo: context.repo.repo,
+  #             labels: ['preview']
+  #           })
 
-      - name: Delete a comment
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          comment-tag: preview-status-update
-          mode: delete
+  #     - name: Delete a comment
+  #       uses: thollander/actions-comment-pull-request@v3
+  #       with:
+  #         comment-tag: preview-status-update
+  #         mode: delete
 
-      - name: Comment post-deployment
-        uses: thollander/actions-comment-pull-request@v3
-        with:
-          comment-tag: preview-status-update
-          file-path: ./infra/preview-comment.md
+  #     - name: Comment post-deployment
+  #       uses: thollander/actions-comment-pull-request@v3
+  #       with:
+  #         comment-tag: preview-status-update
+  #         file-path: ./infra/preview-comment.md
 
-      - name: Export Variable - E2E URLs
-        id: export-e2e-urls
-        working-directory: infra
-        run: |
-          echo "e2e-urls=$(node get-e2e-tests-urls.js | base64 -w 0)" >> "$GITHUB_OUTPUT"
+  #     - name: Export Variable - E2E URLs
+  #       id: export-e2e-urls
+  #       working-directory: infra
+  #       run: |
+  #         echo "e2e-urls=$(node get-e2e-tests-urls.js | base64 -w 0)" >> "$GITHUB_OUTPUT"
 
-      - name: Trigger E2E Tests
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          workflow: "e2e.yml"
-          ref: "${{ github.event.pull_request.head.ref }}"
-          inputs: '{"ref": "${{ github.event.pull_request.head.ref }}", "sha": "${{ github.event.pull_request.head.sha }}", "urls": "${{ steps.export-e2e-urls.outputs.e2e-urls }}", "pr_number": "${{ github.event.pull_request.number }}"}'
+  #     - name: Trigger E2E Tests
+  #       uses: benc-uk/workflow-dispatch@v1
+  #       with:
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #         workflow: "e2e.yml"
+  #         ref: "${{ github.event.pull_request.head.ref }}"
+  #         inputs: '{"ref": "${{ github.event.pull_request.head.ref }}", "sha": "${{ github.event.pull_request.head.sha }}", "urls": "${{ steps.export-e2e-urls.outputs.e2e-urls }}", "pr_number": "${{ github.event.pull_request.number }}"}'
