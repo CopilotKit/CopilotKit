@@ -1,0 +1,13 @@
+environment: {{ .Values.environment }}
+
+ingress:
+  host: {{ .Values.shared.ingress.host }}
+  acmCertificateArn: {{ .Values.shared.ingress.acmCertificateArn }}
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""

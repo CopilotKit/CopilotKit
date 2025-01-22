@@ -1,0 +1,15 @@
+{{- if .Values.ui.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-ui
+spec:
+  type: {{ if .Values.ui.service }}{{ .Values.ui.service.type | default "ClusterIP" }}{{ else }}ClusterIP{{ end }}
+  ports:
+    - port: {{ if .Values.ui.service }}{{ .Values.ui.service.port | default 3000 }}{{ else }}3000{{ end }}
+      targetPort: {{ if .Values.ui.service }}{{ .Values.ui.service.port | default 3000 }}{{ else }}3000{{ end }}
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: {{ .Release.Name }}-ui
+{{- end }}

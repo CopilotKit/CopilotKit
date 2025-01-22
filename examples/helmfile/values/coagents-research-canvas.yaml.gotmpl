@@ -1,0 +1,39 @@
+environment: "{{ .Values.environment }}"
+
+# apps:
+#   - name: coagents-research-canvas
+#     type: coagents-research-canvas
+#     components:
+#       - name: ui
+#         image: coagents-research-canvas-ui
+#         tag: "{{ .Values.globalImageTag }}"
+#       - name: agent
+#         image: coagents-research-canvas-agent
+#         tag: "{{ .Values.globalImageTag }}"
+#   - name: coagents-research-canvas-ui
+#     image:
+#       repository: "{{ index .Values.demos "coagents-research-canvas" "ui" "imageRepository" }}"
+#       tag: "{{ .Values.globalImageTag }}"
+#       envFromJson: {{ fetchSecretValue (index .Values.demos "coagents-research-canvas" "ui" "secrets") }}
+#       env:
+#         - name: REMOTE_ACTION_URL
+#           value: "http://coagents-research-canvas-agent:8000/copilotkit"
+
+ui:
+  enabled: true
+  image:
+    repository: "{{ index .Values.demos "coagents-research-canvas" "ui" "imageRepository" }}"
+    tag: "{{ .Values.globalImageTag }}"
+  envFromJson: {{ fetchSecretValue (index .Values.demos "coagents-research-canvas" "ui" "secrets") }}
+  env:
+    - name: REMOTE_ACTION_URL
+      value: "http://coagents-research-canvas-agent:8000/copilotkit"
+
+agent:
+  enabled: true
+  image:
+    repository: "{{ index .Values.demos "coagents-research-canvas" "agent" "imageRepository" }}"
+    tag: "{{ .Values.globalImageTag }}"
+  envFromJson: {{ fetchSecretValue (index .Values.demos "coagents-research-canvas" "agent" "secrets") }}
+
+

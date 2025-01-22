@@ -1,0 +1,59 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "{{ .Release.Name }}-ingress"
+  annotations:
+    alb.ingress.kubernetes.io/group.name: "{{ .Values.environment }}-shared-demos"
+    alb.ingress.kubernetes.io/group.order: "1"
+    alb.ingress.kubernetes.io/target-type: "ip"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+spec:
+  ingressClassName: alb
+  rules:
+    {{- if .Values.ui.enabled }}
+    - host: "{{ .Release.Name }}-ui-{{ include "example-app.environment" . }}.demos.devcopilotkit.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: "{{ .Release.Name }}-ui"
+                port:
+                  number: 3000
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: ssl-redirect
+                port:
+                  name: use-annotation
+    {{- end }}
+    {{- if .Values.agent.enabled }}
+    - host: "{{ .Release.Name }}-agent-{{ include "example-app.environment" . }}.demos.devcopilotkit.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: "{{ .Release.Name }}-agent"
+                port:
+                  number: 8000
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: ssl-redirect
+                port:
+                  name: use-annotation
+    {{- end }}
+  tls:
+    - hosts:
+        {{- if .Values.ui.enabled }}
+        - "{{ .Release.Name }}-ui-{{ include "example-app.environment" . }}.demos.devcopilotkit.com"
+        {{- end }}
+        {{- if .Values.agent.enabled }}
+        - "{{ .Release.Name }}-agent-{{ include "example-app.environment" . }}.demos.devcopilotkit.com"
+        {{- end }}
