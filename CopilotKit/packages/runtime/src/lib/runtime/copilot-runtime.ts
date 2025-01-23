@@ -60,6 +60,7 @@ import { ExtensionsResponse } from "../../graphql/types/extensions-response.type
 import { LoadAgentStateResponse } from "../../graphql/types/load-agent-state-response.type";
 import { Client as LangGraphClient } from "@langchain/langgraph-sdk";
 import { langchainMessagesToCopilotKit } from "./remote-lg-action";
+import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 
 interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
@@ -75,6 +76,7 @@ interface CopilotRuntimeRequest {
   forwardedParameters?: ForwardedParametersInput;
   url?: string;
   extensions?: ExtensionsInput;
+  metaEvents?: MetaEventInput[];
 }
 
 interface CopilotRuntimeResponse {
@@ -465,6 +467,7 @@ please use an LLM adapter instead.`,
       graphqlContext,
       agentSession,
       threadId: threadIdFromRequest,
+      metaEvents,
     } = request;
     const { agentName, nodeName } = agentSession;
 
@@ -509,6 +512,7 @@ please use an LLM adapter instead.`,
         threadId,
         nodeName,
         actionInputsWithoutAgents,
+        metaEvents,
       });
 
       eventSource.stream(async (eventStream$) => {
