@@ -218,7 +218,7 @@ jobs:
         uses: thollander/actions-comment-pull-request@v3
         with:
           comment-tag: preview-status-update
-          file-path: ./preview-comment.md
+          file-path: ./examples/helmfile/preview-comment.md
 
       # - name: Export Variable - E2E URLs
       #   id: export-e2e-urls
