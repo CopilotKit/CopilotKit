@@ -220,16 +220,16 @@ jobs:
           comment-tag: preview-status-update
           file-path: ./examples/helmfile/preview-comment.md
 
-      # - name: Export Variable - E2E URLs
-      #   id: export-e2e-urls
-      #   working-directory: infra
-      #   run: |
-      #     echo "e2e-urls=$(node get-e2e-tests-urls.js | base64 -w 0)" >> "$GITHUB_OUTPUT"
+      - name: Export Variable - E2E URLs
+        id: export-e2e-urls
+        working-directory: examples/e2e
+        run: |
+          echo "e2e-urls=$(cat test-config.json | base64 -w 0)" >> "$GITHUB_OUTPUT"
 
-      # - name: Trigger E2E Tests
-      #   uses: benc-uk/workflow-dispatch@v1
-      #   with:
-      #     token: ${{ secrets.GITHUB_TOKEN }}
-      #     workflow: "e2e.yml"
-      #     ref: "${{ github.event.pull_request.head.ref }}"
-      #     inputs: '{"ref": "${{ github.event.pull_request.head.ref }}", "sha": "${{ github.event.pull_request.head.sha }}", "urls": "${{ steps.export-e2e-urls.outputs.e2e-urls }}", "pr_number": "${{ github.event.pull_request.number }}"}'
+      - name: Trigger E2E Tests
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: "e2e.yml"
+          ref: "${{ github.event.pull_request.head.ref }}"
+          inputs: '{"ref": "${{ github.event.pull_request.head.ref }}", "sha": "${{ github.event.pull_request.head.sha }}", "urls": "${{ steps.export-e2e-urls.outputs.e2e-urls }}", "pr_number": "${{ github.event.pull_request.number }}"}'

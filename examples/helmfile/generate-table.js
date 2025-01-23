@@ -12,6 +12,8 @@ if (!ENVIRONMENT) {
 console.log("ENVIRONMENT", ENVIRONMENT);
 console.log("Getting release list")
 
+const testConfigs = {};
+
 const releaseList = JSON.parse(childProcess.execSync(
   `helmfile --state-values-set environment=${ENVIRONMENT} --selector "name!=examples-shared" list --output json`
 ).toString());
@@ -43,6 +45,12 @@ for (const release of releaseList) {
       label: "Preview",
       url: ui.url
     });
+
+    testConfigs[releaseName] = {
+      url: ui.url,
+      description: ui.outputs.description,
+      projectName: releaseName,
+    };
   } else {
     throw new Error(`UI deployment not found for ${releaseName}`);
   }
@@ -84,6 +92,8 @@ function generateTable() {
   const md = json2md(structure);
   console.log(md);
   fs.writeFileSync(path.resolve(__dirname, "./preview-comment.md"), md);
+
+  fs.writeFileSync(path.resolve(__dirname, "../e2e/test-config.json"), JSON.stringify(testConfigs, null, 2));
 }
 
 generateTable();
