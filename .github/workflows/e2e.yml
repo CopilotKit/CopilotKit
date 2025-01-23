@@ -47,7 +47,7 @@ jobs:
       - name: Save E2E URLs
         working-directory: examples/e2e
         run: |
-          echo "${{ inputs.urls }}" | base64 -d > app-configs.json
+          echo "${{ inputs.urls }}" | base64 -d > test-config.json
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
