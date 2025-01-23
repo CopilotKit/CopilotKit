@@ -17,6 +17,12 @@ releases:
     namespace: {{ .Values.environment }}
     values: [./values/coagents-research-canvas.yaml.gotmpl]
     needs: [examples-shared]
+    
+  - name: 'coagents-qa-native'
+    chart: ./charts/example-app
+    namespace: {{ .Values.environment }}
+    values: [./values/coagents-qa-native.yaml.gotmpl]
+    needs: [examples-shared]
 
   - name: 'next-openai'
     chart: ./charts/example-app
