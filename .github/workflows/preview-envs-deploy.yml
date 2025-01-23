@@ -176,6 +176,7 @@ jobs:
           aws eks --region us-east-1 update-kubeconfig --name copilotcloud-staging-eks
 
       - name: Set Environment Name
+        id: set-environment-name
         run: |
           echo "ENVIRONMENT=pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
 
