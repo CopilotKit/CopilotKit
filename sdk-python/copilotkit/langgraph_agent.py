@@ -216,9 +216,10 @@ class LangGraphAgent(Agent):
         state: dict,
         messages: List[Message],
         thread_id: Optional[str] = None,
-        node_name: Optional[str] = None,
         actions: Optional[List[ActionDict]] = None,
+        **kwargs,
     ):
+        node_name = kwargs.get("node_name")
 
         config = ensure_config(cast(Any, self.langgraph_config.copy()) if self.langgraph_config else {}) # pylint: disable=line-too-long
         config["configurable"] = config.get("configurable", {})

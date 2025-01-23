@@ -28,19 +28,18 @@ class Agent(ABC):
         state: dict,
         messages: List[Message],
         thread_id: Optional[str] = None,
-        node_name: Optional[str] = None,
         actions: Optional[List[ActionDict]] = None,
+        **kwargs,
     ):
         """Execute the agent"""
 
-    @abstractmethod
     def get_state(
         self,
         *,
-        thread_id: str,
+        thread_id: str, # pylint: disable=unused-argument
     ):
         """Get agent state"""
-
+        return {}
 
     def dict_repr(self) -> AgentDict:
         """Dict representation of the action"""

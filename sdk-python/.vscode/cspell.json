@@ -19,6 +19,7 @@
     "childrens",
     "partialjson",
     "dotenv",
-    "adispatch"
+    "adispatch",
+    "crewai"
   ]
 }

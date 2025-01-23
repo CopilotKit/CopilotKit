@@ -7,7 +7,7 @@ load_dotenv() # pylint: disable=wrong-import-position
 from fastapi import FastAPI
 import uvicorn
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
-from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
+from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent, Action
 from greeter.agent import graph
 
 
@@ -19,6 +19,20 @@ sdk = CopilotKitRemoteEndpoint(
             description="ReAct agent.",
             graph=graph,
         )
+    ],
+    actions=[
+        Action(
+            name="greet_user",
+            description="Say hello to the user.",
+            parameters=[
+                {
+                    "name": "name",
+                    "description": "The name of the user to greet.",
+                    "type": "string",
+                },
+            ],
+            handler=lambda name: "Hello, world!",
+        ),
     ],
 )
 

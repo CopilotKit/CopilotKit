@@ -2,11 +2,12 @@
 
 import logging
 import asyncio
-#
+import re
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Any, cast
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse
 from ..sdk import CopilotKitRemoteEndpoint, CopilotKitContext
 from ..types import Message
 from ..exc import (
@@ -16,7 +17,7 @@ from ..exc import (
     AgentExecutionException,
 )
 from ..action import ActionDict
-
+from ..html import generate_info_html
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
@@ -63,21 +64,82 @@ async def handler(request: Request, sdk: CopilotKitRemoteEndpoint):
 
     try:
         body = await request.json()
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail="Request body is required") from exc
+    except: # pylint: disable=bare-except
+        body = None
 
     path = request.path_params.get('path')
     method = request.method
     context = cast(
-        CopilotKitContext, 
+        CopilotKitContext,
         {
-            "properties": body.get("properties", {}),
-            "frontend_url": body.get("frontendUrl", None)
+            "properties": (body or {}).get("properties", {}),
+            "frontend_url": (body or {}).get("frontendUrl", None)
         }
     )
 
+    if method in ['GET', 'POST'] and path == '':
+        accept_header = request.headers.get('accept', '')
+        return await handle_info(
+            sdk=sdk,
+            context=context,
+            as_html='text/html' in accept_header,
+        )
+
+    if method == 'POST' and (match := re.match(r'agents/([a-zA-Z0-9_-]+)/execute', path)):
+        name = match.group(1)
+
+        thread_id = body.get("threadId", str(uuid.uuid4()))
+        state = body.get("state", {})
+        messages = body.get("messages", [])
+        actions = body.get("actions", [])
+
+        # used for LangGraph only
+        node_name = body.get("nodeName")
+
+        return handle_execute_agent(
+            sdk=sdk,
+            context=context,
+            thread_id=thread_id,
+            node_name=node_name,
+            name=name,
+            state=state,
+            messages=messages,
+            actions=actions,
+        )
+
+    # Deal with backwards compatibility
+    result_v1 = await handler_v1(
+        sdk=sdk,
+        method=method,
+        path=path,
+        body=body,
+        context=context,
+    )
+
+    if result_v1 is not None:
+        return result_v1
+
+    # v2: POST /actions/name/execute
+    # v2: POST /agents/name/execute
+    # v2: POST /agents/name/state
+
+    raise HTTPException(status_code=404, detail="Not found")
+
+async def handler_v1(
+        sdk: CopilotKitRemoteEndpoint,
+        method: str,
+        path: str,
+        body: Any,
+        context: CopilotKitContext,
+    ):
+    """Handle FastAPI request for v1"""
+
+    if body is None:
+        raise HTTPException(status_code=400, detail="Request body is required")
+
     if method == 'POST' and path == 'info':
         return await handle_info(sdk=sdk, context=context)
+
 
     if method == 'POST' and path == 'actions/execute':
         name = body_get_or_raise(body, "name")
@@ -89,6 +151,7 @@ async def handler(request: Request, sdk: CopilotKitRemoteEndpoint):
             name=name,
             arguments=arguments,
         )
+
 
     if method == 'POST' and path == 'agents/execute':
         thread_id = body.get("threadId")
@@ -110,6 +173,7 @@ async def handler(request: Request, sdk: CopilotKitRemoteEndpoint):
             actions=actions,
         )
 
+
     if method == 'POST' and path == 'agents/state':
         thread_id = body_get_or_raise(body, "threadId")
         name = body_get_or_raise(body, "name")
@@ -121,12 +185,19 @@ async def handler(request: Request, sdk: CopilotKitRemoteEndpoint):
             name=name,
         )
 
-    raise HTTPException(status_code=404, detail="Not found")
+    return None
 
 
-async def handle_info(*, sdk: CopilotKitRemoteEndpoint, context: CopilotKitContext):
+async def handle_info(
+        *,
+        sdk: CopilotKitRemoteEndpoint,
+        context: CopilotKitContext,
+        as_html: bool = False,
+    ):
     """Handle info request with FastAPI"""
     result = sdk.info(context=context)
+    if as_html:
+        return HTMLResponse(content=generate_info_html(result))
     return JSONResponse(content=result)
 
 async def handle_execute_action(
@@ -159,11 +230,11 @@ def handle_execute_agent( # pylint: disable=too-many-arguments
         sdk: CopilotKitRemoteEndpoint,
         context: CopilotKitContext,
         thread_id: str,
-        node_name: str,
         name: str,
         state: dict,
         messages: List[Message],
         actions: List[ActionDict],
+        node_name: str,
     ):
     """Handle continue agent execution request with FastAPI"""
     try:

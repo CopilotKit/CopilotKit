@@ -1,6 +1,7 @@
 """CopilotKit SDK"""
 
 import warnings
+import re
 from importlib import metadata
 
 from pprint import pformat
@@ -91,7 +92,7 @@ class CopilotKitRemoteEndpoint:
     ```
 
     You can also dynamically build actions by providing a callable that returns a list of actions.
-    In this example, we use `"name"` from the `properties` object to parameterize the action handler.
+    In this example, we use "name" from the `properties` object to parameterize the action handler.
 
     ```python
     from copilotkit import CopilotKitRemoteEndpoint, Action
@@ -195,6 +196,23 @@ class CopilotKitRemoteEndpoint:
         actions = self.actions(context) if callable(self.actions) else self.actions
         agents = self.agents(context) if callable(self.agents) else self.agents
 
+        # ensure sane action and agent names
+        names_and_types = [
+            (action.name, "action") for action in actions
+        ] + [
+            (agent.name, "agent") for agent in agents
+        ]
+
+        for name, entity_type in names_and_types:
+            if name in ["execute", "state"]:
+                raise ValueError(f"{entity_type.capitalize()} name '{name}' is reserved")
+
+            if not re.match(r"^[a-zA-Z0-9_-]+$", name):
+                raise ValueError(
+                    f"Invalid {entity_type} name '{name}': " +
+                    "must consist of alphanumeric characters, underscores, and hyphens only"
+                )
+
         actions_list = [action.dict_repr() for action in actions]
         agents_list = [agent.dict_repr() for agent in agents]
 
@@ -262,10 +280,10 @@ class CopilotKitRemoteEndpoint:
         context: CopilotKitContext,
         name: str,
         thread_id: str,
-        node_name: str,
         state: dict,
         messages: List[Message],
         actions: List[ActionDict],
+        node_name: str,
     ) -> Any:
         """
         Execute an agent
