@@ -186,6 +186,10 @@ jobs:
           globalImageTag: ${{ github.run_id }}
           EOL
 
+      - name: Test Kubectl
+        run: |
+          kubectl get pods -n kube-system
+
       - name: Helmfile Sync
         run: |
           helmfile --state-values-file=./override-values.yaml sync
