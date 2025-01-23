@@ -1,20 +1,21 @@
-name: End to End Tests
+name: Deploy Copilot Cloud Environment
 
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
-      sha:
-        description: "sha"
-        required: true
       ref:
-        description: "ref"
+        type: string
         required: true
+      sha:
+        type: string
+        required: false
       urls:
-        description: "urls"
-        required: true
+        type: string
+        required: false
       pr_number:
-        description: "Pull Request number"
+        type: number
         required: true
+
 jobs:
   e2e_tests:
     name: E2E Tests

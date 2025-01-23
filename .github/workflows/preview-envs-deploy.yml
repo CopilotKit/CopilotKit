@@ -228,7 +228,7 @@ jobs:
 
   test:
     name: End to End Tests
-    uses: ./.github/workflows/reusable/e2e.yml
+    uses: ./.github/workflows/e2e.yml
     needs: deploy
     with:
       ref: "${{ github.event.pull_request.head.ref }}"
