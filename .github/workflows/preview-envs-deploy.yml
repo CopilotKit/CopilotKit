@@ -185,25 +185,35 @@ jobs:
           helmfile --state-values-file=./override-values.yaml sync
           helmfile --state-values-file=./override-values.yaml --selector "name!=examples-shared" list --output json > helmfile-output.json
 
-      # - name: Generate table from outputs
-      #   id: generate-table
-      #   working-directory: infra
-      #   run: |
-      #     node generate-table
-      #   env:
-      #     GITHUB_SHA: ${{ github.sha }}
+      - name: Use Node.js 21
+        uses: actions/setup-node@v2
+        with:
+          node-version: 21.x
+          cache: "pnpm"
+          cache-dependency-path: "./examples/helmfile/pnpm-lock.yaml"
 
-      # - name: Delete a comment
-      #   uses: thollander/actions-comment-pull-request@v3
-      #   with:
-      #     comment-tag: preview-status-update
-      #     mode: delete
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      # - name: Comment post-deployment
-      #   uses: thollander/actions-comment-pull-request@v3
-      #   with:
-      #     comment-tag: preview-status-update
-      #     file-path: ./infra/preview-comment.md
+      - name: Generate table from outputs
+        id: generate-table
+        run: |
+          node generate-table
+        env:
+          ENVIRONMENT: pr-${{ github.event.pull_request.number }}
+          GITHUB_SHA: ${{ github.sha }}
+
+      - name: Delete a comment
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: preview-status-update
+          mode: delete
+
+      - name: Comment post-deployment
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: preview-status-update
+          file-path: ./preview-comment.md
 
       # - name: Export Variable - E2E URLs
       #   id: export-e2e-urls

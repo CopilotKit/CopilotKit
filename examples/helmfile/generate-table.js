@@ -1,11 +1,63 @@
 const fs = require("fs");
 const path = require("path");
 const json2md = require("json2md");
+const childProcess = require("child_process");
 
-const file = fs.readFileSync(
-  path.resolve(__dirname, "./helm-.json"),
-  "utf8"
-);
+const ENVIRONMENT = process.env.ENVIRONMENT;
+
+if (!ENVIRONMENT) {
+  throw new Error("ENVIRONMENT is not set");
+}
+
+console.log("ENVIRONMENT", ENVIRONMENT);
+console.log("Getting release list")
+
+const releaseList = JSON.parse(childProcess.execSync(
+  `helmfile --state-values-set environment=${ENVIRONMENT} --selector "name!=examples-shared" list --output json`
+).toString());
+
+function getReleaseDeployments(releaseName) {
+  const outputs = JSON.parse(childProcess.execSync(
+    `kubectl get configmap -n ${ENVIRONMENT} ${releaseName}-outputs -o jsonpath='{.data}' | jq`
+  ).toString());
+
+  const deployments = JSON.parse(outputs.deployments);
+  return deployments;
+}
+
+const tableRows = [];
+
+for (const release of releaseList) {
+  const releaseName = release.name;
+  const deployments = getReleaseDeployments(releaseName);
+
+  const row = {
+    name: releaseName,
+    previews: [],
+  };
+
+  const ui = deployments.find((deployment) => deployment.deployment === "ui");
+
+  if (ui) {
+    row.previews.push({
+      label: "Preview (FastAPI)",
+      url: `https://${ui.url}/`
+    });
+  } else {
+    throw new Error(`UI deployment not found for ${releaseName}`);
+  }
+
+  const agentLgcPython = deployments.find((deployment) => deployment.deployment === "agent-lgc-python");
+
+  if (agentLgcPython) {
+    row.previews.push({
+      label: "Preview (LangGraph Platform Python)",
+      url: `https://${ui.url}?lgcDeploymentUrl=${agentLgcPython.url}`
+    });
+  }
+
+  tableRows.push(row);
+}
 
 function generateTable() {
   const structure = [];
@@ -15,64 +67,16 @@ function generateTable() {
     p: `**Commit SHA:** ${process.env.GITHUB_SHA?.substring(0, 7)}`,
   });
 
-  const json = JSON.parse(file);
-
-  // Group entries by ProjectName
-  const projectGroups = Object.values(json).reduce((acc, entry) => {
-    if (!acc[entry.ProjectName]) {
-      acc[entry.ProjectName] = {
-        name: entry.ProjectName,
-        remote: "",
-        local: "",
-        lgcPythonDeploymentUrl: undefined,
-        lgcJSDeploymentUrl: undefined,
-      };
-    }
-
-    // Add URLs based on dependency type
-    if (entry.Dependencies === "Remote") {
-      acc[entry.ProjectName].remote = entry.FunctionUrl;
-    } else if (entry.Dependencies === "Local") {
-      acc[entry.ProjectName].local = entry.FunctionUrl;
-    }
-
-    // Add LGC Python Deployment URL if it exists
-    if (entry.LgcPythonDeploymentUrl) {
-      acc[entry.ProjectName].lgcPythonDeploymentUrl = entry.LgcPythonDeploymentUrl;
-    }
-
-    // Add LGC JS Deployment URL if it exists
-    if (entry.LgcJSDeploymentUrl) {
-      acc[entry.ProjectName].lgcJSDeploymentUrl = entry.LgcJSDeploymentUrl;
-    }
-
-    return acc;
-  }, {});
-
-  // Convert grouped data to rows array
-  const rows = Object.values(projectGroups).map((project) => {
-    let previewMdxString = `[Preview](${project.local})`;
-
-    if (project.lgcPythonDeploymentUrl) {
-      previewMdxString += ` • [Preview with LGC Python](${project.local}?lgcDeploymentUrl=${project.lgcPythonDeploymentUrl})`;
-    }
-
-    if (project.lgcJSDeploymentUrl) {
-      previewMdxString += ` • [Preview with LGC JS](${project.local}?lgcDeploymentUrl=${project.lgcJSDeploymentUrl})`;
-    }
-
-    const row = {
-      Name: project.name,
-      "Preview": previewMdxString,
+  const rows = tableRows.map((release) => {
+    return {
+      Name: release.name,
+      Previews: release.previews.map((preview) => `[${preview.label}](${preview.url})`).join(" • "),
     };
-
-    return row;
   });
 
   structure.push({
     table: {
-      // headers: ["Name", "Preview (Local Dependencies)", "Preview (Remote Dependencies)"],
-      headers: ["Name", "Preview"],
+      headers: ["Name", "Previews"],
       rows,
     },
   });

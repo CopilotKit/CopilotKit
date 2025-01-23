@@ -34,14 +34,12 @@ spec:
             - name: http
               containerPort: {{ $deployment.port }}
               protocol: TCP
-          {{- with $deployment.healthcheck }}
+          {{- with $deployment.livenessProbe }}
           livenessProbe:
-            httpGet:
-              path: {{ .path }}
-              port: http
+            {{ toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $deployment.readinessProbe }}
           readinessProbe:
-            httpGet:
-              path: {{ .path }}
-              port: http
+            {{ toYaml . | nindent 12 }}
           {{- end }}
 {{- end }}

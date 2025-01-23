@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Values.app.name }}-demo-config
+  name: {{ .Values.app.name }}-outputs
 data:
   app.name: {{ .Values.app.name }}
   deployments: |
@@ -9,12 +9,13 @@ data:
       {{- $root := . }}
       {{- range $deploymentIndex, $deployment := .Values.deployments }}
         {
-          "type": "{{ $deployment.config.type }}",
-          {{- if $deployment.config.dependencies }}
-          "dependencies": "{{ $deployment.config.dependencies }}",
-          {{- end }}
           "deployment": "{{ $deployment.name }}",
-          "url": "https://{{ $root.Values.app.name }}-{{ $deployment.name }}-{{ $root.Values.environment}}.demos.devcopilotkit.com"
+          "url": "https://{{ $root.Values.app.name }}-{{ $deployment.name }}-{{ $root.Values.environment}}.demos.devcopilotkit.com",
+          {{- if $deployment.outputs }}
+          "outputs": {{ $deployment.outputs | toJson }}
+          {{- else }}
+          "outputs": {}
+          {{- end }}
         }{{- if ne $deploymentIndex (sub (len $root.Values.deployments) 1) }}, {{- end }}
       {{- end }}
     ]

@@ -3,16 +3,10 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts": {
-    "diff:staging": "helmfile -e staging --kube-context copilotcloud-staging-eks diff",
-    "apply:staging": "helmfile -e staging --kube-context copilotcloud-staging-eks apply",
-    "sync:staging": "helmfile -e staging --kube-context copilotcloud-staging-eks sync",
-    "destroy:staging": "helmfile -e staging --kube-context copilotcloud-staging-eks destroy",
-    "diff:production": "helmfile -e production --kube-context copilotcloud-production-eks diff",
-    "apply:production": "helmfile -e production --kube-context copilotcloud-production-eks apply",
-    "sync:production": "helmfile -e production --kube-context copilotcloud-production-eks sync",
-    "destroy:production": "helmfile -e production --kube-context copilotcloud-production-eks destroy"
-  },
+  "scripts": {},
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "json2md": "^2.0.1"
+  }
 }
