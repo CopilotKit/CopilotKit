@@ -13,14 +13,14 @@ spec:
   rules:
     {{- $root := . }}
     {{- range $deploymentIndex, $deployment := .Values.deployments }}
-    - host: "{{ $root.Values.app.name }}-{{ $deployment.name }}-{{ include "example-app.environment" $root }}.demos.devcopilotkit.com"
+    - host: "{{ $deployment.name }}-{{ include "example-app.environment" $root }}.demos.devcopilotkit.com"
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: "{{ $root.Values.app.name }}-{{ $deployment.name }}"
+                name: "{{ $deployment.name }}"
                 port:
                   number: {{ $deployment.port }}
           - path: /
@@ -36,5 +36,5 @@ spec:
     - hosts:
         {{- $root := . }}
         {{- range $deploymentIndex, $deployment := .Values.deployments }}
-        - "{{ $root.Values.app.name }}-{{ $deployment.name }}-{{ include "example-app.environment" $root }}.demos.devcopilotkit.com"
+        - "{{ $deployment.name }}-{{ include "example-app.environment" $root }}.demos.devcopilotkit.com"
         {{- end }}

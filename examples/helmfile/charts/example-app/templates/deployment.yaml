@@ -4,19 +4,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ $root.Values.app.name }}-{{ $deployment.name }}
+  name: {{ $deployment.name }}
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: {{ $root.Values.app.name }}-{{ $deployment.name }}
+      app.kubernetes.io/name: {{ $deployment.name }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: {{ $root.Values.app.name }}-{{ $deployment.name }}
+        app.kubernetes.io/name: {{ $deployment.name }}
     spec:
       securityContext: {}
       containers:
-        - name: {{ $root.Values.app.name }}-{{ $deployment.name }}
+        - name: {{ $deployment.name }}
           image: "{{ $deployment.image.repository }}-{{ $deployment.image.tag }}"
           imagePullPolicy: {{ $deployment.image.pullPolicy | default "IfNotPresent" }}
           {{- if $deployment.command }}

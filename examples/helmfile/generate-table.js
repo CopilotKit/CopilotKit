@@ -36,18 +36,18 @@ for (const release of releaseList) {
     previews: [],
   };
 
-  const ui = deployments.find((deployment) => deployment.deployment === "ui");
+  const ui = deployments.find((deployment) => deployment.outputs.type === "ui");
 
   if (ui) {
     row.previews.push({
-      label: "Preview (FastAPI)",
+      label: "Preview",
       url: `https://${ui.url}/`
     });
   } else {
     throw new Error(`UI deployment not found for ${releaseName}`);
   }
 
-  const agentLgcPython = deployments.find((deployment) => deployment.deployment === "agent-lgc-python");
+  const agentLgcPython = deployments.find((deployment) => deployment.outputs.type === "agent-lgc-python");
 
   if (agentLgcPython) {
     row.previews.push({

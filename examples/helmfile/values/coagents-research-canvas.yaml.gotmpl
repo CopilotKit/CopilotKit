@@ -4,7 +4,7 @@ app:
   name: coagents-research-canvas
 
 deployments:
-  - name: ui
+  - name: coagents-research-canvas-ui
     type: ui
     image:
       repository: "058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:coagents-research-canvas-ui"
@@ -25,7 +25,7 @@ deployments:
       type: ui
       dependencies: local
   
-  - name: agent-fastapi
+  - name: coagents-research-canvas-agent-fastapi
     type: agent
     image:
       repository: "058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:coagents-research-canvas-agent-local-deps"
@@ -44,10 +44,10 @@ deployments:
         - name: PORT
           value: "8000"
     outputs:
-      type: agent
+      type: agent-fastapi
       dependencies: local
 
-  - name: agent-lgc-python
+  - name: coagents-research-canvas-agent-lgc-python
     type: agent
     image:
       repository: "058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:coagents-research-canvas-agent-local-deps"
@@ -66,5 +66,5 @@ deployments:
         - name: PORT
           value: "8000"
     outputs:
-      type: agent
+      type: agent-lgc-python
       dependencies: local
