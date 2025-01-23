@@ -175,10 +175,14 @@ jobs:
         run: |
           aws eks --region us-east-1 update-kubeconfig --name copilotcloud-staging-eks
 
+      - name: Set Environment Name
+        run: |
+          echo "ENVIRONMENT=pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+
       - name: Prepare Environment Config
         run: |
           cat > ./override-values.yaml << 'EOL'
-          environment: pr-${{ github.event.pull_request.number }}
+          environment: ${{ steps.set-environment-name.outputs.environment }}
           globalImageTag: ${{ github.run_id }}
           EOL
 
@@ -207,7 +211,7 @@ jobs:
         run: |
           node generate-table
         env:
-          ENVIRONMENT: pr-${{ github.event.pull_request.number }}
+          ENVIRONMENT: ${{ steps.set-environment-name.outputs.environment }}
           GITHUB_SHA: ${{ github.sha }}
 
       - name: Delete a comment
