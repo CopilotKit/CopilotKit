@@ -5,20 +5,24 @@ app:
 
 deployments:
   - name: ui
+    type: ui
     image:
       repository: "058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:coagents-research-canvas-ui"
       tag: "{{ .Values.globalImageTag }}"
     port: 3000
     command: ["npm", "start", "--", "-H", "0.0.0.0", "--port", "3000"]
     healthcheck:
-      path: /
+      path: /    
     config:
+      type: ui
+      dependencies: local
       secretsJson: {{ fetchSecretValue "ref+awssecrets://demos/coagents-research-canvas/ui/secrets" }}
       env:
         - name: REMOTE_ACTION_URL
           value: "http://coagents-research-canvas-agent-local-deps:8000/copilotkit"
   
   - name: agent-local-deps
+    type: agent
     image:
       repository: "058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:coagents-research-canvas-agent-local-deps"
       tag: "{{ .Values.globalImageTag }}"
@@ -26,6 +30,8 @@ deployments:
     healthcheck:
       path: /health
     config:
+      type: agent
+      dependencies: local
       secretsJson: {{ fetchSecretValue "ref+awssecrets://demos/coagents-research-canvas/agent/secrets" }}
       env:
         - name: HOST

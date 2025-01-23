@@ -1,0 +1,11 @@
+[
+  {
+    "name": "coagents-research-canvas",
+    "namespace": "pr-test-321",
+    "enabled": true,
+    "installed": true,
+    "labels": "chart:example-app,name:coagents-research-canvas,namespace:pr-test-321",
+    "chart": "./charts/example-app",
+    "version": ""
+  }
+]

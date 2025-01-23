@@ -180,26 +180,10 @@ jobs:
           globalImageTag: ${{ github.run_id }}
           EOL
 
-      - name: Test
-        run: |
-          aws sts get-caller-identity
-
       - name: Helmfile Sync
         run: |
           helmfile --state-values-file=./override-values.yaml sync
-
-      # - name: cdk deploy
-      #   working-directory: ./infra
-      #   run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 10
-      #   env:
-      #     UNIQUE_ENV_ID: "PR${{ github.event.number }}"
-      #     GITHUB_ACTIONS_RUN_ID: "${{ github.run_id }}"
-      #     GITHUB_PR_NUMBER: "${{ github.event.number }}"
-
-      # - name: Print CDK Outputs
-      #   working-directory: infra
-      #   run: |
-      #     cat cdk_outputs.json
+          helmfile --state-values-file=./override-values.yaml --selector "name!=examples-shared" list --output json > helmfile-output.json
 
       # - name: Generate table from outputs
       #   id: generate-table

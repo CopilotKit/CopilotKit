@@ -17,3 +17,5 @@ releases:
     namespace: {{ .Values.environment }}
     values: [./values/coagents-research-canvas.yaml.gotmpl]
     needs: [examples-shared]
+    labels:
+      test: "something"
