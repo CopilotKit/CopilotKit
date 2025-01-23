@@ -14,7 +14,7 @@ requires = ["setuptools >= 61.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<4.0"
+python = ">=3.10,<3.12"
 langchain-openai = "^0.2.1"
 langchain-anthropic = "^0.2.1"
 langchain = "^0.3.1"
