@@ -18,6 +18,18 @@ releases:
     values: [./values/coagents-research-canvas.yaml.gotmpl]
     needs: [examples-shared]
     
+  - name: 'coagents-routing'
+    chart: ./charts/example-app
+    namespace: {{ .Values.environment }}
+    values: [./values/coagents-routing.yaml.gotmpl]
+    needs: [examples-shared]
+
+  - name: 'coagents-qa-text'
+    chart: ./charts/example-app
+    namespace: {{ .Values.environment }}
+    values: [./values/coagents-qa-text.yaml.gotmpl]
+    needs: [examples-shared]
+
   - name: 'coagents-qa-native'
     chart: ./charts/example-app
     namespace: {{ .Values.environment }}
