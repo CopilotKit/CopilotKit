@@ -68,7 +68,7 @@ jobs:
       - name: Print app configs
         working-directory: examples/e2e
         run: |
-          cat app-configs.json
+          cat test-config.json
 
       - name: Delete a comment
         uses: thollander/actions-comment-pull-request@v3
