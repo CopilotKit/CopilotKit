@@ -77,6 +77,14 @@ jobs:
           comment-tag: test-run-status-update
           mode: delete
 
+      - name: Comment before running tests
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          pr-number: ${{ inputs.pr_number }}
+          comment-tag: test-run-status-update
+          message: |
+            Running tests for commit ${{ inputs.sha }}...
+
       - name: Run Tests
         id: run_tests
         working-directory: ./examples/e2e
