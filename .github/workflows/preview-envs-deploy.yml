@@ -148,7 +148,7 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
 
-  Deploy:
+  deploy:
     name: Deploy Preview Environments
     runs-on: ubuntu-20.04
     needs: build_images
@@ -226,10 +226,12 @@ jobs:
         run: |
           echo "e2e-urls=$(cat test-config.json | base64 -w 0)" >> "$GITHUB_OUTPUT"
 
-      - name: Trigger E2E Tests
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          workflow: "e2e.yml"
-          ref: "${{ github.event.pull_request.head.ref }}"
-          inputs: '{"ref": "${{ github.event.pull_request.head.ref }}", "sha": "${{ github.event.pull_request.head.sha }}", "urls": "${{ steps.export-e2e-urls.outputs.e2e-urls }}", "pr_number": "${{ github.event.pull_request.number }}"}'
+  test:
+    name: End to End Tests
+    uses: ./.github/workflows/reusable/e2e.yml
+    needs: deploy
+    with:
+      ref: "${{ github.event.pull_request.head.ref }}"
+      sha: "${{ github.event.pull_request.head.sha }}"
+      urls: "${{ steps.export-e2e-urls.outputs.e2e-urls }}"
+      pr_number: "${{ github.event.pull_request.number }}"
