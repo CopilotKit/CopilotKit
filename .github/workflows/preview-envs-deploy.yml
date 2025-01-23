@@ -152,6 +152,8 @@ jobs:
     name: Deploy Preview Environments
     runs-on: ubuntu-20.04
     needs: build_images
+    outputs:
+      e2e-urls: ${{ steps.export-e2e-urls.outputs.e2e-urls }}
     defaults:
       run:
         working-directory: examples/helmfile
@@ -233,5 +235,5 @@ jobs:
     with:
       ref: "${{ github.event.pull_request.head.ref }}"
       sha: "${{ github.event.pull_request.head.sha }}"
-      urls: "${{ steps.export-e2e-urls.outputs.e2e-urls }}"
+      urls: "${{ needs.deploy.outputs.e2e-urls }}"
       pr_number: "${{ github.event.pull_request.number }}"
