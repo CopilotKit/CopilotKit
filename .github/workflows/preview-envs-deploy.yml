@@ -185,6 +185,11 @@ jobs:
           helmfile --state-values-file=./override-values.yaml sync
           helmfile --state-values-file=./override-values.yaml --selector "name!=examples-shared" list --output json > helmfile-output.json
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "9.5"
+
       - name: Use Node.js 21
         uses: actions/setup-node@v2
         with:
