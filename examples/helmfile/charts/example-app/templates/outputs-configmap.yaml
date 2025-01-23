@@ -10,7 +10,7 @@ data:
       {{- range $deploymentIndex, $deployment := .Values.deployments }}
         {
           "deployment": "{{ $deployment.name }}",
-          "url": "https://{{ $root.Values.app.name }}-{{ $deployment.name }}-{{ $root.Values.environment}}.demos.devcopilotkit.com",
+          "url": "https://{{ $deployment.name }}-{{ $root.Values.environment}}.demos.devcopilotkit.com",
           {{- if $deployment.outputs }}
           "outputs": {{ $deployment.outputs | toJson }}
           {{- else }}

@@ -41,7 +41,7 @@ for (const release of releaseList) {
   if (ui) {
     row.previews.push({
       label: "Preview",
-      url: `https://${ui.url}/`
+      url: ui.url
     });
   } else {
     throw new Error(`UI deployment not found for ${releaseName}`);
@@ -52,7 +52,7 @@ for (const release of releaseList) {
   if (agentLgcPython) {
     row.previews.push({
       label: "Preview (LangGraph Platform Python)",
-      url: `https://${ui.url}?lgcDeploymentUrl=${agentLgcPython.url}`
+      url: `${ui.url}?lgcDeploymentUrl=${agentLgcPython.url}`
     });
   }
 
