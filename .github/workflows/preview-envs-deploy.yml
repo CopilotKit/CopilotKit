@@ -180,9 +180,9 @@ jobs:
           globalImageTag: ${{ github.run_id }}
           EOL
 
-      - name: Test Kubectl
+      - name: Test
         run: |
-          kubectl get pods -n kube-system
+          aws sts get-caller-identity
 
       - name: Helmfile Sync
         run: |
