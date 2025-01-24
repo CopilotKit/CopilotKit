@@ -1,0 +1,17 @@
+{{- $root := . }}
+{{- range $deploymentIndex, $deployment := .Values.deployments }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $deployment.name }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ $deployment.port }}
+      targetPort: {{ $deployment.port }}
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: {{ $deployment.name }}
+{{- end }}

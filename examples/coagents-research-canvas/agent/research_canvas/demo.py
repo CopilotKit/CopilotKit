@@ -35,7 +35,6 @@ def health():
     """Health check."""
     return {"status": "ok"}
 
-
 def main():
     """Run the uvicorn server."""
     port = int(os.getenv("PORT", "8000"))

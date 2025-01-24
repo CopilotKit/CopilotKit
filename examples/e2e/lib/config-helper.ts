@@ -1,5 +1,5 @@
 // lib/config-helper.ts
-import configs from "../app-configs.json";
+import configs from "../test-config.json";
 
 // Project name constants with type safety
 export const PROJECT_NAMES = {
@@ -84,7 +84,7 @@ export const appendLGCVariants = (config: ConfigItem, variants: any[]) => {
     const newVariants = variants.map((variant) => {
       return {
         ...variant,
-        name: `${variant.name} (LGC Python)`,
+        name: `${variant.name} (LGC Python in-memory)`,
         queryParams: `${variant.queryParams}&lgcDeploymentUrl=${config.lgcPythonDeploymentUrl}`,
       };
     });
@@ -96,7 +96,7 @@ export const appendLGCVariants = (config: ConfigItem, variants: any[]) => {
     const newVariants = variants.map((variant) => {
       return {
         ...variant,
-        name: `${variant.name} (LGC JS \`main\`)`,
+        name: `${variant.name} (LGC JS in-memory)`,
         queryParams: `${variant.queryParams}&lgcDeploymentUrl=${config.lgcJSDeploymentUrl}`,
       };
     });

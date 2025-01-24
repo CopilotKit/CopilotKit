@@ -1,0 +1,6 @@
+{{/* 
+extract both globals and <release-name sections from
+.Values, and merge them (giving precedence to release
+specific values
+*/}}
+{{ merge (.Values | get .Release.Name  dict) (.Values | get "globals"  dict) | toYaml }}
