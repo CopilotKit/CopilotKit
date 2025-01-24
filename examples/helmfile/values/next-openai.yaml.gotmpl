@@ -14,7 +14,7 @@ deployments:
       httpGet:
         path: /
         port: http
-      initialDelaySeconds: 5
+      initialDelaySeconds: 15
     config:
       secretsJson: {{ fetchSecretValue "ref+awssecrets://demos/next-openai/secrets" }}
     outputs:

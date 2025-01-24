@@ -15,7 +15,7 @@ deployments:
       httpGet:
         path: /
         port: http
-      initialDelaySeconds: 5
+      initialDelaySeconds: 15
     config:
       secretsJson: {{ fetchSecretValue "ref+awssecrets://demos/coagents-research-canvas/ui/secrets" }}
       env:
@@ -36,7 +36,7 @@ deployments:
       httpGet:
         path: /health
         port: http
-      initialDelaySeconds: 5
+      initialDelaySeconds: 15
     config:
       secretsJson: {{ fetchSecretValue "ref+awssecrets://demos/coagents-research-canvas/agent/secrets" }}
       env:
@@ -57,7 +57,7 @@ deployments:
     livenessProbe:
       exec:
         command: ["/bin/sh", "-c", "curl -L 'http://localhost:8000/assistants/search' -H 'Content-Type: application/json' -d '{}'"]
-      initialDelaySeconds: 5
+      initialDelaySeconds: 15
     command: ["/bin/sh", "-c","langgraph dev --no-browser --port=8000 --config=langgraph.json --host=0.0.0.0"]
     config:
       secretsJson: {{ fetchSecretValue "ref+awssecrets://demos/coagents-research-canvas/agent/secrets" }}
@@ -79,7 +79,7 @@ deployments:
     livenessProbe:
       exec:
         command: ["/bin/sh", "-c", "curl -L 'http://localhost:8000/assistants/search' -H 'Content-Type: application/json' -d '{}'"]
-      initialDelaySeconds: 5
+      initialDelaySeconds: 15
     config:
       secretsJson: {{ fetchSecretValue "ref+awssecrets://demos/coagents-research-canvas/agent/secrets" }}
       env:
