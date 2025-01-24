@@ -64,6 +64,15 @@ for (const release of releaseList) {
     });
   }
 
+  const agentLgcJs = deployments.find((deployment) => deployment.outputs.type === "agent-lgc-js");
+
+  if (agentLgcJs) {
+    row.previews.push({
+      label: "Preview (LangGraph Platform JS)",
+      url: `${ui.url}?lgcDeploymentUrl=${agentLgcJs.url}`
+    });
+  }
+
   tableRows.push(row);
 }
 
