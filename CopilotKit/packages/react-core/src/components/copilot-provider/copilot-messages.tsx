@@ -2,13 +2,13 @@
  * An internal context to separate the messages state (which is constantly changing) from the rest of CopilotKit context
  */
 
-import { useEffect, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { CopilotMessagesContext } from "../../context/copilot-messages-context";
 import { loadMessagesFromJsonRepresentation, Message } from "@copilotkit/runtime-client-gql";
 import { CopilotKitProps } from "./copilotkit-props";
 import { useCopilotContext } from "../../context/copilot-context";
 
-export function CopilotMessages({ children, ...props }: CopilotKitProps) {
+export function CopilotMessages({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Message[]>([]);
 
   const { threadId, agentSession, runtimeClient } = useCopilotContext();

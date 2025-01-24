@@ -5,11 +5,21 @@ import { FrontendAction, ActionRenderProps } from "../types/frontend-action";
 import { useCopilotAction } from "./use-copilot-action";
 import React from "react";
 
-export function useCopilotAuthenticatedAction<T extends Parameter[]>(
+/**
+ * Hook to create an authenticated action that requires user sign-in before execution.
+ *
+ * @remarks
+ * This feature is only available when using CopilotKit's hosted cloud service.
+ * To use this feature, sign up at https://cloud.copilotkit.ai to get your publicApiKey.
+ *
+ * @param action - The frontend action to be wrapped with authentication
+ * @param dependencies - Optional array of dependencies that will trigger recreation of the action when changed
+ */
+export function useCopilotAuthenticatedAction_c<T extends Parameter[]>(
   action: FrontendAction<T>,
   dependencies?: any[],
 ): void {
-  const { authConfig, authStates, setAuthStates } = useCopilotContext();
+  const { authConfig_c, authStates_c, setAuthStates_c } = useCopilotContext();
   const pendingActionRef = useRef<ActionRenderProps<Parameter[]> | null>(null);
 
   const executeAction = useCallback(
@@ -24,7 +34,7 @@ export function useCopilotAuthenticatedAction<T extends Parameter[]>(
 
   const wrappedRender = useCallback(
     (props: ActionRenderProps<Parameter[]>): string | React.ReactElement => {
-      const isAuthenticated = Object.values(authStates || {}).some(
+      const isAuthenticated = Object.values(authStates_c || {}).some(
         (state) => state.status === "authenticated",
       );
 
@@ -32,10 +42,10 @@ export function useCopilotAuthenticatedAction<T extends Parameter[]>(
         // Store action details for later execution
         pendingActionRef.current = props;
 
-        return authConfig?.SignInComponent
-          ? React.createElement(authConfig.SignInComponent, {
+        return authConfig_c?.SignInComponent
+          ? React.createElement(authConfig_c.SignInComponent, {
               onSignInComplete: (authState) => {
-                setAuthStates?.((prev) => ({ ...prev, [action.name]: authState }));
+                setAuthStates_c?.((prev) => ({ ...prev, [action.name]: authState }));
                 if (pendingActionRef.current) {
                   executeAction(pendingActionRef.current);
                   pendingActionRef.current = null;
@@ -47,7 +57,7 @@ export function useCopilotAuthenticatedAction<T extends Parameter[]>(
 
       return executeAction(props);
     },
-    [action, authStates, setAuthStates],
+    [action, authStates_c, setAuthStates_c],
   );
 
   useCopilotAction(
