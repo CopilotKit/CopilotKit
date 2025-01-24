@@ -38,7 +38,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                   selectedStyle: "ring-purple-500/70 ring-2 rounded-sm",
                 },
                 {
-                  title: "Cloud (Beta)",
+                  title: "Cloud",
                   description: "Documentation for CopilotKit Cloud",
                   url: "/cloud",
                   icon: <PiCloudLightning className="w-4 h-4" />,
