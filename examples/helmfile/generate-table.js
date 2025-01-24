@@ -58,6 +58,8 @@ for (const release of releaseList) {
   const agentLgcPython = deployments.find((deployment) => deployment.outputs.type === "agent-lgc-python");
 
   if (agentLgcPython) {
+    testConfigs[releaseName].lgcPythonDeploymentUrl = agentLgcPython.url;
+
     row.previews.push({
       label: "Preview (LangGraph Platform Python)",
       url: `${ui.url}?lgcDeploymentUrl=${agentLgcPython.url}`
@@ -67,6 +69,8 @@ for (const release of releaseList) {
   const agentLgcJs = deployments.find((deployment) => deployment.outputs.type === "agent-lgc-js");
 
   if (agentLgcJs) {
+    testConfigs[releaseName].lgcJSDeploymentUrl = agentLgcJs.url;
+
     row.previews.push({
       label: "Preview (LangGraph Platform JS)",
       url: `${ui.url}?lgcDeploymentUrl=${agentLgcJs.url}`
