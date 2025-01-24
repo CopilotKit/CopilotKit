@@ -4,14 +4,12 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "langgraph:dev": "langgraphjs dev --config langgraph.json --port 8000 --host 0.0.0.0 --no-browser"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@langchain/langgraph-cli": "^0.0.4",
     "@types/html-to-text": "^9.0.4",
     "@types/node": "^22.9.0",
     "typescript": "^5.6.3"

@@ -7,6 +7,9 @@ RUN corepack enable
 
 RUN apt-get update && apt-get install curl -y
 
+# First install via pnpx
+RUN pnpx @langchain/langgraph-cli --help
+
 ARG APP_DIR
 
 WORKDIR /app
@@ -22,4 +25,4 @@ COPY ${APP_DIR}/ ./
 
 RUN ls -la
 
-CMD ["pnpm", "run", "langgraph:dev"]
+CMD ["/bin/sh", "-c", "pnpx @langchain/langgraph-cli dev --config=langgraph.json --no-browser --port 8000 --host 0.0.0.0"]
