@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "langgraph:dev": "langgraphjs dev --config langgraph.json --port 8000 --host 0.0.0.0 --no-browser"
   },
   "keywords": [],
   "author": "",
@@ -15,6 +16,7 @@
     "typescript": "^5.6.3"
   },
   "dependencies": {
+    "@langchain/langgraph-cli": "^0.0.4",
     "@copilotkit/sdk-js": "^1.5.13",
     "@langchain/anthropic": "^0.3.8",
     "@langchain/core": "^0.3.18",

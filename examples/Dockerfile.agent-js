@@ -1,0 +1,23 @@
+# syntax=docker/dockerfile:1-labs
+
+FROM node:22-slim AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
+ARG APP_DIR
+
+WORKDIR /app
+
+RUN touch .env
+
+# Copy only poetry files first
+COPY ${APP_DIR}/package.json ${APP_DIR}/pnpm-lock.yaml ./
+RUN pnpm i --frozen-lockfile
+
+# Copy SDK and install dependencies in a single layer
+COPY ${APP_DIR}/ ./
+
+RUN ls -la
+
+CMD ["pnpm", "run", "langgraph:dev"]
