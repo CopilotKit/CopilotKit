@@ -14,6 +14,8 @@ spec:
       labels:
         app.kubernetes.io/name: {{ $deployment.name }}
     spec:
+      strategy:
+        type: Recreate
       securityContext: {}
       containers:
         - name: {{ $deployment.name }}
@@ -23,6 +25,13 @@ spec:
           command:
             {{- toYaml $deployment.command | nindent 12 }}
           {{- end }}
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
           env:
             {{- if $deployment.config.secretsJson }}
             {{- include "example-app.jsonToEnv" $deployment.config.secretsJson | nindent 12 }}
@@ -37,8 +46,6 @@ spec:
           {{- with $deployment.livenessProbe }}
           livenessProbe:
             {{ toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with $deployment.readinessProbe }}
           readinessProbe:
             {{ toYaml . | nindent 12 }}
           {{- end }}
