@@ -5,6 +5,7 @@ environments:
 ---
 helmDefaults:
   wait: true
+  timeout: 300
 ---
 releases:
   - name: examples-shared
