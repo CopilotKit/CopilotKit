@@ -149,7 +149,7 @@ jobs:
           docker buildx build \
             -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-agent-${{ matrix.app.deps }}-${{ github.run_id }} \
             --build-arg APP_DIR=examples/${{ matrix.app.project }}/agent \
-            -f ./examples/Dockerfile.agent \
+            -f ./examples/Dockerfile.agent-python \
             --build-arg WITH_LOCAL_DEPS=${{ matrix.app.deps == 'local-deps' }} \
             --platform=linux/amd64 \
             --provenance=false \
