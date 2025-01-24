@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@copilotkit/sdk-js':
-        specifier: latest
-        version: 1.3.16-mme-sdk-js.2(@langchain/anthropic@0.3.8(@langchain/core@0.3.20(openai@4.75.0(zod@3.23.8))))(@langchain/google-genai@0.1.5(@langchain/core@0.3.20(openai@4.75.0(zod@3.23.8)))(zod@3.23.8))(axios@1.7.9)(html-to-text@9.0.5)(openai@4.75.0(zod@3.23.8))
+        specifier: ^1.5.13
+        version: 1.5.13(@langchain/anthropic@0.3.8(@langchain/core@0.3.20(openai@4.75.0(zod@3.23.8))))(@langchain/google-genai@0.1.5(@langchain/core@0.3.20(openai@4.75.0(zod@3.23.8)))(zod@3.23.8))(axios@1.7.9)(html-to-text@9.0.5)(openai@4.75.0(zod@3.23.8))
       '@langchain/anthropic':
         specifier: ^0.3.8
         version: 0.3.8(@langchain/core@0.3.20(openai@4.75.0(zod@3.23.8)))
@@ -51,11 +51,11 @@ packages:
   '@anthropic-ai/sdk@0.27.3':
     resolution: {integrity: sha512-IjLt0gd3L4jlOfilxVXTifn42FnVffMgDC04RJK1KDZpmkBWLv0XC92MVVmkxrFZNS/7l3xWgP/I3nqtX1sQHw==}
 
-  '@copilotkit/sdk-js@1.3.16-mme-sdk-js.2':
-    resolution: {integrity: sha512-UMnHV1eELuhcPTOsAf27W1qCZoFDhrZo8NA4fxt/qZwBbVirbrms80wZYDJJ35g196VASpqX4tNf2q0O0hcNOQ==}
+  '@copilotkit/sdk-js@1.5.13':
+    resolution: {integrity: sha512-O+nxQxds6NawQyioAHgP8DkEu1XIFokfLa1REx5TtOSUpwK7TWciL5ztYKxXFs1P13/8HxDciaOmbuCUjuch7Q==}
 
-  '@copilotkit/shared@1.3.16-mme-sdk-js.2':
-    resolution: {integrity: sha512-mCYQGiG/I0DiPCNxN3DFXj7c169JF3goFjk9tiw6tHpYmexLOYhabO4yG3iGeqlID9bkZkwKYX+RvSgYiTumbg==}
+  '@copilotkit/shared@1.5.13':
+    resolution: {integrity: sha512-xXunq4qa+h1J8l/g9IscZkSY2qm/05052WZ476kuVM7+YPvB3JBSwtdDzhn8G7xlDCCCRNQsAl6f95d51t7jWA==}
 
   '@google/generative-ai@0.21.0':
     resolution: {integrity: sha512-7XhUbtnlkSEZK15kN3t+tzIMxsbKm/dSkKBFalj+20NvPKe1kBY7mR2P7vuijEn+f06z5+A8bVGKO0v39cr6Wg==}
@@ -570,6 +570,10 @@ packages:
     resolution: {integrity: sha512-0iirZp3uVDjVGt9p49aTaqjk84TrglENEDuqfdlZQ1roC9CWlPk6Avf8EEnZNcAqPonwkG35x4n3ww/1THYAeQ==}
     engines: {node: '>= 12.20'}
 
+  graphql@16.10.0:
+    resolution: {integrity: sha512-AjqGKbDGUFRKIRCP9tCKiIGHyriz2oHEbPIbEtcSLSs4YjReZOIPQQWek4+6hjw62H9QShXHyaGivGiYVLeYFQ==}
+    engines: {node: ^12.22.0 || ^14.16.0 || ^16.0.0 || >=17.0.0}
+
   has-flag@4.0.0:
     resolution: {integrity: sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==}
     engines: {node: '>=8'}
@@ -834,11 +838,12 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  '@copilotkit/sdk-js@1.3.16-mme-sdk-js.2(@langchain/anthropic@0.3.8(@langchain/core@0.3.20(openai@4.75.0(zod@3.23.8))))(@langchain/google-genai@0.1.5(@langchain/core@0.3.20(openai@4.75.0(zod@3.23.8)))(zod@3.23.8))(axios@1.7.9)(html-to-text@9.0.5)(openai@4.75.0(zod@3.23.8))':
+  '@copilotkit/sdk-js@1.5.13(@langchain/anthropic@0.3.8(@langchain/core@0.3.20(openai@4.75.0(zod@3.23.8))))(@langchain/google-genai@0.1.5(@langchain/core@0.3.20(openai@4.75.0(zod@3.23.8)))(zod@3.23.8))(axios@1.7.9)(html-to-text@9.0.5)(openai@4.75.0(zod@3.23.8))':
     dependencies:
-      '@copilotkit/shared': 1.3.16-mme-sdk-js.2
+      '@copilotkit/shared': 1.5.13
       '@langchain/community': 0.0.53(html-to-text@9.0.5)(openai@4.75.0(zod@3.23.8))
       '@langchain/core': 0.3.20(openai@4.75.0(zod@3.23.8))
+      '@langchain/langgraph': 0.2.24(@langchain/core@0.3.20(openai@4.75.0(zod@3.23.8)))
       '@langchain/langgraph-sdk': 0.0.16
       langchain: 0.3.6(@langchain/anthropic@0.3.8(@langchain/core@0.3.20(openai@4.75.0(zod@3.23.8))))(@langchain/core@0.3.20(openai@4.75.0(zod@3.23.8)))(@langchain/google-genai@0.1.5(@langchain/core@0.3.20(openai@4.75.0(zod@3.23.8)))(zod@3.23.8))(axios@1.7.9)(openai@4.75.0(zod@3.23.8))
       zod: 3.23.8
@@ -950,11 +955,14 @@ snapshots:
       - web-auth-library
       - ws
 
-  '@copilotkit/shared@1.3.16-mme-sdk-js.2':
+  '@copilotkit/shared@1.5.13':
     dependencies:
       '@segment/analytics-node': 2.2.0
       chalk: 4.1.2
+      graphql: 16.10.0
       uuid: 10.0.0
+      zod: 3.23.8
+      zod-to-json-schema: 3.23.5(zod@3.23.8)
     transitivePeerDependencies:
       - encoding
 
@@ -1249,6 +1257,8 @@ snapshots:
     dependencies:
       node-domexception: 1.0.0
       web-streams-polyfill: 4.0.0-beta.3
+
+  graphql@16.10.0: {}
 
   has-flag@4.0.0: {}
 
