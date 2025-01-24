@@ -85,8 +85,9 @@ async def handler(request: Request, sdk: CopilotKitRemoteEndpoint):
             as_html='text/html' in accept_header,
         )
 
-    if method == 'POST' and (match := re.match(r'agents/([a-zA-Z0-9_-]+)/execute', path)):
+    if method == 'POST' and (match := re.match(r'agent/([a-zA-Z0-9_-]+)', path)):
         name = match.group(1)
+        body = body or {}
 
         thread_id = body.get("threadId", str(uuid.uuid4()))
         state = body.get("state", {})

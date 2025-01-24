@@ -1,0 +1,6 @@
+answer_question_task:
+  description: >
+    Answer the question: {question}
+  expected_output: >
+    An answer to this question: {question}
+  agent: poet

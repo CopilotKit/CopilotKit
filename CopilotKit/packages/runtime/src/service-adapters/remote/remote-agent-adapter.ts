@@ -45,6 +45,8 @@ export class RemoteAgentAdapter implements CopilotServiceAdapter {
     // TODO: need try catch or handled by writeJsonLineResponseToEventStream ?
     // probably need to check if response is ok and handle error, then let
     // writeJsonLineResponseToEventStream handle the rest
+
+    console.log("fetching", this.url);
     const response = await fetch(this.url, {
       method: "POST",
       // TODO-crewai: add headers
@@ -76,7 +78,6 @@ export class RemoteAgentAdapter implements CopilotServiceAdapter {
       //   { url, status: response.status, body: await response.text() },
       //   "Failed to execute remote agent",
       // );
-      // TODO-crewai: will this error surface to the user?
       throw new Error("Failed to execute remote agent");
     }
 

@@ -14,3 +14,4 @@ export * from "./groq/groq-adapter";
 export * from "./anthropic/anthropic-adapter";
 export * from "./experimental/ollama/ollama-adapter";
 export * from "./empty/empty-adapter";
+export * from "./remote/remote-agent-adapter";

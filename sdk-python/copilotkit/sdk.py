@@ -196,23 +196,6 @@ class CopilotKitRemoteEndpoint:
         actions = self.actions(context) if callable(self.actions) else self.actions
         agents = self.agents(context) if callable(self.agents) else self.agents
 
-        # ensure sane action and agent names
-        names_and_types = [
-            (action.name, "action") for action in actions
-        ] + [
-            (agent.name, "agent") for agent in agents
-        ]
-
-        for name, entity_type in names_and_types:
-            if name in ["execute", "state"]:
-                raise ValueError(f"{entity_type.capitalize()} name '{name}' is reserved")
-
-            if not re.match(r"^[a-zA-Z0-9_-]+$", name):
-                raise ValueError(
-                    f"Invalid {entity_type} name '{name}': " +
-                    "must consist of alphanumeric characters, underscores, and hyphens only"
-                )
-
         actions_list = [action.dict_repr() for action in actions]
         agents_list = [agent.dict_repr() for agent in agents]
 

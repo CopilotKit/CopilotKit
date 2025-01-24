@@ -1,20 +1,24 @@
 import { NextRequest } from "next/server";
 import {
   CopilotRuntime,
-  OpenAIAdapter,
+  RemoteAgentAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import OpenAI from "openai";
 
-const openai = new OpenAI();
-const serviceAdapter = new OpenAIAdapter({ openai });
+// const openai = new OpenAI();
+// const serviceAdapter = new OpenAIAdapter({ openai });
+
+const serviceAdapter = new RemoteAgentAdapter({
+  url: "http://localhost:8000/copilotkit/agent/crewai-agent",
+});
 
 const runtime = new CopilotRuntime({
-  remoteEndpoints: [
-    {
-      url: process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
-    },
-  ],
+  // remoteEndpoints: [
+  //   {
+  //     url: process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
+  //   },
+  // ],
 });
 
 export const POST = async (req: NextRequest) => {

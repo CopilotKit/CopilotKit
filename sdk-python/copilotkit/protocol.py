@@ -181,4 +181,14 @@ def agent_state_message( # pylint: disable=too-many-arguments
 
 def emit_runtime_events(*events: RuntimeEvent) -> str:
     """Emit a list of runtime events"""
-    return "\n".join(json.dumps(event) for event in events) + "\n"
+    def serialize_event(event):
+        # Convert enum values to their string representation
+        if isinstance(event, dict):
+            return {k: (v.value if isinstance(v, Enum) else v) for k, v in event.items()}
+        return event
+
+    return "\n".join(json.dumps(serialize_event(event)) for event in events) + "\n"
+
+def emit_runtime_event(event: RuntimeEvent) -> str:
+    """Emit a single runtime event"""
+    return emit_runtime_events(event)
