@@ -7,8 +7,12 @@ description: Learn how threadId is used to load previous agent states.
 
 When setting the `threadId` property in CopilotKit, i.e:
 
+<Callout>
+  When using LangGraph platform, the `threadId` must be a UUID.
+</Callout>
+
 ```tsx
-<CopilotKit threadId="123">
+<CopilotKit threadId="2140b272-7180-410d-9526-f66210918b13">
   <YourApp />
 </CopilotKit>
 ```
@@ -22,7 +26,7 @@ This means that the state of any agent will also be restored. For example:
 ```tsx
 const { state } = useCoAgent({name: "research_agent"});
 
-// state will now be the state of research_agent in thread 123
+// state will now be the state of research_agent in the thread id given above
 ```
 
 ### Learn More

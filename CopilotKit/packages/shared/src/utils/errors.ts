@@ -1,5 +1,9 @@
 import { GraphQLError } from "graphql";
 
+export enum Severity {
+  Error = "error",
+}
+
 export const ERROR_NAMES = {
   COPILOT_ERROR: "CopilotError",
   COPILOT_API_DISCOVERY_ERROR: "CopilotApiDiscoveryError",
@@ -7,6 +11,9 @@ export const ERROR_NAMES = {
   COPILOT_KIT_AGENT_DISCOVERY_ERROR: "CopilotKitAgentDiscoveryError",
   COPILOT_KIT_LOW_LEVEL_ERROR: "CopilotKitLowLevelError",
   RESOLVED_COPILOT_KIT_ERROR: "ResolvedCopilotKitError",
+  CONFIGURATION_ERROR: "ConfigurationError",
+  MISSING_PUBLIC_API_KEY_ERROR: "MissingPublicApiKeyError",
+  UPGRADE_REQUIRED_ERROR: "UpgradeRequiredError",
 } as const;
 
 export enum CopilotKitErrorCode {
@@ -17,6 +24,9 @@ export enum CopilotKitErrorCode {
   REMOTE_ENDPOINT_NOT_FOUND = "REMOTE_ENDPOINT_NOT_FOUND",
   MISUSE = "MISUSE",
   UNKNOWN = "UNKNOWN",
+  CONFIGURATION_ERROR = "CONFIGURATION_ERROR",
+  MISSING_PUBLIC_API_KEY_ERROR = "MISSING_PUBLIC_API_KEY_ERROR",
+  UPGRADE_REQUIRED_ERROR = "UPGRADE_REQUIRED_ERROR",
 }
 
 const BASE_URL = "https://docs.copilotkit.ai";
@@ -51,18 +61,35 @@ export const ERROR_CONFIG = {
   [CopilotKitErrorCode.UNKNOWN]: {
     statusCode: 500,
   },
+  [CopilotKitErrorCode.CONFIGURATION_ERROR]: {
+    statusCode: 400,
+    troubleshootingUrl: null,
+    severity: Severity.Error,
+  },
+  [CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR]: {
+    statusCode: 400,
+    troubleshootingUrl: null,
+    severity: Severity.Error,
+  },
+  [CopilotKitErrorCode.UPGRADE_REQUIRED_ERROR]: {
+    statusCode: 402,
+    troubleshootingUrl: null,
+    severity: Severity.Error,
+  },
 };
 
 export class CopilotKitError extends GraphQLError {
   code: CopilotKitErrorCode;
   statusCode: number;
-
+  severity?: Severity;
   constructor({
     message = "Unknown error occurred",
     code,
+    severity,
   }: {
     message?: string;
     code: CopilotKitErrorCode;
+    severity?: Severity;
   }) {
     const name = ERROR_NAMES.COPILOT_ERROR;
     const { statusCode } = ERROR_CONFIG[code];
@@ -76,6 +103,7 @@ export class CopilotKitError extends GraphQLError {
     this.code = code;
     this.name = name;
     this.statusCode = statusCode;
+    this.severity = severity;
   }
 }
 
@@ -257,5 +285,29 @@ export class ResolvedCopilotKitError extends CopilotKitError {
       super({ message, code: resolvedCode });
     }
     this.name = ERROR_NAMES.RESOLVED_COPILOT_KIT_ERROR;
+  }
+}
+
+export class ConfigurationError extends CopilotKitError {
+  constructor(message: string) {
+    super({ message, code: CopilotKitErrorCode.CONFIGURATION_ERROR });
+    this.name = ERROR_NAMES.CONFIGURATION_ERROR;
+    this.severity = Severity.Error;
+  }
+}
+
+export class MissingPublicApiKeyError extends ConfigurationError {
+  constructor(message: string) {
+    super(message);
+    this.name = ERROR_NAMES.MISSING_PUBLIC_API_KEY_ERROR;
+    this.severity = Severity.Error;
+  }
+}
+
+export class UpgradeRequiredError extends ConfigurationError {
+  constructor(message: string) {
+    super(message);
+    this.name = ERROR_NAMES.UPGRADE_REQUIRED_ERROR;
+    this.severity = Severity.Error;
   }
 }

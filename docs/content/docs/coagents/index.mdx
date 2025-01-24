@@ -1,7 +1,7 @@
 ---
 title: CoAgents (Public Beta)
 icon: "lucide/Lightbulb"
-description: Be a part of the next generation of AI-native apps, powered by CopilotKit & LangGraph.
+description: Build Agent-Native Applications (ANAs) powered by CopilotKit and LangGraph.
 ---
 
 import { BiSolidMessage as TextIcon } from "react-icons/bi";
@@ -25,15 +25,17 @@ import {
   LuUserCog,
   LuWand2,
   LuPlay,
+  LuMessageSquare,
+  LuWrench,
 } from "react-icons/lu";
 import { CoAgentsExamples } from "@/components/react/examples-carousel";
 import { CTACards } from "@/components/react/cta-cards";
 import { FaSync } from "react-icons/fa";
 import { Socials } from "@/components/react/socials";
 
-# Build Next-Gen AI Apps with Agents
+# Copilot Infrastructure for LangGraph Agents
 
-Unleash the power of **Agent-Native Applications**, the next evolution in AI, with CoAgents. Just like Replit Agent, v0, and OpenAI's Canvas, you can now create intelligent apps powered by LangGraph agents that think, adapt, and collaborate with users in real-time.
+Full user-interaction infrastructure for your agents, to turn your agents into Copilot Agents (CoAgents).
 
 <Frame className="mt-0 mb-6">
   <img
@@ -43,46 +45,53 @@ Unleash the power of **Agent-Native Applications**, the next evolution in AI, wi
   />
 </Frame>
 
-## Supercharge your app with the power of Agents
+## Building blocks of a CoAgent
 
-Everything you need to build mind-blowing AI experiences, right out of the box.
+Everything you need to build Agent-Native Applications (ANAs), right out of the box.
 
 <CTACards
   columns={2}
   cards={[
     {
-      icon: FaSync,
-      title: "Seamless State Sync",
+      icon: LuMessageSquare,
+      title: "Agentic Chat UI",
       description:
-        "Your app and agent stay perfectly in sync with just one line of code. What your app knows, your agent knows - instantly.",
+        "In-app chat powered by your agent.",
+      href: "/coagents/chat-ui/chat-with-agent",
+    },
+    {
+      icon: FaSync,
+      title: "Shared State",
+      description:
+        "Your agent can see everything in your app, and vice versa.",
       href: "/coagents/react-ui/in-app-agent-read",
     },
     {
       icon: LuLayoutTemplate,
-      title: "Agentic Generative UI",
+      title: "Generative UI",
       description:
-        "Create UI that updates in real-time based on your agent's thinking. Build trust through transparency.",
+        "UI that updates in real-time based on your agent's state.",
       href: "/coagents/chat-ui/render-agent-state",
     },
     {
-      icon: LuBrainCog,
-      title: "Intermediate Agent State",
+      icon: LuWand2,
+      title: "Frontend Tools",
       description:
-        "Peek into your agent's process as it works. Watch progress form in real-time, creating engaging and transparent experiences.",
-      href: "/coagents/advanced/intermediate-state-streaming",
+        "Give your agent the ability to take action in your application.",
+      href: "/coagents/advanced/copilotkit-state",
     },
     {
       icon: LuWand2,
-      title: "Realtime Frontend Actions",
+      title: "Multi-Agent Coordination",
       description:
-        "Give your agent the ability to take action in your application with context-aware frontend & backend actions. Seamless integration, zero hassle.",
+        "Route your agent to the right agent based on the user's request.",
       href: "/coagents/advanced/copilotkit-state",
     },
     {
       icon: LuUserCog,
       title: "Human-in-the-Loop",
       description:
-        "Set smart checkpoints where humans can guide your agents. Perfect for when you need that human touch.",
+        "Set smart checkpoints where humans can guide your agents.",
       href: "/coagents/chat-ui/hitl",
     },
   ]}

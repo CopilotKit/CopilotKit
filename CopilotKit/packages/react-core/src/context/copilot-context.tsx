@@ -186,13 +186,13 @@ export interface CopilotContextParams {
   /**
    * The auth states for the CopilotKit.
    */
-  authStates?: Record<ActionName, AuthState>;
-  setAuthStates?: React.Dispatch<React.SetStateAction<Record<ActionName, AuthState>>>;
+  authStates_c?: Record<ActionName, AuthState>;
+  setAuthStates_c?: React.Dispatch<React.SetStateAction<Record<ActionName, AuthState>>>;
 
   /**
    * The auth config for the CopilotKit.
    */
-  authConfig?: {
+  authConfig_c?: {
     SignInComponent: React.ComponentType<{
       onSignInComplete: (authState: AuthState) => void;
     }>;
