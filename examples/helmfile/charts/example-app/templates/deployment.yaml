@@ -30,8 +30,8 @@ spec:
               cpu: "100m"
               memory: "128Mi"
             limits:
-              cpu: "500m"
-              memory: "256Mi"
+              cpu: "750m"
+              memory: "512Mi"
           env:
             {{- if $deployment.config.secretsJson }}
             {{- include "example-app.jsonToEnv" $deployment.config.secretsJson | nindent 12 }}
