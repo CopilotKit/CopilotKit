@@ -245,6 +245,7 @@ jobs:
           node generate-table
         env:
           ENVIRONMENT: ${{ steps.set-environment-name.outputs.environment }}
+          NAMESPACE: ${{ steps.set-environment-name.outputs.namespace }}
           GITHUB_SHA: ${{ github.sha }}
 
       - name: Delete a comment

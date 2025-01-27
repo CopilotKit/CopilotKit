@@ -4,9 +4,14 @@ const json2md = require("json2md");
 const childProcess = require("child_process");
 
 const ENVIRONMENT = process.env.ENVIRONMENT;
+const NAMESPACE = process.env.NAMESPACE;
 
 if (!ENVIRONMENT) {
   throw new Error("ENVIRONMENT is not set");
+}
+
+if (!NAMESPACE) {
+  throw new Error("NAMESPACE is not set");
 }
 
 console.log("ENVIRONMENT", ENVIRONMENT);
@@ -15,7 +20,7 @@ console.log("Getting release list")
 const testConfigs = {};
 
 const releaseList = JSON.parse(childProcess.execSync(
-  `helmfile --state-values-set environment=${ENVIRONMENT} --selector "name!=examples-shared" list --output json`
+  `helmfile --state-values-set environment=${ENVIRONMENT},namespace=${NAMESPACE} --selector "name!=examples-shared" list --output json`
 ).toString());
 
 function getReleaseDeployments(releaseName) {
