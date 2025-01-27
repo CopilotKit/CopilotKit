@@ -247,18 +247,21 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
 
       - name: Delete a comment
+        if: github.event_name == 'pull_request'
         uses: thollander/actions-comment-pull-request@v3
         with:
           comment-tag: preview-status-update
           mode: delete
 
       - name: Comment post-deployment
+        if: github.event_name == 'pull_request'
         uses: thollander/actions-comment-pull-request@v3
         with:
           comment-tag: preview-status-update
           file-path: ./examples/helmfile/preview-comment.md
 
       - name: Export Variable - E2E URLs
+        if: github.event_name == 'pull_request'
         id: export-e2e-urls
         working-directory: examples/e2e
         run: |
