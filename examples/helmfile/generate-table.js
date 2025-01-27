@@ -25,7 +25,7 @@ const releaseList = JSON.parse(childProcess.execSync(
 
 function getReleaseDeployments(releaseName) {
   const outputs = JSON.parse(childProcess.execSync(
-    `kubectl get configmap -n ${ENVIRONMENT} ${releaseName}-outputs -o jsonpath='{.data}' | jq`
+    `kubectl get configmap -n ${NAMESPACE} ${releaseName}-outputs -o jsonpath='{.data}' | jq`
   ).toString());
 
   const deployments = JSON.parse(outputs.deployments);
