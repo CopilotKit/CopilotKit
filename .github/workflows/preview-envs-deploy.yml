@@ -215,6 +215,7 @@ jobs:
         run: |
           cat > ./override-values.yaml << 'EOL'
           environment: ${{ steps.set-environment-name.outputs.environment }}
+          namespace: copilotkit-examples-${{ steps.set-environment-name.outputs.environment }}
           globalImageTag: ${{ github.run_id }}
           EOL
 
