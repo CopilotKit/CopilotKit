@@ -27,19 +27,6 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
-      - name: Create Status Check
-        uses: actions/github-script@v6
-        with:
-          script: |
-            await github.rest.checks.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              name: 'E2E Tests',
-              head_sha: '${{ inputs.sha }}',
-              status: 'in_progress',
-              started_at: new Date().toISOString()
-            })
-
       - name: Checkout
         uses: actions/checkout@v4
         with:
