@@ -5,6 +5,9 @@ on:
     branches:
       - main
       - pre/*
+  push:
+    branches:
+      - main
 
 concurrency:
   group: preview-${{ github.event.pull_request.number }}-deploy
@@ -156,6 +159,41 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-region: us-east-1
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Setup helmfile
+        uses: mamezou-tech/setup-helmfile@v1.2.0
+
+      - name: EKS Config
+        run: |
+          aws eks --region us-east-1 update-kubeconfig --name copilotcloud-staging-eks
+
+      - name: Set Environment Name
+        id: set-environment-name
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "ENVIRONMENT=pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "ENVIRONMENT=main" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare Environment Config
+        run: |
+          cat > ./override-values.yaml << 'EOL'
+          environment: ${{ steps.set-environment-name.outputs.environment }}
+          globalImageTag: ${{ github.run_id }}
+          EOL
+
+      - name: Helmfile Sync
+        run: |
+          helmfile --state-values-file=./override-values.yaml sync
+          helmfile --state-values-file=./override-values.yaml --selector "name!=examples-shared" list --output json > helmfile-output.json
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -239,10 +277,13 @@ jobs:
         run: |
           echo "e2e-urls=$(node get-e2e-tests-urls.js | base64 -w 0)" >> "$GITHUB_OUTPUT"
 
-      - name: Trigger E2E Tests
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          workflow: "e2e.yml"
-          ref: "${{ github.event.pull_request.head.ref }}"
-          inputs: '{"ref": "${{ github.event.pull_request.head.ref }}", "sha": "${{ github.event.pull_request.head.sha }}", "urls": "${{ steps.export-e2e-urls.outputs.e2e-urls }}", "pr_number": "${{ github.event.pull_request.number }}"}'
+  test:
+    if: github.event_name == 'pull_request'
+    name: End to End Tests
+    uses: ./.github/workflows/e2e.yml
+    needs: deploy
+    with:
+      ref: "${{ github.event.pull_request.head.ref }}"
+      sha: "${{ github.event.pull_request.head.sha }}"
+      urls: "${{ needs.deploy.outputs.e2e-urls }}"
+      pr_number: "${{ github.event.pull_request.number }}"
