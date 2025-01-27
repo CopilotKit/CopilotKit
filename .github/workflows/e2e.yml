@@ -75,10 +75,10 @@ jobs:
 
       - name: Run Tests
         id: run_tests
-        working-directory: ./examples/e2e
         continue-on-error: true
         run: |
           pnpm playwright test
+          echo "::set-output name=exit_code::$?"
         env:
           GITHUB_SHA: ${{ github.sha }}
           COPILOT_CLOUD_PROD_RUNTIME_URL: "https://api.cloud.copilotkit.ai/copilotkit/v1"
@@ -87,6 +87,7 @@ jobs:
           COPILOT_CLOUD_STAGING_PUBLIC_API_KEY: ${{ secrets.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY }}
 
       - name: Comment post-deployment
+        if: always()
         uses: thollander/actions-comment-pull-request@v3
         with:
           pr-number: ${{ inputs.pr_number }}
