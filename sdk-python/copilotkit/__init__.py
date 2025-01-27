@@ -3,7 +3,7 @@ from .sdk import CopilotKitRemoteEndpoint, CopilotKitContext, CopilotKitSDK, Cop
 from .action import Action
 from .langgraph_agent import LangGraphAgent
 from .crewai_agent import CrewAIAgent
-from .state import CopilotKitState
+from .langgraph import CopilotKitState
 from .parameter import Parameter
 from .agent import Agent
 
@@ -12,7 +12,7 @@ __all__ = [
     'CopilotKitSDK',
     'Action', 
     'LangGraphAgent', 
-    'CopilotKitState', 
+    'CopilotKitState',    
     'Parameter',
     'Agent',
     'CopilotKitContext',
