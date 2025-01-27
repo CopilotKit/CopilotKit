@@ -206,16 +206,15 @@ jobs:
         id: set-environment-name
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "ENVIRONMENT=pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+            echo "environment=pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "ENVIRONMENT=main" >> "$GITHUB_OUTPUT"
+            echo "environment=main" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Prepare Environment Config
         run: |
           cat > ./override-values.yaml << 'EOL'
           environment: ${{ steps.set-environment-name.outputs.environment }}
-          namespace: copilotkit-examples-${{ steps.set-environment-name.outputs.environment }}
           globalImageTag: ${{ github.run_id }}
           EOL
 
@@ -245,7 +244,7 @@ jobs:
           node generate-table
         env:
           ENVIRONMENT: ${{ steps.set-environment-name.outputs.environment }}
-          NAMESPACE: ${{ steps.set-environment-name.outputs.namespace }}
+          NAMESPACE: copilotkit-examples-${{ steps.set-environment-name.outputs.environment }}
           GITHUB_SHA: ${{ github.sha }}
 
       - name: Delete a comment
@@ -263,7 +262,6 @@ jobs:
           file-path: ./examples/helmfile/preview-comment.md
 
       - name: Export Variable - E2E URLs
-        if: github.event_name == 'pull_request'
         id: export-e2e-urls
         working-directory: examples/e2e
         run: |
