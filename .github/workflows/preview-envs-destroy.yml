@@ -5,9 +5,9 @@ on:
     types: [ closed ]
   workflow_dispatch:
     inputs:
-      pr_number:
-        description: 'Pull Request Number'
-        required: true
+      environment:
+        description: 'Environment Name (e.g. `pr-1269`)'
+        required: false
 
 concurrency:
   group: preview-${{ github.event.pull_request.number }}-destroy
@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   preview_envs_destroy:
-    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'preview') || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     name: Destroy Preview Environments
     permissions:
@@ -44,7 +44,11 @@ jobs:
       - name: Set Environment Name
         id: set-environment-name
         run: |
-          echo "ENVIRONMENT=pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "ENVIRONMENT=${{ github.event.inputs.environment }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "ENVIRONMENT=pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Prepare Environment Config
         run: |

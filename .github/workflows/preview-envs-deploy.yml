@@ -1,4 +1,4 @@
-name: Preview Environments
+name: Deploy Preview Environments
 
 on:
   pull_request:
