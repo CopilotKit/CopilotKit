@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.5.14
+
+### Patch Changes
+
+- 0061f65: - feat: allows dev mode for cloud onboarding flow
+
 ## 1.5.14-next.0
 
 ### Patch Changes
