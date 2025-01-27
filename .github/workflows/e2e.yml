@@ -1,20 +1,21 @@
-name: End to End Tests
+name: Deploy Copilot Cloud Environment
 
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
-      sha:
-        description: "sha"
-        required: true
       ref:
-        description: "ref"
+        type: string
         required: true
+      sha:
+        type: string
+        required: false
       urls:
-        description: "urls"
-        required: true
+        type: string
+        required: false
       pr_number:
-        description: "Pull Request number"
+        type: number
         required: true
+
 jobs:
   e2e_tests:
     name: E2E Tests
@@ -26,19 +27,6 @@ jobs:
       pull-requests: write
       statuses: write
     steps:
-      - name: Create Status Check
-        uses: actions/github-script@v6
-        with:
-          script: |
-            await github.rest.checks.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              name: 'E2E Tests',
-              head_sha: '${{ inputs.sha }}',
-              status: 'in_progress',
-              started_at: new Date().toISOString()
-            })
-
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -47,7 +35,7 @@ jobs:
       - name: Save E2E URLs
         working-directory: examples/e2e
         run: |
-          echo "${{ inputs.urls }}" | base64 -d > app-configs.json
+          echo "${{ inputs.urls }}" | base64 -d > test-config.json
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
@@ -68,7 +56,7 @@ jobs:
       - name: Print app configs
         working-directory: examples/e2e
         run: |
-          cat app-configs.json
+          cat test-config.json
 
       - name: Delete a comment
         uses: thollander/actions-comment-pull-request@v3
@@ -77,12 +65,20 @@ jobs:
           comment-tag: test-run-status-update
           mode: delete
 
+      - name: Comment before running tests
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          pr-number: ${{ inputs.pr_number }}
+          comment-tag: test-run-status-update
+          message: |
+            Running tests for commit ${{ inputs.sha }}...
+
       - name: Run Tests
         id: run_tests
         working-directory: ./examples/e2e
-        continue-on-error: true
         run: |
           pnpm playwright test
+          echo "::set-output name=exit_code::$?"
         env:
           GITHUB_SHA: ${{ github.sha }}
           COPILOT_CLOUD_PROD_RUNTIME_URL: "https://api.cloud.copilotkit.ai/copilotkit/v1"
@@ -91,151 +87,9 @@ jobs:
           COPILOT_CLOUD_STAGING_PUBLIC_API_KEY: ${{ secrets.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY }}
 
       - name: Comment post-deployment
+        if: always()
         uses: thollander/actions-comment-pull-request@v3
         with:
           pr-number: ${{ inputs.pr_number }}
           comment-tag: test-run-status-update
           file-path: ./examples/e2e/test-results/test-run-comment.md
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report
-          path: |
-            examples/e2e/playwright-report/
-            examples/e2e/test-results/
-          retention-days: 30
-
-      - name: Update Status Check
-        if: always()
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const fs = require('fs');
-            let summary = 'Test run completed.';
-            let failedTests = 0;
-            try {
-              const resultsPath = './examples/e2e/test-results/test-results.json';
-              if (!fs.existsSync(resultsPath)) {
-                throw new Error('Test results file not found');
-              }
-
-              const results = JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
-
-              const stats = results.stats;
-              failedTests = stats.unexpected;
-
-              // Find failed test details
-              const failedSpecs = results.suites
-                .flatMap(s => s.suites || [])
-                .flatMap(s => s.suites || [])
-                .flatMap(s => s.specs || [])
-                .filter(spec => !spec.ok);
-
-              const failureDetails = failedSpecs.map(spec => {
-                const test = spec.tests[0];
-                const error = test.results[0].error;
-                // Extract relative path from the full file path
-                const testFile = spec.file ? spec.file.replace(/^.*?examples\/e2e\//, '') : 'unknown-file.ts';
-                const line = error.location?.line || 1;
-                return {
-                  title: spec.title,
-                  error: error.message.split('\n')[0],
-                  file: testFile,
-                  line: line
-                };
-              });
-
-              if (failedTests > 0) {
-                summary = [
-                  `🚨 **${failedTests} of ${stats.expected + stats.unexpected} tests failed**`,
-                  '',
-                  'Failed Tests:',
-                  ...failureDetails.map(f => 
-                    `- 🔴 [\`${f.title}\`](${f.file}:${f.line})\n  \`\`\`diff\n- ${f.error}\n\`\`\``
-                  ),
-                  '',
-                  `Duration: ${Math.round(stats.duration / 1000)}s`,
-                  '',
-                  '[View detailed test report](../actions/runs/${{ github.run_id }})'
-                ].join('\n');
-
-                // Create individual annotations for each failure
-                const annotations = failureDetails.map(failure => ({
-                  path: `examples/e2e/${failure.file}`,
-                  start_line: failure.line,
-                  end_line: failure.line,
-                  annotation_level: 'failure',
-                  title: 'Test Failure',
-                  message: failure.title,
-                  raw_details: failure.error
-                }));
-
-                // Add summary annotation
-                annotations.push({
-                  path: 'examples/e2e/playwright.config.ts',
-                  start_line: 1,
-                  end_line: 1,
-                  annotation_level: 'failure',
-                  title: 'Test Suite Summary',
-                  message: `${failedTests} test(s) failed. See detailed report for more information.`,
-                  raw_details: `Failed ${failedTests} of ${stats.expected + stats.unexpected} tests`
-                });
-
-                // Create the check with all annotations
-                await github.rest.checks.create({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  name: 'E2E Tests',
-                  head_sha: '${{ inputs.sha }}',
-                  status: 'completed',
-                  conclusion: 'failure',
-                  completed_at: new Date().toISOString(),
-                  output: {
-                    title: '❌ E2E Tests Failed',
-                    summary: summary,
-                    annotations: annotations
-                  }
-                });
-              } else {
-                // Success case
-                await github.rest.checks.create({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  name: 'E2E Tests',
-                  head_sha: '${{ inputs.sha }}',
-                  status: 'completed',
-                  conclusion: 'success',
-                  completed_at: new Date().toISOString(),
-                  output: {
-                    title: '✅ E2E Tests Passed',
-                    summary: `✅ All ${stats.expected} tests passed in ${Math.round(stats.duration / 1000)}s`
-                  }
-                });
-              }
-            } catch (error) {
-              // Error case
-              console.error('Error processing test results:', error);
-              await github.rest.checks.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: 'E2E Tests',
-                head_sha: '${{ inputs.sha }}',
-                status: 'completed',
-                conclusion: 'failure',
-                completed_at: new Date().toISOString(),
-                output: {
-                  title: '⚠️ Error Processing Test Results',
-                  summary: `Failed to process test results: ${error.message}`,
-                  annotations: [{
-                    path: 'examples/e2e/playwright.config.ts',
-                    start_line: 1,
-                    end_line: 1,
-                    annotation_level: 'failure',
-                    title: 'Error Processing Results',
-                    message: 'Failed to process test results',
-                    raw_details: error.stack
-                  }]
-                }
-              });
-            }
