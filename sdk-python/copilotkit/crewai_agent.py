@@ -4,7 +4,7 @@ CrewAI Agent
 
 import uuid
 import json
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Mapping
 from crewai import Crew, Flow
 from .agent import Agent
 from .types import Message
@@ -13,7 +13,10 @@ from .protocol import (
   emit_runtime_events,
   text_message_start,
   text_message_content,
-  text_message_end
+  text_message_end,
+  action_execution_start,
+  action_execution_args,
+  action_execution_end
 )
 
 class CrewAIAgent(Agent):
@@ -69,19 +72,47 @@ class CrewAIAgent(Agent):
         **kwargs,
     ):
         """Execute the agent"""
-        crew_chat_messages = json.dumps(
-            [copilotkit_message_to_crewai(message) for message in messages]
-        )
+        
         crew_text_input = ""
+        if len(messages) > 0:
+            # filter out the first message if it's a system message
+            if "role" in messages[0] and messages[0]["role"] == "system":
+                messages = messages[1:]
+        
         if len(messages) > 0:
             if "content" in messages[-1]:
                 crew_text_input = messages[-1]['content']
+            elif "result" in messages[-1]:
+                crew_text_input = messages[-1]['result']
+
+        crew_chat_messages = json.dumps(
+            [copilotkit_message_to_crewai(message) for message in messages]
+        )
+
         inputs = {
             self.crew_input_key: crew_text_input,
             "crew_chat_messages": crew_chat_messages
         }
+        print("Inputs:", inputs, flush=True)
         output = self.crew.kickoff(inputs=inputs)
+        print("Output:", output, flush=True)
         message_id = str(uuid.uuid4())
+
+        try:
+            json_output = json.loads(output.raw)
+            if (isinstance(json_output, Mapping) and
+                "__copilotkit_execute_action__" in json_output):
+                name = json_output["__copilotkit_execute_action__"]["name"]
+                args = json_output["__copilotkit_execute_action__"]["args"]
+                yield emit_runtime_events(
+                    action_execution_start(action_execution_id=message_id, action_name=name),
+                    action_execution_args(action_execution_id=message_id, args=json.dumps(args)),
+                    action_execution_end(action_execution_id=message_id)
+                )
+                return
+        except: # pylint: disable=bare-except
+            pass
+
 
         yield emit_runtime_events(
             text_message_start(message_id=message_id),

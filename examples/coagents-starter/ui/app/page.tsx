@@ -71,6 +71,20 @@ function YourMainContent() {
       setBackgroundColor(backgroundColor);
     },
   });
+  useCopilotAction({
+    name: "AskUserForClarification",
+    parameters: [
+      {
+        name: "question",
+        description: "The question to ask the user for clarification.",
+      },
+    ],
+    available: "remote",
+    handler({ question }) {
+      const answer = window.prompt(question);
+      return answer;
+    },
+  });
   return (
     <div
       style={{ backgroundColor }}
