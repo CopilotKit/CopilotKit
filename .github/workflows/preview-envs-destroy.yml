@@ -18,6 +18,9 @@ jobs:
     if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     name: Destroy Preview Environments
+    defaults:
+      run:
+        working-directory: examples/helmfile
     permissions:
       deployments: write
       pull-requests: write
