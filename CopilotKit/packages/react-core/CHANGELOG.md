@@ -1,5 +1,21 @@
 # ui
 
+## 1.5.15-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.5.15-next.0
+- @copilotkit/shared@1.5.15-next.0
+
+## 1.5.14
+
+### Patch Changes
+
+- 0061f65: - feat: allows dev mode for cloud onboarding flow
+- Updated dependencies [0061f65]
+  - @copilotkit/shared@1.5.14
+  - @copilotkit/runtime-client-gql@1.5.14
+
 ## 1.5.14-next.0
 
 ### Patch Changes
