@@ -84,13 +84,18 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     messages,
     actions,
     logger,
+    properties,
   } = args;
 
   let nodeName = initialNodeName;
   let state = initialState;
   const { name, assistantId: initialAssistantId } = agent;
 
-  const client = new Client({ apiUrl: deploymentUrl, apiKey: langsmithApiKey });
+  const defaultHeaders = properties.authorization
+    ? { Authorization: `Bearer ${properties.authorization}` }
+    : undefined;
+
+  const client = new Client({ apiUrl: deploymentUrl, apiKey: langsmithApiKey, ...defaultHeaders });
 
   let threadId = argsInitialThreadId ?? randomUUID();
   if (argsInitialThreadId && argsInitialThreadId.startsWith("ck-")) {
