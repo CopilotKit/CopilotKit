@@ -196,11 +196,12 @@ jobs:
         id: create-deployment
         with:
           token: '${{ github.token }}'
+          initial-status: success
           environment: main
-          description: |
-            Test 1
-            Test 2
-            Test 3
+          required-contexts: ''
+          auto-inactive: true
+          environment-url: 'https://coagents-qa-native-agent-fastapi-main.demos.devcopilotkit.com'
+          description: Description
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2

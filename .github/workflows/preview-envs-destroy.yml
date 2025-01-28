@@ -63,7 +63,7 @@ jobs:
       - name: Helmfile Destroy
         run: |
           helmfile --state-values-file=./override-values.yaml destroy
-          kubectl delete namespace ${{ steps.set-environment-name.outputs.environment }} -A --force
+          kubectl delete namespace copilotkit-examples-${{ steps.set-environment-name.outputs.environment }} -A --force
 
       - name: Comment post-destroy
         if: github.event_name == 'pull_request'
