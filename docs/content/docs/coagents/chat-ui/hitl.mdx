@@ -162,7 +162,7 @@ We're going to be building our agent inside of a single file, `agent.py` or `age
 your code into multiple files if you'd like.
 </Callout>
 
-<Tabs items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python title="agent/my_agent/agent.py"
         from copilotkit import CopilotKitState # extends MessagesState
@@ -192,7 +192,7 @@ Now we need to define our two nodes, `email_node` and `send_email_node`. These w
 
 First, let's build the `email_node`.
 
-<Tabs items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python title="agent/my_agent/agent.py"
         # ...
@@ -295,7 +295,7 @@ This node will be responsible for actually sending the email once the user has a
   We're not actually sending the emailing here, but you can see the comment marking where you would add the code to send the email.
 </Callout>
 
-<Tabs items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python title="agent/my_agent/agent.py"
         # ...
@@ -368,7 +368,7 @@ Now we just need to wire up the nodes and edges of our graph!
 
 We have a `interrupt_after` for `draft_email_node` (the node that initiates HITL) -- this is necessary to hand off control to the frontend.
 
-<Tabs items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
     <Tab title="agent/my_agent/agent.py" value="Python">
         ```python
         # ...

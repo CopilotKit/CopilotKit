@@ -12,8 +12,9 @@ import { RocketIcon, GraduationCapIcon, CodeIcon, VideoIcon } from "lucide-react
 
 Before we dive into what agentic copilots are, help us help you by telling us your level of experience with LangGraph. We'll explain things in a way that best suits your experience level.
 
-<TailoredContent defaultOptionIndex={0}>
+<TailoredContent id="experience" defaultOptionIndex={0}>
     <TailoredContentOption 
+        id="new"
         title="I'm new to LangGraph" 
         description="Help me understand what agentic copilots are, where LangGraph fits in, and how to get started." 
         icon={<img src="/images/copilotkit-logo.svg" width={7} height={7} />}
@@ -96,6 +97,7 @@ Before we dive into what agentic copilots are, help us help you by telling us yo
         </Cards>
     </TailoredContentOption>
     <TailoredContentOption 
+        id="intermediate"
         title="I'm already using LangGraph" 
         description="Help me understand what agentic copilots are, what Copilotkit does to integrate with LangGraph, and how to get started." 
         icon={<SiLangchain />}

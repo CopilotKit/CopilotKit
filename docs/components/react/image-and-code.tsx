@@ -1,9 +1,9 @@
 import {Tabs, Tab} from "@/components/react/tabs"
 import { Frame } from "@/components/react/frame"
 
-export function ImageAndCode({ preview, children }: { preview: string | React.ReactNode; children: React.ReactNode }) {
+export function ImageAndCode({ preview, children, id }: { preview: string | React.ReactNode; children: React.ReactNode, id: string }) {
     return (
-        <Tabs items={["Preview", "Code"]}>
+        <Tabs groupId={id} items={["Preview", "Code"]}>
             <Tab value="Preview">
                 {typeof preview === "string" ? 
                     <Frame>

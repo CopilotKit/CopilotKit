@@ -25,14 +25,15 @@ interface CarouselExample {
 }
 
 interface ExamplesCarouselProps {
+  id: string
   examples?: CarouselExample[];
 }
 
 const badgeStyles = cn(badgeVariants({ variant: "outline" }), "bg-indigo-500 hover:bg-indigo-600 text-white no-underline focus:ring-1 focus:ring-indigo-500");
 
-export function ExamplesCarousel({ examples = LandingExamples }: ExamplesCarouselProps) {
+export function ExamplesCarousel({ id, examples = LandingExamples }: ExamplesCarouselProps) {
   return (
-    <Tabs items={
+    <Tabs groupId={id} items={
       examples.map((example) => {
         const Icon = example.icon;
         return {

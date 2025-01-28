@@ -16,8 +16,9 @@ import {
 } from "@/components/react/tailored-content.tsx";
 import { FaCloud, FaServer } from "react-icons/fa";
 
-<TailoredContent>
+<TailoredContent id="copilot-hosting">
 <TailoredContentOption
+  id="copilot-cloud"
   title="Copilot Cloud (Recommended)"
   description="Use our hosted backend endpoint to get started quickly (OpenAI only)."
   icon={<FaCloud />}
@@ -58,6 +59,7 @@ You are almost there! Now it's time to setup your Copilot UI.
 </Steps>
 </TailoredContentOption>
 <TailoredContentOption
+  id="self-hosted"
   title="Self-hosting"
   description="Learn to host CopilotKit's runtime yourself with your own backend."
   icon={<FaServer />}
