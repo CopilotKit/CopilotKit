@@ -12,38 +12,14 @@ import {
   PROJECT_NAMES,
   TestVariants,
   appendLGCVariants,
+  getCopilotCloudVariants,
 } from "../lib/config-helper";
-
-import dotenv from "dotenv";
-import path from "path";
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const variants: TestVariants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
   { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
+  ...getCopilotCloudVariants(),
 ];
-
-if (
-  process.env.COPILOT_CLOUD_STAGING_RUNTIME_URL &&
-  process.env.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY
-) {
-  variants.push({
-    name: "Copilot Cloud (Staging)",
-    queryParams: `?runtimeUrl=${process.env.COPILOT_CLOUD_STAGING_RUNTIME_URL}&publicApiKey=${process.env.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY}`,
-    isCloud: true,
-  });
-}
-
-if (
-  process.env.COPILOT_CLOUD_PRODUCTION_RUNTIME_URL &&
-  process.env.COPILOT_CLOUD_PRODUCTION_PUBLIC_API_KEY
-) {
-  variants.push({
-    name: "Copilot Cloud (Production)",
-    queryParams: `?runtimeUrl=${process.env.COPILOT_CLOUD_PRODUCTION_RUNTIME_URL}&publicApiKey=${process.env.COPILOT_CLOUD_PRODUCTION_PUBLIC_API_KEY}`,
-    isCloud: true,
-  });
-}
 
 // Get configurations
 const allConfigs = getConfigs();

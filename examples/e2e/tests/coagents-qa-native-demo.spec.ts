@@ -7,12 +7,13 @@ import {
   PROJECT_NAMES,
   TestVariants,
   appendLGCVariants,
+  getCopilotCloudVariants,
 } from "../lib/config-helper";
 
 const variants: TestVariants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
   { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
-  // { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" }, // seems broken
+  ...getCopilotCloudVariants(),
 ];
 
 const allConfigs = getConfigs();
@@ -22,17 +23,23 @@ const qaConfigs = filterConfigsByProject(
 );
 const groupedConfigs = groupConfigsByDescription(qaConfigs);
 
+export const cloudVariants = variants.filter((variant) => variant.isCloud);
+export const nonCloudVariants = variants.filter((variant) => !variant.isCloud);
+
 Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
   test.describe(`${projectName}`, () => {
     Object.entries(descriptions).forEach(([description, configs]) => {
       test.describe(`${description}`, () => {
         configs.forEach((config) => {
-          appendLGCVariants(
-            {
-              ...config,
-            },
-            variants
-          ).forEach((variant) => {
+          [
+            ...appendLGCVariants(
+              {
+                ...config,
+              },
+              nonCloudVariants
+            ),
+            ...cloudVariants,
+          ].forEach((variant) => {
             test(`Test ${config.description} with variant ${variant.name}`, async ({
               page,
             }) => {

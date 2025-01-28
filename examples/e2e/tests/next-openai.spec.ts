@@ -29,17 +29,14 @@
  */
 
 import { expect, test, Page, Locator } from "@playwright/test";
-import dotenv from "dotenv";
-import path from "path";
 import {
   filterConfigsByProject,
   getConfigs,
+  getCopilotCloudVariants,
   groupConfigsByDescription,
   PROJECT_NAMES,
 } from "../lib/config-helper";
 import { sendChatMessage, waitForResponse } from "../lib/helpers";
-
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 interface Variant {
   name: string;
@@ -72,28 +69,8 @@ const variants: Variant[] = [
     queryParams: "?coAgentsModel=langchain_gemini",
   },
   { name: "Groq", queryParams: "?coAgentsModel=groq" },
+  ...getCopilotCloudVariants(),
 ];
-
-// Add Copilot Cloud variants conditionally
-if (
-  process.env.COPILOT_CLOUD_PROD_RUNTIME_URL &&
-  process.env.COPILOT_CLOUD_PROD_PUBLIC_API_KEY
-) {
-  variants.push({
-    name: "Copilot Cloud (Production)",
-    queryParams: `?runtimeUrl=${process.env.COPILOT_CLOUD_PROD_RUNTIME_URL}&publicApiKey=${process.env.COPILOT_CLOUD_PROD_PUBLIC_API_KEY}`,
-  });
-}
-
-if (
-  process.env.COPILOT_CLOUD_STAGING_RUNTIME_URL &&
-  process.env.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY
-) {
-  variants.push({
-    name: "Copilot Cloud (Staging)",
-    queryParams: `?runtimeUrl=${process.env.COPILOT_CLOUD_STAGING_RUNTIME_URL}&publicApiKey=${process.env.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY}`,
-  });
-}
 
 const getDestinationCheckbox = (
   page: Page,
