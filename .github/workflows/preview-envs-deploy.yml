@@ -278,5 +278,4 @@ jobs:
       sha: "${{ github.event.pull_request.head.sha }}"
       urls: "${{ needs.deploy.outputs.e2e-urls }}"
       pr_number: "${{ github.event.pull_request.number }}"
-    secrets:
-      inherit: true
+    secrets: inherit
