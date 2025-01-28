@@ -8,10 +8,6 @@ import {
   appendLGCVariants,
   getCopilotCloudVariants,
 } from "../lib/config-helper";
-import {
-  nonCloudVariants,
-  cloudVariants,
-} from "./coagents-qa-native-demo.spec";
 
 const variants: TestVariants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
