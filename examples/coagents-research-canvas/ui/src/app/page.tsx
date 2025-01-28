@@ -7,6 +7,7 @@ import {
   useModelSelectorContext,
 } from "@/lib/model-selector-provider";
 import { ModelSelector } from "@/components/ModelSelector";
+import { useSearchParams } from "next/navigation";
 
 export default function ModelSelectorWrapper() {
   return (
@@ -20,12 +21,22 @@ export default function ModelSelectorWrapper() {
 function Home() {
   const { agent, lgcDeploymentUrl } = useModelSelectorContext();
 
+  const searchParams = useSearchParams();
+
+  const runtimeUrl = searchParams.get("runtimeUrl")
+    ? (searchParams.get("runtimeUrl") as string)
+    : `/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl ?? ""}`;
+
+  const publicApiKey = searchParams.get("publicApiKey");
+  const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
+    runtimeUrl,
+    publicApiKey: publicApiKey || undefined,
+    showDevConsole: true,
+    agent,
+  };
+
   return (
-    <CopilotKit
-      runtimeUrl={`/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl ?? ""}`}
-      showDevConsole={false}
-      agent={agent}
-    >
+    <CopilotKit {...copilotKitProps}>
       <Main />
     </CopilotKit>
   );

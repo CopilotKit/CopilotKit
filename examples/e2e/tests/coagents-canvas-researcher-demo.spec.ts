@@ -14,11 +14,36 @@ import {
   appendLGCVariants,
 } from "../lib/config-helper";
 
+import dotenv from "dotenv";
+import path from "path";
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
+
 const variants: TestVariants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
   { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
-  // { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" }, // seems broken
 ];
+
+if (
+  process.env.COPILOT_CLOUD_STAGING_RUNTIME_URL &&
+  process.env.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY
+) {
+  variants.push({
+    name: "Copilot Cloud (Staging)",
+    queryParams: `?runtimeUrl=${process.env.COPILOT_CLOUD_STAGING_RUNTIME_URL}&publicApiKey=${process.env.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY}`,
+    isCloud: true,
+  });
+}
+
+if (
+  process.env.COPILOT_CLOUD_PRODUCTION_RUNTIME_URL &&
+  process.env.COPILOT_CLOUD_PRODUCTION_PUBLIC_API_KEY
+) {
+  variants.push({
+    name: "Copilot Cloud (Production)",
+    queryParams: `?runtimeUrl=${process.env.COPILOT_CLOUD_PRODUCTION_RUNTIME_URL}&publicApiKey=${process.env.COPILOT_CLOUD_PRODUCTION_PUBLIC_API_KEY}`,
+    isCloud: true,
+  });
+}
 
 // Get configurations
 const allConfigs = getConfigs();
@@ -28,22 +53,28 @@ const researchCanvasConfigs = filterConfigsByProject(
 );
 const groupedConfigs = groupConfigsByDescription(researchCanvasConfigs);
 
+const cloudVariants = variants.filter((variant) => variant.isCloud);
+const nonCloudVariants = variants.filter((variant) => !variant.isCloud);
+
 Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
   test.describe(`${projectName}`, () => {
     Object.entries(descriptions).forEach(([description, configs]) => {
       test.describe(`${description}`, () => {
         configs.forEach((config) => {
-          appendLGCVariants(
-            {
-              ...config,
-            },
-            variants
-          ).forEach((variant) => {
+          [
+            ...appendLGCVariants(
+              {
+                ...config,
+              },
+              nonCloudVariants
+            ),
+            ...cloudVariants,
+          ].forEach((variant) => {
             test(`Test ${config.description} with variant ${variant.name}`, async ({
               page,
             }) => {
               await page.goto(`${config.url}${variant.queryParams}`);
-              await waitForSuggestions(page, 3)
+              await waitForSuggestions(page, 3);
               const researchQuestion = "Lifespan of penguins";
               await page
                 .getByPlaceholder("Enter your research question")

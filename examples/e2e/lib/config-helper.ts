@@ -28,6 +28,7 @@ export interface ConfigMap {
 export interface TestVariant {
   name: string;
   queryParams: string;
+  isCloud?: boolean;
 }
 
 export type TestVariants = TestVariant[];
@@ -82,6 +83,7 @@ export const appendLGCVariants = (config: ConfigItem, variants: any[]) => {
 
   if (config.lgcPythonDeploymentUrl) {
     const newVariants = variants.map((variant) => {
+      
       return {
         ...variant,
         name: `${variant.name} (LGC Python in-memory)`,
