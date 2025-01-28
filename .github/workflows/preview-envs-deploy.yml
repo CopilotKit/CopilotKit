@@ -179,8 +179,6 @@ jobs:
     name: Deploy Preview Environments
     runs-on: ubuntu-20.04
     needs: build_images
-    permissions:
-      deployments: write
     outputs:
       e2e-urls: ${{ steps.export-e2e-urls.outputs.e2e-urls }}
     defaults:
@@ -189,34 +187,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-
-      - uses: chrnorm/deployment-action@v2
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        name: Create GitHub deployment
-        id: create-deployment
-        with:
-          token: '${{ github.token }}'
-          task: 'coagents-qa-native'
-          initial-status: success
-          environment: main
-          required-contexts: ''
-          auto-inactive: true
-          environment-url: 'https://coagents-qa-native-ui-main.demos.devcopilotkit.com/'
-          description: Description
-
-      - uses: chrnorm/deployment-action@v2
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        name: Create GitHub deployment
-        id: create-deployment-two
-        with:
-          token: '${{ github.token }}'
-          task: 'coagents-research-canvas'
-          initial-status: success
-          environment: main
-          required-contexts: ''
-          auto-inactive: true
-          environment-url: 'https://coagents-research-canvas-ui-main.demos.devcopilotkit.com/'
-          description: Description
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
