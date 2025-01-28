@@ -196,11 +196,26 @@ jobs:
         id: create-deployment
         with:
           token: '${{ github.token }}'
+          task: 'coagents-qa-native'
           initial-status: success
           environment: main
           required-contexts: ''
           auto-inactive: true
-          environment-url: 'https://coagents-qa-native-agent-fastapi-main.demos.devcopilotkit.com'
+          environment-url: 'https://coagents-qa-native-ui-main.demos.devcopilotkit.com/'
+          description: Description
+
+      - uses: chrnorm/deployment-action@v2
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        name: Create GitHub deployment
+        id: create-deployment
+        with:
+          token: '${{ github.token }}'
+          task: 'coagents-research-canvas'
+          initial-status: success
+          environment: main
+          required-contexts: ''
+          auto-inactive: true
+          environment-url: 'https://coagents-research-canvas-ui-main.demos.devcopilotkit.com/'
           description: Description
 
       - name: Configure AWS Credentials
