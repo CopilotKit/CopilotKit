@@ -28,7 +28,7 @@ releases:
     
   - name: 'coagents-routing'
     chart: ./charts/example-app
-    installed: false
+    installed: true
     namespace: {{ .Values.namespace }}
     values: [./values/coagents-routing.yaml.gotmpl]
     needs: [examples-shared]
@@ -38,7 +38,7 @@ releases:
 
   - name: 'coagents-qa-text'
     chart: ./charts/example-app
-    installed: false
+    installed: true
     namespace: {{ .Values.namespace }}
     values: [./values/coagents-qa-text.yaml.gotmpl]
     needs: [examples-shared]
@@ -48,7 +48,7 @@ releases:
 
   - name: 'coagents-qa-native'
     chart: ./charts/example-app
-    installed: false
+    installed: true
     namespace: {{ .Values.namespace }}
     values: [./values/coagents-qa-native.yaml.gotmpl]
     needs: [examples-shared]
