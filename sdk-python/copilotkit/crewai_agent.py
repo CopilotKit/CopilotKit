@@ -4,8 +4,10 @@ CrewAI Agent
 
 import uuid
 import json
-import asyncio
-from typing import Optional, List, Mapping, Callable
+import queue
+import threading
+from copy import deepcopy
+from typing import Optional, List, Callable, Type
 from typing_extensions import TypedDict, NotRequired, Any
 from crewai import Crew, Flow
 from .agent import Agent
@@ -18,50 +20,31 @@ from .protocol import (
   text_message_end,
   action_execution_start,
   action_execution_args,
-  action_execution_end
+  action_execution_end,
+  agent_state_message,
+  meta_event,
+  RuntimeMetaEventName
 )
 from .crewai import (
-  CREWAI_FLOW_EVENT_QUEUE,
-  copilotkit_emit_state,
   copilotkit_message_to_crewai_crew,
   copilotkit_messages_to_crewai_flow,
-  CopilotKitCrewAIFlowEventType
+  CopilotKitCrewAIFlowEventType,
+  crewai_flow_messages_to_copilotkit,
+  _crewai_flow_thread_runner
 )
-
-async def example_function():
-    """Example function"""
-    await asyncio.sleep(1)
-    await copilotkit_emit_state("test 1")
-    await asyncio.sleep(1)
-    await copilotkit_emit_state("test 2")
-    await asyncio.sleep(1)
-    await copilotkit_emit_state("test 3")
-    await asyncio.sleep(1)
-
-
-def crewai_default_merge_state( # pylint: disable=unused-argument
-        *,
-        state: dict,
-        messages: List[Any],
-        actions: List[Any],
-        agent_name: str,
-        thread_id: Optional[str] = None
-    ):
-    """Default merge state for CrewAI"""
-    return {
-        **state,
-        "id": thread_id,
-        "messages": messages,
-        "copilotkit": {
-            "actions": actions
-        }
-    }
 
 class CopilotKitConfig(TypedDict):
     """
     CopilotKit config for CrewAIAgent
     """
     merge_state: NotRequired[Callable]
+
+class CrewAIFlowExecutionState(TypedDict):
+    """
+    State for an execution of a CrewAI Flow agent
+    """
+    should_exit: bool
+    node_name: Optional[str]
 
 class CrewAIAgent(Agent):
     """Agent class for CopilotKit"""
@@ -70,9 +53,9 @@ class CrewAIAgent(Agent):
             *,
             name: str,
             description: Optional[str] = None,
-            crew: Optional[Crew] = None,
+            crew: Type[Crew] = None,
             crew_input_key: Optional[str] = None,
-            flow: Optional[Flow] = None,
+            flow: Type[Flow] = None,
             copilotkit_config: Optional[CopilotKitConfig] = None,
         ):
         super().__init__(
@@ -115,89 +98,6 @@ class CrewAIAgent(Agent):
             **kwargs
         )
 
-    async def execute_flow( # pylint: disable=too-many-arguments,unused-argument
-        self,
-        *,
-        state: dict,
-        messages: List[Message],
-        thread_id: Optional[str] = None,
-        actions: Optional[List[ActionDict]] = None,
-        **kwargs,
-    ):
-        """Execute a `Flow` based agent"""
-
-        merge_state = self.copilotkit_config.get("merge_state", crewai_default_merge_state)
-
-        # check the crew state if it supports messages, i.e. is a subclass of CopilotKitState
-
-        crewai_flow_messages = copilotkit_messages_to_crewai_flow(messages)
-        state = merge_state(
-            state=state,
-            messages=crewai_flow_messages,
-            actions=actions,
-            agent_name=self.name
-        )
-
-        # Create a local queue to receive events
-        local_queue = asyncio.Queue()
-
-        # Set the local queue as the event queue
-        token = CREWAI_FLOW_EVENT_QUEUE.set(local_queue)
-        try:
-            # Run the flow as a task
-            task = asyncio.create_task(self.flow.kickoff(inputs=state))
-
-            # While the function is running, pull items from local_queue
-            while not task.done():
-                done, pending = await asyncio.wait(
-                    {task, asyncio.create_task(local_queue.get())},
-                    return_when=asyncio.FIRST_COMPLETED
-                )
-                if task in done:
-                    # flow is done
-                    break
-
-                # Otherwise, we got an event from local_queue
-                queue_task = next(iter(done))
-                event_data = queue_task.result()
-
-                # TODO: move this to a function
-                if event_data["type"] == CopilotKitCrewAIFlowEventType.EMIT_MESSAGE:
-                    yield emit_runtime_events(
-                        text_message_start(message_id=event_data["message_id"]),
-                        text_message_content(
-                            message_id=event_data["message_id"],
-                            content=event_data["message"]
-                        ),
-                        text_message_end(message_id=event_data["message_id"])
-                    )
-                elif event_data["type"] == CopilotKitCrewAIFlowEventType.EMIT_TOOL_CALL:
-                    yield emit_runtime_events(
-                        action_execution_start(
-                            action_execution_id=event_data["message_id"],
-                            action_name=event_data["name"]
-                        ),
-                        action_execution_args(
-                            action_execution_id=event_data["message_id"],
-                            args=json.dumps(event_data["args"])
-                        ),
-                        action_execution_end(action_execution_id=event_data["message_id"])
-                    )
-
-                # Cancel the still-pending queue.get() so we can re-create in the next loop
-                for p in pending:
-                    if p is not task:
-                        p.cancel()
-
-            # Make sure the flow actually had no exceptions
-            await task
-
-
-
-        finally:
-            # Restore the original context state
-            CREWAI_FLOW_EVENT_QUEUE.reset(token)
-
     def execute_crew( # pylint: disable=too-many-arguments,unused-argument
         self,
         *,
@@ -207,7 +107,9 @@ class CrewAIAgent(Agent):
         actions: Optional[List[ActionDict]] = None,
         **kwargs,
     ):
-        """Execute a `Crew` based agent"""
+        """Execute a `Crew` based agent"""                
+
+        crew = self.crew().crew()
 
         crew_text_input = ""
         if len(messages) > 0:
@@ -229,26 +131,8 @@ class CrewAIAgent(Agent):
             self.crew_input_key: crew_text_input,
             "crew_chat_messages": crew_chat_messages
         }
-        print("Inputs:", inputs, flush=True)
-        output = self.crew.kickoff(inputs=inputs)
-        print("Output:", output, flush=True)
+        output = crew.kickoff(inputs=inputs)
         message_id = str(uuid.uuid4())
-
-        try:
-            json_output = json.loads(output.raw)
-            if (isinstance(json_output, Mapping) and
-                "__copilotkit_execute_action__" in json_output):
-                name = json_output["__copilotkit_execute_action__"]["name"]
-                args = json_output["__copilotkit_execute_action__"]["args"]
-                yield emit_runtime_events(
-                    action_execution_start(action_execution_id=message_id, action_name=name),
-                    action_execution_args(action_execution_id=message_id, args=json.dumps(args)),
-                    action_execution_end(action_execution_id=message_id)
-                )
-                return
-        except: # pylint: disable=bare-except
-            pass
-
 
         yield emit_runtime_events(
             text_message_start(message_id=message_id),
@@ -256,9 +140,255 @@ class CrewAIAgent(Agent):
             text_message_end(message_id=message_id)
         )
 
+    async def execute_flow( # pylint: disable=too-many-arguments,unused-argument
+        self,
+        *,
+        state: dict,
+        messages: List[Message],
+        thread_id: Optional[str] = None,
+        actions: Optional[List[ActionDict]] = None,
+        **kwargs,
+    ):
+        """Execute a `Flow` based agent"""
+
+        flow = self.flow()
+        run_id = str(uuid.uuid4())
+        execution_state = CrewAIFlowExecutionState(
+            should_exit=False,
+            node_name="start",
+            is_finished=False
+        )
+
+        merge_state = self.copilotkit_config.get("merge_state", crewai_flow_default_merge_state)
+
+        crewai_flow_messages = copilotkit_messages_to_crewai_flow(messages)
+
+        state = merge_state(
+            state=state,
+            messages=crewai_flow_messages,
+            actions=actions,
+            agent_name=self.name,
+            flow=flow
+        )
+
+        # Create a local queue to receive events
+        local_queue = queue.Queue()
+
+        t = threading.Thread(
+            target=_crewai_flow_thread_runner,
+            args=(flow, local_queue, deepcopy(state)),
+            daemon=False
+        )
+        t.start()
+
+        while True:
+            event_data = local_queue.get()
+            local_queue.task_done()
+
+            json_lines = handle_crewai_flow_event(
+                event_data=event_data,
+                thread_id=thread_id,
+                agent_name=self.name,
+                state=flow.state,
+                run_id=run_id,
+                execution_state=execution_state
+            )
+
+            if json_lines is not None:
+                yield json_lines
+
+            if execution_state["is_finished"]:
+                break
+
+        t.join()
+
+        state = {**flow.state}
+        if "messages" in state:
+            state["messages"] = crewai_flow_messages_to_copilotkit(state["messages"])
+
+        # emit the final state
+        yield emit_runtime_events(
+            agent_state_message(
+                thread_id=thread_id,
+                agent_name=self.name,
+                node_name=execution_state["node_name"],
+                run_id=run_id,
+                active=False,
+                role="assistant",
+                state=json.dumps(state),
+                running=not execution_state["should_exit"]
+            )
+        )
+
+
+
     def dict_repr(self):
         super_repr = super().dict_repr()
         return {
             **super_repr,
             'type': 'crewai'
         }
+
+def crewai_flow_default_merge_state( # pylint: disable=unused-argument, too-many-arguments
+        *,
+        state: dict,
+        flow: Flow,
+        messages: List[Any],
+        actions: List[Any],
+        agent_name: str,
+    ):
+    """Default merge state for CrewAI"""
+    if len(messages) > 0:
+        if "role" in messages[0] and messages[0]["role"] == "system":
+            messages = messages[1:]
+
+    new_state = {
+        **state,
+        "messages": messages,
+        "copilotkit": {
+            "actions": actions
+        }
+    }
+
+    # ensure to only merge supported keys
+    supported_keys = []
+
+    if flow.initial_state is None and hasattr(flow, "_initial_state_T"):
+        state_type = getattr(flow, "_initial_state_T")
+        if isinstance(state_type, type):
+            if state_type is dict: 
+                # all keys are supported, return as is
+                return new_state
+
+            supported_keys = [
+                attr for attr in dir(state_type)
+                if not callable(getattr(state_type, attr))
+                and not attr.startswith("__")
+            ]
+    elif flow.initial_state is None:
+        # no initial state, return as is
+        return new_state
+    else:
+        if isinstance(flow.initial_state, dict):
+            # all keys are supported, return as is
+            return new_state
+
+        supported_keys = [
+            attr for attr in dir(flow.initial_state)
+            if not callable(getattr(flow.initial_state, attr))
+            and not attr.startswith("__")
+        ]
+
+    # remove all unsupported keys
+    for key in list(new_state.keys()):
+        if key not in supported_keys:
+            del new_state[key]
+
+    return new_state
+
+
+def handle_crewai_flow_event(
+        *,
+        event_data: Any,
+        thread_id: str,
+        agent_name: str,
+        state: Any,
+        run_id: str,
+        execution_state: CrewAIFlowExecutionState
+    ) -> Optional[str]: # pylint: disable=too-many-return-statements
+    """Handle a CrewAI flow event"""
+    if event_data["type"] == CopilotKitCrewAIFlowEventType.EMIT_MESSAGE:
+        return emit_runtime_events(
+            text_message_start(message_id=event_data["message_id"]),
+            text_message_content(
+                message_id=event_data["message_id"],
+                content=event_data["message"]
+            ),
+            text_message_end(message_id=event_data["message_id"])
+        )
+    if event_data["type"] == CopilotKitCrewAIFlowEventType.EMIT_TOOL_CALL:
+        return emit_runtime_events(
+            action_execution_start(
+                action_execution_id=event_data["message_id"],
+                action_name=event_data["name"]
+            ),
+            action_execution_args(
+                action_execution_id=event_data["message_id"],
+                args=json.dumps(event_data["args"])
+            ),
+            action_execution_end(action_execution_id=event_data["message_id"])
+        )
+    if event_data["type"] == CopilotKitCrewAIFlowEventType.EMIT_STATE:
+        state = {k: v for k, v in state.items() if k != "messages"}
+
+        return emit_runtime_events(
+            agent_state_message(
+                thread_id=thread_id,
+                agent_name=agent_name,
+                node_name=execution_state["node_name"],
+                run_id=run_id,
+                active=True,
+                role="assistant",
+                state=json.dumps(event_data["state"]),
+                running=True
+            )
+        )
+    if event_data["type"] == CopilotKitCrewAIFlowEventType.EXIT:
+        execution_state["should_exit"] = True
+        return None
+    if event_data["type"] == CopilotKitCrewAIFlowEventType.PREDICT_STATE:
+        return emit_runtime_events(
+            meta_event(
+                name=RuntimeMetaEventName.PREDICT_STATE_EVENT,
+                value={
+                    "key": event_data["key"],
+                    "tool_name": event_data["tool_name"],
+                    "tool_argument": event_data.get("tool_argument", None)
+                }
+            )
+        )
+    if event_data["type"] == CopilotKitCrewAIFlowEventType.METHOD_EXECUTION_STARTED:
+        execution_state["node_name"] = event_data["name"]
+        state = {k: v for k, v in state.items() if k != "messages"}
+
+        return emit_runtime_events(
+            agent_state_message(
+                thread_id=thread_id,
+                agent_name=agent_name,
+                node_name=execution_state["node_name"],
+                run_id=run_id,
+                active=True,
+                role="assistant",
+                state=json.dumps(state),
+                running=True
+            )
+        )
+    if event_data["type"] == CopilotKitCrewAIFlowEventType.METHOD_EXECUTION_FINISHED:
+        state = {k: v for k, v in state.items() if k != "messages"}
+
+        return emit_runtime_events(
+            agent_state_message(
+                thread_id=thread_id,
+                agent_name=agent_name,
+                node_name=execution_state["node_name"],
+                run_id=run_id,
+                active=False,
+                role="assistant",
+                state=json.dumps(state),
+                running=True
+            )
+        )
+
+    if event_data["type"] == CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_STARTED:
+        # ignore this event
+        return None
+
+    if event_data["type"] == CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_FINISHED:
+        execution_state["is_finished"] = True
+        return None
+
+    if event_data["type"] == CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_ERROR:
+        execution_state["is_finished"] = True
+        return None
+
+    raise ValueError(f"Unknown event type: {event_data['type']}")

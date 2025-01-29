@@ -153,7 +153,6 @@ async def handler_v1(
             arguments=arguments,
         )
 
-
     if method == 'POST' and path == 'agents/execute':
         thread_id = body.get("threadId")
         node_name = body.get("nodeName")

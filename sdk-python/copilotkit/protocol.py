@@ -5,8 +5,7 @@ CopilotKit Protocol
 import json
 from enum import Enum
 from typing import Union, Optional
-from typing_extensions import TypedDict, Literal
-
+from typing_extensions import TypedDict, Literal, Any
 
 class RuntimeEventTypes(Enum):
     """CopilotKit Runtime Event Types"""
@@ -18,6 +17,12 @@ class RuntimeEventTypes(Enum):
     ACTION_EXECUTION_END = "ActionExecutionEnd"
     ACTION_EXECUTION_RESULT = "ActionExecutionResult"
     AGENT_STATE_MESSAGE = "AgentStateMessage"
+    META_EVENT = "MetaEvent"
+
+class RuntimeMetaEventName(Enum):
+    """Runtime Meta Event Name"""
+    LANG_GRAPH_INTERRUPT_EVENT = "LangGraphInterruptEvent"
+    PREDICT_STATE_EVENT = "PredictStateEvent"
 
 
 class TextMessageStart(TypedDict):
@@ -74,6 +79,12 @@ class AgentStateMessage(TypedDict):
     state: str
     running: bool
 
+class MetaEvent(TypedDict):
+    """Meta Event"""
+    type: Literal[RuntimeEventTypes.META_EVENT]
+    name: RuntimeMetaEventName
+    value: Any
+
 RuntimeEvent = Union[
     TextMessageStart,
     TextMessageContent,
@@ -82,7 +93,8 @@ RuntimeEvent = Union[
     ActionExecutionArgs,
     ActionExecutionEnd,
     ActionExecutionResult,
-    AgentStateMessage
+    AgentStateMessage,
+    MetaEvent
 ]
 
 def text_message_start(
@@ -177,6 +189,14 @@ def agent_state_message( # pylint: disable=too-many-arguments
         "role": role,
         "state": state,
         "running": running
+    }
+
+def meta_event(*, name: RuntimeMetaEventName, value: Any) -> MetaEvent:
+    """Utility function to create a meta event"""
+    return {
+        "type": RuntimeEventTypes.META_EVENT,
+        "name": name,
+        "value": value
     }
 
 def emit_runtime_events(*events: RuntimeEvent) -> str:

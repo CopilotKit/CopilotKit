@@ -6,22 +6,22 @@ from pydantic import BaseModel, Field
 from copilotkit.crewai import copilotkit_execute_action
 
 
-class AskUserForClarificationInput(BaseModel):
-    """Input schema for AskUserForClarification."""
-    question: str = Field(..., description="The question to ask the user for clarification.")
+# class AskUserForClarificationInput(BaseModel):
+#     """Input schema for AskUserForClarification."""
+#     question: str = Field(..., description="The question to ask the user for clarification.")
 
 
-class AskUserForClarification(BaseTool):
-    """Ask the user for clarification"""
-    name: str = "ask_user_for_clarification"
-    description: str = "Ask the user for clarification"
-    args_schema: Type[BaseModel] = AskUserForClarificationInput
+# class AskUserForClarification(BaseTool):
+#     """Ask the user for clarification"""
+#     name: str = "ask_user_for_clarification"
+#     description: str = "Ask the user for clarification"
+#     args_schema: Type[BaseModel] = AskUserForClarificationInput
 
-    def _run(self, *args, **kwargs):
-        return copilotkit_execute_action(
-            name="AskUserForClarification",
-            args={"question": kwargs.get("question")}
-        )
+#     def _run(self, *args, **kwargs):
+#         return copilotkit_execute_action(
+#             name="AskUserForClarification",
+#             args={"question": kwargs.get("question")}
+#         )
 
 @CrewBase
 class PoetCrew():
@@ -36,7 +36,9 @@ class PoetCrew():
           backstory='You are a great street poet who knows an answer to anything',
           verbose=False,
           allow_delegation=False,
-          tools=[AskUserForClarification(result_as_answer=True)]
+          tools=[
+              # AskUserForClarification(result_as_answer=True)
+          ]
         )
 
     @task
@@ -60,4 +62,4 @@ class PoetCrew():
         )
 
 
-test_crew = PoetCrew().crew()
+# test_crew = PoetCrew().crew()

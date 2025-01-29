@@ -1,7 +1,6 @@
 """CopilotKit SDK"""
 
 import warnings
-import re
 from importlib import metadata
 
 from pprint import pformat
