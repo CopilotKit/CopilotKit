@@ -25,13 +25,15 @@ spec:
           command:
             {{- toYaml $deployment.command | nindent 12 }}
           {{- end }}
+          {{- with $deployment.autoscaling }}
           resources:
             requests:
-              cpu: "256m"
-              memory: "512Mi"
+              cpu: {{ .cpu }}
+              memory: {{ .memory }}
             limits:
-              cpu: "256m"
-              memory: "512Mi"
+              cpu: {{ .cpu }}
+              memory: {{ .memory }}
+          {{- end }}
           env:
             {{- if $deployment.config.secretsJson }}
             {{- include "example-app.jsonToEnv" $deployment.config.secretsJson | nindent 12 }}
@@ -50,6 +52,7 @@ spec:
             {{ toYaml . | nindent 12 }}
           {{- end }}
 ---
+{{- if $deployment.autoscaling }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -59,8 +62,8 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: {{ $deployment.name }}
-  minReplicas: 1
-  maxReplicas: 5
+  minReplicas: {{ $deployment.autoscaling.minReplicas }}
+  maxReplicas: {{ $deployment.autoscaling.maxReplicas }}
   metrics:
   - type: Resource
     resource:
@@ -74,5 +77,6 @@ spec:
       target:
         type: Utilization
         averageUtilization: 50
+{{- end }}
 {{- end }}
 ---

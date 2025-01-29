@@ -10,6 +10,11 @@ deployments:
       tag: "{{ .Values.globalImageTag }}"
     port: 3000
     command: ["npm", "start", "--", "-H", "0.0.0.0", "--port", "3000"]
+    autoscaling:
+      minReplicas: 2
+      maxReplicas: 5
+      cpu: "256m"
+      memory: "512Mi"
     livenessProbe:
       httpGet:
         path: /

@@ -90,6 +90,8 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 .locator('[data-test-id="resource"]')
                 .count();
 
+              await page.waitForTimeout(5000);
+
               await sendChatMessage(page, `Delete the first resource, please`);
 
               const deleteContainer = await page.locator(

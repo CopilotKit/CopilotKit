@@ -11,6 +11,11 @@ deployments:
       tag: "{{ .Values.globalImageTag }}"
     port: 3000
     command: ["npm", "start", "--", "-H", "0.0.0.0", "--port", "3000"]
+    autoscaling:
+      minReplicas: 2
+      maxReplicas: 5
+      cpu: "256m"
+      memory: "512Mi"
     livenessProbe:
       httpGet:
         path: /
@@ -32,6 +37,11 @@ deployments:
       repository: "058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:coagents-research-canvas-agent-python-local-deps"
       tag: "{{ .Values.globalImageTag }}"
     port: 8000
+    autoscaling:
+      minReplicas: 1
+      maxReplicas: 1
+      cpu: "500m"
+      memory: "512Mi"
     livenessProbe:
       httpGet:
         path: /health
@@ -54,6 +64,11 @@ deployments:
       repository: "058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:coagents-research-canvas-agent-python-local-deps"
       tag: "{{ .Values.globalImageTag }}"
     port: 8000
+    autoscaling:
+      minReplicas: 1
+      maxReplicas: 1
+      cpu: "500m"
+      memory: "512Mi"
     livenessProbe:
       exec:
         command: ["/bin/sh", "-c", "curl -L 'http://localhost:8000/assistants/search' -H 'Content-Type: application/json' -d '{}'"]
@@ -76,6 +91,11 @@ deployments:
       repository: "058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:coagents-research-canvas-agent-js-remote-deps"
       tag: "{{ .Values.globalImageTag }}"
     port: 8000
+    autoscaling:
+      minReplicas: 1
+      maxReplicas: 1
+      cpu: "500m"
+      memory: "512Mi"
     livenessProbe:
       exec:
         command: ["/bin/sh", "-c", "curl -L 'http://localhost:8000/assistants/search' -H 'Content-Type: application/json' -d '{}'"]
