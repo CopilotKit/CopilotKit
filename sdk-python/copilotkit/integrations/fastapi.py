@@ -154,7 +154,7 @@ async def handle_execute_action(
         logger.error("Action execution error: %s", exc)
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
-def handle_execute_agent( # pylint: disable=too-many-arguments
+def handle_execute_agent(
         *,
         sdk: CopilotKitRemoteEndpoint,
         context: CopilotKitContext,
@@ -176,7 +176,46 @@ def handle_execute_agent( # pylint: disable=too-many-arguments
             messages=messages,
             actions=actions,
         )
-        return StreamingResponse(events, media_type="application/json")
+        
+        # Buffer events to reorder them
+        async def reorder_events():
+            buffer = []
+            action_results = {}
+            
+            async for event in events:
+                if not event.get('generateCopilotResponse'):
+                    continue
+                    
+                response = event['generateCopilotResponse']
+                messages = response.get('messages', [])
+                
+                for msg in messages:
+                    if msg.get('type') == 'action_execution':
+                        # Emit action execution immediately
+                        yield event
+                    elif msg.get('type') == 'result':
+                        # Store result message
+                        action_id = msg.get('actionExecutionId')
+                        if action_id:
+                            action_results[action_id] = event
+                    elif msg.get('type') == 'text':
+                        # Buffer text messages
+                        buffer.append(event)
+                        
+                        # Emit any pending results for completed actions
+                        for action_event in action_results.values():
+                            yield action_event
+                        action_results.clear()
+                        
+                        # Then emit buffered text
+                        for buffered in buffer:
+                            yield buffered
+                        buffer.clear()
+                    else:
+                        yield event
+
+        return StreamingResponse(reorder_events(), media_type="application/json")
+        
     except AgentNotFoundException as exc:
         logger.error("Agent not found: %s", exc, exc_info=True)
         return JSONResponse(content={"error": str(exc)}, status_code=404)
