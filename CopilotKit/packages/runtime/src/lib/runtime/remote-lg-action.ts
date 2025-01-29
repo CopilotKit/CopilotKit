@@ -95,7 +95,11 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     ? { Authorization: `Bearer ${properties.authorization}` }
     : undefined;
 
-  const client = new Client({ apiUrl: deploymentUrl, apiKey: langsmithApiKey, ...defaultHeaders });
+  const client = new Client({
+    apiUrl: deploymentUrl,
+    apiKey: langsmithApiKey,
+    ...(defaultHeaders && { defaultHeaders }),
+  });
 
   let threadId = argsInitialThreadId ?? randomUUID();
   if (argsInitialThreadId && argsInitialThreadId.startsWith("ck-")) {
