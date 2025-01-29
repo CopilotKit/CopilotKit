@@ -183,6 +183,11 @@ def handle_execute_agent(
             action_results = {}
             
             async for event in events:
+                # Handle string events (like newlines) by yielding them directly
+                if isinstance(event, str):
+                    yield event
+                    continue
+                    
                 if not event.get('generateCopilotResponse'):
                     continue
                     
