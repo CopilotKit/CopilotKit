@@ -128,7 +128,7 @@ class LangGraphAgent(Agent):
             self,
             *,
             name: str,
-            graph: CompiledGraph = None,
+            graph: Optional[CompiledGraph] = None,
             description: Optional[str] = None,
             langgraph_config:  Union[Optional[RunnableConfig], dict] = None,
             copilotkit_config: Optional[CopilotKitConfig] = None,

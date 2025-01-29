@@ -5,7 +5,7 @@ from importlib import metadata
 
 from pprint import pformat
 from typing import List, Callable, Union, Optional, Any, Coroutine
-from typing_extensions import TypedDict, Tuple
+from typing_extensions import TypedDict, Tuple, cast
 from .agent import Agent, AgentDict
 from .action import Action, ActionDict, ActionResultDict
 from .types import Message
@@ -19,7 +19,7 @@ from .logging import get_logger, bold
 
 
 try:
-    __version__ = metadata.version(__package__)
+    __version__ = metadata.version(cast(str, __package__))
 except metadata.PackageNotFoundError:
     # Case where package metadata is not available.
     __version__ = ""

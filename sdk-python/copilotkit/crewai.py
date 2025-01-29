@@ -6,7 +6,7 @@ import uuid
 import threading
 import queue
 from enum import Enum
-from typing_extensions import TypedDict, Any, Dict, NotRequired, Optional, List
+from typing_extensions import TypedDict, Any, Dict, Optional, List, Literal
 from pydantic import BaseModel
 from crewai.flow.flow import FlowState, Flow
 from crewai.flow.flow_events import (
@@ -42,23 +42,23 @@ def _crewai_flow_thread_runner(flow: Flow, q: queue.Queue, inputs: Dict[str, Any
 
     def crewai_flow_event_subscriber(_sender: Any, event: CrewAIFlowEvent):
         if isinstance(event, CrewAIFlowStartedEvent):
-            _get_crewai_flow_event_queue().put(CopilotKitCrewAIFlowExecutionStarted(
-                type= CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_STARTED
-            ))
+            _get_crewai_flow_event_queue().put({
+                "type": CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_STARTED
+            })
         elif isinstance(event, CrewAIFlowMethodExecutionStartedEvent):
-            _get_crewai_flow_event_queue().put(CopilotKitCrewAIFlowEventMethodExecutionStarted(
-                type=CopilotKitCrewAIFlowEventType.METHOD_EXECUTION_STARTED,
-                name=event.method_name
-            ))
+            _get_crewai_flow_event_queue().put({
+                "type": CopilotKitCrewAIFlowEventType.METHOD_EXECUTION_STARTED,
+                "name": event.method_name
+            })
         elif isinstance(event, CrewAIFlowMethodExecutionFinishedEvent):
-            _get_crewai_flow_event_queue().put(CopilotKitCrewAIFlowEventMethodExecutionFinished(
-                type=CopilotKitCrewAIFlowEventType.METHOD_EXECUTION_FINISHED,
-                name=event.method_name
-            ))
+            _get_crewai_flow_event_queue().put({
+                "type": CopilotKitCrewAIFlowEventType.METHOD_EXECUTION_FINISHED,
+                "name": event.method_name
+            })
         elif isinstance(event, CrewAIFlowFinishedEvent):
-            _get_crewai_flow_event_queue().put(CopilotKitCrewAIFlowExecutionFinished(
-                type=CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_FINISHED
-            ))
+            _get_crewai_flow_event_queue().put({
+                "type": CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_FINISHED
+            })
 
     flow.event_emitter.connect(crewai_flow_event_subscriber)
 
@@ -112,14 +112,14 @@ class CopilotKitCrewAIFlowEventEmitState(TypedDict):
     """
     CopilotKit CrewAI Flow Event Emit State
     """
-    type: CopilotKitCrewAIFlowEventType.EMIT_STATE
+    type: Literal[CopilotKitCrewAIFlowEventType.EMIT_STATE]
     state: Any
 
 class CopilotKitCrewAIFlowEventEmitMessage(TypedDict):
     """
     CopilotKit CrewAI Flow Event Emit Message
     """
-    type: CopilotKitCrewAIFlowEventType.EMIT_MESSAGE
+    type: Literal[CopilotKitCrewAIFlowEventType.EMIT_MESSAGE]
     message_id: str
     message: str
 
@@ -127,7 +127,7 @@ class CopilotKitCrewAIFlowEventEmitToolCall(TypedDict):
     """
     CopilotKit CrewAI Flow Event Emit Tool Call
     """
-    type: CopilotKitCrewAIFlowEventType.EMIT_TOOL_CALL
+    type: Literal[CopilotKitCrewAIFlowEventType.EMIT_TOOL_CALL]
     message_id: str
     name: str
     args: Dict[str, Any]
@@ -136,54 +136,55 @@ class CopilotKitCrewAIFlowEventExit(TypedDict):
     """
     CopilotKit CrewAI Flow Event Exit
     """
-    type: CopilotKitCrewAIFlowEventType.EXIT
+    type: Literal[CopilotKitCrewAIFlowEventType.EXIT]
 
 class CopilotKitCrewAIFlowEventPredictState(TypedDict):
     """
     CopilotKit CrewAI Flow Event Predict State
     """
-    type: CopilotKitCrewAIFlowEventType.PREDICT_STATE
+    type: Literal[CopilotKitCrewAIFlowEventType.PREDICT_STATE]
     key: str
     tool_name: str
-    tool_argument: NotRequired[str]
+    tool_argument: Optional[str]
 
 class CopilotKitCrewAIFlowExecutionStarted(TypedDict):
     """
     CopilotKit CrewAI Flow Event Method Execution Started
     """
-    type: CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_STARTED
+    type: Literal[CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_STARTED]
 
 class CopilotKitCrewAIFlowExecutionFinished(TypedDict):
     """
     CopilotKit CrewAI Flow Event Method Execution Finished
     """
-    type: CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_FINISHED
+    type: Literal[CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_FINISHED]
 
 class CopilotKitCrewAIFlowEventMethodExecutionStarted(TypedDict):
     """
     CopilotKit CrewAI Flow Event Method Execution Started
     """
-    type: CopilotKitCrewAIFlowEventType.METHOD_EXECUTION_STARTED
+    type: Literal[CopilotKitCrewAIFlowEventType.METHOD_EXECUTION_STARTED]
+    name: str
 
 class CopilotKitCrewAIFlowEventMethodExecutionFinished(TypedDict):
     """
     CopilotKit CrewAI Flow Event Method Execution Finished
     """
-    type: CopilotKitCrewAIFlowEventType.METHOD_EXECUTION_FINISHED
+    type: Literal[CopilotKitCrewAIFlowEventType.METHOD_EXECUTION_FINISHED]
     name: str
 
 class CopilotKitCrewAIFlowEventExecutionError(TypedDict):
     """
     CopilotKit CrewAI Flow Event Execution Error
     """
-    type: CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_ERROR
+    type: Literal[CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_ERROR]
     error: str
 
 # We are leaving all these functions as async- in the future when we
 # switch from a separate thread to an async queue, user code will
 # still work
 
-async def copilotkit_emit_state(state: Any) -> True:
+async def copilotkit_emit_state(state: Any) -> Literal[True]:
     """
     Emit a state event
     """
@@ -196,7 +197,7 @@ async def copilotkit_emit_state(state: Any) -> True:
 
     return True
 
-async def copilotkit_emit_message(*, message: str) -> True:
+async def copilotkit_emit_message(*, message: str) -> str:
     """
     Manually emit a message to CopilotKit.
     """
@@ -212,7 +213,7 @@ async def copilotkit_emit_message(*, message: str) -> True:
 
     return message_id
 
-async def copilotkit_emit_tool_call(*, name: str, args: Dict[str, Any]):
+async def copilotkit_emit_tool_call(*, name: str, args: Dict[str, Any]) -> str:
     """
     Manually emit a tool call to CopilotKit.
     """
@@ -227,18 +228,21 @@ async def copilotkit_emit_tool_call(*, name: str, args: Dict[str, Any]):
     )
     return message_id
 
-async def copilotkit_exit():
+async def copilotkit_exit() -> Literal[True]:
     """
     Exit the agent
     """
-    _get_crewai_flow_event_queue().put(CopilotKitCrewAIFlowEventExit())
+    _get_crewai_flow_event_queue().put(CopilotKitCrewAIFlowEventExit(
+        type=CopilotKitCrewAIFlowEventType.EXIT
+    ))
+    return True
 
 async def copilotkit_predict_state(
         *,
         key: str,
         tool_name: str,
         tool_argument: Optional[str] = None
-    ):
+    ) -> Literal[True]:
     """
     Predict the next state
     """
@@ -248,7 +252,7 @@ async def copilotkit_predict_state(
         tool_name=tool_name,
         tool_argument=tool_argument
     ))
-
+    return True
 
 def copilotkit_message_to_crewai_crew(message: Any) -> Any:
     """Convert a CopilotKit message to a CrewAI `Crew` specific message"""
@@ -282,14 +286,15 @@ def copilotkit_messages_to_crewai_flow(messages: List[Message]) -> List[Any]:
 
     for message in messages:
         message_id = message["id"]
+        message_type = message.get("type")
 
-        if message["type"] == "TextMessage":
+        if message_type == "TextMessage":
             result.append({
                 "id": message_id,
-                "role": message["role"],
-                "content": message["content"]
+                "role": message.get("role"),
+                "content": message.get("content")
             })
-        elif message["type"] == "ActionExecutionMessage":
+        elif message_type == "ActionExecutionMessage":
             # convert multiple tool calls to a single message
             original_message_id = message.get("parentMessageId", message_id)
             if original_message_id in processed_action_executions:
@@ -322,13 +327,13 @@ def copilotkit_messages_to_crewai_flow(messages: List[Message]) -> List[Any]:
                 }
             )
 
-        elif message["type"] == "ResultMessage":
+        elif message_type == "ResultMessage":
             result.append(
                 {
                     "id": message_id,
                     "role": "tool",
-                    "tool_call_id": message["actionExecutionId"],
-                    "content": message["result"],
+                    "tool_call_id": message.get("actionExecutionId"),
+                    "content": message.get("result"),
                 }
             )
 

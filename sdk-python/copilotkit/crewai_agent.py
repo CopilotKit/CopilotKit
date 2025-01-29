@@ -44,7 +44,8 @@ class CrewAIFlowExecutionState(TypedDict):
     State for an execution of a CrewAI Flow agent
     """
     should_exit: bool
-    node_name: Optional[str]
+    node_name: str
+    is_finished: bool
 
 class CrewAIAgent(Agent):
     """Agent class for CopilotKit"""
@@ -53,9 +54,9 @@ class CrewAIAgent(Agent):
             *,
             name: str,
             description: Optional[str] = None,
-            crew: Type[Crew] = None,
+            crew: Optional[Type[Crew]] = None,
             crew_input_key: Optional[str] = None,
-            flow: Type[Flow] = None,
+            flow: Optional[Type[Flow]] = None,
             copilotkit_config: Optional[CopilotKitConfig] = None,
         ):
         super().__init__(
@@ -109,7 +110,10 @@ class CrewAIAgent(Agent):
     ):
         """Execute a `Crew` based agent"""                
 
-        crew = self.crew().crew()
+        if self.crew is None:
+            raise ValueError("Crew is not set")
+
+        crew = self.crew()
 
         crew_text_input = ""
         if len(messages) > 0:
@@ -151,13 +155,19 @@ class CrewAIAgent(Agent):
     ):
         """Execute a `Flow` based agent"""
 
+        if self.flow is None:
+            raise ValueError("Flow is not set")
+
+        if thread_id is None:
+            raise ValueError("Thread ID is required")
+
         flow = self.flow()
         run_id = str(uuid.uuid4())
-        execution_state = CrewAIFlowExecutionState(
-            should_exit=False,
-            node_name="start",
-            is_finished=False
-        )
+        execution_state: CrewAIFlowExecutionState = {
+            "should_exit": False,
+            "node_name": "start",
+            "is_finished": False
+        }
 
         merge_state = self.copilotkit_config.get("merge_state", crewai_flow_default_merge_state)
 
@@ -166,7 +176,7 @@ class CrewAIAgent(Agent):
         state = merge_state(
             state=state,
             messages=crewai_flow_messages,
-            actions=actions,
+            actions=actions or [],
             agent_name=self.name,
             flow=flow
         )
