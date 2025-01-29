@@ -75,6 +75,50 @@ export const generateCopilotResponseMutation = graphql(/** GraphQL **/ `
           name
           value
         }
+
+        ... on CopilotKitLangGraphInterruptEvent {
+          type
+          name
+          data {
+            messages {
+              __typename
+              ... on BaseMessageOutput {
+                id
+                createdAt
+              }
+              ... on BaseMessageOutput @defer {
+                status {
+                  ... on SuccessMessageStatus {
+                    code
+                  }
+                  ... on FailedMessageStatus {
+                    code
+                    reason
+                  }
+                  ... on PendingMessageStatus {
+                    code
+                  }
+                }
+              }
+              ... on TextMessageOutput {
+                content
+                role
+                parentMessageId
+              }
+              ... on ActionExecutionMessageOutput {
+                name
+                arguments
+                parentMessageId
+              }
+              ... on ResultMessageOutput {
+                result
+                actionExecutionId
+                actionName
+              }
+            }
+            value
+          }
+        }
       }
     }
   }

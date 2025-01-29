@@ -16,7 +16,7 @@ import { GuardrailsResult } from "../graphql/types/guardrails-result.type";
 import telemetry from "../lib/telemetry-client";
 import { isLangGraphAgentAction } from "../lib/runtime/remote-actions";
 import { ActionInput } from "../graphql/inputs/action.input";
-import { ActionExecutionMessage, ResultMessage } from "../graphql/types/converted";
+import { ActionExecutionMessage, ResultMessage, TextMessage } from "../graphql/types/converted";
 import { plainToInstance } from "class-transformer";
 
 export enum RuntimeEventTypes {
@@ -34,6 +34,7 @@ export enum RuntimeEventTypes {
 export enum RuntimeMetaEventName {
   LangGraphInterruptEvent = "LangGraphInterruptEvent",
   LangGraphInterruptResumeEvent = "LangGraphInterruptResumeEvent",
+  CopilotKitLangGraphInterruptEvent = "CopilotKitLangGraphInterruptEvent",
 }
 
 export type RunTimeMetaEvent =
@@ -44,8 +45,13 @@ export type RunTimeMetaEvent =
     }
   | {
       type: RuntimeEventTypes.MetaEvent;
+      name: RuntimeMetaEventName.CopilotKitLangGraphInterruptEvent;
+      data: { value: string; messages: (TextMessage | ActionExecutionMessage | ResultMessage)[] };
+    }
+  | {
+      type: RuntimeEventTypes.MetaEvent;
       name: RuntimeMetaEventName.LangGraphInterruptResumeEvent;
-      value: string;
+      data: string;
     };
 
 export type RuntimeEvent =

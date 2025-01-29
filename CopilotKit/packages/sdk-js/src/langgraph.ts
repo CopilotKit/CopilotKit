@@ -1,8 +1,9 @@
 import { RunnableConfig } from "@langchain/core/runnables";
 import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
 import { convertJsonSchemaToZodSchema, randomId } from "@copilotkit/shared";
-import { Annotation, MessagesAnnotation } from "@langchain/langgraph";
+import { Annotation, MessagesAnnotation, interrupt } from "@langchain/langgraph";
 import { DynamicStructuredTool } from "@langchain/core/tools";
+import { AIMessage } from "@langchain/core/messages";
 
 interface IntermediateStateConfig {
   stateKey: string;
@@ -265,4 +266,47 @@ export function convertActionsToDynamicStructuredTools(
   actions: any[],
 ) {
   return actions.map((action) => convertActionToDynamicStructuredTool(action));
+}
+
+export function copilotKitInterrupt({
+    message,
+    action,
+    args,
+}: {
+  message?: string,
+  action?: string,
+  args?: Record<string, any>
+}) {
+  if (!message && !action) {
+    throw new Error("Either message or action (and optional arguments) must be provided");
+  }
+
+  let interruptValues = null;
+  let interruptMessage = null;
+  let answer = null;
+  if (message) {
+    interruptValues = message;
+    interruptMessage = new AIMessage({ content: message, id: randomId() });
+  } else {
+    const toolId = randomId();
+    interruptMessage = new AIMessage({
+      content: "",
+      tool_calls: [{ id: toolId, name: action, args: args ?? {} }],
+    });
+    interruptValues = {
+      action,
+      args: args ?? {},
+    };
+  }
+
+  const response = interrupt({
+    __copilotkit_interrupt_value__: interruptValues,
+    __copilotkit_messages__: [interruptMessage],
+  });
+  answer = response.content;
+
+  return {
+    answer,
+    messages: [interruptMessage, response],
+  };
 }

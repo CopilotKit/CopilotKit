@@ -66,6 +66,8 @@ type LangGraphPlatformMessage =
   | LangGraphPlatformResultMessage
   | BaseLangGraphPlatformMessage;
 
+let activeInterruptEvent = false;
+
 export async function execute(args: ExecutionArgs): Promise<ReadableStream<Uint8Array>> {
   return new ReadableStream({
     async start(controller) {
@@ -144,11 +146,25 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   }
   state = langGraphDefaultMergeState(state, formattedMessages, actions, name);
 
-  const lgInterruptEvent = metaEvents?.find(
-    (ev) => ev.name === MetaEventName.LangGraphInterruptEvent,
-  );
+  const streamInput = mode === "start" ? state : null;
 
-  if (mode === "continue" && !lgInterruptEvent) {
+  const payload: RunsStreamPayload = {
+    input: streamInput,
+    streamMode: ["events", "values", "updates"],
+    command: undefined,
+  };
+
+  const lgInterruptMetaEvent = metaEvents?.find(
+      (ev) => ev.name === MetaEventName.LangGraphInterruptEvent,
+  );
+  if (activeInterruptEvent && !lgInterruptMetaEvent) {
+    payload.command = { resume: formattedMessages[formattedMessages.length - 1] };
+  }
+  if (lgInterruptMetaEvent?.response) {
+    payload.command = { resume: lgInterruptMetaEvent.response };
+  }
+
+  if (mode === "continue" && !activeInterruptEvent) {
     await client.threads.updateState(threadId, { values: state, asNode: nodeName });
   }
 
@@ -181,7 +197,6 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   const assistantId = retrievedAssistant.assistant_id;
 
   const graphInfo = await client.assistants.getGraph(assistantId);
-  const streamInput = mode === "start" ? state : null;
 
   let streamingStateExtractor = new StreamingStateExtractor([]);
   let prevNodeName = null;
@@ -189,15 +204,6 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   let shouldExit = false;
   let externalRunId = null;
 
-  const payload: RunsStreamPayload = {
-    input: streamInput,
-    streamMode: ["events", "values", "updates"],
-    command: undefined,
-  };
-
-  if (lgInterruptEvent?.response) {
-    payload.command = { resume: lgInterruptEvent.response };
-  }
   const streamResponse = client.runs.stream(threadId, assistantId, payload);
 
   const emit = (message: string) => controller.enqueue(new TextEncoder().encode(message));
@@ -208,6 +214,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   // Therefore, this value should either hold null, or the only edition of state that should be used.
   let manuallyEmittedState = null;
 
+  activeInterruptEvent = false;
   try {
     telemetry.capture("oss.runtime.agent_execution_stream_started", {
       hashedLgcKey: streamInfo.hashedLgcKey,
@@ -219,13 +226,25 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
         throw new Error(`Error event thrown: ${chunk.data.message}`);
       }
 
-      if (chunk.event === "updates" && chunk.data.__interrupt__) {
-        emit(
-          JSON.stringify({
-            event: LangGraphEventTypes.OnInterrupt,
-            value: chunk.data.__interrupt__[0].value,
-          }) + "\n",
-        );
+      const interruptEvent = chunk.data?.__interrupt__
+      if (interruptEvent?.length) {
+        activeInterruptEvent = true
+        const interruptValue = interruptEvent?.[0].value;
+        if ('__copilotkit_interrupt_value__' in interruptValue) {
+          emit(
+              JSON.stringify({
+                event: LangGraphEventTypes.OnCopilotKitInterrupt,
+                data: { value: interruptValue.__copilotkit_interrupt_value__, messages: langchainMessagesToCopilotKit(interruptValue.__copilotkit_messages__) },
+              }) + "\n",
+          );
+        } else {
+          emit(
+              JSON.stringify({
+                event: LangGraphEventTypes.OnInterrupt,
+                value: interruptValue,
+              }) + "\n",
+          );
+        }
         continue;
       }
       if (chunk.event === "updates") continue;
