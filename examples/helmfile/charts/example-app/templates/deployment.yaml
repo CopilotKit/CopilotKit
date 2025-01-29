@@ -27,10 +27,10 @@ spec:
           {{- end }}
           resources:
             requests:
-              cpu: "100m"
-              memory: "128Mi"
+              cpu: "256m"
+              memory: "512Mi"
             limits:
-              cpu: "750m"
+              cpu: "256m"
               memory: "512Mi"
           env:
             {{- if $deployment.config.secretsJson }}
@@ -49,4 +49,30 @@ spec:
           readinessProbe:
             {{ toYaml . | nindent 12 }}
           {{- end }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $deployment.name }}-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $deployment.name }}
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 50
 {{- end }}
+---

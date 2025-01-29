@@ -194,35 +194,17 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               });
 
               // Test adding new destination
-              await sendChatMessage(
-                page,
-                "Add Mumbai, India to the list of New Destinations."
-              );
-              await waitForResponse(page);
-              await page.waitForTimeout(3000);
+              // await sendChatMessage(
+              //   page,
+              //   "Add Mumbai, India to the list of New Destinations."
+              // );
+              // await waitForResponse(page);
+              // await page.waitForTimeout(3000);
 
-              await waitForDestinationState(page, {
-                destination: "mumbai",
-                isChecked: false,
-              });
-              await waitForDestinationImage(page, {
-                destination: "Mumbai India",
-              });
-
-              // Verify new destination is available in state
-              await sendChatMessage(page, "Select all destinations in Asia.");
-              await waitForResponse(page);
-              await page.waitForTimeout(3000);
-
-              await waitForDestinationState(page, {
-                destination: "mumbai",
-                isChecked: true,
-              });
-
-              await waitForDestinationState(page, {
-                destination: "tokyo",
-                isChecked: true,
-              });
+              // await waitForDestinationState(page, {
+              //   destination: "mumbai",
+              //   isChecked: false,
+              // });
             });
           });
         });

@@ -50,7 +50,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               page,
             }) => {
               await page.goto(`${config.url}${variant.queryParams}`);
-              await waitForSuggestions(page, 3);
+              await waitForSuggestions(page);
               const researchQuestion = "Lifespan of penguins";
               await page
                 .getByPlaceholder("Enter your research question")
@@ -62,6 +62,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               );
 
               await waitForStepsAndEnsureStreaming(page);
+
               await waitForResponse(page);
 
               // Ensure research draft
