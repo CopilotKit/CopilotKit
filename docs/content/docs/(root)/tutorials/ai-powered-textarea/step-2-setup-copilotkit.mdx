@@ -21,8 +21,9 @@ npm install @copilotkit/react-core @copilotkit/react-textarea
 
 ## Setup CopilotKit
 
-<TailoredContent>
+<TailoredContent id="hosting">
 <TailoredContentOption
+  id="copilot-cloud"
   title="Copilot Cloud (Recommended)"
   description="Use our hosted backend endpoint to get started quickly (OpenAI only)."
   icon={<FaCloud />}
@@ -32,6 +33,7 @@ In order to use CopilotKit, we'll need to configure the CopilotKit provider.
 <CopilotCloudConfigureCopilotKitProvider components={props.components} />
 </TailoredContentOption>
 <TailoredContentOption
+  id="self-hosted"
   title="Self-hosting"
   description="Learn to host CopilotKit's runtime yourself with your own backend."
   icon={<FaServer />}

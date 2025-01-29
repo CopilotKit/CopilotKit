@@ -12,7 +12,7 @@ Most Agentic Copilot interactions will be controlled by the LLM, guided by messa
 
 In your agent's workflow, you'll want to ask the user specific questions or prompt them for specific input. The `copilotkit_emit_message` method allows you to emit messages early in a node's execution to communicate status updates to the user. This is particularly useful for long running tasks.
 
-<Tabs items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python
         rom langchain_core.messages import AIMessage
@@ -64,7 +64,7 @@ In your agent's workflow, you'll want to ask the user specific questions or prom
 
 You can also directly return a message from within a node to update the UI:
 
-<Tabs items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python
         from langchain_core.messages import AIMessage

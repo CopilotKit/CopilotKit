@@ -21,7 +21,7 @@ In agent-based applications, there is often a need to interact with frontend act
 
 To access the frontend actions provided by CopilotKit, you can inherit from CopilotKitState in your agent's state definition:
 
-<Tabs items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python
         from copilotkit import CopilotKitState
@@ -52,7 +52,7 @@ Once your agent's state includes the `copilotkit` property, you can access the f
 
 Here's how you can call a frontend action from your agent:
 
-<Tabs items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python
         async def agent_node(state: YourAgentState, config: RunnableConfig):
