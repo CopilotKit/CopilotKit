@@ -34,15 +34,15 @@ jobs:
               deps: "remote-deps",
             }
           - { project: "coagents-research-canvas", type: "ui" }
-          - { project: "coagents-routing", type: "agent", runtime: "python", deps: "local-deps" }
-          - { project: "coagents-routing", type: "agent", runtime: "js", deps: "remote-deps" }
-          - { project: "coagents-routing", type: "ui" }
-          - { project: "coagents-qa-text", type: "agent", runtime: "python", deps: "local-deps" }
-          - { project: "coagents-qa-text", type: "agent", runtime: "js", deps: "remote-deps" }
-          - { project: "coagents-qa-text", type: "ui" }
-          - { project: "coagents-qa-native", type: "agent", runtime: "python", deps: "local-deps" }
-          - { project: "coagents-qa-native", type: "agent", runtime: "js", deps: "remote-deps" }
-          - { project: "coagents-qa-native", type: "ui" }
+          # - { project: "coagents-routing", type: "agent", runtime: "python", deps: "local-deps" }
+          # - { project: "coagents-routing", type: "agent", runtime: "js", deps: "remote-deps" }
+          # - { project: "coagents-routing", type: "ui" }
+          # - { project: "coagents-qa-text", type: "agent", runtime: "python", deps: "local-deps" }
+          # - { project: "coagents-qa-text", type: "agent", runtime: "js", deps: "remote-deps" }
+          # - { project: "coagents-qa-text", type: "ui" }
+          # - { project: "coagents-qa-native", type: "agent", runtime: "python", deps: "local-deps" }
+          # - { project: "coagents-qa-native", type: "agent", runtime: "js", deps: "remote-deps" }
+          # - { project: "coagents-qa-native", type: "ui" }
           - { project: "next-openai", type: "next-openai" }
     steps:
       - name: Checkout
@@ -218,11 +218,6 @@ jobs:
           namespace: copilotkit-examples-${{ steps.set-environment-name.outputs.environment }}
           globalImageTag: ${{ github.run_id }}
           EOL
-
-      - name: Helmfile Sync
-        run: |
-          helmfile --state-values-file=./override-values.yaml sync
-          helmfile --state-values-file=./override-values.yaml --selector "name!=examples-shared" list --output json > helmfile-output.json
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
