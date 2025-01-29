@@ -1,5 +1,6 @@
 import { useCopilotContext } from "../context";
 import React, { useCallback } from "react";
+import { executeConditions } from "@copilotkit/shared";
 
 type InterruptProps = {
   event: any;
@@ -38,7 +39,12 @@ export function useLangGraphInterruptRender(): string | React.ReactElement | nul
   )
     return null;
 
-  const { render, handler, event } = langGraphInterruptAction;
+  const { render, handler, event, conditions } = langGraphInterruptAction;
+
+  const conditionsMet = executeConditions({ conditions, value: event.value });
+  if (!conditionsMet) {
+    return null;
+  }
 
   let result = null;
   if (handler) {
