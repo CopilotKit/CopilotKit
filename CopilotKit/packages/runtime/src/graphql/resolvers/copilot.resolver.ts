@@ -219,6 +219,27 @@ export class CopilotResolver {
     });
 
     logger.debug("Event source created, creating response");
+    // run and process the event stream
+    const eventStream = eventSource
+        .processRuntimeEvents({
+          serverSideActions,
+          guardrailsResult$: data.cloud?.guardrails ? guardrailsResult$ : null,
+          actionInputsWithoutAgents: actionInputsWithoutAgents.filter(
+              // TODO-AGENTS: do not exclude ALL server side actions
+              (action) =>
+                  !serverSideActions.find((serverSideAction) => serverSideAction.name == action.name),
+          ),
+          threadId,
+        })
+        .pipe(
+            // shareReplay() ensures that later subscribers will see the whole stream instead of
+            // just the events that were emitted after the subscriber was added.
+            shareReplay(),
+            finalize(() => {
+              logger.debug("Event stream finalized");
+            }),
+        );
+
 
     const response = {
       threadId,
@@ -226,16 +247,7 @@ export class CopilotResolver {
       status: firstValueFrom(responseStatus$),
       extensions,
       metaEvents: new Repeater(async (push, stop) => {
-        const eventStream = eventSource.processRuntimeEvents({
-          serverSideActions,
-          guardrailsResult$: data.cloud?.guardrails ? guardrailsResult$ : null,
-          actionInputsWithoutAgents: actionInputsWithoutAgents.filter(
-            // TODO-AGENTS: do not exclude ALL server side actions
-            (action) =>
-              !serverSideActions.find((serverSideAction) => serverSideAction.name == action.name),
-          ),
-          threadId,
-        });
+
         let eventStreamSubscription: Subscription;
 
         eventStreamSubscription = eventStream.subscribe({
@@ -328,27 +340,6 @@ export class CopilotResolver {
         }
 
         let eventStreamSubscription: Subscription;
-
-        // run and process the event stream
-        const eventStream = eventSource
-          .processRuntimeEvents({
-            serverSideActions,
-            guardrailsResult$: data.cloud?.guardrails ? guardrailsResult$ : null,
-            actionInputsWithoutAgents: actionInputsWithoutAgents.filter(
-              // TODO-AGENTS: do not exclude ALL server side actions
-              (action) =>
-                !serverSideActions.find((serverSideAction) => serverSideAction.name == action.name),
-            ),
-            threadId,
-          })
-          .pipe(
-            // shareReplay() ensures that later subscribers will see the whole stream instead of
-            // just the events that were emitted after the subscriber was added.
-            shareReplay(),
-            finalize(() => {
-              logger.debug("Event stream finalized");
-            }),
-          );
 
         logger.debug("Event stream created, subscribing to event stream");
 
