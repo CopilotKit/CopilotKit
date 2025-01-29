@@ -119,8 +119,6 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
             test(`Test ${config.description} Travel Demo ("/" route) with variant ${variant.name}`, async ({
               page,
             }) => {
-              test.slow();
-
               await page.goto(`${config.url}${variant.queryParams}`);
               await page.waitForLoadState("networkidle");
 

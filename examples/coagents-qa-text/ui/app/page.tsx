@@ -34,7 +34,7 @@ function Home() {
   const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
     runtimeUrl,
     publicApiKey: publicApiKey || undefined,
-    showDevConsole: true,
+    showDevConsole: false,
   };
   return (
     <CopilotKit {...copilotKitProps}>
