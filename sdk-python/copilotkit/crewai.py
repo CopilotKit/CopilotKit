@@ -5,6 +5,7 @@ CrewAI integration for CopilotKit
 import uuid
 import threading
 import queue
+import json
 from enum import Enum
 from typing_extensions import TypedDict, Any, Dict, Optional, List, Literal
 from pydantic import BaseModel
@@ -64,12 +65,12 @@ def _crewai_flow_thread_runner(flow: Flow, q: queue.Queue, inputs: Dict[str, Any
 
     try:
         print("Kicking off flow", flush=True)
-        print("Inputs", inputs, flush=True)
+        print("Inputs", json.dumps(inputs), flush=True)
         flow.kickoff(inputs=inputs)
     except Exception as e: # pylint: disable=broad-except
         _get_crewai_flow_event_queue().put(CopilotKitCrewAIFlowEventExecutionError(
             type=CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_ERROR,
-            error=str(e)
+            error=e
         ))
 
 def _set_crewai_flow_event_queue(q: queue.Queue):
@@ -178,7 +179,7 @@ class CopilotKitCrewAIFlowEventExecutionError(TypedDict):
     CopilotKit CrewAI Flow Event Execution Error
     """
     type: Literal[CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_ERROR]
-    error: str
+    error: Exception
 
 # We are leaving all these functions as async- in the future when we
 # switch from a separate thread to an async queue, user code will
@@ -197,7 +198,7 @@ async def copilotkit_emit_state(state: Any) -> Literal[True]:
 
     return True
 
-async def copilotkit_emit_message(*, message: str) -> str:
+async def copilotkit_emit_message(message: str) -> str:
     """
     Manually emit a message to CopilotKit.
     """
@@ -313,8 +314,11 @@ def copilotkit_messages_to_crewai_flow(messages: List[Message]) -> List[Any]:
 
             tool_calls = [
                 {
-                    "name": t["name"],
-                    "args": t["arguments"],
+                    "type": "function",
+                    "function": {
+                        "name": t["name"],
+                        "arguments": json.dumps(t["arguments"]),
+                    },
                     "id": t["id"],
                 } for t in all_tool_calls]
 
@@ -346,7 +350,6 @@ def crewai_flow_messages_to_copilotkit(messages: List[Dict]) -> List[Message]: #
     result = []
     tool_call_names = {}
 
-
     message_ids = {
         id(m): m.get("id", str(uuid.uuid4())) for m in messages
     }
@@ -354,31 +357,38 @@ def crewai_flow_messages_to_copilotkit(messages: List[Dict]) -> List[Message]: #
     for message in messages:
         if "content" in message and message.get("role") == "assistant":
             for tool_call in message.get("tool_calls", []):
-                tool_call_names[tool_call["id"]] = tool_call["name"]
+                tool_call_names[tool_call["id"]] = tool_call["function"]["name"]
 
     for message in messages:
         message_id = message_ids[id(message)]
 
-        if message.get("tool_calls"):
-            for tool_call in message["tool_calls"]:
-                result.append({
-                    "id": tool_call["id"],
-                    "name": tool_call["name"],
-                    "arguments": tool_call["args"],
-                    "parentMessageId": message_id,
-                })
-        elif message.get("content"):
-            result.append({
-                "role": message["role"],
-                "content": message["content"],
-                "id": message_id,
-            })
-
-        elif message.get("role") == "tool":
+        if message.get("role") == "tool":
             result.append({
                 "actionExecutionId": message["tool_call_id"],
                 "actionName": tool_call_names.get(message["tool_call_id"], message.get("name", "")),
                 "result": message["content"],
+                "id": message_id,
+            })
+        elif message.get("tool_calls"):
+            for tool_call in message["tool_calls"]:
+                if tool_call.get("function"):
+                    result.append({
+                        "id": tool_call["id"],
+                        "name": tool_call["function"]["name"],
+                        "arguments": json.loads(tool_call["function"]["arguments"]),
+                        "parentMessageId": message_id,
+                    })
+                else:
+                    result.append({
+                        "id": tool_call["id"],
+                        "name": tool_call["name"],
+                        "arguments": tool_call["arguments"],
+                        "parentMessageId": message_id,
+                    })
+        elif message.get("content"):
+            result.append({
+                "role": message["role"],
+                "content": message["content"],
                 "id": message_id,
             })
 
@@ -398,8 +408,8 @@ def crewai_flow_messages_to_copilotkit(messages: List[Dict]) -> List[Message]: #
 
         # if the message is a tool call, also add the corresponding result message
         # immediately after the tool call
-        if msg.get("arguments"):
-            msg_id = message_ids[id(msg)]
+        if msg.get("name"):
+            msg_id = msg["id"]
             if msg_id in results_dict:
                 reordered_result.append(results_dict[msg_id])
             else:

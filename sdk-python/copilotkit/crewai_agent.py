@@ -6,9 +6,10 @@ import uuid
 import json
 import queue
 import threading
+import asyncio
 from copy import deepcopy
 from typing import Optional, List, Callable, Type
-from typing_extensions import TypedDict, NotRequired, Any
+from typing_extensions import TypedDict, NotRequired, Any, Dict
 from crewai import Crew, Flow
 from .agent import Agent
 from .types import Message
@@ -210,6 +211,12 @@ class CrewAIAgent(Agent):
             if execution_state["is_finished"]:
                 break
 
+            # return control to the containing run loop to send events
+            loop = asyncio.get_running_loop()
+            future = loop.create_future()
+            loop.call_soon(future.set_result, None)
+            await future
+
         t.join()
 
         state = {**flow.state}
@@ -225,7 +232,7 @@ class CrewAIAgent(Agent):
                 run_id=run_id,
                 active=False,
                 role="assistant",
-                state=json.dumps(state),
+                state=json.dumps(filter_state(state, exclude_keys=["id"])),
                 running=not execution_state["should_exit"]
             )
         )
@@ -251,6 +258,14 @@ def crewai_flow_default_merge_state( # pylint: disable=unused-argument, too-many
     if len(messages) > 0:
         if "role" in messages[0] and messages[0]["role"] == "system":
             messages = messages[1:]
+
+
+    actions = [{
+        "type": "function",
+        "function": {
+            **action,
+        }
+    } for action in actions]
 
     new_state = {
         **state,
@@ -296,6 +311,10 @@ def crewai_flow_default_merge_state( # pylint: disable=unused-argument, too-many
 
     return new_state
 
+def filter_state(state: Dict[str, Any], exclude_keys: Optional[List[str]] = None) -> Dict[str, Any]:
+    """Filter out messages and id from the state"""
+    exclude_keys = exclude_keys or ["messages", "id"]
+    return {k: v for k, v in state.items() if k not in exclude_keys}
 
 def handle_crewai_flow_event(
         *,
@@ -305,7 +324,7 @@ def handle_crewai_flow_event(
         state: Any,
         run_id: str,
         execution_state: CrewAIFlowExecutionState
-    ) -> Optional[str]: # pylint: disable=too-many-return-statements
+    ) -> Optional[str]: # pylint: disable=too-many-return-statements, too-many-arguments
     """Handle a CrewAI flow event"""
     if event_data["type"] == CopilotKitCrewAIFlowEventType.EMIT_MESSAGE:
         return emit_runtime_events(
@@ -339,7 +358,7 @@ def handle_crewai_flow_event(
                 run_id=run_id,
                 active=True,
                 role="assistant",
-                state=json.dumps(event_data["state"]),
+                state=json.dumps(filter_state(event_data["state"])),
                 running=True
             )
         )
@@ -369,7 +388,7 @@ def handle_crewai_flow_event(
                 run_id=run_id,
                 active=True,
                 role="assistant",
-                state=json.dumps(state),
+                state=json.dumps(filter_state(state)),
                 running=True
             )
         )
@@ -384,7 +403,7 @@ def handle_crewai_flow_event(
                 run_id=run_id,
                 active=False,
                 role="assistant",
-                state=json.dumps(state),
+                state=json.dumps(filter_state(state)),
                 running=True
             )
         )
@@ -398,6 +417,8 @@ def handle_crewai_flow_event(
         return None
 
     if event_data["type"] == CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_ERROR:
+        print("Flow execution error", flush=True)
+        print(event_data["error"], flush=True)
         execution_state["is_finished"] = True
         return None
 

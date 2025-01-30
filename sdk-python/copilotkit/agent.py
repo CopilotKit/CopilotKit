@@ -43,10 +43,15 @@ class Agent(ABC):
     def get_state(
         self,
         *,
-        thread_id: str, # pylint: disable=unused-argument
+        thread_id: str,
     ):
-        """Get agent state"""
-        return {}
+        """Default get_state implementation"""
+        return {
+            "threadId": thread_id,
+            "threadExists": False,
+            "state": {},
+            "messages": []
+        }
 
     def dict_repr(self) -> AgentDict:
         """Dict representation of the action"""

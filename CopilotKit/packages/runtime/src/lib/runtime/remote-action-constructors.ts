@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import {
   CopilotKitEndpoint,
-  LangGraphAgentHandlerParams,
+  RemoteAgentHandlerParams,
   RemoteActionInfoResponse,
   LangGraphPlatformEndpoint,
 } from "./remote-actions";
@@ -10,7 +10,11 @@ import { Logger } from "pino";
 import { Message } from "../../graphql/types/converted";
 import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
 import { Observable, ReplaySubject } from "rxjs";
-import { RuntimeEvent } from "../../service-adapters/events";
+import {
+  RuntimeEvent,
+  RuntimeEventSource,
+  RuntimeEventSubject,
+} from "../../service-adapters/events";
 import telemetry from "../telemetry-client";
 import { RemoteLangGraphEventSource } from "../../agents/langgraph/event-source";
 import { Action } from "@copilotkit/shared";
@@ -37,13 +41,13 @@ export function constructLGCRemoteAction({
     description: agent.description,
     parameters: [],
     handler: async (_args: any) => {},
-    langGraphAgentHandler: async ({
+    remoteAgentHandler: async ({
       name,
       actionInputsWithoutAgents,
       threadId,
       nodeName,
       additionalMessages = [],
-    }: LangGraphAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
+    }: RemoteAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
       logger.debug({ actionName: agent.name }, "Executing LangGraph Platform agent");
 
       telemetry.capture("oss.runtime.remote_action_executed", {
@@ -93,6 +97,11 @@ export function constructLGCRemoteAction({
   }));
 
   return [...agents];
+}
+
+export enum RemoteAgentType {
+  LangGraph = "langgraph",
+  CrewAI = "crewai",
 }
 
 export function constructRemoteActions({
@@ -169,13 +178,13 @@ export function constructRemoteActions({
         parameters: [],
         handler: async (_args: any) => {},
 
-        langGraphAgentHandler: async ({
+        remoteAgentHandler: async ({
           name,
           actionInputsWithoutAgents,
           threadId,
           nodeName,
           additionalMessages = [],
-        }: LangGraphAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
+        }: RemoteAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
           logger.debug({ actionName: agent.name }, "Executing remote agent");
 
           const headers = createHeaders(onBeforeRequest, graphqlContext);
@@ -221,9 +230,17 @@ export function constructRemoteActions({
               throw new Error("Failed to execute remote agent");
             }
 
-            const eventSource = new RemoteLangGraphEventSource();
-            writeJsonLineResponseToEventStream(response.body!, eventSource.eventStream$);
-            return eventSource.processLangGraphEvents();
+            if (agent.type === RemoteAgentType.LangGraph) {
+              const eventSource = new RemoteLangGraphEventSource();
+              writeJsonLineResponseToEventStream(response.body!, eventSource.eventStream$);
+              return eventSource.processLangGraphEvents();
+            } else if (agent.type === RemoteAgentType.CrewAI) {
+              const eventStream$ = new RuntimeEventSubject();
+              writeJsonLineResponseToEventStream(response.body!, eventStream$);
+              return eventStream$;
+            } else {
+              throw new Error("Unsupported agent type");
+            }
           } catch (error) {
             if (error instanceof CopilotKitError) {
               throw error;

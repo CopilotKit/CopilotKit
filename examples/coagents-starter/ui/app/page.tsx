@@ -72,16 +72,10 @@ function YourMainContent() {
     },
   });
   useCopilotAction({
-    name: "AskUserForClarification",
-    parameters: [
-      {
-        name: "question",
-        description: "The question to ask the user for clarification.",
-      },
-    ],
+    name: "AskUserForName",
     available: "remote",
-    handler({ question }) {
-      const answer = window.prompt(question);
+    handler() {
+      const answer = window.prompt("What is your name?");
       return answer;
     },
   });

@@ -14,7 +14,9 @@ export default function RootLayout({ children }: { children: any }) {
   return (
     <html lang="en">
       <body>
-        <CopilotKit runtimeUrl="/api/copilotkit">{children}</CopilotKit>
+        <CopilotKit agent="flow-agent" runtimeUrl="/api/copilotkit">
+          {children}
+        </CopilotKit>
       </body>
     </html>
   );
