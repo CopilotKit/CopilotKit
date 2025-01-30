@@ -204,7 +204,7 @@ export function loadMessagesFromJsonRepresentation(json: any[]): Message[] {
 
 function getPartialArguments(args: string[]) {
   try {
-    if (!args.length) return {}
+    if (!args.length) return {};
 
     return JSON.parse(untruncateJson(args.join("")));
   } catch (e) {
