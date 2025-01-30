@@ -81,7 +81,7 @@ export default async function Page({
           {cloudOnly && (
             <Badge
               variant="secondary"
-              className="ml-3 mt-1 inline-flex items-center gap-1 py-1 px-2 bg-neutral-800/80 text-neutral-100 hover:bg-neutral-800/90 border-0 rounded-md transition-colors"
+              className="ml-3 mt-1 inline-flex items-center gap-1.5 py-1.5 px-3 bg-indigo-600/90 text-white hover:bg-indigo-600 border-0 rounded-md transition-colors"
             >
               <CloudIcon className="w-3 h-3" />
               <span className="text-xs">Cloud Only</span>
