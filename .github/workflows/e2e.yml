@@ -87,6 +87,7 @@ jobs:
           COPILOT_CLOUD_STAGING_PUBLIC_API_KEY: ${{ secrets.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_ACTIONS_RUN_ID: ${{ github.run_id }}
 
       - name: Comment post-deployment
         if: always()
