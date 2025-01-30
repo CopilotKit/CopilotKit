@@ -5,6 +5,8 @@
     "generative-ui",
     "frontend-actions",
     "backend-actions",
+    "authenticated-actions",
+    "guardrails",
     "custom-ai-assistant-behavior",
     "copilot-suggestions",
     "bring-your-own-llm",
