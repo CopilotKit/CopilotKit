@@ -16,12 +16,11 @@ export function useLangGraphInterrupt(
   const { addToast } = useToast();
 
   // We only consider action to be defined once the ID is there
-  const hasAction = langGraphInterruptAction?.id
+  const hasAction = langGraphInterruptAction?.id;
   // We consider the passed action to be current (aka no other action already specified) if:
   // Either no action was defined before, or the action in system is equal in ID
   const isCurrentAction =
-    !hasAction ||
-    (langGraphInterruptAction?.id && langGraphInterruptAction?.id === actionId);
+    !hasAction || (langGraphInterruptAction?.id && langGraphInterruptAction?.id === actionId);
 
   // Run chat completion to submit a response event. Only if it's the current action
   useEffect(() => {
