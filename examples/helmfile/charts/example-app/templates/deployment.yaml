@@ -6,6 +6,8 @@ kind: Deployment
 metadata:
   name: {{ $deployment.name }}
 spec:
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $deployment.name }}
@@ -14,8 +16,13 @@ spec:
       labels:
         app.kubernetes.io/name: {{ $deployment.name }}
     spec:
-      strategy:
-        type: Recreate
+      tolerations:
+      - key: "dedicated"
+        operator: "Equal"
+        value: "e2e"
+        effect: "NoSchedule"
+      nodeSelector:
+        purpose: e2e
       securityContext: {}
       containers:
         - name: {{ $deployment.name }}
@@ -28,18 +35,18 @@ spec:
           resources:
             {{- if $deployment.type | eq "ui" }}
             requests:
-              cpu: "500m"
+              cpu: "512m"
               memory: "512Mi"
             limits:
-              cpu: "500m"
+              cpu: "512m"
               memory: "512Mi"
             {{- end }}
             {{- if $deployment.type | eq "agent" }}
             requests:
-              cpu: "500m"
+              cpu: "1024m"
               memory: "512Mi"
             limits:
-              cpu: "500m"
+              cpu: "1024m"
               memory: "512Mi"
             {{- end }}
           env:

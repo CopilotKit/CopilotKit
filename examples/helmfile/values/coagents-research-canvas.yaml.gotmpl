@@ -59,7 +59,7 @@ deployments:
         path: "/store/items?key=test&namespace=test"
         port: http
       initialDelaySeconds: 15
-    command: ["/bin/sh", "-c","langgraph dev --no-browser --port=8000 --config=langgraph.json --host=0.0.0.0"]
+    command: ["/bin/sh", "-c","langgraph dev --no-browser --port=8000 --config=langgraph.json --host=0.0.0.0 -n 1"]
     config:
       secretsJson: {{ fetchSecretValue "ref+awssecrets://demos/coagents-research-canvas/agent/secrets" }}
       env:
