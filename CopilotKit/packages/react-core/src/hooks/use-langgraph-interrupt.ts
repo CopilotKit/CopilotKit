@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect } from "react";
+import { useContext, useEffect, useMemo } from "react";
 import { CopilotContext } from "../context/copilot-context";
 import { LangGraphInterruptRender } from "../types/interrupt-action";
 import { useCopilotChat } from "./use-copilot-chat";
@@ -12,27 +12,33 @@ export function useLangGraphInterrupt(
   const { setLangGraphInterruptAction, removeLangGraphInterruptAction, langGraphInterruptAction } =
     useContext(CopilotContext);
   const { runChatCompletion } = useCopilotChat();
-  const actionId = dataToUUID(JSON.stringify(action), "lgAction");
   const { addToast } = useToast();
 
+  const actionId = dataToUUID(JSON.stringify(action), "lgAction");
   // We only consider action to be defined once the ID is there
-  const hasAction = langGraphInterruptAction?.id;
-  // We consider the passed action to be current (aka no other action already specified) if:
-  // Either no action was defined before, or the action in system is equal in ID
-  const isCurrentAction =
-    !hasAction || (langGraphInterruptAction?.id && langGraphInterruptAction?.id === actionId);
+  const hasAction = useMemo(
+    () => Boolean(langGraphInterruptAction?.id),
+    [langGraphInterruptAction],
+  );
+
+  const isCurrentAction = useMemo(
+    () => langGraphInterruptAction?.id && langGraphInterruptAction?.id === actionId,
+    [langGraphInterruptAction],
+  );
 
   // Run chat completion to submit a response event. Only if it's the current action
   useEffect(() => {
-    if (isCurrentAction && langGraphInterruptAction?.event?.response) {
+    if (hasAction && isCurrentAction && langGraphInterruptAction?.event?.response) {
       runChatCompletion();
     }
-  }, [langGraphInterruptAction?.event?.response, runChatCompletion]);
+  }, [langGraphInterruptAction?.event?.response, runChatCompletion, hasAction, isCurrentAction]);
 
   useEffect(() => {
+    if (!action) return;
+    // console.log(2, { hasAction, isCurrentAction, conditions: action.conditions })
     // An action was already set, with no conditions and it's not the action we're using right now.
     // Show a warning, as this action will not be executed
-    if (!isCurrentAction && !langGraphInterruptAction?.conditions?.length) {
+    if (hasAction && !isCurrentAction && !action.conditions?.length) {
       addToast({
         type: "warning",
         message: "An action is already registered for the interrupt event",
@@ -40,19 +46,17 @@ export function useLangGraphInterrupt(
       return;
     }
 
-    if (isCurrentAction) {
+    if (hasAction && isCurrentAction) {
       return;
     }
 
     setLangGraphInterruptAction({ ...action, id: actionId });
-
-    return () => {
-      removeLangGraphInterruptAction();
-    };
   }, [
+    action,
+    hasAction,
+    isCurrentAction,
     setLangGraphInterruptAction,
     removeLangGraphInterruptAction,
-    langGraphInterruptAction,
     ...(dependencies || []),
   ]);
 }
