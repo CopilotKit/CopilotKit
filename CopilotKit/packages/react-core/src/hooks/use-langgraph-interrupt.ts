@@ -5,7 +5,7 @@ import { useCopilotChat } from "./use-copilot-chat";
 import { useToast } from "../components/toast/toast-provider";
 import { dataToUUID } from "@copilotkit/shared";
 
-export function useLangGraphInterrupt(action: LangGraphInterruptRender, dependencies?: any[]) {
+export function useLangGraphInterrupt(action: Omit<LangGraphInterruptRender, 'id'>, dependencies?: any[]) {
   const { setLangGraphInterruptAction, removeLangGraphInterruptAction, langGraphInterruptAction } =
     useContext(CopilotContext);
   const { runChatCompletion } = useCopilotChat();
