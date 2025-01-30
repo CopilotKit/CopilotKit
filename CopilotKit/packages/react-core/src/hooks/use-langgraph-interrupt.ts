@@ -33,13 +33,6 @@ export function useLangGraphInterrupt(
   useEffect(() => {
     // An action was already set, with no conditions and it's not the action we're using right now.
     // Show a warning, as this action will not be executed
-    console.log({
-      hasAction: langGraphInterruptAction,
-      isCurrentAction,
-      hasId: langGraphInterruptAction?.id,
-      currentActionId: actionId,
-      idMatches: langGraphInterruptAction?.id === actionId
-    })
     if (!isCurrentAction && !langGraphInterruptAction?.conditions?.length) {
       addToast({
         type: "warning",
