@@ -31,7 +31,7 @@ async def perform_tool_calls(state: Dict[str, Any]):
         queries = tool_call["arguments"].get("queries", [])
         await perform_search(state, queries, tool_call["id"])
 
-    if tool_call["name"] == "WriteReport":
+    elif tool_call["name"] == "WriteReport":
         state["report"] = tool_call["arguments"].get("report", "")
         state["messages"].append({
             "role": "tool",
