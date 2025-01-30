@@ -1,11 +1,4 @@
-import {
-  Client,
-  cacheExchange,
-  fetchExchange,
-  mapExchange,
-  CombinedError,
-  Operation,
-} from "@urql/core";
+import { Client, cacheExchange, fetchExchange } from "@urql/core";
 import * as packageJson from "../../package.json";
 
 import {
@@ -17,7 +10,8 @@ import {
 import { generateCopilotResponseMutation } from "../graphql/definitions/mutations";
 import { getAvailableAgentsQuery, loadAgentStateQuery } from "../graphql/definitions/queries";
 import { OperationResultSource, OperationResult } from "urql";
-import { CopilotKitLowLevelError, ResolvedCopilotKitError } from "@copilotkit/shared";
+import { ResolvedCopilotKitError } from "@copilotkit/shared";
+import { CopilotKitLowLevelError } from "@copilotkit/shared";
 
 const createFetchFn =
   (signal?: AbortSignal) =>
@@ -29,6 +23,13 @@ const createFetchFn =
       }
       return result;
     } catch (error) {
+      // Let abort error pass through. It will be suppressed later
+      if (
+        (error as Error).message.includes("BodyStreamBuffer was aborted") ||
+        (error as Error).message.includes("signal is aborted without reason")
+      ) {
+        throw error;
+      }
       throw new CopilotKitLowLevelError({ error: error as Error, url: args[0] as string });
     }
   };
