@@ -28,7 +28,9 @@ export interface ConfigMap {
 export interface TestVariant {
   name: string;
   queryParams: string;
+  isCloud?: boolean;
 }
+
 
 export type TestVariants = TestVariant[];
 
