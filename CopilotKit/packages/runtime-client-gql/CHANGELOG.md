@@ -1,5 +1,12 @@
 # @copilotkit/runtime-client-gql
 
+## 1.5.15-next.1
+
+### Patch Changes
+
+- 0bbb4ab: - fix: allow abort errors to pass further down to handler
+  - @copilotkit/shared@1.5.15-next.1
+
 ## 1.5.15-next.0
 
 ### Patch Changes
