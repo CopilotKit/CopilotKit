@@ -14,7 +14,7 @@ const InterruptForm = ({ event, resolve }: { event: { value: string }, resolve: 
       <div className="text-lg font-medium">{event.value}</div>
       <input 
         type="text"
-        placeholder="John Doe"
+        placeholder="Your name"
         className="border p-2 rounded"
         value={name}
         onChange={(e) => setName(e.target.value)}

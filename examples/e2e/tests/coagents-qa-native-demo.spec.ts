@@ -67,7 +67,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
 
               // First interaction will bring up interrupt interface
               await page
-                  .getByPlaceholder("Enter your name")
+                  .getByPlaceholder("Your name")
                   .fill('CopilotKit Automation');
               await page.locator('button:has-text("Submit")').click();
 
