@@ -43,10 +43,10 @@ spec:
             {{- end }}
             {{- if $deployment.type | eq "agent" }}
             requests:
-              cpu: "1024m"
+              cpu: "1600m"
               memory: "512Mi"
             limits:
-              cpu: "1024m"
+              cpu: "1600m"
               memory: "512Mi"
             {{- end }}
           env:
