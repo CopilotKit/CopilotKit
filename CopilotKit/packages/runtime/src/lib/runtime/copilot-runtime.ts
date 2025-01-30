@@ -322,7 +322,7 @@ please use an LLM adapter instead.`,
           const propertyHeaders = graphqlContext.properties.authorization
             ? { authorization: `Bearer ${graphqlContext.properties.authorization}` }
             : null;
-          
+
           const client = new LangGraphClient({
             apiUrl: endpoint.deploymentUrl,
             apiKey: endpoint.langsmithApiKey,
@@ -400,7 +400,7 @@ please use an LLM adapter instead.`,
       const propertyHeaders = graphqlContext.properties.authorization
         ? { authorization: `Bearer ${graphqlContext.properties.authorization}` }
         : null;
-      
+
       const client = new LangGraphClient({
         apiUrl: agentWithEndpoint.endpoint.deploymentUrl,
         apiKey: agentWithEndpoint.endpoint.langsmithApiKey,
