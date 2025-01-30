@@ -102,6 +102,47 @@ useLangGraphInterrupt({
 Important: If you use a `handler`, only resolve the interrupt there if you don't need UI interaction. Don't specify a `render` function if you've already resolved in the handler.
 </Callout>
 
+## Multiple Interrupts
+
+When your agent graph includes multiple interrupt calls, you can use conditions to handle each interrupt differently. This allows you to render different UI components based on the interrupt's context:
+
+```tsx
+// Handle authentication interrupts
+useLangGraphInterrupt({
+  conditions: [{
+    rule: 'EQUALS',
+    path: 'type',
+    value: 'auth'
+  }],
+  render: ({ event, resolve }) => {
+    return <AuthenticationForm onComplete={(success) => resolve(success ? 'success' : 'failure')} />;
+  }
+});
+
+// Handle payment interrupts
+useLangGraphInterrupt({
+  conditions: [{
+    rule: 'EQUALS',
+    path: 'type',
+    value: 'payment'
+  }],
+  render: ({ event, resolve }) => {
+    return <PaymentForm onComplete={(status) => resolve(status)} />;
+  }
+});
+```
+
+In your agent:
+```python
+# This will trigger the auth form
+await interrupt({"type": "auth"})
+
+# This will trigger the payment form
+await interrupt({"type": "payment"})
+```
+
+Each `useLangGraphInterrupt` hook will only activate when its conditions match the interrupt's value. This allows you to organize your UI components logically and handle different types of interrupts separately.
+
 ## Behind the Scenes
 
 The interrupt mechanism works through a series of steps:
