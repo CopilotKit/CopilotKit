@@ -319,9 +319,14 @@ please use an LLM adapter instead.`,
       async (acc: Promise<Agent[]>, endpoint) => {
         const agents = await acc;
         if (endpoint.type === EndpointType.LangGraphPlatform) {
+          const propertyHeaders = graphqlContext.properties.authorization
+            ? { authorization: `Bearer ${graphqlContext.properties.authorization}` }
+            : null;
+          
           const client = new LangGraphClient({
             apiUrl: endpoint.deploymentUrl,
             apiKey: endpoint.langsmithApiKey,
+            defaultHeaders: { ...propertyHeaders },
           });
 
           const data: Array<{ assistant_id: string; graph_id: string }> =
@@ -392,9 +397,14 @@ please use an LLM adapter instead.`,
     const headers = createHeaders(null, graphqlContext);
 
     if (agentWithEndpoint.endpoint.type === EndpointType.LangGraphPlatform) {
+      const propertyHeaders = graphqlContext.properties.authorization
+        ? { authorization: `Bearer ${graphqlContext.properties.authorization}` }
+        : null;
+      
       const client = new LangGraphClient({
         apiUrl: agentWithEndpoint.endpoint.deploymentUrl,
         apiKey: agentWithEndpoint.endpoint.langsmithApiKey,
+        defaultHeaders: { ...propertyHeaders },
       });
       let state: any = {};
       try {
