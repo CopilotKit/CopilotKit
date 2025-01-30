@@ -25,7 +25,7 @@ CoAgents integrate with LangGraph-powered agents which are either deployed to th
 The LangGraph Platform deployment is recommended and supports both LangGraph.js and LangGraph python.
 Raw self-hosting is currently only offered via CopilotKit's FastAPI-powered remote-endpoint.
 
-**This guide assumes you’re familiar with using LangGraph to build agent workflows.** If you need a quick introduction,
+**This guide assumes you're familiar with using LangGraph to build agent workflows.** If you need a quick introduction,
 check out [this brief example from the LangGraph docs](https://langchain-ai.github.io/langgraph/).
 
 ## Getting started
@@ -34,8 +34,9 @@ check out [this brief example from the LangGraph docs](https://langchain-ai.gith
 
 In order for CopilotKit to integrate with your LangGraph agent, the agent has to be deployed: either via a LangGraph Platform Endpoint, or via a Copilot Remote Endpoint.
 
-<TailoredContent>
-<TailoredContentOption
+<TailoredContent id="deployment-type">
+  <TailoredContentOption
+    id="langgraph-platform"
     title="LangGraph Platform (recommended)"
     description="I want to self-host a LangGraph Platform Endpoint or use LangGraph Cloud (Python, JavaScript)"
     icon={<FaCloud />}
@@ -51,8 +52,9 @@ In order for CopilotKit to integrate with your LangGraph agent, the agent has to
     ## Integrate your LangGraph agent with CopilotKit
 
     ### How are you hosting your Copilot?
-    <TailoredContent>
+    <TailoredContent id="copilot-hosting">
       <TailoredContentOption
+        id="copilot-cloud"
         title="Copilot Cloud (Recommended)"
         description="I want to host my Copilot on Copilot Cloud"
         icon={<FaCloud />}
@@ -69,6 +71,7 @@ In order for CopilotKit to integrate with your LangGraph agent, the agent has to
 
       </TailoredContentOption>
       <TailoredContentOption
+        id="deployment-type"
         title="Self-Hosted Copilot Runtime"
         description="I want to self-host the Copilot Runtime"
         icon={<FaPython />}
@@ -119,6 +122,7 @@ In order for CopilotKit to integrate with your LangGraph agent, the agent has to
 
   </TailoredContentOption>
   <TailoredContentOption 
+    id="copilot-remote"
     title="Copilot Remote Endpoint"
     description="I want to self-host my agent on a FastAPI Copilot Remote Endpoint (Python only)"
     icon={<FaPython />}

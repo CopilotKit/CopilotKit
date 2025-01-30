@@ -10,7 +10,7 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
 When a user interacts with your Copilot, you may want to render a custom UI component. [`useCopilotAction`](/reference/hooks/useCopilotAction) allows to give the LLM the 
 option to render your custom component through the `render` property.
 
-<Tabs items={['Render a component', 'Fetch data & render', 'renderAndWaitForResponse (HITL)', 'Render strings', 'Catch all renders']}>
+<Tabs groupId="gen-ui-type" items={['Render a component', 'Fetch data & render', 'renderAndWaitForResponse (HITL)', 'Render strings', 'Catch all renders']}>
 
   <Tab value="Render a component">
     [`useCopilotAction`](/reference/hooks/useCopilotAction) can be used with a `render` function and without a `handler` to display information or UI elements within the chat.
