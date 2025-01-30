@@ -40,7 +40,7 @@ def main():
     """Run the uvicorn server."""
     port = int(os.getenv("PORT", "8000"))
     uvicorn.run(
-        "research_canvas.demo:app",
+        "research_canvas.langgraph.demo:app",
         host="0.0.0.0",
         port=port,
         reload=True,
