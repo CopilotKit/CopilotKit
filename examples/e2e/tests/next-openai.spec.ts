@@ -110,10 +110,13 @@ const researchCanvasConfigs = filterConfigsByProject(
 );
 const groupedConfigs = groupConfigsByDescription(researchCanvasConfigs);
 
+test.describe.configure({ mode: 'parallel' });
+
 Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
   test.describe(`${projectName}`, () => {
     Object.entries(descriptions).forEach(([description, configs]) => {
       test.describe(`${description}`, () => {
+        
         configs.forEach((config) => {
           variants.forEach((variant) => {
             test(`Test ${config.description} Travel Demo ("/" route) with variant ${variant.name}`, async ({

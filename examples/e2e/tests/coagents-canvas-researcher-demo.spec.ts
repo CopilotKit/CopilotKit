@@ -32,6 +32,8 @@ const groupedConfigs = groupConfigsByDescription(researchCanvasConfigs);
 const cloudVariants = variants.filter((variant) => variant.isCloud);
 const nonCloudVariants = variants.filter((variant) => !variant.isCloud);
 
+test.describe.configure({ mode: 'parallel' });
+
 Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
   test.describe(`${projectName}`, () => {
     Object.entries(descriptions).forEach(([description, configs]) => {
