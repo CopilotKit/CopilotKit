@@ -105,9 +105,14 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               )?.replace("Email: ", "");
               expect(email).not.toBe("");
 
+              await page.waitForTimeout(5000);
+
               // Pirate agent
-              await sendChatMessage(page, "Turn on pirate mode!");
+              await sendChatMessage(page, "Turn on pirate mode! Remember to explicitly call the tool that sets pirate mode to on.");
               await waitForResponse(page);
+
+              await page.waitForTimeout(5000);
+
               const pirateModeContainerOn = getPirateModeContainer({
                 mode: "on",
               });

@@ -28,10 +28,10 @@ spec:
           resources:
             {{- if $deployment.type | eq "ui" }}
             requests:
-              cpu: "256m"
+              cpu: "500m"
               memory: "512Mi"
             limits:
-              cpu: "256m"
+              cpu: "500m"
               memory: "512Mi"
             {{- end }}
             {{- if $deployment.type | eq "agent" }}
@@ -70,12 +70,12 @@ spec:
     kind: Deployment
     name: {{ $deployment.name }}
   {{- if $deployment.type | eq "ui" }}
-  minReplicas: 2
-  maxReplicas: 3
+  minReplicas: 1
+  maxReplicas: 1
   {{- end }}
   {{- if $deployment.type | eq "agent" }}
   minReplicas: 1
-  maxReplicas: 2
+  maxReplicas: 1
   {{- end }}
   metrics:
   - type: Resource
@@ -83,12 +83,12 @@ spec:
       name: cpu
       target:
         type: Utilization
-        averageUtilization: 50
+        averageUtilization: 75
   - type: Resource
     resource:
       name: memory
       target:
         type: Utilization
-        averageUtilization: 50
+        averageUtilization: 75
 ---
 {{- end }}
