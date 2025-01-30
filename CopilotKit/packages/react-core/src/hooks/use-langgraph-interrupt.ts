@@ -14,8 +14,13 @@ export function useLangGraphInterrupt(
   const { runChatCompletion } = useCopilotChat();
   const actionId = dataToUUID(JSON.stringify(action), "lgAction");
   const { addToast } = useToast();
+
+  // We only consider action to be defined once the ID is there
+  const hasAction = langGraphInterruptAction?.id
+  // We consider the passed action to be current (aka no other action already specified) if:
+  // Either no action was defined before, or the action in system is equal in ID
   const isCurrentAction =
-    !langGraphInterruptAction ||
+    !hasAction ||
     (langGraphInterruptAction?.id && langGraphInterruptAction?.id === actionId);
 
   // Run chat completion to submit a response event. Only if it's the current action
@@ -28,6 +33,13 @@ export function useLangGraphInterrupt(
   useEffect(() => {
     // An action was already set, with no conditions and it's not the action we're using right now.
     // Show a warning, as this action will not be executed
+    console.log({
+      hasAction: langGraphInterruptAction,
+      isCurrentAction,
+      hasId: langGraphInterruptAction?.id,
+      currentActionId: actionId,
+      idMatches: langGraphInterruptAction?.id === actionId
+    })
     if (!isCurrentAction && !langGraphInterruptAction?.conditions?.length) {
       addToast({
         type: "warning",
