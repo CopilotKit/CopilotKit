@@ -10,7 +10,7 @@ To illustrate, imagine a LangGraph agent starts with an initial state of `{"stat
 
 At some point, a workflow node changes the state to `{"status": "done"}` after performing its task:
 
-<Tabs items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python
         def example_node(state: AgentState, config: RunnableConfig):
@@ -39,7 +39,7 @@ Once the agent has called this method, and returned the updated state to the cli
 
 One great use case for state streaming is to present LLM messages to the user, giving them visibility into the agent's progress as it works on tasks. By default, messages from the LLM will be streamed to the user with no additional configuration needed.
 
-<Tabs items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python
         from copilotkit.langgraph import copilotkit_customize_config
@@ -102,7 +102,7 @@ Often, you want to update your state directly from LLM tool calls, giving the us
 
 With `emit_intermediate_state`, you can have CopilotKit set a key in your state should be set from a tool call. In this example, we're asking for the `outline` key to be streamed from the `set_outline` tool. You can optionally specify which argument to use, in this case `outline`:
 
-<Tabs items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python
         from copilotkit.langgraph import copilotkit_customize_config
@@ -179,7 +179,7 @@ To enable calling frontend actions, bind the available actions to the model usin
 
 Here's a complete example:
 
-<Tabs items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python
 
@@ -240,7 +240,7 @@ Occasionally, you'll want to disable streaming temporarily — for example, the 
 
 You can pass `emit_messages=False` in these cases, which will suppress any messages from being sent to the client from this LLM call.
 
-<Tabs items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python
         from copilotkit.langgraph import copilotkit_customize_config

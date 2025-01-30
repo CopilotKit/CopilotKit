@@ -19,7 +19,7 @@ import { FaCloud, FaServer } from "react-icons/fa";
 To integrate a Python backend with your CopilotKit application, set up your project and install the necessary dependencies by choosing your dependency management solution below.
 
 
-<Tabs items={['Poetry', 'pip', 'conda']} default="Poetry">
+<Tabs groupId="python-pm" items={['Poetry', 'pip', 'conda']} default="Poetry">
     <Tab value="Poetry">
     
     #### Initialize a New Poetry Project
@@ -162,7 +162,7 @@ if __name__ == "__main__":
 
 Since we've added the entry point in `server.py`, you can run your FastAPI server directly by executing the script:
 
-<Tabs items={['Poetry', 'pip', 'conda']} default="Poetry">
+<Tabs groupId="python-pm" items={['Poetry', 'pip', 'conda']} default="Poetry">
     <Tab value="Poetry">
         ```bash
         poetry run python3 server.py
@@ -190,8 +190,9 @@ Since we've added the entry point in `server.py`, you can run your FastAPI serve
 
 Now that you've set up your FastAPI server with the backend actions, integrate it into your CopilotKit application by modifying your `CopilotRuntime` configuration.
 
-<TailoredContent>
+<TailoredContent id="hosting">
     <TailoredContentOption
+        id="copilot-cloud"
         title="Copilot Cloud (Recommended)"
         description="I want to use Copilot Cloud to connect to my remote endpoint."
         icon={<FaCloud />}
@@ -199,6 +200,7 @@ Now that you've set up your FastAPI server with the backend actions, integrate i
         <CopilotCloudConfigureRemoteEndpointSnippet components={props.components} />
     </TailoredContentOption>
     <TailoredContentOption
+        id="self-hosted"
         title="Self-Hosted Copilot Runtime"
         description="I want to use a self-hosted Copilot Runtime to connect to my remote endpoint."
         icon={<FaServer />}
