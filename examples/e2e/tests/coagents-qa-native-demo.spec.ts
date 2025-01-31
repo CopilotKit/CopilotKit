@@ -65,6 +65,12 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                 "write an email to the CEO of OpenAI asking for a meeting"
               );
 
+              // First interaction will bring up interrupt interface
+              await page
+                  .getByPlaceholder("Your name")
+                  .fill('CopilotKit Automation');
+              await page.locator('button:has-text("Submit")').click();
+
               const cancelMessage = page.locator(
                 '[data-test-id="email-cancel-message"]'
               );
