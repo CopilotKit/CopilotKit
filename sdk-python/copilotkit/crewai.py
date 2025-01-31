@@ -9,6 +9,14 @@ import json
 from enum import Enum
 from typing_extensions import TypedDict, Any, Dict, Optional, List, Literal
 from pydantic import BaseModel
+from litellm.types.utils import (
+  ModelResponse, 
+  Choices, 
+  Message as LiteLLMMessage, 
+  ChatCompletionMessageToolCall,
+  Function as LiteLLMFunction
+)
+from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from crewai.flow.flow import FlowState, Flow
 from crewai.flow.flow_events import (
   Event as CrewAIFlowEvent,
@@ -102,6 +110,13 @@ class CopilotKitCrewAIFlowEventType(Enum):
     METHOD_EXECUTION_STARTED = "copilotkit_method_execution_started"
     METHOD_EXECUTION_FINISHED = "copilotkit_method_execution_finished"
     FLOW_EXECUTION_ERROR = "copilotkit_flow_execution_error"
+    TEXT_MESSAGE_START = "copilotkit_text_message_start"
+    TEXT_MESSAGE_CONTENT = "copilotkit_text_message_content"
+    TEXT_MESSAGE_END = "copilotkit_text_message_end"
+    ACTION_EXECUTION_START = "copilotkit_action_execution_start"
+    ACTION_EXECUTION_ARGS = "copilotkit_action_execution_args"
+    ACTION_EXECUTION_END = "copilotkit_action_execution_end"
+
 
 class CopilotKitCrewAIFlowEvent(TypedDict):
     """
@@ -181,6 +196,53 @@ class CopilotKitCrewAIFlowEventExecutionError(TypedDict):
     type: Literal[CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_ERROR]
     error: Exception
 
+class CopilotKitCrewAIFlowEventTextMessageStart(TypedDict):
+    """
+    CopilotKit CrewAI Flow Event Text Message Start
+    """
+    type: Literal[CopilotKitCrewAIFlowEventType.TEXT_MESSAGE_START]
+    message_id: str
+    parent_message_id: Optional[str]
+
+class CopilotKitCrewAIFlowEventTextMessageContent(TypedDict):
+    """
+    CopilotKit CrewAI Flow Event Text Message Content
+    """
+    type: Literal[CopilotKitCrewAIFlowEventType.TEXT_MESSAGE_CONTENT]
+    message_id: str
+    content: str
+
+class CopilotKitCrewAIFlowEventTextMessageEnd(TypedDict):
+    """
+    CopilotKit CrewAI Flow Event Text Message End
+    """
+    type: Literal[CopilotKitCrewAIFlowEventType.TEXT_MESSAGE_END]
+    message_id: str
+
+class CopilotKitCrewAIFlowEventActionExecutionStart(TypedDict):
+    """
+    CopilotKit CrewAI Flow Event Action Execution Start
+    """
+    type: Literal[CopilotKitCrewAIFlowEventType.ACTION_EXECUTION_START]
+    action_execution_id: str
+    action_name: str
+    parent_message_id: Optional[str]
+
+class CopilotKitCrewAIFlowEventActionExecutionArgs(TypedDict):
+    """
+    CopilotKit CrewAI Flow Event Action Execution Args
+    """
+    type: Literal[CopilotKitCrewAIFlowEventType.ACTION_EXECUTION_ARGS]
+    action_execution_id: str
+    args: str
+
+class CopilotKitCrewAIFlowEventActionExecutionEnd(TypedDict):
+    """
+    CopilotKit CrewAI Flow Event Action Execution End
+    """
+    type: Literal[CopilotKitCrewAIFlowEventType.ACTION_EXECUTION_END]
+    action_execution_id: str
+
 # We are leaving all these functions as async- in the future when we
 # switch from a separate thread to an async queue, user code will
 # still work
@@ -228,6 +290,141 @@ async def copilotkit_emit_tool_call(*, name: str, args: Dict[str, Any]) -> str:
         )
     )
     return message_id
+
+
+def copilotkit_stream(response):
+    """
+    Stream a synchronous response to CopilotKit.
+    """
+    if isinstance(response, ModelResponse):
+        print(response, flush=True)
+        return _copilotkit_stream_response(response)
+    if isinstance(response, CustomStreamWrapper):
+        return _copilotkit_stream_custom_stream_wrapper(response)
+    raise ValueError("Invalid response type")
+
+
+def _copilotkit_stream_custom_stream_wrapper(response: CustomStreamWrapper):
+    q = _get_crewai_flow_event_queue()
+    message_id: str = ""
+    tool_call_id: str = ""
+    content = ""
+    created = 0
+    model = ""
+    system_fingerprint = ""
+    finish_reason=None
+    mode = None
+    all_tool_calls = []
+
+    for chunk in response:
+        if message_id is None:
+            message_id = chunk["id"]
+
+        tool_calls = chunk["choices"][0]["delta"]["tool_calls"]
+        finish_reason = chunk["choices"][0]["finish_reason"]
+        created = chunk["created"]
+        model = chunk["model"]
+        system_fingerprint = chunk["system_fingerprint"]
+
+        if mode == "text" and (tool_calls is not None or finish_reason is not None):
+            # end the current text message
+            q.put(CopilotKitCrewAIFlowEventTextMessageEnd(
+                type=CopilotKitCrewAIFlowEventType.TEXT_MESSAGE_END,
+                message_id=message_id
+            ))
+        elif mode == "tool" and (tool_calls is None or finish_reason is not None):
+            # end the current tool call
+            q.put(CopilotKitCrewAIFlowEventActionExecutionEnd(
+                type=CopilotKitCrewAIFlowEventType.ACTION_EXECUTION_END,
+                action_execution_id=tool_call_id
+            ))
+
+        if finish_reason is not None:
+            break
+
+        if mode != "text" and tool_calls is None:
+            # start a new text message
+            q.put(CopilotKitCrewAIFlowEventTextMessageStart(
+                type=CopilotKitCrewAIFlowEventType.TEXT_MESSAGE_START,
+                message_id=message_id,
+                parent_message_id=None
+            ))
+        elif mode != "tool" and tool_calls is not None and tool_calls[0].id is not None:
+            # start a new tool call
+            tool_call_id = tool_calls[0].id
+
+            q.put(CopilotKitCrewAIFlowEventActionExecutionStart(
+                type=CopilotKitCrewAIFlowEventType.ACTION_EXECUTION_START,
+                action_execution_id=tool_call_id,
+                action_name=tool_calls[0].function["name"],
+                parent_message_id=message_id
+            ))
+
+            all_tool_calls.append(
+                {
+                    "id": tool_call_id,
+                    "name": tool_calls[0].function["name"],
+                    "arguments": "",
+                }
+            )
+
+        mode = "tool" if tool_calls is not None else "text"
+
+        if mode == "text":
+            text_content = chunk["choices"][0]["delta"]["content"]
+            if text_content is not None:
+                content += text_content
+                q.put(CopilotKitCrewAIFlowEventTextMessageContent(
+                    type=CopilotKitCrewAIFlowEventType.TEXT_MESSAGE_CONTENT,
+                    message_id=message_id,
+                    content=text_content
+                ))
+
+        elif mode == "tool":
+            tool_arguments = tool_calls[0].function["arguments"]
+            if tool_arguments is not None:
+                q.put(CopilotKitCrewAIFlowEventActionExecutionArgs(
+                    type=CopilotKitCrewAIFlowEventType.ACTION_EXECUTION_ARGS,
+                    action_execution_id=tool_call_id,
+                    args=tool_arguments
+                ))
+
+                all_tool_calls[-1]["arguments"] += tool_arguments
+
+    tool_calls = [
+        ChatCompletionMessageToolCall(
+            function=LiteLLMFunction(
+                arguments=tool_call["arguments"],
+                name=tool_call["name"]
+            ),
+            id=tool_call["id"],
+            type="function"
+        )
+        for tool_call in all_tool_calls
+    ]
+    return ModelResponse(
+        id=message_id,
+        created=created,
+        model=model,
+        object='chat.completion',
+        system_fingerprint=system_fingerprint,
+        choices=[
+            Choices(
+                finish_reason=finish_reason,
+                index=0,
+                message=LiteLLMMessage(
+                    content=content,
+                    role='assistant',
+                    tool_calls=tool_calls if len(tool_calls) > 0 else None,
+                    function_call=None
+                )
+            )
+        ]
+    )
+
+def _copilotkit_stream_response(response: ModelResponse):
+    return response
+
 
 async def copilotkit_exit() -> Literal[True]:
     """

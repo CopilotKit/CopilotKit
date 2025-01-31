@@ -4,6 +4,7 @@ This is the main entry point for the CrewAI agent.
 from typing_extensions import Dict, Any, cast
 from crewai.flow.flow import Flow, start, router, listen
 from litellm import completion
+from copilotkit.crewai import copilotkit_stream
 from research_canvas.crewai.download import download_resources, get_resources
 from research_canvas.crewai.delete import maybe_perform_delete
 from research_canvas.crewai.prompt import format_prompt
@@ -14,6 +15,7 @@ from research_canvas.crewai.tools import (
     DELETE_RESOURCES_TOOL,
     perform_tool_calls
 )
+
 class ResearchCanvasFlow(Flow[Dict[str, Any]]):
     """
     Research Canvas CrewAI Flow
@@ -49,20 +51,23 @@ class ResearchCanvasFlow(Flow[Dict[str, Any]]):
             resources
         )
 
-        response = completion(
-            model="openai/gpt-4o",
-            messages=[
-                {"role": "system", "content": prompt},
-                *self.state["messages"]
-            ],
-            tools=[
-                SEARCH_TOOL,
-                WRITE_REPORT_TOOL,
-                WRITE_RESEARCH_QUESTION_TOOL,
-                DELETE_RESOURCES_TOOL
-            ],
+        response = copilotkit_stream(
+            completion(
+                model="openai/gpt-4o",
+                messages=[
+                    {"role": "system", "content": prompt},
+                    *self.state["messages"]
+                ],
+                tools=[
+                    SEARCH_TOOL,
+                    WRITE_REPORT_TOOL,
+                    WRITE_RESEARCH_QUESTION_TOOL,
+                    DELETE_RESOURCES_TOOL
+                ],
 
-            parallel_tool_calls=False
+                parallel_tool_calls=False,
+                stream=True
+            )
         )
         message = cast(Any, response).choices[0]["message"]
 

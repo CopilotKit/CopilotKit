@@ -426,10 +426,10 @@ def handle_crewai_flow_event(
 
     if event_data["type"] == CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_ERROR:
         print("Flow execution error", flush=True)
-        
+
         # Check if event_data["error"] is a string or an exception object
         error_info = event_data["error"]
-        
+
         if isinstance(error_info, Exception):
             # If it's an exception, print the traceback
             print("Exception occurred:", flush=True)
@@ -437,8 +437,51 @@ def handle_crewai_flow_event(
         else:
             # Otherwise, assume it's a string and print it
             print(error_info, flush=True)
-        
+
         execution_state["is_finished"] = True
         return None
+    
+    if event_data["type"] == CopilotKitCrewAIFlowEventType.TEXT_MESSAGE_START:
+        return emit_runtime_events(
+            text_message_start(
+                message_id=event_data["message_id"],
+                parent_message_id=event_data.get("parent_message_id", None)
+            )
+        )
+    
+    if event_data["type"] == CopilotKitCrewAIFlowEventType.TEXT_MESSAGE_CONTENT:
+        return emit_runtime_events(
+            text_message_content(
+                message_id=event_data["message_id"],
+                content=event_data["content"]
+            )
+        )
+    
+    if event_data["type"] == CopilotKitCrewAIFlowEventType.TEXT_MESSAGE_END:
+        return emit_runtime_events(
+            text_message_end(message_id=event_data["message_id"])
+        )
+
+    if event_data["type"] == CopilotKitCrewAIFlowEventType.ACTION_EXECUTION_START:
+        return emit_runtime_events(
+            action_execution_start(
+                action_execution_id=event_data["action_execution_id"],
+                action_name=event_data["action_name"],
+                parent_message_id=event_data.get("parent_message_id", None)
+            )
+        )
+
+    if event_data["type"] == CopilotKitCrewAIFlowEventType.ACTION_EXECUTION_ARGS:
+        return emit_runtime_events(
+            action_execution_args(
+                action_execution_id=event_data["action_execution_id"],
+                args=event_data["args"]
+            )
+        )
+
+    if event_data["type"] == CopilotKitCrewAIFlowEventType.ACTION_EXECUTION_END:
+        return emit_runtime_events(
+            action_execution_end(action_execution_id=event_data["action_execution_id"])
+        )
 
     raise ValueError(f"Unknown event type: {event_data['type']}")
