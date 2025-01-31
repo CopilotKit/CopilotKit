@@ -1,4 +1,7 @@
-import { MultiProviderContent, If } from "@/components/react/multi-provider-content/multi-provider-content";
+import {
+  MultiProviderContent,
+  If,
+} from "@/components/react/multi-provider-content/multi-provider-content";
 import { quickStartProviders } from "@/components/react/multi-provider-content/utils";
 import { IoLogoVercel, IoLogoNodejs } from "react-icons/io5";
 import { SiNestjs } from "react-icons/si";
@@ -8,7 +11,8 @@ import { RiNextjsLine } from "react-icons/ri";
 <Callout type="info">
   If you are planning to use a single LangGraph agent in [agent-lock mode](/coagents/advanced/router-mode-agent-lock#agent-lock-mode) as your agentic backend, your LLM adapter will only be used for peripherals such as suggestions, etc.
 
-  If you are not sure yet, simply ignore this note.
+If you are not sure yet, simply ignore this note.
+
 </Callout>
 
     <If conditions={[{ key: 'id', value: 'langchain' }]}>
@@ -142,14 +146,16 @@ import { RiNextjsLine } from "react-icons/ri";
             {{adapterSetup}}
 
             app.use('/copilotkit', (req, res, next) => {
-              const runtime = new CopilotRuntime();
-              const handler = copilotRuntimeNodeHttpEndpoint({
-                endpoint: '/copilotkit',
-                runtime,
-                serviceAdapter,
-              });
+              (async () => {
+                const runtime = new CopilotRuntime();
+                const handler = copilotRuntimeNodeHttpEndpoint({
+                  endpoint: '/copilotkit',
+                  runtime,
+                  serviceAdapter,
+                });
 
-              return handler(req, res, next);
+                return handler(req, res);
+              })().catch(next);
             });
 
             app.listen(4000, () => {
@@ -236,4 +242,5 @@ import { RiNextjsLine } from "react-icons/ri";
             </Callout>
         </Tab>
     </Tabs>
+
 </MultiProviderContent>
