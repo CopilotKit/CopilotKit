@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.5.15-next.3
+
+### Patch Changes
+
+- c14f9db: - add headers handling to other LangGraphClients
+  - @copilotkit/shared@1.5.15-next.3
+
 ## 1.5.15-next.2
 
 ### Patch Changes

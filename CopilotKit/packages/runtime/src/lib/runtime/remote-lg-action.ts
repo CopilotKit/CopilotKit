@@ -1,4 +1,4 @@
-import { Client } from "@langchain/langgraph-sdk";
+import { Client as LangGraphClient } from "@langchain/langgraph-sdk";
 import { createHash } from "node:crypto";
 import { randomUUID, isValidUUID } from "@copilotkit/shared";
 import { parse as parsePartialJson } from "partial-json";
@@ -84,13 +84,22 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     messages,
     actions,
     logger,
+    properties,
   } = args;
 
   let nodeName = initialNodeName;
   let state = initialState;
   const { name, assistantId: initialAssistantId } = agent;
 
-  const client = new Client({ apiUrl: deploymentUrl, apiKey: langsmithApiKey });
+  const propertyHeaders = properties.authorization
+    ? { authorization: `Bearer ${properties.authorization}` }
+    : null;
+
+  const client = new LangGraphClient({
+    apiUrl: deploymentUrl,
+    apiKey: langsmithApiKey,
+    defaultHeaders: { ...propertyHeaders },
+  });
 
   let threadId = argsInitialThreadId ?? randomUUID();
   if (argsInitialThreadId && argsInitialThreadId.startsWith("ck-")) {
