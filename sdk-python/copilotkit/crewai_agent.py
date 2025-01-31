@@ -33,6 +33,7 @@ from .crewai import (
   crewai_flow_messages_to_copilotkit,
   _crewai_flow_thread_runner
 )
+import traceback
 
 class CopilotKitConfig(TypedDict):
     """
@@ -182,6 +183,7 @@ class CrewAIAgent(Agent):
             flow=flow
         )
 
+
         # Create a local queue to receive events
         local_queue = queue.Queue()
 
@@ -275,41 +277,47 @@ def crewai_flow_default_merge_state( # pylint: disable=unused-argument, too-many
         }
     }
 
-    # ensure to only merge supported keys
-    supported_keys = []
-
-    if flow.initial_state is None and hasattr(flow, "_initial_state_T"):
-        state_type = getattr(flow, "_initial_state_T")
-        if isinstance(state_type, type):
-            if state_type is dict: 
-                # all keys are supported, return as is
-                return new_state
-
-            supported_keys = [
-                attr for attr in dir(state_type)
-                if not callable(getattr(state_type, attr))
-                and not attr.startswith("__")
-            ]
-    elif flow.initial_state is None:
-        # no initial state, return as is
-        return new_state
-    else:
-        if isinstance(flow.initial_state, dict):
-            # all keys are supported, return as is
-            return new_state
-
-        supported_keys = [
-            attr for attr in dir(flow.initial_state)
-            if not callable(getattr(flow.initial_state, attr))
-            and not attr.startswith("__")
-        ]
-
-    # remove all unsupported keys
-    for key in list(new_state.keys()):
-        if key not in supported_keys:
-            del new_state[key]
-
     return new_state
+
+    # NOT SURE IF THIS IS NEEDED, COMMENTING IT FOR NOW
+    # ensure to only merge supported keys
+    # supported_keys = []
+
+
+    # if flow.initial_state is None and hasattr(flow, "_initial_state_T"):
+    #     state_type = getattr(flow, "_initial_state_T")
+    #     if isinstance(state_type, type):
+    #         if state_type is dict:
+    #             # all keys are supported, return as is
+    #             return new_state
+
+    #         supported_keys = [
+    #             attr for attr in dir(state_type)
+    #             if not callable(getattr(state_type, attr))
+    #             and not attr.startswith("__")
+    #         ]
+    #     else:
+    #         return new_state
+    # elif flow.initial_state is None:
+    #     # no initial state, return as is
+    #     return new_state
+    # else:
+    #     if isinstance(flow.initial_state, dict):
+    #         # all keys are supported, return as is
+    #         return new_state
+
+    #     supported_keys = [
+    #         attr for attr in dir(flow.initial_state)
+    #         if not callable(getattr(flow.initial_state, attr))
+    #         and not attr.startswith("__")
+    #     ]
+
+    # # remove all unsupported keys
+    # for key in list(new_state.keys()):
+    #     if key not in supported_keys:
+    #         del new_state[key]
+
+    # return new_state
 
 def filter_state(state: Dict[str, Any], exclude_keys: Optional[List[str]] = None) -> Dict[str, Any]:
     """Filter out messages and id from the state"""
@@ -418,7 +426,18 @@ def handle_crewai_flow_event(
 
     if event_data["type"] == CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_ERROR:
         print("Flow execution error", flush=True)
-        print(event_data["error"], flush=True)
+        
+        # Check if event_data["error"] is a string or an exception object
+        error_info = event_data["error"]
+        
+        if isinstance(error_info, Exception):
+            # If it's an exception, print the traceback
+            print("Exception occurred:", flush=True)
+            print(''.join(traceback.format_exception(None, error_info, error_info.__traceback__)), flush=True)
+        else:
+            # Otherwise, assume it's a string and print it
+            print(error_info, flush=True)
+        
         execution_state["is_finished"] = True
         return None
 

@@ -2,6 +2,7 @@
 Tools
 """
 import os
+import json
 from typing_extensions import Dict, Any, List, cast
 from tavily import TavilyClient
 from copilotkit.crewai import copilotkit_emit_state
@@ -19,33 +20,37 @@ async def perform_tool_calls(state: Dict[str, Any]):
         return False
     message = state["messages"][-1]
 
-    if not message["tool_calls"]:
+    if not message.get("tool_calls"):
         return False
 
     tool_call = message["tool_calls"][0]
+    tool_call_id = tool_call["id"]
+    tool_call_name = tool_call["function"]["name"]
+    tool_call_args = json.loads(tool_call["function"]["arguments"])
 
-    if tool_call["name"] in HITL_TOOLS:
+    if tool_call_name in HITL_TOOLS:
         return False
 
-    if tool_call["name"] == "Search":
-        queries = tool_call["arguments"].get("queries", [])
-        await perform_search(state, queries, tool_call["id"])
+    if tool_call_name == "Search":
+        queries = tool_call_args.get("queries", [])
+        await perform_search(state, queries, tool_call_id)
 
-    elif tool_call["name"] == "WriteReport":
-        state["report"] = tool_call["arguments"].get("report", "")
+    elif tool_call_name == "WriteReport":
+        state["report"] = tool_call_args.get("report", "")
         state["messages"].append({
             "role": "tool",
             "content": "Report written.",
-            "tool_call_id": tool_call["id"]
+            "tool_call_id": tool_call_id
         })
 
-    elif tool_call["name"] == "WriteResearchQuestion":
-        state["research_question"] = tool_call["arguments"].get("research_question", "")
+    elif tool_call_name == "WriteResearchQuestion":
+        state["research_question"] = tool_call_args.get("research_question", "")
         state["messages"].append({
             "role": "tool",
             "content": "Research question written.",
-            "tool_call_id": tool_call["id"]
+            "tool_call_id": tool_call_id
         })
+
     return True
 
 async def perform_search(state: Dict[str, Any], queries: List[str], tool_call_id: str):
@@ -70,7 +75,7 @@ async def perform_search(state: Dict[str, Any], queries: List[str], tool_call_id
         search_results.append(response)
         state["logs"][i]["done"] = True
         await copilotkit_emit_state(state)
-    
+
     response = completion(
             model="openai/gpt-4o",
             messages=[
@@ -86,7 +91,7 @@ async def perform_search(state: Dict[str, Any], queries: List[str], tool_call_id
                 }
             ],
             tools=[EXTRACT_RESOURCES_TOOL],
-            tool_choice="ExtractResources",
+            tool_choice="required",
             parallel_tool_calls=False
         )
 
@@ -94,7 +99,7 @@ async def perform_search(state: Dict[str, Any], queries: List[str], tool_call_id
     await copilotkit_emit_state(state)
 
     message = cast(Any, response).choices[0]["message"]
-    resources = message["tool_calls"][0]["args"]["resources"]
+    resources = json.loads(message["tool_calls"][0]["function"]["arguments"])["resources"]
 
     state["resources"].extend(resources)
 
@@ -111,27 +116,32 @@ EXTRACT_RESOURCES_TOOL = {
         "description": "Extract the 3-5 most relevant resources from a search result.",
         "parameters": {
             "type": "object",
-            "resources": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "url": {
-                        "type": "string",
-                        "description": "The URL of the resource"
+            "properties": {
+                "resources": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "url": {
+                                "type": "string",
+                                "description": "The URL of the resource"
+                            },
+                            "title": {
+                                "type": "string",
+                                "description": "The title of the resource"
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "A short description of the resource"
+                            }
+                        },
+                        "required": ["url", "title", "description"]
                     },
-                    "title": {
-                        "type": "string",
-                        "description": "The title of the resource"
-                    },
-                    "description": {
-                        "type": "string",
-                        "description": "A short description of the resource"
-                    }
+                    "description": "The list of resources"
                 },
-                "description": "The list of resources"
             },
+            "required": ["resources"]
         },
-        "required": ["resources"],
     },
 }
 
@@ -143,15 +153,17 @@ SEARCH_TOOL = {
         "description": "Provide a list of one or more search queries to find good resources for the research.",
         "parameters": {
             "type": "object",
-            "queries": {
-                "type": "array",
-                "items": {
-                    "type": "string"
+            "properties": {
+                "queries": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "The list of search queries",
                 },
-                "description": "The list of search queries",
             },
+            "required": ["queries"],
         },
-        "required": ["queries"],
     },
 }
 
@@ -161,8 +173,14 @@ WRITE_REPORT_TOOL = {
         "name": "WriteReport",
         "description": "Write the research report.",
         "parameters": {
-            "type": "string",
-            "report": "The research report.",
+            "type": "object",
+            "properties": {
+                "report": {
+                    "type": "string",
+                    "description": "The research report.",
+                },
+            },
+            "required": ["report"],
         },
     },
 }
@@ -173,8 +191,14 @@ WRITE_RESEARCH_QUESTION_TOOL = {
         "name": "WriteResearchQuestion",
         "description": "Write the research question.",
         "parameters": {
-            "type": "string",
-            "research_question": "The research question.",
+            "type": "object",
+            "properties": {
+                "research_question": {
+                    "type": "string",
+                    "description": "The research question.",
+                },
+            },
+            "required": ["research_question"],
         },
     },
 }
@@ -185,8 +209,17 @@ DELETE_RESOURCES_TOOL = {
         "name": "DeleteResources",
         "description": "Delete the URLs from the resources.",
         "parameters": {
-            "type": "array",
-            "urls": "The URLs to delete.",
+            "type": "object",
+            "properties": {
+                "urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "The URLs to delete.",
+                },
+            },
+            "required": ["urls"],
         },
     },
 }

@@ -9,7 +9,6 @@ from research_canvas.crewai.delete import maybe_perform_delete
 from research_canvas.crewai.prompt import format_prompt
 from research_canvas.crewai.tools import (
     SEARCH_TOOL,
-    EXTRACT_RESOURCES_TOOL,
     WRITE_REPORT_TOOL,
     WRITE_RESEARCH_QUESTION_TOOL,
     DELETE_RESOURCES_TOOL,
@@ -21,11 +20,12 @@ class ResearchCanvasFlow(Flow[Dict[str, Any]]):
     """
 
     @start()
-    @listen("follow_up")
+    @listen("route_follow_up")
     async def start(self):
         """
         Download any pending assets that are needed for the research.
         """
+        print("start (node)")
         self.state["resources"] = self.state.get("resources", [])
         self.state["research_question"] = self.state.get("research_question", "")
         self.state["report"] = self.state.get("report", "")
@@ -35,6 +35,7 @@ class ResearchCanvasFlow(Flow[Dict[str, Any]]):
         # If the user requested deletion, perform it
         maybe_perform_delete(self.state)
 
+        print("start (node) end")
 
     @router(start)
     async def chat(self):
@@ -56,11 +57,11 @@ class ResearchCanvasFlow(Flow[Dict[str, Any]]):
             ],
             tools=[
                 SEARCH_TOOL,
-                EXTRACT_RESOURCES_TOOL,
                 WRITE_REPORT_TOOL,
                 WRITE_RESEARCH_QUESTION_TOOL,
                 DELETE_RESOURCES_TOOL
             ],
+
             parallel_tool_calls=False
         )
         message = cast(Any, response).choices[0]["message"]
@@ -69,13 +70,11 @@ class ResearchCanvasFlow(Flow[Dict[str, Any]]):
 
         follow_up = await perform_tool_calls(self.state)
 
-        if follow_up:
-            return "follow_up"
+        return "route_follow_up" if follow_up else "route_end"
 
-        return "end"
-
-    @listen("end")
+    @listen("route_end")
     async def end(self):
         """
         End the flow.
         """
+        print("end (node)")
