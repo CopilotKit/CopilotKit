@@ -304,6 +304,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
       let messages: Message[] = [];
       let syncedMessages: Message[] = [];
+      let pendingActions: { [key: string]: Message } = {};
+      let pendingResults: { [key: string]: Message } = {};
 
       try {
         while (true) {
@@ -367,21 +369,17 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
           // add messages to the chat
           else {
-            newMessages = [...messages];
-
             for (const message of messages) {
-              // execute onCoAgentStateRender handler
+              // Handle agent state messages
               if (
                 message.isAgentStateMessage() &&
                 !message.active &&
                 !executedCoAgentStateRenders.includes(message.id) &&
                 onCoAgentStateRender
               ) {
-                // Do not execute a coagent action if guardrails are enabled but the status is not known
                 if (guardrailsEnabled && value.generateCopilotResponse.status === undefined) {
                   break;
                 }
-                // execute coagent action
                 await onCoAgentStateRender({
                   name: message.agentName,
                   nodeName: message.nodeName,
@@ -389,7 +387,23 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 });
                 executedCoAgentStateRenders.push(message.id);
               }
+
+              // Track action executions and results
+              if (message.isActionExecutionMessage()) {
+                pendingActions[message.id] = message;
+                delete pendingResults[message.id]; // Clear any existing results
+              } else if (message.isResultMessage()) {
+                pendingResults[message.actionExecutionId] = message;
+                delete pendingActions[message.actionExecutionId];
+              }
             }
+
+            // Construct new messages array with proper ordering
+            newMessages = [
+              ...Object.values(pendingActions),
+              ...Object.values(pendingResults),
+              ...messages.filter((m) => !m.isActionExecutionMessage() && !m.isResultMessage()),
+            ];
 
             const lastAgentStateMessage = [...messages]
               .reverse()
@@ -437,7 +451,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           }
 
           if (newMessages.length > 0) {
-            // Update message state
             setMessages([...previousMessages, ...newMessages]);
           }
         }
