@@ -4,7 +4,7 @@ This is the main entry point for the CrewAI agent.
 from typing_extensions import Dict, Any, cast
 from crewai.flow.flow import Flow, start, router, listen
 from litellm import completion
-from copilotkit.crewai import copilotkit_stream
+from copilotkit.crewai import copilotkit_stream, copilotkit_predict_state
 from research_canvas.crewai.download import download_resources, get_resources
 from research_canvas.crewai.delete import maybe_perform_delete
 from research_canvas.crewai.prompt import format_prompt
@@ -49,6 +49,19 @@ class ResearchCanvasFlow(Flow[Dict[str, Any]]):
             self.state["research_question"],
             self.state["report"],
             resources
+        )
+
+        await copilotkit_predict_state(
+          {
+            "report": {
+              "tool_name": "WriteReport",
+              "tool_argument": "report",
+            },
+            "research_question": {
+              "tool_name": "WriteResearchQuestion",
+              "tool_argument": "research_question",
+            },
+          }
         )
 
         response = copilotkit_stream(

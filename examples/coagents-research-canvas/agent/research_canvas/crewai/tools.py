@@ -5,7 +5,7 @@ import os
 import json
 from typing_extensions import Dict, Any, List, cast
 from tavily import TavilyClient
-from copilotkit.crewai import copilotkit_emit_state
+from copilotkit.crewai import copilotkit_emit_state, copilotkit_predict_state, copilotkit_stream
 from litellm import completion
 
 HITL_TOOLS = ["DeleteResources"]
@@ -76,7 +76,17 @@ async def perform_search(state: Dict[str, Any], queries: List[str], tool_call_id
         state["logs"][i]["done"] = True
         await copilotkit_emit_state(state)
 
-    response = completion(
+    await copilotkit_predict_state(
+        {
+            "resources": {
+                "tool_name": "ExtractResources",
+                "tool_argument": "resources",
+            },
+        }
+    )
+
+    response = copilotkit_stream(
+        completion(
             model="openai/gpt-4o",
             messages=[
                 {
@@ -92,8 +102,10 @@ async def perform_search(state: Dict[str, Any], queries: List[str], tool_call_id
             ],
             tools=[EXTRACT_RESOURCES_TOOL],
             tool_choice="required",
-            parallel_tool_calls=False
+            parallel_tool_calls=False,
+            stream=True
         )
+    )
 
     state["logs"] = []
     await copilotkit_emit_state(state)

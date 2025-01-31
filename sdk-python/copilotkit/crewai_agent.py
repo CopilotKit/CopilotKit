@@ -7,10 +7,12 @@ import json
 import queue
 import threading
 import asyncio
+import traceback
 from copy import deepcopy
 from typing import Optional, List, Callable, Type
 from typing_extensions import TypedDict, NotRequired, Any, Dict
 from crewai import Crew, Flow
+from partialjson.json_parser import JSONParser as PartialJSONParser
 from .agent import Agent
 from .types import Message
 from .action import ActionDict
@@ -23,8 +25,7 @@ from .protocol import (
   action_execution_args,
   action_execution_end,
   agent_state_message,
-  meta_event,
-  RuntimeMetaEventName
+  AgentStateMessage
 )
 from .crewai import (
   copilotkit_message_to_crewai_crew,
@@ -33,7 +34,6 @@ from .crewai import (
   crewai_flow_messages_to_copilotkit,
   _crewai_flow_thread_runner
 )
-import traceback
 
 class CopilotKitConfig(TypedDict):
     """
@@ -48,6 +48,10 @@ class CrewAIFlowExecutionState(TypedDict):
     should_exit: bool
     node_name: str
     is_finished: bool
+    predict_state_configuration: Dict[str, Any]
+    predicted_state: Dict[str, Any]
+    argument_buffer: str
+    current_tool_call: Optional[str]
 
 class CrewAIAgent(Agent):
     """Agent class for CopilotKit"""
@@ -168,7 +172,11 @@ class CrewAIAgent(Agent):
         execution_state: CrewAIFlowExecutionState = {
             "should_exit": False,
             "node_name": "start",
-            "is_finished": False
+            "is_finished": False,
+            "predict_state_configuration": {},
+            "predicted_state": {},
+            "argument_buffer": "",
+            "current_tool_call": None
         }
 
         merge_state = self.copilotkit_config.get("merge_state", crewai_flow_default_merge_state)
@@ -373,17 +381,22 @@ def handle_crewai_flow_event(
     if event_data["type"] == CopilotKitCrewAIFlowEventType.EXIT:
         execution_state["should_exit"] = True
         return None
+
     if event_data["type"] == CopilotKitCrewAIFlowEventType.PREDICT_STATE:
-        return emit_runtime_events(
-            meta_event(
-                name=RuntimeMetaEventName.PREDICT_STATE_EVENT,
-                value={
-                    "key": event_data["key"],
-                    "tool_name": event_data["tool_name"],
-                    "tool_argument": event_data.get("tool_argument", None)
-                }
-            )
-        )
+        execution_state["predict_state_configuration"] = event_data["config"]
+        return None
+
+        # Later we will us this to let the frontend handle predicting state
+        # return emit_runtime_events(
+        #     meta_event(
+        #         name=RuntimeMetaEventName.PREDICT_STATE_EVENT,
+        #         value={
+        #             "key": event_data["key"],
+        #             "tool_name": event_data["tool_name"],
+        #             "tool_argument": event_data.get("tool_argument", None)
+        #         }
+        #     )
+        # )
     if event_data["type"] == CopilotKitCrewAIFlowEventType.METHOD_EXECUTION_STARTED:
         execution_state["node_name"] = event_data["name"]
         state = {k: v for k, v in state.items() if k != "messages"}
@@ -401,6 +414,13 @@ def handle_crewai_flow_event(
             )
         )
     if event_data["type"] == CopilotKitCrewAIFlowEventType.METHOD_EXECUTION_FINISHED:
+
+        # reset the predict state configuration at the end of the method execution
+        execution_state["predict_state_configuration"] = {}
+        execution_state["current_tool_call"] = None
+        execution_state["argument_buffer"] = ""
+        execution_state["predicted_state"] = {}
+
         state = {k: v for k, v in state.items() if k != "messages"}
 
         return emit_runtime_events(
@@ -463,21 +483,44 @@ def handle_crewai_flow_event(
         )
 
     if event_data["type"] == CopilotKitCrewAIFlowEventType.ACTION_EXECUTION_START:
-        return emit_runtime_events(
+        events: List[Any] = [
             action_execution_start(
                 action_execution_id=event_data["action_execution_id"],
                 action_name=event_data["action_name"],
                 parent_message_id=event_data.get("parent_message_id", None)
             )
+        ]
+        predicted_state_message = predict_state(
+            thread_id=thread_id,
+            agent_name=agent_name,
+            run_id=run_id,
+            event_data=event_data,
+            execution_state=execution_state,
+            state=state
         )
+        if predicted_state_message is not None:
+            events.append(predicted_state_message)
+        return emit_runtime_events(*events)
 
     if event_data["type"] == CopilotKitCrewAIFlowEventType.ACTION_EXECUTION_ARGS:
-        return emit_runtime_events(
+        events: List[Any] = [
             action_execution_args(
                 action_execution_id=event_data["action_execution_id"],
                 args=event_data["args"]
             )
+        ]
+        predicted_state_message = predict_state(
+            thread_id=thread_id,
+            agent_name=agent_name,
+            run_id=run_id,
+            event_data=event_data,
+            execution_state=execution_state,
+            state=state
         )
+        if predicted_state_message is not None:
+            events.append(predicted_state_message)
+
+        return emit_runtime_events(*events)
 
     if event_data["type"] == CopilotKitCrewAIFlowEventType.ACTION_EXECUTION_END:
         return emit_runtime_events(
@@ -485,3 +528,75 @@ def handle_crewai_flow_event(
         )
 
     raise ValueError(f"Unknown event type: {event_data['type']}")
+
+
+def predict_state(
+        *,
+        thread_id: str,
+        agent_name: str,
+        run_id: str,
+        event_data: Any,
+        execution_state: CrewAIFlowExecutionState,
+        state: Dict[str, Any]
+) -> Optional[AgentStateMessage]:
+    """Predict the state"""
+    print(f"Predicting state for thread_id: {thread_id}, agent_name: {agent_name}, run_id: {run_id}", flush=True)
+    print(f"Event data received: {event_data}", flush=True)
+    
+    if event_data["type"] == CopilotKitCrewAIFlowEventType.ACTION_EXECUTION_START:
+        execution_state["current_tool_call"] = event_data["action_name"]
+        execution_state["argument_buffer"] = ""
+        print(f"Action execution started: {event_data['action_name']}", flush=True)
+    elif event_data["type"] == CopilotKitCrewAIFlowEventType.ACTION_EXECUTION_ARGS:
+        execution_state["argument_buffer"] += event_data["args"]
+        print(f"Action execution arguments received: {event_data['args']}", flush=True)
+
+        tool_names = [
+            config.get("tool_name")
+            for config in execution_state["predict_state_configuration"].values()
+        ]
+        print(f"Configured tool names: {tool_names}", flush=True)
+
+        if execution_state["current_tool_call"] not in tool_names:
+            print(f"Current tool call {execution_state['current_tool_call']} not in configured tool names {tool_names}, returning None", flush=True)
+            return None
+
+        current_arguments = {}
+        try:
+            print(f"Parsing arguments: '{execution_state['argument_buffer']}'", flush=True)
+            current_arguments = PartialJSONParser().parse(execution_state["argument_buffer"])
+            print(f"Parsed current arguments: {current_arguments}", flush=True)
+        except Exception as e:  # pylint: disable=broad-except
+            print(f"Error parsing arguments: {e}", flush=True)
+            return None
+
+        emit_update = False
+        for k, v in execution_state["predict_state_configuration"].items():
+            if v["tool_name"] == execution_state["current_tool_call"]:
+                tool_argument = v.get("tool_argument")
+                if tool_argument is not None:
+                    argument_value = current_arguments.get(tool_argument)
+                    if argument_value is not None:
+                        execution_state["predicted_state"][k] = argument_value
+                        emit_update = True
+                        print(f"Updated predicted state for key {k} with argument value {argument_value}", flush=True)
+                else:
+                    execution_state["predicted_state"][k] = current_arguments
+                    emit_update = True
+                    print(f"Updated predicted state for key {k} with current arguments {current_arguments}", flush=True)
+
+        if emit_update:
+            print("Emitting updated state", flush=True)
+            return agent_state_message(
+                thread_id=thread_id,
+                agent_name=agent_name,
+                node_name=execution_state["node_name"],
+                run_id=run_id,
+                active=True,
+                role="assistant",
+                state=json.dumps(filter_state({**state, **execution_state["predicted_state"]})),
+                running=True
+            )
+
+        print("No updates to emit, returning None", flush=True)
+        return None

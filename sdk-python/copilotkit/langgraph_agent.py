@@ -209,7 +209,7 @@ class LangGraphAgent(Agent):
             "running": running,
             "role": "assistant"
         })
-    
+
     def execute( # pylint: disable=too-many-arguments            
         self,
         *,

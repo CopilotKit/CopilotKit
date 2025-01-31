@@ -10,9 +10,9 @@ from enum import Enum
 from typing_extensions import TypedDict, Any, Dict, Optional, List, Literal
 from pydantic import BaseModel
 from litellm.types.utils import (
-  ModelResponse, 
-  Choices, 
-  Message as LiteLLMMessage, 
+  ModelResponse,
+  Choices,
+  Message as LiteLLMMessage,
   ChatCompletionMessageToolCall,
   Function as LiteLLMFunction
 )
@@ -96,6 +96,14 @@ def _get_crewai_flow_event_queue() -> queue.Queue:
         raise RuntimeError("No thread-local flow event queue is set in this thread!")
     return q
 
+
+class CopilotKitPredictStateConfig(TypedDict):
+    """
+    CopilotKit Predict State Config
+    """
+    tool_name: str
+    tool_argument: Optional[str]
+
 class CopilotKitCrewAIFlowEventType(Enum):
     """
     CopilotKit CrewAI Flow Event Type
@@ -159,9 +167,7 @@ class CopilotKitCrewAIFlowEventPredictState(TypedDict):
     CopilotKit CrewAI Flow Event Predict State
     """
     type: Literal[CopilotKitCrewAIFlowEventType.PREDICT_STATE]
-    key: str
-    tool_name: str
-    tool_argument: Optional[str]
+    config: Dict[str, CopilotKitPredictStateConfig]
 
 class CopilotKitCrewAIFlowExecutionStarted(TypedDict):
     """
@@ -297,7 +303,6 @@ def copilotkit_stream(response):
     Stream a synchronous response to CopilotKit.
     """
     if isinstance(response, ModelResponse):
-        print(response, flush=True)
         return _copilotkit_stream_response(response)
     if isinstance(response, CustomStreamWrapper):
         return _copilotkit_stream_custom_stream_wrapper(response)
@@ -435,20 +440,16 @@ async def copilotkit_exit() -> Literal[True]:
     ))
     return True
 
+
 async def copilotkit_predict_state(
-        *,
-        key: str,
-        tool_name: str,
-        tool_argument: Optional[str] = None
+        config: Dict[str, CopilotKitPredictStateConfig]
     ) -> Literal[True]:
     """
     Predict the next state
     """
     _get_crewai_flow_event_queue().put(CopilotKitCrewAIFlowEventPredictState(
         type=CopilotKitCrewAIFlowEventType.PREDICT_STATE,
-        key=key,
-        tool_name=tool_name,
-        tool_argument=tool_argument
+        config=config
     ))
     return True
 
