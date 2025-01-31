@@ -18,10 +18,10 @@ export default function RootLayout({
           showDevConsole={false}
         >
           <GlobalStateProvider>
-            <div className="h-screen w-screen grid 2xl:grid-cols-3 grid-cols-2 p-10 gap-5 bg-gradient-to-b from-blue-100 via-purple-200 to-blue-100">
-              <div className="col-span-1 overflow-y-auto">{children}</div>
-              <div className="2xl:col-span-2 col-span-1 flex justify-center items-center overflow-y-auto">
-                <CarSalesChat />
+            <div className="h-screen w-screen grid grid-cols-[35fr,65fr] p-10 gap-5 bg-gradient-to-b from-blue-100 via-purple-200 to-blue-100">
+              <div className="overflow-y-auto">{children}</div>
+              <div className="flex justify-center items-center overflow-y-auto">
+                <CarSalesChat className="w-[95%]" />
               </div>
             </div>
           </GlobalStateProvider>
