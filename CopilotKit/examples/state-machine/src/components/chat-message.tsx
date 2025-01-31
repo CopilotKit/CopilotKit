@@ -23,6 +23,7 @@ export function UserMessage({ message, rawData }: UserMessageProps) {
 }
 
 export function AssistantMessage({ message, subComponent, isLoading }: AssistantMessageProps) {
+  if (!message) return null;
   return (
     <div className="flex items-start gap-4 px-6 py-4">
       {/* Avatar */}
