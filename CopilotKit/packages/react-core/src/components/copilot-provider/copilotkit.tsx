@@ -84,6 +84,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   const [chatInstructions, setChatInstructions] = useState("");
   const [authStates, setAuthStates] = useState<Record<string, AuthState>>({});
   const [extensions, setExtensions] = useState<ExtensionsInput>({});
+  const lastLoadedAvailableAgents = useRef<string | undefined>();
 
   const {
     addElement: addDocument,
@@ -293,13 +294,17 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     },
     [],
   );
+  const hasLoadedAgents = useRef(false);
 
   useEffect(() => {
+    if (hasLoadedAgents.current) return;
+
     const fetchData = async () => {
       const result = await runtimeClient.availableAgents();
       if (result.data?.availableAgents) {
         setAvailableAgents(result.data.availableAgents.agents);
       }
+      hasLoadedAgents.current = true;
     };
     void fetchData();
   }, []);
