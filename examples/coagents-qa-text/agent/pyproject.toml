@@ -9,13 +9,14 @@ license = "MIT"
 name = "greeting_agent"
 version = "0.0.1"
 dependencies = [
-  "langgraph==0.2.52",
+  "langgraph",
   "langchain_core",
   "langchain_openai",
   "langchain-google-genai",
   "langchain",
   "openai",
   "langchain-community",
+  "copilotkit==0.1.34"
 ]
 
 [build-system]

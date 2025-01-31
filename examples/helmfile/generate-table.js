@@ -36,7 +36,14 @@ const tableRows = [];
 
 for (const release of releaseList) {
   const releaseName = release.name;
-  const deployments = getReleaseDeployments(releaseName);
+
+  let deployments = [];
+
+  try {
+    deployments = getReleaseDeployments(releaseName);
+  } catch (error) {
+    continue;
+  }
 
   const row = {
     name: releaseName,

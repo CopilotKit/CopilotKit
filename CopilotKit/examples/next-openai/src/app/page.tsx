@@ -15,7 +15,7 @@ export default function WaterBnb() {
   const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
     runtimeUrl,
     publicApiKey: publicApiKey || undefined,
-    showDevConsole: true,
+    showDevConsole: false,
   };
 
   return (

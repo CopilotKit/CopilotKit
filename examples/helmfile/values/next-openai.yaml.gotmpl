@@ -5,6 +5,7 @@ app:
 
 deployments:
   - name: next-openai
+    type: ui
     image:
       repository: "058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:next-openai"
       tag: "{{ .Values.globalImageTag }}"
