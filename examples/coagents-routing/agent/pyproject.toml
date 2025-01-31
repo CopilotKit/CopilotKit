@@ -8,7 +8,20 @@ license = "MIT"
 [project]
 name = "my_agent"
 version = "0.0.1"
-
+dependencies = [
+    "langgraph",
+    "langchain-openai",
+    "langchain-anthropic",
+    "langchain",
+    "openai",
+    "langchain-community",
+    "copilotkit==0.1.34",
+    "uvicorn",
+    "python-dotenv",
+    "langchain-google-genai",
+    "langchain-core",
+    "langgraph-cli[inmem]==0.1.64"
+]
 
 [build-system]
 requires = ["setuptools >= 61.0"]
