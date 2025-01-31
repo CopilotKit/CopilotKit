@@ -93,6 +93,7 @@ jobs:
           pnpm playwright test
           echo "::set-output name=exit_code::$?"
         env:
+          CI: true
           GITHUB_SHA: ${{ github.sha }}
           COPILOT_CLOUD_PROD_RUNTIME_URL: "https://api.cloud.copilotkit.ai/copilotkit/v1"
           COPILOT_CLOUD_PROD_PUBLIC_API_KEY: ${{ secrets.COPILOT_CLOUD_PROD_PUBLIC_API_KEY }}
