@@ -9,7 +9,6 @@ RUN pnpm i -g turbo
 # Production Stage 
 FROM base AS production
 ARG APP_DIR="CopilotKit/examples/next-openai"
-COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/lambda-adapter
 
 WORKDIR /app/CopilotKit
 COPY CopilotKit/package.json CopilotKit/pnpm-lock.yaml CopilotKit/pnpm-workspace.yaml ./

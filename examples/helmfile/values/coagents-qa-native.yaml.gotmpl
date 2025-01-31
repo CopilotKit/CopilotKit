@@ -55,10 +55,10 @@ deployments:
       tag: "{{ .Values.globalImageTag }}"
     port: 8000
     livenessProbe:
-      exec:
-        command: ["/bin/sh", "-c", "curl -L 'http://localhost:8000/assistants/search' -H 'Content-Type: application/json' -d '{}'"]
-      initialDelaySeconds: 15
-    command: ["/bin/sh", "-c","langgraph dev --no-browser --port=8000 --config=langgraph.json --host=0.0.0.0"]
+      httpGet:
+        path: "/store/items?key=test&namespace=test"
+        port: http
+    command: ["/bin/sh", "-c","langgraph dev --no-browser --port=8000 --config=langgraph.json --host=0.0.0.0 --n-jobs-per-worker 1"]
     config:
       secretsJson: {{ fetchSecretValue "ref+awssecrets://demos/coagents-research-canvas/agent/secrets" }}
       env:
@@ -77,9 +77,9 @@ deployments:
       tag: "{{ .Values.globalImageTag }}"
     port: 8000
     livenessProbe:
-      exec:
-        command: ["/bin/sh", "-c", "curl -L 'http://localhost:8000/assistants/search' -H 'Content-Type: application/json' -d '{}'"]
-      initialDelaySeconds: 15
+      httpGet:
+        path: "/store/items?key=test&namespace=test"
+        port: http
     config:
       secretsJson: {{ fetchSecretValue "ref+awssecrets://demos/coagents-research-canvas/agent/secrets" }}
       env:

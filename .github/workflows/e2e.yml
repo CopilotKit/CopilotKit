@@ -73,6 +73,19 @@ jobs:
           message: |
             Running tests for commit ${{ inputs.sha }}...
 
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Configure AWS Profile
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
+          aws configure set region us-east-1
+
       - name: Run Tests
         id: run_tests
         working-directory: ./examples/e2e
@@ -80,11 +93,15 @@ jobs:
           pnpm playwright test
           echo "::set-output name=exit_code::$?"
         env:
+          CI: true
           GITHUB_SHA: ${{ github.sha }}
           COPILOT_CLOUD_PROD_RUNTIME_URL: "https://api.cloud.copilotkit.ai/copilotkit/v1"
           COPILOT_CLOUD_PROD_PUBLIC_API_KEY: ${{ secrets.COPILOT_CLOUD_PROD_PUBLIC_API_KEY }}
           COPILOT_CLOUD_STAGING_RUNTIME_URL: "https://api.cloud.stagingcopilotkit.ai/copilotkit/v1"
           COPILOT_CLOUD_STAGING_PUBLIC_API_KEY: ${{ secrets.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_ACTIONS_RUN_ID: ${{ github.run_id }}
 
       - name: Comment post-deployment
         if: always()

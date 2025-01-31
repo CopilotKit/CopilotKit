@@ -10,6 +10,7 @@ import fs from "fs";
 import path from "path";
 import json2md from "json2md";
 import { ConfigMap, getConfigs } from "../lib/config-helper";
+import { uploadVideos, VideoToUpload } from "../lib/upload-video";
 
 // Define custom types
 type MarkdownContent = {
@@ -34,6 +35,8 @@ type TableInput = {
   headers: string[];
   rows: string[][];
 };
+
+const videosToUpload: VideoToUpload[] = [];
 
 // Add custom converter for aligned tables
 (json2md as any).converters.tableWithAlignment = function (input: TableInput) {
@@ -74,6 +77,7 @@ export default class StructuredReporter implements Reporter {
                 title: string;
                 file: string;
                 line: number;
+                videoPath?: string;
               }
             >;
           };
@@ -155,7 +159,7 @@ export default class StructuredReporter implements Reporter {
     });
   }
 
-  onTestEnd(test: TestCase, result: TestResult) {
+  async onTestEnd(test: TestCase, result: TestResult) {
     const testInfo = this.getTestInfo(test);
     if (!testInfo) return;
 
@@ -182,6 +186,24 @@ export default class StructuredReporter implements Reporter {
       const hadFailures = testCase.results.some(
         (r) => r.status === "failed" || r.status === "timedOut"
       );
+
+      // Add video logging here
+      if (lastResult.status === "failed" || lastResult.status === "timedOut") {
+        const videoAttachment = lastResult.attachments.find(
+          (a) => a.name === "video"
+        );
+        if (videoAttachment?.path) {
+          const split = videoAttachment.path.split("/");
+          const fileName = split[split.length - 2] + ".webm";
+          const objectPath = `github-runs/${process.env.GITHUB_ACTIONS_RUN_ID}/${projectName}/${fileName}`;
+          const videoUrl = `https://us-east-1.console.aws.amazon.com/s3/object/copilotkit-e2e-test-recordings?region=us-east-1&bucketType=general&prefix=${objectPath}`;
+          testCase.videoPath = videoUrl;
+          videosToUpload.push({
+            s3ObjectPath: objectPath,
+            videoPath: videoAttachment.path,
+          });
+        }
+      }
 
       if (lastResult.status === "skipped") {
         stats.skipped++;
@@ -331,7 +353,7 @@ export default class StructuredReporter implements Reporter {
     return "No error message available";
   }
 
-  onEnd(result: FullResult) {
+  async onEnd(result: FullResult) {
     const stats = this.calculateSummaryStats();
     const actionRunUrl = this.getGitHubActionRunUrl();
 
@@ -383,14 +405,20 @@ export default class StructuredReporter implements Reporter {
             { h4: description.replace(" Dependencies", "") },
             {
               tableWithAlignment: {
-                headers: ["Model", "Browser", "Status"], // Removed Details column
+                headers: ["Model", "Browser", "Status", "Video"],
                 rows: Object.entries(variants).flatMap(([variant, browsers]) =>
                   Object.entries(browsers).map(([browser, stats]) => {
                     let status = "✅ PASSED";
                     if (stats.failed > 0) status = "❌ FAILED";
                     else if (stats.flaky > 0) status = "⚠️ FLAKY";
 
-                    return [variant, browser, status];
+                    // Collect video URLs from failed tests
+                    const videoLinks = Array.from(stats.testCases.values())
+                      .filter(tc => tc.videoPath)
+                      .map(tc => `[Video](${tc.videoPath})`)
+                      .join(", ");
+
+                    return [variant, browser, status, videoLinks || "-"];
                   })
                 ),
               },
@@ -406,6 +434,7 @@ export default class StructuredReporter implements Reporter {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
+    await uploadVideos(videosToUpload);
     fs.writeFileSync(this.outputFile, json2md(mdContent as any), "utf8");
   }
 
