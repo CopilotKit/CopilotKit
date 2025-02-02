@@ -13,7 +13,7 @@ body:
     id: reproduction
     attributes:
       label: ♻️ Reproduction Steps
-      description: Explain how to reproduce the the bug
+      description: Explain how to reproduce the bug
       value: |
         1.
         2.

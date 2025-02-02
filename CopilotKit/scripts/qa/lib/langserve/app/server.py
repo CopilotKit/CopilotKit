@@ -84,7 +84,7 @@ agent = (
     | llm_with_tools
     | OpenAIFunctionsAgentOutputParser()
 )
-agent_executor = AgentExecutor(agent=agent, tools=tools)
+agent_executor = AgentExecutor(graph=agent, tools=tools)
 
 class Input(BaseModel):
     input: str

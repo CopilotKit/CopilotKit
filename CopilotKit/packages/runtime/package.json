@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.1.0",
+  "version": "1.5.15-next.3",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -24,7 +24,9 @@
     "test": "jest --passWithNoTests",
     "check-types": "tsc --noEmit",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next && rm -rf __snapshots__",
-    "generate-graphql-schema": "rm -rf __snapshots__ && ts-node ./scripts/generate-gql-schema.ts"
+    "generate-graphql-schema": "rm -rf __snapshots__ && ts-node ./scripts/generate-gql-schema.ts",
+    "link:global": "pnpm link --global",
+    "unlink:global": "pnpm unlink --global"
   },
   "devDependencies": {
     "@swc/core": "1.5.28",
@@ -40,14 +42,17 @@
     "ts-node": "^10.9.2",
     "tsconfig": "workspace:*",
     "tsup": "^6.7.0",
-    "typescript": "^5.2.3"
+    "typescript": "^5.2.3",
+    "zod-to-json-schema": "^3.23.5"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.27.3",
     "@copilotkit/shared": "workspace:*",
-    "@google/generative-ai": "^0.11.2",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
     "@langchain/community": "^0.0.53",
-    "@langchain/core": "^0.1.61",
+    "@langchain/core": "^0.3.13",
+    "@langchain/google-gauth": "^0.1.0",
+    "@langchain/langgraph-sdk": "^0.0.16",
     "@langchain/openai": "^0.0.28",
     "class-transformer": "^0.5.1",
     "express": "^4.19.2",
@@ -55,8 +60,9 @@
     "graphql-scalars": "^1.23.0",
     "graphql-yoga": "^5.3.1",
     "groq-sdk": "^0.5.0",
-    "langchain": "^0.1.36",
+    "langchain": "^0.3.3",
     "openai": "^4.50.0",
+    "partial-json": "^0.1.7",
     "pino": "^9.2.0",
     "pino-pretty": "^11.2.1",
     "reflect-metadata": "^0.2.2",

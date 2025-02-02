@@ -1,5 +1,5 @@
-import { useContext, useEffect, useRef } from "react";
-import { CopilotContext } from "../context/copilot-context";
+import { useEffect, useRef } from "react";
+import { useCopilotContext } from "../context/copilot-context";
 import { DocumentPointer } from "../types";
 
 /**
@@ -14,7 +14,7 @@ export function useMakeCopilotDocumentReadable(
   categories?: string[],
   dependencies: any[] = [],
 ): string | undefined {
-  const { addDocumentContext, removeDocumentContext } = useContext(CopilotContext);
+  const { addDocumentContext, removeDocumentContext } = useCopilotContext();
   const idRef = useRef<string>();
 
   useEffect(() => {

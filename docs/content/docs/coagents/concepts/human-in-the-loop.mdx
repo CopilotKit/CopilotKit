@@ -1,0 +1,26 @@
+---
+title: Human in the Loop
+description: CoAgents support Human-in-the-loop workflows where human input or validation is required during agent execution.
+---
+
+<Frame className="mb-10">
+    <img src="/images/coagents/coagents-hitl-infographic.png" alt="Agentic Copilot Human in the Loop" />
+</Frame>
+
+CoAgents support Human-in-the-loop workflows where human input or validation is required during agent execution. 
+This is a dance between the LangGraph agent and the UI, but is also a fundamental concept for agentic applications. If you
+want to learn more about theory behind human-in-the-loop checkout [LangGraph's article on it](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/)
+
+## Why Use Human-in-the-loop?
+Human-in-the-loop capabilities are essential for several reasons:
+- **Quality Control**: Enables oversight at critical decision points, ensuring AI actions align with business requirements and user expectations
+- **Edge Case Handling**: Provides graceful handling of situations where AI confidence is low
+- **Expert Integration**: Leverages human expertise where it's most valuable
+- **System Reliability**: Creates a more robust and trustworthy system for complex real-world scenarios
+
+## Implementation with Copilotkit
+With Copilotkit you can accomplish this Human-in-the-loop interaction with custom components that approve, deny or amend
+any actions the agent would like to perform. In practice, you can do this at an app level or a chat level using various
+pieces of Copilotkit's packages. Checkout out guides on both below:
+- [In-chat workflows](/coagents/chat-ui/hitl/json-hitl)
+- [In-app workflows](/coagents/react-ui/frontend-functions)

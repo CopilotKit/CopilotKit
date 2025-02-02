@@ -1,0 +1,67 @@
+environments:
+  default:
+    values:
+    - ./environments/default.yaml
+---
+helmDefaults:
+  wait: true
+  timeout: 300
+---
+releases:
+  - name: examples-shared
+    chart: ./charts/examples-shared
+    namespace: {{ .Values.namespace }}
+    values: [./charts/examples-shared/values.yaml.gotmpl]
+    labels:
+      metadata.copilotkit.preview: {{ hasPrefix "pr-" .Values.environment | quote }}
+      metadata.copilotkit.updated-at: {{ dateInZone "2006-01-02T15:04:05" (now) "UTC" }}
+
+  - name: 'coagents-research-canvas'
+    chart: ./charts/example-app
+    installed: true
+    namespace: {{ .Values.namespace }}
+    values: [./values/coagents-research-canvas.yaml.gotmpl]
+    needs: [examples-shared]
+    labels:
+      metadata.copilotkit.preview: {{ hasPrefix "pr-" .Values.environment | quote }}
+      metadata.copilotkit.updated-at: {{ dateInZone "2006-01-02T15:04:05" (now) "UTC" }}
+    
+  - name: 'coagents-routing'
+    chart: ./charts/example-app
+    installed: true
+    namespace: {{ .Values.namespace }}
+    values: [./values/coagents-routing.yaml.gotmpl]
+    needs: [examples-shared]
+    labels:
+      metadata.copilotkit.preview: {{ hasPrefix "pr-" .Values.environment | quote }}
+      metadata.copilotkit.updated-at: {{ dateInZone "2006-01-02T15:04:05" (now) "UTC" }}
+
+  - name: 'coagents-qa-text'
+    chart: ./charts/example-app
+    installed: true
+    namespace: {{ .Values.namespace }}
+    values: [./values/coagents-qa-text.yaml.gotmpl]
+    needs: [examples-shared]
+    labels:
+      metadata.copilotkit.preview: {{ hasPrefix "pr-" .Values.environment | quote }}
+      metadata.copilotkit.updated-at: {{ dateInZone "2006-01-02T15:04:05" (now) "UTC" }}
+
+  - name: 'coagents-qa-native'
+    chart: ./charts/example-app
+    installed: true
+    namespace: {{ .Values.namespace }}
+    values: [./values/coagents-qa-native.yaml.gotmpl]
+    needs: [examples-shared]
+    labels:
+      metadata.copilotkit.preview: {{ hasPrefix "pr-" .Values.environment | quote }}
+      metadata.copilotkit.updated-at: {{ dateInZone "2006-01-02T15:04:05" (now) "UTC" }}
+
+  - name: 'next-openai'
+    chart: ./charts/example-app
+    installed: true
+    namespace: {{ .Values.namespace }}
+    values: [./values/next-openai.yaml.gotmpl]
+    needs: [examples-shared]
+    labels:
+      metadata.copilotkit.preview: {{ hasPrefix "pr-" .Values.environment | quote }}
+      metadata.copilotkit.updated-at: {{ dateInZone "2006-01-02T15:04:05" (now) "UTC" }}

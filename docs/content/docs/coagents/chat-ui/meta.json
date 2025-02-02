@@ -1,0 +1,10 @@
+{
+  "title": "In-chat experiences",
+  "defaultOpen": true,
+  "pages": [
+    "chat-with-agent",
+    "render-agent-state",
+    "hitl",
+    "loading-message-history"
+  ]
+}

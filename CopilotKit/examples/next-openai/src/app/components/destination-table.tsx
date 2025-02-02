@@ -53,20 +53,20 @@ export function DestinationTable({ destinations, heading }: DestinationTableProp
 
   useCopilotAction(
     {
-      name: `selectDestinations_${toCamelCase(heading)}`,
-      description: `Set the given destinations as 'selected', on the ${heading} table`,
+      name: `selectDestination_${toCamelCase(heading)}`,
+      description: `Set the given destination as 'selected', on the ${heading} table`,
       parameters: [
         {
-          name: "destinationNames",
-          type: "string[]",
-          description: "The names of the destinations to select",
+          name: "destinationName",
+          type: "string",
+          description: "The name of the destination to select",
           required: true,
         },
       ],
-      handler: async ({ destinationNames }) => {
+      handler: async ({ destinationName }) => {
         setCheckedRows((prevState) => {
           const newState = { ...prevState };
-          destinationNames.forEach((destinationName) => {
+          [destinationName].forEach((destinationName) => {
             newState[destinationName] = true;
           });
           return newState;

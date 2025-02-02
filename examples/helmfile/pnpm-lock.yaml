@@ -1,0 +1,29 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    devDependencies:
+      json2md:
+        specifier: ^2.0.1
+        version: 2.0.1
+
+packages:
+
+  indento@1.1.13:
+    resolution: {integrity: sha512-YZWk3mreBEM7sBPddsiQnW9Z8SGg/gNpFfscJq00HCDS7pxcQWWWMSVKJU7YkTRyDu1Zv2s8zaK8gQWKmCXHlg==}
+
+  json2md@2.0.1:
+    resolution: {integrity: sha512-VbwmZ83qmUfKBS2pUOHlzNKEZFPBeJSbzEok3trMYyboZUgdHNn1XZfc1uT8UZs1GHCrmRUBXCfqw4YmmQuOhw==}
+
+snapshots:
+
+  indento@1.1.13: {}
+
+  json2md@2.0.1:
+    dependencies:
+      indento: 1.1.13

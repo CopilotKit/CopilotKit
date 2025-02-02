@@ -141,8 +141,8 @@ export const ChatContextProvider = ({
   open,
   setOpen,
 }: ChatContextProps) => {
-  const context = {
-    labels: {
+  const memoizedLabels = useMemo(
+    () => ({
       ...{
         initial: "",
         title: "CopilotKit",
@@ -152,9 +152,12 @@ export const ChatContextProvider = ({
         regenerateResponse: "Regenerate response",
       },
       ...labels,
-    },
+    }),
+    [labels],
+  );
 
-    icons: {
+  const memoizedIcons = useMemo(
+    () => ({
       ...{
         openIcon: DefaultIcons.OpenIcon,
         closeIcon: DefaultIcons.CloseIcon,
@@ -167,9 +170,19 @@ export const ChatContextProvider = ({
         pushToTalkIcon: DefaultIcons.PushToTalkIcon,
       },
       ...icons,
-    },
-    open,
-    setOpen,
-  };
+    }),
+    [icons],
+  );
+
+  const context = useMemo(
+    () => ({
+      labels: memoizedLabels,
+      icons: memoizedIcons,
+      open,
+      setOpen,
+    }),
+    [memoizedLabels, memoizedIcons, open, setOpen],
+  );
+
   return <ChatContext.Provider value={context}>{children}</ChatContext.Provider>;
 };

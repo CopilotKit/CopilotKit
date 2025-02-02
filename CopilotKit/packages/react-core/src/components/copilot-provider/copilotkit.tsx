@@ -1,44 +1,26 @@
 /**
- * Provides the Copilot context to its children.
- * 
- * <img
- *   referrerPolicy="no-referrer-when-downgrade"
- *   src="https://static.scarf.sh/a.png?x-pxid=a9b290bb-38f9-4518-ac3b-8f54fdbf43be"
- * />
- * 
- * This component provides the Copilot context to its children.
- * It can be configured either with a chat API endpoint or a `CopilotApiConfig`.
- * 
- * <Note>
- *   The backend can use OpenAI, or you can bring your own LLM. For examples of the
- *   backend api implementation, see `examples/next-openai` or the [runtime
- *   docs](https://docs.copilotkit.ai/getting-started/quickstart-runtime).
- * </Note>
- * 
- * <RequestExample>
- *   ```jsx CopilotKit Example
- *   import { CopilotKit } from "@copilotkit/react-core";
- * 
- *   <CopilotKit 
- *     runtimeUrl="https://your.copilotkit.api">
- *     <YourApp/>
- *   </CopilotKit>
- *   ```
- * </RequestExample>
- * 
- * ## Example usage
- * 
- * ```jsx
- * <CopilotKit publicApiKey="the api key or self host (see below)">
- *   <App />
+ * This component will typically wrap your entire application (or a sub-tree of your application where you want to have a copilot). It provides the copilot context to all other components and hooks.
+ *
+ * ## Example
+ *
+ * You can find more information about self-hosting CopilotKit [here](/guides/self-hosting).
+ *
+ * ```tsx
+ * import { CopilotKit } from "@copilotkit/react-core";
+ *
+ * <CopilotKit runtimeUrl="<your-runtime-url>">
+ *   // ... your app ...
  * </CopilotKit>
-```
+ * ```
  */
-import { useCallback, useRef, useState } from "react";
+
+import { useCallback, useEffect, useMemo, useRef, useState, SetStateAction } from "react";
 import {
   CopilotContext,
   CopilotApiConfig,
-  InChatRenderFunction,
+  ChatComponentsCache,
+  AgentSession,
+  AuthState,
 } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
 import { CopilotChatSuggestionConfiguration, DocumentPointer } from "../../types";
@@ -47,37 +29,69 @@ import {
   COPILOT_CLOUD_CHAT_URL,
   CopilotCloudConfig,
   FunctionCallHandler,
+  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
+  randomUUID,
+  ConfigurationError,
+  MissingPublicApiKeyError,
 } from "@copilotkit/shared";
-import { Message } from "@copilotkit/runtime-client-gql";
-
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { CopilotKitProps } from "./copilotkit-props";
+import { CoAgentStateRender } from "../../types/coagent-action";
+import { CoagentState } from "../../types/coagent-state";
+import { CopilotMessages } from "./copilot-messages";
+import { ToastProvider } from "../toast/toast-provider";
+import { useCopilotRuntimeClient } from "../../hooks/use-copilot-runtime-client";
+import { shouldShowDevConsole } from "../../utils";
+import { CopilotErrorBoundary } from "../error-boundary/error-boundary";
+import { Agent, ExtensionsInput } from "@copilotkit/runtime-client-gql";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
-  // Compute all the functions and properties that we need to pass
-  // to the CopilotContext.
+  const showDevConsole = props.showDevConsole === undefined ? "auto" : props.showDevConsole;
+  const enabled = shouldShowDevConsole(showDevConsole);
 
-  if (!props.runtimeUrl && !props.publicApiKey) {
-    throw new Error(
-      "Please provide either a runtimeUrl or a publicApiKey to the CopilotKit component.",
-    );
-  }
+  return (
+    <ToastProvider enabled={enabled}>
+      <CopilotErrorBoundary publicApiKey={props.publicApiKey} showUsageBanner={enabled}>
+        <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
+      </CopilotErrorBoundary>
+    </ToastProvider>
+  );
+}
+
+export function CopilotKitInternal(cpkProps: CopilotKitProps) {
+  const { children, ...props } = cpkProps;
+
+  /**
+   * This will throw an error if the props are invalid.
+   */
+  validateProps(cpkProps);
 
   const chatApiEndpoint = props.runtimeUrl || COPILOT_CLOUD_CHAT_URL;
 
   const [actions, setActions] = useState<Record<string, FrontendAction<any>>>({});
-  const chatComponentsCache = useRef<Record<string, InChatRenderFunction | string>>({});
+  const [coAgentStateRenders, setCoAgentStateRenders] = useState<
+    Record<string, CoAgentStateRender<any>>
+  >({});
+
+  const chatComponentsCache = useRef<ChatComponentsCache>({
+    actions: {},
+    coAgentStateRenders: {},
+  });
+
   const { addElement, removeElement, printTree } = useTree();
-  const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [chatInstructions, setChatInstructions] = useState("");
+  const [authStates, setAuthStates] = useState<Record<string, AuthState>>({});
+  const [extensions, setExtensions] = useState<ExtensionsInput>({});
 
   const {
     addElement: addDocument,
     removeElement: removeDocument,
     allElements: allDocuments,
   } = useFlatCategoryStore<DocumentPointer>();
+
+  // Compute all the functions and properties that we need to pass
 
   const setAction = useCallback((id: string, action: FrontendAction<any>) => {
     setActions((prevPoints) => {
@@ -90,6 +104,23 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
 
   const removeAction = useCallback((id: string) => {
     setActions((prevPoints) => {
+      const newPoints = { ...prevPoints };
+      delete newPoints[id];
+      return newPoints;
+    });
+  }, []);
+
+  const setCoAgentStateRender = useCallback((id: string, stateRender: CoAgentStateRender<any>) => {
+    setCoAgentStateRenders((prevPoints) => {
+      return {
+        ...prevPoints,
+        [id]: stateRender,
+      };
+    });
+  }, []);
+
+  const removeCoAgentStateRender = useCallback((id: string) => {
+    setCoAgentStateRenders((prevPoints) => {
       const newPoints = { ...prevPoints };
       delete newPoints[id];
       return newPoints;
@@ -157,40 +188,75 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     [removeDocument],
   );
 
-  if (!props.publicApiKey) {
-    if (props.cloudRestrictToTopic) {
-      throw new Error(
-        "To use the cloudRestrictToTopic feature, please sign up at https://copilotkit.ai and provide a publicApiKey.",
-      );
-    }
-  }
-
-  let cloud: CopilotCloudConfig | undefined = undefined;
-  if (props.publicApiKey) {
-    cloud = {
-      guardrails: {
-        input: {
-          restrictToTopic: {
-            enabled: props.cloudRestrictToTopic ? true : false,
-            validTopics: props.cloudRestrictToTopic?.validTopics || [],
-            invalidTopics: props.cloudRestrictToTopic?.invalidTopics || [],
+  // get the appropriate CopilotApiConfig from the props
+  const copilotApiConfig: CopilotApiConfig = useMemo(() => {
+    let cloud: CopilotCloudConfig | undefined = undefined;
+    if (props.publicApiKey) {
+      cloud = {
+        guardrails: {
+          input: {
+            restrictToTopic: {
+              enabled: props.cloudRestrictToTopic ? true : false,
+              validTopics: props.cloudRestrictToTopic?.validTopics || [],
+              invalidTopics: props.cloudRestrictToTopic?.invalidTopics || [],
+            },
           },
         },
-      },
-    };
-  }
+      };
+    }
 
-  // get the appropriate CopilotApiConfig from the props
-  const copilotApiConfig: CopilotApiConfig = {
-    publicApiKey: props.publicApiKey,
-    ...(cloud ? { cloud } : {}),
-    chatApiEndpoint: chatApiEndpoint,
-    headers: props.headers || {},
-    properties: props.properties || {},
-    transcribeAudioUrl: props.transcribeAudioUrl,
-    textToSpeechUrl: props.textToSpeechUrl,
-    credentials: props.credentials,
-  };
+    return {
+      publicApiKey: props.publicApiKey,
+      ...(cloud ? { cloud } : {}),
+      chatApiEndpoint: chatApiEndpoint,
+      headers: props.headers || {},
+      properties: props.properties || {},
+      transcribeAudioUrl: props.transcribeAudioUrl,
+      textToSpeechUrl: props.textToSpeechUrl,
+      credentials: props.credentials,
+    };
+  }, [
+    props.publicApiKey,
+    props.headers,
+    props.properties,
+    props.transcribeAudioUrl,
+    props.textToSpeechUrl,
+    props.credentials,
+    props.cloudRestrictToTopic,
+  ]);
+
+  const headers = useMemo(() => {
+    const authHeaders = Object.values(authStates || {}).reduce((acc, state) => {
+      if (state.status === "authenticated" && state.authHeaders) {
+        return {
+          ...acc,
+          ...Object.entries(state.authHeaders).reduce(
+            (headers, [key, value]) => ({
+              ...headers,
+              [key.startsWith("X-Custom-") ? key : `X-Custom-${key}`]: value,
+            }),
+            {},
+          ),
+        };
+      }
+      return acc;
+    }, {});
+
+    return {
+      ...(copilotApiConfig.headers || {}),
+      ...(copilotApiConfig.publicApiKey
+        ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey }
+        : {}),
+      ...authHeaders,
+    };
+  }, [copilotApiConfig.headers, copilotApiConfig.publicApiKey, authStates]);
+
+  const runtimeClient = useCopilotRuntimeClient({
+    url: copilotApiConfig.chatApiEndpoint,
+    publicApiKey: copilotApiConfig.publicApiKey,
+    headers,
+    credentials: copilotApiConfig.credentials,
+  });
 
   const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
     [key: string]: CopilotChatSuggestionConfiguration;
@@ -210,6 +276,67 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     });
   };
 
+  const [availableAgents, setAvailableAgents] = useState<Agent[]>([]);
+  const [coagentStates, setCoagentStates] = useState<Record<string, CoagentState>>({});
+  const coagentStatesRef = useRef<Record<string, CoagentState>>({});
+  const setCoagentStatesWithRef = useCallback(
+    (
+      value:
+        | Record<string, CoagentState>
+        | ((prev: Record<string, CoagentState>) => Record<string, CoagentState>),
+    ) => {
+      const newValue = typeof value === "function" ? value(coagentStatesRef.current) : value;
+      coagentStatesRef.current = newValue;
+      setCoagentStates((prev) => {
+        return newValue;
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const result = await runtimeClient.availableAgents();
+      if (result.data?.availableAgents) {
+        setAvailableAgents(result.data.availableAgents.agents);
+      }
+    };
+    void fetchData();
+  }, []);
+
+  let initialAgentSession: AgentSession | null = null;
+  if (props.agent) {
+    initialAgentSession = {
+      agentName: props.agent,
+    };
+  }
+
+  const [agentSession, setAgentSession] = useState<AgentSession | null>(initialAgentSession);
+
+  const [internalThreadId, setInternalThreadId] = useState<string>(props.threadId || randomUUID());
+  const setThreadId = useCallback(
+    (value: SetStateAction<string>) => {
+      if (props.threadId) {
+        throw new Error("Cannot call setThreadId() when threadId is provided via props.");
+      }
+      setInternalThreadId(value);
+    },
+    [props.threadId],
+  );
+
+  // update the internal threadId if the props.threadId changes
+  useEffect(() => {
+    if (props.threadId !== undefined) {
+      setInternalThreadId(props.threadId);
+    }
+  }, [props.threadId]);
+
+  const [runId, setRunId] = useState<string | null>(null);
+
+  const chatAbortControllerRef = useRef<AbortController | null>(null);
+
+  const showDevConsole = props.showDevConsole === undefined ? "auto" : props.showDevConsole;
+
   return (
     <CopilotContext.Provider
       value={{
@@ -218,6 +345,9 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         getFunctionCallHandler,
         setAction,
         removeAction,
+        coAgentStateRenders,
+        setCoAgentStateRender,
+        removeCoAgentStateRender,
         getContextString,
         addContext,
         removeContext,
@@ -225,8 +355,6 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         addDocumentContext,
         removeDocumentContext,
         copilotApiConfig: copilotApiConfig,
-        messages,
-        setMessages,
         isLoading,
         setIsLoading,
         chatSuggestionConfiguration,
@@ -234,10 +362,30 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         removeChatSuggestionConfiguration,
         chatInstructions,
         setChatInstructions,
-        showDevConsole: props.showDevConsole || "auto",
+        showDevConsole,
+        coagentStates,
+        setCoagentStates,
+        coagentStatesRef,
+        setCoagentStatesWithRef,
+        agentSession,
+        setAgentSession,
+        runtimeClient,
+        forwardedParameters: props.forwardedParameters || {},
+        agentLock: props.agent || null,
+        threadId: internalThreadId,
+        setThreadId,
+        runId,
+        setRunId,
+        chatAbortControllerRef,
+        availableAgents,
+        authConfig_c: props.authConfig_c,
+        authStates_c: authStates,
+        setAuthStates_c: setAuthStates,
+        extensions,
+        setExtensions,
       }}
     >
-      {children}
+      <CopilotMessages>{children}</CopilotMessages>
     </CopilotContext.Provider>
   );
 }
@@ -245,7 +393,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
 export const defaultCopilotContextCategories = ["global"];
 
 function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): FunctionCallHandler {
-  return async ({ messages, name, args }) => {
+  return async ({ name, args }) => {
     let actionsByFunctionName: Record<string, FrontendAction<any>> = {};
     for (let action of actions) {
       actionsByFunctionName[action.name] = action;
@@ -257,7 +405,7 @@ function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): Funct
       await new Promise<void>((resolve, reject) => {
         flushSync(async () => {
           try {
-            result = await action.handler(args);
+            result = await action.handler?.(args);
             resolve();
           } catch (error) {
             reject(error);
@@ -268,4 +416,28 @@ function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): Funct
     }
     return result;
   };
+}
+
+function formatFeatureName(featureName: string): string {
+  return featureName
+    .replace(/_c$/, "")
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function validateProps(props: CopilotKitProps): never | void {
+  const cloudFeatures = Object.keys(props).filter((key) => key.endsWith("_c"));
+
+  if (!props.runtimeUrl && !props.publicApiKey) {
+    throw new ConfigurationError("Missing required prop: 'runtimeUrl' or 'publicApiKey'");
+  }
+
+  if (cloudFeatures.length > 0 && !props.publicApiKey) {
+    throw new MissingPublicApiKeyError(
+      `Missing required prop: 'publicApiKey' to use cloud features: ${cloudFeatures
+        .map(formatFeatureName)
+        .join(", ")}`,
+    );
+  }
 }

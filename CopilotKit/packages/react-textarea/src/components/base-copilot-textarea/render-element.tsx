@@ -29,6 +29,7 @@ const SuggestionElement = (
       style={{
         ...props.suggestionsStyle,
       }}
+      data-testid="suggestion"
       contentEditable={false}
     >
       {props.children /* https://github.com/ianstormtaylor/slate/issues/3930 */}

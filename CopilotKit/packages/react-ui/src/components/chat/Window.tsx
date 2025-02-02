@@ -1,15 +1,16 @@
 import React, { useCallback, useEffect } from "react";
 import { WindowProps } from "./props";
+import { useChatContext } from "./ChatContext";
 
 export const Window = ({
-  open,
-  setOpen,
   children,
   clickOutsideToClose,
   shortcut,
   hitEscapeToClose,
 }: WindowProps) => {
   const windowRef = React.useRef<HTMLDivElement>(null);
+
+  const { open, setOpen } = useChatContext();
 
   const handleClickOutside = useCallback(
     (event: MouseEvent) => {

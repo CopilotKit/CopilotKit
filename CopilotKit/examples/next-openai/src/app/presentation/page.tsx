@@ -1,19 +1,30 @@
 "use client";
+
 import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotPopup, CopilotSidebar } from "@copilotkit/react-ui";
+import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
 import "./styles.css";
 import { Presentation } from "./components/main/Presentation";
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 export default function AIPresentation() {
   const [performResearch, setPerformResearch] = useState(false);
+  const searchParams = useSearchParams();
+  const serviceAdapter = searchParams.get("serviceAdapter") || "openai";
+
+  const runtimeUrl =
+    searchParams.get("runtimeUrl") || `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
+  const publicApiKey = searchParams.get("publicApiKey");
+
+  const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
+    transcribeAudioUrl: "/api/transcribe",
+    textToSpeechUrl: "/api/tts",
+    runtimeUrl,
+    publicApiKey: publicApiKey || undefined,
+  };
 
   return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      transcribeAudioUrl="/api/transcribe"
-      textToSpeechUrl="/api/tts"
-    >
+    <CopilotKit {...copilotKitProps}>
       <div
         style={
           {
@@ -36,7 +47,12 @@ export default function AIPresentation() {
           }}
           clickOutsideToClose={false}
         >
-          <Presentation performResearch={performResearch} setPerformResearch={setPerformResearch} />
+          <div className="relative">
+            <Presentation
+              performResearch={performResearch}
+              setPerformResearch={setPerformResearch}
+            />
+          </div>
         </CopilotSidebar>
       </div>
     </CopilotKit>

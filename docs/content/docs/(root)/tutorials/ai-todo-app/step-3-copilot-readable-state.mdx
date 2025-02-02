@@ -1,0 +1,58 @@
+---
+title: "Step 3: Copilot Readable State"
+---
+
+At this point, we have a chat popup in our app and we're able to chat directly with our copilot. This is great, but our copilot doesn't know anything about our app. In this step, we'll provide our copilot with the state of our todos.
+
+In this step, you'll learn how to provide knowledge to the copilot. In our case, we want the copilot to know about the tasks in our app.
+
+## Our App's State
+
+Let's quickly review how our app's state works. Open up the [`lib/hooks/use-tasks.tsx`](https://github.com/CopilotKit/example-todos-app/blob/base-start-here/lib/hooks/use-tasks.tsx) file.
+
+At a glance, we can see that the file exposes a provider (`TasksProvider`), which defines a useful things:
+
+- The state of our tasks (`tasks`)
+- A function to add a task (`addTask`)
+- A function to update a task (`updateTask`)
+- A function to delete a task (`deleteTask`)
+
+All of this is consumable by a `useTasks` hook, which we use in the rest of our application (feel free to check out the `TasksList`, `AddTask` and `Task` components).
+
+This resembles the majority of React apps, where frontend state, either for a feature or the entire app, is managed by a context or state management library.
+
+## The `useCopilotReadable` hook
+
+Our goal is to make our copilot aware of this state, so that it can provide more accurate and helpful responses. We can easily achieve this by using the [`useCopilotReadable`](/reference/hooks/useCopilotReadable) hook.
+
+```tsx title="lib/hooks/use-tasks.tsx" {3,8-11}
+// ... the rest of the file
+
+import { useCopilotReadable } from "@copilotkit/react-core"; // [!code highlight]
+
+export const TasksProvider = ({ children }: { children: ReactNode }) => {
+  const [tasks, setTasks] = useState<Task[]>(defaultTasks);
+
+  // [!code highlight:5]
+  useCopilotReadable({
+    description: "The state of the todo list",
+    value: JSON.stringify(tasks)
+  });
+
+  // ... the rest of the file
+}
+```
+
+In this example, we use the `useCopilotReadable` hook to provide the copilot with the state of our tasks.
+
+- For the `description` property, we provide a concise description that tells the copilot what this piece of readable data means.
+- For the `value` property, we pass the entire state as a JSON string.
+
+## Try it out!
+
+Now, try it out! Ask your Copilot a question about the state of the todo list. For example:
+
+> How many tasks do I still need to get done?
+
+Magical, isn't it? ✨ In the next step, you'll learn how to make the copilot take actions based on the state of your app.
+

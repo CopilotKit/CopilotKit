@@ -2,6 +2,7 @@ import {
   CopilotContextParams,
   extract,
   CopilotChatSuggestionConfiguration,
+  CopilotMessagesContextParams,
 } from "@copilotkit/react-core";
 import { SuggestionsProps } from "./props";
 import { SmallSpinnerIcon } from "./Icons";
@@ -18,6 +19,7 @@ export function Suggestion({ title, message, onClick, partial, className }: Sugg
         onClick(message);
       }}
       className={className || "suggestion"}
+      data-test-id="suggestion"
     >
       {partial && SmallSpinnerIcon}
       <span>{title}</span>
@@ -26,7 +28,7 @@ export function Suggestion({ title, message, onClick, partial, className }: Sugg
 }
 
 export const reloadSuggestions = async (
-  context: CopilotContextParams,
+  context: CopilotContextParams & CopilotMessagesContextParams,
   chatSuggestionConfiguration: { [key: string]: CopilotChatSuggestionConfiguration },
   setCurrentSuggestions: (suggestions: { title: string; message: string }[]) => void,
   abortControllerRef: React.MutableRefObject<AbortController | null>,
@@ -50,14 +52,19 @@ export const reloadSuggestions = async (
           ? `Produce up to ${config.maxSuggestions} suggestions. ` +
             `If there are no highly relevant suggestions you can think of, provide an empty array.`
           : `Produce between ${config.minSuggestions} and ${config.maxSuggestions} suggestions.`;
+
       const result = await extract({
         context,
         instructions:
-          "Suggest what the user could say next. Provide clear, highly relevant suggestions. Do not literally suggest function calls. " +
+          "Suggest what the user could say next. Provide clear, highly relevant suggestions. Do not literally suggest function calls. ",
+        data:
           config.instructions +
           "\n\n" +
-          numOfSuggestionsInstructions,
-        data: "Available tools: " + tools + "\n\n",
+          numOfSuggestionsInstructions +
+          "\n\n" +
+          "Available tools: " +
+          tools +
+          "\n\n",
         requestType: CopilotRequestType.Task,
         parameters: [
           {

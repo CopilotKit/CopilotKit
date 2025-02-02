@@ -3,6 +3,7 @@
 import React from "react";
 import { Destination } from "./vacation-list";
 import { useCopilotReadable } from "@copilotkit/react-core";
+import Image from "next/image";
 
 export type DestinationRowProps = {
   destination: Destination;
@@ -46,6 +47,7 @@ export function DestinationRow({
         <div className="w-full flex items-stretch">
           <div className="flex items-center justify-center w-full">
             <input
+              data-test-id={`checkbox-${destination.name.toLowerCase().replace(/\s+/g, "-")}-${isChecked ? "checked" : "unchecked"}`}
               type="checkbox"
               checked={isChecked}
               onChange={(event) => onCheckChange(event.target.checked)}

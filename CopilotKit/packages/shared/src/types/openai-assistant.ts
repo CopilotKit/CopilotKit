@@ -34,6 +34,14 @@ export interface FunctionCallHandlerArguments {
 
 export type FunctionCallHandler = (args: FunctionCallHandlerArguments) => Promise<any>;
 
+export type CoAgentStateRenderHandlerArguments = {
+  name: string;
+  nodeName: string;
+  state: any;
+};
+
+export type CoAgentStateRenderHandler = (args: CoAgentStateRenderHandlerArguments) => Promise<any>;
+
 export type AssistantMessage = {
   id: string;
   role: "assistant";

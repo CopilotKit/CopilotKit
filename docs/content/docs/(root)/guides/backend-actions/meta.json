@@ -1,0 +1,10 @@
+{
+  "title": "Backend Actions & Agents",
+  "pages": [
+    "typescript-backend-actions",
+    "langchain-js-backend-actions",
+    "langserve-backend-actions",
+    "remote-backend-endpoint",
+    "langgraph-platform-endpoint"
+  ]
+}

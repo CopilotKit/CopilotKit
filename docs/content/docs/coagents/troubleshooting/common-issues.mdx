@@ -1,0 +1,179 @@
+---
+title: Common Issues
+description: Common issues you may encounter when using CoAgents.
+---
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion"
+
+Welcome to the CoAgents Troubleshooting Guide! If you're having trouble getting tool calls to work, you've come to the right place. 
+
+<Callout>
+    Have an issue not listed here? Open a ticket on [GitHub](https://github.com/CopilotKit/CopilotKit/issues) or reach out on [Discord](https://discord.com/invite/6dffbvGU3D)
+    and we'll be happy to help.
+
+    We also highly encourage any open source contributors that want to add their own troubleshooting issues to [Github as a pull request](https://github.com/CopilotKit/CopilotKit/blob/main/CONTRIBUTING.md).
+</Callout>
+
+
+## My tool calls are not being streamed
+
+This could be due to a few different reasons. 
+
+First, we strongly recommend checking out our [Human In the Loop](/docs/coagents/chat-ui/hitl/json-hitl) guide to follow a more in depth example of how to stream tool calls
+in your LangGraph agents. You can also check out our [travel tutorial](/coagents/tutorials/ai-travel-app/step-6-human-in-the-loop) which talks about how to stream
+tool calls in a more complex example.
+
+If you have already done that, you can check the following:
+
+<Accordions>
+    <Accordion title="You have not specified the tool call in the `copilotkit_customize_config`">
+        In your LangGraph agent, you have must specify which tool calls will be emitted to the CopilotKit runtime. By default,
+        only streamed messages are emitted. You can fix this by adding the following to the node making the tool call.
+
+        ```python
+        from copilotkit.langgraph import copilotkit_customize_config, copilotkit_emit_message
+        from langgraph_core.runnables import RunnableConfig
+        from langchain.tools import tool
+
+        @tool
+        def say_hello_to(name: str) -> str:
+            return f"Hello, {name}!"
+
+        async def my_node(state: State, config: RunnableConfig) -> State:
+            # ...
+            config = copilotkit_customize_config(config, emit_tool_calls=["say_hello_to"]) # [code highlight]
+            # ...
+            return state
+        ```
+    </Accordion>
+    <Accordion title="You're using llm.invoke() instead of llm.ainvoke()">
+        <p>
+            When you invoke your LangGraph agent, you can invoke it synchronously or asynchronously. If you invoke it synchronously,
+            the tool calls will not be streamed progressively, only the final result will be streamed. If you invoke it asynchronously,
+            the tool calls will be streamed progressively.
+
+            ```python
+            config = copilotkit_customize_config(config, emit_tool_calls=["say_hello_to"])
+            response = await llm_with_tools.ainvoke(
+                [ SystemMessage(content=system_message), *state["messages"] ],
+                config=config
+            )
+            ```
+        </p>
+    </Accordion>
+</Accordions>
+
+## Error: `'AzureOpenAI' object has no attribute 'bind_tools'`
+
+This error is typically due to the use of an incorrect import from LangGraph. Instead of importing `AzureOpenAI` import `AzureChatOpenAI` and your
+issue will be resolved.
+
+```python
+from langchain_openai import AzureOpenAI # [!code --]
+from langchain_openai import AzureChatOpenAI # [!code ++]
+```
+
+## I am getting "agent not found" error
+
+If you're seeing this error, it means CopilotKit couldn't find the LangGraph agent you're trying to use. Here's how to fix it:
+
+<Accordions>
+    <Accordion title="Verify your agent lock mode configuration">
+        If you're using [agent lock mode](/coagents/advanced/router-mode-agent-lock#agent-lock-mode),
+        check that the agent defined in `langgraph.json` matches what's defined in the CopilotKit provider:
+
+        ```json title="langgraph.json"
+        {
+            "python_version": "3.12",
+            "dockerfile_lines": [],
+            "dependencies": ["."],
+            "graphs": {
+                "my_agent": "./src/agent.py:graph"// In this case, "my_agent" is the agent you're using // [!code highlight]
+            },
+            "env": ".env"
+        }
+        ```
+
+        ```tsx title="layout.tsx"
+        <CopilotKit agent="my_agent"> // [!code highlight]
+            {/* Your application components */}
+        </CopilotKit>
+        ```
+
+        Common issues:
+        - Typos in agent names
+        - Case sensitivity mismatches
+        - Missing entries in `langgraph.json`
+    </Accordion>
+    <Accordion title="Check your agent registration on a LangGraph Platform endpoint">
+        When using LangGraph Platform endpoint, make sure your agents are properly specified and are following the definition in your `langgraph.json`:
+
+        ```json title="langgraph.json"
+        {
+            "python_version": "3.12",
+            "dockerfile_lines": [],
+            "dependencies": ["."],
+            "graphs": {
+                "my_agent": "./src/agent.py:graph"// In this case, "my_agent" is the agent you're using // [!code highlight]
+            },
+            "env": ".env"
+        }
+        ```
+
+        ```typescript title="/copilotkit/api/route.ts"
+        langGraphPlatformEndpoint({
+            deploymentUrl,
+            langsmithApiKey,
+            agents: [
+                {
+                    name: "my_agent",
+                    description: "A helpful agent",
+                },
+            ],
+        })
+        ```
+    </Accordion>
+    <Accordion title="Check your agent name in useCoAgent">
+        Make sure the that the agent defined in `langgraph.json` matches what you use n `useCoAgent` hook:
+
+        ```json title="langgraph.json"
+        {
+            "python_version": "3.12",
+            "dockerfile_lines": [],
+            "dependencies": ["."],
+            "graphs": {
+                "my_agent": "./src/agent.py:graph"// In this case, "my_agent" is the agent you're using // [!code highlight]
+            },
+            "env": ".env"
+        }
+        ```
+
+        ```tsx title="MyComponent.tsx"
+        // Your React component
+        useCoAgent({
+            name: "my_agent", // [!code focus] This must match exactly
+        });
+        ```
+    </Accordion>
+    <Accordion title="Check your agent name in useCoAgentStateRender">
+        Make sure the that the agent defined in `langgraph.json` matches what you use n `useCoAgent` hook:
+
+        ```json title="langgraph.json"
+        {
+            "python_version": "3.12",
+            "dockerfile_lines": [],
+            "dependencies": ["."],
+            "graphs": {
+                "my_agent": "./src/agent.py:graph"// In this case, "my_agent" is the agent you're using // [!code highlight]
+            },
+            "env": ".env"
+        }
+        ```
+
+        ```tsx title="MyComponent.tsx"
+        // Your React component
+        useCoAgentStateRender({
+            name: "my_agent", // [!code focus] This must match exactly
+        });
+        ```
+    </Accordion>
+</Accordions>

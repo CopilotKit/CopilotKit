@@ -24,6 +24,30 @@ export class Comments {
       .trim();
   }
 
+  static getDefaultValueForNode(node: ts.Node, sourceFile: ts.SourceFile): string | undefined {
+    const fullText = sourceFile.getFullText();
+    const commentRanges = ts.getLeadingCommentRanges(fullText, node.getFullStart());
+
+    if (!commentRanges) return "";
+    let defaultValue: string | undefined = undefined;
+
+    for (const comment of commentRanges) {
+      let commentText = fullText.substring(comment.pos, comment.end);
+      commentText = Comments.removeCommentSyntax(commentText);
+
+      for (const line of commentText.split("\n")) {
+        if (line.includes("@default")) {
+          defaultValue = line.split("@default")[1].trim();
+          break;
+        }
+      }
+
+      if (defaultValue !== undefined) break;
+    }
+
+    return defaultValue;
+  }
+
   static removeCommentSyntax(commentText: string): string {
     return commentText
       .replace(/\/\*\*|\*\/|\*|\/\* ?/gm, "")

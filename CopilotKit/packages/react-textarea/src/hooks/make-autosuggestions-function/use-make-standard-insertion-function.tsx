@@ -1,6 +1,6 @@
 import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER } from "@copilotkit/shared";
-import { CopilotContext } from "@copilotkit/react-core";
-import { useCallback, useContext } from "react";
+import { useCopilotContext } from "@copilotkit/react-core";
+import { useCallback } from "react";
 import {
   CopilotRuntimeClient,
   Message,
@@ -8,6 +8,7 @@ import {
   TextMessage,
   convertGqlOutputToMessages,
   convertMessagesToGqlInput,
+  filterAgentStateMessages,
   CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
 import { retry } from "../../lib/retry";
@@ -18,7 +19,6 @@ import {
 import { InsertionsApiConfig } from "../../types/autosuggestions-config/insertions-api-config";
 import { EditingApiConfig } from "../../types/autosuggestions-config/editing-api-config";
 import { DocumentPointer } from "@copilotkit/react-core";
-import { randomId } from "@copilotkit/shared";
 
 /**
  * Returns a memoized function that sends a request to the specified API endpoint to get an autosuggestion for the user's input.
@@ -39,24 +39,17 @@ export function useMakeStandardInsertionOrEditingFunction(
   insertionApiConfig: InsertionsApiConfig,
   editingApiConfig: EditingApiConfig,
 ): Generator_InsertionOrEditingSuggestion {
-  const { getContextString, copilotApiConfig } = useContext(CopilotContext);
+  const { getContextString, copilotApiConfig, runtimeClient } = useCopilotContext();
   const headers = {
     ...(copilotApiConfig.publicApiKey
       ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey }
       : {}),
   };
 
-  const runtimeClient = new CopilotRuntimeClient({
-    url: copilotApiConfig.chatApiEndpoint,
-    publicApiKey: copilotApiConfig.publicApiKey,
-    headers,
-    credentials: copilotApiConfig.credentials,
-  });
-
   async function runtimeClientResponseToStringStream(
     responsePromise: ReturnType<typeof runtimeClient.generateCopilotResponse>,
   ) {
-    const messagesStream = await CopilotRuntimeClient.asStream(responsePromise);
+    const messagesStream = runtimeClient.asStream(responsePromise);
 
     return new ReadableStream({
       async start(controller) {
@@ -74,7 +67,7 @@ export function useMakeStandardInsertionOrEditingFunction(
           let newContent = "";
 
           for (const message of messages) {
-            if (message instanceof TextMessage) {
+            if (message.isTextMessage()) {
               newContent += message.content;
             }
           }
@@ -125,8 +118,9 @@ export function useMakeStandardInsertionOrEditingFunction(
             data: {
               frontend: {
                 actions: [],
+                url: window.location.href,
               },
-              messages: convertMessagesToGqlInput(messages),
+              messages: convertMessagesToGqlInput(filterAgentStateMessages(messages)),
               metadata: {
                 requestType: CopilotRequestType.TextareaCompletion,
               },
@@ -177,20 +171,14 @@ export function useMakeStandardInsertionOrEditingFunction(
           }),
         ];
 
-        const runtimeClient = new CopilotRuntimeClient({
-          url: copilotApiConfig.chatApiEndpoint,
-          publicApiKey: copilotApiConfig.publicApiKey,
-          headers,
-          credentials: copilotApiConfig.credentials,
-        });
-
         return runtimeClientResponseToStringStream(
           runtimeClient.generateCopilotResponse({
             data: {
               frontend: {
                 actions: [],
+                url: window.location.href,
               },
-              messages: convertMessagesToGqlInput(messages),
+              messages: convertMessagesToGqlInput(filterAgentStateMessages(messages)),
               metadata: {
                 requestType: CopilotRequestType.TextareaCompletion,
               },

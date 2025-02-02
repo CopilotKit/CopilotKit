@@ -1,17 +1,17 @@
 import { COPILOT_CLOUD_PUBLIC_API_KEY_HEADER } from "@copilotkit/shared";
-import { CopilotContext } from "@copilotkit/react-core";
-import { useCallback, useContext } from "react";
+import { useCopilotContext } from "@copilotkit/react-core";
+import { useCallback } from "react";
 import { AutosuggestionsBareFunction } from "../../types";
 import { retry } from "../../lib/retry";
 import { InsertionEditorState } from "../../types/base/autosuggestions-bare-function";
 import { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggestions-api-config";
 import {
-  CopilotRuntimeClient,
   Message,
   Role,
   TextMessage,
   convertGqlOutputToMessages,
   convertMessagesToGqlInput,
+  filterAgentStateMessages,
   CopilotRequestType,
 } from "@copilotkit/runtime-client-gql";
 
@@ -33,17 +33,18 @@ export function useMakeStandardAutosuggestionFunction(
   contextCategories: string[],
   apiConfig: SuggestionsApiConfig,
 ): AutosuggestionsBareFunction {
-  const { getContextString, copilotApiConfig } = useContext(CopilotContext);
+  const { getContextString, copilotApiConfig, runtimeClient } = useCopilotContext();
   const { chatApiEndpoint: url, publicApiKey, credentials, properties } = copilotApiConfig;
   const headers = {
     ...copilotApiConfig.headers,
     ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
   };
-  const { maxTokens, stop } = apiConfig;
+  const { maxTokens, stop, temperature = 0 } = apiConfig;
 
   return useCallback(
     async (editorState: InsertionEditorState, abortSignal: AbortSignal) => {
       const res = await retry(async () => {
+        // @ts-expect-error -- Passing null is forbidden, but we're filtering it later
         const messages: Message[] = [
           new TextMessage({
             role: Role.System,
@@ -53,10 +54,12 @@ export function useMakeStandardAutosuggestionFunction(
             ),
           }),
           ...apiConfig.fewShotMessages,
-          new TextMessage({
-            role: Role.User,
-            content: editorState.textAfterCursor,
-          }),
+          editorState.textAfterCursor != ""
+            ? new TextMessage({
+                role: Role.User,
+                content: editorState.textAfterCursor,
+              })
+            : null,
           new TextMessage({
             role: Role.User,
             content: `<TextAfterCursor>${editorState.textAfterCursor}</TextAfterCursor>`,
@@ -65,28 +68,23 @@ export function useMakeStandardAutosuggestionFunction(
             role: Role.User,
             content: `<TextBeforeCursor>${editorState.textBeforeCursor}</TextBeforeCursor>`,
           }),
-        ];
-
-        const runtimeClient = new CopilotRuntimeClient({
-          url,
-          publicApiKey,
-          headers,
-          credentials,
-        });
+        ].filter(Boolean);
 
         const response = await runtimeClient
           .generateCopilotResponse({
             data: {
               frontend: {
                 actions: [],
+                url: window.location.href,
               },
-              messages: convertMessagesToGqlInput(messages),
+              messages: convertMessagesToGqlInput(filterAgentStateMessages(messages)),
               metadata: {
                 requestType: CopilotRequestType.TextareaCompletion,
               },
               forwardedParameters: {
                 maxTokens,
                 stop,
+                temperature,
               },
             },
             properties,
@@ -101,7 +99,7 @@ export function useMakeStandardAutosuggestionFunction(
           if (abortSignal.aborted) {
             break;
           }
-          if (message instanceof TextMessage) {
+          if (message.isTextMessage()) {
             result += message.content;
           }
         }

@@ -1,0 +1,9 @@
+{
+  "python_version": "3.11",
+  "dockerfile_lines": [],
+  "dependencies": ["."],
+  "graphs": {
+    "autotale_ai": "./copilotkit/demos/autotale_ai/agent.py:graph"
+  },
+  "env": ".env"
+}

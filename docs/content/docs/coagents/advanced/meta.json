@@ -1,0 +1,14 @@
+{
+  "title": "advanced",
+  "pages": [
+    "router-mode-agent-lock",
+    "intermediate-state-streaming",
+    "manually-emitting-messages",
+    "state-streaming",
+    "exit-agent",
+    "copilotkit-state",
+    "agent-steering",
+    "message-persistence",
+    "loading-agent-state"
+  ]
+}

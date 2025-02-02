@@ -3,6 +3,7 @@ import {
   ReplaySubject,
   Subject,
   Subscription,
+  filter,
   finalize,
   firstValueFrom,
   shareReplay,
@@ -13,7 +14,7 @@ import {
 } from "rxjs";
 import { GenerateCopilotResponseInput } from "../inputs/generate-copilot-response.input";
 import { CopilotResponse } from "../types/copilot-response.type";
-import { MessageRole } from "../types/enums";
+import { ActionInputAvailability, MessageRole } from "../types/enums";
 import { Repeater } from "graphql-yoga";
 import type { CopilotRequestContextProperties, GraphQLContext } from "../../lib/integrations";
 import { RuntimeEvent, RuntimeEventTypes } from "../../service-adapters/events";
@@ -32,9 +33,16 @@ import {
   MessageStreamInterruptedResponse,
   UnknownErrorResponse,
 } from "../../utils";
-import { ActionExecutionMessage, Message, ResultMessage, TextMessage } from "../types/converted";
+import {
+  ActionExecutionMessage,
+  AgentStateMessage,
+  Message,
+  ResultMessage,
+  TextMessage,
+} from "../types/converted";
 import telemetry from "../../lib/telemetry-client";
 import { randomId } from "@copilotkit/shared";
+import { AgentsResponse } from "../types/agents-response.type";
 
 const invokeGuardrails = async ({
   baseUrl,
@@ -49,8 +57,6 @@ const invokeGuardrails = async ({
   onResult: (result: GuardrailsResult) => void;
   onError: (err: Error) => void;
 }) => {
-  console.log("invokeGuardrails.baseUrl", baseUrl);
-
   if (
     data.messages.length &&
     data.messages[data.messages.length - 1].textMessage?.role === MessageRole.user
@@ -101,6 +107,22 @@ export class CopilotResolver {
     return "Hello World";
   }
 
+  @Query(() => AgentsResponse)
+  async availableAgents(@Ctx() ctx: GraphQLContext) {
+    let logger = ctx.logger.child({ component: "CopilotResolver.availableAgents" });
+
+    logger.debug("Processing");
+    const agentsWithEndpoints = await ctx._copilotkit.runtime.discoverAgentsFromEndpoints(ctx);
+
+    logger.debug("Event source created, creating response");
+
+    return {
+      agents: agentsWithEndpoints.map(
+        ({ endpoint, ...agentWithoutEndpoint }) => agentWithoutEndpoint,
+      ),
+    };
+  }
+
   @Mutation(() => CopilotResponse)
   async generateCopilotResponse(
     @Ctx() ctx: GraphQLContext,
@@ -116,13 +138,13 @@ export class CopilotResolver {
     let logger = ctx.logger.child({ component: "CopilotResolver.generateCopilotResponse" });
     logger.debug({ data }, "Generating Copilot response");
 
-    const copilotRuntime = ctx._copilotkit.runtime;
-    const serviceAdapter = ctx._copilotkit.serviceAdapter;
-
     if (properties) {
       logger.debug("Properties provided, merging with context properties");
       ctx.properties = { ...ctx.properties, ...properties };
     }
+
+    const copilotRuntime = ctx._copilotkit.runtime;
+    const serviceAdapter = ctx._copilotkit.serviceAdapter;
 
     let copilotCloudPublicApiKey: string | null = null;
     let copilotCloudBaseUrl: string;
@@ -169,17 +191,25 @@ export class CopilotResolver {
       eventSource,
       threadId = randomId(),
       runId,
-      actions,
-    } = await copilotRuntime.process({
+      serverSideActions,
+      actionInputsWithoutAgents,
+      extensions,
+    } = await copilotRuntime.processRuntimeRequest({
       serviceAdapter,
       messages: data.messages,
-      actions: data.frontend.actions,
+      actions: data.frontend.actions.filter(
+        (action) => action.available !== ActionInputAvailability.disabled,
+      ),
       threadId: data.threadId,
       runId: data.runId,
       publicApiKey: undefined,
-      properties: ctx.properties || {},
       outputMessagesPromise,
+      graphqlContext: ctx,
       forwardedParameters: data.forwardedParameters,
+      agentSession: data.agentSession,
+      agentStates: data.agentStates,
+      url: data.frontend.url,
+      extensions: data.extensions,
     });
 
     logger.debug("Event source created, creating response");
@@ -188,6 +218,7 @@ export class CopilotResolver {
       threadId,
       runId,
       status: firstValueFrom(responseStatus$),
+      extensions,
       messages: new Repeater(async (pushMessage, stopStreamingMessages) => {
         logger.debug("Messages repeater created");
 
@@ -246,9 +277,15 @@ export class CopilotResolver {
 
         // run and process the event stream
         const eventStream = eventSource
-          .process({
-            serversideActions: actions,
+          .processRuntimeEvents({
+            serverSideActions,
             guardrailsResult$: data.cloud?.guardrails ? guardrailsResult$ : null,
+            actionInputsWithoutAgents: actionInputsWithoutAgents.filter(
+              // TODO-AGENTS: do not exclude ALL server side actions
+              (action) =>
+                !serverSideActions.find((serverSideAction) => serverSideAction.name == action.name),
+            ),
+            threadId,
           })
           .pipe(
             // shareReplay() ensures that later subscribers will see the whole stream instead of
@@ -273,17 +310,29 @@ export class CopilotResolver {
                   // skip until this message start event
                   skipWhile((e) => e !== event),
                   // take until the message end event
-                  takeWhile((e) => e.type != RuntimeEventTypes.TextMessageEnd),
+                  takeWhile(
+                    (e) =>
+                      !(
+                        e.type === RuntimeEventTypes.TextMessageEnd &&
+                        e.messageId == event.messageId
+                      ),
+                  ),
+                  // filter out any other message events or message ids
+                  filter(
+                    (e) =>
+                      e.type == RuntimeEventTypes.TextMessageContent &&
+                      e.messageId == event.messageId,
+                  ),
                 );
 
                 // signal when we are done streaming
                 const streamingTextStatus = new Subject<typeof MessageStatusUnion>();
 
-                const messageId = randomId();
-
+                const messageId = event.messageId;
                 // push the new message
                 pushMessage({
                   id: messageId,
+                  parentMessageId: event.parentMessageId,
                   status: firstValueFrom(streamingTextStatus),
                   createdAt: new Date(),
                   role: MessageRole.assistant,
@@ -355,15 +404,28 @@ export class CopilotResolver {
                 logger.debug("Action execution start event received");
                 const actionExecutionArgumentStream = eventStream.pipe(
                   skipWhile((e) => e !== event),
-                  takeWhile((e) => e.type != RuntimeEventTypes.ActionExecutionEnd),
+                  // take until the action execution end event
+                  takeWhile(
+                    (e) =>
+                      !(
+                        e.type === RuntimeEventTypes.ActionExecutionEnd &&
+                        e.actionExecutionId == event.actionExecutionId
+                      ),
+                  ),
+                  // filter out any other action execution events or action execution ids
+                  filter(
+                    (e) =>
+                      e.type == RuntimeEventTypes.ActionExecutionArgs &&
+                      e.actionExecutionId == event.actionExecutionId,
+                  ),
                 );
                 const streamingArgumentsStatus = new Subject<typeof MessageStatusUnion>();
                 pushMessage({
                   id: event.actionExecutionId,
+                  parentMessageId: event.parentMessageId,
                   status: firstValueFrom(streamingArgumentsStatus),
                   createdAt: new Date(),
                   name: event.actionName,
-                  scope: event.scope!,
                   arguments: new Repeater(async (pushArgumentsChunk, stopStreamingArguments) => {
                     logger.debug("Action execution argument stream created");
 
@@ -399,7 +461,6 @@ export class CopilotResolver {
                             id: event.actionExecutionId,
                             createdAt: new Date(),
                             name: event.actionName,
-                            scope: event.scope!,
                             arguments: argumentChunks.join(""),
                           }),
                         );
@@ -414,7 +475,7 @@ export class CopilotResolver {
               case RuntimeEventTypes.ActionExecutionResult:
                 logger.debug({ result: event.result }, "Action execution result event received");
                 pushMessage({
-                  id: randomId(),
+                  id: "result-" + event.actionExecutionId,
                   status: new SuccessMessageStatus(),
                   createdAt: new Date(),
                   actionExecutionId: event.actionExecutionId,
@@ -424,11 +485,44 @@ export class CopilotResolver {
 
                 outputMessages.push(
                   plainToInstance(ResultMessage, {
-                    id: randomId(),
+                    id: "result-" + event.actionExecutionId,
                     createdAt: new Date(),
                     actionExecutionId: event.actionExecutionId,
                     actionName: event.actionName,
                     result: event.result,
+                  }),
+                );
+                break;
+              ////////////////////////////////
+              // AgentStateMessage
+              ////////////////////////////////
+              case RuntimeEventTypes.AgentStateMessage:
+                logger.debug({ event }, "Agent message event received");
+                pushMessage({
+                  id: randomId(),
+                  status: new SuccessMessageStatus(),
+                  threadId: event.threadId,
+                  agentName: event.agentName,
+                  nodeName: event.nodeName,
+                  runId: event.runId,
+                  active: event.active,
+                  state: event.state,
+                  running: event.running,
+                  role: MessageRole.assistant,
+                  createdAt: new Date(),
+                });
+                outputMessages.push(
+                  plainToInstance(AgentStateMessage, {
+                    id: randomId(),
+                    threadId: event.threadId,
+                    agentName: event.agentName,
+                    nodeName: event.nodeName,
+                    runId: event.runId,
+                    active: event.active,
+                    state: event.state,
+                    running: event.running,
+                    role: MessageRole.assistant,
+                    createdAt: new Date(),
                   }),
                 );
                 break;

@@ -1,5 +1,11 @@
-import { CopilotContextParams, defaultCopilotContextCategories } from "@copilotkit/react-core";
+import {
+  CopilotContextParams,
+  CopilotMessagesContextParams,
+  defaultCopilotContextCategories,
+} from "@copilotkit/react-core";
 import { CopilotKitVersion } from "./types";
+import { ActionExecutionMessage, ResultMessage, TextMessage } from "@copilotkit/runtime-client-gql";
+import { AgentStateMessage } from "@copilotkit/runtime-client-gql";
 
 export function shouldShowDevConsole(showDevConsole: boolean | "auto"): boolean {
   if (typeof showDevConsole === "boolean") {
@@ -44,7 +50,7 @@ export async function getPublishedCopilotKitVersion(
   }
 
   try {
-    const response = await fetch("https://api.cloud.stagingcopilotkit.ai/check-for-updates", {
+    const response = await fetch("https://api.cloud.copilotkit.ai/check-for-updates", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -78,6 +84,8 @@ export async function getPublishedCopilotKitVersion(
 }
 
 export function logReadables(context: CopilotContextParams) {
+  console.log("%cCurrent Readables:", "font-size: 16px; font-weight: bold;");
+
   const readables = context.getContextString([], defaultCopilotContextCategories).trim();
   if (readables.length === 0) {
     console.log("No readables found");
@@ -87,6 +95,8 @@ export function logReadables(context: CopilotContextParams) {
 }
 
 export function logActions(context: CopilotContextParams) {
+  console.log("%cCurrent Actions:", "font-size: 16px; font-weight: bold;");
+
   if (Object.values(context.actions).length === 0) {
     console.log("No actions found");
     return;
@@ -99,4 +109,54 @@ export function logActions(context: CopilotContextParams) {
 
     console.groupEnd();
   }
+}
+
+export function logMessages(context: CopilotMessagesContextParams) {
+  console.log("%cCurrent Messages:", "font-size: 16px; font-weight: bold;");
+
+  if (context.messages.length === 0) {
+    console.log("No messages found");
+    return;
+  }
+
+  const tableData = context.messages.map((message) => {
+    if (message.isTextMessage()) {
+      return {
+        id: message.id,
+        type: "TextMessage",
+        role: message.role,
+        name: undefined,
+        scope: undefined,
+        content: message.content,
+      };
+    } else if (message.isActionExecutionMessage()) {
+      return {
+        id: message.id,
+        type: "ActionExecutionMessage",
+        role: undefined,
+        name: message.name,
+        scope: message.parentMessageId,
+        content: message.arguments,
+      };
+    } else if (message.isResultMessage()) {
+      return {
+        id: message.id,
+        type: "ResultMessage",
+        role: undefined,
+        name: message.actionName,
+        scope: message.actionExecutionId,
+        content: message.result,
+      };
+    } else if (message.isAgentStateMessage()) {
+      return {
+        id: message.id,
+        type: `AgentStateMessage (running: ${message.running})`,
+        role: message.role,
+        name: undefined,
+        scope: message.threadId,
+        content: message.state,
+      };
+    }
+  });
+  console.table(tableData);
 }

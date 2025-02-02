@@ -36,3 +36,5 @@ yarn-error.log*
 dist/
 
 TODO.local.md
+
+publish-output.txt

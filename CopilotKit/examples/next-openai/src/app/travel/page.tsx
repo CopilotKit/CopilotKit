@@ -4,6 +4,7 @@ import { CopilotChat } from "@copilotkit/react-ui";
 import "./styles.css";
 import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 interface BookableItem {
   name: string;
@@ -12,8 +13,18 @@ interface BookableItem {
 }
 
 export default function PanelPage() {
+  const searchParams = useSearchParams();
+  const serviceAdapter = searchParams.get("serviceAdapter") || "openai";
+  const runtimeUrl =
+    searchParams.get("runtimeUrl") || `/api/copilotkit?serviceAdapter=${serviceAdapter}`;
+  const publicApiKey = searchParams.get("publicApiKey");
+  const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
+    runtimeUrl,
+    publicApiKey: publicApiKey || undefined,
+  };
+
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit/travel">
+    <CopilotKit {...copilotKitProps}>
       <TravelPlanner />
     </CopilotKit>
   );

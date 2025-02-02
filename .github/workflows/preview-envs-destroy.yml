@@ -1,0 +1,74 @@
+name: Destroy Preview Environments
+
+on:
+  pull_request:
+    types: [ closed ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment Name (e.g. `pr-1269`)'
+        required: false
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}-destroy
+  cancel-in-progress: false
+
+jobs:
+  preview_envs_destroy:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    name: Destroy Preview Environments
+    defaults:
+      run:
+        working-directory: examples/helmfile
+    permissions:
+      deployments: write
+      pull-requests: write
+      statuses: write
+      actions: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-region: us-east-1
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Setup helmfile
+        uses: mamezou-tech/setup-helmfile@v1.2.0
+
+      - name: EKS Config
+        run: |
+          aws eks --region us-east-1 update-kubeconfig --name copilotcloud-staging-eks
+
+      - name: Set Environment Name
+        id: set-environment-name
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "ENVIRONMENT=${{ github.event.inputs.environment }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "ENVIRONMENT=pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare Environment Config
+        run: |
+          cat > ./override-values.yaml << 'EOL'
+          environment: ${{ steps.set-environment-name.outputs.environment }}
+          namespace: copilotkit-examples-${{ steps.set-environment-name.outputs.environment }}
+          EOL
+
+      - name: Helmfile Destroy
+        run: |
+          helmfile --state-values-file=./override-values.yaml destroy
+          kubectl delete namespace copilotkit-examples-${{ steps.set-environment-name.outputs.environment }} -A --force
+
+      - name: Comment post-destroy
+        if: github.event_name == 'pull_request'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: preview-status-update
+          message: |
+            Preview environments destroyed for this pull request.

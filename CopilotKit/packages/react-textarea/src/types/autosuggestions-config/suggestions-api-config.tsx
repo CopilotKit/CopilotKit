@@ -6,6 +6,7 @@ export interface SuggestionsApiConfig {
   fewShotMessages: Message[];
   maxTokens?: number;
   stop?: string[];
+  temperature?: number;
 }
 
 export const defaultSuggestionsMakeSystemPrompt: MakeSystemPrompt = (
@@ -28,6 +29,7 @@ The user will provide both the text before and after the cursor. You should use 
 <YourSuggestion>
 
 If we need to add a whitespace character to the suggested text, make sure to explicitly add it in.
+Refrain from adding <YourSuggestion> tags when responding
 
 The following external context is also provided. Use it to help you make better suggestions!!!
 \`\`\`

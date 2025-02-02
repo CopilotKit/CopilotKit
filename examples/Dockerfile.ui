@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1-labs
+
+FROM node:22-alpine AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+RUN pnpm i -g turbo
+
+# Production Stage 
+FROM base AS production
+ARG APP_DIR
+WORKDIR /app
+
+# Add required libraries for Next.js standalone server
+RUN apk add --no-cache libc6-compat
+
+COPY ${APP_DIR}/package.json ${APP_DIR}/pnpm-lock.yaml ./
+RUN pnpm i --frozen-lockfile
+
+# Copy the built artifacts from the builder stage
+COPY ${APP_DIR}/.next/standalone ./
+COPY ${APP_DIR}/.next/static ./.next/static
+
+# Set the environment variables (if needed)
+ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+ENV PORT=3000
+CMD ["node", "server.js", "--host", "$HOST", "--port", "$PORT"]
+
+#

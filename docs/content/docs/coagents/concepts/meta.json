@@ -1,0 +1,14 @@
+{
+    "title": "Concepts",
+    "root": true,
+    "pages": [
+      "agentic-copilots",
+      "terminology",
+      "state",
+      "human-in-the-loop",
+      "message-management",
+      "copilotkit-config",
+      "multi-agent-flows",
+      "langgraph"
+    ]
+  }

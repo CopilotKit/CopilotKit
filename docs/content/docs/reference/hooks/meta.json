@@ -1,0 +1,11 @@
+{
+  "title": "hooks",
+  "pages": [
+    "useCopilotReadable",
+    "useCopilotAction",
+    "useCopilotChat",
+    "useCopilotChatSuggestions",
+    "useCoAgent",
+    "useCoAgentStateRender"
+  ]
+}

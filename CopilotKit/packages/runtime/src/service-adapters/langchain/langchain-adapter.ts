@@ -1,25 +1,34 @@
 /**
- * CopilotKit Adapter for LangChain
+ * Copilot Runtime adapter for LangChain.
  *
- * Use this adapter to use LangChain as a backend.
+ * ## Example
  *
- * ```typescript
- * return copilotKit.response(
- *   req,
- *   new LangChainAdapter({
- *     chainFn: async ({ messages, tools }) => {
- *       const model = new ChatOpenAI({ modelName: "gpt-4o" });
- *       return model.stream(messages, { tools });
- *     },
- *   })
- * );
+ * ```ts
+ * import { CopilotRuntime, LangChainAdapter } from "@copilotkit/runtime";
+ * import { ChatOpenAI } from "@langchain/openai";
+ *
+ * const copilotKit = new CopilotRuntime();
+ *
+ * const model = new ChatOpenAI({
+ *   model: "gpt-4o",
+ *   apiKey: "<your-api-key>",
+ * });
+ *
+ * return new LangChainAdapter({
+ *   chainFn: async ({ messages, tools }) => {
+ *     return model.bindTools(tools).stream(messages);
+ *     // or optionally enable strict mode
+ *     // return model.bindTools(tools, { strict: true }).stream(messages);
+ *   }
+ * });
  * ```
- * The async handler function can return:
  *
- * - a simple `string` response
- * - a LangChain stream `IterableReadableStream`
- * - a LangChain `BaseMessageChunk` object
- * - a LangChain `AIMessage` object
+ * The asynchronous handler function (`chainFn`) can return any of the following:
+ *
+ * - A simple `string` response
+ * - A LangChain stream (`IterableReadableStream`)
+ * - A LangChain `BaseMessageChunk` object
+ * - A LangChain `AIMessage` object
  */
 
 import { BaseMessage } from "@langchain/core/messages";
@@ -35,7 +44,8 @@ import {
 } from "./utils";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { LangChainReturnType } from "./types";
-import { randomId } from "@copilotkit/shared";
+import { randomUUID } from "@copilotkit/shared";
+import { awaitAllCallbacks } from "@langchain/core/callbacks/promises";
 
 interface ChainFnParameters {
   model: string;
@@ -46,6 +56,9 @@ interface ChainFnParameters {
 }
 
 interface LangChainAdapterOptions {
+  /**
+   * A function that uses the LangChain API to generate a response.
+   */
   chainFn: (parameters: ChainFnParameters) => Promise<LangChainReturnType>;
 }
 
@@ -58,24 +71,36 @@ export class LangChainAdapter implements CopilotServiceAdapter {
   async process(
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
-    const { eventSource, model, actions, messages, threadId, runId } = request;
-    const result = await this.options.chainFn({
-      messages: messages.map(convertMessageToLangChainMessage),
-      tools: actions.map(convertActionInputToLangChainTool),
-      model,
-      threadId,
-      runId,
-    });
-
-    eventSource.stream(async (eventStream$) => {
-      await streamLangChainResponse({
-        result,
-        eventStream$,
+    try {
+      const {
+        eventSource,
+        model,
+        actions,
+        messages,
+        runId,
+        threadId: threadIdFromRequest,
+      } = request;
+      const threadId = threadIdFromRequest ?? randomUUID();
+      const result = await this.options.chainFn({
+        messages: messages.map(convertMessageToLangChainMessage),
+        tools: actions.map(convertActionInputToLangChainTool),
+        model,
+        threadId,
+        runId,
       });
-    });
 
-    return {
-      threadId: threadId || randomId(),
-    };
+      eventSource.stream(async (eventStream$) => {
+        await streamLangChainResponse({
+          result,
+          eventStream$,
+        });
+      });
+
+      return {
+        threadId,
+      };
+    } finally {
+      await awaitAllCallbacks();
+    }
   }
 }

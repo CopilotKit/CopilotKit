@@ -5,6 +5,12 @@ export const generateCopilotResponseMutation = graphql(/** GraphQL **/ `
     generateCopilotResponse(data: $data, properties: $properties) {
       threadId
       runId
+      extensions {
+        openaiAssistantAPI {
+          runId
+          threadId
+        }
+      }
       ... on CopilotResponse @defer {
         status {
           ... on BaseResponseStatus {
@@ -39,16 +45,27 @@ export const generateCopilotResponseMutation = graphql(/** GraphQL **/ `
         ... on TextMessageOutput {
           content @stream
           role
+          parentMessageId
         }
         ... on ActionExecutionMessageOutput {
           name
-          scope
           arguments @stream
+          parentMessageId
         }
         ... on ResultMessageOutput {
           result
           actionExecutionId
           actionName
+        }
+        ... on AgentStateMessageOutput {
+          threadId
+          state
+          running
+          agentName
+          nodeName
+          runId
+          active
+          role
         }
       }
     }

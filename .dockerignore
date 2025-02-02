@@ -1,0 +1,17 @@
+.github
+.husky
+.turbo
+community
+assets
+.vscode
+Dockerfile
+**/.venv
+**/.env
+**/.vscode
+infra
+docs
+**/.turbo
+**/.husky
+
+**/node_modules
+**/.langgraph_api

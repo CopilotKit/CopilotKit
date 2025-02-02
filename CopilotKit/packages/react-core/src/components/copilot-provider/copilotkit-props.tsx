@@ -1,4 +1,6 @@
+import { ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
 import { ReactNode } from "react";
+import { AuthState } from "../../context/copilot-context";
 
 /**
  * Props for CopilotKit.
@@ -6,12 +8,13 @@ import { ReactNode } from "react";
 
 export interface CopilotKitProps {
   /**
-   * Your Copilot Cloud API key.
+   *  Your Copilot Cloud API key. Don't have it yet? Go to https://cloud.copilotkit.ai and get one for free.
    */
   publicApiKey?: string;
 
   /**
-   * Cloud feature: Restrict input to a specific topic.
+   * Restrict input to a specific topic.
+   * @deprecated Use `guardrails_c` instead to control input restrictions
    */
   cloudRestrictToTopic?: {
     validTopics?: string[];
@@ -19,7 +22,18 @@ export interface CopilotKitProps {
   };
 
   /**
-   * the endpoint for the Copilot Runtime instance.
+   * Restrict input to specific topics using guardrails.
+   * @remarks
+   *
+   * This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://cloud.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
+   */
+  guardrails_c?: {
+    validTopics?: string[];
+    invalidTopics?: string[];
+  };
+
+  /**
+   * The endpoint for the Copilot Runtime instance. [Click here for more information](/concepts/copilot-runtime).
    */
   runtimeUrl?: string;
 
@@ -37,24 +51,13 @@ export interface CopilotKitProps {
    * Additional headers to be sent with the request.
    *
    * For example:
-   * ```js
+   * ```json
    * {
-   *   'Authorization': 'Bearer your_token_here'
+   *   "Authorization": "Bearer X"
    * }
    * ```
    */
   headers?: Record<string, string>;
-
-  /**
-   * Additional body params to be sent with the request
-   * For example:
-   * ```js
-   * {
-   *   'message': 'Hello, world!'
-   * }
-   * ```
-   */
-  body?: Record<string, any>;
 
   /**
    * The children to be rendered within the CopilotKit.
@@ -84,4 +87,31 @@ export interface CopilotKitProps {
    * If set to "auto", the dev console will be show on localhost only.
    */
   showDevConsole?: boolean | "auto";
+
+  /**
+   * The name of the agent to use.
+   */
+  agent?: string;
+
+  /**
+   * The forwarded parameters to use for the task.
+   */
+  forwardedParameters?: Pick<ForwardedParametersInput, "temperature">;
+
+  /**
+   * The auth config to use for the CopilotKit.
+   * @remarks
+   *
+   * This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://cloud.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
+   */
+  authConfig_c?: {
+    SignInComponent: React.ComponentType<{
+      onSignInComplete: (authState: AuthState) => void;
+    }>;
+  };
+
+  /**
+   * The thread id to use for the CopilotKit.
+   */
+  threadId?: string;
 }

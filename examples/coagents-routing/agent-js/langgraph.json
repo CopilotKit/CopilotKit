@@ -1,0 +1,11 @@
+{
+  "node_version": "20",
+  "dockerfile_lines": [],
+  "dependencies": ["."],
+  "graphs": {
+    "joke_agent": "./src/joke-agent.ts:jokeGraph",
+    "email_agent": "./src/email-agent.ts:emailGraph",
+    "pirate_agent": "./src/pirate-agent.ts:pirateGraph"
+  },
+  "env": ".env"
+}

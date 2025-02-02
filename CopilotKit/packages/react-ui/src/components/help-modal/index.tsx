@@ -1,0 +1,1 @@
+export { CopilotKitHelpModal } from "./modal";

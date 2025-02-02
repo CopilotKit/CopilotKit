@@ -1,13 +1,14 @@
 "use client";
 
-import { useCopilotContext } from "@copilotkit/react-core";
+import { useCopilotContext, useCopilotMessagesContext } from "@copilotkit/react-core";
 import {
   getPublishedCopilotKitVersion,
   logActions,
+  logMessages,
   logReadables,
   shouldShowDevConsole,
 } from "./utils";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -18,6 +19,7 @@ import {
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { COPILOTKIT_VERSION } from "@copilotkit/shared";
 import { SmallSpinnerIcon } from "../chat/Icons";
+import { CopilotKitHelpModal } from "../help-modal";
 
 type VersionStatus = "unknown" | "checking" | "latest" | "update-available" | "outdated";
 
@@ -137,6 +139,8 @@ export function CopilotDevConsole() {
         latestVersion={latestVersion}
       />
 
+      <CopilotKitHelpModal />
+
       <DebugMenuButton
         setShowDevConsole={setShowDevConsole}
         checkForUpdates={checkForUpdates}
@@ -226,9 +230,10 @@ export default function DebugMenuButton({
   mode: "full" | "compact";
 }) {
   const context = useCopilotContext();
+  const messagesContext = useCopilotMessagesContext();
 
   return (
-    <div className="bg-black fixed top-24 w-52 text-right">
+    <div className="bg-black top-24 w-52 text-right">
       <Menu>
         <MenuButton className={`copilotKitDebugMenuButton ${mode === "compact" ? "compact" : ""}`}>
           {mode == "compact" ? "Debug" : <>Debug {ChevronDownIcon}</>}
@@ -248,6 +253,14 @@ export default function DebugMenuButton({
           <MenuItem>
             <button className="copilotKitDebugMenuItem" onClick={() => logActions(context)}>
               Log Actions
+            </button>
+          </MenuItem>
+          <MenuItem>
+            <button
+              className="copilotKitDebugMenuItem"
+              onClick={() => logMessages(messagesContext)}
+            >
+              Log Messages
             </button>
           </MenuItem>
           <MenuItem>

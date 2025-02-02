@@ -1,0 +1,94 @@
+---
+title: "Frontend Actions"
+description: "Learn how to enable your Copilot to take actions in the frontend."
+---
+import { LinkIcon } from "lucide-react";
+import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
+
+# Let the Copilot Take Action
+
+<Steps>
+
+<Step>
+### `useCopilotAction`
+
+In addition to understanding state, you can empower the copilot to take actions. Use the [`useCopilotAction`](/reference/hooks/useCopilotAction) hook to define specific tasks that the copilot can perform based on user input.
+
+```tsx title="YourComponent.tsx"
+"use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
+import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
+
+export function MyComponent() {
+  const [todos, setTodos] = useState<string[]>([]);
+
+  // Define Copilot action
+  useCopilotAction({
+    name: "addTodoItem",
+    description: "Add a new todo item to the list",
+    parameters: [
+      {
+        name: "todoText",
+        type: "string",
+        description: "The text of the todo item to add",
+        required: true,
+      },
+    ],
+    handler: async ({ todoText }) => {
+      setTodos([...todos, todoText]);
+    },
+  });
+
+  return (
+    <ul>
+      {todos.map((todo, index) => (
+        <li key={index}>{todo}</li>
+      ))}
+    </ul>
+  );
+}
+```
+</Step>
+
+<Step>
+  <UseClientCalloutSnippet components={props.components} />
+</Step>
+
+
+<Step>
+### Test it out!
+After defining the action, ask the copilot to perform the task. For example, you can now ask the copilot to "select an employee" by specifying the `employeeId`.
+
+<Frame>
+  <img 
+    src="/images/copilot-action-example.gif" 
+    alt="Example of Copilot action" 
+    className="rounded-lg shadow-md w-full max-w-md mx-auto"
+  />
+</Frame>
+</Step>
+
+</Steps>
+
+
+## Next Steps
+
+<Cards>
+  <Card
+    title="useCopilotAction Reference"
+    description="Refer to the documentation for the useCopilotAction hook."
+    href="/reference/hooks/useCopilotAction"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Actions + Generative UI"
+    description="Learn how to render custom UI components alongside your actions, directly in the CopilotKit chat window."
+    href="/guides/generative-ui"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Backend Actions"
+    description="Enable backend services to trigger actions via copilot backend hooks."
+    href="/guides/backend-actions"
+    icon={<LinkIcon />}
+  />
+</Cards>
