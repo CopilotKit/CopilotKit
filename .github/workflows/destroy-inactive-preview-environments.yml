@@ -1,0 +1,72 @@
+name: Destroy Inactive Preview Environments
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+
+jobs:
+  deploy:
+    name: Destroy Inactive Preview Environments
+    runs-on: ubuntu-20.04
+    outputs:
+      e2e-urls: ${{ steps.export-e2e-urls.outputs.e2e-urls }}
+    defaults:
+      run:
+        working-directory: examples/helmfile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-region: us-east-1
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Setup helmfile
+        uses: mamezou-tech/setup-helmfile@v1.2.0
+
+      - name: EKS Config
+        run: |
+          aws eks --region us-east-1 update-kubeconfig --name copilotcloud-staging-eks
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "9.5"
+
+      - name: Use Node.js 21
+        uses: actions/setup-node@v2
+        with:
+          node-version: 21.x
+          cache: "pnpm"
+          cache-dependency-path: "./examples/helmfile/pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Delete inactive preview environments
+        id: delete-inactive-preview-environments
+        run: |
+          node destroy-inactive-preview-environments.js
+          
+      # - name: Delete a comment
+      #   if: github.event_name == 'pull_request'
+      #   uses: thollander/actions-comment-pull-request@v3
+      #   with:
+      #     comment-tag: preview-status-update
+      #     mode: delete
+
+      # - name: Comment post-deployment
+      #   if: github.event_name == 'pull_request'
+      #   uses: thollander/actions-comment-pull-request@v3
+      #   with:
+      #     comment-tag: preview-status-update
+      #     file-path: ./examples/helmfile/preview-comment.md
+
+      # - name: Export Variable - E2E URLs
+      #   id: export-e2e-urls
+      #   working-directory: examples/e2e
+      #   run: |
+      #     echo "e2e-urls=$(cat test-config.json | base64 -w 0)" >> "$GITHUB_OUTPUT"
