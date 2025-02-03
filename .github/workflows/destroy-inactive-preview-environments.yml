@@ -63,14 +63,15 @@ jobs:
     steps:
       - name: Comment on PRs
         run: |
-          echo "PR number: ${{ matrix.pr-numbers }}"
+          echo "PR number: ${{ matrix.pr-number }}"
 
       - name: Delete a comment
         uses: thollander/actions-comment-pull-request@v3
         with:
           comment-tag: preview-status-update
           mode: delete
-
+          pr-number: ${{ matrix.pr-number }}
+          
       - name: Comment
         uses: thollander/actions-comment-pull-request@v3
         with:
