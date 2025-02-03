@@ -6,11 +6,11 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  destroy:
     name: Destroy Inactive Preview Environments
     runs-on: ubuntu-20.04
     outputs:
-      e2e-urls: ${{ steps.export-e2e-urls.outputs.e2e-urls }}
+      destroyed-pr-numbers: ${{ steps.delete-inactive-preview-environments.outputs.destroyed-pr-numbers }}
     defaults:
       run:
         working-directory: examples/helmfile
@@ -51,6 +51,19 @@ jobs:
         id: delete-inactive-preview-environments
         run: |
           node destroy-inactive-preview-environments.js
+          echo "destroyed-pr-numbers=$(cat inactive-pull-requests.json)" >> "$GITHUB_OUTPUT"
+
+  pr-comments:
+    needs: destroy
+    name: Comment on PRs
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        pr-numbers: ${{ needs.destroy.outputs.destroyed-pr-numbers }}
+    steps:
+      - name: Comment on PRs
+        run: |
+          echo "PR number: ${{ matrix.pr-numbers }}"
           
       # - name: Delete a comment
       #   if: github.event_name == 'pull_request'
