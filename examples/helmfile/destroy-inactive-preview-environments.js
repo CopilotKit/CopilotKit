@@ -15,9 +15,8 @@ async function main() {
     (release) => {
       const now = new Date();
       const releaseUpdatedAt = new Date(release.updated);
-      // const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000); // 2 hours ago
-      const twoHoursAgo = new Date(now.getTime()); // 2 hours ago
-      return releaseUpdatedAt < twoHoursAgo;
+      const compareDate = new Date(now.getTime() - 12 * 60 * 60 * 1000); // 12 hours ago
+      return releaseUpdatedAt < compareDate;
     }
   );
 
@@ -32,8 +31,8 @@ async function main() {
     const pullRequestNumber = environment.replace("pr-", "");
     const namespace = release.namespace;
     console.log(`Deleting environment ${environment} in namespace ${namespace}`);
-    // childProcess.execSync(`helmfile --state-values-set environment=${environment},namespace=${namespace} destroy`);
-    // childProcess.execSync(`kubectl delete namespace ${release.namespace}`);
+    childProcess.execSync(`helmfile --state-values-set environment=${environment},namespace=${namespace} destroy`);
+    childProcess.execSync(`kubectl delete namespace ${release.namespace}`);
     pullRequestNumbers.push(pullRequestNumber);
   }
 
