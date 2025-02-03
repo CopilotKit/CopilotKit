@@ -59,7 +59,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        pr-numbers: ${{ needs.destroy.outputs.destroyed-pr-numbers }}
+        pr-numbers: ${{ fromJSON(needs.destroy.outputs.destroyed-pr-numbers) }}
     steps:
       - name: Comment on PRs
         run: |
