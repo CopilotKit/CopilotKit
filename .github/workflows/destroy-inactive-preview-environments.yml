@@ -6,11 +6,11 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  destroy:
     name: Destroy Inactive Preview Environments
     runs-on: ubuntu-20.04
     outputs:
-      e2e-urls: ${{ steps.export-e2e-urls.outputs.e2e-urls }}
+      destroyed-pr-numbers: ${{ steps.delete-inactive-preview-environments.outputs.destroyed-pr-numbers }}
     defaults:
       run:
         working-directory: examples/helmfile
@@ -51,23 +51,32 @@ jobs:
         id: delete-inactive-preview-environments
         run: |
           node destroy-inactive-preview-environments.js
-          
-      # - name: Delete a comment
-      #   if: github.event_name == 'pull_request'
-      #   uses: thollander/actions-comment-pull-request@v3
-      #   with:
-      #     comment-tag: preview-status-update
-      #     mode: delete
+          echo "destroyed-pr-numbers=$(cat inactive-pull-requests.json)" >> "$GITHUB_OUTPUT"
 
-      # - name: Comment post-deployment
-      #   if: github.event_name == 'pull_request'
-      #   uses: thollander/actions-comment-pull-request@v3
-      #   with:
-      #     comment-tag: preview-status-update
-      #     file-path: ./examples/helmfile/preview-comment.md
+  pr-comments:
+    needs: destroy
+    name: Comment on PRs
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        pr-number: ${{ fromJSON(needs.destroy.outputs.destroyed-pr-numbers) }}
+    steps:
+      - name: Comment on PRs
+        run: |
+          echo "PR number: ${{ matrix.pr-number }}"
 
-      # - name: Export Variable - E2E URLs
-      #   id: export-e2e-urls
-      #   working-directory: examples/e2e
-      #   run: |
-      #     echo "e2e-urls=$(cat test-config.json | base64 -w 0)" >> "$GITHUB_OUTPUT"
+      - name: Delete a comment
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: preview-status-update
+          mode: delete
+          pr-number: ${{ matrix.pr-number }}
+
+      - name: Comment
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          comment-tag: preview-status-update
+          pr-number: ${{ matrix.pr-number }}
+          message: |
+            The preview environment for this PR has been deleted because it has been inactive for more than 12 hours.
+            To recreate the preview environment, you can push a new change to the PR.
