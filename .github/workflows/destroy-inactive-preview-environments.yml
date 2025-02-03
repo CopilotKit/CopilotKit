@@ -55,6 +55,7 @@ jobs:
 
   pr-comments:
     needs: destroy
+    if: ${{ needs.destroy.outputs.destroyed-pr-numbers != '[]' }}
     name: Comment on PRs
     runs-on: ubuntu-20.04
     strategy:
