@@ -15,7 +15,8 @@ async function main() {
     (release) => {
       const now = new Date();
       const releaseUpdatedAt = new Date(release.updated);
-      const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000); // 2 hours ago
+      // const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000); // 2 hours ago
+      const twoHoursAgo = new Date(now.getTime()); // 2 hours ago
       return releaseUpdatedAt < twoHoursAgo;
     }
   );
