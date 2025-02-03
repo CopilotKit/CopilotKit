@@ -40,7 +40,7 @@ async function main() {
   console.log(`Deleted ${numReleasesToDelete} inactive releases`);
 
   // Write to local file - inactive-pull-requests.json
-  fs.writeFileSync("inactive-pull-requests.json", JSON.stringify(pullRequestNumbers, null, 2));
+  fs.writeFileSync("inactive-pull-requests.json", JSON.stringify(pullRequestNumbers));
 }
 
 main();
