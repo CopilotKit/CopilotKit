@@ -9,7 +9,7 @@ import uvicorn
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent, CrewAIAgent
 from greeter.agent import graph
-from greeter.flow_agent import ExampleFlow
+from greeter.crew_agent import PoetCrew
 
 app = FastAPI()
 sdk = CopilotKitRemoteEndpoint(
@@ -20,9 +20,9 @@ sdk = CopilotKitRemoteEndpoint(
             graph=graph,
         ),
         CrewAIAgent(
-            name="flow-agent",
-            description="Flow agent.",
-            flow=ExampleFlow,
+            name="crew-agent",
+            description="Crew agent.",
+            crew=PoetCrew,
         )
     ],
 )

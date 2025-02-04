@@ -1,6 +1,6 @@
-answer_question_task:
+write_poem_task:
   description: >
-    Answer the question: {question}
+    Write a poem about {topic}
   expected_output: >
-    An answer to this question: {question}
+    A poem about {topic}
   agent: poet

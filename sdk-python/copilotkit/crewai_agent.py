@@ -72,7 +72,6 @@ class CrewAIAgent(Agent):
             name: str,
             description: Optional[str] = None,
             crew: Optional[Crew] = None,
-            crew_input_key: Optional[str] = None,
             flow: Optional[Flow] = None,
             copilotkit_config: Optional[CopilotKitConfig] = None,
         ):
@@ -85,7 +84,6 @@ class CrewAIAgent(Agent):
 
 
         self.crew = crew
-        self.crew_input_key = crew_input_key or "input"
         self.flow = flow
         self.copilotkit_config = copilotkit_config or {}
 
