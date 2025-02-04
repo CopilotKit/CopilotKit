@@ -596,11 +596,15 @@ class ChatWithCrewFlow(Flow):
 
     def __init__(self, *, crew: Crew, crew_name: str, thread_id: str):
         super().__init__()
-        self.crew = crew
+        self.crew = crew.crew()
+
+        if self.crew.chat_llm is None:
+            raise ValueError("Crew chat LLM is not set")
+
         self.crew_name = crew_name
         self.thread_id = thread_id
-        self.chat_llm = crew_chat_initialize_chat_llm(crew)
-        self.crew_chat_inputs = crew_chat_generate_crew_chat_inputs(crew, crew_name, self.chat_llm)
+        self.chat_llm = crew_chat_initialize_chat_llm(self.crew)
+        self.crew_chat_inputs = crew_chat_generate_crew_chat_inputs(self.crew, self.crew_name, self.chat_llm)
         self.crew_tool_schema = crew_chat_generate_crew_tool_schema(self.crew_chat_inputs)
         self.system_message = crew_chat_build_system_message(self.crew_chat_inputs)
 

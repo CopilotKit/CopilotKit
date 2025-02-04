@@ -34,6 +34,7 @@ class PoetCrew():
           tasks=[
             self.write_poem_task()
           ],
-          process=Process.sequential
+          process=Process.sequential,
+          chat_llm="gpt-4o"
         )
 

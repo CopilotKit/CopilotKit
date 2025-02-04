@@ -22,7 +22,7 @@ sdk = CopilotKitRemoteEndpoint(
         CrewAIAgent(
             name="crew-agent",
             description="Crew agent.",
-            crew=PoetCrew,
+            crew=PoetCrew(),
         )
     ],
 )
