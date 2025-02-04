@@ -3,11 +3,10 @@ Flow agent
 """
 from crewai.flow.flow import Flow, start
 from litellm import completion
-from copilotkit.crewai import copilotkit_emit_message
 
 
 class ExampleFlow(Flow):
-
+    """Example flow"""
     @start()
     async def chat(self):
         """Just a simple chat with tools"""

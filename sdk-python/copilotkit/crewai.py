@@ -453,28 +453,28 @@ async def copilotkit_predict_state(
     ))
     return True
 
-def copilotkit_message_to_crewai_crew(message: Any) -> Any:
-    """Convert a CopilotKit message to a CrewAI `Crew` specific message"""
+# def copilotkit_message_to_crewai_crew(message: Any) -> Any:
+#     """Convert a CopilotKit message to a CrewAI `Crew` specific message"""
 
-    if "content" in message:
-        return {
-            'role': message['role'],
-            'content': message['content']
-        }
+#     if "content" in message:
+#         return {
+#             'role': message['role'],
+#             'content': message['content']
+#         }
 
-    if "name" in message:
-        return {
-            'role': "assistant",
-            'content': f"Executing action {message['name']} with arguments {message['arguments']}"
-        }
+#     if "name" in message:
+#         return {
+#             'role': "assistant",
+#             'content': f"Executing action {message['name']} with arguments {message['arguments']}"
+#         }
 
-    if "result" in message:
-        return {
-            'role': "user",
-            'content': f"Action {message['actionName']} completed with result {message['result']}"
-        }
+#     if "result" in message:
+#         return {
+#             'role': "user",
+#             'content': f"Action {message['actionName']} completed with result {message['result']}"
+#         }
 
-    raise ValueError("Invalid message")
+#     raise ValueError("Invalid message")
 
 def copilotkit_messages_to_crewai_flow(messages: List[Message]) -> List[Any]:
     """

@@ -17,7 +17,7 @@ sdk = CopilotKitRemoteEndpoint(
         CrewAIAgent(
             name="research_agent",
             description="Research agent.",
-            flow=ResearchCanvasFlow,
+            flow=ResearchCanvasFlow(),
         ),
     ],
 )
