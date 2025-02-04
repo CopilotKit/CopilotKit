@@ -22,7 +22,7 @@ sdk = CopilotKitRemoteEndpoint(
     ],
 )
 
-add_fastapi_endpoint(app, sdk, "/copilotkit")
+add_fastapi_endpoint(app, sdk, "/copilotkit", use_thread_pool=False)
 
 # add new route for health check
 @app.get("/health")
