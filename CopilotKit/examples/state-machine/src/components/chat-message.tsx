@@ -30,7 +30,7 @@ export function AssistantMessage({ message, subComponent, isLoading }: Assistant
       {/* Avatar */}
       <div className="shrink-0 w-10 h-10 rounded-xl overflow-hidden border-2 border-neutral-200 bg-white">
         <div className="w-full h-full flex items-center justify-center">
-          <svg className="w-6 h-6 text-primary" viewBox="0 0 24 24" fill="none">
+          <svg className="w-6 h-6 text-pink-600" viewBox="0 0 24 24" fill="none">
             <path d="M12 4L14 6H18C19.1046 6 20 6.89543 20 8V17C20 18.1046 19.1046 19 18 19H6C4.89543 19 4 18.1046 4 17V8C4 6.89543 4.89543 6 6 6H10L12 4Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             <path d="M9 14C9 14 10 15 12 15C14 15 15 14 15 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             <path d="M9 11H9.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -41,7 +41,7 @@ export function AssistantMessage({ message, subComponent, isLoading }: Assistant
 
       {/* Message */}
       <div className="relative py-2 px-4 rounded-2xl rounded-tl-sm max-w-[80%] text-sm leading-relaxed bg-white border border-neutral-200 shadow-sm">
-        <div className="font-medium text-blue-600 mb-1">Fio</div>
+        <div className="font-medium text-pink-600 mb-1">Fio</div>
         {isLoading ? (
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>

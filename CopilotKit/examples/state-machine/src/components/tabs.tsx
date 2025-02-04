@@ -27,7 +27,7 @@ export function Tabs({
   wrapperClassName = "h-full bg-white flex flex-col rounded-lg shadow-sm",
   navClassName = "p-6 pb-0",
   buttonClassName = "w-1/2 py-4 text-base font-medium transition-all duration-200 text-center border-b",
-  activeButtonClassName = "text-neutral-900 border-neutral-900",
+  activeButtonClassName = "text-pink-600 border-pink-600",
   inactiveButtonClassName = "text-neutral-500 border-neutral-200 hover:text-neutral-700 hover:border-neutral-300",
   contentClassName = "p-6 overflow-y-auto flex-1",
 }: TabsProps) {

@@ -1,3 +1,33 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.copilotKitChat {
+  background: radial-gradient(circle at center, white, white) !important;
+  position: relative !important;
+}
+
+.copilotKitChat::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='rgba(244, 114, 182, 0.11)' fill-rule='evenodd'%3E%3Ccircle cx='10' cy='10' r='2'/%3E%3C/g%3E%3C/svg%3E") !important;
+  mask-image: radial-gradient(circle at center, black 40%, transparent 65%) !important;
+  -webkit-mask-image: radial-gradient(circle at center, black 40%, transparent 65%) !important;
+  pointer-events: none !important;
+}
+
+.copilotKitMessages {
+  background: transparent !important;
+}
+
+.copilotKitResponseButton {
+  background: white;
+}
+
+.copilotKitInputControls svg {
+  stroke: rgb(244, 114, 182);
+}

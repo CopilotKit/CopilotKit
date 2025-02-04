@@ -52,11 +52,11 @@ export function CarSalesChat({ className }: ChatProps) {
   return (
     <div
       className={cn(
-        "flex flex-col h-full max-h-full w-full bg-white rounded-lg shadow-sm border border-neutral-200",
+        "flex flex-col h-full max-h-full w-full rounded-xl shadow-sm border border-neutral-200",
         className,
       )}
     >
-      <div className={cn("flex-1 w-full overflow-y-auto")}>
+      <div className={cn("flex-1 w-full rounded-xl overflow-y-auto")}>
         <CopilotChat
           className="h-full w-full"
           instructions={systemPrompt}
