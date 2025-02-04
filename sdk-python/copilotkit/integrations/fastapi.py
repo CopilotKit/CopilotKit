@@ -4,11 +4,11 @@ import logging
 import asyncio
 #
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Any, cast
+from typing import List, Any, cast, Optional
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from ..sdk import CopilotKitRemoteEndpoint, CopilotKitContext
-from ..types import Message
+from ..types import Message, MetaEvent
 from ..exc import (
     ActionNotFoundException,
     ActionExecutionException,
@@ -26,9 +26,12 @@ def add_fastapi_endpoint(
         prefix: str,
         *,
         max_workers: int = 10,
+        use_thread_pool: bool = True,
     ):
     """Add FastAPI endpoint with configurable ThreadPoolExecutor size"""
     executor = ThreadPoolExecutor(max_workers=max_workers)
+
+    print(f"use_thread_pool {use_thread_pool}")
 
     def run_handler_in_thread(request: Request, sdk: CopilotKitRemoteEndpoint):
         # Run the handler coroutine in the event loop        
@@ -37,9 +40,11 @@ def add_fastapi_endpoint(
         return loop.run_until_complete(handler(request, sdk))
 
     async def make_handler(request: Request):
-        loop = asyncio.get_event_loop()
-        future = loop.run_in_executor(executor, run_handler_in_thread, request, sdk)
-        return await future
+        if use_thread_pool:
+            loop = asyncio.get_event_loop()
+            future = loop.run_in_executor(executor, run_handler_in_thread, request, sdk)
+            return await future
+        return await handler(request, sdk)
 
     # Ensure the prefix starts with a slash and remove trailing slashes
     normalized_prefix = '/' + prefix.strip('/')
@@ -98,6 +103,7 @@ async def handler(request: Request, sdk: CopilotKitRemoteEndpoint):
         state = body_get_or_raise(body, "state")
         messages = body_get_or_raise(body, "messages")
         actions = cast(List[ActionDict], body.get("actions", []))
+        meta_events = cast(List[MetaEvent], body.get("metaEvents", []))
 
         return handle_execute_agent(
             sdk=sdk,
@@ -108,6 +114,7 @@ async def handler(request: Request, sdk: CopilotKitRemoteEndpoint):
             state=state,
             messages=messages,
             actions=actions,
+            meta_events=meta_events,
         )
 
     if method == 'POST' and path == 'agents/state':
@@ -164,6 +171,7 @@ def handle_execute_agent( # pylint: disable=too-many-arguments
         state: dict,
         messages: List[Message],
         actions: List[ActionDict],
+        meta_events: Optional[List[MetaEvent]] = None,
     ):
     """Handle continue agent execution request with FastAPI"""
     try:
@@ -175,6 +183,7 @@ def handle_execute_agent( # pylint: disable=too-many-arguments
             state=state,
             messages=messages,
             actions=actions,
+            meta_events=meta_events,
         )
         return StreamingResponse(events, media_type="application/json")
     except AgentNotFoundException as exc:

@@ -1,5 +1,16 @@
 # ui
 
+## 1.5.15-next.4
+
+### Patch Changes
+
+- 7b3141d: - feat(interrupt): support LG interrupt with useLangGraphInterrupt hook
+  - chore(interrupt): add e2e test to interrupt functionality
+  - feat(interrupt): add support for multiple interrupts and conditions
+- Updated dependencies [7b3141d]
+  - @copilotkit/runtime-client-gql@1.5.15-next.4
+  - @copilotkit/shared@1.5.15-next.4
+
 ## 1.5.15-next.3
 
 ### Patch Changes
