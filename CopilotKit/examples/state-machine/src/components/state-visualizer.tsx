@@ -6,7 +6,7 @@ import { useMemo } from "react";
 export function StateVisualizer() {
   const { stage } = useGlobalState();
 
-  const activeNodeStyles = "ring-4 ring-blue-500 animate-pulse";
+  const activeNodeStyles = "ring-4 ring-pink-400 animate-pulse";
   const inactiveNodeStyles = "border border-gray-200";
 
   const nodes: Node[] = useMemo(
@@ -62,7 +62,7 @@ export function StateVisualizer() {
     [stage],
   );
 
-  const activeEdgeStyles = "stroke-blue-500 stroke-2";
+  const activeEdgeStyles = "stroke-pink-400 stroke-2";
   const inactiveEdgeStyles = "stroke-gray-200 stroke-1";
 
   const edges: Edge[] = [

@@ -24,17 +24,17 @@ export function Tabs({
   tabs,
   activeTab,
   onTabChange,
-  wrapperClassName = "border rounded-2xl h-full bg-white overflow-hidden flex flex-col",
-  navClassName = "bg-blue-500 p-3 md:p-4 rounded-t-2xl",
-  buttonClassName = "px-4 py-2 rounded-lg text-sm",
-  activeButtonClassName = "bg-white text-blue-500",
-  inactiveButtonClassName = "bg-blue-400 text-white",
-  contentClassName = "p-2 md:p-4 overflow-y-auto flex-1",
+  wrapperClassName = "h-full bg-white flex flex-col rounded-lg shadow-sm",
+  navClassName = "p-6 pb-0",
+  buttonClassName = "w-1/2 py-4 text-base font-medium transition-all duration-200 text-center border-b",
+  activeButtonClassName = "text-pink-600 border-pink-600",
+  inactiveButtonClassName = "text-neutral-500 border-neutral-200 hover:text-neutral-700 hover:border-neutral-300",
+  contentClassName = "p-6 overflow-y-auto flex-1",
 }: TabsProps) {
   return (
     <div className={wrapperClassName}>
       <nav className={navClassName}>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="flex w-full">
           {tabs.map(({ id, label }) => (
             <button
               key={id}

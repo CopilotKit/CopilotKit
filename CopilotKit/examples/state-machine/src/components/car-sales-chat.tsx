@@ -15,6 +15,7 @@ import { useCopilotChat } from "@copilotkit/react-core";
 import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";
 import { CopilotChat } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
+import { UserMessage, AssistantMessage } from "./chat-message";
 
 export interface ChatProps {
   className?: string;
@@ -51,14 +52,18 @@ export function CarSalesChat({ className }: ChatProps) {
   return (
     <div
       className={cn(
-        "flex flex-col h-full max-h-full justify-center items-center h-full w-full rounded-2xl border border-blue-300 shadow-lg",
+        "flex flex-col h-full max-h-full w-full rounded-xl shadow-sm border border-neutral-200",
         className,
       )}
     >
-      <CopilotChat
-        className="overflow-y-auto w-full h-full rounded-2xl"
-        instructions={systemPrompt}
-      />
+      <div className={cn("flex-1 w-full rounded-xl overflow-y-auto")}>
+        <CopilotChat
+          className="h-full w-full"
+          instructions={systemPrompt}
+          UserMessage={UserMessage}
+          AssistantMessage={AssistantMessage}
+        />
+      </div>
     </div>
   );
 }
