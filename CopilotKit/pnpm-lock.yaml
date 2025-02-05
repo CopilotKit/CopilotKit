@@ -577,7 +577,7 @@ importers:
         specifier: ^0.0.53
         version: 0.0.53(encoding@0.1.13)(google-auth-library@8.9.0(encoding@0.1.13))(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.37(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.37(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.37(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)))(lodash@4.17.21)(openai@4.53.0(encoding@0.1.13))(ws@8.18.0)
       '@langchain/core':
-        specifier: ^0.3.37
+        specifier: ^0.3.13
         version: 0.3.37(openai@4.53.0(encoding@0.1.13))
       '@langchain/google-gauth':
         specifier: ^0.1.0
@@ -762,7 +762,7 @@ importers:
         specifier: ^0.0.53
         version: 0.0.53(encoding@0.1.13)(google-auth-library@8.9.0(encoding@0.1.13))(langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.37(openai@4.68.2(encoding@0.1.13)(zod@3.23.8)))(encoding@0.1.13))(@langchain/core@0.3.37(openai@4.68.2(encoding@0.1.13)(zod@3.23.8)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.37(openai@4.68.2(encoding@0.1.13)(zod@3.23.8)))(zod@3.23.8))(encoding@0.1.13)(openai@4.68.2(encoding@0.1.13)(zod@3.23.8)))(lodash@4.17.21)(openai@4.68.2(encoding@0.1.13)(zod@3.23.8))(ws@8.18.0)
       '@langchain/core':
-        specifier: ^0.3.37
+        specifier: ^0.3.13
         version: 0.3.37(openai@4.68.2(encoding@0.1.13)(zod@3.23.8))
       '@langchain/langgraph':
         specifier: ^0.2.44
