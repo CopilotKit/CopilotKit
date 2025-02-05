@@ -11,6 +11,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "fumadocs-ui/provider";
+import { SearchToggle } from "../layout/top-bar";
 
 export function isActive(
   url: string,

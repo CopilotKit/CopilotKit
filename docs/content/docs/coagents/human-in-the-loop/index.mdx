@@ -1,27 +1,60 @@
 ---
 title: Human in the Loop (HITL)
-description: CoAgents support Human-in-the-loop workflows where human input or validation is required during agent execution.
 icon: "lucide/User"
+description: Allow your agent and users to collaborate on complex tasks.
 ---
+import { CTACards } from "@/components/react/cta-cards"
+import { Pause, Share2 } from "lucide-react"
 
-<Frame className="mb-10">
-    <img src="/images/coagents/coagents-hitl-infographic.png" alt="Agentic Copilot Human in the Loop" />
+<video src="/images/coagents/human-in-the-loop-example.mp4" className="rounded-lg shadow-xl" loop inline controls autoPlay muted />
+
+<Callout>
+  This video shows an example of our [AI Travel App](/coagents/tutorials/ai-travel-app) using HITL to get user feedback.
+</Callout>
+
+## What is Human-in-the-Loop (HITL)?
+
+Human-in-the-loop (HITL) allows agents to request human input or approval during execution, making AI systems more reliable and trustworthy. This pattern is essential when building AI applications that need to handle complex decisions or actions that require human judgment.
+
+<Frame className="my-0">
+    <img src="/images/coagents/coagents-hitl-infographic.png" alt="Agentic Copilot Human in the Loop" className="mt-4 mb-0 shadow-md" />
 </Frame>
 
-CoAgents support Human-in-the-loop workflows where human input or validation is required during agent execution. 
-This is a dance between the LangGraph agent and the UI, but is also a fundamental concept for agentic applications. If you
-want to learn more about theory behind human-in-the-loop checkout [LangGraph's article on it](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/)
+<Callout type="info">
+  Learn more about HITL in [LangGraph's concept guide](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/).
+</Callout>
 
-## Why Use Human-in-the-loop?
-Human-in-the-loop capabilities are essential for several reasons:
-- **Quality Control**: Enables oversight at critical decision points, ensuring AI actions align with business requirements and user expectations
-- **Edge Case Handling**: Provides graceful handling of situations where AI confidence is low
-- **Expert Integration**: Leverages human expertise where it's most valuable
-- **System Reliability**: Creates a more robust and trustworthy system for complex real-world scenarios
+## When should I use this?
 
-## Implementation with Copilotkit
-With Copilotkit you can accomplish this Human-in-the-loop interaction with custom components that approve, deny or amend
-any actions the agent would like to perform. In practice, you can do this at an app level or a chat level using various
-pieces of Copilotkit's packages. Checkout out guides on both below:
-- [In-chat workflows](/coagents/chat-ui/hitl/json-hitl)
-- [In-app workflows](/coagents/react-ui/frontend-functions)
+HITL combines the efficiency of AI with human judgment, creating a system that's both powerful and reliable. The key advantages include:
+
+- **Quality Control**: Human oversight at critical decision points
+- **Edge Cases**: Graceful handling of low-confidence situations
+- **Expert Input**: Leverage human expertise when needed
+- **Reliability**: More robust system for real-world use
+
+## How can I use this?
+
+Copilotkit provides two main approaches for HITL LangGraph workflows - interrupt and node-based.
+
+<Callout>
+  Unsure which approach to use? We recommend starting with the [Interrupt](/coagents/human-in-the-loop/interrupt-flow) flow.
+</Callout>
+
+<CTACards
+  columns={2}
+  cards={[
+    {
+      icon: Pause,
+      title: "Interrupt",
+      description: "Utilize LangGraph's interrupt function to pause the agent and wait for user input.",
+      href: "/coagents/human-in-the-loop/interrupt-flow"
+    },
+    {
+      icon: Share2,
+      title: "Node-based",
+      description: "Utilize nodes and tools to create LLM driven Human-in-the-Loop workflows.",
+      href: "/coagents/human-in-the-loop/node-flow"
+    }
+  ]}
+/>
