@@ -7,9 +7,8 @@ load_dotenv() # pylint: disable=wrong-import-position
 from fastapi import FastAPI
 import uvicorn
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
-from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent, CrewAIAgent
+from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
 from greeter.agent import graph
-from greeter.crew_agent import PoetCrew
 
 app = FastAPI()
 sdk = CopilotKitRemoteEndpoint(
@@ -19,11 +18,6 @@ sdk = CopilotKitRemoteEndpoint(
             description="Greeter agent.",
             graph=graph,
         ),
-        CrewAIAgent(
-            name="crew-agent",
-            description="Crew agent.",
-            crew=PoetCrew(),
-        )
     ],
 )
 

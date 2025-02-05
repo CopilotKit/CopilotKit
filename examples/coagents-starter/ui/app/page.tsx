@@ -71,14 +71,7 @@ function YourMainContent() {
       setBackgroundColor(backgroundColor);
     },
   });
-  useCopilotAction({
-    name: "AskUserForName",
-    available: "remote",
-    handler() {
-      const answer = window.prompt("What is your name?");
-      return answer;
-    },
-  });
+
   return (
     <div
       style={{ backgroundColor }}
