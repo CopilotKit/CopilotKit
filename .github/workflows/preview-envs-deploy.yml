@@ -95,7 +95,7 @@ jobs:
       - name: (UI, Local Deps) Build @copilotkit packages
         if: matrix.app.type == 'ui' || matrix.app.type == 'next-openai'
         working-directory: ./CopilotKit
-        run: pnpx turbo run build
+        run: pnpm run freshbuild
 
       - name: (UI, Local Deps) Link @copilotkit packages
         if: matrix.app.type == 'ui'
@@ -108,7 +108,7 @@ jobs:
       - name: (UI) Build app
         if: matrix.app.type == 'ui'
         working-directory: examples/${{ matrix.app.project }}/${{ matrix.app.type }}
-        run: pnpm run freshbuild
+        run: pnpm run build
         env:
           OPENAI_API_KEY: placeholder
 
