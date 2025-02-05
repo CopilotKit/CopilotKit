@@ -66,9 +66,10 @@ class CopilotKitRemoteEndpoint:
     pip install copilotkit
     ```
 
-    ### Examples
+    ## Adding actions
 
-    For example, to provide a simple action to the Copilot:
+    In this example, we provide a simple action to the Copilot:
+
     ```python
     from copilotkit import CopilotKitRemoteEndpoint, Action
 
@@ -119,7 +120,9 @@ class CopilotKitRemoteEndpoint:
     )
     ```
 
-    Similarly, you can give a list of static or dynamic agents to the Copilot:
+    ## Adding agents
+
+    Serving agents works in a similar way to serving actions:
 
     ```python
     from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
@@ -127,7 +130,7 @@ class CopilotKitRemoteEndpoint:
 
     sdk = CopilotKitRemoteEndpoint(
         agents=[
-        LangGraphAgent(
+            LangGraphAgent(
                 name="email_agent",
                 description="This agent sends emails",
                 graph=graph,
@@ -135,6 +138,41 @@ class CopilotKitRemoteEndpoint:
         ]
     )
     ```
+
+    To dynamically build agents, provide a callable that returns a list of agents:
+
+    ```python
+    from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
+    from my_agent.agent import graph
+
+    sdk = CopilotKitRemoteEndpoint(
+        agents=lambda context: [
+            LangGraphAgent(
+                name="email_agent",
+                description="This agent sends emails",
+                graph=graph,
+                langgraph_config={
+                    "token": context["properties"]["token"]
+                }
+            )
+        ]
+    )
+    ```
+
+    To restrict the agents available to the Copilot, simply return a different list of agents based on the `context`:
+
+    ```python
+    from copilotkit import CopilotKitRemoteEndpoint
+    from my_agents import agent_a, agent_b, is_admin
+
+    sdk = CopilotKitRemoteEndpoint(
+        agents=lambda context: (
+            [agent_a, agent_b] if is_admin(context["properties"]["token"]) else [agent_a]
+        )
+    )
+    ```
+
+    ## Serving the CopilotKit SDK
 
     To serve the CopilotKit SDK, you can use the `add_fastapi_endpoint` function from the `copilotkit.integrations.fastapi` module:
 

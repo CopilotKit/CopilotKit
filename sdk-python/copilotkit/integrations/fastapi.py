@@ -82,6 +82,7 @@ async def handler(request: Request, sdk: CopilotKitRemoteEndpoint):
         }
     )
 
+    # handle / request for info endpoint
     if method in ['GET', 'POST'] and path == '':
         accept_header = request.headers.get('accept', '')
         return await handle_info(
@@ -90,6 +91,7 @@ async def handler(request: Request, sdk: CopilotKitRemoteEndpoint):
             as_html='text/html' in accept_header,
         )
 
+    # handle /agent/name request for executing an agent
     if method == 'POST' and (match := re.match(r'agent/([a-zA-Z0-9_-]+)', path)):
         name = match.group(1)
         body = body or {}
@@ -113,6 +115,32 @@ async def handler(request: Request, sdk: CopilotKitRemoteEndpoint):
             actions=actions,
         )
 
+    # handle /agent/name/state request for getting agent state
+    if method == 'POST' and (match := re.match(r'agent/([a-zA-Z0-9_-]+)/state', path)):
+        name = match.group(1)
+        thread_id = body_get_or_raise(body, "threadId")
+
+        return handle_get_agent_state(
+            sdk=sdk,
+            context=context,
+            thread_id=thread_id,
+            name=name,
+        )
+
+    # handle /action/name request for executing an action
+    if method == 'POST' and (match := re.match(r'action/([a-zA-Z0-9_-]+)', path)):
+        name = match.group(1)
+        arguments = body.get("arguments", {})
+
+        return await handle_execute_action(
+            sdk=sdk,
+            context=context,
+            name=name,
+            arguments=arguments,
+        )
+
+    # v2: POST /agents/name/state
+
     # Deal with backwards compatibility
     result_v1 = await handler_v1(
         sdk=sdk,
@@ -125,9 +153,6 @@ async def handler(request: Request, sdk: CopilotKitRemoteEndpoint):
     if result_v1 is not None:
         return result_v1
 
-    # v2: POST /actions/name/execute
-    # v2: POST /agents/name/execute
-    # v2: POST /agents/name/state
 
     raise HTTPException(status_code=404, detail="Not found")
 

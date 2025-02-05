@@ -255,7 +255,35 @@ class CopilotKitCrewAIFlowEventActionExecutionEnd(TypedDict):
 
 async def copilotkit_emit_state(state: Any) -> Literal[True]:
     """
-    Emit a state event
+    Emits intermediate state to CopilotKit. 
+    Useful if you have a longer running node and you want to update the user with the current state of the node.
+
+    To install the CopilotKit SDK, run:
+
+    ```bash
+    pip install copilotkit
+    ```
+
+    ### Examples
+
+    ```python
+    from copilotkit.crewai import copilotkit_emit_state
+
+    for i in range(10):
+        await some_long_running_operation(i)
+        await copilotkit_emit_state({"progress": i})
+    ```
+
+    Parameters
+    ----------
+    state : Any
+        The state to emit (Must be JSON serializable).
+
+    Returns
+    -------
+    Awaitable[bool]
+        Always return True.
+
     """
     _get_crewai_flow_event_queue().put(
         CopilotKitCrewAIFlowEventEmitState(
@@ -268,7 +296,32 @@ async def copilotkit_emit_state(state: Any) -> Literal[True]:
 
 async def copilotkit_emit_message(message: str) -> str:
     """
-    Manually emit a message to CopilotKit.
+    Manually emits a message to CopilotKit. Useful in longer running nodes to update the user.
+    Important: You still need to return the messages from the node.
+
+    ### Examples
+
+    ```python
+    from copilotkit.crewai import copilotkit_emit_message
+
+    message = "Step 1 of 10 complete"
+    await copilotkit_emit_message(message)
+
+    # Return the message from the node
+    return {
+        "messages": [AIMessage(content=message)]
+    }
+    ```
+
+    Parameters
+    ----------
+    message : str
+        The message to emit.
+
+    Returns
+    -------
+    Awaitable[bool]
+        Always return True.
     """
     message_id = str(uuid.uuid4())
 
@@ -284,7 +337,25 @@ async def copilotkit_emit_message(message: str) -> str:
 
 async def copilotkit_emit_tool_call(*, name: str, args: Dict[str, Any]) -> str:
     """
-    Manually emit a tool call to CopilotKit.
+    Manually emits a tool call to CopilotKit.
+
+    ```python
+    from copilotkit.crewai import copilotkit_emit_tool_call
+
+    await copilotkit_emit_tool_call(name="SearchTool", args={"steps": 10})
+    ```
+
+    Parameters
+    ----------
+    name : str
+        The name of the tool to emit.
+    args : Dict[str, Any]
+        The arguments to emit.
+
+    Returns
+    -------
+    Awaitable[bool]
+        Always return True.
     """
     message_id = str(uuid.uuid4())
     _get_crewai_flow_event_queue().put(
@@ -300,7 +371,18 @@ async def copilotkit_emit_tool_call(*, name: str, args: Dict[str, Any]) -> str:
 
 def copilotkit_stream(response):
     """
-    Stream a synchronous response to CopilotKit.
+    Stream litellm responses token by token to CopilotKit.
+
+    ```python
+    response = copilotkit_stream(
+        completion(
+            model="openai/gpt-4o",
+            messages=messages,
+            tools=tools,
+            stream=True # this must be set to True for streaming
+        )
+    )
+    ```
     """
     if isinstance(response, ModelResponse):
         return _copilotkit_stream_response(response)
@@ -433,7 +515,24 @@ def _copilotkit_stream_response(response: ModelResponse):
 
 async def copilotkit_exit() -> Literal[True]:
     """
-    Exit the agent
+    Exits the current agent after the run completes. Calling copilotkit_exit() will
+    not immediately stop the agent. Instead, it signals to CopilotKit to stop the agent after
+    the run completes.
+
+    ### Examples
+
+    ```python
+    from copilotkit.crewai import copilotkit_exit
+
+    def my_function():
+        await copilotkit_exit()
+        return state
+    ```
+
+    Returns
+    -------
+    Awaitable[bool]
+        Always return True.
     """
     _get_crewai_flow_event_queue().put(CopilotKitCrewAIFlowEventExit(
         type=CopilotKitCrewAIFlowEventType.EXIT
@@ -445,7 +544,34 @@ async def copilotkit_predict_state(
         config: Dict[str, CopilotKitPredictStateConfig]
     ) -> Literal[True]:
     """
-    Predict the next state
+    Stream tool calls as state to CopilotKit.
+
+    To emit a tool call as streaming CrewAI state, pass the destination key in state,
+    the tool name and optionally the tool argument. (If you don't pass the argument name,
+    all arguments are emitted under the state key.)
+
+    ```python
+    from copilotkit.crewai import copilotkit_predict_state
+
+    await copilotkit_predict_state(
+        {
+            "steps": {
+                "tool_name": "SearchTool",
+                "tool_argument": "steps",
+            },
+        }
+    )
+    ```
+
+    Parameters
+    ----------
+    config : Dict[str, CopilotKitPredictStateConfig]
+        The configuration to predict the state.
+
+    Returns
+    -------
+    Awaitable[bool]
+        Always return True.
     """
     _get_crewai_flow_event_queue().put(CopilotKitCrewAIFlowEventPredictState(
         type=CopilotKitCrewAIFlowEventType.PREDICT_STATE,
@@ -453,28 +579,6 @@ async def copilotkit_predict_state(
     ))
     return True
 
-# def copilotkit_message_to_crewai_crew(message: Any) -> Any:
-#     """Convert a CopilotKit message to a CrewAI `Crew` specific message"""
-
-#     if "content" in message:
-#         return {
-#             'role': message['role'],
-#             'content': message['content']
-#         }
-
-#     if "name" in message:
-#         return {
-#             'role': "assistant",
-#             'content': f"Executing action {message['name']} with arguments {message['arguments']}"
-#         }
-
-#     if "result" in message:
-#         return {
-#             'role': "user",
-#             'content': f"Action {message['actionName']} completed with result {message['result']}"
-#         }
-
-#     raise ValueError("Invalid message")
 
 def copilotkit_messages_to_crewai_flow(messages: List[Message]) -> List[Any]:
     """

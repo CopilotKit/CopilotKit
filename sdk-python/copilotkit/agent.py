@@ -37,8 +37,8 @@ class Agent(ABC):
         messages: List[Message],
         thread_id: Optional[str] = None,
         actions: Optional[List[ActionDict]] = None,
-        **kwargs,
         meta_events: Optional[List[MetaEvent]] = None,
+        **kwargs,
     ):
         """Execute the agent"""
 

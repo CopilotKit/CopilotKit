@@ -207,7 +207,7 @@ def copilotkit_customize_config(
     """
     Customize the LangGraph configuration for use in CopilotKit.
 
-    To the CopilotKit SDK, run:
+    To install the CopilotKit SDK, run:
 
     ```bash
     pip install copilotkit

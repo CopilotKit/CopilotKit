@@ -37,7 +37,6 @@ from .protocol import (
   AgentStateMessage
 )
 from .crewai import (
-#   copilotkit_message_to_crewai_crew,
   copilotkit_messages_to_crewai_flow,
   CopilotKitCrewAIFlowEventType,
   crewai_flow_messages_to_copilotkit,
@@ -49,6 +48,27 @@ from .crewai import (
 class CopilotKitConfig(TypedDict):
     """
     CopilotKit config for CrewAIAgent
+
+    This is used for advanced cases where you want to customize how CopilotKit interacts with
+    CrewAI.
+
+    ```python
+    # Function signatures:
+    def merge_state(
+        *,
+        state: dict,
+        messages: List[BaseMessage],
+        actions: List[Any],
+        agent_name: str
+    ):
+        # ...implementation...
+
+    ```
+
+    Parameters
+    ----------
+    merge_state : Callable
+        This function lets you customize how CopilotKit merges the agent state.
     """
     merge_state: NotRequired[Callable]
 
@@ -65,7 +85,66 @@ class CrewAIFlowExecutionState(TypedDict):
     current_tool_call: Optional[str]
 
 class CrewAIAgent(Agent):
-    """Agent class for CopilotKit"""
+    """
+    CrewAIAgent lets you define your agent for use with CopilotKit.
+
+    To install, run:
+
+    ```bash
+    pip install copilotkit
+    ```
+
+    Every agent must have the `name` and either `crew` or `flow` properties defined. An optional 
+    `description` can also be provided. This is used when CopilotKit is dynamically routing requests 
+    to the agent.
+
+    ## Serving a Crew based agent
+
+    To serve a Crew based agent, pass in a `Crew` object to the `crew` parameter.
+
+    Note:
+    You need to make sure to have a `chat_llm` set on the `Crew` object.
+    See [the CrewAI docs](https://docs.crewai.com/concepts/cli#9-chat) for more information.
+
+    ```python
+    from copilotkit import CrewAIAgent
+
+
+    CrewAIAgent(
+        name="email_agent_crew",
+        description="This crew based agent sends emails",
+        crew=SendEmailCrew(),
+    )
+    ```
+
+    ## Serving a Flow based agent
+
+    To serve a Flow based agent, pass in a `Flow` object to the `flow` parameter.
+
+    ```python
+    CrewAIAgent(
+        name="email_agent_flow",
+        description="This flow based agent sends emails",
+        flow=SendEmailFlow(),
+    )
+    ```
+
+    Parameters
+    ----------
+    name : str
+        The name of the agent.
+    crew : Crew
+        When using a Crew based agent, pass in a `Crew` object to the `crew` parameter.
+    flow : Flow
+        When using a Flow based agent, pass in a `Flow` object to the `flow` parameter.
+    description : Optional[str]
+        The description of the agent.
+    copilotkit_config : Optional[CopilotKitConfig]
+        The CopilotKit config to use with the agent.
+
+    Note:
+    Either a `crew` or `flow` must be provided to CrewAIAgent.
+    """
     def __init__(
             self,
             *,
