@@ -51,4 +51,4 @@ langgraph-checkpoint-sqlite = "^2.0.1"
 aiosqlite = "^0.20.0"
 
 [tool.poetry.scripts]
-demo = "research_canvas.langgraph.demo:main"
+demo = "research_canvas.demo:main"
