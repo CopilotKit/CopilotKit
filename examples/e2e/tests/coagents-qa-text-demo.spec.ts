@@ -6,13 +6,11 @@ import {
   PROJECT_NAMES,
   TestVariants,
   appendLGCVariants,
-  getCopilotCloudVariants,
 } from "../lib/config-helper";
 
 const variants: TestVariants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
   { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
-  ...getCopilotCloudVariants(),
 ];
 
 const allConfigs = getConfigs();
