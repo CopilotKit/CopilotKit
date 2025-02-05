@@ -14,8 +14,8 @@ app = FastAPI()
 sdk = CopilotKitRemoteEndpoint(
     agents=[
         LangGraphAgent(
-            name="greeter-agent",
-            description="Greeter agent.",
+            name="greeter",
+            description="ReAct agent.",
             graph=graph,
         ),
     ],

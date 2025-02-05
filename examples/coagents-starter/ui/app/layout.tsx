@@ -14,7 +14,7 @@ export default function RootLayout({ children }: { children: any }) {
   return (
     <html lang="en">
       <body>
-        <CopilotKit agent="greeter-agent" runtimeUrl="/api/copilotkit">
+        <CopilotKit agent="greeter" runtimeUrl="/api/copilotkit">
           {children}
         </CopilotKit>
       </body>
