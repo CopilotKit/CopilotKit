@@ -129,6 +129,9 @@ class CrewAIAgent(Agent):
     )
     ```
 
+    Note:
+    Either a `crew` or `flow` must be provided to CrewAIAgent.
+
     Parameters
     ----------
     name : str
@@ -142,8 +145,6 @@ class CrewAIAgent(Agent):
     copilotkit_config : Optional[CopilotKitConfig]
         The CopilotKit config to use with the agent.
 
-    Note:
-    Either a `crew` or `flow` must be provided to CrewAIAgent.
     """
     def __init__(
             self,
