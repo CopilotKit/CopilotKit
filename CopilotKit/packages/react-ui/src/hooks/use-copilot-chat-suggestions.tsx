@@ -78,6 +78,13 @@ interface UseCopilotChatSuggestionsConfiguration {
    * @default 1
    */
   maxSuggestions?: number;
+
+  /**
+   * Whether the suggestions are available. Defaults to `enabled`.
+   * @default enabled
+   */
+  available?: "enabled" | "disabled";
+
   /**
    * An optional class name to apply to the suggestions.
    */
@@ -86,6 +93,7 @@ interface UseCopilotChatSuggestionsConfiguration {
 
 export function useCopilotChatSuggestions(
   {
+    available = "enabled",
     instructions,
     className,
     minSuggestions = 1,
@@ -96,6 +104,8 @@ export function useCopilotChatSuggestions(
   const context = useCopilotContext();
 
   useEffect(() => {
+    if (available === "disabled") return;
+
     const id = randomId();
 
     context.addChatSuggestionConfiguration(id, {
@@ -108,5 +118,5 @@ export function useCopilotChatSuggestions(
     return () => {
       context.removeChatSuggestionConfiguration(id);
     };
-  }, [...dependencies, instructions, minSuggestions, maxSuggestions, className]);
+  }, [...dependencies, instructions, minSuggestions, maxSuggestions, className, available]);
 }

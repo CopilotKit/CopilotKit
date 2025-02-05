@@ -19,6 +19,7 @@ dependencies = [
   "tavily-python",
   "python-dotenv",
   "uvicorn",
+  "copilotkit==0.1.34",
 ]
 
 [build-system]

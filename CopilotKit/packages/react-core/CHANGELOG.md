@@ -1,5 +1,54 @@
 # ui
 
+## 1.5.15-next.4
+
+### Patch Changes
+
+- 7b3141d: - feat(interrupt): support LG interrupt with useLangGraphInterrupt hook
+  - chore(interrupt): add e2e test to interrupt functionality
+  - feat(interrupt): add support for multiple interrupts and conditions
+- Updated dependencies [7b3141d]
+  - @copilotkit/runtime-client-gql@1.5.15-next.4
+  - @copilotkit/shared@1.5.15-next.4
+
+## 1.5.15-next.3
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.5.15-next.3
+- @copilotkit/shared@1.5.15-next.3
+
+## 1.5.15-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.5.15-next.2
+- @copilotkit/shared@1.5.15-next.2
+
+## 1.5.15-next.1
+
+### Patch Changes
+
+- Updated dependencies [0bbb4ab]
+  - @copilotkit/runtime-client-gql@1.5.15-next.1
+  - @copilotkit/shared@1.5.15-next.1
+
+## 1.5.15-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.5.15-next.0
+- @copilotkit/shared@1.5.15-next.0
+
+## 1.5.14
+
+### Patch Changes
+
+- 0061f65: - feat: allows dev mode for cloud onboarding flow
+- Updated dependencies [0061f65]
+  - @copilotkit/shared@1.5.14
+  - @copilotkit/runtime-client-gql@1.5.14
+
 ## 1.5.14-next.0
 
 ### Patch Changes

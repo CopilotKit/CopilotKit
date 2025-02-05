@@ -29,8 +29,9 @@ import { FaCloud, FaServer } from "react-icons/fa";
     <Step>
     ### Setup your Copilot Runtime
 
-    <TailoredContent>
+    <TailoredContent id="hosting">
         <TailoredContentOption
+            id="copilot-cloud"
             title="Copilot Cloud (Recommended)"
             description="I'm already using or want to use Copilot Cloud."
             icon={<FaCloud />}
@@ -47,6 +48,7 @@ import { FaCloud, FaServer } from "react-icons/fa";
             <CopilotCloudConfigureRemoteEndpointLangGraphSnippet components={props.components} />
         </TailoredContentOption>
         <TailoredContentOption
+            id="self-hosted"
             title="Self-Hosted"
             description="I'm using or want to use a self-hosted Copilot Runtime."
             icon={<FaServer />}

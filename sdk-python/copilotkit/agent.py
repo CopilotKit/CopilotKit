@@ -5,6 +5,7 @@ from typing import Optional, List, TypedDict
 from abc import ABC, abstractmethod
 from .types import Message
 from .action import ActionDict
+from .types import MetaEvent
 
 class AgentDict(TypedDict):
     """Agent dictionary"""
@@ -37,6 +38,7 @@ class Agent(ABC):
         thread_id: Optional[str] = None,
         actions: Optional[List[ActionDict]] = None,
         **kwargs,
+        meta_events: Optional[List[MetaEvent]] = None,
     ):
         """Execute the agent"""
 

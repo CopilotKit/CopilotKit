@@ -5,6 +5,25 @@ description = ""
 authors = ["Tyler Slaton <tyler@copilotkit.ai>"]
 readme = "README.md"
 
+[project]
+name = "travel"
+version = "0.1.0"
+dependencies = [
+    "langgraph",
+    "langchain_core",
+    "langchain_openai",
+    "langchain-google-genai",
+    "langchain",
+    "openai",
+    "langchain-community",
+    "tavily-python",
+    "python-dotenv",
+    "uvicorn",
+    "copilotkit==0.1.34",
+    "googlemaps",
+    "html2text"
+]
+
 [tool.poetry.dependencies]
 python = "^3.12"
 langchain-openai = "^0.2.1"

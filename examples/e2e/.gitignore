@@ -4,4 +4,5 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 app-configs.json
+test-config.json
 .env

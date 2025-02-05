@@ -72,7 +72,7 @@ In this case, the action name is `email_tool`. It has a single parameter `email_
 
 The Tool's name and arguments must line up with what you used on the frontend.
 
-<Tabs items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python
         @tool
@@ -127,7 +127,7 @@ Add standard edges between the nodes in the graph.
 
 NOTICE that we have a `interrupt_after` for `draft_email_node` (the node that initiates HITL) -- this is necessary to hand off control to the frontend.
 
-<Tabs items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python
         workflow = StateGraph(EmailAgentState)
@@ -171,7 +171,7 @@ NOTICE that we have a `interrupt_after` for `draft_email_node` (the node that in
 - Be sure to emit tool calls to the frontend, by using the `copilotkit_customize_config` call with `emit_tool_calls = True`.
 - The frontend's return value will be made available as a tool call result in the subsequent node. Cast the last message to a ToolMessage and look at its `.content`.
 
-<Tabs items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python title="agent/my_agent/agent.py"
         from typing import Any, cast

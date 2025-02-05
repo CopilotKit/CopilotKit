@@ -60,6 +60,7 @@ import { ExtensionsResponse } from "../../graphql/types/extensions-response.type
 import { LoadAgentStateResponse } from "../../graphql/types/load-agent-state-response.type";
 import { Client as LangGraphClient } from "@langchain/langgraph-sdk";
 import { langchainMessagesToCopilotKit } from "./remote-lg-action";
+import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 
 interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
@@ -75,6 +76,7 @@ interface CopilotRuntimeRequest {
   forwardedParameters?: ForwardedParametersInput;
   url?: string;
   extensions?: ExtensionsInput;
+  metaEvents?: MetaEventInput[];
 }
 
 interface CopilotRuntimeResponse {
@@ -169,6 +171,14 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
    * An array of LangServer URLs.
    */
   langserve?: RemoteChainParameters[];
+
+  /*
+   * Delegates agent state processing to the service adapter.
+   *
+   * When enabled, individual agent state requests will not be processed by the agent itself.
+   * Instead, all processing will be handled by the service adapter.
+   */
+  delegateAgentProcessingToServiceAdapter?: boolean;
 }
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
@@ -177,6 +187,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private langserve: Promise<Action<any>>[] = [];
   private onBeforeRequest?: OnBeforeRequestHandler;
   private onAfterRequest?: OnAfterRequestHandler;
+  private delegateAgentProcessingToServiceAdapter: boolean;
 
   constructor(params?: CopilotRuntimeConstructorParams<T>) {
     this.actions = params?.actions || [];
@@ -190,6 +201,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
     this.onBeforeRequest = params?.middleware?.onBeforeRequest;
     this.onAfterRequest = params?.middleware?.onAfterRequest;
+    this.delegateAgentProcessingToServiceAdapter =
+      params?.delegateAgentProcessingToServiceAdapter || false;
   }
 
   async processRuntimeRequest(request: CopilotRuntimeRequest): Promise<CopilotRuntimeResponse> {
@@ -202,15 +215,16 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       outputMessagesPromise,
       graphqlContext,
       forwardedParameters,
-      agentSession,
       url,
       extensions,
+      agentSession,
+      agentStates,
     } = request;
 
     const eventSource = new RuntimeEventSource();
 
     try {
-      if (agentSession) {
+      if (agentSession && !this.delegateAgentProcessingToServiceAdapter) {
         return await this.processAgentRequest(request);
       }
       if (serviceAdapter instanceof EmptyAdapter) {
@@ -222,7 +236,6 @@ please use an LLM adapter instead.`,
       }
 
       const messages = rawMessages.filter((message) => !message.agentStateMessage);
-
       const inputMessages = convertGqlInputToMessages(messages);
       const serverSideActions = await this.getServerSideActions(request);
 
@@ -256,6 +269,8 @@ please use an LLM adapter instead.`,
         eventSource,
         forwardedParameters,
         extensions,
+        agentSession,
+        agentStates,
       });
 
       // for backwards compatibility, we deal with the case that no threadId is provided
@@ -306,9 +321,14 @@ please use an LLM adapter instead.`,
       async (acc: Promise<Agent[]>, endpoint) => {
         const agents = await acc;
         if (endpoint.type === EndpointType.LangGraphPlatform) {
+          const propertyHeaders = graphqlContext.properties.authorization
+            ? { authorization: `Bearer ${graphqlContext.properties.authorization}` }
+            : null;
+
           const client = new LangGraphClient({
             apiUrl: endpoint.deploymentUrl,
             apiKey: endpoint.langsmithApiKey,
+            defaultHeaders: { ...propertyHeaders },
           });
 
           const data: Array<{ assistant_id: string; graph_id: string }> =
@@ -379,9 +399,14 @@ please use an LLM adapter instead.`,
     const headers = createHeaders(null, graphqlContext);
 
     if (agentWithEndpoint.endpoint.type === EndpointType.LangGraphPlatform) {
+      const propertyHeaders = graphqlContext.properties.authorization
+        ? { authorization: `Bearer ${graphqlContext.properties.authorization}` }
+        : null;
+
       const client = new LangGraphClient({
         apiUrl: agentWithEndpoint.endpoint.deploymentUrl,
         apiKey: agentWithEndpoint.endpoint.langsmithApiKey,
+        defaultHeaders: { ...propertyHeaders },
       });
       let state: any = {};
       try {
@@ -442,6 +467,7 @@ please use an LLM adapter instead.`,
       graphqlContext,
       agentSession,
       threadId: threadIdFromRequest,
+      metaEvents,
     } = request;
     const { agentName, nodeName } = agentSession;
 
@@ -486,6 +512,7 @@ please use an LLM adapter instead.`,
         threadId,
         nodeName,
         actionInputsWithoutAgents,
+        metaEvents,
       });
 
       eventSource.stream(async (eventStream$) => {

@@ -5,9 +5,9 @@ on:
     types: [ closed ]
   workflow_dispatch:
     inputs:
-      pr_number:
-        description: 'Pull Request Number'
-        required: true
+      environment:
+        description: 'Environment Name (e.g. `pr-1269`)'
+        required: false
 
 concurrency:
   group: preview-${{ github.event.pull_request.number }}-destroy
@@ -15,9 +15,12 @@ concurrency:
 
 jobs:
   preview_envs_destroy:
-    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'preview') || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     name: Destroy Preview Environments
+    defaults:
+      run:
+        working-directory: examples/helmfile
     permissions:
       deployments: write
       pull-requests: write
@@ -27,44 +30,43 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Install AWS CDK
-        run: npm install -g aws-cdk
-
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v2
         with:
+          aws-region: us-east-1
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
 
-      - name: Configure AWS Profile
+      - name: Setup helmfile
+        uses: mamezou-tech/setup-helmfile@v1.2.0
+
+      - name: EKS Config
         run: |
-          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
-          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
-          aws configure set region us-east-1
-      
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
+          aws eks --region us-east-1 update-kubeconfig --name copilotcloud-staging-eks
 
-      - name: Infra install dependencies
-        working-directory: infra
-        run: pnpm i
-
-      - name: Set variable UNIQUE_ENV_ID
-        id: set_unique_env_id
+      - name: Set Environment Name
+        id: set-environment-name
         run: |
-          echo "UNIQUE_ENV_ID=${{ github.event.number && format('PR{0}', github.event.number) || format('PR{0}', inputs.pr_number) }}" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "ENVIRONMENT=${{ github.event.inputs.environment }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "ENVIRONMENT=pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: cdk destroy
-        working-directory: ./infra
-        run: cdk destroy --profile default --all --force
-        env:
-          UNIQUE_ENV_ID: ${{ steps.set_unique_env_id.outputs.UNIQUE_ENV_ID }}
-          GITHUB_ACTIONS_RUN_ID: "${{ github.run_id }}"
-          GITHUB_PR_NUMBER: "${{ github.event.number }}"
+      - name: Prepare Environment Config
+        run: |
+          cat > ./override-values.yaml << 'EOL'
+          environment: ${{ steps.set-environment-name.outputs.environment }}
+          namespace: copilotkit-examples-${{ steps.set-environment-name.outputs.environment }}
+          EOL
+
+      - name: Helmfile Destroy
+        run: |
+          helmfile --state-values-file=./override-values.yaml destroy
+          kubectl delete namespace copilotkit-examples-${{ steps.set-environment-name.outputs.environment }} -A --force
 
       - name: Comment post-destroy
+        if: github.event_name == 'pull_request'
         uses: thollander/actions-comment-pull-request@v3
         with:
           comment-tag: preview-status-update

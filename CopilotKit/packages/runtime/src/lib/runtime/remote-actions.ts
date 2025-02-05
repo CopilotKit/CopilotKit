@@ -16,6 +16,7 @@ import {
   ResolvedCopilotKitError,
   CopilotKitError,
 } from "@copilotkit/shared";
+import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 
 export type EndpointDefinition = CopilotKitEndpoint | LangGraphPlatformEndpoint;
 
@@ -44,7 +45,7 @@ export interface LangGraphPlatformAgent {
 export interface LangGraphPlatformEndpoint
   extends BaseEndpointDefinition<EndpointType.LangGraphPlatform> {
   deploymentUrl: string;
-  langsmithApiKey: string;
+  langsmithApiKey?: string;
   agents: LangGraphPlatformAgent[];
 }
 
@@ -59,6 +60,7 @@ export type RemoteAgentHandlerParams = {
   threadId?: string;
   nodeName?: string;
   additionalMessages?: Message[];
+  metaEvents?: MetaEventInput[];
 };
 
 export type RemoteAgentAction = Action<any> & {
