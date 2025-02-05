@@ -1,4 +1,4 @@
-FROM public.ecr.aws/docker/library/python:3.11.11-slim-bullseye
+FROM public.ecr.aws/docker/library/python:3.12.0-slim-bullseye
 ARG APP_DIR
 ARG WITH_LOCAL_DEPS
 
