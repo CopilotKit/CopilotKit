@@ -11,6 +11,7 @@ import { AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { getModel } from "./model";
 import { END, MemorySaver, StateGraph, interrupt } from "@langchain/langgraph";
 import { AgentState, AgentStateAnnotation } from "./state";
+import { copilotKitInterrupt } from "@copilotkit/sdk-js/langgraph";
 
 export async function email_node(state: AgentState, config: RunnableConfig) {
   /**
@@ -18,7 +19,14 @@ export async function email_node(state: AgentState, config: RunnableConfig) {
    */
 
   const sender = state.sender ?? interrupt('Please provide a sender name which will appear in the email');
-  const instructions = `You write emails. The email is by the following sender: ${sender}`;
+  let senderCompany = state.senderCompany
+  let interruptMessages = []
+  if (!senderCompany?.length) {
+    const { answer, messages } = copilotKitInterrupt({ message: 'Ah, forgot to ask, which company are you working for?' });
+    senderCompany = answer;
+    interruptMessages = messages;
+  }
+  const instructions = `You write emails. The email is by the following sender: ${sender}, working for: ${senderCompany}`;
 
   const email_model = getModel(state).bindTools!(
     convertActionsToDynamicStructuredTools(state.copilotkit.actions),
@@ -28,7 +36,7 @@ export async function email_node(state: AgentState, config: RunnableConfig) {
   );
 
   const response = await email_model.invoke(
-    [...state.messages, new HumanMessage({ content: instructions })],
+    [...state.messages, ...interruptMessages, new HumanMessage({ content: instructions })],
     config
   );
 
@@ -40,6 +48,7 @@ export async function email_node(state: AgentState, config: RunnableConfig) {
     messages: response,
     email: email,
     sender,
+    senderCompany,
   };
 }
 
