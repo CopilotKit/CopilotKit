@@ -155,7 +155,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   };
 
   const lgInterruptMetaEvent = metaEvents?.find(
-      (ev) => ev.name === MetaEventName.LangGraphInterruptEvent,
+    (ev) => ev.name === MetaEventName.LangGraphInterruptEvent,
   );
   if (activeInterruptEvent && !lgInterruptMetaEvent) {
     payload.command = { resume: formattedMessages[formattedMessages.length - 1] };
@@ -226,23 +226,26 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
         throw new Error(`Error event thrown: ${chunk.data.message}`);
       }
 
-      const interruptEvent = chunk.data?.__interrupt__
+      const interruptEvent = chunk.data?.__interrupt__;
       if (interruptEvent?.length) {
-        activeInterruptEvent = true
+        activeInterruptEvent = true;
         const interruptValue = interruptEvent?.[0].value;
-        if ('__copilotkit_interrupt_value__' in interruptValue) {
+        if ("__copilotkit_interrupt_value__" in interruptValue) {
           emit(
-              JSON.stringify({
-                event: LangGraphEventTypes.OnCopilotKitInterrupt,
-                data: { value: interruptValue.__copilotkit_interrupt_value__, messages: langchainMessagesToCopilotKit(interruptValue.__copilotkit_messages__) },
-              }) + "\n",
+            JSON.stringify({
+              event: LangGraphEventTypes.OnCopilotKitInterrupt,
+              data: {
+                value: interruptValue.__copilotkit_interrupt_value__,
+                messages: langchainMessagesToCopilotKit(interruptValue.__copilotkit_messages__),
+              },
+            }) + "\n",
           );
         } else {
           emit(
-              JSON.stringify({
-                event: LangGraphEventTypes.OnInterrupt,
-                value: interruptValue,
-              }) + "\n",
+            JSON.stringify({
+              event: LangGraphEventTypes.OnInterrupt,
+              value: interruptValue,
+            }) + "\n",
           );
         }
         continue;

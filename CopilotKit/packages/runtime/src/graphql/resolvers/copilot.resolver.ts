@@ -279,7 +279,10 @@ export class CopilotResolver {
                           ? event.data.value
                           : JSON.stringify(event.data.value),
                       messages: event.data.messages.map((message) => {
-                        if (message.type === "TextMessage" || ('content' in message && 'role' in message)) {
+                        if (
+                          message.type === "TextMessage" ||
+                          ("content" in message && "role" in message)
+                        ) {
                           return plainToInstance(TextMessage, {
                             id: message.id,
                             createdAt: new Date(),

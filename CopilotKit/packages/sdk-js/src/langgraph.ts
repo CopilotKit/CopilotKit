@@ -269,13 +269,13 @@ export function convertActionsToDynamicStructuredTools(
 }
 
 export function copilotKitInterrupt({
-    message,
-    action,
-    args,
+  message,
+  action,
+  args,
 }: {
-  message?: string,
-  action?: string,
-  args?: Record<string, any>
+  message?: string;
+  action?: string;
+  args?: Record<string, any>;
 }) {
   if (!message && !action) {
     throw new Error("Either message or action (and optional arguments) must be provided");
