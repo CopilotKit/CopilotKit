@@ -108,7 +108,7 @@ jobs:
       - name: (UI) Build app
         if: matrix.app.type == 'ui'
         working-directory: examples/${{ matrix.app.project }}/${{ matrix.app.type }}
-        run: pnpm run build
+        run: pnpm run freshbuild
         env:
           OPENAI_API_KEY: placeholder
 
