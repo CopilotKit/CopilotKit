@@ -50,7 +50,7 @@
     "@copilotkit/shared": "workspace:*",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
     "@langchain/community": "^0.0.53",
-    "@langchain/core": "^0.3.37",
+    "@langchain/core": "^0.3.13",
     "@langchain/google-gauth": "^0.1.0",
     "@langchain/langgraph-sdk": "^0.0.36",
     "@langchain/openai": "^0.0.28",
