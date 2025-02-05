@@ -55,6 +55,9 @@ CrewAIAgent lets you define your agent for use with CopilotKit.
     )
     ```
 
+    Note:
+    Either a `crew` or `flow` must be provided to CrewAIAgent.
+
 ### Parameters
 
 <PropertyReference name="name" type="str" required> 
@@ -75,10 +78,6 @@ The description of the agent.
 
 <PropertyReference name="copilotkit_config" type="Optional[CopilotKitConfig]" > 
 The CopilotKit config to use with the agent.
-</PropertyReference>
-
-<PropertyReference name="Note" type="" required> 
-Either a `crew` or `flow` must be provided to CrewAIAgent.
 </PropertyReference>
 
 ## CopilotKitConfig
