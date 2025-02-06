@@ -98,7 +98,10 @@ export class CopilotRuntimeClient {
               error.message.includes("BodyStreamBuffer was aborted") ||
               error.message.includes("signal is aborted without reason")
             ) {
-              // Suppress this specific error
+              // close the stream if there is no next item
+              if (!hasNext) controller.close();
+
+              //suppress this specific error
               console.warn("Abort error suppressed");
               return;
             }
