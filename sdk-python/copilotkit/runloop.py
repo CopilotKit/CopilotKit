@@ -7,11 +7,15 @@ import contextvars
 import json
 import traceback
 from typing_extensions import Coroutine, Any, Dict, Optional, Literal, List, TypedDict
+from partialjson.json_parser import JSONParser as PartialJSONParser
+
 from .protocol import (
-  RuntimeEvent,
-  RuntimeEventTypes,
-  emit_runtime_event,
-  agent_state_message,
+    RuntimeEvent,
+    RuntimeEventTypes,
+    RuntimeMetaEventName,
+    emit_runtime_event,
+    agent_state_message,
+    AgentStateMessage
 )
 
 async def yield_control():
@@ -140,10 +144,29 @@ def handle_runtime_event(
         RuntimeEventTypes.ACTION_EXECUTION_ARGS,
         RuntimeEventTypes.ACTION_EXECUTION_END,
         RuntimeEventTypes.ACTION_EXECUTION_RESULT,
-        RuntimeEventTypes.AGENT_STATE_MESSAGE,
-        RuntimeEventTypes.META_EVENT
+        RuntimeEventTypes.AGENT_STATE_MESSAGE
     ]:
-        return emit_runtime_event(event)
+        events = [event]
+        if event["type"] in [
+            RuntimeEventTypes.ACTION_EXECUTION_START, 
+            RuntimeEventTypes.ACTION_EXECUTION_ARGS
+        ]:
+            message = predict_state(
+                thread_id=thread_id,
+                agent_name=agent_name,
+                run_id=run_id,
+                event=event,
+                execution=execution,
+            )
+            if message is not None:
+                events.append(message)
+        return emit_runtime_event(*events)
+    
+    if event["type"] == RuntimeEventTypes.META_EVENT:
+        if event["name"] == RuntimeMetaEventName.PREDICT_STATE_EVENT:
+            execution["predict_state_configuration"] = event["value"]
+            return None
+        return None
 
     if event["type"] == RuntimeEventTypes.RUN_STARTED:
         execution["state"] = event["state"]
@@ -214,4 +237,68 @@ def handle_runtime_event(
             print(error_info, flush=True)
 
         execution["is_finished"] = True
+        return None
+
+def predict_state(
+        *,
+        thread_id: str,
+        agent_name: str,
+        run_id: str,
+        event: Any,
+        execution: CopilotKitRunExecution,
+) -> Optional[AgentStateMessage]:
+    """Predict the state"""
+    
+    if event["type"] == RuntimeEventTypes.ACTION_EXECUTION_START:
+        execution["current_tool_call"] = event["actionName"]
+        execution["argument_buffer"] = ""
+    elif event["type"] == RuntimeEventTypes.ACTION_EXECUTION_ARGS:
+        execution["argument_buffer"] += event["args"]
+
+        tool_names = [
+            config.get("tool_name")
+            for config in execution["predict_state_configuration"].values()
+        ]
+
+        if execution["current_tool_call"] not in tool_names:
+            return None
+
+        current_arguments = {}
+        try:
+            current_arguments = PartialJSONParser().parse(execution["argument_buffer"])
+        except:  # pylint: disable=bare-except
+            return None
+
+        emit_update = False
+        for k, v in execution["predict_state_configuration"].items():
+            if v["tool_name"] == execution["current_tool_call"]:
+                tool_argument = v.get("tool_argument")
+                if tool_argument is not None:
+                    argument_value = current_arguments.get(tool_argument)
+                    if argument_value is not None:
+                        execution["predicted_state"][k] = argument_value
+                        emit_update = True
+                else:
+                    execution["predicted_state"][k] = current_arguments
+                    emit_update = True
+
+        if emit_update:
+            return agent_state_message(
+                thread_id=thread_id,
+                agent_name=agent_name,
+                node_name=execution["node_name"],
+                run_id=run_id,
+                active=True,
+                role="assistant",
+                state=json.dumps(
+                    _filter_state(
+                        state={
+                            **execution["state"], 
+                            **execution["predicted_state"]
+                        }
+                    )
+                ),
+                running=True
+            )
+
         return None
