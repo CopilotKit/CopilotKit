@@ -215,7 +215,7 @@ jobs:
         run: |
           cat > ./override-values.yaml << 'EOL'
           environment: ${{ steps.set-environment-name.outputs.environment }}
-          namespace: copilotkit-examples-${{ steps.set-environment-name.outputs.environment }}
+          namespace: prv-${{ steps.set-environment-name.outputs.environment }}
           globalImageTag: ${{ github.run_id }}
           EOL
 
@@ -245,7 +245,7 @@ jobs:
           node generate-table
         env:
           ENVIRONMENT: ${{ steps.set-environment-name.outputs.environment }}
-          NAMESPACE: copilotkit-examples-${{ steps.set-environment-name.outputs.environment }}
+          NAMESPACE: prv-${{ steps.set-environment-name.outputs.environment }}
           GITHUB_SHA: ${{ github.sha }}
 
       - name: Delete a comment
@@ -267,6 +267,9 @@ jobs:
         working-directory: examples/e2e
         run: |
           echo "e2e-urls=$(cat test-config.json | base64 -w 0)" >> "$GITHUB_OUTPUT"
+
+      - name: Wait 60 seconds
+        run: sleep 60
 
   test:
     if: github.event_name == 'pull_request'

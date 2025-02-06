@@ -1,9 +1,11 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: "{{ .Release.Name }}-ingress"
+  name: "{{ .Release.Name }}-kourier-ingress"
+  generation: 1
+  namespace: knative-serving
   annotations:
-    alb.ingress.kubernetes.io/group.name: "{{ include "example-app.environment" . }}-shared-demos"
+    alb.ingress.kubernetes.io/group.name: "copilotkit-previews"
     alb.ingress.kubernetes.io/group.order: "1"
     alb.ingress.kubernetes.io/target-type: "ip"
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
@@ -13,28 +15,21 @@ spec:
   rules:
     {{- $root := . }}
     {{- range $deploymentIndex, $deployment := .Values.deployments }}
-    - host: "{{ $deployment.name }}-{{ include "example-app.environment" $root }}.demos.devcopilotkit.com"
+    - host: "{{ $deployment.name }}-prv-{{ $root.Values.environment }}.copilotkit-previews.com"
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: "{{ $deployment.name }}"
+                name: kourier
                 port:
-                  number: {{ $deployment.port }}
-          - path: /
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: ssl-redirect
-                port:
-                  name: use-annotation
+                  number: 80
     {{- end }}
 
-  tls:
-    - hosts:
-        {{- $root := . }}
-        {{- range $deploymentIndex, $deployment := .Values.deployments }}
-        - "{{ $deployment.name }}-{{ include "example-app.environment" $root }}.demos.devcopilotkit.com"
-        {{- end }}
+  # tls:
+  #   - hosts:
+  #       {{- $root := . }}
+  #       {{- range $deploymentIndex, $deployment := .Values.deployments }}
+  #       - "{{ $deployment.name }}-{{ include "example-app.environment" $root }}.demos.devcopilotkit.com"
+  #       {{- end }}
