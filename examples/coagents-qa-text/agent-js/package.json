@@ -10,7 +10,6 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-
     "@types/html-to-text": "^9.0.4",
     "@types/node": "^22.9.0",
     "typescript": "^5.6.3"
