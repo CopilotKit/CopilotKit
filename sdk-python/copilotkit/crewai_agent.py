@@ -44,7 +44,7 @@ from .crewai import (
   copilotkit_stream,
   copilotkit_exit
 )
-from .utils import yield_control
+from .runloop import yield_control
 class CopilotKitConfig(TypedDict):
     """
     CopilotKit config for CrewAIAgent

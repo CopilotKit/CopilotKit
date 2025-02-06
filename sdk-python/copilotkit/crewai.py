@@ -28,7 +28,7 @@ from crewai.flow.flow_events import (
 )
 from .types import Message
 from .logging import get_logger
-from .utils import yield_control
+from .runloop import yield_control
 logger = get_logger(__name__)
 
 class CopilotKitProperties(BaseModel):
@@ -271,10 +271,6 @@ class CopilotKitCrewAIFlowEventActionExecutionEnd(TypedDict):
     """
     type: Literal[CopilotKitCrewAIFlowEventType.ACTION_EXECUTION_END]
     action_execution_id: str
-
-# We are leaving all these functions as async- in the future when we
-# switch from a separate thread to an async queue, user code will
-# still work
 
 async def copilotkit_emit_state(state: Any) -> Literal[True]:
     """

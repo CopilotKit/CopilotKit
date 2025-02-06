@@ -5,7 +5,7 @@ CopilotKit Protocol
 import json
 from enum import Enum
 from typing import Union, Optional
-from typing_extensions import TypedDict, Literal, Any
+from typing_extensions import TypedDict, Literal, Any, Dict
 
 class RuntimeEventTypes(Enum):
     """CopilotKit Runtime Event Types"""
@@ -18,6 +18,11 @@ class RuntimeEventTypes(Enum):
     ACTION_EXECUTION_RESULT = "ActionExecutionResult"
     AGENT_STATE_MESSAGE = "AgentStateMessage"
     META_EVENT = "MetaEvent"
+    RUN_STARTED = "RunStarted"
+    RUN_FINISHED = "RunFinished"
+    RUN_ERROR = "RunError"
+    NODE_STARTED = "NodeStarted"
+    NODE_FINISHED = "NodeFinished"
 
 class RuntimeMetaEventName(Enum):
     """Runtime Meta Event Name"""
@@ -85,7 +90,34 @@ class MetaEvent(TypedDict):
     name: RuntimeMetaEventName
     value: Any
 
-RuntimeEvent = Union[
+class RunStarted(TypedDict):
+    """Run Started Event"""
+    type: Literal[RuntimeEventTypes.RUN_STARTED]
+    state: Dict[str, Any]
+
+class RunFinished(TypedDict):
+    """Run Finished Event"""
+    type: Literal[RuntimeEventTypes.RUN_FINISHED]
+    state: Dict[str, Any]
+
+class RunError(TypedDict):
+    """Run Error Event"""
+    type: Literal[RuntimeEventTypes.RUN_ERROR]
+    error: str
+
+class NodeStarted(TypedDict):
+    """Node Started Event"""
+    type: Literal[RuntimeEventTypes.NODE_STARTED]
+    node_name: str
+    state: Dict[str, Any]
+
+class NodeFinished(TypedDict):
+    """Node Finished Event"""
+    type: Literal[RuntimeEventTypes.NODE_FINISHED]
+    node_name: str
+    state: Dict[str, Any]
+
+RuntimeProtocolEvent = Union[
     TextMessageStart,
     TextMessageContent,
     TextMessageEnd,
@@ -95,6 +127,19 @@ RuntimeEvent = Union[
     ActionExecutionResult,
     AgentStateMessage,
     MetaEvent
+]
+
+RuntimeLifecycleEvent = Union[
+    RunStarted,
+    RunFinished,
+    RunError,
+    NodeStarted,
+    NodeFinished,
+]
+
+RuntimeEvent = Union[
+    RuntimeProtocolEvent,
+    RuntimeLifecycleEvent,
 ]
 
 def text_message_start(
@@ -199,7 +244,7 @@ def meta_event(*, name: RuntimeMetaEventName, value: Any) -> MetaEvent:
         "value": value
     }
 
-def emit_runtime_events(*events: RuntimeEvent) -> str:
+def emit_runtime_events(*events: RuntimeProtocolEvent) -> str:
     """Emit a list of runtime events"""
     def serialize_event(event):
         # Convert enum values to their string representation
@@ -209,6 +254,6 @@ def emit_runtime_events(*events: RuntimeEvent) -> str:
 
     return "\n".join(json.dumps(serialize_event(event)) for event in events) + "\n"
 
-def emit_runtime_event(event: RuntimeEvent) -> str:
+def emit_runtime_event(event: RuntimeProtocolEvent) -> str:
     """Emit a single runtime event"""
     return emit_runtime_events(event)
