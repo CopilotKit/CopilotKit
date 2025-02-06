@@ -28,7 +28,6 @@ export function ServiceAdapterSelector() {
           {/* <option value="azure">Azure</option> */}
           <option value="langchain_openai">LangChain (OpenAI)</option>
           <option value="langchain_anthropic">LangChain (Anthropic)</option>
-          <option value="langchain_gemini">LangChain (Gemini)</option>
           <option value="groq">Groq</option>
         </select>
       </div>
