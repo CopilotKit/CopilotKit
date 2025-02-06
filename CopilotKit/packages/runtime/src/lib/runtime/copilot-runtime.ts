@@ -299,7 +299,7 @@ please use an LLM adapter instead.`,
           (action) =>
             // TODO-AGENTS: do not exclude ALL server side actions
             !serverSideActions.find((serverSideAction) => serverSideAction.name == action.name),
-          // !isLangGraphAgentAction(
+          // !isRemoteAgentAction(
           //   serverSideActions.find((serverSideAction) => serverSideAction.name == action.name),
           // ),
         ),
@@ -325,14 +325,17 @@ please use an LLM adapter instead.`,
             ? { authorization: `Bearer ${graphqlContext.properties.authorization}` }
             : null;
 
-          const client = new LangGraphClient({
-            apiUrl: endpoint.deploymentUrl,
-            apiKey: endpoint.langsmithApiKey,
-            defaultHeaders: { ...propertyHeaders },
-          });
+          const options = {
+            method: "POST",
+            headers: {
+              ...(propertyHeaders ?? {}),
+              "Content-Type": "application/json",
+            },
+            body: "{}",
+          };
 
-          const data: Array<{ assistant_id: string; graph_id: string }> =
-            await client.assistants.search();
+          const response = await fetch(`${endpoint.deploymentUrl}/assistants/search`, options);
+          const data: Array<{ assistant_id: string; graph_id: string }> = await response.json();
 
           const endpointAgents = (data ?? []).map((entry) => ({
             name: entry.graph_id,
