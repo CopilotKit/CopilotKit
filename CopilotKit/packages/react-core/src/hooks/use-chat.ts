@@ -39,7 +39,7 @@ import {
   CopilotKitLangGraphInterruptEvent,
   LangGraphInterruptEvent,
   MetaEventInput,
-} from "@copilotkit/runtime-client-gql/src";
+} from "@copilotkit/runtime-client-gql";
 
 export type UseChatOptions = {
   /**
