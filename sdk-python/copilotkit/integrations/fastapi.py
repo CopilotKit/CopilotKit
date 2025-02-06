@@ -31,8 +31,6 @@ def add_fastapi_endpoint(
     """Add FastAPI endpoint with configurable ThreadPoolExecutor size"""
     executor = ThreadPoolExecutor(max_workers=max_workers)
 
-    print(f"use_thread_pool {use_thread_pool}")
-
     def run_handler_in_thread(request: Request, sdk: CopilotKitRemoteEndpoint):
         # Run the handler coroutine in the event loop        
         loop = asyncio.new_event_loop()

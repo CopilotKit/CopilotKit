@@ -1,3 +1,5 @@
+import { ActionExecutionMessage, ResultMessage, TextMessage } from "../../graphql/types/converted";
+
 export enum LangGraphEventTypes {
   OnChainStart = "on_chain_start",
   OnChainStream = "on_chain_stream",
@@ -12,10 +14,12 @@ export enum LangGraphEventTypes {
   OnCopilotKitEmitToolCall = "on_copilotkit_emit_tool_call",
   OnCustomEvent = "on_custom_event",
   OnInterrupt = "on_interrupt",
+  OnCopilotKitInterrupt = "on_copilotkit_interrupt",
 }
 
 export enum MetaEventNames {
   LangGraphInterruptEvent = "LangGraphInterruptEvent",
+  CopilotKitLangGraphInterruptEvent = "CopilotKitLangGraphInterruptEvent",
 }
 
 export enum CustomEventNames {
@@ -335,6 +339,11 @@ interface LangGraphInterruptEvent {
   value: string;
 }
 
+interface CopilotKitLangGraphInterruptEvent {
+  event: LangGraphEventTypes.OnCopilotKitInterrupt;
+  data: { value: string; messages: (TextMessage | ActionExecutionMessage | ResultMessage)[] };
+}
+
 export type LangGraphEvent =
   | LangGraphOnChainStartEvent
   | LangGraphOnChainStreamEvent
@@ -346,4 +355,5 @@ export type LangGraphEvent =
   | LangGraphOnToolEndEvent
   | LangGraphOnCopilotKitStateSyncEvent
   | LangGraphOnCustomEvent
-  | LangGraphInterruptEvent;
+  | LangGraphInterruptEvent
+  | CopilotKitLangGraphInterruptEvent;

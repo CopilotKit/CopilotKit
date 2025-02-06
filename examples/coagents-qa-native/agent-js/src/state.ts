@@ -6,6 +6,7 @@ export const AgentStateAnnotation = Annotation.Root({
   model: Annotation<string>,
   email: Annotation<string>,
   sender: Annotation<string>,
+  senderCompany: Annotation<string>,
   ...CopilotKitStateAnnotation.spec,
 });
 

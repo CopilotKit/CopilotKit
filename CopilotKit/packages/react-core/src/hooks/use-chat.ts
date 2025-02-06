@@ -35,6 +35,11 @@ import {
   LangGraphInterruptActionSetter,
 } from "../types/interrupt-action";
 import { MetaEvent, MetaEventName } from "@copilotkit/runtime-client-gql";
+import {
+  CopilotKitLangGraphInterruptEvent,
+  LangGraphInterruptEvent,
+  MetaEventInput,
+} from "@copilotkit/runtime-client-gql";
 
 export type UseChatOptions = {
   /**
@@ -317,6 +322,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
       let messages: Message[] = [];
       let syncedMessages: Message[] = [];
+      let interruptMessages: Message[] = [];
 
       try {
         while (true) {
@@ -352,18 +358,28 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           // setThreadId(threadIdRef.current);
           setRunId(runIdRef.current);
           setExtensions(extensionsRef.current);
-
-          messages = convertGqlOutputToMessages(
-            filterAdjacentAgentStateMessages(value.generateCopilotResponse.messages),
-          );
-
+          let rawMessagesResponse = value.generateCopilotResponse.messages;
           (value.generateCopilotResponse?.metaEvents ?? []).forEach((ev) => {
-            if (ev.name === "LangGraphInterruptEvent") {
+            if (ev.name === MetaEventName.LangGraphInterruptEvent) {
               setLangGraphInterruptAction({
-                event: langGraphInterruptEvent(ev),
+                event: langGraphInterruptEvent(ev as LangGraphInterruptEvent),
               });
             }
+            if (ev.name === MetaEventName.CopilotKitLangGraphInterruptEvent) {
+              const data = (ev as CopilotKitLangGraphInterruptEvent).data;
+
+              // @ts-expect-error -- same type of messages
+              rawMessagesResponse = [...rawMessagesResponse, ...data.messages];
+              interruptMessages = convertGqlOutputToMessages(
+                // @ts-ignore
+                filterAdjacentAgentStateMessages(data.messages),
+              );
+            }
           });
+
+          messages = convertGqlOutputToMessages(
+            filterAdjacentAgentStateMessages(rawMessagesResponse),
+          );
 
           if (messages.length === 0) {
             continue;
@@ -462,7 +478,11 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             setMessages([...previousMessages, ...newMessages]);
           }
         }
-        const finalMessages = constructFinalMessages(syncedMessages, previousMessages, newMessages);
+        const finalMessages = constructFinalMessages(
+          [...syncedMessages, ...interruptMessages],
+          previousMessages,
+          newMessages,
+        );
 
         let didExecuteAction = false;
 
@@ -632,7 +652,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   // Go over all events and see that they include data that should be returned to the agent
   const composeAndFlushMetaEventsInput = useCallback(
     (metaEvents: (MetaEvent | undefined | null)[]) => {
-      return metaEvents.reduce((acc: MetaEvent[], event) => {
+      return metaEvents.reduce((acc: MetaEventInput[], event) => {
         if (!event) return acc;
 
         switch (event.name) {
@@ -643,9 +663,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               return [
                 ...acc,
                 {
-                  type: event.type,
                   name: event.name,
-                  value: event.value,
+                  value: (event as LangGraphInterruptEvent).value,
                   response: event.response,
                 },
               ];

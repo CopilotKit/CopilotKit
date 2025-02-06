@@ -3,7 +3,7 @@ import { MessageRole } from "./enums";
 import { MessageStatusUnion } from "./message-status.type";
 import { ResponseStatusUnion } from "./response-status.type";
 import { ExtensionsResponse } from "./extensions-response.type";
-import { BaseMetaEvent, LangGraphInterruptEvent, MetaEventName } from "./meta-events.type";
+import { BaseMetaEvent } from "./meta-events.type";
 
 @InterfaceType({
   resolveType(value) {
@@ -15,8 +15,6 @@ import { BaseMetaEvent, LangGraphInterruptEvent, MetaEventName } from "./meta-ev
       return ResultMessageOutput;
     } else if (value.hasOwnProperty("state")) {
       return AgentStateMessageOutput;
-    } else if (value.name === MetaEventName.LangGraphInterruptEvent) {
-      return LangGraphInterruptEvent;
     }
     return undefined;
   },

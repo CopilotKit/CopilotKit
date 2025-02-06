@@ -69,6 +69,12 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                   .fill('CopilotKit Automation');
               await page.locator('button:has-text("Submit")').click();
 
+              await page.locator('p:has-text("Ah, forgot to ask, which company are you working for?")')
+              await sendChatMessage(
+                  page,
+                  "CopilotKit"
+              );
+
               const cancelMessage = page.locator(
                 '[data-test-id="email-cancel-message"]'
               );

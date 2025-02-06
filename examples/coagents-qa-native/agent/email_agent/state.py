@@ -10,3 +10,4 @@ class EmailAgentState(CopilotKitState):
     email: str
     model: str
     sender: str
+    sender_company: str
