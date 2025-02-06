@@ -222,11 +222,33 @@ class LangGraphAgent(Agent):
         **kwargs
     ):
         node_name = kwargs.get("node_name")
+
+        return self._stream_events(
+            state=state,
+            messages=messages,
+            actions=actions,
+            thread_id=thread_id,
+            node_name=node_name,
+            meta_events=meta_events
+        )
+
+    async def _stream_events( # pylint: disable=too-many-locals
+            self,
+            *,
+            state: Any,
+            messages: List[Message],
+            actions: Optional[List[ActionDict]] = None,
+            thread_id: Optional[str] = None,
+            node_name: Optional[str] = None,
+            meta_events: Optional[List[MetaEvent]] = None,
+
+        ):
+
         config = ensure_config(cast(Any, self.langgraph_config.copy()) if self.langgraph_config else {}) # pylint: disable=line-too-long
         config["configurable"] = config.get("configurable", {})
         config["configurable"]["thread_id"] = thread_id
 
-        agent_state = self.graph.get_state(config)
+        agent_state = await self.graph.aget_state(config)
         state["messages"] = agent_state.values.get("messages", [])
 
         langchain_messages = self.convert_messages(messages)
@@ -251,23 +273,6 @@ class LangGraphAgent(Agent):
         if mode == "continue" and not interrupt_event:
             self.graph.update_state(config, state, as_node=node_name)
 
-        return self._stream_events(
-            mode=mode,
-            config=config,
-            state=state,
-            node_name=node_name,
-            resume_input=resume_input
-        )
-
-    async def _stream_events( # pylint: disable=too-many-locals
-            self,
-            *,
-            mode: str,
-            config: RunnableConfig,
-            state: Any,
-            node_name: Optional[str] = None,
-            resume_input: Optional[Command] = None
-        ):
 
         streaming_state_extractor = _StreamingStateExtractor([])
         initial_state = state if mode == "start" else None
@@ -376,7 +381,7 @@ class LangGraphAgent(Agent):
             yield langchain_dumps(event) + "\n"
 
         state = await self.graph.aget_state(config)
-        tasks = self.graph.get_state(config).tasks
+        tasks = state.tasks
         interrupts = tasks[0].interrupts if tasks and len(tasks) > 0 else None
         node_name = node_name if interrupts else list(state.metadata["writes"].keys())[0]
         is_end_node = state.next == () and not interrupts
@@ -393,7 +398,7 @@ class LangGraphAgent(Agent):
             include_messages=True
         ) + "\n"
 
-    def get_state(
+    async def get_state(
         self,
         *,
         thread_id: str,
@@ -402,7 +407,7 @@ class LangGraphAgent(Agent):
         config["configurable"] = config.get("configurable", {})
         config["configurable"]["thread_id"] = thread_id
 
-        state = {**self.graph.get_state(config).values}
+        state = {**(await self.graph.aget_state(config)).values}
         if state == {}:
             return {
                 "threadId": thread_id,

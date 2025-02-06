@@ -340,7 +340,7 @@ class CopilotKitRemoteEndpoint:
         except Exception as error:
             raise AgentExecutionException(name, error) from error
 
-    def get_agent_state(
+    async def get_agent_state(
         self,
         *,
         context: CopilotKitContext,
@@ -364,7 +364,7 @@ class CopilotKitRemoteEndpoint:
             ]
         )
         try:
-            return agent.get_state(thread_id=thread_id)
+            return await agent.get_state(thread_id=thread_id)
         except Exception as error:
             raise AgentExecutionException(name, error) from error
 

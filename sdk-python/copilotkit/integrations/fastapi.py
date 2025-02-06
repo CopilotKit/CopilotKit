@@ -26,26 +26,25 @@ def add_fastapi_endpoint(
         sdk: CopilotKitRemoteEndpoint,
         prefix: str,
         *,
+        use_thread_pool: bool = False,
         max_workers: int = 10,
-        use_thread_pool: bool = True,
     ):
     """Add FastAPI endpoint with configurable ThreadPoolExecutor size"""
-    executor = ThreadPoolExecutor(max_workers=max_workers)
-
-    print(f"use_thread_pool {use_thread_pool}")
 
     def run_handler_in_thread(request: Request, sdk: CopilotKitRemoteEndpoint):
-        # Run the handler coroutine in the event loop        
+        # Run the handler coroutine in the event loop
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         return loop.run_until_complete(handler(request, sdk))
 
     async def make_handler(request: Request):
         if use_thread_pool:
+            executor = ThreadPoolExecutor(max_workers=max_workers)
             loop = asyncio.get_event_loop()
             future = loop.run_in_executor(executor, run_handler_in_thread, request, sdk)
             return await future
         return await handler(request, sdk)
+
 
     # Ensure the prefix starts with a slash and remove trailing slashes
     normalized_prefix = '/' + prefix.strip('/')
@@ -120,7 +119,7 @@ async def handler(request: Request, sdk: CopilotKitRemoteEndpoint):
         name = match.group(1)
         thread_id = body_get_or_raise(body, "threadId")
 
-        return handle_get_agent_state(
+        return await handle_get_agent_state(
             sdk=sdk,
             context=context,
             thread_id=thread_id,
@@ -210,7 +209,7 @@ async def handler_v1(
         thread_id = body_get_or_raise(body, "threadId")
         name = body_get_or_raise(body, "name")
 
-        return handle_get_agent_state(
+        return await handle_get_agent_state(
             sdk=sdk,
             context=context,
             thread_id=thread_id,
@@ -292,7 +291,7 @@ def handle_execute_agent( # pylint: disable=too-many-arguments
         logger.error("Agent execution error: %s", exc, exc_info=True)
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
-def handle_get_agent_state(
+async def handle_get_agent_state(
         *,
         sdk: CopilotKitRemoteEndpoint,
         context: CopilotKitContext,
@@ -301,7 +300,7 @@ def handle_get_agent_state(
     ):
     """Handle get agent state request with FastAPI"""
     try:
-        result = sdk.get_agent_state(
+        result = await sdk.get_agent_state(
             context=context,
             thread_id=thread_id,
             name=name,
