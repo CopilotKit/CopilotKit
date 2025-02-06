@@ -230,7 +230,10 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       if (interruptEvents?.length) {
         activeInterruptEvent = true;
         const interruptValue = interruptEvents?.[0].value;
-        if (typeof interruptValue != "string" && "__copilotkit_interrupt_value__" in interruptValue) {
+        if (
+          typeof interruptValue != "string" &&
+          "__copilotkit_interrupt_value__" in interruptValue
+        ) {
           emit(
             JSON.stringify({
               event: LangGraphEventTypes.OnCopilotKitInterrupt,
