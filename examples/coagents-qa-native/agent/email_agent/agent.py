@@ -34,8 +34,9 @@ async def email_node(state: EmailAgentState, config: RunnableConfig):
 
     instructions = f"You write emails. The email is by the following sender: {sender}, working for: {sender_company}"
 
+    cpk_actions = state.get("copilotkit", {}).get("actions", [])
     email_model = get_model(state).bind_tools(
-        state["copilotkit"]["actions"],
+        cpk_actions,
         tool_choice="EmailTool"
     )
 
