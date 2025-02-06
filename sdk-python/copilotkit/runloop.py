@@ -1,5 +1,5 @@
 """
-Utils
+CopilotKit Run Loop
 """
 
 import asyncio
@@ -192,7 +192,7 @@ def handle_runtime_event(
             if message is not None:
                 events.append(message)
         return emit_runtime_events(*events)
-    
+
     if event["type"] == RuntimeEventTypes.META_EVENT:
         if event["name"] == RuntimeMetaEventName.PREDICT_STATE:
             execution["predict_state_configuration"] = event["value"]

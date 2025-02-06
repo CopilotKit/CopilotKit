@@ -4,7 +4,6 @@ CrewAI Agent
 
 import uuid
 import json
-import asyncio
 from copy import deepcopy
 from typing import Optional, List, Callable
 from typing_extensions import TypedDict, NotRequired, Any, Dict, cast
@@ -408,7 +407,7 @@ class ChatWithCrewFlow(Flow):
                 })
 
                 response = await copilotkit_stream(
-                    completion(
+                    completion( # pylint: disable=too-many-arguments
                         model=self.crew.chat_llm,
                         messages = [
                             {
