@@ -43,21 +43,23 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
           };
 
           if (config.lgcPythonDeploymentUrl) {
-            groups["LGC Python in-memory"] = nonCloudVariants.map(
-              (variant) => ({
+            groups["LGC Python in-memory"] = nonCloudVariants
+              .filter(v => v.name !== "CrewAI")
+              .map((variant) => ({
                 ...variant,
                 name: `${variant.name} (LGC Python in-memory)`,
                 queryParams: `${variant.queryParams}&lgcDeploymentUrl=${config.lgcPythonDeploymentUrl}`,
-              })
-            );
+              }));
           }
 
           if (config.lgcJSDeploymentUrl) {
-            groups["LGC JS in-memory"] = nonCloudVariants.map((variant) => ({
-              ...variant,
-              name: `${variant.name} (LGC JS in-memory)`,
-              queryParams: `${variant.queryParams}&lgcDeploymentUrl=${config.lgcJSDeploymentUrl}`,
-            }));
+            groups["LGC JS in-memory"] = nonCloudVariants
+              .filter(v => v.name !== "CrewAI")
+              .map((variant) => ({
+                ...variant,
+                name: `${variant.name} (LGC JS in-memory)`,
+                queryParams: `${variant.queryParams}&lgcDeploymentUrl=${config.lgcJSDeploymentUrl}`,
+              }));
           }
 
           Object.entries(groups).forEach(([groupName, variants]) => {
