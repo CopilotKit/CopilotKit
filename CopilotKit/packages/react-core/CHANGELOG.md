@@ -1,5 +1,13 @@
 # ui
 
+## 1.5.15-next.6
+
+### Patch Changes
+
+- c9ae305: - perf: prevent redundant API calls
+  - @copilotkit/runtime-client-gql@1.5.15-next.6
+  - @copilotkit/shared@1.5.15-next.6
+
 ## 1.5.15-next.5
 
 ### Patch Changes
