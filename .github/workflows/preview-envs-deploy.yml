@@ -233,8 +233,6 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: 21.x
-          cache: "pnpm"
-          cache-dependency-path: "./examples/helmfile/pnpm-lock.yaml"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
