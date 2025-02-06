@@ -32,7 +32,6 @@ import { expect, test, Page, Locator } from "@playwright/test";
 import {
   filterConfigsByProject,
   getConfigs,
-  getCopilotCloudVariants,
   groupConfigsByDescription,
   PROJECT_NAMES,
 } from "../lib/config-helper";
@@ -69,7 +68,6 @@ const variants: Variant[] = [
     queryParams: "?coAgentsModel=langchain_gemini",
   },
   { name: "Groq", queryParams: "?coAgentsModel=groq" },
-  ...getCopilotCloudVariants(),
 ];
 
 const getDestinationCheckbox = (
