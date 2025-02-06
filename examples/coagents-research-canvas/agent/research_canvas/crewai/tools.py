@@ -85,7 +85,7 @@ async def perform_search(state: Dict[str, Any], queries: List[str], tool_call_id
         }
     )
 
-    response = copilotkit_stream(
+    response = await copilotkit_stream(
         completion(
             model="openai/gpt-4o",
             messages=[

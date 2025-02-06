@@ -27,7 +27,6 @@ class ResearchCanvasFlow(Flow[Dict[str, Any]]):
         """
         Download any pending assets that are needed for the research.
         """
-        print("start (node)")
         self.state["resources"] = self.state.get("resources", [])
         self.state["research_question"] = self.state.get("research_question", "")
         self.state["report"] = self.state.get("report", "")
@@ -37,7 +36,7 @@ class ResearchCanvasFlow(Flow[Dict[str, Any]]):
         # If the user requested deletion, perform it
         maybe_perform_delete(self.state)
 
-        print("start (node) end")
+
 
     @router(start)
     async def chat(self):
@@ -64,7 +63,7 @@ class ResearchCanvasFlow(Flow[Dict[str, Any]]):
           }
         )
 
-        response = copilotkit_stream(
+        response = await copilotkit_stream(
             completion(
                 model="openai/gpt-4o",
                 messages=[
@@ -95,4 +94,4 @@ class ResearchCanvasFlow(Flow[Dict[str, Any]]):
         """
         End the flow.
         """
-        print("end (node)")
+

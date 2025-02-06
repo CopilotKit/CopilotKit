@@ -42,7 +42,7 @@ class Agent(ABC):
     ):
         """Execute the agent"""
 
-    def get_state(
+    async def get_state(
         self,
         *,
         thread_id: str,
