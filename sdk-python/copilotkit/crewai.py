@@ -49,28 +49,32 @@ async def _crewai_flow_async_runner(flow: Flow, inputs: Dict[str, Any]):
     """
 
     async def crewai_flow_event_subscriber(_sender: Any, event: CrewAIFlowEvent):
-        if isinstance(event, FlowStartedEvent):
+        if isinstance(event, FlowStartedEvent):           
             await _qput(CopilotKitCrewAIFlowExecutionStarted(
-                type=CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_STARTED
-            ))
+                type=CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_STARTED,
+            ), priority=True)
         elif isinstance(event, MethodExecutionStartedEvent):
             await _qput(CopilotKitCrewAIFlowEventMethodExecutionStarted(
                 type=CopilotKitCrewAIFlowEventType.METHOD_EXECUTION_STARTED,
                 name=event.method_name
-            ))
+            ), priority=True)
         elif isinstance(event, MethodExecutionFinishedEvent):
             await _qput(CopilotKitCrewAIFlowEventMethodExecutionFinished(
                 type=CopilotKitCrewAIFlowEventType.METHOD_EXECUTION_FINISHED,
                 name=event.method_name
-            ))
+            ), priority=True)
         elif isinstance(event, FlowFinishedEvent):
             await _qput(CopilotKitCrewAIFlowExecutionFinished(
-                type=CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_FINISHED
-            ))
+                type=CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_FINISHED,
+            ), priority=True)
 
     def crewai_flow_event_subscriber_sync(_sender: Any, event: CrewAIFlowEvent):
-        # Schedule the async subscriber to run in the event loop
-        asyncio.create_task(crewai_flow_event_subscriber(_sender, event))
+        loop = asyncio.get_running_loop()
+        loop.call_soon(lambda: asyncio.create_task(crewai_flow_event_subscriber(_sender, event)))
+        
+        
+        # # Schedule the async subscriber to run in the event loop
+        # asyncio.create_task(crewai_flow_event_subscriber(_sender, event))
 
     flow.event_emitter.connect(crewai_flow_event_subscriber_sync)
 
@@ -112,12 +116,18 @@ def _reset_crewai_flow_event_queue(token: contextvars.Token):
     """
     _CONTEXT_QUEUE.reset(token)
 
-async def _qput(event: "CopilotKitCrewAIFlowEvent"):
+async def _qput(event: "CopilotKitCrewAIFlowEvent", priority: bool = False):
     """
     Put an event in the queue.
     """
+    if not priority:
+        # yield control so that priority events can be processed first
+        await yield_control()
+
     q = _get_crewai_flow_event_queue()
     await q.put(event)
+
+    # yield control so that the reader can process the event
     await yield_control()
 
 class CopilotKitPredictStateConfig(TypedDict):
@@ -593,6 +603,7 @@ async def copilotkit_predict_state(
     Awaitable[bool]
         Always return True.
     """
+
     await _qput(CopilotKitCrewAIFlowEventPredictState(
         type=CopilotKitCrewAIFlowEventType.PREDICT_STATE,
         config=config

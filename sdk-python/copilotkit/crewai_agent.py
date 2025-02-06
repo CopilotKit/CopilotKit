@@ -409,6 +409,7 @@ def handle_crewai_flow_event(
         execution_state: CrewAIFlowExecutionState
     ) -> Optional[str]: # pylint: disable=too-many-return-statements, too-many-arguments
     """Handle a CrewAI flow event"""
+
     if event_data["type"] == CopilotKitCrewAIFlowEventType.EMIT_MESSAGE:
         return emit_runtime_events(
             text_message_start(message_id=event_data["message_id"]),
@@ -550,6 +551,7 @@ def handle_crewai_flow_event(
         )
 
     if event_data["type"] == CopilotKitCrewAIFlowEventType.ACTION_EXECUTION_START:
+
         events: List[Any] = [
             action_execution_start(
                 action_execution_id=event_data["action_execution_id"],
@@ -585,6 +587,7 @@ def handle_crewai_flow_event(
             state=state
         )
         if predicted_state_message is not None:
+
             events.append(predicted_state_message)
 
         return emit_runtime_events(*events)
