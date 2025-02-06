@@ -27,7 +27,8 @@ class RuntimeEventTypes(Enum):
 class RuntimeMetaEventName(Enum):
     """Runtime Meta Event Name"""
     LANG_GRAPH_INTERRUPT_EVENT = "LangGraphInterruptEvent"
-    PREDICT_STATE_EVENT = "PredictStateEvent"
+    PREDICT_STATE = "PredictState"
+    EXIT = "Exit"
 
 
 class TextMessageStart(TypedDict):
@@ -141,6 +142,14 @@ RuntimeEvent = Union[
     RuntimeProtocolEvent,
     RuntimeLifecycleEvent,
 ]
+
+
+class PredictStateConfig(TypedDict):
+    """
+    Predict State Config
+    """
+    tool_name: str
+    tool_argument: Optional[str]
 
 def text_message_start(
         *,
