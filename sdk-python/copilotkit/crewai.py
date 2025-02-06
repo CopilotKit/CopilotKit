@@ -3,9 +3,10 @@ CrewAI integration for CopilotKit
 """
 
 import uuid
-import threading
+import contextvars
 import queue
 import json
+import asyncio
 from enum import Enum
 from typing_extensions import TypedDict, Any, Dict, Optional, List, Literal
 from pydantic import BaseModel
@@ -20,14 +21,14 @@ from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from crewai.flow.flow import FlowState, Flow
 from crewai.flow.flow_events import (
   Event as CrewAIFlowEvent,
-  FlowStartedEvent as CrewAIFlowStartedEvent,
-  MethodExecutionStartedEvent as CrewAIFlowMethodExecutionStartedEvent,
-  MethodExecutionFinishedEvent as CrewAIFlowMethodExecutionFinishedEvent,
-  FlowFinishedEvent as CrewAIFlowFinishedEvent,
+  FlowStartedEvent,
+  MethodExecutionStartedEvent,
+  MethodExecutionFinishedEvent,
+  FlowFinishedEvent,
 )
 from .types import Message
 from .logging import get_logger
-
+from .utils import yield_control
 logger = get_logger(__name__)
 
 class CopilotKitProperties(BaseModel):
@@ -39,44 +40,53 @@ class CopilotKitState(FlowState):
     messages: List[Any]
     copilotkit: CopilotKitProperties
 
-_THREAD_LOCAL = threading.local()
+_CONTEXT_QUEUE = contextvars.ContextVar('q', default=None)
 
-def _crewai_flow_thread_runner(flow: Flow, q: queue.Queue, inputs: Dict[str, Any]):
+async def _crewai_flow_async_runner(flow: Flow, inputs: Dict[str, Any]):
     """
     Runs a flow in a separate thread. Workaround since the flow will use
     asyncio.run().
     """
 
-    _set_crewai_flow_event_queue(q)
+    async def crewai_flow_event_subscriber(_sender: Any, event: CrewAIFlowEvent):
+        if isinstance(event, FlowStartedEvent):
+            await _qput(CopilotKitCrewAIFlowExecutionStarted(
+                type=CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_STARTED
+            ))
+        elif isinstance(event, MethodExecutionStartedEvent):
+            await _qput(CopilotKitCrewAIFlowEventMethodExecutionStarted(
+                type=CopilotKitCrewAIFlowEventType.METHOD_EXECUTION_STARTED,
+                name=event.method_name
+            ))
+        elif isinstance(event, MethodExecutionFinishedEvent):
+            await _qput(CopilotKitCrewAIFlowEventMethodExecutionFinished(
+                type=CopilotKitCrewAIFlowEventType.METHOD_EXECUTION_FINISHED,
+                name=event.method_name
+            ))
+        elif isinstance(event, FlowFinishedEvent):
+            await _qput(CopilotKitCrewAIFlowExecutionFinished(
+                type=CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_FINISHED
+            ))
 
-    def crewai_flow_event_subscriber(_sender: Any, event: CrewAIFlowEvent):
-        if isinstance(event, CrewAIFlowStartedEvent):
-            _get_crewai_flow_event_queue().put({
-                "type": CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_STARTED
-            })
-        elif isinstance(event, CrewAIFlowMethodExecutionStartedEvent):
-            _get_crewai_flow_event_queue().put({
-                "type": CopilotKitCrewAIFlowEventType.METHOD_EXECUTION_STARTED,
-                "name": event.method_name
-            })
-        elif isinstance(event, CrewAIFlowMethodExecutionFinishedEvent):
-            _get_crewai_flow_event_queue().put({
-                "type": CopilotKitCrewAIFlowEventType.METHOD_EXECUTION_FINISHED,
-                "name": event.method_name
-            })
-        elif isinstance(event, CrewAIFlowFinishedEvent):
-            _get_crewai_flow_event_queue().put({
-                "type": CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_FINISHED
-            })
+    def crewai_flow_event_subscriber_sync(_sender: Any, event: CrewAIFlowEvent):
+        # Schedule the async subscriber to run in the event loop
+        asyncio.create_task(crewai_flow_event_subscriber(_sender, event))
 
-    flow.event_emitter.connect(crewai_flow_event_subscriber)
+    flow.event_emitter.connect(crewai_flow_event_subscriber_sync)
 
     try:
-        print("Kicking off flow", flush=True)
-        print("Inputs", json.dumps(inputs), flush=True)
-        flow.kickoff(inputs=inputs)
+        flow.event_emitter.send(
+            flow,
+            event=FlowStartedEvent(
+                type="flow_started",
+                flow_name=flow.__class__.__name__,
+            ),
+        )
+
+        flow._initialize_state(inputs) # pylint: disable=protected-access
+        await flow.kickoff_async()
     except Exception as e: # pylint: disable=broad-except
-        _get_crewai_flow_event_queue().put(CopilotKitCrewAIFlowEventExecutionError(
+        await _qput(CopilotKitCrewAIFlowEventExecutionError(
             type=CopilotKitCrewAIFlowEventType.FLOW_EXECUTION_ERROR,
             error=e
         ))
@@ -85,17 +95,30 @@ def _set_crewai_flow_event_queue(q: queue.Queue):
     """
     Store a queue in this thread's local storage.
     """
-    _THREAD_LOCAL.crewai_flow_event_queue = q
+    return _CONTEXT_QUEUE.set(q)
 
 def _get_crewai_flow_event_queue() -> queue.Queue:
     """
     Retrieve the queue from this thread's local storage (or None if missing).
     """
-    q = getattr(_THREAD_LOCAL, "crewai_flow_event_queue", None)
+    q = _CONTEXT_QUEUE.get()
     if q is None:
         raise RuntimeError("No thread-local flow event queue is set in this thread!")
     return q
 
+def _reset_crewai_flow_event_queue(token: contextvars.Token):
+    """
+    Reset the thread-local flow event queue.
+    """
+    _CONTEXT_QUEUE.reset(token)
+
+async def _qput(event: "CopilotKitCrewAIFlowEvent"):
+    """
+    Put an event in the queue.
+    """
+    q = _get_crewai_flow_event_queue()
+    await q.put(event)
+    await yield_control()
 
 class CopilotKitPredictStateConfig(TypedDict):
     """
@@ -285,7 +308,7 @@ async def copilotkit_emit_state(state: Any) -> Literal[True]:
         Always return True.
 
     """
-    _get_crewai_flow_event_queue().put(
+    await _qput(
         CopilotKitCrewAIFlowEventEmitState(
             type=CopilotKitCrewAIFlowEventType.EMIT_STATE,
             state=state
@@ -325,7 +348,7 @@ async def copilotkit_emit_message(message: str) -> str:
     """
     message_id = str(uuid.uuid4())
 
-    _get_crewai_flow_event_queue().put(
+    await _qput(
         CopilotKitCrewAIFlowEventEmitMessage(
             type=CopilotKitCrewAIFlowEventType.EMIT_MESSAGE,
             message_id=message_id,
@@ -358,7 +381,7 @@ async def copilotkit_emit_tool_call(*, name: str, args: Dict[str, Any]) -> str:
         Always return True.
     """
     message_id = str(uuid.uuid4())
-    _get_crewai_flow_event_queue().put(
+    await _qput(
         CopilotKitCrewAIFlowEventEmitToolCall(
             type=CopilotKitCrewAIFlowEventType.EMIT_TOOL_CALL,
             message_id=message_id,
@@ -366,15 +389,16 @@ async def copilotkit_emit_tool_call(*, name: str, args: Dict[str, Any]) -> str:
             args=args
         )
     )
+
     return message_id
 
 
-def copilotkit_stream(response):
+async def copilotkit_stream(response):
     """
     Stream litellm responses token by token to CopilotKit.
 
     ```python
-    response = copilotkit_stream(
+    response = await copilotkit_stream(
         completion(
             model="openai/gpt-4o",
             messages=messages,
@@ -387,12 +411,11 @@ def copilotkit_stream(response):
     if isinstance(response, ModelResponse):
         return _copilotkit_stream_response(response)
     if isinstance(response, CustomStreamWrapper):
-        return _copilotkit_stream_custom_stream_wrapper(response)
+        return await _copilotkit_stream_custom_stream_wrapper(response)
     raise ValueError("Invalid response type")
 
 
-def _copilotkit_stream_custom_stream_wrapper(response: CustomStreamWrapper):
-    q = _get_crewai_flow_event_queue()
+async def _copilotkit_stream_custom_stream_wrapper(response: CustomStreamWrapper):
     message_id: str = ""
     tool_call_id: str = ""
     content = ""
@@ -415,13 +438,14 @@ def _copilotkit_stream_custom_stream_wrapper(response: CustomStreamWrapper):
 
         if mode == "text" and (tool_calls is not None or finish_reason is not None):
             # end the current text message
-            q.put(CopilotKitCrewAIFlowEventTextMessageEnd(
+            await _qput(CopilotKitCrewAIFlowEventTextMessageEnd(
                 type=CopilotKitCrewAIFlowEventType.TEXT_MESSAGE_END,
                 message_id=message_id
             ))
+            
         elif mode == "tool" and (tool_calls is None or finish_reason is not None):
             # end the current tool call
-            q.put(CopilotKitCrewAIFlowEventActionExecutionEnd(
+            await _qput(CopilotKitCrewAIFlowEventActionExecutionEnd(
                 type=CopilotKitCrewAIFlowEventType.ACTION_EXECUTION_END,
                 action_execution_id=tool_call_id
             ))
@@ -431,7 +455,7 @@ def _copilotkit_stream_custom_stream_wrapper(response: CustomStreamWrapper):
 
         if mode != "text" and tool_calls is None:
             # start a new text message
-            q.put(CopilotKitCrewAIFlowEventTextMessageStart(
+            await _qput(CopilotKitCrewAIFlowEventTextMessageStart(
                 type=CopilotKitCrewAIFlowEventType.TEXT_MESSAGE_START,
                 message_id=message_id,
                 parent_message_id=None
@@ -440,7 +464,7 @@ def _copilotkit_stream_custom_stream_wrapper(response: CustomStreamWrapper):
             # start a new tool call
             tool_call_id = tool_calls[0].id
 
-            q.put(CopilotKitCrewAIFlowEventActionExecutionStart(
+            await _qput(CopilotKitCrewAIFlowEventActionExecutionStart(
                 type=CopilotKitCrewAIFlowEventType.ACTION_EXECUTION_START,
                 action_execution_id=tool_call_id,
                 action_name=tool_calls[0].function["name"],
@@ -461,7 +485,7 @@ def _copilotkit_stream_custom_stream_wrapper(response: CustomStreamWrapper):
             text_content = chunk["choices"][0]["delta"]["content"]
             if text_content is not None:
                 content += text_content
-                q.put(CopilotKitCrewAIFlowEventTextMessageContent(
+                await _qput(CopilotKitCrewAIFlowEventTextMessageContent(
                     type=CopilotKitCrewAIFlowEventType.TEXT_MESSAGE_CONTENT,
                     message_id=message_id,
                     content=text_content
@@ -470,7 +494,7 @@ def _copilotkit_stream_custom_stream_wrapper(response: CustomStreamWrapper):
         elif mode == "tool":
             tool_arguments = tool_calls[0].function["arguments"]
             if tool_arguments is not None:
-                q.put(CopilotKitCrewAIFlowEventActionExecutionArgs(
+                await _qput(CopilotKitCrewAIFlowEventActionExecutionArgs(
                     type=CopilotKitCrewAIFlowEventType.ACTION_EXECUTION_ARGS,
                     action_execution_id=tool_call_id,
                     args=tool_arguments
@@ -534,7 +558,7 @@ async def copilotkit_exit() -> Literal[True]:
     Awaitable[bool]
         Always return True.
     """
-    _get_crewai_flow_event_queue().put(CopilotKitCrewAIFlowEventExit(
+    await _qput(CopilotKitCrewAIFlowEventExit(
         type=CopilotKitCrewAIFlowEventType.EXIT
     ))
     return True
@@ -573,7 +597,7 @@ async def copilotkit_predict_state(
     Awaitable[bool]
         Always return True.
     """
-    _get_crewai_flow_event_queue().put(CopilotKitCrewAIFlowEventPredictState(
+    await _qput(CopilotKitCrewAIFlowEventPredictState(
         type=CopilotKitCrewAIFlowEventType.PREDICT_STATE,
         config=config
     ))

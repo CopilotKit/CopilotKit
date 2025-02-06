@@ -4,8 +4,6 @@ CrewAI Agent
 
 import uuid
 import json
-import queue
-import threading
 import asyncio
 import traceback
 from copy import deepcopy
@@ -40,11 +38,13 @@ from .crewai import (
   copilotkit_messages_to_crewai_flow,
   CopilotKitCrewAIFlowEventType,
   crewai_flow_messages_to_copilotkit,
-  _crewai_flow_thread_runner,
+  _crewai_flow_async_runner,
+  _set_crewai_flow_event_queue,
+  _reset_crewai_flow_event_queue,
   copilotkit_stream,
   copilotkit_exit
 )
-
+from .utils import yield_control
 class CopilotKitConfig(TypedDict):
     """
     CopilotKit config for CrewAIAgent
@@ -262,17 +262,16 @@ class CrewAIAgent(Agent):
 
 
         # Create a local queue to receive events
-        local_queue = queue.Queue()
+        local_queue = asyncio.Queue()
 
-        t = threading.Thread(
-            target=_crewai_flow_thread_runner,
-            args=(flow, local_queue, deepcopy(state)),
-            daemon=False
+        token = _set_crewai_flow_event_queue(local_queue)
+
+        runner_task = asyncio.create_task(
+            _crewai_flow_async_runner(flow, deepcopy(state))
         )
-        t.start()
 
         while True:
-            event_data = local_queue.get()
+            event_data = await local_queue.get()
             local_queue.task_done()
 
             json_lines = handle_crewai_flow_event(
@@ -291,12 +290,11 @@ class CrewAIAgent(Agent):
                 break
 
             # return control to the containing run loop to send events
-            loop = asyncio.get_running_loop()
-            future = loop.create_future()
-            loop.call_soon(future.set_result, None)
-            await future
+            await yield_control()
 
-        t.join()
+        await runner_task
+
+        _reset_crewai_flow_event_queue(token)
 
         state = {**flow.state}
         if "messages" in state:
@@ -707,7 +705,7 @@ class ChatWithCrewFlow(Flow):
 
         tools += [self.crew_tool_schema, CREW_EXIT_TOOL]
 
-        response = copilotkit_stream(
+        response = await copilotkit_stream(
             completion(
                 model=self.crew.chat_llm,
                 messages=messages,
@@ -739,7 +737,7 @@ class ChatWithCrewFlow(Flow):
                     "tool_call_id": message["tool_calls"][0]["id"]
                 })
 
-                response = copilotkit_stream(
+                response = await copilotkit_stream(
                     completion(
                         model=self.crew.chat_llm,
                         messages = [
