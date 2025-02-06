@@ -57,13 +57,13 @@ jobs:
         run: |
           cat > ./override-values.yaml << 'EOL'
           environment: ${{ steps.set-environment-name.outputs.environment }}
-          namespace: copilotkit-examples-${{ steps.set-environment-name.outputs.environment }}
+          namespace: prv-${{ steps.set-environment-name.outputs.environment }}
           EOL
 
       - name: Helmfile Destroy
         run: |
           helmfile --state-values-file=./override-values.yaml destroy
-          kubectl delete namespace copilotkit-examples-${{ steps.set-environment-name.outputs.environment }} -A --force
+          kubectl delete namespace prv-${{ steps.set-environment-name.outputs.environment }} -A --force
 
       - name: Comment post-destroy
         if: github.event_name == 'pull_request'

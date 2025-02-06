@@ -1,0 +1,71 @@
+{{- $root := . }}
+{{- range $deploymentIndex, $deployment := .Values.deployments }}
+---
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: "{{ $deployment.name }}"
+spec:
+  template:
+    metadata:
+      annotations:
+        deployment.knative.dev/progress-deadline: "60s"
+    spec:
+      tolerations:
+      - key: "dedicated"
+        operator: "Equal"
+        value: "e2e"
+        effect: "NoSchedule"
+      nodeSelector:
+        purpose: e2e
+      containers:
+        - name: {{ $deployment.name }}
+          image: "{{ $deployment.image.repository }}-{{ $deployment.image.tag }}"
+          imagePullPolicy: {{ $deployment.image.pullPolicy | default "IfNotPresent" }}
+          {{- if $deployment.command }}
+          command:
+            {{- toYaml $deployment.command | nindent 12 }}
+          {{- end }}
+          # resources:
+          #   {{- if $deployment.type | eq "ui" }}
+          #   requests:
+          #     cpu: "512m"
+          #     memory: "512Mi"
+          #   limits:
+          #     cpu: "512m"
+          #     memory: "512Mi"
+          #   {{- end }}
+          #   {{- if $deployment.type | eq "agent" }}
+          #   requests:
+          #     cpu: "512m"
+          #     memory: "512Mi"
+          #   limits:
+          #     cpu: "512m"
+          #     memory: "512Mi"
+          #   {{- end }}
+          env:
+            {{- if $deployment.config.secretsJson }}
+            {{- include "example-app.jsonToEnv" $deployment.config.secretsJson | nindent 12 }}
+            {{- end }}
+            {{- if $deployment.config.env }}
+            {{- toYaml $deployment.config.env | nindent 12 }}
+            {{- end }}
+          ports:
+            - containerPort: {{ $deployment.port }}
+          {{- with $deployment.livenessProbe }}
+          livenessProbe:
+            {{ toYaml . | nindent 12 }}
+          readinessProbe:
+            {{ toYaml . | nindent 12 }}
+          {{- end }}
+---
+# apiVersion: serving.knative.dev/v1beta1
+# kind: DomainMapping
+# metadata:
+#   name: "{{ $deployment.name }}-{{ include "example-app.environment" $root }}.copilotkit-previews.com"
+# spec:
+#   ref:
+#     name: "{{ $deployment.name }}"
+#     kind: Service
+#     apiVersion: serving.knative.dev/v1
+{{- end }}
