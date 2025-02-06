@@ -7,10 +7,6 @@ export default defineConfig((options: Options) => ({
   minify: false,
   external: ["react"],
   sourcemap: true,
-  exclude: [
-    "**/*.test.ts",
-    "**/*.test.tsx",
-    "**/__tests__/*",
-  ],
+  exclude: ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/*"],
   ...options,
 }));
