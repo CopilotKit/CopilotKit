@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.5.15-next.7
+
+### Patch Changes
+
+- 68bdbcd: - fix(runtime): enable multi-agent flows while preventing recursive self-calls
+  - @copilotkit/shared@1.5.15-next.7
+
 ## 1.5.15-next.6
 
 ### Patch Changes
