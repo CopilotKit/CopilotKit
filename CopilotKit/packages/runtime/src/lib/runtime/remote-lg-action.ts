@@ -226,11 +226,11 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
         throw new Error(`Error event thrown: ${chunk.data.message}`);
       }
 
-      const interruptEvent = chunk.data?.__interrupt__;
-      if (interruptEvent?.length) {
+      const interruptEvents = chunk.data?.__interrupt__;
+      if (interruptEvents?.length) {
         activeInterruptEvent = true;
-        const interruptValue = interruptEvent?.[0].value;
-        if ("__copilotkit_interrupt_value__" in interruptValue) {
+        const interruptValue = interruptEvents?.[0].value;
+        if (typeof interruptValue != "string" && "__copilotkit_interrupt_value__" in interruptValue) {
           emit(
             JSON.stringify({
               event: LangGraphEventTypes.OnCopilotKitInterrupt,

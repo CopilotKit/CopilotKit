@@ -296,7 +296,7 @@ class LangGraphAgent(Agent):
             if (interrupt_event):
                 self.active_interrupt_event = True
                 value = interrupt_event[0].value
-                if "__copilotkit_interrupt_value__" in value:
+                if not isinstance(value, str) and "__copilotkit_interrupt_value__" in value:
                     yield langchain_dumps({
                         "event": "on_copilotkit_interrupt",
                         "data": { "value": value["__copilotkit_interrupt_value__"], "messages": langchain_messages_to_copilotkit(value["__copilotkit_messages__"]) }
