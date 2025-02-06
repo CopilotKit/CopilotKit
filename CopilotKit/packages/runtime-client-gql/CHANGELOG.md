@@ -1,5 +1,15 @@
 # @copilotkit/runtime-client-gql
 
+## 1.5.15-next.5
+
+### Patch Changes
+
+- 0dc0f43: - fix(runtime-client-gql): call controller.close() after suppressing abort errors
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - @copilotkit/shared@1.5.15-next.5
+
 ## 1.5.15-next.4
 
 ### Patch Changes
