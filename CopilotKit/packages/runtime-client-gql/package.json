@@ -27,7 +27,7 @@
     "dev": "tsup --watch --no-splitting",
     "test": "jest --passWithNoTests",
     "check-types": "tsc --noEmit",
-    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next",
+    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf ./src/graphql/@generated && rm -rf dist && rm -rf .next",
     "graphql-codegen": "graphql-codegen",
     "graphql-codegen:watch": "graphql-codegen --watch",
     "link:global": "pnpm link --global",
