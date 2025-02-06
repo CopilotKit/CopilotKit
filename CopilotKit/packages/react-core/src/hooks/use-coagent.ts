@@ -88,7 +88,7 @@
  * </PropertyReference>
  */
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   CopilotContextParams,
   CopilotMessagesContextParams,
@@ -97,8 +97,7 @@ import {
 } from "../context";
 import { CoagentState } from "../types/coagent-state";
 import { useCopilotChat } from "./use-copilot-chat";
-import { loadMessagesFromJsonRepresentation, Message } from "@copilotkit/runtime-client-gql";
-import { flushSync } from "react-dom";
+import { Message } from "@copilotkit/runtime-client-gql";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
 import { useToast } from "../components/toast/toast-provider";
 import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
@@ -208,6 +207,9 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
   const generalContext = useCopilotContext();
   const { availableAgents } = generalContext;
   const { addToast } = useToast();
+  const lastLoadedThreadId = useRef<string>();
+  const lastLoadedState = useRef<any>();
+
   const isExternalStateManagement = (
     options: UseCoagentOptions<T>,
   ): options is WithExternalStateManagement<T> => {
@@ -274,16 +276,20 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
 
   useEffect(() => {
     const fetchAgentState = async () => {
+      if (!threadId || threadId === lastLoadedThreadId.current) return;
+
       const result = await runtimeClient.loadAgentState({
-        threadId: threadId,
+        threadId,
         agentName: name,
       });
-      if (
-        result.data?.loadAgentState?.threadExists &&
-        result.data?.loadAgentState?.state &&
-        result.data?.loadAgentState?.state != "{}"
-      ) {
-        const fetchedState = JSON.parse(result.data?.loadAgentState?.state);
+
+      const newState = result.data?.loadAgentState?.state;
+      if (newState === lastLoadedState.current) return;
+
+      if (result.data?.loadAgentState?.threadExists && newState && newState != "{}") {
+        lastLoadedState.current = newState;
+        lastLoadedThreadId.current = threadId;
+        const fetchedState = JSON.parse(newState);
         isExternalStateManagement(options)
           ? options.setState(fetchedState)
           : setState(fetchedState);
