@@ -86,7 +86,7 @@ Without frontend actions, agents are limited to just processing and returning da
 
         <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
             <Tab value="Python">
-                ```python title="state.py"
+                ```python title="agent-py/sample_agent/agent.py"
                 from copilotkit import CopilotKitState # [!code highlight]
 
                 class YourAgentState(CopilotKitState): # [!code highlight]
@@ -94,7 +94,7 @@ Without frontend actions, agents are limited to just processing and returning da
                 ```
             </Tab>
             <Tab value="TypeScript">
-                ```typescript title="state.ts"
+                ```typescript title="agent-js/src/agent.ts"
                 import { Annotation } from "@langchain/langgraph";
                 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
 
@@ -118,7 +118,7 @@ Without frontend actions, agents are limited to just processing and returning da
 
         <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
             <Tab value="Python">
-                ```python title="agent.py"
+                ```python title="agent-py/sample_agent/agent.py"
                 async def agent_node(state: YourAgentState, config: RunnableConfig):
                     # Access the actions from the copilotkit property
 
@@ -129,11 +129,11 @@ Without frontend actions, agents are limited to just processing and returning da
                 ```
             </Tab>
             <Tab value="TypeScript">
-                ```typescript title="agent.ts"
+                ```typescript title="agent-js/src/agent.ts"
                 async function agentNode(state: YourAgentState, config: RunnableConfig): Promise<YourAgentState> {
                     // Access the actions from the copilotkit property
 
-                    const actions = state.copilotkit.actions; // [!code highlight]
+                    const actions = state.copilotkit?.actions; // [!code highlight]
                     const model = ChatOpenAI({ model: 'gpt-4o' }).bindTools(actions);
 
                     // ...

@@ -36,13 +36,29 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
     let's assume that our agent state looks something like this.
 
-    ```python title="agent/sample_agent/agent.py"
-    from copilotkit import CopilotKitState
-    from typing import Literal
+    <Tabs groupId="language" items={["Python", "TypeScript"]}>
+      <Tab value="Python">
+        ```python title="agent-py/sample_agent/agent.py"
+        from copilotkit import CopilotKitState
+        from typing import Literal
 
-    class AgentState(CopilotKitState):
-        language: Literal["english", "spanish"] = "english"
-    ```
+        class AgentState(CopilotKitState):
+            language: Literal["english", "spanish"] = "english"
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```ts title="agent-js/src/agent.ts"
+        import { Annotation } from "@langchain/langgraph";
+        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+
+        export const AgentStateAnnotation = Annotation.Root({
+            language: Annotation<"english" | "spanish">,
+            ...CopilotKitStateAnnotation.spec,
+        });
+        export type AgentState = typeof AgentStateAnnotation.State;
+        ```
+      </Tab>
+    </Tabs>
   </Step>
   <Step>
     ### Call `setState` function from the `useCoAgent` hook

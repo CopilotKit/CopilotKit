@@ -42,16 +42,21 @@ Manually emitted messages are great for **when you don't want to wait for the no
         <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
             <Tab value="Python">
                 ```python
+                from langchain_core.messages import SystemMessage, AIMessage
+                from langchain_openai import ChatOpenAI
+                from langchain_core.runnables import RunnableConfig
                 from copilotkit.langgraph import copilotkit_emit_message # [!code highlight]
                 # ...
 
                 async def chat_node(state: AgentState, config: RunnableConfig):
                     model = ChatOpenAI(model="gpt-4o")
 
-                    # [!code highlight:4]
+                    # [!code highlight:3]
                     intermediate_message = "Thinking really hard..."
                     await copilotkit_emit_message(state, intermediate_message)
-                    await asyncio.sleep(2) # simulate a long running task
+
+                    # simulate a long running task
+                    await asyncio.sleep(2) 
 
                     response = await model.ainvoke([
                         SystemMessage(content="You are a helpful assistant.")
@@ -69,30 +74,39 @@ Manually emitted messages are great for **when you don't want to wait for the no
             </Tab>
             <Tab value="TypeScript">
                 ```typescript
-                import { AIMessage } from "@langchain/core/messages";
-                import { copilotkitEmitMessage } from "@copilotkit/sdk-js/langgraph";
-
+                import { AIMessage, SystemMessage } from "@langchain/core/messages";
+                import { ChatOpenAI } from "@langchain/openai";
+                import { RunnableConfig } from "@langchain/core/runnables";
+                import { copilotkitEmitMessage } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
                 // ...
 
-                async function askNameNode(state: GreetAgentState, config: RunnableConfig): Promise<AgentState> {
-                    /**
-                     * Ask the user for their name.
-                     */
+                async function chat_node(state: AgentState, config: RunnableConfig) {
+                    const model = new ChatOpenAI({ model: "gpt-4o" });
 
-                    const content = "Hey, what is your name? 🙂";
+                    // [!code highlight:3]
+                    const intermediateMessage = "Thinking really hard...";
+                    await copilotkitEmitMessage(config, intermediateMessage);
 
-                    await copilotkitEmitMessage(config, content);
+                    // simulate a long-running task
+                    await new Promise(resolve => setTimeout(resolve, 2000));
 
-                    // do something long running here...
+                    const response = await model.invoke([
+                        new SystemMessage({content: "You are a helpful assistant."}),
+                        ...state.messages
+                    ], config);
 
-                    // make sure to return the emitted message so its apart of 
-                    // the messages history
                     return {
-                        messages: new AIMessage({ content }),
+                        // Make sure to include the emitted message in the messages history # [!code highlight:2]
+                        messages: [new AIMessage(intermediateMessage), response],
                     };
                 }
                 ```
             </Tab>
         </Tabs>
+    </Step>
+    <Step>
+        ### Give it a try!
+        Now when you talk to your agent you'll notice that it immediately responds with the message "Thinking really hard..."
+        before giving you a response 2 seconds later.
     </Step>
 </Steps>

@@ -40,7 +40,7 @@ is a situation where a user and an agent are working together to solve a problem
 
     <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
         <Tab value="Python">
-          ```python title="agent/sample_agent/agent.py"
+          ```python title="agent-py/sample_agent/agent.py"
           # ...
           from copilotkit import CopilotKitState # extends MessagesState
           # ...
@@ -52,7 +52,7 @@ is a situation where a user and an agent are working together to solve a problem
           ```
         </Tab>
         <Tab value="TypeScript">
-          ```typescript title="agent/sample_agent/agent.ts"
+          ```typescript title="agent-js/src/agent.ts"
           // ...
           import { Annotation } from "@langchain/langgraph";
           import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
@@ -64,8 +64,91 @@ is a situation where a user and an agent are working together to solve a problem
             searches: Annotation<object[]>,
             ...CopilotKitStateAnnotation.spec,
           });
+          export type AgentState = typeof AgentStateAnnotation.State;
           ```
         </Tab>
+    </Tabs>
+  </Step>
+  <Step>
+    ### Simulate state updates
+    Next, let's write some logic into our agent that will simulate state updates occurring.
+
+    <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+      <Tab value="Python">
+        ```python title="agent-py/sample_agent/agent.py"
+        from langchain_core.runnables import RunnableConfig
+        from langchain_openai import ChatOpenAI
+        from langchain_core.messages import SystemMessage
+        from copilotkit import CopilotKitState
+        from copilotkit.langgraph import copilotkit_emit_state
+
+        class Searches(TypedDict):
+            query: str
+            done: bool
+
+        class AgentState(CopilotKitState):
+            searches: list[Searches] = []
+
+        async def chat_node(state: AgentState, config: RunnableConfig):
+            state["searches"] = [
+                {"query": "Initial research", "done": False},
+                {"query": "Retrieving sources", "done": False},
+                {"query": "Forming an answer", "done": False},
+            ]
+            await copilotkit_emit_state(config, state)
+
+            # Simulate state updates # [!code highlight:5]
+            for search in state["searches"]:
+                await asyncio.sleep(1)
+                search["done"] = True
+                await copilotkit_emit_state(config, state)
+
+            # Run the model to generate a response
+            response = await ChatOpenAI(model="gpt-4o").ainvoke([
+                SystemMessage(content="You are a helpful assistant."),
+                *state["messages"],
+            ], config)
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```typescript title="agent-js/src/agent.ts"
+        import { RunnableConfig } from "@langchain/core/runnables";
+        import { ChatOpenAI } from "@langchain/openai";
+        import { Annotation } from "@langchain/langgraph";
+        import { SystemMessage } from "@langchain/core/messages";
+        import { copilotkitEmitState, CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+
+        type Search = {
+          query: string;
+          done: boolean;
+        }
+
+        export const AgentStateAnnotation = Annotation.Root({
+          searches: Annotation<Search[]>,
+          ...CopilotKitStateAnnotation.spec,
+        });
+
+        async function chat_node(state: AgentState, config: RunnableConfig) {
+          state.searches = [
+            { query: "Initial research", done: false },
+            { query: "Retrieving sources", done: false },
+            { query: "Forming an answer", done: false },
+          ];
+          await copilotkitEmitState(config, state);
+
+          // Simulate state updates # [!code highlight:5]
+          for (const search of state.searches) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            search.done = true;
+            await copilotkitEmitState(config, state);
+          }
+
+          const response = await ChatOpenAI({ model: "gpt-4o" }).invoke([
+            new SystemMessage({ content: "You are a helpful assistant."}),
+            ...state.messages,
+          ], config);
+        ```
+      </Tab>
     </Tabs>
   </Step>
   <Step>

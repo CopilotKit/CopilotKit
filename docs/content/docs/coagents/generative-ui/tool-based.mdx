@@ -60,6 +60,38 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
             # ...
         ```
     </Tab>
+    <Tab value="TypeScript">
+        ```typescript title="agent-js/src/agent.ts"
+        import { ChatOpenAI } from "@langchain/openai";
+        import { tool } from "@langchain/core/tools";
+
+        // [!code highlight:13]
+        const getWeather = tool(
+          (args) => {
+            return `The weather for ${args.location} is 70 degrees.`;
+          },
+          {
+            name: "getWeather",
+            description: "Get the weather for a given location.",
+            schema: z.object({
+              location: z.string().describe("The location to get weather for"),
+            }),
+          }
+        );
+
+        async function chat_node(state: AgentState, config: RunnableConfig) {
+          const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
+          const modelWithTools = model.bindTools([getWeather]); // [!code highlight]
+
+          const response = await modelWithTools.invoke([
+            new SystemMessage("You are a helpful assistant."),
+            ...state.messages,
+          ], config);
+
+          // ...
+        }
+        ```
+    </Tab>
 </Tabs>
 </Step>
 <Step>
