@@ -5,6 +5,8 @@ from .langgraph import CopilotKitState
 from .parameter import Parameter
 from .agent import Agent
 
+
+
 __all__ = [
     'CopilotKitRemoteEndpoint', 
     'CopilotKitSDK',
@@ -14,8 +16,8 @@ __all__ = [
     'Agent',
     'CopilotKitContext',
     'CopilotKitSDKContext',
-    'CrewAIAgent', # pylint: disable=undefined-all-variable
-    'LangGraphAgent', # pylint: disable=undefined-all-variable
+    'CrewAIAgent', # pyright: ignore[reportUnsupportedDunderAll] pylint: disable=undefined-all-variable
+    'LangGraphAgent', # pyright: ignore[reportUnsupportedDunderAll] pylint: disable=undefined-all-variable
 ]
 
 def __getattr__(name):
