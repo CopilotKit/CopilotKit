@@ -770,9 +770,6 @@ importers:
       '@langchain/langgraph':
         specifier: ^0.2.44
         version: 0.2.44(@langchain/core@0.3.37(openai@4.68.2(zod@3.23.8)))
-      '@langchain/langgraph-sdk':
-        specifier: ^0.0.36
-        version: 0.0.36
       langchain:
         specifier: ^0.3.3
         version: 0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.37(openai@4.68.2(zod@3.23.8))))(@langchain/core@0.3.37(openai@4.68.2(zod@3.23.8)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.37(openai@4.68.2(zod@3.23.8)))(zod@3.23.8))(openai@4.68.2(zod@3.23.8))
