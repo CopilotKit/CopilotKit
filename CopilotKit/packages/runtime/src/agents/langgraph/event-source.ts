@@ -136,6 +136,13 @@ export class RemoteLangGraphEventSource {
             value: acc.event.value,
           });
         }
+        if (acc.event.event === LangGraphEventTypes.OnCopilotKitInterrupt) {
+          events.push({
+            type: RuntimeEventTypes.MetaEvent,
+            name: RuntimeMetaEventName.CopilotKitLangGraphInterruptEvent,
+            data: acc.event.data,
+          });
+        }
 
         const responseMetadata = this.getResponseMetadata(acc.event);
 

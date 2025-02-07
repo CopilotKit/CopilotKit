@@ -14,7 +14,10 @@ import {
 } from "rxjs";
 import { GenerateCopilotResponseInput } from "../inputs/generate-copilot-response.input";
 import { CopilotResponse } from "../types/copilot-response.type";
-import { LangGraphInterruptEvent } from "../types/meta-events.type";
+import {
+  CopilotKitLangGraphInterruptEvent,
+  LangGraphInterruptEvent,
+} from "../types/meta-events.type";
 import { ActionInputAvailability, MessageRole } from "../types/enums";
 import { Repeater } from "graphql-yoga";
 import type { CopilotRequestContextProperties, GraphQLContext } from "../../lib/integrations";
@@ -25,6 +28,7 @@ import {
 } from "../../service-adapters/events";
 import {
   FailedMessageStatus,
+  MessageStatusCode,
   MessageStatusUnion,
   SuccessMessageStatus,
 } from "../types/message-status.type";
@@ -42,6 +46,7 @@ import {
   ActionExecutionMessage,
   AgentStateMessage,
   Message,
+  MessageType,
   ResultMessage,
   TextMessage,
 } from "../types/converted";
@@ -260,6 +265,44 @@ export class CopilotResolver {
                     type: event.type,
                     name: event.name,
                     value: event.value,
+                  }),
+                );
+                break;
+              case RuntimeMetaEventName.CopilotKitLangGraphInterruptEvent:
+                push(
+                  plainToInstance(CopilotKitLangGraphInterruptEvent, {
+                    type: event.type,
+                    name: event.name,
+                    data: {
+                      value:
+                        typeof event.data.value === "string"
+                          ? event.data.value
+                          : JSON.stringify(event.data.value),
+                      messages: event.data.messages.map((message) => {
+                        if (
+                          message.type === "TextMessage" ||
+                          ("content" in message && "role" in message)
+                        ) {
+                          return plainToInstance(TextMessage, {
+                            id: message.id,
+                            createdAt: new Date(),
+                            content: [(message as TextMessage).content],
+                            role: (message as TextMessage).role,
+                            status: new SuccessMessageStatus(),
+                          });
+                        }
+                        if ("arguments" in message) {
+                          return plainToInstance(ActionExecutionMessage, {
+                            name: message.name,
+                            id: message.id,
+                            arguments: [JSON.stringify(message.arguments)],
+                            createdAt: new Date(),
+                            status: new SuccessMessageStatus(),
+                          });
+                        }
+                        throw new Error("Unknown message in metaEvents copilot resolver");
+                      }),
+                    },
                   }),
                 );
                 break;

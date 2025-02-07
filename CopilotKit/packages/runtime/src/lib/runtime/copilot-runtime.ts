@@ -478,24 +478,33 @@ please use an LLM adapter instead.`,
 
     const messages = convertGqlInputToMessages(rawMessages);
 
-    const agent = serverSideActions.find(
+    const currentAgent = serverSideActions.find(
       (action) => action.name === agentName && isRemoteAgentAction(action),
     ) as RemoteAgentAction;
 
-    if (!agent) {
+    if (!currentAgent) {
       throw new CopilotKitAgentDiscoveryError({ agentName });
     }
 
-    const serverSideActionsInput: ActionInput[] = serverSideActions
-      .filter((action) => !isRemoteAgentAction(action))
+    // Filter actions to include:
+    // 1. Regular (non-agent) actions
+    // 2. Other agents' actions (but prevent self-calls to avoid infinite loops)
+    const availableActionsForCurrentAgent: ActionInput[] = serverSideActions
+      .filter(
+        (action) =>
+          // Case 1: Keep all regular (non-agent) actions
+          !isRemoteAgentAction(action) ||
+          // Case 2: For agent actions, keep all except self (prevent infinite loops)
+          (isRemoteAgentAction(action) && action.name !== agentName) /* prevent self-calls */,
+      )
       .map((action) => ({
         name: action.name,
         description: action.description,
         jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters)),
       }));
 
-    const actionInputsWithoutAgents = flattenToolCallsNoDuplicates([
-      ...serverSideActionsInput,
+    const allAvailableActions = flattenToolCallsNoDuplicates([
+      ...availableActionsForCurrentAgent,
       ...request.actions,
     ]);
 
@@ -507,12 +516,12 @@ please use an LLM adapter instead.`,
     });
     try {
       const eventSource = new RuntimeEventSource();
-      const stream = await agent.remoteAgentHandler({
+      const stream = await currentAgent.remoteAgentHandler({
         name: agentName,
         threadId,
         nodeName,
-        actionInputsWithoutAgents,
         metaEvents,
+        actionInputsWithoutAgents: allAvailableActions,
       });
 
       eventSource.stream(async (eventStream$) => {
@@ -544,7 +553,7 @@ please use an LLM adapter instead.`,
         runId: undefined,
         eventSource,
         serverSideActions: [],
-        actionInputsWithoutAgents,
+        actionInputsWithoutAgents: allAvailableActions,
       };
     } catch (error) {
       console.error("Error getting response:", error);

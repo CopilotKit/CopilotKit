@@ -20,6 +20,7 @@ from langchain_core.messages import (
 )
 from langchain_core.runnables import RunnableConfig
 from langchain_core.callbacks.manager import adispatch_custom_event
+from langgraph.types import interrupt
 
 from .types import Message, IntermediateStateConfig
 from .logging import get_logger
@@ -67,7 +68,10 @@ def copilotkit_messages_to_langchain(
                     ))
                 else:
                     # convert multiple tool calls to a single message
-                    message_id = message.get("parentMessageId", message["id"])
+                    message_id = message.get("parentMessageId")
+                    if message_id is None:
+                        message_id = message["id"]
+
                     if message_id in processed_action_executions:
                         continue
 
@@ -448,3 +452,41 @@ async def copilotkit_emit_tool_call(config: RunnableConfig, *, name: str, args: 
     await asyncio.sleep(0.02)
 
     return True
+
+def copilotkit_interrupt(
+        message: Optional[str] = None,
+        action: Optional[str] = None,
+        args: Optional[Dict[str, Any]] = None
+):
+    if message is None and action is None:
+        raise ValueError('Either message or action (and optional arguments) must be provided')
+
+    interrupt_message = None
+    interrupt_values = None
+    answer = None
+
+    if message is not None:
+        interrupt_values = message
+        interrupt_message = AIMessage(content=message, id=str(uuid.uuid4()))
+    else:
+        tool_id = str(uuid.uuid4())
+        interrupt_message = AIMessage(
+                content="",
+                tool_calls=[{
+                    "id": tool_id,
+                    "name": action,
+                    "args": args or {}
+                }]
+            )
+        interrupt_values = {
+            "action": action,
+            "args": args or {}
+        }
+
+    response = interrupt({
+        "__copilotkit_interrupt_value__": interrupt_values,
+        "__copilotkit_messages__": [interrupt_message]
+    })
+    answer = response.content
+
+    return answer, [interrupt_message, response]

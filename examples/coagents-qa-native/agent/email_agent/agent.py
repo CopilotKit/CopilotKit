@@ -6,7 +6,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import HumanMessage, ToolMessage, AIMessage
 from copilotkit.langgraph import (
-  copilotkit_customize_config, copilotkit_exit, copilotkit_emit_message
+  copilotkit_customize_config, copilotkit_exit, copilotkit_emit_message, copilotkit_interrupt
 )
 from langgraph.types import interrupt
 from email_agent.model import get_model
@@ -22,15 +22,21 @@ async def email_node(state: EmailAgentState, config: RunnableConfig):
     if sender is None:
         sender = interrupt('Please provide a sender name which will appear in the email')
 
+    sender_company = state.get("sender_company", None)
+    if sender_company is None:
+        sender_company, new_messages = copilotkit_interrupt(message='Ah, forgot to ask, which company are you working for?')
+        state["messages"] = state["messages"] + new_messages
+
     config = copilotkit_customize_config(
         config,
         emit_tool_calls=True,
     )
 
-    instructions = f"You write emails. The email is by the following sender: {sender}"
+    instructions = f"You write emails. The email is by the following sender: {sender}, working for: {sender_company}"
 
+    cpk_actions = state.get("copilotkit", {}).get("actions", [])
     email_model = get_model(state).bind_tools(
-        state["copilotkit"]["actions"],
+        cpk_actions,
         tool_choice="EmailTool"
     )
 
@@ -49,6 +55,7 @@ async def email_node(state: EmailAgentState, config: RunnableConfig):
         "messages": response,
         "email": email,
         "sender": sender,
+        "sender_company": sender_company
     }
 
 async def send_email_node(state: EmailAgentState, config: RunnableConfig):

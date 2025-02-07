@@ -10,7 +10,7 @@ from copilotkit.langgraph import (
   copilotkit_emit_state,
   copilotkit_emit_message,
   copilotkit_emit_tool_call,
-
+  copilotkit_interrupt,
 )
 
 warnings.warn(
@@ -27,4 +27,5 @@ __all__ = [
   "copilotkit_emit_state",
   "copilotkit_emit_message",
   "copilotkit_emit_tool_call",
+  "copilotkit_interrupt",
 ]

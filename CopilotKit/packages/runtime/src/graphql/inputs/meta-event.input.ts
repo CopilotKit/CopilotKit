@@ -1,11 +1,9 @@
 import { Field, InputType } from "type-graphql";
 import { MetaEventName } from "../types/meta-events.type";
+import { MessageInput } from "./message.input";
 
 @InputType()
 export class MetaEventInput {
-  @Field(() => String)
-  type: "MetaEvent" = "MetaEvent";
-
   @Field(() => MetaEventName)
   name: MetaEventName;
 
@@ -14,4 +12,7 @@ export class MetaEventInput {
 
   @Field(() => String, { nullable: true })
   response?: string;
+
+  @Field(() => [MessageInput], { nullable: true })
+  messages?: MessageInput[];
 }

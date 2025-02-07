@@ -177,6 +177,7 @@ class LangGraphAgent(Agent):
         self.langgraph_config = langgraph_config or config
 
         self.graph = cast(CompiledGraph, graph or agent)
+        self.active_interrupt_event = False
 
     def _emit_state_sync_event(
             self,
@@ -260,18 +261,26 @@ class LangGraphAgent(Agent):
         )
 
         # Handle meta events for interrupts
-        interrupt_event = next((ev for ev in (meta_events or []) if ev.get("name") == "LangGraphInterruptEvent"), None)
+        interrupt_from_meta_events = next((ev for ev in (meta_events or []) if ev.get("name") == "LangGraphInterruptEvent"), None)
         resume_input = None
 
-        if interrupt_event and interrupt_event.get("response"):
-            resume_input = Command(resume=interrupt_event["response"])
+        # An active interrupt event that runs through messages. Use latest message as response
+        if self.active_interrupt_event and interrupt_from_meta_events is None:
+            resume_input = Command(resume=langchain_messages[-1])
+
+        if interrupt_from_meta_events and interrupt_from_meta_events.get("response"):
+            resume_input = Command(resume=interrupt_from_meta_events["response"])
 
         mode = "continue" if thread_id and node_name != "__end__" and node_name is not None else "start"
         thread_id = thread_id or str(uuid.uuid4())
         config["configurable"]["thread_id"] = thread_id
 
-        if mode == "continue" and not interrupt_event:
+        if mode == "continue" and self.active_interrupt_event is False:
             self.graph.update_state(config, state, as_node=node_name)
+
+        # Before running the stream again, always flush status of active interrupt
+        self.active_interrupt_event = False
+
 
 
         streaming_state_extractor = _StreamingStateExtractor([])
@@ -293,10 +302,18 @@ class LangGraphAgent(Agent):
 
             interrupt_event = event["data"]["chunk"].get("__interrupt__", None) if isinstance(event.get("data"), dict) and isinstance(event["data"].get("chunk"), dict) else None
             if (interrupt_event):
-                yield langchain_dumps({
-                    "event": "on_interrupt",
-                    "value": interrupt_event[0].value
-                }) + "\n"
+                self.active_interrupt_event = True
+                value = interrupt_event[0].value
+                if not isinstance(value, str) and "__copilotkit_interrupt_value__" in value:
+                    yield langchain_dumps({
+                        "event": "on_copilotkit_interrupt",
+                        "data": { "value": value["__copilotkit_interrupt_value__"], "messages": langchain_messages_to_copilotkit(value["__copilotkit_messages__"]) }
+                    }) + "\n"
+                else:
+                    yield langchain_dumps({
+                        "event": "on_interrupt",
+                        "value": value
+                    }) + "\n"
                 continue
 
             should_exit = should_exit or (

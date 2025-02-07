@@ -14,8 +14,6 @@ export async function getServiceAdapter(name: string) {
       return getLangChainOpenAIAdapter();
     case "langchain_anthropic":
       return getLangChainAnthropicAdapter();
-    case "langchain_gemini":
-      return getLangChainGoogleGenAIAdapter();
     default:
       throw new Error(`Service adapter "${name}" not found`);
   }
@@ -61,6 +59,7 @@ async function getLangChainOpenAIAdapter() {
       const model = new ChatOpenAI({ modelName: "gpt-4-1106-preview" }).bindTools(tools, {
         strict: true,
       });
+      // @ts-expect-error -- TODO: New openai breaking change does not have "system" role anymore. Somehow leaks here
       return model.stream(messages, { tools, metadata: { conversation_id: threadId } });
     },
   });
@@ -73,21 +72,6 @@ async function getLangChainAnthropicAdapter() {
     chainFn: async ({ messages, tools, threadId }) => {
       const model = new ChatAnthropic({ modelName: "claude-3-haiku-20240307" }) as any;
       return model.stream(messages, { tools, metadata: { conversation_id: threadId } });
-    },
-  });
-}
-
-async function getLangChainGoogleGenAIAdapter() {
-  // TODO: This is now the same as `GoogleGenerativeAIAdapter` and should be removed.
-  const { LangChainAdapter } = await import("@copilotkit/runtime");
-  const { ChatGoogle } = await import("@langchain/google-gauth");
-  return new LangChainAdapter({
-    chainFn: async ({ messages, tools, threadId }) => {
-      const model = new ChatGoogle({
-        modelName: "gemini-1.5-pro",
-        apiVersion: "v1beta",
-      }).bindTools(tools);
-      return model.stream(messages, { metadata: { conversation_id: threadId } });
     },
   });
 }

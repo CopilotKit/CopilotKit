@@ -1,5 +1,4 @@
 import { graphql } from "../@generated/gql";
-import { LangGraphInterruptEvent } from "@copilotkit/runtime/src/graphql/types/meta-events.type";
 
 export const generateCopilotResponseMutation = graphql(/** GraphQL **/ `
   mutation generateCopilotResponse($data: GenerateCopilotResponseInput!, $properties: JSONObject) {
@@ -74,6 +73,50 @@ export const generateCopilotResponseMutation = graphql(/** GraphQL **/ `
           type
           name
           value
+        }
+
+        ... on CopilotKitLangGraphInterruptEvent {
+          type
+          name
+          data {
+            messages {
+              __typename
+              ... on BaseMessageOutput {
+                id
+                createdAt
+              }
+              ... on BaseMessageOutput @defer {
+                status {
+                  ... on SuccessMessageStatus {
+                    code
+                  }
+                  ... on FailedMessageStatus {
+                    code
+                    reason
+                  }
+                  ... on PendingMessageStatus {
+                    code
+                  }
+                }
+              }
+              ... on TextMessageOutput {
+                content
+                role
+                parentMessageId
+              }
+              ... on ActionExecutionMessageOutput {
+                name
+                arguments
+                parentMessageId
+              }
+              ... on ResultMessageOutput {
+                result
+                actionExecutionId
+                actionName
+              }
+            }
+            value
+          }
         }
       }
     }
