@@ -1,6 +1,6 @@
 "use client";
 
-import { useCoAgent, useCoAgentStateRender, useCopilotAction } from "@copilotkit/react-core";
+import { useCopilotAction } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useState } from "react";
 
@@ -57,18 +57,6 @@ function YourMainContent() {
     },
   });
 
-  const { state } = useCoAgent({
-    name: "sample_agent",
-  })
-
-  useCoAgentStateRender({
-    name: "sample_agent",
-    render: ({ state }) => {
-      if (!state.progress) return null;
-      return <div>Progress: {state.progress}</div>;
-    },
-  });
-
   // Render the main content
   return (
     <div
@@ -78,7 +66,6 @@ function YourMainContent() {
       <h1 className="bg-blue-500 p-10 rounded-xl text-white text-4xl">
         Your main content
       </h1>
-      {state.progress > 0 && <div>Progress: {state.progress}</div>}
     </div>
   );
 }
