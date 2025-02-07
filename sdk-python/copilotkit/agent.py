@@ -35,7 +35,7 @@ class Agent(ABC):
         *,
         state: dict,
         messages: List[Message],
-        thread_id: Optional[str] = None,
+        thread_id: str,
         actions: Optional[List[ActionDict]] = None,
         meta_events: Optional[List[MetaEvent]] = None,
         **kwargs,

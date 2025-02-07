@@ -104,7 +104,7 @@ class RunFinished(TypedDict):
 class RunError(TypedDict):
     """Run Error Event"""
     type: Literal[RuntimeEventTypes.RUN_ERROR]
-    error: str
+    error: Any
 
 class NodeStarted(TypedDict):
     """Node Started Event"""

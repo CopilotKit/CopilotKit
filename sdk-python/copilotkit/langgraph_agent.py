@@ -217,7 +217,7 @@ class LangGraphAgent(Agent):
         *,
         state: dict,
         messages: List[Message],
-        thread_id: Optional[str] = None,
+        thread_id: str,
         actions: Optional[List[ActionDict]] = None,
         meta_events: Optional[List[MetaEvent]] = None,
         **kwargs
@@ -238,11 +238,10 @@ class LangGraphAgent(Agent):
             *,
             state: Any,
             messages: List[Message],
+            thread_id: str,
             actions: Optional[List[ActionDict]] = None,
-            thread_id: Optional[str] = None,
             node_name: Optional[str] = None,
             meta_events: Optional[List[MetaEvent]] = None,
-
         ):
 
         config = ensure_config(cast(Any, self.langgraph_config.copy()) if self.langgraph_config else {}) # pylint: disable=line-too-long
@@ -268,7 +267,7 @@ class LangGraphAgent(Agent):
         if self.active_interrupt_event and interrupt_from_meta_events is None:
             resume_input = Command(resume=langchain_messages[-1])
 
-        if interrupt_from_meta_events and interrupt_from_meta_events.get("response"):
+        if interrupt_from_meta_events and "response" in interrupt_from_meta_events:
             resume_input = Command(resume=interrupt_from_meta_events["response"])
 
         mode = "continue" if thread_id and node_name != "__end__" and node_name is not None else "start"
@@ -298,14 +297,25 @@ class LangGraphAgent(Agent):
             run_id = event.get("run_id")
             metadata = event.get("metadata", {})
 
-            interrupt_event = event["data"]["chunk"].get("__interrupt__", None) if isinstance(event.get("data"), dict) and isinstance(event["data"].get("chunk"), dict) else None
-            if (interrupt_event):
+            interrupt_event = (
+                event["data"].get("chunk", {}).get("__interrupt__", None)
+                if (
+                    isinstance(event.get("data"), dict) and 
+                    isinstance(event["data"].get("chunk"), dict)
+                )
+                else None
+            )
+            if interrupt_event:
                 self.active_interrupt_event = True
                 value = interrupt_event[0].value
                 if not isinstance(value, str) and "__copilotkit_interrupt_value__" in value:
                     yield langchain_dumps({
                         "event": "on_copilotkit_interrupt",
-                        "data": { "value": value["__copilotkit_interrupt_value__"], "messages": langchain_messages_to_copilotkit(value["__copilotkit_messages__"]) }
+                        "data": { 
+                            "value": value["__copilotkit_interrupt_value__"], 
+                            "messages": 
+                                langchain_messages_to_copilotkit(value["__copilotkit_messages__"])
+                        }
                     }) + "\n"
                 else:
                     yield langchain_dumps({

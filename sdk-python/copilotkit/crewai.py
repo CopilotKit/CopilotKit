@@ -242,7 +242,7 @@ async def copilotkit_emit_tool_call(*, name: str, args: Dict[str, Any]) -> str:
         ),
         action_execution_args(
             action_execution_id=message_id,
-            args=args
+            args=json.dumps(args)
         ),
         action_execution_end(
             action_execution_id=message_id

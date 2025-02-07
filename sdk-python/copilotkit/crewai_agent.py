@@ -160,8 +160,8 @@ class CrewAIAgent(Agent):
         self,
         *,
         state: dict,
+        thread_id: str,
         messages: List[Message],
-        thread_id: Optional[str] = None,
         actions: Optional[List[ActionDict]] = None,
         **kwargs,
     ):
@@ -177,24 +177,27 @@ class CrewAIAgent(Agent):
                 **kwargs
             )
 
-        flow = deepcopy(self.flow)
-        return self.execute_flow(
-            state=state,
-            messages=messages,
-            thread_id=thread_id,
-            actions=actions,
-            flow=flow,
-            **kwargs
-        )
+        if self.flow:
+            flow = deepcopy(self.flow)
+            return self.execute_flow(
+                state=state,
+                messages=messages,
+                thread_id=thread_id,
+                actions=actions,
+                flow=flow,
+                **kwargs
+            )
+
+        raise ValueError("Either crew or flow must be provided to CrewAIAgent")
 
     def execute_crew( # pylint: disable=too-many-arguments,unused-argument
         self,
         *,
         state: dict,
+        crew: Crew,
+        thread_id: str,
         messages: List[Message],
-        thread_id: Optional[str] = None,
         actions: Optional[List[ActionDict]] = None,
-        crew: Optional[Crew] = None,
         **kwargs,
     ):
         """Execute a `Crew` based agent"""                
@@ -343,7 +346,8 @@ class ChatWithCrewFlow(Flow):
 
     def __init__(self, *, crew: Crew, crew_name: str, thread_id: str):
         super().__init__()
-        self.crew = crew.crew()
+
+        self.crew = cast(Any, crew).crew()
 
         if self.crew.chat_llm is None:
             raise ValueError("Crew chat LLM is not set")

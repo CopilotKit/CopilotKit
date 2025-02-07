@@ -7,7 +7,7 @@ import contextvars
 import json
 import traceback
 from typing import Callable
-from typing_extensions import Any, Dict, Optional, List, TypedDict
+from typing_extensions import Any, Dict, Optional, List, TypedDict, cast
 from partialjson.json_parser import JSONParser as PartialJSONParser
 
 from .protocol import (
@@ -18,7 +18,8 @@ from .protocol import (
     emit_runtime_events,
     agent_state_message,
     AgentStateMessage,
-    PredictStateConfig
+    PredictStateConfig,
+    RuntimeProtocolEvent
 )
 
 async def yield_control():
@@ -63,7 +64,7 @@ def set_context_queue(q: asyncio.Queue) -> contextvars.Token:
     """
     Set the queue in this task's context.
     """
-    token = _CONTEXT_QUEUE.set(q)
+    token = _CONTEXT_QUEUE.set(cast(Any, q))
     return token
 
 def reset_context_queue(token: contextvars.Token):
@@ -76,13 +77,13 @@ def get_context_execution() -> CopilotKitRunExecution:
     """
     Get the execution from this task's context.
     """
-    return _CONTEXT_EXECUTION.get()
+    return cast(CopilotKitRunExecution, _CONTEXT_EXECUTION.get())
 
 def set_context_execution(execution: CopilotKitRunExecution) -> contextvars.Token:
     """
     Set the execution in this task's context.
     """
-    token = _CONTEXT_EXECUTION.set(execution)
+    token = _CONTEXT_EXECUTION.set(cast(Any, execution))
     return token
 
 def reset_context_execution(token: contextvars.Token):
@@ -176,7 +177,7 @@ def handle_runtime_event(
         RuntimeEventTypes.ACTION_EXECUTION_RESULT,
         RuntimeEventTypes.AGENT_STATE_MESSAGE
     ]:
-        events = [event]
+        events: List[RuntimeProtocolEvent] = [cast(RuntimeProtocolEvent, event)]
         if event["type"] in [
             RuntimeEventTypes.ACTION_EXECUTION_START,
             RuntimeEventTypes.ACTION_EXECUTION_ARGS
