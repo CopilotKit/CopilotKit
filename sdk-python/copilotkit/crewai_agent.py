@@ -200,9 +200,14 @@ class CrewAIAgent(Agent):
         actions: Optional[List[ActionDict]] = None,
         **kwargs,
     ):
-        """Execute a `Crew` based agent"""                
+        """Execute a `Crew` based agent"""    
 
-        flow = ChatWithCrewFlow(crew=crew, crew_name=self.name, thread_id=thread_id)
+        flow = ChatWithCrewFlow(
+            crew=crew,
+            crew_name=self.name,
+            thread_id=thread_id,
+            cache_key=f"crew_{id(self.crew)}"
+        )
 
         return self.execute_flow(
             state=state,
@@ -340,11 +345,18 @@ CREW_EXIT_TOOL = {
     },
 }
 
+_CREW_INPUTS_CACHE = {}
 
 class ChatWithCrewFlow(Flow):
     """Chat with crew"""
 
-    def __init__(self, *, crew: Crew, crew_name: str, thread_id: str):
+    def __init__(
+            self, *,
+            crew: Crew,
+            crew_name: str,
+            thread_id: str,
+            cache_key: str
+        ):
         super().__init__()
 
         self.crew = cast(Any, crew).crew()
@@ -355,7 +367,17 @@ class ChatWithCrewFlow(Flow):
         self.crew_name = crew_name
         self.thread_id = thread_id
         self.chat_llm = crew_chat_initialize_chat_llm(self.crew)
-        self.crew_chat_inputs = crew_chat_generate_crew_chat_inputs(self.crew, self.crew_name, self.chat_llm)
+
+        if cache_key not in _CREW_INPUTS_CACHE:
+            self.crew_chat_inputs = crew_chat_generate_crew_chat_inputs(
+                self.crew,
+                self.crew_name,
+                self.chat_llm
+            )
+            _CREW_INPUTS_CACHE[cache_key] = self.crew_chat_inputs
+        else:
+            self.crew_chat_inputs = _CREW_INPUTS_CACHE[cache_key]
+
         self.crew_tool_schema = crew_chat_generate_crew_tool_schema(self.crew_chat_inputs)
         self.system_message = crew_chat_build_system_message(self.crew_chat_inputs)
 
