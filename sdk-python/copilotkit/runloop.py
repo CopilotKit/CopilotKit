@@ -129,7 +129,6 @@ async def copilotkit_run(
     token_queue = set_context_queue(local_queue)
     token_execution = set_context_execution(execution)
 
-
     task = asyncio.create_task(
         fn()
     )
@@ -179,7 +178,7 @@ def handle_runtime_event(
     ]:
         events = [event]
         if event["type"] in [
-            RuntimeEventTypes.ACTION_EXECUTION_START, 
+            RuntimeEventTypes.ACTION_EXECUTION_START,
             RuntimeEventTypes.ACTION_EXECUTION_ARGS
         ]:
             message = predict_state(
