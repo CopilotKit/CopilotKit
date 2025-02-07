@@ -281,8 +281,6 @@ class LangGraphAgent(Agent):
         # Before running the stream again, always flush status of active interrupt
         self.active_interrupt_event = False
 
-
-
         streaming_state_extractor = _StreamingStateExtractor([])
         initial_state = state if mode == "start" else None
         prev_node_name = None
