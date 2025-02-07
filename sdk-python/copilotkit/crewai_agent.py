@@ -263,7 +263,6 @@ class CrewAIAgent(Agent):
             state=state
         )
 
-
         async for event in copilotkit_run(
             fn=lambda: crewai_flow_async_runner(flow, deepcopy(state)),
             execution=execution
@@ -287,6 +286,31 @@ class CrewAIAgent(Agent):
                 running=not execution["should_exit"]
             )
         )
+    
+    async def get_state(
+        self,
+        *,
+        thread_id: str,
+    ):
+        if self.flow and self.flow._persistence: # pylint: disable=protected-access
+            try:
+                stored_state = self.flow._persistence.load_state(thread_id) # pylint: disable=protected-access
+                return {
+                    "threadId": thread_id,
+                    "threadExists": True,
+                    "state": stored_state,
+                    "messages": []
+                }
+            except: # pylint: disable=bare-except
+                pass
+
+        return {
+            "threadId": thread_id,
+            "threadExists": False,
+            "state": {},
+            "messages": []
+        }
+
 
     def dict_repr(self):
         super_repr = super().dict_repr()
