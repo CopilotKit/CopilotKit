@@ -1,5 +1,22 @@
 # ui
 
+## 1.5.15
+
+### Patch Changes
+
+- 7b3141d: - feat(interrupt): support LG interrupt with useLangGraphInterrupt hook
+  - chore(interrupt): add e2e test to interrupt functionality
+  - feat(interrupt): add support for multiple interrupts and conditions
+- 66bd0f7: - fix(react-ui): check for updates endpoint to point to production
+- Updated dependencies [0dc0f43]
+- Updated dependencies [06f9f35]
+- Updated dependencies [7b3141d]
+- Updated dependencies [c9ae305]
+- Updated dependencies [0bbb4ab]
+  - @copilotkit/runtime-client-gql@1.5.15
+  - @copilotkit/react-core@1.5.15
+  - @copilotkit/shared@1.5.15
+
 ## 1.5.15-next.8
 
 ### Patch Changes
