@@ -1,5 +1,15 @@
 # @copilotkit/sdk-js
 
+## 1.5.15
+
+### Patch Changes
+
+- 06f9f35: - feat(interrupt): add copilotkit interrupt as messages with copilotkit interrupt convenience fn
+  - chore(deps): update dependencies for demos
+  - chore(interrupt-as-message): add e2e test for interrupt as message
+- Updated dependencies [7b3141d]
+  - @copilotkit/shared@1.5.15
+
 ## 1.5.15-next.8
 
 ### Patch Changes
