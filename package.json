@@ -13,5 +13,6 @@
   "devDependencies": {
     "danger": "^12.3.3",
     "husky": "^9.1.4"
-  }
+  },
+  "packageManager": "pnpm@10.2.1+sha512.398035c7bd696d0ba0b10a688ed558285329d27ea994804a52bad9167d8e3a72bcb993f9699585d3ca25779ac64949ef422757a6c31102c12ab932e5cbe5cc92"
 }
