@@ -1,9 +1,4 @@
 /**
- * <Callout type="info">
- *   Usage of this hook assumes some additional setup in your application, for more information
- *   on that see the CoAgents <span className="text-blue-500">[Agentic Generative UI documentation](/coagents/chat-ui/render-agent-state)</span>.
- * </Callout>
- *
  * The useCoAgentStateRender hook allows you to render UI components or text based on a Agentic Copilot's state.
  * This is particularly useful for showing intermediate state or progress during Agentic Copilot operations.
  *
@@ -57,7 +52,7 @@ import { useToast } from "../components/toast/toast-provider";
  * useful for showing intermediate state or progress during Agentic Copilot operations.
  * To get started using rendering intermediate state through this hook, checkout the documentation.
  *
- * https://docs.copilotkit.ai/coagents/chat-ui/render-agent-state.
+ * https://docs.copilotkit.ai/coagents/shared-state/predictive-state-updates
  */
 
 // We implement useCoAgentStateRender dependency handling so that

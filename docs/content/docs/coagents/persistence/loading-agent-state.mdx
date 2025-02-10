@@ -18,7 +18,7 @@ When setting the `threadId` property in CopilotKit, i.e:
 </CopilotKit>
 ```
 
-CopilotKit will restore the complete state of the thread, including the messages, from the database. (See [Message Persistence](/coagents/advanced/message-persistence) for more details.)
+CopilotKit will restore the complete state of the thread, including the messages, from the database. (See [Message Persistence](/coagents/persistence/message-persistence) for more details.)
 
 ### Loading Agent State
 
@@ -34,6 +34,6 @@ const { state } = useCoAgent({name: "research_agent"});
 
 To learn more about persistence and state in CopilotKit, see:
 
-- [Reading agent state](/coagents/react-ui/in-app-agent-read)
-- [Writing agent state](/coagents/react-ui/in-app-agent-write)
-- [Loading Message History](/coagents/chat-ui/loading-message-history)
+- [Reading agent state](/coagents/shared-state/in-app-agent-read)
+- [Writing agent state](/coagents/shared-state/in-app-agent-write)
+- [Loading Message History](/coagents/persistence/loading-message-history)

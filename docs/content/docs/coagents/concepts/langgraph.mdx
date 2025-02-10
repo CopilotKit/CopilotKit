@@ -22,19 +22,19 @@ There are some key terms here so let's break them down and understand how they r
 
 - **Stateful**: CoAgents have bi-directional state sharing with the agent and UI. This allows for the agent to remember
   information from previous messages and the UI to update the agent with new information. Read more about how state sharing works
-  [here](/coagents/concepts/state).
+  [here](/coagents/shared-state).
 - **Multi-actor**: CoAgents allow for multiple agents to interact with each other. Copilotkit acts as the "ground-truth"
-  when transitioning between agents. Read more about how multi-actor workflows work [here](/coagents/concepts/multi-actor-flows)
+  when transitioning between agents. Read more about how multi-actor workflows work [here](/coagents/multi-agent-flows)
   and how messages are managed [here](/coagents/concepts/message-management).
 - **LLMs**: CoAgents use large language models to generate responses. This is useful for building applications that need to
   generate natural language responses.
 
 Some additional functionality not mentioned here is:
 - **Human in the loop**: CoAgents enabled human review and approval of generated responses. Read more about how this works
-  [here](/coagents/concepts/human-in-the-loop).
+  [here](/coagents/human-in-the-loop).
 - **Tool calling**: Tool calling is a fundamental building block for agentic workflows. They allow for greater control over what
   the agent can do and can be used to interact with external systems. CoAgents allow you to easily render in-progress
-  tool calls in the UI so your users know what's happening. Read more about streaming tool calls [here](/coagents/advanced/intermediate-state-streaming).
+  tool calls in the UI so your users know what's happening. Read more about streaming tool calls [here](/coagents/shared-state/predictive-state-updates).
 
 ## Building with Python or JavaScript
 
