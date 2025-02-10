@@ -36,27 +36,30 @@ export function ToastProvider({
   children: React.ReactNode;
 }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const addToast = useCallback((toast: PartialBy<Toast, "id">) => {
-    const id = toast.id ?? Math.random().toString(36).substring(2, 9);
+  const addToast = useCallback(
+    (toast: PartialBy<Toast, "id">) => {
+      // We do not display these errors unless we are in dev mode.
+      if (!enabled) {
+        return;
+      }
 
-    setToasts((currentToasts) => {
-      if (currentToasts.find((toast) => toast.id === id)) return currentToasts;
-      return [...currentToasts, { ...toast, id }];
-    });
+      const id = toast.id ?? Math.random().toString(36).substring(2, 9);
 
-    if (toast.duration) {
-      setTimeout(() => {
-        removeToast(id);
-      }, toast.duration);
-    }
-  }, []);
+      setToasts((currentToasts) => {
+        if (currentToasts.find((toast) => toast.id === id)) return currentToasts;
+        return [...currentToasts, { ...toast, id }];
+      });
+
+      if (toast.duration) {
+        setTimeout(() => {
+          removeToast(id);
+        }, toast.duration);
+      }
+    },
+    [enabled],
+  );
 
   const addGraphQLErrorsToast = useCallback((errors: GraphQLError[]) => {
-    // We do not display these errors unless we are in dev mode.
-    // if (!showDevConsole) {
-    //   return;
-    // }
-
     addToast({
       type: "error",
       message: <ErrorToast errors={errors} />,
