@@ -1,7 +1,11 @@
-<Tabs groupId="lg-deployment-type" items={['Local Development', 'Self hosted (CLI)', 'Self hosted (FastAPI)', 'LangGraph Platform (cloud)']}>
-  <Tab value="Local Development">
+<Tabs groupId="lg-deployment-type" items={['Local (LangGraph Studio)', 'Self hosted (FastAPI)', 'LangGraph Platform']}>
+  <Tab value="Local (LangGraph Studio)">
     For local development, you can [use the LangGraph CLI](https://langchain-ai.github.io/langgraph/cloud/reference/cli/) to start a 
     development server and LangGraph studio session.
+
+    <Callout type="info">
+      You will need a [LangSmith account](https://smith.langchain.com) to use this method.
+    </Callout>
 
     ```bash
     langgraph dev --host localhost --port 8000
@@ -9,15 +13,8 @@
     ```
   </Tab>
 
-  <Tab value="Self hosted (CLI)">
-    LangGraph has a variety of deployment options for self hosted graphs. Take a look at their [deployment guide](https://langchain-ai.github.io/langgraph/concepts/deployment_options)
-    for more information.
-
-    Come back here with a deployment URL before proceeding.
-  </Tab>
-
   <Tab value="Self hosted (FastAPI)">
-    <Callout type="warn">
+    <Callout type="info">
       This method is currently only supported for Python LangGraph agents.
     </Callout>
 
@@ -74,7 +71,7 @@
     ```
   </Tab>
 
-  <Tab value="LangGraph Platform (cloud)">
+  <Tab value="LangGraph Platform">
     For production, you can deploy to LangGraph Platform by following the official [LangGraph Platform deployment guide](https://langchain-ai.github.io/langgraph/cloud/deployment/cloud/).
 
     Come back with that URL and a LangSmith API key before proceeding.

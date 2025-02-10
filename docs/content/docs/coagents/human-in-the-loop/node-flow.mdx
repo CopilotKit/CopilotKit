@@ -6,7 +6,7 @@ icon: lucide/Share2
 import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 
-<video src="/images/coagents/node-hitl.mp4" className="rounded-lg shadow-xl" loop inline controls autoPlay muted />
+<video src="/images/coagents/node-hitl.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 
 <Callout type="info">
   Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter) with
@@ -14,12 +14,8 @@ import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 </Callout>
 
 ## What is this?
-
-In LangGraph, there are two main ways to implement Human-in-the-Loop (HITL): Node-based and Interrupt-based. This guide
-shows how to implement HITL using a node-based flow.
-
-Node based flows are predicated on the idea of nodes awaiting user input prior to their execution. This is done through
-LangGraph's `interrupt_before` and `interrupt_after` properties of the agent's `compile` method.
+[Node based flows](https://langchain-ai.github.io/langgraph/concepts/v0-human-in-the-loop/#dynamic-breakpoints) are predicated on LangGraph concept
+of `breakpoints` which will interrupt a node before or after its execution to allow for user input.
 
 CopilotKit allows you to add custom UI to take user input and then pass it back to the agent upon completion.
 
@@ -50,7 +46,8 @@ is interrupted and then resumes execution from where it left off, unaware of the
         First, we'll create a component that renders the agent's essay draft and waits for user approval.
 
         ```tsx title="ui/app/page.tsx"
-        import { useCopilotAction, Markdown } from "@copilotkit/react-core"
+        import { useCopilotAction } from "@copilotkit/react-core"
+        import { Markdown } from "@copilotkit/react-ui"
 
         function YourMainContent() {
           // ...

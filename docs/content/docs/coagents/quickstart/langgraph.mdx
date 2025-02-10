@@ -17,8 +17,8 @@ import CopilotKitCloudCopilotKitProvider from "@/snippets/copilot-cloud-configur
 import LangGraphPlatformDeploymentTabs from "@/snippets/langgraph-platform-deployment-tabs.mdx";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import FindYourCopilotRuntime from "@/snippets/find-your-copilot-runtime.mdx";
-import CloudCopilotKitProvider from "@/snippets/cloud/cloud-copilotkit-provider.mdx";
-import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
+import CloudCopilotKitProvider from "@/snippets/coagents/cloud-configure-copilotkit-provider.mdx";
+import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/coagents/self-host-configure-copilotkit-provider.mdx";
 import SelfHostingCopilotRuntimeLangGraphEndpoint from "@/snippets/self-hosting-copilot-runtime-langgraph-endpoint.mdx";
 import SelfHostingCopilotRuntimeStarter from "@/snippets/self-hosting-copilot-runtime-starter.mdx";
 import SelfHostingRemoteEndpoints from "@/snippets/self-hosting-remote-endpoints.mdx";
@@ -26,11 +26,7 @@ import { UserIcon, PaintbrushIcon, WrenchIcon, RepeatIcon, ServerIcon } from "lu
 import { SiLangchain } from "react-icons/si";
 import CopilotUI from "@/snippets/copilot-ui.mdx";
 
-{/* The LangGraph Platform deployment is recommended and supports both LangGraph.js and LangGraph python.
-Raw self-hosting is currently only offered via CopilotKit's FastAPI-powered remote-endpoint. */}
-
-{/* **This guide assumes you're familiar with using LangGraph to build agent workflows.** If you need a quick introduction,
-check out [this brief example from the LangGraph docs](https://langchain-ai.github.io/langgraph/). */}
+<video src="/images/coagents/chat-example.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 
 ## Prerequisites
 Before you begin, you'll need the following:
@@ -76,8 +72,11 @@ Before you begin, you'll need the following:
 
                 ```bash
                 git clone https://github.com/CopilotKit/CopilotKit
-                cd CopilotKit/examples/coagents-starter
+                cd CopilotKit/examples/coagents-starter/agent-py
                 ```
+                <Callout type="info">
+                    If you want to use LangGraph JS, you can use the included `agent-js` folder instead.
+                </Callout>
             </Step>
             <Step>
                 ### Create a `.env` file
@@ -125,8 +124,8 @@ Before you begin, you'll need the following:
             <Step>
                 ### Add a remote endpoint for your LangGraph agent
                 Using Copilot Cloud, you need to connect a remote endpoint that will connect to your LangGraph agent.
-                <Tabs groupId="lg-deployment-type" items={['Local Development', 'Self hosted (CLI)', 'Self hosted (FastAPI)', 'LangGraph Platform (cloud)']}>
-                    <Tab value="Local Development">
+                <Tabs groupId="lg-deployment-type" items={['LangGraph Studio (local)', 'Self hosted (FastAPI)', 'LangGraph Platform']}>
+                    <Tab value="LangGraph Studio (local)">
                         When running your LangGraph agent locally, you can open a tunnel to it so Copilot Cloud can connect to it.
                         ```bash
                         npx copilotkit@latest dev --port 8000
@@ -148,20 +147,7 @@ Before you begin, you'll need the following:
                         npx copilotkit@latest dev --port 8000
                         ```
                     </Tab>
-                    <Tab value="Self hosted (CLI)">
-                        Head over to [Copilot Cloud](https://cloud.copilotkit.ai) sign up and setup a remote endpoint to LangGraph Platform with the following information:
-                        - OpenAI API key
-                        - LangSmith API key
-                        - LangGraph agent deployment URL
-                        <Accordions className="mb-4">
-                            <Accordion title="Show me how">
-                                <Frame>
-                                    <img src="/images/copilot-cloud/cpk-cloud-lgp-endpoint.gif" alt="Copilot Cloud Remote Endpoint" />
-                                </Frame>
-                            </Accordion>
-                        </Accordions>
-                    </Tab>
-                    <Tab value="LangGraph Platform (cloud)">
+                    <Tab value="LangGraph Platform">
                         Head over to [Copilot Cloud](https://cloud.copilotkit.ai) sign up and setup a remote endpoint to LangGraph Platform with the following information:
                         - OpenAI API key
                         - LangSmith API key
@@ -178,11 +164,14 @@ Before you begin, you'll need the following:
             </Step>
             <Step>
                 ### Setup your CopilotKit provider
-
                 The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases, 
                 it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
 
                 <CloudCopilotKitProvider components={props.components} />
+                
+                <Callout type="info">
+                    Looking for a way to run multiple LangGraph agents? Check out our [Multi-Agent](/coagents/multi-agent-flows) guide.
+                </Callout>
             </Step>
         </TailoredContentOption>
         <TailoredContentOption
@@ -194,8 +183,9 @@ Before you begin, you'll need the following:
             <Step>
                 ### Install Copilot Runtime
                 Copilot Runtime is a production-ready proxy for your LangGraph agents. In your frontend, go ahead and install it.
+
                 ```package-install
-                npm install @copilotkit/runtime
+                @copilotkit/runtime
                 ```
             </Step>
             <Step>
@@ -209,35 +199,65 @@ Before you begin, you'll need the following:
                 so your frontend can find your LangGraph agents correctly.
                 <SelfHostingRemoteEndpoints components={props.components}/>
             </Step>
+            <Step>
+                ### Configure the CopilotKit Provider
+                The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases, 
+                it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
+                <SelfHostingCopilotRuntimeConfigureCopilotKitProvider components={props.components}/>
+                <Callout type="info">
+                    Looking for a way to run multiple LangGraph agents? Check out our [Multi-Agent](/coagents/multi-agent-flows) guide.
+                </Callout>
+            </Step>
         </TailoredContentOption>
     </TailoredContent>
     <Step>
-        ### Choose your Copilot UI
+        ### Setup the Copilot UI
+        The last step is to use CopilotKit's UI components to render the chat interaction with your agent. In most situations,
+        this is done alongside your core page components, e.g. in your `page.tsx` file.
 
-        <CopilotUI components={props.components} />
-    </Step>
-    <Step>
-        ### Disable intelligent routing (optional)
-
-        CopilotKit operates multi-agent workflows through an [intelligent router](/coagents/multi-agent-flows) that is enabled by default. 
-        
-        When working with a single LangGraph agent, you can disable this by setting the `agent` prop to the name of the agent you want to lock to.
-
-        ```tsx filename="src/page.tsx"
-        <CopilotKit
-            // ...
-            agent="basic_agent" // basic_agent is the name of the LangGraph agent // [!code highlight]
-        >
-            {...}
-        </CopilotKit>
+        ```tsx title="page.tsx"
+        // [!code highlight:3]
+        import "@copilotkit/react-ui/styles.css";
+        import { CopilotPopup } from "@copilotkit/react-ui";
+ 
+        export function YourApp() {
+          return (
+            <main>
+              <h1>Your main content</h1>
+              // [!code highlight:7]
+              <CopilotPopup
+                labels={{
+                    title: "Popup Assistant",
+                    initial: "Hi! I'm connected to an agent. How can I help?",
+                }}
+              />
+            </main>
+          );
+        }
         ```
+
+        <Callout type="info">
+            Looking for other chat component options? Check out our [Agentic Chat UI](/coagents/agentic-chat-ui) guide.
+        </Callout>
     </Step>
     <Step>
-        ### Talk to your agent!
+        ### 🎉 Talk to your agent!
 
-        🎉 Congrats! You've successfully integrated a LangGraph agent chatbot to your application!
+        Congrats! You've successfully integrated a LangGraph agent chatbot to your application. To start, try asking a few questions to your agent.
 
-        Try saying "Hello" to your agent! You should see the agent respond.
+        ```
+        Can you tell me a joke?
+        ```
+
+        ```
+        Can you help me understand AI?
+        ```
+
+        ```
+        What do you think about React?
+        ```
+
+        <video src="/images/coagents/chat-example.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 
         <Accordions className="mb-4">
             <Accordion title="Having trouble?">

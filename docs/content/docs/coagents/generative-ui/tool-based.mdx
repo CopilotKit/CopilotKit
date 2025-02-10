@@ -6,7 +6,7 @@ description: Render your agent's tool calls with custom UI components.
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
 
-<video src="/images/coagents/tool-based-gen-ui.mp4" className="rounded-lg shadow-xl" loop inline controls autoPlay muted />
+<video src="/images/coagents/tool-based-gen-ui.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 <Callout>
   This video demonstrates the [implementation](#implementation) section applied to out [coagents starter project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter).
 </Callout>
@@ -31,7 +31,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 <Step>
 ### Give your agent a tool to call
 
-<Tabs items={['Python', 'TypeScript']} default="Python">
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
         ```python title="agent/sample_agent/agent.py"
         from langchain_openai import ChatOpenAI
@@ -66,12 +66,12 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         import { tool } from "@langchain/core/tools";
 
         // [!code highlight:13]
-        const getWeather = tool(
+        const get_weather = tool(
           (args) => {
             return `The weather for ${args.location} is 70 degrees.`;
           },
           {
-            name: "getWeather",
+            name: "get_weather",
             description: "Get the weather for a given location.",
             schema: z.object({
               location: z.string().describe("The location to get weather for"),
@@ -81,7 +81,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 
         async function chat_node(state: AgentState, config: RunnableConfig) {
           const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
-          const modelWithTools = model.bindTools([getWeather]); // [!code highlight]
+          const modelWithTools = model.bindTools([get_weather]); // [!code highlight]
 
           const response = await modelWithTools.invoke([
             new SystemMessage("You are a helpful assistant."),
@@ -100,8 +100,12 @@ At this point, your agent will be able to call the `get_weather` tool. Now
 we just need to add a `useCopilotAction` hook to render the tool call in
 the UI.
 
+<Callout type="info" title="Important">
+  In order to render a tool call in the UI, the name of the action must match the name of the tool.
+</Callout>
+
 ```tsx title="app/page.tsx"
-import { useLangGraphInterrupt } from "@copilotkit/react-core"; // [!code highlight]
+import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
 // ...
 
 const YourMainContent = () => {
@@ -109,8 +113,7 @@ const YourMainContent = () => {
   // [!code highlight:13]
   useCopilotAction({
     name: "get_weather",
-    // Don't allow the agent or UI to call this tool, its only for rendering
-    available: "disabled",
+    available: "disabled", // Don't allow the agent or UI to call this tool as its only for rendering
     render: ({status, args}) => {
       return (
         <p className="text-gray-500 mt-2">

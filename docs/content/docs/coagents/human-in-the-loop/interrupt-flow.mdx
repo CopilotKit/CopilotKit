@@ -7,7 +7,13 @@ import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
 
-<video src="/images/coagents/interrupt-flow.mp4" className="rounded-lg shadow-xl" loop inline controls autoPlay muted />
+<video src="/images/coagents/interrupt-flow.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+
+<Callout type="info">
+  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter) with
+  the implementation below applied!
+</Callout>
+
 
 ## What is this?
 
@@ -17,7 +23,12 @@ This guide will show you how to both use `interrupt` and how to integrate it wit
 
 ## When should I use this?
 
-This flow is useful when you want to interrupt the agent's flow to get user input.
+Human-in-the-loop is a powerful way to implement complex workflows that are production ready. By having a human in the loop,
+you can ensure that the agent is always making the right decisions and ultimately is being steered in the right direction.
+
+Interrupt-based flows are a very intuitive way to implement HITL. Instead of having a node await user input before or after its execution,
+nodes can be interrupted in the middle of their execution to allow for user input. The trade-off is that the agent is not aware of the 
+interaction, however [CopilotKit's SDKs provide helpers to alleviate this](#make-your-agent-aware-of-interruptions).
 
 ## Implementation
 
@@ -68,6 +79,13 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 </Step>
 <Step>
 ### Call `interrupt` in your LangGraph agent
+Now we can call `interrupt` in our LangGraph agent.
+
+<Callout type="info">
+  Your agent will not be aware of the `interrupt` interaction by default in LangGraph. 
+
+  If you want this behavior, see the [section on it below](#make-your-agent-aware-of-interruptions).
+</Callout>
 
 <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
@@ -78,14 +96,13 @@ We're going to have the agent ask us to name it, so we'll need a state property 
         # ...
 
         def chat_node(state: AgentState, config: RunnableConfig):
-            agent_name = state.get("agent_name")
-            if not agent_name:
+            if not state.get("agent_name"):
                 # Interrupt and wait for the user to respond with a name
-                agent_name = interrupt(f"Before we start, what would you like to call me?") # [!code highlight]
+                state["agent_name"] = interrupt("Before we start, what would you like to call me?") # [!code highlight]
 
             # Tell the agent its name
             system_message = SystemMessage(
-                content=f"You are a helpful assistant named {agent_name}..."
+                content=f"You are a helpful assistant named {state.get('agent_name')}..."
             )
 
             response = ChatOpenAI(model="gpt-4o").invoke(
@@ -171,3 +188,35 @@ const YourMainContent = () => {
 Try talking to your agent, you'll see that it now pauses execution and waits for you to respond!
 </Step>
 </Steps>
+
+## Make your agent aware of interruptions
+
+By default, your agent will not be made aware of LangGraph `interrupts`. This is because the decision is not saved into the message's state.
+For simple and sensitive flows, this is ideal. However, you may want to make your agent aware of these interractions.
+
+CopilotKit's SDKs provides a helper function that will perform the interrupt and build messages that you can pass to your agent.
+
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+    <Tab value="Python">
+        ```python title="agent-py/sample_agent/agent.py"
+        from copilotkit import copilotkit_interrupt
+
+        # ...
+        agent_name, new_messages = copilotkit_interrupt(message="Before we start, what would you like to call me?")
+        state["messages"] = state["messages"] + new_messages
+        state["agent_name"] = agent_name
+        # ...
+        ```
+    </Tab>
+    <Tab value="TypeScript">
+        ```typescript title="agent-js/src/agent.ts"
+        import { copilotkitInterrupt } from "@copilotkit/sdk-js/langgraph";
+
+        // ...
+        const {agentName, newMessages} = copilotkitInterrupt("Before we start, what would you like to call me?");
+        state.messages = [...state.messages, ...newMessages];
+        state.agentName = agentName;
+        // ...
+        ```
+    </Tab>
+</Tabs>
