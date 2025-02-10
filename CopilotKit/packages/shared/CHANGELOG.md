@@ -1,5 +1,13 @@
 # @copilotkit/shared
 
+## 1.5.15
+
+### Patch Changes
+
+- 7b3141d: - feat(interrupt): support LG interrupt with useLangGraphInterrupt hook
+  - chore(interrupt): add e2e test to interrupt functionality
+  - feat(interrupt): add support for multiple interrupts and conditions
+
 ## 1.5.15-next.8
 
 ## 1.5.15-next.7
