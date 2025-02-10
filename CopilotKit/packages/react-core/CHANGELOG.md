@@ -1,5 +1,13 @@
 # ui
 
+## 1.5.16-next.0
+
+### Patch Changes
+
+- 07be5ca: - fix: disable error toasts if dev console is disabled
+  - @copilotkit/runtime-client-gql@1.5.16-next.0
+  - @copilotkit/shared@1.5.16-next.0
+
 ## 1.5.15
 
 ### Patch Changes
