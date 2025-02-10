@@ -1,5 +1,23 @@
 # @copilotkit/runtime-client-gql
 
+## 1.5.15
+
+### Patch Changes
+
+- 0dc0f43: - fix(runtime-client-gql): call controller.close() after suppressing abort errors
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+- 06f9f35: - feat(interrupt): add copilotkit interrupt as messages with copilotkit interrupt convenience fn
+  - chore(deps): update dependencies for demos
+  - chore(interrupt-as-message): add e2e test for interrupt as message
+- 7b3141d: - feat(interrupt): support LG interrupt with useLangGraphInterrupt hook
+  - chore(interrupt): add e2e test to interrupt functionality
+  - feat(interrupt): add support for multiple interrupts and conditions
+- 0bbb4ab: - fix: allow abort errors to pass further down to handler
+- Updated dependencies [7b3141d]
+  - @copilotkit/shared@1.5.15
+
 ## 1.5.15-next.8
 
 ### Patch Changes
