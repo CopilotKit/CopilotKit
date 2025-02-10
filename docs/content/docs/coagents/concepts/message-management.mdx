@@ -1,5 +1,6 @@
 ---
-title: Message Management
+title: Message flow
+icon: lucide/MessageCircle
 ---
 
 Message management in CoAgents operates with CopilotKit as the "ground truth" for the full chat session. 
@@ -32,11 +33,10 @@ Editing the message history is not currently supported on the front-end, but wil
 
 ### Can I persist chat history?
 
-If you'd like to learn more about how to save and restore message history, check out our guide on [saving and restoring messages](/guides/messages-localstorage).
-
-<Callout title="Want to use a thread?">
-Setting the LangGraph `thread_id` is currently not supported, but will be coming soon.
-</Callout>
+Yes! There are a few ways to persist various portions of a chat's history:
+- [Threads](/coagents/persistence/threads)
+- [Message Persistence](/coagents/persistence/message-persistence)
+- [Agent State](/coagents/persistence/loading-agent-state)
 
 ## Types of LLM Messages
 
@@ -71,7 +71,7 @@ async def ask_name_node(state: GreetAgentState, config: RunnableConfig):
     }
 ```
 
-Want some more help managing messages in your CoAgent application? Check out our guide on [emitting messages](/coagents/advanced/manually-emitting-messages).
+Want some more help managing messages in your CoAgent application? Check out our guide on [emitting messages](/coagents/advanced/emit-messages).
 
 ## Message Flow
 Messages flow between CopilotKit and LangGraph in a specific way:
