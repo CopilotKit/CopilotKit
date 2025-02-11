@@ -28,6 +28,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
           appendLGCVariants(
             {
               ...config,
+              lgcJSDeploymentUrl: config.lgcJSDeploymentUrl,
             },
             variants
           ).forEach((variant) => {
