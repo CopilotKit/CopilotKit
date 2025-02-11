@@ -18,7 +18,7 @@ Welcome to the CoAgents Troubleshooting Guide! If you're having trouble getting 
 
 This could be due to a few different reasons. 
 
-First, we strongly recommend checking out our [Human In the Loop](/docs/coagents/chat-ui/hitl/json-hitl) guide to follow a more in depth example of how to stream tool calls
+First, we strongly recommend checking out our [Human In the Loop](/coagents/human-in-the-loop) guide to follow a more in depth example of how to stream tool calls
 in your LangGraph agents. You can also check out our [travel tutorial](/coagents/tutorials/ai-travel-app/step-6-human-in-the-loop) which talks about how to stream
 tool calls in a more complex example.
 
@@ -78,7 +78,7 @@ If you're seeing this error, it means CopilotKit couldn't find the LangGraph age
 
 <Accordions>
     <Accordion title="Verify your agent lock mode configuration">
-        If you're using [agent lock mode](/coagents/advanced/router-mode-agent-lock#agent-lock-mode),
+        If you're using [agent lock mode](/coagents/multi-agent-flows),
         check that the agent defined in `langgraph.json` matches what's defined in the CopilotKit provider:
 
         ```json title="langgraph.json"
