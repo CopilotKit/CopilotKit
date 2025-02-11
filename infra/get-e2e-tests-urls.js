@@ -6,6 +6,8 @@ const file = fs.readFileSync(
   "utf8"
 );
 
+console.log("Getting E2E URLs");
+
 function generateTable() {
   const json = JSON.parse(file);
   const e2eUrls = {};
