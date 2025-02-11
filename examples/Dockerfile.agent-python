@@ -1,10 +1,9 @@
 FROM public.ecr.aws/docker/library/python:3.12.0-slim-bullseye
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/lambda-adapter
 ARG APP_DIR
 ARG WITH_LOCAL_DEPS
 
 ENV POETRY_VIRTUALENVS_CREATE=false
-
-RUN apt-get update && apt-get install curl -y
 
 # Install poetry and configure it in a single layer
 RUN pip install poetry==1.7.1 && \

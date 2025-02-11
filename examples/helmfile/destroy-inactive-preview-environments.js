@@ -7,9 +7,9 @@ async function main() {
   );
 
   const previewReleases = releaseList
-    .filter((release) => release.namespace.startsWith("prv"))
+    .filter((release) => release.namespace.startsWith("copilotkit-examples"))
     .filter((release) => release.name === "next-openai")
-    .filter((release) => release.namespace !== "prv-main");
+    .filter((release) => release.namespace !== "copilotkit-examples-main");
 
   const inactiveReleases = previewReleases.filter(
     (release) => {
@@ -27,7 +27,7 @@ async function main() {
   const pullRequestNumbers = [];
 
   for (const release of inactiveReleases) {
-    const environment = release.namespace.replace("prv-", "");
+    const environment = release.namespace.replace("copilotkit-examples-", "");
     const pullRequestNumber = environment.replace("pr-", "");
     const namespace = release.namespace;
     console.log(`Deleting environment ${environment} in namespace ${namespace}`);
