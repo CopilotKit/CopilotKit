@@ -33,7 +33,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-copilotkit = "0.1.36"
+copilotkit = "0.1.37"
 langchain-openai = "0.2.3"
 langchain-community = "^0.3.1"
 langchain-anthropic = "0.3.1"
