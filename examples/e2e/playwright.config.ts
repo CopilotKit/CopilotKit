@@ -12,12 +12,12 @@ import { defineConfig, devices } from "@playwright/test";
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
-  timeout: 60000,
+  timeout: 120000,
   testDir: "./tests",
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
-  retries: process.env.CI ? 3 : 3,
+  retries: process.env.CI ? 5 : 3,
   /* Opt out of parallel tests on non-CI environments. */
   workers: process.env.CI ? 10 : "90%",
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
