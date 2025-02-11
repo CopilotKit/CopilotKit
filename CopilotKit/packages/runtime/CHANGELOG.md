@@ -1,5 +1,16 @@
 # @copilotkit/runtime
 
+## 1.5.17
+
+### Patch Changes
+
+- 1fc3902: - Revert "fix: detect and alert on version mismatch (#1333)"
+
+  This reverts commit 48b7c7b1bd48ced82ffb9a00d6eddc1f7581e0c1.
+
+- Updated dependencies [1fc3902]
+  - @copilotkit/shared@1.5.17
+
 ## 1.5.17-next.0
 
 ### Patch Changes
