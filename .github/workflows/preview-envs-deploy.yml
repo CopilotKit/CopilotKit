@@ -27,11 +27,14 @@ jobs:
               deps: "local-deps",
             }
           - { project: "coagents-research-canvas", type: "ui" }
-          - { project: "coagents-routing", type: "agent", deps: "local-deps" }
+          - { project: "coagents-routing", type: "agent", runtime: "python", deps: "local-deps" }
+          - { project: "coagents-routing", type: "agent", runtime: "js", deps: "remote-deps" }
           - { project: "coagents-routing", type: "ui" }
-          - { project: "coagents-qa-text", type: "agent", deps: "local-deps" }
+          - { project: "coagents-qa-text", type: "agent", runtime: "python", deps: "local-deps" }
+          - { project: "coagents-qa-text", type: "agent", runtime: "js", deps: "remote-deps" }
           - { project: "coagents-qa-text", type: "ui" }
-          - { project: "coagents-qa-native", type: "agent", deps: "local-deps" }
+          - { project: "coagents-qa-native", type: "agent", runtime: "python", deps: "local-deps" }
+          - { project: "coagents-qa-native", type: "agent", runtime: "js", deps: "remote-deps" }
           - { project: "coagents-qa-native", type: "ui" }
           - { project: "next-openai", type: "next-openai" }
     steps:
@@ -136,15 +139,29 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
 
-      - name: (Agent) Build Image
-        if: matrix.app.type == 'agent'
+      - name: (Agent) Build Image - Python Agent
+        if: matrix.app.type == 'agent' && matrix.app.runtime == 'python'
         run: |
           docker buildx build \
-            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-agent-${{ matrix.app.deps }}-${{ github.run_id }} \
-            --build-arg APP_DIR=examples/${{ matrix.app.project }}/${{ matrix.app.type }} \
-            -f ./examples/Dockerfile.${{ matrix.app.type }} \
+            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-agent-python-${{ matrix.app.deps }}-${{ github.run_id }} \
+            --build-arg APP_DIR=examples/${{ matrix.app.project }}/agent \
+            -f ./examples/Dockerfile.agent-python \
             --build-arg WITH_LOCAL_DEPS=${{ matrix.app.deps == 'local-deps' }} \
-            --platform=linux/amd64 \
+            --platform=linux/arm64 \
+            --provenance=false \
+            --push \
+            .
+        env:
+          DOCKER_BUILDKIT: 1
+
+      - name: (Agent) Build Image - JS Agent
+        if: matrix.app.type == 'agent' && matrix.app.runtime == 'js'
+        run: |
+          docker buildx build \
+            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-agent-js-${{ matrix.app.deps }}-${{ github.run_id }} \
+            --build-arg APP_DIR=examples/${{ matrix.app.project }}/agent-js \
+            -f ./examples/Dockerfile.agent-js \
+            --platform=linux/arm64 \
             --provenance=false \
             --push \
             .
@@ -270,3 +287,4 @@ jobs:
       sha: "${{ github.event.pull_request.head.sha }}"
       urls: "${{ needs.deploy.outputs.e2e-urls }}"
       pr_number: "${{ github.event.pull_request.number }}"
+    secrets: inherit
