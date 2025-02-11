@@ -1,6 +1,6 @@
 # CoAgents Starter
 
-This example contains a simple starter project.
+This example contains a simple starter project which includes two different agents, one written in Python and one in JavaScript.
 
 **These instructions assume you are in the `coagents-starter/` directory**
 
