@@ -59,7 +59,6 @@ async function getLangChainOpenAIAdapter() {
       const model = new ChatOpenAI({ modelName: "gpt-4-1106-preview" }).bindTools(tools, {
         strict: true,
       });
-      // @ts-expect-error -- TODO: New openai breaking change does not have "system" role anymore. Somehow leaks here
       return model.stream(messages, { tools, metadata: { conversation_id: threadId } });
     },
   });
