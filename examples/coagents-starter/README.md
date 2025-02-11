@@ -1,19 +1,28 @@
 # CoAgents Starter
 
-This example contains a simple starter project.
+This example contains a simple starter project which includes two different agents, one written in Python and one in JavaScript.
 
 **These instructions assume you are in the `coagents-starter/` directory**
 
 ## Running the Agent
 
-First, install the dependencies:
+First, install the backend dependencies:
+
+### Python SDK
 
 ```sh
-cd agent
+cd agent-py
 poetry install
 ```
 
-Then, create a `.env` file inside `./agent` with the following:
+### JS-SDK
+
+```sh
+cd agent-js
+pnpm install
+```
+
+Then, create a `.env` file inside `./agent-py` or `./agent-js` with the following:
 
 ```
 OPENAI_API_KEY=...
@@ -24,8 +33,16 @@ Make sure the OpenAI API Key you provide, supports gpt-4o.
 
 Then, run the demo:
 
+Python
+
 ```sh
 poetry run demo
+```
+
+JS
+
+```sh
+pnpm run dev
 ```
 
 ## Running the UI
@@ -41,6 +58,22 @@ Then, create a `.env` file inside `./ui` with the following:
 
 ```
 OPENAI_API_KEY=...
+```
+
+Next, uncomment the code inside the `app/api/copilotkit/route.ts`, `remoteEndpoints` action: 
+
+```ts
+// Uncomment this if you want to use LangGraph JS, make sure to 
+    // remove the remote action url below too.
+    //
+    // langGraphPlatformEndpoint({
+    //   deploymentUrl: "http://localhost:8123",
+    //   langsmithApiKey: process.env.LANGSMITH_API_KEY || "", // only used in LangGraph Platform deployments
+    //   agents: [{
+    //       name: 'sample_agent', 
+    //       description: 'A helpful LLM agent.'
+    //   }]
+    // }),
 ```
 
 Then, run the Next.js project:
