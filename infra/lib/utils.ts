@@ -89,7 +89,7 @@ export function createAgentProjectStack({
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
     },
-    imageTag: `${project}-agent-${
+    imageTag: `${project}-agent-python-${
       dependencies === "Remote" ? "remote-deps" : "local-deps"
     }-${GITHUB_ACTIONS_RUN_ID}`,
     entrypoint: ["/bin/sh", "-c"],
