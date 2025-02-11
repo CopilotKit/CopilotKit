@@ -9,7 +9,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "1.5.16-next.0",
+  "version": "1.5.16-next.1",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -49,11 +49,11 @@
     "@anthropic-ai/sdk": "^0.27.3",
     "@copilotkit/shared": "workspace:*",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
-    "@langchain/community": "^0.0.53",
-    "@langchain/core": "^0.3.13",
+    "@langchain/community": "^0.3.29",
+    "@langchain/core": "^0.3.38",
     "@langchain/google-gauth": "^0.1.0",
     "@langchain/langgraph-sdk": "^0.0.36",
-    "@langchain/openai": "^0.0.28",
+    "@langchain/openai": "^0.4.2",
     "class-transformer": "^0.5.1",
     "express": "^4.19.2",
     "graphql": "^16.8.1",

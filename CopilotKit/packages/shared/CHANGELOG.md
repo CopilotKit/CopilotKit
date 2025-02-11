@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.5.16-next.1
+
+### Patch Changes
+
+- 48b7c7b: - fix: detect and alert on version mismatch
+
 ## 1.5.16-next.0
 
 ## 1.5.15
