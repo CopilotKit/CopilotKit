@@ -1,6 +1,6 @@
 {
   "node_version": "20",
-  "dockerfile_lines": [],
+  "dockerfile_lines": ["RUN npm i -g corepack@latest"],
   "dependencies": ["."],
   "graphs": {
     "greeting_agent": "./src/agent.ts:graph"
