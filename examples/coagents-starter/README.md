@@ -8,7 +8,7 @@ This example contains a simple starter project.
 
 First, install the backend dependencies:
 
-Python SDK
+### Python SDK
 
 ```sh
 cd agent-py
