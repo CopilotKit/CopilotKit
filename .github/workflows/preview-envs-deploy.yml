@@ -26,6 +26,11 @@ jobs:
               type: "agent",
               deps: "local-deps",
             }
+          - {
+              project: "coagents-research-canvas",
+              type: "js",
+              deps: "local-deps",
+            }
           - { project: "coagents-research-canvas", type: "ui" }
           - { project: "coagents-routing", type: "agent", runtime: "python", deps: "local-deps" }
           - { project: "coagents-routing", type: "agent", runtime: "js", deps: "local-deps" }
