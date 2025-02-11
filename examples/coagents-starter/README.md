@@ -15,7 +15,7 @@ cd agent-py
 poetry install
 ```
 
-JS-SKD
+### JS-SDK
 
 ```sh
 cd agent-js
