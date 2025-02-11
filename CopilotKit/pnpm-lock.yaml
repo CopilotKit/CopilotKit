@@ -100,7 +100,7 @@ importers:
         version: 0.5.0(encoding@0.1.13)
       langchain:
         specifier: ^0.3.3
-        version: 0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(axios@1.7.9(debug@4.3.5))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13))
+        version: 0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(axios@1.7.9)(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13))
       next:
         specifier: ^15.0.2
         version: 15.0.2(@playwright/test@1.50.1)(react-dom@19.0.0-rc-0bc30748-20241028(react@19.0.0-rc-0bc30748-20241028))(react@19.0.0-rc-0bc30748-20241028)
@@ -767,9 +767,6 @@ importers:
       '@langchain/langgraph':
         specifier: ^0.2.44
         version: 0.2.44(@langchain/core@0.3.37(openai@4.83.0(ws@8.18.0)(zod@3.23.8)))
-      '@langchain/langgraph-sdk':
-        specifier: ^0.0.36
-        version: 0.0.36
       langchain:
         specifier: ^0.3.3
         version: 0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.37(openai@4.83.0(ws@8.18.0)(zod@3.23.8))))(@langchain/core@0.3.37(openai@4.83.0(ws@8.18.0)(zod@3.23.8)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.37(openai@4.83.0(ws@8.18.0)(zod@3.23.8)))(zod@3.23.8))(axios@1.7.9)(openai@4.83.0(ws@8.18.0)(zod@3.23.8))
@@ -14901,7 +14898,7 @@ snapshots:
       - encoding
       - openai
 
-  langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(axios@1.7.9(debug@4.3.5))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)):
+  langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(axios@1.7.9)(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)):
     dependencies:
       '@langchain/core': 0.3.38(openai@4.53.0(encoding@0.1.13))
       '@langchain/openai': 0.3.11(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13)
