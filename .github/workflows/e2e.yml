@@ -1,4 +1,4 @@
-name: Deploy Copilot Cloud Environment
+name: End to End Tests
 
 on:
   workflow_call:
@@ -35,7 +35,7 @@ jobs:
       - name: Save E2E URLs
         working-directory: examples/e2e
         run: |
-          echo "${{ inputs.urls }}" | base64 -d > test-config.json
+          echo "${{ inputs.urls }}" | base64 -d > app-configs.json
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
@@ -58,7 +58,7 @@ jobs:
       - name: Print app configs
         working-directory: examples/e2e
         run: |
-          cat test-config.json
+          cat app-configs.json
 
       - name: Delete a comment
         uses: thollander/actions-comment-pull-request@v3

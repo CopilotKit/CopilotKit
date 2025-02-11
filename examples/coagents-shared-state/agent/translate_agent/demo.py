@@ -24,12 +24,6 @@ sdk = CopilotKitRemoteEndpoint(
 
 add_fastapi_endpoint(app, sdk, "/copilotkit")
 
-# add new route for health check
-@app.get("/health")
-def health():
-    """Health check."""
-    return {"status": "ok"}
-
 def main():
     """Run the uvicorn server."""
     port = int(os.getenv("PORT", "8000"))
