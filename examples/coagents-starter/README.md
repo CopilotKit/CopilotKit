@@ -60,6 +60,22 @@ Then, create a `.env` file inside `./ui` with the following:
 OPENAI_API_KEY=...
 ```
 
+Next, uncomment the code inside the `app/api/copilotkit/route.ts`, `remoteEndpoints` action: 
+
+```ts
+// Uncomment this if you want to use LangGraph JS, make sure to 
+    // remove the remote action url below too.
+    //
+    // langGraphPlatformEndpoint({
+    //   deploymentUrl: "http://localhost:8123",
+    //   langsmithApiKey: process.env.LANGSMITH_API_KEY || "", // only used in LangGraph Platform deployments
+    //   agents: [{
+    //       name: 'sample_agent', 
+    //       description: 'A helpful LLM agent.'
+    //   }]
+    // }),
+```
+
 Then, run the Next.js project:
 
 ```sh
