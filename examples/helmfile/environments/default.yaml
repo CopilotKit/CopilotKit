@@ -1,3 +1,0 @@
-ingressGroup:
-  host: "demos.devcopilotkit.com"
-  acmCertificateArn: "arn:aws:acm:us-east-1:058264219587:certificate/aac8e4f8-7c56-41f3-b9ca-8eae61944717"
