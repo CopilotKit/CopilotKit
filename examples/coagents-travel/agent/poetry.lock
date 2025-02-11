@@ -415,13 +415,13 @@ files = [
 
 [[package]]
 name = "copilotkit"
-version = "0.1.34"
+version = "0.1.36"
 description = "CopilotKit python SDK"
 optional = false
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "copilotkit-0.1.34-py3-none-any.whl", hash = "sha256:94bd8059a5b8fa46e3b07017dd076e37c2bc1b8d6aac9548adb333f0aedcd03a"},
-    {file = "copilotkit-0.1.34.tar.gz", hash = "sha256:7c693806bd8a3a236ec0c650a0421a88e07b911028432dd06fac084ec00b5723"},
+    {file = "copilotkit-0.1.36-py3-none-any.whl", hash = "sha256:dff1d0289fa2445ebe896fe5bddbcc40bf5b764f2c0ebd282f2a776b63747399"},
+    {file = "copilotkit-0.1.36.tar.gz", hash = "sha256:ccaee1c6acf0213b2cd48e6ae4b0dce392a6d2a49d9a87778fed6fc39417edf5"},
 ]
 
 [package.dependencies]
@@ -429,7 +429,7 @@ fastapi = ">=0.115.0,<0.116.0"
 httpx = ">=0.27.2,<0.28.0"
 langchain = ">=0.3.3,<0.4.0"
 langchain-anthropic = ">=0.2.3,<0.4.0"
-langchain-openai = ">=0.2.2,<0.3.0"
+langchain-openai = ">=0.2.3,<0.4.0"
 langgraph = ">=0.2.50"
 langgraph-sdk = ">=0.1.32,<0.2.0"
 partialjson = ">=0.0.8,<0.0.9"
@@ -2632,4 +2632,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "c916c37f57598559b9a6a6b431e1096756d00e00bebb2d8372af972f5cd007a4"
+content-hash = "f86a3280c0d121a4e5ec4fc468dec3bbd9331e0a2ac72006117eb89909f5c30f"
