@@ -9,14 +9,24 @@ import {
 import { generateCopilotResponseMutation } from "../graphql/definitions/mutations";
 import { getAvailableAgentsQuery, loadAgentStateQuery } from "../graphql/definitions/queries";
 import { OperationResultSource, OperationResult } from "urql";
-import { ResolvedCopilotKitError, CopilotKitLowLevelError } from "@copilotkit/shared";
+import {
+  ResolvedCopilotKitError,
+  CopilotKitLowLevelError,
+  detectPossibleVersionMismatchError,
+  CopilotKitError,
+} from "@copilotkit/shared";
 
 const createFetchFn =
   (signal?: AbortSignal) =>
   async (...args: Parameters<typeof fetch>) => {
     try {
       const result = await fetch(args[0], { ...(args[1] ?? {}), signal });
+      await detectPossibleVersionMismatchError({
+        runtimeVersion: result.headers.get("X-CopilotKit-Runtime-Version")!,
+        runtimeClientGqlVersion: packageJson.version,
+      });
       if (result.status !== 200) {
+        // X-CopilotKit-Runtime-Version
         throw new ResolvedCopilotKitError({ status: result.status });
       }
       return result;
@@ -26,6 +36,9 @@ const createFetchFn =
         (error as Error).message.includes("BodyStreamBuffer was aborted") ||
         (error as Error).message.includes("signal is aborted without reason")
       ) {
+        throw error;
+      }
+      if (error instanceof CopilotKitError) {
         throw error;
       }
       throw new CopilotKitLowLevelError({ error: error as Error, url: args[0] as string });
