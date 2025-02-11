@@ -166,13 +166,6 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      - name: Setup helmfile
-        uses: mamezou-tech/setup-helmfile@v1.2.0
-
-      - name: EKS Config
-        run: |
-          aws eks --region us-east-1 update-kubeconfig --name copilotcloud-staging-eks
-
       - name: Set Environment Name
         id: set-environment-name
         run: |
@@ -181,19 +174,6 @@ jobs:
           elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
             echo "environment=main" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Prepare Environment Config
-        run: |
-          cat > ./override-values.yaml << 'EOL'
-          environment: ${{ steps.set-environment-name.outputs.environment }}
-          namespace: copilotkit-examples-${{ steps.set-environment-name.outputs.environment }}
-          globalImageTag: ${{ github.run_id }}
-          EOL
-
-      - name: Helmfile Sync
-        run: |
-          helmfile --state-values-file=./override-values.yaml sync
-          helmfile --state-values-file=./override-values.yaml --selector "name!=examples-shared" list --output json > helmfile-output.json
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
