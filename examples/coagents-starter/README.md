@@ -6,14 +6,23 @@ This example contains a simple starter project.
 
 ## Running the Agent
 
-First, install the dependencies:
+First, install the backend dependencies:
+
+Python SDK
 
 ```sh
-cd agent
+cd agent-py
 poetry install
 ```
 
-Then, create a `.env` file inside `./agent` with the following:
+JS-SKD
+
+```sh
+cd agent-js
+pnpm install
+```
+
+Then, create a `.env` file inside `./agent-py` or `./agent-js` with the following:
 
 ```
 OPENAI_API_KEY=...
@@ -24,8 +33,16 @@ Make sure the OpenAI API Key you provide, supports gpt-4o.
 
 Then, run the demo:
 
+Python
+
 ```sh
 poetry run demo
+```
+
+JS
+
+```sh
+pnpm run dev
 ```
 
 ## Running the UI
