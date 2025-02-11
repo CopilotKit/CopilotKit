@@ -395,7 +395,7 @@ class LangGraphAgent(Agent):
             yield langchain_dumps(event) + "\n"
 
         state = await self.graph.aget_state(config)
-        tasks = self.graph.get_state(config).tasks
+        tasks = (await self.graph.aget_state(config)).tasks
         interrupts = tasks[0].interrupts if tasks and len(tasks) > 0 else None
         node_name = node_name if interrupts else list(state.metadata["writes"].keys())[0]
         is_end_node = state.next == () and not interrupts
