@@ -1,6 +1,7 @@
 """LangGraph agent for CopilotKit"""
 
 import uuid
+import json
 from typing import Optional, List, Callable, Any, cast, Union, TypedDict
 from typing_extensions import NotRequired
 
@@ -246,7 +247,10 @@ class LangGraphAgent(Agent):
             input = Command(resume=langchain_messages[-1])
 
         if interrupt_from_meta_events and interrupt_from_meta_events.get("response"):
-            input = Command(resume=interrupt_from_meta_events["response"])
+            try:
+                input = Command(resume=json.loads(interrupt_from_meta_events["response"]))
+            except:
+                input = Command(resume=interrupt_from_meta_events["response"])
 
         mode = "continue" if thread_id and node_name != "__end__" and node_name is not None else "start"
         thread_id = thread_id or str(uuid.uuid4())
@@ -297,14 +301,15 @@ class LangGraphAgent(Agent):
                 self.active_interrupt_event = True
                 value = interrupt_event[0].value
                 if not isinstance(value, str) and "__copilotkit_interrupt_value__" in value:
+                    ev_value = value["__copilotkit_interrupt_value__"]
                     yield langchain_dumps({
                         "event": "on_copilotkit_interrupt",
-                        "data": { "value": value["__copilotkit_interrupt_value__"], "messages": langchain_messages_to_copilotkit(value["__copilotkit_messages__"]) }
+                        "data": { "value": ev_value if isinstance(ev_value, str) else json.dumps(ev_value), "messages": langchain_messages_to_copilotkit(value["__copilotkit_messages__"]) }
                     }) + "\n"
                 else:
                     yield langchain_dumps({
                         "event": "on_interrupt",
-                        "value": value
+                        "value": value if isinstance(value, str) else json.dumps(value)
                     }) + "\n"
                 continue
 
