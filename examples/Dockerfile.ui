@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1-labs
 
-FROM node:22-alpine AS base
+FROM node:22-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
@@ -10,10 +10,8 @@ RUN pnpm i -g turbo
 # Production Stage 
 FROM base AS production
 ARG APP_DIR
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/lambda-adapter
 WORKDIR /app
-
-# Add required libraries for Next.js standalone server
-RUN apk add --no-cache libc6-compat
 
 COPY ${APP_DIR}/package.json ${APP_DIR}/pnpm-lock.yaml ./
 RUN pnpm i --frozen-lockfile

@@ -1,8 +1,5 @@
 // lib/config-helper.ts
 import configs from "../test-config.json";
-import dotenv from "dotenv";
-import path from "path";
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 // Project name constants with type safety
 export const PROJECT_NAMES = {
@@ -31,7 +28,6 @@ export interface ConfigMap {
 export interface TestVariant {
   name: string;
   queryParams: string;
-  isCloud?: boolean;
 }
 
 export type TestVariants = TestVariant[];
@@ -110,31 +106,3 @@ export const appendLGCVariants = (config: ConfigItem, variants: any[]) => {
 
   return appendedVariants;
 };
-
-export function getCopilotCloudVariants() {
-  const variants: TestVariants = [];
-
-  if (
-    process.env.COPILOT_CLOUD_PROD_RUNTIME_URL &&
-    process.env.COPILOT_CLOUD_PROD_PUBLIC_API_KEY
-  ) {
-    variants.push({
-      name: "Copilot Cloud (Production)",
-      queryParams: `?runtimeUrl=${process.env.COPILOT_CLOUD_PROD_RUNTIME_URL}&publicApiKey=${process.env.COPILOT_CLOUD_PROD_PUBLIC_API_KEY}`,
-      isCloud: true,
-    });
-  }
-
-  if (
-    process.env.COPILOT_CLOUD_STAGING_RUNTIME_URL &&
-    process.env.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY
-  ) {
-    variants.push({
-      name: "Copilot Cloud (Staging)",
-      queryParams: `?runtimeUrl=${process.env.COPILOT_CLOUD_STAGING_RUNTIME_URL}&publicApiKey=${process.env.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY}`,
-      isCloud: true,
-    });
-  }
-
-  return variants;
-}
