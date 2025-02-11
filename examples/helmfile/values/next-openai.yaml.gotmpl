@@ -10,11 +10,12 @@ deployments:
       repository: "058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:next-openai"
       tag: "{{ .Values.globalImageTag }}"
     port: 3000
-    command: ["npm", "run", "example-start", "--", "-H", "0.0.0.0", "--port", "3000"]
+    command: ["npm", "start", "--", "-H", "0.0.0.0", "--port", "3000"]
     livenessProbe:
       httpGet:
         path: /
-        port: 3000
+        port: http
+      initialDelaySeconds: 15
     config:
       secretsJson: {{ fetchSecretValue "ref+awssecrets://demos/next-openai/secrets" }}
     outputs:

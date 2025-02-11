@@ -14,12 +14,13 @@ deployments:
     livenessProbe:
       httpGet:
         path: /
-        port: 3000
+        port: http
+      initialDelaySeconds: 15
     config:
       secretsJson: {{ fetchSecretValue "ref+awssecrets://demos/coagents-research-canvas/ui/secrets" }}
       env:
         - name: REMOTE_ACTION_URL
-          value: "https://coagents-routing-agent-fastapi-prv-{{ .Values.environment }}.copilotkit-previews.com/copilotkit"
+          value: "http://coagents-routing-agent-fastapi:8000/copilotkit"
     outputs:
       type: ui
       dependencies: local
@@ -34,12 +35,15 @@ deployments:
     livenessProbe:
       httpGet:
         path: /health
-        port: 8000
+        port: http
+      initialDelaySeconds: 15
     config:
       secretsJson: {{ fetchSecretValue "ref+awssecrets://demos/coagents-research-canvas/agent/secrets" }}
       env:
         - name: HOST
           value: "0.0.0.0"
+        - name: PORT
+          value: "8000"
     outputs:
       type: agent-fastapi
       dependencies: local
@@ -53,13 +57,15 @@ deployments:
     livenessProbe:
       httpGet:
         path: "/store/items?key=test&namespace=test"
-        port: 8000
+        port: http
     command: ["/bin/sh", "-c","langgraph dev --no-browser --port=8000 --config=langgraph.json --host=0.0.0.0 --n-jobs-per-worker 1"]
     config:
       secretsJson: {{ fetchSecretValue "ref+awssecrets://demos/coagents-research-canvas/agent/secrets" }}
       env:
         - name: HOST
           value: "0.0.0.0"
+        - name: PORT
+          value: "8000"
     outputs:
       type: agent-lgc-python
       dependencies: local
@@ -73,12 +79,14 @@ deployments:
     livenessProbe:
       httpGet:
         path: "/store/items?key=test&namespace=test"
-        port: 8000
+        port: http
     config:
       secretsJson: {{ fetchSecretValue "ref+awssecrets://demos/coagents-research-canvas/agent/secrets" }}
       env:
         - name: HOST
           value: "0.0.0.0"
+        - name: PORT
+          value: "8000"
     outputs:
       type: agent-lgc-js
       dependencies: remote
