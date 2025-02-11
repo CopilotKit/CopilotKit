@@ -98,7 +98,7 @@ export const appendLGCVariants = (config: ConfigItem, variants: any[]) => {
     const newVariants = variants.map((variant) => {
       return {
         ...variant,
-        name: `${variant.name} (LGC JS \`main\`)`,
+        name: `${variant.name} (LGC JS)`,
         queryParams: `${variant.queryParams}&lgcDeploymentUrl=${config.lgcJSDeploymentUrl}`,
       };
     });
