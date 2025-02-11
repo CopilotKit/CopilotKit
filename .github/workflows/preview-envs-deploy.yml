@@ -179,6 +179,8 @@ jobs:
     runs-on: ubuntu-latest
     name: Deploy Preview Environments
     needs: build_images
+    outputs:
+      e2e-urls: ${{ steps.export-e2e-urls.outputs.e2e-urls }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
