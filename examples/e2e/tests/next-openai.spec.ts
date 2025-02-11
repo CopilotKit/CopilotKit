@@ -74,26 +74,26 @@ const variants: Variant[] = [
   { name: "Groq", queryParams: "?coAgentsModel=groq" },
 ];
 
-// Add Copilot Cloud variants conditionally
-if (
-  process.env.COPILOT_CLOUD_PROD_RUNTIME_URL &&
-  process.env.COPILOT_CLOUD_PROD_PUBLIC_API_KEY
-) {
-  variants.push({
-    name: "Copilot Cloud (Production)",
-    queryParams: `?runtimeUrl=${process.env.COPILOT_CLOUD_PROD_RUNTIME_URL}&publicApiKey=${process.env.COPILOT_CLOUD_PROD_PUBLIC_API_KEY}`,
-  });
-}
+// // Add Copilot Cloud variants conditionally
+// if (
+//   process.env.COPILOT_CLOUD_PROD_RUNTIME_URL &&
+//   process.env.COPILOT_CLOUD_PROD_PUBLIC_API_KEY
+// ) {
+//   variants.push({
+//     name: "Copilot Cloud (Production)",
+//     queryParams: `?runtimeUrl=${process.env.COPILOT_CLOUD_PROD_RUNTIME_URL}&publicApiKey=${process.env.COPILOT_CLOUD_PROD_PUBLIC_API_KEY}`,
+//   });
+// }
 
-if (
-  process.env.COPILOT_CLOUD_STAGING_RUNTIME_URL &&
-  process.env.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY
-) {
-  variants.push({
-    name: "Copilot Cloud (Staging)",
-    queryParams: `?runtimeUrl=${process.env.COPILOT_CLOUD_STAGING_RUNTIME_URL}&publicApiKey=${process.env.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY}`,
-  });
-}
+// if (
+//   process.env.COPILOT_CLOUD_STAGING_RUNTIME_URL &&
+//   process.env.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY
+// ) {
+//   variants.push({
+//     name: "Copilot Cloud (Staging)",
+//     queryParams: `?runtimeUrl=${process.env.COPILOT_CLOUD_STAGING_RUNTIME_URL}&publicApiKey=${process.env.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY}`,
+//   });
+// }
 
 const getDestinationCheckbox = (
   page: Page,
