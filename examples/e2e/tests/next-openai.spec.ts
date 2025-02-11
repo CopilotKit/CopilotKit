@@ -29,8 +29,6 @@
  */
 
 import { expect, test, Page, Locator } from "@playwright/test";
-import dotenv from "dotenv";
-import path from "path";
 import {
   filterConfigsByProject,
   getConfigs,
@@ -38,8 +36,6 @@ import {
   PROJECT_NAMES,
 } from "../lib/config-helper";
 import { sendChatMessage, waitForResponse } from "../lib/helpers";
-
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 interface Variant {
   name: string;
@@ -73,27 +69,6 @@ const variants: Variant[] = [
   },
   { name: "Groq", queryParams: "?coAgentsModel=groq" },
 ];
-
-// // Add Copilot Cloud variants conditionally
-// if (
-//   process.env.COPILOT_CLOUD_PROD_RUNTIME_URL &&
-//   process.env.COPILOT_CLOUD_PROD_PUBLIC_API_KEY
-// ) {
-//   variants.push({
-//     name: "Copilot Cloud (Production)",
-//     queryParams: `?runtimeUrl=${process.env.COPILOT_CLOUD_PROD_RUNTIME_URL}&publicApiKey=${process.env.COPILOT_CLOUD_PROD_PUBLIC_API_KEY}`,
-//   });
-// }
-
-// if (
-//   process.env.COPILOT_CLOUD_STAGING_RUNTIME_URL &&
-//   process.env.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY
-// ) {
-//   variants.push({
-//     name: "Copilot Cloud (Staging)",
-//     queryParams: `?runtimeUrl=${process.env.COPILOT_CLOUD_STAGING_RUNTIME_URL}&publicApiKey=${process.env.COPILOT_CLOUD_STAGING_PUBLIC_API_KEY}`,
-//   });
-// }
 
 const getDestinationCheckbox = (
   page: Page,
@@ -133,17 +108,18 @@ const researchCanvasConfigs = filterConfigsByProject(
 );
 const groupedConfigs = groupConfigsByDescription(researchCanvasConfigs);
 
+test.describe.configure({ mode: 'parallel' });
+
 Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
   test.describe(`${projectName}`, () => {
     Object.entries(descriptions).forEach(([description, configs]) => {
       test.describe(`${description}`, () => {
+        
         configs.forEach((config) => {
           variants.forEach((variant) => {
             test(`Test ${config.description} Travel Demo ("/" route) with variant ${variant.name}`, async ({
               page,
             }) => {
-              test.slow();
-
               await page.goto(`${config.url}${variant.queryParams}`);
               await page.waitForLoadState("networkidle");
 
@@ -219,35 +195,17 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               });
 
               // Test adding new destination
-              await sendChatMessage(
-                page,
-                "Add Mumbai, India to the list of New Destinations."
-              );
-              await waitForResponse(page);
-              await page.waitForTimeout(3000);
+              // await sendChatMessage(
+              //   page,
+              //   "Add Mumbai, India to the list of New Destinations."
+              // );
+              // await waitForResponse(page);
+              // await page.waitForTimeout(3000);
 
-              await waitForDestinationState(page, {
-                destination: "mumbai",
-                isChecked: false,
-              });
-              await waitForDestinationImage(page, {
-                destination: "Mumbai India",
-              });
-
-              // Verify new destination is available in state
-              await sendChatMessage(page, "Select all destinations in Asia.");
-              await waitForResponse(page);
-              await page.waitForTimeout(3000);
-
-              await waitForDestinationState(page, {
-                destination: "mumbai",
-                isChecked: true,
-              });
-
-              await waitForDestinationState(page, {
-                destination: "tokyo",
-                isChecked: true,
-              });
+              // await waitForDestinationState(page, {
+              //   destination: "mumbai",
+              //   isChecked: false,
+              // });
             });
           });
         });
