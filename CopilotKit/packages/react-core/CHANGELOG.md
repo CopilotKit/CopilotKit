@@ -1,5 +1,13 @@
 # ui
 
+## 1.5.17
+
+### Patch Changes
+
+- Updated dependencies [1fc3902]
+  - @copilotkit/runtime-client-gql@1.5.17
+  - @copilotkit/shared@1.5.17
+
 ## 1.5.17-next.0
 
 ### Patch Changes
