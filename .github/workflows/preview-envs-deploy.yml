@@ -24,11 +24,13 @@ jobs:
           - {
               project: "coagents-research-canvas",
               type: "agent",
+              runtime: "python",
               deps: "local-deps",
             }
           - {
               project: "coagents-research-canvas",
-              type: "js",
+              type: "agent",
+              runtime: "js",
               deps: "local-deps",
             }
           - { project: "coagents-research-canvas", type: "ui" }
