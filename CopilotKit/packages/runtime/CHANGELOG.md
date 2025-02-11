@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.5.16-next.2
+
+### Patch Changes
+
+- 9be85f1: - fix: use latest langchain packages
+  - @copilotkit/shared@1.5.16-next.2
+
 ## 1.5.16-next.1
 
 ### Patch Changes
