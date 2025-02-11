@@ -12,7 +12,6 @@ import {
 const variants: TestVariants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
   { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
-  // { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" }, // seems broken
 ];
 
 // Get configurations
@@ -23,18 +22,25 @@ const researchCanvasConfigs = filterConfigsByProject(
 );
 const groupedConfigs = groupConfigsByDescription(researchCanvasConfigs);
 
+export const cloudVariants = variants.filter((variant) => variant.isCloud);
+export const nonCloudVariants = variants.filter((variant) => !variant.isCloud);
+
+test.describe.configure({ mode: 'parallel' });
+
 Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
   test.describe(`${projectName}`, () => {
     Object.entries(descriptions).forEach(([description, configs]) => {
       test.describe(`${description}`, () => {
         configs.forEach((config) => {
-          appendLGCVariants(
-            {
-              ...config,
-              lgcJSDeploymentUrl: config.lgcJSDeploymentUrl,
-            },
-            variants
-          ).forEach((variant) => {
+          [
+            ...appendLGCVariants(
+              {
+                ...config,
+              },
+              nonCloudVariants
+            ),
+            ...cloudVariants,
+          ].forEach((variant) => {
             test(`Test ${config.description} with variant ${variant.name}`, async ({
               page,
             }) => {
@@ -99,9 +105,14 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               )?.replace("Email: ", "");
               expect(email).not.toBe("");
 
+              await page.waitForTimeout(5000);
+
               // Pirate agent
-              await sendChatMessage(page, "Turn on pirate mode!");
+              await sendChatMessage(page, "Turn on pirate mode! Remember to explicitly call the tool that sets pirate mode to on.");
               await waitForResponse(page);
+
+              await page.waitForTimeout(5000);
+
               const pirateModeContainerOn = getPirateModeContainer({
                 mode: "on",
               });

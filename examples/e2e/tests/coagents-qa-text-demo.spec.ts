@@ -20,18 +20,25 @@ const qaConfigs = filterConfigsByProject(
 );
 const groupedConfigs = groupConfigsByDescription(qaConfigs);
 
+const cloudVariants = variants.filter((variant) => variant.isCloud);
+const nonCloudVariants = variants.filter((variant) => !variant.isCloud);
+
+test.describe.configure({ mode: 'parallel' });
+
 Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
   test.describe(`${projectName}`, () => {
     Object.entries(descriptions).forEach(([description, configs]) => {
       test.describe(`${description}`, () => {
         configs.forEach((config) => {
-          appendLGCVariants(
-            {
-              ...config,
-              lgcJSDeploymentUrl: config.lgcJSDeploymentUrl,
-            },
-            variants
-          ).forEach((variant) => {
+          [
+            ...appendLGCVariants(
+              {
+                ...config,
+              },
+              nonCloudVariants
+            ),
+            ...cloudVariants,
+          ].forEach((variant) => {
             test(`Test ${config.description} with variant ${variant.name}`, async ({
               page,
             }) => {
