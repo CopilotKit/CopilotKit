@@ -151,7 +151,7 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
 
-  cdk_deploy:
+  deploy:
     runs-on: ubuntu-latest
     name: Deploy Preview Environments
     needs: build_images
