@@ -1,5 +1,4 @@
 import { GraphQLError } from "graphql";
-import { COPILOTKIT_VERSION } from "../index";
 
 export enum Severity {
   Error = "error",
@@ -11,7 +10,6 @@ export const ERROR_NAMES = {
   COPILOT_REMOTE_ENDPOINT_DISCOVERY_ERROR: "CopilotKitRemoteEndpointDiscoveryError",
   COPILOT_KIT_AGENT_DISCOVERY_ERROR: "CopilotKitAgentDiscoveryError",
   COPILOT_KIT_LOW_LEVEL_ERROR: "CopilotKitLowLevelError",
-  COPILOT_KIT_VERSION_MISMATCH_ERROR: "CopilotKitVersionMismatchError",
   RESOLVED_COPILOT_KIT_ERROR: "ResolvedCopilotKitError",
   CONFIGURATION_ERROR: "ConfigurationError",
   MISSING_PUBLIC_API_KEY_ERROR: "MissingPublicApiKeyError",
@@ -26,7 +24,6 @@ export enum CopilotKitErrorCode {
   REMOTE_ENDPOINT_NOT_FOUND = "REMOTE_ENDPOINT_NOT_FOUND",
   MISUSE = "MISUSE",
   UNKNOWN = "UNKNOWN",
-  VERSION_MISMATCH = "VERSION_MISMATCH",
   CONFIGURATION_ERROR = "CONFIGURATION_ERROR",
   MISSING_PUBLIC_API_KEY_ERROR = "MISSING_PUBLIC_API_KEY_ERROR",
   UPGRADE_REQUIRED_ERROR = "UPGRADE_REQUIRED_ERROR",
@@ -78,10 +75,6 @@ export const ERROR_CONFIG = {
     statusCode: 402,
     troubleshootingUrl: null,
     severity: Severity.Error,
-  },
-  [CopilotKitErrorCode.VERSION_MISMATCH]: {
-    statusCode: 400,
-    troubleshootingUrl: null,
   },
 };
 
@@ -135,24 +128,6 @@ export class CopilotKitMisuseError extends CopilotKitError {
     const finalMessage = docsLink ? `${message}.\n\n${docsLink}` : message;
     super({ message: finalMessage, code });
     this.name = ERROR_NAMES.COPILOT_API_DISCOVERY_ERROR;
-  }
-}
-
-/**
- * Error thrown when CPK versions does not match
- *
- * @extends CopilotKitError
- */
-export class CopilotKitVersionMismatchError extends CopilotKitError {
-  constructor({
-    reactCoreVersion,
-    runtimeVersion,
-    runtimeClientGqlVersion,
-  }: VersionMismatchResponse) {
-    const code = CopilotKitErrorCode.VERSION_MISMATCH;
-    const message = `Version mismatch detected: @copilotkit/runtime@${runtimeVersion ?? ""} is not compatible with @copilotkit/react-core@${reactCoreVersion} and @copilotkit/runtime-client-gql@${runtimeClientGqlVersion}. Please ensure all installed copilotkit packages are on the same version.`;
-    super({ message, code });
-    this.name = ERROR_NAMES.COPILOT_KIT_VERSION_MISMATCH_ERROR;
   }
 }
 
@@ -334,31 +309,5 @@ export class UpgradeRequiredError extends ConfigurationError {
     super(message);
     this.name = ERROR_NAMES.UPGRADE_REQUIRED_ERROR;
     this.severity = Severity.Error;
-  }
-}
-
-interface VersionMismatchResponse {
-  runtimeVersion?: string;
-  runtimeClientGqlVersion: string;
-  reactCoreVersion: string;
-}
-
-export async function detectPossibleVersionMismatchError({
-  runtimeVersion,
-  runtimeClientGqlVersion,
-}: {
-  runtimeVersion?: string;
-  runtimeClientGqlVersion: string;
-}) {
-  if (
-    COPILOTKIT_VERSION !== runtimeVersion ||
-    COPILOTKIT_VERSION !== runtimeClientGqlVersion ||
-    runtimeVersion !== runtimeClientGqlVersion
-  ) {
-    throw new CopilotKitVersionMismatchError({
-      runtimeVersion,
-      runtimeClientGqlVersion,
-      reactCoreVersion: COPILOTKIT_VERSION,
-    });
   }
 }
