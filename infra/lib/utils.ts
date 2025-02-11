@@ -29,6 +29,7 @@ export function createAgentProjectStack({
 }): {
   selfHostedAgent: PreviewProjectStack;
   lgcAgentPython: PreviewProjectStack;
+  lgcAgentJS: PreviewProjectStack;
 } {
   const cdkStackName =
     toCdkStackName(project) + "Agent" + dependencies + "Deps";
@@ -62,7 +63,7 @@ export function createAgentProjectStack({
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
     },
-    imageTag: `${project}-agent-${
+    imageTag: `${project}-agent-python-${
       dependencies === "Remote" ? "remote-deps" : "local-deps"
     }-${GITHUB_ACTIONS_RUN_ID}`,
     outputs: {
@@ -96,12 +97,41 @@ export function createAgentProjectStack({
     cmd: ["langgraph dev --no-browser --port=8000 --config=langgraph.json --host=0.0.0.0"],
     outputs: {
       ...outputs,
-      LangGraphCloud: "true",
+      LangGraphCloud: "false",
       SelfHosted: "false"
     },
   });
 
-  return { selfHostedAgent, lgcAgentPython };
+  const lgcAgentJS = new PreviewProjectStack(app, `${cdkStackName}LGCJS`, {
+    projectName: project,
+    projectDescription: `${description} - LangGraph Cloud JS`,
+    demoDir: `examples/${project}/agent`,
+    overrideDockerfile: dockerfile,
+    environmentVariablesFromSecrets: [
+      "OPENAI_API_KEY",
+      "ANTHROPIC_API_KEY",
+      "GOOGLE_API_KEY",
+      "TAVILY_API_KEY",
+      "LANGSMITH_API_KEY",
+    ],
+    port: "8000",
+    includeInPRComment: false,
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+    },
+    imageTag: `${project}-agent-js-${
+      dependencies === "Remote" ? "remote-deps" : "local-deps"
+    }-${GITHUB_ACTIONS_RUN_ID}`,
+    entrypoint: ["/bin/sh", "-c"],
+    cmd: ["pnpx @langchain/langgraph-cli dev --config=langgraph.json --no-browser --port 8000 --host 0.0.0.0"],
+    outputs: {
+      ...outputs,
+      LangGraphCloud: "false",
+      SelfHosted: "false"
+    },
+  });
+
+  return { selfHostedAgent, lgcAgentPython, lgcAgentJS };
 }
 
 export function createUIProjectStack({
@@ -111,6 +141,7 @@ export function createUIProjectStack({
   dependencies,
   selfHostedAgentProject,
   lgcAgentProjectPython,
+  lgcAgentProjectJS,
   environmentVariables,
   environmentVariablesFromSecrets,
   customOutputs,
@@ -121,6 +152,7 @@ export function createUIProjectStack({
   dependencies: "Remote" | "Local";
   selfHostedAgentProject: PreviewProjectStack;
   lgcAgentProjectPython: PreviewProjectStack;
+  lgcAgentProjectJS: PreviewProjectStack;
   environmentVariables?: Record<string, string>;
   environmentVariablesFromSecrets?: string[];
   customOutputs?: Record<string, string>;
@@ -135,7 +167,8 @@ export function createUIProjectStack({
   const outputs: Record<string, string> = {
     Dependencies: dependencies,
     EndToEndProjectKey: `${project}-ui-deps-${dependencies.toLocaleLowerCase()}`,
-    LgcPythonDeploymentUrl: `${lgcAgentProjectPython.fnUrl}`
+    LgcPythonDeploymentUrl: `${lgcAgentProjectPython.fnUrl}`,
+    LgcJSDeploymentUrl: `${lgcAgentProjectJS.fnUrl}`,
   };
 
   if (customOutputs) {
