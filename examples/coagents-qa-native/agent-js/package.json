@@ -22,5 +22,6 @@
     "@langchain/langgraph": "^0.2.44",
     "@langchain/openai": "^0.3.14",
     "zod": "^3.23.8"
-  }
+  },
+  "packageManager": "pnpm@8.6.0"
 }
