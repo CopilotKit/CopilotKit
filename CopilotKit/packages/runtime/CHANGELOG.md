@@ -1,5 +1,14 @@
 # @copilotkit/runtime
 
+## 1.5.16
+
+### Patch Changes
+
+- 9be85f1: - fix: use latest langchain packages
+- 48b7c7b: - fix: detect and alert on version mismatch
+- Updated dependencies [48b7c7b]
+  - @copilotkit/shared@1.5.16
+
 ## 1.5.16-next.2
 
 ### Patch Changes
