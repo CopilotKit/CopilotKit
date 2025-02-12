@@ -18,6 +18,7 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
-    "cold-cars-pump"
+    "cold-cars-pump",
+    "cyan-vans-begin"
   ]
 }

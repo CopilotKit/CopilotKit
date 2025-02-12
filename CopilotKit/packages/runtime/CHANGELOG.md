@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.5.18-next.1
+
+### Patch Changes
+
+- a6e46a9: - fix: use langgraph metadata to get node name
+  - @copilotkit/shared@1.5.18-next.1
+
 ## 1.5.18-next.0
 
 ### Patch Changes
