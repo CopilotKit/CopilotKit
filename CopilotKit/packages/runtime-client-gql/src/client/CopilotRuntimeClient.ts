@@ -21,7 +21,7 @@ const createFetchFn =
   (signal?: AbortSignal, handleGQLWarning?: (warning: string) => void) =>
   async (...args: Parameters<typeof fetch>) => {
     // @ts-expect-error -- since this is our own header, TS will not recognize
-    const publicApiKey = args[1]?.headers?.["x-copilotcloud-public-api-key"]
+    const publicApiKey = args[1]?.headers?.["x-copilotcloud-public-api-key"];
     try {
       const result = await fetch(args[0], { ...(args[1] ?? {}), signal });
 
