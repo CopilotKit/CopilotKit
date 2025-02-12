@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.5.18-next.3
+
+### Patch Changes
+
+- f77a7b9: - fix: use warning when version mismatch is not expected to error out
+
 ## 1.5.18-next.2
 
 ### Patch Changes

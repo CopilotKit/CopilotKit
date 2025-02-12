@@ -1,5 +1,14 @@
 # ui
 
+## 1.5.18-next.3
+
+### Patch Changes
+
+- f77a7b9: - fix: use warning when version mismatch is not expected to error out
+- Updated dependencies [f77a7b9]
+  - @copilotkit/runtime-client-gql@1.5.18-next.3
+  - @copilotkit/shared@1.5.18-next.3
+
 ## 1.5.18-next.2
 
 ### Patch Changes
