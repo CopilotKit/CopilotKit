@@ -350,7 +350,7 @@ export async function detectPossibleVersionMismatchError({
   runtimeVersion?: string;
   runtimeClientGqlVersion: string;
 }) {
-  if (!runtimeVersion || runtimeVersion === "" || !runtimeClientGqlVersion) return
+  if (!runtimeVersion || runtimeVersion === "" || !runtimeClientGqlVersion) return;
   if (
     COPILOTKIT_VERSION !== runtimeVersion ||
     COPILOTKIT_VERSION !== runtimeClientGqlVersion ||
