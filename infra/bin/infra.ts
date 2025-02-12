@@ -32,6 +32,31 @@ const coAgentsResearchCanvasUIWithLocalDeps = createUIProjectStack({
 });
 
 /*
+ * Travel
+ */
+
+const coAgentsTravelAgentWithLocalDeps = createAgentProjectStack({
+  app,
+  project: "coagents-travel",
+  description: "CoAgents Travel (Agent) - Local Depenencies",
+  dependencies: "Local"
+});
+
+const coAgentsTravelUIWithLocalDeps = createUIProjectStack({
+  app,
+  project: "coagents-travel",
+  description: "CoAgents Travel (UI) - Local Depenencies",
+  dependencies: "Local",
+  selfHostedAgentProject: coAgentsTravelAgentWithLocalDeps.selfHostedAgent,
+  lgcAgentProjectPython: coAgentsTravelAgentWithLocalDeps.lgcAgentPython,
+  lgcAgentProjectJS: coAgentsTravelAgentWithLocalDeps.lgcAgentJS,
+  environmentVariables: {},
+  customOutputs: {
+    "LgcJSDeploymentUrl": `https://coagents-travel-st-08476feebc3a58e5925116da0d3ad635.default.us.langgraph.app`
+  }
+});
+
+/*
  * CoAgents Routing Demo
  */
 
