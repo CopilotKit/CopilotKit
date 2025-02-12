@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.5.18-next.2
+
+### Patch Changes
+
+- 38d3ac2: - fix: add additional info the our error messages
+- Updated dependencies [38d3ac2]
+  - @copilotkit/shared@1.5.18-next.2
+
 ## 1.5.18-next.1
 
 ### Patch Changes
