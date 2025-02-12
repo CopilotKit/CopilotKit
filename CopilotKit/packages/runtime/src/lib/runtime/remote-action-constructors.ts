@@ -17,6 +17,7 @@ import { Action } from "@copilotkit/shared";
 import { LangGraphEvent } from "../../agents/langgraph/events";
 import { execute } from "./remote-lg-action";
 import { CopilotKitError, CopilotKitLowLevelError } from "@copilotkit/shared";
+import { CopilotKitApiDiscoveryError, ResolvedCopilotKitError } from "@copilotkit/shared";
 
 export function constructLGCRemoteAction({
   endpoint,
@@ -146,7 +147,14 @@ export function constructRemoteActions({
             { url, status: response.status, body: await response.text() },
             "Failed to execute remote action",
           );
-          return "Failed to execute remote action";
+          if (response.status === 404) {
+            throw new CopilotKitApiDiscoveryError({ url: fetchUrl });
+          }
+          throw new ResolvedCopilotKitError({
+            status: response.status,
+            url: fetchUrl,
+            isRemoteEndpoint: true,
+          });
         }
 
         const requestResult = await response.json();
@@ -221,7 +229,14 @@ export function constructRemoteActions({
                 { url, status: response.status, body: await response.text() },
                 "Failed to execute remote agent",
               );
-              throw new Error("Failed to execute remote agent");
+              if (response.status === 404) {
+                throw new CopilotKitApiDiscoveryError({ url: fetchUrl });
+              }
+              throw new ResolvedCopilotKitError({
+                status: response.status,
+                url: fetchUrl,
+                isRemoteEndpoint: true,
+              });
             }
 
             const eventSource = new RemoteLangGraphEventSource();
