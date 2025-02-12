@@ -271,7 +271,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       }
 
       const event = chunk.data;
-      const currentNodeName = event.name;
+      const currentNodeName = event.metadata.langgraph_node;
       const eventType = event.event;
       const runId = event.metadata.run_id;
       externalRunId = runId;
