@@ -415,7 +415,7 @@ please use an LLM adapter instead.`,
 
       if (Object.keys(state).length === 0) {
         return {
-          threadId,
+          threadId: threadId || "",
           threadExists: false,
           state: JSON.stringify({}),
           messages: JSON.stringify([]),
@@ -424,7 +424,7 @@ please use an LLM adapter instead.`,
         const { messages, ...stateWithoutMessages } = state;
         const copilotkitMessages = langchainMessagesToCopilotKit(messages);
         return {
-          threadId,
+          threadId: threadId || "",
           threadExists: true,
           state: JSON.stringify(stateWithoutMessages),
           messages: JSON.stringify(copilotkitMessages),
