@@ -1,35 +1,49 @@
 """Demo"""
 
 import os
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv 
 load_dotenv()
 
 # pylint: disable=wrong-import-position
 from fastapi import FastAPI
 import uvicorn
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
-from research_canvas.agent import graph
+from research_canvas.agent import workflow
 
-app = FastAPI()
-sdk = CopilotKitRemoteEndpoint(
-    agents=[
-        LangGraphAgent(
-            name="research_agent",
-            description="Research agent.",
-            graph=graph,
-        ),
-        LangGraphAgent(
-            name="research_agent_google_genai",
-            description="Research agent.",
-            graph=graph
-        ),
-    ],
-)
+@asynccontextmanager
+async def lifespan(fastapi_app: FastAPI):
+    """Lifespan for the FastAPI app."""
+    async with AsyncSqliteSaver.from_conn_string(
+        ":memory:"
+    ) as checkpointer:
+        # Create an async graph
+        graph = workflow.compile(checkpointer=checkpointer)
 
-add_fastapi_endpoint(app, sdk, "/copilotkit")
+        # Create SDK with the graph
+        sdk = CopilotKitRemoteEndpoint(
+            agents=[
+                LangGraphAgent(
+                    name="research_agent",
+                    description="Research agent.",
+                    graph=graph,
+                ),
+                LangGraphAgent(
+                    name="research_agent_google_genai",
+                    description="Research agent.",
+                    graph=graph
+                ),
+            ],
+        )
 
-# add new route for health check
+        # Add the CopilotKit FastAPI endpoint
+        add_fastapi_endpoint(fastapi_app, sdk, "/copilotkit")
+        yield
+
+app = FastAPI(lifespan=lifespan)
+
 @app.get("/health")
 def health():
     """Health check."""
