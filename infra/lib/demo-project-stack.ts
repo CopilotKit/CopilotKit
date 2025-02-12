@@ -1,12 +1,8 @@
 import * as cdk from "aws-cdk-lib";
 import { Construct } from "constructs";
 import * as lambda from "aws-cdk-lib/aws-lambda";
-import * as ecr_assets from "aws-cdk-lib/aws-ecr-assets"; // Add this import
-import * as path from "path";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as logs from "aws-cdk-lib/aws-logs"; // Add this import
-import * as events from "aws-cdk-lib/aws-events";
-import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as ecr from "aws-cdk-lib/aws-ecr";
 import { requireEnv } from "./utils";
 
@@ -20,7 +16,6 @@ export interface ProjectStackProps extends cdk.StackProps {
   /**
    * Path to the Dockerfile to use, relative to the root of the repository. By default, this will be `${demoDir}/Dockerfile`.
    */
-  overrideDockerfile?: string;
   environmentVariables?: {
     [key: string]: string;
   };
@@ -110,12 +105,6 @@ export class PreviewProjectStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(props.timeout ?? 300),
       memorySize: props.memorySize ?? 2048,
     });
-
-    // const eventRule = new events.Rule(this, 'LambdaWarmUpSchedule', {
-    //   schedule: events.Schedule.rate(cdk.Duration.minutes(1)),
-    // });
-
-    // eventRule.addTarget(new targets.LambdaFunction(fn));
 
     // Add Function URL with streaming support
     const fnUrl = fn.addFunctionUrl({
