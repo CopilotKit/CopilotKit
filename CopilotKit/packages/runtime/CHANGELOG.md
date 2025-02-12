@@ -1,5 +1,17 @@
 # @copilotkit/runtime
 
+## 1.5.18
+
+### Patch Changes
+
+- d47cd26: - fix: detect and alert on version mismatch
+- a6e46a9: - fix: use langgraph metadata to get node name
+- 38d3ac2: - fix: add additional info the our error messages
+- Updated dependencies [d47cd26]
+- Updated dependencies [f77a7b9]
+- Updated dependencies [38d3ac2]
+  - @copilotkit/shared@1.5.18
+
 ## 1.5.18-next.3
 
 ### Patch Changes
