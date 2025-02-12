@@ -17,14 +17,14 @@ from crewai.cli.crew_chat import (
   create_tool_function as crew_chat_create_tool_function
 )
 from litellm import completion
-from .agent import Agent
-from .types import Message
-from .action import ActionDict
-from .protocol import (
+from copilotkit.agent import Agent
+from copilotkit.types import Message
+from copilotkit.action import ActionDict
+from copilotkit.protocol import (
   emit_runtime_events,
   agent_state_message,
 )
-from .crewai import (
+from .crewai_sdk import (
   copilotkit_messages_to_crewai_flow,
   crewai_flow_messages_to_copilotkit,
   crewai_flow_async_runner,
@@ -32,7 +32,7 @@ from .crewai import (
   copilotkit_exit
 )
 
-from .runloop import copilotkit_run, CopilotKitRunExecution
+from copilotkit.runloop import copilotkit_run, CopilotKitRunExecution
 
 class CopilotKitConfig(TypedDict):
     """
@@ -410,10 +410,15 @@ class ChatWithCrewFlow(Flow):
     @start()
     async def chat(self):
         """Chat with the crew"""
+
+        system_message = self.system_message
+        if self.state.get("inputs"):
+            system_message += "\n\nCurrent inputs: " + json.dumps(self.state["inputs"])
+
         messages = [
             {
                 "role": "system",
-                "content": self.system_message,
+                "content": system_message,
                 "id": self.thread_id + "-system"
             },
             *self.state["messages"]
@@ -443,12 +448,22 @@ class ChatWithCrewFlow(Flow):
                 crew_function = crew_chat_create_tool_function(self.crew, messages)
                 args = json.loads(message["tool_calls"][0]["function"]["arguments"])
                 result = crew_function(**args)
+
+                if isinstance(result, str):
+                    self.state["outputs"] = result
+                elif hasattr(result, "json_dict"):
+                    self.state["outputs"] = result.json_dict
+                elif hasattr(result, "raw"):
+                    self.state["outputs"] = result.raw
+                else:
+                    raise ValueError("Unexpected result type", type(result))
+
                 self.state["messages"].append({
                     "role": "tool",
                     "content": result,
                     "tool_call_id": message["tool_calls"][0]["id"]
                 })
-            elif message["tool_calls"][0]["function"]["name"] == "crew_exit":
+            elif message["tool_calls"][0]["function"]["name"] == CREW_EXIT_TOOL["function"]["name"]:
                 await copilotkit_exit()
                 self.state["messages"].append({
                     "role": "tool",
