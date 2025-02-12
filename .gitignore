@@ -19,3 +19,5 @@ test-run-comment.md
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+
+__pycache__/
