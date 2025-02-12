@@ -170,9 +170,22 @@ export class CopilotKitApiDiscoveryError extends CopilotKitError {
     params: {
       message?: string;
       code?: CopilotKitErrorCode.API_NOT_FOUND | CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND;
+      url?: string;
     } = {},
   ) {
-    const message = params.message ?? "Failed to find CopilotKit API endpoint";
+    const url = params.url ?? "";
+    let operationSuffix = "";
+    if (url?.includes("/info")) operationSuffix = `when fetching CopilotKit info`;
+    else if (url.includes("/actions/execute"))
+      operationSuffix = `when attempting to execute actions.`;
+    else if (url.includes("/agents/state")) operationSuffix = `when attempting to get agent state.`;
+    else if (url.includes("/agents/execute"))
+      operationSuffix = `when attempting to execute agent(s).`;
+    const message =
+      params.message ??
+      (params.url
+        ? `Failed to find CopilotKit API endpoint at url ${params.url} ${operationSuffix}`
+        : `Failed to find CopilotKit API endpoint.`);
     const code = params.code ?? CopilotKitErrorCode.API_NOT_FOUND;
     const errorMessage = `${message}.\n\n${getSeeMoreMarkdown(ERROR_CONFIG[code].troubleshootingUrl)}`;
     super({ message: errorMessage, code });
@@ -189,8 +202,12 @@ export class CopilotKitApiDiscoveryError extends CopilotKitError {
  * @extends CopilotKitApiDiscoveryError
  */
 export class CopilotKitRemoteEndpointDiscoveryError extends CopilotKitApiDiscoveryError {
-  constructor(params?: { message?: string }) {
-    const message = params?.message ?? "Failed to find or contact remote endpoint";
+  constructor(params?: { message?: string; url?: string }) {
+    const message =
+      params?.message ??
+      (params?.url
+        ? `Failed to find or contact remote endpoint at url ${params.url}`
+        : "Failed to find or contact remote endpoint");
     const code = CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND;
     super({ message, code });
     this.name = ERROR_NAMES.COPILOT_REMOTE_ENDPOINT_DISCOVERY_ERROR;
@@ -235,29 +252,8 @@ export class CopilotKitLowLevelError extends CopilotKitError {
   constructor({ error, url, message }: { error: Error; url: string; message?: string }) {
     let code = CopilotKitErrorCode.NETWORK_ERROR;
 
-    const getMessageByCode = (errorCode?: string) => {
-      const troubleshootingLink = ERROR_CONFIG[code].troubleshootingUrl;
-      switch (errorCode) {
-        case "ECONNREFUSED":
-          return `Connection to ${url} was refused. Ensure the server is running and accessible.\n\n${getSeeMoreMarkdown(troubleshootingLink)}`;
-        case "ENOTFOUND":
-          return `The server on ${url} could not be found. Check the URL or your network configuration.\n\n${getSeeMoreMarkdown(ERROR_CONFIG[CopilotKitErrorCode.NOT_FOUND].troubleshootingUrl)}`;
-        case "ETIMEDOUT":
-          return `The connection to ${url} timed out. The server might be overloaded or taking too long to respond.\n\n${getSeeMoreMarkdown(troubleshootingLink)}`;
-        default:
-          return `Failed to fetch from url ${url}.
-
-Possible reasons:
-- -The server might be down or unreachable
-- -There might be a network issue (e.g., DNS failure, connection timeout) 
-- -The URL might be incorrect
-- -The server is not running on the specified port
-
-${getSeeMoreMarkdown(troubleshootingLink)}`;
-      }
-    };
     // @ts-expect-error -- code may exist
-    const errorMessage = message ?? getMessageByCode(error.code as string);
+    const errorMessage = message ?? resolveLowLevelErrorMessage(error.code as string);
 
     super({ message: errorMessage, code });
 
@@ -287,21 +283,23 @@ export class ResolvedCopilotKitError extends CopilotKitError {
     message,
     code,
     isRemoteEndpoint,
+    url,
   }: {
     status: number;
     message?: string;
     code?: CopilotKitErrorCode;
     isRemoteEndpoint?: boolean;
+    url?: string;
   }) {
     let resolvedCode = code;
     if (!resolvedCode) {
       switch (status) {
         case 400:
-          throw new CopilotKitApiDiscoveryError({ message });
+          throw new CopilotKitApiDiscoveryError({ message, url });
         case 404:
           throw isRemoteEndpoint
-            ? new CopilotKitRemoteEndpointDiscoveryError({ message })
-            : new CopilotKitApiDiscoveryError({ message });
+            ? new CopilotKitRemoteEndpointDiscoveryError({ message, url })
+            : new CopilotKitApiDiscoveryError({ message, url });
         default:
           resolvedCode = CopilotKitErrorCode.UNKNOWN;
           super({ message, code: resolvedCode });
@@ -363,3 +361,37 @@ export async function detectPossibleVersionMismatchError({
     });
   }
 }
+
+const resolveLowLevelErrorMessage = ({ errorCode, url }: { errorCode?: string; url: string }) => {
+  const troubleshootingLink = ERROR_CONFIG[CopilotKitErrorCode.NETWORK_ERROR].troubleshootingUrl;
+  const genericMessage = (description = `Failed to fetch from url ${url}.`) => `${description}.
+
+Possible reasons:
+- -The server may have an error preventing it from returning a response (Check the server logs for more info).
+- -The server might be down or unreachable
+- -There might be a network issue (e.g., DNS failure, connection timeout) 
+- -The URL might be incorrect
+- -The server is not running on the specified port
+
+${getSeeMoreMarkdown(troubleshootingLink)}`;
+
+  if (url.includes("/info"))
+    return genericMessage(`Failed to fetch CopilotKit agents/action information from url ${url}.`);
+  if (url.includes("/actions/execute"))
+    return genericMessage(`Fetch call to ${url} to execute actions failed.`);
+  if (url.includes("/agents/state"))
+    return genericMessage(`Fetch call to ${url} to get agent state failed.`);
+  if (url.includes("/agents/execute"))
+    return genericMessage(`Fetch call to ${url} to execute agent(s) failed.`);
+
+  switch (errorCode) {
+    case "ECONNREFUSED":
+      return `Connection to ${url} was refused. Ensure the server is running and accessible.\n\n${getSeeMoreMarkdown(troubleshootingLink)}`;
+    case "ENOTFOUND":
+      return `The server on ${url} could not be found. Check the URL or your network configuration.\n\n${getSeeMoreMarkdown(ERROR_CONFIG[CopilotKitErrorCode.NOT_FOUND].troubleshootingUrl)}`;
+    case "ETIMEDOUT":
+      return `The connection to ${url} timed out. The server might be overloaded or taking too long to respond.\n\n${getSeeMoreMarkdown(troubleshootingLink)}`;
+    default:
+      return;
+  }
+};
