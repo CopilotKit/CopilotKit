@@ -53,7 +53,7 @@ Manually emitted messages are great for **when you don't want to wait for the no
 
                     # [!code highlight:3]
                     intermediate_message = "Thinking really hard..."
-                    await copilotkit_emit_message(state, intermediate_message)
+                    await copilotkit_emit_message(config, intermediate_message)
 
                     # simulate a long running task
                     await asyncio.sleep(2) 
