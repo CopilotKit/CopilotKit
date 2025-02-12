@@ -18,8 +18,10 @@ import {
 } from "@copilotkit/shared";
 
 const createFetchFn =
-  (signal?: AbortSignal, handleGQLWarning?: (warning: string) => void, publicApiKey?: string) =>
+  (signal?: AbortSignal, handleGQLWarning?: (warning: string) => void) =>
   async (...args: Parameters<typeof fetch>) => {
+    // @ts-expect-error -- since this is our own header, TS will not recognize
+    const publicApiKey = args[1]?.headers?.["x-copilotcloud-public-api-key"]
     try {
       const result = await fetch(args[0], { ...(args[1] ?? {}), signal });
 
@@ -73,14 +75,12 @@ export class CopilotRuntimeClient {
   client: Client;
   public handleGQLErrors?: (error: Error) => void;
   public handleGQLWarning?: (warning: string) => void;
-  private publicApiKey?: string;
 
   constructor(options: CopilotRuntimeClientOptions) {
     const headers: Record<string, string> = {};
 
     this.handleGQLErrors = options.handleGQLErrors;
     this.handleGQLWarning = options.handleGQLWarning;
-    this.publicApiKey = options.publicApiKey;
 
     if (options.headers) {
       Object.assign(headers, options.headers);
@@ -112,7 +112,7 @@ export class CopilotRuntimeClient {
     properties?: GenerateCopilotResponseMutationVariables["properties"];
     signal?: AbortSignal;
   }) {
-    const fetchFn = createFetchFn(signal, this.handleGQLWarning, this.publicApiKey);
+    const fetchFn = createFetchFn(signal, this.handleGQLWarning);
     const result = this.client.mutation<
       GenerateCopilotResponseMutation,
       GenerateCopilotResponseMutationVariables
