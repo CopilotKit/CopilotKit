@@ -1,5 +1,13 @@
 # @copilotkit/runtime-client-gql
 
+## 1.5.18-next.0
+
+### Patch Changes
+
+- d47cd26: - fix: detect and alert on version mismatch
+- Updated dependencies [d47cd26]
+  - @copilotkit/shared@1.5.18-next.0
+
 ## 1.5.17
 
 ### Patch Changes
