@@ -12,23 +12,38 @@ import { OperationResultSource, OperationResult } from "urql";
 import {
   ResolvedCopilotKitError,
   CopilotKitLowLevelError,
-  detectPossibleVersionMismatchError,
   CopilotKitError,
+  CopilotKitVersionMismatchError,
+  getPossibleVersionMismatch,
 } from "@copilotkit/shared";
 
 const createFetchFn =
-  (signal?: AbortSignal) =>
+  (signal?: AbortSignal, handleGQLWarning?: (warning: string) => void, publicApiKey?: string) =>
   async (...args: Parameters<typeof fetch>) => {
     try {
       const result = await fetch(args[0], { ...(args[1] ?? {}), signal });
-      await detectPossibleVersionMismatchError({
-        runtimeVersion: result.headers.get("X-CopilotKit-Runtime-Version")!,
-        runtimeClientGqlVersion: packageJson.version,
-      });
+
+      // No mismatch checking if cloud is being used
+      const mismatch = publicApiKey
+        ? null
+        : await getPossibleVersionMismatch({
+            runtimeVersion: result.headers.get("X-CopilotKit-Runtime-Version")!,
+            runtimeClientGqlVersion: packageJson.version,
+          });
       if (result.status !== 200) {
-        // X-CopilotKit-Runtime-Version
-        throw new ResolvedCopilotKitError({ status: result.status });
+        if (result.status >= 400 && result.status <= 500) {
+          if (mismatch) {
+            throw new CopilotKitVersionMismatchError(mismatch);
+          }
+
+          throw new ResolvedCopilotKitError({ status: result.status });
+        }
       }
+
+      if (mismatch && handleGQLWarning) {
+        handleGQLWarning(mismatch.message);
+      }
+
       return result;
     } catch (error) {
       // Let abort error pass through. It will be suppressed later
@@ -51,16 +66,21 @@ export interface CopilotRuntimeClientOptions {
   headers?: Record<string, string>;
   credentials?: RequestCredentials;
   handleGQLErrors?: (error: Error) => void;
+  handleGQLWarning?: (warning: string) => void;
 }
 
 export class CopilotRuntimeClient {
   client: Client;
   public handleGQLErrors?: (error: Error) => void;
+  public handleGQLWarning?: (warning: string) => void;
+  private publicApiKey?: string;
 
   constructor(options: CopilotRuntimeClientOptions) {
     const headers: Record<string, string> = {};
 
     this.handleGQLErrors = options.handleGQLErrors;
+    this.handleGQLWarning = options.handleGQLWarning;
+    this.publicApiKey = options.publicApiKey;
 
     if (options.headers) {
       Object.assign(headers, options.headers);
@@ -92,7 +112,7 @@ export class CopilotRuntimeClient {
     properties?: GenerateCopilotResponseMutationVariables["properties"];
     signal?: AbortSignal;
   }) {
-    const fetchFn = createFetchFn(signal);
+    const fetchFn = createFetchFn(signal, this.handleGQLWarning, this.publicApiKey);
     const result = this.client.mutation<
       GenerateCopilotResponseMutation,
       GenerateCopilotResponseMutationVariables

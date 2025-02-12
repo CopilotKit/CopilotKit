@@ -10,6 +10,7 @@ import { useErrorToast } from "../components/error-boundary/error-utils";
 export const useCopilotRuntimeClient = (options: CopilotRuntimeClientOptions) => {
   const { addGraphQLErrorsToast } = useToast();
   const addErrorToast = useErrorToast();
+  const { addToast } = useToast();
 
   const runtimeClient = useMemo(() => {
     return new CopilotRuntimeClient({
@@ -21,8 +22,12 @@ export const useCopilotRuntimeClient = (options: CopilotRuntimeClientOptions) =>
           addErrorToast([error]);
         }
       },
+      handleGQLWarning: (message: string) => {
+        console.warn(message);
+        addToast({ type: "warning", message });
+      },
     });
-  }, [options, addGraphQLErrorsToast]);
+  }, [options, addGraphQLErrorsToast, addToast]);
 
   return runtimeClient;
 };
