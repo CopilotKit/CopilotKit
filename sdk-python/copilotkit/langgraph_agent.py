@@ -223,61 +223,99 @@ class LangGraphAgent(Agent):
         actions: Optional[List[ActionDict]] = None,
         meta_events: Optional[List[MetaEvent]] = None
     ):
+        return self._stream_events(
+            state=state,
+            messages=messages,
+            actions=actions,
+            thread_id=thread_id,
+            node_name=node_name,
+            meta_events=meta_events
+        )
+    
+        # config = ensure_config(cast(Any, self.langgraph_config.copy()) if self.langgraph_config else {}) # pylint: disable=line-too-long
+        # config["configurable"] = config.get("configurable", {})
+        # config["configurable"]["thread_id"] = thread_id
+
+        # agent_state = self.graph.get_state(config)
+        # state["messages"] = agent_state.values.get("messages", [])
+
+        # langchain_messages = self.convert_messages(messages)
+        # state = cast(Callable, self.merge_state)(
+        #     state=state,
+        #     messages=langchain_messages,
+        #     actions=actions,
+        #     agent_name=self.name
+        # )
+
+        # # Handle meta events for interrupts
+        # interrupt_from_meta_events = next((ev for ev in (meta_events or []) if ev.get("name") == "LangGraphInterruptEvent"), None)
+        # resume_input = None
+
+        # # An active interrupt event that runs through messages. Use latest message as response
+        # if self.active_interrupt_event and interrupt_from_meta_events is None:
+        #     resume_input = Command(resume=langchain_messages[-1])
+
+        # if interrupt_from_meta_events and interrupt_from_meta_events.get("response"):
+        #     try:
+        #         resume_input = Command(resume=json.loads(interrupt_from_meta_events["response"]))
+        #     except:
+        #         resume_input = Command(resume=interrupt_from_meta_events["response"])
+
+        # mode = "continue" if thread_id and node_name != "__end__" and node_name is not None else "start"
+        # thread_id = thread_id or str(uuid.uuid4())
+        # config["configurable"]["thread_id"] = thread_id
+
+        # if mode == "continue" and self.active_interrupt_event is False:
+        #     self.graph.update_state(config, state, as_node=node_name)
+
+        # # Before running the stream again, always flush status of active interrupt
+        # self.active_interrupt_event = False
+        # return self._stream_events(
+        #     mode=mode,
+        #     config=config,
+        #     state=state,
+        #     node_name=node_name,
+        #     resume_input=resume_input
+        # )
+
+    async def _stream_events( # pylint: disable=too-many-locals
+            self,
+            *,
+            state: Any,
+            messages: List[Message],
+            thread_id: str,
+            actions: Optional[List[ActionDict]] = None,
+            node_name: Optional[str] = None,
+            meta_events: Optional[List[MetaEvent]] = None,
+        ):
+
         config = ensure_config(cast(Any, self.langgraph_config.copy()) if self.langgraph_config else {}) # pylint: disable=line-too-long
         config["configurable"] = config.get("configurable", {})
         config["configurable"]["thread_id"] = thread_id
 
-        agent_state = self.graph.get_state(config)
+        agent_state = await self.graph.aget_state(config)
         state["messages"] = agent_state.values.get("messages", [])
-
         langchain_messages = self.convert_messages(messages)
-        state = cast(Callable, self.merge_state)(
-            state=state,
-            messages=langchain_messages,
-            actions=actions,
-            agent_name=self.name
-        )
 
-        # Handle meta events for interrupts
         interrupt_from_meta_events = next((ev for ev in (meta_events or []) if ev.get("name") == "LangGraphInterruptEvent"), None)
-        input = None
+        resume_input = None
 
-        # An active interrupt event that runs through messages. Use latest message as response
+         # An active interrupt event that runs through messages. Use latest message as response
         if self.active_interrupt_event and interrupt_from_meta_events is None:
-            input = Command(resume=langchain_messages[-1])
+            resume_input = Command(resume=langchain_messages[-1])
 
-        if interrupt_from_meta_events and interrupt_from_meta_events.get("response"):
-            try:
-                input = Command(resume=json.loads(interrupt_from_meta_events["response"]))
-            except:
-                input = Command(resume=interrupt_from_meta_events["response"])
+        if interrupt_from_meta_events and "response" in interrupt_from_meta_events:
+            resume_input = Command(resume=interrupt_from_meta_events["response"])
 
         mode = "continue" if thread_id and node_name != "__end__" and node_name is not None else "start"
         thread_id = thread_id or str(uuid.uuid4())
-        config["configurable"]["thread_id"] = thread_id
 
+        config["configurable"]["thread_id"] = thread_id
         if mode == "continue" and self.active_interrupt_event is False:
             self.graph.update_state(config, state, as_node=node_name)
 
         # Before running the stream again, always flush status of active interrupt
         self.active_interrupt_event = False
-        return self._stream_events(
-            mode=mode,
-            config=config,
-            state=state,
-            node_name=node_name,
-            input=input
-        )
-
-    async def _stream_events( # pylint: disable=too-many-locals
-            self,
-            *,
-            mode: str,
-            config: RunnableConfig,
-            state: Any,
-            node_name: Optional[str] = None,
-            input: Optional[Command] = None
-        ):
 
         streaming_state_extractor = _StreamingStateExtractor([])
         initial_state = state if mode == "start" else None
@@ -288,7 +326,7 @@ class LangGraphAgent(Agent):
         thread_id = cast(Any, config)["configurable"]["thread_id"]
 
         # Use provided input or fallback to initial_state
-        stream_input = input if input else initial_state
+        stream_input = resume_input if resume_input else initial_state
 
         async for event in self.graph.astream_events(stream_input, config, version="v2"):
             current_node_name = event.get("name")
@@ -412,19 +450,27 @@ class LangGraphAgent(Agent):
             include_messages=True
         ) + "\n"
 
-    def get_state(
+    async def get_state(
         self,
         *,
         thread_id: str,
     ):
+        if not thread_id:
+            return {
+                "threadId": "",
+                "threadExists": False,
+                "state": {},
+                "messages": []
+            }
+
         config = ensure_config(cast(Any, self.langgraph_config.copy()) if self.langgraph_config else {}) # pylint: disable=line-too-long
         config["configurable"] = config.get("configurable", {})
         config["configurable"]["thread_id"] = thread_id
 
-        state = {**self.graph.get_state(config).values}
+        state = {**(await self.graph.aget_state(config)).values}
         if state == {}:
             return {
-                "threadId": thread_id,
+                "threadId": thread_id or "",
                 "threadExists": False,
                 "state": {},
                 "messages": []
