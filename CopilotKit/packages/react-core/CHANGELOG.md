@@ -1,5 +1,14 @@
 # ui
 
+## 1.5.19-next.0
+
+### Patch Changes
+
+- 5bc68f8: - fix(actions): warn on action duplication
+  - fix(actions): warn on coagent state render duplication
+  - @copilotkit/runtime-client-gql@1.5.19-next.0
+  - @copilotkit/shared@1.5.19-next.0
+
 ## 1.5.18
 
 ### Patch Changes
