@@ -26,8 +26,11 @@ export function convertMessageToLangChainMessage(message: Message): BaseMessage 
       return new HumanMessage(message.content);
     } else if (message.role == "assistant") {
       return new AIMessage(message.content);
-    } else if (message.role === "system") {
-      return new SystemMessage(message.content);
+    } else if (["system", "developer"].includes(message.role)) {
+      return new SystemMessage({
+        content: message.content,
+        additional_kwargs: { __openai_role__: "developer" },
+      });
     }
   } else if (message.isActionExecutionMessage()) {
     return new AIMessage({
