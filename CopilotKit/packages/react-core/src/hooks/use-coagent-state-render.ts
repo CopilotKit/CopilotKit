@@ -75,7 +75,6 @@ export function useCoAgentStateRender<T = any>(
   useEffect(() => {
     if (availableAgents?.length && !availableAgents.some((a) => a.name === action.name)) {
       const message = `(useCoAgentStateRender): Agent "${action.name}" not found. Make sure the agent exists and is properly configured.`;
-      console.warn(message);
       addToast({ type: "warning", message });
     }
   }, [availableAgents]);
@@ -92,6 +91,43 @@ export function useCoAgentStateRender<T = any>(
       }
     }
   }
+
+  useEffect(() => {
+    // Check for duplicates by comparing against all other actions
+    const currentId = idRef.current;
+    const hasDuplicate = Object.entries(coAgentStateRenders).some(([id, otherAction]) => {
+      // Skip comparing with self
+      if (id === currentId) return false;
+
+      // Different agent names are never duplicates
+      if (otherAction.name !== action.name) return false;
+
+      // Same agent names:
+      const hasNodeName = !!action.nodeName;
+      const hasOtherNodeName = !!otherAction.nodeName;
+
+      // If neither has nodeName, they're duplicates
+      if (!hasNodeName && !hasOtherNodeName) return true;
+
+      // If one has nodeName and other doesn't, they're not duplicates
+      if (hasNodeName !== hasOtherNodeName) return false;
+
+      // If both have nodeName, they're duplicates only if the names match
+      return action.nodeName === otherAction.nodeName;
+    });
+
+    if (hasDuplicate) {
+      const message = action.nodeName
+        ? `Found multiple state renders for agent ${action.name} and node ${action.nodeName}. State renders might get overridden`
+        : `Found multiple state renders for agent ${action.name}. State renders might get overridden`;
+
+      addToast({
+        type: "warning",
+        message,
+        id: `dup-action-${action.name}`,
+      });
+    }
+  }, [coAgentStateRenders]);
 
   useEffect(() => {
     setCoAgentStateRender(idRef.current, action as any);
