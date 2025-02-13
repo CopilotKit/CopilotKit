@@ -3,23 +3,26 @@
 import { CopilotKit } from "@copilotkit/react-core";
 import { Mailer } from "./Mailer";
 import "@copilotkit/react-ui/styles.css";
-import { ModelSelectorProvider, useModelSelectorContext } from "@/lib/model-selector-provider";
+import {
+  ModelSelectorProvider,
+  useModelSelectorContext,
+} from "@/lib/model-selector-provider";
 import { ModelSelector } from "@/components/ModelSelector";
 import { useSearchParams } from "next/navigation";
 
 export default function ModelSelectorWrapper() {
-    return (
-        <main className="flex flex-col items-center justify-between">
-            <ModelSelectorProvider>
-                <Home/>
-                <ModelSelector/>
-            </ModelSelectorProvider>
-        </main>
-    );
+  return (
+    <main className="flex flex-col items-center justify-between">
+      <ModelSelectorProvider>
+        <Home />
+        <ModelSelector />
+      </ModelSelectorProvider>
+    </main>
+  );
 }
 
 function Home() {
-  const { lgcDeploymentUrl } = useModelSelectorContext();
+  const { lgcDeploymentUrl, agent } = useModelSelectorContext();
 
   const searchParams = useSearchParams();
 
@@ -32,12 +35,12 @@ function Home() {
     runtimeUrl,
     publicApiKey: publicApiKey || undefined,
     showDevConsole: false,
-    agent: "email_agent",
+    agent,
   };
-  
+
   return (
-      <CopilotKit {...copilotKitProps}>
-          <Mailer />
-      </CopilotKit>
+    <CopilotKit {...copilotKitProps}>
+      <Mailer />
+    </CopilotKit>
   );
 }

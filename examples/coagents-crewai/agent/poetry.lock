@@ -736,7 +736,7 @@ files = []
 develop = true
 
 [package.dependencies]
-crewai = "^0.100.1"
+crewai = "^0.102.0"
 fastapi = "^0.115.0"
 langchain = "^0.3.3"
 langgraph = ">=0.2.50"

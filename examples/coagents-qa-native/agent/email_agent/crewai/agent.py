@@ -1,18 +1,15 @@
 """Email Agent CrewAI Flow"""
 
 import uuid
+import json
 from typing import Any, Dict, cast
-from crewai.flow.flow import Flow, start, router
+from crewai.flow.flow import Flow, start, router, listen
 from litellm import completion
 from copilotkit.crewai import (
-    copilotkit_customize_config,
     copilotkit_exit,
     copilotkit_emit_message,
     copilotkit_stream,
-    copilotkit_predict_state
 )
-from email_agent.model import get_model
-from email_agent.state import EmailAgentState
 
 # Define a tool for composing emails – analogous to the "EmailTool" in LangGraph.
 EMAIL_TOOL = {
@@ -40,12 +37,10 @@ class EmailAgentFlow(Flow[Dict[str, Any]]):
     """
 
     @start()
-    async def create_email(self):
+    async def start_flow(self):
         """
-        Compose an email.
+        Start the flow.
         """
-        # Ensure required fields exist in the state.
-        # Instead of interrupting, we assign default placeholders if missing.
         sender = self.state.get("sender")
         if not sender:
             sender = "Default Sender"
@@ -55,6 +50,30 @@ class EmailAgentFlow(Flow[Dict[str, Any]]):
         if not sender_company:
             sender_company = "Default Company"
             self.state["sender_company"] = sender_company
+
+    @router(start_flow)
+    async def route_flow(self):
+        """
+        Compose an email.
+        """
+        messages = self.state.get("messages", [])
+        print(messages, flush=True)
+
+        if (len(messages) > 0 and
+            messages[-1].get("role") == "tool" and
+            (messages[-1].get("content") == "CANCEL" or
+             messages[-1].get("content") == "SEND")):
+            return "route_send_email"
+
+        return "route_create_email"
+
+    @listen("route_create_email")
+    async def create_email(self):
+        """
+        Compose an email.
+        """
+        sender = self.state.get("sender")
+        sender_company = self.state.get("sender_company")
 
         # Build the instructions prompt.
         prompt = (
@@ -70,7 +89,7 @@ class EmailAgentFlow(Flow[Dict[str, Any]]):
                     *self.state.get("messages", [])
                 ],
                 tools=[EMAIL_TOOL],
-                tool_choice="EmailTool",
+                tool_choice="required",
                 stream=True
             )
         )
@@ -79,7 +98,7 @@ class EmailAgentFlow(Flow[Dict[str, Any]]):
         message = cast(Any, response).choices[0]["message"]
         tool_calls = message.get("tool_calls", [])
         if tool_calls:
-            email_text = tool_calls[0]["args"].get("the_email", "")
+            email_text = json.loads(tool_calls[0]["function"]["arguments"]).get("the_email", "")
         else:
             email_text = ""
 
@@ -87,9 +106,8 @@ class EmailAgentFlow(Flow[Dict[str, Any]]):
         self.state["email"] = email_text
         self.state.setdefault("messages", []).append(message)
 
-        return "send_email"
 
-    @router(create_email)
+    @listen("route_send_email")
     async def send_email(self):
         """
         Send the composed email.

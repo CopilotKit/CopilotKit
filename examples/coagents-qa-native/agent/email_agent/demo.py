@@ -8,8 +8,9 @@ from fastapi import FastAPI
 import uvicorn
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
+from copilotkit.crewai import CrewAIAgent
 from email_agent.langgraph.agent import graph
-
+from email_agent.crewai.agent import EmailAgentFlow
 app = FastAPI()
 sdk = CopilotKitRemoteEndpoint(
     agents=[
@@ -17,7 +18,12 @@ sdk = CopilotKitRemoteEndpoint(
             name="email_agent",
             description="This agent sends emails",
             graph=graph,
-        )
+        ),
+        CrewAIAgent(
+            name="email_agent_crewai",
+            description="This agent sends emails",
+            flow=EmailAgentFlow(),
+        ),
     ],
 )
 
@@ -33,7 +39,7 @@ def main():
     """Run the uvicorn server."""
     port = int(os.getenv("PORT", "8000"))
     uvicorn.run(
-        "email_agent.langgraph.demo:app",
+        "email_agent.demo:app",
         host="0.0.0.0",
         port=port,
         reload=True,
