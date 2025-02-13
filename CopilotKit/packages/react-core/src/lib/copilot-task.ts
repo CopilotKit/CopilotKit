@@ -126,7 +126,7 @@ export class CopilotTask<T = any> {
 
     const systemMessage = new TextMessage({
       content: taskSystemMessage(contextString, this.instructions),
-      role: Role.System,
+      role: Role.Developer,
     });
 
     const messages: Message[] = [systemMessage];
