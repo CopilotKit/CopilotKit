@@ -552,7 +552,11 @@ function langGraphDefaultMergeState(
   actions: ExecutionAction[],
   agentName: string,
 ): State {
-  if (messages.length > 0 && "role" in messages[0] && messages[0].role === "system") {
+  if (
+    messages.length > 0 &&
+    "role" in messages[0] &&
+    ["developer", "system"].includes(messages[0].role)
+  ) {
     // remove system message
     messages = messages.slice(1);
   }
@@ -602,6 +606,12 @@ export function langchainMessagesToCopilotKit(messages: any[]): any[] {
     } else if (message.type === "system") {
       result.push({
         role: "system",
+        content: content,
+        id: message.id,
+      });
+    } else if (message.type === "developer") {
+      result.push({
+        role: "developer",
         content: content,
         id: message.id,
       });
@@ -679,6 +689,12 @@ function copilotkitMessagesToLangChain(messages: Message[]): LangGraphPlatformMe
         result.push({
           ...message,
           role: MessageRole.system,
+        });
+      } else if (message.role === "developer") {
+        // System message
+        result.push({
+          ...message,
+          role: MessageRole.developer,
         });
       } else if (message.role === "assistant") {
         // Assistant message

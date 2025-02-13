@@ -134,7 +134,7 @@ export function useCopilotChat({
 
     return new TextMessage({
       content: systemMessageMaker(contextString, chatInstructions),
-      role: Role.System,
+      role: Role.Developer,
     });
   }, [getContextString, makeSystemMessage, chatInstructions]);
 

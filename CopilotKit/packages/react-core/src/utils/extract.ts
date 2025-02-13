@@ -94,7 +94,7 @@ export async function extract<const T extends Parameter[]>({
 
   const systemMessage: Message = new TextMessage({
     content: makeSystemMessage(contextString, instructions),
-    role: Role.System,
+    role: Role.Developer,
   });
 
   const instructionsMessage: Message = new TextMessage({

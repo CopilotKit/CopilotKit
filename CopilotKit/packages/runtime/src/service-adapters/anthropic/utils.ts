@@ -23,7 +23,7 @@ export function limitMessagesToTokenCount(
   maxTokens -= toolsNumTokens;
 
   for (const message of messages) {
-    if (message.role === "system") {
+    if (["system", "developer"].includes(message.role)) {
       const numTokens = countMessageTokens(model, message);
       maxTokens -= numTokens;
 
@@ -37,7 +37,7 @@ export function limitMessagesToTokenCount(
 
   const reversedMessages = [...messages].reverse();
   for (const message of reversedMessages) {
-    if (message.role === "system") {
+    if (["system", "developer"].includes(message.role)) {
       result.unshift(message);
       continue;
     } else if (cutoff) {
@@ -85,7 +85,7 @@ export function convertMessageToAnthropicMessage(
   message: Message,
 ): Anthropic.Messages.MessageParam {
   if (message.isTextMessage()) {
-    if (message.role === "system") {
+    if (["system", "developer"].includes(message.role)) {
       return {
         role: "assistant",
         content: [

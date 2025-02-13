@@ -92,7 +92,7 @@ export function useMakeStandardInsertionOrEditingFunction(
       const res = await retry(async () => {
         const messages: Message[] = [
           new TextMessage({
-            role: Role.System,
+            role: Role.Developer,
             content: insertionApiConfig.makeSystemPrompt(
               textareaPurpose,
               getContextString(documents, contextCategories),
@@ -146,7 +146,7 @@ export function useMakeStandardInsertionOrEditingFunction(
       const res = await retry(async () => {
         const messages: Message[] = [
           new TextMessage({
-            role: Role.System,
+            role: Role.Developer,
             content: editingApiConfig.makeSystemPrompt(
               textareaPurpose,
               getContextString(documents, contextCategories),
