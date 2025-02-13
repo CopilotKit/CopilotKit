@@ -37,6 +37,7 @@ uvicorn = "^0.31.0"
 python-dotenv = "^1.0.1"
 langchain-core = "^0.3.25"
 langgraph-cli = {extras = ["inmem"], version = "^0.1.64"}
+crewai = {extras = ["tools"], version = "^0.102.0"}
 
 [tool.poetry.scripts]
 demo = "email_agent.demo:main"

@@ -3,7 +3,7 @@ This module provides a function to get a model based on the configuration.
 """
 import os
 from langchain_core.language_models.chat_models import BaseChatModel
-from email_agent.state import EmailAgentState
+from email_agent.langgraph.state import EmailAgentState
 
 
 def get_model(state: EmailAgentState) -> BaseChatModel:
@@ -28,7 +28,7 @@ def get_model(state: EmailAgentState) -> BaseChatModel:
             stop=None
         )
     if model == "google_genai":
-        from langchain_google_genai import ChatGoogleGenerativeAI # pylint: disable=import-outside-toplevel
+        from langchain_google_genai import ChatGoogleGenerativeAI # type: ignore pylint: disable=import-outside-toplevel, import-error
         return ChatGoogleGenerativeAI(temperature=0, model="gemini-1.5-pro")
 
     raise ValueError("Invalid model specified")

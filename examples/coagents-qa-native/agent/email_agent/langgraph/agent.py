@@ -1,16 +1,17 @@
 """Test Q&A Agent"""
 
 from typing import Any, cast
-from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
-from langchain_core.runnables import RunnableConfig
+
+from langgraph.graph import StateGraph, END # pylint: disable=no-name-in-module, import-error
+from langgraph.checkpoint.memory import MemorySaver # pylint: disable=no-name-in-module, import-error
+from langgraph.types import interrupt # pylint: disable=no-name-in-module, import-error
+from langchain_core.runnables import RunnableConfig 
 from langchain_core.messages import HumanMessage, ToolMessage, AIMessage
 from copilotkit.langgraph import (
   copilotkit_customize_config, copilotkit_exit, copilotkit_emit_message, copilotkit_interrupt
 )
-from langgraph.types import interrupt
-from email_agent.model import get_model
-from email_agent.state import EmailAgentState
+from email_agent.langgraph.model import get_model
+from email_agent.langgraph.state import EmailAgentState
 
 
 async def email_node(state: EmailAgentState, config: RunnableConfig):
