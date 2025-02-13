@@ -20,27 +20,21 @@ export function createAgentProjectStack({
   app,
   project,
   description,
-  dependencies,
 }: {
   app: App;
   project: string;
   description: string;
-  dependencies: "Remote" | "Local";
 }): {
   selfHostedAgent: PreviewProjectStack;
   lgcAgentPython: PreviewProjectStack;
   lgcAgentJS: PreviewProjectStack;
 } {
   const cdkStackName =
-    toCdkStackName(project) + "Agent" + dependencies + "Deps";
-  const dockerfile =
-    dependencies === "Remote"
-      ? `examples/Dockerfile.agent-remote-deps`
-      : `examples/Dockerfile.agent-local-deps`;
+    toCdkStackName(project) + "AgentLocalDeps";
   const GITHUB_ACTIONS_RUN_ID = requireEnv("GITHUB_ACTIONS_RUN_ID");
 
   const outputs: Record<string, string> = {
-    Dependencies: dependencies,
+    Dependencies: "Local",
   };
 
   if (process.env.GITHUB_PR_NUMBER) {
@@ -51,7 +45,6 @@ export function createAgentProjectStack({
     projectName: project,
     projectDescription: description,
     demoDir: `examples/${project}/agent`,
-    overrideDockerfile: dockerfile,
     environmentVariablesFromSecrets: [
       "OPENAI_API_KEY",
       "ANTHROPIC_API_KEY",
@@ -63,9 +56,7 @@ export function createAgentProjectStack({
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
     },
-    imageTag: `${project}-agent-python-${
-      dependencies === "Remote" ? "remote-deps" : "local-deps"
-    }-${GITHUB_ACTIONS_RUN_ID}`,
+    imageTag: `${project}-agent-python-local-deps-${GITHUB_ACTIONS_RUN_ID}`,
     outputs: {
       ...outputs,
       LangGraphCloud: "false",
@@ -77,7 +68,6 @@ export function createAgentProjectStack({
     projectName: project,
     projectDescription: `${description} - LangGraph Cloud Python`,
     demoDir: `examples/${project}/agent`,
-    overrideDockerfile: dockerfile,
     environmentVariablesFromSecrets: [
       "OPENAI_API_KEY",
       "ANTHROPIC_API_KEY",
@@ -90,9 +80,7 @@ export function createAgentProjectStack({
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
     },
-    imageTag: `${project}-agent-python-${
-      dependencies === "Remote" ? "remote-deps" : "local-deps"
-    }-${GITHUB_ACTIONS_RUN_ID}`,
+    imageTag: `${project}-agent-python-local-deps-${GITHUB_ACTIONS_RUN_ID}`,
     entrypoint: ["/bin/sh", "-c"],
     cmd: ["langgraph dev --no-browser --port=8000 --config=langgraph.json --host=0.0.0.0"],
     outputs: {
@@ -106,7 +94,6 @@ export function createAgentProjectStack({
     projectName: project,
     projectDescription: `${description} - LangGraph Cloud JS`,
     demoDir: `examples/${project}/agent`,
-    overrideDockerfile: dockerfile,
     environmentVariablesFromSecrets: [
       "OPENAI_API_KEY",
       "ANTHROPIC_API_KEY",
@@ -119,9 +106,7 @@ export function createAgentProjectStack({
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
     },
-    imageTag: `${project}-agent-js-${
-      dependencies === "Remote" ? "remote-deps" : "local-deps"
-    }-${GITHUB_ACTIONS_RUN_ID}`,
+    imageTag: `${project}-agent-js-local-deps-${GITHUB_ACTIONS_RUN_ID}`,
     entrypoint: ["/bin/sh", "-c"],
     cmd: ["pnpx @langchain/langgraph-cli dev --config=langgraph.json --no-browser --port 8000 --host 0.0.0.0"],
     outputs: {
@@ -138,7 +123,6 @@ export function createUIProjectStack({
   app,
   project,
   description,
-  dependencies,
   selfHostedAgentProject,
   lgcAgentProjectPython,
   lgcAgentProjectJS,
@@ -149,7 +133,6 @@ export function createUIProjectStack({
   app: App;
   project: string;
   description: string;
-  dependencies: "Remote" | "Local";
   selfHostedAgentProject: PreviewProjectStack;
   lgcAgentProjectPython: PreviewProjectStack;
   lgcAgentProjectJS: PreviewProjectStack;
@@ -157,16 +140,12 @@ export function createUIProjectStack({
   environmentVariablesFromSecrets?: string[];
   customOutputs?: Record<string, string>;
 }) {
-  const cdkStackName = toCdkStackName(project) + "UI" + dependencies + "Deps";
-  const dockerfile =
-    dependencies === "Remote"
-      ? `examples/Dockerfile.ui-remote-deps`
-      : `examples/Dockerfile.ui-local-deps`;
+  const cdkStackName = toCdkStackName(project) + "UILocalDeps";
   const GITHUB_ACTIONS_RUN_ID = requireEnv("GITHUB_ACTIONS_RUN_ID");
 
   const outputs: Record<string, string> = {
-    Dependencies: dependencies,
-    EndToEndProjectKey: `${project}-ui-deps-${dependencies.toLocaleLowerCase()}`,
+    Dependencies: "Local",
+    EndToEndProjectKey: `${project}-ui-deps-local`,
     LgcPythonDeploymentUrl: `${lgcAgentProjectPython.fnUrl}`,
     LgcJSDeploymentUrl: `${lgcAgentProjectJS.fnUrl}`,
   };
@@ -183,7 +162,6 @@ export function createUIProjectStack({
     projectName: project,
     projectDescription: `${description}`,
     demoDir: `examples/${project}/ui`,
-    overrideDockerfile: dockerfile,
     environmentVariablesFromSecrets: [
       "OPENAI_API_KEY",
       "LANGSMITH_API_KEY",
@@ -213,12 +191,11 @@ export function createNextOpenAIProjectStack({
 }: {
   app: App;
   description: string;
-  variant: "self-hosted" | "against-cloud-prod" | "against-cloud-staging";
+  variant: "self-hosted";
   environmentVariables?: Record<string, string>;
   environmentVariablesFromSecrets?: string[];
 }) {
   const cdkStackName = toCdkStackName(`next-openai-${variant}`);
-  const dockerfile = `CopilotKit/examples/next-openai/Dockerfile`;
   const GITHUB_ACTIONS_RUN_ID = requireEnv("GITHUB_ACTIONS_RUN_ID");
 
   const outputs: Record<string, string> = {
@@ -235,7 +212,6 @@ export function createNextOpenAIProjectStack({
     projectName: `next-openai`,
     projectDescription: `${description}`,
     demoDir: `CopilotKit/examples/next-openai`,
-    overrideDockerfile: dockerfile,
     environmentVariablesFromSecrets: [
       "OPENAI_API_KEY",
       "ANTHROPIC_API_KEY",
