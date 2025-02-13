@@ -1,54 +1,54 @@
-"""Test Joker Agent"""
+"""Email Agent"""
 
 from typing import Any, cast
-
 from langgraph.graph import StateGraph, END
 from langgraph.graph import MessagesState
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import SystemMessage, ToolMessage
-
-
 from copilotkit.langgraph import copilotkit_customize_config, copilotkit_exit
 from pydantic import BaseModel, Field
-from my_agent.model import get_model
+from my_agent.langgraph.model import get_model
 
-class JokeAgentState(MessagesState):
-    """Joke Agent State"""
-    joke: str
+
+class EmailAgentState(MessagesState):
+    """Email Agent State"""
+    email: str
     model: str
 
-class make_joke(BaseModel): # pylint: disable=invalid-name
+
+class write_email(BaseModel): # pylint: disable=invalid-name
     """
-    Make a funny joke.
+    Write an email.
     """
-    the_joke: str = Field(..., description="The joke")
+    the_email: str = Field(..., description="The email")
 
 
-async def joke_node(state: JokeAgentState, config: RunnableConfig):
+async def email_node(state: EmailAgentState, config: RunnableConfig):
     """
     Make a joke.
     """
 
     config = copilotkit_customize_config(
         config,
+        emit_messages=True,
         emit_intermediate_state=[
             {
-                "state_key": "joke",
-                "tool": "make_joke",
-                "tool_argument": "the_joke"
+                "state_key": "email",
+                "tool": "write_email",
+                "tool_argument": "the_email"
             },
         ]
     )
 
-    system_message = "You make funny jokes."
+    system_message = "You write emails."
 
-    joke_model = get_model(state).bind_tools(
-        [make_joke],
-        tool_choice="make_joke"
+    email_model = get_model(state).bind_tools(
+        [write_email],
+        tool_choice="write_email"
     )
 
-    response = await joke_model.ainvoke([
+    response = await email_model.ainvoke([
         SystemMessage(
             content=system_message
         ),
@@ -57,7 +57,7 @@ async def joke_node(state: JokeAgentState, config: RunnableConfig):
 
     tool_calls = getattr(response, "tool_calls")
 
-    joke = tool_calls[0]["args"]["the_joke"]
+    email = tool_calls[0]["args"]["the_email"]
 
     await copilotkit_exit(config)
 
@@ -66,17 +66,17 @@ async def joke_node(state: JokeAgentState, config: RunnableConfig):
             response,
             ToolMessage(
                 name=tool_calls[0]["name"],
-                content=joke,
+                content=email,
                 tool_call_id=tool_calls[0]["id"]
             )
         ],
-        "joke": joke,
+        "email": email,
     }
 
-workflow = StateGraph(JokeAgentState)
-workflow.add_node("joke_node", cast(Any, joke_node))
-workflow.set_entry_point("joke_node")
+workflow = StateGraph(EmailAgentState)
+workflow.add_node("email_node", cast(Any, email_node))
+workflow.set_entry_point("email_node")
 
-workflow.add_edge("joke_node", END)
+workflow.add_edge("email_node", END)
 memory = MemorySaver()
-joke_graph = workflow.compile(checkpointer=memory)
+email_graph = workflow.compile(checkpointer=memory)

@@ -28,7 +28,7 @@ export default function ModelSelectorWrapper() {
 }
 
 function Home() {
-  const { lgcDeploymentUrl } = useModelSelectorContext();
+  const { lgcDeploymentUrl, model } = useModelSelectorContext();
 
   const searchParams = useSearchParams();
 
@@ -41,6 +41,9 @@ function Home() {
     runtimeUrl,
     publicApiKey: publicApiKey || undefined,
     showDevConsole: false,
+    properties: {
+      model,
+    },
   };
 
   return (

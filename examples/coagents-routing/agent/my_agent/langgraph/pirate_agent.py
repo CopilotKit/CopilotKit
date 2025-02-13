@@ -7,7 +7,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import SystemMessage
 from copilotkit.langgraph import copilotkit_exit
-from my_agent.model import get_model
+from my_agent.langgraph.model import get_model
 
 
 class PirateAgentState(MessagesState):
