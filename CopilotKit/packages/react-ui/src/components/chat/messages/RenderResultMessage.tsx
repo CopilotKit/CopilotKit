@@ -14,4 +14,9 @@ export function RenderResultMessage(props: RenderMessageProps) {
       />
     );
   }
+
+  // Avoid 'Nothing was returned from render' React error
+  else {
+    return null;
+  }
 }
