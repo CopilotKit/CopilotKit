@@ -38,6 +38,7 @@ class GreetAgentFlow(Flow[Dict[str, Any]]):
         if not self.state.get("name"):
             self.state["name"] = "UNKNOWN"
 
+    @router(start_flow)
     async def route_flow(self) -> str:
         """
         Route the flow based on the user's name.
@@ -107,3 +108,5 @@ class GreetAgentFlow(Flow[Dict[str, Any]]):
             "role": "assistant",
             "content": greeting
         })
+        self.state["name"] = "UNKNOWN"
+

@@ -21,7 +21,7 @@ sdk = CopilotKitRemoteEndpoint(
             graph=graph,
         ),
         CrewAIAgent(
-            name="greeting_agent",
+            name="greeting_agent_crewai",
             description="This agent greets the user",
             flow=GreetAgentFlow(),
         )

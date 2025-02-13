@@ -22,7 +22,7 @@ export default function ModelSelectorWrapper() {
 }
 
 function Home() {
-  const { lgcDeploymentUrl } = useModelSelectorContext();
+  const { lgcDeploymentUrl, agent } = useModelSelectorContext();
 
   const searchParams = useSearchParams();
 
@@ -35,6 +35,7 @@ function Home() {
     runtimeUrl,
     publicApiKey: publicApiKey || undefined,
     showDevConsole: false,
+    agent,
   };
   return (
     <CopilotKit {...copilotKitProps}>
