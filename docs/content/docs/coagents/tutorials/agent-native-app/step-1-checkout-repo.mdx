@@ -1,0 +1,43 @@
+---
+title: "Step 1: Checkout the repo"
+---
+
+<Steps>
+<Step>
+### Checkout the starting branch
+We'll be working with the [open-research-ana repository](https://github.com/CopilotKit/open-research-ana), specifically using a branch called `tutorial-start`. This branch contains the starting code for our research ANA tutorial.
+
+```shell
+git clone -b tutorial-start https://github.com/CopilotKit/open-research-ana.git
+```
+
+The repository contains two directories:
+- `frontend/`: A NextJS application where we'll integrate our LangGraph agent
+- `agent/`: A Python-based LangGraph agent that we'll be tweaking with the CopilotKit SDK
+
+</Step>
+<Step>
+### Install frontend dependencies
+First, let's set up the NextJS application. Navigate to the `frontend` directory and install the dependencies:
+
+```shell
+cd frontend
+pnpm install
+```
+</Step>
+<Step>
+### Start the frontend
+Launch the development server:
+
+```shell
+pnpm run dev
+```
+
+Visit [http://localhost:3000](http://localhost:3000) to see the research ANA in action. In its current state, you'll see an empty chat interface,
+and empty document. 
+
+This will be our starting point for the tutorial.
+</Step>
+</Steps>
+
+Next, let's understand the LangGraph agent and how it works.
