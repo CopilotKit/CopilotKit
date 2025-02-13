@@ -265,7 +265,8 @@ export class CopilotKitLowLevelError extends CopilotKitError {
     let code = CopilotKitErrorCode.NETWORK_ERROR;
 
     // @ts-expect-error -- code may exist
-    const errorMessage = message ?? resolveLowLevelErrorMessage(error.code as string);
+    const errorCode = error.code as string;
+    const errorMessage = message ?? resolveLowLevelErrorMessage({ errorCode, url });
 
     super({ message: errorMessage, code });
 
