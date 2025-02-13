@@ -43,8 +43,6 @@ jobs:
           - { project: "coagents-qa-native", type: "agent", runtime: "python", deps: "local-deps" }
           - { project: "coagents-qa-native", type: "agent", runtime: "js", deps: "local-deps" }
           - { project: "coagents-qa-native", type: "ui" }
-          - { project: "coagents-travel", type: "agent", runtime: "python", deps: "local-deps" }
-          - { project: "coagents-travel", type: "ui" }
           - { project: "next-openai", type: "next-openai" }
     steps:
       - name: Checkout
