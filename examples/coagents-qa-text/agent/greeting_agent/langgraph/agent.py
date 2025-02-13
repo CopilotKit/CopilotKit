@@ -10,8 +10,8 @@ from copilotkit.langgraph import (
     copilotkit_customize_config
 )
 from pydantic import BaseModel, Field
-from greeting_agent.state import GreetAgentState
-from greeting_agent.model import get_model
+from greeting_agent.langgraph.state import GreetAgentState
+from greeting_agent.langgraph.model import get_model
 
 class ExtractNameTool(BaseModel):
     """

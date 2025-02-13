@@ -2,7 +2,7 @@
 This module provides a function to get a model based on the configuration.
 """
 import os
-from greeting_agent.state import GreetAgentState
+from greeting_agent.langgraph.state import GreetAgentState
 
 def get_model(state: GreetAgentState):
     """
@@ -21,7 +21,7 @@ def get_model(state: GreetAgentState):
         from langchain_anthropic import ChatAnthropic
         return ChatAnthropic(temperature=0, model="claude-3-5-sonnet-20240620")
     if model == "google_genai":
-        from langchain_google_genai import ChatGoogleGenerativeAI
+        from langchain_google_genai import ChatGoogleGenerativeAI # type: ignore pylint: disable=import-error
         return ChatGoogleGenerativeAI(temperature=0, model="gemini-1.5-pro")
 
     raise ValueError("Invalid model specified")
