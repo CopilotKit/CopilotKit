@@ -52,9 +52,12 @@ export const Input = ({ inProgress, onSend, isVisible = false }: InputProps) => 
     !inProgress;
 
   const canSend = () => {
-    const interruptEvent = copilotContext.langGraphInterruptAction?.event
-    const interruptInProgress = interruptEvent?.name === 'LangGraphInterruptEvent' && !interruptEvent?.response
-    return !inProgress && text.trim().length > 0 && pushToTalkState === "idle" && !interruptInProgress;
+    const interruptEvent = copilotContext.langGraphInterruptAction?.event;
+    const interruptInProgress =
+      interruptEvent?.name === "LangGraphInterruptEvent" && !interruptEvent?.response;
+    return (
+      !inProgress && text.trim().length > 0 && pushToTalkState === "idle" && !interruptInProgress
+    );
   };
 
   const sendDisabled = !canSend();
