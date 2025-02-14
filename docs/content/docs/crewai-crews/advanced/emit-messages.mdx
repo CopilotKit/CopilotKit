@@ -1,0 +1,81 @@
+---
+title: "Manually emitting messages"
+icon: "lucide/Radio"
+---
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+import RunAndConnectSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
+
+While most agent interactions happen automatically through shared state updates as the agent runs, you can also **manually send messages from within your agent code** to provide immediate feedback to users.
+
+<video src="/images/coagents/emit-messages.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<Callout>
+    This video shows the [coagents starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter) repo with the [implementation](#implementation) section applied to it!
+</Callout>
+
+## What is this?
+
+In CrewAI, messages are only emitted when a function is completed. CopilotKit allows you to manually emit messages
+in the middle of a function's execution to provide immediate feedback to the user.
+
+## When should I use this?
+
+Manually emitted messages are great for **when you don't want to wait for the function** to complete **and you**:
+- Have a long running task that you want to provide feedback on
+- Want to provide a status update to the user
+- Want to provide a warning or error message
+
+## Implementation
+
+<Steps>
+    <Step>
+        ### Run and Connect Your Agent to CopilotKit
+        <RunAndConnectSnippet />
+    </Step>
+    <Step>
+        ### Install the CopilotKit SDK
+        <InstallSDKSnippet components={props.components}/>
+    </Step>
+    <Step>
+        ### Manually emit a message
+        The `copilotkit_emit_message` method allows you to emit messages early in a functions's execution to communicate status updates to the user. This is particularly useful for long running tasks.
+
+        <Tabs groupId="language" items={['Python']} default="Python">
+            <Tab value="Python">
+                ```python
+                from litellm import completion
+                from crewai.flow.flow import start
+                from copilotkit.crewai import copilotkit_emit_message # [!code highlight]
+                # ...
+
+                @start()
+                async def start(self):
+                    # [!code highlight:3]
+                    intermediate_message = "Thinking really hard..."
+                    await copilotkit_emit_message(intermediate_message)
+
+                    # simulate a long running task
+                    await asyncio.sleep(2) 
+
+                    response = copilotkit_stream(
+                        completion(
+                            model="openai/gpt-4o",
+                            messages=[
+                                {"role": "system", "content": "You are a helpful assistant."},
+                                *self.state["messages"]
+                            ],
+                            stream=True
+                        )
+                    )
+                     message = response.choices[0]["message"]
+
+                    self.state["messages"].append(message)
+                ```
+            </Tab>
+        </Tabs>
+    </Step>
+    <Step>
+        ### Give it a try!
+        Now when you talk to your agent you'll notice that it immediately responds with the message "Thinking really hard..."
+        before giving you a response 2 seconds later.
+    </Step>
+</Steps>
