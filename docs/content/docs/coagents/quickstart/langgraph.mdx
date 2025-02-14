@@ -38,7 +38,7 @@ Before you begin, you'll need the following:
 <Steps>
     <Step>
         ### Install CopilotKit
-
+        First, install the latest packages for CopilotKit into your frontend.
         ```package-install
         npm install @copilotkit/react-ui @copilotkit/react-core
         ```
@@ -50,7 +50,10 @@ Before you begin, you'll need the following:
             <div>
                 <p className="text-xl font-semibold">Do you already have a LangGraph agent?</p>
                 <p className="text-base">
-                    You'll need a LangGraph agent to get started with CoAgents! Either bring your own or feel free to use our starter repo.
+                    You will need a LangGraph agent to get started with CoAgents!
+                </p>
+                <p className="text-base">
+                    Either bring your own or feel free to use our starter repo.
                 </p>
             </div>
         }
@@ -68,15 +71,22 @@ Before you begin, you'll need the following:
             icon={<img src="/images/copilotkit-logo.svg" alt="CopilotKit Logo" width={20} height={20} />}
         >
             <Step>
-                ### Clone the coagents-starter repo
+                ### Clone the `coagents-starter` repo
 
-                ```bash
-                git clone https://github.com/CopilotKit/CopilotKit
-                cd CopilotKit/examples/coagents-starter/agent-py
-                ```
-                <Callout type="info">
-                    If you want to use LangGraph JS, you can use the included `agent-js` folder instead.
-                </Callout>
+                <Tabs groupId="language" items={["Python", "TypeScript"]}>
+                    <Tab value="Python">
+                        ```bash
+                        git clone https://github.com/CopilotKit/CopilotKit
+                        cd CopilotKit/examples/coagents-starter/agent-py
+                        ```
+                    </Tab>
+                    <Tab value="TypeScript">
+                        ```bash
+                        git clone https://github.com/CopilotKit/CopilotKit
+                        cd CopilotKit/examples/coagents-starter/agent-js
+                        ```
+                    </Tab>
+                </Tabs>
             </Step>
             <Step>
                 ### Create a `.env` file

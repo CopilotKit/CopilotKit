@@ -1,5 +1,44 @@
 # @copilotkit/runtime-client-gql
 
+## 1.5.19
+
+### Patch Changes
+
+- Updated dependencies [0dd1ab9]
+  - @copilotkit/shared@1.5.19
+
+## 1.5.19-next.1
+
+### Patch Changes
+
+- Updated dependencies [0dd1ab9]
+  - @copilotkit/shared@1.5.19-next.1
+
+## 1.5.19-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.19-next.0
+
+## 1.5.18
+
+### Patch Changes
+
+- d47cd26: - fix: detect and alert on version mismatch
+- f77a7b9: - fix: use warning when version mismatch is not expected to error out
+- Updated dependencies [d47cd26]
+- Updated dependencies [f77a7b9]
+- Updated dependencies [38d3ac2]
+  - @copilotkit/shared@1.5.18
+
+## 1.5.18-next.3
+
+### Patch Changes
+
+- f77a7b9: - fix: use warning when version mismatch is not expected to error out
+- Updated dependencies [f77a7b9]
+  - @copilotkit/shared@1.5.18-next.3
+
 ## 1.5.18-next.2
 
 ### Patch Changes

@@ -1,16 +1,22 @@
 <Tabs groupId="lg-deployment-type" items={['Local (LangGraph Studio)', 'Self hosted (FastAPI)', 'LangGraph Platform']}>
   <Tab value="Local (LangGraph Studio)">
-    For local development, you can [use the LangGraph CLI](https://langchain-ai.github.io/langgraph/cloud/reference/cli/) to start a 
-    development server and LangGraph studio session.
+    For local development, you can use the [LangGraph CLI](https://langchain-ai.github.io/langgraph/cloud/reference/cli/) to start a development server and LangGraph studio session.
 
     <Callout type="info">
       You will need a [LangSmith account](https://smith.langchain.com) to use this method.
     </Callout>
 
     ```bash
-    langgraph dev --host localhost --port 8000
-    # our deployment URL will be http://localhost:8000
+    # python
+    langgraph dev --host localhost --port 8000 
     ```
+
+    ```bash
+    # typescript
+    npx @langchain/langgraph-cli dev --host localhost --port 8000
+    ```
+
+    After starting the LangGraph server, the deployment URL will be `http://localhost:8000`.
   </Tab>
 
   <Tab value="Self hosted (FastAPI)">

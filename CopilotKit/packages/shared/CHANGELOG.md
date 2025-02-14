@@ -1,5 +1,33 @@
 # @copilotkit/shared
 
+## 1.5.19
+
+### Patch Changes
+
+- 0dd1ab9: - fix(errors): allow non copilotkit errors to pass to consumer app error boundary
+
+## 1.5.19-next.1
+
+### Patch Changes
+
+- 0dd1ab9: - fix(errors): allow non copilotkit errors to pass to consumer app error boundary
+
+## 1.5.19-next.0
+
+## 1.5.18
+
+### Patch Changes
+
+- d47cd26: - fix: detect and alert on version mismatch
+- f77a7b9: - fix: use warning when version mismatch is not expected to error out
+- 38d3ac2: - fix: add additional info the our error messages
+
+## 1.5.18-next.3
+
+### Patch Changes
+
+- f77a7b9: - fix: use warning when version mismatch is not expected to error out
+
 ## 1.5.18-next.2
 
 ### Patch Changes

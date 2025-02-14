@@ -17,6 +17,11 @@ export const ERROR_NAMES = {
   MISSING_PUBLIC_API_KEY_ERROR: "MissingPublicApiKeyError",
   UPGRADE_REQUIRED_ERROR: "UpgradeRequiredError",
 } as const;
+export const COPILOT_CLOUD_ERROR_NAMES = [
+  ERROR_NAMES.CONFIGURATION_ERROR,
+  ERROR_NAMES.MISSING_PUBLIC_API_KEY_ERROR,
+  ERROR_NAMES.UPGRADE_REQUIRED_ERROR,
+];
 
 export enum CopilotKitErrorCode {
   NETWORK_ERROR = "NETWORK_ERROR",
@@ -138,6 +143,12 @@ export class CopilotKitMisuseError extends CopilotKitError {
   }
 }
 
+const getVersionMismatchErrorMessage = ({
+  reactCoreVersion,
+  runtimeVersion,
+  runtimeClientGqlVersion,
+}: VersionMismatchResponse) =>
+  `Version mismatch detected: @copilotkit/runtime@${runtimeVersion ?? ""} is not compatible with @copilotkit/react-core@${reactCoreVersion} and @copilotkit/runtime-client-gql@${runtimeClientGqlVersion}. Please ensure all installed copilotkit packages are on the same version.`;
 /**
  * Error thrown when CPK versions does not match
  *
@@ -150,8 +161,14 @@ export class CopilotKitVersionMismatchError extends CopilotKitError {
     runtimeClientGqlVersion,
   }: VersionMismatchResponse) {
     const code = CopilotKitErrorCode.VERSION_MISMATCH;
-    const message = `Version mismatch detected: @copilotkit/runtime@${runtimeVersion ?? ""} is not compatible with @copilotkit/react-core@${reactCoreVersion} and @copilotkit/runtime-client-gql@${runtimeClientGqlVersion}. Please ensure all installed copilotkit packages are on the same version.`;
-    super({ message, code });
+    super({
+      message: getVersionMismatchErrorMessage({
+        reactCoreVersion,
+        runtimeVersion,
+        runtimeClientGqlVersion,
+      }),
+      code,
+    });
     this.name = ERROR_NAMES.COPILOT_KIT_VERSION_MISMATCH_ERROR;
   }
 }
@@ -341,7 +358,7 @@ interface VersionMismatchResponse {
   reactCoreVersion: string;
 }
 
-export async function detectPossibleVersionMismatchError({
+export async function getPossibleVersionMismatch({
   runtimeVersion,
   runtimeClientGqlVersion,
 }: {
@@ -354,12 +371,19 @@ export async function detectPossibleVersionMismatchError({
     COPILOTKIT_VERSION !== runtimeClientGqlVersion ||
     runtimeVersion !== runtimeClientGqlVersion
   ) {
-    throw new CopilotKitVersionMismatchError({
+    return {
       runtimeVersion,
       runtimeClientGqlVersion,
       reactCoreVersion: COPILOTKIT_VERSION,
-    });
+      message: getVersionMismatchErrorMessage({
+        runtimeVersion,
+        runtimeClientGqlVersion,
+        reactCoreVersion: COPILOTKIT_VERSION,
+      }),
+    };
   }
+
+  return;
 }
 
 const resolveLowLevelErrorMessage = ({ errorCode, url }: { errorCode?: string; url: string }) => {
