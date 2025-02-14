@@ -3,6 +3,7 @@
 FROM node:22-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
+ENV COREPACK_HOME="/tmp/corepack"
 RUN corepack enable
 RUN corepack prepare pnpm@9.15.0 --activate
 RUN pnpm i -g turbo
