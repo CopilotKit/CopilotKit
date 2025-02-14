@@ -8,7 +8,7 @@ import {
   useModelSelectorContext,
 } from "@/lib/model-selector-provider";
 import { ModelSelector } from "@/components/ModelSelector";
-
+import { useSearchParams } from "next/navigation";
 export default function ModelSelectorWrapper() {
   return (
     <main className="flex flex-col items-center justify-between">

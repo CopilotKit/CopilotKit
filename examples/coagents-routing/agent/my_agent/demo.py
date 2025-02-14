@@ -6,18 +6,40 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
+# pylint: disable=wrong-import-position
 from fastapi import FastAPI
 import uvicorn
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from copilotkit import CopilotKitRemoteEndpoint, Action, LangGraphAgent
+from copilotkit.crewai import CrewAIAgent
 from my_agent.langgraph.joke_agent import joke_graph
 from my_agent.langgraph.email_agent import email_graph
 from my_agent.langgraph.pirate_agent import pirate_graph
+from my_agent.crewai.joke_agent import JokeAgentFlow
+from my_agent.crewai.email_agent import EmailAgentFlow
+from my_agent.crewai.pirate_agent import PirateAgentFlow
 
 
 def get_agents(context):
     """Get the agents."""
-    print(context, flush=True)
+    if context.get("properties", {}).get("model") == "crewai":
+        return [
+            CrewAIAgent(
+                name="joke_agent",
+                description="Make a joke.",
+                flow=JokeAgentFlow(),
+            ),
+            CrewAIAgent(
+                name="email_agent",
+                description="Write an email.",
+                flow=EmailAgentFlow(),
+            ),
+            CrewAIAgent(
+                name="pirate_agent",
+                description="Speak like a pirate.",
+                flow=PirateAgentFlow(),
+            )
+        ]
     return [
         LangGraphAgent(
             name="joke_agent",

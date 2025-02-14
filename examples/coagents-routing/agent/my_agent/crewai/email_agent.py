@@ -78,7 +78,7 @@ class EmailAgentFlow(Flow[Dict[str, Any]]):
 
         tool_message = {
             "role": "tool",
-            "name": tool_calls[0]["name"] if tool_calls else "write_email",
+            "name": tool_calls[0]["function"]["name"] if tool_calls else "write_email",
             "content": email,
             "tool_call_id": tool_calls[0]["id"] if tool_calls else ""
         }
