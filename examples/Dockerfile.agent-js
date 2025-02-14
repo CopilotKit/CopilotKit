@@ -3,6 +3,7 @@
 FROM node:22-slim AS production
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.0 /lambda-adapter /opt/extensions/lambda-adapter
 
+ENV HOME=/tmp
 ENV PNPM_HOME="/tmp/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 ENV COREPACK_HOME="/tmp/corepack"
@@ -23,6 +24,7 @@ RUN touch .env
 RUN mkdir .langgraph_api
 
 ENV NODE_ENV=production
+ENV HOME=/tmp
 EXPOSE 8000
 
 # CMD ["node ./node_modules/@langchain/langgraph-cli/dist/cli/cli.mjs dev --config=langgraph.json --no-browser --port 8000 --host 0.0.0.0"]
