@@ -3,8 +3,14 @@ title: "Predictive state updates"
 icon: "lucide/Podcast"
 description: Stream in-progress agent state updates to the frontend.
 ---
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+import { FaWrench } from "react-icons/fa";
+import { FaArrowUp } from "react-icons/fa";
 
 <video src="/images/coagents/intermediate-state-render.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 <Callout>
@@ -28,6 +34,11 @@ You can use this when you want to provide the user with feedback about what your
 - **Build trust** by demonstrating what the agent is working on
 - Enable **agent steering** - allowing users to course-correct the agent if needed
 
+## Important Note
+
+When a node in your LangGraph finishes executing, **its returned state becomes the single source of truth**. While intermediate state updates are great for real-time feedback, any changes you want to persist must be explicitly included in the node's final returned state. Otherwise, they will be overwritten when the node completes.
+
+
 ## Implementation
 
 <Steps>
@@ -37,7 +48,7 @@ You can use this when you want to provide the user with feedback about what your
     </Step>
     <Step>
         ### Define the state
-        We'll be defining a `progress` field in the state, which will be used to simulate a long-running task.
+        We'll be defining a `observed_steps` field in the state, which will be updated as the agent writes different sections of the report.
 
         <Tabs groupId="language" items={["Python", "TypeScript"]}>
             <Tab value="Python">
@@ -46,7 +57,7 @@ You can use this when you want to provide the user with feedback about what your
                 from typing import Literal
 
                 class AgentState(CopilotKitState):
-                    progress: int
+                    observed_steps: list[str]  # Array of completed steps
                 ```
             </Tab>
             <Tab value="TypeScript">
@@ -55,7 +66,7 @@ You can use this when you want to provide the user with feedback about what your
                 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
                 export const AgentStateAnnotation = Annotation.Root({
-                    progress: Annotation<number>,
+                    observed_steps: Annotation<string[]>,  # Array of completed steps
                     ...CopilotKitStateAnnotation.spec,
                 });
                 export type AgentState = typeof AgentStateAnnotation.State;
@@ -65,48 +76,183 @@ You can use this when you want to provide the user with feedback about what your
     </Step>
     <Step>
         ### Emit the intermediate state
-        For long-running tasks, you can emit the state progressively to the frontend. In this example we simulate a long-running task by counting up to 5, with one second between each update.
-        <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
-            <Tab value="Python">
-                ```python title="agent-py/sample_agent/agent.py"
-                from copilotkit.langgraph import copilotkit_emit_state # [!code highlight]
-                # ...
-                async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Literal["cpk_action_node", "tool_node", "__end__"]]:
-                    # ...
+        <TailoredContent
+            className="step"
+            id="state-emission"
+            header={
+                <div>
+                    <p className="text-xl font-semibold">How would you like to emit state updates?</p>
+                    <p className="text-base">
+                        You can either manually emit state updates or configure specific tool calls to emit updates.
+                    </p>
+                </div>
+            }
+        >
+            <TailoredContentOption
+                id="manual-emission"
+                title="Manual Predictive State Updates"
+                description="Manually emit state updates for maximum control over when updates occur."
+                icon={<FaArrowUp />}
+            >
+                For long-running tasks, you can emit state updates progressively as predictions of the final state. In this example, we simulate a long-running task by executing a series of steps with a one second delay between each update.
+                <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+                    <Tab value="Python">
+                        ```python title="agent-py/sample_agent/agent.py"
+                        from copilotkit.langgraph import copilotkit_emit_state # [!code highlight]
+                        # ...
+                        async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Literal["cpk_action_node", "tool_node", "__end__"]]:
+                            # ...
 
-                    # Simulate a long-running task by waiting 5 seconds
-                    for i in range(5):
-                        state["progress"] = i + 1
-                        await copilotkit_emit_state(config, state) # [!code highlight]
-                        await asyncio.sleep(1)
+                            # Simulate executing steps one by one
+                            steps = [
+                                "Analyzing input data...",
+                                "Identifying key patterns...",
+                                "Generating recommendations...",
+                                "Formatting final output..."
+                            ]
+                            
+                            for step in steps:
+                                state.observed_steps = [...(state.observed_steps or []), step]
+                                await copilotkit_emit_state(config, state) # [!code highlight]
+                                await asyncio.sleep(1)
 
-                    # ...
-                ```
-            </Tab>
-            <Tab value="TypeScript">
-                ```ts title="agent-js/src/agent.ts"
-                import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
-                // ...
-                async function chat_node(state: AgentState, config: RunnableConfig) {
-                    // ...
+                            # ...
+                        ```
+                    </Tab>
+                    <Tab value="TypeScript">
+                        ```ts title="agent-js/src/agent.ts"
+                        import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+                        // ...
+                        async function chat_node(state: AgentState, config: RunnableConfig) {
+                            // ...
 
-                    // Simulate a long-running task by waiting 5 seconds
-                    for (let i = 0; i < 5; i++) {
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                        state.progress = i + 1;
-                        copilotkitEmitState(config, state); // [!code highlight]
-                    }
+                            // Simulate executing steps one by one
+                            const steps = [
+                                "Analyzing input data...",
+                                "Identifying key patterns...",
+                                "Generating recommendations...",
+                                "Formatting final output..."
+                            ];
+                            
+                            for (const step of steps) {
+                                state.observed_steps = [...(state.observed_steps ?? []), step];
+                                copilotkitEmitState(config, state);
+                                await new Promise(resolve => setTimeout(resolve, 1000));
+                            }
+                        }
+                        ```
+                    </Tab>
+                </Tabs>
+            </TailoredContentOption>
 
-                    // ...
-                }
+            <TailoredContentOption
+                id="tool-emission"
+                title="Tool-Based Predictive State Updates" 
+                description="Configure specific tool calls to automatically emit intermediate state updates."
+                icon={<FaWrench />}
+            >
+                For long-running tasks, you can configure CopilotKit to automatically predict state updates when specific tool calls are made. In this example, we'll configure CopilotKit to predict state updates whenever the LLM calls the step progress tool.
+                <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+                    <Tab value="Python">
+                        ```python
+                        from copilotkit.langgraph import copilotkit_customize_config
 
-                ```
-            </Tab>
-        </Tabs>
+                        def frontend_actions_node(state: AgentState, config: RunnableConfig):
+                            # Configure CopilotKit to treat step progress tool calls as predictive of the final state
+                            config = copilotkit_customize_config(
+                                config,
+                                emit_intermediate_state=[
+                                    {
+                                        "state_key": "observed_steps",
+                                        "tool": "StepProgressTool",
+                                        "tool_argument": "steps"
+                                    },
+                                ]
+                            )
+
+                            # Define the step progress tool
+                            step_progress = tool("StepProgressTool", {
+                                "description": "Records progress by updating the steps array",
+                                "parameters": {
+                                    "steps": {
+                                        "type": "array",
+                                        "items": {"type": "string"},
+                                        "description": "Array of completed steps"
+                                    }
+                                },
+                                "function": lambda steps: steps
+                            })
+
+                            # Provide the actions to the LLM
+                            model = ChatOpenAI(model="gpt-4").bind(
+                                functions=[step_progress]
+                            )
+
+                            # Call the model with CopilotKit's modified config
+                            response = await model.ainvoke(
+                                state.messages,
+                                config=config
+                            )
+
+                            return state
+                        ```
+                    </Tab>
+                    <Tab value="TypeScript">
+                        ```typescript
+                        import { copilotkitCustomizeConfig } from '@copilotkit/sdk-js/langgraph';
+
+                        async function frontendActionsNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
+                            # Configure CopilotKit to treat step progress tool calls as predictive of the final state
+                            const modifiedConfig = copilotkitCustomizeConfig(
+                                config,
+                                emitIntermediateState=[
+                                    {
+                                        "stateKey": "observed_steps",
+                                        "tool": "StepProgressTool",
+                                        "toolArgument": "steps",
+                                    },
+                                ],
+                            );
+
+                            # Define the step progress tool
+                            const stepProgress = tool("StepProgressTool", {
+                                description: "Records progress by updating the steps array",
+                                parameters: {
+                                    steps: {
+                                        type: "array",
+                                        items: { type: "string" },
+                                        description: "Array of completed steps"
+                                    }
+                                },
+                                function: async (steps: string[]) => {
+                                    return steps;
+                                },
+                            });
+
+                            # Provide the actions to the LLM
+                            const model = new ChatOpenAI({ 
+                                model: 'gpt-4'
+                            }).bind({
+                                functions: [stepProgress]
+                            });
+
+                            # Call the model with CopilotKit's modified config
+                            const response = await model.invoke(
+                                state.messages,
+                                { config: modifiedConfig }
+                            );
+
+                            return state;
+                        }
+                        ```
+                    </Tab>
+                </Tabs>
+            </TailoredContentOption>
+        </TailoredContent>
     </Step>
     <Step>
-        ### Render the intermediate state
-        These updates will be reflected in the frontend as the agent runs and can be used to render progress indicators.
+        ### Observe the predictions
+        These predictions will be emitted as the agent runs, allowing you to track its progress before the final state is determined.
 
         ```tsx title="ui/app/page.tsx"
         import { useCoAgent, useCoAgentStateRender } from '@copilotkit/react-core';
@@ -114,24 +260,40 @@ You can use this when you want to provide the user with feedback about what your
         // ...
         
         const YourMainContent = () => {
-            // ...
-            // Grab the state for reactive updates // [!code highlight:3]
+            // Get access to both predicted and final states
             const { state } = useCoAgent({ name: "sample_agent" });
 
-            // Add a state renderer to the chat // [!code highlight:8]
+            // Add a state renderer to observe predictions
             useCoAgentStateRender({
                 name: "sample_agent",
                 render: ({ state }) => {
-                    if (!state.progress) return null;
-                    return <div>Progress: {state.progress}</div>;
+                    if (!state.observed_steps?.length) return null;
+                    return (
+                        <div>
+                            <h3>Current Progress:</h3>
+                            <ul>
+                                {state.observed_steps.map((step, i) => (
+                                    <li key={i}>{step}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    );
                 },
             });
-            // ...
 
             return (
                 <div>
-                    <h1>Your main content</h1>
-                    {state.progress > 0 && <div>Progress: {state.progress}</div>} // [!code highlight]
+                    <h1>Agent Progress</h1>
+                    {state.observed_steps?.length > 0 && (
+                        <div>
+                            <h3>Final Steps:</h3>
+                            <ul>
+                                {state.observed_steps.map((step, i) => (
+                                    <li key={i}>{step}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                 </div>
             )
         }
@@ -139,8 +301,7 @@ You can use this when you want to provide the user with feedback about what your
     </Step>
     <Step>
         ### Give it a try!
-        Now you'll notice that the progress indicator is updated and emitted as the agent makes progress. You can apply this pattern
-        to any long-running task in your agent.
+        Now you'll notice that the state predictions are emitted as the agent makes progress, giving you insight into its work before the final state is determined.
+        You can apply this pattern to any long-running task in your agent.
     </Step>
 </Steps>
-
