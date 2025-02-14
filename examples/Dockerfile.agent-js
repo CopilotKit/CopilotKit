@@ -3,7 +3,7 @@
 FROM node:22-slim AS production
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.0 /lambda-adapter /opt/extensions/lambda-adapter
 
-ENV PNPM_HOME="/pnpm"
+ENV PNPM_HOME="/tmp/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 ENV COREPACK_HOME="/tmp/corepack"
 RUN corepack enable
