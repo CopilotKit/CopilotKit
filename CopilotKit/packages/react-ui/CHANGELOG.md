@@ -1,5 +1,150 @@
 # ui
 
+## 1.5.19
+
+### Patch Changes
+
+- Updated dependencies [0dd1ab9]
+- Updated dependencies [5bc68f8]
+  - @copilotkit/react-core@1.5.19
+  - @copilotkit/shared@1.5.19
+  - @copilotkit/runtime-client-gql@1.5.19
+
+## 1.5.19-next.1
+
+### Patch Changes
+
+- Updated dependencies [0dd1ab9]
+  - @copilotkit/react-core@1.5.19-next.1
+  - @copilotkit/shared@1.5.19-next.1
+  - @copilotkit/runtime-client-gql@1.5.19-next.1
+
+## 1.5.19-next.0
+
+### Patch Changes
+
+- Updated dependencies [5bc68f8]
+  - @copilotkit/react-core@1.5.19-next.0
+  - @copilotkit/runtime-client-gql@1.5.19-next.0
+  - @copilotkit/shared@1.5.19-next.0
+
+## 1.5.18
+
+### Patch Changes
+
+- Updated dependencies [d47cd26]
+- Updated dependencies [f77a7b9]
+- Updated dependencies [38d3ac2]
+  - @copilotkit/runtime-client-gql@1.5.18
+  - @copilotkit/shared@1.5.18
+  - @copilotkit/react-core@1.5.18
+
+## 1.5.18-next.3
+
+### Patch Changes
+
+- Updated dependencies [f77a7b9]
+  - @copilotkit/react-core@1.5.18-next.3
+  - @copilotkit/runtime-client-gql@1.5.18-next.3
+  - @copilotkit/shared@1.5.18-next.3
+
+## 1.5.18-next.2
+
+### Patch Changes
+
+- Updated dependencies [38d3ac2]
+  - @copilotkit/shared@1.5.18-next.2
+  - @copilotkit/runtime-client-gql@1.5.18-next.2
+  - @copilotkit/react-core@1.5.18-next.2
+
+## 1.5.18-next.1
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.5.18-next.1
+- @copilotkit/react-core@1.5.18-next.1
+- @copilotkit/shared@1.5.18-next.1
+
+## 1.5.18-next.0
+
+### Patch Changes
+
+- Updated dependencies [d47cd26]
+  - @copilotkit/runtime-client-gql@1.5.18-next.0
+  - @copilotkit/shared@1.5.18-next.0
+  - @copilotkit/react-core@1.5.18-next.0
+
+## 1.5.17
+
+### Patch Changes
+
+- Updated dependencies [1fc3902]
+  - @copilotkit/runtime-client-gql@1.5.17
+  - @copilotkit/shared@1.5.17
+  - @copilotkit/react-core@1.5.17
+
+## 1.5.17-next.0
+
+### Patch Changes
+
+- Updated dependencies [1fc3902]
+  - @copilotkit/runtime-client-gql@1.5.17-next.0
+  - @copilotkit/shared@1.5.17-next.0
+  - @copilotkit/react-core@1.5.17-next.0
+
+## 1.5.16
+
+### Patch Changes
+
+- Updated dependencies [07be5ca]
+- Updated dependencies [48b7c7b]
+  - @copilotkit/react-core@1.5.16
+  - @copilotkit/runtime-client-gql@1.5.16
+  - @copilotkit/shared@1.5.16
+
+## 1.5.16-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.5.16-next.2
+- @copilotkit/react-core@1.5.16-next.2
+- @copilotkit/shared@1.5.16-next.2
+
+## 1.5.16-next.1
+
+### Patch Changes
+
+- Updated dependencies [48b7c7b]
+  - @copilotkit/runtime-client-gql@1.5.16-next.1
+  - @copilotkit/shared@1.5.16-next.1
+  - @copilotkit/react-core@1.5.16-next.1
+
+## 1.5.16-next.0
+
+### Patch Changes
+
+- Updated dependencies [07be5ca]
+  - @copilotkit/react-core@1.5.16-next.0
+  - @copilotkit/runtime-client-gql@1.5.16-next.0
+  - @copilotkit/shared@1.5.16-next.0
+
+## 1.5.15
+
+### Patch Changes
+
+- 7b3141d: - feat(interrupt): support LG interrupt with useLangGraphInterrupt hook
+  - chore(interrupt): add e2e test to interrupt functionality
+  - feat(interrupt): add support for multiple interrupts and conditions
+- 66bd0f7: - fix(react-ui): check for updates endpoint to point to production
+- Updated dependencies [0dc0f43]
+- Updated dependencies [06f9f35]
+- Updated dependencies [7b3141d]
+- Updated dependencies [c9ae305]
+- Updated dependencies [0bbb4ab]
+  - @copilotkit/runtime-client-gql@1.5.15
+  - @copilotkit/react-core@1.5.15
+  - @copilotkit/shared@1.5.15
+
 ## 1.5.15-next.8
 
 ### Patch Changes

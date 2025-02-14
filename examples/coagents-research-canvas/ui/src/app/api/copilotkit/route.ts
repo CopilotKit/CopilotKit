@@ -9,7 +9,7 @@ import { NextRequest } from "next/server";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const llmAdapter = new OpenAIAdapter({ openai } as any);
-const langsmithApiKey = process.env.LANGSMITH_API_KEY as string || "";
+const langsmithApiKey = process.env.LANGSMITH_API_KEY as string
 
 export const POST = async (req: NextRequest) => {
   const searchParams = req.nextUrl.searchParams

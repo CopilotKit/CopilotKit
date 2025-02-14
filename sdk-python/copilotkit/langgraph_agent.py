@@ -1,6 +1,7 @@
 """LangGraph agent for CopilotKit"""
 
 import uuid
+import json
 from typing import Optional, List, Callable, Any, cast, Union, TypedDict
 from typing_extensions import NotRequired
 
@@ -250,7 +251,6 @@ class LangGraphAgent(Agent):
 
         agent_state = await self.graph.aget_state(config)
         state["messages"] = agent_state.values.get("messages", [])
-
         langchain_messages = self.convert_messages(messages)
         state = cast(Callable, self.merge_state)(
             state=state,
@@ -263,7 +263,7 @@ class LangGraphAgent(Agent):
         interrupt_from_meta_events = next((ev for ev in (meta_events or []) if ev.get("name") == "LangGraphInterruptEvent"), None)
         resume_input = None
 
-        # An active interrupt event that runs through messages. Use latest message as response
+         # An active interrupt event that runs through messages. Use latest message as response
         if self.active_interrupt_event and interrupt_from_meta_events is None:
             resume_input = Command(resume=langchain_messages[-1])
 
@@ -309,18 +309,15 @@ class LangGraphAgent(Agent):
                 self.active_interrupt_event = True
                 value = interrupt_event[0].value
                 if not isinstance(value, str) and "__copilotkit_interrupt_value__" in value:
+                    ev_value = value["__copilotkit_interrupt_value__"]
                     yield langchain_dumps({
                         "event": "on_copilotkit_interrupt",
-                        "data": { 
-                            "value": value["__copilotkit_interrupt_value__"], 
-                            "messages": 
-                                langchain_messages_to_copilotkit(value["__copilotkit_messages__"])
-                        }
+                        "data": { "value": ev_value if isinstance(ev_value, str) else json.dumps(ev_value), "messages": langchain_messages_to_copilotkit(value["__copilotkit_messages__"]) }
                     }) + "\n"
                 else:
                     yield langchain_dumps({
                         "event": "on_interrupt",
-                        "value": value
+                        "value": value if isinstance(value, str) else json.dumps(value)
                     }) + "\n"
                 continue
 
@@ -428,6 +425,14 @@ class LangGraphAgent(Agent):
         *,
         thread_id: str,
     ):
+        if not thread_id:
+            return {
+                "threadId": "",
+                "threadExists": False,
+                "state": {},
+                "messages": []
+            }
+
         config = ensure_config(cast(Any, self.langgraph_config.copy()) if self.langgraph_config else {}) # pylint: disable=line-too-long
         config["configurable"] = config.get("configurable", {})
         config["configurable"]["thread_id"] = thread_id
@@ -435,7 +440,7 @@ class LangGraphAgent(Agent):
         state = {**(await self.graph.aget_state(config)).values}
         if state == {}:
             return {
-                "threadId": thread_id,
+                "threadId": thread_id or "",
                 "threadExists": False,
                 "state": {},
                 "messages": []

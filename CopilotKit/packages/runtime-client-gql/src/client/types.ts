@@ -8,9 +8,9 @@ import {
   BaseMessageOutput,
   AgentStateMessageInput,
   MessageStatusCode,
-  LangGraphInterruptEvent,
+  LangGraphInterruptEvent as GqlLangGraphInterruptEvent,
   MetaEventName,
-  CopilotKitLangGraphInterruptEvent,
+  CopilotKitLangGraphInterruptEvent as GqlCopilotKitLangGraphInterruptEvent,
 } from "../graphql/@generated/graphql";
 
 type MessageType = "TextMessage" | "ActionExecutionMessage" | "ResultMessage" | "AgentStateMessage";
@@ -134,5 +134,13 @@ export function langGraphInterruptEvent(
 ): LangGraphInterruptEvent {
   return { ...eventProps, name: MetaEventName.LangGraphInterruptEvent, type: "MetaEvent" };
 }
+
+type LangGraphInterruptEvent<TValue extends any = any> = GqlLangGraphInterruptEvent & {
+  value: TValue;
+};
+type CopilotKitLangGraphInterruptEvent<TValue extends any = any> =
+  GqlCopilotKitLangGraphInterruptEvent & {
+    data: GqlCopilotKitLangGraphInterruptEvent["data"] & { value: TValue };
+  };
 
 export type MetaEvent = LangGraphInterruptEvent | CopilotKitLangGraphInterruptEvent;

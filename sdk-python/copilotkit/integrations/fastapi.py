@@ -4,6 +4,7 @@ import logging
 import asyncio
 import re
 import uuid
+import warnings
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Any, cast, Optional
 from fastapi import FastAPI, Request, HTTPException
@@ -30,6 +31,12 @@ def add_fastapi_endpoint(
         max_workers: int = 10,
     ):
     """Add FastAPI endpoint with configurable ThreadPoolExecutor size"""
+    if use_thread_pool:
+        warnings.warn(
+            "The 'use_thread_pool' parameter is deprecated " + 
+            "and will be removed in a future version.",
+            DeprecationWarning
+        )
 
     def run_handler_in_thread(request: Request, sdk: CopilotKitRemoteEndpoint):
         # Run the handler coroutine in the event loop

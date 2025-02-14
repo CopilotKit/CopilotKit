@@ -13,6 +13,40 @@ from copilotkit.crewai import CrewAIAgent
 from research_canvas.crewai.agent import ResearchCanvasFlow
 from research_canvas.langgraph.agent import graph
 
+# from contextlib import asynccontextmanager
+# from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+# @asynccontextmanager
+# async def lifespan(fastapi_app: FastAPI):
+#     """Lifespan for the FastAPI app."""
+#     async with AsyncSqliteSaver.from_conn_string(
+#         ":memory:"
+#     ) as checkpointer:
+#         # Create an async graph
+#         graph = workflow.compile(checkpointer=checkpointer)
+
+#         # Create SDK with the graph
+#         sdk = CopilotKitRemoteEndpoint(
+#             agents=[
+#                 LangGraphAgent(
+#                     name="research_agent",
+#                     description="Research agent.",
+#                     graph=graph,
+#                 ),
+#                 LangGraphAgent(
+#                     name="research_agent_google_genai",
+#                     description="Research agent.",
+#                     graph=graph
+#                 ),
+#             ],
+#         )
+
+#         # Add the CopilotKit FastAPI endpoint
+#         add_fastapi_endpoint(fastapi_app, sdk, "/copilotkit")
+#         yield
+
+# app = FastAPI(lifespan=lifespan)
+
+
 app = FastAPI()
 sdk = CopilotKitRemoteEndpoint(
     agents=[
@@ -36,7 +70,7 @@ sdk = CopilotKitRemoteEndpoint(
 
 add_fastapi_endpoint(app, sdk, "/copilotkit")
 
-# add new route for health check
+
 @app.get("/health")
 def health():
     """Health check."""

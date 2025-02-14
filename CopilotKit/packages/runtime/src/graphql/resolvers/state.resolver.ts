@@ -14,7 +14,7 @@ export class StateResolver {
 
     if (!agent) {
       return {
-        threadId: data.threadId,
+        threadId: data.threadId || "",
         threadExists: false,
         state: JSON.stringify({}),
         messages: JSON.stringify([]),

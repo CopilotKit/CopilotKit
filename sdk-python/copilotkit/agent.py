@@ -42,6 +42,7 @@ class Agent(ABC):
     ):
         """Execute the agent"""
 
+    @abstractmethod
     async def get_state(
         self,
         *,
@@ -49,11 +50,12 @@ class Agent(ABC):
     ):
         """Default get_state implementation"""
         return {
-            "threadId": thread_id,
+            "threadId": thread_id or "",
             "threadExists": False,
             "state": {},
             "messages": []
         }
+
 
     def dict_repr(self) -> AgentDict:
         """Dict representation of the action"""

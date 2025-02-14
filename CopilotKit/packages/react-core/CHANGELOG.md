@@ -1,5 +1,143 @@
 # ui
 
+## 1.5.19
+
+### Patch Changes
+
+- 0dd1ab9: - fix(errors): allow non copilotkit errors to pass to consumer app error boundary
+- 5bc68f8: - fix(actions): warn on action duplication
+  - fix(actions): warn on coagent state render duplication
+- Updated dependencies [0dd1ab9]
+  - @copilotkit/shared@1.5.19
+  - @copilotkit/runtime-client-gql@1.5.19
+
+## 1.5.19-next.1
+
+### Patch Changes
+
+- 0dd1ab9: - fix(errors): allow non copilotkit errors to pass to consumer app error boundary
+- Updated dependencies [0dd1ab9]
+  - @copilotkit/shared@1.5.19-next.1
+  - @copilotkit/runtime-client-gql@1.5.19-next.1
+
+## 1.5.19-next.0
+
+### Patch Changes
+
+- 5bc68f8: - fix(actions): warn on action duplication
+  - fix(actions): warn on coagent state render duplication
+  - @copilotkit/runtime-client-gql@1.5.19-next.0
+  - @copilotkit/shared@1.5.19-next.0
+
+## 1.5.18
+
+### Patch Changes
+
+- f77a7b9: - fix: use warning when version mismatch is not expected to error out
+- Updated dependencies [d47cd26]
+- Updated dependencies [f77a7b9]
+- Updated dependencies [38d3ac2]
+  - @copilotkit/runtime-client-gql@1.5.18
+  - @copilotkit/shared@1.5.18
+
+## 1.5.18-next.3
+
+### Patch Changes
+
+- f77a7b9: - fix: use warning when version mismatch is not expected to error out
+- Updated dependencies [f77a7b9]
+  - @copilotkit/runtime-client-gql@1.5.18-next.3
+  - @copilotkit/shared@1.5.18-next.3
+
+## 1.5.18-next.2
+
+### Patch Changes
+
+- Updated dependencies [38d3ac2]
+  - @copilotkit/shared@1.5.18-next.2
+  - @copilotkit/runtime-client-gql@1.5.18-next.2
+
+## 1.5.18-next.1
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.5.18-next.1
+- @copilotkit/shared@1.5.18-next.1
+
+## 1.5.18-next.0
+
+### Patch Changes
+
+- Updated dependencies [d47cd26]
+  - @copilotkit/runtime-client-gql@1.5.18-next.0
+  - @copilotkit/shared@1.5.18-next.0
+
+## 1.5.17
+
+### Patch Changes
+
+- Updated dependencies [1fc3902]
+  - @copilotkit/runtime-client-gql@1.5.17
+  - @copilotkit/shared@1.5.17
+
+## 1.5.17-next.0
+
+### Patch Changes
+
+- Updated dependencies [1fc3902]
+  - @copilotkit/runtime-client-gql@1.5.17-next.0
+  - @copilotkit/shared@1.5.17-next.0
+
+## 1.5.16
+
+### Patch Changes
+
+- 07be5ca: - fix: disable error toasts if dev console is disabled
+- Updated dependencies [48b7c7b]
+  - @copilotkit/runtime-client-gql@1.5.16
+  - @copilotkit/shared@1.5.16
+
+## 1.5.16-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.5.16-next.2
+- @copilotkit/shared@1.5.16-next.2
+
+## 1.5.16-next.1
+
+### Patch Changes
+
+- Updated dependencies [48b7c7b]
+  - @copilotkit/runtime-client-gql@1.5.16-next.1
+  - @copilotkit/shared@1.5.16-next.1
+
+## 1.5.16-next.0
+
+### Patch Changes
+
+- 07be5ca: - fix: disable error toasts if dev console is disabled
+  - @copilotkit/runtime-client-gql@1.5.16-next.0
+  - @copilotkit/shared@1.5.16-next.0
+
+## 1.5.15
+
+### Patch Changes
+
+- 06f9f35: - feat(interrupt): add copilotkit interrupt as messages with copilotkit interrupt convenience fn
+  - chore(deps): update dependencies for demos
+  - chore(interrupt-as-message): add e2e test for interrupt as message
+- 7b3141d: - feat(interrupt): support LG interrupt with useLangGraphInterrupt hook
+  - chore(interrupt): add e2e test to interrupt functionality
+  - feat(interrupt): add support for multiple interrupts and conditions
+- c9ae305: - perf: prevent redundant API calls
+- Updated dependencies [0dc0f43]
+- Updated dependencies [06f9f35]
+- Updated dependencies [7b3141d]
+- Updated dependencies [0bbb4ab]
+  - @copilotkit/runtime-client-gql@1.5.15
+  - @copilotkit/shared@1.5.15
+
 ## 1.5.15-next.8
 
 ### Patch Changes

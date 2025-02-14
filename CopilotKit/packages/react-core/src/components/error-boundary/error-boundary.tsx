@@ -3,6 +3,7 @@ import { Severity, CopilotKitError } from "@copilotkit/shared";
 import { StatusChecker } from "../../lib/status-checker";
 import { renderCopilotKitUsage, UsageBanner } from "../usage-banner";
 import { useErrorToast } from "./error-utils";
+import { COPILOT_CLOUD_ERROR_NAMES } from "@copilotkit/shared";
 
 const statusChecker = new StatusChecker();
 
@@ -57,22 +58,31 @@ export class CopilotErrorBoundary extends React.Component<Props, State> {
   render() {
     if (this.state.hasError) {
       if (this.state.error instanceof CopilotKitError) {
-        return renderCopilotKitUsage(this.state.error);
+        // @ts-expect-error -- It's a copilotkit error at this state. Name is valid
+        if (COPILOT_CLOUD_ERROR_NAMES.includes(this.state.error.name)) {
+          return (
+            <ErrorToast error={this.state.error}>
+              {renderCopilotKitUsage(this.state.error)}
+            </ErrorToast>
+          );
+        }
+
+        return (
+          <>
+            {this.props.children}
+            {this.props.showUsageBanner && (
+              <UsageBanner
+                severity={this.state.status?.severity}
+                message={this.state.status?.message}
+              />
+            )}
+          </>
+        );
       }
-      return <ErrorToast error={this.state.error}>{this.props.children}</ErrorToast>;
+      throw this.state.error;
     }
 
-    return (
-      <>
-        {this.props.children}
-        {this.props.showUsageBanner ? (
-          <UsageBanner
-            severity={this.state.status?.severity}
-            message={this.state.status?.message}
-          />
-        ) : null}
-      </>
-    );
+    return this.props.children;
   }
 }
 
@@ -85,5 +95,6 @@ export function ErrorToast({ error, children }: { error?: Error; children: React
     }
   }, [error, addErrorToast]);
 
+  if (!error) throw error;
   return children;
 }

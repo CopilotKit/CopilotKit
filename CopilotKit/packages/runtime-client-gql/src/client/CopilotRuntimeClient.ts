@@ -9,16 +9,43 @@ import {
 import { generateCopilotResponseMutation } from "../graphql/definitions/mutations";
 import { getAvailableAgentsQuery, loadAgentStateQuery } from "../graphql/definitions/queries";
 import { OperationResultSource, OperationResult } from "urql";
-import { ResolvedCopilotKitError, CopilotKitLowLevelError } from "@copilotkit/shared";
+import {
+  ResolvedCopilotKitError,
+  CopilotKitLowLevelError,
+  CopilotKitError,
+  CopilotKitVersionMismatchError,
+  getPossibleVersionMismatch,
+} from "@copilotkit/shared";
 
 const createFetchFn =
-  (signal?: AbortSignal) =>
+  (signal?: AbortSignal, handleGQLWarning?: (warning: string) => void) =>
   async (...args: Parameters<typeof fetch>) => {
+    // @ts-expect-error -- since this is our own header, TS will not recognize
+    const publicApiKey = args[1]?.headers?.["x-copilotcloud-public-api-key"];
     try {
       const result = await fetch(args[0], { ...(args[1] ?? {}), signal });
+
+      // No mismatch checking if cloud is being used
+      const mismatch = publicApiKey
+        ? null
+        : await getPossibleVersionMismatch({
+            runtimeVersion: result.headers.get("X-CopilotKit-Runtime-Version")!,
+            runtimeClientGqlVersion: packageJson.version,
+          });
       if (result.status !== 200) {
-        throw new ResolvedCopilotKitError({ status: result.status });
+        if (result.status >= 400 && result.status <= 500) {
+          if (mismatch) {
+            throw new CopilotKitVersionMismatchError(mismatch);
+          }
+
+          throw new ResolvedCopilotKitError({ status: result.status });
+        }
       }
+
+      if (mismatch && handleGQLWarning) {
+        handleGQLWarning(mismatch.message);
+      }
+
       return result;
     } catch (error) {
       // Let abort error pass through. It will be suppressed later
@@ -26,6 +53,9 @@ const createFetchFn =
         (error as Error).message.includes("BodyStreamBuffer was aborted") ||
         (error as Error).message.includes("signal is aborted without reason")
       ) {
+        throw error;
+      }
+      if (error instanceof CopilotKitError) {
         throw error;
       }
       throw new CopilotKitLowLevelError({ error: error as Error, url: args[0] as string });
@@ -38,16 +68,19 @@ export interface CopilotRuntimeClientOptions {
   headers?: Record<string, string>;
   credentials?: RequestCredentials;
   handleGQLErrors?: (error: Error) => void;
+  handleGQLWarning?: (warning: string) => void;
 }
 
 export class CopilotRuntimeClient {
   client: Client;
   public handleGQLErrors?: (error: Error) => void;
+  public handleGQLWarning?: (warning: string) => void;
 
   constructor(options: CopilotRuntimeClientOptions) {
     const headers: Record<string, string> = {};
 
     this.handleGQLErrors = options.handleGQLErrors;
+    this.handleGQLWarning = options.handleGQLWarning;
 
     if (options.headers) {
       Object.assign(headers, options.headers);
@@ -79,7 +112,7 @@ export class CopilotRuntimeClient {
     properties?: GenerateCopilotResponseMutationVariables["properties"];
     signal?: AbortSignal;
   }) {
-    const fetchFn = createFetchFn(signal);
+    const fetchFn = createFetchFn(signal, this.handleGQLWarning);
     const result = this.client.mutation<
       GenerateCopilotResponseMutation,
       GenerateCopilotResponseMutationVariables

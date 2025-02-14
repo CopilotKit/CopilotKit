@@ -1,0 +1,222 @@
+---
+title: Interrupt
+icon: "lucide/CirclePause"
+description: Learn how to implement Human-in-the-Loop (HITL) using a interrupt-based flow.
+---
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
+
+<video src="/images/coagents/interrupt-flow.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+
+<Callout type="info">
+  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter) with
+  the implementation below applied!
+</Callout>
+
+
+## What is this?
+
+[LangGraph's interrupt flow](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/) provides an intuitive way to implement Human-in-the-loop workflows.
+
+This guide will show you how to both use `interrupt` and how to integrate it with CopilotKit.
+
+## When should I use this?
+
+Human-in-the-loop is a powerful way to implement complex workflows that are production ready. By having a human in the loop,
+you can ensure that the agent is always making the right decisions and ultimately is being steered in the right direction.
+
+Interrupt-based flows are a very intuitive way to implement HITL. Instead of having a node await user input before or after its execution,
+nodes can be interrupted in the middle of their execution to allow for user input. The trade-off is that the agent is not aware of the 
+interaction, however [CopilotKit's SDKs provide helpers to alleviate this](#make-your-agent-aware-of-interruptions).
+
+## Implementation
+
+<Steps>
+<Step>
+### Run and connect your agent
+<RunAndConnectAgentSnippet />
+</Step>
+<Step>
+  ### Install the CopilotKit SDK
+  <InstallSDKSnippet components={props.components}/>
+</Step>
+<Step>
+### Setup your agent state
+We're going to have the agent ask us to name it, so we'll need a state property to store the name.
+
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+    <Tab value="Python">
+        ```python title="agent/sample_agent/agent.py"
+        # ...
+        from copilotkit import CopilotKitState # extends MessagesState
+        # ...
+        
+        # This is the state of the agent.
+        # It inherits from the CopilotKitState properties from CopilotKit.
+        class AgentState(CopilotKitState):
+            agent_name: str
+        ```
+    </Tab>
+    <Tab value="TypeScript">
+        ```typescript title="agent-js/src/agent.ts"
+        // ...
+        import { Annotation } from "@langchain/langgraph";
+        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+        // ...
+        
+        // This is the state of the agent.
+        // It inherits from the CopilotKitState properties from CopilotKit.
+        export const AgentStateAnnotation = Annotation.Root({
+          agent_name: Annotation<string>,
+          ...CopilotKitStateAnnotation.spec,
+        });
+        export type AgentState = typeof AgentStateAnnotation.State;
+        ```
+    </Tab>
+</Tabs>
+
+</Step>
+<Step>
+### Call `interrupt` in your LangGraph agent
+Now we can call `interrupt` in our LangGraph agent.
+
+<Callout type="info">
+  Your agent will not be aware of the `interrupt` interaction by default in LangGraph. 
+
+  If you want this behavior, see the [section on it below](#make-your-agent-aware-of-interruptions).
+</Callout>
+
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+    <Tab value="Python">
+        ```python title="agent/sample_agent/agent.py"
+        from langgraph.types import interrupt # [!code highlight]
+        from langchain_core.messages import SystemMessage
+        from langchain_openai import ChatOpenAI
+        # ...
+
+        def chat_node(state: AgentState, config: RunnableConfig):
+            if not state.get("agent_name"):
+                # Interrupt and wait for the user to respond with a name
+                state["agent_name"] = interrupt("Before we start, what would you like to call me?") # [!code highlight]
+
+            # Tell the agent its name
+            system_message = SystemMessage(
+                content=f"You are a helpful assistant named {state.get('agent_name')}..."
+            )
+
+            response = ChatOpenAI(model="gpt-4o").invoke(
+                [system_message, *state["messages"]],
+                config
+            )
+
+            return {
+                ...state,
+                messages: response,
+            }            
+        ```
+    </Tab>
+    <Tab value="TypeScript">
+        ```typescript title="agent-js/src/agent.ts"
+        import { interrupt } from "@langchain/langgraph"; // [!code highlight]
+        import { SystemMessage } from "@langchain/core/messages";
+        import { ChatOpenAI } from "@langchain/openai";
+        // ...
+
+        async function chat_node(state: AgentState, config: RunnableConfig) {
+          if (!state.agentName) {
+            state.agentName = await interrupt("Before we start, what would you like to call me?"); // [!code highlight]
+          }
+
+          // Tell the agent its name
+          const systemMessage = new SystemMessage({
+            content: `You are a helpful assistant named ${state.agentName}...`,
+          });
+
+          const response = await new ChatOpenAI({ model: "gpt-4o" }).invoke(
+            [systemMessage, ...state.messages],
+            config
+          );
+
+          return {
+            ...state,
+            messages: response,
+          };
+        }
+        ```
+    </Tab>
+</Tabs>
+</Step>
+<Step>
+### Handle the interrupt in your frontend
+At this point, your LangGraph agent's `interrupt` will be called. However, we currently have no handling for rendering or 
+responding to the interrupt in the frontend.
+
+To do this, we'll use the `useLangGraphInterrupt` hook, give it a component to render, and then call `resolve` with the user's response.
+
+```tsx title="app/page.tsx"
+import { useLangGraphInterrupt } from "@copilotkit/react-core"; // [!code highlight]
+// ...
+
+const YourMainContent = () => {
+  // ...
+  // [!code highlight:16]
+  // styles omitted for brevity
+  useLangGraphInterrupt({
+    render: ({ event, resolve }) => (
+      <div>
+        <p>{event.value}</p>
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          resolve((e.target as HTMLFormElement).response.value);
+        }}>
+          <input type="text" name="response" placeholder="Enter your response" />
+          <button type="submit">Submit</button>
+        </form>
+      </div>
+    )
+  });
+  // ...
+
+  return <div>{/* ... */}</div>
+}
+```
+
+</Step>
+<Step>
+### Give it a try!
+Try talking to your agent, you'll see that it now pauses execution and waits for you to respond!
+</Step>
+</Steps>
+
+## Make your agent aware of interruptions
+
+By default, your agent will not be made aware of LangGraph `interrupts`. This is because the decision is not saved into the message's state.
+For simple and sensitive flows, this is ideal. However, you may want to make your agent aware of these interractions.
+
+CopilotKit's SDKs provides a helper function that will perform the interrupt and build messages that you can pass to your agent.
+
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+    <Tab value="Python">
+        ```python title="agent-py/sample_agent/agent.py"
+        from copilotkit import copilotkit_interrupt
+
+        # ...
+        agent_name, new_messages = copilotkit_interrupt(message="Before we start, what would you like to call me?")
+        state["messages"] = state["messages"] + new_messages
+        state["agent_name"] = agent_name
+        # ...
+        ```
+    </Tab>
+    <Tab value="TypeScript">
+        ```typescript title="agent-js/src/agent.ts"
+        import { copilotkitInterrupt } from "@copilotkit/sdk-js/langgraph";
+
+        // ...
+        const {agentName, newMessages} = copilotkitInterrupt("Before we start, what would you like to call me?");
+        state.messages = [...state.messages, ...newMessages];
+        state.agentName = agentName;
+        // ...
+        ```
+    </Tab>
+</Tabs>
