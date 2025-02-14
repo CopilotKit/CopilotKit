@@ -3,8 +3,14 @@ title: "Predictive state updates"
 icon: "lucide/Podcast"
 description: Stream in-progress agent state updates to the frontend.
 ---
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+import { FaWrench } from "react-icons/fa";
+import { FaArrowUp } from "react-icons/fa";
 
 <video src="/images/coagents/intermediate-state-render.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 <Callout>
@@ -27,6 +33,11 @@ You can use this when you want to provide the user with feedback about what your
 - **Keep users engaged** by avoiding long loading indicators
 - **Build trust** by demonstrating what the agent is working on
 - Enable **agent steering** - allowing users to course-correct the agent if needed
+
+## Important Note
+
+When a node in your LangGraph finishes executing, **its returned state becomes the single source of truth**. While intermediate state updates are great for real-time feedback, any changes you want to persist must be explicitly included in the node's final returned state. Otherwise, they will be overwritten when the node completes.
+
 
 ## Implementation
 
@@ -65,44 +76,131 @@ You can use this when you want to provide the user with feedback about what your
     </Step>
     <Step>
         ### Emit the intermediate state
-        For long-running tasks, you can emit the state progressively to the frontend. In this example we simulate a long-running task by counting up to 5, with one second between each update.
-        <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
-            <Tab value="Python">
-                ```python title="agent-py/sample_agent/agent.py"
-                from copilotkit.langgraph import copilotkit_emit_state # [!code highlight]
-                # ...
-                async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Literal["cpk_action_node", "tool_node", "__end__"]]:
-                    # ...
+        <TailoredContent
+            className="step"
+            id="state-emission"
+            header={
+                <div>
+                    <p className="text-xl font-semibold">How would you like to emit state updates?</p>
+                    <p className="text-base">
+                        You can either manually emit state updates or configure specific tool calls to emit updates.
+                    </p>
+                </div>
+            }
+        >
+            <TailoredContentOption
+                id="manual-emission"
+                title="Manual Predictive State Updates"
+                description="Manually emit state updates for maximum control over when updates occur."
+                icon={<FaArrowUp />}
+            >
+                For long-running tasks, you can emit the state progressively to the frontend. In this example we simulate a long-running task by counting up to 5, with one second between each update.
+                <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+                    <Tab value="Python">
+                        ```python title="agent-py/sample_agent/agent.py"
+                        from copilotkit.langgraph import copilotkit_emit_state # [!code highlight]
+                        # ...
+                        async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Literal["cpk_action_node", "tool_node", "__end__"]]:
+                            # ...
 
-                    # Simulate a long-running task by waiting 5 seconds
-                    for i in range(5):
-                        state["progress"] = i + 1
-                        await copilotkit_emit_state(config, state) # [!code highlight]
-                        await asyncio.sleep(1)
+                            # Simulate a long-running task by waiting 5 seconds
+                            for i in range(5):
+                                state["progress"] = i + 1
+                                await copilotkit_emit_state(config, state) # [!code highlight]
+                                await asyncio.sleep(1)
 
-                    # ...
-                ```
-            </Tab>
-            <Tab value="TypeScript">
-                ```ts title="agent-js/src/agent.ts"
-                import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
-                // ...
-                async function chat_node(state: AgentState, config: RunnableConfig) {
-                    // ...
+                            # ...
+                        ```
+                    </Tab>
+                    <Tab value="TypeScript">
+                        ```ts title="agent-js/src/agent.ts"
+                        import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+                        // ...
+                        async function chat_node(state: AgentState, config: RunnableConfig) {
+                            // ...
 
-                    // Simulate a long-running task by waiting 5 seconds
-                    for (let i = 0; i < 5; i++) {
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                        state.progress = i + 1;
-                        copilotkitEmitState(config, state); // [!code highlight]
-                    }
+                            // Simulate a long-running task by waiting 5 seconds
+                            for (let i = 0; i < 5; i++) {
+                                await new Promise(resolve => setTimeout(resolve, 1000));
+                                state.progress = i + 1;
+                                copilotkitEmitState(config, state); // [!code highlight]
+                            }
 
-                    // ...
-                }
+                            # ...
+                        }
+                        ```
+                    </Tab>
+                </Tabs>
+            </TailoredContentOption>
 
-                ```
-            </Tab>
-        </Tabs>
+            <TailoredContentOption
+                id="tool-emission"
+                title="Tool-Based Predictive State Updates" 
+                description="Configure specific tool calls to automatically emit intermediate state updates."
+                icon={<FaWrench />}
+            >
+                For long-running tasks, you can configure CopilotKit to automatically emit intermediate state updates when specific tool calls are made. In this example, we'll configure CopilotKit to update the frontend whenever the LLM calls a tool that modifies the "steps" state.
+                <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+                    <Tab value="Python">
+                        ```python
+                        from copilotkit.langgraph import copilotkit_customize_config
+
+                        def frontend_actions_node(state: AgentState, config: RunnableConfig):
+                            # [!code highlight:12]
+                            # 1) Configure CopilotKit to treat certain tool call arguments as predictive of the final state.
+                            config = copilotkit_customize_config(
+                                config,
+                                emit_intermediate_state=[
+                                    {
+                                        "state_key": "steps",
+                                        "tool": "SearchTool",
+                                        "tool_argument": "steps"
+                                    },
+                                ]
+                            )
+
+                            # 2) Provide the actions to the LLM
+                            model = ChatOpenAI(model="gpt-4o").bind(state.copilotkit.actions)
+
+                            # 3) Call the model with CopilotKit's modified config
+                            response = await model.ainvoke(*state, modifiedConfig)
+
+                            # don't return the new response to hide it from the user
+                            return state
+                        ```
+                    </Tab>
+                    <Tab value="TypeScript">
+                        ```typescript
+                        import { copilotkitCustomizeConfig } from '@copilotkit/sdk-js/langgraph';
+
+                        async function frontendActionsNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
+                            # [!code highlight:12]
+                            # 1) Configure CopilotKit not to emit messages
+                            const modifiedConfig = copilotkitCustomizeConfig(
+                                config,
+                                emitIntermediateState=[
+                                    {
+                                        "stateKey": "steps",
+                                        "tool": "SearchTool",
+                                        "toolArgument": "steps",
+                                    },
+                                ],
+                            );
+
+                            # 2) Provide the actions to the LLM
+                            const model = ChatOpenAI({ model: 'gpt-4o' }).bind(state.copilotkit.actions);
+
+                            # 3) Call the model with CopilotKit's modified config
+                            const response = await model.invoke(...state, modifiedConfig);
+
+                            # don't return the new response to hide it from the user
+                            return state
+                        }
+                        ```
+                    </Tab>
+                </Tabs>
+            </TailoredContentOption>
+        </TailoredContent>
     </Step>
     <Step>
         ### Render the intermediate state
