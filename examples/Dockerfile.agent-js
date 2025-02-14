@@ -1,26 +1,20 @@
 # syntax=docker/dockerfile:1-labs
 
 FROM node:22-slim AS base
-COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.0 /lambda-adapter /opt/extensions/lambda-adapter
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-
-# Create corepack cache directory structure with proper permissions
-RUN mkdir -p /home/sbx_user1051/.cache/node/corepack && \
-    chmod -R 777 /home/sbx_user1051/.cache
-
 RUN corepack enable
+RUN corepack prepare pnpm@9.15.0 --activate
+RUN pnpm i -g turbo
+# RUN apt-get update && apt-get install curl -y
 
-RUN apt-get update && apt-get install curl -y
+FROM base AS production
+ARG APP_DIR
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.0 /lambda-adapter /opt/extensions/lambda-adapter
+WORKDIR /app
 
 # First install via pnpx
 RUN pnpx @langchain/langgraph-cli --help
-
-ARG APP_DIR
-
-WORKDIR /app
-
-RUN touch .env
 
 # Copy only poetry files first
 COPY ${APP_DIR}/package.json ${APP_DIR}/pnpm-lock.yaml ./
@@ -29,8 +23,10 @@ RUN pnpm i --frozen-lockfile
 # Copy SDK and install dependencies in a single layer
 COPY ${APP_DIR}/ ./
 
-RUN ls -la
-
+RUN touch .env
 RUN mkdir .langgraph_api
+
+ENV NODE_ENV=production
+EXPOSE 8000
 
 CMD ["/bin/sh", "-c", "pnpx @langchain/langgraph-cli dev --config=langgraph.json --no-browser --port 8000 --host 0.0.0.0"]
