@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.5.20-next.0
+
+### Patch Changes
+
+- Updated dependencies [51f0d66]
+  - @copilotkit/shared@1.5.20-next.0
+
 ## 1.5.19
 
 ### Patch Changes
