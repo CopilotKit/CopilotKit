@@ -141,6 +141,7 @@ import {
   CatchAllFrontendAction,
   FrontendAction,
 } from "../types/frontend-action";
+import { useToast } from "../components/toast/toast-provider";
 
 // We implement useCopilotAction dependency handling so that
 // the developer has the option to not provide any dependencies.
@@ -158,6 +159,7 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   const { setAction, removeAction, actions, chatComponentsCache } = useCopilotContext();
   const idRef = useRef<string>(randomId());
   const renderAndWaitRef = useRef<RenderAndWaitForResponse | null>(null);
+  const { addToast } = useToast();
 
   // clone the action to avoid mutating the original object
   action = { ...action };
@@ -246,6 +248,20 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
       }
     }
   }
+
+  useEffect(() => {
+    const hasDuplicate = Object.values(actions).some(
+      (otherAction) => otherAction.name === action.name && otherAction !== actions[idRef.current],
+    );
+
+    if (hasDuplicate) {
+      addToast({
+        type: "warning",
+        message: `Found an already registered action with name ${action.name}.`,
+        id: `dup-action-${action.name}`,
+      });
+    }
+  }, [actions]);
 
   useEffect(() => {
     setAction(idRef.current, action as any);

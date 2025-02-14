@@ -2,7 +2,8 @@
 title: Common Issues
 description: Common issues you may encounter when using Copilots.
 ---
-import { Accordions, Accordion } from "fumadocs-ui/components/accordion"
+
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 
 Welcome to the CopilotKit Troubleshooting Guide! Here, you can find answers to common issues
 
@@ -11,6 +12,7 @@ Welcome to the CopilotKit Troubleshooting Guide! Here, you can find answers to c
     and we'll be happy to help.
 
     We also highly encourage any open source contributors that want to add their own troubleshooting issues to [Github as a pull request](https://github.com/CopilotKit/CopilotKit/blob/main/CONTRIBUTING.md).
+
 </Callout>
 
 ## I am getting network errors / API not found error
@@ -65,6 +67,7 @@ If you're encountering network or API errors, here's how to troubleshoot:
 
         Check the [quickstart](/quickstart) to see how to set it up
     </Accordion>
+
 </Accordions>
 
 ## I am getting "CopilotKit's Remote Endpoint" not found error
@@ -112,4 +115,27 @@ If you're getting a "CopilotKit's Remote Endpoint not found" error, it usually m
         As you can see, it's a JSON response with your registered agents and actions, as well as the `200 OK` HTTP response status.
         If you see a different response, check your FastAPI logs for errors.
     </Accordion>
+
+</Accordions>
+
+## Connection issues with tunnel creation
+
+If you notice the tunnel creation process spinning indefinitely, your router or ISP might be blocking the connection to CopilotKit's tunnel service.
+
+<Accordions>
+    <Accordion title="Router or ISP blocking tunnel connections">
+        To verify connectivity to the tunnel service, try these commands:
+
+        ```bash
+        ping tunnels.devcopilotkit.com
+        curl -I https://tunnels.devcopilotkit.com
+        telnet tunnels.devcopilotkit.com 443
+        ```
+
+        If these fail, your router's security features or ISP might be blocking the connection. Common solutions:
+        - Check router security settings
+        - Contact your ISP to verify if they're blocking the connection
+        - Try a different network to confirm the issue
+    </Accordion>
+
 </Accordions>

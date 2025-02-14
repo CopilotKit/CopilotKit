@@ -1,5 +1,34 @@
 # ui
 
+## 1.5.19
+
+### Patch Changes
+
+- 0dd1ab9: - fix(errors): allow non copilotkit errors to pass to consumer app error boundary
+- 5bc68f8: - fix(actions): warn on action duplication
+  - fix(actions): warn on coagent state render duplication
+- Updated dependencies [0dd1ab9]
+  - @copilotkit/shared@1.5.19
+  - @copilotkit/runtime-client-gql@1.5.19
+
+## 1.5.19-next.1
+
+### Patch Changes
+
+- 0dd1ab9: - fix(errors): allow non copilotkit errors to pass to consumer app error boundary
+- Updated dependencies [0dd1ab9]
+  - @copilotkit/shared@1.5.19-next.1
+  - @copilotkit/runtime-client-gql@1.5.19-next.1
+
+## 1.5.19-next.0
+
+### Patch Changes
+
+- 5bc68f8: - fix(actions): warn on action duplication
+  - fix(actions): warn on coagent state render duplication
+  - @copilotkit/runtime-client-gql@1.5.19-next.0
+  - @copilotkit/shared@1.5.19-next.0
+
 ## 1.5.18
 
 ### Patch Changes
