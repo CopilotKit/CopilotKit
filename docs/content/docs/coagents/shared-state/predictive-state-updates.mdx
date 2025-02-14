@@ -48,7 +48,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
     </Step>
     <Step>
         ### Define the state
-        We'll be defining a `progress` field in the state, which will be used to simulate a long-running task.
+        We'll be defining a `written_report` field in the state, which will be updated as the agent writes different sections of the report.
 
         <Tabs groupId="language" items={["Python", "TypeScript"]}>
             <Tab value="Python">
@@ -57,7 +57,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 from typing import Literal
 
                 class AgentState(CopilotKitState):
-                    progress: int
+                    written_report: str
                 ```
             </Tab>
             <Tab value="TypeScript">
@@ -66,7 +66,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
                 export const AgentStateAnnotation = Annotation.Root({
-                    progress: Annotation<number>,
+                    written_report: Annotation<string>,
                     ...CopilotKitStateAnnotation.spec,
                 });
                 export type AgentState = typeof AgentStateAnnotation.State;
@@ -139,33 +139,42 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 description="Configure specific tool calls to automatically emit intermediate state updates."
                 icon={<FaWrench />}
             >
-                For long-running tasks, you can configure CopilotKit to automatically emit intermediate state updates when specific tool calls are made. In this example, we'll configure CopilotKit to update the frontend whenever the LLM calls a tool that modifies the "steps" state.
+                For long-running tasks, you can configure CopilotKit to automatically emit intermediate state updates when specific tool calls are made. In this example, we'll configure CopilotKit to update the frontend whenever the LLM calls the report writing tool.
                 <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
                     <Tab value="Python">
                         ```python
                         from copilotkit.langgraph import copilotkit_customize_config
 
                         def frontend_actions_node(state: AgentState, config: RunnableConfig):
-                            # [!code highlight:12]
-                            # 1) Configure CopilotKit to treat certain tool call arguments as predictive of the final state.
+                            # Configure CopilotKit to treat report writing tool calls as predictive of the final state
                             config = copilotkit_customize_config(
                                 config,
                                 emit_intermediate_state=[
                                     {
-                                        "state_key": "steps",
-                                        "tool": "SearchTool",
-                                        "tool_argument": "steps"
+                                        "state_key": "written_report",
+                                        "tool": "ReportWriterTool",
+                                        "tool_argument": "report_text"
                                     },
                                 ]
                             )
 
-                            # 2) Provide the actions to the LLM
-                            model = ChatOpenAI(model="gpt-4o").bind(state.copilotkit.actions)
+                            # Define the report writing tool
+                            @tool("ReportWriterTool")
+                            def write_report_section(report_text: str) -> str:
+                                """Writes a section of the report."""
+                                return report_text
 
-                            # 3) Call the model with CopilotKit's modified config
-                            response = await model.ainvoke(*state, modifiedConfig)
+                            # Provide the actions to the LLM
+                            model = ChatOpenAI(model="gpt-4").bind(
+                                functions=[write_report_section]
+                            )
 
-                            # don't return the new response to hide it from the user
+                            # Call the model with CopilotKit's modified config
+                            response = await model.ainvoke(
+                                state.messages,
+                                config=config
+                            )
+
                             return state
                         ```
                     </Tab>
@@ -174,27 +183,43 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                         import { copilotkitCustomizeConfig } from '@copilotkit/sdk-js/langgraph';
 
                         async function frontendActionsNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
-                            # [!code highlight:12]
-                            # 1) Configure CopilotKit not to emit messages
+                            # Configure CopilotKit to treat report writing tool calls as predictive of the final state
                             const modifiedConfig = copilotkitCustomizeConfig(
                                 config,
                                 emitIntermediateState=[
                                     {
-                                        "stateKey": "steps",
-                                        "tool": "SearchTool",
-                                        "toolArgument": "steps",
+                                        "stateKey": "written_report",
+                                        "tool": "ReportWriterTool",
+                                        "toolArgument": "report_text",
                                     },
                                 ],
                             );
 
-                            # 2) Provide the actions to the LLM
-                            const model = ChatOpenAI({ model: 'gpt-4o' }).bind(state.copilotkit.actions);
+                            # Define the report writing tool
+                            const writeReportSection = tool("ReportWriterTool", {
+                                description: "Writes a section of the report",
+                                parameters: {
+                                    report_text: { type: "string" }
+                                },
+                                function: async (report_text: string) => {
+                                    return report_text;
+                                },
+                            });
 
-                            # 3) Call the model with CopilotKit's modified config
-                            const response = await model.invoke(...state, modifiedConfig);
+                            # Provide the actions to the LLM
+                            const model = new ChatOpenAI({ 
+                                model: 'gpt-4'
+                            }).bind({
+                                functions: [writeReportSection]
+                            });
 
-                            # don't return the new response to hide it from the user
-                            return state
+                            # Call the model with CopilotKit's modified config
+                            const response = await model.invoke(
+                                state.messages,
+                                { config: modifiedConfig }
+                            );
+
+                            return state;
                         }
                         ```
                     </Tab>
