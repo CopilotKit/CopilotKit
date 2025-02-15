@@ -93,7 +93,7 @@ export function createAgentProjectStack({
   const lgcAgentJS = new PreviewProjectStack(app, `${cdkStackName}LGCJS`, {
     projectName: project,
     projectDescription: `${description} - LangGraph Cloud JS`,
-    demoDir: `examples/${project}/agent`,
+    demoDir: `examples/${project}/agent-js`,
     environmentVariablesFromSecrets: [
       "OPENAI_API_KEY",
       "ANTHROPIC_API_KEY",
