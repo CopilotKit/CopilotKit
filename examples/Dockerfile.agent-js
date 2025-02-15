@@ -16,7 +16,7 @@ RUN pnpx @langchain/langgraph-cli --help
 
 ARG APP_DIR
 
-WORKDIR /tmp/app
+WORKDIR /tmp
 
 RUN touch .env
 
