@@ -3,7 +3,7 @@
   "dockerfile_lines": [],
   "dependencies": ["."],
   "graphs": {
-    "email_agent": "./email_agent/agent.py:graph"
+    "email_agent": "./email_agent/langgraph/agent.py:graph"
   },
   "env": ".env"
 }

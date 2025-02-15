@@ -1,0 +1,178 @@
+---
+title: CrewAI Flows
+description: Learn how to implement Human-in-the-Loop (HITL) using CrewAI Flows.
+icon: lucide/Share2
+---
+import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+
+<video src="/images/coagents/node-hitl.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+
+<Callout type="info">
+  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter) with
+  the implementation below applied!
+</Callout>
+
+## What is this?
+[Flow based agents](https://docs.crewai.com/concepts/flows) are stateful agents that can be interrupted and resumed
+to allow for user input.
+
+CopilotKit lets you to add custom UI to take user input and then pass it back to the agent upon completion.
+
+## Why should I use this?
+
+Human-in-the-loop is a powerful way to implement complex workflows that are production ready. By having a human in the loop,
+you can ensure that the agent is always making the right decisions and ultimately is being steered in the right direction.
+
+Flow based agents are a great way to implement HITL for more complex workflows where you want to ensure the agent is aware
+of everything that has happened during a HITL interaction.
+
+## Implementation
+
+<Steps>
+    <Step>
+        ### Run and connect your agent
+        <RunAndConnectAgentSnippet />
+    </Step>
+    
+    <Step>
+      ### Install the CopilotKit SDK
+      <InstallSDKSnippet components={props.components}/>
+    </Step>
+
+    <Step>
+        ### Add a `useCopilotAction` to your Frontend
+        First, we'll create a component that renders the agent's essay draft and waits for user approval.
+
+        ```tsx title="ui/app/page.tsx"
+        import { useCopilotAction } from "@copilotkit/react-core"
+        import { Markdown } from "@copilotkit/react-ui"
+
+        function YourMainContent() {
+          // ...
+
+          useCopilotAction({ 
+            name: "writeEssay",
+            available: "remote",
+            description: "Writes an essay and takes the draft as an argument.",
+            parameters: [
+              { name: "draft", type: "string", description: "The draft of the essay", required: true },
+            ],
+            // [!code highlight:25]
+            renderAndWaitForResponse: ({ args, respond, status }) => {
+              return (
+                <div>
+                  <Markdown content={args.draft || 'Preparing your draft...'} />
+                  
+                  <div className={`flex gap-4 pt-4 ${status !== "executing" ? "hidden" : ""}`}>
+                    <button 
+                      onClick={() => respond?.("CANCEL")}
+                      disabled={status !== "executing"}
+                      className="border p-2 rounded-xl w-full"
+                    >
+                      Try Again
+                    </button>
+                    <button
+                      onClick={() => respond?.("SEND")}
+                      disabled={status !== "executing"} 
+                      className="bg-blue-500 text-white p-2 rounded-xl w-full"
+                    >
+                      Approve Draft
+                    </button>
+                  </div>
+                </div>
+              );
+            },
+          });
+
+          // ...
+        }
+        ```
+    </Step>
+
+    <Step>
+    ### Setup the CrewAI Agent
+    Now we'll setup the CrewAI agent. The flow is hard to understand without a complete example, so below
+    is the complete implementation of the agent with explanations.
+
+    Some main things to note:
+    - The agent's state inherits from `CopilotKitState` to bring in the CopilotKit actions.
+    - CopilotKit's actions are bound to the model as tools.
+    - If the `writeEssay` action is found in the model's response, the agent will pass control back to the frontend
+      to get user feedback.
+
+    <Tabs groupId="language" items={["Python"]}>
+      <Tab value="Python">
+        ```python title="agent/sample_agent/agent.py"
+        from typing_extensions import Literal
+        from crewai.flow.flow import Flow, start, listen
+        from copilotkit import CopilotKitState
+
+        # 1. Define our agent's state and inherit from CopilotKitState, this brings in the CopilotKit actions
+        class AgentState(CopilotKitState): # [!code highlight]
+            # 1.1 Define any other state variables
+            pass
+
+        class EmailAgentFlow(AgentState):
+
+            @start           
+            async def check_for_user_feedback(self):
+                # Check if the user has provided feedback
+                if len(self.state.get("messages", [])) > 0: 
+                    last_message = self.state["messages"][-1]
+                    if last_message.role == "tool" and last_message.content == "SEND":
+
+                    if self.state["messages"][-1].content != "SEND":
+                        self.state["messages"].append({
+                          "role": "system",
+                          "content": "The user declined they essay, please ask them how they'd like to improve it"
+                        })
+                    else:
+                      self.state["messages"].append({
+                        "role": "system",
+                        "content": "The user approved the essay, ask them if they'd like anything else"
+                      })
+
+            # 2. Define the chat function, this will be where the agent will talk to user and
+            #    decide if it needs to call the writeEssay tool
+            @listen(check_for_user_feedback)
+            async def chat():
+                # 2.1 Define the system message
+                system_message = {
+                    "role": "system",
+                    "content": "You write essays. Use your tools to write an essay, don't just write it in plain text."
+                }
+
+                # 2.2 Run the model to generate a response
+                response = await copilotkit_stream(
+                    completion(
+                        model="openai/gpt-4o",
+                        messages=[
+                            system_message,
+                            *self.state.get("messages", [])
+                        ],
+                        # 2.3 Use CopilotKit's actions as tools
+                        tools=self.state["copilotkit"]["actions"], # [!code highlight]
+                        stream=True
+                    )
+                )
+
+
+                # Now control is returned to the frontend to get user feedback
+                # It will be either:
+                # 1. A text message from the AI, to which the user can respond by chatting
+                # 2. A tool call to writeEssay, in which case CopilotKit will call the frontend
+                #    action `writeEssay`
+
+                self.state["messages"].append(response.choices[0].message)
+                return
+        ```
+      </Tab>
+    </Tabs>
+    </Step>
+    <Step>
+        ### Give it a try!
+        Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,
+        stream the progress and eventually ask you to review it.
+    </Step>
+</Steps>

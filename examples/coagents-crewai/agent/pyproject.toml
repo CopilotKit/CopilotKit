@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "research"
+version = "0.1.0"
+description = "Starter"
+authors = ["Markus Ecker <markus.ecker@gmail.com>"]
+license = "MIT"
+
+[project]
+name = "greeter"
+version = "0.0.1"
+
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+openai = "^1.51.0"
+copilotkit = {path = "../../../sdk-python", develop = true}
+uvicorn = "^0.31.0"
+python-dotenv = "^1.0.1"
+crewai = {extras = ["tools"], version = "^0.100.1"}
+
+[tool.poetry.scripts]
+demo = "research.demo:main"

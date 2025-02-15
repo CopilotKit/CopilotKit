@@ -1,0 +1,59 @@
+---
+title: "Disabling state streaming"
+icon: "lucide/Cog"
+description: "Granularly control what is streamed to the frontend."
+---
+
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
+
+## What is this?
+
+By default, CopilotKit will stream both your state and tool calls to the frontend.
+You can disable this by using CopilotKit's custom `RunnableConfig`.
+
+## When should I use this?
+
+Occasionally, you'll want to disable streaming temporarily — for example, the LLM may be
+doing something the current user should not see, like emitting tool calls or questions
+pertaining to other employees in an HR system.
+
+## Implementation
+
+### Disable all streaming
+
+You can decide wether to stream messages or tool calls by selectively wrapping calls to `completion`
+with `copilotkit_stream`.
+
+<Tabs groupId="language" items={['Python']} default="Python">
+    <Tab value="Python">
+        ```python
+        from copilotkit.crewai import copilotkit_stream
+
+        @start()
+        async def start(self):
+
+            # 1) Do not emit messages or tool calls, keeping the LLM call private.
+            response = completion(
+                model="openai/gpt-4o",
+                messages=[
+                    {"role": "system", "content": my_prompt},
+                    *self.state["messages"]
+                ],
+            )
+
+            # 2) Or wrap the LLM call with `copilotkit_stream` to stream messages tokens.
+            #    Note that we pass `stream=True` to the inner `completion` call.
+            response = copilotkit_stream(
+                completion(
+                    model="openai/gpt-4o",
+                    messages=[
+                        {"role": "system", "content": my_prompt},
+                        *self.state["messages"]
+                    ],
+                    stream=True
+                )
+            )
+        ```
+    </Tab>
+
+</Tabs>
