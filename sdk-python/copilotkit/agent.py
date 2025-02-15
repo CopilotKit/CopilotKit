@@ -27,6 +27,7 @@ class Agent(ABC):
         self,
         *,
         state: dict,
+        configurable: Optional[dict] = None,
         messages: List[Message],
         thread_id: Optional[str] = None,
         node_name: Optional[str] = None,

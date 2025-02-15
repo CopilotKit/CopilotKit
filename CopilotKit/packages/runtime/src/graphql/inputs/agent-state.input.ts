@@ -7,4 +7,7 @@ export class AgentStateInput {
 
   @Field(() => String)
   state: string;
+
+  @Field(() => String, { nullable: true })
+  configurable?: string;
 }
