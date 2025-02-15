@@ -102,7 +102,9 @@ export function createAgentProjectStack({
       "LANGSMITH_API_KEY",
     ],
     environmentVariables: {
-      HOME: "/tmp"
+      HOME: "/tmp",
+      PNPM_HOME: "/tmp/pnpm",
+      COREPACK_HOME: "/tmp/corepack",
     },
     port: "8000",
     includeInPRComment: false,
