@@ -12,7 +12,6 @@ export interface ProjectStackProps extends cdk.StackProps {
    */
   projectName: string;
   projectDescription: string;
-  demoDir: string;
   /**
    * Path to the Dockerfile to use, relative to the root of the repository. By default, this will be `${demoDir}/Dockerfile`.
    */
@@ -75,14 +74,6 @@ export class PreviewProjectStack extends cdk.Stack {
       for (const secret of props.buildSecrets) {
         buildSecrets[secret] = `id=${secret}`;
       }
-    }
-
-    const buildArgs: Record<string, string> = {
-      APP_DIR: props.demoDir,
-    };
-
-    if (props.buildArgs) {
-      Object.assign(buildArgs, props.buildArgs);
     }
 
     const ecrRepository = ecr.Repository.fromRepositoryName(this, "ECRRepo", "coagents");

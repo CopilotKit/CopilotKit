@@ -44,7 +44,6 @@ export function createAgentProjectStack({
   const selfHostedAgent = new PreviewProjectStack(app, cdkStackName, {
     projectName: project,
     projectDescription: description,
-    demoDir: `examples/${project}/agent`,
     environmentVariablesFromSecrets: [
       "OPENAI_API_KEY",
       "ANTHROPIC_API_KEY",
@@ -67,7 +66,6 @@ export function createAgentProjectStack({
   const lgcAgentPython = new PreviewProjectStack(app, `${cdkStackName}LGCPython`, {
     projectName: project,
     projectDescription: `${description} - LangGraph Cloud Python`,
-    demoDir: `examples/${project}/agent`,
     environmentVariablesFromSecrets: [
       "OPENAI_API_KEY",
       "ANTHROPIC_API_KEY",
@@ -93,7 +91,6 @@ export function createAgentProjectStack({
   const lgcAgentJS = new PreviewProjectStack(app, `${cdkStackName}LGCJS`, {
     projectName: project,
     projectDescription: `${description} - LangGraph Cloud JS`,
-    demoDir: `examples/${project}/agent-js`,
     environmentVariablesFromSecrets: [
       "OPENAI_API_KEY",
       "ANTHROPIC_API_KEY",
@@ -166,7 +163,6 @@ export function createUIProjectStack({
   return new PreviewProjectStack(app, cdkStackName, {
     projectName: project,
     projectDescription: `${description}`,
-    demoDir: `examples/${project}/ui`,
     environmentVariablesFromSecrets: [
       "OPENAI_API_KEY",
       "LANGSMITH_API_KEY",
@@ -216,7 +212,6 @@ export function createNextOpenAIProjectStack({
   return new PreviewProjectStack(app, cdkStackName, {
     projectName: `next-openai`,
     projectDescription: `${description}`,
-    demoDir: `CopilotKit/examples/next-openai`,
     environmentVariablesFromSecrets: [
       "OPENAI_API_KEY",
       "ANTHROPIC_API_KEY",
