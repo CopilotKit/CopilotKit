@@ -3,6 +3,7 @@
 FROM public.ecr.aws/docker/library/node:22-slim as production
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.0 /lambda-adapter /opt/extensions/lambda-adapter
 
+ENV HOME="/tmp"
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
@@ -15,7 +16,7 @@ RUN pnpx @langchain/langgraph-cli --help
 
 ARG APP_DIR
 
-WORKDIR /app
+WORKDIR /tmp/app
 
 RUN touch .env
 
@@ -25,6 +26,8 @@ RUN pnpm i --frozen-lockfile
 
 # Copy SDK and install dependencies in a single layer
 COPY ${APP_DIR}/ ./
+
+RUN mkdir .langgraph_api
 
 RUN ls -la
 
