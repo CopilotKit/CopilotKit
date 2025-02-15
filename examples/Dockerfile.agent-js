@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1-labs
 
-FROM public.ecr.aws/docker/library/node:21.2.0-slim as production
+FROM public.ecr.aws/docker/library/node:22-slim as production
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.0 /lambda-adapter /opt/extensions/lambda-adapter
 
 ENV HOME="/tmp"
