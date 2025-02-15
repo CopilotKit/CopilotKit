@@ -31,5 +31,5 @@ RUN mkdir .langgraph_api
 
 RUN ls -la
 
-CMD ["/bin/sh", "-c", "ls -la"]
-# CMD ["/bin/sh", "-c", "pnpx @langchain/langgraph-cli dev --config=langgraph.json --no-browser --port 8000 --host 0.0.0.0"]
+# CMD ["/bin/sh", "-c", "ls -la"]
+CMD ["/bin/sh", "-c", "pnpx @langchain/langgraph-cli dev --config=langgraph.json --no-browser --port 8000 --host 0.0.0.0"]
