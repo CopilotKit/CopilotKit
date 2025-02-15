@@ -101,14 +101,17 @@ export function createAgentProjectStack({
       "TAVILY_API_KEY",
       "LANGSMITH_API_KEY",
     ],
+    environmentVariables: {
+      HOME: "/tmp"
+    },
     port: "8000",
     includeInPRComment: false,
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
     },
     imageTag: `${project}-agent-js-local-deps-${GITHUB_ACTIONS_RUN_ID}`,
-    entrypoint: ["/bin/sh", "-c"],
-    cmd: ["pnpx @langchain/langgraph-cli dev --config=langgraph.json --no-browser --port 8000 --host 0.0.0.0"],
+    // entrypoint: ["/bin/sh", "-c"],
+    // cmd: ["pnpx @langchain/langgraph-cli dev --config=langgraph.json --no-browser --port 8000 --host 0.0.0.0"],
     outputs: {
       ...outputs,
       LangGraphCloud: "false",
