@@ -13,7 +13,7 @@ export default async function Layout({ children }: { children: ReactNode }) {
     <html lang="en" className={inter.className} suppressHydrationWarning>
       <body>
         <ProvidersWrapper>
-          <RootProvider theme={{ enabled: true }}>{children}</RootProvider>
+          <RootProvider theme={{ enabled: true, defaultTheme: 'dark' }}>{children}</RootProvider>
         </ProvidersWrapper>
       </body>
     </html>

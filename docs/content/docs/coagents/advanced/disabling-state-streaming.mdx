@@ -37,12 +37,26 @@ You can disable all message streaming and tool call streaming by passing `emit_m
             # 2) Provide the actions to the LLM
             model = ChatOpenAI(model="gpt-4o").bind(state.copilotkit.actions)
 
-            # 3) Call the model with CopilotKit's modified config
-            response = await model.ainvoke(*state, modifiedConfig)
+            # 3) Call the model with CopilotKit's modified config  # [!code highlight]
+            response = await model.ainvoke(*state, modifiedConfig) # [!code highlight]
 
             # don't return the new response to hide it from the user
             return state
         ```
+
+    <Callout type="warn" title="BEWARE!">
+        In LangGraph Python, the `config` variable in the surrounding namespace is **implicitly** passed into LangChain LLM calls, even when not explicitly provided.
+        
+        This is why we create a new variable `modifiedConfig` rather than modifying `config` directly. If we modified `config` itself, it would change the default configuration for all subsequent LLM calls in that namespace.
+
+        ```python
+        # if we override the config variable name with a new value
+        config = copilotkit_customize_config(config, ...)
+
+        # it will affect every subsequent LangChain LLM call in the same namespace, even when `config` is not explicitly provided
+        response = await model2.ainvoke(*state) # implicitly uses the modified config!
+        ```
+    </Callout>
     </Tab>
     <Tab value="TypeScript">
         ```typescript
@@ -52,14 +66,17 @@ You can disable all message streaming and tool call streaming by passing `emit_m
             // 1) Configure CopilotKit not to emit messages
             const modifiedConfig = copilotkitCustomizeConfig(
                 config,
-                { emitMessages: false, emitToolCalls: false }
+                {
+                    emitMessages: false, // if you want to disable message streaming # [!code highlight]
+                    emitToolCalls: false // if you want to disable tool call streaming # [!code highlight]
+                }
             );
 
             // 2) Provide the actions to the LLM
             const model = ChatOpenAI({ model: 'gpt-4o' }).bind(state.copilotkit.actions);
 
-            // 3) Call the model with CopilotKit's modified config
-            const response = await model.invoke(...state, modifiedConfig);
+            // 3) Call the model with CopilotKit's modified config  // [!code highlight]
+            const response = await model.invoke(...state, modifiedConfig); // [!code highlight]
 
             // don't return the new response to hide it from the user
             return state
