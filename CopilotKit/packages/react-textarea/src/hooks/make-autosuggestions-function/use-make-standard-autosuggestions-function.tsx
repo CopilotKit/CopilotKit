@@ -47,7 +47,7 @@ export function useMakeStandardAutosuggestionFunction(
         // @ts-expect-error -- Passing null is forbidden, but we're filtering it later
         const messages: Message[] = [
           new TextMessage({
-            role: Role.System,
+            role: Role.Developer,
             content: apiConfig.makeSystemPrompt(
               textareaPurpose,
               getContextString([], contextCategories),
