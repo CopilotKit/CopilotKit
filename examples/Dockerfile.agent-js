@@ -3,7 +3,7 @@
 FROM public.ecr.aws/docker/library/node:22-slim as production
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.0 /lambda-adapter /opt/extensions/lambda-adapter
 
-ENV HOME="/tmp"
+# ENV HOME="/tmp"
 ENV PNPM_HOME="/tmp/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
@@ -16,7 +16,7 @@ RUN pnpx @langchain/langgraph-cli --help
 
 ARG APP_DIR
 
-WORKDIR /tmp
+# WORKDIR /tmp
 
 RUN touch .env
 
