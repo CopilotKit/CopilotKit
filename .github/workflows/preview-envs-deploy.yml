@@ -254,18 +254,6 @@ jobs:
         env:
           GITHUB_SHA: ${{ github.sha }}
 
-      - name: Assign label
-        uses: actions/github-script@v4
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.issues.addLabels({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: ['preview']
-            })
-
       - name: Delete a comment
         if: github.event_name == 'pull_request'
         uses: thollander/actions-comment-pull-request@v3
