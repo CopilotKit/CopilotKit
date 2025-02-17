@@ -37,92 +37,46 @@ You can disable all message streaming and tool call streaming by passing `emit_m
             # 2) Provide the actions to the LLM
             model = ChatOpenAI(model="gpt-4o").bind(state.copilotkit.actions)
 
-            # 3) Call the model with CopilotKit's modified config
-            response = await model.ainvoke(*state, modifiedConfig)
+            # 3) Call the model with CopilotKit's modified config  # [!code highlight]
+            response = await model.ainvoke(*state, modifiedConfig) # [!code highlight]
 
             # don't return the new response to hide it from the user
             return state
         ```
-    </Tab>
-    <Tab value="TypeScript">
-        ```typescript
-        import { copilotkitCustomizeConfig } from '@copilotkit/sdk-js/langgraph';
 
-        async function frontendActionsNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
-            // 1) Configure CopilotKit not to emit messages
-            const modifiedConfig = copilotkitCustomizeConfig(
-                config,
-                { emitMessages: false, emitToolCalls: false }
-            );
+    <Callout type="warn" title="BEWARE!">
+        In LangGraph Python, the `config` variable in the surrounding namespace is **implicitly** passed into LangChain LLM calls, even when not explicitly provided.
+        
+        This is why we create a new variable `modifiedConfig` rather than modifying `config` directly. If we modified `config` itself, it would change the default configuration for all subsequent LLM calls in that namespace.
 
-            // 2) Provide the actions to the LLM
-            const model = ChatOpenAI({ model: 'gpt-4o' }).bind(state.copilotkit.actions);
-
-            // 3) Call the model with CopilotKit's modified config
-            const response = await model.invoke(...state, modifiedConfig);
-
-            // don't return the new response to hide it from the user
-            return state
-        }
-        ```
-    </Tab>
-</Tabs>
-
-### Enable streaming for specific tool calls
-If you want to be more granular, you can enable streaming for specific tool calls which will only emit messages and tool calls for those tool calls.
-
-<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
-    <Tab value="Python">
         ```python
-        from copilotkit.langgraph import copilotkit_customize_config
+        # if we override the config variable name with a new value
+        config = copilotkit_customize_config(config, ...)
 
-        def frontend_actions_node(state: AgentState, config: RunnableConfig):
-            # [!code highlight:12]
-            # 1) Configure CopilotKit to only emit tool calls for the SearchTool
-            config = copilotkit_customize_config(
-                config,
-                emit_intermediate_state=[
-                    {
-                        "state_key": "steps",
-                        "tool": "SearchTool",
-                        "tool_argument": "steps"
-                    },
-                ]
-            )
-
-            # 2) Provide the actions to the LLM
-            model = ChatOpenAI(model="gpt-4o").bind(state.copilotkit.actions)
-
-            # 3) Call the model with CopilotKit's modified config
-            response = await model.ainvoke(*state, modifiedConfig)
-
-            # don't return the new response to hide it from the user
-            return state
+        # it will affect every subsequent LangChain LLM call in the same namespace, even when `config` is not explicitly provided
+        response = await model2.ainvoke(*state) # implicitly uses the modified config!
         ```
+    </Callout>
     </Tab>
     <Tab value="TypeScript">
         ```typescript
         import { copilotkitCustomizeConfig } from '@copilotkit/sdk-js/langgraph';
 
         async function frontendActionsNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
-            // [!code highlight:12]
             // 1) Configure CopilotKit not to emit messages
             const modifiedConfig = copilotkitCustomizeConfig(
                 config,
-                emitIntermediateState=[
-                    {
-                        "stateKey": "steps",
-                        "tool": "SearchTool",
-                        "toolArgument": "steps",
-                    },
-                ],
+                {
+                    emitMessages: false, // if you want to disable message streaming # [!code highlight]
+                    emitToolCalls: false // if you want to disable tool call streaming # [!code highlight]
+                }
             );
 
             // 2) Provide the actions to the LLM
             const model = ChatOpenAI({ model: 'gpt-4o' }).bind(state.copilotkit.actions);
 
-            // 3) Call the model with CopilotKit's modified config
-            const response = await model.invoke(...state, modifiedConfig);
+            // 3) Call the model with CopilotKit's modified config  // [!code highlight]
+            const response = await model.invoke(...state, modifiedConfig); // [!code highlight]
 
             // don't return the new response to hide it from the user
             return state

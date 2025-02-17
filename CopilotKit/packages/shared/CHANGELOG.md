@@ -1,5 +1,19 @@
 # @copilotkit/shared
 
+## 1.6.0-next.0
+
+## 1.5.20
+
+### Patch Changes
+
+- 51f0d66: - fix(errors): fix internal usage of error resolver
+
+## 1.5.20-next.0
+
+### Patch Changes
+
+- 51f0d66: - fix(errors): fix internal usage of error resolver
+
 ## 1.5.19
 
 ### Patch Changes

@@ -55,6 +55,29 @@ If you are not sure yet, simply ignore this note.
 
     ### Setup the Runtime Endpoint
 
+    <Callout type="warn">
+        ### Serverless Function Timeouts
+
+        When deploying to serverless platforms (Vercel, AWS Lambda, etc.), be aware that default function timeouts may be too short for CopilotKit's streaming responses:
+
+        - Vercel defaults: 10s (Hobby), 15s (Pro)
+        - AWS Lambda default: 3s
+
+        **Solution options:**
+        1. Increase function timeout:
+            ```json
+            // vercel.json
+            {
+              "functions": {
+                "api/copilotkit/**/*": {
+                  "maxDuration": 60
+                }
+              }
+            }
+            ```
+        2. Use [Copilot Cloud](https://cloud.copilotkit.ai/) to avoid timeout issues entirely
+    </Callout>
+
     <Tabs groupId="endpoint-type" items={[
         { value: 'Next.js App Router', icon: <RiNextjsLine className="text-xl" /> },
         { value: 'Next.js Pages Router', icon: <RiNextjsLine className="text-xl" /> },

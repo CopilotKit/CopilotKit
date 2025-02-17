@@ -6,16 +6,18 @@
     "next-pages-router": "1.4.6",
     "node-express": "1.4.6",
     "node-http": "1.4.6",
-    "@copilotkit/react-core": "1.5.19",
-    "@copilotkit/react-textarea": "1.5.19",
-    "@copilotkit/react-ui": "1.5.19",
-    "@copilotkit/runtime": "1.5.19",
-    "@copilotkit/runtime-client-gql": "1.5.19",
-    "@copilotkit/sdk-js": "1.5.19",
-    "@copilotkit/shared": "1.5.19",
+    "@copilotkit/react-core": "1.5.20",
+    "@copilotkit/react-textarea": "1.5.20",
+    "@copilotkit/react-ui": "1.5.20",
+    "@copilotkit/runtime": "1.5.20",
+    "@copilotkit/runtime-client-gql": "1.5.20",
+    "@copilotkit/sdk-js": "1.5.20",
+    "@copilotkit/shared": "1.5.20",
     "eslint-config-custom": "1.4.6",
     "tailwind-config": "1.4.6",
     "tsconfig": "1.4.6"
   },
-  "changesets": []
+  "changesets": [
+    "polite-falcons-melt"
+  ]
 }
