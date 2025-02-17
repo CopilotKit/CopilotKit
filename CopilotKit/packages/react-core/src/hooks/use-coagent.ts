@@ -111,6 +111,10 @@ interface WithInternalStateManagementAndInitial<T> {
    * The initial state of the agent.
    */
   initialState: T;
+  /**
+   * Config to pass to a LangGraph Agent
+   */
+  configurable?: Record<string, any>;
 }
 
 interface WithInternalStateManagement {
@@ -122,6 +126,10 @@ interface WithInternalStateManagement {
    * Optional initialState with default type any
    */
   initialState?: any;
+  /**
+   * Config to pass to a LangGraph Agent
+   */
+  configurable?: Record<string, any>;
 }
 
 interface WithExternalStateManagement<T> {
@@ -137,6 +145,10 @@ interface WithExternalStateManagement<T> {
    * A function to update the state of the agent.
    */
   setState: (newState: T | ((prevState: T | undefined) => T)) => void;
+  /**
+   * Config to pass to a LangGraph Agent
+   */
+  configurable?: Record<string, any>;
 }
 
 type UseCoagentOptions<T> =
@@ -244,6 +256,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
       return {
         name,
         state: isInternalStateManagementWithInitial(options) ? options.initialState : {},
+        configurable: options.configurable ?? {},
         running: false,
         active: false,
         threadId: undefined,
