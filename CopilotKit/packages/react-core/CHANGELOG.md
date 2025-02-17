@@ -1,5 +1,14 @@
 # ui
 
+## 1.6.0-next.1
+
+### Patch Changes
+
+- d833f4c: - fix: provide the ability to type interrupt event value
+- Updated dependencies [d833f4c]
+  - @copilotkit/runtime-client-gql@1.6.0-next.1
+  - @copilotkit/shared@1.6.0-next.1
+
 ## 1.6.0-next.0
 
 ### Minor Changes
