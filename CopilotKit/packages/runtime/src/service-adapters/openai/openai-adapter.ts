@@ -128,7 +128,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       };
     }
 
-    const stream = this.openai.beta.chat.completions.stream({
+    const stream = await this.openai.chat.completions.create({
       model: model,
       stream: true,
       messages: openaiMessages,
