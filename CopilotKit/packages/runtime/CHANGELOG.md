@@ -1,5 +1,15 @@
 # @copilotkit/runtime
 
+## 1.6.0-next.0
+
+### Minor Changes
+
+- 7d061d9: - feat(configurable): execute langgraph with user config
+
+### Patch Changes
+
+- @copilotkit/shared@1.6.0-next.0
+
 ## 1.5.20
 
 ### Patch Changes
