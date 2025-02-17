@@ -1,12 +1,12 @@
 [tool.poetry]
-name = "tutorial_quickstart"
+name = "tutorial_customer_support"
 version = "0.1.0"
-description = "Quickstart Tutorial"
+description = "Customer Support Tutorial"
 authors = ["Markus Ecker <markus.ecker@gmail.com>"]
 license = "MIT"
 
 [project]
-name = "tutorial_quickstart"
+name = "tutorial_customer_support"
 version = "0.0.1"
 dependencies = [
   "langgraph==0.2.52",
@@ -28,7 +28,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-copilotkit = "0.1.28a6"
+copilotkit = "0.1.39"
 langgraph = "0.2.52"
 langchain-core = "^0.3.12"
 langchain-community = "^0.3.1"
@@ -38,6 +38,8 @@ openai = "^1.52.1"
 tavily-python = "^0.5.0"
 python-dotenv = "^1.0.1"
 uvicorn = "^0.31.0"
+pandas = "^2.2.3"
 
 [tool.poetry.scripts]
-demo = "tutorial_quickstart.demo:main"
+demo = "tutorial_customer_support.demo:main"
+seed = "tutorial_customer_support.seed:main"
