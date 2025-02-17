@@ -415,13 +415,13 @@ files = [
 
 [[package]]
 name = "copilotkit"
-version = "0.1.38"
+version = "0.1.39"
 description = "CopilotKit python SDK"
 optional = false
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "copilotkit-0.1.38-py3-none-any.whl", hash = "sha256:0d6fa602b900e2db68fd141a10a73c3b680681cf8d10899330fb6b7ee0f96042"},
-    {file = "copilotkit-0.1.38.tar.gz", hash = "sha256:caf530063c778e169dd2971997eaedcfbbd0a47620bfd6ef29ee12b65221c96d"},
+    {file = "copilotkit-0.1.39-py3-none-any.whl", hash = "sha256:a2a29324ef9414354ec93a4574f5abfb696b8787afbeb197974f1ed13f9dcfaf"},
+    {file = "copilotkit-0.1.39.tar.gz", hash = "sha256:2a637896ea932ff66b9e9ea890873a90da1962f63657eaaf667e8a44ef2d50a2"},
 ]
 
 [package.dependencies]
@@ -2597,4 +2597,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "bb1e4d630b88e1f7c86d48a323d1fab214250d74a23a1b2238e0637dab217911"
+content-hash = "b1474c091a86b9346b90425484d4f718bce90613d5e3d8d2388d6442db0a6981"
