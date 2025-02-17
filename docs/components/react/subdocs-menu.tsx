@@ -11,6 +11,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "fumadocs-ui/provider";
+import { SearchToggle } from "../layout/top-bar";
 
 export function isActive(
   url: string,
@@ -33,7 +34,7 @@ export interface Option {
   title: ReactNode;
   description?: ReactNode;
   bgGradient: string;
-  selectedBorder: string;
+  selectedStyle?: string;
   props?: HTMLAttributes<HTMLElement>;
 }
 
@@ -65,7 +66,7 @@ export function SubdocsMenu({
   }, [closeOnRedirect]);
 
   return (
-    <div className="flex flex-col gap-2 border-b pb-4 pt-2 px-1">
+    <div className="flex flex-col gap-2 border-b p-4">
       {options.map((item) => (
         <Link
           key={item.url}
@@ -73,9 +74,9 @@ export function SubdocsMenu({
           onClick={onClick}
           {...item.props}
           className={cn(
-            "p-1 flex flex-row gap-3 items-center cursor-pointer group opacity-70 hover:opacity-100",
-            selected === item && "opacity-100",
-            item.props?.className
+            "p-2 flex flex-row gap-3 items-center cursor-pointer group opacity-60 hover:opacity-100",
+            item.props?.className,
+            selected === item && `${item.selectedStyle} opacity-100`,
           )}
         >
           <div
@@ -83,7 +84,6 @@ export function SubdocsMenu({
               "rounded-sm p-1.5",
               item.bgGradient,
               selected !== item && "",
-              selected === item && `${item.selectedBorder} ring-2`
             )}
           >
             {item.icon}

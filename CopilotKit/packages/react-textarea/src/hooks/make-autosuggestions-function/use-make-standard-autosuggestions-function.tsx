@@ -6,7 +6,6 @@ import { retry } from "../../lib/retry";
 import { InsertionEditorState } from "../../types/base/autosuggestions-bare-function";
 import { SuggestionsApiConfig } from "../../types/autosuggestions-config/suggestions-api-config";
 import {
-  CopilotRuntimeClient,
   Message,
   Role,
   TextMessage,
@@ -34,13 +33,13 @@ export function useMakeStandardAutosuggestionFunction(
   contextCategories: string[],
   apiConfig: SuggestionsApiConfig,
 ): AutosuggestionsBareFunction {
-  const { getContextString, copilotApiConfig } = useCopilotContext();
+  const { getContextString, copilotApiConfig, runtimeClient } = useCopilotContext();
   const { chatApiEndpoint: url, publicApiKey, credentials, properties } = copilotApiConfig;
   const headers = {
     ...copilotApiConfig.headers,
     ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
   };
-  const { maxTokens, stop } = apiConfig;
+  const { maxTokens, stop, temperature = 0 } = apiConfig;
 
   return useCallback(
     async (editorState: InsertionEditorState, abortSignal: AbortSignal) => {
@@ -71,13 +70,6 @@ export function useMakeStandardAutosuggestionFunction(
           }),
         ].filter(Boolean);
 
-        const runtimeClient = new CopilotRuntimeClient({
-          url,
-          publicApiKey,
-          headers,
-          credentials,
-        });
-
         const response = await runtimeClient
           .generateCopilotResponse({
             data: {
@@ -92,6 +84,7 @@ export function useMakeStandardAutosuggestionFunction(
               forwardedParameters: {
                 maxTokens,
                 stop,
+                temperature,
               },
             },
             properties,

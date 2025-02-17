@@ -3,7 +3,7 @@ import { useCoAgent, useCoAgentStateRender, useCopilotAction } from "@copilotkit
 import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
 import { createContext, useContext, ReactNode, useMemo } from "react";
 import { AddTrips, EditTrips, DeleteTrips } from "@/components/humanInTheLoop";
-import { Trip, Place, defaultTrips} from "@/lib/types";
+import { Trip, Place, AgentState, defaultTrips} from "@/lib/types";
 
 type TripsContextType = {
   trips: Trip[];
@@ -21,19 +21,18 @@ type TripsContextType = {
 const TripsContext = createContext<TripsContextType | undefined>(undefined);
 
 export const TripsProvider = ({ children }: { children: ReactNode }) => {
-  const { state, setState } = useCoAgent<{ trips: Trip[], selected_trip_id: string | null, messages: any }>({
+  const { state, setState } = useCoAgent<AgentState>({
     name: "travel",
     initialState: {
       trips: defaultTrips,
       selected_trip_id: defaultTrips[0].id,
-      hovered_place: null,
     },
   });
 
-  useCoAgentStateRender({
+  useCoAgentStateRender<AgentState>({
     name: "travel",
-    render: ({ state, nodeName, status }) => {
-      if (state.search_progress) {
+    render: ({ state }) => {
+      if (state.search_progress && state.search_progress.length > 0) {
         return <SearchProgress progress={state.search_progress} />
       }
       return null;

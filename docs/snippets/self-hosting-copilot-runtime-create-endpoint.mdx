@@ -1,214 +1,269 @@
+import {
+  MultiProviderContent,
+  If,
+} from "@/components/react/multi-provider-content/multi-provider-content";
+import { quickStartProviders } from "@/components/react/multi-provider-content/utils";
+import { IoLogoVercel, IoLogoNodejs } from "react-icons/io5";
+import { SiNestjs } from "react-icons/si";
+import { RiNextjsLine } from "react-icons/ri";
+
+<MultiProviderContent providersConfig={quickStartProviders}>
 <Callout type="info">
-  **NOTE 1**: CopilotKit supports any LLM provider.<br/>
-  The instructions below assume you are using OpenAI, but you can adopt them to [any LLM provider](/guides/bring-your-own-llm).
+  If you are planning to use a single LangGraph agent in [agent-lock mode](/coagents/multi-agent-flows) as your agentic backend, your LLM adapter will only be used for peripherals such as suggestions, etc.
+
+If you are not sure yet, simply ignore this note.
+
 </Callout>
 
-<Callout type="info">
-  **NOTE 2**: If you are planning to use a single LangGraph agent in [agent-lock mode](/coagents/advanced/router-mode-agent-lock#agent-lock-mode) as your agentic backend, your LLM adapter will only be used for peripherals such as suggestions, etc.
-  
-  If you are not sure yet, simply ignore this note.
-</Callout>
+    <If conditions={[{ key: 'id', value: 'langchain' }]}>
+        <Callout type="info">
+            The LangChain adapter shown here is using OpenAI, but can be used with any LLM!
+        </Callout>
+    </If>
 
+    <If conditions={[{ key: 'id', value: 'empty' }]}>
+        <Callout type="error">
+            Be aware that the empty adapter only works in combination with CoAgents in agent lock mode!
 
-Install OpenAI:
+            In addition, bare in mind that `useCopilotChatSuggestions`, `CopilotTextarea` and `CopilotTask` will not work, as these require an LLM.
+        </Callout>
+    </If>
 
-```package-install
-npm install openai
-```
+    <If conditions={[{ key: 'packageName', value: true }]}>
+        ### Install provider package
 
+        ```package-install
+        npm install {{packageName}}
+        ```
+    </If>
 
-Add your OpenAI API key to your `.env` file in the root of your project:
+    <If conditions={[{ key: 'envVarName', value: true }]}>
+        ### Add your API key
 
-```plaintext title=".env"
-OPENAI_API_KEY=your_api_key_here
-```
+        Next, add your API key to your `.env` file in the root of your project (unless you prefer to provide it directly to the client):
 
-<Callout type="warn">
- Please note that the code below uses GPT-4o, which requires a paid OpenAI API key. **If you are using a free OpenAI API key**, change the model to a different option such as `gpt-3.5-turbo`.
-</Callout>
+        ```plaintext title=".env"
+        {{envVarName}}=your_api_key_here
+        ```
+    </If>
 
+    <If conditions={[{ key: 'id', value: 'openai' }, { key: 'id', value: 'openai-assistants' }]}>
+        <Callout type="warn">
+            Please note that the code below uses GPT-4o, which requires a paid OpenAI API key. **If you are using a free OpenAI API key**, change the model to a different option such as `gpt-3.5-turbo`.
+        </Callout>
+    </If>
 
-
-#### Endpoint Setup
-
-<Tabs items={['Next.js App Router', 'Next.js Pages Router', 'Node.js Express', 'Node.js HTTP', 'NestJS']}>
-
-  {/* Next.js App Router */}
-  <Tab value="Next.js App Router">
-    Create a new route to handle the `/api/copilotkit` endpoint.
-
-    ```ts title="app/api/copilotkit/route.ts"
-    import {
-      CopilotRuntime,
-      OpenAIAdapter,
-      copilotRuntimeNextJSAppRouterEndpoint,
-    } from '@copilotkit/runtime';
-    import OpenAI from 'openai';
-    import { NextRequest } from 'next/server';
-
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const llmAdapter = new OpenAIAdapter({ openai });
-    const runtime = new CopilotRuntime();
-
-    export const POST = async (req: NextRequest) => {
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        runtime,
-        llmAdapter,
-        endpoint: '/api/copilotkit',
-      });
-
-      return handleRequest(req);
-    };
-    ```
-
-    Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.
-  </Tab>
-
-  {/* Next.js Pages Router */}
-  <Tab value="Next.js Pages Router">
-    Create a new route to handle the `/api/copilotkit` endpoint:
-
-    ```ts title="pages/api/copilotkit.ts"
-    import { NextApiRequest, NextApiResponse } from 'next';
-    import {
-      CopilotRuntime,
-      OpenAIAdapter,
-      copilotRuntimeNextJSPagesRouterEndpoint,
-    } from '@copilotkit/runtime';
-    import OpenAI from 'openai';
-
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const llmAdapter = new OpenAIAdapter({ openai });
-
-    const handler = async (req: NextApiRequest, res: NextApiResponse) => {
-      const runtime = new CopilotRuntime();
-
-      const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
-        endpoint: '/api/copilotkit',
-        runtime,
-        llmAdapter,
-      });
-
-      return await handleRequest(req, res);
-    };
-
-    export default handler;
-    ```
-
-    Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.
-  </Tab>
-
-  {/* Node.js Express */}
-  <Tab value="Node.js Express">
-    Create a new Express.js app and set up the Copilot Runtime handler:
-
-    ```ts title="server.ts"
-    import express from 'express';
-    import {
-      CopilotRuntime,
-      OpenAIAdapter,
-      copilotRuntimeNodeHttpEndpoint,
-    } from '@copilotkit/runtime';
-    import OpenAI from 'openai';
-
-    const app = express();
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const llmAdapter = new OpenAIAdapter({ openai });
-
-    app.use('/copilotkit', (req, res, next) => {
-      const runtime = new CopilotRuntime();
-      const handler = copilotRuntimeNodeHttpEndpoint({
-        endpoint: '/copilotkit',
-        runtime,
-        llmAdapter,
-      });
-
-      return handler(req, res, next);
-    });
-
-    app.listen(4000, () => {
-      console.log('Listening at http://localhost:4000/copilotkit');
-    });
-    ```
-
-    Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
+    ### Setup the Runtime Endpoint
 
     <Callout type="warn">
-    Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
+        ### Serverless Function Timeouts
+
+        When deploying to serverless platforms (Vercel, AWS Lambda, etc.), be aware that default function timeouts may be too short for CopilotKit's streaming responses:
+
+        - Vercel defaults: 10s (Hobby), 15s (Pro)
+        - AWS Lambda default: 3s
+
+        **Solution options:**
+        1. Increase function timeout:
+            ```json
+            // vercel.json
+            {
+              "functions": {
+                "api/copilotkit/**/*": {
+                  "maxDuration": 60
+                }
+              }
+            }
+            ```
+        2. Use [Copilot Cloud](https://cloud.copilotkit.ai/) to avoid timeout issues entirely
     </Callout>
-    </Tab>
 
-  {/* Node.js HTTP */}
-  <Tab value="Node.js HTTP">
-    Set up a simple Node.js HTTP server and use the Copilot Runtime to handle requests:
+    <Tabs groupId="endpoint-type" items={[
+        { value: 'Next.js App Router', icon: <RiNextjsLine className="text-xl" /> },
+        { value: 'Next.js Pages Router', icon: <RiNextjsLine className="text-xl" /> },
+        { value: 'Node.js Express', icon: <IoLogoNodejs className="text-xl" /> },
+        { value: 'Node.js HTTP', icon: <IoLogoNodejs className="text-xl" /> },
+        { value: 'NestJS', icon: <SiNestjs className="text-xl" /> }
+    ]}>
 
-    ```ts title="server.ts"
-    import { createServer } from 'node:http';
-    import {
-      CopilotRuntime,
-      OpenAIAdapter,
-      copilotRuntimeNodeHttpEndpoint,
-    } from '@copilotkit/runtime';
-    import OpenAI from 'openai';
+        {/* Next.js App Router */}
+        <Tab value="Next.js App Router">
+            Create a new route to handle the `/api/copilotkit` endpoint.
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const llmAdapter = new OpenAIAdapter({ openai });
+            ```ts title="app/api/copilotkit/route.ts"
+            import {
+              CopilotRuntime,
+              {{adapterImport}},
+              copilotRuntimeNextJSAppRouterEndpoint,
+            } from '@copilotkit/runtime';
+            {{extraImports}}
+            import { NextRequest } from 'next/server';
 
-    const server = createServer((req, res) => {
-      const runtime = new CopilotRuntime();
-      const handler = copilotRuntimeNodeHttpEndpoint({
-        endpoint: '/copilotkit',
-        runtime,
-        llmAdapter,
-      });
+            {{clientSetup}}
+            {{adapterSetup}}
+            const runtime = new CopilotRuntime();
 
-      return handler(req, res);
-    });
+            export const POST = async (req: NextRequest) => {
+              const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+                runtime,
+                serviceAdapter,
+                endpoint: '/api/copilotkit',
+              });
 
-    server.listen(4000, () => {
-      console.log('Listening at http://localhost:4000/copilotkit');
-    });
-    ```
+              return handleRequest(req);
+            };
+            ```
 
-    Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
+            Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.
+        </Tab>
 
-    <Callout type="warn">
-    Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
-    </Callout>
-  </Tab>
+        {/* Next.js Pages Router */}
+        <Tab value="Next.js Pages Router">
+            Create a new route to handle the `/api/copilotkit` endpoint:
 
-  {/* NestJS */}
-  <Tab value="NestJS">
-    Set up a controller in NestJS to handle the Copilot Runtime endpoint:
+            ```ts title="pages/api/copilotkit.ts"
+            import { NextApiRequest, NextApiResponse } from 'next';
+            import {
+              CopilotRuntime,
+              {{adapterImport}},
+              copilotRuntimeNextJSPagesRouterEndpoint,
+            } from '@copilotkit/runtime';
+            {{extraImports}}
 
-    ```ts title="copilotkit.controller.ts"
-    import { All, Controller, Req, Res } from '@nestjs/common';
-    import { CopilotRuntime, copilotRuntimeNestEndpoint, OpenAIAdapter } from '@copilotkit/runtime';
-    import { Request, Response } from 'express';
+            {{clientSetup}}
+            {{adapterSetup}}
 
-    @Controller()
-    export class CopilotkitController {
-      @All('/copilotkit')
-      copilotkit(@Req() req: Request, @Res() res: Response) {
-        const llmAdapter = new OpenAIAdapter();
-        const runtime = new CopilotRuntime();
+            const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+              const runtime = new CopilotRuntime();
 
-        const handler = copilotRuntimeNestEndpoint({
-          runtime,
-          llmAdapter,
-          endpoint: '/copilotkit',
-        });
-        return handler(req, res);
-      }
-    }
-    ```
+              const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
+                endpoint: '/api/copilotkit',
+                runtime,
+                serviceAdapter,
+              });
 
-    Your Copilot Runtime endpoint should be available at `http://localhost:3000/copilotkit`.
+              return await handleRequest(req, res);
+            };
 
-    <Callout type="warn">
-    Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
-    </Callout>
-  </Tab>
-</Tabs>
+            export default handler;
+            ```
 
+            Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.
+        </Tab>
 
+        {/* Node.js Express */}
+        <Tab value="Node.js Express">
+            Create a new Express.js app and set up the Copilot Runtime handler:
+
+            ```ts title="server.ts"
+            import express from 'express';
+            import {
+              CopilotRuntime,
+              {{adapterImport}},
+              copilotRuntimeNodeHttpEndpoint,
+            } from '@copilotkit/runtime';
+            {{extraImports}}
+
+            const app = express();
+            {{clientSetup}}
+            {{adapterSetup}}
+
+            app.use('/copilotkit', (req, res, next) => {
+              (async () => {
+                const runtime = new CopilotRuntime();
+                const handler = copilotRuntimeNodeHttpEndpoint({
+                  endpoint: '/copilotkit',
+                  runtime,
+                  serviceAdapter,
+                });
+
+                return handler(req, res);
+              })().catch(next);
+            });
+
+            app.listen(4000, () => {
+              console.log('Listening at http://localhost:4000/copilotkit');
+            });
+            ```
+
+            Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
+
+            <Callout type="warn">
+                Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
+            </Callout>
+        </Tab>
+
+        {/* Node.js HTTP */}
+        <Tab value="Node.js HTTP">
+            Set up a simple Node.js HTTP server and use the Copilot Runtime to handle requests:
+
+            ```ts title="server.ts"
+            import { createServer } from 'node:http';
+            import {
+              CopilotRuntime,
+              {{adapterImport}},
+              copilotRuntimeNodeHttpEndpoint,
+            } from '@copilotkit/runtime';
+            {{extraImports}}
+
+            {{clientSetup}}
+            {{adapterSetup}}
+
+            const server = createServer((req, res) => {
+              const runtime = new CopilotRuntime();
+              const handler = copilotRuntimeNodeHttpEndpoint({
+                endpoint: '/copilotkit',
+                runtime,
+                serviceAdapter,
+              });
+
+              return handler(req, res);
+            });
+
+            server.listen(4000, () => {
+              console.log('Listening at http://localhost:4000/copilotkit');
+            });
+            ```
+
+            Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
+
+            <Callout type="warn">
+                Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
+            </Callout>
+        </Tab>
+
+        {/* NestJS */}
+        <Tab value="NestJS">
+            Set up a controller in NestJS to handle the Copilot Runtime endpoint:
+
+            ```ts title="copilotkit.controller.ts"
+            import { All, Controller, Req, Res } from '@nestjs/common';
+            import { CopilotRuntime, copilotRuntimeNestEndpoint, {{adapterImport}} } from '@copilotkit/runtime';
+            import { Request, Response } from 'express';
+
+            @Controller()
+            export class CopilotkitController {
+              @All('/copilotkit')
+              copilotkit(@Req() req: Request, @Res() res: Response) {
+                {{adapterSetup}}
+                const runtime = new CopilotRuntime();
+
+                const handler = copilotRuntimeNestEndpoint({
+                  runtime,
+                  serviceAdapter,
+                  endpoint: '/copilotkit',
+                });
+                return handler(req, res);
+              }
+            }
+            ```
+
+            Your Copilot Runtime endpoint should be available at `http://localhost:3000/copilotkit`.
+
+            <Callout type="warn">
+                Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
+            </Callout>
+        </Tab>
+    </Tabs>
+
+</MultiProviderContent>

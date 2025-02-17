@@ -11,7 +11,6 @@ import {
 const variants: TestVariants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
   { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
-  // { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" }, // seems broken
 ];
 
 const allConfigs = getConfigs();
@@ -21,20 +20,25 @@ const qaConfigs = filterConfigsByProject(
 );
 const groupedConfigs = groupConfigsByDescription(qaConfigs);
 
+const cloudVariants = variants.filter((variant) => variant.isCloud);
+const nonCloudVariants = variants.filter((variant) => !variant.isCloud);
+
+test.describe.configure({ mode: 'parallel' });
+
 Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
   test.describe(`${projectName}`, () => {
     Object.entries(descriptions).forEach(([description, configs]) => {
       test.describe(`${description}`, () => {
         configs.forEach((config) => {
-          appendLGCVariants(
-            {
-              ...config,
-              lgcJSDeploymentUrl:
-                  config.lgcJSDeploymentUrl ??
-                "https://coagents-qa-text-stg-js-4d74616e480750d0a5d10d0c3c5d44a4.default.us.langgraph.app",
-            },
-            variants
-          ).forEach((variant) => {
+          [
+            ...appendLGCVariants(
+              {
+                ...config,
+              },
+              nonCloudVariants
+            ),
+            ...cloudVariants,
+          ].forEach((variant) => {
             test(`Test ${config.description} with variant ${variant.name}`, async ({
               page,
             }) => {

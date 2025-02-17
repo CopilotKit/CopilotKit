@@ -1,5 +1,811 @@
 # @copilotkit/runtime
 
+## 1.6.0-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.6.0-next.1
+
+## 1.6.0-next.0
+
+### Minor Changes
+
+- 7d061d9: - feat(configurable): execute langgraph with user config
+
+### Patch Changes
+
+- @copilotkit/shared@1.6.0-next.0
+
+## 1.5.20
+
+### Patch Changes
+
+- Updated dependencies [51f0d66]
+  - @copilotkit/shared@1.5.20
+
+## 1.5.20-next.0
+
+### Patch Changes
+
+- Updated dependencies [51f0d66]
+  - @copilotkit/shared@1.5.20-next.0
+
+## 1.5.19
+
+### Patch Changes
+
+- Updated dependencies [0dd1ab9]
+  - @copilotkit/shared@1.5.19
+
+## 1.5.19-next.1
+
+### Patch Changes
+
+- Updated dependencies [0dd1ab9]
+  - @copilotkit/shared@1.5.19-next.1
+
+## 1.5.19-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.19-next.0
+
+## 1.5.18
+
+### Patch Changes
+
+- d47cd26: - fix: detect and alert on version mismatch
+- a6e46a9: - fix: use langgraph metadata to get node name
+- 38d3ac2: - fix: add additional info the our error messages
+- Updated dependencies [d47cd26]
+- Updated dependencies [f77a7b9]
+- Updated dependencies [38d3ac2]
+  - @copilotkit/shared@1.5.18
+
+## 1.5.18-next.3
+
+### Patch Changes
+
+- Updated dependencies [f77a7b9]
+  - @copilotkit/shared@1.5.18-next.3
+
+## 1.5.18-next.2
+
+### Patch Changes
+
+- 38d3ac2: - fix: add additional info the our error messages
+- Updated dependencies [38d3ac2]
+  - @copilotkit/shared@1.5.18-next.2
+
+## 1.5.18-next.1
+
+### Patch Changes
+
+- a6e46a9: - fix: use langgraph metadata to get node name
+  - @copilotkit/shared@1.5.18-next.1
+
+## 1.5.18-next.0
+
+### Patch Changes
+
+- d47cd26: - fix: detect and alert on version mismatch
+- Updated dependencies [d47cd26]
+  - @copilotkit/shared@1.5.18-next.0
+
+## 1.5.17
+
+### Patch Changes
+
+- 1fc3902: - Revert "fix: detect and alert on version mismatch (#1333)"
+
+  This reverts commit 48b7c7b1bd48ced82ffb9a00d6eddc1f7581e0c1.
+
+- Updated dependencies [1fc3902]
+  - @copilotkit/shared@1.5.17
+
+## 1.5.17-next.0
+
+### Patch Changes
+
+- 1fc3902: - Revert "fix: detect and alert on version mismatch (#1333)"
+
+  This reverts commit 48b7c7b1bd48ced82ffb9a00d6eddc1f7581e0c1.
+
+- Updated dependencies [1fc3902]
+  - @copilotkit/shared@1.5.17-next.0
+
+## 1.5.16
+
+### Patch Changes
+
+- 9be85f1: - fix: use latest langchain packages
+- 48b7c7b: - fix: detect and alert on version mismatch
+- Updated dependencies [48b7c7b]
+  - @copilotkit/shared@1.5.16
+
+## 1.5.16-next.2
+
+### Patch Changes
+
+- 9be85f1: - fix: use latest langchain packages
+  - @copilotkit/shared@1.5.16-next.2
+
+## 1.5.16-next.1
+
+### Patch Changes
+
+- 48b7c7b: - fix: detect and alert on version mismatch
+- Updated dependencies [48b7c7b]
+  - @copilotkit/shared@1.5.16-next.1
+
+## 1.5.16-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.16-next.0
+
+## 1.5.15
+
+### Patch Changes
+
+- 06f9f35: - feat(interrupt): add copilotkit interrupt as messages with copilotkit interrupt convenience fn
+  - chore(deps): update dependencies for demos
+  - chore(interrupt-as-message): add e2e test for interrupt as message
+- 7b3141d: - feat(interrupt): support LG interrupt with useLangGraphInterrupt hook
+  - chore(interrupt): add e2e test to interrupt functionality
+  - feat(interrupt): add support for multiple interrupts and conditions
+- 68bdbcd: - fix(runtime): enable multi-agent flows while preventing recursive self-calls
+- c14f9db: - add headers handling to other LangGraphClients
+- eb315bd: - fix: allow empty langsmith api key
+- Updated dependencies [7b3141d]
+  - @copilotkit/shared@1.5.15
+
+## 1.5.15-next.8
+
+### Patch Changes
+
+- 06f9f35: - feat(interrupt): add copilotkit interrupt as messages with copilotkit interrupt convenience fn
+  - chore(deps): update dependencies for demos
+  - chore(interrupt-as-message): add e2e test for interrupt as message
+  - @copilotkit/shared@1.5.15-next.8
+
+## 1.5.15-next.7
+
+### Patch Changes
+
+- 68bdbcd: - fix(runtime): enable multi-agent flows while preventing recursive self-calls
+  - @copilotkit/shared@1.5.15-next.7
+
+## 1.5.15-next.6
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.15-next.6
+
+## 1.5.15-next.5
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.15-next.5
+
+## 1.5.15-next.4
+
+### Patch Changes
+
+- 7b3141d: - feat(interrupt): support LG interrupt with useLangGraphInterrupt hook
+  - chore(interrupt): add e2e test to interrupt functionality
+  - feat(interrupt): add support for multiple interrupts and conditions
+- Updated dependencies [7b3141d]
+  - @copilotkit/shared@1.5.15-next.4
+
+## 1.5.15-next.3
+
+### Patch Changes
+
+- c14f9db: - add headers handling to other LangGraphClients
+  - @copilotkit/shared@1.5.15-next.3
+
+## 1.5.15-next.2
+
+### Patch Changes
+
+- eb315bd: - fix: allow empty langsmith api key
+  - @copilotkit/shared@1.5.15-next.2
+
+## 1.5.15-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.15-next.1
+
+## 1.5.15-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.15-next.0
+
+## 1.5.14
+
+### Patch Changes
+
+- Updated dependencies [0061f65]
+  - @copilotkit/shared@1.5.14
+
+## 1.5.14-next.0
+
+### Patch Changes
+
+- Updated dependencies [0061f65]
+  - @copilotkit/shared@1.5.14-next.0
+
+## 1.5.13
+
+### Patch Changes
+
+- 8271438: silence langgraph platform error
+  - @copilotkit/shared@1.5.13
+
+## 1.5.13-next.0
+
+### Patch Changes
+
+- 8271438: silence langgraph platform error
+  - @copilotkit/shared@1.5.13-next.0
+
+## 1.5.12
+
+### Patch Changes
+
+- 768b3a5: - chore: add documentation for empty llm adapter
+  - fix: throw error when empty adapter is misused
+- a2129f4: - fix(streaming): end streaming on error to enable continuity of chat after failed tool call
+- 926499b: - Load the previous state of an agent if `threadId` is provided to CopilotKit, including all messages
+- 59de133: - fix: rename ExperimentalEmptyAdapter to EmptyAdapter
+- 6136a57: - fix(errors): add custom error classes to better describe library errors
+  - fix(errors): use new errors in error handling
+  - chore: add documentation and links to respective errors
+- Updated dependencies [6136a57]
+  - @copilotkit/shared@1.5.12
+
+## 1.5.12-next.7
+
+### Patch Changes
+
+- 926499b: - Load the previous state of an agent if `threadId` is provided to CopilotKit, including all messages
+  - @copilotkit/shared@1.5.12-next.7
+
+## 1.5.12-next.6
+
+### Patch Changes
+
+- 6136a57: - fix(errors): add custom error classes to better describe library errors
+  - fix(errors): use new errors in error handling
+  - chore: add documentation and links to respective errors
+- Updated dependencies [6136a57]
+  - @copilotkit/shared@1.5.12-next.6
+
+## 1.5.12-next.5
+
+### Patch Changes
+
+- 59de133: - fix: rename ExperimentalEmptyAdapter to EmptyAdapter
+  - @copilotkit/shared@1.5.12-next.5
+
+## 1.5.12-next.4
+
+### Patch Changes
+
+- 768b3a5: - chore: add documentation for empty llm adapter
+  - fix: throw error when empty adapter is misused
+  - @copilotkit/shared@1.5.12-next.4
+
+## 1.5.12-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.12-next.3
+
+## 1.5.12-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.12-next.2
+
+## 1.5.12-next.1
+
+### Patch Changes
+
+- a2129f4: - fix(streaming): end streaming on error to enable continuity of chat after failed tool call
+  - @copilotkit/shared@1.5.12-next.1
+
+## 1.5.12-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.12-next.0
+
+## 1.5.11
+
+### Patch Changes
+
+- 72f9e58: test release notes
+- 716bd5c: test changelog
+- aecb6f4: Fix build script
+- a35d447: test changelog
+- 0a2e07e: Test changelog
+- 8166ac6: Test release notes
+  - @copilotkit/shared@1.5.11
+
+## 1.5.11-next.0
+
+### Patch Changes
+
+- 72f9e58: test release notes
+- 716bd5c: test changelog
+- aecb6f4: Fix build script
+- a35d447: test changelog
+- 0a2e07e: Test changelog
+- 8166ac6: Test release notes
+  - @copilotkit/shared@1.5.11-next.0
+
+## 1.5.10
+
+### Patch Changes
+
+- 72f9e58: test release notes
+- 716bd5c: test changelog
+- aecb6f4: Fix build script
+- a35d447: test changelog
+- 8166ac6: Test release notes
+  - @copilotkit/shared@1.5.10
+
+## 1.5.10-next.0
+
+### Patch Changes
+
+- 72f9e58: test release notes
+- 716bd5c: test changelog
+- aecb6f4: Fix build script
+- a35d447: test changelog
+- 8166ac6: Test release notes
+  - @copilotkit/shared@1.5.10-next.0
+
+## 1.5.9
+
+### Patch Changes
+
+- 72f9e58: test release notes
+- 716bd5c: test changelog
+- a35d447: test changelog
+- 8166ac6: Test release notes
+  - @copilotkit/shared@1.5.9
+
+## 1.5.8
+
+### Patch Changes
+
+- 72f9e58: test release notes
+- a35d447: test changelog
+- 8166ac6: Test release notes
+  - @copilotkit/shared@1.5.8
+
+## 1.5.6-next.0
+
+### Patch Changes
+
+- a35d447: test changelog
+  - @copilotkit/shared@1.5.6-next.0
+
+## 1.5.5-next.5
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.5-next.5
+
+## 1.5.5-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.5-next.3
+
+## 1.5.5-next.2
+
+### Patch Changes
+
+- 72f9e58: test release notes
+- 8166ac6: Test release notes
+  - @copilotkit/shared@1.5.5-next.2
+
+## 1.5.4
+
+### Patch Changes
+
+- Test changelog
+  - @copilotkit/shared@1.5.4
+
+## 1.5.3
+
+### Patch Changes
+
+- 4511149: Test release notes
+  - @copilotkit/shared@1.5.3
+
+## 1.5.2
+
+### Patch Changes
+
+- b0192c1: This is a test release
+  - @copilotkit/shared@1.5.2
+
+## 1.5.1
+
+### Patch Changes
+
+- 5c01e9e: test prerelease #4
+- da280ed: Test prerelease script
+- 27e42d7: testing a prerelease
+- 05240a9: test pre #2
+- 33218fe: test prerelease #3
+- 03f3d6f: Test next prerelease
+- 649ebcc: - fix: add warning when using agents that are not available on agent related hooks
+- 6dfa0d2: - feat: add temperature parameter support for LLM completions
+- Updated dependencies [5c01e9e]
+- Updated dependencies [da280ed]
+- Updated dependencies [27e42d7]
+- Updated dependencies [05240a9]
+- Updated dependencies [33218fe]
+- Updated dependencies [03f3d6f]
+  - @copilotkit/shared@1.5.1
+
+## 1.5.1-next.3
+
+### Patch Changes
+
+- 33218fe: test prerelease #3
+- Updated dependencies [33218fe]
+  - @copilotkit/shared@1.5.1-next.3
+
+## 1.5.1-next.2
+
+### Patch Changes
+
+- da280ed: Test prerelease script
+- 649ebcc: - fix: add warning when using agents that are not available on agent related hooks
+- Updated dependencies [da280ed]
+  - @copilotkit/shared@1.5.1-next.2
+
+## 1.5.1-next.1
+
+### Patch Changes
+
+- 03f3d6f: Test next prerelease
+- Updated dependencies [03f3d6f]
+  - @copilotkit/shared@1.5.1-next.1
+
+## 1.5.1-next.0
+
+### Patch Changes
+
+- 27e42d7: testing a prerelease
+- 6dfa0d2: - feat: add temperature parameter support for LLM completions
+- Updated dependencies [27e42d7]
+  - @copilotkit/shared@1.5.1-next.0
+
+## 1.5.0
+
+### Minor Changes
+
+- 1b47092: Synchronize LangGraph messages with CopilotKit
+
+### Patch Changes
+
+- 1b47092: CoAgents v0.3 prerelease
+- Updated dependencies [1b47092]
+- Updated dependencies [1b47092]
+  - @copilotkit/shared@1.5.0
+
+## 1.5.0-coagents-v0-3.0
+
+### Minor Changes
+
+- Synchronize LangGraph messages with CopilotKit
+
+### Patch Changes
+
+- e66bce4: CoAgents v0.3 prerelease
+- Updated dependencies
+- Updated dependencies [e66bce4]
+  - @copilotkit/shared@1.5.0-coagents-v0-3.0
+
+## 1.4.8
+
+### Patch Changes
+
+- - Better error handling
+  - Introduce new "EmptyLLMAdapter" for when using CoAgents
+  - Improve dev console help options
+  - Allow CopilotKit remote endpoint without agents
+- 989f159: - fix: allow CopilotKit Remote Endpoint without agents
+  - Apply suggestions from code review
+- Updated dependencies
+  - @copilotkit/shared@1.4.8
+
+## 1.4.8-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.4.8-next.0
+
+## 1.4.7
+
+### Patch Changes
+
+- Fix broken build script before release
+- Updated dependencies
+  - @copilotkit/shared@1.4.7
+
+## 1.4.6
+
+### Patch Changes
+
+- .
+
+## 1.4.5
+
+### Patch Changes
+
+- testing release workflow
+- Updated dependencies
+  - @copilotkit/shared@1.4.5
+
+## 1.4.5-next.0
+
+### Patch Changes
+
+- testing release workflow
+- Updated dependencies
+  - @copilotkit/shared@1.4.5-next.0
+
+## 1.4.4
+
+### Patch Changes
+
+- 665deab: test prerelease
+- 57a6012: test next prerelease automation
+- 7cfc2e7: test prerelease stuff
+- af36f1a: - feat(runtime): readme update
+  - @copilotkit/shared@1.4.4
+
+## 1.4.4-next.4
+
+### Patch Changes
+
+- 57a6012: test next prerelease automation
+  - @copilotkit/shared@1.4.4-next.4
+
+## 1.4.4-next.3
+
+### Patch Changes
+
+- 7cfc2e7: test prerelease stuff
+  - @copilotkit/shared@1.4.4-next.3
+
+## 1.4.4-next.2
+
+### Patch Changes
+
+- 665deab: test prerelease
+  - @copilotkit/shared@1.4.4-next.2
+
+## 1.4.4-next.1
+
+### Patch Changes
+
+- af36f1a: - feat(runtime): readme update
+  - @copilotkit/shared@1.4.4-next.1
+
+## 1.4.4-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.4.4-next.0
+
+## 1.4.3
+
+### Patch Changes
+
+- c296282: - Better error surfacing when using LangGraph Platform streaming
+  - Ensure state is immediately set without using flushSync
+- - Better error surfacing when using LangGraph Platform streaming
+  - Ensure state is immediately set without using flushSync
+- Updated dependencies [c296282]
+- Updated dependencies
+  - @copilotkit/shared@1.4.3
+
+## 1.4.3-pre.0
+
+### Patch Changes
+
+- - Better error surfacing when using LangGraph Platform streaming
+  - Ensure state is immediately set without using flushSync
+- Updated dependencies
+  - @copilotkit/shared@1.4.3-pre.0
+
+## 1.4.2
+
+### Patch Changes
+
+- - Make sure agent state is set immediately (#1077)
+  - Support running an agent without messages (#1075)
+- Updated dependencies
+  - @copilotkit/shared@1.4.2
+
+## 1.4.1
+
+### Patch Changes
+
+- 1721cbd: lower case copilotkit property
+- 1721cbd: add zod conversion
+- 8d0144f: bump
+- 8d0144f: bump
+- 8d0144f: bump
+- e16d95e: New prerelease
+- 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
+- CopilotKit Core:
+
+  - Improved error messages and overall logs
+  - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+  - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
+  - Added Azure OpenAI integration
+  - Updated interfaces for better developer ergonomics
+
+  CoAgents:
+
+  - Renamed `remoteActions` to `remoteEndpoints` (backwards compatible, will be deprecated in the future)
+  - Support for LangGraph Platform in Remote Endpoints
+  - LangGraph JS Support for CoAgents (locally via `langgraph dev`, `langgraph up` or deployed to LangGraph Platform)
+  - Improved LangSmith integration - requests made through CoAgents will now surface in LangSmith
+  - Enhanced state management and message handling
+
+  CopilotKid Back-end SDK:
+
+  - Released a whole-new `@copilotkit/sdk-js` for building agents with LangGraph JS Support
+
+- 8d0144f: bump
+- 8d0144f: bump
+- fef1b74: fix assistant message CSS and propagate actions to LG JS
+- Updated dependencies [1721cbd]
+- Updated dependencies [1721cbd]
+- Updated dependencies [8d0144f]
+- Updated dependencies [8d0144f]
+- Updated dependencies [8d0144f]
+- Updated dependencies [e16d95e]
+- Updated dependencies [1721cbd]
+- Updated dependencies
+- Updated dependencies [8d0144f]
+- Updated dependencies [8d0144f]
+- Updated dependencies [fef1b74]
+  - @copilotkit/shared@1.4.1
+
+## 1.4.1-pre.6
+
+### Patch Changes
+
+- 1721cbd: lower case copilotkit property
+- 1721cbd: add zod conversion
+- 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
+- fix assistant message CSS and propagate actions to LG JS
+- Updated dependencies [1721cbd]
+- Updated dependencies [1721cbd]
+- Updated dependencies [1721cbd]
+- Updated dependencies
+  - @copilotkit/shared@1.4.1-pre.6
+
+## 1.4.1-pre.5
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/shared@1.4.1-pre.5
+
+## 1.4.1-pre.4
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/shared@1.4.1-pre.4
+
+## 1.4.1-pre.3
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/shared@1.4.1-pre.3
+
+## 1.4.1-pre.2
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/shared@1.4.1-pre.2
+
+## 1.4.1-pre.1
+
+### Patch Changes
+
+- bump
+- Updated dependencies
+  - @copilotkit/shared@1.4.1-pre.1
+
+## 1.4.1-pre.0
+
+### Patch Changes
+
+- New prerelease
+- Updated dependencies
+  - @copilotkit/shared@1.4.1-pre.0
+
+## 1.4.0
+
+### Minor Changes
+
+CopilotKit Core:
+
+- Improved error messages and overall logs
+- `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+- Improved scrolling behavior. It is now possible to scroll up during LLM response generation
+- Added Azure OpenAI integration
+- Updated interfaces for better developer ergonomics
+
+CoAgents:
+
+- Renamed `remoteActions` to `remoteEndpoints` (backwards compatible, will be deprecated in the future)
+- Support for LangGraph Platform in Remote Endpoints
+- LangGraph JS Support for CoAgents (locally via `langgraph dev`, `langgraph up` or deployed to LangGraph Platform)
+- Improved LangSmith integration - requests made through CoAgents will now surface in LangSmith
+- Enhanced state management and message handling
+
+CopilotKid Back-end SDK:
+
+- Released a whole-new `@copilotkit/sdk-js` for building agents with LangGraph JS Support
+
+### Patch Changes
+
+- f6fab28: update tsup config
+- f6fab28: update entry
+- f6fab28: export langchain module
+- 8a77944: Improve LangSmith support
+- f6fab28: Ensure intermediate state config is sent as snake case
+- f6fab28: update entry in tsup config
+- 8a77944: Ensure the last message is sent to LangSmith
+- a5efccd: Revert rxjs changes
+- f6fab28: update entry
+- f6fab28: Update exports
+- f6fab28: Update exports
+- 332d744: Add support for Azure OpenAI
+- f6fab28: Export LangGraph functions
+- f6fab28: Update lockfile
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+- Updated dependencies
+- Updated dependencies [f6fab28]
+- Updated dependencies [8a77944]
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+- Updated dependencies [8a77944]
+- Updated dependencies [a5efccd]
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+- Updated dependencies [332d744]
+- Updated dependencies [f6fab28]
+- Updated dependencies [f6fab28]
+  - @copilotkit/shared@1.4.0
+
 ## 1.3.16-mme-revert-rxjs-changes.10
 
 ### Patch Changes

@@ -11,6 +11,15 @@ export default {
     './mdx-components.{ts,tsx}',
     './node_modules/fumadocs-ui/dist/**/*.js',
   ],
+  safelist: [
+    'xl:grid-cols-1',
+    'xl:grid-cols-2',
+    'xl:grid-cols-3',
+    'xl:grid-cols-4',
+    'xl:col-span-2',
+    'xl:col-span-3',
+    'xl:col-span-4',
+  ],
   presets: [createPreset()],
     plugins: [require("tailwindcss-animate")],
     theme: {
@@ -87,6 +96,28 @@ export default {
     				'4': 'hsl(var(--chart-4))',
     				'5': 'hsl(var(--chart-5))'
     			}
+    		},
+    		keyframes: {
+    			'accordion-down': {
+    				from: {
+    					height: '0'
+    				},
+    				to: {
+    					height: 'var(--radix-accordion-content-height)'
+    				}
+    			},
+    			'accordion-up': {
+    				from: {
+    					height: 'var(--radix-accordion-content-height)'
+    				},
+    				to: {
+    					height: '0'
+    				}
+    			}
+    		},
+    		animation: {
+    			'accordion-down': 'accordion-down 0.2s ease-out',
+    			'accordion-up': 'accordion-up 0.2s ease-out'
     		}
     	}
     }

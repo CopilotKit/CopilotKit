@@ -3,46 +3,108 @@ title: "Quickstart"
 description: "Get started with CopilotKit in under 5 minutes."
 icon: "lucide/Play"
 ---
+
 import { LinkIcon } from "lucide-react";
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
 import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
 import ConnectCopilotUI from "@/snippets/copilot-ui.mdx";
+import CopilotCloudConfigureCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
+import CloudCopilotKitProvider from "@/snippets/cloud/cloud-copilotkit-provider.mdx";
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
+import { FaCloud, FaServer } from "react-icons/fa";
+
+<TailoredContent id="copilot-hosting">
+<TailoredContentOption
+  id="copilot-cloud"
+  title="Copilot Cloud (Recommended)"
+  description="Use our hosted backend endpoint to get started quickly (OpenAI only)."
+  icon={<FaCloud />}
+>
 
 <Steps>
 <Step>
-  ### Install dependencies
+## Install CopilotKit
 
-  First, install the CopilotKit dependencies.
+First, install the latest packages for CopilotKit.
 
-  ```package-install
-  npm install @copilotkit/react-core @copilotkit/react-ui @copilotkit/runtime
-  ```
+```package-install
+npm install @copilotkit/react-ui @copilotkit/react-core
+```
 
 </Step>
 <Step>
-  ### Set up Copilot Runtime (Backend Endpoint)
-  <SelfHostingCopilotRuntimeCreateEndpoint components={props.components} />
+## Get a Copilot Cloud Public API Key
+Navigate to [Copilot Cloud](https://cloud.copilotkit.ai) and follow the instructions to get a public API key - it's free!
 </Step>
 <Step>
-  ### Configure the CopilotKit Provider
-  <SelfHostingCopilotRuntimeConfigureCopilotKitProvider
-    components={props.components}
-  />
-</Step>
-<Step>
-  ### Connect Copilot UI
-  You are almost there!
-  Now it's time to setup your Copilot UI.
+## Setup the CopilotKit Provider
 
-  <ConnectCopilotUI components={props.components} />
+The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases, 
+it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
+
+<CloudCopilotKitProvider components={props.components} />
+
+</Step>
+<Step>
+## Choose a Copilot UI
+
+You are almost there! Now it's time to setup your Copilot UI.
+
+<ConnectCopilotUI components={props.components} />
+
 </Step>
 </Steps>
+</TailoredContentOption>
+<TailoredContentOption
+  id="self-hosted"
+  title="Self-hosting"
+  description="Learn to host CopilotKit's runtime yourself with your own backend."
+  icon={<FaServer />}
+>
 
-🎉 Congrats! You've successfully integrated a fully functional chatbot in your application! Give it a try now and see it in action.
+<Steps>
+<Step>
+## Install CopilotKit
+First, install the latest packages for CopilotKit.
+
+```package-install
+npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
+```
+</Step>
+<Step>
+## Set up a Copilot Runtime Endpoint
+
+<SelfHostingCopilotRuntimeCreateEndpoint components={props.components} />
+</Step>
+<Step>
+## Configure the CopilotKit Provider
+
+<SelfHostingCopilotRuntimeConfigureCopilotKitProvider
+  components={props.components}
+/>
+
+</Step>
+<Step>
+## Choose a Copilot UI
+
+You are almost there! Now it's time to setup your Copilot UI.
+
+<ConnectCopilotUI components={props.components} />
+
+</Step>
+</Steps>
+</TailoredContentOption>
+</TailoredContent>
 
 ---
 
 ## Next Steps
+
+🎉 Congrats! You've successfully integrated a fully functional chatbot in your application! Give it a try now and see it in action. Want to
+take it further? Learn more about what CopilotKit has to offer!
 
 <Cards>
   <Card
@@ -64,8 +126,8 @@ import ConnectCopilotUI from "@/snippets/copilot-ui.mdx";
     icon={<LinkIcon />}
   />
   <Card
-    title="Agentic Copilots (LangGraph)"
-    description="Check out our section about Agentic Copilots, our approach to building agentic experiences."
+    title="CoAgents (LangGraph)"
+    description="Check out our section about CoAgents, our approach to building agentic copilots and experiences."
     href="/coagents"
     icon={<LinkIcon />}
   />

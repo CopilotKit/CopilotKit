@@ -4,6 +4,12 @@ This example demonstrates a research canvas UI.
 
 Live demo: https://examples-coagents-research-canvas-ui.vercel.app/
 
+Tutorial Video:
+
+[![IMAGE ALT TEXT](http://img.youtube.com/vi/0b6BVqPwqA0/0.jpg)](http://www.youtube.com/watch?v=0b6BVqPwqA0 "Build Agent-Native Apps with LangGraph & CoAgents (tutorial)")
+
+
+
 ---
 
 ## Running the Agent
@@ -69,4 +75,4 @@ Make sure to create the `.env` mentioned above first!
 A few things to try if you are running into trouble:
 
 1. Make sure there is no other local application server running on the 8000 port.
-2. Under `/agent/my_agent/demo.py`, change `0.0.0.0` to `127.0.0.1` or to `localhost`
+2. Under `/agent/research_canvas/demo.py`, change `0.0.0.0` to `127.0.0.1` or to `localhost`

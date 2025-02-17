@@ -5,10 +5,14 @@
 
   <br/>
 
-  <strong>
-    CopilotKit is the open-source framework for integrating powerful AI Copilots into any application. Easily implement custom AI Chatbots, AI Agents, AI Textareas, and more.
-  </strong>
+  <h3>
+    Build deeply-integrated AI assistants & agents<br/>
+    that work <em>alongside</em> your users inside your applications.
+  </h3>
+  
 </div>
+
+<!-- -->
 
 <br/>
 
@@ -30,9 +34,24 @@
   <a href="https://docs.copilotkit.ai?ref=github_readme" target="_blank">
     <img src="./assets/btn_docs.png" alt="CopilotKit GitHub" height="40px">
   </a>
-<!--   <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank">
+  <a href="https://cloud.copilotkit.ai?ref=github_readme" target="_blank">
     <img src="./assets/btn_cloud.png" alt="CopilotKit GitHub" height="40px">
-  </a> -->
+  </a>
+  
+</div>
+
+
+<h3 align="center"> 
+Stay up to date with our latest releases!
+</h3>
+
+<div align="center">
+  <a href="https://go.copilotkit.ai/gh-linkedin" target="_blank">
+    <img src="https://github.com/user-attachments/assets/e33e7ebb-f5fc-4775-81b0-d5dd6865271a" alt="LI">
+  </a>
+  <a href="https://go.copilotkit.ai/gh-twitter" target="_blank">
+    <img src="https://github.com/user-attachments/assets/14e57c97-70ac-4f9a-88f5-67028107794f" alt="Discord">
+  </a>
 </div>
 
 <br/>
@@ -41,115 +60,192 @@
     <img src="https://api.producthunt.com/widgets/embed-image/v1/top-post-badge.svg?post_id=428778&theme=light&period=daily">
   </a>
 </div>
-
 <br />
+
+
+<img width="1685" alt="214 (1)" src="https://github.com/user-attachments/assets/145600ce-c49b-4e25-883e-feee149d6332">
+
+
+# Demos (click to clone / run)
+
+<table>
+<tr>
+<td width="200" valign="top">
+  <img src="https://github.com/user-attachments/assets/9c6ebced-1439-49bb-811b-1f74fe749ab5" width="200"/>
+</td>
+<td>
+<details open>
+<summary>
+  <h2 style="display: inline-block; margin: 0;">📊 Spreadsheets + Copilot</h2>
+</summary>
+
+![Spreadsheet Demo](https://github.com/user-attachments/assets/0935da06-668e-41b1-806e-19a1a1574be2)
+
+[View Demo Repository →](https://github.com/CopilotKit/demo-spreadsheet)
+</details>
+
+A powerful spreadsheet assistant that helps users analyze data, create formulas, and generate insights through natural language interaction.
+</td>
+</tr>
+
+<tr>
+<td width="200" valign="top">
+  <img src="https://github.com/user-attachments/assets/ecddcf4c-cfe3-45ba-848d-03f94902475f" width="200"/>
+</td>
+<td>
+<details>
+<summary>
+  <h2 style="display: inline-block; margin: 0;">🏦 Banking Assistant (SaaS Copilot) </h2>
+</summary>
 
 <div align="center">
-  <img src="./assets/animated-banner.gif" alt="CopilotKit Screenshot" style="border-radius: 15px;" />
+  <img src="https://github.com/user-attachments/assets/ecddcf4c-cfe3-45ba-848d-03f94902475f" width="800"/>
 </div>
 
-<br />
+[View Demo Repository →](https://github.com/CopilotKit/demo-banking)
+</details>
 
-<div>
-<p>
-  👉 Check out the docs at <a href="https://docs.copilotkit.ai?ref=github_readme" target="_blank">https://docs.copilotkit.ai</a>
-</p>
+An AI-powered banking interface that helps users manage transactions, analyze spending patterns, and get personalized financial advice.
+</td>
+</tr>
+
+<tr>
+<td width="200" valign="top">
+  <img src="https://github.com/user-attachments/assets/09dc873b-b263-40a3-8577-1414d0837510" width="200"/>
+</td>
+<td>
+<details>
+<summary>
+  <h2 style="display: inline-block; margin: 0;">✈️ [Tutorial] Agent-Native Travel Planner (ANA) </h2>
+</summary>
+
+<div align="center">
+  <img src="./assets/travel-planner-gif.gif" width="800"/>
 </div>
 
-**Table of Contents**
+[View Tutorial →](https://docs.copilotkit.ai/coagents/tutorials/ai-travel-app/overview)
+</details>
 
-- [Getting Started](#getting-started)
-  - [Quickstart & Tutorials](#quickstart--tutorials)
-  - [Examples & Starter Templates](#examples--starter-templates)
-- [Building Blocks](#building-blocks)
-  - [Components](#-components)
-  - [Hooks](#-hooks)
-- [Contributing](#contributing)
-- [Get in touch](#get-in-touch)
-- [License](#license)
+Interactive travel planning assistant that helps users discover destinations, create itineraries, and manage trip details with natural language.
+</td>
+</tr>
 
-## Getting Started
+<tr>
+<td width="200" valign="top">
+  <img src="https://github.com/user-attachments/assets/0fb40d90-be21-416e-a8e5-9215ffee1f71" width="200"/>
+</td>
+<td>
+<details>
+<summary>
+  <h2 style="display: inline-block; margin: 0;">🔍 [Tutorial] Agent-Native Research Canvas (ANA)</h2>
+</summary>
 
-### Quickstart & Tutorials
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/64bbfe6a-c0e9-4dfc-91f2-e17b190a0fc0" width="800"/>
+</div>
 
-There are several easy ways to get started with CopilotKit:
 
-- [**Quickstart: Chatbot:**](https://docs.copilotkit.ai/quickstart?ref=github_readme) In just two minutes, add an AI Chatbot to your app with the ability to read application state and take actions.
-- [**Tutorial: Todo List Copilot:**](https://docs.copilotkit.ai/tutorials/ai-todo-app/overview?ref=github_readme) For a deeper dive into CopilotKit, take a simple todo list app and supercharge it with an AI chat popup.
-- [**Tutorial: Textarea Autocomplete:**](https://docs.copilotkit.ai/tutorials/ai-powered-textarea/overview?ref=github_readme) For a deeper dive into CopilotKit, we'll take a simple email client app and add an AI-powered textarea with autocompletions and AI insertions/edits.
+[View Demo Repository →](https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md)
+</details>
 
-### Examples & Starter Templates
-
-<table align="center">
-  <tr>
-    <td align="center" valign="top">
-      🕹️ PowerPoint Clone + Copilot<br/>
-      <a href="https://go.copilotkit.ai/GitHubPresentation">https://github.com/CopilotKit/demo-presentation</a> <br/><br>
-      <a href="https://go.copilotkit.ai/GitHubPresentation">
-        <img alt="Presentation" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/6e1a448b-d153-431f-8132-46a668d8a0d1" width="240px" style="max-width:100%; border-radius: 10px;"/>
-        <br/>
-        <a href="https://go.copilotkit.ai/GitHubPresentationVoice">See example with voice control</a>
-      </a>
-    </td>
-    <td align="center" valign="top">
-      🕹️ Simple Todo App + Copilot <br/>
-      <a href="https://go.copilotkit.ai/GitHubToDo">https://github.com/CopilotKit/demo-todo</a> <br/><br>
-      <a href="https://go.copilotkit.ai/GitHubToDo">
-        <img alt="Todo App" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/63798c02-1892-4d2d-bc9f-2994b7c88694" width="240px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top">
-      🕹️ Spreadsheets + Copilot <br/>
-      <a href="https://go.copilotkit.ai/GitHubSpreadsheet">https://github.com/CopilotKit/demo-spreadsheet</a> <br/><br>
-      <a href="https://go.copilotkit.ai/GitHubSpreadsheet">
-        <img alt="Presentation-Demo" src="https://github.com/CopilotKit/CopilotKit/assets/131273140/871e4c9c-0ced-490b-9e3f-8594de7c5c89" width="240px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td>
-    <td align="center" valign="top">
-      🕹️ Banking App + Copilot<br/>
-      <a href="https://github.com/CopilotKit/demo-banking">https://github.com/CopilotKit/demo-banking</a> <br/><br>
-      <a href="https://github.com/CopilotKit/demo-banking">
-        <img alt="Banking-Demo" src="https://github.com/CopilotKit/demo-banking/blob/main/assets/project-preview.png?raw=true" width="240px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top">
-      🕹️ CoAgents (LangGraph) Perplexity Clone<br/>
-      <a href="https://go.copilotkit.ai/coagents-perplexity-clone">https://github.com/CopilotKit/CopilotKit/examples/coagents-ai-researcher</a> <br/><br>
-      <a href="https://go.copilotkit.ai/coagents-perplexity-clone">
-        <img alt="Banking-Demo" src="./assets/proejct-perplexity-clone.png" width="200px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td>
-    <td align="center" valign="top">
-      🕹️ CoAgents (LangGraph) Research Canvas Demo<br/>
-      <a href="https://go.copilotkit.ai/coagents-research-canvas">https://github.com/CopilotKit/CopilotKit/examples/coagents-research-canvas</a> <br/><br>
-      <a href="https://go.copilotkit.ai/coagents-research-canvas">
-        <img alt="Banking-Demo" src="./assets/project-canvas-demo.png" width="200px" style="max-width:100%; border-radius: 10px;"/>
-      </a>
-    </td>
-  </tr>
+An intelligent research assistant that helps users analyze academic papers, synthesize information across multiple sources, and generate comprehensive research summaries through natural language interaction.
+</td>
+</tr>
 </table>
 
-## Building Blocks
+# Getting Started
+Get started in minutes - check out the [quickstart documentation](https://docs.copilotkit.ai/quickstart).
 
-> 💡 Want to learn more? Check out the [CopilotKit Documentation](https://docs.copilotkit.ai?ref=github_readme).
+# Code Samples
+```ts
+// Headless UI with full control
+const { visibleMessages, appendMessage, setMessages, ... } = useCopilotChat();
 
-### 🧩 Components
+// Pre-built components with deep customization options (CSS + pass custom sub-components)
+<CopilotPopup 
+  instructions={"You are assisting the user as best as you can. Answer in the best way possible given the data you have."} 
+  labels={{ title: "Popup Assistant", initial: "Need any help?" }} 
+/>
 
-- [**`<CopilotTextarea />`**](https://docs.copilotkit.ai/reference/components/CopilotTextarea?ref=github_readme): An AI-powered textarea with autocompletions and AI-powered insertions/edits.
-- [**`<CopilotPopup />`**](https://docs.copilotkit.ai/reference/components/chat/CopilotPopup?ref=github_readme): AI-powered floating chat popup component.
-- [**`<CopilotSidebar />`**](https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar?ref=github_readme): AI-powered chat sidebar component.
-- [**`<CopilotChat />`**](https://docs.copilotkit.ai/reference/components/chat/CopilotChat?ref=github_readme): AI-powered plain chat component.
+// ---
 
-### ⚡️ Hooks
+// Frontend RAG
+useCopilotReadable({
+  description: "The current user's colleagues",
+  value: colleagues,
+});
 
-- [**`useCopilotReadable`**](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable?ref=github_readme): Provide in-app state and any other information to your Copilot.
-- [**`useCopilotAction`**](https://docs.copilotkit.ai/reference/hooks/useCopilotAction?ref=github_readme): Enable your Copilot to perform actions and render custom-generated UI in the chat.
-- [**`useCopilotChat`**](https://docs.copilotkit.ai/reference/hooks/useCopilotChat?ref=github_readme): Directly interact with the Copilot chat instance to add messages and manipulate the chat history.
-- [**`useCopilotChatSuggestions`**](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions?ref=github_readme): Integrate AI-powered chat follow-up suggestions that are aware of your app's state and chat history.
+// knowledge-base integration
+useCopilotKnowledgebase(myCustomKnowledgeBase)
+
+// ---
+
+// Frontend actions + generative UI, with full streaming support
+useCopilotAction({
+  name: "appendToSpreadsheet",
+  description: "Append rows to the current spreadsheet",
+  parameters: [
+    { name: "rows", type: "object[]", attributes: [{ name: "cells", type: "object[]", attributes: [{ name: "value", type: "string" }] }] }
+  ],
+  render: ({ status, args }) => <Spreadsheet data={canonicalSpreadsheetData(args.rows)} />,
+  handler: ({ rows }) => setSpreadsheet({ ...spreadsheet, rows: [...spreadsheet.rows, ...canonicalSpreadsheetData(rows)] }),
+});
+
+// ---
+
+// structured autocomplete for anything
+const { suggestions } = useCopilotStructuredAutocompletion(
+  {
+    instructions: `Autocomplete or modify spreadsheet rows based on the inferred user intent.`,
+    value: { rows: spreadsheet.rows.map((row) => ({ cells: row })) },
+    enabled: !!activeCell && !spreadsheetIsEmpty,
+  },
+  [activeCell, spreadsheet]
+);
+```
+
+# Code Samples (CoAgents: in-app LangGraph Agents)
+
+```ts
+// Share state between app and agent
+const { agentState } = useCoAgent({ 
+  name: "basic_agent", 
+  initialState: { input: "NYC" } 
+});
+
+// agentic generative UI
+useCoAgentStateRender({
+  name: "basic_agent",
+  render: ({ state }) => <WeatherDisplay {...state.final_response} />,
+});
+
+// Human in the Loop (Approval)
+useCopilotAction({
+    name: "email_tool",
+    parameters: [{ name: "email_draft", type: "string", description: "The email content", required: true }],
+    renderAndWaitForResponse: ({ args, status, respond }) => (
+      <EmailConfirmation
+        emailContent={args.email_draft || ""}
+        isExecuting={status === "executing"}
+        onCancel={() => respond?.({ approved: false })}
+        onSend={() => respond?.({ approved: true, metadata: { sentAt: new Date().toISOString() } })}
+      />
+    ),
+  });
+
+// ---
+
+// intermediate agent state streaming (supports both LangGraph.js + LangGraph python)
+const modifiedConfig = copilotKitCustomizeConfig(config, {
+  emitIntermediateState: [{ 
+    stateKey: "outline", 
+    tool: "set_outline", 
+    toolArgument: "outline" 
+  }],
+});
+const response = await ChatOpenAI({ model: "gpt-4o" }).invoke(messages, modifiedConfig);
+```
+
 
 ## Contributing
 
@@ -161,15 +257,14 @@ Here are a few useful resources to help you get started:
 
 - For code contributions, [CONTRIBUTING.md](./CONTRIBUTING.md).
 - For documentation-related contributions, [check out the documentation contributions guide](https://docs.copilotkit.ai/contributing/docs-contributions?ref=github_readme).
+
 - Want to contribute but not sure how? [Join our Discord](https://discord.gg/6dffbvGU3D) and we'll help you out!
 
 > 💡 **NOTE:** All contributions must be submitted via a pull request and be reviewed by our team. This ensures all contributions are of high quality and align with the project's goals.
 
 ## Get in touch
 
-You are welcome to join our [Discord](https://discord.gg/6dffbvGU3D) and chat with our team and other community members.
-
-Additionally, you can reach out to us at [hello@copilotkit.ai](mailto:hello@copilotkit.ai).
+You are invited to join our community on [Discord](https://discord.gg/6dffbvGU3D) and chat with our team and other community members.
 
 ## License
 

@@ -1,3 +1,5 @@
+import { ActionExecutionMessage, ResultMessage, TextMessage } from "../../graphql/types/converted";
+
 export enum LangGraphEventTypes {
   OnChainStart = "on_chain_start",
   OnChainStream = "on_chain_stream",
@@ -11,6 +13,13 @@ export enum LangGraphEventTypes {
   OnCopilotKitEmitMessage = "on_copilotkit_emit_message",
   OnCopilotKitEmitToolCall = "on_copilotkit_emit_tool_call",
   OnCustomEvent = "on_custom_event",
+  OnInterrupt = "on_interrupt",
+  OnCopilotKitInterrupt = "on_copilotkit_interrupt",
+}
+
+export enum MetaEventNames {
+  LangGraphInterruptEvent = "LangGraphInterruptEvent",
+  CopilotKitLangGraphInterruptEvent = "CopilotKitLangGraphInterruptEvent",
 }
 
 export enum CustomEventNames {
@@ -119,7 +128,7 @@ type LangGraphOnChatModelStreamEvent = {
     chunk: {
       lc: number;
       type: string;
-      id: string[];
+      id: string;
       kwargs: {
         content: string | { text: string; type: string; index: number }[];
         additional_kwargs: {
@@ -325,6 +334,16 @@ type LangGraphOnCustomEvent = {
   parent_ids: string[];
 };
 
+interface LangGraphInterruptEvent {
+  event: LangGraphEventTypes.OnInterrupt;
+  value: string;
+}
+
+interface CopilotKitLangGraphInterruptEvent {
+  event: LangGraphEventTypes.OnCopilotKitInterrupt;
+  data: { value: string; messages: (TextMessage | ActionExecutionMessage | ResultMessage)[] };
+}
+
 export type LangGraphEvent =
   | LangGraphOnChainStartEvent
   | LangGraphOnChainStreamEvent
@@ -335,4 +354,6 @@ export type LangGraphEvent =
   | LangGraphOnToolStartEvent
   | LangGraphOnToolEndEvent
   | LangGraphOnCopilotKitStateSyncEvent
-  | LangGraphOnCustomEvent;
+  | LangGraphOnCustomEvent
+  | LangGraphInterruptEvent
+  | CopilotKitLangGraphInterruptEvent;

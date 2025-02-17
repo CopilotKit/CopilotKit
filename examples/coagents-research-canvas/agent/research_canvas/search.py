@@ -8,8 +8,8 @@ from pydantic import BaseModel, Field
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import AIMessage, ToolMessage, SystemMessage
 from langchain.tools import tool
-from tavily import AsyncTavilyClient
-from copilotkit.langchain import copilotkit_emit_state, copilotkit_customize_config
+from tavily import TavilyClient
+from copilotkit.langgraph import copilotkit_emit_state, copilotkit_customize_config
 from research_canvas.state import AgentState
 from research_canvas.model import get_model
 
@@ -23,12 +23,13 @@ class ResourceInput(BaseModel):
 def ExtractResources(resources: List[ResourceInput]): # pylint: disable=invalid-name,unused-argument
     """Extract the 3-5 most relevant resources from a search result."""
 
-tavily_client = AsyncTavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 
 async def search_node(state: AgentState, config: RunnableConfig):
     """
     The search node is responsible for searching the internet for resources.
     """
+
     ai_message = cast(AIMessage, state["messages"][-1])
 
     state["resources"] = state.get("resources", [])
@@ -46,7 +47,7 @@ async def search_node(state: AgentState, config: RunnableConfig):
     search_results = []
 
     for i, query in enumerate(queries):
-        response = await tavily_client.search(query)
+        response = tavily_client.search(query)
         search_results.append(response)
         state["logs"][i]["done"] = True
         await copilotkit_emit_state(config, state)

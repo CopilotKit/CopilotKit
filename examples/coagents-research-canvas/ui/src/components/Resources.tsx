@@ -22,7 +22,7 @@ export function Resources({
       {resources.map((resource, idx) => (
         <Card
           data-test-id={`resource`}
-          key={resource.url} // Use url as the key
+          key={idx}
           className={
             "bg-background border-0 shadow-none rounded-xl text-md font-extralight focus-visible:ring-0 flex-none" +
             (handleCardClick ? " cursor-pointer" : "")
@@ -68,13 +68,17 @@ export function Resources({
                     whiteSpace: "nowrap",
                   }}
                 >
-                  <img
-                    src={`https://www.google.com/s2/favicons?domain=${resource.url}`}
-                    alt="favicon"
-                    className="inline-block mr-2"
-                    style={{ width: "16px", height: "16px" }}
-                  />
-                  {truncateUrl(resource.url)}
+                  {resource.description && (
+                    <>
+                      <img
+                        src={`https://www.google.com/s2/favicons?domain=${resource.url}`}
+                        alt="favicon"
+                        className="inline-block mr-2"
+                        style={{ width: "16px", height: "16px" }}
+                      />
+                      {truncateUrl(resource.url)}
+                    </>
+                  )}
                 </a>
               </div>
               {removeResource && (

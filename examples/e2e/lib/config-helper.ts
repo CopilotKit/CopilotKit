@@ -18,6 +18,7 @@ export interface ConfigItem {
   projectName: ProjectName;
   lgcPythonDeploymentUrl?: string;
   lgcJSDeploymentUrl?: string;
+  key?: string;
 }
 
 export interface ConfigMap {
@@ -27,7 +28,9 @@ export interface ConfigMap {
 export interface TestVariant {
   name: string;
   queryParams: string;
+  isCloud?: boolean;
 }
+
 
 export type TestVariants = TestVariant[];
 
@@ -76,7 +79,6 @@ export const filterConfigsByProject = (
   }, {} as ConfigMap);
 };
 
-
 export const appendLGCVariants = (config: ConfigItem, variants: any[]) => {
   let appendedVariants = [...variants];
 
@@ -96,7 +98,7 @@ export const appendLGCVariants = (config: ConfigItem, variants: any[]) => {
     const newVariants = variants.map((variant) => {
       return {
         ...variant,
-        name: `${variant.name} (LGC JS \`main\`)`,
+        name: `${variant.name} (LGC JS)`,
         queryParams: `${variant.queryParams}&lgcDeploymentUrl=${config.lgcJSDeploymentUrl}`,
       };
     });

@@ -3,9 +3,11 @@ This is the state definition for the AI.
 It defines the state of the agent and the state of the conversation.
 """
 
-from langgraph.graph import MessagesState
+from copilotkit import CopilotKitState
 
-class EmailAgentState(MessagesState):
+class EmailAgentState(CopilotKitState):
     """Email Agent State"""
     email: str
-    model: str = "openai"
+    model: str
+    sender: str
+    sender_company: str

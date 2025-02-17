@@ -1,6 +1,7 @@
 ---
 title: "Frontend Actions"
 description: "Learn how to enable your Copilot to take actions in the frontend."
+icon: "lucide/Wrench"
 ---
 import { LinkIcon } from "lucide-react";
 import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
@@ -18,11 +19,10 @@ In addition to understanding state, you can empower the copilot to take actions.
 "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
 import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
 
-export function YourComponent() {
-  const { todos, addTodo } = useTodos();
+export function MyComponent() {
+  const [todos, setTodos] = useState<string[]>([]);
 
   // Define Copilot action
-  // [!code highlight:16]
   useCopilotAction({
     name: "addTodoItem",
     description: "Add a new todo item to the list",
@@ -32,16 +32,19 @@ export function YourComponent() {
         type: "string",
         description: "The text of the todo item to add",
         required: true,
-      }
+      },
     ],
     handler: async ({ todoText }) => {
-      addTodo(todoText);
+      setTodos([...todos, todoText]);
     },
   });
 
   return (
-    // Your custom UI component
-    <>...</>
+    <ul>
+      {todos.map((todo, index) => (
+        <li key={index}>{todo}</li>
+      ))}
+    </ul>
   );
 }
 ```

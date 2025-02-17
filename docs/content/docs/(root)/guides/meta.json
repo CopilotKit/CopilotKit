@@ -5,12 +5,14 @@
     "generative-ui",
     "frontend-actions",
     "backend-actions",
+    "authenticated-actions",
+    "guardrails",
     "custom-ai-assistant-behavior",
     "copilot-suggestions",
     "bring-your-own-llm",
     "custom-look-and-feel",
-    "headless-ui",
     "copilot-textarea",
-    "self-hosting"
+    "self-hosting",
+    "messages-localstorage"
   ]
 }

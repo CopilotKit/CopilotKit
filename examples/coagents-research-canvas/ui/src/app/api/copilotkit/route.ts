@@ -13,7 +13,7 @@ const langsmithApiKey = process.env.LANGSMITH_API_KEY as string
 
 export const POST = async (req: NextRequest) => {
   const searchParams = req.nextUrl.searchParams
-  const deploymentUrl = searchParams.get('lgcDeploymentUrl')
+  const deploymentUrl = searchParams.get('lgcDeploymentUrl') || process.env.LGC_DEPLOYMENT_URL;
 
   const remoteEndpoint = deploymentUrl ? langGraphPlatformEndpoint({
     deploymentUrl,

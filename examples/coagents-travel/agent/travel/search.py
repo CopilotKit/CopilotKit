@@ -9,9 +9,8 @@ from typing import cast
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain.tools import tool
-from copilotkit.langchain import copilotkit_emit_state, copilotkit_customize_config
+from copilotkit.langgraph import copilotkit_emit_state, copilotkit_customize_config
 from travel.state import AgentState
-from copilotkit.langchain import copilotkit_emit_message
 
 @tool
 def search_for_places(queries: list[str]) -> list[dict]:

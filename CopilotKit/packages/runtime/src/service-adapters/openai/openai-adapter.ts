@@ -14,9 +14,7 @@
  *   apiKey: "<your-api-key>",
  * });
  *
- * const serviceAdapter = new OpenAIAdapter({ openai });
- *
- * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+ * return new OpenAIAdapter({ openai });
  * ```
  *
  * ## Example with Azure OpenAI
@@ -47,9 +45,7 @@
  *   defaultHeaders: { "api-key": apiKey },
  * });
  *
- * const serviceAdapter = new OpenAIAdapter({ openai });
- *
- * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+ * return new OpenAIAdapter({ openai });
  * ```
  */
 import OpenAI from "openai";
@@ -63,7 +59,7 @@ import {
   convertMessageToOpenAIMessage,
   limitMessagesToTokenCount,
 } from "./utils";
-import { randomId } from "@copilotkit/shared";
+import { randomUUID } from "@copilotkit/shared";
 
 const DEFAULT_MODEL = "gpt-4o";
 
@@ -111,7 +107,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
     const {
-      threadId,
+      threadId: threadIdFromRequest,
       model = this.model,
       messages,
       actions,
@@ -119,6 +115,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       forwardedParameters,
     } = request;
     const tools = actions.map(convertActionInputToOpenAITool);
+    const threadId = threadIdFromRequest ?? randomUUID();
 
     let openaiMessages = messages.map(convertMessageToOpenAIMessage);
     openaiMessages = limitMessagesToTokenCount(openaiMessages, tools, model);
@@ -140,11 +137,13 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
       ...(forwardedParameters?.stop && { stop: forwardedParameters.stop }),
       ...(toolChoice && { tool_choice: toolChoice }),
       ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
+      ...(forwardedParameters?.temperature && { temperature: forwardedParameters.temperature }),
     });
 
     eventSource.stream(async (eventStream$) => {
       let mode: "function" | "message" | null = null;
-
+      let currentMessageId: string;
+      let currentToolCallId: string;
       for await (const chunk of stream) {
         if (chunk.choices.length === 0) {
           continue;
@@ -158,43 +157,55 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
         // If toolCall?.id is defined, it means a new tool call starts.
         if (mode === "message" && toolCall?.id) {
           mode = null;
-          eventStream$.sendTextMessageEnd();
+          eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
         } else if (mode === "function" && (toolCall === undefined || toolCall?.id)) {
           mode = null;
-          eventStream$.sendActionExecutionEnd();
+          eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
         }
 
         // If we send a new message type, send the appropriate start event.
         if (mode === null) {
           if (toolCall?.id) {
             mode = "function";
-            eventStream$.sendActionExecutionStart(toolCall!.id, toolCall!.function!.name);
+            currentToolCallId = toolCall!.id;
+            eventStream$.sendActionExecutionStart({
+              actionExecutionId: currentToolCallId,
+              parentMessageId: chunk.id,
+              actionName: toolCall!.function!.name,
+            });
           } else if (content) {
             mode = "message";
-            eventStream$.sendTextMessageStart(chunk.id);
+            currentMessageId = chunk.id;
+            eventStream$.sendTextMessageStart({ messageId: currentMessageId });
           }
         }
 
         // send the content events
         if (mode === "message" && content) {
-          eventStream$.sendTextMessageContent(content);
+          eventStream$.sendTextMessageContent({
+            messageId: currentMessageId,
+            content: content,
+          });
         } else if (mode === "function" && toolCall?.function?.arguments) {
-          eventStream$.sendActionExecutionArgs(toolCall.function.arguments);
+          eventStream$.sendActionExecutionArgs({
+            actionExecutionId: currentToolCallId,
+            args: toolCall.function.arguments,
+          });
         }
       }
 
       // send the end events
       if (mode === "message") {
-        eventStream$.sendTextMessageEnd();
+        eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
       } else if (mode === "function") {
-        eventStream$.sendActionExecutionEnd();
+        eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
       }
 
       eventStream$.complete();
     });
 
     return {
-      threadId: threadId || randomId(),
+      threadId,
     };
   }
 }

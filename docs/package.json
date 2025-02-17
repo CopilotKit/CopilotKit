@@ -10,11 +10,14 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@clerk/clerk-react": "^5.18.2",
+    "@clerk/nextjs": "^6.7.1",
     "@radix-ui/react-dialog": "^1.1.2",
-    "@clerk/clerk-react": "^5.11.0",
-    "@clerk/nextjs": "^5.7.1",
     "@radix-ui/react-icons": "^1.3.0",
+    "@radix-ui/react-scroll-area": "^1.2.2",
+    "@radix-ui/react-select": "^2.1.2",
     "@radix-ui/react-slot": "^1.1.0",
+    "@radix-ui/react-tabs": "^1.1.2",
     "@shikijs/transformers": "^1.20.0",
     "@theguild/remark-mermaid": "^0.1.3",
     "@theguild/remark-npm2yarn": "^0.3.2",
@@ -40,6 +43,7 @@
     "react-youtube": "^10.1.0",
     "rehype-highlight-code-lines": "^1.0.4",
     "shiki": "^1.20.0",
+    "swr": "^2.2.5",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
     "usehooks-ts": "^3.1.0"

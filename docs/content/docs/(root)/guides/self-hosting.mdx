@@ -1,6 +1,7 @@
 ---
 title: Self Hosting (Copilot Runtime)
 description: Learn how to self-host the Copilot Runtime.
+icon: "lucide/Server"
 ---
 
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
@@ -31,18 +32,17 @@ You may choose to self-host the Copilot Runtime, or [use Copilot Cloud](https://
 ## Integration
 
 <Steps>
-  ### Step 1: Create an Endpoint
+  <Step>
+    ### Step 1: Create an Endpoint
+    <SelfHostingCopilotRuntimeCreateEndpoint components={props.components} />
+  </Step>
 
-  <SelfHostingCopilotRuntimeCreateEndpoint components={props.components} />
-
-  ### Step 2: Configure the `<CopilotKit>` Provider
-
-  <SelfHostingCopilotRuntimeConfigureCopilotKitProvider components={props.components} />
+  <Step>
+    ### Step 2: Configure the `<CopilotKit>` Provider
+    <SelfHostingCopilotRuntimeConfigureCopilotKitProvider components={props.components} />
+  </Step>
 
 </Steps>
-
-## LLM Adapters 
-<LLMAdapters />
 
 ## Next Steps
 

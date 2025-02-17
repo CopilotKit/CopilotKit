@@ -2,45 +2,42 @@
  * Test Q&A Agent
  */
 
-import { tool } from "@langchain/core/tools";
-import { z } from "zod";
 import { RunnableConfig } from "@langchain/core/runnables";
 import {
-  copilotKitCustomizeConfig,
-  copilotKitEmitMessage,
-  copilotKitExit,
-} from "@copilotkit/sdk-js/langchain";
-import { HumanMessage, ToolMessage } from "@langchain/core/messages";
+  copilotkitExit,
+  convertActionsToDynamicStructuredTools,
+} from "@copilotkit/sdk-js/langgraph";
+import { AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { getModel } from "./model";
-import { END, MemorySaver, StateGraph } from "@langchain/langgraph";
+import { END, MemorySaver, StateGraph, interrupt } from "@langchain/langgraph";
 import { AgentState, AgentStateAnnotation } from "./state";
-
-const EmailTool = tool(() => {}, {
-  name: "EmailTool",
-  description: "Write an email.",
-  schema: z.object({
-    the_email: z.string().describe("The email to be written."),
-  }),
-});
+import { copilotKitInterrupt } from "@copilotkit/sdk-js/langgraph";
 
 export async function email_node(state: AgentState, config: RunnableConfig) {
   /**
    * Write an email.
    */
 
-  const modifiedConfig = copilotKitCustomizeConfig(config, {
-    emitToolCalls: true,
-  });
+  const sender = state.sender ?? interrupt('Please provide a sender name which will appear in the email');
+  let senderCompany = state.senderCompany
+  let interruptMessages = []
+  if (!senderCompany?.length) {
+    const { answer, messages } = copilotKitInterrupt({ message: 'Ah, forgot to ask, which company are you working for?' });
+    senderCompany = answer;
+    interruptMessages = messages;
+  }
+  const instructions = `You write emails. The email is by the following sender: ${sender}, working for: ${senderCompany}`;
 
-  const instructions = "You write emails.";
-
-  const email_model = getModel(state).bindTools!([EmailTool], {
-    tool_choice: "EmailTool",
-  });
+  const email_model = getModel(state).bindTools!(
+    convertActionsToDynamicStructuredTools(state.copilotkit.actions),
+    {
+      tool_choice: "EmailTool",
+    }
+  );
 
   const response = await email_model.invoke(
-    [...state.messages, new HumanMessage({ content: instructions })],
-    modifiedConfig
+    [...state.messages, ...interruptMessages, new HumanMessage({ content: instructions })],
+    config
   );
 
   const tool_calls = response.tool_calls;
@@ -48,7 +45,10 @@ export async function email_node(state: AgentState, config: RunnableConfig) {
   const email = tool_calls?.[0]?.args.the_email;
 
   return {
+    messages: response,
     email: email,
+    sender,
+    senderCompany,
   };
 }
 
@@ -60,17 +60,16 @@ export async function send_email_node(
    * Send an email.
    */
 
-  await copilotKitExit(config);
+  await copilotkitExit(config);
 
   const lastMessage = state.messages[state.messages.length - 1] as ToolMessage;
-  if (lastMessage.content === "CANCEL") {
-    await copilotKitEmitMessage(config, "❌ Cancelled sending email.");
-  } else {
-    await copilotKitEmitMessage(config, "✅ Sent email.");
-  }
+  const content =
+    lastMessage.content === "CANCEL"
+      ? "❌ Cancelled sending email."
+      : "✅ Sent email.";
 
   return {
-    messages: state.messages,
+    messages: new AIMessage({ content }),
   };
 }
 

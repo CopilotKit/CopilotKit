@@ -17,14 +17,15 @@ class Message(TypedDict):
 
 class TextMessage(Message):
     """Text message"""
+    parentMessageId: NotRequired[str]
     role: MessageRole
     content: str
 
 class ActionExecutionMessage(Message):
     """Action execution message"""
+    parentMessageId: NotRequired[str]
     name: str
     arguments: dict
-    scope: str
 
 class ResultMessage(Message):
     """Result message"""
@@ -37,3 +38,8 @@ class IntermediateStateConfig(TypedDict):
     state_key: str
     tool: str
     tool_argument: NotRequired[str]
+
+class MetaEvent(TypedDict):
+    """Type definition for meta events"""
+    name: str
+    response: NotRequired[str]

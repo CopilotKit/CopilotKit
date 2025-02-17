@@ -1,13 +1,15 @@
 "use client";
 
 import cn from "classnames";
-import React, { useState, ReactNode } from "react";
+import React, { useState, ReactNode, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type TailoredContentOptionProps = {
   title: string;
   description: string;
   icon: ReactNode;
   children: ReactNode;
+  id: string;
 };
 
 export function TailoredContentOption({ title, description, icon, children }: TailoredContentOptionProps) {
@@ -17,11 +19,16 @@ export function TailoredContentOption({ title, description, icon, children }: Ta
 
 type TailoredContentProps = {
   children: ReactNode;
+  header?: ReactNode;
   className?: string;
   defaultOptionIndex?: number;
+  id: string;
 };
 
-export function TailoredContent({ children, className, defaultOptionIndex = 0 }: TailoredContentProps) {
+export function TailoredContent({ children, className, defaultOptionIndex = 0, id, header }: TailoredContentProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
   // Get options from children
   const options = React.Children.toArray(children).filter(
     (child) => React.isValidElement(child)
@@ -31,11 +38,25 @@ export function TailoredContent({ children, className, defaultOptionIndex = 0 }:
     throw new Error("TailoredContent must have at least one TailoredContentOption child");
   }
 
-  if (defaultOptionIndex < 0 || defaultOptionIndex >= options.length) {
-    throw new Error("Default option index is out of bounds");
-  }
+  // Get the option IDs for URL handling
+  const optionIds = options.map((option) => option.props.id);
 
-  const [selectedIndex, setSelectedIndex] = useState(defaultOptionIndex);
+  // Initialize selected index from URL or default
+  const [selectedIndex, setSelectedIndex] = useState(() => {
+    const urlParam = searchParams.get(id);
+    const indexFromUrl = optionIds.indexOf(urlParam || "");
+    return indexFromUrl >= 0 ? indexFromUrl : defaultOptionIndex;
+  });
+
+  // Update URL when selection changes
+  const updateSelection = (index: number) => {
+    const newParams = new URLSearchParams(searchParams.toString());
+    newParams.set(id, optionIds[index]);
+    
+    // Update URL without reload
+    router.replace(`?${newParams.toString()}`, { scroll: false });
+    setSelectedIndex(index);
+  };
 
   const itemCn =
     "border p-4 rounded-md flex-1 flex md:block md:space-y-1 items-center md:items-start gap-4 cursor-pointer bg-white dark:bg-secondary relative overflow-hidden group transition-all";
@@ -47,13 +68,16 @@ export function TailoredContent({ children, className, defaultOptionIndex = 0 }:
   return (
     <div>
       <div className={cn("tailored-content-wrapper mt-4", className)}>
+        {header}
         <div className="flex flex-col md:flex-row gap-3 my-2 w-full">
           {options.map((option, index) => (
             <div
-              key={index}
+              key={option.props.id}
               className={cn(itemCn, selectedIndex === index && selectedCn)}
-              onClick={() => setSelectedIndex(index)}
-              style={{ position: "relative" }}
+              onClick={() => updateSelection(index)}
+              role="tab"
+              aria-selected={selectedIndex === index}
+              tabIndex={0}
             >
               <div className="my-0">
                 {React.cloneElement(option.props.icon as React.ReactElement, {

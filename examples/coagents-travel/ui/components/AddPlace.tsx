@@ -74,7 +74,7 @@ export function AddPlace({ map }: { map: Map }) {
         <TooltipTrigger asChild>
           <Button 
             size="icon" 
-            className={`bg-white text-black hover:bg-white/80 rounded-full ${isPlacing ? 'ring-2 ring-primary' : ''}`}
+            className={`bg-white text-black hover:bg-white/80 ring-2 ring-border shadow-xl border-black rounded-full ${isPlacing ? 'ring-2 ring-primary' : ''}`}
             onClick={isPlacing ? handleStopPlacing : handleStartPlacing}
           >
             {isPlacing ? <MapPin className="w-4 h-4" /> : <Plus className="w-4 h-4" />}

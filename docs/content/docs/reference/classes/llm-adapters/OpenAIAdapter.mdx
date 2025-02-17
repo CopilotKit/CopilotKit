@@ -25,9 +25,7 @@ const openai = new OpenAI({
   apiKey: "<your-api-key>",
 });
  
-const serviceAdapter = new OpenAIAdapter({ openai });
- 
-return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+return new OpenAIAdapter({ openai });
 ```
  
 ## Example with Azure OpenAI
@@ -58,9 +56,7 @@ const openai = new OpenAI({
   defaultHeaders: { "api-key": apiKey },
 });
  
-const serviceAdapter = new OpenAIAdapter({ openai });
- 
-return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+return new OpenAIAdapter({ openai });
 ```
 
 ## Constructor Parameters

@@ -4,6 +4,7 @@ FROM node:21-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
+RUN corepack prepare pnpm@9.15.0 --activate
 RUN pnpm i -g turbo
 
 # Production Stage 

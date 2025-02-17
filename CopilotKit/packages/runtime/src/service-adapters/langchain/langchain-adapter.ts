@@ -14,15 +14,13 @@
  *   apiKey: "<your-api-key>",
  * });
  *
- * const serviceAdapter = new LangChainAdapter({
+ * return new LangChainAdapter({
  *   chainFn: async ({ messages, tools }) => {
  *     return model.bindTools(tools).stream(messages);
  *     // or optionally enable strict mode
  *     // return model.bindTools(tools, { strict: true }).stream(messages);
  *   }
  * });
- *
- * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
  * ```
  *
  * The asynchronous handler function (`chainFn`) can return any of the following:
@@ -46,7 +44,7 @@ import {
 } from "./utils";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { LangChainReturnType } from "./types";
-import { randomId } from "@copilotkit/shared";
+import { randomUUID } from "@copilotkit/shared";
 import { awaitAllCallbacks } from "@langchain/core/callbacks/promises";
 
 interface ChainFnParameters {
@@ -74,8 +72,15 @@ export class LangChainAdapter implements CopilotServiceAdapter {
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
     try {
-      const { eventSource, model, actions, messages, runId } = request;
-      const threadId = request.threadId ?? randomId();
+      const {
+        eventSource,
+        model,
+        actions,
+        messages,
+        runId,
+        threadId: threadIdFromRequest,
+      } = request;
+      const threadId = threadIdFromRequest ?? randomUUID();
       const result = await this.options.chainFn({
         messages: messages.map(convertMessageToLangChainMessage),
         tools: actions.map(convertActionInputToLangChainTool),

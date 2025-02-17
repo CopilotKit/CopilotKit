@@ -3,6 +3,7 @@ import {
   CopilotKit,
   useCoAgent,
   useCoAgentStateRender,
+  useCopilotChat,
 } from "@copilotkit/react-core";
 import {
   CopilotSidebar,
@@ -14,13 +15,14 @@ import {
   useModelSelectorContext,
 } from "./lib/model-selector-provider";
 import { ModelSelector } from "./components/ModelSelector";
+import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
 
 export default function ModelSelectorWrapper() {
   return (
-      <ModelSelectorProvider>
-        <Home />
-        <ModelSelector />
-      </ModelSelectorProvider>
+    <ModelSelectorProvider>
+      <Home />
+      <ModelSelector />
+    </ModelSelectorProvider>
   );
 }
 
@@ -28,39 +30,61 @@ function Home() {
   const { lgcDeploymentUrl } = useModelSelectorContext();
 
   return (
-      <CopilotKit runtimeUrl={`/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl ?? ''}`}>
-        <div className="min-h-screen bg-gray-100 p-4">
-          <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6">
-            <Joke />
-          </div>
-          <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4">
-            <Email />
-          </div>
-          <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4">
-            <PirateMode />
-          </div>
-          <CopilotSidebar
-              defaultOpen={true}
-              clickOutsideToClose={false}
-              className="mt-4"
-          />
+    <CopilotKit
+      runtimeUrl={`/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl ?? ""}`}
+    >
+      <div className="min-h-screen bg-gray-100 p-4">
+        <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4 flex justify-center">
+          <ResetButton />
         </div>
-      </CopilotKit>
+
+        <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4">
+          <Joke />
+        </div>
+        <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4">
+          <Email />
+        </div>
+        <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4">
+          <PirateMode />
+        </div>
+        <CopilotSidebar
+          defaultOpen={true}
+          clickOutsideToClose={false}
+          className="mt-4"
+        />
+      </div>
+    </CopilotKit>
   );
 }
 
-function PirateMode() {
+function ResetButton() {
+  const { reset } = useCopilotChat();
+  return (
+    <button
+      className="px-6 py-3 border-2 border-gray-300 bg-white text-gray-800 rounded-lg shadow-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition duration-300 ease-in-out"
+      onClick={() => reset()}
+    >
+      Reset Everything
+    </button>
+  );
+}
+
+function usePirateAgent() {
   const { model } = useModelSelectorContext();
-  useCopilotChatSuggestions({
-    instructions: "Suggest to talk to a pirate about piratey things",
-    maxSuggestions: 1,
-  });
-  const { running } = useCoAgent({
+  return useCoAgent({
     name: "pirate_agent",
     initialState: {
       model,
     },
   });
+}
+
+function PirateMode() {
+  useCopilotChatSuggestions({
+    instructions: "Suggest to talk to a pirate about piratey things",
+    maxSuggestions: 1,
+  });
+  const { running } = usePirateAgent();
 
   if (running) {
     return (
@@ -81,6 +105,26 @@ function PirateMode() {
       </div>
     );
   }
+}
+
+function RunPirateMode() {
+  const { run } = usePirateAgent();
+  return (
+    <button
+      onClick={() =>
+        run(
+          () =>
+            new TextMessage({
+              content: "Run pirate mode",
+              role: MessageRole.User,
+            })
+        )
+      }
+      className="bg-white text-black border border-gray-300 rounded px-4 py-2 shadow hover:bg-gray-100"
+    >
+      Run Pirate Mode
+    </button>
+  );
 }
 
 function Joke() {

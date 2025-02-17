@@ -14,12 +14,13 @@
  * ```
  */
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, SetStateAction } from "react";
 import {
   CopilotContext,
   CopilotApiConfig,
   ChatComponentsCache,
   AgentSession,
+  AuthState,
 } from "../../context/copilot-context";
 import useTree from "../../hooks/use-tree";
 import { CopilotChatSuggestionConfiguration, DocumentPointer } from "../../types";
@@ -28,24 +29,47 @@ import {
   COPILOT_CLOUD_CHAT_URL,
   CopilotCloudConfig,
   FunctionCallHandler,
+  COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
+  randomUUID,
+  ConfigurationError,
+  MissingPublicApiKeyError,
 } from "@copilotkit/shared";
-
 import { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
 import { CopilotKitProps } from "./copilotkit-props";
 import { CoAgentStateRender } from "../../types/coagent-action";
 import { CoagentState } from "../../types/coagent-state";
 import { CopilotMessages } from "./copilot-messages";
+import { ToastProvider } from "../toast/toast-provider";
+import { useCopilotRuntimeClient } from "../../hooks/use-copilot-runtime-client";
+import { shouldShowDevConsole } from "../../utils";
+import { CopilotErrorBoundary } from "../error-boundary/error-boundary";
+import { Agent, ExtensionsInput } from "@copilotkit/runtime-client-gql";
+import {
+  LangGraphInterruptAction,
+  LangGraphInterruptActionSetterArgs,
+} from "../../types/interrupt-action";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
-  // Compute all the functions and properties that we need to pass
-  // to the CopilotContext.
+  const showDevConsole = props.showDevConsole === undefined ? "auto" : props.showDevConsole;
+  const enabled = shouldShowDevConsole(showDevConsole);
 
-  if (!props.runtimeUrl && !props.publicApiKey) {
-    throw new Error(
-      "Please provide either a runtimeUrl or a publicApiKey to the CopilotKit component.",
-    );
-  }
+  return (
+    <ToastProvider enabled={enabled}>
+      <CopilotErrorBoundary publicApiKey={props.publicApiKey} showUsageBanner={enabled}>
+        <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
+      </CopilotErrorBoundary>
+    </ToastProvider>
+  );
+}
+
+export function CopilotKitInternal(cpkProps: CopilotKitProps) {
+  const { children, ...props } = cpkProps;
+
+  /**
+   * This will throw an error if the props are invalid.
+   */
+  validateProps(cpkProps);
 
   const chatApiEndpoint = props.runtimeUrl || COPILOT_CLOUD_CHAT_URL;
 
@@ -53,19 +77,26 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const [coAgentStateRenders, setCoAgentStateRenders] = useState<
     Record<string, CoAgentStateRender<any>>
   >({});
+
   const chatComponentsCache = useRef<ChatComponentsCache>({
     actions: {},
     coAgentStateRenders: {},
   });
+
   const { addElement, removeElement, printTree } = useTree();
   const [isLoading, setIsLoading] = useState(false);
   const [chatInstructions, setChatInstructions] = useState("");
+  const [authStates, setAuthStates] = useState<Record<string, AuthState>>({});
+  const [extensions, setExtensions] = useState<ExtensionsInput>({});
+  const lastLoadedAvailableAgents = useRef<string | undefined>();
 
   const {
     addElement: addDocument,
     removeElement: removeDocument,
     allElements: allDocuments,
   } = useFlatCategoryStore<DocumentPointer>();
+
+  // Compute all the functions and properties that we need to pass
 
   const setAction = useCallback((id: string, action: FrontendAction<any>) => {
     setActions((prevPoints) => {
@@ -162,14 +193,6 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     [removeDocument],
   );
 
-  if (!props.publicApiKey) {
-    if (props.cloudRestrictToTopic) {
-      throw new Error(
-        "To use the cloudRestrictToTopic feature, please sign up at https://copilotkit.ai and provide a publicApiKey.",
-      );
-    }
-  }
-
   // get the appropriate CopilotApiConfig from the props
   const copilotApiConfig: CopilotApiConfig = useMemo(() => {
     let cloud: CopilotCloudConfig | undefined = undefined;
@@ -207,6 +230,39 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     props.cloudRestrictToTopic,
   ]);
 
+  const headers = useMemo(() => {
+    const authHeaders = Object.values(authStates || {}).reduce((acc, state) => {
+      if (state.status === "authenticated" && state.authHeaders) {
+        return {
+          ...acc,
+          ...Object.entries(state.authHeaders).reduce(
+            (headers, [key, value]) => ({
+              ...headers,
+              [key.startsWith("X-Custom-") ? key : `X-Custom-${key}`]: value,
+            }),
+            {},
+          ),
+        };
+      }
+      return acc;
+    }, {});
+
+    return {
+      ...(copilotApiConfig.headers || {}),
+      ...(copilotApiConfig.publicApiKey
+        ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey }
+        : {}),
+      ...authHeaders,
+    };
+  }, [copilotApiConfig.headers, copilotApiConfig.publicApiKey, authStates]);
+
+  const runtimeClient = useCopilotRuntimeClient({
+    url: copilotApiConfig.chatApiEndpoint,
+    publicApiKey: copilotApiConfig.publicApiKey,
+    headers,
+    credentials: copilotApiConfig.credentials,
+  });
+
   const [chatSuggestionConfiguration, setChatSuggestionConfiguration] = useState<{
     [key: string]: CopilotChatSuggestionConfiguration;
   }>({});
@@ -225,7 +281,38 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
     });
   };
 
+  const [availableAgents, setAvailableAgents] = useState<Agent[]>([]);
   const [coagentStates, setCoagentStates] = useState<Record<string, CoagentState>>({});
+  const coagentStatesRef = useRef<Record<string, CoagentState>>({});
+  const setCoagentStatesWithRef = useCallback(
+    (
+      value:
+        | Record<string, CoagentState>
+        | ((prev: Record<string, CoagentState>) => Record<string, CoagentState>),
+    ) => {
+      const newValue = typeof value === "function" ? value(coagentStatesRef.current) : value;
+      coagentStatesRef.current = newValue;
+      setCoagentStates((prev) => {
+        return newValue;
+      });
+    },
+    [],
+  );
+  const hasLoadedAgents = useRef(false);
+
+  useEffect(() => {
+    if (hasLoadedAgents.current) return;
+
+    const fetchData = async () => {
+      const result = await runtimeClient.availableAgents();
+      if (result.data?.availableAgents) {
+        setAvailableAgents(result.data.availableAgents.agents);
+      }
+      hasLoadedAgents.current = true;
+    };
+    void fetchData();
+  }, []);
+
   let initialAgentSession: AgentSession | null = null;
   if (props.agent) {
     initialAgentSession = {
@@ -234,6 +321,48 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
   }
 
   const [agentSession, setAgentSession] = useState<AgentSession | null>(initialAgentSession);
+
+  const [internalThreadId, setInternalThreadId] = useState<string>(props.threadId || randomUUID());
+  const setThreadId = useCallback(
+    (value: SetStateAction<string>) => {
+      if (props.threadId) {
+        throw new Error("Cannot call setThreadId() when threadId is provided via props.");
+      }
+      setInternalThreadId(value);
+    },
+    [props.threadId],
+  );
+
+  // update the internal threadId if the props.threadId changes
+  useEffect(() => {
+    if (props.threadId !== undefined) {
+      setInternalThreadId(props.threadId);
+    }
+  }, [props.threadId]);
+
+  const [runId, setRunId] = useState<string | null>(null);
+
+  const chatAbortControllerRef = useRef<AbortController | null>(null);
+
+  const showDevConsole = props.showDevConsole === undefined ? "auto" : props.showDevConsole;
+
+  const [langGraphInterruptAction, _setLangGraphInterruptAction] =
+    useState<LangGraphInterruptAction | null>(null);
+  const setLangGraphInterruptAction = useCallback((action: LangGraphInterruptActionSetterArgs) => {
+    _setLangGraphInterruptAction((prev) => {
+      if (prev == null) return action as LangGraphInterruptAction;
+      if (action == null) return null;
+      let event = prev.event;
+      if (action.event) {
+        // @ts-ignore
+        event = { ...prev.event, ...action.event };
+      }
+      return { ...prev, ...action, event };
+    });
+  }, []);
+  const removeLangGraphInterruptAction = useCallback((): void => {
+    setLangGraphInterruptAction(null);
+  }, []);
 
   return (
     <CopilotContext.Provider
@@ -260,11 +389,30 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         removeChatSuggestionConfiguration,
         chatInstructions,
         setChatInstructions,
-        showDevConsole: props.showDevConsole === undefined ? "auto" : props.showDevConsole,
+        showDevConsole,
         coagentStates,
         setCoagentStates,
+        coagentStatesRef,
+        setCoagentStatesWithRef,
         agentSession,
         setAgentSession,
+        runtimeClient,
+        forwardedParameters: props.forwardedParameters || {},
+        agentLock: props.agent || null,
+        threadId: internalThreadId,
+        setThreadId,
+        runId,
+        setRunId,
+        chatAbortControllerRef,
+        availableAgents,
+        authConfig_c: props.authConfig_c,
+        authStates_c: authStates,
+        setAuthStates_c: setAuthStates,
+        extensions,
+        setExtensions,
+        langGraphInterruptAction,
+        setLangGraphInterruptAction,
+        removeLangGraphInterruptAction,
       }}
     >
       <CopilotMessages>{children}</CopilotMessages>
@@ -275,7 +423,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
 export const defaultCopilotContextCategories = ["global"];
 
 function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): FunctionCallHandler {
-  return async ({ messages, name, args }) => {
+  return async ({ name, args }) => {
     let actionsByFunctionName: Record<string, FrontendAction<any>> = {};
     for (let action of actions) {
       actionsByFunctionName[action.name] = action;
@@ -298,4 +446,28 @@ function entryPointsToFunctionCallHandler(actions: FrontendAction<any>[]): Funct
     }
     return result;
   };
+}
+
+function formatFeatureName(featureName: string): string {
+  return featureName
+    .replace(/_c$/, "")
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function validateProps(props: CopilotKitProps): never | void {
+  const cloudFeatures = Object.keys(props).filter((key) => key.endsWith("_c"));
+
+  if (!props.runtimeUrl && !props.publicApiKey) {
+    throw new ConfigurationError("Missing required prop: 'runtimeUrl' or 'publicApiKey'");
+  }
+
+  if (cloudFeatures.length > 0 && !props.publicApiKey) {
+    throw new MissingPublicApiKeyError(
+      `Missing required prop: 'publicApiKey' to use cloud features: ${cloudFeatures
+        .map(formatFeatureName)
+        .join(", ")}`,
+    );
+  }
 }

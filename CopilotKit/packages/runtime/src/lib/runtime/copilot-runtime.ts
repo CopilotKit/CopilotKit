@@ -12,14 +12,32 @@
  * ```
  */
 
-import { Action, actionParametersToJsonSchema, Parameter, randomId } from "@copilotkit/shared";
-import { CopilotServiceAdapter, RemoteChain, RemoteChainParameters } from "../../service-adapters";
+import {
+  Action,
+  actionParametersToJsonSchema,
+  Parameter,
+  ResolvedCopilotKitError,
+  CopilotKitApiDiscoveryError,
+  randomId,
+  CopilotKitError,
+  CopilotKitLowLevelError,
+  CopilotKitAgentDiscoveryError,
+  CopilotKitMisuseError,
+} from "@copilotkit/shared";
+import {
+  CopilotServiceAdapter,
+  EmptyAdapter,
+  RemoteChain,
+  RemoteChainParameters,
+} from "../../service-adapters";
+
 import { MessageInput } from "../../graphql/inputs/message.input";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import { RuntimeEventSource } from "../../service-adapters/events";
 import { convertGqlInputToMessages } from "../../service-adapters/conversion";
 import { Message } from "../../graphql/types/converted";
 import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-parameters.input";
+
 import {
   isLangGraphAgentAction,
   LangGraphAgentAction,
@@ -29,10 +47,20 @@ import {
   CopilotKitEndpoint,
   LangGraphPlatformEndpoint,
 } from "./remote-actions";
+
 import { GraphQLContext } from "../integrations/shared";
 import { AgentSessionInput } from "../../graphql/inputs/agent-session.input";
 import { from } from "rxjs";
 import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
+import { ActionInputAvailability } from "../../graphql/types/enums";
+import { createHeaders } from "./remote-action-constructors";
+import { Agent } from "../../graphql/types/agents-response.type";
+import { ExtensionsInput } from "../../graphql/inputs/extensions.input";
+import { ExtensionsResponse } from "../../graphql/types/extensions-response.type";
+import { LoadAgentStateResponse } from "../../graphql/types/load-agent-state-response.type";
+import { Client as LangGraphClient } from "@langchain/langgraph-sdk";
+import { langchainMessagesToCopilotKit } from "./remote-lg-action";
+import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 
 interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
@@ -47,6 +75,8 @@ interface CopilotRuntimeRequest {
   graphqlContext: GraphQLContext;
   forwardedParameters?: ForwardedParametersInput;
   url?: string;
+  extensions?: ExtensionsInput;
+  metaEvents?: MetaEventInput[];
 }
 
 interface CopilotRuntimeResponse {
@@ -55,6 +85,7 @@ interface CopilotRuntimeResponse {
   eventSource: RuntimeEventSource;
   serverSideActions: Action<any>[];
   actionInputsWithoutAgents: ActionInput[];
+  extensions?: ExtensionsResponse;
 }
 
 type ActionsConfiguration<T extends Parameter[] | [] = []> =
@@ -93,6 +124,8 @@ interface Middleware {
    */
   onAfterRequest?: OnAfterRequestHandler;
 }
+
+type AgentWithEndpoint = Agent & { endpoint: EndpointDefinition };
 
 export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []> {
   /**
@@ -138,6 +171,14 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
    * An array of LangServer URLs.
    */
   langserve?: RemoteChainParameters[];
+
+  /*
+   * Delegates agent state processing to the service adapter.
+   *
+   * When enabled, individual agent state requests will not be processed by the agent itself.
+   * Instead, all processing will be handled by the service adapter.
+   */
+  delegateAgentProcessingToServiceAdapter?: boolean;
 }
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
@@ -146,6 +187,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private langserve: Promise<Action<any>>[] = [];
   private onBeforeRequest?: OnBeforeRequestHandler;
   private onAfterRequest?: OnAfterRequestHandler;
+  private delegateAgentProcessingToServiceAdapter: boolean;
 
   constructor(params?: CopilotRuntimeConstructorParams<T>) {
     this.actions = params?.actions || [];
@@ -159,6 +201,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
     this.onBeforeRequest = params?.middleware?.onBeforeRequest;
     this.onAfterRequest = params?.middleware?.onAfterRequest;
+    this.delegateAgentProcessingToServiceAdapter =
+      params?.delegateAgentProcessingToServiceAdapter || false;
   }
 
   async processRuntimeRequest(request: CopilotRuntimeRequest): Promise<CopilotRuntimeResponse> {
@@ -171,19 +215,27 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       outputMessagesPromise,
       graphqlContext,
       forwardedParameters,
-      agentSession,
       url,
+      extensions,
+      agentSession,
+      agentStates,
     } = request;
 
     const eventSource = new RuntimeEventSource();
 
     try {
-      if (agentSession) {
+      if (agentSession && !this.delegateAgentProcessingToServiceAdapter) {
         return await this.processAgentRequest(request);
+      }
+      if (serviceAdapter instanceof EmptyAdapter) {
+        throw new CopilotKitMisuseError({
+          message: `Invalid adapter configuration: EmptyAdapter is only meant to be used with agent lock mode. 
+For non-agent components like useCopilotChatSuggestions, CopilotTextarea, or CopilotTask, 
+please use an LLM adapter instead.`,
+        });
       }
 
       const messages = rawMessages.filter((message) => !message.agentStateMessage);
-
       const inputMessages = convertGqlInputToMessages(messages);
       const serverSideActions = await this.getServerSideActions(request);
 
@@ -195,7 +247,10 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
       const actionInputs = flattenToolCallsNoDuplicates([
         ...serverSideActionsInput,
-        ...clientSideActionsInput,
+        ...clientSideActionsInput.filter(
+          // Filter remote actions from CopilotKit core loop
+          (action) => action.available !== ActionInputAvailability.remote,
+        ),
       ]);
 
       await this.onBeforeRequest?.({
@@ -213,12 +268,19 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         runId,
         eventSource,
         forwardedParameters,
+        extensions,
+        agentSession,
+        agentStates,
       });
+
+      // for backwards compatibility, we deal with the case that no threadId is provided
+      // by the frontend, by using the threadId from the response
+      const nonEmptyThreadId = threadId ?? result.threadId;
 
       outputMessagesPromise
         .then((outputMessages) => {
           this.onAfterRequest?.({
-            threadId: result.threadId,
+            threadId: nonEmptyThreadId,
             runId: result.runId,
             inputMessages,
             outputMessages,
@@ -229,7 +291,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         .catch((_error) => {});
 
       return {
-        threadId: result.threadId,
+        threadId: nonEmptyThreadId,
         runId: result.runId,
         eventSource,
         serverSideActions,
@@ -241,47 +303,228 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
           //   serverSideActions.find((serverSideAction) => serverSideAction.name == action.name),
           // ),
         ),
+        extensions: result.extensions,
       };
     } catch (error) {
+      if (error instanceof CopilotKitError) {
+        throw error;
+      }
       console.error("Error getting response:", error);
       eventSource.sendErrorMessageToChat();
-      return {
-        threadId: threadId || randomId(),
-        runId: runId || randomId(),
-        eventSource,
-        serverSideActions: [],
-        actionInputsWithoutAgents: [],
-      };
+      throw error;
+    }
+  }
+
+  async discoverAgentsFromEndpoints(graphqlContext: GraphQLContext): Promise<AgentWithEndpoint[]> {
+    const headers = createHeaders(null, graphqlContext);
+    const agents = this.remoteEndpointDefinitions.reduce(
+      async (acc: Promise<Agent[]>, endpoint) => {
+        const agents = await acc;
+        if (endpoint.type === EndpointType.LangGraphPlatform) {
+          const propertyHeaders = graphqlContext.properties.authorization
+            ? { authorization: `Bearer ${graphqlContext.properties.authorization}` }
+            : null;
+
+          const client = new LangGraphClient({
+            apiUrl: endpoint.deploymentUrl,
+            apiKey: endpoint.langsmithApiKey,
+            defaultHeaders: { ...propertyHeaders },
+          });
+
+          const data: Array<{ assistant_id: string; graph_id: string }> =
+            await client.assistants.search();
+
+          const endpointAgents = (data ?? []).map((entry) => ({
+            name: entry.graph_id,
+            id: entry.assistant_id,
+            description: "",
+            endpoint,
+          }));
+          return [...agents, ...endpointAgents];
+        }
+
+        interface InfoResponse {
+          agents?: Array<{
+            name: string;
+            description: string;
+          }>;
+        }
+
+        const fetchUrl = `${(endpoint as CopilotKitEndpoint).url}/info`;
+        try {
+          const response = await fetch(fetchUrl, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ properties: graphqlContext.properties }),
+          });
+          if (!response.ok) {
+            if (response.status === 404) {
+              throw new CopilotKitApiDiscoveryError({ url: fetchUrl });
+            }
+            throw new ResolvedCopilotKitError({
+              status: response.status,
+              url: fetchUrl,
+              isRemoteEndpoint: true,
+            });
+          }
+
+          const data: InfoResponse = await response.json();
+          const endpointAgents = (data?.agents ?? []).map((agent) => ({
+            name: agent.name,
+            description: agent.description ?? "" ?? "",
+            id: randomId(), // Required by Agent type
+            endpoint,
+          }));
+          return [...agents, ...endpointAgents];
+        } catch (error) {
+          if (error instanceof CopilotKitError) {
+            throw error;
+          }
+          throw new CopilotKitLowLevelError({ error: error as Error, url: fetchUrl });
+        }
+      },
+      Promise.resolve([]),
+    );
+
+    return agents;
+  }
+
+  async loadAgentState(
+    graphqlContext: GraphQLContext,
+    threadId: string,
+    agentName: string,
+  ): Promise<LoadAgentStateResponse> {
+    const agentsWithEndpoints = await this.discoverAgentsFromEndpoints(graphqlContext);
+
+    const agentWithEndpoint = agentsWithEndpoints.find((agent) => agent.name === agentName);
+    if (!agentWithEndpoint) {
+      throw new Error("Agent not found");
+    }
+    const headers = createHeaders(null, graphqlContext);
+
+    if (agentWithEndpoint.endpoint.type === EndpointType.LangGraphPlatform) {
+      const propertyHeaders = graphqlContext.properties.authorization
+        ? { authorization: `Bearer ${graphqlContext.properties.authorization}` }
+        : null;
+
+      const client = new LangGraphClient({
+        apiUrl: agentWithEndpoint.endpoint.deploymentUrl,
+        apiKey: agentWithEndpoint.endpoint.langsmithApiKey,
+        defaultHeaders: { ...propertyHeaders },
+      });
+      let state: any = {};
+      try {
+        state = (await client.threads.getState(threadId)).values as any;
+      } catch (error) {}
+
+      if (Object.keys(state).length === 0) {
+        return {
+          threadId: threadId || "",
+          threadExists: false,
+          state: JSON.stringify({}),
+          messages: JSON.stringify([]),
+        };
+      } else {
+        const { messages, ...stateWithoutMessages } = state;
+        const copilotkitMessages = langchainMessagesToCopilotKit(messages);
+        return {
+          threadId: threadId || "",
+          threadExists: true,
+          state: JSON.stringify(stateWithoutMessages),
+          messages: JSON.stringify(copilotkitMessages),
+        };
+      }
+    } else if (
+      agentWithEndpoint.endpoint.type === EndpointType.CopilotKit ||
+      !("type" in agentWithEndpoint.endpoint)
+    ) {
+      const fetchUrl = `${(agentWithEndpoint.endpoint as CopilotKitEndpoint).url}/agents/state`;
+      try {
+        const response = await fetch(fetchUrl, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            properties: graphqlContext.properties,
+            threadId,
+            name: agentName,
+          }),
+        });
+        if (!response.ok) {
+          if (response.status === 404) {
+            throw new CopilotKitApiDiscoveryError({ url: fetchUrl });
+          }
+          throw new ResolvedCopilotKitError({
+            status: response.status,
+            url: fetchUrl,
+            isRemoteEndpoint: true,
+          });
+        }
+
+        const data: LoadAgentStateResponse = await response.json();
+
+        return {
+          ...data,
+          state: JSON.stringify(data.state),
+          messages: JSON.stringify(data.messages),
+        };
+      } catch (error) {
+        if (error instanceof CopilotKitError) {
+          throw error;
+        }
+        throw new CopilotKitLowLevelError({ error, url: fetchUrl });
+      }
+    } else {
+      throw new Error(`Unknown endpoint type: ${(agentWithEndpoint.endpoint as any).type}`);
     }
   }
 
   private async processAgentRequest(
     request: CopilotRuntimeRequest,
   ): Promise<CopilotRuntimeResponse> {
-    const { messages: rawMessages, outputMessagesPromise, graphqlContext, agentSession } = request;
-    const { threadId, agentName, nodeName } = agentSession;
+    const {
+      messages: rawMessages,
+      outputMessagesPromise,
+      graphqlContext,
+      agentSession,
+      threadId: threadIdFromRequest,
+      metaEvents,
+    } = request;
+    const { agentName, nodeName } = agentSession;
+
+    // for backwards compatibility, deal with the case when no threadId is provided
+    const threadId = threadIdFromRequest ?? agentSession.threadId;
+
     const serverSideActions = await this.getServerSideActions(request);
 
     const messages = convertGqlInputToMessages(rawMessages);
 
-    const agent = serverSideActions.find(
+    const currentAgent = serverSideActions.find(
       (action) => action.name === agentName && isLangGraphAgentAction(action),
     ) as LangGraphAgentAction;
 
-    if (!agent) {
-      throw new Error(`Agent ${agentName} not found`);
+    if (!currentAgent) {
+      throw new CopilotKitAgentDiscoveryError({ agentName });
     }
 
-    const serverSideActionsInput: ActionInput[] = serverSideActions
-      .filter((action) => !isLangGraphAgentAction(action))
+    // Filter actions to include:
+    // 1. Regular (non-agent) actions
+    // 2. Other agents' actions (but prevent self-calls to avoid infinite loops)
+    const availableActionsForCurrentAgent: ActionInput[] = serverSideActions
+      .filter(
+        (action) =>
+          // Case 1: Keep all regular (non-agent) actions
+          !isLangGraphAgentAction(action) ||
+          // Case 2: For agent actions, keep all except self (prevent infinite loops)
+          (isLangGraphAgentAction(action) && action.name !== agentName) /* prevent self-calls */,
+      )
       .map((action) => ({
         name: action.name,
         description: action.description,
         jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters)),
       }));
 
-    const actionInputsWithoutAgents = flattenToolCallsNoDuplicates([
-      ...serverSideActionsInput,
+    const allAvailableActions = flattenToolCallsNoDuplicates([
+      ...availableActionsForCurrentAgent,
       ...request.actions,
     ]);
 
@@ -293,17 +536,22 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     });
     try {
       const eventSource = new RuntimeEventSource();
-      const stream = await agent.langGraphAgentHandler({
+      const stream = await currentAgent.langGraphAgentHandler({
         name: agentName,
         threadId,
         nodeName,
-        actionInputsWithoutAgents,
+        metaEvents,
+        actionInputsWithoutAgents: allAvailableActions,
       });
 
       eventSource.stream(async (eventStream$) => {
         from(stream).subscribe({
           next: (event) => eventStream$.next(event),
-          error: (err) => console.error("Error in stream", err),
+          error: (err) => {
+            console.error("Error in stream", err);
+            eventStream$.error(err);
+            eventStream$.complete();
+          },
           complete: () => eventStream$.complete(),
         });
       });
@@ -325,7 +573,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         runId: undefined,
         eventSource,
         serverSideActions: [],
-        actionInputsWithoutAgents,
+        actionInputsWithoutAgents: allAvailableActions,
       };
     } catch (error) {
       console.error("Error getting response:", error);

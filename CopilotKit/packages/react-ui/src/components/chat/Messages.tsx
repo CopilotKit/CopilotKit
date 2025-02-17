@@ -1,14 +1,8 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { MessagesProps } from "./props";
 import { useChatContext } from "./ChatContext";
-import {
-  ActionExecutionMessage,
-  Message,
-  ResultMessage,
-  TextMessage,
-  Role,
-  AgentStateMessage,
-} from "@copilotkit/runtime-client-gql";
+import { Message, ResultMessage, TextMessage, Role } from "@copilotkit/runtime-client-gql";
+import { useLangGraphInterruptRender } from "@copilotkit/react-core";
 
 export const Messages = ({
   messages,
@@ -18,12 +12,15 @@ export const Messages = ({
   RenderActionExecutionMessage,
   RenderAgentStateMessage,
   RenderResultMessage,
+  AssistantMessage,
+  UserMessage,
 }: MessagesProps) => {
   const context = useChatContext();
   const initialMessages = useMemo(
     () => makeInitialMessages(context.labels.initial),
     [context.labels.initial],
   );
+
   messages = [...initialMessages, ...messages];
 
   const actionResults: Record<string, string> = {};
@@ -43,6 +40,8 @@ export const Messages = ({
 
   const { messagesEndRef, messagesContainerRef } = useScrollToBottom(messages);
 
+  const interrupt = useLangGraphInterruptRender();
+
   return (
     <div className="copilotKitMessages" ref={messagesContainerRef}>
       {messages.map((message, index) => {
@@ -56,6 +55,8 @@ export const Messages = ({
               inProgress={inProgress}
               index={index}
               isCurrentMessage={isCurrentMessage}
+              AssistantMessage={AssistantMessage}
+              UserMessage={UserMessage}
             />
           );
         } else if (message.isActionExecutionMessage()) {
@@ -67,6 +68,8 @@ export const Messages = ({
               index={index}
               isCurrentMessage={isCurrentMessage}
               actionResult={actionResults[message.id]}
+              AssistantMessage={AssistantMessage}
+              UserMessage={UserMessage}
             />
           );
         } else if (message.isAgentStateMessage()) {
@@ -77,6 +80,8 @@ export const Messages = ({
               inProgress={inProgress}
               index={index}
               isCurrentMessage={isCurrentMessage}
+              AssistantMessage={AssistantMessage}
+              UserMessage={UserMessage}
             />
           );
         } else if (message.isResultMessage()) {
@@ -87,10 +92,13 @@ export const Messages = ({
               inProgress={inProgress}
               index={index}
               isCurrentMessage={isCurrentMessage}
+              AssistantMessage={AssistantMessage}
+              UserMessage={UserMessage}
             />
           );
         }
       })}
+      {interrupt}
       <footer ref={messagesEndRef}>{children}</footer>
     </div>
   );

@@ -23,27 +23,10 @@ workflow.add_node("search_node", search_node)
 workflow.add_node("delete_node", delete_node)
 workflow.add_node("perform_delete_node", perform_delete_node)
 
-def route(state):
-    """Route after the chat node."""
-
-    messages = state.get("messages", [])
-    if messages and isinstance(messages[-1], AIMessage):
-        ai_message = cast(AIMessage, messages[-1])
-
-        if ai_message.tool_calls and ai_message.tool_calls[0]["name"] == "Search":
-            return "search_node"
-        if ai_message.tool_calls and ai_message.tool_calls[0]["name"] == "DeleteResources":
-            return "delete_node"
-    if messages and isinstance(messages[-1], ToolMessage):
-        return "chat_node"
-
-    return END
-
 
 memory = MemorySaver()
 workflow.set_entry_point("download")
 workflow.add_edge("download", "chat_node")
-workflow.add_conditional_edges("chat_node", route, ["search_node", "chat_node", "delete_node", END])
 workflow.add_edge("delete_node", "perform_delete_node")
 workflow.add_edge("perform_delete_node", "chat_node")
 workflow.add_edge("search_node", "download")

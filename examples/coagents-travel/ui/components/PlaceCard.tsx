@@ -3,24 +3,36 @@ import { Place  } from "@/lib/types";
 import { Stars } from "@/components/Stars";
 import { MapPin, Info } from "lucide-react";
 import { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 type PlaceCardProps = {
   place: Place;
+  className?: string;
+  number?: number;
   actions?: ReactNode;
   onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 };
 
-export function PlaceCard({ place, actions, onMouseEnter }: PlaceCardProps) {
+export function PlaceCard({ place, actions, onMouseEnter, onMouseLeave, className, number }: PlaceCardProps) {
   return (
     <Card 
-      className="hover:shadow-md transition-shadow duration-200"
+      className={cn("hover:shadow-md transition-shadow duration-200", className)}
       onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
       <CardContent className="pt-6">
         <div className="space-y-4">
           <div className="flex justify-between items-start">
             <div className="space-y-2">
-              <CardTitle className="text-xl font-semibold">{place.name}</CardTitle>
+              <CardTitle className="text-xl font-semibold flex items-center gap-2">
+                {number && (
+                  <div className="text-sm text-background drop-shadow-md bg-foreground rounded-full flex items-center justify-center font-bold border-2 border-white w-7 h-7">
+                    {number}
+                  </div>
+                )}
+                {place.name}
+              </CardTitle>
               <Stars rating={place.rating} />
             </div>
             {actions}

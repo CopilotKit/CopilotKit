@@ -1,0 +1,26 @@
+FROM public.ecr.aws/docker/library/python:3.12.0-slim-bullseye
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/lambda-adapter
+ARG APP_DIR
+ARG WITH_LOCAL_DEPS
+
+ENV POETRY_VIRTUALENVS_CREATE=false
+
+# Install poetry and configure it in a single layer
+RUN pip install poetry==1.7.1 && \
+    poetry config virtualenvs.create false
+
+# Copy only poetry files first
+COPY ${APP_DIR}/pyproject.toml ${APP_DIR}/poetry.lock ./
+
+# Copy SDK and install dependencies in a single layer
+COPY sdk-python/ /opt/sdk-python
+WORKDIR /asset
+RUN poetry install --no-interaction --no-ansi
+RUN if [ "$WITH_LOCAL_DEPS" = "true" ]; then poetry add /opt/sdk-python; fi
+
+# Copy application code last
+COPY ${APP_DIR}/ ./
+
+RUN mkdir .langgraph_api
+
+CMD ["poetry", "run", "demo"]

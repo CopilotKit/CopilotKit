@@ -1,10 +1,11 @@
 ---
 title: "Customize AI Assistant Behavior"
 description: "Learn how to customize the behavior of your AI assistant."
+icon: "lucide/NotepadText"
 ---
 
 
-## `instructions` Parameter (Recommended)
+## Passing the `instructions` parameter (Recommended)
 
 The `instructions` parameter is the recommended way to customize AI assistant behavior. It will remain compatible with performance optimizations to the CopilotKit platform.
 
@@ -14,20 +15,18 @@ It can be customized for **Copilot UI** as well as **programmatically**:
   <Tab value="Copilot UI">
     ### Copilot UI
 
-    Copilot UI components implements `CopilotChatProps`, which accepts an `instructions` property:
+    Copilot UI components accept an `instructions` property:
 
     ```tsx title="CustomCopilot.tsx"
-    import { CopilotChat, CopilotChatProps } from "@copilotkit/react-ui";
+    import { CopilotChat } from "@copilotkit/react-ui";
 
-    const CustomCopilot: React.FC<CopilotChatProps> = () => (
-      <CopilotChat
-        instructions="You are a helpful assistant specializing in tax preparation. Provide concise and accurate answers to tax-related questions." // [!code highlight]
-        labels={{
-          title: "Tax Preparation Assistant",
-          initial: "How can I help you with your tax preparation today?",
-        }}
-      />
-    );
+    <CopilotChat
+      instructions="You are a helpful assistant specializing in tax preparation. Provide concise and accurate answers to tax-related questions." // [!code highlight]
+      labels={{
+        title: "Tax Preparation Assistant",
+        initial: "How can I help you with your tax preparation today?",
+      }}
+    />
     ```
 
   </Tab>
@@ -56,13 +55,14 @@ It can be customized for **Copilot UI** as well as **programmatically**:
   </Tab>
 </Tabs>
 
-## Customize `makeSystemMessage` (Not Recommended)
+## Overwriting the default `makeSystemMessage` (Not Recommended)
+
+For cases requiring complete control over the system message, you can use the `makeSystemMessage` function. We highly recommend reading CopilotKit's default
+system message before deciding to overwrite it, which can be found [here](https://github.com/CopilotKit/CopilotKit/blob/e48a34a66bb4dfd210e93dc41eee7d0f22d1a0c4/CopilotKit/packages/react-core/src/hooks/use-copilot-chat.ts#L240-L258).
 
 <Callout type="warn">
 This approach is **not recommended** as it may interfere with more advanced optimizations we are experimenting with, but it is available should you need it.
 </Callout>
-
-For cases requiring complete control over the system message, you can use the `makeSystemMessage` function.
 
 <Tabs items={['Copilot UI', 'Headless UI']}>
   <Tab value="Copilot UI">

@@ -22,9 +22,7 @@ const genAI = new GoogleGenerativeAI(process.env["GOOGLE_API_KEY"]);
  
 const copilotKit = new CopilotRuntime();
  
-const serviceAdapter = new GoogleGenerativeAIAdapter({ model: "gemini-1.5-pro" });
- 
-return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+return new GoogleGenerativeAIAdapter({ model: "gemini-1.5-pro" });
 ```
 
 ## Constructor Parameters

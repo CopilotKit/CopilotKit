@@ -1,18 +1,25 @@
 {
-  "title": "Agentic Copilots",
+  "title": "CoAgents",
   "root": true,
   "pages": [
     "index",
-    "quickstart",
-    "---Concepts---",
+    "---Quickstart---",
+    "...quickstart",
+    "---Guides---",
+    "agentic-chat-ui",
+    "generative-ui",
+    "human-in-the-loop",
+    "shared-state",
+    "frontend-actions",
+    "multi-agent-flows",
+    "persistence",
+    "advanced",
+    "---Tutorials & Videos---",
+    "...tutorials",
+    "...videos",
+    "---Learn---",
     "...concepts",
-    "---Build: in-chat experiences---",
-    "...chat-ui",
-    "---Build: in-app experiences---",
-    "...react-ui",
-    "---Advanced---",
-    "...advanced",
-    "---Demos & Tutorials---",
-    "...demos"
+    "---Troubleshooting---",
+    "...troubleshooting"
   ]
 }

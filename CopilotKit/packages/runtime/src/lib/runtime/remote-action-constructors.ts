@@ -16,6 +16,8 @@ import { RemoteLangGraphEventSource } from "../../agents/langgraph/event-source"
 import { Action } from "@copilotkit/shared";
 import { LangGraphEvent } from "../../agents/langgraph/events";
 import { execute } from "./remote-lg-action";
+import { CopilotKitError, CopilotKitLowLevelError } from "@copilotkit/shared";
+import { CopilotKitApiDiscoveryError, ResolvedCopilotKitError } from "@copilotkit/shared";
 
 export function constructLGCRemoteAction({
   endpoint,
@@ -40,6 +42,8 @@ export function constructLGCRemoteAction({
       actionInputsWithoutAgents,
       threadId,
       nodeName,
+      additionalMessages = [],
+      metaEvents,
     }: LangGraphAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
       logger.debug({ actionName: agent.name }, "Executing LangGraph Platform agent");
 
@@ -51,29 +55,33 @@ export function constructLGCRemoteAction({
       });
 
       let state = {};
+      let configurable = {};
       if (agentStates) {
-        const jsonState = agentStates.find((state) => state.agentName === name)?.state;
+        const jsonState = agentStates.find((state) => state.agentName === name);
         if (jsonState) {
-          state = JSON.parse(jsonState);
+          state = JSON.parse(jsonState.state);
+          configurable = JSON.parse(jsonState.configurable);
         }
       }
 
       try {
         const response = await execute({
-          logger,
+          logger: logger.child({ component: "remote-actions.remote-lg-action.streamEvents" }),
           deploymentUrl: endpoint.deploymentUrl,
           langsmithApiKey: endpoint.langsmithApiKey,
           agent,
           threadId,
           nodeName,
-          messages,
+          messages: [...messages, ...additionalMessages],
           state,
+          configurable,
           properties: graphqlContext.properties,
           actions: actionInputsWithoutAgents.map((action) => ({
             name: action.name,
             description: action.description,
             parameters: JSON.parse(action.jsonSchema) as string,
           })),
+          metaEvents,
         });
 
         const eventSource = new RemoteLangGraphEventSource();
@@ -109,6 +117,8 @@ export function constructRemoteActions({
   messages: Message[];
   agentStates?: AgentStateInput[];
 }): Action<any>[] {
+  const totalAgents = Array.isArray(json["agents"]) ? json["agents"].length : 0;
+
   const actions = json["actions"].map((action) => ({
     name: action.name,
     description: action.description,
@@ -120,11 +130,12 @@ export function constructRemoteActions({
       telemetry.capture("oss.runtime.remote_action_executed", {
         agentExecution: false,
         type: "self-hosted",
-        agentsAmount: json["agents"].length,
+        agentsAmount: totalAgents,
       });
 
+      const fetchUrl = `${url}/actions/execute`;
       try {
-        const response = await fetch(`${url}/actions/execute`, {
+        const response = await fetch(fetchUrl, {
           method: "POST",
           headers,
           body: JSON.stringify({
@@ -139,7 +150,14 @@ export function constructRemoteActions({
             { url, status: response.status, body: await response.text() },
             "Failed to execute remote action",
           );
-          return "Failed to execute remote action";
+          if (response.status === 404) {
+            throw new CopilotKitApiDiscoveryError({ url: fetchUrl });
+          }
+          throw new ResolvedCopilotKitError({
+            status: response.status,
+            url: fetchUrl,
+            isRemoteEndpoint: true,
+          });
         }
 
         const requestResult = await response.json();
@@ -148,75 +166,97 @@ export function constructRemoteActions({
         logger.debug({ actionName: action.name, result }, "Executed remote action");
         return result;
       } catch (error) {
-        logger.error(
-          { error: error.message ? error.message : error + "" },
-          "Failed to execute remote action",
-        );
-        return "Failed to execute remote action";
+        if (error instanceof CopilotKitError) {
+          throw error;
+        }
+        throw new CopilotKitLowLevelError({ error, url: fetchUrl });
       }
     },
   }));
 
-  const agents = json["agents"].map((agent) => ({
-    name: agent.name,
-    description: agent.description,
-    parameters: [],
-    handler: async (_args: any) => {},
+  const agents = totalAgents
+    ? json["agents"].map((agent) => ({
+        name: agent.name,
+        description: agent.description,
+        parameters: [],
+        handler: async (_args: any) => {},
 
-    langGraphAgentHandler: async ({
-      name,
-      actionInputsWithoutAgents,
-      threadId,
-      nodeName,
-    }: LangGraphAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
-      logger.debug({ actionName: agent.name }, "Executing remote agent");
-
-      const headers = createHeaders(onBeforeRequest, graphqlContext);
-      telemetry.capture("oss.runtime.remote_action_executed", {
-        agentExecution: true,
-        type: "self-hosted",
-        agentsAmount: json["agents"].length,
-      });
-
-      let state = {};
-      if (agentStates) {
-        const jsonState = agentStates.find((state) => state.agentName === name)?.state;
-        if (jsonState) {
-          state = JSON.parse(jsonState);
-        }
-      }
-
-      const response = await fetch(`${url}/agents/execute`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
+        langGraphAgentHandler: async ({
           name,
+          actionInputsWithoutAgents,
           threadId,
           nodeName,
-          messages,
-          state,
-          properties: graphqlContext.properties,
-          actions: actionInputsWithoutAgents.map((action) => ({
-            name: action.name,
-            description: action.description,
-            parameters: JSON.parse(action.jsonSchema),
-          })),
-        }),
-      });
+          additionalMessages = [],
+          metaEvents,
+        }: LangGraphAgentHandlerParams): Promise<Observable<RuntimeEvent>> => {
+          logger.debug({ actionName: agent.name }, "Executing remote agent");
 
-      if (!response.ok) {
-        logger.error(
-          { url, status: response.status, body: await response.text() },
-          "Failed to execute remote agent",
-        );
-        throw new Error("Failed to execute remote agent");
-      }
+          const headers = createHeaders(onBeforeRequest, graphqlContext);
+          telemetry.capture("oss.runtime.remote_action_executed", {
+            agentExecution: true,
+            type: "self-hosted",
+            agentsAmount: json["agents"].length,
+          });
 
-      const eventSource = new RemoteLangGraphEventSource();
-      streamResponse(response.body!, eventSource.eventStream$);
-      return eventSource.processLangGraphEvents();
-    },
-  }));
+          let state = {};
+          let configurable = {};
+          if (agentStates) {
+            const jsonState = agentStates.find((state) => state.agentName === name);
+            if (jsonState) {
+              state = JSON.parse(jsonState.state);
+              configurable = JSON.parse(jsonState.configurable);
+            }
+          }
+
+          const fetchUrl = `${url}/agents/execute`;
+          try {
+            const response = await fetch(fetchUrl, {
+              method: "POST",
+              headers,
+              body: JSON.stringify({
+                name,
+                threadId,
+                nodeName,
+                messages: [...messages, ...additionalMessages],
+                state,
+                configurable,
+                properties: graphqlContext.properties,
+                actions: actionInputsWithoutAgents.map((action) => ({
+                  name: action.name,
+                  description: action.description,
+                  parameters: JSON.parse(action.jsonSchema),
+                })),
+                metaEvents,
+              }),
+            });
+
+            if (!response.ok) {
+              logger.error(
+                { url, status: response.status, body: await response.text() },
+                "Failed to execute remote agent",
+              );
+              if (response.status === 404) {
+                throw new CopilotKitApiDiscoveryError({ url: fetchUrl });
+              }
+              throw new ResolvedCopilotKitError({
+                status: response.status,
+                url: fetchUrl,
+                isRemoteEndpoint: true,
+              });
+            }
+
+            const eventSource = new RemoteLangGraphEventSource();
+            streamResponse(response.body!, eventSource.eventStream$);
+            return eventSource.processLangGraphEvents();
+          } catch (error) {
+            if (error instanceof CopilotKitError) {
+              throw error;
+            }
+            throw new CopilotKitLowLevelError({ error, url: fetchUrl });
+          }
+        },
+      }))
+    : [];
 
   return [...actions, ...agents];
 }

@@ -1,16 +1,14 @@
-import { useRef } from "react";
+import React, { useCallback, useRef } from "react";
 import {
   FunctionCallHandler,
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
-  actionParametersToJsonSchema,
   CoAgentStateRenderHandler,
+  randomId,
 } from "@copilotkit/shared";
 import {
   Message,
   TextMessage,
-  ActionExecutionMessage,
   ResultMessage,
-  CopilotRuntimeClient,
   convertMessagesToGqlInput,
   filterAdjacentAgentStateMessages,
   filterAgentStateMessages,
@@ -19,13 +17,29 @@ import {
   MessageRole,
   Role,
   CopilotRequestType,
-  AgentStateMessage,
+  ForwardedParametersInput,
+  loadMessagesFromJsonRepresentation,
+  ExtensionsInput,
+  CopilotRuntimeClient,
+  langGraphInterruptEvent,
 } from "@copilotkit/runtime-client-gql";
 
 import { CopilotApiConfig } from "../context";
-import { FrontendAction } from "../types/frontend-action";
+import { FrontendAction, processActionsForRuntimeRequest } from "../types/frontend-action";
 import { CoagentState } from "../types/coagent-state";
 import { AgentSession } from "../context/copilot-context";
+import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
+import { useAsyncCallback, useErrorToast } from "../components/error-boundary/error-utils";
+import {
+  LangGraphInterruptAction,
+  LangGraphInterruptActionSetter,
+} from "../types/interrupt-action";
+import { MetaEvent, MetaEventName } from "@copilotkit/runtime-client-gql";
+import {
+  CopilotKitLangGraphInterruptEvent,
+  LangGraphInterruptEvent,
+  MetaEventInput,
+} from "@copilotkit/runtime-client-gql";
 
 export type UseChatOptions = {
   /**
@@ -81,12 +95,12 @@ export type UseChatOptions = {
   /**
    * The current list of coagent states.
    */
-  coagentStates: Record<string, CoagentState>;
+  coagentStatesRef: React.RefObject<Record<string, CoagentState>>;
 
   /**
    * setState-powered method to update the agent states
    */
-  setCoagentStates: React.Dispatch<React.SetStateAction<Record<string, CoagentState>>>;
+  setCoagentStatesWithRef: React.Dispatch<React.SetStateAction<Record<string, CoagentState>>>;
 
   /**
    * The current agent session.
@@ -97,6 +111,48 @@ export type UseChatOptions = {
    * setState-powered method to update the agent session
    */
   setAgentSession: React.Dispatch<React.SetStateAction<AgentSession | null>>;
+
+  /**
+   * The forwarded parameters.
+   */
+  forwardedParameters?: Pick<ForwardedParametersInput, "temperature">;
+
+  /**
+   * The current thread ID.
+   */
+  threadId: string;
+  /**
+   * set the current thread ID
+   */
+  setThreadId: (threadId: string) => void;
+  /**
+   * The current run ID.
+   */
+  runId: string | null;
+  /**
+   * set the current run ID
+   */
+  setRunId: (runId: string | null) => void;
+  /**
+   * The global chat abort controller.
+   */
+  chatAbortControllerRef: React.MutableRefObject<AbortController | null>;
+  /**
+   * The agent lock.
+   */
+  agentLock: string | null;
+  /**
+   * The extensions.
+   */
+  extensions: ExtensionsInput;
+  /**
+   * The setState-powered method to update the extensions.
+   */
+  setExtensions: React.Dispatch<React.SetStateAction<ExtensionsInput>>;
+
+  langGraphInterruptAction: LangGraphInterruptAction | null;
+
+  setLangGraphInterruptAction: LangGraphInterruptActionSetter;
 };
 
 export type UseChatHelpers = {
@@ -105,7 +161,7 @@ export type UseChatHelpers = {
    * the assistant's response.
    * @param message The message to append
    */
-  append: (message: Message) => Promise<void>;
+  append: (message: Message, options?: AppendMessageOptions) => Promise<void>;
   /**
    * Reload the last AI chat response for the given chat history. If the last
    * message isn't from the assistant, it will request the API to generate a
@@ -116,7 +172,19 @@ export type UseChatHelpers = {
    * Abort the current request immediately, keep the generated tokens if any.
    */
   stop: () => void;
+
+  /**
+   * Run the chat completion.
+   */
+  runChatCompletion: () => Promise<Message[]>;
 };
+
+export interface AppendMessageOptions {
+  /**
+   * Whether to run the chat completion after appending the message. Defaults to `true`.
+   */
+  followUp?: boolean;
+}
 
 export function useChat(options: UseChatOptions): UseChatHelpers {
   const {
@@ -130,24 +198,33 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     actions,
     onFunctionCall,
     onCoAgentStateRender,
-    setCoagentStates,
-    coagentStates,
+    setCoagentStatesWithRef,
+    coagentStatesRef,
     agentSession,
     setAgentSession,
+    threadId,
+    setThreadId,
+    runId,
+    setRunId,
+    chatAbortControllerRef,
+    agentLock,
+    extensions,
+    setExtensions,
+    langGraphInterruptAction,
+    setLangGraphInterruptAction,
   } = options;
-
-  const abortControllerRef = useRef<AbortController>();
-  const threadIdRef = useRef<string | null>(null);
-  const runIdRef = useRef<string | null>(null);
-
   const runChatCompletionRef = useRef<(previousMessages: Message[]) => Promise<Message[]>>();
-  // We need to keep a ref of coagent states because of renderAndWait - making sure
+  const addErrorToast = useErrorToast();
+  // We need to keep a ref of coagent states and session because of renderAndWait - making sure
   // the latest state is sent to the API
   // This is a workaround and needs to be addressed in the future
-  const coagentStatesRef = useRef<Record<string, CoagentState>>(coagentStates);
-  coagentStatesRef.current = coagentStates;
   const agentSessionRef = useRef<AgentSession | null>(agentSession);
   agentSessionRef.current = agentSession;
+
+  const runIdRef = useRef<string | null>(runId);
+  runIdRef.current = runId;
+  const extensionsRef = useRef<ExtensionsInput>(extensions);
+  extensionsRef.current = extensions;
 
   const publicApiKey = copilotConfig.publicApiKey;
 
@@ -156,276 +233,495 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     ...(publicApiKey ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: publicApiKey } : {}),
   };
 
-  const runtimeClient = new CopilotRuntimeClient({
+  const runtimeClient = useCopilotRuntimeClient({
     url: copilotConfig.chatApiEndpoint,
     publicApiKey: copilotConfig.publicApiKey,
     headers,
     credentials: copilotConfig.credentials,
   });
 
-  const runChatCompletion = async (previousMessages: Message[]): Promise<Message[]> => {
-    setIsLoading(true);
+  const runChatCompletion = useAsyncCallback(
+    async (previousMessages: Message[]): Promise<Message[]> => {
+      setIsLoading(true);
+      const interruptEvent = langGraphInterruptAction?.event;
+      // In case an interrupt event exist and valid but has no response yet, we cannot process further messages to an agent
+      if (
+        interruptEvent?.name === MetaEventName.LangGraphInterruptEvent &&
+        interruptEvent?.value &&
+        !interruptEvent?.response &&
+        agentSessionRef.current
+      ) {
+        addErrorToast([
+          new Error(
+            "A message was sent while interrupt is active. This will cause failure on the agent side",
+          ),
+        ]);
+      }
 
-    // this message is just a placeholder. It will disappear once the first real message
-    // is received
-    let newMessages: Message[] = [
-      new TextMessage({
-        content: "",
-        role: Role.Assistant,
-      }),
-    ];
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
+      // this message is just a placeholder. It will disappear once the first real message
+      // is received
+      let newMessages: Message[] = [
+        new TextMessage({
+          content: "",
+          role: Role.Assistant,
+        }),
+      ];
 
-    setMessages([...previousMessages, ...newMessages]);
+      chatAbortControllerRef.current = new AbortController();
 
-    const systemMessage = makeSystemMessageCallback();
+      setMessages([...previousMessages, ...newMessages]);
 
-    const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
+      const systemMessage = makeSystemMessageCallback();
 
-    const stream = CopilotRuntimeClient.asStream(
-      runtimeClient.generateCopilotResponse({
-        data: {
-          frontend: {
-            actions: actions
-              .filter((action) => !action.disabled)
-              .map((action) => ({
-                name: action.name,
-                description: action.description || "",
-                jsonSchema: JSON.stringify(actionParametersToJsonSchema(action.parameters || [])),
-              })),
-            url: window.location.href,
-          },
-          threadId: threadIdRef.current,
-          runId: runIdRef.current,
-          messages: convertMessagesToGqlInput(filterAgentStateMessages(messagesWithContext)),
-          ...(copilotConfig.cloud
-            ? {
-                cloud: {
-                  ...(copilotConfig.cloud.guardrails?.input?.restrictToTopic?.enabled
-                    ? {
-                        guardrails: {
-                          inputValidationRules: {
-                            allowList:
-                              copilotConfig.cloud.guardrails.input.restrictToTopic.validTopics,
-                            denyList:
-                              copilotConfig.cloud.guardrails.input.restrictToTopic.invalidTopics,
+      const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
+
+      const isAgentRun = agentSessionRef.current !== null;
+
+      const stream = runtimeClient.asStream(
+        runtimeClient.generateCopilotResponse({
+          data: {
+            frontend: {
+              actions: processActionsForRuntimeRequest(actions),
+              url: window.location.href,
+            },
+            threadId: threadId,
+            runId: runIdRef.current,
+            extensions: extensionsRef.current,
+            metaEvents: composeAndFlushMetaEventsInput([langGraphInterruptAction?.event]),
+            messages: convertMessagesToGqlInput(filterAgentStateMessages(messagesWithContext)),
+            ...(copilotConfig.cloud
+              ? {
+                  cloud: {
+                    ...(copilotConfig.cloud.guardrails?.input?.restrictToTopic?.enabled
+                      ? {
+                          guardrails: {
+                            inputValidationRules: {
+                              allowList:
+                                copilotConfig.cloud.guardrails.input.restrictToTopic.validTopics,
+                              denyList:
+                                copilotConfig.cloud.guardrails.input.restrictToTopic.invalidTopics,
+                            },
                           },
-                        },
-                      }
-                    : {}),
-                },
-              }
-            : {}),
-          metadata: {
-            requestType: CopilotRequestType.Chat,
+                        }
+                      : {}),
+                  },
+                }
+              : {}),
+            metadata: {
+              requestType: CopilotRequestType.Chat,
+            },
+            ...(agentSessionRef.current
+              ? {
+                  agentSession: agentSessionRef.current,
+                }
+              : {}),
+            agentStates: Object.values(coagentStatesRef.current!).map((state) => ({
+              agentName: state.name,
+              state: JSON.stringify(state.state),
+              configurable: JSON.stringify(state.configurable ?? {}),
+            })),
+            forwardedParameters: options.forwardedParameters || {},
           },
-          ...(agentSessionRef.current
-            ? {
-                agentSession: agentSessionRef.current,
-              }
-            : {}),
-          agentStates: Object.values(coagentStatesRef.current).map((state) => ({
-            agentName: state.name,
-            state: JSON.stringify(state.state),
-          })),
-        },
-        properties: copilotConfig.properties,
-        signal: abortControllerRef.current?.signal,
-      }),
-    );
+          properties: copilotConfig.properties,
+          signal: chatAbortControllerRef.current?.signal,
+        }),
+      );
 
-    const guardrailsEnabled =
-      copilotConfig.cloud?.guardrails?.input?.restrictToTopic.enabled || false;
+      const guardrailsEnabled =
+        copilotConfig.cloud?.guardrails?.input?.restrictToTopic.enabled || false;
 
-    const reader = stream.getReader();
+      const reader = stream.getReader();
 
-    let actionResults: { [id: string]: string } = {};
-    let executedCoAgentStateRenders: string[] = [];
-    let followUp: FrontendAction["followUp"] = undefined;
+      let executedCoAgentStateRenders: string[] = [];
+      let followUp: FrontendAction["followUp"] = undefined;
 
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
+      let messages: Message[] = [];
+      let syncedMessages: Message[] = [];
+      let interruptMessages: Message[] = [];
 
-        if (done) {
-          break;
-        }
+      try {
+        while (true) {
+          let done, value;
 
-        if (!value?.generateCopilotResponse) {
-          continue;
-        }
+          try {
+            const readResult = await reader.read();
+            done = readResult.done;
+            value = readResult.value;
+          } catch (readError) {
+            break;
+          }
 
-        threadIdRef.current = value.generateCopilotResponse.threadId || null;
-        runIdRef.current = value.generateCopilotResponse.runId || null;
+          if (done) {
+            if (chatAbortControllerRef.current.signal.aborted) {
+              return [];
+            }
+            break;
+          }
 
-        const messages = convertGqlOutputToMessages(
-          filterAdjacentAgentStateMessages(value.generateCopilotResponse.messages),
-        );
+          if (!value?.generateCopilotResponse) {
+            continue;
+          }
 
-        if (messages.length === 0) {
-          continue;
-        }
+          runIdRef.current = value.generateCopilotResponse.runId || null;
 
-        newMessages = [];
+          // in the output, graphql inserts __typename, which leads to an error when sending it along
+          // as input to the next request.
+          extensionsRef.current = CopilotRuntimeClient.removeGraphQLTypename(
+            value.generateCopilotResponse.extensions || {},
+          );
 
-        // request failed, display error message
-        if (
-          value.generateCopilotResponse.status?.__typename === "FailedResponseStatus" &&
-          value.generateCopilotResponse.status.reason === "GUARDRAILS_VALIDATION_FAILED"
-        ) {
-          newMessages = [
-            new TextMessage({
-              role: MessageRole.Assistant,
-              content: value.generateCopilotResponse.status.details?.guardrailsReason || "",
-            }),
-          ];
-        }
+          // setThreadId(threadIdRef.current);
+          setRunId(runIdRef.current);
+          setExtensions(extensionsRef.current);
+          let rawMessagesResponse = value.generateCopilotResponse.messages;
+          (value.generateCopilotResponse?.metaEvents ?? []).forEach((ev) => {
+            if (ev.name === MetaEventName.LangGraphInterruptEvent) {
+              let eventValue = langGraphInterruptEvent(ev as LangGraphInterruptEvent).value;
+              try {
+                eventValue = JSON.parse(eventValue);
+                // In case of unparsable string, we keep the event as is
+              } catch (e) {}
+              setLangGraphInterruptAction({
+                event: {
+                  ...langGraphInterruptEvent(ev as LangGraphInterruptEvent),
+                  value: eventValue,
+                },
+              });
+            }
+            if (ev.name === MetaEventName.CopilotKitLangGraphInterruptEvent) {
+              const data = (ev as CopilotKitLangGraphInterruptEvent).data;
 
-        // add messages to the chat
-        else {
-          for (const message of messages) {
-            newMessages.push(message);
-            // execute regular action executions
-            if (
-              message.isActionExecutionMessage() &&
-              message.status.code !== MessageStatusCode.Pending &&
-              message.scope === "client" &&
-              onFunctionCall
-            ) {
-              if (!(message.id in actionResults)) {
-                // Do not execute a function call if guardrails are enabled but the status is not known
+              // @ts-expect-error -- same type of messages
+              rawMessagesResponse = [...rawMessagesResponse, ...data.messages];
+              interruptMessages = convertGqlOutputToMessages(
+                // @ts-ignore
+                filterAdjacentAgentStateMessages(data.messages),
+              );
+            }
+          });
+
+          messages = convertGqlOutputToMessages(
+            filterAdjacentAgentStateMessages(rawMessagesResponse),
+          );
+
+          if (messages.length === 0) {
+            continue;
+          }
+
+          newMessages = [];
+
+          // request failed, display error message and quit
+          if (
+            value.generateCopilotResponse.status?.__typename === "FailedResponseStatus" &&
+            value.generateCopilotResponse.status.reason === "GUARDRAILS_VALIDATION_FAILED"
+          ) {
+            newMessages = [
+              new TextMessage({
+                role: MessageRole.Assistant,
+                content: value.generateCopilotResponse.status.details?.guardrailsReason || "",
+              }),
+            ];
+            setMessages([...previousMessages, ...newMessages]);
+            break;
+          }
+
+          // add messages to the chat
+          else {
+            newMessages = [...messages];
+
+            for (const message of messages) {
+              // execute onCoAgentStateRender handler
+              if (
+                message.isAgentStateMessage() &&
+                !message.active &&
+                !executedCoAgentStateRenders.includes(message.id) &&
+                onCoAgentStateRender
+              ) {
+                // Do not execute a coagent action if guardrails are enabled but the status is not known
                 if (guardrailsEnabled && value.generateCopilotResponse.status === undefined) {
                   break;
                 }
-                // execute action
-                try {
-                  // We update the message state before calling the handler so that the render
-                  // function can be called with `executing` state
-                  setMessages([...previousMessages, ...newMessages]);
+                // execute coagent action
+                await onCoAgentStateRender({
+                  name: message.agentName,
+                  nodeName: message.nodeName,
+                  state: message.state,
+                });
+                executedCoAgentStateRenders.push(message.id);
+              }
+            }
 
-                  const action = actions.find((action) => action.name === message.name);
+            const lastAgentStateMessage = [...messages]
+              .reverse()
+              .find((message) => message.isAgentStateMessage());
 
-                  if (action) {
-                    followUp = action.followUp;
-                  }
+            if (lastAgentStateMessage) {
+              if (
+                lastAgentStateMessage.state.messages &&
+                lastAgentStateMessage.state.messages.length > 0
+              ) {
+                syncedMessages = loadMessagesFromJsonRepresentation(
+                  lastAgentStateMessage.state.messages,
+                );
+              }
+              setCoagentStatesWithRef((prevAgentStates) => ({
+                ...prevAgentStates,
+                [lastAgentStateMessage.agentName]: {
+                  name: lastAgentStateMessage.agentName,
+                  state: lastAgentStateMessage.state,
+                  running: lastAgentStateMessage.running,
+                  active: lastAgentStateMessage.active,
+                  threadId: lastAgentStateMessage.threadId,
+                  nodeName: lastAgentStateMessage.nodeName,
+                  runId: lastAgentStateMessage.runId,
+                },
+              }));
+              if (lastAgentStateMessage.running) {
+                setAgentSession({
+                  threadId: lastAgentStateMessage.threadId,
+                  agentName: lastAgentStateMessage.agentName,
+                  nodeName: lastAgentStateMessage.nodeName,
+                });
+              } else {
+                if (agentLock) {
+                  setAgentSession({
+                    threadId: randomId(),
+                    agentName: agentLock,
+                    nodeName: undefined,
+                  });
+                } else {
+                  setAgentSession(null);
+                }
+              }
+            }
+          }
 
-                  const result = await onFunctionCall({
+          if (newMessages.length > 0) {
+            // Update message state
+            setMessages([...previousMessages, ...newMessages]);
+          }
+        }
+        const finalMessages = constructFinalMessages(
+          [...syncedMessages, ...interruptMessages],
+          previousMessages,
+          newMessages,
+        );
+
+        let didExecuteAction = false;
+
+        // execute regular action executions that are specific to the frontend (last actions)
+        if (onFunctionCall) {
+          // Find consecutive action execution messages at the end
+          const lastMessages = [];
+          for (let i = finalMessages.length - 1; i >= 0; i--) {
+            const message = finalMessages[i];
+            if (
+              message.isActionExecutionMessage() &&
+              message.status.code !== MessageStatusCode.Pending
+            ) {
+              lastMessages.unshift(message);
+            } else {
+              break;
+            }
+          }
+
+          for (const message of lastMessages) {
+            // We update the message state before calling the handler so that the render
+            // function can be called with `executing` state
+            setMessages(finalMessages);
+
+            const action = actions.find((action) => action.name === message.name);
+
+            if (action) {
+              followUp = action.followUp;
+              let result: any;
+              let error: Error | null = null;
+              try {
+                result = await Promise.race([
+                  onFunctionCall({
                     messages: previousMessages,
                     name: message.name,
                     args: message.arguments,
-                  });
-                  actionResults[message.id] = result;
-                } catch (e) {
-                  actionResults[message.id] = `Failed to execute action ${message.name}`;
-                  console.error(`Failed to execute action ${message.name}: ${e}`);
-                }
+                  }),
+                  new Promise((resolve) =>
+                    chatAbortControllerRef.current?.signal.addEventListener("abort", () =>
+                      resolve("Operation was aborted by the user"),
+                    ),
+                  ),
+                  // if the user stopped generation, we also abort consecutive actions
+                  new Promise((resolve) => {
+                    if (chatAbortControllerRef.current?.signal.aborted) {
+                      resolve("Operation was aborted by the user");
+                    }
+                  }),
+                ]);
+              } catch (e) {
+                error = e as Error;
+                addErrorToast([error]);
+                result = `Failed to execute action ${message.name}. ${error.message}`;
+                console.error(`Failed to execute action ${message.name}: ${error}`);
               }
-              // add the result message
-              newMessages.push(
+              didExecuteAction = true;
+              const messageIndex = finalMessages.findIndex((msg) => msg.id === message.id);
+              finalMessages.splice(
+                messageIndex + 1,
+                0,
                 new ResultMessage({
-                  result: ResultMessage.encodeResult(actionResults[message.id]),
+                  id: "result-" + message.id,
+                  result: ResultMessage.encodeResult(
+                    error
+                      ? {
+                          content: result,
+                          error: JSON.parse(
+                            JSON.stringify(error, Object.getOwnPropertyNames(error)),
+                          ),
+                        }
+                      : result,
+                  ),
                   actionExecutionId: message.id,
                   actionName: message.name,
                 }),
               );
             }
-            // execute coagent actions
-            if (
-              message.isAgentStateMessage() &&
-              !message.active &&
-              !executedCoAgentStateRenders.includes(message.id) &&
-              onCoAgentStateRender
-            ) {
-              // Do not execute a coagent action if guardrails are enabled but the status is not known
-              if (guardrailsEnabled && value.generateCopilotResponse.status === undefined) {
-                break;
-              }
-              // execute coagent action
-              await onCoAgentStateRender({
-                name: message.agentName,
-                nodeName: message.nodeName,
-                state: message.state,
-              });
-              executedCoAgentStateRenders.push(message.id);
-            }
           }
 
-          const lastAgentStateMessage = [...messages]
-            .reverse()
-            .find((message) => message.isAgentStateMessage());
+          setMessages(finalMessages);
+        }
 
-          if (lastAgentStateMessage) {
-            setCoagentStates((prevAgentStates) => ({
-              ...prevAgentStates,
-              [lastAgentStateMessage.agentName]: {
-                name: lastAgentStateMessage.agentName,
-                state: lastAgentStateMessage.state,
-                running: lastAgentStateMessage.running,
-                active: lastAgentStateMessage.active,
-                threadId: lastAgentStateMessage.threadId,
-                nodeName: lastAgentStateMessage.nodeName,
-                runId: lastAgentStateMessage.runId,
-              },
-            }));
-            if (lastAgentStateMessage.running) {
-              setAgentSession({
-                threadId: lastAgentStateMessage.threadId,
-                agentName: lastAgentStateMessage.agentName,
-                nodeName: lastAgentStateMessage.nodeName,
-              });
-            } else {
-              setAgentSession(null);
+        if (
+          // if followUp is not explicitly false
+          followUp !== false &&
+          // and we executed an action
+          (didExecuteAction ||
+            // the last message is a server side result
+            (!isAgentRun &&
+              finalMessages.length &&
+              finalMessages[finalMessages.length - 1].isResultMessage())) &&
+          // the user did not stop generation
+          !chatAbortControllerRef.current?.signal.aborted
+        ) {
+          // run the completion again and return the result
+
+          // wait for next tick to make sure all the react state updates
+          // - tried using react-dom's flushSync, but it did not work
+          await new Promise((resolve) => setTimeout(resolve, 10));
+
+          return await runChatCompletionRef.current!(finalMessages);
+        } else if (chatAbortControllerRef.current?.signal.aborted) {
+          // filter out all the action execution messages that do not have a consecutive matching result message
+          const repairedMessages = finalMessages.filter((message, actionExecutionIndex) => {
+            if (message.isActionExecutionMessage()) {
+              return finalMessages.find(
+                (msg, resultIndex) =>
+                  msg.isResultMessage() &&
+                  msg.actionExecutionId === message.id &&
+                  resultIndex === actionExecutionIndex + 1,
+              );
             }
+            return true;
+          });
+          const repairedMessageIds = repairedMessages.map((message) => message.id);
+          setMessages(repairedMessages);
+
+          // LangGraph needs two pieces of information to continue execution:
+          // 1. The threadId
+          // 2. The nodeName it came from
+          // When stopping the agent, we don't know the nodeName the agent would have ended with
+          // Therefore, we set the nodeName to the most reasonable thing we can guess, which
+          // is "__end__"
+          if (agentSessionRef.current?.nodeName) {
+            setAgentSession({
+              threadId: agentSessionRef.current.threadId,
+              agentName: agentSessionRef.current.agentName,
+              nodeName: "__end__",
+            });
           }
+          // only return new messages that were not filtered out
+          return newMessages.filter((message) => repairedMessageIds.includes(message.id));
+        } else {
+          return newMessages.slice();
         }
-
-        if (newMessages.length > 0) {
-          // Update message state
-          setMessages([...previousMessages, ...newMessages]);
-        }
+      } finally {
+        setIsLoading(false);
       }
-
-      if (
-        // if followUp is not explicitly false
-        followUp !== false &&
-        // if we have client side results
-        (Object.values(actionResults).length ||
-          // or the last message we received is a result
-          (newMessages.length && newMessages[newMessages.length - 1].isResultMessage()))
-      ) {
-        // run the completion again and return the result
-
-        // wait for next tick to make sure all the react state updates
-        // - tried using react-dom's flushSync, but it did not work
-        await new Promise((resolve) => setTimeout(resolve, 10));
-
-        return await runChatCompletionRef.current!([...previousMessages, ...newMessages]);
-      } else {
-        return newMessages.slice();
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    [
+      messages,
+      setMessages,
+      makeSystemMessageCallback,
+      copilotConfig,
+      setIsLoading,
+      initialMessages,
+      isLoading,
+      actions,
+      onFunctionCall,
+      onCoAgentStateRender,
+      setCoagentStatesWithRef,
+      coagentStatesRef,
+      agentSession,
+      setAgentSession,
+    ],
+  );
 
   runChatCompletionRef.current = runChatCompletion;
 
-  const runChatCompletionAndHandleFunctionCall = async (messages: Message[]): Promise<void> => {
-    await runChatCompletionRef.current!(messages);
-  };
+  const runChatCompletionAndHandleFunctionCall = useAsyncCallback(
+    async (messages: Message[]): Promise<void> => {
+      await runChatCompletionRef.current!(messages);
+    },
+    [messages],
+  );
 
-  const append = async (message: Message): Promise<void> => {
-    if (isLoading) {
-      return;
-    }
+  // Go over all events and see that they include data that should be returned to the agent
+  const composeAndFlushMetaEventsInput = useCallback(
+    (metaEvents: (MetaEvent | undefined | null)[]) => {
+      return metaEvents.reduce((acc: MetaEventInput[], event) => {
+        if (!event) return acc;
 
-    const newMessages = [...messages, message];
-    setMessages(newMessages);
-    return runChatCompletionAndHandleFunctionCall(newMessages);
-  };
+        switch (event.name) {
+          case MetaEventName.LangGraphInterruptEvent:
+            if (event.response) {
+              // Flush interrupt event from state
+              setLangGraphInterruptAction(null);
+              const value = (event as LangGraphInterruptEvent).value;
+              return [
+                ...acc,
+                {
+                  name: event.name,
+                  value: typeof value === "string" ? value : JSON.stringify(value),
+                  response:
+                    typeof event.response === "string"
+                      ? event.response
+                      : JSON.stringify(event.response),
+                },
+              ];
+            }
+            return acc;
+          default:
+            return acc;
+        }
+      }, []);
+    },
+    [setLangGraphInterruptAction],
+  );
 
-  const reload = async (): Promise<void> => {
+  const append = useAsyncCallback(
+    async (message: Message, options?: AppendMessageOptions): Promise<void> => {
+      if (isLoading) {
+        return;
+      }
+
+      const newMessages = [...messages, message];
+      setMessages(newMessages);
+      const followUp = options?.followUp ?? true;
+      if (followUp) {
+        return runChatCompletionAndHandleFunctionCall(newMessages);
+      }
+    },
+    [isLoading, messages, setMessages, runChatCompletionAndHandleFunctionCall],
+  );
+
+  const reload = useAsyncCallback(async (): Promise<void> => {
     if (isLoading || messages.length === 0) {
       return;
     }
@@ -439,15 +735,45 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     setMessages(newMessages);
 
     return runChatCompletionAndHandleFunctionCall(newMessages);
-  };
+  }, [isLoading, messages, setMessages, runChatCompletionAndHandleFunctionCall]);
 
   const stop = (): void => {
-    abortControllerRef.current?.abort();
+    chatAbortControllerRef.current?.abort("Stop was called");
   };
 
   return {
     append,
     reload,
     stop,
+    runChatCompletion: () => runChatCompletionRef.current!(messages),
   };
+}
+
+function constructFinalMessages(
+  syncedMessages: Message[],
+  previousMessages: Message[],
+  newMessages: Message[],
+): Message[] {
+  const finalMessages =
+    syncedMessages.length > 0 ? [...syncedMessages] : [...previousMessages, ...newMessages];
+
+  if (syncedMessages.length > 0) {
+    const messagesWithAgentState = [...previousMessages, ...newMessages];
+
+    let previousMessageId: string | undefined = undefined;
+
+    for (const message of messagesWithAgentState) {
+      if (message.isAgentStateMessage()) {
+        // insert this message into finalMessages after the position of previousMessageId
+        const index = finalMessages.findIndex((msg) => msg.id === previousMessageId);
+        if (index !== -1) {
+          finalMessages.splice(index + 1, 0, message);
+        }
+      }
+
+      previousMessageId = message.id;
+    }
+  }
+
+  return finalMessages;
 }

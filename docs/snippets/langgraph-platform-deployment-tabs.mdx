@@ -1,0 +1,91 @@
+<Tabs groupId="lg-deployment-type" items={['Local (LangGraph Studio)', 'Self hosted (FastAPI)', 'LangGraph Platform']}>
+  <Tab value="Local (LangGraph Studio)">
+    For local development, you can use the [LangGraph CLI](https://langchain-ai.github.io/langgraph/cloud/reference/cli/) to start a development server and LangGraph studio session.
+
+    <Callout type="info">
+      You will need a [LangSmith account](https://smith.langchain.com) to use this method.
+    </Callout>
+
+    ```bash
+    # python
+    langgraph dev --host localhost --port 8000 
+    ```
+
+    ```bash
+    # typescript
+    npx @langchain/langgraph-cli dev --host localhost --port 8000
+    ```
+
+    After starting the LangGraph server, the deployment URL will be `http://localhost:8000`.
+  </Tab>
+
+  <Tab value="Self hosted (FastAPI)">
+    <Callout type="info">
+      This method is currently only supported for Python LangGraph agents.
+    </Callout>
+
+    1. Add a `.env` file to contain your LangSmith API key.
+
+    ```plaintext title=".env"
+    LANGSMITH_API_KEY=your_langsmith_api_key
+    ```
+    
+    2. Next, use CopilotKit's FastAPI integration to serve your LangGraph agent.
+
+    ```python title="server.py"
+    import os
+    from fastapi import FastAPI
+    import uvicorn
+    from copilotkit.integrations.fastapi import add_fastapi_endpoint # [!code highlight]
+    from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent # [!code highlight]
+    from path.to.your.graph import graph # [!code highlight]
+    
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    app = FastAPI()
+    # [!code highlight:10]
+    sdk = CopilotKitRemoteEndpoint(
+        agents=[
+            LangGraphAgent(
+                name="sample_agent", # the name of your agent defined in langgraph.json
+                description="Describe your agent here, will be used for multi-agent orchestration",
+                graph=graph, # the graph object from your langgraph import
+            )
+        ],
+    )
+
+    # Use CopilotKit's FastAPI integration to add a new endpoint for your LangGraph agents # [!code highlight:2]
+    add_fastapi_endpoint(app, sdk, "/copilotkit", use_thread_pool=False)
+
+    # add new route for health check
+    @app.get("/health")
+    def health():
+        """Health check."""
+        return {"status": "ok"}
+
+    def main():
+        """Run the uvicorn server."""
+        port = int(os.getenv("PORT", "8000"))
+        uvicorn.run(
+            "path.to.this.file:app",
+            host="0.0.0.0",
+            port=port,
+            reload=True,
+        )
+
+    ```
+  </Tab>
+
+  <Tab value="LangGraph Platform">
+    For production, you can deploy to LangGraph Platform by following the official [LangGraph Platform deployment guide](https://langchain-ai.github.io/langgraph/cloud/deployment/cloud/).
+
+    Come back with that URL and a LangSmith API key before proceeding.
+
+    <Callout type="info">
+      A successful deployment will yield an API URL (often referred to here as "deployment URL").
+      In LangGraph Platform, it will look like this: `https://{project-identifiers}.langgraph.app`.
+    </Callout>
+  </Tab>
+</Tabs>
+

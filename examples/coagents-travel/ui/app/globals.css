@@ -70,6 +70,10 @@
   }
 }
 
+.copilotKitWindow {
+  @apply  md:w-[300px] lg:w-[400px] xl:w-[450px] 2xl:w-[500px] !important;
+}
+
 .copilotKitDevConsole {
   @apply hidden !important;
 }

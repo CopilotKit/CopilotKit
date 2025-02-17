@@ -8,6 +8,9 @@ import { Messages as DefaultMessages } from "./Messages";
 import { Input as DefaultInput } from "./Input";
 import { ResponseButton as DefaultResponseButton } from "./Response";
 import { CopilotChat, CopilotChatProps } from "./Chat";
+import { Markdown as DefaultRenderer } from "./Markdown";
+import { AssistantMessage as DefaultAssistantMessage } from "./messages/AssistantMessage";
+import { UserMessage as DefaultUserMessage } from "./messages/UserMessage";
 
 export interface CopilotModalProps extends CopilotChatProps {
   /**
@@ -63,6 +66,8 @@ export const CopilotModal = ({
   hitEscapeToClose = true,
   onSetOpen,
   onSubmitMessage,
+  onStopGeneration,
+  onReloadMessages,
   shortcut = "/",
   icons,
   labels,
@@ -75,6 +80,8 @@ export const CopilotModal = ({
   Messages = DefaultMessages,
   Input = DefaultInput,
   ResponseButton = DefaultResponseButton,
+  AssistantMessage = DefaultAssistantMessage,
+  UserMessage = DefaultUserMessage,
   className,
   children,
 }: CopilotModalProps) => {
@@ -99,12 +106,16 @@ export const CopilotModal = ({
           <CopilotChat
             instructions={instructions}
             onSubmitMessage={onSubmitMessage}
+            onStopGeneration={onStopGeneration}
+            onReloadMessages={onReloadMessages}
             makeSystemMessage={makeSystemMessage}
             showResponseButton={showResponseButton}
             onInProgress={onInProgress}
             Messages={Messages}
             Input={Input}
             ResponseButton={ResponseButton}
+            AssistantMessage={AssistantMessage}
+            UserMessage={UserMessage}
           />
         </Window>
       </div>

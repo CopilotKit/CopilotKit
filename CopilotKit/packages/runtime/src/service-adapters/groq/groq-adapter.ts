@@ -11,9 +11,7 @@
  *
  * const copilotKit = new CopilotRuntime();
  *
- * const serviceAdapter = new GroqAdapter({ groq, model: "<model-name>" });
- *
- * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
+ * return new GroqAdapter({ groq, model: "<model-name>" });
  * ```
  */
 import { Groq } from "groq-sdk";
@@ -27,7 +25,7 @@ import {
   convertMessageToOpenAIMessage,
   limitMessagesToTokenCount,
 } from "../openai/utils";
-import { randomId } from "@copilotkit/shared";
+import { randomUUID } from "@copilotkit/shared";
 
 const DEFAULT_MODEL = "llama3-groq-70b-8192-tool-use-preview";
 
@@ -104,10 +102,14 @@ export class GroqAdapter implements CopilotServiceAdapter {
       ...(forwardedParameters?.stop && { stop: forwardedParameters.stop }),
       ...(toolChoice && { tool_choice: toolChoice }),
       ...(this.disableParallelToolCalls && { parallel_tool_calls: false }),
+      ...(forwardedParameters?.temperature && { temperature: forwardedParameters.temperature }),
     });
 
     eventSource.stream(async (eventStream$) => {
       let mode: "function" | "message" | null = null;
+      let currentMessageId: string;
+      let currentToolCallId: string;
+
       for await (const chunk of stream) {
         const toolCall = chunk.choices[0].delta.tool_calls?.[0];
         const content = chunk.choices[0].delta.content;
@@ -117,43 +119,55 @@ export class GroqAdapter implements CopilotServiceAdapter {
         // If toolCall?.id is defined, it means a new tool call starts.
         if (mode === "message" && toolCall?.id) {
           mode = null;
-          eventStream$.sendTextMessageEnd();
+          eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
         } else if (mode === "function" && (toolCall === undefined || toolCall?.id)) {
           mode = null;
-          eventStream$.sendActionExecutionEnd();
+          eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
         }
 
         // If we send a new message type, send the appropriate start event.
         if (mode === null) {
           if (toolCall?.id) {
             mode = "function";
-            eventStream$.sendActionExecutionStart(toolCall!.id, toolCall!.function!.name);
+            currentToolCallId = toolCall!.id;
+            eventStream$.sendActionExecutionStart({
+              actionExecutionId: currentToolCallId,
+              actionName: toolCall!.function!.name,
+              parentMessageId: chunk.id,
+            });
           } else if (content) {
             mode = "message";
-            eventStream$.sendTextMessageStart(chunk.id);
+            currentMessageId = chunk.id;
+            eventStream$.sendTextMessageStart({ messageId: currentMessageId });
           }
         }
 
         // send the content events
         if (mode === "message" && content) {
-          eventStream$.sendTextMessageContent(content);
+          eventStream$.sendTextMessageContent({
+            messageId: currentMessageId,
+            content,
+          });
         } else if (mode === "function" && toolCall?.function?.arguments) {
-          eventStream$.sendActionExecutionArgs(toolCall.function.arguments);
+          eventStream$.sendActionExecutionArgs({
+            actionExecutionId: currentToolCallId,
+            args: toolCall.function.arguments,
+          });
         }
       }
 
       // send the end events
       if (mode === "message") {
-        eventStream$.sendTextMessageEnd();
+        eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
       } else if (mode === "function") {
-        eventStream$.sendActionExecutionEnd();
+        eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
       }
 
       eventStream$.complete();
     });
 
     return {
-      threadId: threadId || randomId(),
+      threadId: request.threadId || randomUUID(),
     };
   }
 }

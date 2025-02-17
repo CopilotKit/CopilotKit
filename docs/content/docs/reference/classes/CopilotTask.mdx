@@ -36,11 +36,7 @@ export function MyComponent() {
           required: true,
         },
       ],
- 
-      implementation: async (message) => {
-        // ...
-      },
-    }
+     }
     ]
   });
  
@@ -76,6 +72,10 @@ Whether to include the copilot readable context in the task.
 
 <PropertyReference name="includeCopilotActions" type="boolean"  > 
 Whether to include actions defined via useCopilotAction in the task.
+</PropertyReference>
+
+<PropertyReference name="forwardedParameters" type="ForwardedParametersInput"  > 
+The forwarded parameters to use for the task.
 </PropertyReference>
 
 <PropertyReference name="run" type="context: CopilotContextParams, data?: T">

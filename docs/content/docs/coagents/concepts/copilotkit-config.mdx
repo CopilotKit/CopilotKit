@@ -1,12 +1,13 @@
 ---
-title: Copilotkit Config
-description: Agentic Copilots support Human-in-the-loop workflows where human input or validation is required during agent execution.
+title: Streaming and Tool Calls
+description: CoAgents support streaming your messages and tool calls to the frontend.
 ---
 
-If you'd like to change how LangGraph agents behave as Agentic Copilots you can utilize our Copilotkit SDK which provides a collection
+If you'd like to change how LangGraph agents behave as CoAgents you can utilize our Copilotkit SDK which provides a collection
 of functions and utilities for interacting with the agent's state or behavior. One example of this is the Copilotkit config 
 which is a wrapper of the LangGraph `config` object. This allows you to extend the configuration of your LangGraph nodes to 
-change how LangGraph and Copilotkit interact with each other. For example you can change:
+change how LangGraph and Copilotkit interact with each other. This allows you to change how messages and tool calls are emitted and
+streamed to the frontend.
 
 ## Message Streaming
 If you did not change anything in your LangGraph node, message streaming will be on by default. This allows for a message to be
@@ -21,7 +22,7 @@ config = copilotkit_customize_config(
 )
 ```
 
-## Tool Call Emitting
+## Emitting Tool Calls
 Emission of tool calls are off by default. This means that tool calls will not be sent to Copilotkit for processing and rendering.
 However, within a node you can extend the LangGraph `config` object to emit tool calls to Copilotkit. This is useful in situations
 where you may to emit what a potential tool call will look like prior to being executed.
@@ -34,5 +35,5 @@ config = copilotkit_customize_config(
 )
 ```
 
-For more information on how to tool calls are utilized check out our [Human-in-the-loop](/coagents/react-ui/frontend-functions)
+For more information on how tool calls are utilized check out our [frontend actions](/coagents/frontend-actions)
 documentation.

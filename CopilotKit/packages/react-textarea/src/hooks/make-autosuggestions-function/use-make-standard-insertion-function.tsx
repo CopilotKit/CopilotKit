@@ -39,24 +39,17 @@ export function useMakeStandardInsertionOrEditingFunction(
   insertionApiConfig: InsertionsApiConfig,
   editingApiConfig: EditingApiConfig,
 ): Generator_InsertionOrEditingSuggestion {
-  const { getContextString, copilotApiConfig } = useCopilotContext();
+  const { getContextString, copilotApiConfig, runtimeClient } = useCopilotContext();
   const headers = {
     ...(copilotApiConfig.publicApiKey
       ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: copilotApiConfig.publicApiKey }
       : {}),
   };
 
-  const runtimeClient = new CopilotRuntimeClient({
-    url: copilotApiConfig.chatApiEndpoint,
-    publicApiKey: copilotApiConfig.publicApiKey,
-    headers,
-    credentials: copilotApiConfig.credentials,
-  });
-
   async function runtimeClientResponseToStringStream(
     responsePromise: ReturnType<typeof runtimeClient.generateCopilotResponse>,
   ) {
-    const messagesStream = await CopilotRuntimeClient.asStream(responsePromise);
+    const messagesStream = runtimeClient.asStream(responsePromise);
 
     return new ReadableStream({
       async start(controller) {
@@ -177,13 +170,6 @@ export function useMakeStandardInsertionOrEditingFunction(
             content: `<EditingPrompt>${editingPrompt}</EditingPrompt>`,
           }),
         ];
-
-        const runtimeClient = new CopilotRuntimeClient({
-          url: copilotApiConfig.chatApiEndpoint,
-          publicApiKey: copilotApiConfig.publicApiKey,
-          headers,
-          credentials: copilotApiConfig.credentials,
-        });
 
         return runtimeClientResponseToStringStream(
           runtimeClient.generateCopilotResponse({

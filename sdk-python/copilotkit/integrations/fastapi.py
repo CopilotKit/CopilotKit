@@ -1,12 +1,15 @@
 """FastAPI integration"""
 
 import logging
+import asyncio
+import warnings
 
-from typing import List, Any, cast
+from concurrent.futures import ThreadPoolExecutor
+from typing import List, Any, cast, Optional
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
-from ..sdk import CopilotKitSDK, CopilotKitSDKContext
-from ..types import Message
+from ..sdk import CopilotKitRemoteEndpoint, CopilotKitContext
+from ..types import Message, MetaEvent
 from ..exc import (
     ActionNotFoundException,
     ActionExecutionException,
@@ -18,9 +21,34 @@ from ..action import ActionDict
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
-def add_fastapi_endpoint(fastapi_app: FastAPI, sdk: CopilotKitSDK, prefix: str):
-    """Add FastAPI endpoint"""
+def add_fastapi_endpoint(
+        fastapi_app: FastAPI,
+        sdk: CopilotKitRemoteEndpoint,
+        prefix: str,
+        *,
+        max_workers: int = 10,
+        use_thread_pool: bool = False,
+    ):
+    """Add FastAPI endpoint with configurable ThreadPoolExecutor size"""
+    if use_thread_pool:
+        warnings.warn(
+            "The 'use_thread_pool' parameter is deprecated " + 
+            "and will be removed in a future version.",
+            DeprecationWarning
+        )
+    executor = ThreadPoolExecutor(max_workers=max_workers)
+
+    def run_handler_in_thread(request: Request, sdk: CopilotKitRemoteEndpoint):
+        # Run the handler coroutine in the event loop        
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        return loop.run_until_complete(handler(request, sdk))
+
     async def make_handler(request: Request):
+        if use_thread_pool:
+            loop = asyncio.get_event_loop()
+            future = loop.run_in_executor(executor, run_handler_in_thread, request, sdk)
+            return await future
         return await handler(request, sdk)
 
     # Ensure the prefix starts with a slash and remove trailing slashes
@@ -40,7 +68,7 @@ def body_get_or_raise(body: Any, key: str):
     return value
 
 
-async def handler(request: Request, sdk: CopilotKitSDK):
+async def handler(request: Request, sdk: CopilotKitRemoteEndpoint):
     """Handle FastAPI request"""
 
     try:
@@ -51,7 +79,7 @@ async def handler(request: Request, sdk: CopilotKitSDK):
     path = request.path_params.get('path')
     method = request.method
     context = cast(
-        CopilotKitSDKContext, 
+        CopilotKitContext, 
         {
             "properties": body.get("properties", {}),
             "frontend_url": body.get("frontendUrl", None)
@@ -75,11 +103,13 @@ async def handler(request: Request, sdk: CopilotKitSDK):
     if method == 'POST' and path == 'agents/execute':
         thread_id = body.get("threadId")
         node_name = body.get("nodeName")
+        configurable = body.get("configurable")
 
         name = body_get_or_raise(body, "name")
         state = body_get_or_raise(body, "state")
         messages = body_get_or_raise(body, "messages")
         actions = cast(List[ActionDict], body.get("actions", []))
+        meta_events = cast(List[MetaEvent], body.get("metaEvents", []))
 
         return handle_execute_agent(
             sdk=sdk,
@@ -88,23 +118,35 @@ async def handler(request: Request, sdk: CopilotKitSDK):
             node_name=node_name,
             name=name,
             state=state,
+            configurable=configurable,
             messages=messages,
             actions=actions,
+            meta_events=meta_events,
         )
 
+    if method == 'POST' and path == 'agents/state':
+        thread_id = body_get_or_raise(body, "threadId")
+        name = body_get_or_raise(body, "name")
+
+        return await handle_get_agent_state(
+            sdk=sdk,
+            context=context,
+            thread_id=thread_id,
+            name=name,
+        )
 
     raise HTTPException(status_code=404, detail="Not found")
 
 
-async def handle_info(*, sdk: CopilotKitSDK, context: CopilotKitSDKContext):
+async def handle_info(*, sdk: CopilotKitRemoteEndpoint, context: CopilotKitContext):
     """Handle info request with FastAPI"""
     result = sdk.info(context=context)
     return JSONResponse(content=result)
 
 async def handle_execute_action(
         *,
-        sdk: CopilotKitSDK,
-        context: CopilotKitSDKContext,
+        sdk: CopilotKitRemoteEndpoint,
+        context: CopilotKitContext,
         name: str,
         arguments: dict,
     ):
@@ -128,14 +170,16 @@ async def handle_execute_action(
 
 def handle_execute_agent( # pylint: disable=too-many-arguments
         *,
-        sdk: CopilotKitSDK,
-        context: CopilotKitSDKContext,
+        sdk: CopilotKitRemoteEndpoint,
+        context: CopilotKitContext,
         thread_id: str,
         node_name: str,
         name: str,
         state: dict,
+        configurable: Optional[dict] = None,
         messages: List[Message],
         actions: List[ActionDict],
+        meta_events: Optional[List[MetaEvent]] = None,
     ):
     """Handle continue agent execution request with FastAPI"""
     try:
@@ -145,8 +189,10 @@ def handle_execute_agent( # pylint: disable=too-many-arguments
             name=name,
             node_name=node_name,
             state=state,
+            configurable=configurable,
             messages=messages,
             actions=actions,
+            meta_events=meta_events,
         )
         return StreamingResponse(events, media_type="application/json")
     except AgentNotFoundException as exc:
@@ -157,4 +203,26 @@ def handle_execute_agent( # pylint: disable=too-many-arguments
         return JSONResponse(content={"error": str(exc)}, status_code=500)
     except Exception as exc: # pylint: disable=broad-except
         logger.error("Agent execution error: %s", exc, exc_info=True)
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+async def handle_get_agent_state(
+        *,
+        sdk: CopilotKitRemoteEndpoint,
+        context: CopilotKitContext,
+        thread_id: str,
+        name: str,
+    ):
+    """Handle get agent state request with FastAPI"""
+    try:
+        result = await sdk.get_agent_state(
+            context=context,
+            thread_id=thread_id,
+            name=name,
+        )
+        return JSONResponse(content=result)
+    except AgentNotFoundException as exc:
+        logger.error("Agent not found: %s", exc, exc_info=True)
+        return JSONResponse(content={"error": str(exc)}, status_code=404)
+    except Exception as exc: # pylint: disable=broad-except
+        logger.error("Agent get state error: %s", exc, exc_info=True)
         return JSONResponse(content={"error": str(exc)}, status_code=500)

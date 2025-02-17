@@ -4,34 +4,39 @@ from typing import Any, cast
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.runnables import RunnableConfig
-from langchain_core.messages import HumanMessage, ToolMessage
-from copilotkit.langchain import (
-  copilotkit_customize_config, copilotkit_exit, copilotkit_emit_message
+from langchain_core.messages import HumanMessage, ToolMessage, AIMessage
+from copilotkit.langgraph import (
+  copilotkit_customize_config, copilotkit_exit, copilotkit_emit_message, copilotkit_interrupt
 )
-from pydantic import BaseModel, Field
+from langgraph.types import interrupt
 from email_agent.model import get_model
 from email_agent.state import EmailAgentState
 
-class EmailTool(BaseModel):
-    """
-    Write an email.
-    """
-    the_email: str = Field(description="The email to be written.")
 
 async def email_node(state: EmailAgentState, config: RunnableConfig):
     """
     Write an email.
     """
 
+    sender = state.get("sender", None)
+    if sender is None:
+        sender = interrupt('Please provide a sender name which will appear in the email')
+
+    sender_company = state.get("sender_company", None)
+    if sender_company is None:
+        sender_company, new_messages = copilotkit_interrupt(message='Ah, forgot to ask, which company are you working for?')
+        state["messages"] = state["messages"] + new_messages
+
     config = copilotkit_customize_config(
         config,
         emit_tool_calls=True,
     )
 
-    instructions = "You write emails."
+    instructions = f"You write emails. The email is by the following sender: {sender}, working for: {sender_company}"
 
+    cpk_actions = state.get("copilotkit", {}).get("actions", [])
     email_model = get_model(state).bind_tools(
-        [EmailTool],
+        cpk_actions,
         tool_choice="EmailTool"
     )
 
@@ -47,7 +52,10 @@ async def email_node(state: EmailAgentState, config: RunnableConfig):
     email = tool_calls[0]["args"]["the_email"]
 
     return {
+        "messages": response,
         "email": email,
+        "sender": sender,
+        "sender_company": sender_company
     }
 
 async def send_email_node(state: EmailAgentState, config: RunnableConfig):
@@ -65,14 +73,17 @@ async def send_email_node(state: EmailAgentState, config: RunnableConfig):
 
     # get the last message and cast to ToolMessage
     last_message = cast(ToolMessage, state["messages"][-1])
+
     if last_message.content == "CANCEL":
-        await copilotkit_emit_message(config, "❌ Cancelled sending email.")
+        text_message = "❌ Cancelled sending email."
     else:
-        await copilotkit_emit_message(config, "✅ Sent email.")
+        text_message = "✅ Sent email."
+    
+    await copilotkit_emit_message(config, text_message)
 
 
     return {
-        "messages": state["messages"],
+        "messages": AIMessage(content=text_message),
     }
 
 
@@ -80,7 +91,6 @@ workflow = StateGraph(EmailAgentState)
 workflow.add_node("email_node", email_node)
 workflow.add_node("send_email_node", send_email_node)
 workflow.set_entry_point("email_node")
-
 workflow.add_edge("email_node", "send_email_node")
 workflow.add_edge("send_email_node", END)
 memory = MemorySaver()

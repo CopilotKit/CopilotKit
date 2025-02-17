@@ -5,11 +5,9 @@ from langchain_openai import ChatOpenAI
 from travel.search import search_for_places
 from travel.trips import add_trips, update_trips, delete_trips
 from langchain_core.runnables import RunnableConfig
-from copilotkit.langchain import copilotkit_customize_config
 from langchain_core.messages import AIMessage, ToolMessage
 from typing import cast
 from langchain_core.tools import tool
-from copilotkit.langchain import copilotkit_emit_message
 
 @tool
 def select_trip(trip_id: str):
@@ -21,23 +19,15 @@ tools = [search_for_places, select_trip]
 
 async def chat_node(state: AgentState, config: RunnableConfig):
     """Handle chat operations"""
-    llm_with_tools = llm.bind_tools([
-        *tools,
-        add_trips,
-        update_trips,
-        delete_trips,
-        select_trip,
-    ])
-
-    config = copilotkit_customize_config(
-        config,
-        # TL;DR - Only emit tool calls for tools you explicitly want CopilotKit to interact with.
-        #
-        # This is extremely important. We don't want to just set True here because that
-        # will emit all tool calls. By specifying these, we hand are handing off tool
-        # handling to CopilotKit + Nodes. If, for example, search_for_places was called
-        # here then it would break the fragile state of tool calls.
-        emit_tool_calls=["add_trips", "update_trips", "delete_trips"],
+    llm_with_tools = llm.bind_tools(
+        [
+            *tools,
+            add_trips,
+            update_trips,
+            delete_trips,
+            select_trip,
+        ],
+        parallel_tool_calls=False,
     )
 
     system_message = f"""
@@ -56,6 +46,9 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     When you create or update a trip, you should set it as the selected trip.
     If you delete a trip, try to select another trip.
 
+    If an operation is cancelled by the user, DO NOT try to perform the operation again. Just ask what the user would like to do now
+    instead.
+
     Current trips: {json.dumps(state.get('trips', []))}
     """
 
@@ -65,7 +58,7 @@ async def chat_node(state: AgentState, config: RunnableConfig):
             SystemMessage(content=system_message),
             *state["messages"]
         ],
-        config=config
+        config=config,
     )
 
     ai_message = cast(AIMessage, response)

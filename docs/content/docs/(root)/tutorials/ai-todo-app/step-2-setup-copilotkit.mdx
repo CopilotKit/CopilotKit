@@ -2,6 +2,10 @@
 title: "Step 2: Setup CopilotKit"
 ---
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+import CopilotCloudConfigureCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
+import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/self-hosting-copilot-runtime-configure-copilotkit-provider.mdx";
+import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content";
+import { FaCloud, FaServer } from "react-icons/fa";
 
 Now that we have our todo list app running, we're ready to integrate CopilotKit. For this tutorial, we will install the following dependencies:
 
@@ -18,6 +22,24 @@ npm install @copilotkit/react-core @copilotkit/react-ui
 
 ## Setup CopilotKit
 
+<TailoredContent id="hosting">
+<TailoredContentOption
+  id="copilot-cloud"
+  title="Copilot Cloud (Recommended)"
+  description="Use our hosted backend endpoint to get started quickly (OpenAI only)."
+  icon={<FaCloud />}
+>
+In order to use CopilotKit, we'll need to configure the `CopilotKit` provider.
+
+<CopilotCloudConfigureCopilotKitProvider components={props.components} />
+</TailoredContentOption>
+<TailoredContentOption
+  id="self-hosted"
+  title="Self-hosting"
+  description="Learn to host CopilotKit's runtime yourself with your own backend."
+  icon={<FaServer />}
+>
+
 <Steps>
 <Step>
 ### Set up Copilot Runtime Endpoint
@@ -26,25 +48,13 @@ npm install @copilotkit/react-core @copilotkit/react-ui
 <Step>
 
 ### Configure the CopilotKit Provider
-```tsx title="app/page.tsx" showLineNumbers
-"use client";
 
-import { TasksList } from "@/components/TasksList";
-import { TasksProvider } from "@/lib/hooks/use-tasks";
-import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+<SelfHostingCopilotRuntimeConfigureCopilotKitProvider components={props.components} />
 
-export default function Home() {
-  return (
-    <CopilotKit runtimeUrl="/api/copilotkit"> // [!code highlight]
-      <TasksProvider>
-        <TasksList />
-      </TasksProvider>
-    </CopilotKit> // [!code highlight]
-  );
-}
-```
 </Step>
 </Steps>
+</TailoredContentOption>
+</TailoredContent>
 
 ### CopilotKit Chat Popup
 
@@ -63,12 +73,12 @@ import "@copilotkit/react-ui/styles.css"; // [!code highlight]
 
 export default function Home() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit">
+    <>
       <TasksProvider>
         <TasksList />
       </TasksProvider>
       <CopilotPopup /> // [!code highlight]
-    </CopilotKit>
+    </>
   );
 }
 ```
@@ -77,7 +87,7 @@ Here's what we did:
 
 - We imported the `<CopilotPopup />` component from `@copilotkit/react-ui`.
 - We wrapped the page with the `<CopilotKit>` provider.
-- We imported the built-in styles from `@copilotkit/react-ui`. This is optional.
+- We imported the built-in styles from `@copilotkit/react-ui`.
 
 Now, head back to your app and you'll find a chat popup in the bottom right corner of the page. At this point, you can start interacting with your copilot! 🎉
 

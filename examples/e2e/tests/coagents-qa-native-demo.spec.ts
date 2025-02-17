@@ -12,7 +12,6 @@ import {
 const variants: TestVariants = [
   { name: "OpenAI", queryParams: "?coAgentsModel=openai" },
   { name: "Anthropic", queryParams: "?coAgentsModel=anthropic" },
-  // { name: "Google Generative AI", queryParams: "?coAgentsModel=google_genai" }, // seems broken
 ];
 
 const allConfigs = getConfigs();
@@ -22,20 +21,25 @@ const qaConfigs = filterConfigsByProject(
 );
 const groupedConfigs = groupConfigsByDescription(qaConfigs);
 
+export const cloudVariants = variants.filter((variant) => variant.isCloud);
+export const nonCloudVariants = variants.filter((variant) => !variant.isCloud);
+
+test.describe.configure({ mode: 'parallel' });
+
 Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
   test.describe(`${projectName}`, () => {
     Object.entries(descriptions).forEach(([description, configs]) => {
       test.describe(`${description}`, () => {
         configs.forEach((config) => {
-          appendLGCVariants(
-            {
-              ...config,
-              lgcJSDeploymentUrl:
-                  config.lgcJSDeploymentUrl ??
-                "https://coagents-qa-native-stg-js-036615e530e8593286ccf93d3003ffe2.default.us.langgraph.app",
-            },
-            variants
-          ).forEach((variant) => {
+          [
+            ...appendLGCVariants(
+              {
+                ...config,
+              },
+              nonCloudVariants
+            ),
+            ...cloudVariants,
+          ].forEach((variant) => {
             test(`Test ${config.description} with variant ${variant.name}`, async ({
               page,
             }) => {
@@ -57,6 +61,18 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               await sendChatMessage(
                 page,
                 "write an email to the CEO of OpenAI asking for a meeting"
+              );
+
+              // First interaction will bring up interrupt interface
+              await page
+                  .getByPlaceholder("Your name")
+                  .fill('CopilotKit Automation');
+              await page.locator('button:has-text("Submit")').click();
+
+              await page.locator('p:has-text("Ah, forgot to ask, which company are you working for?")')
+              await sendChatMessage(
+                  page,
+                  "CopilotKit"
               );
 
               const cancelMessage = page.locator(

@@ -50,7 +50,17 @@ export const Input = ({ inProgress, onSend, isVisible = false }: InputProps) => 
     pushToTalkConfigured &&
     (pushToTalkState === "idle" || pushToTalkState === "recording") &&
     !inProgress;
-  const sendDisabled = inProgress || text.length === 0 || pushToTalkState !== "idle";
+
+  const canSend = () => {
+    const interruptEvent = copilotContext.langGraphInterruptAction?.event;
+    const interruptInProgress =
+      interruptEvent?.name === "LangGraphInterruptEvent" && !interruptEvent?.response;
+    return (
+      !inProgress && text.trim().length > 0 && pushToTalkState === "idle" && !interruptInProgress
+    );
+  };
+
+  const sendDisabled = !canSend();
 
   return (
     <div className="copilotKitInput" onClick={handleDivClick}>
@@ -64,7 +74,9 @@ export const Input = ({ inProgress, onSend, isVisible = false }: InputProps) => 
         onKeyDown={(event) => {
           if (event.key === "Enter" && !event.shiftKey) {
             event.preventDefault();
-            send();
+            if (canSend()) {
+              send();
+            }
           }
         }}
       />

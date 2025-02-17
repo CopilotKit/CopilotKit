@@ -8,7 +8,7 @@ This hook is where most of the magic happens for Copilotkit (if you're looking f
 
 This allows us to read and interact with the CoAgent's state. Since this is a two-way interaction, we have a `state` and `setState` function. When the CoAgent's state changes, the `state` will automatically trigger re-renders to create reactive experiences.
 
-For more information on how to use `useCoAgent`, check out the [reading](https://docs.copilotkit.ai/coagents/react-ui/in-app-agent-read) and [writing](https://docs.copilotkit.ai/coagents/react-ui/in-app-agent-write) state docs.
+For more information on how to use `useCoAgent`, check out the [reading](https://docs.copilotkit.ai/coagents/shared-state/in-app-agent-read) and [writing](https://docs.copilotkit.ai/coagents/shared-state/in-app-agent-write) state docs.
 
 ### useCoAgentStateRender
 
@@ -33,7 +33,7 @@ In order for this to work, we need to have the CoAgent emit the `search_progress
 
 With those lines of code, the `useCoAgentStateRender` hook will be able to detect the `copilotkit_emit_state` calls and trigger our rendering logic in the chat `search_progress` state.
 
-For more information on agentic generative UI, checkout the [docs](https://docs.copilotkit.ai/coagents/chat-ui/render-agent-state).
+For more information on agentic generative UI, checkout the [docs](/coagents/shared-state/in-app-agent-read).
 
 
 ### useCopilotAction
@@ -46,4 +46,4 @@ For our needs, we can keep it simple and think of it as a way to force the LLM f
 2. Emitting tool calls via the Copilotkit SDK.
 3. Sending approval/rejection response back to the agent via our `useCopilotAction` hook.
 
-This is gone into in more detail in our documentation on implementing [human in the loop](https://docs.copilotkit.ai/coagents/chat-ui/hitl/json-hitl).
+This is gone into in more detail in our documentation on implementing [human in the loop](https://docs.copilotkit.ai/coagents/human-in-the-loop/node-flow).

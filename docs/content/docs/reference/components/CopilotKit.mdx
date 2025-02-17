@@ -30,8 +30,11 @@ import { CopilotKit } from "@copilotkit/react-core";
 Your Copilot Cloud API key. Don't have it yet? Go to https://cloud.copilotkit.ai and get one for free.
 </PropertyReference>
 
-<PropertyReference name="cloudRestrictToTopic" type="{ validTopics?: string[]; invalidTopics?: string[]; }"  > 
-Restrict input to a specific topic.
+<PropertyReference name="guardrails_c" type="{ validTopics?: string[]; invalidTopics?: string[]; }"  > 
+Restrict input to specific topics using guardrails.
+  @remarks
+ 
+  This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://cloud.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
 </PropertyReference>
 
 <PropertyReference name="runtimeUrl" type="string"  > 
@@ -84,5 +87,20 @@ Whether to show the dev console.
 
 <PropertyReference name="agent" type="string"  > 
 The name of the agent to use.
+</PropertyReference>
+
+<PropertyReference name="forwardedParameters" type="Pick<ForwardedParametersInput, 'temperature'>"  > 
+The forwarded parameters to use for the task.
+</PropertyReference>
+
+<PropertyReference name="authConfig_c" type="{ SignInComponent: React.ComponentType<{ onSignInComplete: (authState: AuthState) => void; }>; }"  > 
+The auth config to use for the CopilotKit.
+  @remarks
+ 
+  This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://cloud.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
+</PropertyReference>
+
+<PropertyReference name="threadId" type="string"  > 
+The thread id to use for the CopilotKit.
 </PropertyReference>
 

@@ -11,6 +11,12 @@ import {
   constructRemoteActions,
   createHeaders,
 } from "./remote-action-constructors";
+import {
+  CopilotKitLowLevelError,
+  ResolvedCopilotKitError,
+  CopilotKitError,
+} from "@copilotkit/shared";
+import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 
 export type EndpointDefinition = CopilotKitEndpoint | LangGraphPlatformEndpoint;
 
@@ -39,7 +45,7 @@ export interface LangGraphPlatformAgent {
 export interface LangGraphPlatformEndpoint
   extends BaseEndpointDefinition<EndpointType.LangGraphPlatform> {
   deploymentUrl: string;
-  langsmithApiKey: string;
+  langsmithApiKey?: string;
   agents: LangGraphPlatformAgent[];
 }
 
@@ -53,6 +59,8 @@ export type LangGraphAgentHandlerParams = {
   actionInputsWithoutAgents: ActionInput[];
   threadId?: string;
   nodeName?: string;
+  additionalMessages?: Message[];
+  metaEvents?: MetaEventInput[];
 };
 
 export type LangGraphAgentAction = Action<any> & {
@@ -82,8 +90,9 @@ async function fetchRemoteInfo({
   logger.debug({ url }, "Fetching actions from url");
   const headers = createHeaders(onBeforeRequest, graphqlContext);
 
+  const fetchUrl = `${url}/info`;
   try {
-    const response = await fetch(`${url}/info`, {
+    const response = await fetch(fetchUrl, {
       method: "POST",
       headers,
       body: JSON.stringify({ properties: graphqlContext.properties, frontendUrl }),
@@ -94,18 +103,21 @@ async function fetchRemoteInfo({
         { url, status: response.status, body: await response.text() },
         "Failed to fetch actions from url",
       );
-      return { actions: [], agents: [] };
+      throw new ResolvedCopilotKitError({
+        status: response.status,
+        url: fetchUrl,
+        isRemoteEndpoint: true,
+      });
     }
 
     const json = await response.json();
     logger.debug({ json }, "Fetched actions from url");
     return json;
   } catch (error) {
-    logger.error(
-      { error: error.message ? error.message : error + "" },
-      "Failed to fetch actions from url",
-    );
-    return { actions: [], agents: [] };
+    if (error instanceof CopilotKitError) {
+      throw error;
+    }
+    throw new CopilotKitLowLevelError({ error, url: fetchUrl });
   }
 }
 

@@ -1,13 +1,13 @@
 ---
 title: Shared State
-description: Agentic Copilots maintain a shared state across your UI and agent execution.
+description: CoAgents maintain a shared state across your UI and agent execution.
 ---
 
 <Frame className="mb-10">
     <img src="/images/coagents/coagents-state-diagram.png" alt="Agentic Copilot State Diagram" />
 </Frame>
 
-Agentic Copilots maintain a shared state that seamlessly connects your UI with the agent's execution. This shared state system allows you to:
+CoAgents maintain a shared state that seamlessly connects your UI with the agent's execution. This shared state system allows you to:
 - Display the agent's current progress and intermediate results
 - Update the agent's state through UI interactions
 - React to state changes in real-time across your application
@@ -30,6 +30,6 @@ When the state is updated (when a node finishes executing),
 For example, when your agent is processing a request, the predicted state might show a loading indicator or partial results, while the actual
 shared state updates once the operation is complete.
 
-Want help implementing this into your Agentic Copilots? Check out our [intermediate state streaming](/coagents/advanced/intermediate-state-streaming)
+Want help implementing this into your CoAgent application? Check out our [intermediate state streaming](/coagents/shared-state/predictive-state-updates)
 documentation.
 

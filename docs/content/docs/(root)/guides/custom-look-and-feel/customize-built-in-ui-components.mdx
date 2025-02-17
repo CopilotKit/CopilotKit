@@ -1,6 +1,7 @@
 ---
 title: "Customize the built-in components"
 description: "Customize the look and feel of the built-in Copilot UI components."
+icon: "lucide/SlidersHorizontal"
 ---
 import { CopilotKitCSS, InteractiveCSSInspector } from "@/components/react/copilotkit-css";
 
@@ -79,57 +80,6 @@ Below is a list of customizable labels:
 - `placeholder`: The placeholder to display in the input.
 - `stopGenerating`: The label to display on the stop button.
 - `regenerateResponse`: The label to display on the regenerate button.
-
-## Swapping Out Components
-
-To completely customize the look and feel of CopilotKit, you can swap out the components of the chat window.
-
-The following components can be customized by passing it as properties to the `CopilotChat` component:
-
-- `Window`: The window component that contains the chat.
-- `Button`: The button for opening/closing the chat window.
-- `Header`: The chat header.
-- `Messages`: The chat messages area.
-- `Input`: The chat input.
-- `ResponseButton`: The button for regenerating a response.
-
-For example, to customize the response button, you can pass a custom component to the `ResponseButton` prop:
-
-<Frame>
-  <img src="/images/concepts/customize-look-and-feel/custom-response-button.png" />
-</Frame>
-
-```tsx
-// [!code word:CustomResponseButton]
-export function CustomResponseButton({ onClick, inProgress }: ResponseButtonProps) {
-  return (
-    <div style={{ 
-        display: "flex", 
-        marginTop: "10px" 
-      }}>
-      <button
-        style={{ 
-          flex: 1, 
-          border: "1px solid #eee", 
-          borderRadius: "4px", 
-          marginRight: "5px" 
-        }}
-      >
-        👍
-      </button>
-      <button style={{ 
-        flex: 1, 
-        border: "1px solid #eee", 
-        borderRadius: "4px" 
-      }}>👎</button>
-    </div>
-  );
-};
-
-<CopilotSidebar ResponseButton={CustomResponseButton}>
-  // ...
-</CopilotSidebar>
-```
 
 ## Headless UI (Full Customizability)
 

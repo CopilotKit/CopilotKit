@@ -14,14 +14,12 @@
  *   apiKey: "<your-api-key>",
  * });
  *
- * const serviceAdapter = new OpenAIAssistantAdapter({
+ * return new OpenAIAssistantAdapter({
  *   openai,
  *   assistantId: "<your-assistant-id>",
  *   codeInterpreterEnabled: true,
  *   fileSearchEnabled: true,
  * });
- *
- * return copilotKit.streamHttpServerResponse(req, res, serviceAdapter);
  * ```
  */
 import OpenAI from "openai";
@@ -96,8 +94,13 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     request: CopilotRuntimeChatCompletionRequest,
   ): Promise<CopilotRuntimeChatCompletionResponse> {
     const { messages, actions, eventSource, runId, forwardedParameters } = request;
+
     // if we don't have a threadId, create a new thread
-    let threadId = request.threadId || (await this.openai.beta.threads.create()).id;
+    let threadId = request.extensions?.openaiAssistantAPI?.threadId;
+
+    if (!threadId) {
+      threadId = (await this.openai.beta.threads.create()).id;
+    }
 
     const lastMessage = messages.at(-1);
 
@@ -123,8 +126,15 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     }
 
     return {
-      threadId,
       runId: nextRunId,
+      threadId,
+      extensions: {
+        ...request.extensions,
+        openaiAssistantAPI: {
+          threadId: threadId,
+          runId: nextRunId,
+        },
+      },
     };
   }
 
@@ -135,6 +145,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     eventSource: RuntimeEventSource,
   ) {
     let run = await this.openai.beta.threads.runs.retrieve(threadId, runId);
+
     if (!run.required_action) {
       throw new Error("No tool outputs required");
     }
@@ -195,7 +206,6 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
       throw new Error("No user message found");
     }
 
-    // create a new message on the thread
     await this.openai.beta.threads.messages.create(threadId, {
       role: "user",
       content: userMessage.content,
@@ -209,7 +219,6 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
       ...(this.fileSearchEnabled ? [{ type: "file_search" } as AssistantTool] : []),
     ];
 
-    // run the thread
     let stream = this.openai.beta.threads.runs.stream(threadId, {
       assistant_id: this.assistantId,
       instructions,
@@ -228,22 +237,28 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
   private async streamResponse(stream: AssistantStream, eventSource: RuntimeEventSource) {
     eventSource.stream(async (eventStream$) => {
       let inFunctionCall = false;
+      let currentMessageId: string;
+      let currentToolCallId: string;
 
       for await (const chunk of stream) {
         switch (chunk.event) {
           case "thread.message.created":
             if (inFunctionCall) {
-              eventStream$.sendActionExecutionEnd();
+              eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
             }
-            eventStream$.sendTextMessageStart(chunk.data.id);
+            currentMessageId = chunk.data.id;
+            eventStream$.sendTextMessageStart({ messageId: currentMessageId });
             break;
           case "thread.message.delta":
             if (chunk.data.delta.content?.[0].type === "text") {
-              eventStream$.sendTextMessageContent(chunk.data.delta.content?.[0].text.value);
+              eventStream$.sendTextMessageContent({
+                messageId: currentMessageId,
+                content: chunk.data.delta.content?.[0].text.value,
+              });
             }
             break;
           case "thread.message.completed":
-            eventStream$.sendTextMessageEnd();
+            eventStream$.sendTextMessageEnd({ messageId: currentMessageId });
             break;
           case "thread.run.step.delta":
             let toolCallId: string | undefined;
@@ -260,18 +275,26 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
 
             if (toolCallName && toolCallId) {
               if (inFunctionCall) {
-                eventStream$.sendActionExecutionEnd();
+                eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
               }
               inFunctionCall = true;
-              eventStream$.sendActionExecutionStart(toolCallId, toolCallName);
+              currentToolCallId = toolCallId;
+              eventStream$.sendActionExecutionStart({
+                actionExecutionId: currentToolCallId,
+                parentMessageId: chunk.data.id,
+                actionName: toolCallName,
+              });
             } else if (toolCallArgs) {
-              eventStream$.sendActionExecutionArgs(toolCallArgs);
+              eventStream$.sendActionExecutionArgs({
+                actionExecutionId: currentToolCallId,
+                args: toolCallArgs,
+              });
             }
             break;
         }
       }
       if (inFunctionCall) {
-        eventStream$.sendActionExecutionEnd();
+        eventStream$.sendActionExecutionEnd({ actionExecutionId: currentToolCallId });
       }
       eventStream$.complete();
     });

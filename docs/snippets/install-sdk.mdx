@@ -1,0 +1,19 @@
+import InstallPythonSDKSnippet from "@/snippets/install-python-sdk.mdx";
+
+Any LangGraph agent can be used with CopilotKit. However, creating deep agentic 
+experiences with CopilotKit requires our LangGraph SDK.
+
+<Tabs groupId="language" items={["Python", "TypeScript"]}>
+  <Tab value="Python">
+    <div className="py-6">
+      <InstallPythonSDKSnippet components={props.components} />
+    </div>
+  </Tab>
+  <Tab value="TypeScript" className="py-6">
+    <div className="py-6">
+      ```package-install
+      npm install @copilotkit/sdk-js
+      ```
+    </div>
+  </Tab>
+</Tabs>

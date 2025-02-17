@@ -8,6 +8,9 @@ import {
   BaseMessageOutput,
   AgentStateMessageInput,
   MessageStatusCode,
+  LangGraphInterruptEvent as GqlLangGraphInterruptEvent,
+  MetaEventName,
+  CopilotKitLangGraphInterruptEvent as GqlCopilotKitLangGraphInterruptEvent,
 } from "../graphql/@generated/graphql";
 
 type MessageType = "TextMessage" | "ActionExecutionMessage" | "ResultMessage" | "AgentStateMessage";
@@ -53,6 +56,7 @@ type TextMessageConstructorOptions = MessageConstructorOptions & TextMessageInpu
 export class TextMessage extends Message implements TextMessageConstructorOptions {
   role: TextMessageInput["role"];
   content: TextMessageInput["content"];
+  parentMessageId: TextMessageInput["parentMessageId"];
 
   constructor(props: TextMessageConstructorOptions) {
     super(props);
@@ -67,12 +71,11 @@ type ActionExecutionMessageConstructorOptions = MessageConstructorOptions &
 
 export class ActionExecutionMessage
   extends Message
-  implements Omit<ActionExecutionMessageInput, "arguments">
+  implements Omit<ActionExecutionMessageInput, "arguments" | "scope">
 {
   name: ActionExecutionMessageInput["name"];
   arguments: Record<string, any>;
-  scope: ActionExecutionMessageInput["scope"];
-
+  parentMessageId: ActionExecutionMessageInput["parentMessageId"];
   constructor(props: ActionExecutionMessageConstructorOptions) {
     super(props);
     this.type = "ActionExecutionMessage";
@@ -125,3 +128,20 @@ export class AgentStateMessage extends Message implements Omit<AgentStateMessage
     this.type = "AgentStateMessage";
   }
 }
+
+export function langGraphInterruptEvent(
+  eventProps: Omit<LangGraphInterruptEvent, "name" | "type" | "__typename">,
+): LangGraphInterruptEvent {
+  return { ...eventProps, name: MetaEventName.LangGraphInterruptEvent, type: "MetaEvent" };
+}
+
+export type LangGraphInterruptEvent<TValue extends any = any> = GqlLangGraphInterruptEvent & {
+  value: TValue;
+};
+
+type CopilotKitLangGraphInterruptEvent<TValue extends any = any> =
+  GqlCopilotKitLangGraphInterruptEvent & {
+    data: GqlCopilotKitLangGraphInterruptEvent["data"] & { value: TValue };
+  };
+
+export type MetaEvent = LangGraphInterruptEvent | CopilotKitLangGraphInterruptEvent;

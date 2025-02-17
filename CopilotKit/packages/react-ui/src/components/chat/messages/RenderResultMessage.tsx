@@ -1,15 +1,22 @@
-import { ResultMessage } from "@copilotkit/runtime-client-gql";
 import { RenderMessageProps } from "../props";
-import { useChatContext } from "../ChatContext";
 
 export function RenderResultMessage(props: RenderMessageProps) {
-  const { message, inProgress, index, isCurrentMessage } = props;
-  const { icons } = useChatContext();
+  const { message, inProgress, index, isCurrentMessage, AssistantMessage } = props;
+
   if (message.isResultMessage() && inProgress && isCurrentMessage) {
     return (
-      <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-        {icons.spinnerIcon}
-      </div>
+      <AssistantMessage
+        key={index}
+        data-message-role="assistant"
+        rawData={message}
+        isLoading={true}
+        isGenerating={true}
+      />
     );
+  }
+
+  // Avoid 'Nothing was returned from render' React error
+  else {
+    return null;
   }
 }

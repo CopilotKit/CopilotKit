@@ -50,7 +50,7 @@ export async function getPublishedCopilotKitVersion(
   }
 
   try {
-    const response = await fetch("https://api.cloud.stagingcopilotkit.ai/check-for-updates", {
+    const response = await fetch("https://api.cloud.copilotkit.ai/check-for-updates", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -135,7 +135,7 @@ export function logMessages(context: CopilotMessagesContextParams) {
         type: "ActionExecutionMessage",
         role: undefined,
         name: message.name,
-        scope: message.scope,
+        scope: message.parentMessageId,
         content: message.arguments,
       };
     } else if (message.isResultMessage()) {

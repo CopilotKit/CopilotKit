@@ -63,10 +63,43 @@ A list of remote actions that can be executed.
 An array of LangServer URLs.
 </PropertyReference>
 
+<PropertyReference name="delegateAgentProcessingToServiceAdapter" type="boolean"  > 
+Delegates agent state processing to the service adapter.
+ 
+  When enabled, individual agent state requests will not be processed by the agent itself.
+  Instead, all processing will be handled by the service adapter.
+</PropertyReference>
+
 <PropertyReference name="processRuntimeRequest" type="request: CopilotRuntimeRequest">
 
 
   <PropertyReference name="request" type="CopilotRuntimeRequest" required>
+  
+  </PropertyReference>
+
+</PropertyReference>
+
+<PropertyReference name="discoverAgentsFromEndpoints" type="graphqlContext: GraphQLContext">
+
+
+  <PropertyReference name="graphqlContext" type="GraphQLContext" required>
+  
+  </PropertyReference>
+
+</PropertyReference>
+
+<PropertyReference name="loadAgentState" type="graphqlContext: GraphQLContext, threadId: string, agentName: string">
+
+
+  <PropertyReference name="graphqlContext" type="GraphQLContext" required>
+  
+  </PropertyReference>
+
+  <PropertyReference name="threadId" type="string" required>
+  
+  </PropertyReference>
+
+  <PropertyReference name="agentName" type="string" required>
   
   </PropertyReference>
 

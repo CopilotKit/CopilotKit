@@ -16,4 +16,7 @@ export class ForwardedParametersInput {
 
   @Field(() => String, { nullable: true })
   toolChoiceFunctionName?: string;
+
+  @Field(() => Number, { nullable: true })
+  temperature?: number;
 }

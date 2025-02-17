@@ -74,6 +74,14 @@ A callback that gets called when the in progress state changes.
 A callback that gets called when a new message it submitted.
 </PropertyReference>
 
+<PropertyReference name="onStopGeneration" type="OnStopGeneration"  > 
+A custom stop generation function.
+</PropertyReference>
+
+<PropertyReference name="onReloadMessages" type="OnReloadMessages"  > 
+A custom reload messages function.
+</PropertyReference>
+
 <PropertyReference name="icons" type="CopilotChatIcons"  > 
 Icons can be used to set custom icons for the chat window.
 </PropertyReference>
@@ -91,6 +99,14 @@ A function that takes in context string and instructions and returns
 
 <PropertyReference name="showResponseButton" type="boolean"  default="true"> 
 Whether to show the response button.
+</PropertyReference>
+
+<PropertyReference name="AssistantMessage" type="React.ComponentType<AssistantMessageProps>"  > 
+A custom assistant message component to use instead of the default.
+</PropertyReference>
+
+<PropertyReference name="UserMessage" type="React.ComponentType<UserMessageProps>"  > 
+A custom user message component to use instead of the default.
 </PropertyReference>
 
 <PropertyReference name="Messages" type="React.ComponentType<MessagesProps>"  > 

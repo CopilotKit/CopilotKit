@@ -8,7 +8,7 @@ import {
   logReadables,
   shouldShowDevConsole,
 } from "./utils";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -19,6 +19,7 @@ import {
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { COPILOTKIT_VERSION } from "@copilotkit/shared";
 import { SmallSpinnerIcon } from "../chat/Icons";
+import { CopilotKitHelpModal } from "../help-modal";
 
 type VersionStatus = "unknown" | "checking" | "latest" | "update-available" | "outdated";
 
@@ -138,6 +139,8 @@ export function CopilotDevConsole() {
         latestVersion={latestVersion}
       />
 
+      <CopilotKitHelpModal />
+
       <DebugMenuButton
         setShowDevConsole={setShowDevConsole}
         checkForUpdates={checkForUpdates}
@@ -192,6 +195,7 @@ function VersionInfo({
     `@copilotkit/react-core@${latestVersion}`,
     `@copilotkit/react-ui@${latestVersion}`,
     `@copilotkit/react-textarea@${latestVersion}`,
+    `&& npm install @copilotkit/runtime@${latestVersion}`,
   ].join(" ");
 
   const handleCopyClick = () => {

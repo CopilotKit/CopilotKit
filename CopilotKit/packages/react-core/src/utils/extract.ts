@@ -12,6 +12,7 @@ import {
   TextMessage,
   convertGqlOutputToMessages,
   CopilotRequestType,
+  ForwardedParametersInput,
 } from "@copilotkit/runtime-client-gql";
 import { CopilotContextParams, CopilotMessagesContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
@@ -50,6 +51,7 @@ interface ExtractOptions<T extends Parameter[]> {
   abortSignal?: AbortSignal;
   stream?: (args: StreamHandlerArgs<T>) => void;
   requestType?: CopilotRequestType;
+  forwardedParameters?: ForwardedParametersInput;
 }
 
 interface IncludeOptions {
@@ -66,6 +68,7 @@ export async function extract<const T extends Parameter[]>({
   abortSignal,
   stream,
   requestType = CopilotRequestType.Task,
+  forwardedParameters,
 }: ExtractOptions<T>): Promise<MappedParameterTypes<T>> {
   const { messages } = context;
 
@@ -99,22 +102,8 @@ export async function extract<const T extends Parameter[]>({
     role: Role.User,
   });
 
-  const headers = {
-    ...(context.copilotApiConfig.headers || {}),
-    ...(context.copilotApiConfig.publicApiKey
-      ? { [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]: context.copilotApiConfig.publicApiKey }
-      : {}),
-  };
-
-  const runtimeClient = new CopilotRuntimeClient({
-    url: context.copilotApiConfig.chatApiEndpoint,
-    publicApiKey: context.copilotApiConfig.publicApiKey,
-    headers,
-    credentials: context.copilotApiConfig.credentials,
-  });
-
-  const response = CopilotRuntimeClient.asStream(
-    runtimeClient.generateCopilotResponse({
+  const response = context.runtimeClient.asStream(
+    context.runtimeClient.generateCopilotResponse({
       data: {
         frontend: {
           actions: [
@@ -136,6 +125,7 @@ export async function extract<const T extends Parameter[]>({
           requestType: requestType,
         },
         forwardedParameters: {
+          ...(forwardedParameters ?? {}),
           toolChoice: "function",
           toolChoiceFunctionName: action.name,
         },

@@ -9,7 +9,7 @@ license = "MIT"
 name = "research_canvas"
 version = "0.0.1"
 dependencies = [
-  "langgraph==0.2.52",
+  "langgraph",
   "langchain_core",
   "langchain-google-genai",
   "langchain_openai",
@@ -18,10 +18,13 @@ dependencies = [
   "langchain-community",
   "langchain-anthropic",
   "tavily-python",
-  "copilotkit==0.1.28a6",
   "python-dotenv",
   "uvicorn",
-  "html2text"
+  "html2text",
+  "copilotkit==0.1.34",
+  "aiohttp",
+  "aiosqlite",
+  "requests"
 ]
 
 [build-system]
@@ -30,12 +33,10 @@ build-backend = "setuptools.build_meta"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-copilotkit = "0.1.28a6"
-langgraph = "0.2.52"
-langchain-core = "^0.3.12"
+copilotkit = "0.1.38"
 langchain-openai = "0.2.3"
 langchain-community = "^0.3.1"
-langchain-anthropic = "0.2.3"
+langchain-anthropic = "0.3.1"
 langchain-google-genai = "2.0.5"
 langchain = "0.3.4"
 openai = "^1.52.1"
@@ -44,6 +45,10 @@ python-dotenv = "^1.0.1"
 uvicorn = "^0.31.0"
 requests = "^2.32.3"
 html2text = "^2024.2.26"
+langchain-core = "^0.3.25"
+langgraph-cli = {extras = ["inmem"], version = "^0.1.64"}
+langgraph-checkpoint-sqlite = "^2.0.1"
+aiosqlite = "^0.20.0"
 
 [tool.poetry.scripts]
 demo = "research_canvas.demo:main"

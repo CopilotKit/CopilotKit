@@ -23,3 +23,14 @@ export async function waitForStepsAndEnsureStreaming(page: Page) {
 export async function waitForResponse(page: Page) {
   await page.waitForSelector("button:has-text('Regenerate response')");
 }
+
+export async function waitForSuggestions(page: Page) {
+  // Wait for at least one suggestion to be visible
+  await page.waitForFunction(
+    () => {
+      const suggestions = document.querySelectorAll('[data-test-id="suggestion"]');
+      return suggestions.length > 0 && Array.from(suggestions).every(el => el.isConnected);
+    },
+    { timeout: 20000 }
+  );
+}

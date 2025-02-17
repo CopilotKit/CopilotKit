@@ -4,6 +4,7 @@ from typing import Optional, List, TypedDict
 from abc import ABC, abstractmethod
 from .types import Message
 from .action import ActionDict
+from .types import MetaEvent
 
 class AgentDict(TypedDict):
     """Agent dictionary"""
@@ -26,12 +27,29 @@ class Agent(ABC):
         self,
         *,
         state: dict,
+        configurable: Optional[dict] = None,
         messages: List[Message],
         thread_id: Optional[str] = None,
         node_name: Optional[str] = None,
         actions: Optional[List[ActionDict]] = None,
+        meta_events: Optional[List[MetaEvent]] = None,
     ):
         """Execute the agent"""
+
+    @abstractmethod
+    async def get_state(
+        self,
+        *,
+        thread_id: str,
+    ):
+        """Default get_state implementation"""
+        return {
+            "threadId": thread_id or "",
+            "threadExists": False,
+            "state": {},
+            "messages": []
+        }
+
 
     def dict_repr(self) -> AgentDict:
         """Dict representation of the action"""

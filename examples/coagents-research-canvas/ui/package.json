@@ -9,31 +9,37 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@copilotkit/react-core": "1.4.0-pre-1-4-0.11",
-    "@copilotkit/react-ui": "1.4.0-pre-1-4-0.11",
-    "@copilotkit/runtime": "1.4.0-pre-1-4-0.11",
+    "@copilotkit/react-core": "1.5.20",
+    "@copilotkit/react-ui": "1.5.20",
+    "@copilotkit/runtime": "1.5.20",
     "@radix-ui/react-dialog": "^1.1.2",
-    "@radix-ui/react-icons": "^1.3.0",
+    "@radix-ui/react-icons": "^1.3.2",
     "@radix-ui/react-select": "^2.1.2",
     "@radix-ui/react-slot": "^1.1.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.451.0",
-    "next": "14.2.15",
+    "next": "15.1.0",
     "openai": "^4.70.2",
-    "react": "^18",
-    "react-dom": "^18",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
     "tailwind-merge": "^2.5.3",
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
-    "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    "eslint": "^8",
-    "eslint-config-next": "14.2.15",
+    "@types/node": "^22.0.0",
+    "@types/react": "19.0.1",
+    "@types/react-dom": "19.0.2",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "15.1.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/react": "19.0.1",
+      "@types/react-dom": "19.0.2"
+    }
   }
 }

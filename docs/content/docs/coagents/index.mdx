@@ -1,8 +1,7 @@
 ---
-title: Introduction (Public Beta)
-icon: "lucide/Lightbulb"
-description: Everything you need to build Agent-Native applications powered by CopilotKit & LangGraph. The building blocks for the next generation of AI-native apps.
-
+title: Introduction
+icon: "lucide/Sparkles"
+description: Build Agent-Native Applications (ANAs) powered by CopilotKit and LangGraph.
 ---
 
 import { BiSolidMessage as TextIcon } from "react-icons/bi";
@@ -16,9 +15,29 @@ import {
   CoAgentsFeatureRender,
 } from "@/components/react/coagents/coagents-features.tsx";
 import { DynamicContentWrapper } from "@/components/react/dynamic-content-wrapper";
+import { ExamplesCarousel } from "@/components/react/examples-carousel";
+import {
+  LuPlane,
+  LuBookOpen,
+  LuLightbulb,
+  LuLayoutTemplate,
+  LuBrainCog,
+  LuUserCog,
+  LuWand2,
+  LuPlay,
+  LuMessageSquare,
+  LuWrench,
+} from "react-icons/lu";
+import { CoAgentsExamples } from "@/components/react/examples-carousel";
+import { CTACards } from "@/components/react/cta-cards";
+import { FaSync } from "react-icons/fa";
+import { Socials } from "@/components/react/socials";
 
+# Copilot Infrastructure for LangGraph Agents
 
-<Frame className="mt-0 mb-12">
+Full user-interaction infrastructure for your agents, to turn your agents into Copilot Agents (CoAgents).
+
+<Frame className="mt-0 mb-6">
   <img
     src="/images/CoAgents.gif"
     alt="CoAgents demonstration"
@@ -26,72 +45,123 @@ import { DynamicContentWrapper } from "@/components/react/dynamic-content-wrappe
   />
 </Frame>
 
-<Callout>
-Looking for CoAgents? They're called Agentic Copilots now! We're in the middle of a rebranding effort to better reflect the core functionality of what
-CoAgents represented. 
+## Building blocks of a CoAgent
 
-**If you see the term CoAgent, it is the same concept as an Agentic Copilot**.
-</Callout>
+Everything you need to build Agent-Native Applications (ANAs), right out of the box.
 
-## Build Agent-Native Applications with Agentic Copilots
+<CTACards
+  columns={2}
+  cards={[
+    {
+      icon: LuMessageSquare,
+      title: "Agentic Chat UI",
+      description:
+        "In-app chat powered by your agent.",
+      href: "/coagents/agentic-chat-ui",
+    },
+    {
+      icon: FaSync,
+      title: "Shared State",
+      description:
+        "Your agent can see everything in your app, and vice versa.",
+      href: "/coagents/shared-state",
+    },
+    {
+      icon: LuLayoutTemplate,
+      title: "Generative UI",
+      description:
+        "UI that updates in real-time based on your agent's state.",
+      href: "/coagents/generative-ui",
+    },
+    {
+      icon: LuWand2,
+      title: "Frontend Tools",
+      description:
+        "Give your agent the ability to take action in your application.",
+      href: "/coagents/frontend-actions",
+    },
+    {
+      icon: LuWand2,
+      title: "Multi-Agent Coordination",
+      description:
+        "Route your agent to the right agent based on the user's request.",
+      href: "/coagents/multi-agent-flows",
+    },
+    {
+      icon: LuUserCog,
+      title: "Human-in-the-Loop",
+      description:
+        "Set smart checkpoints where humans can guide your agents.",
+      href: "/coagents/human-in-the-loop",
+    },
+  ]}
+/>
 
-A powerful new wave of Agent-Native Applications has emerged based on verticalized AI agents & agent-native UX (Replit Agent, v0, OpenAI’s Canvas, etc). **Agentic Copilots provide everything you need to deeply integrate LangGraph agents into react applications-
-and build such Agent-Native applications.**
+## CoAgents in action
 
+See **CoAgents** in action with some videos and examples we've made to demonstrate their power.
 
+<ExamplesCarousel examples={CoAgentsExamples} />
 
+## Ready to get started?
 
-**See an introduction below:**
+Get started with CoAgents in as little as 5 minutes with one of our guides or tutorials.
 
-<div className="flex justify-center my-12">
-  <YouTubeVideo videoId="tVjVYJE-Nic" defaultPlaybackRate={1.0} />
-</div>
+<CTACards
+  columns={3}
+  cards={[
+    {
+      icon: LuPlay,
+      title: "Quickstart",
+      description: "Learn how to build your first CoAgent in 10 minutes.",
+      href: "/coagents/quickstart/langgraph",
+    },
+    {
+      icon: LuPlane,
+      title: "Travel Agent",
+      description:
+        "Learn how to build an agent-native travel app with CopilotKit & LangGraph.",
+      href: "/coagents/tutorials/ai-travel-app",
+    },
+    {
+      icon: LuBookOpen,
+      title: "Researcher Agent",
+      description:
+        "Learn how to build an agent-native researcher with CopilotKit & LangGraph.",
+      href: "/coagents/videos/research-canvas",
+    },
+  ]}
+/>
 
-**We build this example step-by-step in this tutorial:**
-<div className="flex justify-center my-12">
-  <YouTubeVideo videoId="0b6BVqPwqA0" defaultPlaybackRate={1.0} />
-</div>
+## Common Questions
 
+Have a question about CoAgents? You're in the right place!
 
-  <Link
-    href="https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md"
-    className="text-primary-600 decoration-from-font underline [text-underline-position:from-font]"
-  >
-    Check out Research Canvas demo, built with Agentic Copilots
-  </Link>
-  
-  <Link
-    href="https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md"
-    className="text-primary-600 decoration-from-font underline [text-underline-position:from-font]"
-  >
-    <Frame className="-mt-12">
-      <img
-        src="/images/coagents/SharedStateCoAgents.gif"
-        alt="Agentic Copilots demonstration"
-        className="w-auto"
-      />
-    </Frame>
-  </Link>
+<Accordions>
+<Accordion title="Can you explain what a CoAgent is in more detail?">
+Sure! CoAgents are what we call "agentic copilots". Well, what's an agentic copilot then?
 
+Think of a Copilot as a simple and fully LLM controlled assistant that has relatively limited capabilities. An Agentic Copilot then is a copilot
+that has been enhanced with the ability to use LangGraph agents to perform more complex tasks. This is an extremely powerful way to build AI
+powered applications because it gives you, the developer, the ability to control the agent's behavior in a deterministic way while still letting
+the agent do its magic.
 
+For more on this topic, checkout our [agentic copilot](/coagents/concepts/agentic-copilots) concept page.
 
+</Accordion>
+<Accordion title="Can I attach to an existing thread?">
+Development of CoAgents is ongoing. One part of this is the ability to attach to an existing thread which is a high priority on our roadmap.
 
+Stay tuned for updates!
 
+</Accordion>
+<Accordion title="Can I use CopilotKit without LangGraph?">
+For CoAgents, the answer is no. LangGraph is the only supported agent framework for CoAgents.
 
+However, if you are not looking to work with agents, CopilotKit is a complete framework for building AI-powered applications. LangGraph is just one tool of many that we integrate with to provide
+rich AI experiences.
 
-### Key Features
+Checkout our [CopilotKit Overview](/) for more information!
 
-- **__Shared State:__** Seamlessly synchronize state between agents and your application, enabling real-time interactions and updates. With a single line of code, your application can see everything the agent is doing, and the agent can see everything that happens inside the application.
-
-- **__Agentic Generative UI:__** Create dynamic, AI-generated user interfaces that adapt to user needs and agent outputs. Unlike traditional generative UI, agentic generative UI is based on the agent's state, providing users with visibility into what the agent is doing and building trust.
-
-- **Emit Intermediate Agent State:__** Visualize agent thought processes in real-time, providing transparency and engaging user experiences. This is crucial for agent performance and for UX which matches user expectations.
-
-- **__Human-in-the-Loop:__** Seamlessly integrate human oversight and intervention into your AI workflows for enhanced accuracy and control. Specify breakpoints in the agent process where human input or approval is required, allowing for greater safety and better agent performance.
-
-- **__Realtime Frontend Actions:__** Provide your agent with frontend & backend actions available based on user context and current application state. These tool calls are automatically propagated as needed, with support for generative UI.
-
-With Agentic Copilots, you can harness the power of AI to create intelligent, responsive, and user-centric applications that push the boundaries of what's possible in software development.
-
-
-
+</Accordion>
+</Accordions>

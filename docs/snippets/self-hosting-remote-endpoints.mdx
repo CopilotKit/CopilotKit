@@ -1,0 +1,80 @@
+import { MultiProviderContent, If } from "@/components/react/multi-provider-content/multi-provider-content";
+import { quickStartProviders } from "@/components/react/multi-provider-content/utils";
+import { IoLogoVercel, IoLogoNodejs } from "react-icons/io5";
+import { SiNestjs } from "react-icons/si";
+import { RiNextjsLine } from "react-icons/ri";
+
+<Tabs groupId="lg-deployment-type" items={["Local (LangGraph Studio)", "Self hosted (FastAPI)", "LangGraph Platform"]}>
+  <Tab value="Local (LangGraph Studio)">
+    ```ts
+    import { 
+      CopilotRuntime,
+      langGraphPlatformEndpoint  // [!code highlight]
+      // ...
+    } from "@copilotkit/runtime";
+    // ...
+    const runtime = new CopilotRuntime({
+      remoteEndpoints: [
+        // [!code highlight:12]
+        langGraphPlatformEndpoint({
+          deploymentUrl: "your-api-url", // make sure to replace with your real deployment url,
+          langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deployments
+          agents: [ // List any agents available under "graphs" list in your langgraph.json file; give each a description explaining when it should be called.
+            {
+              name: 'my_agent', 
+              description: 'A helpful LLM agent.',
+              assistantId: 'your-assistant-ID' // optional, but recommended!
+            }
+          ]
+        }),
+      ],
+    });
+    // ...
+    ```
+  </Tab>
+  <Tab value="Self hosted (FastAPI)">
+    ```ts
+    import { 
+      CopilotRuntime,
+      // ...
+    } from "@copilotkit/runtime";
+    // ...
+    const runtime = new CopilotRuntime({
+      remoteEndpoints: [
+        // [!code highlight:3]
+        // Our FastAPI endpoint URL
+        { url: "http://localhost:8000/copilotkit" },
+      ],
+    });
+    // ...
+    ```
+  </Tab>
+
+  <Tab value="LangGraph Platform">
+    ```ts
+    import { 
+      CopilotRuntime,
+      langGraphPlatformEndpoint  // [!code highlight]
+      // ...
+    } from "@copilotkit/runtime";
+    // ...
+    const runtime = new CopilotRuntime({
+      remoteEndpoints: [
+        // [!code highlight:12]
+        langGraphPlatformEndpoint({
+          deploymentUrl: "your-api-url", // make sure to replace with your real deployment url,
+          langsmithApiKey: process.env.LANGSMITH_API_KEY, // only used in LangGraph Platform deployments
+          agents: [ // List any agents available under "graphs" list in your langgraph.json file; give each a description explaining when it should be called.
+            {
+              name: 'my_agent', 
+              description: 'A helpful LLM agent.',
+              assistantId: 'your-assistant-ID' // optional, but recommended!
+            }
+          ]
+        }),
+      ],
+    });
+    // ...
+    ```
+  </Tab>
+</Tabs>

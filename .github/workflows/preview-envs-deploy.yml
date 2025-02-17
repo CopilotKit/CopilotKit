@@ -4,6 +4,10 @@ on:
   pull_request:
     branches:
       - main
+      - pre/*
+  push:
+    branches:
+      - main
 
 concurrency:
   group: preview-${{ github.event.pull_request.number }}-deploy
@@ -11,6 +15,7 @@ concurrency:
 
 jobs:
   build_images:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'automated-version-pr') }}
     runs-on: ubuntu-latest
     name: Build Images
     strategy:
@@ -19,14 +24,24 @@ jobs:
           - {
               project: "coagents-research-canvas",
               type: "agent",
+              runtime: "python",
+              deps: "local-deps",
+            }
+          - {
+              project: "coagents-research-canvas",
+              type: "agent",
+              runtime: "js",
               deps: "local-deps",
             }
           - { project: "coagents-research-canvas", type: "ui" }
-          - { project: "coagents-routing", type: "agent", deps: "local-deps" }
+          - { project: "coagents-routing", type: "agent", runtime: "python", deps: "local-deps" }
+          - { project: "coagents-routing", type: "agent", runtime: "js", deps: "local-deps" }
           - { project: "coagents-routing", type: "ui" }
-          - { project: "coagents-qa-text", type: "agent", deps: "local-deps" }
+          - { project: "coagents-qa-text", type: "agent", runtime: "python", deps: "local-deps" }
+          - { project: "coagents-qa-text", type: "agent", runtime: "js", deps: "local-deps" }
           - { project: "coagents-qa-text", type: "ui" }
-          - { project: "coagents-qa-native", type: "agent", deps: "local-deps" }
+          - { project: "coagents-qa-native", type: "agent", runtime: "python", deps: "local-deps" }
+          - { project: "coagents-qa-native", type: "agent", runtime: "js", deps: "local-deps" }
           - { project: "coagents-qa-native", type: "ui" }
           - { project: "next-openai", type: "next-openai" }
     steps:
@@ -80,7 +95,7 @@ jobs:
       - name: (UI, Local Deps) Build @copilotkit packages
         if: matrix.app.type == 'ui' || matrix.app.type == 'next-openai'
         working-directory: ./CopilotKit
-        run: pnpx turbo run build
+        run: pnpm run freshbuild
 
       - name: (UI, Local Deps) Link @copilotkit packages
         if: matrix.app.type == 'ui'
@@ -131,13 +146,13 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
 
-      - name: (Agent) Build Image
-        if: matrix.app.type == 'agent'
+      - name: (Agent) Build Image - Python Agent
+        if: matrix.app.type == 'agent' && matrix.app.runtime == 'python'
         run: |
           docker buildx build \
-            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-agent-${{ matrix.app.deps }}-${{ github.run_id }} \
-            --build-arg APP_DIR=examples/${{ matrix.app.project }}/${{ matrix.app.type }} \
-            -f ./examples/Dockerfile.${{ matrix.app.type }} \
+            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-agent-python-${{ matrix.app.deps }}-${{ github.run_id }} \
+            --build-arg APP_DIR=examples/${{ matrix.app.project }}/agent \
+            -f ./examples/Dockerfile.agent-python \
             --build-arg WITH_LOCAL_DEPS=${{ matrix.app.deps == 'local-deps' }} \
             --platform=linux/amd64 \
             --provenance=false \
@@ -146,13 +161,45 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
 
-  cdk_deploy:
+      - name: (Agent) Build Image - JS Agent
+        if: matrix.app.type == 'agent' && matrix.app.runtime == 'js'
+        run: |
+          docker buildx build \
+            -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-agent-js-${{ matrix.app.deps }}-${{ github.run_id }} \
+            --build-arg APP_DIR=examples/${{ matrix.app.project }}/agent-js \
+            -f ./examples/Dockerfile.agent-js \
+            --platform=linux/amd64 \
+            --provenance=false \
+            --push \
+            .
+        env:
+          DOCKER_BUILDKIT: 1
+
+  deploy:
     runs-on: ubuntu-latest
     name: Deploy Preview Environments
     needs: build_images
+    outputs:
+      e2e-urls: ${{ steps.export-e2e-urls.outputs.e2e-urls }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-region: us-east-1
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Set Environment Name
+        id: set-environment-name
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "environment=pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "environment=main" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -194,6 +241,11 @@ jobs:
           GITHUB_ACTIONS_RUN_ID: "${{ github.run_id }}"
           GITHUB_PR_NUMBER: "${{ github.event.number }}"
 
+      - name: Print CDK Outputs
+        working-directory: infra
+        run: |
+          cat cdk_outputs.json
+
       - name: Generate table from outputs
         id: generate-table
         working-directory: infra
@@ -202,25 +254,15 @@ jobs:
         env:
           GITHUB_SHA: ${{ github.sha }}
 
-      - name: Assign label
-        uses: actions/github-script@v4
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.issues.addLabels({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: ['preview']
-            })
-
       - name: Delete a comment
+        if: github.event_name == 'pull_request'
         uses: thollander/actions-comment-pull-request@v3
         with:
           comment-tag: preview-status-update
           mode: delete
 
       - name: Comment post-deployment
+        if: github.event_name == 'pull_request'
         uses: thollander/actions-comment-pull-request@v3
         with:
           comment-tag: preview-status-update
@@ -232,10 +274,14 @@ jobs:
         run: |
           echo "e2e-urls=$(node get-e2e-tests-urls.js | base64 -w 0)" >> "$GITHUB_OUTPUT"
 
-      - name: Trigger E2E Tests
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          workflow: "e2e.yml"
-          ref: "${{ github.event.pull_request.head.ref }}"
-          inputs: '{"ref": "${{ github.event.pull_request.head.ref }}", "sha": "${{ github.event.pull_request.head.sha }}", "urls": "${{ steps.export-e2e-urls.outputs.e2e-urls }}", "pr_number": "${{ github.event.pull_request.number }}"}'
+  test:
+    if: github.event_name == 'pull_request'
+    name: End to End Tests
+    uses: ./.github/workflows/e2e.yml
+    needs: deploy
+    with:
+      ref: "${{ github.event.pull_request.head.ref }}"
+      sha: "${{ github.event.pull_request.head.sha }}"
+      urls: "${{ needs.deploy.outputs.e2e-urls }}"
+      pr_number: "${{ github.event.pull_request.number }}"
+    secrets: inherit

@@ -8,8 +8,17 @@ import { CopilotCloudOptions } from "../cloud";
 import { LogLevel, createLogger } from "../../lib/logger";
 import { createYoga } from "graphql-yoga";
 import telemetry from "../telemetry-client";
+import { StateResolver } from "../../graphql/resolvers/state.resolver";
+import * as packageJson from "../../../package.json";
 
 const logger = createLogger();
+
+export const addCustomHeaderPlugin = {
+  onResponse({ response }) {
+    // Set your custom header; adjust the header name and value as needed
+    response.headers.set("X-CopilotKit-Runtime-Version", packageJson.version);
+  },
+};
 
 type AnyPrimitive = string | boolean | number | null;
 export type CopilotRequestContextProperties = Record<
@@ -58,7 +67,7 @@ export function buildSchema(
 ) {
   logger.debug("Building GraphQL schema...");
   const schema = buildSchemaSync({
-    resolvers: [CopilotResolver],
+    resolvers: [CopilotResolver, StateResolver],
     emitSchemaFile: options.emitSchemaFile,
   });
   logger.debug("GraphQL schema built successfully");
@@ -102,7 +111,7 @@ export function getCommonConfig(options: CreateCopilotRuntimeServerOptions): Com
   return {
     logging: createLogger({ component: "Yoga GraphQL", level: logLevel }),
     schema: buildSchema(),
-    plugins: [useDeferStream()],
+    plugins: [useDeferStream(), addCustomHeaderPlugin],
     context: (ctx: YogaInitialContext): Promise<Partial<GraphQLContext>> =>
       createContext(ctx, options, contextLogger, options.properties),
   };

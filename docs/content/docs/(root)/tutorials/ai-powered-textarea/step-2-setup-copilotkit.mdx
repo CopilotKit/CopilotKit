@@ -2,6 +2,9 @@
 title: "Step 2: Setup CopilotKit"
 ---
 import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+import CopilotCloudConfigureCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
+import { TailoredContent, TailoredContentOption } from "@/components/react/tailored-content";
+import { FaCloud, FaServer } from "react-icons/fa";
 
 Now that we have our todo list app running, we're ready to integrate CopilotKit. For this tutorial, we will install the following dependencies:
 
@@ -18,6 +21,23 @@ npm install @copilotkit/react-core @copilotkit/react-textarea
 
 ## Setup CopilotKit
 
+<TailoredContent id="hosting">
+<TailoredContentOption
+  id="copilot-cloud"
+  title="Copilot Cloud (Recommended)"
+  description="Use our hosted backend endpoint to get started quickly (OpenAI only)."
+  icon={<FaCloud />}
+>
+In order to use CopilotKit, we'll need to configure the CopilotKit provider.
+
+<CopilotCloudConfigureCopilotKitProvider components={props.components} />
+</TailoredContentOption>
+<TailoredContentOption
+  id="self-hosted"
+  title="Self-hosting"
+  description="Learn to host CopilotKit's runtime yourself with your own backend."
+  icon={<FaServer />}
+>
 <Steps>
 <Step>
 ### Set up Copilot Runtime Endpoint
@@ -46,11 +66,13 @@ export default function Home() {
 ```
 </Step>
 </Steps>
+</TailoredContentOption>
+</TailoredContent>
 
 Let's break this down:
 
 - First, we imported the `CopilotKit` provider from `@copilotkit/react-core`.
 - Then, we wrapped the page with the `<CopilotKit>` provider.
-- We imported the built-in styles from `@copilotkit/react-textarea`. This is optional.
+- We imported the built-in styles from `@copilotkit/react-textarea`.
 
 In the next step, we'll implement the AI-powered textarea as a replacement for our existing input component.

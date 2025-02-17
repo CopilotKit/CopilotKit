@@ -1,5 +1,445 @@
 # @copilotkit/shared
 
+## 1.6.0-next.1
+
+## 1.6.0-next.0
+
+## 1.5.20
+
+### Patch Changes
+
+- 51f0d66: - fix(errors): fix internal usage of error resolver
+
+## 1.5.20-next.0
+
+### Patch Changes
+
+- 51f0d66: - fix(errors): fix internal usage of error resolver
+
+## 1.5.19
+
+### Patch Changes
+
+- 0dd1ab9: - fix(errors): allow non copilotkit errors to pass to consumer app error boundary
+
+## 1.5.19-next.1
+
+### Patch Changes
+
+- 0dd1ab9: - fix(errors): allow non copilotkit errors to pass to consumer app error boundary
+
+## 1.5.19-next.0
+
+## 1.5.18
+
+### Patch Changes
+
+- d47cd26: - fix: detect and alert on version mismatch
+- f77a7b9: - fix: use warning when version mismatch is not expected to error out
+- 38d3ac2: - fix: add additional info the our error messages
+
+## 1.5.18-next.3
+
+### Patch Changes
+
+- f77a7b9: - fix: use warning when version mismatch is not expected to error out
+
+## 1.5.18-next.2
+
+### Patch Changes
+
+- 38d3ac2: - fix: add additional info the our error messages
+
+## 1.5.18-next.1
+
+## 1.5.18-next.0
+
+### Patch Changes
+
+- d47cd26: - fix: detect and alert on version mismatch
+
+## 1.5.17
+
+### Patch Changes
+
+- 1fc3902: - Revert "fix: detect and alert on version mismatch (#1333)"
+
+  This reverts commit 48b7c7b1bd48ced82ffb9a00d6eddc1f7581e0c1.
+
+## 1.5.17-next.0
+
+### Patch Changes
+
+- 1fc3902: - Revert "fix: detect and alert on version mismatch (#1333)"
+
+  This reverts commit 48b7c7b1bd48ced82ffb9a00d6eddc1f7581e0c1.
+
+## 1.5.16
+
+### Patch Changes
+
+- 48b7c7b: - fix: detect and alert on version mismatch
+
+## 1.5.16-next.2
+
+## 1.5.16-next.1
+
+### Patch Changes
+
+- 48b7c7b: - fix: detect and alert on version mismatch
+
+## 1.5.16-next.0
+
+## 1.5.15
+
+### Patch Changes
+
+- 7b3141d: - feat(interrupt): support LG interrupt with useLangGraphInterrupt hook
+  - chore(interrupt): add e2e test to interrupt functionality
+  - feat(interrupt): add support for multiple interrupts and conditions
+
+## 1.5.15-next.8
+
+## 1.5.15-next.7
+
+## 1.5.15-next.6
+
+## 1.5.15-next.5
+
+## 1.5.15-next.4
+
+### Patch Changes
+
+- 7b3141d: - feat(interrupt): support LG interrupt with useLangGraphInterrupt hook
+  - chore(interrupt): add e2e test to interrupt functionality
+  - feat(interrupt): add support for multiple interrupts and conditions
+
+## 1.5.15-next.3
+
+## 1.5.15-next.2
+
+## 1.5.15-next.1
+
+## 1.5.15-next.0
+
+## 1.5.14
+
+### Patch Changes
+
+- 0061f65: - feat: allows dev mode for cloud onboarding flow
+
+## 1.5.14-next.0
+
+### Patch Changes
+
+- 0061f65: - feat: allows dev mode for cloud onboarding flow
+
+## 1.5.13
+
+## 1.5.13-next.0
+
+## 1.5.12
+
+### Patch Changes
+
+- 6136a57: - fix(errors): add custom error classes to better describe library errors
+  - fix(errors): use new errors in error handling
+  - chore: add documentation and links to respective errors
+
+## 1.5.12-next.7
+
+## 1.5.12-next.6
+
+### Patch Changes
+
+- 6136a57: - fix(errors): add custom error classes to better describe library errors
+  - fix(errors): use new errors in error handling
+  - chore: add documentation and links to respective errors
+
+## 1.5.12-next.5
+
+## 1.5.12-next.4
+
+## 1.5.12-next.3
+
+## 1.5.12-next.2
+
+## 1.5.12-next.1
+
+## 1.5.12-next.0
+
+## 1.5.11
+
+## 1.5.11-next.0
+
+## 1.5.10
+
+## 1.5.10-next.0
+
+## 1.5.9
+
+## 1.5.8
+
+## 1.5.6-next.0
+
+## 1.5.5-next.5
+
+## 1.5.5-next.3
+
+## 1.5.5-next.2
+
+## 1.5.4
+
+## 1.5.3
+
+## 1.5.2
+
+## 1.5.1
+
+### Patch Changes
+
+- 5c01e9e: test prerelease #4
+- da280ed: Test prerelease script
+- 27e42d7: testing a prerelease
+- 05240a9: test pre #2
+- 33218fe: test prerelease #3
+- 03f3d6f: Test next prerelease
+
+## 1.5.1-next.3
+
+### Patch Changes
+
+- 33218fe: test prerelease #3
+
+## 1.5.1-next.2
+
+### Patch Changes
+
+- da280ed: Test prerelease script
+
+## 1.5.1-next.1
+
+### Patch Changes
+
+- 03f3d6f: Test next prerelease
+
+## 1.5.1-next.0
+
+### Patch Changes
+
+- 27e42d7: testing a prerelease
+
+## 1.5.0
+
+### Minor Changes
+
+- 1b47092: Synchronize LangGraph messages with CopilotKit
+
+### Patch Changes
+
+- 1b47092: CoAgents v0.3 prerelease
+
+## 1.5.0-coagents-v0-3.0
+
+### Minor Changes
+
+- Synchronize LangGraph messages with CopilotKit
+
+### Patch Changes
+
+- e66bce4: CoAgents v0.3 prerelease
+
+## 1.4.8
+
+### Patch Changes
+
+- - Better error handling
+  - Introduce new "EmptyLLMAdapter" for when using CoAgents
+  - Improve dev console help options
+  - Allow CopilotKit remote endpoint without agents
+
+## 1.4.8-next.0
+
+## 1.4.7
+
+### Patch Changes
+
+- Fix broken build script before release
+
+## 1.4.6
+
+### Patch Changes
+
+- .
+
+## 1.4.5
+
+### Patch Changes
+
+- testing release workflow
+
+## 1.4.5-next.0
+
+### Patch Changes
+
+- testing release workflow
+
+## 1.4.4
+
+## 1.4.4-next.4
+
+## 1.4.4-next.3
+
+## 1.4.4-next.2
+
+## 1.4.4-next.1
+
+## 1.4.4-next.0
+
+## 1.4.3
+
+### Patch Changes
+
+- c296282: - Better error surfacing when using LangGraph Platform streaming
+  - Ensure state is immediately set without using flushSync
+- - Better error surfacing when using LangGraph Platform streaming
+  - Ensure state is immediately set without using flushSync
+
+## 1.4.3-pre.0
+
+### Patch Changes
+
+- - Better error surfacing when using LangGraph Platform streaming
+  - Ensure state is immediately set without using flushSync
+
+## 1.4.2
+
+### Patch Changes
+
+- - Make sure agent state is set immediately (#1077)
+  - Support running an agent without messages (#1075)
+
+## 1.4.1
+
+### Patch Changes
+
+- 1721cbd: lower case copilotkit property
+- 1721cbd: add zod conversion
+- 8d0144f: bump
+- 8d0144f: bump
+- 8d0144f: bump
+- e16d95e: New prerelease
+- 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
+- CopilotKit Core:
+
+  - Improved error messages and overall logs
+  - `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+  - Improved scrolling behavior. It is now possible to scroll up during LLM response generation
+  - Added Azure OpenAI integration
+  - Updated interfaces for better developer ergonomics
+
+  CoAgents:
+
+  - Renamed `remoteActions` to `remoteEndpoints` (backwards compatible, will be deprecated in the future)
+  - Support for LangGraph Platform in Remote Endpoints
+  - LangGraph JS Support for CoAgents (locally via `langgraph dev`, `langgraph up` or deployed to LangGraph Platform)
+  - Improved LangSmith integration - requests made through CoAgents will now surface in LangSmith
+  - Enhanced state management and message handling
+
+  CopilotKid Back-end SDK:
+
+  - Released a whole-new `@copilotkit/sdk-js` for building agents with LangGraph JS Support
+
+- 8d0144f: bump
+- 8d0144f: bump
+- fef1b74: fix assistant message CSS and propagate actions to LG JS
+
+## 1.4.1-pre.6
+
+### Patch Changes
+
+- 1721cbd: lower case copilotkit property
+- 1721cbd: add zod conversion
+- 1721cbd: Add convertActionsToDynamicStructuredTools to sdk-js
+- fix assistant message CSS and propagate actions to LG JS
+
+## 1.4.1-pre.5
+
+### Patch Changes
+
+- bump
+
+## 1.4.1-pre.4
+
+### Patch Changes
+
+- bump
+
+## 1.4.1-pre.3
+
+### Patch Changes
+
+- bump
+
+## 1.4.1-pre.2
+
+### Patch Changes
+
+- bump
+
+## 1.4.1-pre.1
+
+### Patch Changes
+
+- bump
+
+## 1.4.1-pre.0
+
+### Patch Changes
+
+- New prerelease
+
+## 1.4.0
+
+### Minor Changes
+
+CopilotKit Core:
+
+- Improved error messages and overall logs
+- `useCopilotAction.renderAndAwait` renamed to `.renderAndAwaitForResponse` (backwards compatible, will be deprecated in the future)
+- Improved scrolling behavior. It is now possible to scroll up during LLM response generation
+- Added Azure OpenAI integration
+- Updated interfaces for better developer ergonomics
+
+CoAgents:
+
+- Renamed `remoteActions` to `remoteEndpoints` (backwards compatible, will be deprecated in the future)
+- Support for LangGraph Platform in Remote Endpoints
+- LangGraph JS Support for CoAgents (locally via `langgraph dev`, `langgraph up` or deployed to LangGraph Platform)
+- Improved LangSmith integration - requests made through CoAgents will now surface in LangSmith
+- Enhanced state management and message handling
+
+CopilotKid Back-end SDK:
+
+- Released a whole-new `@copilotkit/sdk-js` for building agents with LangGraph JS Support
+
+### Patch Changes
+
+- f6fab28: update tsup config
+- f6fab28: update entry
+- f6fab28: export langchain module
+- 8a77944: Improve LangSmith support
+- f6fab28: Ensure intermediate state config is sent as snake case
+- f6fab28: update entry in tsup config
+- 8a77944: Ensure the last message is sent to LangSmith
+- a5efccd: Revert rxjs changes
+- f6fab28: update entry
+- f6fab28: Update exports
+- f6fab28: Update exports
+- 332d744: Add support for Azure OpenAI
+- f6fab28: Export LangGraph functions
+- f6fab28: Update lockfile
+
 ## 1.3.16-mme-revert-rxjs-changes.10
 
 ### Patch Changes

@@ -1,24 +1,33 @@
-import { ActionExecutionMessage, MessageStatusCode } from "@copilotkit/runtime-client-gql";
+import { MessageStatusCode } from "@copilotkit/runtime-client-gql";
 import { RenderMessageProps } from "../props";
-import { useChatContext } from "../ChatContext";
 import { RenderFunctionStatus, useCopilotContext } from "@copilotkit/react-core";
 
 export function RenderActionExecutionMessage(props: RenderMessageProps) {
-  const { message, inProgress, index, isCurrentMessage, actionResult } = props;
   const { chatComponentsCache } = useCopilotContext();
-  const { icons } = useChatContext();
+  const { message, inProgress, index, isCurrentMessage, actionResult, AssistantMessage } = props;
 
   if (message.isActionExecutionMessage()) {
-    if (chatComponentsCache.current !== null && chatComponentsCache.current.actions[message.name]) {
-      const render = chatComponentsCache.current.actions[message.name];
+    if (
+      chatComponentsCache.current !== null &&
+      (chatComponentsCache.current.actions[message.name] ||
+        chatComponentsCache.current.actions["*"])
+    ) {
+      const render =
+        chatComponentsCache.current.actions[message.name] ||
+        chatComponentsCache.current.actions["*"];
       // render a static string
       if (typeof render === "string") {
         // when render is static, we show it only when in progress
         if (isCurrentMessage && inProgress) {
           return (
-            <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-              {icons.spinnerIcon} <span className="inProgressLabel">{render}</span>
-            </div>
+            <AssistantMessage
+              rawData={message}
+              key={index}
+              data-message-role="assistant"
+              isLoading={false}
+              isGenerating={true}
+              message={render}
+            />
           );
         }
         // Done - silent by default to avoid a series of "done" messages
@@ -43,6 +52,7 @@ export function RenderActionExecutionMessage(props: RenderMessageProps) {
             status: status as any,
             args,
             result: actionResult,
+            name: message.name,
           });
           // No result and complete: stay silent
           if (!toRender && status === "complete") {
@@ -50,30 +60,43 @@ export function RenderActionExecutionMessage(props: RenderMessageProps) {
           }
           if (typeof toRender === "string") {
             return (
-              <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-                {isCurrentMessage && inProgress && icons.spinnerIcon} {toRender}
-              </div>
+              <AssistantMessage
+                rawData={message}
+                data-message-role="assistant"
+                key={index}
+                isLoading={false}
+                isGenerating={false}
+                message={toRender}
+              />
             );
           } else {
             return (
-              <div
+              <AssistantMessage
+                rawData={message}
+                data-message-role="action-render"
                 key={index}
-                data-message-type="action-render"
-                className="copilotKitCustomAssistantMessage"
-              >
-                {toRender}
-              </div>
+                isLoading={false}
+                isGenerating={false}
+                subComponent={toRender}
+              />
             );
           }
         } catch (e) {
           console.error(`Error executing render function for action ${message.name}: ${e}`);
           return (
-            <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-              {isCurrentMessage && inProgress && icons.spinnerIcon}
-              <b>❌ Error executing render: {message.name}</b>
-              <br />
-              {e instanceof Error ? e.message : String(e)}
-            </div>
+            <AssistantMessage
+              rawData={message}
+              data-message-role="assistant"
+              key={index}
+              isLoading={false}
+              isGenerating={false}
+              subComponent={
+                <div className="copilotKitMessage copilotKitAssistantMessage">
+                  <b>❌ Error executing render function for action {message.name}:</b>
+                  <pre>{e instanceof Error ? e.message : String(e)}</pre>
+                </div>
+              }
+            />
           );
         }
       }
@@ -85,9 +108,13 @@ export function RenderActionExecutionMessage(props: RenderMessageProps) {
     } else {
       // In progress
       return (
-        <div key={index} className={`copilotKitMessage copilotKitAssistantMessage`}>
-          {icons.spinnerIcon}
-        </div>
+        <AssistantMessage
+          rawData={message}
+          key={index}
+          data-message-role="assistant"
+          isLoading={true}
+          isGenerating={true}
+        />
       );
     }
   }

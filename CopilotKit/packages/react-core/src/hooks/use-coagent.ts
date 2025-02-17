@@ -1,7 +1,7 @@
 /**
  * <Callout type="info">
  *   Usage of this hook assumes some additional setup in your application, for more information
- *   on that see the Agentic Copilots <span className="text-blue-500">[getting started guide](/coagents/quickstart)</span>.
+ *   on that see the CoAgents <span className="text-blue-500">[getting started guide](/coagents/quickstart/langgraph)</span>.
  * </Callout>
  * <Frame className="my-12">
  *   <img
@@ -13,7 +13,7 @@
  *
  * This hook is used to integrate an agent into your application. With its use, you can
  * render and update the state of an agent, allowing for a dynamic and interactive experience.
- * We call these shared state experiences "Agentic Copilots".
+ * We call these shared state experiences agentic copilots, or CoAgents for short.
  *
  * ## Usage
  *
@@ -88,7 +88,7 @@
  * </PropertyReference>
  */
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   CopilotContextParams,
   CopilotMessagesContextParams,
@@ -97,7 +97,10 @@ import {
 } from "../context";
 import { CoagentState } from "../types/coagent-state";
 import { useCopilotChat } from "./use-copilot-chat";
-import { AgentStateMessage, Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
+import { Message } from "@copilotkit/runtime-client-gql";
+import { useAsyncCallback } from "../components/error-boundary/error-utils";
+import { useToast } from "../components/toast/toast-provider";
+import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
 
 interface WithInternalStateManagementAndInitial<T> {
   /**
@@ -108,6 +111,10 @@ interface WithInternalStateManagementAndInitial<T> {
    * The initial state of the agent.
    */
   initialState: T;
+  /**
+   * Config to pass to a LangGraph Agent
+   */
+  configurable?: Record<string, any>;
 }
 
 interface WithInternalStateManagement {
@@ -119,6 +126,10 @@ interface WithInternalStateManagement {
    * Optional initialState with default type any
    */
   initialState?: any;
+  /**
+   * Config to pass to a LangGraph Agent
+   */
+  configurable?: Record<string, any>;
 }
 
 interface WithExternalStateManagement<T> {
@@ -134,6 +145,10 @@ interface WithExternalStateManagement<T> {
    * A function to update the state of the agent.
    */
   setState: (newState: T | ((prevState: T | undefined) => T)) => void;
+  /**
+   * Config to pass to a LangGraph Agent
+   */
+  configurable?: Record<string, any>;
 }
 
 type UseCoagentOptions<T> =
@@ -197,10 +212,16 @@ export type HintFunction = (params: HintFunctionParams) => Message | undefined;
 /**
  * This hook is used to integrate an agent into your application. With its use, you can
  * render and update the state of the agent, allowing for a dynamic and interactive experience.
- * We call these shared state experiences "Agentic Copilots". To get started using Agentic Copilots through this
- * hook, checkout the documentation at https://docs.copilotkit.ai/coagents/quickstart.
+ * We call these shared state experiences "agentic copilots". To get started using agentic copilots, which
+ * we refer to as CoAgents, checkout the documentation at https://docs.copilotkit.ai/coagents/quickstart/langgraph.
  */
 export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
+  const generalContext = useCopilotContext();
+  const { availableAgents } = generalContext;
+  const { addToast } = useToast();
+  const lastLoadedThreadId = useRef<string>();
+  const lastLoadedState = useRef<any>();
+
   const isExternalStateManagement = (
     options: UseCoagentOptions<T>,
   ): options is WithExternalStateManagement<T> => {
@@ -208,6 +229,13 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
   };
 
   const { name } = options;
+  useEffect(() => {
+    if (availableAgents?.length && !availableAgents.some((a) => a.name === name)) {
+      const message = `(useCoAgent): Agent "${name}" not found. Make sure the agent exists and is properly configured.`;
+      console.warn(message);
+      addToast({ type: "warning", message });
+    }
+  }, [availableAgents]);
 
   const isInternalStateManagementWithInitial = (
     options: UseCoagentOptions<T>,
@@ -215,11 +243,11 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     return "initialState" in options;
   };
 
-  const generalContext = useCopilotContext();
   const messagesContext = useCopilotMessagesContext();
   const context = { ...generalContext, ...messagesContext };
-  const { coagentStates, setCoagentStates } = context;
-  const { appendMessage } = useCopilotChat();
+  const { coagentStates, coagentStatesRef, setCoagentStatesWithRef, threadId, copilotApiConfig } =
+    context;
+  const { appendMessage, runChatCompletion } = useCopilotChat();
 
   const getCoagentState = (coagentStates: Record<string, CoagentState>, name: string) => {
     if (coagentStates[name]) {
@@ -228,6 +256,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
       return {
         name,
         state: isInternalStateManagementWithInitial(options) ? options.initialState : {},
+        configurable: options.configurable ?? {},
         running: false,
         active: false,
         threadId: undefined,
@@ -237,27 +266,52 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     }
   };
 
+  const runtimeClient = useCopilotRuntimeClient({
+    url: copilotApiConfig.chatApiEndpoint,
+    publicApiKey: copilotApiConfig.publicApiKey,
+    credentials: copilotApiConfig.credentials,
+  });
+
   // if we manage state internally, we need to provide a function to set the state
   const setState = (newState: T | ((prevState: T | undefined) => T)) => {
-    setCoagentStates((prevAgentStates) => {
-      let coagentState: CoagentState = getCoagentState(prevAgentStates, name);
+    let coagentState: CoagentState = getCoagentState(coagentStatesRef.current || {}, name);
+    const updatedState =
+      typeof newState === "function" ? (newState as Function)(coagentState.state) : newState;
 
-      const updatedState =
-        typeof newState === "function" ? (newState as Function)(coagentState.state) : newState;
-
-      return {
-        ...prevAgentStates,
-        [name]: {
-          ...coagentState,
-          state: updatedState,
-        },
-      };
+    setCoagentStatesWithRef({
+      ...coagentStatesRef.current,
+      [name]: {
+        ...coagentState,
+        state: updatedState,
+      },
     });
   };
 
-  const coagentState = getCoagentState(coagentStates, name);
+  useEffect(() => {
+    const fetchAgentState = async () => {
+      if (!threadId || threadId === lastLoadedThreadId.current) return;
 
-  const state = isExternalStateManagement(options) ? options.state : coagentState.state;
+      const result = await runtimeClient.loadAgentState({
+        threadId,
+        agentName: name,
+      });
+
+      const newState = result.data?.loadAgentState?.state;
+      if (newState === lastLoadedState.current) return;
+
+      if (result.data?.loadAgentState?.threadExists && newState && newState != "{}") {
+        lastLoadedState.current = newState;
+        lastLoadedThreadId.current = threadId;
+        const fetchedState = JSON.parse(newState);
+        isExternalStateManagement(options)
+          ? options.setState(fetchedState)
+          : setState(fetchedState);
+      }
+    };
+    void fetchAgentState();
+  }, [threadId]);
+
+  const coagentState = getCoagentState(coagentStates, name);
 
   // Sync internal state with external state if state management is external
   useEffect(() => {
@@ -266,47 +320,67 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     } else if (coagentStates[name] === undefined) {
       setState(options.initialState === undefined ? {} : options.initialState);
     }
-  }, [isExternalStateManagement(options) ? JSON.stringify(options.state) : undefined]);
+  }, [
+    isExternalStateManagement(options) ? JSON.stringify(options.state) : undefined,
+    // reset initialstate on reset
+    coagentStates[name] === undefined,
+  ]);
+
+  const runAgentCallback = useAsyncCallback(
+    async (hint?: HintFunction) => {
+      await runAgent(name, context, appendMessage, runChatCompletion, hint);
+    },
+    [name, context, appendMessage, runChatCompletion],
+  );
 
   // Return the state and setState function
   return {
     name,
     nodeName: coagentState.nodeName,
-    state,
-    setState,
+    threadId: coagentState.threadId,
     running: coagentState.running,
-    start: () => {
-      startAgent(name, context);
-    },
-    stop: () => {
-      stopAgent(name, context);
-    },
-    run: (hint?: HintFunction) => {
-      return runAgent(name, context, appendMessage, hint);
-    },
+    state: coagentState.state,
+    setState: isExternalStateManagement(options) ? options.setState : setState,
+    start: () => startAgent(name, context),
+    stop: () => stopAgent(name, context),
+    run: runAgentCallback,
   };
 }
 
-function startAgent(name: string, context: CopilotContextParams) {
+export function startAgent(name: string, context: CopilotContextParams) {
   const { setAgentSession } = context;
   setAgentSession({
     agentName: name,
   });
 }
 
-function stopAgent(name: string, context: CopilotContextParams) {
+export function stopAgent(name: string, context: CopilotContextParams) {
   const { agentSession, setAgentSession } = context;
   if (agentSession && agentSession.agentName === name) {
     setAgentSession(null);
+    context.setCoagentStates((prevAgentStates) => {
+      return {
+        ...prevAgentStates,
+        [name]: {
+          ...prevAgentStates[name],
+          running: false,
+          active: false,
+          threadId: undefined,
+          nodeName: undefined,
+          runId: undefined,
+        },
+      };
+    });
   } else {
     console.warn(`No agent session found for ${name}`);
   }
 }
 
-async function runAgent(
+export async function runAgent(
   name: string,
   context: CopilotContextParams & CopilotMessagesContextParams,
   appendMessage: (message: Message) => Promise<void>,
+  runChatCompletion: () => Promise<Message[]>,
   hint?: HintFunction,
 ) {
   const { agentSession, setAgentSession } = context;
@@ -324,12 +398,16 @@ async function runAgent(
     }
   }
 
-  let state = context.coagentStates?.[name]?.state || {};
+  let state = context.coagentStatesRef.current?.[name]?.state || {};
 
   if (hint) {
     const hintMessage = hint({ previousState, currentState: state });
     if (hintMessage) {
       await appendMessage(hintMessage);
+    } else {
+      await runChatCompletion();
     }
+  } else {
+    await runChatCompletion();
   }
 }

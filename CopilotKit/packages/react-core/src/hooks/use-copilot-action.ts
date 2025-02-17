@@ -1,4 +1,88 @@
 /**
+ * Example usage of useCopilotAction with complex parameters:
+ *
+ * @example
+ * useCopilotAction({
+ *   name: "myAction",
+ *   parameters: [
+ *     { name: "arg1", type: "string", enum: ["option1", "option2", "option3"], required: false },
+ *     { name: "arg2", type: "number" },
+ *     {
+ *       name: "arg3",
+ *       type: "object",
+ *       attributes: [
+ *         { name: "nestedArg1", type: "boolean" },
+ *         { name: "xyz", required: false },
+ *       ],
+ *     },
+ *     { name: "arg4", type: "number[]" },
+ *   ],
+ *   handler: ({ arg1, arg2, arg3, arg4 }) => {
+ *     const x = arg3.nestedArg1;
+ *     const z = arg3.xyz;
+ *     console.log(arg1, arg2, arg3);
+ *   },
+ * });
+ *
+ * @example
+ * // Simple action without parameters
+ * useCopilotAction({
+ *   name: "myAction",
+ *   handler: () => {
+ *     console.log("No parameters provided.");
+ *   },
+ * });
+ *
+ * @example
+ * // Interactive action with UI rendering and response handling
+ * useCopilotAction({
+ *   name: "handleMeeting",
+ *   description: "Handle a meeting by booking or canceling",
+ *   parameters: [
+ *     {
+ *       name: "meeting",
+ *       type: "string",
+ *       description: "The meeting to handle",
+ *       required: true,
+ *     },
+ *     {
+ *       name: "date",
+ *       type: "string",
+ *       description: "The date of the meeting",
+ *       required: true,
+ *     },
+ *     {
+ *       name: "title",
+ *       type: "string",
+ *       description: "The title of the meeting",
+ *       required: true,
+ *     },
+ *   ],
+ *   renderAndWaitForResponse: ({ args, respond, status }) => {
+ *     const { meeting, date, title } = args;
+ *     return (
+ *       <MeetingConfirmationDialog
+ *         meeting={meeting}
+ *         date={date}
+ *         title={title}
+ *         onConfirm={() => respond('meeting confirmed')}
+ *         onCancel={() => respond('meeting canceled')}
+ *       />
+ *     );
+ *   },
+ * });
+ *
+ * @example
+ * // Catch all action allows you to render actions that are not defined in the frontend
+ * useCopilotAction({
+ *   name: "*",
+ *   render: ({ name, args, status, result, handler, respond }) => {
+ *     return <div>Rendering action: {name}</div>;
+ *   },
+ * });
+ */
+
+/**
  * <img src="/images/use-copilot-action/useCopilotAction.gif" width="500" />
  * `useCopilotAction` is a React hook that you can use in your application to provide
  * custom actions that can be called by the AI. Essentially, it allows the Copilot to
@@ -44,12 +128,20 @@
  *
  * ## Generative UI
  *
- * This hooks enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/concepts/generative-ui) page.
+ * This hooks enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/guides/generative-ui) page.
  */
-import { useRef, useEffect } from "react";
-import { FrontendAction, ActionRenderProps, ActionRenderPropsWait } from "../types/frontend-action";
-import { useCopilotContext } from "../context/copilot-context";
 import { Parameter, randomId } from "@copilotkit/shared";
+import { createElement, Fragment, useEffect, useRef } from "react";
+import { useCopilotContext } from "../context/copilot-context";
+import { useAsyncCallback } from "../components/error-boundary/error-utils";
+import {
+  ActionRenderProps,
+  ActionRenderPropsNoArgsWait,
+  ActionRenderPropsWait,
+  CatchAllFrontendAction,
+  FrontendAction,
+} from "../types/frontend-action";
+import { useToast } from "../components/toast/toast-provider";
 
 // We implement useCopilotAction dependency handling so that
 // the developer has the option to not provide any dependencies.
@@ -61,26 +153,31 @@ import { Parameter, randomId } from "@copilotkit/shared";
 // useCallback, useMemo or other memoization techniques are not suitable here,
 // because they will cause a infinite rerender loop.
 export function useCopilotAction<const T extends Parameter[] | [] = []>(
-  action: FrontendAction<T>,
+  action: FrontendAction<T> | CatchAllFrontendAction,
   dependencies?: any[],
 ): void {
   const { setAction, removeAction, actions, chatComponentsCache } = useCopilotContext();
   const idRef = useRef<string>(randomId());
-  const renderAndWaitRef = useRef<RenderAndWait | null>(null);
+  const renderAndWaitRef = useRef<RenderAndWaitForResponse | null>(null);
+  const { addToast } = useToast();
 
   // clone the action to avoid mutating the original object
   action = { ...action };
 
-  // If the developer provides a renderAndWait function, we transform the action
+  // If the developer provides a renderAndWaitForResponse function, we transform the action
   // to use a promise internally, so that we can treat it like a normal action.
-  if (action.renderAndWait) {
-    const renderAndWait = action.renderAndWait!;
-
+  if (
+    // renderAndWaitForResponse is not available for catch all actions
+    isFrontendAction(action) &&
+    // check if renderAndWaitForResponse is set
+    (action.renderAndWait || action.renderAndWaitForResponse)
+  ) {
+    const renderAndWait = action.renderAndWait || action.renderAndWaitForResponse;
     // remove the renderAndWait function from the action
     action.renderAndWait = undefined;
-
+    action.renderAndWaitForResponse = undefined;
     // add a handler that will be called when the action is executed
-    action.handler = (async () => {
+    action.handler = useAsyncCallback(async () => {
       // we create a new promise when the handler is called
       let resolve: (result: any) => void;
       let reject: (error: any) => void;
@@ -91,17 +188,45 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
       renderAndWaitRef.current = { promise, resolve: resolve!, reject: reject! };
       // then we await the promise (it will be resolved in the original renderAndWait function)
       return await promise;
-    }) as any;
+    }, []) as any;
 
     // add a render function that will be called when the action is rendered
-    action.render = ((props: ActionRenderProps<any>): React.ReactElement => {
-      const waitProps: ActionRenderPropsWait<any> = {
-        status: props.status as any,
+    action.render = ((props: ActionRenderProps<T>): React.ReactElement => {
+      // Specifically for renderAndWaitForResponse the executing state is set too early, causing a race condition
+      // To fit it: we will wait for the handler to be ready
+      let status = props.status;
+      if (props.status === "executing" && !renderAndWaitRef.current) {
+        status = "inProgress";
+      }
+      // Create type safe waitProps based on whether T extends empty array or not
+      const waitProps = {
+        status,
         args: props.args,
         result: props.result,
-        handler: props.status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
+        handler: status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
+        respond: status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
+      } as T extends [] ? ActionRenderPropsNoArgsWait<T> : ActionRenderPropsWait<T>;
+
+      // Type guard to check if renderAndWait is for no args case
+      const isNoArgsRenderWait = (
+        _fn:
+          | ((props: ActionRenderPropsNoArgsWait<T>) => React.ReactElement)
+          | ((props: ActionRenderPropsWait<T>) => React.ReactElement),
+      ): _fn is (props: ActionRenderPropsNoArgsWait<T>) => React.ReactElement => {
+        return action.parameters?.length === 0;
       };
-      return renderAndWait(waitProps);
+
+      // Safely call renderAndWait with correct props type
+      if (renderAndWait) {
+        if (isNoArgsRenderWait(renderAndWait)) {
+          return renderAndWait(waitProps as ActionRenderPropsNoArgsWait<T>);
+        } else {
+          return renderAndWait(waitProps as ActionRenderPropsWait<T>);
+        }
+      }
+
+      // Return empty Fragment instead of null
+      return createElement(Fragment);
     }) as any;
   }
 
@@ -110,34 +235,56 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   // This ensures that any captured variables in the handler are up to date.
   if (dependencies === undefined) {
     if (actions[idRef.current]) {
-      actions[idRef.current].handler = action.handler as any;
+      // catch all actions don't have a handler
+      if (isFrontendAction(action)) {
+        actions[idRef.current].handler = action.handler as any;
+      }
       if (typeof action.render === "function") {
         if (chatComponentsCache.current !== null) {
-          chatComponentsCache.current.actions[action.name] = action.render;
+          // TODO: using as any here because the type definitions are getting to tricky
+          // not wasting time on this now - we know the types are compatible
+          chatComponentsCache.current.actions[action.name] = action.render as any;
         }
       }
     }
   }
 
   useEffect(() => {
+    const hasDuplicate = Object.values(actions).some(
+      (otherAction) => otherAction.name === action.name && otherAction !== actions[idRef.current],
+    );
+
+    if (hasDuplicate) {
+      addToast({
+        type: "warning",
+        message: `Found an already registered action with name ${action.name}.`,
+        id: `dup-action-${action.name}`,
+      });
+    }
+  }, [actions]);
+
+  useEffect(() => {
     setAction(idRef.current, action as any);
     if (chatComponentsCache.current !== null && action.render !== undefined) {
-      chatComponentsCache.current.actions[action.name] = action.render;
+      // see comment about type safety above
+      chatComponentsCache.current.actions[action.name] = action.render as any;
     }
     return () => {
       // NOTE: For now, we don't remove the chatComponentsCache entry when the action is removed.
       // This is because we currently don't have access to the messages array in CopilotContext.
+      // UPDATE: We now have access, we should remove the entry if not referenced by any message.
       removeAction(idRef.current);
     };
   }, [
     setAction,
     removeAction,
-    action.description,
+    isFrontendAction(action) ? action.description : undefined,
     action.name,
-    action.disabled,
+    isFrontendAction(action) ? action.disabled : undefined,
+    isFrontendAction(action) ? action.available : undefined,
     // This should be faster than deep equality checking
     // In addition, all major JS engines guarantee the order of object keys
-    JSON.stringify(action.parameters),
+    JSON.stringify(isFrontendAction(action) ? action.parameters : []),
     // include render only if it's a string
     typeof action.render === "string" ? action.render : undefined,
     // dependencies set by the developer
@@ -145,38 +292,14 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   ]);
 }
 
-interface RenderAndWait {
+function isFrontendAction<T extends Parameter[]>(
+  action: FrontendAction<T> | CatchAllFrontendAction,
+): action is FrontendAction<T> {
+  return action.name !== "*";
+}
+
+interface RenderAndWaitForResponse {
   promise: Promise<any>;
   resolve: (result: any) => void;
   reject: (error: any) => void;
 }
-
-// Usage Example:
-// useCopilotAction({
-//   name: "myAction",
-//   parameters: [
-//     { name: "arg1", type: "string", enum: ["option1", "option2", "option3"], required: false },
-//     { name: "arg2", type: "number" },
-//     {
-//       name: "arg3",
-//       type: "object",
-//       attributes: [
-//         { name: "nestedArg1", type: "boolean" },
-//         { name: "xyz", required: false },
-//       ],
-//     },
-//     { name: "arg4", type: "number[]" },
-//   ],
-//   handler: ({ arg1, arg2, arg3, arg4 }) => {
-//     const x = arg3.nestedArg1;
-//     const z = arg3.xyz;
-//     console.log(arg1, arg2, arg3);
-//   },
-// });
-
-// useCopilotAction({
-//   name: "myAction",
-//   handler: () => {
-//     console.log("No parameters provided.");
-//   },
-// });
