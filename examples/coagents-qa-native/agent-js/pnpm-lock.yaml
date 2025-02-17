@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@copilotkit/sdk-js':
         specifier: ^1.5.13
-        version: 1.5.19(@langchain/anthropic@0.3.8(@langchain/core@0.3.18(openai@4.85.1(zod@3.23.8))))(@langchain/google-genai@0.1.4(@langchain/core@0.3.18(openai@4.85.1(zod@3.23.8)))(zod@3.23.8))(openai@4.85.1(zod@3.23.8))
+        version: 1.5.20(@langchain/anthropic@0.3.8(@langchain/core@0.3.18(openai@4.85.1(zod@3.23.8))))(@langchain/google-genai@0.1.4(@langchain/core@0.3.18(openai@4.85.1(zod@3.23.8)))(zod@3.23.8))(openai@4.85.1(zod@3.23.8))
       '@langchain/anthropic':
         specifier: ^0.3.8
         version: 0.3.8(@langchain/core@0.3.18(openai@4.85.1(zod@3.23.8)))
@@ -65,11 +65,11 @@ packages:
     peerDependencies:
       commander: ~13.1.0
 
-  '@copilotkit/sdk-js@1.5.19':
-    resolution: {integrity: sha512-q1PBPALhPJ2W6IRsZSUV6820zUJVdQ4K03h+Xv/3qy4G8w/31RcgQKbzEoUjx/RzpLj3b37elbYjBVjQEf4wKw==}
+  '@copilotkit/sdk-js@1.5.20':
+    resolution: {integrity: sha512-p2/yU8/pBi4QDtAb+4IUDWbwRzSY6XkI1wsWICl3uJ7fKqFj7cUBRX4Jr/ppPqDY0WiY+aoiFLOlpQ/5L+zDEw==}
 
-  '@copilotkit/shared@1.5.19':
-    resolution: {integrity: sha512-n8bJ6BlldRvNuIt8yFzblnIvEJY6jAke6883cvn21HSdOikTjsTCtC/D+k1pOShfc31PoWC6RR+sPpiNM9wT+Q==}
+  '@copilotkit/shared@1.5.20':
+    resolution: {integrity: sha512-y0QVwhFRAIE9zI0oanydgvElkNTFZt6omTSPTDJR9Qb2tnfx0kLRRLtbsn2qff0vUrQZzHdpVRwA5FiQJ+Lthw==}
 
   '@dabh/diagnostics@2.0.3':
     resolution: {integrity: sha512-hrlQOIi7hAfzsMqlGSFyVucrx38O+j6wiGOf//H2ecvIEqYN4ADBSS2iLMh5UFyDunCNniUIPk/q3riFv45xRA==}
@@ -1499,9 +1499,9 @@ snapshots:
     dependencies:
       commander: 13.1.0
 
-  '@copilotkit/sdk-js@1.5.19(@langchain/anthropic@0.3.8(@langchain/core@0.3.18(openai@4.85.1(zod@3.23.8))))(@langchain/google-genai@0.1.4(@langchain/core@0.3.18(openai@4.85.1(zod@3.23.8)))(zod@3.23.8))(openai@4.85.1(zod@3.23.8))':
+  '@copilotkit/sdk-js@1.5.20(@langchain/anthropic@0.3.8(@langchain/core@0.3.18(openai@4.85.1(zod@3.23.8))))(@langchain/google-genai@0.1.4(@langchain/core@0.3.18(openai@4.85.1(zod@3.23.8)))(zod@3.23.8))(openai@4.85.1(zod@3.23.8))':
     dependencies:
-      '@copilotkit/shared': 1.5.19
+      '@copilotkit/shared': 1.5.20
       '@langchain/community': 0.0.53(openai@4.85.1(zod@3.23.8))
       '@langchain/core': 0.3.18(openai@4.85.1(zod@3.23.8))
       '@langchain/langgraph': 0.2.44(@langchain/core@0.3.18(openai@4.85.1(zod@3.23.8)))
@@ -1619,7 +1619,7 @@ snapshots:
       - web-auth-library
       - ws
 
-  '@copilotkit/shared@1.5.19':
+  '@copilotkit/shared@1.5.20':
     dependencies:
       '@segment/analytics-node': 2.2.1
       chalk: 4.1.2
