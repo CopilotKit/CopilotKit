@@ -1,13 +1,13 @@
 import { LangGraphInterruptEvent } from "@copilotkit/runtime-client-gql";
 import { Condition } from "@copilotkit/shared";
 
-export interface LangGraphInterruptRender {
+export interface LangGraphInterruptRender<TEventValue = any> {
   id: string;
   /**
    * The handler function to handle the event.
    */
   handler?: (props: {
-    event: LangGraphInterruptEvent;
+    event: LangGraphInterruptEvent<TEventValue>;
     resolve: (resolution: string) => void;
   }) => unknown | Promise<unknown>;
   /**
@@ -15,7 +15,7 @@ export interface LangGraphInterruptRender {
    */
   render?: (props: {
     result: unknown;
-    event: LangGraphInterruptEvent;
+    event: LangGraphInterruptEvent<TEventValue>;
     resolve: (resolution: string) => void;
   }) => string | React.ReactElement;
   /**
