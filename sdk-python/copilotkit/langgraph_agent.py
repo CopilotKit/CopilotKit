@@ -276,7 +276,7 @@ class LangGraphAgent(Agent):
         config["configurable"]["thread_id"] = thread_id
 
         if mode == "continue" and self.active_interrupt_event is False:
-            self.graph.update_state(config, state, as_node=node_name)
+            await self.graph.aupdate_state(config, state, as_node=node_name)
 
         # Before running the stream again, always flush status of active interrupt
         self.active_interrupt_event = False
