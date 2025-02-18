@@ -14,7 +14,7 @@
 
     ```bash
     # python
-    langgraph dev --host localhost --port 8000 
+    langgraph dev --host localhost --port 8000
     ```
 
     ```bash
@@ -23,6 +23,13 @@
     ```
 
     After starting the LangGraph server, the deployment URL will be `http://localhost:8000`.
+
+    <Accordions className="mb-4">
+        <Accordion title="Having trouble?">
+            If you cannot run the `langgraph dev` command, or encounter any issues with it, try this one instead:
+            `uvx --refresh --from "langgraph-cli[inmem]" --with-editable . --python 3.12 langgraph dev`
+        </Accordion>
+    </Accordions>
   </Tab>
 
   <Tab value="Self hosted (FastAPI)">
