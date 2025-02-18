@@ -66,7 +66,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
                 export const AgentStateAnnotation = Annotation.Root({
-                    observed_steps: Annotation<string[]>,  # Array of completed steps
+                    observed_steps: Annotation<string[]>,  // Array of completed steps
                     ...CopilotKitStateAnnotation.spec,
                 });
                 export type AgentState = typeof AgentStateAnnotation.State;
@@ -202,45 +202,44 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                         import { copilotkitCustomizeConfig } from '@copilotkit/sdk-js/langgraph';
 
                         async function frontendActionsNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
-                            # Configure CopilotKit to treat step progress tool calls as predictive of the final state
-                            const modifiedConfig = copilotkitCustomizeConfig(
-                                config,
-                                emitIntermediateState=[
-                                    {
-                                        "stateKey": "observed_steps",
-                                        "tool": "StepProgressTool",
-                                        "toolArgument": "steps",
-                                    },
+                            const modifiedConfig = copilotkitCustomizeConfig(config, {
+                                emitIntermediateState: [
+                                {
+                                    stateKey: "observed_steps",
+                                    tool: "StepProgressTool",
+                                    toolArgument: "steps",
+                                },
                                 ],
-                            );
-
-                            # Define the step progress tool
-                            const stepProgress = tool("StepProgressTool", {
-                                description: "Records progress by updating the steps array",
-                                parameters: {
-                                    steps: {
-                                        type: "array",
-                                        items: { type: "string" },
-                                        description: "Array of completed steps"
-                                    }
-                                },
-                                function: async (steps: string[]) => {
-                                    return steps;
-                                },
                             });
 
-                            # Provide the actions to the LLM
-                            const model = new ChatOpenAI({ 
-                                model: 'gpt-4'
-                            }).bind({
-                                functions: [stepProgress]
-                            });
-
-                            # Call the model with CopilotKit's modified config
-                            const response = await model.invoke(
-                                state.messages,
-                                { config: modifiedConfig }
+                            const stepProgress = tool(
+                                async (args) => {
+                                    return args.steps;
+                                },
+                                {
+                                    name: "StepProgressTool",
+                                    description: "Records progress by updating the steps array",
+                                    schema: z.object({
+                                        steps: z.array(z.string()).describe("Array of completed steps"),
+                                    }),
+                                }
                             );
+
+                            const model = new ChatOpenAI({
+                                model: "gpt-4",
+                            }).bindTools([stepProgress]);
+
+                            const response = await model.invoke(state.messages, modifiedConfig);
+                            state.messages.push(response);
+
+                            if (response.tool_calls?.length) {
+                                state.messages.push(
+                                    new ToolMessage({
+                                        content: "",
+                                        tool_call_id: response.tool_calls[0].id!,
+                                    })
+                                );
+                            }
 
                             return state;
                         }

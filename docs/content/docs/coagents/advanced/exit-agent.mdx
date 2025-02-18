@@ -61,11 +61,11 @@ In this example from [our email-sending app](https://github.com/copilotkit/copil
                     const lastMessage = state.messages[state.messages.length - 1] as ToolMessage;
                     if (lastMessage.content === "CANCEL") {
                         return {
-                            messages: [AIMessage(content="❌ Cancelled sending email.")],
+                            messages: [new AIMessage(content="❌ Cancelled sending email.")],
                         }
                     } else {
                         return {
-                            messages: [AIMessage(content="✅ Sent email.")],
+                            messages: [new AIMessage(content="✅ Sent email.")],
                         }
                     }
                 }
