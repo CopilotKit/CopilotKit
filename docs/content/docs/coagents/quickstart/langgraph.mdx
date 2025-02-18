@@ -71,7 +71,7 @@ Before you begin, you'll need the following:
             icon={<img src="/images/copilotkit-logo.svg" alt="CopilotKit Logo" width={20} height={20} />}
         >
             <Step>
-                ### Clone the `coagents-starter` repo
+                ### Clone the `coagents-starter` repo and install dependencies:
 
                 <Tabs groupId="language" items={["Python", "TypeScript"]}>
                     <Tab value="Python">
@@ -79,11 +79,21 @@ Before you begin, you'll need the following:
                         git clone https://github.com/CopilotKit/CopilotKit
                         cd CopilotKit/examples/coagents-starter/agent-py
                         ```
+
+                        #### Install dependencies:
+                        ```bash
+                        poetry install
+                        ```
                     </Tab>
                     <Tab value="TypeScript">
                         ```bash
                         git clone https://github.com/CopilotKit/CopilotKit
                         cd CopilotKit/examples/coagents-starter/agent-js
+                        ```
+
+                        #### Install dependencies:
+                        ```bash
+                        pnpm install
                         ```
                     </Tab>
                 </Tabs>
