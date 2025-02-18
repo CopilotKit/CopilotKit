@@ -1,7 +1,7 @@
 ---
 title: Introduction
 icon: "lucide/Sparkles"
-description: Build Agent-Native Applications (ANAs) powered by CopilotKit and LangGraph.
+description: Build Agent-Native Applications (ANAs) powered by CopilotKit and CrewAI Flows.
 ---
 
 import { BiSolidMessage as TextIcon } from "react-icons/bi";
@@ -33,17 +33,18 @@ import { CTACards } from "@/components/react/cta-cards";
 import { FaSync } from "react-icons/fa";
 import { Socials } from "@/components/react/socials";
 
-# Copilot Infrastructure for LangGraph Agents
+# Copilot Infrastructure for CrewAI Flows
 
 Full user-interaction infrastructure for your agents, to turn your agents into Copilot Agents (CoAgents).
 
-<Frame className="mt-0 mb-6">
+{/* TODO-DOCS-CREWAI-FLOWS: Add a GIF of this animation for CrewAI Flows */}
+{/* <Frame className="mt-0 mb-6">
   <img
     src="/images/CoAgents.gif"
     alt="CoAgents demonstration"
     className="w-auto"
   />
-</Frame>
+</Frame> */}
 
 ## Building blocks of a CoAgent
 
@@ -57,81 +58,85 @@ Everything you need to build Agent-Native Applications (ANAs), right out of the 
       title: "Agentic Chat UI",
       description:
         "In-app chat powered by your agent.",
-      href: "/coagents/agentic-chat-ui",
+      href: "/crewai-flows/agentic-chat-ui",
     },
     {
       icon: FaSync,
       title: "Shared State",
       description:
         "Your agent can see everything in your app, and vice versa.",
-      href: "/coagents/shared-state",
+      href: "/crewai-flows/shared-state",
     },
     {
       icon: LuLayoutTemplate,
       title: "Generative UI",
       description:
         "UI that updates in real-time based on your agent's state.",
-      href: "/coagents/generative-ui",
+      href: "/crewai-flows/generative-ui",
     },
     {
       icon: LuWand2,
       title: "Frontend Tools",
       description:
         "Give your agent the ability to take action in your application.",
-      href: "/coagents/frontend-actions",
+      href: "/crewai-flows/frontend-actions",
     },
     {
       icon: LuWand2,
       title: "Multi-Agent Coordination",
       description:
         "Route your agent to the right agent based on the user's request.",
-      href: "/coagents/multi-agent-flows",
+      href: "/crewai-flows/multi-agent-flows",
     },
     {
       icon: LuUserCog,
       title: "Human-in-the-Loop",
       description:
         "Set smart checkpoints where humans can guide your agents.",
-      href: "/coagents/human-in-the-loop",
+      href: "/crewai-flows/human-in-the-loop",
     },
   ]}
 />
 
-## CoAgents in action
+{/* TODO-DOCS-CREWAI-FLOWS: Add CoAgents in action section for CrewAI Flows */}
+
+{/* ## CoAgents in action
 
 See **CoAgents** in action with some videos and examples we've made to demonstrate their power.
 
-<ExamplesCarousel examples={CoAgentsExamples} />
+<ExamplesCarousel examples={CoAgentsExamples} /> */}
 
 ## Ready to get started?
 
 Get started with CoAgents in as little as 5 minutes with one of our guides or tutorials.
 
 <CTACards
-  columns={3}
+  columns={1}
   cards={[
     {
       icon: LuPlay,
       title: "Quickstart",
       description: "Learn how to build your first CoAgent in 10 minutes.",
-      href: "/crewai-crews/quickstart/crewai",
+      href: "/crewai-flows/quickstart/crewai",
     },
-    {
+   
+  ]}
+/>
+ {/* TODO-DOCS-CREWAI-FLOWS: Add Travel Agent tutorial for CrewAI Flows */}
+    {/* {
       icon: LuPlane,
       title: "Travel Agent",
       description:
         "Learn how to build an agent-native travel app with CopilotKit & CrewAI.",
-      href: "/crewai-crews/tutorials/ai-travel-app",
+      href: "/crewai-flows/tutorials/ai-travel-app",
     },
     {
       icon: LuBookOpen,
       title: "Researcher Agent",
       description:
         "Learn how to build an agent-native researcher with CopilotKit & CrewAI.",
-      href: "/crewai-crews/videos/research-canvas",
-    },
-  ]}
-/>
+      href: "/crewai-flows/videos/research-canvas",
+    }, */}
 
 ## Common Questions
 
