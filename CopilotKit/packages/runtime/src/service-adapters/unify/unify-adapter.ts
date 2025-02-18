@@ -56,7 +56,7 @@ export class UnifyAdapter implements CopilotServiceAdapter {
     });
     const forwardedParameters = request.forwardedParameters;
 
-    const messages = request.messages.map(m => convertMessageToOpenAIMessage(m));
+    const messages = request.messages.map((m) => convertMessageToOpenAIMessage(m));
 
     const stream = await openai.chat.completions.create({
       model: this.model,

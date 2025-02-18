@@ -6,7 +6,7 @@ import {
   ChatCompletionSystemMessageParam,
   ChatCompletionTool,
   ChatCompletionUserMessageParam,
-  ChatCompletionDeveloperMessageParam
+  ChatCompletionDeveloperMessageParam,
 } from "openai/resources/chat";
 import { parseJson } from "@copilotkit/shared";
 
@@ -66,7 +66,7 @@ const DEFAULT_MAX_TOKENS = 128000;
 
 const maxTokensByModel: { [key: string]: number } = {
   // o1
-  "o1": 200000,
+  o1: 200000,
   "o1-2024-12-17": 200000,
   "o1-mini": 128000,
   "o1-mini-2024-09-12": 128000,
@@ -134,22 +134,25 @@ export function convertActionInputToOpenAITool(action: ActionInput): ChatComplet
   };
 }
 
-type UsedMessageParams = | ChatCompletionUserMessageParam
-    | ChatCompletionAssistantMessageParam
-    | ChatCompletionDeveloperMessageParam
-    | ChatCompletionSystemMessageParam;
-export function convertMessageToOpenAIMessage(message: Message, options?: { keepSystemRole: boolean }): ChatCompletionMessageParam {
+type UsedMessageParams =
+  | ChatCompletionUserMessageParam
+  | ChatCompletionAssistantMessageParam
+  | ChatCompletionDeveloperMessageParam
+  | ChatCompletionSystemMessageParam;
+export function convertMessageToOpenAIMessage(
+  message: Message,
+  options?: { keepSystemRole: boolean },
+): ChatCompletionMessageParam {
   const { keepSystemRole } = options || { keepSystemRole: false };
   if (message.isTextMessage()) {
-    let role = message.role as UsedMessageParams['role']
+    let role = message.role as UsedMessageParams["role"];
     if (message.role === "system" && !keepSystemRole) {
-      role = 'developer';
+      role = "developer";
     }
     return {
       role,
       content: message.content,
-    } satisfies UsedMessageParams
-
+    } satisfies UsedMessageParams;
   } else if (message.isActionExecutionMessage()) {
     return {
       role: "assistant",

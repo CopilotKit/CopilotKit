@@ -82,7 +82,9 @@ export class GroqAdapter implements CopilotServiceAdapter {
     } = request;
     const tools = actions.map(convertActionInputToOpenAITool);
 
-    let openaiMessages = messages.map(m => convertMessageToOpenAIMessage(m, { keepSystemRole: true }));
+    let openaiMessages = messages.map((m) =>
+      convertMessageToOpenAIMessage(m, { keepSystemRole: true }),
+    );
     openaiMessages = limitMessagesToTokenCount(openaiMessages, tools, model);
 
     let toolChoice: any = forwardedParameters?.toolChoice;
