@@ -100,7 +100,7 @@ importers:
         version: 0.5.0(encoding@0.1.13)
       langchain:
         specifier: ^0.3.3
-        version: 0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(axios@1.7.9(debug@4.3.5))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13))
+        version: 0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(axios@1.7.9)(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13))
       next:
         specifier: ^15.0.2
         version: 15.0.2(@playwright/test@1.50.1)(react-dom@19.0.0-rc-0bc30748-20241028(react@19.0.0-rc-0bc30748-20241028))(react@19.0.0-rc-0bc30748-20241028)
@@ -588,6 +588,9 @@ importers:
       class-transformer:
         specifier: ^0.5.1
         version: 0.5.1
+      class-validator:
+        specifier: ^0.14.1
+        version: 0.14.1
       express:
         specifier: ^4.19.2
         version: 4.19.2
@@ -11674,8 +11677,7 @@ snapshots:
 
   '@types/uuid@9.0.8': {}
 
-  '@types/validator@13.12.0':
-    optional: true
+  '@types/validator@13.12.0': {}
 
   '@types/ws@8.5.11':
     dependencies:
@@ -12374,7 +12376,6 @@ snapshots:
       '@types/validator': 13.12.0
       libphonenumber-js: 1.11.4
       validator: 13.12.0
-    optional: true
 
   class-variance-authority@0.6.1:
     dependencies:
@@ -14901,7 +14902,7 @@ snapshots:
       - encoding
       - openai
 
-  langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(axios@1.7.9(debug@4.3.5))(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)):
+  langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13))(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(zod@3.23.8))(axios@1.7.9)(encoding@0.1.13)(openai@4.53.0(encoding@0.1.13)):
     dependencies:
       '@langchain/core': 0.3.38(openai@4.53.0(encoding@0.1.13))
       '@langchain/openai': 0.3.11(@langchain/core@0.3.38(openai@4.53.0(encoding@0.1.13)))(encoding@0.1.13)
@@ -15021,8 +15022,7 @@ snapshots:
       prelude-ls: 1.2.1
       type-check: 0.4.0
 
-  libphonenumber-js@1.11.4:
-    optional: true
+  libphonenumber-js@1.11.4: {}
 
   lilconfig@2.1.0: {}
 
@@ -17371,8 +17371,7 @@ snapshots:
       '@types/istanbul-lib-coverage': 2.0.6
       convert-source-map: 2.0.0
 
-  validator@13.12.0:
-    optional: true
+  validator@13.12.0: {}
 
   value-or-promise@1.0.12: {}
 
