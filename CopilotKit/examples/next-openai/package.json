@@ -30,7 +30,7 @@
     "langchain": "^0.3.3",
     "next": "^15.0.2",
     "next-themes": "^0.2.1",
-    "openai": "^4.50.0",
+    "openai": "^4.85.1",
     "react": "19.0.0-rc-0bc30748-20241028",
     "react-dom": "19.0.0-rc-0bc30748-20241028",
     "react-markdown": "^8.0.7"

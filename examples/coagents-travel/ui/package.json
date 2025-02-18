@@ -32,7 +32,7 @@
     "leaflet": "^1.9.4",
     "lucide-react": "^0.414.0",
     "next": "14.2.5",
-    "openai": "^4.73.0",
+    "openai": "^4.85.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-leaflet": "^4.2.1",
