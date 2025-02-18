@@ -32,7 +32,12 @@ of everything that has happened during a HITL interaction.
 <Steps>
     <Step>
         ### Run and connect your agent
-        <RunAndConnectAgentSnippet />
+
+        You'll need to run your agent and connect it to CopilotKit before proceeding. If you haven't done so already,
+        you can follow the instructions in the [Getting Started](/crewai-flows/quickstart/crewai) guide.
+
+        If you don't already have an agent, you can use the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter) as a starting point
+        as this guide uses it as a starting point.
     </Step>
     
     <Step>
@@ -107,13 +112,14 @@ of everything that has happened during a HITL interaction.
         from typing_extensions import Literal
         from crewai.flow.flow import Flow, start, listen
         from copilotkit import CopilotKitState
+        from copilotkit.crewai import copilotkit_stream
 
         # 1. Define our agent's state and inherit from CopilotKitState, this brings in the CopilotKit actions
         class AgentState(CopilotKitState): # [!code highlight]
             # 1.1 Define any other state variables
             pass
 
-        class EmailAgentFlow(AgentState):
+        class EmailAgentFlow(Flow[AgentState]):
 
             @start           
             async def check_for_user_feedback(self):

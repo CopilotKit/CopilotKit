@@ -102,7 +102,52 @@ Before you begin, you'll need the following:
     <Step>
         ### Start your CrewAI Flow
 
-        <LangGraphPlatformDeploymentTabs components={props.components} />
+        1. Next, use CopilotKit's FastAPI integration to serve your CrewAI flow agent.
+
+        ```python title="server.py"
+        import os
+        from fastapi import FastAPI
+        import uvicorn
+        from copilotkit.integrations.fastapi import add_fastapi_endpoint # [!code highlight]
+        from copilotkit import CopilotKitRemoteEndpoint # [!code highlight]
+        from copilotkit.crewai import CrewAIAgent # [!code highlight]
+        from path.to.your.flow import YourFlow # [!code highlight]
+        
+        from dotenv import load_dotenv
+        load_dotenv()
+
+        app = FastAPI()
+        # [!code highlight:10]
+        sdk = CopilotKitRemoteEndpoint(
+            agents=[
+                CrewAIAgent(
+                    name="sample_agent", # The name of your agent
+                    description="Describe your agent here, will be used for multi-agent orchestration",
+                    flow=YourFlow(), # The flow object from your CrewAI import
+                )
+            ],
+        )
+
+        # Use CopilotKit's FastAPI integration to add a new endpoint for your CrewAI Flows # [!code highlight:2]
+        add_fastapi_endpoint(app, sdk, "/copilotkit", use_thread_pool=False)
+
+        # add new route for health check
+        @app.get("/health")
+        def health():
+            """Health check."""
+            return {"status": "ok"}
+
+        def main():
+            """Run the uvicorn server."""
+            port = int(os.getenv("PORT", "8000"))
+            uvicorn.run(
+                "path.to.this.file:app",
+                host="0.0.0.0",
+                port=port,
+                reload=True,
+            )
+
+        ```
     </Step>
 
     <TailoredContent 
@@ -182,7 +227,21 @@ Before you begin, you'll need the following:
                 ### Add your CrewAI Flow deployment to Copilot Runtime
                 Now we need to add your CrewAI Flow deployment to Copilot Runtime. This will make it
                 so your frontend can find your CrewAI Flows correctly.
-                <SelfHostingRemoteEndpoints components={props.components}/>
+                ```ts
+                import { 
+                CopilotRuntime,
+                // ...
+                } from "@copilotkit/runtime";
+                // ...
+                const runtime = new CopilotRuntime({
+                remoteEndpoints: [
+                    // [!code highlight:3]
+                    // Our FastAPI endpoint URL
+                    { url: "http://localhost:8000/copilotkit" },
+                ],
+                });
+                // ...
+                ```
             </Step>
             <Step>
                 ### Configure the CopilotKit Provider

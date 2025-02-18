@@ -89,23 +89,26 @@ included in the function's final returned state. Otherwise, they will be overwri
                     <Tab value="Python">
                         ```python title="agent-py/sample_agent/agent.py"
                         from copilotkit.crewai import copilotkit_emit_state # [!code highlight]
-                        # ...
-                        @start
-                        async def chat(self):
-                            # ...
+                        from crewai.flow.flow import Flow, start
 
-                            # Simulate executing steps one by one
-                            steps = [
-                                "Analyzing input data...",
-                                "Identifying key patterns...",
-                                "Generating recommendations...",
-                                "Formatting final output..."
-                            ]
-                            
-                            for step in steps:
-                                self.state["observed_steps"] = [...(self.state.observed_steps or []), step]
-                                await copilotkit_emit_state(self.state) # [!code highlight]
-                                await asyncio.sleep(1)
+                        class MyFlow(Flow):
+                            # ...
+                            @start
+                            async def start_flow(self):
+                                # ...
+
+                                # Simulate executing steps one by one
+                                steps = [
+                                    "Analyzing input data...",
+                                    "Identifying key patterns...",
+                                    "Generating recommendations...",
+                                    "Formatting final output..."
+                                ]
+                                
+                                for step in steps:
+                                    self.state["observed_steps"] = [...(self.state.observed_steps or []), step]
+                                    await copilotkit_emit_state(self.state) # [!code highlight]
+                                    await asyncio.sleep(1)
 
                             # ...
                         ```
@@ -124,47 +127,51 @@ included in the function's final returned state. Otherwise, they will be overwri
                     <Tab value="Python">
                         ```python
                         from copilotkit.crewai import copilotkit_predict_state
+                        from crewai.flow.flow import Flow, start
 
-                        def a_function(self):
-                            # Tell CopilotKit to treat step progress tool calls as predictive of the final state
-                            copilotkit_predict_state({
-                                "observed_steps": {
-                                    "tool": "StepProgressTool",
-                                    "tool_argument": "steps"
-                                }
-                            })
+                        class MyFlow(Flow):
 
-                            step_progress_tool = {
-                                "type": "function",
-                                "function": {
-                                    "name": "StepProgressTool",
-                                    "description": "Records progress by updating the steps array",
-                                    "parameters": {
-                                        "type": "object",
-                                        "properties": {
-                                            "steps": {
-                                                "type": "array",
-                                                "items": {"type": "string"},
-                                                "description": "Array of completed steps"
-                                            }
-                                        },
-                                        "required": ["steps"]
+                            @start
+                            def start_flow(self):
+                                # Tell CopilotKit to treat step progress tool calls as predictive of the final state
+                                copilotkit_predict_state({
+                                    "observed_steps": {
+                                        "tool": "StepProgressTool",
+                                        "tool_argument": "steps"
+                                    }
+                                })
+
+                                step_progress_tool = {
+                                    "type": "function",
+                                    "function": {
+                                        "name": "StepProgressTool",
+                                        "description": "Records progress by updating the steps array",
+                                        "parameters": {
+                                            "type": "object",
+                                            "properties": {
+                                                "steps": {
+                                                    "type": "array",
+                                                    "items": {"type": "string"},
+                                                    "description": "Array of completed steps"
+                                                }
+                                            },
+                                            "required": ["steps"]
+                                        }
                                     }
                                 }
-                            }
 
-                            # Provide the tool to the LLM and call the model
-                            response = await copilotkit_stream(
-                                completion(
-                                    model="openai/gpt-4o",
-                                    messages=[
-                                        {"role": "system", "content": prompt},
-                                        *self.state.get("messages", [])
-                                    ],
-                                    tools=[step_progress_tool],
-                                    stream=True
+                                # Provide the tool to the LLM and call the model
+                                response = await copilotkit_stream(
+                                    completion(
+                                        model="openai/gpt-4o",
+                                        messages=[
+                                            {"role": "system", "content": prompt},
+                                            *self.state.get("messages", [])
+                                        ],
+                                        tools=[step_progress_tool],
+                                        stream=True
+                                    )
                                 )
-                            )
                         ```
                     </Tab>
                 </Tabs>
