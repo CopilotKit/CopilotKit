@@ -301,6 +301,7 @@ class CopilotKitRemoteEndpoint:
         name: str,
         thread_id: str,
         state: dict,
+        configurable: Optional[dict] = None,
         messages: List[Message],
         actions: List[ActionDict],
         node_name: str,
@@ -322,6 +323,7 @@ class CopilotKitRemoteEndpoint:
                 ("Thread ID", thread_id),
                 ("Node Name", node_name),
                 ("State", state),
+                ("Configurable", configurable),
                 ("Messages", messages),
                 ("Actions", actions),
                 ("MetaEvents", meta_events),
@@ -333,6 +335,7 @@ class CopilotKitRemoteEndpoint:
                 thread_id=thread_id,
                 node_name=node_name,
                 state=state,
+                configurable=configurable,
                 messages=messages,
                 actions=actions,
                 meta_events=meta_events

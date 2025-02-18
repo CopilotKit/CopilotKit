@@ -217,6 +217,7 @@ class LangGraphAgent(Agent):
         self,
         *,
         state: dict,
+        configurable: Optional[dict] = None,
         messages: List[Message],
         thread_id: str,
         actions: Optional[List[ActionDict]] = None,
@@ -227,6 +228,7 @@ class LangGraphAgent(Agent):
 
         return self._stream_events(
             state=state,
+            configurable=configurable,
             messages=messages,
             actions=actions,
             thread_id=thread_id,
@@ -238,6 +240,7 @@ class LangGraphAgent(Agent):
             self,
             *,
             state: Any,
+            configurable: Optional[dict] = None,
             messages: List[Message],
             thread_id: str,
             actions: Optional[List[ActionDict]] = None,
@@ -246,7 +249,7 @@ class LangGraphAgent(Agent):
         ):
 
         config = ensure_config(cast(Any, self.langgraph_config.copy()) if self.langgraph_config else {}) # pylint: disable=line-too-long
-        config["configurable"] = config.get("configurable", {})
+        config["configurable"] = {**config.get("configurable", {}), **(configurable or {})}
         config["configurable"]["thread_id"] = thread_id
 
         agent_state = await self.graph.aget_state(config)
@@ -275,7 +278,7 @@ class LangGraphAgent(Agent):
         config["configurable"]["thread_id"] = thread_id
 
         if mode == "continue" and self.active_interrupt_event is False:
-            self.graph.update_state(config, state, as_node=node_name)
+            await self.graph.aupdate_state(config, state, as_node=node_name)
 
         # Before running the stream again, always flush status of active interrupt
         self.active_interrupt_event = False

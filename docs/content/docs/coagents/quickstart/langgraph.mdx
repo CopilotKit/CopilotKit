@@ -1,5 +1,5 @@
 ---
-title: Quickstart LangGraph
+title: Quickstart (LangGraph)
 description: Turn your LangGraph into an agent-native application in 10 minutes.
 icon: "custom/langchain"
 ---
@@ -17,6 +17,7 @@ import CopilotKitCloudCopilotKitProvider from "@/snippets/copilot-cloud-configur
 import LangGraphPlatformDeploymentTabs from "@/snippets/langgraph-platform-deployment-tabs.mdx";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import FindYourCopilotRuntime from "@/snippets/find-your-copilot-runtime.mdx";
+import ConnectCopilotUI from "@/snippets/copilot-ui.mdx";
 import CloudCopilotKitProvider from "@/snippets/coagents/cloud-configure-copilotkit-provider.mdx";
 import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/coagents/self-host-configure-copilotkit-provider.mdx";
 import SelfHostingCopilotRuntimeLangGraphEndpoint from "@/snippets/self-hosting-copilot-runtime-langgraph-endpoint.mdx";
@@ -71,19 +72,29 @@ Before you begin, you'll need the following:
             icon={<img src="/images/copilotkit-logo.svg" alt="CopilotKit Logo" width={20} height={20} />}
         >
             <Step>
-                ### Clone the `coagents-starter` repo
+                ### Clone the `coagents-starter` repo and install dependencies:
 
                 <Tabs groupId="language" items={["Python", "TypeScript"]}>
                     <Tab value="Python">
                         ```bash
-                        git clone https://github.com/CopilotKit/CopilotKit
+                        git clone -n --depth=1 --filter=tree:0 https://github.com/CopilotKit/CopilotKit && cd CopilotKit && git sparse-checkout set --no-cone examples/coagents-starter/agent-py && git checkout && cd ..
                         cd CopilotKit/examples/coagents-starter/agent-py
+                        ```
+
+                        #### Install dependencies:
+                        ```bash
+                        poetry install
                         ```
                     </Tab>
                     <Tab value="TypeScript">
                         ```bash
-                        git clone https://github.com/CopilotKit/CopilotKit
+                        git clone -n --depth=1 --filter=tree:0 https://github.com/CopilotKit/CopilotKit && cd CopilotKit && git sparse-checkout set --no-cone examples/coagents-starter/agent-js && git checkout && cd ..
                         cd CopilotKit/examples/coagents-starter/agent-js
+                        ```
+
+                        #### Install dependencies:
+                        ```bash
+                        pnpm install
                         ```
                     </Tab>
                 </Tabs>
@@ -221,34 +232,11 @@ Before you begin, you'll need the following:
         </TailoredContentOption>
     </TailoredContent>
     <Step>
-        ### Setup the Copilot UI
-        The last step is to use CopilotKit's UI components to render the chat interaction with your agent. In most situations,
-        this is done alongside your core page components, e.g. in your `page.tsx` file.
+        ## Choose a Copilot UI
 
-        ```tsx title="page.tsx"
-        // [!code highlight:3]
-        import "@copilotkit/react-ui/styles.css";
-        import { CopilotPopup } from "@copilotkit/react-ui";
- 
-        export function YourApp() {
-          return (
-            <main>
-              <h1>Your main content</h1>
-              // [!code highlight:7]
-              <CopilotPopup
-                labels={{
-                    title: "Popup Assistant",
-                    initial: "Hi! I'm connected to an agent. How can I help?",
-                }}
-              />
-            </main>
-          );
-        }
-        ```
+        You are almost there! Now it's time to setup your Copilot UI.
 
-        <Callout type="info">
-            Looking for other chat component options? Check out our [Agentic Chat UI](/coagents/agentic-chat-ui) guide.
-        </Callout>
+        <ConnectCopilotUI components={props.components} />
     </Step>
     <Step>
         ### 🎉 Talk to your agent!

@@ -8,6 +8,18 @@ license = "MIT"
 [project]
 name = "sample_agent"
 version = "0.0.1"
+dependencies = [
+    "langchain-openai",
+    "langchain-anthropic",
+    "langchain",
+    "openai",
+    "langchain-community",
+    "copilotkit",
+    "uvicorn",
+    "python-dotenv",
+    "langchain-core",
+    "langgraph-cli"
+]
 
 [build-system]
 requires = ["setuptools >= 61.0"]
@@ -20,7 +32,7 @@ langchain-anthropic = "^0.2.1"
 langchain = "^0.3.1"
 openai = "^1.51.0"
 langchain-community = "^0.3.1"
-copilotkit = "0.1.38"
+copilotkit = "0.1.39"
 uvicorn = "^0.31.0"
 python-dotenv = "^1.0.1"
 langchain-core = "^0.3.25"

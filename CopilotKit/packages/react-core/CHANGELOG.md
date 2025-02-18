@@ -1,5 +1,52 @@
 # ui
 
+## 1.6.0-next.2
+
+### Patch Changes
+
+- b454827: - fix: simplify condition options for langgraph interrupts
+  - chore: add new enabled to e2e tests
+  - fix: refine argument types
+  - chore: document hook API reference
+  - @copilotkit/runtime-client-gql@1.6.0-next.2
+  - @copilotkit/shared@1.6.0-next.2
+
+## 1.6.0-next.1
+
+### Patch Changes
+
+- d833f4c: - fix: provide the ability to type interrupt event value
+- Updated dependencies [d833f4c]
+  - @copilotkit/runtime-client-gql@1.6.0-next.1
+  - @copilotkit/shared@1.6.0-next.1
+
+## 1.6.0-next.0
+
+### Minor Changes
+
+- 7d061d9: - feat(configurable): execute langgraph with user config
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.6.0-next.0
+- @copilotkit/shared@1.6.0-next.0
+
+## 1.5.20
+
+### Patch Changes
+
+- Updated dependencies [51f0d66]
+  - @copilotkit/shared@1.5.20
+  - @copilotkit/runtime-client-gql@1.5.20
+
+## 1.5.20-next.0
+
+### Patch Changes
+
+- Updated dependencies [51f0d66]
+  - @copilotkit/shared@1.5.20-next.0
+  - @copilotkit/runtime-client-gql@1.5.20-next.0
+
 ## 1.5.19
 
 ### Patch Changes

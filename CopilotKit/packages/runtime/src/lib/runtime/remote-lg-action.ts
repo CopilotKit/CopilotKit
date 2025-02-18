@@ -24,6 +24,7 @@ interface ExecutionArgs extends Omit<LangGraphPlatformEndpoint, "agents"> {
   nodeName: string;
   messages: Message[];
   state: State;
+  configurable?: Record<string, any>;
   properties: CopilotRequestContextProperties;
   actions: ExecutionAction[];
   logger: Logger;
@@ -87,6 +88,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     agent,
     nodeName: initialNodeName,
     state: initialState,
+    configurable,
     messages,
     actions,
     logger,
@@ -202,6 +204,9 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   }
   const assistantId = retrievedAssistant.assistant_id;
 
+  if (configurable) {
+    await client.assistants.update(assistantId, { config: { configurable } });
+  }
   const graphInfo = await client.assistants.getGraph(assistantId);
 
   let streamingStateExtractor = new StreamingStateExtractor([]);
