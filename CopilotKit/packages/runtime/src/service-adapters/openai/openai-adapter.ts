@@ -117,7 +117,7 @@ export class OpenAIAdapter implements CopilotServiceAdapter {
     const tools = actions.map(convertActionInputToOpenAITool);
     const threadId = threadIdFromRequest ?? randomUUID();
 
-    let openaiMessages = messages.map(convertMessageToOpenAIMessage);
+    let openaiMessages = messages.map(m => convertMessageToOpenAIMessage(m));
     openaiMessages = limitMessagesToTokenCount(openaiMessages, tools, model);
 
     let toolChoice: any = forwardedParameters?.toolChoice;

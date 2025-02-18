@@ -198,7 +198,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
 
     // get the latest user message
     const userMessage = messages
-      .map(convertMessageToOpenAIMessage)
+      .map(m => convertMessageToOpenAIMessage(m))
       .map(convertSystemMessageToAssistantAPI)
       .at(-1);
 

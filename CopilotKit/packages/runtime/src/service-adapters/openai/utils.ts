@@ -138,10 +138,11 @@ type UsedMessageParams = | ChatCompletionUserMessageParam
     | ChatCompletionAssistantMessageParam
     | ChatCompletionDeveloperMessageParam
     | ChatCompletionSystemMessageParam;
-export function convertMessageToOpenAIMessage(message: Message): ChatCompletionMessageParam {
+export function convertMessageToOpenAIMessage(message: Message, options?: { keepSystemRole: boolean }): ChatCompletionMessageParam {
+  const { keepSystemRole } = options || { keepSystemRole: false };
   if (message.isTextMessage()) {
     let role = message.role as UsedMessageParams['role']
-    if (message.role === "system") {
+    if (message.role === "system" && !keepSystemRole) {
       role = 'developer';
     }
     return {
