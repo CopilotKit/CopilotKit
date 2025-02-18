@@ -18,15 +18,14 @@ import { RiNextjsLine } from "react-icons/ri";
     ```ts title="app/api/copilotkit/route.ts"
     import {
       CopilotRuntime,
-      OpenAIAdapter,
+      ExperimentalEmptyAdapter,
       copilotRuntimeNextJSAppRouterEndpoint,
       langGraphPlatformEndpoint
-    } from "@copilotkit/runtime";
-    import OpenAI from "openai";
+    } from "@copilotkit/runtime";;
     import { NextRequest } from "next/server";
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const serviceAdapter = new OpenAIAdapter({ openai } as any);
+    // You can use any service adapter here for multi-agent support.
+    const serviceAdapter = new ExperimentalEmptyAdapter();
 
     const runtime = new CopilotRuntime({
       remoteEndpoints: [
@@ -53,14 +52,12 @@ import { RiNextjsLine } from "react-icons/ri";
         ```ts title="pages/api/copilotkit.ts"
         import {
           CopilotRuntime,
-          OpenAIAdapter,
+          ExperimentalEmptyAdapter,
           copilotRuntimeNextJSPagesRouterEndpoint,
         } from '@copilotkit/runtime';
-        import OpenAI from "openai";
         import { NextApiRequest, NextApiResponse } from 'next';
 
-        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const serviceAdapter = new OpenAIAdapter({ openai } as any);
+        const serviceAdapter = new ExperimentalEmptyAdapter();
 
         const handler = async (req: NextApiRequest, res: NextApiResponse) => {
           const runtime = new CopilotRuntime({
@@ -92,15 +89,13 @@ import { RiNextjsLine } from "react-icons/ri";
         import express from 'express';
         import {
           CopilotRuntime,
-          OpenAIAdapter,
+          ExperimentalEmptyAdapter,
           copilotRuntimeNodeHttpEndpoint,
           langGraphPlatformEndpoint
         } from '@copilotkit/runtime';
-        import OpenAI from "openai";
 
         const app = express();
-        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const serviceAdapter = new OpenAIAdapter({ openai } as any);
+        const serviceAdapter = new ExperimentalEmptyAdapter();
 
         app.use('/copilotkit', (req, res, next) => {
           const runtime = new CopilotRuntime({
@@ -138,13 +133,12 @@ import { RiNextjsLine } from "react-icons/ri";
         import { createServer } from 'node:http';
         import {
           CopilotRuntime,
-          OpenAIAdapter,
+          ExperimentalEmptyAdapter,
           copilotRuntimeNodeHttpEndpoint,
         } from '@copilotkit/runtime';
-        import OpenAI from "openai";
 
-        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const serviceAdapter = new OpenAIAdapter({ openai } as any);
+
+        const serviceAdapter = new ExperimentalEmptyAdapter();
 
         const server = createServer((req, res) => {
           const runtime = new CopilotRuntime({
@@ -183,17 +177,16 @@ import { RiNextjsLine } from "react-icons/ri";
         import { 
           CopilotRuntime, 
           copilotRuntimeNestEndpoint, 
-          OpenAIAdapter,
+          ExperimentalEmptyAdapter,
         } from '@copilotkit/runtime';
         import { Request, Response } from 'express';
-        import OpenAI from "openai";
+
 
         @Controller()
         export class CopilotkitController {
           @All('/copilotkit')
           copilotkit(@Req() req: Request, @Res() res: Response) {
-            const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-            const serviceAdapter = new OpenAIAdapter({ openai } as any);
+            const serviceAdapter = new ExperimentalEmptyAdapter();
             
             const runtime = new CopilotRuntime({
               remoteEndpoints: [
