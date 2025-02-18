@@ -19,6 +19,7 @@
   },
   "changesets": [
     "chilly-rats-bow",
-    "polite-falcons-melt"
+    "polite-falcons-melt",
+    "sharp-bikes-develop"
   ]
 }

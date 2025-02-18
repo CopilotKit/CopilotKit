@@ -1,5 +1,16 @@
 # ui
 
+## 1.6.0-next.2
+
+### Patch Changes
+
+- b454827: - fix: simplify condition options for langgraph interrupts
+  - chore: add new enabled to e2e tests
+  - fix: refine argument types
+  - chore: document hook API reference
+  - @copilotkit/runtime-client-gql@1.6.0-next.2
+  - @copilotkit/shared@1.6.0-next.2
+
 ## 1.6.0-next.1
 
 ### Patch Changes
