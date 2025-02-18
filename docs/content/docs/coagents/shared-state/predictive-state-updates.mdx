@@ -157,7 +157,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                         ```python
                         from copilotkit.langgraph import copilotkit_customize_config
 
-                        def frontend_actions_node(state: AgentState, config: RunnableConfig):
+                        async def frontend_actions_node(state: AgentState, config: RunnableConfig):
                             # Configure CopilotKit to treat step progress tool calls as predictive of the final state
                             config = copilotkit_customize_config(
                                 config,
@@ -258,10 +258,13 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
         import { useCoAgent, useCoAgentStateRender } from '@copilotkit/react-core';
 
         // ...
+        type AgentState = {
+            observed_steps: string[];
+        };
         
         const YourMainContent = () => {
             // Get access to both predicted and final states
-            const { state } = useCoAgent({ name: "sample_agent" });
+            const { state } = useCoAgent<AgentState>({ name: "sample_agent" });
 
             // Add a state renderer to observe predictions
             useCoAgentStateRender({
