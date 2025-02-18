@@ -18,7 +18,8 @@ const InterruptRenderer: React.FC<InterruptProps> = ({ event, result, render, re
 };
 
 export function useLangGraphInterruptRender(): string | React.ReactElement | null {
-  const { langGraphInterruptAction, setLangGraphInterruptAction } = useCopilotContext();
+  const { langGraphInterruptAction, setLangGraphInterruptAction, agentSession } =
+    useCopilotContext();
 
   const responseRef = React.useRef<string>();
   const resolveInterrupt = useCallback(
@@ -39,9 +40,12 @@ export function useLangGraphInterruptRender(): string | React.ReactElement | nul
   )
     return null;
 
-  const { render, handler, event, conditions } = langGraphInterruptAction;
+  const { render, handler, event, enabled } = langGraphInterruptAction;
 
-  const conditionsMet = executeConditions({ conditions, value: event.value });
+  const conditionsMet =
+    !agentSession || !enabled
+      ? true
+      : enabled({ eventValue: event.value, agentMetadata: agentSession });
   if (!conditionsMet) {
     return null;
   }
