@@ -76,7 +76,7 @@ Before you begin, you'll need the following:
                 <Tabs groupId="language" items={["Python", "TypeScript"]}>
                     <Tab value="Python">
                         ```bash
-                        git clone https://github.com/CopilotKit/CopilotKit
+                        git clone -n --depth=1 --filter=tree:0 https://github.com/CopilotKit/CopilotKit && cd CopilotKit && git sparse-checkout set --no-cone examples/coagents-starter/agent-py && git checkout && cd ..
                         cd CopilotKit/examples/coagents-starter/agent-py
                         ```
 
@@ -87,7 +87,7 @@ Before you begin, you'll need the following:
                     </Tab>
                     <Tab value="TypeScript">
                         ```bash
-                        git clone https://github.com/CopilotKit/CopilotKit
+                        git clone -n --depth=1 --filter=tree:0 https://github.com/CopilotKit/CopilotKit && cd CopilotKit && git sparse-checkout set --no-cone examples/coagents-starter/agent-js && git checkout && cd ..
                         cd CopilotKit/examples/coagents-starter/agent-js
                         ```
 
