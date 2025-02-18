@@ -48,7 +48,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 
         # ...
 
-        def chat_node(state: AgentState, config: RunnableConfig):
+        async def chat_node(state: AgentState, config: RunnableConfig):
             model = ChatOpenAI(model="gpt-4o")
             model_with_tools = model.bind_tools([get_weather]) # [!code highlight]
 

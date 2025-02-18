@@ -76,6 +76,8 @@ is a situation where a user and an agent are working together to solve a problem
     <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
       <Tab value="Python">
         ```python title="agent-py/sample_agent/agent.py"
+        import asyncio
+        from typing import TypedDict
         from langchain_core.runnables import RunnableConfig
         from langchain_openai import ChatOpenAI
         from langchain_core.messages import SystemMessage
@@ -157,7 +159,7 @@ is a situation where a user and an agent are working together to solve a problem
 
     ```tsx title="app/page.tsx"
     // ...
-    import { useCoAgent } from "@copilotkit/react-core";
+    import { useCoAgentStateRender } from "@copilotkit/react-core";
     // ...
 
     // Define the state of the agent, should match the state of the agent in your LangGraph.

@@ -25,7 +25,7 @@ You can disable all message streaming and tool call streaming by passing `emit_m
         ```python
         from copilotkit.langgraph import copilotkit_customize_config
 
-        def frontend_actions_node(state: AgentState, config: RunnableConfig):
+        async def frontend_actions_node(state: AgentState, config: RunnableConfig):
             
             # 1) Configure CopilotKit not to emit messages
             modifiedConfig = copilotkit_customize_config(
