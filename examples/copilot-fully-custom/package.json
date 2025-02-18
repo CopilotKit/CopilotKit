@@ -9,9 +9,11 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@copilotkit/react-core": "^1.5.19",
-    "@copilotkit/react-ui": "^1.5.19",
+    "@copilotkit/react-core": "^1.5.20",
+    "@copilotkit/react-ui": "^1.5.20",
+    "@copilotkit/runtime": "^1.5.20",
     "@leafygreen-ui/avatar": "^2.0.2",
+    "@leafygreen-ui/badge": "^9.0.2",
     "@leafygreen-ui/button": "^23.0.0",
     "@leafygreen-ui/card": "^12.0.2",
     "@leafygreen-ui/checkbox": "^14.1.2",
@@ -19,7 +21,7 @@
     "@leafygreen-ui/loading-indicator": "^3.0.4",
     "@leafygreen-ui/text-area": "^10.0.4",
     "@leafygreen-ui/text-input": "^14.0.4",
-    "next": "14.2.11",
+    "next": "^14.2.24",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

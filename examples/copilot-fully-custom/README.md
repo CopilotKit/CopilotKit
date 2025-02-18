@@ -18,6 +18,25 @@ CopilotKit fully customized using components from MongoDB's Leafy Green Design S
 npm install
 ```
 
+2. Setup your runtime:
+
+CopilotKit requires `runtime`, a production-ready proxy for your LLM requests. You can either use Copilot Cloud or self-host it.
+
+First, make a `.env` file in the root of the project.
+
+```bash
+touch .env
+```
+
+Now, you can either provide your [Copilot Cloud public API key](https://cloud.copilotkit.ai) or [OpenAI API key](https://platform.openai.com/api-keys).
+
+> **Note:** Copilot Cloud will provide you some free OpenAI API credits to get you started!
+
+```bash
+OPENAI_API_KEY=sk... #if you want to use OpenAI
+COPILOT_CLOUD_PUBLIC_API_KEY=ck... #if you want to use Copilot Cloud
+```
+
 2. Run the development server:
 
 ```bash
