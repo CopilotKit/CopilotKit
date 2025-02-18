@@ -8,6 +8,18 @@ license = "MIT"
 [project]
 name = "weather_agent"
 version = "0.0.1"
+dependencies = [
+    "langchain-openai",
+    "langchain-anthropic",
+    "langchain",
+    "openai",
+    "langchain-community",
+    "copilotkit",
+    "uvicorn",
+    "python-dotenv",
+    "langchain-core",
+    "langgraph-cli"
+]
 
 [build-system]
 requires = ["setuptools >= 61.0"]
