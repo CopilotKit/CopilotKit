@@ -204,7 +204,7 @@ export function constructRemoteActions({
             const jsonState = agentStates.find((state) => state.agentName === name);
             if (jsonState) {
               state = JSON.parse(jsonState.state);
-              configurable = JSON.parse(jsonState.configurable);: {};
+              configurable = JSON.parse(jsonState.configurable);
             }
           }
 
