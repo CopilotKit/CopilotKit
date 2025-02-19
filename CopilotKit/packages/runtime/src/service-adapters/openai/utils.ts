@@ -7,6 +7,7 @@ import {
   ChatCompletionAssistantMessageParam,
   ChatCompletionSystemMessageParam,
 } from "openai/resources";
+import { parseJson } from "@copilotkit/shared";
 
 export function limitMessagesToTokenCount(
   messages: any[],
@@ -113,7 +114,7 @@ export function convertActionInputToOpenAITool(action: ActionInput): ChatComplet
     function: {
       name: action.name,
       description: action.description,
-      parameters: JSON.parse(action.jsonSchema),
+      parameters: parseJson(action.jsonSchema, {}),
     },
   };
 }

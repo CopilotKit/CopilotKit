@@ -101,6 +101,7 @@ import { Message } from "@copilotkit/runtime-client-gql";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
 import { useToast } from "../components/toast/toast-provider";
 import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
+import { parseJson } from "@copilotkit/shared";
 
 interface WithInternalStateManagementAndInitial<T> {
   /**
@@ -302,7 +303,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
       if (result.data?.loadAgentState?.threadExists && newState && newState != "{}") {
         lastLoadedState.current = newState;
         lastLoadedThreadId.current = threadId;
-        const fetchedState = JSON.parse(newState);
+        const fetchedState = parseJson(newState, {});
         isExternalStateManagement(options)
           ? options.setState(fetchedState)
           : setState(fetchedState);
