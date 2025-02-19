@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.6.0-next.4
+
+### Patch Changes
+
+- 68f7b65: - handle parsing in fail-safe fashion
+  - @copilotkit/shared@1.6.0-next.4
+
 ## 1.6.0-next.3
 
 ### Patch Changes
