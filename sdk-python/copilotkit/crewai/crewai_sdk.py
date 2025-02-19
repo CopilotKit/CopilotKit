@@ -6,7 +6,7 @@ import uuid
 import json
 import asyncio
 from typing_extensions import Any, Dict, List, Literal
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from litellm.types.utils import (
   ModelResponse,
   Choices,
@@ -49,13 +49,12 @@ logger = get_logger(__name__)
 
 class CopilotKitProperties(BaseModel):
     """CopilotKit properties"""
-    actions: List[Any]
+    actions: List[Any] = Field(default_factory=list)
 
 class CopilotKitState(FlowState):
     """CopilotKit state"""
-    messages: List[Any]
-    copilotkit: CopilotKitProperties
-
+    messages: List[Any] = Field(default_factory=list)
+    copilotkit: CopilotKitProperties = Field(default_factory=CopilotKitProperties)
 
 async def crewai_flow_async_runner(flow: Flow, inputs: Dict[str, Any]):
     """
@@ -553,8 +552,9 @@ def crewai_flow_messages_to_copilotkit(messages: List[Dict]) -> List[Message]: #
 
     for message in messages:
         if "content" in message and message.get("role") == "assistant":
-            for tool_call in message.get("tool_calls", []):
-                tool_call_names[tool_call["id"]] = tool_call["function"]["name"]
+            if message.get("tool_calls"):
+                for tool_call in message["tool_calls"]:
+                    tool_call_names[tool_call["id"]] = tool_call["function"]["name"]
 
     for message in messages:
         message_id = message_ids[id(message)]

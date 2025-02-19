@@ -7,6 +7,7 @@ import contextvars
 import json
 import traceback
 from typing import Callable
+from pydantic import BaseModel
 from typing_extensions import Any, Dict, Optional, List, TypedDict, cast
 from partialjson.json_parser import JSONParser as PartialJSONParser
 
@@ -108,12 +109,19 @@ async def queue_put(*events: RuntimeEvent, priority: bool = False):
     # yield control so that the reader can process the event
     await yield_control()
 
+
+def _to_dict_if_pydantic(obj):
+    if isinstance(obj, BaseModel):
+        return obj.model_dump()
+    return obj
+
 def _filter_state(
         *,
         state: Dict[str, Any],
         exclude_keys: Optional[List[str]] = None
     ) -> Dict[str, Any]:
     """Filter out messages and id from the state"""
+    state = _to_dict_if_pydantic(state)
     exclude_keys = exclude_keys or ["messages", "id"]
     return {k: v for k, v in state.items() if k not in exclude_keys}
 

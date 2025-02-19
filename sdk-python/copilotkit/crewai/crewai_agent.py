@@ -5,6 +5,7 @@ CrewAI Agent
 import uuid
 import json
 from copy import deepcopy
+from pydantic import BaseModel
 from typing import Optional, List, Callable
 from typing_extensions import TypedDict, NotRequired, Any, Dict, cast
 from crewai import Crew, Flow
@@ -269,7 +270,7 @@ class CrewAIAgent(Agent):
         ):
             yield event
 
-        state = {**flow.state}
+        state = {**(flow.state.model_dump() if isinstance(flow.state, BaseModel) else flow.state)}
         if "messages" in state:
             state["messages"] = crewai_flow_messages_to_copilotkit(state["messages"])
 
