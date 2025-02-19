@@ -48,6 +48,15 @@ export default function Layout({ children }: { children: ReactNode }) {
                   selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
                 },
                 {
+                  title: "CoAgents (CrewAI Crews)",
+                  description: "Documentation for CoAgents with CrewAI Crews",
+                  url: "/crewai-crews",
+                  icon: <SiCrewai className="w-4 h-4 text-bold" />,
+                  bgGradient:
+                    "bg-gradient-to-b from-[#FA694C] to-[#FE8A71] text-white",
+                  selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
+                },
+                {
                   title: "API Reference",
                   description: "API Reference",
                   url: "/reference",

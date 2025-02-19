@@ -1,0 +1,157 @@
+---
+title: Introduction
+icon: "lucide/Sparkles"
+description: Build Agent-Native Applications (ANAs) powered by CopilotKit and CrewAI Flows.
+---
+
+import { BiSolidMessage as TextIcon } from "react-icons/bi";
+import { VscJson as JsonIcon } from "react-icons/vsc";
+import { FaDiscord } from "react-icons/fa";
+import Link from "next/link";
+import { YouTubeVideo } from "@/components/react/youtube-video";
+import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
+import {
+  CoAgentsFeatureToggle,
+  CoAgentsFeatureRender,
+} from "@/components/react/coagents/coagents-features.tsx";
+import { DynamicContentWrapper } from "@/components/react/dynamic-content-wrapper";
+import { ExamplesCarousel } from "@/components/react/examples-carousel";
+import {
+  LuPlane,
+  LuBookOpen,
+  LuLightbulb,
+  LuLayoutTemplate,
+  LuBrainCog,
+  LuUserCog,
+  LuWand2,
+  LuPlay,
+  LuMessageSquare,
+  LuWrench,
+} from "react-icons/lu";
+import { CoAgentsExamples } from "@/components/react/examples-carousel";
+import { CTACards } from "@/components/react/cta-cards";
+import { FaSync } from "react-icons/fa";
+import { Socials } from "@/components/react/socials";
+
+# Copilot Infrastructure for CrewAI Crews
+
+Full user-interaction infrastructure for your agents, to turn your agents into Copilot Agents (CoAgents).
+
+{/* TODO-DOCS-CREWAI-FLOWS: Add a GIF of this animation for CrewAI Flows */}
+{/* <Frame className="mt-0 mb-6">
+  <img
+    src="/images/CoAgents.gif"
+    alt="CoAgents demonstration"
+    className="w-auto"
+  />
+</Frame> */}
+
+## Building blocks of a CoAgent
+
+Everything you need to build Agent-Native Applications (ANAs), right out of the box.
+
+<CTACards
+  columns={2}
+  cards={[
+    {
+      icon: LuMessageSquare,
+      title: "Agentic Chat UI",
+      description:
+        "In-app chat powered by your agent.",
+      href: "/crewai-flows/agentic-chat-ui",
+    },
+    {
+      icon: FaSync,
+      title: "Shared State",
+      description:
+        "Your agent can see everything in your app, and vice versa.",
+      href: "/crewai-flows/shared-state",
+    },
+    {
+      icon: LuLayoutTemplate,
+      title: "Generative UI",
+      description:
+        "UI that updates in real-time based on your agent's state.",
+      href: "/crewai-flows/generative-ui",
+    },
+    {
+      icon: LuWand2,
+      title: "Frontend Tools",
+      description:
+        "Give your agent the ability to take action in your application.",
+      href: "/crewai-flows/frontend-actions",
+    },
+    {
+      icon: LuWand2,
+      title: "Multi-Agent Coordination",
+      description:
+        "Route your agent to the right agent based on the user's request.",
+      href: "/crewai-flows/multi-agent-flows",
+    },
+    {
+      icon: LuUserCog,
+      title: "Human-in-the-Loop",
+      description:
+        "Set smart checkpoints where humans can guide your agents.",
+      href: "/crewai-flows/human-in-the-loop",
+    },
+  ]}
+/>
+
+{/* TODO-DOCS-CREWAI-FLOWS: Add CoAgents in action section for CrewAI Flows */}
+
+{/* ## CoAgents in action
+
+See **CoAgents** in action with some videos and examples we've made to demonstrate their power.
+
+<ExamplesCarousel examples={CoAgentsExamples} /> */}
+
+## Ready to get started?
+
+Get started with CoAgents in as little as 5 minutes with one of our guides or tutorials.
+
+<CTACards
+  columns={1}
+  cards={[
+    {
+      icon: LuPlay,
+      title: "Quickstart",
+      description: "Learn how to build your first CoAgent in 10 minutes.",
+      href: "/crewai-crews/quickstart/crewai",
+    },
+   
+  ]}
+/>
+ {/* TODO-DOCS-CREWAI-FLOWS: Add Travel Agent tutorial for CrewAI Flows */}
+    {/* {
+      icon: LuPlane,
+      title: "Travel Agent",
+      description:
+        "Learn how to build an agent-native travel app with CopilotKit & CrewAI.",
+      href: "/crewai-flows/tutorials/ai-travel-app",
+    },
+    {
+      icon: LuBookOpen,
+      title: "Researcher Agent",
+      description:
+        "Learn how to build an agent-native researcher with CopilotKit & CrewAI.",
+      href: "/crewai-flows/videos/research-canvas",
+    }, */}
+
+## Common Questions
+
+Have a question about CoAgents? You're in the right place!
+
+<Accordions>
+<Accordion title="Can you explain what a CoAgent is in more detail?">
+Sure! CoAgents are what we call "agentic copilots". Well, what's an agentic copilot then?
+
+Think of a Copilot as a simple and fully LLM controlled assistant that has relatively limited capabilities. An Agentic Copilot then is a copilot
+that has been enhanced with the ability to use CrewAI agents to perform more complex tasks. This is an extremely powerful way to build AI
+powered applications because it gives you, the developer, the ability to control the agent's behavior in a deterministic way while still letting
+the agent do its magic.
+
+For more on this topic, checkout our [agentic copilot](/crewai-flows/concepts/agentic-copilots) concept page.
+
+</Accordion>
+</Accordions>
