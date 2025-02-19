@@ -17,11 +17,14 @@ import {
 import { ModelSelector } from "./components/ModelSelector";
 import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
 import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
 export default function ModelSelectorWrapper() {
   return (
     <ModelSelectorProvider>
-      <Home />
+      <Suspense>
+        <Home />
+      </Suspense>
       <ModelSelector />
     </ModelSelectorProvider>
   );

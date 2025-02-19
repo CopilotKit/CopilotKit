@@ -9,11 +9,15 @@ import {
 } from "@/lib/model-selector-provider";
 import { ModelSelector } from "@/components/ModelSelector";
 import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+
 export default function ModelSelectorWrapper() {
   return (
     <main className="flex flex-col items-center justify-between">
       <ModelSelectorProvider>
-        <Home />
+        <Suspense>
+          <Home />
+        </Suspense>
         <ModelSelector />
       </ModelSelectorProvider>
     </main>
