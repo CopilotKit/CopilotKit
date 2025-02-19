@@ -15,7 +15,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <CopilotKit publicApiKey={process.env.COPILOT_CLOUD_PUBLIC_API_KEY} showDevConsole={false}>
+        <CopilotKit
+          publicApiKey={process.env.COPILOT_CLOUD_PUBLIC_API_KEY}
+          runtimeUrl={
+            process.env.COPILOT_CLOUD_PUBLIC_API_KEY
+              ? undefined // Copilot Cloud will provide the runtime URL
+              : "/api/copilotkit" // Local runtime
+          }
+          showDevConsole={false}
+        >
           {children}
         </CopilotKit>
       </body>
