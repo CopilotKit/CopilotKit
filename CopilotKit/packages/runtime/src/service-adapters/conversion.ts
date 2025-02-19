@@ -7,6 +7,7 @@ import {
 } from "../graphql/types/converted";
 import { MessageInput } from "../graphql/inputs/message.input";
 import { plainToInstance } from "class-transformer";
+import { parseJson } from "@copilotkit/shared";
 
 export function convertGqlInputToMessages(inputMessages: MessageInput[]): Message[] {
   const messages: Message[] = [];
@@ -28,7 +29,7 @@ export function convertGqlInputToMessages(inputMessages: MessageInput[]): Messag
           id: message.id,
           createdAt: message.createdAt,
           name: message.actionExecutionMessage.name,
-          arguments: JSON.parse(message.actionExecutionMessage.arguments),
+          arguments: parseJson(message.actionExecutionMessage.arguments, {}),
           parentMessageId: message.actionExecutionMessage.parentMessageId,
         }),
       );
@@ -53,7 +54,7 @@ export function convertGqlInputToMessages(inputMessages: MessageInput[]): Messag
           runId: message.agentStateMessage.runId,
           active: message.agentStateMessage.active,
           role: message.agentStateMessage.role,
-          state: JSON.parse(message.agentStateMessage.state),
+          state: parseJson(message.agentStateMessage.state, {}),
           running: message.agentStateMessage.running,
         }),
       );

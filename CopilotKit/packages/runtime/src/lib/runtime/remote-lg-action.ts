@@ -13,6 +13,7 @@ import telemetry from "../telemetry-client";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import { MetaEventName } from "../../graphql/types/meta-events.type";
 import { RunsStreamPayload } from "@langchain/langgraph-sdk/dist/types";
+import { parseJson } from "@copilotkit/shared";
 
 type State = Record<string, any>;
 
@@ -164,12 +165,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   }
   if (lgInterruptMetaEvent?.response) {
     let response = lgInterruptMetaEvent.response;
-    try {
-      payload.command = { resume: JSON.parse(response) };
-      // In case of unparsable string, we keep the event as is
-    } catch (e) {
-      payload.command = { resume: response };
-    }
+    payload.command = { resume: parseJson(response, response) };
   }
 
   if (mode === "continue" && !activeInterruptEvent) {

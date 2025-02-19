@@ -23,6 +23,7 @@ import { execute } from "./remote-lg-action";
 import { CopilotKitError, CopilotKitLowLevelError } from "@copilotkit/shared";
 import { writeJsonLineResponseToEventStream } from "../streaming";
 import { CopilotKitApiDiscoveryError, ResolvedCopilotKitError } from "@copilotkit/shared";
+import { parseJson } from "@copilotkit/shared";
 
 export function constructLGCRemoteAction({
   endpoint,
@@ -64,8 +65,8 @@ export function constructLGCRemoteAction({
       if (agentStates) {
         const jsonState = agentStates.find((state) => state.agentName === name);
         if (jsonState) {
-          state = JSON.parse(jsonState.state);
-          configurable = JSON.parse(jsonState.configurable);
+          state = parseJson(jsonState.state, {});
+          configurable = parseJson(jsonState.configurable, {});
         }
       }
 
@@ -84,7 +85,7 @@ export function constructLGCRemoteAction({
           actions: actionInputsWithoutAgents.map((action) => ({
             name: action.name,
             description: action.description,
-            parameters: JSON.parse(action.jsonSchema) as string,
+            parameters: parseJson(action.jsonSchema, "") as string,
           })),
           metaEvents,
         });
@@ -213,8 +214,8 @@ export function constructRemoteActions({
           if (agentStates) {
             const jsonState = agentStates.find((state) => state.agentName === name);
             if (jsonState) {
-              state = JSON.parse(jsonState.state);
-              configurable = JSON.parse(jsonState.configurable);
+              state = parseJson(jsonState.state, {});
+              configurable = parseJson(jsonState.configurable, {});
             }
           }
 
@@ -234,7 +235,7 @@ export function constructRemoteActions({
                 actions: actionInputsWithoutAgents.map((action) => ({
                   name: action.name,
                   description: action.description,
-                  parameters: JSON.parse(action.jsonSchema),
+                  parameters: parseJson(action.jsonSchema, {}),
                 })),
                 metaEvents,
               }),

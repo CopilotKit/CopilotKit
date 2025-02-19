@@ -148,25 +148,34 @@ Before you begin, you'll need the following:
                 <Tabs groupId="lg-deployment-type" items={['Local (LangGraph Studio)', 'Self hosted (FastAPI)', 'LangGraph Platform']}>
                     <Tab value="Local (LangGraph Studio)">
                         When running your LangGraph agent locally, you can open a tunnel to it so Copilot Cloud can connect to it.
+                        First, make sure you're logged in to [Copilot Cloud](https://cloud.copilotkit.ai), and then authenticate the CLI by running:
+                        ```bash
+                        npx copilotkit@latest login
+                        ```
+                        Once authenticated, run:
                         ```bash
                         npx copilotkit@latest dev --port 8000
                         ```
                     </Tab>
                     <Tab value="Self hosted (FastAPI)">
+                        **Running your FastAPI server locally**
+
+                        If you're running your FastAPI server locally, you can open a tunnel to it so Copilot Cloud can connect to it.
+                        First, make sure you're logged in to [Copilot Cloud](https://cloud.copilotkit.ai), and then authenticate the CLI by running:
+                        ```bash
+                        npx copilotkit@latest login
+                        ```
+                        Once authenticated, run:
+                        ```bash
+                        npx copilotkit@latest dev --port 8000
+                        ```
+
                         **Running your FastAPI server in production**
 
                         Head over to [Copilot Cloud](https://cloud.copilotkit.ai) sign up and setup a remote endpoint with the following information:
                         - OpenAI API key
                         - LangSmith API key
                         - Your FastAPI server URL
-
-                        **Running your FastAPI server locally**
-
-                        If you're running your FastAPI server locally, you can open a tunnel to it so Copilot Cloud can connect to it.
-
-                        ```bash
-                        npx copilotkit@latest dev --port 8000
-                        ```
                     </Tab>
                     <Tab value="LangGraph Platform">
                         Head over to [Copilot Cloud](https://cloud.copilotkit.ai) sign up and setup a remote endpoint to LangGraph Platform with the following information:
@@ -188,8 +197,10 @@ Before you begin, you'll need the following:
                 The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases, 
                 it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
 
+                Since we're using Copilot CLoud, we need to grab our public API key from the [Copilot Cloud dashboard](https://cloud.copilotkit.ai).
+
                 <CloudCopilotKitProvider components={props.components} />
-                
+
                 <Callout type="info">
                     Looking for a way to run multiple LangGraph agents? Check out our [Multi-Agent](/coagents/multi-agent-flows) guide.
                 </Callout>
@@ -206,7 +217,7 @@ Before you begin, you'll need the following:
                 Copilot Runtime is a production-ready proxy for your LangGraph agents. In your frontend, go ahead and install it.
 
                 ```package-install
-                @copilotkit/runtime
+                @copilotkit/runtime class-validator
                 ```
             </Step>
             <Step>

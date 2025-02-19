@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.6.0-next.3
+
+### Patch Changes
+
+- 4ddb6d2: - fix: add class validator to dependencies
+  - @copilotkit/shared@1.6.0-next.3
+
 ## 1.6.0-next.2
 
 ### Patch Changes

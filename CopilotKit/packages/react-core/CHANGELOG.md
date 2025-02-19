@@ -1,5 +1,12 @@
 # ui
 
+## 1.6.0-next.3
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.6.0-next.3
+- @copilotkit/shared@1.6.0-next.3
+
 ## 1.6.0-next.2
 
 ### Patch Changes

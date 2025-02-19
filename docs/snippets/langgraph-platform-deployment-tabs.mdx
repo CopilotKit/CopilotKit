@@ -5,24 +5,25 @@
     <Callout type="info">
       You will need a [LangSmith account](https://smith.langchain.com) to use this method.
     </Callout>
-
-    <Callout type="info">
-      To use LangGraph Studio, ensure you have:
-      - Docker installed and running
-      - Python 3.11 or above installed and activated in your environment
-    </Callout>
-
+  
     ```bash
-    # python
+    # For Python 3.11 or above
     langgraph dev --host localhost --port 8000 
     ```
 
     ```bash
-    # typescript
+    # For TypeScript with Node 18 or above
     npx @langchain/langgraph-cli dev --host localhost --port 8000
     ```
 
     After starting the LangGraph server, the deployment URL will be `http://localhost:8000`.
+
+    <Accordions className="mb-4">
+        <Accordion title="Having trouble?">
+            If you cannot run the `langgraph dev` command, or encounter any issues with it, try this one instead:
+            `uvx --refresh --from "langgraph-cli[inmem]" --with-editable . --python 3.12 langgraph dev`
+        </Accordion>
+    </Accordions>
   </Tab>
 
   <Tab value="Self hosted (FastAPI)">
@@ -44,7 +45,7 @@
     import uvicorn
     from copilotkit.integrations.fastapi import add_fastapi_endpoint # [!code highlight]
     from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent # [!code highlight]
-    from path.to.your.graph import graph # [!code highlight]
+    from sample_agent.agent import graph # the coagents-starter path, replace this if its different # [!code highlight]
     
     from dotenv import load_dotenv
     load_dotenv()
@@ -74,7 +75,7 @@
         """Run the uvicorn server."""
         port = int(os.getenv("PORT", "8000"))
         uvicorn.run(
-            "path.to.this.file:app",
+            "sample_agent.demo:app", # the path to your FastAPI file, replace this if its different
             host="0.0.0.0",
             port=port,
             reload=True,

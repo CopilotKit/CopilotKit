@@ -14,7 +14,7 @@ export const CustomAssistantMessage = (props: AssistantMessageProps) => {
   return (
     <div className="py-2">
       <div className="flex items-end gap-2">
-        {!subComponent && <Avatar format={Format.Icon} glyph="Sparkle" size={AvatarSize.XLarge} className="bg-black" />}
+        {!subComponent && <Avatar format={Format.MongoDB} size={AvatarSize.XLarge} />}
         {subComponent ? 
           subComponent : 
           <Card className="flex w-full justify-start flex-col">
@@ -35,8 +35,8 @@ const ResponseButtons = ({ id }: { id: string }) => {
     return (
         <div className="flex gap-2 items-center mt-6">
             <p className="text-gray-500">How was this response?</p>
-            <Button size={"xsmall"}><Icon glyph="ThumbsUp" /></Button>
-            <Button size={"xsmall"}><Icon glyph="ThumbsDown" /></Button>
+            <Button size={"xsmall"} onClick={() => alert("Thumbs up sent")}><Icon glyph="ThumbsUp" /></Button>
+            <Button size={"xsmall"} onClick={() => alert("Thumbs down sent")}><Icon glyph="ThumbsDown" /></Button>
             {isLastMessage && 
                 <div className="flex gap-2 items-center">
                     |
