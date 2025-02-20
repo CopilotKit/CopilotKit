@@ -18,7 +18,8 @@ import { LangGraphEvent } from "../../agents/langgraph/events";
 import { execute } from "./remote-lg-action";
 import { CopilotKitError, CopilotKitLowLevelError } from "@copilotkit/shared";
 import { CopilotKitApiDiscoveryError, ResolvedCopilotKitError } from "@copilotkit/shared";
-import { parseJson } from "@copilotkit/shared";
+import { parseJson, tryMap } from "@copilotkit/shared";
+import { ActionInput } from "../../graphql/inputs/action.input";
 
 export function constructLGCRemoteAction({
   endpoint,
@@ -77,10 +78,10 @@ export function constructLGCRemoteAction({
           state,
           configurable,
           properties: graphqlContext.properties,
-          actions: actionInputsWithoutAgents.map((action) => ({
+          actions: tryMap(actionInputsWithoutAgents, (action: ActionInput) => ({
             name: action.name,
             description: action.description,
-            parameters: parseJson(action.jsonSchema, "") as string,
+            parameters: JSON.parse(action.jsonSchema),
           })),
           metaEvents,
         });
@@ -222,10 +223,10 @@ export function constructRemoteActions({
                 state,
                 configurable,
                 properties: graphqlContext.properties,
-                actions: actionInputsWithoutAgents.map((action) => ({
+                actions: tryMap(actionInputsWithoutAgents, (action: ActionInput) => ({
                   name: action.name,
                   description: action.description,
-                  parameters: parseJson(action.jsonSchema, {}),
+                  parameters: JSON.parse(action.jsonSchema),
                 })),
                 metaEvents,
               }),
