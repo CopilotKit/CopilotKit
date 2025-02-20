@@ -1,5 +1,202 @@
 # @copilotkit/runtime
 
+## 1.6.0-next.6
+
+### Patch Changes
+
+- 45a3e10: - feat: support latest openai api
+  - chore: update all openai dependencies to use latest
+  - feat: update adapters using openai API
+  - @copilotkit/shared@1.6.0-next.6
+
+## 1.6.0-next.5
+
+### Patch Changes
+
+- 090203d: - fix: use tryMap method to filter out possibly invalid items
+- Updated dependencies [090203d]
+  - @copilotkit/shared@1.6.0-next.5
+
+## 1.6.0-next.4
+
+### Patch Changes
+
+- 68f7b65: - handle parsing in fail-safe fashion
+  - @copilotkit/shared@1.6.0-next.4
+
+## 1.6.0-next.3
+
+### Patch Changes
+
+- 4ddb6d2: - fix: add class validator to dependencies
+  - @copilotkit/shared@1.6.0-next.3
+
+## 1.6.0-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.6.0-next.2
+
+## 1.6.0-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.6.0-next.1
+
+## 1.6.0-next.0
+
+### Minor Changes
+
+- 7d061d9: - feat(configurable): execute langgraph with user config
+
+### Patch Changes
+
+- @copilotkit/shared@1.6.0-next.0
+
+## 1.5.20
+
+### Patch Changes
+
+- Updated dependencies [51f0d66]
+  - @copilotkit/shared@1.5.20
+
+## 1.5.20-next.0
+
+### Patch Changes
+
+- Updated dependencies [51f0d66]
+  - @copilotkit/shared@1.5.20-next.0
+
+## 1.5.19
+
+### Patch Changes
+
+- Updated dependencies [0dd1ab9]
+  - @copilotkit/shared@1.5.19
+
+## 1.5.19-next.1
+
+### Patch Changes
+
+- Updated dependencies [0dd1ab9]
+  - @copilotkit/shared@1.5.19-next.1
+
+## 1.5.19-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.19-next.0
+
+## 1.5.18
+
+### Patch Changes
+
+- d47cd26: - fix: detect and alert on version mismatch
+- a6e46a9: - fix: use langgraph metadata to get node name
+- 38d3ac2: - fix: add additional info the our error messages
+- Updated dependencies [d47cd26]
+- Updated dependencies [f77a7b9]
+- Updated dependencies [38d3ac2]
+  - @copilotkit/shared@1.5.18
+
+## 1.5.18-next.3
+
+### Patch Changes
+
+- Updated dependencies [f77a7b9]
+  - @copilotkit/shared@1.5.18-next.3
+
+## 1.5.18-next.2
+
+### Patch Changes
+
+- 38d3ac2: - fix: add additional info the our error messages
+- Updated dependencies [38d3ac2]
+  - @copilotkit/shared@1.5.18-next.2
+
+## 1.5.18-next.1
+
+### Patch Changes
+
+- a6e46a9: - fix: use langgraph metadata to get node name
+  - @copilotkit/shared@1.5.18-next.1
+
+## 1.5.18-next.0
+
+### Patch Changes
+
+- d47cd26: - fix: detect and alert on version mismatch
+- Updated dependencies [d47cd26]
+  - @copilotkit/shared@1.5.18-next.0
+
+## 1.5.17
+
+### Patch Changes
+
+- 1fc3902: - Revert "fix: detect and alert on version mismatch (#1333)"
+
+  This reverts commit 48b7c7b1bd48ced82ffb9a00d6eddc1f7581e0c1.
+
+- Updated dependencies [1fc3902]
+  - @copilotkit/shared@1.5.17
+
+## 1.5.17-next.0
+
+### Patch Changes
+
+- 1fc3902: - Revert "fix: detect and alert on version mismatch (#1333)"
+
+  This reverts commit 48b7c7b1bd48ced82ffb9a00d6eddc1f7581e0c1.
+
+- Updated dependencies [1fc3902]
+  - @copilotkit/shared@1.5.17-next.0
+
+## 1.5.16
+
+### Patch Changes
+
+- 9be85f1: - fix: use latest langchain packages
+- 48b7c7b: - fix: detect and alert on version mismatch
+- Updated dependencies [48b7c7b]
+  - @copilotkit/shared@1.5.16
+
+## 1.5.16-next.2
+
+### Patch Changes
+
+- 9be85f1: - fix: use latest langchain packages
+  - @copilotkit/shared@1.5.16-next.2
+
+## 1.5.16-next.1
+
+### Patch Changes
+
+- 48b7c7b: - fix: detect and alert on version mismatch
+- Updated dependencies [48b7c7b]
+  - @copilotkit/shared@1.5.16-next.1
+
+## 1.5.16-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.16-next.0
+
+## 1.5.15
+
+### Patch Changes
+
+- 06f9f35: - feat(interrupt): add copilotkit interrupt as messages with copilotkit interrupt convenience fn
+  - chore(deps): update dependencies for demos
+  - chore(interrupt-as-message): add e2e test for interrupt as message
+- 7b3141d: - feat(interrupt): support LG interrupt with useLangGraphInterrupt hook
+  - chore(interrupt): add e2e test to interrupt functionality
+  - feat(interrupt): add support for multiple interrupts and conditions
+- 68bdbcd: - fix(runtime): enable multi-agent flows while preventing recursive self-calls
+- c14f9db: - add headers handling to other LangGraphClients
+- eb315bd: - fix: allow empty langsmith api key
+- Updated dependencies [7b3141d]
+  - @copilotkit/shared@1.5.15
+
 ## 1.5.15-next.8
 
 ### Patch Changes

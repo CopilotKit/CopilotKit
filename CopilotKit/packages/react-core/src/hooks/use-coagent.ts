@@ -1,7 +1,7 @@
 /**
  * <Callout type="info">
  *   Usage of this hook assumes some additional setup in your application, for more information
- *   on that see the CoAgents <span className="text-blue-500">[getting started guide](/coagents/quickstart)</span>.
+ *   on that see the CoAgents <span className="text-blue-500">[getting started guide](/coagents/quickstart/langgraph)</span>.
  * </Callout>
  * <Frame className="my-12">
  *   <img
@@ -101,6 +101,7 @@ import { Message } from "@copilotkit/runtime-client-gql";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
 import { useToast } from "../components/toast/toast-provider";
 import { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
+import { parseJson } from "@copilotkit/shared";
 
 interface WithInternalStateManagementAndInitial<T> {
   /**
@@ -111,6 +112,10 @@ interface WithInternalStateManagementAndInitial<T> {
    * The initial state of the agent.
    */
   initialState: T;
+  /**
+   * Config to pass to a LangGraph Agent
+   */
+  configurable?: Record<string, any>;
 }
 
 interface WithInternalStateManagement {
@@ -122,6 +127,10 @@ interface WithInternalStateManagement {
    * Optional initialState with default type any
    */
   initialState?: any;
+  /**
+   * Config to pass to a LangGraph Agent
+   */
+  configurable?: Record<string, any>;
 }
 
 interface WithExternalStateManagement<T> {
@@ -137,6 +146,10 @@ interface WithExternalStateManagement<T> {
    * A function to update the state of the agent.
    */
   setState: (newState: T | ((prevState: T | undefined) => T)) => void;
+  /**
+   * Config to pass to a LangGraph Agent
+   */
+  configurable?: Record<string, any>;
 }
 
 type UseCoagentOptions<T> =
@@ -201,7 +214,7 @@ export type HintFunction = (params: HintFunctionParams) => Message | undefined;
  * This hook is used to integrate an agent into your application. With its use, you can
  * render and update the state of the agent, allowing for a dynamic and interactive experience.
  * We call these shared state experiences "agentic copilots". To get started using agentic copilots, which
- * we refer to as CoAgents, checkout the documentation at https://docs.copilotkit.ai/coagents/quickstart.
+ * we refer to as CoAgents, checkout the documentation at https://docs.copilotkit.ai/coagents/quickstart/langgraph.
  */
 export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentReturnType<T> {
   const generalContext = useCopilotContext();
@@ -244,6 +257,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
       return {
         name,
         state: isInternalStateManagementWithInitial(options) ? options.initialState : {},
+        configurable: options.configurable ?? {},
         running: false,
         active: false,
         threadId: undefined,
@@ -289,7 +303,7 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
       if (result.data?.loadAgentState?.threadExists && newState && newState != "{}") {
         lastLoadedState.current = newState;
         lastLoadedThreadId.current = threadId;
-        const fetchedState = JSON.parse(newState);
+        const fetchedState = parseJson(newState, {});
         isExternalStateManagement(options)
           ? options.setState(fetchedState)
           : setState(fetchedState);

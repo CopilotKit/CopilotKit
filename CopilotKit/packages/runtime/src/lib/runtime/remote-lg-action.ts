@@ -13,6 +13,7 @@ import telemetry from "../telemetry-client";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import { MetaEventName } from "../../graphql/types/meta-events.type";
 import { RunsStreamPayload } from "@langchain/langgraph-sdk/dist/types";
+import { parseJson } from "@copilotkit/shared";
 
 type State = Record<string, any>;
 
@@ -24,6 +25,7 @@ interface ExecutionArgs extends Omit<LangGraphPlatformEndpoint, "agents"> {
   nodeName: string;
   messages: Message[];
   state: State;
+  configurable?: Record<string, any>;
   properties: CopilotRequestContextProperties;
   actions: ExecutionAction[];
   logger: Logger;
@@ -87,6 +89,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     agent,
     nodeName: initialNodeName,
     state: initialState,
+    configurable,
     messages,
     actions,
     logger,
@@ -161,7 +164,8 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     payload.command = { resume: formattedMessages[formattedMessages.length - 1] };
   }
   if (lgInterruptMetaEvent?.response) {
-    payload.command = { resume: lgInterruptMetaEvent.response };
+    let response = lgInterruptMetaEvent.response;
+    payload.command = { resume: parseJson(response, response) };
   }
 
   if (mode === "continue" && !activeInterruptEvent) {
@@ -196,6 +200,9 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   }
   const assistantId = retrievedAssistant.assistant_id;
 
+  if (configurable) {
+    await client.assistants.update(assistantId, { config: { configurable } });
+  }
   const graphInfo = await client.assistants.getGraph(assistantId);
 
   let streamingStateExtractor = new StreamingStateExtractor([]);
@@ -234,11 +241,12 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
           typeof interruptValue != "string" &&
           "__copilotkit_interrupt_value__" in interruptValue
         ) {
+          const evValue = interruptValue.__copilotkit_interrupt_value__;
           emit(
             JSON.stringify({
               event: LangGraphEventTypes.OnCopilotKitInterrupt,
               data: {
-                value: interruptValue.__copilotkit_interrupt_value__,
+                value: typeof evValue === "string" ? evValue : JSON.stringify(evValue),
                 messages: langchainMessagesToCopilotKit(interruptValue.__copilotkit_messages__),
               },
             }) + "\n",
@@ -247,7 +255,10 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
           emit(
             JSON.stringify({
               event: LangGraphEventTypes.OnInterrupt,
-              value: interruptValue,
+              value:
+                typeof interruptValue === "string"
+                  ? interruptValue
+                  : JSON.stringify(interruptValue),
             }) + "\n",
           );
         }
@@ -261,7 +272,7 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
       }
 
       const event = chunk.data;
-      const currentNodeName = event.name;
+      const currentNodeName = event.metadata.langgraph_node;
       const eventType = event.event;
       const runId = event.metadata.run_id;
       externalRunId = runId;

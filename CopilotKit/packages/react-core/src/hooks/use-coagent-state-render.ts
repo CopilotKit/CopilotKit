@@ -1,9 +1,4 @@
 /**
- * <Callout type="info">
- *   Usage of this hook assumes some additional setup in your application, for more information
- *   on that see the CoAgents <span className="text-blue-500">[Agentic Generative UI documentation](/coagents/chat-ui/render-agent-state)</span>.
- * </Callout>
- *
  * The useCoAgentStateRender hook allows you to render UI components or text based on a Agentic Copilot's state.
  * This is particularly useful for showing intermediate state or progress during Agentic Copilot operations.
  *
@@ -57,7 +52,7 @@ import { useToast } from "../components/toast/toast-provider";
  * useful for showing intermediate state or progress during Agentic Copilot operations.
  * To get started using rendering intermediate state through this hook, checkout the documentation.
  *
- * https://docs.copilotkit.ai/coagents/chat-ui/render-agent-state.
+ * https://docs.copilotkit.ai/coagents/shared-state/predictive-state-updates
  */
 
 // We implement useCoAgentStateRender dependency handling so that
@@ -80,7 +75,6 @@ export function useCoAgentStateRender<T = any>(
   useEffect(() => {
     if (availableAgents?.length && !availableAgents.some((a) => a.name === action.name)) {
       const message = `(useCoAgentStateRender): Agent "${action.name}" not found. Make sure the agent exists and is properly configured.`;
-      console.warn(message);
       addToast({ type: "warning", message });
     }
   }, [availableAgents]);
@@ -97,6 +91,43 @@ export function useCoAgentStateRender<T = any>(
       }
     }
   }
+
+  useEffect(() => {
+    // Check for duplicates by comparing against all other actions
+    const currentId = idRef.current;
+    const hasDuplicate = Object.entries(coAgentStateRenders).some(([id, otherAction]) => {
+      // Skip comparing with self
+      if (id === currentId) return false;
+
+      // Different agent names are never duplicates
+      if (otherAction.name !== action.name) return false;
+
+      // Same agent names:
+      const hasNodeName = !!action.nodeName;
+      const hasOtherNodeName = !!otherAction.nodeName;
+
+      // If neither has nodeName, they're duplicates
+      if (!hasNodeName && !hasOtherNodeName) return true;
+
+      // If one has nodeName and other doesn't, they're not duplicates
+      if (hasNodeName !== hasOtherNodeName) return false;
+
+      // If both have nodeName, they're duplicates only if the names match
+      return action.nodeName === otherAction.nodeName;
+    });
+
+    if (hasDuplicate) {
+      const message = action.nodeName
+        ? `Found multiple state renders for agent ${action.name} and node ${action.nodeName}. State renders might get overridden`
+        : `Found multiple state renders for agent ${action.name}. State renders might get overridden`;
+
+      addToast({
+        type: "warning",
+        message,
+        id: `dup-action-${action.name}`,
+      });
+    }
+  }, [coAgentStateRenders]);
 
   useEffect(() => {
     setCoAgentStateRender(idRef.current, action as any);

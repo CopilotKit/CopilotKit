@@ -1,11 +1,13 @@
 {
   "extends": "../../utilities/tsconfig/base.json",
   "compilerOptions": {
+    "types": ["node", "jest"],
     "lib": ["es2017", "dom"],
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "strict": false,
+    "resolveJsonModule": true
   },
-  "include": ["./src/**/*.ts"],
-  "exclude": ["dist", "build", "node_modules", "**/*.test.ts", "**/*.test.tsx", "**/__tests__/*"]
+  "include": ["./src/**/*.ts", "./src/**/*.test.ts", "./src/**/__tests__/*"],
+  "exclude": ["dist", "build", "node_modules"]
 }

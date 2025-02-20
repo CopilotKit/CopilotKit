@@ -1,131 +1,98 @@
-Here are various ways to deploy your `LangGraph` agent.
-
-<Tabs groupId="lg-deployment-type" items={['Studio (local development)', 'CLI (local development)', 'CLI (self hosted)', 'Platform (cloud)']}>
-  <Tab value="Studio (local development)">
-    For local deployment during development, you can [use LangGraph Studio](https://langchain-ai.github.io/langgraph/cloud/how-tos/test_local_deployment/).
-    <Callout type="info">
-      To ensure a successful deployment, follow these steps from the LangGraph Studio documentation:
-      1. Make sure your agent folder contains a `langgraph.json` file.
-      2. In the `langgraph.json` file, reference the path to a `.env` file.
-      3. In the `.env` file, include your `LANGSMITH_API_KEY`.
-    </Callout>
-
-    A successful deployment will yield an API URL (often referred to here as "deployment URL").
-    It will generally look like this: `http://localhost:63899`.
-
-    Come back with that URL and a LangSmith API key before proceeding.
-
-    <img src="/images/langgraph-studio-local-url.png" alt="LangGraph Studio Local URL" className="my-4" />
-
-  </Tab>
-
-  <Tab value="CLI (local development)">
-    For local development, you can use the LangGraph CLI to deploy your LangGraph agent.
-    To ensure a successful deployment, follow these steps from the LangGraph CLI documentation:
-      1. Make sure your agent folder contains a `langgraph.json` file.
-      2. In the `langgraph.json` file, reference the path to a `.env` file.
-      3. In the `.env` file, include your `LANGSMITH_API_KEY`.
-      4. Install the LangGraph CLI: `pip install "langgraph-cli[inmem]>=0.1.55"`
-      5. Run agent locally: `langgraph up --port <port> --host 0.0.0.0 --no-browser`
-    <Callout type="warn">
-      If you are using LangGraph.js, at the moment, you can only run the agent locally using `langgraph up`. LangGraph.js does not support running the agent using development server (`langgraph dev`).
-    </Callout>
-  </Tab>
-
-  <Tab value="CLI (self hosted)">
-    For self-hosting a LangGraph.js agent, follow these steps:
-
-    1. Set up your project structure:
-    ```bash
-    mkdir my-langgraph-app
-    cd my-langgraph-app
-    npm init -y
-    ```
-
-    2. Install dependencies:
-    ```bash
-    npm install @langchain/langgraph
-    ```
-
-    3. Create the necessary project files and directories:
-    ```bash
-    mkdir -p src/utils
-    touch src/utils/tools.ts src/utils/nodes.ts src/utils/state.ts src/agent.ts
-    touch .env langgraph.json
-    ```
-
-    4. Configure your `langgraph.json`:
-    ```json
-    {
-      "node_version": "20",
-      "dockerfile_lines": [],
-      "dependencies": ["."],
-      "graphs": {
-        "agent": "./src/agent.ts:graph"
-      },
-      "env": ".env"
-    }
-    ```
-
-    5. Create a basic agent implementation in `src/agent.ts`:
-    ```typescript
-    import { StateGraph, START, END } from '@langchain/langgraph';
-
-    interface MyGraphState {
-      // Add your state properties here
-    }
-
-    function myNode(state: MyGraphState) {
-      return {};
-    }
-
-    const graphBuilder = new StateGraph({ channels: {} })
-      .addNode('myNode', myNode)
-      .addEdge(START, 'myNode')
-      .addEdge('myNode', END);
-
-    export const graph = graphBuilder.compile();
-    ```
-
-    6. Create a Dockerfile:
-    ```dockerfile
-    FROM node:20
-
-    WORKDIR /app
-
-    COPY package*.json ./
-    RUN npm install
-
-    COPY . .
-
-    CMD ["node", "dist/agent.js"]
-    ```
-
-    7. Build and run:
-    ```bash
-    # Compile TypeScript
-    npx tsc
-
-    # Build Docker image
-    docker build -t my-langgraph-app .
-
-    # Run the container
-    docker run -p 3000:3000 my-langgraph-app
-    ```
+<Tabs groupId="lg-deployment-type" items={['Local (LangGraph Studio)', 'Self hosted (FastAPI)', 'LangGraph Platform']}>
+  <Tab value="Local (LangGraph Studio)">
+    For local development, you can use the [LangGraph CLI](https://langchain-ai.github.io/langgraph/cloud/reference/cli/) to start a development server and LangGraph studio session.
 
     <Callout type="info">
-      Make sure you have Node.js, npm, TypeScript, and Docker installed on your machine before starting the deployment process.
+      You will need a [LangSmith account](https://smith.langchain.com) to use this method.
     </Callout>
+  
+    ```bash
+    # For Python 3.11 or above
+    langgraph dev --host localhost --port 8000 
+    ```
 
+    ```bash
+    # For TypeScript with Node 18 or above
+    npx @langchain/langgraph-cli dev --host localhost --port 8000
+    ```
+
+    After starting the LangGraph server, the deployment URL will be `http://localhost:8000`.
+
+    <Accordions className="mb-4">
+        <Accordion title="Having trouble?">
+            If you cannot run the `langgraph dev` command, or encounter any issues with it, try this one instead:
+            `uvx --refresh --from "langgraph-cli[inmem]" --with-editable . --python 3.12 langgraph dev`
+        </Accordion>
+    </Accordions>
   </Tab>
 
-  <Tab value="Platform (cloud)">
+  <Tab value="Self hosted (FastAPI)">
+    <Callout type="info">
+      This method is currently only supported for Python LangGraph agents.
+    </Callout>
+
+    1. Add a `.env` file to contain your LangSmith API key.
+
+    ```plaintext title=".env"
+    LANGSMITH_API_KEY=your_langsmith_api_key
+    ```
+    
+    2. Next, use CopilotKit's FastAPI integration to serve your LangGraph agent.
+
+    ```python title="server.py"
+    import os
+    from fastapi import FastAPI
+    import uvicorn
+    from copilotkit.integrations.fastapi import add_fastapi_endpoint # [!code highlight]
+    from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent # [!code highlight]
+    from sample_agent.agent import graph # the coagents-starter path, replace this if its different # [!code highlight]
+    
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    app = FastAPI()
+    # [!code highlight:10]
+    sdk = CopilotKitRemoteEndpoint(
+        agents=[
+            LangGraphAgent(
+                name="sample_agent", # the name of your agent defined in langgraph.json
+                description="Describe your agent here, will be used for multi-agent orchestration",
+                graph=graph, # the graph object from your langgraph import
+            )
+        ],
+    )
+
+    # Use CopilotKit's FastAPI integration to add a new endpoint for your LangGraph agents # [!code highlight:2]
+    add_fastapi_endpoint(app, sdk, "/copilotkit", use_thread_pool=False)
+
+    # add new route for health check
+    @app.get("/health")
+    def health():
+        """Health check."""
+        return {"status": "ok"}
+
+    def main():
+        """Run the uvicorn server."""
+        port = int(os.getenv("PORT", "8000"))
+        uvicorn.run(
+            "sample_agent.demo:app", # the path to your FastAPI file, replace this if its different
+            host="0.0.0.0",
+            port=port,
+            reload=True,
+        )
+
+    ```
+  </Tab>
+
+  <Tab value="LangGraph Platform">
     For production, you can deploy to LangGraph Platform by following the official [LangGraph Platform deployment guide](https://langchain-ai.github.io/langgraph/cloud/deployment/cloud/).
 
-    A successful deployment will yield an API URL (often referred to here as "deployment URL").
-    It will look like this: `https://{project-identifiers}.langgraph.app`.
-
     Come back with that URL and a LangSmith API key before proceeding.
 
+    <Callout type="info">
+      A successful deployment will yield an API URL (often referred to here as "deployment URL").
+      In LangGraph Platform, it will look like this: `https://{project-identifiers}.langgraph.app`.
+    </Callout>
   </Tab>
 </Tabs>
+

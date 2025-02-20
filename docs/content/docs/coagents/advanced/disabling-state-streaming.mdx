@@ -1,0 +1,88 @@
+---
+title: "Disabling state streaming"
+icon: "lucide/Cog"
+description: "Granularly control what is streamed to the frontend."
+---
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+
+## What is this?
+By default, CopilotKit will stream both your state and tool calls to the frontend.
+You can disable this by using CopilotKit's custom `RunnableConfig`.
+
+## When should I use this?
+
+Occasionally, you'll want to disable streaming temporarily — for example, the LLM may be
+doing something the current user should not see, like emitting tool calls or questions 
+pertaining to other employees in an HR system.
+
+## Implementation
+
+### Disable all streaming
+You can disable all message streaming and tool call streaming by passing `emit_messages=False` and `emit_tool_calls=False` to the CopilotKit config.
+
+<Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+    <Tab value="Python">
+        ```python
+        from copilotkit.langgraph import copilotkit_customize_config
+
+        async def frontend_actions_node(state: AgentState, config: RunnableConfig):
+            
+            # 1) Configure CopilotKit not to emit messages
+            modifiedConfig = copilotkit_customize_config(
+                config,
+                emit_messages=False, # if you want to disable message streaming # [!code highlight]
+                emit_tool_calls=False # if you want to disable tool call streaming # [!code highlight]
+            )
+
+            # 2) Provide the actions to the LLM
+            model = ChatOpenAI(model="gpt-4o").bind(state.copilotkit.actions)
+
+            # 3) Call the model with CopilotKit's modified config  # [!code highlight]
+            response = await model.ainvoke(*state, modifiedConfig) # [!code highlight]
+
+            # don't return the new response to hide it from the user
+            return state
+        ```
+
+    <Callout type="warn" title="BEWARE!">
+        In LangGraph Python, the `config` variable in the surrounding namespace is **implicitly** passed into LangChain LLM calls, even when not explicitly provided.
+        
+        This is why we create a new variable `modifiedConfig` rather than modifying `config` directly. If we modified `config` itself, it would change the default configuration for all subsequent LLM calls in that namespace.
+
+        ```python
+        # if we override the config variable name with a new value
+        config = copilotkit_customize_config(config, ...)
+
+        # it will affect every subsequent LangChain LLM call in the same namespace, even when `config` is not explicitly provided
+        response = await model2.ainvoke(*state) # implicitly uses the modified config!
+        ```
+    </Callout>
+    </Tab>
+    <Tab value="TypeScript">
+        ```typescript
+        import { copilotkitCustomizeConfig } from '@copilotkit/sdk-js/langgraph';
+
+        async function frontendActionsNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
+            // 1) Configure CopilotKit not to emit messages
+            const modifiedConfig = copilotkitCustomizeConfig(config, {
+                emitMessages: false, // if you want to disable message streaming
+                emitToolCalls: false, // if you want to disable tool call streaming
+            });
+
+            // 2) Provide the actions to the LLM
+            const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
+            const modelWithTools = model.bindTools!([
+                ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions || []),
+                ...tools,
+            ]);
+
+            // 3) Call the model with CopilotKit's modified config
+            const response = await modelWithTools.invoke(state.messages, modifiedConfig);
+
+            // don't return the new response to hide it from the user
+            return state;
+        }
+        ```
+    </Tab>
+</Tabs>
+

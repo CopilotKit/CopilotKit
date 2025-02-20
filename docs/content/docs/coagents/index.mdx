@@ -1,6 +1,6 @@
 ---
-title: CoAgents (Public Beta)
-icon: "lucide/Lightbulb"
+title: Introduction
+icon: "lucide/Sparkles"
 description: Build Agent-Native Applications (ANAs) powered by CopilotKit and LangGraph.
 ---
 
@@ -57,42 +57,42 @@ Everything you need to build Agent-Native Applications (ANAs), right out of the 
       title: "Agentic Chat UI",
       description:
         "In-app chat powered by your agent.",
-      href: "/coagents/chat-ui/chat-with-agent",
+      href: "/coagents/agentic-chat-ui",
     },
     {
       icon: FaSync,
       title: "Shared State",
       description:
         "Your agent can see everything in your app, and vice versa.",
-      href: "/coagents/react-ui/in-app-agent-read",
+      href: "/coagents/shared-state",
     },
     {
       icon: LuLayoutTemplate,
       title: "Generative UI",
       description:
         "UI that updates in real-time based on your agent's state.",
-      href: "/coagents/chat-ui/render-agent-state",
+      href: "/coagents/generative-ui",
     },
     {
       icon: LuWand2,
       title: "Frontend Tools",
       description:
         "Give your agent the ability to take action in your application.",
-      href: "/coagents/advanced/copilotkit-state",
+      href: "/coagents/frontend-actions",
     },
     {
       icon: LuWand2,
       title: "Multi-Agent Coordination",
       description:
         "Route your agent to the right agent based on the user's request.",
-      href: "/coagents/advanced/copilotkit-state",
+      href: "/coagents/multi-agent-flows",
     },
     {
       icon: LuUserCog,
       title: "Human-in-the-Loop",
       description:
         "Set smart checkpoints where humans can guide your agents.",
-      href: "/coagents/chat-ui/hitl",
+      href: "/coagents/human-in-the-loop",
     },
   ]}
 />
@@ -113,8 +113,8 @@ Get started with CoAgents in as little as 5 minutes with one of our guides or tu
     {
       icon: LuPlay,
       title: "Quickstart",
-      description: "Learn how to build your first CoAgent in 5 minutes.",
-      href: "/coagents/quickstart",
+      description: "Learn how to build your first CoAgent in 10 minutes.",
+      href: "/coagents/quickstart/langgraph",
     },
     {
       icon: LuPlane,
@@ -150,13 +150,12 @@ For more on this topic, checkout our [agentic copilot](/coagents/concepts/agenti
 
 </Accordion>
 <Accordion title="Can I attach to an existing thread?">
-Development of CoAgents is ongoing. One part of this is the ability to attach to an existing thread which is a high priority on our roadmap.
-
-Stay tuned for updates!
+Yes, check out our [Guide on Threads](/coagents/persistence/loading-message-history) for more information.
 
 </Accordion>
 <Accordion title="Can I use CopilotKit without LangGraph?">
-For CoAgents, the answer is no. LangGraph is the only supported agent framework for CoAgents.
+
+Currently we only support LangGraph for CoAgents. We will be adding support for more agent frameworks very soon.
 
 However, if you are not looking to work with agents, CopilotKit is a complete framework for building AI-powered applications. LangGraph is just one tool of many that we integrate with to provide
 rich AI experiences.

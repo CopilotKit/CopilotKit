@@ -1,6 +1,7 @@
 ---
 title: "Customize AI Assistant Behavior"
 description: "Learn how to customize the behavior of your AI assistant."
+icon: "lucide/NotepadText"
 ---
 
 
@@ -14,20 +15,18 @@ It can be customized for **Copilot UI** as well as **programmatically**:
   <Tab value="Copilot UI">
     ### Copilot UI
 
-    Copilot UI components implements `CopilotChatProps`, which accepts an `instructions` property:
+    Copilot UI components accept an `instructions` property:
 
     ```tsx title="CustomCopilot.tsx"
-    import { CopilotChat, CopilotChatProps } from "@copilotkit/react-ui";
+    import { CopilotChat } from "@copilotkit/react-ui";
 
-    const CustomCopilot: React.FC<CopilotChatProps> = () => (
-      <CopilotChat
-        instructions="You are a helpful assistant specializing in tax preparation. Provide concise and accurate answers to tax-related questions." // [!code highlight]
-        labels={{
-          title: "Tax Preparation Assistant",
-          initial: "How can I help you with your tax preparation today?",
-        }}
-      />
-    );
+    <CopilotChat
+      instructions="You are a helpful assistant specializing in tax preparation. Provide concise and accurate answers to tax-related questions." // [!code highlight]
+      labels={{
+        title: "Tax Preparation Assistant",
+        initial: "How can I help you with your tax preparation today?",
+      }}
+    />
     ```
 
   </Tab>

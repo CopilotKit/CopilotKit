@@ -1,4 +1,4 @@
-name: Deploy Preview Environments
+name: Preview Environments
 
 on:
   pull_request:
@@ -10,7 +10,7 @@ on:
       - main
 
 concurrency:
-  group: preview-${{ github.ref }}-deploy
+  group: preview-${{ github.event.pull_request.number }}-deploy
   cancel-in-progress: false
 
 jobs:
@@ -31,17 +31,17 @@ jobs:
               project: "coagents-research-canvas",
               type: "agent",
               runtime: "js",
-              deps: "remote-deps",
+              deps: "local-deps",
             }
           - { project: "coagents-research-canvas", type: "ui" }
           - { project: "coagents-routing", type: "agent", runtime: "python", deps: "local-deps" }
-          - { project: "coagents-routing", type: "agent", runtime: "js", deps: "remote-deps" }
+          - { project: "coagents-routing", type: "agent", runtime: "js", deps: "local-deps" }
           - { project: "coagents-routing", type: "ui" }
           - { project: "coagents-qa-text", type: "agent", runtime: "python", deps: "local-deps" }
-          - { project: "coagents-qa-text", type: "agent", runtime: "js", deps: "remote-deps" }
+          - { project: "coagents-qa-text", type: "agent", runtime: "js", deps: "local-deps" }
           - { project: "coagents-qa-text", type: "ui" }
           - { project: "coagents-qa-native", type: "agent", runtime: "python", deps: "local-deps" }
-          - { project: "coagents-qa-native", type: "agent", runtime: "js", deps: "remote-deps" }
+          - { project: "coagents-qa-native", type: "agent", runtime: "js", deps: "local-deps" }
           - { project: "coagents-qa-native", type: "ui" }
           - { project: "next-openai", type: "next-openai" }
     steps:
@@ -79,6 +79,8 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: 21.x
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
 
       - name: (UI) Install app dependencies
         if: matrix.app.type == 'ui'
@@ -124,7 +126,7 @@ jobs:
             -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-ui-${{ github.run_id }} \
             --build-arg APP_DIR=examples/${{ matrix.app.project }}/${{ matrix.app.type }} \
             -f ./examples/Dockerfile.${{ matrix.app.type }} \
-            --platform=linux/arm64 \
+            --platform=linux/amd64 \
             --provenance=false \
             --push \
             .
@@ -137,7 +139,7 @@ jobs:
           docker buildx build \
             -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:next-openai-${{ github.run_id }} \
             -f ./CopilotKit/examples/next-openai/Dockerfile \
-            --platform=linux/arm64 \
+            --platform=linux/amd64 \
             --provenance=false \
             --push \
             .
@@ -152,7 +154,7 @@ jobs:
             --build-arg APP_DIR=examples/${{ matrix.app.project }}/agent \
             -f ./examples/Dockerfile.agent-python \
             --build-arg WITH_LOCAL_DEPS=${{ matrix.app.deps == 'local-deps' }} \
-            --platform=linux/arm64 \
+            --platform=linux/amd64 \
             --provenance=false \
             --push \
             .
@@ -166,7 +168,7 @@ jobs:
             -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-agent-js-${{ matrix.app.deps }}-${{ github.run_id }} \
             --build-arg APP_DIR=examples/${{ matrix.app.project }}/agent-js \
             -f ./examples/Dockerfile.agent-js \
-            --platform=linux/arm64 \
+            --platform=linux/amd64 \
             --provenance=false \
             --push \
             .
@@ -174,14 +176,11 @@ jobs:
           DOCKER_BUILDKIT: 1
 
   deploy:
+    runs-on: ubuntu-latest
     name: Deploy Preview Environments
-    runs-on: ubuntu-20.04
     needs: build_images
     outputs:
       e2e-urls: ${{ steps.export-e2e-urls.outputs.e2e-urls }}
-    defaults:
-      run:
-        working-directory: examples/helmfile
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -193,13 +192,6 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      - name: Setup helmfile
-        uses: mamezou-tech/setup-helmfile@v1.2.0
-
-      - name: EKS Config
-        run: |
-          aws eks --region us-east-1 update-kubeconfig --name copilotcloud-staging-eks
-
       - name: Set Environment Name
         id: set-environment-name
         run: |
@@ -208,19 +200,6 @@ jobs:
           elif [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
             echo "environment=main" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Prepare Environment Config
-        run: |
-          cat > ./override-values.yaml << 'EOL'
-          environment: ${{ steps.set-environment-name.outputs.environment }}
-          namespace: prv-${{ steps.set-environment-name.outputs.environment }}
-          globalImageTag: ${{ github.run_id }}
-          EOL
-
-      - name: Helmfile Sync
-        run: |
-          helmfile --state-values-file=./override-values.yaml sync
-          helmfile --state-values-file=./override-values.yaml --selector "name!=examples-shared" list --output json > helmfile-output.json
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -231,17 +210,48 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: 21.x
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Infra install dependencies
+        working-directory: infra
+        run: pnpm i
+
+      - name: Install AWS CDK
+        run: npm install -g aws-cdk
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Configure AWS Profile
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }} --profile default
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }} --profile default
+          aws configure set region us-east-1
+
+      - name: cdk deploy
+        working-directory: ./infra
+        run: cdk deploy --profile default --all --require-approval never --outputs-file=cdk_outputs.json --concurrency 10
+        env:
+          UNIQUE_ENV_ID: "PR${{ github.event.number }}"
+          GITHUB_ACTIONS_RUN_ID: "${{ github.run_id }}"
+          GITHUB_PR_NUMBER: "${{ github.event.number }}"
+
+      - name: Print CDK Outputs
+        working-directory: infra
+        run: |
+          cat cdk_outputs.json
 
       - name: Generate table from outputs
         id: generate-table
+        working-directory: infra
         run: |
           node generate-table
         env:
-          ENVIRONMENT: ${{ steps.set-environment-name.outputs.environment }}
-          NAMESPACE: prv-${{ steps.set-environment-name.outputs.environment }}
           GITHUB_SHA: ${{ github.sha }}
 
       - name: Delete a comment
@@ -256,16 +266,13 @@ jobs:
         uses: thollander/actions-comment-pull-request@v3
         with:
           comment-tag: preview-status-update
-          file-path: ./examples/helmfile/preview-comment.md
+          file-path: ./infra/preview-comment.md
 
       - name: Export Variable - E2E URLs
         id: export-e2e-urls
-        working-directory: examples/e2e
+        working-directory: infra
         run: |
-          echo "e2e-urls=$(cat test-config.json | base64 -w 0)" >> "$GITHUB_OUTPUT"
-
-      - name: Wait 60 seconds
-        run: sleep 60
+          echo "e2e-urls=$(node get-e2e-tests-urls.js | base64 -w 0)" >> "$GITHUB_OUTPUT"
 
   test:
     if: github.event_name == 'pull_request'

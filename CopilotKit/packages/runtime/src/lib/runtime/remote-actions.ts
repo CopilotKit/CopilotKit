@@ -103,7 +103,11 @@ async function fetchRemoteInfo({
         { url, status: response.status, body: await response.text() },
         "Failed to fetch actions from url",
       );
-      throw new ResolvedCopilotKitError({ status: response.status, isRemoteEndpoint: true });
+      throw new ResolvedCopilotKitError({
+        status: response.status,
+        url: fetchUrl,
+        isRemoteEndpoint: true,
+      });
     }
 
     const json = await response.json();

@@ -10,7 +10,7 @@ import OpenAI from "openai";
 
 const openai = new OpenAI();
 const serviceAdapter = new OpenAIAdapter({ openai } as any);
-const langsmithApiKey = process.env.LANGSMITH_API_KEY as string || "";
+const langsmithApiKey = process.env.LANGSMITH_API_KEY as string;
 
 export const POST = async (req: NextRequest) => {
   const searchParams = req.nextUrl.searchParams;

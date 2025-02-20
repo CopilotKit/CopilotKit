@@ -1,0 +1,213 @@
+import { MultiProviderContent, If } from "@/components/react/multi-provider-content/multi-provider-content";
+import { quickStartProviders } from "@/components/react/multi-provider-content/utils";
+import { IoLogoVercel, IoLogoNodejs } from "react-icons/io5";
+import { SiNestjs } from "react-icons/si";
+import { RiNextjsLine } from "react-icons/ri";
+
+<Tabs groupId="endpoint-type" items={[
+  { value: 'Next.js App Router', icon: <RiNextjsLine className="text-xl" /> },
+  { value: 'Next.js Pages Router', icon: <RiNextjsLine className="text-xl" /> },
+  { value: 'Node.js Express', icon: <IoLogoNodejs className="text-xl" /> },
+  { value: 'Node.js HTTP', icon: <IoLogoNodejs className="text-xl" /> },
+  { value: 'NestJS', icon: <SiNestjs className="text-xl" /> }
+]}>
+  {/* Next.js App Router */}
+  <Tab value="Next.js App Router">
+    Create a new route to handle the `/api/copilotkit` endpoint.
+
+    ```ts title="app/api/copilotkit/route.ts"
+    import {
+      CopilotRuntime,
+      ExperimentalEmptyAdapter,
+      copilotRuntimeNextJSAppRouterEndpoint,
+      langGraphPlatformEndpoint
+    } from "@copilotkit/runtime";;
+    import { NextRequest } from "next/server";
+
+    // You can use any service adapter here for multi-agent support.
+    const serviceAdapter = new ExperimentalEmptyAdapter();
+
+    const runtime = new CopilotRuntime({
+      remoteEndpoints: [
+        // added in next step...
+      ],
+    });
+
+    export const POST = async (req: NextRequest) => {
+      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+        runtime,
+        serviceAdapter,
+        endpoint: "/api/copilotkit",
+      });
+
+      return handleRequest(req);
+    };
+    ```
+  </Tab>
+
+    {/* Next.js Pages Router */}
+    <Tab value="Next.js Pages Router">
+        Create a new route to handle the `/api/copilotkit` endpoint:
+
+        ```ts title="pages/api/copilotkit.ts"
+        import {
+          CopilotRuntime,
+          ExperimentalEmptyAdapter,
+          copilotRuntimeNextJSPagesRouterEndpoint,
+        } from '@copilotkit/runtime';
+        import { NextApiRequest, NextApiResponse } from 'next';
+
+        const serviceAdapter = new ExperimentalEmptyAdapter();
+
+        const handler = async (req: NextApiRequest, res: NextApiResponse) => {
+          const runtime = new CopilotRuntime({
+            remoteEndpoints: [
+              // added in next step...
+            ],
+          });
+
+          const handleRequest = copilotRuntimeNextJSPagesRouterEndpoint({
+            endpoint: '/api/copilotkit',
+            runtime,
+            serviceAdapter,
+          });
+
+          return await handleRequest(req, res);
+        };
+
+        export default handler;
+        ```
+
+        Your Copilot Runtime endpoint should be available at `http://localhost:3000/api/copilotkit`.
+    </Tab>
+
+    {/* Node.js Express */}
+    <Tab value="Node.js Express">
+        Create a new Express.js app and set up the Copilot Runtime handler:
+
+        ```ts title="server.ts"
+        import express from 'express';
+        import {
+          CopilotRuntime,
+          ExperimentalEmptyAdapter,
+          copilotRuntimeNodeHttpEndpoint,
+          langGraphPlatformEndpoint
+        } from '@copilotkit/runtime';
+
+        const app = express();
+        const serviceAdapter = new ExperimentalEmptyAdapter();
+
+        app.use('/copilotkit', (req, res, next) => {
+          const runtime = new CopilotRuntime({
+            remoteEndpoints: [
+              // added in next step...
+            ],
+          });
+
+          const handler = copilotRuntimeNodeHttpEndpoint({
+            endpoint: '/copilotkit',
+            runtime,
+            serviceAdapter,
+          });
+
+          return handler(req, res, next);
+        });
+
+        app.listen(4000, () => {
+          console.log('Listening at http://localhost:4000/copilotkit');
+        });
+        ```
+
+        Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
+
+        <Callout type="warn">
+            Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
+        </Callout>
+    </Tab>
+
+    {/* Node.js HTTP */}
+    <Tab value="Node.js HTTP">
+        Set up a simple Node.js HTTP server and use the Copilot Runtime to handle requests:
+
+        ```ts title="server.ts"
+        import { createServer } from 'node:http';
+        import {
+          CopilotRuntime,
+          ExperimentalEmptyAdapter,
+          copilotRuntimeNodeHttpEndpoint,
+        } from '@copilotkit/runtime';
+
+
+        const serviceAdapter = new ExperimentalEmptyAdapter();
+
+        const server = createServer((req, res) => {
+          const runtime = new CopilotRuntime({
+            remoteEndpoints: [
+              // added in next step...
+            ],
+          });
+
+          const handler = copilotRuntimeNodeHttpEndpoint({
+            endpoint: '/copilotkit',
+            runtime,
+            serviceAdapter,
+          });
+
+          return handler(req, res);
+        });
+
+        server.listen(4000, () => {
+          console.log('Listening at http://localhost:4000/copilotkit');
+        });
+        ```
+
+        Your Copilot Runtime endpoint should be available at `http://localhost:4000/copilotkit`.
+
+        <Callout type="warn">
+            Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
+        </Callout>
+    </Tab>
+
+    {/* NestJS */}
+    <Tab value="NestJS">
+        Set up a controller in NestJS to handle the Copilot Runtime endpoint:
+
+        ```ts title="copilotkit.controller.ts"
+        import { All, Controller, Req, Res } from '@nestjs/common';
+        import { 
+          CopilotRuntime, 
+          copilotRuntimeNestEndpoint, 
+          ExperimentalEmptyAdapter,
+        } from '@copilotkit/runtime';
+        import { Request, Response } from 'express';
+
+
+        @Controller()
+        export class CopilotkitController {
+          @All('/copilotkit')
+          copilotkit(@Req() req: Request, @Res() res: Response) {
+            const serviceAdapter = new ExperimentalEmptyAdapter();
+            
+            const runtime = new CopilotRuntime({
+              remoteEndpoints: [
+                // added in next step...
+              ],
+            });
+
+            const handler = copilotRuntimeNestEndpoint({
+              runtime,
+              serviceAdapter,
+              endpoint: '/copilotkit',
+            });
+            return handler(req, res);
+          }
+        }
+        ```
+
+        Your Copilot Runtime endpoint should be available at `http://localhost:3000/copilotkit`.
+
+        <Callout type="warn">
+            Remember to point your `runtimeUrl` to the correct endpoint in your client-side code, e.g. `http://localhost:PORT/copilotkit`.
+        </Callout>
+    </Tab>
+</Tabs>

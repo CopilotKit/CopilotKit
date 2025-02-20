@@ -9,7 +9,7 @@ import { RiNextjsLine } from "react-icons/ri";
 
 <MultiProviderContent providersConfig={quickStartProviders}>
 <Callout type="info">
-  If you are planning to use a single LangGraph agent in [agent-lock mode](/coagents/advanced/router-mode-agent-lock#agent-lock-mode) as your agentic backend, your LLM adapter will only be used for peripherals such as suggestions, etc.
+  If you are planning to use a single LangGraph agent in [agent-lock mode](/coagents/multi-agent-flows) as your agentic backend, your LLM adapter will only be used for peripherals such as suggestions, etc.
 
 If you are not sure yet, simply ignore this note.
 
@@ -54,6 +54,29 @@ If you are not sure yet, simply ignore this note.
     </If>
 
     ### Setup the Runtime Endpoint
+
+    <Callout type="warn">
+        ### Serverless Function Timeouts
+
+        When deploying to serverless platforms (Vercel, AWS Lambda, etc.), be aware that default function timeouts may be too short for CopilotKit's streaming responses:
+
+        - Vercel defaults: 10s (Hobby), 15s (Pro)
+        - AWS Lambda default: 3s
+
+        **Solution options:**
+        1. Increase function timeout:
+            ```json
+            // vercel.json
+            {
+              "functions": {
+                "api/copilotkit/**/*": {
+                  "maxDuration": 60
+                }
+              }
+            }
+            ```
+        2. Use [Copilot Cloud](https://cloud.copilotkit.ai/) to avoid timeout issues entirely
+    </Callout>
 
     <Tabs groupId="endpoint-type" items={[
         { value: 'Next.js App Router', icon: <RiNextjsLine className="text-xl" /> },

@@ -9,9 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@copilotkit/react-core": "1.5.13",
-    "@copilotkit/react-ui": "1.5.13",
-    "@copilotkit/runtime": "1.5.13",
+    "@copilotkit/react-core": "1.5.20",
+    "@copilotkit/react-ui": "1.5.20",
+    "@copilotkit/runtime": "1.5.20",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-icons": "^1.3.2",
     "@radix-ui/react-select": "^2.1.2",
@@ -20,7 +20,7 @@
     "clsx": "^2.1.1",
     "lucide-react": "^0.451.0",
     "next": "15.1.0",
-    "openai": "^4.70.2",
+    "openai": "^4.85.1",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "tailwind-merge": "^2.5.3",

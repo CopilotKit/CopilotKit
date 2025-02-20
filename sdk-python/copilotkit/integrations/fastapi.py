@@ -2,7 +2,8 @@
 
 import logging
 import asyncio
-#
+import warnings
+
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Any, cast, Optional
 from fastapi import FastAPI, Request, HTTPException
@@ -26,9 +27,15 @@ def add_fastapi_endpoint(
         prefix: str,
         *,
         max_workers: int = 10,
-        use_thread_pool: bool = True,
+        use_thread_pool: bool = False,
     ):
     """Add FastAPI endpoint with configurable ThreadPoolExecutor size"""
+    if use_thread_pool:
+        warnings.warn(
+            "The 'use_thread_pool' parameter is deprecated " + 
+            "and will be removed in a future version.",
+            DeprecationWarning
+        )
     executor = ThreadPoolExecutor(max_workers=max_workers)
 
     def run_handler_in_thread(request: Request, sdk: CopilotKitRemoteEndpoint):
@@ -96,6 +103,7 @@ async def handler(request: Request, sdk: CopilotKitRemoteEndpoint):
     if method == 'POST' and path == 'agents/execute':
         thread_id = body.get("threadId")
         node_name = body.get("nodeName")
+        configurable = body.get("configurable")
 
         name = body_get_or_raise(body, "name")
         state = body_get_or_raise(body, "state")
@@ -110,6 +118,7 @@ async def handler(request: Request, sdk: CopilotKitRemoteEndpoint):
             node_name=node_name,
             name=name,
             state=state,
+            configurable=configurable,
             messages=messages,
             actions=actions,
             meta_events=meta_events,
@@ -119,7 +128,7 @@ async def handler(request: Request, sdk: CopilotKitRemoteEndpoint):
         thread_id = body_get_or_raise(body, "threadId")
         name = body_get_or_raise(body, "name")
 
-        return handle_get_agent_state(
+        return await handle_get_agent_state(
             sdk=sdk,
             context=context,
             thread_id=thread_id,
@@ -167,6 +176,7 @@ def handle_execute_agent( # pylint: disable=too-many-arguments
         node_name: str,
         name: str,
         state: dict,
+        configurable: Optional[dict] = None,
         messages: List[Message],
         actions: List[ActionDict],
         meta_events: Optional[List[MetaEvent]] = None,
@@ -179,6 +189,7 @@ def handle_execute_agent( # pylint: disable=too-many-arguments
             name=name,
             node_name=node_name,
             state=state,
+            configurable=configurable,
             messages=messages,
             actions=actions,
             meta_events=meta_events,
@@ -194,7 +205,7 @@ def handle_execute_agent( # pylint: disable=too-many-arguments
         logger.error("Agent execution error: %s", exc, exc_info=True)
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
-def handle_get_agent_state(
+async def handle_get_agent_state(
         *,
         sdk: CopilotKitRemoteEndpoint,
         context: CopilotKitContext,
@@ -203,7 +214,7 @@ def handle_get_agent_state(
     ):
     """Handle get agent state request with FastAPI"""
     try:
-        result = sdk.get_agent_state(
+        result = await sdk.get_agent_state(
             context=context,
             thread_id=thread_id,
             name=name,

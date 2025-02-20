@@ -1,5 +1,168 @@
 # @copilotkit/sdk-js
 
+## 1.6.0-next.6
+
+### Patch Changes
+
+- @copilotkit/shared@1.6.0-next.6
+
+## 1.6.0-next.5
+
+### Patch Changes
+
+- Updated dependencies [090203d]
+  - @copilotkit/shared@1.6.0-next.5
+
+## 1.6.0-next.4
+
+### Patch Changes
+
+- @copilotkit/shared@1.6.0-next.4
+
+## 1.6.0-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.6.0-next.3
+
+## 1.6.0-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.6.0-next.2
+
+## 1.6.0-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.6.0-next.1
+
+## 1.6.0-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.6.0-next.0
+
+## 1.5.20
+
+### Patch Changes
+
+- Updated dependencies [51f0d66]
+  - @copilotkit/shared@1.5.20
+
+## 1.5.20-next.0
+
+### Patch Changes
+
+- Updated dependencies [51f0d66]
+  - @copilotkit/shared@1.5.20-next.0
+
+## 1.5.19
+
+### Patch Changes
+
+- Updated dependencies [0dd1ab9]
+  - @copilotkit/shared@1.5.19
+
+## 1.5.19-next.1
+
+### Patch Changes
+
+- Updated dependencies [0dd1ab9]
+  - @copilotkit/shared@1.5.19-next.1
+
+## 1.5.19-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.19-next.0
+
+## 1.5.18
+
+### Patch Changes
+
+- Updated dependencies [d47cd26]
+- Updated dependencies [f77a7b9]
+- Updated dependencies [38d3ac2]
+  - @copilotkit/shared@1.5.18
+
+## 1.5.18-next.3
+
+### Patch Changes
+
+- Updated dependencies [f77a7b9]
+  - @copilotkit/shared@1.5.18-next.3
+
+## 1.5.18-next.2
+
+### Patch Changes
+
+- Updated dependencies [38d3ac2]
+  - @copilotkit/shared@1.5.18-next.2
+
+## 1.5.18-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.18-next.1
+
+## 1.5.18-next.0
+
+### Patch Changes
+
+- Updated dependencies [d47cd26]
+  - @copilotkit/shared@1.5.18-next.0
+
+## 1.5.17
+
+### Patch Changes
+
+- Updated dependencies [1fc3902]
+  - @copilotkit/shared@1.5.17
+
+## 1.5.17-next.0
+
+### Patch Changes
+
+- Updated dependencies [1fc3902]
+  - @copilotkit/shared@1.5.17-next.0
+
+## 1.5.16
+
+### Patch Changes
+
+- Updated dependencies [48b7c7b]
+  - @copilotkit/shared@1.5.16
+
+## 1.5.16-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.16-next.2
+
+## 1.5.16-next.1
+
+### Patch Changes
+
+- Updated dependencies [48b7c7b]
+  - @copilotkit/shared@1.5.16-next.1
+
+## 1.5.16-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.5.16-next.0
+
+## 1.5.15
+
+### Patch Changes
+
+- 06f9f35: - feat(interrupt): add copilotkit interrupt as messages with copilotkit interrupt convenience fn
+  - chore(deps): update dependencies for demos
+  - chore(interrupt-as-message): add e2e test for interrupt as message
+- Updated dependencies [7b3141d]
+  - @copilotkit/shared@1.5.15
+
 ## 1.5.15-next.8
 
 ### Patch Changes

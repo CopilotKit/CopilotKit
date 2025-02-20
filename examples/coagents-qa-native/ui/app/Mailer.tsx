@@ -64,7 +64,12 @@ export function Mailer() {
   });
 
   useLangGraphInterrupt({
-    render: ({ event, resolve }) => <InterruptForm event={event} resolve={resolve} />
+    render: ({ event, resolve }) => <InterruptForm event={event} resolve={resolve} />,
+    enabled: ({ eventValue, agentMetadata }) => {
+      return eventValue === "Please provide a sender name which will appear in the email"
+          && agentMetadata.agentName === 'email_agent'
+          && agentMetadata.nodeName === 'email_node';
+    }
   });
 
   return (

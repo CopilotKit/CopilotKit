@@ -40,6 +40,7 @@ import {
   LangGraphInterruptEvent,
   MetaEventInput,
 } from "@copilotkit/runtime-client-gql";
+import { parseJson } from "@copilotkit/shared";
 
 export type UseChatOptions = {
   /**
@@ -243,6 +244,20 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
   const runChatCompletion = useAsyncCallback(
     async (previousMessages: Message[]): Promise<Message[]> => {
       setIsLoading(true);
+      const interruptEvent = langGraphInterruptAction?.event;
+      // In case an interrupt event exist and valid but has no response yet, we cannot process further messages to an agent
+      if (
+        interruptEvent?.name === MetaEventName.LangGraphInterruptEvent &&
+        interruptEvent?.value &&
+        !interruptEvent?.response &&
+        agentSessionRef.current
+      ) {
+        addErrorToast([
+          new Error(
+            "A message was sent while interrupt is active. This will cause failure on the agent side",
+          ),
+        ]);
+      }
 
       // this message is just a placeholder. It will disappear once the first real message
       // is received
@@ -304,6 +319,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             agentStates: Object.values(coagentStatesRef.current!).map((state) => ({
               agentName: state.name,
               state: JSON.stringify(state.state),
+              configurable: JSON.stringify(state.configurable ?? {}),
             })),
             forwardedParameters: options.forwardedParameters || {},
           },
@@ -361,8 +377,13 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           let rawMessagesResponse = value.generateCopilotResponse.messages;
           (value.generateCopilotResponse?.metaEvents ?? []).forEach((ev) => {
             if (ev.name === MetaEventName.LangGraphInterruptEvent) {
+              let eventValue = langGraphInterruptEvent(ev as LangGraphInterruptEvent).value;
+              eventValue = parseJson(eventValue, eventValue);
               setLangGraphInterruptAction({
-                event: langGraphInterruptEvent(ev as LangGraphInterruptEvent),
+                event: {
+                  ...langGraphInterruptEvent(ev as LangGraphInterruptEvent),
+                  value: eventValue,
+                },
               });
             }
             if (ev.name === MetaEventName.CopilotKitLangGraphInterruptEvent) {
@@ -660,12 +681,16 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             if (event.response) {
               // Flush interrupt event from state
               setLangGraphInterruptAction(null);
+              const value = (event as LangGraphInterruptEvent).value;
               return [
                 ...acc,
                 {
                   name: event.name,
-                  value: (event as LangGraphInterruptEvent).value,
-                  response: event.response,
+                  value: typeof value === "string" ? value : JSON.stringify(value),
+                  response:
+                    typeof event.response === "string"
+                      ? event.response
+                      : JSON.stringify(event.response),
                 },
               ];
             }

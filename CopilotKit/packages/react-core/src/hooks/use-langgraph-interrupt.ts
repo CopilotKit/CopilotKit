@@ -5,8 +5,8 @@ import { useCopilotChat } from "./use-copilot-chat";
 import { useToast } from "../components/toast/toast-provider";
 import { dataToUUID } from "@copilotkit/shared";
 
-export function useLangGraphInterrupt(
-  action: Omit<LangGraphInterruptRender, "id">,
+export function useLangGraphInterrupt<TEventValue = any>(
+  action: Omit<LangGraphInterruptRender<TEventValue>, "id">,
   dependencies?: any[],
 ) {
   const { setLangGraphInterruptAction, removeLangGraphInterruptAction, langGraphInterruptAction } =
@@ -35,10 +35,9 @@ export function useLangGraphInterrupt(
 
   useEffect(() => {
     if (!action) return;
-    // console.log(2, { hasAction, isCurrentAction, conditions: action.conditions })
     // An action was already set, with no conditions and it's not the action we're using right now.
     // Show a warning, as this action will not be executed
-    if (hasAction && !isCurrentAction && !action.conditions?.length) {
+    if (hasAction && !isCurrentAction && !action.enabled) {
       addToast({
         type: "warning",
         message: "An action is already registered for the interrupt event",

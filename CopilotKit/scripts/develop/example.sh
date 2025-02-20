@@ -35,6 +35,15 @@ fi
 # The first argument is the example directory name, defaulting to "coagents-research-canvas" if not provided
 example_dir="${1:-coagents-research-canvas}"
 
+if [[ "$example_dir" == "coagents-starter" || \
+      "$example_dir" == "langgraph-tutorial-customer-support" || \
+      "$example_dir" == "langgraph-tutorial-quickstart" ]]; then
+  agent_dir="agent-py"
+else
+  agent_dir="agent"
+fi
+
+
 # Check if the example directory exists
 if [ ! -d "$root_dir/../examples/$example_dir" ]; then
   echo "Example directory $example_dir does not exist"
@@ -58,7 +67,7 @@ if [[ "$backend" == "langgraph-platform" ]]; then
 fi
 
 on_exit() {
-  cd "$root_dir/../examples/$example_dir/agent"
+  cd "$root_dir/../examples/$example_dir/$agent_dir"
 
   # Only revert and echo if pyproject.toml or poetry.lock have changes
   if ! git diff --quiet -- pyproject.toml poetry.lock; then
@@ -97,7 +106,7 @@ pnpm link --global @copilotkit/react-ui @copilotkit/react-core @copilotkit/runti
   @copilotkit/shared @copilotkit/runtime @copilotkit/sdk-js
 
 echo "Setting up the Python environment..."
-cd "$root_dir/../examples/$example_dir/agent"
+cd "$root_dir/../examples/$example_dir/$agent_dir"
 poetry lock
 poetry install
 
@@ -126,5 +135,5 @@ fi
 echo "Running the app..."
 parallel --ungroup ::: \
   "cd $root_dir && exec > >(sed 's/^/$copilotkit_prompt /') 2>&1 && turbo run dev" \
-  "cd $root_dir/../examples/$example_dir/agent && exec > >(sed 's/^/$agent_prompt /') 2>&1 && $agent_command" \
+  "cd $root_dir/../examples/$example_dir/$agent_dir && exec > >(sed 's/^/$agent_prompt /') 2>&1 && $agent_command" \
   "cd $root_dir/../examples/$example_dir/ui && exec > >(sed 's/^/$frontend_prompt /') 2>&1 && pnpm dev"

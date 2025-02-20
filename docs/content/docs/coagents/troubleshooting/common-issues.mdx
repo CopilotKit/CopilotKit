@@ -2,23 +2,24 @@
 title: Common Issues
 description: Common issues you may encounter when using CoAgents.
 ---
-import { Accordions, Accordion } from "fumadocs-ui/components/accordion"
 
-Welcome to the CoAgents Troubleshooting Guide! If you're having trouble getting tool calls to work, you've come to the right place. 
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+
+Welcome to the CoAgents Troubleshooting Guide! If you're having trouble getting tool calls to work, you've come to the right place.
 
 <Callout>
     Have an issue not listed here? Open a ticket on [GitHub](https://github.com/CopilotKit/CopilotKit/issues) or reach out on [Discord](https://discord.com/invite/6dffbvGU3D)
     and we'll be happy to help.
 
     We also highly encourage any open source contributors that want to add their own troubleshooting issues to [Github as a pull request](https://github.com/CopilotKit/CopilotKit/blob/main/CONTRIBUTING.md).
-</Callout>
 
+</Callout>
 
 ## My tool calls are not being streamed
 
-This could be due to a few different reasons. 
+This could be due to a few different reasons.
 
-First, we strongly recommend checking out our [Human In the Loop](/docs/coagents/chat-ui/hitl/json-hitl) guide to follow a more in depth example of how to stream tool calls
+First, we strongly recommend checking out our [Human In the Loop](/coagents/human-in-the-loop) guide to follow a more in depth example of how to stream tool calls
 in your LangGraph agents. You can also check out our [travel tutorial](/coagents/tutorials/ai-travel-app/step-6-human-in-the-loop) which talks about how to stream
 tool calls in a more complex example.
 
@@ -60,6 +61,7 @@ If you have already done that, you can check the following:
             ```
         </p>
     </Accordion>
+
 </Accordions>
 
 ## Error: `'AzureOpenAI' object has no attribute 'bind_tools'`
@@ -78,7 +80,7 @@ If you're seeing this error, it means CopilotKit couldn't find the LangGraph age
 
 <Accordions>
     <Accordion title="Verify your agent lock mode configuration">
-        If you're using [agent lock mode](/coagents/advanced/router-mode-agent-lock#agent-lock-mode),
+        If you're using [agent lock mode](/coagents/multi-agent-flows),
         check that the agent defined in `langgraph.json` matches what's defined in the CopilotKit provider:
 
         ```json title="langgraph.json"
@@ -176,4 +178,27 @@ If you're seeing this error, it means CopilotKit couldn't find the LangGraph age
         });
         ```
     </Accordion>
+
+</Accordions>
+
+## Connection issues with tunnel creation
+
+If you notice the tunnel creation process spinning indefinitely, your router or ISP might be blocking the connection to CopilotKit's tunnel service.
+
+<Accordions>
+    <Accordion title="Router or ISP blocking tunnel connections">
+        To verify connectivity to the tunnel service, try these commands:
+
+        ```bash
+        ping tunnels.devcopilotkit.com
+        curl -I https://tunnels.devcopilotkit.com
+        telnet tunnels.devcopilotkit.com 443
+        ```
+
+        If these fail, your router's security features or ISP might be blocking the connection. Common solutions:
+        - Check router security settings
+        - Consider checking with your ISP about any connection restrictions
+        - Try using a mobile hotspot
+    </Accordion>
+
 </Accordions>

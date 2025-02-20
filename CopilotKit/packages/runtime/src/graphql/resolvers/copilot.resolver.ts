@@ -274,10 +274,7 @@ export class CopilotResolver {
                     type: event.type,
                     name: event.name,
                     data: {
-                      value:
-                        typeof event.data.value === "string"
-                          ? event.data.value
-                          : JSON.stringify(event.data.value),
+                      value: event.data.value,
                       messages: event.data.messages.map((message) => {
                         if (
                           message.type === "TextMessage" ||

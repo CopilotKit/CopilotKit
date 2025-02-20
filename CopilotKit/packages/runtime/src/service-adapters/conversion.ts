@@ -7,58 +7,51 @@ import {
 } from "../graphql/types/converted";
 import { MessageInput } from "../graphql/inputs/message.input";
 import { plainToInstance } from "class-transformer";
+import { tryMap } from "@copilotkit/shared";
 
 export function convertGqlInputToMessages(inputMessages: MessageInput[]): Message[] {
-  const messages: Message[] = [];
-
-  for (const message of inputMessages) {
+  const messages = tryMap(inputMessages, (message) => {
     if (message.textMessage) {
-      messages.push(
-        plainToInstance(TextMessage, {
-          id: message.id,
-          createdAt: message.createdAt,
-          role: message.textMessage.role,
-          content: message.textMessage.content,
-          parentMessageId: message.textMessage.parentMessageId,
-        }),
-      );
+      return plainToInstance(TextMessage, {
+        id: message.id,
+        createdAt: message.createdAt,
+        role: message.textMessage.role,
+        content: message.textMessage.content,
+        parentMessageId: message.textMessage.parentMessageId,
+      });
     } else if (message.actionExecutionMessage) {
-      messages.push(
-        plainToInstance(ActionExecutionMessage, {
-          id: message.id,
-          createdAt: message.createdAt,
-          name: message.actionExecutionMessage.name,
-          arguments: JSON.parse(message.actionExecutionMessage.arguments),
-          parentMessageId: message.actionExecutionMessage.parentMessageId,
-        }),
-      );
+      return plainToInstance(ActionExecutionMessage, {
+        id: message.id,
+        createdAt: message.createdAt,
+        name: message.actionExecutionMessage.name,
+        arguments: JSON.parse(message.actionExecutionMessage.arguments),
+        parentMessageId: message.actionExecutionMessage.parentMessageId,
+      });
     } else if (message.resultMessage) {
-      messages.push(
-        plainToInstance(ResultMessage, {
-          id: message.id,
-          createdAt: message.createdAt,
-          actionExecutionId: message.resultMessage.actionExecutionId,
-          actionName: message.resultMessage.actionName,
-          result: message.resultMessage.result,
-        }),
-      );
+      return plainToInstance(ResultMessage, {
+        id: message.id,
+        createdAt: message.createdAt,
+        actionExecutionId: message.resultMessage.actionExecutionId,
+        actionName: message.resultMessage.actionName,
+        result: message.resultMessage.result,
+      });
     } else if (message.agentStateMessage) {
-      messages.push(
-        plainToInstance(AgentStateMessage, {
-          id: message.id,
-          threadId: message.agentStateMessage.threadId,
-          createdAt: message.createdAt,
-          agentName: message.agentStateMessage.agentName,
-          nodeName: message.agentStateMessage.nodeName,
-          runId: message.agentStateMessage.runId,
-          active: message.agentStateMessage.active,
-          role: message.agentStateMessage.role,
-          state: JSON.parse(message.agentStateMessage.state),
-          running: message.agentStateMessage.running,
-        }),
-      );
+      return plainToInstance(AgentStateMessage, {
+        id: message.id,
+        threadId: message.agentStateMessage.threadId,
+        createdAt: message.createdAt,
+        agentName: message.agentStateMessage.agentName,
+        nodeName: message.agentStateMessage.nodeName,
+        runId: message.agentStateMessage.runId,
+        active: message.agentStateMessage.active,
+        role: message.agentStateMessage.role,
+        state: JSON.parse(message.agentStateMessage.state),
+        running: message.agentStateMessage.running,
+      });
+    } else {
+      return null;
     }
-  }
+  });
 
-  return messages;
+  return messages.filter((m) => m);
 }

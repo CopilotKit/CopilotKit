@@ -360,9 +360,13 @@ please use an LLM adapter instead.`,
           });
           if (!response.ok) {
             if (response.status === 404) {
-              throw new CopilotKitApiDiscoveryError();
+              throw new CopilotKitApiDiscoveryError({ url: fetchUrl });
             }
-            throw new ResolvedCopilotKitError({ status: response.status, isRemoteEndpoint: true });
+            throw new ResolvedCopilotKitError({
+              status: response.status,
+              url: fetchUrl,
+              isRemoteEndpoint: true,
+            });
           }
 
           const data: InfoResponse = await response.json();
@@ -422,7 +426,7 @@ please use an LLM adapter instead.`,
 
       if (Object.keys(state).length === 0) {
         return {
-          threadId,
+          threadId: threadId || "",
           threadExists: false,
           state: JSON.stringify({}),
           messages: JSON.stringify([]),
@@ -431,7 +435,7 @@ please use an LLM adapter instead.`,
         const { messages, ...stateWithoutMessages } = state;
         const copilotkitMessages = langchainMessagesToCopilotKit(messages);
         return {
-          threadId,
+          threadId: threadId || "",
           threadExists: true,
           state: JSON.stringify(stateWithoutMessages),
           messages: JSON.stringify(copilotkitMessages),
@@ -441,9 +445,9 @@ please use an LLM adapter instead.`,
       agentWithEndpoint.endpoint.type === EndpointType.CopilotKit ||
       !("type" in agentWithEndpoint.endpoint)
     ) {
-      const response = await fetch(
-        `${(agentWithEndpoint.endpoint as CopilotKitEndpoint).url}/agents/state`,
-        {
+      const fetchUrl = `${(agentWithEndpoint.endpoint as CopilotKitEndpoint).url}/agents/state`;
+      try {
+        const response = await fetch(fetchUrl, {
           method: "POST",
           headers,
           body: JSON.stringify({
@@ -451,15 +455,31 @@ please use an LLM adapter instead.`,
             threadId,
             name: agentName,
           }),
-        },
-      );
-      const data: LoadAgentStateResponse = await response.json();
+        });
+        if (!response.ok) {
+          if (response.status === 404) {
+            throw new CopilotKitApiDiscoveryError({ url: fetchUrl });
+          }
+          throw new ResolvedCopilotKitError({
+            status: response.status,
+            url: fetchUrl,
+            isRemoteEndpoint: true,
+          });
+        }
 
-      return {
-        ...data,
-        state: JSON.stringify(data.state),
-        messages: JSON.stringify(data.messages),
-      };
+        const data: LoadAgentStateResponse = await response.json();
+
+        return {
+          ...data,
+          state: JSON.stringify(data.state),
+          messages: JSON.stringify(data.messages),
+        };
+      } catch (error) {
+        if (error instanceof CopilotKitError) {
+          throw error;
+        }
+        throw new CopilotKitLowLevelError({ error, url: fetchUrl });
+      }
     } else {
       throw new Error(`Unknown endpoint type: ${(agentWithEndpoint.endpoint as any).type}`);
     }

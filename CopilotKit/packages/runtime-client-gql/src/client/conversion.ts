@@ -12,6 +12,7 @@ import {
 } from "./types";
 
 import untruncateJson from "untruncate-json";
+import { parseJson } from "@copilotkit/shared";
 
 export function filterAgentStateMessages(messages: Message[]): Message[] {
   return messages.filter((message) => !message.isAgentStateMessage());
@@ -137,7 +138,7 @@ export function convertGqlOutputToMessages(
         runId: message.runId,
         active: message.active,
         running: message.running,
-        state: JSON.parse(message.state),
+        state: parseJson(message.state, {}),
         createdAt: new Date(),
       });
     }

@@ -23,12 +23,6 @@ sdk = CopilotKitRemoteEndpoint(
 
 add_fastapi_endpoint(app, sdk, "/copilotkit")
 
-# add new route for health check
-@app.get("/health")
-def health():
-    """Health check."""
-    return {"status": "ok"}
-
 def main():
     """Run the uvicorn server."""
     port = int(os.getenv("PORT", "8000"))
@@ -36,12 +30,5 @@ def main():
         "email_agent.demo:app",
         host="0.0.0.0",
         port=port,
-        reload=True,
-        reload_dirs=(
-            ["."] +
-            (["../../../sdk-python/copilotkit"]
-             if os.path.exists("../../../sdk-python/copilotkit")
-             else []
-             )
-        )
+        reload=True
     )
