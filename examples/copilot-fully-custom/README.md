@@ -1,4 +1,7 @@
-# copilot-fully-custom
+# Copilot Fully Custom
+
+![leafy-green](https://github.com/user-attachments/assets/63f347ef-fefe-49c5-9162-6c88161fd9e0)
+
 
 CopilotKit fully customized using components from MongoDB's Leafy Green Design System.
 
