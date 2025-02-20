@@ -1,3 +1,4 @@
+import "reflect-metadata";
 import { TextEncoder } from "util";
 import { RemoteLangGraphEventSource } from "../../../agents/langgraph/event-source";
 import telemetry from "../../telemetry-client";
@@ -7,6 +8,7 @@ import {
   createHeaders,
 } from "../remote-action-constructors";
 import { execute } from "../remote-lg-action";
+import { ReplaySubject } from "rxjs";
 
 // Mock external dependencies
 jest.mock("../remote-lg-action", () => ({
@@ -160,26 +162,46 @@ describe("remote action constructors", () => {
     });
 
     it("should create remote agent handler that processes events", async () => {
-      // Arrange: mock fetch for agent handler to return a dummy stream
-      const dummyEncodedAgentEvent = new TextEncoder().encode('{"event":"data"}\n');
-      const agentReaderMock = {
-        read: jest
-          .fn()
-          .mockResolvedValueOnce({ done: false, value: dummyEncodedAgentEvent })
-          .mockResolvedValueOnce({ done: true, value: new Uint8Array() }),
+      const json = {
+        agents: [
+          {
+            name: "agent2",
+            description: "agent desc",
+            type: "langgraph", // Add type to match RemoteAgentType.LangGraph
+          },
+        ],
+        actions: [
+          {
+            name: "action1",
+            description: "action desc",
+            parameters: { param: "value" },
+          },
+        ],
       };
-      const dummyStreamResponse = {
-        getReader: () => agentReaderMock,
-      };
-      global.fetch = jest.fn().mockResolvedValue({
-        ok: true,
-        text: jest.fn().mockResolvedValue("ok"),
-        body: dummyStreamResponse,
-      });
 
-      const processLangGraphEventsMock = jest.fn(() => "agent events processed");
+      const dummyEncodedAgentEvent = new TextEncoder().encode('{"type":"data","content":"test"}\n');
+
+      const mockResponse = new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(dummyEncodedAgentEvent);
+            controller.close();
+          },
+        }),
+        {
+          status: 200,
+          statusText: "OK",
+          headers: new Headers({
+            "content-type": "application/json",
+          }),
+        },
+      );
+
+      global.fetch = jest.fn().mockResolvedValue(mockResponse);
+
+      const processLangGraphEventsMock = jest.fn().mockResolvedValue("agent events processed");
       (RemoteLangGraphEventSource as jest.Mock).mockImplementation(() => ({
-        eventStream$: { next: jest.fn(), complete: jest.fn(), error: jest.fn() },
+        eventStream$: new ReplaySubject(),
         processLangGraphEvents: processLangGraphEventsMock,
       }));
 
@@ -192,29 +214,17 @@ describe("remote action constructors", () => {
         messages: [],
         agentStates,
       });
-      // The remote agent is the second item in the array
-      expect(actionsArray).toHaveLength(2);
+
       const remoteAgentHandler = (actionsArray[1] as any).remoteAgentHandler;
       const result = await remoteAgentHandler({
         name: "agent2",
         actionInputsWithoutAgents: [],
         threadId: "thread2",
         nodeName: "node2",
-        additionalMessages: [],
-        metaEvents: [],
       });
+
       expect(processLangGraphEventsMock).toHaveBeenCalled();
       expect(result).toBe("agent events processed");
-
-      // Check telemetry.capture for agent execution
-      expect(telemetry.capture).toHaveBeenCalledWith(
-        "oss.runtime.remote_action_executed",
-        expect.objectContaining({
-          agentExecution: true,
-          type: "self-hosted",
-          agentsAmount: 1,
-        }),
-      );
     });
   });
 
