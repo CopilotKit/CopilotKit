@@ -1,12 +1,13 @@
 import { Message } from "../../graphql/types/converted";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import {
+  ChatCompletionAssistantMessageParam,
   ChatCompletionMessageParam,
+  ChatCompletionSystemMessageParam,
   ChatCompletionTool,
   ChatCompletionUserMessageParam,
-  ChatCompletionAssistantMessageParam,
-  ChatCompletionSystemMessageParam,
-} from "openai/resources";
+  ChatCompletionDeveloperMessageParam,
+} from "openai/resources/chat";
 import { parseJson } from "@copilotkit/shared";
 
 export function limitMessagesToTokenCount(
@@ -25,7 +26,7 @@ export function limitMessagesToTokenCount(
   maxTokens -= toolsNumTokens;
 
   for (const message of messages) {
-    if (message.role === "system") {
+    if (["system", "developer"].includes(message.role)) {
       const numTokens = countMessageTokens(model, message);
       maxTokens -= numTokens;
 
@@ -39,7 +40,7 @@ export function limitMessagesToTokenCount(
 
   const reversedMessages = [...messages].reverse();
   for (const message of reversedMessages) {
-    if (message.role === "system") {
+    if (["system", "developer"].includes(message.role)) {
       result.unshift(message);
       continue;
     } else if (cutoff) {
@@ -64,9 +65,23 @@ export function maxTokensForOpenAIModel(model: string): number {
 const DEFAULT_MAX_TOKENS = 128000;
 
 const maxTokensByModel: { [key: string]: number } = {
+  // o1
+  o1: 200000,
+  "o1-2024-12-17": 200000,
+  "o1-mini": 128000,
+  "o1-mini-2024-09-12": 128000,
+  "o1-preview": 128000,
+  "o1-preview-2024-09-12": 128000,
+  // o3-mini
+  "o3-mini": 200000,
+  "o3-mini-2025-01-31": 200000,
   // GPT-4
   "gpt-4o": 128000,
+  "chatgpt-4o-latest": 128000,
+  "gpt-4o-2024-08-06": 128000,
   "gpt-4o-2024-05-13": 128000,
+  "gpt-4o-mini": 128000,
+  "gpt-4o-mini-2024-07-18": 128000,
   "gpt-4-turbo": 128000,
   "gpt-4-turbo-2024-04-09": 128000,
   "gpt-4-0125-preview": 128000,
@@ -119,15 +134,25 @@ export function convertActionInputToOpenAITool(action: ActionInput): ChatComplet
   };
 }
 
-export function convertMessageToOpenAIMessage(message: Message): ChatCompletionMessageParam {
+type UsedMessageParams =
+  | ChatCompletionUserMessageParam
+  | ChatCompletionAssistantMessageParam
+  | ChatCompletionDeveloperMessageParam
+  | ChatCompletionSystemMessageParam;
+export function convertMessageToOpenAIMessage(
+  message: Message,
+  options?: { keepSystemRole: boolean },
+): ChatCompletionMessageParam {
+  const { keepSystemRole } = options || { keepSystemRole: false };
   if (message.isTextMessage()) {
+    let role = message.role as UsedMessageParams["role"];
+    if (message.role === "system" && !keepSystemRole) {
+      role = "developer";
+    }
     return {
-      role: message.role as ChatCompletionUserMessageParam["role"],
+      role,
       content: message.content,
-    } satisfies
-      | ChatCompletionUserMessageParam
-      | ChatCompletionAssistantMessageParam
-      | ChatCompletionSystemMessageParam;
+    } satisfies UsedMessageParams;
   } else if (message.isActionExecutionMessage()) {
     return {
       role: "assistant",
@@ -154,7 +179,7 @@ export function convertMessageToOpenAIMessage(message: Message): ChatCompletionM
 export function convertSystemMessageToAssistantAPI(message: ChatCompletionMessageParam) {
   return {
     ...message,
-    ...(message.role === "system" && {
+    ...(["system", "developer"].includes(message.role) && {
       role: "assistant",
       content: "THE FOLLOWING MESSAGE IS A SYSTEM MESSAGE: " + message.content,
     }),

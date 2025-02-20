@@ -1,5 +1,29 @@
 # @copilotkit/runtime
 
+## 1.6.0-next.6
+
+### Patch Changes
+
+- 45a3e10: - feat: support latest openai api
+  - chore: update all openai dependencies to use latest
+  - feat: update adapters using openai API
+  - @copilotkit/shared@1.6.0-next.6
+
+## 1.6.0-next.5
+
+### Patch Changes
+
+- 090203d: - fix: use tryMap method to filter out possibly invalid items
+- Updated dependencies [090203d]
+  - @copilotkit/shared@1.6.0-next.5
+
+## 1.6.0-next.4
+
+### Patch Changes
+
+- 68f7b65: - handle parsing in fail-safe fashion
+  - @copilotkit/shared@1.6.0-next.4
+
 ## 1.6.0-next.3
 
 ### Patch Changes

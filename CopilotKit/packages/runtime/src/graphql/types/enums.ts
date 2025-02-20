@@ -5,6 +5,7 @@ export enum MessageRole {
   assistant = "assistant",
   system = "system",
   tool = "tool",
+  developer = "developer",
 }
 
 export enum CopilotRequestType {

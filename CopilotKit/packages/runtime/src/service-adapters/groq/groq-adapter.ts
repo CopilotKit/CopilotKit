@@ -15,6 +15,7 @@
  * ```
  */
 import { Groq } from "groq-sdk";
+import type { ChatCompletionMessageParam } from "groq-sdk/resources/chat";
 import {
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
@@ -27,7 +28,7 @@ import {
 } from "../openai/utils";
 import { randomUUID } from "@copilotkit/shared";
 
-const DEFAULT_MODEL = "llama3-groq-70b-8192-tool-use-preview";
+const DEFAULT_MODEL = "llama-3.3-70b-versatile";
 
 export interface GroqAdapterParams {
   /**
@@ -81,7 +82,9 @@ export class GroqAdapter implements CopilotServiceAdapter {
     } = request;
     const tools = actions.map(convertActionInputToOpenAITool);
 
-    let openaiMessages = messages.map(convertMessageToOpenAIMessage);
+    let openaiMessages = messages.map((m) =>
+      convertMessageToOpenAIMessage(m, { keepSystemRole: true }),
+    );
     openaiMessages = limitMessagesToTokenCount(openaiMessages, tools, model);
 
     let toolChoice: any = forwardedParameters?.toolChoice;
@@ -94,7 +97,7 @@ export class GroqAdapter implements CopilotServiceAdapter {
     const stream = await this.groq.chat.completions.create({
       model: model,
       stream: true,
-      messages: openaiMessages,
+      messages: openaiMessages as unknown as ChatCompletionMessageParam[],
       ...(tools.length > 0 && { tools }),
       ...(forwardedParameters?.maxTokens && {
         max_tokens: forwardedParameters.maxTokens,
