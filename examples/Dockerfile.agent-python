@@ -1,23 +1,10 @@
-FROM public.ecr.aws/docker/library/python:3.12.0-slim-bullseye
+FROM public.ecr.aws/docker/library/python:3.12-bookworm
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/lambda-adapter
+
 ARG APP_DIR
 ARG WITH_LOCAL_DEPS
 
 ENV POETRY_VIRTUALENVS_CREATE=false
-
-# Install system dependencies including newer sqlite3
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    wget \
-    && rm -rf /var/lib/apt/lists/* \
-    && wget https://www.sqlite.org/2024/sqlite-autoconf-3450000.tar.gz \
-    && tar xvfz sqlite-autoconf-3450000.tar.gz \
-    && cd sqlite-autoconf-3450000 \
-    && ./configure \
-    && make \
-    && make install \
-    && cd .. \
-    && rm -rf sqlite-autoconf-3450000*
 
 # Install poetry and configure it
 RUN pip install poetry==1.7.1 && \
@@ -26,7 +13,7 @@ RUN pip install poetry==1.7.1 && \
 # Copy only poetry files first
 COPY ${APP_DIR}/pyproject.toml ${APP_DIR}/poetry.lock ./
 
-# Copy SDK and install dependencies in a single layer
+# Copy SDK and install dependencies
 COPY sdk-python/ /opt/sdk-python
 WORKDIR /asset
 RUN poetry install --no-interaction --no-ansi
