@@ -41,6 +41,7 @@ import {
   MetaEventInput,
 } from "@copilotkit/runtime-client-gql";
 import { parseJson } from "@copilotkit/shared";
+import { ActionExecutionMessage } from "@copilotkit/runtime-client-gql/src";
 
 export type UseChatOptions = {
   /**
@@ -510,14 +511,27 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         // execute regular action executions that are specific to the frontend (last actions)
         if (onFunctionCall) {
           // Find consecutive action execution messages at the end
-          const lastMessages = [];
+          const lastMessages: ActionExecutionMessage[] = [];
           for (let i = finalMessages.length - 1; i >= 0; i--) {
             const message = finalMessages[i];
+            const isResultMessagePendingFrontendExecution =
+              message.isResultMessage() &&
+              actions.find(
+                (action) => action.name === message.actionName && action.available === "frontend",
+              );
+            const previousMessage = finalMessages[i - 1];
+            const isPreviousMessageExecutionOfCurrentResult =
+              isResultMessagePendingFrontendExecution &&
+              previousMessage.isActionExecutionMessage() &&
+              previousMessage.status.code !== MessageStatusCode.Pending;
+
             if (
               message.isActionExecutionMessage() &&
               message.status.code !== MessageStatusCode.Pending
             ) {
               lastMessages.unshift(message);
+            } else if (isPreviousMessageExecutionOfCurrentResult) {
+              continue;
             } else {
               break;
             }
@@ -528,7 +542,11 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             // function can be called with `executing` state
             setMessages(finalMessages);
 
-            const action = actions.find((action) => action.name === message.name);
+            // @ts-ignore
+            let messageName = message.name;
+            const action = actions.find((action) => {
+              return action.name === messageName;
+            });
 
             if (action) {
               followUp = action.followUp;
@@ -538,7 +556,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 result = await Promise.race([
                   onFunctionCall({
                     messages: previousMessages,
-                    name: message.name,
+                    name: messageName,
                     args: message.arguments,
                   }),
                   new Promise((resolve) =>
@@ -561,25 +579,31 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               }
               didExecuteAction = true;
               const messageIndex = finalMessages.findIndex((msg) => msg.id === message.id);
-              finalMessages.splice(
-                messageIndex + 1,
-                0,
-                new ResultMessage({
-                  id: "result-" + message.id,
-                  result: ResultMessage.encodeResult(
-                    error
-                      ? {
-                          content: result,
-                          error: JSON.parse(
-                            JSON.stringify(error, Object.getOwnPropertyNames(error)),
-                          ),
-                        }
-                      : result,
-                  ),
-                  actionExecutionId: message.id,
-                  actionName: message.name,
-                }),
-              );
+              if (
+                !finalMessages.some(
+                  (m) => "actionExecutionId" in m && m.actionExecutionId === message.id,
+                )
+              ) {
+                finalMessages.splice(
+                  messageIndex + 1,
+                  0,
+                  new ResultMessage({
+                    id: "result-" + message.id,
+                    result: ResultMessage.encodeResult(
+                      error
+                        ? {
+                            content: result,
+                            error: JSON.parse(
+                              JSON.stringify(error, Object.getOwnPropertyNames(error)),
+                            ),
+                          }
+                        : result,
+                    ),
+                    actionExecutionId: message.id,
+                    actionName: message.name,
+                  }),
+                );
+              }
             }
           }
 
