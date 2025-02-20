@@ -1,0 +1,153 @@
+---
+title: Filtering Input and Output State properties
+icon: "lucide/ArrowRightLeft"
+description: Decide which state properties are exposed to the frontend
+---
+
+## What is this?
+
+Not all state properties are relevant for frontend-backend sharing.
+This guide shows how to ensure only the right portion of state is communicated back and forth.
+
+This guide is based on [LangGraph's Input/Output Schema feature](https://langchain-ai.github.io/langgraph/how-tos/input_output_schema/)
+
+## Why?
+
+Depending on your implementation, some properties are meant to be processed internally, while some others are the way for the UI to communicate user input.
+In addition, some state properties contain a lot of information. Syncing them back and forth between the agent and UI can be costly, while it might not have any practical benefit.
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Define the Agent State
+    LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
+    let's assume that our agent state looks something like this.
+
+    <Tabs groupId="language" items={["Python", "TypeScript"]}>
+      <Tab value="Python">
+        ```python title="agent-py/sample_agent/agent.py"
+        from copilotkit import CopilotKitState
+        from typing import Literal
+
+        class AgentState(CopilotKitState):
+            question: str
+            answer: str
+            resources: List[str]
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```ts title="agent-js/src/agent.ts"
+        import { Annotation } from "@langchain/langgraph";
+        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+
+        export const AgentStateAnnotation = Annotation.Root({
+            question: Annotation<string>,
+            answer: Annotation<string>,
+            resources: Annotation<string[]>,
+            ...CopilotKitStateAnnotation.spec,
+        });
+        export type AgentState = typeof AgentStateAnnotation.State;
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step>
+    ### Divide state to Input and Output
+    Our example case lists several state properties, which with its own purpose:
+      - The question is being asked by the user, expecting the llm to answer
+      - The answer is what the LLM returns
+      - The resources list will be used by the LLM to answer the question, and should not be communicated to the user, or set by them.
+
+      <Tabs groupId="language" items={["Python", "TypeScript"]}>
+          <Tab value="Python">
+              ```python title="agent-py/sample_agent/agent.py"
+              from copilotkit import CopilotKitState
+              from typing import Literal
+
+              # divide the state into 3
+              class InputState(CopilotKitState):
+                question: str
+
+              class OutputState(CopilotKitState):
+                answer: str
+
+              class OverallState(InputState, OutputState):
+                resources: List[str]
+
+              # ...add the rest of the agent implementation
+
+              # finally, before compiling the graph, we define the 3 state components
+              builder = StateGraph(OverallState, input=InputState, output=OutputState)
+
+              # add all the different nodes and edges and compile the graph
+              builder.add_node(answer_node)
+              builder.add_edge(START, "answer_node")
+              builder.add_edge("answer_node", END)
+              graph = builder.compile()
+              ```
+          </Tab>
+          <Tab value="TypeScript">
+              ```ts title="agent-js/src/agent.ts"
+              import { Annotation } from "@langchain/langgraph";
+              import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+
+              // Divide the state into 3 different parts
+              export const InputAnnotation = Annotation.Root({
+                question: Annotation<string>,
+                ...CopilotKitStateAnnotation.spec,
+              });
+
+              export const OutputAnnotation = Annotation.Root({
+                answer: Annotation<string>,
+                ...CopilotKitStateAnnotation.spec,
+              });
+
+              export const AgentStateAnnotation = Annotation.Root({
+                resources: Annotation<string[]>,
+                ...InputAnnotation.spec,
+                ...OutputAnnotation.spec,
+              });
+
+              // ...add the rest of the agent implementation
+
+              // finally, before compiling the graph, we define the 3 state components
+              const graph = new StateGraph({
+                  stateSchema: AgentStateAnnotation,
+                  input: InputAnnotation,
+                  output: OutputAnnotation,
+              })
+              // add all the different nodes and edges and compile the graph
+              .addNode("answerNode", answerNode)
+              .addEdge("__start__", "answerNode")
+              .compile();
+              ```
+          </Tab>
+      </Tabs>
+  </Step>
+  <Step>
+    ### Give it a try!
+    Now that we know which state properties our agent emits, we can inspect the state and expect the following to happen:
+    - While we are able to provide a question, we will not receive it back from the agent. If we are using it in our UI, we need to remember the UI is the source of truth for it
+    - Answer will change once it's returned back from the agent
+    - The UI has no access to resources.
+
+    ```tsx
+    import { useCoAgent } from "@copilotkit/react-core";
+
+    type AgentState = {
+      question: string;
+      answer: string;
+    }
+
+    const { state } = useCoAgent<AgentState>({
+      name: "sample_agent",
+      initialState: {
+        question: "How's is the weather in SF?",
+      }
+    });
+
+    console.log(state) // You can expect seeing "answer" change, while the others are not returned from the agent
+    ```
+  </Step>
+</Steps>
