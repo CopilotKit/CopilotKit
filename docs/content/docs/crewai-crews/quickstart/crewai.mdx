@@ -1,6 +1,6 @@
 ---
-title: Quickstart CrewAI Flows
-description: Turn your CrewAI Flows into an agent-native application in 10 minutes.
+title: Quickstart CrewAI Crews
+description: Turn your CrewAI Crews into an agent-native application in 10 minutes.
 icon: "custom/crewai"
 ---
 
@@ -47,9 +47,9 @@ Before you begin, you'll need the following:
         id="agent"
         header={
             <div>
-                <p className="text-xl font-semibold">Do you already have a CrewAI Flow agent?</p>
+                <p className="text-xl font-semibold">Do you already have a CrewAI Crew agent?</p>
                 <p className="text-base">
-                    You will need a CrewAI Flow agent to get started!
+                    You will need a CrewAI Crew agent to get started!
                 </p>
                 <p className="text-base">
                     Either bring your own or feel free to use our starter repo.
@@ -59,14 +59,14 @@ Before you begin, you'll need the following:
     >
         <TailoredContentOption
             id="bring-your-own"
-            title="Bring your own CrewAI Flow agent"
-            description="I already have a CrewAI Flow agent and want to use it with CopilotKit."
+            title="Bring your own CrewAI Crew agent"
+            description="I already have a CrewAI Crew agent and want to use it with CopilotKit."
             icon={<SiCrewai />}
         />
         <TailoredContentOption
             id="coagents-starter"
             title="Use the CoAgents Starter repo"
-            description="I don't have a CrewAI Flow agent yet, but want to get started quickly."
+            description="I don't have a CrewAI Crew agent yet, but want to get started quickly."
             icon={<img src="/images/copilotkit-logo.svg" alt="CopilotKit Logo" width={20} height={20} />}
         >
             <Step>
@@ -76,7 +76,7 @@ Before you begin, you'll need the following:
                     <Tab value="Python">
                         ```bash
                         git clone https://github.com/CopilotKit/CopilotKit
-                        cd CopilotKit/examples/coagents-starter-crewai-flows/agent-py
+                        cd CopilotKit/examples/coagents-starter-crewai-crews/agent-py
                         ```
                     </Tab>
                 </Tabs>
@@ -100,9 +100,9 @@ Before you begin, you'll need the following:
         </TailoredContentOption>
     </TailoredContent>
     <Step>
-        ### Start your CrewAI Flow
+        ### Start your CrewAI Crew
 
-        1. Next, use CopilotKit's FastAPI integration to serve your CrewAI flow agent.
+        1. Next, use CopilotKit's FastAPI integration to serve your CrewAI Crew agent.
 
         ```python title="server.py"
         import os
@@ -111,7 +111,7 @@ Before you begin, you'll need the following:
         from copilotkit.integrations.fastapi import add_fastapi_endpoint # [!code highlight]
         from copilotkit import CopilotKitRemoteEndpoint # [!code highlight]
         from copilotkit.crewai import CrewAIAgent # [!code highlight]
-        from path.to.your.flow import YourFlow # [!code highlight]
+        from path.to.your.crew import YourCrew # [!code highlight]
         
         from dotenv import load_dotenv
         load_dotenv()
@@ -123,12 +123,12 @@ Before you begin, you'll need the following:
                 CrewAIAgent(
                     name="sample_agent", # The name of your agent
                     description="Describe your agent here, will be used for multi-agent orchestration",
-                    flow=YourFlow(), # The flow object from your CrewAI import
+                    crew=YourCrew(), # The crew object from your CrewAI import
                 )
             ],
         )
 
-        # Use CopilotKit's FastAPI integration to add a new endpoint for your CrewAI Flows # [!code highlight:2]
+        # Use CopilotKit's FastAPI integration to add a new endpoint for your CrewAI Crews # [!code highlight:2]
         add_fastapi_endpoint(app, sdk, "/copilotkit", use_thread_pool=False)
 
         # add new route for health check
@@ -157,7 +157,7 @@ Before you begin, you'll need the following:
             <div>
                 <p className="text-xl font-semibold">Choose your connection method</p>
                 <p className="text-base">
-                    Now you need to connect your CrewAI Flow to CopilotKit.
+                    Now you need to connect your CrewAI Crew to CopilotKit.
                 </p>
             </div>
         }
@@ -169,8 +169,8 @@ Before you begin, you'll need the following:
             icon={<FaCloud />}
         >
             <Step>
-                ### Add a remote endpoint for your CrewAI Flow
-                Using Copilot Cloud, you need to connect a remote endpoint that will connect to your CrewAI Flow.
+                ### Add a remote endpoint for your CrewAI Crew
+                Using Copilot Cloud, you need to connect a remote endpoint that will connect to your CrewAI Crew.
                 <Tabs groupId="lg-deployment-type" items={['Self hosted (FastAPI)', 'CrewAI Enterprise']}>
                     <Tab value="Self hosted (FastAPI)">
                         **Running your FastAPI server in production**
@@ -200,7 +200,7 @@ Before you begin, you'll need the following:
                 <CloudCopilotKitProvider components={props.components} />
                 
                 <Callout type="info">
-                    Looking for a way to run multiple CrewAI Flows? Check out our [Multi-Agent](/crewai-flows/multi-agent-flows) guide.
+                    Looking for a way to run multiple CrewAI Crews? Check out our [Multi-Agent](/crewai-crews/multi-agent-flows) guide.
                 </Callout>
             </Step>
         </TailoredContentOption>
@@ -212,7 +212,7 @@ Before you begin, you'll need the following:
         >
             <Step>
                 ### Install Copilot Runtime
-                Copilot Runtime is a production-ready proxy for your CrewAI Flows. In your frontend, go ahead and install it.
+                Copilot Runtime is a production-ready proxy for your CrewAI Crews. In your frontend, go ahead and install it.
 
                 ```package-install
                 @copilotkit/runtime
@@ -224,9 +224,9 @@ Before you begin, you'll need the following:
                 <SelfHostingCopilotRuntimeStarter components={props.components}/>
             </Step>
             <Step>
-                ### Add your CrewAI Flow deployment to Copilot Runtime
-                Now we need to add your CrewAI Flow deployment to Copilot Runtime. This will make it
-                so your frontend can find your CrewAI Flows correctly.
+                ### Add your CrewAI Crew deployment to Copilot Runtime
+                Now we need to add your CrewAI Crew deployment to Copilot Runtime. This will make it
+                so your frontend can find your CrewAI Crews correctly.
                 ```ts
                 import { 
                 CopilotRuntime,
@@ -249,7 +249,7 @@ Before you begin, you'll need the following:
                 it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
                 <SelfHostingCopilotRuntimeConfigureCopilotKitProvider components={props.components}/>
                 <Callout type="info">
-                    Looking for a way to run multiple CrewAI Flows? Check out our [Multi-Agent](/crewai-flows/multi-agent-flows) guide.
+                    Looking for a way to run multiple CrewAI Crews? Check out our [Multi-Agent](/crewai-crews/multi-agent-flows) guide.
                 </Callout>
             </Step>
         </TailoredContentOption>
@@ -281,24 +281,25 @@ Before you begin, you'll need the following:
         ```
 
         <Callout type="info">
-            Looking for other chat component options? Check out our [Agentic Chat UI](/crewai-flows/agentic-chat-ui) guide.
+            Looking for other chat component options? Check out our [Agentic Chat UI](/crewai-crews/agentic-chat-ui) guide.
         </Callout>
     </Step>
     <Step>
         ### 🎉 Talk to your agent!
 
-        Congrats! You've successfully integrated a CrewAI Flow chatbot to your application. To start, try asking a few questions to your agent.
+        Congrats! You've successfully integrated a CrewAI Crew chatbot to your application.
+        To start, try asking a few questions to your agent.
 
         ```
-        Can you tell me a joke?
-        ```
-
-        ```
-        Can you help me understand AI?
+        What can you do?
         ```
 
         ```
-        What do you think about React?
+        Which inputs does this crew support?
+        ```
+
+        ```
+        The research topic is: "Deep Learning"
         ```
 
         <video src="/images/coagents/chat-example.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
@@ -314,32 +315,32 @@ Before you begin, you'll need the following:
 ---
 
 ## What's next?
-You've now got a CrewAI Flow running in CopilotKit! Now you can start exploring the various ways that CopilotKit
+You've now got a CrewAI Crew running in CopilotKit! Now you can start exploring the various ways that CopilotKit
 can help you build power agent native applications.
 
 <Cards>
   <Card 
     title="Implement Human in the Loop" 
     description="Allow your users and agents to collaborate together on tasks."
-    href="/crewai-flows/human-in-the-loop"
+    href="/crewai-crews/human-in-the-loop"
     icon={<UserIcon />}
   />
   <Card 
     title="Utilize the Shared State" 
     description="Learn how to synchronize your agent's state with your UI's state, and vice versa." 
-    href="/crewai-flows/shared-state"
+    href="/crewai-crews/shared-state"
     icon={<RepeatIcon />}
   />
   <Card 
     title="Add some generative UI" 
     description="Render your agent's progress and output in the UI." 
-    href="/crewai-flows/generative-ui"
+    href="/crewai-crews/generative-ui"
     icon={<PaintbrushIcon />}
   />
   <Card 
     title="Setup frontend actions" 
     description="Give your agent the ability to call frontend tools, directly updating your application." 
-    href="/crewai-flows/frontend-actions"
+    href="/crewai-crews/frontend-actions"
     icon={<WrenchIcon />}
   />
 </Cards>

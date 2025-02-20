@@ -1,0 +1,13 @@
+---
+title: "Exiting the agent loop"
+icon: "lucide/DoorOpen"
+---
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+
+After your agent has finished running a crew, it will automatically exit the agent loop
+
+Exiting the agent has different effects depending on mode:
+
+- **Router Mode**: Exiting the agent hands responsibility for handling input back to the router, which can initiate chat, call actions, other agents, etc. The router can return to this agent later (starting a new loop) to satisfy a user request.
+
+- **Agent Lock Mode**: Exiting the agent restarts the workflow loop for the current agent.
