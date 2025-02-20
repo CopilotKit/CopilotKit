@@ -1,47 +1,10 @@
-FROM public.ecr.aws/docker/library/python:3.12.0-slim-bullseye AS builder
-
-# Install build dependencies and SQLite first
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    wget \
-    libffi-dev \
-    zlib1g-dev \
-    libssl-dev \
-    libbz2-dev \
-    liblzma-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install new SQLite
-WORKDIR /tmp
-RUN wget https://www.sqlite.org/2024/sqlite-autoconf-3450000.tar.gz \
-    && tar xvfz sqlite-autoconf-3450000.tar.gz \
-    && cd sqlite-autoconf-3450000 \
-    && ./configure --prefix=/usr/local \
-    && make \
-    && make install \
-    && cd .. \
-    && rm -rf sqlite-autoconf-3450000*
-
-# Download and build Python with new SQLite
-RUN wget https://www.python.org/ftp/python/3.12.0/Python-3.12.0.tgz \
-    && tar xzf Python-3.12.0.tgz \
-    && cd Python-3.12.0 \
-    && ./configure --enable-optimizations --with-system-sqlite3 --prefix=/usr/local \
-    && make -j$(nproc) \
-    && make install \
-    && cd .. \
-    && rm -rf Python-3.12.0*
-
-# Final stage
-FROM public.ecr.aws/docker/library/python:3.12.0-slim-bullseye
+FROM public.ecr.aws/docker/library/python:3.12-bookworm
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/lambda-adapter
-COPY --from=builder /usr/local /usr/local
 
 ARG APP_DIR
 ARG WITH_LOCAL_DEPS
 
 ENV POETRY_VIRTUALENVS_CREATE=false
-ENV LD_LIBRARY_PATH=/usr/local/lib
 
 # Install poetry and configure it
 RUN pip install poetry==1.7.1 && \
