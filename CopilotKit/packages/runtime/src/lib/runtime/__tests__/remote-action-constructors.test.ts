@@ -49,7 +49,7 @@ beforeEach(() => {
 
 describe("remote action constructors", () => {
   describe("constructLGCRemoteAction", () => {
-    it("should create an agent with langGraphAgentHandler that processes events", async () => {
+    it("should create an agent with remoteAgentHandler that processes events", async () => {
       // Arrange: simulate execute returning a dummy ReadableStream
       const dummyEncodedEvent = new TextEncoder().encode(JSON.stringify({ event: "test" }) + "\n");
       const readerMock = {
@@ -72,7 +72,7 @@ describe("remote action constructors", () => {
         processLangGraphEvents: processLangGraphEventsMock,
       }));
 
-      // Act: build the action and call langGraphAgentHandler
+      // Act: build the action and call remoteAgentHandler
       const actions = constructLGCRemoteAction({
         endpoint,
         graphqlContext,
@@ -84,7 +84,7 @@ describe("remote action constructors", () => {
       const action = actions[0];
       expect(action.name).toEqual(dummyAgent.name);
 
-      const result = await action.langGraphAgentHandler({
+      const result = await action.remoteAgentHandler({
         name: dummyAgent.name,
         actionInputsWithoutAgents: [],
         threadId: "thread1",
@@ -194,7 +194,7 @@ describe("remote action constructors", () => {
       });
       // The remote agent is the second item in the array
       expect(actionsArray).toHaveLength(2);
-      const remoteAgentHandler = (actionsArray[1] as any).langGraphAgentHandler;
+      const remoteAgentHandler = (actionsArray[1] as any).remoteAgentHandler;
       const result = await remoteAgentHandler({
         name: "agent2",
         actionInputsWithoutAgents: [],
