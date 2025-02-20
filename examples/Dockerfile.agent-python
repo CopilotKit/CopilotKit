@@ -5,7 +5,21 @@ ARG WITH_LOCAL_DEPS
 
 ENV POETRY_VIRTUALENVS_CREATE=false
 
-# Install poetry and configure it in a single layer
+# Install system dependencies including newer sqlite3
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    wget \
+    && rm -rf /var/lib/apt/lists/* \
+    && wget https://www.sqlite.org/2024/sqlite-autoconf-3450000.tar.gz \
+    && tar xvfz sqlite-autoconf-3450000.tar.gz \
+    && cd sqlite-autoconf-3450000 \
+    && ./configure \
+    && make \
+    && make install \
+    && cd .. \
+    && rm -rf sqlite-autoconf-3450000*
+
+# Install poetry and configure it
 RUN pip install poetry==1.7.1 && \
     poetry config virtualenvs.create false
 
