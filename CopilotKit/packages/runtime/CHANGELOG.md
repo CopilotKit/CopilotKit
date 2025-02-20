@@ -1,5 +1,14 @@
 # @copilotkit/runtime
 
+## 1.6.0-next.6
+
+### Patch Changes
+
+- 45a3e10: - feat: support latest openai api
+  - chore: update all openai dependencies to use latest
+  - feat: update adapters using openai API
+  - @copilotkit/shared@1.6.0-next.6
+
 ## 1.6.0-next.5
 
 ### Patch Changes

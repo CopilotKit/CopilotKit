@@ -1,5 +1,7 @@
 # @copilotkit/shared
 
+## 1.6.0-next.6
+
 ## 1.6.0-next.5
 
 ### Patch Changes
