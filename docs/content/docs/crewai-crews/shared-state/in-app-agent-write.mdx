@@ -4,9 +4,19 @@ icon: "lucide/ArrowRight"
 description: Write to the inputs of a CrewAI Crew from your application.
 ---
 
-<video src="/images/coagents/write-agent-state.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<video
+  src="/images/coagents/write-agent-state.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
 <Callout>
-  This video shows the [coagents starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-crews) repo with the previous steps applied to it!
+  This video shows the [coagents
+  starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-crews)
+  repo with the previous steps applied to it!
 </Callout>
 
 ## What is this?
@@ -55,12 +65,6 @@ You can use this when you want to provide the user with a way to update the inpu
       });
       // ...
 
-      const toggleLanguage = () => {
-        setState({ language: state.language === "english" ? "spanish" : "english" }); // [!code highlight]
-      };
-
-      // ...
-
       return (
         // style excluded for brevity
         <div>
@@ -81,6 +85,7 @@ You can use this when you want to provide the user with a way to update the inpu
       );
     }
     ```
+
   </Step>
   <Step>
     ### Give it a try!
