@@ -5,6 +5,10 @@
 
 CopilotKit fully customized using components from MongoDB's Leafy Green Design System.
 
+https://github.com/user-attachments/assets/92356944-090a-440c-bf8f-749bec5475e2
+
+
+
 ## Tech Stack
 
 - [CopilotKit](https://copilotkit.ai)
