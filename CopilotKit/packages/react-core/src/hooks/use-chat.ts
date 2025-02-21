@@ -531,12 +531,9 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             const action = actions.find(
               (action) => action.name === (message as ActionExecutionMessage).name,
             );
-            const pairedFeAction = actions.find(
-              (action) =>
-                (action.name === (message as ResultMessage).actionName &&
-                  action.available === "frontend") ||
-                action.pairedAction === (message as ResultMessage).actionName,
-            );
+            const currentResultMessagePairedFeAction = message.isResultMessage()
+              ? getPairedFeAction(actions, message)
+              : null;
 
             const executeActionFromMessage = async (
               action: FrontendAction<any>,
@@ -560,13 +557,11 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               return resultMessage;
             };
 
+            // execution message which has an action registered with the hook (remote availability):
+            // execute that action first, and then the "paired FE action"
             if (action && message.isActionExecutionMessage()) {
               const resultMessage = await executeActionFromMessage(action, message);
-              const pairedFeAction = actions.find(
-                (action) =>
-                  (action.name === resultMessage.actionName && action.available === "frontend") ||
-                  action.pairedAction === resultMessage.actionName,
-              );
+              const pairedFeAction = getPairedFeAction(actions, resultMessage);
 
               if (pairedFeAction) {
                 const newExecutionMessage = new ActionExecutionMessage({
@@ -578,15 +573,19 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 });
                 await executeActionFromMessage(pairedFeAction, newExecutionMessage);
               }
-            } else if (message.isResultMessage() && pairedFeAction) {
+            } else if (message.isResultMessage() && currentResultMessagePairedFeAction) {
+              // Actions which are set up in runtime actions array: Grab the result, executed paired FE action with it as args.
               const newExecutionMessage = new ActionExecutionMessage({
-                name: pairedFeAction.name,
+                name: currentResultMessagePairedFeAction.name,
                 arguments: JSON.parse(message.result),
                 status: message.status,
                 createdAt: message.createdAt,
               });
               finalMessages.push(newExecutionMessage);
-              await executeActionFromMessage(pairedFeAction, newExecutionMessage);
+              await executeActionFromMessage(
+                currentResultMessagePairedFeAction,
+                newExecutionMessage,
+              );
             }
           }
 
@@ -833,4 +832,21 @@ async function executeAction({
     actionExecutionId: message.id,
     actionName: message.name,
   });
+}
+
+function getPairedFeAction(
+  actions: FrontendAction<any>[],
+  message: ActionExecutionMessage | ResultMessage,
+) {
+  let actionName = null;
+  if (message.isActionExecutionMessage()) {
+    actionName = message.name;
+  } else if (message.isResultMessage()) {
+    actionName = message.actionName;
+  }
+  return actions.find(
+    (action) =>
+      (action.name === actionName && action.available === "frontend") ||
+      action.pairedAction === actionName,
+  );
 }
