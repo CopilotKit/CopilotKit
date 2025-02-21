@@ -4,6 +4,7 @@ import {
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   CoAgentStateRenderHandler,
   randomId,
+  parseJson,
 } from "@copilotkit/shared";
 import {
   Message,
@@ -22,6 +23,12 @@ import {
   ExtensionsInput,
   CopilotRuntimeClient,
   langGraphInterruptEvent,
+  MetaEvent,
+  MetaEventName,
+  ActionExecutionMessage,
+  CopilotKitLangGraphInterruptEvent,
+  LangGraphInterruptEvent,
+  MetaEventInput,
 } from "@copilotkit/runtime-client-gql";
 
 import { CopilotApiConfig } from "../context";
@@ -34,14 +41,6 @@ import {
   LangGraphInterruptAction,
   LangGraphInterruptActionSetter,
 } from "../types/interrupt-action";
-import { MetaEvent, MetaEventName } from "@copilotkit/runtime-client-gql";
-import {
-  CopilotKitLangGraphInterruptEvent,
-  LangGraphInterruptEvent,
-  MetaEventInput,
-} from "@copilotkit/runtime-client-gql";
-import { parseJson } from "@copilotkit/shared";
-import { ActionExecutionMessage } from "@copilotkit/runtime-client-gql/src";
 
 export type UseChatOptions = {
   /**
@@ -500,7 +499,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             setMessages([...previousMessages, ...newMessages]);
           }
         }
-        const finalMessages = constructFinalMessages(
+        let finalMessages = constructFinalMessages(
           [...syncedMessages, ...interruptMessages],
           previousMessages,
           newMessages,
@@ -514,24 +513,44 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           const lastMessages: ActionExecutionMessage[] = [];
           for (let i = finalMessages.length - 1; i >= 0; i--) {
             const message = finalMessages[i];
-            const isResultMessagePendingFrontendExecution =
-              message.isResultMessage() &&
-              actions.find(
-                (action) => action.name === message.actionName && action.available === "frontend",
-              );
             const previousMessage = finalMessages[i - 1];
-            const isPreviousMessageExecutionOfCurrentResult =
-              isResultMessagePendingFrontendExecution &&
-              previousMessage.isActionExecutionMessage() &&
-              previousMessage.status.code !== MessageStatusCode.Pending;
+
+            let actionAwaitingFrontendExecution = null;
+            let frontendOnlyActionForMessage = actions.find(
+                // @ts-expect-error -- message is either action execution or result, so both "name" and "actionName" are possible
+                (action) => action.name === message.name || action.name === message.actionName && action.available === "frontend",
+            )
+            if (message.isResultMessage() && previousMessage.isActionExecutionMessage()) {
+              actionAwaitingFrontendExecution = actions.find(
+                  (action) => {
+                    // Look for a backend action with a name matching a FE only action
+                    const frontOnlyActionMatchingByName = action.name === message.actionName && action.available === "frontend"
+                    // Look for a backend action with a name matching a FE only action's "pairedAction" property
+                    const backendActionMatchingByPairing = action.pairedAction === message.actionName && action.available === "frontend"
+
+                    return frontOnlyActionMatchingByName || backendActionMatchingByPairing;
+                  },
+              )
+            }
 
             if (
               message.isActionExecutionMessage() &&
+              !frontendOnlyActionForMessage &&
               message.status.code !== MessageStatusCode.Pending
             ) {
               lastMessages.unshift(message);
-            } else if (isPreviousMessageExecutionOfCurrentResult) {
-              continue;
+            } else if (actionAwaitingFrontendExecution) {
+              const newExecutionMessage = new ActionExecutionMessage({
+                name: actionAwaitingFrontendExecution.name,
+                arguments: JSON.parse((message as ResultMessage).result),
+                status: message.status,
+                createdAt: message.createdAt,
+                parentMessageId: (previousMessage as ActionExecutionMessage).parentMessageId,
+              })
+              // Add new message to final messages
+              finalMessages = [...finalMessages, newExecutionMessage]
+              // send message to action processing
+              lastMessages.unshift(newExecutionMessage)
             } else {
               break;
             }
@@ -542,11 +561,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             // function can be called with `executing` state
             setMessages(finalMessages);
 
-            // @ts-ignore
-            let messageName = message.name;
-            const action = actions.find((action) => {
-              return action.name === messageName;
-            });
+            const action = actions.find((action) => action.name === message.name);
 
             if (action) {
               followUp = action.followUp;
@@ -556,7 +571,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 result = await Promise.race([
                   onFunctionCall({
                     messages: previousMessages,
-                    name: messageName,
+                    name: message.name,
                     args: message.arguments,
                   }),
                   new Promise((resolve) =>
@@ -579,31 +594,25 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               }
               didExecuteAction = true;
               const messageIndex = finalMessages.findIndex((msg) => msg.id === message.id);
-              if (
-                !finalMessages.some(
-                  (m) => "actionExecutionId" in m && m.actionExecutionId === message.id,
-                )
-              ) {
-                finalMessages.splice(
-                  messageIndex + 1,
-                  0,
-                  new ResultMessage({
-                    id: "result-" + message.id,
-                    result: ResultMessage.encodeResult(
-                      error
-                        ? {
-                            content: result,
-                            error: JSON.parse(
-                              JSON.stringify(error, Object.getOwnPropertyNames(error)),
-                            ),
-                          }
-                        : result,
-                    ),
-                    actionExecutionId: message.id,
-                    actionName: message.name,
-                  }),
-                );
-              }
+              finalMessages.splice(
+                messageIndex + 1,
+                0,
+                new ResultMessage({
+                  id: "result-" + message.id,
+                  result: ResultMessage.encodeResult(
+                    error
+                      ? {
+                          content: result,
+                          error: JSON.parse(
+                            JSON.stringify(error, Object.getOwnPropertyNames(error)),
+                          ),
+                        }
+                      : result,
+                  ),
+                  actionExecutionId: message.id,
+                  actionName: message.name,
+                }),
+              );
             }
           }
 

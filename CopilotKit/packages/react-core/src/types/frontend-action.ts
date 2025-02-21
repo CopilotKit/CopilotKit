@@ -139,6 +139,7 @@ export type FrontendAction<
    */
   disabled?: boolean;
   available?: FrontendActionAvailability;
+  pairedAction?: string
   followUp?: boolean;
 } & (
     | {
