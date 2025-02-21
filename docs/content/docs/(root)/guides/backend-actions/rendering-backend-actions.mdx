@@ -1,5 +1,5 @@
 ---
-title: "Frontend - Backend Action Pairing"
+title: "Rendering Backend action"
 description: "Learn how to react to a Backend only operation on the Frontend."
 icon: "lucide/Wrench"
 ---
@@ -60,7 +60,7 @@ Notice how the expected parameters match what's returned from the Backend action
 import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
 
 export function MyComponent() {
-const [userName, setUserName] = useState<string>('stranger');
+  const [userName, setUserName] = useState<string>('stranger');
 
   // Define Copilot action
   useCopilotAction({

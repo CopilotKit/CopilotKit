@@ -4,6 +4,7 @@
     "typescript-backend-actions",
     "langchain-js-backend-actions",
     "langserve-backend-actions",
+    "rendering-backend-actions",
     "remote-backend-endpoint",
     "langgraph-platform-endpoint"
   ]

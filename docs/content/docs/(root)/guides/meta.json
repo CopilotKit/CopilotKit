@@ -5,7 +5,6 @@
     "generative-ui",
     "frontend-actions",
     "backend-actions",
-    "frontend-backend-action-pairing",
     "authenticated-actions",
     "guardrails",
     "custom-ai-assistant-behavior",
