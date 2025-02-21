@@ -1,7 +1,7 @@
 ---
-title: Filtering Input and Output State properties
+title: Agent state inputs and outputs
 icon: "lucide/ArrowRightLeft"
-description: Decide which state properties are exposed to the frontend
+description: Decide which state properties are received and returned to the frontend
 ---
 
 ## What is this?
@@ -11,7 +11,7 @@ This guide shows how to ensure only the right portion of state is communicated b
 
 This guide is based on [LangGraph's Input/Output Schema feature](https://langchain-ai.github.io/langgraph/how-tos/input_output_schema/)
 
-## Why?
+## When should I use this?
 
 Depending on your implementation, some properties are meant to be processed internally, while some others are the way for the UI to communicate user input.
 In addition, some state properties contain a lot of information. Syncing them back and forth between the agent and UI can be costly, while it might not have any practical benefit.
@@ -20,7 +20,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
 
 <Steps>
   <Step>
-    ### Define the Agent State
+    ### Examine our old state
     LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
     let's assume that our agent state looks something like this.
 
