@@ -1,0 +1,132 @@
+---
+title: "Frontend - Backend Action Pairing"
+description: "Learn how to react to a Backend only operation on the Frontend."
+icon: "lucide/Wrench"
+---
+import { LinkIcon } from "lucide-react";
+import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
+
+Some actions, although having UI implications, would need to be performed on a Backend  secured environment.
+In order to "render UI from the Backend", it is possible to pair a Frontend only action with its Backend equivalent, so one execution follows the other.
+
+<Steps>
+
+<Step>
+### Set up a backend action
+
+Follow the [Backend Actions guides](/guides/backend-actions) and set up an action on the Backend.
+
+For demonstration purposes, we'll assume the same action as shown in this guide:
+```tsx title="/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  // ... existing configuration
+  actions: ({properties, url}) => {
+    return [
+      {
+        name: "fetchUser",
+        description: "Fetches user name from the database for a given ID.",
+        parameters: [
+          {
+            name: "userId",
+            type: "string",
+            description: "The ID of the user to fetch data for.",
+            required: true,
+          },
+        ],
+        handler: async ({userId}: {userId: string}) => {
+        // do something with the userId
+        // return the user data
+          return {
+            name: "Darth Doe",
+          };
+        },
+      },
+    ]
+  }
+});
+
+// ... rest of your route definition
+```
+</Step>
+
+<Step>
+### Pair a frontend action
+
+On the UI layer, define a "frontend" only action which will correspond to the Backend action.
+Notice how the expected parameters match what's returned from the Backend action handler
+
+```tsx title="YourComponent.tsx"
+"use client" // only necessary if you are using Next.js with the App Router.
+import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
+
+export function MyComponent() {
+const [userName, setUserName] = useState<string>('stranger');
+
+  // Define Copilot action
+  useCopilotAction({
+    name: "displayUser", // Names of the actions match between Backend and Frontend // [!code highlight]
+    description: "Display the user name fetched from the backend",
+    pairedAction: "fetchUser", // Choose which backed action this is paired with // [!code highlight]
+    available: "frontend", // Optional :mark it as frontend only if the FE and BE action name matches // [!code highlight]
+    parameters: [
+      {
+        name: "name",
+        type: "string",
+        description: "The user name",
+      },
+    ],
+    handler: async ({ name }) => {
+      setUserName(name);
+    },
+  });
+
+  return (
+    <h1>
+      hello {userName}
+    </ul>
+  );
+}
+```
+</Step>
+
+<Step>
+  <UseClientCalloutSnippet components={props.components} />
+</Step>
+
+
+<Step>
+### Test it out!
+After adding the action, test it by asking the copilot to perform the task. Observe how it selects the correct task, executes it, and the UI action defined is reflecting the result.
+</Step>
+
+</Steps>
+
+
+## Next Steps
+
+<Cards>
+  <Card
+    title="useCopilotAction Reference"
+    description="Refer to the documentation for the useCopilotAction hook."
+    href="/reference/hooks/useCopilotAction"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Frontend Actions"
+    description="Learn how to enable your Copilot to take actions in the frontend."
+    href="/guides/frontend-actions"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Actions + Generative UI"
+    description="Learn how to render custom UI components alongside your actions, directly in the CopilotKit chat window."
+    href="/guides/generative-ui"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Backend Actions"
+    description="Enable backend services to trigger actions via copilot backend hooks."
+    href="/guides/backend-actions"
+    icon={<LinkIcon />}
+  />
+</Cards>
