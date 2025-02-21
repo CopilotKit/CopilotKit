@@ -510,56 +510,14 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         // execute regular action executions that are specific to the frontend (last actions)
         if (onFunctionCall) {
           // Find consecutive action execution messages at the end
-          const lastMessages: ActionExecutionMessage[] = [];
+          const lastMessages = [];
           for (let i = finalMessages.length - 1; i >= 0; i--) {
             const message = finalMessages[i];
-            const previousMessage = finalMessages[i - 1];
-
-            let actionAwaitingFrontendExecution = null;
-            // Check if there is a frontend only action that corresponds this message
-            let frontendOnlyActionForMessage = actions.find((action) => {
-              let correspondsByName = false;
-              let correspondsByPairing = false;
-              if (message.isActionExecutionMessage()) {
-                correspondsByName = action.name === message.name && action.available === "frontend";
-                correspondsByPairing = action.pairedAction === message.name;
-              } else if (message.isResultMessage()) {
-                correspondsByName =
-                  action.name === message.actionName && action.available === "frontend";
-                correspondsByPairing = action.pairedAction === message.actionName;
-              }
-              return correspondsByName || correspondsByPairing;
-            });
-            if (message.isResultMessage() && previousMessage.isActionExecutionMessage()) {
-              actionAwaitingFrontendExecution = actions.find((action) => {
-                // Look for a backend action with a name matching a FE only action
-                const frontOnlyActionMatchingByName =
-                  action.name === message.actionName && action.available === "frontend";
-                // Look for a backend action with a name matching a FE only action's "pairedAction" property
-                const backendActionMatchingByPairing = action.pairedAction === message.actionName;
-
-                return frontOnlyActionMatchingByName || backendActionMatchingByPairing;
-              });
-            }
-
             if (
-              message.isActionExecutionMessage() &&
-              !frontendOnlyActionForMessage &&
+              (message.isActionExecutionMessage() || message.isResultMessage()) &&
               message.status.code !== MessageStatusCode.Pending
             ) {
               lastMessages.unshift(message);
-            } else if (actionAwaitingFrontendExecution) {
-              const newExecutionMessage = new ActionExecutionMessage({
-                name: actionAwaitingFrontendExecution.name,
-                arguments: JSON.parse((message as ResultMessage).result),
-                status: message.status,
-                createdAt: message.createdAt,
-                parentMessageId: (previousMessage as ActionExecutionMessage).parentMessageId,
-              });
-              // Add new message to final messages
-              finalMessages = [...finalMessages, newExecutionMessage];
-              // send message to action processing
-              lastMessages.unshift(newExecutionMessage);
             } else {
               break;
             }
@@ -570,58 +528,65 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             // function can be called with `executing` state
             setMessages(finalMessages);
 
-            const action = actions.find((action) => action.name === message.name);
+            const action = actions.find(
+              (action) => action.name === (message as ActionExecutionMessage).name,
+            );
+            const pairedFeAction = actions.find(
+              (action) =>
+                (action.name === (message as ResultMessage).actionName &&
+                  action.available === "frontend") ||
+                action.pairedAction === (message as ResultMessage).actionName,
+            );
 
-            if (action) {
-              followUp = action.followUp;
-              let result: any;
-              let error: Error | null = null;
-              try {
-                result = await Promise.race([
-                  onFunctionCall({
-                    messages: previousMessages,
-                    name: message.name,
-                    args: message.arguments,
-                  }),
-                  new Promise((resolve) =>
-                    chatAbortControllerRef.current?.signal.addEventListener("abort", () =>
-                      resolve("Operation was aborted by the user"),
-                    ),
-                  ),
-                  // if the user stopped generation, we also abort consecutive actions
-                  new Promise((resolve) => {
-                    if (chatAbortControllerRef.current?.signal.aborted) {
-                      resolve("Operation was aborted by the user");
-                    }
-                  }),
-                ]);
-              } catch (e) {
-                error = e as Error;
-                addErrorToast([error]);
-                result = `Failed to execute action ${message.name}. ${error.message}`;
-                console.error(`Failed to execute action ${message.name}: ${error}`);
-              }
+            const executeActionFromMessage = async (
+              action: FrontendAction<any>,
+              message: ActionExecutionMessage,
+            ) => {
+              followUp = action?.followUp;
+              const resultMessage = await executeAction({
+                onFunctionCall,
+                previousMessages,
+                message,
+                chatAbortControllerRef,
+                onError: (error: Error) => {
+                  addErrorToast([error]);
+                  console.error(`Failed to execute action ${message.name}: ${error}`);
+                },
+              });
               didExecuteAction = true;
               const messageIndex = finalMessages.findIndex((msg) => msg.id === message.id);
-              finalMessages.splice(
-                messageIndex + 1,
-                0,
-                new ResultMessage({
-                  id: "result-" + message.id,
-                  result: ResultMessage.encodeResult(
-                    error
-                      ? {
-                          content: result,
-                          error: JSON.parse(
-                            JSON.stringify(error, Object.getOwnPropertyNames(error)),
-                          ),
-                        }
-                      : result,
-                  ),
-                  actionExecutionId: message.id,
-                  actionName: message.name,
-                }),
+              finalMessages.splice(messageIndex + 1, 0, resultMessage);
+
+              return resultMessage;
+            };
+
+            if (action && message.isActionExecutionMessage()) {
+              const resultMessage = await executeActionFromMessage(action, message);
+              const pairedFeAction = actions.find(
+                (action) =>
+                  (action.name === resultMessage.actionName && action.available === "frontend") ||
+                  action.pairedAction === resultMessage.actionName,
               );
+
+              if (pairedFeAction) {
+                const newExecutionMessage = new ActionExecutionMessage({
+                  name: pairedFeAction.name,
+                  arguments: JSON.parse(resultMessage.result),
+                  status: message.status,
+                  createdAt: message.createdAt,
+                  parentMessageId: message.parentMessageId,
+                });
+                await executeActionFromMessage(pairedFeAction, newExecutionMessage);
+              }
+            } else if (message.isResultMessage() && pairedFeAction) {
+              const newExecutionMessage = new ActionExecutionMessage({
+                name: pairedFeAction.name,
+                arguments: JSON.parse(message.result),
+                status: message.status,
+                createdAt: message.createdAt,
+              });
+              finalMessages.push(newExecutionMessage);
+              await executeActionFromMessage(pairedFeAction, newExecutionMessage);
             }
           }
 
@@ -816,4 +781,56 @@ function constructFinalMessages(
   }
 
   return finalMessages;
+}
+
+async function executeAction({
+  onFunctionCall,
+  previousMessages,
+  message,
+  chatAbortControllerRef,
+  onError,
+}: {
+  onFunctionCall: FunctionCallHandler;
+  previousMessages: Message[];
+  message: ActionExecutionMessage;
+  chatAbortControllerRef: React.MutableRefObject<AbortController | null>;
+  onError: (error: Error) => void;
+}) {
+  let result: any;
+  let error: Error | null = null;
+  try {
+    result = await Promise.race([
+      onFunctionCall({
+        messages: previousMessages,
+        name: message.name,
+        args: message.arguments,
+      }),
+      new Promise((resolve) =>
+        chatAbortControllerRef.current?.signal.addEventListener("abort", () =>
+          resolve("Operation was aborted by the user"),
+        ),
+      ),
+      // if the user stopped generation, we also abort consecutive actions
+      new Promise((resolve) => {
+        if (chatAbortControllerRef.current?.signal.aborted) {
+          resolve("Operation was aborted by the user");
+        }
+      }),
+    ]);
+  } catch (e) {
+    onError(e as Error);
+  }
+  return new ResultMessage({
+    id: "result-" + message.id,
+    result: ResultMessage.encodeResult(
+      error
+        ? {
+            content: result,
+            error: JSON.parse(JSON.stringify(error, Object.getOwnPropertyNames(error))),
+          }
+        : result,
+    ),
+    actionExecutionId: message.id,
+    actionName: message.name,
+  });
 }
