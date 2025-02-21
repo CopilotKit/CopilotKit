@@ -516,13 +516,19 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             const previousMessage = finalMessages[i - 1];
 
             let actionAwaitingFrontendExecution = null;
+            // Check if there is a frontend only action that corresponds this message
             let frontendOnlyActionForMessage = actions.find((action) => {
+              let correspondsByName = false;
+              let correspondsByPairing = false;
               if (message.isActionExecutionMessage()) {
-                return action.name === message.name;
+                correspondsByName = action.name === message.name && action.available === "frontend";
+                correspondsByPairing = action.pairedAction === message.name;
               } else if (message.isResultMessage()) {
-                return action.name === message.actionName && action.available === "frontend";
+                correspondsByName =
+                  action.name === message.actionName && action.available === "frontend";
+                correspondsByPairing = action.pairedAction === message.actionName;
               }
-              return false;
+              return correspondsByName || correspondsByPairing;
             });
             if (message.isResultMessage() && previousMessage.isActionExecutionMessage()) {
               actionAwaitingFrontendExecution = actions.find((action) => {
@@ -530,8 +536,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 const frontOnlyActionMatchingByName =
                   action.name === message.actionName && action.available === "frontend";
                 // Look for a backend action with a name matching a FE only action's "pairedAction" property
-                const backendActionMatchingByPairing =
-                  action.pairedAction === message.actionName && action.available === "frontend";
+                const backendActionMatchingByPairing = action.pairedAction === message.actionName;
 
                 return frontOnlyActionMatchingByName || backendActionMatchingByPairing;
               });
