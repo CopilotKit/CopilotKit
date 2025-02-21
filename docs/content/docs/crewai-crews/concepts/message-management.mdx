@@ -3,6 +3,8 @@ title: Message flow
 icon: lucide/MessageCircle
 ---
 
+<InsecurePasswordProtected>
+
 Message management in CoAgents operates with CopilotKit as the "ground truth" for the full chat session. 
 When an CoAgent session begins, it receives the existing CopilotKit chat history to maintain conversational
 continuity across different agents.
@@ -74,3 +76,5 @@ Messages flow between CopilotKit and CrewAI in a specific way:
 - On a fresh agent invocation, the full CopilotKit chat history is provided to the CrewAI agent as its pre-existing chat history.
 
 When a CoAgent completes its execution, its relevant messages become part of CopilotKit's persistent chat history. This allows for all future agent invocations to get context from the full chat history.
+
+</InsecurePasswordProtected>
