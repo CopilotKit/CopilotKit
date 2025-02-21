@@ -139,7 +139,7 @@ export type FrontendAction<
    */
   disabled?: boolean;
   available?: FrontendActionAvailability;
-  pairedAction?: string
+  pairedAction?: string;
   followUp?: boolean;
 } & (
     | {

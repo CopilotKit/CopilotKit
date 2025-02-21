@@ -516,21 +516,25 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             const previousMessage = finalMessages[i - 1];
 
             let actionAwaitingFrontendExecution = null;
-            let frontendOnlyActionForMessage = actions.find(
-                // @ts-expect-error -- message is either action execution or result, so both "name" and "actionName" are possible
-                (action) => action.name === message.name || action.name === message.actionName && action.available === "frontend",
-            )
+            let frontendOnlyActionForMessage = actions.find((action) => {
+              if (message.isActionExecutionMessage()) {
+                return action.name === message.name;
+              } else if (message.isResultMessage()) {
+                return action.name === message.actionName && action.available === "frontend";
+              }
+              return false;
+            });
             if (message.isResultMessage() && previousMessage.isActionExecutionMessage()) {
-              actionAwaitingFrontendExecution = actions.find(
-                  (action) => {
-                    // Look for a backend action with a name matching a FE only action
-                    const frontOnlyActionMatchingByName = action.name === message.actionName && action.available === "frontend"
-                    // Look for a backend action with a name matching a FE only action's "pairedAction" property
-                    const backendActionMatchingByPairing = action.pairedAction === message.actionName && action.available === "frontend"
+              actionAwaitingFrontendExecution = actions.find((action) => {
+                // Look for a backend action with a name matching a FE only action
+                const frontOnlyActionMatchingByName =
+                  action.name === message.actionName && action.available === "frontend";
+                // Look for a backend action with a name matching a FE only action's "pairedAction" property
+                const backendActionMatchingByPairing =
+                  action.pairedAction === message.actionName && action.available === "frontend";
 
-                    return frontOnlyActionMatchingByName || backendActionMatchingByPairing;
-                  },
-              )
+                return frontOnlyActionMatchingByName || backendActionMatchingByPairing;
+              });
             }
 
             if (
@@ -546,11 +550,11 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                 status: message.status,
                 createdAt: message.createdAt,
                 parentMessageId: (previousMessage as ActionExecutionMessage).parentMessageId,
-              })
+              });
               // Add new message to final messages
-              finalMessages = [...finalMessages, newExecutionMessage]
+              finalMessages = [...finalMessages, newExecutionMessage];
               // send message to action processing
-              lastMessages.unshift(newExecutionMessage)
+              lastMessages.unshift(newExecutionMessage);
             } else {
               break;
             }
