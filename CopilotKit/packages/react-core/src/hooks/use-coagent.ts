@@ -88,7 +88,7 @@
  * </PropertyReference>
  */
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   CopilotContextParams,
   CopilotMessagesContextParams,
@@ -223,12 +223,6 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
   const lastLoadedThreadId = useRef<string>();
   const lastLoadedState = useRef<any>();
 
-  const isExternalStateManagement = (
-    options: UseCoagentOptions<T>,
-  ): options is WithExternalStateManagement<T> => {
-    return "state" in options && "setState" in options;
-  };
-
   const { name } = options;
   useEffect(() => {
     if (availableAgents?.length && !availableAgents.some((a) => a.name === name)) {
@@ -238,34 +232,11 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     }
   }, [availableAgents]);
 
-  const isInternalStateManagementWithInitial = (
-    options: UseCoagentOptions<T>,
-  ): options is WithInternalStateManagementAndInitial<T> => {
-    return "initialState" in options;
-  };
-
   const messagesContext = useCopilotMessagesContext();
   const context = { ...generalContext, ...messagesContext };
   const { coagentStates, coagentStatesRef, setCoagentStatesWithRef, threadId, copilotApiConfig } =
     context;
   const { appendMessage, runChatCompletion } = useCopilotChat();
-
-  const getCoagentState = (coagentStates: Record<string, CoagentState>, name: string) => {
-    if (coagentStates[name]) {
-      return coagentStates[name];
-    } else {
-      return {
-        name,
-        state: isInternalStateManagementWithInitial(options) ? options.initialState : {},
-        configurable: options.configurable ?? {},
-        running: false,
-        active: false,
-        threadId: undefined,
-        nodeName: undefined,
-        runId: undefined,
-      };
-    }
-  };
 
   const runtimeClient = useCopilotRuntimeClient({
     url: copilotApiConfig.chatApiEndpoint,
@@ -274,19 +245,23 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
   });
 
   // if we manage state internally, we need to provide a function to set the state
-  const setState = (newState: T | ((prevState: T | undefined) => T)) => {
-    let coagentState: CoagentState = getCoagentState(coagentStatesRef.current || {}, name);
-    const updatedState =
-      typeof newState === "function" ? (newState as Function)(coagentState.state) : newState;
+  const setState = useCallback(
+    (newState: T | ((prevState: T | undefined) => T)) => {
+      // coagentStatesRef.current || {}
+      let coagentState: CoagentState = getCoagentState({ coagentStates, name, options });
+      const updatedState =
+        typeof newState === "function" ? (newState as Function)(coagentState.state) : newState;
 
-    setCoagentStatesWithRef({
-      ...coagentStatesRef.current,
-      [name]: {
-        ...coagentState,
-        state: updatedState,
-      },
-    });
-  };
+      setCoagentStatesWithRef({
+        ...coagentStatesRef.current,
+        [name]: {
+          ...coagentState,
+          state: updatedState,
+        },
+      });
+    },
+    [coagentStates, name],
+  );
 
   useEffect(() => {
     const fetchAgentState = async () => {
@@ -312,8 +287,6 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
     void fetchAgentState();
   }, [threadId]);
 
-  const coagentState = getCoagentState(coagentStates, name);
-
   // Sync internal state with external state if state management is external
   useEffect(() => {
     if (isExternalStateManagement(options)) {
@@ -335,17 +308,20 @@ export function useCoAgent<T = any>(options: UseCoagentOptions<T>): UseCoagentRe
   );
 
   // Return the state and setState function
-  return {
-    name,
-    nodeName: coagentState.nodeName,
-    threadId: coagentState.threadId,
-    running: coagentState.running,
-    state: coagentState.state,
-    setState: isExternalStateManagement(options) ? options.setState : setState,
-    start: () => startAgent(name, context),
-    stop: () => stopAgent(name, context),
-    run: runAgentCallback,
-  };
+  return useMemo(() => {
+    const coagentState = getCoagentState({ coagentStates, name, options });
+    return {
+      name,
+      nodeName: coagentState.nodeName,
+      threadId: coagentState.threadId,
+      running: coagentState.running,
+      state: coagentState.state,
+      setState: isExternalStateManagement(options) ? options.setState : setState,
+      start: () => startAgent(name, context),
+      stop: () => stopAgent(name, context),
+      run: runAgentCallback,
+    };
+  }, [name, coagentStates, options, setState, runAgentCallback]);
 }
 
 export function startAgent(name: string, context: CopilotContextParams) {
@@ -412,3 +388,40 @@ export async function runAgent(
     await runChatCompletion();
   }
 }
+
+const isExternalStateManagement = <T>(
+  options: UseCoagentOptions<T>,
+): options is WithExternalStateManagement<T> => {
+  return "state" in options && "setState" in options;
+};
+
+const isInternalStateManagementWithInitial = <T>(
+  options: UseCoagentOptions<T>,
+): options is WithInternalStateManagementAndInitial<T> => {
+  return "initialState" in options;
+};
+
+const getCoagentState = <T>({
+  coagentStates,
+  name,
+  options,
+}: {
+  coagentStates: Record<string, CoagentState>;
+  name: string;
+  options: UseCoagentOptions<T>;
+}) => {
+  if (coagentStates[name]) {
+    return coagentStates[name];
+  } else {
+    return {
+      name,
+      state: isInternalStateManagementWithInitial<T>(options) ? options.initialState : {},
+      configurable: options.configurable ?? {},
+      running: false,
+      active: false,
+      threadId: undefined,
+      nodeName: undefined,
+      runId: undefined,
+    };
+  }
+};
