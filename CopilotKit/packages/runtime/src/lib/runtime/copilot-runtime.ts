@@ -572,7 +572,7 @@ please use an LLM adapter instead.`,
         threadId,
         runId: undefined,
         eventSource,
-        serverSideActions: [],
+        serverSideActions,
         actionInputsWithoutAgents: allAvailableActions,
       };
     } catch (error) {
