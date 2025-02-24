@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.6.0-next.9
+
+### Patch Changes
+
+- d07f49c: - fix(runtime): fix execution of runtime set backend action handlers
+  - @copilotkit/shared@1.6.0-next.9
+
 ## 1.6.0-next.8
 
 ### Minor Changes
