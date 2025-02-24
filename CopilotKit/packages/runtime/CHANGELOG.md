@@ -1,5 +1,29 @@
 # @copilotkit/runtime
 
+## 1.6.0-next.9
+
+### Patch Changes
+
+- d07f49c: - fix(runtime): fix execution of runtime set backend action handlers
+  - @copilotkit/shared@1.6.0-next.9
+
+## 1.6.0-next.8
+
+### Minor Changes
+
+- fea916f: - feat: support input and output schema of langgraph
+  - docs: add input output schema docs
+
+### Patch Changes
+
+- @copilotkit/shared@1.6.0-next.8
+
+## 1.6.0-next.7
+
+### Patch Changes
+
+- @copilotkit/shared@1.6.0-next.7
+
 ## 1.6.0-next.6
 
 ### Patch Changes

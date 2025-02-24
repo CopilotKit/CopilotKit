@@ -2,7 +2,7 @@
 
 import uuid
 import json
-from typing import Optional, List, Callable, Any, cast, Union, TypedDict
+from typing import Optional, List, Callable, Any, cast, Union, TypedDict, Literal
 from typing_extensions import NotRequired
 
 from langgraph.graph.graph import CompiledGraph
@@ -191,6 +191,7 @@ class LangGraphAgent(Agent):
             active: bool,
             include_messages: bool = False
         ):
+        # First handle messages as before
         if not include_messages:
             state = {
                 k: v for k, v in state.items() if k != "messages"
@@ -200,6 +201,9 @@ class LangGraphAgent(Agent):
                 **state,
                 "messages": langchain_messages_to_copilotkit(state.get("messages", []))
             }
+
+        # Filter by schema keys if available
+        state = self.filter_state_on_schema_keys(state, 'output')
 
         return langchain_dumps({
             "event": "on_copilotkit_state_sync",
@@ -294,6 +298,12 @@ class LangGraphAgent(Agent):
         # Use provided resume_input or fallback to initial_state
         stream_input = resume_input if resume_input else initial_state
 
+        # Get the output and input schema keys the user has allowed for this graph
+        input_keys, output_keys = self.get_schema_keys(config)
+        self.output_schema_keys = output_keys
+        self.input_schema_keys = input_keys
+
+        stream_input = self.filter_state_on_schema_keys(stream_input, 'input')
         async for event in self.graph.astream_events(stream_input, config, version="v2"):
             current_node_name = event.get("name")
             event_type = event.get("event")
@@ -465,6 +475,40 @@ class LangGraphAgent(Agent):
             **super_repr,
             'type': 'langgraph'
         }
+
+    def get_schema_keys(self, config):
+        CONSTANT_KEYS = ['copilotkit', 'messages']
+        try:
+            graph = self.graph.get_graph(config)
+            end_node = graph.nodes["__end__"]
+            start_node = graph.nodes["__start__"]
+            input_schema = start_node.data.schema()
+            output_schema = end_node.data.schema()
+            input_schema_keys = list(input_schema["properties"].keys())
+            output_schema_keys = list(output_schema["properties"].keys())
+
+            # We add "copilotkit" and "messages" as they are always sent and received.
+            for key in CONSTANT_KEYS:
+                if key not in input_schema_keys:
+                    input_schema_keys.append(key)
+                if key not in output_schema_keys:
+                    output_schema_keys.append(key)
+
+            return input_schema_keys, output_schema_keys
+        except Exception:
+            return None
+
+    def filter_state_on_schema_keys(self, state, schema_type: Literal["input", "output"]):
+        try:
+            schema_keys_name = f"{schema_type}_schema_keys"
+            if hasattr(self, schema_keys_name) and getattr(self, schema_keys_name):
+                return {
+                    k: v for k, v in state.items()
+                    if k in getattr(self, schema_keys_name) or k == "messages"
+                }
+        except Exception:
+            return state
+
 
 class _StreamingStateExtractor:
     def __init__(self, emit_intermediate_state: List[dict]):

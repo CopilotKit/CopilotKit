@@ -1,5 +1,27 @@
 # ui
 
+## 1.6.0-next.9
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.6.0-next.9
+- @copilotkit/shared@1.6.0-next.9
+
+## 1.6.0-next.8
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.6.0-next.8
+- @copilotkit/shared@1.6.0-next.8
+
+## 1.6.0-next.7
+
+### Patch Changes
+
+- d800f03: - fix: use memoization in useCoAgent internal functions
+  - @copilotkit/runtime-client-gql@1.6.0-next.7
+  - @copilotkit/shared@1.6.0-next.7
+
 ## 1.6.0-next.6
 
 ### Patch Changes

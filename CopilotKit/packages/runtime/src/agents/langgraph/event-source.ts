@@ -87,11 +87,20 @@ export class RemoteLangGraphEventSource {
             acc.lastMessageId = this.getCurrentMessageId(event) ?? acc.lastMessageId;
             const toolCallChunks = this.getCurrentToolCallChunks(event) ?? [];
             const responseMetadata = this.getResponseMetadata(event);
+            // Check if a given event is a tool call
+            const toolCallCheck = toolCallChunks && toolCallChunks.length > 0;
+            let isToolCallEnd = responseMetadata?.finish_reason === "tool_calls";
 
             acc.isToolCallStart = toolCallChunks.some((chunk: any) => chunk.name && chunk.id);
             acc.isMessageStart = prevMessageId !== acc.lastMessageId && !acc.isToolCallStart;
-            acc.isToolCall = toolCallChunks && toolCallChunks.length > 0;
-            acc.isToolCallEnd = responseMetadata?.finish_reason === "tool_calls";
+
+            // Previous "acc.isToolCall" was set but now it won't pass the check, it means the tool call just ended.
+            if (acc.isToolCall && !toolCallCheck) {
+              isToolCallEnd = true;
+            }
+
+            acc.isToolCall = toolCallCheck;
+            acc.isToolCallEnd = isToolCallEnd;
             acc.isMessageEnd = responseMetadata?.finish_reason === "stop";
             ({ name: acc.lastToolCallName, id: acc.lastToolCallId } = toolCallChunks.find(
               (chunk: any) => chunk.name && chunk.id,
@@ -148,7 +157,7 @@ export class RemoteLangGraphEventSource {
 
         // Tool call ended: emit ActionExecutionEnd
         if (
-          responseMetadata?.finish_reason === "tool_calls" &&
+          acc.isToolCallEnd &&
           this.shouldEmitToolCall(shouldEmitToolCalls, acc.lastToolCallName)
         ) {
           events.push({
@@ -158,7 +167,7 @@ export class RemoteLangGraphEventSource {
         }
 
         // Message ended: emit TextMessageEnd
-        if (responseMetadata?.finish_reason === "stop" && shouldEmitMessages) {
+        else if (responseMetadata?.finish_reason === "stop" && shouldEmitMessages) {
           events.push({
             type: RuntimeEventTypes.TextMessageEnd,
             messageId: acc.lastMessageId,
