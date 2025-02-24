@@ -1,5 +1,16 @@
 # @copilotkit/runtime
 
+## 1.6.0-next.8
+
+### Minor Changes
+
+- fea916f: - feat: support input and output schema of langgraph
+  - docs: add input output schema docs
+
+### Patch Changes
+
+- @copilotkit/shared@1.6.0-next.8
+
 ## 1.6.0-next.7
 
 ### Patch Changes
