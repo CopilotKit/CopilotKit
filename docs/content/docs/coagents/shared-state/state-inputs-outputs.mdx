@@ -18,39 +18,24 @@ In addition, some state properties contain a lot of information. Syncing them ba
 
 ## Implementation
 
+<Callout>
+    Due to LangGraph support, this feature is currently only available for Python agents
+</Callout>
+
 <Steps>
   <Step>
     ### Examine our old state
     LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
-    let's assume that our agent state looks something like this.
+    let's assume that the state our agent should be using, can be described like this:
+    ```python title="agent-py/sample_agent/agent.py"
+    from copilotkit import CopilotKitState
+    from typing import Literal
 
-    <Tabs groupId="language" items={["Python", "TypeScript"]}>
-      <Tab value="Python">
-        ```python title="agent-py/sample_agent/agent.py"
-        from copilotkit import CopilotKitState
-        from typing import Literal
-
-        class AgentState(CopilotKitState):
-            question: str
-            answer: str
-            resources: List[str]
-        ```
-      </Tab>
-      <Tab value="TypeScript">
-        ```ts title="agent-js/src/agent.ts"
-        import { Annotation } from "@langchain/langgraph";
-        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
-
-        export const AgentStateAnnotation = Annotation.Root({
-            question: Annotation<string>,
-            answer: Annotation<string>,
-            resources: Annotation<string[]>,
-            ...CopilotKitStateAnnotation.spec,
-        });
-        export type AgentState = typeof AgentStateAnnotation.State;
-        ```
-      </Tab>
-    </Tabs>
+    class AgentState(CopilotKitState):
+        question: str
+        answer: str
+        resources: List[str]
+    ```
   </Step>
   <Step>
     ### Divide state to Input and Output
@@ -59,71 +44,31 @@ In addition, some state properties contain a lot of information. Syncing them ba
       - The answer is what the LLM returns
       - The resources list will be used by the LLM to answer the question, and should not be communicated to the user, or set by them.
 
-      <Tabs groupId="language" items={["Python", "TypeScript"]}>
-          <Tab value="Python">
-              ```python title="agent-py/sample_agent/agent.py"
-              from copilotkit import CopilotKitState
-              from typing import Literal
+      ```python title="agent-py/sample_agent/agent.py"
+      from copilotkit import CopilotKitState
+      from typing import Literal
 
-              # divide the state into 3
-              class InputState(CopilotKitState):
-                question: str
+      # divide the state into 3
+      class InputState(CopilotKitState):
+        question: str
 
-              class OutputState(CopilotKitState):
-                answer: str
+      class OutputState(CopilotKitState):
+        answer: str
 
-              class OverallState(InputState, OutputState):
-                resources: List[str]
+      class OverallState(InputState, OutputState):
+        resources: List[str]
 
-              # ...add the rest of the agent implementation
+      # ...add the rest of the agent implementation
 
-              # finally, before compiling the graph, we define the 3 state components
-              builder = StateGraph(OverallState, input=InputState, output=OutputState)
+      # finally, before compiling the graph, we define the 3 state components
+      builder = StateGraph(OverallState, input=InputState, output=OutputState)
 
-              # add all the different nodes and edges and compile the graph
-              builder.add_node(answer_node)
-              builder.add_edge(START, "answer_node")
-              builder.add_edge("answer_node", END)
-              graph = builder.compile()
-              ```
-          </Tab>
-          <Tab value="TypeScript">
-              ```ts title="agent-js/src/agent.ts"
-              import { Annotation } from "@langchain/langgraph";
-              import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
-
-              // Divide the state into 3 different parts
-              export const InputAnnotation = Annotation.Root({
-                question: Annotation<string>,
-                ...CopilotKitStateAnnotation.spec,
-              });
-
-              export const OutputAnnotation = Annotation.Root({
-                answer: Annotation<string>,
-                ...CopilotKitStateAnnotation.spec,
-              });
-
-              export const AgentStateAnnotation = Annotation.Root({
-                resources: Annotation<string[]>,
-                ...InputAnnotation.spec,
-                ...OutputAnnotation.spec,
-              });
-
-              // ...add the rest of the agent implementation
-
-              // finally, before compiling the graph, we define the 3 state components
-              const graph = new StateGraph({
-                  stateSchema: AgentStateAnnotation,
-                  input: InputAnnotation,
-                  output: OutputAnnotation,
-              })
-              // add all the different nodes and edges and compile the graph
-              .addNode("answerNode", answerNode)
-              .addEdge("__start__", "answerNode")
-              .compile();
-              ```
-          </Tab>
-      </Tabs>
+      # add all the different nodes and edges and compile the graph
+      builder.add_node(answer_node)
+      builder.add_edge(START, "answer_node")
+      builder.add_edge("answer_node", END)
+      graph = builder.compile()
+      ```
   </Step>
   <Step>
     ### Give it a try!
