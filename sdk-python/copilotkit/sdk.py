@@ -5,7 +5,7 @@ from importlib import metadata
 
 from pprint import pformat
 from typing import List, Callable, Union, Optional, Any, Coroutine
-from typing_extensions import TypedDict, Tuple, cast
+from typing_extensions import TypedDict, Tuple, cast, Mapping
 from .agent import Agent, AgentDict
 from .action import Action, ActionDict, ActionResultDict
 from .types import Message, MetaEvent
@@ -47,9 +47,12 @@ class CopilotKitContext(TypedDict):
         The properties provided to the frontend via `<CopilotKit properties={...} />`
     frontend_url : Optional[str]
         The current URL of the frontend
+    headers : Mapping[str, str]
+        The headers of the request
     """
     properties: Any
     frontend_url: Optional[str]
+    headers: Mapping[str, str]
 
 # Alias for backwards compatibility
 CopilotKitSDKContext = CopilotKitContext

@@ -84,7 +84,8 @@ async def handler(request: Request, sdk: CopilotKitRemoteEndpoint):
         CopilotKitContext,
         {
             "properties": (body or {}).get("properties", {}),
-            "frontend_url": (body or {}).get("frontendUrl", None)
+            "frontend_url": (body or {}).get("frontendUrl", None),
+            "headers": request.headers,
         }
     )
 
