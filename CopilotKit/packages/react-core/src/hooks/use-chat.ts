@@ -4,6 +4,7 @@ import {
   COPILOT_CLOUD_PUBLIC_API_KEY_HEADER,
   CoAgentStateRenderHandler,
   randomId,
+  parseJson,
 } from "@copilotkit/shared";
 import {
   Message,
@@ -22,6 +23,12 @@ import {
   ExtensionsInput,
   CopilotRuntimeClient,
   langGraphInterruptEvent,
+  MetaEvent,
+  MetaEventName,
+  ActionExecutionMessage,
+  CopilotKitLangGraphInterruptEvent,
+  LangGraphInterruptEvent,
+  MetaEventInput,
 } from "@copilotkit/runtime-client-gql";
 
 import { CopilotApiConfig } from "../context";
@@ -34,13 +41,6 @@ import {
   LangGraphInterruptAction,
   LangGraphInterruptActionSetter,
 } from "../types/interrupt-action";
-import { MetaEvent, MetaEventName } from "@copilotkit/runtime-client-gql";
-import {
-  CopilotKitLangGraphInterruptEvent,
-  LangGraphInterruptEvent,
-  MetaEventInput,
-} from "@copilotkit/runtime-client-gql";
-import { parseJson } from "@copilotkit/shared";
 
 export type UseChatOptions = {
   /**
@@ -499,7 +499,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             setMessages([...previousMessages, ...newMessages]);
           }
         }
-        const finalMessages = constructFinalMessages(
+        let finalMessages = constructFinalMessages(
           [...syncedMessages, ...interruptMessages],
           previousMessages,
           newMessages,
@@ -514,7 +514,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           for (let i = finalMessages.length - 1; i >= 0; i--) {
             const message = finalMessages[i];
             if (
-              message.isActionExecutionMessage() &&
+              (message.isActionExecutionMessage() || message.isResultMessage()) &&
               message.status.code !== MessageStatusCode.Pending
             ) {
               lastMessages.unshift(message);
@@ -528,57 +528,63 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             // function can be called with `executing` state
             setMessages(finalMessages);
 
-            const action = actions.find((action) => action.name === message.name);
+            const action = actions.find(
+              (action) => action.name === (message as ActionExecutionMessage).name,
+            );
+            const currentResultMessagePairedFeAction = message.isResultMessage()
+              ? getPairedFeAction(actions, message)
+              : null;
 
-            if (action) {
-              followUp = action.followUp;
-              let result: any;
-              let error: Error | null = null;
-              try {
-                result = await Promise.race([
-                  onFunctionCall({
-                    messages: previousMessages,
-                    name: message.name,
-                    args: message.arguments,
-                  }),
-                  new Promise((resolve) =>
-                    chatAbortControllerRef.current?.signal.addEventListener("abort", () =>
-                      resolve("Operation was aborted by the user"),
-                    ),
-                  ),
-                  // if the user stopped generation, we also abort consecutive actions
-                  new Promise((resolve) => {
-                    if (chatAbortControllerRef.current?.signal.aborted) {
-                      resolve("Operation was aborted by the user");
-                    }
-                  }),
-                ]);
-              } catch (e) {
-                error = e as Error;
-                addErrorToast([error]);
-                result = `Failed to execute action ${message.name}. ${error.message}`;
-                console.error(`Failed to execute action ${message.name}: ${error}`);
-              }
+            const executeActionFromMessage = async (
+              action: FrontendAction<any>,
+              message: ActionExecutionMessage,
+            ) => {
+              followUp = action?.followUp;
+              const resultMessage = await executeAction({
+                onFunctionCall,
+                previousMessages,
+                message,
+                chatAbortControllerRef,
+                onError: (error: Error) => {
+                  addErrorToast([error]);
+                  console.error(`Failed to execute action ${message.name}: ${error}`);
+                },
+              });
               didExecuteAction = true;
               const messageIndex = finalMessages.findIndex((msg) => msg.id === message.id);
-              finalMessages.splice(
-                messageIndex + 1,
-                0,
-                new ResultMessage({
-                  id: "result-" + message.id,
-                  result: ResultMessage.encodeResult(
-                    error
-                      ? {
-                          content: result,
-                          error: JSON.parse(
-                            JSON.stringify(error, Object.getOwnPropertyNames(error)),
-                          ),
-                        }
-                      : result,
-                  ),
-                  actionExecutionId: message.id,
-                  actionName: message.name,
-                }),
+              finalMessages.splice(messageIndex + 1, 0, resultMessage);
+
+              return resultMessage;
+            };
+
+            // execution message which has an action registered with the hook (remote availability):
+            // execute that action first, and then the "paired FE action"
+            if (action && message.isActionExecutionMessage()) {
+              const resultMessage = await executeActionFromMessage(action, message);
+              const pairedFeAction = getPairedFeAction(actions, resultMessage);
+
+              if (pairedFeAction) {
+                const newExecutionMessage = new ActionExecutionMessage({
+                  name: pairedFeAction.name,
+                  arguments: parseJson(resultMessage.result, resultMessage.result),
+                  status: message.status,
+                  createdAt: message.createdAt,
+                  parentMessageId: message.parentMessageId,
+                });
+                await executeActionFromMessage(pairedFeAction, newExecutionMessage);
+              }
+            } else if (message.isResultMessage() && currentResultMessagePairedFeAction) {
+              // Actions which are set up in runtime actions array: Grab the result, executed paired FE action with it as args.
+              const newExecutionMessage = new ActionExecutionMessage({
+                name: currentResultMessagePairedFeAction.name,
+                arguments: parseJson(message.result, message.result),
+                status: message.status,
+                createdAt: message.createdAt,
+              });
+              finalMessages.push(newExecutionMessage);
+              await executeActionFromMessage(
+                currentResultMessagePairedFeAction,
+                newExecutionMessage,
               );
             }
           }
@@ -774,4 +780,73 @@ function constructFinalMessages(
   }
 
   return finalMessages;
+}
+
+async function executeAction({
+  onFunctionCall,
+  previousMessages,
+  message,
+  chatAbortControllerRef,
+  onError,
+}: {
+  onFunctionCall: FunctionCallHandler;
+  previousMessages: Message[];
+  message: ActionExecutionMessage;
+  chatAbortControllerRef: React.MutableRefObject<AbortController | null>;
+  onError: (error: Error) => void;
+}) {
+  let result: any;
+  let error: Error | null = null;
+  try {
+    result = await Promise.race([
+      onFunctionCall({
+        messages: previousMessages,
+        name: message.name,
+        args: message.arguments,
+      }),
+      new Promise((resolve) =>
+        chatAbortControllerRef.current?.signal.addEventListener("abort", () =>
+          resolve("Operation was aborted by the user"),
+        ),
+      ),
+      // if the user stopped generation, we also abort consecutive actions
+      new Promise((resolve) => {
+        if (chatAbortControllerRef.current?.signal.aborted) {
+          resolve("Operation was aborted by the user");
+        }
+      }),
+    ]);
+  } catch (e) {
+    onError(e as Error);
+  }
+  return new ResultMessage({
+    id: "result-" + message.id,
+    result: ResultMessage.encodeResult(
+      error
+        ? {
+            content: result,
+            error: JSON.parse(JSON.stringify(error, Object.getOwnPropertyNames(error))),
+          }
+        : result,
+    ),
+    actionExecutionId: message.id,
+    actionName: message.name,
+  });
+}
+
+function getPairedFeAction(
+  actions: FrontendAction<any>[],
+  message: ActionExecutionMessage | ResultMessage,
+) {
+  let actionName = null;
+  if (message.isActionExecutionMessage()) {
+    actionName = message.name;
+  } else if (message.isResultMessage()) {
+    actionName = message.actionName;
+  }
+  return actions.find(
+    (action) =>
+      (action.name === actionName && action.available === "frontend") ||
+      action.pairedAction === actionName,
+  );
 }

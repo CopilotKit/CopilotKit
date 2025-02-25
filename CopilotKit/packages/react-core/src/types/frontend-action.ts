@@ -127,7 +127,7 @@ export type CatchAllActionRenderProps<T extends Parameter[] | [] = []> =
       name: string;
     });
 
-export type FrontendActionAvailability = "disabled" | "enabled" | "remote";
+export type FrontendActionAvailability = "disabled" | "enabled" | "remote" | "frontend";
 
 export type FrontendAction<
   T extends Parameter[] | [] = [],
@@ -139,6 +139,7 @@ export type FrontendAction<
    */
   disabled?: boolean;
   available?: FrontendActionAvailability;
+  pairedAction?: string;
   followUp?: boolean;
 } & (
     | {
@@ -177,7 +178,9 @@ export function processActionsForRuntimeRequest(actions: FrontendAction<any>[]) 
       (action) =>
         action.available !== ActionInputAvailability.Disabled &&
         action.disabled !== true &&
-        action.name !== "*",
+        action.name !== "*" &&
+        action.available != "frontend" &&
+        !action.pairedAction,
     )
     .map((action) => {
       let available: ActionInputAvailability | undefined = ActionInputAvailability.Enabled;

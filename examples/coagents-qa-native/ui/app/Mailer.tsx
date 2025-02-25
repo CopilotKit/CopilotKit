@@ -54,9 +54,22 @@ export function Mailer() {
         name: "the_email",
       },
     ],
-
     handler: async ({ the_email }) => {
-      const result = window.confirm(the_email);
+      return { emailContent: the_email };
+    },
+  });
+
+  useCopilotAction({
+    name: "DisplayEmail",
+    pairedAction: 'EmailTool',
+    parameters: [
+      {
+        name: "emailContent",
+      },
+    ],
+
+    handler: async ({ emailContent }) => {
+      const result = window.confirm(emailContent);
       const action = result ? "SEND" : "CANCEL";
       setMessageState(action);
       return action;
