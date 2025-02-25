@@ -1,19 +1,22 @@
 """CopilotKit SDK"""
 from .sdk import CopilotKitRemoteEndpoint, CopilotKitContext, CopilotKitSDK, CopilotKitSDKContext
 from .action import Action
-from .langgraph_agent import LangGraphAgent
-from .state import CopilotKitState
+from .langgraph import CopilotKitState
 from .parameter import Parameter
 from .agent import Agent
+from .langgraph_agent import LangGraphAgent
+
+
 
 __all__ = [
     'CopilotKitRemoteEndpoint', 
     'CopilotKitSDK',
     'Action', 
-    'LangGraphAgent', 
-    'CopilotKitState', 
+    'CopilotKitState',    
     'Parameter',
     'Agent',
     'CopilotKitContext',
-    'CopilotKitSDKContext'
+    'CopilotKitSDKContext',
+    'CrewAIAgent', # pyright: ignore[reportUnsupportedDunderAll] pylint: disable=undefined-all-variable
+    'LangGraphAgent', # pyright: ignore[reportUnsupportedDunderAll] pylint: disable=undefined-all-variable
 ]

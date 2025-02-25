@@ -1,0 +1,9 @@
+{
+  "name": "Dev Container",
+  "image": "ghcr.io/codesandbox/devcontainers/typescript-node:latest",
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.12"
+    }
+  }
+}

@@ -9,6 +9,7 @@ type ModelSelectorContextType = {
   hidden: boolean;
   lgcDeploymentUrl?: string | null;
   setHidden: (hidden: boolean) => void;
+  agent: string;
 };
 
 const ModelSelectorContext = createContext<
@@ -33,9 +34,12 @@ export const ModelSelectorProvider = ({
     window.location.href = url.toString();
   };
 
-  const lgcDeploymentUrl = globalThis.window === undefined
+  const lgcDeploymentUrl =
+    globalThis.window === undefined
       ? null
-      : new URL(window.location.href).searchParams.get("lgcDeploymentUrl")
+      : new URL(window.location.href).searchParams.get("lgcDeploymentUrl");
+
+  const agent = model === "crewai" ? "greeting_agent_crewai" : "greeting_agent";
 
   return (
     <ModelSelectorContext.Provider
@@ -45,6 +49,7 @@ export const ModelSelectorProvider = ({
         lgcDeploymentUrl,
         setModel,
         setHidden,
+        agent,
       }}
     >
       {children}

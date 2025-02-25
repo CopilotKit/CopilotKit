@@ -1,0 +1,31 @@
+{
+  "setupTasks": [
+    {
+      "name": "Install Poetry",
+      "command": "curl -sSL https://install.python-poetry.org | python3 -"
+    },
+    {
+      "name": "Install (Agent)",
+      "command": "cd agent && poetry install"
+    },
+    {
+      "name": "Install (UI)",
+      "command": "cd ui && pnpm install"
+    }
+  ],
+  "tasks": {
+    "serve-agent": {
+      "name": "Serve Agent",
+      "command": "cd agent && poetry run demo",
+      "runAtStart": true
+    },
+    "serve-ui": {
+      "name": "Serve UI",
+      "command": "cd ui && pnpm run dev",
+      "runAtStart": true,
+      "preview": {
+        "port": 3000
+      }
+    }
+  }
+}

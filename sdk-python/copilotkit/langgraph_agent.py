@@ -6,10 +6,10 @@ from typing import Optional, List, Callable, Any, cast, Union, TypedDict, Litera
 from typing_extensions import NotRequired
 
 from langgraph.graph.graph import CompiledGraph
+from langgraph.types import Command
 from langchain.load.dump import dumps as langchain_dumps
 from langchain.schema import BaseMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig, ensure_config
-from langgraph.types import Command
 
 from partialjson.json_parser import JSONParser
 
@@ -130,7 +130,7 @@ class LangGraphAgent(Agent):
             self,
             *,
             name: str,
-            graph: CompiledGraph = None,
+            graph: Optional[CompiledGraph] = None,
             description: Optional[str] = None,
             langgraph_config:  Union[Optional[RunnableConfig], dict] = None,
             copilotkit_config: Optional[CopilotKitConfig] = None,
@@ -216,18 +216,20 @@ class LangGraphAgent(Agent):
             "running": running,
             "role": "assistant"
         })
-    
+
     def execute( # pylint: disable=too-many-arguments            
         self,
         *,
         state: dict,
         configurable: Optional[dict] = None,
         messages: List[Message],
-        thread_id: Optional[str] = None,
-        node_name: Optional[str] = None,
+        thread_id: str,
         actions: Optional[List[ActionDict]] = None,
-        meta_events: Optional[List[MetaEvent]] = None
+        meta_events: Optional[List[MetaEvent]] = None,
+        **kwargs
     ):
+        node_name = kwargs.get("node_name")
+
         return self._stream_events(
             state=state,
             configurable=configurable,
@@ -293,7 +295,7 @@ class LangGraphAgent(Agent):
         manually_emitted_state = None
         thread_id = cast(Any, config)["configurable"]["thread_id"]
 
-        # Use provided input or fallback to initial_state
+        # Use provided resume_input or fallback to initial_state
         stream_input = resume_input if resume_input else initial_state
 
         # Get the output and input schema keys the user has allowed for this graph
@@ -308,8 +310,15 @@ class LangGraphAgent(Agent):
             run_id = event.get("run_id")
             metadata = event.get("metadata", {})
 
-            interrupt_event = event["data"]["chunk"].get("__interrupt__", None) if isinstance(event.get("data"), dict) and isinstance(event["data"].get("chunk"), dict) else None
-            if (interrupt_event):
+            interrupt_event = (
+                event["data"].get("chunk", {}).get("__interrupt__", None)
+                if (
+                    isinstance(event.get("data"), dict) and 
+                    isinstance(event["data"].get("chunk"), dict)
+                )
+                else None
+            )
+            if interrupt_event:
                 self.active_interrupt_event = True
                 value = interrupt_event[0].value
                 if not isinstance(value, str) and "__copilotkit_interrupt_value__" in value:
@@ -407,7 +416,7 @@ class LangGraphAgent(Agent):
             yield langchain_dumps(event) + "\n"
 
         state = await self.graph.aget_state(config)
-        tasks = (await self.graph.aget_state(config)).tasks
+        tasks = state.tasks
         interrupts = tasks[0].interrupts if tasks and len(tasks) > 0 else None
         node_name = node_name if interrupts else list(state.metadata["writes"].keys())[0]
         is_end_node = state.next == () and not interrupts
