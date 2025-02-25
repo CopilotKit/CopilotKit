@@ -15,7 +15,7 @@ export const ConfirmOrder = ({ onConfirm, onCancel, status }: ConfirmOrderProps)
   const { selectedCar, contactInfo, cardInfo, financingInfo } = useGlobalState();
 
   return (
-    <AnimatedCard className="bg-white rounded-lg shadow p-6 max-w-md" status={status}>
+    <AnimatedCard className="w-[500px]" status={status}>
       <h2 className="text-2xl font-bold mb-4 text-gray-800">Order Summary</h2>
 
       <div className="space-y-3">

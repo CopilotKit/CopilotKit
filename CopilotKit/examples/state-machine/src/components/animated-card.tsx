@@ -11,7 +11,7 @@ interface AnimatedCardProps {
 
 export function AnimatedCard({ children, className }: AnimatedCardProps) {
   const divStyles = cn(
-    "flex flex-col gap-2 shadow-md shadow-blue-300/50 rounded-2xl border-2 border-blue-300 max-w-md my-4 p-8",
+    "flex flex-col gap-2 shadow-md shadow-pink-300/50 rounded-2xl border border-pink-300 max-w-md my-4 p-8",
     className,
   );
 

@@ -18,7 +18,7 @@ export function ContactInfo({ onSubmit, status }: ContactInfoProps) {
   const inputProps = (value: string, setter: (value: string) => void) => ({
     value,
     className:
-      "border border-gray-300 focus:ring-2 focus:ring-blue-400 focus:outline-none rounded-md p-2 disabled:bg-white disabled:cursor-not-allowed disabled:text-gray-500",
+      "border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:outline-none rounded-md p-2 disabled:bg-white disabled:cursor-not-allowed disabled:text-gray-500",
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => setter(e.target.value),
     disabled: isSubmitted,
   });
@@ -30,7 +30,7 @@ export function ContactInfo({ onSubmit, status }: ContactInfoProps) {
         We need this information in order to process your order and contact you if there are any
         issues.
       </h2>
-      <hr className="border-blue-300 mt-4 mb-4" />
+      <hr className="border-pink-300 mt-4 mb-4" />
 
       <input type="text" placeholder="Name" {...inputProps(name, setName)} />
       <input type="email" placeholder="Email" {...inputProps(email, setEmail)} />
@@ -39,7 +39,7 @@ export function ContactInfo({ onSubmit, status }: ContactInfoProps) {
       <AnimatePresence>
         {!isSubmitted && (
           <motion.button
-            className="bg-blue-500 hover:bg-blue-700 transition-colors duration-300 text-white px-4 py-2 my-4 rounded-md"
+            className="bg-pink-600 hover:bg-pink-800 transition-colors duration-300 text-white px-4 py-2 my-4 rounded-md"
             onClick={() => {
               setIsSubmitted(true);
               onSubmit(name, email, phone);

@@ -16,7 +16,7 @@ export function FinancingForm({ onSubmit, status }: FinancingFormProps) {
   const selectProps = (value: string, setter: (value: string) => void) => ({
     value,
     className:
-      "border border-gray-300 focus:ring-2 focus:ring-blue-400 focus:outline-none rounded-md p-2 disabled:bg-white disabled:cursor-not-allowed disabled:text-gray-500",
+      "border border-gray-300 focus:ring-2 focus:ring-pink-500 focus:outline-none rounded-md p-2 disabled:bg-white disabled:cursor-not-allowed disabled:text-gray-500",
     onChange: (e: React.ChangeEvent<HTMLSelectElement>) => setter(e.target.value),
     disabled: isSubmitted,
   });
@@ -27,7 +27,7 @@ export function FinancingForm({ onSubmit, status }: FinancingFormProps) {
       <h2 className="text-center text-base text-gray-400 antialiased">
         Please provide your financial information to process your financing application.
       </h2>
-      <hr className="border-blue-300 mt-4 mb-4" />
+      <hr className="border-pink-300 mt-4 mb-4" />
 
       <select {...selectProps(creditScore, setCreditScore)}>
         <option value="750+">Excellent (750+)</option>
@@ -47,7 +47,7 @@ export function FinancingForm({ onSubmit, status }: FinancingFormProps) {
       <AnimatePresence>
         {!isSubmitted && (
           <motion.button
-            className="bg-blue-500 hover:bg-blue-700 transition-colors duration-300 text-white px-4 py-2 my-4 rounded-md"
+            className="bg-pink-500 hover:bg-pink-700 transition-colors duration-300 text-white px-4 py-2 my-4 rounded-md"
             onClick={() => {
               setIsSubmitted(true);
               onSubmit(creditScore, loanTerm);

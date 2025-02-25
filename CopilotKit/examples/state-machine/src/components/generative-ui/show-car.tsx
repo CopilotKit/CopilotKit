@@ -62,7 +62,7 @@ export function ShowCar({ car, onSelect, onReject, status, className }: ShowCarP
   );
   const informationWrapperStyles = cn("space-y-6 pt-4 pb-4");
   const acceptButtonStyles = cn(
-    "flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md",
+    "flex-1 bg-pink-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-pink-700 transition-all duration-200 shadow-sm hover:shadow-md",
   );
   const rejectButtonStyles = cn(
     "flex-1 bg-gray-50 text-gray-700 px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-all duration-200",
