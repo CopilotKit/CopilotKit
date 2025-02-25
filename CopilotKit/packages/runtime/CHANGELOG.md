@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.6.0-next.10
+
+### Patch Changes
+
+- 543f703: - fix: refrain from processing same tool end several times
+  - fix: do not register runtime set action when there are remote endpoints
+  - @copilotkit/shared@1.6.0-next.10
+
 ## 1.6.0-next.9
 
 ### Patch Changes
