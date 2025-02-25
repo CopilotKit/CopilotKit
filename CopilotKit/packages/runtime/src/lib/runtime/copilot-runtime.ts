@@ -192,8 +192,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   constructor(params?: CopilotRuntimeConstructorParams<T>) {
     // Do not register actions if endpoints are set
     if (params?.actions && params?.remoteEndpoints) {
-      console.warn('Actions set in runtime instance will be ignored when remote endpoints are set')
-      this.actions = []
+      console.warn("Actions set in runtime instance will be ignored when remote endpoints are set");
+      this.actions = [];
     } else {
       this.actions = params?.actions || [];
     }
