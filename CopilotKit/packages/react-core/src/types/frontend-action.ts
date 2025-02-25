@@ -178,9 +178,10 @@ export function processActionsForRuntimeRequest(actions: FrontendAction<any>[]) 
       (action) =>
         action.available !== ActionInputAvailability.Disabled &&
         action.disabled !== true &&
-        action.name !== "*",
+        action.name !== "*" &&
+        action.available != "frontend" &&
+        !action.pairedAction,
     )
-    .filter((action) => action.available != "frontend" || !action.pairedAction)
     .map((action) => {
       let available: ActionInputAvailability | undefined = ActionInputAvailability.Enabled;
       if (action.disabled) {

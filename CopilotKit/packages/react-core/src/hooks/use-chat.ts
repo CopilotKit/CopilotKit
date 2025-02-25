@@ -566,7 +566,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               if (pairedFeAction) {
                 const newExecutionMessage = new ActionExecutionMessage({
                   name: pairedFeAction.name,
-                  arguments: JSON.parse(resultMessage.result),
+                  arguments: parseJson(resultMessage.result, resultMessage.result),
                   status: message.status,
                   createdAt: message.createdAt,
                   parentMessageId: message.parentMessageId,
@@ -577,7 +577,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               // Actions which are set up in runtime actions array: Grab the result, executed paired FE action with it as args.
               const newExecutionMessage = new ActionExecutionMessage({
                 name: currentResultMessagePairedFeAction.name,
-                arguments: JSON.parse(message.result),
+                arguments: parseJson(message.result, message.result),
                 status: message.status,
                 createdAt: message.createdAt,
               });
