@@ -20,6 +20,7 @@ interface LangGraphEventWithState {
   lastToolCallId: string | null;
   lastToolCallName: string | null;
   currentContent: string | null;
+  processedToolCallIds: Set<string>;
 }
 
 export class RemoteLangGraphEventSource {
@@ -94,12 +95,12 @@ export class RemoteLangGraphEventSource {
             acc.isToolCallStart = toolCallChunks.some((chunk: any) => chunk.name && chunk.id);
             acc.isMessageStart = prevMessageId !== acc.lastMessageId && !acc.isToolCallStart;
 
+            let previousRoundHadToolCall = acc.isToolCall;
+            acc.isToolCall = toolCallCheck;
             // Previous "acc.isToolCall" was set but now it won't pass the check, it means the tool call just ended.
-            if (acc.isToolCall && !toolCallCheck) {
+            if (previousRoundHadToolCall && !toolCallCheck) {
               isToolCallEnd = true;
             }
-
-            acc.isToolCall = toolCallCheck;
             acc.isToolCallEnd = isToolCallEnd;
             acc.isMessageEnd = responseMetadata?.finish_reason === "stop";
             ({ name: acc.lastToolCallName, id: acc.lastToolCallId } = toolCallChunks.find(
@@ -121,6 +122,7 @@ export class RemoteLangGraphEventSource {
           lastToolCallId: null,
           lastToolCallName: null,
           currentContent: null,
+          processedToolCallIds: new Set<string>(),
         } as LangGraphEventWithState,
       ),
       mergeMap((acc): RuntimeEvent[] => {
@@ -158,8 +160,12 @@ export class RemoteLangGraphEventSource {
         // Tool call ended: emit ActionExecutionEnd
         if (
           acc.isToolCallEnd &&
-          this.shouldEmitToolCall(shouldEmitToolCalls, acc.lastToolCallName)
+          this.shouldEmitToolCall(shouldEmitToolCalls, acc.lastToolCallName) &&
+          acc.lastToolCallId &&
+          !acc.processedToolCallIds.has(acc.lastToolCallId)
         ) {
+          acc.processedToolCallIds.add(acc.lastToolCallId);
+
           events.push({
             type: RuntimeEventTypes.ActionExecutionEnd,
             actionExecutionId: acc.lastToolCallId,
@@ -245,6 +251,7 @@ export class RemoteLangGraphEventSource {
             }
             // Message started: emit TextMessageStart
             else if (acc.isMessageStart && shouldEmitMessages) {
+              acc.processedToolCallIds.clear();
               events.push({
                 type: RuntimeEventTypes.TextMessageStart,
                 messageId: acc.lastMessageId,
