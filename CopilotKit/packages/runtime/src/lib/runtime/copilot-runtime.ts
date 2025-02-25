@@ -153,7 +153,7 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
   middleware?: Middleware;
 
   /*
-   * A list of server side actions that can be executed.
+   * A list of server side actions that can be executed. Will be ignored when remoteActions are set
    */
   actions?: ActionsConfiguration<T>;
 
@@ -190,7 +190,13 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private delegateAgentProcessingToServiceAdapter: boolean;
 
   constructor(params?: CopilotRuntimeConstructorParams<T>) {
-    this.actions = params?.actions || [];
+    // Do not register actions if endpoints are set
+    if (params?.actions && params?.remoteEndpoints) {
+      console.warn("Actions set in runtime instance will be ignored when remote endpoints are set");
+      this.actions = [];
+    } else {
+      this.actions = params?.actions || [];
+    }
 
     for (const chain of params?.langserve || []) {
       const remoteChain = new RemoteChain(chain);
