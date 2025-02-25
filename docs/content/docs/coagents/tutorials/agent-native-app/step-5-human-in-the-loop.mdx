@@ -41,16 +41,18 @@ export default function HomePage() {
     const streamingSection = useStreamingContent(researchState);
 
     // [!code ++:12]
-    useLangGraphInterrupt({
-        render: ({ resolve, event }) => <ProposalViewer
-            proposal={event.value as any as Proposal}
-            onSubmit={(approved, proposal) => resolve(
-                JSON.stringify({
-                    ...proposal,
-                    approved,
-                })
-            )}
+    useLangGraphInterrupt<Proposal>({
+      render: ({ resolve, event }) => {
+        return <ProposalViewer
+          proposal={event.value}
+          onSubmit={(approved, proposal) => resolve(
+            JSON.stringify({
+              ...proposal,
+              approved,
+            })
+          )}
         />
+      }
     })
     // ...
 }

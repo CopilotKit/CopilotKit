@@ -19,30 +19,22 @@ Let's walk through the LangGraph agent to understand how it works before we inte
 
 <Steps>
 <Step>
-### Retreive API keys
-
-For this application, we'll need two API keys:
-- OpenAI API key: You can get an API key from the OpenAI console [here](https://platform.openai.com/api-keys).
-- Tavily API key: This can be retrieved from the Tavily console [here](https://tavily.com/).
+### Get API keys
+You'll need two API keys:
+- [OpenAI API key](https://platform.openai.com/api-keys)
+- [Tavily API key](https://tavily.com/)
 
 </Step>
 <Step>
-### Setup the .env file
-
-In a new terminal, navigate to the agent directory.
+### Setup the `.env` file
+Create and configure the agent's environment:
 
 ```shell
 cd agent
-```
-
-Now create a .env file there.
-
-```shell
 touch .env
 ```
 
-With that created, we'll want to add your OPENAI_API_KEY and TAVILY_API_KEY to the file.
-
+Add your API keys:
 ```txt title=".env"
 OPENAI_API_KEY=<your-openai-api-key>
 TAVILY_API_KEY=<your-tavily-api-key>
@@ -50,26 +42,18 @@ TAVILY_API_KEY=<your-tavily-api-key>
 
 </Step>
 <Step>
-### Run the agent
-
-We're going to use the LangGraph CLI to run the agent.
-
-First, install it if you haven't already.
+### Start the agent
+Install and run the LangGraph CLI:
 
 ```shell
 brew install langgraph-cli
-```
-
-Now, run the agent.
-
-```shell
 langgraph dev --host localhost --port 8000
 ```
 
-The CLI will open up a new browser tab to LangSmith. Here you will be able to see a LangGraph Studio session to visualize
-and interact with the agent.
+This opens LangGraph Studio in your brwoser where you can visualize and interact with your agent.
+
 <Callout>
-The Deployment URL of the agent will be https://localhost:8000. We'll use this in later steps.
+The agent will be available at https://localhost:8000 for later steps.
 </Callout>
 
 <ImageZoom src="/images/coagents/tutorials/research-ana/lgs-overview.png" height={1000} width={1000} className="rounded-lg shadow-lg"/>
