@@ -1,30 +1,31 @@
 ---
-title: "Customize the built-in components"
-description: "Customize the look and feel of the built-in Copilot UI components."
-icon: "lucide/SlidersHorizontal"
+title: "Styling Copilot UI"
+icon: "lucide/Brush"
 ---
 import { CopilotKitCSS, InteractiveCSSInspector } from "@/components/react/copilotkit-css";
 
-## CSS Variables
+CopilotKit has a variety of ways to customize colors and structures of the Copilot UI components.
+- [CSS Variables](#css-variables-easiest)
+- [Custom CSS](#custom-css)
+- [Custom Icons](#custom-icons)
+- [Custom Labels](#custom-labels)
+- [Fully Headless UI](/guides/custom-look-and-feel/headless-ui)
 
-<CopilotKitCSS />
-
-CopilotKit uses CSS variables to make it easy to customize the look and feel of the components.<br/>
-Hover over the interactive UI elements below to see the available CSS variables.
+## CSS Variables (Easiest)
+The easiest way to change the colors using in the Copilot UI components is to override CopilotKit CSS variables.
 
 <Callout type="info">
   Hover over the interactive UI elements below to see the available CSS variables.
 </Callout>
 
+<CopilotKitCSS />
 <InteractiveCSSInspector />
 
-You can override / customize the CSS, customize the icons, customize labels, swap out react components, and use headless UI. See below.
-
-### CSS Variables (Easiest)
-
-The easiest way to change the colors is to override CopilotKit CSS variables. You can simply wrap CopilotKit in a div and override the CSS variables. CopilotKitCSSProperties will have the variable names as types:
+Once you've found the right variable, you can import `CopilotKitCSSProperties` and simply wrap CopilotKit in a div and override the CSS variables. 
 
 ```tsx
+import { CopilotKitCSSProperties } from "@copilotkit/react-ui";
+
 <div
   // [!code highlight:6]
   style={
@@ -37,50 +38,124 @@ The easiest way to change the colors is to override CopilotKit CSS variables. Yo
 </div>
 ```
 
-### Custom CSS
+### Reference
+
+| CSS Variable | Description |
+|-------------|-------------|
+| `--copilot-kit-primary-color` | Main accent color used throughout the UI |
+| `--copilot-kit-contrast-color` | Text color that contrasts with the primary color |
+| `--copilot-kit-secondary-color` | Secondary accent color for less prominent elements |
+| `--copilot-kit-secondary-contrast-color` | Text color that contrasts with the secondary color |
+| `--copilot-kit-background-color` | Background color of the chat interface |
+| `--copilot-kit-muted-color` | Color used for less prominent or disabled text |
+| `--copilot-kit-separator-color` | Color used for borders and dividing lines |
+| `--copilot-kit-scrollbar-color` | Color of the scrollbar |
+| `--copilot-kit-response-button-color` | Text color for response buttons |
+| `--copilot-kit-response-button-background-color` | Background color for response buttons |
+
+## Custom CSS
 
 In addition to customizing the colors, the CopilotKit CSS is structured to easily allow customization via CSS classes.
-
-<Callout>
-Have a look at the CSS classes defined [here](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-ui/src/css/).
-</Callout>
-
-For example:
 
 ```css title="globals.css"
 .copilotKitButton {
   border-radius: 0;
 }
+
+.copilotKitMessages {
+  padding: 2rem;
+}
+
+.copilotKitUserMessage {
+  background: #007AFF;
+}
 ```
+
+### Reference
+
+<Callout>
+For a full list of styles and classes used in CopilotKit, click [here](https://github.com/CopilotKit/CopilotKit/blob/main/CopilotKit/packages/react-ui/src/css/).
+</Callout>
+
+| CSS Class | Description |
+|-----------|-------------|
+| `.copilotKitMessages` | Main container for all chat messages with scroll behavior and spacing |
+| `.copilotKitInput` | Text input container with typing area and send button |
+| `.copilotKitUserMessage` | Styling for user messages including background, text color and bubble shape |
+| `.copilotKitAssistantMessage` | Styling for AI responses including background, text color and bubble shape |
+| `.copilotKitHeader` | Top bar of chat window containing title and controls |
+| `.copilotKitButton` | Primary chat toggle button with hover and active states |
+| `.copilotKitWindow` | Root container defining overall chat window dimensions and position |
+| `.copilotKitMarkdown` | Styles for rendered markdown content including lists, links and quotes |
+| `.copilotKitCodeBlock` | Code snippet container with syntax highlighting and copy button |
+| `.copilotKitChat` | Base chat layout container handling positioning and dimensions |
+| `.copilotKitSidebar` | Styles for sidebar chat mode including width and animations |
+| `.copilotKitPopup` | Styles for popup chat mode including position and animations |
+| `.copilotKitResponseButton` | Button for regenerating AI responses with states |
+| `.copilotKitButtonIcon` | Icon styling within the main chat toggle button |
+| `.copilotKitButtonIconOpen` `.copilotKitButtonIconClose` | Icon states for when chat is open/closed |
+| `.copilotKitCodeBlockToolbar` | Top bar of code blocks with language and copy controls |
+| `.copilotKitCodeBlockToolbarLanguage` | Language label styling in code block toolbar |
+| `.copilotKitCodeBlockToolbarButtons` | Container for code block action buttons |
+| `.copilotKitCodeBlockToolbarButton` | Individual button styling in code block toolbar |
+| `.copilotKitSidebarContentWrapper` | Inner container for sidebar mode content |
+| `.copilotKitInputControls` | Container for input area buttons and controls |
+| `.copilotKitActivityDot1` `.copilotKitActivityDot2` `.copilotKitActivityDot3` | Animated typing indicator dots |
+| `.copilotKitDevConsole` | Development debugging console container |
+| `.copilotKitDevConsoleWarnOutdated` | Warning styles for outdated dev console |
+| `.copilotKitVersionInfo` | Version information display styles |
+| `.copilotKitDebugMenuButton` | Debug menu toggle button styling |
+| `.copilotKitDebugMenu` | Debug options menu container |
+| `.copilotKitDebugMenuItem` | Individual debug menu option styling |
 
 ## Custom Icons
 
 You can customize the icons by passing the `icons` property to the `CopilotSidebar`, `CopilotPopup` or `CopilotChat` component.
 
-Below is a list of customizable icons:
+```tsx
+<CopilotChat icons={{
+  openIcon: <Icon name="lucide/MessageSquare" />,
+  closeIcon: <Icon name="lucide/MessageSquare" />,
+}} />
+```
 
-- `openIcon`: The icon to use for the open chat button.
-- `closeIcon`: The icon to use for the close chat button.
-- `headerCloseIcon`: The icon to use for the close chat button in the header.
-- `sendIcon`: The icon to use for the send button.
-- `activityIcon`: The icon to use for the activity indicator.
-- `spinnerIcon`: The icon to use for the spinner.
-- `stopIcon`: The icon to use for the stop button.
-- `regenerateIcon`: The icon to use for the regenerate button.
-- `pushToTalkIcon`: The icon to use for push to talk.
+### Reference
+
+| Icon | Description |
+|--------------|-------------|
+| `openIcon` | The icon to use for the open chat button |
+| `closeIcon` | The icon to use for the close chat button |
+| `headerCloseIcon` | The icon to use for the close chat button in the header |
+| `sendIcon` | The icon to use for the send button |
+| `activityIcon` | The icon to use for the activity indicator |
+| `spinnerIcon` | The icon to use for the spinner |
+| `stopIcon` | The icon to use for the stop button |
+| `regenerateIcon` | The icon to use for the regenerate button |
+| `pushToTalkIcon` | The icon to use for push to talk |
 
 ## Custom Labels
 
 To customize labels, pass the `labels` property to the `CopilotSidebar`, `CopilotPopup` or `CopilotChat` component.
 
-Below is a list of customizable labels:
+```tsx
+<CopilotChat
+  labels={{
+    initial: "Hello! How can I help you today?",
+    title: "My Copilot",
+    placeholder: "Ask me anything!",
+    stopGenerating: "Stop",
+    regenerateResponse: "Regenerate",
+  }} 
+/>
+```
 
-- `initial`: The initial message(s) to display in the chat window.
-- `title`: The title to display in the header.
-- `placeholder`: The placeholder to display in the input.
-- `stopGenerating`: The label to display on the stop button.
-- `regenerateResponse`: The label to display on the regenerate button.
+### Reference
 
-## Headless UI (Full Customizability)
+| Label | Description |
+|---------------|-------------|
+| `initial` | The initial message(s) to display in the chat window |
+| `title` | The title to display in the header |
+| `placeholder` | The placeholder to display in the input |
+| `stopGenerating` | The label to display on the stop button |
+| `regenerateResponse` | The label to display on the regenerate button |
 
-Finally, as a reminder, CopilotKit also supports [Headless UI](/guides/custom-look-and-feel/headless-ui) for full customizability and programmatic control.
