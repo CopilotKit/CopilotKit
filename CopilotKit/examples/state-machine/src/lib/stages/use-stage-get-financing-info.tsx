@@ -15,7 +15,7 @@ export function useStageGetFinancingInfo() {
   useCopilotAdditionalInstructions(
     {
       instructions:
-        "CURRENT STATE: You are now getting the financing information of the user. Say, 'Great! To process your financing application, I'll need some financial information from you.' and then call the 'getFinancingInformation' action.",
+        "CURRENT STATE: You are now getting the financing information of the user. Say, 'Great! To process your financing application, I'll need some financial information from you.' and then call the 'getFinancingInformation' tool. Never ask the user for anything, just call the `getFinancingInformation` tool.",
       available: stage === "getFinancingInfo" ? "enabled" : "disabled",
     },
     [stage],

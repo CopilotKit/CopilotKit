@@ -24,7 +24,6 @@ export function UserMessage({ message, rawData }: UserMessageProps) {
 }
 
 export function AssistantMessage({ message, subComponent, isLoading }: AssistantMessageProps) {
-  if (!message) return null;
   return (
     <div className="flex items-start gap-4 px-6 py-4">
       {/* Avatar */}
@@ -40,21 +39,21 @@ export function AssistantMessage({ message, subComponent, isLoading }: Assistant
       </div>
 
       {/* Message */}
-      <div className="relative py-2 px-4 rounded-2xl rounded-tl-sm max-w-[80%] text-sm leading-relaxed bg-white border border-neutral-200 shadow-sm">
+      {(message || isLoading) && <div className="relative py-2 px-4 rounded-2xl rounded-tl-sm max-w-[80%] text-sm leading-relaxed bg-white border border-neutral-200 shadow-sm">
         <div className="font-medium text-pink-600 mb-1">Fio</div>
         {isLoading ? (
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-            <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-            <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
+          <div className="flex items-center gap-2 p-1">
+            <div className="w-2 h-2 bg-pink-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+            <div className="w-2 h-2 bg-pink-600 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+            <div className="w-2 h-2 bg-pink-600 rounded-full animate-bounce"></div>
           </div>
         ) : (
           <>
             {message && <Markdown content={message ?? ""} /> }
-            {subComponent}
           </>
         )}
-      </div>
+      </div> }
+      {subComponent}
     </div>
   );
 } 
