@@ -12,3 +12,4 @@ export { useCopilotRuntimeClient } from "./use-copilot-runtime-client";
 export { useCopilotAuthenticatedAction_c } from "./use-copilot-authenticated-action";
 export { useLangGraphInterrupt } from "./use-langgraph-interrupt";
 export { useLangGraphInterruptRender } from "./use-langgraph-interrupt-render";
+export { useCopilotAdditionalInstructions } from "./use-copilot-additional-instructions";
