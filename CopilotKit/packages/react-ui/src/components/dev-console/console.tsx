@@ -172,7 +172,7 @@ function VersionInfo({
     versionIcon = CheckIcon;
   } else if (versionStatus === "checking") {
     versionLabel = "checking";
-    versionIcon = SmallSpinnerIcon;
+    versionIcon = <SmallSpinnerIcon />;
   } else if (versionStatus === "update-available") {
     versionLabel = "update available";
     versionIcon = ExclamationMarkIcon;
@@ -236,7 +236,9 @@ export default function DebugMenuButton({
   return (
     <div className="bg-black top-24 w-52 text-right">
       <Menu>
-        <MenuButton className={`copilotKitDebugMenuButton ${mode === "compact" ? "compact" : ""}`}>
+        <MenuButton
+          className={`copilotKitDebugMenuTriggerButton ${mode === "compact" ? "compact" : ""}`}
+        >
           {mode == "compact" ? "Debug" : <>Debug {ChevronDownIcon}</>}
         </MenuButton>
 

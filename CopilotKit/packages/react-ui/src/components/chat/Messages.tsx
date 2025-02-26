@@ -14,6 +14,10 @@ export const Messages = ({
   RenderResultMessage,
   AssistantMessage,
   UserMessage,
+  onRegenerate,
+  onCopy,
+  onThumbsUp,
+  onThumbsDown,
 }: MessagesProps) => {
   const context = useChatContext();
   const initialMessages = useMemo(
@@ -44,62 +48,70 @@ export const Messages = ({
 
   return (
     <div className="copilotKitMessages" ref={messagesContainerRef}>
-      {messages.map((message, index) => {
-        const isCurrentMessage = index === messages.length - 1;
+      <div className="copilotKitMessages copilotKitMessagesContainer">
+        {messages.map((message, index) => {
+          const isCurrentMessage = index === messages.length - 1;
 
-        if (message.isTextMessage()) {
-          return (
-            <RenderTextMessage
-              key={index}
-              message={message}
-              inProgress={inProgress}
-              index={index}
-              isCurrentMessage={isCurrentMessage}
-              AssistantMessage={AssistantMessage}
-              UserMessage={UserMessage}
-            />
-          );
-        } else if (message.isActionExecutionMessage()) {
-          return (
-            <RenderActionExecutionMessage
-              key={index}
-              message={message}
-              inProgress={inProgress}
-              index={index}
-              isCurrentMessage={isCurrentMessage}
-              actionResult={actionResults[message.id]}
-              AssistantMessage={AssistantMessage}
-              UserMessage={UserMessage}
-            />
-          );
-        } else if (message.isAgentStateMessage()) {
-          return (
-            <RenderAgentStateMessage
-              key={index}
-              message={message}
-              inProgress={inProgress}
-              index={index}
-              isCurrentMessage={isCurrentMessage}
-              AssistantMessage={AssistantMessage}
-              UserMessage={UserMessage}
-            />
-          );
-        } else if (message.isResultMessage()) {
-          return (
-            <RenderResultMessage
-              key={index}
-              message={message}
-              inProgress={inProgress}
-              index={index}
-              isCurrentMessage={isCurrentMessage}
-              AssistantMessage={AssistantMessage}
-              UserMessage={UserMessage}
-            />
-          );
-        }
-      })}
-      {interrupt}
-      <footer ref={messagesEndRef}>{children}</footer>
+          if (message.isTextMessage()) {
+            return (
+              <RenderTextMessage
+                key={index}
+                message={message}
+                inProgress={inProgress}
+                index={index}
+                isCurrentMessage={isCurrentMessage}
+                AssistantMessage={AssistantMessage}
+                UserMessage={UserMessage}
+                onRegenerate={onRegenerate}
+                onCopy={onCopy}
+                onThumbsUp={onThumbsUp}
+                onThumbsDown={onThumbsDown}
+              />
+            );
+          } else if (message.isActionExecutionMessage()) {
+            return (
+              <RenderActionExecutionMessage
+                key={index}
+                message={message}
+                inProgress={inProgress}
+                index={index}
+                isCurrentMessage={isCurrentMessage}
+                actionResult={actionResults[message.id]}
+                AssistantMessage={AssistantMessage}
+                UserMessage={UserMessage}
+              />
+            );
+          } else if (message.isAgentStateMessage()) {
+            return (
+              <RenderAgentStateMessage
+                key={index}
+                message={message}
+                inProgress={inProgress}
+                index={index}
+                isCurrentMessage={isCurrentMessage}
+                AssistantMessage={AssistantMessage}
+                UserMessage={UserMessage}
+              />
+            );
+          } else if (message.isResultMessage()) {
+            return (
+              <RenderResultMessage
+                key={index}
+                message={message}
+                inProgress={inProgress}
+                index={index}
+                isCurrentMessage={isCurrentMessage}
+                AssistantMessage={AssistantMessage}
+                UserMessage={UserMessage}
+              />
+            );
+          }
+        })}
+        {interrupt}
+      </div>
+      <footer className="copilotKitMessagesFooter" ref={messagesEndRef}>
+        {children}
+      </footer>
     </div>
   );
 };
