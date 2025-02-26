@@ -3,4 +3,4 @@
 "@copilotkit/react-ui": patch
 ---
 
-New useCopilotAdditionalInstructions hook and available property on useCopilotReadable
+- feat: new useCopilotAdditionalInstructions hook and available property on useCopilotReadable
