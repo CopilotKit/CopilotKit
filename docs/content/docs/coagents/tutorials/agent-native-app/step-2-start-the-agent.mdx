@@ -46,8 +46,9 @@ TAVILY_API_KEY=<your-tavily-api-key>
 Install and run the LangGraph CLI:
 
 ```shell
-brew install langgraph-cli
-langgraph dev --host localhost --port 8000
+pip install -r requirements.txt # Install dependencies
+brew install langgraph-cli # Install LangGraph CLI
+langgraph dev --host localhost --port 8000 # Start the agent
 ```
 
 This opens LangGraph Studio in your brwoser where you can visualize and interact with your agent.
