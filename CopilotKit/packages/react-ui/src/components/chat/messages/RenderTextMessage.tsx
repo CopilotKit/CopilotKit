@@ -1,7 +1,20 @@
 import { RenderMessageProps } from "../props";
 
 export function RenderTextMessage(props: RenderMessageProps) {
-  const { message, inProgress, index, isCurrentMessage, UserMessage, AssistantMessage } = props;
+  const {
+    message,
+    inProgress,
+    index,
+    isCurrentMessage,
+    UserMessage,
+    AssistantMessage,
+    onRegenerate,
+    onCopy,
+    onThumbsUp,
+    onThumbsDown,
+  } = props;
+
+  const noop = () => {};
 
   if (message.isTextMessage()) {
     if (message.role === "user") {
@@ -22,6 +35,10 @@ export function RenderTextMessage(props: RenderMessageProps) {
           rawData={message}
           isLoading={inProgress && isCurrentMessage && !message.content}
           isGenerating={inProgress && isCurrentMessage && !!message.content}
+          onRegenerate={onRegenerate ?? noop}
+          onCopy={onCopy ?? noop}
+          onThumbsUp={onThumbsUp ?? noop}
+          onThumbsDown={onThumbsDown ?? noop}
         />
       );
     }

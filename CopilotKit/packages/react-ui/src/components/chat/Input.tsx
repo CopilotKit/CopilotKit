@@ -5,7 +5,7 @@ import AutoResizingTextarea from "./Textarea";
 import { usePushToTalk } from "../../hooks/use-push-to-talk";
 import { useCopilotContext } from "@copilotkit/react-core";
 
-export const Input = ({ inProgress, onSend, isVisible = false }: InputProps) => {
+export const Input = ({ inProgress, onSend, isVisible = false, onStop }: InputProps) => {
   const context = useChatContext();
   const copilotContext = useCopilotContext();
 
@@ -42,10 +42,8 @@ export const Input = ({ inProgress, onSend, isVisible = false }: InputProps) => 
     inProgress,
   });
 
-  const sendIcon =
-    inProgress || pushToTalkState === "transcribing"
-      ? context.icons.activityIcon
-      : context.icons.sendIcon;
+  const isInProgress = inProgress || pushToTalkState === "transcribing";
+  const buttonIcon = isInProgress ? context.icons.stopIcon : context.icons.sendIcon;
   const showPushToTalk =
     pushToTalkConfigured &&
     (pushToTalkState === "idle" || pushToTalkState === "recording") &&
@@ -93,11 +91,11 @@ export const Input = ({ inProgress, onSend, isVisible = false }: InputProps) => 
         )}
         <button
           disabled={sendDisabled}
-          onClick={send}
-          data-copilotkit-in-progress={!!inProgress}
+          onClick={isInProgress ? onStop : send}
+          data-copilotkit-in-progress={inProgress}
           data-testid={inProgress ? "copilot-chat-request-in-progress" : undefined}
         >
-          {sendIcon}
+          {buttonIcon}
         </button>
       </div>
     </div>

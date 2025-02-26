@@ -13,9 +13,9 @@
 .copilotKitMessages footer .suggestions .suggestion {
   padding: 8px 12px;
   font-size: 0.7rem;
-  border-radius: 0.5rem;
-  background: var(--copilot-kit-primary-color);
-  color: var(--copilot-kit-contrast-color);
+  border-radius: 10px;
+  border: 1px solid var(--copilot-kit-border-color);
+  color: var(--copilot-kit-text-color);
 }
 
 .copilotKitMessages footer .suggestions button {
@@ -23,7 +23,7 @@
 }
 
 .copilotKitMessages footer .suggestions button:not(:disabled):hover {
-  transform: scale(1.05);
+  transform: scale(1.03);
 }
 
 .copilotKitMessages footer .suggestions button:disabled {

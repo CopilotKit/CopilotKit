@@ -21,8 +21,7 @@ export function Suggestion({ title, message, onClick, partial, className }: Sugg
       className={className || "suggestion"}
       data-test-id="suggestion"
     >
-      {partial && SmallSpinnerIcon}
-      <span>{title}</span>
+      {partial ? <SmallSpinnerIcon /> : <span>{title}</span>}
     </button>
   );
 }
