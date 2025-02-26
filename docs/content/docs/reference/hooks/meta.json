@@ -3,6 +3,7 @@
   "pages": [
     "useCopilotReadable",
     "useCopilotAction",
+    "useCopilotAdditionalInstructions",
     "useCopilotChat",
     "useCopilotChatSuggestions",
     "useCoAgent",
