@@ -6,9 +6,13 @@
   background-color: var(--copilot-kit-background-color);
   border-radius: 10px;
   border: 1px solid var(--copilot-kit-border-color);
-  width: 95%;
-  margin: 0 auto 15px auto;
   padding: 5px 8px 5px 13px;
+}
+
+.copilotKitInputContainer {
+  width: 95%;
+  margin: 0 auto;
+  padding: 0 0 10px 0;
 }
 
 .copilotKitInput > .copilotKitInputControls > button {
