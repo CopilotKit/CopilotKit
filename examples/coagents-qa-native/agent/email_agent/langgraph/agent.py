@@ -18,6 +18,9 @@ async def email_node(state: EmailAgentState, config: RunnableConfig):
     """
     Write an email.
     """
+    auth_token = config['configurable'].get('authToken', None)
+    if auth_token != 'exampleToken':
+        raise '[AUTH ERROR]: This demo uses a dummy auth token. Make sure it is set to "exampleToken" in Mailer.tsx useCoAgent call in the configurable'
 
     sender = state.get("sender", None)
     if sender is None:
