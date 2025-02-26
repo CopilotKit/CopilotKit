@@ -1,6 +1,6 @@
 import React from "react";
 
-export const OpenIcon = () => (
+export const OpenIcon = (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     viewBox="0 0 24 24"
@@ -18,7 +18,7 @@ export const OpenIcon = () => (
   </svg>
 );
 
-export const CloseIcon = () => (
+export const CloseIcon = (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
@@ -32,7 +32,7 @@ export const CloseIcon = () => (
   </svg>
 );
 
-export const HeaderCloseIcon = () => (
+export const HeaderCloseIcon = (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
@@ -46,7 +46,7 @@ export const HeaderCloseIcon = () => (
   </svg>
 );
 
-export const SendIcon = () => (
+export const SendIcon = (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
@@ -64,7 +64,7 @@ export const SendIcon = () => (
   </svg>
 );
 
-export const MicrophoneIcon = () => (
+export const MicrophoneIcon = (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
@@ -82,7 +82,7 @@ export const MicrophoneIcon = () => (
   </svg>
 );
 
-export const StopIcon = () => (
+export const StopIcon = (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
@@ -100,7 +100,7 @@ export const StopIcon = () => (
   </svg>
 );
 
-export const RegenerateIcon = () => (
+export const RegenerateIcon = (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
@@ -119,7 +119,7 @@ export const RegenerateIcon = () => (
   </svg>
 );
 
-export const CopyIcon = () => (
+export const CopyIcon = (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
@@ -138,15 +138,15 @@ export const CopyIcon = () => (
   </svg>
 );
 
-export const SmallSpinnerIcon = () => (
+export const SmallSpinnerIcon = (
   <span className="copilotKitSpinner" style={{ width: "13px", height: "13px" }}></span>
 );
 
-export const SpinnerIcon = () => (
+export const SpinnerIcon = (
   <span className="copilotKitSpinner" style={{ width: "24px", height: "24px" }}></span>
 );
 
-export const ActivityIcon = () => (
+export const ActivityIcon = (
   <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
     <span className="copilotKitActivityDot" style={{ animationDelay: "0s" }}></span>
     <span className="copilotKitActivityDot" style={{ animationDelay: "0.2s" }}></span>
@@ -154,7 +154,7 @@ export const ActivityIcon = () => (
   </div>
 );
 
-export const ThumbsUpIcon = () => (
+export const ThumbsUpIcon = (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
@@ -173,7 +173,7 @@ export const ThumbsUpIcon = () => (
   </svg>
 );
 
-export const ThumbsDownIcon = () => (
+export const ThumbsDownIcon = (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
@@ -192,7 +192,7 @@ export const ThumbsDownIcon = () => (
   </svg>
 );
 
-export const DownloadIcon = () => (
+export const DownloadIcon = (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
@@ -211,7 +211,7 @@ export const DownloadIcon = () => (
   </svg>
 );
 
-export const CheckIcon = () => (
+export const CheckIcon = (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     fill="none"
