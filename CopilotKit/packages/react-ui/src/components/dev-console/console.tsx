@@ -172,7 +172,7 @@ function VersionInfo({
     versionIcon = CheckIcon;
   } else if (versionStatus === "checking") {
     versionLabel = "checking";
-    versionIcon = <SmallSpinnerIcon />;
+    versionIcon = SmallSpinnerIcon;
   } else if (versionStatus === "update-available") {
     versionLabel = "update available";
     versionIcon = ExclamationMarkIcon;

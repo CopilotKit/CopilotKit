@@ -41,12 +41,14 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
     }
   };
 
+  const LoadingIcon = () => <span data-test-id="message-loading">{icons.spinnerIcon}</span>;
+
   return (
     <>
       {(message || isLoading) && (
         <div className="copilotKitMessage copilotKitAssistantMessage">
           {message && <Markdown content={message || ""} />}
-          {isLoading && icons.spinnerIcon}
+          {isLoading && <LoadingIcon />}
 
           {message && !isLoading && (
             <div className="copilotKitMessageControls">
@@ -56,7 +58,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
                 aria-label={labels.regenerateResponse}
                 title={labels.regenerateResponse}
               >
-                <RegenerateIcon />
+                {RegenerateIcon}
               </button>
               <button
                 className="copilotKitMessageControlButton"
@@ -67,7 +69,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
                 {copied ? (
                   <span style={{ fontSize: "10px", fontWeight: "bold" }}>✓</span>
                 ) : (
-                  <CopyIcon />
+                  CopyIcon
                 )}
               </button>
               <button
@@ -76,7 +78,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
                 aria-label={labels.thumbsUp}
                 title={labels.thumbsUp}
               >
-                <ThumbsUpIcon />
+                {ThumbsUpIcon}
               </button>
               <button
                 className="copilotKitMessageControlButton"
@@ -84,7 +86,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
                 aria-label={labels.thumbsDown}
                 title={labels.thumbsDown}
               >
-                <ThumbsDownIcon />
+                {ThumbsDownIcon}
               </button>
             </div>
           )}

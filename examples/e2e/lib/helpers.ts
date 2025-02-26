@@ -21,7 +21,7 @@ export async function waitForStepsAndEnsureStreaming(page: Page) {
 }
 
 export async function waitForResponse(page: Page) {
-  await page.waitForSelector("button:has-text('Regenerate response')");
+  await page.waitForSelector('[data-test-id="message-loading"]');
 }
 
 export async function waitForSuggestions(page: Page) {
