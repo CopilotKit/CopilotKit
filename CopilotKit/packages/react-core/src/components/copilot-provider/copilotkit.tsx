@@ -88,7 +88,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
   const [chatInstructions, setChatInstructions] = useState("");
   const [authStates, setAuthStates] = useState<Record<string, AuthState>>({});
   const [extensions, setExtensions] = useState<ExtensionsInput>({});
-  const lastLoadedAvailableAgents = useRef<string | undefined>();
+  const [additionalInstructions, setAdditionalInstructions] = useState<string[]>([]);
 
   const {
     addElement: addDocument,
@@ -389,6 +389,8 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         removeChatSuggestionConfiguration,
         chatInstructions,
         setChatInstructions,
+        additionalInstructions,
+        setAdditionalInstructions,
         showDevConsole,
         coagentStates,
         setCoagentStates,
