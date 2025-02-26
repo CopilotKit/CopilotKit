@@ -316,7 +316,6 @@ please use an LLM adapter instead.`,
   }
 
   async discoverAgentsFromEndpoints(graphqlContext: GraphQLContext): Promise<AgentWithEndpoint[]> {
-    const headers = createHeaders(null, graphqlContext);
     const agents = this.remoteEndpointDefinitions.reduce(
       async (acc: Promise<Agent[]>, endpoint) => {
         const agents = await acc;
@@ -349,12 +348,12 @@ please use an LLM adapter instead.`,
             description: string;
           }>;
         }
-
-        const fetchUrl = `${(endpoint as CopilotKitEndpoint).url}/info`;
+        const cpkEndpoint = endpoint as CopilotKitEndpoint;
+        const fetchUrl = `${endpoint.url}/info`;
         try {
           const response = await fetch(fetchUrl, {
             method: "POST",
-            headers,
+            headers: createHeaders(cpkEndpoint.onBeforeRequest, graphqlContext),
             body: JSON.stringify({ properties: graphqlContext.properties }),
           });
           if (!response.ok) {
@@ -438,11 +437,12 @@ please use an LLM adapter instead.`,
       agentWithEndpoint.endpoint.type === EndpointType.CopilotKit ||
       !("type" in agentWithEndpoint.endpoint)
     ) {
-      const fetchUrl = `${(agentWithEndpoint.endpoint as CopilotKitEndpoint).url}/agents/state`;
+      const cpkEndpoint = agentWithEndpoint.endpoint as CopilotKitEndpoint;
+      const fetchUrl = `${cpkEndpoint.url}/agents/state`;
       try {
         const response = await fetch(fetchUrl, {
           method: "POST",
-          headers,
+          headers: createHeaders(cpkEndpoint.onBeforeRequest, graphqlContext),
           body: JSON.stringify({
             properties: graphqlContext.properties,
             threadId,
