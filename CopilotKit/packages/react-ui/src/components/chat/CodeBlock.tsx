@@ -93,11 +93,9 @@ const CodeBlock: FC<Props> = memo(({ language, value }) => {
         <div className="copilotKitCodeBlockToolbarButtons">
           <button className="copilotKitCodeBlockToolbarButton" onClick={downloadAsFile}>
             {DownloadIcon}
-            <span className="sr-only">Download</span>
           </button>
           <button className="copilotKitCodeBlockToolbarButton" onClick={onCopy}>
             {isCopied ? CheckIcon : CopyIcon}
-            <span className="sr-only">Copy code</span>
           </button>
         </div>
       </div>
