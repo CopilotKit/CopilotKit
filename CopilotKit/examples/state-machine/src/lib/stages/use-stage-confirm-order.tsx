@@ -1,5 +1,5 @@
 import { useGlobalState } from "@/lib/stages";
-import { Car, CardInfo, ContactInfo, FinancingInfo, Order } from "@/lib/types";
+import { Order } from "@/lib/types";
 import { ConfirmOrder } from "@/components/generative-ui/confirm-order";
 
 import { useCopilotAction, useCopilotAdditionalInstructions } from "@copilotkit/react-core";
@@ -17,7 +17,7 @@ export function useStageConfirmOrder() {
   useCopilotAdditionalInstructions(
     {
       instructions:
-        "CURRENT STATE: You are now confirming the order of the user. Say, 'Great! Now let's just confirm your order. Here is the summary of your order. ' and then call the 'confirmOrder' action. Instead of giving a summary in text you should instead use the 'confirmOrder' action.",
+        "CURRENT STATE: You are now confirming the order of the user. Say, 'Great! Now let's just confirm your order. Here is the summary of your order. ' and then call the 'confirmOrder' action. Always call the 'confirmOrder' tool, never ask the user for anything.",
       available: stage === "confirmOrder" ? "enabled" : "disabled",
     },
     [stage],

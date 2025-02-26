@@ -1,6 +1,7 @@
 ---
 title: "State Machines"
 description: "Learn how to guide users through multi-step conversations using a state machine pattern."
+icon: "lucide/Workflow"
 ---
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
 import { Accordion } from 'fumadocs-ui/components/accordion';
@@ -9,7 +10,7 @@ import { Accordion } from 'fumadocs-ui/components/accordion';
 
 When building chat-based applications, you often need to guide users through a series of steps or **stages**. This recipe shows how to implement a state machine pattern to keep your assistant focused and on-track.
 
-<video src="/images/cookbook/state-machine/demo.mp4" controls autoPlay loop muted playsInline className="rounded-xl shadow-lg" />
+<video src="/images/cookbook/state-machine/demo.mp4" controls autoPlay loop muted playsInline className="rounded-xl shadow-lg border" />
 
 <Callout>
 This recipe assumes you have completed the [quickstart guide](/docs/quickstart) and have a basic CopilotKit application running.
@@ -379,7 +380,7 @@ uses generative UI to show the user available cars that they can choose from.
 
 Click here for the [source code](https://github.com/CopilotKit/CopilotKit/tree/main/examples/state-machine/src/lib/stages/use-stage-build-car.tsx)
 
-<video src="/images/cookbook/state-machine/gen-ui.mp4" controls autoPlay loop muted playsInline className="rounded-xl shadow-lg" />
+<video src="/images/cookbook/state-machine/gen-ui.mp4" controls autoPlay loop muted playsInline className="rounded-xl shadow-lg border" />
 
 <Tabs items={["Build Car Stage", "Show Car Component"]}>
   <Tab value="Build Car Stage">
