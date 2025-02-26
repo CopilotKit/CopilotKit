@@ -61,42 +61,44 @@ export const Input = ({ inProgress, onSend, isVisible = false, onStop }: InputPr
   const sendDisabled = !canSend();
 
   return (
-    <div className="copilotKitInput" onClick={handleDivClick}>
-      <AutoResizingTextarea
-        ref={textareaRef}
-        placeholder={context.labels.placeholder}
-        autoFocus={true}
-        maxRows={5}
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.shiftKey) {
-            event.preventDefault();
-            if (canSend()) {
-              send();
-            }
-          }
-        }}
-      />
-      <div className="copilotKitInputControls">
-        {showPushToTalk && (
+    <div className="copilotKitInputContainer">
+      <div className="copilotKitInput" onClick={handleDivClick}>
+        <AutoResizingTextarea
+            ref={textareaRef}
+            placeholder={context.labels.placeholder}
+            autoFocus={true}
+            maxRows={5}
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                if (canSend()) {
+                  send();
+                }
+              }
+            }}
+        />
+        <div className="copilotKitInputControls">
+          {showPushToTalk && (
+              <button
+                  onClick={() =>
+                      setPushToTalkState(pushToTalkState === "idle" ? "recording" : "transcribing")
+                  }
+                  className={pushToTalkState === "recording" ? "copilotKitPushToTalkRecording" : ""}
+              >
+                {context.icons.pushToTalkIcon}
+              </button>
+          )}
           <button
-            onClick={() =>
-              setPushToTalkState(pushToTalkState === "idle" ? "recording" : "transcribing")
-            }
-            className={pushToTalkState === "recording" ? "copilotKitPushToTalkRecording" : ""}
+              disabled={sendDisabled}
+              onClick={isInProgress ? onStop : send}
+              data-copilotkit-in-progress={inProgress}
+              data-testid={inProgress ? "copilot-chat-request-in-progress" : undefined}
           >
-            {context.icons.pushToTalkIcon}
+            {buttonIcon}
           </button>
-        )}
-        <button
-          disabled={sendDisabled}
-          onClick={isInProgress ? onStop : send}
-          data-copilotkit-in-progress={inProgress}
-          data-testid={inProgress ? "copilot-chat-request-in-progress" : undefined}
-        >
-          {buttonIcon}
-        </button>
+        </div>
       </div>
     </div>
   );
