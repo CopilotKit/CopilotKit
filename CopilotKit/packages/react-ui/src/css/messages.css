@@ -127,10 +127,6 @@
   pointer-events: none;
 }
 
-.copilotKitMessage.copilotKitUserMessage + .copilotKitMessage.copilotKitAssistantMessage {
-  margin-top: 1.5rem;
-}
-
 .copilotKitMessage.copilotKitAssistantMessage + .copilotKitMessage.copilotKitUserMessage {
   margin-top: 1.5rem;
 }
