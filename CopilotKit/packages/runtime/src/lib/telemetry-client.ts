@@ -31,7 +31,9 @@ export function getRuntimeInstanceTelemetryInfo(
         info = {
           ...info,
           agentsAmount: ep.agents.length,
-          hashedKey: createHash("sha256").update(ep.langsmithApiKey).digest("hex"),
+          hashedKey: ep.langsmithApiKey
+            ? createHash("sha256").update(ep.langsmithApiKey).digest("hex")
+            : null,
         };
       }
 
