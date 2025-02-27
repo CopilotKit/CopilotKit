@@ -151,13 +151,60 @@ function SubdocsMenuItem({
     );
   } else if (isOptionDropdown(item)) {
     return (
-      <SubdocsMenuItemDropdown
+      <SubdocsMenuItemAgentFramework
         item={item}
         selected={selected}
         onClick={onClick}
       />
     );
   }
+}
+
+function SubdocsMenuItemAgentFramework({
+  item,
+  selected,
+  onClick,
+}: {
+  item: OptionDropdown;
+  selected?: Option;
+  onClick?: () => void;
+}) {
+  const defaultOption = item.options.find(
+    (option) => option.url === "/coagents"
+  )!;
+
+  const isSelected = item.options.find(
+    (option) => option.url === selected?.url
+  );
+
+  const showOption =
+    item.options.find((option) => option.url === selected?.url) ||
+    defaultOption;
+
+  return (
+    <Link
+      key={showOption.url}
+      href={showOption.url}
+      onClick={onClick}
+      {...showOption.props}
+      className={cn(
+        "p-2 flex flex-row gap-3 items-center cursor-pointer group opacity-60 hover:opacity-100",
+        showOption.props?.className,
+        isSelected && `${showOption.selectedStyle} opacity-100`
+      )}
+    >
+      <div
+        className={cn(
+          "rounded-sm p-1.5",
+          showOption.bgGradient,
+          isSelected && ""
+        )}
+      >
+        {showOption.icon}
+      </div>
+      <div className="font-medium">{showOption.title}</div>
+    </Link>
+  );
 }
 
 function SubdocsMenuItemDropdown({

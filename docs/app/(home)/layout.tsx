@@ -35,7 +35,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                   title: "CoAgents",
                   options: [
                     {
-                      title: "LangGraph",
+                      title: "CoAgents (LangGraph)",
                       description: "Documentation for CoAgents with LangGraph",
                       url: "/coagents",
                       icon: <SiLangchain className="w-4 h-4 text-bold" />,
@@ -44,7 +44,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                       selectedStyle: "ring-purple-500/70 ring-2 rounded-sm",
                     },
                     {
-                      title: "CrewAI Flows",
+                      title: "CoAgents (CrewAI Flows)",
                       description:
                         "Documentation for CoAgents with CrewAI Flows",
                       url: "/crewai-flows",
@@ -54,7 +54,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                       selectedStyle: "ring-[#FA694C]/70 ring-2 rounded-sm",
                     },
                     {
-                      title: "CrewAI Crews",
+                      title: "CoAgents (CrewAI Crews)",
                       description:
                         "Documentation for CoAgents with CrewAI Crews",
                       url: "/crewai-crews",
