@@ -657,7 +657,7 @@ export function langGraphPlatformEndpoint(
 
 export function resolveEndpointType(endpoint: EndpointDefinition) {
   if (!endpoint.type) {
-    if ("langsmithApiKey" in endpoint && "deploymentUrl" in endpoint && "agents" in endpoint) {
+    if ("deploymentUrl" in endpoint && "agents" in endpoint) {
       return EndpointType.LangGraphPlatform;
     } else {
       return EndpointType.CopilotKit;
