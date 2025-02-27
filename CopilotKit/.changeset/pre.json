@@ -1,37 +1,21 @@
 {
-  "mode": "exit",
+  "mode": "pre",
   "tag": "next",
   "initialVersions": {
     "next-openai": "1.4.6",
     "next-pages-router": "1.4.6",
     "node-express": "1.4.6",
     "node-http": "1.4.6",
-    "@copilotkit/react-core": "1.5.20",
-    "@copilotkit/react-textarea": "1.5.20",
-    "@copilotkit/react-ui": "1.5.20",
-    "@copilotkit/runtime": "1.5.20",
-    "@copilotkit/runtime-client-gql": "1.5.20",
-    "@copilotkit/sdk-js": "1.5.20",
-    "@copilotkit/shared": "1.5.20",
+    "@copilotkit/react-core": "1.6.0",
+    "@copilotkit/react-textarea": "1.6.0",
+    "@copilotkit/react-ui": "1.6.0",
+    "@copilotkit/runtime": "1.6.0",
+    "@copilotkit/runtime-client-gql": "1.6.0",
+    "@copilotkit/sdk-js": "1.6.0",
+    "@copilotkit/shared": "1.6.0",
     "eslint-config-custom": "1.4.6",
     "tailwind-config": "1.4.6",
-    "tsconfig": "1.4.6",
-    "state-machine": "0.1.0"
+    "tsconfig": "1.4.6"
   },
-  "changesets": [
-    "calm-carpets-peel",
-    "chilled-hairs-wait",
-    "chilly-rats-bow",
-    "dirty-scissors-wash",
-    "fair-papayas-breathe",
-    "healthy-foxes-serve",
-    "heavy-owls-relax",
-    "hot-turtles-fold",
-    "large-flowers-double",
-    "polite-falcons-melt",
-    "proud-dingos-poke",
-    "sharp-bikes-develop",
-    "ten-mangos-sort",
-    "tiny-donkeys-speak"
-  ]
+  "changesets": []
 }

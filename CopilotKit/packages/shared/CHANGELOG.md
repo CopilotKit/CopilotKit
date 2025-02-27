@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.6.0
+
+### Patch Changes
+
+- 090203d: - fix: use tryMap method to filter out possibly invalid items
+
 ## 1.6.0-next.12
 
 ## 1.6.0-next.11
