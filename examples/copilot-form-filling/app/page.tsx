@@ -20,7 +20,7 @@ export default function Home() {
         labels={{
           title: "✨ Incident Report Assistant",
           initial: [
-            "Hello, I'm an AI assistant built for assisting you with filing incident reports.\n\nHow can I help you today?",
+            "I'm an AI assistant built for guiding you through filing incident reports. How can I help?",
           ],
         }}
       />

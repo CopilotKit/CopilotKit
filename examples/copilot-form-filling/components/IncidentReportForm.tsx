@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -28,7 +27,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useCopilotAction } from "@copilotkit/react-core";
+import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
 
 // Define the form schema with Zod
 const formSchema = z.object({
@@ -50,27 +49,42 @@ const formSchema = z.object({
   impactLevel: z.string({
     required_error: "Please select an impact level.",
   }),
+  suggestedActions: z.string().min(10, {
+    message: "Suggested actions must be at least 10 characters.",
+  }),
 });
 
 export function IncidentReportForm() {
-  // Initialize the form
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       email: "",
       description: "",
-      // date and other fields will be undefined by default
+      suggestedActions: "",
+      incidentType: "",
+      impactLevel: "",
     },
   });
 
-  // Handle form submission
   function onSubmit(values: z.infer<typeof formSchema>) {
-    // In a real application, you would send this data to your backend
     console.log(values);
     alert("Incident report submitted successfully!");
-    form.reset();
+    form.reset({
+      name: "",
+      email: "",
+      description: "",
+      suggestedActions: "",
+      incidentType: "",
+      impactLevel: "",
+      date: undefined,
+    });
   }
+
+  useCopilotReadable({
+    description: "The security incident report form fields and their current values",
+    value: form,
+  }, [form]);
 
   useCopilotAction({
     name: "fillIncidentReportForm",
@@ -122,7 +136,13 @@ export function IncidentReportForm() {
         "name": "incidentDescription",
         "type": "string",
         "required": true,
-        "description": "The description of the incident"
+        "description": "The description of the incident, be as detailed as possible. At least 30 words."
+      },
+      { 
+        "name": "suggestedActions",
+        "type": "string",
+        "required": true,
+        "description": "The suggested actions to take based on the incident, be as detailed as possible in a bulleted list."
       },
     ],
     handler: async (action) => {
@@ -132,6 +152,7 @@ export function IncidentReportForm() {
       form.setValue("date", new Date(action.date));
       form.setValue("impactLevel", action.incidentLevel);
       form.setValue("incidentType", action.incidentType);
+      form.setValue("suggestedActions", action.suggestedActions);
     },
   });
 
@@ -281,9 +302,24 @@ export function IncidentReportForm() {
                       {...field}
                     />
                   </FormControl>
-                  <FormDescription>
-                    Be as detailed as possible to help us investigate the incident effectively.
-                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="suggestedActions"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Suggested Actions</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Please provide suggested actions to take based on the incident description."
+                      className="min-h-32"
+                      {...field}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

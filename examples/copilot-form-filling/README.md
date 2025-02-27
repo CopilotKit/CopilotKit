@@ -1,32 +1,21 @@
-<div align="center">
 
-# 🤖 Form-Filling Copilot: Security Incident Reports
 
-  <img src="./preview.png" alt="Form-Filling Copilot for Security Incident Reports" width="600"/>
-  <p><em>Transform tedious form-filling into natural conversations. Your AI assistant asks the right questions, understands context, and completes forms for you—no more field-by-field drudgery.</em></p>
-</div>
+# Form-Filling Copilot
+Transform tedious form-filling into natural conversations. Your AI assistant asks the right questions, understands context, and completes forms for you—no more field-by-field drudgery.
 
 <div align="center">
+  <img src="./preview.gif" alt="Form-Filling Copilot for Security Incident Reports"/>
+
   <a href="https://copilotkit.ai" target="_blank">
     <img src="https://img.shields.io/badge/Built%20with-CopilotKit-6963ff" alt="Built with CopilotKit"/>
   </a>
   <a href="https://nextjs.org" target="_blank">
-    <img src="https://img.shields.io/badge/Built%20with-Next.js%2014-black" alt="Built with Next.js"/>
+    <img src="https://img.shields.io/badge/Built%20with-Next.js%2015-black" alt="Built with Next.js"/>
   </a>
   <a href="https://ui.shadcn.com/" target="_blank">
     <img src="https://img.shields.io/badge/Styled%20with-shadcn%2Fui-black" alt="Styled with shadcn/ui"/>
   </a>
 </div>
-
-## 🚀 Demo
-
-This demo showcases how CopilotKit can revolutionize form interactions by creating AI assistants that:
-
-- **Chat naturally** with users to gather information—no more staring at empty form fields
-- **Intelligently populate** complex forms based on conversational context
-- **Explain requirements** and provide guidance when users are unsure what to enter
-
-The security incident report example demonstrates how even complex, technical forms can be completed through simple conversation, making reporting faster and more accurate.
 
 ## 🛠️ Getting Started
 
@@ -46,7 +35,7 @@ The security incident report example demonstrates how even complex, technical fo
 2. Install dependencies:
 
    ```bash
-   npm install
+   pnpm install
    ```
 
    <details>
@@ -57,19 +46,19 @@ The security incident report example demonstrates how even complex, technical fo
      yarn install
      
      # Using pnpm
-     pnpm install
+     npm install
      ```
    </details>
 
-3. Create a `.env.local` file in the project root and add your API keys:
+3. Create a `.env` file in the project root and add your [Copilot Cloud Public API Key](https://cloud.copilotkit.ai):
    ```
-   OPENAI_API_KEY=your_openai_api_key
+   NEXT_PUBLIC_COPILOT_PUBLIC_API_KEY=your_copilotkit_api_key
    ```
 
 4. Start the development server:
 
    ```bash
-   npm run dev
+   pnpm dev
    ```
 
    <details>
@@ -80,7 +69,7 @@ The security incident report example demonstrates how even complex, technical fo
      yarn dev
      
      # Using pnpm
-     pnpm dev
+     npm run dev
      ```
    </details>
 
@@ -90,33 +79,72 @@ The security incident report example demonstrates how even complex, technical fo
 
 This demo uses several key CopilotKit features:
 
-```tsx
-// 1. The CopilotKit provider wraps the application
-<CopilotKitProvider>
-  <SecurityIncidentForm />
-  <CopilotPopup 
-    instructions="You are an assistant that helps users fill out security incident reports."
-  />
-</CopilotKitProvider>
+### CopilotKit Provider
+This provides the chat context to all of the children components.
 
-// 2. Form fields are made available to the AI
+<em>[app/layout.tsx](./app/layout.tsx)</em>
+
+```tsx
+export default function RootLayout({children}: Readonly<{children: React.ReactNode}>) {
+  return (
+    <html lang="en">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <CopilotKit publicApiKey={process.env.NEXT_PUBLIC_COPILOT_PUBLIC_API_KEY}>
+          {children}
+        </CopilotKit>
+      </body>
+    </html>
+  );
+}
+```
+
+### CopilotReadable
+This provides the form fields and their current values to the AI so it understands the current state of the form and session.
+
+<em>[components/IncidentReportForm.tsx](./components/IncidentReportForm.tsx)</em>
+
+```tsx
 useCopilotReadable({
   description: "The security incident form fields and their current values",
   value: formState
 });
+```
 
-// 3. The AI can update form fields
+<em>[app/page.tsx](./app/page.tsx)</em>
+
+```tsx
+useCopilotReadable({
+  description: "The current user information",
+  value: retrieveUserInfo(),
+})
+```
+
+### CopilotAction
+This allows the AI to update the form fields.
+
+<em>[components/IncidentReportForm.tsx](./components/IncidentReportForm.tsx)</em>
+
+```tsx
 useCopilotAction({
-  name: "updateFormField",
-  description: "Update a field in the security incident form",
+  name: "fillIncidentReportForm",
+  description: "Fill out the incident report form",
   parameters: [
-    { name: "fieldName", type: "string", description: "The name of the field to update" },
-    { name: "value", type: "string", description: "The new value for the field" }
+    {
+      name: "fullName",
+      type: "string",
+      required: true,
+      description: "The full name of the person reporting the incident"
+    },
+    // other parameters ...
   ],
-  handler: ({ fieldName, value }) => {
-    updateField(fieldName, value);
-    return { success: true };
-  }
+  handler: async (action) => {
+    form.setValue("name", action.fullName);
+    form.setValue("email", action.email);
+    form.setValue("description", action.incidentDescription);
+    form.setValue("date", new Date(action.date));
+    form.setValue("impactLevel", action.incidentLevel);
+    form.setValue("incidentType", action.incidentType);
+  },
 });
 ```
 
@@ -127,15 +155,3 @@ Ready to build your own AI-powered form assistant? Check out these resources:
 [CopilotKit Documentation](https://docs.copilotkit.ai) - Comprehensive guides and API references to help you build your own copilots.
 
 [CopilotKit Cloud](https://cloud.copilotkit.ai/) - Deploy your copilots with our managed cloud solution for production-ready AI assistants.
-
-## 🎉 License
-
-This project is licensed under the MIT License. Take it, remix it, build something awesome with it! We'd love to see what you create. Have fun and happy coding!
-
----
-
-<div align="center">
-  <a href="https://copilotkit.ai">
-    <img src="https://img.shields.io/badge/Built_with-CopilotKit-6963ff.svg?style=for-the-badge&logo=none" alt="Built with CopilotKit" />
-  </a>
-</div>
