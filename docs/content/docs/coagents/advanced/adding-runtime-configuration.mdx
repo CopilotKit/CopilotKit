@@ -1,23 +1,25 @@
 ---
-title: "Using runtime configuration"
+title: "Using Agent Execution Parameters"
 icon: "lucide/Bolt"
-description: "Using runtime configuration when communicating with an agent."
+description: "Using agent execution parameters when communicating with an agent."
 ---
 
 ## What is this?
-LangGraph agents are able to take runtime configuration, such as auth tokens and similar properties.
+LangGraph agents are able to take execution parameters, such as auth tokens and similar properties.
 You can add these using this feature.
 
-If you wish to read further, you can refer to [the runtime config guide by LangGraph](https://langchain-ai.github.io/langgraph/how-tos/configuration/)
+If you wish to read further, you can refer to [the configuration guide by LangGraph](https://langchain-ai.github.io/langgraph/how-tos/configuration/)
 
 ## When should I use this?
 
-This is useful when you want to send runtime configuration information (such as different tokens or metadata for a given session) that should not be part of the agent state.
+This is useful when you want to send execution-time configuration information (such as different tokens or metadata for a given session) that should not be part of the agent state.
 
 ## Implementation
 
 By default, LangGraph agents are invokes with a `config` argument. This config has a `configurable` property which can be accessed and filled with your data.
 
+<Steps>
+<Step>
 ### Pass configuration from the frontend
 First, pass the configuration properties as you would like to receive them in the agent
 
@@ -40,7 +42,8 @@ function YourMainContent() {
   return (... your component UI markdown)
 }
 ```
-
+</Step>
+<Step>
 ### Use configurables in agent
 Now you can simply pull the values from the provided config argument in any agent node
 
@@ -64,5 +67,5 @@ Now you can simply pull the values from the provided config argument in any agen
         ```
     </Tab>
 </Tabs>
-
-
+</Step>
+</Steps>
