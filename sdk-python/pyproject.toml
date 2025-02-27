@@ -13,7 +13,7 @@ keywords = ["copilot", "copilotkit", "langgraph", "langchain", "ai", "langsmith"
 python = ">=3.10,<3.13"
 langgraph = {version = ">=0.2.50"}
 langchain = {version = "^0.3.3"}
-crewai = {version = "^0.102.0"}
+crewai = {version = ">=0.100.0,<1.0.0"}
 fastapi = "^0.115.0"
 partialjson = "^0.0.8"
 toml = "^0.10.2"
