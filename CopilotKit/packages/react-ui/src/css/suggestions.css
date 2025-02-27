@@ -14,7 +14,14 @@
   padding: 8px 12px;
   font-size: 0.7rem;
   border-radius: 10px;
-  border: 1px solid var(--copilot-kit-border-color);
+  border: 1px solid var(--copilot-kit-muted-color);
+  color: var(--copilot-kit-text-color);
+}
+
+.copilotKitMessages footer .suggestions .suggestion.loading {
+  padding: 0;
+  font-size: 0.7rem;
+  border: none;
   color: var(--copilot-kit-text-color);
 }
 

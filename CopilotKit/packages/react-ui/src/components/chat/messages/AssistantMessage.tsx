@@ -41,7 +41,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
     }
   };
 
-  const LoadingIcon = () => <span data-test-id="message-loading">{icons.spinnerIcon}</span>;
+  const LoadingIcon = () => <span data-test-id="message-loading">{icons.activityIcon}</span>;
 
   return (
     <>

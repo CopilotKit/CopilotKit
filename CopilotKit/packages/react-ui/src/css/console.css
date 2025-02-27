@@ -1,5 +1,7 @@
 .copilotKitDevConsole {
-  background-color: var(--copilot-kit-secondary-color);
+  --copilot-kit-dev-console-bg: #f8f8fa;
+  --copilot-kit-dev-console-border: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 80%, black);
+  background-color: var(--copilot-kit-dev-console-bg);
   padding-left: 10px;
   padding-right: 10px;
   display: flex;
@@ -69,8 +71,8 @@
   display: flex;
   padding: 0 10px;
   height: 30px;
-  background-color: var(--copilot-kit-secondary-color);
-  border: 1px solid color-mix(in srgb, var(--copilot-kit-secondary-color) 90%, black);
+  background-color: transparent;
+  border: 1px solid var(--copilot-kit-dev-console-border);
   border-radius: 6px;
   align-items: center;
   justify-content: center;
@@ -86,7 +88,7 @@
 }
 
 .copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover {
-  background-color: var(--copilot-kit-border-color);
+  background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 95%, black);
 }
 
 .copilotKitDevConsole .copilotKitDebugMenuTriggerButton > svg {
@@ -94,10 +96,12 @@
 }
 
 .copilotKitDebugMenu {
+  --copilot-kit-dev-console-bg: #f8f8fa;
+  --copilot-kit-dev-console-border: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 80%, black);
   margin-top: 2px;
   border-radius: 6px;
-  background-color: var(--copilot-kit-secondary-color);
-  border: 1px solid var(--copilot-kit-border-color);
+  background-color: var(--copilot-kit-dev-console-bg);
+  border: 1px solid var(--copilot-kit-dev-console-border);
   padding: 0.25rem;
   outline: none;
   font-size: 13px;
@@ -117,7 +121,7 @@
 }
 
 .copilotKitDebugMenuItem:hover {
-  background-color: var(--copilot-kit-border-color);
+  background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 92%, black);
   border-radius: 4px;
 }
 
@@ -129,6 +133,6 @@
 .copilotKitDebugMenu hr {
   height: 1px;
   border: none; /* Remove 3D look */
-  background-color: var(--copilot-kit-border-color); /* Set color */
+  background-color: var(--copilot-kit-dev-console-border);
   margin: 0.25rem;
 }

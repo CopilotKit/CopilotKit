@@ -1,14 +1,11 @@
 html {
-  --copilot-kit-primary-color: rgb(59 130 246);
+  --copilot-kit-primary-color: rgb(28, 28, 28);
   --copilot-kit-contrast-color: rgb(255, 255, 255);
-  --copilot-kit-secondary-color: rgb(243 244 246);
-  --copilot-kit-secondary-contrast-color: rgb(0 0 0);
-  --copilot-kit-border-color: color-mix(in srgb, var(--copilot-kit-secondary-color) 95%, black);
-  --copilot-kit-icon-color: color-mix(in srgb, var(--copilot-kit-secondary-contrast-color) 55%, white);
-  --copilot-kit-background-color: rgb(255, 255, 255);
-  --copilot-kit-text-color: rgba(30, 30, 30);
-  --copilot-kit-muted-color: rgb(106 106 106);
-  --copilot-kit-separator-color: rgba(0, 0, 0, 0.08);
+  --copilot-kit-secondary-color: rgb(83, 83, 83);
+  --copilot-kit-background-color: rgb(255 255 255);
+  --copilot-kit-muted-color: rgb(200 200 200);
+  --copilot-kit-text-color: rgb(28, 28, 28);
+  --copilot-kit-separator-color: rgb(200 200 200);
   --copilot-kit-scrollbar-color: rgba(0, 0, 0, 0.2);
   --copilot-kit-response-button-color: #333;
   --copilot-kit-response-button-background-color: #fff;
@@ -16,34 +13,19 @@ html {
   --copilot-kit-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --copilot-kit-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 
-  --copilot-kit-header-bg-color: var(--copilot-kit-primary-color);
-  --copilot-kit-header-text-color: var(--copilot-kit-secondary-color);
-  --copilot-kit-header-icon-color: var(--copilot-kit-secondary-color);
-  --copilot-kit-header-icon-hover-color: var(--copilot-kit-secondary-color);
-
-  .variant-modern {
-    --copilot-kit-primary-color: rgba(30, 30, 30);
-    --copilot-kit-contrast-color: rgb(255, 255, 255);
-    --copilot-kit-secondary-color: rgb(243, 244, 246);
-    --copilot-kit-secondary-contrast-color: rgb(33, 33, 33);
-    --copilot-kit-border-color: color-mix(in srgb, var(--copilot-kit-secondary-color) 95%, black);
-    --copilot-kit-icon-color: color-mix(in srgb, var(--copilot-kit-primary-color) 55%, white);
-    --copilot-kit-background-color: rgb(255, 255, 255);
-    --copilot-kit-text-color: rgba(30, 30, 30);
-    --copilot-kit-muted-color: rgb(160, 160, 160);
-    --copilot-kit-scrollbar-color: rgba(0, 0, 0, 0.15);
-    --copilot-kit-response-button-color: rgb(118, 118, 118);
-    --copilot-kit-response-button-background-color: rgb(255, 255, 255);
-
-    --copilot-kit-header-bg-color: var(--copilot-kit-secondary-color);
-    --copilot-kit-header-text-color: var(--copilot-kit-text-color);
-    --copilot-kit-header-icon-color: var(--copilot-kit-icon-color);
-    --copilot-kit-header-icon-hover-color: var(--copilot-kit-primary-color);
+  .variant-blue {
+    --copilot-kit-primary-color: rgb(59 130 246);
+    --copilot-kit-contrast-color: rgb(255 255 255);
+    --copilot-kit-secondary-color: rgb(243 244 246);
+    --copilot-kit-background-color: rgb(255 255 255);
+    --copilot-kit-muted-color: rgb(200 200 200);
+    --copilot-kit-text-color: rgb(106 106 106);
+    --copilot-kit-separator-color: rgb(200 200 200);
+    --copilot-kit-scrollbar-color: rgba(0, 0, 0, 0.2);
+    --copilot-kit-response-button-color: #333;
+    --copilot-kit-response-button-background-color: #fff;
+    --copilot-kit-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --copilot-kit-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --copilot-kit-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   }
 }
-
-/*darken*/
-/*color-mix(in srgb, var(--copilot-kit-primary-color) 90%, white)*/
-
-/*lighten*/
-/*color-mix(in srgb, var(--copilot-kit-primary-color) 90%, white)*/

@@ -59,7 +59,8 @@
 }
 
 .copilotKitMessage.copilotKitUserMessage {
-  background: var(--copilot-kit-secondary-color);
+  background: var(--copilot-kit-primary-color);
+  color: var(--copilot-kit-contrast-color);
   margin-left: auto;
   white-space: pre-wrap;
   border-bottom-right-radius: 0.25rem;
@@ -101,7 +102,7 @@
   align-items: center;
   border-radius: 0.5rem;
   justify-content: center;
-  color: var(--copilot-kit-icon-color);
+  color: var(--copilot-kit-primary-color);
   cursor: pointer;
   transition: all 0.2s ease;
   padding: 0;
@@ -110,14 +111,13 @@
 }
 
 .copilotKitMessageControlButton:hover {
-  color: var(--copilot-kit-primary-color);
-  /*transform: translateY(-1px);*/
-  /*box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);*/
+  color: color-mix(in srgb, var(--copilot-kit-primary-color) 80%, black);
+  transform: scale(1.05);
 }
 
 .copilotKitMessageControlButton:active {
-  color: var(--copilot-kit-primary-color);
-  /*box-shadow: none;*/
+  color: color-mix(in srgb, var(--copilot-kit-primary-color) 80%, black);
+  transform: scale(1.05);
 }
 
 .copilotKitMessageControlButton svg {
@@ -154,7 +154,7 @@
   display: inline-block;
   width: 16px;
   height: 16px;
-  border: 2px solid var(--copilot-kit-secondary-color);
+  border: 2px solid var(--copilot-kit-contrast-color);
   border-radius: 50%;
   border-top-color: var(--copilot-kit-primary-color);
   animation: copilotKitSpinAnimation 1s linear infinite;

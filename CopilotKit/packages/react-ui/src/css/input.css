@@ -5,7 +5,7 @@
   position: relative;
   background-color: var(--copilot-kit-background-color);
   border-radius: 10px;
-  border: 1px solid var(--copilot-kit-border-color);
+  border: 1px solid var(--copilot-kit-separator-color);
   padding: 5px 8px 5px 13px;
 }
 
@@ -42,15 +42,16 @@
 }
 
 .copilotKitInput > .copilotKitInputControls > button:not([disabled]) {
-  color: var(--copilot-kit-icon-color);
+  color: var(--copilot-kit-primary-color);
 }
 
 .copilotKitInput > .copilotKitInputControls > button:not([disabled]):hover {
-  color: var(--copilot-kit-primary-color)
+  color: color-mix(in srgb, var(--copilot-kit-primary-color) 80%, black);
+  transform: scale(1.05);
 }
 
 .copilotKitInput > .copilotKitInputControls > button[disabled] {
-  color: var(--copilot-kit-border-color);
+  color: var(--copilot-kit-muted-color);
   cursor: default;
 }
 
@@ -74,7 +75,7 @@
   padding: 0;
   font-family: inherit;
   font-weight: inherit;
-  color: var(--copilot-kit-secondary-contrast-color);
+  color: var(--copilot-kit-text-color);
   border: 0px;
   background-color: var(--copilot-kit-background-color);
 }

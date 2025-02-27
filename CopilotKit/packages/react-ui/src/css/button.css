@@ -5,13 +5,13 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  border: 1.5px solid var(--copilot-kit-primary-color);
+  border: 1px solid var(--copilot-kit-contrast-color);
   outline: none;
   position: relative;
   transform: scale(1);
   transition: all 0.2s ease;
-  background-color: var(--copilot-kit-background-color);
-  color: var(--copilot-kit-primary-color);
+  background-color: var(--copilot-kit-primary-color);
+  color: var(--copilot-kit-contrast-color);
   cursor: pointer;
   box-shadow: var(--copilot-kit-shadow-sm);
 }
