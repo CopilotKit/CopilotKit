@@ -1,5 +1,26 @@
 # ui
 
+## 1.6.0
+
+### Minor Changes
+
+- 7d061d9: - feat(configurable): execute langgraph with user config
+
+### Patch Changes
+
+- d833f4c: - fix: provide the ability to type interrupt event value
+- d800f03: - fix: use memoization in useCoAgent internal functions
+- 85753b3: - feat(actions): enable restricting actions to frontend only
+- b454827: - fix: simplify condition options for langgraph interrupts
+  - chore: add new enabled to e2e tests
+  - fix: refine argument types
+  - chore: document hook API reference
+- c1cc77f: - feat: new useCopilotAdditionalInstructions hook and available property on useCopilotReadable
+- Updated dependencies [d833f4c]
+- Updated dependencies [090203d]
+  - @copilotkit/runtime-client-gql@1.6.0
+  - @copilotkit/shared@1.6.0
+
 ## 1.6.0-next.12
 
 ### Patch Changes

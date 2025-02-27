@@ -1,5 +1,21 @@
 # ui
 
+## 1.6.0
+
+### Patch Changes
+
+- c1cc77f: - feat: new useCopilotAdditionalInstructions hook and available property on useCopilotReadable
+- Updated dependencies [d833f4c]
+- Updated dependencies [090203d]
+- Updated dependencies [d800f03]
+- Updated dependencies [85753b3]
+- Updated dependencies [7d061d9]
+- Updated dependencies [b454827]
+- Updated dependencies [c1cc77f]
+  - @copilotkit/react-core@1.6.0
+  - @copilotkit/runtime-client-gql@1.6.0
+  - @copilotkit/shared@1.6.0
+
 ## 1.6.0-next.12
 
 ### Patch Changes
