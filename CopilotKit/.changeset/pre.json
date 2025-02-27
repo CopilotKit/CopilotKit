@@ -15,13 +15,15 @@
     "@copilotkit/shared": "1.5.20",
     "eslint-config-custom": "1.4.6",
     "tailwind-config": "1.4.6",
-    "tsconfig": "1.4.6"
+    "tsconfig": "1.4.6",
+    "state-machine": "0.1.0"
   },
   "changesets": [
     "calm-carpets-peel",
     "chilled-hairs-wait",
     "chilly-rats-bow",
     "dirty-scissors-wash",
+    "fair-papayas-breathe",
     "healthy-foxes-serve",
     "heavy-owls-relax",
     "hot-turtles-fold",

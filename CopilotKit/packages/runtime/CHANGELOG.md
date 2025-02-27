@@ -1,5 +1,13 @@
 # @copilotkit/runtime
 
+## 1.6.0-next.12
+
+### Patch Changes
+
+- 1bb9ca2: - fix(coagents): don't fail when LangSmith API key is missing
+  - fix(coagents): don't check for langsmithApiKey in resolveEndpointType
+  - @copilotkit/shared@1.6.0-next.12
+
 ## 1.6.0-next.11
 
 ### Patch Changes
