@@ -5,7 +5,6 @@
   justify-content: flex-start;
   align-items: center;
   position: relative;
-  /*TODO*/
   background-color: var(--copilot-kit-primary-color);
   color: var(--copilot-kit-contrast-color);
   border-top-left-radius: 0;
