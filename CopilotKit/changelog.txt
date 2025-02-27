@@ -1,0 +1,234 @@
+# @copilotkit/react-core
+
+## 1.6.0
+
+### Minor Changes
+
+- 7d061d9: - feat(configurable): execute langgraph with user config
+
+### Patch Changes
+
+- d833f4c: - fix: provide the ability to type interrupt event value
+- d800f03: - fix: use memoization in useCoAgent internal functions
+- 85753b3: - feat(actions): enable restricting actions to frontend only
+- b454827: - fix: simplify condition options for langgraph interrupts
+  - chore: add new enabled to e2e tests
+  - fix: refine argument types
+  - chore: document hook API reference
+- c1cc77f: - feat: new useCopilotAdditionalInstructions hook and available property on useCopilotReadable
+- Updated dependencies [d833f4c]
+- Updated dependencies [090203d]
+  - @copilotkit/runtime-client-gql@1.6.0
+  - @copilotkit/shared@1.6.0
+
+
+# @copilotkit/react-ui
+
+## 1.6.0
+
+### Patch Changes
+
+- c1cc77f: - feat: new useCopilotAdditionalInstructions hook and available property on useCopilotReadable
+- Updated dependencies [d833f4c]
+- Updated dependencies [090203d]
+- Updated dependencies [d800f03]
+- Updated dependencies [85753b3]
+- Updated dependencies [7d061d9]
+- Updated dependencies [b454827]
+- Updated dependencies [c1cc77f]
+  - @copilotkit/react-core@1.6.0
+  - @copilotkit/runtime-client-gql@1.6.0
+  - @copilotkit/shared@1.6.0
+
+
+# @copilotkit/sdk-js
+
+## 1.6.0
+
+### Patch Changes
+
+- Updated dependencies [090203d]
+  - @copilotkit/shared@1.6.0
+
+
+# @copilotkit/react-textarea
+
+## 1.6.0
+
+### Patch Changes
+
+- Updated dependencies [d833f4c]
+- Updated dependencies [090203d]
+- Updated dependencies [d800f03]
+- Updated dependencies [85753b3]
+- Updated dependencies [7d061d9]
+- Updated dependencies [b454827]
+- Updated dependencies [c1cc77f]
+  - @copilotkit/react-core@1.6.0
+  - @copilotkit/runtime-client-gql@1.6.0
+  - @copilotkit/shared@1.6.0
+
+
+# @copilotkit/runtime
+
+## 1.6.0
+
+### Minor Changes
+
+- fea916f: - feat: support input and output schema of langgraph
+  - docs: add input output schema docs
+- 7d061d9: - feat(configurable): execute langgraph with user config
+
+### Patch Changes
+
+- 543f703: - fix: refrain from processing same tool end several times
+  - fix: do not register runtime set action when there are remote endpoints
+- 090203d: - fix: use tryMap method to filter out possibly invalid items
+- 1bb9ca2: - fix(coagents): don't fail when LangSmith API key is missing
+  - fix(coagents): don't check for langsmithApiKey in resolveEndpointType
+- 4ddb6d2: - fix: add class validator to dependencies
+- d07f49c: - fix(runtime): fix execution of runtime set backend action handlers
+- 45a3e10: - feat: support latest openai api
+  - chore: update all openai dependencies to use latest
+  - feat: update adapters using openai API
+- 68f7b65: - handle parsing in fail-safe fashion
+- Updated dependencies [090203d]
+  - @copilotkit/shared@1.6.0
+
+
+# @copilotkit/runtime-client-gql
+
+## 1.6.0
+
+### Patch Changes
+
+- d833f4c: - fix: provide the ability to type interrupt event value
+- Updated dependencies [090203d]
+  - @copilotkit/shared@1.6.0
+
+
+# @copilotkit/shared
+
+## 1.6.0
+
+### Patch Changes
+
+- 090203d: - fix: use tryMap method to filter out possibly invalid items
+
+# @copilotkit/react-core
+
+## 1.6.0
+
+### Minor Changes
+
+- 7d061d9: - feat(configurable): execute langgraph with user config
+
+### Patch Changes
+
+- d833f4c: - fix: provide the ability to type interrupt event value
+- d800f03: - fix: use memoization in useCoAgent internal functions
+- 85753b3: - feat(actions): enable restricting actions to frontend only
+- b454827: - fix: simplify condition options for langgraph interrupts
+  - chore: add new enabled to e2e tests
+  - fix: refine argument types
+  - chore: document hook API reference
+- c1cc77f: - feat: new useCopilotAdditionalInstructions hook and available property on useCopilotReadable
+- Updated dependencies [d833f4c]
+- Updated dependencies [090203d]
+  - @copilotkit/runtime-client-gql@1.6.0
+  - @copilotkit/shared@1.6.0
+
+
+# @copilotkit/react-ui
+
+## 1.6.0
+
+### Patch Changes
+
+- c1cc77f: - feat: new useCopilotAdditionalInstructions hook and available property on useCopilotReadable
+- Updated dependencies [d833f4c]
+- Updated dependencies [090203d]
+- Updated dependencies [d800f03]
+- Updated dependencies [85753b3]
+- Updated dependencies [7d061d9]
+- Updated dependencies [b454827]
+- Updated dependencies [c1cc77f]
+  - @copilotkit/react-core@1.6.0
+  - @copilotkit/runtime-client-gql@1.6.0
+  - @copilotkit/shared@1.6.0
+
+
+# @copilotkit/sdk-js
+
+## 1.6.0
+
+### Patch Changes
+
+- Updated dependencies [090203d]
+  - @copilotkit/shared@1.6.0
+
+
+# @copilotkit/react-textarea
+
+## 1.6.0
+
+### Patch Changes
+
+- Updated dependencies [d833f4c]
+- Updated dependencies [090203d]
+- Updated dependencies [d800f03]
+- Updated dependencies [85753b3]
+- Updated dependencies [7d061d9]
+- Updated dependencies [b454827]
+- Updated dependencies [c1cc77f]
+  - @copilotkit/react-core@1.6.0
+  - @copilotkit/runtime-client-gql@1.6.0
+  - @copilotkit/shared@1.6.0
+
+
+# @copilotkit/runtime
+
+## 1.6.0
+
+### Minor Changes
+
+- fea916f: - feat: support input and output schema of langgraph
+  - docs: add input output schema docs
+- 7d061d9: - feat(configurable): execute langgraph with user config
+
+### Patch Changes
+
+- 543f703: - fix: refrain from processing same tool end several times
+  - fix: do not register runtime set action when there are remote endpoints
+- 090203d: - fix: use tryMap method to filter out possibly invalid items
+- 1bb9ca2: - fix(coagents): don't fail when LangSmith API key is missing
+  - fix(coagents): don't check for langsmithApiKey in resolveEndpointType
+- 4ddb6d2: - fix: add class validator to dependencies
+- d07f49c: - fix(runtime): fix execution of runtime set backend action handlers
+- 45a3e10: - feat: support latest openai api
+  - chore: update all openai dependencies to use latest
+  - feat: update adapters using openai API
+- 68f7b65: - handle parsing in fail-safe fashion
+- Updated dependencies [090203d]
+  - @copilotkit/shared@1.6.0
+
+
+# @copilotkit/runtime-client-gql
+
+## 1.6.0
+
+### Patch Changes
+
+- d833f4c: - fix: provide the ability to type interrupt event value
+- Updated dependencies [090203d]
+  - @copilotkit/shared@1.6.0
+
+
+# @copilotkit/shared
+
+## 1.6.0
+
+### Patch Changes
+
+- 090203d: - fix: use tryMap method to filter out possibly invalid items
+
