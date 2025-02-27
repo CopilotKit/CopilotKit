@@ -1,7 +1,8 @@
+<div align="center">
+
 # 🤖 Form-Filling Copilot: Security Incident Reports
 
-<div align="center">
-  <img src="./screenshot.png" alt="Form-Filling Copilot for Security Incident Reports" width="800"/>
+  <img src="./preview.png" alt="Form-Filling Copilot for Security Incident Reports" width="600"/>
   <p><em>Transform tedious form-filling into natural conversations. Your AI assistant asks the right questions, understands context, and completes forms for you—no more field-by-field drudgery.</em></p>
 </div>
 
