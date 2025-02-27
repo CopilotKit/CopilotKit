@@ -5,8 +5,9 @@
   justify-content: flex-start;
   align-items: center;
   position: relative;
-  background-color: var(--copilot-kit-header-bg-color);
-  color: var(--copilot-kit-header-text-color);
+  /*TODO*/
+  background-color: var(--copilot-kit-primary-color);
+  color: var(--copilot-kit-contrast-color);
   border-top-left-radius: 0;
   border-top-right-radius: 0;
   border-bottom: 1px solid var(--copilot-kit-separator-color);
@@ -34,7 +35,7 @@
   right: 16px;
   transform: translateY(-50%);
   outline: none;
-  color: var(--copilot-kit-header-icon-color);
+  color: var(--copilot-kit-muted-color);
   background-color: transparent;
   cursor: pointer;
   border-radius: 50%;
@@ -47,7 +48,7 @@
 }
 
 .copilotKitHeader > button:hover {
-  color: var(--copilot-kit-header-icon-hover-color);
+  color: color-mix(in srgb, var(--copilot-kit-muted-color) 80%, black);
 }
 
 .copilotKitHeader > button:focus {

@@ -18,7 +18,7 @@ export function Suggestion({ title, message, onClick, partial, className }: Sugg
         e.preventDefault();
         onClick(message);
       }}
-      className={className || "suggestion"}
+      className={className || (partial ? "suggestion loading" : "suggestion")}
       data-test-id="suggestion"
     >
       {partial ? SmallSpinnerIcon : <span>{title}</span>}
