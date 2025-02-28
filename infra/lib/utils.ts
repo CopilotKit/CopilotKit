@@ -157,6 +157,9 @@ export function createAgentPyProjectStack({
       "GOOGLE_API_KEY",
       "TAVILY_API_KEY",
     ],
+    environmentVariables: {
+      CREWAI_STORAGE_DIR: "/tmp/crewai",
+    },
     port: "8000",
     includeInPRComment: false,
     env: {

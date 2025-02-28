@@ -5,6 +5,7 @@ ARG APP_DIR
 ARG WITH_LOCAL_DEPS
 
 ENV POETRY_VIRTUALENVS_CREATE=false
+ENV CREWAI_STORAGE_DIR=/tmp/crewai
 
 # Install poetry and configure it
 RUN pip install poetry==1.7.1 && \
