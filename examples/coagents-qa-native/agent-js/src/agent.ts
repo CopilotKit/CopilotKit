@@ -18,6 +18,11 @@ export async function email_node(state: AgentState, config: RunnableConfig) {
    * Write an email.
    */
 
+  const authToken = config.configurable?.authToken ?? null;
+  if (authToken !== 'exampleToken') {
+    throw new Error('[AUTH ERROR]: This demo uses a dummy auth token. Make sure it is set to "exampleToken" in Mailer.tsx useCoAgent call in the configurable')
+  }
+
   const sender = state.sender ?? interrupt('Please provide a sender name which will appear in the email');
   let senderCompany = state.senderCompany
   let interruptMessages = []

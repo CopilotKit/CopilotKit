@@ -1,15 +1,17 @@
 ---
-title: "Connecting Your Data"
+title: "Frontend Data"
 description: "Learn how to connect your data to CopilotKit."
-icon: "lucide/Database"
+icon: "lucide/CodeXml"
 ---
 import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
 
+For your copilot to best answer your users' needs, you will want to provide it with **context-specific**, **user-specific**, and oftentimes **realtime** data. CopilotKit makes it easy to do so.
+
 <Steps>
   <Step>
-    ### The `useCopilotReadable` Hook
+    ### Add the data to the Copilot
 
-    For your copilot to best answer your users' needs, you will want to provide it with **context-specific**, **user-specific**, and oftentimes **realtime** data. CopilotKit makes it easy to do so.
+    The [`useCopilotReadable` hook](/reference/hooks/useCopilotReadable) is used to add data as context to the Copilot.
 
     ```tsx title="YourComponent.tsx" showLineNumbers {1, 7-10}
     "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
@@ -57,20 +59,4 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
       />
     </div>
   </Step>
-
 </Steps>
-
-### Advanced
-
-For more advanced use-cases, see [`useCopilotReadable` reference](/reference/hooks/useCopilotReadable).
-
----
-## Cloud & Backend State
-
-### Backend Readable State
-
-You can provide backend state via Copilot backend actions.
-
-### Knowledge Bases (Enterprise)
-
-Additional plug-and-play integrations with knowledge bases are available via our enterprise plan. Please [reach out](mailto:hello@copilotkit.ai) to enable it.

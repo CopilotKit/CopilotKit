@@ -50,6 +50,9 @@ export function Mailer() {
     initialState: {
       model,
     },
+    configurable: {
+      authToken: 'exampleToken'
+    }
   });
 
   useCopilotAction({

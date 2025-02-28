@@ -112,7 +112,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     sourcePath: "packages/react-core/src/hooks/use-coagent-state-render.ts",
     destinationPath: "docs/content/docs/reference/hooks/useCoAgentStateRender.mdx",
     hook: "useCoAgentStateRender",
-    description: "The useCoAgentStateRender hook allows you to render the state of a coagent.",
+    description: "The useCoAgentStateRender hook allows you to render the state of the agent in the chat.",
   },
   {
     sourcePath: "packages/react-core/src/hooks/use-coagent.ts",
