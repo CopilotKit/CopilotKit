@@ -11,6 +11,7 @@ reporting_task:
   description: >
     Review the context you got and expand each topic into a full section for a report.
     Make sure the report is detailed and contains any and all relevant information.
+    Return the report directly as your response - do not attempt to write to a file.
   expected_output: >
     A fully fledged report with the main topics, each with a full section of information.
     Formatted as markdown without '```'
