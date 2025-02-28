@@ -81,7 +81,8 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               // Joke agent
               await sendChatMessage(
                 page,
-                "Generate a short joke about penguins, please."
+                "Generate a short joke about penguins, please.",
+                  true
               );
               await waitForResponse(page);
               const jokeContainerNonEmpty = getJokeContainer({ empty: false });
@@ -95,7 +96,8 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               // Email agent
               await sendChatMessage(
                 page,
-                "Write a short email to the CEO of CopilotKit about the future of AI"
+                "Write a short email to the CEO of CopilotKit about the future of AI",
+                  true
               );
               await waitForResponse(page);
               const emailContainerNonEmpty = getJokeContainer({ empty: false });
@@ -108,7 +110,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               await page.waitForTimeout(5000);
 
               // Pirate agent
-              await sendChatMessage(page, "Turn on pirate mode! Remember to explicitly call the tool that sets pirate mode to on.");
+              await sendChatMessage(page, "Turn on pirate mode! Remember to explicitly call the tool that sets pirate mode to on.", true);
               await waitForResponse(page);
 
               await page.waitForTimeout(5000);

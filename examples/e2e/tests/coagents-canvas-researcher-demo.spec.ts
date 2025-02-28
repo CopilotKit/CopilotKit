@@ -78,7 +78,8 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
 
                   await sendChatMessage(
                     page,
-                    "Conduct research based on my research question, please. DO NOT FORGET TO PRODUCE THE DRAFT AT THE END!"
+                    "Conduct research based on my research question, please. DO NOT FORGET TO PRODUCE THE DRAFT AT THE END!",
+                      true
                   );
 
                   await waitForStepsAndEnsureStreaming(page);
@@ -97,7 +98,8 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
                     // Sometimes the LLM does not fill the draft. We will attempt a retry at filling it.
                     await sendChatMessage(
                       page,
-                      "The draft seems to be empty, please fill it in."
+                      "The draft seems to be empty, please fill it in.",
+                        true
                     );
                     await waitForStepsAndEnsureStreaming(page);
                     await waitForResponse(page);
@@ -114,7 +116,8 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
 
                   await sendChatMessage(
                     page,
-                    `Delete the first resource, please`
+                    `Delete the first resource, please`,
+                      true
                   );
 
                   const deleteContainer = await page.locator(
