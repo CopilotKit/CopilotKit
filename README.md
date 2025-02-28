@@ -78,7 +78,7 @@ Stay up to date with our latest releases!
   <tr>
     <td width="33%" align="center">
       <a href="https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md">
-        <img src="https://github.com/user-attachments/assets/64bbfe6a-c0e9-4dfc-91f2-e17b190a0fc0" width="100%" style="max-width: 450px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"/>
+        <img src="https://github.com/user-attachments/assets/64bbfe6a-c0e9-4dfc-91f2-e17b190a0fc0" width="100%" style="max-width: 450px; border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"/>
         <br/>
         <b>🔍 Research Canvas</b>
       </a>
@@ -87,7 +87,7 @@ Stay up to date with our latest releases!
     </td>
     <td width="33%" align="center">
       <a href="https://docs.copilotkit.ai/coagents/tutorials/ai-travel-app/overview">
-        <img src="https://github.com/user-attachments/assets/09dc873b-b263-40a3-8577-1414d0837510" width="100%" style="max-width: 300px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"/>
+        <img src="https://github.com/user-attachments/assets/09dc873b-b263-40a3-8577-1414d0837510" width="100%" style="max-width: 300px; border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"/>
         <br/>
         <b>✈️ Travel Planner</b>
       </a>
@@ -103,7 +103,7 @@ Stay up to date with our latest releases!
   <tr>
     <td width="33%" align="center">
       <a href="https://form-filling-copilot.vercel.app/">
-        <img width="200" src="./examples/copilot-form-filling/preview.gif" alt="Form-Filling Copilot for Security Incident Reports"/>        <br/>
+        <img width="200" src="./examples/copilot-form-filling/preview.jpeg" alt="Form-Filling Copilot for Security Incident Reports" style="border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"/>        <br/>
         <b>📝 Form Filling Copilot</b>
       </a>
       <p>Transform tedious form-filling into natural conversations with AI assistance</p>
@@ -112,7 +112,7 @@ Stay up to date with our latest releases!
     </td>
     <td width="33%" align="center">
       <a href="https://github.com/CopilotKit/demo-banking">
-        <img width="140" src="https://github.com/user-attachments/assets/ecddcf4c-cfe3-45ba-848d-03f94902475f" alt="Banking Copilot"/>        <br/>
+        <img width="140" src="https://github.com/user-attachments/assets/ecddcf4c-cfe3-45ba-848d-03f94902475f" alt="Banking Copilot" style="border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"/>        <br/>
         <b>💰 Banking Copilot</b>
       </a>
       <p>Context-aware financial assistant with transaction insights</p>
@@ -120,7 +120,7 @@ Stay up to date with our latest releases!
     </td>
     <td width="33%" align="center">
       <a href="https://github.com/CopilotKit/demo-spreadsheet">
-        <img width="150" src="https://github.com/user-attachments/assets/9c6ebced-1439-49bb-811b-1f74fe749ab5" alt="AI Spreadsheet Assistant"/>        <br/>
+        <img width="150" src="https://github.com/user-attachments/assets/9c6ebced-1439-49bb-811b-1f74fe749ab5" alt="AI Spreadsheet Assistant" style="border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"/>        <br/>
         <b>📊 AI Spreadsheet Assistant</b>
       </a>
       <p>Natural language data analysis & formula generation</p>
