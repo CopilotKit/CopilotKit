@@ -1,5 +1,6 @@
 from crewai import Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
+from crewai_tools import FileWriterTool
 
 # If you want to run a snippet of code before or after the crew starts, 
 # you can use the @before_kickoff and @after_kickoff decorators
@@ -30,6 +31,7 @@ class ResearchCrew():
         """Reporting analyst agent"""
         return Agent(
           config=self.agents_config['reporting_analyst'], # pylint: disable=invalid-sequence-index
+          tools=[FileWriterTool()],
           verbose=True
         )
 
@@ -48,7 +50,9 @@ class ResearchCrew():
         """Reporting task"""
         return Task(
           config=self.tasks_config['reporting_task'], # pylint: disable=invalid-sequence-index
-          output_file='report.md'
+          context={
+            'output_file': '/tmp/output/report.md'
+          }
         )
 
     @crew
@@ -62,6 +66,6 @@ class ResearchCrew():
           tasks=self.tasks, # pylint: disable=no-member
           process=Process.sequential,
           verbose=True,
-          chat_llm="gpt-4o"
+          chat_llm="gpt-4"
           # process=Process.hierarchical, # In case you wanna use that instead https://docs.crewai.com/how-to/Hierarchical/
         )

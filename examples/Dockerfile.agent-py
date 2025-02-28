@@ -6,6 +6,7 @@ ARG WITH_LOCAL_DEPS
 
 ENV POETRY_VIRTUALENVS_CREATE=false
 ENV CREWAI_STORAGE_DIR=/tmp/crewai
+ENV CREWAI_OUTPUT_DIR=/tmp/crewai-output
 
 # Install poetry and configure it
 RUN pip install poetry==1.7.1 && \
@@ -23,13 +24,14 @@ COPY ${APP_DIR}/ ./
 
 # Install dependencies and the package in one step
 RUN poetry install --no-interaction --no-ansi && \
+    poetry add 'crewai[tools]' && \
     if [ "$WITH_LOCAL_DEPS" = "true" ]; then poetry add /opt/sdk-python; fi && \
     poetry install --no-interaction --no-ansi
 
 # Use this if you want to use the langgraph
 # RUN mkdir .langgraph_api
 
-# Pre-create the CrewAI storage directory
-RUN mkdir -p /tmp/crewai
+# Pre-create the CrewAI directories
+RUN mkdir -p /tmp/crewai /tmp/crewai-output && chmod 777 /tmp/crewai /tmp/crewai-output
 
 CMD ["poetry", "run", "demo"] 
