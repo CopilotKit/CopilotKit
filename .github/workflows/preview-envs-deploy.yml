@@ -207,7 +207,7 @@ jobs:
           DOCKER_BUILDKIT: 1
 
       - name: (Agent-Py) Build Image - Python Agent
-        if: matrix.app.type == 'agent-py'
+        if: matrix.app.type == 'agent-py' && matrix.app.runtime == 'python'
         run: |
           docker buildx build \
             -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-agent-py-${{ matrix.app.deps }}-${{ github.run_id }} \
