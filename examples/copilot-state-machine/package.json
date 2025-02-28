@@ -3,15 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "example-dev": "next dev",
-    "example-build": "next build",
-    "example-start": "next start",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "lint": "next lint",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
   },
   "dependencies": {
-    "@copilotkit/react-core": "workspace:*",
-    "@copilotkit/react-ui": "workspace:*",
+    "@copilotkit/react-core": "1.6.0",
+    "@copilotkit/react-ui": "1.6.0",
     "clsx": "^1.2.1",
     "motion": "^11.18.1",
     "next": "14.2.1",
