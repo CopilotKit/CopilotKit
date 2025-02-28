@@ -16,23 +16,41 @@ import {
 } from "./lib/model-selector-provider";
 import { ModelSelector } from "./components/ModelSelector";
 import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
 export default function ModelSelectorWrapper() {
   return (
     <ModelSelectorProvider>
-      <Home />
+      <Suspense>
+        <Home />
+      </Suspense>
       <ModelSelector />
     </ModelSelectorProvider>
   );
 }
 
 function Home() {
-  const { lgcDeploymentUrl } = useModelSelectorContext();
+  const { lgcDeploymentUrl, model } = useModelSelectorContext();
+
+  const searchParams = useSearchParams();
+
+  const runtimeUrl = searchParams.get("runtimeUrl")
+    ? (searchParams.get("runtimeUrl") as string)
+    : `/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl ?? ""}`;
+
+  const publicApiKey = searchParams.get("publicApiKey");
+  const copilotKitProps: Partial<React.ComponentProps<typeof CopilotKit>> = {
+    runtimeUrl,
+    publicApiKey: publicApiKey || undefined,
+    showDevConsole: false,
+    properties: {
+      model,
+    },
+  };
 
   return (
-    <CopilotKit
-      runtimeUrl={`/api/copilotkit?lgcDeploymentUrl=${lgcDeploymentUrl ?? ""}`}
-    >
+    <CopilotKit {...copilotKitProps}>
       <div className="min-h-screen bg-gray-100 p-4">
         <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6 mt-4 flex justify-center">
           <ResetButton />

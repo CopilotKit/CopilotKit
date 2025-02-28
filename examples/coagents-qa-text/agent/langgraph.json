@@ -3,7 +3,7 @@
   "dockerfile_lines": [],
   "dependencies": ["."],
   "graphs": {
-    "greeting_agent": "./greeting_agent/agent.py:graph"
+    "greeting_agent": "./greeting_agent/langgraph/agent.py:graph"
   },
   "env": ".env"
 }

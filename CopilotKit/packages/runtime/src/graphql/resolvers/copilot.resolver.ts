@@ -196,6 +196,10 @@ export class CopilotResolver {
       rejectOutputMessagesPromise = reject;
     });
 
+    if (copilotCloudPublicApiKey) {
+      ctx.properties["copilotCloudPublicApiKey"] = copilotCloudPublicApiKey;
+    }
+
     logger.debug("Processing");
     const {
       eventSource,

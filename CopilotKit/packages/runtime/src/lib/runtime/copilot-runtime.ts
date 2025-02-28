@@ -39,8 +39,8 @@ import { Message } from "../../graphql/types/converted";
 import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-parameters.input";
 
 import {
-  isLangGraphAgentAction,
-  LangGraphAgentAction,
+  isRemoteAgentAction,
+  RemoteAgentAction,
   EndpointType,
   setupRemoteActions,
   EndpointDefinition,
@@ -305,7 +305,7 @@ please use an LLM adapter instead.`,
           (action) =>
             // TODO-AGENTS: do not exclude ALL server side actions
             !serverSideActions.find((serverSideAction) => serverSideAction.name == action.name),
-          // !isLangGraphAgentAction(
+          // !isRemoteAgentAction(
           //   serverSideActions.find((serverSideAction) => serverSideAction.name == action.name),
           // ),
         ),
@@ -322,7 +322,6 @@ please use an LLM adapter instead.`,
   }
 
   async discoverAgentsFromEndpoints(graphqlContext: GraphQLContext): Promise<AgentWithEndpoint[]> {
-    const headers = createHeaders(null, graphqlContext);
     const agents = this.remoteEndpointDefinitions.reduce(
       async (acc: Promise<Agent[]>, endpoint) => {
         const agents = await acc;
@@ -355,12 +354,12 @@ please use an LLM adapter instead.`,
             description: string;
           }>;
         }
-
-        const fetchUrl = `${(endpoint as CopilotKitEndpoint).url}/info`;
+        const cpkEndpoint = endpoint as CopilotKitEndpoint;
+        const fetchUrl = `${endpoint.url}/info`;
         try {
           const response = await fetch(fetchUrl, {
             method: "POST",
-            headers,
+            headers: createHeaders(cpkEndpoint.onBeforeRequest, graphqlContext),
             body: JSON.stringify({ properties: graphqlContext.properties }),
           });
           if (!response.ok) {
@@ -444,11 +443,12 @@ please use an LLM adapter instead.`,
       agentWithEndpoint.endpoint.type === EndpointType.CopilotKit ||
       !("type" in agentWithEndpoint.endpoint)
     ) {
-      const fetchUrl = `${(agentWithEndpoint.endpoint as CopilotKitEndpoint).url}/agents/state`;
+      const cpkEndpoint = agentWithEndpoint.endpoint as CopilotKitEndpoint;
+      const fetchUrl = `${cpkEndpoint.url}/agents/state`;
       try {
         const response = await fetch(fetchUrl, {
           method: "POST",
-          headers,
+          headers: createHeaders(cpkEndpoint.onBeforeRequest, graphqlContext),
           body: JSON.stringify({
             properties: graphqlContext.properties,
             threadId,
@@ -505,8 +505,8 @@ please use an LLM adapter instead.`,
     const messages = convertGqlInputToMessages(rawMessages);
 
     const currentAgent = serverSideActions.find(
-      (action) => action.name === agentName && isLangGraphAgentAction(action),
-    ) as LangGraphAgentAction;
+      (action) => action.name === agentName && isRemoteAgentAction(action),
+    ) as RemoteAgentAction;
 
     if (!currentAgent) {
       throw new CopilotKitAgentDiscoveryError({ agentName });
@@ -519,9 +519,9 @@ please use an LLM adapter instead.`,
       .filter(
         (action) =>
           // Case 1: Keep all regular (non-agent) actions
-          !isLangGraphAgentAction(action) ||
+          !isRemoteAgentAction(action) ||
           // Case 2: For agent actions, keep all except self (prevent infinite loops)
-          (isLangGraphAgentAction(action) && action.name !== agentName) /* prevent self-calls */,
+          (isRemoteAgentAction(action) && action.name !== agentName) /* prevent self-calls */,
       )
       .map((action) => ({
         name: action.name,
@@ -542,7 +542,7 @@ please use an LLM adapter instead.`,
     });
     try {
       const eventSource = new RuntimeEventSource();
-      const stream = await currentAgent.langGraphAgentHandler({
+      const stream = await currentAgent.remoteAgentHandler({
         name: agentName,
         threadId,
         nodeName,

@@ -1,0 +1,34 @@
+---
+title: "Message Persistence"
+icon: "lucide/Database"
+---
+
+<InsecurePasswordProtected>
+
+<Callout>
+  To learn about how to load previous messages and agent states, check out the [Loading Message History](/crewai-flows/persistence/loading-message-history) and [Loading Agent State](/crewai-flows/persistence/loading-agent-state) pages.
+</Callout>
+
+To persist CrewAI Flow messages to a database, you can use the `@persist` decorator.
+
+```python
+from crewai.flow.flow import Flow, start, listen, persist
+
+@persist  # Using SQLiteFlowPersistence by default
+class MyFlow(Flow[MyState]):
+    @start()
+    def initialize_flow(self):
+        # This method will automatically have its state persisted
+        self.state.counter = 1
+        print("Initialized flow. State ID:", self.state.id)
+
+    @listen(initialize_flow)
+    def next_step(self):
+        # The state (including self.state.id) is automatically reloaded
+        self.state.counter += 1
+        print("Flow state is persisted. Counter:", self.state.counter)
+```
+
+ Read more about persistence in the [CrewAI Flows documentation](https://docs.crewai.com/concepts/flows#class-level-persistence).
+
+</InsecurePasswordProtected>

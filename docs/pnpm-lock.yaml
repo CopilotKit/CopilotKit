@@ -14,6 +14,9 @@ importers:
       '@clerk/nextjs':
         specifier: ^6.7.1
         version: 6.7.1(next@14.2.13(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@icons-pack/react-simple-icons':
+        specifier: ^11.2.0
+        version: 11.2.0(react@18.3.1)
       '@radix-ui/react-dialog':
         specifier: ^1.1.2
         version: 1.1.2(@types/react-dom@18.3.0)(@types/react@18.3.9)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -384,6 +387,11 @@ packages:
 
   '@iconify/utils@2.1.33':
     resolution: {integrity: sha512-jP9h6v/g0BIZx0p7XGJJVtkVnydtbgTgt9mVNcGDYwaa7UhdHdI9dvoq+gKj9sijMSJKxUPEG2JyjsgXjxL7Kw==}
+
+  '@icons-pack/react-simple-icons@11.2.0':
+    resolution: {integrity: sha512-jCJ+1Fe0yiBQGYSfhx8QGU/9o27t8J4Hw3mxHEI9vohRltLSi5CaPzO2fCQcMNeTrAUAm4j+yaDuAutskiKRjA==}
+    peerDependencies:
+      react: ^16.13 || ^17 || ^18 || ^19
 
   '@isaacs/cliui@8.0.2':
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
@@ -3006,6 +3014,10 @@ snapshots:
       mlly: 1.7.1
     transitivePeerDependencies:
       - supports-color
+
+  '@icons-pack/react-simple-icons@11.2.0(react@18.3.1)':
+    dependencies:
+      react: 18.3.1
 
   '@isaacs/cliui@8.0.2':
     dependencies:

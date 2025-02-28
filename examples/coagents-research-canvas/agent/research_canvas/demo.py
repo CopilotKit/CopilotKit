@@ -9,7 +9,9 @@ from fastapi import FastAPI
 import uvicorn
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
-from research_canvas.agent import graph
+from copilotkit.crewai import CrewAIAgent
+from research_canvas.crewai.agent import ResearchCanvasFlow
+from research_canvas.langgraph.agent import graph
 
 # from contextlib import asynccontextmanager
 # from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
@@ -48,12 +50,17 @@ from research_canvas.agent import graph
 app = FastAPI()
 sdk = CopilotKitRemoteEndpoint(
     agents=[
+        CrewAIAgent(
+            name="research_agent_crewai",
+            description="Research agent.",
+            flow=ResearchCanvasFlow(),
+        ),
         LangGraphAgent(
             name="research_agent",
             description="Research agent.",
             graph=graph,
         ),
-        LangGraphAgent(
+         LangGraphAgent(
             name="research_agent_google_genai",
             description="Research agent.",
             graph=graph

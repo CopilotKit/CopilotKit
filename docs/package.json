@@ -12,6 +12,7 @@
   "dependencies": {
     "@clerk/clerk-react": "^5.18.2",
     "@clerk/nextjs": "^6.7.1",
+    "@icons-pack/react-simple-icons": "^11.2.0",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-icons": "^1.3.0",
     "@radix-ui/react-scroll-area": "^1.2.2",
