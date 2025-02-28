@@ -166,8 +166,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               // Test destination selection
               await sendChatMessage(
                 page,
-                "Select New York City and Tokyo as destinations.",
-                true,
+                "Select New York City and Tokyo as destinations."
               );
               await waitForResponse(page);
               await page.waitForTimeout(2000);
