@@ -11,27 +11,25 @@ ENV CREWAI_STORAGE_DIR=/tmp/crewai
 RUN pip install poetry==1.7.1 && \
     poetry config virtualenvs.create false
 
-# Copy only poetry files first
-COPY ${APP_DIR}/pyproject.toml ${APP_DIR}/poetry.lock ./
-
-# Copy SDK and install dependencies
+# Copy SDK first
 COPY sdk-python/ /opt/sdk-python
 WORKDIR /asset
 
 # Create a symlink from /sdk-python to /opt/sdk-python
-# This is to handle the case where the code is looking for /sdk-python
 RUN ln -sf /opt/sdk-python /sdk-python
 
-RUN poetry install --no-interaction --no-ansi
-RUN if [ "$WITH_LOCAL_DEPS" = "true" ]; then poetry add /opt/sdk-python; fi
-
-# Copy application code last
+# Copy application code
 COPY ${APP_DIR}/ ./
 
-# Install the package to properly register entry points
-RUN poetry install --no-interaction --no-ansi
+# Install dependencies and the package in one step
+RUN poetry install --no-interaction --no-ansi && \
+    if [ "$WITH_LOCAL_DEPS" = "true" ]; then poetry add /opt/sdk-python; fi && \
+    poetry install --no-interaction --no-ansi
 
 # Use this if you want to use the langgraph
 # RUN mkdir .langgraph_api
+
+# Pre-create the CrewAI storage directory
+RUN mkdir -p /tmp/crewai
 
 CMD ["poetry", "run", "demo"] 
