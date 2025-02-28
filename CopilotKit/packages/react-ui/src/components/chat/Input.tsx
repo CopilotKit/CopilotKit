@@ -94,7 +94,7 @@ export const Input = ({ inProgress, onSend, isVisible = false, onStop }: InputPr
             disabled={sendDisabled}
             onClick={isInProgress ? onStop : send}
             data-copilotkit-in-progress={inProgress}
-            data-testid={inProgress ? "copilot-chat-request-in-progress" : undefined}
+            data-test-id={inProgress ? "copilot-chat-request-in-progress" : "copilot-chat-ready"}
           >
             {buttonIcon}
           </button>
