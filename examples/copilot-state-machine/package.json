@@ -12,6 +12,7 @@
   "dependencies": {
     "@copilotkit/react-core": "1.6.0",
     "@copilotkit/react-ui": "1.6.0",
+    "@copilotkit/runtime-client-gql": "1.6.0",
     "clsx": "^1.2.1",
     "motion": "^11.18.1",
     "next": "14.2.1",
