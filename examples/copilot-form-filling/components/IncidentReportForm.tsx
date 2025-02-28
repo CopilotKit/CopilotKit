@@ -161,7 +161,7 @@ export function IncidentReportForm() {
       <CardHeader>
         <CardTitle>Cyber Security Incident Report</CardTitle>
         <CardDescription>
-          Report a security incident to our security operations team. We'll respond within 24 hours.
+          Report a security incident to our security operations team. We will respond within 24 hours.
         </CardDescription>
       </CardHeader>
       <CardContent>
