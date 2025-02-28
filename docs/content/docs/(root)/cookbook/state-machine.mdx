@@ -273,7 +273,7 @@ standard deterministic update (button clicks), and sometimes through LLM-driven 
 ## Advanced Patterns
 
 This state machine pattern can be extended for complex interactions. Below are some advanced patterns you can implement with code sourced in our 
-[car sales example](https://github.com/CopilotKit/CopilotKit/tree/main/CopilotKit/examples/state-machine) which you already saw a demo of in the [overview](#overview).
+[car sales example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/state-machine) which you already saw a demo of in the [overview](#overview).
 
 ### Stage Transition Approaches
 
@@ -294,7 +294,7 @@ const [stage, setStage] = useState<string>("one");
 The car sales demo uses this approach in generative UI (for more on generative UI, see the [section below](#generative-ui)) to transition between stages 
 when a user submits their contact information.
 
-Click here for the [source code](https://github.com/CopilotKit/CopilotKit/tree/main/CopilotKit/examples/state-machine/src/lib/stages/use-stage-get-contact-info.tsx)
+Click here for the [source code](https://github.com/CopilotKit/CopilotKit/tree/main/examples/state-machine/src/lib/stages/use-stage-get-contact-info.tsx)
 
 ```tsx title="src/lib/stages/use-stage-get-contact-info.tsx"
 // imports ...
@@ -339,7 +339,7 @@ export function useStageGetContactInfo() {
 
 Sometimes you need stages that can transition to different next stages based on user input or LLM-driven actions.
 
-Click here for the [source code](https://github.com/CopilotKit/CopilotKit/tree/main/CopilotKit/examples/state-machine/src/lib/stages/use-stage-sell-financing.tsx)
+Click here for the [source code](https://github.com/CopilotKit/CopilotKit/tree/main/examples/state-machine/src/lib/stages/use-stage-sell-financing.tsx)
 
 ```tsx title="src/lib/stages/use-stage-sell-financing.tsx"
 function useStageSellFinancing() {
@@ -378,7 +378,7 @@ function useStageSellFinancing() {
 When combined with the state machine pattern, you can build deep and interactive conversations with the user. For example, the `buildCar` stage in the car sales demo 
 uses generative UI to show the user available cars that they can choose from.
 
-Click here for the [source code](https://github.com/CopilotKit/CopilotKit/tree/main/CopilotKit/examples/state-machine/src/lib/stages/use-stage-build-car.tsx)
+Click here for the [source code](https://github.com/CopilotKit/CopilotKit/tree/main/examples/state-machine/src/lib/stages/use-stage-build-car.tsx)
 
 <video src="/images/cookbook/state-machine/gen-ui.mp4" controls autoPlay loop muted playsInline className="rounded-xl shadow-lg border" />
 
@@ -481,7 +481,7 @@ To add an initial message to the chat, we can use the `appendMessage` function p
   This is a temporary solution and we will be improving this in the near future.
 </Callout>
 
-Click here for the [source code](https://github.com/CopilotKit/CopilotKit/tree/main/CopilotKit/examples/state-machine/src/components/car-sales-chat.tsx)
+Click here for the [source code](https://github.com/CopilotKit/CopilotKit/tree/main/examples/state-machine/src/components/car-sales-chat.tsx)
 
 ```tsx title="src/components/car-sales-chat.tsx"
 import { useCopilotChat } from "@copilotkit/react-core";
@@ -517,7 +517,7 @@ Sometimes you'll want to guide the AI to call a specific tool when entering a st
 The payment info stage demonstrates how to guide the AI to make specific tool calls by 
 adding additional instructions to call the `getPaymentInformation` tool explicitly.
 
-Click here for the [source code](https://github.com/CopilotKit/CopilotKit/tree/main/CopilotKit/examples/state-machine/src/lib/stages/use-stage-get-payment-info.tsx)
+Click here for the [source code](https://github.com/CopilotKit/CopilotKit/tree/main/examples/state-machine/src/lib/stages/use-stage-get-payment-info.tsx)
 
 ```tsx title="src/lib/stages/use-stage-get-payment-info.tsx"
 export function useStageGetPaymentInfo() {
