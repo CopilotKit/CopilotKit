@@ -1,10 +1,32 @@
 import { Page } from "@playwright/test";
 import { test, expect } from "@playwright/test";
 
-export async function sendChatMessage(page: Page, message: string) {
-  await page.getByPlaceholder("Type a message...").click();
-  await page.getByPlaceholder("Type a message...").fill(message);
-  await page.keyboard.press("Enter");
+export async function validateResponseMessage(page: Page, message: string): Promise<void> {
+  // Wait for the message to appear in the chat UI
+  const messageElement = await page.waitForSelector(`text="${message}"`, { timeout: 5000 });
+
+  // Wait for a `.copilotKitAssistantMessage` that comes **after** the message
+  await page.waitForFunction((messageEl) => {
+    const nextElements = [];
+    let sibling = messageEl.nextElementSibling;
+
+    while (sibling) {
+      nextElements.push(sibling);
+      sibling = sibling.nextElementSibling;
+    }
+
+    return nextElements.some(el => el.classList.contains('copilotKitAssistantMessage'));
+  }, messageElement);
+
+  await page.waitForTimeout(1500); // Wait for entire message to load
+}
+
+export async function sendChatMessage(page: Page, message: string, shouldValidateResponseMessage = false) {
+  const input = page.getByPlaceholder("Type a message...");
+  await input.click();
+  await input.fill(message);
+  await page.keyboard.press("Enter", { delay: 100 }); // Ensure Enter is detected
+  shouldValidateResponseMessage ? await validateResponseMessage(page, message) : await Promise.resolve();
 }
 
 export async function waitForStepsAndEnsureStreaming(page: Page) {
