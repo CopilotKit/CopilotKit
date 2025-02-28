@@ -48,9 +48,6 @@ class ResearchCrew():
         """Reporting task"""
         return Task(
           config=self.tasks_config['reporting_task'], # pylint: disable=invalid-sequence-index
-          context={
-            'output_format': 'markdown'
-          }
         )
 
     @crew
