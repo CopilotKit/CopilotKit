@@ -1,5 +1,18 @@
 # @copilotkit/runtime
 
+## 1.7.0-next.0
+
+### Minor Changes
+
+- 082db7a: - CrewAI support
+
+### Patch Changes
+
+- 082db7a: - Added RemoteAgentAdapter and implemented CopilotKit (protocol & events).
+  - Integrated CrewAI (with a prototype, HITL, event system, and chat/demo tweaks).
+  - Updated docs and cleaned up code (fixing stdout issues, restricting Python version, and streamlining demos).
+  - @copilotkit/shared@1.7.0-next.0
+
 ## 1.6.0
 
 ### Minor Changes
