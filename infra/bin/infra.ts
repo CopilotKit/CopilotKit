@@ -5,6 +5,7 @@ import {
   createAgentProjectStack,
   createNextOpenAIProjectStack,
   createUIProjectStack,
+  createAgentPyProjectStack,
 } from "../lib/utils";
 
 // app
@@ -101,10 +102,10 @@ createNextOpenAIProjectStack({
  * Coagents Starter Crewai-Crews
  */
 
-const coagentsStarterCrewaiCrewsAgentWithLocalDeps = createAgentProjectStack({
+const coagentsStarterCrewaiCrewsAgentWithLocalDeps = createAgentPyProjectStack({
   app,
   project: "coagents-starter-crewai-crews",
-  description: "CoAgents Starter Crewai-Crews (Agent) - Local Dependencies",
+  description: "CoAgents Starter Crewai-Crews (Agent-Py) - Local Dependencies",
 });
 
 const coagentsStarterCrewaiCrewsUIWithLocalDeps = createUIProjectStack({
@@ -119,10 +120,10 @@ const coagentsStarterCrewaiCrewsUIWithLocalDeps = createUIProjectStack({
  * Coagents Starter Crewai-Flows
  */
 
-const coagentsStarterCrewaiFlowsAgentWithLocalDeps = createAgentProjectStack({
+const coagentsStarterCrewaiFlowsAgentWithLocalDeps = createAgentPyProjectStack({
   app,
   project: "coagents-starter-crewai-flows",
-  description: "CoAgents Starter Crewai-Flows (Agent) - Local Dependencies",
+  description: "CoAgents Starter Crewai-Flows (Agent-Py) - Local Dependencies",
 });
 
 const coagentsStarterCrewaiFlowsUIWithLocalDeps = createUIProjectStack({
