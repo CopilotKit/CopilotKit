@@ -82,6 +82,22 @@ A custom stop generation function.
 A custom reload messages function.
 </PropertyReference>
 
+<PropertyReference name="onRegenerate" type="() => void"  > 
+A callback function to regenerate the assistant's response
+</PropertyReference>
+
+<PropertyReference name="onCopy" type="(message: string) => void"  > 
+A callback function when the message is copied
+</PropertyReference>
+
+<PropertyReference name="onThumbsUp" type="(message: string) => void"  > 
+A callback function for thumbs up feedback
+</PropertyReference>
+
+<PropertyReference name="onThumbsDown" type="(message: string) => void"  > 
+A callback function for thumbs down feedback
+</PropertyReference>
+
 <PropertyReference name="icons" type="CopilotChatIcons"  > 
 Icons can be used to set custom icons for the chat window.
 </PropertyReference>

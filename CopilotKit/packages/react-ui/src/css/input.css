@@ -1,16 +1,18 @@
 .copilotKitInput {
-  border-top: 1px solid var(--copilot-kit-separator-color);
-  padding-left: 2rem;
-  padding-right: 1rem;
-  padding-top: 1rem;
-  padding-bottom: 1rem;
   display: flex;
   align-items: center;
   cursor: text;
   position: relative;
-  border-bottom-left-radius: 0.75rem;
-  border-bottom-right-radius: 0.75rem;
   background-color: var(--copilot-kit-background-color);
+  border-radius: 10px;
+  border: 1px solid var(--copilot-kit-separator-color);
+  padding: 5px 8px 5px 13px;
+}
+
+.copilotKitInputContainer {
+  width: 95%;
+  margin: 0 auto;
+  padding: 0 0 10px 0;
 }
 
 .copilotKitInput > .copilotKitInputControls > button {
@@ -44,11 +46,13 @@
 }
 
 .copilotKitInput > .copilotKitInputControls > button:not([disabled]):hover {
-  transform: scale(1.1);
+  color: color-mix(in srgb, var(--copilot-kit-primary-color) 80%, black);
+  transform: scale(1.05);
 }
 
 .copilotKitInput > .copilotKitInputControls > button[disabled] {
   color: var(--copilot-kit-muted-color);
+  cursor: default;
 }
 
 .copilotKitInputControls {
@@ -71,7 +75,7 @@
   padding: 0;
   font-family: inherit;
   font-weight: inherit;
-  color: var(--copilot-kit-secondary-contrast-color);
+  color: var(--copilot-kit-text-color);
   border: 0px;
   background-color: var(--copilot-kit-background-color);
 }
