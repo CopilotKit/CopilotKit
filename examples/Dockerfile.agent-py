@@ -6,11 +6,12 @@ ARG WITH_LOCAL_DEPS
 
 ENV POETRY_VIRTUALENVS_CREATE=false
 ENV CREWAI_STORAGE_DIR=/tmp/crewai
-ENV CREWAI_OUTPUT_DIR=/tmp/crewai-output
+ENV AWS_LAMBDA_FUNCTION_TIMEOUT=30
 
-# Install poetry and configure it
+# Install poetry, configure it, and prepare directories in one step
 RUN pip install poetry==1.7.1 && \
-    poetry config virtualenvs.create false
+    poetry config virtualenvs.create false && \
+    mkdir -p /tmp/crewai && chmod 777 /tmp/crewai
 
 # Copy SDK first
 COPY sdk-python/ /opt/sdk-python
@@ -25,13 +26,9 @@ COPY ${APP_DIR}/ ./
 # Install dependencies and the package in one step
 RUN poetry install --no-interaction --no-ansi && \
     poetry add 'crewai[tools]' && \
-    if [ "$WITH_LOCAL_DEPS" = "true" ]; then poetry add /opt/sdk-python; fi && \
-    poetry install --no-interaction --no-ansi
+    if [ "$WITH_LOCAL_DEPS" = "true" ]; then poetry add /opt/sdk-python; fi
 
 # Use this if you want to use the langgraph
 # RUN mkdir .langgraph_api
-
-# Pre-create the CrewAI directories
-RUN mkdir -p /tmp/crewai /tmp/crewai-output && chmod 777 /tmp/crewai /tmp/crewai-output
 
 CMD ["poetry", "run", "demo"] 
