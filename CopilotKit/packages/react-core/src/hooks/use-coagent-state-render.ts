@@ -1,5 +1,5 @@
 /**
- * The useCoAgentStateRender hook allows you to render UI or text based components on a Agentic Copilot's state in the chat.
+ * The useCoAgentStateRender hook allows you to render UI or text based components on a Agentic Copilot's state in the chats.
  * This is particularly useful for showing intermediate state or progress during Agentic Copilot operations.
  *
  * ## Usage
