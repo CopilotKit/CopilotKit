@@ -1,20 +1,63 @@
 ---
-title: "Customize AI Assistant Behavior"
+title: "Customize Instructions"
 description: "Learn how to customize the behavior of your AI assistant."
 icon: "lucide/NotepadText"
 ---
 
+There are three main ways to customize the behavior of your AI assistant:
+- [Appending to the prompt](#appending-to-the-prompt-recommended)
+- [Passing the `instructions` parameter](#passing-the-instructions-parameter)
+- [Overwriting the default `makeSystemMessage`)](#overwriting-the-default-makesystemmessage-not-recommended)
 
-## Passing the `instructions` parameter (Recommended)
+## Appending to the prompt (Recommended)
+CopilotKit provides the `useCopilotAdditionalInstructions` hook which allows you to add content to the prompt with whatever
+you want.
+
+```tsx title="Home.tsx"
+import { CopilotKit, useCopilotAdditionalInstructions } from "@copilotkit/react-core";
+import { CopilotPopup } from "@copilotkit/react-ui"
+ 
+function Chat() {
+  useCopilotAdditionalInstructions({
+    instructions: "Do not answer questions about the weather.",
+  });
+  return <CopilotPopup />
+}
+
+export function Home() {
+  return (
+    <CopilotKit>
+      <Chat />
+    </CopilotKit>
+  )
+}
+```
+
+You can even conditionally add instructions based on the application's state.
+
+```tsx title="Home.tsx"
+function Chat() {
+  const [showWeather, setShowWeather] = useState(false);
+
+  useCopilotAdditionalInstructions({
+    instructions: "Do not answer questions about the weather.",
+    available: showWeather ? "enabled" : "disabled"
+  }, showWeather);
+}
+```
+
+## Advanced
+
+If appending to the prompt is not enough, you have some other options, specifically around updating the prompt directly.
+
+### Passing the `instructions` parameter
 
 The `instructions` parameter is the recommended way to customize AI assistant behavior. It will remain compatible with performance optimizations to the CopilotKit platform.
 
 It can be customized for **Copilot UI** as well as **programmatically**:
 
-<Tabs items={['Copilot UI', 'Headless UI & Programmatic Control']}>
+<Tabs groupId="approach" items={['Copilot UI', 'Headless UI']}>
   <Tab value="Copilot UI">
-    ### Copilot UI
-
     Copilot UI components accept an `instructions` property:
 
     ```tsx title="CustomCopilot.tsx"
@@ -31,9 +74,7 @@ It can be customized for **Copilot UI** as well as **programmatically**:
 
   </Tab>
 
-  <Tab value="Headless UI & Programmatic Control">
-    ### Programmatic Control + Headless UI
-
+  <Tab value="Headless UI">
     The `instructions` parameter can also be set programmatically via `setChatInstructions` method, coming from `useCopilotContext`, allowing for dynamic customization based on the application's state or user interactions.
 
     ```tsx title="Home.tsx"
@@ -55,19 +96,17 @@ It can be customized for **Copilot UI** as well as **programmatically**:
   </Tab>
 </Tabs>
 
-## Overwriting the default `makeSystemMessage` (Not Recommended)
 
-For cases requiring complete control over the system message, you can use the `makeSystemMessage` function. We highly recommend reading CopilotKit's default
-system message before deciding to overwrite it, which can be found [here](https://github.com/CopilotKit/CopilotKit/blob/e48a34a66bb4dfd210e93dc41eee7d0f22d1a0c4/CopilotKit/packages/react-core/src/hooks/use-copilot-chat.ts#L240-L258).
+### Overwriting the default system message
+
+For cases requiring complete control over the system message, you can use the `makeSystemMessage` function. We highly recommend reading CopilotKit's default system message before deciding to overwrite it, which can be found [here](https://github.com/CopilotKit/CopilotKit/blob/e48a34a66bb4dfd210e93dc41eee7d0f22d1a0c4/CopilotKit/packages/react-core/src/hooks/use-copilot-chat.ts#L240-L258).
 
 <Callout type="warn">
-This approach is **not recommended** as it may interfere with more advanced optimizations we are experimenting with, but it is available should you need it.
+This approach is **not recommended** as it may interfere with more advanced optimizations made by CopilotKit. **Only use this approach if the other options are not enough.**
 </Callout>
 
-<Tabs items={['Copilot UI', 'Headless UI']}>
+<Tabs groupId="approach" items={['Copilot UI', 'Headless UI']}>
   <Tab value="Copilot UI">
-    ### Copilot UI
-
     ```tsx filename="CustomCopilot.tsx" showLineNumbers {10}
     import { CopilotChat } from "@copilotkit/react-ui";
 
@@ -85,8 +124,6 @@ This approach is **not recommended** as it may interfere with more advanced opti
 
   </Tab>
   <Tab value="Headless UI">
-    ### Headless UI
-
     ```tsx filename="CustomCopilotHeadless.tsx" showLineNumbers {4, 6}
     import { useCopilotChat } from "@copilotkit/react-core";
 
