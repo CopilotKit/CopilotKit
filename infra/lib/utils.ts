@@ -135,9 +135,9 @@ export function createUIProjectStack({
   app: App;
   project: string;
   description: string;
-  selfHostedAgentProject: PreviewProjectStack;
-  lgcAgentProjectPython: PreviewProjectStack;
-  lgcAgentProjectJS: PreviewProjectStack;
+  selfHostedAgentProject?: PreviewProjectStack;
+  lgcAgentProjectPython?: PreviewProjectStack;
+  lgcAgentProjectJS?: PreviewProjectStack;
   environmentVariables?: Record<string, string>;
   environmentVariablesFromSecrets?: string[];
   customOutputs?: Record<string, string>;
