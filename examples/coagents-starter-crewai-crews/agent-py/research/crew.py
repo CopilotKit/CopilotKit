@@ -40,7 +40,7 @@ class ResearchCrew():
     def research_task(self) -> Task:
         """Research task"""
         return Task(
-          config=self.tasks_config['research_task'], # pylint: disable=invalid-sequence-index
+          config=self.tasks_config['research_task'] # pylint: disable=invalid-sequence-index
         )
 
     @task
