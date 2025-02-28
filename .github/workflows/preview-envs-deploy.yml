@@ -222,7 +222,7 @@ jobs:
           DOCKER_BUILDKIT: 1
 
       - name: (Agent-JS) Build Image - JS Agent
-        if: matrix.app.type == 'agent-js' && matrix.app.runtime == 'js'
+        if: matrix.app.type == 'agent' && matrix.app.runtime == 'js'
         run: |
           docker buildx build \
             -t 058264219587.dkr.ecr.us-east-1.amazonaws.com/coagents:${{ matrix.app.project }}-agent-js-${{ matrix.app.deps }}-${{ github.run_id }} \
