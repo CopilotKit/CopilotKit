@@ -28,6 +28,9 @@ RUN if [ "$WITH_LOCAL_DEPS" = "true" ]; then poetry add /opt/sdk-python; fi
 # Copy application code last
 COPY ${APP_DIR}/ ./
 
+# Install the package to properly register entry points
+RUN poetry install --no-interaction --no-ansi
+
 # Use this if you want to use the langgraph
 # RUN mkdir .langgraph_api
 
