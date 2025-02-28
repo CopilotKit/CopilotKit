@@ -66,91 +66,67 @@ Stay up to date with our latest releases!
 <img width="1685" alt="214 (1)" src="https://github.com/user-attachments/assets/145600ce-c49b-4e25-883e-feee149d6332">
 
 
-# Demos (click to clone / run)
+# 🚀 Showcase: Build Anything with CopilotKit
+
+<div align="center">
+  <h3>From simple chat interfaces to complex AI-native applications</h3>
+</div>
+
+## 🤖 Agent Native Applications
 
 <table>
-<tr>
-<td width="200" valign="top">
-  <img src="https://github.com/user-attachments/assets/9c6ebced-1439-49bb-811b-1f74fe749ab5" width="200"/>
-</td>
-<td>
-<details open>
-<summary>
-  <h2 style="display: inline-block; margin: 0;">📊 Spreadsheets + Copilot</h2>
-</summary>
+  <tr>
+    <td width="33%" align="center">
+      <a href="https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md">
+        <img src="https://github.com/user-attachments/assets/64bbfe6a-c0e9-4dfc-91f2-e17b190a0fc0" width="100%" style="max-width: 450px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"/>
+        <br/>
+        <b>🔍 Research Canvas</b>
+      </a>
+      <p>Document analysis with multi-agent collaboration</p>
+      <a href="https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md"><code>View Example →</code></a>
+    </td>
+    <td width="33%" align="center">
+      <a href="https://docs.copilotkit.ai/coagents/tutorials/ai-travel-app/overview">
+        <img src="https://github.com/user-attachments/assets/09dc873b-b263-40a3-8577-1414d0837510" width="100%" style="max-width: 300px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"/>
+        <br/>
+        <b>✈️ Travel Planner</b>
+      </a>
+      <p>Agent-native app with itinerary generation & visualization</p>
+      <a href="https://docs.copilotkit.ai/coagents/tutorials/ai-travel-app/overview"><code>View Tutorial →</code></a>
+    </td>
+  </tr>
+</table>
 
-![Spreadsheet Demo](https://github.com/user-attachments/assets/0935da06-668e-41b1-806e-19a1a1574be2)
+## 🧠 Context Aware Copilot
 
-[View Demo Repository →](https://github.com/CopilotKit/demo-spreadsheet)
-</details>
-
-A powerful spreadsheet assistant that helps users analyze data, create formulas, and generate insights through natural language interaction.
-</td>
-</tr>
-
-<tr>
-<td width="200" valign="top">
-  <img src="https://github.com/user-attachments/assets/ecddcf4c-cfe3-45ba-848d-03f94902475f" width="200"/>
-</td>
-<td>
-<details>
-<summary>
-  <h2 style="display: inline-block; margin: 0;">🏦 Banking Assistant (SaaS Copilot) </h2>
-</summary>
-
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/ecddcf4c-cfe3-45ba-848d-03f94902475f" width="800"/>
-</div>
-
-[View Demo Repository →](https://github.com/CopilotKit/demo-banking)
-</details>
-
-An AI-powered banking interface that helps users manage transactions, analyze spending patterns, and get personalized financial advice.
-</td>
-</tr>
-
-<tr>
-<td width="200" valign="top">
-  <img src="https://github.com/user-attachments/assets/09dc873b-b263-40a3-8577-1414d0837510" width="200"/>
-</td>
-<td>
-<details>
-<summary>
-  <h2 style="display: inline-block; margin: 0;">✈️ [Tutorial] Agent-Native Travel Planner (ANA) </h2>
-</summary>
-
-<div align="center">
-  <img src="./assets/travel-planner-gif.gif" width="800"/>
-</div>
-
-[View Tutorial →](https://docs.copilotkit.ai/coagents/tutorials/ai-travel-app/overview)
-</details>
-
-Interactive travel planning assistant that helps users discover destinations, create itineraries, and manage trip details with natural language.
-</td>
-</tr>
-
-<tr>
-<td width="200" valign="top">
-  <img src="https://github.com/user-attachments/assets/0fb40d90-be21-416e-a8e5-9215ffee1f71" width="200"/>
-</td>
-<td>
-<details>
-<summary>
-  <h2 style="display: inline-block; margin: 0;">🔍 [Tutorial] Agent-Native Research Canvas (ANA)</h2>
-</summary>
-
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/64bbfe6a-c0e9-4dfc-91f2-e17b190a0fc0" width="800"/>
-</div>
-
-
-[View Demo Repository →](https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md)
-</details>
-
-An intelligent research assistant that helps users analyze academic papers, synthesize information across multiple sources, and generate comprehensive research summaries through natural language interaction.
-</td>
-</tr>
+<table>
+  <tr>
+    <td width="33%" align="center">
+      <a href="https://form-filling-copilot.vercel.app/">
+        <img width="200" src="./examples/copilot-form-filling/preview.gif" alt="Form-Filling Copilot for Security Incident Reports"/>        <br/>
+        <b>📝 Form Filling Copilot</b>
+      </a>
+      <p>Transform tedious form-filling into natural conversations with AI assistance</p>
+      <a href="https://form-filling-copilot.vercel.app/"><code>View Example →</code></a>
+      <a href="https://github.com/CopilotKit/CopilotKit/blob/main/examples/copilot-form-filling/README.md"><code>Project Page →</code></a>
+    </td>
+    <td width="33%" align="center">
+      <a href="https://github.com/CopilotKit/demo-banking">
+        <img width="140" src="https://github.com/user-attachments/assets/ecddcf4c-cfe3-45ba-848d-03f94902475f" alt="Banking Copilot"/>        <br/>
+        <b>💰 Banking Copilot</b>
+      </a>
+      <p>Context-aware financial assistant with transaction insights</p>
+      <a href="https://github.com/CopilotKit/demo-banking"><code>View Demo Repository →</code></a>
+    </td>
+    <td width="33%" align="center">
+      <a href="https://github.com/CopilotKit/demo-spreadsheet">
+        <img width="150" src="https://github.com/user-attachments/assets/9c6ebced-1439-49bb-811b-1f74fe749ab5" alt="AI Spreadsheet Assistant"/>        <br/>
+        <b>📊 AI Spreadsheet Assistant</b>
+      </a>
+      <p>Natural language data analysis & formula generation</p>
+      <a href="https://github.com/CopilotKit/demo-spreadsheet"><code>View Demo Repository →</code></a>
+    </td>
+  </tr>
 </table>
 
 # Getting Started
