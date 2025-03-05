@@ -16,28 +16,49 @@ Tutorial Video:
 
 **These instructions assume you are in the `coagents-research-canvas/` directory**
 
-First, install the dependencies:
+## Running the Agent
+
+First, install the backend dependencies:
+
+### Python SDK
 
 ```sh
-cd agent
+cd agent-py
 poetry install
 ```
 
-Then, create a `.env` file inside `./agent` with the following:
+### JS-SDK
+
+```sh
+cd agent-js
+pnpm install
+```
+
+Then, create a `.env` file inside `./agent-py` or `./agent-js` with the following:
 
 ```
 OPENAI_API_KEY=...
 TAVILY_API_KEY=...
+LANGSMITH_API_KEY=...(JS ONLY)
 ```
 
-IMPORTANT:
+⚠️ IMPORTANT:
 Make sure the OpenAI API Key you provide, supports gpt-4o.
 
 Then, run the demo:
 
+### Python
+
 ```sh
 poetry run demo
 ```
+
+### JS
+
+```sh
+pnpm run dev
+```
+
 
 ## Running the UI
 
@@ -60,15 +81,38 @@ Then, run the Next.js project:
 pnpm run dev
 ```
 
+⚠️ IMPORTANT:
+If you're using the JS agent, follow the steps and uncomment the code inside the `app/api/copilotkit/route.ts`, `remoteEndpoints` action: 
+
+```ts
+//const runtime = new CopilotRuntime({
+ // remoteEndpoints: [
+    // Uncomment this if you want to use LangGraph JS, make sure to
+    // remove the remote action url below too.
+    //
+    // langGraphPlatformEndpoint({
+    //   deploymentUrl: "http://localhost:8123",
+    //   langsmithApiKey: process.env.LANGSMITH_API_KEY || "", // only used in LangGraph Platform deployments
+    //   agents: [{
+    //       name: "research_agentt",
+    //       description: "Research agent"
+    //   }]
+    // }),
+ // ],
+//});
+```
+**Next for JS run these commands:**
+- Run this command to spin up your LangGraph server npx @langchain/langgraph-cli dev --host localhost --port 8123
+- Run this command to connect your tunnel to the LangGraph server npx copilotkit@latest dev --port 8123
+
+
 ## Usage
 
 Navigate to [http://localhost:3000](http://localhost:3000).
 
 # LangGraph Studio
 
-Run LangGraph studio, then load the `./agent` folder into it.
-
-Make sure to create the `.env` mentioned above first!
+Run LangGraph studio, then load the `./agent-py` folder into it.
 
 # Troubleshooting
 
