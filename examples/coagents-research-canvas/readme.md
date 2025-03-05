@@ -102,8 +102,8 @@ If you're using the JS agent, follow the steps and uncomment the code inside the
 //});
 ```
 **Next for JS run these commands:**
-- Run this command to spin up your LangGraph server npx @langchain/langgraph-cli dev --host localhost --port 8123
-- Run this command to connect your tunnel to the LangGraph server npx copilotkit@latest dev --port 8123
+- Run this command to start your LangGraph server `npx @langchain/langgraph-cli dev --host localhost --port 8123`
+- Run this command to connect your Copilot Cloud Tunnel to the LangGraph server `npx copilotkit@latest dev --port 8123`
 
 
 ## Usage
