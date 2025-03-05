@@ -15,6 +15,24 @@ export const POST = async (req: NextRequest) => {
   const searchParams = req.nextUrl.searchParams
   const deploymentUrl = searchParams.get('lgcDeploymentUrl') || process.env.LGC_DEPLOYMENT_URL;
 
+  // If you are running the agent-js uncomment line 20-34 and comment out line 35-55
+
+//const runtime = new CopilotRuntime({
+ // remoteEndpoints: [
+    // Uncomment this if you want to use LangGraph JS, make sure to
+    // remove the remote action url below too.
+    //
+    // langGraphPlatformEndpoint({
+    //   deploymentUrl: "http://localhost:8123",
+    //   langsmithApiKey: process.env.LANGSMITH_API_KEY || "", // only used in LangGraph Platform deployments
+    //   agents: [{
+    //       name: "research_agentt",
+    //       description: "Research agent"
+    //   }]
+    // }),
+ // ],
+//});
+  
   const remoteEndpoint = deploymentUrl ? langGraphPlatformEndpoint({
     deploymentUrl,
     langsmithApiKey,
@@ -36,6 +54,7 @@ export const POST = async (req: NextRequest) => {
   const runtime = new CopilotRuntime({
     remoteEndpoints: [remoteEndpoint],
   });
+
 
   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
     runtime,
