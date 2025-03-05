@@ -1,10 +1,12 @@
 .copilotKitDevConsole {
-  background-color: #f3f4f6;
+  --copilot-kit-dev-console-bg: #f8f8fa;
+  --copilot-kit-dev-console-border: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 80%, black);
+  background-color: var(--copilot-kit-dev-console-bg);
   padding-left: 10px;
   padding-right: 10px;
   display: flex;
   align-items: center;
-  border-bottom: 1px solid #cecece;
+  border-bottom: 1px solid var(--copilot-kit-separator-color);
   padding-top: 10px;
   padding-bottom: 10px;
 }
@@ -63,21 +65,21 @@
   margin-top: -3px;
 }
 
-.copilotKitDevConsole .copilotKitDebugMenuButton {
+.copilotKitDevConsole .copilotKitDebugMenuTriggerButton {
   font-size: 11px;
   font-weight: bold;
   display: flex;
-  width: 90px;
+  padding: 0 10px;
   height: 30px;
-  background-color: #d8d8d8;
-  border: 1px solid #979797;
+  background-color: transparent;
+  border: 1px solid var(--copilot-kit-dev-console-border);
   border-radius: 6px;
   align-items: center;
   justify-content: center;
   outline: none;
 }
 
-.copilotKitDebugMenuButton.compact {
+.copilotKitDebugMenuTriggerButton.compact {
   width: 35px;
   color: black;
   justify-content: center;
@@ -85,19 +87,21 @@
   font-size: 8px;
 }
 
-.copilotKitDevConsole .copilotKitDebugMenuButton:hover {
-  background-color: #c7c7c7;
+.copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover {
+  background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 95%, black);
 }
 
-.copilotKitDevConsole .copilotKitDebugMenuButton > svg {
+.copilotKitDevConsole .copilotKitDebugMenuTriggerButton > svg {
   margin-left: 10px;
 }
 
 .copilotKitDebugMenu {
-  background-color: #d8d8d8;
+  --copilot-kit-dev-console-bg: #f8f8fa;
+  --copilot-kit-dev-console-border: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 80%, black);
   margin-top: 2px;
   border-radius: 6px;
-  border: 1px solid #979797;
+  background-color: var(--copilot-kit-dev-console-bg);
+  border: 1px solid var(--copilot-kit-dev-console-border);
   padding: 0.25rem;
   outline: none;
   font-size: 13px;
@@ -117,7 +121,7 @@
 }
 
 .copilotKitDebugMenuItem:hover {
-  background-color: #c7c7c7;
+  background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 92%, black);
   border-radius: 4px;
 }
 
@@ -129,6 +133,6 @@
 .copilotKitDebugMenu hr {
   height: 1px;
   border: none; /* Remove 3D look */
-  background-color: #979797; /* Set color */
+  background-color: var(--copilot-kit-dev-console-border);
   margin: 0.25rem;
 }
