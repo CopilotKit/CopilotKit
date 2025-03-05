@@ -2,12 +2,11 @@
 
 This example demonstrates a research canvas UI.
 
-Live demo: https://examples-coagents-research-canvas-ui.vercel.app/
+**Live demo:** https://examples-coagents-research-canvas-ui.vercel.app/
 
 Tutorial Video:
 
 [![IMAGE ALT TEXT](http://img.youtube.com/vi/0b6BVqPwqA0/0.jpg)](http://www.youtube.com/watch?v=0b6BVqPwqA0 "Build Agent-Native Apps with LangGraph & CoAgents (tutorial)")
-
 
 
 ---
@@ -53,13 +52,6 @@ Then, run the demo:
 poetry run demo
 ```
 
-### JS
-
-```sh
-pnpm run dev
-```
-
-
 ## Running the UI
 
 First, install the dependencies:
@@ -104,7 +96,6 @@ If you're using the JS agent, follow the steps and uncomment the code inside the
 **Next for JS run these commands:**
 - Run this command to start your LangGraph server `npx @langchain/langgraph-cli dev --host localhost --port 8123`
 - Run this command to connect your Copilot Cloud Tunnel to the LangGraph server `npx copilotkit@latest dev --port 8123`
-
 
 ## Usage
 
