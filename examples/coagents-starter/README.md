@@ -39,11 +39,6 @@ Python
 poetry run demo
 ```
 
-JS
-
-```sh
-pnpm run dev
-```
 
 ## Running the UI
 
@@ -60,7 +55,7 @@ Then, create a `.env` file inside `./ui` with the following:
 OPENAI_API_KEY=...
 ```
 
-If you're using the JS agent, uncomment the code inside the `app/api/copilotkit/route.ts`, `remoteEndpoints` action: 
+If you're using the **JS** agent, uncomment the code inside the `app/api/copilotkit/route.ts`, `remoteEndpoints` action: 
 
 ```ts
 // Uncomment this if you want to use LangGraph JS, make sure to 
@@ -92,7 +87,7 @@ Navigate to [http://localhost:3000](http://localhost:3000).
 
 Run LangGraph studio, then load the `./agent` folder into it.
 
-Make sure to create teh `.env` mentioned above first!
+Make sure to create the `.env` mentioned above first!
 
 # Troubleshooting
 
