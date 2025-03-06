@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "agent"
+version = "0.1.0"
+description = ""
+authors = ["Markus Ecker <markus.ecker@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "<3.13,>=3.10"
+crewai = "^0.102.0"
+copilotkit = "0.1.40a2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+server = "agent.server:main"
