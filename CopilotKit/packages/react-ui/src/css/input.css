@@ -37,6 +37,11 @@
   display: inline-block;
   text-align: center;
   margin-left: 0.5rem; /* Add margin to separate button from textarea */
+  display: flex; /* Add these properties below to properly display SVG icons */
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
 }
 
 .copilotKitInput > .copilotKitInputControls > button:not([disabled]) {
@@ -87,3 +92,19 @@
   border-radius: 50%;
   animation: copilotKitPulseAnimation 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+/* Add styles for SVG icons inside buttons */
+.copilotKitInput > .copilotKitInputControls > button > svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Define the pulse animation if it doesn't exist elsewhere
+@keyframes copilotKitPulseAnimation {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+} */
