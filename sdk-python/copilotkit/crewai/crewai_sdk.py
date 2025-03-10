@@ -15,14 +15,8 @@ from litellm.types.utils import (
   Function as LiteLLMFunction
 )
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from crewai.flow.flow import FlowState, Flow
-from crewai.flow.flow_events import (
-  Event as CrewAIFlowEvent,
-  FlowStartedEvent,
-  MethodExecutionStartedEvent,
-  MethodExecutionFinishedEvent,
-  FlowFinishedEvent,
-)
+from crewai.flow.flow import FlowState, Flow, FlowStartedEvent, MethodExecutionStartedEvent, MethodExecutionFinishedEvent, FlowFinishedEvent
+from crewai.utilities.events.flow_events import FlowEvent as CrewAIFlowEvent
 from copilotkit.types import Message
 from copilotkit.logging import get_logger
 from copilotkit.runloop import queue_put, get_context_execution
