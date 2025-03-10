@@ -111,8 +111,8 @@ Now we can call `interrupt` in our LangGraph agent.
             )
 
             return {
-                ...state,
-                messages: response,
+                **state,
+                "messages": response,
             }            
         ```
     </Tab>
