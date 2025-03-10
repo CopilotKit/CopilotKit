@@ -1,38 +1,41 @@
-# Rename this Markdown file with the name of your project and remove line #1
+# Welcome to CopilotKit 🪁
 
-## 1. Project Title
+## 1. Project Title 
+(Rename this Markdown file with the name of your project and remove line #1)
 
-## 2. Use Case
+## 2. Use Case 
+(What problem does this solve?)
 
-What problem does this solve?
+## 3. Technologies Being Used 
+(List the technologies and frameworks you used (e.g., CopilotKit, Next.js))
 
-## 3. Technologies Being Used
-
-List the technologies and frameworks you used (e.g., CopilotKit, Next.js)
-
-**Replace this text and the text below**
-- v0 Styling
-- Shadcn-UI Component Styling
+**Replace this text with your technologies**
+- Next.js
 - CopilotKit
+- Shadcn-UI Component Styling
+- MongoDB Vector Database
 
-## 4. GitHub Project Link
 
-### GitHub Repo Link: 
+## 4. GitHub + YouTube
+
+- [ ] GitHub Repo:
 https://github.com/NathanTarbert/my-cool-project
 
+- [ ] Deployed Demo:
+https://github.com/NathanTarbert/my-even-cooler-deployed-project
 
-- Live demo link here 👇:
-[Live Demo](http://google.com)
+- [ ] YouTube: 
+https://my-cooler-youtube-vid
 
-
-## 5. Screenshot & YouTube link
-
-Include a screenshot of your demo in action:
+Note: Include a screenshot of your demo in action
 ![image](https://github.com/user-attachments/assets/5d2a020c-dc8f-4b27-85db-ba1413bdc8f6)
+
+
 
 ## 6. Who Are You?
 
-Please list your **GitHub** and **Twitter**. 
+Please list your **Twitter** & **LinkedIn** profile 
 
-We want to promote what you've built and your hard work
+### Thank you! 
+We want to showcase what you've built! 🚀
 
