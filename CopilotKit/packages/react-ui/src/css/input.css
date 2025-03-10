@@ -98,13 +98,3 @@
   width: 24px;
   height: 24px;
 }
-
-/* Define the pulse animation if it doesn't exist elsewhere
-@keyframes copilotKitPulseAnimation {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-} */
