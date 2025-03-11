@@ -20,6 +20,7 @@
   },
   "changesets": [
     "khaki-spoons-relate",
+    "lovely-tools-collect",
     "slow-buckets-own"
   ]
 }
