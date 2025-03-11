@@ -145,20 +145,6 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
       "copilotkit_emit_tool_call",
     ],
   },
-  {
-    sourcePath: "../sdk-python/copilotkit/crewai.py",
-    destinationPath: "docs/content/docs/reference/sdk/python/CrewAI.mdx",
-    title: "CrewAI SDK",
-    description:
-      "The CopilotKit CrewAI SDK for Python allows you to build and run CrewAI agents with CopilotKit.",
-    pythonSymbols: [
-      "copilotkit_emit_state",
-      "copilotkit_predict_state",
-      "copilotkit_exit",
-      "copilotkit_emit_message",
-      "copilotkit_emit_tool_call",
-    ],
-  },
 
   /* Agents */
   {
