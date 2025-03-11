@@ -70,9 +70,15 @@ Delegates agent state processing to the service adapter.
   Instead, all processing will be handled by the service adapter.
 </PropertyReference>
 
-<PropertyReference name="logging" type="CopilotLoggingConfig"  > 
-Configuration for LLM request/response logging
+<PropertyReference name="observability_c" type="CopilotObservabilityConfig"  > 
+Configuration for LLM request/response logging.
+  Requires publicApiKey from CopilotKit component to be set:
  
+  ```tsx
+  <CopilotKit publicApiKey="ck_pub_..." />
+  ```
+ 
+  Example logging config:
   ```ts
   logging: {
     enabled: true, // Enable or disable logging
