@@ -72,7 +72,7 @@ export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
 }
 
 export function filterAdjacentAgentStateMessages(
-  messages: GenerateCopilotResponseMutation["generateCopilotResponse"]["messages"],
+  messages: GenerateCopilotResponseMutation["generateCopilotResponse"]["messages"]
 ): GenerateCopilotResponseMutation["generateCopilotResponse"]["messages"] {
   const filteredMessages: GenerateCopilotResponseMutation["generateCopilotResponse"]["messages"] =
     [];
@@ -84,7 +84,9 @@ export function filterAdjacentAgentStateMessages(
     } else {
       const prevAgentStateMessageIndex = filteredMessages.findIndex(
         // TODO: also check runId
-        (m) => m.__typename === "AgentStateMessageOutput" && m.agentName === message.agentName,
+        (m) =>
+          m.__typename === "AgentStateMessageOutput" &&
+          m.agentName === message.agentName
       );
       if (prevAgentStateMessageIndex === -1) {
         filteredMessages.push(message);
@@ -98,7 +100,7 @@ export function filterAdjacentAgentStateMessages(
 }
 
 export function convertGqlOutputToMessages(
-  messages: GenerateCopilotResponseMutation["generateCopilotResponse"]["messages"],
+  messages: GenerateCopilotResponseMutation["generateCopilotResponse"]["messages"]
 ): Message[] {
   return messages.map((message) => {
     if (message.__typename === "TextMessageOutput") {
@@ -159,7 +161,7 @@ export function loadMessagesFromJsonRepresentation(json: any[]): Message[] {
           parentMessageId: item.parentMessageId,
           createdAt: item.createdAt || new Date(),
           status: item.status || { code: MessageStatusCode.Success },
-        }),
+        })
       );
     } else if ("arguments" in item) {
       result.push(
@@ -170,7 +172,7 @@ export function loadMessagesFromJsonRepresentation(json: any[]): Message[] {
           parentMessageId: item.parentMessageId,
           createdAt: item.createdAt || new Date(),
           status: item.status || { code: MessageStatusCode.Success },
-        }),
+        })
       );
     } else if ("result" in item) {
       result.push(
@@ -181,7 +183,7 @@ export function loadMessagesFromJsonRepresentation(json: any[]): Message[] {
           actionName: item.actionName,
           createdAt: item.createdAt || new Date(),
           status: item.status || { code: MessageStatusCode.Success },
-        }),
+        })
       );
     } else if ("state" in item) {
       result.push(
@@ -196,7 +198,7 @@ export function loadMessagesFromJsonRepresentation(json: any[]): Message[] {
           running: item.running,
           state: item.state,
           createdAt: item.createdAt || new Date(),
-        }),
+        })
       );
     }
   }
@@ -209,7 +211,6 @@ function getPartialArguments(args: string[]) {
 
     return JSON.parse(untruncateJson(args.join("")));
   } catch (e) {
-    console.error(e);
     return {};
   }
 }

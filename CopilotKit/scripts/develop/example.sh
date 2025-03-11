@@ -121,6 +121,7 @@ if [[ "$backend" == "langgraph-platform" ]]; then
   python -m pip install -e .
 fi
 
+
 # Define color prompts
 copilotkit_prompt="\x1b[1;32m[CopilotKit]\x1b[0m"
 agent_prompt="\x1b[1;31m[Agent     ]\x1b[0m"

@@ -17,12 +17,27 @@ COPY ${APP_DIR}/package.json ${APP_DIR}/pnpm-lock.yaml ./
 RUN pnpm i --frozen-lockfile
 
 # Copy the built artifacts from the builder stage
-COPY ${APP_DIR}/.next/standalone ./
-COPY ${APP_DIR}/.next/static ./.next/static
+# First, copy the entire app directory to ensure we have all necessary files
+COPY ${APP_DIR}/ ./
+
+# If standalone exists, use it, otherwise we'll use the regular Next.js build
+RUN if [ -d "./.next/standalone" ]; then \
+      # Standalone mode - move files to root for compatibility with the CMD below
+      cp -R ./.next/standalone/* ./; \
+    else \
+      # Non-standalone mode - ensure we have the necessary dependencies
+      echo "Using regular Next.js build (non-standalone)"; \
+    fi
 
 # Set the environment variables (if needed)
 ENV NODE_ENV=production
 EXPOSE 3000
-CMD ["node", "server.js"]
+
+# Use different start commands based on whether we're in standalone mode or not
+CMD if [ -f "./server.js" ]; then \
+      node server.js; \
+    else \
+      node node_modules/next/dist/bin/next start; \
+    fi
 
 #
