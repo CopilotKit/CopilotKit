@@ -1,0 +1,35 @@
+FROM public.ecr.aws/docker/library/python:3.12-bookworm
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/lambda-adapter
+
+ARG APP_DIR
+ARG WITH_LOCAL_DEPS
+
+ENV POETRY_VIRTUALENVS_CREATE=false
+ENV CREWAI_STORAGE_DIR=/tmp/crewai
+ENV AWS_LAMBDA_FUNCTION_TIMEOUT=30
+ENV HOME=/tmp
+
+# Install poetry, configure it, and prepare directories in one step
+RUN pip install poetry==1.7.1 && \
+    poetry config virtualenvs.create false && \
+    mkdir -p /tmp/crewai && chmod 777 /tmp/crewai
+
+# Copy SDK first
+COPY sdk-python/ /opt/sdk-python
+WORKDIR /asset
+
+# Create a symlink from /sdk-python to /opt/sdk-python
+RUN ln -sf /opt/sdk-python /sdk-python
+
+# Copy application code
+COPY ${APP_DIR}/ ./
+
+# Install dependencies and the package in one step
+RUN poetry install --no-interaction --no-ansi && \
+    poetry add 'crewai[tools]' && \
+    if [ "$WITH_LOCAL_DEPS" = "true" ]; then poetry add /opt/sdk-python; fi
+
+# Use this if you want to use the langgraph
+# RUN mkdir .langgraph_api
+
+CMD ["poetry", "run", "demo"] 

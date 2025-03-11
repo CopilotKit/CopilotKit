@@ -1,0 +1,52 @@
+---
+title: "Backend Data"
+description: "Learn how to connect your data to CopilotKit."
+icon: "lucide/Server"
+---
+
+## Backend Readable State
+CopilotKit allows you to define actions on the backend that can be called by your Copilot. Behind the scenes, this is securely binding
+the action as a tool to your LLM of choice. 
+
+When you ask the LLM decides to retrieve the data, it will do so by securely calling the backend action.
+
+<Callout type="info">
+  For more information about backend actions, see the [Backend Action](/docs/guides/backend-actions) guides.
+</Callout>
+
+```tsx title="/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  actions: ({properties, url}) => {
+    // You can use the input parameters to the actions generator to expose different backend actions to the Copilot at different times: 
+    // `url` is the current URL on the frontend application.
+    // `properties` contains custom properties you can pass from the frontend application.
+    
+    return [
+      {
+        name: "fetchNameForUserId",
+        description: "Fetches user name from the database for a given ID.",
+        parameters: [
+          {
+            name: "userId",
+            type: "string",
+            description: "The ID of the user to fetch data for.",
+            required: true,
+          },
+        ],
+        handler: async ({userId}: {userId: string}) => {
+          // do something with the userId
+          // return the user data
+          const simulateDatabaseCall = async (userId: string) => { return { name: "Darth Doe" } }
+          return await simulateDatabaseCall(userId)
+        },
+      },
+    ]
+  }
+});
+```
+
+## Knowledge Bases (Enterprise)
+
+Additional plug-and-play integrations with knowledge bases are available via our enterprise plan. 
+
+Please [reach out](mailto:hello@copilotkit.ai) to enable it.

@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 import "source-map-support/register";
 import * as cdk from "aws-cdk-lib";
-import { createAgentProjectStack, createNextOpenAIProjectStack, createUIProjectStack } from "../lib/utils";
+import {
+  createAgentProjectStack,
+  createNextOpenAIProjectStack,
+  createUIProjectStack,
+  createAgentPyProjectStack,
+} from "../lib/utils";
 
 // app
 const app = new cdk.App();
@@ -20,8 +25,10 @@ const coAgentsResearchCanvasUIWithLocalDeps = createUIProjectStack({
   app,
   project: "coagents-research-canvas",
   description: "CoAgents Research Canvas (UI) - Local Depenencies",
-  selfHostedAgentProject: coAgentsResearchCanvasAgentWithLocalDeps.selfHostedAgent,
-  lgcAgentProjectPython: coAgentsResearchCanvasAgentWithLocalDeps.lgcAgentPython,
+  selfHostedAgentProject:
+    coAgentsResearchCanvasAgentWithLocalDeps.selfHostedAgent,
+  lgcAgentProjectPython:
+    coAgentsResearchCanvasAgentWithLocalDeps.lgcAgentPython,
   lgcAgentProjectJS: coAgentsResearchCanvasAgentWithLocalDeps.lgcAgentJS,
 });
 
@@ -89,4 +96,40 @@ createNextOpenAIProjectStack({
   app,
   description: "Next OpenAI - Self Hosted",
   variant: "self-hosted",
+});
+
+/**
+ * Coagents Starter Crewai-Crews
+ */
+
+const coagentsStarterCrewaiCrewsAgentWithLocalDeps = createAgentPyProjectStack({
+  app,
+  project: "coagents-starter-crewai-crews",
+  description: "CoAgents Starter Crewai-Crews (Agent-Py) - Local Dependencies",
+});
+
+const coagentsStarterCrewaiCrewsUIWithLocalDeps = createUIProjectStack({
+  app,
+  project: "coagents-starter-crewai-crews",
+  description: "CoAgents Starter Crewai-Crews (UI) - Local Dependencies",
+  selfHostedAgentProject:
+    coagentsStarterCrewaiCrewsAgentWithLocalDeps.selfHostedAgent,
+});
+
+/**
+ * Coagents Starter Crewai-Flows
+ */
+
+const coagentsStarterCrewaiFlowsAgentWithLocalDeps = createAgentPyProjectStack({
+  app,
+  project: "coagents-starter-crewai-flows",
+  description: "CoAgents Starter Crewai-Flows (Agent-Py) - Local Dependencies",
+});
+
+const coagentsStarterCrewaiFlowsUIWithLocalDeps = createUIProjectStack({
+  app,
+  project: "coagents-starter-crewai-flows",
+  description: "CoAgents Starter Crewai-Flows (UI) - Local Dependencies",
+  selfHostedAgentProject:
+    coagentsStarterCrewaiFlowsAgentWithLocalDeps.selfHostedAgent,
 });

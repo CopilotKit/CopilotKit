@@ -40,7 +40,7 @@ class ResearchCrew():
     def research_task(self) -> Task:
         """Research task"""
         return Task(
-          config=self.tasks_config['research_task'], # pylint: disable=invalid-sequence-index
+          config=self.tasks_config['research_task'] # pylint: disable=invalid-sequence-index
         )
 
     @task
@@ -48,7 +48,6 @@ class ResearchCrew():
         """Reporting task"""
         return Task(
           config=self.tasks_config['reporting_task'], # pylint: disable=invalid-sequence-index
-          output_file='report.md'
         )
 
     @crew
@@ -62,6 +61,6 @@ class ResearchCrew():
           tasks=self.tasks, # pylint: disable=no-member
           process=Process.sequential,
           verbose=True,
-          chat_llm="gpt-4o"
+          chat_llm="gpt-4"
           # process=Process.hierarchical, # In case you wanna use that instead https://docs.crewai.com/how-to/Hierarchical/
         )
