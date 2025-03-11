@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.7.0-next.1
+
+### Patch Changes
+
+- 1e934e4: - feat(runtime): Add LangFuse logging integration
+  - @copilotkit/shared@1.7.0-next.1
+
 ## 1.7.0-next.0
 
 ### Minor Changes

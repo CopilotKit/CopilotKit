@@ -44,3 +44,78 @@
 # Documentation
 
 To get started with CopilotKit, please check out the [documentation](https://docs.copilotkit.ai).
+
+## LangFuse Logging Integration
+
+CopilotKit now supports LangFuse logging integration to help you monitor, analyze, and debug your LLM requests and responses.
+
+### Setup
+
+To enable LangFuse logging, you can configure it when initializing the CopilotRuntime:
+
+```typescript
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
+import { LangfuseClient } from "langfuse";
+
+// Initialize your LangFuse client
+const langfuse = new LangfuseClient({
+  publicKey: process.env.LANGFUSE_PUBLIC_KEY!,
+  secretKey: process.env.LANGFUSE_SECRET_KEY!,
+  baseUrl: process.env.LANGFUSE_BASE_URL,
+});
+
+// Create a CopilotRuntime with LangFuse logging enabled
+const runtime = new CopilotRuntime({
+  adapter: new OpenAIAdapter({ apiKey: process.env.OPENAI_API_KEY }),
+  logging: {
+    enabled: true,
+    progressive: true, // Set to false for buffered logging
+    logger: {
+      logRequest: (data) => langfuse.trace({ name: "LLM Request", input: data }),
+      logResponse: (data) => langfuse.trace({ name: "LLM Response", output: data }),
+      logError: (errorData) => langfuse.trace({ name: "LLM Error", metadata: errorData }),
+    },
+  },
+});
+```
+
+### Configuration Options
+
+The logging configuration accepts the following options:
+
+- `enabled` (boolean): Enable or disable logging (default: false)
+- `progressive` (boolean): When true, logs each chunk as it's streamed. When false, logs the complete response (default: true)
+- `logger` (object): Contains callback functions for logging:
+  - `logRequest`: Called when an LLM request is made
+  - `logResponse`: Called when an LLM response is received
+  - `logError`: Called when an error occurs during an LLM request
+
+### Custom Logging Integrations
+
+You can integrate with any logging service by implementing the logger interface:
+
+```typescript
+const runtime = new CopilotRuntime({
+  adapter: new OpenAIAdapter({ apiKey: "YOUR_API_KEY" }),
+  logging: {
+    enabled: true,
+    progressive: false,
+    logger: {
+      logRequest: (data) => {
+        // Implement your custom logging logic
+        console.log("LLM Request:", JSON.stringify(data));
+      },
+      logResponse: (data) => {
+        // Implement your custom logging logic
+        console.log("LLM Response:", JSON.stringify(data));
+      },
+      logError: (error) => {
+        // Implement your custom error logging
+        console.error("LLM Error:", error);
+      },
+    },
+  },
+});
+```
+
+This allows you to send your logs to any system or service that you prefer.
