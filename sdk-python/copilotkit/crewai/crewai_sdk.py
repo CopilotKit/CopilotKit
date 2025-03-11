@@ -117,7 +117,7 @@ async def copilotkit_emit_state(state: Any) -> Literal[True]:
     To install the CopilotKit SDK, run:
 
     ```bash
-    pip install copilotkit
+    pip install copilotkit[crewai]
     ```
 
     ### Examples
