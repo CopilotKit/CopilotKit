@@ -33,7 +33,7 @@ import {
 
 import { MessageInput } from "../../graphql/inputs/message.input";
 import { ActionInput } from "../../graphql/inputs/action.input";
-import { RuntimeEventSource } from "../../service-adapters/events";
+import { RuntimeEventSource, RuntimeEventTypes } from "../../service-adapters/events";
 import { convertGqlInputToMessages } from "../../service-adapters/conversion";
 import { Message } from "../../graphql/types/converted";
 import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-parameters.input";
@@ -61,6 +61,12 @@ import { LoadAgentStateResponse } from "../../graphql/types/load-agent-state-res
 import { Client as LangGraphClient } from "@langchain/langgraph-sdk";
 import { langchainMessagesToCopilotKit } from "./remote-lg-action";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
+import {
+  CopilotLoggingConfig,
+  LogLLMRequestData,
+  LogLLMResponseData,
+  LogLLMErrorData,
+} from "../logger";
 
 interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
@@ -179,6 +185,23 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
    * Instead, all processing will be handled by the service adapter.
    */
   delegateAgentProcessingToServiceAdapter?: boolean;
+
+  /**
+   * Configuration for LLM request/response logging
+   *
+   * ```ts
+   * logging: {
+   *   enabled: true, // Enable or disable logging
+   *   progressive: true, // Set to false for buffered logging
+   *   logger: {
+   *     logRequest: (data) => langfuse.trace({ name: "LLM Request", input: data }),
+   *     logResponse: (data) => langfuse.trace({ name: "LLM Response", output: data }),
+   *     logError: (errorData) => langfuse.trace({ name: "LLM Error", metadata: errorData }),
+   *   },
+   * }
+   * ```
+   */
+  logging?: CopilotLoggingConfig;
 }
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
@@ -188,6 +211,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private onBeforeRequest?: OnBeforeRequestHandler;
   private onAfterRequest?: OnAfterRequestHandler;
   private delegateAgentProcessingToServiceAdapter: boolean;
+  private logging?: CopilotLoggingConfig;
 
   constructor(params?: CopilotRuntimeConstructorParams<T>) {
     // Do not register actions if endpoints are set
@@ -209,6 +233,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     this.onAfterRequest = params?.middleware?.onAfterRequest;
     this.delegateAgentProcessingToServiceAdapter =
       params?.delegateAgentProcessingToServiceAdapter || false;
+    this.logging = params?.logging;
   }
 
   async processRuntimeRequest(request: CopilotRuntimeRequest): Promise<CopilotRuntimeResponse> {
@@ -228,6 +253,10 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     } = request;
 
     const eventSource = new RuntimeEventSource();
+    // Track request start time for logging
+    const requestStartTime = Date.now();
+    // For storing streamed chunks if progressive logging is enabled
+    const streamedChunks: any[] = [];
 
     try {
       if (agentSession && !this.delegateAgentProcessingToServiceAdapter) {
@@ -244,6 +273,26 @@ please use an LLM adapter instead.`,
       const messages = rawMessages.filter((message) => !message.agentStateMessage);
       const inputMessages = convertGqlInputToMessages(messages);
       const serverSideActions = await this.getServerSideActions(request);
+
+      // Log LLM request if logging is enabled
+      if (this.logging?.enabled) {
+        try {
+          const requestData: LogLLMRequestData = {
+            threadId,
+            runId,
+            model: forwardedParameters?.model,
+            messages: inputMessages,
+            actions: clientSideActionsInput,
+            forwardedParameters,
+            timestamp: requestStartTime,
+            provider: this.detectProvider(serviceAdapter),
+          };
+
+          await this.logging.logger.logRequest(requestData);
+        } catch (error) {
+          console.error("Error logging LLM request:", error);
+        }
+      }
 
       const serverSideActionsInput: ActionInput[] = serverSideActions.map((action) => ({
         name: action.name,
@@ -296,6 +345,88 @@ please use an LLM adapter instead.`,
         })
         .catch((_error) => {});
 
+      // After getting the response, log it if logging is enabled
+      if (this.logging?.enabled) {
+        try {
+          outputMessagesPromise
+            .then((outputMessages) => {
+              const responseData: LogLLMResponseData = {
+                threadId: result.threadId,
+                runId: result.runId,
+                model: forwardedParameters?.model,
+                // Use collected chunks for progressive mode or outputMessages for regular mode
+                output: this.logging.progressive ? streamedChunks : outputMessages,
+                latency: Date.now() - requestStartTime,
+                timestamp: Date.now(),
+                provider: this.detectProvider(serviceAdapter),
+                // Indicate this is the final response
+                isFinalResponse: true,
+              };
+
+              try {
+                this.logging?.logger.logResponse(responseData);
+              } catch (logError) {
+                console.error("Error logging LLM response:", logError);
+              }
+            })
+            .catch((error) => {
+              console.error("Failed to get output messages for logging:", error);
+            });
+        } catch (error) {
+          console.error("Error setting up logging for LLM response:", error);
+        }
+      }
+
+      // Add progressive logging if enabled
+      if (this.logging?.enabled && this.logging.progressive) {
+        // Keep reference to original stream function
+        const originalStream = eventSource.stream.bind(eventSource);
+
+        // Wrap the stream function to intercept events
+        eventSource.stream = async (callback) => {
+          await originalStream(async (eventStream$) => {
+            // Create subscription to capture streaming events
+            eventStream$.subscribe({
+              next: (event) => {
+                // Only log content chunks
+                if (event.type === RuntimeEventTypes.TextMessageContent) {
+                  // Store the chunk
+                  streamedChunks.push(event.content);
+
+                  // Log each chunk separately for progressive mode
+                  try {
+                    const progressiveData: LogLLMResponseData = {
+                      threadId: threadId || "",
+                      runId,
+                      model: forwardedParameters?.model,
+                      output: event.content,
+                      latency: Date.now() - requestStartTime,
+                      timestamp: Date.now(),
+                      provider: this.detectProvider(serviceAdapter),
+                      isProgressiveChunk: true,
+                    };
+
+                    // Use Promise to handle async logger without awaiting
+                    Promise.resolve()
+                      .then(() => {
+                        this.logging?.logger.logResponse(progressiveData);
+                      })
+                      .catch((error) => {
+                        console.error("Error in progressive logging:", error);
+                      });
+                  } catch (error) {
+                    console.error("Error preparing progressive log data:", error);
+                  }
+                }
+              },
+            });
+
+            // Call the original callback with the event stream
+            await callback(eventStream$);
+          });
+        };
+      }
+
       return {
         threadId: nonEmptyThreadId,
         runId: result.runId,
@@ -312,6 +443,25 @@ please use an LLM adapter instead.`,
         extensions: result.extensions,
       };
     } catch (error) {
+      // Log error if logging is enabled
+      if (this.logging?.enabled) {
+        try {
+          const errorData: LogLLMErrorData = {
+            threadId,
+            runId,
+            model: forwardedParameters?.model,
+            error: error instanceof Error ? error : String(error),
+            timestamp: Date.now(),
+            latency: Date.now() - requestStartTime,
+            provider: this.detectProvider(serviceAdapter),
+          };
+
+          await this.logging.logger.logError(errorData);
+        } catch (logError) {
+          console.error("Error logging LLM error:", logError);
+        }
+      }
+
       if (error instanceof CopilotKitError) {
         throw error;
       }
@@ -405,7 +555,6 @@ please use an LLM adapter instead.`,
     if (!agentWithEndpoint) {
       throw new Error("Agent not found");
     }
-    const headers = createHeaders(null, graphqlContext);
 
     if (agentWithEndpoint.endpoint.type === EndpointType.LangGraphPlatform) {
       const propertyHeaders = graphqlContext.properties.authorization
@@ -623,6 +772,17 @@ please use an LLM adapter instead.`,
         : this.actions;
 
     return [...configuredActions, ...langserveFunctions, ...remoteActions];
+  }
+
+  // Add helper method to detect provider
+  private detectProvider(serviceAdapter: CopilotServiceAdapter): string | undefined {
+    const adapterName = serviceAdapter.constructor.name;
+    if (adapterName.includes("OpenAI")) return "openai";
+    if (adapterName.includes("Anthropic")) return "anthropic";
+    if (adapterName.includes("Google")) return "google";
+    if (adapterName.includes("Groq")) return "groq";
+    if (adapterName.includes("LangChain")) return "langchain";
+    return undefined;
   }
 }
 

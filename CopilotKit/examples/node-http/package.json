@@ -10,7 +10,7 @@
     "@copilotkit/runtime": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "openai": "^4.85.1",
-     "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7"
   },
   "devDependencies": {
     "@types/node": "^18.11.17",

@@ -70,6 +70,22 @@ Delegates agent state processing to the service adapter.
   Instead, all processing will be handled by the service adapter.
 </PropertyReference>
 
+<PropertyReference name="logging" type="CopilotLoggingConfig"  > 
+Configuration for LLM request/response logging
+ 
+  ```ts
+  logging: {
+    enabled: true, // Enable or disable logging
+    progressive: true, // Set to false for buffered logging
+    logger: {
+      logRequest: (data) => langfuse.trace({ name: "LLM Request", input: data }),
+      logResponse: (data) => langfuse.trace({ name: "LLM Response", output: data }),
+      logError: (errorData) => langfuse.trace({ name: "LLM Error", metadata: errorData }),
+    },
+  }
+  ```
+</PropertyReference>
+
 <PropertyReference name="processRuntimeRequest" type="request: CopilotRuntimeRequest">
 
 
