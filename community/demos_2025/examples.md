@@ -36,5 +36,5 @@ Note: Include a screenshot of your demo in action
 
 Please list your **Twitter** & **LinkedIn** profile 
 
-## ⭐️ Project README with installation and setup steps ⭐️👇
+## ⭐️ Project README with installation and getting started steps ⭐️👇
 Place the full detailed README here:
