@@ -1,7 +1,7 @@
 .copilotKitMessages footer .suggestions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .copilotKitMessages footer h6 {
@@ -11,11 +11,12 @@
 }
 
 .copilotKitMessages footer .suggestions .suggestion {
-  padding: 8px 12px;
+  padding: 6px 10px;
   font-size: 0.7rem;
-  border-radius: 10px;
+  border-radius: 15px;
   border: 1px solid var(--copilot-kit-muted-color);
   color: var(--copilot-kit-text-color);
+  box-shadow: 0 5px 5px 0px rgba(0,0,0,.01),0 2px 3px 0px rgba(0,0,0,.02);
 }
 
 .copilotKitMessages footer .suggestions .suggestion.loading {

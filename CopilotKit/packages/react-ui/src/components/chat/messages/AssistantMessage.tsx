@@ -72,22 +72,26 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
                   CopyIcon
                 )}
               </button>
-              <button
-                className="copilotKitMessageControlButton"
-                onClick={handleThumbsUp}
-                aria-label={labels.thumbsUp}
-                title={labels.thumbsUp}
-              >
-                {ThumbsUpIcon}
-              </button>
-              <button
-                className="copilotKitMessageControlButton"
-                onClick={handleThumbsDown}
-                aria-label={labels.thumbsDown}
-                title={labels.thumbsDown}
-              >
-                {ThumbsDownIcon}
-              </button>
+              {onThumbsUp && (
+                  <button
+                      className="copilotKitMessageControlButton"
+                      onClick={handleThumbsUp}
+                      aria-label={labels.thumbsUp}
+                      title={labels.thumbsUp}
+                  >
+                    {ThumbsUpIcon}
+                  </button>
+              )}
+              {onThumbsDown && (
+                  <button
+                      className="copilotKitMessageControlButton"
+                      onClick={handleThumbsDown}
+                      aria-label={labels.thumbsDown}
+                      title={labels.thumbsDown}
+                  >
+                    {ThumbsDownIcon}
+                  </button>
+              )}
             </div>
           )}
         </div>

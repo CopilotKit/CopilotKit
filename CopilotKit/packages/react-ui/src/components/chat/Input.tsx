@@ -53,9 +53,8 @@ export const Input = ({ inProgress, onSend, isVisible = false, onStop }: InputPr
     const interruptEvent = copilotContext.langGraphInterruptAction?.event;
     const interruptInProgress =
       interruptEvent?.name === "LangGraphInterruptEvent" && !interruptEvent?.response;
-    return (
-      !inProgress && text.trim().length > 0 && pushToTalkState === "idle" && !interruptInProgress
-    );
+
+    return (isInProgress || (!isInProgress && text.trim().length > 0)) && pushToTalkState === "idle" && !interruptInProgress
   };
 
   const sendDisabled = !canSend();
@@ -80,6 +79,7 @@ export const Input = ({ inProgress, onSend, isVisible = false, onStop }: InputPr
           }}
         />
         <div className="copilotKitInputControls">
+          <div className="flex-1" />
           {showPushToTalk && (
             <button
               onClick={() =>

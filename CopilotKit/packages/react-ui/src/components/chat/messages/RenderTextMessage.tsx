@@ -14,8 +14,6 @@ export function RenderTextMessage(props: RenderMessageProps) {
     onThumbsDown,
   } = props;
 
-  const noop = () => {};
-
   if (message.isTextMessage()) {
     if (message.role === "user") {
       return (
@@ -36,10 +34,10 @@ export function RenderTextMessage(props: RenderMessageProps) {
           isLoading={inProgress && isCurrentMessage && !message.content}
           isGenerating={inProgress && isCurrentMessage && !!message.content}
           isCurrentMessage={isCurrentMessage}
-          onRegenerate={onRegenerate ?? noop}
-          onCopy={onCopy ?? noop}
-          onThumbsUp={onThumbsUp ?? noop}
-          onThumbsDown={onThumbsDown ?? noop}
+          onRegenerate={onRegenerate}
+          onCopy={onCopy}
+          onThumbsUp={onThumbsUp}
+          onThumbsDown={onThumbsDown}
         />
       );
     }

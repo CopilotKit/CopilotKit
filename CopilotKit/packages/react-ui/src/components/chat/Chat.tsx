@@ -339,26 +339,15 @@ export function CopilotChat({
   const handleRegenerate = () => {
     if (onRegenerate) {
       onRegenerate();
-    } else {
-      reloadMessages();
+
     }
+
+    reloadMessages();
   };
 
   const handleCopy = (message: string) => {
     if (onCopy) {
       onCopy(message);
-    }
-  };
-
-  const handleThumbsUp = (message: string) => {
-    if (onThumbsUp) {
-      onThumbsUp(message);
-    }
-  };
-
-  const handleThumbsDown = (message: string) => {
-    if (onThumbsDown) {
-      onThumbsDown(message);
     }
   };
 
@@ -376,25 +365,22 @@ export function CopilotChat({
         inProgress={isLoading}
         onRegenerate={handleRegenerate}
         onCopy={handleCopy}
-        onThumbsUp={handleThumbsUp}
-        onThumbsDown={handleThumbsDown}
+        onThumbsUp={onThumbsUp}
+        onThumbsDown={onThumbsDown}
       >
         {currentSuggestions.length > 0 && (
-          <div>
-            <h6>Suggested:</h6>
             <div className="suggestions">
               {currentSuggestions.map((suggestion, index) => (
-                <Suggestion
-                  key={index}
-                  title={suggestion.title}
-                  message={suggestion.message}
-                  partial={suggestion.partial}
-                  className={suggestion.className}
-                  onClick={(message) => sendMessage(message)}
-                />
+                  <Suggestion
+                      key={index}
+                      title={suggestion.title}
+                      message={suggestion.message}
+                      partial={suggestion.partial}
+                      className={suggestion.className}
+                      onClick={(message) => sendMessage(message)}
+                  />
               ))}
             </div>
-          </div>
         )}
       </Messages>
       <Input

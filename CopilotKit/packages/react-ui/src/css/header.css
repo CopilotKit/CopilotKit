@@ -5,12 +5,13 @@
   justify-content: flex-start;
   align-items: center;
   position: relative;
-  background-color: var(--copilot-kit-primary-color);
   color: var(--copilot-kit-contrast-color);
   border-top-left-radius: 0;
   border-top-right-radius: 0;
   border-bottom: 1px solid var(--copilot-kit-separator-color);
   padding-left: 1.5rem;
+  backdrop-filter: blur(10px);
+  background-color: rgba(255, 255, 255, 0.5); /* Adjust opacity to your preference */
 }
 
 .copilotKitSidebar .copilotKitHeader {

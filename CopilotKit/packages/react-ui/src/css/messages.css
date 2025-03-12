@@ -8,18 +8,12 @@
 
 .copilotKitMessagesFooter {
   display: flex;
-  padding: 0 10px;
-  margin: 10px 0;
+  padding: 0;
+  margin: 0 auto 8px auto;
   justify-content: flex-start;
   flex-direction: column;
-  /*overflow: hidden;*/
-  /*max-height: 60px;*/
-  /*transition: max-height 1s cubic-bezier(0.4, 0, 0.2, 1);*/
+  width: 90%;
 }
-
-/*.copilotKitMessagesFooter:hover {*/
-/*  max-height: none;*/
-/*}*/
 
 .copilotKitMessagesContainer {
   overflow-y: scroll;
