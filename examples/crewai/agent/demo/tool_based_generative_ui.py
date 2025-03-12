@@ -39,43 +39,49 @@ GENERATE_HAIKU_TOOL = {
 
 
 class ToolBasedGenerativeUIFlow(Flow[CopilotKitState]):
+    """
+    A flow that demonstrates tool-based generative UI.
+    """
 
-  @start()
-  async def chat(self):
-    system_prompt = f"You assist the user in generating a haiku."
+    @start()
+    async def chat(self):
+        """
+        The main function handling chat and tool calls.
+        """
+        system_prompt = "You assist the user in generating a haiku."
 
-    # 1. Run the model and stream the response
-    #    Note: In order to stream the response, wrap the completion call in
-    #    copilotkit_stream and set stream=True.
-    response = await copilotkit_stream(
-        completion(
+        # 1. Run the model and stream the response
+        #    Note: In order to stream the response, wrap the completion call in
+        #    copilotkit_stream and set stream=True.
+        response = await copilotkit_stream(
+            completion(
 
-            # 1.1 Specify the model to use
-            model="openai/gpt-4o",
-            messages=[
-                {
-                    "role": "system", 
-                    "content": system_prompt
-                },
-                *self.state.messages
-            ],
+                # 1.1 Specify the model to use
+                model="openai/gpt-4o",
+                messages=[
+                    {
+                        "role": "system", 
+                        "content": system_prompt
+                    },
+                    *self.state.messages
+                ],
 
-            # 1.2 Bind the available tools to the model
-            tools=[
-                *self.state.copilotkit.actions,
-                GENERATE_HAIKU_TOOL,
-            ],
+                # 1.2 Bind the available tools to the model
+                tools=[
+                    *self.state.copilotkit.actions,
+                    GENERATE_HAIKU_TOOL,
+                ],
 
-            # 1.3 Disable parallel tool calls to avoid race conditions,
-            #     enable this for faster performance if you want to manage
-            #     the complexity of running tool calls in parallel.
-            parallel_tool_calls=False,
-            stream=True
+                # 1.3 Disable parallel tool calls to avoid race conditions,
+                #     enable this for faster performance if you want to manage
+                #     the complexity of running tool calls in parallel.
+                parallel_tool_calls=False,
+                stream=True
+            )
         )
-    )
 
-    message = response.choices[0].message
+        message = response.choices[0].message
 
-    # 2. Append the message to the messages in state
-    self.state.messages.append(message)
+        # 2. Append the message to the messages in state
+        self.state.messages.append(message)
 

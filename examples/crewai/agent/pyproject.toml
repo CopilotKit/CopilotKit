@@ -6,7 +6,9 @@ authors = ["Markus Ecker <markus.ecker@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = ">=3.12,<3.13"
+copilotkit = "0.1.40a2"
+tavily-python = "^0.5.1"
 
 [build-system]
 requires = ["poetry-core"]

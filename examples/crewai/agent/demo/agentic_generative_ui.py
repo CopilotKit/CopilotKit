@@ -65,7 +65,7 @@ class AgentState(CopilotKitState):
     steps: List[TaskStep] = []
 
 
-class SampleAgentFlow(Flow[AgentState]):
+class AgenticGenerativeUIFlow(Flow[AgentState]):
     """
     This is a sample flow that uses the CopilotKit framework to create a chat agent.
     """
@@ -82,7 +82,7 @@ class SampleAgentFlow(Flow[AgentState]):
         """
         Standard chat node.
         """
-        system_prompt = f"You are a helpful assistant."
+        system_prompt = "You are a helpful assistant."
 
         # 1. Here we specify that we want to stream the tool call to generate_task_steps
         #    to the frontend as state.
@@ -149,8 +149,7 @@ class SampleAgentFlow(Flow[AgentState]):
 
         # 5. If our tool was not called, return to the end route
         return "route_end"
-    
-    @router()
+
     @listen("route_simulate_task")
     async def simulate_task(self):
         """

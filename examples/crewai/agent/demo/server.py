@@ -11,7 +11,19 @@ import uvicorn
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from copilotkit import CopilotKitRemoteEndpoint
 from copilotkit.crewai import CrewAIAgent
+
 from demo.agentic_chat import AgenticChatFlow
+from demo.agentic_generative_ui import AgenticGenerativeUIFlow
+from demo.human_in_the_loop import HumanInTheLoopFlow
+from demo.multi_agent_flows import (
+    MultiAgentWriterFlow,
+    MultiAgentResearcherFlow,
+    MultiAgentCriticFlow,
+)
+from demo.predictive_state_updates import PredictiveStateUpdatesFlow
+from demo.shared_state import SharedStateFlow
+from demo.tool_based_generative_ui import ToolBasedGenerativeUIFlow
+
 
 app = FastAPI()
 sdk = CopilotKitRemoteEndpoint(
@@ -20,7 +32,50 @@ sdk = CopilotKitRemoteEndpoint(
             name="agentic_chat",
             description="An example for an agentic chat flow.",
             flow=AgenticChatFlow(),
-        )
+        ),
+        CrewAIAgent(
+            name="tool_based_generative_ui",
+            description="An example for a tool-based generative UI flow.",
+            flow=ToolBasedGenerativeUIFlow(),
+        ),
+
+        CrewAIAgent(
+            name="agentic_generative_ui",
+            description="An example for an agentic generative UI flow.",
+            flow=AgenticGenerativeUIFlow(),
+        ),
+
+        CrewAIAgent(
+            name="human_in_the_loop",
+            description="An example for a human in the loop flow.",
+            flow=HumanInTheLoopFlow(),
+        ),
+
+        CrewAIAgent(
+            name="shared_state",
+            description="An example for a shared state flow.",
+            flow=SharedStateFlow(),
+        ),
+        CrewAIAgent(
+            name="predictive_state_updates",
+            description="An example for a predictive state updates flow.",
+            flow=PredictiveStateUpdatesFlow(),
+        ),
+        CrewAIAgent(
+            name="multi_agent_writer",
+            description="An example for a multi-agent flow (Writer).",
+            flow=MultiAgentWriterFlow(),
+        ),
+        CrewAIAgent(
+            name="multi_agent_researcher",
+            description="An example for a multi-agent flow (Researcher).",
+            flow=MultiAgentResearcherFlow(),
+        ),
+        CrewAIAgent(
+            name="multi_agent_critic",
+            description="An example for a multi-agent flow (Critic).",
+            flow=MultiAgentCriticFlow(),
+        ),
     ],
 )
 

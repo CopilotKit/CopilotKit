@@ -2,14 +2,10 @@
 An example demonstrating agentic generative UI.
 """
 
-import json
-import asyncio
 from crewai.flow.flow import Flow, start, router, listen
 from copilotkit.crewai import (
   copilotkit_stream, 
   CopilotKitState, 
-  copilotkit_predict_state,
-  copilotkit_emit_state
 )
 from litellm import completion
 from pydantic import BaseModel
@@ -82,24 +78,22 @@ class HumanInTheLoopFlow(Flow[AgentState]):
         """
         Standard chat node.
         """
-        system_prompt = f"You are a helpful assistant."
+        system_prompt = """
+        You are a helpful assistant that can perform any task.
+        When the function `generate_task_steps` is called, the user will decide to enable or disable a step.
+        After the user has decided which steps to perform, provide a textual description of how you are performing the task.
+        If the user has disabled a step, you are not allowed to perform that step.
+        However, you should find a creative workaround to perform the task, and if an essential step is disabled, you can even use
+        some humor in the description of how you are performing the task.
+        """
 
-        # 1. Here we specify that we want to stream the tool call to generate_task_steps
-        #    to the frontend as state.
-        await copilotkit_predict_state({
-            "steps": {
-                "tool": "generate_task_steps",
-                "tool_argument": "steps"
-            }
-        })
-
-        # 2. Run the model and stream the response
+        # 1. Run the model and stream the response
         #    Note: In order to stream the response, wrap the completion call in
         #    copilotkit_stream and set stream=True.
         response = await copilotkit_stream(
             completion(
 
-                # 2.1 Specify the model to use
+                # 1.1 Specify the model to use
                 model="openai/gpt-4o",
                 messages=[
                     {
@@ -109,13 +103,13 @@ class HumanInTheLoopFlow(Flow[AgentState]):
                     *self.state.messages
                 ],
 
-                # 2.2 Bind the tools to the model
+                # 1.2 Bind the tools to the model
                 tools=[
                     *self.state.copilotkit.actions,
                     DEFINE_TASK_TOOL
                 ],
 
-                # 2.3 Disable parallel tool calls to avoid race conditions,
+                # 1.3 Disable parallel tool calls to avoid race conditions,
                 #     enable this for faster performance if you want to manage
                 #     the complexity of running tool calls in parallel.
                 parallel_tool_calls=False,
@@ -125,44 +119,10 @@ class HumanInTheLoopFlow(Flow[AgentState]):
 
         message = response.choices[0].message
 
-        # 3. Append the message to the messages in state
+        # 2. Append the message to the messages in state
         self.state.messages.append(message)
 
-        # 4. Handle tool call
-        if message.get("tool_calls"):
-            tool_call = message["tool_calls"][0]
-            tool_call_id = tool_call["id"]
-            tool_call_name = tool_call["function"]["name"]
-            tool_call_args = json.loads(tool_call["function"]["arguments"])
-
-            if tool_call_name == "generate_task_steps":
-                # Convert each step in the JSON array to a TaskStep instance
-                self.state.steps = [TaskStep(**step) for step in tool_call_args["steps"]]
-
-                # 4.1 Append the result to the messages in state
-                self.state.messages.append({
-                    "role": "tool",
-                    "content": "Steps executed.",
-                    "tool_call_id": tool_call_id
-                })
-                return "route_simulate_task"
-
-        # 5. If our tool was not called, return to the end route
         return "route_end"
-    
-    @router()
-    @listen("route_simulate_task")
-    async def simulate_task(self):
-        """
-        Simulate the task.
-        """
-        for step in self.state.steps:
-            # simulate executing the step
-            await asyncio.sleep(1)
-            step.status = "completed"
-            await copilotkit_emit_state(self.state)
-
-        return "route_follow_up"
 
     @listen("route_end")
     async def end(self):
