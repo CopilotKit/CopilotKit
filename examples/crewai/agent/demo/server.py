@@ -12,17 +12,17 @@ from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from copilotkit import CopilotKitRemoteEndpoint
 from copilotkit.crewai import CrewAIAgent
 
-from demo.agentic_chat import AgenticChatFlow
-from demo.agentic_generative_ui import AgenticGenerativeUIFlow
-from demo.human_in_the_loop import HumanInTheLoopFlow
-from demo.multi_agent_flows import (
+from demo.agentic_chat.agent import AgenticChatFlow
+from demo.agentic_generative_ui.agent import AgenticGenerativeUIFlow
+from demo.human_in_the_loop.agent import HumanInTheLoopFlow
+from demo.multi_agent_flows.agent import (
     MultiAgentWriterFlow,
     MultiAgentResearcherFlow,
     MultiAgentCriticFlow,
 )
-from demo.predictive_state_updates import PredictiveStateUpdatesFlow
-from demo.shared_state import SharedStateFlow
-from demo.tool_based_generative_ui import ToolBasedGenerativeUIFlow
+from demo.predictive_state_updates.agent import PredictiveStateUpdatesFlow
+from demo.shared_state.agent import SharedStateFlow
+from demo.tool_based_generative_ui.agent import ToolBasedGenerativeUIFlow
 
 
 app = FastAPI()
