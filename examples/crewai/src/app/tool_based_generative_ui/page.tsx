@@ -1,29 +1,37 @@
 "use client";
-import { useCopilotAction } from "@copilotkit/react-core";
+import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
 import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
 import { useState } from "react";
+import "@copilotkit/react-ui/styles.css";
+import "./style.css";
 
 export default function AgenticChat() {
   return (
-    <div
-      className="min-h-screen w-full flex items-center justify-center"
-      style={
-        {
-          "--copilot-kit-primary-color": "#222",
-          "--copilot-kit-separator-color": "#CCC",
-        } as CopilotKitCSSProperties
-      }
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      showDevConsole={false}
+      agent="tool_based_generative_ui"
     >
-      <Haiku />
-      <CopilotSidebar
-        defaultOpen={true}
-        labels={{
-          title: "Haiku Generator",
-          initial: "I'm a haiku generator 👋. How can I help you?",
-        }}
-        clickOutsideToClose={false}
-      />
-    </div>
+      <div
+        className="min-h-screen w-full flex items-center justify-center"
+        style={
+          {
+            "--copilot-kit-primary-color": "#222",
+            "--copilot-kit-separator-color": "#CCC",
+          } as CopilotKitCSSProperties
+        }
+      >
+        <Haiku />
+        <CopilotSidebar
+          defaultOpen={true}
+          labels={{
+            title: "Haiku Generator",
+            initial: "I'm a haiku generator 👋. How can I help you?",
+          }}
+          clickOutsideToClose={false}
+        />
+      </div>
+    </CopilotKit>
   );
 }
 
