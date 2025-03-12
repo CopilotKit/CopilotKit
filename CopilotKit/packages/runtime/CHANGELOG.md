@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.7.1
+
+### Patch Changes
+
+- 261b2be: - simplifies interface + adds o11y in agents
+  - @copilotkit/shared@1.7.1
+
 ## 1.7.1-next.0
 
 ### Patch Changes
