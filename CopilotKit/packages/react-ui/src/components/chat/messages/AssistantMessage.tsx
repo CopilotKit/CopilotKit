@@ -6,7 +6,7 @@ import { useState } from "react";
 
 export const AssistantMessage = (props: AssistantMessageProps) => {
   const { icons, labels } = useChatContext();
-  const { message, isLoading, subComponent, onRegenerate, onCopy, onThumbsUp, onThumbsDown } =
+  const { message, isLoading, subComponent, onRegenerate, onCopy, onThumbsUp, onThumbsDown, isCurrentMessage } =
     props;
   const [copied, setCopied] = useState(false);
 
@@ -51,7 +51,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
           {isLoading && <LoadingIcon />}
 
           {message && !isLoading && (
-            <div className="copilotKitMessageControls">
+            <div className={`copilotKitMessageControls ${isCurrentMessage ? 'currentMessage' : ''}`}>
               <button
                 className="copilotKitMessageControlButton"
                 onClick={handleRegenerate}

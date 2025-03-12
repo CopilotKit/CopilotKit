@@ -35,6 +35,7 @@ export function RenderTextMessage(props: RenderMessageProps) {
           rawData={message}
           isLoading={inProgress && isCurrentMessage && !message.content}
           isGenerating={inProgress && isCurrentMessage && !!message.content}
+          isCurrentMessage={isCurrentMessage}
           onRegenerate={onRegenerate ?? noop}
           onCopy={onCopy ?? noop}
           onThumbsUp={onThumbsUp ?? noop}

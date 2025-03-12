@@ -68,6 +68,11 @@ export interface AssistantMessageProps {
   message?: string;
 
   /**
+   * Indicates if this is the last message
+   */
+  isCurrentMessage?: boolean;
+
+  /**
    * The raw data from the assistant's response
    */
   rawData: any;

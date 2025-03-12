@@ -25,13 +25,10 @@ export const Markdown = ({ content }: MarkdownProps) => {
 };
 
 const components: Components = {
-  p({ children }) {
-    return <p style={{ maxWidth: "80%" }}>{children}</p>;
-  },
   a({ children, ...props }) {
     return (
       <a
-        style={{ color: "blue", textDecoration: "underline", maxWidth: "80%" }}
+        style={{ color: "blue", textDecoration: "underline" }}
         {...props}
         target="_blank"
         rel="noopener noreferrer"

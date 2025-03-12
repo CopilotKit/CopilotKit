@@ -4,7 +4,7 @@
   cursor: text;
   position: relative;
   background-color: var(--copilot-kit-background-color);
-  border-radius: 10px;
+  border-radius: 20px;
   border: 1px solid var(--copilot-kit-separator-color);
   padding: 5px 8px 5px 13px;
 }
