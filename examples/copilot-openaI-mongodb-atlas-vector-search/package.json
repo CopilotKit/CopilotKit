@@ -1,0 +1,35 @@
+{
+  "name": "product-knowledge-base",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.36.3",
+    "@copilotkit/react-core": "^1.5.20",
+    "@copilotkit/react-ui": "^1.5.20",
+    "@copilotkit/runtime": "^1.5.20",
+    "@mantine/core": "^7.17.0",
+    "@mantine/hooks": "^7.17.0",
+    "@pinecone-database/pinecone": "^5.0.0",
+    "axios": "^1.7.9",
+    "lucide-react": "^0.475.0",
+    "mongodb": "^6.13.0",
+    "next": "15.1.7",
+    "product-knowledge-base": "file:",
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.1.7",
+    "typescript": "^5"
+  }
+}
