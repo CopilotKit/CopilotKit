@@ -50,6 +50,7 @@ class ToolBasedGenerativeUIFlow(Flow[CopilotKitState]):
         """
         system_prompt = "You assist the user in generating a haiku."
 
+
         # 1. Run the model and stream the response
         #    Note: In order to stream the response, wrap the completion call in
         #    copilotkit_stream and set stream=True.
@@ -67,10 +68,7 @@ class ToolBasedGenerativeUIFlow(Flow[CopilotKitState]):
                 ],
 
                 # 1.2 Bind the available tools to the model
-                tools=[
-                    *self.state.copilotkit.actions,
-                    GENERATE_HAIKU_TOOL,
-                ],
+                tools=[ GENERATE_HAIKU_TOOL ],
 
                 # 1.3 Disable parallel tool calls to avoid race conditions,
                 #     enable this for faster performance if you want to manage

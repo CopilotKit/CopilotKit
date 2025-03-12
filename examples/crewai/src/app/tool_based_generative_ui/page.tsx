@@ -42,7 +42,6 @@ function Haiku() {
 
   useCopilotAction({
     name: "generate_haiku",
-    available: "frontend",
     parameters: [
       {
         name: "japanese",
@@ -53,7 +52,12 @@ function Haiku() {
         type: "string[]",
       },
     ],
+    followUp: false,
+    handler: async () => {
+      return "Haiku generated.";
+    },
     render: ({ args: generatedHaiku, result, status }) => {
+      const [isApplied, setIsApplied] = useState(false);
       if (
         !generatedHaiku ||
         !generatedHaiku.japanese ||
@@ -62,14 +66,11 @@ function Haiku() {
         return <></>;
       }
 
-      const isCurrentHaiku =
-        haiku.japanese.join(" ") === generatedHaiku.japanese.join(" ");
-
       return (
-        <div className="text-left border rounded-md p-4 mt-4 mb-4 flex flex-col">
+        <div className="text-left rounded-md p-4 mt-4 mb-4 flex flex-col bg-gray-100">
           <div
             className={
-              status === "complete" ? "border-b border-black mb-4" : ""
+              status === "complete" ? "border-b border-gray-300 mb-4" : ""
             }
           >
             {generatedHaiku?.japanese?.map((line, index) => (
@@ -81,19 +82,15 @@ function Haiku() {
               </div>
             ))}
           </div>
-          {status === "complete" && !isCurrentHaiku && (
+          {status === "complete" && (
             <button
               onClick={() => {
                 setHaiku(generatedHaiku);
+                setIsApplied(true);
               }}
-              className="ml-auto px-3 py-1 bg-black text-white text-sm rounded hover:bg-gray-800 transition-colors cursor-pointer font-sm"
+              className="ml-auto px-3 py-1 bg-white text-black text-sm rounded cursor-pointer font-sm border "
             >
-              Apply
-            </button>
-          )}
-          {status === "complete" && isCurrentHaiku && (
-            <button className="ml-auto px-3 py-1 bg-white text-black text-sm rounded border border-black hover:bg-gray-100 transition-colors cursor-not-allowed font-sm">
-              Applied ✔️
+              {isApplied ? "Applied ✓" : "Apply"}
             </button>
           )}
         </div>
