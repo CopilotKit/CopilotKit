@@ -2,7 +2,6 @@
   height: 56px;
   font-weight: 500;
   display: flex;
-  justify-content: flex-start;
   align-items: center;
   position: relative;
   color: var(--copilot-kit-contrast-color);
@@ -12,10 +11,15 @@
   padding-left: 1.5rem;
   backdrop-filter: blur(10px);
   background-color: rgba(255, 255, 255, 0.5); /* Adjust opacity to your preference */
+  justify-content: space-between;
 }
 
 .copilotKitSidebar .copilotKitHeader {
   border-radius: 0;
+}
+
+.copilotKitHeaderControls {
+  display: flex;
 }
 
 @media (min-width: 640px) {

@@ -353,7 +353,6 @@ export function CopilotChat({
 
   return (
     <WrappedCopilotChat icons={icons} labels={labels} className={className}>
-      <CopilotDevConsole />
       <Messages
         AssistantMessage={AssistantMessage}
         UserMessage={UserMessage}

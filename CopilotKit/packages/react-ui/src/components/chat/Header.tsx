@@ -1,5 +1,7 @@
 import { HeaderProps } from "./props";
 import { useChatContext } from "./ChatContext";
+import { CopilotDevConsole } from "../dev-console";
+import React from "react";
 
 export const Header = ({}: HeaderProps) => {
   const { setOpen, icons, labels } = useChatContext();
@@ -7,9 +9,12 @@ export const Header = ({}: HeaderProps) => {
   return (
     <div className="copilotKitHeader">
       <div>{labels.title}</div>
-      <button onClick={() => setOpen(false)} aria-label="Close">
-        {icons.headerCloseIcon}
-      </button>
+      <div className="copilotKitHeaderControls">
+          <CopilotDevConsole />
+          <button onClick={() => setOpen(false)} aria-label="Close">
+              {icons.headerCloseIcon}
+          </button>
+      </div>
     </div>
   );
 };

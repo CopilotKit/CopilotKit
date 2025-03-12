@@ -42,9 +42,9 @@
 }
 
 .copilotKitMessage {
-  border-radius: 0.5rem;
-  padding: 0.75rem;
-  font-size: 0.875rem;
+  border-radius: 15px;
+  padding: 8px 12px;
+  font-size: 1rem;
   line-height: 1.5;
   overflow-wrap: break-word;
   max-width: 80%;
@@ -57,7 +57,6 @@
   color: var(--copilot-kit-contrast-color);
   margin-left: auto;
   white-space: pre-wrap;
-  border-bottom-right-radius: 0.25rem;
   line-height: 1.75;
   font-size: 1rem;
 }
