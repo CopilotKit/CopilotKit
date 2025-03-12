@@ -6,7 +6,7 @@
 ## 2. Use Case 
 (What problem does this solve?)
 
-## 3. Technologies Being Used 
+## 3. Technologies Used 
 (List the technologies and frameworks you used (e.g., CopilotKit, Next.js))
 
 **Replace this text with your technologies**
@@ -36,6 +36,5 @@ Note: Include a screenshot of your demo in action
 
 Please list your **Twitter** & **LinkedIn** profile 
 
-### Thank you! 
-We want to showcase what you've built! 🚀
-
+## ⭐️ Project README with installation and setup steps ⭐️👇
+Place the full detailed README here:
