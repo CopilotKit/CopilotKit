@@ -10,7 +10,7 @@ export default function AgenticChat() {
       style={
         {
           "--copilot-kit-primary-color": "#222",
-          "--copilot-kit-separator-color": "#AAA",
+          "--copilot-kit-separator-color": "#CCC",
         } as CopilotKitCSSProperties
       }
     >
