@@ -207,7 +207,7 @@ function getPartialArguments(args: string[]) {
   try {
     if (!args.length) return {};
 
-    return parseJson(untruncateJson(args.join("")));
+    return JSON.parse(untruncateJson(args.join("")));
   } catch (e) {
     console.error(e);
     return {};
