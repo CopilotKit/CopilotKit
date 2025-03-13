@@ -35,8 +35,10 @@ I'm Ekemini, a Technical writer and Software developer, we can connect on [Twitt
 ## AI-Powered Financial Insights
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/26e9cdb5-f667-421f-a58d-b97e0877bd06" alt="Coyamin AI " width="250" />
-  <p><em>Your AI-powered financial companion</em></p>
+  
+![finance app](https://github.com/user-attachments/assets/5a5e9582-e183-43ca-b936-9b12aa9fa24b)
+  
+<p><em>Your AI-powered financial companion</em></p>
 </div>
 
 Coyamin is an AI-powered financial insights application that helps users understand and optimize their personal finances. Built with Next.js, CopilotKit for AI assistance, and Maybe Finance API for financial data.
