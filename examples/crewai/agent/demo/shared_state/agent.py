@@ -14,7 +14,7 @@ from copilotkit.crewai import (
   CopilotKitState
 )
 
-class SkillLevel(Enum):
+class SkillLevel(str, Enum):
     """
     The level of skill required for the recipe.
     """
@@ -22,7 +22,7 @@ class SkillLevel(Enum):
     INTERMEDIATE = "Intermediate"
     ADVANCED = "Advanced"
 
-class SpecialPreferences(Enum):
+class SpecialPreferences(str, Enum):
     """
     Special preferences for the recipe.
     """
@@ -34,7 +34,7 @@ class SpecialPreferences(Enum):
     VEGETARIAN = "Vegetarian"
     VEGAN = "Vegan"
 
-class CookingTime(Enum):
+class CookingTime(str, Enum):
     """
     The cooking time of the recipe.
     """
@@ -44,19 +44,6 @@ class CookingTime(Enum):
     FORTY_FIVE_MIN = "45 min"
     SIXTY_PLUS_MIN = "60+ min"
 
-class Allergens(Enum):
-    """
-    Allergens that the recipe contains.
-    """
-    PEANUTS = "Peanuts"
-    TREE_NUTS = "Tree Nuts"
-    DAIRY = "Dairy"
-    EGGS = "Eggs"
-    GLUTEN = "Gluten"
-    SOY = "Soy"
-    FISH = "Fish"
-    SHELLFISH = "Shellfish"
-    SESAME = "Sesame"
 
 GENERATE_RECIPE_TOOL = {
     "type": "function",
@@ -69,44 +56,39 @@ GENERATE_RECIPE_TOOL = {
         "parameters": {
             "type": "object",
             "properties": {
-                "skill_level": {
-                    "type": "string",
-                    "enum": [level.value for level in SkillLevel],
-                    "description": "The skill level required for the recipe"
-                },
-                "special_preferences": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                        "enum": [preference.value for preference in SpecialPreferences]
+                "recipe": {
+                    "type": "object",
+                    "properties": {
+                        "skill_level": {
+                            "type": "string",
+                            "enum": [level.value for level in SkillLevel],
+                            "description": "The skill level required for the recipe"
+                        },
+                        "special_preferences": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [preference.value for preference in SpecialPreferences]
+                            },
+                            "description": "A list of special preferences for the recipe"
+                        },
+                        "cooking_time": {
+                            "type": "string",
+                            "enum": [time.value for time in CookingTime],
+                            "description": "The cooking time of the recipe"
+                        },
+                        "ingredients": {
+                            "type": "string",
+                            "description": "A list of ingredients in the recipe"
+                        },
+                        "instructions": {
+                            "type": "string",
+                            "description": "Instructions for the recipe"
+                        }
                     },
-                    "description": "A list of special preferences for the recipe"
-                },
-                "cooking_time": {
-                    "type": "string",
-                    "enum": [time.value for time in CookingTime],
-                    "description": "The cooking time of the recipe"
-                },
-                "allergens": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                        "enum": [allergen.value for allergen in Allergens]
-                    },
-                    "description": "A list of allergens in the recipe"
-                },
-                "ingredients": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                    },
-                    "description": "A list of ingredients in the recipe"
-                },
-                "instructions": {
-                    "type": "string",
-                    "description": "Instructions for the recipe"
                 }
             },
+            "required": ["recipe"]
         }
     }
 }
@@ -118,9 +100,9 @@ class Recipe(BaseModel):
     skill_level: SkillLevel
     special_preferences: List[SpecialPreferences]
     cooking_time: CookingTime
-    allergens: List[Allergens]
-    ingredients: List[str]
+    ingredients: str
     instructions: str
+
 
 class AgentState(CopilotKitState):
     """
@@ -145,13 +127,19 @@ class SharedStateFlow(Flow[AgentState]):
         """
         Standard chat node.
         """
-        system_prompt = f"You are a helpful assistant for creating recipes. This is the current state of the recipe: {json.dumps(self.state.recipe.model_dump(), indent=2)}"
+ 
+        system_prompt = f"""You are a helpful assistant for creating recipes. 
+        This is the current state of the recipe: {json.dumps(self.state.model_dump_json(), indent=2)}
+        You can modify the recipe by calling the generate_recipe tool.
+        If you have just created or modified the recipe, just answer in one sentence what you did.
+        """
 
         # 1. Here we specify that we want to stream the tool call to generate_recipe
         #    to the frontend as state.
         await copilotkit_predict_state({
             "recipe": {
-                "tool": "generate_recipe",
+                "tool_name": "generate_recipe",
+                "tool_argument": "recipe"
             }
         })
 
@@ -197,8 +185,8 @@ class SharedStateFlow(Flow[AgentState]):
             tool_call_name = tool_call["function"]["name"]
             tool_call_args = json.loads(tool_call["function"]["arguments"])
 
-            if tool_call_name == "generate_recipe":                
-                for key, value in tool_call_args.items():
+            if tool_call_name == "generate_recipe":
+                for key, value in tool_call_args["recipe"].items():
                     setattr(self.state.recipe, key, value)
 
                 # 4.1 Append the result to the messages in state
