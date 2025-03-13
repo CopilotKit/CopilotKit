@@ -9,6 +9,7 @@ interface DemoTabsProps {
   preview?: React.ReactNode;
   fileContent?: string;
   readmeContent?: string;
+  fileTree?: React.ReactNode;
 }
 
 export function DemoTabs({
@@ -16,6 +17,7 @@ export function DemoTabs({
   preview,
   fileContent,
   readmeContent,
+  fileTree,
 }: DemoTabsProps) {
   const demoFiles = fileContent ? [
     {
@@ -59,7 +61,12 @@ export function DemoTabs({
       </TabsContent>
 
       <TabsContent value="code" className="flex-1 p-0 m-0">
-        <CodeEditor file={demoFiles.find(f => f.path === selectedFilePath)} />
+        <div className="flex h-full">
+          {fileTree}
+          <div className="flex-1">
+            <CodeEditor file={demoFiles.find(f => f.path === selectedFilePath)} />
+          </div>
+        </div>
       </TabsContent>
 
       {readmeContent && (

@@ -75,6 +75,28 @@ export default function Home() {
               selectedFilePath={selectedFilePath}
               fileContent={fileContent}
               preview={selectedDemo && <DemoPreview demo={selectedDemo} />}
+              fileTree={
+                <div className="w-72 border-r flex flex-col">
+                  <FileTreeNav 
+                    path={currentPath} 
+                    rootPath={selectedDemo?.path || ''} 
+                    onNavigate={handleNavigate} 
+                  />
+                  <div className="flex-1 overflow-auto">
+                    <FileTree
+                      basePath={currentPath}
+                      files={files}
+                      selectedFile={selectedFilePath}
+                      onFileSelect={handleFileSelect}
+                    />
+                  </div>
+                  {error && (
+                    <div className="p-2 text-sm text-red-500">
+                      {error}
+                    </div>
+                  )}
+                </div>
+              }
             />
           </div>
         ) : (
@@ -82,28 +104,6 @@ export default function Home() {
             Select a demo from the list to get started
           </div>
         )}
-
-        {/* File Tree - Right Sidebar */}
-        <div className="w-72 border-l flex flex-col">
-          <FileTreeNav 
-            path={currentPath} 
-            rootPath={selectedDemo?.path || ''} 
-            onNavigate={handleNavigate} 
-          />
-          <div className="flex-1 overflow-auto">
-            <FileTree
-              basePath={currentPath}
-              files={files}
-              selectedFile={selectedFilePath}
-              onFileSelect={handleFileSelect}
-            />
-          </div>
-          {error && (
-            <div className="p-2 text-sm text-red-500">
-              {error}
-            </div>
-          )}
-        </div>
       </div>
     </ViewerLayout>
   );
