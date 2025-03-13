@@ -143,9 +143,11 @@ async def copilotkit_emit_state(state: Any) -> Literal[True]:
     """
     execution = get_context_execution()
 
+    state_as_dict = state.model_dump() if isinstance(state, BaseModel) else state
     state = {
-        k: v for k, v in state.items() if k not in ["messages"]
+        k: v for k, v in state_as_dict.items() if k not in ["messages", "copilotkit"]
     }
+
 
     await queue_put(
         agent_state_message(
