@@ -10,18 +10,20 @@
 }
 
 .copilotKitDevConsole .copilotKitVersionInfo {
-  flex: 1;
-  margin-left: 18px;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  position: absolute;
+  bottom: -25px;
+  padding: 3px 5px;
+  left: 0;
+  width: 100%;
+  justify-content: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  align-items: center;
+  background: #ebb305;
 }
 
-.copilotKitDevConsole .copilotKitVersionInfo footer {
-  margin-top: 10px;
-}
-
-.copilotKitDevConsole .copilotKitVersionInfo footer button {
+.copilotKitDevConsole .copilotKitVersionInfo button {
   font-size: 11px;
   font-weight: normal;
   font-family: monospace;
@@ -38,18 +40,14 @@
   text-overflow: ellipsis;
 }
 
-.copilotKitDevConsole .copilotKitVersionInfo header aside {
+.copilotKitDevConsole .copilotKitVersionInfo aside {
   display: inline;
   font-weight: normal;
   color: #7f7a7a;
   margin-left: 5px;
 }
 
-.copilotKitDevConsole .copilotKitVersionInfo section {
-  font-size: 11px;
-}
-
-.copilotKitDevConsole .copilotKitVersionInfo section svg {
+.copilotKitDevConsole .copilotKitVersionInfo svg {
   margin-left: 3px;
   margin-top: -3px;
 }
