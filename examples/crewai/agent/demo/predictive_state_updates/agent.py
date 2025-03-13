@@ -3,6 +3,7 @@ A demo of predictive state updates.
 """
 
 import json
+import uuid
 from typing import Optional
 from litellm import completion
 from crewai.flow.flow import Flow, start, router, listen
@@ -16,8 +17,15 @@ WRITE_DOCUMENT_TOOL = {
     "type": "function",
     "function": {
         "name": "write_document",
-        "description": " ".join("""Write a document. Always write the full document, 
-                                even when changing only a few words.""".split()),
+        "description": " ".join("""
+            Write a document. Use markdown formatting to format the document.
+            It's good to format the document extensively so it's easy to read.
+            You can use all kinds of markdown.
+            However, do not use italic or strike-through formatting, it's reserved for another purpose.
+            You MUST write the full document, even when changing only a few words.
+            When making edits to the document, try to make them minimal - do not change every word.
+            Keep stories SHORT!
+            """.split()),
         "parameters": {
             "type": "object",
             "properties": {
@@ -54,13 +62,20 @@ class PredictiveStateUpdatesFlow(Flow[AgentState]):
         """
         Standard chat node.
         """
-        system_prompt = f"You are a helpful assistant for writing documents. This is the current state of the document: ----\n {self.state.document}\n-----"
+        system_prompt = f"""
+        You are a helpful assistant for writing documents. 
+        To write the document, you MUST use the write_document tool.
+        You MUST write the full document, even when changing only a few words.
+        When you wrote the document, DO NOT repeat it as a message. 
+        Just briefly summarize the changes you made. 2 sentences max.
+        This is the current state of the document: ----\n {self.state.document}\n-----
+        """
 
         # 1. Here we specify that we want to stream the tool call to write_document
         #    to the frontend as state.
         await copilotkit_predict_state({
             "document": {
-                "tool": "write_document",
+                "tool_name": "write_document",
                 "tool_argument": "document"
             }
         })
@@ -116,7 +131,21 @@ class PredictiveStateUpdatesFlow(Flow[AgentState]):
                     "content": "Document written.",
                     "tool_call_id": tool_call_id
                 })
-                return "route_follow_up"
+
+                # 4.2 Append a tool call to confirm changes
+                self.state.messages.append({
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [{
+                        "id": str(uuid.uuid4()),
+                        "function": {
+                            "name": "confirm_changes",
+                            "arguments": "{}"
+                        }
+                    }]
+                })
+
+                return "route_end"
 
         # 5. If our tool was not called, return to the end route
         return "route_end"

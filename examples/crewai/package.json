@@ -14,6 +14,14 @@
     "@copilotkit/react-core": "^1.7.1",
     "@copilotkit/react-ui": "^1.7.1",
     "@copilotkit/runtime": "^1.7.1",
+    "@tiptap/extension-color": "^2.11.5",
+    "@tiptap/extension-placeholder": "^2.11.5",
+    "@tiptap/pm": "^2.11.5",
+    "@tiptap/react": "^2.11.5",
+    "@tiptap/starter-kit": "^2.11.5",
+    "diff": "^7.0.0",
+    "markdown-it": "^14.1.0",
+    "markdown-it-ins": "^4.0.0",
     "next": "15.2.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
@@ -21,6 +29,8 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/diff": "^7.0.1",
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
