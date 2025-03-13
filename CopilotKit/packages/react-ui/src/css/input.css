@@ -6,7 +6,7 @@
   background-color: #fbfbfb;
   border-radius: 20px;
   border: 1px solid var(--copilot-kit-separator-color);
-  padding: 8px 14px;
+  padding: 12px 14px;
   height: 75px;
 }
 
@@ -39,8 +39,8 @@
   text-shadow: none;
   display: inline-block;
   text-align: center;
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
 }
 
 .copilotKitInput > .copilotKitInputControls > button:not([disabled]) {
@@ -59,6 +59,7 @@
 
 .copilotKitInputControls {
   display: flex;
+  gap: 3px;
 }
 
 .copilotKitInput > textarea {
