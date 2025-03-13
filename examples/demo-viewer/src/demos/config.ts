@@ -1,5 +1,6 @@
 import { DemoConfig } from '@/types/demo';
 
+// A helper method to creating a config
 function createDemoConfig({
     id,
     name,
