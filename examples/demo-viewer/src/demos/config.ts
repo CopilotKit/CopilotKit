@@ -27,8 +27,14 @@ const config: DemoConfig[] = [
     createDemoConfig({
         id: 'tool_based_generative_ui',
         name: 'Tool Based Generative UI',
-        description: 'LLM Generative UI using tools',
+        description: 'Haiku generator that uses tool based generative UI.',
         tags: ['Generative ui (action)', 'Tools'],
+    }),
+    createDemoConfig({
+        id: 'shared_state',
+        name: 'Shared State between agent and UI',
+        description: 'A recipe copilot which reads and update collaboratively',
+        tags: ['Agent State', 'Collaborating'],
     })
     // Add more demos here
 ];
