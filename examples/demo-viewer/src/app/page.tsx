@@ -75,6 +75,8 @@ export default function Home() {
               selectedFilePath={selectedFilePath}
               fileContent={fileContent}
               preview={selectedDemo && <DemoPreview demo={selectedDemo} />}
+              onFileSelect={handleFileSelect}
+              files={files}
               fileTree={
                 <div className="w-72 border-r flex flex-col">
                   <FileTreeNav 

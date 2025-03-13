@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Eye, Code, Book } from 'lucide-react';
 import { CodeEditor } from '@/components/code-editor/code-editor';
 import ReactMarkdown from 'react-markdown';
+import { FileEntry } from '@/components/file-tree/file-tree';
 
 interface DemoTabsProps {
   selectedFilePath?: string;
@@ -10,6 +11,8 @@ interface DemoTabsProps {
   fileContent?: string;
   readmeContent?: string;
   fileTree?: React.ReactNode;
+  onFileSelect?: (path: string) => void;
+  files?: FileEntry[];
 }
 
 export function DemoTabs({
@@ -18,6 +21,8 @@ export function DemoTabs({
   fileContent,
   readmeContent,
   fileTree,
+  onFileSelect,
+  files,
 }: DemoTabsProps) {
   const demoFiles = fileContent ? [
     {
@@ -31,8 +36,23 @@ export function DemoTabs({
     }
   ] : [];
 
+  // Find agent.py file when switching to code tab
+  const handleTabChange = (value: string) => {
+    if (value === 'code' && onFileSelect && files) {
+      // Look for agent.py file
+      const agentFile = files.find(file => 
+        file.name === 'agent.py' || 
+        file.path.endsWith('/agent.py')
+      );
+      
+      if (agentFile) {
+        onFileSelect(agentFile.path);
+      }
+    }
+  };
+
   return (
-    <Tabs defaultValue="preview" className="flex-1 flex flex-col">
+    <Tabs defaultValue="preview" className="flex-1 flex flex-col" onValueChange={handleTabChange}>
       <div className="border-b px-4">
         <TabsList>
           <TabsTrigger value="preview" className="gap-2">

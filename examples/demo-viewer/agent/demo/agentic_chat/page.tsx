@@ -42,7 +42,7 @@ const Chat = () => {
       className="flex justify-center items-center h-full w-full"
       style={{ background }}
     >
-      <div className="w-8/10 h-8/10">
+      <div className="w-8/10 h-8/10 rounded-lg">
         <CopilotChat
           className="h-full rounded-lg"
           labels={{ initial: "Hi, I'm an agent. Want to chat?" }}
