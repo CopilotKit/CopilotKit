@@ -339,7 +339,6 @@ export function CopilotChat({
   const handleRegenerate = () => {
     if (onRegenerate) {
       onRegenerate();
-
     }
 
     reloadMessages();
@@ -368,18 +367,18 @@ export function CopilotChat({
         onThumbsDown={onThumbsDown}
       >
         {currentSuggestions.length > 0 && (
-            <div className="suggestions">
-              {currentSuggestions.map((suggestion, index) => (
-                  <Suggestion
-                      key={index}
-                      title={suggestion.title}
-                      message={suggestion.message}
-                      partial={suggestion.partial}
-                      className={suggestion.className}
-                      onClick={(message) => sendMessage(message)}
-                  />
-              ))}
-            </div>
+          <div className="suggestions">
+            {currentSuggestions.map((suggestion, index) => (
+              <Suggestion
+                key={index}
+                title={suggestion.title}
+                message={suggestion.message}
+                partial={suggestion.partial}
+                className={suggestion.className}
+                onClick={(message) => sendMessage(message)}
+              />
+            ))}
+          </div>
         )}
       </Messages>
       <Input

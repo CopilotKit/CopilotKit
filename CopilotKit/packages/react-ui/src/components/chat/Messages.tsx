@@ -48,7 +48,7 @@ export const Messages = ({
 
   return (
     <div className="copilotKitMessages" ref={messagesContainerRef}>
-      <div className="copilotKitMessages copilotKitMessagesContainer">
+      <div className="copilotKitMessagesContainer">
         {messages.map((message, index) => {
           const isCurrentMessage = index === messages.length - 1;
 

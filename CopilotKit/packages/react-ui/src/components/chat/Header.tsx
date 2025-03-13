@@ -10,10 +10,10 @@ export const Header = ({}: HeaderProps) => {
     <div className="copilotKitHeader">
       <div>{labels.title}</div>
       <div className="copilotKitHeaderControls">
-          <CopilotDevConsole />
-          <button onClick={() => setOpen(false)} aria-label="Close">
-              {icons.headerCloseIcon}
-          </button>
+        <CopilotDevConsole />
+        <button onClick={() => setOpen(false)} aria-label="Close">
+          {icons.headerCloseIcon}
+        </button>
       </div>
     </div>
   );

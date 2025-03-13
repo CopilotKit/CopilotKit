@@ -4,6 +4,15 @@
   display: flex;
   flex-direction: column;
   background-color: var(--copilot-kit-background-color);
+  justify-content: space-between;
+}
+
+.copilotKitMessagesContainer {
+  /*overflow-y: scroll;*/
+  /*flex: 1;*/
+  padding: 1rem 24px;
+  display: flex;
+  flex-direction: column;
 }
 
 .copilotKitMessagesFooter {
@@ -13,14 +22,6 @@
   justify-content: flex-start;
   flex-direction: column;
   width: 90%;
-}
-
-.copilotKitMessagesContainer {
-  overflow-y: scroll;
-  flex: 1;
-  padding: 1rem 24px;
-  display: flex;
-  flex-direction: column;
 }
 
 .copilotKitMessages::-webkit-scrollbar {

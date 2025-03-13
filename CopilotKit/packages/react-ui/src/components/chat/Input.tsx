@@ -54,7 +54,11 @@ export const Input = ({ inProgress, onSend, isVisible = false, onStop }: InputPr
     const interruptInProgress =
       interruptEvent?.name === "LangGraphInterruptEvent" && !interruptEvent?.response;
 
-    return (isInProgress || (!isInProgress && text.trim().length > 0)) && pushToTalkState === "idle" && !interruptInProgress
+    return (
+      (isInProgress || (!isInProgress && text.trim().length > 0)) &&
+      pushToTalkState === "idle" &&
+      !interruptInProgress
+    );
   };
 
   const sendDisabled = !canSend();

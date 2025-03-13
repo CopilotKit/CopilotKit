@@ -6,8 +6,16 @@ import { useState } from "react";
 
 export const AssistantMessage = (props: AssistantMessageProps) => {
   const { icons, labels } = useChatContext();
-  const { message, isLoading, subComponent, onRegenerate, onCopy, onThumbsUp, onThumbsDown, isCurrentMessage } =
-    props;
+  const {
+    message,
+    isLoading,
+    subComponent,
+    onRegenerate,
+    onCopy,
+    onThumbsUp,
+    onThumbsDown,
+    isCurrentMessage,
+  } = props;
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -51,7 +59,9 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
           {isLoading && <LoadingIcon />}
 
           {message && !isLoading && (
-            <div className={`copilotKitMessageControls ${isCurrentMessage ? 'currentMessage' : ''}`}>
+            <div
+              className={`copilotKitMessageControls ${isCurrentMessage ? "currentMessage" : ""}`}
+            >
               <button
                 className="copilotKitMessageControlButton"
                 onClick={handleRegenerate}
@@ -73,24 +83,24 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
                 )}
               </button>
               {onThumbsUp && (
-                  <button
-                      className="copilotKitMessageControlButton"
-                      onClick={handleThumbsUp}
-                      aria-label={labels.thumbsUp}
-                      title={labels.thumbsUp}
-                  >
-                    {ThumbsUpIcon}
-                  </button>
+                <button
+                  className="copilotKitMessageControlButton"
+                  onClick={handleThumbsUp}
+                  aria-label={labels.thumbsUp}
+                  title={labels.thumbsUp}
+                >
+                  {ThumbsUpIcon}
+                </button>
               )}
               {onThumbsDown && (
-                  <button
-                      className="copilotKitMessageControlButton"
-                      onClick={handleThumbsDown}
-                      aria-label={labels.thumbsDown}
-                      title={labels.thumbsDown}
-                  >
-                    {ThumbsDownIcon}
-                  </button>
+                <button
+                  className="copilotKitMessageControlButton"
+                  onClick={handleThumbsDown}
+                  aria-label={labels.thumbsDown}
+                  title={labels.thumbsDown}
+                >
+                  {ThumbsDownIcon}
+                </button>
               )}
             </div>
           )}

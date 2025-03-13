@@ -169,14 +169,16 @@ function VersionInfo({
 
   if (versionStatus === "update-available" || versionStatus === "outdated") {
     return (
-        <div className="copilotKitVersionInfo">
-          <p>{currentVersionLabel} {versionIcon}</p>
-          <button onClick={handleCopyClick}>{copyStatus || installCommand}</button>
-        </div>
+      <div className="copilotKitVersionInfo">
+        <p>
+          {currentVersionLabel} {versionIcon}
+        </p>
+        <button onClick={handleCopyClick}>{copyStatus || installCommand}</button>
+      </div>
     );
   }
 
-  return null
+  return null;
 }
 
 export default function DebugMenuButton({
