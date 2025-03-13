@@ -52,21 +52,30 @@ export function DemoTabs({
   };
 
   return (
-    <Tabs defaultValue="preview" className="flex-1 flex flex-col" onValueChange={handleTabChange}>
-      <div className="border-b px-4">
-        <TabsList>
-          <TabsTrigger value="preview" className="gap-2">
+    <Tabs defaultValue="preview" className="flex-1 flex flex-col relative" onValueChange={handleTabChange}>
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
+        <TabsList className="h-9 bg-background border shadow-md rounded-lg p-1">
+          <TabsTrigger 
+            value="preview" 
+            className="h-7 px-4 text-sm font-medium gap-2 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow"
+          >
             <Eye className="h-4 w-4" />
-            Preview
+            <span>Preview</span>
           </TabsTrigger>
-          <TabsTrigger value="code" className="gap-2">
+          <TabsTrigger 
+            value="code" 
+            className="h-7 px-4 text-sm font-medium gap-2 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow"
+          >
             <Code className="h-4 w-4" />
-            Code
+            <span>Code</span>
           </TabsTrigger>
           {readmeContent && (
-            <TabsTrigger value="readme" className="gap-2">
+            <TabsTrigger 
+              value="readme" 
+              className="h-7 px-4 text-sm font-medium gap-2 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow"
+            >
               <Book className="h-4 w-4" />
-              README
+              <span>README</span>
             </TabsTrigger>
           )}
         </TabsList>

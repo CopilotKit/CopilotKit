@@ -7,8 +7,7 @@ interface ViewerLayoutProps extends ViewerConfig {
   children?: React.ReactNode;
   codeEditor?: React.ReactNode;
   fileTree?: React.ReactNode;
-  llmSelector?: React.ReactNode;
-  brandSelector?: React.ReactNode;
+  sidebarHeader?: React.ReactNode;
 }
 
 export function ViewerLayout({
@@ -16,27 +15,16 @@ export function ViewerLayout({
   children,
   codeEditor,
   fileTree,
-  llmSelector,
-  brandSelector,
+  sidebarHeader,
   showCodeEditor = true,
   showFileTree = true,
-  showLLMSelector = true,
-  showBrandSelector = true,
 }: ViewerLayoutProps) {
   return (
-    <div className={cn('flex h-screen flex-col', className)}>
-      <header className="flex h-14 items-center border-b px-6 bg-background">
-        <div className="flex flex-1">
-          {showBrandSelector && brandSelector}
-        </div>
-        <div className="flex items-center gap-4">
-          {showLLMSelector && llmSelector}
-        </div>
-      </header>
-      
+    <div className={cn('flex h-screen', className)}>
       <div className="flex flex-1 overflow-hidden">
         {showFileTree && (
-          <aside className="w-64 border-r bg-muted/20">
+          <aside className="w-64 border-r bg-muted/20 flex flex-col">
+            {sidebarHeader}
             {fileTree}
           </aside>
         )}

@@ -31,5 +31,4 @@ export interface ViewerConfig {
   showCodeEditor?: boolean;
   showFileTree?: boolean;
   showLLMSelector?: boolean;
-  showBrandSelector?: boolean;
-} 
+}

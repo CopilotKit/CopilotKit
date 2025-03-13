@@ -9,6 +9,7 @@ readme = "README.md"
 python = ">=3.12,<3.13"
 copilotkit = "0.1.40a2"
 tavily-python = "^0.5.1"
+uvicorn = "^0.34.0"
 
 [build-system]
 requires = ["poetry-core"]

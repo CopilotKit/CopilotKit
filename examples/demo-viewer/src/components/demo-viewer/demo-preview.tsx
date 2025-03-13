@@ -93,7 +93,7 @@ export function DemoPreview({ demo }: { demo: DemoConfig }) {
 
   if (error) {
     return (
-      <div className="p-6 text-center text-red-500">
+      <div className="flex items-center justify-center h-full text-red-500">
         {error}
       </div>
     );
@@ -101,23 +101,23 @@ export function DemoPreview({ demo }: { demo: DemoConfig }) {
 
   if (!Component) {
     return (
-      <div className="p-6 text-center text-muted-foreground">
+      <div className="flex items-center justify-center h-full text-muted-foreground">
         Loading demo...
       </div>
     );
   }
 
   return (
-      <Suspense fallback={
-        <div className="p-6 text-center text-muted-foreground">
-          Loading...
-        </div>
-      }>
-        <div className="w-full h-full overflow-hidden">
-          <IsolatedFrame>
-            <Component />
-          </IsolatedFrame>
-        </div>
-      </Suspense>
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-full text-muted-foreground">
+        Loading...
+      </div>
+    }>
+      <div className="w-full h-full overflow-hidden">
+        <IsolatedFrame>
+          <Component />
+        </IsolatedFrame>
+      </div>
+    </Suspense>
   );
 } 

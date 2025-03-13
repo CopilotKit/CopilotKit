@@ -25,12 +25,12 @@ export function LLMSelector({ value, onChange }: LLMSelectorProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="w-[180px] justify-start gap-2">
+        <Button variant="outline" className="w-full justify-start gap-2">
           <Brain className="h-4 w-4" />
           {selectedProvider?.label || 'Select Provider'}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="min-w-[180px]">
         {providers.map((provider) => (
           <DropdownMenuItem
             key={provider.value}
