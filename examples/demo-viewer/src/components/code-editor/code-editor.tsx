@@ -1,6 +1,5 @@
 import React from 'react';
 import Editor from '@monaco-editor/react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DemoFile } from '@/types/demo';
 
 interface CodeEditorProps {
