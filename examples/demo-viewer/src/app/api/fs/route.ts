@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
-import { FileEntry } from '@/components/file-tree/file-tree';
 
 export async function POST(request: Request) {
   try {

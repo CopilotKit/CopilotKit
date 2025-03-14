@@ -80,14 +80,6 @@ export default function Home() {
     }
   }, [selectedDemo]);
 
-  // Load initial demo files when demo changes
-  useEffect(() => {
-    if (selectedDemo?.path) {
-      handleNavigate(selectedDemo.path);
-      loadReadmeContent(selectedDemo.path);
-    }
-  }, [selectedDemo?.path, handleNavigate]);
-
   // Load README content
   const loadReadmeContent = useCallback(async (demoPath: string) => {
     try {
@@ -109,6 +101,14 @@ export default function Home() {
       setReadmeContent(null);
     }
   }, []);
+
+  // Load initial demo files when demo changes
+  useEffect(() => {
+    if (selectedDemo?.path) {
+      handleNavigate(selectedDemo.path);
+      void loadReadmeContent(selectedDemo.path);
+    }
+  }, [selectedDemo?.path, handleNavigate, loadReadmeContent]);
 
   // Find agent.py file when switching to code tab
   const handleTabChange = (value: string) => {
