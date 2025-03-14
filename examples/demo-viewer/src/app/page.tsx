@@ -9,12 +9,15 @@ import { FileTreeNav } from '@/components/file-tree/file-tree-nav';
 import { useFs } from '@/hooks/use-fs';
 import config from '@/demos/config';
 import { LLMProvider } from '@/types/demo';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from "next/image";
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, Code } from 'lucide-react';
+import { Eye, Code, Book } from 'lucide-react';
 import { CodeEditor } from '@/components/code-editor/code-editor';
+import ReactMarkdown from 'react-markdown';
+import { MarkdownComponents } from '@/components/ui/markdown-components';
+import { join } from 'path';
 
 export default function Home() {
   const [selectedDemoId, setSelectedDemoId] = useState<string>();
@@ -22,6 +25,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<string>("preview");
   // Use a simple theme detection for the logo
   const [isDarkTheme, setIsDarkTheme] = useState<boolean>(false);
+  const [readmeContent, setReadmeContent] = useState<string | null>(null);
   
   const [llmProvider, setLLMProvider] = useState<LLMProvider>(
     selectedDemo?.defaultLLMProvider || 'openai'
@@ -80,8 +84,31 @@ export default function Home() {
   useEffect(() => {
     if (selectedDemo?.path) {
       handleNavigate(selectedDemo.path);
+      loadReadmeContent(selectedDemo.path);
     }
   }, [selectedDemo?.path, handleNavigate]);
+
+  // Load README content
+  const loadReadmeContent = useCallback(async (demoPath: string) => {
+    try {
+      const response = await fetch('/api/fs/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: join(demoPath, 'README.md') }),
+      });
+      
+      if (response.ok) {
+        const { content } = await response.json();
+        setReadmeContent(content);
+      } else {
+        // If README.md doesn't exist, clear the content
+        setReadmeContent(null);
+      }
+    } catch (err) {
+      console.error('Error loading README:', err);
+      setReadmeContent(null);
+    }
+  }, []);
 
   // Find agent.py file when switching to code tab
   const handleTabChange = (value: string) => {
@@ -106,7 +133,7 @@ export default function Home() {
     >
       <div className="flex h-full">
         {/* Demo List - Left Sidebar */}
-        <div className="flex flex-col h-full w-64 border-r">
+        <div className="flex flex-col h-full w-74 border-r">
           {/* Sidebar Header */}
           <div className="p-4 border-b bg-background">
             <div className="flex items-center justify-between">
@@ -150,6 +177,15 @@ export default function Home() {
                     <Code className="h-3 w-3" />
                     <span>Code</span>
                   </TabsTrigger>
+                  {readmeContent && (
+                    <TabsTrigger 
+                      value="readme" 
+                      className="flex-1 h-7 px-2 text-sm font-medium gap-1 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow"
+                    >
+                      <Book className="h-3 w-3" />
+                      <span>README</span>
+                    </TabsTrigger>
+                  )}
                 </TabsList>
               </Tabs>
             </div>
@@ -184,6 +220,19 @@ export default function Home() {
             {activeTab === "preview" ? (
               <div className="flex-1">
                 {selectedDemo && <DemoPreview demo={selectedDemo} />}
+              </div>
+            ) : activeTab === "readme" && readmeContent ? (
+              <div className="flex-1 p-6 overflow-auto bg-background">
+                <div className="max-w-4xl mx-auto">
+                  <h1 className="text-2xl font-bold mb-6 pb-2 border-b">
+                    {selectedDemo?.name} Documentation
+                  </h1>
+                  <div className="prose max-w-none">
+                    <ReactMarkdown components={MarkdownComponents}>
+                      {readmeContent}
+                    </ReactMarkdown>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="flex-1 flex">

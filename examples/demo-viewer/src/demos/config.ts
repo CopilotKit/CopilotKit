@@ -25,13 +25,6 @@ const config: DemoConfig[] = [
         description: 'Chat capability with streaming!',
         tags: ['Chat', 'Streaming'],
     }),
-
-    createDemoConfig({
-        id: 'agentic_generative_ui',
-        name: 'Agentic Generative UI',
-        description: 'Chat capability with streaming!',
-        tags: ['Generative ui (agent)'],
-    }),
     createDemoConfig({
         id: 'human_in_the_loop',
         name: 'Human in a loop',
@@ -39,18 +32,11 @@ const config: DemoConfig[] = [
         tags: ['Generative ui (action)', 'Streaming'],
     }),
     createDemoConfig({
-        id: 'multi_agent_flows',
-        name: 'Multi Agent Flows',
+        id: 'agentic_generative_ui',
+        name: 'Agentic Generative UI',
         description: 'Chat capability with streaming!',
-        tags: ['Generative ui (action)', 'Streaming'],
+        tags: ['Generative ui (agent)'],
     }),
-    createDemoConfig({
-        id: 'predictive_state_updates',
-        name: 'Predictive State Updates',
-        description: 'Chat capability with streaming!',
-        tags: ['Generative ui (action)', 'Streaming'],
-    }),
-
     createDemoConfig({
         id: 'tool_based_generative_ui',
         name: 'Tool Based Generative UI',
@@ -62,8 +48,19 @@ const config: DemoConfig[] = [
         name: 'Shared State between agent and UI',
         description: 'A recipe copilot which reads and update collaboratively',
         tags: ['Agent State', 'Collaborating'],
-    })
-    // Add more demos here
+    }),
+    createDemoConfig({
+        id: 'predictive_state_updates',
+        name: 'Predictive State Updates',
+        description: 'Chat capability with streaming!',
+        tags: ['Generative ui (action)', 'Streaming'],
+    }),
+    createDemoConfig({
+        id: 'multi_agent_flows',
+        name: 'Multi Agent Flows',
+        description: 'Chat capability with streaming!',
+        tags: ['Generative ui (action)', 'Streaming'],
+    }),
 ];
 
 export default config;
