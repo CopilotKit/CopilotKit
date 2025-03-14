@@ -12,7 +12,7 @@ function createDemoConfig({
         name,
         description,
         path: `agent/demo/${id}`,
-        component: () => import(`../../agent/demo/${id}/page`).then(mod => mod.default),
+        component: () => import(`../agent/demo/${id}/page`).then(mod => mod.default),
         defaultLLMProvider: 'openai',
         tags,
     })
