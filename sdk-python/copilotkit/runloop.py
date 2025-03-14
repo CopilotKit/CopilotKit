@@ -335,7 +335,11 @@ def predict_state(
                 state=json.dumps(
                     _filter_state(
                         state={
-                            **execution["state"], 
+                            **(
+                                execution["state"].model_dump()
+                                if isinstance(execution["state"], BaseModel)
+                                else execution["state"]
+                            ),
                             **execution["predicted_state"]
                         }
                     )
