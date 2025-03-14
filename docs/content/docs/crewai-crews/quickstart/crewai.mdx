@@ -155,10 +155,11 @@ Before you begin, you'll need the following:
 
                 ```bash
                 # Install dependencies
-                pip install -r requirements.txt
+                cd agent
+                poetry install
 
                 # Start the server
-                python main.py
+                poetry run demo
                 ```
 
                 This will start a local agent server that you can connect to.
