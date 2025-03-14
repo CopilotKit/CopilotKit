@@ -22,7 +22,6 @@ You can swap out any of the sub-components of any Copilot UI to build up a compl
 ## UserMessage
 The user message is what displays when the user sends a message to the chat. In this example, we change the color and add an avatar. 
 
-
 <ImageAndCode preview="/images/custom-user-message.png">
 The main thing to be aware of here is the `message` prop, which is the message text from the user.
 
@@ -392,6 +391,8 @@ function CustomResponseButton({ onClick, inProgress }: ResponseButtonProps) {
 ```
 </ImageAndCode>
 
+
+
 ## Actions
 Actions allow the LLM to interact with your application's functionality. When an action is called by the LLM, you can provide custom components to visualize its execution and results. This example demonstrates a calendar meeting card implementation.
 
@@ -480,3 +481,4 @@ useCoAgentStateRender<AgentState>({
 });
 ```
 </ImageAndCode>
+
