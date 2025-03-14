@@ -7,7 +7,7 @@ import { DemoPreview } from '@/components/demo-viewer/demo-preview';
 import { FileTree } from '@/components/file-tree/file-tree';
 import { FileTreeNav } from '@/components/file-tree/file-tree-nav';
 import { useFs } from '@/hooks/use-fs';
-import config from '@/demos/config';
+import config from '@/config';
 import { LLMProvider } from '@/types/demo';
 import { useState, useEffect, useCallback } from 'react';
 import Image from "next/image";

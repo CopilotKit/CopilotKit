@@ -10,6 +10,8 @@ python = ">=3.12,<3.13"
 copilotkit = "0.1.40a2"
 tavily-python = "^0.5.1"
 uvicorn = "^0.34.0"
+dotenv = "^0.9.9"
+crewai = "^0.102.0"
 
 [build-system]
 requires = ["poetry-core"]

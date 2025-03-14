@@ -5,7 +5,7 @@ import { DemoConfig } from '@/types/demo';
 import { createPortal } from 'react-dom';
 
 // Custom iframe component that renders React components inside
-function IsolatedFrame({ children }: { children: React.ReactNode }) {
+function IsolatedFrame({ demoId, children }: { demoId: string; children: React.ReactNode }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeLoaded, setIframeLoaded] = React.useState(false);
   const [iframeRoot, setIframeRoot] = React.useState<HTMLElement | null>(null);
@@ -49,6 +49,12 @@ function IsolatedFrame({ children }: { children: React.ReactNode }) {
         iframe.contentDocument!.head.appendChild(clone);
       });
       
+      // Load demo-specific CSS if it exists
+      const demoStyleLink = iframe.contentDocument.createElement('link');
+      demoStyleLink.rel = 'stylesheet';
+      demoStyleLink.href = `/agent/demos/${demoId}/style.css`;
+      iframe.contentDocument.head.appendChild(demoStyleLink);
+      
       setIframeRoot(root);
       setIframeLoaded(true);
     };
@@ -63,7 +69,7 @@ function IsolatedFrame({ children }: { children: React.ReactNode }) {
     return () => {
       iframe.removeEventListener('load', handleLoad);
     };
-  }, []);
+  }, [demoId]);
 
   return (
     <iframe 
@@ -114,7 +120,7 @@ export function DemoPreview({ demo }: { demo: DemoConfig }) {
       </div>
     }>
       <div className="w-full h-full overflow-hidden">
-        <IsolatedFrame>
+        <IsolatedFrame demoId={demo.id}>
           <Component />
         </IsolatedFrame>
       </div>

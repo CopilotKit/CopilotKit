@@ -22,20 +22,20 @@ const config: DemoConfig[] = [
     createDemoConfig({
         id: 'agentic_chat',
         name: 'Agentic Chat',
-        description: 'Chat capability with streaming!',
-        tags: ['Chat', 'Streaming'],
+        description: 'Chat with your Copilot and call frontend tools',
+        tags: ['Chat', 'Tools', 'Streaming'],
     }),
     createDemoConfig({
         id: 'human_in_the_loop',
-        name: 'Human in a loop',
-        description: 'Chat capability with streaming!',
-        tags: ['Generative ui (action)', 'Streaming'],
+        name: 'Human in the loop',
+        description: 'Plan a task together and direct the Copilot to take the right steps',
+        tags: ['HITL', 'Interactivity'],
     }),
     createDemoConfig({
         id: 'agentic_generative_ui',
         name: 'Agentic Generative UI',
-        description: 'Chat capability with streaming!',
-        tags: ['Generative ui (agent)'],
+        description: 'Assign a long running task to your Copilot and see how it performs!',
+        tags: ['Generative ui (agent)', 'Long running task'],
     }),
     createDemoConfig({
         id: 'tool_based_generative_ui',
@@ -46,21 +46,22 @@ const config: DemoConfig[] = [
     createDemoConfig({
         id: 'shared_state',
         name: 'Shared State between agent and UI',
-        description: 'A recipe copilot which reads and update collaboratively',
+        description: 'A recipe Copilot which reads and updates collaboratively',
         tags: ['Agent State', 'Collaborating'],
     }),
     createDemoConfig({
         id: 'predictive_state_updates',
         name: 'Predictive State Updates',
-        description: 'Chat capability with streaming!',
-        tags: ['Generative ui (action)', 'Streaming'],
+        description: 'Use collaboration to edit a document in real time with your Copilot',
+        tags: ['State', 'Streaming', 'Tools'],
     }),
-    createDemoConfig({
-        id: 'multi_agent_flows',
-        name: 'Multi Agent Flows',
-        description: 'Chat capability with streaming!',
-        tags: ['Generative ui (action)', 'Streaming'],
-    }),
+    // TODO: Re-enable after revisiting demo
+    // createDemoConfig({
+    //     id: 'multi_agent_flows',
+    //     name: 'Multi Agent Flows',
+    //     description: 'Chat capability with streaming!',
+    //     tags: ['Generative ui (action)', 'Streaming'],
+    // }),
 ];
 
 export default config;
