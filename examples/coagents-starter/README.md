@@ -8,14 +8,14 @@ This example contains a simple starter project which includes two different agen
 
 First, install the backend dependencies:
 
-### Python SDK
+### Python Agent
 
 ```sh
 cd agent-py
 poetry install
 ```
 
-### JS-SDK
+### JS Agent
 
 ```sh
 cd agent-js
