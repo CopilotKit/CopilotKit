@@ -1,9 +1,10 @@
 """
-A demo of predictive state updates.
+A demo of a multi-agent workflow.
 """
 
 import json
 import os
+import uuid
 from typing import Optional
 from litellm import completion
 from crewai.flow.flow import Flow, start, router, listen
@@ -57,9 +58,10 @@ class AgentState(CopilotKitState):
     """
     document: Optional[str] = None
 
+
 class MultiAgentWriterFlow(Flow[AgentState]):
     """
-    This is a sample flow that writes documents in a multi-agent workflow.
+    This is a sample flow that demonstrates predictive state updates.
     """
 
     @start()
@@ -74,11 +76,18 @@ class MultiAgentWriterFlow(Flow[AgentState]):
         """
         Standard chat node.
         """
-        system_prompt = f"You are a helpful assistant for writing documents. This is the current state of the document: ----\n {self.state.document}\n-----"
+        system_prompt = f"""
+        You are a helpful assistant for writing documents. 
+        To write the document, you MUST use the write_document tool.
+        You MUST write the full document, even when changing only a few words.
+        When you wrote the document, DO NOT repeat it as a message. 
+        Just briefly summarize the changes you made. 2 sentences max.
+        This is the current state of the document: ----\n {self.state.document}\n-----
+        """
 
         await copilotkit_predict_state({
             "document": {
-                "tool": "write_document",
+                "tool_name": "write_document",
                 "tool_argument": "document"
             }
         })
@@ -120,7 +129,20 @@ class MultiAgentWriterFlow(Flow[AgentState]):
                     "content": "Document written.",
                     "tool_call_id": tool_call_id
                 })
-                return "route_follow_up"
+
+                self.state.messages.append({
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [{
+                        "id": str(uuid.uuid4()),
+                        "function": {
+                            "name": "confirm_changes",
+                            "arguments": "{}"
+                        }
+                    }]
+                })
+
+                return "route_end"
 
         return "route_end"
 
@@ -129,6 +151,7 @@ class MultiAgentWriterFlow(Flow[AgentState]):
         """
         End the flow.
         """
+
 
 class MultiAgentCriticFlow(Flow[AgentState]):
     """
@@ -147,7 +170,16 @@ class MultiAgentCriticFlow(Flow[AgentState]):
         """
         Standard chat node.
         """
-        system_prompt = f"You are a helpful assistant for criticizing documents. You can provide feedback on the document, and suggest improvements. You can also update the document. This is the current state of the document: ----\n {self.state.document}\n-----"
+        system_prompt = f"""
+        "You are a helpful assistant for criticizing documents. You can provide feedback on the document, 
+        and suggest improvements. You can also update the document. However, you will not write the document
+        from scratch or do any other creative writing. Politely decline to do so.
+        To update the document, you MUST use the write_document tool.
+        You MUST write the full document, even when changing only a few words.
+        When you wrote the document, DO NOT repeat it as a message. 
+        Just briefly summarize the changes you made. 2 sentences max.
+        This is the current state of the document: ----\n {self.state.document}\n-----
+        """
 
         await copilotkit_predict_state({
             "document": {
@@ -193,7 +225,20 @@ class MultiAgentCriticFlow(Flow[AgentState]):
                     "content": "Document written.",
                     "tool_call_id": tool_call_id
                 })
-                return "route_follow_up"
+
+                self.state.messages.append({
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [{
+                        "id": str(uuid.uuid4()),
+                        "function": {
+                            "name": "confirm_changes",
+                            "arguments": "{}"
+                        }
+                    }]
+                })
+
+                return "route_end"
 
         return "route_end"
 
@@ -220,7 +265,16 @@ class MultiAgentResearcherFlow(Flow[AgentState]):
         """
         Standard chat node.
         """
-        system_prompt = f"You are a helpful assistant for researching content for documents. You can find new sources by searching the web, and suggest how to incorporate them into the document. You can also update the document. This is the current state of the document: ----\n {self.state.document}\n-----"
+        system_prompt = f"""
+        "You are a helpful assistant for researching for a document. You can provide a research draft for the document,
+        or make updates based on the research. You can also update the document. However, you will not write the document
+        from scratch or do any other creative writing. Politely decline to do so.
+        To update the document, you MUST use the write_document tool.
+        You MUST write the full document, even when changing only a few words.
+        When you wrote the document, DO NOT repeat it as a message. 
+        Just briefly summarize the changes you made. 2 sentences max.
+        This is the current state of the document: ----\n {self.state.document}\n-----
+        """
 
         await copilotkit_predict_state({
             "document": {
@@ -267,7 +321,20 @@ class MultiAgentResearcherFlow(Flow[AgentState]):
                     "content": "Document written.",
                     "tool_call_id": tool_call_id
                 })
-                return "route_follow_up"
+
+                self.state.messages.append({
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [{
+                        "id": str(uuid.uuid4()),
+                        "function": {
+                            "name": "confirm_changes",
+                            "arguments": "{}"
+                        }
+                    }]
+                })
+
+                return "route_end"
             elif tool_call_name == "search_web":
                 if not os.getenv("TAVILY_API_KEY"):
                     self.state.messages.append({

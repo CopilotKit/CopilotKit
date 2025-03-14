@@ -82,7 +82,14 @@ class AgenticGenerativeUIFlow(Flow[AgentState]):
         """
         Standard chat node.
         """
-        system_prompt = "You are a helpful assistant."
+        system_prompt = """
+        You are a helpful assistant assisting with any task. 
+        When asked to do something, you MUST call the function `generate_task_steps`
+        that was provided to you.
+        If you called the function, you MUST NOT repeat the steps in your next response to the user.
+        Just give a very brief summary (one sentence) of what you did with some emojis. 
+        Always say you actually did the steps, not merely generated them.
+        """
 
         # 1. Here we specify that we want to stream the tool call to generate_task_steps
         #    to the frontend as state.
@@ -150,7 +157,7 @@ class AgenticGenerativeUIFlow(Flow[AgentState]):
         # 5. If our tool was not called, return to the end route
         return "route_end"
 
-    @listen("route_simulate_task")
+    @router("route_simulate_task")
     async def simulate_task(self):
         """
         Simulate the task.

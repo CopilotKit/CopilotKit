@@ -25,6 +25,32 @@ const config: DemoConfig[] = [
         description: 'Chat capability with streaming!',
         tags: ['Chat', 'Streaming'],
     }),
+
+    createDemoConfig({
+        id: 'agentic_generative_ui',
+        name: 'Agentic Generative UI',
+        description: 'Chat capability with streaming!',
+        tags: ['Generative ui (agent)'],
+    }),
+    createDemoConfig({
+        id: 'human_in_the_loop',
+        name: 'Human in a loop',
+        description: 'Chat capability with streaming!',
+        tags: ['Generative ui (action)', 'Streaming'],
+    }),
+    createDemoConfig({
+        id: 'multi_agent_flows',
+        name: 'Multi Agent Flows',
+        description: 'Chat capability with streaming!',
+        tags: ['Generative ui (action)', 'Streaming'],
+    }),
+    createDemoConfig({
+        id: 'predictive_state_updates',
+        name: 'Predictive State Updates',
+        description: 'Chat capability with streaming!',
+        tags: ['Generative ui (action)', 'Streaming'],
+    }),
+
     createDemoConfig({
         id: 'tool_based_generative_ui',
         name: 'Tool Based Generative UI',
