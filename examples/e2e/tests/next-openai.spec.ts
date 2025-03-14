@@ -35,7 +35,7 @@ import {
   groupConfigsByDescription,
   PROJECT_NAMES,
 } from "../lib/config-helper";
-import { sendChatMessage, waitForResponse } from "../lib/helpers";
+import { sendChatMessage, waitForResponse, waitForSuggestions } from "../lib/helpers";
 
 interface Variant {
   name: string;
@@ -141,11 +141,7 @@ Object.entries(groupedConfigs).forEach(([projectName, descriptions]) => {
               );
 
               // Wait for suggestion box and verify suggestions
-              const suggestionHeading = page.getByRole("heading", {
-                name: "Suggested:",
-              });
-
-              await expect(suggestionHeading).toBeVisible({ timeout: 30000 });
+              await waitForSuggestions(page);
 
               const suggestions = page.locator("button.suggestion");
               await expect(suggestions).toHaveCount(await suggestions.count(), {

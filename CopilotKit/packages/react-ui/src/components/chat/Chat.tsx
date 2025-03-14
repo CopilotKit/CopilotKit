@@ -119,6 +119,26 @@ export interface CopilotChatProps {
   onReloadMessages?: OnReloadMessages;
 
   /**
+   * A callback function to regenerate the assistant's response
+   */
+  onRegenerate?: () => void;
+
+  /**
+   * A callback function when the message is copied
+   */
+  onCopy?: (message: string) => void;
+
+  /**
+   * A callback function for thumbs up feedback
+   */
+  onThumbsUp?: (message: string) => void;
+
+  /**
+   * A callback function for thumbs down feedback
+   */
+  onThumbsDown?: (message: string) => void;
+
+  /**
    * Icons can be used to set custom icons for the chat window.
    */
   icons?: CopilotChatIcons;
@@ -254,6 +274,10 @@ export function CopilotChat({
   onInProgress,
   onStopGeneration,
   onReloadMessages,
+  onRegenerate,
+  onCopy,
+  onThumbsUp,
+  onThumbsDown,
   Messages = DefaultMessages,
   RenderTextMessage = DefaultRenderTextMessage,
   RenderActionExecutionMessage = DefaultRenderActionExecutionMessage,
@@ -312,9 +336,22 @@ export function CopilotChat({
   const chatContext = React.useContext(ChatContext);
   const isVisible = chatContext ? chatContext.open : true;
 
+  const handleRegenerate = () => {
+    if (onRegenerate) {
+      onRegenerate();
+    }
+
+    reloadMessages();
+  };
+
+  const handleCopy = (message: string) => {
+    if (onCopy) {
+      onCopy(message);
+    }
+  };
+
   return (
     <WrappedCopilotChat icons={icons} labels={labels} className={className}>
-      <CopilotDevConsole />
       <Messages
         AssistantMessage={AssistantMessage}
         UserMessage={UserMessage}
@@ -324,32 +361,32 @@ export function CopilotChat({
         RenderResultMessage={RenderResultMessage}
         messages={visibleMessages}
         inProgress={isLoading}
+        onRegenerate={handleRegenerate}
+        onCopy={handleCopy}
+        onThumbsUp={onThumbsUp}
+        onThumbsDown={onThumbsDown}
       >
         {currentSuggestions.length > 0 && (
-          <div>
-            <h6>Suggested:</h6>
-            <div className="suggestions">
-              {currentSuggestions.map((suggestion, index) => (
-                <Suggestion
-                  key={index}
-                  title={suggestion.title}
-                  message={suggestion.message}
-                  partial={suggestion.partial}
-                  className={suggestion.className}
-                  onClick={(message) => sendMessage(message)}
-                />
-              ))}
-            </div>
+          <div className="suggestions">
+            {currentSuggestions.map((suggestion, index) => (
+              <Suggestion
+                key={index}
+                title={suggestion.title}
+                message={suggestion.message}
+                partial={suggestion.partial}
+                className={suggestion.className}
+                onClick={(message) => sendMessage(message)}
+              />
+            ))}
           </div>
         )}
-        {showResponseButton && visibleMessages.length > 0 && (
-          <ResponseButton
-            onClick={isLoading ? stopGeneration : reloadMessages}
-            inProgress={isLoading}
-          />
-        )}
       </Messages>
-      <Input inProgress={isLoading} onSend={sendMessage} isVisible={isVisible} />
+      <Input
+        inProgress={isLoading}
+        onSend={sendMessage}
+        isVisible={isVisible}
+        onStop={stopGeneration}
+      />
     </WrappedCopilotChat>
   );
 }

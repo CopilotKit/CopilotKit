@@ -82,39 +82,6 @@ export function CopilotDevConsole() {
     checkForUpdates();
   }, []);
 
-  useEffect(() => {
-    const handleResize = (entries: ResizeObserverEntry[]) => {
-      for (let entry of entries) {
-        if (entry.target === consoleRef.current) {
-          const width = entry.contentRect.width;
-          if (width < 400) {
-            setDebugButtonMode("compact");
-          } else {
-            setDebugButtonMode("full");
-          }
-        }
-      }
-    };
-
-    const observer = new ResizeObserver(handleResize);
-    if (consoleRef.current) {
-      observer.observe(consoleRef.current);
-
-      const initialWidth = consoleRef.current.getBoundingClientRect().width;
-      if (initialWidth < 400) {
-        setDebugButtonMode("compact");
-      } else {
-        setDebugButtonMode("full");
-      }
-    }
-
-    return () => {
-      if (consoleRef.current) {
-        observer.unobserve(consoleRef.current);
-      }
-    };
-  }, [consoleRef.current]);
-
   if (!showDevConsole) {
     return null;
   }
@@ -127,11 +94,6 @@ export function CopilotDevConsole() {
         (versionStatus === "outdated" ? "copilotKitDevConsoleWarnOutdated" : "")
       }
     >
-      <div className="copilotKitDevConsoleLogo">
-        <a href="https://copilotkit.ai" target="_blank">
-          {CopilotKitIcon}
-        </a>
-      </div>
       <VersionInfo
         showDevConsole={context.showDevConsole}
         versionStatus={versionStatus}
@@ -205,22 +167,20 @@ function VersionInfo({
     });
   };
 
-  return (
-    <div className="copilotKitVersionInfo">
-      <header>
-        COPILOTKIT DEV CONSOLE{showDevConsole === "auto" && <aside>{asideLabel}</aside>}
-      </header>
-      <section>
-        Version: {versionLabel} ({currentVersionLabel}) {versionIcon}
-      </section>
-      {(versionStatus === "update-available" || versionStatus === "outdated") && (
-        <footer>
-          <button onClick={handleCopyClick}>{copyStatus || installCommand}</button>
-        </footer>
-      )}
-    </div>
-  );
+  if (versionStatus === "update-available" || versionStatus === "outdated") {
+    return (
+      <div className="copilotKitVersionInfo">
+        <p>
+          {currentVersionLabel} {versionIcon}
+        </p>
+        <button onClick={handleCopyClick}>{copyStatus || installCommand}</button>
+      </div>
+    );
+  }
+
+  return null;
 }
+
 export default function DebugMenuButton({
   setShowDevConsole,
   checkForUpdates,
@@ -236,7 +196,9 @@ export default function DebugMenuButton({
   return (
     <div className="bg-black top-24 w-52 text-right">
       <Menu>
-        <MenuButton className={`copilotKitDebugMenuButton ${mode === "compact" ? "compact" : ""}`}>
+        <MenuButton
+          className={`copilotKitDebugMenuTriggerButton ${mode === "compact" ? "compact" : ""}`}
+        >
           {mode == "compact" ? "Debug" : <>Debug {ChevronDownIcon}</>}
         </MenuButton>
 

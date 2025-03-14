@@ -46,8 +46,7 @@ export function CopilotKitHelpModal() {
   const HelpButton = () => (
     <button
       onClick={() => setShowHelpModal(true)}
-      style={{ width: "50px", height: "30px", marginRight: "0.25rem" }}
-      className="text-sm p-0 bg-transparent rounded border border-blue-500"
+      className="copilotKitDebugMenuTriggerButton"
       aria-label="Open Help"
     >
       Help
