@@ -220,7 +220,11 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private observability?: CopilotObservabilityConfig;
 
   constructor(params?: CopilotRuntimeConstructorParams<T>) {
-    if (params?.actions && params?.remoteEndpoints && params?.remoteEndpoints.some(e => e.type === EndpointType.LangGraphPlatform)) {
+    if (
+      params?.actions &&
+      params?.remoteEndpoints &&
+      params?.remoteEndpoints.some((e) => e.type === EndpointType.LangGraphPlatform)
+    ) {
       console.warn("Actions set in runtime instance will not be available for the agent");
     }
     this.actions = params?.actions || [];
