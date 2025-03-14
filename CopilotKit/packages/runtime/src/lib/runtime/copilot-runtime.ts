@@ -15,14 +15,14 @@
 import {
   Action,
   actionParametersToJsonSchema,
-  Parameter,
-  ResolvedCopilotKitError,
+  CopilotKitAgentDiscoveryError,
   CopilotKitApiDiscoveryError,
-  randomId,
   CopilotKitError,
   CopilotKitLowLevelError,
-  CopilotKitAgentDiscoveryError,
   CopilotKitMisuseError,
+  Parameter,
+  randomId,
+  ResolvedCopilotKitError,
 } from "@copilotkit/shared";
 import {
   CopilotServiceAdapter,
@@ -39,13 +39,13 @@ import { Message } from "../../graphql/types/converted";
 import { ForwardedParametersInput } from "../../graphql/inputs/forwarded-parameters.input";
 
 import {
-  isRemoteAgentAction,
-  RemoteAgentAction,
-  EndpointType,
-  setupRemoteActions,
-  EndpointDefinition,
   CopilotKitEndpoint,
+  EndpointDefinition,
+  EndpointType,
+  isRemoteAgentAction,
   LangGraphPlatformEndpoint,
+  RemoteAgentAction,
+  setupRemoteActions,
 } from "./remote-actions";
 
 import { GraphQLContext } from "../integrations/shared";
@@ -63,9 +63,9 @@ import { langchainMessagesToCopilotKit } from "./remote-lg-action";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import {
   CopilotObservabilityConfig,
+  LLMErrorData,
   LLMRequestData,
   LLMResponseData,
-  LLMErrorData,
 } from "../observability";
 
 interface CopilotRuntimeRequest {
@@ -220,13 +220,10 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private observability?: CopilotObservabilityConfig;
 
   constructor(params?: CopilotRuntimeConstructorParams<T>) {
-    // Do not register actions if endpoints are set
-    if (params?.actions && params?.remoteEndpoints) {
-      console.warn("Actions set in runtime instance will be ignored when remote endpoints are set");
-      this.actions = [];
-    } else {
-      this.actions = params?.actions || [];
+    if (params?.actions && params?.remoteEndpoints && params?.remoteEndpoints.some(e => e.type === EndpointType.LangGraphPlatform)) {
+      console.warn("Actions set in runtime instance will not be available for the agent");
     }
+    this.actions = params?.actions || [];
 
     for (const chain of params?.langserve || []) {
       const remoteChain = new RemoteChain(chain);
