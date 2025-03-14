@@ -17,6 +17,7 @@ crewai = { version = "0.102.0", optional = true }
 fastapi = "^0.115.0"
 partialjson = "^0.0.8"
 toml = "^0.10.2"
+llama-index = "^0.12.24"
 
 [tool.poetry.extras]
 crewai = ["crewai"]

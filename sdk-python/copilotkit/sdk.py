@@ -15,7 +15,7 @@ from .exc import (
     ActionExecutionException,
     AgentExecutionException
 )
-from .logging import get_logger, bold
+from .utils import get_logger, bold
 
 
 try:

@@ -17,7 +17,7 @@ from .types import Message, MetaEvent
 from .langgraph import copilotkit_messages_to_langchain, langchain_messages_to_copilotkit
 from .action import ActionDict
 from .agent import Agent
-from .logging import get_logger
+from .utils import get_logger
 
 logger = get_logger(__name__)
 

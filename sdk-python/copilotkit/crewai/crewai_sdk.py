@@ -24,7 +24,7 @@ from crewai.flow.flow_events import (
   FlowFinishedEvent,
 )
 from copilotkit.types import Message
-from copilotkit.logging import get_logger
+from copilotkit.utils import get_logger
 from copilotkit.runloop import queue_put, get_context_execution
 from copilotkit.protocol import (
     RuntimeEventTypes,

@@ -23,7 +23,7 @@ from langchain_core.callbacks.manager import adispatch_custom_event
 from langgraph.types import interrupt
 
 from .types import Message, IntermediateStateConfig
-from .logging import get_logger
+from .utils import get_logger
 
 logger = get_logger(__name__)
 
