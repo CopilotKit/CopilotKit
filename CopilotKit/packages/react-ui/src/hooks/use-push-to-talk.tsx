@@ -127,14 +127,24 @@ export const usePushToTalk = ({
     } else {
       stopRecording(mediaRecorderRef);
       if (pushToTalkState === "transcribing") {
-        transcribeAudio(recordedChunks.current, context.copilotApiConfig.transcribeAudioUrl!).then(
-          async (transcription) => {
-            recordedChunks.current = [];
-            setPushToTalkState("idle");
-            const message = await sendFunction(transcription);
-            setStartReadingFromMessageId(message.id);
-          },
-        );
+        if (context.copilotApiConfig.transcribeAudioUrl) {
+          transcribeAudio(recordedChunks.current, context.copilotApiConfig.transcribeAudioUrl)
+            .then(async (transcription) => {
+              recordedChunks.current = [];
+              setPushToTalkState("idle");
+              const message = await sendFunction(transcription);
+              setStartReadingFromMessageId(message.id);
+            })
+            .catch((error) => {
+              console.error("Error transcribing audio:", error);
+              recordedChunks.current = [];
+              setPushToTalkState("idle");
+            });
+        } else {
+          recordedChunks.current = [];
+          setPushToTalkState("idle");
+          console.warn("Transcription attempted but no transcribeAudioUrl is configured");
+        }
       }
     }
 
@@ -156,7 +166,10 @@ export const usePushToTalk = ({
         ) as TextMessage[];
 
       const text = messagesAfterLast.map((message) => message.content).join("\n");
-      playAudioResponse(text, context.copilotApiConfig.textToSpeechUrl!, audioContextRef.current!);
+      
+      if (context.copilotApiConfig.textToSpeechUrl && audioContextRef.current) {
+        playAudioResponse(text, context.copilotApiConfig.textToSpeechUrl, audioContextRef.current);
+      }
 
       setStartReadingFromMessageId(null);
     }

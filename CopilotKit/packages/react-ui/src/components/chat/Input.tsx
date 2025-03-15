@@ -9,9 +9,7 @@ export const Input = ({ inProgress, onSend, isVisible = false }: InputProps) => 
   const context = useChatContext();
   const copilotContext = useCopilotContext();
 
-  const pushToTalkConfigured =
-    copilotContext.copilotApiConfig.textToSpeechUrl !== undefined &&
-    copilotContext.copilotApiConfig.transcribeAudioUrl !== undefined;
+  const speechToTextConfigured = copilotContext.copilotApiConfig.transcribeAudioUrl !== undefined;
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -47,7 +45,7 @@ export const Input = ({ inProgress, onSend, isVisible = false }: InputProps) => 
       ? context.icons.activityIcon
       : context.icons.sendIcon;
   const showPushToTalk =
-    pushToTalkConfigured &&
+    speechToTextConfigured &&
     (pushToTalkState === "idle" || pushToTalkState === "recording") &&
     !inProgress;
 
