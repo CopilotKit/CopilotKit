@@ -6,7 +6,7 @@ authors = ["Markus Ecker <markus.ecker@gmail.com>"]
 license = "MIT"
 readme = "README.md"
 homepage = "https://copilotkit.ai"
-repository = "https://github.com/CopilotKit/sdk-python"
+repository = "https://github.com/CopilotKit/CopilotKit/tree/main/sdk-python"
 keywords = ["copilot", "copilotkit", "langgraph", "langchain", "ai", "langsmith", "langserve"]
 
 [tool.poetry.dependencies]
