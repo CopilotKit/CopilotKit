@@ -7,10 +7,43 @@ from typing_extensions import Dict, Any, List, cast
 from tavily import TavilyClient
 from copilotkit.crewai import copilotkit_emit_state, copilotkit_predict_state, copilotkit_stream
 from litellm import completion
+from litellm.types.utils import Message as LiteLLMMessage
 
 HITL_TOOLS = ["DeleteResources"]
 
 tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+
+# Custom JSON encoder to handle Message objects
+class MessageEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, LiteLLMMessage) or (hasattr(obj, "__class__") and obj.__class__.__name__ == "Message"):
+            # Convert Message object to a serializable dictionary
+            return {
+                'role': getattr(obj, 'role', ''),
+                'content': getattr(obj, 'content', ''),
+                'tool_calls': getattr(obj, 'tool_calls', []),
+                'tool_call_id': getattr(obj, 'tool_call_id', None)
+            }
+        return super().default(obj)
+
+# Helper function to prepare state for JSON serialization
+def prepare_state_for_serialization(state):
+    # Create a deep copy to avoid modifying the original state
+    serializable_state = {}
+    for key, value in state.items():
+        if key == "messages":
+            # Handle messages specifically to ensure they're serializable
+            serializable_state[key] = [
+                msg if isinstance(msg, dict) else {
+                    'role': getattr(msg, 'role', ''),
+                    'content': getattr(msg, 'content', ''),
+                    'tool_calls': getattr(msg, 'tool_calls', []),
+                    'tool_call_id': getattr(msg, 'tool_call_id', None)
+                } for msg in value
+            ]
+        else:
+            serializable_state[key] = value
+    return serializable_state
 
 async def perform_tool_calls(state: Dict[str, Any]):
     """
@@ -66,7 +99,9 @@ async def perform_search(state: Dict[str, Any], queries: List[str], tool_call_id
             "done": False
         })
 
-    await copilotkit_emit_state(state)
+    # Use the prepared state for serialization
+    serializable_state = prepare_state_for_serialization(state)
+    await copilotkit_emit_state(serializable_state)
 
     search_results = []
 
@@ -74,7 +109,9 @@ async def perform_search(state: Dict[str, Any], queries: List[str], tool_call_id
         response = tavily_client.search(query)
         search_results.append(response)
         state["logs"][i]["done"] = True
-        await copilotkit_emit_state(state)
+        # Use the prepared state for serialization
+        serializable_state = prepare_state_for_serialization(state)
+        await copilotkit_emit_state(serializable_state)
 
     await copilotkit_predict_state(
         {
@@ -108,7 +145,9 @@ async def perform_search(state: Dict[str, Any], queries: List[str], tool_call_id
     )
 
     state["logs"] = []
-    await copilotkit_emit_state(state)
+    # Use the prepared state for serialization
+    serializable_state = prepare_state_for_serialization(state)
+    await copilotkit_emit_state(serializable_state)
 
     message = cast(Any, response).choices[0]["message"]
     resources = json.loads(message["tool_calls"][0]["function"]["arguments"])["resources"]
