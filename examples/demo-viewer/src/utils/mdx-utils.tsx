@@ -7,20 +7,38 @@ import { MDXProvider } from '@mdx-js/react';
  */
 export const MDXRenderer: React.FC<{
   content: string;
-}> = ({ content }) => {
+  demoId?: string;
+}> = ({ content, demoId }) => {
   // Process content to extract and handle special MDX elements
   const processedContent = React.useMemo(() => {
     // Simple processing to enhance video tags
     let processed = content;
     
-    // Find and enhance <Video> or <video> tags
-    processed = processed.replace(
-      /<Video\s+src="([^"]+)"[^>]*>/gi,
-      (_, src) => `<div class="video-wrapper"><video controls width="100%" src="${src}"></video></div>`
-    );
+    if (demoId) {
+      // Find and enhance <Video> or <video> tags
+      // Convert absolute URLs to API paths if needed
+      processed = processed.replace(
+        /<Video\s+src="([^"]+)"([^>]*)>/gi,
+        (_, src, attrs) => {
+          // If it's already a full URL or starts with /, don't modify
+          if (src.startsWith('http') || src.startsWith('/')) {
+            return `<div class="video-wrapper"><video controls width="100%" src="${src}"${attrs}></video></div>`;
+          }
+          
+          // Otherwise, route through our API
+          return `<div class="video-wrapper"><video controls width="100%" src="/api/demo-assets?demoId=${demoId}&fileName=${src}"${attrs}></video></div>`;
+        }
+      );
+    } else {
+      // Default handling without demoId
+      processed = processed.replace(
+        /<Video\s+src="([^"]+)"([^>]*)>/gi,
+        (_, src, attrs) => `<div class="video-wrapper"><video controls width="100%" src="${src}"${attrs}></video></div>`
+      );
+    }
     
     return processed;
-  }, [content]);
+  }, [content, demoId]);
   
   return (
     <MDXProvider components={MDXComponents}>

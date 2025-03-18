@@ -52,7 +52,7 @@ function IsolatedFrame({ demoId, children }: { demoId: string; children: React.R
       // Load demo-specific CSS if it exists
       const demoStyleLink = iframe.contentDocument.createElement('link');
       demoStyleLink.rel = 'stylesheet';
-      demoStyleLink.href = `/agent/demo/${demoId}/style.css`;
+      demoStyleLink.href = `/api/demo-assets?demoId=${demoId}&fileName=style.css`;
       iframe.contentDocument.head.appendChild(demoStyleLink);
       
       setIframeRoot(root);

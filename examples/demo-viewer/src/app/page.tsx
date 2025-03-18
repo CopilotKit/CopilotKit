@@ -271,7 +271,7 @@ export default function Home() {
                     {compiledMDX ? (
                       <MDXContent>
                         <SafeComponent
-                          component={() => <MDXRenderer content={readmeContent} />}
+                          component={() => <MDXRenderer content={readmeContent} demoId={selectedDemo?.id} />}
                           fallback={
                             <div className="p-4 border rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300">
                               Could not render MDX content. Displaying markdown instead.
