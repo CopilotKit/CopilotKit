@@ -1,5 +1,10 @@
 # 🍳 Shared State Recipe Creator
 
+<video width="100%" controls>
+  <source src="https://screen-studio-shareable-links.67aa83ffa7fb557cd114a7156fca4e73.r2.cloudflarestorage.com/V2zfIWNf-video.mp4?X-Amz[…]aders=host&x-id=GetObject" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
 ## What This Demo Shows
 
 This demo showcases CopilotKit's **shared state** functionality - a powerful feature that enables bidirectional data flow between:

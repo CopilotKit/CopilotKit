@@ -1,0 +1,41 @@
+# 🪶 Tool-Based Generative UI Haiku Creator
+
+<video width="100%" controls>
+  <source src="https://screen-studio-shareable-links.67aa83ffa7fb557cd114a7156fca4e73.r2.cloudflarestorage.com/V2zfIWNf-video.mp4?X-Amz[…]aders=host&x-id=GetObject" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
+## What This Demo Shows
+
+This demo showcases CopilotKit's **tool-based generative UI** capabilities:
+1. **Frontend Rendering of Tool Calls**: Backend tool calls are automatically rendered in the UI
+2. **Dynamic UI Generation**: The UI updates in real-time as the agent generates content
+3. **Elegant Content Presentation**: Complex structured data (haikus) are beautifully displayed
+
+## How to Interact
+
+Chat with your Copilot and ask for haikus about different topics:
+- "Create a haiku about nature"
+- "Write a haiku about technology"
+- "Generate a haiku about the changing seasons"
+- "Make a humorous haiku about programming"
+
+Each request will trigger the agent to generate a haiku and display it in a visually appealing card format in the UI.
+
+## ✨ Tool-Based Generative UI in Action
+
+**What's happening technically:**
+- The agent processes your request and determines it should create a haiku
+- It calls a backend tool that returns structured haiku data
+- CopilotKit automatically renders this tool call in the frontend
+- The rendering is handled by the registered tool component in your React app
+- No manual state management is required to display the results
+
+**What you'll see in this demo:**
+- As you request a haiku, a beautifully formatted card appears in the UI
+- The haiku follows the traditional 5-7-5 syllable structure
+- Each haiku is presented with consistent styling
+- Multiple haikus can be generated in sequence
+- The UI adapts to display each new piece of content
+
+This pattern of tool-based generative UI can be extended to create any kind of dynamic content - from data visualizations to interactive components, all driven by your Copilot's tool calls!
