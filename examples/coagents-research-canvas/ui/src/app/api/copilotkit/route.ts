@@ -68,7 +68,10 @@ export const POST = async (req: NextRequest) => {
         }),
       ]
     : [
-        remoteLangGraphPlatformEndpoint,
+        {
+          ...remoteLangGraphPlatformEndpoint,
+          deploymentUrl: process.env.LGC_DEPLOYMENT_URL,
+        },
         copilotKitEndpoint({
           url:
             process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
