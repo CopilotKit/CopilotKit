@@ -7,7 +7,7 @@ from typing_extensions import Dict, Any, List, cast
 from tavily import TavilyClient
 from copilotkit.crewai import copilotkit_emit_state, copilotkit_predict_state, copilotkit_stream
 from litellm import completion
-from litellm.types.utils import Message as LiteLLMMessage
+from litellm.types.utils import Message as LiteLLMMessage, ChatCompletionMessageToolCall
 
 HITL_TOOLS = ["DeleteResources"]
 
@@ -24,26 +24,75 @@ class MessageEncoder(json.JSONEncoder):
                 'tool_calls': getattr(obj, 'tool_calls', []),
                 'tool_call_id': getattr(obj, 'tool_call_id', None)
             }
+        elif isinstance(obj, ChatCompletionMessageToolCall) or (hasattr(obj, "__class__") and obj.__class__.__name__ == "ChatCompletionMessageToolCall"):
+            # Convert ChatCompletionMessageToolCall to a serializable dictionary
+            return {
+                'id': getattr(obj, 'id', ''),
+                'type': getattr(obj, 'type', ''),
+                'function': {
+                    'name': getattr(obj.function, 'name', '') if hasattr(obj, 'function') else '',
+                    'arguments': getattr(obj.function, 'arguments', '') if hasattr(obj, 'function') else ''
+                }
+            }
         return super().default(obj)
 
 # Helper function to prepare state for JSON serialization
 def prepare_state_for_serialization(state):
-    # Create a deep copy to avoid modifying the original state
-    serializable_state = {}
-    for key, value in state.items():
-        if key == "messages":
-            # Handle messages specifically to ensure they're serializable
-            serializable_state[key] = [
-                msg if isinstance(msg, dict) else {
-                    'role': getattr(msg, 'role', ''),
-                    'content': getattr(msg, 'content', ''),
-                    'tool_calls': getattr(msg, 'tool_calls', []),
-                    'tool_call_id': getattr(msg, 'tool_call_id', None)
-                } for msg in value
-            ]
-        else:
-            serializable_state[key] = value
-    return serializable_state
+    """
+    Recursively convert non-serializable objects in state to serializable dictionaries.
+    """
+    if isinstance(state, dict):
+        # Handle dictionary
+        result = {}
+        for key, value in state.items():
+            result[key] = prepare_state_for_serialization(value)
+        return result
+    elif isinstance(state, list):
+        # Handle list
+        return [prepare_state_for_serialization(item) for item in state]
+    elif isinstance(state, (str, int, float, bool, type(None))):
+        # Base primitive types
+        return state
+    elif isinstance(state, LiteLLMMessage) or (hasattr(state, "__class__") and state.__class__.__name__ == "Message"):
+        # Handle Message objects
+        return {
+            'role': getattr(state, 'role', ''),
+            'content': getattr(state, 'content', ''),
+            'tool_calls': prepare_state_for_serialization(getattr(state, 'tool_calls', [])),
+            'tool_call_id': getattr(state, 'tool_call_id', None)
+        }
+    elif isinstance(state, ChatCompletionMessageToolCall) or (hasattr(state, "__class__") and state.__class__.__name__ == "ChatCompletionMessageToolCall"):
+        # Handle ChatCompletionMessageToolCall objects
+        function_data = {}
+        if hasattr(state, 'function'):
+            function_data = {
+                'name': getattr(state.function, 'name', ''),
+                'arguments': getattr(state.function, 'arguments', '')
+            }
+        
+        return {
+            'id': getattr(state, 'id', ''),
+            'type': getattr(state, 'type', ''),
+            'function': function_data
+        }
+    else:
+        # Try to convert other objects to dict if possible
+        try:
+            # Try to convert to dict using __dict__
+            if hasattr(state, '__dict__'):
+                return prepare_state_for_serialization(state.__dict__)
+            # Try to use model_dump for pydantic models
+            elif hasattr(state, 'model_dump'):
+                return prepare_state_for_serialization(state.model_dump())
+            # If object has a to_dict method
+            elif hasattr(state, 'to_dict') and callable(getattr(state, 'to_dict')):
+                return prepare_state_for_serialization(state.to_dict())
+            # Last resort: try to convert using vars()
+            else:
+                return prepare_state_for_serialization(vars(state))
+        except:
+            # If all else fails, convert to string
+            return str(state)
 
 async def perform_tool_calls(state: Dict[str, Any]):
     """
