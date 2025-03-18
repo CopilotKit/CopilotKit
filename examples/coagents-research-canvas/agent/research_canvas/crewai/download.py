@@ -5,6 +5,7 @@ import aiohttp
 import html2text
 from typing_extensions import Dict, Any
 from copilotkit.crewai import copilotkit_emit_state
+from research_canvas.crewai.tools import prepare_state_for_serialization
 
 _RESOURCE_CACHE = {}
 
@@ -56,16 +57,18 @@ async def download_resources(state: Dict[str, Any]):
                 "done": False
             })
 
-    # Emit the state to let the UI update
-    await copilotkit_emit_state(state)
+    # Prepare serializable state and emit to let the UI update
+    serializable_state = prepare_state_for_serialization(state)
+    await copilotkit_emit_state(serializable_state)
 
     # Download the resources
     for i, resource in enumerate(resources_to_download):
         await _download_resource(resource["url"])
         state["logs"][logs_offset + i]["done"] = True
 
-        # update UI
-        await copilotkit_emit_state(state)
+        # Prepare serializable state and update UI
+        serializable_state = prepare_state_for_serialization(state)
+        await copilotkit_emit_state(serializable_state)
 
 def get_resources(state: Dict[str, Any]):
     """
