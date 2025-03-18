@@ -220,13 +220,14 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private observability?: CopilotObservabilityConfig;
 
   constructor(params?: CopilotRuntimeConstructorParams<T>) {
-    // Do not register actions if endpoints are set
-    if (params?.actions && params?.remoteEndpoints) {
-      console.warn("Actions set in runtime instance will be ignored when remote endpoints are set");
-      this.actions = [];
-    } else {
-      this.actions = params?.actions || [];
+    if (
+      params?.actions &&
+      params?.remoteEndpoints &&
+      params?.remoteEndpoints.some((e) => e.type === EndpointType.LangGraphPlatform)
+    ) {
+      console.warn("Actions set in runtime instance will not be available for the agent");
     }
+    this.actions = params?.actions || [];
 
     for (const chain of params?.langserve || []) {
       const remoteChain = new RemoteChain(chain);

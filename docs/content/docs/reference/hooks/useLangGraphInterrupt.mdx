@@ -58,6 +58,10 @@ const YourMainContent = () => {
     <PropertyReference name="render" type="(props: LangGraphInterruptRenderProps<T>) => string | React.ReactElement">
         Render lets you define a custom component or string to render when an Interrupt event is emitted.
     </PropertyReference>
+
+    <PropertyReference name="enabled" type="(args: { eventValue: TEventValue; agentMetadata: AgentSession }) => boolean">
+        Method that returns a boolean, indicating if the interrupt action should run. Useful when using multiple interrupts
+    </PropertyReference>
 </PropertyReference>
 
 <PropertyReference name="dependencies" type="any[]">
