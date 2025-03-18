@@ -15,7 +15,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.poetry.dependencies]
 python = ">=3.12,<3.13"
-copilotkit = "0.1.41"
+copilotkit = {extras = ["crewai"], version = "^0.1.41"}
 langchain-openai = "0.2.3"
 langchain-community = "^0.3.1"
 langchain-anthropic = "0.3.1"
@@ -31,7 +31,6 @@ langchain-core = "^0.3.25"
 langgraph-cli = {extras = ["inmem"], version = "^0.1.64"}
 langgraph-checkpoint-sqlite = "^2.0.1"
 aiosqlite = "^0.20.0"
-crewai = { version = "0.102.0" }
 
 [tool.poetry.scripts]
 demo = "research_canvas.demo:main"
