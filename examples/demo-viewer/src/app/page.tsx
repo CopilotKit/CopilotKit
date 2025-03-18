@@ -1,5 +1,6 @@
 "use client";
 
+import React from 'react';
 import { ViewerLayout } from "@/components/layout/viewer-layout";
 import { LLMSelector } from "@/components/llm-selector/llm-selector";
 import { DemoList } from "@/components/demo-list/demo-list";
@@ -11,12 +12,15 @@ import config from "@/config";
 import { LLMProvider } from "@/types/demo";
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Eye, Code, Book } from "lucide-react";
-import { CodeEditor } from "@/components/code-editor/code-editor";
-import ReactMarkdown from "react-markdown";
-import { MarkdownComponents } from "@/components/ui/markdown-components";
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Eye, Code, Book } from 'lucide-react';
+import { CodeEditor } from '@/components/code-editor/code-editor';
+import ReactMarkdown from 'react-markdown';
+import { MarkdownComponents } from '@/components/ui/markdown-components';
+import { MDXContent } from '@/components/ui/mdx-components';
+import { MDXRenderer, SafeComponent } from '@/utils/mdx-utils';
+import { join } from 'path';
 
 export default function Home() {
   const [selectedDemoId, setSelectedDemoId] = useState<string>();
@@ -25,6 +29,7 @@ export default function Home() {
   // Use a simple theme detection for the logo
   const [isDarkTheme, setIsDarkTheme] = useState<boolean>(false);
   const [readmeContent, setReadmeContent] = useState<string | null>(null);
+  const [compiledMDX, setCompiledMDX] = useState<string | null>(null);
 
   const [llmProvider, setLLMProvider] = useState<LLMProvider>(
     selectedDemo?.defaultLLMProvider || "openai"
@@ -78,6 +83,59 @@ export default function Home() {
       setLLMProvider(selectedDemo.defaultLLMProvider);
     }
   }, [selectedDemo]);
+
+  // Load README content
+  const loadReadmeContent = useCallback(async (demoPath: string) => {
+    try {
+      // First try to load README.mdx
+      let response = await fetch('/api/fs/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: join(demoPath, 'README.mdx') }),
+      });
+
+      if (!response.ok) {
+        // Fallback to README.md if README.mdx doesn't exist
+        response = await fetch('/api/fs/read', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: join(demoPath, 'README.md') }),
+        });
+      }
+
+      if (response.ok) {
+        const { content } = await response.json();
+        setReadmeContent(content);
+
+        // Process MDX if the file exists
+        try {
+          const mdxResponse = await fetch('/api/mdx/process', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filePath: join(demoPath, 'README.mdx') }),
+          });
+
+          if (mdxResponse.ok) {
+            const { compiled } = await mdxResponse.json();
+            setCompiledMDX(compiled);
+          } else {
+            setCompiledMDX(null);
+          }
+        } catch (mdxError) {
+          console.error('Error processing MDX:', mdxError);
+          setCompiledMDX(null);
+        }
+      } else {
+        // If neither README.mdx nor README.md exists, clear the content
+        setReadmeContent(null);
+        setCompiledMDX(null);
+      }
+    } catch (err) {
+      console.error('Error loading README:', err);
+      setReadmeContent(null);
+      setCompiledMDX(null);
+    }
+  }, []);
 
   // Load initial demo files when demo changes
   useEffect(() => {
@@ -181,7 +239,7 @@ export default function Home() {
                       className="flex-1 h-7 px-2 text-sm font-medium gap-1 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow"
                     >
                       <Book className="h-3 w-3" />
-                      <span>README</span>
+                      <span>Docs</span>
                     </TabsTrigger>
                   )}
                 </TabsList>
@@ -209,13 +267,26 @@ export default function Home() {
             ) : activeTab === "readme" && readmeContent ? (
               <div className="flex-1 p-6 overflow-auto bg-background">
                 <div className="max-w-4xl mx-auto">
-                  <h1 className="text-2xl font-bold mb-6 pb-2 border-b">
-                    {selectedDemo?.name} Documentation
-                  </h1>
                   <div className="prose max-w-none">
-                    <ReactMarkdown components={MarkdownComponents}>
-                      {readmeContent}
-                    </ReactMarkdown>
+                    {compiledMDX ? (
+                      <MDXContent>
+                        <SafeComponent
+                          component={() => <MDXRenderer content={readmeContent} />}
+                          fallback={
+                            <div className="p-4 border rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300">
+                              Could not render MDX content. Displaying markdown instead.
+                              <ReactMarkdown components={MarkdownComponents}>
+                                {readmeContent || ''}
+                              </ReactMarkdown>
+                            </div>
+                          }
+                        />
+                      </MDXContent>
+                    ) : (
+                      <ReactMarkdown components={MarkdownComponents}>
+                        {readmeContent}
+                      </ReactMarkdown>
+                    )}
                   </div>
                 </div>
               </div>
