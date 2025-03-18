@@ -156,7 +156,7 @@ async def copilotkit_emit_state(state: Any) -> Literal[True]:
             run_id=execution["run_id"],
             active=True,
             role="assistant",
-            state=json.dumps(state),
+            state=json.dumps(state_as_dict),
             running=True
         )
     )
