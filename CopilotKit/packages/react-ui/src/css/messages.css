@@ -5,6 +5,7 @@
   flex-direction: column;
   background-color: var(--copilot-kit-background-color);
   justify-content: space-between;
+  z-index: 1;
 }
 
 .copilotKitMessagesContainer {
@@ -50,7 +51,7 @@
   overflow-wrap: break-word;
   max-width: 80%;
   margin-bottom: 0.5rem;
-  color: var(--copilot-kit-text-color)
+  color: var(--copilot-kit-text-color);
 }
 
 .copilotKitMessage.copilotKitUserMessage {
