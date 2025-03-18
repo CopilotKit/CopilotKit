@@ -718,26 +718,25 @@ cron = ["capturer (>=2.4)"]
 
 [[package]]
 name = "copilotkit"
-version = "0.1.39"
+version = "0.1.41"
 description = "CopilotKit python SDK"
 optional = false
-python-versions = "<4.0,>=3.9"
+python-versions = "<3.13,>=3.10"
 groups = ["main"]
 files = [
-    {file = "copilotkit-0.1.39-py3-none-any.whl", hash = "sha256:a2a29324ef9414354ec93a4574f5abfb696b8787afbeb197974f1ed13f9dcfaf"},
-    {file = "copilotkit-0.1.39.tar.gz", hash = "sha256:2a637896ea932ff66b9e9ea890873a90da1962f63657eaaf667e8a44ef2d50a2"},
+    {file = "copilotkit-0.1.41-py3-none-any.whl", hash = "sha256:7330df363ff10893ce83918676d866afee97517f40a72c66bdb6592edf134f27"},
+    {file = "copilotkit-0.1.41.tar.gz", hash = "sha256:3f9e116b57c76d2b31865de07708b36820902e5c0d400093c54976254ab6044c"},
 ]
 
 [package.dependencies]
 fastapi = ">=0.115.0,<0.116.0"
-httpx = ">=0.27.2,<0.28.0"
 langchain = ">=0.3.3,<0.4.0"
-langchain-anthropic = ">=0.2.3,<0.4.0"
-langchain-openai = ">=0.2.3,<0.4.0"
 langgraph = ">=0.2.50"
-langgraph-sdk = ">=0.1.32,<0.2.0"
 partialjson = ">=0.0.8,<0.0.9"
 toml = ">=0.10.2,<0.11.0"
+
+[package.extras]
+crewai = ["crewai (==0.102.0)"]
 
 [[package]]
 name = "crewai"
@@ -5495,4 +5494,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.13"
-content-hash = "c80b63edd6db511dfc005705e31b0e4005204db5bdaffca58940c1fcf01fdd01"
+content-hash = "1fd236e474f40588bab73844a8da9d12c6b1916da2bf2d2305acec56ba7f6f59"
