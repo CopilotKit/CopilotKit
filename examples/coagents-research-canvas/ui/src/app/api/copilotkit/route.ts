@@ -34,21 +34,6 @@ export const POST = async (req: NextRequest) => {
   // ],
   //});
 
-  const remoteLangGraphPlatformEndpoint = langGraphPlatformEndpoint({
-    deploymentUrl: deploymentUrl || "",
-    langsmithApiKey,
-    agents: [
-      {
-        name: "research_agent",
-        description: "Research agent",
-      },
-      {
-        name: "research_agent_google_genai",
-        description: "Research agent",
-        assistantId: "9dc0ca3b-1aa6-547d-93f0-e21597d2011c",
-      },
-    ],
-  });
   const remoteEndpoints = deploymentUrl
     ? [
         langGraphPlatformEndpoint({
@@ -68,10 +53,21 @@ export const POST = async (req: NextRequest) => {
         }),
       ]
     : [
-        {
-          ...remoteLangGraphPlatformEndpoint,
-          deploymentUrl: process.env.LGC_DEPLOYMENT_URL,
-        },
+        langGraphPlatformEndpoint({
+          deploymentUrl: process.env.LGC_DEPLOYMENT_URL || "",
+          langsmithApiKey,
+          agents: [
+            {
+              name: "research_agent",
+              description: "Research agent",
+            },
+            {
+              name: "research_agent_google_genai",
+              description: "Research agent",
+              assistantId: "9dc0ca3b-1aa6-547d-93f0-e21597d2011c",
+            },
+          ],
+        }),
         copilotKitEndpoint({
           url:
             process.env.REMOTE_ACTION_URL || "http://localhost:8000/copilotkit",
