@@ -16,7 +16,6 @@ export const POST = async (req: NextRequest) => {
   const searchParams = req.nextUrl.searchParams;
   const deploymentUrl = searchParams.get("lgcDeploymentUrl");
 
-  console.log("deploymentUrl", Boolean(deploymentUrl));
 
   // If you are running the agent-js uncomment line 20-34 and comment out line 35-55
 
