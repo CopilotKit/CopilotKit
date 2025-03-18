@@ -25,3 +25,6 @@ crewai = ["crewai"]
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+demo = "copilotkit.demo:main"

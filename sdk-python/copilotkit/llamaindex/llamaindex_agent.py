@@ -2,12 +2,14 @@
 LlamaIndex Agent
 """
 
-from typing_extensions import Callable, Optional, NotRequired, TypedDict, List
-from llama_index.core.agent.workflow import AgentWorkflow
+import uuid
+from typing_extensions import Callable, Optional, NotRequired, TypedDict, List, Any
+from llama_index.core.workflow import Workflow
 from copilotkit.agent import Agent
 from copilotkit.types import Message
 from copilotkit.action import ActionDict
-
+from copilotkit.llamaindex.llamaindex_sdk import CopilotKitEvents
+from copilotkit.protocol import emit_runtime_events
 
 class CopilotKitConfig(TypedDict):
     """
@@ -46,7 +48,7 @@ class LlamaIndexAgent(Agent):
             *,
             name: str,
             description: Optional[str] = None,
-            workflow: AgentWorkflow,
+            workflow: Workflow,
             copilotkit_config: Optional[CopilotKitConfig] = None,
         ):
         super().__init__(
@@ -82,15 +84,36 @@ class LlamaIndexAgent(Agent):
             self,
             *,
             state: dict,
-            thread_id: str,
+            thread_id: Optional[str] = None,
             messages: List[Message],
             actions: Optional[List[ActionDict]] = None,
             **kwargs
         ):
-        handler = self.workflow.run(user_msg="What's the weather like in San Francisco?")
-        async for event in handler.stream_events():
-            print(event, flush=True)
+        if thread_id is None:
+            raise ValueError("Thread ID is required")
+      
+        run_id = str(uuid.uuid4())
 
+        merge_state = self.copilotkit_config.get("merge_state", llamaindex_default_merge_state)
+
+        llamaindex_messages = copilotkit_messages_to_llamaindex(messages)
+
+        state = merge_state(
+            state=state,
+            messages=llamaindex_messages,
+            actions=actions or [],
+            agent_name=self.name,
+            workflow=self.workflow
+        )
+
+        handler = self.workflow.run()
+        async for event in handler.stream_events():
+            if isinstance(event, CopilotKitEvents):
+                if event.events:
+                    yield emit_runtime_events(*event.events)
+
+    async def get_state(self, *, thread_id: str):
+        return dict()
 
     def dict_repr(self):
         super_repr = super().dict_repr()
@@ -98,3 +121,34 @@ class LlamaIndexAgent(Agent):
             **super_repr,
             'type': 'llamaindex'
         }
+
+def llamaindex_default_merge_state( # pylint: disable=unused-argument, too-many-arguments
+        *,
+        state: dict,
+        workflow: Workflow,
+        messages: List[Any],
+        actions: List[Any],
+        agent_name: str,
+    ):
+    """Default merge state for CrewAI"""
+    if len(messages) > 0:
+        if "role" in messages[0] and messages[0]["role"] == "system":
+            messages = messages[1:]
+
+    # TODO: add actions to the state
+    # actions = [{
+    #     "type": "function",
+    #     "function": {
+    #         **action,
+    #     }
+    # } for action in actions]
+
+    new_state = {
+        **state,
+        "messages": messages,
+        # "copilotkit": {
+        #     "actions": actions
+        # }
+    }
+
+    return new_state
