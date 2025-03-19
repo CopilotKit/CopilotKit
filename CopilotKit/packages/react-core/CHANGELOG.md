@@ -1,5 +1,13 @@
 # ui
 
+## 1.7.2-next.1
+
+### Patch Changes
+
+- 73f5eaa: - fix(react-core): export missing action-related types for public API
+  - @copilotkit/runtime-client-gql@1.7.2-next.1
+  - @copilotkit/shared@1.7.2-next.1
+
 ## 1.7.2-next.0
 
 ### Patch Changes
