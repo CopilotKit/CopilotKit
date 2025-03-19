@@ -1,4 +1,5 @@
 import { DemoConfig } from "@/types/demo";
+import filesJSON from "./files.json";
 
 // A helper method to creating a config
 function createDemoConfig({
@@ -6,12 +7,8 @@ function createDemoConfig({
   name,
   description,
   tags,
-  readmeContent,
-}: Pick<
-  DemoConfig,
-  "id" | "name" | "description" | "tags" | "readmeContent"
->): DemoConfig {
-  console.log("CONTENT!", readmeContent);
+}: Pick<DemoConfig, "id" | "name" | "description" | "tags">): DemoConfig {
+  const files = (filesJSON as any)[id] ? (filesJSON as any)[id].files : [];
   return {
     id,
     name,
@@ -21,6 +18,7 @@ function createDemoConfig({
       import(`../agent/demo/${id}/page`).then((mod) => mod.default),
     defaultLLMProvider: "openai",
     tags,
+    files,
   };
 }
 
@@ -56,8 +54,6 @@ const config: DemoConfig[] = [
     name: "Shared State between agent and UI",
     description: "A recipe Copilot which reads and updates collaboratively",
     tags: ["Agent State", "Collaborating"],
-    readmeContent: require("raw-loader!../agent/demo/shared_state/README.md")
-      .default,
   }),
   createDemoConfig({
     id: "predictive_state_updates",

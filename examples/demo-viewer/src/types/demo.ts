@@ -15,9 +15,9 @@ export interface DemoConfig {
   description: string;
   path: string;
   component: () => Promise<ComponentType>;
+  files: DemoFile[];
   defaultLLMProvider?: LLMProvider;
   tags?: string[];
-  readmeContent?: string;
 }
 
 export interface BrandConfig {

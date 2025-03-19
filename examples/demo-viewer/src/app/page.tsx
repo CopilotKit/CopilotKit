@@ -17,7 +17,6 @@ import { Eye, Code, Book } from "lucide-react";
 import { CodeEditor } from "@/components/code-editor/code-editor";
 import ReactMarkdown from "react-markdown";
 import { MarkdownComponents } from "@/components/ui/markdown-components";
-import { join } from "path";
 
 export default function Home() {
   const [selectedDemoId, setSelectedDemoId] = useState<string>();
@@ -80,34 +79,20 @@ export default function Home() {
     }
   }, [selectedDemo]);
 
-  // Load README content
-  const loadReadmeContent = useCallback(async (demoPath: string) => {
-    try {
-      const response = await fetch("/api/fs/read", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: join(demoPath, "README.md") }),
-      });
-      if (response.ok) {
-        const { content } = await response.json();
-        setReadmeContent(content);
-      } else {
-        // If README.md doesn't exist, clear the content
-        setReadmeContent(null);
-      }
-    } catch (err) {
-      console.error("Error loading README:", err);
-      setReadmeContent(null);
-    }
-  }, []);
-
   // Load initial demo files when demo changes
   useEffect(() => {
     if (selectedDemo?.path) {
       handleNavigate(selectedDemo.path);
-      void loadReadmeContent(selectedDemo.path);
+      const readmeFile = selectedDemo.files.find(
+        (file) => file.name === "README.md"
+      );
+      if (readmeFile) {
+        setReadmeContent(readmeFile.content);
+      } else {
+        setReadmeContent(null);
+      }
     }
-  }, [selectedDemo?.path, handleNavigate, loadReadmeContent]);
+  }, [selectedDemo?.path, handleNavigate]);
 
   // Find agent.py file when switching to code tab
   const handleTabChange = (value: string) => {
