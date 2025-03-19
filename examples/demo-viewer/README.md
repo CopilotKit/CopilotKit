@@ -16,6 +16,22 @@ The Demo Viewer provides a centralized interface for browsing, viewing, and expl
 
 To run the Demo Viewer locally for development, follow these steps:
 
+### 0. Environment Setup
+
+You'll need to set up environment variables for both the root directory and the agent directory:
+
+```bash
+# In the root directory
+echo "OPENAI_API_KEY=your_api_key_here" > .env
+
+# In the agent directory
+cd agent
+echo "OPENAI_API_KEY=your_api_key_here" > .env
+cd ..
+```
+
+Make sure to replace `your_api_key_here` with your actual OpenAI API key.
+
 ### 1. Set up the agents
 
 First, navigate to the agents directory and install dependencies:
