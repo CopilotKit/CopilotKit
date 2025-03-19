@@ -131,10 +131,24 @@ export default function Home() {
         <div className="flex flex-col h-full w-74 border-r">
           {/* Sidebar Header */}
           <div className="p-4 border-b bg-background">
-            <div className="flex items-center justify-between">
-              <h1 className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-500 bg-clip-text text-transparent">
-                Interactive Demos
-              </h1>
+            <div className="flex items-center justify-between ml-1">
+              <div className="flex items-start flex-col">
+                <Image
+                  src={isDarkTheme ? "/logo_light.webp" : "/logo_dark.webp"}
+                  width={120}
+                  height={24}
+                  alt="CopilotKit"
+                  className="h-6 w-auto object-contain"
+                />
+                <h1
+                  className={`text-lg font-extralight ${
+                    isDarkTheme ? "text-white" : "text-gray-900"
+                  }`}
+                >
+                  Interactive Demos
+                </h1>
+              </div>
+
               <ThemeToggle />
             </div>
           </div>
@@ -142,14 +156,14 @@ export default function Home() {
           {/* Controls Section */}
           <div className="p-4 border-b bg-background">
             {/* LLM Selector */}
-            <div className="mb-4 w-full">
+            {/* <div className="mb-4 w-full">
               <label className="block text-sm font-medium text-muted-foreground mb-2">
                 Language Model
               </label>
               <div className="w-full">
                 <LLMSelector value={llmProvider} onChange={setLLMProvider} />
               </div>
-            </div>
+            </div> */}
 
             {/* Preview/Code Tabs */}
             {/* <div className="mb-1">
@@ -197,19 +211,6 @@ export default function Home() {
               selectedDemo={selectedDemoId}
               onSelect={setSelectedDemoId}
             />
-          </div>
-
-          {/* Logo Footer */}
-          <div className="p-3 flex justify-center items-center bg-background">
-            <div className="flex items-center">
-              <Image
-                src={isDarkTheme ? "/logo_light.webp" : "/logo_dark.webp"}
-                width={120}
-                height={24}
-                alt="CopilotKit"
-                className="h-6 w-auto object-contain"
-              />
-            </div>
           </div>
         </div>
 
