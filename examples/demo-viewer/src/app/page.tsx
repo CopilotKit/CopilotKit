@@ -141,16 +141,9 @@ export default function Home() {
   useEffect(() => {
     if (selectedDemo?.path) {
       handleNavigate(selectedDemo.path);
-      const readmeFile = selectedDemo.files.find(
-        (file) => file.name === "README.md"
-      );
-      if (readmeFile) {
-        setReadmeContent(readmeFile.content);
-      } else {
-        setReadmeContent(null);
-      }
+      loadReadmeContent(selectedDemo.path);
     }
-  }, [selectedDemo?.path, handleNavigate]);
+  }, [selectedDemo?.path, handleNavigate, loadReadmeContent]);
 
   // Find agent.py file when switching to code tab
   const handleTabChange = (value: string) => {
