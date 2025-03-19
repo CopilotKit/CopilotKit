@@ -86,6 +86,11 @@ def health():
     """Health check."""
     return {"status": "ok"}
 
+@app.get("/")
+def root():
+    """Root endpoint."""
+    return {"message": "Hello, World!"}
+
 
 def main():
     """Run the uvicorn server."""
