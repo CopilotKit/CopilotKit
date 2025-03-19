@@ -82,23 +82,23 @@ export default function Home() {
 
   // Load README content
   const loadReadmeContent = useCallback(async (demoPath: string) => {
-    // try {
-    //   const response = await fetch('/api/fs/read', {
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({ path: join(demoPath, 'README.md') }),
-    //   });
-    //   if (response.ok) {
-    //     const { content } = await response.json();
-    //     setReadmeContent(content);
-    //   } else {
-    //     // If README.md doesn't exist, clear the content
-    //     setReadmeContent(null);
-    //   }
-    // } catch (err) {
-    //   console.error('Error loading README:', err);
-    //   setReadmeContent(null);
-    // }
+    try {
+      const response = await fetch("/api/fs/read", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: join(demoPath, "README.md") }),
+      });
+      if (response.ok) {
+        const { content } = await response.json();
+        setReadmeContent(content);
+      } else {
+        // If README.md doesn't exist, clear the content
+        setReadmeContent(null);
+      }
+    } catch (err) {
+      console.error("Error loading README:", err);
+      setReadmeContent(null);
+    }
   }, []);
 
   // Load initial demo files when demo changes
@@ -166,7 +166,7 @@ export default function Home() {
             </div> */}
 
             {/* Preview/Code Tabs */}
-            {/* <div className="mb-1">
+            <div className="mb-1">
               <label className="block text-sm font-medium text-muted-foreground mb-2">
                 View Mode
               </label>
@@ -201,7 +201,7 @@ export default function Home() {
                   )}
                 </TabsList>
               </Tabs>
-            </div> */}
+            </div>
           </div>
 
           {/* Demo List */}

@@ -1,10 +1,10 @@
-import { type ComponentType } from 'react';
+import { type ComponentType } from "react";
 
-export type LLMProvider = 'openai' | 'anthropic';
+export type LLMProvider = "openai" | "anthropic";
 
 export interface DemoFile {
-  name: string;  // Display name (filename only)
-  path: string;  // Full file path
+  name: string; // Display name (filename only)
+  path: string; // Full file path
   content: string;
   language: string;
 }
@@ -17,6 +17,7 @@ export interface DemoConfig {
   component: () => Promise<ComponentType>;
   defaultLLMProvider?: LLMProvider;
   tags?: string[];
+  readmeContent?: string;
 }
 
 export interface BrandConfig {
