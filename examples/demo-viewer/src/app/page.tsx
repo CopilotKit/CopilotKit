@@ -153,7 +153,7 @@ export default function Home() {
             {/* Preview/Code Tabs */}
             <div className="mb-1">
               <label className="block text-sm font-medium text-muted-foreground mb-2">
-                View Mode
+                View
               </label>
               <Tabs
                 value={activeTab}
