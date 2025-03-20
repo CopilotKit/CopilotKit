@@ -108,7 +108,7 @@ included in the function's final returned state. Otherwise, they will be overwri
                                 ]
                                 
                                 for step in steps:
-                                    self.state["observed_steps"] = [...(self.state.observed_steps or []), step]
+                                    self.state["observed_steps"] = self.state.get("observed_steps", []) + [step]
                                     await copilotkit_emit_state(self.state) # [!code highlight]
                                     await asyncio.sleep(1)
 

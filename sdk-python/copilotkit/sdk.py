@@ -67,6 +67,8 @@ class CopilotKitRemoteEndpoint:
 
     ```bash
     pip install copilotkit
+    # or to include crewai
+    pip install copilotkit[crewai]
     ```
 
     ## Adding actions

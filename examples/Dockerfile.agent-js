@@ -27,6 +27,9 @@ RUN pnpm i --frozen-lockfile
 # Copy SDK and install dependencies in a single layer
 COPY ${APP_DIR}/ ./
 
+# Explicitly install the missing dependency
+RUN pnpm add @langchain/langgraph-checkpoint
+
 RUN mkdir .langgraph_api
 
 RUN ls -la

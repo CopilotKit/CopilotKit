@@ -81,7 +81,7 @@ class CrewAIAgent(Agent):
     To install, run:
 
     ```bash
-    pip install copilotkit
+    pip install copilotkit[crewai]
     ```
 
     Every agent must have the `name` and either `crew` or `flow` properties defined. An optional 
