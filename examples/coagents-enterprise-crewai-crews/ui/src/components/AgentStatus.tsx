@@ -1,36 +1,33 @@
 import React from "react";
-import { AgentState, RunStatus } from "@/types/agent";
-import { Loader, CheckCircle, AlertCircle, MessageCircle } from "lucide-react";
+
+import { ResponseStatus } from "@copilotkit/react-ui";
+import { CheckCircle, Loader } from "lucide-react";
 
 type AgentStatusProps = {
   running: boolean;
   state?: {
-    status?: AgentState["status"];
+    status?: ResponseStatus;
   };
-  agentStatus?: RunStatus;
+  agentStatus?: ResponseStatus;
 };
 
-const getStatusIcon = (status: AgentState["status"] | undefined) => {
+const getStatusIcon = (status: ResponseStatus | undefined) => {
   if (!status) return null;
   switch (status) {
-    case "thinking":
+    case "executing":
+    case "inProgress":
       return (
         <Loader className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-600" />
       );
-    case "completed":
+    case "complete":
       return <CheckCircle className="mr-2 h-4 w-4 text-gray-600" />;
-    case "error":
-      return <AlertCircle className="mr-2 h-4 w-4 text-gray-600" />;
-    case "human_input_requested":
-      return <MessageCircle className="mr-2 h-4 w-4 text-gray-600" />;
   }
 };
 
-const STATUS_MAP: Record<AgentState["status"], string> = {
-  thinking: "Thinking...",
-  completed: "Completed",
-  error: "Error",
-  human_input_requested: "Awaiting Your Feedback",
+const STATUS_MAP: Record<ResponseStatus, string> = {
+  inProgress: "Thinking...",
+  complete: "Completed",
+  executing: "Thinking...",
 };
 
 const AgentStatus: React.FC<AgentStatusProps> = ({
@@ -39,12 +36,12 @@ const AgentStatus: React.FC<AgentStatusProps> = ({
   agentStatus,
 }) => {
   if (!running || !state?.status) return null;
-  const status = agentStatus === "inProgress" ? "thinking" : state?.status;
+
   return (
     <div className="absolute top-4 right-4 z-10">
       <div className="flex items-center bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm font-medium">
-        {getStatusIcon(status)}
-        {STATUS_MAP[status]}
+        {getStatusIcon(agentStatus)}
+        {STATUS_MAP[agentStatus || "complete"]}
       </div>
     </div>
   );

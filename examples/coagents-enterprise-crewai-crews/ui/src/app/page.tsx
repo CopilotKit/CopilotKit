@@ -2,8 +2,7 @@
 
 import AgentStatus from "@/components/AgentStatus";
 import { DebugViewer } from "@/components/DebugViewer";
-import { formatContent } from "@/components/FormattedContent";
-import FormattedContent from "@/components/FormattedContent";
+import FormattedContent, { formatContent } from "@/components/FormattedContent";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -20,16 +19,23 @@ import {
   useCopilotChat,
 } from "@copilotkit/react-core";
 import {
+  AgentState,
   CopilotChat,
   CopilotKitCSSProperties,
   DefaultResponseRenderer,
   DefaultStateRenderer,
   ResponseStatus,
-  AgentState,
 } from "@copilotkit/react-ui";
 import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
+
+interface CrewFeedback {
+  timestamp: string;
+  id: string;
+  task_id: string;
+  task_output: string;
+}
 
 // Simple skeleton item for loading state
 const SkeletonItem = () => (
@@ -167,8 +173,7 @@ export default function Home() {
   useCopilotAction({
     name: "crew_requesting_feedback",
     renderAndWaitForResponse({ status, args, respond }) {
-      // @ts-ignore
-      const feedback = args as any;
+      const feedback = args as CrewFeedback;
       return (
         <DefaultResponseRenderer
           response={{
