@@ -74,7 +74,7 @@ Transform spreadsheets with natural language data analysis and formula generatio
   <a href="https://spreadsheet-demo-tau.vercel.app/"><code>Live Demo →</code></a>
 </div>
 
-### 🏦 [Banking Copilot](https://github.com/CopilotKit/demo-banking)
+### 🏦 [SaaS Copilot (Bank)](https://github.com/CopilotKit/demo-banking)
 A context-aware financial assistant that analyzes transactions, provides spending insights, and helps users manage their finances through natural conversation. Demonstrates how CopilotKit can integrate deeply with complex data structures.
 <div>
   <a href="https://github.com/CopilotKit/demo-banking"><code>GitHub →</code></a>
