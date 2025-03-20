@@ -83,7 +83,7 @@ export const Input = ({ inProgress, onSend, isVisible = false, onStop }: InputPr
           }}
         />
         <div className="copilotKitInputControls">
-          <div className="flex-1" />
+          <div style={{ flexGrow: 1 }} />
           {showPushToTalk && (
             <button
               onClick={() =>

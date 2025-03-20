@@ -4,9 +4,11 @@ html {
   --copilot-kit-secondary-color: rgb(83, 83, 83);
   --copilot-kit-background-color: rgb(255 255 255);
   --copilot-kit-muted-color: rgb(200 200 200);
-  --copilot-kit-text-color: rgb(28, 28, 28);
+  --copilot-kit-text-light-color: rgb(255 255 255);
+  --copilot-kit-text-dark-color: rgb(28, 28, 28);
   --copilot-kit-separator-color: rgb(200 200 200);
   --copilot-kit-scrollbar-color: rgba(0, 0, 0, 0.2);
+  --copilot-kit-header-color: rgb(255 255 255);
   --copilot-kit-response-button-color: #333;
   --copilot-kit-response-button-background-color: #fff;
   --copilot-kit-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
