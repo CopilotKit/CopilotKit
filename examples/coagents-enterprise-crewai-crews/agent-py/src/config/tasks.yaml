@@ -1,0 +1,40 @@
+search_restaurants_task:
+  description: >
+    Search for popular and highly-rated restaurants in {location}. Include a variety of 
+    cuisines, price points, and dining styles. For each restaurant, gather information
+    about their cuisine, price range, ratings, popular dishes, and any unique features.
+  expected_output: >
+    A detailed list of at least 8 restaurants in {location}, with information about
+    cuisine type, price range, ratings, signature dishes, and any standout characteristics.
+
+present_recommendations_task:
+  description: >
+    Review the restaurants found in {location} and create a curated list of recommendations.
+    Highlight what makes each restaurant special and why someone might want to visit.
+    Present these recommendations in a friendly, conversational way. Then ask the user
+    if they'd like more recommendations or if these options are sufficient.
+  expected_output: >
+    A well-organized list of restaurant recommendations with engaging descriptions,
+    followed by a question asking if the user would like more recommendations.
+
+    **Restaurant Recommendations**
+
+    - **Restaurant Name**: Description of what makes this restaurant special.
+      - **Cuisine**: Type of cuisine
+      - **Price Range**: Price range
+      - **Ratings**: Ratings
+      - **Signature Dishes**: Signature dishes
+      - **Standout Characteristics**: Any standout characteristics
+
+    **Would you like more recommendations?**
+
+respond_to_feedback_task:
+  description: >
+    Based on the user's response to the recommendations, either:
+    1. If they say "thank you" or indicate satisfaction, provide a friendly closing response
+       along with the finalized list of recommendations.
+    2. If they ask for more recommendations, provide 3-5 additional restaurant options
+       with different cuisines or characteristics from the first set.
+  expected_output: >
+    Either a gracious closing message with the finalized list of recommendations
+    or a new set of restaurant recommendations that complement the initial suggestions.
