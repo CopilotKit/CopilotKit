@@ -1,9 +1,7 @@
 "use client";
 
-import { AgenticUI } from "@/components/AgenticUI";
 import AgentStatus from "@/components/AgentStatus";
 import { DebugViewer } from "@/components/DebugViewer";
-import { SubmitCrewFeedback } from "@/components/SubmitCrewFeedback";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -20,7 +18,12 @@ import {
   useCopilotAction,
   useCopilotChat,
 } from "@copilotkit/react-core";
-import { CopilotChat, CopilotKitCSSProperties } from "@copilotkit/react-ui";
+import {
+  CopilotChat,
+  CopilotKitCSSProperties,
+  DefaultResponseRenderer,
+  DefaultStateRenderer,
+} from "@copilotkit/react-ui";
 import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
 import { useEffect, useState } from "react";
 
@@ -91,7 +94,7 @@ export default function Home() {
   useCoAgentStateRender({
     name: "restaurant_finder_agent",
     render: ({ state, status }: { state: AgentState; status: RunStatus }) => {
-      return <AgenticUI state={state} status={status} />;
+      return <DefaultStateRenderer state={state} status={status} />;
     },
   });
 
@@ -99,9 +102,9 @@ export default function Home() {
     name: "crew_requesting_feedback",
     renderAndWaitForResponse({ status, args, respond }) {
       return (
-        <SubmitCrewFeedback
+        <DefaultResponseRenderer
           feedback={args as Feedback}
-          respond={(feedback) => {
+          respond={(feedback: Feedback) => {
             respond?.(feedback);
           }}
           status={status}

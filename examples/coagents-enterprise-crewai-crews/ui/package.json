@@ -9,10 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@copilotkit/react-core": "1.7.1",
-    "@copilotkit/react-ui": "1.7.1",
-    "@copilotkit/runtime-client-gql": "1.7.1",
-    "@copilotkit/runtime": "1.7.1",
+    "@copilotkit/react-core": "0.0.0-suhas-adds-default-renderers-for-crew-20250320180858",
+    "@copilotkit/react-ui": "0.0.0-suhas-adds-default-renderers-for-crew-20250320180858",
+    "@copilotkit/runtime-client-gql": "0.0.0-suhas-adds-default-renderers-for-crew-20250320180858",
+    "@copilotkit/runtime": "0.0.0-suhas-adds-default-renderers-for-crew-20250320180858",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "json5": "^2.2.3",
