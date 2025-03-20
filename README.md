@@ -88,14 +88,14 @@ Transform tedious form-filling into natural conversations. The AI assistant asks
 </div>
 
 ### 💬 [Chat With Your Data](https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-chat-with-your-data)
-A powerful RAG implementation that allows users to upload documents and chat with their content. Perfect for knowledge bases, documentation, and research applications.
+Transform your data visualization experience with an AI-powered dashboard assistant. Ask questions about your data in natural language, get insights, and interact with your metrics—all through a conversational interface powered by CopilotKit.
 <div>
   <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-chat-with-your-data"><code>GitHub →</code></a>
   <a href="https://chat-with-your-data.vercel.app"><code>Live Demo →</code></a>
 </div>
 
-### 🔄 [State Machine Copilot](https://github.com/CopilotKit/CopilotKit/tree/main/examples/state-machine-copilot)
-An intelligent assistant that acts as a cars salesman. Demonstrating a state machine implementation approach to copilots
+### 🔄 [State Machine Copilot](https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-state-machine)
+Transform complex conversational flows into manageable state machines. This AI-powered car sales application demonstrates how to build sophisticated multi-stage interactions with contextual awareness and state transitions.
 <div>
   <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/state-machine-copilot"><code>GitHub →</code></a>
   <a href="https://state-machine-copilot.vercel.app"><code>Live Demo →</code></a>
