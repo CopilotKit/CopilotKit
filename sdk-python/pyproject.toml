@@ -1,22 +1,25 @@
 [tool.poetry]
 name = "copilotkit"
-version = "0.1.40-alpha.2"
+version = "0.1.41"
 description = "CopilotKit python SDK"
 authors = ["Markus Ecker <markus.ecker@gmail.com>"]
 license = "MIT"
 readme = "README.md"
 homepage = "https://copilotkit.ai"
-repository = "https://github.com/CopilotKit/sdk-python"
+repository = "https://github.com/CopilotKit/CopilotKit/tree/main/sdk-python"
 keywords = ["copilot", "copilotkit", "langgraph", "langchain", "ai", "langsmith", "langserve"]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
 langgraph = {version = ">=0.2.50"}
 langchain = {version = "^0.3.3"}
-crewai = {version = ">=0.100.0,<1.0.0"}
+crewai = { version = "0.102.0", optional = true }
 fastapi = "^0.115.0"
 partialjson = "^0.0.8"
 toml = "^0.10.2"
+
+[tool.poetry.extras]
+crewai = ["crewai"]
 
 [build-system]
 requires = ["poetry-core"]

@@ -10,7 +10,8 @@
     "@copilotkit/runtime": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "express": "^4.19.2",
-    "openai": "^4.85.1"
+    "openai": "^4.85.1",
+    "dotenv": "^16.4.7"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",

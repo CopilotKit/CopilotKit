@@ -1,5 +1,53 @@
 # @copilotkit/runtime
 
+## 1.7.2-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.7.2-next.1
+
+## 1.7.2-next.0
+
+### Patch Changes
+
+- a16757a: - fix: re-enable runtime actions when remote endpoint is set
+  - @copilotkit/shared@1.7.2-next.0
+
+## 1.7.1
+
+### Patch Changes
+
+- 261b2be: - simplifies interface + adds o11y in agents
+  - @copilotkit/shared@1.7.1
+
+## 1.7.1-next.0
+
+### Patch Changes
+
+- 261b2be: - simplifies interface + adds o11y in agents
+  - @copilotkit/shared@1.7.1-next.0
+
+## 1.7.0
+
+### Minor Changes
+
+- 082db7a: - CrewAI support
+
+### Patch Changes
+
+- 082db7a: - Added RemoteAgentAdapter and implemented CopilotKit (protocol & events).
+  - Integrated CrewAI (with a prototype, HITL, event system, and chat/demo tweaks).
+  - Updated docs and cleaned up code (fixing stdout issues, restricting Python version, and streamlining demos).
+- 1e934e4: - feat(runtime): Add LangFuse logging integration
+  - @copilotkit/shared@1.7.0
+
+## 1.7.0-next.1
+
+### Patch Changes
+
+- 1e934e4: - feat(runtime): Add LangFuse logging integration
+  - @copilotkit/shared@1.7.0-next.1
+
 ## 1.7.0-next.0
 
 ### Minor Changes

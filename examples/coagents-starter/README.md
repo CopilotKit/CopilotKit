@@ -8,14 +8,14 @@ This example contains a simple starter project which includes two different agen
 
 First, install the backend dependencies:
 
-### Python SDK
+### Python Agent
 
 ```sh
 cd agent-py
 poetry install
 ```
 
-### JS-SDK
+### JS Agent
 
 ```sh
 cd agent-js
@@ -39,11 +39,6 @@ Python
 poetry run demo
 ```
 
-JS
-
-```sh
-pnpm run dev
-```
 
 ## Running the UI
 
@@ -54,13 +49,19 @@ cd ./ui
 pnpm i
 ```
 
+Then start the client:
+
+```sh
+pnpm run dev
+```
+
 Then, create a `.env` file inside `./ui` with the following:
 
 ```
 OPENAI_API_KEY=...
 ```
 
-If you're using the JS agent, uncomment the code inside the `app/api/copilotkit/route.ts`, `remoteEndpoints` action: 
+If you're using the **JS** agent, uncomment the code inside the `app/api/copilotkit/route.ts`, `remoteEndpoints` action: 
 
 ```ts
 // Uncomment this if you want to use LangGraph JS, make sure to 
@@ -78,11 +79,10 @@ If you're using the JS agent, uncomment the code inside the `app/api/copilotkit/
 
 Make sure to comment out the other remote endpoint as this replaces it.
 
-Finally, run the Next.js project:
+**Running the JS Agent:**
+- Run this command to start your LangGraph server `npx @langchain/langgraph-cli dev --host localhost --port 8123`
+- Run this command to connect your Copilot Cloud Tunnel to the LangGraph server `npx copilotkit@latest dev --port 8123`
 
-```sh
-pnpm run dev
-```
 
 ## Usage
 
@@ -92,7 +92,7 @@ Navigate to [http://localhost:3000](http://localhost:3000).
 
 Run LangGraph studio, then load the `./agent` folder into it.
 
-Make sure to create teh `.env` mentioned above first!
+Make sure to create the `.env` mentioned above first!
 
 # Troubleshooting
 

@@ -117,7 +117,7 @@ async def copilotkit_emit_state(state: Any) -> Literal[True]:
     To install the CopilotKit SDK, run:
 
     ```bash
-    pip install copilotkit
+    pip install copilotkit[crewai]
     ```
 
     ### Examples
@@ -143,8 +143,9 @@ async def copilotkit_emit_state(state: Any) -> Literal[True]:
     """
     execution = get_context_execution()
 
+    state_as_dict = state.model_dump() if isinstance(state, BaseModel) else state
     state = {
-        k: v for k, v in state.items() if k not in ["messages"]
+        k: v for k, v in state_as_dict.items() if k not in ["messages", "copilotkit"]
     }
 
     await queue_put(
@@ -155,7 +156,7 @@ async def copilotkit_emit_state(state: Any) -> Literal[True]:
             run_id=execution["run_id"],
             active=True,
             role="assistant",
-            state=json.dumps(state),
+            state=json.dumps(state_as_dict),
             running=True
         )
     )

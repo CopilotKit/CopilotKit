@@ -15,8 +15,8 @@ app = FastAPI()
 sdk = CopilotKitRemoteEndpoint(
     agents=[
         CrewAIAgent(
-            name="research_agent",
-            description="Research agent.",
+            name="research_agent_crewai",
+            description="Research agent using CrewAI.",
             flow=ResearchCanvasFlow(),
         ),
     ],

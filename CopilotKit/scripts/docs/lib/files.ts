@@ -112,7 +112,8 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     sourcePath: "packages/react-core/src/hooks/use-coagent-state-render.ts",
     destinationPath: "docs/content/docs/reference/hooks/useCoAgentStateRender.mdx",
     hook: "useCoAgentStateRender",
-    description: "The useCoAgentStateRender hook allows you to render the state of a coagent.",
+    description:
+      "The useCoAgentStateRender hook allows you to render the state of the agent in the chat.",
   },
   {
     sourcePath: "packages/react-core/src/hooks/use-coagent.ts",
@@ -145,7 +146,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     ],
   },
   {
-    sourcePath: "../sdk-python/copilotkit/crewai.py",
+    sourcePath: "../sdk-python/copilotkit/crewai/crewai_sdk.py",
     destinationPath: "docs/content/docs/reference/sdk/python/CrewAI.mdx",
     title: "CrewAI SDK",
     description:
@@ -168,7 +169,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     pythonSymbols: ["LangGraphAgent", "CopilotKitConfig"],
   },
   {
-    sourcePath: "../sdk-python/copilotkit/crewai_agent.py",
+    sourcePath: "../sdk-python/copilotkit/crewai/crewai_agent.py",
     destinationPath: "docs/content/docs/reference/sdk/python/CrewAIAgent.mdx",
     title: "CrewAIAgent",
     description: "CrewAIAgent lets you define your agent for use with CopilotKit.",
