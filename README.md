@@ -69,18 +69,54 @@ Stay up to date with our latest releases!
 
 ### 📊 [AI Spreadsheet Assistant](https://github.com/CopilotKit/demo-spreadsheet)
 Transform spreadsheets with natural language data analysis and formula generation. Users can ask questions about their data, create complex formulas through conversation, and get instant visualizations—all without knowing a single Excel function.
+<div>
+  <a href="https://github.com/CopilotKit/demo-spreadsheet"><code>GitHub →</code></a>
+  <a href="https://spreadsheet-demo-tau.vercel.app/"><code>Live Demo →</code></a>
+</div>
 
 ### 🏦 [Banking Copilot](https://github.com/CopilotKit/demo-banking)
 A context-aware financial assistant that analyzes transactions, provides spending insights, and helps users manage their finances through natural conversation. Demonstrates how CopilotKit can integrate deeply with complex data structures.
+<div>
+  <a href="https://github.com/CopilotKit/demo-banking"><code>GitHub →</code></a>
+</div>
 
-### ✈️ [Travel Planner](https://docs.copilotkit.ai/coagents/tutorials/ai-travel-app/overview)
-An agent-native application that helps users plan trips by generating detailed itineraries, finding attractions, and visualizing travel plans. Shows how agents can collaborate with users to create rich, interactive experiences.
-
-### 📝 [Form-Filling Copilot](https://form-filling-copilot.vercel.app/)
+### 📝 [Form-Filling Copilot](https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-form-filling)
 Transform tedious form-filling into natural conversations. The AI assistant asks the right questions, understands context, and completes forms automatically—no more field-by-field drudgery.
+<div>
+  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-form-filling"><code>GitHub →</code></a>
+  <a href="https://form-filling-copilot.vercel.app"><code>Live Demo →</code></a>
+</div>
 
-### 🔍 [Research Canvas](https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-research-canvas/readme.md)
+### 💬 [Chat With Your Data](https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-chat-with-your-data)
+A powerful RAG implementation that allows users to upload documents and chat with their content. Perfect for knowledge bases, documentation, and research applications.
+<div>
+  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-chat-with-your-data"><code>GitHub →</code></a>
+  <a href="https://chat-with-your-data.vercel.app"><code>Live Demo →</code></a>
+</div>
+
+### 🔄 [State Machine Copilot](https://github.com/CopilotKit/CopilotKit/tree/main/examples/state-machine-copilot)
+An intelligent assistant that acts as a cars salesman. Demonstrating a state machine implementation approach to copilots
+<div>
+  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/state-machine-copilot"><code>GitHub →</code></a>
+  <a href="https://state-machine-copilot.vercel.app"><code>Live Demo →</code></a>
+</div>
+
+## 🧙‍♂️ Agent Examples
+
+### ✈️ [Travel Planner](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-travel)
+An agent-native application that helps users plan trips by generating detailed itineraries, finding attractions, and visualizing travel plans. Shows how agents can collaborate with users to create rich, interactive experiences.
+<div>
+  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-travel"><code>GitHub →</code></a>
+  <a href="https://docs.copilotkit.ai/coagents/tutorials/ai-travel-app/overview"><code>Tutorial →</code></a>
+</div>
+
+### 🔍 [Research Canvas](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-research-canvas)
 Multi-agent document analysis system that helps users analyze papers, synthesize information, and generate comprehensive research summaries through collaborative AI workflows.
+<div>
+  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-research-canvas"><code>GitHub →</code></a>
+  <a href="https://examples-coagents-research-canvas-ui.vercel.app
+"><code>Live Demo →</code></a>
+</div>
 
 # Getting Started
 Get started in minutes - check out the [quickstart documentation](https://docs.copilotkit.ai/quickstart).
