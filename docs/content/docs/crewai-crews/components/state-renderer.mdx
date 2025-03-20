@@ -1,0 +1,217 @@
+---
+title: State Renderer
+description: Display agent state and progress in a collapsible UI component
+icon: "custom/component"
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+
+# State Renderer
+
+The State Renderer displays the internal state of an agent, including steps, tasks, and thought processes. It provides a collapsible UI that shows the agent's workflow and actions in real-time, giving users insight into what the agent is doing behind the scenes.
+
+<Callout type="info">
+  The State Renderer is particularly useful for CrewAI crews, where you want to
+  show the progress of multi-step agent operations.
+</Callout>
+
+## Installation
+
+This component is part of the `@copilotkit/react-ui` package:
+
+```bash
+npm install @copilotkit/react-ui
+```
+
+Don't forget to import the styles:
+
+```tsx
+import "@copilotkit/react-ui/styles.css";
+```
+
+## Basic Usage
+
+Here's a simple example of how to use the DefaultStateRenderer:
+
+```tsx
+import { DefaultStateRenderer } from "@copilotkit/react-ui";
+import "@copilotkit/react-ui/styles.css";
+
+export function YourComponent() {
+  // Example state from a CrewAI agent
+  const agentState = {
+    steps: [
+      {
+        id: "step-1",
+        timestamp: "2023-01-01T12:00:00Z",
+        tool: "search",
+        thought: "I need to search for restaurants",
+        result: "Found 5 Italian restaurants",
+      },
+    ],
+  };
+
+  return <DefaultStateRenderer state={agentState} status="inProgress" />;
+}
+```
+
+## Integration with CoAgents
+
+The DefaultStateRenderer works seamlessly with the useCoAgentStateRender hook to automatically render agent state:
+
+```tsx
+import { useCoAgentStateRender } from "@copilotkit/react-core";
+import { DefaultStateRenderer, AgentState, ResponseStatus } from "@copilotkit/react-ui";
+
+export function YourApp() {
+  useCoAgentStateRender({
+    name: "restaurant_finder_agent",
+    render: ({
+      state,
+      status,
+    }: {
+      state: AgentState;
+      status: ResponseStatus;
+    }) => {
+      return (
+        <DefaultStateRenderer
+          state={state}
+          status={status}
+          defaultCollapsed={true}
+        />
+      );
+    },
+  });
+
+  return (
+    // Your app content
+  );
+}
+```
+
+## Customization
+
+You can customize the appearance and behavior of the component:
+
+```tsx
+<DefaultStateRenderer
+  state={agentState}
+  status="inProgress"
+  labels={{
+    inProgressLabel: "Thinking...",
+    completeLabel: "Finished processing",
+    emptyLabel: "Nothing to show",
+  }}
+  className="my-custom-state"
+  contentClassName="my-custom-content"
+  itemClassName="my-custom-item"
+  maxHeight="300px"
+  defaultCollapsed={false}
+/>
+```
+
+### Custom Renderers
+
+You can provide custom renderers for state items and loading skeletons:
+
+```tsx
+<DefaultStateRenderer
+  state={agentState}
+  status="inProgress"
+  StateItemRenderer={({ item, isNewest, className }) => (
+    <div className={className}>
+      <h4>{item.tool || item.name}</h4>
+      {item.thought && <p>{item.thought}</p>}
+      {item.result && <pre>{JSON.stringify(item.result, null, 2)}</pre>}
+    </div>
+  )}
+  SkeletonLoader={({ className }) => (
+    <div className={className}>
+      <div className="animate-pulse">Loading...</div>
+    </div>
+  )}
+/>
+```
+
+## Props Reference
+
+### `StateRendererProps`
+
+| Prop                | Type                                                                        | Description                                              | Default                      |
+| ------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------- | ---------------------------- |
+| `state`             | `AgentState`                                                                | The agent state to render                                | `undefined`                  |
+| `status`            | `ResponseStatus`                                                            | Current status: "inProgress", "complete", or "executing" | -                            |
+| `StateItemRenderer` | `React.ComponentType<StateItemRendererProps>`                               | Custom component for rendering individual state items    | `DefaultStateItemRenderer`   |
+| `SkeletonLoader`    | `React.ComponentType<SkeletonLoaderProps>`                                  | Custom component for showing a loading skeleton          | `DefaultSkeletonLoader`      |
+| `labels`            | `{ inProgressLabel?: string; completeLabel?: string; emptyLabel?: string }` | Custom labels for the component                          | Various defaults             |
+| `icons`             | `{ expand?: React.ComponentType; collapse?: React.ComponentType }`          | Custom icons for the component                           | Default icons                |
+| `className`         | `string`                                                                    | CSS class for the root element                           | `"copilotkit-state"`         |
+| `contentClassName`  | `string`                                                                    | CSS class for the content container                      | `"copilotkit-state-content"` |
+| `itemClassName`     | `string`                                                                    | CSS class for state items                                | `"copilotkit-state-item"`    |
+| `maxHeight`         | `string`                                                                    | Maximum height for the content area                      | `"250px"`                    |
+| `defaultCollapsed`  | `boolean`                                                                   | Initial collapsed state                                  | `true`                       |
+
+### `AgentState`
+
+```typescript
+interface AgentState {
+  steps?: ToolStateItem[]; // Array of tool execution steps
+  tasks?: TaskStateItem[]; // Array of tasks
+}
+
+interface ToolStateItem {
+  id: string;
+  timestamp: string;
+  tool: string;
+  thought?: string;
+  result?: any;
+}
+
+interface TaskStateItem {
+  id: string;
+  timestamp: string;
+  name: string;
+  description?: string;
+}
+```
+
+## Styling
+
+By default, CopilotKit components use minimal styling. You can customize the look and feel by either:
+
+1. Overriding the default CSS classes
+2. Providing your own class names via props
+3. Using the built-in CSS variables
+
+The component uses classes like `copilotkit-state`, `copilotkit-state-header`, `copilotkit-state-content`, and `copilotkit-state-item` that you can target for styling.
+
+## Examples
+
+### Showing Tool Calls
+
+```tsx
+const agentState = {
+  steps: [
+    {
+      id: "search-1",
+      timestamp: "2023-01-01T12:00:00Z",
+      tool: "search_restaurants",
+      thought: "I should find Italian restaurants in the area",
+      result: "Found 5 restaurants: Pasta Palace, Luigi's, ...",
+    },
+    {
+      id: "filter-1",
+      timestamp: "2023-01-01T12:01:00Z",
+      tool: "filter_results",
+      thought: "Let's filter to only show 4-star and above",
+      result: "3 restaurants match criteria: Pasta Palace, ...",
+    },
+  ],
+};
+
+<DefaultStateRenderer
+  state={agentState}
+  status="inProgress"
+  defaultCollapsed={false}
+/>;
+```

@@ -1,0 +1,120 @@
+---
+title: UI Components
+description: UI components for building CrewAI applications with CopilotKit
+icon: "custom/component"
+---
+
+import { Card, Cards } from "fumadocs-ui/components/card";
+import { Callout } from "fumadocs-ui/components/callout";
+import { SiCrewai } from "@icons-pack/react-simple-icons";
+import { ComponentIcon, EyeIcon, TypeIcon } from "lucide-react";
+
+# UI Components for CrewAI Crews
+
+<Callout type="info">
+  CopilotKit provides a set of pure UI components designed specifically for
+  building human-in-the-loop applications with CrewAI Crews.
+</Callout>
+
+The CopilotKit UI components help you build beautiful, interactive CrewAI applications that engage users throughout the agent's workflow. These components make it easy to visualize agent activity, collect user feedback, and provide a seamless user experience.
+
+## Key Benefits
+
+- **Visibility into Agent Activity**: Show users what your agents are doing in real-time
+- **Human-in-the-Loop Workflows**: Easily implement approval flows and user feedback
+- **Customizable Styling**: Adapt the components to match your application's design
+- **TypeScript Support**: Strong typing for all components and interfaces
+- **Composition-Friendly**: Build complex UIs by combining simple components
+
+## Available Components
+
+<Cards>
+  <Card
+    title="State Renderer"
+    description="Display agent state and progress in a collapsible UI component"
+    href="/crewai-crews/components/state-renderer"
+    icon={<ComponentIcon />}
+  />
+  <Card
+    title="Response Renderer"
+    description="Display agent responses and collect user feedback"
+    href="/crewai-crews/components/response-renderer"
+    icon={<EyeIcon />}
+  />
+  <Card
+    title="Component Types"
+    description="Type definitions for CrewAI UI components"
+    href="/crewai-crews/components/types"
+    icon={<TypeIcon />}
+  />
+</Cards>
+
+## Installation
+
+All components are part of the `@copilotkit/react-ui` package:
+
+```bash
+npm install @copilotkit/react-ui
+```
+
+Don't forget to import the styles:
+
+```tsx
+import "@copilotkit/react-ui/styles.css";
+```
+
+## Basic Usage Example
+
+Here's a simple example showing how to use the components together:
+
+```tsx
+import {
+  useCoAgentStateRender,
+  useCopilotAction,
+} from "@copilotkit/react-core";
+import {
+  DefaultStateRenderer,
+  DefaultResponseRenderer,
+  AgentState,
+  ResponseStatus,
+} from "@copilotkit/react-ui";
+import "@copilotkit/react-ui/styles.css";
+
+export function YourCrewAIApp() {
+  // Render agent state (progress, tool calls, etc.)
+  useCoAgentStateRender({
+    name: "restaurant_finder_agent",
+    render: ({ state, status }) => (
+      <DefaultStateRenderer
+        state={state}
+        status={status}
+        defaultCollapsed={false}
+      />
+    ),
+  });
+
+  // Handle human-in-the-loop requests
+  useCopilotAction({
+    name: "ask_for_feedback",
+    renderAndWaitForResponse({ status, args, respond }) {
+      return (
+        <DefaultResponseRenderer
+          response={{
+            id: args.id || "feedback-1",
+            content: args.question || "What do you think?",
+            metadata: args,
+          }}
+          onRespond={(input) => respond?.(input)}
+          status={status as ResponseStatus}
+        />
+      );
+    },
+  });
+
+  return <div className="your-app-container">{/* Your app UI */}</div>;
+}
+```
+
+## Integration with CrewAI Enterprise
+
+These components work seamlessly with CrewAI Enterprise. Follow our [CrewAI Quickstart](/crewai-crews/quickstart/crewai) guide to learn how to connect your crews to CopilotKit.
