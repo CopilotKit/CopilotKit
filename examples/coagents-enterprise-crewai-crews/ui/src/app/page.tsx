@@ -2,6 +2,8 @@
 
 import AgentStatus from "@/components/AgentStatus";
 import { DebugViewer } from "@/components/DebugViewer";
+import { formatContent } from "@/components/FormattedContent";
+import FormattedContent from "@/components/FormattedContent";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -11,7 +13,6 @@ import { useGlobalContext } from "@/context/GlobalContext";
 import { useInput } from "@/hooks/useInput";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import { formatText } from "@/lib/utils";
-import { AgentState, Feedback, RunStatus } from "@/types/agent";
 import {
   useCoAgent,
   useCoAgentStateRender,
@@ -23,9 +24,33 @@ import {
   CopilotKitCSSProperties,
   DefaultResponseRenderer,
   DefaultStateRenderer,
+  ResponseStatus,
+  AgentState,
 } from "@copilotkit/react-ui";
 import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
 import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
+
+// Simple skeleton item for loading state
+const SkeletonItem = () => (
+  <div className="py-0.5 animate-pulse">
+    <div className="flex justify-between">
+      <div className="h-2.5 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+      <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded w-8"></div>
+    </div>
+    <div className="mt-0.5 h-6 bg-gray-200 dark:bg-gray-700 rounded"></div>
+  </div>
+);
+
+// Application state extending the library AgentState
+interface AppState extends AgentState {
+  inputs: {
+    location: string;
+    [key: string]: string;
+  };
+  result: string;
+  status: ResponseStatus;
+}
 
 export default function Home() {
   const { location, setLocation } = useGlobalContext();
@@ -39,18 +64,13 @@ export default function Home() {
     setDirection(isMobile ? "vertical" : "horizontal");
   }, [isMobile]);
 
-  const { state, name, running, setState } = useCoAgent<AgentState>({
+  const { state, name, running, setState } = useCoAgent<AppState>({
     name: "restaurant_finder_agent",
     initialState: {
       inputs: {
         location: location.city,
       },
       result: "Final result will appear here",
-      steps: [],
-      tasks: [],
-      messages: [],
-      human_inputs: [],
-      status: "completed",
     },
   });
 
@@ -60,18 +80,18 @@ export default function Home() {
    * @param key - The key of the input
    * @param value - The value of the input
    */
-  const setInput = async (key: keyof AgentState["inputs"], value: string) => {
+  const setInput = async (key: keyof AppState["inputs"], value: string) => {
     setState({
       ...state,
       inputs: {
         ...state.inputs,
-        [key]: value,
+        [key as string]: value,
       },
     });
     setTimeout(async () => {
       await appendMessage(
         new TextMessage({
-          content: `My ${key} is ${value}`,
+          content: `My ${String(key)} is ${value}`,
           role: MessageRole.Developer,
         })
       );
@@ -93,21 +113,78 @@ export default function Home() {
 
   useCoAgentStateRender({
     name: "restaurant_finder_agent",
-    render: ({ state, status }: { state: AgentState; status: RunStatus }) => {
-      return <DefaultStateRenderer state={state} status={status} />;
+    render: ({
+      state,
+      status,
+    }: {
+      state: AppState;
+      status: ResponseStatus;
+    }) => {
+      return (
+        <DefaultStateRenderer
+          state={state}
+          status={status}
+          defaultCollapsed={true}
+          SkeletonLoader={SkeletonItem}
+          StateItemRenderer={({ item }) => {
+            return (
+              <div key={item.id}>
+                <div className="text-xs">
+                  <div className="opacity-70">
+                    {"tool" in item ? item.tool : item.name}
+                  </div>
+                </div>
+
+                {"thought" in item && item.thought && (
+                  <div className="mt-0.5 text-xs opacity-80">
+                    {item.thought}
+                  </div>
+                )}
+                {"result" in item &&
+                  item.result !== undefined &&
+                  item.result !== null && (
+                    <div className="mt-0.5 text-xs">
+                      <FormattedContent
+                        content={formatContent(item.result)}
+                        showJsonLabel={false}
+                        isCollapsed={true}
+                      />
+                    </div>
+                  )}
+                {"description" in item && item.description && (
+                  <div className="mt-0.5 text-xs opacity-80">
+                    {item.description}
+                  </div>
+                )}
+              </div>
+            );
+          }}
+        />
+      );
     },
   });
 
   useCopilotAction({
     name: "crew_requesting_feedback",
     renderAndWaitForResponse({ status, args, respond }) {
+      // @ts-ignore
+      const feedback = args as any;
       return (
         <DefaultResponseRenderer
-          feedback={args as Feedback}
-          respond={(feedback: Feedback) => {
-            respond?.(feedback);
+          response={{
+            id: feedback.id || String(Date.now()),
+            content: feedback.task_output || String(feedback),
+            metadata: feedback,
           }}
-          status={status}
+          onRespond={(input: string) => {
+            respond?.(input);
+          }}
+          status={status as ResponseStatus}
+          ContentRenderer={({ content }) => (
+            <div className="text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 rounded-md shadow-sm p-4 h-full overflow-y-auto whitespace-pre-line text-left">
+              <ReactMarkdown>{content}</ReactMarkdown>
+            </div>
+          )}
         />
       );
     },
@@ -118,7 +195,7 @@ export default function Home() {
   return (
     <div className="w-full h-full relative">
       {/* Status Badge */}
-      <AgentStatus running={running} state={state} />
+      <AgentStatus running={running} state={{ status: state.status }} />
 
       {/* Debug Viewer - Fixed at bottom right corner of page */}
       <div className="fixed bottom-4 right-4 z-50">
