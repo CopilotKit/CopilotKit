@@ -5,7 +5,9 @@ description: Render your agent's behavior with custom UI components.
 ---
 
 import { CTACards } from "@/components/react/cta-cards";
-import { WrenchIcon, BotIcon, ComponentIcon } from "lucide-react";
+import { Callout } from "fumadocs-ui/components/callout";
+import { Bot, Wrench } from "lucide-react";
+import { LuLayoutTemplate } from "react-icons/lu";
 
 <InsecurePasswordProtected>
 
@@ -40,7 +42,7 @@ CopilotKit provides built-in UI components specifically designed for CrewAI appl
   columns={1}
   cards={[
     {
-      icon: ComponentIcon,
+      icon: LuLayoutTemplate,
       title: "UI Components Library",
       description:
         "Ready-to-use components for rendering agent state and collecting user feedback.",
@@ -59,14 +61,14 @@ There are two main variants of Generative UI.
   columns={2}
   cards={[
     {
-      icon: BotIcon,
+      icon: Bot,
       title: "Agentic",
       description:
         "Render your agent's state, progress, and outputs with custom UI components.",
       href: "/crewai-crews/generative-ui/agentic",
     },
     {
-      icon: WrenchIcon,
+      icon: Wrench,
       title: "Tool-based",
       description: "Render your agent's tool calls with custom UI components.",
       href: "/crewai-crews/generative-ui/tool-based",
