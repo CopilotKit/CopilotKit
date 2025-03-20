@@ -1,5 +1,14 @@
 # ui
 
+## 1.7.2-next.2
+
+### Patch Changes
+
+- c11fab9: - chore(react-ui): Add DefaultResponseRenderer and DefaultStateRenderer components
+  - @copilotkit/react-core@1.7.2-next.2
+  - @copilotkit/runtime-client-gql@1.7.2-next.2
+  - @copilotkit/shared@1.7.2-next.2
+
 ## 1.7.2-next.1
 
 ### Patch Changes
