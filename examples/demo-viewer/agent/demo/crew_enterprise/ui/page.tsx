@@ -5,22 +5,19 @@ This is for demonstration purpose only.
 */
 
 import { useCoAgent, useCopilotChat } from "@copilotkit/react-core";
-import { CopilotChat, ResponseStatus } from "@copilotkit/react-ui";
-import { useEffect, useState } from "react";
+import { CopilotChat } from "@copilotkit/react-ui";
+import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
+import { useState } from "react";
 
 interface AppState {
   inputs: {
     location: string;
   };
   result: string;
-  status: ResponseStatus;
 }
 
 export default function Home() {
   const { appendMessage } = useCopilotChat();
-  const [direction, setDirection] = useState<"horizontal" | "vertical">(
-    "horizontal"
-  );
 
   const { state, setState } = useCoAgent<AppState>({
     name: "restaurant_finder_agent",
@@ -40,18 +37,16 @@ export default function Home() {
         [key]: value,
       },
     });
-    await appendMessage({
-      content: `My ${String(key)} is ${value}`,
-      role: "Developer",
-    });
+    await appendMessage(
+      new TextMessage({
+        content: `My ${String(key)} is ${value}`,
+        role: MessageRole.Developer,
+      })
+    );
   };
 
   return (
     <div className="w-full h-full relative">
-      <div className="fixed bottom-4 right-4 z-50">
-        <div>{state.status}</div>
-      </div>
-
       <div className="w-full h-full">
         <div className="h-full relative overflow-y-auto">
           <CopilotChat
