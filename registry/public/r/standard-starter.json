@@ -1,0 +1,25 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "standard-starter",
+  "type": "registry:block",
+  "title": "Standard Starter",
+  "description": "A starter for CopilotKit with a standard runtime.",
+  "dependencies": [
+    "@copilotkit/runtime",
+    "@copilotkit/react-core"
+  ],
+  "files": [
+    {
+      "path": "registry/layout/standard-layout.tsx",
+      "content": "import React, { ReactNode } from \"react\";\nimport { CopilotKit } from \"@copilotkit/react-core\";\n\nexport default function Layout({ children }: { children: ReactNode }) {\n  return (\n    <CopilotKit>\n      {children}\n    </CopilotKit>\n  );\n}\n",
+      "type": "registry:page",
+      "target": "app/copilotkit/layout.tsx"
+    },
+    {
+      "path": "registry/runtime/standard.ts",
+      "content": "import {\n  CopilotRuntime,\n  OpenAIAdapter,\n  copilotRuntimeNextJSAppRouterEndpoint,\n} from \"@copilotkit/runtime\";\nimport { NextRequest } from \"next/server\";\nimport OpenAI from \"openai\";\n\nconst openai = new OpenAI();\nconst serviceAdapter = new OpenAIAdapter({ openai });\n\nconst runtime = new CopilotRuntime();\n\nexport const POST = async (req: NextRequest) => {\nconst { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({\n    runtime,\n    serviceAdapter,\n    endpoint: req.nextUrl.pathname,\n});\n\nreturn handleRequest(req);\n};\n",
+      "type": "registry:lib",
+      "target": "app/api/copilotkit/route.ts"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "sidebar",
+  "type": "registry:page",
+  "title": "Sidebar",
+  "description": "A sidebar component for CopilotKit.",
+  "dependencies": [
+    "@copilotkit/react-ui"
+  ],
+  "files": [
+    {
+      "path": "registry/chat/sidebar.tsx",
+      "content": "import { CopilotSidebar } from \"@copilotkit/react-ui\";\n\nexport default function Sidebar() {\n  return <CopilotSidebar />;\n}\n",
+      "type": "registry:page",
+      "target": "app/copilotkit/page.tsx"
+    }
+  ]
+}

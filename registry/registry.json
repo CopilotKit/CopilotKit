@@ -1,0 +1,121 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "copilotkit",
+  "homepage": "https://copilotkit.ai",
+  "items": [
+    {
+      "name": "langgraph-platform-starter",
+      "type": "registry:block",
+      "title": "LangGraph Platform Starter",
+      "description": "Bootstrap your Next.js project with CopilotKit and LangGraph Platform.",
+      "dependencies": [
+        "@copilotkit/runtime",
+        "@copilotkit/react-core"
+      ],
+      "files": [
+        {
+          "path": "registry/layout/agent-layout.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/layout.tsx"
+        },
+        {
+          "path": "registry/runtime/langgraph-platform.ts",
+          "type": "registry:lib",
+          "target": "app/api/copilotkit/route.ts"
+        }
+      ]
+    },
+    {
+      "name": "agent-starter",
+      "type": "registry:block",
+      "title": "Agent Starter",
+      "description": "A starter for CopilotKit with an agent.",
+      "dependencies": [
+        "@copilotkit/runtime",
+        "@copilotkit/react-core"
+      ],
+      "files": [
+        {
+          "path": "registry/layout/agent-layout.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/layout.tsx"
+        },
+        {
+          "path": "registry/runtime/remote-endpoint.ts",
+          "type": "registry:lib",
+          "target": "app/api/copilotkit/route.ts"
+        }
+      ]
+    },
+    {
+      "name": "standard-starter",
+      "type": "registry:block",
+      "title": "Standard Starter",
+      "description": "A starter for CopilotKit with a standard runtime.",
+      "dependencies": [
+        "@copilotkit/runtime",
+        "@copilotkit/react-core"
+      ],
+      "files": [
+        {
+          "path": "registry/layout/standard-layout.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/layout.tsx"
+        },
+        {
+          "path": "registry/runtime/standard.ts",
+          "type": "registry:lib",
+          "target": "app/api/copilotkit/route.ts"
+        }
+      ]
+    },
+    {
+      "name": "chat",
+      "type": "registry:page",
+      "title": "Chat",
+      "description": "A chat component for CopilotKit.",
+      "dependencies": [
+        "@copilotkit/react-ui"
+      ],
+      "files": [
+        {
+          "path": "registry/chat/chat.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/page.tsx"
+        }
+      ]
+    },
+    {
+      "name": "sidebar",
+      "type": "registry:page",
+      "title": "Sidebar",
+      "description": "A sidebar component for CopilotKit.",
+      "dependencies": [
+        "@copilotkit/react-ui"
+      ],
+      "files": [
+        {
+          "path": "registry/chat/sidebar.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/page.tsx"
+        }
+      ]
+    },
+    {
+      "name": "popup",
+      "type": "registry:page",
+      "title": "Popup",
+      "description": "A popup component for CopilotKit.",
+      "dependencies": [
+        "@copilotkit/react-ui"
+      ],
+      "files": [
+        {
+          "path": "registry/chat/popup.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/page.tsx"
+        }
+      ]
+    }
+  ]
+}

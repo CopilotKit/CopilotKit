@@ -1,0 +1,18 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "popup",
+  "type": "registry:page",
+  "title": "Popup",
+  "description": "A popup component for CopilotKit.",
+  "dependencies": [
+    "@copilotkit/react-ui"
+  ],
+  "files": [
+    {
+      "path": "registry/chat/popup.tsx",
+      "content": "import { CopilotPopup } from \"@copilotkit/react-ui\";\n\nexport default function Popup() {\n  return <CopilotPopup />;\n}\n",
+      "type": "registry:page",
+      "target": "app/copilotkit/page.tsx"
+    }
+  ]
+}

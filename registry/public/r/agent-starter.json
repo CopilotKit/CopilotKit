@@ -1,0 +1,25 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "agent-starter",
+  "type": "registry:block",
+  "title": "Agent Starter",
+  "description": "A starter for CopilotKit with an agent.",
+  "dependencies": [
+    "@copilotkit/runtime",
+    "@copilotkit/react-core"
+  ],
+  "files": [
+    {
+      "path": "registry/layout/agent-layout.tsx",
+      "content": "import React, { ReactNode } from \"react\";\nimport { CopilotKit } from \"@copilotkit/react-core\";\n\nexport default function Layout({ children }: { children: ReactNode }) {\n  return (\n    <CopilotKit agent=\"sample_agent\">\n      {children}\n    </CopilotKit>\n  );\n}\n",
+      "type": "registry:page",
+      "target": "app/copilotkit/layout.tsx"
+    },
+    {
+      "path": "registry/runtime/remote-endpoint.ts",
+      "content": "import { NextRequest } from \"next/server\";\nimport {\n  CopilotRuntime,\n  copilotRuntimeNextJSAppRouterEndpoint,\n  ExperimentalEmptyAdapter,\n  langGraphPlatformEndpoint,\n} from \"@copilotkit/runtime\";\n\nconst serviceAdapter = new ExperimentalEmptyAdapter();\n\nconst runtime = new CopilotRuntime({\n  remoteEndpoints: [\n    { url: process.env.COPILOTKIT_REMOTE_ENDPOINT || \"http://localhost:8000/copilotkit\" },\n  ],\n});\n\nexport const POST = async (req: NextRequest) => {\n  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({\n    runtime,\n    serviceAdapter,\n    endpoint: \"/api/copilotkit\",\n  });\n\n  return handleRequest(req);\n};\n",
+      "type": "registry:lib",
+      "target": "app/api/copilotkit/route.ts"
+    }
+  ]
+}

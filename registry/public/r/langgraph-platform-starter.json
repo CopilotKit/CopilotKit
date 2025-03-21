@@ -1,0 +1,25 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "langgraph-platform-starter",
+  "type": "registry:block",
+  "title": "LangGraph Platform Starter",
+  "description": "Bootstrap your Next.js project with CopilotKit and LangGraph Platform.",
+  "dependencies": [
+    "@copilotkit/runtime",
+    "@copilotkit/react-core"
+  ],
+  "files": [
+    {
+      "path": "registry/layout/agent-layout.tsx",
+      "content": "import React, { ReactNode } from \"react\";\nimport { CopilotKit } from \"@copilotkit/react-core\";\n\nexport default function Layout({ children }: { children: ReactNode }) {\n  return (\n    <CopilotKit agent=\"sample_agent\">\n      {children}\n    </CopilotKit>\n  );\n}\n",
+      "type": "registry:page",
+      "target": "app/copilotkit/layout.tsx"
+    },
+    {
+      "path": "registry/runtime/langgraph-platform.ts",
+      "content": "import { NextRequest } from \"next/server\";\nimport {\n  CopilotRuntime,\n  copilotRuntimeNextJSAppRouterEndpoint,\n  ExperimentalEmptyAdapter,\n  langGraphPlatformEndpoint,\n} from \"@copilotkit/runtime\";\n\nconst serviceAdapter = new ExperimentalEmptyAdapter();\n\nconst runtime = new CopilotRuntime({\n  remoteEndpoints: [\n    langGraphPlatformEndpoint({\n      deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL || \"\",\n      langsmithApiKey: process.env.LANGSMITH_API_KEY || \"\",\n      agents: [{\n          name: 'sample_agent',\n          description: 'A helpful LLM agent.'\n      }]\n    }),\n  ],\n});\n\nexport const POST = async (req: NextRequest) => {\n  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({\n    runtime,\n    serviceAdapter,\n    endpoint: \"/api/copilotkit\",\n  });\n\n  return handleRequest(req);\n};\n",
+      "type": "registry:lib",
+      "target": "app/api/copilotkit/route.ts"
+    }
+  ]
+}

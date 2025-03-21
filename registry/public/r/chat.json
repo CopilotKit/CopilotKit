@@ -1,0 +1,18 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "chat",
+  "type": "registry:page",
+  "title": "Chat",
+  "description": "A chat component for CopilotKit.",
+  "dependencies": [
+    "@copilotkit/react-ui"
+  ],
+  "files": [
+    {
+      "path": "registry/chat/chat.tsx",
+      "content": "import { CopilotChat } from \"@copilotkit/react-ui\";\n\nexport default function Chat() {\n  return <CopilotChat />;\n}\n",
+      "type": "registry:page",
+      "target": "app/copilotkit/page.tsx"
+    }
+  ]
+}
