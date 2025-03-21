@@ -3,6 +3,7 @@
 import React, { Suspense, useRef, useEffect } from 'react';
 import { DemoConfig } from '@/types/demo';
 import { createPortal } from 'react-dom';
+import filesJSON from '../../files.json'
 
 // Custom iframe component that renders React components inside
 function IsolatedFrame({ demoId, children }: { demoId: string; children: React.ReactNode }) {
@@ -19,6 +20,7 @@ function IsolatedFrame({ demoId, children }: { demoId: string; children: React.R
       
       // Clear any existing content
       iframe.contentDocument.body.innerHTML = '';
+      iframe.contentDocument.head.innerHTML = '';
       
       // Add base styles to iframe
       const style = iframe.contentDocument.createElement('style');
@@ -51,9 +53,12 @@ function IsolatedFrame({ demoId, children }: { demoId: string; children: React.R
       
       // Load demo-specific CSS if it exists
       const demoStyleLink = iframe.contentDocument.createElement('link');
-      demoStyleLink.rel = 'stylesheet';
-      demoStyleLink.href = `/agent/demos/${demoId}/style.css`;
-      iframe.contentDocument.head.appendChild(demoStyleLink);
+      // Apply direct styles to iframe content
+      // @ts-expect-error -- demoId is key of filesJSON
+      const styles = filesJSON[demoId].files.find(f => f.name === 'style.css')?.content;
+      const styleElement = iframe.contentDocument!.createElement('style');
+      styleElement.textContent = styles;
+      iframe.contentDocument!.head.appendChild(styleElement);
       
       setIframeRoot(root);
       setIframeLoaded(true);
@@ -73,6 +78,7 @@ function IsolatedFrame({ demoId, children }: { demoId: string; children: React.R
 
   return (
     <iframe 
+      key={demoId}
       ref={iframeRef}
       className="w-full h-full border-0 bg-background"
       title="Demo Preview"

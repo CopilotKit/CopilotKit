@@ -13,6 +13,7 @@ export interface FileEntry {
   name: string;
   path: string;
   type: 'file' | 'directory';
+  content: string;
   children?: FileEntry[];
 }
 

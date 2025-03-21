@@ -2,12 +2,12 @@ const fs = require("fs");
 const path = require("path");
 
 const config = {
-  agentic_chat: ["agent.py", "page.tsx", "style.css"],
-  agentic_generative_ui: ["agent.py", "page.tsx", "style.css"],
-  human_in_the_loop: ["agent.py", "page.tsx", "style.css"],
-  shared_state: ["README.md", "agent.py", "page.tsx", "style.css"],
-  predictive_state_updates: ["agent.py", "page.tsx", "style.css"],
-  tool_based_generative_ui: ["agent.py", "page.tsx", "style.css"],
+  agentic_chat: ["agent.py", "page.tsx", "style.css", "README.mdx"],
+  agentic_generative_ui: ["agent.py", "page.tsx", "style.css", "README.mdx"],
+  human_in_the_loop: ["agent.py", "page.tsx", "style.css", "README.mdx"],
+  shared_state: ["README.md", "agent.py", "page.tsx", "style.css", "README.mdx"],
+  predictive_state_updates: ["agent.py", "page.tsx", "style.css", "README.mdx"],
+  tool_based_generative_ui: ["agent.py", "page.tsx", "style.css", "README.mdx"],
 };
 
 const result = {};

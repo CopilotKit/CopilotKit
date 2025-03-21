@@ -18,6 +18,7 @@ export function useFs(initialPath: string) {
       const fileEntries: FileEntry[] = demo.files.map((file) => ({
         name: file.name,
         path: id + "/" + file.path,
+        content: file.content,
         type: "file",
       }));
       setFiles(fileEntries);
@@ -48,7 +49,7 @@ export function useFs(initialPath: string) {
       setFileContent(file.content);
       setSelectedFilePath(file.path);
     },
-    [currentPath]
+    []
   );
 
   const handleFileSelect = useCallback(

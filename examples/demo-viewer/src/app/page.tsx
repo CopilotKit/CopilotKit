@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ViewerLayout } from "@/components/layout/viewer-layout";
 import { LLMSelector } from "@/components/llm-selector/llm-selector";
 import { DemoList } from "@/components/demo-list/demo-list";
@@ -85,54 +85,25 @@ export default function Home() {
   }, [selectedDemo]);
 
   // Load README content
-  const loadReadmeContent = useCallback(async (demoPath: string) => {
+  const loadReadmeContent = useCallback(async (demoId: string) => {
+    // Process MDX if the file exists
     try {
-      // First try to load README.mdx
-      let response = await fetch('/api/fs/read', {
+      const mdxResponse = await fetch('/api/mdx/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: join(demoPath, 'README.mdx') }),
+        body: JSON.stringify({ demoId }),
       });
 
-      if (!response.ok) {
-        // Fallback to README.md if README.mdx doesn't exist
-        response = await fetch('/api/fs/read', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: join(demoPath, 'README.md') }),
-        });
-      }
-
-      if (response.ok) {
-        const { content } = await response.json();
+      if (mdxResponse.ok) {
+        const { compiled, content } = await mdxResponse.json();
+        setCompiledMDX(compiled);
         setReadmeContent(content);
-
-        // Process MDX if the file exists
-        try {
-          const mdxResponse = await fetch('/api/mdx/process', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ filePath: join(demoPath, 'README.mdx') }),
-          });
-
-          if (mdxResponse.ok) {
-            const { compiled } = await mdxResponse.json();
-            setCompiledMDX(compiled);
-          } else {
-            setCompiledMDX(null);
-          }
-        } catch (mdxError) {
-          console.error('Error processing MDX:', mdxError);
-          setCompiledMDX(null);
-        }
       } else {
-        // If neither README.mdx nor README.md exists, clear the content
-        setReadmeContent(null);
         setCompiledMDX(null);
+        setReadmeContent(null);
       }
-    } catch (err) {
-      console.error('Error loading README:', err);
-      setReadmeContent(null);
+    } catch (mdxError) {
+      console.error('Error processing MDX:', mdxError);
       setCompiledMDX(null);
     }
   }, []);
@@ -141,9 +112,9 @@ export default function Home() {
   useEffect(() => {
     if (selectedDemo?.path) {
       handleNavigate(selectedDemo.path);
-      loadReadmeContent(selectedDemo.path);
+      loadReadmeContent(selectedDemo.id);
     }
-  }, [selectedDemo?.path, handleNavigate, loadReadmeContent]);
+  }, [selectedDemo?.path, handleNavigate, loadReadmeContent, selectedDemo?.id]);
 
   // Find agent.py file when switching to code tab
   const handleTabChange = (value: string) => {
