@@ -12,7 +12,7 @@ _Prerequisites:_
 - Register your Crew in [Copilot Cloud](https://cloud.copilotkit.ai/)
 - Copy `Cloud Public API Key` from Copilot Cloud
 
-![Setup process](./assets/crew-cpk-setup.gif)
+![Setup process](https://github.com/CopilotKit/CopilotKit/raw/main/examples/coagents-enterprise-crewai-crews/assets/crew-cpk-setup.gif)
 
 ### 2. Start the Frontend
 
