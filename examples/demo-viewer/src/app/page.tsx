@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useMemo } from 'react';
+import React from "react";
 import { ViewerLayout } from "@/components/layout/viewer-layout";
-import { LLMSelector } from "@/components/llm-selector/llm-selector";
 import { DemoList } from "@/components/demo-list/demo-list";
 import { DemoPreview } from "@/components/demo-viewer/demo-preview";
 import { FileTree } from "@/components/file-tree/file-tree";
@@ -18,9 +17,8 @@ import { Eye, Code, Book } from "lucide-react";
 import { CodeEditor } from "@/components/code-editor/code-editor";
 import ReactMarkdown from "react-markdown";
 import { MarkdownComponents } from "@/components/ui/markdown-components";
-import { MDXContent } from '@/components/ui/mdx-components';
-import { MDXRenderer, SafeComponent } from '@/utils/mdx-utils';
-import { join } from 'path';
+import { MDXContent } from "@/components/ui/mdx-components";
+import { MDXRenderer, SafeComponent } from "@/utils/mdx-utils";
 
 export default function Home() {
   const [selectedDemoId, setSelectedDemoId] = useState<string>();
@@ -88,9 +86,9 @@ export default function Home() {
   const loadReadmeContent = useCallback(async (demoId: string) => {
     // Process MDX if the file exists
     try {
-      const mdxResponse = await fetch('/api/mdx/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const mdxResponse = await fetch("/api/mdx/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ demoId }),
       });
 
@@ -103,7 +101,7 @@ export default function Home() {
         setReadmeContent(null);
       }
     } catch (mdxError) {
-      console.error('Error processing MDX:', mdxError);
+      console.error("Error processing MDX:", mdxError);
       setCompiledMDX(null);
     }
   }, []);
@@ -235,12 +233,18 @@ export default function Home() {
                     {compiledMDX ? (
                       <MDXContent>
                         <SafeComponent
-                          component={() => <MDXRenderer content={readmeContent} demoId={selectedDemo?.id} />}
+                          component={() => (
+                            <MDXRenderer
+                              content={readmeContent}
+                              demoId={selectedDemo?.id}
+                            />
+                          )}
                           fallback={
                             <div className="p-4 border rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300">
-                              Could not render MDX content. Displaying markdown instead.
+                              Could not render MDX content. Displaying markdown
+                              instead.
                               <ReactMarkdown components={MarkdownComponents}>
-                                {readmeContent || ''}
+                                {readmeContent || ""}
                               </ReactMarkdown>
                             </div>
                           }
@@ -290,6 +294,10 @@ export default function Home() {
                             : selectedFilePath?.endsWith(".js") ||
                               selectedFilePath?.endsWith(".jsx")
                             ? "javascript"
+                            : selectedFilePath?.endsWith(".yaml")
+                            ? "yaml"
+                            : selectedFilePath?.endsWith(".toml")
+                            ? "toml"
                             : "plaintext",
                         }}
                       />
