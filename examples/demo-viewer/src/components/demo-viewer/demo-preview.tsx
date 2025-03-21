@@ -78,6 +78,7 @@ function IsolatedFrame({ demoId, children }: { demoId: string; children: React.R
 
   return (
     <iframe 
+      key={demoId}
       ref={iframeRef}
       className="w-full h-full border-0 bg-background"
       title="Demo Preview"
