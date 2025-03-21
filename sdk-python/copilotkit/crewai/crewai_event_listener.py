@@ -43,9 +43,9 @@ from copilotkit.protocol import (
 #                 state=flow.state
 #             ), priority=True)
 
-class CrewAIEventListener(BaseEventListener):
+class CopilotKitCrewAIEventListener(BaseEventListener):
     """
-    CrewAI Event Listener
+    CopilotKit CrewAI Event Listener
     """
 
     async def aon_flow_started(self, source, event): # pylint: disable=unused-argument

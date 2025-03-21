@@ -48,8 +48,12 @@ from copilotkit.protocol import (
     RuntimeMetaEventName,
     PredictStateConfig
 )
+from copilotkit.crewai.crewai_event_listener import CopilotKitCrewAIEventListener
 
 logger = get_logger(__name__)
+
+copilotkit_crewai_event_listener =  CopilotKitCrewAIEventListener()
+
 
 class CopilotKitProperties(BaseModel):
     """CopilotKit properties"""
@@ -106,7 +110,7 @@ async def crewai_flow_async_runner(flow: Flow, inputs: Dict[str, Any]):
         # )
 
         # flow._initialize_state(inputs) # pylint: disable=protected-access
-        await flow.kickoff_async()
+        await flow.kickoff_async(inputs=inputs)
     except Exception as e: # pylint: disable=broad-except
         await queue_put(RunError(
             type=RuntimeEventTypes.RUN_ERROR,
