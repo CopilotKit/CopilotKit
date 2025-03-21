@@ -28,6 +28,7 @@ function convertToFileTree(files: FileEntry[]) {
           name: part,
           path: currentPath,
           type: "directory",
+          content: "",
           children: [],
         };
         map[currentPath] = dir;
