@@ -1,0 +1,257 @@
+---
+title: Response Renderer
+description: Display agent responses and collect user feedback
+icon: "lucide/Eye"
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+
+# Response Renderer
+
+The Response Renderer displays responses from an agent that may require user feedback, such as approving or rejecting a suggestion. It's especially useful for implementing human-in-the-loop workflows with CrewAI crews.
+
+<Callout type="info">
+  The Response Renderer is perfect for CrewAI crews that require user approval
+  for critical decisions or need to collect user feedback.
+</Callout>
+
+## Installation
+
+This component is part of the `@copilotkit/react-ui` package:
+
+```bash
+npm install @copilotkit/react-ui
+```
+
+Don't forget to import the styles:
+
+```tsx
+import "@copilotkit/react-ui/styles.css";
+```
+
+## Basic Usage
+
+Here's a simple example of how to use the DefaultResponseRenderer:
+
+```tsx
+import { DefaultResponseRenderer } from "@copilotkit/react-ui";
+import "@copilotkit/react-ui/styles.css";
+
+export function YourComponent() {
+  return (
+    <DefaultResponseRenderer
+      response={{
+        id: "response-1",
+        content: "I've analyzed your data and found these insights...",
+      }}
+      status="inProgress"
+      onRespond={(input) => console.log(`User responded: ${input}`)}
+    />
+  );
+}
+```
+
+## Integration with CoAgents
+
+The DefaultResponseRenderer works seamlessly with the useCopilotAction hook to gather user feedback:
+
+```tsx
+import { useCopilotAction } from "@copilotkit/react-core";
+import { DefaultResponseRenderer, ResponseStatus } from "@copilotkit/react-ui";
+
+export function YourApp() {
+  // Example: Crew is asking for user feedback on recommendations
+  useCopilotAction({
+    name: "crew_requesting_feedback",
+    renderAndWaitForResponse({ status, args, respond }) {
+      const feedback = args as { id: string; task_output: string };
+      return (
+        <DefaultResponseRenderer
+          response={{
+            id: feedback.id,
+            content: feedback.task_output,
+            metadata: feedback,
+          }}
+          onRespond={(input: string) => {
+            respond?.(input);
+          }}
+          status={status as ResponseStatus}
+        />
+      );
+    },
+  });
+
+  return (
+    // Your app content
+  );
+}
+```
+
+## Customization
+
+You can customize the appearance and behavior of the component:
+
+```tsx
+<DefaultResponseRenderer
+  response={{
+    id: "task-123",
+    content: "Would you like to proceed with this recommendation?",
+  }}
+  status="inProgress"
+  onRespond={handleResponse}
+  labels={{
+    responseLabel: "AI Recommendation",
+    approveLabel: "Yes, proceed",
+    rejectLabel: "No, cancel",
+    approvedMessage: "Proceeding with recommendation",
+    rejectedMessage: "Recommendation cancelled",
+  }}
+  className="my-custom-response"
+  contentClassName="my-custom-content"
+  buttonClassName="my-custom-button"
+/>
+```
+
+### Custom Content Renderer
+
+You can provide a custom content renderer to format the response content:
+
+```tsx
+import ReactMarkdown from "react-markdown";
+
+<DefaultResponseRenderer
+  response={{
+    id: "task-456",
+    content: "# Important Decision\nThis requires your approval",
+  }}
+  status="inProgress"
+  onRespond={handleResponse}
+  ContentRenderer={({ content, className }) => (
+    <div className={className}>
+      <ReactMarkdown>{content}</ReactMarkdown>
+    </div>
+  )}
+/>;
+```
+
+### Custom Feedback Buttons
+
+You can provide custom button components:
+
+```tsx
+<DefaultResponseRenderer
+  response={{
+    id: "task-789",
+    content: "Please review these findings",
+  }}
+  status="inProgress"
+  onRespond={handleResponse}
+  FeedbackButton={({ label, onClick, className }) => (
+    <button
+      onClick={onClick}
+      className={`${className} ${
+        label === "Approve" ? "bg-green-500" : "bg-red-500"
+      }`}
+    >
+      {label}
+    </button>
+  )}
+/>
+```
+
+## Props Reference
+
+### `ResponseRendererProps`
+
+| Prop                         | Type                                                               | Description                                              | Default                                    |
+| ---------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------- | ------------------------------------------ |
+| `response`                   | `Response`                                                         | The response data to render                              | -                                          |
+| `status`                     | `ResponseStatus`                                                   | Current status: "inProgress", "complete", or "executing" | -                                          |
+| `onRespond`                  | `(input: string) => void`                                          | Function to call when a response is given                | `undefined`                                |
+| `icons`                      | `{ expand?: React.ComponentType; collapse?: React.ComponentType }` | Custom icons for the component                           | Default icons                              |
+| `labels`                     | `ResponseRendererLabels`                                           | Custom labels for the component                          | Default labels                             |
+| `ContentRenderer`            | `React.ComponentType<ContentRendererProps>`                        | Custom component for rendering content                   | `DefaultContentRenderer`                   |
+| `FeedbackButton`             | `React.ComponentType<FeedbackButtonProps>`                         | Custom component for rendering feedback buttons          | `DefaultFeedbackButton`                    |
+| `CompletedFeedback`          | `React.ComponentType<CompletedFeedbackProps>`                      | Custom component for rendering completed feedback        | `DefaultCompletedFeedback`                 |
+| `className`                  | `string`                                                           | CSS class for the root element                           | `"copilotkit-response"`                    |
+| `contentClassName`           | `string`                                                           | CSS class for the content element                        | `"copilotkit-response-content"`            |
+| `actionsClassName`           | `string`                                                           | CSS class for the actions container                      | `"copilotkit-response-actions"`            |
+| `buttonClassName`            | `string`                                                           | CSS class for feedback buttons                           | `"copilotkit-response-button"`             |
+| `completedFeedbackClassName` | `string`                                                           | CSS class for completed feedback                         | `"copilotkit-response-completed-feedback"` |
+
+### `Response` Interface
+
+```typescript
+interface Response {
+  id: string;
+  content: string;
+  metadata?: Record<string, any>;
+}
+```
+
+### `ResponseRendererLabels` Interface
+
+```typescript
+interface ResponseRendererLabels {
+  responseLabel?: string;
+  approveLabel?: string;
+  rejectLabel?: string;
+  approvedMessage?: string;
+  rejectedMessage?: string;
+  feedbackSubmittedMessage?: string;
+}
+```
+
+## Styling
+
+By default, CopilotKit components use minimal styling. You can customize the look and feel by either:
+
+1. Overriding the default CSS classes
+2. Providing your own class names via props
+3. Using the built-in CSS variables
+
+The component uses classes like `copilotkit-response`, `copilotkit-response-content`, and `copilotkit-response-button` that you can target for styling.
+
+## Examples
+
+### Human Approval Flow
+
+```tsx
+// Example: Crew is asking for user approval before taking an important action
+useCopilotAction({
+  name: "approve_restaurant_reservation",
+  renderAndWaitForResponse({ status, args, respond }) {
+    const reservation = args as {
+      id: string;
+      restaurant: string;
+      time: string;
+      guests: number;
+    };
+
+    return (
+      <DefaultResponseRenderer
+        response={{
+          id: reservation.id,
+          content: `Would you like to make a reservation at ${reservation.restaurant} 
+                   for ${reservation.guests} people at ${reservation.time}?`,
+          metadata: reservation,
+        }}
+        onRespond={(input: string) => {
+          if (input === "Approve") {
+            // User approved the reservation
+            respond?.("confirmed");
+          } else {
+            // User rejected the reservation
+            respond?.("cancelled");
+          }
+        }}
+        status={status as ResponseStatus}
+        labels={{
+          approveLabel: "Confirm Reservation",
+          rejectLabel: "Cancel Reservation",
+        }}
+      />
+    );
+  },
+});
+```

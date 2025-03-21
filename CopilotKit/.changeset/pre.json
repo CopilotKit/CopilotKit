@@ -19,6 +19,7 @@
   },
   "changesets": [
     "fast-books-talk",
+    "funny-needles-reflect",
     "olive-brooms-switch"
   ]
 }

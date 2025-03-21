@@ -7,10 +7,14 @@ icon: custom/langchain
 <InsecurePasswordProtected>
 
 <Frame>
-    <img src="/images/coagents/coagents-highlevel-overview.png" alt="CoAgents High Level Overview" className="mb-10"/>
+  <img
+    src="/images/coagents/coagents-highlevel-overview.png"
+    alt="CoAgents High Level Overview"
+    className="mb-10"
+  />
 </Frame>
 
-CrewAI is an agentic framework for building LLM applications that can be used with Copilotkit. CrewAi Flows allow developers 
+CrewAI is an agentic framework for building LLM applications that can be used with Copilotkit. CrewAi Flows allow developers
 to combine and coordinate coding tasks and Crews efficiently, providing a robust framework for building sophisticated AI automations.
 
 ## CoAgents and CrewAI
@@ -31,11 +35,22 @@ Let's break down some key terms and understand how they relate to and are implem
   generate natural language responses.
 
 Some additional functionality not mentioned here is:
+
 - **Human in the loop**: CoAgents enabled human review and approval of generated responses. Read more about how this works
   [here](/crewai-crews/human-in-the-loop).
 - **Tool calling**: Tool calling is a fundamental building block for agentic workflows. They allow for greater control over what
   the agent can do and can be used to interact with external systems. CoAgents allow you to easily render in-progress
   tool calls in the UI so your users know what's happening. Read more about streaming tool calls [here](/crewai-crews/shared-state/predictive-state-updates).
+
+## UI Components
+
+CopilotKit provides a set of React UI components specifically designed for CrewAI applications:
+
+- [State Renderer](/crewai-crews/components/state-renderer) - Display agent state and progress
+- [Response Renderer](/crewai-crews/components/response-renderer) - Collect user feedback on agent responses
+- [Component Types](/crewai-crews/components/types) - TypeScript interfaces for components
+
+These components help you build beautiful, interactive CrewAI applications with minimal effort. See the [UI Components](/crewai-crews/components) section for detailed documentation.
 
 ## Building with Python
 
