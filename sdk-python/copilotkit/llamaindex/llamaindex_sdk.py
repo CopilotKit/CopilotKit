@@ -3,17 +3,20 @@ CopilotKit SDK for LlamaIndex
 """
 
 import uuid
+import json
 from typing import List, AsyncGenerator, Optional, Literal, cast
 from llama_index.core.base.llms.types import (
   CompletionResponse,
   CompletionResponseAsyncGen,
   ChatResponse,
-  ChatResponseAsyncGen
+  ChatResponseAsyncGen,
+  MessageRole
 )
 from llama_index.core.workflow import (
     Event,
     Context,
 )
+from llama_index.core.llms import ChatMessage
 from copilotkit.protocol import (
     text_message_start,
     text_message_content,
@@ -23,6 +26,10 @@ from copilotkit.protocol import (
     action_execution_args,
     RuntimeProtocolEvent
 )
+from copilotkit.types import Message
+from copilotkit.utils import get_logger
+
+logger = get_logger(__name__)
 
 class CopilotKitEvents(Event):
     """
@@ -227,3 +234,82 @@ async def _copilotkit_stream_completion_response_async_gen(
         )
 
     return chunk
+
+
+def llamaindex_messages_to_copilotkit(messages: List[ChatMessage]) -> List[Message]: # pylint: disable=too-many-branches
+    """
+    Convert CrewAI Flow messages to CopilotKit messages
+    """
+    result = []
+    tool_call_names = {}
+
+    message_ids = {
+        id(m): str(uuid.uuid4()) for m in messages
+    }
+
+    for message in messages:
+        if message.role == MessageRole.ASSISTANT:
+            if message_tool_calls := message.additional_kwargs.get("tool_calls"):
+                for tool_call in message_tool_calls:
+                    tool_call_names[tool_call["id"]] = tool_call["function"]["name"]
+
+    for message in messages:
+        message_id = message_ids[id(message)]
+
+        if message.role == MessageRole.TOOL:
+            result.append({
+                "actionExecutionId": message.additional_kwargs["tool_call_id"],
+                "actionName": tool_call_names.get(
+                    message.additional_kwargs["tool_call_id"],
+                      message.additional_kwargs.get("name")
+                ),
+                "result": message.content,
+                "id": message_id,
+            })
+        elif message_tool_calls := message.additional_kwargs.get("tool_calls"):
+            for tool_call in message_tool_calls:
+                if tool_call.get("function"):
+                    result.append({
+                        "id": tool_call["id"],
+                        "name": tool_call["function"]["name"],
+                        "arguments": json.loads(tool_call["function"]["arguments"]),
+                        "parentMessageId": message_id,
+                    })
+                else:
+                    result.append({
+                        "id": tool_call["id"],
+                        "name": tool_call["name"],
+                        "arguments": tool_call["arguments"],
+                        "parentMessageId": message_id,
+                    })
+        elif message.content:
+            result.append({
+                "role": message.role,
+                "content": message.content,
+                "id": message_id,
+            })
+
+    # Create a dictionary to map message ids to their corresponding messages
+    results_dict = {msg["actionExecutionId"]: msg for msg in result if "actionExecutionId" in msg}
+
+
+    # since we are splitting multiple tool calls into multiple messages,
+    # we need to reorder the corresponding result messages to be after the tool call
+    reordered_result = []
+
+    for msg in result:
+
+        # add all messages that are not tool call results
+        if not "actionExecutionId" in msg:
+            reordered_result.append(msg)
+
+        # if the message is a tool call, also add the corresponding result message
+        # immediately after the tool call
+        if msg.get("name"):
+            msg_id = msg["id"]
+            if msg_id in results_dict:
+                reordered_result.append(results_dict[msg_id])
+            else:
+                logger.warning("Tool call result message not found for id: %s", msg_id)
+
+    return reordered_result

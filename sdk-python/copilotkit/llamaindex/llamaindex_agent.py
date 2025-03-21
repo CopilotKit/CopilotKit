@@ -91,7 +91,7 @@ class LlamaIndexAgent(Agent):
         ):
         if thread_id is None:
             raise ValueError("Thread ID is required")
-      
+
         run_id = str(uuid.uuid4())
 
         merge_state = self.copilotkit_config.get("merge_state", llamaindex_default_merge_state)
