@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ViewerLayout } from "@/components/layout/viewer-layout";
 import { LLMSelector } from "@/components/llm-selector/llm-selector";
 import { DemoList } from "@/components/demo-list/demo-list";
@@ -85,55 +85,25 @@ export default function Home() {
   }, [selectedDemo]);
 
   // Load README content
-  const loadReadmeContent = useCallback(async (demoPath: string) => {
+  const loadReadmeContent = useCallback(async (demoId: string) => {
+    // Process MDX if the file exists
     try {
-      // First try to load README.mdx
-      let response = await fetch('/api/fs/read', {
+      const mdxResponse = await fetch('/api/mdx/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: join(demoPath, 'README.mdx') }),
+        body: JSON.stringify({ demoId }),
       });
 
-      if (!response.ok) {
-        // Fallback to README.md if README.mdx doesn't exist
-        response = await fetch('/api/fs/read', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: join(demoPath, 'README.md') }),
-        });
-        
-        // If both README.mdx and README.md don't exist, set content to null
-        if (!response.ok) {
-          setReadmeContent(null);
-          setCompiledMDX(null);
-          return;
-        }
-      }
-
-      const { content } = await response.json();
-      setReadmeContent(content);
-
-      // Process MDX if the file exists
-      try {
-        const mdxResponse = await fetch('/api/mdx/process', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filePath: join(demoPath, 'README.mdx') }),
-        });
-
-        if (mdxResponse.ok) {
-          const { compiled } = await mdxResponse.json();
-          setCompiledMDX(compiled);
-        } else {
-          setCompiledMDX(null);
-        }
-      } catch (mdxError) {
-        console.error('Error processing MDX:', mdxError);
+      if (mdxResponse.ok) {
+        const { compiled, content } = await mdxResponse.json();
+        setCompiledMDX(compiled);
+        setReadmeContent(content);
+      } else {
         setCompiledMDX(null);
+        setReadmeContent(null);
       }
-    } catch (err) {
-      console.error('Error loading README:', err);
-      setReadmeContent(null);
+    } catch (mdxError) {
+      console.error('Error processing MDX:', mdxError);
       setCompiledMDX(null);
     }
   }, []);
@@ -142,7 +112,7 @@ export default function Home() {
   useEffect(() => {
     if (selectedDemo?.path) {
       handleNavigate(selectedDemo.path);
-      loadReadmeContent(selectedDemo.path);
+      loadReadmeContent(selectedDemo.id);
     }
   }, [selectedDemo?.path, handleNavigate, loadReadmeContent]);
 

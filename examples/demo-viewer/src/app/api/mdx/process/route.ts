@@ -1,43 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import filesJson from '../../../../files.json'
 import { compile } from '@mdx-js/mdx';
+import { FileEntry } from "@/components/file-tree/file-tree";
 
 export async function POST(req: NextRequest) {
   try {
-    const { filePath } = await req.json();
-    
-    if (!filePath) {
-      return NextResponse.json(
-        { error: 'No file path provided' },
-        { status: 400 }
-      );
+    const { demoId } = await req.json();
+
+    // @ts-expect-error -- can index.
+    const files: FileEntry[] = filesJson[demoId].files;
+    const readmeFile = files.find(file => file.name.includes('.mdx') || file.name.includes('.md'));
+    if (!readmeFile) {
+      throw new Error('No readme file found.');
     }
-    
-    // Ensure we're only accessing README files
-    if (!filePath.includes('README.mdx') && !filePath.includes('README.md')) {
-      return NextResponse.json(
-        { error: 'Invalid file path. Only README files are allowed.' },
-        { status: 403 }
-      );
-    }
-    
-    // Resolve the absolute path
-    const fullPath = path.resolve(process.cwd(), filePath);
-    
-    // Check if the file exists
-    if (!fs.existsSync(fullPath)) {
-      return NextResponse.json(
-        { error: 'File not found' },
-        { status: 404 }
-      );
-    }
-    
+
     // Read the file content
-    const content = fs.readFileSync(fullPath, 'utf8');
-    
+    const content = readmeFile.content;
+
     // For MDX files, process them with MDX compiler
-    if (fullPath.endsWith('.mdx')) {
+    if (readmeFile.name.endsWith('.mdx')) {
       try {
         // Compile the MDX to JSX
         const result = await compile(content, {
