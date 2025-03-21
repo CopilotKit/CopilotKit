@@ -2,6 +2,10 @@
 CrewAI integration for CopilotKit
 """
 
+# new event listener docs
+# https://github.com/crewAIInc/crewAI/blob/main/docs/concepts/event-listener.mdx
+
+# 
 import uuid
 import json
 import asyncio
@@ -16,23 +20,23 @@ from litellm.types.utils import (
 )
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from crewai.flow.flow import FlowState, Flow
-from crewai.flow.flow_events import (
-  Event as CrewAIFlowEvent,
-  FlowStartedEvent,
-  MethodExecutionStartedEvent,
-  MethodExecutionFinishedEvent,
-  FlowFinishedEvent,
-)
+# from crewai.flow.flow_events import (
+#   Event as CrewAIFlowEvent,
+#   FlowStartedEvent,
+#   MethodExecutionStartedEvent,
+#   MethodExecutionFinishedEvent,
+#   FlowFinishedEvent,
+# )
 from copilotkit.types import Message
 from copilotkit.logging import get_logger
 from copilotkit.runloop import queue_put, get_context_execution
 from copilotkit.protocol import (
     RuntimeEventTypes,
-    RunStarted,
-    RunFinished,
+    # RunStarted,
+    # RunFinished,
     RunError,
-    NodeStarted,
-    NodeFinished,
+    # NodeStarted,
+    # NodeFinished,
     agent_state_message,
     text_message_start,
     text_message_content,
@@ -62,46 +66,46 @@ async def crewai_flow_async_runner(flow: Flow, inputs: Dict[str, Any]):
     asyncio.run().
     """
 
-    async def crewai_flow_event_subscriber(flow: Any, event: CrewAIFlowEvent):
-        if isinstance(event, FlowStartedEvent):
-            await queue_put(RunStarted(
-                type=RuntimeEventTypes.RUN_STARTED,
-                state=flow.state
-            ), priority=True)
-        elif isinstance(event, MethodExecutionStartedEvent):
-            await queue_put(NodeStarted(
-                type=RuntimeEventTypes.NODE_STARTED,
-                node_name=event.method_name,
-                state=flow.state
-            ), priority=True)
-        elif isinstance(event, MethodExecutionFinishedEvent):
-            await queue_put(NodeFinished(
-                type=RuntimeEventTypes.NODE_FINISHED,
-                node_name=event.method_name,
-                state=flow.state
-            ), priority=True)
-        elif isinstance(event, FlowFinishedEvent):
-            await queue_put(RunFinished(
-                type=RuntimeEventTypes.RUN_FINISHED,
-                state=flow.state
-            ), priority=True)
+    # async def crewai_flow_event_subscriber(flow: Any, event: CrewAIFlowEvent):
+    #     if isinstance(event, FlowStartedEvent):
+    #         await queue_put(RunStarted(
+    #             type=RuntimeEventTypes.RUN_STARTED,
+    #             state=flow.state
+    #         ), priority=True)
+    #     elif isinstance(event, MethodExecutionStartedEvent):
+    #         await queue_put(NodeStarted(
+    #             type=RuntimeEventTypes.NODE_STARTED,
+    #             node_name=event.method_name,
+    #             state=flow.state
+    #         ), priority=True)
+    #     elif isinstance(event, MethodExecutionFinishedEvent):
+    #         await queue_put(NodeFinished(
+    #             type=RuntimeEventTypes.NODE_FINISHED,
+    #             node_name=event.method_name,
+    #             state=flow.state
+    #         ), priority=True)
+    #     elif isinstance(event, FlowFinishedEvent):
+    #         await queue_put(RunFinished(
+    #             type=RuntimeEventTypes.RUN_FINISHED,
+    #             state=flow.state
+    #         ), priority=True)
 
-    def crewai_flow_event_subscriber_sync(flow: Any, event: CrewAIFlowEvent):
-        loop = asyncio.get_running_loop()
-        loop.call_soon(lambda: asyncio.create_task(crewai_flow_event_subscriber(flow, event)))
+    # def crewai_flow_event_subscriber_sync(flow: Any, event: CrewAIFlowEvent):
+    #     loop = asyncio.get_running_loop()
+    #     loop.call_soon(lambda: asyncio.create_task(crewai_flow_event_subscriber(flow, event)))
 
-    flow.event_emitter.connect(crewai_flow_event_subscriber_sync)
+    # flow.event_emitter.connect(crewai_flow_event_subscriber_sync)
 
     try:
-        flow.event_emitter.send(
-            flow,
-            event=FlowStartedEvent(
-                type="flow_started",
-                flow_name=flow.__class__.__name__,
-            ),
-        )
+        # flow.event_emitter.send(
+        #     flow,
+        #     event=FlowStartedEvent(
+        #         type="flow_started",
+        #         flow_name=flow.__class__.__name__,
+        #     ),
+        # )
 
-        flow._initialize_state(inputs) # pylint: disable=protected-access
+        # flow._initialize_state(inputs) # pylint: disable=protected-access
         await flow.kickoff_async()
     except Exception as e: # pylint: disable=broad-except
         await queue_put(RunError(
