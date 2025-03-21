@@ -114,7 +114,7 @@ export default function Home() {
       handleNavigate(selectedDemo.path);
       loadReadmeContent(selectedDemo.id);
     }
-  }, [selectedDemo?.path, handleNavigate, loadReadmeContent]);
+  }, [selectedDemo?.path, handleNavigate, loadReadmeContent, selectedDemo?.id]);
 
   // Find agent.py file when switching to code tab
   const handleTabChange = (value: string) => {

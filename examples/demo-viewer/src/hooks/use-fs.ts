@@ -49,7 +49,7 @@ export function useFs(initialPath: string) {
       setFileContent(file.content);
       setSelectedFilePath(file.path);
     },
-    [currentPath]
+    []
   );
 
   const handleFileSelect = useCallback(
