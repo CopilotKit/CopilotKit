@@ -1,14 +1,32 @@
 .copilotKitMessages {
   overflow-y: scroll;
   flex: 1;
-  padding: 1rem 2rem;
   display: flex;
   flex-direction: column;
   background-color: var(--copilot-kit-background-color);
+  justify-content: space-between;
+  z-index: 1;
+}
+
+.copilotKitMessagesContainer {
+  /*overflow-y: scroll;*/
+  /*flex: 1;*/
+  padding: 1rem 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.copilotKitMessagesFooter {
+  display: flex;
+  padding: 0;
+  margin: 0 auto 8px auto;
+  justify-content: flex-start;
+  flex-direction: column;
+  width: 90%;
 }
 
 .copilotKitMessages::-webkit-scrollbar {
-  width: 9px;
+  width: 6px;
 }
 
 .copilotKitMessages::-webkit-scrollbar-thumb {
@@ -26,13 +44,14 @@
 }
 
 .copilotKitMessage {
-  border-radius: 0.5rem;
-  padding: 1rem;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+  border-radius: 15px;
+  padding: 8px 12px;
+  font-size: 1rem;
+  line-height: 1.5;
   overflow-wrap: break-word;
   max-width: 80%;
   margin-bottom: 0.5rem;
+  color: var(--copilot-kit-text-color);
 }
 
 .copilotKitMessage.copilotKitUserMessage {
@@ -40,16 +59,73 @@
   color: var(--copilot-kit-contrast-color);
   margin-left: auto;
   white-space: pre-wrap;
+  line-height: 1.75;
+  font-size: 1rem;
 }
 
 .copilotKitMessage.copilotKitAssistantMessage {
-  background: var(--copilot-kit-secondary-color);
-  color: var(--copilot-kit-secondary-contrast-color);
+  background: transparent;
   margin-right: auto;
+  padding-left: 0;
+  position: relative;
+  max-width: 100%;
 }
 
-.copilotKitMessage.copilotKitUserMessage + .copilotKitMessage.copilotKitAssistantMessage {
-  margin-top: 1.5rem;
+.copilotKitMessage.copilotKitAssistantMessage .copilotKitMessageControls {
+  position: absolute;
+  left: 0;
+  display: flex;
+  gap: 1rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  padding: 5px 0 0 0;
+}
+
+.copilotKitMessageControls.currentMessage {
+  opacity: 1 !important;
+}
+
+.copilotKitMessage.copilotKitAssistantMessage:hover .copilotKitMessageControls {
+  opacity: 1;
+}
+
+/* Always show controls on mobile */
+@media (max-width: 768px) {
+  .copilotKitMessage.copilotKitAssistantMessage .copilotKitMessageControls {
+    opacity: 1;
+  }
+}
+
+.copilotKitMessageControlButton {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  border-radius: 0.5rem;
+  justify-content: center;
+  color: var(--copilot-kit-primary-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+  z-index: 10;
+  margin: 0;
+}
+
+.copilotKitMessageControlButton:hover {
+  color: color-mix(in srgb, var(--copilot-kit-primary-color) 80%, black);
+  transform: scale(1.05);
+}
+
+.copilotKitMessageControlButton:active {
+  color: color-mix(in srgb, var(--copilot-kit-primary-color) 80%, black);
+  transform: scale(1.05);
+}
+
+.copilotKitMessageControlButton svg {
+  width: 1rem;
+  height: 1rem;
+  display: block;
+  pointer-events: none;
 }
 
 .copilotKitMessage.copilotKitAssistantMessage + .copilotKitMessage.copilotKitUserMessage {
@@ -63,11 +139,45 @@
 
 .copilotKitMessage .inProgressLabel {
   margin-left: 10px;
+  opacity: 0.7;
 }
 
-.copilotKitMessages footer {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
+@keyframes copilotKitSpinAnimation {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.copilotKitSpinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--copilot-kit-contrast-color);
+  border-radius: 50%;
+  border-top-color: var(--copilot-kit-primary-color);
+  animation: copilotKitSpinAnimation 1s linear infinite;
+  margin-left: 8px;
+}
+
+@keyframes copilotKitActivityDotAnimation {
+  0%, 80%, 100% {
+    transform: scale(0.5);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.copilotKitActivityDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--copilot-kit-primary-color);
+  animation: copilotKitActivityDotAnimation 1.4s infinite ease-in-out both;
 }

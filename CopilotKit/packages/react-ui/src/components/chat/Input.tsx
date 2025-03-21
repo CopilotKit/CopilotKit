@@ -5,7 +5,7 @@ import AutoResizingTextarea from "./Textarea";
 import { usePushToTalk } from "../../hooks/use-push-to-talk";
 import { useCopilotContext } from "@copilotkit/react-core";
 
-export const Input = ({ inProgress, onSend, isVisible = false }: InputProps) => {
+export const Input = ({ inProgress, onSend, isVisible = false, onStop }: InputProps) => {
   const context = useChatContext();
   const copilotContext = useCopilotContext();
 
@@ -42,10 +42,8 @@ export const Input = ({ inProgress, onSend, isVisible = false }: InputProps) => 
     inProgress,
   });
 
-  const sendIcon =
-    inProgress || pushToTalkState === "transcribing"
-      ? context.icons.activityIcon
-      : context.icons.sendIcon;
+  const isInProgress = inProgress || pushToTalkState === "transcribing";
+  const buttonIcon = isInProgress ? context.icons.stopIcon : context.icons.sendIcon;
   const showPushToTalk =
     pushToTalkConfigured &&
     (pushToTalkState === "idle" || pushToTalkState === "recording") &&
@@ -55,50 +53,56 @@ export const Input = ({ inProgress, onSend, isVisible = false }: InputProps) => 
     const interruptEvent = copilotContext.langGraphInterruptAction?.event;
     const interruptInProgress =
       interruptEvent?.name === "LangGraphInterruptEvent" && !interruptEvent?.response;
+
     return (
-      !inProgress && text.trim().length > 0 && pushToTalkState === "idle" && !interruptInProgress
+      (isInProgress || (!isInProgress && text.trim().length > 0)) &&
+      pushToTalkState === "idle" &&
+      !interruptInProgress
     );
   };
 
   const sendDisabled = !canSend();
 
   return (
-    <div className="copilotKitInput" onClick={handleDivClick}>
-      <AutoResizingTextarea
-        ref={textareaRef}
-        placeholder={context.labels.placeholder}
-        autoFocus={true}
-        maxRows={5}
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.shiftKey) {
-            event.preventDefault();
-            if (canSend()) {
-              send();
+    <div className="copilotKitInputContainer">
+      <div className="copilotKitInput" onClick={handleDivClick}>
+        <AutoResizingTextarea
+          ref={textareaRef}
+          placeholder={context.labels.placeholder}
+          autoFocus={true}
+          maxRows={5}
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              if (canSend()) {
+                send();
+              }
             }
-          }
-        }}
-      />
-      <div className="copilotKitInputControls">
-        {showPushToTalk && (
+          }}
+        />
+        <div className="copilotKitInputControls">
+          <div style={{ flexGrow: 1 }} />
+          {showPushToTalk && (
+            <button
+              onClick={() =>
+                setPushToTalkState(pushToTalkState === "idle" ? "recording" : "transcribing")
+              }
+              className={pushToTalkState === "recording" ? "copilotKitPushToTalkRecording" : ""}
+            >
+              {context.icons.pushToTalkIcon}
+            </button>
+          )}
           <button
-            onClick={() =>
-              setPushToTalkState(pushToTalkState === "idle" ? "recording" : "transcribing")
-            }
-            className={pushToTalkState === "recording" ? "copilotKitPushToTalkRecording" : ""}
+            disabled={sendDisabled}
+            onClick={isInProgress ? onStop : send}
+            data-copilotkit-in-progress={inProgress}
+            data-test-id={inProgress ? "copilot-chat-request-in-progress" : "copilot-chat-ready"}
           >
-            {context.icons.pushToTalkIcon}
+            {buttonIcon}
           </button>
-        )}
-        <button
-          disabled={sendDisabled}
-          onClick={send}
-          data-copilotkit-in-progress={!!inProgress}
-          data-testid={inProgress ? "copilot-chat-request-in-progress" : undefined}
-        >
-          {sendIcon}
-        </button>
+        </div>
       </div>
     </div>
   );

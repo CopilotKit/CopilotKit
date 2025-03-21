@@ -45,6 +45,8 @@
 .copilotKitMarkdown p {
   padding: 0px;
   margin: 0px;
+  line-height: 1.75;
+  font-size: 1rem;
 }
 
 .copilotKitMarkdown p:not(:last-child),
@@ -126,7 +128,6 @@
   line-height: 1.25rem;
   font-weight: 500;
   height: 2.5rem;
-  width: 2.5rem;
   padding: 3px;
   margin: 2px;
 }
