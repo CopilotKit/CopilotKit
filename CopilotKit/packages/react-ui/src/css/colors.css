@@ -1,12 +1,33 @@
 html {
-  --copilot-kit-primary-color: rgb(59 130 246);
-  --copilot-kit-contrast-color: rgb(255 255 255);
-  --copilot-kit-secondary-color: rgb(243 244 246);
-  --copilot-kit-secondary-contrast-color: rgb(0 0 0);
+  --copilot-kit-primary-color: rgb(28, 28, 28);
+  --copilot-kit-contrast-color: rgb(255, 255, 255);
+  --copilot-kit-secondary-color: rgb(83, 83, 83);
   --copilot-kit-background-color: rgb(255 255 255);
-  --copilot-kit-muted-color: rgb(106 106 106);
-  --copilot-kit-separator-color: rgba(0, 0, 0, 0.08);
+  --copilot-kit-muted-color: rgb(200 200 200);
+  --copilot-kit-text-light-color: rgb(255 255 255);
+  --copilot-kit-text-dark-color: rgb(28, 28, 28);
+  --copilot-kit-separator-color: rgb(200 200 200);
   --copilot-kit-scrollbar-color: rgba(0, 0, 0, 0.2);
+  --copilot-kit-header-color: rgb(255 255 255);
   --copilot-kit-response-button-color: #333;
   --copilot-kit-response-button-background-color: #fff;
+  --copilot-kit-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --copilot-kit-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --copilot-kit-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+  .variant-blue {
+    --copilot-kit-primary-color: rgb(59 130 246);
+    --copilot-kit-contrast-color: rgb(255 255 255);
+    --copilot-kit-secondary-color: rgb(243 244 246);
+    --copilot-kit-background-color: rgb(255 255 255);
+    --copilot-kit-muted-color: rgb(200 200 200);
+    --copilot-kit-text-color: rgb(106 106 106);
+    --copilot-kit-separator-color: rgb(200 200 200);
+    --copilot-kit-scrollbar-color: rgba(0, 0, 0, 0.2);
+    --copilot-kit-response-button-color: #333;
+    --copilot-kit-response-button-background-color: #fff;
+    --copilot-kit-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --copilot-kit-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --copilot-kit-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
 }
