@@ -52,11 +52,11 @@
     "unlink:global": "pnpm unlink --global"
   },
   "devDependencies": {
-    "@swc/core": "1.5.28",
+    "@swc/core": "1.11.11",
     "@types/express": "^4.17.21",
     "@types/jest": "^29.5.4",
     "@types/node": "^18.11.17",
-    "@whatwg-node/server": "^0.9.34",
+    "@whatwg-node/server": "^0.10.0",
     "eslint": "^8.56.0",
     "eslint-config-custom": "workspace:*",
     "jest": "^29.6.4",
@@ -70,10 +70,10 @@
   },
   "dependencies": {
     "@copilotkit/shared": "workspace:*",
-    "@langchain/community": "^0.0.53",
+    "@langchain/community": "^0.3.0",
     "@langchain/core": "^0.3.13",
     "@langchain/langgraph": "^0.2.44",
-    "@langchain/langgraph-sdk": "^0.0.36",
+    "@langchain/langgraph-sdk": "^0.0.60",
     "langchain": "^0.3.3",
     "zod": "^3.23.3"
   },
