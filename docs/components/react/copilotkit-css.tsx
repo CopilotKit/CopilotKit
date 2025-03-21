@@ -12,7 +12,7 @@ html {
   --copilot-kit-primary-color: rgb(59 130 246);
   --copilot-kit-contrast-color: rgb(255 255 255);
   --copilot-kit-secondary-color: rgb(243 244 246);
-  --copilot-kit-secondary-contrast-color: rgb(0 0 0);
+  --copilot-kit-text-color: rgb(0 0 0);
   --copilot-kit-background-color: rgb(255 255 255);
   --copilot-kit-muted-color: rgb(106 106 106);
   --copilot-kit-separator-color: rgba(0, 0, 0, 0.08);
@@ -234,7 +234,7 @@ html {
   padding: 0;
   font-family: inherit;
   font-weight: inherit;
-  color: var(--copilot-kit-secondary-contrast-color);
+  color: var(--copilot-kit-text-color);
   border: 0px;
   background-color: var(--copilot-kit-background-color);
 }
@@ -289,7 +289,7 @@ html {
 }
 .copilotKitMessage.copilotKitAssistantMessage {
   background: var(--copilot-kit-secondary-color);
-  color: var(--copilot-kit-secondary-contrast-color);
+  color: var(--copilot-kit-text-color);
   margin-right: auto;
 }
 .copilotKitMessage.copilotKitUserMessage
@@ -636,7 +636,7 @@ html {
   padding: 0;
   font-family: inherit;
   font-weight: inherit;
-  color: var(--copilot-kit-secondary-contrast-color);
+  color: var(--copilot-kit-text-color);
   border: 0px;
   background-color: var(--copilot-kit-background-color);
 }
@@ -684,7 +684,7 @@ export const handleMouseMove = (e: any) => {
       return;
     } else if (element.classList.contains("copilotKitAssistantMessage")) {
       tooltip.innerHTML =
-        "<b>--copilot-kit-secondary-color</b>: Assistant message background color.<br/><br/><b>--copilot-kit-secondary-contrast-color</b>: Assistant message foreground color.";
+        "<b>--copilot-kit-secondary-color</b>: Assistant message background color.<br/><br/><b>--copilot-kit-text-color</b>: Assistant message foreground color.";
       return;
     } else if (element.classList.contains("copilotKitUserMessage")) {
       tooltip.innerHTML =
