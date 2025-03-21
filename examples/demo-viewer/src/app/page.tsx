@@ -101,33 +101,34 @@ export default function Home() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ path: join(demoPath, 'README.md') }),
         });
+        
+        // If both README.mdx and README.md don't exist, set content to null
+        if (!response.ok) {
+          setReadmeContent(null);
+          setCompiledMDX(null);
+          return;
+        }
       }
 
-      if (response.ok) {
-        const { content } = await response.json();
-        setReadmeContent(content);
+      const { content } = await response.json();
+      setReadmeContent(content);
 
-        // Process MDX if the file exists
-        try {
-          const mdxResponse = await fetch('/api/mdx/process', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ filePath: join(demoPath, 'README.mdx') }),
-          });
+      // Process MDX if the file exists
+      try {
+        const mdxResponse = await fetch('/api/mdx/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filePath: join(demoPath, 'README.mdx') }),
+        });
 
-          if (mdxResponse.ok) {
-            const { compiled } = await mdxResponse.json();
-            setCompiledMDX(compiled);
-          } else {
-            setCompiledMDX(null);
-          }
-        } catch (mdxError) {
-          console.error('Error processing MDX:', mdxError);
+        if (mdxResponse.ok) {
+          const { compiled } = await mdxResponse.json();
+          setCompiledMDX(compiled);
+        } else {
           setCompiledMDX(null);
         }
-      } else {
-        // If neither README.mdx nor README.md exists, clear the content
-        setReadmeContent(null);
+      } catch (mdxError) {
+        console.error('Error processing MDX:', mdxError);
         setCompiledMDX(null);
       }
     } catch (err) {
