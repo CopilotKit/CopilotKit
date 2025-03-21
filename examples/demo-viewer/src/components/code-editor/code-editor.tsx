@@ -1,6 +1,6 @@
-import React from 'react';
-import Editor from '@monaco-editor/react';
-import { DemoFile } from '@/types/demo';
+import React from "react";
+import Editor from "@monaco-editor/react";
+import { DemoFile } from "@/types/demo";
 
 interface CodeEditorProps {
   file?: DemoFile;
@@ -15,25 +15,28 @@ export function CodeEditor({ file, onFileChange }: CodeEditorProps) {
   };
 
   return file ? (
-      <div className="h-full flex flex-col">
-        <Editor
-            height="100%"
-            language={file.language}
-            value={file.content}
-            onChange={handleEditorChange}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 14,
-              lineNumbers: 'on',
-              readOnly: false,
-              wordWrap: 'on',
-            }}
-            theme="vs-dark"
-        />
-      </div>
-    ) : (
-        <div className="p-6 text-center text-muted-foreground">
-          Select a file from the file tree to view its code
-        </div>
-    )
+    <div className="h-full flex flex-col">
+      <Editor
+        height="100%"
+        language={file.language}
+        value={file.content}
+        onChange={handleEditorChange}
+        options={{
+          minimap: { enabled: false },
+          fontSize: 16,
+          lineNumbers: "on",
+          readOnly: true,
+          wordWrap: "on",
+          stickyScroll: {
+            enabled: false,
+          },
+        }}
+        theme="vs-dark"
+      />
+    </div>
+  ) : (
+    <div className="p-6 text-center text-muted-foreground">
+      Select a file from the file tree to view its code
+    </div>
+  );
 }

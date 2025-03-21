@@ -172,5 +172,69 @@
         "language": "mdx"
       }
     ]
+  },
+  "crew_enterprise": {
+    "files": [
+      {
+        "name": "restaurant_finder_crew/src/config/__init__.py",
+        "content": "# This file is required to make the directory a Python package.\n# By including an __init__.py file, Python treats the directory as a package,\n# allowing you to import modules from this directory.\n# This file can be empty, or it can execute initialization code for the package.\n# In this case, it is left empty as a placeholder to signify the directory as a package.\n",
+        "path": "restaurant_finder_crew/src/config/__init__.py",
+        "language": "python"
+      },
+      {
+        "name": "restaurant_finder_crew/src/config/agents.yaml",
+        "content": "restaurant_researcher:\n  role: Restaurant Research Specialist\n  goal: Find restaurants in specified locations and gather details about them\n  backstory: >\n    You are an expert at finding restaurants and understanding their characteristics.\n    You have extensive knowledge of cuisines, dining styles, price points, and \n    locations. You know how to search for the most relevant and highly-rated\n    restaurants in any area.\n\nrecommendation_specialist:\n  role: Restaurant Recommendation Specialist\n  goal: Create personalized restaurant recommendations based on research\n  backstory: >\n    You are skilled at curating restaurant recommendations that match people's\n    preferences. You have a talent for highlighting the unique aspects of restaurants\n    and explaining why they would be good choices. You know how to present\n    restaurant options in an engaging and helpful way.\n",
+        "path": "restaurant_finder_crew/src/config/agents.yaml",
+        "language": "yaml"
+      },
+      {
+        "name": "restaurant_finder_crew/src/config/tasks.yaml",
+        "content": "search_restaurants_task:\n  description: >\n    Search for popular and highly-rated restaurants in {location}. Include a variety of \n    cuisines, price points, and dining styles. For each restaurant, gather information\n    about their cuisine, price range, ratings, popular dishes, and any unique features.\n  expected_output: >\n    A detailed list of at least 8 restaurants in {location}, with information about\n    cuisine type, price range, ratings, signature dishes, and any standout characteristics.\n\npresent_recommendations_task:\n  description: >\n    Review the restaurants found in {location} and create a curated list of recommendations.\n    Highlight what makes each restaurant special and why someone might want to visit.\n    Present these recommendations in a friendly, conversational way. Then ask the user\n    if they'd like more recommendations or if these options are sufficient.\n  expected_output: >\n    A well-organized list of restaurant recommendations with engaging descriptions,\n    followed by a question asking if the user would like more recommendations.\n\n    **Restaurant Recommendations**\n\n    - **Restaurant Name**: Description of what makes this restaurant special.\n      - **Cuisine**: Type of cuisine\n      - **Price Range**: Price range\n      - **Ratings**: Ratings\n      - **Signature Dishes**: Signature dishes\n      - **Standout Characteristics**: Any standout characteristics\n\n    **Would you like more recommendations?**\n\nrespond_to_feedback_task:\n  description: >\n    Based on the user's response to the recommendations, either:\n    1. If they say \"thank you\" or indicate satisfaction, provide a friendly closing response\n       along with the finalized list of recommendations.\n    2. If they ask for more recommendations, provide 3-5 additional restaurant options\n       with different cuisines or characteristics from the first set.\n  expected_output: >\n    Either a gracious closing message with the finalized list of recommendations\n    or a new set of restaurant recommendations that complement the initial suggestions.\n",
+        "path": "restaurant_finder_crew/src/config/tasks.yaml",
+        "language": "yaml"
+      },
+      {
+        "name": "restaurant_finder_crew/src/tools/__init__.py",
+        "content": "",
+        "path": "restaurant_finder_crew/src/tools/__init__.py",
+        "language": "python"
+      },
+      {
+        "name": "restaurant_finder_crew/src/tools/custom_tool.py",
+        "content": "from crewai_tools import BaseTool\n\n\nclass MyCustomTool(BaseTool):\n    name: str = \"Name of my tool\"\n    description: str = (\n        \"Clear description for what this tool is useful for, you agent will need this information to use it.\"\n    )\n\n    def _run(self, argument: str) -> str:\n        # Implementation goes here\n        return \"this is an example of a tool output, ignore it and move along.\"\n",
+        "path": "restaurant_finder_crew/src/tools/custom_tool.py",
+        "language": "python"
+      },
+      {
+        "name": "restaurant_finder_crew/src/crew.py",
+        "content": "from crewai_tools import ScrapeWebsiteTool, SerperDevTool\n\nfrom crewai import Agent, Crew, Process, Task\nfrom crewai.project import CrewBase, agent, crew, task\n\n\n@CrewBase\nclass SimilarCompanyFinderTemplateCrew:\n    \"\"\"Restaurant Recommendation Crew\"\"\"\n\n    agents_config = \"config/agents.yaml\"\n    tasks_config = \"config/tasks.yaml\"\n\n    @agent\n    def restaurant_researcher(self) -> Agent:\n        return Agent(\n            config=self.agents_config[\"restaurant_researcher\"],\n            tools=[SerperDevTool(), ScrapeWebsiteTool()],\n            allow_delegation=False,\n            verbose=True,\n        )\n\n    @agent\n    def recommendation_specialist(self) -> Agent:\n        return Agent(\n            config=self.agents_config[\"recommendation_specialist\"],\n            tools=[],\n            allow_delegation=False,\n            verbose=True,\n        )\n\n    @task\n    def search_restaurants_task(self) -> Task:\n        return Task(\n            config=self.tasks_config[\"search_restaurants_task\"],\n            agent=self.restaurant_researcher(),\n        )\n\n    @task\n    def present_recommendations_task(self) -> Task:\n        return Task(\n            config=self.tasks_config[\"present_recommendations_task\"],\n            agent=self.recommendation_specialist(),\n            human_input=True,\n        )\n\n    @task\n    def respond_to_feedback_task(self) -> Task:\n        return Task(\n            config=self.tasks_config[\"respond_to_feedback_task\"],\n            agent=self.recommendation_specialist(),\n            output_file=\"restaurant_recommendations.md\",\n        )\n\n    @crew\n    def crew(self) -> Crew:\n        \"\"\"Creates the Restaurant Recommendation crew\"\"\"\n        return Crew(\n            agents=self.agents,  # Automatically created by the @agent decorator\n            tasks=self.tasks,  # Automatically created by the @task decorator\n            process=Process.sequential,\n            verbose=True,\n            # process=Process.hierarchical, # In case you wanna use that instead https://docs.crewai.com/how-to/Hierarchical/\n        )\n\n    def run(self, inputs=None):\n        \"\"\"Run the crew\n        \n        Args:\n            inputs (dict, optional): Input parameters for the crew\n        \"\"\"\n        if inputs is None:\n            inputs = {\n                \"location\": \"San Francisco, CA\",\n            }\n            \n        return self.crew().kickoff(inputs=inputs)\n",
+        "path": "restaurant_finder_crew/src/crew.py",
+        "language": "python"
+      },
+      {
+        "name": "restaurant_finder_crew/src/main.py",
+        "content": "#!/usr/bin/env python\nimport sys\n\nfrom similar_company_finder_template.crew import SimilarCompanyFinderTemplateCrew\n\n# This main file is intended to be a way for your to run your\n# crew locally, so refrain from adding necessary logic into this file.\n# Replace with inputs you want to test with, it will automatically\n# interpolate any tasks and agents information\n\n\ndef run():\n    \"\"\"\n    Run the crew.\n    \"\"\"\n    inputs = {\n        \"location\": \"San Francisco, CA\",\n    }\n\n    SimilarCompanyFinderTemplateCrew().run(inputs=inputs)\n\n\ndef train():\n    \"\"\"\n    Train the crew for a given number of iterations.\n    \"\"\"\n    inputs = {\"location\": \"New York, NY\"}\n    try:\n        SimilarCompanyFinderTemplateCrew().crew().train(\n            n_iterations=int(sys.argv[1]), filename=sys.argv[2], inputs=inputs\n        )\n\n    except Exception as e:\n        raise Exception(f\"An error occurred while training the crew: {e}\")\n\n\ndef replay():\n    \"\"\"\n    Replay the crew execution from a specific task.\n    \"\"\"\n    try:\n        SimilarCompanyFinderTemplateCrew().crew().replay(task_id=sys.argv[1])\n\n    except Exception as e:\n        raise Exception(f\"An error occurred while replaying the crew: {e}\")\n\n\ndef test():\n    \"\"\"\n    Test the crew execution and returns the results.\n    \"\"\"\n    inputs = {\"location\": \"Chicago, IL\"}\n    try:\n        SimilarCompanyFinderTemplateCrew().crew().test(\n            n_iterations=int(sys.argv[1]), openai_model_name=sys.argv[2], inputs=inputs\n        )\n\n    except Exception as e:\n        raise Exception(f\"An error occurred while replaying the crew: {e}\")\n",
+        "path": "restaurant_finder_crew/src/main.py",
+        "language": "python"
+      },
+      {
+        "name": "restaurant_finder_crew/pyproject.toml",
+        "content": "[project]\nname = \"similar_company_finder_template\"\nversion = \"0.1.0\"\ndescription = \"similar-company-finder-template using crewAI\"\nauthors = [\n    { name = \"Your Name\", email = \"you@example.com\" },\n]\nrequires-python = \">=3.10,<=3.13\"\ndependencies = [\n    \"crewai[tools]>=0.102.0\",\n    \"langchain-core>=0.2.30\",\n]\n\n[project.scripts]\nsimilar_company_finder_template = \"similar_company_finder_template.main:run\"\nrun_crew = \"similar_company_finder_template.main:run\"\ntrain = \"similar_company_finder_template.main:train\"\nreplay = \"similar_company_finder_template.main:replay\"\ntest = \"similar_company_finder_template.main:test\"\n\n[build-system]\nrequires = [\n    \"hatchling\",\n]\nbuild-backend = \"hatchling.build\"\n",
+        "path": "restaurant_finder_crew/pyproject.toml",
+        "language": "toml"
+      },
+      {
+        "name": "restaurant_finder_crew/README.md",
+        "content": "# Restaurant Finder Crew\n\nWelcome to the Restaurant Finder Crew project, powered by [crewAI](https://crewai.com).\n\n## Installation\n\nEnsure you have Python >=3.10 <=3.13 installed on your system. This project uses [UV](https://docs.astral.sh/uv/) for dependency management and package handling, offering a seamless setup and execution experience.\n\nFirst, if you haven't already, install uv:\n\n## Features\n\n- Human In the Loop\n- Streaming Responses to your Frontend\n\n## Deploy\n\nThe easiest way to deploy your crew is through CrewAI Enterprise, where you can deploy your crew in a few clicks. Simply log in to your CrewAI Enterprise account, navigate to the deployment section, and follow the intuitive steps to get your Restaurant Finder Crew up and running effortlessly. For more details, check out the [crewAI Quickstart Guide](https://docs.crewai.com/quickstart#deploying-your-project).\n\n## Note\n\nCrewAI Enterprise prefers that the Crew code is maintained in a separate repository. Therefore, you will need to provision a separate repository for this folder to ensure proper deployment and management.\n",
+        "path": "restaurant_finder_crew/README.md",
+        "language": "markdown"
+      },
+      {
+        "name": "ui/page.tsx",
+        "content": "\"use client\";\n/*\nFull source available https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-enterprise-crewai-crews/ui\nThis is for demonstration purpose only.\n*/\n\nimport { useCoAgent, useCopilotChat } from \"@copilotkit/react-core\";\nimport { CopilotChat, ResponseStatus } from \"@copilotkit/react-ui\";\nimport { useEffect, useState } from \"react\";\n\ninterface AppState {\n  inputs: {\n    location: string;\n  };\n  result: string;\n  status: ResponseStatus;\n}\n\nexport default function Home() {\n  const { appendMessage } = useCopilotChat();\n  const [direction, setDirection] = useState<\"horizontal\" | \"vertical\">(\n    \"horizontal\"\n  );\n\n  const { state, setState } = useCoAgent<AppState>({\n    name: \"restaurant_finder_agent\",\n    initialState: {\n      inputs: {\n        location: \"New York\",\n      },\n      result: \"Final result will appear here\",\n    },\n  });\n\n  const setInput = async (key: keyof AppState[\"inputs\"], value: string) => {\n    setState({\n      ...state,\n      inputs: {\n        ...state.inputs,\n        [key]: value,\n      },\n    });\n    await appendMessage({\n      content: `My ${String(key)} is ${value}`,\n      role: \"Developer\",\n    });\n  };\n\n  return (\n    <div className=\"w-full h-full relative\">\n      <div className=\"fixed bottom-4 right-4 z-50\">\n        <div>{state.status}</div>\n      </div>\n\n      <div className=\"w-full h-full\">\n        <div className=\"h-full relative overflow-y-auto\">\n          <CopilotChat\n            instructions=\"Provide instructions here\"\n            className=\"h-full flex flex-col\"\n          />\n        </div>\n      </div>\n    </div>\n  );\n}\n",
+        "path": "ui/page.tsx",
+        "language": "typescript"
+      }
+    ]
   }
 }
