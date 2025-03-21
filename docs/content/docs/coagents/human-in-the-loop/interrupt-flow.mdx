@@ -93,7 +93,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
         <TailoredContentOption
             id="langgraph-interrupt"
             title="As a Custom Chat UI"
-            description="I'd like to display a custome UI in the chat window"
+            description="I'd like to display a custom UI in the chat window"
             icon={<PanelsTopLeft />}
         >
             <Step>
@@ -405,7 +405,8 @@ Try talking to your agent, you'll see that it now pauses execution and waits for
 By default, your agent will not be made aware of LangGraph `interrupts`. This is because the decision is not saved into the message's state.
 For simple and sensitive flows, this is ideal. However, you may want to make your agent aware of these interractions.
 
-CopilotKit's SDKs provides a helper function that will perform the interrupt and build messages that you can pass to your agent.
+If you've been using the "As Message" implementation, you may have noticed that the messages are returned from the interrupt function.
+These can be used to notify the LLM about the recent communication:
 
 <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
     <Tab value="Python">
