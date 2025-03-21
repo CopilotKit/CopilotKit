@@ -48,7 +48,7 @@ import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
 import { SystemMessageFunction } from "../types";
 import { useChat, AppendMessageOptions } from "./use-chat";
 import { defaultCopilotContextCategories } from "../components";
-import { CoAgentStateRenderHandlerArguments, randomId } from "@copilotkit/shared";
+import { CoAgentStateRenderHandlerArguments } from "@copilotkit/shared";
 import { useCopilotMessagesContext } from "../context";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
 
