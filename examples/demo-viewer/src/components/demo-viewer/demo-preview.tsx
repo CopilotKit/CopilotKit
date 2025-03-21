@@ -20,6 +20,7 @@ function IsolatedFrame({ demoId, children }: { demoId: string; children: React.R
       
       // Clear any existing content
       iframe.contentDocument.body.innerHTML = '';
+      iframe.contentDocument.head.innerHTML = '';
       
       // Add base styles to iframe
       const style = iframe.contentDocument.createElement('style');
