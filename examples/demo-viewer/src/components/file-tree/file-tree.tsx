@@ -44,6 +44,7 @@ function convertToFileTree(files: FileEntry[]) {
       name: fileName || "",
       path: file.path,
       type: "file",
+      content: "",
     });
   });
 
@@ -60,7 +61,7 @@ interface FileTreeProps {
 export interface FileEntry {
   name: string;
   path: string;
-  type: 'file' | 'directory';
+  type: "file" | "directory";
   content: string;
   children?: FileEntry[];
 }
