@@ -1,22 +1,32 @@
-# Restaurant Finder Crew
+# Crew Enterprise Demo
 
-Welcome to the Restaurant Finder Crew project, powered by [crewAI](https://crewai.com).
+_Prerequisites:_
 
-## Installation
+- [CopilotKit Cloud Account](https://cloud.copilotkit.ai)
+- [CrewAI Enterprise Account](https://www.crewai.com/enterprise)
+- [OpenAI Api Key](https://platform.openai.com/api-keys)
 
-Ensure you have Python >=3.10 <=3.13 installed on your system. This project uses [UV](https://docs.astral.sh/uv/) for dependency management and package handling, offering a seamless setup and execution experience.
+#### 1. Setup
 
-First, if you haven't already, install uv:
+- Deploy the demo crew located at `agent-py` on [Crew Enterprise](https://www.crewai.com/)
+- Register your Crew in [Copilot Cloud](https://cloud.copilotkit.ai/)
+- Copy `Cloud Public API Key` from Copilot Cloud
 
-## Features
+![Setup process](./assets/crew-cpk-setup.gif)
 
-- Human In the Loop
-- Streaming Responses to your Frontend
+### 2. Start the Frontend
 
-## Deploy
+To start the frontend, navigate to the `ui` directory and run the development server:
 
-The easiest way to deploy your crew is through CrewAI Enterprise, where you can deploy your crew in a few clicks. Simply log in to your CrewAI Enterprise account, navigate to the deployment section, and follow the intuitive steps to get your Restaurant Finder Crew up and running effortlessly. For more details, check out the [crewAI Quickstart Guide](https://docs.crewai.com/quickstart#deploying-your-project).
+```bash
+> cd ui
+> cp .env.example .env  # Copy the example env file
+> # Edit the .env file with your Copilot Cloud Public API Key
+> pnpm install
+> pnpm run dev
+```
 
-## Note
+The `.env` file should contain:
 
-CrewAI Enterprise prefers that the Crew code is maintained in a separate repository. Therefore, you will need to provision a separate repository for this folder to ensure proper deployment and management.
+- `NEXT_PUBLIC_AGENT_NAME`: The name of your crew agent (default is `restaurant_finder_agent`)
+- `NEXT_PUBLIC_CPK_PUBLIC_API_KEY`: Your Copilot Cloud Public API Key
