@@ -15,7 +15,7 @@
       },
       {
         "name": "style.css",
-        "content": ".copilotKitInput {\n  border-bottom-left-radius: 0.75rem;\n  border-bottom-right-radius: 0.75rem;\n  border-top-left-radius: 0.75rem;\n  border-top-right-radius: 0.75rem;\n  border: 1px solid red !important;\n  background-color: #fff;\n}\n\n.copilotKitChat {\n  background-color: #fff !important;\n}\n",
+        "content": ".copilotKitInput {\n  border-bottom-left-radius: 0.75rem;\n  border-bottom-right-radius: 0.75rem;\n  border-top-left-radius: 0.75rem;\n  border-top-right-radius: 0.75rem;\n  border: 1px solid var(--copilot-kit-separator-color) !important;\n  background-color: #fff;\n}\n\n.copilotKitChat {\n  background-color: #fff !important;\n}\n",
         "path": "style.css",
         "language": "css"
       }

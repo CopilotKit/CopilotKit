@@ -10,9 +10,6 @@ export const MDXRenderer: React.FC<{
   content: string;
   demoId?: string;
 }> = ({ content, demoId }) => {
-  // Early return if no content
-  if (!content) return null;
-  
   // Process content to enhance video tags
   const processedVideos = React.useMemo(() => {
     if (!content) return '';
@@ -38,7 +35,10 @@ export const MDXRenderer: React.FC<{
     
     return processedHtml;
   }, [content, demoId]);
-  
+
+  // Early return if no content
+  if (!content) return null;
+
   return (
     <MDXProvider components={MDXComponents}>
       <div className="mdx-content">
