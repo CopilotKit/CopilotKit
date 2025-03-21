@@ -18,12 +18,14 @@ async function buildFileTree(dir: string, rootPath: string): Promise<FileEntry[]
         name: entry,
         path: relativePath,
         type: 'directory',
+        content: '',
         children: await buildFileTree(fullPath, rootPath),
       });
     } else {
       result.push({
         name: entry,
         path: relativePath,
+        content: '',
         type: 'file',
       });
     }
