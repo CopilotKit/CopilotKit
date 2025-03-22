@@ -134,8 +134,8 @@ export function ResearchCanvas() {
   };
 
   return (
-    <div className="w-full h-full p-10 bg-[#F5F8FF]">
-      <div className="space-y-8">
+    <div className="w-full h-full overflow-y-auto p-10 bg-[#F5F8FF]">
+      <div className="space-y-8 pb-10">
         <div>
           <h2 className="text-lg font-medium mb-3 text-primary">
             Research Question
