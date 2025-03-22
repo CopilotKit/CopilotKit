@@ -111,6 +111,6 @@ This Code of Conduct draws inspiration from various open-source communities dedi
 
 ## 9. Get Involved
 
-We invite you to contribute to CopilotKit! Whether through code, documentation, or community engagement, your participation is invaluable. For more information on how to contribute, please check our [contribution guide](https://docs.copilotkit.ai/code-contributions/how-to-contribute?ref=github_readme).
+We invite you to contribute to CopilotKit! Whether through code, documentation, or community engagement, your participation is invaluable. For more information on how to contribute, please check our [contribution guide](https://docs.copilotkit.ai/contributing/docs-contributions#how-to-contribute).
 
 Thank you for being part of the CopilotKit community! Together, we can build a safe, respectful, and innovative space for all.
