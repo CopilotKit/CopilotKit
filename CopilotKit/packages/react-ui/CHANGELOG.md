@@ -1,5 +1,14 @@
 # ui
 
+## 1.8.0-next.4
+
+### Patch Changes
+
+- d8e354b: - fix: re-align customization variable names and usage
+  - @copilotkit/react-core@1.8.0-next.4
+  - @copilotkit/runtime-client-gql@1.8.0-next.4
+  - @copilotkit/shared@1.8.0-next.4
+
 ## 1.8.0-next.3
 
 ### Minor Changes
