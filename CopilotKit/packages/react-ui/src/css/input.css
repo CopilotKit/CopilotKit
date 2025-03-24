@@ -20,6 +20,11 @@
   border-bottom-right-radius: 0.75rem;
 }
 
+.copilotKitSidebar .copilotKitInputContainer {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
 .copilotKitInputControlButton {
   padding: 0;
   cursor: pointer;
