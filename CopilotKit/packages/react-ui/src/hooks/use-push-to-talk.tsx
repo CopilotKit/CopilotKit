@@ -166,7 +166,7 @@ export const usePushToTalk = ({
         ) as TextMessage[];
 
       const text = messagesAfterLast.map((message) => message.content).join("\n");
-      
+
       if (context.copilotApiConfig.textToSpeechUrl && audioContextRef.current) {
         playAudioResponse(text, context.copilotApiConfig.textToSpeechUrl, audioContextRef.current);
       }
