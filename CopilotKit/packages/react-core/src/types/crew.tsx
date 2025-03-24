@@ -3,12 +3,12 @@ import { ReactNode } from "react";
 /**
  * Status of a response or action that requires user input
  */
-export type ResponseStatus = "inProgress" | "complete" | "executing";
+export type CrewsResponseStatus = "inProgress" | "complete" | "executing";
 
 /**
  * Response data structure for the ResponseRenderer
  */
-export interface Response {
+export interface CrewsResponse {
   /**
    * Unique identifier for the response
    */
@@ -28,7 +28,7 @@ export interface Response {
 /**
  * Optional cache for storing user feedback
  */
-export interface ResponseCache<T extends { id: string }> {
+export interface CrewsResponseCache<T extends { id: string }> {
   /**
    * Get feedback for a specific ID
    */
@@ -43,29 +43,29 @@ export interface ResponseCache<T extends { id: string }> {
 /**
  * Props for custom icon components
  */
-export interface ResponseRendererIconProps {
+export interface CrewsResponseRendererIconProps {
   className?: string;
 }
 
 /**
  * Icons for the ResponseRenderer component
  */
-export interface ResponseRendererIcons {
+export interface CrewsResponseRendererIcons {
   /**
    * Icon for expanding content
    */
-  expand?: React.ComponentType<ResponseRendererIconProps>;
+  expand?: React.ComponentType<CrewsResponseRendererIconProps>;
 
   /**
    * Icon for collapsing content
    */
-  collapse?: React.ComponentType<ResponseRendererIconProps>;
+  collapse?: React.ComponentType<CrewsResponseRendererIconProps>;
 }
 
 /**
  * Labels for the ResponseRenderer component
  */
-export interface ResponseRendererLabels {
+export interface CrewsResponseRendererLabels {
   /**
    * Label for the response section
    */
@@ -100,7 +100,7 @@ export interface ResponseRendererLabels {
 /**
  * Props for the content renderer component
  */
-export interface ContentRendererProps {
+export interface CrewsContentRendererProps {
   /**
    * Content to render
    */
@@ -115,7 +115,7 @@ export interface ContentRendererProps {
 /**
  * Props for the feedback button component
  */
-export interface FeedbackButtonProps {
+export interface CrewsFeedbackButtonProps {
   /**
    * The text to display on the button
    */
@@ -135,7 +135,7 @@ export interface FeedbackButtonProps {
 /**
  * Props for the completed feedback display component
  */
-export interface CompletedFeedbackProps {
+export interface CrewsCompletedFeedbackProps {
   /**
    * The message to display
    */
@@ -150,7 +150,7 @@ export interface CompletedFeedbackProps {
 /**
  * Props for the ResponseRenderer component
  */
-export interface ResponseRendererProps {
+export interface CrewsResponseRendererProps {
   /**
    * The response data to render
    */
@@ -159,7 +159,7 @@ export interface ResponseRendererProps {
   /**
    * The current status of the response
    */
-  status: ResponseStatus;
+  status: CrewsResponseStatus;
 
   /**
    * Function to call when a response is given
@@ -169,27 +169,27 @@ export interface ResponseRendererProps {
   /**
    * Custom icons for the component
    */
-  icons?: ResponseRendererIcons;
+  icons?: CrewsResponseRendererIcons;
 
   /**
    * Custom labels for the component
    */
-  labels?: ResponseRendererLabels;
+  labels?: CrewsResponseRendererLabels;
 
   /**
    * Custom component for rendering content
    */
-  ContentRenderer?: React.ComponentType<ContentRendererProps>;
+  ContentRenderer?: React.ComponentType<CrewsContentRendererProps>;
 
   /**
    * Custom component for rendering feedback buttons
    */
-  FeedbackButton?: React.ComponentType<FeedbackButtonProps>;
+  FeedbackButton?: React.ComponentType<CrewsFeedbackButtonProps>;
 
   /**
    * Custom component for rendering completed feedback
    */
-  CompletedFeedback?: React.ComponentType<CompletedFeedbackProps>;
+  CompletedFeedback?: React.ComponentType<CrewsCompletedFeedbackProps>;
 
   /**
    * CSS class for the root element
@@ -225,7 +225,7 @@ export interface ResponseRendererProps {
 /**
  * Base state item interface for agent state items
  */
-export interface StateItem {
+export interface CrewsStateItem {
   /**
    * Unique identifier for the item
    */
@@ -240,7 +240,7 @@ export interface StateItem {
 /**
  * Tool execution state item
  */
-export interface ToolStateItem extends StateItem {
+export interface CrewsToolStateItem extends CrewsStateItem {
   /**
    * Name of the tool that was executed
    */
@@ -260,7 +260,7 @@ export interface ToolStateItem extends StateItem {
 /**
  * Task state item
  */
-export interface TaskStateItem extends StateItem {
+export interface CrewsTaskStateItem extends CrewsStateItem {
   /**
    * Name of the task
    */
@@ -275,26 +275,26 @@ export interface TaskStateItem extends StateItem {
 /**
  * AgentState containing information about steps and tasks
  */
-export interface AgentState {
+export interface CrewsAgentState {
   /**
    * Array of tool execution steps
    */
-  steps?: ToolStateItem[];
+  steps?: CrewsToolStateItem[];
 
   /**
    * Array of tasks
    */
-  tasks?: TaskStateItem[];
+  tasks?: CrewsTaskStateItem[];
 }
 
 /**
  * Props for the item renderer component
  */
-export interface StateItemRendererProps {
+export interface CrewsStateItemRendererProps {
   /**
    * The item to render
    */
-  item: ToolStateItem | TaskStateItem;
+  item: CrewsToolStateItem | CrewsTaskStateItem;
 
   /**
    * Whether the item is the newest
@@ -310,7 +310,7 @@ export interface StateItemRendererProps {
 /**
  * Props for the skeleton loader component
  */
-export interface SkeletonLoaderProps {
+export interface CrewsSkeletonLoaderProps {
   /**
    * CSS class for the skeleton
    */
@@ -320,26 +320,26 @@ export interface SkeletonLoaderProps {
 /**
  * Props for the DefaultStateRenderer component
  */
-export interface StateRendererProps {
+export interface CrewsStateRendererProps {
   /**
    * The state to render
    */
-  state?: AgentState;
+  state?: CrewsAgentState;
 
   /**
    * The current status
    */
-  status: ResponseStatus;
+  status: CrewsResponseStatus;
 
   /**
    * Custom component for rendering individual state items
    */
-  StateItemRenderer?: React.ComponentType<StateItemRendererProps>;
+  StateItemRenderer?: React.ComponentType<CrewsStateItemRendererProps>;
 
   /**
    * Custom component for showing a loading skeleton
    */
-  SkeletonLoader?: React.ComponentType<SkeletonLoaderProps>;
+  SkeletonLoader?: React.ComponentType<CrewsSkeletonLoaderProps>;
 
   /**
    * Custom labels for the component
@@ -364,7 +364,7 @@ export interface StateRendererProps {
   /**
    * Custom icons for the component
    */
-  icons?: ResponseRendererIcons;
+  icons?: CrewsResponseRendererIcons;
 
   /**
    * CSS class for the root element
