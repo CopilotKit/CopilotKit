@@ -1,0 +1,57 @@
+import ComponentExamples from "@/snippets/component-examples.mdx";
+
+## Chat with your Crew
+
+In your main component, use the `useCoAgent` hook to start your crew. Make sure to pass valid `/inputs` to your crew.
+
+```tsx title="main-page.tsx"
+import { useCoAgent, useCopilotChat } from "@copilotkit/react-core";
+import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
+
+interface AppState {
+  inputs: Record<string, string>;
+  result: string;
+}
+
+export function MainPage() {
+  const { appendMessage } = useCopilotChat();
+  const { state, setState } = useCoAgent<AppState>({
+    name: "your_crew_agent",
+    initialState: {
+      inputs: {},
+      result: "",
+    },
+  });
+
+  // Function to trigger the agent with new input
+  const triggerAgent = async (key: string, value: string) => {
+    // 1. Update state with new input
+    setState({
+      ...state,
+      inputs: { ...state.inputs, [key]: value },
+    });
+
+    // 2. Send message to trigger the agent
+    await appendMessage(
+      new TextMessage({
+        content: `${key}: ${value}`,
+        role: MessageRole.Developer,
+      })
+    );
+  };
+
+  return (
+    <div>
+      <button onClick={() => triggerAgent("key", "value")}>
+        Run Agent with Custom Data
+      </button>
+    </div>
+  );
+}
+```
+
+**Key points:**
+
+1. Use `useCoAgent` to manage agent state
+2. Use `useCopilotChat` to communicate with the agent
+3. Trigger the crew with `appendMessage`

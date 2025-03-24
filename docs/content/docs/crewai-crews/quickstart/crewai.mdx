@@ -31,6 +31,9 @@ import {
 } from "lucide-react";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import CopilotUI from "@/snippets/copilot-ui.mdx";
+import CrewAgentRunRenderer from "@/snippets/crew-agent-run-renderer.mdx";
+import CrewStateRenderer from "@/snippets/crew-state-renderer.mdx";
+import CrewHumanInputRenderer from "@/snippets/crew-human-input-renderer.mdx";
 
 <InsecurePasswordProtected>
 
@@ -47,7 +50,7 @@ Before you begin, you'll need the following:
         ### Install CopilotKit
         First, install the latest packages for CopilotKit into your frontend.
         ```package-install
-        npm install @copilotkit/react-ui @copilotkit/react-core
+        npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime-client-gql
         ```
     </Step>
 
@@ -106,11 +109,13 @@ Before you begin, you'll need the following:
                 <CopilotUI components={props.components} />
             </Step>
             <Step>
-                ## Add State Streaming
-                This step guides you on incorporating state streaming from your Crew.
+               <CrewAgentRunRenderer components={props.components} />
             </Step>
             <Step>
-                ## Add Human In the Loop
+                <CrewStateRenderer components={props.components} />
+            </Step>
+            <Step>
+                <CrewHumanInputRenderer components={props.components} />
             </Step>
             <Step>
                 ### 🎉 Talk to your agent!

@@ -1,0 +1,66 @@
+## Stream Agent State
+
+1. Connects to a specific agent by name
+2. Renders the agent's state including tools used and tasks completed
+3. Provides custom rendering for different types of state items
+
+```tsx title="main-page.tsx"
+import {
+  useCoAgentStateRender,
+  CrewsToolStateItem,
+  CrewsTaskStateItem,
+  CrewsStateItemRendererProps,
+} from "@copilotkit/react-core";
+
+const AgentStateRender: React.FC<CrewStateItemRendererProps> = ({
+  item,
+  isNewest,
+  className,
+}) => (
+  <div
+    className={`${className || "copilotkit-state-item"} ${
+      isNewest ? "copilotkit-state-item-newest" : ""
+    }`}
+  >
+    <div className="copilotkit-state-item-header">
+      {"tool" in item ? item.tool : item.name}
+    </div>
+
+    {"thought" in item && item.thought && (
+      <div className="copilotkit-state-item-thought">{item.thought}</div>
+    )}
+
+    {"result" in item && item.result !== undefined && item.result !== null && (
+      <div className="copilotkit-state-item-result">
+        {formatContent(item.result)}
+      </div>
+    )}
+
+    {"description" in item && item.description && (
+      <div className="copilotkit-state-item-description">
+        {item.description}
+      </div>
+    )}
+  </div>
+);
+
+export function MainPage() {
+  // ...existing code
+  useCoAgentStateRender({
+    name: "your_crew_agent",
+    render: ({ state, status }) => (
+      <AgentStateRender state={state} status={status} />
+    ),
+  });
+
+  // ...existing code
+}
+```
+
+Key points:
+
+1. Use `useCoAgentStateRender` to subscribe to state updates
+2. Render different types of state items (tools and tasks)
+3. Display thought process and results in real-time
+
+> **Note:** Replace `name` with your agent name. It must match with what you registered in Copilot Cloud.
