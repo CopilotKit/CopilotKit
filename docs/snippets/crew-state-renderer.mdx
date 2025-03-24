@@ -12,37 +12,24 @@ import {
   CrewsStateItemRendererProps,
 } from "@copilotkit/react-core";
 
-const AgentStateRender: React.FC<CrewStateItemRendererProps> = ({
-  item,
-  isNewest,
-  className,
-}) => (
-  <div
-    className={`${className || "copilotkit-state-item"} ${
-      isNewest ? "copilotkit-state-item-newest" : ""
-    }`}
-  >
-    <div className="copilotkit-state-item-header">
-      {"tool" in item ? item.tool : item.name}
+export const AgentStateRender = ({ state, status }) => {
+  if (!state) return <div>Loading...</div>;
+
+  const items = [...(state.steps || []), ...(state.tasks || [])];
+  if (items.length === 0) return <div>No activity</div>;
+
+  return (
+    <div>
+      {items.map((item) => (
+        <div key={item.id}>
+          <p>{item.tool || item.name}</p>
+          {item.thought && <p>{item.thought}</p>}
+          {item.result && <p>{JSON.stringify(item.result)}</p>}
+        </div>
+      ))}
     </div>
-
-    {"thought" in item && item.thought && (
-      <div className="copilotkit-state-item-thought">{item.thought}</div>
-    )}
-
-    {"result" in item && item.result !== undefined && item.result !== null && (
-      <div className="copilotkit-state-item-result">
-        {formatContent(item.result)}
-      </div>
-    )}
-
-    {"description" in item && item.description && (
-      <div className="copilotkit-state-item-description">
-        {item.description}
-      </div>
-    )}
-  </div>
-);
+  );
+};
 
 export function MainPage() {
   // ...existing code
