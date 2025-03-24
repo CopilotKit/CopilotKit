@@ -85,10 +85,6 @@ body {
   border-radius: 0.5rem 0.5rem 0.5rem 0;
 }
 
-.copilotKitMessage svg {
-  color: white !important;
-}
-
 .copilotKitChat {
   background-color: #e0e9fd;
 }
