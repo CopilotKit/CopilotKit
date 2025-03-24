@@ -4,10 +4,10 @@ An example demonstrating agentic generative UI.
 
 import json
 import asyncio
-from crewai.flow.flow import Flow, start, router, listen
+from crewai.flow.flow import Flow, start, router, listen, or_
 from copilotkit.crewai import (
-  copilotkit_stream, 
-  CopilotKitState, 
+  copilotkit_stream,
+  CopilotKitState,
   copilotkit_predict_state,
   copilotkit_emit_state
 )
@@ -70,14 +70,15 @@ class AgenticGenerativeUIFlow(Flow[AgentState]):
     This is a sample flow that uses the CopilotKit framework to create a chat agent.
     """
 
+    
     @start()
-    @listen("route_follow_up")
     async def start_flow(self):
         """
         This is the entry point for the flow.
         """
+        self.state.steps = []
 
-    @router(start_flow)
+    @router(or_(start_flow, "simulate_task"))
     async def chat(self):
         """
         Standard chat node.
@@ -157,7 +158,7 @@ class AgenticGenerativeUIFlow(Flow[AgentState]):
         # 5. If our tool was not called, return to the end route
         return "route_end"
 
-    @router("route_simulate_task")
+    @listen("route_simulate_task")
     async def simulate_task(self):
         """
         Simulate the task.
@@ -167,8 +168,6 @@ class AgenticGenerativeUIFlow(Flow[AgentState]):
             await asyncio.sleep(1)
             step.status = "completed"
             await copilotkit_emit_state(self.state)
-
-        return "route_follow_up"
 
     @listen("route_end")
     async def end(self):

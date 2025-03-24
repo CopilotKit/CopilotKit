@@ -1,5 +1,44 @@
 # ui
 
+## 1.8.0-next.4
+
+### Patch Changes
+
+- d8e354b: - fix: re-align customization variable names and usage
+  - @copilotkit/react-core@1.8.0-next.4
+  - @copilotkit/runtime-client-gql@1.8.0-next.4
+  - @copilotkit/shared@1.8.0-next.4
+
+## 1.8.0-next.3
+
+### Minor Changes
+
+- 20f0727: - feat(chat): redesign chat
+
+### Patch Changes
+
+- @copilotkit/react-core@1.8.0-next.3
+- @copilotkit/runtime-client-gql@1.8.0-next.3
+- @copilotkit/shared@1.8.0-next.3
+
+## 1.7.2-next.2
+
+### Patch Changes
+
+- c11fab9: - chore(react-ui): Add DefaultResponseRenderer and DefaultStateRenderer components
+  - @copilotkit/react-core@1.7.2-next.2
+  - @copilotkit/runtime-client-gql@1.7.2-next.2
+  - @copilotkit/shared@1.7.2-next.2
+
+## 1.7.2-next.1
+
+### Patch Changes
+
+- Updated dependencies [73f5eaa]
+  - @copilotkit/react-core@1.7.2-next.1
+  - @copilotkit/runtime-client-gql@1.7.2-next.1
+  - @copilotkit/shared@1.7.2-next.1
+
 ## 1.7.2-next.0
 
 ### Patch Changes

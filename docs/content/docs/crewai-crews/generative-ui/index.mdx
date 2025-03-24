@@ -3,21 +3,25 @@ title: Generative UI
 icon: "lucide/Paintbrush"
 description: Render your agent's behavior with custom UI components.
 ---
-import {CTACards} from "@/components/react/cta-cards"
-import { WrenchIcon, BotIcon } from "lucide-react"
+
+import { CTACards } from "@/components/react/cta-cards";
+import { Callout } from "fumadocs-ui/components/callout";
+import { Bot, Wrench } from "lucide-react";
+import { LuLayoutTemplate } from "react-icons/lu";
 
 <InsecurePasswordProtected>
 
 <Frame>
-  <img 
-    src="/images/coagents/AgenticGenerativeUI.gif" 
-    className="my-0" 
+  <img
+    src="/images/coagents/AgenticGenerativeUI.gif"
+    className="my-0"
     alt="Demo of Generative UI showing a meeting scheduling agent"
   />
 </Frame>
 
 <Callout>
-    This example shows our [Research Canvas](/crewai-crews/videos/research-canvas) making use of Generative UI!
+  This example shows our [Research Canvas](/crewai-crews/videos/research-canvas)
+  making use of Generative UI!
 </Callout>
 
 ## What is Generative UI?
@@ -30,6 +34,25 @@ agents and user interfaces. As your agent processes information and makes decisi
 - Create interactive elements for user input
 - Animate transitions between different states
 
+## Ready-to-Use UI Components
+
+CopilotKit provides built-in UI components specifically designed for CrewAI applications:
+
+<CTACards
+  columns={1}
+  cards={[
+    {
+      icon: LuLayoutTemplate,
+      title: "UI Components Library",
+      description:
+        "Ready-to-use components for rendering agent state and collecting user feedback.",
+      href: "/crewai-crews/components",
+    },
+  ]}
+/>
+
+These components are designed to work seamlessly with CrewAI crews and provide a great starting point for building generative UIs.
+
 ## How can I use this?
 
 There are two main variants of Generative UI.
@@ -38,16 +61,17 @@ There are two main variants of Generative UI.
   columns={2}
   cards={[
     {
-      icon: BotIcon,
+      icon: Bot,
       title: "Agentic",
-      description: "Render your agent's state, progress, and outputs with custom UI components.",
-      href: "/crewai-crews/generative-ui/agentic"
+      description:
+        "Render your agent's state, progress, and outputs with custom UI components.",
+      href: "/crewai-crews/generative-ui/agentic",
     },
     {
-      icon: WrenchIcon,
+      icon: Wrench,
       title: "Tool-based",
       description: "Render your agent's tool calls with custom UI components.",
-      href: "/crewai-crews/generative-ui/tool-based"
+      href: "/crewai-crews/generative-ui/tool-based",
     },
   ]}
 />

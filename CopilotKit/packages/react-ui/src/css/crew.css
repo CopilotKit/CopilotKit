@@ -1,0 +1,277 @@
+/* Default styles for the ResponseRenderer component */
+
+.copilotkit-response {
+  text-align: right;
+}
+
+.copilotkit-response-content {
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  color: #4b5563;
+  background-color: #f9fafb;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  text-align: left;
+}
+
+.copilotkit-response-actions {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.copilotkit-response-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+}
+
+.copilotkit-toggle-button {
+  margin-right: 0.25rem;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copilotkit-icon {
+  height: 0.75rem;
+  width: 0.75rem;
+  color: #6b7280;
+}
+
+.copilotkit-response-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.copilotkit-response-button {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  background-color: #f3f4f6;
+  color: #4b5563;
+  border-radius: 0.25rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.copilotkit-response-button:hover {
+  background-color: #e5e7eb;
+}
+
+.copilotkit-response-button:focus {
+  outline: none;
+}
+
+.copilotkit-response-completed-feedback {
+  background-color: #f9fafb;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+.copilotkit-response-completed-feedback span {
+  color: #4b5563;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* DefaultStateRenderer styles */
+
+.copilotkit-state {
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.copilotkit-state-header {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 0.25rem;
+}
+
+.copilotkit-state-label {
+  color: #4b5563;
+  font-size: 0.875rem;
+}
+
+.copilotkit-state-label-loading {
+  display: inline-flex;
+  align-items: center;
+  animation: pulse 1.5s infinite;
+}
+
+.copilotkit-state-content {
+  padding-left: 1rem;
+  max-height: 250px;
+  overflow: auto;
+  padding-top: 0.375rem;
+  border-left: 1px solid #e5e7eb;
+  margin-left: 0.375rem;
+}
+
+.copilotkit-state-item {
+  padding: 0.25rem 0;
+  margin-bottom: 0.25rem;
+  transition: all 0.3s ease;
+}
+
+.copilotkit-state-item-newest {
+  animation: appear 0.5s ease-out;
+}
+
+.copilotkit-state-item-header {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.copilotkit-state-item-thought {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.copilotkit-state-item-result {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+}
+
+.copilotkit-state-item-description {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.copilotkit-state-empty {
+  padding: 0.25rem 0;
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.copilotkit-skeleton {
+  padding: 0.125rem 0;
+  animation: pulse 1.5s infinite;
+}
+
+.copilotkit-skeleton-header {
+  display: flex;
+  justify-content: space-between;
+}
+
+.copilotkit-skeleton-title {
+  height: 0.625rem;
+  width: 4rem;
+  background-color: #e5e7eb;
+  border-radius: 0.25rem;
+}
+
+.copilotkit-skeleton-subtitle {
+  height: 0.5rem;
+  width: 2rem;
+  background-color: #e5e7eb;
+  border-radius: 0.25rem;
+}
+
+.copilotkit-skeleton-content {
+  margin-top: 0.125rem;
+  height: 1.5rem;
+  background-color: #e5e7eb;
+  border-radius: 0.25rem;
+}
+
+.copilotkit-loader {
+  animation: spin 1.5s linear infinite;
+}
+
+.copilotkit-spinner {
+  animation: spin 1.5s linear infinite;
+}
+
+/* Animations */
+@keyframes appear {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Dark mode styles */
+@media (prefers-color-scheme: dark) {
+  /* DefaultResponseRenderer dark styles */
+  .copilotkit-response-content {
+    color: #9ca3af;
+    background-color: #1f2937;
+  }
+
+  .copilotkit-response-label {
+    color: #9ca3af;
+  }
+
+  .copilotkit-icon {
+    color: #9ca3af;
+  }
+
+  .copilotkit-response-button {
+    background-color: #1f2937;
+    color: #d1d5db;
+  }
+
+  .copilotkit-response-button:hover {
+    background-color: #374151;
+  }
+
+  .copilotkit-response-completed-feedback {
+    background-color: #1f2937;
+  }
+
+  .copilotkit-response-completed-feedback span {
+    color: #e5e7eb;
+  }
+
+  /* DefaultStateRenderer dark styles */
+  .copilotkit-state-label {
+    color: #d1d5db;
+  }
+
+  .copilotkit-state-content {
+    border-left-color: #374151;
+  }
+
+  .copilotkit-skeleton-title,
+  .copilotkit-skeleton-subtitle,
+  .copilotkit-skeleton-content {
+    background-color: #374151;
+  }
+}

@@ -26,7 +26,6 @@ export function MyComponent() {
   useCopilotAction({
     name: "addTodoItem",
     description: "Add a new todo item to the list",
-    available: "frontend", // use this to make sure the action is not passed as a tool to an agent // [!code highlight]
     parameters: [
       {
         name: "todoText",
@@ -49,6 +48,16 @@ export function MyComponent() {
   );
 }
 ```
+
+<Accordions>
+  <Accordion title="Changing where/when the action is executed">
+    The `available` prop defaults to `enabled`, but there are other options:
+    - `enabled`: The action is enabled and can be used by the LLM or [CoAgent](/coagents/).
+    - `disabled`: The action is disabled and cannot be used by the LLM or [CoAgent](/coagents/).
+    - `remote`: When using a [CoAgent](/coagents/), the action is only passed to the the CoAgent, but not the LLM.
+    - `frontend`: The action will only render a paired backend action. For more information, check the reference documentation for [useCopilotAction](/reference/hooks/useCopilotAction).
+  </Accordion>
+</Accordions>
 </Step>
 
 <Step>

@@ -1,12 +1,8 @@
 .copilotKitDevConsole {
-  background-color: #f3f4f6;
-  padding-left: 10px;
-  padding-right: 10px;
   display: flex;
   align-items: center;
-  border-bottom: 1px solid #cecece;
-  padding-top: 10px;
-  padding-bottom: 10px;
+  gap: 5px;
+  margin: 0 15px;
 }
 
 .copilotKitDevConsole.copilotKitDevConsoleWarnOutdated {
@@ -14,23 +10,20 @@
 }
 
 .copilotKitDevConsole .copilotKitVersionInfo {
-  flex: 1;
-  margin-left: 18px;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  position: absolute;
+  bottom: -25px;
+  padding: 3px 5px;
+  left: 0;
+  width: 100%;
+  justify-content: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  align-items: center;
+  background: #ebb305;
 }
 
-.copilotKitDevConsole .copilotKitVersionInfo header {
-  font-size: 11px;
-  font-weight: bold;
-}
-
-.copilotKitDevConsole .copilotKitVersionInfo footer {
-  margin-top: 10px;
-}
-
-.copilotKitDevConsole .copilotKitVersionInfo footer button {
+.copilotKitDevConsole .copilotKitVersionInfo button {
   font-size: 11px;
   font-weight: normal;
   font-family: monospace;
@@ -47,37 +40,33 @@
   text-overflow: ellipsis;
 }
 
-.copilotKitDevConsole .copilotKitVersionInfo header aside {
+.copilotKitDevConsole .copilotKitVersionInfo aside {
   display: inline;
   font-weight: normal;
   color: #7f7a7a;
   margin-left: 5px;
 }
 
-.copilotKitDevConsole .copilotKitVersionInfo section {
-  font-size: 11px;
-}
-
-.copilotKitDevConsole .copilotKitVersionInfo section svg {
+.copilotKitDevConsole .copilotKitVersionInfo svg {
   margin-left: 3px;
   margin-top: -3px;
 }
 
-.copilotKitDevConsole .copilotKitDebugMenuButton {
+.copilotKitDevConsole .copilotKitDebugMenuTriggerButton {
   font-size: 11px;
   font-weight: bold;
   display: flex;
-  width: 90px;
+  padding: 0 10px;
   height: 30px;
-  background-color: #d8d8d8;
-  border: 1px solid #979797;
-  border-radius: 6px;
+  background-color: transparent;
+  border: 1px solid var(--copilot-kit-muted-color);
+  border-radius: 20px;
   align-items: center;
   justify-content: center;
   outline: none;
 }
 
-.copilotKitDebugMenuButton.compact {
+.copilotKitDebugMenuTriggerButton.compact {
   width: 35px;
   color: black;
   justify-content: center;
@@ -85,19 +74,21 @@
   font-size: 8px;
 }
 
-.copilotKitDevConsole .copilotKitDebugMenuButton:hover {
-  background-color: #c7c7c7;
+.copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover {
+  background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 95%, black);
 }
 
-.copilotKitDevConsole .copilotKitDebugMenuButton > svg {
+.copilotKitDevConsole .copilotKitDebugMenuTriggerButton > svg {
   margin-left: 10px;
 }
 
 .copilotKitDebugMenu {
-  background-color: #d8d8d8;
+  --copilot-kit-dev-console-bg: #f8f8fa;
+  --copilot-kit-dev-console-border: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 80%, black);
   margin-top: 2px;
   border-radius: 6px;
-  border: 1px solid #979797;
+  background-color: var(--copilot-kit-dev-console-bg);
+  border: 1px solid var(--copilot-kit-dev-console-border);
   padding: 0.25rem;
   outline: none;
   font-size: 13px;
@@ -117,7 +108,7 @@
 }
 
 .copilotKitDebugMenuItem:hover {
-  background-color: #c7c7c7;
+  background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 92%, black);
   border-radius: 4px;
 }
 
@@ -129,6 +120,22 @@
 .copilotKitDebugMenu hr {
   height: 1px;
   border: none; /* Remove 3D look */
-  background-color: #979797; /* Set color */
+  background-color: var(--copilot-kit-dev-console-border);
   margin: 0.25rem;
+}
+
+.copilotKitHelpItemButton {
+  display: block;
+  text-align: center;
+  width: 100%;
+  padding: 4px 6px;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  border: 1px solid var(--copilot-kit-muted-color);
+  color: var(--copilot-kit-secondary-contrast-color);
+  box-shadow: 0 5px 5px 0px rgba(0,0,0,.01),0 2px 3px 0px rgba(0,0,0,.02);
+  background-color: var(--copilot-kit-dev-console-bg);
+}
+.copilotKitHelpItemButton:hover {
+  background-color: #f9f9f9;
 }

@@ -85,10 +85,6 @@ body {
   border-radius: 0.5rem 0.5rem 0.5rem 0;
 }
 
-.copilotKitMessage svg {
-  color: white !important;
-}
-
 .copilotKitChat {
   background-color: #e0e9fd;
 }
@@ -100,12 +96,11 @@ body {
 }
 
 .copilotKitInput {
-  border-top: none;
   background-color: white;
-  margin-bottom: 20px;
-  margin-left: 30px;
-  margin-right: 30px;
-  border-radius: 10px;
+}
+
+.copilotKitMessageControlButton {
+  color: #6766FC;
 }
 
 .copilotKitInput > textarea {

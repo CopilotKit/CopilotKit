@@ -18,6 +18,10 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
-    "olive-brooms-switch"
+    "fast-books-talk",
+    "funny-needles-reflect",
+    "modern-comics-flow",
+    "olive-brooms-switch",
+    "silver-moose-sleep"
   ]
 }

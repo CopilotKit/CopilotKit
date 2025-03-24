@@ -18,7 +18,8 @@ dependencies = [
     "uvicorn",
     "python-dotenv",
     "langchain-core",
-    "langgraph-cli"
+    "langgraph-cli",
+    "crewai (==0.102.0)"
 ]
 
 [build-system]

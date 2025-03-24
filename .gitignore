@@ -21,3 +21,5 @@ test-run-comment.md
 *.sqlite-wal
 
 __pycache__/
+*.env
+*.next
