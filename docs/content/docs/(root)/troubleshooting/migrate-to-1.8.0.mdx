@@ -1,0 +1,74 @@
+---
+title: Migrate to 1.8.0
+description: Migration guide for CopilotKit 1.8.0
+---
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import { CopilotKit } from "@copilotkit/react-core";
+import "@copilotkit/react-ui/styles.css";
+import { NewLookAndFeelPreview } from "@/components/react/component-previews/new-look-and-feel";
+import { ImageAndCode } from "@/components/react/image-and-code";
+
+## What's changed?
+
+### New Look and Feel
+
+CopilotKit 1.8.0 introduces a new default look and feel. This includes new theming variables, new components, and generally a fresh look.
+
+<ImageAndCode
+    id="new-look-and-feel"
+    preview={<NewLookAndFeelPreview />}
+>
+
+```tsx
+"use client"
+
+import { CopilotChat } from "@copilotkit/react-ui";
+import { CopilotKit } from "@copilotkit/react-core";
+
+export const NewLookAndFeelPreview = () => {
+
+    const chatStyles = "h-96 rounded-lg "
+    return (
+        <CopilotKit publicApiKey="ck_pub_ff8920cf96bfa51923dc4c4d2d56ef11">
+            <CopilotChat
+                className={chatStyles}
+                onThumbsUp={(message) => {alert(message)}} 
+                onThumbsDown={(message) => {alert(message)}}     
+            />
+        </CopilotKit>
+    )
+}
+```
+</ImageAndCode>
+
+### Thumbs Up/Down Handlers
+
+The `ThumbsUpDown` component now has handlers for when the user clicks on the thumbs up or down buttons. This allows you to take action when the user votes.
+
+```tsx
+<CopilotChat 
+    onThumbsUp={(message) => {console.log(message)}} 
+    onThumbsDown={(message) => {console.log(message)}}     
+/>
+```
+This was previously achievable in our framework, but we're making it first class now! You can use this to help fine-tune your model through CopilotKit
+or just generally track user feedback.
+
+### New CSS variables
+
+CopilotKit 1.8.0 introduces new CSS variables for the theme. These can be used to customize the look and feel of the CopilotKit. There are 3 new variables:
+
+- `--copilot-kit-text-light-color`: The color of the light text in the chat.
+- `--copilot-kit-text-dark-color`: The color of the dark text in the chat.
+- `--copilot-kit-header-color`: The background color of the header of the chat window.
+
+These variables can be used to customize the colors of the CopilotKit.
+
+Some other variables have been repurposed to be more inline with what their name describes:
+
+- insert options here
+
+
+
+
+
