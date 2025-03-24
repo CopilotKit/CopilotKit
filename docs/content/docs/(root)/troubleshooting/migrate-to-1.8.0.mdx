@@ -43,7 +43,8 @@ export const NewLookAndFeelPreview = () => {
 
 ### Thumbs Up/Down Handlers
 
-The `ThumbsUpDown` component now has handlers for when the user clicks on the thumbs up or down buttons. This allows you to take action when the user votes.
+The chat components now have `onThumbsUp` and `onThumbsDown` handlers. Specifying these will add icons to each message
+on hover allowing the user to provide feedback.
 
 ```tsx
 <CopilotChat 
@@ -51,24 +52,29 @@ The `ThumbsUpDown` component now has handlers for when the user clicks on the th
     onThumbsDown={(message) => {console.log(message)}}     
 />
 ```
+
 This was previously achievable in our framework, but we're making it first class now! You can use this to help fine-tune your model through CopilotKit
 or just generally track user feedback.
 
-### New CSS variables
+### ResponseButton prop removed
 
-CopilotKit 1.8.0 introduces new CSS variables for the theme. These can be used to customize the look and feel of the CopilotKit. There are 3 new variables:
+The `ResponseButton` prop has been removed. This was a prop that was used to customize the button that appears after a response was generated
+in the chat. 
 
-- `--copilot-kit-text-light-color`: The color of the light text in the chat.
-- `--copilot-kit-text-dark-color`: The color of the dark text in the chat.
-- `--copilot-kit-header-color`: The background color of the header of the chat window.
+In its place, we now place buttons below each message for:
+- Thumbs up
+- Thumbs down
+- Copy
+- Regenerate
 
-These variables can be used to customize the colors of the CopilotKit.
+The behvior, icons and styling for each of these buttons can be customized. Checkout our [look and feel guides](/guides/custom-look-and-feel) for more details.
 
-Some other variables have been repurposed to be more inline with what their name describes:
+### Out-of-the-box dark mode support
 
-- insert options here
+CopilotKit now has out-of-the-box dark mode support. This is controlled by the `.dark` class (Tailwind) as well as the 
+`color-scheme` CSS selector.
 
-
+If you would like to make a custom theme, you can do so by checking out the [custom look and feel](/guides/custom-look-and-feel) guides.
 
 
 
