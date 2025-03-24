@@ -132,7 +132,7 @@
   border-radius: 15px;
   font-size: 0.8rem;
   border: 1px solid var(--copilot-kit-muted-color);
-  color: var(--copilot-kit-text-color);
+  color: var(--copilot-kit-secondary-contrast-color);
   box-shadow: 0 5px 5px 0px rgba(0,0,0,.01),0 2px 3px 0px rgba(0,0,0,.02);
   background-color: var(--copilot-kit-dev-console-bg);
 }

@@ -3,20 +3,29 @@
   flex-direction: column;
   cursor: text;
   position: relative;
-  background-color: #fbfbfb;
+  background-color: var(--copilot-kit-input-background-color);
   border-radius: 20px;
   border: 1px solid var(--copilot-kit-separator-color);
   padding: 12px 14px;
   height: 75px;
+  margin: 0 auto;
+  width: 95%;
 }
 
 .copilotKitInputContainer {
-  width: 95%;
-  margin: 0 auto;
+  width: 100%;
   padding: 0 0 15px 0;
+  background: var(--copilot-kit-background-color);
+  border-bottom-left-radius: 0.75rem;
+  border-bottom-right-radius: 0.75rem;
 }
 
-.copilotKitInput > .copilotKitInputControls > button {
+.copilotKitSidebar .copilotKitInputContainer {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.copilotKitInputControlButton {
   padding: 0;
   cursor: pointer;
   transition-property: transform;
@@ -47,16 +56,16 @@
   height: 32px;
 }
 
-.copilotKitInput > .copilotKitInputControls > button:not([disabled]) {
+.copilotKitInputControlButton:not([disabled]) {
   color: var(--copilot-kit-primary-color);
 }
 
-.copilotKitInput > .copilotKitInputControls > button:not([disabled]):hover {
+.copilotKitInputControlButton:not([disabled]):hover {
   color: color-mix(in srgb, var(--copilot-kit-primary-color) 80%, black);
   transform: scale(1.05);
 }
 
-.copilotKitInput > .copilotKitInputControls > button[disabled] {
+.copilotKitInputControlButton[disabled] {
   color: var(--copilot-kit-muted-color);
   cursor: default;
 }
@@ -82,9 +91,9 @@
   padding: 0;
   font-family: inherit;
   font-weight: inherit;
-  color: var(--copilot-kit-text-color);
+  color: var(--copilot-kit-secondary-contrast-color);
   border: 0px;
-  background-color: #fbfbfb;
+  background-color: var(--copilot-kit-input-background-color);
 }
 
 .copilotKitInput > textarea::placeholder {
@@ -92,7 +101,7 @@
   opacity: 1;
 }
 
-.copilotKitInput > .copilotKitInputControls > button.copilotKitPushToTalkRecording {
+.copilotKitInputControlButton.copilotKitPushToTalkRecording {
   background-color: #ec0000;
   color: white;
   border-radius: 50%;

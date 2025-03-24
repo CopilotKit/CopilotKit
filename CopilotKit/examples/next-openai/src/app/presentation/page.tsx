@@ -29,7 +29,7 @@ export default function AIPresentation() {
         style={
           {
             height: `100vh`,
-            "--copilot-kit-primary-color": "#222222",
+            "--copilot-kit-primary-color": "rgb(28, 28, 28)",
           } as CopilotKitCSSProperties
         }
       >
