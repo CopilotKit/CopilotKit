@@ -5,7 +5,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  border: 1px solid var(--copilot-kit-contrast-color);
+  border: 1px solid var(--copilot-kit-primary-color);
   outline: none;
   position: relative;
   transform: scale(1);

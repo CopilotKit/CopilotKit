@@ -89,7 +89,7 @@ export const Input = ({ inProgress, onSend, isVisible = false, onStop }: InputPr
               onClick={() =>
                 setPushToTalkState(pushToTalkState === "idle" ? "recording" : "transcribing")
               }
-              className={pushToTalkState === "recording" ? "copilotKitPushToTalkRecording" : ""}
+              className={pushToTalkState === "recording" ? "copilotKitInputControlButton copilotKitPushToTalkRecording" : "copilotKitInputControlButton"}
             >
               {context.icons.pushToTalkIcon}
             </button>
@@ -99,6 +99,7 @@ export const Input = ({ inProgress, onSend, isVisible = false, onStop }: InputPr
             onClick={isInProgress ? onStop : send}
             data-copilotkit-in-progress={inProgress}
             data-test-id={inProgress ? "copilot-chat-request-in-progress" : "copilot-chat-ready"}
+            className="copilotKitInputControlButton"
           >
             {buttonIcon}
           </button>

@@ -4,12 +4,12 @@
   display: flex;
   align-items: center;
   position: relative;
-  color: var(--copilot-kit-contrast-color);
+  color: var(--copilot-kit-primary-color);
   border-top-left-radius: 0;
   border-top-right-radius: 0;
   border-bottom: 1px solid var(--copilot-kit-separator-color);
   padding-left: 1.5rem;
-  background-color: var(--copilot-kit-header-color); /* Adjust opacity to your preference */
+  background-color: var(--copilot-kit-contrast-color);
   justify-content: space-between;
   z-index: 2;
 }
