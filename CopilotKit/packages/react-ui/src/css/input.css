@@ -3,7 +3,7 @@
   flex-direction: column;
   cursor: text;
   position: relative;
-  background-color: #fbfbfb;
+  background-color: var(--copilot-kit-input-background-color);
   border-radius: 20px;
   border: 1px solid var(--copilot-kit-separator-color);
   padding: 12px 14px;
@@ -84,7 +84,7 @@
   font-weight: inherit;
   color: var(--copilot-kit-secondary-contrast-color);
   border: 0px;
-  background-color: #fbfbfb;
+  background-color: var(--copilot-kit-input-background-color);
 }
 
 .copilotKitInput > textarea::placeholder {

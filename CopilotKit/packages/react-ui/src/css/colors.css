@@ -7,6 +7,8 @@
   --copilot-kit-contrast-color: rgb(255, 255, 255);
   /* Main page/container background color */
   --copilot-kit-background-color: rgb(255 255 255);
+  /* Input box background color */
+  --copilot-kit-input-background-color: #fbfbfb;
   /* Secondary background - used for cards, panels, elevated surfaces */
   --copilot-kit-secondary-color: rgb(255 255 255);
   /* Primary text color for main content */
@@ -34,6 +36,8 @@
     --copilot-kit-contrast-color: rgb(28, 28, 28);
     /* Main page/container background color */
     --copilot-kit-background-color: rgb(17, 17, 17);
+    /* Input box background color */
+    --copilot-kit-input-background-color: #2c2c2c;
     /* Secondary background - used for cards, panels, elevated surfaces */
     --copilot-kit-secondary-color: rgb(28, 28, 28);
     /* Primary text color for main content */
