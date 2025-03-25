@@ -18,12 +18,8 @@ import {
   useCopilotChat,
   useCopilotAction,
   useCoAgentStateRender,
-  // Crew types come from @copilotkit/react-core
-  CrewAgentState,
-  CrewStatus,
-  CrewFeedback,
-  CrewToolStateItem,
-  CrewTaskStateItem,
+  CrewsToolStateItem,
+  CrewsTaskStateItem,
 } from "@copilotkit/react-core";
 
 import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";
@@ -31,13 +27,7 @@ import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";
 /**
  * Renders your Crew's steps & tasks in real-time.
  */
-function CrewStateRenderer({
-  state,
-  status,
-}: {
-  state?: CrewAgentState;
-  status: CrewStatus;
-}) {
+function CrewStateRenderer({ state, status }) {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
   const prevItemsLengthRef = useRef<number>(0);
@@ -98,7 +88,7 @@ function CrewStateRenderer({
         >
           {items.length > 0 ? (
             items.map((item) => {
-              const isTool = (item as CrewToolStateItem).tool !== undefined;
+              const isTool = (item as CrewsToolStateItem).tool !== undefined;
               const isHighlighted = item.id === highlightId;
               return (
                 <div
@@ -111,7 +101,7 @@ function CrewStateRenderer({
                   <div style={{ fontWeight: "bold" }}>
                     {isTool
                       ? (item as CrewToolStateItem).tool
-                      : (item as CrewTaskStateItem).name}
+                      : (item as CrewsTaskStateItem).name}
                   </div>
                   {"thought" in item && item.thought && (
                     <div style={{ opacity: 0.8, marginTop: "4px" }}>
@@ -149,15 +139,7 @@ function CrewStateRenderer({
 /**
  * Renders a simple UI for agent-requested user feedback (Approve / Reject).
  */
-function CrewHumanFeedbackRenderer({
-  feedback,
-  respond,
-  status,
-}: {
-  feedback: CrewFeedback;
-  respond?: (input: string) => void;
-  status: CrewStatus;
-}) {
+function CrewHumanFeedbackRenderer({ feedback, respond, status }) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [userResponse, setUserResponse] = useState<string | null>(null);
 
@@ -267,9 +249,9 @@ export default function QuickstartCrew({ crewName }: { crewName: string }) {
         <>
           {status === "inProgress" || status === "executing" ? (
             <CrewHumanFeedbackRenderer
-              feedback={args as CrewFeedback}
+              feedback={args}
               respond={respond}
-              status={status as CrewStatus}
+              status={status}
             />
           ) : (
             status === "complete" && (
@@ -294,7 +276,7 @@ export default function QuickstartCrew({ crewName }: { crewName: string }) {
   useCoAgentStateRender({
     name: crewName,
     render: ({ state, status }) => (
-      <CrewStateRenderer state={state} status={status as CrewStatus} />
+      <CrewStateRenderer state={state} status={status} />
     ),
   });
 
