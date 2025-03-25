@@ -6,9 +6,7 @@ import { Button as DefaultButton } from "./Button";
 import { Header as DefaultHeader } from "./Header";
 import { Messages as DefaultMessages } from "./Messages";
 import { Input as DefaultInput } from "./Input";
-import { ResponseButton as DefaultResponseButton } from "./Response";
 import { CopilotChat, CopilotChatProps } from "./Chat";
-import { Markdown as DefaultRenderer } from "./Markdown";
 import { AssistantMessage as DefaultAssistantMessage } from "./messages/AssistantMessage";
 import { UserMessage as DefaultUserMessage } from "./messages/UserMessage";
 
@@ -72,14 +70,12 @@ export const CopilotModal = ({
   icons,
   labels,
   makeSystemMessage,
-  showResponseButton = true,
   onInProgress,
   Window = DefaultWindow,
   Button = DefaultButton,
   Header = DefaultHeader,
   Messages = DefaultMessages,
   Input = DefaultInput,
-  ResponseButton = DefaultResponseButton,
   AssistantMessage = DefaultAssistantMessage,
   UserMessage = DefaultUserMessage,
   className,
@@ -109,11 +105,9 @@ export const CopilotModal = ({
             onStopGeneration={onStopGeneration}
             onReloadMessages={onReloadMessages}
             makeSystemMessage={makeSystemMessage}
-            showResponseButton={showResponseButton}
             onInProgress={onInProgress}
             Messages={Messages}
             Input={Input}
-            ResponseButton={ResponseButton}
             AssistantMessage={AssistantMessage}
             UserMessage={UserMessage}
           />

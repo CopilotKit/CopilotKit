@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import * as DefaultIcons from "./Icons";
+import { ThumbsDownIcon, ThumbsUpIcon } from "./Icons";
 
 /**
  * Icons for CopilotChat component.
@@ -59,6 +60,27 @@ export interface CopilotChatIcons {
    */
 
   pushToTalkIcon?: React.ReactNode;
+
+  /**
+   * The icons to use for copy assistant response
+   * @default <CopyIcon />
+   */
+
+  copyIcon?: React.ReactNode;
+
+  /**
+   * The icon to use for thumbs up/response approval.
+   * @default <ThumbsUpIcon />
+   */
+
+  thumbsUpIcon?: React.ReactNode;
+
+  /**
+   * The icon to use for thumbs down/response rejection.
+   * @default <ThumbsDownIcon />
+   */
+
+  thumbsDownIcon?: React.ReactNode;
 }
 
 /**
@@ -196,6 +218,9 @@ export const ChatContextProvider = ({
         stopIcon: DefaultIcons.StopIcon,
         regenerateIcon: DefaultIcons.RegenerateIcon,
         pushToTalkIcon: DefaultIcons.MicrophoneIcon,
+        copyIcon: DefaultIcons.CopyIcon,
+        thumbsUpIcon: DefaultIcons.ThumbsUpIcon,
+        thumbsDownIcon: DefaultIcons.ThumbsDownIcon,
       },
       ...icons,
     }),
