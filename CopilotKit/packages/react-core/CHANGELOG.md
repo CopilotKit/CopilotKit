@@ -1,5 +1,13 @@
 # ui
 
+## 1.8.1-next.0
+
+### Patch Changes
+
+- 7a42944: - fix(react-core): update agentSession when agent props change #1497
+  - @copilotkit/runtime-client-gql@1.8.1-next.0
+  - @copilotkit/shared@1.8.1-next.0
+
 ## 1.8.0
 
 ### Patch Changes
