@@ -52,9 +52,9 @@ export function CopilotKitHelpModal() {
             width: "380px",
           }}
         >
-          <div className="bg-white rounded-lg shadow-xl w-full p-4 flex-col relative">
+          <div className="copilotKitHelpModal rounded-lg shadow-xl w-full p-4 flex-col relative">
             <button
-              className="absolute text-gray-400 hover:text-gray-600 focus:outline-none"
+              className="copilotKitHelpModalCloseButton absolute text-gray-400 hover:text-gray-600 focus:outline-none"
               style={{ top: "10px", right: "10px" }}
               onClick={() => setShowHelpModal(false)}
               aria-label="Close"

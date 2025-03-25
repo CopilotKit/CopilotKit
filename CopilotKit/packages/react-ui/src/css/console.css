@@ -6,7 +6,7 @@
 }
 
 .copilotKitDevConsole.copilotKitDevConsoleWarnOutdated {
-  background-color: #f9caca;
+  background-color: var(--copilot-kit-dev-console-bg);
 }
 
 .copilotKitDevConsole .copilotKitVersionInfo {
@@ -27,7 +27,7 @@
   font-size: 11px;
   font-weight: normal;
   font-family: monospace;
-  background-color: white;
+  background-color: var(--copilot-kit-dev-console-bg);
   border: 1px solid #979797;
   padding: 1px 12px;
   padding-left: 5px;
@@ -64,18 +64,34 @@
   align-items: center;
   justify-content: center;
   outline: none;
+  color: var(--copilot-kit-dev-console-text);
 }
 
 .copilotKitDebugMenuTriggerButton.compact {
   width: 35px;
-  color: black;
+  color: var(--copilot-kit-dev-console-bg);
   justify-content: center;
   outline: none;
   font-size: 8px;
 }
 
 .copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover {
-  background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 95%, black);
+  background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 85%, black);
+}
+
+@media (prefers-color-scheme: dark) {
+  .copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover {
+    background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 20%, black);
+  }
+}
+
+.dark,
+html.dark,
+body.dark,
+[data-theme="dark"],
+html[style*="color-scheme: dark"],
+body[style*="color-scheme: dark"] .copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover {
+  background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 20%, black);
 }
 
 .copilotKitDevConsole .copilotKitDebugMenuTriggerButton > svg {
@@ -83,7 +99,6 @@
 }
 
 .copilotKitDebugMenu {
-  --copilot-kit-dev-console-bg: #f8f8fa;
   --copilot-kit-dev-console-border: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 80%, black);
   margin-top: 2px;
   border-radius: 6px;
@@ -105,10 +120,11 @@
   background: none;
   border: none;
   cursor: pointer;
+  color: var(--copilot-kit-dev-console-text);
 }
 
 .copilotKitDebugMenuItem:hover {
-  background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 92%, black);
+  background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 95%, black);
   border-radius: 4px;
 }
 
@@ -132,10 +148,15 @@
   border-radius: 15px;
   font-size: 0.8rem;
   border: 1px solid var(--copilot-kit-muted-color);
-  color: var(--copilot-kit-secondary-contrast-color);
+  color: var(--copilot-kit-dev-console-text);
   box-shadow: 0 5px 5px 0px rgba(0,0,0,.01),0 2px 3px 0px rgba(0,0,0,.02);
   background-color: var(--copilot-kit-dev-console-bg);
 }
 .copilotKitHelpItemButton:hover {
-  background-color: #f9f9f9;
+  background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 95%, black);
+}
+
+.copilotKitHelpModal {
+  color: var(--copilot-kit-dev-console-text);
+  background-color: var(--copilot-kit-dev-console-bg);
 }

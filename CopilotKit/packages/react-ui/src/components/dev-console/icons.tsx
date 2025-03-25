@@ -37,9 +37,16 @@ export const ExclamationMarkIcon = (
 );
 
 export const ChevronDownIcon = (
-  <svg width="7px" height="4px" viewBox="0 0 7 4" version="1.1" xmlns="http://www.w3.org/2000/svg">
+  <svg
+    width="7px"
+    height="4px"
+    viewBox="0 0 7 4"
+    version="1.1"
+    xmlns="http://www.w3.org/2000/svg"
+    fill="currentColor"
+  >
     <g id="Page-1" stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
-      <g id="Group" fill="#000000" fillRule="nonzero">
+      <g id="Group" fill="currentColor" fillRule="nonzero">
         <path
           d="M3.71690723,3.90271086 C3.59268176,4.03242971 3.39143629,4.03242971 3.26721082,3.90271086 L0.0853966595,0.57605615 C-0.0314221035,0.444981627 -0.0279751448,0.240725043 0.0931934622,0.114040675 C0.214362069,-0.0126436935 0.409725445,-0.0162475626 0.535093061,0.105888951 L3.49205902,3.19746006 L6.44902499,0.105888951 C6.52834574,0.0168884389 6.64780588,-0.0197473458 6.7605411,0.0103538404 C6.87327633,0.0404550266 6.96130636,0.132492308 6.99009696,0.250359396 C7.01888756,0.368226483 6.98384687,0.493124608 6.89872139,0.57605615 L3.71690723,3.90271086 Z"
           id="Path"
