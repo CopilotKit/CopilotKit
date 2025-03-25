@@ -9,17 +9,17 @@ importers:
   .:
     dependencies:
       '@copilotkit/react-core':
-        specifier: 1.7.2-next.2
-        version: 1.7.2-next.2(@types/react@19.0.12)(graphql@16.10.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+        specifier: 1.8.0
+        version: 1.8.0(@types/react@19.0.12)(graphql@16.10.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@copilotkit/react-ui':
-        specifier: 1.7.2-next.2
-        version: 1.7.2-next.2(@types/react@19.0.12)(graphql@16.10.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+        specifier: 1.8.0
+        version: 1.8.0(@types/react@19.0.12)(graphql@16.10.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@copilotkit/runtime':
-        specifier: 1.7.2-next.2
-        version: 1.7.2-next.2(@browserbasehq/sdk@2.4.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.51.1)(deepmerge@4.3.1)(dotenv@16.4.7)(openai@4.87.4(ws@8.18.1)(zod@3.24.2))(zod@3.24.2))(@ibm-cloud/watsonx-ai@1.6.0(@langchain/core@0.3.42(openai@4.87.4(ws@8.18.1)(zod@3.24.2))))(axios@1.8.4)(google-auth-library@8.9.0)(ibm-cloud-sdk-core@5.3.2)(ignore@5.3.2)(jsonwebtoken@9.0.2)(playwright@1.51.1)(ws@8.18.1)
+        specifier: 1.8.0
+        version: 1.8.0(@browserbasehq/sdk@2.4.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.51.1)(deepmerge@4.3.1)(dotenv@16.4.7)(openai@4.87.4(ws@8.18.1)(zod@3.24.2))(zod@3.24.2))(@ibm-cloud/watsonx-ai@1.6.0(@langchain/core@0.3.42(openai@4.87.4(ws@8.18.1)(zod@3.24.2))))(axios@1.8.4)(google-auth-library@8.9.0)(ibm-cloud-sdk-core@5.3.2)(ignore@5.3.2)(jsonwebtoken@9.0.2)(playwright@1.51.1)(ws@8.18.1)
       '@copilotkit/runtime-client-gql':
-        specifier: 1.7.2-next.2
-        version: 1.7.2-next.2(graphql@16.10.0)(react@19.0.0)
+        specifier: 1.8.0
+        version: 1.8.0(graphql@16.10.0)(react@19.0.0)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -124,27 +124,27 @@ packages:
   '@cfworker/json-schema@4.1.1':
     resolution: {integrity: sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==}
 
-  '@copilotkit/react-core@1.7.2-next.2':
-    resolution: {integrity: sha512-eeTIQFI5e0e6tlakzwV9yNoDmJacOF6UYPXz4pTZ83K2LRdaCU+g1UNzlxk2N9XShW7Cc58dIqRTcDLW1qIosg==}
+  '@copilotkit/react-core@1.8.0':
+    resolution: {integrity: sha512-euDR7CrQC0iL7r3WIorEj1CEUldmPG8dBIKbefloPK4Jq6rndQvjhYWF7N1LQRrUP8E6026E9H6KZwEUkcwR0A==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
       react-dom: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/react-ui@1.7.2-next.2':
-    resolution: {integrity: sha512-cyxdDRNty8QBKN2PPd+HZ7BkoGHq7uoxbwG0lFfYeICUWZnVx+JVm8U15AfnxieBEf3n320ECzPhiUhUo/KjFQ==}
+  '@copilotkit/react-ui@1.8.0':
+    resolution: {integrity: sha512-EHXvnQDSTP/HAtQKsGyo4Klcjw1QbC0GrrJgfaHIOWglrWjk6EVmo3HrzijjiPWYB+3irsP24rjbjJxrIe47Rw==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime-client-gql@1.7.2-next.2':
-    resolution: {integrity: sha512-rL+LZT8bvp/g/aC41GWdjzCX4/DFI/sK35mTxpzHFaqlSmbvs5gfRvcTh6eW5ivCJ9JBabyg3Hi3mnrdQ1ET0w==}
+  '@copilotkit/runtime-client-gql@1.8.0':
+    resolution: {integrity: sha512-kVw78NZFUbFSybtvMMcKo9w4nmBm22I83xQ0oJsTi68KLdO5c2zO+slRthDgjRw4OE0xrqmtiiV6DG9Hv1SGgw==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime@1.7.2-next.2':
-    resolution: {integrity: sha512-JrqYmCjO2sXW0YYFHMJWp+HWUshXSZBsSnbz700c4wISRhoRtPF1hgbFRjAk0k+MoIznUduOBgECcGSErbn+ew==}
+  '@copilotkit/runtime@1.8.0':
+    resolution: {integrity: sha512-iPxT9ou4Yor67H/5EnTpcoUeXGXbxKkAhRMzfr69QmsveHfc8nbP9U1PKyYHIaTGztw/alliUGOrAMqqJKt0vg==}
 
-  '@copilotkit/shared@1.7.2-next.2':
-    resolution: {integrity: sha512-Un2d0ORQJb9xR2MdMJ8KKRENn3XmB+X0Fyr6YF5CVULI0W5Da/+Gve5JhpkFbhVsyPycTe8gT4EVBSFAIDZziA==}
+  '@copilotkit/shared@1.8.0':
+    resolution: {integrity: sha512-av0HDvoEQ+zbTEF4VZ4tL/csBr0Buu/s0H7AMK/Fp5P17DmIR9pCWB/VRJOlQyNLp74YCOSUDMAbSY5+fMfcUA==}
 
   '@emnapi/core@1.3.1':
     resolution: {integrity: sha512-pVGjBIt1Y6gg3EJN8jTcfpP/+uuRksIo055oE/OBkDNcjZqVbfkWCksG1Jp4yZnj3iKWyWX8fdG/j6UDYPbFog==}
@@ -3982,10 +3982,10 @@ snapshots:
 
   '@cfworker/json-schema@4.1.1': {}
 
-  '@copilotkit/react-core@1.7.2-next.2(@types/react@19.0.12)(graphql@16.10.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+  '@copilotkit/react-core@1.8.0(@types/react@19.0.12)(graphql@16.10.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
-      '@copilotkit/runtime-client-gql': 1.7.2-next.2(graphql@16.10.0)(react@19.0.0)
-      '@copilotkit/shared': 1.7.2-next.2
+      '@copilotkit/runtime-client-gql': 1.8.0(graphql@16.10.0)(react@19.0.0)
+      '@copilotkit/shared': 1.8.0
       '@scarf/scarf': 1.4.0
       react: 19.0.0
       react-dom: 19.0.0(react@19.0.0)
@@ -3997,11 +3997,11 @@ snapshots:
       - graphql
       - supports-color
 
-  '@copilotkit/react-ui@1.7.2-next.2(@types/react@19.0.12)(graphql@16.10.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+  '@copilotkit/react-ui@1.8.0(@types/react@19.0.12)(graphql@16.10.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
-      '@copilotkit/react-core': 1.7.2-next.2(@types/react@19.0.12)(graphql@16.10.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
-      '@copilotkit/runtime-client-gql': 1.7.2-next.2(graphql@16.10.0)(react@19.0.0)
-      '@copilotkit/shared': 1.7.2-next.2
+      '@copilotkit/react-core': 1.8.0(@types/react@19.0.12)(graphql@16.10.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@copilotkit/runtime-client-gql': 1.8.0(graphql@16.10.0)(react@19.0.0)
+      '@copilotkit/shared': 1.8.0
       '@headlessui/react': 2.2.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       react: 19.0.0
       react-markdown: 8.0.7(@types/react@19.0.12)(react@19.0.0)
@@ -4015,9 +4015,9 @@ snapshots:
       - react-dom
       - supports-color
 
-  '@copilotkit/runtime-client-gql@1.7.2-next.2(graphql@16.10.0)(react@19.0.0)':
+  '@copilotkit/runtime-client-gql@1.8.0(graphql@16.10.0)(react@19.0.0)':
     dependencies:
-      '@copilotkit/shared': 1.7.2-next.2
+      '@copilotkit/shared': 1.8.0
       '@urql/core': 5.1.1(graphql@16.10.0)
       react: 19.0.0
       untruncate-json: 0.0.1
@@ -4026,10 +4026,10 @@ snapshots:
       - encoding
       - graphql
 
-  '@copilotkit/runtime@1.7.2-next.2(@browserbasehq/sdk@2.4.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.51.1)(deepmerge@4.3.1)(dotenv@16.4.7)(openai@4.87.4(ws@8.18.1)(zod@3.24.2))(zod@3.24.2))(@ibm-cloud/watsonx-ai@1.6.0(@langchain/core@0.3.42(openai@4.87.4(ws@8.18.1)(zod@3.24.2))))(axios@1.8.4)(google-auth-library@8.9.0)(ibm-cloud-sdk-core@5.3.2)(ignore@5.3.2)(jsonwebtoken@9.0.2)(playwright@1.51.1)(ws@8.18.1)':
+  '@copilotkit/runtime@1.8.0(@browserbasehq/sdk@2.4.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.51.1)(deepmerge@4.3.1)(dotenv@16.4.7)(openai@4.87.4(ws@8.18.1)(zod@3.24.2))(zod@3.24.2))(@ibm-cloud/watsonx-ai@1.6.0(@langchain/core@0.3.42(openai@4.87.4(ws@8.18.1)(zod@3.24.2))))(axios@1.8.4)(google-auth-library@8.9.0)(ibm-cloud-sdk-core@5.3.2)(ignore@5.3.2)(jsonwebtoken@9.0.2)(playwright@1.51.1)(ws@8.18.1)':
     dependencies:
       '@anthropic-ai/sdk': 0.27.3
-      '@copilotkit/shared': 1.7.2-next.2
+      '@copilotkit/shared': 1.8.0
       '@graphql-yoga/plugin-defer-stream': 3.13.2(graphql-yoga@5.13.2(graphql@16.10.0))(graphql@16.10.0)
       '@langchain/community': 0.3.36(@browserbasehq/sdk@2.4.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.51.1)(deepmerge@4.3.1)(dotenv@16.4.7)(openai@4.87.4(ws@8.18.1)(zod@3.24.2))(zod@3.24.2))(@ibm-cloud/watsonx-ai@1.6.0(@langchain/core@0.3.42(openai@4.87.4(ws@8.18.1)(zod@3.24.2))))(@langchain/core@0.3.42(openai@4.87.4(ws@8.18.1)(zod@3.24.2)))(axios@1.8.4)(google-auth-library@8.9.0)(ibm-cloud-sdk-core@5.3.2)(ignore@5.3.2)(jsonwebtoken@9.0.2)(openai@4.87.4(ws@8.18.1)(zod@3.24.2))(playwright@1.51.1)(ws@8.18.1)
       '@langchain/core': 0.3.42(openai@4.87.4(ws@8.18.1)(zod@3.24.2))
@@ -4196,7 +4196,7 @@ snapshots:
       - ws
       - youtubei.js
 
-  '@copilotkit/shared@1.7.2-next.2':
+  '@copilotkit/shared@1.8.0':
     dependencies:
       '@segment/analytics-node': 2.2.1
       chalk: 4.1.2
