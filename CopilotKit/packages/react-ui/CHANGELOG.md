@@ -1,5 +1,15 @@
 # ui
 
+## 1.8.0-next.7
+
+### Patch Changes
+
+- 5f184b7: - fix: remove response button
+  - fix: use customizable assistant message icons
+  - @copilotkit/react-core@1.8.0-next.7
+  - @copilotkit/runtime-client-gql@1.8.0-next.7
+  - @copilotkit/shared@1.8.0-next.7
+
 ## 1.8.0-next.6
 
 ### Patch Changes
