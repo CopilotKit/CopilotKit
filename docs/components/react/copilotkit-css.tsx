@@ -395,32 +395,6 @@ html {
   margin-right: 6px;
 }
 
-/* src/css/response.css */
-.copilotKitResponseButton {
-  background-color: var(--copilot-kit-secondary-color);
-  border: 1px solid var(--copilot-kit-separator-color);
-  border-radius: 4px;
-  color: var(--copilot-kit-secondary-contrast-color);
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  height: 32px;
-  line-height: 30px;
-  margin: 0;
-  padding: 0 16px;
-  text-align: center;
-  text-decoration: none;
-  text-transform: none;
-  white-space: nowrap;
-  margin-top: 15px;
-}
-.copilotKitResponseButton:hover {
-  filter: brightness(95%);
-}
-.copilotKitResponseButton > span {
-  margin-right: 0.5rem;
-}
-
 /* src/css/markdown.css */
 .copilotKitMarkdown h1,
 .copilotKitMarkdown h2,

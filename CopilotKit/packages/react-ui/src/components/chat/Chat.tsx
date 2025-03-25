@@ -53,7 +53,6 @@ import {
 } from "./ChatContext";
 import { Messages as DefaultMessages } from "./Messages";
 import { Input as DefaultInput } from "./Input";
-import { ResponseButton as DefaultResponseButton } from "./Response";
 import { RenderTextMessage as DefaultRenderTextMessage } from "./messages/RenderTextMessage";
 import { RenderActionExecutionMessage as DefaultRenderActionExecutionMessage } from "./messages/RenderActionExecutionMessage";
 import { RenderResultMessage as DefaultRenderResultMessage } from "./messages/RenderResultMessage";
@@ -77,11 +76,9 @@ import {
   InputProps,
   MessagesProps,
   RenderMessageProps,
-  ResponseButtonProps,
   UserMessageProps,
 } from "./props";
 
-import { CopilotDevConsole } from "../dev-console";
 import { HintFunction, runAgent, stopAgent } from "@copilotkit/react-core";
 
 /**
@@ -157,12 +154,6 @@ export interface CopilotChatProps {
   makeSystemMessage?: SystemMessageFunction;
 
   /**
-   * Whether to show the response button.
-   * @default true
-   */
-  showResponseButton?: boolean;
-
-  /**
    * A custom assistant message component to use instead of the default.
    */
   AssistantMessage?: React.ComponentType<AssistantMessageProps>;
@@ -201,11 +192,6 @@ export interface CopilotChatProps {
    * A custom Input component to use instead of the default.
    */
   Input?: React.ComponentType<InputProps>;
-
-  /**
-   * A custom ResponseButton component to use instead of the default.
-   */
-  ResponseButton?: React.ComponentType<ResponseButtonProps>;
 
   /**
    * A class name to apply to the root element.
@@ -270,7 +256,6 @@ export function CopilotChat({
   instructions,
   onSubmitMessage,
   makeSystemMessage,
-  showResponseButton = true,
   onInProgress,
   onStopGeneration,
   onReloadMessages,
@@ -284,7 +269,6 @@ export function CopilotChat({
   RenderAgentStateMessage = DefaultRenderAgentStateMessage,
   RenderResultMessage = DefaultRenderResultMessage,
   Input = DefaultInput,
-  ResponseButton = DefaultResponseButton,
   className,
   icons,
   labels,
