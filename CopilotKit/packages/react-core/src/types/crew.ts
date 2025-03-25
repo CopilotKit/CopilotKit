@@ -1,5 +1,3 @@
-import { ReactNode } from "react";
-
 /**
  * Status of a response or action that requires user input
  */
@@ -89,4 +87,3 @@ export interface CrewsAgentState {
    */
   tasks?: CrewsTaskStateItem[];
 }
-
