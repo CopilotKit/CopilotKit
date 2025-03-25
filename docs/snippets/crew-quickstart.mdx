@@ -9,7 +9,7 @@ This guide shows how to set up your CrewAI agent with CopilotKit in a **single f
 
 Below is a **copy-paste** example called `crew-quickstart.tsx`. Once you have it in your code, just render `<QuickstartCrew />` in your application to see it in action!
 
-```tsx title="crew-quickstart.tsx"
+```tsx title="use-crew-quickstart.tsx"
 "use client";
 
 import {
@@ -22,6 +22,7 @@ import {
   useCoAgentStateRender,
   useCopilotAction,
   useCopilotChat,
+  useCopilotAdditionalInstructions,
 } from "@copilotkit/react-core";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -244,16 +245,25 @@ function CrewHumanFeedbackRenderer({
 }
 
 /**
- * CrewQuickstart
+ * useCrewQuickstart
  * Minimal example that:
  * 1) Sets up a crew/agent
  * 2) Handles text-based user input (get_input)
  * 3) Renders real-time crew state
  * 4) Handles "crew_requesting_feedback"
  */
-export default function CrewQuickstart({ crewName }: { crewName: string }) {
-  // 1. Create an agent named "your_crew_agent" with minimal initial state
-  const { state, name, running } = useCoAgent<
+export const useCrewQuickstart = ({
+  crewName,
+  inputs,
+}: {
+  crewName: string;
+  inputs: Array<string>;
+}): {
+  output: string;
+} => {
+  const [initialMessageSent, setInitialMessageSent] = useState(false);
+
+  const { state, setState, run } = useCoAgent<
     CrewsAgentState & {
       result: string;
       inputs: Record<string, string>;
@@ -266,42 +276,116 @@ export default function CrewQuickstart({ crewName }: { crewName: string }) {
     },
   });
 
-  // 2. Chat handle for sending messages
-  const { appendMessage } = useCopilotChat();
+  const { appendMessage, isLoading } = useCopilotChat();
 
-  // 4. Provide "Approve/Reject" UI whenever agent calls "crew_requesting_feedback"
-  useCopilotAction({
-    name: "crew_requesting_feedback",
-    renderAndWaitForResponse(props) {
-      const { status, args, respond } = props;
-      return (
-        <>
-          {status === "inProgress" || status === "executing" ? (
-            <CrewHumanFeedbackRenderer
-              feedback={args as unknown as CrewsFeedback}
-              respond={respond}
-              status={status as CrewsResponseStatus}
-            />
-          ) : (
-            status === "complete" && (
-              <div style={{ marginTop: 8, textAlign: "right" }}>
-                Feedback submitted.
-              </div>
-            )
-          )}
-        </>
+  const instructions =
+    "INPUTS ARE ABSOLUTELY REQUIRED. Please call getInputs before proceeding with anything else.";
+
+  // Render an initial message when the chat is first loaded
+  useEffect(() => {
+    if (initialMessageSent || isLoading) return;
+
+    setTimeout(async () => {
+      await appendMessage(
+        new TextMessage({
+          content: "Hi, Please provide your inputs before we get started.",
+          role: MessageRole.Developer,
+        })
       );
-    },
+      setInitialMessageSent(true);
+    }, 0);
+  }, []);
+
+  useEffect(() => {
+    if (!initialMessageSent && Object.values(state?.inputs || {}).length > 0) {
+      appendMessage(
+        new TextMessage({
+          role: MessageRole.Developer,
+          content: "My inputs are: " + JSON.stringify(state?.inputs),
+        })
+      ).then(() => {
+        setInitialMessageSent(true);
+      });
+    }
+  }, [initialMessageSent, state?.inputs]);
+
+  useCopilotAdditionalInstructions({
+    instructions,
+    available:
+      Object.values(state?.inputs || {}).length > 0 ? "enabled" : "disabled",
   });
 
   useCopilotAction({
-    name: "crew_finished",
-    render({ status }) {
-      return <>{status === "complete" && <div>Crew finished</div>}</>;
+    name: "getInputs",
+    followUp: false,
+    description:
+      "This action allows Crew to get required inputs from the user before starting the Crew.",
+    renderAndWaitForResponse({ status }) {
+      if (status === "inProgress" || status === "executing") {
+        return (
+          <form
+            style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+            onSubmit={async (e: React.FormEvent<HTMLFormElement>) => {
+              e.preventDefault();
+              const form = e.currentTarget;
+              const input = form.elements.namedItem(
+                "input"
+              ) as HTMLTextAreaElement;
+              const inputValue = input.value;
+              const inputKey = input.id;
+
+              setState({
+                ...state,
+                inputs: {
+                  ...state.inputs,
+                  [inputKey]: inputValue,
+                },
+              });
+              setTimeout(async () => {
+                console.log("running crew");
+                await run();
+                console.log("crew run complete");
+              }, 0);
+            }}
+          >
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+            >
+              {inputs.map((input) => (
+                <div
+                  key={input}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                  }}
+                >
+                  <label htmlFor={input}>{input}</label>
+                  <textarea
+                    id={input}
+                    autoFocus
+                    name="input"
+                    placeholder={`Enter ${input} here`}
+                    required
+                  />
+                </div>
+              ))}
+              <button
+                type="submit"
+                style={{
+                  cursor: "pointer",
+                }}
+              >
+                Submit
+              </button>
+            </div>
+          </form>
+        );
+      }
+      return <>Inputs submitted</>;
     },
   });
 
-  // 5. Show the agent's steps & tasks in real-time
   useCoAgentStateRender({
     name: crewName,
     render: ({ state, status }) => (
@@ -309,55 +393,23 @@ export default function CrewQuickstart({ crewName }: { crewName: string }) {
     ),
   });
 
-  // 6. Minimal UI
-  return (
-    <div
-      style={{ maxWidth: 600, margin: "16px auto", fontFamily: "sans-serif" }}
-    >
-      <h1 style={{ fontSize: 24, fontWeight: "bold" }}>
-        {name.replace("_", " ")} {running ? "(Running)" : "Idle"}
-      </h1>
-      {state?.result ? (
-        <pre
-          style={{
-            width: "100%",
-            height: "500px",
-            overflow: "auto",
-            padding: "8px",
-            border: "1px solid #ccc",
-            borderRadius: "4px",
-            fontSize: "0.9rem",
-            whiteSpace: "pre-wrap",
-            wordWrap: "break-word",
-          }}
-        >
-          {state?.result}
-        </pre>
-      ) : null}
+  useCopilotAction({
+    name: "crew_requesting_feedback",
+    description: "Request feedback from the user",
+    renderAndWaitForResponse(props) {
+      const { status, args, respond } = props;
+      return (
+        <CrewHumanFeedbackRenderer
+          feedback={args as unknown as CrewsFeedback}
+          respond={respond}
+          status={status as CrewsResponseStatus}
+        />
+      );
+    },
+  });
 
-      <button
-        style={{
-          marginTop: 16,
-          padding: "6px 12px",
-          backgroundColor: running ? "#ccc" : "#222222",
-          color: "#fff",
-          border: "none",
-          borderRadius: "4px",
-          cursor: running ? "not-allowed" : "pointer",
-        }}
-        disabled={running}
-        onClick={async () => {
-          await appendMessage(
-            new TextMessage({
-              role: MessageRole.Developer,
-              content: "My inputs are: " + JSON.stringify(state?.inputs),
-            })
-          );
-        }}
-      >
-        Kick off the crew
-      </button>
-    </div>
-  );
-}
+  return {
+    output: state?.result || "",
+  };
+};
 ```
