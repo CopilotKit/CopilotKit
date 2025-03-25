@@ -80,9 +80,22 @@
 }
 
 @media (prefers-color-scheme: dark) {
+  .copilotKitDevConsole .copilotKitDebugMenuTriggerButton {
+    color: white;
+  }
+
   .copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover {
     background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 20%, black);
   }
+}
+
+.dark,
+html.dark,
+body.dark,
+[data-theme="dark"],
+html[style*="color-scheme: dark"],
+body[style*="color-scheme: dark"] .copilotKitDevConsole .copilotKitDebugMenuTriggerButton {
+  color: white;
 }
 
 .dark,
@@ -140,6 +153,11 @@ body[style*="color-scheme: dark"] .copilotKitDevConsole .copilotKitDebugMenuTrig
   margin: 0.25rem;
 }
 
+.copilotKitHelpModal {
+  background-color: var(--copilot-kit-dev-console-bg);
+  color: var(--copilot-kit-dev-console-text);
+}
+
 .copilotKitHelpItemButton {
   display: block;
   text-align: center;
@@ -156,7 +174,3 @@ body[style*="color-scheme: dark"] .copilotKitDevConsole .copilotKitDebugMenuTrig
   background-color: color-mix(in srgb, var(--copilot-kit-dev-console-bg) 95%, black);
 }
 
-.copilotKitHelpModal {
-  color: var(--copilot-kit-dev-console-text);
-  background-color: var(--copilot-kit-dev-console-bg);
-}
