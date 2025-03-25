@@ -151,8 +151,3 @@ export interface InputProps {
   isVisible?: boolean;
   onStop?: () => void;
 }
-
-export interface ResponseButtonProps {
-  onClick: () => void;
-  inProgress: boolean;
-}

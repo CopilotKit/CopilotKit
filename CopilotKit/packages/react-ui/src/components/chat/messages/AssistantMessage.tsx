@@ -1,7 +1,6 @@
 import { AssistantMessageProps } from "../props";
 import { useChatContext } from "../ChatContext";
 import { Markdown } from "../Markdown";
-import { RegenerateIcon, CopyIcon, ThumbsUpIcon, ThumbsDownIcon } from "../Icons";
 import { useState } from "react";
 
 export const AssistantMessage = (props: AssistantMessageProps) => {
@@ -68,7 +67,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
                 aria-label={labels.regenerateResponse}
                 title={labels.regenerateResponse}
               >
-                {RegenerateIcon}
+                {icons.regenerateIcon}
               </button>
               <button
                 className="copilotKitMessageControlButton"
@@ -79,7 +78,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
                 {copied ? (
                   <span style={{ fontSize: "10px", fontWeight: "bold" }}>✓</span>
                 ) : (
-                  CopyIcon
+                  icons.copyIcon
                 )}
               </button>
               {onThumbsUp && (
@@ -89,7 +88,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
                   aria-label={labels.thumbsUp}
                   title={labels.thumbsUp}
                 >
-                  {ThumbsUpIcon}
+                  {icons.thumbsUpIcon}
                 </button>
               )}
               {onThumbsDown && (
@@ -99,7 +98,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
                   aria-label={labels.thumbsDown}
                   title={labels.thumbsDown}
                 >
-                  {ThumbsDownIcon}
+                  {icons.thumbsDownIcon}
                 </button>
               )}
             </div>
