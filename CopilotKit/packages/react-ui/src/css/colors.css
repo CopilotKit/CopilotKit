@@ -25,6 +25,9 @@
   --copilot-kit-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   /* Large shadow for modals */
   --copilot-kit-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+  --copilot-kit-dev-console-bg: #f8f8fa;
+  --copilot-kit-dev-console-text: black;
 }
 
 /* Dark theme - based on system preference */

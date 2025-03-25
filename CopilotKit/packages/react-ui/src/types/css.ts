@@ -13,4 +13,6 @@ export interface CopilotKitCSSProperties extends CSSProperties {
   "--copilot-kit-shadow-sm"?: string;
   "--copilot-kit-shadow-md"?: string;
   "--copilot-kit-shadow-lg"?: string;
+  "--copilot-kit-dev-console-bg"?: string;
+  "--copilot-kit-dev-console-text"?: string;
 }
