@@ -18,17 +18,19 @@ import {
   useCopilotAction,
   useCopilotChat,
 } from "@copilotkit/react-core";
-import {
-  AgentState,
-  CopilotChat,
-  CopilotKitCSSProperties,
-  DefaultResponseRenderer,
-  DefaultStateRenderer,
-  ResponseStatus,
-} from "@copilotkit/react-ui";
+import { CopilotKitCSSProperties, CopilotChat } from "@copilotkit/react-ui";
+import { DefaultResponseRenderer } from "@/components/DefaultResponseRenderer";
+import { DefaultStateRenderer } from "@/components/DefaultStateRenderer";
 import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
+// TODO: Replace with `react-core post 1.8.x update
+import {
+  AgentState,
+  ResponseStatus,
+  ToolStateItem,
+  TaskStateItem,
+} from "@/types";
 
 interface CrewFeedback {
   timestamp: string;
@@ -55,7 +57,7 @@ interface AppState extends AgentState {
     [key: string]: string;
   };
   result: string;
-  status: ResponseStatus;
+  status: string;
 }
 
 export default function Home() {
@@ -119,20 +121,18 @@ export default function Home() {
 
   useCoAgentStateRender({
     name: "restaurant_finder_agent",
-    render: ({
-      state,
-      status,
-    }: {
-      state: AppState;
-      status: ResponseStatus;
-    }) => {
+    render: ({ state, status }: { state: AppState; status: string }) => {
       return (
         <DefaultStateRenderer
           state={state}
-          status={status}
+          status={status as ResponseStatus}
           defaultCollapsed={true}
           SkeletonLoader={SkeletonItem}
-          StateItemRenderer={({ item }) => {
+          StateItemRenderer={({
+            item,
+          }: {
+            item: ToolStateItem | TaskStateItem;
+          }) => {
             return (
               <div key={item.id}>
                 <div className="text-xs">
@@ -151,7 +151,7 @@ export default function Home() {
                   item.result !== null && (
                     <div className="mt-0.5 text-xs">
                       <FormattedContent
-                        content={formatContent(item.result)}
+                        content={formatContent(item.result as string)}
                         showJsonLabel={false}
                         isCollapsed={true}
                       />
@@ -179,13 +179,12 @@ export default function Home() {
           response={{
             id: feedback.id || String(Date.now()),
             content: feedback.task_output || String(feedback),
-            metadata: feedback,
           }}
           onRespond={(input: string) => {
             respond?.(input);
           }}
-          status={status as ResponseStatus}
-          ContentRenderer={({ content }) => (
+          status={status}
+          ContentRenderer={({ content }: { content: string }) => (
             <div className="text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 rounded-md shadow-sm p-4 h-full overflow-y-auto whitespace-pre-line text-left">
               <ReactMarkdown>{content}</ReactMarkdown>
             </div>
