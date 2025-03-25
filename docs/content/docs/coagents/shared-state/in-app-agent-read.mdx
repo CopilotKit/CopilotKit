@@ -47,7 +47,20 @@ state update you can reflect these updates natively in your application.
         from typing import Literal
 
         class AgentState(CopilotKitState):
-            language: Literal["english", "spanish"] = "english"
+            language: Literal["english", "spanish"] = "spanish"
+
+        def chat_node(state: AgentState, config: RunnableConfig):
+          # If language is not defined, set a value.
+          # this is because a default value in a state class is not read on runtime
+          language = state.get("language", "spanish")
+
+          # ... add the rest of the node implementation and use the language variable
+
+          return {
+            # ... add the rest of state to return
+            # return the language to make it available for the next nodes & frontend to read
+            "language": language
+          }
         ```
       </Tab>
       <Tab value="TypeScript">
@@ -60,6 +73,19 @@ state update you can reflect these updates natively in your application.
             ...CopilotKitStateAnnotation.spec,
         });
         export type AgentState = typeof AgentStateAnnotation.State;
+
+        async function chat_node(state: AgentState, config: RunnableConfig) {
+          // If language is not defined, use a default value.
+          const language = state.language ?? 'spanish'
+
+          // ... add the rest of the node implementation and use the language variable
+
+          return {
+            // ... add the rest of state to return
+            // return the language to make it available for the next nodes & frontend to read
+            language
+          }
+        }
         ```
       </Tab>
     </Tabs>
