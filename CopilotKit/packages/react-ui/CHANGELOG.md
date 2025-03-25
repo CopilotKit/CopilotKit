@@ -1,5 +1,15 @@
 # ui
 
+## 1.8.0-next.5
+
+### Patch Changes
+
+- a50f4c1: - move default components out of ui
+- Updated dependencies [a50f4c1]
+  - @copilotkit/react-core@1.8.0-next.5
+  - @copilotkit/runtime-client-gql@1.8.0-next.5
+  - @copilotkit/shared@1.8.0-next.5
+
 ## 1.8.0-next.4
 
 ### Patch Changes
