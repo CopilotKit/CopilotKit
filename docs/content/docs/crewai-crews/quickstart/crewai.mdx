@@ -111,8 +111,12 @@ Before you begin, you'll need the following:
                 Place the following snippet in your **main page** (e.g. `page.tsx` in Next.js) or wherever you want to use CopilotKit. It simply imports the `QuickstartCrew` component from our **crew-quickstart.tsx** file and renders it.
 
                 ```tsx title="page.tsx"
+                "use client";
                 import React from "react";
-                import QuickstartCrew from "./crew-quickstart";
+                import CrewQuickstart from "./crew-quickstart";
+                import { useCoAgent } from "@copilotkit/react-core";
+                import { useEffect } from "react";
+
                 // ^ Adjust path as needed based on where you saved crew-quickstart.tsx
 
                 const MY_CREW_NAME = "REPLACE_WITH_YOUR_CREW_NAME";
@@ -120,14 +124,32 @@ Before you begin, you'll need the following:
                  * Entry component for displaying the QuickstartCrew on the page.
                  */
                 export default function YOUR_MAIN_ENTRY_COMPONENT() {
-                  return (
-                    <div style={{ margin: "24px" }}>
-                    <h1>My Application with Crew</h1>
-                    <QuickstartCrew crewName ={MY_CREW_NAME} />
-                    </div>
-                  );
+                  const { setState } = useCoAgent({
+                    name: process.env.NEXT_PUBLIC_AGENT_NAME!,
+                    initialState: {
+                      result: "",
+                      /**
+                       *  Make sure you capture right input as per your Crew Inputs Requirements
+                       */
+                      inputs: {},
+                    },
+                  });
+
+                  useEffect(() => {
+                    setState(prev => ({
+                      ...prev,
+                      result: prev?.result || "",
+                      // This is a placeholder input for demonstration purposes only. Replace it with actual input values required by your Crew.
+                      inputs: {
+                        location: "San Francisco",
+                      },
+                    }));
+                  }, []);
+
+                  return <CrewQuickstart crewName={MY_CREW_NAME} />;
                 }
                 ```
+
                <CrewQuickStart components={props.components} />
             </Step>
             <Step>
