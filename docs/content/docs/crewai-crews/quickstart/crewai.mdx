@@ -31,9 +31,7 @@ import {
 } from "lucide-react";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import CopilotUI from "@/snippets/copilot-ui.mdx";
-import CrewAgentRunRenderer from "@/snippets/crew-agent-run-renderer.mdx";
-import CrewStateRenderer from "@/snippets/crew-state-renderer.mdx";
-import CrewHumanInputRenderer from "@/snippets/crew-human-input-renderer.mdx";
+import CrewSetup from "@/snippets/crew-setup.mdx";
 
 <InsecurePasswordProtected>
 
@@ -109,13 +107,28 @@ Before you begin, you'll need the following:
                 <CopilotUI components={props.components} />
             </Step>
             <Step>
-               <CrewAgentRunRenderer components={props.components} />
-            </Step>
-            <Step>
-                <CrewStateRenderer components={props.components} />
-            </Step>
-            <Step>
-                <CrewHumanInputRenderer components={props.components} />
+                ## Create a Crew-Quickstart component
+                Place the following snippet in your **main page** (e.g. `page.tsx` in Next.js) or wherever you want to use CopilotKit. It simply imports the `QuickstartCrew` component from our **crew-setup.tsx** file and renders it.
+
+                ```tsx title="page.tsx"
+                import React from "react";
+                import QuickstartCrew from "./crew-quickstart";
+                // ^ Adjust path as needed based on where you saved crew-quickstart.tsx
+
+                const MY_CREW_NAME = "REPLACE_WITH_YOUR_CREW_NAME";
+                /**
+                 * Entry component for displaying the QuickstartCrew on the page.
+                 */
+                export default function YOUR_MAIN_ENTRY_COMPONENT() {
+                  return (
+                    <div style={{ margin: "24px" }}>
+                    <h1>My Application with Crew</h1>
+                    <QuickstartCrew crewName ={MY_CREW_NAME} />
+                    </div>
+                  );
+                }
+                ```
+               <CrewSetup components={props.components} />
             </Step>
             <Step>
                 ### 🎉 Talk to your agent!
