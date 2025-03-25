@@ -15,32 +15,22 @@
   "module": "./dist/index.mjs",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "require": "./dist/index.js",
       "import": "./dist/index.mjs"
     },
     "./langchain": {
+      "types": "./dist/langchain.d.ts",
       "require": "./dist/langchain.js",
       "import": "./dist/langchain.mjs"
     },
     "./langgraph": {
+      "types": "./dist/langgraph.d.ts",
       "require": "./dist/langgraph.js",
       "import": "./dist/langgraph.mjs"
     }
   },
   "types": "./dist/index.d.ts",
-  "typesVersions": {
-    "*": {
-      "langchain": [
-        "dist/langchain.d.ts"
-      ],
-      "langgraph": [
-        "dist/langgraph.d.ts"
-      ],
-      "*": [
-        "dist/*"
-      ]
-    }
-  },
   "license": "MIT",
   "scripts": {
     "build": "tsup --clean",
@@ -73,7 +63,6 @@
     "@langchain/community": "^0.0.53",
     "@langchain/core": "^0.3.13",
     "@langchain/langgraph": "^0.2.44",
-    "@langchain/langgraph-sdk": "^0.0.36",
     "langchain": "^0.3.3",
     "zod": "^3.23.3"
   },
