@@ -1,5 +1,34 @@
 # ui
 
+## 1.8.0
+
+### Minor Changes
+
+- 20f0727: - feat(chat): redesign chat
+
+### Patch Changes
+
+- 099807a: - fix: adjust dev console menus to dark theme
+- c11fab9: - chore(react-ui): Add DefaultResponseRenderer and DefaultStateRenderer components
+- a50f4c1: - move default components out of ui
+- 5f184b7: - fix: remove response button
+  - fix: use customizable assistant message icons
+- d8e354b: - fix: re-align customization variable names and usage
+- Updated dependencies [73f5eaa]
+- Updated dependencies [a50f4c1]
+  - @copilotkit/react-core@1.8.0
+  - @copilotkit/runtime-client-gql@1.8.0
+  - @copilotkit/shared@1.8.0
+
+## 1.8.0-next.8
+
+### Patch Changes
+
+- 099807a: - fix: adjust dev console menus to dark theme
+  - @copilotkit/react-core@1.8.0-next.8
+  - @copilotkit/runtime-client-gql@1.8.0-next.8
+  - @copilotkit/shared@1.8.0-next.8
+
 ## 1.8.0-next.7
 
 ### Patch Changes

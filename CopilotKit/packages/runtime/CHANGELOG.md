@@ -1,5 +1,18 @@
 # @copilotkit/runtime
 
+## 1.8.0
+
+### Patch Changes
+
+- a16757a: - fix: re-enable runtime actions when remote endpoint is set
+  - @copilotkit/shared@1.8.0
+
+## 1.8.0-next.8
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.0-next.8
+
 ## 1.8.0-next.7
 
 ### Patch Changes

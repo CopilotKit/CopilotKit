@@ -1,5 +1,21 @@
 # ui
 
+## 1.8.0
+
+### Patch Changes
+
+- 73f5eaa: - fix(react-core): export missing action-related types for public API
+- a50f4c1: - move default components out of ui
+  - @copilotkit/runtime-client-gql@1.8.0
+  - @copilotkit/shared@1.8.0
+
+## 1.8.0-next.8
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.0-next.8
+- @copilotkit/shared@1.8.0-next.8
+
 ## 1.8.0-next.7
 
 ### Patch Changes

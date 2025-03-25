@@ -1,5 +1,18 @@
 # @copilotkit/sdk-js
 
+## 1.8.0
+
+### Patch Changes
+
+- f31b093: - fix: add types for js sdk export
+  - @copilotkit/shared@1.8.0
+
+## 1.8.0-next.8
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.0-next.8
+
 ## 1.8.0-next.7
 
 ### Patch Changes
