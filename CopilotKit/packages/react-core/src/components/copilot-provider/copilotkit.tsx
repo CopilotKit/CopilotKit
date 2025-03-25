@@ -322,6 +322,17 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
 
   const [agentSession, setAgentSession] = useState<AgentSession | null>(initialAgentSession);
 
+  // Update agentSession when props.agent changes
+  useEffect(() => {
+    if (props.agent) {
+      setAgentSession({
+        agentName: props.agent,
+      });
+    } else {
+      setAgentSession(null);
+    }
+  }, [props.agent]);
+
   const [internalThreadId, setInternalThreadId] = useState<string>(props.threadId || randomUUID());
   const setThreadId = useCallback(
     (value: SetStateAction<string>) => {
