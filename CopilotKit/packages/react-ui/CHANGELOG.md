@@ -1,5 +1,14 @@
 # ui
 
+## 1.8.0-next.8
+
+### Patch Changes
+
+- 099807a: - fix: adjust dev console menus to dark theme
+  - @copilotkit/react-core@1.8.0-next.8
+  - @copilotkit/runtime-client-gql@1.8.0-next.8
+  - @copilotkit/shared@1.8.0-next.8
+
 ## 1.8.0-next.7
 
 ### Patch Changes

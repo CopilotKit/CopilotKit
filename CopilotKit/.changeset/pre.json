@@ -18,6 +18,7 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
+    "brave-moons-vanish",
     "fast-books-talk",
     "funny-needles-reflect",
     "modern-comics-flow",
