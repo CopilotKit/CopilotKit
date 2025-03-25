@@ -189,6 +189,18 @@
       "dependencies": [
         "@copilotkit/react-core",
         "@copilotkit/runtime-client-gql"
+      ],
+      "files": [
+        {
+          "path": "hooks/crew-quickstart/use-crew-quickstart.tsx",
+          "type": "registry:hook",
+          "target": "hooks/crew-quickstart/use-crew-quickstart.tsx"
+        },
+        {
+          "path": "components/crew-quickstart/index.tsx",
+          "type": "registry:page",
+          "target": "app/crew-quickstart/index.tsx"
+        }
       ]
     }
   ]
