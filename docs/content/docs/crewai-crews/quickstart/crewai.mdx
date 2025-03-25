@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import CopilotUI from "@/snippets/copilot-ui.mdx";
-import CrewSetup from "@/snippets/crew-setup.mdx";
+import CrewQuickStart from "@/snippets/crew-quickstart.mdx";
 
 <InsecurePasswordProtected>
 
@@ -108,7 +108,7 @@ Before you begin, you'll need the following:
             </Step>
             <Step>
                 ## Create a Crew-Quickstart component
-                Place the following snippet in your **main page** (e.g. `page.tsx` in Next.js) or wherever you want to use CopilotKit. It simply imports the `QuickstartCrew` component from our **crew-setup.tsx** file and renders it.
+                Place the following snippet in your **main page** (e.g. `page.tsx` in Next.js) or wherever you want to use CopilotKit. It simply imports the `QuickstartCrew` component from our **crew-quickstart.tsx** file and renders it.
 
                 ```tsx title="page.tsx"
                 import React from "react";
@@ -128,7 +128,7 @@ Before you begin, you'll need the following:
                   );
                 }
                 ```
-               <CrewSetup components={props.components} />
+               <CrewQuickStart components={props.components} />
             </Step>
             <Step>
                 ### 🎉 Talk to your agent!
