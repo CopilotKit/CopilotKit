@@ -11,4 +11,6 @@ export type {
   CatchAllActionRenderProps,
   CatchAllFrontendAction,
 } from "./frontend-action";
+
 export type { CopilotChatSuggestionConfiguration } from "./chat-suggestion-configuration";
+export * from "./crew";

@@ -1,0 +1,335 @@
+## Complete Crew Setup
+
+This guide shows how to set up your CrewAI agent with CopilotKit in a **single file**, including:
+
+1. **Starting** your crew
+2. **Rendering** Crew state and progress
+3. **Handling** human feedback
+4. **(Optional)** Extending for final results
+
+Below is a **copy-paste** example called `crew-quickstart.tsx`. Once you have it in your code, just render `<QuickstartCrew />` in your application to see it in action!
+
+```tsx title="crew-quickstart.tsx"
+"use client";
+
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import {
+  useCoAgent,
+  useCopilotChat,
+  useCopilotAction,
+  useCoAgentStateRender,
+  CrewsToolStateItem,
+  CrewsTaskStateItem,
+} from "@copilotkit/react-core";
+
+import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";
+
+/**
+ * Renders your Crew's steps & tasks in real-time.
+ */
+function CrewStateRenderer({ state, status }) {
+  const [isCollapsed, setIsCollapsed] = useState(true);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const prevItemsLengthRef = useRef<number>(0);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+
+  // Combine steps + tasks
+  const items = useMemo(() => {
+    if (!state) return [];
+    return [...(state.steps || []), ...(state.tasks || [])].sort(
+      (a, b) =>
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+  }, [state]);
+
+  // Highlight newly added item & auto-scroll
+  useEffect(() => {
+    if (!state) return;
+    if (items.length > prevItemsLengthRef.current) {
+      const newestItem = items[items.length - 1];
+      setHighlightId(newestItem.id);
+      setTimeout(() => setHighlightId(null), 1500);
+
+      if (contentRef.current && !isCollapsed) {
+        contentRef.current.scrollTop = contentRef.current.scrollHeight;
+      }
+    }
+    prevItemsLengthRef.current = items.length;
+  }, [items, isCollapsed, state]);
+
+  if (!state) {
+    return <div>Loading crew state...</div>;
+  }
+
+  // Hide entirely if collapsed & empty & not in progress
+  if (isCollapsed && items.length === 0 && status !== "inProgress") return null;
+
+  return (
+    <div style={{ marginTop: "8px", fontSize: "0.9rem" }}>
+      <div
+        style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
+        onClick={() => setIsCollapsed(!isCollapsed)}
+      >
+        <span style={{ marginRight: 4 }}>{isCollapsed ? "▶" : "▼"}</span>
+        {status === "inProgress" ? "Crew is analyzing..." : "Crew analysis"}
+      </div>
+
+      {!isCollapsed && (
+        <div
+          ref={contentRef}
+          style={{
+            maxHeight: "200px",
+            overflow: "auto",
+            borderLeft: "1px solid #ccc",
+            paddingLeft: "8px",
+            marginLeft: "4px",
+            marginTop: "4px",
+          }}
+        >
+          {items.length > 0 ? (
+            items.map((item) => {
+              const isTool = (item as CrewsToolStateItem).tool !== undefined;
+              const isHighlighted = item.id === highlightId;
+              return (
+                <div
+                  key={item.id}
+                  style={{
+                    marginBottom: "8px",
+                    animation: isHighlighted ? "fadeIn 0.5s" : undefined,
+                  }}
+                >
+                  <div style={{ fontWeight: "bold" }}>
+                    {isTool
+                      ? (item as CrewToolStateItem).tool
+                      : (item as CrewsTaskStateItem).name}
+                  </div>
+                  {"thought" in item && item.thought && (
+                    <div style={{ opacity: 0.8, marginTop: "4px" }}>
+                      Thought: {item.thought}
+                    </div>
+                  )}
+                  {"result" in item && item.result !== undefined && (
+                    <pre style={{ fontSize: "0.85rem", marginTop: "4px" }}>
+                      {JSON.stringify(item.result, null, 2)}
+                    </pre>
+                  )}
+                  {"description" in item && item.description && (
+                    <div style={{ marginTop: "4px" }}>{item.description}</div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div style={{ opacity: 0.7 }}>No activity yet...</div>
+          )}
+        </div>
+      )}
+
+      {/* Simple fadeIn animation */}
+      <style>{`
+        @keyframes fadeIn {
+          0% { opacity: 0; transform: translateY(4px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+/**
+ * Renders a simple UI for agent-requested user feedback (Approve / Reject).
+ */
+function CrewHumanFeedbackRenderer({ feedback, respond, status }) {
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [userResponse, setUserResponse] = useState<string | null>(null);
+
+  if (status === "complete") {
+    return (
+      <div style={{ marginTop: 8, textAlign: "right" }}>
+        {userResponse || "Feedback submitted."}
+      </div>
+    );
+  }
+
+  if (status === "inProgress" || status === "executing") {
+    return (
+      <div style={{ marginTop: 8 }}>
+        {isExpanded && (
+          <div
+            style={{
+              background: "#f9f9f9",
+              border: "1px solid #ddd",
+              padding: "8px",
+              marginBottom: "8px",
+            }}
+          >
+            {feedback.task_output}
+          </div>
+        )}
+        <div style={{ textAlign: "right" }}>
+          <button
+            style={{ marginRight: 8 }}
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            {isExpanded ? "Hide" : "Show"} Feedback
+          </button>
+          <button
+            style={{
+              marginRight: 8,
+              backgroundColor: "#222222",
+              border: "none",
+              padding: "8px 16px",
+              color: "white",
+              cursor: "pointer",
+              borderRadius: "4px",
+            }}
+            onClick={() => {
+              setUserResponse("Approved");
+              /**
+               * This string is arbitrary. It can be any serializable input that will be forwarded to your Crew as feedback.
+               */
+              respond?.("Approve");
+            }}
+          >
+            Approve
+          </button>
+          <button
+            style={{
+              backgroundColor: "#222222",
+              border: "none",
+              padding: "8px 16px",
+              color: "white",
+              cursor: "pointer",
+              borderRadius: "4px",
+            }}
+            onClick={() => {
+              setUserResponse("Rejected");
+              /**
+               * This string is arbitrary. It can be any serializable input that will be forwarded to your Crew as feedback.
+               */
+              respond?.("Reject");
+            }}
+          >
+            Reject
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+/**
+ * QuickstartCrew
+ * Minimal example that:
+ * 1) Sets up a crew/agent
+ * 2) Handles text-based user input (get_input)
+ * 3) Renders real-time crew state
+ * 4) Handles "crew_requesting_feedback"
+ */
+export default function QuickstartCrew({ crewName }: { crewName: string }) {
+  // 1. Create an agent named "your_crew_agent" with minimal initial state
+  const { state, name, running } = useCoAgent<CrewAgentState>({
+    name: crewName,
+    initialState: {
+      inputs: {},
+      result: "Crew result will appear here...",
+    },
+  });
+
+  // 2. Chat handle for sending messages
+  const { appendMessage } = useCopilotChat();
+
+  // 4. Provide "Approve/Reject" UI whenever agent calls "crew_requesting_feedback"
+  useCopilotAction({
+    name: "crew_requesting_feedback",
+    renderAndWaitForResponse({ status, args, respond }) {
+      return (
+        <>
+          {status === "inProgress" || status === "executing" ? (
+            <CrewHumanFeedbackRenderer
+              feedback={args}
+              respond={respond}
+              status={status}
+            />
+          ) : (
+            status === "complete" && (
+              <div style={{ marginTop: 8, textAlign: "right" }}>
+                Feedback submitted.
+              </div>
+            )
+          )}
+        </>
+      );
+    },
+  });
+
+  useCopilotAction({
+    name: "crew_finished",
+    render({ status }) {
+      return <>{status === "complete" && <div>Crew finished</div>}</>;
+    },
+  });
+
+  // 5. Show the agent's steps & tasks in real-time
+  useCoAgentStateRender({
+    name: crewName,
+    render: ({ state, status }) => (
+      <CrewStateRenderer state={state} status={status} />
+    ),
+  });
+
+  // 6. Minimal UI
+  return (
+    <div
+      style={{ maxWidth: 600, margin: "16px auto", fontFamily: "sans-serif" }}
+    >
+      <h1 style={{ fontSize: 24, fontWeight: "bold" }}>
+        {name.replace("_", " ")} {running ? "(Running)" : "Idle"}
+      </h1>
+      {state?.result ? (
+        <pre
+          style={{
+            width: "100%",
+            height: "500px",
+            overflow: "auto",
+            padding: "8px",
+            backgroundColor: "#f5f5f5",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            fontSize: "0.9rem",
+            whiteSpace: "pre-wrap",
+            wordWrap: "break-word",
+          }}
+        >
+          {state?.result}
+        </pre>
+      ) : null}
+
+      <button
+        style={{
+          marginTop: 16,
+          padding: "6px 12px",
+          backgroundColor: running ? "#ccc" : "#222222",
+          color: "#fff",
+          border: "none",
+          borderRadius: "4px",
+          cursor: running ? "not-allowed" : "pointer",
+        }}
+        disabled={running}
+        onClick={async () => {
+          await appendMessage(
+            new TextMessage({
+              role: MessageRole.Developer,
+              content: "My inputs are: " + JSON.stringify(state?.inputs),
+            })
+          );
+        }}
+      >
+        Kick off the crew
+      </button>
+    </div>
+  );
+}
+```

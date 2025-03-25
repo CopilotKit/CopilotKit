@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { SiCrewai } from "@icons-pack/react-simple-icons";
 import CopilotUI from "@/snippets/copilot-ui.mdx";
+import CrewQuickStart from "@/snippets/crew-quickstart.mdx";
 
 <InsecurePasswordProtected>
 
@@ -47,7 +48,7 @@ Before you begin, you'll need the following:
         ### Install CopilotKit
         First, install the latest packages for CopilotKit into your frontend.
         ```package-install
-        npm install @copilotkit/react-ui @copilotkit/react-core
+        npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime-client-gql
         ```
     </Step>
 
@@ -101,9 +102,55 @@ Before you begin, you'll need the following:
                 <CloudCopilotKitProvider components={props.components} />
             </Step>
             <Step>
-            ## Choose a Copilot UI
-            You are almost there! Now it's time to setup your Copilot UI.
-            <CopilotUI components={props.components} />
+                ## Choose a Copilot UI
+                You are almost there! Now it's time to setup your Copilot UI.
+                <CopilotUI components={props.components} />
+            </Step>
+            <Step>
+                ## Create a Crew-Quickstart component
+                Place the following snippet in your **main page** (e.g. `page.tsx` in Next.js) or wherever you want to use CopilotKit. It simply imports the `QuickstartCrew` component from our **crew-quickstart.tsx** file and renders it.
+
+                ```tsx title="page.tsx"
+                "use client";
+                import React from "react";
+                import CrewQuickstart from "./crew-quickstart";
+                import { useCoAgent } from "@copilotkit/react-core";
+                import { useEffect } from "react";
+
+                // ^ Adjust path as needed based on where you saved crew-quickstart.tsx
+
+                const MY_CREW_NAME = "REPLACE_WITH_YOUR_CREW_NAME";
+                /**
+                 * Entry component for displaying the QuickstartCrew on the page.
+                 */
+                export default function YOUR_MAIN_ENTRY_COMPONENT() {
+                  const { setState } = useCoAgent({
+                    name: process.env.NEXT_PUBLIC_AGENT_NAME!,
+                    initialState: {
+                      result: "",
+                      /**
+                       *  Make sure you capture right input as per your Crew Inputs Requirements
+                       */
+                      inputs: {},
+                    },
+                  });
+
+                  useEffect(() => {
+                    setState(prev => ({
+                      ...prev,
+                      result: prev?.result || "",
+                      // This is a placeholder input for demonstration purposes only. Replace it with actual input values required by your Crew.
+                      inputs: {
+                        location: "San Francisco",
+                      },
+                    }));
+                  }, []);
+
+                  return <CrewQuickstart crewName={MY_CREW_NAME} />;
+                }
+                ```
+
+               <CrewQuickStart components={props.components} />
             </Step>
             <Step>
                 ### 🎉 Talk to your agent!
@@ -354,12 +401,5 @@ can help you build power agent native applications.
     icon={<WrenchIcon />}
   />
 </Cards>
-
-<Callout type="info">
-  Need more customization options? CopilotKit provides specialized UI components
-  like `DefaultStateRenderer` and `DefaultResponseRenderer` that make it easy to
-  display agent states and collect user feedback. Check out our [UI
-  Components](/crewai-crews/components) guide to learn more.
-</Callout>
 
 </InsecurePasswordProtected>
