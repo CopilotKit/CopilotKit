@@ -244,14 +244,14 @@ function CrewHumanFeedbackRenderer({
 }
 
 /**
- * QuickstartCrew
+ * CrewQuickstart
  * Minimal example that:
  * 1) Sets up a crew/agent
  * 2) Handles text-based user input (get_input)
  * 3) Renders real-time crew state
  * 4) Handles "crew_requesting_feedback"
  */
-export default function QuickstartCrew({ crewName }: { crewName: string }) {
+export default function CrewQuickstart({ crewName }: { crewName: string }) {
   // 1. Create an agent named "your_crew_agent" with minimal initial state
   const { state, name, running } = useCoAgent<
     CrewsAgentState & {
