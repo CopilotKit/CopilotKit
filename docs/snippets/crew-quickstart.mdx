@@ -12,22 +12,38 @@ Below is a **copy-paste** example called `crew-quickstart.tsx`. Once you have it
 ```tsx title="crew-quickstart.tsx"
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
-  useCoAgent,
-  useCopilotChat,
-  useCopilotAction,
-  useCoAgentStateRender,
-  CrewsToolStateItem,
+  CrewsAgentState,
+  CrewsResponseStatus,
+  CrewsStateItem,
   CrewsTaskStateItem,
+  CrewsToolStateItem,
+  useCoAgent,
+  useCoAgentStateRender,
+  useCopilotAction,
+  useCopilotChat,
 } from "@copilotkit/react-core";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";
+import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
+
+interface CrewsFeedback extends CrewsStateItem {
+  /**
+   * Output of the task execution
+   */
+  task_output?: string;
+}
 
 /**
  * Renders your Crew's steps & tasks in real-time.
  */
-function CrewStateRenderer({ state, status }) {
+function CrewStateRenderer({
+  state,
+  status,
+}: {
+  state: CrewsAgentState;
+  status: CrewsResponseStatus;
+}) {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
   const prevItemsLengthRef = useRef<number>(0);
@@ -100,7 +116,7 @@ function CrewStateRenderer({ state, status }) {
                 >
                   <div style={{ fontWeight: "bold" }}>
                     {isTool
-                      ? (item as CrewToolStateItem).tool
+                      ? (item as CrewsToolStateItem).tool
                       : (item as CrewsTaskStateItem).name}
                   </div>
                   {"thought" in item && item.thought && (
@@ -139,7 +155,15 @@ function CrewStateRenderer({ state, status }) {
 /**
  * Renders a simple UI for agent-requested user feedback (Approve / Reject).
  */
-function CrewHumanFeedbackRenderer({ feedback, respond, status }) {
+function CrewHumanFeedbackRenderer({
+  feedback,
+  respond,
+  status,
+}: {
+  feedback: CrewsFeedback;
+  respond?: (input: string) => void;
+  status: CrewsResponseStatus;
+}) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [userResponse, setUserResponse] = useState<string | null>(null);
 
@@ -157,7 +181,6 @@ function CrewHumanFeedbackRenderer({ feedback, respond, status }) {
         {isExpanded && (
           <div
             style={{
-              background: "#f9f9f9",
               border: "1px solid #ddd",
               padding: "8px",
               marginBottom: "8px",
@@ -221,16 +244,21 @@ function CrewHumanFeedbackRenderer({ feedback, respond, status }) {
 }
 
 /**
- * QuickstartCrew
+ * CrewQuickstart
  * Minimal example that:
  * 1) Sets up a crew/agent
  * 2) Handles text-based user input (get_input)
  * 3) Renders real-time crew state
  * 4) Handles "crew_requesting_feedback"
  */
-export default function QuickstartCrew({ crewName }: { crewName: string }) {
+export default function CrewQuickstart({ crewName }: { crewName: string }) {
   // 1. Create an agent named "your_crew_agent" with minimal initial state
-  const { state, name, running } = useCoAgent<CrewAgentState>({
+  const { state, name, running } = useCoAgent<
+    CrewsAgentState & {
+      result: string;
+      inputs: Record<string, string>;
+    }
+  >({
     name: crewName,
     initialState: {
       inputs: {},
@@ -244,14 +272,15 @@ export default function QuickstartCrew({ crewName }: { crewName: string }) {
   // 4. Provide "Approve/Reject" UI whenever agent calls "crew_requesting_feedback"
   useCopilotAction({
     name: "crew_requesting_feedback",
-    renderAndWaitForResponse({ status, args, respond }) {
+    renderAndWaitForResponse(props) {
+      const { status, args, respond } = props;
       return (
         <>
           {status === "inProgress" || status === "executing" ? (
             <CrewHumanFeedbackRenderer
-              feedback={args}
+              feedback={args as unknown as CrewsFeedback}
               respond={respond}
-              status={status}
+              status={status as CrewsResponseStatus}
             />
           ) : (
             status === "complete" && (
@@ -295,7 +324,6 @@ export default function QuickstartCrew({ crewName }: { crewName: string }) {
             height: "500px",
             overflow: "auto",
             padding: "8px",
-            backgroundColor: "#f5f5f5",
             border: "1px solid #ccc",
             borderRadius: "4px",
             fontSize: "0.9rem",
