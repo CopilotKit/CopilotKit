@@ -8,10 +8,7 @@
       "type": "registry:block",
       "title": "LangGraph Platform Starter",
       "description": "Bootstrap your Next.js project with CopilotKit and LangGraph Platform.",
-      "dependencies": [
-        "@copilotkit/runtime",
-        "@copilotkit/react-core"
-      ],
+      "dependencies": ["@copilotkit/runtime", "@copilotkit/react-core"],
       "files": [
         {
           "path": "components/layout/agent-layout.tsx",
@@ -30,10 +27,7 @@
       "type": "registry:block",
       "title": "Agent Starter",
       "description": "A starter for CopilotKit with an agent.",
-      "dependencies": [
-        "@copilotkit/runtime",
-        "@copilotkit/react-core"
-      ],
+      "dependencies": ["@copilotkit/runtime", "@copilotkit/react-core"],
       "files": [
         {
           "path": "components/layout/agent-layout.tsx",
@@ -52,10 +46,7 @@
       "type": "registry:block",
       "title": "Standard Starter",
       "description": "A starter for CopilotKit with a standard runtime.",
-      "dependencies": [
-        "@copilotkit/runtime",
-        "@copilotkit/react-core"
-      ],
+      "dependencies": ["@copilotkit/runtime", "@copilotkit/react-core"],
       "files": [
         {
           "path": "components/layout/standard-layout.tsx",
@@ -74,9 +65,7 @@
       "type": "registry:block",
       "title": "Agent Layout",
       "description": "A layout for CopilotKit with an agent.",
-      "dependencies": [
-        "@copilotkit/react-core"
-      ],
+      "dependencies": ["@copilotkit/react-core"],
       "files": [
         {
           "path": "components/layout/agent-layout.tsx",
@@ -155,9 +144,7 @@
       "type": "registry:page",
       "title": "Chat",
       "description": "A chat component for CopilotKit.",
-      "dependencies": [
-        "@copilotkit/react-ui"
-      ],
+      "dependencies": ["@copilotkit/react-ui"],
       "files": [
         {
           "path": "components/chat/chat.tsx",
@@ -171,9 +158,7 @@
       "type": "registry:page",
       "title": "Sidebar",
       "description": "A sidebar component for CopilotKit.",
-      "dependencies": [
-        "@copilotkit/react-ui"
-      ],
+      "dependencies": ["@copilotkit/react-ui"],
       "files": [
         {
           "path": "components/chat/sidebar.tsx",
@@ -187,15 +172,23 @@
       "type": "registry:page",
       "title": "Popup",
       "description": "A popup component for CopilotKit.",
-      "dependencies": [
-        "@copilotkit/react-ui"
-      ],
+      "dependencies": ["@copilotkit/react-ui"],
       "files": [
         {
           "path": "components/chat/popup.tsx",
           "type": "registry:page",
           "target": "app/copilotkit/page.tsx"
         }
+      ]
+    },
+    {
+      "name": "crew-quickstart",
+      "type": "registry:page",
+      "title": "Crew Enterprise Quickstart",
+      "description": "A quickstart guide for setting up CopilotKit in an enterprise environment with a crew.",
+      "dependencies": [
+        "@copilotkit/react-core",
+        "@copilotkit/runtime-client-gql"
       ]
     }
   ]
