@@ -1,17 +1,15 @@
 import React from "react";
-
-import { ResponseStatus } from "@copilotkit/react-ui";
 import { CheckCircle, Loader } from "lucide-react";
 
 type AgentStatusProps = {
   running: boolean;
   state?: {
-    status?: ResponseStatus;
+    status?: string;
   };
-  agentStatus?: ResponseStatus;
+  agentStatus?: string;
 };
 
-const getStatusIcon = (status: ResponseStatus | undefined) => {
+const getStatusIcon = (status: string | undefined) => {
   if (!status) return null;
   switch (status) {
     case "executing":
@@ -24,7 +22,7 @@ const getStatusIcon = (status: ResponseStatus | undefined) => {
   }
 };
 
-const STATUS_MAP: Record<ResponseStatus, string> = {
+const STATUS_MAP: Record<string, string> = {
   inProgress: "Thinking...",
   complete: "Completed",
   executing: "Thinking...",
