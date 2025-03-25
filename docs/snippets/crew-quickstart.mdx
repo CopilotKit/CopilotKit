@@ -16,8 +16,6 @@ import {
   useCopilotChat,
   useCopilotAction,
   useCoAgentStateRender,
-  TextMessage,
-  MessageRole,
   // Crew types come from @copilotkit/react-core
   CrewAgentState,
   CrewStatus,
@@ -25,6 +23,8 @@ import {
   CrewToolStateItem,
   CrewTaskStateItem,
 } from "@copilotkit/react-core";
+
+import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";
 
 /**
  * Renders your Crew's steps & tasks in real-time.
