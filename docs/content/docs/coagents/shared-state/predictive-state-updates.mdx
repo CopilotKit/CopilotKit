@@ -190,7 +190,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
 
                             # Call the model with CopilotKit's modified config
                             response = await model.ainvoke(
-                                state.messages,
+                                state["messages"],
                                 config=config
                             )
 
