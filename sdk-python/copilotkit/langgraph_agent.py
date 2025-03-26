@@ -479,11 +479,8 @@ class LangGraphAgent(Agent):
     def get_schema_keys(self, config):
         CONSTANT_KEYS = ['copilotkit', 'messages']
         try:
-            graph = self.graph.get_graph(config)
-            end_node = graph.nodes["__end__"]
-            start_node = graph.nodes["__start__"]
-            input_schema = start_node.data.schema()
-            output_schema = end_node.data.schema()
+            input_schema = self.graph.get_input_jsonschema(config)
+            output_schema = self.graph.get_output_jsonschema(config)
             input_schema_keys = list(input_schema["properties"].keys())
             output_schema_keys = list(output_schema["properties"].keys())
 
