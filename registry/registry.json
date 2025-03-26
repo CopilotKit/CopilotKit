@@ -127,10 +127,7 @@
       "type": "registry:block",
       "title": "Coagents Starter UI",
       "description": "UI for interacting with the a starter coagent.",
-      "dependencies": [
-        "@copilotkit/react-ui",
-        "@copilotkit/react-core"
-      ],
+      "dependencies": ["@copilotkit/react-ui", "@copilotkit/react-core"],
       "files": [
         {
           "path": "components/quickstarts/coagents-starter.tsx",
@@ -182,24 +179,39 @@
       ]
     },
     {
-      "name": "crew-quickstart",
+      "name": "coagents-crew-starter",
       "type": "registry:page",
-      "title": "Crew Enterprise Quickstart",
-      "description": "A quickstart guide for setting up CopilotKit in an enterprise environment with a crew.",
+      "title": "Coagents Crew Starter",
+      "description": "Quickstart for CopilotKit and CrewAI Crews on CrewAI Enterprise.",
       "dependencies": [
         "@copilotkit/react-core",
         "@copilotkit/runtime-client-gql"
       ],
       "files": [
         {
-          "path": "hooks/crew-quickstart/use-crew-quickstart.tsx",
+          "path": "hooks/use-coagents-crew-starter.tsx",
           "type": "registry:hook",
-          "target": "hooks/crew-quickstart/use-crew-quickstart.tsx"
+          "target": "hooks/use-coagents-crew-starter.tsx"
         },
         {
-          "path": "components/crew-quickstart/index.tsx",
+          "path": "components/crews/crew-in-chat-input.tsx",
+          "type": "registry:component",
+          "target": "components/crews/crew-in-chat-input.tsx"
+        },
+        {
+          "path": "components/crews/crew-state-renderer.tsx",
+          "type": "registry:component",
+          "target": "components/crews/crew-state-renderer.tsx"
+        },
+        {
+          "path": "components/crews/crew-human-feedback-renderer.tsx",
+          "type": "registry:component",
+          "target": "components/crews/crew-human-feedback-renderer.tsx"
+        },
+        {
+          "path": "components/quickstarts/coagents-crew-starter.tsx",
           "type": "registry:page",
-          "target": "app/crew-quickstart/index.tsx"
+          "target": "app/crew-quickstart/page.tsx"
         }
       ]
     }

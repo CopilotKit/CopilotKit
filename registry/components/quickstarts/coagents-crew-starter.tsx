@@ -1,11 +1,9 @@
 "use client";
 import React from "react";
-import useCrewQuickstart from "./use-crew-quickstart";
-import { useCoAgent } from "@copilotkit/react-core";
-import { useEffect } from "react";
+import { useCoagentsCrewStarter } from "@/hooks/use-coagents-crew-starter";
 
-export default function YourApp() {
-  const { output } = useCrewQuickstart({
+export default function CoagentsCrewStarter() {
+  const { output } = useCoagentsCrewStarter({
     crewName: "<REPLACE_WITH_YOUR_CREW_NAME>",
     /**
      * List of input required to start your crew (location e.g)
