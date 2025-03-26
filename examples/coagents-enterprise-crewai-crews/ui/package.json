@@ -9,10 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@copilotkit/react-core": "1.7.2-next.2",
-    "@copilotkit/react-ui": "1.7.2-next.2",
-    "@copilotkit/runtime-client-gql": "1.7.2-next.2",
-    "@copilotkit/runtime": "1.7.2-next.2",
+    "@copilotkit/react-core": "1.8.1",
+    "@copilotkit/react-ui": "1.8.1",
+    "@copilotkit/runtime-client-gql": "1.8.1",
+    "@copilotkit/runtime": "1.8.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "json5": "^2.2.3",
