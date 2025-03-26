@@ -493,11 +493,23 @@ please use an LLM adapter instead.`,
             apiKey: endpoint.langsmithApiKey,
             defaultHeaders: { ...propertyHeaders },
           });
+          let data: Array<{ assistant_id: string; graph_id: string }> | { detail: string } = [];
+          try {
+            data = await client.assistants.search();
 
-          const data: Array<{ assistant_id: string; graph_id: string }> =
-            await client.assistants.search();
-
-          const endpointAgents = (data ?? []).map((entry) => ({
+            if (data && "detail" in data && (data.detail as string).toLowerCase() === "not found") {
+              throw new CopilotKitAgentDiscoveryError();
+            }
+          } catch (e) {
+            throw new CopilotKitMisuseError({
+              message: `
+              Failed to find or contact remote endpoint at url ${endpoint.deploymentUrl}.
+              Make sure the API is running and that it's indeed a LangGraph platform url.
+              
+              See more: https://docs.copilotkit.ai/troubleshooting/common-issues`,
+            });
+          }
+          const endpointAgents = data.map((entry) => ({
             name: entry.graph_id,
             id: entry.assistant_id,
             description: "",
