@@ -8,6 +8,24 @@ license = "MIT"
 [project]
 name = "research_canvas"
 version = "0.0.1"
+dependencies = [
+    "copilotkit[crewai]>=0.1.41",
+    "langchain-openai>=0.2.3",
+    "langchain-community>=0.3.1",
+    "langchain-anthropic>=0.3.1",
+    "langchain-google-genai>=2.0.5",
+    "langchain>=0.3.4",
+    "openai>=1.52.1",
+    "tavily-python>=0.5.0",
+    "python-dotenv>=1.0.1",
+    "uvicorn>=0.31.0",
+    "requests>=2.32.3",
+    "html2text>=2024.2.26",
+    "langchain-core>=0.3.25",
+    "langgraph-cli[inmem]>=0.1.64",
+    "langgraph-checkpoint-sqlite>=2.0.1",
+    "aiosqlite>=0.20.0"
+]
 
 [build-system]
 requires = ["setuptools >= 61.0"]
