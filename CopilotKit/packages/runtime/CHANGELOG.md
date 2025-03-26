@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.8.2-next.1
+
+### Patch Changes
+
+- e95bb0e: - fix: clarify difference between lgp endpoints to fastapi endpoints
+  - @copilotkit/shared@1.8.2-next.1
+
 ## 1.8.2-next.0
 
 ### Patch Changes

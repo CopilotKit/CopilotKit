@@ -134,7 +134,7 @@ export class CopilotKitMisuseError extends CopilotKitError {
     code?: CopilotKitErrorCode;
   }) {
     const docsLink =
-      "troubleshootingUrl" in ERROR_CONFIG[code]
+      "troubleshootingUrl" in ERROR_CONFIG[code] && ERROR_CONFIG[code].troubleshootingUrl
         ? getSeeMoreMarkdown(ERROR_CONFIG[code].troubleshootingUrl as string)
         : null;
     const finalMessage = docsLink ? `${message}.\n\n${docsLink}` : message;
