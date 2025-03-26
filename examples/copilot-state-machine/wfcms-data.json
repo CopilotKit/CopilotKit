@@ -1,0 +1,8 @@
+{
+    "framework": "Standard",
+    "usecase": "Sequential decision making, Conditional logic",
+    "title": "State Machine Copilot",
+    "description": "Transform complex conversational flows into manageable state machines.",
+    "live_demo": "https://state-machine-copilot.vercel.app/",
+    "cover_img": "https://examples-coagents-research-canvas-ui.vercel.app/image.png"
+  }

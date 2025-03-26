@@ -1,0 +1,8 @@
+{
+    "framework": "LangGraph",
+    "usecase": "Research, Web search",
+    "title": "AI Researcher",
+    "description": "Search the internet with AI-powered web search.",
+    "live_demo": "https://examples-coagents-ai-researcher-ui.vercel.app",
+    "cover_img": "https://examples-coagents-ai-researcher-ui.vercel.app/image.png"
+}
