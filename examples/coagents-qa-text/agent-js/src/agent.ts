@@ -12,7 +12,7 @@ import {
 } from "@copilotkit/sdk-js/langgraph";
 import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import { getModel } from "./model";
-import { END, MemorySaver, StateGraph } from "@langchain/langgraph";
+import { END, StateGraph } from "@langchain/langgraph";
 
 const ExtractNameTool = tool(() => {}, {
   name: "ExtractNameTool",
@@ -97,9 +97,6 @@ const workflow = new StateGraph(AgentStateAnnotation)
   ])
   .addEdge("greet_node", END);
 
-const memory = new MemorySaver();
-
 export const graph = workflow.compile({
-  checkpointer: memory,
   interruptAfter: ["ask_name_node"],
 });

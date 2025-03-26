@@ -11,7 +11,7 @@ import {
 } from "@copilotkit/sdk-js/langgraph";
 import { AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { getModel } from "./model";
-import { END, MemorySaver, StateGraph } from "@langchain/langgraph";
+import { END, StateGraph } from "@langchain/langgraph";
 import { AgentState, AgentStateAnnotation } from "./state";
 
 const EmailTool = tool(() => {}, {
@@ -80,9 +80,6 @@ const workflow = new StateGraph(AgentStateAnnotation)
   .addEdge("email_node", "send_email_node")
   .addEdge("send_email_node", END);
 
-const memory = new MemorySaver();
-
 export const graph = workflow.compile({
-  checkpointer: memory,
   interruptAfter: ["email_node"],
 });

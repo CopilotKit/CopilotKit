@@ -30,7 +30,9 @@ COPY ${APP_DIR}/ ./
 # Explicitly install the missing dependency
 RUN pnpm add @langchain/langgraph-checkpoint
 
-RUN mkdir .langgraph_api
+RUN mkdir /tmp/.langgraph_api
+
+ENV LANGGRAPH_API_DIR="/tmp/.langgraph_api"
 
 RUN ls -la
 

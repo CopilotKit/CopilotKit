@@ -9,7 +9,7 @@ import {
 } from "@copilotkit/sdk-js/langgraph";
 import { AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { getModel } from "./model";
-import { END, MemorySaver, StateGraph, interrupt } from "@langchain/langgraph";
+import { END, StateGraph, interrupt } from "@langchain/langgraph";
 import { AgentState, AgentStateAnnotation } from "./state";
 import { copilotKitInterrupt } from "@copilotkit/sdk-js/langgraph";
 
@@ -19,15 +19,21 @@ export async function email_node(state: AgentState, config: RunnableConfig) {
    */
 
   const authToken = config.configurable?.authToken ?? null;
-  if (authToken !== 'exampleToken') {
-    throw new Error('[AUTH ERROR]: This demo uses a dummy auth token. Make sure it is set to "exampleToken" in Mailer.tsx useCoAgent call in the configurable')
+  if (authToken !== "exampleToken") {
+    throw new Error(
+      '[AUTH ERROR]: This demo uses a dummy auth token. Make sure it is set to "exampleToken" in Mailer.tsx useCoAgent call in the configurable'
+    );
   }
 
-  const sender = state.sender ?? interrupt('Please provide a sender name which will appear in the email');
-  let senderCompany = state.senderCompany
-  let interruptMessages = []
+  const sender =
+    state.sender ??
+    interrupt("Please provide a sender name which will appear in the email");
+  let senderCompany = state.senderCompany;
+  let interruptMessages = [];
   if (!senderCompany?.length) {
-    const { answer, messages } = copilotKitInterrupt({ message: 'Ah, forgot to ask, which company are you working for?' });
+    const { answer, messages } = copilotKitInterrupt({
+      message: "Ah, forgot to ask, which company are you working for?",
+    });
     senderCompany = answer;
     interruptMessages = messages;
   }
@@ -41,7 +47,11 @@ export async function email_node(state: AgentState, config: RunnableConfig) {
   );
 
   const response = await email_model.invoke(
-    [...state.messages, ...interruptMessages, new HumanMessage({ content: instructions })],
+    [
+      ...state.messages,
+      ...interruptMessages,
+      new HumanMessage({ content: instructions }),
+    ],
     config
   );
 
@@ -85,9 +95,6 @@ const workflow = new StateGraph(AgentStateAnnotation)
   .addEdge("email_node", "send_email_node")
   .addEdge("send_email_node", END);
 
-const memory = new MemorySaver();
-
 export const graph = workflow.compile({
-  checkpointer: memory,
   interruptAfter: ["email_node"],
 });
