@@ -179,6 +179,7 @@
       "description": "Quickstart for CopilotKit and CrewAI Crews on CrewAI Enterprise.",
       "dependencies": [
         "@copilotkit/react-core",
+        "@copilotkit/react-ui",
         "@copilotkit/runtime-client-gql"
       ],
       "files": [
