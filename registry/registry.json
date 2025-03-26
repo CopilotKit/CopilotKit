@@ -86,6 +86,54 @@
       ]
     },
     {
+      "name": "langgraph-platform-runtime",
+      "type": "registry:block",
+      "title": "LangGraph Platform Runtime",
+      "description": "A runtime for CopilotKit with LangGraph Platform.",
+      "dependencies": [
+        "@copilotkit/runtime"
+      ],
+      "files": [
+        {
+          "path": "components/runtime/langgraph-platform.ts",
+          "type": "registry:lib",
+          "target": "app/api/copilotkit/route.ts"
+        }
+      ]
+    },
+    {
+      "name": "remote-endpoint",
+      "type": "registry:block",
+      "title": "Remote Endpoint",
+      "description": "A remote endpoint for CopilotKit.",
+      "dependencies": [
+        "@copilotkit/runtime"
+      ],
+      "files": [
+        {
+          "path": "components/runtime/remote-endpoint.ts",
+          "type": "registry:lib",
+          "target": "app/api/copilotkit/route.ts"
+        }
+      ]
+    },
+    {
+      "name": "standard-runtime",
+      "type": "registry:block",
+      "title": "Standard Runtime",
+      "description": "A runtime for CopilotKit with a standard runtime.",
+      "dependencies": [
+        "@copilotkit/runtime"
+      ],
+      "files": [
+        {
+          "path": "components/runtime/standard.ts",
+          "type": "registry:lib",
+          "target": "app/api/copilotkit/route.ts"
+        }
+      ]
+    },
+    {
       "name": "coagents-starter-ui",
       "type": "registry:block",
       "title": "Coagents Starter UI",
