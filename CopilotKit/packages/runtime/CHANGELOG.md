@@ -1,5 +1,11 @@
 # @copilotkit/runtime
 
+## 1.8.2-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.2-next.0
+
 ## 1.8.1
 
 ### Patch Changes
