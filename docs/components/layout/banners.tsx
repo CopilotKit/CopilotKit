@@ -4,7 +4,7 @@ import { PaintbrushIcon } from "lucide-react";
 export function Banners() {
   return (
     <>
-      {/* <NewLookAndFeelBanner /> */}
+      <NewLookAndFeelBanner />
       {/* Add other banners here */}
     </>
   )
@@ -16,7 +16,7 @@ export function NewLookAndFeelBanner() {
       <PaintbrushIcon className="w-5 h-5" />
       <p>
         We are launching a new default look and feel!
-        Checkout the <span className="underline"><Link href="/migration-guide"> migration guide </Link></span> to learn more.
+        Checkout the <span className="underline"><Link href="/troubleshooting/migrate-to-1.8.2"> migration guide </Link></span> to learn more.
       </p>
     </Banner>
   )

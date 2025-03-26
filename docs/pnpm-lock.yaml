@@ -15,11 +15,11 @@ importers:
         specifier: ^6.7.1
         version: 6.7.1(next@14.2.13(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@copilotkit/react-core':
-        specifier: 1.8.0-next.4
-        version: 1.8.0-next.4(@types/react@18.3.9)(graphql@16.10.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 1.8.2
+        version: 1.8.2(@types/react@18.3.9)(graphql@16.10.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@copilotkit/react-ui':
-        specifier: 1.8.0-next.4
-        version: 1.8.0-next.4(@types/react@18.3.9)(graphql@16.10.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 1.8.2
+        version: 1.8.2(@types/react@18.3.9)(graphql@16.10.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@icons-pack/react-simple-icons':
         specifier: ^11.2.0
         version: 11.2.0(react@18.3.1)
@@ -234,24 +234,24 @@ packages:
     resolution: {integrity: sha512-806lLBal6MVChTVWnzCWZAQdZ2miLJHkVJ+JUX2XX8D1DDPonw2y5tVk9BGWZfKq/rtUP2Jg6HdZOnA5ZbU0Ow==}
     engines: {node: '>=18.17.0'}
 
-  '@copilotkit/react-core@1.8.0-next.4':
-    resolution: {integrity: sha512-SqVFfqmPvnsYWuvuAcQ+eIp+NBXtsqBRkI8VOxgBK0C9qnZ7nQatE5Xe6wa5MwZh4F1asa58L1FfSNVsaIN4eg==}
+  '@copilotkit/react-core@1.8.2':
+    resolution: {integrity: sha512-lQj6PovM7sTYbDPzo9hyzBEB7VCFxWz0NFFAFzzzBMFMh8gPBRiOamsOv/jZTDV3k1z9uQgBxfME6AYe+yVeNw==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
       react-dom: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/react-ui@1.8.0-next.4':
-    resolution: {integrity: sha512-fip0Fm8o4U1Evmd7gXrJFdqqqSChaIR/riLAoqbcH42HyCIqJO/SjyiH/E8D+NxaVlJWh8j+abg7U4Sbj4o9+g==}
+  '@copilotkit/react-ui@1.8.2':
+    resolution: {integrity: sha512-1KMy7y61ApgVyDZy9TpUR764moKqmP8tv/7TLAA3M7MsIJF8EC5qv304U2d+0sIEqqFiNF2z6qjTBbNp/20IhA==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime-client-gql@1.8.0-next.4':
-    resolution: {integrity: sha512-q5CaVJtRvusv44h9oCIypGhybTK8nuBx4hIgGdxm+c8sxMctgnG1JRY+EtO2EOaFwcySkYF7495JFQF6V8UqVg==}
+  '@copilotkit/runtime-client-gql@1.8.2':
+    resolution: {integrity: sha512-myREgwz86UkluSqkZ8f2IL2/+/BNi0v0Utp5WLkpReXaTCx+ryFmcytyZCS9hclC2RnMQvSW89kaO/7o7+XeEw==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/shared@1.8.0-next.4':
-    resolution: {integrity: sha512-Lk0rBcTlMrSbqhU4YyOYiKPBUb/WAsY+bLOGvZUXlRZ3Neh8uXThN/w5wo/jS9qBfMh2n8YL+UFL6PZbhtU9Og==}
+  '@copilotkit/shared@1.8.2':
+    resolution: {integrity: sha512-1Ak3RX+jiC57gaBfVC4Db1D+5DURkPFEzkauVRcMPWMkJUidaMLvbzuI2lasxBrXhM5WQ4gtuDgQ5QYTsLFD4w==}
 
   '@esbuild/aix-ppc64@0.23.1':
     resolution: {integrity: sha512-6VhYk1diRqrhBAqpJEdjASR/+WVRtfjpqKuNw11cLiaWpAT/Uu+nokB+UJnevzy/P9C/ty6AOe0dwueMrGh/iQ==}
@@ -3391,10 +3391,10 @@ snapshots:
     dependencies:
       csstype: 3.1.1
 
-  '@copilotkit/react-core@1.8.0-next.4(@types/react@18.3.9)(graphql@16.10.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkit/react-core@1.8.2(@types/react@18.3.9)(graphql@16.10.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@copilotkit/runtime-client-gql': 1.8.0-next.4(graphql@16.10.0)(react@18.3.1)
-      '@copilotkit/shared': 1.8.0-next.4
+      '@copilotkit/runtime-client-gql': 1.8.2(graphql@16.10.0)(react@18.3.1)
+      '@copilotkit/shared': 1.8.2
       '@scarf/scarf': 1.4.0
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
@@ -3406,11 +3406,11 @@ snapshots:
       - graphql
       - supports-color
 
-  '@copilotkit/react-ui@1.8.0-next.4(@types/react@18.3.9)(graphql@16.10.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@copilotkit/react-ui@1.8.2(@types/react@18.3.9)(graphql@16.10.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@copilotkit/react-core': 1.8.0-next.4(@types/react@18.3.9)(graphql@16.10.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@copilotkit/runtime-client-gql': 1.8.0-next.4(graphql@16.10.0)(react@18.3.1)
-      '@copilotkit/shared': 1.8.0-next.4
+      '@copilotkit/react-core': 1.8.2(@types/react@18.3.9)(graphql@16.10.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@copilotkit/runtime-client-gql': 1.8.2(graphql@16.10.0)(react@18.3.1)
+      '@copilotkit/shared': 1.8.2
       '@headlessui/react': 2.2.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       react-markdown: 8.0.7(@types/react@18.3.9)(react@18.3.1)
@@ -3424,9 +3424,9 @@ snapshots:
       - react-dom
       - supports-color
 
-  '@copilotkit/runtime-client-gql@1.8.0-next.4(graphql@16.10.0)(react@18.3.1)':
+  '@copilotkit/runtime-client-gql@1.8.2(graphql@16.10.0)(react@18.3.1)':
     dependencies:
-      '@copilotkit/shared': 1.8.0-next.4
+      '@copilotkit/shared': 1.8.2
       '@urql/core': 5.1.1(graphql@16.10.0)
       react: 18.3.1
       untruncate-json: 0.0.1
@@ -3435,7 +3435,7 @@ snapshots:
       - encoding
       - graphql
 
-  '@copilotkit/shared@1.8.0-next.4':
+  '@copilotkit/shared@1.8.2':
     dependencies:
       '@segment/analytics-node': 2.2.1
       chalk: 4.1.2
