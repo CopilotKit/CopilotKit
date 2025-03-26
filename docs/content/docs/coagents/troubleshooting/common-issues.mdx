@@ -202,3 +202,42 @@ If you notice the tunnel creation process spinning indefinitely, your router or 
     </Accordion>
 
 </Accordions>
+
+## I am getting "Failed to find or contact remote endpoint at url, Make sure the API is running and that it's indeed a LangGraph platform url" error
+
+If you're seeing this error, it means the LangGraph platform client cannot connect to your endpoint.
+
+<Accordions>
+    <Accordion title="Verify the endpoint is reachable">
+        Check the logs for the backend API running on the remote endpoint url. Make sure it is up and ready to receive requests
+    </Accordion>
+    <Accordion title="Verify running a LangGraph platform endpoint using LangGraph deployment tools">
+        Verify that the backend API is running using `langgraph dev`, `langgraph up`, on a LangGraph cloud url or equivalent methods supplied by LangGraph
+    </Accordion>
+    <Accordion title="Verify the remote endpoint matches the endpoint definition type">
+        If you are running your remote endpoint using FastAPI, even if it uses LangGraph for the agent, it is not considered a LangGraph platform endpoint.
+        You may need to change your `remoteEndpoints` definition for this endpoint to match the expected format.
+
+        Change the endpoint definition, from:
+        ```
+        new CopilotRuntime({
+          remoteEndpoints: [
+            langGraphPlatformEndpoint({
+            deploymentUrl: "https://your-fastapi-endpoint:port",
+            langsmithApiKey: <langsmith API key>
+            agents: [], // Your previous agents definition
+          ],
+        });
+        ```
+
+        To:
+        ```
+        new CopilotRuntime({
+          remoteEndpoints: [
+            copilotKitEndpoint({ url: "https://your-fastapi-endpoint:port/copilotkit" });
+          ]
+        });
+        ```
+    </Accordion>
+</Accordions>
+
