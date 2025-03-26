@@ -1,5 +1,15 @@
 # ui
 
+## 1.8.2-next.0
+
+### Patch Changes
+
+- d574350: - fix: adjust order of colors so app themes prevails OS theme
+- d574350: - fix: adjust order of colors so app themes prevails OS theme
+  - @copilotkit/react-core@1.8.2-next.0
+  - @copilotkit/runtime-client-gql@1.8.2-next.0
+  - @copilotkit/shared@1.8.2-next.0
+
 ## 1.8.1
 
 ### Patch Changes

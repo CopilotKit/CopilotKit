@@ -17,5 +17,8 @@
     "tailwind-config": "1.4.6",
     "tsconfig": "1.4.6"
   },
-  "changesets": []
+  "changesets": [
+    "red-plums-notice",
+    "twenty-houses-end"
+  ]
 }
