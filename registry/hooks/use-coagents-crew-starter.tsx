@@ -19,27 +19,37 @@ import { CrewInChatInput } from "@/components/crews/crew-in-chat-input";
 /**
  * Hook: useCoagentsCrewStarter
  *
- * This hook sets up a crew/agent and manages its lifecycle, including:
- * 1. Initializing the crew with a name and input fields.
- * 2. Handling user input through a form.
- * 3. Rendering the crew's real-time state.
- * 4. Managing feedback requests from the crew.
+ * This hook provides a simplified interface for initializing and managing 
+ * a copilot crew in your application. It handles:
+ * 
+ * 1. Initialization with configured agent name from environment variables
+ * 2. Collection of user inputs through a form interface
+ * 3. Real-time state visualization during execution
+ * 4. Feedback collection when the crew needs user input
+ * 5. Result aggregation and presentation
  *
- * @param {Object} params - Parameters for initializing the crew.
- * @param {string} params.crewName - The name of the crew.
- * @param {Array<string>} params.inputs - An array of input field names.
- * @returns {Object} - Contains the output result of the crew.
+ * @param {Object} params - Parameters for initializing the crew
+ * @param {Array<string>} params.inputs - Input field names to collect from the user
+ * @returns {Object} - An object containing the crew's output
+ * 
+ * @example
+ * ```tsx
+ * const { output } = useCoagentsCrewStarter({
+ *   inputs: ["query", "location"]
+ * });
+ * ```
  */
 export const useCoagentsCrewStarter = ({
-  crewName,
   inputs,
 }: {
-  crewName: string;
   inputs: Array<string>;
 }): {
   output: string;
 } => {
   const [initialMessageSent, setInitialMessageSent] = useState(false);
+  
+  // Use the agent name from environment variables
+  const agentName = process.env.NEXT_PUBLIC_COPILOTKIT_AGENT_NAME || "DefaultAgent";
 
   // Initialize the crew agent with a default state
   const { state, setState, run } = useCoAgent<
@@ -48,7 +58,7 @@ export const useCoagentsCrewStarter = ({
       inputs: Record<string, string>;
     }
   >({
-    name: crewName,
+    name: agentName,
     initialState: {
       inputs: {},
       result: "Crew result will appear here...",
@@ -57,18 +67,18 @@ export const useCoagentsCrewStarter = ({
 
   const { appendMessage, isLoading } = useCopilotChat();
 
-  // Instructions for the copilot to ensure inputs are gathered before proceeding
+  // Instructions for the copilot to ensure inputs are gathered
   const instructions =
     "INPUTS ARE ABSOLUTELY REQUIRED. Please call getInputs before proceeding with anything else.";
 
-  // Effect to send an initial message when the chat is loaded
+  // Send initial greeting when chat is loaded
   useEffect(() => {
     if (initialMessageSent || isLoading) return;
 
     setTimeout(async () => {
       await appendMessage(
         new TextMessage({
-          content: "Hi, Please provide your inputs before we get started.",
+          content: "Hi! Please provide your inputs to get started.",
           role: MessageRole.Developer,
         })
       );
@@ -76,7 +86,7 @@ export const useCoagentsCrewStarter = ({
     }, 0);
   }, [initialMessageSent, isLoading, appendMessage]);
 
-  // Effect to send a message with the inputs once they are provided
+  // Send a message with the inputs once they are provided
   useEffect(() => {
     if (!initialMessageSent && Object.values(state?.inputs || {}).length > 0) {
       appendMessage(
@@ -100,10 +110,9 @@ export const useCoagentsCrewStarter = ({
   // Action to get inputs from the user
   useCopilotAction({
     name: "getInputs",
-    followUp: false,
     description:
-      "This action allows Crew to get required inputs from the user before starting the Crew.",
-    renderAndWaitForResponse({ status }) {
+      "Collect required inputs from the user before starting the crew execution.",
+    renderAndWaitForResponse({ status, respond }) {
       if (status === "inProgress" || status === "executing") {
         return (
           <CrewInChatInput
@@ -114,18 +123,18 @@ export const useCoagentsCrewStarter = ({
                 ...state,
                 inputs: inputValues,
               });
-              await run();
+              respond?.("Inputs submitted");
             }}
           />
         );
       }
-      return <>Inputs submitted</>;
+      return <div className="text-sm text-zinc-500">Inputs submitted</div>;
     },
   });
 
   // Render the crew's state in real-time
   useCoAgentStateRender({
-    name: crewName,
+    name: agentName,
     render: ({ state, status }) => (
       <CrewStateRenderer state={state} status={status} />
     ),
@@ -134,7 +143,7 @@ export const useCoagentsCrewStarter = ({
   // Action to handle feedback requests from the crew
   useCopilotAction({
     name: "crew_requesting_feedback",
-    description: "Request feedback from the user",
+    description: "Request feedback from the user on the crew's output",
     renderAndWaitForResponse(props) {
       const { status, args, respond } = props;
       return (
