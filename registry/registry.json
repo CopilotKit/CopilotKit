@@ -86,6 +86,23 @@
       ]
     },
     {
+      "name": "coagents-starter-ui",
+      "type": "registry:block",
+      "title": "Coagents Starter UI",
+      "description": "UI for interacting with the a starter coagent.",
+      "dependencies": [
+        "@copilotkit/react-ui",
+        "@copilotkit/react-core"
+      ],
+      "files": [
+        {
+          "path": "components/quickstarts/coagents-starter.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/page.tsx"
+        }
+      ]
+    },
+    {
       "name": "chat",
       "type": "registry:page",
       "title": "Chat",

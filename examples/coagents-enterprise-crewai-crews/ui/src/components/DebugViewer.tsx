@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Modal } from "@/components/Modal";
 import FormattedContent from "@/components/FormattedContent";
-import { AgentState } from "@copilotkit/react-ui";
+import { AgentState } from "@/types";
 
 interface DebugViewerProps {
   state: AgentState;

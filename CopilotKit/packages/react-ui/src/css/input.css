@@ -89,7 +89,7 @@
   font-weight: inherit;
   color: var(--copilot-kit-secondary-contrast-color);
   border: 0px;
-  background-color: var(--copilot-kit-input-background-color);
+  background-color: transparent;
 }
 
 .copilotKitInput > textarea::placeholder {
