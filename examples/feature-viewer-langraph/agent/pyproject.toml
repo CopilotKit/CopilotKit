@@ -16,7 +16,7 @@ langchain-core = ">=0.1.5"
 langchain-community = ">=0.0.1"
 langchain-experimental = ">=0.0.11"
 langchain-openai = ">=0.0.1"
-langgraph = "^0.3.14"
+langgraph = "^0.3.5"
 
 [build-system]
 requires = ["poetry-core"]

@@ -8,7 +8,7 @@ import "./style.css";
 export default function AgenticChat() {
   return (
     <CopilotKit
-      runtimeUrl="/api/copilotkit"
+      publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
       showDevConsole={false}
       agent="tool_based_generative_ui"
     >

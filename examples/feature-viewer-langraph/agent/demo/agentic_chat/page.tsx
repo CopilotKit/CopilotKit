@@ -8,7 +8,7 @@ import { CopilotChat } from "@copilotkit/react-ui";
 const AgenticChat: React.FC = () => {
   return (
     <CopilotKit
-      runtimeUrl="/api/copilotkit"
+      publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
       showDevConsole={false}
       agent="agentic_chat"
     >

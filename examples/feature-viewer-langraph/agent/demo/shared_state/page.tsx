@@ -41,7 +41,7 @@ const cookingTimeValues = [
 export default function SharedState() {
   return (
     <CopilotKit
-      runtimeUrl="/api/copilotkit"
+      publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
       showDevConsole={false}
       agent="shared_state"
     >

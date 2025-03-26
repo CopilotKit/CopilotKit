@@ -21,7 +21,7 @@ const extensions = [StarterKit];
 export default function MultiAgentFlows() {
   return (
     <CopilotKit
-      runtimeUrl="/api/copilotkit"
+      publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
       showDevConsole={false}
       agent="multi_agent_writer"
     >
