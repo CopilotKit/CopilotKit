@@ -79,9 +79,7 @@
       "type": "registry:block",
       "title": "LangGraph Platform Runtime",
       "description": "A runtime for CopilotKit with LangGraph Platform.",
-      "dependencies": [
-        "@copilotkit/runtime"
-      ],
+      "dependencies": ["@copilotkit/runtime"],
       "files": [
         {
           "path": "components/runtime/langgraph-platform.ts",
@@ -95,9 +93,7 @@
       "type": "registry:block",
       "title": "Remote Endpoint",
       "description": "A remote endpoint for CopilotKit.",
-      "dependencies": [
-        "@copilotkit/runtime"
-      ],
+      "dependencies": ["@copilotkit/runtime"],
       "files": [
         {
           "path": "components/runtime/remote-endpoint.ts",
@@ -111,9 +107,7 @@
       "type": "registry:block",
       "title": "Standard Runtime",
       "description": "A runtime for CopilotKit with a standard runtime.",
-      "dependencies": [
-        "@copilotkit/runtime"
-      ],
+      "dependencies": ["@copilotkit/runtime"],
       "files": [
         {
           "path": "components/runtime/standard.ts",
@@ -207,6 +201,11 @@
           "path": "components/crews/crew-human-feedback-renderer.tsx",
           "type": "registry:component",
           "target": "components/crews/crew-human-feedback-renderer.tsx"
+        },
+        {
+          "path": "components/layout/coagents-crew-starter-layout.tsx",
+          "type": "registry:component",
+          "target": "app/crew-quickstart/layout.tsx"
         },
         {
           "path": "components/quickstarts/coagents-crew-starter.tsx",
