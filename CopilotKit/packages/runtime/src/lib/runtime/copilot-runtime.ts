@@ -23,7 +23,6 @@ import {
   CopilotKitLowLevelError,
   CopilotKitAgentDiscoveryError,
   CopilotKitMisuseError,
-  CopilotKitRemoteEndpointDiscoveryError,
 } from "@copilotkit/shared";
 import {
   CopilotServiceAdapter,
@@ -502,8 +501,12 @@ please use an LLM adapter instead.`,
               throw new CopilotKitAgentDiscoveryError();
             }
           } catch (e) {
-            throw new CopilotKitRemoteEndpointDiscoveryError({
-              message: `Failed to find or contact remote endpoint at url ${endpoint.deploymentUrl}. Make sure the API is running and that it's indeed a LangGraph platform url.`,
+            throw new CopilotKitMisuseError({
+              message: `
+              Failed to find or contact remote endpoint at url ${endpoint.deploymentUrl}.
+              Make sure the API is running and that it's indeed a LangGraph platform url.
+              
+              See more: https://docs.copilotkit.ai/troubleshooting/common-issues`,
             });
           }
           const endpointAgents = data.map((entry) => ({
