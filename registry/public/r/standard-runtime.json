@@ -1,0 +1,18 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "standard-runtime",
+  "type": "registry:block",
+  "title": "Standard Runtime",
+  "description": "A runtime for CopilotKit with a standard runtime.",
+  "dependencies": [
+    "@copilotkit/runtime"
+  ],
+  "files": [
+    {
+      "path": "components/runtime/standard.ts",
+      "content": "import {\n  CopilotRuntime,\n  OpenAIAdapter,\n  copilotRuntimeNextJSAppRouterEndpoint,\n} from \"@copilotkit/runtime\";\nimport { NextRequest } from \"next/server\";\nimport OpenAI from \"openai\";\n\nconst openai = new OpenAI();\nconst serviceAdapter = new OpenAIAdapter({ openai });\n\nconst runtime = new CopilotRuntime();\n\nexport const POST = async (req: NextRequest) => {\nconst { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({\n    runtime,\n    serviceAdapter,\n    endpoint: req.nextUrl.pathname,\n});\n\nreturn handleRequest(req);\n};\n",
+      "type": "registry:lib",
+      "target": "app/api/copilotkit/route.ts"
+    }
+  ]
+}
