@@ -3,20 +3,29 @@ title: "Predictive state updates"
 icon: "lucide/Podcast"
 description: Stream in-progress agent state updates to the frontend.
 ---
+
 import {
   TailoredContent,
   TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 import { FaWrench } from "react-icons/fa";
 import { FaArrowUp } from "react-icons/fa";
 
-<InsecurePasswordProtected>
-
-<video src="/images/coagents/intermediate-state-render.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<video
+  src="/images/coagents/intermediate-state-render.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
 <Callout>
-  This video shows the [coagents starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-flows) repo with the [implementation](#implementation) section applied to it!
+  This video shows the [coagents
+  starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-flows)
+  repo with the [implementation](#implementation) section applied to it!
 </Callout>
 
 ## What is this?
@@ -28,8 +37,8 @@ But even a _single function_ in the flow often takes many seconds to run and con
 
 CopilotKit enables this through its concept of **_predictive state updates_**.
 
-
 ## When should I use this?
+
 You can use this when you want to provide the user with feedback about what your agent is doing, specifically to:
 
 - **Keep users engaged** by avoiding long loading indicators
@@ -38,10 +47,9 @@ You can use this when you want to provide the user with feedback about what your
 
 ## Important Note
 
-When a function in your CrewAI flow finishes executing, **its returned state becomes the single source of truth**. 
-While intermediate state updates are great for real-time feedback, any changes you want to persist must be explicitly 
+When a function in your CrewAI flow finishes executing, **its returned state becomes the single source of truth**.
+While intermediate state updates are great for real-time feedback, any changes you want to persist must be explicitly
 included in the function's final returned state. Otherwise, they will be overwritten when the function completes.
-
 
 ## Implementation
 
@@ -106,7 +114,7 @@ included in the function's final returned state. Otherwise, they will be overwri
                                     "Generating recommendations...",
                                     "Formatting final output..."
                                 ]
-                                
+
                                 for step in steps:
                                     self.state["observed_steps"] = self.state.get("observed_steps", []) + [step]
                                     await copilotkit_emit_state(self.state) # [!code highlight]
@@ -120,7 +128,7 @@ included in the function's final returned state. Otherwise, they will be overwri
 
             <TailoredContentOption
                 id="tool-emission"
-                title="Tool-Based Predictive State Updates" 
+                title="Tool-Based Predictive State Updates"
                 description="Configure specific tool calls to automatically emit intermediate state updates."
                 icon={<FaWrench />}
             >
@@ -188,7 +196,7 @@ included in the function's final returned state. Otherwise, they will be overwri
         import { useCoAgent, useCoAgentStateRender } from '@copilotkit/react-core';
 
         // ...
-        
+
         const YourMainContent = () => {
             // Get access to both predicted and final states
             const { state } = useCoAgent({ name: "sample_agent" });
@@ -234,6 +242,5 @@ included in the function's final returned state. Otherwise, they will be overwri
         Now you'll notice that the state predictions are emitted as the agent makes progress, giving you insight into its work before the final state is determined.
         You can apply this pattern to any long-running task in your agent.
     </Step>
-</Steps>
 
-</InsecurePasswordProtected>
+</Steps>

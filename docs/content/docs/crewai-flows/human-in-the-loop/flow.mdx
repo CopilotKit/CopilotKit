@@ -3,19 +3,28 @@ title: CrewAI Flows
 description: Learn how to implement Human-in-the-Loop (HITL) using CrewAI Flows.
 icon: lucide/Share2
 ---
-import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 
-<InsecurePasswordProtected>
+import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 
-<video src="/images/coagents/node-hitl.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<video
+  src="/images/coagents/node-hitl.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
 
 <Callout type="info">
-  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter) with
-  the implementation below applied!
+  Pictured above is the [coagent
+  starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter)
+  with the implementation below applied!
 </Callout>
 
 ## What is this?
+
 [Flow based agents](https://docs.crewai.com/concepts/flows) are stateful agents that can be interrupted and resumed
 to allow for user input.
 
@@ -41,7 +50,7 @@ of everything that has happened during a HITL interaction.
         If you don't already have an agent, you can use the [coagent starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-flows) as a starting point
         as this guide uses it as a starting point.
     </Step>
-    
+
     <Step>
       ### Install the CopilotKit SDK
       <InstallSDKSnippet components={props.components}/>
@@ -58,7 +67,7 @@ of everything that has happened during a HITL interaction.
         function YourMainContent() {
           // ...
 
-          useCopilotAction({ 
+          useCopilotAction({
             name: "writeEssay",
             available: "remote",
             description: "Writes an essay and takes the draft as an argument.",
@@ -70,9 +79,9 @@ of everything that has happened during a HITL interaction.
               return (
                 <div>
                   <Markdown content={args.draft || 'Preparing your draft...'} />
-                  
+
                   <div className={`flex gap-4 pt-4 ${status !== "executing" ? "hidden" : ""}`}>
-                    <button 
+                    <button
                       onClick={() => respond?.("CANCEL")}
                       disabled={status !== "executing"}
                       className="border p-2 rounded-xl w-full"
@@ -81,7 +90,7 @@ of everything that has happened during a HITL interaction.
                     </button>
                     <button
                       onClick={() => respond?.("SEND")}
-                      disabled={status !== "executing"} 
+                      disabled={status !== "executing"}
                       className="bg-blue-500 text-white p-2 rounded-xl w-full"
                     >
                       Approve Draft
@@ -123,10 +132,10 @@ of everything that has happened during a HITL interaction.
 
         class EmailAgentFlow(Flow[AgentState]):
 
-            @start           
+            @start
             async def check_for_user_feedback(self):
                 # Check if the user has provided feedback
-                if len(self.state.get("messages", [])) > 0: 
+                if len(self.state.get("messages", [])) > 0:
                     last_message = self.state["messages"][-1]
                     if last_message.role == "tool" and last_message.content == "SEND":
 
@@ -183,6 +192,5 @@ of everything that has happened during a HITL interaction.
         Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,
         stream the progress and eventually ask you to review it.
     </Step>
-</Steps>
 
-</InsecurePasswordProtected>
+</Steps>

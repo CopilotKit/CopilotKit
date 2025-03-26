@@ -3,10 +3,11 @@ title: "Message Persistence"
 icon: "lucide/Database"
 ---
 
-<InsecurePasswordProtected>
-
 <Callout>
-  To learn about how to load previous messages and agent states, check out the [Loading Message History](/crewai-flows/persistence/loading-message-history) and [Loading Agent State](/crewai-flows/persistence/loading-agent-state) pages.
+  To learn about how to load previous messages and agent states, check out the
+  [Loading Message History](/crewai-flows/persistence/loading-message-history)
+  and [Loading Agent State](/crewai-flows/persistence/loading-agent-state)
+  pages.
 </Callout>
 
 To persist CrewAI Flow messages to a database, you can use the `@persist` decorator.
@@ -29,6 +30,4 @@ class MyFlow(Flow[MyState]):
         print("Flow state is persisted. Counter:", self.state.counter)
 ```
 
- Read more about persistence in the [CrewAI Flows documentation](https://docs.crewai.com/concepts/flows#class-level-persistence).
-
-</InsecurePasswordProtected>
+Read more about persistence in the [CrewAI Flows documentation](https://docs.crewai.com/concepts/flows#class-level-persistence).
