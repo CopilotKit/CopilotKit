@@ -151,7 +151,7 @@ function SubdocsMenuItem({
     );
   } else if (isOptionDropdown(item)) {
     return (
-      <SubdocsMenuItemAgentFramework
+      <SubdocsMenuItemDropdown
         item={item}
         selected={selected}
         onClick={onClick}
@@ -242,7 +242,10 @@ function SubdocsMenuItemDropdown({
         className={cn(
           "pl-[2px] pt-0 border-0 h-11",
           isSelected
-            ? "ring-purple-500/70 ring-2 rounded-sm"
+            ? `${
+                selectedOption?.selectedStyle ||
+                "ring-purple-500/70 ring-2 rounded-sm"
+              }`
             : "ring-0 opacity-60"
         )}
         ref={selectRef}
@@ -251,14 +254,16 @@ function SubdocsMenuItemDropdown({
           placeholder={
             <div className="flex pl-0 justify-center items-center">
               <div className={cn("rounded-sm p-1.5 mr-1")}>
-                <PiGraph
-                  className={cn(
-                    "w-7 h-7 text-bold p-1.5 bg-gradient-to-b rounded-sm",
-                    "from-purple-700 to-purple-400 text-purple-100 inline-block"
-                  )}
-                />
+                {selectedOption?.icon || (
+                  <PiGraph
+                    className={cn(
+                      "w-4 h-4 text-bold bg-gradient-to-b rounded-sm",
+                      "from-purple-700 to-purple-400 text-purple-100 inline-block"
+                    )}
+                  />
+                )}
               </div>
-              CoAgents
+              {item.title}
             </div>
           }
         />
@@ -267,13 +272,8 @@ function SubdocsMenuItemDropdown({
         {item.options.map((option) => (
           <SelectItem key={option.url} value={option.url}>
             <div className="flex pl-0 justify-center items-center">
-              <div className={cn("rounded-sm p-1.5 mr-1")}>
-                <PiGraph
-                  className={cn(
-                    "w-7 h-7 text-bold p-1.5 bg-gradient-to-b rounded-sm",
-                    "from-purple-700 to-purple-400 text-purple-100 inline-block"
-                  )}
-                />
+              <div className={cn("rounded-sm p-1.5 mr-1", option.bgGradient)}>
+                {option.icon}
               </div>
               {option.title}
             </div>
