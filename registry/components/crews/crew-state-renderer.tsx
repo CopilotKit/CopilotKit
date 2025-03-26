@@ -8,7 +8,20 @@ import { useEffect } from "react";
 import { useMemo, useRef, useState } from "react";
 
 /**
- * Renders your Crew's steps & tasks in real-time.
+ * Component that renders the crew's execution state in real-time
+ * 
+ * This component visualizes:
+ * - Steps being executed by the crew
+ * - Tasks being performed
+ * - Thoughts and results during execution
+ * 
+ * Features:
+ * - Collapsible UI to save space
+ * - Auto-scrolling to newest items
+ * - Highlighting of newly added items
+ * 
+ * @param state - The current state of the crew agent
+ * @param status - The response status of the crew
  */
 function CrewStateRenderer({
   state,
@@ -22,7 +35,7 @@ function CrewStateRenderer({
   const prevItemsLengthRef = useRef<number>(0);
   const [highlightId, setHighlightId] = useState<string | null>(null);
 
-  // Combine steps + tasks
+  // Combine and sort steps and tasks by timestamp
   const items = useMemo(() => {
     if (!state) return [];
     return [...(state.steps || []), ...(state.tasks || [])].sort(
@@ -31,7 +44,7 @@ function CrewStateRenderer({
     );
   }, [state]);
 
-  // Highlight newly added item & auto-scroll
+  // Handle highlighting of new items and auto-scrolling
   useEffect(() => {
     if (!state) return;
     if (items.length > prevItemsLengthRef.current) {
@@ -47,33 +60,32 @@ function CrewStateRenderer({
   }, [items, isCollapsed, state]);
 
   if (!state) {
-    return <div>Loading crew state...</div>;
+    return <div className="text-sm text-zinc-500 dark:text-zinc-400 italic">Loading crew state...</div>;
   }
 
   // Hide entirely if collapsed & empty & not in progress
   if (isCollapsed && items.length === 0 && status !== "inProgress") return null;
 
   return (
-    <div style={{ marginTop: "8px", fontSize: "0.9rem" }}>
+    <div className="mt-3 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-3 shadow-sm">
       <div
-        style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
+        className="flex items-center gap-2 cursor-pointer hover:text-zinc-700 dark:hover:text-zinc-300 text-zinc-800 dark:text-zinc-200 select-none"
         onClick={() => setIsCollapsed(!isCollapsed)}
       >
-        <span style={{ marginRight: 4 }}>{isCollapsed ? "▶" : "▼"}</span>
-        {status === "inProgress" ? "Crew is analyzing..." : "Crew analysis"}
+        <span className="text-xs">{isCollapsed ? "▶" : "▼"}</span>
+        <span className="font-medium">
+          {status === "inProgress" ? 
+            <span className="text-zinc-500 dark:text-zinc-400 animate-pulse">Crew is analyzing...</span> : 
+            <span className="text-zinc-500 dark:text-zinc-400">Crew analysis</span>
+          }
+          {!isCollapsed && items.length > 0 && ` (${items.length} steps)`}
+        </span>
       </div>
 
       {!isCollapsed && (
         <div
           ref={contentRef}
-          style={{
-            maxHeight: "200px",
-            overflow: "auto",
-            borderLeft: "1px solid #ccc",
-            paddingLeft: "8px",
-            marginLeft: "4px",
-            marginTop: "4px",
-          }}
+          className="max-h-60 overflow-auto border-l border-zinc-200 dark:border-zinc-700 pl-3 ml-1 mt-3 pr-2"
         >
           {items.length > 0 ? (
             items.map((item) => {
@@ -82,43 +94,47 @@ function CrewStateRenderer({
               return (
                 <div
                   key={item.id}
-                  style={{
-                    marginBottom: "8px",
-                    animation: isHighlighted ? "fadeIn 0.5s" : undefined,
-                  }}
+                  className={`mb-3 pb-3 border-b border-zinc-100 dark:border-zinc-800 last:border-0 ${
+                    isHighlighted ? "animate-fadeIn" : ""
+                  }`}
                 >
-                  <div style={{ fontWeight: "bold" }}>
+                  <div className="font-medium text-sm text-zinc-800 dark:text-zinc-200">
                     {isTool
                       ? (item as CrewsToolStateItem).tool
                       : (item as CrewsTaskStateItem).name}
                   </div>
                   {"thought" in item && item.thought && (
-                    <div style={{ opacity: 0.8, marginTop: "4px" }}>
-                      Thought: {item.thought}
+                    <div className="text-xs mt-1.5 text-zinc-600 dark:text-zinc-400">
+                      <span className="font-medium text-zinc-700 dark:text-zinc-300">Thought:</span> {item.thought}
                     </div>
                   )}
                   {"result" in item && item.result !== undefined && (
-                    <pre style={{ fontSize: "0.85rem", marginTop: "4px" }}>
-                      {JSON.stringify(item.result, null, 2)}
+                    <pre className="text-xs mt-1.5 p-2 bg-zinc-50 dark:bg-zinc-900 rounded border border-zinc-100 dark:border-zinc-800 overflow-x-auto text-zinc-700 dark:text-zinc-300">
+                      {typeof item.result === 'object' 
+                        ? JSON.stringify(item.result, null, 2)
+                        : item.result}
                     </pre>
                   )}
                   {"description" in item && item.description && (
-                    <div style={{ marginTop: "4px" }}>{item.description}</div>
+                    <div className="text-xs mt-1.5 text-zinc-600 dark:text-zinc-400">{item.description}</div>
                   )}
                 </div>
               );
             })
           ) : (
-            <div style={{ opacity: 0.7 }}>No activity yet...</div>
+            <div className="text-xs italic text-zinc-500 dark:text-zinc-400 py-2">No activity yet...</div>
           )}
         </div>
       )}
 
-      {/* Simple fadeIn animation */}
-      <style>{`
+      {/* Custom animation for highlighting new items */}
+      <style jsx>{`
         @keyframes fadeIn {
-          0% { opacity: 0; transform: translateY(4px); }
-          100% { opacity: 1; transform: translateY(0); }
+          0% { background-color: rgba(59, 130, 246, 0.1); }
+          100% { background-color: transparent; }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 1.5s ease-out;
         }
       `}</style>
     </div>

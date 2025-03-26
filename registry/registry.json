@@ -205,12 +205,12 @@
         {
           "path": "components/layout/coagents-crew-starter-layout.tsx",
           "type": "registry:component",
-          "target": "app/crew-quickstart/layout.tsx"
+          "target": "app/copilotkit/layout.tsx"
         },
         {
           "path": "components/quickstarts/coagents-crew-starter.tsx",
           "type": "registry:page",
-          "target": "app/crew-quickstart/page.tsx"
+          "target": "app/copilotkit/page.tsx"
         }
       ]
     }

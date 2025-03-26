@@ -1,5 +1,12 @@
 import React from "react";
 
+/**
+ * Props for the CrewInChatInput component
+ * 
+ * @property status - The current status of the crew operation
+ * @property inputs - Array of input field names to render
+ * @property onSubmit - Callback function triggered when form is submitted
+ */
 interface CrewInChatInputProps {
   status: "inProgress" | "executing" | string;
   inputs: string[];
@@ -7,15 +14,20 @@ interface CrewInChatInputProps {
 }
 
 /**
- * A form component that renders dynamic input fields for crew interactions.
- * Used to collect user inputs during crew execution in a chat-like interface.
- *
+ * A form component that renders dynamic input fields for crew interactions
+ * 
+ * This component creates a form with input fields based on the provided
+ * input names. It's designed to collect information from users in a 
+ * conversational interface during crew execution.
+ * 
  * @example
  * ```tsx
  * <CrewInChatInput
  *   status="inProgress"
- *   inputs={["query", "context"]}
- *   onSubmit={handleSubmit}
+ *   inputs={["query", "location"]}
+ *   onSubmit={async (values) => {
+ *     console.log(values); // { query: "...", location: "..." }
+ *   }}
  * />
  * ```
  */
@@ -24,13 +36,15 @@ export const CrewInChatInput: React.FC<CrewInChatInputProps> = ({
   inputs,
   onSubmit,
 }) => {
+  // If not in progress or executing, show that inputs were submitted
+  console.log("status", status);
   if (status !== "inProgress" && status !== "executing") {
-    return <>Inputs submitted</>;
+    return <div className="text-sm text-white italic">Inputs submitted</div>;
   }
 
   return (
     <form
-      style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+      className="flex flex-col gap-4 bg-black rounded-lg p-4 border border-zinc-800 shadow-sm"
       onSubmit={async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
@@ -41,31 +55,32 @@ export const CrewInChatInput: React.FC<CrewInChatInputProps> = ({
         await onSubmit(inputValues);
       }}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      <div className="flex flex-col gap-4">
         {inputs.map((input) => (
           <div
             key={input}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "8px",
-            }}
+            className="flex flex-col gap-2"
           >
-            <label htmlFor={input}>{input}</label>
+            <label 
+              htmlFor={input}
+              className="text-sm font-medium text-white capitalize"
+            >
+              {input}
+            </label>
             <textarea
               id={input}
               name={input}
               autoFocus
               placeholder={`Enter ${input} here`}
               required
+              className="p-3 border rounded-md border-zinc-800 text-white focus:outline-none"
+              rows={3}
             />
           </div>
         ))}
         <button
           type="submit"
-          style={{
-            cursor: "pointer",
-          }}
+          className="px-4 py-2 bg-white hover:bg-zinc-300 active:bg-zinc-400 text-black rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors self-start mt-2 shadow-sm"
         >
           Submit
         </button>
