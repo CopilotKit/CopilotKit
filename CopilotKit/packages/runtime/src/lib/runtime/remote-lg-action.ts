@@ -68,6 +68,8 @@ type LangGraphPlatformMessage =
   | LangGraphPlatformResultMessage
   | BaseLangGraphPlatformMessage;
 
+type SchemaKeys = { input: string[] | null; output: string[] | null } | null;
+
 let activeInterruptEvent = false;
 
 export async function execute(args: ExecutionArgs): Promise<ReadableStream<Uint8Array>> {
@@ -206,9 +208,8 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   const graphInfo = await client.assistants.getGraph(assistantId);
   const graphSchema = await client.assistants.getSchemas(assistantId);
   const schemaKeys = getSchemaKeys(graphSchema);
-
   // Do not input keys that are not part of the input schema
-  if (payload.input && schemaKeys.input) {
+  if (payload.input && schemaKeys?.input) {
     payload.input = Object.fromEntries(
       Object.entries(payload.input).filter(([key]) => schemaKeys.input.includes(key)),
     );
@@ -449,7 +450,7 @@ function getStateSyncEvent({
   running: boolean;
   active: boolean;
   includeMessages?: boolean;
-  schemaKeys: { input: string[] | null; output: string[] | null };
+  schemaKeys: SchemaKeys;
 }): string {
   if (!includeMessages) {
     state = Object.keys(state).reduce((acc, key) => {
@@ -466,7 +467,7 @@ function getStateSyncEvent({
   }
 
   // Do not emit state keys that are not part of the output schema
-  if (schemaKeys.output) {
+  if (schemaKeys?.output) {
     state = Object.fromEntries(
       Object.entries(state).filter(([key]) => schemaKeys.output.includes(key)),
     );
@@ -761,8 +762,11 @@ function copilotkitMessagesToLangChain(messages: Message[]): LangGraphPlatformMe
   return result;
 }
 
-function getSchemaKeys(graphSchema: GraphSchema) {
+function getSchemaKeys(graphSchema: GraphSchema): SchemaKeys {
   const CONSTANT_KEYS = ["messages", "copilotkit"];
+  if (!graphSchema.input_schema.properties || !graphSchema.output_schema.properties) {
+    return null;
+  }
   const inputSchema = Object.keys(graphSchema.input_schema.properties);
   const outputSchema = Object.keys(graphSchema.output_schema.properties);
 

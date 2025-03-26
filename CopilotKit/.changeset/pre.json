@@ -18,6 +18,7 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
+    "mean-crabs-enjoy",
     "red-plums-notice",
     "twenty-houses-end"
   ]
