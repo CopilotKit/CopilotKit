@@ -26,12 +26,14 @@ const config = {
     ],
   },
 
-  experimental: {
-    skipTrailingSlashRedirect: true,
-    skipMiddlewareUrlNormalize: true,
-  },
+  skipTrailingSlashRedirect: true,
+  skipMiddlewareUrlNormalize: true,
 
   optimizeFonts: false,
+
+  experimental: {
+    turbo: true,
+  },
 
   async redirects() {
     return [

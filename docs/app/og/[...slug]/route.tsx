@@ -58,9 +58,11 @@ export async function GET(
     const interFont = await getInter();
     const interSemiboldFont = await getInterSemibold();
 
-    const fonts = [];
+    // Define fonts array without type errors by dropping strong typing
+    const fontOptions = [];
+
     if (interFont) {
-      fonts.push({
+      fontOptions.push({
         name: "Inter",
         weight: 500,
         data: interFont,
@@ -69,7 +71,7 @@ export async function GET(
     }
 
     if (interSemiboldFont) {
-      fonts.push({
+      fontOptions.push({
         name: "Inter",
         weight: 700,
         data: interSemiboldFont,
@@ -117,7 +119,7 @@ export async function GET(
                 <p
                   style={{
                     color: "#4f46e5",
-                    fontFamily: fonts.length ? "Inter" : "sans-serif",
+                    fontFamily: fontOptions.length ? "Inter" : "sans-serif",
                     fontWeight: 700,
                     margin: 0,
                     fontSize: 48,
@@ -133,7 +135,7 @@ export async function GET(
                     fontSize: 34,
                     marginBottom: 12,
                     fontWeight: 500,
-                    fontFamily: fonts.length ? "Inter" : "sans-serif",
+                    fontFamily: fontOptions.length ? "Inter" : "sans-serif",
                   }}
                 >
                   {(page.data as any).description}
@@ -146,13 +148,18 @@ export async function GET(
       {
         // width: width,
         // height: height,
-        fonts: fonts.length ? fonts : undefined,
+        fonts: fontOptions.length ? (fontOptions as any) : undefined,
       }
     );
   } catch (error) {
     console.error("Error generating OG image:", error);
     // Return a simple fallback image
-    return new Response("OG image generation failed", { status: 200 });
+    return new Response("OG image generation failed - using fallback", {
+      status: 307,
+      headers: {
+        Location: "/images/og-fallback.png",
+      },
+    });
   }
 }
 
