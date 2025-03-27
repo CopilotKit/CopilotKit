@@ -1,13 +1,13 @@
 # ui
 
-## 1.8.2-next.4
+## 1.8.3-next.0
 
 ### Patch Changes
 
 - 76520b8: - style: remove system-preference oriented dark mode
-  - @copilotkit/react-core@1.8.2-next.4
-  - @copilotkit/runtime-client-gql@1.8.2-next.4
-  - @copilotkit/shared@1.8.2-next.4
+  - @copilotkit/react-core@1.8.3-next.0
+  - @copilotkit/runtime-client-gql@1.8.3-next.0
+  - @copilotkit/shared@1.8.3-next.0
 
 ## 1.8.2-next.3
 
