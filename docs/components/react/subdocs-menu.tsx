@@ -1,18 +1,4 @@
 "use client";
-import { ChevronDown } from "lucide-react";
-import {
-  type HTMLAttributes,
-  type ReactNode,
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { useSidebar } from "fumadocs-ui/provider";
-import { SearchToggle } from "../layout/top-bar";
 import {
   Select,
   SelectContent,
@@ -20,6 +6,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import { useSidebar } from "fumadocs-ui/provider";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  type HTMLAttributes,
+  type ReactNode,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import { PiGraph } from "react-icons/pi";
 
 export function isActive(
@@ -226,60 +223,66 @@ function SubdocsMenuItemDropdown({
   const isSelected = selectedOption !== undefined;
 
   return (
-    <Select
-      onValueChange={(url) => {
-        router.push(url);
-        onClick?.();
-        if (selectRef.current) {
-          setTimeout(() => {
-            (selectRef.current as any).blur();
-          }, 10);
-        }
-      }}
-      value={selectedOption?.url}
-    >
-      <SelectTrigger
-        className={cn(
-          "pl-[2px] pt-0 border-0 h-11",
-          isSelected
-            ? `${
-                selectedOption?.selectedStyle ||
-                "ring-purple-500/70 ring-2 rounded-sm"
-              }`
-            : "ring-0 opacity-60"
-        )}
-        ref={selectRef}
-      >
-        <SelectValue
-          placeholder={
-            <div className="flex pl-0 justify-center items-center">
-              <div className={cn("rounded-sm p-1.5 mr-1")}>
-                {selectedOption?.icon || (
-                  <PiGraph
-                    className={cn(
-                      "w-4 h-4 text-bold bg-gradient-to-b rounded-sm",
-                      "from-purple-700 to-purple-400 text-purple-100 inline-block"
-                    )}
-                  />
-                )}
-              </div>
-              {item.title}
-            </div>
+    <div className="w-full">
+      <Select
+        onValueChange={(url) => {
+          router.push(url);
+          onClick?.();
+          if (selectRef.current) {
+            setTimeout(() => {
+              (selectRef.current as any).blur();
+            }, 10);
           }
-        />
-      </SelectTrigger>
-      <SelectContent>
-        {item.options.map((option) => (
-          <SelectItem key={option.url} value={option.url}>
-            <div className="flex pl-0 justify-center items-center">
-              <div className={cn("rounded-sm p-1.5 mr-1", option.bgGradient)}>
-                {option.icon}
+        }}
+        value={selectedOption?.url}
+      >
+        <SelectTrigger
+          className={cn(
+            "pl-2 py-2 border-0 h-auto flex gap-3 items-center w-full",
+            isSelected
+              ? `${
+                  selectedOption?.selectedStyle ||
+                  "ring-purple-500/70 ring-2 rounded-sm"
+                } opacity-100`
+              : "ring-0 opacity-60 hover:opacity-100"
+          )}
+          ref={selectRef}
+        >
+          <SelectValue
+            placeholder={
+              <div className="flex items-center">
+                <div className={cn("rounded-sm p-1.5 mr-2")}>
+                  {selectedOption?.icon || (
+                    <PiGraph
+                      className={cn(
+                        "w-5 h-5 text-bold bg-gradient-to-b rounded-sm",
+                        "from-purple-700 to-purple-400 text-purple-100 inline-block"
+                      )}
+                    />
+                  )}
+                </div>
+                <div className="font-medium">{item.title}</div>
               </div>
-              {option.title}
-            </div>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+            }
+          />
+        </SelectTrigger>
+        <SelectContent className="p-1">
+          {item.options.map((option) => (
+            <SelectItem
+              key={option.url}
+              value={option.url}
+              className="py-2 px-2 cursor-pointer focus:bg-accent focus:text-accent-foreground"
+            >
+              <div className="flex items-center">
+                <div className={cn("rounded-sm p-1.5 mr-2", option.bgGradient)}>
+                  {option.icon}
+                </div>
+                <span className="font-medium">{option.title}</span>
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
