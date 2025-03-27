@@ -1,5 +1,15 @@
 # ui
 
+## 1.8.3
+
+### Patch Changes
+
+- 76520b8: - style: remove system-preference oriented dark mode
+- 0f6baa1: - fix: fix default styles of chat components
+  - @copilotkit/react-core@1.8.3
+  - @copilotkit/runtime-client-gql@1.8.3
+  - @copilotkit/shared@1.8.3
+
 ## 1.8.3-next.0
 
 ### Patch Changes
