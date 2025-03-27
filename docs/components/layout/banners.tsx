@@ -24,13 +24,15 @@ export function NewLookAndFeelBanner() {
 
 export function CoagentsCrewAnnouncementBanner() {
   return (
-    <Banner className="w-full text-white gap-2 bg-indigo-500 dark:bg-indigo-900 flex flex-col h-24 !important" variant="rainbow" id="coagents-crew-announcement-banner">
-      <p>
-        <SiCrewai className="w-5 h-5 inline mb-1" /> CrewAI support is here! Checkout the <Link href="/crewai-crews" className="underline">Crew</Link> and <Link href="/crewai-flows" className="underline">Flow</Link> documentation.
-      </p>
-      <p>
-        <Link href="https://go.copilotkit.ai/FullstackAgentsWebinar" className="underline">Fullstack Agents Webinar, March 28th @ 9:00 AM PST.</Link>
-      </p>
+    <Banner className="w-full text-white gap-2 bg-indigo-500 dark:bg-indigo-900 h-24 !important" variant="rainbow" id="coagents-crew-announcement-banner">
+      <div className="flex flex-col">
+        <p>
+          <SiCrewai className="w-5 h-5 inline mb-1" /> CrewAI support is here! Checkout the <Link href="/crewai-crews" className="underline">Crew</Link> and <Link href="/crewai-flows" className="underline">Flow</Link> documentation.
+        </p>
+        <p>
+          <Link href="https://go.copilotkit.ai/FullstackAgentsWebinar" className="underline">Fullstack Agents Webinar, March 28th @ 9:00 AM PST.</Link>
+        </p>
+      </div>
     </Banner>
   )
 }
