@@ -3,17 +3,23 @@ title: Reading the outputs
 icon: "lucide/ArrowLeft"
 description: Read the agent state in your native application.
 ---
-import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
 
-<InsecurePasswordProtected>
+import { ImageZoom } from "fumadocs-ui/components/image-zoom";
 
 <Frame>
-  <ImageZoom src="/images/coagents/read-agent-state.png" alt="read agent state" width={1000} height={1000} className="my-0"/>
+  <ImageZoom
+    src="/images/coagents/read-agent-state.png"
+    alt="read agent state"
+    width={1000}
+    height={1000}
+    className="my-0"
+  />
 </Frame>
 
 <Callout type="info">
-  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter) with
-  the [implementation](#implementation) section applied!
+  Pictured above is the [coagent
+  starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter)
+  with the [implementation](#implementation) section applied!
 </Callout>
 
 ## What is this?
@@ -35,6 +41,7 @@ You can use this when you want to provide the user with a way to read the output
 
     If you don't already have an agent, you can use the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter-crewai-crews) as a starting point
     as this guide uses it as a starting point.
+
   </Step>
   <Step>
     ### Use the `useCoAgent` Hook
@@ -45,7 +52,7 @@ You can use this when you want to provide the user with a way to read the output
     import { useCoAgent } from "@copilotkit/react-core"; // [!code highlight]
 
     // Define the agent state type, should match the actual state of your agent
-    
+
 
     function YourMainContent() {
       const { state } = useCoAgent({
@@ -73,11 +80,10 @@ You can use this when you want to provide the user with a way to read the output
     <Callout type="info">
       The `state` in `useCoAgent` is reactive and will automatically update when the agent's state changes.
     </Callout>
+
   </Step>
   <Step>
     ### Give it a try!
     As the agent state updates, your `state` variable will automatically update with it! In this case, you'll see the report update when the crew is done running.
   </Step>
 </Steps>
-
-</InsecurePasswordProtected>

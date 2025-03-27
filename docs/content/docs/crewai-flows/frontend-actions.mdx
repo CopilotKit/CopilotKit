@@ -3,13 +3,22 @@ title: Frontend Actions
 icon: "lucide/Wrench"
 description: Create frontend actions and use them within your agent.
 ---
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 
-<InsecurePasswordProtected>
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 
-<video src="/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<video
+  src="/images/frontend-actions-demo.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
 <Callout>
-    This video shows the [coagents starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-flows) repo with the [implementation](#implementation) section applied to it!
+  This video shows the [coagents
+  starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-flows)
+  repo with the [implementation](#implementation) section applied to it!
 </Callout>
 
 ## What is this?
@@ -34,7 +43,7 @@ Without frontend actions, agents are limited to just processing and returning da
     <Step>
         ### Setup CopilotKit
 
-        To use frontend actions, you'll need to setup CopilotKit first. For the sake of brevity, we won't cover it here. 
+        To use frontend actions, you'll need to setup CopilotKit first. For the sake of brevity, we won't cover it here.
 
         Check out our [getting started guide](/crewai-flows/quickstart/crewai/crewai-flows) and come back here when you're setup!
     </Step>
@@ -47,7 +56,7 @@ Without frontend actions, agents are limited to just processing and returning da
 
         ```tsx title="page.tsx"
         import { useCopilotAction } from "@copilotkit/react-core" // [!code highlight]
-            
+
         export function Page() {
           // ...
 
@@ -135,6 +144,5 @@ Without frontend actions, agents are limited to just processing and returning da
         ### Give it a try!
         You've now given your agent the ability to directly call any CopilotActions you've defined. These actions will be available as tools to the agent where they can be used as needed.
     </Step>
-</Steps>
 
-</InsecurePasswordProtected>
+</Steps>

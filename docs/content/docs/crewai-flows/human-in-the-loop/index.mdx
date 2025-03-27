@@ -3,16 +3,24 @@ title: Human in the Loop (HITL)
 icon: "lucide/User"
 description: Allow your agent and users to collaborate on complex tasks.
 ---
-import { CTACards } from "@/components/react/cta-cards"
-import { Pause, Share2 } from "lucide-react"
 
-<InsecurePasswordProtected>
+import { CTACards } from "@/components/react/cta-cards";
+import { Pause, Share2 } from "lucide-react";
 
-<video src="/images/coagents/human-in-the-loop-example.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<video
+  src="/images/coagents/human-in-the-loop-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
 
 {/* TODO-DOCS-CREWAI-FLOWS: Add Travel App Example */}
 {/* <Callout>
-  This video shows an example of our [AI Travel App](/coagents/tutorials/ai-travel-app) using HITL to get user feedback.
+This video shows an example of our [AI Travel App](/coagents/tutorials/ai-travel-app) using HITL to get user feedback.
+
 </Callout> */}
 
 ## What is Human-in-the-Loop (HITL)?
@@ -20,7 +28,11 @@ import { Pause, Share2 } from "lucide-react"
 Human-in-the-loop (HITL) allows agents to request human input or approval during execution, making AI systems more reliable and trustworthy. This pattern is essential when building AI applications that need to handle complex decisions or actions that require human judgment.
 
 <Frame className="my-0">
-    <img src="/images/coagents/coagents-hitl-infographic.png" alt="Agentic Copilot Human in the Loop" className="mt-4 mb-0 shadow-md" />
+  <img
+    src="/images/coagents/coagents-hitl-infographic.png"
+    alt="Agentic Copilot Human in the Loop"
+    className="mt-4 mb-0 shadow-md"
+  />
 </Frame>
 
 ## When should I use this?
@@ -42,10 +54,9 @@ Read more about the approach to HITL in CrewAI Flows.
     {
       icon: Share2,
       title: "Flow-based",
-      description: "Utilize CrewAI Flows to create Human-in-the-Loop workflows.",
-      href: "/crewai-flows/human-in-the-loop/flow"
-    }
+      description:
+        "Utilize CrewAI Flows to create Human-in-the-Loop workflows.",
+      href: "/crewai-flows/human-in-the-loop/flow",
+    },
   ]}
 />
-
-</InsecurePasswordProtected>
