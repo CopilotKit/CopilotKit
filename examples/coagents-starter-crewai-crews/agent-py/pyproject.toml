@@ -4,10 +4,7 @@ version = "0.1.0"
 description = "Starter"
 authors = ["Markus Ecker <markus.ecker@gmail.com>"]
 license = "MIT"
-
-[project]
-name = "greeter"
-version = "0.0.1"
+packages = [{include = "research"}]
 
 [build-system]
 requires = ["setuptools >= 61.0"]
