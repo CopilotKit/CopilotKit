@@ -1,5 +1,14 @@
 # ui
 
+## 1.8.2-next.3
+
+### Patch Changes
+
+- 0f6baa1: - fix: fix default styles of chat components
+  - @copilotkit/react-core@1.8.2-next.3
+  - @copilotkit/runtime-client-gql@1.8.2-next.3
+  - @copilotkit/shared@1.8.2-next.3
+
 ## 1.8.2-next.2
 
 ### Patch Changes

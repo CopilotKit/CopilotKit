@@ -194,7 +194,7 @@ export default function DebugMenuButton({
   const messagesContext = useCopilotMessagesContext();
 
   return (
-    <div className="bg-black top-24 w-52 text-right">
+    <>
       <Menu>
         <MenuButton
           className={`copilotKitDebugMenuTriggerButton ${mode === "compact" ? "compact" : ""}`}
@@ -239,6 +239,6 @@ export default function DebugMenuButton({
           </MenuItem>
         </MenuItems>
       </Menu>
-    </div>
+    </>
   );
 }
