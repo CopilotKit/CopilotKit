@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+#coagents-crew-announcement-banner > button {
+  @apply text-white hover:bg-black/20;
+}
+
 .line.diff.remove {
   @apply px-0 mx-0;
   background-color: rgb(255, 220, 220);
