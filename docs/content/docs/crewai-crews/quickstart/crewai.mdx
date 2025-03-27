@@ -8,6 +8,7 @@ import {
   TailoredContent,
   TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
+import { SquareTerminal, SquareChartGantt } from "lucide-react";
 import { CoAgentsEnterpriseCTA } from "@/components/react/coagents/coagents-enterprise-cta.tsx";
 import { CoAgentsDiagram } from "@/components/react/coagents/coagents-diagram.tsx";
 import { FaPython, FaJs, FaCloud } from "react-icons/fa";
@@ -42,14 +43,6 @@ Before you begin, you'll need the following:
 ## Getting started
 
 <Steps>
-    <Step>
-        ### Install CopilotKit
-        First, install the latest packages for CopilotKit into your frontend.
-        ```package-install
-        npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime-client-gql
-        ```
-    </Step>
-
     {/* The initial choice that determines the flow */}
     <TailoredContent
         className="step"
@@ -61,7 +54,7 @@ Before you begin, you'll need the following:
                     You will need a CrewAI Crew agent to get started!
                 </p>
                 <p className="text-base">
-                    Either bring your own or feel free to use our starter repo.
+                    You can either bring your own from <a target="_blank" href="https://app.crewai.com/">Crew AI Enterprise</a> or use our starter repo.
                 </p>
             </div>
         }
@@ -78,62 +71,104 @@ Before you begin, you'll need the following:
                 Login to [CrewAI](https://www.crewai.com/) and grab your Crew's URL and Bearer token.
 
                 Don't have a deployed Crew? Check out the [templates](https://app.crewai.com/crewai_plus/templates) to get started quickly.
-
-                Make a note of your Crew API URL and Bearer token, then head over to https://cloud.copilotkit.ai/ to register your crew with Copilot Cloud.
             </Step>
 
-            <Step>
-                ### Connect to Copilot Cloud
-                1. Go to [Copilot Cloud](https://cloud.copilotkit.ai), sign in and click Get Started
-                2. Add your OpenAI API key to the "Provide OpenAI API Key" section
-                3. Click "Add Remote Endpoint" and fill in the details of your Crew. Note: If your Agent Name contains multiple words, use underscores (`_`) as separators.
-                4. Click "Save Endpoint"
-                5. Copy the Copilot Cloud Public API Key
-
-                <img src="/images/copilot-cloud/crew-cpk-setup.gif" alt="CrewAI Copilot Setup" className="rounded-lg shadow-xl mt-4" />
-            </Step>
-
-            <Step>
-                ## Setup the CopilotKit Provider
-                The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
-                it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
-                <CloudCopilotKitProvider components={props.components} />
-            </Step>
-            <Step>
-                ## Choose a Copilot UI
-                You are almost there! Now it's time to setup your Copilot UI.
-                <CopilotUI components={props.components} />
-            </Step>
-            <Step>
-                ## Create a Crew-Quickstart component
-                Place the following snippet in your **main page** (e.g. `page.tsx` in Next.js) or wherever you want to use CopilotKit. It simply imports the `QuickstartCrew` component from our **crew-quickstart.tsx** file and renders it.
-
-                ```tsx title="page.tsx"
-                "use client";
-                import React from "react";
-                import useCrewQuickstart from "./use-crew-quickstart";
-
-                export default function YourApp() {
-                  useCrewQuickstart({
-                    crewName: "<REPLACE_WITH_YOUR_CREW_NAME>",
-                    /**
-                     * List of input required to start your crew (location e.g)
-                     */
-                    inputs: ["location"]
-                  })
-                  return (
-                    <>
-                      {/* Existing markup */}
-                    </>
-                  );
+            <TailoredContent
+                className="step"
+                id="cli"
+                header={
+                    <div>
+                        <p className="text-xl font-semibold">Use the CopilotKit CLI</p>
+                    </div>
                 }
-                ```
-               <CrewQuickStart components={props.components} />
-            </Step>
+            >
+                <TailoredContentOption
+                    id="use-cli"
+                    title="Use the CopilotKit CLI"
+                    description="I have a Next.js application and want to get started quickly."
+                    icon={<SquareTerminal />}
+                >
+                    <Step>
+                        ### Run the CLI
+                        Just run this following command in your Next.js application to get started!
+
+                        <Accordions>
+                            <Accordion title="Don't have a Next.js application?">
+                                No problem! Just use `create-next-app` to make one quickly.
+                                ```bash
+                                npx create-next-app@latest
+                                ```
+                            </Accordion>
+                        </Accordions>
+
+                        ```bash
+                        npx copilotkit@latest init
+                        ```
+                    </Step>
+                    
+                </TailoredContentOption>
+                <TailoredContentOption
+                    id="do-it-manually"
+                    title="Code along"
+                    description="I want to deeply understand what's happening under the hood or don't have a Next.js application."
+                    icon={<SquareChartGantt />}
+                >
+                    <Step>
+                        ### Connect to Copilot Cloud
+                        1. Go to [Copilot Cloud](https://cloud.copilotkit.ai), sign in and click Get Started
+                        2. Add your OpenAI API key to the "Provide OpenAI API Key" section
+                        3. Click "Add Remote Endpoint" and fill in the details of your Crew. Note: If your Agent Name contains multiple words, use underscores (`_`) as separators.
+                        4. Click "Save Endpoint"
+                        5. Copy the Copilot Cloud Public API Key
+
+                        <img src="/images/copilot-cloud/crew-cpk-setup.gif" alt="CrewAI Copilot Setup" className="rounded-lg shadow-xl mt-4" />
+                    </Step>
+
+                    <Step>
+                        ## Setup the CopilotKit Provider
+                        The [`<CopilotKit>`](/reference/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
+                        it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
+                        <CloudCopilotKitProvider components={props.components} />
+                    </Step>
+                    <Step>
+                        ## Choose a Copilot UI
+                        You are almost there! Now it's time to setup your Copilot UI.
+                        <CopilotUI components={props.components} />
+                    </Step>
+                    <Step>
+                        ## Create a Crew-Quickstart component
+                        Place the following snippet in your **main page** (e.g. `page.tsx` in Next.js) or wherever you want to use CopilotKit. It simply imports the `QuickstartCrew` component from our **crew-quickstart.tsx** file and renders it.
+
+                        ```tsx title="page.tsx"
+                        "use client";
+                        import React from "react";
+                        import useCrewQuickstart from "./use-crew-quickstart";
+
+                        export default function YourApp() {
+                        useCrewQuickstart({
+                            crewName: "<REPLACE_WITH_YOUR_CREW_NAME>",
+                            /**
+                             * List of input required to start your crew (location e.g)
+                            */
+                            inputs: ["location"]
+                        })
+                        return (
+                            <>
+                            {/* Existing markup */}
+                            </>
+                        );
+                        }
+                        ```
+                        <CrewQuickStart components={props.components} />
+                    </Step>
+                </TailoredContentOption>
+            </TailoredContent>
             <Step>
                 ### 🎉 Talk to your agent!
                 Congrats! You've successfully integrated your CrewAI Enterprise agent with CopilotKit.
-                Try talking to your Copilot. Chat with it to provide the information needed to run your Crew from your app. You can also check out our [Restaurant Finder Crew demo](https://crew-ai-enterprise-demo.vercel.app) to see implementation in action.
+                Try talking to your Copilot. Chat with it to provide the information needed to run your Crew from your app. 
+                
+                You can also check out our [Restaurant Finder Crew demo](https://crew-ai-enterprise-demo.vercel.app) to see implementation in action.
             </Step>
         </TailoredContentOption>
 
