@@ -22,6 +22,11 @@
   display: flex;
 }
 
+.copilotKitHeaderCloseButton {
+  background: none;
+  border: none;
+}
+
 @media (min-width: 640px) {
   .copilotKitHeader {
     padding-left: 1.5rem;
