@@ -480,6 +480,7 @@ class LangGraphAgent(Agent):
 
     def get_schema_keys(self, config):
         CONSTANT_KEYS = ['copilotkit', 'messages']
+        CONSTANT_CONFIG_KEYS = ['checkpoint_id', 'checkpoint_ns', 'thread_id']
         try:
             input_schema = self.graph.get_input_jsonschema(config)
             output_schema = self.graph.get_output_jsonschema(config)
@@ -490,6 +491,10 @@ class LangGraphAgent(Agent):
                 schema_dict = self.graph.config_schema().schema()
                 configurable_schema = schema_dict["$defs"]["Configurable"]
                 config_schema_keys = list(configurable_schema["properties"].keys())
+
+                # If only constant keys are present, it means no schema was passed, we allow everything
+                if set(config_schema_keys) == set(CONSTANT_CONFIG_KEYS):
+                    config_schema_keys = None
             except:
                 config_schema_keys = None
 
