@@ -210,8 +210,8 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   const graphSchema = await client.assistants.getSchemas(assistantId);
   const schemaKeys = getSchemaKeys(graphSchema);
   if (configurable) {
-    const filteredConfigurable = schemaKeys.config
-      ? filterObjectBySchemaKeys(configurable, schemaKeys.config)
+    const filteredConfigurable = schemaKeys?.config
+      ? filterObjectBySchemaKeys(configurable, schemaKeys?.config)
       : configurable;
     await client.assistants.update(assistantId, { config: { configurable: filteredConfigurable } });
   }
