@@ -1,5 +1,19 @@
 # @copilotkit/runtime
 
+## 1.8.4-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.4-next.2
+
+## 1.8.4-next.1
+
+### Patch Changes
+
+- f363760: - fix: when unable to find specified agent, show what's available
+- Updated dependencies [f363760]
+  - @copilotkit/shared@1.8.4-next.1
+
 ## 1.8.4-next.0
 
 ### Patch Changes

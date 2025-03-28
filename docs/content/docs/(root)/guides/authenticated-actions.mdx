@@ -67,11 +67,11 @@ interface AuthState {
   metadata?: Record<string, any>;
 }
 
-// Your authentication component
-function AuthComponent({
-  onAuthComplete,
+// Your SignInComponent component
+function SignInComponent({
+  onSignInComplete,
 }: {
-  onAuthComplete: (authState: AuthState) => void;
+  onSignInComplete: (authState: AuthState) => void;
 }) {
   const handleAuth = async () => {
     // Your auth logic (e.g., OAuth, custom auth)
@@ -100,7 +100,7 @@ export default function App() {
     <CopilotKit
       publicApiKey={process.env.COPILOTKIT_PUBLIC_API_KEY}
       authConfig_c={{
-        AuthComponent: AuthComponent,
+        SignInComponent,
       }}
     >
       {/* Your app */}

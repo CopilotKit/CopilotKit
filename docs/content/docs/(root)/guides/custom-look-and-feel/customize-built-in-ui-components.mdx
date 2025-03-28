@@ -112,10 +112,13 @@ For a full list of styles and classes used in CopilotKit, click [here](https://g
 You can customize the icons by passing the `icons` property to the `CopilotSidebar`, `CopilotPopup` or `CopilotChat` component.
 
 ```tsx
-<CopilotChat icons={{
-  openIcon: <Icon name="lucide/MessageSquare" />,
-  closeIcon: <Icon name="lucide/MessageSquare" />,
-}} />
+<CopilotChat
+  icons={{
+    // Use your own icons here – any React nodes
+    openIcon: <YourOpenIconComponent />,
+    closeIcon: <YourCloseIconComponent />,
+  }}
+/>
 ```
 
 ### Reference
