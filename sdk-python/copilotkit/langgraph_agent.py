@@ -508,7 +508,7 @@ class LangGraphAgent(Agent):
         try:
             schema_keys_name = f"{schema_type}_schema_keys"
             if hasattr(self, schema_keys_name) and getattr(self, schema_keys_name):
-                filter_by_schema_keys(state, getattr(self, schema_keys_name))
+                return filter_by_schema_keys(state, getattr(self, schema_keys_name))
         except Exception:
             return state
 
