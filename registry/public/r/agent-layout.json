@@ -1,0 +1,18 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "agent-layout",
+  "type": "registry:block",
+  "title": "Agent Layout",
+  "description": "A layout for CopilotKit with an agent.",
+  "dependencies": [
+    "@copilotkit/react-core"
+  ],
+  "files": [
+    {
+      "path": "components/layout/agent-layout.tsx",
+      "content": "import \"@copilotkit/react-ui/styles.css\";\nimport React, { ReactNode } from \"react\";\nimport { CopilotKit } from \"@copilotkit/react-core\";\n\n// Where CopilotKit will proxy requests to. If you're using Copilot Cloud, this environment variable will be empty.\nconst runtimeUrl = process.env.NEXT_PUBLIC_COPILOTKIT_RUNTIME_URL\n// When using Copilot Cloud, all we need is the publicApiKey.\nconst publicApiKey = process.env.NEXT_PUBLIC_COPILOT_API_KEY;\n// The name of the agent that we'll be using.\nconst agentName = process.env.NEXT_PUBLIC_COPILOTKIT_AGENT_NAME\n\nexport default function Layout({ children }: { children: ReactNode }) {\n  return (\n    <CopilotKit \n      runtimeUrl={runtimeUrl}\n      publicApiKey={publicApiKey}\n      agent={agentName}\n    >\n      {children}\n    </CopilotKit>\n  );\n}\n",
+      "type": "registry:page",
+      "target": "app/copilotkit/layout.tsx"
+    }
+  ]
+}

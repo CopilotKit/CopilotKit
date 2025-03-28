@@ -30,9 +30,7 @@ const workflow = new StateGraph(AgentStateAnnotation)
   .addEdge("perform_delete_node", "chat_node")
   .addEdge("search_node", "download");
 
-const memory = new MemorySaver();
 export const graph = workflow.compile({
-  checkpointer: memory,
   interruptAfter: ["delete_node"],
 });
 

@@ -53,7 +53,6 @@ import {
 } from "./ChatContext";
 import { Messages as DefaultMessages } from "./Messages";
 import { Input as DefaultInput } from "./Input";
-import { ResponseButton as DefaultResponseButton } from "./Response";
 import { RenderTextMessage as DefaultRenderTextMessage } from "./messages/RenderTextMessage";
 import { RenderActionExecutionMessage as DefaultRenderActionExecutionMessage } from "./messages/RenderActionExecutionMessage";
 import { RenderResultMessage as DefaultRenderResultMessage } from "./messages/RenderResultMessage";
@@ -77,11 +76,9 @@ import {
   InputProps,
   MessagesProps,
   RenderMessageProps,
-  ResponseButtonProps,
   UserMessageProps,
 } from "./props";
 
-import { CopilotDevConsole } from "../dev-console";
 import { HintFunction, runAgent, stopAgent } from "@copilotkit/react-core";
 
 /**
@@ -119,6 +116,26 @@ export interface CopilotChatProps {
   onReloadMessages?: OnReloadMessages;
 
   /**
+   * A callback function to regenerate the assistant's response
+   */
+  onRegenerate?: () => void;
+
+  /**
+   * A callback function when the message is copied
+   */
+  onCopy?: (message: string) => void;
+
+  /**
+   * A callback function for thumbs up feedback
+   */
+  onThumbsUp?: (message: string) => void;
+
+  /**
+   * A callback function for thumbs down feedback
+   */
+  onThumbsDown?: (message: string) => void;
+
+  /**
    * Icons can be used to set custom icons for the chat window.
    */
   icons?: CopilotChatIcons;
@@ -135,12 +152,6 @@ export interface CopilotChatProps {
    * instructions is not enough.
    */
   makeSystemMessage?: SystemMessageFunction;
-
-  /**
-   * Whether to show the response button.
-   * @default true
-   */
-  showResponseButton?: boolean;
 
   /**
    * A custom assistant message component to use instead of the default.
@@ -181,11 +192,6 @@ export interface CopilotChatProps {
    * A custom Input component to use instead of the default.
    */
   Input?: React.ComponentType<InputProps>;
-
-  /**
-   * A custom ResponseButton component to use instead of the default.
-   */
-  ResponseButton?: React.ComponentType<ResponseButtonProps>;
 
   /**
    * A class name to apply to the root element.
@@ -250,17 +256,19 @@ export function CopilotChat({
   instructions,
   onSubmitMessage,
   makeSystemMessage,
-  showResponseButton = true,
   onInProgress,
   onStopGeneration,
   onReloadMessages,
+  onRegenerate,
+  onCopy,
+  onThumbsUp,
+  onThumbsDown,
   Messages = DefaultMessages,
   RenderTextMessage = DefaultRenderTextMessage,
   RenderActionExecutionMessage = DefaultRenderActionExecutionMessage,
   RenderAgentStateMessage = DefaultRenderAgentStateMessage,
   RenderResultMessage = DefaultRenderResultMessage,
   Input = DefaultInput,
-  ResponseButton = DefaultResponseButton,
   className,
   icons,
   labels,
@@ -312,9 +320,22 @@ export function CopilotChat({
   const chatContext = React.useContext(ChatContext);
   const isVisible = chatContext ? chatContext.open : true;
 
+  const handleRegenerate = () => {
+    if (onRegenerate) {
+      onRegenerate();
+    }
+
+    reloadMessages();
+  };
+
+  const handleCopy = (message: string) => {
+    if (onCopy) {
+      onCopy(message);
+    }
+  };
+
   return (
     <WrappedCopilotChat icons={icons} labels={labels} className={className}>
-      <CopilotDevConsole />
       <Messages
         AssistantMessage={AssistantMessage}
         UserMessage={UserMessage}
@@ -324,32 +345,32 @@ export function CopilotChat({
         RenderResultMessage={RenderResultMessage}
         messages={visibleMessages}
         inProgress={isLoading}
+        onRegenerate={handleRegenerate}
+        onCopy={handleCopy}
+        onThumbsUp={onThumbsUp}
+        onThumbsDown={onThumbsDown}
       >
         {currentSuggestions.length > 0 && (
-          <div>
-            <h6>Suggested:</h6>
-            <div className="suggestions">
-              {currentSuggestions.map((suggestion, index) => (
-                <Suggestion
-                  key={index}
-                  title={suggestion.title}
-                  message={suggestion.message}
-                  partial={suggestion.partial}
-                  className={suggestion.className}
-                  onClick={(message) => sendMessage(message)}
-                />
-              ))}
-            </div>
+          <div className="suggestions">
+            {currentSuggestions.map((suggestion, index) => (
+              <Suggestion
+                key={index}
+                title={suggestion.title}
+                message={suggestion.message}
+                partial={suggestion.partial}
+                className={suggestion.className}
+                onClick={(message) => sendMessage(message)}
+              />
+            ))}
           </div>
         )}
-        {showResponseButton && visibleMessages.length > 0 && (
-          <ResponseButton
-            onClick={isLoading ? stopGeneration : reloadMessages}
-            inProgress={isLoading}
-          />
-        )}
       </Messages>
-      <Input inProgress={isLoading} onSend={sendMessage} isVisible={isVisible} />
+      <Input
+        inProgress={isLoading}
+        onSend={sendMessage}
+        isVisible={isVisible}
+        onStop={stopGeneration}
+      />
     </WrappedCopilotChat>
   );
 }

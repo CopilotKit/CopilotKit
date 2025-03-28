@@ -39,6 +39,8 @@ To integrate a Python backend with your CopilotKit application, set up your proj
     
     ```bash
     poetry add copilotkit fastapi uvicorn
+    # or including support for crewai
+    poetry add copilotkit[crewai] fastapi uvicorn
     ```
     
     </Tab>
@@ -60,6 +62,8 @@ To integrate a Python backend with your CopilotKit application, set up your proj
     
     ```bash
     pip install copilotkit fastapi uvicorn --extra-index-url https://copilotkit.gateway.scarf.sh/simple/
+    # or including support for crewai
+    pip install copilotkit[crewai] fastapi uvicorn --extra-index-url https://copilotkit.gateway.scarf.sh/simple/
     ```
     
     </Tab>
@@ -81,6 +85,8 @@ To integrate a Python backend with your CopilotKit application, set up your proj
     
     ```bash
     conda install copilotkit fastapi uvicorn -c copilotkit-channel
+    # or including support for crewai
+    conda install copilotkit[crewai] fastapi uvicorn -c copilotkit-channel
     ```
     
     </Tab>

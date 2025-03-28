@@ -18,24 +18,37 @@ In addition, some state properties contain a lot of information. Syncing them ba
 
 ## Implementation
 
-<Callout>
-    Due to LangGraph support, this feature is currently only available for Python agents
-</Callout>
-
 <Steps>
   <Step>
-    ### Examine our old state
-    LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
-    let's assume that the state our agent should be using, can be described like this:
-    ```python title="agent-py/sample_agent/agent.py"
-    from copilotkit import CopilotKitState
-    from typing import Literal
+      ### Examine our old state
+      LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
+      let's assume that the state our agent should be using, can be described like this:
+      <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+        <Tab value="Python">
+        ```python title="agent-py/sample_agent/agent.py"
+        from copilotkit import CopilotKitState
+        from typing import Literal
 
-    class AgentState(CopilotKitState):
-        question: str
-        answer: str
-        resources: List[str]
-    ```
+        class AgentState(CopilotKitState):
+            question: str
+            answer: str
+            resources: List[str]
+        ```
+        </Tab>
+        <Tab value="TypeScript">
+        ```typescript title="agent-js/sample_agent/agent.ts"
+        import { Annotation } from "@langchain/langgraph";
+        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+
+        const AgentState = Annotation.Root({
+          ...CopilotKitStateAnnotation.spec,
+          question: Annotation<string>,
+          answer: Annotation<string>,
+          resources: Annotation<string[]>,
+        })
+        ```
+        </Tab>
+    </Tabs>
   </Step>
   <Step>
     ### Divide state to Input and Output
@@ -44,31 +57,137 @@ In addition, some state properties contain a lot of information. Syncing them ba
       - The answer is what the LLM returns
       - The resources list will be used by the LLM to answer the question, and should not be communicated to the user, or set by them.
 
-      ```python title="agent-py/sample_agent/agent.py"
-      from copilotkit import CopilotKitState
-      from typing import Literal
+      <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+          <Tab value="Python">
+          ```python title="agent-py/sample_agent/agent.py"
+          from copilotkit import CopilotKitState
+          from typing import Literal
 
-      # divide the state into 3
-      class InputState(CopilotKitState):
-        question: str
+          # Divide the state to 3 parts
 
-      class OutputState(CopilotKitState):
-        answer: str
+          # Input schema for inputs you are willing to accept from the frontend
+          class InputState(CopilotKitState):
+            question: str
 
-      class OverallState(InputState, OutputState):
-        resources: List[str]
+          # Output schema for output you are willing to pass to the frontend
+          class OutputState(CopilotKitState):
+            answer: str
 
-      # ...add the rest of the agent implementation
+          # The full schema, including the inputs, outputs and internal state ("resources" in our case)
+          class OverallState(InputState, OutputState):
+            resources: List[str]
 
-      # finally, before compiling the graph, we define the 3 state components
-      builder = StateGraph(OverallState, input=InputState, output=OutputState)
+          async def answer_node(state: OverallState, config: RunnableConfig):
+            """
+            Standard chat node, meant to answer general questions.
+            """
 
-      # add all the different nodes and edges and compile the graph
-      builder.add_node(answer_node)
-      builder.add_edge(START, "answer_node")
-      builder.add_edge("answer_node", END)
-      graph = builder.compile()
-      ```
+            model = ChatOpenAI()
+
+            # add the input question in the system prompt so it's passed to the LLM
+            system_message = SystemMessage(
+              content=f"You are a helpful assistant. Answer the question: {state.get('question')}"
+            )
+
+            response = await model.ainvoke([
+              system_message,
+              *state["messages"],
+            ], config)
+
+            # ...add the rest of the agent implementation
+
+            # extract the answer, which will be assigned to the state soon
+            answer = response.content
+
+            return {
+               "messages": response,
+                # include the answer in the returned state
+               "answer": answer
+            }
+
+
+          # finally, before compiling the graph, we define the 3 state components
+          builder = StateGraph(OverallState, input=InputState, output=OutputState)
+
+          # add all the different nodes and edges and compile the graph
+          builder.add_node("answer_node", answer_node)
+          builder.add_edge(START, "answer_node")
+          builder.add_edge("answer_node", END)
+          graph = builder.compile()
+          ```
+          </Tab>
+          <Tab value="TypeScript">
+            <Callout type="warn">
+              While we work on adding Zod schema support for LangGraph TypeScript, a workaround is required to ignore a typescript error when defining "full state".
+
+              You can see this at the very end of the TypeScript implementation snippet.
+            </Callout>
+            ```typescript title="agent-js/sample_agent/agent.ts"
+              import { Annotation } from "@langchain/langgraph";
+              import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+
+              // Divide the state to 3 parts
+
+              // An input schema for inputs you are willing to accept from the frontend
+              const InputAnnotation = Annotation.Root({
+                ...CopilotKitStateAnnotation.spec,
+                question: Annotation<string>,
+              });
+
+              // Output schema for output you are willing to pass to the frontend
+              const OutputAnnotation = Annotation.Root({
+                ...CopilotKitStateAnnotation.spec,
+                answer: Annotation<string>,
+              });
+
+              // The full schema, including the inputs, outputs and internal state ("resources" in our case)
+              export const AgentStateAnnotation = Annotation.Root({
+                ...CopilotKitStateAnnotation.spec,
+                ...OutputAnnotation.spec,
+                ...InputAnnotation.spec,
+                resources: Annotation<string[]>,
+              });
+
+              // Define a typed state that supports the entire
+              export type AgentState = typeof AgentStateAnnotation.State;
+
+              async function answerNode(state: AgentState, config: RunnableConfig) {
+                const model = new ChatOpenAI()
+
+                const systemMessage = new SystemMessage({
+                  content: `You are a helpful assistant. Answer the question: ${state.question}.`,
+                });
+
+                const response = await modelWithTools.invoke(
+                  [systemMessage, ...state.messages],
+                  config
+                );
+
+                // ...add the rest of the agent implementation
+                // extract the answer, which will be assigned to the state soon
+                const answer = response.content
+
+                return {
+                  messages: response,
+                  // include the answer in the returned state
+                  answer,
+                }
+              }
+
+              // finally, before compiling the graph, we define the 3 state components
+              const workflow = new StateGraph({
+                input: InputAnnotation,
+                output: OutputAnnotation,
+                // @ts-expect-error -- LangGraph does not expect a "full schema with internal properties".
+                stateSchema: AgentStateAnnotation,
+              })
+                .addNode("answer_node", answerNode) // add all the different nodes and edges and compile the graph
+                .addEdge(START, "answer_node")
+                .addEdge("answer_node", END)
+              export const graph = workflow.compile()
+            ```
+          </Tab>
+      </Tabs>
   </Step>
   <Step>
     ### Give it a try!

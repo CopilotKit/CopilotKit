@@ -1,0 +1,22 @@
+{
+  "functions": {
+    "app/og/**": {
+      "maxDuration": 60
+    }
+  },
+  "buildCommand": "next build",
+  "images": {
+    "sizes": [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    "domains": [
+      "github-production-user-asset-6210df.s3.amazonaws.com",
+      "fonts.gstatic.com",
+      "docs.copilotkit.ai"
+    ],
+    "remotePatterns": [
+      {
+        "protocol": "https",
+        "hostname": "**"
+      }
+    ]
+  }
+}

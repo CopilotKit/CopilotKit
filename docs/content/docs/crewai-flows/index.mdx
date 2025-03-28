@@ -33,20 +33,23 @@ import { CTACards } from "@/components/react/cta-cards";
 import { FaSync } from "react-icons/fa";
 import { Socials } from "@/components/react/socials";
 
-<InsecurePasswordProtected>
-
 # Copilot Infrastructure for CrewAI Flows
 
 Full user-interaction infrastructure for your agents, to turn your agents into Copilot Agents (CoAgents).
 
 {/* TODO-DOCS-CREWAI-FLOWS: Add a GIF of this animation for CrewAI Flows */}
-{/* <Frame className="mt-0 mb-6">
-  <img
-    src="/images/CoAgents.gif"
+
+<Frame className="mt-0 mb-6">
+  <video
+    src="/images/coagents/crew-ai/flows/crews-interaction-layer.mp4"
     alt="CoAgents demonstration"
-    className="w-auto"
+    className="rounded-lg shadow-xl"
+    playsInline
+    autoPlay
+    muted
+    loop
   />
-</Frame> */}
+</Frame>
 
 ## Building blocks of a CoAgent
 
@@ -58,22 +61,19 @@ Everything you need to build Agent-Native Applications (ANAs), right out of the 
     {
       icon: LuMessageSquare,
       title: "Agentic Chat UI",
-      description:
-        "In-app chat powered by your agent.",
+      description: "In-app chat powered by your agent.",
       href: "/crewai-flows/agentic-chat-ui",
     },
     {
       icon: FaSync,
       title: "Shared State",
-      description:
-        "Your agent can see everything in your app, and vice versa.",
+      description: "Your agent can see everything in your app, and vice versa.",
       href: "/crewai-flows/shared-state",
     },
     {
       icon: LuLayoutTemplate,
       title: "Generative UI",
-      description:
-        "UI that updates in real-time based on your agent's state.",
+      description: "UI that updates in real-time based on your agent's state.",
       href: "/crewai-flows/generative-ui",
     },
     {
@@ -93,20 +93,13 @@ Everything you need to build Agent-Native Applications (ANAs), right out of the 
     {
       icon: LuUserCog,
       title: "Human-in-the-Loop",
-      description:
-        "Set smart checkpoints where humans can guide your agents.",
+      description: "Set smart checkpoints where humans can guide your agents.",
       href: "/crewai-flows/human-in-the-loop",
     },
   ]}
 />
 
 {/* TODO-DOCS-CREWAI-FLOWS: Add CoAgents in action section for CrewAI Flows */}
-
-{/* ## CoAgents in action
-
-See **CoAgents** in action with some videos and examples we've made to demonstrate their power.
-
-<ExamplesCarousel examples={CoAgentsExamples} /> */}
 
 ## Ready to get started?
 
@@ -121,11 +114,10 @@ Get started with CoAgents in as little as 5 minutes with one of our guides or tu
       description: "Learn how to build your first CoAgent in 10 minutes.",
       href: "/crewai-flows/quickstart/crewai",
     },
-   
   ]}
 />
- {/* TODO-DOCS-CREWAI-FLOWS: Add Travel Agent tutorial for CrewAI Flows */}
-    {/* {
+{/* TODO-DOCS-CREWAI-FLOWS: Add Travel Agent tutorial for CrewAI Flows */}
+{/* {
       icon: LuPlane,
       title: "Travel Agent",
       description:
@@ -138,7 +130,7 @@ Get started with CoAgents in as little as 5 minutes with one of our guides or tu
       description:
         "Learn how to build an agent-native researcher with CopilotKit & CrewAI.",
       href: "/crewai-flows/videos/research-canvas",
-    }, */}
+    } */}
 
 ## Common Questions
 
@@ -163,5 +155,3 @@ Stay tuned for updates!
 
 </Accordion>
 </Accordions>
-
-</InsecurePasswordProtected>

@@ -8,14 +8,14 @@ This example contains a simple starter project which includes two different agen
 
 First, install the backend dependencies:
 
-### Python SDK
+### Python Agent
 
 ```sh
 cd agent-py
 poetry install
 ```
 
-### JS-SDK
+### JS Agent
 
 ```sh
 cd agent-js
@@ -49,6 +49,12 @@ cd ./ui
 pnpm i
 ```
 
+Then start the client:
+
+```sh
+pnpm run dev
+```
+
 Then, create a `.env` file inside `./ui` with the following:
 
 ```
@@ -73,11 +79,10 @@ If you're using the **JS** agent, uncomment the code inside the `app/api/copilot
 
 Make sure to comment out the other remote endpoint as this replaces it.
 
-Finally, run the Next.js project:
+**Running the JS Agent:**
+- Run this command to start your LangGraph server `npx @langchain/langgraph-cli dev --host localhost --port 8123`
+- Run this command to connect your Copilot Cloud Tunnel to the LangGraph server `npx copilotkit@latest dev --port 8123`
 
-```sh
-pnpm run dev
-```
 
 ## Usage
 

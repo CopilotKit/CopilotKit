@@ -82,6 +82,22 @@ A custom stop generation function.
 A custom reload messages function.
 </PropertyReference>
 
+<PropertyReference name="onRegenerate" type="() => void"  > 
+A callback function to regenerate the assistant's response
+</PropertyReference>
+
+<PropertyReference name="onCopy" type="(message: string) => void"  > 
+A callback function when the message is copied
+</PropertyReference>
+
+<PropertyReference name="onThumbsUp" type="(message: string) => void"  > 
+A callback function for thumbs up feedback
+</PropertyReference>
+
+<PropertyReference name="onThumbsDown" type="(message: string) => void"  > 
+A callback function for thumbs down feedback
+</PropertyReference>
+
 <PropertyReference name="icons" type="CopilotChatIcons"  > 
 Icons can be used to set custom icons for the chat window.
 </PropertyReference>
@@ -95,10 +111,6 @@ A function that takes in context string and instructions and returns
   the system message to include in the chat request.
   Use this to completely override the system message, when providing
   instructions is not enough.
-</PropertyReference>
-
-<PropertyReference name="showResponseButton" type="boolean"  default="true"> 
-Whether to show the response button.
 </PropertyReference>
 
 <PropertyReference name="AssistantMessage" type="React.ComponentType<AssistantMessageProps>"  > 
@@ -131,10 +143,6 @@ A custom RenderResultMessage component to use instead of the default.
 
 <PropertyReference name="Input" type="React.ComponentType<InputProps>"  > 
 A custom Input component to use instead of the default.
-</PropertyReference>
-
-<PropertyReference name="ResponseButton" type="React.ComponentType<ResponseButtonProps>"  > 
-A custom ResponseButton component to use instead of the default.
 </PropertyReference>
 
 <PropertyReference name="className" type="string"  > 

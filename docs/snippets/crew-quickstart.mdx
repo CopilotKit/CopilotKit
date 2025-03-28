@@ -1,0 +1,415 @@
+## Complete Crew Setup
+
+This guide shows how to set up your CrewAI agent with CopilotKit in a **single file**, including:
+
+1. **Starting** your crew
+2. **Rendering** Crew state and progress
+3. **Handling** human feedback
+4. **(Optional)** Extending for final results
+
+Below is a **copy-paste** example called `crew-quickstart.tsx`. Once you have it in your code, just render `<QuickstartCrew />` in your application to see it in action!
+
+```tsx title="use-crew-quickstart.tsx"
+"use client";
+
+import {
+  CrewsAgentState,
+  CrewsResponseStatus,
+  CrewsStateItem,
+  CrewsTaskStateItem,
+  CrewsToolStateItem,
+  useCoAgent,
+  useCoAgentStateRender,
+  useCopilotAction,
+  useCopilotChat,
+  useCopilotAdditionalInstructions,
+} from "@copilotkit/react-core";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
+
+interface CrewsFeedback extends CrewsStateItem {
+  /**
+   * Output of the task execution
+   */
+  task_output?: string;
+}
+
+/**
+ * Renders your Crew's steps & tasks in real-time.
+ */
+function CrewStateRenderer({
+  state,
+  status,
+}: {
+  state: CrewsAgentState;
+  status: CrewsResponseStatus;
+}) {
+  const [isCollapsed, setIsCollapsed] = useState(true);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const prevItemsLengthRef = useRef<number>(0);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+
+  // Combine steps + tasks
+  const items = useMemo(() => {
+    if (!state) return [];
+    return [...(state.steps || []), ...(state.tasks || [])].sort(
+      (a, b) =>
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+  }, [state]);
+
+  // Highlight newly added item & auto-scroll
+  useEffect(() => {
+    if (!state) return;
+    if (items.length > prevItemsLengthRef.current) {
+      const newestItem = items[items.length - 1];
+      setHighlightId(newestItem.id);
+      setTimeout(() => setHighlightId(null), 1500);
+
+      if (contentRef.current && !isCollapsed) {
+        contentRef.current.scrollTop = contentRef.current.scrollHeight;
+      }
+    }
+    prevItemsLengthRef.current = items.length;
+  }, [items, isCollapsed, state]);
+
+  if (!state) {
+    return <div>Loading crew state...</div>;
+  }
+
+  // Hide entirely if collapsed & empty & not in progress
+  if (isCollapsed && items.length === 0 && status !== "inProgress") return null;
+
+  return (
+    <div style={{ marginTop: "8px", fontSize: "0.9rem" }}>
+      <div
+        style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
+        onClick={() => setIsCollapsed(!isCollapsed)}
+      >
+        <span style={{ marginRight: 4 }}>{isCollapsed ? "▶" : "▼"}</span>
+        {status === "inProgress" ? "Crew is analyzing..." : "Crew analysis"}
+      </div>
+
+      {!isCollapsed && (
+        <div
+          ref={contentRef}
+          style={{
+            maxHeight: "200px",
+            overflow: "auto",
+            borderLeft: "1px solid #ccc",
+            paddingLeft: "8px",
+            marginLeft: "4px",
+            marginTop: "4px",
+          }}
+        >
+          {items.length > 0 ? (
+            items.map((item) => {
+              const isTool = (item as CrewsToolStateItem).tool !== undefined;
+              const isHighlighted = item.id === highlightId;
+              return (
+                <div
+                  key={item.id}
+                  style={{
+                    marginBottom: "8px",
+                    animation: isHighlighted ? "fadeIn 0.5s" : undefined,
+                  }}
+                >
+                  <div style={{ fontWeight: "bold" }}>
+                    {isTool
+                      ? (item as CrewsToolStateItem).tool
+                      : (item as CrewsTaskStateItem).name}
+                  </div>
+                  {"thought" in item && item.thought && (
+                    <div style={{ opacity: 0.8, marginTop: "4px" }}>
+                      Thought: {item.thought}
+                    </div>
+                  )}
+                  {"result" in item && item.result !== undefined && (
+                    <pre style={{ fontSize: "0.85rem", marginTop: "4px" }}>
+                      {JSON.stringify(item.result, null, 2)}
+                    </pre>
+                  )}
+                  {"description" in item && item.description && (
+                    <div style={{ marginTop: "4px" }}>{item.description}</div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div style={{ opacity: 0.7 }}>No activity yet...</div>
+          )}
+        </div>
+      )}
+
+      {/* Simple fadeIn animation */}
+      <style>{`
+        @keyframes fadeIn {
+          0% { opacity: 0; transform: translateY(4px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+/**
+ * Renders a simple UI for agent-requested user feedback (Approve / Reject).
+ */
+function CrewHumanFeedbackRenderer({
+  feedback,
+  respond,
+  status,
+}: {
+  feedback: CrewsFeedback;
+  respond?: (input: string) => void;
+  status: CrewsResponseStatus;
+}) {
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [userResponse, setUserResponse] = useState<string | null>(null);
+
+  if (status === "complete") {
+    return (
+      <div style={{ marginTop: 8, textAlign: "right" }}>
+        {userResponse || "Feedback submitted."}
+      </div>
+    );
+  }
+
+  if (status === "inProgress" || status === "executing") {
+    return (
+      <div style={{ marginTop: 8 }}>
+        {isExpanded && (
+          <div
+            style={{
+              border: "1px solid #ddd",
+              padding: "8px",
+              marginBottom: "8px",
+            }}
+          >
+            {feedback.task_output}
+          </div>
+        )}
+        <div style={{ textAlign: "right" }}>
+          <button
+            style={{ marginRight: 8 }}
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            {isExpanded ? "Hide" : "Show"} Feedback
+          </button>
+          <button
+            style={{
+              marginRight: 8,
+              backgroundColor: "#222222",
+              border: "none",
+              padding: "8px 16px",
+              color: "white",
+              cursor: "pointer",
+              borderRadius: "4px",
+            }}
+            onClick={() => {
+              setUserResponse("Approved");
+              /**
+               * This string is arbitrary. It can be any serializable input that will be forwarded to your Crew as feedback.
+               */
+              respond?.("Approve");
+            }}
+          >
+            Approve
+          </button>
+          <button
+            style={{
+              backgroundColor: "#222222",
+              border: "none",
+              padding: "8px 16px",
+              color: "white",
+              cursor: "pointer",
+              borderRadius: "4px",
+            }}
+            onClick={() => {
+              setUserResponse("Rejected");
+              /**
+               * This string is arbitrary. It can be any serializable input that will be forwarded to your Crew as feedback.
+               */
+              respond?.("Reject");
+            }}
+          >
+            Reject
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+/**
+ * useCrewQuickstart
+ * Minimal example that:
+ * 1) Sets up a crew/agent
+ * 2) Handles text-based user input (get_input)
+ * 3) Renders real-time crew state
+ * 4) Handles "crew_requesting_feedback"
+ */
+export const useCrewQuickstart = ({
+  crewName,
+  inputs,
+}: {
+  crewName: string;
+  inputs: Array<string>;
+}): {
+  output: string;
+} => {
+  const [initialMessageSent, setInitialMessageSent] = useState(false);
+
+  const { state, setState, run } = useCoAgent<
+    CrewsAgentState & {
+      result: string;
+      inputs: Record<string, string>;
+    }
+  >({
+    name: crewName,
+    initialState: {
+      inputs: {},
+      result: "Crew result will appear here...",
+    },
+  });
+
+  const { appendMessage, isLoading } = useCopilotChat();
+
+  const instructions =
+    "INPUTS ARE ABSOLUTELY REQUIRED. Please call getInputs before proceeding with anything else.";
+
+  // Render an initial message when the chat is first loaded
+  useEffect(() => {
+    if (initialMessageSent || isLoading) return;
+
+    setTimeout(async () => {
+      await appendMessage(
+        new TextMessage({
+          content: "Hi, Please provide your inputs before we get started.",
+          role: MessageRole.Developer,
+        })
+      );
+      setInitialMessageSent(true);
+    }, 0);
+  }, []);
+
+  useEffect(() => {
+    if (!initialMessageSent && Object.values(state?.inputs || {}).length > 0) {
+      appendMessage(
+        new TextMessage({
+          role: MessageRole.Developer,
+          content: "My inputs are: " + JSON.stringify(state?.inputs),
+        })
+      ).then(() => {
+        setInitialMessageSent(true);
+      });
+    }
+  }, [initialMessageSent, state?.inputs]);
+
+  useCopilotAdditionalInstructions({
+    instructions,
+    available:
+      Object.values(state?.inputs || {}).length > 0 ? "enabled" : "disabled",
+  });
+
+  useCopilotAction({
+    name: "getInputs",
+    followUp: false,
+    description:
+      "This action allows Crew to get required inputs from the user before starting the Crew.",
+    renderAndWaitForResponse({ status }) {
+      if (status === "inProgress" || status === "executing") {
+        return (
+          <form
+            style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+            onSubmit={async (e: React.FormEvent<HTMLFormElement>) => {
+              e.preventDefault();
+              const form = e.currentTarget;
+              const input = form.elements.namedItem(
+                "input"
+              ) as HTMLTextAreaElement;
+              const inputValue = input.value;
+              const inputKey = input.id;
+
+              setState({
+                ...state,
+                inputs: {
+                  ...state.inputs,
+                  [inputKey]: inputValue,
+                },
+              });
+              setTimeout(async () => {
+                console.log("running crew");
+                await run();
+                console.log("crew run complete");
+              }, 0);
+            }}
+          >
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+            >
+              {inputs.map((input) => (
+                <div
+                  key={input}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                  }}
+                >
+                  <label htmlFor={input}>{input}</label>
+                  <textarea
+                    id={input}
+                    autoFocus
+                    name="input"
+                    placeholder={`Enter ${input} here`}
+                    required
+                  />
+                </div>
+              ))}
+              <button
+                type="submit"
+                style={{
+                  cursor: "pointer",
+                }}
+              >
+                Submit
+              </button>
+            </div>
+          </form>
+        );
+      }
+      return <>Inputs submitted</>;
+    },
+  });
+
+  useCoAgentStateRender({
+    name: crewName,
+    render: ({ state, status }) => (
+      <CrewStateRenderer state={state} status={status} />
+    ),
+  });
+
+  useCopilotAction({
+    name: "crew_requesting_feedback",
+    description: "Request feedback from the user",
+    renderAndWaitForResponse(props) {
+      const { status, args, respond } = props;
+      return (
+        <CrewHumanFeedbackRenderer
+          feedback={args as unknown as CrewsFeedback}
+          respond={respond}
+          status={status as CrewsResponseStatus}
+        />
+      );
+    },
+  });
+
+  return {
+    output: state?.result || "",
+  };
+};
+```

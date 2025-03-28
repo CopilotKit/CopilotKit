@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import * as DefaultIcons from "./Icons";
+import { ThumbsDownIcon, ThumbsUpIcon } from "./Icons";
 
 /**
  * Icons for CopilotChat component.
@@ -59,6 +60,27 @@ export interface CopilotChatIcons {
    */
 
   pushToTalkIcon?: React.ReactNode;
+
+  /**
+   * The icons to use for copy assistant response
+   * @default <CopyIcon />
+   */
+
+  copyIcon?: React.ReactNode;
+
+  /**
+   * The icon to use for thumbs up/response approval.
+   * @default <ThumbsUpIcon />
+   */
+
+  thumbsUpIcon?: React.ReactNode;
+
+  /**
+   * The icon to use for thumbs down/response rejection.
+   * @default <ThumbsDownIcon />
+   */
+
+  thumbsDownIcon?: React.ReactNode;
 }
 
 /**
@@ -99,6 +121,30 @@ export interface CopilotChatLabels {
    * @default "Regenerate response"
    */
   regenerateResponse?: string;
+
+  /**
+   * The label for the copy button.
+   * @default "Copy to clipboard"
+   */
+  copyToClipboard?: string;
+
+  /**
+   * The label for the thumbs up button.
+   * @default "Thumbs up"
+   */
+  thumbsUp?: string;
+
+  /**
+   * The label for the thumbs down button.
+   * @default "Thumbs down"
+   */
+  thumbsDown?: string;
+
+  /**
+   * The text to display when content is copied.
+   * @default "Copied!"
+   */
+  copied?: string;
 }
 
 interface ChatContext {
@@ -150,6 +196,10 @@ export const ChatContextProvider = ({
         error: "❌ An error occurred. Please try again.",
         stopGenerating: "Stop generating",
         regenerateResponse: "Regenerate response",
+        copyToClipboard: "Copy to clipboard",
+        thumbsUp: "Thumbs up",
+        thumbsDown: "Thumbs down",
+        copied: "Copied!",
       },
       ...labels,
     }),
@@ -167,7 +217,10 @@ export const ChatContextProvider = ({
         spinnerIcon: DefaultIcons.SpinnerIcon,
         stopIcon: DefaultIcons.StopIcon,
         regenerateIcon: DefaultIcons.RegenerateIcon,
-        pushToTalkIcon: DefaultIcons.PushToTalkIcon,
+        pushToTalkIcon: DefaultIcons.MicrophoneIcon,
+        copyIcon: DefaultIcons.CopyIcon,
+        thumbsUpIcon: DefaultIcons.ThumbsUpIcon,
+        thumbsDownIcon: DefaultIcons.ThumbsDownIcon,
       },
       ...icons,
     }),

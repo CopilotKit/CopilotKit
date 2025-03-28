@@ -35,10 +35,13 @@ You can disable all message streaming and tool call streaming by passing `emit_m
             )
 
             # 2) Provide the actions to the LLM
-            model = ChatOpenAI(model="gpt-4o").bind(state.copilotkit.actions)
+            model = ChatOpenAI(model="gpt-4o").bind_tools([
+              *state["copilotkit"]["actions"],
+              # ... any tools you want to make available to the model
+            ])
 
             # 3) Call the model with CopilotKit's modified config  # [!code highlight]
-            response = await model.ainvoke(*state, modifiedConfig) # [!code highlight]
+            response = await model.ainvoke(state["messages"], modifiedConfig) # [!code highlight]
 
             # don't return the new response to hide it from the user
             return state
@@ -54,7 +57,7 @@ You can disable all message streaming and tool call streaming by passing `emit_m
         config = copilotkit_customize_config(config, ...)
 
         # it will affect every subsequent LangChain LLM call in the same namespace, even when `config` is not explicitly provided
-        response = await model2.ainvoke(*state) # implicitly uses the modified config!
+        response = await model2.ainvoke(*state["messages"]) # implicitly uses the modified config!
         ```
     </Callout>
     </Tab>

@@ -29,6 +29,26 @@ export interface MessagesProps {
   RenderActionExecutionMessage: React.ComponentType<RenderMessageProps>;
   RenderAgentStateMessage: React.ComponentType<RenderMessageProps>;
   RenderResultMessage: React.ComponentType<RenderMessageProps>;
+
+  /**
+   * Callback function to regenerate the assistant's response
+   */
+  onRegenerate?: () => void;
+
+  /**
+   * Callback function when the message is copied
+   */
+  onCopy?: (message: string) => void;
+
+  /**
+   * Callback function for thumbs up feedback
+   */
+  onThumbsUp?: (message: string) => void;
+
+  /**
+   * Callback function for thumbs down feedback
+   */
+  onThumbsDown?: (message: string) => void;
 }
 
 export interface Renderer {
@@ -46,6 +66,11 @@ export interface AssistantMessageProps {
    */
 
   message?: string;
+
+  /**
+   * Indicates if this is the last message
+   */
+  isCurrentMessage?: boolean;
 
   /**
    * The raw data from the assistant's response
@@ -68,6 +93,26 @@ export interface AssistantMessageProps {
    * Whether a response is generating, this is when the LLM is actively generating and streaming content.
    */
   isGenerating: boolean;
+
+  /**
+   * Callback function to regenerate the assistant's response
+   */
+  onRegenerate?: () => void;
+
+  /**
+   * Callback function when the message is copied
+   */
+  onCopy?: (message: string) => void;
+
+  /**
+   * Callback function for thumbs up feedback
+   */
+  onThumbsUp?: (message: string) => void;
+
+  /**
+   * Callback function for thumbs down feedback
+   */
+  onThumbsDown?: (message: string) => void;
 }
 
 export interface RenderMessageProps {
@@ -78,15 +123,31 @@ export interface RenderMessageProps {
   actionResult?: string;
   AssistantMessage: React.ComponentType<AssistantMessageProps>;
   UserMessage: React.ComponentType<UserMessageProps>;
+
+  /**
+   * Callback function to regenerate the assistant's response
+   */
+  onRegenerate?: () => void;
+
+  /**
+   * Callback function when the message is copied
+   */
+  onCopy?: (message: string) => void;
+
+  /**
+   * Callback function for thumbs up feedback
+   */
+  onThumbsUp?: (message: string) => void;
+
+  /**
+   * Callback function for thumbs down feedback
+   */
+  onThumbsDown?: (message: string) => void;
 }
 
 export interface InputProps {
   inProgress: boolean;
   onSend: (text: string) => Promise<Message>;
   isVisible?: boolean;
-}
-
-export interface ResponseButtonProps {
-  onClick: () => void;
-  inProgress: boolean;
+  onStop?: () => void;
 }

@@ -18,7 +18,8 @@ dependencies = [
     "uvicorn",
     "python-dotenv",
     "langchain-core",
-    "langgraph-cli"
+    "langgraph-cli",
+    "crewai (==0.102.0)"
 ]
 
 [build-system]
@@ -32,12 +33,12 @@ langchain-anthropic = "^0.2.1"
 langchain = "^0.3.1"
 openai = "^1.51.0"
 langchain-community = "^0.3.1"
-copilotkit = {path = "../../../sdk-python", develop = true}
 uvicorn = "^0.31.0"
 python-dotenv = "^1.0.1"
 langchain-core = "^0.3.25"
 langgraph-cli = {extras = ["inmem"], version = "^0.1.64"}
 crewai = "^0.102.0"
+copilotkit = "^0.1.42"
 
 [tool.poetry.scripts]
 demo = "sample_agent.demo:main"

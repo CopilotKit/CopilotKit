@@ -4,11 +4,19 @@ icon: "lucide/ArrowRight"
 description: Write to agent's state from your application.
 ---
 
-<InsecurePasswordProtected>
-
-<video src="/images/coagents/write-agent-state.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<video
+  src="/images/coagents/write-agent-state.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
 <Callout>
-  This video shows the [coagents starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-flows) repo with the previous steps applied to it!
+  This video shows the [coagents
+  starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-flows)
+  repo with the previous steps applied to it!
 </Callout>
 
 ## What is this?
@@ -49,6 +57,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         ```
       </Tab>
     </Tabs>
+
   </Step>
   <Step>
     ### Call `setState` function from the `useCoAgent` hook
@@ -88,6 +97,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
       );
     }
     ```
+
   </Step>
   <Step>
     ### Give it a try!
@@ -138,11 +148,10 @@ function YourMainContent() {
 ```
 
 ### Intermediately Stream and Render Agent State
-By default, the CrewAI Flow agent state will only update *between* CrewAI Flow node transitions --
+
+By default, the CrewAI Flow agent state will only update _between_ CrewAI Flow node transitions --
 which means state updates will be discontinuous and delayed.
 
 You likely want to render the agent state as it updates **continuously.**
 
 See **[emit intermediate state](/crewai-flows/shared-state/intermediate-state-streaming).**
-
-</InsecurePasswordProtected>

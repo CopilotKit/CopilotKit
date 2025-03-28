@@ -1,0 +1,8 @@
+{
+    "framework": "LangGraph",
+    "usecase": "Research, Planning, Human-in-the-loop",
+    "title": "Research Canvas",
+    "description": "A research canvas to help you plan, track, and organize your research.",
+    "live_demo": "https://examples-coagents-research-canvas-ui.vercel.app/",
+    "cover_img": "https://examples-coagents-research-canvas-ui.vercel.app/image.png"
+}

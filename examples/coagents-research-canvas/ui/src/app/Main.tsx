@@ -41,9 +41,10 @@ export default function Main() {
             {
               "--copilot-kit-background-color": "#E0E9FD",
               "--copilot-kit-secondary-color": "#6766FC",
-              "--copilot-kit-secondary-contrast-color": "#FFFFFF",
+              "--copilot-kit-separator-color": "#b8b8b8",
               "--copilot-kit-primary-color": "#FFFFFF",
               "--copilot-kit-contrast-color": "#000000",
+              "--copilot-kit-secondary-contrast-color": "#000",
             } as any
           }
         >

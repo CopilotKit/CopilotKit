@@ -8,20 +8,7 @@ license = "MIT"
 [project]
 name = "my_agent"
 version = "0.0.1"
-dependencies = [
-    "langgraph",
-    "langchain-openai",
-    "langchain-anthropic",
-    "langchain",
-    "openai",
-    "langchain-community",
-    "copilotkit==0.1.34",
-    "uvicorn",
-    "python-dotenv",
-    "langchain-google-genai",
-    "langchain-core",
-    "langgraph-cli[inmem]==0.1.64"
-]
+
 
 [build-system]
 requires = ["setuptools >= 61.0"]
@@ -34,12 +21,13 @@ langchain-anthropic = "^0.2.1"
 langchain = "^0.3.1"
 openai = "^1.51.0"
 langchain-community = "^0.3.1"
-copilotkit = "0.1.39"
+copilotkit = "0.1.42"
 uvicorn = "^0.31.0"
 python-dotenv = "^1.0.1"
 langchain-google-genai = "^2.0.4"
 langchain-core = "^0.3.25"
 langgraph-cli = {extras = ["inmem"], version = "^0.1.64"}
+crewai = { version = "0.102.0" }
 
 [tool.poetry.scripts]
 demo = "my_agent.demo:main"

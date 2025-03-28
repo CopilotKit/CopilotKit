@@ -1,0 +1,25 @@
+[project]
+name = "similar_company_finder_template"
+version = "0.1.0"
+description = "similar-company-finder-template using crewAI"
+authors = [
+    { name = "Your Name", email = "you@example.com" },
+]
+requires-python = ">=3.10,<=3.13"
+dependencies = [
+    "crewai[tools]>=0.102.0",
+    "langchain-core>=0.2.30",
+]
+
+[project.scripts]
+similar_company_finder_template = "similar_company_finder_template.main:run"
+run_crew = "similar_company_finder_template.main:run"
+train = "similar_company_finder_template.main:train"
+replay = "similar_company_finder_template.main:replay"
+test = "similar_company_finder_template.main:test"
+
+[build-system]
+requires = [
+    "hatchling",
+]
+build-backend = "hatchling.build"

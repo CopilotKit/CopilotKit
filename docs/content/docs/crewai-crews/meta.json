@@ -3,6 +3,7 @@
   "root": true,
   "pages": [
     "index",
+    "[lucide/Telescope][Feature Viewer](https://demo-viewer-five.vercel.app/ )",
     "---Quickstart---",
     "...quickstart",
     "---Guides---",
@@ -13,6 +14,7 @@
     "frontend-actions",
     "multi-agent-flows",
     "advanced",
+    "components",
     "---Learn---",
     "...concepts"
   ]

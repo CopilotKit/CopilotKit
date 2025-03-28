@@ -3,17 +3,23 @@ title: Reading agent state
 icon: "lucide/ArrowLeft"
 description: Read the realtime agent state in your native application.
 ---
-import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
 
-<InsecurePasswordProtected>
+import { ImageZoom } from "fumadocs-ui/components/image-zoom";
 
 <Frame>
-  <ImageZoom src="/images/coagents/read-agent-state.png" alt="read agent state" width={1000} height={1000} className="my-0"/>
+  <ImageZoom
+    src="/images/coagents/read-agent-state.png"
+    alt="read agent state"
+    width={1000}
+    height={1000}
+    className="my-0"
+  />
 </Frame>
 
 <Callout type="info">
-  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter) with
-  the [implementation](#implementation) section applied!
+  Pictured above is the [coagent
+  starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter)
+  with the [implementation](#implementation) section applied!
 </Callout>
 
 ## What is this?
@@ -22,7 +28,7 @@ You can easily use the realtime agent state not only in the chat UI, but also in
 
 ## When should I use this?
 
-You can use this when you want to provide the user with feedback about what your agent's state. As your agent's 
+You can use this when you want to provide the user with feedback about what your agent's state. As your agent's
 state update you can reflect these updates natively in your application.
 
 ## Implementation
@@ -36,6 +42,7 @@ state update you can reflect these updates natively in your application.
 
     If you don't already have an agent, you can use the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter) as a starting point
     as this guide uses it as a starting point.
+
   </Step>
   <Step>
     ### Define the Agent State
@@ -53,6 +60,7 @@ state update you can reflect these updates natively in your application.
         ```
       </Tab>
     </Tabs>
+
   </Step>
   <Step>
     ### Use the `useCoAgent` Hook
@@ -87,6 +95,7 @@ state update you can reflect these updates natively in your application.
     <Callout type="info">
       The `state` in `useCoAgent` is reactive and will automatically update when the agent's state changes.
     </Callout>
+
   </Step>
   <Step>
     ### Give it a try!
@@ -97,7 +106,7 @@ state update you can reflect these updates natively in your application.
 
 ## Rendering agent state in the chat
 
-You can also render the agent's state in the chat UI. This is useful for informing the user about the agent's state in a 
+You can also render the agent's state in the chat UI. This is useful for informing the user about the agent's state in a
 more in-context way. To do this, you can use the [useCoAgentStateRender](/reference/hooks/useCoAgentStateRender) hook.
 
 ```tsx title="ui/app/page.tsx"
@@ -106,7 +115,7 @@ import { useCoAgentStateRender } from "@copilotkit/react-core"; // [!code highli
 // Define the agent state type, should match the actual state of your agent
 type AgentState = {
   language: "english" | "spanish";
-}
+};
 
 function YourMainContent() {
   // ...
@@ -123,15 +132,15 @@ function YourMainContent() {
 ```
 
 <Callout type="info">
-  The `state` in `useCoAgentStateRender` is reactive and will automatically update when the agent's state changes.
+  The `state` in `useCoAgentStateRender` is reactive and will automatically
+  update when the agent's state changes.
 </Callout>
 
 ## Intermediately Stream and Render Agent State
-By default, the CrewAI Flow agent state will only update *between* CrewAI Flow node transitions --
+
+By default, the CrewAI Flow agent state will only update _between_ CrewAI Flow node transitions --
 which means state updates will be discontinuous and delayed.
 
 You likely want to render the agent state as it updates **continuously.**
 
 See **[emit intermediate state](/crewai-flows/shared-state/predictive-state-updates).**
-
-</InsecurePasswordProtected>

@@ -5,22 +5,25 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--copilot-kit-primary-color);
   outline: none;
   position: relative;
   transform: scale(1);
-  transition: transform 200ms;
+  transition: all 0.2s ease;
   background-color: var(--copilot-kit-primary-color);
   color: var(--copilot-kit-contrast-color);
   cursor: pointer;
+  box-shadow: var(--copilot-kit-shadow-sm);
 }
 
 .copilotKitButton:hover {
-  transform: scale(1.1);
+  transform: scale(1.05);
+  box-shadow: var(--copilot-kit-shadow-md);
 }
 
 .copilotKitButton:active {
-  transform: scale(0.75);
+  transform: scale(0.95);
+  box-shadow: var(--copilot-kit-shadow-sm);
 }
 
 .copilotKitButtonIcon {
@@ -31,6 +34,14 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copilotKitButtonIcon svg {
+  width: 1.5rem;
+  height: 1.5rem;
 }
 
 /* State when the chat is open */

@@ -216,7 +216,7 @@ export class CopilotResolver {
       ),
       threadId: data.threadId,
       runId: data.runId,
-      publicApiKey: undefined,
+      publicApiKey: copilotCloudPublicApiKey,
       outputMessagesPromise,
       graphqlContext: ctx,
       forwardedParameters: data.forwardedParameters,

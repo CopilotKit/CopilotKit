@@ -4,7 +4,7 @@ description: Use multiple agents to orchestrate complex flows.
 icon: "lucide/Users"
 ---
 
-<InsecurePasswordProtected>
+import { Callout } from "fumadocs-ui/components/callout";
 
 <Frame>
   <img src="/images/coagents/multi-agent-flows.png" alt="Multi-Agent Flows" />
@@ -43,6 +43,13 @@ In router mode, CopilotKit acts as a central hub, dynamically selecting and _rou
 
 In this mode, CopilotKit will intelligently route requests to the most appropriate agent or action based on the context and user input.
 
+<Callout type="warn">
+  Router mode requires that you set up an LLM adapter. See how in ["Set up a
+  copilot
+  runtime"](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted#set-up-a-copilot-runtime-endpoint)
+  section of the docs.
+</Callout>
+
 ### Agent Lock Mode
 
 To use Agent Lock Mode, specify the agent name in the `CopilotKit` component with the `agent` prop:
@@ -57,5 +64,3 @@ To use Agent Lock Mode, specify the agent name in the `CopilotKit` component wit
 In this mode, CopilotKit is configured to work exclusively with a specific agent. This mode is useful when you want to focus on a particular task or domain. Whereas in Router Mode the LLM and CopilotKit's router are free to switch between agents to handle user requests, in Agent Lock Mode all requests will stay within a single workflow graph, ensuring precise control over the workflow.
 
 Use whichever mode works best for your app experience! Also, note that while you cannot nest `CopilotKit` providers, you can use different agents or modes in different areas of your app — for example, you may want a chatbot in router mode that can call on any agent or tool, but may also want to integrate one specific agent elsewhere for a more focused workflow.
-
-</InsecurePasswordProtected>

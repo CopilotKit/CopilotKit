@@ -112,7 +112,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                             ]
                             
                             for step in steps:
-                                state.observed_steps = [...(state.observed_steps or []), step]
+                                self.state["observed_steps"] = self.state.get("observed_steps", []) + [step]
                                 await copilotkit_emit_state(config, state) # [!code highlight]
                                 await asyncio.sleep(1)
 
@@ -190,7 +190,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
 
                             # Call the model with CopilotKit's modified config
                             response = await model.ainvoke(
-                                state.messages,
+                                state["messages"],
                                 config=config
                             )
 

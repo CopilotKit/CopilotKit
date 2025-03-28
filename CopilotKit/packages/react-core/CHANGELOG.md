@@ -1,5 +1,172 @@
 # ui
 
+## 1.8.3
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.3
+- @copilotkit/shared@1.8.3
+
+## 1.8.3-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.3-next.0
+- @copilotkit/shared@1.8.3-next.0
+
+## 1.8.2-next.3
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.2-next.3
+- @copilotkit/shared@1.8.2-next.3
+
+## 1.8.2-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.2-next.2
+- @copilotkit/shared@1.8.2-next.2
+
+## 1.8.2-next.1
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.2-next.1
+- @copilotkit/shared@1.8.2-next.1
+
+## 1.8.2-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.2-next.0
+- @copilotkit/shared@1.8.2-next.0
+
+## 1.8.1
+
+### Patch Changes
+
+- 7a42944: - fix(react-core): update agentSession when agent props change #1497
+  - @copilotkit/runtime-client-gql@1.8.1
+  - @copilotkit/shared@1.8.1
+
+## 1.8.1-next.1
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.1-next.1
+- @copilotkit/shared@1.8.1-next.1
+
+## 1.8.1-next.0
+
+### Patch Changes
+
+- 7a42944: - fix(react-core): update agentSession when agent props change #1497
+  - @copilotkit/runtime-client-gql@1.8.1-next.0
+  - @copilotkit/shared@1.8.1-next.0
+
+## 1.8.0
+
+### Patch Changes
+
+- 73f5eaa: - fix(react-core): export missing action-related types for public API
+- a50f4c1: - move default components out of ui
+  - @copilotkit/runtime-client-gql@1.8.0
+  - @copilotkit/shared@1.8.0
+
+## 1.8.0-next.8
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.0-next.8
+- @copilotkit/shared@1.8.0-next.8
+
+## 1.8.0-next.7
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.0-next.7
+- @copilotkit/shared@1.8.0-next.7
+
+## 1.8.0-next.6
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.0-next.6
+- @copilotkit/shared@1.8.0-next.6
+
+## 1.8.0-next.5
+
+### Patch Changes
+
+- a50f4c1: - move default components out of ui
+  - @copilotkit/runtime-client-gql@1.8.0-next.5
+  - @copilotkit/shared@1.8.0-next.5
+
+## 1.8.0-next.4
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.0-next.4
+- @copilotkit/shared@1.8.0-next.4
+
+## 1.8.0-next.3
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.0-next.3
+- @copilotkit/shared@1.8.0-next.3
+
+## 1.7.2-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.7.2-next.2
+- @copilotkit/shared@1.7.2-next.2
+
+## 1.7.2-next.1
+
+### Patch Changes
+
+- 73f5eaa: - fix(react-core): export missing action-related types for public API
+  - @copilotkit/runtime-client-gql@1.7.2-next.1
+  - @copilotkit/shared@1.7.2-next.1
+
+## 1.7.2-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.7.2-next.0
+- @copilotkit/shared@1.7.2-next.0
+
+## 1.7.1
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.7.1
+- @copilotkit/shared@1.7.1
+
+## 1.7.1-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.7.1-next.0
+- @copilotkit/shared@1.7.1-next.0
+
+## 1.7.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.7.0
+- @copilotkit/shared@1.7.0
+
+## 1.7.0-next.1
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.7.0-next.1
+- @copilotkit/shared@1.7.0-next.1
+
 ## 1.7.0-next.0
 
 ### Patch Changes

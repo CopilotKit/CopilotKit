@@ -34,14 +34,44 @@ jobs:
               deps: "local-deps",
             }
           - { project: "coagents-research-canvas", type: "ui" }
-          - { project: "coagents-routing", type: "agent", runtime: "python", deps: "local-deps" }
-          - { project: "coagents-routing", type: "agent", runtime: "js", deps: "local-deps" }
+          - {
+              project: "coagents-routing",
+              type: "agent",
+              runtime: "python",
+              deps: "local-deps",
+            }
+          - {
+              project: "coagents-routing",
+              type: "agent",
+              runtime: "js",
+              deps: "local-deps",
+            }
           - { project: "coagents-routing", type: "ui" }
-          - { project: "coagents-qa-text", type: "agent", runtime: "python", deps: "local-deps" }
-          - { project: "coagents-qa-text", type: "agent", runtime: "js", deps: "local-deps" }
+          - {
+              project: "coagents-qa-text",
+              type: "agent",
+              runtime: "python",
+              deps: "local-deps",
+            }
+          - {
+              project: "coagents-qa-text",
+              type: "agent",
+              runtime: "js",
+              deps: "local-deps",
+            }
           - { project: "coagents-qa-text", type: "ui" }
-          - { project: "coagents-qa-native", type: "agent", runtime: "python", deps: "local-deps" }
-          - { project: "coagents-qa-native", type: "agent", runtime: "js", deps: "local-deps" }
+          - {
+              project: "coagents-qa-native",
+              type: "agent",
+              runtime: "python",
+              deps: "local-deps",
+            }
+          - {
+              project: "coagents-qa-native",
+              type: "agent",
+              runtime: "js",
+              deps: "local-deps",
+            }
           - { project: "coagents-qa-native", type: "ui" }
           - { project: "next-openai", type: "next-openai" }
     steps:
@@ -273,6 +303,19 @@ jobs:
         working-directory: infra
         run: |
           echo "e2e-urls=$(node get-e2e-tests-urls.js | base64 -w 0)" >> "$GITHUB_OUTPUT"
+
+      - name: Add preview label
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['preview']
+            })
 
   test:
     if: github.event_name == 'pull_request'

@@ -146,7 +146,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     ],
   },
   {
-    sourcePath: "../sdk-python/copilotkit/crewai.py",
+    sourcePath: "../sdk-python/copilotkit/crewai/crewai_sdk.py",
     destinationPath: "docs/content/docs/reference/sdk/python/CrewAI.mdx",
     title: "CrewAI SDK",
     description:
@@ -169,7 +169,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
     pythonSymbols: ["LangGraphAgent", "CopilotKitConfig"],
   },
   {
-    sourcePath: "../sdk-python/copilotkit/crewai_agent.py",
+    sourcePath: "../sdk-python/copilotkit/crewai/crewai_agent.py",
     destinationPath: "docs/content/docs/reference/sdk/python/CrewAIAgent.mdx",
     title: "CrewAIAgent",
     description: "CrewAIAgent lets you define your agent for use with CopilotKit.",

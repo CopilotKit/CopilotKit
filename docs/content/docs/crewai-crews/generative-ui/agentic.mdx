@@ -3,14 +3,23 @@ title: Agentic Generative UI
 icon: "lucide/Bot"
 description: Render the state of your agent with custom UI components.
 ---
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 
-<InsecurePasswordProtected>
-
-<video src="/images/coagents/agentic-generative-ui.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<video
+  src="/images/coagents/agentic-generative-ui.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
 <Callout>
-  This video demonstrates the [implementation](#implementation) section applied to out [coagents starter project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-crews).
+  This video demonstrates the [implementation](#implementation) section applied
+  to out [coagents starter
+  project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-crews).
 </Callout>
 
 ## What is this?
@@ -40,7 +49,7 @@ Rendering the outputs of your crew in the UI is essential to provide the user wi
     import { useCoAgent } from "@copilotkit/react-core";
     // ...
 
-    // Define the state of the agent, should match the state of the agent in your LangGraph.
+    // Define the state of the agent, should match the state of the agent.
     type AgentState = {
       inputs: {
         topic: string,
@@ -50,7 +59,7 @@ Rendering the outputs of your crew in the UI is essential to provide the user wi
     };
 
     function YourMainContent() {
-      // ... 
+      // ...
 
       // [!code highlight:14]
       // styles omitted for brevity
@@ -60,22 +69,22 @@ Rendering the outputs of your crew in the UI is essential to provide the user wi
           outputs: "Report will appear here",
         },
       });
-      
+
       return (
         <div
-            id="result"            
+            id="result"
           >
             <MarkdownRenderer content={state.outputs} />
           </div>
       )
     }
     ```
+
   </Step>
   <Step>
     ### Give it a try!
 
     You've now created a component that will render the agent's state in the chat.
+
   </Step>
 </Steps>
-
-</InsecurePasswordProtected>

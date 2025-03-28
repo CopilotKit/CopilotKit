@@ -1,5 +1,223 @@
 # ui
 
+## 1.8.3
+
+### Patch Changes
+
+- 76520b8: - style: remove system-preference oriented dark mode
+- 0f6baa1: - fix: fix default styles of chat components
+  - @copilotkit/react-core@1.8.3
+  - @copilotkit/runtime-client-gql@1.8.3
+  - @copilotkit/shared@1.8.3
+
+## 1.8.3-next.0
+
+### Patch Changes
+
+- 76520b8: - style: remove system-preference oriented dark mode
+  - @copilotkit/react-core@1.8.3-next.0
+  - @copilotkit/runtime-client-gql@1.8.3-next.0
+  - @copilotkit/shared@1.8.3-next.0
+
+## 1.8.2-next.3
+
+### Patch Changes
+
+- 0f6baa1: - fix: fix default styles of chat components
+  - @copilotkit/react-core@1.8.2-next.3
+  - @copilotkit/runtime-client-gql@1.8.2-next.3
+  - @copilotkit/shared@1.8.2-next.3
+
+## 1.8.2-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.2-next.2
+- @copilotkit/react-core@1.8.2-next.2
+- @copilotkit/shared@1.8.2-next.2
+
+## 1.8.2-next.1
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.2-next.1
+- @copilotkit/react-core@1.8.2-next.1
+- @copilotkit/shared@1.8.2-next.1
+
+## 1.8.2-next.0
+
+### Patch Changes
+
+- d574350: - fix: adjust order of colors so app themes prevails OS theme
+- d574350: - fix: adjust order of colors so app themes prevails OS theme
+  - @copilotkit/react-core@1.8.2-next.0
+  - @copilotkit/runtime-client-gql@1.8.2-next.0
+  - @copilotkit/shared@1.8.2-next.0
+
+## 1.8.1
+
+### Patch Changes
+
+- 0cba747: - fix: set text area within the input box to transparent background
+- Updated dependencies [7a42944]
+  - @copilotkit/react-core@1.8.1
+  - @copilotkit/runtime-client-gql@1.8.1
+  - @copilotkit/shared@1.8.1
+
+## 1.8.1-next.1
+
+### Patch Changes
+
+- 0cba747: - fix: set text area within the input box to transparent background
+  - @copilotkit/react-core@1.8.1-next.1
+  - @copilotkit/runtime-client-gql@1.8.1-next.1
+  - @copilotkit/shared@1.8.1-next.1
+
+## 1.8.1-next.0
+
+### Patch Changes
+
+- Updated dependencies [7a42944]
+  - @copilotkit/react-core@1.8.1-next.0
+  - @copilotkit/runtime-client-gql@1.8.1-next.0
+  - @copilotkit/shared@1.8.1-next.0
+
+## 1.8.0
+
+### Minor Changes
+
+- 20f0727: - feat(chat): redesign chat
+
+### Patch Changes
+
+- 099807a: - fix: adjust dev console menus to dark theme
+- c11fab9: - chore(react-ui): Add DefaultResponseRenderer and DefaultStateRenderer components
+- a50f4c1: - move default components out of ui
+- 5f184b7: - fix: remove response button
+  - fix: use customizable assistant message icons
+- d8e354b: - fix: re-align customization variable names and usage
+- Updated dependencies [73f5eaa]
+- Updated dependencies [a50f4c1]
+  - @copilotkit/react-core@1.8.0
+  - @copilotkit/runtime-client-gql@1.8.0
+  - @copilotkit/shared@1.8.0
+
+## 1.8.0-next.8
+
+### Patch Changes
+
+- 099807a: - fix: adjust dev console menus to dark theme
+  - @copilotkit/react-core@1.8.0-next.8
+  - @copilotkit/runtime-client-gql@1.8.0-next.8
+  - @copilotkit/shared@1.8.0-next.8
+
+## 1.8.0-next.7
+
+### Patch Changes
+
+- 5f184b7: - fix: remove response button
+  - fix: use customizable assistant message icons
+  - @copilotkit/react-core@1.8.0-next.7
+  - @copilotkit/runtime-client-gql@1.8.0-next.7
+  - @copilotkit/shared@1.8.0-next.7
+
+## 1.8.0-next.6
+
+### Patch Changes
+
+- @copilotkit/react-core@1.8.0-next.6
+- @copilotkit/runtime-client-gql@1.8.0-next.6
+- @copilotkit/shared@1.8.0-next.6
+
+## 1.8.0-next.5
+
+### Patch Changes
+
+- a50f4c1: - move default components out of ui
+- Updated dependencies [a50f4c1]
+  - @copilotkit/react-core@1.8.0-next.5
+  - @copilotkit/runtime-client-gql@1.8.0-next.5
+  - @copilotkit/shared@1.8.0-next.5
+
+## 1.8.0-next.4
+
+### Patch Changes
+
+- d8e354b: - fix: re-align customization variable names and usage
+  - @copilotkit/react-core@1.8.0-next.4
+  - @copilotkit/runtime-client-gql@1.8.0-next.4
+  - @copilotkit/shared@1.8.0-next.4
+
+## 1.8.0-next.3
+
+### Minor Changes
+
+- 20f0727: - feat(chat): redesign chat
+
+### Patch Changes
+
+- @copilotkit/react-core@1.8.0-next.3
+- @copilotkit/runtime-client-gql@1.8.0-next.3
+- @copilotkit/shared@1.8.0-next.3
+
+## 1.7.2-next.2
+
+### Patch Changes
+
+- c11fab9: - chore(react-ui): Add DefaultResponseRenderer and DefaultStateRenderer components
+  - @copilotkit/react-core@1.7.2-next.2
+  - @copilotkit/runtime-client-gql@1.7.2-next.2
+  - @copilotkit/shared@1.7.2-next.2
+
+## 1.7.2-next.1
+
+### Patch Changes
+
+- Updated dependencies [73f5eaa]
+  - @copilotkit/react-core@1.7.2-next.1
+  - @copilotkit/runtime-client-gql@1.7.2-next.1
+  - @copilotkit/shared@1.7.2-next.1
+
+## 1.7.2-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.7.2-next.0
+- @copilotkit/react-core@1.7.2-next.0
+- @copilotkit/shared@1.7.2-next.0
+
+## 1.7.1
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.7.1
+- @copilotkit/react-core@1.7.1
+- @copilotkit/shared@1.7.1
+
+## 1.7.1-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.7.1-next.0
+- @copilotkit/react-core@1.7.1-next.0
+- @copilotkit/shared@1.7.1-next.0
+
+## 1.7.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.7.0
+- @copilotkit/react-core@1.7.0
+- @copilotkit/shared@1.7.0
+
+## 1.7.0-next.1
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.7.0-next.1
+- @copilotkit/react-core@1.7.0-next.1
+- @copilotkit/shared@1.7.0-next.1
+
 ## 1.7.0-next.0
 
 ### Patch Changes

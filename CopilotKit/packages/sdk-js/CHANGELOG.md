@@ -1,5 +1,145 @@
 # @copilotkit/sdk-js
 
+## 1.8.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.3
+
+## 1.8.3-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.3-next.0
+
+## 1.8.2-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.2-next.3
+
+## 1.8.2-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.2-next.2
+
+## 1.8.2-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.2-next.1
+
+## 1.8.2-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.2-next.0
+
+## 1.8.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.1
+
+## 1.8.1-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.1-next.1
+
+## 1.8.1-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.1-next.0
+
+## 1.8.0
+
+### Patch Changes
+
+- f31b093: - fix: add types for js sdk export
+  - @copilotkit/shared@1.8.0
+
+## 1.8.0-next.8
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.0-next.8
+
+## 1.8.0-next.7
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.0-next.7
+
+## 1.8.0-next.6
+
+### Patch Changes
+
+- f31b093: - fix: add types for js sdk export
+  - @copilotkit/shared@1.8.0-next.6
+
+## 1.8.0-next.5
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.0-next.5
+
+## 1.8.0-next.4
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.0-next.4
+
+## 1.8.0-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.0-next.3
+
+## 1.7.2-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.7.2-next.2
+
+## 1.7.2-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.7.2-next.1
+
+## 1.7.2-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.7.2-next.0
+
+## 1.7.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.7.1
+
+## 1.7.1-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.7.1-next.0
+
+## 1.7.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.7.0
+
+## 1.7.0-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.7.0-next.1
+
 ## 1.7.0-next.0
 
 ### Patch Changes

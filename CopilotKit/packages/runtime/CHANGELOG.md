@@ -1,5 +1,158 @@
 # @copilotkit/runtime
 
+## 1.8.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.3
+
+## 1.8.3-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.3-next.0
+
+## 1.8.2-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.2-next.3
+
+## 1.8.2-next.2
+
+### Patch Changes
+
+- 4eedf97: - fix: handle failure to fetch langgraph schema
+  - @copilotkit/shared@1.8.2-next.2
+
+## 1.8.2-next.1
+
+### Patch Changes
+
+- e95bb0e: - fix: clarify difference between lgp endpoints to fastapi endpoints
+  - @copilotkit/shared@1.8.2-next.1
+
+## 1.8.2-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.2-next.0
+
+## 1.8.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.1
+
+## 1.8.1-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.1-next.1
+
+## 1.8.1-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.1-next.0
+
+## 1.8.0
+
+### Patch Changes
+
+- a16757a: - fix: re-enable runtime actions when remote endpoint is set
+  - @copilotkit/shared@1.8.0
+
+## 1.8.0-next.8
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.0-next.8
+
+## 1.8.0-next.7
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.0-next.7
+
+## 1.8.0-next.6
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.0-next.6
+
+## 1.8.0-next.5
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.0-next.5
+
+## 1.8.0-next.4
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.0-next.4
+
+## 1.8.0-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.0-next.3
+
+## 1.7.2-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.7.2-next.2
+
+## 1.7.2-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.7.2-next.1
+
+## 1.7.2-next.0
+
+### Patch Changes
+
+- a16757a: - fix: re-enable runtime actions when remote endpoint is set
+  - @copilotkit/shared@1.7.2-next.0
+
+## 1.7.1
+
+### Patch Changes
+
+- 261b2be: - simplifies interface + adds o11y in agents
+  - @copilotkit/shared@1.7.1
+
+## 1.7.1-next.0
+
+### Patch Changes
+
+- 261b2be: - simplifies interface + adds o11y in agents
+  - @copilotkit/shared@1.7.1-next.0
+
+## 1.7.0
+
+### Minor Changes
+
+- 082db7a: - CrewAI support
+
+### Patch Changes
+
+- 082db7a: - Added RemoteAgentAdapter and implemented CopilotKit (protocol & events).
+  - Integrated CrewAI (with a prototype, HITL, event system, and chat/demo tweaks).
+  - Updated docs and cleaned up code (fixing stdout issues, restricting Python version, and streamlining demos).
+- 1e934e4: - feat(runtime): Add LangFuse logging integration
+  - @copilotkit/shared@1.7.0
+
+## 1.7.0-next.1
+
+### Patch Changes
+
+- 1e934e4: - feat(runtime): Add LangFuse logging integration
+  - @copilotkit/shared@1.7.0-next.1
+
 ## 1.7.0-next.0
 
 ### Minor Changes

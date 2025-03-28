@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1-labs
 
-FROM public.ecr.aws/docker/library/node:22-slim as production
+FROM public.ecr.aws/docker/library/node:22-slim AS production
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.0 /lambda-adapter /opt/extensions/lambda-adapter
 
 # ENV HOME="/tmp"
@@ -27,7 +27,12 @@ RUN pnpm i --frozen-lockfile
 # Copy SDK and install dependencies in a single layer
 COPY ${APP_DIR}/ ./
 
-RUN mkdir .langgraph_api
+# Explicitly install the missing dependency
+RUN pnpm add @langchain/langgraph-checkpoint
+
+RUN mkdir /tmp/.langgraph_api
+
+ENV LANGGRAPH_API_DIR="/tmp/.langgraph_api"
 
 RUN ls -la
 

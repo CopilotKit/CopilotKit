@@ -1,0 +1,219 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "copilotkit",
+  "homepage": "https://copilotkit.ai",
+  "items": [
+    {
+      "name": "langgraph-platform-starter",
+      "type": "registry:block",
+      "title": "LangGraph Platform Starter",
+      "description": "Bootstrap your Next.js project with CopilotKit and LangGraph Platform.",
+      "dependencies": ["@copilotkit/runtime", "@copilotkit/react-core"],
+      "files": [
+        {
+          "path": "components/layout/agent-layout.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/layout.tsx"
+        },
+        {
+          "path": "components/runtime/langgraph-platform.ts",
+          "type": "registry:lib",
+          "target": "app/api/copilotkit/route.ts"
+        }
+      ]
+    },
+    {
+      "name": "agent-starter",
+      "type": "registry:block",
+      "title": "Agent Starter",
+      "description": "A starter for CopilotKit with an agent.",
+      "dependencies": ["@copilotkit/runtime", "@copilotkit/react-core"],
+      "files": [
+        {
+          "path": "components/layout/agent-layout.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/layout.tsx"
+        },
+        {
+          "path": "components/runtime/remote-endpoint.ts",
+          "type": "registry:lib",
+          "target": "app/api/copilotkit/route.ts"
+        }
+      ]
+    },
+    {
+      "name": "standard-starter",
+      "type": "registry:block",
+      "title": "Standard Starter",
+      "description": "A starter for CopilotKit with a standard runtime.",
+      "dependencies": ["@copilotkit/runtime", "@copilotkit/react-core"],
+      "files": [
+        {
+          "path": "components/layout/standard-layout.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/layout.tsx"
+        },
+        {
+          "path": "components/runtime/standard.ts",
+          "type": "registry:lib",
+          "target": "app/api/copilotkit/route.ts"
+        }
+      ]
+    },
+    {
+      "name": "agent-layout",
+      "type": "registry:block",
+      "title": "Agent Layout",
+      "description": "A layout for CopilotKit with an agent.",
+      "dependencies": ["@copilotkit/react-core"],
+      "files": [
+        {
+          "path": "components/layout/agent-layout.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/layout.tsx"
+        }
+      ]
+    },
+    {
+      "name": "langgraph-platform-runtime",
+      "type": "registry:block",
+      "title": "LangGraph Platform Runtime",
+      "description": "A runtime for CopilotKit with LangGraph Platform.",
+      "dependencies": ["@copilotkit/runtime"],
+      "files": [
+        {
+          "path": "components/runtime/langgraph-platform.ts",
+          "type": "registry:lib",
+          "target": "app/api/copilotkit/route.ts"
+        }
+      ]
+    },
+    {
+      "name": "remote-endpoint",
+      "type": "registry:block",
+      "title": "Remote Endpoint",
+      "description": "A remote endpoint for CopilotKit.",
+      "dependencies": ["@copilotkit/runtime"],
+      "files": [
+        {
+          "path": "components/runtime/remote-endpoint.ts",
+          "type": "registry:lib",
+          "target": "app/api/copilotkit/route.ts"
+        }
+      ]
+    },
+    {
+      "name": "standard-runtime",
+      "type": "registry:block",
+      "title": "Standard Runtime",
+      "description": "A runtime for CopilotKit with a standard runtime.",
+      "dependencies": ["@copilotkit/runtime"],
+      "files": [
+        {
+          "path": "components/runtime/standard.ts",
+          "type": "registry:lib",
+          "target": "app/api/copilotkit/route.ts"
+        }
+      ]
+    },
+    {
+      "name": "coagents-starter-ui",
+      "type": "registry:block",
+      "title": "Coagents Starter UI",
+      "description": "UI for interacting with the a starter coagent.",
+      "dependencies": ["@copilotkit/react-ui", "@copilotkit/react-core"],
+      "files": [
+        {
+          "path": "components/quickstarts/coagents-starter.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/page.tsx"
+        }
+      ]
+    },
+    {
+      "name": "chat",
+      "type": "registry:page",
+      "title": "Chat",
+      "description": "A chat component for CopilotKit.",
+      "dependencies": ["@copilotkit/react-ui"],
+      "files": [
+        {
+          "path": "components/chat/chat.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/page.tsx"
+        }
+      ]
+    },
+    {
+      "name": "sidebar",
+      "type": "registry:page",
+      "title": "Sidebar",
+      "description": "A sidebar component for CopilotKit.",
+      "dependencies": ["@copilotkit/react-ui"],
+      "files": [
+        {
+          "path": "components/chat/sidebar.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/page.tsx"
+        }
+      ]
+    },
+    {
+      "name": "popup",
+      "type": "registry:page",
+      "title": "Popup",
+      "description": "A popup component for CopilotKit.",
+      "dependencies": ["@copilotkit/react-ui"],
+      "files": [
+        {
+          "path": "components/chat/popup.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/page.tsx"
+        }
+      ]
+    },
+    {
+      "name": "coagents-crew-starter",
+      "type": "registry:page",
+      "title": "Coagents Crew Starter",
+      "description": "Quickstart for CopilotKit and CrewAI Crews on CrewAI Enterprise.",
+      "dependencies": [
+        "@copilotkit/react-core",
+        "@copilotkit/react-ui",
+        "@copilotkit/runtime-client-gql"
+      ],
+      "files": [
+        {
+          "path": "hooks/use-coagents-crew-starter.tsx",
+          "type": "registry:hook",
+          "target": "hooks/use-coagents-crew-starter.tsx"
+        },
+        {
+          "path": "components/crews/crew-in-chat-input.tsx",
+          "type": "registry:component",
+          "target": "components/crews/crew-in-chat-input.tsx"
+        },
+        {
+          "path": "components/crews/crew-state-renderer.tsx",
+          "type": "registry:component",
+          "target": "components/crews/crew-state-renderer.tsx"
+        },
+        {
+          "path": "components/crews/crew-human-feedback-renderer.tsx",
+          "type": "registry:component",
+          "target": "components/crews/crew-human-feedback-renderer.tsx"
+        },
+        {
+          "path": "components/layout/coagents-crew-starter-layout.tsx",
+          "type": "registry:component",
+          "target": "app/copilotkit/layout.tsx"
+        },
+        {
+          "path": "components/quickstarts/coagents-crew-starter.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/page.tsx"
+        }
+      ]
+    }
+  ]
+}

@@ -15,13 +15,11 @@ You can swap out any of the sub-components of any Copilot UI to build up a compl
 | [Header](#header) | The header of the chat |
 | [Messages](#messages) | The chat messages area |
 | [Input](#input) | The chat input |
-| [ResponseButton](#responsebutton) | The button for regenerating a response |
 | [Actions](#actions) | Customize how actions (tools) are displayed |
 | [Agent State](#agent-state) | Customize how agent state messages are displayed |
 
 ## UserMessage
 The user message is what displays when the user sends a message to the chat. In this example, we change the color and add an avatar. 
-
 
 <ImageAndCode preview="/images/custom-user-message.png">
 The main thing to be aware of here is the `message` prop, which is the message text from the user.
@@ -339,59 +337,6 @@ function CustomInput({ inProgress, onSend, isVisible }: InputProps) {
 ```
 </ImageAndCode>
 
-## ResponseButton
-
-By default, this component renders as the "Regenerate Response" button. The following example demonstrates how to replace it entirely with custom feedback buttons.
-
-<Callout type="warn">
-This removes the default regeneration functionality - you'll need to implement it yourself if needed.
-</Callout>
-
-<ImageAndCode preview="/images/concepts/customize-look-and-feel/custom-response-button.png">
-
-```tsx
-import { ResponseButtonProps, CopilotSidebar } from "@copilotkit/react-ui";
-import { CopilotKit } from "@copilotkit/react-core";
-import "@copilotkit/react-ui/styles.css";
-
-function CustomResponseButton({ onClick, inProgress }: ResponseButtonProps) {
-  // [!code highlight:29]
-  return (
-    <div style={{ 
-      display: "flex", 
-      marginTop: "10px" 
-    }}>
-      <button
-        style={{ 
-          flex: 1, 
-          border: "1px solid #eee", 
-          borderRadius: "4px", 
-          marginRight: "5px" 
-        }}
-        onClick={() => console.log("your custom button clicked")}
-      >
-        👍
-      </button>
-      <button 
-        style={{ 
-          flex: 1, 
-          border: "1px solid #eee", 
-          borderRadius: "4px" 
-        }}
-        onClick={() => console.log("your custom button clicked")}
-      >
-        👎
-      </button>
-    </div>
-  );
-};
-
-<CopilotKit>
-  <CopilotSidebar ResponseButton={CustomResponseButton} />
-</CopilotKit>
-```
-</ImageAndCode>
-
 ## Actions
 Actions allow the LLM to interact with your application's functionality. When an action is called by the LLM, you can provide custom components to visualize its execution and results. This example demonstrates a calendar meeting card implementation.
 
@@ -480,3 +425,4 @@ useCoAgentStateRender<AgentState>({
 });
 ```
 </ImageAndCode>
+
