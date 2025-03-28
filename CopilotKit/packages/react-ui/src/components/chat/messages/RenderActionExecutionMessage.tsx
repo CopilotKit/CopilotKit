@@ -1,10 +1,14 @@
 import { MessageStatusCode } from "@copilotkit/runtime-client-gql";
 import { RenderMessageProps } from "../props";
 import { RenderFunctionStatus, useCopilotContext } from "@copilotkit/react-core";
+import { AssistantMessage as DefaultAssistantMessage } from "./AssistantMessage";
 
-export function RenderActionExecutionMessage(props: RenderMessageProps) {
+export function RenderActionExecutionMessage({
+  AssistantMessage = DefaultAssistantMessage,
+  ...props
+}: RenderMessageProps) {
   const { chatComponentsCache } = useCopilotContext();
-  const { message, inProgress, index, isCurrentMessage, actionResult, AssistantMessage } = props;
+  const { message, inProgress, index, isCurrentMessage, actionResult } = props;
 
   if (message.isActionExecutionMessage()) {
     if (
