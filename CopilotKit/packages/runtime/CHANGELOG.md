@@ -1,5 +1,14 @@
 # @copilotkit/runtime
 
+## 1.8.4
+
+### Patch Changes
+
+- e652aac: - feat: add support for langgraph config schema
+- f363760: - fix: when unable to find specified agent, show what's available
+- Updated dependencies [f363760]
+  - @copilotkit/shared@1.8.4
+
 ## 1.8.4-next.4
 
 ### Patch Changes

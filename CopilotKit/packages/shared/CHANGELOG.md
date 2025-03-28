@@ -1,5 +1,11 @@
 # @copilotkit/shared
 
+## 1.8.4
+
+### Patch Changes
+
+- f363760: - fix: when unable to find specified agent, show what's available
+
 ## 1.8.4-next.4
 
 ## 1.8.4-next.3
