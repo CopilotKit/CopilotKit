@@ -1,5 +1,14 @@
 # ui
 
+## 1.8.4-next.0
+
+### Patch Changes
+
+- 0846462: - fix: remove styles corresponding to OS dark theme
+  - @copilotkit/react-core@1.8.4-next.0
+  - @copilotkit/runtime-client-gql@1.8.4-next.0
+  - @copilotkit/shared@1.8.4-next.0
+
 ## 1.8.3
 
 ### Patch Changes
