@@ -59,7 +59,7 @@ Manually emitted messages are great for **when you don't want to wait for the no
                     await asyncio.sleep(2) 
 
                     response = await model.ainvoke([
-                        SystemMessage(content="You are a helpful assistant.")
+                        SystemMessage(content="You are a helpful assistant."),
                         *state["messages"]
                     ], config)
                     
