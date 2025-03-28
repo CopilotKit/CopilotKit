@@ -10,12 +10,13 @@
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
   },
   "dependencies": {
+    "@agentwire/client": "0.0.15",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/react-textarea": "workspace:*",
     "@copilotkit/react-ui": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
-    "@copilotkit/shared": "workspace:*",
     "@copilotkit/runtime-client-gql": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
     "@google/generative-ai": "^0.11.5",
     "@heroicons/react": "^2.0.18",
     "@langchain/anthropic": "^0.3.5",

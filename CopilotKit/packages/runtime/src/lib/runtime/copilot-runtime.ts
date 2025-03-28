@@ -67,6 +67,7 @@ import {
   LLMResponseData,
   LLMErrorData,
 } from "../observability";
+import { AbstractAgent } from "@agentwire/client";
 
 interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
@@ -179,6 +180,11 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
   langserve?: RemoteChainParameters[];
 
   /*
+   * An array of AgentWire agents.
+   */
+  agents?: AbstractAgent<any>[];
+
+  /*
    * Delegates agent state processing to the service adapter.
    *
    * When enabled, individual agent state requests will not be processed by the agent itself.
@@ -212,6 +218,7 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   public actions: ActionsConfiguration<T>;
+  public agents: AbstractAgent<any>[];
   public remoteEndpointDefinitions: EndpointDefinition[];
   private langserve: Promise<Action<any>>[] = [];
   private onBeforeRequest?: OnBeforeRequestHandler;
@@ -241,6 +248,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     this.delegateAgentProcessingToServiceAdapter =
       params?.delegateAgentProcessingToServiceAdapter || false;
     this.observability = params?.observability_c;
+    this.agents = params?.agents ?? [];
   }
 
   async processRuntimeRequest(request: CopilotRuntimeRequest): Promise<CopilotRuntimeResponse> {
@@ -937,6 +945,7 @@ please use an LLM adapter instead.`,
       messages: inputMessages,
       agentStates,
       frontendUrl: url,
+      agents: this.agents,
     });
 
     const configuredActions =

@@ -9,22 +9,18 @@ import { GraphQLContext } from "../integrations";
 import { Logger } from "pino";
 import { Message } from "../../graphql/types/converted";
 import { AgentStateInput } from "../../graphql/inputs/agent-state.input";
-import { Observable, ReplaySubject } from "rxjs";
-import {
-  RuntimeEvent,
-  RuntimeEventSource,
-  RuntimeEventSubject,
-} from "../../service-adapters/events";
+import { Observable } from "rxjs";
+import { RuntimeEvent, RuntimeEventSubject } from "../../service-adapters/events";
 import telemetry from "../telemetry-client";
 import { RemoteLangGraphEventSource } from "../../agents/langgraph/event-source";
 import { Action } from "@copilotkit/shared";
-import { LangGraphEvent } from "../../agents/langgraph/events";
 import { execute } from "./remote-lg-action";
 import { CopilotKitError, CopilotKitLowLevelError } from "@copilotkit/shared";
 import { writeJsonLineResponseToEventStream } from "../streaming";
 import { CopilotKitApiDiscoveryError, ResolvedCopilotKitError } from "@copilotkit/shared";
 import { parseJson, tryMap } from "@copilotkit/shared";
 import { ActionInput } from "../../graphql/inputs/action.input";
+import { HttpAgent } from "@agentwire/client";
 
 export function constructLGCRemoteAction({
   endpoint,
