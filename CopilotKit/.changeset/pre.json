@@ -18,6 +18,7 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
+    "metal-actors-double",
     "red-jeans-attend",
     "rude-insects-grab",
     "stupid-walls-smash"

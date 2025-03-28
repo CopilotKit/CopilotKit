@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.8.4-next.3
+
+### Patch Changes
+
+- e652aac: - feat: add support for langgraph config schema
+  - @copilotkit/shared@1.8.4-next.3
+
 ## 1.8.4-next.2
 
 ### Patch Changes
