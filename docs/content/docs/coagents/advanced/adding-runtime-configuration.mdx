@@ -69,3 +69,42 @@ Now you can simply pull the values from the provided config argument in any agen
 </Tabs>
 </Step>
 </Steps>
+<Step>
+    ### Optional: Define configurables schema
+    If you'd like, you can define a schema to indicate which configurables you wish to receive.
+    Any item passed to "configurables" which is not included in the schema, will be filtered out.
+
+    You can read more about this (here)[https://langchain-ai.github.io/langgraph/how-tos/configuration/#define-graph]
+    <Tabs groupId="language" items={['Python', 'TypeScript']} default="Python">
+        <Tab value="Python">
+            ```python
+            from typing import TypedDict
+
+            # define which properties will be allowed in the configuration
+            class ConfigSchema(TypedDict):
+              authToken: str
+
+            # ...add all necessary graph nodes
+
+            # when defining the state graph, apply the config schema
+            workflow = StateGraph(AgentState, config_schema=ConfigSchema)
+            ```
+        </Tab>
+        <Tab value="TypeScript">
+            ```typescript
+            import { Annotation } from "@langchain/langgraph";
+
+            // define which properties will be allowed in the configuration
+            export const ConfigSchemaAnnotation = Annotation.Root({
+              authToken: Annotation<string>
+            })
+
+            // ...add all necessary graph nodes
+
+            // when defining the state graph, apply the config schema
+            const workflow = new StateGraph(AgentStateAnnotation, ConfigSchemaAnnotation)
+            ```
+        </Tab>
+    </Tabs>
+</Step>
+</Steps>

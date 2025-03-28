@@ -14,6 +14,7 @@ from langchain_core.runnables import RunnableConfig, ensure_config
 from partialjson.json_parser import JSONParser
 
 from .types import Message, MetaEvent
+from .utils import filter_by_schema_keys
 from .langgraph import copilotkit_messages_to_langchain, langchain_messages_to_copilotkit
 from .action import ActionDict
 from .agent import Agent
@@ -299,11 +300,12 @@ class LangGraphAgent(Agent):
         stream_input = resume_input if resume_input else initial_state
 
         # Get the output and input schema keys the user has allowed for this graph
-        input_keys, output_keys = self.get_schema_keys(config)
+        input_keys, output_keys, config_keys = self.get_schema_keys(config)
         self.output_schema_keys = output_keys
         self.input_schema_keys = input_keys
 
         stream_input = self.filter_state_on_schema_keys(stream_input, 'input')
+        config["configurable"] = filter_by_schema_keys(config["configurable"], config_keys)
         async for event in self.graph.astream_events(stream_input, config, version="v2"):
             current_node_name = event.get("name")
             event_type = event.get("event")
@@ -484,6 +486,13 @@ class LangGraphAgent(Agent):
             input_schema_keys = list(input_schema["properties"].keys())
             output_schema_keys = list(output_schema["properties"].keys())
 
+            try:
+                schema_dict = self.graph.config_schema().schema()
+                configurable_schema = schema_dict["$defs"]["Configurable"]
+                config_schema_keys = list(configurable_schema["properties"].keys())
+            except:
+                config_schema_keys = None
+
             # We add "copilotkit" and "messages" as they are always sent and received.
             for key in CONSTANT_KEYS:
                 if key not in input_schema_keys:
@@ -491,7 +500,7 @@ class LangGraphAgent(Agent):
                 if key not in output_schema_keys:
                     output_schema_keys.append(key)
 
-            return input_schema_keys, output_schema_keys
+            return input_schema_keys, output_schema_keys, config_schema_keys
         except Exception:
             return None
 
@@ -499,10 +508,7 @@ class LangGraphAgent(Agent):
         try:
             schema_keys_name = f"{schema_type}_schema_keys"
             if hasattr(self, schema_keys_name) and getattr(self, schema_keys_name):
-                return {
-                    k: v for k, v in state.items()
-                    if k in getattr(self, schema_keys_name) or k == "messages"
-                }
+                filter_by_schema_keys(state, getattr(self, schema_keys_name))
         except Exception:
             return state
 
