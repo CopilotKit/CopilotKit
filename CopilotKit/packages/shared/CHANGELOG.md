@@ -1,5 +1,7 @@
 # @copilotkit/shared
 
+## 1.8.4-next.2
+
 ## 1.8.4-next.1
 
 ### Patch Changes
