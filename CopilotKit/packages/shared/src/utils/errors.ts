@@ -241,14 +241,29 @@ export class CopilotKitRemoteEndpointDiscoveryError extends CopilotKitApiDiscove
  * @extends CopilotKitError
  */
 export class CopilotKitAgentDiscoveryError extends CopilotKitError {
-  constructor(params?: { agentName?: string }) {
+  constructor(params: { agentName?: string; availableAgents: { name: string; id: string }[] }) {
+    const { agentName, availableAgents } = params;
     const code = CopilotKitErrorCode.AGENT_NOT_FOUND;
-    const baseMessage = "Failed to find agent";
+
+    let message = "Failed to find any agents.";
     const configMessage = "Please verify the agent name exists and is properly configured.";
-    const finalMessage = params?.agentName
-      ? `${baseMessage} '${params.agentName}'. ${configMessage}\n\n${getSeeMoreMarkdown(ERROR_CONFIG[code].troubleshootingUrl)}`
-      : `${baseMessage}. ${configMessage}\n\n${getSeeMoreMarkdown(ERROR_CONFIG[code].troubleshootingUrl)}`;
-    super({ message: finalMessage || finalMessage, code });
+    const seeMore = getSeeMoreMarkdown(ERROR_CONFIG[code].troubleshootingUrl);
+
+    if (availableAgents.length) {
+      message = agentName
+        ? `Failed to find agent '${agentName}'. ${configMessage}`
+        : `Failed to find agent. ${configMessage}`;
+
+      const bulletList = availableAgents
+        .map((agent) => `• ${agent.name} (ID: \`${agent.id}\`)`)
+        .join("\n");
+
+      message += `\n\nThe available agents are:\n\n${bulletList}\n\n${seeMore}`;
+    } else {
+      message += `\n\n${seeMore}`;
+    }
+
+    super({ message, code });
     this.name = ERROR_NAMES.COPILOT_KIT_AGENT_DISCOVERY_ERROR;
   }
 }
