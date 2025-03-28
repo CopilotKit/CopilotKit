@@ -218,6 +218,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private onAfterRequest?: OnAfterRequestHandler;
   private delegateAgentProcessingToServiceAdapter: boolean;
   private observability?: CopilotObservabilityConfig;
+  private availableAgents: Pick<AgentWithEndpoint, "name" | "id">[];
 
   constructor(params?: CopilotRuntimeConstructorParams<T>) {
     if (
@@ -228,6 +229,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       console.warn("Actions set in runtime instance will not be available for the agent");
     }
     this.actions = params?.actions || [];
+    this.availableAgents = [];
 
     for (const chain of params?.langserve || []) {
       const remoteChain = new RemoteChain(chain);
@@ -480,7 +482,7 @@ please use an LLM adapter instead.`,
   }
 
   async discoverAgentsFromEndpoints(graphqlContext: GraphQLContext): Promise<AgentWithEndpoint[]> {
-    const agents = this.remoteEndpointDefinitions.reduce(
+    const agents: Promise<AgentWithEndpoint[]> = this.remoteEndpointDefinitions.reduce(
       async (acc: Promise<Agent[]>, endpoint) => {
         const agents = await acc;
         if (endpoint.type === EndpointType.LangGraphPlatform) {
@@ -498,7 +500,7 @@ please use an LLM adapter instead.`,
             data = await client.assistants.search();
 
             if (data && "detail" in data && (data.detail as string).toLowerCase() === "not found") {
-              throw new CopilotKitAgentDiscoveryError();
+              throw new CopilotKitAgentDiscoveryError({ availableAgents: this.availableAgents });
             }
           } catch (e) {
             throw new CopilotKitMisuseError({
@@ -560,6 +562,7 @@ please use an LLM adapter instead.`,
       },
       Promise.resolve([]),
     );
+    this.availableAgents = ((await agents) ?? []).map((a) => ({ name: a.name, id: a.id }));
 
     return agents;
   }
@@ -685,7 +688,7 @@ please use an LLM adapter instead.`,
     ) as RemoteAgentAction;
 
     if (!currentAgent) {
-      throw new CopilotKitAgentDiscoveryError({ agentName });
+      throw new CopilotKitAgentDiscoveryError({ agentName, availableAgents: this.availableAgents });
     }
 
     // Filter actions to include:
