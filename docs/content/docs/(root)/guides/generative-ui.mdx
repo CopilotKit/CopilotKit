@@ -214,7 +214,7 @@ option to render your custom component through the `render` property.
 
   <Tab value="Catch all renders">
     If you want to render actions that are not explicitly referenced in any `useCopilotAction` call, you can pass `"*"` as the action name.
-    In this case, the render method will receive an additional `name` parameter.
+    In this case, the render method will receive an additional `name` parameter. This is particularly useful when working with agents that may call arbitrary tools - see more in our [Tool-based Generative UI](/crewai-crews/generative-ui/tool-based) guide.
 
     ```tsx
     import { useCopilotAction, CatchAllActionRenderProps } from "@copilotkit/react-core";
