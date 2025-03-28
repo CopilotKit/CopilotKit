@@ -221,7 +221,6 @@ option to render your custom component through the `render` property.
 
     useCopilotAction({
       name: "*",
-      followUp: false, // Optional: control whether the AI should follow up after the action
       render: ({ name, args, status, result }: CatchAllActionRenderProps<[]>) => {
         return <div>Rendering action: {name}</div>;
       },
