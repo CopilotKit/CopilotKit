@@ -1,5 +1,13 @@
 # ui
 
+## 1.8.4-next.4
+
+### Patch Changes
+
+- 4e28414: - use new interface properly
+  - @copilotkit/runtime-client-gql@1.8.4-next.4
+  - @copilotkit/shared@1.8.4-next.4
+
 ## 1.8.4-next.3
 
 ### Patch Changes
