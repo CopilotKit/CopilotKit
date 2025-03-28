@@ -18,6 +18,8 @@ async def lifespan(app: FastAPI):
     async with AsyncPostgresSaver.from_conn_string(
         "postgresql://postgres:postgres@127.0.0.1:5432/postgres"
     ) as checkpointer:
+        # NOTE: you need to call .setup() the first time you're using your checkpointer
+        checkpointer.setup()
         # Create an async graph
         graph = workflow.compile(checkpointer=checkpointer)
 
