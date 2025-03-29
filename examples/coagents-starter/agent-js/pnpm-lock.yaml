@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@copilotkit/sdk-js':
         specifier: ^1.5.13
-        version: 1.8.3(@langchain/anthropic@0.3.8(@langchain/core@0.3.18(openai@4.90.0(zod@3.23.8))))(@langchain/google-genai@0.1.4(@langchain/core@0.3.18(openai@4.90.0(zod@3.23.8)))(zod@3.23.8))(openai@4.90.0(zod@3.23.8))
+        version: 1.8.4(@langchain/anthropic@0.3.8(@langchain/core@0.3.18(openai@4.90.0(zod@3.23.8))))(@langchain/google-genai@0.1.4(@langchain/core@0.3.18(openai@4.90.0(zod@3.23.8)))(zod@3.23.8))(openai@4.90.0(zod@3.23.8))
       '@langchain/anthropic':
         specifier: ^0.3.8
         version: 0.3.8(@langchain/core@0.3.18(openai@4.90.0(zod@3.23.8)))
@@ -45,11 +45,11 @@ packages:
   '@anthropic-ai/sdk@0.27.3':
     resolution: {integrity: sha512-IjLt0gd3L4jlOfilxVXTifn42FnVffMgDC04RJK1KDZpmkBWLv0XC92MVVmkxrFZNS/7l3xWgP/I3nqtX1sQHw==}
 
-  '@copilotkit/sdk-js@1.8.3':
-    resolution: {integrity: sha512-Ck8FZX6qx7ZSdW08QG1ZWyirU3kWBh0x/byD9BIFvSAGHOK95+rCPzv+tMCIRoxZVYt0Hf2jdaaaFjUsb73wOQ==}
+  '@copilotkit/sdk-js@1.8.4':
+    resolution: {integrity: sha512-ZpuFaHNi7QgTU8mVppjphJ+T8SJI35GHkUArqYDyXGlQKFavHc2Q/JXvWjaD+8vOK7agxpsTXmy44n1CZtUAAQ==}
 
-  '@copilotkit/shared@1.8.3':
-    resolution: {integrity: sha512-xNmmMZjygehB+5iZbheldIitnEt+1bA25E7hNdnobSb9ScSONEu0eJPb6yhWu0j588JfBgCGZOJ5A2SWwr/6Jw==}
+  '@copilotkit/shared@1.8.4':
+    resolution: {integrity: sha512-JZVnOszA/e/RbmCIhzazPAGFUsbNjvahe488ocajDEGGa6qI3RkEdCx0tl9t1DcsuIt0uZAVaPoIC0y+3bgUkw==}
 
   '@google/generative-ai@0.21.0':
     resolution: {integrity: sha512-7XhUbtnlkSEZK15kN3t+tzIMxsbKm/dSkKBFalj+20NvPKe1kBY7mR2P7vuijEn+f06z5+A8bVGKO0v39cr6Wg==}
@@ -826,9 +826,9 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  '@copilotkit/sdk-js@1.8.3(@langchain/anthropic@0.3.8(@langchain/core@0.3.18(openai@4.90.0(zod@3.23.8))))(@langchain/google-genai@0.1.4(@langchain/core@0.3.18(openai@4.90.0(zod@3.23.8)))(zod@3.23.8))(openai@4.90.0(zod@3.23.8))':
+  '@copilotkit/sdk-js@1.8.4(@langchain/anthropic@0.3.8(@langchain/core@0.3.18(openai@4.90.0(zod@3.23.8))))(@langchain/google-genai@0.1.4(@langchain/core@0.3.18(openai@4.90.0(zod@3.23.8)))(zod@3.23.8))(openai@4.90.0(zod@3.23.8))':
     dependencies:
-      '@copilotkit/shared': 1.8.3
+      '@copilotkit/shared': 1.8.4
       '@langchain/community': 0.0.53(openai@4.90.0(zod@3.23.8))
       '@langchain/core': 0.3.18(openai@4.90.0(zod@3.23.8))
       '@langchain/langgraph': 0.2.44(@langchain/core@0.3.18(openai@4.90.0(zod@3.23.8)))
@@ -946,7 +946,7 @@ snapshots:
       - web-auth-library
       - ws
 
-  '@copilotkit/shared@1.8.3':
+  '@copilotkit/shared@1.8.4':
     dependencies:
       '@segment/analytics-node': 2.2.1
       chalk: 4.1.2
