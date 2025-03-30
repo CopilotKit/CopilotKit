@@ -17,6 +17,7 @@ const HumanInTheLoop: React.FC = () => {
   );
 };
 
+
 const Chat = () => {
   useCopilotAction({
     name: "generate_task_steps",
@@ -38,80 +39,7 @@ const Chat = () => {
       },
     ],
     renderAndWaitForResponse: ({ args, respond, status }) => {
-      const [localSteps, setLocalSteps] = useState<
-        {
-          description: string;
-          status: "disabled" | "enabled" | "executing";
-        }[]
-      >([]);
-
-      useEffect(() => {
-        if (status === "executing" && localSteps.length === 0) {
-          setLocalSteps(args.steps);
-        }
-      }, [status, JSON.stringify(args.steps)]);
-
-      if (args.steps === undefined || args.steps.length === 0) {
-        return <></>;
-      }
-
-      const steps = localSteps.length > 0 ? localSteps : args.steps;
-
-      const handleCheckboxChange = (index: number) => {
-        setLocalSteps((prevSteps) =>
-          prevSteps.map((step, i) =>
-            i === index
-              ? {
-                  ...step,
-                  status: step.status === "enabled" ? "disabled" : "enabled",
-                }
-              : step
-          )
-        );
-      };
-
-      return (
-        <div className="flex flex-col gap-4 w-[500px] bg-gray-100 rounded-lg p-8 mb-4">
-          <div className=" text-black space-y-2">
-            <h2 className="text-lg font-bold mb-4">Select Steps</h2>
-            {steps.map((step, index) => (
-              <div key={index} className="text-sm flex items-center">
-                <input
-                  type="checkbox"
-                  checked={step.status === "enabled"}
-                  onChange={() => handleCheckboxChange(index)}
-                  className="mr-2"
-                />
-                <span
-                  className={
-                    step.status !== "enabled" && status != "inProgress"
-                      ? "line-through"
-                      : ""
-                  }
-                >
-                  {step.description}
-                </span>
-              </div>
-            ))}
-            {status === "executing" && (
-              <button
-                className="mt-4 bg-gradient-to-r from-purple-400 to-purple-600 text-white py-2 px-4 rounded cursor-pointer w-48 font-bold"
-                onClick={() => {
-                  const selectedSteps = localSteps
-                    .filter((step) => step.status === "enabled")
-                    .map((step) => step.description);
-                  respond(
-                    "The user selected the following steps: " +
-                      selectedSteps.join(", ")
-                  );
-                }}
-              >
-                ✨ Perform Steps
-              </button>
-            )}
-          </div>
-        </div>
-      );
+      return <StepsFeedback args={args} respond={respond} status={status} />;
     },
   });
 
@@ -122,6 +50,83 @@ const Chat = () => {
           className="h-full rounded-2xl"
           labels={{ initial: "Hi, I'm an agent specialized in helping you with your tasks. How can I help you?" }}
         />
+      </div>
+    </div>
+  );
+};
+
+const StepsFeedback = ({ args, respond, status }: { args: any, respond: any, status: any }) => {
+  const [localSteps, setLocalSteps] = useState<
+    {
+      description: string;
+      status: "disabled" | "enabled" | "executing";
+    }[]
+  >([]);
+
+  useEffect(() => {
+    if (status === "executing" && localSteps.length === 0) {
+      setLocalSteps(args.steps);
+    }
+  }, [status, args.steps, localSteps]);
+
+  if (args.steps === undefined || args.steps.length === 0) {
+    return <></>;
+  }
+
+  const steps = localSteps.length > 0 ? localSteps : args.steps;
+
+  const handleCheckboxChange = (index: number) => {
+    setLocalSteps((prevSteps) =>
+      prevSteps.map((step, i) =>
+        i === index
+          ? {
+              ...step,
+              status: step.status === "enabled" ? "disabled" : "enabled",
+            }
+          : step
+      )
+    );
+  };
+
+  return (
+    <div className="flex flex-col gap-4 w-[500px] bg-gray-100 rounded-lg p-8 mb-4">
+      <div className=" text-black space-y-2">
+        <h2 className="text-lg font-bold mb-4">Select Steps</h2>
+        {steps.map((step: any, index: any) => (
+          <div key={index} className="text-sm flex items-center">
+            <input
+              type="checkbox"
+              checked={step.status === "enabled"}
+              onChange={() => handleCheckboxChange(index)}
+              className="mr-2"
+            />
+            <span
+              className={
+                step.status !== "enabled" && status != "inProgress"
+                  ? "line-through"
+                  : ""
+              }
+            >
+              {step.description}
+            </span>
+          </div>
+        ))}
+        {status === "executing" && (
+          <button
+            className="mt-4 bg-gradient-to-r from-purple-400 to-purple-600 text-white py-2 px-4 rounded cursor-pointer w-48 font-bold"
+            onClick={() => {
+              const selectedSteps = localSteps
+                .filter((step) => step.status === "enabled")
+                .map((step) => step.description);
+              respond(
+                "The user selected the following steps: " +
+                  selectedSteps.join(", ")
+              );
+            }}
+          >
+            ✨ Perform Steps
+          </button>
+        )}
       </div>
     </div>
   );

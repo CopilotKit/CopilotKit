@@ -107,7 +107,7 @@ const DocumentEditor = () => {
       setCurrentDocument(editor?.getText() || "");
     }
     editor?.setEditable(!isLoading);
-  }, [isLoading]);
+  }, [isLoading, editor]);
 
   let nodeName = writerNodeName;
   if (currentAgent === "multi_agent_researcher") {
@@ -129,7 +129,7 @@ const DocumentEditor = () => {
         editor?.commands.setContent(markdown);
       }
     }
-  }, [nodeName]);
+  }, [nodeName, agentState?.document, currentDocument, editor?.commands]);
 
   useEffect(() => {
     if (isLoading) {
@@ -143,7 +143,7 @@ const DocumentEditor = () => {
         editor?.commands.setContent(markdown);
       }
     }
-  }, [agentState?.document]);
+  }, [agentState?.document, currentDocument, editor?.commands, isLoading]);
 
   const text = editor?.getText() || "";
 
@@ -156,68 +156,27 @@ const DocumentEditor = () => {
         document: text,
       });
     }
-  }, [text]);
+  }, [text, setAgentState, isLoading]);
 
   useCopilotAction({
     name: "confirm_changes",
     renderAndWaitForResponse: ({ args, respond, status }) => {
-      const [accepted, setAccepted] = useState<boolean | null>(null);
-      return (
-        <div className="bg-white p-6 rounded shadow-lg border border-gray-200 mt-5 mb-5">
-          <h2 className="text-lg font-bold mb-4">Confirm Changes</h2>
-          <p className="mb-6">Do you want to accept the changes?</p>
-          {accepted === null && (
-            <div className="flex justify-end space-x-4">
-              <button
-                className={`bg-gray-200 text-black py-2 px-4 rounded disabled:opacity-50 ${
-                  status === "executing" ? "cursor-pointer" : "cursor-default"
-                }`}
-                disabled={status !== "executing"}
-                onClick={() => {
-                  if (respond) {
-                    setAccepted(false);
-                    editor?.commands.setContent(fromMarkdown(currentDocument));
-                    setAgentState({
-                      document: currentDocument,
-                    });
-                    respond({ accepted: false });
-                  }
-                }}
-              >
-                Reject
-              </button>
-              <button
-                className={`bg-black text-white py-2 px-4 rounded disabled:opacity-50 ${
-                  status === "executing" ? "cursor-pointer" : "cursor-default"
-                }`}
-                disabled={status !== "executing"}
-                onClick={() => {
-                  if (respond) {
-                    setAccepted(true);
-                    editor?.commands.setContent(
-                      fromMarkdown(agentState?.document || "")
-                    );
-                    setCurrentDocument(agentState?.document || "");
-                    setAgentState({
-                      document: agentState?.document || "",
-                    });
-                    respond({ accepted: true });
-                  }
-                }}
-              >
-                Confirm
-              </button>
-            </div>
-          )}
-          {accepted !== null && (
-            <div className="flex justify-end">
-              <div className="mt-4 bg-gray-200 text-black py-2 px-4 rounded inline-block">
-                {accepted ? "✓ Accepted" : "✗ Rejected"}
-              </div>
-            </div>
-          )}
-        </div>
-      );
+      return <ConfirmChanges 
+        args={args} 
+        respond={respond} 
+        status={status} 
+        onReject={() => {
+          editor?.commands.setContent(fromMarkdown(currentDocument));
+          setAgentState({
+            document: currentDocument,
+          });
+        }} 
+        onConfirm={() => {
+          editor?.commands.setContent(fromMarkdown(agentState?.document || ""));
+          setAgentState({
+            document: agentState?.document || "",
+          });
+        }} />;
     },
   });
 
@@ -273,6 +232,67 @@ const DocumentEditor = () => {
     </div>
   );
 };
+
+
+
+interface ConfirmChangesProps {
+  args: any;
+  respond: any;
+  status: any;
+  onReject: () => void;
+  onConfirm: () => void;
+}
+
+function ConfirmChanges({ args, respond, status, onReject, onConfirm }: ConfirmChangesProps) {
+  const [accepted, setAccepted] = useState<boolean | null>(null);
+  return (
+    <div className="bg-white p-6 rounded shadow-lg border border-gray-200 mt-5 mb-5">
+      <h2 className="text-lg font-bold mb-4">Confirm Changes</h2>
+      <p className="mb-6">Do you want to accept the changes?</p>
+      {accepted === null && (
+        <div className="flex justify-end space-x-4">
+          <button
+            className={`bg-gray-200 text-black py-2 px-4 rounded disabled:opacity-50 ${
+              status === "executing" ? "cursor-pointer" : "cursor-default"
+            }`}
+            disabled={status !== "executing"}
+            onClick={() => {
+              if (respond) {
+                setAccepted(false);
+                onReject();
+                respond({ accepted: false });
+              }
+            }}
+          >
+            Reject
+          </button>
+          <button
+            className={`bg-black text-white py-2 px-4 rounded disabled:opacity-50 ${
+              status === "executing" ? "cursor-pointer" : "cursor-default"
+            }`}
+            disabled={status !== "executing"}
+            onClick={() => {
+              if (respond) {
+                setAccepted(true);
+                onConfirm();
+                respond({ accepted: true });
+              }
+            }}
+          >
+            Confirm
+          </button>
+        </div>
+      )}
+      {accepted !== null && (
+        <div className="flex justify-end">
+          <div className="mt-4 bg-gray-200 text-black py-2 px-4 rounded inline-block">
+            {accepted ? "✓ Accepted" : "✗ Rejected"}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function fromMarkdown(text: string) {
   const md = new MarkdownIt({

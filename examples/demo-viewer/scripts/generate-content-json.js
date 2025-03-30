@@ -7,7 +7,6 @@ const config = {
   agentic_generative_ui: ["agent.py", "page.tsx", "style.css", "README.mdx"],
   human_in_the_loop: ["agent.py", "page.tsx", "style.css", "README.mdx"],
   shared_state: [
-    "README.md",
     "agent.py",
     "page.tsx",
     "style.css",
