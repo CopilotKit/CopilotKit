@@ -49,12 +49,10 @@ export default function SharedState() {
         className="min-h-screen w-full flex items-center justify-center"
         style={
           {
-            backgroundImage: "url('./shared_state_background.png')",
+            backgroundImage: "url('/shared_state_background.png')",
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
-            "--copilot-kit-primary-color": "#222",
-            "--copilot-kit-separator-color": "#CCC",
           } as React.CSSProperties
         }
       >
@@ -210,7 +208,7 @@ function Recipe() {
 
   return (
     <form
-      className="w-full max-w-lg p-6 rounded shadow-md"
+      className="w-full max-w-lg p-6 rounded shadow-md text-black"
       style={{
         backgroundColor: "rgba(255, 255, 255, 0.9)", // Semi-transparent white
         backdropFilter: "blur(10px)", // Apply blur for frosted effect
@@ -256,7 +254,7 @@ function Recipe() {
             (value) => value.label === recipe.cooking_time
           )}
           onChange={handleCookingTimeChange}
-          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full h-2 bg-gray-200 shadow rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
       <div className="mb-4 relative">

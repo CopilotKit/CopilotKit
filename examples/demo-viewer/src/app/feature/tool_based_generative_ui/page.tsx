@@ -16,8 +16,8 @@ export default function AgenticChat() {
         className="min-h-full w-full flex items-center justify-center"
         style={
           {
-            "--copilot-kit-primary-color": "#222",
-            "--copilot-kit-separator-color": "#CCC",
+            // "--copilot-kit-primary-color": "#222",
+            // "--copilot-kit-separator-color": "#CCC",
           } as CopilotKitCSSProperties
         }
       >
@@ -75,7 +75,7 @@ function Haiku() {
       }
 
       return (
-        <div className="text-left rounded-md p-4 mt-4 mb-4 flex flex-col bg-gray-100">
+        <div className="text-left rounded-md p-4 mt-4 mb-4 flex flex-col bg-gray-100 dark:bg-zinc-900">
           <div
             className={
               status === "complete" ? "border-b border-gray-300 mb-4" : ""
@@ -96,7 +96,7 @@ function Haiku() {
                 setHaiku(generatedHaiku);
                 setIsApplied(true);
               }}
-              className="ml-auto px-3 py-1 bg-white text-black text-sm rounded cursor-pointer font-sm border "
+              className="ml-auto px-3 py-1 bg-white dark:bg-black text-black dark:text-white text-sm rounded cursor-pointer font-sm border "
             >
               {isApplied ? "Applied ✓" : "Apply"}
             </button>

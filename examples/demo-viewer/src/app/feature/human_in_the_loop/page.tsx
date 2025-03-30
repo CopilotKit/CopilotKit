@@ -70,8 +70,6 @@ const Chat = () => {
         );
       };
 
-      console.log(steps);
-
       return (
         <div className="flex flex-col gap-4 w-[500px] bg-gray-100 rounded-lg p-8 mb-4">
           <div className=" text-black space-y-2">
@@ -118,11 +116,11 @@ const Chat = () => {
   });
 
   return (
-    <div className="flex justify-center items-center h-screen w-screen">
-      <div className="w-8/10 h-8/10">
+    <div className="flex justify-center items-center h-full w-full">
+      <div className="w-8/10 h-8/10 rounded-lg">
         <CopilotChat
-          className="h-full rounded-lg"
-          labels={{ initial: "Hi, I'm an agent. I can do anything, just ask!" }}
+          className="h-full rounded-2xl"
+          labels={{ initial: "Hi, I'm an agent specialized in helping you with your tasks. How can I help you?" }}
         />
       </div>
     </div>
@@ -153,5 +151,5 @@ function Spinner() {
     </svg>
   );
 }
-
 export default HumanInTheLoop;
+

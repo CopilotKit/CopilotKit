@@ -13,9 +13,7 @@ function createDemoConfig({
     id,
     name,
     description,
-    path: `agent/demo/${id}`,
-    component: () =>
-      import(`../agent/demo/${id}/page`).then((mod) => mod.default),
+    path: `/feature/${id}`,
     defaultLLMProvider: "openai",
     tags,
     files,
@@ -64,9 +62,9 @@ const config: DemoConfig[] = [
   }),
   createDemoConfig({
     id: "crew_enterprise",
-    name: "CrewAI Enterprise",
-    description: "Talk to your CrewAI Enterprise agent through CopilotKit",
-    tags: ["Thought Streaming", "Human in the loop"],
+    name: "Crew Enterprise",
+    description: "Build AI Agents with CopilotKit + CrewAI",
+    tags: ["Thought Streaming", "Human in the Loop"],
   }),
   // TODO: Re-enable after revisiting demo
   // createDemoConfig({

@@ -29,8 +29,8 @@ export default function PredictiveStateUpdates() {
         className="min-h-screen w-full"
         style={
           {
-            "--copilot-kit-primary-color": "#222",
-            "--copilot-kit-separator-color": "#CCC",
+            // "--copilot-kit-primary-color": "#222",
+            // "--copilot-kit-separator-color": "#CCC",
           } as React.CSSProperties
         }
       >
@@ -192,7 +192,7 @@ const DocumentEditor = () => {
     <div className="relative min-h-screen w-full">
       {placeholderVisible && (
         <div className="absolute top-6 left-6 m-4 pointer-events-none text-gray-400">
-          Your content goes here...
+          Write whatever you want here in Markdown format...
         </div>
       )}
       <EditorContent editor={editor} />
