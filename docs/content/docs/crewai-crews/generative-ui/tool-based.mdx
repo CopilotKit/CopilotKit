@@ -96,3 +96,34 @@ Try giving the crew enough information to complete the task, i.e. "Research the 
 
 </Step>
 </Steps>
+
+## Rendering Arbitrary Tool Calls
+
+When working with agents, they may call tools that you haven't explicitly defined UI components for. You can use a catch-all action to render these tool calls:
+
+```tsx
+import {
+  useCopilotAction,
+  CatchAllActionRenderProps,
+} from "@copilotkit/react-core";
+
+useCopilotAction({
+  name: "*",
+  followUp: false,
+  render: ({ name, args, status, result }: CatchAllActionRenderProps<[]>) => {
+    return (
+      <div className="m-4 p-4 bg-gray-100 rounded shadow">
+        <h2 className="text-sm font-medium">Tool: {name}</h2>
+        <pre className="mt-2 text-xs overflow-auto">
+          {JSON.stringify(args, null, 2)}
+        </pre>
+        {status === "complete" && (
+          <div className="mt-2 text-xs text-green-600">✓ Complete</div>
+        )}
+      </div>
+    );
+  },
+});
+```
+
+This will render any tool call that doesn't have a specific UI component defined for it, displaying the tool name, arguments, and completion status.

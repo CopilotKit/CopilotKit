@@ -1,5 +1,26 @@
 # ui
 
+## 1.8.4
+
+### Patch Changes
+
+- 0846462: - fix: remove styles corresponding to OS dark theme
+- fc11455: - fix: focus on text area when clicking in input box
+- Updated dependencies [f363760]
+- Updated dependencies [4e28414]
+  - @copilotkit/shared@1.8.4
+  - @copilotkit/react-core@1.8.4
+  - @copilotkit/runtime-client-gql@1.8.4
+
+## 1.8.4-next.4
+
+### Patch Changes
+
+- Updated dependencies [4e28414]
+  - @copilotkit/react-core@1.8.4-next.4
+  - @copilotkit/runtime-client-gql@1.8.4-next.4
+  - @copilotkit/shared@1.8.4-next.4
+
 ## 1.8.4-next.3
 
 ### Patch Changes

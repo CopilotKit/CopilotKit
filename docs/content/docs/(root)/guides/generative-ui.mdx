@@ -8,7 +8,7 @@ import UseClientCalloutSnippet from "@/snippets/use-client-callout.mdx";
 
 # Render custom components in the chat UI
 
-When a user interacts with your Copilot, you may want to render a custom UI component. [`useCopilotAction`](/reference/hooks/useCopilotAction) allows to give the LLM the 
+When a user interacts with your Copilot, you may want to render a custom UI component. [`useCopilotAction`](/reference/hooks/useCopilotAction) allows to give the LLM the
 option to render your custom component through the `render` property.
 
 <Tabs groupId="gen-ui-type" items={['Render a component', 'Fetch data & render', 'renderAndWaitForResponse (HITL)', 'Render strings', 'Catch all renders']}>
@@ -209,21 +209,25 @@ option to render your custom component through the `render` property.
       },
     });
     ```
+
   </Tab>
 
   <Tab value="Catch all renders">
     If you want to render actions that are not explicitly referenced in any `useCopilotAction` call, you can pass `"*"` as the action name.
-    In this case, the render method will receive an additional `name` parameter.
+    In this case, the render method will receive an additional `name` parameter. This is particularly useful when working with agents that may call arbitrary tools - see more in our [Tool-based Generative UI](/crewai-crews/generative-ui/tool-based) guide.
 
     ```tsx
+    import { useCopilotAction, CatchAllActionRenderProps } from "@copilotkit/react-core";
+
     useCopilotAction({
       name: "*",
-      render: ({ name, args, status, result }) => {
+      render: ({ name, args, status, result }: CatchAllActionRenderProps<[]>) => {
         return <div>Rendering action: {name}</div>;
       },
     });
     ```
     </Tab>
+
 </Tabs>
 <Accordions className="mt-4">
   <Accordion title="What do the different status states mean?">
@@ -235,7 +239,6 @@ option to render your custom component through the `render` property.
     <UseClientCalloutSnippet components={props.components} />
   </Accordion>
 </Accordions>
-
 
 ## Test it out!
 
