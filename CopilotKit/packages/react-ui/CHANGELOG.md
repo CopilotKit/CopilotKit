@@ -1,5 +1,14 @@
 # ui
 
+## 1.8.5-next.0
+
+### Patch Changes
+
+- ed5ace7: - fix: for every component that has default, make prop optional
+  - @copilotkit/react-core@1.8.5-next.0
+  - @copilotkit/runtime-client-gql@1.8.5-next.0
+  - @copilotkit/shared@1.8.5-next.0
+
 ## 1.8.4
 
 ### Patch Changes
