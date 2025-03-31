@@ -48,8 +48,8 @@ importers:
   examples/next-openai:
     dependencies:
       '@agentwire/client':
-        specifier: 0.0.15
-        version: 0.0.15
+        specifier: 0.0.17
+        version: 0.0.17
       '@copilotkit/react-core':
         specifier: workspace:*
         version: link:../../packages/react-core
@@ -571,8 +571,8 @@ importers:
   packages/runtime:
     dependencies:
       '@agentwire/client':
-        specifier: 0.0.15
-        version: 0.0.15
+        specifier: 0.0.17
+        version: 0.0.17
       '@anthropic-ai/sdk':
         specifier: ^0.27.3
         version: 0.27.3(encoding@0.1.13)
@@ -917,11 +917,11 @@ packages:
       graphql:
         optional: true
 
-  '@agentwire/client@0.0.15':
-    resolution: {integrity: sha512-UgaEa8PHJwDIxX1nBSUgkJL037/VHnSJ0qSyHO9XGdk2NeSU/q0Z4FbKnJ/66enzRUA5Izavy3hOXlz0htUG2A==}
+  '@agentwire/client@0.0.17':
+    resolution: {integrity: sha512-OwJYmB/5KfZVmKVwTYVCrDJ2Jbr+538vCYgswCM4iAgA2rnlTItb4SUUNpwqL3g3q1bTYHkoiy/ULzsfFTXEsQ==}
 
-  '@agentwire/core@0.0.15':
-    resolution: {integrity: sha512-5s6ddaqT/gXaDWKyrR0xjgm9GuQmsPO2PBP/+gZbQuzlhDzIN4o67E9xWLc9nQvdQdijDJ8HODWYZQguypT54g==}
+  '@agentwire/core@0.0.17':
+    resolution: {integrity: sha512-DyDww6IHCJ7ijZT5qc3++QQKCLo72ELDOkoJfxQSodznzcYWuBuGrpNbNKVUmKeFKU/qtNhGsGGT0DGIzvUo6w==}
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -8709,9 +8709,9 @@ snapshots:
     optionalDependencies:
       graphql: 16.9.0
 
-  '@agentwire/client@0.0.15':
+  '@agentwire/client@0.0.17':
     dependencies:
-      '@agentwire/core': 0.0.15
+      '@agentwire/core': 0.0.17
       '@types/uuid': 10.0.0
       fast-json-patch: 3.1.1
       rxjs: 7.8.1
@@ -8719,7 +8719,7 @@ snapshots:
       uuid: 11.1.0
       zod: 3.23.8
 
-  '@agentwire/core@0.0.15':
+  '@agentwire/core@0.0.17':
     dependencies:
       rxjs: 7.8.1
       zod: 3.23.8
