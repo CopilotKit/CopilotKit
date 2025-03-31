@@ -1,4 +1,4 @@
-import { Action } from "@copilotkit/shared";
+import { Action, CopilotKitErrorCode } from "@copilotkit/shared";
 import { GraphQLContext } from "../integrations/shared";
 import { Logger } from "pino";
 import { Message } from "../../graphql/types/converted";
@@ -136,7 +136,7 @@ export async function setupRemoteActions({
   messages: Message[];
   agentStates?: AgentStateInput[];
   frontendUrl?: string;
-  agents: AbstractAgent<any>[];
+  agents: Record<string, AbstractAgent<any>>;
 }): Promise<Action[]> {
   const logger = graphqlContext.logger.child({ component: "remote-actions.fetchRemoteActions" });
   logger.debug({ remoteEndpointDefinitions }, "Fetching from remote endpoints");
@@ -185,7 +185,16 @@ export async function setupRemoteActions({
     }),
   );
 
-  for (const agent of agents) {
+  for (const [key, agent] of Object.entries(agents)) {
+    if (agent.agentId !== undefined && agent.agentId !== key) {
+      throw new CopilotKitError({
+        message: `Agent ${key} has agentId ${agent.agentId} which does not match the key ${key}`,
+        code: CopilotKitErrorCode.UNKNOWN,
+      });
+    } else if (agent.agentId === undefined) {
+      agent.agentId = key;
+    }
+
     result.push(
       constructAgentWireRemoteAction({
         logger,

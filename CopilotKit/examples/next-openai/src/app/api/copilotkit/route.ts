@@ -7,13 +7,9 @@ const UNSPLASH_ACCESS_KEY_ENV = "UNSPLASH_ACCESS_KEY";
 const UNSPLASH_ACCESS_KEY = process.env[UNSPLASH_ACCESS_KEY_ENV];
 
 const runtime = new CopilotRuntime({
-  agents: [
-    new HttpAgent({
-      url: "http://localhost:8000",
-      agentId: "agentwire",
-      description: "AgentWire agent",
-    }),
-  ],
+  agents: {
+    agentwire: new HttpAgent({ url: "http://localhost:8000" }),
+  },
   actions: [
     {
       name: "getImageUrl",
