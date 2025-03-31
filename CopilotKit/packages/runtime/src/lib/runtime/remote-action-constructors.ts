@@ -20,7 +20,6 @@ import { writeJsonLineResponseToEventStream } from "../streaming";
 import { CopilotKitApiDiscoveryError, ResolvedCopilotKitError } from "@copilotkit/shared";
 import { parseJson, tryMap } from "@copilotkit/shared";
 import { ActionInput } from "../../graphql/inputs/action.input";
-import { HttpAgent } from "@agentwire/client";
 
 export function constructLGCRemoteAction({
   endpoint,

@@ -39,7 +39,6 @@ export function constructAgentWireRemoteAction({
       const agentWireMessages = convertMessagesToAgentWire(messages);
       agent.messages = agentWireMessages;
       agent.threadId = threadId;
-      // TODO: agent tools
 
       telemetry.capture("oss.runtime.remote_action_executed", {
         agentExecution: true,
@@ -55,9 +54,16 @@ export function constructAgentWireRemoteAction({
         }
       }
       agent.state = state;
-      // TODO: tools!
 
-      console.log("agent", agent);
+      const tools = actionInputsWithoutAgents.map((input) => {
+        return {
+          name: input.name,
+          description: input.description,
+          parameters: JSON.parse(input.jsonSchema),
+        };
+      });
+
+      agent.tools = tools;
 
       return agent.legacy_to_be_removed_runAgentBridged() as Observable<RuntimeEvent>;
     },
