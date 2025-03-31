@@ -63,9 +63,9 @@ export function constructAgentWireRemoteAction({
         };
       });
 
-      agent.tools = tools;
-
-      return agent.legacy_to_be_removed_runAgentBridged() as Observable<RuntimeEvent>;
+      return agent.legacy_to_be_removed_runAgentBridged({
+        tools,
+      }) as Observable<RuntimeEvent>;
     },
   };
   return [action];
