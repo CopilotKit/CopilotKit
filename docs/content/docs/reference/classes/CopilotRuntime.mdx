@@ -63,8 +63,8 @@ A list of remote actions that can be executed.
 An array of LangServer URLs.
 </PropertyReference>
 
-<PropertyReference name="agents" type="AbstractAgent<any>[]"  > 
-An array of AgentWire agents.
+<PropertyReference name="agents" type="Record<string, AbstractAgent<any>>"  > 
+A map of agent names to AgentWire agents.
 </PropertyReference>
 
 <PropertyReference name="delegateAgentProcessingToServiceAdapter" type="boolean"  > 
