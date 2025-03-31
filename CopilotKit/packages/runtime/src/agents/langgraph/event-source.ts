@@ -235,6 +235,7 @@ export class RemoteLangGraphEventSource {
               active: acc.event.active,
               state: JSON.stringify(acc.event.state),
               running: acc.event.running,
+              isDelta: acc.event.is_delta,
             });
             break;
           case LangGraphEventTypes.OnChatModelStream:

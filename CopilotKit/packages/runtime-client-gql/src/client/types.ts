@@ -119,6 +119,7 @@ export class AgentStateMessage extends Message implements Omit<AgentStateMessage
   nodeName: AgentStateMessageInput["nodeName"];
   runId: AgentStateMessageInput["runId"];
   active: AgentStateMessageInput["active"];
+  isDelta?: boolean;
 
   constructor(props: any) {
     super(props);

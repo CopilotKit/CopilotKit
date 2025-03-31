@@ -181,6 +181,18 @@ class LangGraphAgent(Agent):
         self.graph = cast(CompiledGraph, graph or agent)
         self.active_interrupt_event = False
 
+    def _compute_state_delta(self, previous_state: dict, current_state: dict):
+        """
+        Compute the delta between previous and current state
+        Returns only changed keys and their new values
+        """
+        delta = {}
+        for key, value in current_state.items():
+            # If key doesn't exist in previous state or value has changed
+            if key not in previous_state or previous_state[key] != value:
+                delta[key] = value
+        return delta
+
     def _emit_state_sync_event(
             self,
             *,
@@ -190,7 +202,8 @@ class LangGraphAgent(Agent):
             state: dict,
             running: bool,
             active: bool,
-            include_messages: bool = False
+            include_messages: bool = False,
+            previous_state: Optional[dict] = None
         ):
         # First handle messages as before
         if not include_messages:
@@ -205,6 +218,11 @@ class LangGraphAgent(Agent):
 
         # Filter by schema keys if available
         state = self.filter_state_on_schema_keys(state, 'output')
+        
+        # Compute delta if previous state is provided
+        state_to_emit = state
+        if previous_state is not None:
+            state_to_emit = self._compute_state_delta(previous_state, state)
 
         return langchain_dumps({
             "event": "on_copilotkit_state_sync",
@@ -213,7 +231,8 @@ class LangGraphAgent(Agent):
             "agent_name": self.name,
             "node_name": node_name,
             "active": active,
-            "state": state,
+            "state": state_to_emit,
+            "is_delta": previous_state is not None,
             "running": running,
             "role": "assistant"
         })
@@ -306,6 +325,10 @@ class LangGraphAgent(Agent):
 
         stream_input = self.filter_state_on_schema_keys(stream_input, 'input')
         config["configurable"] = filter_by_schema_keys(config["configurable"], config_keys)
+
+        # Track previous state for delta computation
+        previous_state = None
+
         async for event in self.graph.astream_events(stream_input, config, version="v2"):
             current_node_name = event.get("name")
             event_type = event.get("event")
@@ -370,7 +393,8 @@ class LangGraphAgent(Agent):
                     node_name=node_name,
                     state=manually_emitted_state,
                     running=True,
-                    active=True
+                    active=True,
+                    previous_state=previous_state
                 ) + "\n"
                 continue
 
@@ -404,16 +428,20 @@ class LangGraphAgent(Agent):
             #   b) the node has changed
             #   c) the node is ending
             if updated_state != state or prev_node_name != node_name or exiting_node:
-                state = updated_state
                 prev_node_name = node_name
-                yield self._emit_state_sync_event(
+                # Only emit delta if we have a previous state
+                emit_event = self._emit_state_sync_event(
                     thread_id=thread_id,
                     run_id=run_id,
                     node_name=node_name,
-                    state=state,
+                    state=updated_state,
                     running=True,
-                    active=not exiting_node
+                    active=not exiting_node,
+                    previous_state=previous_state
                 ) + "\n"
+                previous_state = updated_state.copy()
+                state = updated_state
+                yield emit_event
 
             yield langchain_dumps(event) + "\n"
 
@@ -423,6 +451,7 @@ class LangGraphAgent(Agent):
         node_name = node_name if interrupts else list(state.metadata["writes"].keys())[0]
         is_end_node = state.next == () and not interrupts
 
+        # For the final state sync, don't use deltas to ensure complete state
         yield self._emit_state_sync_event(
             thread_id=thread_id,
             run_id=run_id,

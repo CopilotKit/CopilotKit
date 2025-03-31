@@ -86,6 +86,7 @@ export type RuntimeEvent =
       role: string;
       state: string;
       running: boolean;
+      isDelta?: boolean;
     }
   | RunTimeMetaEvent;
 
@@ -204,6 +205,7 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
     role,
     state,
     running,
+    isDelta,
   }: {
     threadId: string;
     agentName: string;
@@ -213,6 +215,7 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
     role: string;
     state: string;
     running: boolean;
+    isDelta?: boolean;
   }) {
     this.next({
       type: RuntimeEventTypes.AgentStateMessage,
@@ -224,6 +227,7 @@ export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
       role,
       state,
       running,
+      isDelta,
     });
   }
 }

@@ -89,4 +89,7 @@ export class AgentStateMessageInput {
 
   @Field(() => Boolean)
   active: boolean;
+  
+  @Field(() => Boolean, { nullable: true })
+  isDelta?: boolean;
 }

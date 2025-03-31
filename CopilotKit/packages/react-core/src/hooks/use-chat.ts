@@ -462,18 +462,31 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
                   lastAgentStateMessage.state.messages,
                 );
               }
-              setCoagentStatesWithRef((prevAgentStates) => ({
-                ...prevAgentStates,
-                [lastAgentStateMessage.agentName]: {
-                  name: lastAgentStateMessage.agentName,
-                  state: lastAgentStateMessage.state,
-                  running: lastAgentStateMessage.running,
-                  active: lastAgentStateMessage.active,
-                  threadId: lastAgentStateMessage.threadId,
-                  nodeName: lastAgentStateMessage.nodeName,
-                  runId: lastAgentStateMessage.runId,
-                },
-              }));
+              
+              setCoagentStatesWithRef((prevAgentStates) => {
+                // Handle state delta if the flag is set
+                let newState = lastAgentStateMessage.state;
+                
+                if (lastAgentStateMessage.isDelta) {
+                  // If it's a delta update, merge with previous state
+                  const prevState = prevAgentStates[lastAgentStateMessage.agentName]?.state || {};
+                  newState = { ...prevState, ...lastAgentStateMessage.state };
+                }
+                
+                return {
+                  ...prevAgentStates,
+                  [lastAgentStateMessage.agentName]: {
+                    name: lastAgentStateMessage.agentName,
+                    state: newState,
+                    running: lastAgentStateMessage.running,
+                    active: lastAgentStateMessage.active,
+                    threadId: lastAgentStateMessage.threadId,
+                    nodeName: lastAgentStateMessage.nodeName,
+                    runId: lastAgentStateMessage.runId,
+                  },
+                };
+              });
+              
               if (lastAgentStateMessage.running) {
                 setAgentSession({
                   threadId: lastAgentStateMessage.threadId,

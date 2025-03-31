@@ -39,6 +39,7 @@ type LangGraphOnCopilotKitStateSyncEvent = {
   role: string;
   state: any;
   running: boolean;
+  is_delta?: boolean;
 };
 
 type LangGraphOnChainStartEvent = {
