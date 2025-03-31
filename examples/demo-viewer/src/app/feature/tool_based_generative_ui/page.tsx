@@ -16,8 +16,8 @@ export default function AgenticChat() {
         className="min-h-full w-full flex items-center justify-center"
         style={
           {
-            "--copilot-kit-primary-color": "#222",
-            "--copilot-kit-separator-color": "#CCC",
+            // "--copilot-kit-primary-color": "#222",
+            // "--copilot-kit-separator-color": "#CCC",
           } as CopilotKitCSSProperties
         }
       >
@@ -65,44 +65,7 @@ function Haiku() {
       return "Haiku generated.";
     },
     render: ({ args: generatedHaiku, result, status }) => {
-      const [isApplied, setIsApplied] = useState(false);
-      if (
-        !generatedHaiku ||
-        !generatedHaiku.japanese ||
-        !generatedHaiku.japanese.length
-      ) {
-        return <></>;
-      }
-
-      return (
-        <div className="text-left rounded-md p-4 mt-4 mb-4 flex flex-col bg-gray-100">
-          <div
-            className={
-              status === "complete" ? "border-b border-gray-300 mb-4" : ""
-            }
-          >
-            {generatedHaiku?.japanese?.map((line, index) => (
-              <div className="flex items-center gap-3 mb-2 pb-2" key={index}>
-                <p className="text-lg font-bold">{line}</p>
-                <p className="text-sm font-light">
-                  {generatedHaiku?.english?.[index]}
-                </p>
-              </div>
-            ))}
-          </div>
-          {status === "complete" && (
-            <button
-              onClick={() => {
-                setHaiku(generatedHaiku);
-                setIsApplied(true);
-              }}
-              className="ml-auto px-3 py-1 bg-white text-black text-sm rounded cursor-pointer font-sm border "
-            >
-              {isApplied ? "Applied ✓" : "Apply"}
-            </button>
-          )}
-        </div>
-      );
+      return <HaikuApproval setHaiku={setHaiku} generatedHaiku={generatedHaiku} status={status} />;
     },
   });
   return (
@@ -116,5 +79,52 @@ function Haiku() {
         ))}
       </div>
     </>
+  );
+}
+
+interface HaikuApprovalProps {
+  setHaiku: any;
+  status: any;
+  generatedHaiku: any;
+}
+
+function HaikuApproval({ setHaiku, status, generatedHaiku }: HaikuApprovalProps) {
+  const [isApplied, setIsApplied] = useState(false);
+  if (
+    !generatedHaiku ||
+    !generatedHaiku.japanese ||
+    !generatedHaiku.japanese.length
+  ) {
+    return <></>;
+  }
+
+  return (
+    <div className="text-left rounded-md p-4 mt-4 mb-4 flex flex-col bg-gray-100 dark:bg-zinc-900">
+      <div
+        className={
+          status === "complete" ? "border-b border-gray-300 mb-4" : ""
+        }
+      >
+        {generatedHaiku?.japanese?.map((line: string, index: number) => (
+          <div className="flex items-center gap-3 mb-2 pb-2" key={index}>
+            <p className="text-lg font-bold">{line}</p>
+            <p className="text-sm font-light">
+              {generatedHaiku?.english?.[index]}
+            </p>
+          </div>
+        ))}
+      </div>
+      {status === "complete" && (
+        <button
+          onClick={() => {
+            setHaiku(generatedHaiku);
+            setIsApplied(true);
+          }}
+          className="ml-auto px-3 py-1 bg-white dark:bg-black text-black dark:text-white text-sm rounded cursor-pointer font-sm border "
+        >
+          {isApplied ? "Applied ✓" : "Apply"}
+        </button>
+      )}
+    </div>
   );
 }

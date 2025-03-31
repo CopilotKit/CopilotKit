@@ -4,7 +4,6 @@
   border-top-left-radius: 0.75rem;
   border-top-right-radius: 0.75rem;
   border: 1px solid var(--copilot-kit-separator-color) !important;
-  background-color: #fff;
 }
 
 .copilotKitChat {
