@@ -17,6 +17,8 @@ import {
   CopilotKitError,
 } from "@copilotkit/shared";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
+import { AbstractAgent } from "@agentwire/client";
+import { constructAgentWireRemoteAction } from "./agentwire-action";
 
 export type EndpointDefinition = CopilotKitEndpoint | LangGraphPlatformEndpoint;
 
@@ -127,12 +129,14 @@ export async function setupRemoteActions({
   messages,
   agentStates,
   frontendUrl,
+  agents,
 }: {
   remoteEndpointDefinitions: EndpointDefinition[];
   graphqlContext: GraphQLContext;
   messages: Message[];
   agentStates?: AgentStateInput[];
   frontendUrl?: string;
+  agents: AbstractAgent<any>[];
 }): Promise<Action[]> {
   const logger = graphqlContext.logger.child({ component: "remote-actions.fetchRemoteActions" });
   logger.debug({ remoteEndpointDefinitions }, "Fetching from remote endpoints");
@@ -180,6 +184,17 @@ export async function setupRemoteActions({
       });
     }),
   );
+
+  for (const agent of agents) {
+    result.push(
+      constructAgentWireRemoteAction({
+        logger,
+        messages,
+        agentStates,
+        agent: agent,
+      }),
+    );
+  }
 
   return result.flat();
 }
