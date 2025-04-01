@@ -33,7 +33,7 @@ export interface MessagesProps {
   /**
    * Callback function to regenerate the assistant's response
    */
-  onRegenerate?: () => void;
+  onRegenerate?: (messageId: string) => void;
 
   /**
    * Callback function when the message is copied
@@ -127,7 +127,7 @@ export interface RenderMessageProps {
   /**
    * Callback function to regenerate the assistant's response
    */
-  onRegenerate?: () => void;
+  onRegenerate?: (messageId: string) => void;
 
   /**
    * Callback function when the message is copied

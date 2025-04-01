@@ -10,6 +10,7 @@ from langgraph.types import Command
 from langchain.load.dump import dumps as langchain_dumps
 from langchain.schema import BaseMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig, ensure_config
+from langchain_core.messages import RemoveMessage
 
 from partialjson.json_parser import JSONParser
 
@@ -68,7 +69,13 @@ def langgraph_default_merge_state( # pylint: disable=unused-argument
 
     existing_messages = state.get("messages", [])
     existing_message_ids = {message.id for message in existing_messages}
-    new_messages = [message for message in messages if message.id not in existing_message_ids]
+    message_ids = {message.id for message in messages}
+    removed_messages = []
+    if len(messages) < len(existing_messages):
+        # messages were removed
+        removed_messages = [RemoveMessage(id=existing_message.id) for existing_message in existing_messages if existing_message.id not in message_ids]
+
+    new_messages = removed_messages + [message for message in messages if message.id not in existing_message_ids]
 
     return {
         **state,
