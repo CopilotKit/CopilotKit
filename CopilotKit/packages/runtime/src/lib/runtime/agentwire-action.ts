@@ -80,7 +80,6 @@ export function convertMessagesToAgentWire(messages: Message[]): AgentWireMessag
         id: message.id,
         role: message.role,
         content: message.content,
-        tool_calls: [],
       });
     } else if (message.isActionExecutionMessage()) {
       const toolCall: ToolCall = {
@@ -93,12 +92,16 @@ export function convertMessagesToAgentWire(messages: Message[]): AgentWireMessag
       };
 
       if (message.parentMessageId && result.some((m) => m.id === message.parentMessageId)) {
-        result.find((m) => m.id === message.parentMessageId)?.tool_calls.push(toolCall);
+        const parentMessage = result.find((m) => m.id === message.parentMessageId);
+        if (parentMessage.toolCalls === undefined) {
+          parentMessage.toolCalls = [];
+        }
+        parentMessage.toolCalls.push(toolCall);
       } else {
         result.push({
           id: message.parentMessageId ?? message.id,
           role: "assistant",
-          tool_calls: [toolCall],
+          toolCalls: [toolCall],
         });
       }
     } else if (message.isResultMessage()) {
@@ -106,8 +109,11 @@ export function convertMessagesToAgentWire(messages: Message[]): AgentWireMessag
         id: message.id,
         role: "tool",
         content: message.result,
+        name: message.actionName,
+        toolCallId: message.toolCallId,
       });
     }
   }
+
   return result;
 }
