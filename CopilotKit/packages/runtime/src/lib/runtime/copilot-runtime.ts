@@ -23,6 +23,7 @@ import {
   CopilotKitLowLevelError,
   CopilotKitAgentDiscoveryError,
   CopilotKitMisuseError,
+  isValidUUID,
 } from "@copilotkit/shared";
 import {
   CopilotServiceAdapter,
@@ -580,6 +581,12 @@ please use an LLM adapter instead.`,
     }
 
     if (agentWithEndpoint.endpoint.type === EndpointType.LangGraphPlatform) {
+      if (!isValidUUID(threadId)) {
+        throw new CopilotKitMisuseError({
+          message: `Invalid threadId: ${threadId}. threadId must be a valid UUID.`,
+        });
+      }
+
       const propertyHeaders = graphqlContext.properties.authorization
         ? { authorization: `Bearer ${graphqlContext.properties.authorization}` }
         : null;
