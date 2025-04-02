@@ -11,6 +11,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/node": "^22.13.17",
     "danger": "^12.3.3",
     "husky": "^9.1.4"
   }
