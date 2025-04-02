@@ -525,7 +525,6 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           }
 
           for (const message of lastMessages) {
-            console.log("looking at message", message);
             // We update the message state before calling the handler so that the render
             // function can be called with `executing` state
             setMessages(finalMessages);

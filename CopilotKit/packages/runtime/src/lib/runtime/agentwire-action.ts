@@ -110,7 +110,7 @@ export function convertMessagesToAgentWire(messages: Message[]): AgentWireMessag
         role: "tool",
         content: message.result,
         name: message.actionName,
-        toolCallId: message.toolCallId,
+        toolCallId: message.actionExecutionId,
       });
     }
   }
