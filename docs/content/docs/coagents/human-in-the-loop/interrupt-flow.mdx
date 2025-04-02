@@ -448,7 +448,8 @@ For this reason, the hook can take an `enabled` argument which will apply it con
                 from langgraph.types import interrupt # [!code highlight]
                 from langchain_core.messages import SystemMessage
                 from langchain_openai import ChatOpenAI
-                # ...
+
+                # ... your full state definition
 
                 def chat_node(state: AgentState, config: RunnableConfig):
 
