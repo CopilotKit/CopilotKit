@@ -1,0 +1,13 @@
+{
+  "title": "reference",
+  "root": true,
+  "pages": [
+    "index",
+    "---Categories---",
+    "components",
+    "hooks",
+    "classes",
+    "sdk",
+    "shared"
+  ]
+}

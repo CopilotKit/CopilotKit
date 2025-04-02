@@ -1,0 +1,11 @@
+{
+  "title": "Python SDK",
+  "pages": [
+    "index",
+    "LangGraph",
+    "LangGraphAgent",
+    "CrewAI",
+    "CrewAIAgent",
+    "RemoteEndpoints"
+  ]
+}
