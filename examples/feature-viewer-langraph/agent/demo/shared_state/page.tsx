@@ -12,16 +12,6 @@ enum SkillLevel {
   ADVANCED = "Advanced",
 }
 
-enum SpecialPreferences {
-  HighProtein = "High Protein",
-  LowCarb = "Low Carb",
-  Spicy = "Spicy",
-  BudgetFriendly = "Budget-Friendly",
-  OnePotMeal = "One-Pot Meal",
-  Vegetarian = "Vegetarian",
-  Vegan = "Vegan",
-}
-
 enum CookingTime {
   FiveMin = "5 min",
   FifteenMin = "15 min",
@@ -38,25 +28,29 @@ const cookingTimeValues = [
   { label: CookingTime.SixtyPlusMin, value: 4 },
 ];
 
+const dietaryOptions = [
+  "Vegetarian",
+  "Nut-free",
+  "Dairy-free",
+  "Gluten-free",
+  "Vegan",
+  "Low-carb"
+];
+
 export default function SharedState() {
   return (
     <CopilotKit
       publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
+      // runtimeUrl="/api/copilotkit"
       showDevConsole={false}
       agent="shared_state"
     >
       <div
-        className="min-h-screen w-full flex items-center justify-center"
-        style={
-          {
-            backgroundImage: "url('./shared_state_background.png')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-            "--copilot-kit-primary-color": "#222",
-            "--copilot-kit-separator-color": "#CCC",
-          } as React.CSSProperties
-        }
+        className="app-container"
+        style={{
+          backgroundImage: "url('./shared_state_background.png')",
+          backgroundAttachment: "fixed",
+        }}
       >
         <Recipe />
         <CopilotSidebar
@@ -72,12 +66,19 @@ export default function SharedState() {
   );
 }
 
+interface Ingredient {
+  icon: string;
+  name: string;
+  amount: string;
+}
+
 interface Recipe {
+  title: string;
   skill_level: SkillLevel;
-  special_preferences: SpecialPreferences[];
   cooking_time: CookingTime;
-  ingredients: string;
-  instructions: string;
+  dietary_preferences: string[];
+  ingredients: Ingredient[];
+  instructions: string[];
 }
 
 interface RecipeAgentState {
@@ -86,11 +87,21 @@ interface RecipeAgentState {
 
 const INITIAL_STATE: RecipeAgentState = {
   recipe: {
-    skill_level: SkillLevel.BEGINNER,
-    special_preferences: [],
-    cooking_time: CookingTime.FifteenMin,
-    ingredients: "",
-    instructions: "",
+    title: "Make Your Recipe",
+    skill_level: SkillLevel.INTERMEDIATE,
+    cooking_time: CookingTime.FortyFiveMin,
+    dietary_preferences: [],
+    ingredients: [
+      { icon: "🥕", name: "Carrots", amount: "3 large, grated" },
+      { icon: "🌾", name: "All-Purpose Flour", amount: "2 cups" },
+      { icon: "🥛", name: "Milk", amount: "1 cup" }
+    ],
+    instructions: [
+      "Preheat oven to 350°F (175°C)",
+      "Mix dry ingredients in a large bowl",
+      "Add wet ingredients and mix until combined",
+      "Pour into prepared pan and bake for 30 minutes"
+    ],
   },
 };
 
@@ -103,6 +114,8 @@ function Recipe() {
 
   const [recipe, setRecipe] = useState(INITIAL_STATE.recipe);
   const { appendMessage, isLoading } = useCopilotChat();
+  const [editingInstructionIndex, setEditingInstructionIndex] = useState<number | null>(null);
+  const newInstructionRef = useRef<HTMLTextAreaElement>(null);
 
   const updateRecipe = (partialRecipe: Partial<Recipe>) => {
     setAgentState({
@@ -123,17 +136,14 @@ function Recipe() {
   const changedKeysRef = useRef<string[]>([]);
 
   for (const key in recipe) {
-
-    if (agentState && agentState.recipe &&
+    if (
+      agentState &&
+      agentState.recipe &&
       (agentState.recipe as any)[key] !== undefined &&
       (agentState.recipe as any)[key] !== null
     ) {
       let agentValue = (agentState.recipe as any)[key];
       const recipeValue = (recipe as any)[key];
-
-      if (Array.isArray(agentValue) && Array.isArray(recipeValue)) {
-        agentValue.sort();
-      }
 
       // Check if agentValue is a string and replace \n with actual newlines
       if (typeof agentValue === "string") {
@@ -157,6 +167,12 @@ function Recipe() {
     setRecipe(newRecipeState);
   }, [JSON.stringify(newRecipeState)]);
 
+  const handleTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    updateRecipe({
+      title: event.target.value,
+    });
+  };
+
   const handleSkillLevelChange = (
     event: React.ChangeEvent<HTMLSelectElement>
   ) => {
@@ -165,20 +181,14 @@ function Recipe() {
     });
   };
 
-  const handlePreferenceChange = (
-    preference: SpecialPreferences,
-    checked: boolean
-  ) => {
+  const handleDietaryChange = (preference: string, checked: boolean) => {
     if (checked) {
       updateRecipe({
-        special_preferences: [
-          ...agentState.recipe.special_preferences,
-          preference,
-        ],
+        dietary_preferences: [...recipe.dietary_preferences, preference],
       });
     } else {
       updateRecipe({
-        special_preferences: agentState.recipe.special_preferences.filter(
+        dietary_preferences: recipe.dietary_preferences.filter(
           (p) => p !== preference
         ),
       });
@@ -186,149 +196,275 @@ function Recipe() {
   };
 
   const handleCookingTimeChange = (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLSelectElement>
   ) => {
     updateRecipe({
       cooking_time: cookingTimeValues[Number(event.target.value)].label,
     });
   };
 
-  const handleIngredientsChange = (
-    event: React.ChangeEvent<HTMLTextAreaElement>
-  ) => {
+  
+  const addIngredient = () => {
+    // Pick a random food emoji from our valid list
     updateRecipe({
-      ingredients: event.target.value,
+      ingredients: [...recipe.ingredients, { icon: "🍴", name: "", amount: "" }],
     });
   };
 
-  const handleInstructionsChange = (
-    event: React.ChangeEvent<HTMLTextAreaElement>
-  ) => {
+  const updateIngredient = (index: number, field: keyof Ingredient, value: string) => {
+    const updatedIngredients = [...recipe.ingredients];
+    updatedIngredients[index] = {
+      ...updatedIngredients[index],
+      [field]: value,
+    };
+    updateRecipe({ ingredients: updatedIngredients });
+  };
+
+  const removeIngredient = (index: number) => {
+    const updatedIngredients = [...recipe.ingredients];
+    updatedIngredients.splice(index, 1);
+    updateRecipe({ ingredients: updatedIngredients });
+  };
+
+  const addInstruction = () => {
+    const newIndex = recipe.instructions.length;
     updateRecipe({
-      instructions: event.target.value,
+      instructions: [...recipe.instructions, ""],
     });
+    // Set the new instruction as the editing one
+    setEditingInstructionIndex(newIndex);
+    
+    // Focus the new instruction after render
+    setTimeout(() => {
+      const textareas = document.querySelectorAll('.instructions-container textarea');
+      const newTextarea = textareas[textareas.length - 1] as HTMLTextAreaElement;
+      if (newTextarea) {
+        newTextarea.focus();
+      }
+    }, 50);
+  };
+
+  const updateInstruction = (index: number, value: string) => {
+    const updatedInstructions = [...recipe.instructions];
+    updatedInstructions[index] = value;
+    updateRecipe({ instructions: updatedInstructions });
+  };
+
+  const removeInstruction = (index: number) => {
+    const updatedInstructions = [...recipe.instructions];
+    updatedInstructions.splice(index, 1);
+    updateRecipe({ instructions: updatedInstructions });
+  };
+
+  // Simplified icon handler that defaults to a fork/knife for any problematic icons
+  const getProperIcon = (icon: string | undefined): string => {
+    // If icon is undefined  return the default
+    if (!icon) {
+      return "🍴";
+    }
+    
+    return icon;
   };
 
   return (
-    <form
-      className="w-full max-w-lg p-6 rounded shadow-md"
-      style={{
-        backgroundColor: "rgba(255, 255, 255, 0.9)", // Semi-transparent white
-        backdropFilter: "blur(10px)", // Apply blur for frosted effect
-        WebkitBackdropFilter: "blur(10px)", // For Safari support
-        boxShadow: "0 4px 30px rgba(0, 0, 0, 0.1)", // Subtle shadow for depth
-      }}
-    >
-      <div className="mb-4 relative">
-        {changedKeysRef.current.includes("skill_level") && <Ping />}
-        <label
-          className="block text-gray-700 text-sm font-bold mb-2"
-          htmlFor="skillLevel"
-        >
-          Skill Level
-        </label>
-        <select
-          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          id="skillLevel"
-          value={recipe.skill_level}
-          onChange={handleSkillLevelChange}
-        >
-          {Object.values(SkillLevel).map((level) => (
-            <option key={level} value={level}>
-              {level}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="mb-4 relative">
-        {changedKeysRef.current.includes("cooking_time") && <Ping />}
-        <label
-          className="block text-gray-700 text-sm font-bold mb-2"
-          htmlFor="cookingTime"
-        >
-          Cooking Time: {recipe.cooking_time}
-        </label>
+    <form className="recipe-card">
+      {/* Recipe Title */}
+      <div className="recipe-header">
         <input
-          type="range"
-          id="cookingTime"
-          min="0"
-          max={cookingTimeValues.length - 1}
-          value={cookingTimeValues.findIndex(
-            (value) => value.label === recipe.cooking_time
-          )}
-          onChange={handleCookingTimeChange}
-          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+          type="text"
+          value={recipe.title || ''}
+          onChange={handleTitleChange}
+          className="recipe-title-input"
         />
-      </div>
-      <div className="mb-4 relative">
-        {changedKeysRef.current.includes("special_preferences") && <Ping />}
-        <label className="block text-gray-700 text-sm font-bold mb-4">
-          Special Preferences:
-        </label>
-        <div className="flex flex-wrap mt-2">
-          {Object.values(SpecialPreferences).map((preference) => (
-            <label
-              key={preference}
-              className="flex items-center mr-4 mb-2 whitespace-nowrap uppercase"
-              style={{ fontSize: "10px", fontWeight: "bold" }}
+        
+        <div className="recipe-meta">
+          <div className="meta-item">
+            <span className="meta-icon">🕒</span>
+            <select
+              className="meta-select"
+              value={cookingTimeValues.find(t => t.label === recipe.cooking_time)?.value || 3}
+              onChange={handleCookingTimeChange}
+              style={{
+                backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23555\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e")',
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 0px center',
+                backgroundSize: '12px',
+                appearance: 'none',
+                WebkitAppearance: 'none'
+              }}
             >
+              {cookingTimeValues.map((time) => (
+                <option key={time.value} value={time.value}>
+                  {time.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="meta-item">
+            <span className="meta-icon">🏆</span>
+            <select
+              className="meta-select"
+              value={recipe.skill_level}
+              onChange={handleSkillLevelChange}
+              style={{
+                backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23555\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e")',
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 0px center',
+                backgroundSize: '12px',
+                appearance: 'none',
+                WebkitAppearance: 'none'
+              }}
+            >
+              {Object.values(SkillLevel).map((level) => (
+                <option key={level} value={level}>
+                  {level}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Dietary Preferences */}
+      <div className="section-container relative">
+        {changedKeysRef.current.includes("dietary_preferences") && <Ping />}
+        <h2 className="section-title">Dietary Preferences</h2>
+        <div className="dietary-options">
+          {dietaryOptions.map((option) => (
+            <label key={option} className="dietary-option">
               <input
                 type="checkbox"
-                checked={recipe.special_preferences.includes(preference)}
-                onChange={(e) =>
-                  handlePreferenceChange(preference, e.target.checked)
-                }
-                className="mr-1"
+                checked={recipe.dietary_preferences.includes(option)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDietaryChange(option, e.target.checked)}
               />
-              {preference}
+              <span>{option}</span>
             </label>
           ))}
         </div>
       </div>
 
-      <div className="mb-4 relative">
+      {/* Ingredients */}
+      <div className="section-container relative">
         {changedKeysRef.current.includes("ingredients") && <Ping />}
-        <label
-          className="block text-gray-700 text-sm font-bold mb-2"
-          htmlFor="ingredients"
-        >
-          Ingredients:
-        </label>
-        <textarea
-          id="ingredients"
-          value={recipe.ingredients}
-          onChange={handleIngredientsChange}
-          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          rows={4}
-          placeholder="Enter ingredients here..."
-        />
+        <div className="section-header">
+          <h2 className="section-title">Ingredients</h2>
+          <button 
+            type="button" 
+            className="add-button"
+            onClick={addIngredient}
+          >
+            + Add Ingredient
+          </button>
+        </div>
+        <div className="ingredients-container">
+          {recipe.ingredients.map((ingredient, index) => (
+            <div key={index} className="ingredient-card">
+              <div className="ingredient-icon">{getProperIcon(ingredient.icon)}</div>
+              <div className="ingredient-content">
+                <input
+                  type="text"
+                  value={ingredient.name || ''}
+                  onChange={(e) => updateIngredient(index, "name", e.target.value)}
+                  placeholder="Ingredient name"
+                  className="ingredient-name-input"
+                />
+                <input
+                  type="text"
+                  value={ingredient.amount || ''}
+                  onChange={(e) => updateIngredient(index, "amount", e.target.value)}
+                  placeholder="Amount"
+                  className="ingredient-amount-input"
+                />
+              </div>
+              <button 
+                type="button" 
+                className="remove-button" 
+                onClick={() => removeIngredient(index)}
+                aria-label="Remove ingredient"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="mb-4 relative">
+      {/* Instructions */}
+      <div className="section-container relative">
         {changedKeysRef.current.includes("instructions") && <Ping />}
-        <label
-          className="block text-gray-700 text-sm font-bold mb-2"
-          htmlFor="instructions"
-        >
-          Instructions:
-        </label>
-        <textarea
-          id="instructions"
-          value={recipe.instructions}
-          onChange={handleInstructionsChange}
-          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-          rows={6}
-          placeholder="Enter instructions here..."
-        />
+        <div className="section-header">
+          <h2 className="section-title">Instructions</h2>
+          <button 
+            type="button" 
+            className="add-step-button"
+            onClick={addInstruction}
+          >
+            + Add Step
+          </button>
+        </div>
+        <div className="instructions-container">
+          {recipe.instructions.map((instruction, index) => (
+            <div key={index} className="instruction-item">
+              {/* Number Circle */}
+              <div className="instruction-number">
+                {index + 1}
+              </div>
+              
+              {/* Vertical Line */}
+              {index < recipe.instructions.length - 1 && (
+                <div className="instruction-line" />
+              )}
+              
+              {/* Instruction Content */}
+              <div 
+                className={`instruction-content ${
+                  editingInstructionIndex === index 
+                    ? 'instruction-content-editing' 
+                    : 'instruction-content-default'
+                }`}
+                onClick={() => setEditingInstructionIndex(index)}
+              >
+                <textarea
+                  className="instruction-textarea"
+                  value={instruction || ''}
+                  onChange={(e) => updateInstruction(index, e.target.value)}
+                  placeholder={!instruction ? "Enter cooking instruction..." : ""}
+                  onFocus={() => setEditingInstructionIndex(index)}
+                  onBlur={(e) => {
+                    // Only blur if clicking outside this instruction
+                    if (!e.relatedTarget || !e.currentTarget.contains(e.relatedTarget as Node)) {
+                      setEditingInstructionIndex(null);
+                    }
+                  }}
+                />
+                
+                {/* Delete Button (only visible on hover) */}
+                <button 
+                  type="button"
+                  className={`instruction-delete-btn ${
+                    editingInstructionIndex === index 
+                      ? 'instruction-delete-btn-editing' 
+                      : 'instruction-delete-btn-default'
+                  } remove-button`}
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent triggering parent onClick
+                    removeInstruction(index);
+                  }}
+                  aria-label="Remove instruction"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="flex items-center justify-end mt-2">
+      {/* Improve with AI Button */}
+      <div className="action-container">
         <button
-          className={`${
-            isLoading
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-black hover:bg-gray-800"
-          } text-white font-base py-2 px-4 rounded focus:outline-none focus:shadow-outline`}
+          className={isLoading ? "improve-button loading" : "improve-button"}
           type="button"
           onClick={() => {
             if (!isLoading) {
@@ -351,9 +487,9 @@ function Recipe() {
 
 function Ping() {
   return (
-    <span className="absolute flex size-3 top-0 right-0">
-      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75"></span>
-      <span className="relative inline-flex size-3 rounded-full bg-sky-500"></span>
+    <span className="ping-animation">
+      <span className="ping-circle"></span>
+      <span className="ping-dot"></span>
     </span>
   );
 }

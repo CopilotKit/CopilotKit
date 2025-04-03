@@ -8,3 +8,535 @@
   color: #000;
   border-bottom: 0px;
 }
+
+/* Recipe App Styles */
+.app-container {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  position: relative;
+  overflow: auto;
+}
+
+.recipe-card {
+  width: 90%;
+  max-width: 750px;
+  padding: 30px;
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  margin: 20px;
+  overflow: hidden;
+}
+
+/* Recipe Header */
+.recipe-header {
+  margin-bottom: 24px;
+}
+
+.recipe-title-input {
+  width: 100%;
+  font-size: 24px;
+  font-weight: bold;
+  border: none;
+  outline: none;
+  padding: 8px 0;
+  margin-bottom: 0px;
+}
+
+.recipe-meta {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: 5px;
+  margin-bottom: 14px;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #555;
+}
+
+.meta-icon {
+  font-size: 20px;
+  color: #777;
+}
+
+.meta-text {
+  font-size: 15px;
+}
+
+/* Recipe Meta Selects */
+.meta-item select {
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  color: #555;
+  cursor: pointer;
+  outline: none;
+  padding-right: 18px;
+  transition: color 0.2s, transform 0.1s;
+  font-weight: 500;
+}
+
+.meta-item select:hover, 
+.meta-item select:focus {
+  color: #FF5722;
+}
+
+.meta-item select:active {
+  transform: scale(0.98);
+}
+
+.meta-item select option {
+  color: #333;
+  background-color: white;
+  font-weight: normal;
+  padding: 8px;
+}
+
+/* Section Container */
+.section-container {
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.section-title {
+  font-size: 18px;
+  margin-bottom: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-top: 8px;
+}
+
+/* Dietary Preferences */
+.dietary-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.dietary-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.dietary-option input {
+  cursor: pointer;
+}
+
+/* Ingredients */
+.ingredients-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 15px;
+}
+
+.ingredient-card {
+  display: flex;
+  align-items: flex-start;
+  padding: 12px;
+  background-color: #FFF9F0;
+  border-radius: 8px;
+  position: relative;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  flex: 0 1 auto;
+  min-width: 160px;
+}
+
+.ingredient-card .remove-button {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  background: none;
+  border: none;
+  color: #ccc;
+  font-size: 16px;
+  cursor: pointer;
+  display: none;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  line-height: 1;
+}
+
+.ingredient-card:hover .remove-button {
+  display: block;
+}
+
+.ingredient-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background-color: white;
+  border-radius: 50%;
+  font-size: 16px;
+  margin-right: 12px;
+  min-width: 32px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ingredient-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ingredient-name-input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-weight: 500;
+  font-size: 14px;
+  width: 100%;
+  padding: 0;
+}
+
+.ingredient-amount-input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+  color: #666;
+  width: 100%;
+  padding: 0;
+}
+
+.ingredient-name-input::placeholder,
+.ingredient-amount-input::placeholder {
+  color: #aaa;
+}
+
+.remove-button {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 10px;
+}
+
+.remove-button:hover {
+  color: #FF5722;
+}
+
+/* Instructions */
+.instructions-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  margin-bottom: 15px;
+}
+
+.instruction-step {
+  display: flex;
+  position: relative;
+  margin-bottom: 15px;
+}
+
+.step-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background-color: #FF5722;
+  color: white;
+  border-radius: 50%;
+  font-weight: bold;
+  margin-right: 12px;
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.instruction-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 28px;
+  left: 14px;
+  width: 2px;
+  height: calc(100% - 10px);
+  background-color: #FFE0D6;
+  z-index: 1;
+}
+
+.step-content {
+  flex-grow: 1;
+  position: relative;
+  background-color: white;
+  border: 1px solid #EEE;
+  border-radius: 8px;
+  padding: 10px 12px;
+  min-height: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.instruction-text {
+  width: 100%;
+  font-size: 15px;
+  line-height: 1.5;
+  border: none;
+  outline: none;
+  background: transparent;
+  resize: none;
+  padding: 0;
+  color: #333;
+}
+
+.instruction-text::placeholder {
+  color: #aaa;
+}
+
+.step-actions {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+}
+
+.step-content:hover .step-actions {
+  display: flex;
+  align-items: center;
+}
+
+.edit-button,
+.close-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #888;
+  padding: 4px;
+  font-size: 15px;
+}
+
+.edit-button {
+  margin-right: 8px;
+}
+
+.close-button {
+  font-size: 18px;
+}
+
+/* Add Buttons */
+.add-button {
+  background-color: transparent;
+  color: #FF5722;
+  border: 1px dashed #FF5722;
+  border-radius: 8px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-weight: 500;
+  display: inline-block;
+  font-size: 14px;
+  margin-bottom: 0;
+}
+
+.add-step-button {
+  background-color: transparent;
+  color: #FF5722;
+  border: 1px dashed #FF5722;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+/* Section Headers */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+/* Instruction Items */
+.instruction-item {
+  position: relative;
+  display: flex;
+}
+
+.instruction-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background-color: #FF5722;
+  color: white;
+  border-radius: 50%;
+  font-weight: bold;
+  margin-right: 12px;
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.instruction-line {
+  position: absolute;
+  top: 22px;
+  left: 11px;
+  width: 1px;
+  height: calc(100% - 5px);
+  background-color: #fed7aa;
+  z-index: 1;
+}
+
+.instruction-content {
+  flex-grow: 1;
+  position: relative;
+  border-radius: 8px;
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+}
+
+.instruction-content-editing {
+  background-color: white;
+  border: 1px solid #eee;
+  padding: 8px 12px;
+}
+
+.instruction-content-default {
+  background-color: transparent;
+  border: none;
+  padding: 4px 0;
+}
+
+.instruction-textarea {
+  width: 100%;
+  font-size: 14px;
+  line-height: 1.3;
+  border: none;
+  outline: none;
+  background: transparent;
+  resize: none;
+  padding: 0;
+  color: #333;
+  display: flex;
+  align-items: center;
+  margin-top: 1px;
+}
+
+.instruction-delete-btn {
+  position: absolute;
+  background: none;
+  border: none;
+  color: #ccc;
+  font-size: 16px;
+  cursor: pointer;
+  display: none;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  line-height: 1;
+}
+
+.instruction-delete-btn-editing {
+  right: 10px;
+  top: 8px;
+}
+
+.instruction-delete-btn-default {
+  right: 0;
+  top: 5px;
+}
+
+/* Action Button */
+.action-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.improve-button {
+  background-color: #FF5722;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.improve-button:hover {
+  background-color: #E64A19;
+}
+
+.improve-button.loading {
+  background-color: #AAAAAA;
+  cursor: not-allowed;
+}
+
+/* Ping Animation */
+.ping-animation {
+  position: absolute;
+  display: flex;
+  width: 12px;
+  height: 12px;
+  top: 0;
+  right: 0;
+}
+
+.ping-circle {
+  position: absolute;
+  display: inline-flex;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: #38BDF8;
+  opacity: 0.75;
+  animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.ping-dot {
+  position: relative;
+  display: inline-flex;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #0EA5E9;
+}
+
+@keyframes ping {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* Instruction hover effects */
+.instruction-item:hover .instruction-delete-btn {
+  display: flex !important;
+}

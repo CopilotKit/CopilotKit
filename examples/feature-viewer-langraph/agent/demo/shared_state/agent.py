@@ -58,10 +58,10 @@ GENERATE_RECIPE_TOOL = {
     "type": "function",
     "function": {
         "name": "generate_recipe",
-        "description": " ".join("""Generate or modify an existing recipe. 
+        "description": " ".join("""Modify or Genrate an existing recipe. 
         When creating a new recipe, specify all fields. 
-        When modifying, only fill optional fields if they need changes; 
-        otherwise, leave them empty.""".split()),
+        When modifying, only fill optional fields if they need changes; Keep the existing ones as it is. Verify the recipe has been updated with all the ingredients and detailed instructions.
+        Make sure you include already existing ingredients and instructions along with the new ones. Always provide the entire recipe, not just the changes.""".split()),
         "parameters": {
             "type": "object",
             "properties": {
@@ -87,12 +87,21 @@ GENERATE_RECIPE_TOOL = {
                             "description": "The cooking time of the recipe"
                         },
                         "ingredients": {
-                            "type": "string",
-                            "description": "A list of ingredients in the recipe"
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "icon": {"type": "string"},
+                                    "name": {"type": "string"},
+                                    "amount": {"type": "string"}
+                                }
+                            },
+                            "description": "A list of ingredients in the recipe, including the ones that are already in the recipe"
                         },
                         "instructions": {
-                            "type": "string",
-                            "description": "Instructions for the recipe"
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "A list of instructions for the recipe, including the ones that are already in the recipe"
                         }
                     },
                 }
@@ -120,8 +129,8 @@ async def start_flow(state: Dict[str, Any], config: RunnableConfig):
             "skill_level": SkillLevel.BEGINNER.value,
             "special_preferences": [],
             "cooking_time": CookingTime.FIFTEEN_MIN.value,
-            "ingredients": "",
-            "instructions": ""
+            "ingredients": [{"icon": "🍴", "name": "Sample Ingredient", "amount": "1 unit"}],
+            "instructions": ["First step instruction"]
         }
         # Emit the initial state to ensure it's properly shared with the frontend
         await copilotkit_emit_state(config, state)
@@ -149,7 +158,15 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
     
     system_prompt = f"""You are a helpful assistant for creating recipes. 
     This is the current state of the recipe: {recipe_json}
-    You can modify the recipe by calling the generate_recipe tool.
+    You can improve the recipe by calling the generate_recipe tool.
+    
+    IMPORTANT:
+    1. PRESERVE and BUILD UPON the existing ingredients and instructions rather than replacing them. But make sure the recipe is complete and there is a food at the end.
+    2. For ingredients, append new ingredients to the existing ones.
+    3. For instructions, append new steps to the existing ones.
+    4. 'ingredients' is always an array of objects with 'icon', 'name', and 'amount' fields
+    5. 'instructions' is always an array of strings
+    
     If you have just created or modified the recipe, just answer in one sentence what you did.
     """
 
@@ -228,8 +245,8 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
                     "skill_level": recipe_data.get("skill_level", SkillLevel.BEGINNER.value),
                     "special_preferences": recipe_data.get("special_preferences", []),
                     "cooking_time": recipe_data.get("cooking_time", CookingTime.FIFTEEN_MIN.value),
-                    "ingredients": recipe_data.get("ingredients", ""),
-                    "instructions": recipe_data.get("instructions", "")
+                    "ingredients": recipe_data.get("ingredients", []),
+                    "instructions": recipe_data.get("instructions", [])
                 }
             
             # Add tool response to messages
