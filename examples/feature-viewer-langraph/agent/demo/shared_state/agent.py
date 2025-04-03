@@ -58,10 +58,8 @@ GENERATE_RECIPE_TOOL = {
     "type": "function",
     "function": {
         "name": "generate_recipe",
-        "description": " ".join("""Modify or Genrate an existing recipe. 
-        When creating a new recipe, specify all fields. 
-        When modifying, only fill optional fields if they need changes; Keep the existing ones as it is. Verify the recipe has been updated with all the ingredients and detailed instructions.
-        Make sure you include already existing ingredients and instructions along with the new ones. Always provide the entire recipe, not just the changes.""".split()),
+        "description": " ".join("""Using the existing (if any) ingredients and instructions, proceed with the recipe to finish it.
+        Make sure the recipe is complete. ALWAYS provide the entire recipe, not just the changes.""".split()),
         "parameters": {
             "type": "object",
             "properties": {
@@ -91,17 +89,21 @@ GENERATE_RECIPE_TOOL = {
                             "items": {
                                 "type": "object",
                                 "properties": {
-                                    "icon": {"type": "string"},
+                                    "icon": {"type": "string", "description": "The icon emoji (not emoji code like '\x1f35e', but the actual emoji like 🥕) of the ingredient"},
                                     "name": {"type": "string"},
                                     "amount": {"type": "string"}
                                 }
                             },
-                            "description": "A list of ingredients in the recipe, including the ones that are already in the recipe"
+                            "description": "Entire list of ingredients for the recipe, including the new ingredients and the ones that are already in the recipe"
                         },
                         "instructions": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "A list of instructions for the recipe, including the ones that are already in the recipe"
+                            "description": "Entire list of instructions for the recipe, including the new instructions and the ones that are already there"
+                        },
+                        "changes": {
+                            "type": "string",
+                            "description": "A description of the changes made to the recipe"
                         }
                     },
                 }
@@ -161,17 +163,17 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
     You can improve the recipe by calling the generate_recipe tool.
     
     IMPORTANT:
-    1. PRESERVE and BUILD UPON the existing ingredients and instructions rather than replacing them. But make sure the recipe is complete and there is a food at the end.
+    1. Create a recipe using the existing ingredients and instructions. Make sure the recipe is complete.
     2. For ingredients, append new ingredients to the existing ones.
     3. For instructions, append new steps to the existing ones.
     4. 'ingredients' is always an array of objects with 'icon', 'name', and 'amount' fields
     5. 'instructions' is always an array of strings
-    
-    If you have just created or modified the recipe, just answer in one sentence what you did.
+
+    If you have just created or modified the recipe, just answer in one sentence what you did. dont describe the recipe, just say what you did.
     """
 
     # Define the model
-    model = ChatOpenAI(model="gpt-4o")
+    model = ChatOpenAI(model="gpt-4o-mini")
     
     # Define config for the model
     if config is None:

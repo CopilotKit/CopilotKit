@@ -94,13 +94,9 @@ const INITIAL_STATE: RecipeAgentState = {
     ingredients: [
       { icon: "🥕", name: "Carrots", amount: "3 large, grated" },
       { icon: "🌾", name: "All-Purpose Flour", amount: "2 cups" },
-      { icon: "🥛", name: "Milk", amount: "1 cup" }
     ],
     instructions: [
       "Preheat oven to 350°F (175°C)",
-      "Mix dry ingredients in a large bowl",
-      "Add wet ingredients and mix until combined",
-      "Pour into prepared pan and bake for 30 minutes"
     ],
   },
 };
