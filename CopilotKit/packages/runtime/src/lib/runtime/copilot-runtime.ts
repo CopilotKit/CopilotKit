@@ -265,8 +265,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
   // +++ MCP Properties +++
   private readonly mcpEndpointsConfig?: MCPEndpointConfig[];
-  private mcpActions: Action<any>[] = [];
-  private mcpInitializationPromise: Promise<void> | null = null;
+  private mcpActionCache = new Map<string, Action<any>[]>();
   // --- MCP Properties ---
 
   // +++ MCP Client Factory +++
@@ -313,7 +312,6 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
           "Please provide an implementation for `createMCPClient`.",
       });
     }
-    // --- MCP Initialization ---
 
     // Warning if actions are defined alongside LangGraph platform (potentially MCP too?)
     if (
@@ -327,91 +325,20 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     }
   }
 
-  // +++ MCP Initialization Method +++
-  private async initializeMCPActions(): Promise<void> {
-    // Ensure this runs only once
-    if (!this.mcpInitializationPromise) {
-      this.mcpInitializationPromise = (async () => {
-        if (!this.mcpEndpointsConfig || this.mcpEndpointsConfig.length === 0) {
-          return; // No MCP endpoints configured
-        }
-
-        // Check if the user has provided the createMCPClient function
-        if (!this.createMCPClientImpl) {
-          // This case should theoretically be caught by the constructor validation,
-          // but added as a safeguard.
-          console.error(
-            "MCP Integration Error: `createMCPClient` implementation is missing. " +
-              "Ensure it is passed during CopilotRuntime instantiation. MCP tools will not be loaded.",
-          );
-          return; // Fail gracefully
-        }
-
-        const allFetchedActions: Action<any>[] = [];
-        const clients: MCPClient[] = []; // To potentially call close() later if needed
-
-        for (const config of this.mcpEndpointsConfig) {
-          let client: MCPClient | null = null;
-          try {
-            console.log(`Initializing MCP client for endpoint: ${config.endpoint}`);
-            // Use the injected function
-            client = await this.createMCPClientImpl(config);
-            clients.push(client); // Store client for potential cleanup
-
-            const tools = await client.tools();
-            console.log(
-              `Fetched ${Object.keys(tools).length} tools from MCP endpoint: ${config.endpoint}`,
-            );
-            const convertedActions = convertMCPToolsToActions(tools, config.endpoint);
-            allFetchedActions.push(...convertedActions);
-          } catch (error) {
-            console.error(
-              `Failed to initialize or fetch tools from MCP endpoint ${config.endpoint}:`,
-              error,
-            );
-            // Continue with the next endpoint
-          }
-        }
-
-        // Deduplicate actions based on name (last one wins in case of conflict)
-        const uniqueActions = new Map<string, Action<any>>();
-        for (const action of allFetchedActions) {
-          if (uniqueActions.has(action.name)) {
-            console.warn(
-              `Duplicate MCP action name found: '${action.name}'. ` +
-                `The action from endpoint ${
-                  (action as any)._mcpEndpoint
-                } will overwrite the previous one.`,
-            );
-          }
-          uniqueActions.set(action.name, action);
-        }
-
-        this.mcpActions = Array.from(uniqueActions.values());
-        console.log(`Successfully loaded ${this.mcpActions.length} unique MCP actions.`);
-
-        // Optional: Cleanup clients if they have a close method
-        // Consider if/when cleanup should happen (e.g., on runtime disposal if that exists)
-        // for (const client of clients) {
-        //   if (client.close) {
-        //     client.close().catch(err => console.error("Error closing MCP client:", err));
-        //   }
-        // }
-      })();
-    }
-    return this.mcpInitializationPromise;
-  }
-  // --- MCP Initialization Method ---
-
   // +++ MCP Instruction Injection Method +++
-  private injectMCPToolInstructions(messages: MessageInput[]): MessageInput[] {
-    if (!this.mcpActions || this.mcpActions.length === 0) {
-      return messages; // No MCP tools loaded, return original messages
+  private injectMCPToolInstructions(
+    messages: MessageInput[],
+    currentActions: Action<any>[],
+  ): MessageInput[] {
+    // Filter the *passed-in* actions for MCP tools
+    const mcpActionsForRequest = currentActions.filter((action) => (action as any)._isMCPTool);
+
+    if (!mcpActionsForRequest || mcpActionsForRequest.length === 0) {
+      return messages; // No MCP tools for this specific request
     }
 
     // Filter only MCP actions and format instructions
-    const mcpToolInstructions = this.mcpActions
-      .filter((action) => (action as any)._isMCPTool) // Ensure it's an MCP tool using our metadata
+    const mcpToolInstructions = mcpActionsForRequest
       .map((action) => {
         const paramsString =
           action.parameters && action.parameters.length > 0
@@ -496,20 +423,20 @@ please use an LLM adapter instead.`,
         });
       }
 
-      // +++ Get Server Side Actions (including MCP) EARLY +++
-      // This ensures MCP tools are initialized before messages are processed
+      // +++ Get Server Side Actions (including dynamic MCP) EARLY +++
       const serverSideActions = await this.getServerSideActions(request);
-      // --- Get Server Side Actions (including MCP) EARLY ---
+      // --- Get Server Side Actions (including dynamic MCP) EARLY ---
 
-      // +++ Inject MCP Instructions +++
-      let messagesWithInjectedInstructions = rawMessages.filter(
-        (message) => !message.agentStateMessage,
-      );
-      messagesWithInjectedInstructions = this.injectMCPToolInstructions(
-        messagesWithInjectedInstructions,
+      // Filter raw messages *before* injection
+      const filteredRawMessages = rawMessages.filter((message) => !message.agentStateMessage);
+
+      // +++ Inject MCP Instructions based on current actions +++
+      const messagesWithInjectedInstructions = this.injectMCPToolInstructions(
+        filteredRawMessages,
+        serverSideActions,
       );
       const inputMessages = convertGqlInputToMessages(messagesWithInjectedInstructions);
-      // --- Inject MCP Instructions ---
+      // --- Inject MCP Instructions based on current actions ---
 
       // Log LLM request if logging is enabled
       if (this.observability?.enabled && publicApiKey) {
@@ -1140,15 +1067,11 @@ please use an LLM adapter instead.`,
   }
 
   private async getServerSideActions(request: CopilotRuntimeRequest): Promise<Action<any>[]> {
-    const { messages: rawMessages, graphqlContext, agentStates, url } = request;
+    const { graphqlContext, messages: rawMessages, agentStates, url } = request;
+
+    // --- Standard Action Fetching (unchanged) ---
     const inputMessages = convertGqlInputToMessages(rawMessages);
     const langserveFunctions: Action<any>[] = [];
-
-    // +++ Initialize MCP Actions +++
-    // Ensure MCP tools are loaded before proceeding
-    await this.initializeMCPActions();
-    // --- Initialize MCP Actions ---
-
     for (const chainPromise of this.langserve) {
       try {
         const chain = await chainPromise;
@@ -1159,11 +1082,7 @@ please use an LLM adapter instead.`,
     }
 
     const remoteEndpointDefinitions = this.remoteEndpointDefinitions.map(
-      (endpoint) =>
-        ({
-          ...endpoint,
-          type: resolveEndpointType(endpoint),
-        }) as EndpointDefinition,
+      (endpoint) => ({ ...endpoint, type: resolveEndpointType(endpoint) }) as EndpointDefinition,
     );
 
     const remoteActions = await setupRemoteActions({
@@ -1178,9 +1097,67 @@ please use an LLM adapter instead.`,
       typeof this.actions === "function"
         ? this.actions({ properties: graphqlContext.properties, url })
         : this.actions;
+    // --- Standard Action Fetching (unchanged) ---
 
-    // Combine all action sources, including MCP
-    return [...configuredActions, ...langserveFunctions, ...remoteActions, ...this.mcpActions];
+    // +++ Dynamic MCP Action Fetching +++
+    const requestSpecificMCPActions: Action<any>[] = [];
+    if (this.createMCPClientImpl) {
+      // 1. Determine effective MCP endpoints for this request
+      const baseEndpoints = this.mcpEndpointsConfig || [];
+      // Assuming frontend passes config via properties.mcpEndpoints
+      const requestEndpoints = (graphqlContext.properties?.mcpEndpoints ||
+        []) as MCPEndpointConfig[];
+
+      // Merge and deduplicate endpoints based on URL
+      const effectiveEndpointsMap = new Map<string, MCPEndpointConfig>();
+      [...baseEndpoints, ...requestEndpoints].forEach((ep) => {
+        if (ep && ep.endpoint) {
+          // Basic validation
+          effectiveEndpointsMap.set(ep.endpoint, ep);
+        }
+      });
+      const effectiveEndpoints = Array.from(effectiveEndpointsMap.values());
+
+      // 2. Fetch/Cache actions for effective endpoints
+      for (const config of effectiveEndpoints) {
+        const endpointUrl = config.endpoint;
+        let actionsForEndpoint: Action<any>[] | undefined = this.mcpActionCache.get(endpointUrl);
+
+        if (!actionsForEndpoint) {
+          // Not cached, fetch now
+          let client: MCPClient | null = null;
+          try {
+            console.log(`MCP: Cache miss. Fetching tools for endpoint: ${endpointUrl}`);
+            client = await this.createMCPClientImpl(config);
+            const tools = await client.tools();
+            actionsForEndpoint = convertMCPToolsToActions(tools, endpointUrl);
+            this.mcpActionCache.set(endpointUrl, actionsForEndpoint); // Store in cache
+            console.log(
+              `MCP: Fetched and cached ${actionsForEndpoint.length} tools for ${endpointUrl}`,
+            );
+            // Optional: Close client immediately if it's stateless and has a close method
+            await client.close?.().catch((err) => console.error("Error closing MCP client:", err));
+          } catch (error) {
+            console.error(
+              `MCP: Failed to fetch tools from endpoint ${endpointUrl}. Skipping. Error:`,
+              error,
+            );
+            actionsForEndpoint = []; // Assign empty array on error to prevent re-fetching constantly
+            this.mcpActionCache.set(endpointUrl, actionsForEndpoint); // Cache the failure (empty array)
+          }
+        }
+        requestSpecificMCPActions.push(...(actionsForEndpoint || []));
+      }
+    }
+    // --- Dynamic MCP Action Fetching ---
+
+    // Combine all action sources, including the dynamically fetched MCP actions
+    return [
+      ...configuredActions,
+      ...langserveFunctions,
+      ...remoteActions,
+      ...requestSpecificMCPActions,
+    ];
   }
 
   // Add helper method to detect provider

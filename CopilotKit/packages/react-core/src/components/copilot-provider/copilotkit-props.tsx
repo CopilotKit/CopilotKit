@@ -65,13 +65,22 @@ export interface CopilotKitProps {
   children: ReactNode;
 
   /**
-   * Custom properties to be sent with the request
-   * For example:
-   * ```js
-   * {
-   *   'user_id': 'users_id',
-   * }
-   * ```
+   * Custom properties to be sent with the request.
+   * These properties are accessible in the runtime via `graphqlContext.properties`
+   * and can be used for custom logic, including dynamic configuration.
+   *
+   * @example
+   * // Pass arbitrary data, including dynamic MCP endpoint configurations:
+   * const myProps = {
+   *   user_id: 'user123',
+   *   session_theme: 'dark',
+   *   mcpEndpoints: [
+   *     { endpoint: "https://dynamic-mcp.example.com" }
+   *     // ... other request-specific endpoints
+   *   ]
+   * };
+   * // Then use in your component:
+   * // <CopilotKit properties={myProps}> ... </CopilotKit>
    */
   properties?: Record<string, any>;
 
@@ -120,6 +129,10 @@ export interface CopilotKitProps {
    * Allows the CopilotKit runtime to discover and utilize tools hosted
    * on external MCP-compliant servers.
    *
+   * If provided, this configuration will be merged into the `properties` object
+   * sent with each request under the key `mcpEndpoints`.
+   * It provides a strongly-typed way to configure request-specific MCP endpoints.
+   *
    * Each object in the array should contain:
    * - `endpoint`: The URL of the MCP server (required).
    * - `apiKey`: An optional API key if the server requires authentication.
@@ -131,13 +144,14 @@ export interface CopilotKitProps {
    *     { endpoint: "https://my-mcp-server.com/api" },
    *     { endpoint: "https://another-mcp.dev", apiKey: "secret-key" },
    *   ]}
+   *   properties={{ user_id: '123' }} // Other properties can still be used
    * >
    *   // ... your components
    * </CopilotKit>
    * ```
    *
-   * Note: This feature relies on a user-provided implementation of `createMCPClient`
-   * in the runtime environment to establish the actual connection.
+   * Note: The runtime still requires a `createMCPClient` function to be provided
+   * during its initialization to handle these endpoints.
    * @experimental
    */
   mcpEndpoints?: Array<{ endpoint: string; apiKey?: string }>;
