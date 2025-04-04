@@ -1,5 +1,13 @@
 # ui
 
+## 1.8.5-next.1
+
+### Patch Changes
+
+- d0e8a1e: - fix: fix duplicate messages on regenerate
+  - @copilotkit/runtime-client-gql@1.8.5-next.1
+  - @copilotkit/shared@1.8.5-next.1
+
 ## 1.8.5-next.0
 
 ### Patch Changes
