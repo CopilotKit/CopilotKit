@@ -276,6 +276,14 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
       const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
 
+      // ----- Add this block: Merge mcpEndpoints into properties -----
+      const finalProperties = { ...(copilotConfig.properties || {}) };
+      if (copilotConfig.mcpEndpoints && copilotConfig.mcpEndpoints.length > 0) {
+        // Prop takes precedence over any potential mcpEndpoints in properties
+        finalProperties.mcpEndpoints = copilotConfig.mcpEndpoints;
+      }
+      // -------------------------------------------------------------
+
       const isAgentRun = agentSessionRef.current !== null;
 
       const stream = runtimeClient.asStream(
@@ -323,7 +331,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             })),
             forwardedParameters: options.forwardedParameters || {},
           },
-          properties: copilotConfig.properties,
+          properties: finalProperties,
           signal: chatAbortControllerRef.current?.signal,
         }),
       );

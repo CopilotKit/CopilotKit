@@ -79,6 +79,13 @@ export interface CopilotApiConfig {
    * in the case of cross-origin requests.
    */
   credentials?: RequestCredentials;
+
+  /**
+   * Optional configuration for connecting to Model Context Protocol (MCP) servers.
+   * This is typically derived from the CopilotKitProps and used internally.
+   * @experimental
+   */
+  mcpEndpoints?: Array<{ endpoint: string; apiKey?: string }>;
 }
 
 export type InChatRenderFunction<TProps = ActionRenderProps<any> | CatchAllActionRenderProps<any>> =

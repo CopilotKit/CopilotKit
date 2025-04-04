@@ -114,4 +114,19 @@ export interface CopilotKitProps {
    * The thread id to use for the CopilotKit.
    */
   threadId?: string;
+
+  /**
+   * Config for connecting to Model Context Protocol (MCP) servers.
+   * Enables CopilotKit runtime to access tools on external MCP servers.
+   *
+   * This config merges into the `properties` object with each request as `mcpEndpoints`.
+   * It offers a typed method to set up MCP endpoints for requests.
+   *
+   * Each array item should have:
+   * - `endpoint`: MCP server URL (mandatory).
+   * - `apiKey`: Optional API key for server authentication.
+   *
+   * Note: A `createMCPClient` function is still needed during runtime initialization to manage these endpoints.
+   */
+  mcpEndpoints?: Array<{ endpoint: string; apiKey?: string }>;
 }
