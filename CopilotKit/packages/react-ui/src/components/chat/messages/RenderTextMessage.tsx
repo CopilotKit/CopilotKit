@@ -38,7 +38,7 @@ export function RenderTextMessage({
           isLoading={inProgress && isCurrentMessage && !message.content}
           isGenerating={inProgress && isCurrentMessage && !!message.content}
           isCurrentMessage={isCurrentMessage}
-          onRegenerate={onRegenerate}
+          onRegenerate={() => onRegenerate?.(message.id)}
           onCopy={onCopy}
           onThumbsUp={onThumbsUp}
           onThumbsDown={onThumbsDown}

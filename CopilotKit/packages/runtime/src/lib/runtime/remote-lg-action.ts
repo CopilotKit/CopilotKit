@@ -14,6 +14,7 @@ import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import { MetaEventName } from "../../graphql/types/meta-events.type";
 import { RunsStreamPayload } from "@langchain/langgraph-sdk/dist/types";
 import { parseJson } from "@copilotkit/shared";
+import { RemoveMessage } from "@langchain/core/messages";
 
 type State = Record<string, any>;
 
@@ -582,11 +583,21 @@ function langGraphDefaultMergeState(
   // merge with existing messages
   const existingMessages: LangGraphPlatformMessage[] = state.messages || [];
   const existingMessageIds = new Set(existingMessages.map((message) => message.id));
+  const messageIds = new Set(messages.map((message) => message.id));
+
+  let removedMessages = [];
+  if (messages.length < existingMessages.length) {
+    // Messages were removed
+    removedMessages = existingMessages
+      .filter((m) => !messageIds.has(m.id))
+      .map((m) => new RemoveMessage({ id: m.id }));
+  }
+
   const newMessages = messages.filter((message) => !existingMessageIds.has(message.id));
 
   return {
     ...state,
-    messages: newMessages,
+    messages: [...removedMessages, ...newMessages],
     copilotkit: {
       actions,
     },
