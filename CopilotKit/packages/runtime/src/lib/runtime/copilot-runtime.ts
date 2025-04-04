@@ -230,7 +230,6 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
    * (e.g., `@anthropic-ai/sdk`, `ai/experimental`) to establish a connection.
    * Required if `mcpEndpoints` is provided.
    *
-   * @example
    * ```typescript
    * import { Anthropic } from "@anthropic-ai/sdk"; // Or your preferred client
    * // ...
@@ -246,9 +245,6 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
    *   }
    * });
    * ```
-   * @param config Connection configuration for the MCP endpoint.
-   * @returns A promise that resolves to an object conforming to the MCPClient interface.
-   * @experimental
    */
   createMCPClient?: CreateMCPClientFunction;
 }
