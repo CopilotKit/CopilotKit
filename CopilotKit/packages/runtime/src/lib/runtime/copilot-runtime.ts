@@ -1135,8 +1135,6 @@ please use an LLM adapter instead.`,
             console.log(
               `MCP: Fetched and cached ${actionsForEndpoint.length} tools for ${endpointUrl}`,
             );
-            // Optional: Close client immediately if it's stateless and has a close method
-            await client.close?.().catch((err) => console.error("Error closing MCP client:", err));
           } catch (error) {
             console.error(
               `MCP: Failed to fetch tools from endpoint ${endpointUrl}. Skipping. Error:`,
