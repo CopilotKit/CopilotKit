@@ -75,7 +75,7 @@ import { MCPClient, MCPEndpointConfig, convertMCPToolsToActions } from "./mcp-to
 type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>;
 // --- MCP Imports ---
 
-interface CopilotRuntimeRequest {
+export interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
   messages: MessageInput[];
   actions: ActionInput[];
