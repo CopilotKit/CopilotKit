@@ -92,8 +92,42 @@ Configuration for LLM request/response logging.
   ```
 </PropertyReference>
 
-<PropertyReference name="processRuntimeRequest" type="request: CopilotRuntimeRequest">
+<PropertyReference name="mcpEndpoints" type="MCPEndpointConfig[]"  > 
+Configuration for connecting to Model Context Protocol (MCP) servers.
+  Allows fetching and using tools defined on external MCP-compliant servers.
+  Requires providing the `createMCPClient` function during instantiation.
+  @experimental
+</PropertyReference>
 
+<PropertyReference name="createMCPClient" type="CreateMCPClientFunction"  > 
+A function that creates an MCP client instance for a given endpoint configuration.
+  This function is responsible for using the appropriate MCP client library
+  (e.g., `@anthropic-ai/sdk`, `ai/experimental`) to establish a connection.
+  Required if `mcpEndpoints` is provided.
+ 
+  @example
+  ```typescript
+  import { Anthropic } from "@anthropic-ai/sdk"; // Or your preferred client
+  // ...
+  const runtime = new CopilotRuntime({
+    mcpEndpoints: [{ endpoint: "..." }],
+    async createMCPClient(config) {
+      // Your logic to instantiate and return an object conforming to MCPClient
+      const client = new Anthropic({ apiKey: config.apiKey }); // Example
+      return { // Adapt Anthropic client to MCPClient interface
+        async tools() { return client.beta.tools.messages.stream(...); }, // Example mapping
+        // close() implementation if needed
+      };
+    }
+  });
+  ```
+  @param config Connection configuration for the MCP endpoint.
+  @returns A promise that resolves to an object conforming to the MCPClient interface.
+  @experimental
+</PropertyReference>
+
+<PropertyReference name="processRuntimeRequest" type="request: CopilotRuntimeRequest">
+// --- MCP Instruction Injection Method ---
 
   <PropertyReference name="request" type="CopilotRuntimeRequest" required>
   
