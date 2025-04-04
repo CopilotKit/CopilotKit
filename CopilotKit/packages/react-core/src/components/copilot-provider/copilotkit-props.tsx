@@ -138,17 +138,14 @@ export interface CopilotKitProps {
    * - `apiKey`: An optional API key if the server requires authentication.
    *
    * @example
-   * ```tsx
    * <CopilotKit
    *   mcpEndpoints={[
    *     { endpoint: "https://my-mcp-server.com/api" },
    *     { endpoint: "https://another-mcp.dev", apiKey: "secret-key" },
    *   ]}
-   *   properties={{ user_id: '123' }} // Other properties can still be used
    * >
    *   // ... your components
    * </CopilotKit>
-   * ```
    *
    * Note: The runtime still requires a `createMCPClient` function to be provided
    * during its initialization to handle these endpoints.
