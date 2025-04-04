@@ -65,22 +65,13 @@ export interface CopilotKitProps {
   children: ReactNode;
 
   /**
-   * Custom properties to be sent with the request.
-   * These properties are accessible in the runtime via `graphqlContext.properties`
-   * and can be used for custom logic, including dynamic configuration.
-   *
-   * @example
-   * // Pass arbitrary data, including dynamic MCP endpoint configurations:
-   * const myProps = {
-   *   user_id: 'user123',
-   *   session_theme: 'dark',
-   *   mcpEndpoints: [
-   *     { endpoint: "https://dynamic-mcp.example.com" }
-   *     // ... other request-specific endpoints
-   *   ]
-   * };
-   * // Then use in your component:
-   * // <CopilotKit properties={myProps}> ... </CopilotKit>
+   * Custom properties to be sent with the request
+   * For example:
+   * ```js
+   * {
+   *   'user_id': 'users_id',
+   * }
+   * ```
    */
   properties?: Record<string, any>;
 
@@ -125,31 +116,17 @@ export interface CopilotKitProps {
   threadId?: string;
 
   /**
-   * Configuration for connecting to Model Context Protocol (MCP) servers.
-   * Allows the CopilotKit runtime to discover and utilize tools hosted
-   * on external MCP-compliant servers.
+   * Config for connecting to Model Context Protocol (MCP) servers.
+   * Enables CopilotKit runtime to access tools on external MCP servers.
    *
-   * If provided, this configuration will be merged into the `properties` object
-   * sent with each request under the key `mcpEndpoints`.
-   * It provides a strongly-typed way to configure request-specific MCP endpoints.
+   * This config merges into the `properties` object with each request as `mcpEndpoints`.
+   * It offers a typed method to set up MCP endpoints for requests.
    *
-   * Each object in the array should contain:
-   * - `endpoint`: The URL of the MCP server (required).
-   * - `apiKey`: An optional API key if the server requires authentication.
+   * Each array item should have:
+   * - `endpoint`: MCP server URL (mandatory).
+   * - `apiKey`: Optional API key for server authentication.
    *
-   * @example
-   * <CopilotKit
-   *   mcpEndpoints={[
-   *     { endpoint: "https://my-mcp-server.com/api" },
-   *     { endpoint: "https://another-mcp.dev", apiKey: "secret-key" },
-   *   ]}
-   * >
-   *   // ... your components
-   * </CopilotKit>
-   *
-   * Note: The runtime still requires a `createMCPClient` function to be provided
-   * during its initialization to handle these endpoints.
-   * @experimental
+   * Note: A `createMCPClient` function is still needed during runtime initialization to manage these endpoints.
    */
   mcpEndpoints?: Array<{ endpoint: string; apiKey?: string }>;
 }
