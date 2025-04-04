@@ -48,8 +48,8 @@ importers:
   examples/next-openai:
     dependencies:
       '@agentwire/client':
-        specifier: 0.0.20
-        version: 0.0.20
+        specifier: 0.0.21
+        version: 0.0.21
       '@copilotkit/react-core':
         specifier: workspace:*
         version: link:../../packages/react-core
@@ -571,17 +571,17 @@ importers:
   packages/runtime:
     dependencies:
       '@agentwire/client':
-        specifier: 0.0.20
-        version: 0.0.20
+        specifier: 0.0.21
+        version: 0.0.21
       '@agentwire/core':
-        specifier: 0.0.20
-        version: 0.0.20
+        specifier: 0.0.21
+        version: 0.0.21
       '@agentwire/encoder':
-        specifier: 0.0.20
-        version: 0.0.20
+        specifier: 0.0.21
+        version: 0.0.21
       '@agentwire/proto':
-        specifier: 0.0.20
-        version: 0.0.20
+        specifier: 0.0.21
+        version: 0.0.21
       '@anthropic-ai/sdk':
         specifier: ^0.27.3
         version: 0.27.3(encoding@0.1.13)
@@ -926,17 +926,17 @@ packages:
       graphql:
         optional: true
 
-  '@agentwire/client@0.0.20':
-    resolution: {integrity: sha512-8jcHQ/r62piW33MtqhVYBht/52yUIqTclPbSqQ/4JvB06rzTjSBC8xsaQYVA3AhScIbecxA3O8GoMICslIILTA==}
+  '@agentwire/client@0.0.21':
+    resolution: {integrity: sha512-AOPP/Oj3VWMjc9ysQ2qECWaUe4nwSM4P+a0DmD43WTdu0fH3iYJWcYgJdl3YPRImSCnvJq7STbv5y/PF9gTCrA==}
 
-  '@agentwire/core@0.0.20':
-    resolution: {integrity: sha512-+ZrEjkXEQKMck7p4Kfdk+ludogYDZB1bWlyJho35RRwOgnfOIaROxSiECRFOXOcC/6IsbLPSNKArhk0XNP6kzw==}
+  '@agentwire/core@0.0.21':
+    resolution: {integrity: sha512-9NP7YE+F3s9xr6+AAWia2QpMLzTijdQUM1F4n/PnhUvHngyV5fG+UPou1AD9gteSr/Mxy6Rz8Dr84mpPgS6NhA==}
 
-  '@agentwire/encoder@0.0.20':
-    resolution: {integrity: sha512-3o+q8kNGZ07xju1Herh5/VElUC/gSrqdWp8JKtjF2SW0obNA4jZgGMQ7HYyEYAGAAPEBY14nEAx8KKZwXKnxUw==}
+  '@agentwire/encoder@0.0.21':
+    resolution: {integrity: sha512-cpVkKayxynbibMxphY4pG2ct0dDQ3OkM14VhWth0DCJ9boG8GQfRCwHCHOqKWhNDVEgZJMXkCR4MEMGdsh8Ycw==}
 
-  '@agentwire/proto@0.0.20':
-    resolution: {integrity: sha512-XdV2hedEOw3y8F5Oq9d3EvaJ5sZzyqd9HugzLgqhu7euS2VrwMVd1MW7xM5AG5mAS883Pt90tYvu+9V6PoMF3Q==}
+  '@agentwire/proto@0.0.21':
+    resolution: {integrity: sha512-kgb75hRCxn6JHiwJwxo1Zt/+GjG792E69V658tKMCKWMRn+Pzil7sWozS2p32ONynBbP6WlTyxFapb90mtE11Q==}
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -8727,11 +8727,11 @@ snapshots:
     optionalDependencies:
       graphql: 16.9.0
 
-  '@agentwire/client@0.0.20':
+  '@agentwire/client@0.0.21':
     dependencies:
-      '@agentwire/core': 0.0.20
-      '@agentwire/encoder': 0.0.20
-      '@agentwire/proto': 0.0.20
+      '@agentwire/core': 0.0.21
+      '@agentwire/encoder': 0.0.21
+      '@agentwire/proto': 0.0.21
       '@types/uuid': 10.0.0
       fast-json-patch: 3.1.1
       rxjs: 7.8.1
@@ -8739,19 +8739,19 @@ snapshots:
       uuid: 11.1.0
       zod: 3.23.8
 
-  '@agentwire/core@0.0.20':
+  '@agentwire/core@0.0.21':
     dependencies:
       rxjs: 7.8.1
       zod: 3.23.8
 
-  '@agentwire/encoder@0.0.20':
+  '@agentwire/encoder@0.0.21':
     dependencies:
-      '@agentwire/core': 0.0.20
-      '@agentwire/proto': 0.0.20
+      '@agentwire/core': 0.0.21
+      '@agentwire/proto': 0.0.21
 
-  '@agentwire/proto@0.0.20':
+  '@agentwire/proto@0.0.21':
     dependencies:
-      '@agentwire/core': 0.0.20
+      '@agentwire/core': 0.0.21
       '@bufbuild/protobuf': 2.2.5
 
   '@alloc/quick-lru@5.2.0': {}
