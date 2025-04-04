@@ -114,4 +114,31 @@ export interface CopilotKitProps {
    * The thread id to use for the CopilotKit.
    */
   threadId?: string;
+
+  /**
+   * Configuration for connecting to Model Context Protocol (MCP) servers.
+   * Allows the CopilotKit runtime to discover and utilize tools hosted
+   * on external MCP-compliant servers.
+   *
+   * Each object in the array should contain:
+   * - `endpoint`: The URL of the MCP server (required).
+   * - `apiKey`: An optional API key if the server requires authentication.
+   *
+   * @example
+   * ```tsx
+   * <CopilotKit
+   *   mcpEndpoints={[
+   *     { endpoint: "https://my-mcp-server.com/api" },
+   *     { endpoint: "https://another-mcp.dev", apiKey: "secret-key" },
+   *   ]}
+   * >
+   *   // ... your components
+   * </CopilotKit>
+   * ```
+   *
+   * Note: This feature relies on a user-provided implementation of `createMCPClient`
+   * in the runtime environment to establish the actual connection.
+   * @experimental
+   */
+  mcpEndpoints?: Array<{ endpoint: string; apiKey?: string }>;
 }
