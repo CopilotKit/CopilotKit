@@ -14,7 +14,7 @@
 
 .copilotKitInputContainer {
   width: 100%;
-  padding: 0 0 15px 0;
+  padding: 0;
   background: var(--copilot-kit-background-color);
   border-bottom-left-radius: 0.75rem;
   border-bottom-right-radius: 0.75rem;

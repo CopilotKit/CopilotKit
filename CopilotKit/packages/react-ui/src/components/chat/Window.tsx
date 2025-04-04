@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect } from "react";
 import { WindowProps } from "./props";
 import { useChatContext } from "./ChatContext";
+import { useCopilotContext } from "@copilotkit/react-core";
+import { useDarkMode } from "../../hooks/use-dark-mode";
 
 export const Window = ({
   children,
@@ -9,6 +11,7 @@ export const Window = ({
   hitEscapeToClose,
 }: WindowProps) => {
   const windowRef = React.useRef<HTMLDivElement>(null);
+  const context = useCopilotContext();
 
   const { open, setOpen } = useChatContext();
 
@@ -121,9 +124,31 @@ export const Window = ({
     };
   }, [adjustForMobile, handleClickOutside, handleKeyDown]);
 
+  const isDark = useDarkMode();
+
+  const showPoweredBy = !context.copilotApiConfig?.publicApiKey;
+  const poweredByStyle = {
+    visibility: "visible",
+    display: "block",
+    position: "static",
+    textAlign: "center",
+    fontSize: "12px",
+    padding: "3px 0",
+    color: isDark ? "rgb(69, 69, 69)" : "rgb(214, 214, 214)",
+  };
+
   return (
-    <div className={`copilotKitWindow${open ? " open" : ""}`} ref={windowRef}>
+    <div
+      className={`copilotKitWindow ${showPoweredBy ? " poweredByContainer" : ""} ${open ? " open" : ""}`}
+      ref={windowRef}
+    >
       {children}
+      {showPoweredBy && (
+        // @ts-expect-error -- expecting position not to be a string, but it can be.
+        <p className="poweredBy" style={poweredByStyle}>
+          Powered by CopilotKit
+        </p>
+      )}
     </div>
   );
 };
