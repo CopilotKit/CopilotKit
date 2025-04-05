@@ -29,9 +29,9 @@
   border-radius: 16px;
   box-shadow: 0 15px 30px rgba(0, 0, 0, 0.25), 0 5px 15px rgba(0, 0, 0, 0.15);
   width: 100%;
-  max-width: 700px;
+  max-width: 750px;
   margin: 20px auto;
-  padding: 25px;
+  padding: 14px 32px;
   position: relative;
   z-index: 1;
   backdrop-filter: blur(5px);
