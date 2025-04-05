@@ -39,30 +39,46 @@ const dietaryOptions = [
 
 export default function SharedState() {
   return (
-    <CopilotKit
-      publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
-      // runtimeUrl="/api/copilotkit"
-      showDevConsole={false}
-      agent="shared_state"
-    >
-      <div
-        className="app-container"
-        style={{
-          backgroundImage: "url('./shared_state_background.png')",
-          backgroundAttachment: "fixed",
-        }}
+    
+      <CopilotKit
+        publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
+        // runtimeUrl="/api/copilotkit"
+        showDevConsole={false}
+        agent="shared_state"
       >
-        <Recipe />
-        <CopilotSidebar
-          defaultOpen={true}
-          labels={{
-            title: "AI Recipe Assistant",
-            initial: "Hi 👋 How can I help with your recipe?",
+        <div
+          className="app-container"
+          style={{
+            backgroundImage: "url('./shared_state_background.png')",
+            backgroundAttachment: "fixed",
+            backgroundSize: "cover",
+            position: "relative",
           }}
-          clickOutsideToClose={false}
-        />
-      </div>
-    </CopilotKit>
+        >
+          <div 
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.4)",
+              backdropFilter: "blur(5px)",
+              zIndex: 0,
+            }}
+          />
+            <Recipe />
+          {/* </div> */}
+          <CopilotSidebar
+            defaultOpen={true}
+            labels={{
+              title: "AI Recipe Assistant",
+              initial: "Hi 👋 How can I help with your recipe?",
+            }}
+            clickOutsideToClose={false}
+          />
+        </div>
+      </CopilotKit>
   );
 }
 
