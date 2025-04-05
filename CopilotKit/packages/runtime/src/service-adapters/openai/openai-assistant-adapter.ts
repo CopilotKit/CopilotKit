@@ -216,7 +216,7 @@ export class OpenAIAssistantAdapter implements CopilotServiceAdapter {
     const tools = [
       ...openaiTools,
       ...(this.codeInterpreterEnabled ? [{ type: "code_interpreter" } as AssistantTool] : []),
-      ...(this.fileSearchEnabled ? [{ type: "file_search" } as AssistantTool] : []),
+      ...(this.fileSearchEnabled ? [{ type: this.openai.baseURL?.includes("azure") ? "retrieval" : "file_search" } as AssistantTool] : []),
     ];
 
     let stream = this.openai.beta.threads.runs.stream(threadId, {
