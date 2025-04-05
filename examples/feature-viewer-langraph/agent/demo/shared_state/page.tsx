@@ -41,8 +41,8 @@ export default function SharedState() {
   return (
     
       <CopilotKit
-        // publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
-        runtimeUrl="/api/copilotkit"
+        publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY}
+        // runtimeUrl="/api/copilotkit"
         showDevConsole={false}
         agent="shared_state"
       >
