@@ -6,7 +6,7 @@ authors = ["Markus Ecker <markus.ecker@gmail.com>"]
 license = "MIT"
 
 [project]
-name = "greeter"
+name = "research"
 version = "0.0.1"
 
 [build-system]
