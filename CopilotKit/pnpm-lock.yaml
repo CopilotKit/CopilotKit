@@ -48,8 +48,8 @@ importers:
   examples/next-openai:
     dependencies:
       '@agentwire/client':
-        specifier: 0.0.25
-        version: 0.0.25
+        specifier: 0.0.26
+        version: 0.0.26
       '@copilotkit/react-core':
         specifier: workspace:*
         version: link:../../packages/react-core
@@ -103,7 +103,7 @@ importers:
         version: 0.5.0(encoding@0.1.13)
       langchain:
         specifier: ^0.3.3
-        version: 0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(encoding@0.1.13))(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(zod@3.23.8))(axios@1.7.9)(encoding@0.1.13)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(ws@8.18.1)
+        version: 0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(encoding@0.1.13))(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(zod@3.23.8))(axios@1.7.9(debug@4.4.0))(encoding@0.1.13)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(ws@8.18.1)
       next:
         specifier: ^15.0.2
         version: 15.0.2(@playwright/test@1.50.1)(react-dom@19.0.0-rc-0bc30748-20241028(react@19.0.0-rc-0bc30748-20241028))(react@19.0.0-rc-0bc30748-20241028)
@@ -366,7 +366,7 @@ importers:
         version: 18.3.1
       ts-jest:
         specifier: ^29.1.1
-        version: 29.2.3(@babel/core@7.24.9)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.24.9))(esbuild@0.23.0)(jest@29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28)(@types/node@20.14.12)(typescript@5.5.4)))(typescript@5.5.4)
+        version: 29.2.3(@babel/core@7.24.9)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.24.9))(esbuild@0.17.19)(jest@29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28)(@types/node@20.14.12)(typescript@5.5.4)))(typescript@5.5.4)
       tsconfig:
         specifier: workspace:*
         version: link:../../utilities/tsconfig
@@ -557,7 +557,7 @@ importers:
         version: 3.4.6(ts-node@10.9.2(@swc/core@1.5.28)(@types/node@20.14.12)(typescript@5.5.4))
       ts-jest:
         specifier: ^29.1.1
-        version: 29.2.3(@babel/core@7.24.9)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.24.9))(esbuild@0.17.19)(jest@29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28)(@types/node@20.14.12)(typescript@5.5.4)))(typescript@5.5.4)
+        version: 29.2.3(@babel/core@7.24.9)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.24.9))(esbuild@0.23.0)(jest@29.7.0(@types/node@20.14.12)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.5.28)(@types/node@20.14.12)(typescript@5.5.4)))(typescript@5.5.4)
       tsconfig:
         specifier: workspace:*
         version: link:../../utilities/tsconfig
@@ -571,17 +571,17 @@ importers:
   packages/runtime:
     dependencies:
       '@agentwire/client':
-        specifier: 0.0.25
-        version: 0.0.25
+        specifier: 0.0.26
+        version: 0.0.26
       '@agentwire/core':
-        specifier: 0.0.25
-        version: 0.0.25
+        specifier: 0.0.26
+        version: 0.0.26
       '@agentwire/encoder':
-        specifier: 0.0.25
-        version: 0.0.25
+        specifier: 0.0.26
+        version: 0.0.26
       '@agentwire/proto':
-        specifier: 0.0.25
-        version: 0.0.25
+        specifier: 0.0.26
+        version: 0.0.26
       '@anthropic-ai/sdk':
         specifier: ^0.27.3
         version: 0.27.3(encoding@0.1.13)
@@ -926,17 +926,17 @@ packages:
       graphql:
         optional: true
 
-  '@agentwire/client@0.0.25':
-    resolution: {integrity: sha512-woAmath/qwjdj4dWbLoz+HbCtF/0Uv+YYl8P/XkUm7NV0DoalxFrHGDtn9tcIibBupIeNjGL36zwdWG+Y7g7Xw==}
+  '@agentwire/client@0.0.26':
+    resolution: {integrity: sha512-EoZBoKzRit+o2vQ4Nu0lgnM3ONXeKiOdxHLhNX94egAJbXsC1LPvnsTFYJKONYLYqAM4Bqpn8Yrz9e38RFj9pQ==}
 
-  '@agentwire/core@0.0.25':
-    resolution: {integrity: sha512-D176BLvB/apP3URsq8R1RvuFsTBErLwX/sIZar5KKnVw+T1GwQ7TajnMc8iCBlBEM9ukYHuhVL6QtmWuiZeh3g==}
+  '@agentwire/core@0.0.26':
+    resolution: {integrity: sha512-sUJwPt9AUAOq00/ZWyK2XtXLlD92eD3QTOTr8v0lcryst+f8FffoC9MSKx7aTFtmTL8g2Ku/0LnyLvsnOTweqg==}
 
-  '@agentwire/encoder@0.0.25':
-    resolution: {integrity: sha512-/jxJvGfM2jAnfoJ9niuVfzx0BIK5Bb2ZcYQtqTtb3n7I4MNXOdKojgyn5/qquvz4F8tshLy4+tgT5CrgpIEwUw==}
+  '@agentwire/encoder@0.0.26':
+    resolution: {integrity: sha512-Amtv4ogNoj63FHkABLnWxaVvoSl+5r1V+HkjuZGvcdgkT5PJLFq2VRYQMNoLg4zW3uK7SOjqngRlQvqukTpb3g==}
 
-  '@agentwire/proto@0.0.25':
-    resolution: {integrity: sha512-r0q9VjDeMXV4Oc4L0mbfNe2WiGT24oYacs8OAOEijkLq6qArkQHJZuBTUZNIFKD9RPORovHM11NFc+aSoh0jYA==}
+  '@agentwire/proto@0.0.26':
+    resolution: {integrity: sha512-SGBFWf4cNrapEgcSVMt9wMVi8XTIuah5tMVPeY7fyWA/569Plp3fgBNg9rQceGYRGdrZmIhGeYvWjS2+Th9Wyg==}
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -8727,11 +8727,11 @@ snapshots:
     optionalDependencies:
       graphql: 16.9.0
 
-  '@agentwire/client@0.0.25':
+  '@agentwire/client@0.0.26':
     dependencies:
-      '@agentwire/core': 0.0.25
-      '@agentwire/encoder': 0.0.25
-      '@agentwire/proto': 0.0.25
+      '@agentwire/core': 0.0.26
+      '@agentwire/encoder': 0.0.26
+      '@agentwire/proto': 0.0.26
       '@types/uuid': 10.0.0
       fast-json-patch: 3.1.1
       rxjs: 7.8.1
@@ -8739,19 +8739,19 @@ snapshots:
       uuid: 11.1.0
       zod: 3.23.8
 
-  '@agentwire/core@0.0.25':
+  '@agentwire/core@0.0.26':
     dependencies:
       rxjs: 7.8.1
       zod: 3.23.8
 
-  '@agentwire/encoder@0.0.25':
+  '@agentwire/encoder@0.0.26':
     dependencies:
-      '@agentwire/core': 0.0.25
-      '@agentwire/proto': 0.0.25
+      '@agentwire/core': 0.0.26
+      '@agentwire/proto': 0.0.26
 
-  '@agentwire/proto@0.0.25':
+  '@agentwire/proto@0.0.26':
     dependencies:
-      '@agentwire/core': 0.0.25
+      '@agentwire/core': 0.0.26
       '@bufbuild/protobuf': 2.2.5
 
   '@alloc/quick-lru@5.2.0': {}
@@ -15080,7 +15080,7 @@ snapshots:
       - openai
       - ws
 
-  langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(encoding@0.1.13))(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(zod@3.23.8))(axios@1.7.9)(encoding@0.1.13)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(ws@8.18.1):
+  langchain@0.3.3(@langchain/anthropic@0.3.5(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(encoding@0.1.13))(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(@langchain/google-genai@0.1.0(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(zod@3.23.8))(axios@1.7.9(debug@4.4.0))(encoding@0.1.13)(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))(ws@8.18.1):
     dependencies:
       '@langchain/core': 0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8))
       '@langchain/openai': 0.3.11(@langchain/core@0.3.38(openai@4.85.2(encoding@0.1.13)(ws@8.18.1)(zod@3.23.8)))(encoding@0.1.13)(ws@8.18.1)
