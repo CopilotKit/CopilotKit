@@ -26,7 +26,7 @@ export function constructAgentWireRemoteAction({
   logger: Logger;
   messages: Message[];
   agentStates?: AgentStateInput[];
-  agent: AbstractAgent<any>;
+  agent: AbstractAgent;
 }) {
   const action = {
     name: agent.agentId,

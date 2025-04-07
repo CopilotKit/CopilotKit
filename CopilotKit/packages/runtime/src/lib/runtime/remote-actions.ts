@@ -136,7 +136,7 @@ export async function setupRemoteActions({
   messages: Message[];
   agentStates?: AgentStateInput[];
   frontendUrl?: string;
-  agents: Record<string, AbstractAgent<any>>;
+  agents: Record<string, AbstractAgent>;
 }): Promise<Action[]> {
   const logger = graphqlContext.logger.child({ component: "remote-actions.fetchRemoteActions" });
   logger.debug({ remoteEndpointDefinitions }, "Fetching from remote endpoints");

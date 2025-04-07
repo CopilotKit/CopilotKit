@@ -182,7 +182,7 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
   /*
    * A map of agent names to AgentWire agents.
    */
-  agents?: Record<string, AbstractAgent<any>>;
+  agents?: Record<string, AbstractAgent>;
 
   /*
    * Delegates agent state processing to the service adapter.
@@ -218,7 +218,7 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   public actions: ActionsConfiguration<T>;
-  public agents: Record<string, AbstractAgent<any>>;
+  public agents: Record<string, AbstractAgent>;
   public remoteEndpointDefinitions: EndpointDefinition[];
   private langserve: Promise<Action<any>>[] = [];
   private onBeforeRequest?: OnBeforeRequestHandler;
