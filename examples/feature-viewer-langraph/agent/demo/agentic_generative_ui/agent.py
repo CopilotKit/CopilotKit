@@ -8,7 +8,6 @@ from typing import Dict, List, Any, Optional, Literal
 # LangGraph imports
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END, START
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
 
 # CopilotKit imports
@@ -17,6 +16,7 @@ from copilotkit.langgraph import (
     copilotkit_customize_config,
     copilotkit_emit_state
 )
+from copilotkit.langgraph import (copilotkit_exit)
 
 # OpenAI imports
 from langchain_openai import ChatOpenAI
@@ -73,6 +73,7 @@ async def start_flow(state: AgentState, config: RunnableConfig):
     """
     This is the entry point for the flow.
     """
+    await copilotkit_exit(config)
 
     if "steps" not in state:
         state["steps"] = []
@@ -201,12 +202,8 @@ workflow.add_edge(START, "start_flow")
 workflow.add_edge("start_flow", "chat_node")
 workflow.add_edge("chat_node", END)
 
-# Create memory saver
-memory = MemorySaver()
-
 # Compile the graph
 graph = workflow.compile(
-    checkpointer=memory
 )
 
 # For compatibility with server code that might expect this clas

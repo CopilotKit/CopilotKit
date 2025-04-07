@@ -7,7 +7,6 @@ from typing import Dict, List, Any, Optional
 # LangGraph imports
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END, START
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
 
 # CopilotKit imports
@@ -17,7 +16,7 @@ from copilotkit.langgraph import copilotkit_customize_config
 # OpenAI imports
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
-
+from copilotkit.langgraph import (copilotkit_exit)
 
 # This tool generates a haiku on the server.
 # The tool call will be streamed to the frontend as it is being generated.
@@ -54,6 +53,7 @@ async def chat_node(state: CopilotKitState, config: RunnableConfig):
     """
     The main function handling chat and tool calls.
     """
+    await copilotkit_exit(config)
     system_prompt = "You assist the user in generating a haiku."
 
     # Define the model
@@ -98,11 +98,6 @@ workflow.set_entry_point("chat_node")
 workflow.add_edge(START, "chat_node")
 workflow.add_edge("chat_node", END)
 
-# Create memory saver
-memory = MemorySaver()
-
 # Compile the graph
-tool_based_generative_ui_graph = workflow.compile(
-    checkpointer=memory
-)
+tool_based_generative_ui_graph = workflow.compile()
 

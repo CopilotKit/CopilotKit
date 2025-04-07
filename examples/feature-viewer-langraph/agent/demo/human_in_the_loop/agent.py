@@ -8,7 +8,6 @@ from typing import Dict, List, Any
 # LangGraph imports
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END, START
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command, interrupt
 
 # CopilotKit imports
@@ -18,6 +17,7 @@ from copilotkit.langgraph import copilotkit_customize_config, copilotkit_emit_st
 # LLM imports
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
+from copilotkit.langgraph import (copilotkit_exit)
 
 DEFINE_TASK_TOOL = {
     "type": "function",
@@ -63,6 +63,9 @@ async def start_flow(state: Dict[str, Any], config: RunnableConfig):
     """
     This is the entry point for the flow.
     """
+
+    await copilotkit_exit(config) 
+
     # Initialize steps list if not exists
     if "steps" not in state:
         state["steps"] = []
@@ -112,7 +115,7 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
     # Bind the tools to the model
     model_with_tools = model.bind_tools(
         [
-            *state["copilotkit"]["actions"],
+            # *state["copilotkit"]["actions"],
             DEFINE_TASK_TOOL
         ],
         # Disable parallel tool calls to avoid race conditions
@@ -262,10 +265,5 @@ workflow.add_edge("chat_node", "process_steps_node")
 workflow.add_edge("chat_node", END)
 workflow.add_edge("process_steps_node", END)
 
-# Create memory saver
-memory = MemorySaver()
-
 # Compile the graph
-human_in_the_loop_graph = workflow.compile(
-    checkpointer=memory
-)
+human_in_the_loop_graph = workflow.compile()

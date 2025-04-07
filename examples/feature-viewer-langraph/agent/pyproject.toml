@@ -6,8 +6,8 @@ authors = ["Markus Ecker <markus.ecker@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.12,<3.13"
-copilotkit = "0.1.41"
+python = "<3.13,>=3.10"
+copilotkit = "0.1.42"
 tavily-python = "^0.5.1"
 uvicorn = "^0.34.0"
 dotenv = "^0.9.9"
@@ -16,7 +16,7 @@ langchain-core = ">=0.1.5"
 langchain-community = ">=0.0.1"
 langchain-experimental = ">=0.0.11"
 langchain-openai = ">=0.0.1"
-langgraph = "^0.3.5"
+langgraph = "^0.3.25"
 
 [build-system]
 requires = ["poetry-core"]

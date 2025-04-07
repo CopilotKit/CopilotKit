@@ -7,7 +7,6 @@ from typing import Dict, List, Any, Optional
 # Updated imports for LangGraph
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END, START
-from langgraph.checkpoint.memory import MemorySaver
 # Updated imports for CopilotKit
 from copilotkit import CopilotKitState
 from copilotkit.langchain import copilotkit_customize_config
@@ -15,6 +14,7 @@ from langgraph.types import Command
 from typing_extensions import Literal
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
+from copilotkit.langgraph import (copilotkit_exit)
 
 
 class AgentState(CopilotKitState):
@@ -38,6 +38,8 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     For more about the ReAct design pattern, see: 
     https://www.perplexity.ai/search/react-agents-NcXLQhreS0WDzpVaS4m9Cg
     """
+
+    await copilotkit_exit(config)
     
     # 1. Define the model
     model = ChatOpenAI(model="gpt-4o")
@@ -90,8 +92,6 @@ workflow.set_entry_point("chat_node")
 workflow.add_edge(START, "chat_node")
 workflow.add_edge("chat_node", END)
 
-memory = MemorySaver()
 # Compile the graph
 agentic_chat_graph = workflow.compile(
-    checkpointer=memory
 )

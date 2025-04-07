@@ -9,7 +9,6 @@ from typing import Dict, List, Any, Optional
 # LangGraph imports
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END, START
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
 
 # CopilotKit imports
@@ -17,7 +16,7 @@ from copilotkit import CopilotKitState
 from copilotkit.langgraph import (
     copilotkit_customize_config
 )
-
+from copilotkit.langgraph import (copilotkit_exit)
 # OpenAI imports
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
@@ -68,6 +67,9 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     """
     Standard chat node.
     """
+
+    await copilotkit_exit(config) 
+
     system_prompt = f"""
     You are a helpful assistant for writing documents. 
     To write the document, you MUST use the write_document tool.
@@ -183,10 +185,5 @@ workflow.add_edge(START, "start_flow")
 workflow.add_edge("start_flow", "chat_node")
 workflow.add_edge("chat_node", END)
 
-# Create memory saver
-memory = MemorySaver()
-
 # Compile the graph
-predictive_state_updates_graph = workflow.compile(
-    checkpointer=memory
-)
+predictive_state_updates_graph = workflow.compile()

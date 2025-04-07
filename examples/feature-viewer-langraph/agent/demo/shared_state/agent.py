@@ -9,7 +9,6 @@ from typing import Dict, List, Any, Optional
 # LangGraph imports
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END, START
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
 
 # CopilotKit imports
@@ -19,7 +18,7 @@ from copilotkit.langgraph import copilotkit_customize_config, copilotkit_emit_st
 # OpenAI imports
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
-
+from copilotkit.langgraph import (copilotkit_exit)
 
 class SkillLevel(str, Enum):
     """
@@ -125,6 +124,8 @@ async def start_flow(state: Dict[str, Any], config: RunnableConfig):
     """
     This is the entry point for the flow.
     """
+
+    await copilotkit_exit(config)
     # Initialize recipe if not exists
     if "recipe" not in state or state["recipe"] is None:
         state["recipe"] = {
@@ -296,10 +297,5 @@ workflow.add_edge(START, "start_flow")
 workflow.add_edge("start_flow", "chat_node")
 workflow.add_edge("chat_node", END)
 
-# Create memory saver
-memory = MemorySaver()
-
 # Compile the graph
-shared_state_graph = workflow.compile(
-    checkpointer=memory
-)
+shared_state_graph = workflow.compile()
