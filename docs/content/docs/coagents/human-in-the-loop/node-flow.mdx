@@ -6,6 +6,11 @@ icon: lucide/Share2
 import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
 import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 
+<Callout type="error">
+    The usage of node based interrupt is [now discouraged](https://langchain-ai.github.io/langgraph/concepts/v0-human-in-the-loop/) by both LangGraph and CopilotKit.
+    As of LangGraph 0.2.57, the recommended way to set breakpoints is using [the interrupt function](https://https://docs.copilotkit.ai/coagents/human-in-the-loop/interrupt-flow) as it simplifies human-in-the-loop patterns.
+</Callout>
+
 <video src="/images/coagents/node-hitl.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 
 <Callout type="info">
@@ -142,12 +147,16 @@ is interrupted and then resumes execution from where it left off, unaware of the
             #     user_feedback_node to handle the user's response
             if isinstance(response, AIMessage) and response.tool_calls:
                 if response.tool_calls[0].get("name") == "writeEssay":
-                    return Command(goto="user_feedback_node", update={"messages": response})
+                    return Command(goto="interrupt_node", update={"messages": response})
 
             # 2.5 If no tool call is found, end the agent
             return Command(goto=END, update={"messages": response})
 
-        # 3. Define the user_feedback_node, this node will be interrupted before execution
+        # 3. Define an empty interrupt node to act as buffer as we use the interrupt_after property
+        def interrupt_node(state: AgentState, config: RunnableConfig):
+          pass
+
+        # 4. Define the user_feedback_node, this node will be interrupted before execution
         #    where CopilotKit's renderAndWaitForResponse provide the user's response.
         def user_feedback_node(state: AgentState, config: RunnableConfig) -> Command[Literal["chat_node"]]:
             # [!code highlight:4]
@@ -166,15 +175,17 @@ is interrupted and then resumes execution from where it left off, unaware of the
                 "messages": [SystemMessage(content="The user approved the essay, ask them if they'd like anything else")]
             })
 
-        # 4. Configure the workflow
+        # 5. Configure the workflow
         workflow = StateGraph(AgentState)
         workflow.add_node("chat_node", chat_node)
+        workflow.add_node("interrupt_node", interrupt_node)
         workflow.add_node("user_feedback_node", user_feedback_node)
+        workflow.add_edge("interrupt_node", "user_feedback_node")
         workflow.set_entry_point("chat_node")
 
         # [!code highlight:3]
-        # 5. Compile the workflow and set the interrupt_before property
-        graph = workflow.compile(MemorySaver(), interrupt_before=["user_feedback_node"])
+        # 6. Compile the workflow and set the interrupt_after property
+        graph = workflow.compile(MemorySaver(), interrupt_after=["interrupt_node"])
         ```
       </Tab>
       <Tab value="TypeScript">
