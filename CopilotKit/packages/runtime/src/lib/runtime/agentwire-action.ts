@@ -9,7 +9,10 @@ import { RuntimeEvent } from "../../service-adapters/events";
 import telemetry from "../telemetry-client";
 
 import { ToolCall } from "@agentwire/client";
-import { Message as AgentWireMessage } from "@agentwire/client";
+import {
+  Message as AgentWireMessage,
+  AssistantMessage as AgentWireAssistantMessage,
+} from "@agentwire/client";
 
 import { parseJson } from "@copilotkit/shared";
 import { AbstractAgent } from "@agentwire/client";
@@ -78,7 +81,7 @@ export function convertMessagesToAgentWire(messages: Message[]): AgentWireMessag
     if (message.isTextMessage()) {
       result.push({
         id: message.id,
-        role: message.role,
+        role: message.role as any,
         content: message.content,
       });
     } else if (message.isActionExecutionMessage()) {
@@ -92,7 +95,9 @@ export function convertMessagesToAgentWire(messages: Message[]): AgentWireMessag
       };
 
       if (message.parentMessageId && result.some((m) => m.id === message.parentMessageId)) {
-        const parentMessage = result.find((m) => m.id === message.parentMessageId);
+        const parentMessage: AgentWireAssistantMessage | undefined = result.find(
+          (m) => m.id === message.parentMessageId,
+        ) as AgentWireAssistantMessage;
         if (parentMessage.toolCalls === undefined) {
           parentMessage.toolCalls = [];
         }
@@ -109,7 +114,6 @@ export function convertMessagesToAgentWire(messages: Message[]): AgentWireMessag
         id: message.id,
         role: "tool",
         content: message.result,
-        name: message.actionName,
         toolCallId: message.actionExecutionId,
       });
     }
