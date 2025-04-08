@@ -1,6 +1,15 @@
 import React from 'react';
 
-export function AgentState({ state, setState, className}: { state: any, setState?: (state: any) => void, className: string }) {
+export type AgentStateProps = {
+  state: State;
+  setState?: (state: State) => void;
+  className: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type State = any;
+
+export function AgentState({ state, setState, className}: AgentStateProps) {
   const { messages, ...rest } = state;
   const [editableState, setEditableState] = React.useState(JSON.stringify(rest, null, 2));
   const [isEditing, setIsEditing] = React.useState(false);
@@ -10,7 +19,7 @@ export function AgentState({ state, setState, className}: { state: any, setState
   React.useEffect(() => {
     if (!isEditing) {
       setEditableState(JSON.stringify(rest, null, 2));
-      setHasChanges(false);
+      setHasChanges(false); 
     }
   }, [rest, isEditing]);
 
@@ -31,14 +40,11 @@ export function AgentState({ state, setState, className}: { state: any, setState
   const handleSubmit = () => {
     try {
       const newState = JSON.parse(editableState);
-      // Combine with original messages to maintain them
-      if (setState) {
-        setState({ ...newState, messages });
-      }
+      if (setState) setState({ ...newState, messages });
       setIsEditing(false);
       setHasChanges(false);
     } catch (error) {
-      alert("Invalid JSON format. Please check your input.");
+      alert(`Invalid JSON format. Please check your input. \n\n${error}`);
     }
   };
 
