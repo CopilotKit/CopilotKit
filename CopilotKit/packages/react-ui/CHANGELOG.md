@@ -1,5 +1,14 @@
 # ui
 
+## 1.8.5-next.2
+
+### Patch Changes
+
+- 4b5452d: - feat: add powered-by-copilotkit watermark
+  - @copilotkit/react-core@1.8.5-next.2
+  - @copilotkit/runtime-client-gql@1.8.5-next.2
+  - @copilotkit/shared@1.8.5-next.2
+
 ## 1.8.5-next.1
 
 ### Patch Changes

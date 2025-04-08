@@ -18,6 +18,7 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
+    "gentle-ads-check",
     "ten-doors-grow",
     "witty-poets-do"
   ]
