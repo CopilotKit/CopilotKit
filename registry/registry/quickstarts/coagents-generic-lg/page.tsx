@@ -1,15 +1,15 @@
 "use client";
 
-import { useCoAgent, useCopilotAction, useLangGraphInterrupt } from "@copilotkit/react-core";
+import { CatchAllActionRenderProps, useCoAgent, useCopilotAction, useLangGraphInterrupt } from "@copilotkit/react-core";
 import { CopilotChat, CopilotKitCSSProperties } from "@copilotkit/react-ui";
-import { ToolCall } from "@/components/tool-call";
-import { AgentState } from "@/components/agent-state";
-import { Interrupt } from "@/components/interrupt";
+import { ToolCall } from "@/registry/quickstarts/coagents-generic-lg/components/tool-call";
+import { AgentState } from "@/registry/quickstarts/coagents-generic-lg/components/agent-state";
+import { Interrupt } from "@/registry/quickstarts/coagents-generic-lg/components/interrupt";
 import { HTMLAttributes } from "react";
 
 export default function Page() {
   const { state, setState, running } = useCoAgent({
-    name: process.env.NEXT_PUBLIC_AGENT_NAME || "",
+    name: process.env.NEXT_PUBLIC_COPILOTKIT_AGENT_NAME || "",
   });
 
   const chatStyles = running ? "w-2/3 border-r border-slate-200" : "w-1/2 h-1/2 mx-auto my-auto";
@@ -23,6 +23,8 @@ export default function Page() {
         } as CopilotKitCSSProperties}
       />
 
+      {running}
+
       {running && (
         <AgentState state={state} setState={setState} className="w-1/3 overflow-y-auto"/>
       )}
@@ -32,7 +34,7 @@ export default function Page() {
 
 function Chat(props: HTMLAttributes<HTMLDivElement>) {
   const { running } = useCoAgent({
-    name: process.env.NEXT_PUBLIC_AGENT_NAME || "",
+    name: process.env.NEXT_PUBLIC_COPILOTKIT_AGENT_NAME || "",
   });
 
   useLangGraphInterrupt({
@@ -42,9 +44,9 @@ function Chat(props: HTMLAttributes<HTMLDivElement>) {
 
   useCopilotAction({
     name: "*",
-    render: ({ name, args, status, result, id }: any) => {      
+    render: ({ name, args, status, result }: CatchAllActionRenderProps) => {      
       return (
-        <ToolCall name={name} args={args} status={status} result={result} id={id} />
+        <ToolCall name={name} args={args} status={status} result={result} />
       );
     },
   });
