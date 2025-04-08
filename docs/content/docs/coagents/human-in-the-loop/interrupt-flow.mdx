@@ -72,7 +72,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
         // This is the state of the agent.
         // It inherits from the CopilotKitState properties from CopilotKit.
         export const AgentStateAnnotation = Annotation.Root({
-          agent_name: Annotation<string>,
+          agentName: Annotation<string>,
           ...CopilotKitStateAnnotation.spec,
         });
         export type AgentState = typeof AgentStateAnnotation.State;
@@ -112,27 +112,31 @@ We're going to have the agent ask us to name it, so we'll need a state property 
                         from langgraph.types import interrupt # [!code highlight]
                         from langchain_core.messages import SystemMessage
                         from langchain_openai import ChatOpenAI
-                        # ...
+                        from copilotkit import CopilotKitState
+
+                        # add the agent state definition from the previous step
+                        class AgentState(CopilotKitState):
+                            agent_name: str
 
                         def chat_node(state: AgentState, config: RunnableConfig):
-                        if not state.get("agent_name"):
-                        # Interrupt and wait for the user to respond with a name
-                        state["agent_name"] = interrupt("Before we start, what would you like to call me?") # [!code highlight]
+                            if not state.get("agent_name"):
+                            # Interrupt and wait for the user to respond with a name
+                            state["agent_name"] = interrupt("Before we start, what would you like to call me?") # [!code highlight]
 
-                        # Tell the agent its name
-                        system_message = SystemMessage(
-                        content=f"You are a helpful assistant named {state.get('agent_name')}..."
-                        )
+                            # Tell the agent its name
+                            system_message = SystemMessage(
+                                content=f"You are a helpful assistant named {state.get('agent_name')}..."
+                            )
 
-                        response = ChatOpenAI(model="gpt-4o").invoke(
-                        [system_message, *state["messages"]],
-                        config
-                        )
+                            response = ChatOpenAI(model="gpt-4o").invoke(
+                                [system_message, *state["messages"]],
+                                config
+                            )
 
-                        return {
-                        **state,
-                        "messages": response,
-                    }
+                            return {
+                                **state,
+                                "messages": response,
+                            }
                         ```
                     </Tab>
                     <Tab value="TypeScript">
@@ -140,28 +144,34 @@ We're going to have the agent ask us to name it, so we'll need a state property 
                         import { interrupt } from "@langchain/langgraph"; // [!code highlight]
                         import { SystemMessage } from "@langchain/core/messages";
                         import { ChatOpenAI } from "@langchain/openai";
-                        // ...
+
+                        // add the agent state definition from the previous step
+                        export const AgentStateAnnotation = Annotation.Root({
+                            agentName: Annotation<string>,
+                            ...CopilotKitStateAnnotation.spec,
+                        });
+                        export type AgentState = typeof AgentStateAnnotation.State;
 
                         async function chat_node(state: AgentState, config: RunnableConfig) {
-                        if (!state.agentName) {
-                        state.agentName = await interrupt("Before we start, what would you like to call me?"); // [!code highlight]
-                    }
+                            if (!state.agentName) {
+                                state.agentName = await interrupt("Before we start, what would you like to call me?"); // [!code highlight]
+                            }
 
-                        // Tell the agent its name
-                        const systemMessage = new SystemMessage({
-                        content: `You are a helpful assistant named ${state.agentName}...`,
-                    });
+                            // Tell the agent its name
+                            const systemMessage = new SystemMessage({
+                                content: `You are a helpful assistant named ${state.agentName}...`,
+                            });
 
-                        const response = await new ChatOpenAI({ model: "gpt-4o" }).invoke(
-                        [systemMessage, ...state.messages],
-                        config
-                        );
+                            const response = await new ChatOpenAI({ model: "gpt-4o" }).invoke(
+                                [systemMessage, ...state.messages],
+                                config
+                            );
 
-                        return {
-                        ...state,
-                        messages: response,
-                    };
-                    }
+                            return {
+                                ...state,
+                                messages: response,
+                            };
+                        }
                         ```
                     </Tab>
                 </Tabs>
