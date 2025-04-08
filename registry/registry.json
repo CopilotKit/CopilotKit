@@ -61,6 +61,51 @@
       ]
     },
     {
+      "name": "generic-lg-starter",
+      "type": "registry:block",
+      "title": "Generic LG Starter",
+      "description": "A starter for CopilotKit with any LangGraph agent.",
+      "registryDependencies": [ "tooltip" ],
+      "dependencies": [
+        "@copilotkit/react-core",
+        "@copilotkit/react-ui",
+        "@copilotkit/runtime"
+      ],
+      "files": [
+        {
+          "path": "components/quickstarts/coagents-generic-lg/page.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/page.tsx"
+        },
+        {
+          "path": "components/quickstarts/coagents-generic-lg/layout.tsx",
+          "type": "registry:page",
+          "target": "app/copilotkit/layout.tsx"
+        },
+        {
+          "path": "components/quickstarts/coagents-generic-lg/components/agent-state.tsx",
+          "type": "registry:component",
+          "target": "components/agent-state.tsx"
+        },
+        {
+          "path": "components/quickstarts/coagents-generic-lg/components/tool-call.tsx",
+          "type": "registry:component",
+          "target": "components/tool-call.tsx"
+        },
+        {
+          "path": "components/quickstarts/coagents-generic-lg/components/interrupt.tsx",
+          "type": "registry:component",
+          "target": "components/interrupt.tsx"
+        },
+        {
+          "path": "components/quickstarts/coagents-generic-lg/runtime.ts",
+          "type": "registry:lib",
+          "target": "app/api/copilotkit/route.ts"
+        }
+
+      ]
+    },
+    {
       "name": "agent-layout",
       "type": "registry:block",
       "title": "Agent Layout",
