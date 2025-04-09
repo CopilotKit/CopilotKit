@@ -1,7 +1,7 @@
 "use client";
 import { CopilotKit, useCopilotAction } from "@copilotkit/react-core";
 import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "@copilotkit/react-ui/styles.css";
 import "./style.css";
 
@@ -13,7 +13,7 @@ export default function AgenticChat() {
       agent="tool_based_generative_ui"
     >
       <div
-        className="min-h-full w-full flex items-center justify-center"
+        className="min-h-screen w-full flex items-center justify-center page-background"
         style={
           {
             "--copilot-kit-primary-color": "#222",
@@ -47,6 +47,7 @@ function Haiku() {
       "it beckons flowers.",
     ],
   });
+  const [isJustApplied, setIsJustApplied] = useState(false);
 
   useCopilotAction({
     name: "generate_haiku",
@@ -65,7 +66,7 @@ function Haiku() {
       return "Haiku generated.";
     },
     render: ({ args: generatedHaiku, result, status }) => {
-      const [isApplied, setIsApplied] = useState(false);
+      const [isAppliedLocally, setIsAppliedLocally] = useState(false);
       if (
         !generatedHaiku ||
         !generatedHaiku.japanese ||
@@ -94,11 +95,13 @@ function Haiku() {
             <button
               onClick={() => {
                 setHaiku(generatedHaiku);
-                setIsApplied(true);
+                setIsAppliedLocally(true);
+                setIsJustApplied(true);
+                setTimeout(() => setIsJustApplied(false), 600);
               }}
               className="ml-auto px-3 py-1 bg-white text-black text-sm rounded cursor-pointer font-sm border "
             >
-              {isApplied ? "Applied ✓" : "Apply"}
+              {isAppliedLocally ? "Applied ✓" : "Apply"}
             </button>
           )}
         </div>
@@ -107,11 +110,15 @@ function Haiku() {
   });
   return (
     <>
-      <div className="text-left">
+      <div className={`haiku-card animated-fade-in ${isJustApplied ? 'applied-flash' : ''}`}>
         {haiku?.japanese.map((line, index) => (
-          <div className="flex items-center gap-6 mb-2" key={index}>
-            <p className="text-4xl font-bold text-gray-500">{line}</p>
-            <p className="text-base font-light">{haiku?.english?.[index]}</p>
+          <div 
+            className="flex items-start gap-4 mb-4 haiku-line"
+            key={index}
+            style={{ animationDelay: `${index * 0.1}s` }}
+          >
+            <p className="text-4xl font-bold text-gray-600 w-2/5">{line}</p>
+            <p className="text-base font-light text-gray-500 w-3/5">{haiku?.english?.[index]}</p>
           </div>
         ))}
       </div>

@@ -53,7 +53,6 @@ async def chat_node(state: CopilotKitState, config: RunnableConfig):
     """
     The main function handling chat and tool calls.
     """
-    await copilotkit_exit(config)
     system_prompt = "You assist the user in generating a haiku."
 
     # Define the model
@@ -80,6 +79,7 @@ async def chat_node(state: CopilotKitState, config: RunnableConfig):
     ], config)
 
     # Return Command to end with updated messages
+    await copilotkit_exit(config)
     return Command(
         goto=END,
         update={
