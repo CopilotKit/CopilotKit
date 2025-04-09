@@ -67,8 +67,15 @@ import {
   LLMResponseData,
   LLMErrorData,
 } from "../observability";
+import { MessageRole } from "../../graphql/types/enums";
 
-interface CopilotRuntimeRequest {
+// +++ MCP Imports +++
+import { MCPClient, MCPEndpointConfig, convertMCPToolsToActions } from "./mcp-tools-utils";
+// Define the function type alias here or import if defined elsewhere
+type CreateMCPClientFunction = (config: MCPEndpointConfig) => Promise<MCPClient>;
+// --- MCP Imports ---
+
+export interface CopilotRuntimeRequest {
   serviceAdapter: CopilotServiceAdapter;
   messages: MessageInput[];
   actions: ActionInput[];
@@ -208,6 +215,41 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
    * ```
    */
   observability_c?: CopilotObservabilityConfig;
+
+  /**
+   * Configuration for connecting to Model Context Protocol (MCP) servers.
+   * Allows fetching and using tools defined on external MCP-compliant servers.
+   * Requires providing the `createMCPClient` function during instantiation.
+   * @experimental
+   */
+  mcpEndpoints?: MCPEndpointConfig[];
+
+  /**
+   * A function that creates an MCP client instance for a given endpoint configuration.
+   * This function is responsible for using the appropriate MCP client library
+   * (e.g., `@copilotkit/runtime`, `ai`) to establish a connection.
+   * Required if `mcpEndpoints` is provided.
+   *
+   * ```typescript
+   * import { experimental_createMCPClient } from "ai"; // Import from vercel ai library
+   * // ...
+   * const runtime = new CopilotRuntime({
+   *   mcpEndpoints: [{ endpoint: "..." }],
+   *   async createMCPClient(config) {
+   *     return await experimental_createMCPClient({
+   *       transport: {
+   *         type: "sse",
+   *         url: config.endpoint,
+   *         headers: config.apiKey
+   *           ? { Authorization: `Bearer ${config.apiKey}` }
+   *           : undefined,
+   *       },
+   *     });
+   *   }
+   * });
+   * ```
+   */
+  createMCPClient?: CreateMCPClientFunction;
 }
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
@@ -219,6 +261,15 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   private delegateAgentProcessingToServiceAdapter: boolean;
   private observability?: CopilotObservabilityConfig;
   private availableAgents: Pick<AgentWithEndpoint, "name" | "id">[];
+
+  // +++ MCP Properties +++
+  private readonly mcpEndpointsConfig?: MCPEndpointConfig[];
+  private mcpActionCache = new Map<string, Action<any>[]>();
+  // --- MCP Properties ---
+
+  // +++ MCP Client Factory +++
+  private readonly createMCPClientImpl?: CreateMCPClientFunction;
+  // --- MCP Client Factory ---
 
   constructor(params?: CopilotRuntimeConstructorParams<T>) {
     if (
@@ -243,7 +294,98 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     this.delegateAgentProcessingToServiceAdapter =
       params?.delegateAgentProcessingToServiceAdapter || false;
     this.observability = params?.observability_c;
+
+    // +++ MCP Initialization +++
+    this.mcpEndpointsConfig = params?.mcpEndpoints;
+    this.createMCPClientImpl = params?.createMCPClient;
+
+    // Validate: If mcpEndpoints are provided, createMCPClient must also be provided
+    if (
+      this.mcpEndpointsConfig &&
+      this.mcpEndpointsConfig.length > 0 &&
+      !this.createMCPClientImpl
+    ) {
+      throw new CopilotKitMisuseError({
+        message:
+          "MCP Integration Error: `mcpEndpoints` were provided, but the `createMCPClient` function was not passed to the CopilotRuntime constructor. " +
+          "Please provide an implementation for `createMCPClient`.",
+      });
+    }
+
+    // Warning if actions are defined alongside LangGraph platform (potentially MCP too?)
+    if (
+      params?.actions &&
+      (params?.remoteEndpoints?.some((e) => e.type === EndpointType.LangGraphPlatform) ||
+        this.mcpEndpointsConfig?.length)
+    ) {
+      console.warn(
+        "Local 'actions' defined in CopilotRuntime might not be available to remote agents (LangGraph, MCP). Consider defining actions closer to the agent implementation if needed.",
+      );
+    }
   }
+
+  // +++ MCP Instruction Injection Method +++
+  private injectMCPToolInstructions(
+    messages: MessageInput[],
+    currentActions: Action<any>[],
+  ): MessageInput[] {
+    // Filter the *passed-in* actions for MCP tools
+    const mcpActionsForRequest = currentActions.filter((action) => (action as any)._isMCPTool);
+
+    if (!mcpActionsForRequest || mcpActionsForRequest.length === 0) {
+      return messages; // No MCP tools for this specific request
+    }
+
+    // Filter only MCP actions and format instructions
+    const mcpToolInstructions = mcpActionsForRequest
+      .map((action) => {
+        const paramsString =
+          action.parameters && action.parameters.length > 0
+            ? ` Parameters: ${action.parameters
+                .map((p) => `${p.name}${p.required ? "*" : ""}(${p.type})`)
+                .join(", ")}`
+            : "";
+        return `- ${action.name}:${paramsString} ${action.description || ""}`;
+      })
+      .join("\n");
+
+    if (!mcpToolInstructions) {
+      return messages; // No MCP tools to describe
+    }
+
+    const instructions =
+      "You have access to the following tools provided by external Model Context Protocol (MCP) servers:\n" +
+      mcpToolInstructions +
+      "\nUse them when appropriate to fulfill the user's request.";
+
+    const systemMessageIndex = messages.findIndex((msg) => msg.textMessage?.role === "system");
+
+    const newMessages = [...messages]; // Create a mutable copy
+
+    if (systemMessageIndex !== -1) {
+      const existingMsg = newMessages[systemMessageIndex];
+      if (existingMsg.textMessage) {
+        existingMsg.textMessage.content =
+          (existingMsg.textMessage.content ? existingMsg.textMessage.content + "\n\n" : "") +
+          instructions;
+      }
+    } else {
+      newMessages.unshift({
+        id: randomId(),
+        createdAt: new Date(),
+        textMessage: {
+          role: MessageRole.system,
+          content: instructions,
+        },
+        actionExecutionMessage: undefined,
+        resultMessage: undefined,
+        agentStateMessage: undefined,
+      });
+    }
+
+    return newMessages;
+  }
+  // --- MCP Instruction Injection Method ---
 
   async processRuntimeRequest(request: CopilotRuntimeRequest): Promise<CopilotRuntimeResponse> {
     const {
@@ -280,9 +422,20 @@ please use an LLM adapter instead.`,
         });
       }
 
-      const messages = rawMessages.filter((message) => !message.agentStateMessage);
-      const inputMessages = convertGqlInputToMessages(messages);
+      // +++ Get Server Side Actions (including dynamic MCP) EARLY +++
       const serverSideActions = await this.getServerSideActions(request);
+      // --- Get Server Side Actions (including dynamic MCP) EARLY ---
+
+      // Filter raw messages *before* injection
+      const filteredRawMessages = rawMessages.filter((message) => !message.agentStateMessage);
+
+      // +++ Inject MCP Instructions based on current actions +++
+      const messagesWithInjectedInstructions = this.injectMCPToolInstructions(
+        filteredRawMessages,
+        serverSideActions,
+      );
+      const inputMessages = convertGqlInputToMessages(messagesWithInjectedInstructions);
+      // --- Inject MCP Instructions based on current actions ---
 
       // Log LLM request if logging is enabled
       if (this.observability?.enabled && publicApiKey) {
@@ -913,10 +1066,11 @@ please use an LLM adapter instead.`,
   }
 
   private async getServerSideActions(request: CopilotRuntimeRequest): Promise<Action<any>[]> {
-    const { messages: rawMessages, graphqlContext, agentStates, url } = request;
+    const { graphqlContext, messages: rawMessages, agentStates, url } = request;
+
+    // --- Standard Action Fetching (unchanged) ---
     const inputMessages = convertGqlInputToMessages(rawMessages);
     const langserveFunctions: Action<any>[] = [];
-
     for (const chainPromise of this.langserve) {
       try {
         const chain = await chainPromise;
@@ -927,11 +1081,7 @@ please use an LLM adapter instead.`,
     }
 
     const remoteEndpointDefinitions = this.remoteEndpointDefinitions.map(
-      (endpoint) =>
-        ({
-          ...endpoint,
-          type: resolveEndpointType(endpoint),
-        }) as EndpointDefinition,
+      (endpoint) => ({ ...endpoint, type: resolveEndpointType(endpoint) }) as EndpointDefinition,
     );
 
     const remoteActions = await setupRemoteActions({
@@ -946,8 +1096,65 @@ please use an LLM adapter instead.`,
       typeof this.actions === "function"
         ? this.actions({ properties: graphqlContext.properties, url })
         : this.actions;
+    // --- Standard Action Fetching (unchanged) ---
 
-    return [...configuredActions, ...langserveFunctions, ...remoteActions];
+    // +++ Dynamic MCP Action Fetching +++
+    const requestSpecificMCPActions: Action<any>[] = [];
+    if (this.createMCPClientImpl) {
+      // 1. Determine effective MCP endpoints for this request
+      const baseEndpoints = this.mcpEndpointsConfig || [];
+      // Assuming frontend passes config via properties.mcpEndpoints
+      const requestEndpoints = (graphqlContext.properties?.mcpEndpoints ||
+        []) as MCPEndpointConfig[];
+
+      // Merge and deduplicate endpoints based on URL
+      const effectiveEndpointsMap = new Map<string, MCPEndpointConfig>();
+      [...baseEndpoints, ...requestEndpoints].forEach((ep) => {
+        if (ep && ep.endpoint) {
+          // Basic validation
+          effectiveEndpointsMap.set(ep.endpoint, ep);
+        }
+      });
+      const effectiveEndpoints = Array.from(effectiveEndpointsMap.values());
+
+      // 2. Fetch/Cache actions for effective endpoints
+      for (const config of effectiveEndpoints) {
+        const endpointUrl = config.endpoint;
+        let actionsForEndpoint: Action<any>[] | undefined = this.mcpActionCache.get(endpointUrl);
+
+        if (!actionsForEndpoint) {
+          // Not cached, fetch now
+          let client: MCPClient | null = null;
+          try {
+            console.log(`MCP: Cache miss. Fetching tools for endpoint: ${endpointUrl}`);
+            client = await this.createMCPClientImpl(config);
+            const tools = await client.tools();
+            actionsForEndpoint = convertMCPToolsToActions(tools, endpointUrl);
+            this.mcpActionCache.set(endpointUrl, actionsForEndpoint); // Store in cache
+            console.log(
+              `MCP: Fetched and cached ${actionsForEndpoint.length} tools for ${endpointUrl}`,
+            );
+          } catch (error) {
+            console.error(
+              `MCP: Failed to fetch tools from endpoint ${endpointUrl}. Skipping. Error:`,
+              error,
+            );
+            actionsForEndpoint = []; // Assign empty array on error to prevent re-fetching constantly
+            this.mcpActionCache.set(endpointUrl, actionsForEndpoint); // Cache the failure (empty array)
+          }
+        }
+        requestSpecificMCPActions.push(...(actionsForEndpoint || []));
+      }
+    }
+    // --- Dynamic MCP Action Fetching ---
+
+    // Combine all action sources, including the dynamically fetched MCP actions
+    return [
+      ...configuredActions,
+      ...langserveFunctions,
+      ...remoteActions,
+      ...requestSpecificMCPActions,
+    ];
   }
 
   // Add helper method to detect provider
