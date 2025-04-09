@@ -117,7 +117,7 @@
   text-align: left;
   max-width: 745px; 
   margin: 3rem auto;
-  min-width: 660px;
+  min-width: 600px;
   
   /* Transition */
   transition: transform 0.35s ease, box-shadow 0.35s ease, border-top-width 0.35s ease, border-top-color 0.35s ease;

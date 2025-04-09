@@ -117,8 +117,8 @@ function Haiku() {
             key={index}
             style={{ animationDelay: `${index * 0.1}s` }}
           >
-            <p className="text-4xl font-bold text-gray-600 w-2/5">{line}</p>
-            <p className="text-base font-light text-gray-500 w-3/5">{haiku?.english?.[index]}</p>
+            <p className="text-4xl font-bold text-gray-600 w-auto">{line}</p>
+            <p className="text-base font-light text-gray-500 w-auto">{haiku?.english?.[index]}</p>
           </div>
         ))}
       </div>
