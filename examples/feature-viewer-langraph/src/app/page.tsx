@@ -195,15 +195,13 @@ export default function Home() {
                     <Code className="h-3 w-3" />
                     <span>Code</span>
                   </TabsTrigger>
-                  {readmeContent && (
-                    <TabsTrigger
-                      value="readme"
-                      className="flex-1 h-7 px-2 text-sm font-medium gap-1 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow"
-                    >
-                      <Book className="h-3 w-3" />
-                      <span>Docs</span>
-                    </TabsTrigger>
-                  )}
+                  <TabsTrigger
+                    value="readme"
+                    className="flex-1 h-7 px-2 text-sm font-medium gap-1 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow"
+                  >
+                    <Book className="h-3 w-3" />
+                    <span>Docs</span>
+                  </TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
