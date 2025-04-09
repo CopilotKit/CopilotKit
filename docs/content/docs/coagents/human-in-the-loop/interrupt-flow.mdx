@@ -72,7 +72,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
         // This is the state of the agent.
         // It inherits from the CopilotKitState properties from CopilotKit.
         export const AgentStateAnnotation = Annotation.Root({
-          agent_name: Annotation<string>,
+          agentName: Annotation<string>,
           ...CopilotKitStateAnnotation.spec,
         });
         export type AgentState = typeof AgentStateAnnotation.State;
@@ -296,8 +296,8 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 
                         export function YourComponent() {
                           useCopilotAction({
-                            name: "showCalendarMeeting",
-                            description: "Displays calendar meeting information",
+                            name: "AskName",
+                            description: "Ask the user how they would like to call you",
                             parameters: [
                               {
                                   name: "message",
@@ -368,6 +368,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
                                           args: { message: 'Before we start, what would you like to call me?' }, // The arguments to pass when the tool is called.
                                         }); // [!code highlight]
                                         state.agentName = answer
+                                        state.messages = [...state.message, ...messages]
                                       }
 
                                     // Tell the agent its name
@@ -382,7 +383,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 
                                       return {
                                         ...state,
-                                        messages: response,
+                                        messages: [...state.messages, response],
                                       };
                                     }
                                     ```
@@ -414,9 +415,14 @@ These can be used to notify the LLM about the recent communication:
         from copilotkit import copilotkit_interrupt
 
         # ...
-        agent_name, new_messages = copilotkit_interrupt(message="Before we start, what would you like to call me?")
-        state["messages"] = state["messages"] + new_messages
-        state["agent_name"] = agent_name
+        async def chat_node(state: AgentState, config: RunnableConfig)
+            agent_name, new_messages = copilotkit_interrupt(message="Before we start, what would you like to call me?")
+            state["messages"] = state["messages"] + new_messages
+            state["agent_name"] = agent_name
+            # ... add the rest of the node implementation, including LLM calls etc.
+
+            # Don't forget to return the messages list with our newly added interrupt messages, and the new agent name
+            return { "messages": state["messages"], "agent_name": state["agent_name"] }
         # ...
         ```
     </Tab>
@@ -425,10 +431,15 @@ These can be used to notify the LLM about the recent communication:
         import { copilotKitInterrupt } from "@copilotkit/sdk-js/langgraph";
 
         // ...
-        const {agentName, newMessages} = copilotKitInterrupt("Before we start, what would you like to call me?");
-        state.messages = [...state.messages, ...newMessages];
-        state.agentName = agentName;
-        // ...
+        async function chat_node(state: AgentState, config: RunnableConfig) {
+            const { agentName, messages } = copilotKitInterrupt({ message: "Before we start, what would you like to call me?" });
+            state.messages = [...state.messages, ...messages];
+            state.agentName = agentName;
+            // ... add the rest of the node implementation, including LLM calls etc.
+
+            // Don't forget to return the messages list with our newly added interrupt messages, and the new agent name
+            return { messages: state.messages, agentName: state.agentName }
+        }
         ```
     </Tab>
 </Tabs>
