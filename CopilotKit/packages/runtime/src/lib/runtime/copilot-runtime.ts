@@ -227,21 +227,24 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
   /**
    * A function that creates an MCP client instance for a given endpoint configuration.
    * This function is responsible for using the appropriate MCP client library
-   * (e.g., `@anthropic-ai/sdk`, `ai/experimental`) to establish a connection.
+   * (e.g., `@copilotkit/runtime`, `ai`) to establish a connection.
    * Required if `mcpEndpoints` is provided.
    *
    * ```typescript
-   * import { Anthropic } from "@anthropic-ai/sdk"; // Or your preferred client
+   * import { experimental_createMCPClient } from "ai"; // Import from vercel ai library
    * // ...
    * const runtime = new CopilotRuntime({
    *   mcpEndpoints: [{ endpoint: "..." }],
    *   async createMCPClient(config) {
-   *     // Your logic to instantiate and return an object conforming to MCPClient
-   *     const client = new Anthropic({ apiKey: config.apiKey }); // Example
-   *     return { // Adapt Anthropic client to MCPClient interface
-   *       async tools() { return client.beta.tools.messages.stream(...); }, // Example mapping
-   *       // close() implementation if needed
-   *     };
+   *     return await experimental_createMCPClient({
+   *       transport: {
+   *         type: "sse",
+   *         url: config.endpoint,
+   *         headers: config.apiKey
+   *           ? { Authorization: `Bearer ${config.apiKey}` }
+   *           : undefined,
+   *       },
+   *     });
    *   }
    * });
    * ```
