@@ -11,12 +11,12 @@
       "dependencies": ["@copilotkit/runtime", "@copilotkit/react-core"],
       "files": [
         {
-          "path": "components/layout/agent-layout.tsx",
+          "path": "registry/layout/agent-layout.tsx",
           "type": "registry:page",
           "target": "app/copilotkit/layout.tsx"
         },
         {
-          "path": "components/runtime/langgraph-platform.ts",
+          "path": "registry/runtime/langgraph-platform.ts",
           "type": "registry:lib",
           "target": "app/api/copilotkit/route.ts"
         }
@@ -30,12 +30,12 @@
       "dependencies": ["@copilotkit/runtime", "@copilotkit/react-core"],
       "files": [
         {
-          "path": "components/layout/agent-layout.tsx",
+          "path": "registry/layout/agent-layout.tsx",
           "type": "registry:page",
           "target": "app/copilotkit/layout.tsx"
         },
         {
-          "path": "components/runtime/remote-endpoint.ts",
+          "path": "registry/runtime/remote-endpoint.ts",
           "type": "registry:lib",
           "target": "app/api/copilotkit/route.ts"
         }
@@ -49,12 +49,12 @@
       "dependencies": ["@copilotkit/runtime", "@copilotkit/react-core"],
       "files": [
         {
-          "path": "components/layout/standard-layout.tsx",
+          "path": "registry/layout/standard-layout.tsx",
           "type": "registry:page",
           "target": "app/copilotkit/layout.tsx"
         },
         {
-          "path": "components/runtime/standard.ts",
+          "path": "registry/runtime/standard.ts",
           "type": "registry:lib",
           "target": "app/api/copilotkit/route.ts"
         }
@@ -73,32 +73,32 @@
       ],
       "files": [
         {
-          "path": "components/quickstarts/coagents-generic-lg/page.tsx",
+          "path": "registry/quickstarts/coagents-generic-lg/page.tsx",
           "type": "registry:page",
           "target": "app/copilotkit/page.tsx"
         },
         {
-          "path": "components/quickstarts/coagents-generic-lg/layout.tsx",
+          "path": "registry/quickstarts/coagents-generic-lg/layout.tsx",
           "type": "registry:page",
           "target": "app/copilotkit/layout.tsx"
         },
         {
-          "path": "components/quickstarts/coagents-generic-lg/components/agent-state.tsx",
+          "path": "registry/quickstarts/coagents-generic-lg/components/agent-state.tsx",
           "type": "registry:component",
           "target": "components/agent-state.tsx"
         },
         {
-          "path": "components/quickstarts/coagents-generic-lg/components/tool-call.tsx",
+          "path": "registry/quickstarts/coagents-generic-lg/components/tool-call.tsx",
           "type": "registry:component",
           "target": "components/tool-call.tsx"
         },
         {
-          "path": "components/quickstarts/coagents-generic-lg/components/interrupt.tsx",
+          "path": "registry/quickstarts/coagents-generic-lg/components/interrupt.tsx",
           "type": "registry:component",
           "target": "components/interrupt.tsx"
         },
         {
-          "path": "components/quickstarts/coagents-generic-lg/runtime.ts",
+          "path": "registry/quickstarts/coagents-generic-lg/runtime.ts",
           "type": "registry:lib",
           "target": "app/api/copilotkit/route.ts"
         }
@@ -113,7 +113,7 @@
       "dependencies": ["@copilotkit/react-core"],
       "files": [
         {
-          "path": "components/layout/agent-layout.tsx",
+          "path": "registry/layout/agent-layout.tsx",
           "type": "registry:page",
           "target": "app/copilotkit/layout.tsx"
         }
@@ -127,7 +127,7 @@
       "dependencies": ["@copilotkit/runtime"],
       "files": [
         {
-          "path": "components/runtime/langgraph-platform.ts",
+          "path": "registry/runtime/langgraph-platform.ts",
           "type": "registry:lib",
           "target": "app/api/copilotkit/route.ts"
         }
@@ -141,7 +141,7 @@
       "dependencies": ["@copilotkit/runtime"],
       "files": [
         {
-          "path": "components/runtime/remote-endpoint.ts",
+          "path": "registry/runtime/remote-endpoint.ts",
           "type": "registry:lib",
           "target": "app/api/copilotkit/route.ts"
         }
@@ -155,7 +155,7 @@
       "dependencies": ["@copilotkit/runtime"],
       "files": [
         {
-          "path": "components/runtime/standard.ts",
+          "path": "registry/runtime/standard.ts",
           "type": "registry:lib",
           "target": "app/api/copilotkit/route.ts"
         }
@@ -169,7 +169,7 @@
       "dependencies": ["@copilotkit/react-ui", "@copilotkit/react-core"],
       "files": [
         {
-          "path": "components/quickstarts/coagents-starter.tsx",
+          "path": "registry/quickstarts/coagents-starter.tsx",
           "type": "registry:page",
           "target": "app/copilotkit/page.tsx"
         }
@@ -183,7 +183,7 @@
       "dependencies": ["@copilotkit/react-ui"],
       "files": [
         {
-          "path": "components/chat/chat.tsx",
+          "path": "registry/chat/chat.tsx",
           "type": "registry:page",
           "target": "app/copilotkit/page.tsx"
         }
@@ -197,7 +197,7 @@
       "dependencies": ["@copilotkit/react-ui"],
       "files": [
         {
-          "path": "components/chat/sidebar.tsx",
+          "path": "registry/chat/sidebar.tsx",
           "type": "registry:page",
           "target": "app/copilotkit/page.tsx"
         }
@@ -211,7 +211,7 @@
       "dependencies": ["@copilotkit/react-ui"],
       "files": [
         {
-          "path": "components/chat/popup.tsx",
+          "path": "registry/chat/popup.tsx",
           "type": "registry:page",
           "target": "app/copilotkit/page.tsx"
         }
@@ -234,27 +234,27 @@
           "target": "hooks/use-coagents-crew-starter.tsx"
         },
         {
-          "path": "components/crews/crew-in-chat-input.tsx",
+          "path": "registry/crews/crew-in-chat-input.tsx",
           "type": "registry:component",
-          "target": "components/crews/crew-in-chat-input.tsx"
+          "target": "components/crew-in-chat-input.tsx"
         },
         {
-          "path": "components/crews/crew-state-renderer.tsx",
+          "path": "registry/crews/crew-state-renderer.tsx",
           "type": "registry:component",
-          "target": "components/crews/crew-state-renderer.tsx"
+          "target": "components/crew-state-renderer.tsx"
         },
         {
-          "path": "components/crews/crew-human-feedback-renderer.tsx",
+          "path": "registry/crews/crew-human-feedback-renderer.tsx",
           "type": "registry:component",
-          "target": "components/crews/crew-human-feedback-renderer.tsx"
+          "target": "components/crew-human-feedback-renderer.tsx"
         },
         {
-          "path": "components/layout/coagents-crew-starter-layout.tsx",
+          "path": "registry/layout/coagents-crew-starter-layout.tsx",
           "type": "registry:component",
           "target": "app/copilotkit/layout.tsx"
         },
         {
-          "path": "components/quickstarts/coagents-crew-starter.tsx",
+          "path": "registry/quickstarts/coagents-crew-starter.tsx",
           "type": "registry:page",
           "target": "app/copilotkit/page.tsx"
         }

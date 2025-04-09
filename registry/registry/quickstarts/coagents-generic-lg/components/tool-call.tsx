@@ -4,8 +4,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { CatchAllActionRenderProps } from "@copilotkit/react-core";
 
-export function ToolCall(toolCallProps: any) {
+export function ToolCall(toolCallProps: CatchAllActionRenderProps) {
   const triggerStyles = "inline-flex rounded-xl items-center gap-2 p-2 rounded bg-indigo-500/60 text-white cursor-pointer m-1";
   const contentStyles = "bg-white rounded-xl min-w-[300px] max-w-[500px] p-4 border";
   const statusStyles = "text-xs px-2 py-0.5 rounded-full bg-pink-200/40 text-white";
@@ -31,7 +32,7 @@ export function ToolCall(toolCallProps: any) {
   );
 }
 
-const ToolCallInformation = (toolCallProps: any) => {
+const ToolCallInformation = (toolCallProps: CatchAllActionRenderProps) => {
   const { name, args, status, result } = toolCallProps;
 
   const wrapperStyles = "flex flex-col gap-2 max-h-[400px] overflow-y-auto text-black";

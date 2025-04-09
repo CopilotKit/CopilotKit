@@ -11,10 +11,10 @@ import {
 import { useEffect, useState } from "react";
 import CrewHumanFeedbackRenderer, {
   CrewsFeedback,
-} from "@/components/crews/crew-human-feedback-renderer";
-import CrewStateRenderer from "@/components/crews/crew-state-renderer";
+} from "@/registry/crews/crew-human-feedback-renderer";
+import CrewStateRenderer from "@/registry/crews/crew-state-renderer";
 import { MessageRole, TextMessage } from "@copilotkit/runtime-client-gql";
-import { CrewInChatInput } from "@/components/crews/crew-in-chat-input";
+import { CrewInChatInput } from "@/registry/crews/crew-in-chat-input";
 
 /**
  * Hook: useCoagentsCrewStarter
