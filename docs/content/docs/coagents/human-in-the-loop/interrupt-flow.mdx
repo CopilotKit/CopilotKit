@@ -336,6 +336,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
                                          args={ "message": "Before we start, what would you like to call me?" } # The arguments to pass when the tool is called.
                                         )
                                         state["agent_name"] = answer
+                                        state["messages"] = [*state["messages"], *messages]
 
                                       # Tell the agent its name
                                       system_message = SystemMessage(
@@ -349,7 +350,8 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 
                                       return {
                                         **state,
-                                        "messages": response,
+                                        # messages receives from the interrupt are not automatically saved to state, don't forget to add them!
+                                        "messages": [*state["messages"], response],
                                       }
                                     ```
                                 </Tab>
@@ -383,6 +385,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 
                                       return {
                                         ...state,
+                                        // messages receives from the interrupt are not automatically saved to state, don't forget to add them!
                                         messages: [...state.messages, response],
                                       };
                                     }
