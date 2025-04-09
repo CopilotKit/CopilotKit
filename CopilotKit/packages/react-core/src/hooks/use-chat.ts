@@ -375,7 +375,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           setRunId(runIdRef.current);
           setExtensions(extensionsRef.current);
           let rawMessagesResponse = value.generateCopilotResponse.messages;
-          (value.generateCopilotResponse?.metaEvents ?? []).forEach((ev) => {
+
+          const metaEvents: MetaEvent[] | undefined =
+            value.generateCopilotResponse?.metaEvents ?? [];
+          (metaEvents ?? []).forEach((ev) => {
             if (ev.name === MetaEventName.LangGraphInterruptEvent) {
               let eventValue = langGraphInterruptEvent(ev as LangGraphInterruptEvent).value;
               eventValue = parseJson(eventValue, eventValue);
@@ -539,7 +542,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               action: FrontendAction<any>,
               message: ActionExecutionMessage,
             ) => {
-              followUp = action?.followUp;
+              const isInterruptAction = interruptMessages.find((m) => m.id === message.id);
+              followUp = action?.followUp || !isInterruptAction;
               const resultMessage = await executeAction({
                 onFunctionCall,
                 previousMessages,
