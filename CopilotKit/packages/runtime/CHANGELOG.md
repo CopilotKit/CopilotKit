@@ -1,5 +1,39 @@
 # @copilotkit/runtime
 
+## 1.8.5-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.5-next.2
+
+## 1.8.5-next.1
+
+### Patch Changes
+
+- d0e8a1e: - fix: fix duplicate messages on regenerate
+  - @copilotkit/shared@1.8.5-next.1
+
+## 1.8.5-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.5-next.0
+
+## 1.8.4
+
+### Patch Changes
+
+- e652aac: - feat: add support for langgraph config schema
+- f363760: - fix: when unable to find specified agent, show what's available
+- Updated dependencies [f363760]
+  - @copilotkit/shared@1.8.4
+
+## 1.8.4-next.4
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.4-next.4
+
 ## 1.8.4-next.3
 
 ### Patch Changes

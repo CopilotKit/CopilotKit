@@ -80,7 +80,7 @@ export interface UseCopilotChatReturn {
   appendMessage: (message: Message, options?: AppendMessageOptions) => Promise<void>;
   setMessages: (messages: Message[]) => void;
   deleteMessage: (messageId: string) => void;
-  reloadMessages: () => Promise<void>;
+  reloadMessages: (messageId: string) => Promise<void>;
   stopGeneration: () => void;
   reset: () => void;
   isLoading: boolean;
@@ -203,9 +203,12 @@ export function useCopilotChat({
   );
 
   const latestReload = useUpdatedRef(reload);
-  const latestReloadFunc = useAsyncCallback(async () => {
-    return await latestReload.current();
-  }, [latestReload]);
+  const latestReloadFunc = useAsyncCallback(
+    async (messageId: string) => {
+      return await latestReload.current(messageId);
+    },
+    [latestReload],
+  );
 
   const latestStop = useUpdatedRef(stop);
   const latestStopFunc = useCallback(() => {

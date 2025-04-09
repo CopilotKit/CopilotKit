@@ -118,7 +118,7 @@ export interface CopilotChatProps {
   /**
    * A callback function to regenerate the assistant's response
    */
-  onRegenerate?: () => void;
+  onRegenerate?: (messageId: string) => void;
 
   /**
    * A callback function when the message is copied
@@ -246,7 +246,12 @@ interface OnStopGenerationArguments {
   setCurrentAgentState: (state: any) => void;
 }
 
-export type OnReloadMessagesArguments = OnStopGenerationArguments;
+export type OnReloadMessagesArguments = OnStopGenerationArguments & {
+  /**
+   * The message on which "regenerate" was pressed
+   */
+  messageId: string;
+};
 
 export type OnStopGeneration = (args: OnStopGenerationArguments) => void;
 
@@ -320,12 +325,12 @@ export function CopilotChat({
   const chatContext = React.useContext(ChatContext);
   const isVisible = chatContext ? chatContext.open : true;
 
-  const handleRegenerate = () => {
+  const handleRegenerate = (messageId: string) => {
     if (onRegenerate) {
-      onRegenerate();
+      onRegenerate(messageId);
     }
 
-    reloadMessages();
+    reloadMessages(messageId);
   };
 
   const handleCopy = (message: string) => {
@@ -554,7 +559,7 @@ export const useCopilotChatLogic = (
       defaultStopGeneration();
     }
   }
-  function reloadMessages() {
+  function reloadMessages(messageId: string) {
     if (onReloadMessages) {
       onReloadMessages({
         messages,
@@ -565,9 +570,10 @@ export const useCopilotChatLogic = (
         stopCurrentAgent,
         runCurrentAgent,
         setCurrentAgentState,
+        messageId,
       });
     } else {
-      defaultReloadMessages();
+      defaultReloadMessages(messageId);
     }
   }
 

@@ -201,9 +201,9 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         guardrails: {
           input: {
             restrictToTopic: {
-              enabled: props.cloudRestrictToTopic ? true : false,
-              validTopics: props.cloudRestrictToTopic?.validTopics || [],
-              invalidTopics: props.cloudRestrictToTopic?.invalidTopics || [],
+              enabled: Boolean(props.guardrails_c),
+              validTopics: props.guardrails_c?.validTopics || [],
+              invalidTopics: props.guardrails_c?.invalidTopics || [],
             },
           },
         },

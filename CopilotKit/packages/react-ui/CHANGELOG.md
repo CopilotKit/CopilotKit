@@ -1,5 +1,54 @@
 # ui
 
+## 1.8.5-next.2
+
+### Patch Changes
+
+- 4b5452d: - feat: add powered-by-copilotkit watermark
+  - @copilotkit/react-core@1.8.5-next.2
+  - @copilotkit/runtime-client-gql@1.8.5-next.2
+  - @copilotkit/shared@1.8.5-next.2
+
+## 1.8.5-next.1
+
+### Patch Changes
+
+- d0e8a1e: - fix: fix duplicate messages on regenerate
+- Updated dependencies [d0e8a1e]
+  - @copilotkit/react-core@1.8.5-next.1
+  - @copilotkit/runtime-client-gql@1.8.5-next.1
+  - @copilotkit/shared@1.8.5-next.1
+
+## 1.8.5-next.0
+
+### Patch Changes
+
+- ed5ace7: - fix: for every component that has default, make prop optional
+  - @copilotkit/react-core@1.8.5-next.0
+  - @copilotkit/runtime-client-gql@1.8.5-next.0
+  - @copilotkit/shared@1.8.5-next.0
+
+## 1.8.4
+
+### Patch Changes
+
+- 0846462: - fix: remove styles corresponding to OS dark theme
+- fc11455: - fix: focus on text area when clicking in input box
+- Updated dependencies [f363760]
+- Updated dependencies [4e28414]
+  - @copilotkit/shared@1.8.4
+  - @copilotkit/react-core@1.8.4
+  - @copilotkit/runtime-client-gql@1.8.4
+
+## 1.8.4-next.4
+
+### Patch Changes
+
+- Updated dependencies [4e28414]
+  - @copilotkit/react-core@1.8.4-next.4
+  - @copilotkit/runtime-client-gql@1.8.4-next.4
+  - @copilotkit/shared@1.8.4-next.4
+
 ## 1.8.4-next.3
 
 ### Patch Changes

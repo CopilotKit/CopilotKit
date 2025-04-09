@@ -1,13 +1,17 @@
 import { RenderMessageProps } from "../props";
+import { UserMessage as DefaultUserMessage } from "./UserMessage";
+import { AssistantMessage as DefaultAssistantMessage } from "./AssistantMessage";
 
-export function RenderTextMessage(props: RenderMessageProps) {
+export function RenderTextMessage({
+  UserMessage = DefaultUserMessage,
+  AssistantMessage = DefaultAssistantMessage,
+  ...props
+}: RenderMessageProps) {
   const {
     message,
     inProgress,
     index,
     isCurrentMessage,
-    UserMessage,
-    AssistantMessage,
     onRegenerate,
     onCopy,
     onThumbsUp,
@@ -34,7 +38,7 @@ export function RenderTextMessage(props: RenderMessageProps) {
           isLoading={inProgress && isCurrentMessage && !message.content}
           isGenerating={inProgress && isCurrentMessage && !!message.content}
           isCurrentMessage={isCurrentMessage}
-          onRegenerate={onRegenerate}
+          onRegenerate={() => onRegenerate?.(message.id)}
           onCopy={onCopy}
           onThumbsUp={onThumbsUp}
           onThumbsDown={onThumbsDown}

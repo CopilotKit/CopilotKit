@@ -168,7 +168,7 @@ export type UseChatHelpers = {
    * message isn't from the assistant, it will request the API to generate a
    * new response.
    */
-  reload: () => Promise<void>;
+  reload: (messageId: string) => Promise<void>;
   /**
    * Abort the current request immediately, keep the generated tokens if any.
    */
@@ -726,21 +726,29 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     [isLoading, messages, setMessages, runChatCompletionAndHandleFunctionCall],
   );
 
-  const reload = useAsyncCallback(async (): Promise<void> => {
-    if (isLoading || messages.length === 0) {
-      return;
-    }
-    let newMessages = [...messages];
-    const lastMessage = messages[messages.length - 1];
+  const reload = useAsyncCallback(
+    async (messageId: string): Promise<void> => {
+      if (isLoading || messages.length === 0) {
+        return;
+      }
 
-    if (lastMessage.isTextMessage() && lastMessage.role === "assistant") {
-      newMessages = newMessages.slice(0, -1);
-    }
+      const index = messages.findIndex((msg) => msg.id === messageId);
+      if (index === -1) {
+        console.warn(`Message with id ${messageId} not found`);
+        return;
+      }
 
-    setMessages(newMessages);
+      let newMessages = messages.slice(0, index); // excludes the message with messageId
+      if (newMessages.length > 0 && newMessages[newMessages.length - 1].isAgentStateMessage()) {
+        newMessages = newMessages.slice(0, newMessages.length - 1); // remove last one too
+      }
 
-    return runChatCompletionAndHandleFunctionCall(newMessages);
-  }, [isLoading, messages, setMessages, runChatCompletionAndHandleFunctionCall]);
+      setMessages(newMessages);
+
+      return runChatCompletionAndHandleFunctionCall(newMessages);
+    },
+    [isLoading, messages, setMessages, runChatCompletionAndHandleFunctionCall],
+  );
 
   const stop = (): void => {
     chatAbortControllerRef.current?.abort("Stop was called");

@@ -1,5 +1,44 @@
 # ui
 
+## 1.8.5-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.5-next.2
+- @copilotkit/shared@1.8.5-next.2
+
+## 1.8.5-next.1
+
+### Patch Changes
+
+- d0e8a1e: - fix: fix duplicate messages on regenerate
+  - @copilotkit/runtime-client-gql@1.8.5-next.1
+  - @copilotkit/shared@1.8.5-next.1
+
+## 1.8.5-next.0
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.5-next.0
+- @copilotkit/shared@1.8.5-next.0
+
+## 1.8.4
+
+### Patch Changes
+
+- 4e28414: - use new interface properly
+- Updated dependencies [f363760]
+  - @copilotkit/shared@1.8.4
+  - @copilotkit/runtime-client-gql@1.8.4
+
+## 1.8.4-next.4
+
+### Patch Changes
+
+- 4e28414: - use new interface properly
+  - @copilotkit/runtime-client-gql@1.8.4-next.4
+  - @copilotkit/shared@1.8.4-next.4
+
 ## 1.8.4-next.3
 
 ### Patch Changes
