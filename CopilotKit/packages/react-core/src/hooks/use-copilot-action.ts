@@ -130,7 +130,7 @@
  *
  * This hooks enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/guides/generative-ui) page.
  */
-import { Parameter, randomId } from "@copilotkit/shared";
+import { Parameter, randomId, MappedParameterTypes } from "@copilotkit/shared";
 import { createElement, Fragment, useEffect, useRef } from "react";
 import { useCopilotContext } from "../context/copilot-context";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
@@ -143,25 +143,23 @@ import {
 } from "../types/frontend-action";
 import { useToast } from "../components/toast/toast-provider";
 
-// We implement useCopilotAction dependency handling so that
-// the developer has the option to not provide any dependencies.
-// In this case, we assume they want to update the handler on each rerender.
-// To avoid getting stuck in an infinite loop, we update the handler directly,
-// skipping React state updates.
-// This is ok in this case, because the handler is not part of any UI that
-// needs to be updated.
-// useCallback, useMemo or other memoization techniques are not suitable here,
-// because they will cause a infinite rerender loop.
+// Clean implementation using execution IDs for tracking
 export function useCopilotAction<const T extends Parameter[] | [] = []>(
   action: FrontendAction<T> | CatchAllFrontendAction,
   dependencies?: any[],
 ): void {
   const { setAction, removeAction, actions, chatComponentsCache } = useCopilotContext();
   const idRef = useRef<string>(randomId());
-  const renderAndWaitRef = useRef<RenderAndWaitForResponse | null>(null);
   const { addToast } = useToast();
 
-  // clone the action to avoid mutating the original object
+  // Debug function for development only
+  const debug = (message: string) => {
+    if (process.env.NODE_ENV !== "production") {
+      console.debug(`[CopilotKit:${action.name}] ${message}`);
+    }
+  };
+
+  // Clone the action to avoid mutating the original object
   action = { ...action };
 
   // If the developer provides a renderAndWaitForResponse function, we transform the action
@@ -176,36 +174,47 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
     // remove the renderAndWait function from the action
     action.renderAndWait = undefined;
     action.renderAndWaitForResponse = undefined;
-    // add a handler that will be called when the action is executed
-    action.handler = useAsyncCallback(async () => {
-      // we create a new promise when the handler is called
-      let resolve: (result: any) => void;
-      let reject: (error: any) => void;
+
+    // Add a handler that will be called when the action is executed
+    action.handler = useAsyncCallback(async (args: MappedParameterTypes<T>) => {
+      // Generate a unique ID for this specific action execution
+      const executionId = randomId();
+      debug(`Creating new action execution ${executionId}`);
+
+      // Create a promise for this specific execution
+      let resolve!: (result: any) => void;
+      let reject!: (error: any) => void;
       const promise = new Promise<any>((resolvePromise, rejectPromise) => {
         resolve = resolvePromise;
         reject = rejectPromise;
       });
-      renderAndWaitRef.current = { promise, resolve: resolve!, reject: reject! };
-      // then we await the promise (it will be resolved in the original renderAndWait function)
-      return await promise;
+
+      // Return both the promise and the executionId
+      // The executionId is used to match render calls with their response functions
+      return {
+        promise: await promise,
+        executionId,
+        resolve,
+        reject,
+      };
     }, []) as any;
 
-    // add a render function that will be called when the action is rendered
+    // Add a render function that will be called when the action is rendered
     action.render = ((props: ActionRenderProps<T>): React.ReactElement => {
-      // Specifically for renderAndWaitForResponse the executing state is set too early, causing a race condition
-      // To fit it: we will wait for the handler to be ready
-      let status = props.status;
-      if (props.status === "executing" && !renderAndWaitRef.current) {
-        status = "inProgress";
-      }
+      // Extract the executionId and resolve function from the result
+      const executionId = props.result?.executionId;
+      const resolveFunc = props.result?.resolve;
+      const rejectFunc = props.result?.reject;
+
       // Create type safe waitProps based on whether T extends empty array or not
       const waitProps = {
-        status,
+        status: props.status,
         args: props.args,
-        result: props.result,
-        handler: status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
-        respond: status === "executing" ? renderAndWaitRef.current!.resolve : undefined,
-      } as T extends [] ? ActionRenderPropsNoArgsWait<T> : ActionRenderPropsWait<T>;
+        result: props.result?.promise,
+        handler: props.status === "executing" && resolveFunc ? resolveFunc : undefined,
+        respond: props.status === "executing" && resolveFunc ? resolveFunc : undefined,
+        executionId, // Pass the executionId to the component
+      } as any as T extends [] ? ActionRenderPropsNoArgsWait<T> : ActionRenderPropsWait<T>;
 
       // Type guard to check if renderAndWait is for no args case
       const isNoArgsRenderWait = (
@@ -218,10 +227,16 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
 
       // Safely call renderAndWait with correct props type
       if (renderAndWait) {
-        if (isNoArgsRenderWait(renderAndWait)) {
-          return renderAndWait(waitProps as ActionRenderPropsNoArgsWait<T>);
-        } else {
-          return renderAndWait(waitProps as ActionRenderPropsWait<T>);
+        try {
+          if (isNoArgsRenderWait(renderAndWait)) {
+            return renderAndWait(waitProps as ActionRenderPropsNoArgsWait<T>);
+          } else {
+            return renderAndWait(waitProps as ActionRenderPropsWait<T>);
+          }
+        } catch (e) {
+          debug(`Error in renderAndWait: ${e}`);
+          // Return empty component instead of crashing
+          return createElement(Fragment);
         }
       }
 
@@ -264,12 +279,14 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
   }, [actions]);
 
   useEffect(() => {
+    debug(`Registering action ${action.name} with ID ${idRef.current}`);
     setAction(idRef.current, action as any);
     if (chatComponentsCache.current !== null && action.render !== undefined) {
       // see comment about type safety above
       chatComponentsCache.current.actions[action.name] = action.render as any;
     }
     return () => {
+      debug(`Unregistering action ${action.name} with ID ${idRef.current}`);
       // NOTE: For now, we don't remove the chatComponentsCache entry when the action is removed.
       // This is because we currently don't have access to the messages array in CopilotContext.
       // UPDATE: We now have access, we should remove the entry if not referenced by any message.
@@ -296,10 +313,4 @@ function isFrontendAction<T extends Parameter[]>(
   action: FrontendAction<T> | CatchAllFrontendAction,
 ): action is FrontendAction<T> {
   return action.name !== "*";
-}
-
-interface RenderAndWaitForResponse {
-  promise: Promise<any>;
-  resolve: (result: any) => void;
-  reject: (error: any) => void;
 }
