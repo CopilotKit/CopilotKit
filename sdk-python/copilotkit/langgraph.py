@@ -487,6 +487,6 @@ def copilotkit_interrupt(
         "__copilotkit_interrupt_value__": interrupt_values,
         "__copilotkit_messages__": [interrupt_message]
     })
-    answer = response.content
+    answer = response[-1].content
 
-    return answer, [interrupt_message, response]
+    return answer, response

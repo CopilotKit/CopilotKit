@@ -303,10 +303,10 @@ export function copilotKitInterrupt({
     __copilotkit_interrupt_value__: interruptValues,
     __copilotkit_messages__: [interruptMessage],
   });
-  answer = response.content;
+  answer = response[response.length - 1].content;
 
   return {
     answer,
-    messages: [interruptMessage, response],
+    messages: response,
   };
 }

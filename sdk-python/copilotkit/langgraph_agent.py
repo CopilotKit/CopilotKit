@@ -280,7 +280,8 @@ class LangGraphAgent(Agent):
 
          # An active interrupt event that runs through messages. Use latest message as response
         if self.active_interrupt_event and interrupt_from_meta_events is None:
-            resume_input = Command(resume=langchain_messages[-1])
+            # state["messages"] only includes the messages we need to add at this point, tool call+result if applicable, and user text
+            resume_input = Command(resume=state["messages"])
 
         if interrupt_from_meta_events and "response" in interrupt_from_meta_events:
             resume_input = Command(resume=interrupt_from_meta_events["response"])

@@ -168,7 +168,8 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     (ev) => ev.name === MetaEventName.LangGraphInterruptEvent,
   );
   if (activeInterruptEvent && !lgInterruptMetaEvent) {
-    payload.command = { resume: formattedMessages[formattedMessages.length - 1] };
+    // state.messages includes only messages that were not processed by the agent, which are the interrupt messages
+    payload.command = { resume: state.messages };
   }
   if (lgInterruptMetaEvent?.response) {
     let response = lgInterruptMetaEvent.response;
