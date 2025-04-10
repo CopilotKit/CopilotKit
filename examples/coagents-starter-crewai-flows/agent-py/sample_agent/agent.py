@@ -8,7 +8,7 @@ from typing_extensions import Literal
 from litellm import completion
 from crewai.flow.flow import Flow, start, router, listen
 
-from copilotkit.crewai import copilotkit_stream, CopilotKitState
+from copilotkit.crewai import copilotkit_stream, CopilotKitState, copilotkit_exit
 
 class AgentState(CopilotKitState):
     """
@@ -145,3 +145,6 @@ class SampleAgentFlow(Flow[AgentState]):
         """
         End the flow.
         """
+        print("MyFlow completed. Observed steps:", self.state.observed_steps)
+        # Exit the agent loop
+        await copilotkit_exit()
