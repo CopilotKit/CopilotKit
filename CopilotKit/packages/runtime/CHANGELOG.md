@@ -1,5 +1,18 @@
 # @copilotkit/runtime
 
+## 1.8.5-next.3
+
+### Patch Changes
+
+- 77a7457: - feat: Add Model Context Protocol (MCP) support
+  - @copilotkit/shared@1.8.5-next.3
+
+## 1.8.5-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.5-next.2
+
 ## 1.8.5-next.1
 
 ### Patch Changes

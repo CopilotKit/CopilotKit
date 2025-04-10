@@ -1,5 +1,20 @@
 # ui
 
+## 1.8.5-next.3
+
+### Patch Changes
+
+- 77a7457: - feat: Add Model Context Protocol (MCP) support
+  - @copilotkit/runtime-client-gql@1.8.5-next.3
+  - @copilotkit/shared@1.8.5-next.3
+
+## 1.8.5-next.2
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.5-next.2
+- @copilotkit/shared@1.8.5-next.2
+
 ## 1.8.5-next.1
 
 ### Patch Changes
