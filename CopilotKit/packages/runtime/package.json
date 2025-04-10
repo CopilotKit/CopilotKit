@@ -46,10 +46,10 @@
     "zod-to-json-schema": "^3.23.5"
   },
   "dependencies": {
-    "@agentwire/client": "0.0.26",
-    "@agentwire/proto": "0.0.26",
-    "@agentwire/core": "0.0.26",
-    "@agentwire/encoder": "0.0.26",
+    "@agentwire/client": "0.0.27",
+    "@agentwire/proto": "0.0.27",
+    "@agentwire/core": "0.0.27",
+    "@agentwire/encoder": "0.0.27",
     "@anthropic-ai/sdk": "^0.27.3",
     "@copilotkit/shared": "workspace:*",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
