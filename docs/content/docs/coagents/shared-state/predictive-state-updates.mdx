@@ -229,35 +229,31 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                             });
 
                             const stepProgress = tool(
-                                async (args) => {
-                                    return args.steps;
-                                },
+                                async (args) => args,
                                 {
                                     name: "StepProgressTool",
                                     description: "Records progress by updating the steps array",
                                     schema: z.object({
-                                        steps: z.array(z.string()).describe("Array of completed steps"),
+                                        steps: z.array(z.string()),
                                     }),
                                 }
                             );
 
                             const model = new ChatOpenAI({
-                                model: "gpt-4",
+                                model: "gpt-4o",
                             }).bindTools([stepProgress]);
 
-                            const response = await model.invoke(state.messages, modifiedConfig);
-                            state.messages.push(response);
+                            const system_message = new SystemMessage("You are a task performer. Pretend doing tasks you are given, report the steps using StepProgressTool.")
+                            const response = await model.invoke([system_message, ...state.messages], modifiedConfig);
+
 
                             if (response.tool_calls?.length) {
-                                state.messages.push(
-                                    new ToolMessage({
-                                        content: "",
-                                        tool_call_id: response.tool_calls[0].id!,
-                                    })
-                                );
-                            }
+                                return {
+                                    messages: response;
+                                    observed_steps: response.tool_calls[0].args.steps,
+                                }
 
-                            return state;
+                            return { messages: response };
                         }
                         ```
                     </Tab>
