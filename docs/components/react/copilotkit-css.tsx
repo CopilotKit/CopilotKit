@@ -206,7 +206,7 @@ html {
 }
 .copilotKitInputContainer {
   width: 100%;
-  padding: 0 0 15px 0;
+  padding: 0;
   background: var(--copilot-kit-background-color);
   border-bottom-left-radius: 0.75rem;
   border-bottom-right-radius: 0.75rem;
@@ -674,6 +674,26 @@ html {
 .sendButton:hover {
   border-radius: 5px;
 }
+
+.poweredBy {
+  visibility: visible !important;
+  display: block !important;
+  position: static !important;
+  text-align: center !important;
+  font-size: 12px !important;
+  padding: 3px 0 !important;
+  color: rgb(214, 214, 214) !important;
+  margin: 0 !important;
+}
+
+.dark,
+html.dark,
+body.dark,
+[data-theme="dark"],
+html[style*="color-scheme: dark"],
+body[style*="color-scheme: dark"] .poweredBy {
+  color: rgb(69, 69, 69) !important;
+}
     `}
     </style>
   );
@@ -716,6 +736,10 @@ export const handleMouseMove = (e: any) => {
     } else if (element.classList.contains("copilotKitInput")) {
       tooltip.innerHTML =
         "<b>--copilot-kit-separator-color</b>: Input box border color.<br/><br/><b>--copilot-kit-muted-color</b>: Placeholder color.";
+      return;
+    } else if (element.classList.contains("poweredBy")) {
+      tooltip.innerHTML =
+          `The "Powered by CopilotKit" watermark is removed automatically for Copilot Cloud users`;
       return;
     }
     element = element.parentElement;
@@ -820,6 +844,9 @@ export const InteractiveCSSInspector = () => {
                   </button>
                 </div>
               </div>
+              <p className="poweredBy">
+                Powered by CopilotKit
+              </p>
             </div>
           </div>
         </div>
