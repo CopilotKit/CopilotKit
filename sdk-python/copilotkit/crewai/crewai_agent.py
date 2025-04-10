@@ -30,7 +30,8 @@ from .crewai_sdk import (
   crewai_flow_messages_to_copilotkit,
   crewai_flow_async_runner,
   copilotkit_stream,
-  copilotkit_exit
+  copilotkit_exit,
+  logger
 )
 
 from copilotkit.runloop import copilotkit_run, CopilotKitRunExecution
@@ -296,14 +297,21 @@ class CrewAIAgent(Agent):
         if self.flow and self.flow._persistence: # pylint: disable=protected-access
             try:
                 stored_state = self.flow._persistence.load_state(thread_id) # pylint: disable=protected-access
+                messages = []
+                if "messages" in stored_state and stored_state["messages"]:
+                    try:
+                        messages = crewai_flow_messages_to_copilotkit(stored_state["messages"])
+                    except Exception as e: # pylint: disable=broad-except
+                        # If conversion fails, we'll return empty messages
+                        logger.warning(f"Failed to convert messages from stored state: {str(e)}")
                 return {
                     "threadId": thread_id,
                     "threadExists": True,
                     "state": stored_state,
-                    "messages": []
+                    "messages": messages
                 }
-            except: # pylint: disable=bare-except
-                pass
+            except Exception as e: # pylint: disable=broad-except
+                logger.warning(f"Failed to load state for thread {thread_id}: {str(e)}")
 
         return {
             "threadId": thread_id,
