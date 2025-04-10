@@ -1,31 +1,32 @@
 ---
-title: Threads
-description: Learn how to load chat messages and threads within the CopilotKit framework.
+title: Threads & Persistence
+description: Learn how to maintain persistent conversations across sessions with CrewAI Flows.
 icon: "lucide/MessagesSquare"
 ---
 
-CrewAI Flows supports threads, a way to group messages together and ultimately maintain a continuous chat history. CopilotKit
-provides a few different ways to interact with this concept.
+# Understanding Thread Persistence
+
+CrewAI Flows supports threads, a way to group messages together and maintain a continuous chat history across sessions. CopilotKit provides mechanisms to ensure conversation state is properly persisted between the frontend and backend.
 
 This guide assumes you have already gone through the [quickstart](/quickstart) guide.
 
-## Loading an Existing Thread
+## Frontend: Setting the ThreadId
 
-To load an existing thread in CopilotKit, you can simply set the `threadId` property on `<CopilotKit>` like so.
+### Loading an Existing Thread
+
+To load an existing thread in CopilotKit, set the `threadId` property on `<CopilotKit>`:
 
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core";
 
 <CopilotKit threadId="37aa68d0-d15b-45ae-afc1-0ba6c3e11353">
-  {" "}
-  // [!code highlight]
   <YourApp />
 </CopilotKit>;
 ```
 
-## Dynamically Switching Threads
+### Dynamically Switching Threads
 
-You can also make the `threadId` dynamic. Once it is set, CopilotKit will load the previous messages for that thread.
+You can make the `threadId` dynamic. Once set, CopilotKit will load previous messages for that thread.
 
 ```tsx
 import { useState } from "react";
@@ -34,40 +35,148 @@ import { CopilotKit } from "@copilotkit/react-core";
 const Page = () => {
   const [threadId, setThreadId] = useState(
     "af2fa5a4-36bd-4e02-9b55-2580ab584f89"
-  ); // [!code highlight]
+  );
   return (
     <CopilotKit threadId={threadId}>
-      {" "}
-      // [!code highlight]
-      <YourApp setThreadId={setThreadId} /> // [!code highlight]
+      <YourApp setThreadId={setThreadId} />
     </CopilotKit>
   );
 };
 
-const YourApp = () => {
+const YourApp = ({ setThreadId }) => {
   return (
     <Button onClick={() => setThreadId("679e8da5-ee9b-41b1-941b-80e0cc73a008")}>
-      {" "}
-      // [!code highlight] Change Thread
+      Change Thread
     </Button>
   );
 };
 ```
 
-## Using setThreadId
+### Using setThreadId
 
-CopilotKit will also return the current `threadId` and a `setThreadId` function from the `useCopilotContext` hook. You can use `setThreadId` to change the `threadId`.
+CopilotKit provides the current `threadId` and a `setThreadId` function from the `useCopilotContext` hook:
 
 ```tsx
 import { useCopilotContext } from "@copilotkit/react-core";
 
 const ChangeThreadButton = () => {
-  const { threadId, setThreadId } = useCopilotContext(); // [!code highlight]
+  const { threadId, setThreadId } = useCopilotContext();
   return (
     <Button onClick={() => setThreadId("d73c22f3-1f8e-4a93-99db-5c986068d64f")}>
-      {" "}
-      // [!code highlight] Change Thread
+      Change Thread
     </Button>
   );
 };
 ```
+
+## Backend: ThreadId with CrewAI Flows
+
+For proper persistence between sessions, the `threadId` from the frontend must be connected to the CrewAI Flow in your backend.
+
+### Understanding Flow State IDs
+
+CrewAI Flows maintain a unique state ID internally which is used for persistence. By default, Flow generates a random UUID for each flow instance. For thread persistence to work correctly, this ID must match the `threadId` from the frontend.
+
+### Initializing Flows with ThreadId
+
+When creating a flow instance, pass the `threadId` to the constructor:
+
+```python
+from sample_agent.agent import SampleAgentFlow
+
+# Create a flow with the threadId from the frontend request
+flow = SampleAgentFlow(thread_id=thread_id)
+```
+
+The flow's constructor should ensure the state ID matches the provided `thread_id`:
+
+```python
+def __init__(self, thread_id=None, **kwargs):
+    # Initialize with standard flow setup
+    super().__init__(**kwargs)
+
+    # Override the state ID with the provided thread_id
+    if thread_id:
+        # Set the ID in the state object
+        if hasattr(self.state, "id"):
+            self.state.id = thread_id
+        elif isinstance(self.state, dict):
+            self.state["id"] = thread_id
+
+        # Also set it in the internal _state property
+        if hasattr(self, "_state"):
+            if hasattr(self._state, "id"):
+                self._state.id = thread_id
+            elif isinstance(self._state, dict):
+                self._state["id"] = thread_id
+```
+
+You can see a complete implementation example in our [sample agent implementation](https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-starter-crewai-flows/agent-py/sample_agent/agent.py).
+
+### Implementing Thread Persistence in FastAPI
+
+For FastAPI applications, we recommend implementing a `PersistenceAgent` that ensures thread consistency:
+
+```python
+class PersistenceAgent(CrewAIAgent):
+    """
+    Ensures ThreadID persistence across requests by creating Flow instances
+    with the correct threadId.
+    """
+
+    def execute(self, *, thread_id, **kwargs):
+        # Create a fresh flow instance with the thread_id
+        new_flow = SampleAgentFlow(thread_id=thread_id)
+
+        # Replace self.flow with our new flow
+        self.flow = new_flow
+
+        # Execute using the parent implementation
+        return super().execute(thread_id=thread_id, **kwargs)
+
+    async def get_state(self, *, thread_id: str):
+        # Create a flow with the requested threadId
+        flow = SampleAgentFlow(thread_id=thread_id)
+
+        # Replace self.flow with our new flow
+        self.flow = flow
+
+        # Use the parent's implementation to get the state
+        return await super().get_state(thread_id=thread_id)
+```
+
+## Best Practices for Thread Persistence
+
+1. **Always Create Fresh Flow Instances**: For each request, create a new Flow instance with the correct `threadId` to prevent state contamination.
+
+2. **Use Consistent IDs**: Ensure the Flow's state ID and the frontend `threadId` are identical.
+
+3. **Implement Custom Persistence**: If needed, customize the Flow's persistence layer to handle thread loading/saving based on the provided IDs.
+
+4. **Debug ThreadId Issues**: Add logging to track the `threadId` flow through your application:
+
+```python
+print(f"[DEBUG] Flow created with threadId: {thread_id}")
+print(f"[DEBUG] Current state ID: {getattr(flow.state, 'id', 'unknown')}")
+```
+
+5. **Handle Thread Not Found**: Implement proper handling when a thread doesn't exist in your persistence layer:
+
+```python
+if not result.get("threadExists", False):
+    # Return a new empty state with the requested threadId
+    return {
+        "threadId": thread_id,
+        "threadExists": True,
+        "state": {"id": thread_id, "messages": [], "copilotkit": {"actions": []}},
+        "messages": []
+    }
+```
+
+By following these patterns, you can ensure reliable conversation persistence between your frontend and CrewAI Flow backend.
+
+## Example Implementations
+
+For complete working examples, refer to:
+
+- [Sample Agent Implementation](https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-starter-crewai-flows/agent-py/sample_agent/agent.py) - See a full implementation of a Flow with thread persistence
