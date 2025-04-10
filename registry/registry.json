@@ -68,8 +68,7 @@
       "registryDependencies": [ "tooltip" ],
       "dependencies": [
         "@copilotkit/react-core",
-        "@copilotkit/react-ui",
-        "@copilotkit/runtime"
+        "@copilotkit/react-ui"
       ],
       "files": [
         {
@@ -96,13 +95,7 @@
           "path": "registry/quickstarts/coagents-generic-lg/components/interrupt.tsx",
           "type": "registry:component",
           "target": "components/interrupt.tsx"
-        },
-        {
-          "path": "registry/quickstarts/coagents-generic-lg/runtime.ts",
-          "type": "registry:lib",
-          "target": "app/api/copilotkit/route.ts"
         }
-
       ]
     },
     {
