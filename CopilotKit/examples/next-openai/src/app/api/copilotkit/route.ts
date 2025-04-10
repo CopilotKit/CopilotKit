@@ -1,15 +1,11 @@
 import { NextRequest } from "next/server";
 import { CopilotRuntime, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
 import { getServiceAdapter } from "../../../lib/dynamic-service-adapter";
-import { HttpAgent } from "@agentwire/client";
 
 const UNSPLASH_ACCESS_KEY_ENV = "UNSPLASH_ACCESS_KEY";
 const UNSPLASH_ACCESS_KEY = process.env[UNSPLASH_ACCESS_KEY_ENV];
 
 const runtime = new CopilotRuntime({
-  agents: {
-    agentwire: new HttpAgent({ url: "http://localhost:8000" }),
-  },
   actions: [
     {
       name: "getImageUrl",

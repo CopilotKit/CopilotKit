@@ -24,7 +24,7 @@ export default function AIPresentation() {
   };
 
   return (
-    <CopilotKit {...copilotKitProps} agent="agentwire">
+    <CopilotKit {...copilotKitProps}>
       <div
         style={
           {
