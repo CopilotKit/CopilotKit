@@ -1,5 +1,12 @@
 # @copilotkit/runtime
 
+## 1.8.5-next.4
+
+### Patch Changes
+
+- 76d9ef9: - fix: handle langgraph client specific errors when running lgc stream
+  - @copilotkit/shared@1.8.5-next.4
+
 ## 1.8.5-next.3
 
 ### Patch Changes
