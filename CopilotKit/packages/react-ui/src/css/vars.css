@@ -33,6 +33,21 @@ WHEN MAKING ANY CHANGE, MAKE SURE TO INCLUDE IT IN ALL DUPLICATIONS.
 
   --copilot-kit-dev-console-bg: #f8f8fa;
   --copilot-kit-dev-console-text: black;
+
+  --copilot-kit-font-family: ui-sans-serif,
+  system-ui,
+  -apple-system,
+  BlinkMacSystemFont,
+  "Segoe UI",
+  Roboto,
+  "Helvetica Neue",
+  Arial,
+  "Noto Sans",
+  sans-serif,
+  "Apple Color Emoji",
+  "Segoe UI Emoji",
+  "Segoe UI Symbol",
+  "Noto Color Emoji";
 }
 
 /* BASE DARK THEME */

@@ -7,7 +7,7 @@ export function CopilotKitCSS() {
   return (
     <style suppressHydrationWarning>
       {`
-/* src/css/colors.css */
+/* src/css/vars.css */
 html {
   --copilot-kit-primary-color: rgb(28, 28, 28);
   --copilot-kit-contrast-color: rgb(255, 255, 255);
@@ -711,31 +711,31 @@ export const handleMouseMove = (e: any) => {
   while (element && element !== document.body) {
     if (element.classList.contains("copilotKitHeader")) {
       tooltip.innerHTML =
-        "<b>--copilot-kit-contrast-color</b>: Header background color.<br/><br/><b>--copilot-kit-primary-color</b>: Header text color.";
+        "<b>--copilot-kit-contrast-color</b>: Header background color.<br/><br/><b>--copilot-kit-primary-color</b>: Header text color.<br/><br/><b>--copilot-kit-font-family</b>: Fonts.";
       return;
     } else if (element.classList.contains("copilotKitAssistantMessage")) {
       tooltip.innerHTML =
-        "<b>--copilot-kit-secondary-contrast-color</b>: Assistant message text color.<br/><br/><b>--copilot-kit-primary-color</b>: Assistant message action buttons color.";
+        "<b>--copilot-kit-secondary-contrast-color</b>: Assistant message text color.<br/><br/><b>--copilot-kit-primary-color</b>: Assistant message action buttons color.<br/><br/><b>--copilot-kit-font-family</b>: Fonts.";
       return;
     } else if (element.classList.contains("copilotKitUserMessage")) {
       tooltip.innerHTML =
-        "<b>--copilot-kit-primary-color</b>: User message background color.<br/><br/><b>--copilot-kit-contrast-color</b>: User message text color.";
+        "<b>--copilot-kit-primary-color</b>: User message background color.<br/><br/><b>--copilot-kit-contrast-color</b>: User message text color.<br/><br/><b>--copilot-kit-font-family</b>: Fonts.";
       return;
     } else if (element.classList.contains("copilotKitMessages")) {
       tooltip.innerHTML =
-        "<b>--copilot-kit-background-color</b>: Chat window background color.<br/><br/><b>--copilot-kit-separator-color</b>: Chat window scrollbar color.";
+        "<b>--copilot-kit-background-color</b>: Chat window background color.<br/><br/><b>--copilot-kit-separator-color</b>: Chat window scrollbar color.<br/><br/><b>--copilot-kit-font-family</b>: Fonts.";
       return;
     } else if (element.classList.contains("sendButton")) {
       tooltip.innerHTML =
-        "<b>--copilot-kit-primary-color</b>: Active button color";
+        "<b>--copilot-kit-primary-color</b>: Active button color<br/><br/><b>--copilot-kit-font-family</b>: Fonts.";
       return;
     } else if (element.classList.contains("micButton")) {
       tooltip.innerHTML =
-        "<b>--copilot-kit-muted-color</b>: Muted button color";
+        "<b>--copilot-kit-muted-color</b>: Muted button color<br/><br/><b>--copilot-kit-font-family</b>: Fonts.";
       return;
     } else if (element.classList.contains("copilotKitInput")) {
       tooltip.innerHTML =
-        "<b>--copilot-kit-separator-color</b>: Input box border color.<br/><br/><b>--copilot-kit-muted-color</b>: Placeholder color.";
+        "<b>--copilot-kit-separator-color</b>: Input box border color.<br/><br/><b>--copilot-kit-muted-color</b>: Placeholder color.<br/><br/><b>--copilot-kit-font-family</b>: Fonts.";
       return;
     } else if (element.classList.contains("poweredBy")) {
       tooltip.innerHTML =
