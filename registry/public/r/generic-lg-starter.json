@@ -6,8 +6,7 @@
   "description": "A starter for CopilotKit with any LangGraph agent.",
   "dependencies": [
     "@copilotkit/react-core",
-    "@copilotkit/react-ui",
-    "@copilotkit/runtime"
+    "@copilotkit/react-ui"
   ],
   "registryDependencies": [
     "tooltip"
@@ -42,12 +41,6 @@
       "content": "import { LangGraphInterruptEvent } from \"@copilotkit/runtime-client-gql\";\nimport { useState } from \"react\";\n\nexport interface InterruptProps {\n    event: LangGraphInterruptEvent;\n    result: unknown;\n    resolve: (resolution: string) => void;\n}\n\nexport function Interrupt({ event, resolve }: InterruptProps) {\n  const [response, setResponse] = useState(\"\");\n\n  const wrapperStyles = \"flex flex-col justify-center items-center h-full w-full bg-indigo-600/50 my-4 rounded-xl\";\n  const titleStyles = \"text-lg font-semibold text-white\";\n  const subtitleStyles = \"text-sm font-normal text-gray-200 mb-1\";\n  const contentStyles = \"flex flex-col gap-2 p-4 w-full\";\n  const textareaStyles = \"w-full p-2 rounded-xl focus:outline-purple-500 border shadow-inner min-h-[100px] bg-white\";\n  const buttonStyles = \"px-4 py-2 bg-black text-white rounded-xl hover:bg-gray-700 transition-colors\";\n  const eventStyles = \"h-[300px] w-full overflow-auto p-3\";\n  const preStyles = \"whitespace-pre-wrap break-words text-sm m-0 w-full\";\n\n  return (\n    <div className={wrapperStyles}>\n      <div className={contentStyles}>\n        <h3 className={titleStyles}>\n          🙋 {event.name} <span className={subtitleStyles}>({event.type})</span>\n        </h3>\n        \n        <p className=\"text-white\">The agent wants you to see...</p>\n        <div className=\"bg-white rounded-xl border shadow-inner w-full\">\n          <div className={eventStyles}>\n            <pre className={preStyles}>{JSON.stringify(event.value, null, 2)}</pre>\n          </div>\n        </div>\n\n        <p className=\"mt-6 text-white\">How do you want to respond?</p>\n        <textarea \n          className={textareaStyles} \n          placeholder=\"Enter your response\"\n          value={response}\n          onChange={(e) => setResponse(e.target.value)}\n        />\n        \n        <div className=\"flex justify-center mt-4\">\n          <button \n            onClick={() => resolve(event.value)}\n            className={buttonStyles}\n          >\n            Respond\n          </button>\n        </div>\n      </div>\n    </div>\n  )\n}\n",
       "type": "registry:component",
       "target": "components/interrupt.tsx"
-    },
-    {
-      "path": "registry/quickstarts/coagents-generic-lg/runtime.ts",
-      "content": "import { NextRequest } from \"next/server\";\nimport {\n  CopilotRuntime,\n  copilotRuntimeNextJSAppRouterEndpoint,\n  ExperimentalEmptyAdapter,\n  langGraphPlatformEndpoint,\n} from \"@copilotkit/runtime\";\n\nconst serviceAdapter = new ExperimentalEmptyAdapter();\n\nconst runtime = new CopilotRuntime({\n  remoteEndpoints: [\n    langGraphPlatformEndpoint({\n      deploymentUrl: process.env.AGENT_URL || \"\",\n      langsmithApiKey: process.env.LANGSMITH_API_KEY || \"\", // only used in LangGraph Platform deployments\n      agents: [{\n          name: process.env.NEXT_PUBLIC_AGENT_NAME || \"\",\n          description: 'A helpful LLM agent.'\n      }]\n    }),\n  ],\n});\n\nexport const POST = async (req: NextRequest) => {\n  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({\n    runtime,\n    serviceAdapter,\n    endpoint: \"/api/copilotkit\",\n  });\n\n  return handleRequest(req);\n};\n",
-      "type": "registry:lib",
-      "target": "app/api/copilotkit/route.ts"
     }
   ]
 }

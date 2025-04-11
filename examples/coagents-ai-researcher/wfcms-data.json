@@ -1,8 +1,6 @@
 {
-    "framework": "LangGraph",
-    "usecase": "Research, Web search",
     "title": "AI Researcher",
+    "tutorial_video": "https://www.youtube.com/watch?v=HvzmwwDF4aM",
     "description": "Search the internet with AI-powered web search.",
-    "live_demo": "https://examples-coagents-ai-researcher-ui.vercel.app",
-    "cover_img": "https://examples-coagents-ai-researcher-ui.vercel.app/image.png"
+    "live_demo": "https://examples-coagents-ai-researcher-ui.vercel.app"
 }

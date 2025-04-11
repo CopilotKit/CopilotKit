@@ -67,6 +67,7 @@ import {
   LLMResponseData,
   LLMErrorData,
 } from "../observability";
+import { AbstractAgent } from "@agentwire/client";
 import { MessageRole } from "../../graphql/types/enums";
 
 // +++ MCP Imports +++
@@ -186,6 +187,11 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
   langserve?: RemoteChainParameters[];
 
   /*
+   * A map of agent names to AgentWire agents.
+   */
+  agents?: Record<string, AbstractAgent>;
+
+  /*
    * Delegates agent state processing to the service adapter.
    *
    * When enabled, individual agent state requests will not be processed by the agent itself.
@@ -254,6 +260,7 @@ export interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []
 
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   public actions: ActionsConfiguration<T>;
+  public agents: Record<string, AbstractAgent>;
   public remoteEndpointDefinitions: EndpointDefinition[];
   private langserve: Promise<Action<any>>[] = [];
   private onBeforeRequest?: OnBeforeRequestHandler;
@@ -294,7 +301,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     this.delegateAgentProcessingToServiceAdapter =
       params?.delegateAgentProcessingToServiceAdapter || false;
     this.observability = params?.observability_c;
-
+    this.agents = params?.agents ?? {};
     // +++ MCP Initialization +++
     this.mcpEndpointsConfig = params?.mcpEndpoints;
     this.createMCPClientImpl = params?.createMCPClient;
@@ -1090,6 +1097,7 @@ please use an LLM adapter instead.`,
       messages: inputMessages,
       agentStates,
       frontendUrl: url,
+      agents: this.agents,
     });
 
     const configuredActions =

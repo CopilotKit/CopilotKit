@@ -18,8 +18,11 @@
     "tsconfig": "1.4.6"
   },
   "changesets": [
+    "fast-forks-sparkle",
     "gentle-ads-check",
     "moody-countries-clean",
+    "rotten-sloths-think",
+    "small-turkeys-agree",
     "ten-doors-grow",
     "witty-poets-do"
   ]
