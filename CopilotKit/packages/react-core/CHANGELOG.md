@@ -1,5 +1,32 @@
 # ui
 
+## 1.8.5-next.5
+
+### Patch Changes
+
+- c0d3261: - full AWP support
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - refactor: address linter issues with the new pages
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - Merge branch 'mme/acp' into mme/mastra
+  - add sse example
+  - Create small-turkeys-agree.md
+  - upgrade AWP
+  - Merge branch 'mme/mastra' of github.com:CopilotKit/CopilotKit into mme/mastra
+  - make agents a dict
+  - update docs
+  - send tools
+  - update to latest packages
+  - fix problem where state sync are preventing tool calls
+  - set possibly undefined toolCalls to an empty array
+  - fix missing tool call ids
+  - @copilotkit/runtime-client-gql@1.8.5-next.5
+  - @copilotkit/shared@1.8.5-next.5
+
 ## 1.8.5-next.4
 
 ### Patch Changes
