@@ -12,17 +12,17 @@ from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from copilotkit import CopilotKitRemoteEndpoint
 from copilotkit.crewai import CrewAIAgent
 
-from demo.agentic_chat.agent import AgenticChatFlow
-from demo.agentic_generative_ui.agent import AgenticGenerativeUIFlow
-from demo.human_in_the_loop.agent import HumanInTheLoopFlow
-from demo.multi_agent_flows.agent import (
+from demo.crew_agentic_chat.agent import AgenticChatFlow
+from demo.crew_agentic_generative_ui.agent import AgenticGenerativeUIFlow
+from demo.crew_human_in_the_loop.agent import HumanInTheLoopFlow
+from demo.crew_multi_agent_flows.agent import (
     MultiAgentWriterFlow,
     MultiAgentResearcherFlow,
     MultiAgentCriticFlow,
 )
-from demo.predictive_state_updates.agent import PredictiveStateUpdatesFlow
-from demo.shared_state.agent import SharedStateFlow
-from demo.tool_based_generative_ui.agent import ToolBasedGenerativeUIFlow
+from demo.crew_predictive_state_updates.agent import PredictiveStateUpdatesFlow
+from demo.crew_shared_state.agent import SharedStateFlow
+from demo.crew_tool_based_generative_ui.agent import ToolBasedGenerativeUIFlow
 
 
 app = FastAPI()
@@ -96,7 +96,7 @@ def main():
     """Run the uvicorn server."""
     port = int(os.getenv("PORT", "8000"))
     uvicorn.run(
-        "demo.server:app",
+        "demo.crew_server:app",
         host="0.0.0.0",
         port=port,
         reload=True,
