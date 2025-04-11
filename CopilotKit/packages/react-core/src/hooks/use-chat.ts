@@ -519,6 +519,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         if (onFunctionCall) {
           // Find consecutive action execution messages at the end
           const lastMessages = [];
+
           for (let i = finalMessages.length - 1; i >= 0; i--) {
             const message = finalMessages[i];
             if (
@@ -526,7 +527,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               message.status.code !== MessageStatusCode.Pending
             ) {
               lastMessages.unshift(message);
-            } else {
+            } else if (!message.isAgentStateMessage()) {
               break;
             }
           }
