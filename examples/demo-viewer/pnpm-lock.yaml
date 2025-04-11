@@ -9,17 +9,17 @@ importers:
   .:
     dependencies:
       '@copilotkit/react-core':
-        specifier: 0.0.0-mme-mastra-20250331093635
-        version: 0.0.0-mme-mastra-20250331093635(@types/react@19.0.10)(graphql@16.10.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+        specifier: 1.8.4
+        version: 1.8.4(@types/react@19.0.10)(graphql@16.10.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@copilotkit/react-ui':
-        specifier: 0.0.0-mme-mastra-20250331093635
-        version: 0.0.0-mme-mastra-20250331093635(@types/react@19.0.10)(graphql@16.10.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+        specifier: 1.8.4
+        version: 1.8.4(@types/react@19.0.10)(graphql@16.10.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@copilotkit/runtime':
-        specifier: 0.0.0-mme-mastra-20250331093635
-        version: 0.0.0-mme-mastra-20250331093635(@browserbasehq/sdk@2.4.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.51.0)(deepmerge@4.3.1)(dotenv@16.4.7)(openai@4.90.0(ws@8.18.1)(zod@3.24.2))(zod@3.24.2))(@ibm-cloud/watsonx-ai@1.5.1(@langchain/core@0.3.43(openai@4.90.0(ws@8.18.1)(zod@3.24.2))))(axios@1.8.4)(google-auth-library@8.9.0)(ibm-cloud-sdk-core@5.3.2)(ignore@5.3.2)(jsonwebtoken@9.0.2)(playwright@1.51.0)(ws@8.18.1)
+        specifier: 1.8.4
+        version: 1.8.4(@browserbasehq/sdk@2.4.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.51.0)(deepmerge@4.3.1)(dotenv@16.4.7)(openai@4.90.0(ws@8.18.1)(zod@3.24.2))(zod@3.24.2))(@ibm-cloud/watsonx-ai@1.5.1(@langchain/core@0.3.43(openai@4.90.0(ws@8.18.1)(zod@3.24.2))))(axios@1.8.4)(google-auth-library@8.9.0)(ibm-cloud-sdk-core@5.3.2)(ignore@5.3.2)(jsonwebtoken@9.0.2)(playwright@1.51.0)(ws@8.18.1)
       '@copilotkit/runtime-client-gql':
-        specifier: 0.0.0-mme-mastra-20250331093635
-        version: 0.0.0-mme-mastra-20250331093635(graphql@16.10.0)(react@19.0.0)
+        specifier: 1.8.4
+        version: 1.8.4(graphql@16.10.0)(react@19.0.0)
       '@mdx-js/loader':
         specifier: ^3.1.0
         version: 3.1.0(acorn@8.14.1)
@@ -155,12 +155,6 @@ packages:
       graphql:
         optional: true
 
-  '@agentwire/client@0.0.15':
-    resolution: {integrity: sha512-UgaEa8PHJwDIxX1nBSUgkJL037/VHnSJ0qSyHO9XGdk2NeSU/q0Z4FbKnJ/66enzRUA5Izavy3hOXlz0htUG2A==}
-
-  '@agentwire/core@0.0.15':
-    resolution: {integrity: sha512-5s6ddaqT/gXaDWKyrR0xjgm9GuQmsPO2PBP/+gZbQuzlhDzIN4o67E9xWLc9nQvdQdijDJ8HODWYZQguypT54g==}
-
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
     engines: {node: '>=10'}
@@ -187,27 +181,27 @@ packages:
   '@cfworker/json-schema@4.1.1':
     resolution: {integrity: sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==}
 
-  '@copilotkit/react-core@0.0.0-mme-mastra-20250331093635':
-    resolution: {integrity: sha512-9m48tWXCUnoK8tZNtNX1dvGfoOAiheq/mYwdeugKsbtSJh5GKaiETiCPyROvM34WQ73enbko+0DDPG+TS7vaVA==}
+  '@copilotkit/react-core@1.8.4':
+    resolution: {integrity: sha512-R7AgLg5yIWQTfpTnzPXM7DZtGyu8akPbUTl1vEYd5lKb08ohWICp5a6CEpePR/r4/XSku+4mPntEPCbaqdFM5A==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
       react-dom: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/react-ui@0.0.0-mme-mastra-20250331093635':
-    resolution: {integrity: sha512-xY2m4uEsXfuavqN8BH7C8wXI+3aBt2hJFoTarCoZQ7Drnee7bOkzzAUZDBAlV5RYAwxR077z1SnTysO3ZzdLlw==}
+  '@copilotkit/react-ui@1.8.4':
+    resolution: {integrity: sha512-fbuqB3y4B59UuziHhTa4k2pE4Cf03RGGY8+KJ5ydd584UuDZ3p/ECLCDlI12zDwUZSJOsdumdaz/g/T997pRKQ==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime-client-gql@0.0.0-mme-mastra-20250331093635':
-    resolution: {integrity: sha512-q+FvbESxxrx4j9Ddp6DDo7qKkmT8IsCverG1Cxgp90NL21XLSfngpLPOnfaaTiMakvKVNjmHKmEmDghT2U3r6Q==}
+  '@copilotkit/runtime-client-gql@1.8.4':
+    resolution: {integrity: sha512-h2mzct4OHcZ7toaa40Ub1HW0Si+wTHoid9iFuwPbJ3mWcWCsuaOMekQ6ZY+oD2qZqjCvSFpHhbgimQNsICNbnQ==}
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
 
-  '@copilotkit/runtime@0.0.0-mme-mastra-20250331093635':
-    resolution: {integrity: sha512-d+XX4epPjQI2kmilWH3zdSHPvZqY/6I4o1ezDkj3+y7iwrcUi9G1XRHD6+/kRE/FqkngclTLWXN9iVQc72UqHA==}
+  '@copilotkit/runtime@1.8.4':
+    resolution: {integrity: sha512-SdUR/oIPaW/2NVuadmfV3XiTpITfkyKXAVOtdIinMmrUWMwCnAHvJ7BdiD4QMLuPe+5HYCcNxcxxP851J4iNQQ==}
 
-  '@copilotkit/shared@0.0.0-mme-mastra-20250331093635':
-    resolution: {integrity: sha512-8RhFR4qlgZNtQ05oOCKOVCm9CkrD/8syb8m+rwNn9gKp8HkJA2dtFI4PaaeFeenoNzezRAsHwy/ogpuqZtXIbQ==}
+  '@copilotkit/shared@1.8.4':
+    resolution: {integrity: sha512-JZVnOszA/e/RbmCIhzazPAGFUsbNjvahe488ocajDEGGa6qI3RkEdCx0tl9t1DcsuIt0uZAVaPoIC0y+3bgUkw==}
 
   '@emnapi/runtime@1.3.1':
     resolution: {integrity: sha512-kEBmG8KyqtxJZv+ygbEim+KCGtIq1fC22Ms3S4ziXmYKm8uyoLX0MHONVKwp+9opg390VaKRNt4a7A9NwmpNhw==}
@@ -2462,9 +2456,6 @@ packages:
     resolution: {integrity: sha512-7MptL8U0cqcFdzIzwOTHoilX9x5BrNqye7Z/LuC7kCMRio1EMSyqRK3BEAUD7sXRq4iT4AzTVuZdhgQ2TCvYLg==}
     engines: {node: '>=8.6.0'}
 
-  fast-json-patch@3.1.1:
-    resolution: {integrity: sha512-vf6IHUX2SBcA+5/+4883dsIjpBTqmfBjmYiWK1savxQmFk4JfBMLa7ynTYOs1Rolp/T1betJxHiGD3g1Mn8lUQ==}
-
   fast-json-stable-stringify@2.1.0:
     resolution: {integrity: sha512-lhd/wF+Lk98HZoTCtlVraHtfh5XYijIjalXck7saUtuanSDyLMxnHhSXEDJqHxD7msR8D0uCmqlkwjCV8xvwHw==}
 
@@ -4149,9 +4140,6 @@ packages:
   run-parallel@1.2.0:
     resolution: {integrity: sha512-5l4VyZR86LZ/lDxZTR6jqL8AFE2S0IFLMP26AbjsLVADxHdhB/c0GUsH+y39UfCi3dzz8OlQuPmnaJOMoDHQBA==}
 
-  rxjs@7.8.1:
-    resolution: {integrity: sha512-AA3TVj+0A2iuIoQkWEK/tqFjBq2j+6PO6Y0zJcvzLAFhEFIO3HL0vls9hWLncZbAAbK0mar7oZ4V079I/qPMxg==}
-
   rxjs@7.8.2:
     resolution: {integrity: sha512-dhKf903U/PQZY6boNNtAGdWbG85WAbjT/1xYoZIC7FAY0yWapOBQVsVrDl58W86//e1VpMNBtRV4MaXfdMySFA==}
 
@@ -4603,10 +4591,6 @@ packages:
     resolution: {integrity: sha512-8XkAphELsDnEGrDxUOHB3RGvXz6TeuYSGEZBOjtTtPm2lwhGBjLgOzLHB63IUWfBpNucQjND6d3AOudO+H3RWQ==}
     hasBin: true
 
-  uuid@11.1.0:
-    resolution: {integrity: sha512-0/A9rDy9P7cJ+8w1c9WD9V//9Wj15Ce2MPz8Ri6032usz+NfePxx5AcN3bN+r6ZL6jEo066/yNYB3tn4pQEx+A==}
-    hasBin: true
-
   uuid@9.0.1:
     resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
     hasBin: true
@@ -4732,21 +4716,6 @@ snapshots:
     optionalDependencies:
       graphql: 16.10.0
 
-  '@agentwire/client@0.0.15':
-    dependencies:
-      '@agentwire/core': 0.0.15
-      '@types/uuid': 10.0.0
-      fast-json-patch: 3.1.1
-      rxjs: 7.8.1
-      untruncate-json: 0.0.1
-      uuid: 11.1.0
-      zod: 3.24.2
-
-  '@agentwire/core@0.0.15':
-    dependencies:
-      rxjs: 7.8.1
-      zod: 3.24.2
-
   '@alloc/quick-lru@5.2.0': {}
 
   '@anthropic-ai/sdk@0.27.3':
@@ -4795,10 +4764,10 @@ snapshots:
 
   '@cfworker/json-schema@4.1.1': {}
 
-  '@copilotkit/react-core@0.0.0-mme-mastra-20250331093635(@types/react@19.0.10)(graphql@16.10.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+  '@copilotkit/react-core@1.8.4(@types/react@19.0.10)(graphql@16.10.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
-      '@copilotkit/runtime-client-gql': 0.0.0-mme-mastra-20250331093635(graphql@16.10.0)(react@19.0.0)
-      '@copilotkit/shared': 0.0.0-mme-mastra-20250331093635
+      '@copilotkit/runtime-client-gql': 1.8.4(graphql@16.10.0)(react@19.0.0)
+      '@copilotkit/shared': 1.8.4
       '@scarf/scarf': 1.4.0
       react: 19.0.0
       react-dom: 19.0.0(react@19.0.0)
@@ -4810,11 +4779,11 @@ snapshots:
       - graphql
       - supports-color
 
-  '@copilotkit/react-ui@0.0.0-mme-mastra-20250331093635(@types/react@19.0.10)(graphql@16.10.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
+  '@copilotkit/react-ui@1.8.4(@types/react@19.0.10)(graphql@16.10.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)':
     dependencies:
-      '@copilotkit/react-core': 0.0.0-mme-mastra-20250331093635(@types/react@19.0.10)(graphql@16.10.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
-      '@copilotkit/runtime-client-gql': 0.0.0-mme-mastra-20250331093635(graphql@16.10.0)(react@19.0.0)
-      '@copilotkit/shared': 0.0.0-mme-mastra-20250331093635
+      '@copilotkit/react-core': 1.8.4(@types/react@19.0.10)(graphql@16.10.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      '@copilotkit/runtime-client-gql': 1.8.4(graphql@16.10.0)(react@19.0.0)
+      '@copilotkit/shared': 1.8.4
       '@headlessui/react': 2.2.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       react: 19.0.0
       react-markdown: 8.0.7(@types/react@19.0.10)(react@19.0.0)
@@ -4828,9 +4797,9 @@ snapshots:
       - react-dom
       - supports-color
 
-  '@copilotkit/runtime-client-gql@0.0.0-mme-mastra-20250331093635(graphql@16.10.0)(react@19.0.0)':
+  '@copilotkit/runtime-client-gql@1.8.4(graphql@16.10.0)(react@19.0.0)':
     dependencies:
-      '@copilotkit/shared': 0.0.0-mme-mastra-20250331093635
+      '@copilotkit/shared': 1.8.4
       '@urql/core': 5.1.1(graphql@16.10.0)
       react: 19.0.0
       untruncate-json: 0.0.1
@@ -4839,11 +4808,10 @@ snapshots:
       - encoding
       - graphql
 
-  '@copilotkit/runtime@0.0.0-mme-mastra-20250331093635(@browserbasehq/sdk@2.4.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.51.0)(deepmerge@4.3.1)(dotenv@16.4.7)(openai@4.90.0(ws@8.18.1)(zod@3.24.2))(zod@3.24.2))(@ibm-cloud/watsonx-ai@1.5.1(@langchain/core@0.3.43(openai@4.90.0(ws@8.18.1)(zod@3.24.2))))(axios@1.8.4)(google-auth-library@8.9.0)(ibm-cloud-sdk-core@5.3.2)(ignore@5.3.2)(jsonwebtoken@9.0.2)(playwright@1.51.0)(ws@8.18.1)':
+  '@copilotkit/runtime@1.8.4(@browserbasehq/sdk@2.4.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.51.0)(deepmerge@4.3.1)(dotenv@16.4.7)(openai@4.90.0(ws@8.18.1)(zod@3.24.2))(zod@3.24.2))(@ibm-cloud/watsonx-ai@1.5.1(@langchain/core@0.3.43(openai@4.90.0(ws@8.18.1)(zod@3.24.2))))(axios@1.8.4)(google-auth-library@8.9.0)(ibm-cloud-sdk-core@5.3.2)(ignore@5.3.2)(jsonwebtoken@9.0.2)(playwright@1.51.0)(ws@8.18.1)':
     dependencies:
-      '@agentwire/client': 0.0.15
       '@anthropic-ai/sdk': 0.27.3
-      '@copilotkit/shared': 0.0.0-mme-mastra-20250331093635
+      '@copilotkit/shared': 1.8.4
       '@graphql-yoga/plugin-defer-stream': 3.13.2(graphql-yoga@5.13.2(graphql@16.10.0))(graphql@16.10.0)
       '@langchain/community': 0.3.37(@browserbasehq/sdk@2.4.0)(@browserbasehq/stagehand@1.14.0(@playwright/test@1.51.0)(deepmerge@4.3.1)(dotenv@16.4.7)(openai@4.90.0(ws@8.18.1)(zod@3.24.2))(zod@3.24.2))(@ibm-cloud/watsonx-ai@1.5.1(@langchain/core@0.3.43(openai@4.90.0(ws@8.18.1)(zod@3.24.2))))(@langchain/core@0.3.43(openai@4.90.0(ws@8.18.1)(zod@3.24.2)))(axios@1.8.4)(google-auth-library@8.9.0)(ibm-cloud-sdk-core@5.3.2)(ignore@5.3.2)(jsonwebtoken@9.0.2)(openai@4.90.0(ws@8.18.1)(zod@3.24.2))(playwright@1.51.0)(ws@8.18.1)
       '@langchain/core': 0.3.43(openai@4.90.0(ws@8.18.1)(zod@3.24.2))
@@ -5011,7 +4979,7 @@ snapshots:
       - ws
       - youtubei.js
 
-  '@copilotkit/shared@0.0.0-mme-mastra-20250331093635':
+  '@copilotkit/shared@1.8.4':
     dependencies:
       '@segment/analytics-node': 2.2.1
       chalk: 4.1.2
@@ -6915,7 +6883,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.12.0(@typescript-eslint/parser@8.26.0(eslint@9.21.0(jiti@2.4.2))(typescript@5.8.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.8.3(eslint-plugin-import@2.31.0)(eslint@9.21.0(jiti@2.4.2)))(eslint@9.21.0(jiti@2.4.2)):
+  eslint-module-utils@2.12.0(@typescript-eslint/parser@8.26.0(eslint@9.21.0(jiti@2.4.2))(typescript@5.8.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.8.3)(eslint@9.21.0(jiti@2.4.2)):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
@@ -6937,7 +6905,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.21.0(jiti@2.4.2)
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.0(@typescript-eslint/parser@8.26.0(eslint@9.21.0(jiti@2.4.2))(typescript@5.8.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.8.3(eslint-plugin-import@2.31.0)(eslint@9.21.0(jiti@2.4.2)))(eslint@9.21.0(jiti@2.4.2))
+      eslint-module-utils: 2.12.0(@typescript-eslint/parser@8.26.0(eslint@9.21.0(jiti@2.4.2))(typescript@5.8.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.8.3)(eslint@9.21.0(jiti@2.4.2))
       hasown: 2.0.2
       is-core-module: 2.16.1
       is-glob: 4.0.3
@@ -7180,8 +7148,6 @@ snapshots:
       glob-parent: 5.1.2
       merge2: 1.4.1
       micromatch: 4.0.8
-
-  fast-json-patch@3.1.1: {}
 
   fast-json-stable-stringify@2.1.0: {}
 
@@ -9424,10 +9390,6 @@ snapshots:
     dependencies:
       queue-microtask: 1.2.3
 
-  rxjs@7.8.1:
-    dependencies:
-      tslib: 2.8.1
-
   rxjs@7.8.2:
     dependencies:
       tslib: 2.8.1
@@ -9968,8 +9930,6 @@ snapshots:
   utils-merge@1.0.1: {}
 
   uuid@10.0.0: {}
-
-  uuid@11.1.0: {}
 
   uuid@9.0.1: {}
 
