@@ -1,5 +1,25 @@
 # @copilotkit/runtime
 
+## 1.8.5-next.4
+
+### Patch Changes
+
+- 76d9ef9: - fix: handle langgraph client specific errors when running lgc stream
+  - @copilotkit/shared@1.8.5-next.4
+
+## 1.8.5-next.3
+
+### Patch Changes
+
+- 77a7457: - feat: Add Model Context Protocol (MCP) support
+  - @copilotkit/shared@1.8.5-next.3
+
+## 1.8.5-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.5-next.2
+
 ## 1.8.5-next.1
 
 ### Patch Changes

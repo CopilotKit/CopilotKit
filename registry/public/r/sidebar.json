@@ -9,7 +9,7 @@
   ],
   "files": [
     {
-      "path": "components/chat/sidebar.tsx",
+      "path": "registry/chat/sidebar.tsx",
       "content": "import { CopilotSidebar } from \"@copilotkit/react-ui\";\n\nexport default function Sidebar() {\n  return <CopilotSidebar />;\n}\n",
       "type": "registry:page",
       "target": "app/copilotkit/page.tsx"

@@ -142,7 +142,7 @@ included in the function's final returned state. Otherwise, they will be overwri
                         class MyFlow(Flow):
 
                             @start
-                            def start_flow(self):
+                            async def start_flow(self):
                                 # Tell CopilotKit to treat step progress tool calls as predictive of the final state
                                 copilotkit_predict_state({
                                     "observed_steps": {

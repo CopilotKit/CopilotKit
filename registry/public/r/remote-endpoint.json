@@ -9,7 +9,7 @@
   ],
   "files": [
     {
-      "path": "components/runtime/remote-endpoint.ts",
+      "path": "registry/runtime/remote-endpoint.ts",
       "content": "import { NextRequest } from \"next/server\";\nimport {\n  CopilotRuntime,\n  copilotRuntimeNextJSAppRouterEndpoint,\n  ExperimentalEmptyAdapter,\n} from \"@copilotkit/runtime\";\n\nconst serviceAdapter = new ExperimentalEmptyAdapter();\n\nconst runtime = new CopilotRuntime({\n  remoteEndpoints: [\n    { url: process.env.COPILOTKIT_REMOTE_ENDPOINT || \"http://localhost:8000/copilotkit\" },\n  ],\n});\n\nexport const POST = async (req: NextRequest) => {\n  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({\n    runtime,\n    serviceAdapter,\n    endpoint: \"/api/copilotkit\",\n  });\n\n  return handleRequest(req);\n};\n",
       "type": "registry:lib",
       "target": "app/api/copilotkit/route.ts"
