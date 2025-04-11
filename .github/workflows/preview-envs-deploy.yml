@@ -4,10 +4,6 @@ on:
   pull_request:
     branches:
       - main
-      - pre/*
-  push:
-    branches:
-      - main
 
 concurrency:
   group: preview-${{ github.event.pull_request.number }}-deploy
