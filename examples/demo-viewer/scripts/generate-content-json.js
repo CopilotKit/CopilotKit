@@ -1,20 +1,16 @@
 const fs = require("fs");
 const path = require("path");
 
-// Files to include for each demo
+// Configuration mapping demo IDs (including framework prefix) to their files
+// TODO: This needs to be kept in sync with the actual agent/demo structure
 const config = {
-  agentic_chat: ["agent.py", "page.tsx", "style.css", "README.mdx"],
-  agentic_generative_ui: ["agent.py", "page.tsx", "style.css", "README.mdx"],
-  human_in_the_loop: ["agent.py", "page.tsx", "style.css", "README.mdx"],
-  shared_state: [
-    "agent.py",
-    "page.tsx",
-    "style.css",
-    "README.mdx",
-  ],
-  predictive_state_updates: ["agent.py", "page.tsx", "style.css", "README.mdx"],
-  tool_based_generative_ui: ["agent.py", "page.tsx", "style.css", "README.mdx"],
-  crew_enterprise: [
+  crewai_agentic_chat: ["agent.py", "page.tsx", "style.css", "README.mdx"],
+  crewai_agentic_generative_ui: ["agent.py", "page.tsx", "style.css", "README.mdx"],
+  crewai_human_in_the_loop: ["agent.py", "page.tsx", "style.css", "README.mdx"],
+  crewai_shared_state: ["README.md","agent.py", "page.tsx", "style.css", "README.mdx"], 
+  crewai_predictive_state_updates: ["agent.py", "page.tsx", "style.css", "README.mdx"],
+  crewai_tool_based_generative_ui: ["agent.py", "page.tsx", "style.css", "README.mdx"],
+  crewai_crew_enterprise: [
     "restaurant_finder_crew/src/config/__init__.py",
     "restaurant_finder_crew/src/config/agents.yaml",
     "restaurant_finder_crew/src/config/tasks.yaml",
@@ -23,123 +19,64 @@ const config = {
     "restaurant_finder_crew/src/crew.py",
     "restaurant_finder_crew/src/main.py",
     "restaurant_finder_crew/pyproject.toml",
-    "README.mdx",
-    "code.tsx",
+    "restaurant_finder_crew/README.md",
+    "restaurant_finder_crew/README.mdx",
+    "restaurant_finder_crew/code.tsx",
+    "restaurant_finder_crew/page.tsx"
   ],
+ 
+  langgraph_agentic_chat: ["agent.py", "page.tsx", "style.css", "README.mdx"],
+  langgraph_human_in_the_loop: ["agent.py", "page.tsx", "style.css", "README.mdx"],
+  langgraph_agentic_generative_ui: ["agent.py", "page.tsx", "style.css", "README.mdx"],
+  langgraph_tool_based_generative_ui: ["agent.py", "page.tsx", "style.css", "README.mdx"],
+  langgraph_shared_state: ["README.md","agent.py", "page.tsx", "style.css", "README.mdx"],
+  langgraph_predictive_state_updates: ["agent.py", "page.tsx", "style.css", "README.mdx"],
 };
 
-// Define which files should come from the feature directory vs. the demo directory
-const FEATURE_FILES = ["page.tsx", "style.css", "README.mdx", "code.tsx"];
-
 const result = {};
+const agentDemoBaseDir = path.join(__dirname, "../agent/demo");
 
-for (const demo in config) {
-  result[demo] = { files: [] };
-  const files = config[demo];
+for (const demoIdWithFramework in config) {
+  const demoFilesConfig = config[demoIdWithFramework];
+  const demoDirPath = path.join(agentDemoBaseDir, demoIdWithFramework);
   
-  // Check if code.tsx exists and should be used as page.tsx
-  let hasCodeTsx = false;
-  let codeTsxContent = null;
-  let codeTsxLanguage = "typescript";
-  
-  // First check for code.tsx in feature directory
-  const codeTsxFeaturePath = path.join(__dirname, `../src/app/feature/${demo}/code.tsx`);
-  if (fs.existsSync(codeTsxFeaturePath)) {
-    try {
-      codeTsxContent = fs.readFileSync(codeTsxFeaturePath, "utf8");
-      hasCodeTsx = true;
-    } catch (error) {
-      console.warn(`Could not read code.tsx from feature directory:`, error.message);
-    }
+  if (!fs.existsSync(demoDirPath)) {
+    console.warn(`Directory not found for demo: ${demoIdWithFramework}, skipping.`);
+    continue;
   }
   
-  // If not found in feature directory, try demo directory
-  if (!hasCodeTsx) {
-    const codeTsxDemoPath = path.join(__dirname, `../agent/demo/${demo}/code.tsx`);
-    if (fs.existsSync(codeTsxDemoPath)) {
-      try {
-        codeTsxContent = fs.readFileSync(codeTsxDemoPath, "utf8");
-        hasCodeTsx = true;
-      } catch (error) {
-        console.warn(`Could not read code.tsx from demo directory:`, error.message);
-      }
-    }
-  }
-  
-  // If we have code.tsx, add it as page.tsx immediately
-  if (hasCodeTsx) {
-    result[demo].files.push({
-      name: "page.tsx",
-      content: codeTsxContent,
-      path: "page.tsx",
-      language: "typescript",
-    });
-  }
-  
-  for (const file of files) {
-    // Skip both page.tsx and code.tsx if we have code.tsx
-    if (hasCodeTsx && (file === "page.tsx" || file === "code.tsx")) {
+  result[demoIdWithFramework] = { files: [] };
+
+  for (const fileName of demoFilesConfig) {
+    const filePath = path.join(demoDirPath, fileName);
+    if (!fs.existsSync(filePath)) {
+      console.warn(`File not found: ${filePath}, skipping.`);
       continue;
     }
     
-    let filePath;
-    let content;
-    
-    // Determine where to read the file from
-    if (FEATURE_FILES.includes(file) || file.endsWith("page.tsx")) {
-      // Check if file exists in feature directory
-      const featurePath = path.join(__dirname, `../src/app/feature/${demo}/${file}`);
-      if (fs.existsSync(featurePath)) {
-        filePath = featurePath;
-      } else {
-        // Fallback to demo directory if not found in feature
-        filePath = path.join(__dirname, `../agent/demo/${demo}/${file}`);
-      }
-    } else {
-      // Use demo directory for agent.py and other files
-      filePath = path.join(__dirname, `../agent/demo/${demo}/${file}`);
-    }
-    
     try {
-      content = fs.readFileSync(filePath, "utf8");
+      const content = fs.readFileSync(filePath, "utf8");
+      const extension = fileName.split(".").pop();
+      let language = extension;
+      if (extension === "py") language = "python";
+      else if (extension === "css") language = "css";
+      else if (extension === "md" || extension === "mdx") language = "markdown";
+      else if (extension === "tsx") language = "typescript";
+      else if (extension === "js") language = "javascript";
+      else if (extension === "json") language = "json";
+      else if (extension === "yaml" || extension === "yml") language = "yaml";
+      else if (extension === "toml") language = "toml";
+
+      result[demoIdWithFramework].files.push({
+        name: fileName,
+        content,
+        path: path.join(demoIdWithFramework, fileName), // Store relative path within agent/demo
+        language,
+        type: 'file'
+      });
     } catch (error) {
-      console.warn(`Could not read file ${filePath}:`, error.message);
-      continue; // Skip this file if it can't be read
+        console.error(`Error reading file ${filePath}:`, error);
     }
-    
-    const extension = file.split(".").pop();
-    let language = extension;
-    if (extension === "py") {
-      language = "python";
-    } else if (extension === "css") {
-      language = "css";
-    } else if (extension === "md" || extension === "mdx") {
-      language = "markdown";
-    } else if (extension === "tsx") {
-      language = "typescript";
-    } else if (extension === "yaml" || extension === "yml") {
-      language = "yaml";
-    } else if (extension === "toml") {
-      language = "toml";
-    }
-
-    result[demo].files.push({
-      name: file,
-      content,
-      path: file,
-      language,
-    });
-  }
-}
-
-// Extract README content for config
-for (const demo in result) {
-  const readmeFile = result[demo].files.find(
-    file => file.name === "README.mdx" || file.name === "README.md"
-  );
-  
-  if (readmeFile) {
-    result[demo].readmeContent = readmeFile.content;
   }
 }
 
@@ -148,4 +85,4 @@ fs.writeFileSync(
   JSON.stringify(result, null, 2)
 );
 
-console.log("Generated files.json with content from both feature and demo directories");
+console.log("Successfully generated src/files.json");
