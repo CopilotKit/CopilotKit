@@ -177,7 +177,7 @@ included in the function's final returned state. Otherwise, they will be overwri
                                         messages=[
                                             {
                                                 "role": "system",
-                                                "content": "You are a task performer. Pretend doing tasks you are given, report the steps using step_progress_tool." # [!code highlight]
+                                                "content": "You are a task performer. Pretend doing tasks you are given, report the steps using StepProgressTool." # [!code highlight]
                                             },
                                             *self.state.get("messages", [])
                                         ],
