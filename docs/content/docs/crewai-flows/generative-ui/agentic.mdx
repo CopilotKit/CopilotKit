@@ -76,17 +76,19 @@ is a situation where a user and an agent are working together to solve a problem
         from litellm import completion
         from copilotkit import CopilotKitState
         from copilotkit.langgraph import copilotkit_emit_state
+        import asyncio
+        from typing import TypedDict
 
         class Searches(TypedDict):
             query: str
             done: bool
 
         class AgentState(CopilotKitState):
-            searches: list[Searches] = []
+            searches: list[Searches] = [] # [!code highlight:5]
 
         @start
         async def chat(self):
-            state["searches"] = [
+            self.state["searches"] = [
                 {"query": "Initial research", "done": False},
                 {"query": "Retrieving sources", "done": False},
                 {"query": "Forming an answer", "done": False},
