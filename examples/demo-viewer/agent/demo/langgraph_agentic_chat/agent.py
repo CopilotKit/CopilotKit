@@ -7,6 +7,7 @@ from typing import Dict, List, Any, Optional
 # Updated imports for LangGraph
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END, START
+from langgraph.checkpoint.memory import MemorySaver
 # Updated imports for CopilotKit
 from copilotkit import CopilotKitState
 from copilotkit.langchain import copilotkit_customize_config
@@ -42,14 +43,16 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     await copilotkit_exit(config)
     
     # 1. Define the model
-    model = ChatOpenAI(model="gpt-4o")
+    model = ChatOpenAI(model="gpt-4")
     
     # Define config for the model
     if config is None:
         config = RunnableConfig(recursion_limit=25)
     else:
-        # Use CopilotKit's custom config functions to properly set up streaming
-        config = copilotkit_customize_config(config)
+        config["recursion_limit"] = 25
+
+    # Use CopilotKit's custom config functions to properly set up streaming
+    config = copilotkit_customize_config(config)
 
     # 2. Bind the tools to the model
     model_with_tools = model.bind_tools(
@@ -92,6 +95,10 @@ workflow.set_entry_point("chat_node")
 workflow.add_edge(START, "chat_node")
 workflow.add_edge("chat_node", END)
 
-# Compile the graph
+# Create a memory saver for checkpointing
+memory = MemorySaver()
+
+# Compile the graph with the checkpointer
 agentic_chat_graph = workflow.compile(
+    checkpointer=memory
 )

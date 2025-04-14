@@ -1,6 +1,8 @@
 import { DemoConfig } from "@/types/demo";
 import filesJSON from "./files.json";
 
+export const AGENT_TYPE = process.env.NEXT_PUBLIC_AGENT_TYPE || 'crewai';
+
 // A helper method to creating a config
 function createDemoConfig({
   id,
@@ -13,7 +15,7 @@ function createDemoConfig({
     id,
     name,
     description,
-    path: `/feature/${id}`,
+    path: `/feature/${AGENT_TYPE}/${id}`,
     defaultLLMProvider: "openai",
     tags,
     files,
