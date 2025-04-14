@@ -84,7 +84,7 @@ is a situation where a user and an agent are working together to solve a problem
             done: bool
 
         class AgentState(CopilotKitState):
-            searches: list[Searches] = [] # [!code highlight:5]
+            searches: list[Searches] = [] # [!code highlight]
 
         @start
         async def chat(self):
@@ -96,7 +96,7 @@ is a situation where a user and an agent are working together to solve a problem
             await copilotkit_emit_state(state)
 
             # Simulate state updates # [!code highlight:5]
-            for search in state["searches"]:
+            for search in self.state["searches"]:
                 await asyncio.sleep(1)
                 search["done"] = True
                 await copilotkit_emit_state(state)
