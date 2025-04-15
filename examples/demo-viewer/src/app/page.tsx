@@ -26,12 +26,15 @@ import { useRouter, usePathname } from "next/navigation";
 // Define a type for the files.json structure for safety
 type FilesJsonType = Record<string, { files: { name: string; content: string; path: string; language: string; type: string; }[] }>;
 
-// Add HomePageProps interface
+// --- Adjust HomePageProps to include standard Next.js page props ---
 interface HomePageProps {
-  defaultDemoId?: string;
+  params?: { [key: string]: string | string[] | undefined }; // Optional standard Next.js prop
+  searchParams?: { [key: string]: string | string[] | undefined }; // Optional standard Next.js prop
+  defaultDemoId?: string; // Our custom prop remains optional
 }
+// --- End Adjust HomePageProps ---
 
-export default function Home({ defaultDemoId }: HomePageProps = {}) {
+export default function Home({ defaultDemoId }: HomePageProps) {
   // Get the framework type from environment variable
   const currentFramework = process.env.NEXT_PUBLIC_AGENT_TYPE || 'crewai'; // Default to crewai if not set
   
