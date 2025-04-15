@@ -32,6 +32,19 @@ cd ..
 
 Make sure to replace `your_api_key_here` with your actual OpenAI API key.
 
+### Choosing Demo Set (CrewAI vs LangGraph)
+
+By default, the viewer shows demos built with CrewAI. To view demos built with LangGraph, you need to set the `NEXT_PUBLIC_AGENT_TYPE` environment variable in the **root directory's `.env` file**.
+
+Add the following line to the `.env` file in the project root:
+
+```bash
+# Set to 'langgraph' to view LangGraph demos, or 'crewai' for CrewAI demos (default)
+NEXT_PUBLIC_AGENT_TYPE=langgraph
+```
+
+Make sure to restart the Demo Viewer (`pnpm run dev`) after changing this variable.
+
 ### 1. Set up the agents
 
 First, navigate to the agents directory and install dependencies:
@@ -41,13 +54,19 @@ cd agent
 poetry install
 ```
 
-Then start the agents server:
+Then start the appropriate agents server based on the demo set you want to run (as configured by `NEXT_PUBLIC_AGENT_TYPE` in the root `.env` file):
 
-```bash
-poetry run server
-```
+- **For CrewAI demos (default):**
+  ```bash
+  poetry run crew_server
+  ```
 
-This will start the backend server that powers the agent demos.
+- **For LangGraph demos:**
+  ```bash
+  poetry run langgraph_server
+  ```
+
+This will start the backend server that powers the selected agent demos.
 
 ### 2. Run the Demo Viewer
 
