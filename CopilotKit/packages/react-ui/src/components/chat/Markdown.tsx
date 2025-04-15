@@ -12,19 +12,25 @@ const MemoizedReactMarkdown: FC<Options> = memo(
 
 type MarkdownProps = {
   content: string;
+  customComponents?: Components;
 };
 
-export const Markdown = ({ content }: MarkdownProps) => {
+export const Markdown = ({ content, customComponents = {} }: MarkdownProps) => {
+  const mergedComponents: Components = {
+    ...defaultComponents,
+    ...customComponents,
+  };
+
   return (
     <div className="copilotKitMarkdown">
-      <MemoizedReactMarkdown components={components} remarkPlugins={[remarkGfm, remarkMath]}>
+      <MemoizedReactMarkdown components={mergedComponents} remarkPlugins={[remarkGfm, remarkMath]}>
         {content}
       </MemoizedReactMarkdown>
     </div>
   );
 };
 
-const components: Components = {
+const defaultComponents: Components = {
   a({ children, ...props }) {
     return (
       <a
