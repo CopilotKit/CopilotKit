@@ -1,5 +1,5 @@
 ---
-title: Threads & Persistence
+title: Threads
 description: Learn how to maintain persistent conversations across sessions with CrewAI Flows.
 icon: "lucide/MessagesSquare"
 ---
@@ -9,6 +9,18 @@ icon: "lucide/MessagesSquare"
 CrewAI Flows supports threads, a way to group messages together and maintain a continuous chat history across sessions. CopilotKit provides mechanisms to ensure conversation state is properly persisted between the frontend and backend.
 
 This guide assumes you have already gone through the [quickstart](/quickstart) guide.
+
+<Callout>
+  **Note:** While the frontend uses `threadId` to manage conversation sessions,
+  true persistence across sessions requires backend setup. The backend agent
+  needs to implement a persistence mechanism (like the one shown in
+  [Message Persistence](/crewai-flows/persistence/message-persistence))
+  to save and load the state associated with each `threadId`.
+
+See the [sample agent implementation](https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-starter-crewai-flows/agent-py/sample_agent/agent.py#L291)
+for a concrete example.
+
+</Callout>
 
 ## Frontend: Setting the ThreadId
 
