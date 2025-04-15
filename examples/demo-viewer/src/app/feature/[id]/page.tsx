@@ -3,35 +3,39 @@
 import React, { useEffect } from "react";
 import { useParams } from "next/navigation";
 import config from "@/config"; // Assuming config is correctly exported from src/config.ts
-import HomePage from "@/app/page"; // Assuming the main page component is exported from src/app/page.tsx
+import HomePage from "@/app/HomePageComponent"; // Updated import path
 import { AGENT_TYPE } from "@/config"; // Import AGENT_TYPE
 
 export default function FeaturePage() {
   const params = useParams();
-  const shortId = params?.id as string;
+  const shortId = params?.id as string | undefined; // Allow undefined
+  const fullDemoId = shortId ? `${AGENT_TYPE}_${shortId}` : undefined;
+  const featureExists = fullDemoId ? config.some((feature) => feature.id === fullDemoId) : false;
 
-  // Construct the full demo ID using the agent type from env var and the short ID from URL
-  const fullDemoId = `${AGENT_TYPE}_${shortId}`;
-
-  // Validate that a demo with the constructed full ID exists in the config
-  const featureExists = config.some((feature) => feature.id === fullDemoId);
-
-  // If feature doesn't exist for the current AGENT_TYPE, redirect to home
-  // Using window.location.href for simplicity in client component redirect without router setup here
-  // Note: This redirect might cause a full page reload. Consider using next/navigation's redirect if preferred.
+  // Effect for redirection if the feature doesn't exist
   useEffect(() => {
-    if (!featureExists && shortId) { // Only redirect if shortId is present but feature doesn't exist
+    // Only run the effect if shortId was provided but the feature doesn't exist
+    if (shortId !== undefined && !featureExists) {
       console.warn(`Feature with ID "${fullDemoId}" not found for agent type "${AGENT_TYPE}". Redirecting to home.`);
       window.location.href = "/";
     }
-  }, [featureExists, shortId]);
+    // Ensure fullDemoId is included in dependencies if used inside effect
+  }, [shortId, featureExists, fullDemoId]); 
 
+  // Handle the case where no ID is provided in the URL
+  if (shortId === undefined) {
+    // Render the default HomePage without a specific demo selected
+    return <HomePage />;
+  }
+
+  // If shortId was provided but feature doesn't exist, render loading/redirect state
+  // This check ensures we don't try to render HomePage before the effect redirects
   if (!featureExists) {
-    // Render null or a loading state while redirecting
+    // Render loading state while redirecting
     return <div>Loading...</div>; // Or return null;
   }
 
-  // Render the main home page component, passing the validated fullDemoId
-  // HomePage will handle the actual rendering of the selected demo
+  // Render HomePage with the validated fullDemoId
+  // This part is reached only if shortId is defined and featureExists is true
   return <HomePage defaultDemoId={fullDemoId} />;
 } 

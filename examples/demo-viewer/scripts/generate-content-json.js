@@ -7,7 +7,7 @@ const config = {
   crewai_agentic_chat: ["agent.py", "page.tsx", "style.css", "README.mdx"],
   crewai_agentic_generative_ui: ["agent.py", "page.tsx", "style.css", "README.mdx"],
   crewai_human_in_the_loop: ["agent.py", "page.tsx", "style.css", "README.mdx"],
-  crewai_shared_state: ["README.md","agent.py", "page.tsx", "style.css", "README.mdx"], 
+  crewai_shared_state: ["README.mdx","agent.py", "page.tsx", "style.css", "README.mdx"], 
   crewai_predictive_state_updates: ["agent.py", "page.tsx", "style.css", "README.mdx"],
   crewai_tool_based_generative_ui: ["agent.py", "page.tsx", "style.css", "README.mdx"],
   crewai_crew_enterprise: [
