@@ -21,15 +21,22 @@ import { MDXContent } from "@/components/ui/mdx-components";
 import { MDXRenderer, SafeComponent } from "@/utils/mdx-utils";
 import filesJson from "../files.json";
 import { FileEntry } from "@/components/file-tree/file-tree";
+import { useRouter, usePathname } from "next/navigation";
 
 // Define a type for the files.json structure for safety
 type FilesJsonType = Record<string, { files: { name: string; content: string; path: string; language: string; type: string; }[] }>;
 
-export default function Home() {
+// Add HomePageProps interface
+interface HomePageProps {
+  defaultDemoId?: string;
+}
+
+export default function Home({ defaultDemoId }: HomePageProps = {}) {
   // Get the framework type from environment variable
   const currentFramework = process.env.NEXT_PUBLIC_AGENT_TYPE || 'crewai'; // Default to crewai if not set
   
-  const [selectedDemoId, setSelectedDemoId] = useState<string>();
+  // Initialize state with defaultDemoId
+  const [selectedDemoId, setSelectedDemoId] = useState<string | undefined>(defaultDemoId);
   
   // Filter demos based on the environment variable
   const filteredDemos = config.filter(d => d.id.startsWith(`${currentFramework}_`));
@@ -41,6 +48,10 @@ export default function Home() {
   const [isDarkTheme, setIsDarkTheme] = useState<boolean>(false);
   const [readmeContent, setReadmeContent] = useState<string | null>(null);
   const [compiledMDX, setCompiledMDX] = useState<string | null>(null);
+
+  // Add router and pathname hooks
+  const router = useRouter();
+  const pathname = usePathname();
 
   const [llmProvider, setLLMProvider] = useState<LLMProvider>(
     selectedDemo?.defaultLLMProvider || "openai"
@@ -144,36 +155,64 @@ export default function Home() {
     }
   }, []); // Dependencies for useCallback
 
-  // Update useEffect for loading initial demo/readme to potentially select the first demo of the current framework
+  // Implement new handleDemoSelect for URL updates
+  const handleDemoSelect = useCallback((fullDemoId: string) => {
+    setSelectedDemoId(fullDemoId);
+    // Extract the short ID (e.g., "agentic_chat" from "crewai_agentic_chat")
+    const shortId = fullDemoId.substring(fullDemoId.indexOf('_') + 1); 
+    
+    // Update the URL to /feature/[shortId] without full page reload
+    // Only push if the path is not already the target feature path
+    if (pathname !== `/feature/${shortId}`) {
+        router.push(`/feature/${shortId}`);
+    }
+    // Reset tab to preview when changing demos
+    setActiveTab("preview"); 
+    // Reset file selection state
+    setSelectedFilePath(null);
+    setFileContent(null);
+    setCurrentPath(config.find(d => d.id === fullDemoId)?.path || ""); // Update current path based on new demo
+    loadReadmeContent(fullDemoId); // Load readme for the new demo
+  }, [router, pathname, loadReadmeContent]); // Add dependencies
+
+  // Update useEffect for loading initial demo/readme
   useEffect(() => {
-    if (selectedDemoId && selectedDemo?.id === selectedDemoId) {
-        // If a demo is already selected and valid for the current framework, load its content
-        if (selectedDemo.id.startsWith(`${currentFramework}_`)) {
-             setCurrentPath(selectedDemo.path);
-             handleFileSelect(null); 
-             loadReadmeContent(selectedDemo.id);
-        } else {
-            // If the selected demo is not for the current framework, clear selection
-            setSelectedDemoId(undefined);
-            setReadmeContent(null);
-            setCompiledMDX(null);
-            setSelectedFilePath(null);
-            setFileContent(null);
-        }
-    } else {
-        // If no demo is selected, or selection is invalid, clear content
+    // Prioritize defaultDemoId if provided via props (from URL)
+    const initialDemoId = defaultDemoId || selectedDemoId; 
+    
+    if (initialDemoId) {
+      const demoToLoad = config.find(d => d.id === initialDemoId);
+      if (demoToLoad) {
+        // If the demo exists, load its content
+        // We don't need to filter by currentFramework here anymore, 
+        // as FeaturePage already validated it based on AGENT_TYPE
+        setSelectedDemoId(initialDemoId); // Ensure state is synced if defaultDemoId was used
+        setCurrentPath(demoToLoad.path);
+        handleFileSelect(null); 
+        loadReadmeContent(initialDemoId);
+      } else {
+        // If the initialDemoId is invalid (shouldn't happen if FeaturePage works correctly)
+        // Clear selection and content
+        setSelectedDemoId(undefined);
         setReadmeContent(null);
         setCompiledMDX(null);
         setSelectedFilePath(null);
         setFileContent(null);
-        // Optionally, select the first demo of the current framework by default
-        // const firstDemoId = filteredDemos[0]?.id;
-        // if (firstDemoId) {
-        //     setSelectedDemoId(firstDemoId);
-        // }
+      }
+    } else {
+      // If no demo ID is available (neither from prop nor state), clear content
+      setReadmeContent(null);
+      setCompiledMDX(null);
+      setSelectedFilePath(null);
+      setFileContent(null);
+      // Optionally select the first demo *of the current framework* if no specific demo requested
+      // const firstDemoForFramework = filteredDemos[0]?.id;
+      // if (firstDemoForFramework) {
+      //    handleDemoSelect(firstDemoForFramework); // Use handleDemoSelect to update URL too
+      // }
     }
-    // Dependencies need to include currentFramework now
-  }, [selectedDemoId, selectedDemo, currentFramework, loadReadmeContent, handleFileSelect]);
+    // Dependencies: defaultDemoId is crucial here. Also include filteredDemos if using the optional fallback.
+  }, [defaultDemoId, loadReadmeContent, handleFileSelect]); // Removed selectedDemoId, selectedDemo as they derive from defaultDemoId or state changes handled by handleDemoSelect
 
   const handleTabChange = useCallback((value: string): void => {
     setActiveTab(value);
@@ -258,7 +297,7 @@ export default function Home() {
             <DemoList
               demos={filteredDemos} // Pass filtered list based on env var
               selectedDemo={selectedDemoId}
-              onSelect={setSelectedDemoId}
+              onSelect={handleDemoSelect}
             />
           </div>
         </div>
