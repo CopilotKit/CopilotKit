@@ -14,7 +14,7 @@ export function DemoList({ demos, selectedDemo, onSelect }: DemoListProps) {
   return (
     <div className="h-full">
       <div className="px-4 pt-3 pb-2">
-        <h2 className="text-xs uppercase tracking-wider font-semibold text-muted-foreground mb-1">Demos</h2>
+        <h2 className="text-xs uppercase tracking-wider font-semibold text-muted-foreground mb-1">Features</h2>
       </div>
       <ul className="px-2 space-y-0.5">
         {demos.map((demo) => (
