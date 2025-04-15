@@ -85,6 +85,22 @@ export const POST = async (req: NextRequest) => {
 };
 ```
 
+### Environment Setup
+
+Since this example uses `OpenAIAdapter`, you'll need to set up your OpenAI API key in your environment variables:
+
+```
+OPENAI_API_KEY=<your_open_ai_key>
+```
+
+Create a `.env.local` file in your project root:
+
+```
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxx
+```
+
+For production deployments, make sure to set up this environment variable in your hosting platform securely.
+
 ## How It Works
 
 Once configured, CopilotKit will:
