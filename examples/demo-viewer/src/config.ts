@@ -39,88 +39,88 @@ function createDemoConfig({
 const config: DemoConfig[] = [
   createDemoConfig({
     id: "crewai_agentic_chat",
-    name: "Agentic Chat (CrewAI)",
+    name: "Agentic Chat",
     description: "Chat with your Copilot and call frontend tools",
-    tags: ["CrewAI", "Chat", "Tools", "Streaming"],
+    tags: ["Chat", "Tools", "Streaming"],
   }),
   createDemoConfig({
     id: "crewai_human_in_the_loop",
-    name: "Human in the loop (CrewAI)",
+    name: "Human in the loop",
     description:
       "Plan a task together and direct the Copilot to take the right steps",
-    tags: ["CrewAI", "HITL", "Interactivity"],
+    tags: ["HITL", "Interactivity"],
   }),
   createDemoConfig({
     id: "crewai_agentic_generative_ui",
-    name: "Agentic Generative UI (CrewAI)",
+    name: "Agentic Generative UI",
     description:
       "Assign a long running task to your Copilot and see how it performs!",
-    tags: ["CrewAI", "Generative ui (agent)", "Long running task"],
+    tags: ["Generative ui (agent)", "Long running task"],
   }),
   createDemoConfig({
     id: "crewai_tool_based_generative_ui",
-    name: "Tool Based Generative UI (CrewAI)",
+    name: "Tool Based Generative UI",
     description: "Haiku generator that uses tool based generative UI.",
-    tags: ["CrewAI", "Generative ui (action)", "Tools"],
+    tags: ["Generative ui (action)", "Tools"],
   }),
   createDemoConfig({
     id: "crewai_shared_state",
-    name: "Shared State (CrewAI)",
+    name: "Shared State",
     description: "A recipe Copilot which reads and updates collaboratively",
-    tags: ["CrewAI", "Agent State", "Collaborating"],
+    tags: ["Agent State", "Collaborating"],
   }),
   createDemoConfig({
     id: "crewai_predictive_state_updates",
-    name: "Predictive State Updates (CrewAI)",
+    name: "Predictive State Updates",
     description:
       "Use collaboration to edit a document in real time with your Copilot",
-    tags: ["CrewAI", "State", "Streaming", "Tools"],
+    tags: ["State", "Streaming", "Tools"],
   }),
   createDemoConfig({
     id: "crewai_crew_enterprise",
-    name: "Crew Enterprise (CrewAI)",
+    name: "Crew Enterprise",
     description: "Build AI Agents with CopilotKit + CrewAI",
-    tags: ["CrewAI", "Thought Streaming", "Human in the Loop"],
+    tags: ["Thought Streaming", "Human in the Loop"],
   }),
   // === Add LangGraph Demos ===
   createDemoConfig({
     id: "langgraph_agentic_chat",
-    name: "Agentic Chat (LangGraph)",
+    name: "Agentic Chat",
     description: "Chat with your Copilot and call frontend tools",
-    tags: ["LangGraph", "Chat", "Tools", "Streaming"],
+    tags: ["Chat", "Tools", "Streaming"],
   }),
   createDemoConfig({
     id: "langgraph_human_in_the_loop",
-    name: "Human in the loop (LangGraph)",
+    name: "Human in the loop",
     description:
       "Plan a task together and direct the Copilot to take the right steps",
-    tags: ["LangGraph", "HITL", "Interactivity"],
+    tags: ["HITL", "Interactivity"],
   }),
   createDemoConfig({
     id: "langgraph_agentic_generative_ui",
-    name: "Agentic Generative UI (LangGraph)",
+    name: "Agentic Generative UI",
     description:
       "Assign a long running task to your Copilot and see how it performs!",
-    tags: ["LangGraph", "Generative ui (agent)", "Long running task"],
+    tags: ["Generative ui (agent)", "Long running task"],
   }),
   createDemoConfig({
     id: "langgraph_tool_based_generative_ui",
-    name: "Tool Based Generative UI (LangGraph)",
+    name: "Tool Based Generative UI",
     description: "Haiku generator that uses tool based generative UI.",
-    tags: ["LangGraph", "Generative ui (action)", "Tools"],
+    tags: ["Generative ui (action)", "Tools"],
   }),
   createDemoConfig({
     id: "langgraph_shared_state",
-    name: "Shared State (LangGraph)",
+    name: "Shared State",
     description: "A recipe Copilot which reads and updates collaboratively",
-    tags: ["LangGraph", "Agent State", "Collaborating"],
+    tags: ["Agent State", "Collaborating"],
   }),
   createDemoConfig({
     id: "langgraph_predictive_state_updates",
-    name: "Predictive State Updates (LangGraph)",
+    name: "Predictive State Updates",
     description:
       "Use collaboration to edit a document in real time with your Copilot",
-    tags: ["LangGraph", "State", "Streaming", "Tools"],
+    tags: ["State", "Streaming", "Tools"],
   }),
   // TODO: Re-enable after revisiting demo
   // createDemoConfig({

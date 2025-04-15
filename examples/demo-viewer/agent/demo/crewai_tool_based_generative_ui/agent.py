@@ -30,9 +30,16 @@ GENERATE_HAIKU_TOOL = {
                         "type": "string"
                     },
                     "description": "An array of three lines of the haiku in English"
+                },
+                "image_names": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Names of 3 relevant images from the provided list"
                 }
             },
-            "required": ["japanese", "english"]
+            "required": ["japanese", "english", "image_names"]
         }
     }
 }

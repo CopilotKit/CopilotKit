@@ -245,7 +245,6 @@ export default function Home() {
                     <TabsTrigger
                       value="readme"
                       className="flex-1 h-7 px-2 text-sm font-medium gap-1 rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow"
-                      disabled={!readmeContent}
                     >
                       <Book className="h-3 w-3" />
                       <span>Docs</span>

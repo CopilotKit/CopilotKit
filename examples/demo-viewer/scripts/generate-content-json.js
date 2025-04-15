@@ -21,8 +21,7 @@ const config = {
     "restaurant_finder_crew/pyproject.toml",
     "restaurant_finder_crew/README.md",
     "restaurant_finder_crew/README.mdx",
-    "restaurant_finder_crew/code.tsx",
-    "restaurant_finder_crew/page.tsx"
+    "restaurant_finder_crew/code.tsx"
   ],
  
   langgraph_agentic_chat: ["agent.py", "page.tsx", "style.css", "README.mdx"],
