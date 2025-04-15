@@ -33,7 +33,7 @@ export function CodeEditor({ file, onFileChange }: CodeEditorProps) {
             enabled: false,
           },
         }}
-        theme={theme.theme === "dark" ? "vs-dark" : "vs-light"}
+        theme="vs-dark"
       />
     </div>
   ) : (

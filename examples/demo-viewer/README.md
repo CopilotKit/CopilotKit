@@ -32,22 +32,77 @@ cd ..
 
 Make sure to replace `your_api_key_here` with your actual OpenAI API key.
 
+### Choosing Demo Set (CrewAI vs LangGraph)
+
+By default, the viewer shows demos built with CrewAI. To view demos built with LangGraph, you need to set the `NEXT_PUBLIC_AGENT_TYPE` environment variable in the **root directory's `.env` file**.
+
+Add the following line to the `.env` file in the project root:
+
+```bash
+# Set to 'langgraph' to view LangGraph demos, or 'crewai' for CrewAI demos (default)
+NEXT_PUBLIC_AGENT_TYPE=langgraph
+```
+
+Make sure to restart the Demo Viewer (`pnpm run dev`) after changing this variable.
+
 ### 1. Set up the agents
 
-First, navigate to the agents directory and install dependencies:
+The setup process differs depending on whether you are running CrewAI or LangGraph demos.
+
+#### Setting up CrewAI Agents (Default)
+
+1.  Navigate to the agents directory:
+    ```bash
+    cd agent
+    ```
+2.  Install dependencies using Poetry:
+    ```bash
+    poetry install
+    ```
+3.  Start the CrewAI agent server:
+    ```bash
+    poetry run crew_server
+    ```
+
+#### Setting up LangGraph Agents
+
+If you have set `NEXT_PUBLIC_AGENT_TYPE=langgraph` in the root `.env` file, follow these steps:
+
+1.  Navigate to the agents directory:
+    ```bash
+    cd agent
+    ```
+2.  Create and activate a Python 3.12 virtual environment:
+    ```bash
+    python3.12 -m venv .venv
+    source .venv/bin/activate
+    ```
+    *(Ensure you have Python 3.12 installed)*
+3.  Install base dependencies using Poetry:
+    ```bash
+    poetry install
+    ```
+4.  Install LangGraph API and CLI packages:
+    ```bash
+    pip install -U langgraph-api
+    pip install "langgraph-cli[inmem]"
+    ```
+5.  Run the LangGraph development server:
+    ```bash
+    poetry run langgraph dev --host localhost --port 8000 --no-browser
+    ```
+
+This will start the backend server that powers the LangGraph agent demos on port 8000.
+
+#### Creating a Secure Tunnel (for LangGraph development)
+
+To connect the Demo Viewer frontend to your local LangGraph development server, you may need to create a secure tunnel using the CopilotKit CLI. In a **separate terminal**, run:
 
 ```bash
-cd agent
-poetry install
+npx copilotkit dev --port 8000 --project <your_project_id>
 ```
 
-Then start the agents server:
-
-```bash
-poetry run server
-```
-
-This will start the backend server that powers the agent demos.
+Replace `<your_project_id>` with your actual CopilotKit project ID. This command forwards requests from a public URL to your local server on port 8000.
 
 ### 2. Run the Demo Viewer
 
