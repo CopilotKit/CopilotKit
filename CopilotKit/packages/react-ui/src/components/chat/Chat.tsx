@@ -148,9 +148,15 @@ export interface CopilotChatProps {
   labels?: CopilotChatLabels;
 
   /**
-   * Enable image uploads (image inputs only supported on Claude models)
+   * Enable image upload button (image inputs only supported on some models)
    */
   imageUploadsEnabled?: boolean;
+
+  /**
+   * The 'accept' attribute for the file input used for image uploads.
+   * Defaults to "image/*".
+   */
+  inputFileAccept?: string;
 
   /**
    * A function that takes in context string and instructions and returns
@@ -293,6 +299,7 @@ export function CopilotChat({
   AssistantMessage = DefaultAssistantMessage,
   UserMessage = DefaultUserMessage,
   imageUploadsEnabled,
+  inputFileAccept = "image/*",
 }: CopilotChatProps) {
   const { additionalInstructions, setChatInstructions } = useCopilotContext();
   const [selectedImages, setSelectedImages] = useState<Array<{ contentType: string, bytes: string }>>([]);
@@ -449,7 +456,7 @@ export function CopilotChat({
             multiple
             ref={fileInputRef}
             onChange={handleImageUpload}
-            accept="image/*"
+            accept={inputFileAccept}
             style={{ display: 'none' }}
           />
         </>
