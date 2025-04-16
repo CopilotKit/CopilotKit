@@ -9,6 +9,7 @@ from typing import Dict, List, Any, Optional, Literal
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END, START
 from langgraph.types import Command
+from langgraph.checkpoint.memory import MemorySaver
 
 # CopilotKit imports
 from copilotkit import CopilotKitState
@@ -203,7 +204,6 @@ workflow.add_edge("start_flow", "chat_node")
 workflow.add_edge("chat_node", END)
 
 # Compile the graph
-graph = workflow.compile(
-)
+graph = workflow.compile(checkpointer=MemorySaver())
 
 # For compatibility with server code that might expect this clas
