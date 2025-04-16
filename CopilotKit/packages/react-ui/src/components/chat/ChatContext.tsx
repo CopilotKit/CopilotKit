@@ -81,6 +81,12 @@ export interface CopilotChatIcons {
    */
 
   thumbsDownIcon?: React.ReactNode;
+
+  /**
+   * The icon to use for the upload button.
+   * @default <UploadIcon />
+   */
+  uploadIcon?: React.ReactNode;
 }
 
 /**
@@ -221,6 +227,7 @@ export const ChatContextProvider = ({
         copyIcon: DefaultIcons.CopyIcon,
         thumbsUpIcon: DefaultIcons.ThumbsUpIcon,
         thumbsDownIcon: DefaultIcons.ThumbsDownIcon,
+        uploadIcon: DefaultIcons.UploadIcon,
       },
       ...icons,
     }),

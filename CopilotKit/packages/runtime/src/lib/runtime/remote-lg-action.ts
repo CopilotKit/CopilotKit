@@ -44,6 +44,7 @@ type BaseLangGraphPlatformMessage = Omit<
   Message,
   | "isResultMessage"
   | "isTextMessage"
+  | "isImageMessage"
   | "isActionExecutionMessage"
   | "isAgentStateMessage"
   | "type"
@@ -740,6 +741,24 @@ function copilotkitMessagesToLangChain(messages: Message[]): LangGraphPlatformMe
         result.push({
           ...message,
           role: MessageRole.assistant,
+        });
+      }
+      continue;
+    }
+
+    // Handle ImageMessage
+    if (message.isImageMessage()) {
+      if (message.role === "user") {
+        result.push({
+          ...message,
+          role: MessageRole.user,
+          content: "",
+        });
+      } else if (message.role === "assistant") {
+        result.push({
+          ...message,
+          role: MessageRole.assistant,
+          content: "",
         });
       }
       continue;

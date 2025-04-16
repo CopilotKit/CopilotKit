@@ -5,7 +5,7 @@ import AutoResizingTextarea from "./Textarea";
 import { usePushToTalk } from "../../hooks/use-push-to-talk";
 import { useCopilotContext } from "@copilotkit/react-core";
 
-export const Input = ({ inProgress, onSend, isVisible = false, onStop }: InputProps) => {
+export const Input = ({ inProgress, onSend, isVisible = false, onStop, onUpload }: InputProps) => {
   const context = useChatContext();
   const copilotContext = useCopilotContext();
 
@@ -89,7 +89,14 @@ export const Input = ({ inProgress, onSend, isVisible = false, onStop }: InputPr
           }}
         />
         <div className="copilotKitInputControls">
+          {onUpload && (
+            <button onClick={onUpload} className="copilotKitInputControlButton">
+              {context.icons.uploadIcon}
+            </button>
+          )}
+
           <div style={{ flexGrow: 1 }} />
+
           {showPushToTalk && (
             <button
               onClick={() =>
