@@ -15,6 +15,8 @@ import { BaseMetaEvent } from "./meta-events.type";
       return ResultMessageOutput;
     } else if (value.hasOwnProperty("state")) {
       return AgentStateMessageOutput;
+    } else if (value.hasOwnProperty("format") && value.hasOwnProperty("bytes")) {
+      return ImageMessageOutput;
     }
     return undefined;
   },
@@ -97,6 +99,21 @@ export class AgentStateMessageOutput {
 
   @Field(() => Boolean)
   running: boolean;
+}
+
+@ObjectType({ implements: BaseMessageOutput })
+export class ImageMessageOutput {
+  @Field(() => String)
+  format: string;
+
+  @Field(() => String)
+  bytes: string;
+
+  @Field(() => MessageRole)
+  role: MessageRole;
+
+  @Field(() => String, { nullable: true })
+  parentMessageId?: string;
 }
 
 @ObjectType()

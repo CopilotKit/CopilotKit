@@ -6,3 +6,4 @@ export { Markdown } from "./Markdown";
 export { AssistantMessage } from "./messages/AssistantMessage";
 export { UserMessage } from "./messages/UserMessage";
 export { useChatContext } from "./ChatContext";
+export { RenderImageMessage } from "./messages/RenderImageMessage";

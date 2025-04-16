@@ -17,6 +17,9 @@ export class MessageInput extends BaseMessageInput {
 
   @Field(() => AgentStateMessageInput, { nullable: true })
   agentStateMessage?: AgentStateMessageInput;
+
+  @Field(() => ImageMessageInput, { nullable: true })
+  imageMessage?: ImageMessageInput;
 }
 
 @InputType()
@@ -89,4 +92,19 @@ export class AgentStateMessageInput {
 
   @Field(() => Boolean)
   active: boolean;
+}
+
+@InputType()
+export class ImageMessageInput {
+  @Field(() => String)
+  format: string;
+
+  @Field(() => String)
+  bytes: string;
+
+  @Field(() => String, { nullable: true })
+  parentMessageId?: string;
+
+  @Field(() => MessageRole)
+  role: MessageRole;
 }
