@@ -67,24 +67,18 @@ Stay up to date with our latest releases!
 
 ## 🏆 Featured Examples
 
-### 📊 [AI Spreadsheet Assistant](https://github.com/CopilotKit/demo-spreadsheet)
-Transform spreadsheets with natural language data analysis and formula generation. Users can ask questions about their data, create complex formulas through conversation, and get instant visualizations—all without knowing a single Excel function.
-<div>
-  <a href="https://github.com/CopilotKit/demo-spreadsheet"><code>GitHub →</code></a>
-  <a href="https://spreadsheet-demo-tau.vercel.app/"><code>Live Demo →</code></a>
-</div>
-
-### 🏦 [SaaS Copilot (Bank)](https://github.com/CopilotKit/demo-banking)
-A context-aware financial assistant that analyzes transactions, provides spending insights, and helps users manage their finances through natural conversation. Demonstrates how CopilotKit can integrate deeply with complex data structures.
-<div>
-  <a href="https://github.com/CopilotKit/demo-banking"><code>GitHub →</code></a>
-</div>
-
 ### 📝 [Form-Filling Copilot](https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-form-filling)
 Transform tedious form-filling into natural conversations. The AI assistant asks the right questions, understands context, and completes forms automatically—no more field-by-field drudgery.
 <div>
   <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-form-filling"><code>GitHub →</code></a>
   <a href="https://form-filling-copilot.vercel.app"><code>Live Demo →</code></a>
+</div>
+
+### 🔄 [State Machine Copilot](https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-state-machine)
+Transform complex conversational flows into manageable state machines. This AI-powered car sales application demonstrates how to build sophisticated multi-stage interactions with contextual awareness and state transitions.
+<div>
+  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/state-machine-copilot"><code>GitHub →</code></a>
+  <a href="https://state-machine-copilot.vercel.app"><code>Live Demo →</code></a>
 </div>
 
 ### 💬 [Chat With Your Data](https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-chat-with-your-data)
@@ -94,11 +88,10 @@ Transform your data visualization experience with an AI-powered dashboard assist
   <a href="https://chat-with-your-data.vercel.app"><code>Live Demo →</code></a>
 </div>
 
-### 🔄 [State Machine Copilot](https://github.com/CopilotKit/CopilotKit/tree/main/examples/copilot-state-machine)
-Transform complex conversational flows into manageable state machines. This AI-powered car sales application demonstrates how to build sophisticated multi-stage interactions with contextual awareness and state transitions.
+### 🏦 [SaaS Copilot (Bank)](https://github.com/CopilotKit/demo-banking)
+A context-aware financial assistant that analyzes transactions, provides spending insights, and helps users manage their finances through natural conversation. Demonstrates how CopilotKit can integrate deeply with complex data structures.
 <div>
-  <a href="https://github.com/CopilotKit/CopilotKit/tree/main/examples/state-machine-copilot"><code>GitHub →</code></a>
-  <a href="https://state-machine-copilot.vercel.app"><code>Live Demo →</code></a>
+  <a href="https://github.com/CopilotKit/demo-banking"><code>GitHub →</code></a>
 </div>
 
 ## 🧙‍♂️ Agent Examples

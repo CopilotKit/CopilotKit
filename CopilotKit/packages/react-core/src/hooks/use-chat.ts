@@ -276,6 +276,14 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
       const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
 
+      // ----- Add this block: Merge mcpEndpoints into properties -----
+      const finalProperties = { ...(copilotConfig.properties || {}) };
+      if (copilotConfig.mcpEndpoints && copilotConfig.mcpEndpoints.length > 0) {
+        // Prop takes precedence over any potential mcpEndpoints in properties
+        finalProperties.mcpEndpoints = copilotConfig.mcpEndpoints;
+      }
+      // -------------------------------------------------------------
+
       const isAgentRun = agentSessionRef.current !== null;
 
       const stream = runtimeClient.asStream(
@@ -323,7 +331,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             })),
             forwardedParameters: options.forwardedParameters || {},
           },
-          properties: copilotConfig.properties,
+          properties: finalProperties,
           signal: chatAbortControllerRef.current?.signal,
         }),
       );
@@ -514,6 +522,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         if (onFunctionCall) {
           // Find consecutive action execution messages at the end
           const lastMessages = [];
+
           for (let i = finalMessages.length - 1; i >= 0; i--) {
             const message = finalMessages[i];
             if (
@@ -521,7 +530,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               message.status.code !== MessageStatusCode.Pending
             ) {
               lastMessages.unshift(message);
-            } else {
+            } else if (!message.isAgentStateMessage()) {
               break;
             }
           }

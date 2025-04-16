@@ -37,7 +37,6 @@ In this example from [our email-sending app](https://github.com/copilotkit/copil
                 async def send_email(self):
                     """Send an email."""
 
-                    await copilotkit_exit() # [!code highlight]
 
                     # get the last message and cast to ToolMessage
                     last_message = self.state["messages"][-1]
@@ -46,6 +45,8 @@ In this example from [our email-sending app](https://github.com/copilotkit/copil
                     else:
                         text_message = "✅ Sent email."
                     self.state["messages"].append({"role": "assistant", "content": text_message, "id": str(uuid.uuid4())})
+                    # Exit the agent loop after processing
+                    await copilotkit_exit() # [!code highlight]
                 ```
             </Tab>
         </Tabs>

@@ -19,6 +19,14 @@ CopilotKit will restore the complete state of the thread, including the messages
 
 ### Loading Agent State
 
+<Callout>
+  **Important:** For agent state to be loaded correctly, you must first ensure
+  that message history and persistence are properly configured. Follow the
+  guides on [Threads &
+  Persistence](/crewai-flows/persistence/loading-message-history) and [Message
+  Persistence](/crewai-flows/persistence/message-persistence).
+</Callout>
+
 This means that the state of any agent will also be restored. For example:
 
 ```tsx
