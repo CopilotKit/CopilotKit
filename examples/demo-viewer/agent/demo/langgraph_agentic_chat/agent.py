@@ -14,6 +14,7 @@ from langgraph.types import Command
 from typing_extensions import Literal
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage
+from langgraph.checkpoint.memory import MemorySaver
 from copilotkit.langgraph import (copilotkit_exit)
 
 
@@ -92,5 +93,4 @@ workflow.add_edge(START, "chat_node")
 workflow.add_edge("chat_node", END)
 
 # Compile the graph
-agentic_chat_graph = workflow.compile(
-)
+agentic_chat_graph = workflow.compile(checkpointer=MemorySaver())
