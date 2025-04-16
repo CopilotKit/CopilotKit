@@ -38,8 +38,6 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     For more about the ReAct design pattern, see: 
     https://www.perplexity.ai/search/react-agents-NcXLQhreS0WDzpVaS4m9Cg
     """
-
-    await copilotkit_exit(config)
     
     # 1. Define the model
     model = ChatOpenAI(model="gpt-4o")
@@ -76,6 +74,7 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     ], config)
 
     # 6. We've handled all tool calls, so we can end the graph.
+    await copilotkit_exit(config)
     return Command(
         goto=END,
         update={

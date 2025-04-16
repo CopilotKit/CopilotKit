@@ -64,8 +64,6 @@ async def start_flow(state: Dict[str, Any], config: RunnableConfig):
     This is the entry point for the flow.
     """
 
-    await copilotkit_exit(config) 
-
     # Initialize steps list if not exists
     if "steps" not in state:
         state["steps"] = []
@@ -88,11 +86,7 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
     You are a helpful assistant that can perform any task.
     You MUST call the `generate_task_steps` function when the user asks you to perform a task.
     When the function `generate_task_steps` is called, the user will decide to enable or disable steps.
-    After the user has decided which steps to perform, provide a textual description of how you are performing the task.
-    If the user has disabled a step, you are not allowed to perform that step.
-    However, you should find a creative workaround to perform the task, and if an essential step is disabled, you can even use
-    some humor in the description of how you are performing the task.
-    Don't just repeat a list of steps, come up with a creative but short description (3 sentences max) of how you are performing the task.
+    Always make sure you will provide tasks based on the user query
     """
 
     # Define the model
@@ -193,6 +187,7 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
             )
     
     # If no tool calls or not generate_task_steps, return to END with the updated messages
+    await copilotkit_exit(config)
     return Command(
         goto=END,
         update={
@@ -240,6 +235,7 @@ async def process_steps_node(state: Dict[str, Any], config: RunnableConfig):
         state.pop("user_response")
     
     # Return to END with the updated messages
+    await copilotkit_exit(config)
     return Command(
         goto=END,
         update={

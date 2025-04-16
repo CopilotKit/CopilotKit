@@ -73,7 +73,6 @@ async def start_flow(state: AgentState, config: RunnableConfig):
     """
     This is the entry point for the flow.
     """
-    await copilotkit_exit(config)
 
     if "steps" not in state:
         state["steps"] = []
@@ -180,6 +179,7 @@ async def chat_node(state: AgentState, config: RunnableConfig):
                 }
             )
     # If no tool was called, go to end (equivalent to "route_end" in CrewAI)
+    await copilotkit_exit(config)
     return Command(
         goto=END,
         update={
