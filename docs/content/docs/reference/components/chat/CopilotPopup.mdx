@@ -108,7 +108,12 @@ Labels can be used to set custom labels for the chat window.
 </PropertyReference>
 
 <PropertyReference name="imageUploadsEnabled" type="boolean"  > 
-Enable image uploads (image inputs only supported on Claude models)
+Enable image upload button (image inputs only supported on some models)
+</PropertyReference>
+
+<PropertyReference name="inputFileAccept" type="string"  > 
+The 'accept' attribute for the file input used for image uploads.
+  Defaults to "image".
 </PropertyReference>
 
 <PropertyReference name="makeSystemMessage" type="SystemMessageFunction"  > 
