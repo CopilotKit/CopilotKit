@@ -1,5 +1,14 @@
 # @copilotkit/sdk-js
 
+## 1.8.6-next.0
+
+### Patch Changes
+
+- 7a04bd1: - fix: fix how results are communicated back on interrupt
+  - fix: do not allow followup for interrupt actions
+  - chore: improve TS docs for interrupt
+  - @copilotkit/shared@1.8.6-next.0
+
 ## 1.8.5
 
 ### Patch Changes
