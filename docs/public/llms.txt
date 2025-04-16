@@ -1,0 +1,101 @@
+# http://docs.copilotkit.ai llms.txt
+
+- [CopilotKit Documentation](https://docs.copilotkit.ai/): Explore tools for building AI copilots and agents.
+- [Copilot Infrastructure Overview](https://docs.copilotkit.ai/coagents): Explore Copilot Infrastructure for building Agent-Native Applications.
+- [CopilotKit API Reference](https://docs.copilotkit.ai/reference): Comprehensive API reference for CopilotKit components and hooks.
+- [Copilot Infrastructure Overview](https://docs.copilotkit.ai/crewai-flows): Explore Copilot Infrastructure for building Agent-Native Applications.
+- [LangGraph Quickstart Guide](https://docs.copilotkit.ai/coagents/quickstart/langgraph): Quickly set up a LangGraph agent with CopilotKit.
+- [CrewAI Support](https://docs.copilotkit.ai/crewai-crews): Explore Copilot Infrastructure for building Agent-Native Applications.
+- [Self-Hosting Copilot](https://docs.copilotkit.ai/guides/self-hosting): Learn to self-host Copilot Runtime for seamless integration.
+- [useCopilotAction Hook](https://docs.copilotkit.ai/reference/hooks/useCopilotAction): React hook for custom actions in Copilot applications.
+- [State Machine Guide](https://docs.copilotkit.ai/cookbook/state-machine): Learn to implement state machines for guided conversations.
+- [Agent State Management](https://docs.copilotkit.ai/reference/hooks/useCoAgent): Integrate and manage agent state in applications easily.
+- [CopilotKit Component Guide](https://docs.copilotkit.ai/reference/components/CopilotKit): Comprehensive guide to using the CopilotKit component.
+- [Frontend Actions Guide](https://docs.copilotkit.ai/coagents/frontend-actions): Learn to create and implement frontend actions for AI agents.
+- [Generative UI Overview](https://docs.copilotkit.ai/coagents/generative-ui): Explore Generative UI for rendering agent behaviors and outputs.
+- [CopilotKit Quickstart Guide](https://docs.copilotkit.ai/quickstart?component=CopilotChat): Quickly integrate CopilotKit for chat functionality in apps.
+- [Message History Management](https://docs.copilotkit.ai/guides/messages-localstorage): Learn to save and restore message history using localStorage.
+- [Copilot Suggestions Guide](https://docs.copilotkit.ai/guides/copilot-suggestions): Learn to auto-generate chat suggestions based on app state.
+- [CopilotTask Overview](https://docs.copilotkit.ai/reference/classes/CopilotTask): Execute one-off tasks using CopilotTask in applications.
+- [Copilot Textarea Guide](https://docs.copilotkit.ai/guides/copilot-textarea): Learn to implement AI-powered Copilot Textarea in React.
+- [CrewAI Documentation](https://docs.copilotkit.ai/crewai-crews/components): Find support and documentation for CrewAI components.
+- [CopilotRuntime Class Reference](https://docs.copilotkit.ai/reference/classes/CopilotRuntime): Explore CopilotRuntime class for LLM interactions and configurations.
+- [useLangGraphInterrupt Hook](https://docs.copilotkit.ai/reference/hooks/useLangGraphInterrupt): React hook for custom UI on LangGraph Interrupt events.
+- [CopilotTextarea Component](https://docs.copilotkit.ai/reference/components/CopilotTextarea): AI-powered textarea component with enhanced autocomplete features.
+- [CopilotKit Quickstart Guide](https://docs.copilotkit.ai/quickstart?component=CopilotSidebar): Quickly set up CopilotKit for your application in minutes.
+- [Generative UI Guide](https://docs.copilotkit.ai/guides/generative-ui): Learn to embed custom UI components in chat interfaces.
+- [Chat Suggestions Hook](https://docs.copilotkit.ai/reference/hooks/useCopilotChatSuggestions): Generate chat suggestions based on app state in real-time.
+- [Anonymous Telemetry Management](https://docs.copilotkit.ai/telemetry): Learn how to manage anonymous telemetry in CopilotKit.
+- [Shared State Overview](https://docs.copilotkit.ai/coagents/shared-state): Learn about shared state for UI and agent interaction.
+- [Frontend Actions Guide](https://docs.copilotkit.ai/guides/frontend-actions): Learn to enable Copilot actions in frontend applications.
+- [CopilotKit Common Issues](https://docs.copilotkit.ai/troubleshooting/common-issues): Find solutions to common CopilotKit issues and errors.
+- [LangGraph Quickstart Guide](https://docs.copilotkit.ai/coagents/quickstart/langgraph): Quickly set up a LangGraph agent with CopilotKit.
+- [LangGraph Framework Overview](https://docs.copilotkit.ai/coagents/concepts/langgraph): Explore LangGraph framework for building LLM applications.
+- [Backend Actions Guide](https://docs.copilotkit.ai/guides/backend-actions): Learn to implement backend actions and agents in Copilot.
+- [Agent State Rendering](https://docs.copilotkit.ai/reference/hooks/useCoAgentStateRender): Render agent state in chat using useCoAgentStateRender hook.
+- [useCopilotReadable Hook](https://docs.copilotkit.ai/reference/hooks/useCopilotReadable): React hook for managing app state with Copilot.
+- [CopilotPopup Component](https://docs.copilotkit.ai/reference/components/chat/CopilotPopup): Interactive chatbot popup component for CopilotKit framework.
+- [CoAgents Common Issues](https://docs.copilotkit.ai/coagents/troubleshooting/common-issues): Troubleshooting guide for common CoAgents issues and solutions.
+- [Agentic Generative UI](https://docs.copilotkit.ai/coagents/generative-ui/agentic): Learn to render agent state with custom UI components.
+- [Agentic Copilots Overview](https://docs.copilotkit.ai/coagents/concepts/agentic-copilots): Explore advanced control and orchestration of AI agents.
+- [Connect Your Data](https://docs.copilotkit.ai/guides/connect-your-data): Learn to connect your data to CopilotKit effectively.
+- [CopilotChat Component](https://docs.copilotkit.ai/reference/components/chat/CopilotChat): Explore the customizable CopilotChat component for chat interfaces.
+- [CrewAI Components Guide](https://docs.copilotkit.ai/crewai-crews/components/types): Explore CrewAI components and documentation for effective usage.
+- [CopilotKit Quickstart Guide](https://docs.copilotkit.ai/quickstart?component=Headless+UI): Quickly set up CopilotKit for your application in minutes.
+- [LangGraph SDK Overview](https://docs.copilotkit.ai/reference/sdk/python/LangGraph): Explore the Python LangGraph SDK for CopilotKit workflows.
+- [CopilotKit Remote Endpoints](https://docs.copilotkit.ai/reference/sdk/python/RemoteEndpoints): Connect Python actions and agents to CopilotKit applications.
+- [LangGraph SDK Overview](https://docs.copilotkit.ai/reference/sdk/js/LangGraph): JavaScript SDK for building LangGraph workflows with CopilotKit.
+- [Multi-Agent Flows](https://docs.copilotkit.ai/coagents/multi-agent-flows): Learn to orchestrate complex flows with multiple agents.
+- [Copilot Sidebar Component](https://docs.copilotkit.ai/reference/components/chat/CopilotSidebar): Customizable sidebar component for chatbot interactions in CopilotKit.
+- [CrewAI Quickstart Guide](https://docs.copilotkit.ai/crewai-flows/quickstart/crewai): Quickly set up CrewAI Flows with CopilotKit integration.
+- [Copilotkit Configuration Guide](https://docs.copilotkit.ai/coagents/concepts/copilotkit-config): Learn to configure message streaming and tool calls in Copilotkit.
+- [Agentic Chat UI](https://docs.copilotkit.ai/coagents/agentic-chat-ui): Explore CopilotKit's agentic chat UI components for user interaction.
+- [CrewAIAgent Overview](https://docs.copilotkit.ai/reference/sdk/python/CrewAIAgent): Define and serve agents using CrewAIAgent in Python.
+- [CrewAI Quickstart Guide](https://docs.copilotkit.ai/crewai-crews/quickstart/crewai): Quickly set up CrewAI Crews with CopilotKit integration.
+- [LangGraphAgent Overview](https://docs.copilotkit.ai/reference/sdk/python/LangGraphAgent): Define and configure agents for CopilotKit using Python.
+- [CopilotKit Guardrails Guide](https://docs.copilotkit.ai/guides/guardrails): Learn to implement content moderation guardrails in CopilotKit.
+- [LangSmith Observability](https://docs.copilotkit.ai/observability/langsmith): Setup LangSmith for tracing LLM runs with CopilotKit.
+- [Disabling State Streaming](https://docs.copilotkit.ai/coagents/advanced/disabling-state-streaming): Control state streaming to the frontend in CopilotKit.
+- [Integrate Your LLM](https://docs.copilotkit.ai/guides/bring-your-own-llm): Learn to integrate any LLM with CopilotKit easily.
+- [Customizing UI](https://docs.copilotkit.ai/guides/custom-look-and-feel): Customize CopilotKit's UI components for unique interfaces.
+- [Self-Host CopilotKit](https://docs.copilotkit.ai/quickstart?copilot-hosting=self-hosted): Quickly set up and self-host CopilotKit in minutes.
+- [Connect Your Data](https://docs.copilotkit.ai/guides/connect-your-data/frontend): Learn to connect data to CopilotKit for better responses.
+- [Loading Message History](https://docs.copilotkit.ai/coagents/persistence/loading-message-history): Learn to load and manage chat message threads effectively.
+- [Human-in-the-Loop Overview](https://docs.copilotkit.ai/coagents/human-in-the-loop): Explore Human-in-the-Loop for AI collaboration and reliability.
+- [CopilotKit Quickstart Guide](https://docs.copilotkit.ai/quickstart?component=Headless%20UI): Quickly set up CopilotKit for your application in minutes.
+- [Customize AI Assistant](https://docs.copilotkit.ai/guides/custom-ai-assistant-behavior): Learn to customize your AI assistant's behavior effectively.
+- [Loading Agent State](https://docs.copilotkit.ai/coagents/persistence/loading-agent-state): Learn how to load previous agent states using threadId.
+- [OpenAIAdapter Overview](https://docs.copilotkit.ai/reference/classes/llm-adapters/OpenAIAdapter): Explore the OpenAIAdapter for Copilot Runtime integration.
+- [GroqAdapter Overview](https://docs.copilotkit.ai/reference/classes/llm-adapters/GroqAdapter): Explore GroqAdapter for Copilot Runtime integration and usage.
+- [OpenAI Assistant Adapter](https://docs.copilotkit.ai/reference/classes/llm-adapters/OpenAIAssistantAdapter): Adapter for integrating OpenAI Assistant API with Copilot.
+- [LangChainAdapter Overview](https://docs.copilotkit.ai/reference/classes/llm-adapters/LangChainAdapter): Explore the LangChainAdapter for Copilot Runtime integration.
+- [Loading Agent State](https://docs.copilotkit.ai/coagents/persistence/loading-agent-state): Learn how to load previous agent states using threadId.
+- [CopilotKit Documentation](https://docs.copilotkit.ai/?ref=github_readme): Explore tools for building AI copilots and agents.
+- [Google Generative AI](https://docs.copilotkit.ai/reference/classes/llm-adapters/GoogleGenerativeAIAdapter): Adapter for Google Generative AI in Copilot Runtime.
+- [CrewAI Documentation](https://docs.copilotkit.ai/crewai-crews?ref=blog.crewai.com): Explore Copilot Infrastructure for building Agent-Native Applications.
+- [Agent State Management](https://docs.copilotkit.ai/coagents/shared-state/state-inputs-outputs): Guide on managing agent state inputs and outputs effectively.
+- [Predictive State Updates](https://docs.copilotkit.ai/coagents/shared-state/predictive-state-updates): Learn to implement predictive state updates for agents.
+- [CopilotKit Migration Guide](https://docs.copilotkit.ai/troubleshooting/migrate-to-1.8.2): Migration guide for CopilotKit version 1.8.2 features.
+- [Generative UI Guide](https://docs.copilotkit.ai/guides/generative-ui?ref=hackernoon.com): Learn to embed custom UI components in chat interfaces.
+- [Agentic Generative UI](https://docs.copilotkit.ai/coagents/generative-ui/agentic): Learn to render agent state with custom UI components.
+- [TypeScript Backend Actions](https://docs.copilotkit.ai/guides/backend-actions/typescript-backend-actions): Learn to implement TypeScript backend actions in CopilotKit.
+- [Tool-based Generative UI](https://docs.copilotkit.ai/crewai-crews/generative-ui/tool-based): Learn to render tool calls with custom UI components.
+- [LangGraph Platform Deployment](https://docs.copilotkit.ai/guides/backend-actions/langgraph-platform-endpoint): Guide to deploy and connect agents on LangGraph Platform.
+- [Remote Backend Integration](https://docs.copilotkit.ai/guides/backend-actions/remote-backend-endpoint): Integrate Python backend with CopilotKit using FastAPI.
+- [Human-in-the-Loop Overview](https://docs.copilotkit.ai/crewai-flows/human-in-the-loop): Explore Human-in-the-Loop for AI collaboration and reliability.
+- [Authenticated Actions Guide](https://docs.copilotkit.ai/guides/authenticated-actions): Learn to implement secure authenticated actions in CopilotKit.
+- [CoAgents Terminology](https://docs.copilotkit.ai/coagents/concepts/terminology): Key terms and definitions for understanding CoAgents concepts.
+- [Contributing to Documentation](https://docs.copilotkit.ai/contributing/docs-contributions): Learn how to contribute to CopilotKit documentation effectively.
+- [useCopilotChat Hook](https://docs.copilotkit.ai/reference/hooks/useCopilotChat): React hook for interacting with Copilot chat instance.
+- [Human-in-the-Loop Guide](https://docs.copilotkit.ai/coagents/human-in-the-loop/node-flow): Learn to implement Human-in-the-Loop with node-based flows.
+- [Headless UI Customization](https://docs.copilotkit.ai/guides/custom-look-and-feel/headless-ui): Customize Copilot's UI using headless components and hooks.
+- [Agent State Writing Guide](https://docs.copilotkit.ai/coagents/shared-state/in-app-agent-write): Learn how to write to your agent's state effectively.
+- [Chat Components Overview](https://docs.copilotkit.ai/reference/components/chat): Explore various chat components for Copilot integration.
+- [LangChain JS Integration](https://docs.copilotkit.ai/guides/backend-actions/langchain-js-backend-actions): Integrate LangChain JS actions with CopilotRuntime for backend.
+- [Agent State Management](https://docs.copilotkit.ai/coagents/shared-state/in-app-agent-read): Learn to read and manage agent state in apps.
+- [Human-in-the-Loop Guide](https://docs.copilotkit.ai/coagents/human-in-the-loop/interrupt-flow): Learn to implement Human-in-the-Loop workflows with interrupts.
+- [Agent State Writing Guide](https://docs.copilotkit.ai/coagents/shared-state/in-app-agent-write): Learn how to write to your agent's state effectively.
+- [Message Management Overview](https://docs.copilotkit.ai/coagents/concepts/message-management): Explore message management in CoAgents with CopilotKit.
+- [Exiting Agent Loop](https://docs.copilotkit.ai/coagents/advanced/exit-agent): Learn how to exit the agent loop in CopilotKit.
+- [Message Persistence Guide](https://docs.copilotkit.ai/coagents/persistence/message-persistence): Learn to persist messages and agent states effectively.
+- [Emit Messages Guide](https://docs.copilotkit.ai/coagents/advanced/emit-messages): Learn to manually emit messages in CopilotKit agents.

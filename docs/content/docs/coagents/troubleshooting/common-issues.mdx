@@ -243,18 +243,18 @@ If you're seeing this error, it means the LangGraph platform client cannot conne
 
 ## I see messages being streamed and disappear
 
-This is typically because the `messages` state is being updated in the middle of a node but those edits are not being
+LangGraph agents are stateful. As a graph is traversed, the state is saved at the end of each node. CopilotKit uses the agent's state as
+the source of truth for what to display in the frontend chat. However, since state is only emitted at the end of a node,  CopilotKit allows
+you to stream predictive state updates *in the middle of a node*. By default, CopilotKit will stream messages and tool calls being actively
+generated to the frontend chat that initiated the interaction. **If this predictive state is not persisted at the end of the node, it will 
+disappear in the frontend chat**.
+
+In this situation, the most likely scenario is that the `messages` property in the state is being updated in the middle of a node but those edits are not being
 persisted at the end of a node. 
 
-LangGraph agents are stateful. As a graph is traversed, the state is saved at the end of each node. However, you can
-emit state and stream updates *in the middle of a node*. By default, CopilotKit will stream messages and tool calls
-being actively generated to the frontend chat that initiated the interaction. **If that message is not persisted at the
-end of the node, it will disappear in the frontend chat**.
+<img src="/images/coagents/message-state-diagram.png" />
 
 <Accordions>
-    <Accordion title="Give me a visual">
-        <img src="/images/coagents/message-streaming.svg" />
-    </Accordion>
     <Accordion title="I want these messages to be persisted">
         To fix this, you can simply persist the messages by returning the new messages at the end of the node.
 

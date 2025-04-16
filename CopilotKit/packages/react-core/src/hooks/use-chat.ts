@@ -383,7 +383,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           setRunId(runIdRef.current);
           setExtensions(extensionsRef.current);
           let rawMessagesResponse = value.generateCopilotResponse.messages;
-          (value.generateCopilotResponse?.metaEvents ?? []).forEach((ev) => {
+
+          const metaEvents: MetaEvent[] | undefined =
+            value.generateCopilotResponse?.metaEvents ?? [];
+          (metaEvents ?? []).forEach((ev) => {
             if (ev.name === MetaEventName.LangGraphInterruptEvent) {
               let eventValue = langGraphInterruptEvent(ev as LangGraphInterruptEvent).value;
               eventValue = parseJson(eventValue, eventValue);
@@ -519,6 +522,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         if (onFunctionCall) {
           // Find consecutive action execution messages at the end
           const lastMessages = [];
+
           for (let i = finalMessages.length - 1; i >= 0; i--) {
             const message = finalMessages[i];
             if (
@@ -526,7 +530,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               message.status.code !== MessageStatusCode.Pending
             ) {
               lastMessages.unshift(message);
-            } else {
+            } else if (!message.isAgentStateMessage()) {
               break;
             }
           }
@@ -547,7 +551,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               action: FrontendAction<any>,
               message: ActionExecutionMessage,
             ) => {
-              followUp = action?.followUp;
+              const isInterruptAction = interruptMessages.find((m) => m.id === message.id);
+              followUp = action?.followUp || !isInterruptAction;
               const resultMessage = await executeAction({
                 onFunctionCall,
                 previousMessages,

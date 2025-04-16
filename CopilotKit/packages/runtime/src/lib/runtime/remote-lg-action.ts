@@ -13,7 +13,7 @@ import telemetry from "../telemetry-client";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import { MetaEventName } from "../../graphql/types/meta-events.type";
 import { RunsStreamPayload } from "@langchain/langgraph-sdk/dist/types";
-import { parseJson } from "@copilotkit/shared";
+import { parseJson, CopilotKitMisuseError } from "@copilotkit/shared";
 import { RemoveMessage } from "@langchain/core/messages";
 
 type State = Record<string, any>;
@@ -83,7 +83,29 @@ export async function execute(args: ExecutionArgs): Promise<ReadableStream<Uint8
       try {
         await streamEvents(controller, args);
         controller.close();
-      } catch (err) {}
+      } catch (err) {
+        // Unwrap the possible cause
+        const cause = err?.cause;
+
+        // Check code directly if it exists
+        const errorCode = cause?.code || err?.code;
+
+        if (errorCode === "ECONNREFUSED") {
+          throw new CopilotKitMisuseError({
+            message: `
+              The LangGraph client could not connect to the graph. Please further check previous logs, which includes further details.
+              
+              See more: https://docs.copilotkit.ai/troubleshooting/common-issues`,
+          });
+        } else {
+          throw new CopilotKitMisuseError({
+            message: `
+              The LangGraph client threw unhandled error ${err}.
+              
+              See more: https://docs.copilotkit.ai/troubleshooting/common-issues`,
+          });
+        }
+      }
     },
   });
 }
@@ -168,7 +190,8 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     (ev) => ev.name === MetaEventName.LangGraphInterruptEvent,
   );
   if (activeInterruptEvent && !lgInterruptMetaEvent) {
-    payload.command = { resume: formattedMessages[formattedMessages.length - 1] };
+    // state.messages includes only messages that were not processed by the agent, which are the interrupt messages
+    payload.command = { resume: state.messages };
   }
   if (lgInterruptMetaEvent?.response) {
     let response = lgInterruptMetaEvent.response;

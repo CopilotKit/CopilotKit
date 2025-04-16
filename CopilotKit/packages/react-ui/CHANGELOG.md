@@ -1,5 +1,54 @@
 # ui
 
+## 1.8.6
+
+### Patch Changes
+
+- Updated dependencies [7a04bd1]
+  - @copilotkit/react-core@1.8.6
+  - @copilotkit/runtime-client-gql@1.8.6
+  - @copilotkit/shared@1.8.6
+
+## 1.8.6-next.0
+
+### Patch Changes
+
+- Updated dependencies [7a04bd1]
+  - @copilotkit/react-core@1.8.6-next.0
+  - @copilotkit/runtime-client-gql@1.8.6-next.0
+  - @copilotkit/shared@1.8.6-next.0
+
+## 1.8.5
+
+### Patch Changes
+
+- 4b5452d: - feat: add powered-by-copilotkit watermark
+- d0e8a1e: - fix: fix duplicate messages on regenerate
+- ed5ace7: - fix: for every component that has default, make prop optional
+- Updated dependencies [c0d3261]
+- Updated dependencies [77a7457]
+- Updated dependencies [d0e8a1e]
+  - @copilotkit/react-core@1.8.5
+  - @copilotkit/runtime-client-gql@1.8.5
+  - @copilotkit/shared@1.8.5
+
+## 1.8.5-next.5
+
+### Patch Changes
+
+- Updated dependencies [c0d3261]
+  - @copilotkit/react-core@1.8.5-next.5
+  - @copilotkit/runtime-client-gql@1.8.5-next.5
+  - @copilotkit/shared@1.8.5-next.5
+
+## 1.8.5-next.4
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.5-next.4
+- @copilotkit/react-core@1.8.5-next.4
+- @copilotkit/shared@1.8.5-next.4
+
 ## 1.8.5-next.3
 
 ### Patch Changes
