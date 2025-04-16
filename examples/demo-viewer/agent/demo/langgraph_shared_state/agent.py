@@ -125,7 +125,6 @@ async def start_flow(state: Dict[str, Any], config: RunnableConfig):
     This is the entry point for the flow.
     """
 
-    await copilotkit_exit(config)
     # Initialize recipe if not exists
     if "recipe" not in state or state["recipe"] is None:
         state["recipe"] = {
@@ -275,6 +274,7 @@ async def chat_node(state: Dict[str, Any], config: RunnableConfig):
             )
     
     # If no tool was called, just update messages and go to end
+    await copilotkit_exit(config)
     return Command(
         goto=END,
         update={

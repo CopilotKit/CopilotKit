@@ -68,8 +68,6 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     Standard chat node.
     """
 
-    await copilotkit_exit(config) 
-
     system_prompt = f"""
     You are a helpful assistant for writing documents. 
     To write the document, you MUST use the write_document tool.
@@ -155,6 +153,7 @@ async def chat_node(state: AgentState, config: RunnableConfig):
             messages = messages + [tool_response, confirm_tool_call]
             
             # Return Command to route to end
+            await copilotkit_exit(config)
             return Command(
                 goto=END,
                 update={
@@ -164,6 +163,7 @@ async def chat_node(state: AgentState, config: RunnableConfig):
             )
     
     # If no tool was called, go to end
+    await copilotkit_exit(config)
     return Command(
         goto=END,
         update={
