@@ -3,7 +3,8 @@
 import React, { Suspense, useRef, useEffect } from 'react';
 import { DemoConfig } from '@/types/demo';
 import { createPortal } from 'react-dom';
-import filesJSON from '../../files.json'
+// Assuming files.json is correctly placed relative to this component or imported elsewhere
+import filesJSON from '../../files.json';
 
 // Custom iframe component that renders React components inside
 function IsolatedFrame({
@@ -56,17 +57,20 @@ function IsolatedFrame({
       );
       parentStyles.forEach((styleNode) => {
         const clone = styleNode.cloneNode(true);
-        iframe.contentDocument!.head.appendChild(clone);
+        // Ensure head exists before appending
+        if (iframe.contentDocument?.head) {
+          iframe.contentDocument.head.appendChild(clone);
+        }
       });
 
-      // Load demo-specific CSS if it exists
-      const demoStyleLink = iframe.contentDocument.createElement('link');
-      // Apply direct styles to iframe content
-      // @ts-expect-error -- demoId is key of filesJSON
-      const styles = filesJSON[demoId].files.find(f => f.name === 'style.css')?.content;
-      const styleElement = iframe.contentDocument!.createElement('style');
-      styleElement.textContent = styles;
-      iframe.contentDocument!.head.appendChild(styleElement);
+      // Apply direct styles from files.json to iframe content
+      // Use the full demoId (framework_agentId) as the key
+      const demoStyleContent = (filesJSON as any)[demoId]?.files.find((f: any) => f.name === 'style.css')?.content;
+      if (demoStyleContent && iframe.contentDocument?.head) {
+        const styleElement = iframe.contentDocument.createElement('style');
+        styleElement.textContent = demoStyleContent;
+        iframe.contentDocument.head.appendChild(styleElement);
+      }
       
       setIframeRoot(root);
       setIframeLoaded(true);
@@ -82,7 +86,7 @@ function IsolatedFrame({
     return () => {
       iframe.removeEventListener("load", handleLoad);
     };
-  }, [demoId]);
+  }, [demoId]); // Dependency array includes demoId
 
   return (
     <iframe
@@ -90,6 +94,7 @@ function IsolatedFrame({
       className="w-full h-full border-0 bg-background"
       title="Demo Preview"
       sandbox="allow-same-origin allow-scripts allow-forms"
+      // Use srcDoc to ensure a clean initial state and trigger load event reliably
       srcDoc="<!DOCTYPE html><html><head></head><body></body></html>"
     >
       {iframeLoaded && iframeRoot && createPortal(children, iframeRoot)}
@@ -104,18 +109,23 @@ export function DemoPreview({ demo }: { demo: DemoConfig }) {
   const [error, setError] = React.useState<string>();
 
   React.useEffect(() => {
+    // Reset component and error state when demo changes
+    setComponent(null);
+    setError(undefined);
+
+    // Dynamically import the component using the function from config
     demo
-      .component()
+      .component() // This calls the import() function in config.ts
       .then((comp) => setComponent(() => comp))
       .catch((err) => {
-        console.error("Error loading demo:", err);
-        setError("Failed to load demo component");
+        console.error("Error loading demo component:", err);
+        setError("Failed to load demo component. Check console for details.");
       });
-  }, [demo]);
+  }, [demo]); // Rerun when the demo object changes
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-full text-red-500">
+      <div className="flex items-center justify-center h-full text-red-500 p-4 text-center">
         {error}
       </div>
     );
@@ -138,10 +148,11 @@ export function DemoPreview({ demo }: { demo: DemoConfig }) {
       }
     >
       <div className="w-full h-full overflow-hidden">
+        {/* Pass the full demo id (e.g., crewai_agentic_chat) */}
         <IsolatedFrame demoId={demo.id}>
           <Component />
         </IsolatedFrame>
       </div>
     </Suspense>
   );
-}
+} 

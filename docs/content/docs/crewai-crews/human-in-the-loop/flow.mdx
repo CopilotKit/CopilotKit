@@ -3,19 +3,28 @@ title: CrewAI Crews
 description: Learn how to implement Human-in-the-Loop (HITL) using CrewAI Crews.
 icon: lucide/Share2
 ---
-import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
 
-<InsecurePasswordProtected>
+import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 
-<video src="/images/coagents/node-hitl.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<video
+  src="/images/coagents/node-hitl.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
 
 <Callout type="info">
-  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter-crewai-crews) with
-  the implementation below applied!
+  Pictured above is the [coagent
+  starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagent-starter-crewai-crews)
+  with the implementation below applied!
 </Callout>
 
 ## What is this?
+
 [Crew based agents](https://docs.crewai.com/concepts/crews) are stateful agents that can be interrupted and resumed to allow for user input.
 
 CopilotKit lets you to add custom UI to take user input and then pass it back to the agent upon completion.
@@ -37,7 +46,7 @@ Crew based agents are a great way to implement HITL for more complex workflows w
         If you don't already have an agent, you can use the [coagent starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-crews) as a starting point
         as this guide uses it as a starting point.
     </Step>
-    
+
     <Step>
       ### Install the CopilotKit SDK
       <InstallSDKSnippet components={props.components}/>
@@ -54,7 +63,7 @@ Crew based agents are a great way to implement HITL for more complex workflows w
         function YourMainContent() {
           // ...
 
-          useCopilotAction({ 
+          useCopilotAction({
             name: "confirmKickoffCrew",
             available: "remote",
             description: "Confirm the kickoff of the crew. You MUST call this tool before the crew can continue.",
@@ -66,9 +75,9 @@ Crew based agents are a great way to implement HITL for more complex workflows w
               return (
                 <div>
                   <pre>{args.jsonArguments}</pre>
-                  
+
                   <div className={`flex gap-4 pt-4 ${status !== "executing" ? "hidden" : ""}`}>
-                    <button 
+                    <button
                       onClick={() => respond?.("CANCEL")}
                       disabled={status !== "executing"}
                       className="border p-2 rounded-xl w-full"
@@ -77,7 +86,7 @@ Crew based agents are a great way to implement HITL for more complex workflows w
                     </button>
                     <button
                       onClick={() => respond?.("KICKOFF")}
-                      disabled={status !== "executing"} 
+                      disabled={status !== "executing"}
                       className="bg-blue-500 text-white p-2 rounded-xl w-full"
                     >
                       Approve Kickoff
@@ -117,6 +126,5 @@ Crew based agents are a great way to implement HITL for more complex workflows w
         ### Give it a try!
         Try giving the crew enough information to complete the task, i.e. "Research the state of AI in 2025". You should see the custom UI component that allows you to approve or cancel the kickoff of the crew.
     </Step>
-</Steps>
 
-</InsecurePasswordProtected>
+</Steps>

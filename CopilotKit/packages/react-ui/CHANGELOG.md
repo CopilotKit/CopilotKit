@@ -1,5 +1,166 @@
 # ui
 
+## 1.8.6-next.0
+
+### Patch Changes
+
+- Updated dependencies [7a04bd1]
+  - @copilotkit/react-core@1.8.6-next.0
+  - @copilotkit/runtime-client-gql@1.8.6-next.0
+  - @copilotkit/shared@1.8.6-next.0
+
+## 1.8.5
+
+### Patch Changes
+
+- 4b5452d: - feat: add powered-by-copilotkit watermark
+- d0e8a1e: - fix: fix duplicate messages on regenerate
+- ed5ace7: - fix: for every component that has default, make prop optional
+- Updated dependencies [c0d3261]
+- Updated dependencies [77a7457]
+- Updated dependencies [d0e8a1e]
+  - @copilotkit/react-core@1.8.5
+  - @copilotkit/runtime-client-gql@1.8.5
+  - @copilotkit/shared@1.8.5
+
+## 1.8.5-next.5
+
+### Patch Changes
+
+- Updated dependencies [c0d3261]
+  - @copilotkit/react-core@1.8.5-next.5
+  - @copilotkit/runtime-client-gql@1.8.5-next.5
+  - @copilotkit/shared@1.8.5-next.5
+
+## 1.8.5-next.4
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.5-next.4
+- @copilotkit/react-core@1.8.5-next.4
+- @copilotkit/shared@1.8.5-next.4
+
+## 1.8.5-next.3
+
+### Patch Changes
+
+- Updated dependencies [77a7457]
+  - @copilotkit/react-core@1.8.5-next.3
+  - @copilotkit/runtime-client-gql@1.8.5-next.3
+  - @copilotkit/shared@1.8.5-next.3
+
+## 1.8.5-next.2
+
+### Patch Changes
+
+- 4b5452d: - feat: add powered-by-copilotkit watermark
+  - @copilotkit/react-core@1.8.5-next.2
+  - @copilotkit/runtime-client-gql@1.8.5-next.2
+  - @copilotkit/shared@1.8.5-next.2
+
+## 1.8.5-next.1
+
+### Patch Changes
+
+- d0e8a1e: - fix: fix duplicate messages on regenerate
+- Updated dependencies [d0e8a1e]
+  - @copilotkit/react-core@1.8.5-next.1
+  - @copilotkit/runtime-client-gql@1.8.5-next.1
+  - @copilotkit/shared@1.8.5-next.1
+
+## 1.8.5-next.0
+
+### Patch Changes
+
+- ed5ace7: - fix: for every component that has default, make prop optional
+  - @copilotkit/react-core@1.8.5-next.0
+  - @copilotkit/runtime-client-gql@1.8.5-next.0
+  - @copilotkit/shared@1.8.5-next.0
+
+## 1.8.4
+
+### Patch Changes
+
+- 0846462: - fix: remove styles corresponding to OS dark theme
+- fc11455: - fix: focus on text area when clicking in input box
+- Updated dependencies [f363760]
+- Updated dependencies [4e28414]
+  - @copilotkit/shared@1.8.4
+  - @copilotkit/react-core@1.8.4
+  - @copilotkit/runtime-client-gql@1.8.4
+
+## 1.8.4-next.4
+
+### Patch Changes
+
+- Updated dependencies [4e28414]
+  - @copilotkit/react-core@1.8.4-next.4
+  - @copilotkit/runtime-client-gql@1.8.4-next.4
+  - @copilotkit/shared@1.8.4-next.4
+
+## 1.8.4-next.3
+
+### Patch Changes
+
+- @copilotkit/runtime-client-gql@1.8.4-next.3
+- @copilotkit/react-core@1.8.4-next.3
+- @copilotkit/shared@1.8.4-next.3
+
+## 1.8.4-next.2
+
+### Patch Changes
+
+- fc11455: - fix: focus on text area when clicking in input box
+  - @copilotkit/react-core@1.8.4-next.2
+  - @copilotkit/runtime-client-gql@1.8.4-next.2
+  - @copilotkit/shared@1.8.4-next.2
+
+## 1.8.4-next.1
+
+### Patch Changes
+
+- Updated dependencies [f363760]
+  - @copilotkit/shared@1.8.4-next.1
+  - @copilotkit/runtime-client-gql@1.8.4-next.1
+  - @copilotkit/react-core@1.8.4-next.1
+
+## 1.8.4-next.0
+
+### Patch Changes
+
+- 0846462: - fix: remove styles corresponding to OS dark theme
+  - @copilotkit/react-core@1.8.4-next.0
+  - @copilotkit/runtime-client-gql@1.8.4-next.0
+  - @copilotkit/shared@1.8.4-next.0
+
+## 1.8.3
+
+### Patch Changes
+
+- 76520b8: - style: remove system-preference oriented dark mode
+- 0f6baa1: - fix: fix default styles of chat components
+  - @copilotkit/react-core@1.8.3
+  - @copilotkit/runtime-client-gql@1.8.3
+  - @copilotkit/shared@1.8.3
+
+## 1.8.3-next.0
+
+### Patch Changes
+
+- 76520b8: - style: remove system-preference oriented dark mode
+  - @copilotkit/react-core@1.8.3-next.0
+  - @copilotkit/runtime-client-gql@1.8.3-next.0
+  - @copilotkit/shared@1.8.3-next.0
+
+## 1.8.2-next.3
+
+### Patch Changes
+
+- 0f6baa1: - fix: fix default styles of chat components
+  - @copilotkit/react-core@1.8.2-next.3
+  - @copilotkit/runtime-client-gql@1.8.2-next.3
+  - @copilotkit/shared@1.8.2-next.3
+
 ## 1.8.2-next.2
 
 ### Patch Changes

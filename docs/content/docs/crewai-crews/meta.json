@@ -3,6 +3,7 @@
   "root": true,
   "pages": [
     "index",
+    "[lucide/Telescope][Feature Viewer](https://demo-viewer-five.vercel.app/ )",
     "---Quickstart---",
     "...quickstart",
     "---Guides---",

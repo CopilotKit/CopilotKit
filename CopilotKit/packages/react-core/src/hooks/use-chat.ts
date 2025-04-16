@@ -168,7 +168,7 @@ export type UseChatHelpers = {
    * message isn't from the assistant, it will request the API to generate a
    * new response.
    */
-  reload: () => Promise<void>;
+  reload: (messageId: string) => Promise<void>;
   /**
    * Abort the current request immediately, keep the generated tokens if any.
    */
@@ -276,6 +276,14 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
 
       const messagesWithContext = [systemMessage, ...(initialMessages || []), ...previousMessages];
 
+      // ----- Add this block: Merge mcpEndpoints into properties -----
+      const finalProperties = { ...(copilotConfig.properties || {}) };
+      if (copilotConfig.mcpEndpoints && copilotConfig.mcpEndpoints.length > 0) {
+        // Prop takes precedence over any potential mcpEndpoints in properties
+        finalProperties.mcpEndpoints = copilotConfig.mcpEndpoints;
+      }
+      // -------------------------------------------------------------
+
       const isAgentRun = agentSessionRef.current !== null;
 
       const stream = runtimeClient.asStream(
@@ -323,7 +331,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
             })),
             forwardedParameters: options.forwardedParameters || {},
           },
-          properties: copilotConfig.properties,
+          properties: finalProperties,
           signal: chatAbortControllerRef.current?.signal,
         }),
       );
@@ -375,7 +383,10 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
           setRunId(runIdRef.current);
           setExtensions(extensionsRef.current);
           let rawMessagesResponse = value.generateCopilotResponse.messages;
-          (value.generateCopilotResponse?.metaEvents ?? []).forEach((ev) => {
+
+          const metaEvents: MetaEvent[] | undefined =
+            value.generateCopilotResponse?.metaEvents ?? [];
+          (metaEvents ?? []).forEach((ev) => {
             if (ev.name === MetaEventName.LangGraphInterruptEvent) {
               let eventValue = langGraphInterruptEvent(ev as LangGraphInterruptEvent).value;
               eventValue = parseJson(eventValue, eventValue);
@@ -511,6 +522,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
         if (onFunctionCall) {
           // Find consecutive action execution messages at the end
           const lastMessages = [];
+
           for (let i = finalMessages.length - 1; i >= 0; i--) {
             const message = finalMessages[i];
             if (
@@ -518,7 +530,7 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               message.status.code !== MessageStatusCode.Pending
             ) {
               lastMessages.unshift(message);
-            } else {
+            } else if (!message.isAgentStateMessage()) {
               break;
             }
           }
@@ -539,7 +551,8 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
               action: FrontendAction<any>,
               message: ActionExecutionMessage,
             ) => {
-              followUp = action?.followUp;
+              const isInterruptAction = interruptMessages.find((m) => m.id === message.id);
+              followUp = action?.followUp || !isInterruptAction;
               const resultMessage = await executeAction({
                 onFunctionCall,
                 previousMessages,
@@ -725,21 +738,29 @@ export function useChat(options: UseChatOptions): UseChatHelpers {
     [isLoading, messages, setMessages, runChatCompletionAndHandleFunctionCall],
   );
 
-  const reload = useAsyncCallback(async (): Promise<void> => {
-    if (isLoading || messages.length === 0) {
-      return;
-    }
-    let newMessages = [...messages];
-    const lastMessage = messages[messages.length - 1];
+  const reload = useAsyncCallback(
+    async (messageId: string): Promise<void> => {
+      if (isLoading || messages.length === 0) {
+        return;
+      }
 
-    if (lastMessage.isTextMessage() && lastMessage.role === "assistant") {
-      newMessages = newMessages.slice(0, -1);
-    }
+      const index = messages.findIndex((msg) => msg.id === messageId);
+      if (index === -1) {
+        console.warn(`Message with id ${messageId} not found`);
+        return;
+      }
 
-    setMessages(newMessages);
+      let newMessages = messages.slice(0, index); // excludes the message with messageId
+      if (newMessages.length > 0 && newMessages[newMessages.length - 1].isAgentStateMessage()) {
+        newMessages = newMessages.slice(0, newMessages.length - 1); // remove last one too
+      }
 
-    return runChatCompletionAndHandleFunctionCall(newMessages);
-  }, [isLoading, messages, setMessages, runChatCompletionAndHandleFunctionCall]);
+      setMessages(newMessages);
+
+      return runChatCompletionAndHandleFunctionCall(newMessages);
+    },
+    [isLoading, messages, setMessages, runChatCompletionAndHandleFunctionCall],
+  );
 
   const stop = (): void => {
     chatAbortControllerRef.current?.abort("Stop was called");

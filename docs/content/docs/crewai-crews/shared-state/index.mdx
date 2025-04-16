@@ -3,37 +3,39 @@ title: Shared State
 description: Create a two-way connection between your UI and agent state.
 icon: "lucide/Repeat"
 ---
+
 import { ImageZoom } from "fumadocs-ui/components/image-zoom";
 
-<InsecurePasswordProtected>
-
-<ImageZoom 
-    src="/images/coagents/SharedStateCoAgents.gif" 
-    alt="Shared State Demo" 
-    width={1000} 
-    height={1000} 
-    className="rounded-lg shadow-lg border mt-0"
+<ImageZoom
+  src="/images/coagents/SharedStateCoAgents.gif"
+  alt="Shared State Demo"
+  width={1000}
+  height={1000}
+  className="rounded-lg shadow-lg border mt-0"
 />
 
 <Callout>
-    This video demonstrates the [Research Canvas](/crewai-crews/examples/research-canvas) utilizing shared state.
+  This video demonstrates the [Research
+  Canvas](/crewai-crews/examples/research-canvas) utilizing shared state.
 </Callout>
-
 
 ## What is shared state?
 
 CoAgents maintain a shared state that seamlessly connects your UI with the agent's execution. In the case of CrewAI Crews, the shared state system allows you to:
+
 - Update and send the `inputs` of the crew to the agent
 - Receive the `outputs` of the crew
 - React to state changes in real-time across your application
 
 <Frame>
-    <img src="/images/coagents/coagents-state-diagram.png" alt="Agentic Copilot State Diagram" />
+  <img
+    src="/images/coagents/coagents-state-diagram.png"
+    alt="Agentic Copilot State Diagram"
+  />
 </Frame>
 
 ## When should I use this?
+
 Shared state is perfect when you want to facilitate collaboration between your agent and the user. Updates to the outputs will be automatically shared by the UI. Similarly, any `inputs` that the user updates in the UI will be automatically reflected in the crews execution.
 
 This allows for a consistent experience where both the agent and the user are on the same page.
-
-</InsecurePasswordProtected>

@@ -18,6 +18,7 @@ export default function RootLayout({ children }: { children: any }) {
           agent="sample_agent" // lock the agent to the sample_agent since we only have one agent
           runtimeUrl="/api/copilotkit"
           showDevConsole={false}
+          threadId={"bcabd353-645c-4954-876d-8803e1bb57de"}
         >
           {children}
         </CopilotKit>

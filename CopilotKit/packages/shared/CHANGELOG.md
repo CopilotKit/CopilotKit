@@ -1,5 +1,47 @@
 # @copilotkit/shared
 
+## 1.8.6-next.0
+
+## 1.8.5
+
+## 1.8.5-next.5
+
+## 1.8.5-next.4
+
+## 1.8.5-next.3
+
+## 1.8.5-next.2
+
+## 1.8.5-next.1
+
+## 1.8.5-next.0
+
+## 1.8.4
+
+### Patch Changes
+
+- f363760: - fix: when unable to find specified agent, show what's available
+
+## 1.8.4-next.4
+
+## 1.8.4-next.3
+
+## 1.8.4-next.2
+
+## 1.8.4-next.1
+
+### Patch Changes
+
+- f363760: - fix: when unable to find specified agent, show what's available
+
+## 1.8.4-next.0
+
+## 1.8.3
+
+## 1.8.3-next.0
+
+## 1.8.2-next.3
+
 ## 1.8.2-next.2
 
 ## 1.8.2-next.1

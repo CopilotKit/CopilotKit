@@ -3,14 +3,23 @@ title: Agentic Generative UI
 icon: "lucide/Bot"
 description: Render the state of your agent with custom UI components.
 ---
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
+
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 
-<InsecurePasswordProtected>
-
-<video src="/images/coagents/agentic-generative-ui.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<video
+  src="/images/coagents/agentic-generative-ui.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
 <Callout>
-  This video demonstrates the [implementation](#implementation) section applied to out [coagents starter project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-flows).
+  This video demonstrates the [implementation](#implementation) section applied
+  to out [coagents starter
+  project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-flows).
 </Callout>
 
 ## What is this?
@@ -54,6 +63,7 @@ is a situation where a user and an agent are working together to solve a problem
           ```
         </Tab>
     </Tabs>
+
   </Step>
   <Step>
     ### Simulate state updates
@@ -66,17 +76,19 @@ is a situation where a user and an agent are working together to solve a problem
         from litellm import completion
         from copilotkit import CopilotKitState
         from copilotkit.langgraph import copilotkit_emit_state
+        import asyncio
+        from typing import TypedDict
 
         class Searches(TypedDict):
             query: str
             done: bool
 
         class AgentState(CopilotKitState):
-            searches: list[Searches] = []
+            searches: list[Searches] = [] # [!code highlight]
 
         @start
         async def chat(self):
-            state["searches"] = [
+            self.state["searches"] = [
                 {"query": "Initial research", "done": False},
                 {"query": "Retrieving sources", "done": False},
                 {"query": "Forming an answer", "done": False},
@@ -84,7 +96,7 @@ is a situation where a user and an agent are working together to solve a problem
             await copilotkit_emit_state(state)
 
             # Simulate state updates # [!code highlight:5]
-            for search in state["searches"]:
+            for search in self.state["searches"]:
                 await asyncio.sleep(1)
                 search["done"] = True
                 await copilotkit_emit_state(state)
@@ -103,6 +115,7 @@ is a situation where a user and an agent are working together to solve a problem
         ```
       </Tab>
     </Tabs>
+
   </Step>
   <Step>
     ### Render state of the agent in the chat
@@ -122,7 +135,7 @@ is a situation where a user and an agent are working together to solve a problem
     };
 
     function YourMainContent() {
-      // ... 
+      // ...
 
       // [!code highlight:14]
       // styles omitted for brevity
@@ -144,6 +157,7 @@ is a situation where a user and an agent are working together to solve a problem
       return <div>...</div>;
     }
     ```
+
   </Step>
   <Step>
     ### Render state outside of the chat
@@ -163,7 +177,7 @@ is a situation where a user and an agent are working together to solve a problem
     };
 
     function YourMainContent() {
-      // ... 
+      // ...
 
       // [!code highlight:5]
       const { state } = useCoAgent<AgentState>({
@@ -187,12 +201,12 @@ is a situation where a user and an agent are working together to solve a problem
       )
     }
     ```
+
   </Step>
   <Step>
     ### Give it a try!
 
     You've now created a component that will render the agent's state in the chat.
+
   </Step>
 </Steps>
-
-</InsecurePasswordProtected>

@@ -109,6 +109,8 @@
   padding: 0;
   z-index: 10;
   margin: 0;
+  background: transparent;
+  border: none;
 }
 
 .copilotKitMessageControlButton:hover {

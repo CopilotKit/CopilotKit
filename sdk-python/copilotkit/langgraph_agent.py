@@ -10,10 +10,12 @@ from langgraph.types import Command
 from langchain.load.dump import dumps as langchain_dumps
 from langchain.schema import BaseMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig, ensure_config
+from langchain_core.messages import RemoveMessage
 
 from partialjson.json_parser import JSONParser
 
 from .types import Message, MetaEvent
+from .utils import filter_by_schema_keys
 from .langgraph import copilotkit_messages_to_langchain, langchain_messages_to_copilotkit
 from .action import ActionDict
 from .agent import Agent
@@ -67,7 +69,13 @@ def langgraph_default_merge_state( # pylint: disable=unused-argument
 
     existing_messages = state.get("messages", [])
     existing_message_ids = {message.id for message in existing_messages}
-    new_messages = [message for message in messages if message.id not in existing_message_ids]
+    message_ids = {message.id for message in messages}
+    removed_messages = []
+    if len(messages) < len(existing_messages):
+        # messages were removed
+        removed_messages = [RemoveMessage(id=existing_message.id) for existing_message in existing_messages if existing_message.id not in message_ids]
+
+    new_messages = removed_messages + [message for message in messages if message.id not in existing_message_ids]
 
     return {
         **state,
@@ -272,7 +280,8 @@ class LangGraphAgent(Agent):
 
          # An active interrupt event that runs through messages. Use latest message as response
         if self.active_interrupt_event and interrupt_from_meta_events is None:
-            resume_input = Command(resume=langchain_messages[-1])
+            # state["messages"] only includes the messages we need to add at this point, tool call+result if applicable, and user text
+            resume_input = Command(resume=state["messages"])
 
         if interrupt_from_meta_events and "response" in interrupt_from_meta_events:
             resume_input = Command(resume=interrupt_from_meta_events["response"])
@@ -299,11 +308,12 @@ class LangGraphAgent(Agent):
         stream_input = resume_input if resume_input else initial_state
 
         # Get the output and input schema keys the user has allowed for this graph
-        input_keys, output_keys = self.get_schema_keys(config)
+        input_keys, output_keys, config_keys = self.get_schema_keys(config)
         self.output_schema_keys = output_keys
         self.input_schema_keys = input_keys
 
         stream_input = self.filter_state_on_schema_keys(stream_input, 'input')
+        config["configurable"] = filter_by_schema_keys(config["configurable"], config_keys)
         async for event in self.graph.astream_events(stream_input, config, version="v2"):
             current_node_name = event.get("name")
             event_type = event.get("event")
@@ -478,11 +488,23 @@ class LangGraphAgent(Agent):
 
     def get_schema_keys(self, config):
         CONSTANT_KEYS = ['copilotkit', 'messages']
+        CONSTANT_CONFIG_KEYS = ['checkpoint_id', 'checkpoint_ns', 'thread_id']
         try:
             input_schema = self.graph.get_input_jsonschema(config)
             output_schema = self.graph.get_output_jsonschema(config)
             input_schema_keys = list(input_schema["properties"].keys())
             output_schema_keys = list(output_schema["properties"].keys())
+
+            try:
+                schema_dict = self.graph.config_schema().schema()
+                configurable_schema = schema_dict["$defs"]["Configurable"]
+                config_schema_keys = list(configurable_schema["properties"].keys())
+
+                # If only constant keys are present, it means no schema was passed, we allow everything
+                if set(config_schema_keys) == set(CONSTANT_CONFIG_KEYS):
+                    config_schema_keys = None
+            except:
+                config_schema_keys = None
 
             # We add "copilotkit" and "messages" as they are always sent and received.
             for key in CONSTANT_KEYS:
@@ -491,7 +513,7 @@ class LangGraphAgent(Agent):
                 if key not in output_schema_keys:
                     output_schema_keys.append(key)
 
-            return input_schema_keys, output_schema_keys
+            return input_schema_keys, output_schema_keys, config_schema_keys
         except Exception:
             return None
 
@@ -499,10 +521,7 @@ class LangGraphAgent(Agent):
         try:
             schema_keys_name = f"{schema_type}_schema_keys"
             if hasattr(self, schema_keys_name) and getattr(self, schema_keys_name):
-                return {
-                    k: v for k, v in state.items()
-                    if k in getattr(self, schema_keys_name) or k == "messages"
-                }
+                return filter_by_schema_keys(state, getattr(self, schema_keys_name))
         except Exception:
             return state
 

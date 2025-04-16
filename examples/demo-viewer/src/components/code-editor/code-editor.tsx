@@ -1,7 +1,7 @@
 import React from "react";
 import Editor from "@monaco-editor/react";
 import { DemoFile } from "@/types/demo";
-
+import { useTheme } from "next-themes";
 interface CodeEditorProps {
   file?: DemoFile;
   onFileChange?: (fileName: string, content: string) => void;
@@ -13,6 +13,8 @@ export function CodeEditor({ file, onFileChange }: CodeEditorProps) {
       onFileChange(file!.name, value);
     }
   };
+
+  const theme = useTheme();
 
   return file ? (
     <div className="h-full flex flex-col">

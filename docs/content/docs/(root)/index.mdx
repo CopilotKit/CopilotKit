@@ -3,7 +3,6 @@ title: Introduction
 description: "Build production-ready Copilots and Agents effortlessly."
 icon: "lucide/Sparkles"
 ---
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
 import { ExamplesCarousel } from "@/components/react/examples-carousel";
 import { CTACards } from "@/components/react/cta-cards";
@@ -12,40 +11,106 @@ import { YouTubeVideo } from "@/components/react/youtube-video";
 import { MdMessage } from "react-icons/md";
 import { TbSparkles } from "react-icons/tb";
 import { SiLangchain } from "react-icons/si";
+import { SiCrewai } from "@icons-pack/react-simple-icons";
+import { FileSpreadsheet, Banknote, Plane, BookOpen, Telescope, Play } from "lucide-react";
 
-# Production-Grade AI Copilots. <br/> Built Fast, Customized Effortlessly.
+# What is CopilotKit?
 
-Whether you need a simple chatbot or a complex multi-agent system, we've got you
-covered with powerful agentic integrations, human-in-the-loop infrastructure, and
-a flexible architecture.
+At its core, CopilotKit is a set of tools that make it easy to **let your users work
+alongside Large Language Models (LLMs) to accomplish generative tasks** directly in
+your application. Instead of just using the LLM to generate content, you can let it
+take direct action alongside your users.
 
-You can use CopilotKit in two modes: **Standard** and **CoAgents**.
+Interacting with these models can be done directly (**Standard**) or through agents (**CoAgents**).
 
-<CTACards
-  columns={2}
-  cards={[
-    {
-      icon: MdMessage,
-      title: "Standard",
-      description: "Use CopilotKit's standard agentic runloop. If you're not sure, start here.",
-      href: "/quickstart"
-    },
-    {
-      icon: SiLangchain,
-      title: "CoAgents",
-      description: "Copilot infrastructure for your LangGraph agents. Build user-interactive agents.",
-      href: "/coagents"
-    }
-  ]}
-/>
+## Standard
+Utilize CopilotKit's standard agentic runloop to get started quickly.
+
+<Cards className="gap-6">
+  <Card
+    className="p-6 rounded-xl text-base"
+    title="Quickstart"
+    description="Get started with CopilotKit directly in your application."
+    href="/quickstart"
+    icon={<Play className="text-indigo-500 dark:text-indigo-300" />}
+  />
+  <Card 
+    className="p-6 rounded-xl text-base"
+    title="Tutorial"
+    description="Build an AI todo app with CopilotKit in minutes."
+    href="/tutorials/ai-todo-app/overview"
+    icon={<BookOpen className="text-indigo-500 dark:text-indigo-300" />}
+  />
+</Cards>
+
+## CoAgents
+When you need **complete control** over the agentic runloop, you can use **CoAgents**. Bridge the remaining gap between demos and production-ready experiences.
+
+<Cards className="gap-6">
+  <Card
+    className="p-6 rounded-xl text-base"
+    title="LangGraph"
+    description="User-interactive agents with LangGraph."
+    href="/coagents"
+    icon={<SiLangchain className="text-indigo-500 dark:text-indigo-300" />}
+  />
+  <Card 
+    className="p-6 rounded-xl text-base"
+    title="CrewAI Crews"
+    description="Build multi-agent workflows with CrewAI."
+    href="/crewai-crews"
+    icon={<SiCrewai className="text-indigo-500 dark:text-indigo-300" />}
+  />
+  <Card 
+    className="p-6 rounded-xl text-base"
+    title="CrewAI Flows"
+    description="Build multi-agent workflows with CrewAI."
+    href="/crewai-flows"
+    icon={<SiCrewai className="text-indigo-500 dark:text-indigo-300" />}
+  />
+</Cards>
 
 ## CopilotKit in Action
-Check out some things that we've built with CopilotKit!
+Need some inspiration? Check out somethings we've built with CopilotKit.
 
-<div className="pb-6"/>
-<ExamplesCarousel id="example" />
+<Cards className="gap-6">
+  <Card
+    className="md:col-span-2 p-6 py-10 rounded-xl text-base" 
+    title="Feature Viewer"
+    description="Learn about all of the best features CopilotKit has to offer with an interactive experience."
+    href="https://feature-viewer-langgraph.vercel.app/"
+  />
+  <Card 
+    className="p-6 rounded-xl text-base"
+    title="Spreadsheet Copilot"
+    description="A powerful spreadsheet assistant that helps users analyze data, create formulas, and generate insights."
+    href="https://spreadsheet-demo-tau.vercel.app/"
+    icon={<FileSpreadsheet className="text-indigo-500 dark:text-indigo-300" />}
+  />
+  <Card 
+    className="p-6 rounded-xl text-base"
+    title="SaaS Copilot"
+    description="An AI-powered banking interface that helps users understand and interact with their finances."
+    href="https://brex-demo-temp.vercel.app/"
+    icon={<Banknote className="text-indigo-500 dark:text-indigo-300" />}
+  />
+  <Card 
+    className="p-6 rounded-xl text-base"
+    title="Agent-Native Travel Planner"
+    description="Interactive travel planning assistant that helps users generate and build travel itineraries."
+    href="https://examples-coagents-ai-travel-app.vercel.app/"
+    icon={<Plane className="text-indigo-500 dark:text-indigo-300" />}
+  />
+  <Card 
+    className="p-6 rounded-xl text-base"
+    title="Agent-Native Research Canvas"
+    description="An intelligent research assistant that helps users synthesize information across multiple sources."
+    href="https://examples-coagents-research-canvas-ui.vercel.app/"
+    icon={<BookOpen className="text-indigo-500 dark:text-indigo-300" />}
+  />
+</Cards>
 
-## How it all works
+## How does CopilotKit work?
 CopilotKit is thoughtfully architected to scale with you, your teams, and your product.
 <ImageZoom src="/images/architecture-diagram.png" className="rounded-2xl" width={1000} height={1000}/>
 

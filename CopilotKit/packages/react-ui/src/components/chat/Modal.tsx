@@ -78,6 +78,10 @@ export const CopilotModal = ({
   Input = DefaultInput,
   AssistantMessage = DefaultAssistantMessage,
   UserMessage = DefaultUserMessage,
+  onThumbsUp,
+  onThumbsDown,
+  onCopy,
+  onRegenerate,
   className,
   children,
 }: CopilotModalProps) => {
@@ -110,6 +114,10 @@ export const CopilotModal = ({
             Input={Input}
             AssistantMessage={AssistantMessage}
             UserMessage={UserMessage}
+            onThumbsUp={onThumbsUp}
+            onThumbsDown={onThumbsDown}
+            onCopy={onCopy}
+            onRegenerate={onRegenerate}
           />
         </Window>
       </div>

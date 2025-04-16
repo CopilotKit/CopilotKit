@@ -4,8 +4,6 @@ description: Learn how threadId is used to load previous agent states.
 icon: "lucide/ChartBar"
 ---
 
-<InsecurePasswordProtected>
-
 ### Setting the threadId
 
 When setting the `threadId` property in CopilotKit, i.e:
@@ -16,15 +14,23 @@ When setting the `threadId` property in CopilotKit, i.e:
 </CopilotKit>
 ```
 
-CopilotKit will restore the complete state of the thread, including the messages, from the database. 
+CopilotKit will restore the complete state of the thread, including the messages, from the database.
 (See [Message Persistence](/crewai-flows/persistence/message-persistence) for more details.)
 
 ### Loading Agent State
 
+<Callout>
+  **Important:** For agent state to be loaded correctly, you must first ensure
+  that message history and persistence are properly configured. Follow the
+  guides on [Threads &
+  Persistence](/crewai-flows/persistence/loading-message-history) and [Message
+  Persistence](/crewai-flows/persistence/message-persistence).
+</Callout>
+
 This means that the state of any agent will also be restored. For example:
 
 ```tsx
-const { state } = useCoAgent({name: "research_agent"});
+const { state } = useCoAgent({ name: "research_agent" });
 
 // state will now be the state of research_agent in the thread id given above
 ```
@@ -36,5 +42,3 @@ To learn more about persistence and state in CopilotKit, see:
 - [Reading agent state](/crewai-flows/shared-state/in-app-agent-read)
 - [Writing agent state](/crewai-flows/shared-state/in-app-agent-write)
 - [Loading Message History](/crewai-flows/persistence/loading-message-history)
-
-</InsecurePasswordProtected>

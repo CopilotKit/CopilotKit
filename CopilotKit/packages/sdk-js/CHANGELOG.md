@@ -1,5 +1,112 @@
 # @copilotkit/sdk-js
 
+## 1.8.6-next.0
+
+### Patch Changes
+
+- 7a04bd1: - fix: fix how results are communicated back on interrupt
+  - fix: do not allow followup for interrupt actions
+  - chore: improve TS docs for interrupt
+  - @copilotkit/shared@1.8.6-next.0
+
+## 1.8.5
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.5
+
+## 1.8.5-next.5
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.5-next.5
+
+## 1.8.5-next.4
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.5-next.4
+
+## 1.8.5-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.5-next.3
+
+## 1.8.5-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.5-next.2
+
+## 1.8.5-next.1
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.5-next.1
+
+## 1.8.5-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.5-next.0
+
+## 1.8.4
+
+### Patch Changes
+
+- Updated dependencies [f363760]
+  - @copilotkit/shared@1.8.4
+
+## 1.8.4-next.4
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.4-next.4
+
+## 1.8.4-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.4-next.3
+
+## 1.8.4-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.4-next.2
+
+## 1.8.4-next.1
+
+### Patch Changes
+
+- Updated dependencies [f363760]
+  - @copilotkit/shared@1.8.4-next.1
+
+## 1.8.4-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.4-next.0
+
+## 1.8.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.3
+
+## 1.8.3-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.3-next.0
+
+## 1.8.2-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.2-next.3
+
 ## 1.8.2-next.2
 
 ### Patch Changes

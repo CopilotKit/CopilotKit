@@ -3,16 +3,24 @@ title: "Manually emitting messages"
 icon: "lucide/Radio"
 ---
 
-<InsecurePasswordProtected>
-
-import InstallSDKSnippet from "@/snippets/install-sdk.mdx"
-import RunAndConnectSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
+import InstallSDKSnippet from "@/snippets/install-sdk.mdx";
+import RunAndConnectSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
 
 While most agent interactions happen automatically through shared state updates as the agent runs, you can also **manually send messages from within your agent code** to provide immediate feedback to users.
 
-<video src="/images/coagents/emit-messages.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<video
+  src="/images/coagents/emit-messages.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
 <Callout>
-    This video shows the [coagents starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-flows) repo with the [implementation](#implementation) section applied to it!
+  This video shows the [coagents
+  starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-flows)
+  repo with the [implementation](#implementation) section applied to it!
 </Callout>
 
 ## What is this?
@@ -23,6 +31,7 @@ in the middle of a function's execution to provide immediate feedback to the use
 ## When should I use this?
 
 Manually emitted messages are great for **when you don't want to wait for the function** to complete **and you**:
+
 - Have a long running task that you want to provide feedback on
 - Want to provide a status update to the user
 - Want to provide a warning or error message
@@ -57,7 +66,7 @@ Manually emitted messages are great for **when you don't want to wait for the fu
                     await copilotkit_emit_message(intermediate_message)
 
                     # simulate a long running task
-                    await asyncio.sleep(2) 
+                    await asyncio.sleep(2)
 
                     response = copilotkit_stream(
                         completion(
@@ -81,6 +90,5 @@ Manually emitted messages are great for **when you don't want to wait for the fu
         Now when you talk to your agent you'll notice that it immediately responds with the message "Thinking really hard..."
         before giving you a response 2 seconds later.
     </Step>
-</Steps>
 
-</InsecurePasswordProtected>
+</Steps>

@@ -63,6 +63,10 @@ A list of remote actions that can be executed.
 An array of LangServer URLs.
 </PropertyReference>
 
+<PropertyReference name="agents" type="Record<string, AbstractAgent>"  > 
+A map of agent names to AgentWire agents.
+</PropertyReference>
+
 <PropertyReference name="delegateAgentProcessingToServiceAdapter" type="boolean"  > 
 Delegates agent state processing to the service adapter.
  
@@ -92,8 +96,41 @@ Configuration for LLM request/response logging.
   ```
 </PropertyReference>
 
-<PropertyReference name="processRuntimeRequest" type="request: CopilotRuntimeRequest">
+<PropertyReference name="mcpEndpoints" type="MCPEndpointConfig[]"  > 
+Configuration for connecting to Model Context Protocol (MCP) servers.
+  Allows fetching and using tools defined on external MCP-compliant servers.
+  Requires providing the `createMCPClient` function during instantiation.
+  @experimental
+</PropertyReference>
 
+<PropertyReference name="createMCPClient" type="CreateMCPClientFunction"  > 
+A function that creates an MCP client instance for a given endpoint configuration.
+  This function is responsible for using the appropriate MCP client library
+  (e.g., `@copilotkit/runtime`, `ai`) to establish a connection.
+  Required if `mcpEndpoints` is provided.
+ 
+  ```typescript
+  import { experimental_createMCPClient } from "ai"; // Import from vercel ai library
+  // ...
+  const runtime = new CopilotRuntime({
+    mcpEndpoints: [{ endpoint: "..." }],
+    async createMCPClient(config) {
+      return await experimental_createMCPClient({
+        transport: {
+          type: "sse",
+          url: config.endpoint,
+          headers: config.apiKey
+            ? { Authorization: `Bearer ${config.apiKey}` }
+            : undefined,
+        },
+      });
+    }
+  });
+  ```
+</PropertyReference>
+
+<PropertyReference name="processRuntimeRequest" type="request: CopilotRuntimeRequest">
+// --- MCP Instruction Injection Method ---
 
   <PropertyReference name="request" type="CopilotRuntimeRequest" required>
   

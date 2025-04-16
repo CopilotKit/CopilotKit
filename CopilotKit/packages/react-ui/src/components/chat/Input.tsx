@@ -16,9 +16,15 @@ export const Input = ({ inProgress, onSend, isVisible = false, onStop }: InputPr
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleDivClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    // Check if the clicked element is not the textarea itself
-    if (event.target !== event.currentTarget) return;
+    const target = event.target as HTMLElement;
 
+    // If the user clicked a button or inside a button, don't focus the textarea
+    if (target.closest("button")) return;
+
+    // If the user clicked the textarea, do nothing (it's already focused)
+    if (target.tagName === "TEXTAREA") return;
+
+    // Otherwise, focus the textarea
     textareaRef.current?.focus();
   };
 

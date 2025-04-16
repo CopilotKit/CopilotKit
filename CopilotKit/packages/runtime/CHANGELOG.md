@@ -1,5 +1,193 @@
 # @copilotkit/runtime
 
+## 1.8.6-next.0
+
+### Patch Changes
+
+- 7a04bd1: - fix: fix how results are communicated back on interrupt
+  - fix: do not allow followup for interrupt actions
+  - chore: improve TS docs for interrupt
+  - @copilotkit/shared@1.8.6-next.0
+
+## 1.8.5
+
+### Patch Changes
+
+- c0d3261: - full AWP support
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - refactor: address linter issues with the new pages
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - Merge branch 'mme/acp' into mme/mastra
+  - add sse example
+  - Create small-turkeys-agree.md
+  - upgrade AWP
+  - Merge branch 'mme/mastra' of github.com:CopilotKit/CopilotKit into mme/mastra
+  - make agents a dict
+  - update docs
+  - send tools
+  - update to latest packages
+  - fix problem where state sync are preventing tool calls
+  - set possibly undefined toolCalls to an empty array
+  - fix missing tool call ids
+
+- 77a7457: - feat: Add Model Context Protocol (MCP) support
+- 76d9ef9: - fix: handle langgraph client specific errors when running lgc stream
+- c0d3261: - add AWP support
+
+  - make it work
+  - update docs
+  - refactor: move UI files to be normal NextJS pages and update generation
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - refactor: address linter issues with the new pages
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - Merge branch 'mme/acp' into mme/mastra
+  - add sse example
+
+- d0e8a1e: - fix: fix duplicate messages on regenerate
+  - @copilotkit/shared@1.8.5
+
+## 1.8.5-next.5
+
+### Patch Changes
+
+- c0d3261: - full AWP support
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - refactor: address linter issues with the new pages
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - Merge branch 'mme/acp' into mme/mastra
+  - add sse example
+  - Create small-turkeys-agree.md
+  - upgrade AWP
+  - Merge branch 'mme/mastra' of github.com:CopilotKit/CopilotKit into mme/mastra
+  - make agents a dict
+  - update docs
+  - send tools
+  - update to latest packages
+  - fix problem where state sync are preventing tool calls
+  - set possibly undefined toolCalls to an empty array
+  - fix missing tool call ids
+
+- c0d3261: - add AWP support
+
+  - make it work
+  - update docs
+  - refactor: move UI files to be normal NextJS pages and update generation
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - refactor: address linter issues with the new pages
+
+  Signed-off-by: Tyler Slaton <tyler@copilotkit.ai>
+
+  - Merge branch 'mme/acp' into mme/mastra
+  - add sse example
+  - @copilotkit/shared@1.8.5-next.5
+
+## 1.8.5-next.4
+
+### Patch Changes
+
+- 76d9ef9: - fix: handle langgraph client specific errors when running lgc stream
+  - @copilotkit/shared@1.8.5-next.4
+
+## 1.8.5-next.3
+
+### Patch Changes
+
+- 77a7457: - feat: Add Model Context Protocol (MCP) support
+  - @copilotkit/shared@1.8.5-next.3
+
+## 1.8.5-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.5-next.2
+
+## 1.8.5-next.1
+
+### Patch Changes
+
+- d0e8a1e: - fix: fix duplicate messages on regenerate
+  - @copilotkit/shared@1.8.5-next.1
+
+## 1.8.5-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.5-next.0
+
+## 1.8.4
+
+### Patch Changes
+
+- e652aac: - feat: add support for langgraph config schema
+- f363760: - fix: when unable to find specified agent, show what's available
+- Updated dependencies [f363760]
+  - @copilotkit/shared@1.8.4
+
+## 1.8.4-next.4
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.4-next.4
+
+## 1.8.4-next.3
+
+### Patch Changes
+
+- e652aac: - feat: add support for langgraph config schema
+  - @copilotkit/shared@1.8.4-next.3
+
+## 1.8.4-next.2
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.4-next.2
+
+## 1.8.4-next.1
+
+### Patch Changes
+
+- f363760: - fix: when unable to find specified agent, show what's available
+- Updated dependencies [f363760]
+  - @copilotkit/shared@1.8.4-next.1
+
+## 1.8.4-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.4-next.0
+
+## 1.8.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.3
+
+## 1.8.3-next.0
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.3-next.0
+
+## 1.8.2-next.3
+
+### Patch Changes
+
+- @copilotkit/shared@1.8.2-next.3
+
 ## 1.8.2-next.2
 
 ### Patch Changes

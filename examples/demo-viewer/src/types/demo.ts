@@ -13,9 +13,10 @@ export interface DemoConfig {
   id: string;
   name: string;
   description: string;
-  path: string;
-  component: () => Promise<ComponentType>;
+  path: string; // Path to the agent source directory (e.g., agent/demo/crewai_agentic_chat)
   files: DemoFile[];
+  // Function to dynamically import the demo's main UI component (page.tsx)
+  component: () => Promise<ComponentType>;
   defaultLLMProvider?: LLMProvider;
   tags?: string[];
 }

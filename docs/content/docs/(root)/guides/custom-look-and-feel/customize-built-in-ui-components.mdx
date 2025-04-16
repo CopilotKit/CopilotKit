@@ -107,15 +107,42 @@ For a full list of styles and classes used in CopilotKit, click [here](https://g
 | `.copilotKitDebugMenu` | Debug options menu container |
 | `.copilotKitDebugMenuItem` | Individual debug menu option styling |
 
+## Custom Fonts
+You can customize the fonts by updating the `fontFamily` property in the various CSS classes that are used in the CopilotKit.
+
+```css title="globals.css"
+.copilotKitMessages {
+  font-family: "Arial, sans-serif";
+}
+
+.copilotKitInput {
+  font-family: "Arial, sans-serif";
+}
+```
+
+### Reference
+You can update the main content classes to change the font family for the various components.
+
+| CSS Class | Description |
+|-----------|-------------|
+| `.copilotKitMessages` | Main container for all messages |
+| `.copilotKitInput` | The input field |
+| `.copilotKitMessage` | Base styling for all chat messages |
+| `.copilotKitUserMessage` | User messages |
+| `.copilotKitAssistantMessage` | AI responses |
+
 ## Custom Icons
 
 You can customize the icons by passing the `icons` property to the `CopilotSidebar`, `CopilotPopup` or `CopilotChat` component.
 
 ```tsx
-<CopilotChat icons={{
-  openIcon: <Icon name="lucide/MessageSquare" />,
-  closeIcon: <Icon name="lucide/MessageSquare" />,
-}} />
+<CopilotChat
+  icons={{
+    // Use your own icons here – any React nodes
+    openIcon: <YourOpenIconComponent />,
+    closeIcon: <YourCloseIconComponent />,
+  }}
+/>
 ```
 
 ### Reference

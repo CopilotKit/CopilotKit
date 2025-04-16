@@ -14,6 +14,7 @@
     "bring-your-own-llm",
     "copilot-textarea",
     "self-hosting",
-    "messages-localstorage"
+    "messages-localstorage",
+    "model-context-protocol"
   ]
 }

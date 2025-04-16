@@ -77,7 +77,6 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
     <Step>
         ### Emit the intermediate state
         <TailoredContent
-            className="step"
             id="state-emission"
             header={
                 <div>
@@ -156,6 +155,18 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                     <Tab value="Python">
                         ```python
                         from copilotkit.langgraph import copilotkit_customize_config
+                        from copilotkit import CopilotKitState
+                        from langgraph.types import Command
+                        from langgraph.graph import END
+                        from langchain.tools import tool
+                        from langchain_openai import ChatOpenAI
+                        from langchain_core.messages import SystemMessage, AIMessage
+                        from langchain_core.runnables import RunnableConfig
+
+                        # Define a step progress tool for the llm to report the steps
+                        @tool
+                        def step_progress_tool(steps: list[str])
+                            """Reads and reports steps"""
 
                         async def frontend_actions_node(state: AgentState, config: RunnableConfig):
                             # Configure CopilotKit to treat step progress tool calls as predictive of the final state
@@ -164,37 +175,42 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                                 emit_intermediate_state=[
                                     {
                                         "state_key": "observed_steps",
-                                        "tool": "StepProgressTool",
+                                        "tool": "step_progress_tool",
                                         "tool_argument": "steps"
                                     },
                                 ]
                             )
 
-                            # Define the step progress tool
-                            step_progress = tool("StepProgressTool", {
-                                "description": "Records progress by updating the steps array",
-                                "parameters": {
-                                    "steps": {
-                                        "type": "array",
-                                        "items": {"type": "string"},
-                                        "description": "Array of completed steps"
-                                    }
-                                },
-                                "function": lambda steps: steps
-                            })
+                            system_message = SystemMessage(
+                                content=f"You are a task performer. Pretend doing tasks you are given, report the steps using step_progress_tool."
+                            )
 
                             # Provide the actions to the LLM
-                            model = ChatOpenAI(model="gpt-4").bind(
-                                functions=[step_progress]
+                            model = ChatOpenAI(model="gpt-4").bind_tools(
+                                [
+                                    *state["copilotkit"]["actions"],
+                                    step_progress_tool
+                                    # your other tools here
+                                ],
                             )
 
                             # Call the model with CopilotKit's modified config
-                            response = await model.ainvoke(
-                                state["messages"],
-                                config=config
-                            )
+                            response = await model.ainvoke([
+                                system_message,
+                                *state["messages"],
+                            ], config)
 
-                            return state
+                            # Set the steps in state so they are persisted and communicated to the frontend
+                            if isinstance(response, AIMessage) and response.tool_calls and response.tool_calls[0].get("name") == 'step_progress_tool':
+                                return Command(
+                                    goto=END,
+                                    update={
+                                        "messages": response,
+                                        "observed_steps": response.tool_calls[0].get("args", None).get('steps')
+                                    }
+                                )
+
+                            return Command(goto=END, update={"messages": response})
                         ```
                     </Tab>
                     <Tab value="TypeScript">

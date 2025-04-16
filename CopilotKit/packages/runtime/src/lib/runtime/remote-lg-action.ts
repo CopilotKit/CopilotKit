@@ -13,7 +13,8 @@ import telemetry from "../telemetry-client";
 import { MetaEventInput } from "../../graphql/inputs/meta-event.input";
 import { MetaEventName } from "../../graphql/types/meta-events.type";
 import { RunsStreamPayload } from "@langchain/langgraph-sdk/dist/types";
-import { parseJson } from "@copilotkit/shared";
+import { parseJson, CopilotKitMisuseError } from "@copilotkit/shared";
+import { RemoveMessage } from "@langchain/core/messages";
 
 type State = Record<string, any>;
 
@@ -68,7 +69,11 @@ type LangGraphPlatformMessage =
   | LangGraphPlatformResultMessage
   | BaseLangGraphPlatformMessage;
 
-type SchemaKeys = { input: string[] | null; output: string[] | null } | null;
+type SchemaKeys = {
+  input: string[] | null;
+  output: string[] | null;
+  config: string[] | null;
+} | null;
 
 let activeInterruptEvent = false;
 
@@ -78,7 +83,29 @@ export async function execute(args: ExecutionArgs): Promise<ReadableStream<Uint8
       try {
         await streamEvents(controller, args);
         controller.close();
-      } catch (err) {}
+      } catch (err) {
+        // Unwrap the possible cause
+        const cause = err?.cause;
+
+        // Check code directly if it exists
+        const errorCode = cause?.code || err?.code;
+
+        if (errorCode === "ECONNREFUSED") {
+          throw new CopilotKitMisuseError({
+            message: `
+              The LangGraph client could not connect to the graph. Please further check previous logs, which includes further details.
+              
+              See more: https://docs.copilotkit.ai/troubleshooting/common-issues`,
+          });
+        } else {
+          throw new CopilotKitMisuseError({
+            message: `
+              The LangGraph client threw unhandled error ${err}.
+              
+              See more: https://docs.copilotkit.ai/troubleshooting/common-issues`,
+          });
+        }
+      }
     },
   });
 }
@@ -163,7 +190,8 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
     (ev) => ev.name === MetaEventName.LangGraphInterruptEvent,
   );
   if (activeInterruptEvent && !lgInterruptMetaEvent) {
-    payload.command = { resume: formattedMessages[formattedMessages.length - 1] };
+    // state.messages includes only messages that were not processed by the agent, which are the interrupt messages
+    payload.command = { resume: state.messages };
   }
   if (lgInterruptMetaEvent?.response) {
     let response = lgInterruptMetaEvent.response;
@@ -202,17 +230,19 @@ async function streamEvents(controller: ReadableStreamDefaultController, args: E
   }
   const assistantId = retrievedAssistant.assistant_id;
 
-  if (configurable) {
-    await client.assistants.update(assistantId, { config: { configurable } });
-  }
   const graphInfo = await client.assistants.getGraph(assistantId);
   const graphSchema = await client.assistants.getSchemas(assistantId);
   const schemaKeys = getSchemaKeys(graphSchema);
+  if (configurable) {
+    const filteredConfigurable = schemaKeys?.config
+      ? filterObjectBySchemaKeys(configurable, schemaKeys?.config)
+      : configurable;
+    await client.assistants.update(assistantId, { config: { configurable: filteredConfigurable } });
+  }
+
   // Do not input keys that are not part of the input schema
   if (payload.input && schemaKeys?.input) {
-    payload.input = Object.fromEntries(
-      Object.entries(payload.input).filter(([key]) => schemaKeys.input.includes(key)),
-    );
+    payload.input = filterObjectBySchemaKeys(payload.input, schemaKeys.input);
   }
 
   let streamingStateExtractor = new StreamingStateExtractor([]);
@@ -468,9 +498,7 @@ function getStateSyncEvent({
 
   // Do not emit state keys that are not part of the output schema
   if (schemaKeys?.output) {
-    state = Object.fromEntries(
-      Object.entries(state).filter(([key]) => schemaKeys.output.includes(key)),
-    );
+    state = filterObjectBySchemaKeys(state, schemaKeys.output);
   }
 
   return (
@@ -578,11 +606,21 @@ function langGraphDefaultMergeState(
   // merge with existing messages
   const existingMessages: LangGraphPlatformMessage[] = state.messages || [];
   const existingMessageIds = new Set(existingMessages.map((message) => message.id));
+  const messageIds = new Set(messages.map((message) => message.id));
+
+  let removedMessages = [];
+  if (messages.length < existingMessages.length) {
+    // Messages were removed
+    removedMessages = existingMessages
+      .filter((m) => !messageIds.has(m.id))
+      .map((m) => new RemoveMessage({ id: m.id }));
+  }
+
   const newMessages = messages.filter((message) => !existingMessageIds.has(message.id));
 
   return {
     ...state,
-    messages: newMessages,
+    messages: [...removedMessages, ...newMessages],
     copilotkit: {
       actions,
     },
@@ -764,8 +802,12 @@ function copilotkitMessagesToLangChain(messages: Message[]): LangGraphPlatformMe
 
 function getSchemaKeys(graphSchema: GraphSchema): SchemaKeys {
   const CONSTANT_KEYS = ["messages", "copilotkit"];
+  let configSchema = null;
+  if (graphSchema.config_schema.properties) {
+    configSchema = Object.keys(graphSchema.config_schema.properties);
+  }
   if (!graphSchema.input_schema.properties || !graphSchema.output_schema.properties) {
-    return null;
+    return configSchema;
   }
   const inputSchema = Object.keys(graphSchema.input_schema.properties);
   const outputSchema = Object.keys(graphSchema.output_schema.properties);
@@ -773,5 +815,10 @@ function getSchemaKeys(graphSchema: GraphSchema): SchemaKeys {
   return {
     input: inputSchema && inputSchema.length ? [...inputSchema, ...CONSTANT_KEYS] : null,
     output: outputSchema && outputSchema.length ? [...outputSchema, ...CONSTANT_KEYS] : null,
+    config: configSchema,
   };
+}
+
+function filterObjectBySchemaKeys(obj: Record<string, any>, schemaKeys: string[]) {
+  return Object.fromEntries(Object.entries(obj).filter(([key]) => schemaKeys.includes(key)));
 }

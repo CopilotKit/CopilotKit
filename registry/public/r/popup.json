@@ -9,7 +9,7 @@
   ],
   "files": [
     {
-      "path": "components/chat/popup.tsx",
+      "path": "registry/chat/popup.tsx",
       "content": "import { CopilotPopup } from \"@copilotkit/react-ui\";\n\nexport default function Popup() {\n  return <CopilotPopup />;\n}\n",
       "type": "registry:page",
       "target": "app/copilotkit/page.tsx"

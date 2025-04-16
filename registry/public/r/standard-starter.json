@@ -10,13 +10,13 @@
   ],
   "files": [
     {
-      "path": "components/layout/standard-layout.tsx",
+      "path": "registry/layout/standard-layout.tsx",
       "content": "import \"@copilotkit/react-ui/styles.css\";\nimport React, { ReactNode } from \"react\";\nimport { CopilotKit } from \"@copilotkit/react-core\";\n\n// Where CopilotKit will proxy requests to. If you're using Copilot Cloud, this environment variable will be empty.\nconst runtimeUrl = process.env.NEXT_PUBLIC_COPILOTKIT_RUNTIME_URL\n// When using Copilot Cloud, all we need is the publicApiKey.\nconst publicApiKey = process.env.NEXT_PUBLIC_COPILOT_API_KEY;\n\nexport default function Layout({ children }: { children: ReactNode }) {\n  return (\n    <CopilotKit\n      runtimeUrl={runtimeUrl}\n      publicApiKey={publicApiKey}\n    >\n      {children}\n    </CopilotKit>\n  );\n}\n",
       "type": "registry:page",
       "target": "app/copilotkit/layout.tsx"
     },
     {
-      "path": "components/runtime/standard.ts",
+      "path": "registry/runtime/standard.ts",
       "content": "import {\n  CopilotRuntime,\n  OpenAIAdapter,\n  copilotRuntimeNextJSAppRouterEndpoint,\n} from \"@copilotkit/runtime\";\nimport { NextRequest } from \"next/server\";\nimport OpenAI from \"openai\";\n\nconst openai = new OpenAI();\nconst serviceAdapter = new OpenAIAdapter({ openai });\n\nconst runtime = new CopilotRuntime();\n\nexport const POST = async (req: NextRequest) => {\nconst { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({\n    runtime,\n    serviceAdapter,\n    endpoint: req.nextUrl.pathname,\n});\n\nreturn handleRequest(req);\n};\n",
       "type": "registry:lib",
       "target": "app/api/copilotkit/route.ts"

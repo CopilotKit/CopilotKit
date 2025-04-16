@@ -1,7 +1,11 @@
 import { RenderMessageProps } from "../props";
+import { AssistantMessage as DefaultAssistantMessage } from "./AssistantMessage";
 
-export function RenderResultMessage(props: RenderMessageProps) {
-  const { message, inProgress, index, isCurrentMessage, AssistantMessage } = props;
+export function RenderResultMessage({
+  AssistantMessage = DefaultAssistantMessage,
+  ...props
+}: RenderMessageProps) {
+  const { message, inProgress, index, isCurrentMessage } = props;
 
   if (message.isResultMessage() && inProgress && isCurrentMessage) {
     return (

@@ -1,69 +1,82 @@
 ---
 title: Threads
-description: Learn how to load chat messages and threads within the CopilotKit framework.
+description: Learn how to maintain persistent conversations across sessions with CrewAI Flows.
 icon: "lucide/MessagesSquare"
 ---
 
-<InsecurePasswordProtected>
+# Understanding Thread Persistence
 
-CrewAI Flows supports threads, a way to group messages together and ultimately maintain a continuous chat history. CopilotKit
-provides a few different ways to interact with this concept.
+CrewAI Flows supports threads, a way to group messages together and maintain a continuous chat history across sessions. CopilotKit provides mechanisms to ensure conversation state is properly persisted between the frontend and backend.
 
 This guide assumes you have already gone through the [quickstart](/quickstart) guide.
 
-## Loading an Existing Thread
+<Callout>
+  **Note:** While the frontend uses `threadId` to manage conversation sessions,
+  true persistence across sessions requires backend setup. The backend agent
+  needs to implement a persistence mechanism (like the one shown in
+  [Message Persistence](/crewai-flows/persistence/message-persistence))
+  to save and load the state associated with each `threadId`.
 
-To load an existing thread in CopilotKit, you can simply set the `threadId` property on `<CopilotKit>` like so.
+See the [sample agent implementation](https://github.com/CopilotKit/CopilotKit/blob/main/examples/coagents-starter-crewai-flows/agent-py/sample_agent/agent.py#L291)
+for a concrete example.
+
+</Callout>
+
+## Frontend: Setting the ThreadId
+
+### Loading an Existing Thread
+
+To load an existing thread in CopilotKit, set the `threadId` property on `<CopilotKit>`:
 
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core";
 
-<CopilotKit threadId="37aa68d0-d15b-45ae-afc1-0ba6c3e11353"> // [!code highlight]
+<CopilotKit threadId="37aa68d0-d15b-45ae-afc1-0ba6c3e11353">
   <YourApp />
-</CopilotKit>
+</CopilotKit>;
 ```
 
-## Dynamically Switching Threads
+### Dynamically Switching Threads
 
-You can also make the `threadId` dynamic. Once it is set, CopilotKit will load the previous messages for that thread.
+You can make the `threadId` dynamic. Once set, CopilotKit will load previous messages for that thread.
 
 ```tsx
 import { useState } from "react";
 import { CopilotKit } from "@copilotkit/react-core";
 
 const Page = () => {
-  const [threadId, setThreadId] = useState("af2fa5a4-36bd-4e02-9b55-2580ab584f89"); // [!code highlight]
+  const [threadId, setThreadId] = useState(
+    "af2fa5a4-36bd-4e02-9b55-2580ab584f89"
+  );
   return (
-    <CopilotKit threadId={threadId}> // [!code highlight]
-      <YourApp setThreadId={setThreadId} /> // [!code highlight]
+    <CopilotKit threadId={threadId}>
+      <YourApp setThreadId={setThreadId} />
     </CopilotKit>
-  )
-}
+  );
+};
 
-const YourApp = () => {
+const YourApp = ({ setThreadId }) => {
   return (
-    <Button onClick={() => setThreadId("679e8da5-ee9b-41b1-941b-80e0cc73a008")}> // [!code highlight]
+    <Button onClick={() => setThreadId("679e8da5-ee9b-41b1-941b-80e0cc73a008")}>
       Change Thread
     </Button>
-  )
-}
+  );
+};
 ```
 
-## Using setThreadId
+### Using setThreadId
 
-CopilotKit will also return the current `threadId` and a `setThreadId` function from the `useCopilotContext` hook. You can use `setThreadId` to change the `threadId`.
+CopilotKit provides the current `threadId` and a `setThreadId` function from the `useCopilotContext` hook:
 
 ```tsx
 import { useCopilotContext } from "@copilotkit/react-core";
 
 const ChangeThreadButton = () => {
-  const { threadId, setThreadId } = useCopilotContext(); // [!code highlight]
+  const { threadId, setThreadId } = useCopilotContext();
   return (
-    <Button onClick={() => setThreadId("d73c22f3-1f8e-4a93-99db-5c986068d64f")}> // [!code highlight]
+    <Button onClick={() => setThreadId("d73c22f3-1f8e-4a93-99db-5c986068d64f")}>
       Change Thread
     </Button>
-  )
-}
+  );
+};
 ```
-
-</InsecurePasswordProtected>

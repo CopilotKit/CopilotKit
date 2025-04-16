@@ -1,8 +1,6 @@
 {
-    "framework": "LangGraph",
-    "usecase": "Travel, Planning, Human-in-the-loop",
     "title": "Travel Planner",
+    "tutorial_video": "https://www.youtube.com/watch?v=9v3kXiOY3vg",
     "description": "Plan your next trip with AI-powered travel planner.",
-    "live_demo": "https://examples-coagents-travel-ui.vercel.app",
-    "cover_img": "https://examples-coagents-travel-ui.vercel.app/image.png"
+    "live_demo": "https://examples-coagents-ai-travel-app.vercel.app/"
 }

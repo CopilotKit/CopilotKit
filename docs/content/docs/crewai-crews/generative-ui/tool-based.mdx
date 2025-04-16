@@ -3,14 +3,23 @@ title: Tool-based Generative UI
 icon: "lucide/Wrench"
 description: Render your agent's tool calls with custom UI components.
 ---
+
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx"
+import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent.mdx";
 
-<InsecurePasswordProtected>
-
-<video src="/images/coagents/tool-based-gen-ui.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+<video
+  src="/images/coagents/tool-based-gen-ui.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
 <Callout>
-  This video demonstrates the [implementation](#implementation) section applied to out [coagents starter project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-crews).
+  This video demonstrates the [implementation](#implementation) section applied
+  to out [coagents starter
+  project](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-crews).
 </Callout>
 
 ## What is this?
@@ -43,7 +52,8 @@ In the case of CrewAI Crew agents, there is one tool call that indicates that th
 the UI.
 
 <Callout type="info" title="Important">
-  In order to render a tool call in the UI, the name of the action must match the name of the tool.
+  In order to render a tool call in the UI, the name of the action must match
+  the name of the tool.
 </Callout>
 
 ```tsx title="app/page.tsx"
@@ -53,7 +63,7 @@ import { useCopilotAction } from "@copilotkit/react-core"; // [!code highlight]
 const YourMainContent = () => {
   // ...
   // [!code highlight:21]
- useCopilotAction({
+  useCopilotAction({
     name: "research_crew",
     parameters: [
       {
@@ -75,7 +85,7 @@ const YourMainContent = () => {
     },
   });
   // ...
-}
+};
 ```
 
 </Step>
@@ -87,4 +97,33 @@ Try giving the crew enough information to complete the task, i.e. "Research the 
 </Step>
 </Steps>
 
-</InsecurePasswordProtected>
+## Rendering Arbitrary Tool Calls
+
+When working with agents, they may call tools that you haven't explicitly defined UI components for. You can use a catch-all action to render these tool calls:
+
+```tsx
+import {
+  useCopilotAction,
+  CatchAllActionRenderProps,
+} from "@copilotkit/react-core";
+
+useCopilotAction({
+  name: "*",
+  followUp: false,
+  render: ({ name, args, status, result }: CatchAllActionRenderProps<[]>) => {
+    return (
+      <div className="m-4 p-4 bg-gray-100 rounded shadow">
+        <h2 className="text-sm font-medium">Tool: {name}</h2>
+        <pre className="mt-2 text-xs overflow-auto">
+          {JSON.stringify(args, null, 2)}
+        </pre>
+        {status === "complete" && (
+          <div className="mt-2 text-xs text-green-600">✓ Complete</div>
+        )}
+      </div>
+    );
+  },
+});
+```
+
+This will render any tool call that doesn't have a specific UI component defined for it, displaying the tool name, arguments, and completion status.
