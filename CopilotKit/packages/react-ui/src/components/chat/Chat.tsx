@@ -401,13 +401,14 @@ export function CopilotChat({
   );
 
   // Wrapper for sendMessage to clear selected images
-  const handleSendMessage = async (text: string) => {
-    const message = await sendMessage(text, selectedImages);
+  const handleSendMessage = (text: string) => {
+    const images = selectedImages;
     setSelectedImages([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-    return message;
+
+    return sendMessage(text, images);
   };
 
   const chatContext = React.useContext(ChatContext);
