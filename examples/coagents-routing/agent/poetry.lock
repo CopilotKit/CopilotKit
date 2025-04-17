@@ -740,14 +740,14 @@ crewai = ["crewai (==0.102.0)"]
 
 [[package]]
 name = "crewai"
-version = "0.102.0"
+version = "0.114.0"
 description = "Cutting-edge framework for orchestrating role-playing, autonomous AI agents. By fostering collaborative intelligence, CrewAI empowers agents to work together seamlessly, tackling complex tasks."
 optional = false
 python-versions = "<3.13,>=3.10"
 groups = ["main"]
 files = [
-    {file = "crewai-0.102.0-py3-none-any.whl", hash = "sha256:af9ce144fa48cb0314946b509b0d415f01af3066fa2cfb42f27e05df3fb6539e"},
-    {file = "crewai-0.102.0.tar.gz", hash = "sha256:da3c10a126d1176265e1a649a00c2c462e947c91090595d05bd6b7d04e56bc74"},
+    {file = "crewai-0.114.0-py3-none-any.whl", hash = "sha256:590cf6afe7d95ac1d482c4fa9033a29e0a9cb567daae4187f25c1cbb1c20af14"},
+    {file = "crewai-0.114.0.tar.gz", hash = "sha256:b2f79693088088b3c1722abecc39a1535115f468d3ce1aa29dcf56cce3ff2968"},
 ]
 
 [package.dependencies]
@@ -763,9 +763,9 @@ jsonref = ">=1.1.0"
 litellm = "1.60.2"
 openai = ">=1.13.3"
 openpyxl = ">=3.1.5"
-opentelemetry-api = ">=1.22.0"
-opentelemetry-exporter-otlp-proto-http = ">=1.22.0"
-opentelemetry-sdk = ">=1.22.0"
+opentelemetry-api = ">=1.30.0"
+opentelemetry-exporter-otlp-proto-http = ">=1.30.0"
+opentelemetry-sdk = ">=1.30.0"
 pdfplumber = ">=0.11.4"
 pydantic = ">=2.4.2"
 python-dotenv = ">=1.0.0"
@@ -777,6 +777,7 @@ uv = ">=0.4.25"
 
 [package.extras]
 agentops = ["agentops (>=0.3.0)"]
+aisuite = ["aisuite (>=0.1.10)"]
 docling = ["docling (>=2.12.0)"]
 embeddings = ["tiktoken (>=0.7.0,<0.8.0)"]
 fastembed = ["fastembed (>=0.4.1)"]
@@ -784,7 +785,7 @@ mem0 = ["mem0ai (>=0.1.29)"]
 openpyxl = ["openpyxl (>=3.1.5)"]
 pandas = ["pandas (>=2.2.3)"]
 pdfplumber = ["pdfplumber (>=0.11.4)"]
-tools = ["crewai-tools (>=0.36.0)"]
+tools = ["crewai-tools (>=0.40.1,<0.41.0)"]
 
 [[package]]
 name = "cryptography"
@@ -5494,4 +5495,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.13"
-content-hash = "f64470762c2b0a25a8a7874456add6fc21e75e56535573289a8e187e6ed1e26b"
+content-hash = "084979ae191e8592c0a5c185c7a045fade91837485c114cef6927bfbdeaf86c9"

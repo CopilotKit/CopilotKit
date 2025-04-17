@@ -23,10 +23,10 @@ copilotkit = "0.1.44"
 uvicorn = "^0.31.0"
 python-dotenv = "^1.0.1"
 langchain-anthropic = "0.2.3"
-langchain-google-genai = "2.0.0"
+langchain-google-genai = "2.0.5"
 langchain-core = "^0.3.25"
 langgraph-cli = {extras = ["inmem"], version = "^0.1.64"}
-crewai = { version = "0.102.0" }
+crewai = { version = "0.114.0" }
 
 [tool.poetry.scripts]
 demo = "greeting_agent.demo:main"

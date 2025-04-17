@@ -19,7 +19,7 @@ openai = "^1.51.0"
 copilotkit = "0.1.44"
 uvicorn = "^0.31.0"
 python-dotenv = "^1.0.1"
-crewai = {extras = ["tools"], version = "^0.102.0"}
+crewai = {extras = ["tools"], version = "^0.114.0"}
 
 [tool.poetry.scripts]
 demo = "research.demo:main"

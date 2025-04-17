@@ -12,6 +12,11 @@ from .crewai_sdk import (
     copilotkit_exit,
     copilotkit_predict_state,
 )
+from .utils import (
+    create_copilotkit_tool_handlers, 
+    check_for_intercepted_actions,
+    COPILOTKIT_ACTION_INTERCEPTED_MARKER
+)
 __all__ = [
     "CrewAIAgent",
     "CopilotKitProperties",
@@ -22,4 +27,7 @@ __all__ = [
     "copilotkit_stream",
     "copilotkit_exit",
     "copilotkit_predict_state",
+    "create_copilotkit_tool_handlers",
+    "check_for_intercepted_actions",
+    "COPILOTKIT_ACTION_INTERCEPTED_MARKER",
 ]

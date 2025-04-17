@@ -27,7 +27,7 @@ python-dotenv = "^1.0.1"
 langchain-google-genai = "^2.0.4"
 langchain-core = "^0.3.25"
 langgraph-cli = {extras = ["inmem"], version = "^0.1.64"}
-crewai = { version = "0.102.0" }
+crewai = { version = "0.114.0" }
 
 [tool.poetry.scripts]
 demo = "my_agent.demo:main"
