@@ -24,4 +24,7 @@ COPY ${APP_DIR}/ ./
 
 RUN mkdir .langgraph_api
 
+# Install langgraph-cli with inmem option
+RUN pip install -U "langgraph-cli[inmem]"
+
 CMD ["poetry", "run", "demo"]
