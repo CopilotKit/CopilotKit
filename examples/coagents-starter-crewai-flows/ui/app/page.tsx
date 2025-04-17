@@ -30,6 +30,7 @@ function YourMainContent() {
       {
         name: "name",
         description: "The name of the user to greet.",
+        required: true,
       },
     ],
     render: ({ args }) => {
@@ -39,6 +40,7 @@ function YourMainContent() {
         </div>
       );
     },
+    followUp: false,
   });
 
   // Action for setting the background color
