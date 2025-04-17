@@ -8,7 +8,6 @@ from typing import cast
 
 from langchain_core.messages import AIMessage, ToolMessage
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
 from research_canvas.langgraph.state import AgentState
 from research_canvas.langgraph.download import download_node
 from research_canvas.langgraph.chat import chat_node
@@ -24,10 +23,10 @@ workflow.add_node("delete_node", delete_node)
 workflow.add_node("perform_delete_node", perform_delete_node)
 
 
-memory = MemorySaver()
 workflow.set_entry_point("download")
 workflow.add_edge("download", "chat_node")
 workflow.add_edge("delete_node", "perform_delete_node")
 workflow.add_edge("perform_delete_node", "chat_node")
 workflow.add_edge("search_node", "download")
-graph = workflow.compile(checkpointer=memory, interrupt_after=["delete_node"])
+# Remove custom checkpointer to use LangGraph's built-in persistence
+graph = workflow.compile(interrupt_after=["delete_node"])
