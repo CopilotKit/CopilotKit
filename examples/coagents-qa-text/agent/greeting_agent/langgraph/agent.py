@@ -2,7 +2,6 @@
 
 from typing import cast
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import HumanMessage, AIMessage
 from copilotkit.langgraph import (
@@ -100,5 +99,4 @@ workflow.set_entry_point("ask_name_node")
 workflow.add_edge("ask_name_node", "extract_name_node")
 workflow.add_conditional_edges("extract_name_node", route)
 workflow.add_edge("greet_node", END)
-memory = MemorySaver()
-graph = workflow.compile(checkpointer=memory, interrupt_after=["ask_name_node"])
+graph = workflow.compile(interrupt_after=["ask_name_node"])

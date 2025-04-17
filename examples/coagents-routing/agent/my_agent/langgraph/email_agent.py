@@ -3,7 +3,6 @@
 from typing import Any, cast
 from langgraph.graph import StateGraph, END
 from langgraph.graph import MessagesState
-from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import SystemMessage, ToolMessage
 from copilotkit.langgraph import copilotkit_customize_config, copilotkit_exit
@@ -78,5 +77,4 @@ workflow.add_node("email_node", cast(Any, email_node))
 workflow.set_entry_point("email_node")
 
 workflow.add_edge("email_node", END)
-memory = MemorySaver()
-email_graph = workflow.compile(checkpointer=memory)
+email_graph = workflow.compile()
