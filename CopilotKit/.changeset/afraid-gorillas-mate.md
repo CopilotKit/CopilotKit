@@ -4,5 +4,4 @@
 "@copilotkit/runtime": patch
 ---
 
-- 
-feat: add image input support with multi-model compatibility, pasting, and UX improvements
+- feat: add image input support with multi-model compatibility, pasting, and UX improvements
