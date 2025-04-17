@@ -4,6 +4,7 @@ import {
   ResultMessage,
   TextMessage,
   AgentStateMessage,
+  ImageMessage,
 } from "../graphql/types/converted";
 import { MessageInput } from "../graphql/inputs/message.input";
 import { plainToInstance } from "class-transformer";
@@ -18,6 +19,15 @@ export function convertGqlInputToMessages(inputMessages: MessageInput[]): Messag
         role: message.textMessage.role,
         content: message.textMessage.content,
         parentMessageId: message.textMessage.parentMessageId,
+      });
+    } else if (message.imageMessage) {
+      return plainToInstance(ImageMessage, {
+        id: message.id,
+        createdAt: message.createdAt,
+        role: message.imageMessage.role,
+        bytes: message.imageMessage.bytes,
+        format: message.imageMessage.format,
+        parentMessageId: message.imageMessage.parentMessageId,
       });
     } else if (message.actionExecutionMessage) {
       return plainToInstance(ActionExecutionMessage, {

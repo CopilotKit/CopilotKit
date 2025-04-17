@@ -153,6 +153,18 @@ export function convertMessageToOpenAIMessage(
       role,
       content: message.content,
     } satisfies UsedMessageParams;
+  } else if (message.isImageMessage()) {
+    return {
+      role: "user",
+      content: [
+        {
+          type: "image_url",
+          image_url: {
+            url: `data:image/${message.format};base64,${message.bytes}`,
+          },
+        },
+      ],
+    } satisfies UsedMessageParams;
   } else if (message.isActionExecutionMessage()) {
     return {
       role: "assistant",

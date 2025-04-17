@@ -11,10 +11,16 @@ import {
   LangGraphInterruptEvent as GqlLangGraphInterruptEvent,
   MetaEventName,
   CopilotKitLangGraphInterruptEvent as GqlCopilotKitLangGraphInterruptEvent,
+  ImageMessageInput,
 } from "../graphql/@generated/graphql";
 import { parseJson } from "@copilotkit/shared";
 
-type MessageType = "TextMessage" | "ActionExecutionMessage" | "ResultMessage" | "AgentStateMessage";
+type MessageType =
+  | "TextMessage"
+  | "ActionExecutionMessage"
+  | "ResultMessage"
+  | "AgentStateMessage"
+  | "ImageMessage";
 
 export class Message {
   type: MessageType;
@@ -43,6 +49,10 @@ export class Message {
 
   isAgentStateMessage(): this is AgentStateMessage {
     return this.type === "AgentStateMessage";
+  }
+
+  isImageMessage(): this is ImageMessage {
+    return this.type === "ImageMessage";
   }
 }
 
@@ -123,6 +133,20 @@ export class AgentStateMessage extends Message implements Omit<AgentStateMessage
   constructor(props: any) {
     super(props);
     this.type = "AgentStateMessage";
+  }
+}
+
+type ImageMessageConstructorOptions = MessageConstructorOptions & ImageMessageInput;
+
+export class ImageMessage extends Message implements ImageMessageConstructorOptions {
+  format: ImageMessageInput["format"];
+  bytes: ImageMessageInput["bytes"];
+  role: ImageMessageInput["role"];
+  parentMessageId: ImageMessageInput["parentMessageId"];
+
+  constructor(props: ImageMessageConstructorOptions) {
+    super(props);
+    this.type = "ImageMessage";
   }
 }
 
