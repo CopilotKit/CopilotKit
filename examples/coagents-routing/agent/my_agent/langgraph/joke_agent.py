@@ -1,10 +1,10 @@
 """Test Joker Agent"""
 
 from typing import Any, cast
+import os
 
 from langgraph.graph import StateGraph, END
 from langgraph.graph import MessagesState
-from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import SystemMessage, ToolMessage
 
@@ -78,5 +78,13 @@ workflow.add_node("joke_node", cast(Any, joke_node))
 workflow.set_entry_point("joke_node")
 
 workflow.add_edge("joke_node", END)
-memory = MemorySaver()
-joke_graph = workflow.compile(checkpointer=memory)
+
+# Conditionally use a checkpointer based on the environment
+if os.environ.get("LANGGRAPH_API", "false").lower() == "true":
+    # When running in LangGraph API, don't use a custom checkpointer
+    joke_graph = workflow.compile()
+else:
+    # For CopilotKit and other contexts, use MemorySaver
+    from langgraph.checkpoint.memory import MemorySaver
+    memory = MemorySaver()
+    joke_graph = workflow.compile(checkpointer=memory)
