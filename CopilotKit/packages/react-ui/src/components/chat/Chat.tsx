@@ -316,27 +316,27 @@ export function CopilotChat({
 
     const handlePaste = async (e: ClipboardEvent) => {
       const target = e.target as HTMLElement;
-      if (!target.parentElement?.classList.contains('copilotKitInput')) return;
+      if (!target.parentElement?.classList.contains("copilotKitInput")) return;
 
       const items = Array.from(e.clipboardData?.items || []);
-      const imageItems = items.filter(item => item.type.startsWith('image/'));
+      const imageItems = items.filter((item) => item.type.startsWith("image/"));
 
       if (imageItems.length === 0) return;
 
       e.preventDefault(); // Prevent default paste behavior for images
 
-      const imagePromises: Promise<ImageUpload | null>[] = imageItems.map(item => {
+      const imagePromises: Promise<ImageUpload | null>[] = imageItems.map((item) => {
         const file = item.getAsFile();
         if (!file) return Promise.resolve(null);
 
         return new Promise<ImageUpload | null>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = (e) => {
-            const base64String = (e.target?.result as string)?.split(',')[1];
+            const base64String = (e.target?.result as string)?.split(",")[1];
             if (base64String) {
               resolve({
                 contentType: file.type,
-                bytes: base64String
+                bytes: base64String,
               });
             } else {
               resolve(null);
@@ -349,15 +349,15 @@ export function CopilotChat({
 
       try {
         const loadedImages = (await Promise.all(imagePromises)).filter((img) => img !== null);
-        setSelectedImages(prev => [...prev, ...loadedImages]);
+        setSelectedImages((prev) => [...prev, ...loadedImages]);
       } catch (error) {
         // TODO: Show an error message to the user
         console.error("Error processing pasted images:", error);
       }
     };
 
-    document.addEventListener('paste', handlePaste);
-    return () => document.removeEventListener('paste', handlePaste);
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
   }, [imageUploadsEnabled]);
 
   useEffect(() => {
@@ -405,7 +405,7 @@ export function CopilotChat({
     const images = selectedImages;
     setSelectedImages([]);
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
 
     return sendMessage(text, images);
@@ -433,18 +433,18 @@ export function CopilotChat({
       return;
     }
 
-    const files = Array.from(event.target.files).filter(file => file.type.startsWith('image/'));
+    const files = Array.from(event.target.files).filter((file) => file.type.startsWith("image/"));
     if (files.length === 0) return;
 
-    const fileReadPromises = files.map(file => {
-      return new Promise<{ contentType: string, bytes: string }>((resolve, reject) => {
+    const fileReadPromises = files.map((file) => {
+      return new Promise<{ contentType: string; bytes: string }>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => {
-          const base64String = (e.target?.result as string)?.split(',')[1] || '';
+          const base64String = (e.target?.result as string)?.split(",")[1] || "";
           if (base64String) {
             resolve({
               contentType: file.type,
-              bytes: base64String
+              bytes: base64String,
             });
           }
         };
@@ -455,7 +455,7 @@ export function CopilotChat({
 
     try {
       const loadedImages = await Promise.all(fileReadPromises);
-      setSelectedImages(prev => [...prev, ...loadedImages]);
+      setSelectedImages((prev) => [...prev, ...loadedImages]);
     } catch (error) {
       // TODO: Show an error message to the user
       console.error("Error reading files:", error);
@@ -463,7 +463,7 @@ export function CopilotChat({
   };
 
   const removeSelectedImage = (index: number) => {
-    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -501,17 +501,14 @@ export function CopilotChat({
 
       {imageUploadsEnabled && (
         <>
-          <ImageUploadQueue
-            images={selectedImages}
-            onRemoveImage={removeSelectedImage}
-          />
+          <ImageUploadQueue images={selectedImages} onRemoveImage={removeSelectedImage} />
           <input
             type="file"
             multiple
             ref={fileInputRef}
             onChange={handleImageUpload}
             accept={inputFileAccept}
-            style={{ display: 'none' }}
+            style={{ display: "none" }}
           />
         </>
       )}
@@ -614,7 +611,10 @@ export const useCopilotChatLogic = (
     visibleMessages.length == 0,
   ]);
 
-  const sendMessage = async (messageContent: string, imagesToUse?: Array<{ contentType: string, bytes: string }>) => {
+  const sendMessage = async (
+    messageContent: string,
+    imagesToUse?: Array<{ contentType: string; bytes: string }>,
+  ) => {
     // Use images passed in the call OR the ones from the state (passed via props)
     const images = imagesToUse || [];
 

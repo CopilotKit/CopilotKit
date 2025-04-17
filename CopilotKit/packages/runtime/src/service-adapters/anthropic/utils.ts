@@ -126,7 +126,7 @@ export function convertMessageToAnthropicMessage(
             type: "base64",
             media_type: mediaType,
             data: message.bytes,
-          }
+          },
         },
       ],
     };

@@ -25,7 +25,7 @@ export function RenderImageMessage({
         <img
           src={imageData}
           alt="User uploaded image"
-          style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px' }}
+          style={{ maxWidth: "100%", maxHeight: "300px", borderRadius: "8px" }}
         />
       </div>
     );
@@ -61,4 +61,4 @@ export function RenderImageMessage({
   }
 
   return null;
-} 
+}
