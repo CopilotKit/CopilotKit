@@ -47,6 +47,12 @@ export const generateCopilotResponseMutation = graphql(/** GraphQL **/ `
           role
           parentMessageId
         }
+        ... on ImageMessageOutput {
+          format
+          bytes
+          role
+          parentMessageId
+        }
         ... on ActionExecutionMessageOutput {
           name
           arguments @stream

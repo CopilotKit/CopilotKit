@@ -9,6 +9,7 @@ import {
   Message,
   ResultMessage,
   TextMessage,
+  ImageMessage,
 } from "./types";
 
 import untruncateJson from "untruncate-json";
@@ -63,6 +64,17 @@ export function convertMessagesToGqlInput(messages: Message[]): MessageInput[] {
           active: message.active,
           running: message.running,
           state: JSON.stringify(message.state),
+        },
+      };
+    } else if (message.isImageMessage()) {
+      return {
+        id: message.id,
+        createdAt: message.createdAt,
+        imageMessage: {
+          format: message.format,
+          bytes: message.bytes,
+          role: message.role as any,
+          parentMessageId: message.parentMessageId,
         },
       };
     } else {
@@ -141,6 +153,16 @@ export function convertGqlOutputToMessages(
         state: parseJson(message.state, {}),
         createdAt: new Date(),
       });
+    } else if (message.__typename === "ImageMessageOutput") {
+      return new ImageMessage({
+        id: message.id,
+        format: message.format,
+        bytes: message.bytes,
+        role: message.role,
+        parentMessageId: message.parentMessageId,
+        createdAt: new Date(),
+        status: message.status || { code: MessageStatusCode.Pending },
+      });
     }
 
     throw new Error("Unknown message type");
@@ -196,6 +218,18 @@ export function loadMessagesFromJsonRepresentation(json: any[]): Message[] {
           running: item.running,
           state: item.state,
           createdAt: item.createdAt || new Date(),
+        }),
+      );
+    } else if ("format" in item && "bytes" in item) {
+      result.push(
+        new ImageMessage({
+          id: item.id,
+          format: item.format,
+          bytes: item.bytes,
+          role: item.role,
+          parentMessageId: item.parentMessageId,
+          createdAt: item.createdAt || new Date(),
+          status: item.status || { code: MessageStatusCode.Success },
         }),
       );
     }

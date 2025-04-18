@@ -98,6 +98,38 @@ export function convertMessageToAnthropicMessage(
         content: [{ type: "text", text: message.content }],
       };
     }
+  } else if (message.isImageMessage()) {
+    let mediaType: Anthropic.Messages.ImageBlockParam.Source["media_type"];
+    switch (message.format) {
+      case "jpeg":
+        mediaType = "image/jpeg";
+        break;
+      case "png":
+        mediaType = "image/png";
+        break;
+      case "webp":
+        mediaType = "image/webp";
+        break;
+      case "gif":
+        mediaType = "image/gif";
+        break;
+      default:
+        throw new Error(`Unsupported image format: ${message.format}`);
+    }
+
+    return {
+      role: "user",
+      content: [
+        {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: mediaType,
+            data: message.bytes,
+          },
+        },
+      ],
+    };
   } else if (message.isActionExecutionMessage()) {
     return {
       role: "assistant",

@@ -109,6 +109,15 @@ Icons can be used to set custom icons for the chat window.
 Labels can be used to set custom labels for the chat window.
 </PropertyReference>
 
+<PropertyReference name="imageUploadsEnabled" type="boolean"  > 
+Enable image upload button (image inputs only supported on some models)
+</PropertyReference>
+
+<PropertyReference name="inputFileAccept" type="string"  > 
+The 'accept' attribute for the file input used for image uploads.
+  Defaults to "image".
+</PropertyReference>
+
 <PropertyReference name="makeSystemMessage" type="SystemMessageFunction"  > 
 A function that takes in context string and instructions and returns
   the system message to include in the chat request.
@@ -142,6 +151,10 @@ A custom RenderAgentStateMessage component to use instead of the default.
 
 <PropertyReference name="RenderResultMessage" type="React.ComponentType<RenderMessageProps>"  > 
 A custom RenderResultMessage component to use instead of the default.
+</PropertyReference>
+
+<PropertyReference name="RenderImageMessage" type="React.ComponentType<RenderMessageProps>"  > 
+A custom RenderImageMessage component to use instead of the default.
 </PropertyReference>
 
 <PropertyReference name="Input" type="React.ComponentType<InputProps>"  > 

@@ -57,6 +57,7 @@ import { RenderTextMessage as DefaultRenderTextMessage } from "./messages/Render
 import { RenderActionExecutionMessage as DefaultRenderActionExecutionMessage } from "./messages/RenderActionExecutionMessage";
 import { RenderResultMessage as DefaultRenderResultMessage } from "./messages/RenderResultMessage";
 import { RenderAgentStateMessage as DefaultRenderAgentStateMessage } from "./messages/RenderAgentStateMessage";
+import { RenderImageMessage as DefaultRenderImageMessage } from "./messages/RenderImageMessage";
 import { AssistantMessage as DefaultAssistantMessage } from "./messages/AssistantMessage";
 import { UserMessage as DefaultUserMessage } from "./messages/UserMessage";
 import { Suggestion } from "./Suggestion";
@@ -69,7 +70,7 @@ import {
 } from "@copilotkit/react-core";
 import { reloadSuggestions } from "./Suggestion";
 import { CopilotChatSuggestion } from "../../types/suggestions";
-import { Message, Role, TextMessage } from "@copilotkit/runtime-client-gql";
+import { Message, Role, TextMessage, ImageMessage } from "@copilotkit/runtime-client-gql";
 import { randomId } from "@copilotkit/shared";
 import {
   AssistantMessageProps,
@@ -80,6 +81,7 @@ import {
 } from "./props";
 
 import { HintFunction, runAgent, stopAgent } from "@copilotkit/react-core";
+import { ImageUploadQueue } from "./ImageUploadQueue";
 
 /**
  * Props for CopilotChat component.
@@ -146,6 +148,17 @@ export interface CopilotChatProps {
   labels?: CopilotChatLabels;
 
   /**
+   * Enable image upload button (image inputs only supported on some models)
+   */
+  imageUploadsEnabled?: boolean;
+
+  /**
+   * The 'accept' attribute for the file input used for image uploads.
+   * Defaults to "image/*".
+   */
+  inputFileAccept?: string;
+
+  /**
    * A function that takes in context string and instructions and returns
    * the system message to include in the chat request.
    * Use this to completely override the system message, when providing
@@ -187,6 +200,11 @@ export interface CopilotChatProps {
    * A custom RenderResultMessage component to use instead of the default.
    */
   RenderResultMessage?: React.ComponentType<RenderMessageProps>;
+
+  /**
+   * A custom RenderImageMessage component to use instead of the default.
+   */
+  RenderImageMessage?: React.ComponentType<RenderMessageProps>;
 
   /**
    * A custom Input component to use instead of the default.
@@ -257,6 +275,11 @@ export type OnStopGeneration = (args: OnStopGenerationArguments) => void;
 
 export type OnReloadMessages = (args: OnReloadMessagesArguments) => void;
 
+export type ImageUpload = {
+  contentType: string;
+  bytes: string;
+};
+
 export function CopilotChat({
   instructions,
   onSubmitMessage,
@@ -273,14 +296,69 @@ export function CopilotChat({
   RenderActionExecutionMessage = DefaultRenderActionExecutionMessage,
   RenderAgentStateMessage = DefaultRenderAgentStateMessage,
   RenderResultMessage = DefaultRenderResultMessage,
+  RenderImageMessage = DefaultRenderImageMessage,
   Input = DefaultInput,
   className,
   icons,
   labels,
   AssistantMessage = DefaultAssistantMessage,
   UserMessage = DefaultUserMessage,
+  imageUploadsEnabled,
+  inputFileAccept = "image/*",
 }: CopilotChatProps) {
   const { additionalInstructions, setChatInstructions } = useCopilotContext();
+  const [selectedImages, setSelectedImages] = useState<Array<ImageUpload>>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Clipboard paste handler
+  useEffect(() => {
+    if (!imageUploadsEnabled) return;
+
+    const handlePaste = async (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.parentElement?.classList.contains("copilotKitInput")) return;
+
+      const items = Array.from(e.clipboardData?.items || []);
+      const imageItems = items.filter((item) => item.type.startsWith("image/"));
+
+      if (imageItems.length === 0) return;
+
+      e.preventDefault(); // Prevent default paste behavior for images
+
+      const imagePromises: Promise<ImageUpload | null>[] = imageItems.map((item) => {
+        const file = item.getAsFile();
+        if (!file) return Promise.resolve(null);
+
+        return new Promise<ImageUpload | null>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const base64String = (e.target?.result as string)?.split(",")[1];
+            if (base64String) {
+              resolve({
+                contentType: file.type,
+                bytes: base64String,
+              });
+            } else {
+              resolve(null);
+            }
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      });
+
+      try {
+        const loadedImages = (await Promise.all(imagePromises)).filter((img) => img !== null);
+        setSelectedImages((prev) => [...prev, ...loadedImages]);
+      } catch (error) {
+        // TODO: Show an error message to the user
+        console.error("Error processing pasted images:", error);
+      }
+    };
+
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [imageUploadsEnabled]);
 
   useEffect(() => {
     if (!additionalInstructions?.length) {
@@ -322,6 +400,17 @@ export function CopilotChat({
     onReloadMessages,
   );
 
+  // Wrapper for sendMessage to clear selected images
+  const handleSendMessage = (text: string) => {
+    const images = selectedImages;
+    setSelectedImages([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+
+    return sendMessage(text, images);
+  };
+
   const chatContext = React.useContext(ChatContext);
   const isVisible = chatContext ? chatContext.open : true;
 
@@ -339,6 +428,44 @@ export function CopilotChat({
     }
   };
 
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || event.target.files.length === 0) {
+      return;
+    }
+
+    const files = Array.from(event.target.files).filter((file) => file.type.startsWith("image/"));
+    if (files.length === 0) return;
+
+    const fileReadPromises = files.map((file) => {
+      return new Promise<{ contentType: string; bytes: string }>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const base64String = (e.target?.result as string)?.split(",")[1] || "";
+          if (base64String) {
+            resolve({
+              contentType: file.type,
+              bytes: base64String,
+            });
+          }
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    });
+
+    try {
+      const loadedImages = await Promise.all(fileReadPromises);
+      setSelectedImages((prev) => [...prev, ...loadedImages]);
+    } catch (error) {
+      // TODO: Show an error message to the user
+      console.error("Error reading files:", error);
+    }
+  };
+
+  const removeSelectedImage = (index: number) => {
+    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
   return (
     <WrappedCopilotChat icons={icons} labels={labels} className={className}>
       <Messages
@@ -348,6 +475,7 @@ export function CopilotChat({
         RenderActionExecutionMessage={RenderActionExecutionMessage}
         RenderAgentStateMessage={RenderAgentStateMessage}
         RenderResultMessage={RenderResultMessage}
+        RenderImageMessage={RenderImageMessage}
         messages={visibleMessages}
         inProgress={isLoading}
         onRegenerate={handleRegenerate}
@@ -364,17 +492,33 @@ export function CopilotChat({
                 message={suggestion.message}
                 partial={suggestion.partial}
                 className={suggestion.className}
-                onClick={(message) => sendMessage(message)}
+                onClick={(message) => handleSendMessage(message)}
               />
             ))}
           </div>
         )}
       </Messages>
+
+      {imageUploadsEnabled && (
+        <>
+          <ImageUploadQueue images={selectedImages} onRemoveImage={removeSelectedImage} />
+          <input
+            type="file"
+            multiple
+            ref={fileInputRef}
+            onChange={handleImageUpload}
+            accept={inputFileAccept}
+            style={{ display: "none" }}
+          />
+        </>
+      )}
+
       <Input
         inProgress={isLoading}
-        onSend={sendMessage}
+        onSend={handleSendMessage}
         isVisible={isVisible}
         onStop={stopGeneration}
+        onUpload={imageUploadsEnabled ? () => fileInputRef.current?.click() : undefined}
       />
     </WrappedCopilotChat>
   );
@@ -467,28 +611,64 @@ export const useCopilotChatLogic = (
     visibleMessages.length == 0,
   ]);
 
-  const sendMessage = async (messageContent: string) => {
+  const sendMessage = async (
+    messageContent: string,
+    imagesToUse?: Array<{ contentType: string; bytes: string }>,
+  ) => {
+    // Use images passed in the call OR the ones from the state (passed via props)
+    const images = imagesToUse || [];
+
     abortSuggestions();
     setCurrentSuggestions([]);
 
-    const message: Message = new TextMessage({
-      content: messageContent,
-      role: Role.User,
-    });
+    let firstMessage: Message | null = null;
 
-    if (onSubmitMessage) {
-      try {
-        await onSubmitMessage(messageContent);
-      } catch (error) {
-        console.error("Error in onSubmitMessage:", error);
+    // If there's text content, send a text message first
+    if (messageContent.trim().length > 0) {
+      const textMessage = new TextMessage({
+        content: messageContent,
+        role: Role.User,
+      });
+
+      if (onSubmitMessage) {
+        try {
+          // Call onSubmitMessage only with text, as image handling is internal right now
+          await onSubmitMessage(messageContent);
+        } catch (error) {
+          console.error("Error in onSubmitMessage:", error);
+        }
+      }
+
+      await appendMessage(textMessage, { followUp: images.length === 0 });
+
+      if (!firstMessage) {
+        firstMessage = textMessage;
       }
     }
-    // this needs to happen after onSubmitMessage, because it will trigger submission
-    // of the message to the endpoint. Some users depend on performing some actions
-    // before the message is submitted.
-    appendMessage(message);
 
-    return message;
+    // Send image messages
+    if (images.length > 0) {
+      for (let i = 0; i < images.length; i++) {
+        const imageMessage = new ImageMessage({
+          format: images[i].contentType.replace("image/", ""),
+          bytes: images[i].bytes,
+          role: Role.User,
+        });
+        await appendMessage(imageMessage, { followUp: i === images.length - 1 });
+        if (!firstMessage) {
+          firstMessage = imageMessage;
+        }
+      }
+    }
+
+    if (!firstMessage) {
+      // Should not happen if send button is properly disabled, but handle just in case
+      return new TextMessage({ content: "", role: Role.User }); // Return a dummy message
+    }
+
+    // The hook implicitly triggers API call on appendMessage.
+    // We return the first message sent (either text or first image)
+    return firstMessage;
   };
 
   const messages = visibleMessages;

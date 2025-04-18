@@ -121,6 +121,7 @@ export class TelemetryClient {
     this.setGlobalProperties({
       sampleRate: this.sampleRate,
       sampleRateAdjustmentFactor: 1 - this.sampleRate,
+      sampleWeight: 1 / this.sampleRate,
     });
   }
 }

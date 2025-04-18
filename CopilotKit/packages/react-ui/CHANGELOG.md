@@ -1,5 +1,24 @@
 # ui
 
+## 1.8.7-next.0
+
+### Patch Changes
+
+- 8b8474f: - feat: add image input support with multi-model compatibility, pasting, and UX improvements
+- Updated dependencies [8b8474f]
+  - @copilotkit/runtime-client-gql@1.8.7-next.0
+  - @copilotkit/react-core@1.8.7-next.0
+  - @copilotkit/shared@1.8.7-next.0
+
+## 1.8.6
+
+### Patch Changes
+
+- Updated dependencies [7a04bd1]
+  - @copilotkit/react-core@1.8.6
+  - @copilotkit/runtime-client-gql@1.8.6
+  - @copilotkit/shared@1.8.6
+
 ## 1.8.6-next.0
 
 ### Patch Changes

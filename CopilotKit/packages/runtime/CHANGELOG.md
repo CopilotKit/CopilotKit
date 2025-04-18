@@ -1,5 +1,21 @@
 # @copilotkit/runtime
 
+## 1.8.7-next.0
+
+### Patch Changes
+
+- 8b8474f: - feat: add image input support with multi-model compatibility, pasting, and UX improvements
+  - @copilotkit/shared@1.8.7-next.0
+
+## 1.8.6
+
+### Patch Changes
+
+- 7a04bd1: - fix: fix how results are communicated back on interrupt
+  - fix: do not allow followup for interrupt actions
+  - chore: improve TS docs for interrupt
+  - @copilotkit/shared@1.8.6
+
 ## 1.8.6-next.0
 
 ### Patch Changes

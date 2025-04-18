@@ -105,8 +105,6 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: 21.x
-          cache: "pnpm"
-          cache-dependency-path: "**/pnpm-lock.yaml"
 
       - name: (UI) Install app dependencies
         if: matrix.app.type == 'ui'
@@ -236,8 +234,6 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: 21.x
-          cache: "pnpm"
-          cache-dependency-path: "**/pnpm-lock.yaml"
 
       - name: Infra install dependencies
         working-directory: infra
