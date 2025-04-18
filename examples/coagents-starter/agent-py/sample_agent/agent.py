@@ -9,7 +9,6 @@ from langchain_core.messages import SystemMessage, AIMessage
 from langchain_core.runnables import RunnableConfig
 from langchain.tools import tool
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
 from langgraph.prebuilt import ToolNode
 from copilotkit import CopilotKitState
@@ -112,4 +111,4 @@ workflow.add_edge("tool_node", "chat_node")
 workflow.set_entry_point("chat_node")
 
 # Compile the workflow graph
-graph = workflow.compile(MemorySaver())
+graph = workflow.compile()
