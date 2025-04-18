@@ -29,6 +29,7 @@ export interface MessagesProps {
   RenderActionExecutionMessage: React.ComponentType<RenderMessageProps>;
   RenderAgentStateMessage: React.ComponentType<RenderMessageProps>;
   RenderResultMessage: React.ComponentType<RenderMessageProps>;
+  RenderImageMessage: React.ComponentType<RenderMessageProps>;
 
   /**
    * Callback function to regenerate the assistant's response
@@ -58,6 +59,7 @@ export interface Renderer {
 export interface UserMessageProps {
   message?: string;
   rawData: any;
+  subComponent?: React.JSX.Element;
 }
 
 export interface AssistantMessageProps {
@@ -150,4 +152,5 @@ export interface InputProps {
   onSend: (text: string) => Promise<Message>;
   isVisible?: boolean;
   onStop?: () => void;
+  onUpload?: () => void;
 }

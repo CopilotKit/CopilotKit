@@ -12,6 +12,7 @@ export const Messages = ({
   RenderActionExecutionMessage,
   RenderAgentStateMessage,
   RenderResultMessage,
+  RenderImageMessage,
   AssistantMessage,
   UserMessage,
   onRegenerate,
@@ -103,6 +104,22 @@ export const Messages = ({
                 isCurrentMessage={isCurrentMessage}
                 AssistantMessage={AssistantMessage}
                 UserMessage={UserMessage}
+              />
+            );
+          } else if (message.isImageMessage && message.isImageMessage()) {
+            return (
+              <RenderImageMessage
+                key={index}
+                message={message}
+                inProgress={inProgress}
+                index={index}
+                isCurrentMessage={isCurrentMessage}
+                AssistantMessage={AssistantMessage}
+                UserMessage={UserMessage}
+                onRegenerate={onRegenerate}
+                onCopy={onCopy}
+                onThumbsUp={onThumbsUp}
+                onThumbsDown={onThumbsDown}
               />
             );
           }
