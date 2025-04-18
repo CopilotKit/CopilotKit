@@ -9,6 +9,10 @@ def maybe_perform_delete(state: Dict[str, Any]):
     """
     Maybe perform delete.
     """
+    # Check if messages exists in state before accessing it
+    if "messages" not in state:
+        return
+        
     messages = state["messages"]
     if len(messages) >= 2:
         last_message = messages[-1]
