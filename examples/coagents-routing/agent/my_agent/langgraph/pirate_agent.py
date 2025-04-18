@@ -1,9 +1,9 @@
 """Test Pirate Agent"""
 
 from typing import Any, cast
+import os
 from langgraph.graph import StateGraph, END
 from langgraph.graph import MessagesState
-from langgraph.checkpoint.memory import MemorySaver
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import SystemMessage
 from copilotkit.langgraph import copilotkit_exit
@@ -43,5 +43,13 @@ workflow = StateGraph(PirateAgentState)
 workflow.add_node("pirate_node", cast(Any, pirate_node))
 workflow.set_entry_point("pirate_node")
 workflow.add_edge("pirate_node", END)
-memory = MemorySaver()
-pirate_graph = workflow.compile(checkpointer=memory)
+
+# Conditionally use a checkpointer based on the environment
+if os.environ.get("LANGGRAPH_API", "false").lower() == "true":
+    # When running in LangGraph API, don't use a custom checkpointer
+    pirate_graph = workflow.compile()
+else:
+    # For CopilotKit and other contexts, use MemorySaver
+    from langgraph.checkpoint.memory import MemorySaver
+    memory = MemorySaver()
+    pirate_graph = workflow.compile(checkpointer=memory)

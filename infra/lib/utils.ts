@@ -29,8 +29,7 @@ export function createAgentProjectStack({
   lgcAgentPython: PreviewProjectStack;
   lgcAgentJS: PreviewProjectStack;
 } {
-  const cdkStackName =
-    toCdkStackName(project) + "AgentLocalDeps";
+  const cdkStackName = toCdkStackName(project) + "AgentLocalDeps";
   const GITHUB_ACTIONS_RUN_ID = requireEnv("GITHUB_ACTIONS_RUN_ID");
 
   const outputs: Record<string, string> = {
@@ -59,34 +58,43 @@ export function createAgentProjectStack({
     outputs: {
       ...outputs,
       LangGraphCloud: "false",
-      SelfHosted: "true"
+      SelfHosted: "true",
     },
   });
 
-  const lgcAgentPython = new PreviewProjectStack(app, `${cdkStackName}LGCPython`, {
-    projectName: project,
-    projectDescription: `${description} - LangGraph Cloud Python`,
-    environmentVariablesFromSecrets: [
-      "OPENAI_API_KEY",
-      "ANTHROPIC_API_KEY",
-      "GOOGLE_API_KEY",
-      "TAVILY_API_KEY",
-      "LANGSMITH_API_KEY",
-    ],
-    port: "8000",
-    includeInPRComment: false,
-    env: {
-      account: process.env.CDK_DEFAULT_ACCOUNT,
-    },
-    imageTag: `${project}-agent-python-local-deps-${GITHUB_ACTIONS_RUN_ID}`,
-    entrypoint: ["/bin/sh", "-c"],
-    cmd: ["langgraph dev --no-browser --port=8000 --config=langgraph.json --host=0.0.0.0"],
-    outputs: {
-      ...outputs,
-      LangGraphCloud: "false",
-      SelfHosted: "false"
-    },
-  });
+  const lgcAgentPython = new PreviewProjectStack(
+    app,
+    `${cdkStackName}LGCPython`,
+    {
+      projectName: project,
+      projectDescription: `${description} - LangGraph Cloud Python`,
+      environmentVariablesFromSecrets: [
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "GOOGLE_API_KEY",
+        "TAVILY_API_KEY",
+        "LANGSMITH_API_KEY",
+      ],
+      environmentVariables: {
+        LANGGRAPH_API: "true",
+      },
+      port: "8000",
+      includeInPRComment: false,
+      env: {
+        account: process.env.CDK_DEFAULT_ACCOUNT,
+      },
+      imageTag: `${project}-agent-python-local-deps-${GITHUB_ACTIONS_RUN_ID}`,
+      entrypoint: ["/bin/sh", "-c"],
+      cmd: [
+        `cd /asset && langgraph dev --no-browser --port=8000 --config=langgraph.json --host=0.0.0.0`,
+      ],
+      outputs: {
+        ...outputs,
+        LangGraphCloud: "false",
+        SelfHosted: "false",
+      },
+    }
+  );
 
   const lgcAgentJS = new PreviewProjectStack(app, `${cdkStackName}LGCJS`, {
     projectName: project,
@@ -109,12 +117,10 @@ export function createAgentProjectStack({
       account: process.env.CDK_DEFAULT_ACCOUNT,
     },
     imageTag: `${project}-agent-js-local-deps-${GITHUB_ACTIONS_RUN_ID}`,
-    // entrypoint: ["/bin/sh", "-c"],
-    // cmd: ["pnpx @langchain/langgraph-cli dev --config=langgraph.json --no-browser --port 8000 --host 0.0.0.0"],
     outputs: {
       ...outputs,
       LangGraphCloud: "false",
-      SelfHosted: "false"
+      SelfHosted: "false",
     },
   });
 

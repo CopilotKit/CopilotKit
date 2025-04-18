@@ -30,6 +30,8 @@ class ResearchCanvasFlow(Flow[Dict[str, Any]]):
         self.state["resources"] = self.state.get("resources", [])
         self.state["research_question"] = self.state.get("research_question", "")
         self.state["report"] = self.state.get("report", "")
+        # Initialize messages array if it doesn't exist
+        self.state["messages"] = self.state.get("messages", [])
 
         await download_resources(self.state)
 
@@ -43,6 +45,10 @@ class ResearchCanvasFlow(Flow[Dict[str, Any]]):
         """
         Listen for the download event.
         """
+        # Ensure messages array exists
+        if "messages" not in self.state:
+            self.state["messages"] = []
+            
         resources = get_resources(self.state)
         prompt = format_prompt(
             self.state["research_question"],
