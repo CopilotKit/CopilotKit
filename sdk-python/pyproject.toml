@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "copilotkit"
-version = "0.2.0"
+version = "0.2.0a0"
 description = "CopilotKit python SDK"
 authors = ["Markus Ecker <markus.ecker@gmail.com>"]
 license = "MIT"
