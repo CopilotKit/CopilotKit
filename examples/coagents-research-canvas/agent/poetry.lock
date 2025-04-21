@@ -716,7 +716,7 @@ description = "Cross-platform colored terminal text."
 optional = false
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
 groups = ["main"]
-markers = "os_name == \"nt\" or platform_system == \"Windows\" or sys_platform == \"win32\""
+markers = "platform_system == \"Windows\" or os_name == \"nt\" or sys_platform == \"win32\""
 files = [
     {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
     {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
@@ -742,18 +742,17 @@ cron = ["capturer (>=2.4)"]
 
 [[package]]
 name = "copilotkit"
-version = "0.1.44"
+version = "0.2.0a0"
 description = "CopilotKit python SDK"
 optional = false
 python-versions = "<3.13,>=3.10"
 groups = ["main"]
 files = [
-    {file = "copilotkit-0.1.44-py3-none-any.whl", hash = "sha256:4ba68a1ed58574fd1b2db3597a77af385fb1f063675ef682b685d7c87dcc596c"},
-    {file = "copilotkit-0.1.44.tar.gz", hash = "sha256:6701a3e013ac9c64046c682b34cd88444fced620cc55c44759ac26f5d9ccbf69"},
+    {file = "copilotkit-0.2.0a0-py3-none-any.whl", hash = "sha256:e0f9d21906147782c65b8db8bc9c4d248d36796aea2aa6e6a7d3758e4af3f87c"},
+    {file = "copilotkit-0.2.0a0.tar.gz", hash = "sha256:6cce8d056410c2e6696820929cc5b84c36a5231dda49dd95717f85f3af9b969b"},
 ]
 
 [package.dependencies]
-crewai = {version = "0.102.0", optional = true, markers = "extra == \"crewai\""}
 fastapi = ">=0.115.0,<0.116.0"
 langchain = ">=0.3.3,<0.4.0"
 langgraph = ">=0.2.50"
@@ -761,18 +760,18 @@ partialjson = ">=0.0.8,<0.0.9"
 toml = ">=0.10.2,<0.11.0"
 
 [package.extras]
-crewai = ["crewai (==0.102.0)"]
+crewai = ["crewai (==0.114.0)"]
 
 [[package]]
 name = "crewai"
-version = "0.102.0"
+version = "0.114.0"
 description = "Cutting-edge framework for orchestrating role-playing, autonomous AI agents. By fostering collaborative intelligence, CrewAI empowers agents to work together seamlessly, tackling complex tasks."
 optional = false
 python-versions = "<3.13,>=3.10"
 groups = ["main"]
 files = [
-    {file = "crewai-0.102.0-py3-none-any.whl", hash = "sha256:af9ce144fa48cb0314946b509b0d415f01af3066fa2cfb42f27e05df3fb6539e"},
-    {file = "crewai-0.102.0.tar.gz", hash = "sha256:da3c10a126d1176265e1a649a00c2c462e947c91090595d05bd6b7d04e56bc74"},
+    {file = "crewai-0.114.0-py3-none-any.whl", hash = "sha256:590cf6afe7d95ac1d482c4fa9033a29e0a9cb567daae4187f25c1cbb1c20af14"},
+    {file = "crewai-0.114.0.tar.gz", hash = "sha256:b2f79693088088b3c1722abecc39a1535115f468d3ce1aa29dcf56cce3ff2968"},
 ]
 
 [package.dependencies]
@@ -788,9 +787,9 @@ jsonref = ">=1.1.0"
 litellm = "1.60.2"
 openai = ">=1.13.3"
 openpyxl = ">=3.1.5"
-opentelemetry-api = ">=1.22.0"
-opentelemetry-exporter-otlp-proto-http = ">=1.22.0"
-opentelemetry-sdk = ">=1.22.0"
+opentelemetry-api = ">=1.30.0"
+opentelemetry-exporter-otlp-proto-http = ">=1.30.0"
+opentelemetry-sdk = ">=1.30.0"
 pdfplumber = ">=0.11.4"
 pydantic = ">=2.4.2"
 python-dotenv = ">=1.0.0"
@@ -802,6 +801,7 @@ uv = ">=0.4.25"
 
 [package.extras]
 agentops = ["agentops (>=0.3.0)"]
+aisuite = ["aisuite (>=0.1.10)"]
 docling = ["docling (>=2.12.0)"]
 embeddings = ["tiktoken (>=0.7.0,<0.8.0)"]
 fastembed = ["fastembed (>=0.4.1)"]
@@ -809,7 +809,7 @@ mem0 = ["mem0ai (>=0.1.29)"]
 openpyxl = ["openpyxl (>=3.1.5)"]
 pandas = ["pandas (>=2.2.3)"]
 pdfplumber = ["pdfplumber (>=0.11.4)"]
-tools = ["crewai-tools (>=0.36.0)"]
+tools = ["crewai-tools (>=0.40.1,<0.41.0)"]
 
 [[package]]
 name = "cryptography"
@@ -5582,4 +5582,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.13"
-content-hash = "aaa3483407474111bd785fec19572f37c548d3aa2aee1c0188cfb587592859d5"
+content-hash = "35596a331a641a41f53ee45ffc4f11d0c7ce6f3d00841fa48e74e45479fba50a"
